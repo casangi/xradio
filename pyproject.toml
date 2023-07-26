@@ -1,0 +1,47 @@
+[project]
+name = "xradio"
+version = "0.0.1"
+description = "Xarray Radio Astronomy Data IO"
+authors = [
+    {name = "Jan-Willem Steeb", email="jsteeb@nrao.edu"},
+]
+license = {file = "LICENSE.txt"}
+readme = "README.md"
+requires-python = ">= 3.8, < 3.12"
+
+dependencies = [
+'astropy',
+'dask',
+'distributed',
+'gdown',
+'matplotlib',
+'numba>=0.57.0',
+'numpy',
+'prettytable',
+'pytest',
+'pytest-cov',
+'pytest-html',
+'scipy',
+'xarray',
+'zarr',
+'bokeh',
+'jupyterlab',
+'python_casacore>=3.5.2; sys_platform != "darwin" '
+]
+
+
+[project.optional-dependencies]
+docs = [
+    'ipykernel',
+    'ipympl',
+    'ipython',
+    'jupyter-client',
+    'nbsphinx',
+    'recommonmark',
+    'scanpydoc',
+    'sphinx-autoapi',
+    'sphinx-autosummary-accessors',
+    'sphinx_rtd_theme',
+    'twine',
+    'pandoc'
+]

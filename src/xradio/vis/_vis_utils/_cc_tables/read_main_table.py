@@ -1,0 +1,612 @@
+#  CASA Next Generation Infrastructure
+#  Copyright (C) 2021, 2023 AUI, Inc. Washington DC, USA
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+import logging
+from typing import Any, Dict, List, Tuple, Union
+
+import dask, dask.array
+import numpy as np
+import xarray as xr
+
+from casacore import tables
+
+from .read import (
+    read_flat_col_chunk,
+    read_col_chunk,
+    convert_casacore_time,
+    extract_table_attributes,
+    add_units_measures,
+)
+
+from .._cc_tables.table_query import open_table_ro, open_query
+
+rename_msv2_cols = {
+    "antenna1": "antenna1_id",
+    "antenna2": "antenna2_id",
+    "feed1": "feed1_id",
+    "feed2": "feed2_id",
+    # optional cols:
+    "weight_spectrum": "weight",
+    "corrected_data": "vis_corrected",
+    "data": "vis",
+    "model_data": "vis_model",
+    "float_data": "autocorr",
+}
+
+
+def rename_vars(mvars: Dict[str, xr.DataArray]) -> Dict[str, xr.DataArray]:
+    """Apply rename rules. Also preserve ordering of data_vars
+
+    Note: not using xr.DataArray.rename because we have optional
+    column renames and rename complains if some of the names passed
+    are not present in the dataset
+
+    :param mvars: dictionary of data_vars to be used to create an xr.Dataset
+    :return: similar dictionary after applying MSv2 => MSv3/ngCASA renaming rules
+    """
+    renamed = {
+        rename_msv2_cols[name] if name in rename_msv2_cols else name: var
+        for name, var in mvars.items()
+    }
+
+    return renamed
+
+
+def redim_id_data_vars(mvars: Dict[str, xr.DataArray]) -> Dict[str, xr.DataArray]:
+    """
+    Changes:
+    Several id data variables to drop its baseline dim
+    The antenna id data vars:
+     From MS (antenna1_id(time, baseline), antenna2_id(time,baseline)
+     To cds (baseline_ant1_id(baseline), baseline_ant2_id(baseline)
+    :param mvars: data variables being prepared for a partition xds
+    :return: data variables with the ant id ones modified to cds type
+    """
+    # Vars to drop baseline dim
+    var_names = [
+        "array_id",
+        "observation_id",
+        "processor_id",
+        "scan_number",
+        "state_id",
+    ]
+    for vname in var_names:
+        mvars[vname] = mvars[vname].sel(baseline=0, drop=True)
+
+    for idx in ["1", "2"]:
+        new_name = f"baseline_ant{idx}_id"
+        mvars[new_name] = mvars.pop(f"antenna{idx}_id")
+        mvars[new_name] = mvars[new_name].sel(time=0, drop=True)
+
+    return mvars
+
+
+def get_partition_ids(mtable: tables.table, taql_where: str) -> Dict:
+    """Get some of the partition IDs that we have to retrieve from some
+    of the top level ID/sorting cols of the main table of the MS.
+
+    :param mtable: MS main table
+    :param taql_where: where part that defines the partition in TaQL
+    :return: ids of array, observation, and processor
+    """
+
+    taql_ids = f"select DISTINCT ARRAY_ID, OBSERVATION_ID, PROCESSOR_ID from $mtable {taql_where}"
+    with open_query(mtable, taql_ids) as query:
+        # array_id, observation_id, processor_id
+        array_id = np.unique(query.getcol("ARRAY_ID"))
+        obs_id = np.unique(query.getcol("OBSERVATION_ID"))
+        proc_id = np.unique(query.getcol("PROCESSOR_ID"))
+        check_vars = [
+            (array_id, "array_id"),
+            (obs_id, "observation_id"),
+            (proc_id, "processor_id"),
+        ]
+        for var, var_name in check_vars:
+            if len(var) != 1:
+                logging.warning(
+                    f"Did not get exactly one {var_name} (got {var} for this partition. TaQL: {taql_where}"
+                )
+
+    pids = {
+        "array_id": list(array_id),
+        "observation_id": list(obs_id),
+        "processor_id": list(proc_id),
+    }
+    return pids
+
+
+def read_expanded_main_table(
+    infile: str,
+    ddi: int = 0,
+    scan_state: Union[Tuple[int, int], None] = None,
+    ignore_msv2_cols: Union[list, None] = None,
+    chunks: Tuple[int, ...] = (400, 200, 100, 2),
+) -> Tuple[xr.Dataset, Dict[str, Any], Dict[str, Any]]:
+    """
+    Reads one partition from the main table, all columns.
+    This is the expanded version (time, baseline) dims.
+
+    Chunk tuple: (time, baseline, freq, pol)
+    """
+    if ignore_msv2_cols is None:
+        ignore_msv2_cols = []
+
+    taql_where = f"where DATA_DESC_ID = {ddi}"
+    if scan_state:
+        # get partitions by scan/state
+        scan, state = scan_state
+        if type(state) == np.ndarray:
+            state_ids_or = " OR STATE_ID = ".join(np.char.mod("%d", state))
+            taql_where += f" AND (STATE_ID = {state_ids_or})"
+        elif state:
+            taql_where += f" AND SCAN_NUMBER = {scan} AND STATE_ID = {state}"
+        elif scan:
+            # scan can also be None, when partition_scheme='intent'
+            # but the STATE table is empty!
+            taql_where += f" AND SCAN_NUMBER = {scan}"
+
+    with open_table_ro(infile) as mtable:
+        # one partition, select just the specified ddi (+ scan/subscan)
+        taql_main = f"select * from $mtable {taql_where}"
+        with open_query(mtable, taql_main) as tb_tool:
+            if tb_tool.nrows() == 0:
+                tb_tool.close()
+                mtable.close()
+                return xr.Dataset(), {}, {}
+
+            xds, attrs = read_main_table_chunks(
+                infile, tb_tool, taql_where, ignore_msv2_cols, chunks
+            )
+            part_ids = get_partition_ids(tb_tool, taql_where)
+
+    return xds, part_ids, attrs
+
+
+def read_main_table_chunks(
+    infile: str,
+    tb_tool: tables.table,
+    taql_where: str,
+    ignore_msv2_cols: Union[list, None] = None,
+    chunks: Tuple[int, ...] = (400, 200, 100, 2),
+) -> Tuple[xr.Dataset, Dict[str, Any]]:
+    """
+    Iterates through the time,baseline chunks and reads slices from
+    all the data columns.
+    """
+    baselines = get_baselines(tb_tool)
+
+    col_names = tb_tool.colnames()
+    cshapes = [
+        np.array(tb_tool.getcell(col, 0)).shape
+        for col in col_names
+        if tb_tool.iscelldefined(col, 0)
+    ]
+    chan_cnt, pol_cnt = [(cc[0], cc[1]) for cc in cshapes if len(cc) == 2][0]
+
+    utimes, tol = get_utimes_tol(tb_tool, taql_where)
+
+    tvars = {}
+    # loop over time chunks
+    for tc in range(0, len(utimes), chunks[0]):
+        times = (
+            utimes[tc] - tol,
+            utimes[min(len(utimes) - 1, tc + chunks[0] - 1)] + tol,
+        )
+        # chunk time length
+        ctlen = min(len(utimes), tc + chunks[0]) - tc
+
+        bvars = {}
+        # loop over baseline chunks
+        for bc in range(0, len(baselines), chunks[1]):
+            blines = (
+                baselines[bc],
+                baselines[min(len(baselines) - 1, bc + chunks[1] - 1)],
+            )
+            cblen = min(len(baselines) - bc, chunks[1])
+
+            # read the specified chunk of data
+            # def read_chunk(infile, ddi, times, blines, chans, pols):
+            ttql = f"TIME BETWEEN {times[0]} and {times[1]}"
+            ants = (int(blines[0].split("_")[0]), int(blines[1].split("_")[0]))
+            atql = f"ANTENNA1 BETWEEN {ants[0]} and {ants[1]}"
+            ts_taql = f"select * from $mtable {taql_where} AND {ttql} AND {atql}"
+            with open_query(None, ts_taql) as query_times_ants:
+                tidxs = (
+                    np.searchsorted(utimes, query_times_ants.getcol("TIME", 0, -1)) - tc
+                )
+                ts_ant1, ts_ant2 = (
+                    query_times_ants.getcol("ANTENNA1", 0, -1),
+                    query_times_ants.getcol("ANTENNA2", 0, -1),
+                )
+                
+
+            ts_bases = [
+                str(ll[0]).zfill(3) + "_" + str(ll[1]).zfill(3)
+                for ll in np.hstack([ts_ant1[:, None], ts_ant2[:, None]])
+            ]
+            bidxs = np.searchsorted(baselines, ts_bases) - bc
+
+            # some antenna 2's will be out of bounds for this chunk, store rows that are in bounds
+            didxs = np.where(
+                (bidxs >= 0) & (bidxs < min(chunks[1], len(baselines) - bc))
+            )[0]
+
+            delayed_params = (infile, ts_taql, (ctlen, cblen), tidxs, bidxs, didxs)
+
+            read_all_cols_bvars(
+                tb_tool, chunks, chan_cnt, ignore_msv2_cols, delayed_params, bvars
+            )
+
+        concat_bvars_update_tvars(bvars, tvars)
+
+    dims = ["time", "baseline", "freq", "pol"]
+    mvars = concat_tvars_to_mvars(dims, tvars, pol_cnt, chan_cnt)
+    mcoords = {
+        "time": xr.DataArray(convert_casacore_time(utimes), dims=["time"]),
+        "baseline": xr.DataArray(np.arange(len(baselines)), dims=["baseline"]),
+    }
+
+    # add xds global attributes
+    cc_attrs = extract_table_attributes(infile)
+    attrs = {"other": {"msv2": {"ctds_attrs": cc_attrs, "bad_cols": ignore_msv2_cols}}}
+    # add per data var attributes
+    mvars = add_units_measures(mvars, cc_attrs)
+    mcoords = add_units_measures(mcoords, cc_attrs)
+
+    mvars = rename_vars(mvars)
+    mvars = redim_id_data_vars(mvars)
+    xds = xr.Dataset(mvars, coords=mcoords)
+
+    return xds, attrs
+
+
+def get_utimes_tol(mtable: tables.table, taql_where: str) -> Tuple[np.ndarray, float]:
+    taql_utimes = f"select DISTINCT TIME from $mtable {taql_where}"
+    with open_query(mtable, taql_utimes) as query_utimes:
+        utimes = np.unique(query_utimes.getcol("TIME", 0, -1))
+        # add a tol around the time ranges returned by taql
+        if len(utimes) < 2:
+            tol = 1e-5
+        else:
+            tol = np.diff(utimes).min() / 4
+
+    return utimes, tol
+
+
+def get_baselines(tb_tool: tables.table) -> np.ndarray:
+    # main table uses time x (antenna1,antenna2)
+    ant1, ant2 = tb_tool.getcol("ANTENNA1", 0, -1), tb_tool.getcol("ANTENNA2", 0, -1)
+    baselines = np.array(
+        [
+            str(ll[0]).zfill(3) + "_" + str(ll[1]).zfill(3)
+            for ll in np.unique(np.hstack([ant1[:, None], ant2[:, None]]), axis=0)
+        ]
+    )
+
+    return baselines
+
+
+def read_all_cols_bvars(
+    tb_tool: tables.table,
+    chunks: Tuple[int, ...],
+    chan_cnt: int,
+    ignore_msv2_cols,
+    delayed_params: Tuple,
+    bvars: Dict[str, xr.DataArray],
+) -> None:
+    """
+    Loops over each column and create delayed dask arrays
+    """
+
+    col_names = tb_tool.colnames()
+    for col in col_names:
+        if (col in ignore_msv2_cols + ["TIME"]) or (not tb_tool.iscelldefined(col, 0)):
+            continue
+        if col not in bvars:
+            bvars[col] = []
+
+        cdata = tb_tool.getcol(col, 0, 1)[0]
+
+        if len(cdata.shape) == 0:
+            infile, ts_taql, (ctlen, cblen), tidxs, bidxs, didxs = delayed_params
+            cshape = (ctlen, cblen)
+            delayed_col = infile, ts_taql, col, cshape, tidxs, bidxs, didxs
+            delayed_array = dask.delayed(read_col_chunk)(*delayed_col, None, None)
+            bvars[col] += [dask.array.from_delayed(delayed_array, cshape, cdata.dtype)]
+
+        elif col == "UVW":
+            infile, ts_taql, (ctlen, cblen), tidxs, bidxs, didxs = delayed_params
+            cshape = (ctlen, cblen, 3)
+            delayed_3 = infile, ts_taql, col, cshape, tidxs, bidxs, didxs
+            delayed_array = dask.delayed(read_col_chunk)(*delayed_3, None, None)
+            bvars[col] += [dask.array.from_delayed(delayed_array, cshape, cdata.dtype)]
+
+        elif len(cdata.shape) == 1:
+            pol_list = []
+            dd = 2 if cdata.shape == chan_cnt else 3
+            for pc in range(0, cdata.shape[0], chunks[dd]):
+                pols = (pc, min(cdata.shape[0], pc + chunks[dd]) - 1)
+                infile, ts_taql, (ctlen, cblen), tidxs, bidxs, didxs = delayed_params
+                cshape = (
+                    ctlen,
+                    cblen,
+                ) + (pols[1] - pols[0] + 1,)
+                delayed_cs = infile, ts_taql, col, cshape, tidxs, bidxs, didxs
+                delayed_array = dask.delayed(read_col_chunk)(*delayed_cs, pols, None)
+                pol_list += [
+                    dask.array.from_delayed(delayed_array, cshape, cdata.dtype)
+                ]
+            bvars[col] += [dask.array.concatenate(pol_list, axis=2)]
+
+        elif len(cdata.shape) == 2:
+            chan_list = []
+            for cc in range(0, cdata.shape[0], chunks[2]):
+                chans = (cc, min(cdata.shape[0], cc + chunks[2]) - 1)
+                pol_list = []
+                for pc in range(0, cdata.shape[1], chunks[3]):
+                    pols = (pc, min(cdata.shape[1], pc + chunks[3]) - 1)
+                    (
+                        infile,
+                        ts_taql,
+                        (ctlen, cblen),
+                        tidxs,
+                        bidxs,
+                        didxs,
+                    ) = delayed_params
+                    cshape = (
+                        ctlen,
+                        cblen,
+                    ) + (chans[1] - chans[0] + 1, pols[1] - pols[0] + 1)
+                    delayed_cs = infile, ts_taql, col, cshape, tidxs, bidxs, didxs
+                    delayed_array = dask.delayed(read_col_chunk)(
+                        *delayed_cs, chans, pols
+                    )
+                    pol_list += [
+                        dask.array.from_delayed(delayed_array, cshape, cdata.dtype)
+                    ]
+                chan_list += [dask.array.concatenate(pol_list, axis=3)]
+            bvars[col] += [dask.array.concatenate(chan_list, axis=2)]
+
+
+def concat_bvars_update_tvars(
+    bvars: Dict[str, xr.DataArray], tvars: Dict[str, xr.DataArray]
+) -> None:
+    """
+    concats all the dask chunks from each baseline. This is intended to
+    be called iteratively, for every time chunk iteration, once all the
+    baseline chunks have been read.
+    """
+    for kk in bvars.keys():
+        if len(bvars[kk]) == 0:
+            continue
+        if kk not in tvars:
+            tvars[kk] = []
+        tvars[kk] += [dask.array.concatenate(bvars[kk], axis=1)]
+
+
+def concat_tvars_to_mvars(
+    dims: List[str], tvars: Dict[str, xr.DataArray], pol_cnt: int, chan_cnt: int
+) -> Dict[str, xr.DataArray]:
+    """
+    Concat into a single dask array all the dask arrays from each time
+    chunk to make the final arrays of the xds.
+
+    :param dims: dimension names
+    :param tvars: variables as lists of dask arrays per time chunk
+    :param pol_cnt: len of pol axis/dim
+    :param chan_cnt: len of freq axis/dim (chan indices)
+
+    :return: variables as concated dask arrays
+    """
+
+    mvars = {}
+    for tvr in tvars.keys():
+        data_var = tvr.lower()
+        if tvr == "UVW":
+            mvars[data_var] = xr.DataArray(
+                dask.array.concatenate(tvars[tvr], axis=0),
+                dims=dims[:2] + ["uvw_coords"],
+            )
+        elif len(tvars[tvr][0].shape) == 3 and (tvars[tvr][0].shape[-1] == pol_cnt):
+            mvars[data_var] = xr.DataArray(
+                dask.array.concatenate(tvars[tvr], axis=0), dims=dims[:2] + ["pol"]
+            )
+        elif len(tvars[tvr][0].shape) == 3 and (tvars[tvr][0].shape[-1] == chan_cnt):
+            mvars[data_var] = xr.DataArray(
+                dask.array.concatenate(tvars[tvr], axis=0), dims=dims[:2] + ["freq"]
+            )
+        else:
+            mvars[data_var] = xr.DataArray(
+                dask.array.concatenate(tvars[tvr], axis=0),
+                dims=dims[: len(tvars[tvr][0].shape)],
+            )
+
+    return mvars
+
+
+def read_flat_main_table(
+    infile: str,
+    ddi: Union[int, None] = None,
+    scan_state: Union[Tuple[int, int], None] = None,
+    rowidxs=None,
+    ignore_msv2_cols: Union[List, None] = None,
+    chunks: Tuple[int, ...] = (22000, 512, 2),
+) -> Tuple[xr.Dataset, Dict[str, Any], Dict[str, Any]]:
+    """
+    Read main table using flat structure: no baseline dimension. Vis
+    dimensions are: row, freq, pol
+    (experimental, perhaps to be deprecated/removed). Works but some
+    features may be missing and/or flaky.
+
+    Chunk tuple: (row, freq, pol)
+    """
+    taql_where = f"where DATA_DESC_ID = {ddi}"
+    if scan_state:
+        # TODO: support additional intent/scan/subscan conditions if
+        # we keep this read_flat functionality
+        _scans, states = scan_state
+        # get row indices relative to full main table
+        if states:
+            taql_where += (
+                f" AND SCAN_NUMBER = {scan_state[0]} AND STATE_ID = {scan_state[1]}"
+            )
+        else:
+            taql_where += f" AND SCAN_NUMBER = {scan_state[0]}"
+
+    mtable = tables.table(
+        infile, readonly=True, lockoptions={"option": "usernoread"}, ack=False
+    )
+
+    # get row indices relative to full main table
+    if rowidxs is None:
+        taql_rowid = f"select rowid() as ROWS from $mtable {taql_where}"
+        with open_query(mtable, taql_rowid) as query_rows:
+            rowidxs = query_rows.getcol("ROWS")
+            mtable.close()
+
+    nrows = len(rowidxs)
+    if nrows == 0:
+        return xr.Dataset()
+
+    part_ids = get_partition_ids(mtable, taql_where)
+
+    taql_cols = f"select * from $mtable {taql_where}"
+    with open_query(mtable, taql_cols) as query_cols:
+        cols = query_cols.colnames()
+        ignore = [
+            col
+            for col in cols
+            if (not query_cols.iscelldefined(col, 0))
+            or (query_cols.coldatatype(col) == "record")
+        ]
+        cdata = dict(
+            [
+                (col, query_cols.getcol(col, 0, 1))
+                for col in cols
+                if (col not in ignore)
+                and (ignore_msv2_cols and (col not in ignore_msv2_cols))
+            ]
+        )
+        chan_cnt, pol_cnt = [
+            (cdata[cc].shape[1], cdata[cc].shape[2])
+            for cc in cdata
+            if len(cdata[cc].shape) == 3
+        ][0]
+
+    mtable.close()
+
+    mvars, mcoords, bvars, xds = {}, {}, {}, xr.Dataset()
+    # loop over row chunks
+    for rc in range(0, nrows, chunks[0]):
+        crlen = min(chunks[0], nrows - rc)  # chunk row length
+        rcidxs = rowidxs[rc : rc + chunks[0]]
+
+        # loop over each column and create delayed dask arrays
+        for col in cdata.keys():
+            if col not in bvars:
+                bvars[col] = []
+
+            if len(cdata[col].shape) == 1:
+                delayed_array = dask.delayed(read_flat_col_chunk)(
+                    infile, col, (crlen,), rcidxs, None, None
+                )
+                bvars[col] += [
+                    dask.array.from_delayed(delayed_array, (crlen,), cdata[col].dtype)
+                ]
+
+            elif col == "UVW":
+                delayed_array = dask.delayed(read_flat_col_chunk)(
+                    infile, col, (crlen, 3), rcidxs, None, None
+                )
+                bvars[col] += [
+                    dask.array.from_delayed(delayed_array, (crlen, 3), cdata[col].dtype)
+                ]
+
+            elif len(cdata[col].shape) == 2:
+                pol_list = []
+                dd = 1 if cdata[col].shape[1] == chan_cnt else 2
+                for pc in range(0, cdata[col].shape[1], chunks[dd]):
+                    plen = min(chunks[dd], cdata[col].shape[1] - pc)
+                    delayed_array = dask.delayed(read_flat_col_chunk)(
+                        infile, col, (crlen, plen), rcidxs, None, pc
+                    )
+                    pol_list += [
+                        dask.array.from_delayed(
+                            delayed_array, (crlen, plen), cdata[col].dtype
+                        )
+                    ]
+                bvars[col] += [dask.array.concatenate(pol_list, axis=1)]
+
+            elif len(cdata[col].shape) == 3:
+                chan_list = []
+                for cc in range(0, chan_cnt, chunks[1]):
+                    clen = min(chunks[1], chan_cnt - cc)
+                    pol_list = []
+                    for pc in range(0, cdata[col].shape[2], chunks[2]):
+                        plen = min(chunks[2], cdata[col].shape[2] - pc)
+                        delayed_array = dask.delayed(read_flat_col_chunk)(
+                            infile, col, (crlen, clen, plen), rcidxs, cc, pc
+                        )
+                        pol_list += [
+                            dask.array.from_delayed(
+                                delayed_array, (crlen, clen, plen), cdata[col].dtype
+                            )
+                        ]
+                    chan_list += [dask.array.concatenate(pol_list, axis=2)]
+                bvars[col] += [dask.array.concatenate(chan_list, axis=1)]
+
+    # now concat all the dask chunks from each time to make the xds
+    mvars = {}
+    for kk in bvars.keys():
+        # from uppercase MS col names to lowercase xds var names:
+        data_var = kk.lower()
+        if len(bvars[kk]) == 0:
+            ignore += [kk]
+            continue
+        if kk == "UVW":
+            mvars[data_var] = xr.DataArray(
+                dask.array.concatenate(bvars[kk], axis=0), dims=["row", "uvw_coords"]
+            )
+        elif len(bvars[kk][0].shape) == 2 and (bvars[kk][0].shape[-1] == pol_cnt):
+            mvars[data_var] = xr.DataArray(
+                dask.array.concatenate(bvars[kk], axis=0), dims=["row", "pol"]
+            )
+        elif len(bvars[kk][0].shape) == 2 and (bvars[kk][0].shape[-1] == chan_cnt):
+            mvars[data_var] = xr.DataArray(
+                dask.array.concatenate(bvars[kk], axis=0), dims=["row", "chan"]
+            )
+        else:
+            mvars[data_var] = xr.DataArray(
+                dask.array.concatenate(bvars[kk], axis=0),
+                dims=["row", "freq", "pol"][: len(bvars[kk][0].shape)],
+            )
+
+    mvars["time"] = xr.DataArray(
+        convert_casacore_time(mvars["TIME"].values), dims=["row"]
+    ).chunk({"row": chunks[0]})
+
+    # add xds global attributes
+    cc_attrs = extract_table_attributes(infile)
+    attrs = {"other": {"msv2": {"ctds_attrs": cc_attrs, "bad_cols": ignore}}}
+    # add per data var attributes
+    mvars = add_units_measures(mvars, cc_attrs)
+    mcoords = add_units_measures(mcoords, cc_attrs)
+
+    mvars = rename_vars(mvars)
+    mvars = redim_id_data_vars(mvars)
+    xds = xr.Dataset(mvars, coords=mcoords)
+
+    return xds, part_ids, attrs

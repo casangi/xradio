@@ -1,0 +1,149 @@
+#  CASA Next Generation Infrastructure
+#  Copyright (C) 2023 AUI, Inc. Washington DC, USA
+#
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+from pathlib import Path
+from typing import Dict, Tuple
+
+import xarray as xr
+import numpy as np
+
+
+from .._cc_tables.load_main_table import load_expanded_main_table_chunk
+from .._cc_tables.read import read_generic_table, make_freq_attrs
+from .._cc_tables.read_subtables import read_delayed_pointing_table
+from .msv2_msv3 import ignore_msv2_cols
+from .partition_attrs import add_partition_attrs
+from .partition_queries import make_partition_ids_by_ddi_scan
+from .subtables import subt_rename_ids
+from .xds_helper import make_coords
+
+
+def load_main_chunk(
+    infile: str, chunk: Dict[str, slice]
+) -> Dict[Tuple[int, int], xr.Dataset]:
+    """Loads a chunk of visibility data. For every DDI, a separate
+    dataset is produced.
+    This is very loosely equivalent to the
+    partitions.read_*_partitions functions, but in a load (not lazy)
+    fashion and with an implicit single partition wrt. anything but
+    DDIs.
+    Metainfo (sub)tables) are not loaded, and the result is one or more
+    Xarray datasets. It produces one dataset per DDI found within the
+    chunk slice of time/baseline.
+
+    :param infile: MS path (main table)
+    :param chunk: specification of chunk to load
+
+    :return: dictionary of chunk datasets (keys are spw and pol_setup IDs)
+    """
+
+    chunk_dims = ["time", "baseline", "freq", "pol"]
+    if not all(key in chunk_dims for key in chunk):
+        raise ValueError(f"chunks dict has unknown keys. Accepted ones: {chunk_dims}")
+
+    spw_xds = read_generic_table(
+        infile,
+        "SPECTRAL_WINDOW",
+        rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
+    )
+    ddi_xds = read_generic_table(infile, "DATA_DESCRIPTION")
+    ant_xds = read_generic_table(
+        infile, "ANTENNA", rename_ids=subt_rename_ids["ANTENNA"]
+    )
+    pol_xds = read_generic_table(
+        infile, "POLARIZATION", rename_ids=subt_rename_ids["POLARIZATION"]
+    )
+
+    # TODO: constrain this better/ properly
+    data_desc_id, scan_number, state_id = make_partition_ids_by_ddi_scan(infile, False)
+
+    all_xdss = {}
+    data_desc_id = np.unique(data_desc_id)
+    for ddi in data_desc_id:
+        xds, part_ids, attrs = load_expanded_main_table_chunk(
+            infile, ddi, chunk, ignore_msv2_cols=ignore_msv2_cols
+        )
+
+        coords = make_coords(xds, ddi, (ant_xds, ddi_xds, spw_xds, pol_xds))
+        xds = xds.assign_coords(coords)
+        xds = add_partition_attrs(xds, ddi, ddi_xds, part_ids, other_attrs={})
+
+        # freq dim needs to pull its units/measure info from the SPW subtable
+        spw_id = xds.attrs["partition_ids"]["spw_id"]
+        xds.freq.attrs.update(make_freq_attrs(spw_xds, spw_id))
+        pol_setup_id = ddi_xds.polarization_id.values[ddi]
+
+        chunk_ddi_key = (spw_id, pol_setup_id)
+        all_xdss[chunk_ddi_key] = xds
+
+    chunk_xdss = finalize_chunks(infile, all_xdss, chunk)
+
+    return chunk_xdss
+
+
+def finalize_chunks(
+    infile: str, chunks: Dict[str, xr.Dataset], chunk_spec: Dict[str, slice]
+) -> Dict[Tuple[int, int], xr.Dataset]:
+    """
+    Adds pointing variables to a dictionary of chunk xdss. This is
+    intended to be added after reading chunks from an MS main table.
+
+    :param infile: MS path (main table)
+    :param chunks: chunk xdss
+    :param chunk_spec: specification of chunk to load
+
+    :return: dictionary of chunk xdss where every xds now has pointing
+    data variables
+    """
+    pnt_name = "POINTING"
+    pnt_path = Path(infile, pnt_name)
+    if "time" in chunk_spec:
+        time_slice = chunk_spec["time"]
+    else:
+        time_slice = None
+    pnt_xds = read_delayed_pointing_table(
+        str(pnt_path),
+        rename_ids=subt_rename_ids.get(pnt_name, None),
+        time_slice=time_slice,
+    )
+    pnt_xds = pnt_xds.compute()
+
+    pnt_chunks = {
+        key: finalize_chunk_xds(infile, xds, pnt_xds)
+        for _idx, (key, xds) in enumerate(chunks.items())
+    }
+
+    return pnt_chunks
+
+
+def finalize_chunk_xds(infile: str, chunk_xds: xr.Dataset, pointing_xds) -> xr.Dataset:
+    """
+    Adds pointing variables to one chunk xds.
+
+    :param infile: MS path (main table)
+    :param xds_chunk: chunks xds
+    :param pointing_xds: pointing (sub)table xds
+
+    :return: chunk xds with pointing data variables interpolated form
+    the pointing (sub)table
+    """
+
+    interp_pnt = pointing_xds.interp(time=chunk_xds.time, method="nearest")
+
+    for var in interp_pnt.data_vars:
+        chunk_xds[f"pointing_{var}"] = interp_pnt[var]
+
+    return chunk_xds

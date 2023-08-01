@@ -269,7 +269,7 @@ def convert_msv2_to_processing_set(
     cnt = 0
     
     for ddi, scan, state in zip(data_desc_id, scan_number, state_id):
-        print("DDI, SCAN, STATE",ddi,scan,state)
+        logging.info("DDI " + str(ddi) + ", SCAN" + str(scan) + ", STATE " + str(state))
         
         if partition_scheme == "intent":
             intent = distinct_intents[cnt]

@@ -7,8 +7,8 @@ def read_processing_set(ps_name):
 
     ps = {}
     for i in items:
-        if 'ANTENNA' not in i:
-            ps[i] = xr.open_zarr(ps_name+'/'+i)
-            ps[i].attrs['antenna_df'] = pd.read_parquet(ps_name+'/'+i+'_ANTENNA.pq')
+        if 'MAIN' in i:
+            ps[i[:-5]] = xr.open_zarr(ps_name+'/'+i)
+            ps[i[:-5]].attrs['antenna_xds'] = xr.open_zarr(ps_name+'/'+i[:-5]+'_ANTENNA')
     return ps
 

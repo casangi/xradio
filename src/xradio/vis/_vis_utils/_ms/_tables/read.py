@@ -231,7 +231,8 @@ def add_units_measures(
                     astropy.units.Unit(cc_units[0])
                 except Exception as exc:
                     logging.warning(
-                        f"Unsupported units found for column/variable {col}: {cc_units}. Cannot create an astropy.units.Units object from it: {exc}"
+                        f"Unsupported units found for column/variable {col}: "
+                        f"{cc_units}. Cannot create an astropy.units.Units object from it: {exc}"
                     )
 
             if "MEASINFO" in col_descrs[col]["keywords"]:
@@ -694,6 +695,9 @@ def read_col_chunk(
     d1: Tuple[int, int],
     d2: Tuple[int, int],
 ) -> np.ndarray:
+    """
+    Function to perform delayed reads from table columns.
+    """
     # TODO: consider calling load_col_chunk() from inside the withs
     # for read_delayed_pointing_table and read_expanded_main_table
     with open_table_ro(infile) as mtable:
@@ -711,5 +715,4 @@ def read_col_chunk(
     if len(didxs) > 0:
         fulldata[tidxs[didxs], bidxs[didxs]] = data[didxs]
 
-    print('$%$%$% col',col,cshape,tidxs.shape, bidxs.shape, didxs.shape)
     return fulldata

@@ -31,6 +31,28 @@ from .subtables import subt_rename_ids
 from .xds_helper import make_coords
 
 
+def read_spw_ddi_ant_pol(inpath: str) -> Tuple[xr.Dataset]:
+    """
+    Reads the four metainfo subtables needed to load data chunks into xdss.
+
+    :param inpath: MS path (main table)
+    :return: tuple with antenna, ddi, spw, and polarization setup subtables info
+    """
+    spw_xds = read_generic_table(
+        inpath,
+        "SPECTRAL_WINDOW",
+        rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
+    )
+    ddi_xds = read_generic_table(inpath, "DATA_DESCRIPTION")
+    ant_xds = read_generic_table(
+        inpath, "ANTENNA", rename_ids=subt_rename_ids["ANTENNA"]
+    )
+    pol_xds = read_generic_table(
+        inpath, "POLARIZATION", rename_ids=subt_rename_ids["POLARIZATION"]
+    )
+    return ant_xds, ddi_xds, spw_xds, pol_xds
+
+
 def load_main_chunk(
     infile: str, chunk: Dict[str, slice]
 ) -> Dict[Tuple[int, int], xr.Dataset]:
@@ -54,18 +76,7 @@ def load_main_chunk(
     if not all(key in chunk_dims for key in chunk):
         raise ValueError(f"chunks dict has unknown keys. Accepted ones: {chunk_dims}")
 
-    spw_xds = read_generic_table(
-        infile,
-        "SPECTRAL_WINDOW",
-        rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
-    )
-    ddi_xds = read_generic_table(infile, "DATA_DESCRIPTION")
-    ant_xds = read_generic_table(
-        infile, "ANTENNA", rename_ids=subt_rename_ids["ANTENNA"]
-    )
-    pol_xds = read_generic_table(
-        infile, "POLARIZATION", rename_ids=subt_rename_ids["POLARIZATION"]
-    )
+    ant_xds, ddi_xds, spw_xds, pol_xds = read_spw_ddi_ant_pol(infile)
 
     # TODO: constrain this better/ properly
     data_desc_id, scan_number, state_id = make_partition_ids_by_ddi_scan(infile, False)

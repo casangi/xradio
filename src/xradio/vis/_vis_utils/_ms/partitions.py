@@ -26,7 +26,8 @@ from .partition_queries import (
     make_partition_ids_by_ddi_scan,
 )
 from .subtables import subt_rename_ids, add_pointing_to_partition
-from ._tables.read import describe_ms, read_generic_table, make_freq_attrs
+from .descr import describe_ms
+from ._tables.read import read_generic_table, make_freq_attrs
 from ._tables.read_main_table import read_flat_main_table, read_expanded_main_table
 from .._utils.partition_attrs import add_partition_attrs
 from .._utils.xds_helper import expand_xds, make_coords, optimal_chunking

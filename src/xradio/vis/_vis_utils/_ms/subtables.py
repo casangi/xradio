@@ -20,8 +20,8 @@ from typing import Dict, List
 
 import xarray as xr
 
-from .._cc_tables.read import read_generic_table, table_exists
-from .._cc_tables.read_subtables import read_ephemerides, read_delayed_pointing_table
+from ._tables.read import read_generic_table, table_exists
+from ._tables.read_subtables import read_ephemerides, read_delayed_pointing_table
 
 
 subt_rename_ids = {

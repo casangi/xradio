@@ -21,7 +21,7 @@ import dask
 import numpy as np
 
 
-from .._helpers.xds_helper import flatten_xds, calc_optimal_ms_chunk_shape
+from ..._utils.xds_helper import flatten_xds, calc_optimal_ms_chunk_shape
 from .write import write_generic_table, write_main_table_slice
 from .write import create_table, revert_time
 

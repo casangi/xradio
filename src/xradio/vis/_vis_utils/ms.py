@@ -19,15 +19,15 @@ from typing import Dict, List, Tuple, Union
 
 import xarray as xr
 
-from ._helpers.cds import CASAVisSet
-from ._helpers.chunks import load_main_chunk
-from ._helpers.partitions import (
+from ._utils.cds import CASAVisSet
+from ._ms.chunks import load_main_chunk
+from ._ms.partitions import (
     finalize_partitions,
     read_ms_ddi_partitions,
     read_ms_scan_subscan_partitions,
 )
-from ._helpers.subtables import read_ms_subtables
-from ._helpers.xds_helper import vis_xds_packager_cds
+from ._ms.subtables import read_ms_subtables
+from ._utils.xds_helper import vis_xds_packager_cds
 
 logging.basicConfig(
     level=logging.DEBUG,

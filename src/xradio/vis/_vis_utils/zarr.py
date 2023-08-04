@@ -14,14 +14,14 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import logging, numcodecs, os, shutil, time
+import logging, numcodecs, os, time
 from pathlib import Path
 from typing import Dict, Union
 
 import zarr
 import xradio
 
-from ._helpers.cds import CASAVisSet
+from ._utils.cds import CASAVisSet
 from ._zarr.read import read_part_keys, read_partitions, read_subtables
 from ._zarr.write import write_metainfo, write_part_keys, write_partitions
 
@@ -79,7 +79,7 @@ def read_vis(
     cds = CASAVisSet(
         metainfo=metainfo,
         partitions=dict.fromkeys(part_keys, partitions),
-        descr=f"CASA vis set produced by cngi-io {vers}/{descr_add}",
+        descr=f"CASA vis set produced by xradio {vers}/{descr_add}",
     )
 
     return cds

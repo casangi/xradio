@@ -23,7 +23,7 @@ import xarray as xr
 
 from casacore import tables
 
-from .._cc_tables.table_query import open_table_ro, open_query
+from ._tables.table_query import open_table_ro, open_query
 
 
 def make_partition_ids_by_ddi_scan(

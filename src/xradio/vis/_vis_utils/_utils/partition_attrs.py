@@ -67,7 +67,7 @@ def make_vis_group_attr(xds: xr.Dataset) -> Dict:
                 "weight": "weight",
                 "uvw": "uvw",
                 "imaging_weight": img_weight,
-                "descr": "cngi-io.vis.ms.read_ms from MSv2",
+                "descr": "xradio.vis.ms.read_ms from MSv2",
             }
             seq_id += 1
             vis_groups[f"MeasurementSet/{msv2_name}"] = grp

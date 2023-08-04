@@ -26,7 +26,7 @@ import xarray as xr
 import astropy.units
 from casacore import tables
 
-from .._cc_tables.table_query import open_query, open_table_ro
+from .table_query import open_query, open_table_ro
 
 
 CASACORE_TO_PD_TIME_CORRECTION = 3506716800.0

@@ -21,14 +21,14 @@ import xarray as xr
 import numpy as np
 
 
-from .._cc_tables.load_main_table import load_expanded_main_table_chunk
-from .._cc_tables.read import read_generic_table, make_freq_attrs
-from .._cc_tables.read_subtables import read_delayed_pointing_table
 from .msv2_msv3 import ignore_msv2_cols
-from .partition_attrs import add_partition_attrs
 from .partition_queries import make_partition_ids_by_ddi_scan
 from .subtables import subt_rename_ids
-from .xds_helper import make_coords
+from ._tables.load_main_table import load_expanded_main_table_chunk
+from ._tables.read import read_generic_table, make_freq_attrs
+from ._tables.read_subtables import read_delayed_pointing_table
+from .._utils.partition_attrs import add_partition_attrs
+from .._utils.xds_helper import make_coords
 
 
 def read_spw_ddi_ant_pol(inpath: str) -> Tuple[xr.Dataset]:

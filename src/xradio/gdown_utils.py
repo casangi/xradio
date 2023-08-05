@@ -4,8 +4,6 @@ import gdown
 import shutil
 import json
 
-from astrohack._utils._tools import _remove_suffix
-
 from prettytable import PrettyTable
 
 gdown_ids = {

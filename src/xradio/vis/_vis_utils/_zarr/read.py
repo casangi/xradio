@@ -123,6 +123,7 @@ def read_zarr(
     **kwargs,
 ):
     """
+    Note: old, initial cngi-io format. To be removed, most likely.
     Read zarr format Visibility data from disk to an ngCASA visibilities dataset
     object consisting of dictionaries of xarray Datasets.
 

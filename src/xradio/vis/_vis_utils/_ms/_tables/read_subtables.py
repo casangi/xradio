@@ -25,7 +25,7 @@ import xarray as xr
 
 from casacore import tables
 
-from .._cc_tables.table_query import open_query, open_table_ro
+from .table_query import open_query, open_table_ro
 from .read import (
     read_col_chunk,
     convert_casacore_time,

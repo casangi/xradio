@@ -3,7 +3,7 @@ import numcodecs
 from typing import Dict, List, Tuple, Union
 import itertools
 import numbers
-from xradio.vis._vis_utils._helpers.partitions import (
+from xradio.vis._vis_utils._ms.partitions import (
     finalize_partitions,
     read_ms_ddi_partitions,
     read_ms_scan_subscan_partitions,
@@ -13,11 +13,12 @@ from xradio.vis._vis_utils._helpers.partitions import (
 )
 
 import dask
-from xradio.vis._vis_utils._helpers.msv2_msv3 import ignore_msv2_cols
-from xradio.vis._vis_utils._cc_tables.read import describe_ms, read_generic_table, make_freq_attrs, convert_casacore_time
-from xradio.vis._vis_utils._cc_tables.read_main_table import read_flat_main_table, read_expanded_main_table, get_baselines, get_utimes_tol, read_main_table_chunks
-from xradio.vis._vis_utils._helpers.subtables import subt_rename_ids, add_pointing_to_partition
-from xradio.vis._vis_utils._cc_tables.table_query import open_table_ro, open_query
+from xradio.vis._vis_utils._ms.descr import describe_ms
+from xradio.vis._vis_utils._ms.msv2_msv3 import ignore_msv2_cols
+from xradio.vis._vis_utils._ms._tables.read import read_generic_table, make_freq_attrs, convert_casacore_time
+from xradio.vis._vis_utils._ms._tables.read_main_table import read_flat_main_table, read_expanded_main_table, get_baselines, get_utimes_tol, read_main_table_chunks
+from xradio.vis._vis_utils._ms.subtables import subt_rename_ids, add_pointing_to_partition
+from xradio.vis._vis_utils._ms._tables.table_query import open_table_ro, open_query
 import numpy as np
 from casacore import tables
 from itertools import cycle

@@ -31,7 +31,7 @@ from .read import (
     add_units_measures,
 )
 
-from .._cc_tables.table_query import open_table_ro, open_query
+from .table_query import open_table_ro, open_query
 
 rename_msv2_cols = {
     "antenna1": "antenna1_id",
@@ -231,7 +231,6 @@ def read_main_table_chunks(
                     query_times_ants.getcol("ANTENNA1", 0, -1),
                     query_times_ants.getcol("ANTENNA2", 0, -1),
                 )
-                
 
             ts_bases = [
                 str(ll[0]).zfill(3) + "_" + str(ll[1]).zfill(3)

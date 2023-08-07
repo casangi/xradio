@@ -112,7 +112,8 @@ def create_table(
     else:
         tb_tool = tables.default_ms(outfile, tabledesc)
         tb_tool.addrows(max_rows)
-        # if 'DATA_DESC_ID' in cols: tb_tool.putcol('DATA_DESC_ID', np.zeros((max_rows), dtype='int32') - 1, 0, max_rows)
+        # if 'DATA_DESC_ID' in cols: tb_tool.putcol('DATA_DESC_ID',
+        #    np.zeros((max_rows), dtype='int32') - 1, 0, max_rows)
 
     # write xds attributes to table keywords, skipping certain reserved attributes
     existing_keywords = tb_tool.getkeywords()
@@ -170,7 +171,8 @@ def write_generic_table(xds: xr.Dataset, outfile: str, subtable="", cols=None):
     outfile : str
         Destination filename (or parent main table if writing subtable)
     subtable : str
-        Name of the subtable being written, triggers special logic to add subtable to parent table.  Default '' for normal generic writes
+        Name of the subtable being written, triggers special logic to add subtable to
+        parent table.  Default '' for normal generic writes
     cols : str or list
         List of cols to write. Default None writes all columns
     """

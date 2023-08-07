@@ -14,36 +14,22 @@
 #  You should have received a copy of the GNU General Public License
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import logging, os
+import numcodecs, os
 from typing import Dict, List, Tuple, Union
 
 import xarray as xr
 
-from ._utils.cds import CASAVisSet
-from ._ms.chunks import load_main_chunk
-from ._ms.partitions import (
-    finalize_partitions,
-    read_ms_ddi_partitions,
-    read_ms_scan_subscan_partitions,
-)
-from ._ms.subtables import read_ms_subtables
-from ._utils.xds_helper import vis_xds_packager_cds
-
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s %(levelname)-8s %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+from ._vis_utils._utils.cds import CASAVisSet
+from xradio.vis import _vis_utils
 
 
-def read_ms(
+def read_vis(
     infile: str,
     subtables: bool = True,
     asdm_subtables: bool = False,
     partition_scheme: str = "intent",
     chunks: Union[Tuple[int], List[int]] = None,
     expand: bool = False,
-    **kwargs: str,
 ) -> CASAVisSet:
     """Read a MeasurementSet (MSv2 format) into a next generation CASA
     dataset (visibilities dataset as a set of Xarray datasets).
@@ -55,10 +41,12 @@ def read_ms(
     partitions as xarray datasets (xds) contained within a main xds (mxds).
 
     :param infile: Input MS filename
+    :param rowmap: (to be removed) Dictionary of DDI to tuple of (row indices, channel indices). Returned
+    by ms_selection function. Default None ignores selections
     :param subtables: Also read and include subtables along with main table selection. Default False will
     omit subtables (faster)
     :param asdm_subtables: in addition to MeasurementSet subtables (if enabled), also read extension
-    subtables named "ASDM_*"
+    subtables names "ASDM_*"
     :param partition_scheme: (experimenting) Whether to partition sub-xds datasets by scan/subscan
     (in addition to DDI), or other alternative partitioning schemes. Accepted values: 'scan/subscan',
     'scan', 'ddi', 'intent'. Default: 'intent'
@@ -75,76 +63,68 @@ def read_ms(
     selections. Supported keys are: spw, field, scan, baseline, time, scanintent, uvdist, polarization,
     array, observation.  Values are strings.
 
-    :return: Main xarray dataset of datasets for this visibility dataset
+    :return: ngCASA visisbilities dataset, essentially made of two dictionaries of
+    metainformation and data partitions
     """
-
     infile = os.path.expanduser(infile)
     if not os.path.isdir(infile):
-        raise ValueError(f"invalid input filename to read_ms {infile}")
+        raise ValueError(f"invalid input filename to read_vis {infile}")
 
-    # Several alternatives to experiment for now
-    part_descr = {
-        "intent": "scan/subscan intent + DDI",
-        "ddi": "DDI",
-        "scan": "scan + DDI",
-        "scan/subscan": "scan + subscan + DDI",
-    }
-
-    if partition_scheme not in part_descr:
-        raise ValueError(f"Invalid partition_scheme: {partition_scheme}")
-
-    logging.info(
-        f"Reading {infile} as MSv2 and applying partitioning by {part_descr[partition_scheme]}"
-    )
-
-    if partition_scheme == "ddi":
-        logging.info(f"Reading {infile} as MSv2 and applying DDI partitioning")
-        # get the indices of the ms selection (if any)
-        # rowmap = ms_selection(infile, verbose=verbose, **kwargs)
-        rowmap = None
-        parts, subts, done_subts = read_ms_ddi_partitions(
-            infile, expand, rowmap, chunks
-        )
+    if _vis_utils.zarr.is_zarr_vis(infile):
+        return _vis_utils.zarr.read_vis(infile, subtables, asdm_subtables)
     else:
-        parts, subts, done_subts = read_ms_scan_subscan_partitions(
-            infile, partition_scheme, expand, chunks
+        return _vis_utils.ms.read_ms(
+            infile, subtables, asdm_subtables, partition_scheme, chunks, expand
         )
 
-    if subtables:
-        subts.update(read_ms_subtables(infile, done_subts, asdm_subtables))
 
-    parts = finalize_partitions(parts, subts)
-
-    # build the visibilities container (metainfo + partitions) to return
-    cds = vis_xds_packager_cds(subts, parts, "read_ms")
-    return cds
-
-
-def load_vis_chunk(
+def load_vis_block(
     infile: str,
     block_des: Dict[str, slice],
     partition_key: Tuple[int, int, str],
+    subtables: List[str] = None,
 ) -> Dict[Tuple[int, int], xr.Dataset]:
-    """Read a chunk of a MeasurementSet (MSv2 format) into an Xarray
-    dataset, loading the data in memory.
+    """Read a chunk of a visibilities dataset into an Xarray dataset, loading the
+    data in memory.
+    The input format support is the MeasurementSet v2 (MSv2 format)
 
-    :param infile: Input MS filename
+    :param infile: Input visibilities path
     :param block_des: specification of chunk to load
 
-    :return: Xarray datasets with chunk of visibility data, one per DDI
-    (spw_id, pol_setup_id pair)
+    :return: CASA visibilities dataset holding a chunk of visibility data, for one
+    partition
+    (spw_id, pol_setup_id, intent_string triplet)
     """
-    infile = os.path.expanduser(infile)
+    # TODO: use the input partition_key
+    # the intent str of the partition_key is not yet effectively used
+    # TODO: support subtables list
+    return _vis_utils.ms.load_vis_chunk(infile, block_des, partition_key)
 
-    logging.info(f"Loading from {infile} as MSv2 a chunk of data into memory")
 
-    if not os.path.isdir(infile):
-        raise ValueError(f"invalid input filename to read_ms {infile}")
+def write_vis(
+    cds: CASAVisSet,
+    outpath: str,
+    chunks_on_disk: Union[Dict, None] = None,
+    compressor: Union[numcodecs.abc.Codec, None] = None,
+    out_format: str = "zarr",
+) -> None:
+    """Write CASA vis dataset to disk.
+    The disk format supported is "zarr". When chunks_on_disk is not specified the
+    chunking in the input dataset is used. When chunks_on_disk is specified that
+    dataset is saved using that chunking.
 
-    orig_chunk_to_improve = load_main_chunk(infile, block_des)
-    res = vis_xds_packager_cds(
-        subtables={},
-        partitions={partition_key: orig_chunk_to_improve},
-        descr_add="load_vis_block",
-    )
-    return res
+    :param cds: CASA visibilities dataset to write to disk
+    :param outpath: output path, generally ends in .zarr
+    :param chunks_on_disk: a dictionary with the chunk size that will
+    be used when writing to disk. For example {'time': 20, 'chan': 6}.
+    If chunks_on_disk is not specified the chunking of dataset will
+    be used.
+    :param compressor: the blosc compressor to use when saving the
+    converted data to disk using zarr. If None the zstd compression
+    algorithm used with compression level 2.
+    """
+
+    if out_format == "zarr":
+        return _vis_utils.zarr.write_vis(cds, outpath, chunks_on_disk, compressor)
+    else:
+        raise ValueError(f"Unsupported output format: {out_format}")

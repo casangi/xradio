@@ -20,16 +20,18 @@ from typing import Any, Dict, List, Tuple, Union
 import numpy as np
 import xarray as xr
 
-from .._cc_tables.read import describe_ms, read_generic_table, make_freq_attrs
-from .._cc_tables.read_main_table import read_flat_main_table, read_expanded_main_table
 from .msv2_msv3 import ignore_msv2_cols
-from .partition_attrs import add_partition_attrs
 from .partition_queries import (
     make_partition_ids_by_ddi_intent,
     make_partition_ids_by_ddi_scan,
 )
 from .subtables import subt_rename_ids, add_pointing_to_partition
-from .xds_helper import expand_xds, make_coords, optimal_chunking
+from .descr import describe_ms
+from ._tables.read import read_generic_table, make_freq_attrs
+from ._tables.read_main_table import read_flat_main_table, read_expanded_main_table
+from .._utils.partition_attrs import add_partition_attrs
+from .._utils.xds_helper import expand_xds, make_coords, optimal_chunking
+
 
 PartitionKey = Tuple[Any, ...]
 VisSetMetaInfo = Dict[str, xr.Dataset]

@@ -22,7 +22,7 @@ import numpy as np
 import xarray as xr
 
 from .cds import CASAVisSet
-from .._cc_tables.stokes_types import stokes_types
+from .stokes_types import stokes_types
 
 
 def make_coords(
@@ -72,12 +72,12 @@ def vis_xds_packager_cds(
     :param descr_add: substring to add to the short descr string of the cds
     :return: A "cds" - container for the metainfo subtables and data partitions
     """
-    vers = version("cngi_io")
+    vers = version("xradio")
 
     return CASAVisSet(
         subtables,
         partitions,
-        f"CASA vis set produced by cngi-io {vers}/{descr_add}",
+        f"CASA vis set produced by xradio {vers}/{descr_add}",
     )
 
 

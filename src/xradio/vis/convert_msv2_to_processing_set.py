@@ -73,12 +73,18 @@ def calc_indx_for_row_split(tb_tool, taql_where):
     didxs = np.where((bidxs >= 0) & (bidxs < len(baselines)))[0]
     
     baseline_ant1_id, baseline_ant2_id = np.array([tuple(map(int, x.split("_"))) for x in baselines]).T
-    return tidxs,bidxs,didxs, baseline_ant1_id,baseline_ant2_id,utimes
+    return tidxs,bidxs,didxs, baseline_ant1_id,baseline_ant2_id,convert_casacore_time(utimes,False)
 
 def _check_single_field(tb_tool):
-    field_id = tb_tool.getcol("FIELD_ID")
+    field_id = np.unique(tb_tool.getcol("FIELD_ID"))
     #print(np.unique(field_id))
-    assert len(np.unique(field_id)) == 1, "More than one field present."
+    assert len(field_id) == 1, "More than one field present."
+    return field_id[0]
+    
+def _check_interval_consistent(tb_tool):
+    interval = np.unique(tb_tool.getcol("INTERVAL"))
+    assert len(interval) == 1, "Interval is not consistent."
+    return interval[0]
 
 def read_col(tb_tool,col: str,
             cshape: Tuple[int],
@@ -101,7 +107,6 @@ def read_col(tb_tool,col: str,
     
     return fulldata
     
-    
 def convert_and_write_partition(infile: str,
     outfile: str,
     ddi: int = 0,
@@ -110,6 +115,7 @@ def convert_and_write_partition(infile: str,
     ignore_msv2_cols: Union[list, None] = None,
     chunks: Tuple[int, ...] = (400, 200, 100, 2),
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
+    storage_backend = "zarr",
     overwrite: bool = False
 ):
 
@@ -151,13 +157,14 @@ def convert_and_write_partition(infile: str,
             start = time.time()
             xds = xr.Dataset()
             col_to_data_variable_names = {"DATA":"VIS","CORRECTED_DATA":"VIS_CORRECTED","WEIGHT_SPECTRUM":"WEIGHT","WEIGHT":"WEIGHT","FLAG":"FLAG","UVW":"UVW"}
-            col_dims = {"DATA":("time","baseline","freq","pol"),"CORRECTED_DATA":("time","baseline","freq","pol"),"WEIGHT_SPECTRUM":("time","baseline","freq","pol"),"WEIGHT":("time","baseline","pol"),"FLAG":("time","baseline","freq","pol"),"UVW":("time","baseline","uvw_dim")}
+            col_dims = {"DATA":("time","bl_id","freq","pol"),"CORRECTED_DATA":("time","bl_id","freq","pol"),"WEIGHT_SPECTRUM":("time","bl_id","freq","pol"),"WEIGHT":("time","bl_id","pol"),"FLAG":("time","bl_id","freq","pol"),"UVW":("time","bl_id","uvw_dim")}
             col_to_coord_names = {"TIME":"time","ANTENNA1":"baseline_ant1_id","ANTENNA2":"baseline_ant2_id"}
             coords_dim_select = {"TIME":np.s_[:,0:1],"ANTENNA1":np.s_[0:1,:],"ANTENNA2":np.s_[0:1,:]}
             check_variables = {}
 
             col_names = tb_tool.colnames()
-            coords = {"time":convert_casacore_time(utime),"baseline_ant1_id":baseline_ant1_id, "baseline_ant2_id":baseline_ant2_id}
+            coords = {"time":utime,"bl_ant1_id":baseline_ant1_id, "bl_ant2_id":baseline_ant2_id, "uvw_label":["u","v","w"],"bl_id":np.arange(len(baseline_ant1_id))}
+            
             #Create Data Variables
             not_a_problem = True
             #logging.info("Setup xds "+ str(time.time()-start))
@@ -180,7 +187,8 @@ def convert_and_write_partition(infile: str,
                         continue
                         #logging.debug("Could not load column",col)
                         
-            _check_single_field(tb_tool)
+            field_id = _check_single_field(tb_tool)
+            interval = _check_interval_consistent(tb_tool)
                         
             start = time.time()
 
@@ -197,22 +205,27 @@ def convert_and_write_partition(infile: str,
                 )
 
             coords["freq"] = spw_xds["chan_freq"][0,:].data
-            
             xds = xds.assign_coords(coords)
-
+            
+            #Add time attributes
+            xds.time.attrs["units"] = "s"
+            xds.time.attrs["time_scale"] = "utc"
+            xds.time.attrs["integration_time"] = interval
 
             field_xds = read_generic_table(
                 infile,
                 "FIELD",
                 rename_ids=subt_rename_ids["FIELD"],
             )
+            
+            #print(field_xds)
 
-
-            field_info = {"name": field_xds["name"].data[0], "code": field_xds["code"].data[0],
-                          "time": field_xds["time"].data[0], "num_poly": 0,
-                          "delay_dir": list(field_xds["delay_dir"].data[0,0,:]),
-                          "phase_dir": list(field_xds["phase_dir"].data[0,0,:]),
-                          "reference_dir": list(field_xds["reference_dir"].data[0,0,:])}
+            #field_id = 2
+            field_info = {"name": field_xds["name"].data[field_id], "code": field_xds["code"].data[field_id],
+                          "time": field_xds["time"].data[field_id], "num_poly": 0,
+                          "delay_dir": list(field_xds["delay_dir"].data[field_id,0,:]),
+                          "phase_dir": list(field_xds["phase_dir"].data[field_id,0,:]),
+                          "reference_dir": list(field_xds["reference_dir"].data[field_id,0,:])}
             xds.attrs["field_info"] = field_info
             
             logging.info(file_name)
@@ -222,9 +235,7 @@ def convert_and_write_partition(infile: str,
                  mode='w-'
       
             add_encoding(xds,compressor=compressor,chunks=xds.dims)
-            xds.to_zarr(store=file_name+"_MAIN", mode=mode)
-            #logging.info(" To disk time " + str(time.time()-start))
-
+            
             ant_xds = read_generic_table(
                 infile,
                 "ANTENNA",
@@ -232,7 +243,25 @@ def convert_and_write_partition(infile: str,
             )
             del ant_xds.attrs['other']
             
-            ant_xds.to_zarr(store=file_name+"_ANTENNA", mode=mode)
+            
+            if storage_backend=="zarr":
+                xds.to_zarr(store=file_name+"_MAIN", mode=mode)
+                ant_xds.to_zarr(store=file_name+"_ANTENNA", mode=mode)
+            elif storage_backend=="netcdf":
+                #xds.to_netcdf(path=file_name+"_MAIN", mode=mode)
+                print(ant_xds)
+                #ant_xds.offset.attrs["measure"] = [ant_xds.offset.attrs["measure"]]
+                #ant_xds.position.attrs["measure"] = [ant_xds.position.attrs["measure"]]
+                import os
+                
+                os.system("mkdir /Users/jsteeb/Library/CloudStorage/Dropbox/xradio/doc/Antennae_North.cal.vis.zarr")
+                #os.system("mkdir " + file_name+"_ANTENNA")
+                ant_xds.to_netcdf(path=file_name+"_ANTENNA", mode=mode, engine="netcdf4")
+            #logging.info(" To disk time " + str(time.time()-start))
+
+
+            
+            
 
 
             
@@ -262,6 +291,7 @@ def convert_msv2_to_processing_set(
     chunks_on_disk: Union[Dict, None] = None,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     parallel: bool = False,
+    storage_backend="zarr",
     overwrite: bool = False
 ):
     """
@@ -297,7 +327,7 @@ def convert_msv2_to_processing_set(
         if parallel:
             delayed_list.append(dask.delayed(convert_and_write_partition)(infile,outfile, ddi, state, field,ignore_msv2_cols=ignore_msv2_cols,compressor=compressor,overwrite=overwrite))
         else:
-            convert_and_write_partition(infile,outfile, ddi, state, field,ignore_msv2_cols=ignore_msv2_cols,compressor=compressor,overwrite=overwrite)
+            convert_and_write_partition(infile,outfile, ddi, state, field,ignore_msv2_cols=ignore_msv2_cols,compressor=compressor,storage_backend=storage_backend,overwrite=overwrite)
         
     if parallel:
         dask.compute(delayed_list)

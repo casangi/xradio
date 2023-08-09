@@ -113,7 +113,7 @@ def convert_and_write_partition(infile: str,
     state_ids = None,
     field_id: int = None,
     ignore_msv2_cols: Union[list, None] = None,
-    chunks: Tuple[int, ...] = (400, 200, 100, 2),
+    chunks_on_disk: Tuple[int, ...] = (400, 200, 100, 2),
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend = "zarr",
     overwrite: bool = False
@@ -234,7 +234,7 @@ def convert_and_write_partition(infile: str,
             else:
                  mode='w-'
       
-            add_encoding(xds,compressor=compressor,chunks=xds.dims)
+            add_encoding(xds,compressor=compressor,chunks=chunks_on_disk)
             
             ant_xds = read_generic_table(
                 infile,
@@ -325,9 +325,9 @@ def convert_msv2_to_processing_set(
         #logging.info("DDI " + str(ddi) + ", STATE " + str(state) + ", FIELD " + str(field))
         
         if parallel:
-            delayed_list.append(dask.delayed(convert_and_write_partition)(infile,outfile, ddi, state, field,ignore_msv2_cols=ignore_msv2_cols,compressor=compressor,overwrite=overwrite))
+            delayed_list.append(dask.delayed(convert_and_write_partition)(infile,outfile, ddi, state, field,ignore_msv2_cols=ignore_msv2_cols,chunks_on_disk=chunks_on_disk,compressor=compressor,overwrite=overwrite))
         else:
-            convert_and_write_partition(infile,outfile, ddi, state, field,ignore_msv2_cols=ignore_msv2_cols,compressor=compressor,storage_backend=storage_backend,overwrite=overwrite)
+            convert_and_write_partition(infile,outfile, ddi, state, field,ignore_msv2_cols=ignore_msv2_cols,chunks_on_disk=chunks_on_disk,compressor=compressor,storage_backend=storage_backend,overwrite=overwrite)
         
     if parallel:
         dask.compute(delayed_list)

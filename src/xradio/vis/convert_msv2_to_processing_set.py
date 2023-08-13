@@ -111,12 +111,13 @@ def read_col(tb_tool,col: str,
     
 def create_attribute_metadata(col,tb_tool):
     
+    #Still a lot to do.
     attrs_metadata = {}
     
     if col == "UVW":
+        #Should not be hardcoded
+        attrs_metadata["type"] = "uvw"
         attrs_metadata["units"] = "m"
-        attrs_metadata["measure"] = {"type": "uvw", "ref_frame": "ITRF"}
-        attrs_metadata["long_name"] = "uvw"
         attrs_metadata["description"] = "uvw coordinates."
     
     return attrs_metadata
@@ -145,9 +146,6 @@ def create_coordinates(xds,infile,ddi,utime,interval,baseline_ant1_id,baseline_a
         xds = xds.assign_coords(coords)
 
         #Add metadata to coordinates:
-        print(list(spw_xds.keys()))
-        print(list(spw_xds.keys()))
-        print(spw_xds.attrs['other']['msv2']['ctds_attrs']['column_descriptions']['CHAN_FREQ']['keywords']) #['column_descriptions', 'info']
         measures_freq_ref = spw_xds["meas_freq_ref"].data
         xds.frequency.attrs["type"] = "spectral_coord"
         xds.frequency.attrs["units"] = spw_xds.attrs['other']['msv2']['ctds_attrs']['column_descriptions']['CHAN_FREQ']['keywords']['QuantumUnits'][0]
@@ -170,9 +168,7 @@ def create_coordinates(xds,infile,ddi,utime,interval,baseline_ant1_id,baseline_a
         xds.time.attrs["format"] = "unix" #Time gets converted to unix in xradio.vis._vis_utils._ms._tables.read.convert_casacore_time
         xds.time.attrs["integration_time"] = interval
         xds.time.attrs["effective_integration_time"] = "EFFECTIVE_INTEGRATION_TIME"
-        
-        print(xds )
-        
+
         return xds
         
 def convert_and_write_partition(infile: str,
@@ -191,7 +187,7 @@ def convert_and_write_partition(infile: str,
     if ignore_msv2_cols is None:
         ignore_msv2_cols = []
         
-    file_name = outfile+"/" + outfile.replace(".vis.zarr","") +"_ddi_" + str(ddi) + "_intent_" + intent
+    file_name = outfile+"/" + outfile.replace(".vis.zarr","").split("/")[-1] +"_ddi_" + str(ddi) + "_intent_" + intent
     taql_where = f"where (DATA_DESC_ID = {ddi})"
     
 #    if isinstance(state_ids,numbers.Integral):
@@ -225,8 +221,8 @@ def convert_and_write_partition(infile: str,
 
             start = time.time()
             xds = xr.Dataset()
-            col_to_data_variable_names = {"DATA":"VISIBILITY","CORRECTED_DATA":"VISIBILITY_CORRECTED","WEIGHT_SPECTRUM":"WEIGHT","WEIGHT":"WEIGHT","FLAG":"FLAG","UVW":"UVW"}
-            col_dims = {"DATA":("time","baseline_id","frequency","polarization"),"CORRECTED_DATA":("time","baseline_id","frequency","polarization"),"WEIGHT_SPECTRUM":("time","baseline_id","frequency","polarization"),"WEIGHT":("time","baseline_id","polarization"),"FLAG":("time","baseline_id","frequency","polarization"),"UVW":("time","baseline_id","uvw_label")}
+            col_to_data_variable_names = {"DATA":"VISIBILITY","CORRECTED_DATA":"VISIBILITY_CORRECTED","WEIGHT_SPECTRUM":"WEIGHT","WEIGHT":"WEIGHT","FLAG":"FLAG","UVW":"UVW","TIME_CENTROID":"TIME_CENTROID","EXPOSURE":"EFFECTIVE_INTEGRATION_TIME"}
+            col_dims = {"DATA":("time","baseline_id","frequency","polarization"),"CORRECTED_DATA":("time","baseline_id","frequency","polarization"),"WEIGHT_SPECTRUM":("time","baseline_id","frequency","polarization"),"WEIGHT":("time","baseline_id","polarization"),"FLAG":("time","baseline_id","frequency","polarization"),"UVW":("time","baseline_id","uvw_label"),"TIME_CENTROID":("time","baseline_id"),"EXPOSURE":("time","baseline_id")}
             col_to_coord_names = {"TIME":"time","ANTENNA1":"baseline_ant1_id","ANTENNA2":"baseline_ant2_id"}
             coords_dim_select = {"TIME":np.s_[:,0:1],"ANTENNA1":np.s_[0:1,:],"ANTENNA2":np.s_[0:1,:]}
             check_variables = {}
@@ -242,14 +238,16 @@ def convert_and_write_partition(infile: str,
                     if (col == "WEIGHT") and ("WEIGHT_SPECTRUM" not in col_names):
                         continue
                     try:
+       
                         start = time.time()
                         xds[col_to_data_variable_names[col]] = xr.DataArray(read_col(tb_tool,col,time_baseline_shape,tidxs,bidxs,didxs),dims=col_dims[col])
                         #logging.info("Time to read column " + str(col) + " : " + str(time.time()-start))
                     except:
-                        continue
                         #logging.debug("Could not load column",col)
+                        continue
                         
-                        #xds[col_to_data_variable_names[col]].attrs.update(create_attribute_metadata(col,tb_tool))
+                    xds[col_to_data_variable_names[col]].attrs.update(create_attribute_metadata(col,tb_tool))
+                    
      
             field_id = _check_single_field(tb_tool)
             interval = _check_interval_consistent(tb_tool)
@@ -273,9 +271,9 @@ def convert_and_write_partition(infile: str,
                           "delay_dir": list(field_xds["delay_dir"].data[field_id,0,:]),
                           "phase_dir": list(field_xds["phase_dir"].data[field_id,0,:]),
                           "reference_dir": list(field_xds["reference_dir"].data[field_id,0,:])}
-            #xds.attrs["field_info"] = field_info
+            xds.attrs["field_info"] = field_info
             
-            logging.info(file_name)
+            #logging.info(file_name)
             if overwrite:
                 mode='w'
             else:
@@ -370,27 +368,26 @@ def convert_msv2_to_processing_set(
     delayed_list = []
     partitions = {}
     cnt = 0
-    #for ddi, state, field in zip(data_desc_id, state_id, field_ids):
+
+    #for ddi, state, field in itertools.product(data_desc_ids, state_ids, field_ids):
     #    logging.info("DDI " + str(ddi) + ", STATE " + str(state) + ", FIELD " + str(field))
-      
-    #for ddi, state, field in itertools.product(data_desc_id, state_id, field_ids):
-    #    logging.info("DDI " + str(ddi) + ", STATE " + str(state) + ", FIELD " + str(field))
+  
     
+
+
     for idx, pair in enumerated_product(data_desc_ids, state_ids, field_ids):
         ddi, state_id, field_id = pair
         #logging.info("DDI " + str(ddi) + ", STATE " + str(state_id) + ", FIELD " + str(field_id))
-        
-        
+
         if partition_scheme == "ddi_intent_field":
             intent = unique_intents[idx[1]]
         else:
             intent = intents[idx[1]] + "_" + str(state_id)
             
-        if (field_id == 0) and ("OBSERVE_TARGET" in intent):
-            if parallel:
-                delayed_list.append(dask.delayed(convert_and_write_partition)(infile,outfile,intent, ddi, state_id, field_id,ignore_msv2_cols=ignore_msv2_cols,chunks_on_disk=chunks_on_disk,compressor=compressor,overwrite=overwrite))
-            else:
-                convert_and_write_partition(infile,outfile,intent, ddi, state_id, field_id,ignore_msv2_cols=ignore_msv2_cols,chunks_on_disk=chunks_on_disk,compressor=compressor,storage_backend=storage_backend,overwrite=overwrite)
+        if parallel:
+            delayed_list.append(dask.delayed(convert_and_write_partition)(infile,outfile,intent, ddi, state_id, field_id,ignore_msv2_cols=ignore_msv2_cols,chunks_on_disk=chunks_on_disk,compressor=compressor,overwrite=overwrite))
+        else:
+            convert_and_write_partition(infile,outfile,intent, ddi, state_id, field_id,ignore_msv2_cols=ignore_msv2_cols,chunks_on_disk=chunks_on_disk,compressor=compressor,storage_backend=storage_backend,overwrite=overwrite)
      
         
     if parallel:

@@ -107,8 +107,21 @@ def read_col(tb_tool,col: str,
     
     return fulldata
     
+def create_attribute_metadata(col,tb_tool):
+    
+    attrs_metadata = {}
+    
+    if col == "UVW":
+        attrs_metadata["units"] = "m"
+        attrs_metadata["measure"] = {"type": "uvw", "ref_frame": "ITRF"}
+        attrs_metadata["long_name"] = "uvw"
+        attrs_metadata["description"] = "uvw coordinates."
+    
+    return attrs_metadata
+    
 def convert_and_write_partition(infile: str,
     outfile: str,
+    intent: str,
     ddi: int = 0,
     state_ids = None,
     field_id: int = None,
@@ -122,17 +135,17 @@ def convert_and_write_partition(infile: str,
     if ignore_msv2_cols is None:
         ignore_msv2_cols = []
         
-    file_name = outfile+"/ddi_" + str(ddi)
+    file_name = outfile+"/ddi_" + str(ddi) + "_intent_" + intent
     taql_where = f"where (DATA_DESC_ID = {ddi})"
     
-    if isinstance(state_ids,numbers.Integral):
-        taql_where += f" AND (STATE_ID = {state_ids})"
-        file_name = file_name + "_state_id_" + str(field_id)
-    else:
-        state_ids_or = " OR STATE_ID = ".join(np.char.mod("%d", state_ids))
-        taql_where += f" AND (STATE_ID = {state_ids_or})"
-        file_name = file_name + "_state_id_" + str(state_ids).replace(" ","_")[1:-1]
-    
+#    if isinstance(state_ids,numbers.Integral):
+#        taql_where += f" AND (STATE_ID = {state_ids})"
+#        file_name = file_name + "_state_id_" + str(state_ids)
+#    else:
+#        state_ids_or = " OR STATE_ID = ".join(np.char.mod("%d", state_ids))
+#        taql_where += f" AND (STATE_ID = {state_ids_or})"
+#        file_name = file_name + "_state_id_" + str(state_ids).replace(", ","_")[1:-1]
+
     if field_id is not None:
         taql_where += f" AND (FIELD_ID = {field_id})"
         file_name = file_name + "_field_id_" + str(field_id)
@@ -157,13 +170,13 @@ def convert_and_write_partition(infile: str,
             start = time.time()
             xds = xr.Dataset()
             col_to_data_variable_names = {"DATA":"VIS","CORRECTED_DATA":"VIS_CORRECTED","WEIGHT_SPECTRUM":"WEIGHT","WEIGHT":"WEIGHT","FLAG":"FLAG","UVW":"UVW"}
-            col_dims = {"DATA":("time","bl_id","freq","pol"),"CORRECTED_DATA":("time","bl_id","freq","pol"),"WEIGHT_SPECTRUM":("time","bl_id","freq","pol"),"WEIGHT":("time","bl_id","pol"),"FLAG":("time","bl_id","freq","pol"),"UVW":("time","bl_id","uvw_dim")}
+            col_dims = {"DATA":("time","bl_id","freq","pol"),"CORRECTED_DATA":("time","bl_id","freq","pol"),"WEIGHT_SPECTRUM":("time","bl_id","freq","pol"),"WEIGHT":("time","bl_id","pol"),"FLAG":("time","bl_id","freq","pol"),"UVW":("time","bl_id","uvw_label")}
             col_to_coord_names = {"TIME":"time","ANTENNA1":"baseline_ant1_id","ANTENNA2":"baseline_ant2_id"}
             coords_dim_select = {"TIME":np.s_[:,0:1],"ANTENNA1":np.s_[0:1,:],"ANTENNA2":np.s_[0:1,:]}
             check_variables = {}
 
             col_names = tb_tool.colnames()
-            coords = {"time":utime,"bl_ant1_id":baseline_ant1_id, "bl_ant2_id":baseline_ant2_id, "uvw_label":["u","v","w"],"bl_id":np.arange(len(baseline_ant1_id))}
+            coords = {"time":utime,"bl_ant1_id":("bl_id",baseline_ant1_id), "bl_ant2_id":("bl_id",baseline_ant2_id), "uvw_label":["u","v","w"],"bl_id":np.arange(len(baseline_ant1_id))}
             
             #Create Data Variables
             not_a_problem = True
@@ -177,16 +190,12 @@ def convert_and_write_partition(infile: str,
                         start = time.time()
                         xds[col_to_data_variable_names[col]] = xr.DataArray(read_col(tb_tool,col,time_baseline_shape,tidxs,bidxs,didxs),dims=col_dims[col])
                         #logging.info("Time to read column " + str(col) + " : " + str(time.time()-start))
-
-                        if col == "UVW":
-                            xds[col_to_data_variable_names[col]].attrs["units"] = "m"
-                            xds[col_to_data_variable_names[col]].attrs["measure"] = {"type": "uvw", "ref_frame": "ITRF"}
-                            xds[col_to_data_variable_names[col]].attrs["long_name"] = "uvw"
-                            xds[col_to_data_variable_names[col]].attrs["description"] = "uvw coordinates."
                     except:
                         continue
                         #logging.debug("Could not load column",col)
                         
+                        #xds[col_to_data_variable_names[col]].attrs.update(create_attribute_metadata(col,tb_tool))
+     
             field_id = _check_single_field(tb_tool)
             interval = _check_interval_consistent(tb_tool)
                         
@@ -226,7 +235,7 @@ def convert_and_write_partition(infile: str,
                           "delay_dir": list(field_xds["delay_dir"].data[field_id,0,:]),
                           "phase_dir": list(field_xds["phase_dir"].data[field_id,0,:]),
                           "reference_dir": list(field_xds["reference_dir"].data[field_id,0,:])}
-            xds.attrs["field_info"] = field_info
+            #xds.attrs["field_info"] = field_info
             
             logging.info(file_name)
             if overwrite:
@@ -243,12 +252,12 @@ def convert_and_write_partition(infile: str,
             )
             del ant_xds.attrs['other']
             
-            
+
             if storage_backend=="zarr":
-                xds.to_zarr(store=file_name+"_MAIN", mode=mode)
-                ant_xds.to_zarr(store=file_name+"_ANTENNA", mode=mode)
+                xds.to_zarr(store=file_name+"/MAIN", mode=mode)
+                ant_xds.to_zarr(store=file_name+"/ANTENNA", mode=mode)
             elif storage_backend=="netcdf":
-                #xds.to_netcdf(path=file_name+"_MAIN", mode=mode)
+                #xds.to_netcdf(path=file_name+"/MAIN", mode=mode)
                 print(ant_xds)
                 #ant_xds.offset.attrs["measure"] = [ant_xds.offset.attrs["measure"]]
                 #ant_xds.position.attrs["measure"] = [ant_xds.position.attrs["measure"]]
@@ -265,7 +274,7 @@ def convert_and_write_partition(infile: str,
 
 
             
-    logging.info("write_partition " + str(time.time()-start_with) )
+    #logging.info("write_partition " + str(time.time()-start_with) )
 
 def get_unqiue_intents(infile):
     state_xds = read_generic_table(
@@ -281,8 +290,10 @@ def get_unqiue_intents(infile):
         else:
             obs_mode_dict[obs_mode] = [i]
             
-    return obs_mode_dict.keys(), obs_mode_dict.values()
+    return list(obs_mode_dict.keys()), obs_mode_dict.values()
 
+def enumerated_product(*args):
+    yield from zip(itertools.product(*(range(len(x)) for x in args)), itertools.product(*args))
 
 def convert_msv2_to_processing_set(
     infile: str,
@@ -305,13 +316,16 @@ def convert_msv2_to_processing_set(
     
 
     ddi_xds = read_generic_table(infile, "DATA_DESCRIPTION")
-    data_desc_id = np.arange(read_generic_table(infile, "DATA_DESCRIPTION").dims['row'])
+    data_desc_ids = np.arange(read_generic_table(infile, "DATA_DESCRIPTION").dims['row'])
     
     if partition_scheme == "ddi_intent_field":
-        unique_intents, state_id = get_unqiue_intents(infile)
+        unique_intents, state_ids = get_unqiue_intents(infile)
         field_ids = np.arange(read_generic_table(infile, "FIELD").dims['row'])
     elif partition_scheme == "ddi_state":
-        state_id = np.arange(read_generic_table(infile, "STATE").dims['row'])
+        state_xds = read_generic_table(infile, "STATE")
+        state_ids = np.arange(state_xds.dims['row'])
+        intents = state_xds.obs_mode.values
+        #print(state_xds, intents)
         #field_ids = [None]
         field_ids = np.arange(read_generic_table(infile, "FIELD").dims['row'])
 
@@ -321,13 +335,23 @@ def convert_msv2_to_processing_set(
     #for ddi, state, field in zip(data_desc_id, state_id, field_ids):
     #    logging.info("DDI " + str(ddi) + ", STATE " + str(state) + ", FIELD " + str(field))
       
-    for ddi, state, field in itertools.product(data_desc_id, state_id, field_ids):
-        #logging.info("DDI " + str(ddi) + ", STATE " + str(state) + ", FIELD " + str(field))
+    #for ddi, state, field in itertools.product(data_desc_id, state_id, field_ids):
+    #    logging.info("DDI " + str(ddi) + ", STATE " + str(state) + ", FIELD " + str(field))
+    
+    for idx, pair in enumerated_product(data_desc_ids, state_ids, field_ids):
+        ddi, state_id, field_id = pair
+        #logging.info("DDI " + str(ddi) + ", STATE " + str(state_id) + ", FIELD " + str(field_id))
+        
+        if partition_scheme == "ddi_intent_field":
+            intent = unique_intents[idx[1]]
+        else:
+            intent = intents[idx[1]] + "_" + str(state_id)
         
         if parallel:
-            delayed_list.append(dask.delayed(convert_and_write_partition)(infile,outfile, ddi, state, field,ignore_msv2_cols=ignore_msv2_cols,chunks_on_disk=chunks_on_disk,compressor=compressor,overwrite=overwrite))
+            delayed_list.append(dask.delayed(convert_and_write_partition)(infile,outfile,intent, ddi, state_id, field_id,ignore_msv2_cols=ignore_msv2_cols,chunks_on_disk=chunks_on_disk,compressor=compressor,overwrite=overwrite))
         else:
-            convert_and_write_partition(infile,outfile, ddi, state, field,ignore_msv2_cols=ignore_msv2_cols,chunks_on_disk=chunks_on_disk,compressor=compressor,storage_backend=storage_backend,overwrite=overwrite)
+            convert_and_write_partition(infile,outfile,intent, ddi, state_id, field_id,ignore_msv2_cols=ignore_msv2_cols,chunks_on_disk=chunks_on_disk,compressor=compressor,storage_backend=storage_backend,overwrite=overwrite)
+     
         
     if parallel:
         dask.compute(delayed_list)

@@ -2,6 +2,7 @@
 import numcodecs
 from typing import Dict, List, Tuple, Union
 import itertools
+import json
 import numbers
 from xradio.vis._vis_utils._ms.partitions import (
     finalize_partitions,
@@ -15,10 +16,11 @@ from xradio.vis._vis_utils._ms.partitions import (
 import dask
 from xradio.vis._vis_utils._ms.descr import describe_ms
 from xradio.vis._vis_utils._ms.msv2_msv3 import ignore_msv2_cols
-from xradio.vis._vis_utils._ms._tables.read import read_generic_table, make_freq_attrs, convert_casacore_time
+from xradio.vis._vis_utils._ms._tables.read import read_generic_table, make_freq_attrs, convert_casacore_time, extract_table_attributes
 from xradio.vis._vis_utils._ms._tables.read_main_table import read_flat_main_table, read_expanded_main_table, get_baselines, get_utimes_tol, read_main_table_chunks
 from xradio.vis._vis_utils._ms.subtables import subt_rename_ids, add_pointing_to_partition
 from xradio.vis._vis_utils._ms._tables.table_query import open_table_ro, open_query
+from xradio.vis._vis_utils._utils.stokes_types import stokes_types
 import numpy as np
 from casacore import tables
 from itertools import cycle
@@ -119,6 +121,60 @@ def create_attribute_metadata(col,tb_tool):
     
     return attrs_metadata
     
+def create_coordinates(xds,infile,ddi,utime,interval,baseline_ant1_id,baseline_ant2_id):
+        coords = {"time":utime,"baseline_antenna1_id":("baseline_id",baseline_ant1_id), "baseline_antenna2_id":("baseline_id",baseline_ant2_id), "uvw_label":["u","v","w"],"baseline_id":np.arange(len(baseline_ant1_id))}
+
+        ddi_xds = read_generic_table(infile,"DATA_DESCRIPTION").sel(row=ddi)
+        pol_setup_id = ddi_xds.polarization_id.values
+        spw_id = ddi_xds.spectral_window_id.values
+
+        spw_xds = read_generic_table(
+            infile,
+            "SPECTRAL_WINDOW",
+            rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
+            ).sel(spectral_window_id=spw_id)
+        coords["frequency"] = spw_xds["chan_freq"].data
+        
+        pol_xds = read_generic_table(
+            infile,
+            "POLARIZATION",
+            rename_ids=subt_rename_ids["POLARIZATION"],
+            )
+            
+        coords["polarization"] = np.vectorize(stokes_types.get)(pol_xds["corr_type"][pol_setup_id,:].values)
+        xds = xds.assign_coords(coords)
+
+        #Add metadata to coordinates:
+        print(list(spw_xds.keys()))
+        print(list(spw_xds.keys()))
+        print(spw_xds.attrs['other']['msv2']['ctds_attrs']['column_descriptions']['CHAN_FREQ']['keywords']) #['column_descriptions', 'info']
+        measures_freq_ref = spw_xds["meas_freq_ref"].data
+        xds.frequency.attrs["type"] = "spectral_coord"
+        xds.frequency.attrs["units"] = spw_xds.attrs['other']['msv2']['ctds_attrs']['column_descriptions']['CHAN_FREQ']['keywords']['QuantumUnits'][0]
+        xds.frequency.attrs["velocity_frame"] = spw_xds.attrs['other']['msv2']['ctds_attrs']['column_descriptions']['CHAN_FREQ']['keywords']['MEASINFO']['TabRefTypes'][measures_freq_ref]
+        xds.frequency.attrs["spectral_window_name"] = str(spw_xds.name.values)
+        xds.frequency.attrs["reference_frequency"] = float(spw_xds.ref_frequency.values)
+        xds.frequency.attrs["effective_channel_width"] = "EFFECTIVE_CHANNEL_WIDTH"
+        #Add if doppler table is present
+        #xds.frequency.attrs["doppler_velocity"] =
+        #xds.frequency.attrs["doppler_type"] =
+        
+        unique_chan_width = np.unique(spw_xds.chan_width.data)
+        assert len(unique_chan_width) ==  1, "Channel width varies for spw."
+        xds.frequency.attrs["channel_width"] = unique_chan_width[0]
+        
+        main_table_attrs = extract_table_attributes(infile)
+        xds.time.attrs["type"] = "time"
+        xds.time.attrs["units"] = main_table_attrs["column_descriptions"]["TIME"]["keywords"]["QuantumUnits"][0]
+        xds.time.attrs["time_scale"] = main_table_attrs["column_descriptions"]["TIME"]["keywords"]["MEASINFO"]["Ref"]
+        xds.time.attrs["format"] = "unix" #Time gets converted to unix in xradio.vis._vis_utils._ms._tables.read.convert_casacore_time
+        xds.time.attrs["integration_time"] = interval
+        xds.time.attrs["effective_integration_time"] = "EFFECTIVE_INTEGRATION_TIME"
+        
+        print(xds )
+        
+        return xds
+        
 def convert_and_write_partition(infile: str,
     outfile: str,
     intent: str,
@@ -135,7 +191,7 @@ def convert_and_write_partition(infile: str,
     if ignore_msv2_cols is None:
         ignore_msv2_cols = []
         
-    file_name = outfile+"/ddi_" + str(ddi) + "_intent_" + intent
+    file_name = outfile+"/" + outfile.replace(".vis.zarr","") +"_ddi_" + str(ddi) + "_intent_" + intent
     taql_where = f"where (DATA_DESC_ID = {ddi})"
     
 #    if isinstance(state_ids,numbers.Integral):
@@ -169,15 +225,14 @@ def convert_and_write_partition(infile: str,
 
             start = time.time()
             xds = xr.Dataset()
-            col_to_data_variable_names = {"DATA":"VIS","CORRECTED_DATA":"VIS_CORRECTED","WEIGHT_SPECTRUM":"WEIGHT","WEIGHT":"WEIGHT","FLAG":"FLAG","UVW":"UVW"}
-            col_dims = {"DATA":("time","bl_id","freq","pol"),"CORRECTED_DATA":("time","bl_id","freq","pol"),"WEIGHT_SPECTRUM":("time","bl_id","freq","pol"),"WEIGHT":("time","bl_id","pol"),"FLAG":("time","bl_id","freq","pol"),"UVW":("time","bl_id","uvw_label")}
+            col_to_data_variable_names = {"DATA":"VISIBILITY","CORRECTED_DATA":"VISIBILITY_CORRECTED","WEIGHT_SPECTRUM":"WEIGHT","WEIGHT":"WEIGHT","FLAG":"FLAG","UVW":"UVW"}
+            col_dims = {"DATA":("time","baseline_id","frequency","polarization"),"CORRECTED_DATA":("time","baseline_id","frequency","polarization"),"WEIGHT_SPECTRUM":("time","baseline_id","frequency","polarization"),"WEIGHT":("time","baseline_id","polarization"),"FLAG":("time","baseline_id","frequency","polarization"),"UVW":("time","baseline_id","uvw_label")}
             col_to_coord_names = {"TIME":"time","ANTENNA1":"baseline_ant1_id","ANTENNA2":"baseline_ant2_id"}
             coords_dim_select = {"TIME":np.s_[:,0:1],"ANTENNA1":np.s_[0:1,:],"ANTENNA2":np.s_[0:1,:]}
             check_variables = {}
 
             col_names = tb_tool.colnames()
-            coords = {"time":utime,"bl_ant1_id":("bl_id",baseline_ant1_id), "bl_ant2_id":("bl_id",baseline_ant2_id), "uvw_label":["u","v","w"],"bl_id":np.arange(len(baseline_ant1_id))}
-            
+  
             #Create Data Variables
             not_a_problem = True
             #logging.info("Setup xds "+ str(time.time()-start))
@@ -200,26 +255,9 @@ def convert_and_write_partition(infile: str,
             interval = _check_interval_consistent(tb_tool)
                         
             start = time.time()
-
-            spw_xds = read_generic_table(
-                infile,
-                "SPECTRAL_WINDOW",
-                rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
-                )
-
-            pol_xds = read_generic_table(
-                infile,
-                "POLARIZATION",
-                rename_ids=subt_rename_ids["POLARIZATION"],
-                )
-
-            coords["freq"] = spw_xds["chan_freq"][0,:].data
-            xds = xds.assign_coords(coords)
             
-            #Add time attributes
-            xds.time.attrs["units"] = "s"
-            xds.time.attrs["time_scale"] = "utc"
-            xds.time.attrs["integration_time"] = interval
+            xds = create_coordinates(xds, infile,ddi,utime,interval ,baseline_ant1_id,baseline_ant2_id)
+
 
             field_xds = read_generic_table(
                 infile,
@@ -316,7 +354,7 @@ def convert_msv2_to_processing_set(
     
 
     ddi_xds = read_generic_table(infile, "DATA_DESCRIPTION")
-    data_desc_ids = np.arange(read_generic_table(infile, "DATA_DESCRIPTION").dims['row'])
+    data_desc_ids = np.arange(ddi_xds.dims['row'])
     
     if partition_scheme == "ddi_intent_field":
         unique_intents, state_ids = get_unqiue_intents(infile)
@@ -342,15 +380,17 @@ def convert_msv2_to_processing_set(
         ddi, state_id, field_id = pair
         #logging.info("DDI " + str(ddi) + ", STATE " + str(state_id) + ", FIELD " + str(field_id))
         
+        
         if partition_scheme == "ddi_intent_field":
             intent = unique_intents[idx[1]]
         else:
             intent = intents[idx[1]] + "_" + str(state_id)
-        
-        if parallel:
-            delayed_list.append(dask.delayed(convert_and_write_partition)(infile,outfile,intent, ddi, state_id, field_id,ignore_msv2_cols=ignore_msv2_cols,chunks_on_disk=chunks_on_disk,compressor=compressor,overwrite=overwrite))
-        else:
-            convert_and_write_partition(infile,outfile,intent, ddi, state_id, field_id,ignore_msv2_cols=ignore_msv2_cols,chunks_on_disk=chunks_on_disk,compressor=compressor,storage_backend=storage_backend,overwrite=overwrite)
+            
+        if (field_id == 0) and ("OBSERVE_TARGET" in intent):
+            if parallel:
+                delayed_list.append(dask.delayed(convert_and_write_partition)(infile,outfile,intent, ddi, state_id, field_id,ignore_msv2_cols=ignore_msv2_cols,chunks_on_disk=chunks_on_disk,compressor=compressor,overwrite=overwrite))
+            else:
+                convert_and_write_partition(infile,outfile,intent, ddi, state_id, field_id,ignore_msv2_cols=ignore_msv2_cols,chunks_on_disk=chunks_on_disk,compressor=compressor,storage_backend=storage_backend,overwrite=overwrite)
      
         
     if parallel:

@@ -252,13 +252,11 @@ def convert_and_write_partition(
     )
     taql_where = f"where (DATA_DESC_ID = {ddi})"
 
-    #    if isinstance(state_ids,numbers.Integral):
-    #        taql_where += f" AND (STATE_ID = {state_ids})"
-    #        file_name = file_name + "_state_id_" + str(state_ids)
-    #    else:
-    #        state_ids_or = " OR STATE_ID = ".join(np.char.mod("%d", state_ids))
-    #        taql_where += f" AND (STATE_ID = {state_ids_or})"
-    #        file_name = file_name + "_state_id_" + str(state_ids).replace(", ","_")[1:-1]
+    if isinstance(state_ids,numbers.Integral):
+        taql_where += f" AND (STATE_ID = {state_ids})"
+    else:
+        state_ids_or = " OR STATE_ID = ".join(np.char.mod("%d", state_ids))
+        taql_where += f" AND (STATE_ID = {state_ids_or})"
 
     if field_id is not None:
         taql_where += f" AND (FIELD_ID = {field_id})"
@@ -269,6 +267,9 @@ def convert_and_write_partition(
         # one partition, select just the specified ddi (+ scan/subscan)
         taql_main = f"select * from $mtable {taql_where}"
         with open_query(mtable, taql_main) as tb_tool:
+            #print(taql_where,file_name,"Flag shape",tb_tool.getcol('FLAG').shape)
+
+        
             if tb_tool.nrows() == 0:
                 tb_tool.close()
                 mtable.close()
@@ -327,8 +328,6 @@ def convert_and_write_partition(
             # Create Data Variables
             not_a_problem = True
             # logging.info("Setup xds "+ str(time.time()-start))
-
-            # print("Flag shape",tb_tool.getcol('FLAG').shape)
 
             for col in col_names:
                 if col in col_to_data_variable_names:
@@ -410,9 +409,7 @@ def convert_and_write_partition(
                 )
             # logging.info(" To disk time " + str(time.time()-start))
 
-    logging.info(
-        "Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s"
-    )
+    logging.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
 
 
 def get_unqiue_intents(infile):
@@ -517,3 +514,4 @@ def convert_msv2_to_processing_set(
 
     if parallel:
         dask.compute(delayed_list)
+        

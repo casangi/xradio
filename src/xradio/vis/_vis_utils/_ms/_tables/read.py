@@ -48,7 +48,7 @@ def convert_casacore_time(rawtimes: np.ndarray, convert_to_datetime=True) -> np.
     :param rawtimes: times in casacore ref
     :return: times converted to pandas reference
     """
-    
+
     if convert_to_datetime:
         return pd.to_datetime(
             np.array(rawtimes) - CASACORE_TO_PD_TIME_CORRECTION, unit="s"

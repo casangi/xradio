@@ -44,6 +44,12 @@ import xarray as xr
 
 
 def add_encoding(xds, compressor, chunks=None):
+    
+    if chunks is None:
+        chunks = xds.dims
+        
+    chunks = {**dict(xds.dims),**chunks} #Add missing dims if presents.
+
     encoding = {}
     for da_name in list(xds.data_vars):
         if chunks:
@@ -69,7 +75,7 @@ def calc_indx_for_row_split(tb_tool, taql_where):
 
     tvars = {}
 
-    chunks = [len(utimes), len(baselines), freq_cnt, pol_cnt]
+    #chunks = [len(utimes), len(baselines), freq_cnt, pol_cnt]
 
     # print("nrows",  len(tb_tool.getcol("TIME")))
 
@@ -233,7 +239,7 @@ def convert_and_write_partition(
     state_ids=None,
     field_id: int = None,
     ignore_msv2_cols: Union[list, None] = None,
-    chunks_on_disk: Tuple[int, ...] = (400, 200, 100, 2),
+    chunks_on_disk:  Union[Dict, None] = None,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend="zarr",
     overwrite: bool = False,
@@ -252,7 +258,7 @@ def convert_and_write_partition(
     )
     taql_where = f"where (DATA_DESC_ID = {ddi})"
 
-    if isinstance(state_ids,numbers.Integral):
+    if isinstance(state_ids, numbers.Integral):
         taql_where += f" AND (STATE_ID = {state_ids})"
     else:
         state_ids_or = " OR STATE_ID = ".join(np.char.mod("%d", state_ids))
@@ -267,9 +273,8 @@ def convert_and_write_partition(
         # one partition, select just the specified ddi (+ scan/subscan)
         taql_main = f"select * from $mtable {taql_where}"
         with open_query(mtable, taql_main) as tb_tool:
-            #print(taql_where,file_name,"Flag shape",tb_tool.getcol('FLAG').shape)
+            # print(taql_where,file_name,"Flag shape",tb_tool.getcol('FLAG').shape)
 
-        
             if tb_tool.nrows() == 0:
                 tb_tool.close()
                 mtable.close()
@@ -380,7 +385,7 @@ def convert_and_write_partition(
                 mode = "w"
             else:
                 mode = "w-"
-
+                
             add_encoding(xds, compressor=compressor, chunks=chunks_on_disk)
 
             ant_xds = read_generic_table(
@@ -389,6 +394,11 @@ def convert_and_write_partition(
                 rename_ids=subt_rename_ids["ANTENNA"],
             )
             del ant_xds.attrs["other"]
+
+            xds.attrs["intent"] = intent
+            
+            #print("xxxx",xds["EFFECTIVE_INTEGRATION_TIME"].encoding,xds["FLAG"].encoding,chunks_on_disk)
+            #print(xds)
 
             if storage_backend == "zarr":
                 xds.to_zarr(store=file_name + "/MAIN", mode=mode)
@@ -409,7 +419,9 @@ def convert_and_write_partition(
                 )
             # logging.info(" To disk time " + str(time.time()-start))
 
-    logging.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
+    logging.info(
+        "Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s"
+    )
 
 
 def get_unqiue_intents(infile):
@@ -514,4 +526,3 @@ def convert_msv2_to_processing_set(
 
     if parallel:
         dask.compute(delayed_list)
-        

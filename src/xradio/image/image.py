@@ -77,7 +77,8 @@ def read_image(
     if do_casa:
         try:
             return __read_casa_image(infile, chunks, masks, history, verbose)
-        except:
+        except Exception as e:
+            print(e.args)
             logging.warn('image format appears not to be casacore')
     try:
         return __read_fits_image(infile, chunks, masks, history, verbose)

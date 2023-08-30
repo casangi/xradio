@@ -1,6 +1,6 @@
 import astropy
 from astropy import units as u
-from casacore import images, tables
+from casacore import images, quanta, tables
 from casacore.images import coordinates
 import dask
 import dask.array as da
@@ -821,7 +821,7 @@ def read_generic_table(infile, subtables=False, timecols=None, ignore=None):
     dims = ['row'] + ['d%i' % ii for ii in range(1, 20)]
     cols = tb_tool.colnames()
     ctype = dict([(col, tb_tool.getcell(col, 0)) for col in cols if (col not in ignore) and (tb_tool.iscelldefined(col, 0))])
-    mvars, mcoords, xds = {}, {}, xarray.Dataset()
+    mvars, mcoords, xds = {}, {}, xr.Dataset()
 
     tr = tb_tool.row(ignore, exclude=True)[:]
 
@@ -846,11 +846,11 @@ def read_generic_table(infile, subtables=False, timecols=None, ignore=None):
         if len(data) == 0: continue
         if col in timecols: convert_time(data)
         if col.endswith('_ID'):
-            mcoords[col] = xarray.DataArray(data, dims=['d%i_%i' % (di, ds) for di, ds in enumerate(np.array(data).shape)])
+            mcoords[col] = xr.DataArray(data, dims=['d%i_%i' % (di, ds) for di, ds in enumerate(np.array(data).shape)])
         else:
-            mvars[col] = xarray.DataArray(data, dims=['d%i_%i' % (di, ds) for di, ds in enumerate(np.array(data).shape)])
+            mvars[col] = xr.DataArray(data, dims=['d%i_%i' % (di, ds) for di, ds in enumerate(np.array(data).shape)])
 
-    xds = xarray.Dataset(mvars, coords=mcoords)
+    xds = xr.Dataset(mvars, coords=mcoords)
     xds = xds.rename(dict([(dv, dims[di]) for di, dv in enumerate(xds.dims)]))
     attrs['bad_cols'] = list(np.setdiff1d([dv for dv in tb_tool.colnames()], [dv for dv in list(xds.data_vars) + list(xds.coords)]))
 

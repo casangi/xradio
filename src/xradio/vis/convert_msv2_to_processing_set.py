@@ -178,7 +178,7 @@ def create_coordinates(
         "SPECTRAL_WINDOW",
         rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
     ).sel(spectral_window_id=spw_id)
-    coords["frequency"] = spw_xds["chan_freq"].data
+    coords["frequency"] = spw_xds["chan_freq"].data[~(np.isnan(spw_xds["chan_freq"].data))]
 
     pol_xds = read_generic_table(
         infile,
@@ -210,9 +210,11 @@ def create_coordinates(
     # xds.frequency.attrs["doppler_velocity"] =
     # xds.frequency.attrs["doppler_type"] =
 
-    unique_chan_width = np.unique(spw_xds.chan_width.data)
-    assert len(unique_chan_width) == 1, "Channel width varies for spw."
-    xds.frequency.attrs["channel_width"] = unique_chan_width[0]
+    #unique_chan_width = np.unique(spw_xds.chan_width.data[np.logical_not(np.isnan(spw_xds.chan_width.data))])
+    #print('unique_chan_width',unique_chan_width)
+    #print('spw_xds.chan_width.data',spw_xds.chan_width.data)
+    #assert len(unique_chan_width) == 1, "Channel width varies for spw."
+    xds.frequency.attrs["channel_width"] = spw_xds.chan_width.data[~(np.isnan(spw_xds.chan_width.data))]#unique_chan_width[0]
 
     main_table_attrs = extract_table_attributes(infile)
     xds.time.attrs["type"] = "time"

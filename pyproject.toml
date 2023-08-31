@@ -28,7 +28,8 @@ dependencies = [
 'bokeh',
 'jupyterlab',
 'pyarrow',
-'python_casacore>=3.5.2; sys_platform != "darwin" '
+'python_casacore>=3.5.2; sys_platform != "darwin" ',
+'xarray-dataclasses'
 ]
 
 

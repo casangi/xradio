@@ -37,7 +37,7 @@ def table_exists(path: str) -> bool:
     return tables.tableexists(path)
 
 
-def convert_casacore_time(rawtimes: np.ndarray) -> np.ndarray:
+def convert_casacore_time(rawtimes: np.ndarray, convert_to_datetime=True) -> np.ndarray:
     """
     Read time columns to datetime format
     pandas datetimes are referenced against a 0 of 1970-01-01
@@ -48,9 +48,13 @@ def convert_casacore_time(rawtimes: np.ndarray) -> np.ndarray:
     :param rawtimes: times in casacore ref
     :return: times converted to pandas reference
     """
-    return pd.to_datetime(
-        np.array(rawtimes) - CASACORE_TO_PD_TIME_CORRECTION, unit="s"
-    ).values
+
+    if convert_to_datetime:
+        return pd.to_datetime(
+            np.array(rawtimes) - CASACORE_TO_PD_TIME_CORRECTION, unit="s"
+        ).values
+    else:
+        return np.array(rawtimes) - CASACORE_TO_PD_TIME_CORRECTION
     # dt = pd.to_datetime(np.atleast_1d(rawtimes) - correction, unit='s').values
     # if len(np.array(rawtimes).shape) == 0: dt = dt[0]
     # return dt

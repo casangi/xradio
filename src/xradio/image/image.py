@@ -21,6 +21,7 @@
 #################################
 from ._util.casacore import __load_casa_image_block, __xds_to_casa_image
 from ._util.fits import __read_fits_image
+from ._util.zarr import __xds_to_zarr
 import warnings, time, os, logging
 import numpy as np
 import astropy.wcs
@@ -78,7 +79,6 @@ def read_image(
         try:
             return __read_casa_image(infile, chunks, masks, history, verbose)
         except Exception as e:
-            print(e.args)
             logging.warn('image format appears not to be casacore')
     try:
         return __read_fits_image(infile, chunks, masks, history, verbose)
@@ -118,8 +118,10 @@ def write_image(xds:xr.Dataset, imagename:str, out_format:str='casa') -> None:
     :type out_format: str
     """
     my_format = out_format.lower()
-    if out_format == 'casa':
+    if my_format == 'casa':
         __xds_to_casa_image(xds, imagename)
+    elif my_format == 'zarr':
+        __xds_to_zarr(xds, imagename)
     else:
         raise Exception(f'Writing to format {out_format} is not supported')
 

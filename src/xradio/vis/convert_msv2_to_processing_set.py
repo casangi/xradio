@@ -299,6 +299,7 @@ def convert_and_write_partition(
             start = time.time()
             xds = xr.Dataset()
             col_to_data_variable_names = {
+                "FLOAT_DATA" : "SPECTRUM",
                 "DATA": "VISIBILITY",
                 "CORRECTED_DATA": "VISIBILITY_CORRECTED",
                 "WEIGHT_SPECTRUM": "WEIGHT",
@@ -317,6 +318,7 @@ def convert_and_write_partition(
                 "UVW": ("time", "baseline_id", "uvw_label"),
                 "TIME_CENTROID": ("time", "baseline_id"),
                 "EXPOSURE": ("time", "baseline_id"),
+                "FLOAT_DATA": ("time", "baseline_id", "frequency", "polarization"),
             }
             col_to_coord_names = {
                 "TIME": "time",

@@ -35,7 +35,6 @@ def __decode_dict(my_dict: dict, top_key: str='') -> dict:
 def __decode_sub_xdses(zarr_store: str) -> dict:
     sub_xdses = {}
     for root, dirs, files in os.walk(zarr_store):
-        print(f'dirs {dirs}')
         for d in dirs:
             if d.startswith(__top_level_sub_xds):
                 xds = __read_zarr(os.sep.join([root, d]))

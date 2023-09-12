@@ -77,17 +77,15 @@ def read_image(
         try:
             return __read_casa_image(infile, chunks, masks, history, verbose)
         except Exception as e:
-            logging.warn('image format appears not to be casacore')
+            logging.warning('image format appears not to be casacore')
     try:
         return __read_fits_image(infile, chunks, masks, history, verbose)
     except Exception as e:
-        logging.warn(f'image format appears not to be fits {e.args}')
-        pass
-    # try:
-    return __xds_from_zarr(infile)
-    # except Exception as e:
-    # logging.warn(f'image format appears not to be zarr {e.args}')
-    #    pass
+        logging.warning(f'image format appears not to be fits {e.args}')
+    try:
+        return __xds_from_zarr(infile)
+    except Exception as e:
+        logging.warning(f'image format appears not to be zarr {e.args}')
     raise RuntimeError('Unrecognized image format')
 
 

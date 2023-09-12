@@ -35,6 +35,7 @@ class ImageBase(unittest.TestCase):
     __xds = None
     __zarr_store : str = 'out.zarr'
 
+
     @classmethod
     def setUpClass(cls):
         cls.__make_image()
@@ -63,7 +64,7 @@ class ImageBase(unittest.TestCase):
         t = casacore.tables.table(cls.__imname, readonly=False)
         t.putkeyword('units', 'Jy/beam')
         t.close()
-        cls.__xds = read_image(cls.__imname, chunks=shape[::-1])
+        cls.__xds = read_image(cls.__imname, {'freq': 5})
         write_image(cls.__xds, cls.__outname, out_format='casa')
         write_image(cls.__xds, cls.__zarr_store, out_format='zarr')
 
@@ -78,6 +79,10 @@ class ImageBase(unittest.TestCase):
 
     def outname(self):
         return self.__outname
+
+
+    def zarr_store(self):
+        return self.__zarr_store
 
 
     def dict_equality(self, dict1, dict2, dict1_name, dict2_name, exclude_keys=[]):
@@ -272,7 +277,6 @@ class casa_image_to_xds_test(ImageBase):
                     f'Incorrect xds level direction attribute {k}'
                 )
             else:
-                print(f'k {k} got {got}')
                 self.assertEqual(
                     got, exp_direction[k],
                     f'Incorrect xds level direction attribute {k}'
@@ -400,6 +404,37 @@ class casa_xds_to_image_test(ImageBase):
             (im1.getmask() == im2.getmask()).all(),
             'Incorrect mask values'
         )
+
+class zarr_to_xds_test(ImageBase):
+    """
+    test xds -> zarr -> xds round trip
+    """
+
+    def test_xds_pixel_values(self):
+        """Test xds has correct pixel values"""
+        zds = read_image(self.zarr_store())
+        xds = self.xds()
+        self.assertTrue((zds.sky == xds.sky).all(), 'Incorrect pixel values')
+        self.assertTrue((zds.mask0 == xds.mask0).all(), 'Incorrect mask values')
+        self.assertTrue(zds.sky.attrs['image_type'] == 'Intensity', 'Wrong image type')
+        self.assertTrue(
+            zds.sky.attrs['unit'] == 'Jy/beam',
+            f'Wrong image unit {zds.sky.attrs["unit"]}'
+        )
+        exp_ma = da.ma.masked_array(xds.sky, xds.mask0)
+        got_ma = da.ma.masked_array(zds.sky, zds.mask0)
+        self.assertEqual(da.sum(got_ma), da.sum(exp_ma), 'Incorrect value for sum')
+
+
+        """
+        exp_mask = im.getmask()
+        xds = self.xds()
+        got_data = da.squeeze(da.transpose(xds.sky, [2, 1, 4, 3, 0]), 4)
+        got_unit = xds.sky.attrs['unit']
+        got_mask = da.squeeze(da.transpose(xds.mask0, [2, 1, 4, 3, 0]), 4)
+        self.assertTrue((got_data == exp_data).all(), 'pixel values incorrect')
+        self.assertTrue((got_mask == exp_mask).all(), 'mask values incorrect')
+        """
 
 
 if __name__ == '__main__':

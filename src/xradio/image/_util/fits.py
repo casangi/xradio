@@ -8,11 +8,8 @@ def __read_fits_image(
     infile:str, chunks:Union[list, dict], masks:bool=True,
     history:bool=True, verbose:bool=False
 ) -> xr.Dataset:
-    logging.warn('** ba')
     img_full_path = os.path.expanduser(infile)
-    logging.warn('** bb')
     attrs = __fits_image_to_xds_metadata(img_full_path, verbose)
-    logging.warn('** bc')
     return attrs
     """
     xds = ret['xds']

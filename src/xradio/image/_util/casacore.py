@@ -25,11 +25,11 @@ import numpy as np
 import astropy.wcs
 from .common import __get_xds_dim_order
 from ._casacore.common import __active_mask
-from ._casacore.casacore_from_xds import (
+from ._casacore.xds_to_casacore import (
     __coord_dict_from_xds, __history_from_xds, __imageinfo_dict_from_xds,
     __write_casa_data
 )
-from ._casacore.casacore_to_xds import (
+from ._casacore.xds_from_casacore import (
     __add_coord_attrs, __add_mask, __add_sky_or_apeture,
     __casa_image_to_xds_attrs, __casa_image_to_xds_metadata, __get_mask_names,
     __get_persistent_block, __get_starts_shapes_slices, __get_transpose_list,

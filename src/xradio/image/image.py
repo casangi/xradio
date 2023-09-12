@@ -21,7 +21,7 @@
 #################################
 from ._util.casacore import __load_casa_image_block, __xds_to_casa_image
 from ._util.fits import __read_fits_image
-from ._util.zarr import __xds_to_zarr
+from ._util.zarr import __xds_to_zarr, __xds_from_zarr
 import warnings, time, os, logging
 import numpy as np
 import astropy.wcs
@@ -34,7 +34,7 @@ warnings.filterwarnings('ignore', category=FutureWarning)
 
 
 def read_image(
-    infile:str, chunks:Union[list, dict], masks:bool=True,
+    infile:str, chunks:dict={}, masks:bool=True,
     history:bool=True, verbose:bool=False
 ) -> xr.Dataset:
     """
@@ -44,17 +44,15 @@ def read_image(
 
     :param infile: Path to the input CASA image
     :type infile: str, required
-    :param chunks: The desired dask chunk size.
-                   If list, the ordering is based on the ordering of
-                   the input axes. So, for example, if the input image has axes
-                   RA, Dec, Freq, Stokes and the desired chunking is 40 pixels
-                   in RA, 30 pixels in Dec, 20 pixels in Freq, and 2 pixels in
-                   Stokes, chunks would be specified as [40, 30, 20, 2].
-                   If dict, supported optional keys are 'l', 'm', 'freq', 'pol',
+    :param chunks: The desired dask chunk size. Only applicable for casacore images.
+                   Supported optional keys are 'l', 'm', 'freq', 'pol',
                    and 'time'. The supported values are positive integers,
                    indicating the length of a chunk on that particular axis. If
-                   a key is missing, the associated chunk length along that axis
-                   is 1. 'l' represents the longitude like dimension, and 'm'
+                   a key is missing, then the associated chunk length along that axis
+                   is equal to the number of pixels along that axis.
+                   for zarr images, this parameter is ignored and the chunk size
+                   used to store the arrays in the zarr image is used.
+                   'l' represents the longitude like dimension, and 'm'
                    represents the latitude like dimension. For apeature images,
                    'u' may be used in place of 'l', and 'v' in place of 'm'.
     :type chunks: list | dict, required
@@ -64,7 +62,7 @@ def read_image(
     :type history: bool, optional
     :param verbose: emit debugging messages? Default is False.
     :type verbose: bool, optional
-    :return: xr Dataset image that conforms to the ngCASA image spec
+    :return: xr.Dataset image that conforms to the ngCASA image spec
     :rtype: xr.Dataset
     """
     do_casa = True
@@ -85,6 +83,11 @@ def read_image(
     except Exception as e:
         logging.warn(f'image format appears not to be fits {e.args}')
         pass
+    # try:
+    return __xds_from_zarr(infile)
+    # except Exception as e:
+    # logging.warn(f'image format appears not to be zarr {e.args}')
+    #    pass
     raise RuntimeError('Unrecognized image format')
 
 

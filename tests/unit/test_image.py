@@ -33,7 +33,7 @@ class ImageBase(unittest.TestCase):
     __imname : str = 'inp.im'
     __outname : str = 'out.im'
     __xds = None
-
+    __zarr_store : str = 'out.zarr'
 
     @classmethod
     def setUpClass(cls):
@@ -42,7 +42,7 @@ class ImageBase(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        for f in [cls.__imname, cls.__outname]:
+        for f in [cls.__imname, cls.__outname, cls.__zarr_store]:
             if os.path.exists(f):
                 if os.path.isdir(f):
                     shutil.rmtree(f)
@@ -65,6 +65,7 @@ class ImageBase(unittest.TestCase):
         t.close()
         cls.__xds = read_image(cls.__imname, chunks=shape[::-1])
         write_image(cls.__xds, cls.__outname, out_format='casa')
+        write_image(cls.__xds, cls.__zarr_store, out_format='zarr')
 
 
     def imname(self):
@@ -271,6 +272,7 @@ class casa_image_to_xds_test(ImageBase):
                     f'Incorrect xds level direction attribute {k}'
                 )
             else:
+                print(f'k {k} got {got}')
                 self.assertEqual(
                     got, exp_direction[k],
                     f'Incorrect xds level direction attribute {k}'

@@ -23,7 +23,7 @@ import numpy.ma as ma
 import os
 import shutil
 import unittest
-import xarray
+import xarray as xr
 import copy
 
 
@@ -34,6 +34,15 @@ class ImageBase(unittest.TestCase):
     __outname : str = 'out.im'
     __xds = None
     __zarr_store : str = 'out.zarr'
+    __exp_vals = {
+        'freq_cdelt': 1000, 'freq_crpix': 20,
+        'freq_nativetype': 'FREQ',
+        'freq_system': 'LSRK', 'freq_unit': 'Hz',
+        'freq_waveunit': 'mm', 'image_type': 'Intensity',
+        'stokes': ['I', 'Q', 'U', 'V'], 'time_format': 'MJD',
+        'time_refer': 'UTC', 'time_unit': 'd', 'unit': 'Jy/beam',
+        'vel_type': 'RADIO', 'vel_unit': 'm/s'
+    }
 
 
     @classmethod
@@ -84,6 +93,11 @@ class ImageBase(unittest.TestCase):
     def zarr_store(self):
         return self.__zarr_store
 
+    """
+    def exp_vals(self):
+        return self.__exp_vals
+    """
+
 
     def dict_equality(self, dict1, dict2, dict1_name, dict2_name, exclude_keys=[]):
         self.assertEqual(
@@ -107,108 +121,166 @@ class ImageBase(unittest.TestCase):
                     )
 
 
+    def compare_sky_mask(self, xds:xr.Dataset):
+        """Compare got sky and mask values to expected values"""
+        ev = self.__exp_vals
+        self.assertTrue(
+            xds.sky.attrs['image_type'] == ev['image_type'],
+            'Wrong image type'
+        )
+        self.assertTrue(
+            xds.sky.attrs['unit'] == ev['unit'], 'Wrong unit'
+        )
+        got_data = da.squeeze(da.transpose(xds.sky, [2, 1, 4, 3, 0]), 4)
+        got_mask = da.squeeze(da.transpose(xds.mask0, [2, 1, 4, 3, 0]), 4)
+        if 'sky_array' not in ev:
+            im = casacore.images.image(self.imname())
+            ev['sky'] = im.getdata()
+            # getmask returns the negated value of the casa image mask, so True
+            # has the same meaning as it does in xds.mask0
+            ev['mask0'] = im.getmask()
+            ev['sum'] = im.statistics()['sum'][0]
+        self.assertTrue(
+            (got_data == ev['sky']).all(), 'pixel values incorrect'
+        )
+        self.assertTrue(
+            (got_mask == ev['mask0']).all(), 'mask values incorrect'
+        )
+        got_ma = da.ma.masked_array(xds.sky, xds.mask0)
+        self.assertEqual(
+            da.sum(got_ma), ev['sum'], 'Incorrect value for sum'
+        )
+
+
+    def compare_time(self, xds: xr.Dataset):
+        ev = self.__exp_vals
+        if 'time' not in ev:
+            im = casacore.images.image(self.imname())
+            coords = im.coordinates().dict()['obsdate']
+            ev['time'] = coords['m0']['value']
+        got_vals = xds.time
+        self.assertEqual(got_vals, ev['time'], 'Incorrect time axis values')
+        self.assertEqual(
+            xds.time.attrs['format'], ev['time_format'],
+            'Incoorect time axis format'
+        )
+        self.assertEqual(
+            xds.time.attrs['refer'], ev['time_refer'],
+            'Incoorect time axis refer'
+        )
+        self.assertEqual(
+            xds.time.attrs['unit'], ev['time_unit'], 'Incoorect time axis unitt'
+        )
+
+
+    def compare_pol(self, xds:xr.Dataset):
+        self.assertTrue(
+            (xds.pol == self.__exp_vals['stokes']).all(),
+            'Incorrect pol values'
+        )
+
+
+    def compare_freq(self, xds:xr.Dataset):
+        ev = self.__exp_vals
+        if 'freq' not in ev:
+            im = casacore.images.image(self.imname())
+            sd = im.coordinates().dict()['spectral2']
+            ev['freq'] = []
+            for chan in range(10):
+                ev['freq'].append(im.toworld([chan,0,0,0])[0])
+            ev['freq_conversion'] = sd['conversion']
+            ev['restfreq'] = sd['restfreq']
+            ev['restfreqs'] = sd['restfreqs']
+            ev['freq_crval'] = sd['wcs']['crval']
+        self.assertTrue((xds.freq == ev['freq']).all(), 'Incorrect frequencies')
+        self.assertEqual(
+            xds.freq.attrs['conversion'], ev['freq_conversion'],
+            (
+                f'Incorrect frquency conversion. Got {xds.freq.attrs["conversion"]}. '
+                + 'Exprected {ev["freq_conversion"'
+            )
+        )
+        self.assertEqual(
+            xds.freq.attrs['restfreq'], ev['restfreq'],
+            'Incorrect rest frequency'
+        )
+        self.assertTrue(
+            (xds.freq.attrs['restfreqs'] == ev['restfreqs']).all(),
+            'Incorrect rest frequencies'
+        )
+        self.assertEqual(
+            xds.freq.attrs['system'], ev['freq_system'],
+            'Incorrect frequency system'
+        )
+        self.assertEqual(
+            xds.freq.attrs['unit'], ev['freq_unit'],
+            'Incorrect frequency unit'
+        )
+        self.assertEqual(
+            xds.freq.attrs['wave_unit'], ev['freq_waveunit'],
+            'Incorrect wavelength unit'
+        )
+        self.assertEqual(
+            xds.freq.attrs['wcs']['cdelt'], ev['freq_cdelt'],
+            'Incorrect frequency crpix'
+        )
+        self.assertEqual(
+            xds.freq.attrs['wcs']['crval'], ev['freq_crval'],
+            'Incorrect frequency crpix'
+        )
+
+
+    def compare_vel_axis(self, xds:xr.Dataset):
+        ev = self.__exp_vals
+        if 'vel' not in ev:
+            im = casacore.images.image(self.imname())
+            freqs = []
+            for chan in range(10):
+                freqs.append(im.toworld([chan,0,0,0])[0])
+            freqs = np.array(freqs)
+            spec_coord = casacore.images.coordinates.spectralcoordinate(
+                im.coordinates().dict()['spectral2']
+            )
+            rest_freq = spec_coord.get_restfrequency()
+            ev['vel'] = (1 - freqs/rest_freq) * 299792458
+        self.assertTrue((xds.vel == ev['vel']).all(), 'Incorrect velocities')
+        self.assertEqual(
+            xds.vel.attrs['unit'], ev['vel_unit'], 'Incoorect velocity unit'
+        )
+        self.assertEqual(
+            xds.vel.attrs['doppler_type'], ev['vel_type'],
+            'Incoorect velocity type'
+        )
+
+
 class casa_image_to_xds_test(ImageBase):
     """
     test casa_image_to_xds
     """
 
-
     def test_xds_pixel_values(self):
         """Test xds has correct pixel values"""
-        im = casacore.images.image(self.imname())
-        stats = im.statistics()
-        exp_data = im.getdata()
-        # getmask returns the negated value of the casa image mask, so True
-        # has the same meaning as it does in xds.mask0
-        exp_mask = im.getmask()
-        xds = self.xds()
-        got_data = da.squeeze(da.transpose(xds.sky, [2, 1, 4, 3, 0]), 4)
-        self.assertTrue(xds.sky.attrs['image_type'] == 'Intensity', 'Wrong image type')
-        got_unit = xds.sky.attrs['unit']
-        self.assertTrue(got_unit == 'Jy/beam', f'Wrong image unit {got_unit}')
-        got_mask = da.squeeze(da.transpose(xds.mask0, [2, 1, 4, 3, 0]), 4)
-        self.assertTrue((got_data == exp_data).all(), 'pixel values incorrect')
-        self.assertTrue((got_mask == exp_mask).all(), 'mask values incorrect')
-        got_ma = da.ma.masked_array(xds.sky, xds.mask0)
-        self.assertEqual(da.sum(got_ma), stats['sum'][0], 'Incorrect value for sum')
+        self.compare_sky_mask(self.xds())
 
 
     def test_xds_time_axis(self):
         """Test values and attributes on the time axis"""
-        im = casacore.images.image(self.imname())
-        coords = im.coordinates().dict()['obsdate']
-        exp_vals = coords['m0']['value']
-        exp_attrs = {}
-        exp_attrs['unit'] = coords['m0']['unit']
-        exp_attrs['refer'] = coords['refer']
-        exp_attrs['format'] = 'MJD'
-        xds = self.xds()
-        got_vals = xds.time
-        self.assertEqual(got_vals, exp_vals, 'Incorrect time axis values')
-        got_attrs = xds.time.attrs
-        self.assertEqual(got_attrs, exp_attrs, 'Incoorect time axis attributes')
+        self.compare_time(self.xds())
 
 
     def test_xds_pol_axis(self):
         """Test xds has correct stokes values"""
-        im = casacore.images.image(self.imname())
-        stokes_coord = im.coordinates().dict()['stokes1']
-        exp_vals = stokes_coord['stokes']
-        xds = self.xds()
-        got_vals = xds.pol
-        self.assertTrue((got_vals == exp_vals).all(), 'Incorrect pol values')
+        self.compare_pol(self.xds())
 
 
     def test_xds_freq_axis(self):
         """Test xds has correct frequency values and metadata"""
-        im = casacore.images.image(self.imname())
-        sd = im.coordinates().dict()['spectral2']
-        exp_freq = []
-        for chan in range(10):
-            exp_freq.append(im.toworld([chan,0,0,0])[0])
-        native_types = ['FREQ', 'VRAD', 'VOPT', 'BETA', 'WAVE', 'AWAV']
-        exp_attrs = {}
-        exp_attrs['conversion'] = sd['conversion']
-        exp_attrs['native_type'] = native_types[sd['nativeType']]
-        exp_attrs['restfreq'] = sd['restfreq']
-        exp_attrs['restfreqs'] = sd['restfreqs']
-        exp_attrs['system'] = sd['system']
-        exp_attrs['unit'] = sd['unit']
-        exp_attrs['wave_unit'] = sd['waveUnit']
-        for k in ['crpix', 'ctype', 'pc']:
-            del sd['wcs'][k]
-        exp_attrs['wcs'] = sd['wcs']
-
-        xds = self.xds()
-        got_freq = xds.freq
-        self.assertTrue((got_freq == exp_freq).all())
-        got_attrs = xds.freq.attrs
-        self.assertEqual(got_attrs, exp_attrs, 'Incorrect freq axis attributes')
+        self.compare_freq(self.xds())
 
 
     def test_xds_vel_axis(self):
         """Test xds has correct velocity values and metadata"""
-        im = casacore.images.image(self.imname())
-        freqs = []
-        for chan in range(10):
-            freqs.append(im.toworld([chan,0,0,0])[0])
-        freqs = np.array(freqs)
-        spec_coord = casacore.images.coordinates.spectralcoordinate(
-            im.coordinates().dict()['spectral2']
-        )
-        rest_freq = spec_coord.get_restfrequency()
-        exp_vels = (1 - freqs/rest_freq) * 299792458
-        exp_attrs = {}
-        exp_attrs['unit'] = 'm/s'
-        doppler_types = ['RADIO', 'Z', 'RATIO', 'BETA', 'GAMMA']
-        exp_attrs['doppler_type'] = doppler_types[
-            im.coordinates().dict()['spectral2']['velType']
-        ]
-        xds = self.xds()
-        got_vels = xds.vel
-        self.assertTrue((got_vels == exp_vels).all())
-        got_attrs = xds.vel.attrs
-        self.assertEqual(got_attrs, exp_attrs, 'Incoorect vel axis attributes')
+        self.compare_vel_axis(self.xds())
 
 
     def test_xds_ra_dec_axis(self):
@@ -333,7 +405,7 @@ class casa_image_to_xds_test(ImageBase):
             'Incorrect telescope attribute(s)'
         )
         self.assertTrue(
-            isinstance(self.xds().history, xarray.core.dataset.Dataset),
+            isinstance(self.xds().history, xr.core.dataset.Dataset),
             'Incorrect type for history data'
         )
 
@@ -405,6 +477,7 @@ class casa_xds_to_image_test(ImageBase):
             'Incorrect mask values'
         )
 
+
 class zarr_to_xds_test(ImageBase):
     """
     test xds -> zarr -> xds round trip
@@ -413,28 +486,31 @@ class zarr_to_xds_test(ImageBase):
     def test_xds_pixel_values(self):
         """Test xds has correct pixel values"""
         zds = read_image(self.zarr_store())
-        xds = self.xds()
-        self.assertTrue((zds.sky == xds.sky).all(), 'Incorrect pixel values')
-        self.assertTrue((zds.mask0 == xds.mask0).all(), 'Incorrect mask values')
-        self.assertTrue(zds.sky.attrs['image_type'] == 'Intensity', 'Wrong image type')
-        self.assertTrue(
-            zds.sky.attrs['unit'] == 'Jy/beam',
-            f'Wrong image unit {zds.sky.attrs["unit"]}'
-        )
-        exp_ma = da.ma.masked_array(xds.sky, xds.mask0)
-        got_ma = da.ma.masked_array(zds.sky, zds.mask0)
-        self.assertEqual(da.sum(got_ma), da.sum(exp_ma), 'Incorrect value for sum')
+        self.compare_sky_mask(zds)
 
 
-        """
-        exp_mask = im.getmask()
-        xds = self.xds()
-        got_data = da.squeeze(da.transpose(xds.sky, [2, 1, 4, 3, 0]), 4)
-        got_unit = xds.sky.attrs['unit']
-        got_mask = da.squeeze(da.transpose(xds.mask0, [2, 1, 4, 3, 0]), 4)
-        self.assertTrue((got_data == exp_data).all(), 'pixel values incorrect')
-        self.assertTrue((got_mask == exp_mask).all(), 'mask values incorrect')
-        """
+    def test_xds_time_vals(self):
+        """Test xds has correct time axis values"""
+        zds = read_image(self.zarr_store())
+        self.compare_time(zds)
+
+
+    def test_xds_pol_axis(self):
+        """Test xds has correct stokes values"""
+        zds = read_image(self.zarr_store())
+        self.compare_pol(zds)
+
+
+    def test_xds_freq_axis(self):
+        """Test xds has correct frequency values and metadata"""
+        zds = read_image(self.zarr_store())
+        self.compare_freq(zds)
+
+
+    def test_xds_vel_axis(self):
+        """Test xds has correct velocity values and metadata"""
+        zds = read_image(self.zarr_store())
+        self.compare_vel_axis(zds)
 
 
 if __name__ == '__main__':

@@ -6,7 +6,7 @@ from .common import (__np_types, __top_level_sub_xds)
 def __write_zarr(xds: xr.Dataset, zarr_store: str):
     xds_copy = xds.copy(deep=True)
     xds_copy, xds_dict = __encode(xds_copy)
-    z_obj = xds_copy.to_zarr(store=zarr_store)
+    z_obj = xds_copy.to_zarr(store=zarr_store, compute=True)
     __write_sub_xdses(zarr_store, xds_dict, __top_level_sub_xds)
 
 
@@ -40,7 +40,7 @@ def __encode_dict(my_dict: dict, top_key='') -> tuple:
 
 def __write_sub_xdses(zarr_store: str, xds_dict: dict, path: str):
     for k, v in xds_dict.items():
-        my_path = f'__{path}__{k}' if path else f'__{k}'
+        my_path = f'{path}__{k}' if path else f'{k}'
         if isinstance(v, dict):
             __write_sub_xdses(zarr_store, xds_dict[k], my_path)
         elif isinstance(v, xr.Dataset):

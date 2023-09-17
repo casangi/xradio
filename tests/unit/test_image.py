@@ -33,16 +33,66 @@ class ImageBase(unittest.TestCase):
     __imname : str = 'inp.im'
     __outname : str = 'out.im'
     __xds = None
-    __zarr_store : str = 'out.zarr'
     __exp_vals = {
-        'freq_cdelt': 1000, 'freq_crpix': 20,
+        'dec_unit': 'rad', 'freq_cdelt': 1000, 'freq_crpix': 20,
         'freq_nativetype': 'FREQ',
         'freq_system': 'LSRK', 'freq_unit': 'Hz',
         'freq_waveunit': 'mm', 'image_type': 'Intensity',
-        'stokes': ['I', 'Q', 'U', 'V'], 'time_format': 'MJD',
-        'time_refer': 'UTC', 'time_unit': 'd', 'unit': 'Jy/beam',
-        'vel_type': 'RADIO', 'vel_unit': 'm/s'
+        'ra_unit': 'rad', 'stokes': ['I', 'Q', 'U', 'V'],
+        'time_format': 'MJD', 'time_refer': 'UTC', 'time_unit': 'd',
+        'unit': 'Jy/beam', 'vel_type': 'RADIO', 'vel_unit': 'm/s'
     }
+
+
+    __exp_attrs = {}
+    __exp_attrs['direction'] = {
+        'system': 'FK5',
+        'equinox': 'J2000',
+        'conversion_system': 'FK5',
+        'conversion_equinox': 'J2000',
+        'latpole': {'value': 0.0, 'unit': 'rad'},
+        'longpole': {'value': 3.141592653589793, 'unit': 'rad'},
+        'pc': np.array([[1., 0.], [0., 1.]]),
+        'projection_parameters': np.array([0., 0.]),
+        'projection': 'SIN'
+    }
+    # TODO make a more intresting beam
+    __exp_attrs['beam'] = None
+    __exp_attrs['obsdate'] = {
+        'type': 'epoch',
+        'refer': 'UTC',
+        'm0': {
+            'value': 51544.00000000116,
+            'unit': 'd'
+        }
+    }
+    __exp_attrs['observer'] = 'Karl Jansky'
+    __exp_attrs['description'] = None
+    __exp_attrs['active_mask'] = 'mask0'
+    __exp_attrs['object_name'] = ''
+    __exp_attrs['pointing_center'] = {
+        'value': np.array([0,0]), 'initial': True,
+    }
+    __exp_attrs['telescope'] = {
+        'name': 'ALMA', 'position': {
+            'type': 'position',
+            'refer': 'ITRF',
+            'm2': {
+                'value': 6379946.01326443,
+                'unit': 'm'
+            },
+            'm1': {
+                'unit': 'rad',
+                'value': -0.3994149869262738
+            },
+            'm0': {
+                'unit': 'rad',
+                'value': -1.1825465955049892
+            }
+        }
+    }
+    __exp_attrs['user'] = {}
+    __exp_attrs['history'] = None
 
 
     @classmethod
@@ -52,7 +102,7 @@ class ImageBase(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        for f in [cls.__imname, cls.__outname, cls.__zarr_store]:
+        for f in [cls.__imname, cls.__outname,]:
             if os.path.exists(f):
                 if os.path.isdir(f):
                     shutil.rmtree(f)
@@ -63,7 +113,9 @@ class ImageBase(unittest.TestCase):
     @classmethod
     def __make_image(cls):
         shape : list[int] = [10, 4, 20, 30]
-        mask : np.ndarray = np.array([ i % 3 == 0 for i in range(np.prod(shape)) ], dtype=bool).reshape(shape)
+        mask : np.ndarray = np.array(
+            [ i % 3 == 0 for i in range(np.prod(shape)) ], dtype=bool
+        ).reshape(shape)
         pix : np.ndarray = np.array([ range(np.prod(shape)) ], dtype=np.float64).reshape(shape)
         masked_array = ma.masked_array(pix, mask)
         im : casacore.images.image = casacore.images.image(cls.__imname, shape=shape)
@@ -73,15 +125,20 @@ class ImageBase(unittest.TestCase):
         t = casacore.tables.table(cls.__imname, readonly=False)
         t.putkeyword('units', 'Jy/beam')
         t.close()
+        t = casacore.tables.table(os.sep.join([cls.__imname, 'logtable']), readonly=False)
+        t.addrows()
+        t.putcell('MESSAGE', 0, 'HELLO FROM EARTH again')
+        t.flush()
+        t.close()
         cls.__xds = read_image(cls.__imname, {'freq': 5})
         write_image(cls.__xds, cls.__outname, out_format='casa')
-        write_image(cls.__xds, cls.__zarr_store, out_format='zarr')
 
 
     def imname(self):
         return self.__imname
 
 
+    @classmethod
     def xds(self):
         return self.__xds
 
@@ -90,23 +147,19 @@ class ImageBase(unittest.TestCase):
         return self.__outname
 
 
-    def zarr_store(self):
-        return self.__zarr_store
-
-    """
-    def exp_vals(self):
-        return self.__exp_vals
-    """
+    def exp_attrs(self):
+        return self.__exp_attrs
 
 
     def dict_equality(self, dict1, dict2, dict1_name, dict2_name, exclude_keys=[]):
         self.assertEqual(
             dict1.keys(), dict2.keys(),
-            f'{dict1_name} has different keys than {dict2_name}'
+            f'{dict1_name} has different keys than {dict2_name}:'
+            f'\n{dict1.keys()} vs\n {dict2.keys()}'
         )
         for k in dict1.keys():
             if k not in exclude_keys:
-                if isinstance(dict1[k], dict):
+                if isinstance(dict1[k], dict) and isinstance(dict2[k], dict):
                     self.dict_equality(
                         dict1[k], dict2[k], f'{dict1_name}[{k}]', f'{dict2_name}[{k}]'
                     )
@@ -117,7 +170,9 @@ class ImageBase(unittest.TestCase):
                     )
                 else:
                     self.assertEqual(
-                        dict1[k], dict2[k], f'{dict1_name}[{k}] != {dict2_name}[{k}]'
+                        dict1[k], dict2[k],
+                        f'{dict1_name}[{k}] != {dict2_name}[{k}]:\n'
+                        + f'{dict1[k]} vs\n{dict2[k]}'
                     )
 
 
@@ -253,10 +308,82 @@ class ImageBase(unittest.TestCase):
         )
 
 
+    def compare_ra_dec(self, xds:xr.Dataset):
+        ev = self.__exp_vals
+        if 'ra' not in ev:
+            im = casacore.images.image(self.imname())
+            shape = im.shape()
+            dd = im.coordinates().dict()['direction0']
+            ev['ra'] = np.zeros([shape[3], shape[2]])
+            ev['dec'] = np.zeros([shape[3], shape[2]])
+            for i in range(shape[3]):
+                for j in range(shape[2]):
+                    w = im.toworld([0, 0, j, i])
+                    ev['ra'][i][j] = w[3]
+                    ev['dec'][i][j] = w[2]
+            f = np.pi/180/60
+            ev['ra'] *= f
+            ev['dec'] *= f
+            ev['ra_crval'] = dd['crval'][0]*f
+            ev['ra_cdelt'] = dd['cdelt'][0]*f
+            ev['dec_crval'] = dd['crval'][1]*f
+            ev['dec_cdelt'] = dd['cdelt'][1]*f
+        self.assertTrue(
+            np.allclose(xds.right_ascension, ev['ra'], atol=1e-15),
+            'Incorrect RA values'
+        )
+        self.assertTrue(
+            np.allclose(xds.declination, ev['dec'], atol=1e-15),
+            'Incorrect Dec values'
+        )
+        self.assertEqual(
+            xds.right_ascension.attrs['unit'], ev['ra_unit'],
+            'Incorrect RA unit'
+        )
+        self.assertEqual(
+            xds.right_ascension.attrs['wcs']['crval'], ev['ra_crval'],
+            'Incorrect RA crval'
+        )
+        self.assertEqual(
+            xds.right_ascension.attrs['wcs']['cdelt'], ev['ra_cdelt'],
+            'Incorrect RA cdelt'
+        )
+        self.assertEqual(
+            xds.declination.attrs['unit'], ev['dec_unit'],
+            'Incorrect Dec unit'
+        )
+        self.assertEqual(
+            xds.declination.attrs['wcs']['crval'], ev['dec_crval'],
+            'Incorrect Dec crval'
+        )
+        self.assertEqual(
+            xds.declination.attrs['wcs']['cdelt'], ev['dec_cdelt'],
+            'Incorrect Dec cdelt'
+        )
+
+    def check_types(self, xds):
+        for k, v in xds.coords.items():
+            self.assertTrue(
+                isinstance(v.data, np.ndarray),
+                f'Wrong type for coord {k}, got {type(v)}'
+            )
+        for k, v in xds.data_vars.items():
+            self.assertTrue(
+                isinstance(v.data, da.core.Array),
+                f'Wrong type for coord {k}, got {type(v)}'
+            )
+
+
 class casa_image_to_xds_test(ImageBase):
     """
     test casa_image_to_xds
     """
+
+
+    def test_xds_types(self):
+        """Check coord and data_vars types"""
+        self.check_types(self.xds())
+
 
     def test_xds_pixel_values(self):
         """Test xds has correct pixel values"""
@@ -285,127 +412,16 @@ class casa_image_to_xds_test(ImageBase):
 
     def test_xds_ra_dec_axis(self):
         """Test xds has correct RA and Dec values and attributes"""
-        im = casacore.images.image(self.imname())
-        shape = im.shape()
-        dd = im.coordinates().dict()['direction0']
-        exp_ra_vals = np.zeros([shape[3], shape[2]])
-        exp_dec_vals = np.zeros([shape[3], shape[2]])
-        for i in range(shape[3]):
-            for j in range(shape[2]):
-                w = im.toworld([0, 0, j, i])
-                exp_ra_vals[i][j] = w[3]
-                exp_dec_vals[i][j] = w[2]
-        f = np.pi/180/60
-        exp_ra_vals *= f
-        exp_dec_vals *= f
-        exp_ra_attrs = {}
-        exp_ra_attrs['unit'] = 'rad'
-        exp_ra_attrs['wcs'] = {}
-        exp_ra_attrs['wcs']['crval'] = dd['crval'][0]*f
-        exp_ra_attrs['wcs']['cdelt'] = dd['cdelt'][0]*f
-        exp_dec_attrs = {}
-        exp_dec_attrs['unit'] = 'rad'
-        exp_dec_attrs['wcs'] = {}
-        exp_dec_attrs['wcs']['crval'] = dd['crval'][1]*f
-        exp_dec_attrs['wcs']['cdelt'] = dd['cdelt'][1]*f
-
-        xds = self.xds()
-        got_ra_vals = xds.right_ascension
-        got_dec_vals = xds.declination
-        z = np.abs(got_ra_vals - exp_ra_vals)
-        self.assertTrue(
-            np.allclose(got_ra_vals, exp_ra_vals, atol=1e-15),
-            'Incorrect RA values'
-        )
-        self.assertTrue(
-            np.allclose(got_dec_vals, exp_dec_vals, atol=1e-15),
-            'Incorrect Dec values'
-        )
-        got_ra_attrs = xds.right_ascension.attrs
-        got_dec_attrs = xds.declination.attrs
-        self.assertEqual(got_ra_attrs, exp_ra_attrs, 'Incorrect RA attributes')
-        self.assertEqual(got_dec_attrs, exp_dec_attrs, 'Incorrect Dec attributes')
+        self.compare_ra_dec(self.xds())
 
 
     def test_xds_attrs(self):
         """Test xds level attributes"""
-        got_attrs = self.xds().attrs
-        exp_direction = {
-            'system': 'FK5',
-            'equinox': 'J2000',
-            'conversion_system': 'FK5',
-            'conversion_equinox': 'J2000',
-            'latpole': {'value': 0.0, 'unit': 'rad'},
-            'longpole': {'value': 3.141592653589793, 'unit': 'rad'},
-            'pc': np.array([[1., 0.], [0., 1.]]),
-            'projection_parameters': np.array([0., 0.]),
-            'projection': 'SIN'
-        }
-        for k in exp_direction:
-            got = got_attrs['direction'][k]
-            if isinstance(got, np.ndarray):
-                self.assertTrue(
-                    (got == exp_direction[k]).all(),
-                    f'Incorrect xds level direction attribute {k}'
-                )
-            else:
-                self.assertEqual(
-                    got, exp_direction[k],
-                    f'Incorrect xds level direction attribute {k}'
-                )
-        expec = {}
-        # TODO make a more intresting beam
-        expec['beam'] = None
-        expec['obsdate'] = {
-            'type': 'epoch',
-            'refer': 'UTC',
-            'm0': {
-                'value': 51544.00000000116,
-                'unit': 'd'
-            }
-        }
-        expec['observer'] = 'Karl Jansky'
-        expec['description'] = None
-        for k in expec:
-            self.assertEqual(
-                got_attrs[k], expec[k],
-                f'Incorrect xds level attribute {k}. Got {got_attrs[k]}. Expected {expec[k]}'
-            )
-        self.assertEqual(got_attrs['active_mask'], 'mask0', 'Incorrect active_mask')
-        self.assertEqual(got_attrs['object_name'], '', 'Incorrect object_name')
-        self.assertTrue(
-            (got_attrs['pointing_center']['value'] == np.array([0,0])).all(),
-            'Incorrect pointing center'
+        self.dict_equality(
+            self.xds().attrs, self.exp_attrs(), 'Got attrs', 'Expected attrs', ['history']
         )
         self.assertTrue(
-            got_attrs['pointing_center']['initial'],
-            'Incorrect initial pointing center value'
-        )
-        expec_tscope = {
-            'name': 'ALMA',
-            'position': {
-                'type': 'position',
-                'refer': 'ITRF',
-                'm2': {
-                    'value': 6379946.01326443,
-                    'unit': 'm'
-                },
-                'm1': {
-                    'unit': 'rad',
-                    'value': -0.3994149869262738
-                },
-                'm0': {
-                    'unit': 'rad',
-                    'value': -1.1825465955049892
-                }
-            }
-        }
-        self.assertEqual(
-            got_attrs['telescope'], expec_tscope,
-            'Incorrect telescope attribute(s)'
-        )
-        self.assertTrue(
-            isinstance(self.xds().history, xr.core.dataset.Dataset),
+            isinstance(self.xds().attrs['history'], xr.core.dataset.Dataset),
             'Incorrect type for history data'
         )
 
@@ -458,11 +474,9 @@ class casa_image_to_xds_test(ImageBase):
             'Incorrect declination coordinate values'
         )
 
+class casacore_to_xds_to_casacore(ImageBase):
+    """test casacore -> xds -> casacore round trip"""
 
-class casa_xds_to_image_test(ImageBase):
-    """
-    test casa_xds_to_image_test
-    """
 
     def test_pixels_and_mask(self):
         """Test pixel values are consistent"""
@@ -478,40 +492,89 @@ class casa_xds_to_image_test(ImageBase):
         )
 
 
-class zarr_to_xds_test(ImageBase):
+class xds_to_zarr_to_xds_test(ImageBase):
     """
     test xds -> zarr -> xds round trip
     """
 
+    __zarr_store:str = 'out.zarr'
+
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        write_image(cls.xds(), cls.__zarr_store, out_format='zarr')
+        cls.__zds = read_image(cls.__zarr_store)
+
+
+    @classmethod
+    def tearDownClass(cls):
+        for f in [cls.__zarr_store,]:
+            if os.path.exists(f):
+                if os.path.isdir(f):
+                    shutil.rmtree(f)
+                else:
+                    os.remove(f)
+
+
+    def setUp(self):
+        pass
+
+
+    def tearDown(self):
+        pass
+
+
+    def test_xds_types(self):
+        """Check coord and data_vars types"""
+        self.check_types(self.__zds)
+
+
     def test_xds_pixel_values(self):
         """Test xds has correct pixel values"""
-        zds = read_image(self.zarr_store())
-        self.compare_sky_mask(zds)
+        self.compare_sky_mask(self.__zds)
 
 
     def test_xds_time_vals(self):
         """Test xds has correct time axis values"""
-        zds = read_image(self.zarr_store())
-        self.compare_time(zds)
+        self.compare_time(self.__zds)
 
 
     def test_xds_pol_axis(self):
         """Test xds has correct stokes values"""
-        zds = read_image(self.zarr_store())
-        self.compare_pol(zds)
+        self.compare_pol(self.__zds)
 
 
     def test_xds_freq_axis(self):
         """Test xds has correct frequency values and metadata"""
-        zds = read_image(self.zarr_store())
-        self.compare_freq(zds)
+        self.compare_freq(self.__zds)
 
 
     def test_xds_vel_axis(self):
         """Test xds has correct velocity values and metadata"""
-        zds = read_image(self.zarr_store())
-        self.compare_vel_axis(zds)
+        self.compare_vel_axis(self.__zds)
 
+
+    def test_xds_ra_dec_axis(self):
+        """Test xds has correct RA and Dec values and attributes"""
+        self.compare_ra_dec(self.__zds)
+
+
+    def test_xds_attrs(self):
+        """Test xds level attributes"""
+        self.dict_equality(
+            self.__zds.attrs, self.exp_attrs(), 'Got attrs', 'Expected attrs', ['history']
+        )
+        self.assertTrue(
+            isinstance(self.__zds.attrs['history'], xr.core.dataset.Dataset),
+            'Incorrect type for history data'
+        )
+        """
+        print('zds message', zds.attrs['history']['MESSAGE'][0])
+
+        import pickle
+        print(pickle.dumps(zds.attrs['history']))
+        """
 
 if __name__ == '__main__':
     unittest.main()

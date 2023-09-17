@@ -14,7 +14,7 @@ from .common import (
     __active_mask, __doppler_types, __native_types, __object_name,
     __pointing_center
 )
-
+from ..common import __dask_arrayize
 
 __image_type = 'image_type'
 

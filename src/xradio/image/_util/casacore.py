@@ -23,7 +23,7 @@
 import warnings, time, os, logging
 import numpy as np
 import astropy.wcs
-from .common import __get_xds_dim_order
+from .common import __get_xds_dim_order, __dask_arrayize
 from ._casacore.common import __active_mask
 from ._casacore.xds_to_casacore import (
     __coord_dict_from_xds, __history_from_xds, __imageinfo_dict_from_xds,
@@ -102,6 +102,7 @@ def __read_casa_image(
     if mb is not None:
         xds['beam'] = mb
     xds = __add_coord_attrs(xds, ret['icoords'], ret['dir_axes'])
+    xds = __dask_arrayize(xds)
     return xds
 
 

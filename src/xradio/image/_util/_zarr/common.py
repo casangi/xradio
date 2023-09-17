@@ -10,5 +10,5 @@ __np_types = {
 }
 
 
-__top_level_sub_xds = '____attrs_xds'
+__top_level_sub_xds = '__attrs_xds'
 

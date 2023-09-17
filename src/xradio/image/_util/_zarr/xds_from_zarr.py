@@ -1,13 +1,15 @@
+import dask.array as da
 import numpy as np
 import os
 import xarray as xr
 from .common import (__np_types, __top_level_sub_xds)
+from ..common import __dask_arrayize
 
 
 def __read_zarr(zarr_store: str) -> xr.Dataset:
     tmp_xds = xr.open_zarr(zarr_store)
     xds = __decode(tmp_xds, zarr_store)
-    return xds
+    return __dask_arrayize(xds)
 
 
 def __decode(xds: xr.Dataset, zarr_store:str) -> xr.Dataset:
@@ -38,6 +40,8 @@ def __decode_sub_xdses(zarr_store: str) -> dict:
         for d in dirs:
             if d.startswith(__top_level_sub_xds):
                 xds = __read_zarr(os.sep.join([root, d]))
+                for k, v in xds.data_vars.items():
+                    xds = xds.drop_vars([k]).assign({k: v.compute()})
                 k = d[len(__top_level_sub_xds) + 2:]
                 sub_xdses[k] = xds
     return sub_xdses

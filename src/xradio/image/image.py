@@ -33,9 +33,14 @@ import xarray as xr
 warnings.filterwarnings('ignore', category=FutureWarning)
 
 
+"""
 def read_image(
     infile:str, chunks:dict={}, masks:bool=True,
     history:bool=True, verbose:bool=False
+) -> xr.Dataset:
+"""
+def read_image(
+    infile:str, chunks:dict={}, masks:bool=True, verbose:bool=False
 ) -> xr.Dataset:
     """
     Read Image (currently only supports casacore images) to ngCASA image format
@@ -56,40 +61,40 @@ def read_image(
                    represents the latitude like dimension. For apeature images,
                    'u' may be used in place of 'l', and 'v' in place of 'm'.
     :type chunks: list | dict, required
-    :param masks: Also read mask data? Default is True.
-    :type masks: bool, optional
-    :param history: Read and store history? Default is True.
-    :type history: bool, optional
     :param verbose: emit debugging messages? Default is False.
     :type verbose: bool, optional
     :return: xr.Dataset image that conforms to the ngCASA image spec
     :rtype: xr.Dataset
     """
     do_casa = True
+    emsgs = []
     try:
         from ._util.casacore import __read_casa_image
-    except:
-        logging.warn(
-            'python-casacore not found, will not try to read as casacore image'
+    except Exception as e:
+        emsgs.append(
+            'python-casacore could not be imported, will not try to '
+            f'read as casacore image: {e.args}'
         )
         do_casa = False
     if do_casa:
         try:
-            return __read_casa_image(infile, chunks, masks, history, verbose)
+            # return __read_casa_image(infile, chunks, masks, history, verbose)
+            return __read_casa_image(infile, chunks, verbose=verbose)
         except Exception as e:
-            logging.warning('image format appears not to be casacore')
+            emsgs.append(f'image format appears not to be casacore: {e.args}')
     try:
         return __read_fits_image(infile, chunks, masks, history, verbose)
     except Exception as e:
-        logging.warning(f'image format appears not to be fits {e.args}')
+        emsgs.append(f'image format appears not to be fits {e.args}')
     try:
-        return __xds_from_zarr(infile)
+        return __xds_from_zarr(infile, True)
     except Exception as e:
-        logging.warning(f'image format appears not to be zarr {e.args}')
-    raise RuntimeError('Unrecognized image format')
+        emsgs.append(f'image format appears not to be zarr {e.args}')
+    emsgs.insert(0, f'Unrecognized image format\n')
+    raise RuntimeError('\n'.join(emsgs))
 
 
-def load_image_block(infile:str, block_des: dict={}) -> xr.Dataset:
+def load_image_block(infile:str, block_des:dict={}) -> xr.Dataset:
     """Load an image block (subimage) into memory
     :param infile: Path to the input image, currently only casacore images are supported
     :type infile: str, required
@@ -106,7 +111,34 @@ def load_image_block(infile:str, block_des: dict={}) -> xr.Dataset:
         delayed context.
     :rtype: xr.Dataset, all contained arrays must be numpy arrays, not dask arrays
     """
-    return __load_casa_image_block(infile, block_des)
+    do_casa = True
+    emsgs = []
+    try:
+        from ._util.casacore import __read_casa_image
+    except Exception as e:
+        emsgs.append(
+            'python-casacore could not be imported, will not try to '
+            f'read as casacore image: {e.args}'
+        )
+        do_casa = False
+    if do_casa:
+        try:
+            return __load_casa_image_block(infile, block_des)
+        except Exception as e:
+            emsgs.append(f'image format appears not to be casacore: {e.args}')
+    """
+    try:
+        return __read_fits_image(infile, chunks, masks, history, verbose)
+    except Exception as e:
+        emsgs.append(f'image format appears not to be fits {e.args}')
+    """
+    try:
+        return __xds_from_zarr(infile, False).isel(block_des)
+    except Exception as e:
+        emsgs.append(f'image format appears not to be zarr {e.args}')
+    emsgs.insert(0, f'Unrecognized image format\n')
+    raise RuntimeError('\n'.join(emsgs))
+
 
 
 def write_image(xds:xr.Dataset, imagename:str, out_format:str='casa') -> None:

@@ -361,62 +361,8 @@ class ImageBase(unittest.TestCase):
             'Incorrect Dec cdelt'
         )
 
-    def check_types(self, xds):
-        for k, v in xds.coords.items():
-            self.assertTrue(
-                isinstance(v.data, np.ndarray),
-                f'Wrong type for coord {k}, got {type(v)}'
-            )
-        for k, v in xds.data_vars.items():
-            self.assertTrue(
-                isinstance(v.data, da.core.Array),
-                f'Wrong type for coord {k}, got {type(v)}'
-            )
 
-
-class casa_image_to_xds_test(ImageBase):
-    """
-    test casa_image_to_xds
-    """
-
-
-    def test_xds_types(self):
-        """Check coord and data_vars types"""
-        self.check_types(self.xds())
-
-
-    def test_xds_pixel_values(self):
-        """Test xds has correct pixel values"""
-        self.compare_sky_mask(self.xds())
-
-
-    def test_xds_time_axis(self):
-        """Test values and attributes on the time axis"""
-        self.compare_time(self.xds())
-
-
-    def test_xds_pol_axis(self):
-        """Test xds has correct stokes values"""
-        self.compare_pol(self.xds())
-
-
-    def test_xds_freq_axis(self):
-        """Test xds has correct frequency values and metadata"""
-        self.compare_freq(self.xds())
-
-
-    def test_xds_vel_axis(self):
-        """Test xds has correct velocity values and metadata"""
-        self.compare_vel_axis(self.xds())
-
-
-    def test_xds_ra_dec_axis(self):
-        """Test xds has correct RA and Dec values and attributes"""
-        self.compare_ra_dec(self.xds())
-
-
-    def test_xds_attrs(self):
-        """Test xds level attributes"""
+    def compare_attrs(self, xds):
         self.dict_equality(
             self.xds().attrs, self.exp_attrs(), 'Got attrs', 'Expected attrs', ['history']
         )
@@ -426,16 +372,17 @@ class casa_image_to_xds_test(ImageBase):
         )
 
 
-    def test_get_img_ds_block(self):
+
+    def compare_image_block(self, imagename):
         xds = load_image_block(
-            self.imname(),
+            imagename,
             {
-                'l': slice(2, 10), 'm': slice(3, 15), 'pol': 0,
+                'l': slice(2, 10), 'm': slice(3, 15), 'pol': slice(0, 1),
                 'freq': slice(0,4)
             }
         )
         self.assertEqual(xds.sky.shape, (1, 1, 4, 8, 12), 'Wrong block shape')
-        big_xds = self.xds()
+        big_xds = self.__xds
         self.assertTrue(
             (xds.sky == big_xds.sky[:,0:1, 0:4, 2:10, 3:15]).all(),
             'Wrong block sky array'
@@ -473,6 +420,60 @@ class casa_image_to_xds_test(ImageBase):
             (xds.declination == big_xds.declination[2:10, 3:15]).all(),
             'Incorrect declination coordinate values'
         )
+        # all coordinates and data variables should be numpy arrays when loading an
+        # image section
+        merged_dict = {**xds.coords, **xds.data_vars}
+        for k, v in merged_dict.items():
+            self.assertTrue(
+                isinstance(v.data, np.ndarray),
+                f'Wrong type for coord or data value {k}, got {type(v)}, must be a numpy.ndarray'
+            )
+
+
+class casa_image_to_xds_test(ImageBase):
+    """
+    test casa_image_to_xds
+    """
+
+
+    def test_xds_pixel_values(self):
+        """Test xds has correct pixel values"""
+        self.compare_sky_mask(self.xds())
+
+
+    def test_xds_time_axis(self):
+        """Test values and attributes on the time axis"""
+        self.compare_time(self.xds())
+
+
+    def test_xds_pol_axis(self):
+        """Test xds has correct stokes values"""
+        self.compare_pol(self.xds())
+
+
+    def test_xds_freq_axis(self):
+        """Test xds has correct frequency values and metadata"""
+        self.compare_freq(self.xds())
+
+
+    def test_xds_vel_axis(self):
+        """Test xds has correct velocity values and metadata"""
+        self.compare_vel_axis(self.xds())
+
+
+    def test_xds_ra_dec_axis(self):
+        """Test xds has correct RA and Dec values and attributes"""
+        self.compare_ra_dec(self.xds())
+
+
+    def test_xds_attrs(self):
+        """Test xds level attributes"""
+        self.compare_attrs(self.xds())
+
+
+    def test_get_img_ds_block(self):
+        self.compare_image_block(self.imname())
+
 
 class casacore_to_xds_to_casacore(ImageBase):
     """test casacore -> xds -> casacore round trip"""
@@ -502,6 +503,9 @@ class xds_to_zarr_to_xds_test(ImageBase):
 
     @classmethod
     def setUpClass(cls):
+        # by default, subclass setUpClass() method is called before super class',
+        # so we must explicitly call the super class' method here to create the
+        # xds which is located in the super class
         super().setUpClass()
         write_image(cls.xds(), cls.__zarr_store, out_format='zarr')
         cls.__zds = read_image(cls.__zarr_store)
@@ -509,6 +513,7 @@ class xds_to_zarr_to_xds_test(ImageBase):
 
     @classmethod
     def tearDownClass(cls):
+        super().tearDownClass()
         for f in [cls.__zarr_store,]:
             if os.path.exists(f):
                 if os.path.isdir(f):
@@ -523,11 +528,6 @@ class xds_to_zarr_to_xds_test(ImageBase):
 
     def tearDown(self):
         pass
-
-
-    def test_xds_types(self):
-        """Check coord and data_vars types"""
-        self.check_types(self.__zds)
 
 
     def test_xds_pixel_values(self):
@@ -562,19 +562,12 @@ class xds_to_zarr_to_xds_test(ImageBase):
 
     def test_xds_attrs(self):
         """Test xds level attributes"""
-        self.dict_equality(
-            self.__zds.attrs, self.exp_attrs(), 'Got attrs', 'Expected attrs', ['history']
-        )
-        self.assertTrue(
-            isinstance(self.__zds.attrs['history'], xr.core.dataset.Dataset),
-            'Incorrect type for history data'
-        )
-        """
-        print('zds message', zds.attrs['history']['MESSAGE'][0])
+        self.compare_attrs(self.__zds)
 
-        import pickle
-        print(pickle.dumps(zds.attrs['history']))
-        """
+
+    def test_get_img_ds_block(self):
+        self.compare_image_block(self.__zarr_store)
+
 
 if __name__ == '__main__':
     unittest.main()

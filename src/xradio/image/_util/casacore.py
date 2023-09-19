@@ -69,7 +69,7 @@ def __load_casa_image_block(infile: str, block_des: dict) -> xr.Dataset:
         )
         xds = __add_mask(xds, m, block, dimorder)
     xds.attrs = __casa_image_to_xds_attrs(image_full_path, True)
-    mb = __multibeam_array(xds, image_full_path)
+    mb = __multibeam_array(xds, image_full_path, False)
     if mb is not None:
         selectors = {}
         for k in ('time', 'pol', 'freq'):
@@ -98,7 +98,7 @@ def __read_casa_image(
             ary = __read_image_array(img_full_path, chunks, mask=m, verbose=verbose)
             xds = __add_mask(xds, m, ary, dimorder)
     xds.attrs = __casa_image_to_xds_attrs(img_full_path, history)
-    mb = __multibeam_array(xds, img_full_path)
+    mb = __multibeam_array(xds, img_full_path, True)
     if mb is not None:
         xds['beam'] = mb
     xds = __add_coord_attrs(xds, ret['icoords'], ret['dir_axes'])
@@ -139,5 +139,3 @@ def __xds_to_casa_image(xds: xr.Dataset, imagename:str) -> None:
     tb.done()
     # history
     __history_from_xds(xds, image_full_path)
-
-

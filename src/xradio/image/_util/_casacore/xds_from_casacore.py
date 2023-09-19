@@ -117,7 +117,7 @@ def __add_freq_attrs(xds, coord_dict):
 
 
 def __add_mask(
-    xds:xr.Dataset, name:str, ary:Union[np.array, da.array], dimorder:list
+    xds:xr.Dataset, name:str, ary:Union[np.ndarray, da.array], dimorder:list
 ) -> xr.Dataset:
     xda = xr.DataArray(ary, dims=dimorder)
     # True pixels are good in numpy masked arrays
@@ -129,7 +129,7 @@ def __add_mask(
 
 
 def __add_sky_or_apeture(
-        xds: xr.Dataset, ary: Union[np.array, da.array],
+        xds: xr.Dataset, ary: Union[np.ndarray, da.array],
         dimorder:list, img_full_path: str, has_sph_dims:bool
 ) -> xr.Dataset:
     xda = xr.DataArray(ary, dims=dimorder)
@@ -578,7 +578,7 @@ def __get_mask_names(infile:str) -> list:
     return mymasks
 
 
-def __get_multibeam(imageinfo: dict) -> np.array:
+def __get_multibeam(imageinfo: dict) -> Union[np.ndarray, None]:
     """Returns None if the image does not have multiple (per-plane) beams"""
     p = 'perplanebeams'
     if p not in imageinfo:
@@ -760,7 +760,9 @@ def __make_coord_subset(xds:xr.Dataset, slices:dict) -> xr.Dataset:
     return xds
 
 
-def __multibeam_array(xds:xr.Dataset, img_full_path:str) -> Union[xr.DataArray, None]:
+def __multibeam_array(
+        xds:xr.Dataset, img_full_path:str, as_dask_array:bool
+    ) -> Union[xr.DataArray, None]:
     """This should only be called after the xds.beam attr has been set"""
     if xds.attrs['beam'] is None:
         # the image may have multiple beams
@@ -772,6 +774,8 @@ def __multibeam_array(xds:xr.Dataset, img_full_path:str) -> Union[xr.DataArray, 
             # multiple beams are stored as a data varialbe, so remove
             # the beam xds attr
             del xds.attrs['beam']
+            if as_dask_array:
+                mb = da.array(mb)
             xdb = xr.DataArray(mb, dims=['time', 'pol', 'freq', 'beam_param'])
             xdb = xdb.rename('beam')
             xdb = xdb.assign_coords(beam_param=['major', 'minor', 'pa'])

@@ -372,7 +372,6 @@ class ImageBase(unittest.TestCase):
         )
 
 
-
     def compare_image_block(self, imagename):
         xds = load_image_block(
             imagename,

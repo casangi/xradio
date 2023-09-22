@@ -83,7 +83,7 @@ def read_image(
         except Exception as e:
             emsgs.append(f'image format appears not to be casacore: {e.args}')
     try:
-        return __read_fits_image(infile, chunks, masks, history, verbose)
+        return __read_fits_image(infile, chunks, verbose)
     except Exception as e:
         emsgs.append(f'image format appears not to be fits {e.args}')
     try:

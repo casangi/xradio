@@ -645,7 +645,7 @@ def __get_starts_shapes_slices(
 
 
 def __get_time_values(coord_dict):
-    return [ coord_dict['obsdate']['m0']['value'] ]
+   return [ coord_dict['obsdate']['m0']['value'] ]
 
 
 def __get_transpose_list(coords: coordinates.coordinatesystem) -> list:

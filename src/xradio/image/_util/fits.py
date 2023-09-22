@@ -6,11 +6,11 @@ from ._fits.fits_to_xds import __fits_image_to_xds_metadata
 
 def __read_fits_image(
     infile:str, chunks:Union[list, dict], masks:bool=True,
-    history:bool=True, verbose:bool=False
+    verbose:bool=False
 ) -> xr.Dataset:
     img_full_path = os.path.expanduser(infile)
     attrs = __fits_image_to_xds_metadata(img_full_path, verbose)
-    return attrs
+    # return attrs
     """
     xds = ret['xds']
     dimorder = __get_xds_dim_order(ret['sphr_dims'])

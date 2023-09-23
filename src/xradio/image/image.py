@@ -39,14 +39,11 @@ def read_image(
     history:bool=True, verbose:bool=False
 ) -> xr.Dataset:
 """
-def read_image(
-    infile:str, chunks:dict={}, masks:bool=True, verbose:bool=False
-) -> xr.Dataset:
+def read_image(infile:str, chunks:dict={}, verbose:bool=False) -> xr.Dataset:
     """
-    Read Image (currently only supports casacore images) to ngCASA image format
+    Read Image (currently only supports casacore images) or zarr to ngCASA image format
     ngCASA image spec is located at
-    https://docs.google.com/spreadsheets/d/1buwhdrQpeWgXe-f0HO4gSHJ_kNsRoRgUAGPlYsU3DH8/edit?pli=1#gid=1049873214
-
+    https://docs.google.com/spreadsheets/d/1WW0Gl6z85cJVPgtdgW4dxucurHFa06OKGjgoK8OREFA/edit#gid=1719181934
     :param infile: Path to the input CASA image
     :type infile: str, required
     :param chunks: The desired dask chunk size. Only applicable for casacore images.
@@ -82,15 +79,17 @@ def read_image(
             return __read_casa_image(infile, chunks, verbose=verbose)
         except Exception as e:
             emsgs.append(f'image format appears not to be casacore: {e.args}')
+    """
     try:
         return __read_fits_image(infile, chunks, verbose)
     except Exception as e:
         emsgs.append(f'image format appears not to be fits {e.args}')
+    """
     try:
         return __xds_from_zarr(infile, True)
     except Exception as e:
         emsgs.append(f'image format appears not to be zarr {e.args}')
-    emsgs.insert(0, f'Unrecognized image format\n')
+    emsgs.insert(0, f'Unrecognized image format. Supported types are casacore and zarr.\n')
     raise RuntimeError('\n'.join(emsgs))
 
 
@@ -136,9 +135,8 @@ def load_image_block(infile:str, block_des:dict={}) -> xr.Dataset:
         return __xds_from_zarr(infile, False).isel(block_des)
     except Exception as e:
         emsgs.append(f'image format appears not to be zarr {e.args}')
-    emsgs.insert(0, f'Unrecognized image format\n')
+    emsgs.insert(0, f'Unrecognized image format. Supported formats are casacore and zarr.\n')
     raise RuntimeError('\n'.join(emsgs))
-
 
 
 def write_image(xds:xr.Dataset, imagename:str, out_format:str='casa') -> None:
@@ -156,5 +154,8 @@ def write_image(xds:xr.Dataset, imagename:str, out_format:str='casa') -> None:
     elif my_format == 'zarr':
         __xds_to_zarr(xds, imagename)
     else:
-        raise Exception(f'Writing to format {out_format} is not supported')
+        raise Exception(
+            f'Writing to format {out_format} is not supported. '
+            'out_format must be either "casa" or "zarr".'
+        )
 

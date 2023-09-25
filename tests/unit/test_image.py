@@ -21,6 +21,7 @@ import dask.array as da
 import numpy as np
 import numpy.ma as ma
 import os
+import pkg_resources
 import shutil
 import unittest
 import xarray as xr
@@ -97,6 +98,10 @@ class ImageBase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        casa_data_dir = pkg_resources.resource_filename('casadata',  '__data__')
+        rc_file = open(os.path.expanduser("~/.casarc"),  "a+")   # append mode
+        rc_file.write("\nmeasures.directory: "  +  casa_data_dir)
+        rc_file.close()
         cls.__make_image()
 
 

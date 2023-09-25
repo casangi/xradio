@@ -101,7 +101,7 @@ class ImageBase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        print('USER', os.environ['USER'])
+        raise Exception('USER ' + os.environ['USER'])
         if not cls.__ran_measures_code:
             casa_data_dir = pkg_resources.resource_filename('casadata',  '__data__')
             rc_file = open(os.path.expanduser("~/.casarc"),  "a+")   # append mode

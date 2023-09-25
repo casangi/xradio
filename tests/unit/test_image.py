@@ -96,12 +96,18 @@ class ImageBase(unittest.TestCase):
     __exp_attrs['history'] = None
 
 
+    __ran_measures_code = False
+
+
     @classmethod
     def setUpClass(cls):
-        casa_data_dir = pkg_resources.resource_filename('casadata',  '__data__')
-        rc_file = open(os.path.expanduser("~/.casarc"),  "a+")   # append mode
-        rc_file.write("\nmeasures.directory: "  +  casa_data_dir)
-        rc_file.close()
+        print('USER', os.environ['USER'])
+        if not cls.__ran_measures_code:
+            casa_data_dir = pkg_resources.resource_filename('casadata',  '__data__')
+            rc_file = open(os.path.expanduser("~/.casarc"),  "a+")   # append mode
+            rc_file.write("\nmeasures.directory: "  +  casa_data_dir)
+            rc_file.close()
+            cls.__ran_measures_code = True
         cls.__make_image()
 
 

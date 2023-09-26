@@ -1,3 +1,4 @@
+import astropy as ap
 from astropy import units as u
 from astropy.io import fits
 from astropy.time import Time
@@ -5,6 +6,7 @@ import dask.array as da
 import logging
 import numpy as np
 import re
+import xarray as xr
 
 
 # TODO move to common value/struct
@@ -18,8 +20,9 @@ def __fits_image_to_xds_metadata(img_full_path:str, verbose:bool=False) -> dict:
     """
     hdulist = fits.open(img_full_path)
     attrs, helpers, header = __fits_header_to_xds_attrs(hdulist)
-    __create_coords(helpers, header)
-    return attrs
+    xds = __create_coords(helpers, header)
+    # return attrs
+    return xds
 
 
 def __fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList) -> dict:
@@ -32,7 +35,6 @@ def __fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList) -> dict:
             beams = hdu
         else:
             raise RuntimeError(f'Unknown HDU name {hdu.name}')
-    logging.warn('** cb')
     if not primary:
         raise RuntimeError(f'No PRIMARY HDU found in fits file')
     dir_axes = None
@@ -86,7 +88,6 @@ def __fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList) -> dict:
         helpers['dim_map'] = dim_map
     else:
         raise RuntimeError('Could not find both direction axes')
-    logging.warn('** cd')
     if dir_axes is not None:
         p0 = header.get(f'CTYPE{t_axes[0]}')[-3:]
         p1 = header.get(f'CTYPE{t_axes[1]}')[-3:]
@@ -97,17 +98,15 @@ def __fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList) -> dict:
             )
         direction = {}
         direction['projection'] = p0
+        helpers['projection'] = p0
         ref_sys = header['RADESYS']
         ref_eqx = header['EQUINOX']
         # fits does not support conversion frames
         direction['conversion_system'] = ref_sys
         direction['conversion_equinox'] = ref_eqx
         direction['system'] = ref_sys
-        logging.warn('** ce')
         direction['equinox'] = ref_eqx
-        logging.warn('** da')
         deg_to_rad = np.pi/180.0
-        logging.warn('** db')
         direction['latpole'] = header.get('LATPOLE') * deg_to_rad
         direction['longpole'] = header.get('LONPOLE') * deg_to_rad
         pc = np.zeros([2,2])
@@ -235,7 +234,21 @@ def __create_coords(helpers, header):
     coords['pol'] = __get_pol_values(helpers)
     coords['freq'] = __get_freq_values(helpers)
     coords['vel'] = (['freq'], __get_velocity_values(helpers))
-    print('vel', coords['vel'][1])
+    if len(sphr_dims) > 0:
+        l_world, m_world = __compute_world_sph_dims(
+            sphr_dims, dir_axes, dim_map, helpers
+        )
+        print('l_world', l_world)
+        print('m_world', m_world)
+        coords[l_world[0]] = (['l', 'm'], l_world[1])
+        coords[m_world[0]] = (['l', 'm'], m_world[1])
+    else:
+        # Fourier image
+        coords['u'], coords['v'] = __get_uv_values(helpers)
+    xds = xr.Dataset(coords=coords)
+    # attrs['xds'] = xds
+    # return attrs
+    return xds
 
 
 def __get_time_values(helpers):
@@ -302,16 +315,12 @@ def __get_freq_values(helpers:dict) -> list:
         for i in range(helpers['shape'][v_idx]):
             vel.append(v_start_val + i*cdelt)
         vel = vel * u.Unit(cunit)
-        print('** ie')
         # (-1 + f0/f) = v/c
         # f0/f = v/c + 1
         # f = f0/(v/c + 1)
-        print('** ja')
         freq = restfreq/(np.array(vel.value) * vel.unit/__c + 1)
-        print('** if')
         freq = freq.to(u.Hz)
         helpers['vel'] = vel
-        print('** ig')
         return list(freq.value)
     else:
         return [1420e6]
@@ -329,5 +338,68 @@ def __get_velocity_values(helpers:dict) -> list:
             return v.value
 
 
+def __compute_world_sph_dims(
+    sphr_dims:list, dir_axes:list, dim_map:dict, helpers:dict
+) -> list:
+    shape = helpers['shape']
+    ctype = helpers['ctype']
+    unit = helpers['cunit']
+    delt = helpers['cdelt']
+    ref_pix = helpers['crpix']
+    ref_val = helpers['crval']
+    wcs_dict = {}
+    for i in dir_axes:
+        if ctype[i].startswith('RA'):
+            long_axis_name = 'right_ascension'
+            fi = 1
+            wcs_dict[f'CTYPE1'] = ctype[i]
+            wcs_dict[f'NAXIS1'] = shape[dim_map['l']]
+        if ctype[i].startswith('DEC'):
+            lat_axis_name = 'declination'
+            fi = 2
+            wcs_dict['CTYPE2'] = ctype[i]
+            wcs_dict[f'NAXIS2'] = shape[dim_map['m']]
+        t_unit = unit[i]
+        if t_unit == "'":
+            t_unit = 'arcmin'
+        elif t_unit == '"':
+            t_unit = 'arcsec'
+        wcs_dict[f'CUNIT{fi}'] = t_unit
+        wcs_dict[f'CDELT{fi}'] = delt[i]
+        # FITS arrays are 1-based
+        wcs_dict[f'CRPIX{fi}'] = ref_pix[i] + 1
+        wcs_dict[f'CRVAL{fi}'] = ref_val[i]
+    w = ap.wcs.WCS(wcs_dict)
+    x, y = np.indices(w.pixel_shape)
+    long, lat = w.pixel_to_world_values(x, y)
+    # long, lat will always be in degrees, so convert to rad
+    f = np.pi/180
+    long *= f
+    lat *= f
+    return [[long_axis_name, long], [lat_axis_name, lat]]
+
+
+def __get_uv_values(helpers:dict) -> tuple:
+    shape = helpers['shape']
+    ctype = helpers['ctype']
+    unit = helpers['cunit']
+    delt = helpers['cdelt']
+    ref_pix = helpers['crpix']
+    ref_val = helpers['crval']
+    for i, axis in enumerate(['UU', 'VV']):
+        idx = ctype.index(axis)
+        if idx >= 0:
+            z = []
+            crpix = ref_pix[i]
+            crval = ref_val[i]
+            cdelt = delt[i]
+            for i in range(shape[idx]):
+                f = (i - crpix) * cdelt + crval
+                z.append(f)
+            if axis == 'UU':
+                u = z
+            else:
+                v = z
+    return u, v
 
 

@@ -12,23 +12,31 @@ gdown_ids = {
     'demo_simulated.im':'1esOGbRMMEZXvTxQ_bdcw3PaZLg6XzHC5',
 }
 
+
 def check_download(name, folder, id):
-    fullname = os.path.join(folder,name)
+    fullname = os.path.join(folder, name)
     if not os.path.exists(fullname):
-        url = 'https://drive.google.com/u/0/uc?id='+id+'&export=download'
-        gdown.download(url, fullname+'.zip')
-        shutil.unpack_archive(filename=fullname+'.zip', extract_dir=folder)
+        url = "https://drive.google.com/u/0/uc?id=" + id + "&export=download"
+        gdown.download(url, fullname + ".zip")
+        shutil.unpack_archive(filename=fullname + ".zip", extract_dir=folder)
+
 
 def create_folder(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
-def gdown_data(ms_name, download_folder='.'):
-    assert ms_name in gdown_ids, "Measurement set not available. Available measurement sets are:" + str(gdown_ids.keys())
+
+def gdown_data(ms_name, download_folder="."):
+    assert (
+        ms_name in gdown_ids
+    ), "Measurement set not available. Available measurement sets are:" + str(
+        gdown_ids.keys()
+    )
 
     id = gdown_ids[ms_name]
     create_folder(download_folder)
     check_download(ms_name, download_folder, id)
+
 
 def list_datasets():
     ms = []

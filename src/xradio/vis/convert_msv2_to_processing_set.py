@@ -44,11 +44,10 @@ import xarray as xr
 
 
 def add_encoding(xds, compressor, chunks=None):
-    
     if chunks is None:
         chunks = xds.dims
-        
-    chunks = {**dict(xds.dims),**chunks} #Add missing dims if presents.
+
+    chunks = {**dict(xds.dims), **chunks}  # Add missing dims if presents.
 
     encoding = {}
     for da_name in list(xds.data_vars):
@@ -75,7 +74,7 @@ def calc_indx_for_row_split(tb_tool, taql_where):
 
     tvars = {}
 
-    #chunks = [len(utimes), len(baselines), freq_cnt, pol_cnt]
+    # chunks = [len(utimes), len(baselines), freq_cnt, pol_cnt]
 
     # print("nrows",  len(tb_tool.getcol("TIME")))
 
@@ -178,7 +177,9 @@ def create_coordinates(
         "SPECTRAL_WINDOW",
         rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
     ).sel(spectral_window_id=spw_id)
-    coords["frequency"] = spw_xds["chan_freq"].data[~(np.isnan(spw_xds["chan_freq"].data))]
+    coords["frequency"] = spw_xds["chan_freq"].data[
+        ~(np.isnan(spw_xds["chan_freq"].data))
+    ]
 
     pol_xds = read_generic_table(
         infile,
@@ -210,11 +211,13 @@ def create_coordinates(
     # xds.frequency.attrs["doppler_velocity"] =
     # xds.frequency.attrs["doppler_type"] =
 
-    #unique_chan_width = np.unique(spw_xds.chan_width.data[np.logical_not(np.isnan(spw_xds.chan_width.data))])
-    #print('unique_chan_width',unique_chan_width)
-    #print('spw_xds.chan_width.data',spw_xds.chan_width.data)
-    #assert len(unique_chan_width) == 1, "Channel width varies for spw."
-    xds.frequency.attrs["channel_width"] = spw_xds.chan_width.data[~(np.isnan(spw_xds.chan_width.data))]#unique_chan_width[0]
+    # unique_chan_width = np.unique(spw_xds.chan_width.data[np.logical_not(np.isnan(spw_xds.chan_width.data))])
+    # print('unique_chan_width',unique_chan_width)
+    # print('spw_xds.chan_width.data',spw_xds.chan_width.data)
+    # assert len(unique_chan_width) == 1, "Channel width varies for spw."
+    xds.frequency.attrs["channel_width"] = spw_xds.chan_width.data[
+        ~(np.isnan(spw_xds.chan_width.data))
+    ]  # unique_chan_width[0]
 
     main_table_attrs = extract_table_attributes(infile)
     xds.time.attrs["type"] = "time"
@@ -241,7 +244,7 @@ def convert_and_write_partition(
     state_ids=None,
     field_id: int = None,
     ignore_msv2_cols: Union[list, None] = None,
-    chunks_on_disk:  Union[Dict, None] = None,
+    chunks_on_disk: Union[Dict, None] = None,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend="zarr",
     overwrite: bool = False,
@@ -269,6 +272,16 @@ def convert_and_write_partition(
     if field_id is not None:
         taql_where += f" AND (FIELD_ID = {field_id})"
         file_name = file_name + "_field_id_" + str(field_id)
+
+    ddi_xds = read_generic_table(infile, "DATA_DESCRIPTION").sel(row=ddi)
+    spw_id = ddi_xds.spectral_window_id.values
+
+    spw_xds = read_generic_table(
+        infile,
+        "SPECTRAL_WINDOW",
+        rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
+    ).sel(spectral_window_id=spw_id)
+    n_chan = len(spw_xds["chan_freq"].data[~(np.isnan(spw_xds["chan_freq"].data))])
 
     start_with = time.time()
     with open_table_ro(infile) as mtable:
@@ -312,7 +325,7 @@ def convert_and_write_partition(
                 "DATA": ("time", "baseline_id", "frequency", "polarization"),
                 "CORRECTED_DATA": ("time", "baseline_id", "frequency", "polarization"),
                 "WEIGHT_SPECTRUM": ("time", "baseline_id", "frequency", "polarization"),
-                "WEIGHT": ("time", "baseline_id", "polarization"),
+                "WEIGHT": ("time", "baseline_id", "frequency", "polarization"),
                 "FLAG": ("time", "baseline_id", "frequency", "polarization"),
                 "UVW": ("time", "baseline_id", "uvw_label"),
                 "TIME_CENTROID": ("time", "baseline_id"),
@@ -333,22 +346,42 @@ def convert_and_write_partition(
             col_names = tb_tool.colnames()
 
             # Create Data Variables
-            not_a_problem = True
             # logging.info("Setup xds "+ str(time.time()-start))
-
             for col in col_names:
                 if col in col_to_data_variable_names:
-                    if (col == "WEIGHT") and ("WEIGHT_SPECTRUM" not in col_names):
+                    if (col == "WEIGHT") and ("WEIGHT_SPECTRUM" in col_names):
                         continue
                     try:
                         start = time.time()
-                        xds[col_to_data_variable_names[col]] = xr.DataArray(
-                            read_col(
-                                tb_tool, col, time_baseline_shape, tidxs, bidxs, didxs
-                            ),
-                            dims=col_dims[col],
-                        )
-                        # logging.info("Time to read column " + str(col) + " : " + str(time.time()-start))
+                        if col == "WEIGHT":
+                            xds[col_to_data_variable_names[col]] = xr.DataArray(
+                                np.tile(
+                                    read_col(
+                                        tb_tool,
+                                        col,
+                                        time_baseline_shape,
+                                        tidxs,
+                                        bidxs,
+                                        didxs,
+                                    )[:, :, None, :],
+                                    (1, 1, n_chan, 1),
+                                ),
+                                dims=col_dims[col],
+                            )
+
+                        else:
+                            xds[col_to_data_variable_names[col]] = xr.DataArray(
+                                read_col(
+                                    tb_tool,
+                                    col,
+                                    time_baseline_shape,
+                                    tidxs,
+                                    bidxs,
+                                    didxs,
+                                ),
+                                dims=col_dims[col],
+                            )
+                            # logging.info("Time to read column " + str(col) + " : " + str(time.time()-start))
                     except:
                         # logging.debug("Could not load column",col)
                         continue
@@ -383,11 +416,20 @@ def convert_and_write_partition(
             }
             xds.attrs["field_info"] = field_info
 
+            xds.attrs["data_groups"] = {
+                "base": {
+                    "visibility": "VISIBILITY",
+                    "flag": "FLAG",
+                    "weight": "WEIGHT",
+                    "uvw": "UVW",
+                }
+            }
+
             if overwrite:
                 mode = "w"
             else:
                 mode = "w-"
-                
+
             add_encoding(xds, compressor=compressor, chunks=chunks_on_disk)
 
             ant_xds = read_generic_table(
@@ -398,32 +440,15 @@ def convert_and_write_partition(
             del ant_xds.attrs["other"]
 
             xds.attrs["intent"] = intent
-            
-            #print("xxxx",xds["EFFECTIVE_INTEGRATION_TIME"].encoding,xds["FLAG"].encoding,chunks_on_disk)
-            #print(xds)
 
             if storage_backend == "zarr":
                 xds.to_zarr(store=file_name + "/MAIN", mode=mode)
                 ant_xds.to_zarr(store=file_name + "/ANTENNA", mode=mode)
             elif storage_backend == "netcdf":
-                # xds.to_netcdf(path=file_name+"/MAIN", mode=mode)
-                print(ant_xds)
-                # ant_xds.offset.attrs["measure"] = [ant_xds.offset.attrs["measure"]]
-                # ant_xds.position.attrs["measure"] = [ant_xds.position.attrs["measure"]]
-                import os
+                # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
+                raise
 
-                os.system(
-                    "mkdir /Users/jsteeb/Library/CloudStorage/Dropbox/xradio/doc/Antennae_North.cal.vis.zarr"
-                )
-                # os.system("mkdir " + file_name+"_ANTENNA")
-                ant_xds.to_netcdf(
-                    path=file_name + "_ANTENNA", mode=mode, engine="netcdf4"
-                )
-            # logging.info(" To disk time " + str(time.time()-start))
-
-    logging.info(
-        "Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s"
-    )
+    # logging.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
 
 
 def get_unqiue_intents(infile):

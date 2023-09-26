@@ -30,7 +30,7 @@ from ._ms.subtables import read_ms_subtables
 from ._utils.xds_helper import vis_xds_packager_cds
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format="%(asctime)s %(levelname)-8s %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )

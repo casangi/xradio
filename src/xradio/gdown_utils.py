@@ -7,8 +7,9 @@ import json
 from prettytable import PrettyTable
 
 gdown_ids = {
-    "Antennae_South.cal.ms": "1f6a6hge0mDZVi3wUJYjRiY3Cyr9HvqZz",
-    "Antennae_North.cal.ms": "1sASTyp4gr4PzWZwJr_ZHEdkqcYjF86BT",
+    'Antennae_South.cal.ms':'1f6a6hge0mDZVi3wUJYjRiY3Cyr9HvqZz',
+    'Antennae_North.cal.ms':'1sASTyp4gr4PzWZwJr_ZHEdkqcYjF86BT',
+    'demo_simulated.im':'1esOGbRMMEZXvTxQ_bdcw3PaZLg6XzHC5',
 }
 
 
@@ -38,14 +39,25 @@ def gdown_data(ms_name, download_folder="."):
 
 
 def list_datasets():
-    table = PrettyTable()
-    table.field_names = ["Measurement Table"]  #  ,"Description"]
-    table.align = "l"
-
+    ms = []
+    im = []
     for key, _ in gdown_ids.items():
-        #        basename = key.split('.')[0]
-        #        file = ''.join((basename, '.json'))
-        #        path = os.path.dirname(__file__)
+        if key[-2:] == 'ms':
+            ms.append(key)
+        elif key[-2:] == 'im':
+            im.append(key)
+#        basename = key.split('.')[0]
+#        file = ''.join((basename, '.json'))
+#        path = os.path.dirname(__file__)
+    table = PrettyTable()
+    table.field_names = ["Measurement Table"] #  ,"Description"]
+    table.align = "l"
+    for key in ms:
         table.add_row([str(key)])
-
+    print(table)
+    table = PrettyTable()
+    table.field_names = ["Image Table"] #  ,"Description"]
+    table.align = "l"
+    for key in im:
+        table.add_row([str(key)])
     print(table)

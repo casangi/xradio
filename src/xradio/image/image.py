@@ -21,6 +21,7 @@
 #################################
 from ._util.casacore import __load_casa_image_block, __xds_to_casa_image
 from ._util.fits import __read_fits_image
+from ._util.image_factory import __make_empty_sky_image
 from ._util.zarr import __xds_to_zarr, __xds_from_zarr
 import warnings, time, os, logging
 import numpy as np
@@ -158,4 +159,47 @@ def write_image(xds:xr.Dataset, imagename:str, out_format:str='casa') -> None:
             f'Writing to format {out_format} is not supported. '
             'out_format must be either "casa" or "zarr".'
         )
+
+
+def make_empty_sky_image(
+    xds:xr.Dataset, phase_center:Union[list, np.ndarray],
+	image_size:Union[list, np.ndarray], cell_size:Union[list, np.ndarray],
+	chan_coords:Union[list, np.ndarray],
+	pol_coords:Union[list, np.ndarray], time_coords:Union[list, np.ndarray],
+	direction_reference:str='FK5', projection:str='SIN',
+	spectral_reference:str='lsrk'
+) -> xr.Dataset:
+    """
+    Create an image xarray.Dataset with only coordinates (no datavariables).
+    The image dimensionality is either:
+        l, m, time, chan, pol
+
+    Parameters
+    ----------
+    xds : xarray.Dataset
+        Empty dataset (dataset = xarray.Dataset()) to be modified
+    phase_center : array of float, length = 2, units = rad
+        Image phase center.
+    image_size : array of int, length = 2, units = rad
+        Number of x and y axis pixels in image.
+    cell_size : array of float, length = 2, units = rad
+        Cell size of x and y axis pixels in image.
+    chan_coords : list or np.ndarray
+        The center frequency in Hz of each image channel.
+    pol_coords : list or np.ndarray
+        The polarization code for each image polarization.
+    time_coords : list or np.ndarray
+        The time for each temporal plane in MJD.
+    direction_reference : str, default = 'FK5'
+    projection : str, default = 'SIN'
+    spectral_reference : str, default = 'lsrk'
+    Returns
+    -------
+    xarray.Dataset
+    """
+    return __make_empty_sky_image(
+        xds, phase_center, image_size, cell_size, chan_coords,
+	    pol_coords, time_coords, direction_reference, projection,
+	    spectral_reference
+    )
 

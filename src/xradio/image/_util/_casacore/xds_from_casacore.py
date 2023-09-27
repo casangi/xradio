@@ -14,9 +14,7 @@ from .common import (
     __active_mask, __doppler_types, __native_types, __object_name,
     __pointing_center
 )
-from ..common import __dask_arrayize
-
-__image_type = 'image_type'
+from ..common import (__dask_arrayize, __image_type)
 
 
 def __add_coord_attrs(xds: xr.Dataset, icoords: dict, diraxes: list) -> xr.Dataset:
@@ -129,8 +127,8 @@ def __add_mask(
 
 
 def __add_sky_or_apeture(
-        xds: xr.Dataset, ary: Union[np.ndarray, da.array],
-        dimorder:list, img_full_path: str, has_sph_dims:bool
+    xds: xr.Dataset, ary: Union[np.ndarray, da.array],
+    dimorder:list, img_full_path: str, has_sph_dims:bool
 ) -> xr.Dataset:
     xda = xr.DataArray(ary, dims=dimorder)
     casa_image = images.image(img_full_path)

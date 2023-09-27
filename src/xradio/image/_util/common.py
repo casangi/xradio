@@ -3,6 +3,9 @@ import dask.array as da
 import xarray as xr
 
 
+__image_type = 'image_type'
+
+
 def __get_xds_dim_order(has_sph:bool) -> list:
     dimorder = ['time', 'pol', 'freq']
     dir_lin = ['l', 'm'] if has_sph else ['u', 'v']

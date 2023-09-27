@@ -354,7 +354,7 @@ def __compute_world_sph_dims(
     w = astropy.wcs.WCS(wcs_dict)
     x, y = np.indices(w.pixel_shape)
     long, lat = w.pixel_to_world_values(x, y)
-    # long, lat will always be in degrees
+    # long, lat from above eqn will always be in degrees, so convert to rad
     f = np.pi/180
     long *= f
     lat *= f

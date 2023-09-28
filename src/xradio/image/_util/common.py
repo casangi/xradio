@@ -1,6 +1,10 @@
+import astropy.units as u
 import dask
 import dask.array as da
 import xarray as xr
+
+
+__c = 2.99792458e+08 * u.m/u.s
 
 
 def __get_xds_dim_order(has_sph:bool) -> list:

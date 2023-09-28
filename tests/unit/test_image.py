@@ -61,12 +61,10 @@ class ImageBase(unittest.TestCase):
     # TODO make a more intresting beam
     __exp_attrs['beam'] = None
     __exp_attrs['obsdate'] = {
-        'type': 'epoch',
         'refer': 'UTC',
-        'm0': {
-            'value': 51544.00000000116,
-            'unit': 'd'
-        }
+        'value': 51544.00000000116,
+        'unit': 'd',
+        'format': 'MJD'
     }
     __exp_attrs['observer'] = 'Karl Jansky'
     __exp_attrs['description'] = None

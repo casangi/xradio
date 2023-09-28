@@ -110,8 +110,8 @@ def __make_empty_sky_image(
         },
         'active_mask': '', 'beam': None, 'object_name': '',
         'obsdate': {
-            'type': 'epoch', 'refer': 'UTC', 'format': 'MJD',
-            'm0': {'value': time_coords[0], 'unit': 'd'}
+            'refer': 'UTC', 'format': 'MJD',
+            'value': time_coords[0], 'unit': 'd'
         },
         'observer': 'Karl Jansky',
         'pointing_center': {

@@ -10,10 +10,7 @@ import numpy as np
 import re
 from typing import Union
 import xarray as xr
-
-
-# TODO move to common value/struct
-__c = 2.99792458e+08 * u.m/u.s
+from ..common import __c
 
 
 def __fits_image_to_xds_metadata(

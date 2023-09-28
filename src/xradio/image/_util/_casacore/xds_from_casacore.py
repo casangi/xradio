@@ -143,12 +143,20 @@ def __add_sky_or_apeture(
     return xds
 
 
+def __get_time_format(value:float, unit:str) -> str:
+    if value >= 40000 and value <= 100000 and unit == 'd':
+        return  'MJD'
+    else:
+        return ''
+
+
+
 def __add_time_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
     time_coord = xds['time']
     meta = {}
     meta['refer'] = coord_dict['obsdate']['refer']
     meta['unit'] = coord_dict['obsdate']['m0']['unit']
-    meta['format'] = 'MJD'
+    meta['format'] = __get_time_format(time_coord[0], meta['unit'])
     time_coord.attrs = meta
     xds['time'] = time_coord
     return xds
@@ -219,6 +227,8 @@ def __casa_image_to_xds_attrs(img_full_path: str, history: bool=True) -> dict:
         attrs['direction'] = dir_dict
     attrs['telescope'] = {}
     telescope = attrs['telescope']
+    attrs['obsdate'] = {}
+    obsdate = attrs['obsdate']
     attrs[__pointing_center] = coord_dict['pointingcenter'].copy()
     for k in ('observer', 'obsdate', 'telescope', 'telescopeposition'):
         if k.startswith('telescope'):
@@ -226,6 +236,11 @@ def __casa_image_to_xds_attrs(img_full_path: str, history: bool=True) -> dict:
                 telescope['name'] = coord_dict[k]
             else:
                 telescope['position'] = coord_dict[k]
+        elif k == 'obsdate':
+            obsdate['refer'] = coord_dict[k]['refer']
+            obsdate['unit'] = coord_dict[k]['m0']['unit']
+            obsdate['value'] = coord_dict[k]['m0']['value']
+            obsdate['format'] = __get_time_format(obsdate['value'], obsdate['unit'])
         else:
             attrs[k] = coord_dict[k] if k in coord_dict else ''
     imageinfo = meta_dict['imageinfo']
@@ -352,7 +367,7 @@ def __compute_world_sph_dims(
     w = astropy.wcs.WCS(wcs_dict)
     x, y = np.indices(w.pixel_shape)
     long, lat = w.pixel_to_world_values(x, y)
-    # long, lat will always be in degrees
+    # long, lat from above eqn will always be in degrees, so convert to rad
     f = np.pi/180
     long *= f
     lat *= f

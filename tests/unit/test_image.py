@@ -18,6 +18,7 @@ import casacore.images, casacore.tables
 from xradio.image import load_image_block, read_image, write_image
 import dask.array.ma as dma
 import dask.array as da
+import numbers
 import numpy as np
 import numpy.ma as ma
 import os
@@ -60,12 +61,10 @@ class ImageBase(unittest.TestCase):
     # TODO make a more intresting beam
     __exp_attrs['beam'] = None
     __exp_attrs['obsdate'] = {
-        'type': 'epoch',
         'refer': 'UTC',
-        'm0': {
-            'value': 51544.00000000116,
-            'unit': 'd'
-        }
+        'value': 51544.00000000116,
+        'unit': 'd',
+        'format': 'MJD'
     }
     __exp_attrs['observer'] = 'Karl Jansky'
     __exp_attrs['description'] = None
@@ -177,6 +176,12 @@ class ImageBase(unittest.TestCase):
                     self.assertTrue(
                         (dict1[k] == dict2[k]).all(),
                         f'{dict1_name}[{k}] != {dict2_name}[{k}]'
+                    )
+                elif isinstance(dict1[k], numbers.Number):
+                    self.assertTrue(
+                        np.isclose(dict1[k], dict2[k]),
+                        f'{dict1_name}[{k}] != {dict2_name}[{k}]:\n'
+                        + f'{dict1[k]} vs\n{dict2[k]}'
                     )
                 else:
                     self.assertEqual(

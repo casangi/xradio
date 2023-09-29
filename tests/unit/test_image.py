@@ -492,7 +492,10 @@ class casa_image_to_xds_test(ImageBase):
 
 
 class casacore_to_xds_to_casacore(ImageBase):
-    """test casacore -> xds -> casacore round trip"""
+    """
+    test casacore -> xds -> casacore round trip, ensure
+    the two casacore images are identical
+    """
 
 
     def test_pixels_and_mask(self):
@@ -507,6 +510,19 @@ class casacore_to_xds_to_casacore(ImageBase):
             (im1.getmask() == im2.getmask()).all(),
             'Incorrect mask values'
         )
+        del im1
+        del im2
+
+
+    def test_metadata(self):
+        """Test to verify metadata in two casacore images is the same"""
+        im1 = casacore.images.image(self.imname())
+        im2 = casacore.images.image(self.outname())
+        self.dict_equality(
+            im2.info(), im1.info(), 'got', 'expected'
+        )
+        del im1
+        del im2
 
 
 class xds_to_zarr_to_xds_test(ImageBase):

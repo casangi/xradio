@@ -15,9 +15,12 @@
 #  along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import casacore.images, casacore.tables
-from xradio.image import load_image_block, read_image, write_image
+from xradio.image import (
+    load_image_block, make_empty_sky_image, read_image, write_image
+)
 import dask.array.ma as dma
 import dask.array as da
+import numbers
 import numpy as np
 import numpy.ma as ma
 import os
@@ -60,12 +63,10 @@ class ImageBase(unittest.TestCase):
     # TODO make a more intresting beam
     __exp_attrs['beam'] = None
     __exp_attrs['obsdate'] = {
-        'type': 'epoch',
         'refer': 'UTC',
-        'm0': {
-            'value': 51544.00000000116,
-            'unit': 'd'
-        }
+        'value': 51544.00000000116,
+        'unit': 'd',
+        'format': 'MJD'
     }
     __exp_attrs['observer'] = 'Karl Jansky'
     __exp_attrs['description'] = None
@@ -177,6 +178,12 @@ class ImageBase(unittest.TestCase):
                     self.assertTrue(
                         (dict1[k] == dict2[k]).all(),
                         f'{dict1_name}[{k}] != {dict2_name}[{k}]'
+                    )
+                elif isinstance(dict1[k], numbers.Number):
+                    self.assertTrue(
+                        np.isclose(dict1[k], dict2[k]),
+                        f'{dict1_name}[{k}] != {dict2_name}[{k}]:\n'
+                        + f'{dict1[k]} vs\n{dict2[k]}'
                     )
                 else:
                     self.assertEqual(
@@ -485,7 +492,10 @@ class casa_image_to_xds_test(ImageBase):
 
 
 class casacore_to_xds_to_casacore(ImageBase):
-    """test casacore -> xds -> casacore round trip"""
+    """
+    test casacore -> xds -> casacore round trip, ensure
+    the two casacore images are identical
+    """
 
 
     def test_pixels_and_mask(self):
@@ -500,6 +510,19 @@ class casacore_to_xds_to_casacore(ImageBase):
             (im1.getmask() == im2.getmask()).all(),
             'Incorrect mask values'
         )
+        del im1
+        del im2
+
+
+    def test_metadata(self):
+        """Test to verify metadata in two casacore images is the same"""
+        im1 = casacore.images.image(self.imname())
+        im2 = casacore.images.image(self.outname())
+        self.dict_equality(
+            im2.info(), im1.info(), 'got', 'expected'
+        )
+        del im1
+        del im2
 
 
 class xds_to_zarr_to_xds_test(ImageBase):
@@ -576,6 +599,250 @@ class xds_to_zarr_to_xds_test(ImageBase):
 
     def test_get_img_ds_block(self):
         self.compare_image_block(self.__zarr_store)
+
+
+class make_empty_sky_image_test(ImageBase):
+    """Test making skeleton image"""
+
+
+    @classmethod
+    def setUpClass(cls):
+        xxds = xr.Dataset()
+        cls.__skel_im = make_empty_sky_image(
+            xxds, [0.2, -0.5], [10, 10], [np.pi/180/60,
+            np.pi/180/60], [1.412e9, 1.413e9],
+            ['I', 'Q', 'U'], [54000.1]
+        )
+
+
+    @classmethod
+    def tearDownClass(cls):
+        pass
+
+
+    def skel_im(self):
+        return self.__skel_im
+
+
+    def test_time_coord(self):
+        skel = self.skel_im()
+        self.assertTrue(
+            np.isclose(skel.time, [54000.1]).all(),
+            'Incorrect time coordinate values'
+        )
+        expec = {'refer': 'UTC', 'unit': 'd', 'format': 'MJD'}
+        self.dict_equality(
+            skel.time.attrs, expec, 'got', 'expected'
+        )
+
+
+    def test_pol_coord(self):
+        skel = self.skel_im()
+        self.assertTrue(
+            (skel.pol == ['I', 'Q', 'U']).all(),
+            'Incorrect pol coordinate values'
+        )
+
+    def test_freq_coord(self):
+        skel = self.skel_im()
+        self.assertTrue(
+            np.isclose(skel.freq, [1.412e+09, 1.413e+09]).all(),
+            'Incorrect freq coordinate values'
+        )
+        expec = {
+            'conversion': {
+                'direction': {
+                    'm0': {'unit': 'rad', 'value': 0.0},
+                    'm1': {'unit': 'rad', 'value': 1.5707963267948966},
+                    'refer': 'FK5', 'type': 'direction'
+                },
+                'epoch': {
+                    'm0': {'unit': 'd', 'value': 0.0},
+                    'refer': 'LAST', 'type': 'epoch'
+                },
+                'position': {
+                    'm0': {'unit': 'rad', 'value': 0.0},
+                    'm1': {'unit': 'rad', 'value': 0.0},
+                    'm2': {'unit': 'm', 'value': 0.0},
+                    'refer': 'ITRF', 'type': 'position'
+                },
+                'system': 'LSRK'
+            },
+            'native_type': 'FREQ', 'restfreq': 1413000000.0,
+            'restfreqs': [1413000000.0], 'system': 'LSRK', 'unit': 'Hz',
+            'wave_unit': 'mm',
+            'wcs': {'crval': 1413000000.0, 'cdelt': 1000000.0, 'pc': 1.0}
+        }
+        self.dict_equality(
+            skel.freq.attrs, expec, 'got', 'expected'
+        )
+
+
+    def test_vel_coord(self):
+        skel = self.skel_im()
+        self.assertTrue(
+            np.isclose(skel.vel, [212167.34465675, 0]).all(),
+            'Incorrect vel coordinate values'
+        )
+        expec = {'doppler_type': 'RADIO', 'unit': 'm/s'}
+        self.dict_equality(
+            skel.vel.attrs, expec, 'got', 'expected'
+        )
+
+
+    def test_right_ascension_coord(self):
+        skel = self.skel_im()
+        expec = [
+            [
+                0.20165865, 0.20165838, 0.20165812, 0.20165785, 0.20165759,
+                0.20165733, 0.20165706, 0.2016568 , 0.20165654, 0.20165628
+            ],
+            [
+                0.20132692, 0.20132671, 0.20132649, 0.20132628, 0.20132607,
+                0.20132586, 0.20132565, 0.20132544, 0.20132523, 0.20132502
+            ],
+            [
+                0.20099519, 0.20099503, 0.20099487, 0.20099471, 0.20099455,
+                0.2009944 , 0.20099424, 0.20099408, 0.20099392, 0.20099377
+            ],
+            [
+                0.20066346, 0.20066335, 0.20066325, 0.20066314, 0.20066304,
+                0.20066293, 0.20066283, 0.20066272, 0.20066262, 0.20066251
+            ],
+            [
+                0.20033173, 0.20033168, 0.20033162, 0.20033157, 0.20033152,
+                0.20033147, 0.20033141, 0.20033136, 0.20033131, 0.20033126
+            ],
+            [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2],
+            [
+                0.19966827, 0.19966832, 0.19966838, 0.19966843, 0.19966848,
+                0.19966853, 0.19966859, 0.19966864, 0.19966869, 0.19966874
+            ],
+            [
+                0.19933654, 0.19933665, 0.19933675, 0.19933686, 0.19933696,
+                0.19933707, 0.19933717, 0.19933728, 0.19933738, 0.19933749
+            ],
+            [
+                0.19900481, 0.19900497, 0.19900513, 0.19900529, 0.19900545,
+                0.1990056 , 0.19900576, 0.19900592, 0.19900608, 0.19900623
+            ],
+            [
+                0.19867308, 0.19867329, 0.19867351, 0.19867372, 0.19867393,
+                0.19867414, 0.19867435, 0.19867456, 0.19867477, 0.19867498
+            ]
+        ]
+        self.assertTrue(
+            np.isclose(skel.right_ascension, expec).all(),
+            'Incorrect right_ascension coordinate values'
+        )
+        expec = {
+            'unit': 'rad', 'wcs': {'crval': 0.2,
+            'cdelt': -0.0002908882086657216}
+        }
+        self.dict_equality(
+            skel.right_ascension.attrs, expec, 'got', 'expected'
+        )
+
+
+    def test_declination_coord(self):
+        skel = self.skel_im()
+        expec = [
+            [
+                -0.50145386, -0.50116297, -0.50087209, -0.5005812 , -0.50029031,
+                -0.49999942, -0.49970853, -0.49941765, -0.49912676, -0.49883587
+            ],
+            [
+                -0.50145407, -0.50116318, -0.50087229, -0.50058141, -0.50029052,
+                -0.49999963, -0.49970874, -0.49941785, -0.49912697, -0.49883608
+            ],
+            [
+                -0.50145423, -0.50116334, -0.50087246, -0.50058157, -0.50029068,
+                -0.49999979, -0.4997089 , -0.49941802, -0.49912713, -0.49883624
+            ],
+            [
+                -0.50145435, -0.50116346, -0.50087257, -0.50058168, -0.5002908 ,
+                -0.49999991, -0.49970902, -0.49941813, -0.49912724, -0.49883635
+            ],
+            [
+                -0.50145442, -0.50116353, -0.50087264, -0.50058175, -0.50029087,
+                -0.49999998, -0.49970909, -0.4994182 , -0.49912731, -0.49883642
+            ],
+            [
+                -0.50145444, -0.50116355, -0.50087266, -0.50058178, -0.50029089,
+                -0.5, -0.49970911, -0.49941822, -0.49912734, -0.49883645
+            ],
+            [
+                -0.50145442, -0.50116353, -0.50087264, -0.50058175, -0.50029087,
+                -0.49999998, -0.49970909, -0.4994182 , -0.49912731, -0.49883642
+            ],
+            [
+                -0.50145435, -0.50116346, -0.50087257, -0.50058168, -0.5002908,
+                -0.49999991, -0.49970902, -0.49941813, -0.49912724, -0.49883635
+            ],
+            [
+                -0.50145423, -0.50116334, -0.50087246, -0.50058157, -0.50029068,
+                -0.49999979, -0.4997089 , -0.49941802, -0.49912713, -0.49883624
+            ],
+            [
+                -0.50145407, -0.50116318, -0.50087229, -0.50058141, -0.50029052,
+                -0.49999963, -0.49970874, -0.49941785, -0.49912697, -0.49883608
+            ]
+        ]
+        self.assertTrue(
+            np.isclose(skel.declination, expec).all(),
+            'Incorrect declinationion coordinate values'
+
+        )
+        expec = {
+            'unit': 'rad', 'wcs': {
+                'crval': -0.5, 'cdelt': 0.0002908882086657216
+            }
+        }
+        self.dict_equality(
+            skel.declination.attrs, expec, 'got', 'expected'
+        )
+
+
+    def test_attrs(self):
+        skel = self.skel_im()
+        expec = {
+            'direction': {
+                'conversion_system': 'FK5',
+                'conversion_equinox': 'J2000',
+                'long_pole': 0.0, 'lat_pole': 0.0,
+                'pc': np.array([[1., 0.], [0., 1.]]),
+                'projection': 'SIN',
+                'projection_parameters': np.array([0., 0.]),
+                'system': 'FK5',
+                'equinox': 'J2000'
+            },
+            'active_mask': '',
+            'beam': None,
+            'object_name': '',
+            'obsdate': {
+                'refer': 'UTC', 'format': 'MJD', 'value': 54000.0,
+                'unit': 'd'
+            },
+            'observer': 'Karl Jansky',
+            'pointing_center': {
+                'value': np.array([ 0.2, -0.5]), 'initial': True
+            },
+            'description': '',
+            'telescope': {
+                'name': 'ALMA',
+                'position': {
+                    'type': 'position', 'refer': 'ITRF',
+                    'm2': {'value': 6379946.01326443, 'unit': 'm'},
+                    'm1': {'unit': 'rad', 'value': -0.3994149869262738},
+                    'm0': {'unit': 'rad', 'value': -1.1825465955049892}
+                }
+            },
+            'history': None
+        }
+        self.dict_equality(
+            skel.attrs, expec, 'got', 'expected'
+        )
+
 
 
 if __name__ == '__main__':

@@ -442,6 +442,13 @@ def convert_and_write_partition(
             del ant_xds.attrs["other"]
 
             xds.attrs["intent"] = intent
+            
+            #Time and frequency should always be increasing
+            if xds.frequency[1]-xds.frequency[0] < 0:
+                xds = xds.sel(frequency=slice(None, None, -1))
+            
+            if xds.time[1]-xds.time[0] < 0:
+                xds = xds.sel(time=slice(None, None, -1))
 
             if storage_backend == "zarr":
                 xds.to_zarr(store=file_name + "/MAIN", mode=mode)

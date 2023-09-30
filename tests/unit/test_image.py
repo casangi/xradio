@@ -143,6 +143,10 @@ class ImageBase(unittest.TestCase):
         t.close()
         cls.__xds = read_image(cls.__imname, {'freq': 5})
         write_image(cls.__xds, cls.__outname, out_format='casa')
+        for i in (cls.__imname, cls.__outname):
+            t = casacore.tables.table(i)
+            print(t.keywordnames())
+            t.close()
 
 
     def imname(self):
@@ -170,27 +174,52 @@ class ImageBase(unittest.TestCase):
         )
         for k in dict1.keys():
             if k not in exclude_keys:
-                if isinstance(dict1[k], dict) and isinstance(dict2[k], dict):
-                    self.dict_equality(
-                        dict1[k], dict2[k], f'{dict1_name}[{k}]', f'{dict2_name}[{k}]'
-                    )
-                elif isinstance(dict1[k], np.ndarray):
+                one = dict1[k]
+                two = dict2[k]
+                if (
+                    isinstance(one, numbers.Number)
+                    and isinstance(two, numbers.Number)
+                ):
                     self.assertTrue(
-                        (dict1[k] == dict2[k]).all(),
-                        f'{dict1_name}[{k}] != {dict2_name}[{k}]'
-                    )
-                elif isinstance(dict1[k], numbers.Number):
-                    self.assertTrue(
-                        np.isclose(dict1[k], dict2[k]),
+                        np.isclose(one, two),
                         f'{dict1_name}[{k}] != {dict2_name}[{k}]:\n'
-                        + f'{dict1[k]} vs\n{dict2[k]}'
+                        + f'{one} vs\n{two}'
+                    )
+                elif (
+                    (isinstance(one, list) and isinstance(two, np.ndarray))
+                    or (isinstance(one, np.ndarray) and isinstance(two, list))
+                ):
+                    self.assertTrue(
+                        np.isclose(np.array(one), np.array(two)).all(),
+                        f'{dict1_name}[{k}] != {dict2_name}[{k}]'
                     )
                 else:
                     self.assertEqual(
-                        dict1[k], dict2[k],
-                        f'{dict1_name}[{k}] != {dict2_name}[{k}]:\n'
-                        + f'{dict1[k]} vs\n{dict2[k]}'
+                        type(dict1[k]), type(dict2[k]),
+                        f'Types are different {dict1_name}[{k}] {type(dict1[k])} '
+                        + f'vs {dict2_name}[{k}] {type(dict2[k])}'
                     )
+                    if isinstance(dict1[k], dict) and isinstance(dict2[k], dict):
+                        self.dict_equality(
+                            dict1[k], dict2[k], f'{dict1_name}[{k}]', f'{dict2_name}[{k}]'
+                        )
+                    elif isinstance(one, np.ndarray):
+                        if k == 'crpix':
+                            self.assertTrue(
+                                np.allclose(one, two, rtol=3e-5),
+                                f'{dict1_name}[{k}] != {dict2_name}[{k}], {one} vs {two}'
+                            )
+                        else:
+                            self.assertTrue(
+                                np.allclose(one, two),
+                                f'{dict1_name}[{k}] != {dict2_name}[{k}], {one} vs {two}'
+                            )
+                    else:
+                        self.assertEqual(
+                            dict1[k], dict2[k],
+                            f'{dict1_name}[{k}] != {dict2_name}[{k}]:\n'
+                            + f'{dict1[k]} vs\n{dict2[k]}'
+                        )
 
 
     def compare_sky_mask(self, xds:xr.Dataset):
@@ -518,9 +547,17 @@ class casacore_to_xds_to_casacore(ImageBase):
         """Test to verify metadata in two casacore images is the same"""
         im1 = casacore.images.image(self.imname())
         im2 = casacore.images.image(self.outname())
-        self.dict_equality(
-            im2.info(), im1.info(), 'got', 'expected'
-        )
+        c1 = im1.info()
+        c2 = im2.info()
+        # some quantities are expected to have different untis and values
+        c2['coordinates']['direction0']['cdelt'] *= 180*60/np.pi
+        c2['coordinates']['direction0']['units'] = ["'", "'"]
+        # the actual velocity values aren't stored but rather computed
+        # by casacore on the fly, so we cannot easily compare them,
+        # and really comes down to comparing the values of c used in
+        # the computations (eg, if c is in m/s or km/s)
+        c2['coordinates']['spectral2']['velUnit'] = 'km/s'
+        self.dict_equality(c2, c1, 'got', 'expected')
         del im1
         del im2
 

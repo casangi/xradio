@@ -1,6 +1,7 @@
 import astropy
 from astropy.coordinates import Angle, SkyCoord
 from casacore import tables
+import copy
 import numpy as np
 import os
 import xarray as xr
@@ -76,33 +77,25 @@ def __compute_spectral_dict(
     for a CASA image coordinate system
     """
     spec = {}
-    spec_conv = {}
-    spec_conv['direction'] = {
-        'm0': {'unit': direction['units'][0], 'value': direction['crval'][0]},
-        'm1': {'unit': direction['units'][1], 'value': direction['crval'][1]},
-        'refer': direction['system'], 'type': 'direction'
-    }
-    spec_conv['epoch'] = obsdate
-    spec_conv['position'] = tel_pos
-    spec_conv['system'] = xds.freq.attrs['system']
+    spec_conv = copy.deepcopy(xds.freq.attrs['conversion'])
     spec['conversion'] = spec_conv
     spec['formatUnit'] = ''
-    spec['name']: 'Frequency'
+    spec['name'] = 'Frequency'
     spec['nativeType'] = __native_types.index(xds.freq.attrs['native_type'])
     spec['restfreq'] = xds.freq.attrs['restfreq']
-    spec['restfreq'] = xds.freq.attrs['restfreqs']
+    spec['restfreqs'] = copy.deepcopy(xds.freq.attrs['restfreqs'])
     spec['system'] = xds.freq.attrs['system']
     spec['unit'] = xds.freq.attrs['unit']
     spec['velType'] = __doppler_types.index(xds.vel.attrs['doppler_type'])
     spec['velUnit'] = xds.vel.attrs['unit']
     spec['version'] = 2
     spec['waveUnit'] = xds.freq.attrs['wave_unit']
-    spec_wcs = xds.freq.attrs['wcs']
-    # spec_wcs['ctype'] = 'FREQ'
-    # spec_wcs['pc'] = 1.0
-    # spec_wcs['crpix'] = (spec_wcs['crval'] - xds.freq.values[0])/spec_wcs['cdelt']
+    spec_wcs = copy.deepcopy(xds.freq.attrs['wcs'])
+    spec_wcs['ctype'] = 'FREQ'
+    spec_wcs['pc'] = 1.0
+    spec_wcs['crpix'] = (spec_wcs['crval'] - xds.freq.values[0])/spec_wcs['cdelt']
     spec['wcs'] = spec_wcs
-    return spec
+    return copy.deepcopy(spec)
 
 
 def __coord_dict_from_xds(xds: xr.Dataset) -> dict:
@@ -111,9 +104,11 @@ def __coord_dict_from_xds(xds: xr.Dataset) -> dict:
     coord['observer'] = xds.attrs['observer']
     obsdate = {}
     obsdate['refer'] = xds.time.attrs['refer']
-    obsdate['unit'] = xds.time.attrs['unit']
-    obsdate['value'] = xds.time.values[0]
-    obsdate['format'] = xds.time.attrs['format']
+    obsdate['type'] = 'epoch'
+    obsdate['m0'] = {}
+    obsdate['m0']['unit'] = xds.time.attrs['unit']
+    obsdate['m0']['value'] = xds.time.values[0]
+    #obsdate['format'] = xds.time.attrs['format']
     coord['obsdate'] = obsdate
     coord['pointingcenter'] = xds.attrs[__pointing_center].copy()
     coord['telescopeposition'] = xds.attrs['telescope']['position'].copy()
@@ -132,9 +127,9 @@ def __coord_dict_from_xds(xds: xr.Dataset) -> dict:
     coord['pixelreplace0'] = np.array([0., 0.])
     coord['pixelreplace1'] = np.array([0.])
     coord['pixelreplace2'] = np.array([0.])
-    coord['worldmap0'] = np.array([0, 1])
-    coord['worldmap1'] = np.array([2])
-    coord['worldmap2'] = np.array([3])
+    coord['worldmap0'] = np.array([0, 1], dtype=np.int32)
+    coord['worldmap1'] = np.array([2], dtype=np.int32)
+    coord['worldmap2'] = np.array([3], dtype=np.int32)
     coord['worldreplace0'] = coord['direction0']['crval']
     coord['worldreplace1'] = np.array(coord['stokes1']['crval'])
     coord['worldreplace2'] = np.array([xds.freq.attrs['wcs']['crval']])

@@ -2,6 +2,7 @@ import astropy
 from astropy import units as u
 from casacore import images, quanta, tables
 from casacore.images import coordinates
+import copy
 import dask
 import dask.array as da
 import logging
@@ -14,7 +15,7 @@ from .common import (
     __active_mask, __doppler_types, __native_types, __object_name,
     __pointing_center
 )
-from ..common import (__dask_arrayize, __image_type)
+from ..common import __c, __dask_arrayize, __image_type
 
 
 def __add_coord_attrs(xds: xr.Dataset, icoords: dict, diraxes: list) -> xr.Dataset:
@@ -42,7 +43,7 @@ def __add_dir_lin_attrs(xds, coord_dict, dir_axes):
                 meta['wcs'] = {}
                 meta['wcs']['crval'] = dd['crval'][i]*scale
                 meta['wcs']['cdelt'] = dd['cdelt'][i]*scale
-                xds[dir_axes[i]].attrs = meta
+                xds[dir_axes[i]].attrs = copy.deepcopy(meta)
             break
         elif k.startswith('linear'):
             ld = coord_dict[k]
@@ -52,7 +53,7 @@ def __add_dir_lin_attrs(xds, coord_dict, dir_axes):
                 meta['wcs'] = {}
                 meta['wcs']['crval'] = ld['crval'][i]
                 meta['wcs']['cdelt'] = ld['cdelt'][i]
-                xds[dir_axes[i]].attrs = meta
+                xds[dir_axes[i]].attrs = copy.deepcopy(meta)
             break
     return xds
 
@@ -109,7 +110,7 @@ def __add_freq_attrs(xds, coord_dict):
   				'crval': 1415000000.0,
 			}
 		}
-    freq_coord.attrs = meta
+    freq_coord.attrs = copy.deepcopy(meta)
     xds['freq'] = freq_coord
     return xds
 
@@ -157,7 +158,7 @@ def __add_time_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
     meta['refer'] = coord_dict['obsdate']['refer']
     meta['unit'] = coord_dict['obsdate']['m0']['unit']
     meta['format'] = __get_time_format(time_coord[0], meta['unit'])
-    time_coord.attrs = meta
+    time_coord.attrs = copy.deepcopy(meta)
     xds['time'] = time_coord
     return xds
 
@@ -172,7 +173,7 @@ def __add_vel_attrs(xds, coord_dict):
             break
     if not meta:
             meta['doppler_type'] = __doppler_types[0]
-    vel_coord.attrs = meta
+    vel_coord.attrs = copy.deepcopy(meta)
     xds['vel'] = vel_coord
     return xds
 
@@ -270,7 +271,7 @@ def __casa_image_to_xds_attrs(img_full_path: str, history: bool=True) -> dict:
                 f'Unable to find history table {htable}. '
                 'History will not be included'
             )
-    return attrs
+    return copy.deepcopy(attrs)
 
 
 def __casa_image_to_xds_metadata(img_full_path:str, verbose:bool=False) -> dict:
@@ -732,9 +733,8 @@ def __get_velocity_values(coord_dict: dict, freq_values: list) -> list:
         if k.startswith('spectral'):
             restfreq = coord_dict[k]['restfreq']
             break
-    c = 2.99792458e+08
     # doppler type = RADIO definition
-    return [ (1 - f/restfreq)*c for f in freq_values ]
+    return [ ((1 - f/restfreq)*__c).value for f in freq_values ]
 
 
 

@@ -112,7 +112,9 @@ def __xds_to_casa_image(xds: xr.Dataset, imagename:str) -> None:
         raise Exception('XDS can only be converted if it has exactly one time plane')
     arr = xds[sky_ap].isel(time=0).transpose(*('freq', 'pol', 'm', 'l'))
     image_full_path = os.path.expanduser(imagename)
-    maskname = xds.active_mask if __active_mask in xds.attrs else ''
+    maskname = ''
+    if __active_mask in xds.attrs and xds.attrs[__active_mask]:
+        maskname = xds.attrs[__active_mask]
     # create the image and then delete the object
     casa_image = images.image(image_full_path, maskname=maskname, shape=arr.shape)
     del casa_image
@@ -130,7 +132,7 @@ def __xds_to_casa_image(xds: xr.Dataset, imagename:str) -> None:
         image_full_path, readonly=False, lockoptions={'option': 'permanentwait'},
         ack=False
     )
-    tb.putkeyword('coord', coord)
+    tb.putkeyword('coords', coord)
     tb.putkeyword('imageinfo', ii)
     if units:
         tb.putkeyword('units', units)

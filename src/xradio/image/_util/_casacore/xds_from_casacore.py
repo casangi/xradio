@@ -66,7 +66,9 @@ def __add_freq_attrs(xds, coord_dict):
     for k in coord_dict:
         if k.startswith('spectral'):
             sd = coord_dict[k]
-            meta['conversion'] = sd['conversion']
+            meta['conversion'] = copy.deepcopy(sd['conversion'])
+            for k in ('direction', 'epoch', 'position'):
+                del meta['conversion'][k]['type']
             meta['native_type'] = __native_types[sd['nativeType']]
             meta['restfreq'] = sd['restfreq']
             meta['restfreqs'] = sd['restfreqs']
@@ -85,19 +87,16 @@ def __add_freq_attrs(xds, coord_dict):
 					'm0': {'unit': 'rad', 'value': 0.0},
    					'm1': {'unit': 'rad', 'value': 1.5707963267948966},
    					'refer': 'J2000',
-   					'type': 'direction'
 				},
   				'epoch': {
 					'm0': {'unit': 'd', 'value': 0.0},
    					'refer': 'LAST',
-   					'type': 'epoch'
 				},
   				'position': {
 					'm0': {'unit': 'rad', 'value': 0.0},
    					'm1': {'unit': 'rad', 'value': 0.0},
    					'm2': {'unit': 'm', 'value': 0.0},
    					'refer': 'ITRF',
-   					'type': 'position'
 				},
   				'system': 'LSRK'
 			},

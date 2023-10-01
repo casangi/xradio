@@ -78,9 +78,17 @@ def __compute_spectral_dict(
     """
     spec = {}
     spec_conv = copy.deepcopy(xds.freq.attrs['conversion'])
-    spec['conversion'] = copy.deepcopy(spec_conv)
     for k in ('direction', 'epoch', 'position'):
-        spec['conversion'][k]['type'] = k
+        spec_conv[k]['type'] = k
+    spec_conv['direction']['refer'] = spec_conv['direction']['system']
+    del spec_conv['direction']['system']
+    if (
+        spec_conv['direction']['refer'] == 'FK5'
+        and spec_conv['direction']['equinox'] == 'J2000'
+    ):
+        spec_conv['direction']['refer'] = 'J2000'
+    del spec_conv['direction']['equinox']
+    spec['conversion'] = spec_conv
     spec['formatUnit'] = ''
     spec['name'] = 'Frequency'
     spec['nativeType'] = __native_types.index(xds.freq.attrs['native_type'])

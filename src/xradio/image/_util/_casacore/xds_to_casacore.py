@@ -78,7 +78,9 @@ def __compute_spectral_dict(
     """
     spec = {}
     spec_conv = copy.deepcopy(xds.freq.attrs['conversion'])
-    spec['conversion'] = spec_conv
+    spec['conversion'] = copy.deepcopy(spec_conv)
+    for k in ('direction', 'epoch', 'position'):
+        spec['conversion'][k]['type'] = k
     spec['formatUnit'] = ''
     spec['name'] = 'Frequency'
     spec['nativeType'] = __native_types.index(xds.freq.attrs['native_type'])
@@ -95,7 +97,7 @@ def __compute_spectral_dict(
     spec_wcs['pc'] = 1.0
     spec_wcs['crpix'] = (spec_wcs['crval'] - xds.freq.values[0])/spec_wcs['cdelt']
     spec['wcs'] = spec_wcs
-    return copy.deepcopy(spec)
+    return spec
 
 
 def __coord_dict_from_xds(xds: xr.Dataset) -> dict:

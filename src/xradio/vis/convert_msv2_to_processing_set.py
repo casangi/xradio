@@ -205,19 +205,20 @@ def create_coordinates(
         measures_freq_ref
     ]
     xds.frequency.attrs["spectral_window_name"] = str(spw_xds.name.values)
-    xds.frequency.attrs["reference_frequency"] = float(spw_xds.ref_frequency.values)
+    xds.frequency.attrs["reference_frequency"] = {"dims":"", "data":float(spw_xds.ref_frequency.values), "attrs":{"type":"spectral_coord","units":"Hz","velocity_frame":xds.frequency.attrs["velocity_frame"]}}
     xds.frequency.attrs["effective_channel_width"] = "EFFECTIVE_CHANNEL_WIDTH"
     # Add if doppler table is present
     # xds.frequency.attrs["doppler_velocity"] =
     # xds.frequency.attrs["doppler_type"] =
 
-    # unique_chan_width = np.unique(spw_xds.chan_width.data[np.logical_not(np.isnan(spw_xds.chan_width.data))])
+    unique_chan_width = np.unique(spw_xds.chan_width.data[np.logical_not(np.isnan(spw_xds.chan_width.data))])
     # print('unique_chan_width',unique_chan_width)
     # print('spw_xds.chan_width.data',spw_xds.chan_width.data)
-    # assert len(unique_chan_width) == 1, "Channel width varies for spw."
-    xds.frequency.attrs["channel_width"] = spw_xds.chan_width.data[
-        ~(np.isnan(spw_xds.chan_width.data))
-    ]  # unique_chan_width[0]
+    #assert len(unique_chan_width) == 1, "Channel width varies for spw."
+    #xds.frequency.attrs["channel_width"] = spw_xds.chan_width.data[
+    #    ~(np.isnan(spw_xds.chan_width.data))
+    #]  # unique_chan_width[0]
+    xds.frequency.attrs["channel_width"] = {"dims":"", "data":np.abs(unique_chan_width[0]), "attrs":{"type":"quanta","units":"Hz"}} #Should always be increasing (ordering is fixed before saving).
 
     main_table_attrs = extract_table_attributes(infile)
     xds.time.attrs["type"] = "time"
@@ -230,7 +231,7 @@ def create_coordinates(
     xds.time.attrs[
         "format"
     ] = "unix"  # Time gets converted to unix in xradio.vis._vis_utils._ms._tables.read.convert_casacore_time
-    xds.time.attrs["integration_time"] = interval
+    xds.time.attrs["integration_time"] = {"dims":"", "data":interval, "attrs":{"type":"quanta","units":"s"}}
     xds.time.attrs["effective_integration_time"] = "EFFECTIVE_INTEGRATION_TIME"
 
     return xds
@@ -406,15 +407,18 @@ def convert_and_write_partition(
                 "FIELD",
                 rename_ids=subt_rename_ids["FIELD"],
             )
+            
+            delay_dir = {"dims":"", "data":list(field_xds["delay_dir"].data[field_id, 0, :]), "attrs": {"units": "rad", "type":"sky_coord", "description":"Direction of delay center in right ascension and declination."}}
+            phase_dir = {"dims":"", "data":list(field_xds["phase_dir"].data[field_id, 0, :]), "attrs": {"units": "rad", "type":"sky_coord", "description":"Direction of phase center in right ascension and declination."}}
+            reference_dir = {"dims":"", "data":list(field_xds["delay_dir"].data[field_id, 0, :]), "attrs": {"units": "rad", "type":"sky_coord", "description":"Direction of reference direction in right ascension and declination. Used in single-dish to record the associated reference direction if position-switching has already been applied. For interferometric data, this is the original correlated field center, and may equal delay_direction or phase_direction."}}
 
             field_info = {
                 "name": field_xds["name"].data[field_id],
                 "code": field_xds["code"].data[field_id],
-                "time": field_xds["time"].data[field_id],
-                "num_poly": 0,
-                "delay_dir": list(field_xds["delay_dir"].data[field_id, 0, :]),
-                "phase_dir": list(field_xds["phase_dir"].data[field_id, 0, :]),
-                "reference_dir": list(field_xds["reference_dir"].data[field_id, 0, :]),
+                "delay_direction": delay_dir,
+                "phase_direction": phase_dir,
+                "reference_direction": reference_dir,
+                "field_id": field_id
             }
             xds.attrs["field_info"] = field_info
 
@@ -442,6 +446,7 @@ def convert_and_write_partition(
             del ant_xds.attrs["other"]
 
             xds.attrs["intent"] = intent
+            xds.attrs["ddi"] = ddi
             
             #Time and frequency should always be increasing
             if xds.frequency[1]-xds.frequency[0] < 0:

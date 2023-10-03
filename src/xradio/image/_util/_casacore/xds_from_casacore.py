@@ -64,7 +64,15 @@ def __add_freq_attrs(xds, coord_dict):
     for k in coord_dict:
         if k.startswith('spectral'):
             sd = coord_dict[k]
-            meta['conversion'] = sd['conversion']
+            meta['conversion'] = copy.deepcopy(sd['conversion'])
+            for k in ('direction', 'epoch', 'position'):
+                del meta['conversion'][k]['type']
+            dir_system, equinox = __convert_direction_system(
+                meta['conversion']['direction']['refer'], False
+            )
+            del meta['conversion']['direction']['refer']
+            meta['conversion']['direction']['system'] = dir_system
+            meta['conversion']['direction']['equinox'] = equinox
             meta['native_type'] = __native_types[sd['nativeType']]
             meta['restfreq'] = sd['restfreq']
             meta['restfreqs'] = sd['restfreqs']
@@ -83,19 +91,16 @@ def __add_freq_attrs(xds, coord_dict):
 					'm0': {'unit': 'rad', 'value': 0.0},
    					'm1': {'unit': 'rad', 'value': 1.5707963267948966},
    					'refer': 'J2000',
-   					'type': 'direction'
 				},
   				'epoch': {
 					'm0': {'unit': 'd', 'value': 0.0},
    					'refer': 'LAST',
-   					'type': 'epoch'
 				},
   				'position': {
 					'm0': {'unit': 'rad', 'value': 0.0},
    					'm1': {'unit': 'rad', 'value': 0.0},
    					'm2': {'unit': 'm', 'value': 0.0},
    					'refer': 'ITRF',
-   					'type': 'position'
 				},
   				'system': 'LSRK'
 			},
@@ -185,7 +190,7 @@ def __casa_image_to_xds_attrs(img_full_path: str, history: bool=True) -> dict:
     casa_image = images.image(img_full_path)
     meta_dict = casa_image.info()
     del casa_image
-    coord_dict = meta_dict['coordinates']
+    coord_dict = copy.deepcopy(meta_dict['coordinates'])
     attrs = {}
     dir_key = None
     for k in coord_dict.keys():
@@ -386,20 +391,24 @@ def __convert_beam_to_rad(beam: dict) -> dict:
     return mybeam
 
 
-def __convert_direction_system(casa_system: str, which: str) -> tuple:
+def __convert_direction_system(
+    casa_system:str, which:str, verbose:bool=True
+) -> tuple:
     if casa_system == 'J2000':
-        logging.info(
-            f'J2000 found as {which} reference frame in CASA image '
-            'This corresponds to FK5(equinox="J2000") in astropy. '
-            'Metadata will be written appropriately'
-        )
+        if verbose:
+            logging.info(
+                f'J2000 found as {which} reference frame in CASA image '
+                'This corresponds to FK5(equinox="J2000") in astropy. '
+                'Metadata will be written appropriately'
+            )
         return ('FK5', 'J2000')
     elif casa_system == 'B1950':
-        logging.info(
-            f'B1950 found as {which} reference frame in CASA image '
-            'This corresponds to FK4(equinox="B1950") in astropy. '
-            'Metadata will be written appropriately'
-        )
+        if verbose:
+            logging.info(
+                f'B1950 found as {which} reference frame in CASA image '
+                'This corresponds to FK4(equinox="B1950") in astropy. '
+                'Metadata will be written appropriately'
+            )
         return ('FK4', 'B1950')
     elif casa_system in ('GALACTIC', 'ICRS'):
         return (casa_system, None)

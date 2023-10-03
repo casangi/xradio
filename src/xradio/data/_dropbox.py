@@ -21,7 +21,12 @@ FILE_ID = {
     'rlkey':'l9jdr6tvyq4pe3381gukuly0d&dl'
   },
   
-        
+  'Antennae_North.cal.lsrk.ms':
+   {
+    'file':'Antennae_North.cal.lsrk.ms.zip',
+    'id':'olx5qv9avdxxiyjlhlwx2',
+    'rlkey':'trrqy43rfcqj4blf9robz4p47&dl'
+   },
 }
 
 def download(file, folder='.'):

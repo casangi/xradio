@@ -289,7 +289,12 @@ class ImageBase(unittest.TestCase):
             ev['freq'] = []
             for chan in range(10):
                 ev['freq'].append(im.toworld([chan,0,0,0])[0])
-            ev['freq_conversion'] = sd['conversion']
+            ev['freq_conversion'] = copy.deepcopy(sd['conversion'])
+            for k in ('direction', 'position', 'epoch'):
+                del ev['freq_conversion'][k]['type']
+            del ev['freq_conversion']['direction']['refer']
+            ev['freq_conversion']['direction']['system'] = 'FK5'
+            ev['freq_conversion']['direction']['equinox'] = 'J2000'
             ev['restfreq'] = sd['restfreq']
             ev['restfreqs'] = sd['restfreqs']
             ev['freq_crval'] = sd['wcs']['crval']

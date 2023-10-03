@@ -63,7 +63,7 @@ class ImageBase(unittest.TestCase):
     # TODO make a more intresting beam
     __exp_attrs['beam'] = None
     __exp_attrs['obsdate'] = {
-        'refer': 'UTC',
+        'time_scale': 'UTC',
         'value': 51544.00000000116,
         'unit': 'd',
         'format': 'MJD'
@@ -262,21 +262,22 @@ class ImageBase(unittest.TestCase):
         got_vals = xds.time
         self.assertEqual(got_vals, ev['time'], 'Incorrect time axis values')
         self.assertEqual(
-            xds.time.attrs['format'], ev['time_format'],
+            xds.coords['time'].attrs['format'], ev['time_format'],
             'Incoorect time axis format'
         )
         self.assertEqual(
-            xds.time.attrs['refer'], ev['time_refer'],
+            xds.coords['time'].attrs['time_scale'], ev['time_refer'],
             'Incoorect time axis refer'
         )
         self.assertEqual(
-            xds.time.attrs['unit'], ev['time_unit'], 'Incoorect time axis unitt'
+            xds.coords['time'].attrs['unit'], ev['time_unit'],
+            'Incoorect time axis unitt'
         )
 
 
     def compare_pol(self, xds:xr.Dataset):
         self.assertTrue(
-            (xds.pol == self.__exp_vals['stokes']).all(),
+            (xds.coords['pol'] == self.__exp_vals['stokes']).all(),
             'Incorrect pol values'
         )
 
@@ -415,7 +416,8 @@ class ImageBase(unittest.TestCase):
 
     def compare_attrs(self, xds):
         self.dict_equality(
-            self.xds().attrs, self.exp_attrs(), 'Got attrs', 'Expected attrs', ['history']
+            self.xds().attrs, self.exp_attrs(), 'Got attrs',
+            'Expected attrs', ['history']
         )
         self.assertTrue(
             isinstance(self.xds().attrs['history'], xr.core.dataset.Dataset),

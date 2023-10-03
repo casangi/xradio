@@ -3,6 +3,7 @@ from astropy import units as u
 from astropy.io import fits
 from astropy.time import Time
 from ..common import (__get_xds_dim_order, __image_type)
+import copy
 import dask
 import dask.array as da
 import logging
@@ -30,12 +31,31 @@ def __fits_image_to_xds_metadata(
     xds = __create_coords(helpers, header)
     sphr_dims = helpers['sphr_dims']
     ary = __read_image_array(img_full_path, chunks, helpers, verbose)
-    print('*** ma')
     dim_order = __get_xds_dim_order(sphr_dims)
-    print('*** mb')
     xds = __add_sky_or_apeture(xds, ary, dim_order, helpers, sphr_dims)
-    print('*** mc')
+    xds.attrs = attrs
+    xds = __add_coord_attrs(xds, helpers)
     return xds
+
+
+def __add_coord_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
+     xds = __add_time_attrs(xds, helpers)
+     """
+     xds = __add_freq_attrs(xds, helpers)
+     xds = __add_vel_attrs(xds, helpers)
+     xds = __add_dir_lin_attrs(xds, helpers)
+     """
+     return xds
+
+
+def __add_time_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
+     time_coord = xds.coords['time']
+     meta = copy.deepcopy(helpers['obsdate'])
+     del meta['value']
+     meta['format'] = 'MJD'
+     time_coord.attrs = meta
+     xds.assign_coords(time=time_coord)
+     return xds
 
 
 def __fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
@@ -131,6 +151,7 @@ def __fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
     # FIXME read fits data in chunks in case all data too large to hold in memory
     has_mask = da.any(da.isnan(primary.data)).compute()
     attrs['active_mask'] = 'mask0' if has_mask else None
+    helpers['has_mask'] = has_mask
     if 'BMAJ' in header.keys():
         # single global beam
         attrs['beam'] = {
@@ -156,9 +177,9 @@ def __fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
     helpers['bunit'] = header['BUNIT'] if 'BUNIT' in header else None
     attrs['object'] = header['OBJECT'] if 'OBJECT' in header else None
     obsdate = {}
-    obsdate['value'] = Time(header.get('DATE-OBS'), format='isot').mjd
+    obsdate['value'] = Time(header['DATE-OBS'], format='isot').mjd
     obsdate['unit'] = 'd'
-    obsdate['refer'] = 'UTC1'
+    obsdate['refer'] = header['TIMESYS']
     attrs['obsdate'] = obsdate
     helpers['obsdate'] = obsdate
     attrs['observer'] = header.get('OBSERVER')
@@ -436,6 +457,12 @@ def __add_sky_or_apeture(
     name = 'sky' if has_sph_dims else 'apeture'
     xda = xda.rename(name)
     xds[xda.name] = xda
+    if helpers['has_mask']:
+        pp = da if type(xda[0].data) == dask.array.core.Array else np
+        mask = pp.isnan(xda)
+        mask.attrs = {}
+        mask = mask.rename('mask0')
+        xds['mask0'] = mask
     return xds
 
 
@@ -590,8 +617,7 @@ def __read_image_chunk(img_full_path, shapes:tuple, starts:tuple) -> np.ndarray:
     z = hdulist[0].data[t]
     print('z shape', z.shape)
     hdulist.close()
+    # delete to avoid having a reference to a mem-mapped hdulist
     del hdulist
     return z
-
-
 

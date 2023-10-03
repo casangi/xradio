@@ -73,10 +73,13 @@ def read_image(infile:str, chunks:dict={}, verbose:bool=False) -> xr.Dataset:
             return __read_casa_image(infile, chunks, verbose=verbose)
         except Exception as e:
             emsgs.append(f'image format appears not to be casacore: {e.args}')
+    return __read_fits_image(infile, chunks, verbose)
+    """
     try:
         return __read_fits_image(infile, chunks, verbose)
     except Exception as e:
         emsgs.append(f'image format appears not to be fits {e.args}')
+    """
     try:
         return __xds_from_zarr(infile, True)
     except Exception as e:

@@ -12,10 +12,12 @@ from typing import Union
 import xarray as xr
 
 from .common import (
-    __active_mask, __doppler_types, __native_types, __object_name,
-    __pointing_center
+    __active_mask, __native_types, __object_name, __pointing_center
 )
-from ..common import __c, __dask_arrayize, __image_type
+from ..common import (
+    __c, __dask_arrayize, __default_freq_info,
+    __doppler_types, __image_type
+)
 
 
 def __add_coord_attrs(xds: xr.Dataset, icoords: dict, diraxes: list) -> xr.Dataset:
@@ -85,36 +87,7 @@ def __add_freq_attrs(xds, coord_dict):
             break
     if not meta:
 		# this is the default frequency information CASA creates
-        meta = {
-			'conversion': {
-				'direction': {
-					'm0': {'unit': 'rad', 'value': 0.0},
-   					'm1': {'unit': 'rad', 'value': 1.5707963267948966},
-   					'refer': 'J2000',
-				},
-  				'epoch': {
-					'm0': {'unit': 'd', 'value': 0.0},
-   					'refer': 'LAST',
-				},
-  				'position': {
-					'm0': {'unit': 'rad', 'value': 0.0},
-   					'm1': {'unit': 'rad', 'value': 0.0},
-   					'm2': {'unit': 'm', 'value': 0.0},
-   					'refer': 'ITRF',
-				},
-  				'system': 'LSRK'
-			},
- 			'nativeType': 'FREQ',
- 			'restfreq': 1420405751.7860003,
- 			'restfreqs': [1420405751.7860003],
- 			'system': 'LSRK',
- 			'unit': 'Hz',
- 			'waveUnit': 'mm',
- 			'wcs': {
-				'cdelt': 1000.0,
-  				'crval': 1415000000.0,
-			}
-		}
+        meta = __default_freq_info()
     freq_coord.attrs = copy.deepcopy(meta)
     xds['freq'] = freq_coord
     return xds
@@ -168,7 +141,7 @@ def __add_time_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
     return xds
 
 
-def __add_vel_attrs(xds, coord_dict):
+def __add_vel_attrs(xds:xr.Dataset, coord_dict:dict) -> xr.Dataset:
     vel_coord = xds['vel']
     meta = {'unit': 'm/s'}
     for k in coord_dict:

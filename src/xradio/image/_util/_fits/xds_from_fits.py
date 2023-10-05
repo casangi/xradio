@@ -2,7 +2,10 @@ import astropy as ap
 from astropy import units as u
 from astropy.io import fits
 from astropy.time import Time
-from ..common import (__get_xds_dim_order, __image_type)
+from ..common import (
+    __c, __default_freq_info, __doppler_types,
+    __freq_from_vel, __get_xds_dim_order, __image_type
+)
 import copy
 import dask
 import dask.array as da
@@ -11,7 +14,6 @@ import numpy as np
 import re
 from typing import Union
 import xarray as xr
-from ..common import __c
 
 
 def __fits_image_to_xds_metadata(
@@ -40,15 +42,15 @@ def __fits_image_to_xds_metadata(
 
 def __add_coord_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
      xds = __add_time_attrs(xds, helpers)
-     """
      xds = __add_freq_attrs(xds, helpers)
      xds = __add_vel_attrs(xds, helpers)
+     """
      xds = __add_dir_lin_attrs(xds, helpers)
      """
      return xds
 
 
-def __add_time_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
+def __add_time_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
      time_coord = xds.coords['time']
      meta = copy.deepcopy(helpers['obsdate'])
      del meta['value']
@@ -56,6 +58,60 @@ def __add_time_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
      time_coord.attrs = meta
      xds.assign_coords(time=time_coord)
      return xds
+
+
+def __add_freq_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
+    freq_coord = xds.coords['freq']
+    meta = {}
+    if helpers['has_freq']:
+        conv = {}
+        conv['direction'] = {
+            'm0': {'unit': 'rad', 'value': 0.0},
+            'm1': {'unit': 'rad', 'value': np.pi/2},
+            'system': helpers['ref_sys'],
+            'equinox': helpers['ref_eqx']
+        }
+        conv['epoch'] = {'m0': {'value': 0.0, 'unit': 'd'}, 'refer': 'LAST'}
+        conv['position'] = {
+            'm0': {'unit': 'rad', 'value': 0.0},
+            'm1': {'unit': 'rad', 'value': 0.0},
+            'm2': {'unit': 'm', 'value': 0.0}, 'refer': 'ITRF'
+        }
+        conv['system'] = helpers['specsys']
+        meta['conversion'] = conv
+        meta['native_type'] = helpers['native_type']
+        meta['restfreq'] = helpers['restfreq']
+        meta['restfreqs'] = [ helpers['restfreq'] ]
+        meta['system'] = ''
+        meta['unit'] = 'Hz'
+        meta['wave_unit'] = 'mm'
+        wcs = {}
+        freq_axis = helpers['freq_axis']
+        wcs['crval'] = helpers['crval'][freq_axis]
+        wcs['cdelt'] = helpers['cdelt'][freq_axis]
+        meta['wcs'] = wcs
+    if not meta:
+        # this is the default frequency information CASA creates
+        meta = __default_freq_info()
+    freq_coord.attrs = copy.deepcopy(meta)
+    xds['freq'] = freq_coord
+    return xds
+
+
+def __add_vel_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
+    vel_coord = xds.coords['vel']
+    meta = {'unit': 'm/s'}
+    if helpers['has_freq']:
+        meta['doppler_type'] = helpers['doppler']
+    else:
+        meta['doppler_type'] = __doppler_types[0]
+    vel_coord.attrs = copy.deepcopy(meta)
+    xds.coords['vel'] = vel_coord
+    return xds
+
+
+def __is_freq_like(v:str) -> bool:
+    return v.startswith('FREQ') or v == 'VOPT' or v == 'VRAD'
 
 
 def __fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
@@ -85,6 +141,7 @@ def __fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
     cdelt = []
     crpix = []
     cunit = []
+    helpers['has_freq'] = False
     for i in range(1, naxes+1):
         ax_type = header[f'CTYPE{i}']
         if ax_type.startswith('RA-'):
@@ -93,8 +150,10 @@ def __fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
             t_axes[1] = i
         elif ax_type == 'STOKES':
             dim_map['pol'] = i - 1
-        elif ax_type.startswith('FREQ') or ax_type == 'VOPT':
+        elif __is_freq_like(ax_type):
             dim_map['freq'] = i - 1
+            helpers['has_freq'] = True
+            helpers['native_type'] = ax_type
         else:
             raise RuntimeError(f'{ax_type} is an unsupported axis')
         ctypes.append(ax_type)
@@ -112,6 +171,8 @@ def __fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
     helpers['cunit'] = cunit
     if 'RESTFRQ' in header:
         helpers['restfreq'] = header['RESTFRQ']
+    if 'SPECSYS' in header:
+        helpers['specsys'] = header['SPECSYS']
     if (t_axes > 0).all():
         dir_axes = t_axes[:]
         dir_axes = dir_axes - 1
@@ -122,8 +183,8 @@ def __fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
     else:
         raise RuntimeError('Could not find both direction axes')
     if dir_axes is not None:
-        p0 = header.get(f'CTYPE{t_axes[0]}')[-3:]
-        p1 = header.get(f'CTYPE{t_axes[1]}')[-3:]
+        p0 = header[f'CTYPE{t_axes[0]}'][-3:]
+        p1 = header[f'CTYPE{t_axes[1]}'][-3:]
         if p0 != p1:
             raise RuntimeError(
                 f'Projections for direction axes ({p0}, {p1}) differ, but they '
@@ -134,6 +195,8 @@ def __fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
         helpers['projection'] = p0
         ref_sys = header['RADESYS']
         ref_eqx = header['EQUINOX']
+        helpers['ref_sys'] = ref_sys
+        helpers['ref_eqx'] = ref_eqx
         # fits does not support conversion frames
         direction['conversion_system'] = ref_sys
         direction['conversion_equinox'] = ref_eqx
@@ -182,9 +245,9 @@ def __fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
     obsdate['refer'] = header['TIMESYS']
     attrs['obsdate'] = obsdate
     helpers['obsdate'] = obsdate
-    attrs['observer'] = header.get('OBSERVER')
-    long_unit = header.get(f'CUNIT{t_axes[0]}')
-    lat_unit = header.get(f'CUNIT{t_axes[1]}')
+    attrs['observer'] = header['OBSERVER']
+    long_unit = header[f'CUNIT{t_axes[0]}']
+    lat_unit = header[f'CUNIT{t_axes[1]}']
     unit = []
     for uu in [long_unit, lat_unit]:
         if uu == 'deg':
@@ -217,6 +280,7 @@ def __fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
         'm0': {'unit': 'rad', 'value': long}
     }
     attrs['telescope'] = tel
+    helpers['tel_pos'] = tel['position']
     # TODO complete __make_history_xds when spec has been finalized
     # attrs['history'] = __make_history_xds(header)
     exclude = [
@@ -323,12 +387,11 @@ def __get_pol_values(helpers):
 
 
 def __get_freq_values(helpers:dict) -> list:
-    print('** ia')
     vals = []
     ctype = helpers['ctype']
-    print('** ib')
     if 'FREQ' in ctype:
         freq_idx = ctype.index('FREQ')
+        helpers['freq_axis'] = freq_idx
         crval = helpers['crval'][freq_idx]
         crpix = helpers['crpix'][freq_idx]
         cdelt = helpers['cdelt'][freq_idx]
@@ -346,24 +409,26 @@ def __get_freq_values(helpers:dict) -> list:
                 'Spectral axis in FITS header is velocity, but there is '
                 'no rest frequency so converting to frequency is not possible'
             )
-        helpers['doppler'] = 'optical'
+        helpers['doppler'] = 'Z'
         v_idx = ctype.index('VOPT')
+        helpers['freq_idx'] = v_idx
+        helpers['freq_axis'] = v_idx
         crval = helpers['crval'][v_idx]
         crpix = helpers['crpix'][v_idx]
         cdelt = helpers['cdelt'][v_idx]
         cunit = helpers['cunit'][v_idx]
-        v_start_val = crval - cdelt*crpix
-        vel = []
-        for i in range(helpers['shape'][v_idx]):
-            vel.append(v_start_val + i*cdelt)
-        vel = vel * u.Unit(cunit)
-        # (-1 + f0/f) = v/c
-        # f0/f = v/c + 1
-        # f = f0/(v/c + 1)
-        freq = restfreq/(np.array(vel.value) * vel.unit/__c + 1)
-        freq = freq.to(u.Hz)
-        helpers['vel'] = vel
-        return list(freq.value)
+        freq, vel =  __freq_from_vel(
+            crval, cdelt, crpix, cunit, 'Z',
+            helpers['shape'][v_idx], restfreq
+        )
+        helpers['vel'] = vel['value'] * u.Unit(vel['unit'])
+        helpers['crval'][v_idx] = (
+            freq['crval'] * u.Unit(freq['unit'])
+        ).to(u.Hz).value
+        helpers['cdelt'][v_idx] = (
+            freq['cdelt'] * u.Unit(freq['unit'])
+        ).to(u.Hz).value
+        return list(freq['value'])
     else:
         return [1420e6]
 
@@ -372,10 +437,10 @@ def __get_velocity_values(helpers:dict) -> list:
     if 'vel' in helpers:
         return helpers['vel'].to(u.m/u.s).value
     elif 'freq' in helpers:
-        if helpers['doppler'] == 'optical':
+        if helpers['doppler'] == 'Z':
             # (-1 + f0/f) = v/c
-            v = (helpers['restfreq']/helpers['freq'].to('Hz').value - 1) * __c
-            v = v.to(u.m)
+            v = (helpers['restfreq']*u.Hz/helpers['freq'].to('Hz').value - 1) * __c
+            v = v.to(u.m/u.s)
             helpers['vel'] = v
             return v.value
 

@@ -162,7 +162,7 @@ def __get_time_format(value:float, unit:str) -> str:
 def __add_time_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
     time_coord = xds['time']
     meta = {}
-    meta['refer'] = coord_dict['obsdate']['refer']
+    meta['time_scale'] = coord_dict['obsdate']['refer']
     meta['unit'] = coord_dict['obsdate']['m0']['unit']
     meta['format'] = __get_time_format(time_coord[0], meta['unit'])
     time_coord.attrs = copy.deepcopy(meta)
@@ -245,7 +245,7 @@ def __casa_image_to_xds_attrs(img_full_path: str, history: bool=True) -> dict:
             else:
                 telescope['position'] = coord_dict[k]
         elif k == 'obsdate':
-            obsdate['refer'] = coord_dict[k]['refer']
+            obsdate['time_scale'] = coord_dict[k]['refer']
             obsdate['unit'] = coord_dict[k]['m0']['unit']
             obsdate['value'] = coord_dict[k]['m0']['value']
             obsdate['format'] = __get_time_format(obsdate['value'], obsdate['unit'])

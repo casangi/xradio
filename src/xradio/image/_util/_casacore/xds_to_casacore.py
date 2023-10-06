@@ -113,11 +113,11 @@ def __coord_dict_from_xds(xds: xr.Dataset) -> dict:
     coord['telescope'] = xds.attrs['telescope']['name']
     coord['observer'] = xds.attrs['observer']
     obsdate = {}
-    obsdate['refer'] = xds.time.attrs['refer']
+    obsdate['refer'] = xds.coords['time'].attrs['time_scale']
     obsdate['type'] = 'epoch'
     obsdate['m0'] = {}
-    obsdate['m0']['unit'] = xds.time.attrs['unit']
-    obsdate['m0']['value'] = xds.time.values[0]
+    obsdate['m0']['unit'] = xds.coords['time'].attrs['unit']
+    obsdate['m0']['value'] = xds.coords['time'].values[0]
     #obsdate['format'] = xds.time.attrs['format']
     coord['obsdate'] = obsdate
     coord['pointingcenter'] = xds.attrs[__pointing_center].copy()

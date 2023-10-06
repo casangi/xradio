@@ -408,9 +408,9 @@ def convert_and_write_partition(
                 rename_ids=subt_rename_ids["FIELD"],
             )
             
-            delay_dir = {"dims":"", "data":list(field_xds["delay_dir"].data[field_id, 0, :]), "attrs": {"units": "rad", "type":"sky_coord", "description":"Direction of delay center in right ascension and declination."}}
-            phase_dir = {"dims":"", "data":list(field_xds["phase_dir"].data[field_id, 0, :]), "attrs": {"units": "rad", "type":"sky_coord", "description":"Direction of phase center in right ascension and declination."}}
-            reference_dir = {"dims":"", "data":list(field_xds["delay_dir"].data[field_id, 0, :]), "attrs": {"units": "rad", "type":"sky_coord", "description":"Direction of reference direction in right ascension and declination. Used in single-dish to record the associated reference direction if position-switching has already been applied. For interferometric data, this is the original correlated field center, and may equal delay_direction or phase_direction."}}
+            delay_dir = {"dims":"", "data":list(field_xds["delay_dir"].data[field_id, 0, :]), "attrs": {"units": "rad", "type":"sky_coord", "reference_frame":"FK5", "description":"Direction of delay center in right ascension and declination."}}
+            phase_dir = {"dims":"", "data":list(field_xds["phase_dir"].data[field_id, 0, :]), "attrs": {"units": "rad", "type":"sky_coord", "reference_frame":"FK5", "description":"Direction of phase center in right ascension and declination."}}
+            reference_dir = {"dims":"", "data":list(field_xds["delay_dir"].data[field_id, 0, :]), "attrs": {"units": "rad", "type":"sky_coord", "reference_frame":"FK5","description":"Direction of reference direction in right ascension and declination. Used in single-dish to record the associated reference direction if position-switching has already been applied. For interferometric data, this is the original correlated field center, and may equal delay_direction or phase_direction."}}
 
             field_info = {
                 "name": field_xds["name"].data[field_id],

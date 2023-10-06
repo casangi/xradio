@@ -515,10 +515,7 @@ def __get_freq_values(coords: coordinates.coordinatesystem, shape:tuple) -> list
                 crpix = wcs['crpix']
                 crval = wcs['crval']
                 cdelt = wcs['cdelt']
-                for i in range(shape[idx]):
-                    f = (i - crpix) * cdelt + crval
-                    freqs.append(f)
-                return freqs
+                return [ (i-crpix)*cdelt + crval for i in range(shape[idx]) ]
     else:
         return [1420e6]
 
@@ -719,7 +716,6 @@ def __get_velocity_values(coord_dict: dict, freq_values: list) -> list:
     return [ ((1 - f/restfreq)*__c).value for f in freq_values ]
 
 
-
 def __make_coord_subset(xds:xr.Dataset, slices:dict) -> xr.Dataset:
     dim_to_coord_map = {}
     coord_to_dim_map = {}
@@ -756,8 +752,8 @@ def __make_coord_subset(xds:xr.Dataset, slices:dict) -> xr.Dataset:
 
 
 def __multibeam_array(
-        xds:xr.Dataset, img_full_path:str, as_dask_array:bool
-    ) -> Union[xr.DataArray, None]:
+    xds:xr.Dataset, img_full_path:str, as_dask_array:bool
+) -> Union[xr.DataArray, None]:
     """This should only be called after the xds.beam attr has been set"""
     if xds.attrs['beam'] is None:
         # the image may have multiple beams

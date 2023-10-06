@@ -29,6 +29,7 @@ def __fits_image_to_xds_metadata(
     hdulist = fits.open(img_full_path, memmap=True)
     attrs, helpers, header = __fits_header_to_xds_attrs(hdulist)
     hdulist.close()
+    # avoid keeping reference to mem-mapped fits file
     del hdulist
     xds = __create_coords(helpers, header)
     sphr_dims = helpers['sphr_dims']
@@ -44,9 +45,7 @@ def __add_coord_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
      xds = __add_time_attrs(xds, helpers)
      xds = __add_freq_attrs(xds, helpers)
      xds = __add_vel_attrs(xds, helpers)
-     """
      xds = __add_dir_lin_attrs(xds, helpers)
-     """
      return xds
 
 
@@ -107,6 +106,30 @@ def __add_vel_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
         meta['doppler_type'] = __doppler_types[0]
     vel_coord.attrs = copy.deepcopy(meta)
     xds.coords['vel'] = vel_coord
+    return xds
+
+
+def __add_dir_lin_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
+    if helpers['sphr_dims']:
+        for i, name in zip(helpers['dir_axes'], helpers['sphr_axis_names']):
+            meta = {
+                'unit': 'rad',
+                'wcs': {
+                    'crval': helpers['crval'][i],
+                    'cdelt': helpers['cdelt'][i]
+                }
+            }
+            xds.coords[name].attrs = meta
+    else:
+        for i, j in zip(helpers['dir_axes'], ('u', 'v')):
+            meta = {
+                'unit': 'wavelengths',
+                'wcs': {
+                    'crval': helpers['crval'][i],
+                    'cdelt': helpers['cdelt'][i]
+                }
+            }
+            xds.coords[j].attrs = meta
     return xds
 
 
@@ -348,6 +371,7 @@ def __create_coords(helpers, header):
         )
         coords[l_world[0]] = (['l', 'm'], l_world[1])
         coords[m_world[0]] = (['l', 'm'], m_world[1])
+        helpers['sphr_axis_names'] = (l_world[0], m_world[0])
     else:
         # Fourier image
         coords['u'], coords['v'] = __get_uv_values(helpers)
@@ -476,6 +500,7 @@ def __compute_world_sph_dims(
         # FITS arrays are 1-based
         wcs_dict[f'CRPIX{fi}'] = ref_pix[i] + 1
         wcs_dict[f'CRVAL{fi}'] = ref_val[i]
+
     w = ap.wcs.WCS(wcs_dict)
     x, y = np.indices(w.pixel_shape)
     long, lat = w.pixel_to_world_values(x, y)
@@ -483,6 +508,16 @@ def __compute_world_sph_dims(
     f = np.pi/180
     long *= f
     lat *= f
+    crpix = helpers['crpix'][dir_axes[0]], helpers['crpix'][dir_axes[1]]
+    wcrvalx, wcrvaly = w.pixel_to_world_values(crpix[0], crpix[1])
+    wcrvalx = wcrvalx.tolist() * f
+    wcrvaly = wcrvaly.tolist() * f
+    wcrval = [wcrvalx, wcrvaly]
+    print('wcrval', wcrval)
+    for i, j in zip(dir_axes, (0, 1)):
+        helpers['cunit'][i] = 'rad'
+        helpers['crval'][i] = wcrval[j]
+        helpers['cdelt'][i] *= f
     return [[long_axis_name, long], [lat_axis_name, lat]]
 
 

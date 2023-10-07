@@ -6,9 +6,9 @@ import numpy as np
 import os
 import xarray as xr
 from .common import (
-    __active_mask, __doppler_types, __native_types, __object_name,
-    __pointing_center
+    __active_mask, __native_types, __object_name, __pointing_center
 )
+from ..common import __doppler_types
 
 
 def __compute_direction_dict(xds: xr.Dataset) -> dict:

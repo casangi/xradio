@@ -16,7 +16,7 @@ from typing import Union
 import xarray as xr
 
 
-def __fits_image_to_xds_metadata(
+def __fits_image_to_xds(
     img_full_path:str, chunks:dict, verbose:bool=False
 ) -> dict:
     """
@@ -38,6 +38,8 @@ def __fits_image_to_xds_metadata(
     xds = __add_sky_or_apeture(xds, ary, dim_order, helpers, sphr_dims)
     xds.attrs = attrs
     xds = __add_coord_attrs(xds, helpers)
+    if helpers['has_multibeam']:
+        xds = __do_multibeam(xds, img_full_path)
     return xds
 
 
@@ -54,6 +56,8 @@ def __add_time_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
      meta = copy.deepcopy(helpers['obsdate'])
      del meta['value']
      meta['format'] = 'MJD'
+     meta['time_scale'] = meta['refer']
+     del meta['refer']
      time_coord.attrs = meta
      xds.assign_coords(time=time_coord)
      return xds
@@ -81,7 +85,7 @@ def __add_freq_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
         meta['native_type'] = helpers['native_type']
         meta['restfreq'] = helpers['restfreq']
         meta['restfreqs'] = [ helpers['restfreq'] ]
-        meta['system'] = ''
+        meta['system'] = helpers['specsys']
         meta['unit'] = 'Hz'
         meta['wave_unit'] = 'mm'
         wcs = {}
@@ -218,6 +222,8 @@ def __fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
         helpers['projection'] = p0
         ref_sys = header['RADESYS']
         ref_eqx = header['EQUINOX']
+        if ref_sys == 'FK5' and ref_eqx == 2000:
+            ref_eqx = 'J2000'
         helpers['ref_sys'] = ref_sys
         helpers['ref_eqx'] = ref_eqx
         # fits does not support conversion frames
@@ -231,23 +237,25 @@ def __fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
         pc = np.zeros([2,2])
         for i in (0, 1):
             for j in (0, 1):
-                pc[i][j] = header.get(f'PC{dir_axes[i]}_{dir_axes[j]}')
+                # dir_axes are now 0-based, but fits needs 1-based
+                pc[i][j] = header[f'PC{dir_axes[i]+1}_{dir_axes[j]+1}']
         direction['pc'] = pc
         attrs['direction'] = direction
     # FIXME read fits data in chunks in case all data too large to hold in memory
     has_mask = da.any(da.isnan(primary.data)).compute()
     attrs['active_mask'] = 'mask0' if has_mask else None
     helpers['has_mask'] = has_mask
-    if 'BMAJ' in header.keys():
+    helpers['has_multibeam'] = False
+    if 'BMAJ' in header:
         # single global beam
         attrs['beam'] = {
-            'bmaj': {'unit': 'arcsec', 'value': header.get('BMAJ')},
-            'bmin': {'unit': 'arcsec', 'value': header.get('BMIN')},
-            'positionangle': {'unit': 'arcsec', 'value': header.get('BPA')}
+            'bmaj': {'unit': 'arcsec', 'value': header['BMAJ']},
+            'bmin': {'unit': 'arcsec', 'value': header['BMIN']},
+            'positionangle': {'unit': 'arcsec', 'value': header['BPA']}
         }
-    elif 'CASAMBM' in header.keys() and header['CASAMBM']:
+    elif 'CASAMBM' in header and header['CASAMBM']:
         # multi-beam
-        pass
+        helpers['has_multibeam'] = True
     else:
         # no beam
         attrs['beam'] = None
@@ -323,7 +331,6 @@ def __fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
             continue
         user[k.lower()] = v
     attrs['user'] = user
-    print(attrs)
     return attrs, helpers, header
 
 
@@ -513,12 +520,45 @@ def __compute_world_sph_dims(
     wcrvalx = wcrvalx.tolist() * f
     wcrvaly = wcrvaly.tolist() * f
     wcrval = [wcrvalx, wcrvaly]
-    print('wcrval', wcrval)
     for i, j in zip(dir_axes, (0, 1)):
         helpers['cunit'][i] = 'rad'
         helpers['crval'][i] = wcrval[j]
         helpers['cdelt'][i] *= f
     return [[long_axis_name, long], [lat_axis_name, lat]]
+
+
+def __do_multibeam(xds:xr.Dataset, imname:str) -> xr.Dataset:
+    """Only run if we are sure there are multiple beams"""
+    hdulist = fits.open(imname)
+    for hdu in hdulist:
+        header = hdu.header
+        if 'EXTNAME' in header and header['EXTNAME'] == 'BEAMS':
+            units = (
+                 u.Unit(header['TUNIT1']), u.Unit(header['TUNIT2']),
+                 u.Unit(header['TUNIT3'])
+            )
+            nchan = header['NCHAN']
+            npol = header['NPOL']
+            beam_array = np.zeros([1, npol, nchan, 3])
+            data = hdu.data
+            for t in data:
+                beam_array[0, t[4], t[3]] = t[0:3]
+            for i in (0, 1, 2):
+                beam_array[:, :, :, i] = (
+                    (beam_array[:, :, :, i] * units[i]).to('rad').value
+                )
+            xdb = xr.DataArray(
+                beam_array, dims=['time', 'pol', 'freq', 'beam_param']
+            )
+            xdb = xdb.rename('beam')
+            xdb = xdb.assign_coords(beam_param=['major', 'minor', 'pa'])
+            xdb.attrs['unit'] = 'rad'
+            xds['beam'] = xdb
+            return xds
+    raise RuntimeError(
+        'It looks like there should be a BEAMS table but no '
+        'such table found in FITS file'
+    )
 
 
 def __get_uv_values(helpers:dict) -> tuple:
@@ -579,19 +619,13 @@ def __read_image_array(
             f'incorrect type {type(chunks)} for parameter chunks. Must be '
             'dict'
         )
-    print('mychunks', mychunks)
     transpose_list, new_axes = __get_transpose_list(helpers)
-    print('transpose_list', transpose_list)
-    print('new_axes', new_axes)
     data_type = helpers['dtype']
-    print('data_type', data_type)
     rshape = helpers['shape'][::-1]
     full_chunks = mychunks + tuple([1 for rr in range(5) if rr >= len(mychunks)])
     d0slices = []
     blc = tuple(5 * [0])
     trc = tuple(rshape) + tuple([1 for rr in range(5) if rr >= len(mychunks)])
-    print('full_chunks', full_chunks)
-    print('trc', trc)
     for d0 in range(blc[0], trc[0], full_chunks[0]):
         d0len = min(full_chunks[0], trc[0] - d0)
         d1slices = []
@@ -634,11 +668,8 @@ def __read_image_array(
             [da.concatenate(d1slices, axis=1)]
             if len(rshape) > 1 else d1slices
         )
-    print('*** la')
     ary = da.concatenate(d0slices, axis=0)
-    print('*** lb')
     ary = da.expand_dims(ary, new_axes)
-    print('*** lc')
     return ary.transpose(transpose_list)
 
 
@@ -706,16 +737,11 @@ def __get_transpose_list(helpers:dict) -> tuple:
 
 def __read_image_chunk(img_full_path, shapes:tuple, starts:tuple) -> np.ndarray:
     hdulist = fits.open(img_full_path, memmap=True)
-    print('starts', starts)
-    print('shapes', shapes)
     s = []
     for start, length in zip(starts, shapes):
         s.append(slice(start, start+length))
     t = tuple(s)
-    print('data shape', hdulist[0].data.shape)
-    print('t', t)
     z = hdulist[0].data[t]
-    print('z shape', z.shape)
     hdulist.close()
     # delete to avoid having a reference to a mem-mapped hdulist
     del hdulist

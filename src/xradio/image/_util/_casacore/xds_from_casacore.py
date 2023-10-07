@@ -910,9 +910,12 @@ def __read_image_array(
     """
     img_full_path = os.path.expanduser(infile)
     casa_image = images.image(img_full_path)
+    """
     if isinstance(chunks, list):
         mychunks = tuple(chunks)
     elif isinstance(chunks, dict):
+    """
+    if isinstance(chunks, dict):
         mychunks = __get_chunk_list(
             chunks, casa_image.coordinates().get_names()[::-1], casa_image.shape()[::-1]
         )
@@ -1017,14 +1020,12 @@ def __read_image_array(
 
 
 def __read_image_chunk(infile:str, shapes:tuple, starts:tuple) -> np.ndarray:
-    tb_tool: tables.table = tables.table(
+    tb_tool:tables.table = tables.table(
         infile, readonly=True, lockoptions={'option': 'usernoread'}, ack=False
     )
-    data : np.ndarray = tb_tool.getcellslice(
+    data:np.ndarray = tb_tool.getcellslice(
         tb_tool.colnames()[0], 0, starts,
         tuple(np.array(starts) + np.array(shapes) - 1)
     )
     tb_tool.close()
     return data
-
-

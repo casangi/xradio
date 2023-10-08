@@ -55,8 +55,12 @@ class ImageBase(unittest.TestCase):
         'equinox': 'J2000',
         'conversion_system': 'FK5',
         'conversion_equinox': 'J2000',
-        'latpole': {'value': 0.0, 'unit': 'rad'},
-        'longpole': {'value': 3.141592653589793, 'unit': 'rad'},
+        # there seems to be a casacore bug here that changing either the
+        # crval or pointingcenter will also change the latpole when the
+        # casacore image is reopened. As long as the xds gets the latpole
+        # that the casacore image has is all we care about for testing
+        'latpole': {'value': -40*np.pi/180, 'unit': 'rad'},
+        'longpole': {'value': np.pi, 'unit': 'rad'},
         'pc': np.array([[1., 0.], [0., 1.]]),
         'projection_parameters': np.array([0., 0.]),
         'projection': 'SIN'
@@ -74,7 +78,8 @@ class ImageBase(unittest.TestCase):
     __exp_attrs['active_mask'] = 'mask0'
     __exp_attrs['object_name'] = ''
     __exp_attrs['pointing_center'] = {
-        'value': np.array([0,0]), 'initial': True,
+        'value': np.array([6300, -2400]) * np.pi/180/60,
+        'initial': True,
     }
     __exp_attrs['telescope'] = {
         'name': 'ALMA', 'position': {
@@ -130,12 +135,18 @@ class ImageBase(unittest.TestCase):
         ).reshape(shape)
         pix : np.ndarray = np.array([ range(np.prod(shape)) ], dtype=np.float64).reshape(shape)
         masked_array = ma.masked_array(pix, mask)
-        im: casacore.images.image = casacore.images.image(cls.__imname, shape=shape)
+        im:casacore.images.image = casacore.images.image(cls.__imname, shape=shape)
         im.put(masked_array)
         shape = im.shape()
         del im
         t = casacore.tables.table(cls.__imname, readonly=False)
         t.putkeyword('units', 'Jy/beam')
+        csys = t.getkeyword('coords')
+        pc = np.array([6300, -2400])
+        # change pointing center
+        csys['direction0']['crval'] = pc
+        csys['pointingcenter']['value'] = pc * np.pi/180/60
+        t.putkeyword('coords', csys)
         t.close()
         t = casacore.tables.table(os.sep.join([cls.__imname, 'logtable']), readonly=False)
         t.addrows()
@@ -494,15 +505,24 @@ class ImageBase(unittest.TestCase):
         )
 
 
-    def compare_attrs(self, xds):
+    def compare_attrs(self, xds:xr.Dataset, fits:bool=False):
+        my_exp_attrs = copy.deepcopy(self.exp_attrs())
+        if fits:
+            # xds from fits do not have history yet
+            del my_exp_attrs['history']
+            my_exp_attrs['user']['comment'] = (
+                'casacore non-standard usage: 4 LSD, '
+                '5 GEO, 6 SOU, 7 GAL'
+            )
         self.dict_equality(
-            self.xds().attrs, self.exp_attrs(), 'Got attrs',
+            xds.attrs, my_exp_attrs, 'Got attrs',
             'Expected attrs', ['history']
         )
-        self.assertTrue(
-            isinstance(self.xds().attrs['history'], xr.core.dataset.Dataset),
-            'Incorrect type for history data'
-        )
+        if not fits:
+            self.assertTrue(
+                isinstance(xds.attrs['history'], xr.core.dataset.Dataset),
+                'Incorrect type for history data'
+            )
 
 
     def compare_image_block(self, imagename):
@@ -637,8 +657,18 @@ class casacore_to_xds_to_casacore(ImageBase):
         c1 = im1.info()
         c2 = im2.info()
         # some quantities are expected to have different untis and values
-        c2['coordinates']['direction0']['cdelt'] *= 180*60/np.pi
+        f = 180*60/np.pi
+        c2['coordinates']['direction0']['cdelt'] *= f
+        c2['coordinates']['direction0']['crval'] *= f
         c2['coordinates']['direction0']['units'] = ["'", "'"]
+        self.assertTrue(
+            np.allclose(
+                c2['coordinates']['direction0']['crpix'],
+                c1['coordinates']['direction0']['crpix'],
+                atol=4e-4
+            ),'Wrong reference pixel'
+        )
+        c2['coordinates']['direction0']['crpix'] = [15.0, 10.0]
         # the actual velocity values aren't stored but rather computed
         # by casacore on the fly, so we cannot easily compare them,
         # and really comes down to comparing the values of c used in
@@ -1028,7 +1058,7 @@ class fits_to_xds_test(ImageBase):
 
     def test_xds_attrs(self):
         """Test xds level attributes"""
-        self.compare_attrs(self.__fds)
+        self.compare_attrs(self.__fds, True)
 
     #TODO
     def test_get_img_ds_block(self):

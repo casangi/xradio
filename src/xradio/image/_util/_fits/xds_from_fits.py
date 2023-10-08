@@ -55,9 +55,9 @@ def __add_time_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
      time_coord = xds.coords['time']
      meta = copy.deepcopy(helpers['obsdate'])
      del meta['value']
-     meta['format'] = 'MJD'
-     meta['time_scale'] = meta['refer']
-     del meta['refer']
+     # meta['format'] = 'MJD'
+     # meta['time_scale'] = meta['refer']
+     # del meta['refer']
      time_coord.attrs = meta
      xds.assign_coords(time=time_coord)
      return xds
@@ -232,14 +232,22 @@ def __fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
         direction['system'] = ref_sys
         direction['equinox'] = ref_eqx
         deg_to_rad = np.pi/180.0
-        direction['latpole'] = header.get('LATPOLE') * deg_to_rad
-        direction['longpole'] = header.get('LONPOLE') * deg_to_rad
+        direction['latpole'] = {
+            'value': header['LATPOLE'] * deg_to_rad,
+            'unit': 'rad'
+        }
+        direction['longpole'] = {
+            'value': header['LONPOLE'] * deg_to_rad,
+            'unit': 'rad'
+        }
         pc = np.zeros([2,2])
         for i in (0, 1):
             for j in (0, 1):
                 # dir_axes are now 0-based, but fits needs 1-based
                 pc[i][j] = header[f'PC{dir_axes[i]+1}_{dir_axes[j]+1}']
         direction['pc'] = pc
+        # Is there really no fits header parameter for projection_parameters?
+        direction['projection_parameters'] = np.array([0.0, 0.0])
         attrs['direction'] = direction
     # FIXME read fits data in chunks in case all data too large to hold in memory
     has_mask = da.any(da.isnan(primary.data)).compute()
@@ -269,11 +277,12 @@ def __fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
             raise RuntimeError(f'Unhandled data type {header["BITPIX"]}')
     helpers['btype'] = header['BTYPE'] if 'BTYPE' in header else None
     helpers['bunit'] = header['BUNIT'] if 'BUNIT' in header else None
-    attrs['object'] = header['OBJECT'] if 'OBJECT' in header else None
+    attrs['object_name'] = header['OBJECT'] if 'OBJECT' in header else None
     obsdate = {}
     obsdate['value'] = Time(header['DATE-OBS'], format='isot').mjd
     obsdate['unit'] = 'd'
-    obsdate['refer'] = header['TIMESYS']
+    obsdate['time_scale'] = header['TIMESYS']
+    obsdate['format'] = 'MJD'
     attrs['obsdate'] = obsdate
     helpers['obsdate'] = obsdate
     attrs['observer'] = header['OBSERVER']
@@ -294,7 +303,7 @@ def __fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
     attrs['pointing_center'] = {
         'value': np.array([pc_long, pc_lat]), 'initial': True
     }
-    attrs['description'] = ''
+    attrs['description'] = None
     tel = {}
     tel['name'] = header.get('TELESCOP')
     x = header.get('OBSGEO-X')

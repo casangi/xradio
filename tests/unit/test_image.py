@@ -661,14 +661,6 @@ class casacore_to_xds_to_casacore(ImageBase):
         c2['coordinates']['direction0']['cdelt'] *= f
         c2['coordinates']['direction0']['crval'] *= f
         c2['coordinates']['direction0']['units'] = ["'", "'"]
-        self.assertTrue(
-            np.allclose(
-                c2['coordinates']['direction0']['crpix'],
-                c1['coordinates']['direction0']['crpix'],
-                atol=4e-4
-            ),'Wrong reference pixel'
-        )
-        c2['coordinates']['direction0']['crpix'] = [15.0, 10.0]
         # the actual velocity values aren't stored but rather computed
         # by casacore on the fly, so we cannot easily compare them,
         # and really comes down to comparing the values of c used in

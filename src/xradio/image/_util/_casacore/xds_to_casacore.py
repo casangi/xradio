@@ -18,6 +18,14 @@ def __compute_ref_pix(xds:xr.Dataset, direction:dict) -> np.ndarray:
     lat = xds.declination
     ra_crval = long.attrs['wcs']['crval']
     dec_crval = lat.attrs['wcs']['crval']
+    long_close = np.where(np.isclose(long, ra_crval))
+    lat_close = np.where(np.isclose(lat, dec_crval))
+    if long_close and lat_close:
+        long_list = [ (i,j) for i,j in zip(long_close[0], long_close[1]) ]
+        lat_list = [ (i,j) for i,j in zip(lat_close[0], lat_close[1]) ]
+        common_indices = [ t for t in long_list if t in lat_list ]
+        if len(common_indices) == 1:
+            return np.array(common_indices[0])
     cdelt = max(
         abs(long.attrs['wcs']['cdelt']),
         abs(lat.attrs['wcs']['cdelt'])
@@ -27,15 +35,14 @@ def __compute_ref_pix(xds:xr.Dataset, direction:dict) -> np.ndarray:
     # close to the reference pixel
     ra_diff = long - ra_crval
     dec_diff = lat - dec_crval
-    aa = xds.sky[0,0,0,:,:].where(
-        ra_diff*ra_diff + dec_diff*dec_diff < cdelt*cdelt
-    ).values
     # this returns a 2-tuple of indices where the values in aa are not NaN
-    cc = np.where(np.logical_not(np.isnan(aa)))
+    indices_close = np.where(
+        ra_diff*ra_diff + dec_diff*dec_diff < 2*cdelt*cdelt
+    )
     # this determines the closest pixel to the reference pixel
     closest = 5e10
     pix = []
-    for i,j in zip(cc[0],cc[1]):
+    for i,j in zip(indices_close[0], indices_close[1]):
         dra = long[i,j] - ra_crval
         ddec = lat[i,j] - dec_crval
         if dra*dra + ddec*ddec < closest:

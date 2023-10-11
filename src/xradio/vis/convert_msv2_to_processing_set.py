@@ -57,6 +57,35 @@ def add_encoding(xds, compressor, chunks=None):
             # print(xds[da_name].encoding)
         else:
             xds[da_name].encoding = {"compressor": compressor}
+            
+casacore_to_msv4_measure_type = {'quanta':{'type':'quanta','Ref':None},
+                                   'direction':{'type':'sky_coord','Ref':'frame'},
+                                   'epoch':{'type':'time','Ref':'scale'},
+                                   'frequency':{'type':'spectral_coord','Ref':'frame'},
+                                   'position':{'type':'earth_location','Ref':'ellipsoid'},
+                                   'uvw':{'type':'uvw','Ref':'frame'}}
+
+casacore_to_msv4_ref = {'J2000':'FK5', 'ITRF':'GRS80'}
+
+def column_description_casacore_to_msv4_measure(casacore_column_description,ref_code=None,time_format='unix'):
+    msv4_measure={}
+    if 'MEASINFO' in casacore_column_description['keywords']:
+        msv4_measure['type'] = casacore_to_msv4_measure_type[casacore_column_description['keywords']['MEASINFO']['type']]['type']
+        msv4_measure['units'] = casacore_column_description['keywords']['QuantumUnits']
+        
+        if 'TabRefCodes' in casacore_column_description['keywords']['MEASINFO']:
+            ref_index = np.where(casacore_column_description['keywords']['MEASINFO']['TabRefCodes'] == ref_code)[0][0]
+            casa_ref = casacore_column_description['keywords']['MEASINFO']['TabRefTypes'][ref_index]
+        else:
+            casa_ref = casacore_column_description['keywords']['MEASINFO']['Ref']
+
+        if casa_ref in casacore_to_msv4_ref:
+            casa_ref = casacore_to_msv4_ref[casa_ref]
+        msv4_measure[casacore_to_msv4_measure_type[casacore_column_description['keywords']['MEASINFO']['type']]['Ref']] = casa_ref
+
+        if msv4_measure['type'] == 'time':
+            msv4_measure['format'] = 'unix'
+    return msv4_measure
 
 
 def calc_indx_for_row_split(tb_tool, taql_where):
@@ -73,11 +102,6 @@ def calc_indx_for_row_split(tb_tool, taql_where):
     # utimes = np.unique(tb_tool.getcol("TIME"))
 
     tvars = {}
-
-    # chunks = [len(utimes), len(baselines), freq_cnt, pol_cnt]
-
-    # print("nrows",  len(tb_tool.getcol("TIME")))
-
     tidxs = np.searchsorted(utimes, tb_tool.getcol("TIME"))
 
     ts_ant1, ts_ant2 = (
@@ -193,49 +217,49 @@ def create_coordinates(
 
     xds = xds.assign_coords(coords)
 
+    ###### Create Frequency Coordinate ######
     # Add metadata to coordinates:
-    measures_freq_ref = spw_xds["meas_freq_ref"].data
-    xds.frequency.attrs["type"] = "spectral_coord"
-    xds.frequency.attrs["units"] = spw_xds.attrs["other"]["msv2"]["ctds_attrs"][
-        "column_descriptions"
-    ]["CHAN_FREQ"]["keywords"]["QuantumUnits"][0]
-    xds.frequency.attrs["velocity_frame"] = spw_xds.attrs["other"]["msv2"][
-        "ctds_attrs"
-    ]["column_descriptions"]["CHAN_FREQ"]["keywords"]["MEASINFO"]["TabRefTypes"][
-        measures_freq_ref
-    ]
+    freq_column_description = spw_xds.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]
+
+    msv4_measure = column_description_casacore_to_msv4_measure(freq_column_description["CHAN_FREQ"],ref_code = spw_xds['meas_freq_ref'].data)
+    xds.frequency.attrs.update(msv4_measure)
+    
     xds.frequency.attrs["spectral_window_name"] = str(spw_xds.name.values)
-    xds.frequency.attrs["reference_frequency"] = {"dims":"", "data":float(spw_xds.ref_frequency.values), "attrs":{"type":"spectral_coord","units":"Hz","velocity_frame":xds.frequency.attrs["velocity_frame"]}}
-    xds.frequency.attrs["effective_channel_width"] = "EFFECTIVE_CHANNEL_WIDTH"
+    msv4_measure = column_description_casacore_to_msv4_measure(freq_column_description["REF_FREQUENCY"],ref_code = spw_xds['meas_freq_ref'].data)
+    xds.frequency.attrs["reference_frequency"] = {"dims":"", "data":float(spw_xds.ref_frequency.values), "attrs":msv4_measure}
+    
+    #xds.frequency.attrs["effective_channel_width"] = "EFFECTIVE_CHANNEL_WIDTH"
     # Add if doppler table is present
     # xds.frequency.attrs["doppler_velocity"] =
     # xds.frequency.attrs["doppler_type"] =
-
     unique_chan_width = np.unique(spw_xds.chan_width.data[np.logical_not(np.isnan(spw_xds.chan_width.data))])
-    # print('unique_chan_width',unique_chan_width)
-    # print('spw_xds.chan_width.data',spw_xds.chan_width.data)
     #assert len(unique_chan_width) == 1, "Channel width varies for spw."
     #xds.frequency.attrs["channel_width"] = spw_xds.chan_width.data[
     #    ~(np.isnan(spw_xds.chan_width.data))
     #]  # unique_chan_width[0]
-    xds.frequency.attrs["channel_width"] = {"dims":"", "data":np.abs(unique_chan_width[0]), "attrs":{"type":"quanta","units":"Hz"}} #Should always be increasing (ordering is fixed before saving).
+    msv4_measure = column_description_casacore_to_msv4_measure(freq_column_description["CHAN_WIDTH"],ref_code = spw_xds['meas_freq_ref'].data)
+    if not msv4_measure:
+        msv4_measure['type'] = 'quanta'
+        msv4_measure['units'] = 'Hz'
+    xds.frequency.attrs["channel_width"] = {"dims":"", "data":np.abs(unique_chan_width[0]), "attrs":msv4_measure} #Should always be increasing (ordering is fixed before saving).
 
+    
+    ###### Create Time Coordinate ######
     main_table_attrs = extract_table_attributes(infile)
-    xds.time.attrs["type"] = "time"
-    xds.time.attrs["units"] = main_table_attrs["column_descriptions"]["TIME"][
-        "keywords"
-    ]["QuantumUnits"][0]
-    xds.time.attrs["time_scale"] = main_table_attrs["column_descriptions"]["TIME"][
-        "keywords"
-    ]["MEASINFO"]["Ref"]
-    xds.time.attrs[
-        "format"
-    ] = "unix"  # Time gets converted to unix in xradio.vis._vis_utils._ms._tables.read.convert_casacore_time
-    xds.time.attrs["integration_time"] = {"dims":"", "data":interval, "attrs":{"type":"quanta","units":"s"}}
-    xds.time.attrs["effective_integration_time"] = "EFFECTIVE_INTEGRATION_TIME"
+    main_column_descriptions = main_table_attrs["column_descriptions"]
+    msv4_measure = column_description_casacore_to_msv4_measure(main_column_descriptions["TIME"])
+    xds.time.attrs.update(msv4_measure)
 
+    msv4_measure = column_description_casacore_to_msv4_measure(main_column_descriptions["INTERVAL"])
+    if not msv4_measure:
+        msv4_measure['type'] = 'quanta'
+        msv4_measure['units'] = 's'
+    xds.time.attrs["integration_time"] = {"dims":"", "data":interval, "attrs":msv4_measure}
+    xds.time.attrs["effective_integration_time"] = "EFFECTIVE_INTEGRATION_TIME"
     return xds
 
+#def create_data_variables(xds, infile, ddi, utime, interval, baseline_ant1_id, baseline_ant2_id
+#):
 
 def convert_and_write_partition(
     infile: str,
@@ -283,7 +307,15 @@ def convert_and_write_partition(
         rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
     ).sel(spectral_window_id=spw_id)
     n_chan = len(spw_xds["chan_freq"].data[~(np.isnan(spw_xds["chan_freq"].data))])
-
+    
+    #print(spw_xds.attrs['other']['msv2']['ctds_attrs']['column_descriptions'].keys())
+    
+    #['MEAS_FREQ_REF', 'CHAN_FREQ', 'REF_FREQUENCY', 'CHAN_WIDTH', 'EFFECTIVE_BW', 'RESOLUTION', 'FLAG_ROW', 'FREQ_GROUP', 'FREQ_GROUP_NAME', 'IF_CONV_CHAIN', 'NAME', 'NET_SIDEBAND', 'NUM_CHAN', 'TOTAL_BANDWIDTH', 'BBC_NO', 'ASSOC_SPW_ID', 'ASSOC_NATURE']
+    
+    #print(spw_xds.attrs['other']['msv2']['ctds_attrs']['column_descriptions']['CHAN_FREQ']['keywords'])
+    #print(spw_xds.attrs['other']['msv2']['ctds_attrs']['column_descriptions']['REF_FREQUENCY']['keywords'])
+    #print(spw_xds.attrs['other']['msv2']['ctds_attrs']['column_descriptions']['CHAN_WIDTH']['keywords'])
+    
     start_with = time.time()
     with open_table_ro(infile) as mtable:
         # one partition, select just the specified ddi (+ scan/subscan)
@@ -407,6 +439,20 @@ def convert_and_write_partition(
                 "FIELD",
                 rename_ids=subt_rename_ids["FIELD"],
             )
+            
+            from functools import reduce
+            keys = ['other','msv2','ctds_attrs','column_descriptions','DELAY_DIR','keywords']
+            my_dict = field_xds.attrs
+            a = reduce(dict.get, keys, my_dict)
+            #print(a)
+            #https://stackoverflow.com/questions/53195684/how-to-navigate-a-dict-by-list-of-keys
+            #'DELAY_DIR', 'PHASE_DIR', 'REFERENCE_DIR', 'CODE', 'FLAG_ROW', 'NAME', 'NUM_POLY', 'SOURCE_ID', 'TIME'
+            #print(field_xds.attrs['other']['msv2']['ctds_attrs']['column_descriptions']['DELAY_DIR']['keywords'])
+            #print(field_xds.attrs['other']['msv2']['ctds_attrs']['column_descriptions']['CODE']['keywords'])
+            #print(field_xds.attrs['other']['msv2']['ctds_attrs']['column_descriptions']['TIME']['keywords'])
+            #print(field_xds.attrs['other']['msv2']['ctds_attrs']['column_descriptions']['NAME']['keywords'])
+            #print('******')
+            #print(field_xds.attrs['other']['msv2']['ctds_attrs']['column_descriptions'].keys())
             
             delay_dir = {"dims":"", "data":list(field_xds["delay_dir"].data[field_id, 0, :]), "attrs": {"units": "rad", "type":"sky_coord", "reference_frame":"FK5", "description":"Direction of delay center in right ascension and declination."}}
             phase_dir = {"dims":"", "data":list(field_xds["phase_dir"].data[field_id, 0, :]), "attrs": {"units": "rad", "type":"sky_coord", "reference_frame":"FK5", "description":"Direction of phase center in right ascension and declination."}}

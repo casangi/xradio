@@ -27,6 +27,13 @@ FILE_ID = {
     'id':'olx5qv9avdxxiyjlhlwx2',
     'rlkey':'trrqy43rfcqj4blf9robz4p47&dl'
    },
+   
+ 'Antennae_North.cal.lsrk.v2.vis.zarr':
+  {
+    'file':'Antennae_North.cal.lsrk.vis.zarr.zip',
+    'id':'9hcunmq3iqtfiww593nrp',
+    'rlkey':'7fingboduee7logszh25n95x5&dl'
+  },
 }
 
 def download(file, folder='.'):

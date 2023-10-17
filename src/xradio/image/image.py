@@ -34,12 +34,6 @@ import xarray as xr
 warnings.filterwarnings('ignore', category=FutureWarning)
 
 
-"""
-def read_image(
-    infile:str, chunks:dict={}, masks:bool=True,
-    history:bool=True, verbose:bool=False
-) -> xr.Dataset:
-"""
 def read_image(infile:str, chunks:dict={}, verbose:bool=False) -> xr.Dataset:
     """
     Read Image (currently only supports casacore images) or zarr to ngCASA image format
@@ -47,7 +41,7 @@ def read_image(infile:str, chunks:dict={}, verbose:bool=False) -> xr.Dataset:
     https://docs.google.com/spreadsheets/d/1WW0Gl6z85cJVPgtdgW4dxucurHFa06OKGjgoK8OREFA/edit#gid=1719181934
     :param infile: Path to the input CASA image
     :type infile: str, required
-    :param chunks: The desired dask chunk size. Only applicable for casacore images.
+    :param chunks: The desired dask chunk size. Only applicable for casacore and fits images.
                    Supported optional keys are 'l', 'm', 'freq', 'pol',
                    and 'time'. The supported values are positive integers,
                    indicating the length of a chunk on that particular axis. If
@@ -58,7 +52,7 @@ def read_image(infile:str, chunks:dict={}, verbose:bool=False) -> xr.Dataset:
                    'l' represents the longitude like dimension, and 'm'
                    represents the latitude like dimension. For apeature images,
                    'u' may be used in place of 'l', and 'v' in place of 'm'.
-    :type chunks: list | dict, required
+    :type chunks: dict, required
     :param verbose: emit debugging messages? Default is False.
     :type verbose: bool, optional
     :return: xr.Dataset image that conforms to the ngCASA image spec
@@ -79,12 +73,10 @@ def read_image(infile:str, chunks:dict={}, verbose:bool=False) -> xr.Dataset:
             return __read_casa_image(infile, chunks, verbose=verbose)
         except Exception as e:
             emsgs.append(f'image format appears not to be casacore: {e.args}')
-    """
     try:
         return __read_fits_image(infile, chunks, verbose)
     except Exception as e:
         emsgs.append(f'image format appears not to be fits {e.args}')
-    """
     try:
         return __xds_from_zarr(infile, True)
     except Exception as e:

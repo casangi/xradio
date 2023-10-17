@@ -6,9 +6,74 @@ import numpy as np
 import os
 import xarray as xr
 from .common import (
-    __active_mask, __doppler_types, __native_types, __object_name,
-    __pointing_center
+    __active_mask, __native_types, __object_name, __pointing_center
 )
+from ..common import __doppler_types
+
+
+# TODO move this to a common file to be shared
+def __compute_ref_pix(xds:xr.Dataset, direction:dict) -> np.ndarray:
+    # TODO more general coordinates
+    long = xds.right_ascension
+    lat = xds.declination
+    ra_crval = long.attrs['wcs']['crval']
+    dec_crval = lat.attrs['wcs']['crval']
+    long_close = np.where(np.isclose(long, ra_crval))
+    lat_close = np.where(np.isclose(lat, dec_crval))
+    if long_close and lat_close:
+        long_list = [ (i,j) for i,j in zip(long_close[0], long_close[1]) ]
+        lat_list = [ (i,j) for i,j in zip(lat_close[0], lat_close[1]) ]
+        common_indices = [ t for t in long_list if t in lat_list ]
+        if len(common_indices) == 1:
+            return np.array(common_indices[0])
+    cdelt = max(
+        abs(long.attrs['wcs']['cdelt']),
+        abs(lat.attrs['wcs']['cdelt'])
+    )
+
+    # this creates an image of mostly NaNs. The few pixels with values are
+    # close to the reference pixel
+    ra_diff = long - ra_crval
+    dec_diff = lat - dec_crval
+    # this returns a 2-tuple of indices where the values in aa are not NaN
+    indices_close = np.where(
+        ra_diff*ra_diff + dec_diff*dec_diff < 2*cdelt*cdelt
+    )
+    # this determines the closest pixel to the reference pixel
+    closest = 5e10
+    pix = []
+    for i,j in zip(indices_close[0], indices_close[1]):
+        dra = long[i,j] - ra_crval
+        ddec = lat[i,j] - dec_crval
+        if dra*dra + ddec*ddec < closest:
+            pix = [i, j]
+    xds_dir = xds.attrs['direction']
+    # get the actual ref pix
+    proj = direction['projection']
+    wcs_dict = {}
+    wcs_dict[f'CTYPE1'] = f'RA---{proj}'
+    wcs_dict[f'NAXIS1'] = long.shape[0]
+    wcs_dict[f'CUNIT1'] = long.attrs['unit']
+    # FITS arrays are 1-based
+    wcs_dict[f'CRPIX1'] = pix[0] + 1
+    wcs_dict[f'CRVAL1'] = long[pix[0], pix[1]].item(0)
+    wcs_dict[f'CDELT1'] = long.attrs['wcs']['cdelt']
+    wcs_dict[f'CTYPE2'] = f'DEC--{proj}'
+    wcs_dict[f'NAXIS2'] = lat.shape[1]
+    wcs_dict[f'CUNIT2'] = lat.attrs['unit']
+    # FITS arrays are 1-based
+    wcs_dict[f'CRPIX2'] = pix[1] + 1
+    wcs_dict[f'CRVAL2'] = lat[pix[0], pix[1]].item(0)
+    wcs_dict[f'CDELT2'] = lat.attrs['wcs']['cdelt']
+    w = astropy.wcs.WCS(wcs_dict)
+    x, y = np.indices(w.pixel_shape)
+    sky = SkyCoord(
+        ra_crval, dec_crval,
+        frame=xds.attrs['direction']['system'].lower(),
+        equinox=xds.attrs['direction']['equinox'],
+        unit=long.attrs['unit']
+    )
+    return w.world_to_pixel(sky)
 
 
 def __compute_direction_dict(xds: xr.Dataset) -> dict:
@@ -32,6 +97,7 @@ def __compute_direction_dict(xds: xr.Dataset) -> dict:
     direction['cdelt'] = np.array([
         long.attrs['wcs']['cdelt'], lat.attrs['wcs']['cdelt']
     ])
+    """
     # get the actual ref pix
     proj = direction['projection']
     wcs_dict = {}
@@ -49,6 +115,7 @@ def __compute_direction_dict(xds: xr.Dataset) -> dict:
     wcs_dict[f'CRPIX2'] = 1
     wcs_dict[f'CRVAL2'] = lat[0][0].item(0)
     wcs_dict[f'CDELT2'] = lat.attrs['wcs']['cdelt']
+    print('*** wcs_dict', wcs_dict)
     w = astropy.wcs.WCS(wcs_dict)
     x, y = np.indices(w.pixel_shape)
     sky = SkyCoord(direction[
@@ -58,6 +125,8 @@ def __compute_direction_dict(xds: xr.Dataset) -> dict:
         unit=long.attrs['unit']
     )
     crpix = w.world_to_pixel(sky)
+    """
+    crpix = __compute_ref_pix(xds, direction)
     direction['crpix'] = np.array([crpix[0], crpix[1]])
     direction['pc'] = xds_dir['pc']
     direction['axes'] = ['Right Ascension', 'Declination']
@@ -140,7 +209,9 @@ def __coord_dict_from_xds(xds: xr.Dataset) -> dict:
     coord['worldmap0'] = np.array([0, 1], dtype=np.int32)
     coord['worldmap1'] = np.array([2], dtype=np.int32)
     coord['worldmap2'] = np.array([3], dtype=np.int32)
-    coord['worldreplace0'] = coord['direction0']['crval']
+    # coord['worldreplace0'] = coord['direction0']['crval']
+    # this probbably needs some verification
+    coord['worldreplace0'] = [0.0, 0.0]
     coord['worldreplace1'] = np.array(coord['stokes1']['crval'])
     coord['worldreplace2'] = np.array([xds.freq.attrs['wcs']['crval']])
     return coord
@@ -303,5 +374,3 @@ def __write_pixels(
                 loc2 += i2
             loc1 += i1
         loc0 += i0
-
-

@@ -12,12 +12,12 @@ from typing import Union
 import xarray as xr
 
 from .common import (
-    __active_mask, __doppler_types, __native_types, __object_name,
-    __pointing_center
+    __active_mask, __native_types, __object_name, __pointing_center
 )
-from ..common import __c, __dask_arrayize
-
-__image_type = 'image_type'
+from ..common import (
+    __c, __dask_arrayize, __default_freq_info,
+    __doppler_types, __image_type
+)
 
 
 def __add_coord_attrs(xds: xr.Dataset, icoords: dict, diraxes: list) -> xr.Dataset:
@@ -87,36 +87,7 @@ def __add_freq_attrs(xds, coord_dict):
             break
     if not meta:
 		# this is the default frequency information CASA creates
-        meta = {
-			'conversion': {
-				'direction': {
-					'm0': {'unit': 'rad', 'value': 0.0},
-   					'm1': {'unit': 'rad', 'value': 1.5707963267948966},
-   					'refer': 'J2000',
-				},
-  				'epoch': {
-					'm0': {'unit': 'd', 'value': 0.0},
-   					'refer': 'LAST',
-				},
-  				'position': {
-					'm0': {'unit': 'rad', 'value': 0.0},
-   					'm1': {'unit': 'rad', 'value': 0.0},
-   					'm2': {'unit': 'm', 'value': 0.0},
-   					'refer': 'ITRF',
-				},
-  				'system': 'LSRK'
-			},
- 			'nativeType': 'FREQ',
- 			'restfreq': 1420405751.7860003,
- 			'restfreqs': [1420405751.7860003],
- 			'system': 'LSRK',
- 			'unit': 'Hz',
- 			'waveUnit': 'mm',
- 			'wcs': {
-				'cdelt': 1000.0,
-  				'crval': 1415000000.0,
-			}
-		}
+        meta = __default_freq_info()
     freq_coord.attrs = copy.deepcopy(meta)
     xds['freq'] = freq_coord
     return xds
@@ -135,8 +106,8 @@ def __add_mask(
 
 
 def __add_sky_or_apeture(
-        xds: xr.Dataset, ary: Union[np.ndarray, da.array],
-        dimorder:list, img_full_path: str, has_sph_dims:bool
+    xds: xr.Dataset, ary: Union[np.ndarray, da.array],
+    dimorder:list, img_full_path: str, has_sph_dims:bool
 ) -> xr.Dataset:
     xda = xr.DataArray(ary, dims=dimorder)
     casa_image = images.image(img_full_path)
@@ -170,7 +141,7 @@ def __add_time_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
     return xds
 
 
-def __add_vel_attrs(xds, coord_dict):
+def __add_vel_attrs(xds:xr.Dataset, coord_dict:dict) -> xr.Dataset:
     vel_coord = xds['vel']
     meta = {'unit': 'm/s'}
     for k in coord_dict:
@@ -544,10 +515,7 @@ def __get_freq_values(coords: coordinates.coordinatesystem, shape:tuple) -> list
                 crpix = wcs['crpix']
                 crval = wcs['crval']
                 cdelt = wcs['cdelt']
-                for i in range(shape[idx]):
-                    f = (i - crpix) * cdelt + crval
-                    freqs.append(f)
-                return freqs
+                return [ (i-crpix)*cdelt + crval for i in range(shape[idx]) ]
     else:
         return [1420e6]
 
@@ -748,7 +716,6 @@ def __get_velocity_values(coord_dict: dict, freq_values: list) -> list:
     return [ ((1 - f/restfreq)*__c).value for f in freq_values ]
 
 
-
 def __make_coord_subset(xds:xr.Dataset, slices:dict) -> xr.Dataset:
     dim_to_coord_map = {}
     coord_to_dim_map = {}
@@ -785,8 +752,8 @@ def __make_coord_subset(xds:xr.Dataset, slices:dict) -> xr.Dataset:
 
 
 def __multibeam_array(
-        xds:xr.Dataset, img_full_path:str, as_dask_array:bool
-    ) -> Union[xr.DataArray, None]:
+    xds:xr.Dataset, img_full_path:str, as_dask_array:bool
+) -> Union[xr.DataArray, None]:
     """This should only be called after the xds.beam attr has been set"""
     if xds.attrs['beam'] is None:
         # the image may have multiple beams
@@ -943,9 +910,12 @@ def __read_image_array(
     """
     img_full_path = os.path.expanduser(infile)
     casa_image = images.image(img_full_path)
+    """
     if isinstance(chunks, list):
         mychunks = tuple(chunks)
     elif isinstance(chunks, dict):
+    """
+    if isinstance(chunks, dict):
         mychunks = __get_chunk_list(
             chunks, casa_image.coordinates().get_names()[::-1], casa_image.shape()[::-1]
         )
@@ -1050,14 +1020,12 @@ def __read_image_array(
 
 
 def __read_image_chunk(infile:str, shapes:tuple, starts:tuple) -> np.ndarray:
-    tb_tool: tables.table = tables.table(
+    tb_tool:tables.table = tables.table(
         infile, readonly=True, lockoptions={'option': 'usernoread'}, ack=False
     )
-    data : np.ndarray = tb_tool.getcellslice(
+    data:np.ndarray = tb_tool.getcellslice(
         tb_tool.colnames()[0], 0, starts,
         tuple(np.array(starts) + np.array(shapes) - 1)
     )
     tb_tool.close()
     return data
-
-

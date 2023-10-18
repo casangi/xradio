@@ -85,8 +85,8 @@ def read_image(infile:str, chunks:dict={}, verbose:bool=False) -> xr.Dataset:
     raise RuntimeError('\n'.join(emsgs))
 
 
-def load_image_block(infile:str, block_des:dict={}) -> xr.Dataset:
-    """Load an image block (subimage) into memory
+def load_image(infile:str, block_des:dict={}) -> xr.Dataset:
+    """Load an image or portion of an image (subimage) into memory
     :param infile: Path to the input image, currently only casacore images are supported
     :type infile: str, required
     :param block_des: The description of data to return, supported keys are time,

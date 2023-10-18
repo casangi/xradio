@@ -16,7 +16,7 @@
 
 import casacore.images, casacore.tables
 from xradio.image import (
-    load_image_block, make_empty_sky_image, read_image, write_image
+    load_image, make_empty_sky_image, read_image, write_image
 )
 import dask.array.ma as dma
 import dask.array as da
@@ -526,7 +526,7 @@ class ImageBase(unittest.TestCase):
 
 
     def compare_image_block(self, imagename):
-        xds = load_image_block(
+        xds = load_image(
             imagename,
             {
                 'l': slice(2, 10), 'm': slice(3, 15), 'pol': slice(0, 1),

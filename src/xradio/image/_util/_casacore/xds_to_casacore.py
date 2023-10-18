@@ -146,7 +146,7 @@ def __compute_spectral_dict(
     for a CASA image coordinate system
     """
     spec = {}
-    spec_conv = copy.deepcopy(xds.freq.attrs['conversion'])
+    spec_conv = copy.deepcopy(xds.frequency.attrs['conversion'])
     for k in ('direction', 'epoch', 'position'):
         spec_conv[k]['type'] = k
     spec_conv['direction']['refer'] = spec_conv['direction']['system']
@@ -160,19 +160,19 @@ def __compute_spectral_dict(
     spec['conversion'] = spec_conv
     spec['formatUnit'] = ''
     spec['name'] = 'Frequency'
-    spec['nativeType'] = __native_types.index(xds.freq.attrs['native_type'])
-    spec['restfreq'] = xds.freq.attrs['restfreq']
-    spec['restfreqs'] = copy.deepcopy(xds.freq.attrs['restfreqs'])
-    spec['system'] = xds.freq.attrs['system']
-    spec['unit'] = xds.freq.attrs['unit']
+    spec['nativeType'] = __native_types.index(xds.frequency.attrs['native_type'])
+    spec['restfreq'] = xds.frequency.attrs['restfreq']
+    spec['restfreqs'] = copy.deepcopy(xds.frequency.attrs['restfreqs'])
+    spec['system'] = xds.frequency.attrs['system']
+    spec['unit'] = xds.frequency.attrs['unit']
     spec['velType'] = __doppler_types.index(xds.vel.attrs['doppler_type'])
     spec['velUnit'] = xds.vel.attrs['unit']
     spec['version'] = 2
-    spec['waveUnit'] = xds.freq.attrs['wave_unit']
-    spec_wcs = copy.deepcopy(xds.freq.attrs['wcs'])
+    spec['waveUnit'] = xds.frequency.attrs['wave_unit']
+    spec_wcs = copy.deepcopy(xds.frequency.attrs['wcs'])
     spec_wcs['ctype'] = 'FREQ'
     spec_wcs['pc'] = 1.0
-    spec_wcs['crpix'] = (spec_wcs['crval'] - xds.freq.values[0])/spec_wcs['cdelt']
+    spec_wcs['crpix'] = (spec_wcs['crval'] - xds.frequency.values[0])/spec_wcs['cdelt']
     spec['wcs'] = spec_wcs
     return spec
 
@@ -195,7 +195,7 @@ def __coord_dict_from_xds(xds: xr.Dataset) -> dict:
     coord['stokes1'] = {
         'axes': np.array(['Stokes'], dtype='<U16'), 'cdelt': np.array([1.]),
         'crpix': np.array([0.]), 'crval': np.array([1.]), 'pc': np.array([[1.]]),
-        'stokes': np.array(xds.pol.values, dtype='<U16')
+        'stokes': np.array(xds.polarization.values, dtype='<U16')
     }
     coord['spectral2'] = __compute_spectral_dict(
         xds, coord['direction0'], coord['obsdate'], coord['telescopeposition']
@@ -213,7 +213,7 @@ def __coord_dict_from_xds(xds: xr.Dataset) -> dict:
     # this probbably needs some verification
     coord['worldreplace0'] = [0.0, 0.0]
     coord['worldreplace1'] = np.array(coord['stokes1']['crval'])
-    coord['worldreplace2'] = np.array([xds.freq.attrs['wcs']['crval']])
+    coord['worldreplace2'] = np.array([xds.frequency.attrs['wcs']['crval']])
     return coord
 
 
@@ -259,24 +259,24 @@ def __imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
     elif 'beam' in xds.data_vars:
         # multi beam
         pp = {}
-        pp['nChannels'] = len(xds.freq)
-        pp['nStokes'] = len(xds.pol)
+        pp['nChannels'] = len(xds.frequency)
+        pp['nStokes'] = len(xds.polarization)
         bu = xds.beam.attrs['unit']
         chan = 0
-        pol = 0
+        polarization = 0
         bv = xds.beam.values
         for i in range(pp['nChannels'] * pp['nStokes']):
-            bp = bv[0][pol][chan][:]
+            bp = bv[0][polarization][chan][:]
             b = {
                 'major': {'unit': bu, 'value': bp[0]},
                 'minor': {'unit': bu, 'value': bp[1]},
                 'positionangle': {'unit': bu, 'value': bp[2]}
             }
-            pp['*' + str(pp['nChannels']*pol + chan)] = b
+            pp['*' + str(pp['nChannels']*polarization + chan)] = b
             chan += 1
             if chan >= pp['nChannels']:
                 chan = 0
-                pol += 1
+                polarization += 1
         ii['perplanebeams'] = pp
     return ii
 
@@ -346,7 +346,7 @@ def __write_pixels(
             tb = tables.table(os.sep.join([image_full_path, active_mask]))
             tb.copy(filename, deep=True, valuecopy=True)
             tb.close()
-    arr = xds[v].isel(time=0).transpose(*('freq', 'pol', 'm', 'l'))
+    arr = xds[v].isel(time=0).transpose(*('frequency', 'polarization', 'm', 'l'))
     chunk_bounds = arr.chunks
     b = [0, 0, 0, 0]
     loc0, loc1, loc2, loc3 = (0, 0, 0, 0)

@@ -64,7 +64,7 @@ def __add_time_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
 
 
 def __add_freq_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
-    freq_coord = xds.coords['freq']
+    freq_coord = xds.coords['frequency']
     meta = {}
     if helpers['has_freq']:
         conv = {}
@@ -97,7 +97,7 @@ def __add_freq_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
         # this is the default frequency information CASA creates
         meta = __default_freq_info()
     freq_coord.attrs = copy.deepcopy(meta)
-    xds['freq'] = freq_coord
+    xds['frequency'] = freq_coord
     return xds
 
 
@@ -176,7 +176,7 @@ def __fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
         elif ax_type.startswith('DEC-'):
             t_axes[1] = i
         elif ax_type == 'STOKES':
-            dim_map['pol'] = i - 1
+            dim_map['polarization'] = i - 1
         elif __is_freq_like(ax_type):
             dim_map['freq'] = i - 1
             helpers['has_freq'] = True
@@ -378,9 +378,9 @@ def __create_coords(helpers, header):
     helpers['sphr_dims'] = sphr_dims
     coords = {}
     coords['time'] = __get_time_values(helpers)
-    coords['pol'] = __get_pol_values(helpers)
-    coords['freq'] = __get_freq_values(helpers)
-    coords['vel'] = (['freq'], __get_velocity_values(helpers))
+    coords['polarization'] = __get_pol_values(helpers)
+    coords['frequency'] = __get_freq_values(helpers)
+    coords['vel'] = (['frequency'], __get_velocity_values(helpers))
     if len(sphr_dims) > 0:
         l_world, m_world = __compute_world_sph_dims(
             sphr_dims, dir_axes, dim_map, helpers
@@ -439,7 +439,7 @@ def __get_freq_values(helpers:dict) -> list:
         freq_start_val = crval - cdelt*crpix
         for i in range(helpers['shape'][freq_idx]):
             vals.append(freq_start_val + i*cdelt)
-        helpers['freq'] = vals * u.Unit(cunit)
+        helpers['frequency'] = vals * u.Unit(cunit)
         return vals
     elif 'VOPT' in ctype:
         if 'restfreq' in helpers:
@@ -476,10 +476,10 @@ def __get_freq_values(helpers:dict) -> list:
 def __get_velocity_values(helpers:dict) -> list:
     if 'vel' in helpers:
         return helpers['vel'].to(u.m/u.s).value
-    elif 'freq' in helpers:
+    elif 'frequency' in helpers:
         if helpers['doppler'] == 'Z':
             # (-1 + f0/f) = v/c
-            v = (helpers['restfreq']*u.Hz/helpers['freq'].to('Hz').value - 1) * __c
+            v = (helpers['restfreq']*u.Hz/helpers['frequency'].to('Hz').value - 1) * __c
             v = v.to(u.m/u.s)
             helpers['vel'] = v
             return v.value
@@ -557,7 +557,7 @@ def __do_multibeam(xds:xr.Dataset, imname:str) -> xr.Dataset:
                     (beam_array[:, :, :, i] * units[i]).to('rad').value
                 )
             xdb = xr.DataArray(
-                beam_array, dims=['time', 'pol', 'freq', 'beam_param']
+                beam_array, dims=['time', 'polarization', 'frequency', 'beam_param']
             )
             xdb = xdb.rename('beam')
             xdb = xdb.assign_coords(beam_param=['major', 'minor', 'pa'])
@@ -694,11 +694,11 @@ def __get_chunk_list(chunks:dict, helpers:dict) -> tuple:
             if 'm' in chunks:
                 ret_list[axis] = chunks['m']
         elif c.startswith('FREQ') or c.startswith('VOPT') or c.startswith('VRAD'):
-            if 'freq' in chunks:
-                ret_list[axis] = chunks['freq']
+            if 'frequency' in chunks:
+                ret_list[axis] = chunks['frequency']
         elif c.startswith('STOKES'):
-            if 'pol' in chunks:
-                ret_list[axis] = chunks['pol']
+            if 'polarization' in chunks:
+                ret_list[axis] = chunks['polarization']
         else:
             raise RuntimeError(f'Unhandled coordinate type {c}')
         axis += 1
@@ -723,7 +723,7 @@ def __get_transpose_list(helpers:dict) -> tuple:
             transpose_list[4] = i
             not_covered.remove('m')
             not_covered.remove('v')
-        elif b.startswith('freq') or b.startswith('vopt') or b.startswith('vrad'):
+        elif b.startswith('frequency') or b.startswith('vopt') or b.startswith('vrad'):
             transpose_list[2] = i
             not_covered.remove('f')
         elif b.startswith('stok'):

@@ -46,13 +46,13 @@ def __make_empty_sky_image(
         time_coords = [ time_coords ]
     time_coords = np.array(time_coords, dtype=np.float64)
     coords = {
-        'time': time_coords, 'pol': pol_coords, 'freq': chan_coords,
-        'vel': (('freq'), vel), 'right_ascension': (('l', 'm'), long),
+        'time': time_coords, 'polarization': pol_coords, 'frequency': chan_coords,
+        'vel': (('frequency'), vel), 'right_ascension': (('l', 'm'), long),
         'declination': (('l', 'm'), lat)
     }
     xds = xds.assign_coords(coords)
     xds.time.attrs = {'format': 'MJD', 'refer': 'UTC', 'unit': 'd'}
-    xds.freq.attrs = {
+    xds.frequency.attrs = {
         'conversion': {
             'direction': {
                 'm0': {'unit': 'rad', 'value': 0.0},
@@ -103,9 +103,11 @@ def __make_empty_sky_image(
             'conversion_system': direction_reference,
             'conversion_equinox': 'J2000',
             'long_pole': 0.0, 'lat_pole': 0.0,
-            'pc': np.array([[1.0, 0.0], [0.0, 1.0]]),
+            #'pc': np.array([[1.0, 0.0], [0.0, 1.0]]),
+            'pc': [[1.0, 0.0], [0.0, 1.0]],
             'projection': projection,
-            'projection_parameters': np.array([0.0, 0.0]),
+            #'projection_parameters': np.array([0.0, 0.0]),
+            'projection_parameters': [0.0, 0.0],
             'system': direction_reference, 'equinox': 'J2000',
         },
         'active_mask': '', 'beam': None, 'object_name': '',
@@ -114,8 +116,11 @@ def __make_empty_sky_image(
             'value': time_coords[0], 'unit': 'd'
         },
         'observer': 'Karl Jansky',
+        #'pointing_center': {
+        #    'value': np.array(phase_center), 'initial': True
+        #},
         'pointing_center': {
-            'value': np.array(phase_center), 'initial': True
+            'value': list(phase_center), 'initial': True
         },
         'description': '',
         'telescope': {

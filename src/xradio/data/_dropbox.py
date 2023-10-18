@@ -8,17 +8,18 @@ from tqdm import tqdm
 #https://www.dropbox.com/scl/fi/x8tp0wu21gssbd1gxrnmy/Antennae_North.cal.lsrk.vis.zarr.zip?rlkey=l9jdr6tvyq4pe3381gukuly0d&dl=0
 
 FILE_ID = {
+  'Antennae_M8.img.zarr':
+  {
+    'file':'Antennae_M8.img.zarr.zip',
+    'id':'9v0a1rv7nzm3kqte0u7vp',
+    'rlkey':'ws6vd0jbo1dg7jvxsit42q5ba&dl'
+  },
+
   'demo_simulated.im':
   {
     'file':'demo_simulated.im.zip',
     'id':'z87gibxshwg9e2h155ukk',
     'rlkey':'bn7uvs697wtedij63fa2hu7ed&dl'
-  },
- 'Antennae_North.cal.lsrk.vis.zarr':
-  {
-    'file':'Antennae_North.cal.lsrk.vis.zarr.zip',
-    'id':'x8tp0wu21gssbd1gxrnmy',
-    'rlkey':'l9jdr6tvyq4pe3381gukuly0d&dl'
   },
   
   'Antennae_North.cal.lsrk.ms':
@@ -27,6 +28,20 @@ FILE_ID = {
     'id':'olx5qv9avdxxiyjlhlwx2',
     'rlkey':'trrqy43rfcqj4blf9robz4p47&dl'
    },
+   
+ 'Antennae_North.cal.lsrk.vis.zarr':
+  {
+    'file':'Antennae_North.cal.lsrk.vis.zarr.zip',
+    'id':'9hcunmq3iqtfiww593nrp',
+    'rlkey':'7fingboduee7logszh25n95x5&dl'
+  },
+  
+  'Antennae_North.cal.lsrk.split.ms':
+  {
+    'file':'Antennae_North.cal.lsrk.split.ms.zip',
+    'id':'j2e5pd4y7ppvw9efxdfdj',
+    'rlkey':'hlb85n40vtac3k9nna14giwsf&dl'
+  },
 }
 
 def download(file, folder='.'):

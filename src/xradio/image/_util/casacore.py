@@ -72,7 +72,7 @@ def __load_casa_image_block(infile: str, block_des: dict) -> xr.Dataset:
     mb = __multibeam_array(xds, image_full_path, False)
     if mb is not None:
         selectors = {}
-        for k in ('time', 'pol', 'freq'):
+        for k in ('time', 'polarization', 'frequency'):
             if k in block_des:
                 selectors[k] = block_des[k]
         xds['beam'] = mb.isel(selectors)
@@ -110,7 +110,7 @@ def __xds_to_casa_image(xds: xr.Dataset, imagename:str) -> None:
     sky_ap = 'sky' if 'sky' in xds else 'apeature'
     if xds[sky_ap].shape[0] != 1:
         raise Exception('XDS can only be converted if it has exactly one time plane')
-    arr = xds[sky_ap].isel(time=0).transpose(*('freq', 'pol', 'm', 'l'))
+    arr = xds[sky_ap].isel(time=0).transpose(*('frequency', 'polarization', 'm', 'l'))
     image_full_path = os.path.expanduser(imagename)
     maskname = ''
     if __active_mask in xds.attrs and xds.attrs[__active_mask]:

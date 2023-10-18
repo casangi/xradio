@@ -42,7 +42,7 @@ def read_image(infile:str, chunks:dict={}, verbose:bool=False) -> xr.Dataset:
     :param infile: Path to the input CASA image
     :type infile: str, required
     :param chunks: The desired dask chunk size. Only applicable for casacore and fits images.
-                   Supported optional keys are 'l', 'm', 'freq', 'pol',
+                   Supported optional keys are 'l', 'm', 'frequency', 'polarization',
                    and 'time'. The supported values are positive integers,
                    indicating the length of a chunk on that particular axis. If
                    a key is missing, then the associated chunk length along that axis
@@ -90,7 +90,7 @@ def load_image(infile:str, block_des:dict={}) -> xr.Dataset:
     :param infile: Path to the input image, currently only casacore images are supported
     :type infile: str, required
     :param block_des: The description of data to return, supported keys are time,
-        pol, freq, l (or u if apeture image), m (or v if apeture image) a
+        polarization, frequency, l (or u if apeture image), m (or v if apeture image) a
         missing key indicates to return the entire axis length for that
         dimension. Values can be non-negative integers or slices. Slicing
         behaves as numpy slicing does, that is the start pixel is included in
@@ -104,6 +104,8 @@ def load_image(infile:str, block_des:dict={}) -> xr.Dataset:
     """
     do_casa = True
     emsgs = []
+    
+    from ._util.casacore import __read_casa_image
     try:
         from ._util.casacore import __read_casa_image
     except Exception as e:

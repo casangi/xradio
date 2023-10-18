@@ -61,7 +61,7 @@ def __add_dir_lin_attrs(xds, coord_dict, dir_axes):
 
 
 def __add_freq_attrs(xds, coord_dict):
-    freq_coord = xds['freq']
+    freq_coord = xds['frequency']
     meta = {}
     for k in coord_dict:
         if k.startswith('spectral'):
@@ -89,7 +89,7 @@ def __add_freq_attrs(xds, coord_dict):
 		# this is the default frequency information CASA creates
         meta = __default_freq_info()
     freq_coord.attrs = copy.deepcopy(meta)
-    xds['freq'] = freq_coord
+    xds['frequency'] = freq_coord
     return xds
 
 
@@ -282,9 +282,9 @@ def __casa_image_to_xds_metadata(img_full_path:str, verbose:bool=False) -> dict:
     attrs['sphr_dims'] = sphr_dims
     coords = {}
     coords['time'] = __get_time_values(coord_dict)
-    coords['pol'] = __get_pol_values(coord_dict)
-    coords['freq'] = __get_freq_values(casa_image.coordinates(), shape)
-    coords['vel'] = (['freq'], __get_velocity_values(coord_dict, coords['freq']))
+    coords['polarization'] = __get_pol_values(coord_dict)
+    coords['frequency'] = __get_freq_values(casa_image.coordinates(), shape)
+    coords['vel'] = (['frequency'], __get_velocity_values(coord_dict, coords['frequency']))
     if len(sphr_dims) > 0:
         for k in coord_dict.keys():
             if k.startswith('direction'):
@@ -446,11 +446,11 @@ def __get_chunk_list(chunks:dict, coords:list, image_shape:Union[list, tuple]) -
                 if i == 0:
                     axis += 1
         elif c == 'spectral':
-            if 'freq' in chunks:
-                ret_list[axis] = chunks['freq']
+            if 'frequency' in chunks:
+                ret_list[axis] = chunks['frequency']
         elif c == 'stokes':
-            if 'pol' in chunks:
-                ret_list[axis] = chunks['pol']
+            if 'polarization' in chunks:
+                ret_list[axis] = chunks['polarization']
         else:
             raise Exception(f'Unhandled coordinate type {c}')
         axis += 1
@@ -468,10 +468,10 @@ def __get_dimmap(coords: list, verbose: bool=False) -> dict:
     if verbose:
         print(f'dimmap: {dimmap}')
     # example of dimmap after next statment
-    # [('l', 0), ('m', 1), ('chan', 2), ('pol', 3)]
+    # [('l', 0), ('m', 1), ('chan', 2), ('polarization', 3)]
     dimmap = [
         (rr[0].replace(
-            'stokes0','pol'
+            'stokes0','polarization'
         ).replace('spectral0','chan').replace('direction0','l').replace(
             'direction1','m').replace('linear0', 'u').replace(
             'linear1', 'v'
@@ -493,7 +493,7 @@ def __get_dimmap(coords: list, verbose: bool=False) -> dict:
         for rr in dimmap if rr[1] >= 0
     ]
     # conversion to dict, example dimmap after this statement
-    # dimmap: {'l': 0, 'm': 1, 'chan': 2, 'pol': 3}
+    # dimmap: {'l': 0, 'm': 1, 'chan': 2, 'polarization': 3}
     dimmap = dict(
         [(diraxes[int(rr[0][-1])], rr[1])
         if rr[0].startswith('linear') or rr[0].startswith('direction')
@@ -552,10 +552,10 @@ def __get_image_dim_order(coords: coordinates.coordinatesystem) -> list:
             ret.append('l')
         elif b.startswith('dec') or b.startswith('vv'):
             ret.append('m')
-        elif b.startswith('freq'):
-            ret.append('freq')
+        elif b.startswith('frequency'):
+            ret.append('frequency')
         elif b.startswith('stok'):
-            ret.append('pol')
+            ret.append('polarization')
         else:
             raise Exception(f'Unhandled axis name {c}')
     return ret
@@ -617,7 +617,7 @@ def __get_starts_shapes_slices(
     shapes = []
     slices = {}
     for i, dim in enumerate(img_dim_order):
-        if dim not in ['pol', 'freq', 'l', 'm', 'u', 'v']:
+        if dim not in ['polarization', 'frequency', 'l', 'm', 'u', 'v']:
             raise Exception(f'Unsupported dimension {dim}')
         if dim in blockdes:
             extent = blockdes[dim]
@@ -662,7 +662,7 @@ def __get_transpose_list(coords: coordinates.coordinatesystem) -> list:
             # transpose_list[4] = csys['pixelmap0'][1]
             not_covered.remove('m')
             not_covered.remove('v')
-        elif b.startswith('freq'):
+        elif b.startswith('frequency'):
             # transpose_list[2] = csys['pixelmap1'][0]
             transpose_list[2] = i
             not_covered.remove('f')
@@ -767,7 +767,7 @@ def __multibeam_array(
             del xds.attrs['beam']
             if as_dask_array:
                 mb = da.array(mb)
-            xdb = xr.DataArray(mb, dims=['time', 'pol', 'freq', 'beam_param'])
+            xdb = xr.DataArray(mb, dims=['time', 'polarization', 'frequency', 'beam_param'])
             xdb = xdb.rename('beam')
             xdb = xdb.assign_coords(beam_param=['major', 'minor', 'pa'])
             xdb.attrs['unit'] = 'rad'
@@ -869,7 +869,7 @@ def __read_image_array(
 ) -> dask.array:
     """
     Read an array of image pixels into a dask array. The returned dask array
-    will have axes in time, pol, freq, l, m order
+    will have axes in time, polarization, frequency, l, m order
     If specified, it's the caller's responsibility to ensure the specified blc and
     trc are coincident with chunk corners. If not, there could be performance degradation
     The blc, trc box is inclusive of blc pixel coordinates and exclusive trc pixel
@@ -887,7 +887,7 @@ def __read_image_array(
                    Freq, Stokes and the desired chunking is 40 pixels in RA, 30
                    pixels in Dec, 20 pixels in Freq, and 2 pixels in Stokes,
                    chunks would be specified as [40, 30, 20, 2].
-                   If dict, supported optional keys are 'l', 'm', 'freq', 'pol',
+                   If dict, supported optional keys are 'l', 'm', 'frequency', 'polarization',
                    and 'time'. The supported values are positive integers,
                    indicating the length of a chunk on that particular axis. If
                    a key is missing, the associated chunk length along that axis
@@ -904,7 +904,7 @@ def __read_image_array(
     :type blc: a type that is convertable to a list via list(blc)
     :param trc: top right corner, given in the axes ordering of the input image.None=>image shape - 1
     :type trc: a type that is convertable to a list via list(trc)
-    :return: Dask array in time, pol, freq, l, m order
+    :return: Dask array in time, polarization, frequency, l, m order
     :rtype: dask.array
 
     """

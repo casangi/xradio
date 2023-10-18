@@ -1,19 +1,3 @@
-#  CASA Next Generation Infrastructure
-#  Copyright (C) 2021 AUI, Inc. Washington DC, USA
-#
-#  This program is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
 import casacore.images, casacore.tables
 from xradio.image import (
     load_image, make_empty_sky_image, read_image, write_image
@@ -156,7 +140,7 @@ class ImageBase(unittest.TestCase):
         im = casacore.images.image(cls.__imname)
         im.tofits(cls.__infits)
         del im
-        cls.__xds = read_image(cls.__imname, {'freq': 5})
+        cls.__xds = read_image(cls.__imname, {'frequency': 5})
         write_image(cls.__xds, cls.__outname, out_format='casa')
 
 
@@ -249,10 +233,10 @@ class ImageBase(unittest.TestCase):
             xds.sky.attrs['unit'], ev['unit'], 'Wrong unit'
         )
         self.assertEqual(
-            xds.sky.chunksizes['freq'], (5, 5), 'Incorrect chunksize'
+            xds.sky.chunksizes['frequency'], (5, 5), 'Incorrect chunksize'
         )
         self.assertEqual(
-            xds.mask0.chunksizes['freq'], (5, 5), 'Incorrect chunksize'
+            xds.mask0.chunksizes['frequency'], (5, 5), 'Incorrect chunksize'
         )
         got_data = da.squeeze(da.transpose(xds.sky, [2, 1, 4, 3, 0]), 4)
         got_mask = da.squeeze(da.transpose(xds.mask0, [2, 1, 4, 3, 0]), 4)
@@ -302,21 +286,21 @@ class ImageBase(unittest.TestCase):
         )
 
 
-    def compare_pol(self, xds:xr.Dataset) -> None:
+    def compare_polarization(self, xds:xr.Dataset) -> None:
         self.assertTrue(
-            (xds.coords['pol'] == self.__exp_vals['stokes']).all(),
-            'Incorrect pol values'
+            (xds.coords['polarization'] == self.__exp_vals['stokes']).all(),
+            'Incorrect polarization values'
         )
 
 
-    def compare_freq(self, xds:xr.Dataset, fits=False):
+    def compare_frequency(self, xds:xr.Dataset, fits=False):
         ev = self.__exp_vals
-        if 'freq' not in ev:
+        if 'frequency' not in ev:
             im = casacore.images.image(self.imname())
             sd = im.coordinates().dict()['spectral2']
-            ev['freq'] = []
+            ev['frequency'] = []
             for chan in range(10):
-                ev['freq'].append(im.toworld([chan,0,0,0])[0])
+                ev['frequency'].append(im.toworld([chan,0,0,0])[0])
             ev['freq_conversion'] = copy.deepcopy(sd['conversion'])
             for k in ('direction', 'position', 'epoch'):
                 del ev['freq_conversion'][k]['type']
@@ -328,66 +312,66 @@ class ImageBase(unittest.TestCase):
             ev['freq_crval'] = sd['wcs']['crval']
         if fits:
             self.assertTrue(
-                np.isclose(xds.freq, ev['freq']).all(), 'Incorrect frequencies'
+                np.isclose(xds.frequency, ev['frequency']).all(), 'Incorrect frequencies'
             )
             self.assertTrue(
-                np.isclose(xds.freq.attrs['restfreq'], ev['restfreq']),
+                np.isclose(xds.frequency.attrs['restfreq'], ev['restfreq']),
                 'Incorrect rest frequency'
             )
             self.assertTrue(
                 np.isclose(
-                    xds.freq.attrs['wcs']['cdelt'], ev['freq_cdelt']
+                    xds.frequency.attrs['wcs']['cdelt'], ev['freq_cdelt']
                 ), 'Incorrect frequency cdelt'
             )
             self.assertTrue(
                 np.isclose(
-                    xds.freq.attrs['wcs']['crval'],
+                    xds.frequency.attrs['wcs']['crval'],
                     ev['freq_crval']
                 ), 'Incorrect frequency crpix'
             )
         else:
             self.assertTrue(
                 np.isclose(
-                    xds.freq.attrs['restfreqs'][0],
+                    xds.frequency.attrs['restfreqs'][0],
                     ev['restfreqs'][0]
                 ), 'Incorrect rest frequencies'
             )
             self.assertTrue(
-                (xds.freq == ev['freq']).all(), 'Incorrect frequencies'
+                (xds.frequency == ev['frequency']).all(), 'Incorrect frequencies'
             )
             self.assertEqual(
-                xds.freq.attrs['restfreq'], ev['restfreq'],
+                xds.frequency.attrs['restfreq'], ev['restfreq'],
                 'Incorrect rest frequency'
             )
             self.assertTrue(
-                (xds.freq.attrs['restfreqs'] == ev['restfreqs']).all(),
+                (xds.frequency.attrs['restfreqs'] == ev['restfreqs']).all(),
                 'Incorrect rest frequencies'
             )
             self.assertEqual(
-                xds.freq.attrs['wcs']['cdelt'], ev['freq_cdelt'],
+                xds.frequency.attrs['wcs']['cdelt'], ev['freq_cdelt'],
                 'Incorrect frequency cdelt'
             )
             self.assertEqual(
-                xds.freq.attrs['wcs']['crval'], ev['freq_crval'],
+                xds.frequency.attrs['wcs']['crval'], ev['freq_crval'],
                 'Incorrect frequency crpix'
             )
         self.assertEqual(
-            xds.freq.attrs['conversion'], ev['freq_conversion'],
+            xds.frequency.attrs['conversion'], ev['freq_conversion'],
             (
-                f'Incorrect frquency conversion. Got {xds.freq.attrs["conversion"]}. '
+                f'Incorrect frquency conversion. Got {xds.frequency.attrs["conversion"]}. '
                 + 'Exprected {ev["freq_conversion"'
             )
         )
         self.assertEqual(
-            xds.freq.attrs['system'], ev['freq_system'],
+            xds.frequency.attrs['system'], ev['freq_system'],
             'Incorrect frequency system'
         )
         self.assertEqual(
-            xds.freq.attrs['unit'], ev['freq_unit'],
+            xds.frequency.attrs['unit'], ev['freq_unit'],
             'Incorrect frequency unit'
         )
         self.assertEqual(
-            xds.freq.attrs['wave_unit'], ev['freq_waveunit'],
+            xds.frequency.attrs['wave_unit'], ev['freq_waveunit'],
             'Incorrect wavelength unit'
         )
 
@@ -398,8 +382,8 @@ class ImageBase(unittest.TestCase):
             # casacore has written optical velocities to FITS file,
             # even though the doppler type is RADIO in the casacore
             # image
-            freqs = xds.coords['freq'].values
-            rest_freq = xds.coords['freq'].attrs['restfreq']
+            freqs = xds.coords['frequency'].values
+            rest_freq = xds.coords['frequency'].attrs['restfreq']
             v_opt = (rest_freq/freqs - 1) * 299792458
             self.assertTrue(
                 np.isclose(xds.vel, v_opt).all(),
@@ -529,8 +513,8 @@ class ImageBase(unittest.TestCase):
         xds = load_image(
             imagename,
             {
-                'l': slice(2, 10), 'm': slice(3, 15), 'pol': slice(0, 1),
-                'freq': slice(0,4)
+                'l': slice(2, 10), 'm': slice(3, 15), 'polarization': slice(0, 1),
+                'frequency': slice(0,4)
             }
         )
         self.assertEqual(xds.sky.shape, (1, 1, 4, 8, 12), 'Wrong block shape')
@@ -546,7 +530,7 @@ class ImageBase(unittest.TestCase):
         self.dict_equality(
             xds.attrs, big_xds.attrs, 'block xds', 'main xds', ['history']
         )
-        for c in ('time', 'freq', 'pol', 'vel', 'right_ascension', 'declination'):
+        for c in ('time', 'frequency', 'polarization', 'vel', 'right_ascension', 'declination'):
             self.dict_equality(
                 xds[c].attrs, big_xds[c].attrs, f'block xds {c}', 'main xds {c}'
             )
@@ -554,11 +538,11 @@ class ImageBase(unittest.TestCase):
             xds.time, big_xds.time, 'Incorrect time coordinate value'
         )
         self.assertEqual(
-            xds.pol, big_xds.pol[0:1], 'Incorrect pol coordinate value'
+            xds.polarization, big_xds.polarization[0:1], 'Incorrect polarization coordinate value'
         )
         self.assertTrue(
-            (xds.freq == big_xds.freq[0:4]).all(),
-            'Incorrect freq coordinate values'
+            (xds.frequency == big_xds.frequency[0:4]).all(),
+            'Incorrect frequency coordinate values'
         )
         self.assertTrue(
             (xds.vel == big_xds.vel[0:4]).all(),
@@ -598,14 +582,14 @@ class casa_image_to_xds_test(ImageBase):
         self.compare_time(self.xds())
 
 
-    def test_xds_pol_axis(self):
+    def test_xds_polarization_axis(self):
         """Test xds has correct stokes values"""
-        self.compare_pol(self.xds())
+        self.compare_polarization(self.xds())
 
 
-    def test_xds_freq_axis(self):
-        """Test xds has correct frequency values and metadata"""
-        self.compare_freq(self.xds())
+    def test_xds_frequency_axis(self):
+        """Test xds has correct frequencyuency values and metadata"""
+        self.compare_frequency(self.xds())
 
 
     def test_xds_vel_axis(self):
@@ -688,7 +672,6 @@ class xds_to_zarr_to_xds_test(ImageBase):
         write_image(cls.xds(), cls.__zarr_store, out_format='zarr')
         cls.__zds = read_image(cls.__zarr_store)
 
-
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
@@ -718,14 +701,14 @@ class xds_to_zarr_to_xds_test(ImageBase):
         self.compare_time(self.__zds)
 
 
-    def test_xds_pol_axis(self):
+    def test_xds_polarization_axis(self):
         """Test xds has correct stokes values"""
-        self.compare_pol(self.__zds)
+        self.compare_polarization(self.__zds)
 
 
-    def test_xds_freq_axis(self):
-        """Test xds has correct frequency values and metadata"""
-        self.compare_freq(self.__zds)
+    def test_xds_frequency_axis(self):
+        """Test xds has correct frequencyuency values and metadata"""
+        self.compare_frequency(self.__zds)
 
 
     def test_xds_vel_axis(self):
@@ -782,18 +765,18 @@ class make_empty_sky_image_test(ImageBase):
         )
 
 
-    def test_pol_coord(self):
+    def test_polarization_coord(self):
         skel = self.skel_im()
         self.assertTrue(
-            (skel.pol == ['I', 'Q', 'U']).all(),
-            'Incorrect pol coordinate values'
+            (skel.polarization == ['I', 'Q', 'U']).all(),
+            'Incorrect polarization coordinate values'
         )
 
-    def test_freq_coord(self):
+    def test_frequency_coord(self):
         skel = self.skel_im()
         self.assertTrue(
-            np.isclose(skel.freq, [1.412e+09, 1.413e+09]).all(),
-            'Incorrect freq coordinate values'
+            np.isclose(skel.frequency, [1.412e+09, 1.413e+09]).all(),
+            'Incorrect frequency coordinate values'
         )
         expec = {
             'conversion': {
@@ -820,7 +803,7 @@ class make_empty_sky_image_test(ImageBase):
             'wcs': {'crval': 1413000000.0, 'cdelt': 1000000.0, 'pc': 1.0}
         }
         self.dict_equality(
-            skel.freq.attrs, expec, 'got', 'expected'
+            skel.frequency.attrs, expec, 'got', 'expected'
         )
 
 
@@ -1002,7 +985,7 @@ class fits_to_xds_test(ImageBase):
         # so we must explicitly call the super class' method here to create the
         # xds which is located in the super class
         super().setUpClass()
-        cls.__fds = read_image(cls.infits(), {'freq': 5})
+        cls.__fds = read_image(cls.infits(), {'frequency': 5})
 
 
     @classmethod
@@ -1028,14 +1011,14 @@ class fits_to_xds_test(ImageBase):
         self.compare_time(self.__fds)
 
 
-    def test_xds_pol_axis(self):
+    def test_xds_polarization_axis(self):
         """Test xds has correct stokes values"""
-        self.compare_pol(self.__fds)
+        self.compare_polarization(self.__fds)
 
 
-    def test_xds_freq_axis(self):
+    def test_xds_frequency_axis(self):
         """Test xds has correct frequency values and metadata"""
-        self.compare_freq(self.__fds, True)
+        self.compare_frequency(self.__fds, True)
 
 
     def test_xds_vel_axis(self):

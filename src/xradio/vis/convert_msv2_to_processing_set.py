@@ -501,10 +501,10 @@ def convert_and_write_partition(
             xds.attrs["ddi"] = ddi
 
             # Time and frequency should always be increasing
-            if xds.frequency[1] - xds.frequency[0] < 0:
+            if len(xds.frequency) > 1 and xds.frequency[1] - xds.frequency[0] < 0:
                 xds = xds.sel(frequency=slice(None, None, -1))
 
-            if xds.time[1] - xds.time[0] < 0:
+            if len(xds.time) > 1 and xds.time[1] - xds.time[0] < 0:
                 xds = xds.sel(time=slice(None, None, -1))
 
             if storage_backend == "zarr":

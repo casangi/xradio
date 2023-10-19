@@ -79,7 +79,7 @@ def column_description_casacore_to_msv4_measure(
         msv4_measure["type"] = casacore_to_msv4_measure_type[
             casacore_column_description["keywords"]["MEASINFO"]["type"]
         ]["type"]
-        msv4_measure["units"] = casacore_column_description["keywords"]["QuantumUnits"]
+        msv4_measure["units"] = list(casacore_column_description["keywords"]["QuantumUnits"])
 
         if "TabRefCodes" in casacore_column_description["keywords"]["MEASINFO"]:
             ref_index = np.where(
@@ -617,8 +617,8 @@ def create_field_info(xds, infile, field_id):
     }
 
     field_info = {
-        "name": field_xds["name"].data,
-        "code": field_xds["code"].data,
+        "name": str(field_xds["name"].data),
+        "code": str(field_xds["code"].data),
         "delay_direction": delay_dir,
         "phase_direction": phase_dir,
         "reference_direction": reference_dir,

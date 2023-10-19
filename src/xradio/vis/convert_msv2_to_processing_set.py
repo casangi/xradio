@@ -633,14 +633,16 @@ def get_unqiue_intents(infile):
         rename_ids=subt_rename_ids["STATE"],
     )
 
-    obs_mode_dict = {}
-    for i, obs_mode in enumerate(state_xds.obs_mode.values):
-        if obs_mode in obs_mode_dict:
-            obs_mode_dict[obs_mode].append(i)
-        else:
-            obs_mode_dict[obs_mode] = [i]
-
-    return list(obs_mode_dict.keys()), obs_mode_dict.values()
+    if len(state_xds.data_vars) > 0:
+        obs_mode_dict = {}
+        for i, obs_mode in enumerate(state_xds.obs_mode.values):
+            if obs_mode in obs_mode_dict:
+                obs_mode_dict[obs_mode].append(i)
+            else:
+                obs_mode_dict[obs_mode] = [i]
+        return list(obs_mode_dict.keys()), list(obs_mode_dict.values())
+    else:  # empty state table
+        return ["None"], [0]
 
 
 def enumerated_product(*args):
@@ -674,8 +676,13 @@ def convert_msv2_to_processing_set(
         field_ids = np.arange(read_generic_table(infile, "FIELD").dims["row"])
     elif partition_scheme == "ddi_state":
         state_xds = read_generic_table(infile, "STATE")
-        state_ids = np.arange(state_xds.dims["row"])
-        intents = state_xds.obs_mode.values
+
+        if len(state_xds.data_vars) > 0:
+            state_ids = [np.arange(state_xds.dims["row"])]
+            intents = state_xds.obs_mode.values
+        else:  # empty state table
+            state_ids = [0]
+            intents = ["None"]
         # print(state_xds, intents)
         # field_ids = [None]
         field_ids = np.arange(read_generic_table(infile, "FIELD").dims["row"])

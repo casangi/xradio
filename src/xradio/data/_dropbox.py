@@ -8,6 +8,13 @@ from tqdm import tqdm
 #https://www.dropbox.com/scl/fi/x8tp0wu21gssbd1gxrnmy/Antennae_North.cal.lsrk.vis.zarr.zip?rlkey=l9jdr6tvyq4pe3381gukuly0d&dl=0
 
 FILE_ID = {
+ 'AA2-Mid-sim_00000.ms':
+  {
+    'file':'AA2-Mid-sim_00000.ms.zip',
+    'id':'2buf75ebhurjlfhe123qs',
+    'rlkey':'8wzgiavzxfp4aza4sx84qanid&dl'
+  },
+
   'Antennae_M8.img.zarr':
   {
     'file':'Antennae_M8.img.zarr.zip',

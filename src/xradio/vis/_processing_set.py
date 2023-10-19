@@ -17,3 +17,6 @@ class _processing_set(dict):
             summary_data["end_frequency"].append(value["frequency"].values[-1])
         summary_df = pd.DataFrame(summary_data)
         return summary_df
+        
+    def get(self,id):
+        return self[list(self.keys())[id]]

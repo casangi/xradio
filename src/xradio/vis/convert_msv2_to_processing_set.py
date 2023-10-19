@@ -578,7 +578,7 @@ def create_field_info(xds, infile, field_id):
         infile,
         "FIELD",
         rename_ids=subt_rename_ids["FIELD"],
-    )
+    ).sel(field_id=field_id)
     # https://stackoverflow.com/questions/53195684/how-to-navigate-a-dict-by-list-of-keys
 
     field_column_description = field_xds.attrs["other"]["msv2"]["ctds_attrs"][
@@ -587,35 +587,38 @@ def create_field_info(xds, infile, field_id):
     # ['DELAY_DIR', 'PHASE_DIR', 'REFERENCE_DIR', 'CODE', 'FLAG_ROW', 'NAME', 'NUM_POLY', 'SOURCE_ID', 'TIME']
 
     msv4_measure = column_description_casacore_to_msv4_measure(
-        field_column_description["REFERENCE_DIR"]
+        field_column_description["REFERENCE_DIR"],
+        ref_code=field_xds["refdir_ref"].data if "refdir_ref" in field_xds else None
     )
     delay_dir = {
         "dims": "",
-        "data": list(field_xds["delay_dir"].data[field_id, 0, :]),
+        "data": list(field_xds["delay_dir"].data[0, :]),
         "attrs": msv4_measure,
     }
 
     msv4_measure = column_description_casacore_to_msv4_measure(
-        field_column_description["PHASE_DIR"]
+        field_column_description["PHASE_DIR"],
+        ref_code=field_xds["phasedir_ref"].data if "phasedir_ref" in field_xds else None
     )
     phase_dir = {
         "dims": "",
-        "data": list(field_xds["phase_dir"].data[field_id, 0, :]),
+        "data": list(field_xds["phase_dir"].data[0, :]),
         "attrs": msv4_measure,
     }
 
     msv4_measure = column_description_casacore_to_msv4_measure(
-        field_column_description["DELAY_DIR"]
+        field_column_description["DELAY_DIR"],
+        ref_code=field_xds["delaydir_ref"].data if "delaydir_ref" in field_xds else None
     )
     reference_dir = {
         "dims": "",
-        "data": list(field_xds["delay_dir"].data[field_id, 0, :]),
+        "data": list(field_xds["delay_dir"].data[0, :]),
         "attrs": msv4_measure,
     }
 
     field_info = {
-        "name": field_xds["name"].data[field_id],
-        "code": field_xds["code"].data[field_id],
+        "name": field_xds["name"].data,
+        "code": field_xds["code"].data,
         "delay_direction": delay_dir,
         "phase_direction": phase_dir,
         "reference_direction": reference_dir,

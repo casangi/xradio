@@ -588,7 +588,7 @@ def create_field_info(xds, infile, field_id):
 
     msv4_measure = column_description_casacore_to_msv4_measure(
         field_column_description["REFERENCE_DIR"],
-        ref_code=field_xds["refdir_ref"].data if "refdir_ref" in field_xds else None
+        ref_code=getattr(field_xds.get("refdir_ref"), "data", None)
     )
     delay_dir = {
         "dims": "",
@@ -598,7 +598,7 @@ def create_field_info(xds, infile, field_id):
 
     msv4_measure = column_description_casacore_to_msv4_measure(
         field_column_description["PHASE_DIR"],
-        ref_code=field_xds["phasedir_ref"].data if "phasedir_ref" in field_xds else None
+        ref_code=getattr(field_xds.get("phasedir_ref"), "data", None)
     )
     phase_dir = {
         "dims": "",
@@ -608,7 +608,7 @@ def create_field_info(xds, infile, field_id):
 
     msv4_measure = column_description_casacore_to_msv4_measure(
         field_column_description["DELAY_DIR"],
-        ref_code=field_xds["delaydir_ref"].data if "delaydir_ref" in field_xds else None
+        ref_code=getattr(field_xds.get("delaydir_ref"), "data", None)
     )
     reference_dir = {
         "dims": "",

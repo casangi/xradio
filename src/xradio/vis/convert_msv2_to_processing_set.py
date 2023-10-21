@@ -79,7 +79,7 @@ def column_description_casacore_to_msv4_measure(
         msv4_measure["type"] = casacore_to_msv4_measure_type[
             casacore_column_description["keywords"]["MEASINFO"]["type"]
         ]["type"]
-        msv4_measure["units"] = casacore_column_description["keywords"]["QuantumUnits"]
+        msv4_measure["units"] = list(casacore_column_description["keywords"]["QuantumUnits"])
 
         if "TabRefCodes" in casacore_column_description["keywords"]["MEASINFO"]:
             ref_index = np.where(
@@ -501,10 +501,10 @@ def convert_and_write_partition(
             xds.attrs["ddi"] = ddi
 
             # Time and frequency should always be increasing
-            if xds.frequency[1] - xds.frequency[0] < 0:
+            if len(xds.frequency) > 1 and xds.frequency[1] - xds.frequency[0] < 0:
                 xds = xds.sel(frequency=slice(None, None, -1))
 
-            if xds.time[1] - xds.time[0] < 0:
+            if len(xds.time) > 1 and xds.time[1] - xds.time[0] < 0:
                 xds = xds.sel(time=slice(None, None, -1))
 
             if storage_backend == "zarr":
@@ -578,7 +578,7 @@ def create_field_info(xds, infile, field_id):
         infile,
         "FIELD",
         rename_ids=subt_rename_ids["FIELD"],
-    )
+    ).sel(field_id=field_id)
     # https://stackoverflow.com/questions/53195684/how-to-navigate-a-dict-by-list-of-keys
 
     field_column_description = field_xds.attrs["other"]["msv2"]["ctds_attrs"][
@@ -587,35 +587,38 @@ def create_field_info(xds, infile, field_id):
     # ['DELAY_DIR', 'PHASE_DIR', 'REFERENCE_DIR', 'CODE', 'FLAG_ROW', 'NAME', 'NUM_POLY', 'SOURCE_ID', 'TIME']
 
     msv4_measure = column_description_casacore_to_msv4_measure(
-        field_column_description["REFERENCE_DIR"]
+        field_column_description["REFERENCE_DIR"],
+        ref_code=getattr(field_xds.get("refdir_ref"), "data", None)
     )
     delay_dir = {
         "dims": "",
-        "data": list(field_xds["delay_dir"].data[field_id, 0, :]),
+        "data": list(field_xds["delay_dir"].data[0, :]),
         "attrs": msv4_measure,
     }
 
     msv4_measure = column_description_casacore_to_msv4_measure(
-        field_column_description["PHASE_DIR"]
+        field_column_description["PHASE_DIR"],
+        ref_code=getattr(field_xds.get("phasedir_ref"), "data", None)
     )
     phase_dir = {
         "dims": "",
-        "data": list(field_xds["phase_dir"].data[field_id, 0, :]),
+        "data": list(field_xds["phase_dir"].data[0, :]),
         "attrs": msv4_measure,
     }
 
     msv4_measure = column_description_casacore_to_msv4_measure(
-        field_column_description["DELAY_DIR"]
+        field_column_description["DELAY_DIR"],
+        ref_code=getattr(field_xds.get("delaydir_ref"), "data", None)
     )
     reference_dir = {
         "dims": "",
-        "data": list(field_xds["delay_dir"].data[field_id, 0, :]),
+        "data": list(field_xds["delay_dir"].data[0, :]),
         "attrs": msv4_measure,
     }
 
     field_info = {
-        "name": field_xds["name"].data[field_id],
-        "code": field_xds["code"].data[field_id],
+        "name": str(field_xds["name"].data),
+        "code": str(field_xds["code"].data),
         "delay_direction": delay_dir,
         "phase_direction": phase_dir,
         "reference_direction": reference_dir,

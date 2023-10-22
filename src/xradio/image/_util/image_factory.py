@@ -38,7 +38,7 @@ def __make_empty_sky_image(
     long *= f
     lat *= f
     if not isinstance(chan_coords, list) and not isinstance(chan_coords, np.ndarray):
-        chan_coords = [ chane_coords ]
+        chan_coords = [ chan_coords ]
     chan_coords = np.array(chan_coords, dtype=np.float64)
     restfreq = chan_coords[len(chan_coords)//2]
     vel = (1 - chan_coords/restfreq) * __c

@@ -252,11 +252,7 @@ def __imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
         xds.sky.attrs['image_type'] if 'image_type' in xds.sky.attrs else ''
     )
     ii['objectname'] = xds.attrs[__object_name]
-    if 'beam' in xds.attrs:
-        if xds.attrs['beam']:
-            # do nothing if xds.attrs['beam'] is None
-            ii['restoringbeam'] = xds.attrs['beam']
-    elif 'beam' in xds.data_vars:
+    if 'beam' in xds.data_vars:
         # multi beam
         pp = {}
         pp['nChannels'] = len(xds.frequency)
@@ -278,6 +274,9 @@ def __imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
                 chan = 0
                 polarization += 1
         ii['perplanebeams'] = pp
+    elif 'beam' in xds.attrs and xds.attrs['beam']:
+            # do nothing if xds.attrs['beam'] is None
+            ii['restoringbeam'] = xds.attrs['beam']
     return ii
 
 

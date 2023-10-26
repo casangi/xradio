@@ -2,6 +2,7 @@ import casacore.images, casacore.tables
 from xradio.image import (
     load_image, make_empty_sky_image, read_image, write_image
 )
+from xradio.data.datasets import download
 import dask.array.ma as dma
 import dask.array as da
 import numbers
@@ -10,6 +11,7 @@ import numpy.ma as ma
 import os
 import pkg_resources
 import shutil
+import sys
 import unittest
 import xarray as xr
 import copy
@@ -617,6 +619,26 @@ class casacore_to_xds_to_casacore(ImageBase):
     the two casacore images are identical
     """
 
+    __imname2:str = 'demo_simulated.im'
+    __outname2:str = 'check_beam.im'
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        for f in [cls.__outname2,]:
+            if os.path.exists(f):
+                if os.path.isdir(f):
+                    shutil.rmtree(f)
+                else:
+                    os.remove(f)
+
+
+
 
     def test_pixels_and_mask(self):
         """Test pixel values are consistent"""
@@ -651,6 +673,31 @@ class casacore_to_xds_to_casacore(ImageBase):
         # the computations (eg, if c is in m/s or km/s)
         c2['coordinates']['spectral2']['velUnit'] = 'km/s'
         self.dict_equality(c2, c1, 'got', 'expected')
+        del im1
+        del im2
+
+
+    def test_multibeam(self):
+        """
+        Verify fix to issue 45
+        https://github.com/casangi/xradio/issues/45
+        """
+        download(self.__imname2)
+        xds = read_image(self.__imname2)
+        write_image(xds, self.__outname2, out_format='casa')
+        im1 = casacore.images.image(self.__imname2)
+        im2 = casacore.images.image(self.__outname2)
+        beams1 = im1.imageinfo()['perplanebeams']
+        beams2 = im2.imageinfo()['perplanebeams']
+        for i in range(200):
+            beam = beams2[f'*{i}']
+            beam['major']['value'] *= 180*60/np.pi
+            beam['major']['unit'] = 'arcmin'
+            beam['minor']['value'] *= 180*60/np.pi
+            beam['minor']['unit'] = 'arcmin'
+            beam['positionangle']['value'] *= 180/np.pi
+            beam['positionangle']['unit'] = 'deg'
+        self.dict_equality(beams1, beams2, 'got', 'expected')
         del im1
         del im2
 

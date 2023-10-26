@@ -622,8 +622,24 @@ class casacore_to_xds_to_casacore(ImageBase):
         os.path.dirname(sys.argv[0]),
         'data', 'demo_simulated.im'
     ])
-
     __outname2: str = 'check_beam.im'
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        for f in [cls.__outname2,]:
+            if os.path.exists(f):
+                if os.path.isdir(f):
+                    shutil.rmtree(f)
+                else:
+                    os.remove(f)
+
+
 
 
     def test_pixels_and_mask(self):

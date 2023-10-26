@@ -2,6 +2,7 @@ import casacore.images, casacore.tables
 from xradio.image import (
     load_image, make_empty_sky_image, read_image, write_image
 )
+from xradio.data.datasets import download
 import dask.array.ma as dma
 import dask.array as da
 import numbers
@@ -618,11 +619,8 @@ class casacore_to_xds_to_casacore(ImageBase):
     the two casacore images are identical
     """
 
-    __imname2: str = os.sep.join([
-        os.path.dirname(sys.argv[0]),
-        'data', 'demo_simulated.im'
-    ])
-    __outname2: str = 'check_beam.im'
+    __imname2:str = 'demo_simulated.im'
+    __outname2:str = 'check_beam.im'
 
     @classmethod
     def setUpClass(cls):
@@ -684,6 +682,7 @@ class casacore_to_xds_to_casacore(ImageBase):
         Verify fix to issue 45
         https://github.com/casangi/xradio/issues/45
         """
+        download(self.__imname2)
         xds = read_image(self.__imname2)
         write_image(xds, self.__outname2, out_format='casa')
         im1 = casacore.images.image(self.__imname2)

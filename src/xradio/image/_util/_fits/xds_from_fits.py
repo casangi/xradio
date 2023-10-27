@@ -102,14 +102,14 @@ def __add_freq_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
 
 
 def __add_vel_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
-    vel_coord = xds.coords['vel']
+    vel_coord = xds.coords['velocity']
     meta = {'unit': 'm/s'}
     if helpers['has_freq']:
         meta['doppler_type'] = helpers['doppler']
     else:
         meta['doppler_type'] = __doppler_types[0]
     vel_coord.attrs = copy.deepcopy(meta)
-    xds.coords['vel'] = vel_coord
+    xds.coords['velocity'] = vel_coord
     return xds
 
 
@@ -380,7 +380,7 @@ def __create_coords(helpers, header):
     coords['time'] = __get_time_values(helpers)
     coords['polarization'] = __get_pol_values(helpers)
     coords['frequency'] = __get_freq_values(helpers)
-    coords['vel'] = (['frequency'], __get_velocity_values(helpers))
+    coords['velocity'] = (['frequency'], __get_velocity_values(helpers))
     if len(sphr_dims) > 0:
         l_world, m_world = __compute_world_sph_dims(
             sphr_dims, dir_axes, dim_map, helpers
@@ -461,7 +461,7 @@ def __get_freq_values(helpers:dict) -> list:
             crval, cdelt, crpix, cunit, 'Z',
             helpers['shape'][v_idx], restfreq
         )
-        helpers['vel'] = vel['value'] * u.Unit(vel['unit'])
+        helpers['velocity'] = vel['value'] * u.Unit(vel['unit'])
         helpers['crval'][v_idx] = (
             freq['crval'] * u.Unit(freq['unit'])
         ).to(u.Hz).value
@@ -474,14 +474,14 @@ def __get_freq_values(helpers:dict) -> list:
 
 
 def __get_velocity_values(helpers:dict) -> list:
-    if 'vel' in helpers:
-        return helpers['vel'].to(u.m/u.s).value
+    if 'velocity' in helpers:
+        return helpers['velocity'].to(u.m/u.s).value
     elif 'frequency' in helpers:
         if helpers['doppler'] == 'Z':
             # (-1 + f0/f) = v/c
             v = (helpers['restfreq']*u.Hz/helpers['frequency'].to('Hz').value - 1) * __c
             v = v.to(u.m/u.s)
-            helpers['vel'] = v
+            helpers['velocity'] = v
             return v.value
 
 

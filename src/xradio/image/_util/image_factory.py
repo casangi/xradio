@@ -47,7 +47,7 @@ def __make_empty_sky_image(
     time_coords = np.array(time_coords, dtype=np.float64)
     coords = {
         'time': time_coords, 'polarization': pol_coords, 'frequency': chan_coords,
-        'vel': (('frequency'), vel), 'right_ascension': (('l', 'm'), long),
+        'velocity': (('frequency'), vel), 'right_ascension': (('l', 'm'), long),
         'declination': (('l', 'm'), lat)
     }
     xds = xds.assign_coords(coords)
@@ -85,7 +85,7 @@ def __make_empty_sky_image(
             'pc': 1.0
         }
     }
-    xds.vel.attrs = {'doppler_type': 'RADIO', 'unit': 'm/s'}
+    xds.velocity.attrs = {'doppler_type': 'RADIO', 'unit': 'm/s'}
     xds.right_ascension.attrs = {
         'unit': 'rad',
         'wcs': {

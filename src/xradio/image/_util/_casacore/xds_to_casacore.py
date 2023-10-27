@@ -165,8 +165,8 @@ def __compute_spectral_dict(
     spec['restfreqs'] = copy.deepcopy(xds.frequency.attrs['restfreqs'])
     spec['system'] = xds.frequency.attrs['system']
     spec['unit'] = xds.frequency.attrs['unit']
-    spec['velType'] = __doppler_types.index(xds.vel.attrs['doppler_type'])
-    spec['velUnit'] = xds.vel.attrs['unit']
+    spec['velType'] = __doppler_types.index(xds.velocity.attrs['doppler_type'])
+    spec['velUnit'] = xds.velocity.attrs['unit']
     spec['version'] = 2
     spec['waveUnit'] = xds.frequency.attrs['wave_unit']
     spec_wcs = copy.deepcopy(xds.frequency.attrs['wcs'])

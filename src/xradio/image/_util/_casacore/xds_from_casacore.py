@@ -142,7 +142,7 @@ def __add_time_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
 
 
 def __add_vel_attrs(xds:xr.Dataset, coord_dict:dict) -> xr.Dataset:
-    vel_coord = xds['vel']
+    vel_coord = xds['velocity']
     meta = {'unit': 'm/s'}
     for k in coord_dict:
         if k.startswith('spectral'):
@@ -152,7 +152,7 @@ def __add_vel_attrs(xds:xr.Dataset, coord_dict:dict) -> xr.Dataset:
     if not meta:
             meta['doppler_type'] = __doppler_types[0]
     vel_coord.attrs = copy.deepcopy(meta)
-    xds['vel'] = vel_coord
+    xds['velocity'] = vel_coord
     return xds
 
 
@@ -284,7 +284,7 @@ def __casa_image_to_xds_metadata(img_full_path:str, verbose:bool=False) -> dict:
     coords['time'] = __get_time_values(coord_dict)
     coords['polarization'] = __get_pol_values(coord_dict)
     coords['frequency'] = __get_freq_values(casa_image.coordinates(), shape)
-    coords['vel'] = (['frequency'], __get_velocity_values(coord_dict, coords['frequency']))
+    coords['velocity'] = (['frequency'], __get_velocity_values(coord_dict, coords['frequency']))
     if len(sphr_dims) > 0:
         for k in coord_dict.keys():
             if k.startswith('direction'):

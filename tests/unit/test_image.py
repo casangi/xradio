@@ -388,15 +388,15 @@ class ImageBase(unittest.TestCase):
             rest_freq = xds.coords['frequency'].attrs['restfreq']
             v_opt = (rest_freq/freqs - 1) * 299792458
             self.assertTrue(
-                np.isclose(xds.vel, v_opt).all(),
+                np.isclose(xds.velocity, v_opt).all(),
                 'Incorrect velocities'
             )
             self.assertEqual(
-                xds.vel.attrs['doppler_type'], 'Z',
+                xds.velocity.attrs['doppler_type'], 'Z',
                 'Incoorect velocity type'
             )
         else:
-            if 'vel' not in ev:
+            if 'velocity' not in ev:
                 im = casacore.images.image(self.imname())
                 freqs = []
                 for chan in range(10):
@@ -406,14 +406,14 @@ class ImageBase(unittest.TestCase):
                     im.coordinates().dict()['spectral2']
                 )
                 rest_freq = spec_coord.get_restfrequency()
-                ev['vel'] = (1 - freqs/rest_freq) * 299792458
-            self.assertTrue((xds.vel == ev['vel']).all(), 'Incorrect velocities')
+                ev['velocity'] = (1 - freqs/rest_freq) * 299792458
+            self.assertTrue((xds.velocity == ev['velocity']).all(), 'Incorrect velocities')
             self.assertEqual(
-                xds.vel.attrs['doppler_type'], ev['vel_type'],
+                xds.velocity.attrs['doppler_type'], ev['vel_type'],
                 'Incoorect velocity type'
             )
         self.assertEqual(
-            xds.vel.attrs['unit'], ev['vel_unit'], 'Incoorect velocity unit'
+            xds.velocity.attrs['unit'], ev['vel_unit'], 'Incoorect velocity unit'
         )
 
 
@@ -530,9 +530,13 @@ class ImageBase(unittest.TestCase):
             'Wrong block mask0 array'
         )
         self.dict_equality(
-            xds.attrs, big_xds.attrs, 'block xds', 'main xds', ['history']
+            xds.attrs, big_xds.attrs,
+            'block xds', 'main xds', ['history']
         )
-        for c in ('time', 'frequency', 'polarization', 'vel', 'right_ascension', 'declination'):
+        for c in (
+            'time', 'frequency', 'polarization', 'velocity',
+            'right_ascension', 'declination'
+        ):
             self.dict_equality(
                 xds[c].attrs, big_xds[c].attrs, f'block xds {c}', 'main xds {c}'
             )
@@ -540,14 +544,15 @@ class ImageBase(unittest.TestCase):
             xds.time, big_xds.time, 'Incorrect time coordinate value'
         )
         self.assertEqual(
-            xds.polarization, big_xds.polarization[0:1], 'Incorrect polarization coordinate value'
+            xds.polarization, big_xds.polarization[0:1],
+            'Incorrect polarization coordinate value'
         )
         self.assertTrue(
             (xds.frequency == big_xds.frequency[0:4]).all(),
             'Incorrect frequency coordinate values'
         )
         self.assertTrue(
-            (xds.vel == big_xds.vel[0:4]).all(),
+            (xds.velocity == big_xds.velocity[0:4]).all(),
             'Incorrect vel coordinate values'
         )
         self.assertTrue(
@@ -630,7 +635,7 @@ class casacore_to_xds_to_casacore(ImageBase):
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
-        for f in [cls.__outname2,]:
+        for f in [cls.__imname2, cls.__outname2,]:
             if os.path.exists(f):
                 if os.path.isdir(f):
                     shutil.rmtree(f)
@@ -857,12 +862,12 @@ class make_empty_sky_image_test(ImageBase):
     def test_vel_coord(self):
         skel = self.skel_im()
         self.assertTrue(
-            np.isclose(skel.vel, [212167.34465675, 0]).all(),
+            np.isclose(skel.velocity, [212167.34465675, 0]).all(),
             'Incorrect vel coordinate values'
         )
         expec = {'doppler_type': 'RADIO', 'unit': 'm/s'}
         self.dict_equality(
-            skel.vel.attrs, expec, 'got', 'expected'
+            skel.velocity.attrs, expec, 'got', 'expected'
         )
 
 

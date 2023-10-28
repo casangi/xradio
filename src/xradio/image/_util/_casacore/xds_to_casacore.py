@@ -1,9 +1,11 @@
 import astropy
 from astropy.coordinates import Angle, SkyCoord
-from casacore import tables
+from casacore import images, tables
 import copy
+import dask.array as da
 import numpy as np
 import os
+from typing import Union
 import xarray as xr
 from .common import (
     __active_mask, __native_types, __object_name, __pointing_center
@@ -280,28 +282,60 @@ def __imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
     return ii
 
 
-def __write_casa_data(xds: xr.Dataset, image_full_path: str, casa_image_shape: tuple) -> None:
+def __write_casa_data(xds:xr.Dataset, image_full_path:str) -> None:
     sky_ap = 'sky' if 'sky' in xds else 'apeature'
+    if xds[sky_ap].shape[0] != 1:
+        raise Exception('XDS can only be converted if it has exactly one time plane')
+    casa_image_shape = xds[sky_ap].isel(time=0).transpose(
+        *('frequency', 'polarization', 'm', 'l')
+    ).shape[::-1]
     active_mask = xds.active_mask if __active_mask in xds.attrs else ''
     masks = []
     masks_rec = {}
+    mask_rec = {
+        'box': {
+            'blc': np.array([1., 1., 1., 1.]), 'comment': '', 'isRegion': 1,
+            'name': 'LCBox', 'oneRel': True, 'shape': np.array(casa_image_shape),
+            'trc': np.array(casa_image_shape)
+        },
+        'comment': '', 'isRegion': 1, 'name': 'LCPagedMask',
+    }
     for m in xds.data_vars:
         attrs = xds[m].attrs
         if 'image_type' in attrs and attrs['image_type'] == 'Mask':
-            masks_rec[m] = {
-                'box': {
-                    'blc': np.array([1., 1., 1., 1.]), 'comment': '', 'isRegion': 1,
-                    'name': 'LCBox', 'oneRel': True, 'shape': np.array(casa_image_shape),
-                    'trc': np.array(casa_image_shape)
-                },
-                'comment': '', 'isRegion': 1, 'name': 'LCPagedMask',
-                'mask': f'Table: {os.sep.join([image_full_path, m])}'
-            }
+            masks_rec[m] = mask_rec
+            masks_rec[m]['mask'] = f'Table: {os.sep.join([image_full_path, m])}'
             masks.append(m)
     myvars = [sky_ap]
     myvars.extend(masks)
+    nan_mask = xr.apply_ufunc(da.isnan, xds[sky_ap], dask='allowed')
+    arr_masks = {}
+    if nan_mask.any():
+        mask_name = 'mask_xds_nans'
+        i = 0
+        while mask_name in masks:
+            mask_name = f'mask_xds_nans{i}'
+            i += 1
+        masks_rec[mask_name] = mask_rec
+        masks_rec[mask_name]['mask'] = f'Table: {os.sep.join([image_full_path, mask_name])}'
+        masks.append(mask_name)
+        arr_masks[mask_name] = nan_mask
+        if active_mask:
+            mask_name = f'mask_xds_nans_or_{active_mask}'
+            i = 0
+            while mask_name in masks:
+                mask_name = f'mask_xds_nans{i}'
+                i += 1
+            masks[mask_name] = mask_rec
+            masks_rec[mask_name]['mask'] = f'Table: {os.sep.join([image_full_path, mask_name])}'
+            masks.append(mask_name)
+            arr_masks[mask_name] = xr.logical_or(nan_mask, xds[active_mask])
+        active_mask = mask_name
+    __write_initial_image(xds, image_full_path, active_mask, casa_image_shape[::-1])
     for v in myvars:
         __write_pixels(v, active_mask, image_full_path, xds)
+    for name, v in arr_masks.items():
+        __write_pixels(name, active_mask, image_full_path, xds, v)
     if masks:
         tb = tables.table(
             image_full_path,
@@ -310,6 +344,18 @@ def __write_casa_data(xds: xr.Dataset, image_full_path: str, casa_image_shape: t
         tb.putkeyword('masks', masks_rec)
         tb.putkeyword('Image_defaultmask', active_mask)
         tb.close()
+
+
+def __write_initial_image(
+    xds:xr.Dataset, imagename:str, maskname:str, image_shape:tuple
+):
+    image_full_path = os.path.expanduser(imagename)
+    # create the image and then delete the object
+    if not maskname:
+        maskname = ''
+    casa_image = images.image(image_full_path, maskname=maskname, shape=image_shape)
+    del casa_image
+
 
 
 def __write_image_block(xda:xr.DataArray, outfile:str, blc:tuple) -> None:
@@ -332,7 +378,8 @@ def __write_image_block(xda:xr.DataArray, outfile:str, blc:tuple) -> None:
 
 
 def __write_pixels(
-    v: str, active_mask: str, image_full_path: str, xds: xr.Dataset
+    v:str, active_mask:str, image_full_path:str, xds:xr.Dataset,
+    value:xr.DataArray=None
 ) -> None:
     flip = False
     if v == 'sky' or v == 'apeture':
@@ -341,11 +388,13 @@ def __write_pixels(
         # mask
         flip = True
         filename = os.sep.join([image_full_path, v])
+        # the default mask has already been written in __xds_to_casa_image()
         if not os.path.exists(filename):
             tb = tables.table(os.sep.join([image_full_path, active_mask]))
             tb.copy(filename, deep=True, valuecopy=True)
             tb.close()
-    arr = xds[v].isel(time=0).transpose(*('frequency', 'polarization', 'm', 'l'))
+    arr = xds[v] if v in xds.data_vars else value
+    arr = arr.isel(time=0).transpose(*('frequency', 'polarization', 'm', 'l'))
     chunk_bounds = arr.chunks
     b = [0, 0, 0, 0]
     loc0, loc1, loc2, loc3 = (0, 0, 0, 0)

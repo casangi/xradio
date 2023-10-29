@@ -39,7 +39,7 @@ from astropy.coordinates import SkyCoord  # High-level coordinates
 from astropy.coordinates import ICRS, Galactic, FK4, FK5  # Low-level frames
 from astropy.coordinates import Angle, Latitude, Longitude  # Angles
 from astropy import units as u
-from casacore import images, tables
+from casacore import tables
 from typing import Union
 import xarray as xr
 from casacore.images import image
@@ -107,19 +107,8 @@ def __read_casa_image(
 
 
 def __xds_to_casa_image(xds: xr.Dataset, imagename:str) -> None:
-    sky_ap = 'sky' if 'sky' in xds else 'apeature'
-    if xds[sky_ap].shape[0] != 1:
-        raise Exception('XDS can only be converted if it has exactly one time plane')
-    arr = xds[sky_ap].isel(time=0).transpose(*('frequency', 'polarization', 'm', 'l'))
     image_full_path = os.path.expanduser(imagename)
-    maskname = ''
-    if __active_mask in xds.attrs and xds.attrs[__active_mask]:
-        maskname = xds.attrs[__active_mask]
-    # create the image and then delete the object
-    casa_image = images.image(image_full_path, maskname=maskname, shape=arr.shape)
-    del casa_image
-    chunk_bounds = arr.chunks
-    __write_casa_data(xds, image_full_path, arr.shape[::-1])
+    __write_casa_data(xds, image_full_path)
     # create coordinates
     coord = __coord_dict_from_xds(xds)
     ii = __imageinfo_dict_from_xds(xds)

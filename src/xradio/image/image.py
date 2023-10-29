@@ -148,7 +148,7 @@ def write_image(xds:xr.Dataset, imagename:str, out_format:str='casa') -> None:
     elif my_format == 'zarr':
         __xds_to_zarr(xds, imagename)
     else:
-        raise Exception(
+        raise ValueError(
             f'Writing to format {out_format} is not supported. '
             'out_format must be either "casa" or "zarr".'
         )

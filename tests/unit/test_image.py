@@ -3,8 +3,10 @@ from xradio.image import (
     load_image, make_empty_sky_image, read_image, write_image
 )
 from xradio.data.datasets import download
-import dask.array.ma as dma
+from xradio.image._util.common import __image_type as image_type
+# import dask.array.ma as dma
 import dask.array as da
+from glob import glob
 import numbers
 import numpy as np
 import numpy.ma as ma
@@ -51,7 +53,7 @@ class ImageBase(unittest.TestCase):
         'projection_parameters': np.array([0., 0.]),
         'projection': 'SIN'
     }
-    # TODO make a more intresting beam
+    # TODO make a more interesting beam
     __exp_attrs['beam'] = None
     __exp_attrs['obsdate'] = {
         'time_scale': 'UTC',
@@ -625,7 +627,12 @@ class casacore_to_xds_to_casacore(ImageBase):
     """
 
     __imname2:str = 'demo_simulated.im'
+    __imname3:str = 'no_mask.im'
     __outname2:str = 'check_beam.im'
+    __outname3:str = 'xds_2_casa_no_mask.im'
+    __outname4:str = 'xds_2_casa_nans_and_mask.im'
+    __outname5:str = 'xds_2_casa_nans_already_masked.im'
+
 
     @classmethod
     def setUpClass(cls):
@@ -635,14 +642,16 @@ class casacore_to_xds_to_casacore(ImageBase):
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
-        for f in [cls.__imname2, cls.__outname2,]:
+        for f in [
+            cls.__imname2, cls.__imname3,
+            cls.__outname2, cls.__outname3,
+            cls.__outname4, cls.__outname5,
+        ]:
             if os.path.exists(f):
                 if os.path.isdir(f):
                     shutil.rmtree(f)
                 else:
                     os.remove(f)
-
-
 
 
     def test_pixels_and_mask(self):
@@ -687,7 +696,7 @@ class casacore_to_xds_to_casacore(ImageBase):
         Verify fix to issue 45
         https://github.com/casangi/xradio/issues/45
         """
-        download(self.__imname2)
+        download(self.__imname2), f'failed to download {self.__imname2}'
         xds = read_image(self.__imname2)
         write_image(xds, self.__outname2, out_format='casa')
         im1 = casacore.images.image(self.__imname2)
@@ -705,6 +714,100 @@ class casacore_to_xds_to_casacore(ImageBase):
         self.dict_equality(beams1, beams2, 'got', 'expected')
         del im1
         del im2
+
+
+    def test_masking(self):
+        """
+        issue 48, proper nan masking when writing CASA images
+        https://github.com/casangi/xradio/issues/48
+        """
+        download(self.__imname3)
+        # case 1: no mask + no nans = no mask
+        xds = read_image(self.__imname3)
+        write_image(xds, self.__outname3, out_format='casa')
+        subdirs = glob(f'{self.__outname3}/*/')
+        subdirs = [ d[d.index('/') + 1:-1] for d in subdirs ]
+        self.assertEqual(
+            subdirs, ['logtable'],
+            f'Unexpected directory (mask?) found. subdirs is {subdirs}'
+        )
+        # case 2a: no mask + nans = nan_mask
+        xds.sky[0, 1, 1, 1, 1] = float('NaN')
+        write_image(xds, self.__outname3, out_format='casa')
+        subdirs = glob(f'{self.__outname3}/*/')
+        subdirs = [ d[d.index('/') + 1:-1] for d in subdirs ]
+        subdirs.sort()
+        self.assertEqual(
+            subdirs, ['logtable', 'mask_xds_nans'],
+            f'Unexpected subdirectory list found. subdirs is {subdirs}'
+        )
+        im1 = casacore.images.image(self.__outname3)
+        casa_mask = im1.getmask()
+        del im1
+        self.assertTrue(casa_mask[1,1,1,1], 'Wrong pixels are masked')
+        self.assertEqual(casa_mask.sum(), 1, 'More pixels masked than expected')
+        casa_mask[1,1,1,1] = False
+        # case 2b: mask + nans = nan_mask and (nan_mask or mask)
+        # the first positional parameter is a dummy array, so make an
+        # empty array
+        data = da.zeros_like(
+            np.array([]), shape=xds.sky.shape, chunks=xds.sky.chunks,
+            dtype=bool
+        )
+        data[0, 2, 2, 2, 2] = True
+        mask0 = xr.DataArray(
+            data=data, dims=xds.sky.dims, coords=xds.sky.coords,
+            attrs={image_type: 'Mask'}
+        )
+        xds = xds.assign(mask0=mask0)
+        xds.attrs['active_mask'] = 'mask0'
+        write_image(xds, self.__outname4, out_format='casa')
+        self.assertEqual(
+            xds.attrs['active_mask'], 'mask0',
+            'xds active mask was incorrectly reset'
+        )
+        subdirs = glob(f'{self.__outname4}/*/')
+        subdirs = [ d[d.index('/') + 1:-1] for d in subdirs ]
+        subdirs.sort()
+        self.assertEqual(
+            subdirs,
+            ['logtable', 'mask0', 'mask_xds_nans','mask_xds_nans_or_mask0'],
+            f'Unexpected subdirectory list found. subdirs is {subdirs}'
+        )
+
+        im1 = casacore.images.image(self.__outname4)
+        # getmask() flips so True = bad, False = good
+        casa_mask = im1.getmask()
+        self.assertTrue(casa_mask[1,1,1,1], 'Wrong pixels are masked')
+        self.assertTrue(casa_mask[2,2,2,2], 'Wrong pixels are masked')
+        self.assertEqual(casa_mask.sum(), 2, 'Wrong pixels are masked')
+        del im1
+        # case 2c: all nans are already masked by default mask = no new masks are created
+        xds['sky'][0,2,2,2,2] = float('NaN')
+        xds['sky'][0,1,1,1,1] = 0
+        write_image(xds, self.__outname5, out_format='casa')
+        self.assertEqual(
+            xds.attrs['active_mask'], 'mask0',
+            'xds active mask was incorrectly reset'
+        )
+        subdirs = glob(f'{self.__outname5}/*/')
+        subdirs = [ d[d.index('/') + 1:-1] for d in subdirs ]
+        subdirs.sort()
+        self.assertEqual(
+            subdirs, ['logtable', 'mask0'],
+            f'Unexpected subdirectory list found. subdirs is {subdirs}'
+        )
+        im1 = casacore.images.image(self.__outname5)
+        casa_mask = im1.getmask()
+        del im1
+        self.assertTrue(casa_mask[2,2,2,2], 'Wrong pixel masked')
+        self.assertEqual(casa_mask.sum(), 1, 'Wrong number of pixels masked')
+
+
+
+
+
+        
 
 
 class xds_to_zarr_to_xds_test(ImageBase):

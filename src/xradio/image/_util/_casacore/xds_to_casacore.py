@@ -179,7 +179,7 @@ def __compute_spectral_dict(
     return spec
 
 
-def __coord_dict_from_xds(xds: xr.Dataset) -> dict:
+def __coord_dict_from_xds(xds:xr.Dataset) -> dict:
     coord = {}
     coord['telescope'] = xds.attrs['telescope']['name']
     coord['observer'] = xds.attrs['observer']
@@ -326,10 +326,14 @@ def __write_casa_data(xds:xr.Dataset, image_full_path:str) -> None:
             while mask_name in masks:
                 mask_name = f'mask_xds_nans{i}'
                 i += 1
-            masks[mask_name] = mask_rec
+            masks_rec[mask_name] = mask_rec
             masks_rec[mask_name]['mask'] = f'Table: {os.sep.join([image_full_path, mask_name])}'
             masks.append(mask_name)
-            arr_masks[mask_name] = xr.logical_or(nan_mask, xds[active_mask])
+            # This command strips attributes at various places for no
+            # apparent reason, so make a copy of the xds to run it on
+            arr_masks[mask_name] = xr.apply_ufunc(
+                da.logical_or, xds[active_mask].copy(deep=True), nan_mask, dask='allowed'
+            )
         active_mask = mask_name
     __write_initial_image(xds, image_full_path, active_mask, casa_image_shape[::-1])
     for v in myvars:

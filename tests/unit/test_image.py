@@ -3,7 +3,8 @@ from xradio.image import (
     load_image, make_empty_sky_image, read_image, write_image
 )
 from xradio.data.datasets import download
-import dask.array.ma as dma
+from xradio.image._util.common import __image_type as image_type
+# import dask.array.ma as dma
 import dask.array as da
 from glob import glob
 import numbers
@@ -52,7 +53,7 @@ class ImageBase(unittest.TestCase):
         'projection_parameters': np.array([0., 0.]),
         'projection': 'SIN'
     }
-    # TODO make a more intresting beam
+    # TODO make a more interesting beam
     __exp_attrs['beam'] = None
     __exp_attrs['obsdate'] = {
         'time_scale': 'UTC',
@@ -629,6 +630,7 @@ class casacore_to_xds_to_casacore(ImageBase):
     __imname3:str = 'no_mask.im'
     __outname2:str = 'check_beam.im'
     __outname3:str = 'xds_2_casa_no_mask.im'
+    __outname4:str = 'xds_2_casa_nans_and_mask.im'
 
 
     @classmethod
@@ -715,6 +717,7 @@ class casacore_to_xds_to_casacore(ImageBase):
     def test_masking(self):
         """
         issue 48, proper nan masking when writing CASA images
+        https://github.com/casangi/xradio/issues/48
         """
         # download(self.__imname3), f'Failed to download {self.__imname3}'
         # case 1: no mask + no nans = no mask
@@ -726,7 +729,7 @@ class casacore_to_xds_to_casacore(ImageBase):
             subdirs, ['logtable'],
             f'Unexpected directory (mask?) found. subdirs is {subdirs}'
         )
-        # case 2: no mask + nans = mask
+        # case 2a: no mask + nans = nan_mask
         xds.sky[0, 1, 1, 1, 1] = float('NaN')
         write_image(xds, self.__outname3, out_format='casa')
         subdirs = glob(f'{self.__outname3}/*/')
@@ -742,6 +745,31 @@ class casacore_to_xds_to_casacore(ImageBase):
         self.assertTrue(casa_mask[1,1,1,1], 'Wrong pixels are masked')
         casa_mask[1,1,1,1] = False
         self.assertFalse(casa_mask.any(), 'More pixels masked than expected')
+        # case 2b: mask + nans = nan_mask and (nan_mask or mask)
+        # the first positional parameter is a dummy array, so make an
+        # empty array
+        data = da.zeros_like(
+            np.array([]), shape=xds.sky.shape, chunks=xds.sky.chunks,
+            dtype=bool
+        )
+        data[0, 2, 2, 2, 2] = True
+        mask0 = xr.DataArray(
+            data=data, dims=xds.sky.dims, coords=xds.sky.coords,
+            attrs={image_type: 'Mask'}
+        )
+        xds = xds.assign(mask0=mask0)
+        xds.attrs['active_mask'] = 'mask0'
+        write_image(xds, self.__outname4, out_format='casa')
+        im1 = casacore.images.image(self.__outname4)
+        # getmask() flips so True = bad, False = good
+        casa_mask = im1.getmask()
+        self.assertTrue(casa_mask[1,1,1,1], 'Wrong pixels are masked')
+        self.assertTrue(casa_mask[2,2,2,2], 'Wrong pixels are masked')
+        self.assertEqual(casa_mask.sum(), 2, 'Wrong pixels are masked')
+        del im1
+
+
+        
 
 
 class xds_to_zarr_to_xds_test(ImageBase):

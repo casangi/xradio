@@ -289,7 +289,7 @@ def __write_casa_data(xds:xr.Dataset, image_full_path:str) -> None:
     casa_image_shape = xds[sky_ap].isel(time=0).transpose(
         *('frequency', 'polarization', 'm', 'l')
     ).shape[::-1]
-    active_mask = xds.active_mask if __active_mask in xds.attrs else ''
+    active_mask = xds.attrs['active_mask'] if __active_mask in xds.attrs else ''
     masks = []
     masks_rec = {}
     mask_rec = {
@@ -308,9 +308,28 @@ def __write_casa_data(xds:xr.Dataset, image_full_path:str) -> None:
             masks.append(m)
     myvars = [sky_ap]
     myvars.extend(masks)
-    nan_mask = xr.apply_ufunc(da.isnan, xds[sky_ap], dask='allowed')
+    # xr.apply_ufunc seems to like stripping attributes from xds and its coordinates,
+    # so make a deep copy of the pertinent thing to be handled in xr.apply_ufunc()
+    nan_mask = xr.apply_ufunc(da.isnan, xds[sky_ap].copy(deep=True), dask='allowed')
+    # test if nan pixels are all already masked in active_mask.
+    # if so, don't worry about masking them again, just use active_mask
+    # which already masks all nans
     arr_masks = {}
-    if nan_mask.any():
+    do_mask_nans = False
+    there_are_nans = nan_mask.any()
+    if there_are_nans:
+        has_active_mask = bool(active_mask)
+        if not has_active_mask:
+            do_mask_nans = True
+        else:
+            notted_active_mask = xr.apply_ufunc(
+                da.logical_not, xds[active_mask].copy(deep=True), dask='allowed'
+            )
+            some_nans_are_not_already_masked = xr.apply_ufunc(
+                da.logical_and, nan_mask, notted_active_mask, dask='allowed'
+            )
+            do_mask_nans = some_nans_are_not_already_masked.any()
+    if do_mask_nans:
         mask_name = 'mask_xds_nans'
         i = 0
         while mask_name in masks:

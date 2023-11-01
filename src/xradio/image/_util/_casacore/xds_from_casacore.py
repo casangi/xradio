@@ -18,7 +18,7 @@ from ..common import (
     __c, __dask_arrayize, __default_freq_info,
     __doppler_types, __image_type
 )
-
+from ...._utils._casacore.tables import (extract_table_attributes)
 
 def __add_coord_attrs(xds: xr.Dataset, icoords: dict, diraxes: list) -> xr.Dataset:
     xds = __add_time_attrs(xds, icoords)
@@ -393,22 +393,6 @@ def __convert_direction_system(
             'it to ICRS, GALACTIC, J2000, or B1950 in CASA and then '
             're-run this application on the regridded image'
         )
-
-
-####################################
-# local helper - return a dictionary of table attributes created from keywords and column descriptions
-def extract_table_attributes(infile):
-    tb_tool = tables.table(infile, readonly=True, lockoptions={'option': 'usernoread'}, ack=False)
-    kwd = tb_tool.getkeywords()
-    attrs = dict([(kk, kwd[kk]) for kk in kwd if kk not in os.listdir(infile)])
-    cols = tb_tool.colnames()
-    column_descriptions = {}
-    for col in cols:
-        column_descriptions[col] = tb_tool.getcoldesc(col)
-    attrs['column_descriptions'] = column_descriptions
-    attrs['info'] = tb_tool.info()
-    tb_tool.close()
-    return attrs
 
 
 def __flatten_list(list_of_lists: list) -> list:

@@ -18,7 +18,9 @@ from ..common import (
     __c, __dask_arrayize, __default_freq_info,
     __doppler_types, __image_type
 )
-
+from ...._utils._casacore.tables import (
+    extract_table_attributes, open_table_ro
+)
 
 def __add_coord_attrs(xds: xr.Dataset, icoords: dict, diraxes: list) -> xr.Dataset:
     xds = __add_time_attrs(xds, icoords)
@@ -127,7 +129,6 @@ def __get_time_format(value:float, unit:str) -> str:
         return  'MJD'
     else:
         return ''
-
 
 
 def __add_time_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
@@ -393,22 +394,6 @@ def __convert_direction_system(
             'it to ICRS, GALACTIC, J2000, or B1950 in CASA and then '
             're-run this application on the regridded image'
         )
-
-
-####################################
-# local helper - return a dictionary of table attributes created from keywords and column descriptions
-def extract_table_attributes(infile):
-    tb_tool = tables.table(infile, readonly=True, lockoptions={'option': 'usernoread'}, ack=False)
-    kwd = tb_tool.getkeywords()
-    attrs = dict([(kk, kwd[kk]) for kk in kwd if kk not in os.listdir(infile)])
-    cols = tb_tool.colnames()
-    column_descriptions = {}
-    for col in cols:
-        column_descriptions[col] = tb_tool.getcoldesc(col)
-    attrs['column_descriptions'] = column_descriptions
-    attrs['info'] = tb_tool.info()
-    tb_tool.close()
-    return attrs
 
 
 def __flatten_list(list_of_lists: list) -> list:
@@ -808,58 +793,89 @@ def read_generic_table(infile, subtables=False, timecols=None, ignore=None):
     assert os.path.isdir(infile), "invalid input filename to read_generic_table"
 
     attrs = extract_table_attributes(infile)
-    tb_tool = tables.table(infile, readonly=True, lockoptions={'option': 'usernoread'}, ack=False)
-    if tb_tool.nrows() == 0:
-        tb_tool.close()
-        return xr.Dataset(attrs=attrs)
+    with open_table_ro(infile) as tb_tool:
+        if tb_tool.nrows() == 0:
+            return xr.Dataset(attrs=attrs)
 
-    dims = ['row'] + ['d%i' % ii for ii in range(1, 20)]
-    cols = tb_tool.colnames()
-    ctype = dict([(col, tb_tool.getcell(col, 0)) for col in cols if (col not in ignore) and (tb_tool.iscelldefined(col, 0))])
-    mvars, mcoords, xds = {}, {}, xr.Dataset()
+        dims = ['row'] + ['d%i' % ii for ii in range(1, 20)]
+        cols = tb_tool.colnames()
+        ctype = dict([
+            (col, tb_tool.getcell(col, 0)) for col in cols if (
+                (col not in ignore) and (tb_tool.iscelldefined(col, 0))
+            )
+        ])
+        mvars, mcoords, xds = {}, {}, xr.Dataset()
 
-    tr = tb_tool.row(ignore, exclude=True)[:]
+        tr = tb_tool.row(ignore, exclude=True)[:]
 
-    # extract data for each col
-    for col in ctype.keys():
-        if tb_tool.coldatatype(col) == 'record': continue  # not supported
+        # extract data for each col
+        for col in ctype.keys():
+            if tb_tool.coldatatype(col) == 'record': continue  # not supported
 
-        try:
-            data = np.stack([rr[col] for rr in tr])  # .astype(ctype[col].dtype)
-            if isinstance(tr[0][col], dict):
-                data = np.stack([rr[col]['array'].reshape(rr[col]['shape']) if len(rr[col]['array']) > 0 else np.array(['']) for rr in tr])
-        except:
-            # sometimes the columns are variable, so we need to standardize to the largest sizes
-            if len(np.unique([isinstance(rr[col], dict) for rr in tr])) > 1: continue  # can't deal with this case
-            mshape = np.array(max([np.array(rr[col]).shape for rr in tr]))
             try:
-                data = np.stack([np.pad(rr[col] if len(rr[col]) > 0 else np.array(rr[col]).reshape(np.arange(len(mshape)) * 0),
-                                        [(0, ss) for ss in mshape - np.array(rr[col]).shape], 'constant', constant_values=np.array([np.nan]).astype(np.array(ctype[col]).dtype)[0]) for rr in tr])
+                data = np.stack([rr[col] for rr in tr])  # .astype(ctype[col].dtype)
+                if isinstance(tr[0][col], dict):
+                    data = np.stack([
+                        rr[col]['array'].reshape(rr[col]['shape'])
+                        if len(rr[col]['array']) > 0 else np.array(['']) for rr in tr
+                    ])
             except:
-                data = []
+                # sometimes the columns are variable, so we need to standardize to the largest sizes
+                if len(np.unique([isinstance(rr[col], dict) for rr in tr])) > 1:
+                    continue  # can't deal with this case
+                mshape = np.array(max([np.array(rr[col]).shape for rr in tr]))
+                try:
+                    data = np.stack([
+                        np.pad(
+                            rr[col]
+                            if len(rr[col]) > 0
+                            else np.array(rr[col]).reshape(np.arange(len(mshape)) * 0),
+                                [(0, ss) for ss in mshape - np.array(rr[col]).shape],
+                                'constant', constant_values=np.array([np.nan]).astype(
+                                    np.array(ctype[col]).dtype
+                                )[0]
+                        ) for rr in tr
+                    ])
+                except:
+                    data = []
 
-        if len(data) == 0: continue
-        if col in timecols: convert_time(data)
-        if col.endswith('_ID'):
-            mcoords[col] = xr.DataArray(data, dims=['d%i_%i' % (di, ds) for di, ds in enumerate(np.array(data).shape)])
-        else:
-            mvars[col] = xr.DataArray(data, dims=['d%i_%i' % (di, ds) for di, ds in enumerate(np.array(data).shape)])
+            if len(data) == 0:
+                continue
+            if col in timecols:
+                convert_time(data)
+            if col.endswith('_ID'):
+                mcoords[col] = xr.DataArray(
+                    data, dims=['d%i_%i' % (di, ds)
+                    for di, ds in enumerate(np.array(data).shape)]
+                )
+            else:
+                mvars[col] = xr.DataArray(
+                    data, dims=[
+                        'd%i_%i' % (di, ds) for di, ds in enumerate(np.array(data).shape)
+                    ]
+                )
 
-    xds = xr.Dataset(mvars, coords=mcoords)
-    xds = xds.rename(dict([(dv, dims[di]) for di, dv in enumerate(xds.dims)]))
-    attrs['bad_cols'] = list(np.setdiff1d([dv for dv in tb_tool.colnames()], [dv for dv in list(xds.data_vars) + list(xds.coords)]))
+        xds = xr.Dataset(mvars, coords=mcoords)
+        xds = xds.rename(dict([(dv, dims[di]) for di, dv in enumerate(xds.dims)]))
+        attrs['bad_cols'] = list(
+            np.setdiff1d(
+                [dv for dv in tb_tool.colnames()],
+                [dv for dv in list(xds.data_vars) + list(xds.coords)]
+            )
+        )
 
-    # if this table has subtables, use a recursive call to store them in subtables attribute
-    if subtables:
-        stbl_list = sorted([tt for tt in os.listdir(infile) if os.path.isdir(os.path.join(infile, tt)) and tables.tableexists(os.path.join(infile, tt))])
-        attrs['subtables'] = []
-        for ii, subtable in enumerate(stbl_list):
-            sxds = read_generic_table(os.path.join(infile, subtable), subtables=subtables, timecols=timecols, ignore=ignore)
-            if len(sxds.dims) != 0: attrs['subtables'] += [(subtable, sxds)]
-
-    xds = xds.assign_attrs(attrs)
-    tb_tool.close()
-
+        # if this table has subtables, use a recursive call to store them in subtables attribute
+        if subtables:
+            stbl_list = sorted([tt for tt in os.listdir(infile) if os.path.isdir(os.path.join(infile, tt)) and tables.tableexists(os.path.join(infile, tt))])
+            attrs['subtables'] = []
+            for ii, subtable in enumerate(stbl_list):
+                sxds = read_generic_table(
+                    os.path.join(infile, subtable), subtables=subtables,
+                    timecols=timecols, ignore=ignore
+                )
+                if len(sxds.dims) != 0:
+                    attrs['subtables'] += [(subtable, sxds)]
+        xds = xds.assign_attrs(attrs)
     return xds
 
 
@@ -1020,12 +1036,9 @@ def __read_image_array(
 
 
 def __read_image_chunk(infile:str, shapes:tuple, starts:tuple) -> np.ndarray:
-    tb_tool:tables.table = tables.table(
-        infile, readonly=True, lockoptions={'option': 'usernoread'}, ack=False
-    )
-    data:np.ndarray = tb_tool.getcellslice(
-        tb_tool.colnames()[0], 0, starts,
-        tuple(np.array(starts) + np.array(shapes) - 1)
-    )
-    tb_tool.close()
+    with open_table_ro(infile) as tb_tool:
+        data:np.ndarray = tb_tool.getcellslice(
+            tb_tool.colnames()[0], 0, starts,
+            tuple(np.array(starts) + np.array(shapes) - 1)
+        )
     return data

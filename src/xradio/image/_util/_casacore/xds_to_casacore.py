@@ -11,7 +11,7 @@ from .common import (
     __active_mask, __native_types, __object_name, __pointing_center
 )
 from ..common import __doppler_types
-
+from ...._utils._casacore.tables import open_table_rw
 
 # TODO move this to a common file to be shared
 def __compute_ref_pix(xds:xr.Dataset, direction:dict) -> np.ndarray:
@@ -220,32 +220,28 @@ def __coord_dict_from_xds(xds:xr.Dataset) -> dict:
 
 
 def __history_from_xds(xds: xr.Dataset, image: str) -> None:
-    tb = tables.table(
-        os.sep.join([image, 'logtable']), readonly=False,
-        lockoptions={'option': 'permanentwait'}, ack=False
-    )
     nrows = len(xds.history.row) if 'row' in xds.data_vars else 0
     if nrows > 0:
         # TODO need to implement nrows == 0 case
-        tb.addrows(nrows + 1)
-        for c in ['TIME', 'PRIORITY', 'MESSAGE', 'LOCATION', 'OBJECT_ID']:
-            vals = xds.history[c].values
-            if c == 'TIME':
-                k = time.time() + 40587*86400
-            elif c == 'PRIORITY':
-                k = 'INFO'
-            elif c == 'MESSAGE':
-                k = (
-                    'Wrote xds to ' + os.path.basename(image)
-                    + ' using cngi_io.xds_to_casa_image_2()'
-                )
-            elif c == 'LOCATION':
-                k = 'cngi_io.xds_to_casa_image_2'
-            elif c == 'OBJECT_ID':
-                k = ''
-            vals = np.append(vals, k)
-            tb.putcol(c, vals)
-    tb.close()
+        with open_table_rw(os.sep.join([image, 'logtable'])) as tb:
+            tb.addrows(nrows + 1)
+            for c in ['TIME', 'PRIORITY', 'MESSAGE', 'LOCATION', 'OBJECT_ID']:
+                vals = xds.history[c].values
+                if c == 'TIME':
+                    k = time.time() + 40587*86400
+                elif c == 'PRIORITY':
+                    k = 'INFO'
+                elif c == 'MESSAGE':
+                    k = (
+                        'Wrote xds to ' + os.path.basename(image)
+                        + ' using cngi_io.xds_to_casa_image_2()'
+                    )
+                elif c == 'LOCATION':
+                    k = 'cngi_io.xds_to_casa_image_2'
+                elif c == 'OBJECT_ID':
+                    k = ''
+                vals = np.append(vals, k)
+                tb.putcol(c, vals)
 
 
 def __imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
@@ -360,13 +356,9 @@ def __write_casa_data(xds:xr.Dataset, image_full_path:str) -> None:
     for name, v in arr_masks.items():
         __write_pixels(name, active_mask, image_full_path, xds, v)
     if masks:
-        tb = tables.table(
-            image_full_path,
-            readonly=False, lockoptions={'option': 'permanentwait'}, ack=False
-        )
-        tb.putkeyword('masks', masks_rec)
-        tb.putkeyword('Image_defaultmask', active_mask)
-        tb.close()
+        with open_table_rw(image_full_path) as tb:
+            tb.putkeyword('masks', masks_rec)
+            tb.putkeyword('Image_defaultmask', active_mask)
 
 
 def __write_initial_image(
@@ -380,7 +372,6 @@ def __write_initial_image(
     del casa_image
 
 
-
 def __write_image_block(xda:xr.DataArray, outfile:str, blc:tuple) -> None:
     """
     Write image xda chunk to the corresponding image table slice
@@ -388,16 +379,12 @@ def __write_image_block(xda:xr.DataArray, outfile:str, blc:tuple) -> None:
     # trigger the DAG for this chunk and return values while the table is
     # unlocked
     values = xda.compute().values
-    tb_tool = tables.table(
-        outfile, readonly=False, lockoptions={'option': 'permanentwait'},
-        ack=False
-    )
-    tb_tool.putcellslice(
-        tb_tool.colnames()[0], 0, values, blc, tuple(
-            np.array(blc) + np.array(values.shape) - 1
+    with open_table_rw(outfile) as tb_tool:
+        tb_tool.putcellslice(
+            tb_tool.colnames()[0], 0, values, blc, tuple(
+                np.array(blc) + np.array(values.shape) - 1
+            )
         )
-    )
-    tb_tool.close()
 
 
 def __write_pixels(

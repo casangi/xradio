@@ -31,3 +31,14 @@ def open_table_ro(infile: str) -> Generator[tables.table, None, None]:
         table.close()
 
 
+@contextmanager
+def open_table_rw(outfile: str) -> Generator[tables.table, None, None]:
+    table = tables.table(
+        outfile, readonly=False, lockoptions={'option': 'permanentwait'},
+        ack=False
+    )
+    try:
+        yield table
+    finally:
+        table.close()
+

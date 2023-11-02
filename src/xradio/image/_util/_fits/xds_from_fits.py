@@ -279,9 +279,10 @@ def __fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
     helpers['bunit'] = header['BUNIT'] if 'BUNIT' in header else None
     attrs['object_name'] = header['OBJECT'] if 'OBJECT' in header else None
     obsdate = {}
+    obsdate['type'] = 'time'
     obsdate['value'] = Time(header['DATE-OBS'], format='isot').mjd
     obsdate['unit'] = 'd'
-    obsdate['time_scale'] = header['TIMESYS']
+    obsdate['scale'] = header['TIMESYS']
     obsdate['format'] = 'MJD'
     attrs['obsdate'] = obsdate
     helpers['obsdate'] = obsdate

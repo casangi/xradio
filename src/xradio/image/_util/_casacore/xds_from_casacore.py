@@ -12,7 +12,8 @@ from typing import Union
 import xarray as xr
 
 from .common import (
-    __active_mask, __native_types, __object_name, __pointing_center
+    __active_mask, __native_types, __object_name,
+    __open_image_ro, __pointing_center
 )
 from ..common import (
     __c, __dask_arrayize, __default_freq_info,
@@ -132,13 +133,14 @@ def __get_time_format(value:float, unit:str) -> str:
 
 
 def __add_time_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
-    time_coord = xds['time']
+    # time_coord = xds['time']
     meta = {}
-    meta['time_scale'] = coord_dict['obsdate']['refer']
+    meta['type'] = 'time'
+    meta['scale'] = coord_dict['obsdate']['refer']
     meta['unit'] = coord_dict['obsdate']['m0']['unit']
-    meta['format'] = __get_time_format(time_coord[0], meta['unit'])
-    time_coord.attrs = copy.deepcopy(meta)
-    xds['time'] = time_coord
+    meta['format'] = __get_time_format(xds['time'][0], meta['unit'])
+    xds['time'].attrs = copy.deepcopy(meta)
+    # xds['time'] = time_coord
     return xds
 
 
@@ -161,9 +163,8 @@ def __casa_image_to_xds_attrs(img_full_path: str, history: bool=True) -> dict:
     """
     Get the xds level attributes as a python dictionary
     """
-    casa_image = images.image(img_full_path)
-    meta_dict = casa_image.info()
-    del casa_image
+    with __open_image_ro(img_full_path) as casa_image:
+        meta_dict = casa_image.info()
     coord_dict = copy.deepcopy(meta_dict['coordinates'])
     attrs = {}
     dir_key = None
@@ -207,7 +208,7 @@ def __casa_image_to_xds_attrs(img_full_path: str, history: bool=True) -> dict:
         attrs['direction'] = dir_dict
     attrs['telescope'] = {}
     telescope = attrs['telescope']
-    attrs['obsdate'] = {}
+    attrs['obsdate'] = {'type': 'time'}
     obsdate = attrs['obsdate']
     attrs[__pointing_center] = coord_dict['pointingcenter'].copy()
     for k in ('observer', 'obsdate', 'telescope', 'telescopeposition'):
@@ -217,7 +218,7 @@ def __casa_image_to_xds_attrs(img_full_path: str, history: bool=True) -> dict:
             else:
                 telescope['position'] = coord_dict[k]
         elif k == 'obsdate':
-            obsdate['time_scale'] = coord_dict[k]['refer']
+            obsdate['scale'] = coord_dict[k]['refer']
             obsdate['unit'] = coord_dict[k]['m0']['unit']
             obsdate['value'] = coord_dict[k]['m0']['value']
             obsdate['format'] = __get_time_format(obsdate['value'], obsdate['unit'])
@@ -228,17 +229,13 @@ def __casa_image_to_xds_attrs(img_full_path: str, history: bool=True) -> dict:
     attrs[__object_name] = imageinfo[obj] if obj in imageinfo else ''
     attrs['beam'] = __get_beam(imageinfo)
     attrs['user'] = meta_dict['miscinfo']
-    casa_table = tables.table(
-        img_full_path, readonly=True,
-        lockoptions={'option': 'usernoread'}, ack=False
-    )
     defmask = 'Image_defaultmask'
-    attrs[__active_mask] = (
+    with open_table_ro(img_full_path) as casa_table:
+        attrs[__active_mask] = (
             casa_table.getkeyword(defmask)
             if defmask in casa_table.keywordnames()
             else None
-    )
-    casa_table.close()
+        )
     attrs['description'] = None
     # if also loading history, put it as another xds in the attrs
     if history:
@@ -259,13 +256,14 @@ def __casa_image_to_xds_metadata(img_full_path:str, verbose:bool=False) -> dict:
     Create an xds without any pixel data from metadata from the specified CASA image
     """
     attrs = {}
-    casa_image = images.image(img_full_path)
-    # shape list is the reverse of the actual image shape
-    shape = casa_image.shape()[::-1]
-    attrs['shape'] = shape
-    meta_dict = casa_image.info()
+    # casa_image = images.image(img_full_path)
+    with __open_image_ro(img_full_path) as casa_image:
+        # shape list is the reverse of the actual image shape
+        shape = casa_image.shape()[::-1]
+        meta_dict = casa_image.info()
+        csys = casa_image.coordinates()
+    axis_names = __flatten_list(csys.get_axes())[::-1]
     coord_dict = meta_dict['coordinates']
-    axis_names = __flatten_list(casa_image.coordinates().get_axes())[::-1]
     attrs['icoords'] = coord_dict
     diraxes = [
         aa.lower().replace(' ', '_') for cc in coord_dict.items()
@@ -284,7 +282,7 @@ def __casa_image_to_xds_metadata(img_full_path:str, verbose:bool=False) -> dict:
     coords = {}
     coords['time'] = __get_time_values(coord_dict)
     coords['polarization'] = __get_pol_values(coord_dict)
-    coords['frequency'] = __get_freq_values(casa_image.coordinates(), shape)
+    coords['frequency'] = __get_freq_values(csys, shape)
     coords['velocity'] = (['frequency'], __get_velocity_values(coord_dict, coords['frequency']))
     if len(sphr_dims) > 0:
         for k in coord_dict.keys():
@@ -292,14 +290,14 @@ def __casa_image_to_xds_metadata(img_full_path:str, verbose:bool=False) -> dict:
                 dc = coordinates.directioncoordinate(coord_dict[k])
                 break
         l_world, m_world = __compute_world_sph_dims(
-            sphr_dims, diraxes, casa_image.coordinates(), dc, shape, dimmap
+            sphr_dims, diraxes, csys, dc, shape, dimmap
         )
         coords[l_world[0]] = (['l', 'm'], l_world[1])
         coords[m_world[0]] = (['l', 'm'], m_world[1])
     else:
         # Fourier image
         coords['u'], coords['v'] = __get_uv_values(coord_dict, axis_names, shape)
-    del casa_image
+    attrs['shape'] = shape
     xds = xr.Dataset(coords=coords)
     attrs['xds'] = xds
     return attrs

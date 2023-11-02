@@ -4,6 +4,9 @@ from xradio.image import (
 )
 from xradio.data.datasets import download
 from xradio.image._util.common import __image_type as image_type
+from xradio.image._util._casacore.common import (
+    __open_new_image as open_new_image
+)
 # import dask.array.ma as dma
 import dask.array as da
 from glob import glob
@@ -56,7 +59,8 @@ class ImageBase(unittest.TestCase):
     # TODO make a more interesting beam
     __exp_attrs['beam'] = None
     __exp_attrs['obsdate'] = {
-        'time_scale': 'UTC',
+        'type': 'time',
+        'scale': 'UTC',
         'value': 51544.00000000116,
         'unit': 'd',
         'format': 'MJD'
@@ -117,16 +121,15 @@ class ImageBase(unittest.TestCase):
 
     @classmethod
     def __make_image(cls):
-        shape : list[int] = [10, 4, 20, 30]
+        shape:list[int] = [10, 4, 20, 30]
         mask : np.ndarray = np.array(
             [ i % 3 == 0 for i in range(np.prod(shape)) ], dtype=bool
         ).reshape(shape)
         pix : np.ndarray = np.array([ range(np.prod(shape)) ], dtype=np.float64).reshape(shape)
         masked_array = ma.masked_array(pix, mask)
-        im:casacore.images.image = casacore.images.image(cls.__imname, shape=shape)
-        im.put(masked_array)
-        shape = im.shape()
-        del im
+        with open_new_image(cls.__imname, shape=shape) as im:
+            im.put(masked_array)
+            shape = im.shape()
         t = casacore.tables.table(cls.__imname, readonly=False)
         t.putkeyword('units', 'Jy/beam')
         csys = t.getkeyword('coords')
@@ -277,11 +280,16 @@ class ImageBase(unittest.TestCase):
         got_vals = xds.time
         self.assertEqual(got_vals, ev['time'], 'Incorrect time axis values')
         self.assertEqual(
+            xds.coords['time'].attrs['type'], 'time',
+            'Incoorect measure type, should be "time"'
+        )
+        self.assertEqual(
             xds.coords['time'].attrs['format'], ev['time_format'],
             'Incoorect time axis format'
         )
+        print('time attrs', xds.coords['time'].attrs)
         self.assertEqual(
-            xds.coords['time'].attrs['time_scale'], ev['time_refer'],
+            xds.coords['time'].attrs['scale'], ev['time_refer'],
             'Incoorect time axis refer'
         )
         self.assertEqual(
@@ -807,7 +815,7 @@ class casacore_to_xds_to_casacore(ImageBase):
 
 
 
-        
+
 
 
 class xds_to_zarr_to_xds_test(ImageBase):

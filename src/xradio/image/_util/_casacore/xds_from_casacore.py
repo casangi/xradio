@@ -24,8 +24,8 @@ from ...._utils._casacore.tables import (
 )
 
 def __add_coord_attrs(xds: xr.Dataset, icoords: dict, diraxes: list) -> xr.Dataset:
-    xds = __add_time_attrs(xds, icoords)
-    xds = __add_freq_attrs(xds, icoords)
+    __add_time_attrs(xds, icoords)
+    __add_freq_attrs(xds, icoords)
     xds = __add_vel_attrs(xds, icoords)
     xds = __add_dir_lin_attrs(xds, icoords, diraxes)
     return xds
@@ -69,7 +69,59 @@ def __add_freq_attrs(xds, coord_dict):
     for k in coord_dict:
         if k.startswith('spectral'):
             sd = coord_dict[k]
-            meta['conversion'] = copy.deepcopy(sd['conversion'])
+            conv = copy.deepcopy(sd['conversion'])
+            conv['direction']['type'] = 'sky_coord'
+            conv['direction']['frame'], conv['direction']['equinox'] = (
+                __convert_direction_system(
+                    conv['direction']['refer'], False
+                )
+            )
+            del conv['direction']['refer']
+            conv['direction']['units'] = [
+                conv['direction']['m0']['unit'], conv['direction']['m1']['unit']
+            ]
+            conv['direction']['value'] = [
+                conv['direction']['m0']['value'],
+                conv['direction']['m1']['value']
+            ]
+            del conv['direction']['m0'], conv['direction']['m1']
+            pf = conv['position']['refer']
+            if pf == 'ITRF':
+                conv['position']['ellipsoid'] = 'GRS80'
+                del conv['position']['refer']
+            else:
+                raise RuntimeError(
+                    f'Unhandled earth location frame {pf}'
+                )
+            conv['position']['units'] = [
+                conv['position']['m0']['unit'], conv['position']['m1']['unit'],
+                conv['position']['m2']['unit']
+            ]
+            conv['position']['value'] = [
+                conv['position']['m0']['value'], conv['position']['m1']['value'],
+                conv['position']['m2']['value']
+            ]
+            for m in ['m0', 'm1', 'm2']:
+                del conv['position'][m]
+            # epoch has missing values necessary to make a time measure
+            conv['epoch']['v'] = {
+                'units': conv['epoch']['m0']['unit'],
+                'value': conv['epoch']['m0']['value'],
+                'type': 'quantity'
+            }
+            del conv['epoch']['m0']
+            meta['conversion'] = conv
+            meta['native_type'] = __native_types[sd['nativeType']]
+            meta['restfreq'] = sd['restfreq']
+            meta['restfreqs'] = sd['restfreqs']
+            meta['type'] = 'frequency'
+            meta['units'] = sd['unit']
+            meta['frame'] = sd['system']
+            meta['wave_unit'] = sd['waveUnit']
+            meta['wcs'] = {}
+            meta['wcs']['crval'] = sd['wcs']['crval']
+            meta['wcs']['cdelt'] = sd['wcs']['cdelt']
+            """
             for k in ('direction', 'epoch', 'position'):
                 del meta['conversion'][k]['type']
             dir_system, equinox = __convert_direction_system(
@@ -88,12 +140,13 @@ def __add_freq_attrs(xds, coord_dict):
             meta['wcs']['crval'] = sd['wcs']['crval']
             meta['wcs']['cdelt'] = sd['wcs']['cdelt']
             break
+            """
     if not meta:
 		# this is the default frequency information CASA creates
         meta = __default_freq_info()
-    freq_coord.attrs = copy.deepcopy(meta)
-    xds['frequency'] = freq_coord
-    return xds
+    freq_coord.attrs = meta
+    # xds['frequency'] = freq_coord
+    # return xds
 
 
 def __add_mask(

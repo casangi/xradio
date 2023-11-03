@@ -151,22 +151,48 @@ def __compute_spectral_dict(
     spec_conv = copy.deepcopy(xds.frequency.attrs['conversion'])
     for k in ('direction', 'epoch', 'position'):
         spec_conv[k]['type'] = k
-    spec_conv['direction']['refer'] = spec_conv['direction']['system']
-    del spec_conv['direction']['system']
+    spec_conv['direction']['refer'] = spec_conv['direction']['frame']
+    del spec_conv['direction']['frame']
     if (
         spec_conv['direction']['refer'] == 'FK5'
         and spec_conv['direction']['equinox'] == 'J2000'
     ):
         spec_conv['direction']['refer'] = 'J2000'
     del spec_conv['direction']['equinox']
+    spec_conv['direction']['m0'] = {
+        'unit': spec_conv['direction']['units'][0],
+        'value': spec_conv['direction']['value'][0]
+    }
+    spec_conv['direction']['m1'] = {
+        'unit': spec_conv['direction']['units'][1],
+        'value': spec_conv['direction']['value'][1]
+    }
+    del spec_conv['direction']['units'], spec_conv['direction']['value']
+    spec_conv['epoch']['m0'] = {
+        'unit': spec_conv['epoch']['v']['units'],
+        'value': spec_conv['epoch']['v']['value']
+    }
+    del spec_conv['epoch']['v']
+    spec_conv['position']['refer'] = spec_conv['position']['ellipsoid']
+    if spec_conv['position']['ellipsoid'] == 'GRS80':
+        spec_conv['position']['refer'] = 'ITRF'
+    del spec_conv['position']['ellipsoid']
+    for i in range(3):
+        spec_conv['position'][f'm{i}'] = {
+            'unit': spec_conv['position']['units'][i],
+            'value': spec_conv['position']['value'][i]
+        }
+    del spec_conv['position']['units'], spec_conv['position']['value']
+
+
     spec['conversion'] = spec_conv
     spec['formatUnit'] = ''
     spec['name'] = 'Frequency'
     spec['nativeType'] = __native_types.index(xds.frequency.attrs['native_type'])
     spec['restfreq'] = xds.frequency.attrs['restfreq']
     spec['restfreqs'] = copy.deepcopy(xds.frequency.attrs['restfreqs'])
-    spec['system'] = xds.frequency.attrs['system']
-    spec['unit'] = xds.frequency.attrs['unit']
+    spec['system'] = xds.frequency.attrs['frame']
+    spec['unit'] = xds.frequency.attrs['units']
     spec['velType'] = __doppler_types.index(xds.velocity.attrs['doppler_type'])
     spec['velUnit'] = xds.velocity.attrs['unit']
     spec['version'] = 2

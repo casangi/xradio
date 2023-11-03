@@ -71,22 +71,45 @@ def __add_freq_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
         conv['direction'] = {
             'm0': {'unit': 'rad', 'value': 0.0},
             'm1': {'unit': 'rad', 'value': np.pi/2},
-            'system': helpers['ref_sys'],
-            'equinox': helpers['ref_eqx']
+            'frame': helpers['ref_sys'],
+            'equinox': helpers['ref_eqx'],
+            'type': 'sky_coord'
         }
+        conv['direction']['units'] = ['rad', 'rad']
+        conv['direction']['value'] = [0.0, np.pi/2]
+        del conv['direction']['m0'], conv['direction']['m1']
         conv['epoch'] = {'m0': {'value': 0.0, 'unit': 'd'}, 'refer': 'LAST'}
         conv['position'] = {
             'm0': {'unit': 'rad', 'value': 0.0},
             'm1': {'unit': 'rad', 'value': 0.0},
             'm2': {'unit': 'm', 'value': 0.0}, 'refer': 'ITRF'
         }
+        conv['epoch']['type'] = 'epoch'
+        conv['epoch']['v'] = {
+            'type': 'quantity', 'units': conv['epoch']['m0']['unit'],
+            'value': conv['epoch']['m0']['value']
+        }
+        del conv['epoch']['m0']
+        conv['position']['type'] = 'position'
+        conv['position']['ellipsoid'] = conv['position']['refer']
+        if conv['position']['refer'] == 'ITRF':
+            conv['position']['ellipsoid'] = 'GRS80'
+        del conv['position']['refer']
+        for z, m in zip(['units', 'value'], ['unit', 'value']):
+            conv['position'][z] = [
+                conv['position']['m0'][m], conv['position']['m1'][m],
+                conv['position']['m2'][m]
+            ]
+        for i in range(3):
+            del conv['position'][f'm{i}']
         conv['system'] = helpers['specsys']
         meta['conversion'] = conv
         meta['native_type'] = helpers['native_type']
         meta['restfreq'] = helpers['restfreq']
         meta['restfreqs'] = [ helpers['restfreq'] ]
-        meta['system'] = helpers['specsys']
-        meta['unit'] = 'Hz'
+        meta['frame'] = helpers['specsys']
+        meta['units'] = 'Hz'
+        meta['type'] = 'frequency'
         meta['wave_unit'] = 'mm'
         wcs = {}
         freq_axis = helpers['freq_axis']

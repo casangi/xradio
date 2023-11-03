@@ -5,8 +5,10 @@ from xradio.image import (
 from xradio.data.datasets import download
 from xradio.image._util.common import __image_type as image_type
 from xradio.image._util._casacore.common import (
+    __open_image_ro as open_image_ro,
     __open_new_image as open_new_image
 )
+from xradio._utils._casacore.tables import open_table_ro
 # import dask.array.ma as dma
 import dask.array as da
 from glob import glob
@@ -31,12 +33,32 @@ class ImageBase(unittest.TestCase):
     __xds = None
     __exp_vals:dict = {
         'dec_unit': 'rad', 'freq_cdelt': 1000, 'freq_crpix': 20,
-        'freq_nativetype': 'FREQ',
-        'freq_system': 'LSRK', 'freq_unit': 'Hz',
         'freq_waveunit': 'mm', 'image_type': 'Intensity',
         'ra_unit': 'rad', 'stokes': ['I', 'Q', 'U', 'V'],
         'time_format': 'MJD', 'time_refer': 'UTC', 'time_unit': 'd',
-        'unit': 'Jy/beam', 'vel_type': 'RADIO', 'vel_unit': 'm/s'
+        'unit': 'Jy/beam', 'vel_type': 'RADIO', 'vel_unit': 'm/s',
+        'frequency': [
+            1.414995e+09, 1.414996e+09, 1.414997e+09, 1.414998e+09,
+            1.414999e+09, 1.415000e+09, 1.415001e+09, 1.415002e+09,
+            1.415003e+09, 1.415004e+09
+        ], 'freq_conversion': {
+            'direction': {
+                'type': 'sky_coord', 'frame': 'FK5', 'equinox': 'J2000',
+                'units': ['rad', 'rad'], 'value': [0.0, 1.5707963267948966]
+            }, 'position': {
+                'type': 'position', 'ellipsoid': 'GRS80',
+                'units': ['rad', 'rad', 'm'], 'value': [0.0, 0.0, 0.0]
+            }, 'epoch': {
+                'refer': 'LAST', 'type': 'epoch', 'v': {
+                    'units': 'd', 'value': 0.0, 'type': 'quantity'}
+                }, 'system': 'LSRK'
+        },
+        'native_type': 'FREQ', 'restfreq': 1420405751.7860003,
+        'restfreqs': [1.42040575e+09], 'freq_units': 'Hz',
+        'freq_frame': 'LSRK',
+        'wave_unit': 'mm', 'freq_wcs': {
+            'crval': 1415000000.0, 'cdelt': 1000.0
+        }
     }
 
 
@@ -100,6 +122,7 @@ class ImageBase(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        cls.maxDiff = None
         if not cls.__ran_measures_code and os.environ['USER'] == 'runner':
             casa_data_dir = pkg_resources.resource_filename('casadata',  '__data__')
             rc_file = open(os.path.expanduser("~/.casarc"),  "a+")   # append mode
@@ -287,7 +310,6 @@ class ImageBase(unittest.TestCase):
             xds.coords['time'].attrs['format'], ev['time_format'],
             'Incoorect time axis format'
         )
-        print('time attrs', xds.coords['time'].attrs)
         self.assertEqual(
             xds.coords['time'].attrs['scale'], ev['time_refer'],
             'Incoorect time axis refer'
@@ -305,68 +327,34 @@ class ImageBase(unittest.TestCase):
         )
 
 
-    def compare_frequency(self, xds:xr.Dataset, fits=False):
+    def compare_frequency(self, xds:xr.Dataset):
         ev = self.__exp_vals
-        if 'frequency' not in ev:
-            im = casacore.images.image(self.imname())
-            sd = im.coordinates().dict()['spectral2']
-            ev['frequency'] = []
-            for chan in range(10):
-                ev['frequency'].append(im.toworld([chan,0,0,0])[0])
-            ev['freq_conversion'] = copy.deepcopy(sd['conversion'])
-            for k in ('direction', 'position', 'epoch'):
-                del ev['freq_conversion'][k]['type']
-            del ev['freq_conversion']['direction']['refer']
-            ev['freq_conversion']['direction']['system'] = 'FK5'
-            ev['freq_conversion']['direction']['equinox'] = 'J2000'
-            ev['restfreq'] = sd['restfreq']
-            ev['restfreqs'] = sd['restfreqs']
-            ev['freq_crval'] = sd['wcs']['crval']
-        if fits:
-            self.assertTrue(
-                np.isclose(xds.frequency, ev['frequency']).all(), 'Incorrect frequencies'
-            )
-            self.assertTrue(
-                np.isclose(xds.frequency.attrs['restfreq'], ev['restfreq']),
-                'Incorrect rest frequency'
-            )
-            self.assertTrue(
-                np.isclose(
-                    xds.frequency.attrs['wcs']['cdelt'], ev['freq_cdelt']
-                ), 'Incorrect frequency cdelt'
-            )
-            self.assertTrue(
-                np.isclose(
-                    xds.frequency.attrs['wcs']['crval'],
-                    ev['freq_crval']
-                ), 'Incorrect frequency crpix'
-            )
-        else:
-            self.assertTrue(
-                np.isclose(
-                    xds.frequency.attrs['restfreqs'][0],
-                    ev['restfreqs'][0]
-                ), 'Incorrect rest frequencies'
-            )
-            self.assertTrue(
-                (xds.frequency == ev['frequency']).all(), 'Incorrect frequencies'
-            )
-            self.assertEqual(
-                xds.frequency.attrs['restfreq'], ev['restfreq'],
-                'Incorrect rest frequency'
-            )
-            self.assertTrue(
-                (xds.frequency.attrs['restfreqs'] == ev['restfreqs']).all(),
-                'Incorrect rest frequencies'
-            )
-            self.assertEqual(
-                xds.frequency.attrs['wcs']['cdelt'], ev['freq_cdelt'],
-                'Incorrect frequency cdelt'
-            )
-            self.assertEqual(
-                xds.frequency.attrs['wcs']['crval'], ev['freq_crval'],
-                'Incorrect frequency crpix'
-            )
+        self.assertTrue(
+            np.isclose(xds.frequency, ev['frequency']).all(), 'Incorrect frequencies'
+        )
+        self.assertTrue(
+            np.isclose(xds.frequency.attrs['restfreq'], ev['restfreq']),
+            'Incorrect rest frequency'
+        )
+        self.assertTrue(
+            np.isclose(
+                xds.frequency.attrs['restfreqs'][0],
+                ev['restfreqs'][0]
+            ), 'Incorrect rest frequencies'
+        )
+        self.assertTrue(
+            np.isclose(
+                xds.frequency.attrs['wcs']['crval'],
+                ev['freq_wcs']['crval']
+            ), 'Incorrect frequency crval'
+        )
+        self.assertTrue(
+            np.isclose(
+                xds.frequency.attrs['wcs']['cdelt'],
+                ev['freq_wcs']['cdelt']
+            ),
+            'Incorrect frequency cdelt'
+        )
         self.assertEqual(
             xds.frequency.attrs['conversion'], ev['freq_conversion'],
             (
@@ -375,12 +363,15 @@ class ImageBase(unittest.TestCase):
             )
         )
         self.assertEqual(
-            xds.frequency.attrs['system'], ev['freq_system'],
-            'Incorrect frequency system'
+            xds.frequency.attrs['type'], 'frequency', 'Wrong measure type'
         )
         self.assertEqual(
-            xds.frequency.attrs['unit'], ev['freq_unit'],
-            'Incorrect frequency unit'
+            xds.frequency.attrs['units'], ev['freq_units'],
+            'Wrong frequency unit'
+        )
+        self.assertEqual(
+            xds.frequency.attrs['frame'], ev['freq_frame'],
+            'Incorrect frequency frame'
         )
         self.assertEqual(
             xds.frequency.attrs['wave_unit'], ev['freq_waveunit'],
@@ -749,9 +740,8 @@ class casacore_to_xds_to_casacore(ImageBase):
             subdirs, ['logtable', 'mask_xds_nans'],
             f'Unexpected subdirectory list found. subdirs is {subdirs}'
         )
-        im1 = casacore.images.image(self.__outname3)
-        casa_mask = im1.getmask()
-        del im1
+        with open_image_ro(self.__outname3) as im1:
+            casa_mask = im1.getmask()
         self.assertTrue(casa_mask[1,1,1,1], 'Wrong pixels are masked')
         self.assertEqual(casa_mask.sum(), 1, 'More pixels masked than expected')
         casa_mask[1,1,1,1] = False
@@ -1181,7 +1171,7 @@ class fits_to_xds_test(ImageBase):
 
     def test_xds_frequency_axis(self):
         """Test xds has correct frequency values and metadata"""
-        self.compare_frequency(self.__fds, True)
+        self.compare_frequency(self.__fds)
 
 
     def test_xds_vel_axis(self):

@@ -79,7 +79,9 @@ def column_description_casacore_to_msv4_measure(
         msv4_measure["type"] = casacore_to_msv4_measure_type[
             casacore_column_description["keywords"]["MEASINFO"]["type"]
         ]["type"]
-        msv4_measure["units"] = list(casacore_column_description["keywords"]["QuantumUnits"])
+        msv4_measure["units"] = list(
+            casacore_column_description["keywords"]["QuantumUnits"]
+        )
 
         if "TabRefCodes" in casacore_column_description["keywords"]["MEASINFO"]:
             ref_index = np.where(
@@ -588,7 +590,7 @@ def create_field_info(xds, infile, field_id):
 
     msv4_measure = column_description_casacore_to_msv4_measure(
         field_column_description["REFERENCE_DIR"],
-        ref_code=getattr(field_xds.get("refdir_ref"), "data", None)
+        ref_code=getattr(field_xds.get("refdir_ref"), "data", None),
     )
     delay_dir = {
         "dims": "",
@@ -598,7 +600,7 @@ def create_field_info(xds, infile, field_id):
 
     msv4_measure = column_description_casacore_to_msv4_measure(
         field_column_description["PHASE_DIR"],
-        ref_code=getattr(field_xds.get("phasedir_ref"), "data", None)
+        ref_code=getattr(field_xds.get("phasedir_ref"), "data", None),
     )
     phase_dir = {
         "dims": "",
@@ -608,7 +610,7 @@ def create_field_info(xds, infile, field_id):
 
     msv4_measure = column_description_casacore_to_msv4_measure(
         field_column_description["DELAY_DIR"],
-        ref_code=getattr(field_xds.get("delaydir_ref"), "data", None)
+        ref_code=getattr(field_xds.get("delaydir_ref"), "data", None),
     )
     reference_dir = {
         "dims": "",
@@ -664,7 +666,41 @@ def convert_msv2_to_processing_set(
     storage_backend="zarr",
     overwrite: bool = False,
 ):
-    """ """
+    """Read a MeasurementSet (MSv2 format) into a next generation CASA
+    dataset (visibilities dataset as a set of Xarray datasets).
+
+    The MS is partitioned into multiple sub- Xarray datasets (where the data variables are read as
+    Dask delayed arrays).
+    The MS is partitioned by DDI, which guarantees a fixed data shape per partition (in terms of channels
+    and polarizations) and, subject to experimentation, by scan and subscan. This results in multiple
+    partitions as xarray datasets (xds) contained within a main xds (mxds).
+
+    :param infile: Input MS filename
+    :param rowmap: (to be removed) Dictionary of DDI to tuple of (row indices, channel indices). Returned
+    by ms_selection function. Default None ignores selections
+    :param subtables: Also read and include subtables along with main table selection. Default False will
+    omit subtables (faster)
+    :param asdm_subtables: in addition to MeasurementSet subtables (if enabled), also read extension
+    subtables names "ASDM_*"
+    :param partition_scheme: (experimenting) Whether to partition sub-xds datasets by scan/subscan
+    (in addition to DDI), or other alternative partitioning schemes. Accepted values: 'scan/subscan',
+    'scan', 'ddi', 'intent'. Default: 'intent'
+    :param chunks: Can be used to set a specific chunk shape (with a tuple of ints), or to control the
+    optimization used for automatic chunking (with a list of ints). A tuple of ints in the form of (row,
+    chan, pol) will use a fixed chunk shape. A list or numpy array of ints in the form of [idx1, etc]
+    will trigger auto-chunking optimized for the given indices, with row=0, chan=1, pol=2. Default None
+    uses auto-chunking with a best fit across all dimensions (probably sub-optimal for most cases).
+    :param expand: (to be removed) Whether or not to return the original flat row structure of the MS (False)
+    or expand the rows to time x baseline dimensions (True). Expanding the rows allows for easier indexing
+    and parallelization across time and baseline dimensions, at the cost of some conversion time. Default
+    False
+    :param **kwargs: (to be removed?) Selection parameters from the standard way of making CASA MS
+    selections. Supported keys are: spw, field, scan, baseline, time, scanintent, uvdist, polarization,
+    array, observation.  Values are strings.
+
+    :return: ngCASA visisbilities dataset, essentially made of two dictionaries of
+    metainformation and data partitions
+    """
     spw_xds = read_generic_table(
         infile,
         "SPECTRAL_WINDOW",

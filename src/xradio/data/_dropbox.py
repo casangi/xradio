@@ -40,6 +40,11 @@ FILE_ID = {
         "id": "j2e5pd4y7ppvw9efxdfdj",
         "rlkey": "hlb85n40vtac3k9nna14giwsf&dl",
     },
+    "Antennae_North.cal.lsrk.split.zarr": {
+        "file": "Antennae_North.cal.lsrk.split.ms.zip",
+        "id": "hctg3tegkl6ttf2kol0wh",
+        "rlkey": "7hxaag4vqk0d674v3368dudad&dl",
+    },
     "no_mask.im": {
         "file": "no_mask.zip",
         "id": "4azivw1q7vby4ffawy0tt",

@@ -1,108 +1,42 @@
 # from numcodecs.zstd import Zstd
 import numcodecs
-from typing import Dict, List, Tuple, Union
+from typing import Dict, Tuple, Union
 import itertools
 import json
 import numbers
-from xradio.vis._vis_utils._ms.partitions import (
-    finalize_partitions,
-    read_ms_ddi_partitions,
-    read_ms_scan_subscan_partitions,
-    make_spw_names_by_ddi,
-    make_partition_ids_by_ddi_intent,
-    make_partition_ids_by_ddi_scan,
-)
 
 import dask
 from xradio.vis._vis_utils._ms.descr import describe_ms
 from xradio.vis._vis_utils._ms.msv2_msv3 import ignore_msv2_cols
 from xradio.vis._vis_utils._ms._tables.read import (
     read_generic_table,
-    make_freq_attrs,
     convert_casacore_time,
     extract_table_attributes,
 )
 from xradio.vis._vis_utils._ms._tables.read_main_table import (
-    read_flat_main_table,
-    read_expanded_main_table,
     get_baselines,
     get_utimes_tol,
-    read_main_table_chunks,
 )
 from xradio.vis._vis_utils._ms.subtables import (
     subt_rename_ids,
-    add_pointing_to_partition,
 )
 from xradio.vis._vis_utils._ms._tables.table_query import open_table_ro, open_query
 from xradio.vis._vis_utils._utils.stokes_types import stokes_types
 import numpy as np
-from casacore import tables
-from itertools import cycle
 import logging
 import time
 import xarray as xr
 
 
-def add_encoding(xds, compressor, chunks=None):
-    if chunks is None:
-        chunks = xds.dims
+from ._zarr import add_encoding
+from ._msv2_to_msv4_meta import (
+    column_description_casacore_to_msv4_measure,
+    create_attribute_metadata,
+    col_to_data_variable_names,
+    col_dims,
+)
 
-    chunks = {**dict(xds.dims), **chunks}  # Add missing dims if presents.
-
-    encoding = {}
-    for da_name in list(xds.data_vars):
-        if chunks:
-            da_chunks = [chunks[dim_name] for dim_name in xds[da_name].dims]
-            xds[da_name].encoding = {"compressor": compressor, "chunks": da_chunks}
-            # print(xds[da_name].encoding)
-        else:
-            xds[da_name].encoding = {"compressor": compressor}
-
-
-casacore_to_msv4_measure_type = {
-    "quanta": {"type": "quanta", "Ref": None},
-    "direction": {"type": "sky_coord", "Ref": "frame"},
-    "epoch": {"type": "time", "Ref": "scale"},
-    "frequency": {"type": "spectral_coord", "Ref": "frame"},
-    "position": {"type": "earth_location", "Ref": "ellipsoid"},
-    "uvw": {"type": "uvw", "Ref": "frame"},
-}
-
-casacore_to_msv4_ref = {"J2000": "FK5", "ITRF": "GRS80"}
-
-
-def column_description_casacore_to_msv4_measure(
-    casacore_column_description, ref_code=None, time_format="unix"
-):
-    msv4_measure = {}
-    if "MEASINFO" in casacore_column_description["keywords"]:
-        msv4_measure["type"] = casacore_to_msv4_measure_type[
-            casacore_column_description["keywords"]["MEASINFO"]["type"]
-        ]["type"]
-        msv4_measure["units"] = list(casacore_column_description["keywords"]["QuantumUnits"])
-
-        if "TabRefCodes" in casacore_column_description["keywords"]["MEASINFO"]:
-            ref_index = np.where(
-                casacore_column_description["keywords"]["MEASINFO"]["TabRefCodes"]
-                == ref_code
-            )[0][0]
-            casa_ref = casacore_column_description["keywords"]["MEASINFO"][
-                "TabRefTypes"
-            ][ref_index]
-        else:
-            casa_ref = casacore_column_description["keywords"]["MEASINFO"]["Ref"]
-
-        if casa_ref in casacore_to_msv4_ref:
-            casa_ref = casacore_to_msv4_ref[casa_ref]
-        msv4_measure[
-            casacore_to_msv4_measure_type[
-                casacore_column_description["keywords"]["MEASINFO"]["type"]
-            ]["Ref"]
-        ] = casa_ref
-
-        if msv4_measure["type"] == "time":
-            msv4_measure["format"] = "unix"
-    return msv4_measure
+from .read_processing_set import read_processing_set
 
 
 def calc_indx_for_row_split(tb_tool, taql_where):
@@ -148,17 +82,24 @@ def calc_indx_for_row_split(tb_tool, taql_where):
     )
 
 
-def _check_single_field(tb_tool):
-    field_id = np.unique(tb_tool.getcol("FIELD_ID"))
-    # print(np.unique(field_id))
-    assert len(field_id) == 1, "More than one field present."
-    return field_id[0]
+def check_if_consistent(col, col_name):
+    """_summary_
 
+    Parameters
+    ----------
+    col : _type_
+        _description_
+    col_name : _type_
+        _description_
 
-def _check_interval_consistent(tb_tool):
-    interval = np.unique(tb_tool.getcol("INTERVAL"))
-    assert len(interval) == 1, "Interval is not consistent."
-    return interval[0]
+    Returns
+    -------
+    _type_
+        _description_
+    """
+    col_unique = np.unique(col)
+    assert len(col_unique) == 1, col_name + " is not consistent."
+    return col_unique[0]
 
 
 def read_col(
@@ -169,38 +110,14 @@ def read_col(
     bidxs: np.ndarray,
     didxs: np.ndarray,
 ):
-    start = time.time()
     data = tb_tool.getcol(col)
-    # logging.info("Time to get col " + col + "  " + str(time.time()-start))
-
-    # full data is the maximum of the data shape and chunk shape dimensions
-    start = time.time()
     fulldata = np.full(cshape + data.shape[1:], np.nan, dtype=data.dtype)
-    # logging.info("Time to full " + col + "  " + str(time.time()-start))
-
-    start = time.time()
     fulldata[tidxs, bidxs] = data
-    # logging.info("Time to reorganize " + col + "  " + str(time.time()-start))
-
     return fulldata
 
 
-def create_attribute_metadata(col, main_column_descriptions):
-    attrs_metadata = column_description_casacore_to_msv4_measure(
-        main_column_descriptions[col]
-    )
-    # print('***',col,main_column_descriptions[col],msv4_measure,)
-
-    if col in ["DATA", "CORRECTED_DATA", "WEIGHT"]:
-        if not attrs_metadata:
-            attrs_metadata["type"] = "quanta"
-            attrs_metadata["units"] = ["unkown"]
-
-    return attrs_metadata
-
-
 def create_coordinates(
-    xds, infile, ddi, utime, interval, baseline_ant1_id, baseline_ant2_id
+    xds, in_file, ddi, utime, interval, baseline_ant1_id, baseline_ant2_id
 ):
     coords = {
         "time": utime,
@@ -210,12 +127,12 @@ def create_coordinates(
         "baseline_id": np.arange(len(baseline_ant1_id)),
     }
 
-    ddi_xds = read_generic_table(infile, "DATA_DESCRIPTION").sel(row=ddi)
+    ddi_xds = read_generic_table(in_file, "DATA_DESCRIPTION").sel(row=ddi)
     pol_setup_id = ddi_xds.polarization_id.values
     spw_id = ddi_xds.spectral_window_id.values
 
     spw_xds = read_generic_table(
-        infile,
+        in_file,
         "SPECTRAL_WINDOW",
         rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
     ).sel(spectral_window_id=spw_id)
@@ -224,7 +141,7 @@ def create_coordinates(
     ]
 
     pol_xds = read_generic_table(
-        infile,
+        in_file,
         "POLARIZATION",
         rename_ids=subt_rename_ids["POLARIZATION"],
     )
@@ -236,7 +153,6 @@ def create_coordinates(
     xds = xds.assign_coords(coords)
 
     ###### Create Frequency Coordinate ######
-    # Add metadata to coordinates:
     freq_column_description = spw_xds.attrs["other"]["msv2"]["ctds_attrs"][
         "column_descriptions"
     ]
@@ -272,16 +188,16 @@ def create_coordinates(
         freq_column_description["CHAN_WIDTH"], ref_code=spw_xds["meas_freq_ref"].data
     )
     if not msv4_measure:
-        msv4_measure["type"] = "quanta"
+        msv4_measure["type"] = "quantity"
         msv4_measure["units"] = ["Hz"]
     xds.frequency.attrs["channel_width"] = {
         "dims": "",
         "data": np.abs(unique_chan_width[0]),
         "attrs": msv4_measure,
-    }  # Should always be increasing (ordering is fixed before saving).
+    }
 
     ###### Create Time Coordinate ######
-    main_table_attrs = extract_table_attributes(infile)
+    main_table_attrs = extract_table_attributes(in_file)
     main_column_descriptions = main_table_attrs["column_descriptions"]
     msv4_measure = column_description_casacore_to_msv4_measure(
         main_column_descriptions["TIME"]
@@ -292,7 +208,7 @@ def create_coordinates(
         main_column_descriptions["INTERVAL"]
     )
     if not msv4_measure:
-        msv4_measure["type"] = "quanta"
+        msv4_measure["type"] = "quantity"
         msv4_measure["units"] = ["s"]
     xds.time.attrs["integration_time"] = {
         "dims": "",
@@ -303,31 +219,17 @@ def create_coordinates(
     return xds
 
 
-def convert_and_write_partition(
-    infile: str,
-    outfile: str,
-    intent: str,
-    ddi: int = 0,
-    state_ids=None,
-    field_id: int = None,
-    ignore_msv2_cols: Union[list, None] = None,
-    chunks_on_disk: Union[Dict, None] = None,
-    compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
-    storage_backend="zarr",
-    overwrite: bool = False,
-):
-    if ignore_msv2_cols is None:
-        ignore_msv2_cols = []
-
+def create_taql_query_and_file_name(out_file, intent, state_ids, field_id, ddi):
     file_name = (
-        outfile
+        out_file
         + "/"
-        + outfile.replace(".vis.zarr", "").split("/")[-1]
+        + out_file.replace(".vis.zarr", "").split("/")[-1]
         + "_ddi_"
         + str(ddi)
         + "_intent_"
         + intent
     )
+
     taql_where = f"where (DATA_DESC_ID = {ddi})"
 
     if isinstance(state_ids, numbers.Integral):
@@ -340,34 +242,122 @@ def convert_and_write_partition(
         taql_where += f" AND (FIELD_ID = {field_id})"
         file_name = file_name + "_field_id_" + str(field_id)
 
-    ddi_xds = read_generic_table(infile, "DATA_DESCRIPTION").sel(row=ddi)
-    spw_id = ddi_xds.spectral_window_id.values
+    return taql_where, file_name
 
-    spw_xds = read_generic_table(
-        infile,
-        "SPECTRAL_WINDOW",
-        rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
-    ).sel(spectral_window_id=spw_id)
-    n_chan = len(spw_xds["chan_freq"].data[~(np.isnan(spw_xds["chan_freq"].data))])
 
-    main_table_attrs = extract_table_attributes(infile)
+def create_data_variables(
+    in_file, xds, tb_tool, time_baseline_shape, tidxs, bidxs, didxs
+):
+    # Create Data Variables
+    col_names = tb_tool.colnames()
+
+    main_table_attrs = extract_table_attributes(in_file)
     main_column_descriptions = main_table_attrs["column_descriptions"]
+    for col in col_names:
+        if col in col_to_data_variable_names:
+            if (col == "WEIGHT") and ("WEIGHT_SPECTRUM" in col_names):
+                continue
+            try:
+                start = time.time()
+                if col == "WEIGHT":
+                    xds[col_to_data_variable_names[col]] = xr.DataArray(
+                        np.tile(
+                            read_col(
+                                tb_tool,
+                                col,
+                                time_baseline_shape,
+                                tidxs,
+                                bidxs,
+                                didxs,
+                            )[:, :, None, :],
+                            (1, 1, xds.dims["frequency"], 1),
+                        ),
+                        dims=col_dims[col],
+                    )
+
+                else:
+                    xds[col_to_data_variable_names[col]] = xr.DataArray(
+                        read_col(
+                            tb_tool,
+                            col,
+                            time_baseline_shape,
+                            tidxs,
+                            bidxs,
+                            didxs,
+                        ),
+                        dims=col_dims[col],
+                    )
+                    # logging.info("Time to read column " + str(col) + " : " + str(time.time()-start))
+            except:
+                # logging.debug("Could not load column",col)
+                continue
+
+            xds[col_to_data_variable_names[col]].attrs.update(
+                create_attribute_metadata(col, main_column_descriptions)
+            )
+
+
+def convert_and_write_partition(
+    in_file: str,
+    out_file: str,
+    intent: str,
+    ddi: int = 0,
+    state_ids=None,
+    field_id: int = None,
+    ignore_msv2_cols: Union[list, None] = None,
+    main_chunksize: Union[Dict, None] = None,
+    compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
+    storage_backend="zarr",
+    overwrite: bool = False,
+):
+    """_summary_
+
+    Parameters
+    ----------
+    in_file : str
+        _description_
+    out_file : str
+        _description_
+    intent : str
+        _description_
+    ddi : int, optional
+        _description_, by default 0
+    state_ids : _type_, optional
+        _description_, by default None
+    field_id : int, optional
+        _description_, by default None
+    ignore_msv2_cols : Union[list, None], optional
+        _description_, by default None
+    main_chunksize : Union[Dict, None], optional
+        _description_, by default None
+    compressor : numcodecs.abc.Codec, optional
+        _description_, by default numcodecs.Zstd(level=2)
+    storage_backend : str, optional
+        _description_, by default "zarr"
+    overwrite : bool, optional
+        _description_, by default False
+
+    Returns
+    -------
+    _type_
+        _description_
+    """
+    if ignore_msv2_cols is None:
+        ignore_msv2_cols = []
+
+    taql_where, file_name = create_taql_query_and_file_name(
+        out_file, intent, state_ids, field_id, ddi
+    )
 
     start_with = time.time()
-    with open_table_ro(infile) as mtable:
-        # one partition, select just the specified ddi (+ scan/subscan)
+    with open_table_ro(in_file) as mtable:
         taql_main = f"select * from $mtable {taql_where}"
         with open_query(mtable, taql_main) as tb_tool:
-            # print(taql_where,file_name,"Flag shape",tb_tool.getcol('FLAG').shape)
-
             if tb_tool.nrows() == 0:
                 tb_tool.close()
                 mtable.close()
                 return xr.Dataset(), {}, {}
 
-            # logging.info("Setting up table "+ str(time.time()-start_with))
-
-            start = time.time()
             (
                 tidxs,
                 bidxs,
@@ -377,125 +367,32 @@ def convert_and_write_partition(
                 utime,
             ) = calc_indx_for_row_split(tb_tool, taql_where)
             time_baseline_shape = (len(utime), len(baseline_ant1_id))
-            # logging.info("Calc indx for row split "+ str(time.time()-start))
+            # logging.debug("Calc indx for row split "+ str(time.time()-start))
 
-            start = time.time()
             xds = xr.Dataset()
-            col_to_data_variable_names = {
-                "FLOAT_DATA": "SPECTRUM",
-                "DATA": "VISIBILITY",
-                "CORRECTED_DATA": "VISIBILITY_CORRECTED",
-                "WEIGHT_SPECTRUM": "WEIGHT",
-                "WEIGHT": "WEIGHT",
-                "FLAG": "FLAG",
-                "UVW": "UVW",
-                "TIME_CENTROID": "TIME_CENTROID",
-                "EXPOSURE": "EFFECTIVE_INTEGRATION_TIME",
-            }
-            col_dims = {
-                "DATA": ("time", "baseline_id", "frequency", "polarization"),
-                "CORRECTED_DATA": ("time", "baseline_id", "frequency", "polarization"),
-                "WEIGHT_SPECTRUM": ("time", "baseline_id", "frequency", "polarization"),
-                "WEIGHT": ("time", "baseline_id", "frequency", "polarization"),
-                "FLAG": ("time", "baseline_id", "frequency", "polarization"),
-                "UVW": ("time", "baseline_id", "uvw_label"),
-                "TIME_CENTROID": ("time", "baseline_id"),
-                "EXPOSURE": ("time", "baseline_id"),
-                "FLOAT_DATA": ("time", "baseline_id", "frequency", "polarization"),
-            }
-            col_to_coord_names = {
-                "TIME": "time",
-                "ANTENNA1": "baseline_ant1_id",
-                "ANTENNA2": "baseline_ant2_id",
-            }
-            coords_dim_select = {
-                "TIME": np.s_[:, 0:1],
-                "ANTENNA1": np.s_[0:1, :],
-                "ANTENNA2": np.s_[0:1, :],
-            }
-            check_variables = {}
-
-            col_names = tb_tool.colnames()
-
-            # Create Data Variables
-            # logging.info("Setup xds "+ str(time.time()-start))
-            for col in col_names:
-                if col in col_to_data_variable_names:
-                    if (col == "WEIGHT") and ("WEIGHT_SPECTRUM" in col_names):
-                        continue
-                    try:
-                        start = time.time()
-                        if col == "WEIGHT":
-                            xds[col_to_data_variable_names[col]] = xr.DataArray(
-                                np.tile(
-                                    read_col(
-                                        tb_tool,
-                                        col,
-                                        time_baseline_shape,
-                                        tidxs,
-                                        bidxs,
-                                        didxs,
-                                    )[:, :, None, :],
-                                    (1, 1, n_chan, 1),
-                                ),
-                                dims=col_dims[col],
-                            )
-
-                        else:
-                            xds[col_to_data_variable_names[col]] = xr.DataArray(
-                                read_col(
-                                    tb_tool,
-                                    col,
-                                    time_baseline_shape,
-                                    tidxs,
-                                    bidxs,
-                                    didxs,
-                                ),
-                                dims=col_dims[col],
-                            )
-                            # logging.info("Time to read column " + str(col) + " : " + str(time.time()-start))
-                    except:
-                        # logging.debug("Could not load column",col)
-                        continue
-
-                    xds[col_to_data_variable_names[col]].attrs.update(
-                        create_attribute_metadata(col, main_column_descriptions)
-                    )
-
-            interval = _check_interval_consistent(tb_tool)
-
-            start = time.time()
-
+            interval = check_if_consistent(tb_tool.getcol("INTERVAL"), "INTERVAL")
             xds = create_coordinates(
-                xds, infile, ddi, utime, interval, baseline_ant1_id, baseline_ant2_id
+                xds, in_file, ddi, utime, interval, baseline_ant1_id, baseline_ant2_id
             )
 
-            field_id = _check_single_field(tb_tool)
-            xds = create_field_info(xds, infile, field_id)
+            create_data_variables(
+                in_file, xds, tb_tool, time_baseline_shape, tidxs, bidxs, didxs
+            )
 
-            xds.attrs["data_groups"] = {
-                "base": {
-                    "visibility": "VISIBILITY",
-                    "flag": "FLAG",
-                    "weight": "WEIGHT",
-                    "uvw": "UVW",
-                }
-            }
+            # Create field_info
+            field_id = check_if_consistent(tb_tool.getcol("FIELD_ID"), "FIELD_ID")
+            xds = create_field_info(xds, in_file, field_id)
+
+            # Create ant_xds
+            ant_xds = create_ant_xds(in_file)
+
+            # To do: add other _info and _xds creation functions.
 
             # Fix UVW frame
             # From CASA fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking center. calcuvw does not yet force the UVW column and field centers to use the same reference frame! Blank = use the phase tracking frame of vis.
             xds.UVW.attrs["frame"] = xds.attrs["field_info"]["phase_direction"][
                 "attrs"
             ]["frame"]
-
-            if overwrite:
-                mode = "w"
-            else:
-                mode = "w-"
-
-            add_encoding(xds, compressor=compressor, chunks=chunks_on_disk)
-
-            ant_xds = create_ant_xds(infile)
 
             xds.attrs["intent"] = intent
             xds.attrs["ddi"] = ddi
@@ -507,6 +404,23 @@ def convert_and_write_partition(
             if len(xds.time) > 1 and xds.time[1] - xds.time[0] < 0:
                 xds = xds.sel(time=slice(None, None, -1))
 
+            # Add data_groups
+            xds.attrs["data_groups"] = {
+                "base": {
+                    "visibility": "VISIBILITY",
+                    "flag": "FLAG",
+                    "weight": "WEIGHT",
+                    "uvw": "UVW",
+                }
+            }
+
+            if overwrite:
+                mode = "w"
+            else:
+                mode = "w-"
+
+            add_encoding(xds, compressor=compressor, chunks=main_chunksize)
+
             if storage_backend == "zarr":
                 xds.to_zarr(store=file_name + "/MAIN", mode=mode)
                 ant_xds.to_zarr(store=file_name + "/ANTENNA", mode=mode)
@@ -517,7 +431,7 @@ def convert_and_write_partition(
     # logging.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
 
 
-def create_ant_xds(infile):
+def create_ant_xds(in_file):
     to_new_data_variable_names = {
         "position": "POSITION",
         "offset": "FEED_OFFSET",
@@ -537,7 +451,7 @@ def create_ant_xds(infile):
     }
 
     generic_ant_xds = read_generic_table(
-        infile,
+        in_file,
         "ANTENNA",
         rename_ids=subt_rename_ids["ANTENNA"],
     )
@@ -563,7 +477,7 @@ def create_ant_xds(infile):
 
             if key in ["dish_diameter"]:
                 ant_xds[to_new_data_variable_names[key]].attrs.update(
-                    {"units": ["m"], "type": "quanta"}
+                    {"units": ["m"], "type": "quantity"}
                 )
 
         if key in to_new_coord_names:
@@ -573,9 +487,9 @@ def create_ant_xds(infile):
     return ant_xds
 
 
-def create_field_info(xds, infile, field_id):
+def create_field_info(xds, in_file, field_id):
     field_xds = read_generic_table(
-        infile,
+        in_file,
         "FIELD",
         rename_ids=subt_rename_ids["FIELD"],
     ).sel(field_id=field_id)
@@ -588,7 +502,7 @@ def create_field_info(xds, infile, field_id):
 
     msv4_measure = column_description_casacore_to_msv4_measure(
         field_column_description["REFERENCE_DIR"],
-        ref_code=getattr(field_xds.get("refdir_ref"), "data", None)
+        ref_code=getattr(field_xds.get("refdir_ref"), "data", None),
     )
     delay_dir = {
         "dims": "",
@@ -598,7 +512,7 @@ def create_field_info(xds, infile, field_id):
 
     msv4_measure = column_description_casacore_to_msv4_measure(
         field_column_description["PHASE_DIR"],
-        ref_code=getattr(field_xds.get("phasedir_ref"), "data", None)
+        ref_code=getattr(field_xds.get("phasedir_ref"), "data", None),
     )
     phase_dir = {
         "dims": "",
@@ -608,7 +522,7 @@ def create_field_info(xds, infile, field_id):
 
     msv4_measure = column_description_casacore_to_msv4_measure(
         field_column_description["DELAY_DIR"],
-        ref_code=getattr(field_xds.get("delaydir_ref"), "data", None)
+        ref_code=getattr(field_xds.get("delaydir_ref"), "data", None),
     )
     reference_dir = {
         "dims": "",
@@ -629,9 +543,21 @@ def create_field_info(xds, infile, field_id):
     return xds
 
 
-def get_unqiue_intents(infile):
+def get_unqiue_intents(in_file):
+    """_summary_
+
+    Parameters
+    ----------
+    in_file : str
+        _description_
+
+    Returns
+    -------
+    _type_
+        _description_
+    """
     state_xds = read_generic_table(
-        infile,
+        in_file,
         "STATE",
         rename_ids=subt_rename_ids["STATE"],
     )
@@ -654,31 +580,35 @@ def enumerated_product(*args):
     )
 
 
-def convert_msv2_to_processing_set(
-    infile: str,
-    outfile: str,
-    partition_scheme: str,  # intent_field, subscan
-    chunks_on_disk: Union[Dict, None] = None,
-    compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
-    parallel: bool = False,
-    storage_backend="zarr",
-    overwrite: bool = False,
-):
-    """ """
+def create_partition_enumerated_product(in_file: str, partition_scheme: str):
+    """Creates an enumerated_product of the data_desc_ids, state_ids, field_ids in a MS v2 that define the partions in a processing set.
+
+    Parameters
+    ----------
+    in_file : str
+        _description_
+    partition_scheme : str
+        _description_
+
+    Returns
+    -------
+    _type_
+        _description_
+    """
     spw_xds = read_generic_table(
-        infile,
+        in_file,
         "SPECTRAL_WINDOW",
         rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
     )
 
-    ddi_xds = read_generic_table(infile, "DATA_DESCRIPTION")
+    ddi_xds = read_generic_table(in_file, "DATA_DESCRIPTION")
     data_desc_ids = np.arange(ddi_xds.dims["row"])
 
     if partition_scheme == "ddi_intent_field":
-        unique_intents, state_ids = get_unqiue_intents(infile)
-        field_ids = np.arange(read_generic_table(infile, "FIELD").dims["row"])
-    elif partition_scheme == "ddi_state":
-        state_xds = read_generic_table(infile, "STATE")
+        intents, state_ids = get_unqiue_intents(in_file)
+        field_ids = np.arange(read_generic_table(in_file, "FIELD").dims["row"])
+    elif partition_scheme == "ddi_state_field":
+        state_xds = read_generic_table(in_file, "STATE")
 
         if len(state_xds.data_vars) > 0:
             state_ids = [np.arange(state_xds.dims["row"])]
@@ -688,49 +618,89 @@ def convert_msv2_to_processing_set(
             intents = ["None"]
         # print(state_xds, intents)
         # field_ids = [None]
-        field_ids = np.arange(read_generic_table(infile, "FIELD").dims["row"])
+        field_ids = np.arange(read_generic_table(in_file, "FIELD").dims["row"])
+
+    return enumerated_product(data_desc_ids, state_ids, field_ids), intents
+
+
+def convert_msv2_to_processing_set(
+    in_file: str,
+    out_file: str,
+    partition_scheme: str = "intent_field",
+    main_chunksize: Union[Dict, str, None] = None,
+    pointing_chunksize: Union[Dict, str, None] = None,
+    compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
+    storage_backend="zarr",
+    parallel: bool = False,
+    overwrite: bool = False,
+):
+    """Convert a Measurement Set v2 into a Processing Set of Measurement Set v4.
+
+    Parameters
+    ----------
+    in_file : str
+        Input MS name.
+    out_file : str
+        Output PS name.
+    partition_scheme : {"ddi_intent_field", "ddi_state_field"}, optional
+        A MS v4 can only contain a single spectral window, polarization setup, intent, and field. Consequently, the MS v2 is partitioned when converting to MS v4.
+        The partition_scheme "ddi_intent_field" gives the largest partition that meets the MS v4 specification. The partition_scheme "ddi_state_field" gives a finer granularity where the data is also partitioned by state (the state partitioning will ensure a single intent).
+        By default, "ddi_intent_field".
+    main_chunksize : Union[Dict, str, None], optional
+        A dictionary that defines the chunk size of the main dataset. Acceptable keys are "time", "baseline", "antenna", "frequency", "polarization". By default, None.
+    pointing_chunksize : Union[Dict, str, None], optional
+        A dictionary that defines the chunk size of the pointing dataset. Acceptable keys are "time", "antenna", "polarization". By default, None.
+    compressor : numcodecs.abc.Codec, optional
+        The Blosc compressor to use when saving the converted data to disk using Zarr, by default numcodecs.Zstd(level=2).
+    storage_backend : {"zarr", "netcdf"}, optional
+        The on-disk format to use. "netcdf" is not yet implemented.
+    parallel : bool, optional
+        Makes use of Dask to execute conversion in parallel, by default False.
+    overwrite : bool, optional
+        Whether to overwrite an existing processing set, by default False.
+    """
+
+    partition_enumerated_product, intents = create_partition_enumerated_product(
+        in_file, partition_scheme
+    )
 
     delayed_list = []
-    partitions = {}
-    cnt = 0
-
-    # for ddi, state, field in itertools.product(data_desc_ids, state_ids, field_ids):
-    #    logging.info("DDI " + str(ddi) + ", STATE " + str(state) + ", FIELD " + str(field))
-
-    for idx, pair in enumerated_product(data_desc_ids, state_ids, field_ids):
+    for idx, pair in partition_enumerated_product:
         ddi, state_id, field_id = pair
-        # logging.debug("DDI " + str(ddi) + ", STATE " + str(state_id) + ", FIELD " + str(field_id))
+        logging.debug(
+            "DDI " + str(ddi) + ", STATE " + str(state_id) + ", FIELD " + str(field_id)
+        )
 
         if partition_scheme == "ddi_intent_field":
-            intent = unique_intents[idx[1]]
+            intent = intents[idx[1]]
         else:
             intent = intents[idx[1]] + "_" + str(state_id)
 
         if parallel:
             delayed_list.append(
                 dask.delayed(convert_and_write_partition)(
-                    infile,
-                    outfile,
+                    in_file,
+                    out_file,
                     intent,
                     ddi,
                     state_id,
                     field_id,
                     ignore_msv2_cols=ignore_msv2_cols,
-                    chunks_on_disk=chunks_on_disk,
+                    main_chunksize=main_chunksize,
                     compressor=compressor,
                     overwrite=overwrite,
                 )
             )
         else:
             convert_and_write_partition(
-                infile,
-                outfile,
+                in_file,
+                out_file,
                 intent,
                 ddi,
                 state_id,
                 field_id,
                 ignore_msv2_cols=ignore_msv2_cols,
-                chunks_on_disk=chunks_on_disk,
+                main_chunksize=main_chunksize,
                 compressor=compressor,
                 storage_backend=storage_backend,
                 overwrite=overwrite,

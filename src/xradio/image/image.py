@@ -1,19 +1,3 @@
-#  CASA Next Generation Infrastructure
-#  Copyright (C) 2021 AUI, Inc. Washington DC, USA
-#
-#  This program is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
 #################################
 #
 # Public interface
@@ -31,10 +15,10 @@ from astropy import units as u
 from typing import Union
 import xarray as xr
 
-warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 
-def read_image(infile:str, chunks:dict={}, verbose:bool=False) -> xr.Dataset:
+def read_image(infile: str, chunks: dict = {}, verbose: bool = False) -> xr.Dataset:
     """
     Read Image (currently only supports casacore images) or zarr to ngCASA image format
     ngCASA image spec is located at
@@ -64,28 +48,30 @@ def read_image(infile:str, chunks:dict={}, verbose:bool=False) -> xr.Dataset:
         from ._util.casacore import __read_casa_image
     except Exception as e:
         emsgs.append(
-            'python-casacore could not be imported, will not try to '
-            f'read as casacore image: {e.args}'
+            "python-casacore could not be imported, will not try to "
+            f"read as casacore image: {e.args}"
         )
         do_casa = False
     if do_casa:
         try:
             return __read_casa_image(infile, chunks, verbose=verbose)
         except Exception as e:
-            emsgs.append(f'image format appears not to be casacore: {e.args}')
+            emsgs.append(f"image format appears not to be casacore: {e.args}")
     try:
         return __read_fits_image(infile, chunks, verbose)
     except Exception as e:
-        emsgs.append(f'image format appears not to be fits {e.args}')
+        emsgs.append(f"image format appears not to be fits {e.args}")
     try:
         return __xds_from_zarr(infile, True)
     except Exception as e:
-        emsgs.append(f'image format appears not to be zarr {e.args}')
-    emsgs.insert(0, f'Unrecognized image format. Supported types are casacore and zarr.\n')
-    raise RuntimeError('\n'.join(emsgs))
+        emsgs.append(f"image format appears not to be zarr {e.args}")
+    emsgs.insert(
+        0, f"Unrecognized image format. Supported types are casacore and zarr.\n"
+    )
+    raise RuntimeError("\n".join(emsgs))
 
 
-def load_image(infile:str, block_des:dict={}) -> xr.Dataset:
+def load_image(infile: str, block_des: dict = {}) -> xr.Dataset:
     """Load an image or portion of an image (subimage) into memory
     :param infile: Path to the input image, currently only casacore images are supported
     :type infile: str, required
@@ -104,21 +90,22 @@ def load_image(infile:str, block_des:dict={}) -> xr.Dataset:
     """
     do_casa = True
     emsgs = []
-    
+
     from ._util.casacore import __read_casa_image
+
     try:
         from ._util.casacore import __read_casa_image
     except Exception as e:
         emsgs.append(
-            'python-casacore could not be imported, will not try to '
-            f'read as casacore image: {e.args}'
+            "python-casacore could not be imported, will not try to "
+            f"read as casacore image: {e.args}"
         )
         do_casa = False
     if do_casa:
         try:
             return __load_casa_image_block(infile, block_des)
         except Exception as e:
-            emsgs.append(f'image format appears not to be casacore: {e.args}')
+            emsgs.append(f"image format appears not to be casacore: {e.args}")
     """
     try:
         return __read_fits_image(infile, chunks, masks, history, verbose)
@@ -128,12 +115,14 @@ def load_image(infile:str, block_des:dict={}) -> xr.Dataset:
     try:
         return __xds_from_zarr(infile, False).isel(block_des)
     except Exception as e:
-        emsgs.append(f'image format appears not to be zarr {e.args}')
-    emsgs.insert(0, f'Unrecognized image format. Supported formats are casacore and zarr.\n')
-    raise RuntimeError('\n'.join(emsgs))
+        emsgs.append(f"image format appears not to be zarr {e.args}")
+    emsgs.insert(
+        0, f"Unrecognized image format. Supported formats are casacore and zarr.\n"
+    )
+    raise RuntimeError("\n".join(emsgs))
 
 
-def write_image(xds:xr.Dataset, imagename:str, out_format:str='casa') -> None:
+def write_image(xds: xr.Dataset, imagename: str, out_format: str = "casa") -> None:
     """Convert xds image to CASA image
     :param xds: XDS to convert
     :type xds: xr.Dataset, required
@@ -143,24 +132,28 @@ def write_image(xds:xr.Dataset, imagename:str, out_format:str='casa') -> None:
     :type out_format: str
     """
     my_format = out_format.lower()
-    if my_format == 'casa':
+    if my_format == "casa":
         __xds_to_casa_image(xds, imagename)
-    elif my_format == 'zarr':
+    elif my_format == "zarr":
         __xds_to_zarr(xds, imagename)
     else:
         raise ValueError(
-            f'Writing to format {out_format} is not supported. '
+            f"Writing to format {out_format} is not supported. "
             'out_format must be either "casa" or "zarr".'
         )
 
 
 def make_empty_sky_image(
-    xds:xr.Dataset, phase_center:Union[list, np.ndarray],
-	image_size:Union[list, np.ndarray], cell_size:Union[list, np.ndarray],
-	chan_coords:Union[list, np.ndarray],
-	pol_coords:Union[list, np.ndarray], time_coords:Union[list, np.ndarray],
-	direction_reference:str='FK5', projection:str='SIN',
-	spectral_reference:str='lsrk'
+    xds: xr.Dataset,
+    phase_center: Union[list, np.ndarray],
+    image_size: Union[list, np.ndarray],
+    cell_size: Union[list, np.ndarray],
+    chan_coords: Union[list, np.ndarray],
+    pol_coords: Union[list, np.ndarray],
+    time_coords: Union[list, np.ndarray],
+    direction_reference: str = "FK5",
+    projection: str = "SIN",
+    spectral_reference: str = "lsrk",
 ) -> xr.Dataset:
     """
     Create an image xarray.Dataset with only coordinates (no datavariables).
@@ -191,8 +184,14 @@ def make_empty_sky_image(
     xarray.Dataset
     """
     return __make_empty_sky_image(
-        xds, phase_center, image_size, cell_size, chan_coords,
-	    pol_coords, time_coords, direction_reference, projection,
-	    spectral_reference
+        xds,
+        phase_center,
+        image_size,
+        cell_size,
+        chan_coords,
+        pol_coords,
+        time_coords,
+        direction_reference,
+        projection,
+        spectral_reference,
     )
-

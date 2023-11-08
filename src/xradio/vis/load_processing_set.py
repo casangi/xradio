@@ -2,10 +2,10 @@ import xarray as xr
 import zarr
 import copy
 import os
-from ._processing_set import _processing_set
+from ._processing_set import processing_set
 
 DIMENSION_KEY = "_ARRAY_DIMENSIONS"  # Used by xarray to store array labeling info in zarr meta data.
-#from xradio._utils._logger import _get_logger
+# from xradio._utils._logger import _get_logger
 
 
 def _get_attrs(zarr_obj):
@@ -18,7 +18,7 @@ def _get_attrs(zarr_obj):
 def _load_ms_xds(
     ps_name, ms_xds_name, slice_dict={}, cache_dir=None, chunk_id=None, date_time=""
 ):
-    #logger = _get_logger()
+    # logger = _get_logger()
     if cache_dir:
         xds_cached_name = (
             os.path.join(cache_dir, ms_xds_name) + "_" + str(chunk_id) + "_" + date_time
@@ -30,11 +30,11 @@ def _load_ms_xds(
                 ms_xds_name=xds_cached_name, slice_dict=slice_dict
             )
 
-            #logger.debug(ms_xds_name + ' chunk ' + str(slice_dict) + ' was found in cache: ' + xds_cached)
+            # logger.debug(ms_xds_name + ' chunk ' + str(slice_dict) + ' was found in cache: ' + xds_cached)
             found_in_cache = True
             return xds, found_in_cache
         except:
-            #logger.debug(xds_cached + ' chunk ' + str(slice_dict) + ' was not found in cache or failed to load. Retrieving chunk from ' + ms_xds_name + ' .')
+            # logger.debug(xds_cached + ' chunk ' + str(slice_dict) + ' was not found in cache or failed to load. Retrieving chunk from ' + ms_xds_name + ' .')
             ms_xds = _load_ms_xds_core(
                 ms_xds_name=os.path.join(ps_name, ms_xds_name), slice_dict=slice_dict
             )
@@ -87,7 +87,7 @@ def _load_no_dask_zarr(zarr_name, slice_dict={}):
     #Should go into general utils.
     """
 
-    #logger = _get_logger()
+    # logger = _get_logger()
     zarr_group = zarr.open_group(store=zarr_name, mode="r")
     group_attrs = _get_attrs(zarr_group)
 
@@ -130,7 +130,7 @@ def load_processing_set(ps_name, sel_parms):
         A dictionary where the keys are the names of the ms_xds's and the values are slice_dicts.
         slice_dicts: A dictionary where the keys are the dimension names and the values are slices.
     """
-    ps = _processing_set()
+    ps = processing_set()
     for name_ms_xds, ms_xds_sel_parms in sel_parms.items():
         ps[name_ms_xds] = _load_ms_xds(ps_name, name_ms_xds, ms_xds_sel_parms)[0]
     return ps

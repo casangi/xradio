@@ -3,8 +3,8 @@ from astropy import units as u
 from astropy.io import fits
 from astropy.time import Time
 from ..common import (
-    __c, __default_freq_info, __doppler_types,
-    __freq_from_vel, __get_xds_dim_order, __image_type
+    _c, _default_freq_info, _doppler_types,
+    _freq_from_vel, _get_xds_dim_order, _image_type
 )
 import copy
 import dask
@@ -16,7 +16,7 @@ from typing import Union
 import xarray as xr
 
 
-def __fits_image_to_xds(
+def _fits_image_to_xds(
     img_full_path:str, chunks:dict, verbose:bool=False
 ) -> dict:
     """
@@ -27,31 +27,31 @@ def __fits_image_to_xds(
     # may also need to pass mode='denywrite'
     # https://stackoverflow.com/questions/35759713/astropy-io-fits-read-row-from-large-fits-file-with-mutliple-hdus
     hdulist = fits.open(img_full_path, memmap=True)
-    attrs, helpers, header = __fits_header_to_xds_attrs(hdulist)
+    attrs, helpers, header = _fits_header_to_xds_attrs(hdulist)
     hdulist.close()
     # avoid keeping reference to mem-mapped fits file
     del hdulist
-    xds = __create_coords(helpers, header)
+    xds = _create_coords(helpers, header)
     sphr_dims = helpers['sphr_dims']
-    ary = __read_image_array(img_full_path, chunks, helpers, verbose)
-    dim_order = __get_xds_dim_order(sphr_dims)
-    xds = __add_sky_or_apeture(xds, ary, dim_order, helpers, sphr_dims)
+    ary = _read_image_array(img_full_path, chunks, helpers, verbose)
+    dim_order = _get_xds_dim_order(sphr_dims)
+    xds = _add_sky_or_apeture(xds, ary, dim_order, helpers, sphr_dims)
     xds.attrs = attrs
-    xds = __add_coord_attrs(xds, helpers)
+    xds = _add_coord_attrs(xds, helpers)
     if helpers['has_multibeam']:
-        xds = __do_multibeam(xds, img_full_path)
+        xds = _do_multibeam(xds, img_full_path)
     return xds
 
 
-def __add_coord_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
-     xds = __add_time_attrs(xds, helpers)
-     xds = __add_freq_attrs(xds, helpers)
-     xds = __add_vel_attrs(xds, helpers)
-     xds = __add_dir_lin_attrs(xds, helpers)
+def _add_coord_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
+     xds = _add_time_attrs(xds, helpers)
+     xds = _add_freq_attrs(xds, helpers)
+     xds = _add_vel_attrs(xds, helpers)
+     xds = _add_dir_lin_attrs(xds, helpers)
      return xds
 
 
-def __add_time_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
+def _add_time_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
      time_coord = xds.coords['time']
      meta = copy.deepcopy(helpers['obsdate'])
      del meta['value']
@@ -63,7 +63,7 @@ def __add_time_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
      return xds
 
 
-def __add_freq_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
+def _add_freq_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
     freq_coord = xds.coords['frequency']
     meta = {}
     if helpers['has_freq']:
@@ -118,25 +118,25 @@ def __add_freq_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
         meta['wcs'] = wcs
     if not meta:
         # this is the default frequency information CASA creates
-        meta = __default_freq_info()
+        meta = _default_freq_info()
     freq_coord.attrs = copy.deepcopy(meta)
     xds['frequency'] = freq_coord
     return xds
 
 
-def __add_vel_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
+def _add_vel_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
     vel_coord = xds.coords['velocity']
     meta = {'unit': 'm/s'}
     if helpers['has_freq']:
         meta['doppler_type'] = helpers['doppler']
     else:
-        meta['doppler_type'] = __doppler_types[0]
+        meta['doppler_type'] = _doppler_types[0]
     vel_coord.attrs = copy.deepcopy(meta)
     xds.coords['velocity'] = vel_coord
     return xds
 
 
-def __add_dir_lin_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
+def _add_dir_lin_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
     if helpers['sphr_dims']:
         for i, name in zip(helpers['dir_axes'], helpers['sphr_axis_names']):
             meta = {
@@ -160,11 +160,11 @@ def __add_dir_lin_attrs(xds:xr.Dataset, helpers:dict) -> xr.Dataset:
     return xds
 
 
-def __is_freq_like(v:str) -> bool:
+def _is_freq_like(v:str) -> bool:
     return v.startswith('FREQ') or v == 'VOPT' or v == 'VRAD'
 
 
-def __fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
+def _fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
     primary = None
     beams = None
     for hdu in hdulist:
@@ -200,7 +200,7 @@ def __fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
             t_axes[1] = i
         elif ax_type == 'STOKES':
             dim_map['polarization'] = i - 1
-        elif __is_freq_like(ax_type):
+        elif _is_freq_like(ax_type):
             dim_map['freq'] = i - 1
             helpers['has_freq'] = True
             helpers['native_type'] = ax_type
@@ -345,8 +345,8 @@ def __fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
     }
     attrs['telescope'] = tel
     helpers['tel_pos'] = tel['position']
-    # TODO complete __make_history_xds when spec has been finalized
-    # attrs['history'] = __make_history_xds(header)
+    # TODO complete _make_history_xds when spec has been finalized
+    # attrs['history'] = _make_history_xds(header)
     exclude = [
         'ALTRPIX', 'ALTRVAL', 'BITPIX', 'BSCALE', 'BTYPE', 'BUNIT',
         'BZERO', 'CASAMBM', 'DATE', 'DATE-OBS', 'EQUINOX', 'EXTEND',
@@ -367,7 +367,7 @@ def __fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
     return attrs, helpers, header
 
 
-def __make_history_xds(header):
+def _make_history_xds(header):
     # TODO complete writing history when we actually have a spec for what
     # the image history is supposed to be, since doing this now may
     # be a waste of time if the final spec turns out to be significantly
@@ -391,7 +391,7 @@ def __make_history_xds(header):
             history_list.pop(i)
 
 
-def __create_coords(helpers, header):
+def _create_coords(helpers, header):
     dir_axes = helpers['dir_axes']
     dim_map = helpers['dim_map']
     sphr_dims = (
@@ -401,12 +401,12 @@ def __create_coords(helpers, header):
     )
     helpers['sphr_dims'] = sphr_dims
     coords = {}
-    coords['time'] = __get_time_values(helpers)
-    coords['polarization'] = __get_pol_values(helpers)
-    coords['frequency'] = __get_freq_values(helpers)
-    coords['velocity'] = (['frequency'], __get_velocity_values(helpers))
+    coords['time'] = _get_time_values(helpers)
+    coords['polarization'] = _get_pol_values(helpers)
+    coords['frequency'] = _get_freq_values(helpers)
+    coords['velocity'] = (['frequency'], _get_velocity_values(helpers))
     if len(sphr_dims) > 0:
-        l_world, m_world = __compute_world_sph_dims(
+        l_world, m_world = _compute_world_sph_dims(
             sphr_dims, dir_axes, dim_map, helpers
         )
         coords[l_world[0]] = (['l', 'm'], l_world[1])
@@ -414,18 +414,18 @@ def __create_coords(helpers, header):
         helpers['sphr_axis_names'] = (l_world[0], m_world[0])
     else:
         # Fourier image
-        coords['u'], coords['v'] = __get_uv_values(helpers)
+        coords['u'], coords['v'] = _get_uv_values(helpers)
     xds = xr.Dataset(coords=coords)
     # attrs['xds'] = xds
     # return attrs
     return xds
 
 
-def __get_time_values(helpers):
+def _get_time_values(helpers):
     return [ helpers['obsdate']['value'] ]
 
 
-def __get_pol_values(helpers):
+def _get_pol_values(helpers):
     # as mapped in casacore Stokes.h
     stokes_map = [
         'Undefined', 'I', 'Q', 'U', 'V',
@@ -450,7 +450,7 @@ def __get_pol_values(helpers):
         return ['I']
 
 
-def __get_freq_values(helpers:dict) -> list:
+def _get_freq_values(helpers:dict) -> list:
     vals = []
     ctype = helpers['ctype']
     if 'FREQ' in ctype:
@@ -481,7 +481,7 @@ def __get_freq_values(helpers:dict) -> list:
         crpix = helpers['crpix'][v_idx]
         cdelt = helpers['cdelt'][v_idx]
         cunit = helpers['cunit'][v_idx]
-        freq, vel =  __freq_from_vel(
+        freq, vel =  _freq_from_vel(
             crval, cdelt, crpix, cunit, 'Z',
             helpers['shape'][v_idx], restfreq
         )
@@ -497,19 +497,19 @@ def __get_freq_values(helpers:dict) -> list:
         return [1420e6]
 
 
-def __get_velocity_values(helpers:dict) -> list:
+def _get_velocity_values(helpers:dict) -> list:
     if 'velocity' in helpers:
         return helpers['velocity'].to(u.m/u.s).value
     elif 'frequency' in helpers:
         if helpers['doppler'] == 'Z':
             # (-1 + f0/f) = v/c
-            v = (helpers['restfreq']*u.Hz/helpers['frequency'].to('Hz').value - 1) * __c
+            v = (helpers['restfreq']*u.Hz/helpers['frequency'].to('Hz').value - 1) * _c
             v = v.to(u.m/u.s)
             helpers['velocity'] = v
             return v.value
 
 
-def __compute_world_sph_dims(
+def _compute_world_sph_dims(
     sphr_dims:list, dir_axes:list, dim_map:dict, helpers:dict
 ) -> list:
     shape = helpers['shape']
@@ -560,7 +560,7 @@ def __compute_world_sph_dims(
     return [[long_axis_name, long], [lat_axis_name, lat]]
 
 
-def __do_multibeam(xds:xr.Dataset, imname:str) -> xr.Dataset:
+def _do_multibeam(xds:xr.Dataset, imname:str) -> xr.Dataset:
     """Only run if we are sure there are multiple beams"""
     hdulist = fits.open(imname)
     for hdu in hdulist:
@@ -594,7 +594,7 @@ def __do_multibeam(xds:xr.Dataset, imname:str) -> xr.Dataset:
     )
 
 
-def __get_uv_values(helpers:dict) -> tuple:
+def _get_uv_values(helpers:dict) -> tuple:
     shape = helpers['shape']
     ctype = helpers['ctype']
     unit = helpers['cunit']
@@ -618,14 +618,14 @@ def __get_uv_values(helpers:dict) -> tuple:
     return u, v
 
 
-def __add_sky_or_apeture(
+def _add_sky_or_apeture(
     xds:xr.Dataset, ary:Union[np.ndarray, da.array],
     dim_order:list, helpers:dict, has_sph_dims:bool
 ) -> xr.Dataset:
     xda = xr.DataArray(ary, dims=dim_order)
     image_type = helpers['btype']
     unit = helpers['bunit']
-    xda.attrs[__image_type] = image_type
+    xda.attrs[_image_type] = image_type
     xda.attrs['unit'] = unit
     name = 'sky' if has_sph_dims else 'apeture'
     xda = xda.rename(name)
@@ -639,20 +639,20 @@ def __add_sky_or_apeture(
     return xds
 
 
-def __read_image_array(
+def _read_image_array(
     img_full_path:str, chunks:dict, helpers:dict, verbose:bool
 ) -> da.array:
     # memmap = True allows only part of data to be loaded into memory
     # may also need to pass mode='denywrite'
     # https://stackoverflow.com/questions/35759713/astropy-io-fits-read-row-from-large-fits-file-with-mutliple-hdus
     if isinstance(chunks, dict):
-        mychunks = __get_chunk_list(chunks, helpers)
+        mychunks = _get_chunk_list(chunks, helpers)
     else:
         raise ValueError(
             f'incorrect type {type(chunks)} for parameter chunks. Must be '
             'dict'
         )
-    transpose_list, new_axes = __get_transpose_list(helpers)
+    transpose_list, new_axes = _get_transpose_list(helpers)
     data_type = helpers['dtype']
     rshape = helpers['shape'][::-1]
     full_chunks = mychunks + tuple([1 for rr in range(5) if rr >= len(mychunks)])
@@ -677,7 +677,7 @@ def __read_image_array(
                             [d0len, d1len, d2len, d3len, d4len][:len(rshape)]
                         )
                         starts = tuple([d0, d1, d2, d3, d4][:len(rshape)])
-                        delayed_array = dask.delayed(__read_image_chunk)(
+                        delayed_array = dask.delayed(_read_image_chunk)(
                             img_full_path, shapes, starts
                         )
                         d4slices += [
@@ -706,7 +706,7 @@ def __read_image_array(
     return ary.transpose(transpose_list)
 
 
-def __get_chunk_list(chunks:dict, helpers:dict) -> tuple:
+def _get_chunk_list(chunks:dict, helpers:dict) -> tuple:
     ret_list = list(helpers['shape'])[::-1]
     axis = 0
     ctype = helpers['ctype']
@@ -729,7 +729,7 @@ def __get_chunk_list(chunks:dict, helpers:dict) -> tuple:
     return tuple(ret_list)
 
 
-def __get_transpose_list(helpers:dict) -> tuple:
+def _get_transpose_list(helpers:dict) -> tuple:
     ctype = helpers['ctype']
     transpose_list = 5 * [-1]
     # time axis
@@ -768,7 +768,7 @@ def __get_transpose_list(helpers:dict) -> tuple:
     return transpose_list, new_axes
 
 
-def __read_image_chunk(img_full_path, shapes:tuple, starts:tuple) -> np.ndarray:
+def _read_image_chunk(img_full_path, shapes:tuple, starts:tuple) -> np.ndarray:
     hdulist = fits.open(img_full_path, memmap=True)
     s = []
     for start, length in zip(starts, shapes):

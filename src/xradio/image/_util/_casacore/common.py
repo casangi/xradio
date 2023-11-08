@@ -2,14 +2,14 @@ from casacore import images
 from contextlib import contextmanager
 from typing import Dict, Generator, List
 
-__active_mask:str = 'active_mask'
-__native_types:List[str] = ['FREQ', 'VRAD', 'VOPT', 'BETA', 'WAVE', 'AWAV']
-__object_name:str = 'object_name'
-__pointing_center:str = 'pointing_center'
+_active_mask:str = 'active_mask'
+_native_types:List[str] = ['FREQ', 'VRAD', 'VOPT', 'BETA', 'WAVE', 'AWAV']
+_object_name:str = 'object_name'
+_pointing_center:str = 'pointing_center'
 
 
 @contextmanager
-def __open_image_ro(infile:str) -> Generator[images.image, None, None]:
+def _open_image_ro(infile:str) -> Generator[images.image, None, None]:
     image = images.image(infile)
     try:
         yield image
@@ -20,7 +20,7 @@ def __open_image_ro(infile:str) -> Generator[images.image, None, None]:
 
 
 @contextmanager
-def __open_new_image(outfile:str, shape:List[int]) -> Generator[images.image, None, None]:
+def _open_new_image(outfile:str, shape:List[int]) -> Generator[images.image, None, None]:
     # new image will be opened rw
     image = images.image(outfile, shape=shape)
     try:

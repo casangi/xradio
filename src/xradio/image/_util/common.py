@@ -5,20 +5,20 @@ import numpy as np
 import xarray as xr
 
 
-__c = 2.99792458e+08 * u.m/u.s
+_c = 2.99792458e+08 * u.m/u.s
 # OPTICAL = Z
-__doppler_types = ['RADIO', 'Z', 'RATIO', 'BETA', 'GAMMA']
-__image_type = 'image_type'
+_doppler_types = ['RADIO', 'Z', 'RATIO', 'BETA', 'GAMMA']
+_image_type = 'image_type'
 
 
-def __get_xds_dim_order(has_sph:bool) -> list:
+def _get_xds_dim_order(has_sph:bool) -> list:
     dimorder = ['time', 'polarization', 'frequency']
     dir_lin = ['l', 'm'] if has_sph else ['u', 'v']
     dimorder.extend(dir_lin)
     return dimorder
 
 
-def __coords_to_numpy(xds):
+def _coords_to_numpy(xds):
     for k, v in xds.coords.items():
         if dask.is_dask_collection(v):
             attrs = xds[k].attrs
@@ -27,12 +27,12 @@ def __coords_to_numpy(xds):
     return xds
 
 
-def __dask_arrayize(xds):
+def _dask_arrayize(xds):
     """
     If necessary, change coordinates to numpy arrays and data
     variables to dask arrays
     """
-    xds = __coords_to_numpy(xds)
+    xds = _coords_to_numpy(xds)
     for k, v in xds.data_vars.items():
         if not dask.is_dask_collection(v):
             attrs = xds[k].attrs
@@ -42,12 +42,12 @@ def __dask_arrayize(xds):
             xds[k].attrs = attrs
     for k, v in xds.attrs.items():
         if isinstance(v, xr.Dataset):
-            xds.attrs[k] = __dask_arrayize(v)
+            xds.attrs[k] = _dask_arrayize(v)
     return xds
 
 
-def __numpy_arrayize(xds):
-    xds = __coords_to_numpy(xds)
+def _numpy_arrayize(xds):
+    xds = _coords_to_numpy(xds)
     for k, v in xds.data_vars.items():
         if dask.is_dask_collection(v):
             attrs = xds[k].attrs
@@ -56,11 +56,11 @@ def __numpy_arrayize(xds):
             xds[k].attrs = attrs
     for k, v in xds.attrs.items():
         if isinstance(v, xr.Dataset):
-            xds.attrs[k] = __dask_arrayize(v)
+            xds.attrs[k] =_dask_arrayize(v)
     return xds
 
 
-def __default_freq_info() -> dict():
+def _default_freq_info() -> dict():
     return {
         'conversion': {
             'direction': {
@@ -93,7 +93,7 @@ def __default_freq_info() -> dict():
     }
 
 
-def __freq_from_vel(
+def _freq_from_vel(
     crval:float, cdelt:float, crpix:float, cunit:str, ctype:str,
     nchan:float, restfreq:float
 ) -> tuple:
@@ -114,10 +114,10 @@ def __freq_from_vel(
     }
     uctype = ctype.upper()
     if uctype == 'Z' or uctype == 'OPTICAL':
-        freq = restfreq/(np.array(vel.value) * vel.unit/__c + 1)
+        freq = restfreq/(np.array(vel.value) * vel.unit/_c + 1)
         freq = freq.to(u.Hz)
-        fcrval = restfreq/(crval * vel.unit/__c + 1)
-        fcdelt = -restfreq/__c/(crval*vel.unit/__c + 1)**2*cdelt*vel.unit
+        fcrval = restfreq/(crval * vel.unit/_c + 1)
+        fcdelt = -restfreq/_c/(crval*vel.unit/_c + 1)**2*cdelt*vel.unit
         f_dict = {
             'value': freq.value, 'unit': 'Hz', 'crval': fcrval.to(u.Hz).value,
             'cdelt': fcdelt.to(u.Hz).value, 'crpix': crpix

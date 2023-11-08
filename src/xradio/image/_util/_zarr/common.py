@@ -1,7 +1,7 @@
 import numpy as np
 
 
-__np_types = {
+_np_types = {
     'complex128': np.complex128, 'complex256': np.complex256,
     'complex64': np.complex64,
     'float128': np.float128, 'float64': np.float64,
@@ -10,5 +10,5 @@ __np_types = {
 }
 
 
-__top_level_sub_xds = '__attrs_xds'
+_top_level_sub_xds = '_attrs_xds'
 

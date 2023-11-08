@@ -2,9 +2,9 @@ from astropy.wcs import WCS
 import numpy as np
 import xarray as xr
 from typing import Union
-from .common import __c
+from .common import _c
 
-def __make_empty_sky_image(
+def _make_empty_sky_image(
     xds:xr.Dataset, phase_center:Union[list, np.ndarray],
 	image_size:Union[list, np.ndarray], cell_size:Union[list, np.ndarray],
 	chan_coords:Union[list, np.ndarray],
@@ -41,7 +41,7 @@ def __make_empty_sky_image(
         chan_coords = [ chan_coords ]
     chan_coords = np.array(chan_coords, dtype=np.float64)
     restfreq = chan_coords[len(chan_coords)//2]
-    vel = (1 - chan_coords/restfreq) * __c
+    vel = (1 - chan_coords/restfreq) * _c
     if not isinstance(time_coords, list) and not isinstance(time_coords, np.ndarray):
         time_coords = [ time_coords ]
     time_coords = np.array(time_coords, dtype=np.float64)

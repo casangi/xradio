@@ -2,7 +2,7 @@ import xarray as xr
 import zarr
 import copy
 import os
-from ._processing_set import _processing_set
+from ._processing_set import processing_set
 
 DIMENSION_KEY = "_ARRAY_DIMENSIONS"  # Used by xarray to store array labeling info in zarr meta data.
 # from xradio._utils._logger import _get_logger
@@ -130,7 +130,7 @@ def load_processing_set(ps_name, sel_parms):
         A dictionary where the keys are the names of the ms_xds's and the values are slice_dicts.
         slice_dicts: A dictionary where the keys are the dimension names and the values are slices.
     """
-    ps = _processing_set()
+    ps = processing_set()
     for name_ms_xds, ms_xds_sel_parms in sel_parms.items():
         ps[name_ms_xds] = _load_ms_xds(ps_name, name_ms_xds, ms_xds_sel_parms)[0]
     return ps

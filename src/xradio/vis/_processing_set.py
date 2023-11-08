@@ -1,7 +1,7 @@
 import pandas as pd
 
 
-class _processing_set(dict):
+class processing_set(dict):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 

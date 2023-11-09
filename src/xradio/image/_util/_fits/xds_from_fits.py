@@ -164,14 +164,60 @@ def _is_freq_like(v:str) -> bool:
     return v.startswith('FREQ') or v == 'VOPT' or v == 'VRAD'
 
 
-def _xds_direction_attrs_from_header(helpers:dict) -> dict:
-    dir_axes = None
+def _xds_direction_attrs_from_header(helpers:dict, header) -> dict:
+    # helpers is modified in place, headers is not modified
+    t_axes = helpers['t_axes']
+    p0 = header[f'CTYPE{t_axes[0]}'][-3:]
+    p1 = header[f'CTYPE{t_axes[1]}'][-3:]
+    if p0 != p1:
+        raise RuntimeError(
+            f'Projections for direction axes ({p0}, {p1}) differ, but they '
+            'must be the same'
+        )
+    direction = {}
+    direction['projection'] = p0
+    helpers['projection'] = p0
+    ref_sys = header['RADESYS']
+    ref_eqx = header['EQUINOX']
+    if ref_sys == 'FK5' and ref_eqx == 2000:
+        ref_eqx = 'J2000'
+    helpers['ref_sys'] = ref_sys
+    helpers['ref_eqx'] = ref_eqx
+    # fits does not support conversion frames
+    direction['conversion_system'] = ref_sys
+    direction['conversion_equinox'] = ref_eqx
+    direction['frame'] = ref_sys
+    direction['equinox'] = ref_eqx
+    direction['units'] = ['rad', 'rad']
+    direction['reference_value'] = np.array([0.0, 0.0])
+    dir_axes = helpers['dir_axes']
+    for i in dir_axes:
+        x = helpers['crval'][i] * u.Unit(_get_unit(helpers['cunit'][i]))
+        x = x.to('rad')
+        direction['reference_value'][i] = x.value
+    direction['type'] = 'sky_coord'
+    deg_to_rad = np.pi/180.0
+    direction['latpole'] = {
+        'value': header['LATPOLE'] * deg_to_rad,
+        'unit': 'rad'
+    }
+    direction['longpole'] = {
+        'value': header['LONPOLE'] * deg_to_rad,
+        'unit': 'rad'
+    }
+    pc = np.zeros([2,2])
+    for i in (0, 1):
+        for j in (0, 1):
+            # dir_axes are now 0-based, but fits needs 1-based
+            pc[i][j] = header[f'PC{dir_axes[i]+1}_{dir_axes[j]+1}']
+    direction['pc'] = pc
+    # Is there really no fits header parameter for projection_parameters?
+    direction['projection_parameters'] = np.array([0.0, 0.0])
+    return direction
 
 
 def _fits_header_c_values_to_metadata(helpers:dict, header) -> None:
     # The helpers dict is modified in place. header is not modified
-    # t_axes = np.array([0,0])
-    # dim_map = {}
     ctypes = []
     shape = []
     crval = []
@@ -179,21 +225,6 @@ def _fits_header_c_values_to_metadata(helpers:dict, header) -> None:
     crpix = []
     cunit = []
     for i in range(1, helpers['naxes']+1):
-        """
-        ax_type = header[f'CTYPE{i}']
-        if ax_type.startswith('RA-'):
-            t_axes[0] = i
-        elif ax_type.startswith('DEC-'):
-            t_axes[1] = i
-        elif ax_type == 'STOKES':
-            dim_map['polarization'] = i - 1
-        elif _is_freq_like(ax_type):
-            dim_map['freq'] = i - 1
-            helpers['has_freq'] = True
-            helpers['native_type'] = ax_type
-        else:
-            raise RuntimeError(f'{ax_type} is an unsupported axis')
-        """
         ax_type = header[f'CTYPE{i}']
         ctypes.append(ax_type)
         shape.append(header[f'NAXIS{i}'])
@@ -202,7 +233,6 @@ def _fits_header_c_values_to_metadata(helpers:dict, header) -> None:
         # FITS 1-based to python 0-based
         crpix.append(header[f'CRPIX{i}'] - 1)
         cunit.append(header[f'CUNIT{i}'])
-    # helpers['t_axes'] = t_axes
     helpers['ax_type'] = ax_type
     helpers['shape'] = shape
     helpers['ctype'] = ctypes
@@ -225,7 +255,7 @@ def _fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
     if not primary:
         raise RuntimeError(f'No PRIMARY HDU found in fits file')
     header = primary.header
-    dir_axes = None
+    # dir_axes = None
     helpers = {}
     attrs = {}
     naxes = header.get('NAXIS')
@@ -248,12 +278,12 @@ def _fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
             helpers['native_type'] = ax_type
         else:
             raise RuntimeError(f'{ax_type} is an unsupported axis')
+    helpers['t_axes'] = t_axes
     _fits_header_c_values_to_metadata(helpers, header)
     if 'RESTFRQ' in header:
         helpers['restfreq'] = header['RESTFRQ']
     if 'SPECSYS' in header:
         helpers['specsys'] = header['SPECSYS']
-    # t_axes = helpers['t_axes']
     if (t_axes > 0).all():
         dir_axes = t_axes[:]
         dir_axes = dir_axes - 1
@@ -264,52 +294,7 @@ def _fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
     else:
         raise RuntimeError('Could not find both direction axes')
     if dir_axes is not None:
-        p0 = header[f'CTYPE{t_axes[0]}'][-3:]
-        p1 = header[f'CTYPE{t_axes[1]}'][-3:]
-        if p0 != p1:
-            raise RuntimeError(
-                f'Projections for direction axes ({p0}, {p1}) differ, but they '
-                'must be the same'
-            )
-        direction = {}
-        direction['projection'] = p0
-        helpers['projection'] = p0
-        ref_sys = header['RADESYS']
-        ref_eqx = header['EQUINOX']
-        if ref_sys == 'FK5' and ref_eqx == 2000:
-            ref_eqx = 'J2000'
-        helpers['ref_sys'] = ref_sys
-        helpers['ref_eqx'] = ref_eqx
-        # fits does not support conversion frames
-        direction['conversion_system'] = ref_sys
-        direction['conversion_equinox'] = ref_eqx
-        direction['frame'] = ref_sys
-        direction['equinox'] = ref_eqx
-        direction['units'] = ['rad', 'rad']
-        direction['reference_value'] = np.array([0.0, 0.0])
-        for i in dir_axes:
-            x = helpers['crval'][i] * u.Unit(_get_unit(helpers['cunit'][i]))
-            x = x.to('rad')
-            direction['reference_value'][i] = x.value
-        direction['type'] = 'sky_coord'
-        deg_to_rad = np.pi/180.0
-        direction['latpole'] = {
-            'value': header['LATPOLE'] * deg_to_rad,
-            'unit': 'rad'
-        }
-        direction['longpole'] = {
-            'value': header['LONPOLE'] * deg_to_rad,
-            'unit': 'rad'
-        }
-        pc = np.zeros([2,2])
-        for i in (0, 1):
-            for j in (0, 1):
-                # dir_axes are now 0-based, but fits needs 1-based
-                pc[i][j] = header[f'PC{dir_axes[i]+1}_{dir_axes[j]+1}']
-        direction['pc'] = pc
-        # Is there really no fits header parameter for projection_parameters?
-        direction['projection_parameters'] = np.array([0.0, 0.0])
-        attrs['direction'] = direction
+        attrs['direction'] = _xds_direction_attrs_from_header(helpers, header)
     # FIXME read fits data in chunks in case all data too large to hold in memory
     has_mask = da.any(da.isnan(primary.data)).compute()
     attrs['active_mask'] = 'mask0' if has_mask else None

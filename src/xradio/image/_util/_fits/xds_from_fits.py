@@ -256,7 +256,7 @@ def _fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
         direction['equinox'] = ref_eqx
         direction['units'] = ['rad', 'rad']
         direction['reference_value'] = np.array([0.0, 0.0])
-        for i in [0, 1]:
+        for i in dir_axes:
             x = crval[i] * u.Unit(_get_unit(cunit[i]))
             x = x.to('rad')
             direction['reference_value'][i] = x.value
@@ -362,8 +362,8 @@ def _fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
         'VELREF'
     ]
     regex = r'|'.join([
-        '^NAXIS\d?$', '^CRVAL\d$', '^CRPIX\d$', '^CTYPE\d$', '^CDELT\d$',
-        '^CUNIT\d$', '^OBSGEO-(X|Y|Z)$', '^P(C|V)\d_\d$'
+        '^NAXIS\\d?$', '^CRVAL\\d$', '^CRPIX\\d$', '^CTYPE\\d$', '^CDELT\\d$',
+        '^CUNIT\\d$', '^OBSGEO-(X|Y|Z)$', '^P(C|V)\\d_\\d$'
     ])
     user = {}
     for (k, v) in header.items():

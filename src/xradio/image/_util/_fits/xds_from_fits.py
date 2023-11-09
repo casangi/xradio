@@ -164,6 +164,54 @@ def _is_freq_like(v:str) -> bool:
     return v.startswith('FREQ') or v == 'VOPT' or v == 'VRAD'
 
 
+def _xds_direction_attrs_from_header(helpers:dict) -> dict:
+    dir_axes = None
+
+
+def _fits_header_c_values_to_metadata(helpers:dict, header) -> None:
+    # The helpers dict is modified in place. header is not modified
+    # t_axes = np.array([0,0])
+    # dim_map = {}
+    ctypes = []
+    shape = []
+    crval = []
+    cdelt = []
+    crpix = []
+    cunit = []
+    for i in range(1, helpers['naxes']+1):
+        """
+        ax_type = header[f'CTYPE{i}']
+        if ax_type.startswith('RA-'):
+            t_axes[0] = i
+        elif ax_type.startswith('DEC-'):
+            t_axes[1] = i
+        elif ax_type == 'STOKES':
+            dim_map['polarization'] = i - 1
+        elif _is_freq_like(ax_type):
+            dim_map['freq'] = i - 1
+            helpers['has_freq'] = True
+            helpers['native_type'] = ax_type
+        else:
+            raise RuntimeError(f'{ax_type} is an unsupported axis')
+        """
+        ax_type = header[f'CTYPE{i}']
+        ctypes.append(ax_type)
+        shape.append(header[f'NAXIS{i}'])
+        crval.append(header[f'CRVAL{i}'])
+        cdelt.append(header[f'CDELT{i}'])
+        # FITS 1-based to python 0-based
+        crpix.append(header[f'CRPIX{i}'] - 1)
+        cunit.append(header[f'CUNIT{i}'])
+    # helpers['t_axes'] = t_axes
+    helpers['ax_type'] = ax_type
+    helpers['shape'] = shape
+    helpers['ctype'] = ctypes
+    helpers['crval'] = crval
+    helpers['cdelt'] = cdelt
+    helpers['crpix'] = crpix
+    helpers['cunit'] = cunit
+
+
 def _fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
     primary = None
     beams = None
@@ -176,8 +224,8 @@ def _fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
             raise RuntimeError(f'Unknown HDU name {hdu.name}')
     if not primary:
         raise RuntimeError(f'No PRIMARY HDU found in fits file')
-    dir_axes = None
     header = primary.header
+    dir_axes = None
     helpers = {}
     attrs = {}
     naxes = header.get('NAXIS')
@@ -185,12 +233,6 @@ def _fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
     # fits indexing starts at 1, not 0
     t_axes = np.array([0,0])
     dim_map = {}
-    ctypes = []
-    shape = []
-    crval = []
-    cdelt = []
-    crpix = []
-    cunit = []
     helpers['has_freq'] = False
     for i in range(1, naxes+1):
         ax_type = header[f'CTYPE{i}']
@@ -206,23 +248,12 @@ def _fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
             helpers['native_type'] = ax_type
         else:
             raise RuntimeError(f'{ax_type} is an unsupported axis')
-        ctypes.append(ax_type)
-        shape.append(header[f'NAXIS{i}'])
-        crval.append(header[f'CRVAL{i}'])
-        cdelt.append(header[f'CDELT{i}'])
-        # FITS 1-based to python 0-based
-        crpix.append(header[f'CRPIX{i}'] - 1)
-        cunit.append(header[f'CUNIT{i}'])
-    helpers['ctype'] = ctypes
-    helpers['shape'] = shape
-    helpers['crval'] = crval
-    helpers['cdelt'] = cdelt
-    helpers['crpix'] = crpix
-    helpers['cunit'] = cunit
+    _fits_header_c_values_to_metadata(helpers, header)
     if 'RESTFRQ' in header:
         helpers['restfreq'] = header['RESTFRQ']
     if 'SPECSYS' in header:
         helpers['specsys'] = header['SPECSYS']
+    # t_axes = helpers['t_axes']
     if (t_axes > 0).all():
         dir_axes = t_axes[:]
         dir_axes = dir_axes - 1
@@ -257,7 +288,7 @@ def _fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
         direction['units'] = ['rad', 'rad']
         direction['reference_value'] = np.array([0.0, 0.0])
         for i in dir_axes:
-            x = crval[i] * u.Unit(_get_unit(cunit[i]))
+            x = helpers['crval'][i] * u.Unit(_get_unit(helpers['cunit'][i]))
             x = x.to('rad')
             direction['reference_value'][i] = x.value
         direction['type'] = 'sky_coord'

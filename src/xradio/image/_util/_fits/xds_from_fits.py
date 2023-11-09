@@ -241,6 +241,26 @@ def _fits_header_c_values_to_metadata(helpers:dict, header) -> None:
     helpers['crpix'] = crpix
     helpers['cunit'] = cunit
 
+def _get_telescope_metadata(helpers:dict, header) -> dict:
+    # The helpers dict is modified in place. header is not modified
+    tel = {}
+    tel['name'] = header['TELESCOP']
+    x = header['OBSGEO-X']
+    y = header['OBSGEO-Y']
+    z = header['OBSGEO-Z']
+    xyz = np.array([x, y, z])
+    r = np.sqrt(np.sum(xyz*xyz))
+    lat = np.arcsin(z/r)
+    long = np.arctan2(y, x)
+    tel['position'] = {
+        'type': 'position', 'refer': 'ITRF',
+        'm2': {'value': r, 'unit': 'm'},
+        'm1': {'unit': 'rad', 'value': lat},
+        'm0': {'unit': 'rad', 'value': long}
+    }
+    helpers['tel_pos'] = tel['position']
+    return tel
+
 
 def _fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
     primary = None
@@ -351,23 +371,7 @@ def _fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
         'value': np.array([pc_long, pc_lat]), 'initial': True
     }
     attrs['description'] = None
-    tel = {}
-    tel['name'] = header.get('TELESCOP')
-    x = header.get('OBSGEO-X')
-    y = header.get('OBSGEO-Y')
-    z = header.get('OBSGEO-Z')
-    xyz = np.array([x, y, z])
-    r = np.sqrt(np.sum(xyz*xyz))
-    lat = np.arcsin(z/r)
-    long = np.arctan2(y, x)
-    tel['position'] = {
-        'type': 'position', 'refer': 'ITRF',
-        'm2': {'value': r, 'unit': 'm'},
-        'm1': {'unit': 'rad', 'value': lat},
-        'm0': {'unit': 'rad', 'value': long}
-    }
-    attrs['telescope'] = tel
-    helpers['tel_pos'] = tel['position']
+    attrs['telescope'] = _get_telescope_metadata(helpers, header)
     # TODO complete _make_history_xds when spec has been finalized
     # attrs['history'] = _make_history_xds(header)
     exclude = [

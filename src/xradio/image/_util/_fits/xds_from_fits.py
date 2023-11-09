@@ -280,29 +280,53 @@ def _pointing_center_to_metadata(helpers: dict, header) -> dict:
     }
 
 
-def _fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
-    primary = None
-    beams = None
-    for hdu in hdulist:
-        if hdu.name == 'PRIMARY':
-            primary = hdu
-        elif hdu.name == 'BEAMS':
-            beams = hdu
-        else:
-            raise RuntimeError(f'Unknown HDU name {hdu.name}')
-    if not primary:
-        raise RuntimeError(f'No PRIMARY HDU found in fits file')
-    header = primary.header
-    # dir_axes = None
-    helpers = {}
-    attrs = {}
-    naxes = header.get('NAXIS')
-    helpers['naxes'] = naxes
-    # fits indexing starts at 1, not 0
+def _user_attrs_from_header(header) -> dict:
+    # header is not modified
+    exclude = [
+        'ALTRPIX', 'ALTRVAL', 'BITPIX', 'BSCALE', 'BTYPE', 'BUNIT',
+        'BZERO', 'CASAMBM', 'DATE', 'DATE-OBS', 'EQUINOX', 'EXTEND',
+        'HISTORY', 'LATPOLE', 'LONPOLE', 'OBSERVER', 'ORIGIN', 'TELESCOP',
+        'OBJECT', 'RADESYS', 'RESTFRQ', 'SIMPLE', 'SPECSYS', 'TIMESYS',
+        'VELREF'
+    ]
+    regex = r'|'.join([
+        '^NAXIS\\d?$', '^CRVAL\\d$', '^CRPIX\\d$', '^CTYPE\\d$', '^CDELT\\d$',
+        '^CUNIT\\d$', '^OBSGEO-(X|Y|Z)$', '^P(C|V)\\d_\\d$'
+    ])
+    user = {}
+    for (k, v) in header.items():
+        if re.search(regex, k) or k in exclude:
+            continue
+        user[k.lower()] = v
+    return user
+
+
+def _beam_attr_from_header(helpers:dict, header) -> Union[dict, str, None]:
+    # The helpers dict is modified in place. header is not modified
+    helpers['has_multibeam'] = False
+    if 'BMAJ' in header:
+        # single global beam
+        return {
+            'bmaj': {'unit': 'arcsec', 'value': header['BMAJ']},
+            'bmin': {'unit': 'arcsec', 'value': header['BMIN']},
+            'positionangle': {'unit': 'arcsec', 'value': header['BPA']}
+        }
+    elif 'CASAMBM' in header and header['CASAMBM']:
+        # multi-beam
+        helpers['has_multibeam'] = True
+        return 'mb'
+    else:
+        # no beam
+        return None
+
+
+def _create_dim_map(helpers:dict, header) -> dict:
+    # The helpers dict is modified in place. header is not modified
     t_axes = np.array([0,0])
     dim_map = {}
     helpers['has_freq'] = False
-    for i in range(1, naxes+1):
+    # fits indexing starts at 1, not 0
+    for i in range(1, helpers['naxes']+1):
         ax_type = header[f'CTYPE{i}']
         if ax_type.startswith('RA-'):
             t_axes[0] = i
@@ -317,11 +341,34 @@ def _fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
         else:
             raise RuntimeError(f'{ax_type} is an unsupported axis')
     helpers['t_axes'] = t_axes
+    helpers['dim_map'] = dim_map
+    return dim_map
+
+
+def _fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
+    primary = None
+    beams = None
+    for hdu in hdulist:
+        if hdu.name == 'PRIMARY':
+            primary = hdu
+        elif hdu.name == 'BEAMS':
+            beams = hdu
+        else:
+            raise RuntimeError(f'Unknown HDU name {hdu.name}')
+    if not primary:
+        raise RuntimeError(f'No PRIMARY HDU found in fits file')
+    header = primary.header
+    helpers = {}
+    attrs = {}
+    naxes = header['NAXIS']
+    helpers['naxes'] = naxes
+    dim_map = _create_dim_map(helpers, header)
     _fits_header_c_values_to_metadata(helpers, header)
     if 'RESTFRQ' in header:
         helpers['restfreq'] = header['RESTFRQ']
     if 'SPECSYS' in header:
         helpers['specsys'] = header['SPECSYS']
+    t_axes = helpers['t_axes']
     if (t_axes > 0).all():
         dir_axes = t_axes[:]
         dir_axes = dir_axes - 1
@@ -337,20 +384,9 @@ def _fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
     has_mask = da.any(da.isnan(primary.data)).compute()
     attrs['active_mask'] = 'mask0' if has_mask else None
     helpers['has_mask'] = has_mask
-    helpers['has_multibeam'] = False
-    if 'BMAJ' in header:
-        # single global beam
-        attrs['beam'] = {
-            'bmaj': {'unit': 'arcsec', 'value': header['BMAJ']},
-            'bmin': {'unit': 'arcsec', 'value': header['BMIN']},
-            'positionangle': {'unit': 'arcsec', 'value': header['BPA']}
-        }
-    elif 'CASAMBM' in header and header['CASAMBM']:
-        # multi-beam
-        helpers['has_multibeam'] = True
-    else:
-        # no beam
-        attrs['beam'] = None
+    beam = _beam_attr_from_header(helpers, header)
+    if beam != 'mb':
+        attrs['beam'] = beam
     if 'BITPIX' in header:
         v = abs(header['BITPIX'])
         if v == 32:
@@ -376,23 +412,7 @@ def _fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
     attrs['telescope'] = _get_telescope_metadata(helpers, header)
     # TODO complete _make_history_xds when spec has been finalized
     # attrs['history'] = _make_history_xds(header)
-    exclude = [
-        'ALTRPIX', 'ALTRVAL', 'BITPIX', 'BSCALE', 'BTYPE', 'BUNIT',
-        'BZERO', 'CASAMBM', 'DATE', 'DATE-OBS', 'EQUINOX', 'EXTEND',
-        'HISTORY', 'LATPOLE', 'LONPOLE', 'OBSERVER', 'ORIGIN', 'TELESCOP',
-        'OBJECT', 'RADESYS', 'RESTFRQ', 'SIMPLE', 'SPECSYS', 'TIMESYS',
-        'VELREF'
-    ]
-    regex = r'|'.join([
-        '^NAXIS\\d?$', '^CRVAL\\d$', '^CRPIX\\d$', '^CTYPE\\d$', '^CDELT\\d$',
-        '^CUNIT\\d$', '^OBSGEO-(X|Y|Z)$', '^P(C|V)\\d_\\d$'
-    ])
-    user = {}
-    for (k, v) in header.items():
-        if re.search(regex, k) or k in exclude:
-            continue
-        user[k.lower()] = v
-    attrs['user'] = user
+    attrs['user'] = _user_attrs_from_header(header)
     return attrs, helpers, header
 
 

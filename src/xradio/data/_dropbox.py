@@ -5,10 +5,6 @@ import zipfile
 
 from tqdm import tqdm
 
-#
-# https://www.dropbox.com/scl/fi/x8tp0wu21gssbd1gxrnmy/Antennae_North.cal.lsrk.vis.zarr.zip?rlkey=l9jdr6tvyq4pe3381gukuly0d&dl=0
-# https://www.dropbox.com/scl/fi/4azivw1q7vby4ffawy0tt/no_mask.im.zip?rlkey=91g0hxwx6x4892aisbj5u195z&dl=0
-
 FILE_ID = {
     "AA2-Mid-sim_00000.ms": {
         "file": "AA2-Mid-sim_00000.ms.zip",
@@ -40,7 +36,7 @@ FILE_ID = {
         "id": "j2e5pd4y7ppvw9efxdfdj",
         "rlkey": "hlb85n40vtac3k9nna14giwsf&dl",
     },
-    "Antennae_North.cal.lsrk.split.zarr": {
+    "Antennae_North.cal.lsrk.split.vis.zarr": {
         "file": "Antennae_North.cal.lsrk.split.ms.zip",
         "id": "hctg3tegkl6ttf2kol0wh",
         "rlkey": "7hxaag4vqk0d674v3368dudad&dl",

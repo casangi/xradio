@@ -262,6 +262,24 @@ def _get_telescope_metadata(helpers:dict, header) -> dict:
     return tel
 
 
+def _pointing_center_to_metadata(helpers: dict, header) -> dict:
+    # Neither helpers or header is modified
+    t_axes = helpers['t_axes']
+    long_unit = header[f'CUNIT{t_axes[0]}']
+    lat_unit = header[f'CUNIT{t_axes[1]}']
+    unit = []
+    for uu in [long_unit, lat_unit]:
+        new_u = u.Unit(_get_unit(uu))
+        unit.append(new_u)
+    pc_long = float(header[f'CRVAL{t_axes[0]}']) * unit[0]
+    pc_lat = float(header[f'CRVAL{t_axes[1]}']) * unit[1]
+    pc_long = pc_long.to(u.rad).value
+    pc_lat = pc_lat.to(u.rad).value
+    return {
+        'value': np.array([pc_long, pc_lat]), 'initial': True
+    }
+
+
 def _fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
     primary = None
     beams = None
@@ -353,23 +371,7 @@ def _fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
     attrs['obsdate'] = obsdate
     helpers['obsdate'] = obsdate
     attrs['observer'] = header['OBSERVER']
-    long_unit = header[f'CUNIT{t_axes[0]}']
-    lat_unit = header[f'CUNIT{t_axes[1]}']
-    unit = []
-    for uu in [long_unit, lat_unit]:
-        if uu == 'deg':
-            unit.append(u.deg)
-        elif uu == 'rad':
-            unit.append(u.rad)
-        else:
-            raise RuntimeError(f'Unsupported direction unit {uu}')
-    pc_long = float(header.get(f'CRVAL{t_axes[0]}')) * unit[0]
-    pc_lat = float(header.get(f'CRVAL{t_axes[1]}')) * unit[1]
-    pc_long = pc_long.to(u.rad).value
-    pc_lat = pc_lat.to(u.rad).value
-    attrs['pointing_center'] = {
-        'value': np.array([pc_long, pc_lat]), 'initial': True
-    }
+    attrs['pointing_center'] = _pointing_center_to_metadata(helpers, header)
     attrs['description'] = None
     attrs['telescope'] = _get_telescope_metadata(helpers, header)
     # TODO complete _make_history_xds when spec has been finalized

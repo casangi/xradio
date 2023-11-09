@@ -64,8 +64,11 @@ class ImageBase(unittest.TestCase):
 
     _exp_attrs = {}
     _exp_attrs['direction'] = {
-        'system': 'FK5',
+        'type': 'sky_coord',
+        'frame': 'FK5',
         'equinox': 'J2000',
+        'reference_value': np.array([1.832595714594046, -0.6981317007977318]),
+        'units': ['rad', 'rad'],
         'conversion_system': 'FK5',
         'conversion_equinox': 'J2000',
         # there seems to be a casacore bug here that changing either the

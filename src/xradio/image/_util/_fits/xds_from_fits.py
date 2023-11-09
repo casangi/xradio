@@ -4,7 +4,7 @@ from astropy.io import fits
 from astropy.time import Time
 from ..common import (
     _c, _default_freq_info, _doppler_types,
-    _freq_from_vel, _get_xds_dim_order, _image_type
+    _freq_from_vel, _get_unit, _get_xds_dim_order, _image_type
 )
 import copy
 import dask
@@ -252,8 +252,16 @@ def _fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
         # fits does not support conversion frames
         direction['conversion_system'] = ref_sys
         direction['conversion_equinox'] = ref_eqx
-        direction['system'] = ref_sys
+        direction['frame'] = ref_sys
         direction['equinox'] = ref_eqx
+        direction['units'] = ['rad', 'rad']
+        direction['reference_value'] = np.array([0.0, 0.0])
+        for i in [1, 2]:
+            u = _get_unit(cunit[i])
+            x = crval[i] * u
+            x = x.to('rad')
+            direction['reference_value'][i] = x.value
+        direction['type'] = 'sky_coord'
         deg_to_rad = np.pi/180.0
         direction['latpole'] = {
             'value': header['LATPOLE'] * deg_to_rad,

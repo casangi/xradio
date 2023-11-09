@@ -8,7 +8,7 @@ import dask.array as da
 import logging
 import numpy as np
 import os
-from typing import Union
+from typing import List, Union
 import xarray as xr
 
 from .common import (
@@ -17,7 +17,7 @@ from .common import (
 )
 from ..common import (
     _c, _dask_arrayize, _default_freq_info,
-    _doppler_types, _image_type
+    _doppler_types, _get_unit, _image_type
 )
 from ...._utils._casacore.tables import (
     extract_table_attributes, open_table_ro
@@ -121,26 +121,6 @@ def _add_freq_attrs(xds, coord_dict):
             meta['wcs'] = {}
             meta['wcs']['crval'] = sd['wcs']['crval']
             meta['wcs']['cdelt'] = sd['wcs']['cdelt']
-            """
-            for k in ('direction', 'epoch', 'position'):
-                del meta['conversion'][k]['type']
-            dir_system, equinox = _convert_direction_system(
-                meta['conversion']['direction']['refer'], False
-            )
-            del meta['conversion']['direction']['refer']
-            meta['conversion']['direction']['system'] = dir_system
-            meta['conversion']['direction']['equinox'] = equinox
-            meta['native_type'] = _native_types[sd['nativeType']]
-            meta['restfreq'] = sd['restfreq']
-            meta['restfreqs'] = sd['restfreqs']
-            meta['system'] = sd['system']
-            meta['unit'] = sd['unit']
-            meta['wave_unit'] = sd['waveUnit']
-            meta['wcs'] = {}
-            meta['wcs']['crval'] = sd['wcs']['crval']
-            meta['wcs']['cdelt'] = sd['wcs']['cdelt']
-            break
-            """
     if not meta:
 		# this is the default frequency information CASA creates
         meta = _default_freq_info()
@@ -214,7 +194,7 @@ def _add_vel_attrs(xds:xr.Dataset, coord_dict:dict) -> xr.Dataset:
 
 def _casa_image_to_xds_attrs(img_full_path: str, history: bool=True) -> dict:
     """
-    Get the xds level attributes as a python dictionary
+    Get the xds level attribut/es as a python dictionary
     """
     with _open_image_ro(img_full_path) as casa_image:
         meta_dict = casa_image.info()
@@ -230,12 +210,19 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool=True) -> dict:
         coord_dir_dict = coord_dict[dir_key]
         system = 'system'
         if system not in coord_dir_dict:
-            raise Exception('No direction reference frame found')
-        dir_dict = {}
+            raise RuntimeError('No direction reference frame found')
+        dir_dict = {'type': 'sky_coord'}
         casa_system = coord_dir_dict[system]
         ap_system, ap_equinox = _convert_direction_system(casa_system, 'native')
-        dir_dict[system] = ap_system
+        dir_dict['frame'] = ap_system
         dir_dict['equinox'] = ap_equinox if ap_equinox else None
+        dir_dict['reference_value'] = np.array([0.0, 0.0])
+        for i in range(2):
+            unit = u.Unit(_get_unit(coord_dir_dict['units'][i]))
+            q = coord_dir_dict['crval'][i] * unit
+            x = q.to('rad')
+            dir_dict['reference_value'][i] = x.value
+        dir_dict['units'] = ['rad', 'rad']
         dir_dict['conversion_system'] = None
 
         cs = 'conversionSystem'
@@ -246,7 +233,7 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool=True) -> dict:
                     'frames at this time so the ngCASA image\'s conversion frame '
                     'will be set to the native frame'
                 )
-        dir_dict['conversion_system'] = dir_dict[system]
+        dir_dict['conversion_system'] = dir_dict['frame']
         dir_dict['conversion_equinox'] = dir_dict['equinox']
         k = 'latpole'
         if k in coord_dir_dict:
@@ -336,7 +323,9 @@ def _casa_image_to_xds_metadata(img_full_path:str, verbose:bool=False) -> dict:
     coords['time'] = _get_time_values(coord_dict)
     coords['polarization'] = _get_pol_values(coord_dict)
     coords['frequency'] = _get_freq_values(csys, shape)
-    coords['velocity'] = (['frequency'], _get_velocity_values(coord_dict, coords['frequency']))
+    coords['velocity'] = (
+        ['frequency'], _get_velocity_values(coord_dict, coords['frequency'])
+    )
     if len(sphr_dims) > 0:
         for k in coord_dict.keys():
             if k.startswith('direction'):
@@ -347,6 +336,7 @@ def _casa_image_to_xds_metadata(img_full_path:str, verbose:bool=False) -> dict:
         )
         coords[l_world[0]] = (['l', 'm'], l_world[1])
         coords[m_world[0]] = (['l', 'm'], m_world[1])
+        # attrs['sky_ref_value'] = [l_world[1], m_world[1]]
     else:
         # Fourier image
         coords['u'], coords['v'] = _get_uv_values(coord_dict, axis_names, shape)
@@ -357,7 +347,7 @@ def _casa_image_to_xds_metadata(img_full_path:str, verbose:bool=False) -> dict:
 
 
 def _compute_world_sph_dims(
-    sphr_dims: list, dir_axes: list, csys:dict,
+    sphr_dims:list, dir_axes:list, csys:dict,
     dc:coordinates.directioncoordinate, shape:tuple, dimmap:dict
 ) -> list:
     proj = dc.get_projection()
@@ -385,11 +375,13 @@ def _compute_world_sph_dims(
             fi = 2
             wcs_dict['CTYPE2'] = f'DEC--{proj}'
             wcs_dict[f'NAXIS2'] = shape[dimmap['m']]
-        t_unit = unit[dc_index][i]
+        t_unit = _get_unit(unit[dc_index][i])
+        """
         if t_unit == "'":
             t_unit = 'arcmin'
         elif t_unit == '"':
             t_unit = 'arcsec'
+        """
         wcs_dict[f'CUNIT{fi}'] = t_unit
         wcs_dict[f'CDELT{fi}'] = inc[dc_index][i]
         # FITS arrays are 1-based

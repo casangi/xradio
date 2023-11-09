@@ -18,6 +18,15 @@ def _get_xds_dim_order(has_sph:bool) -> list:
     return dimorder
 
 
+def _get_unit(u:str) -> str:
+    if u == "'":
+        return 'arcmin'
+    elif u == '"':
+        return 'arcsec'
+    else:
+        return u
+
+
 def _coords_to_numpy(xds):
     for k, v in xds.coords.items():
         if dask.is_dask_collection(v):

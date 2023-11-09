@@ -256,9 +256,8 @@ def _fits_header_to_xds_attrs(hdulist:fits.hdu.hdulist.HDUList) -> dict:
         direction['equinox'] = ref_eqx
         direction['units'] = ['rad', 'rad']
         direction['reference_value'] = np.array([0.0, 0.0])
-        for i in [1, 2]:
-            u = _get_unit(cunit[i])
-            x = crval[i] * u
+        for i in [0, 1]:
+            x = crval[i] * u.Unit(_get_unit(cunit[i]))
             x = x.to('rad')
             direction['reference_value'][i] = x.value
         direction['type'] = 'sky_coord'

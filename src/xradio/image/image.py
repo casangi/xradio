@@ -58,8 +58,8 @@ def read_image(infile:str, chunks:dict={}, verbose:bool=False) -> xr.Dataset:
     :return: xr.Dataset image that conforms to the ngCASA image spec
     :rtype: xr.Dataset
     """
-    do_casa = True
     emsgs = []
+    do_casa = True
     try:
         from ._util.casacore import _read_casa_image
     except Exception as e:

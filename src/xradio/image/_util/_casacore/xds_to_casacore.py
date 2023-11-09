@@ -135,7 +135,7 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
     direction['conversionSystem'] = direction['system']
     for s in ['longpole', 'latpole']:
         direction[s] = Angle(
-            str(xds_dir[s]['value']) + xds_dir[s]['unit']
+            str(xds_dir[s]['value']) + xds_dir[s]['units']
         ).deg
     return direction
 

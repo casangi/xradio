@@ -3,6 +3,7 @@ import numpy as np
 import xarray as xr
 from typing import Union
 from .common import _c
+from ..._utils.common import _deg_to_rad
 
 def _make_empty_sky_image(
     xds:xr.Dataset, phase_center:Union[list, np.ndarray],
@@ -34,9 +35,8 @@ def _make_empty_sky_image(
     x, y = np.indices(w.pixel_shape)
     long, lat = w.pixel_to_world_values(x, y)
     # long, lat from above eqn will always be in degrees, so convert to rad
-    f = np.pi/180
-    long *= f
-    lat *= f
+    long *= _deg_to_rad
+    lat *= _deg_to_rad
     if not isinstance(chan_coords, list) and not isinstance(chan_coords, np.ndarray):
         chan_coords = [ chan_coords ]
     chan_coords = np.array(chan_coords, dtype=np.float64)

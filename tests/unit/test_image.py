@@ -75,8 +75,8 @@ class ImageBase(unittest.TestCase):
         # crval or pointingcenter will also change the latpole when the
         # casacore image is reopened. As long as the xds gets the latpole
         # that the casacore image has is all we care about for testing
-        'latpole': {'value': -40*np.pi/180, 'unit': 'rad'},
-        'longpole': {'value': np.pi, 'unit': 'rad'},
+        'latpole': {'value': -40*np.pi/180, 'units': 'rad', 'type': 'quantity'},
+        'longpole': {'value': np.pi, 'units': 'rad', 'type': 'quantity'},
         'pc': np.array([[1., 0.], [0., 1.]]),
         'projection_parameters': np.array([0., 0.]),
         'projection': 'SIN'

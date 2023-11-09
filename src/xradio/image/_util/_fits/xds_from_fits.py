@@ -6,6 +6,7 @@ from ..common import (
     _c, _default_freq_info, _doppler_types,
     _freq_from_vel, _get_unit, _get_xds_dim_order, _image_type
 )
+from ...._utils.common import _deg_to_rad
 import copy
 import dask
 import dask.array as da
@@ -196,14 +197,13 @@ def _xds_direction_attrs_from_header(helpers:dict, header) -> dict:
         x = x.to('rad')
         direction['reference_value'][i] = x.value
     direction['type'] = 'sky_coord'
-    deg_to_rad = np.pi/180.0
     direction['latpole'] = {
-        'value': header['LATPOLE'] * deg_to_rad,
-        'unit': 'rad'
+        'value': header['LATPOLE'] * _deg_to_rad,
+        'units': 'rad', 'type': 'quantity'
     }
     direction['longpole'] = {
-        'value': header['LONPOLE'] * deg_to_rad,
-        'unit': 'rad'
+        'value': header['LONPOLE'] * _deg_to_rad,
+        'units': 'rad', 'type': 'quantity'
     }
     pc = np.zeros([2,2])
     for i in (0, 1):
@@ -594,18 +594,17 @@ def _compute_world_sph_dims(
     x, y = np.indices(w.pixel_shape)
     long, lat = w.pixel_to_world_values(x, y)
     # long, lat will always be in degrees, so convert to rad
-    f = np.pi/180
-    long *= f
-    lat *= f
+    long *= _deg_to_rad
+    lat *= _deg_to_rad
     crpix = helpers['crpix'][dir_axes[0]], helpers['crpix'][dir_axes[1]]
     wcrvalx, wcrvaly = w.pixel_to_world_values(crpix[0], crpix[1])
-    wcrvalx = wcrvalx.tolist() * f
-    wcrvaly = wcrvaly.tolist() * f
+    wcrvalx = wcrvalx.tolist() * _deg_to_rad
+    wcrvaly = wcrvaly.tolist() * _deg_to_rad
     wcrval = [wcrvalx, wcrvaly]
     for i, j in zip(dir_axes, (0, 1)):
         helpers['cunit'][i] = 'rad'
         helpers['crval'][i] = wcrval[j]
-        helpers['cdelt'][i] *= f
+        helpers['cdelt'][i] *= _deg_to_rad
     return [[long_axis_name, long], [lat_axis_name, lat]]
 
 

@@ -22,6 +22,10 @@ from ..common import (
 from ...._utils._casacore.tables import (
     extract_table_attributes, open_table_ro
 )
+from ...._utils.common import (
+    _deg_to_rad
+)
+
 
 def _add_coord_attrs(xds: xr.Dataset, icoords: dict, diraxes: list) -> xr.Dataset:
     _add_time_attrs(xds, icoords)
@@ -237,10 +241,10 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool=True) -> dict:
         dir_dict['conversion_equinox'] = dir_dict['equinox']
         k = 'latpole'
         if k in coord_dir_dict:
-            deg_to_rad = np.pi/180
             for j in (k, 'longpole'):
                 dir_dict[j] = {
-                    'value': coord_dir_dict[j]*deg_to_rad, 'unit': 'rad'
+                    'value': coord_dir_dict[j]*_deg_to_rad, 'units': 'rad',
+                    'type': 'quantity'
                 }
         for j in ('pc', 'projection_parameters', 'projection'):
             if j in coord_dir_dict:
@@ -391,9 +395,8 @@ def _compute_world_sph_dims(
     x, y = np.indices(w.pixel_shape)
     long, lat = w.pixel_to_world_values(x, y)
     # long, lat from above eqn will always be in degrees, so convert to rad
-    f = np.pi/180
-    long *= f
-    lat *= f
+    long *= _deg_to_rad
+    lat *= _deg_to_rad
     return [[long_axis_name, long], [lat_axis_name, lat]]
 
 

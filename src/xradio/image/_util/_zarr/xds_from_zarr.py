@@ -48,4 +48,3 @@ def _decode_sub_xdses(zarr_store:str, do_dask:bool) -> dict:
                 k = d[len(_top_level_sub_xds) + 1:]
                 sub_xdses[k] = xds
     return sub_xdses
-

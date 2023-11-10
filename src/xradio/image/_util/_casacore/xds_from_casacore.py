@@ -12,19 +12,22 @@ from typing import List, Union
 import xarray as xr
 
 from .common import (
-    _active_mask, _native_types, _object_name,
-    _open_image_ro, _pointing_center
+    _active_mask,
+    _native_types,
+    _object_name,
+    _open_image_ro,
+    _pointing_center,
 )
 from ..common import (
-    _c, _dask_arrayize, _default_freq_info,
-    _doppler_types, _get_unit, _image_type
+    _c,
+    _dask_arrayize,
+    _default_freq_info,
+    _doppler_types,
+    _get_unit,
+    _image_type,
 )
-from ...._utils._casacore.tables import (
-    extract_table_attributes, open_table_ro
-)
-from ...._utils.common import (
-    _deg_to_rad
-)
+from ...._utils._casacore.tables import extract_table_attributes, open_table_ro
+from ...._utils.common import _deg_to_rad
 
 
 def _add_coord_attrs(xds: xr.Dataset, icoords: dict, diraxes: list) -> xr.Dataset:
@@ -37,96 +40,96 @@ def _add_coord_attrs(xds: xr.Dataset, icoords: dict, diraxes: list) -> xr.Datase
 
 def _add_dir_lin_attrs(xds, coord_dict, dir_axes):
     for k in coord_dict:
-        if k.startswith('direction'):
+        if k.startswith("direction"):
             dd = coord_dict[k]
             for i in (0, 1):
                 meta = {}
-                meta['unit'] = 'rad'
-                unit = dd['units'][i]
+                meta["unit"] = "rad"
+                unit = dd["units"][i]
                 if unit == "'":
-                    unit = 'arcmin'
+                    unit = "arcmin"
                 elif unit == '"':
-                    unit = 'arcsec'
+                    unit = "arcsec"
                 ap_unit = 1 * u.Unit(unit)
-                scale = ap_unit.to('rad').value
-                meta['wcs'] = {}
-                meta['wcs']['crval'] = dd['crval'][i]*scale
-                meta['wcs']['cdelt'] = dd['cdelt'][i]*scale
+                scale = ap_unit.to("rad").value
+                meta["wcs"] = {}
+                meta["wcs"]["crval"] = dd["crval"][i] * scale
+                meta["wcs"]["cdelt"] = dd["cdelt"][i] * scale
                 xds[dir_axes[i]].attrs = copy.deepcopy(meta)
             break
-        elif k.startswith('linear'):
+        elif k.startswith("linear"):
             ld = coord_dict[k]
             for i in (0, 1):
                 meta = {}
-                meta['unit'] = ld['units'][i]
-                meta['wcs'] = {}
-                meta['wcs']['crval'] = ld['crval'][i]
-                meta['wcs']['cdelt'] = ld['cdelt'][i]
+                meta["unit"] = ld["units"][i]
+                meta["wcs"] = {}
+                meta["wcs"]["crval"] = ld["crval"][i]
+                meta["wcs"]["cdelt"] = ld["cdelt"][i]
                 xds[dir_axes[i]].attrs = copy.deepcopy(meta)
             break
     return xds
 
 
 def _add_freq_attrs(xds, coord_dict):
-    freq_coord = xds['frequency']
+    freq_coord = xds["frequency"]
     meta = {}
     for k in coord_dict:
-        if k.startswith('spectral'):
+        if k.startswith("spectral"):
             sd = coord_dict[k]
-            conv = copy.deepcopy(sd['conversion'])
-            conv['direction']['type'] = 'sky_coord'
-            conv['direction']['frame'], conv['direction']['equinox'] = (
-                _convert_direction_system(
-                    conv['direction']['refer'], False
-                )
-            )
-            del conv['direction']['refer']
-            conv['direction']['units'] = [
-                conv['direction']['m0']['unit'], conv['direction']['m1']['unit']
+            conv = copy.deepcopy(sd["conversion"])
+            conv["direction"]["type"] = "sky_coord"
+            (
+                conv["direction"]["frame"],
+                conv["direction"]["equinox"],
+            ) = _convert_direction_system(conv["direction"]["refer"], False)
+            del conv["direction"]["refer"]
+            conv["direction"]["units"] = [
+                conv["direction"]["m0"]["unit"],
+                conv["direction"]["m1"]["unit"],
             ]
-            conv['direction']['value'] = [
-                conv['direction']['m0']['value'],
-                conv['direction']['m1']['value']
+            conv["direction"]["value"] = [
+                conv["direction"]["m0"]["value"],
+                conv["direction"]["m1"]["value"],
             ]
-            del conv['direction']['m0'], conv['direction']['m1']
-            pf = conv['position']['refer']
-            if pf == 'ITRF':
-                conv['position']['ellipsoid'] = 'GRS80'
-                del conv['position']['refer']
+            del conv["direction"]["m0"], conv["direction"]["m1"]
+            pf = conv["position"]["refer"]
+            if pf == "ITRF":
+                conv["position"]["ellipsoid"] = "GRS80"
+                del conv["position"]["refer"]
             else:
-                raise RuntimeError(
-                    f'Unhandled earth location frame {pf}'
-                )
-            conv['position']['units'] = [
-                conv['position']['m0']['unit'], conv['position']['m1']['unit'],
-                conv['position']['m2']['unit']
+                raise RuntimeError(f"Unhandled earth location frame {pf}")
+            conv["position"]["units"] = [
+                conv["position"]["m0"]["unit"],
+                conv["position"]["m1"]["unit"],
+                conv["position"]["m2"]["unit"],
             ]
-            conv['position']['value'] = [
-                conv['position']['m0']['value'], conv['position']['m1']['value'],
-                conv['position']['m2']['value']
+            conv["position"]["value"] = [
+                conv["position"]["m0"]["value"],
+                conv["position"]["m1"]["value"],
+                conv["position"]["m2"]["value"],
             ]
-            for m in ['m0', 'm1', 'm2']:
-                del conv['position'][m]
+            for m in ["m0", "m1", "m2"]:
+                del conv["position"][m]
             # epoch has missing values necessary to make a time measure
-            conv['epoch']['v'] = {
-                'units': conv['epoch']['m0']['unit'],
-                'value': conv['epoch']['m0']['value'],
-                'type': 'quantity'
+            conv["epoch"]["v"] = {
+                "units": conv["epoch"]["m0"]["unit"],
+                "value": conv["epoch"]["m0"]["value"],
+                "type": "quantity",
             }
-            del conv['epoch']['m0']
-            meta['conversion'] = conv
-            meta['native_type'] = _native_types[sd['nativeType']]
-            meta['restfreq'] = sd['restfreq']
-            meta['restfreqs'] = sd['restfreqs']
-            meta['type'] = 'frequency'
-            meta['units'] = sd['unit']
-            meta['frame'] = sd['system']
-            meta['wave_unit'] = sd['waveUnit']
-            meta['wcs'] = {}
-            meta['wcs']['crval'] = sd['wcs']['crval']
-            meta['wcs']['cdelt'] = sd['wcs']['cdelt']
+            del conv["epoch"]["m0"]
+            meta["conversion"] = conv
+            meta["native_type"] = _native_types[sd["nativeType"]]
+            meta["restfreq"] = sd["restfreq"]
+            meta["restfreqs"] = sd["restfreqs"]
+            meta["type"] = "frequency"
+            meta["units"] = sd["unit"]
+            meta["frame"] = sd["system"]
+            meta["wave_unit"] = sd["waveUnit"]
+            meta["wcs"] = {}
+            meta["wcs"]["crval"] = sd["wcs"]["crval"]
+            meta["wcs"]["cdelt"] = sd["wcs"]["cdelt"]
     if not meta:
-		# this is the default frequency information CASA creates
+        # this is the default frequency information CASA creates
         meta = _default_freq_info()
     freq_coord.attrs = meta
     # xds['frequency'] = freq_coord
@@ -134,167 +137,171 @@ def _add_freq_attrs(xds, coord_dict):
 
 
 def _add_mask(
-    xds:xr.Dataset, name:str, ary:Union[np.ndarray, da.array], dimorder:list
+    xds: xr.Dataset, name: str, ary: Union[np.ndarray, da.array], dimorder: list
 ) -> xr.Dataset:
     xda = xr.DataArray(ary, dims=dimorder)
     # True pixels are good in numpy masked arrays
     xda = da.logical_not(xda)
-    xda.attrs['image_type'] = 'Mask'
+    xda.attrs["image_type"] = "Mask"
     xda = xda.rename(name)
     xds[xda.name] = xda
     return xds
 
 
 def _add_sky_or_apeture(
-    xds: xr.Dataset, ary: Union[np.ndarray, da.array],
-    dimorder:list, img_full_path: str, has_sph_dims:bool
+    xds: xr.Dataset,
+    ary: Union[np.ndarray, da.array],
+    dimorder: list,
+    img_full_path: str,
+    has_sph_dims: bool,
 ) -> xr.Dataset:
     xda = xr.DataArray(ary, dims=dimorder)
     casa_image = images.image(img_full_path)
-    image_type = casa_image.info()['imageinfo']['imagetype']
+    image_type = casa_image.info()["imageinfo"]["imagetype"]
     unit = casa_image.unit()
     del casa_image
     xda.attrs[_image_type] = image_type
-    xda.attrs['unit'] = unit
-    name = 'sky' if has_sph_dims else 'apeture'
+    xda.attrs["unit"] = unit
+    name = "sky" if has_sph_dims else "apeture"
     xda = xda.rename(name)
     xds[xda.name] = xda
     return xds
 
 
-def _get_time_format(value:float, unit:str) -> str:
-    if value >= 40000 and value <= 100000 and unit == 'd':
-        return  'MJD'
+def _get_time_format(value: float, unit: str) -> str:
+    if value >= 40000 and value <= 100000 and unit == "d":
+        return "MJD"
     else:
-        return ''
+        return ""
 
 
 def _add_time_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
     # time_coord = xds['time']
     meta = {}
-    meta['type'] = 'time'
-    meta['scale'] = coord_dict['obsdate']['refer']
-    meta['unit'] = coord_dict['obsdate']['m0']['unit']
-    meta['format'] = _get_time_format(xds['time'][0], meta['unit'])
-    xds['time'].attrs = copy.deepcopy(meta)
+    meta["type"] = "time"
+    meta["scale"] = coord_dict["obsdate"]["refer"]
+    meta["unit"] = coord_dict["obsdate"]["m0"]["unit"]
+    meta["format"] = _get_time_format(xds["time"][0], meta["unit"])
+    xds["time"].attrs = copy.deepcopy(meta)
     # xds['time'] = time_coord
     return xds
 
 
-def _add_vel_attrs(xds:xr.Dataset, coord_dict:dict) -> xr.Dataset:
-    vel_coord = xds['velocity']
-    meta = {'unit': 'm/s'}
+def _add_vel_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
+    vel_coord = xds["velocity"]
+    meta = {"unit": "m/s"}
     for k in coord_dict:
-        if k.startswith('spectral'):
+        if k.startswith("spectral"):
             sd = coord_dict[k]
-            meta['doppler_type'] = _doppler_types[sd['velType']]
+            meta["doppler_type"] = _doppler_types[sd["velType"]]
             break
     if not meta:
-            meta['doppler_type'] = _doppler_types[0]
+        meta["doppler_type"] = _doppler_types[0]
     vel_coord.attrs = copy.deepcopy(meta)
-    xds['velocity'] = vel_coord
+    xds["velocity"] = vel_coord
     return xds
 
 
-def _casa_image_to_xds_attrs(img_full_path: str, history: bool=True) -> dict:
+def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
     """
     Get the xds level attribut/es as a python dictionary
     """
     with _open_image_ro(img_full_path) as casa_image:
         meta_dict = casa_image.info()
-    coord_dict = copy.deepcopy(meta_dict['coordinates'])
+    coord_dict = copy.deepcopy(meta_dict["coordinates"])
     attrs = {}
     dir_key = None
     for k in coord_dict.keys():
-        if (k.startswith('direction')):
+        if k.startswith("direction"):
             dir_key = k
             break
     if dir_key:
         # shared direction coordinate attributes
         coord_dir_dict = coord_dict[dir_key]
-        system = 'system'
+        system = "system"
         if system not in coord_dir_dict:
-            raise RuntimeError('No direction reference frame found')
-        dir_dict = {'type': 'sky_coord'}
+            raise RuntimeError("No direction reference frame found")
+        dir_dict = {"type": "sky_coord"}
         casa_system = coord_dir_dict[system]
-        ap_system, ap_equinox = _convert_direction_system(casa_system, 'native')
-        dir_dict['frame'] = ap_system
-        dir_dict['equinox'] = ap_equinox if ap_equinox else None
-        dir_dict['reference_value'] = np.array([0.0, 0.0])
+        ap_system, ap_equinox = _convert_direction_system(casa_system, "native")
+        dir_dict["frame"] = ap_system
+        dir_dict["equinox"] = ap_equinox if ap_equinox else None
+        dir_dict["reference_value"] = np.array([0.0, 0.0])
         for i in range(2):
-            unit = u.Unit(_get_unit(coord_dir_dict['units'][i]))
-            q = coord_dir_dict['crval'][i] * unit
-            x = q.to('rad')
-            dir_dict['reference_value'][i] = x.value
-        dir_dict['units'] = ['rad', 'rad']
-        dir_dict['conversion_system'] = None
+            unit = u.Unit(_get_unit(coord_dir_dict["units"][i]))
+            q = coord_dir_dict["crval"][i] * unit
+            x = q.to("rad")
+            dir_dict["reference_value"][i] = x.value
+        dir_dict["units"] = ["rad", "rad"]
+        dir_dict["conversion_system"] = None
 
-        cs = 'conversionSystem'
+        cs = "conversionSystem"
         if cs in coord_dir_dict and (coord_dir_dict[cs] != coord_dir_dict[system]):
-                logging.warn(
-                    'Conversion direction frame differs from native direction '
-                    'frame in CASA image. However, ngCASA does not support conversion '
-                    'frames at this time so the ngCASA image\'s conversion frame '
-                    'will be set to the native frame'
-                )
-        dir_dict['conversion_system'] = dir_dict['frame']
-        dir_dict['conversion_equinox'] = dir_dict['equinox']
-        k = 'latpole'
+            logging.warn(
+                "Conversion direction frame differs from native direction "
+                "frame in CASA image. However, ngCASA does not support conversion "
+                "frames at this time so the ngCASA image's conversion frame "
+                "will be set to the native frame"
+            )
+        dir_dict["conversion_system"] = dir_dict["frame"]
+        dir_dict["conversion_equinox"] = dir_dict["equinox"]
+        k = "latpole"
         if k in coord_dir_dict:
-            for j in (k, 'longpole'):
+            for j in (k, "longpole"):
                 dir_dict[j] = {
-                    'value': coord_dir_dict[j]*_deg_to_rad, 'units': 'rad',
-                    'type': 'quantity'
+                    "value": coord_dir_dict[j] * _deg_to_rad,
+                    "units": "rad",
+                    "type": "quantity",
                 }
-        for j in ('pc', 'projection_parameters', 'projection'):
+        for j in ("pc", "projection_parameters", "projection"):
             if j in coord_dir_dict:
                 dir_dict[j] = coord_dir_dict[j]
-        attrs['direction'] = dir_dict
-    attrs['telescope'] = {}
-    telescope = attrs['telescope']
-    attrs['obsdate'] = {'type': 'time'}
-    obsdate = attrs['obsdate']
-    attrs[_pointing_center] = coord_dict['pointingcenter'].copy()
-    for k in ('observer', 'obsdate', 'telescope', 'telescopeposition'):
-        if k.startswith('telescope'):
-            if k == 'telescope':
-                telescope['name'] = coord_dict[k]
+        attrs["direction"] = dir_dict
+    attrs["telescope"] = {}
+    telescope = attrs["telescope"]
+    attrs["obsdate"] = {"type": "time"}
+    obsdate = attrs["obsdate"]
+    attrs[_pointing_center] = coord_dict["pointingcenter"].copy()
+    for k in ("observer", "obsdate", "telescope", "telescopeposition"):
+        if k.startswith("telescope"):
+            if k == "telescope":
+                telescope["name"] = coord_dict[k]
             else:
-                telescope['position'] = coord_dict[k]
-        elif k == 'obsdate':
-            obsdate['scale'] = coord_dict[k]['refer']
-            obsdate['unit'] = coord_dict[k]['m0']['unit']
-            obsdate['value'] = coord_dict[k]['m0']['value']
-            obsdate['format'] = _get_time_format(obsdate['value'], obsdate['unit'])
+                telescope["position"] = coord_dict[k]
+        elif k == "obsdate":
+            obsdate["scale"] = coord_dict[k]["refer"]
+            obsdate["unit"] = coord_dict[k]["m0"]["unit"]
+            obsdate["value"] = coord_dict[k]["m0"]["value"]
+            obsdate["format"] = _get_time_format(obsdate["value"], obsdate["unit"])
         else:
-            attrs[k] = coord_dict[k] if k in coord_dict else ''
-    imageinfo = meta_dict['imageinfo']
-    obj = 'objectname'
-    attrs[_object_name] = imageinfo[obj] if obj in imageinfo else ''
-    attrs['beam'] = _get_beam(imageinfo)
-    attrs['user'] = meta_dict['miscinfo']
-    defmask = 'Image_defaultmask'
+            attrs[k] = coord_dict[k] if k in coord_dict else ""
+    imageinfo = meta_dict["imageinfo"]
+    obj = "objectname"
+    attrs[_object_name] = imageinfo[obj] if obj in imageinfo else ""
+    attrs["beam"] = _get_beam(imageinfo)
+    attrs["user"] = meta_dict["miscinfo"]
+    defmask = "Image_defaultmask"
     with open_table_ro(img_full_path) as casa_table:
         attrs[_active_mask] = (
             casa_table.getkeyword(defmask)
             if defmask in casa_table.keywordnames()
             else None
         )
-    attrs['description'] = None
+    attrs["description"] = None
     # if also loading history, put it as another xds in the attrs
     if history:
-        htable = os.sep.join([img_full_path, 'logtable'])
+        htable = os.sep.join([img_full_path, "logtable"])
         if os.path.isdir(htable):
-            attrs['history'] = read_generic_table(htable)
+            attrs["history"] = read_generic_table(htable)
         else:
             logging.warn(
-                f'Unable to find history table {htable}. '
-                'History will not be included'
+                f"Unable to find history table {htable}. "
+                "History will not be included"
             )
     return copy.deepcopy(attrs)
 
 
-def _casa_image_to_xds_metadata(img_full_path:str, verbose:bool=False) -> dict:
+def _casa_image_to_xds_metadata(img_full_path: str, verbose: bool = False) -> dict:
     """
     TODO: complete documentation
     Create an xds without any pixel data from metadata from the specified CASA image
@@ -307,58 +314,62 @@ def _casa_image_to_xds_metadata(img_full_path:str, verbose:bool=False) -> dict:
         meta_dict = casa_image.info()
         csys = casa_image.coordinates()
     axis_names = _flatten_list(csys.get_axes())[::-1]
-    coord_dict = meta_dict['coordinates']
-    attrs['icoords'] = coord_dict
+    coord_dict = meta_dict["coordinates"]
+    attrs["icoords"] = coord_dict
     diraxes = [
-        aa.lower().replace(' ', '_') for cc in coord_dict.items()
-        if (cc[0][:-1] in ['direction', 'linear']) and len(cc[1]['axes']) >= 2
-        for aa in cc[1]['axes']
+        aa.lower().replace(" ", "_")
+        for cc in coord_dict.items()
+        if (cc[0][:-1] in ["direction", "linear"]) and len(cc[1]["axes"]) >= 2
+        for aa in cc[1]["axes"]
     ]
-    attrs['dir_axes'] = diraxes
+    attrs["dir_axes"] = diraxes
     dimmap = _get_dimmap(coord_dict, verbose)
-    attrs['dimmap'] = dimmap
+    attrs["dimmap"] = dimmap
     sphr_dims = (
-        [dimmap['l'], dimmap['m']]
-        if ('l' in dimmap) and ('m' in dimmap)
-        else []
+        [dimmap["l"], dimmap["m"]] if ("l" in dimmap) and ("m" in dimmap) else []
     )
-    attrs['sphr_dims'] = sphr_dims
+    attrs["sphr_dims"] = sphr_dims
     coords = {}
-    coords['time'] = _get_time_values(coord_dict)
-    coords['polarization'] = _get_pol_values(coord_dict)
-    coords['frequency'] = _get_freq_values(csys, shape)
-    coords['velocity'] = (
-        ['frequency'], _get_velocity_values(coord_dict, coords['frequency'])
+    coords["time"] = _get_time_values(coord_dict)
+    coords["polarization"] = _get_pol_values(coord_dict)
+    coords["frequency"] = _get_freq_values(csys, shape)
+    coords["velocity"] = (
+        ["frequency"],
+        _get_velocity_values(coord_dict, coords["frequency"]),
     )
     if len(sphr_dims) > 0:
         for k in coord_dict.keys():
-            if k.startswith('direction'):
+            if k.startswith("direction"):
                 dc = coordinates.directioncoordinate(coord_dict[k])
                 break
         l_world, m_world = _compute_world_sph_dims(
             sphr_dims, diraxes, csys, dc, shape, dimmap
         )
-        coords[l_world[0]] = (['l', 'm'], l_world[1])
-        coords[m_world[0]] = (['l', 'm'], m_world[1])
+        coords[l_world[0]] = (["l", "m"], l_world[1])
+        coords[m_world[0]] = (["l", "m"], m_world[1])
         # attrs['sky_ref_value'] = [l_world[1], m_world[1]]
     else:
         # Fourier image
-        coords['u'], coords['v'] = _get_uv_values(coord_dict, axis_names, shape)
-    attrs['shape'] = shape
+        coords["u"], coords["v"] = _get_uv_values(coord_dict, axis_names, shape)
+    attrs["shape"] = shape
     xds = xr.Dataset(coords=coords)
-    attrs['xds'] = xds
+    attrs["xds"] = xds
     return attrs
 
 
 def _compute_world_sph_dims(
-    sphr_dims:list, dir_axes:list, csys:dict,
-    dc:coordinates.directioncoordinate, shape:tuple, dimmap:dict
+    sphr_dims: list,
+    dir_axes: list,
+    csys: dict,
+    dc: coordinates.directioncoordinate,
+    shape: tuple,
+    dimmap: dict,
 ) -> list:
     proj = dc.get_projection()
     # casacore csys getters return values in opposite order as the real axes order
     coord_names = csys.get_names()[::-1]
     for i, name in enumerate(coord_names):
-        if name.startswith('direction'):
+        if name.startswith("direction"):
             dc_index = i
             break
     unit = csys.get_unit()[::-1]
@@ -369,16 +380,16 @@ def _compute_world_sph_dims(
     # opposite of what you expect because, even though the coordinates have
     # been ordered coorectly, the two direction coordinate axes are still flipped
     for i, name in enumerate(dir_axes[::-1]):
-        if name.startswith('right'):
+        if name.startswith("right"):
             long_axis_name = name
             fi = 1
-            wcs_dict[f'CTYPE1'] = f'RA---{proj}'
-            wcs_dict[f'NAXIS1'] = shape[dimmap['l']]
-        if name.startswith('dec'):
+            wcs_dict[f"CTYPE1"] = f"RA---{proj}"
+            wcs_dict[f"NAXIS1"] = shape[dimmap["l"]]
+        if name.startswith("dec"):
             lat_axis_name = name
             fi = 2
-            wcs_dict['CTYPE2'] = f'DEC--{proj}'
-            wcs_dict[f'NAXIS2'] = shape[dimmap['m']]
+            wcs_dict["CTYPE2"] = f"DEC--{proj}"
+            wcs_dict[f"NAXIS2"] = shape[dimmap["m"]]
         t_unit = _get_unit(unit[dc_index][i])
         """
         if t_unit == "'":
@@ -386,11 +397,11 @@ def _compute_world_sph_dims(
         elif t_unit == '"':
             t_unit = 'arcsec'
         """
-        wcs_dict[f'CUNIT{fi}'] = t_unit
-        wcs_dict[f'CDELT{fi}'] = inc[dc_index][i]
+        wcs_dict[f"CUNIT{fi}"] = t_unit
+        wcs_dict[f"CDELT{fi}"] = inc[dc_index][i]
         # FITS arrays are 1-based
-        wcs_dict[f'CRPIX{fi}'] = ref_pix[dc_index][i] + 1
-        wcs_dict[f'CRVAL{fi}'] = ref_val[dc_index][i]
+        wcs_dict[f"CRPIX{fi}"] = ref_pix[dc_index][i] + 1
+        wcs_dict[f"CRVAL{fi}"] = ref_val[dc_index][i]
     w = astropy.wcs.WCS(wcs_dict)
     x, y = np.indices(w.pixel_shape)
     long, lat = w.pixel_to_world_values(x, y)
@@ -405,40 +416,40 @@ def _convert_beam_to_rad(beam: dict) -> dict:
     mybeam = {}
     for k in beam:
         q = quanta.quantity(beam[k])
-        q.convert(quanta.quantity('1rad'))
-        j = 'pa' if k == 'positionangle' else k
+        q.convert(quanta.quantity("1rad"))
+        j = "pa" if k == "positionangle" else k
         mybeam[j] = q.to_dict()
     return mybeam
 
 
 def _convert_direction_system(
-    casa_system:str, which:str, verbose:bool=True
+    casa_system: str, which: str, verbose: bool = True
 ) -> tuple:
-    if casa_system == 'J2000':
+    if casa_system == "J2000":
         if verbose:
             logging.info(
-                f'J2000 found as {which} reference frame in CASA image '
+                f"J2000 found as {which} reference frame in CASA image "
                 'This corresponds to FK5(equinox="J2000") in astropy. '
-                'Metadata will be written appropriately'
+                "Metadata will be written appropriately"
             )
-        return ('FK5', 'J2000')
-    elif casa_system == 'B1950':
+        return ("FK5", "J2000")
+    elif casa_system == "B1950":
         if verbose:
             logging.info(
-                f'B1950 found as {which} reference frame in CASA image '
+                f"B1950 found as {which} reference frame in CASA image "
                 'This corresponds to FK4(equinox="B1950") in astropy. '
-                'Metadata will be written appropriately'
+                "Metadata will be written appropriately"
             )
-        return ('FK4', 'B1950')
-    elif casa_system in ('GALACTIC', 'ICRS'):
+        return ("FK4", "B1950")
+    elif casa_system in ("GALACTIC", "ICRS"):
         return (casa_system, None)
     else:
         raise Exception(
-            f'astropy does not support frame {casa_system} and this '
-            'application does not support converting it to '
-            'something astropy does support. You can try to regridding '
-            'it to ICRS, GALACTIC, J2000, or B1950 in CASA and then '
-            're-run this application on the regridded image'
+            f"astropy does not support frame {casa_system} and this "
+            "application does not support converting it to "
+            "something astropy does support. You can try to regridding "
+            "it to ICRS, GALACTIC, J2000, or B1950 in CASA and then "
+            "re-run this application on the regridded image"
         )
 
 
@@ -454,20 +465,22 @@ def _flatten_list(list_of_lists: list) -> list:
 
 def _get_beam(imageinfo: dict):
     """Returns None if no beam. Multiple beams are handled elsewhere"""
-    k = 'restoringbeam'
+    k = "restoringbeam"
     key = None
-    if k in imageinfo and 'major' in imageinfo[k]:
+    if k in imageinfo and "major" in imageinfo[k]:
         return _convert_beam_to_rad(imageinfo[k])
     return None
 
 
-def _get_chunk_list(chunks:dict, coords:list, image_shape:Union[list, tuple]) -> tuple:
+def _get_chunk_list(
+    chunks: dict, coords: list, image_shape: Union[list, tuple]
+) -> tuple:
     ret_list = list(image_shape)
     axis = 0
     for c in coords:
-        if c == 'direction' or c == 'linear':
-            lm = ('l', 'm')
-            uv = ('u', 'v')
+        if c == "direction" or c == "linear":
+            lm = ("l", "m")
+            uv = ("u", "v")
             for i in (0, 1):
                 for k in (lm[i], uv[i]):
                     if k in chunks:
@@ -476,77 +489,83 @@ def _get_chunk_list(chunks:dict, coords:list, image_shape:Union[list, tuple]) ->
                 # add an axis because direction has 2 axes
                 if i == 0:
                     axis += 1
-        elif c == 'spectral':
-            if 'frequency' in chunks:
-                ret_list[axis] = chunks['frequency']
-        elif c == 'stokes':
-            if 'polarization' in chunks:
-                ret_list[axis] = chunks['polarization']
+        elif c == "spectral":
+            if "frequency" in chunks:
+                ret_list[axis] = chunks["frequency"]
+        elif c == "stokes":
+            if "polarization" in chunks:
+                ret_list[axis] = chunks["polarization"]
         else:
-            raise Exception(f'Unhandled coordinate type {c}')
+            raise Exception(f"Unhandled coordinate type {c}")
         axis += 1
     return tuple(ret_list)
 
 
-def _get_dimmap(coords: list, verbose: bool=False) -> dict:
+def _get_dimmap(coords: list, verbose: bool = False) -> dict:
     # example of dimmap:
     # [('direction0', 0), ('direction1', 1), ('spectral0', 2), ('stokes0', 3)]
-    dimmap : list[tuple] = [
-        (coord[:-1]+str(ii), ci) for coord in coords
-        if coord[:-1] in ['direction', 'stokes', 'spectral', 'linear']
-        for ii, ci in enumerate(coords['pixelmap%s' % coord[-1]])
+    dimmap: list[tuple] = [
+        (coord[:-1] + str(ii), ci)
+        for coord in coords
+        if coord[:-1] in ["direction", "stokes", "spectral", "linear"]
+        for ii, ci in enumerate(coords["pixelmap%s" % coord[-1]])
     ]
     if verbose:
-        print(f'dimmap: {dimmap}')
+        print(f"dimmap: {dimmap}")
     # example of dimmap after next statment
     # [('l', 0), ('m', 1), ('chan', 2), ('polarization', 3)]
     dimmap = [
-        (rr[0].replace(
-            'stokes0','polarization'
-        ).replace('spectral0','chan').replace('direction0','l').replace(
-            'direction1','m').replace('linear0', 'u').replace(
-            'linear1', 'v'
-        ), rr[1]
-        ) for rr in dimmap
+        (
+            rr[0]
+            .replace("stokes0", "polarization")
+            .replace("spectral0", "chan")
+            .replace("direction0", "l")
+            .replace("direction1", "m")
+            .replace("linear0", "u")
+            .replace("linear1", "v"),
+            rr[1],
+        )
+        for rr in dimmap
     ]
     if verbose:
-        print(f'dimmap: {dimmap}')
-    if (
-        ('linear0' in np.vstack(dimmap)[:,0])
-        and ('linear1' in np.vstack(dimmap)[:,0])
+        print(f"dimmap: {dimmap}")
+    if ("linear0" in np.vstack(dimmap)[:, 0]) and (
+        "linear1" in np.vstack(dimmap)[:, 0]
     ):
         dimmap = [
-            (rr[0].replace('linear0', 'l').replace('linear1', 'm'), rr[1])
+            (rr[0].replace("linear0", "l").replace("linear1", "m"), rr[1])
             for rr in dimmap
         ]
     dimmap = [
-        (rr[0].replace('linear0', 'component'), rr[1])
-        for rr in dimmap if rr[1] >= 0
+        (rr[0].replace("linear0", "component"), rr[1]) for rr in dimmap if rr[1] >= 0
     ]
     # conversion to dict, example dimmap after this statement
     # dimmap: {'l': 0, 'm': 1, 'chan': 2, 'polarization': 3}
     dimmap = dict(
-        [(diraxes[int(rr[0][-1])], rr[1])
-        if rr[0].startswith('linear') or rr[0].startswith('direction')
-        else rr for rr in dimmap]
+        [
+            (diraxes[int(rr[0][-1])], rr[1])
+            if rr[0].startswith("linear") or rr[0].startswith("direction")
+            else rr
+            for rr in dimmap
+        ]
     )
     if verbose:
-        print(f'dimmap: {dimmap}')
+        print(f"dimmap: {dimmap}")
     return dimmap
 
 
-def _get_freq_values(coords: coordinates.coordinatesystem, shape:tuple) -> list:
-    idx = _get_image_axis_order(coords)[::-1].index('Frequency')
+def _get_freq_values(coords: coordinates.coordinatesystem, shape: tuple) -> list:
+    idx = _get_image_axis_order(coords)[::-1].index("Frequency")
     if idx >= 0:
         coord_dict = coords.dict()
         for k in coord_dict:
-            if k.startswith('spectral'):
+            if k.startswith("spectral"):
                 freqs = []
-                wcs = coord_dict[k]['wcs']
-                crpix = wcs['crpix']
-                crval = wcs['crval']
-                cdelt = wcs['cdelt']
-                return [ (i-crpix)*cdelt + crval for i in range(shape[idx]) ]
+                wcs = coord_dict[k]["wcs"]
+                crpix = wcs["crpix"]
+                crval = wcs["crval"]
+                cdelt = wcs["cdelt"]
+                return [(i - crpix) * cdelt + crval for i in range(shape[idx])]
     else:
         return [1420e6]
 
@@ -558,9 +577,9 @@ def _get_image_axis_order(coords: coordinates.coordinatesystem) -> list:
     axis_names = coords.get_axes()[::-1]
     ncoords = len(axis_names)
     csys = coords.dict()
-    ordered = len(_flatten_list(axis_names)) * ['']
-    for i in range(ncoords-1, -1, -1):
-        axes = csys['pixelmap' + str(i)]
+    ordered = len(_flatten_list(axis_names)) * [""]
+    for i in range(ncoords - 1, -1, -1):
+        axes = csys["pixelmap" + str(i)]
         if len(axes) == 1:
             ordered[axes[0]] = axis_names[i]
         elif len(axes) == 2:
@@ -579,52 +598,56 @@ def _get_image_dim_order(coords: coordinates.coordinatesystem) -> list:
     ret = []
     for axis in flat:
         b = axis.lower()
-        if b.startswith('right') or b.startswith('uu'):
-            ret.append('l')
-        elif b.startswith('dec') or b.startswith('vv'):
-            ret.append('m')
-        elif b.startswith('frequency'):
-            ret.append('frequency')
-        elif b.startswith('stok'):
-            ret.append('polarization')
+        if b.startswith("right") or b.startswith("uu"):
+            ret.append("l")
+        elif b.startswith("dec") or b.startswith("vv"):
+            ret.append("m")
+        elif b.startswith("frequency"):
+            ret.append("frequency")
+        elif b.startswith("stok"):
+            ret.append("polarization")
         else:
-            raise Exception(f'Unhandled axis name {c}')
+            raise Exception(f"Unhandled axis name {c}")
     return ret
 
 
-def _get_mask_names(infile:str) -> list:
+def _get_mask_names(infile: str) -> list:
     t = tables.table(infile)
     tb_tool = tables.table(
-        infile, readonly=True, lockoptions={'option': 'usernoread'}, ack=False
+        infile, readonly=True, lockoptions={"option": "usernoread"}, ack=False
     )
-    mymasks = t.getkeyword('masks') if 'masks' in t.keywordnames() else []
+    mymasks = t.getkeyword("masks") if "masks" in t.keywordnames() else []
     t.close()
     return mymasks
 
 
 def _get_multibeam(imageinfo: dict) -> Union[np.ndarray, None]:
     """Returns None if the image does not have multiple (per-plane) beams"""
-    p = 'perplanebeams'
+    p = "perplanebeams"
     if p not in imageinfo:
         return None
     beam = imageinfo[p]
-    nchan = beam['nChannels']
-    npol = beam['nStokes']
+    nchan = beam["nChannels"]
+    npol = beam["nStokes"]
     beam_array = np.zeros([1, npol, nchan, 3])
     for c in range(nchan):
         for p in range(npol):
             k = nchan * p + c
-            b = beam['*' + str(k)]
+            b = beam["*" + str(k)]
             beam_dict = _convert_beam_to_rad(b)
-            beam_array[0][p][c][0] = beam_dict['major']['value']
-            beam_array[0][p][c][1] = beam_dict['minor']['value']
-            beam_array[0][p][c][2] = beam_dict['pa']['value']
+            beam_array[0][p][c][0] = beam_dict["major"]["value"]
+            beam_array[0][p][c][1] = beam_dict["minor"]["value"]
+            beam_array[0][p][c][2] = beam_dict["pa"]["value"]
     return beam_array
 
 
 def _get_persistent_block(
-    infile:str, shapes:tuple, starts:tuple, dimorder:list,
-    transpose_list:list, new_axes:list
+    infile: str,
+    shapes: tuple,
+    starts: tuple,
+    dimorder: list,
+    transpose_list: list,
+    new_axes: list,
 ) -> xr.DataArray:
     block = _read_image_chunk(infile, shapes, starts)
     block = np.expand_dims(block, new_axes)
@@ -635,33 +658,33 @@ def _get_persistent_block(
 
 def _get_pol_values(coord_dict):
     for k in coord_dict:
-        if k.startswith('stokes'):
-            return coord_dict[k]['stokes']
-    return ['I']
+        if k.startswith("stokes"):
+            return coord_dict[k]["stokes"]
+    return ["I"]
 
 
 def _get_starts_shapes_slices(
-    blockdes: dict, coords:coordinates.coordinatesystem, cshape:list
+    blockdes: dict, coords: coordinates.coordinatesystem, cshape: list
 ) -> tuple:
     img_dim_order = _get_image_dim_order(coords)
     starts = []
     shapes = []
     slices = {}
     for i, dim in enumerate(img_dim_order):
-        if dim not in ['polarization', 'frequency', 'l', 'm', 'u', 'v']:
-            raise Exception(f'Unsupported dimension {dim}')
+        if dim not in ["polarization", "frequency", "l", "m", "u", "v"]:
+            raise Exception(f"Unsupported dimension {dim}")
         if dim in blockdes:
             extent = blockdes[dim]
             if isinstance(extent, int):
                 starts.append(extent)
-                shapes.append(extent+1)
-                slices[dim] = slice(extent, extent+1)
+                shapes.append(extent + 1)
+                slices[dim] = slice(extent, extent + 1)
             elif isinstance(extent, slice):
                 starts.append(extent.start)
                 shapes.append(extent.stop - extent.start)
                 slices[dim] = slice(extent.start, extent.stop)
             else:
-                raise Exception(f'Unhandled extent type {type(extent)}')
+                raise Exception(f"Unhandled extent type {type(extent)}")
         else:
             starts.append(0)
             shapes.append(cshape[i])
@@ -669,7 +692,7 @@ def _get_starts_shapes_slices(
 
 
 def _get_time_values(coord_dict):
-   return [ coord_dict['obsdate']['m0']['value'] ]
+    return [coord_dict["obsdate"]["m0"]["value"]]
 
 
 def _get_transpose_list(coords: coordinates.coordinatesystem) -> list:
@@ -679,58 +702,56 @@ def _get_transpose_list(coords: coordinates.coordinatesystem) -> list:
     transpose_list[0] = 4
     new_axes = [4]
     last_axis = 3
-    not_covered = ['l', 'm', 'u', 'v', 's', 'f']
+    not_covered = ["l", "m", "u", "v", "s", "f"]
     csys = coords.dict()
     for i, c in enumerate(flat):
         b = c.lower()
-        if b.startswith('right') or b.startswith('uu'):
+        if b.startswith("right") or b.startswith("uu"):
             transpose_list[3] = i
             # transpose_list[3] = csys['pixelmap0'][0]
-            not_covered.remove('l')
-            not_covered.remove('u')
-        elif b.startswith('dec') or b.startswith('vv'):
+            not_covered.remove("l")
+            not_covered.remove("u")
+        elif b.startswith("dec") or b.startswith("vv"):
             transpose_list[4] = i
             # transpose_list[4] = csys['pixelmap0'][1]
-            not_covered.remove('m')
-            not_covered.remove('v')
-        elif b.startswith('frequency'):
+            not_covered.remove("m")
+            not_covered.remove("v")
+        elif b.startswith("frequency"):
             # transpose_list[2] = csys['pixelmap1'][0]
             transpose_list[2] = i
-            not_covered.remove('f')
-        elif b.startswith('stok'):
+            not_covered.remove("f")
+        elif b.startswith("stok"):
             transpose_list[1] = i
             # transpose_list[1] = csys['pixelmap2'][0]
-            not_covered.remove('s')
+            not_covered.remove("s")
         else:
-            raise Exception(f'Unhandled axis name {c}')
-    h = {'l': 3, 'm': 4, 'u': 3, 'v': 4, 'f': 2, 's': 1}
+            raise Exception(f"Unhandled axis name {c}")
+    h = {"l": 3, "m": 4, "u": 3, "v": 4, "f": 2, "s": 1}
     for p in not_covered:
         transpose_list[h[p]] = last_axis
         new_axes.append(last_axis)
         last_axis -= 1
     new_axes.sort()
     if transpose_list.count(-1) > 0:
-        raise Exception(
-            f'Logic error: axes {axes}, transpose_list {transpose_list}'
-        )
+        raise Exception(f"Logic error: axes {axes}, transpose_list {transpose_list}")
     return transpose_list, new_axes
 
 
 def _get_uv_values(coord_dict, axis_names, shape):
-    for i, axis in enumerate(['UU', 'VV']):
+    for i, axis in enumerate(["UU", "VV"]):
         idx = axis_names.index(axis)
         if idx >= 0:
             for k in coord_dict:
                 cdict = coord_dict[k]
-                if k.startswith('linear'):
+                if k.startswith("linear"):
                     z = []
-                    crpix = cdict['crpix'][i]
-                    crval = cdict['crval'][i]
-                    cdelt = cdict['cdelt'][i]
+                    crpix = cdict["crpix"][i]
+                    crval = cdict["crval"][i]
+                    cdelt = cdict["cdelt"][i]
                     for i in range(shape[idx]):
                         f = (i - crpix) * cdelt + crval
                         z.append(f)
-                    if axis == 'UU':
+                    if axis == "UU":
                         u = z
                     else:
                         v = z
@@ -740,14 +761,14 @@ def _get_uv_values(coord_dict, axis_names, shape):
 def _get_velocity_values(coord_dict: dict, freq_values: list) -> list:
     restfreq = 1420405751.786
     for k in coord_dict:
-        if k.startswith('spectral'):
-            restfreq = coord_dict[k]['restfreq']
+        if k.startswith("spectral"):
+            restfreq = coord_dict[k]["restfreq"]
             break
     # doppler type = RADIO definition
-    return [ ((1 - f/restfreq)*_c).value for f in freq_values ]
+    return [((1 - f / restfreq) * _c).value for f in freq_values]
 
 
-def _make_coord_subset(xds:xr.Dataset, slices:dict) -> xr.Dataset:
+def _make_coord_subset(xds: xr.Dataset, slices: dict) -> xr.Dataset:
     dim_to_coord_map = {}
     coord_to_dim_map = {}
     for c in xds.coords:
@@ -769,39 +790,39 @@ def _make_coord_subset(xds:xr.Dataset, slices:dict) -> xr.Dataset:
                         save_coord[coord_name] = np.take(
                             save_coord[coord_name],
                             range(slices[dim].start, slices[dim].stop),
-                            dim_num
+                            dim_num,
                         )
     xds = xds.drop_vars(save_coord.keys())
     for coord in xds.coords:
         if coord in slices:
             xds[coord] = xds[coord][slices[coord]]
     for coord in save_coord:
-        xds = xds.assign_coords(
-            {coord: (coord_to_dim_map[coord], save_coord[coord])}
-        )
+        xds = xds.assign_coords({coord: (coord_to_dim_map[coord], save_coord[coord])})
     return xds
 
 
 def _multibeam_array(
-    xds:xr.Dataset, img_full_path:str, as_dask_array:bool
+    xds: xr.Dataset, img_full_path: str, as_dask_array: bool
 ) -> Union[xr.DataArray, None]:
     """This should only be called after the xds.beam attr has been set"""
-    if xds.attrs['beam'] is None:
+    if xds.attrs["beam"] is None:
         # the image may have multiple beams
         casa_image = images.image(img_full_path)
-        imageinfo = casa_image.info()['imageinfo']
+        imageinfo = casa_image.info()["imageinfo"]
         del casa_image
         mb = _get_multibeam(imageinfo)
         if mb is not None:
             # multiple beams are stored as a data varialbe, so remove
             # the beam xds attr
-            del xds.attrs['beam']
+            del xds.attrs["beam"]
             if as_dask_array:
                 mb = da.array(mb)
-            xdb = xr.DataArray(mb, dims=['time', 'polarization', 'frequency', 'beam_param'])
-            xdb = xdb.rename('beam')
-            xdb = xdb.assign_coords(beam_param=['major', 'minor', 'pa'])
-            xdb.attrs['unit'] = 'rad'
+            xdb = xr.DataArray(
+                mb, dims=["time", "polarization", "frequency", "beam_param"]
+            )
+            xdb = xdb.rename("beam")
+            xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
+            xdb.attrs["unit"] = "rad"
             return xdb
     else:
         return None
@@ -832,8 +853,10 @@ def read_generic_table(infile, subtables=False, timecols=None, ignore=None):
     -------
     xarray.core.dataset.Dataset
     """
-    if timecols is None: timecols = []
-    if ignore is None: ignore = []
+    if timecols is None:
+        timecols = []
+    if ignore is None:
+        ignore = []
 
     infile = os.path.expanduser(infile)
     assert os.path.isdir(infile), "invalid input filename to read_generic_table"
@@ -843,45 +866,58 @@ def read_generic_table(infile, subtables=False, timecols=None, ignore=None):
         if tb_tool.nrows() == 0:
             return xr.Dataset(attrs=attrs)
 
-        dims = ['row'] + ['d%i' % ii for ii in range(1, 20)]
+        dims = ["row"] + ["d%i" % ii for ii in range(1, 20)]
         cols = tb_tool.colnames()
-        ctype = dict([
-            (col, tb_tool.getcell(col, 0)) for col in cols if (
-                (col not in ignore) and (tb_tool.iscelldefined(col, 0))
-            )
-        ])
+        ctype = dict(
+            [
+                (col, tb_tool.getcell(col, 0))
+                for col in cols
+                if ((col not in ignore) and (tb_tool.iscelldefined(col, 0)))
+            ]
+        )
         mvars, mcoords, xds = {}, {}, xr.Dataset()
 
         tr = tb_tool.row(ignore, exclude=True)[:]
 
         # extract data for each col
         for col in ctype.keys():
-            if tb_tool.coldatatype(col) == 'record': continue  # not supported
+            if tb_tool.coldatatype(col) == "record":
+                continue  # not supported
 
             try:
                 data = np.stack([rr[col] for rr in tr])  # .astype(ctype[col].dtype)
                 if isinstance(tr[0][col], dict):
-                    data = np.stack([
-                        rr[col]['array'].reshape(rr[col]['shape'])
-                        if len(rr[col]['array']) > 0 else np.array(['']) for rr in tr
-                    ])
+                    data = np.stack(
+                        [
+                            rr[col]["array"].reshape(rr[col]["shape"])
+                            if len(rr[col]["array"]) > 0
+                            else np.array([""])
+                            for rr in tr
+                        ]
+                    )
             except:
                 # sometimes the columns are variable, so we need to standardize to the largest sizes
                 if len(np.unique([isinstance(rr[col], dict) for rr in tr])) > 1:
                     continue  # can't deal with this case
                 mshape = np.array(max([np.array(rr[col]).shape for rr in tr]))
                 try:
-                    data = np.stack([
-                        np.pad(
-                            rr[col]
-                            if len(rr[col]) > 0
-                            else np.array(rr[col]).reshape(np.arange(len(mshape)) * 0),
+                    data = np.stack(
+                        [
+                            np.pad(
+                                rr[col]
+                                if len(rr[col]) > 0
+                                else np.array(rr[col]).reshape(
+                                    np.arange(len(mshape)) * 0
+                                ),
                                 [(0, ss) for ss in mshape - np.array(rr[col]).shape],
-                                'constant', constant_values=np.array([np.nan]).astype(
+                                "constant",
+                                constant_values=np.array([np.nan]).astype(
                                     np.array(ctype[col]).dtype
-                                )[0]
-                        ) for rr in tr
-                    ])
+                                )[0],
+                            )
+                            for rr in tr
+                        ]
+                    )
                 except:
                     data = []
 
@@ -889,45 +925,63 @@ def read_generic_table(infile, subtables=False, timecols=None, ignore=None):
                 continue
             if col in timecols:
                 convert_time(data)
-            if col.endswith('_ID'):
+            if col.endswith("_ID"):
                 mcoords[col] = xr.DataArray(
-                    data, dims=['d%i_%i' % (di, ds)
-                    for di, ds in enumerate(np.array(data).shape)]
+                    data,
+                    dims=[
+                        "d%i_%i" % (di, ds)
+                        for di, ds in enumerate(np.array(data).shape)
+                    ],
                 )
             else:
                 mvars[col] = xr.DataArray(
-                    data, dims=[
-                        'd%i_%i' % (di, ds) for di, ds in enumerate(np.array(data).shape)
-                    ]
+                    data,
+                    dims=[
+                        "d%i_%i" % (di, ds)
+                        for di, ds in enumerate(np.array(data).shape)
+                    ],
                 )
 
         xds = xr.Dataset(mvars, coords=mcoords)
         xds = xds.rename(dict([(dv, dims[di]) for di, dv in enumerate(xds.dims)]))
-        attrs['bad_cols'] = list(
+        attrs["bad_cols"] = list(
             np.setdiff1d(
                 [dv for dv in tb_tool.colnames()],
-                [dv for dv in list(xds.data_vars) + list(xds.coords)]
+                [dv for dv in list(xds.data_vars) + list(xds.coords)],
             )
         )
 
         # if this table has subtables, use a recursive call to store them in subtables attribute
         if subtables:
-            stbl_list = sorted([tt for tt in os.listdir(infile) if os.path.isdir(os.path.join(infile, tt)) and tables.tableexists(os.path.join(infile, tt))])
-            attrs['subtables'] = []
+            stbl_list = sorted(
+                [
+                    tt
+                    for tt in os.listdir(infile)
+                    if os.path.isdir(os.path.join(infile, tt))
+                    and tables.tableexists(os.path.join(infile, tt))
+                ]
+            )
+            attrs["subtables"] = []
             for ii, subtable in enumerate(stbl_list):
                 sxds = read_generic_table(
-                    os.path.join(infile, subtable), subtables=subtables,
-                    timecols=timecols, ignore=ignore
+                    os.path.join(infile, subtable),
+                    subtables=subtables,
+                    timecols=timecols,
+                    ignore=ignore,
                 )
                 if len(sxds.dims) != 0:
-                    attrs['subtables'] += [(subtable, sxds)]
+                    attrs["subtables"] += [(subtable, sxds)]
         xds = xds.assign_attrs(attrs)
     return xds
 
 
 def _read_image_array(
-    infile:str, chunks:Union[list, dict], mask:str=None, verbose:bool=False,
-    blc=None, trc=None
+    infile: str,
+    chunks: Union[list, dict],
+    mask: str = None,
+    verbose: bool = False,
+    blc=None,
+    trc=None,
 ) -> dask.array:
     """
     Read an array of image pixels into a dask array. The returned dask array
@@ -983,8 +1037,8 @@ def _read_image_array(
         )
     else:
         raise Exception(
-            f'incorrect type {type(chunks)} for parameter chunks. Must be '
-            'either tuple or dict'
+            f"incorrect type {type(chunks)} for parameter chunks. Must be "
+            "either tuple or dict"
         )
     # shape list is the reverse of the actual image shape
     cshape = casa_image.shape()
@@ -992,7 +1046,7 @@ def _read_image_array(
     data_type = casa_image.datatype()
     del casa_image
     if verbose:
-        print(f'cshape: {cshape}')
+        print(f"cshape: {cshape}")
     if mask:
         img_full_path = os.sep.join([img_full_path, mask])
     # rblc and rtrc are enforced to be of type list
@@ -1002,10 +1056,10 @@ def _read_image_array(
         if len(blc) == len(cshape):
             rblc = list(blc[::-1])
             if rblc >= cshape:
-                raise RuntimeError(f'blc {blc} >= shape {cshape[::-1]}')
+                raise RuntimeError(f"blc {blc} >= shape {cshape[::-1]}")
         else:
             raise RuntimeError(
-                f'cshape has {len(cshape)} dimensions and blc has {len(blc)}'
+                f"cshape has {len(cshape)} dimensions and blc has {len(blc)}"
             )
     rblc = rblc + [0 for rr in range(5) if rr >= len(mychunks)]
     if trc is None:
@@ -1014,13 +1068,13 @@ def _read_image_array(
         if len(trc) == len(cshape):
             rtrc = list(trc[::-1])
             if rtrc > cshape:
-                raise RuntimeError(f'trc {trc} >= shape {cshape[::-1]}')
+                raise RuntimeError(f"trc {trc} >= shape {cshape[::-1]}")
             xblc = rblc if blc is None else list(blc)
             if list(trc) <= xblc:
-                raise RuntimeError(f'trc {trc} must be > blc {blc}')
+                raise RuntimeError(f"trc {trc} must be > blc {blc}")
         else:
             raise RuntimeError(
-                f'cshape has {len(cshape)} dimensions and blc has {len(blc)}'
+                f"cshape has {len(cshape)} dimensions and blc has {len(blc)}"
             )
     rtrc = rtrc + [1 for rr in range(5) if rr >= len(mychunks)]
 
@@ -1049,42 +1103,44 @@ def _read_image_array(
                         d4len = min(full_chunks[4], rtrc[4] - d4)
 
                         shapes = tuple(
-                            [d0len, d1len, d2len, d3len, d4len][:len(cshape)]
+                            [d0len, d1len, d2len, d3len, d4len][: len(cshape)]
                         )
-                        starts = tuple([d0, d1, d2, d3, d4][:len(cshape)])
+                        starts = tuple([d0, d1, d2, d3, d4][: len(cshape)])
                         delayed_array = dask.delayed(_read_image_chunk)(
                             img_full_path, shapes, starts
                         )
                         d4slices += [
-                            dask.array.from_delayed(
-                                delayed_array, shapes, data_type
-                            )
+                            dask.array.from_delayed(delayed_array, shapes, data_type)
                         ]
                     d3slices += (
                         [dask.array.concatenate(d4slices, axis=4)]
-                        if len(cshape) > 4 else d4slices
+                        if len(cshape) > 4
+                        else d4slices
                     )
                 d2slices += (
                     [dask.array.concatenate(d3slices, axis=3)]
-                    if len(cshape) > 3 else d3slices
+                    if len(cshape) > 3
+                    else d3slices
                 )
             d1slices += (
                 [dask.array.concatenate(d2slices, axis=2)]
-                if len(cshape) > 2 else d2slices
+                if len(cshape) > 2
+                else d2slices
             )
         d0slices += (
-            [dask.array.concatenate(d1slices, axis=1)]
-            if len(cshape) > 1 else d1slices
+            [dask.array.concatenate(d1slices, axis=1)] if len(cshape) > 1 else d1slices
         )
     ary = dask.array.concatenate(d0slices, axis=0)
     ary = da.expand_dims(ary, new_axes)
     return ary.transpose(transpose_list)
 
 
-def _read_image_chunk(infile:str, shapes:tuple, starts:tuple) -> np.ndarray:
+def _read_image_chunk(infile: str, shapes: tuple, starts: tuple) -> np.ndarray:
     with open_table_ro(infile) as tb_tool:
-        data:np.ndarray = tb_tool.getcellslice(
-            tb_tool.colnames()[0], 0, starts,
-            tuple(np.array(starts) + np.array(shapes) - 1)
+        data: np.ndarray = tb_tool.getcellslice(
+            tb_tool.colnames()[0],
+            0,
+            starts,
+            tuple(np.array(starts) + np.array(shapes) - 1),
         )
     return data

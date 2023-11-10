@@ -46,4 +46,3 @@ def _write_sub_xdses(zarr_store: str, xds_dict: dict, path: str):
         elif isinstance(v, xr.Dataset):
             zs = os.sep.join([zarr_store, my_path])
             z_obj = v.to_zarr(store=zs, compute=True)
-

@@ -1,19 +1,3 @@
-#  CASA Next Generation Infrastructure
-#  Copyright (C) 2021 AUI, Inc. Washington DC, USA
-#
-#  This program is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
 #################################
 # Helper File
 #
@@ -26,14 +10,24 @@ import astropy.wcs
 from .common import _get_xds_dim_order, _dask_arrayize
 from ._casacore.common import _active_mask
 from ._casacore.xds_to_casacore import (
-    _coord_dict_from_xds, _history_from_xds, _imageinfo_dict_from_xds,
-    _write_casa_data
+    _coord_dict_from_xds,
+    _history_from_xds,
+    _imageinfo_dict_from_xds,
+    _write_casa_data,
 )
 from ._casacore.xds_from_casacore import (
-    _add_coord_attrs, _add_mask, _add_sky_or_apeture,
-    _casa_image_to_xds_attrs, _casa_image_to_xds_metadata, _get_mask_names,
-    _get_persistent_block, _get_starts_shapes_slices, _get_transpose_list,
-    _make_coord_subset, _multibeam_array, _read_image_array
+    _add_coord_attrs,
+    _add_mask,
+    _add_sky_or_apeture,
+    _casa_image_to_xds_attrs,
+    _casa_image_to_xds_metadata,
+    _get_mask_names,
+    _get_persistent_block,
+    _get_starts_shapes_slices,
+    _get_transpose_list,
+    _make_coord_subset,
+    _multibeam_array,
+    _read_image_array,
 )
 from astropy.coordinates import SkyCoord  # High-level coordinates
 from astropy.coordinates import ICRS, Galactic, FK4, FK5  # Low-level frames
@@ -44,7 +38,7 @@ from typing import Union
 import xarray as xr
 from casacore.images import image
 
-warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 def _load_casa_image_block(infile: str, block_des: dict) -> xr.Dataset:
@@ -54,13 +48,15 @@ def _load_casa_image_block(infile: str, block_des: dict) -> xr.Dataset:
     cshape = casa_image.shape()
     del casa_image
     ret = _casa_image_to_xds_metadata(image_full_path, False)
-    xds = ret['xds']
+    xds = ret["xds"]
     starts, shapes, slices = _get_starts_shapes_slices(block_des, coords, cshape)
     xds = _make_coord_subset(xds, slices)
-    dimorder = _get_xds_dim_order(ret['sphr_dims'])
+    dimorder = _get_xds_dim_order(ret["sphr_dims"])
     transpose_list, new_axes = _get_transpose_list(coords)
-    block = _get_persistent_block(image_full_path, shapes, starts, dimorder, transpose_list, new_axes)
-    xds = _add_sky_or_apeture(xds, block, dimorder, image_full_path, ret['sphr_dims'])
+    block = _get_persistent_block(
+        image_full_path, shapes, starts, dimorder, transpose_list, new_axes
+    )
+    xds = _add_sky_or_apeture(xds, block, dimorder, image_full_path, ret["sphr_dims"])
     mymasks = _get_mask_names(image_full_path)
     for m in mymasks:
         full_path = os.sep.join([image_full_path, m])
@@ -72,25 +68,31 @@ def _load_casa_image_block(infile: str, block_des: dict) -> xr.Dataset:
     mb = _multibeam_array(xds, image_full_path, False)
     if mb is not None:
         selectors = {}
-        for k in ('time', 'polarization', 'frequency'):
+        for k in ("time", "polarization", "frequency"):
             if k in block_des:
                 selectors[k] = block_des[k]
-        xds['beam'] = mb.isel(selectors)
-    xds = _add_coord_attrs(xds, ret['icoords'], ret['dir_axes'])
+        xds["beam"] = mb.isel(selectors)
+    xds = _add_coord_attrs(xds, ret["icoords"], ret["dir_axes"])
     return xds
 
 
 def _read_casa_image(
-    infile:str, chunks:Union[list, dict], masks:bool=True,
-    history:bool=True, verbose:bool=False
+    infile: str,
+    chunks: Union[list, dict],
+    masks: bool = True,
+    history: bool = True,
+    verbose: bool = False,
 ) -> xr.Dataset:
     img_full_path = os.path.expanduser(infile)
     ret = _casa_image_to_xds_metadata(img_full_path, verbose)
-    xds = ret['xds']
-    dimorder = _get_xds_dim_order(ret['sphr_dims'])
+    xds = ret["xds"]
+    dimorder = _get_xds_dim_order(ret["sphr_dims"])
     xds = _add_sky_or_apeture(
-        xds, _read_image_array(img_full_path, chunks, verbose=verbose),
-        dimorder, img_full_path, ret['sphr_dims']
+        xds,
+        _read_image_array(img_full_path, chunks, verbose=verbose),
+        dimorder,
+        img_full_path,
+        ret["sphr_dims"],
     )
     if masks:
         mymasks = _get_mask_names(img_full_path)
@@ -100,33 +102,36 @@ def _read_casa_image(
     xds.attrs = _casa_image_to_xds_attrs(img_full_path, history)
     mb = _multibeam_array(xds, img_full_path, True)
     if mb is not None:
-        xds['beam'] = mb
-    xds = _add_coord_attrs(xds, ret['icoords'], ret['dir_axes'])
+        xds["beam"] = mb
+    xds = _add_coord_attrs(xds, ret["icoords"], ret["dir_axes"])
     xds = _dask_arrayize(xds)
     return xds
 
 
-def _xds_to_casa_image(xds: xr.Dataset, imagename:str) -> None:
+def _xds_to_casa_image(xds: xr.Dataset, imagename: str) -> None:
     image_full_path = os.path.expanduser(imagename)
     _write_casa_data(xds, image_full_path)
     # create coordinates
     coord = _coord_dict_from_xds(xds)
     ii = _imageinfo_dict_from_xds(xds)
-    units = xds.sky.attrs['unit'] if 'unit' in xds.sky.attrs else None
+    units = xds.sky.attrs["unit"] if "unit" in xds.sky.attrs else None
     miscinfo = (
-        xds.attrs['user']
-        if 'user' in xds.attrs and len(xds.attrs['user']) > 0 else None
+        xds.attrs["user"]
+        if "user" in xds.attrs and len(xds.attrs["user"]) > 0
+        else None
     )
     tb = tables.table(
-        image_full_path, readonly=False, lockoptions={'option': 'permanentwait'},
-        ack=False
+        image_full_path,
+        readonly=False,
+        lockoptions={"option": "permanentwait"},
+        ack=False,
     )
-    tb.putkeyword('coords', coord)
-    tb.putkeyword('imageinfo', ii)
+    tb.putkeyword("coords", coord)
+    tb.putkeyword("imageinfo", ii)
     if units:
-        tb.putkeyword('units', units)
+        tb.putkeyword("units", units)
     if miscinfo:
-        tb.putkeyword('miscinfo', miscinfo)
+        tb.putkeyword("miscinfo", miscinfo)
     tb.done()
     # history
     _history_from_xds(xds, image_full_path)

@@ -138,6 +138,7 @@ def _add_vel_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
         meta["doppler_type"] = helpers["doppler"]
     else:
         meta["doppler_type"] = _doppler_types[0]
+    meta["type"] = "doppler"
     vel_coord.attrs = copy.deepcopy(meta)
     xds.coords["velocity"] = vel_coord
     return xds
@@ -257,7 +258,8 @@ def _get_telescope_metadata(helpers: dict, header) -> dict:
     long = np.arctan2(y, x)
     tel["position"] = {
         "type": "position",
-        "refer": "ITRF",
+        # I haven't seen a FITS keyword for reference frame of telescope posiiton
+        "ellipsoid": "GRS80",
         "m2": {"value": r, "unit": "m"},
         "m1": {"unit": "rad", "value": lat},
         "m0": {"unit": "rad", "value": long},

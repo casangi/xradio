@@ -197,6 +197,7 @@ def _add_vel_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
             break
     if not meta:
         meta["doppler_type"] = _doppler_types[0]
+    meta["type"] = "doppler"
     vel_coord.attrs = copy.deepcopy(meta)
     xds["velocity"] = vel_coord
     return xds
@@ -217,7 +218,7 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
             break
     if dir_key:
         # shared direction coordinate attributes
-        coord_dir_dict = coord_dict[dir_key]
+        coord_dir_dict = copy.deepcopy(coord_dict[dir_key])
         system = "system"
         if system not in coord_dir_dict:
             raise RuntimeError("No direction reference frame found")
@@ -268,6 +269,10 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
                 telescope["name"] = coord_dict[k]
             else:
                 telescope["position"] = coord_dict[k]
+                telescope["position"]["ellipsoid"] = telescope["position"]["refer"]
+                if telescope["position"]["refer"] == "ITRF":
+                    telescope["position"]["ellipsoid"] = "GRS80"
+                del telescope["position"]["refer"]
         elif k == "obsdate":
             obsdate["scale"] = coord_dict[k]["refer"]
             obsdate["unit"] = coord_dict[k]["m0"]["unit"]

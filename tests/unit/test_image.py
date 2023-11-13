@@ -42,6 +42,7 @@ class ImageBase(unittest.TestCase):
         "unit": "Jy/beam",
         "vel_type": "RADIO",
         "vel_unit": "m/s",
+        "vel_mea_type": "doppler",
         "frequency": [
             1.414995e09,
             1.414996e09,
@@ -124,7 +125,7 @@ class ImageBase(unittest.TestCase):
         "name": "ALMA",
         "position": {
             "type": "position",
-            "refer": "ITRF",
+            "ellipsoid": "GRS80",
             "m2": {"value": 6379946.01326443, "unit": "m"},
             "m1": {"unit": "rad", "value": -0.3994149869262738},
             "m0": {"unit": "rad", "value": -1.1825465955049892},
@@ -408,6 +409,10 @@ class ImageBase(unittest.TestCase):
             )
         self.assertEqual(
             xds.velocity.attrs["unit"], ev["vel_unit"], "Incoorect velocity unit"
+        )
+        self.assertEqual(
+            xds.velocity.attrs["type"], ev["vel_mea_type"],
+            "Incoorect doppler measure type"
         )
 
     def compare_ra_dec(self, xds: xr.Dataset, fits: bool = False) -> None:
@@ -705,6 +710,7 @@ class casacore_to_xds_to_casacore(ImageBase):
         )
         # case 2a: no mask + nans = nan_mask
         xds.sky[0, 1, 1, 1, 1] = float("NaN")
+        shutil.rmtree(self._outname3)
         write_image(xds, self._outname3, out_format="casa")
         subdirs = glob(f"{self._outname3}/*/")
         subdirs = [d[d.index("/") + 1 : -1] for d in subdirs]
@@ -860,7 +866,7 @@ class make_empty_sky_image_test(ImageBase):
 
     @classmethod
     def tearDownClass(cls):
-        pass
+        super().tearDownClass()
 
     def skel_im(self):
         return self._skel_im
@@ -1229,7 +1235,7 @@ class fits_to_xds_test(ImageBase):
 
     @classmethod
     def tearDownClass(cls):
-        pass
+        super().tearDownClass()
 
     def setUp(self):
         pass

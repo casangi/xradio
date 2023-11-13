@@ -94,35 +94,6 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
     direction["cdelt"] = np.array(
         [long.attrs["wcs"]["cdelt"], lat.attrs["wcs"]["cdelt"]]
     )
-    """
-    # get the actual ref pix
-    proj = direction['projection']
-    wcs_dict = {}
-    wcs_dict[f'CTYPE1'] = f'RA---{proj}'
-    wcs_dict[f'NAXIS1'] = long.shape[0]
-    wcs_dict[f'CUNIT1'] = long.attrs['unit']
-    # FITS arrays are 1-based
-    wcs_dict[f'CRPIX1'] = 1
-    wcs_dict[f'CRVAL1'] = long[0][0].item(0)
-    wcs_dict[f'CDELT1'] = long.attrs['wcs']['cdelt']
-    wcs_dict[f'CTYPE2'] = f'DEC--{proj}'
-    wcs_dict[f'NAXIS2'] = lat.shape[1]
-    wcs_dict[f'CUNIT2'] = lat.attrs['unit']
-    # FITS arrays are 1-based
-    wcs_dict[f'CRPIX2'] = 1
-    wcs_dict[f'CRVAL2'] = lat[0][0].item(0)
-    wcs_dict[f'CDELT2'] = lat.attrs['wcs']['cdelt']
-    print('*** wcs_dict', wcs_dict)
-    w = astropy.wcs.WCS(wcs_dict)
-    x, y = np.indices(w.pixel_shape)
-    sky = SkyCoord(direction[
-        'crval'][0], direction['crval'][1],
-        frame=xds.attrs['direction']['system'].lower(),
-        equinox=xds.attrs['direction']['equinox'],
-        unit=long.attrs['unit']
-    )
-    crpix = w.world_to_pixel(sky)
-    """
     crpix = _compute_ref_pix(xds, direction)
     direction["crpix"] = np.array([crpix[0], crpix[1]])
     direction["pc"] = xds_dir["pc"]
@@ -215,7 +186,11 @@ def _coord_dict_from_xds(xds: xr.Dataset) -> dict:
     # obsdate['format'] = xds.time.attrs['format']
     coord["obsdate"] = obsdate
     coord["pointingcenter"] = xds.attrs[_pointing_center].copy()
-    coord["telescopeposition"] = xds.attrs["telescope"]["position"].copy()
+    coord["telescopeposition"] = copy.deepcopy(xds.attrs["telescope"]["position"])
+
+    coord["telescopeposition"]["refer"] = xds.attrs["telescope"]["position"]["ellipsoid"]
+    if xds.attrs["telescope"]["position"]["ellipsoid"] == "GRS80":
+        coord["telescopeposition"]["refer"] = "ITRF"
     coord["direction0"] = _compute_direction_dict(xds)
     coord["stokes1"] = {
         "axes": np.array(["Stokes"], dtype="<U16"),

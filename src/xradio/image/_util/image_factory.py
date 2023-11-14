@@ -89,13 +89,11 @@ def _make_empty_sky_image(
         "system": spectral_reference.upper(),
         "unit": "Hz",
         "wave_unit": "mm",
-        "wcs": {
-            "crval": chan_coords[len(chan_coords) // 2],
-            "cdelt": (
-                chan_coords[1] - chan_coords[0] if len(chan_coords) > 1 else 1000.0
-            ),
-            "pc": 1.0,
-        },
+        "crval": chan_coords[len(chan_coords) // 2],
+        "cdelt": (
+            chan_coords[1] - chan_coords[0] if len(chan_coords) > 1 else 1000.0
+        ),
+        "pc": 1.0,
     }
     xds.velocity.attrs = {"doppler_type": "RADIO", "unit": "m/s"}
     xds.right_ascension.attrs = {

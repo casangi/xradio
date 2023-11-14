@@ -162,13 +162,13 @@ def _compute_spectral_dict(
     spec["velUnit"] = xds.velocity.attrs["unit"]
     spec["version"] = 2
     spec["waveUnit"] = xds.frequency.attrs["wave_unit"]
-    spec_wcs = copy.deepcopy(xds.frequency.attrs["wcs"])
-    spec_wcs["ctype"] = "FREQ"
-    spec_wcs["pc"] = 1.0
-    spec_wcs["crpix"] = (spec_wcs["crval"] - xds.frequency.values[0]) / spec_wcs[
-        "cdelt"
-    ]
-    spec["wcs"] = spec_wcs
+    wcs = {}
+    wcs["ctype"] = "FREQ"
+    wcs["pc"] = 1.0
+    wcs["crval"] = xds.frequency.attrs["crval"]
+    wcs["cdelt"] = xds.frequency.attrs["cdelt"]
+    wcs["crpix"] = (wcs["crval"] - xds.frequency.values[0]) / wcs["cdelt"]
+    spec["wcs"] = wcs
     return spec
 
 
@@ -220,7 +220,7 @@ def _coord_dict_from_xds(xds: xr.Dataset) -> dict:
     # this probbably needs some verification
     coord["worldreplace0"] = [0.0, 0.0]
     coord["worldreplace1"] = np.array(coord["stokes1"]["crval"])
-    coord["worldreplace2"] = np.array([xds.frequency.attrs["wcs"]["crval"]])
+    coord["worldreplace2"] = np.array([xds.frequency.attrs["crval"]])
     return coord
 
 

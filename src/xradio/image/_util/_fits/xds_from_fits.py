@@ -107,11 +107,9 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
         meta["units"] = "Hz"
         meta["type"] = "frequency"
         meta["wave_unit"] = "mm"
-        wcs = {}
         freq_axis = helpers["freq_axis"]
-        wcs["crval"] = helpers["crval"][freq_axis]
-        wcs["cdelt"] = helpers["cdelt"][freq_axis]
-        meta["wcs"] = wcs
+        meta["crval"] = helpers["crval"][freq_axis]
+        meta["cdelt"] = helpers["cdelt"][freq_axis]
     if not meta:
         # this is the default frequency information CASA creates
         meta = _default_freq_info()

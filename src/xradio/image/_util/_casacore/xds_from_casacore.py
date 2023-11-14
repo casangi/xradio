@@ -125,9 +125,8 @@ def _add_freq_attrs(xds, coord_dict):
             meta["units"] = sd["unit"]
             meta["frame"] = sd["system"]
             meta["wave_unit"] = sd["waveUnit"]
-            meta["wcs"] = {}
-            meta["wcs"]["crval"] = sd["wcs"]["crval"]
-            meta["wcs"]["cdelt"] = sd["wcs"]["cdelt"]
+            meta["crval"] = sd["wcs"]["crval"]
+            meta["cdelt"] = sd["wcs"]["cdelt"]
     if not meta:
         # this is the default frequency information CASA creates
         meta = _default_freq_info()

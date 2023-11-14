@@ -3,13 +3,15 @@ from astropy import units as u
 from astropy.io import fits
 from astropy.time import Time
 from ..common import (
-    __c,
-    __default_freq_info,
-    __doppler_types,
-    __freq_from_vel,
-    __get_xds_dim_order,
-    __image_type,
+    _c,
+    _default_freq_info,
+    _doppler_types,
+    _freq_from_vel,
+    _get_unit,
+    _get_xds_dim_order,
+    _image_type,
 )
+from ...._utils.common import _deg_to_rad
 import copy
 import dask
 import dask.array as da
@@ -20,9 +22,7 @@ from typing import Union
 import xarray as xr
 
 
-def __fits_image_to_xds(
-    img_full_path: str, chunks: dict, verbose: bool = False
-) -> dict:
+def _fits_image_to_xds(img_full_path: str, chunks: dict, verbose: bool = False) -> dict:
     """
     TODO: complete documentation
     Create an xds without any pixel data from metadata from the specified FITS image
@@ -31,31 +31,31 @@ def __fits_image_to_xds(
     # may also need to pass mode='denywrite'
     # https://stackoverflow.com/questions/35759713/astropy-io-fits-read-row-from-large-fits-file-with-mutliple-hdus
     hdulist = fits.open(img_full_path, memmap=True)
-    attrs, helpers, header = __fits_header_to_xds_attrs(hdulist)
+    attrs, helpers, header = _fits_header_to_xds_attrs(hdulist)
     hdulist.close()
     # avoid keeping reference to mem-mapped fits file
     del hdulist
-    xds = __create_coords(helpers, header)
+    xds = _create_coords(helpers, header)
     sphr_dims = helpers["sphr_dims"]
-    ary = __read_image_array(img_full_path, chunks, helpers, verbose)
-    dim_order = __get_xds_dim_order(sphr_dims)
-    xds = __add_sky_or_apeture(xds, ary, dim_order, helpers, sphr_dims)
+    ary = _read_image_array(img_full_path, chunks, helpers, verbose)
+    dim_order = _get_xds_dim_order(sphr_dims)
+    xds = _add_sky_or_apeture(xds, ary, dim_order, helpers, sphr_dims)
     xds.attrs = attrs
-    xds = __add_coord_attrs(xds, helpers)
+    xds = _add_coord_attrs(xds, helpers)
     if helpers["has_multibeam"]:
-        xds = __do_multibeam(xds, img_full_path)
+        xds = _do_multibeam(xds, img_full_path)
     return xds
 
 
-def __add_coord_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
-    xds = __add_time_attrs(xds, helpers)
-    xds = __add_freq_attrs(xds, helpers)
-    xds = __add_vel_attrs(xds, helpers)
-    xds = __add_dir_lin_attrs(xds, helpers)
+def _add_coord_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
+    xds = _add_time_attrs(xds, helpers)
+    xds = _add_freq_attrs(xds, helpers)
+    xds = _add_vel_attrs(xds, helpers)
+    xds = _add_dir_lin_attrs(xds, helpers)
     return xds
 
 
-def __add_time_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
+def _add_time_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     time_coord = xds.coords["time"]
     meta = copy.deepcopy(helpers["obsdate"])
     del meta["value"]
@@ -67,31 +67,45 @@ def __add_time_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     return xds
 
 
-def __add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
+def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     freq_coord = xds.coords["frequency"]
     meta = {}
     if helpers["has_freq"]:
         conv = {}
         conv["direction"] = {
-            "m0": {"unit": "rad", "value": 0.0},
-            "m1": {"unit": "rad", "value": np.pi / 2},
-            "system": helpers["ref_sys"],
+            "units": ["rad", "rad"],
+            "value": np.array([0.0, np.pi / 2]),
+            "frame": helpers["ref_sys"],
             "equinox": helpers["ref_eqx"],
+            "type": "sky_coord",
         }
-        conv["epoch"] = {"m0": {"value": 0.0, "unit": "d"}, "refer": "LAST"}
+        conv["direction"]["units"] = ["rad", "rad"]
+        conv["direction"]["value"] = [0.0, np.pi / 2]
+        conv["epoch"] = {
+            "value": 0.0,
+            "units": "d",
+            "type": "quantity",
+            "refer": "LAST",
+        }
         conv["position"] = {
-            "m0": {"unit": "rad", "value": 0.0},
-            "m1": {"unit": "rad", "value": 0.0},
-            "m2": {"unit": "m", "value": 0.0},
-            "refer": "ITRF",
+            "type": "position",
+            "units": ["rad", "rad", "m"],
+            "value": np.array([0.0, 0.0, 0.0]),
+            "ellipsoid": "GRS80",
         }
+        conv["position"]["type"] = "position"
+        # I haven't seen a FITS keyword which relates to the position ellipsoid
+        conv["position"]["ellipsoid"] = "GRS80"
+        conv["position"]["units"] = ["rad", "rad", "m"]
+        conv["position"]["value"] = np.array([0.0, 0.0, 0.0])
         conv["system"] = helpers["specsys"]
         meta["conversion"] = conv
         meta["native_type"] = helpers["native_type"]
         meta["restfreq"] = helpers["restfreq"]
         meta["restfreqs"] = [helpers["restfreq"]]
-        meta["system"] = helpers["specsys"]
-        meta["unit"] = "Hz"
+        meta["frame"] = helpers["specsys"]
+        meta["units"] = "Hz"
+        meta["type"] = "frequency"
         meta["wave_unit"] = "mm"
         wcs = {}
         freq_axis = helpers["freq_axis"]
@@ -100,25 +114,26 @@ def __add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
         meta["wcs"] = wcs
     if not meta:
         # this is the default frequency information CASA creates
-        meta = __default_freq_info()
+        meta = _default_freq_info()
     freq_coord.attrs = copy.deepcopy(meta)
     xds["frequency"] = freq_coord
     return xds
 
 
-def __add_vel_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
+def _add_vel_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     vel_coord = xds.coords["velocity"]
     meta = {"unit": "m/s"}
     if helpers["has_freq"]:
         meta["doppler_type"] = helpers["doppler"]
     else:
-        meta["doppler_type"] = __doppler_types[0]
+        meta["doppler_type"] = _doppler_types[0]
+    meta["type"] = "doppler"
     vel_coord.attrs = copy.deepcopy(meta)
     xds.coords["velocity"] = vel_coord
     return xds
 
 
-def __add_dir_lin_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
+def _add_dir_lin_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     if helpers["sphr_dims"]:
         for i, name in zip(helpers["dir_axes"], helpers["sphr_axis_names"]):
             meta = {
@@ -136,52 +151,73 @@ def __add_dir_lin_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     return xds
 
 
-def __is_freq_like(v: str) -> bool:
+def _is_freq_like(v: str) -> bool:
     return v.startswith("FREQ") or v == "VOPT" or v == "VRAD"
 
 
-def __fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList) -> dict:
-    primary = None
-    beams = None
-    for hdu in hdulist:
-        if hdu.name == "PRIMARY":
-            primary = hdu
-        elif hdu.name == "BEAMS":
-            beams = hdu
-        else:
-            raise RuntimeError(f"Unknown HDU name {hdu.name}")
-    if not primary:
-        raise RuntimeError(f"No PRIMARY HDU found in fits file")
-    dir_axes = None
-    header = primary.header
-    helpers = {}
-    attrs = {}
-    naxes = header.get("NAXIS")
-    helpers["naxes"] = naxes
-    # fits indexing starts at 1, not 0
-    t_axes = np.array([0, 0])
-    dim_map = {}
+def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
+    # helpers is modified in place, headers is not modified
+    t_axes = helpers["t_axes"]
+    p0 = header[f"CTYPE{t_axes[0]}"][-3:]
+    p1 = header[f"CTYPE{t_axes[1]}"][-3:]
+    if p0 != p1:
+        raise RuntimeError(
+            f"Projections for direction axes ({p0}, {p1}) differ, but they "
+            "must be the same"
+        )
+    direction = {}
+    direction["projection"] = p0
+    helpers["projection"] = p0
+    ref_sys = header["RADESYS"]
+    ref_eqx = header["EQUINOX"]
+    if ref_sys == "FK5" and ref_eqx == 2000:
+        ref_eqx = "J2000"
+    helpers["ref_sys"] = ref_sys
+    helpers["ref_eqx"] = ref_eqx
+    # fits does not support conversion frames
+    direction["conversion_system"] = ref_sys
+    direction["conversion_equinox"] = ref_eqx
+    direction["frame"] = ref_sys
+    direction["equinox"] = ref_eqx
+    direction["units"] = ["rad", "rad"]
+    direction["reference_value"] = np.array([0.0, 0.0])
+    dir_axes = helpers["dir_axes"]
+    for i in dir_axes:
+        x = helpers["crval"][i] * u.Unit(_get_unit(helpers["cunit"][i]))
+        x = x.to("rad")
+        direction["reference_value"][i] = x.value
+    direction["type"] = "sky_coord"
+    direction["latpole"] = {
+        "value": header["LATPOLE"] * _deg_to_rad,
+        "units": "rad",
+        "type": "quantity",
+    }
+    direction["longpole"] = {
+        "value": header["LONPOLE"] * _deg_to_rad,
+        "units": "rad",
+        "type": "quantity",
+    }
+    pc = np.zeros([2, 2])
+    for i in (0, 1):
+        for j in (0, 1):
+            # dir_axes are now 0-based, but fits needs 1-based
+            pc[i][j] = header[f"PC{dir_axes[i]+1}_{dir_axes[j]+1}"]
+    direction["pc"] = pc
+    # Is there really no fits header parameter for projection_parameters?
+    direction["projection_parameters"] = np.array([0.0, 0.0])
+    return direction
+
+
+def _fits_header_c_values_to_metadata(helpers: dict, header) -> None:
+    # The helpers dict is modified in place. header is not modified
     ctypes = []
     shape = []
     crval = []
     cdelt = []
     crpix = []
     cunit = []
-    helpers["has_freq"] = False
-    for i in range(1, naxes + 1):
+    for i in range(1, helpers["naxes"] + 1):
         ax_type = header[f"CTYPE{i}"]
-        if ax_type.startswith("RA-"):
-            t_axes[0] = i
-        elif ax_type.startswith("DEC-"):
-            t_axes[1] = i
-        elif ax_type == "STOKES":
-            dim_map["polarization"] = i - 1
-        elif __is_freq_like(ax_type):
-            dim_map["freq"] = i - 1
-            helpers["has_freq"] = True
-            helpers["native_type"] = ax_type
-        else:
-            raise RuntimeError(f"{ax_type} is an unsupported axis")
         ctypes.append(ax_type)
         shape.append(header[f"NAXIS{i}"])
         crval.append(header[f"CRVAL{i}"])
@@ -189,132 +225,55 @@ def __fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList) -> dict:
         # FITS 1-based to python 0-based
         crpix.append(header[f"CRPIX{i}"] - 1)
         cunit.append(header[f"CUNIT{i}"])
-    helpers["ctype"] = ctypes
+    helpers["ax_type"] = ax_type
     helpers["shape"] = shape
+    helpers["ctype"] = ctypes
     helpers["crval"] = crval
     helpers["cdelt"] = cdelt
     helpers["crpix"] = crpix
     helpers["cunit"] = cunit
-    if "RESTFRQ" in header:
-        helpers["restfreq"] = header["RESTFRQ"]
-    if "SPECSYS" in header:
-        helpers["specsys"] = header["SPECSYS"]
-    if (t_axes > 0).all():
-        dir_axes = t_axes[:]
-        dir_axes = dir_axes - 1
-        helpers["dir_axes"] = dir_axes
-        dim_map["l"] = dir_axes[0]
-        dim_map["m"] = dir_axes[1]
-        helpers["dim_map"] = dim_map
-    else:
-        raise RuntimeError("Could not find both direction axes")
-    if dir_axes is not None:
-        p0 = header[f"CTYPE{t_axes[0]}"][-3:]
-        p1 = header[f"CTYPE{t_axes[1]}"][-3:]
-        if p0 != p1:
-            raise RuntimeError(
-                f"Projections for direction axes ({p0}, {p1}) differ, but they "
-                "must be the same"
-            )
-        direction = {}
-        direction["projection"] = p0
-        helpers["projection"] = p0
-        ref_sys = header["RADESYS"]
-        ref_eqx = header["EQUINOX"]
-        if ref_sys == "FK5" and ref_eqx == 2000:
-            ref_eqx = "J2000"
-        helpers["ref_sys"] = ref_sys
-        helpers["ref_eqx"] = ref_eqx
-        # fits does not support conversion frames
-        direction["conversion_system"] = ref_sys
-        direction["conversion_equinox"] = ref_eqx
-        direction["system"] = ref_sys
-        direction["equinox"] = ref_eqx
-        deg_to_rad = np.pi / 180.0
-        direction["latpole"] = {"value": header["LATPOLE"] * deg_to_rad, "unit": "rad"}
-        direction["longpole"] = {"value": header["LONPOLE"] * deg_to_rad, "unit": "rad"}
-        pc = np.zeros([2, 2])
-        for i in (0, 1):
-            for j in (0, 1):
-                # dir_axes are now 0-based, but fits needs 1-based
-                pc[i][j] = header[f"PC{dir_axes[i]+1}_{dir_axes[j]+1}"]
-        direction["pc"] = pc
-        # Is there really no fits header parameter for projection_parameters?
-        direction["projection_parameters"] = np.array([0.0, 0.0])
-        attrs["direction"] = direction
-    # FIXME read fits data in chunks in case all data too large to hold in memory
-    has_mask = da.any(da.isnan(primary.data)).compute()
-    attrs["active_mask"] = "mask0" if has_mask else None
-    helpers["has_mask"] = has_mask
-    helpers["has_multibeam"] = False
-    if "BMAJ" in header:
-        # single global beam
-        attrs["beam"] = {
-            "bmaj": {"unit": "arcsec", "value": header["BMAJ"]},
-            "bmin": {"unit": "arcsec", "value": header["BMIN"]},
-            "positionangle": {"unit": "arcsec", "value": header["BPA"]},
-        }
-    elif "CASAMBM" in header and header["CASAMBM"]:
-        # multi-beam
-        helpers["has_multibeam"] = True
-    else:
-        # no beam
-        attrs["beam"] = None
-    if "BITPIX" in header:
-        v = abs(header["BITPIX"])
-        if v == 32:
-            helpers["dtype"] = "float32"
-        elif v == 64:
-            helpers["dtype"] = "float64"
-        else:
-            raise RuntimeError(f'Unhandled data type {header["BITPIX"]}')
-    helpers["btype"] = header["BTYPE"] if "BTYPE" in header else None
-    helpers["bunit"] = header["BUNIT"] if "BUNIT" in header else None
-    attrs["object_name"] = header["OBJECT"] if "OBJECT" in header else None
-    obsdate = {}
-    obsdate["value"] = Time(header["DATE-OBS"], format="isot").mjd
-    obsdate["unit"] = "d"
-    obsdate["time_scale"] = header["TIMESYS"]
-    obsdate["format"] = "MJD"
-    attrs["obsdate"] = obsdate
-    helpers["obsdate"] = obsdate
-    attrs["observer"] = header["OBSERVER"]
-    long_unit = header[f"CUNIT{t_axes[0]}"]
-    lat_unit = header[f"CUNIT{t_axes[1]}"]
-    unit = []
-    for uu in [long_unit, lat_unit]:
-        if uu == "deg":
-            unit.append(u.deg)
-        elif uu == "rad":
-            unit.append(u.rad)
-        else:
-            raise RuntimeError(f"Unsupported direction unit {uu}")
-    pc_long = float(header.get(f"CRVAL{t_axes[0]}")) * unit[0]
-    pc_lat = float(header.get(f"CRVAL{t_axes[1]}")) * unit[1]
-    pc_long = pc_long.to(u.rad).value
-    pc_lat = pc_lat.to(u.rad).value
-    attrs["pointing_center"] = {"value": np.array([pc_long, pc_lat]), "initial": True}
-    attrs["description"] = None
+
+
+def _get_telescope_metadata(helpers: dict, header) -> dict:
+    # The helpers dict is modified in place. header is not modified
     tel = {}
-    tel["name"] = header.get("TELESCOP")
-    x = header.get("OBSGEO-X")
-    y = header.get("OBSGEO-Y")
-    z = header.get("OBSGEO-Z")
+    tel["name"] = header["TELESCOP"]
+    x = header["OBSGEO-X"]
+    y = header["OBSGEO-Y"]
+    z = header["OBSGEO-Z"]
     xyz = np.array([x, y, z])
     r = np.sqrt(np.sum(xyz * xyz))
     lat = np.arcsin(z / r)
     long = np.arctan2(y, x)
     tel["position"] = {
         "type": "position",
-        "refer": "ITRF",
-        "m2": {"value": r, "unit": "m"},
-        "m1": {"unit": "rad", "value": lat},
-        "m0": {"unit": "rad", "value": long},
+        # I haven't seen a FITS keyword for reference frame of telescope posiiton
+        "ellipsoid": "GRS80",
+        "units": ["rad", "rad", "m"],
+        "value": np.array([long, lat, r]),
     }
-    attrs["telescope"] = tel
     helpers["tel_pos"] = tel["position"]
-    # TODO complete __make_history_xds when spec has been finalized
-    # attrs['history'] = __make_history_xds(header)
+    return tel
+
+
+def _pointing_center_to_metadata(helpers: dict, header) -> dict:
+    # Neither helpers or header is modified
+    t_axes = helpers["t_axes"]
+    long_unit = header[f"CUNIT{t_axes[0]}"]
+    lat_unit = header[f"CUNIT{t_axes[1]}"]
+    unit = []
+    for uu in [long_unit, lat_unit]:
+        new_u = u.Unit(_get_unit(uu))
+        unit.append(new_u)
+    pc_long = float(header[f"CRVAL{t_axes[0]}"]) * unit[0]
+    pc_lat = float(header[f"CRVAL{t_axes[1]}"]) * unit[1]
+    pc_long = pc_long.to(u.rad).value
+    pc_lat = pc_lat.to(u.rad).value
+    return {"value": np.array([pc_long, pc_lat]), "initial": True}
+
+
+def _user_attrs_from_header(header) -> dict:
+    # header is not modified
     exclude = [
         "ALTRPIX",
         "ALTRVAL",
@@ -342,28 +301,140 @@ def __fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList) -> dict:
         "TIMESYS",
         "VELREF",
     ]
-    regex = r"|".join(
-        [
-            "^NAXIS\d?$",
-            "^CRVAL\d$",
-            "^CRPIX\d$",
-            "^CTYPE\d$",
-            "^CDELT\d$",
-            "^CUNIT\d$",
-            "^OBSGEO-(X|Y|Z)$",
-            "^P(C|V)\d_\d$",
-        ]
-    )
+    regex = r"|".join([
+        "^NAXIS\\d?$",
+        "^CRVAL\\d$",
+        "^CRPIX\\d$",
+        "^CTYPE\\d$",
+        "^CDELT\\d$",
+        "^CUNIT\\d$",
+        "^OBSGEO-(X|Y|Z)$",
+        "^P(C|V)\\d_\\d$",
+    ])
     user = {}
     for k, v in header.items():
         if re.search(regex, k) or k in exclude:
             continue
         user[k.lower()] = v
-    attrs["user"] = user
+    return user
+
+
+def _beam_attr_from_header(helpers: dict, header) -> Union[dict, str, None]:
+    # The helpers dict is modified in place. header is not modified
+    helpers["has_multibeam"] = False
+    if "BMAJ" in header:
+        # single global beam
+        return {
+            "bmaj": {"unit": "arcsec", "value": header["BMAJ"]},
+            "bmin": {"unit": "arcsec", "value": header["BMIN"]},
+            "positionangle": {"unit": "arcsec", "value": header["BPA"]},
+        }
+    elif "CASAMBM" in header and header["CASAMBM"]:
+        # multi-beam
+        helpers["has_multibeam"] = True
+        return "mb"
+    else:
+        # no beam
+        return None
+
+
+def _create_dim_map(helpers: dict, header) -> dict:
+    # The helpers dict is modified in place. header is not modified
+    t_axes = np.array([0, 0])
+    dim_map = {}
+    helpers["has_freq"] = False
+    # fits indexing starts at 1, not 0
+    for i in range(1, helpers["naxes"] + 1):
+        ax_type = header[f"CTYPE{i}"]
+        if ax_type.startswith("RA-"):
+            t_axes[0] = i
+        elif ax_type.startswith("DEC-"):
+            t_axes[1] = i
+        elif ax_type == "STOKES":
+            dim_map["polarization"] = i - 1
+        elif _is_freq_like(ax_type):
+            dim_map["freq"] = i - 1
+            helpers["has_freq"] = True
+            helpers["native_type"] = ax_type
+        else:
+            raise RuntimeError(f"{ax_type} is an unsupported axis")
+    helpers["t_axes"] = t_axes
+    helpers["dim_map"] = dim_map
+    return dim_map
+
+
+def _fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList) -> dict:
+    primary = None
+    beams = None
+    for hdu in hdulist:
+        if hdu.name == "PRIMARY":
+            primary = hdu
+        elif hdu.name == "BEAMS":
+            beams = hdu
+        else:
+            raise RuntimeError(f"Unknown HDU name {hdu.name}")
+    if not primary:
+        raise RuntimeError(f"No PRIMARY HDU found in fits file")
+    header = primary.header
+    helpers = {}
+    attrs = {}
+    naxes = header["NAXIS"]
+    helpers["naxes"] = naxes
+    dim_map = _create_dim_map(helpers, header)
+    _fits_header_c_values_to_metadata(helpers, header)
+    if "RESTFRQ" in header:
+        helpers["restfreq"] = header["RESTFRQ"]
+    if "SPECSYS" in header:
+        helpers["specsys"] = header["SPECSYS"]
+    t_axes = helpers["t_axes"]
+    if (t_axes > 0).all():
+        dir_axes = t_axes[:]
+        dir_axes = dir_axes - 1
+        helpers["dir_axes"] = dir_axes
+        dim_map["l"] = dir_axes[0]
+        dim_map["m"] = dir_axes[1]
+        helpers["dim_map"] = dim_map
+    else:
+        raise RuntimeError("Could not find both direction axes")
+    if dir_axes is not None:
+        attrs["direction"] = _xds_direction_attrs_from_header(helpers, header)
+    # FIXME read fits data in chunks in case all data too large to hold in memory
+    has_mask = da.any(da.isnan(primary.data)).compute()
+    attrs["active_mask"] = "mask0" if has_mask else None
+    helpers["has_mask"] = has_mask
+    beam = _beam_attr_from_header(helpers, header)
+    if beam != "mb":
+        attrs["beam"] = beam
+    if "BITPIX" in header:
+        v = abs(header["BITPIX"])
+        if v == 32:
+            helpers["dtype"] = "float32"
+        elif v == 64:
+            helpers["dtype"] = "float64"
+        else:
+            raise RuntimeError(f'Unhandled data type {header["BITPIX"]}')
+    helpers["btype"] = header["BTYPE"] if "BTYPE" in header else None
+    helpers["bunit"] = header["BUNIT"] if "BUNIT" in header else None
+    attrs["object_name"] = header["OBJECT"] if "OBJECT" in header else None
+    obsdate = {}
+    obsdate["type"] = "time"
+    obsdate["value"] = Time(header["DATE-OBS"], format="isot").mjd
+    obsdate["unit"] = "d"
+    obsdate["scale"] = header["TIMESYS"]
+    obsdate["format"] = "MJD"
+    attrs["obsdate"] = obsdate
+    helpers["obsdate"] = obsdate
+    attrs["observer"] = header["OBSERVER"]
+    attrs["pointing_center"] = _pointing_center_to_metadata(helpers, header)
+    attrs["description"] = None
+    attrs["telescope"] = _get_telescope_metadata(helpers, header)
+    # TODO complete _make_history_xds when spec has been finalized
+    # attrs['history'] = _make_history_xds(header)
+    attrs["user"] = _user_attrs_from_header(header)
     return attrs, helpers, header
 
 
-def __make_history_xds(header):
+def _make_history_xds(header):
     # TODO complete writing history when we actually have a spec for what
     # the image history is supposed to be, since doing this now may
     # be a waste of time if the final spec turns out to be significantly
@@ -381,7 +452,7 @@ def __make_history_xds(header):
             history_list.pop(i)
 
 
-def __create_coords(helpers, header):
+def _create_coords(helpers, header):
     dir_axes = helpers["dir_axes"]
     dim_map = helpers["dim_map"]
     sphr_dims = (
@@ -389,12 +460,12 @@ def __create_coords(helpers, header):
     )
     helpers["sphr_dims"] = sphr_dims
     coords = {}
-    coords["time"] = __get_time_values(helpers)
-    coords["polarization"] = __get_pol_values(helpers)
-    coords["frequency"] = __get_freq_values(helpers)
-    coords["velocity"] = (["frequency"], __get_velocity_values(helpers))
+    coords["time"] = _get_time_values(helpers)
+    coords["polarization"] = _get_pol_values(helpers)
+    coords["frequency"] = _get_freq_values(helpers)
+    coords["velocity"] = (["frequency"], _get_velocity_values(helpers))
     if len(sphr_dims) > 0:
-        l_world, m_world = __compute_world_sph_dims(
+        l_world, m_world = _compute_world_sph_dims(
             sphr_dims, dir_axes, dim_map, helpers
         )
         coords[l_world[0]] = (["l", "m"], l_world[1])
@@ -402,18 +473,18 @@ def __create_coords(helpers, header):
         helpers["sphr_axis_names"] = (l_world[0], m_world[0])
     else:
         # Fourier image
-        coords["u"], coords["v"] = __get_uv_values(helpers)
+        coords["u"], coords["v"] = _get_uv_values(helpers)
     xds = xr.Dataset(coords=coords)
     # attrs['xds'] = xds
     # return attrs
     return xds
 
 
-def __get_time_values(helpers):
+def _get_time_values(helpers):
     return [helpers["obsdate"]["value"]]
 
 
-def __get_pol_values(helpers):
+def _get_pol_values(helpers):
     # as mapped in casacore Stokes.h
     stokes_map = [
         "Undefined",
@@ -455,7 +526,7 @@ def __get_pol_values(helpers):
         return ["I"]
 
 
-def __get_freq_values(helpers: dict) -> list:
+def _get_freq_values(helpers: dict) -> list:
     vals = []
     ctype = helpers["ctype"]
     if "FREQ" in ctype:
@@ -486,7 +557,7 @@ def __get_freq_values(helpers: dict) -> list:
         crpix = helpers["crpix"][v_idx]
         cdelt = helpers["cdelt"][v_idx]
         cunit = helpers["cunit"][v_idx]
-        freq, vel = __freq_from_vel(
+        freq, vel = _freq_from_vel(
             crval, cdelt, crpix, cunit, "Z", helpers["shape"][v_idx], restfreq
         )
         helpers["velocity"] = vel["value"] * u.Unit(vel["unit"])
@@ -497,7 +568,7 @@ def __get_freq_values(helpers: dict) -> list:
         return [1420e6]
 
 
-def __get_velocity_values(helpers: dict) -> list:
+def _get_velocity_values(helpers: dict) -> list:
     if "velocity" in helpers:
         return helpers["velocity"].to(u.m / u.s).value
     elif "frequency" in helpers:
@@ -505,13 +576,13 @@ def __get_velocity_values(helpers: dict) -> list:
             # (-1 + f0/f) = v/c
             v = (
                 helpers["restfreq"] * u.Hz / helpers["frequency"].to("Hz").value - 1
-            ) * __c
+            ) * _c
             v = v.to(u.m / u.s)
             helpers["velocity"] = v
             return v.value
 
 
-def __compute_world_sph_dims(
+def _compute_world_sph_dims(
     sphr_dims: list, dir_axes: list, dim_map: dict, helpers: dict
 ) -> list:
     shape = helpers["shape"]
@@ -547,22 +618,21 @@ def __compute_world_sph_dims(
     x, y = np.indices(w.pixel_shape)
     long, lat = w.pixel_to_world_values(x, y)
     # long, lat will always be in degrees, so convert to rad
-    f = np.pi / 180
-    long *= f
-    lat *= f
+    long *= _deg_to_rad
+    lat *= _deg_to_rad
     crpix = helpers["crpix"][dir_axes[0]], helpers["crpix"][dir_axes[1]]
     wcrvalx, wcrvaly = w.pixel_to_world_values(crpix[0], crpix[1])
-    wcrvalx = wcrvalx.tolist() * f
-    wcrvaly = wcrvaly.tolist() * f
+    wcrvalx = wcrvalx.tolist() * _deg_to_rad
+    wcrvaly = wcrvaly.tolist() * _deg_to_rad
     wcrval = [wcrvalx, wcrvaly]
     for i, j in zip(dir_axes, (0, 1)):
         helpers["cunit"][i] = "rad"
         helpers["crval"][i] = wcrval[j]
-        helpers["cdelt"][i] *= f
+        helpers["cdelt"][i] *= _deg_to_rad
     return [[long_axis_name, long], [lat_axis_name, lat]]
 
 
-def __do_multibeam(xds: xr.Dataset, imname: str) -> xr.Dataset:
+def _do_multibeam(xds: xr.Dataset, imname: str) -> xr.Dataset:
     """Only run if we are sure there are multiple beams"""
     hdulist = fits.open(imname)
     for hdu in hdulist:
@@ -597,7 +667,7 @@ def __do_multibeam(xds: xr.Dataset, imname: str) -> xr.Dataset:
     )
 
 
-def __get_uv_values(helpers: dict) -> tuple:
+def _get_uv_values(helpers: dict) -> tuple:
     shape = helpers["shape"]
     ctype = helpers["ctype"]
     unit = helpers["cunit"]
@@ -621,7 +691,7 @@ def __get_uv_values(helpers: dict) -> tuple:
     return u, v
 
 
-def __add_sky_or_apeture(
+def _add_sky_or_apeture(
     xds: xr.Dataset,
     ary: Union[np.ndarray, da.array],
     dim_order: list,
@@ -631,7 +701,7 @@ def __add_sky_or_apeture(
     xda = xr.DataArray(ary, dims=dim_order)
     image_type = helpers["btype"]
     unit = helpers["bunit"]
-    xda.attrs[__image_type] = image_type
+    xda.attrs[_image_type] = image_type
     xda.attrs["unit"] = unit
     name = "sky" if has_sph_dims else "apeture"
     xda = xda.rename(name)
@@ -645,19 +715,19 @@ def __add_sky_or_apeture(
     return xds
 
 
-def __read_image_array(
+def _read_image_array(
     img_full_path: str, chunks: dict, helpers: dict, verbose: bool
 ) -> da.array:
     # memmap = True allows only part of data to be loaded into memory
     # may also need to pass mode='denywrite'
     # https://stackoverflow.com/questions/35759713/astropy-io-fits-read-row-from-large-fits-file-with-mutliple-hdus
     if isinstance(chunks, dict):
-        mychunks = __get_chunk_list(chunks, helpers)
+        mychunks = _get_chunk_list(chunks, helpers)
     else:
         raise ValueError(
-            f"incorrect type {type(chunks)} for parameter chunks. Must be " "dict"
+            f"incorrect type {type(chunks)} for parameter chunks. Must be dict"
         )
-    transpose_list, new_axes = __get_transpose_list(helpers)
+    transpose_list, new_axes = _get_transpose_list(helpers)
     data_type = helpers["dtype"]
     rshape = helpers["shape"][::-1]
     full_chunks = mychunks + tuple([1 for rr in range(5) if rr >= len(mychunks)])
@@ -682,7 +752,7 @@ def __read_image_array(
                             [d0len, d1len, d2len, d3len, d4len][: len(rshape)]
                         )
                         starts = tuple([d0, d1, d2, d3, d4][: len(rshape)])
-                        delayed_array = dask.delayed(__read_image_chunk)(
+                        delayed_array = dask.delayed(_read_image_chunk)(
                             img_full_path, shapes, starts
                         )
                         d4slices += [da.from_delayed(delayed_array, shapes, data_type)]
@@ -703,7 +773,7 @@ def __read_image_array(
     return ary.transpose(transpose_list)
 
 
-def __get_chunk_list(chunks: dict, helpers: dict) -> tuple:
+def _get_chunk_list(chunks: dict, helpers: dict) -> tuple:
     ret_list = list(helpers["shape"])[::-1]
     axis = 0
     ctype = helpers["ctype"]
@@ -726,7 +796,7 @@ def __get_chunk_list(chunks: dict, helpers: dict) -> tuple:
     return tuple(ret_list)
 
 
-def __get_transpose_list(helpers: dict) -> tuple:
+def _get_transpose_list(helpers: dict) -> tuple:
     ctype = helpers["ctype"]
     transpose_list = 5 * [-1]
     # time axis
@@ -763,7 +833,7 @@ def __get_transpose_list(helpers: dict) -> tuple:
     return transpose_list, new_axes
 
 
-def __read_image_chunk(img_full_path, shapes: tuple, starts: tuple) -> np.ndarray:
+def _read_image_chunk(img_full_path, shapes: tuple, starts: tuple) -> np.ndarray:
     hdulist = fits.open(img_full_path, memmap=True)
     s = []
     for start, length in zip(starts, shapes):

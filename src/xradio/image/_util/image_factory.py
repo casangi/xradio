@@ -2,10 +2,11 @@ from astropy.wcs import WCS
 import numpy as np
 import xarray as xr
 from typing import Union
-from .common import __c
+from .common import _c
+from ..._utils.common import _deg_to_rad
 
 
-def __make_empty_sky_image(
+def _make_empty_sky_image(
     xds: xr.Dataset,
     phase_center: Union[list, np.ndarray],
     image_size: Union[list, np.ndarray],
@@ -40,14 +41,13 @@ def __make_empty_sky_image(
     x, y = np.indices(w.pixel_shape)
     long, lat = w.pixel_to_world_values(x, y)
     # long, lat from above eqn will always be in degrees, so convert to rad
-    f = np.pi / 180
-    long *= f
-    lat *= f
+    long *= _deg_to_rad
+    lat *= _deg_to_rad
     if not isinstance(chan_coords, list) and not isinstance(chan_coords, np.ndarray):
         chan_coords = [chan_coords]
     chan_coords = np.array(chan_coords, dtype=np.float64)
     restfreq = chan_coords[len(chan_coords) // 2]
-    vel = (1 - chan_coords / restfreq) * __c
+    vel = (1 - chan_coords / restfreq) * _c
     if not isinstance(time_coords, list) and not isinstance(time_coords, np.ndarray):
         time_coords = [time_coords]
     time_coords = np.array(time_coords, dtype=np.float64)
@@ -55,30 +55,30 @@ def __make_empty_sky_image(
         "time": time_coords,
         "polarization": pol_coords,
         "frequency": chan_coords,
-        "velocity": (("frequency"), vel),
+        "velocity": ("frequency", vel),
         "right_ascension": (("l", "m"), long),
         "declination": (("l", "m"), lat),
     }
     xds = xds.assign_coords(coords)
-    xds.time.attrs = {"format": "MJD", "refer": "UTC", "unit": "d"}
+    xds.time.attrs = {"format": "MJD", "scale": "UTC", "unit": "d"}
     xds.frequency.attrs = {
         "conversion": {
             "direction": {
-                "m0": {"unit": "rad", "value": 0.0},
-                "m1": {"unit": "rad", "value": 1.5707963267948966},
-                "refer": "FK5",
-                "type": "direction",
+                "type": "sky_coord",
+                "units": ["rad", "rad"],
+                "frame": "FK5",
+                "value": np.array([0.0, 1.5707963267948966]),
             },
             "epoch": {
-                "m0": {"unit": "d", "value": 0.0},
+                "units": "d",
+                "value": 0.0,
                 "refer": "LAST",
-                "type": "epoch",
+                "type": "quantity",
             },
             "position": {
-                "m0": {"unit": "rad", "value": 0.0},
-                "m1": {"unit": "rad", "value": 0.0},
-                "m2": {"unit": "m", "value": 0.0},
-                "refer": "ITRF",
+                "units": ["rad", "rad", "m"],
+                "value": np.array([0.0, 0.0, 0.0]),
+                "ellipsoid": "GRS80",
                 "type": "position",
             },
             "system": spectral_reference.upper(),
@@ -91,9 +91,9 @@ def __make_empty_sky_image(
         "wave_unit": "mm",
         "wcs": {
             "crval": chan_coords[len(chan_coords) // 2],
-            "cdelt": chan_coords[1] - chan_coords[0]
-            if len(chan_coords) > 1
-            else 1000.0,
+            "cdelt": (
+                chan_coords[1] - chan_coords[0] if len(chan_coords) > 1 else 1000.0
+            ),
             "pc": 1.0,
         },
     }
@@ -124,7 +124,7 @@ def __make_empty_sky_image(
         "beam": None,
         "object_name": "",
         "obsdate": {
-            "refer": "UTC",
+            "scale": "UTC",
             "format": "MJD",
             "value": time_coords[0],
             "unit": "d",
@@ -139,10 +139,11 @@ def __make_empty_sky_image(
             "name": "ALMA",
             "position": {
                 "type": "position",
-                "refer": "ITRF",
-                "m2": {"value": 6379946.01326443, "unit": "m"},
-                "m1": {"unit": "rad", "value": -0.3994149869262738},
-                "m0": {"unit": "rad", "value": -1.1825465955049892},
+                "ellipsoid": "GRS80",
+                "units": ["rad", "rad", "m"],
+                "value": np.array([
+                    -1.1825465955049892, -0.3994149869262738, 6379946.01326443
+                ]),
             },
         },
         "history": None,

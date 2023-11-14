@@ -3,10 +3,10 @@
 # Public interface
 #
 #################################
-from ._util.casacore import __load_casa_image_block, __xds_to_casa_image
-from ._util.fits import __read_fits_image
-from ._util.image_factory import __make_empty_sky_image
-from ._util.zarr import __xds_to_zarr, __xds_from_zarr
+from ._util.casacore import _load_casa_image_block, _xds_to_casa_image
+from ._util.fits import _read_fits_image
+from ._util.image_factory import _make_empty_sky_image
+from ._util.zarr import _xds_to_zarr, _xds_from_zarr
 import warnings, time, os, logging
 import numpy as np
 import astropy.wcs
@@ -42,10 +42,10 @@ def read_image(infile: str, chunks: dict = {}, verbose: bool = False) -> xr.Data
     :return: xr.Dataset image that conforms to the ngCASA image spec
     :rtype: xr.Dataset
     """
-    do_casa = True
     emsgs = []
+    do_casa = True
     try:
-        from ._util.casacore import __read_casa_image
+        from ._util.casacore import _read_casa_image
     except Exception as e:
         emsgs.append(
             "python-casacore could not be imported, will not try to "
@@ -53,16 +53,18 @@ def read_image(infile: str, chunks: dict = {}, verbose: bool = False) -> xr.Data
         )
         do_casa = False
     if do_casa:
+        # return _read_casa_image(infile, chunks, verbose=verbose)
         try:
-            return __read_casa_image(infile, chunks, verbose=verbose)
+            return _read_casa_image(infile, chunks, verbose=verbose)
         except Exception as e:
             emsgs.append(f"image format appears not to be casacore: {e.args}")
+    # return _read_fits_image(infile, chunks, verbose)
     try:
-        return __read_fits_image(infile, chunks, verbose)
+        return _read_fits_image(infile, chunks, verbose)
     except Exception as e:
         emsgs.append(f"image format appears not to be fits {e.args}")
     try:
-        return __xds_from_zarr(infile, True)
+        return _xds_from_zarr(infile, True)
     except Exception as e:
         emsgs.append(f"image format appears not to be zarr {e.args}")
     emsgs.insert(
@@ -91,10 +93,10 @@ def load_image(infile: str, block_des: dict = {}) -> xr.Dataset:
     do_casa = True
     emsgs = []
 
-    from ._util.casacore import __read_casa_image
+    from ._util.casacore import _read_casa_image
 
     try:
-        from ._util.casacore import __read_casa_image
+        from ._util.casacore import _read_casa_image
     except Exception as e:
         emsgs.append(
             "python-casacore could not be imported, will not try to "
@@ -103,7 +105,7 @@ def load_image(infile: str, block_des: dict = {}) -> xr.Dataset:
         do_casa = False
     if do_casa:
         try:
-            return __load_casa_image_block(infile, block_des)
+            return _load_casa_image_block(infile, block_des)
         except Exception as e:
             emsgs.append(f"image format appears not to be casacore: {e.args}")
     """
@@ -113,7 +115,7 @@ def load_image(infile: str, block_des: dict = {}) -> xr.Dataset:
         emsgs.append(f'image format appears not to be fits {e.args}')
     """
     try:
-        return __xds_from_zarr(infile, False).isel(block_des)
+        return _xds_from_zarr(infile, False).isel(block_des)
     except Exception as e:
         emsgs.append(f"image format appears not to be zarr {e.args}")
     emsgs.insert(
@@ -133,9 +135,9 @@ def write_image(xds: xr.Dataset, imagename: str, out_format: str = "casa") -> No
     """
     my_format = out_format.lower()
     if my_format == "casa":
-        __xds_to_casa_image(xds, imagename)
+        _xds_to_casa_image(xds, imagename)
     elif my_format == "zarr":
-        __xds_to_zarr(xds, imagename)
+        _xds_to_zarr(xds, imagename)
     else:
         raise ValueError(
             f"Writing to format {out_format} is not supported. "
@@ -183,7 +185,7 @@ def make_empty_sky_image(
     -------
     xarray.Dataset
     """
-    return __make_empty_sky_image(
+    return _make_empty_sky_image(
         xds,
         phase_center,
         image_size,

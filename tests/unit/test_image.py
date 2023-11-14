@@ -1,7 +1,12 @@
 import casacore.images, casacore.tables
 from xradio.image import load_image, make_empty_sky_image, read_image, write_image
 from xradio.data.datasets import download
-from xradio.image._util.common import __image_type as image_type
+from xradio.image._util.common import _image_type as image_type
+from xradio.image._util._casacore.common import (
+    _open_image_ro as open_image_ro,
+    _open_new_image as open_new_image,
+)
+from xradio._utils._casacore.tables import open_table_ro
 
 # import dask.array.ma as dma
 import dask.array as da
@@ -19,17 +24,14 @@ import copy
 
 
 class ImageBase(unittest.TestCase):
-    __imname: str = "inp.im"
-    __outname: str = "out.im"
-    __infits: str = "inp.fits"
-    __xds = None
-    __exp_vals: dict = {
+    _imname: str = "inp.im"
+    _outname: str = "out.im"
+    _infits: str = "inp.fits"
+    _xds = None
+    _exp_vals: dict = {
         "dec_unit": "rad",
         "freq_cdelt": 1000,
         "freq_crpix": 20,
-        "freq_nativetype": "FREQ",
-        "freq_system": "LSRK",
-        "freq_unit": "Hz",
         "freq_waveunit": "mm",
         "image_type": "Intensity",
         "ra_unit": "rad",
@@ -40,68 +42,111 @@ class ImageBase(unittest.TestCase):
         "unit": "Jy/beam",
         "vel_type": "RADIO",
         "vel_unit": "m/s",
+        "vel_mea_type": "doppler",
+        "frequency": [
+            1.414995e09,
+            1.414996e09,
+            1.414997e09,
+            1.414998e09,
+            1.414999e09,
+            1.415000e09,
+            1.415001e09,
+            1.415002e09,
+            1.415003e09,
+            1.415004e09,
+        ],
+        "freq_conversion": {
+            "direction": {
+                "type": "sky_coord",
+                "frame": "FK5",
+                "equinox": "J2000",
+                "units": ["rad", "rad"],
+                "value": np.array([0.0, 1.5707963267948966]),
+            },
+            "position": {
+                "type": "position",
+                "ellipsoid": "GRS80",
+                "units": ["rad", "rad", "m"],
+                "value": np.array([0.0, 0.0, 0.0]),
+            },
+            "epoch": {"refer": "LAST", "units": "d", "value": 0.0, "type": "quantity"},
+            "system": "LSRK",
+        },
+        "native_type": "FREQ",
+        "restfreq": 1420405751.7860003,
+        "restfreqs": [1.42040575e09],
+        "freq_units": "Hz",
+        "freq_frame": "LSRK",
+        "wave_unit": "mm",
+        "freq_wcs": {"crval": 1415000000.0, "cdelt": 1000.0},
     }
 
-    __exp_attrs = {}
-    __exp_attrs["direction"] = {
-        "system": "FK5",
+    _exp_attrs = {}
+    _exp_attrs["direction"] = {
+        "type": "sky_coord",
+        "frame": "FK5",
         "equinox": "J2000",
+        "reference_value": np.array([1.832595714594046, -0.6981317007977318]),
+        "units": ["rad", "rad"],
         "conversion_system": "FK5",
         "conversion_equinox": "J2000",
         # there seems to be a casacore bug here that changing either the
         # crval or pointingcenter will also change the latpole when the
         # casacore image is reopened. As long as the xds gets the latpole
         # that the casacore image has is all we care about for testing
-        "latpole": {"value": -40 * np.pi / 180, "unit": "rad"},
-        "longpole": {"value": np.pi, "unit": "rad"},
+        "latpole": {"value": -40 * np.pi / 180, "units": "rad", "type": "quantity"},
+        "longpole": {"value": np.pi, "units": "rad", "type": "quantity"},
         "pc": np.array([[1.0, 0.0], [0.0, 1.0]]),
         "projection_parameters": np.array([0.0, 0.0]),
         "projection": "SIN",
     }
     # TODO make a more interesting beam
-    __exp_attrs["beam"] = None
-    __exp_attrs["obsdate"] = {
-        "time_scale": "UTC",
+    _exp_attrs["beam"] = None
+    _exp_attrs["obsdate"] = {
+        "type": "time",
+        "scale": "UTC",
         "value": 51544.00000000116,
         "unit": "d",
         "format": "MJD",
     }
-    __exp_attrs["observer"] = "Karl Jansky"
-    __exp_attrs["description"] = None
-    __exp_attrs["active_mask"] = "mask0"
-    __exp_attrs["object_name"] = ""
-    __exp_attrs["pointing_center"] = {
+    _exp_attrs["observer"] = "Karl Jansky"
+    _exp_attrs["description"] = None
+    _exp_attrs["active_mask"] = "mask0"
+    _exp_attrs["object_name"] = ""
+    _exp_attrs["pointing_center"] = {
         "value": np.array([6300, -2400]) * np.pi / 180 / 60,
         "initial": True,
     }
-    __exp_attrs["telescope"] = {
+    _exp_attrs["telescope"] = {
         "name": "ALMA",
         "position": {
             "type": "position",
-            "refer": "ITRF",
-            "m2": {"value": 6379946.01326443, "unit": "m"},
-            "m1": {"unit": "rad", "value": -0.3994149869262738},
-            "m0": {"unit": "rad", "value": -1.1825465955049892},
+            "ellipsoid": "GRS80",
+            "units": ["rad", "rad", "m"],
+            "value": np.array(
+                [-1.1825465955049892, -0.3994149869262738, 6379946.01326443]
+            ),
         },
     }
-    __exp_attrs["user"] = {}
-    __exp_attrs["history"] = None
+    _exp_attrs["user"] = {}
+    _exp_attrs["history"] = None
 
-    __ran_measures_code = False
+    _ran_measures_code = False
 
     @classmethod
     def setUpClass(cls):
-        if not cls.__ran_measures_code and os.environ["USER"] == "runner":
+        cls.maxDiff = None
+        if not cls._ran_measures_code and os.environ["USER"] == "runner":
             casa_data_dir = pkg_resources.resource_filename("casadata", "__data__")
             rc_file = open(os.path.expanduser("~/.casarc"), "a+")  # append mode
             rc_file.write("\nmeasures.directory: " + casa_data_dir)
             rc_file.close()
-            cls.__ran_measures_code = True
-        cls.__make_image()
+            cls._ran_measures_code = True
+        cls._make_image()
 
     @classmethod
     def tearDownClass(cls):
-        for f in [cls.__imname, cls.__outname, cls.__infits]:
+        for f in [cls._imname, cls._outname, cls._infits]:
             if os.path.exists(f):
                 if os.path.isdir(f):
                     shutil.rmtree(f)
@@ -109,7 +154,7 @@ class ImageBase(unittest.TestCase):
                     os.remove(f)
 
     @classmethod
-    def __make_image(cls):
+    def _make_image(cls):
         shape: list[int] = [10, 4, 20, 30]
         mask: np.ndarray = np.array(
             [i % 3 == 0 for i in range(np.prod(shape))], dtype=bool
@@ -118,11 +163,10 @@ class ImageBase(unittest.TestCase):
             shape
         )
         masked_array = ma.masked_array(pix, mask)
-        im: casacore.images.image = casacore.images.image(cls.__imname, shape=shape)
-        im.put(masked_array)
-        shape = im.shape()
-        del im
-        t = casacore.tables.table(cls.__imname, readonly=False)
+        with open_new_image(cls._imname, shape=shape) as im:
+            im.put(masked_array)
+            shape = im.shape()
+        t = casacore.tables.table(cls._imname, readonly=False)
         t.putkeyword("units", "Jy/beam")
         csys = t.getkeyword("coords")
         pc = np.array([6300, -2400])
@@ -132,34 +176,34 @@ class ImageBase(unittest.TestCase):
         t.putkeyword("coords", csys)
         t.close()
         t = casacore.tables.table(
-            os.sep.join([cls.__imname, "logtable"]), readonly=False
+            os.sep.join([cls._imname, "logtable"]), readonly=False
         )
         t.addrows()
         t.putcell("MESSAGE", 0, "HELLO FROM EARTH again")
         t.flush()
         t.close()
-        im = casacore.images.image(cls.__imname)
-        im.tofits(cls.__infits)
+        im = casacore.images.image(cls._imname)
+        im.tofits(cls._infits)
         del im
-        cls.__xds = read_image(cls.__imname, {"frequency": 5})
-        write_image(cls.__xds, cls.__outname, out_format="casa")
+        cls._xds = read_image(cls._imname, {"frequency": 5})
+        write_image(cls._xds, cls._outname, out_format="casa")
 
     def imname(self):
-        return self.__imname
+        return self._imname
 
     @classmethod
     def infits(self):
-        return self.__infits
+        return self._infits
 
     @classmethod
     def xds(self):
-        return self.__xds
+        return self._xds
 
     def outname(self):
-        return self.__outname
+        return self._outname
 
     def exp_attrs(self):
-        return self.__exp_attrs
+        return self._exp_attrs
 
     def dict_equality(self, dict1, dict2, dict1_name, dict2_name, exclude_keys=[]):
         self.assertEqual(
@@ -220,7 +264,7 @@ class ImageBase(unittest.TestCase):
 
     def compare_sky_mask(self, xds: xr.Dataset, fits=False):
         """Compare got sky and mask values to expected values"""
-        ev = self.__exp_vals
+        ev = self._exp_vals
         self.assertEqual(
             xds.sky.attrs["image_type"], ev["image_type"], "Wrong image type"
         )
@@ -249,7 +293,7 @@ class ImageBase(unittest.TestCase):
         self.assertEqual(da.sum(got_ma), ev["sum"], "Incorrect value for sum")
 
     def compare_time(self, xds: xr.Dataset) -> None:
-        ev = self.__exp_vals
+        ev = self._exp_vals
         if "time" not in ev:
             im = casacore.images.image(self.imname())
             coords = im.coordinates().dict()["obsdate"]
@@ -257,12 +301,17 @@ class ImageBase(unittest.TestCase):
         got_vals = xds.time
         self.assertEqual(got_vals, ev["time"], "Incorrect time axis values")
         self.assertEqual(
+            xds.coords["time"].attrs["type"],
+            "time",
+            'Incoorect measure type, should be "time"',
+        )
+        self.assertEqual(
             xds.coords["time"].attrs["format"],
             ev["time_format"],
             "Incoorect time axis format",
         )
         self.assertEqual(
-            xds.coords["time"].attrs["time_scale"],
+            xds.coords["time"].attrs["scale"],
             ev["time_refer"],
             "Incoorect time axis refer",
         )
@@ -274,86 +323,40 @@ class ImageBase(unittest.TestCase):
 
     def compare_polarization(self, xds: xr.Dataset) -> None:
         self.assertTrue(
-            (xds.coords["polarization"] == self.__exp_vals["stokes"]).all(),
+            (xds.coords["polarization"] == self._exp_vals["stokes"]).all(),
             "Incorrect polarization values",
         )
 
-    def compare_frequency(self, xds: xr.Dataset, fits=False):
-        ev = self.__exp_vals
-        if "frequency" not in ev:
-            im = casacore.images.image(self.imname())
-            sd = im.coordinates().dict()["spectral2"]
-            ev["frequency"] = []
-            for chan in range(10):
-                ev["frequency"].append(im.toworld([chan, 0, 0, 0])[0])
-            ev["freq_conversion"] = copy.deepcopy(sd["conversion"])
-            for k in ("direction", "position", "epoch"):
-                del ev["freq_conversion"][k]["type"]
-            del ev["freq_conversion"]["direction"]["refer"]
-            ev["freq_conversion"]["direction"]["system"] = "FK5"
-            ev["freq_conversion"]["direction"]["equinox"] = "J2000"
-            ev["restfreq"] = sd["restfreq"]
-            ev["restfreqs"] = sd["restfreqs"]
-            ev["freq_crval"] = sd["wcs"]["crval"]
-        if fits:
-            self.assertTrue(
-                np.isclose(xds.frequency, ev["frequency"]).all(),
-                "Incorrect frequencies",
-            )
-            self.assertTrue(
-                np.isclose(xds.frequency.attrs["restfreq"], ev["restfreq"]),
-                "Incorrect rest frequency",
-            )
-            self.assertTrue(
-                np.isclose(xds.frequency.attrs["wcs"]["cdelt"], ev["freq_cdelt"]),
-                "Incorrect frequency cdelt",
-            )
-            self.assertTrue(
-                np.isclose(xds.frequency.attrs["wcs"]["crval"], ev["freq_crval"]),
-                "Incorrect frequency crpix",
-            )
-        else:
-            self.assertTrue(
-                np.isclose(xds.frequency.attrs["restfreqs"][0], ev["restfreqs"][0]),
-                "Incorrect rest frequencies",
-            )
-            self.assertTrue(
-                (xds.frequency == ev["frequency"]).all(), "Incorrect frequencies"
-            )
-            self.assertEqual(
-                xds.frequency.attrs["restfreq"],
-                ev["restfreq"],
-                "Incorrect rest frequency",
-            )
-            self.assertTrue(
-                (xds.frequency.attrs["restfreqs"] == ev["restfreqs"]).all(),
-                "Incorrect rest frequencies",
-            )
-            self.assertEqual(
-                xds.frequency.attrs["wcs"]["cdelt"],
-                ev["freq_cdelt"],
-                "Incorrect frequency cdelt",
-            )
-            self.assertEqual(
-                xds.frequency.attrs["wcs"]["crval"],
-                ev["freq_crval"],
-                "Incorrect frequency crpix",
-            )
+    def compare_frequency(self, xds: xr.Dataset):
+        ev = self._exp_vals
+        self.assertTrue(
+            np.isclose(xds.frequency, ev["frequency"]).all(), "Incorrect frequencies"
+        )
+        self.assertTrue(
+            np.isclose(xds.frequency.attrs["restfreq"], ev["restfreq"]),
+            "Incorrect rest frequency",
+        )
+        self.assertTrue(
+            np.isclose(xds.frequency.attrs["restfreqs"][0], ev["restfreqs"][0]),
+            "Incorrect rest frequencies",
+        )
+        self.assertTrue(
+            np.isclose(xds.frequency.attrs["wcs"]["crval"], ev["freq_wcs"]["crval"]),
+            "Incorrect frequency crval",
+        )
+        self.assertTrue(
+            np.isclose(xds.frequency.attrs["wcs"]["cdelt"], ev["freq_wcs"]["cdelt"]),
+            "Incorrect frequency cdelt",
+        )
+        self.dict_equality(
+            xds.frequency.attrs["conversion"], ev["freq_conversion"], "got", "expected"
+        )
+        self.assertEqual(xds.frequency.attrs["type"], "frequency", "Wrong measure type")
         self.assertEqual(
-            xds.frequency.attrs["conversion"],
-            ev["freq_conversion"],
-            (
-                f'Incorrect frquency conversion. Got {xds.frequency.attrs["conversion"]}. '
-                + 'Exprected {ev["freq_conversion"'
-            ),
+            xds.frequency.attrs["units"], ev["freq_units"], "Wrong frequency unit"
         )
         self.assertEqual(
-            xds.frequency.attrs["system"],
-            ev["freq_system"],
-            "Incorrect frequency system",
-        )
-        self.assertEqual(
-            xds.frequency.attrs["unit"], ev["freq_unit"], "Incorrect frequency unit"
+            xds.frequency.attrs["frame"], ev["freq_frame"], "Incorrect frequency frame"
         )
         self.assertEqual(
             xds.frequency.attrs["wave_unit"],
@@ -362,7 +365,7 @@ class ImageBase(unittest.TestCase):
         )
 
     def compare_vel_axis(self, xds: xr.Dataset, fits: bool = False):
-        ev = self.__exp_vals
+        ev = self._exp_vals
         if fits:
             # casacore has written optical velocities to FITS file,
             # even though the doppler type is RADIO in the casacore
@@ -399,9 +402,14 @@ class ImageBase(unittest.TestCase):
         self.assertEqual(
             xds.velocity.attrs["unit"], ev["vel_unit"], "Incoorect velocity unit"
         )
+        self.assertEqual(
+            xds.velocity.attrs["type"],
+            ev["vel_mea_type"],
+            "Incoorect doppler measure type",
+        )
 
     def compare_ra_dec(self, xds: xr.Dataset, fits: bool = False) -> None:
-        ev = self.__exp_vals
+        ev = self._exp_vals
         if "ra" not in ev:
             im = casacore.images.image(self.imname())
             shape = im.shape()
@@ -496,7 +504,7 @@ class ImageBase(unittest.TestCase):
             },
         )
         self.assertEqual(xds.sky.shape, (1, 1, 4, 8, 12), "Wrong block shape")
-        big_xds = self.__xds
+        big_xds = self._xds
         self.assertTrue(
             (xds.sky == big_xds.sky[:, 0:1, 0:4, 2:10, 3:15]).all(),
             "Wrong block sky array",
@@ -594,12 +602,12 @@ class casacore_to_xds_to_casacore(ImageBase):
     the two casacore images are identical
     """
 
-    __imname2: str = "demo_simulated.im"
-    __imname3: str = "no_mask.im"
-    __outname2: str = "check_beam.im"
-    __outname3: str = "xds_2_casa_no_mask.im"
-    __outname4: str = "xds_2_casa_nans_and_mask.im"
-    __outname5: str = "xds_2_casa_nans_already_masked.im"
+    _imname2: str = "demo_simulated.im"
+    _imname3: str = "no_mask.im"
+    _outname2: str = "check_beam.im"
+    _outname3: str = "xds_2_casa_no_mask.im"
+    _outname4: str = "xds_2_casa_nans_and_mask.im"
+    _outname5: str = "xds_2_casa_nans_already_masked.im"
 
     @classmethod
     def setUpClass(cls):
@@ -609,12 +617,12 @@ class casacore_to_xds_to_casacore(ImageBase):
     def tearDownClass(cls):
         super().tearDownClass()
         for f in [
-            cls.__imname2,
-            cls.__imname3,
-            cls.__outname2,
-            cls.__outname3,
-            cls.__outname4,
-            cls.__outname5,
+            cls._imname2,
+            # cls._imname3,
+            cls._outname2,
+            cls._outname3,
+            cls._outname4,
+            cls._outname5,
         ]:
             if os.path.exists(f):
                 if os.path.isdir(f):
@@ -658,11 +666,11 @@ class casacore_to_xds_to_casacore(ImageBase):
         Verify fix to issue 45
         https://github.com/casangi/xradio/issues/45
         """
-        download(self.__imname2), f"failed to download {self.__imname2}"
-        xds = read_image(self.__imname2)
-        write_image(xds, self.__outname2, out_format="casa")
-        im1 = casacore.images.image(self.__imname2)
-        im2 = casacore.images.image(self.__outname2)
+        download(self._imname2), f"failed to download {self._imname2}"
+        xds = read_image(self._imname2)
+        write_image(xds, self._outname2, out_format="casa")
+        im1 = casacore.images.image(self._imname2)
+        im2 = casacore.images.image(self._outname2)
         beams1 = im1.imageinfo()["perplanebeams"]
         beams2 = im2.imageinfo()["perplanebeams"]
         for i in range(200):
@@ -682,11 +690,14 @@ class casacore_to_xds_to_casacore(ImageBase):
         issue 48, proper nan masking when writing CASA images
         https://github.com/casangi/xradio/issues/48
         """
-        download(self.__imname3)
+        download(self._imname3)
         # case 1: no mask + no nans = no mask
-        xds = read_image(self.__imname3)
-        write_image(xds, self.__outname3, out_format="casa")
-        subdirs = glob(f"{self.__outname3}/*/")
+        xds = read_image(self._imname3)
+        first_attrs = xds.attrs
+        t = copy.deepcopy(xds.attrs)
+        c = copy.deepcopy(xds.coords)
+        write_image(xds, self._outname3, out_format="casa")
+        subdirs = glob(f"{self._outname3}/*/")
         subdirs = [d[d.index("/") + 1 : -1] for d in subdirs]
         self.assertEqual(
             subdirs,
@@ -695,8 +706,12 @@ class casacore_to_xds_to_casacore(ImageBase):
         )
         # case 2a: no mask + nans = nan_mask
         xds.sky[0, 1, 1, 1, 1] = float("NaN")
-        write_image(xds, self.__outname3, out_format="casa")
-        subdirs = glob(f"{self.__outname3}/*/")
+        shutil.rmtree(self._outname3)
+        second_attrs = xds.attrs
+        second_coords = xds.coords
+        self.dict_equality(t, second_attrs, "xds before", "xds after", ["history"])
+        write_image(xds, self._outname3, out_format="casa")
+        subdirs = glob(f"{self._outname3}/*/")
         subdirs = [d[d.index("/") + 1 : -1] for d in subdirs]
         subdirs.sort()
         self.assertEqual(
@@ -704,9 +719,8 @@ class casacore_to_xds_to_casacore(ImageBase):
             ["logtable", "mask_xds_nans"],
             f"Unexpected subdirectory list found. subdirs is {subdirs}",
         )
-        im1 = casacore.images.image(self.__outname3)
-        casa_mask = im1.getmask()
-        del im1
+        with open_image_ro(self._outname3) as im1:
+            casa_mask = im1.getmask()
         self.assertTrue(casa_mask[1, 1, 1, 1], "Wrong pixels are masked")
         self.assertEqual(casa_mask.sum(), 1, "More pixels masked than expected")
         casa_mask[1, 1, 1, 1] = False
@@ -725,11 +739,11 @@ class casacore_to_xds_to_casacore(ImageBase):
         )
         xds = xds.assign(mask0=mask0)
         xds.attrs["active_mask"] = "mask0"
-        write_image(xds, self.__outname4, out_format="casa")
+        write_image(xds, self._outname4, out_format="casa")
         self.assertEqual(
             xds.attrs["active_mask"], "mask0", "xds active mask was incorrectly reset"
         )
-        subdirs = glob(f"{self.__outname4}/*/")
+        subdirs = glob(f"{self._outname4}/*/")
         subdirs = [d[d.index("/") + 1 : -1] for d in subdirs]
         subdirs.sort()
         self.assertEqual(
@@ -738,7 +752,7 @@ class casacore_to_xds_to_casacore(ImageBase):
             f"Unexpected subdirectory list found. subdirs is {subdirs}",
         )
 
-        im1 = casacore.images.image(self.__outname4)
+        im1 = casacore.images.image(self._outname4)
         # getmask() flips so True = bad, False = good
         casa_mask = im1.getmask()
         self.assertTrue(casa_mask[1, 1, 1, 1], "Wrong pixels are masked")
@@ -748,11 +762,11 @@ class casacore_to_xds_to_casacore(ImageBase):
         # case 2c: all nans are already masked by default mask = no new masks are created
         xds["sky"][0, 2, 2, 2, 2] = float("NaN")
         xds["sky"][0, 1, 1, 1, 1] = 0
-        write_image(xds, self.__outname5, out_format="casa")
+        write_image(xds, self._outname5, out_format="casa")
         self.assertEqual(
             xds.attrs["active_mask"], "mask0", "xds active mask was incorrectly reset"
         )
-        subdirs = glob(f"{self.__outname5}/*/")
+        subdirs = glob(f"{self._outname5}/*/")
         subdirs = [d[d.index("/") + 1 : -1] for d in subdirs]
         subdirs.sort()
         self.assertEqual(
@@ -760,7 +774,7 @@ class casacore_to_xds_to_casacore(ImageBase):
             ["logtable", "mask0"],
             f"Unexpected subdirectory list found. subdirs is {subdirs}",
         )
-        im1 = casacore.images.image(self.__outname5)
+        im1 = casacore.images.image(self._outname5)
         casa_mask = im1.getmask()
         del im1
         self.assertTrue(casa_mask[2, 2, 2, 2], "Wrong pixel masked")
@@ -772,7 +786,7 @@ class xds_to_zarr_to_xds_test(ImageBase):
     test xds -> zarr -> xds round trip
     """
 
-    __zarr_store: str = "out.zarr"
+    _zarr_store: str = "out.zarr"
 
     @classmethod
     def setUpClass(cls):
@@ -780,14 +794,14 @@ class xds_to_zarr_to_xds_test(ImageBase):
         # so we must explicitly call the super class' method here to create the
         # xds which is located in the super class
         super().setUpClass()
-        write_image(cls.xds(), cls.__zarr_store, out_format="zarr")
-        cls.__zds = read_image(cls.__zarr_store)
+        write_image(cls.xds(), cls._zarr_store, out_format="zarr")
+        cls._zds = read_image(cls._zarr_store)
 
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
         for f in [
-            cls.__zarr_store,
+            cls._zarr_store,
         ]:
             if os.path.exists(f):
                 if os.path.isdir(f):
@@ -803,34 +817,34 @@ class xds_to_zarr_to_xds_test(ImageBase):
 
     def test_xds_pixel_values(self):
         """Test xds has correct pixel values"""
-        self.compare_sky_mask(self.__zds)
+        self.compare_sky_mask(self._zds)
 
     def test_xds_time_vals(self):
         """Test xds has correct time axis values"""
-        self.compare_time(self.__zds)
+        self.compare_time(self._zds)
 
     def test_xds_polarization_axis(self):
         """Test xds has correct stokes values"""
-        self.compare_polarization(self.__zds)
+        self.compare_polarization(self._zds)
 
     def test_xds_frequency_axis(self):
         """Test xds has correct frequencyuency values and metadata"""
-        self.compare_frequency(self.__zds)
+        self.compare_frequency(self._zds)
 
     def test_xds_vel_axis(self):
         """Test xds has correct velocity values and metadata"""
-        self.compare_vel_axis(self.__zds)
+        self.compare_vel_axis(self._zds)
 
     def test_xds_ra_dec_axis(self):
         """Test xds has correct RA and Dec values and attributes"""
-        self.compare_ra_dec(self.__zds)
+        self.compare_ra_dec(self._zds)
 
     def test_xds_attrs(self):
         """Test xds level attributes"""
-        self.compare_attrs(self.__zds)
+        self.compare_attrs(self._zds)
 
     def test_get_img_ds_block(self):
-        self.compare_image_block(self.__zarr_store)
+        self.compare_image_block(self._zarr_store)
 
 
 class make_empty_sky_image_test(ImageBase):
@@ -839,7 +853,7 @@ class make_empty_sky_image_test(ImageBase):
     @classmethod
     def setUpClass(cls):
         xxds = xr.Dataset()
-        cls.__skel_im = make_empty_sky_image(
+        cls._skel_im = make_empty_sky_image(
             xxds,
             [0.2, -0.5],
             [10, 10],
@@ -851,17 +865,17 @@ class make_empty_sky_image_test(ImageBase):
 
     @classmethod
     def tearDownClass(cls):
-        pass
+        super().tearDownClass()
 
     def skel_im(self):
-        return self.__skel_im
+        return self._skel_im
 
     def test_time_coord(self):
         skel = self.skel_im()
         self.assertTrue(
             np.isclose(skel.time, [54000.1]).all(), "Incorrect time coordinate values"
         )
-        expec = {"refer": "UTC", "unit": "d", "format": "MJD"}
+        expec = {"scale": "UTC", "unit": "d", "format": "MJD"}
         self.dict_equality(skel.time.attrs, expec, "got", "expected")
 
     def test_polarization_coord(self):
@@ -880,21 +894,21 @@ class make_empty_sky_image_test(ImageBase):
         expec = {
             "conversion": {
                 "direction": {
-                    "m0": {"unit": "rad", "value": 0.0},
-                    "m1": {"unit": "rad", "value": 1.5707963267948966},
-                    "refer": "FK5",
-                    "type": "direction",
+                    "units": ["rad", "rad"],
+                    "value": np.array([0.0, 1.5707963267948966]),
+                    "frame": "FK5",
+                    "type": "sky_coord",
                 },
                 "epoch": {
-                    "m0": {"unit": "d", "value": 0.0},
+                    "units": "d",
+                    "value": 0.0,
                     "refer": "LAST",
-                    "type": "epoch",
+                    "type": "quantity",
                 },
                 "position": {
-                    "m0": {"unit": "rad", "value": 0.0},
-                    "m1": {"unit": "rad", "value": 0.0},
-                    "m2": {"unit": "m", "value": 0.0},
-                    "refer": "ITRF",
+                    "units": ["rad", "rad", "m"],
+                    "value": np.array([0.0, 0.0, 0.0]),
+                    "ellipsoid": "GRS80",
                     "type": "position",
                 },
                 "system": "LSRK",
@@ -1186,7 +1200,7 @@ class make_empty_sky_image_test(ImageBase):
             "active_mask": "",
             "beam": None,
             "object_name": "",
-            "obsdate": {"refer": "UTC", "format": "MJD", "value": 54000.0, "unit": "d"},
+            "obsdate": {"scale": "UTC", "format": "MJD", "value": 54000.0, "unit": "d"},
             "observer": "Karl Jansky",
             "pointing_center": {"value": np.array([0.2, -0.5]), "initial": True},
             "description": "",
@@ -1194,10 +1208,11 @@ class make_empty_sky_image_test(ImageBase):
                 "name": "ALMA",
                 "position": {
                     "type": "position",
-                    "refer": "ITRF",
-                    "m2": {"value": 6379946.01326443, "unit": "m"},
-                    "m1": {"unit": "rad", "value": -0.3994149869262738},
-                    "m0": {"unit": "rad", "value": -1.1825465955049892},
+                    "ellipsoid": "GRS80",
+                    "units": ["rad", "rad", "m"],
+                    "value": np.array(
+                        [-1.1825465955049892, -0.3994149869262738, 6379946.01326443]
+                    ),
                 },
             },
             "history": None,
@@ -1216,11 +1231,11 @@ class fits_to_xds_test(ImageBase):
         # so we must explicitly call the super class' method here to create the
         # xds which is located in the super class
         super().setUpClass()
-        cls.__fds = read_image(cls.infits(), {"frequency": 5})
+        cls._fds = read_image(cls.infits(), {"frequency": 5})
 
     @classmethod
     def tearDownClass(cls):
-        pass
+        super().tearDownClass()
 
     def setUp(self):
         pass
@@ -1230,31 +1245,31 @@ class fits_to_xds_test(ImageBase):
 
     def test_xds_pixel_values(self):
         """Test xds has correct pixel values"""
-        self.compare_sky_mask(self.__fds, True)
+        self.compare_sky_mask(self._fds, True)
 
     def test_xds_time_axis(self):
         """Test values and attributes on the time axis"""
-        self.compare_time(self.__fds)
+        self.compare_time(self._fds)
 
     def test_xds_polarization_axis(self):
         """Test xds has correct stokes values"""
-        self.compare_polarization(self.__fds)
+        self.compare_polarization(self._fds)
 
     def test_xds_frequency_axis(self):
         """Test xds has correct frequency values and metadata"""
-        self.compare_frequency(self.__fds, True)
+        self.compare_frequency(self._fds)
 
     def test_xds_vel_axis(self):
         """Test xds has correct velocity values and metadata"""
-        self.compare_vel_axis(self.__fds, True)
+        self.compare_vel_axis(self._fds, True)
 
     def test_xds_ra_dec_axis(self):
         """Test xds has correct RA and Dec values and attributes"""
-        self.compare_ra_dec(self.__fds, True)
+        self.compare_ra_dec(self._fds, True)
 
     def test_xds_attrs(self):
         """Test xds level attributes"""
-        self.compare_attrs(self.__fds, True)
+        self.compare_attrs(self._fds, True)
 
     # TODO
     def test_get_img_ds_block(self):

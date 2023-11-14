@@ -136,14 +136,16 @@ def _add_dir_lin_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
         for i, name in zip(helpers["dir_axes"], helpers["sphr_axis_names"]):
             meta = {
                 "unit": "rad",
-                "crval": helpers["crval"][i], "cdelt": helpers["cdelt"][i],
+                "crval": helpers["crval"][i],
+                "cdelt": helpers["cdelt"][i],
             }
             xds.coords[name].attrs = meta
     else:
         for i, j in zip(helpers["dir_axes"], ("u", "v")):
             meta = {
                 "unit": "wavelengths",
-                "crval": helpers["crval"][i], "cdelt": helpers["cdelt"][i],
+                "crval": helpers["crval"][i],
+                "cdelt": helpers["cdelt"][i],
             }
             xds.coords[j].attrs = meta
     return xds
@@ -299,16 +301,18 @@ def _user_attrs_from_header(header) -> dict:
         "TIMESYS",
         "VELREF",
     ]
-    regex = r"|".join([
-        "^NAXIS\\d?$",
-        "^CRVAL\\d$",
-        "^CRPIX\\d$",
-        "^CTYPE\\d$",
-        "^CDELT\\d$",
-        "^CUNIT\\d$",
-        "^OBSGEO-(X|Y|Z)$",
-        "^P(C|V)\\d_\\d$",
-    ])
+    regex = r"|".join(
+        [
+            "^NAXIS\\d?$",
+            "^CRVAL\\d$",
+            "^CRPIX\\d$",
+            "^CTYPE\\d$",
+            "^CDELT\\d$",
+            "^CUNIT\\d$",
+            "^OBSGEO-(X|Y|Z)$",
+            "^P(C|V)\\d_\\d$",
+        ]
+    )
     user = {}
     for k, v in header.items():
         if re.search(regex, k) or k in exclude:

@@ -557,14 +557,16 @@ def _get_dimmap(coords: list, verbose: bool = False) -> dict:
     ]
     # conversion to dict, example dimmap after this statement
     # dimmap: {'l': 0, 'm': 1, 'chan': 2, 'polarization': 3}
-    dimmap = dict([
-        (
-            (diraxes[int(rr[0][-1])], rr[1])
-            if rr[0].startswith("linear") or rr[0].startswith("direction")
-            else rr
-        )
-        for rr in dimmap
-    ])
+    dimmap = dict(
+        [
+            (
+                (diraxes[int(rr[0][-1])], rr[1])
+                if rr[0].startswith("linear") or rr[0].startswith("direction")
+                else rr
+            )
+            for rr in dimmap
+        ]
+    )
     if verbose:
         print(f"dimmap: {dimmap}")
     return dimmap
@@ -884,11 +886,13 @@ def read_generic_table(infile, subtables=False, timecols=None, ignore=None):
 
         dims = ["row"] + ["d%i" % ii for ii in range(1, 20)]
         cols = tb_tool.colnames()
-        ctype = dict([
-            (col, tb_tool.getcell(col, 0))
-            for col in cols
-            if ((col not in ignore) and (tb_tool.iscelldefined(col, 0)))
-        ])
+        ctype = dict(
+            [
+                (col, tb_tool.getcell(col, 0))
+                for col in cols
+                if ((col not in ignore) and (tb_tool.iscelldefined(col, 0)))
+            ]
+        )
         mvars, mcoords, xds = {}, {}, xr.Dataset()
 
         tr = tb_tool.row(ignore, exclude=True)[:]
@@ -901,37 +905,41 @@ def read_generic_table(infile, subtables=False, timecols=None, ignore=None):
             try:
                 data = np.stack([rr[col] for rr in tr])  # .astype(ctype[col].dtype)
                 if isinstance(tr[0][col], dict):
-                    data = np.stack([
-                        (
-                            rr[col]["array"].reshape(rr[col]["shape"])
-                            if len(rr[col]["array"]) > 0
-                            else np.array([""])
-                        )
-                        for rr in tr
-                    ])
+                    data = np.stack(
+                        [
+                            (
+                                rr[col]["array"].reshape(rr[col]["shape"])
+                                if len(rr[col]["array"]) > 0
+                                else np.array([""])
+                            )
+                            for rr in tr
+                        ]
+                    )
             except:
                 # sometimes the columns are variable, so we need to standardize to the largest sizes
                 if len(np.unique([isinstance(rr[col], dict) for rr in tr])) > 1:
                     continue  # can't deal with this case
                 mshape = np.array(max([np.array(rr[col]).shape for rr in tr]))
                 try:
-                    data = np.stack([
-                        np.pad(
-                            (
-                                rr[col]
-                                if len(rr[col]) > 0
-                                else np.array(rr[col]).reshape(
-                                    np.arange(len(mshape)) * 0
-                                )
-                            ),
-                            [(0, ss) for ss in mshape - np.array(rr[col]).shape],
-                            "constant",
-                            constant_values=np.array([np.nan]).astype(
-                                np.array(ctype[col]).dtype
-                            )[0],
-                        )
-                        for rr in tr
-                    ])
+                    data = np.stack(
+                        [
+                            np.pad(
+                                (
+                                    rr[col]
+                                    if len(rr[col]) > 0
+                                    else np.array(rr[col]).reshape(
+                                        np.arange(len(mshape)) * 0
+                                    )
+                                ),
+                                [(0, ss) for ss in mshape - np.array(rr[col]).shape],
+                                "constant",
+                                constant_values=np.array([np.nan]).astype(
+                                    np.array(ctype[col]).dtype
+                                )[0],
+                            )
+                            for rr in tr
+                        ]
+                    )
                 except:
                     data = []
 
@@ -967,12 +975,14 @@ def read_generic_table(infile, subtables=False, timecols=None, ignore=None):
 
         # if this table has subtables, use a recursive call to store them in subtables attribute
         if subtables:
-            stbl_list = sorted([
-                tt
-                for tt in os.listdir(infile)
-                if os.path.isdir(os.path.join(infile, tt))
-                and tables.tableexists(os.path.join(infile, tt))
-            ])
+            stbl_list = sorted(
+                [
+                    tt
+                    for tt in os.listdir(infile)
+                    if os.path.isdir(os.path.join(infile, tt))
+                    and tables.tableexists(os.path.join(infile, tt))
+                ]
+            )
             attrs["subtables"] = []
             for ii, subtable in enumerate(stbl_list):
                 sxds = read_generic_table(

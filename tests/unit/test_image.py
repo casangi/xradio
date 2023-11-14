@@ -864,15 +864,12 @@ class make_empty_sky_image_test(ImageBase):
             [54000.1],
         )
 
-
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
 
-
     def skel_im(self):
         return self._skel_im
-
 
     def test_time_coord(self):
         skel = self.skel_im()
@@ -882,14 +879,12 @@ class make_empty_sky_image_test(ImageBase):
         expec = {"scale": "UTC", "unit": "d", "format": "MJD"}
         self.dict_equality(skel.time.attrs, expec, "got", "expected")
 
-
     def test_polarization_coord(self):
         skel = self.skel_im()
         self.assertTrue(
             (skel.polarization == ["I", "Q", "U"]).all(),
             "Incorrect polarization coordinate values",
         )
-
 
     def test_frequency_coord(self):
         skel = self.skel_im()
@@ -925,7 +920,9 @@ class make_empty_sky_image_test(ImageBase):
             "system": "LSRK",
             "unit": "Hz",
             "wave_unit": "mm",
-            "crval": 1413000000.0, "cdelt": 1000000.0, "pc": 1.0
+            "crval": 1413000000.0,
+            "cdelt": 1000000.0,
+            "pc": 1.0,
         }
         self.dict_equality(skel.frequency.attrs, expec, "got", "expected")
 

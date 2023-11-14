@@ -88,12 +88,8 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
     long = xds.right_ascension
     lat = xds.declination
     direction["units"] = np.array([long.attrs["unit"], lat.attrs["unit"]], dtype="<U16")
-    direction["crval"] = np.array([
-        long.attrs["crval"], lat.attrs["crval"]
-    ])
-    direction["cdelt"] = np.array([
-        long.attrs["cdelt"], lat.attrs["cdelt"]
-    ])
+    direction["crval"] = np.array([long.attrs["crval"], lat.attrs["crval"]])
+    direction["cdelt"] = np.array([long.attrs["cdelt"], lat.attrs["cdelt"]])
     crpix = _compute_ref_pix(xds, direction)
     direction["crpix"] = np.array([crpix[0], crpix[1]])
     direction["pc"] = xds_dir["pc"]

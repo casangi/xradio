@@ -55,7 +55,7 @@ def _make_empty_sky_image(
         "time": time_coords,
         "polarization": pol_coords,
         "frequency": chan_coords,
-        "velocity": (("frequency"), vel),
+        "velocity": ("frequency", vel),
         "right_ascension": (("l", "m"), long),
         "declination": (("l", "m"), lat),
     }
@@ -91,9 +91,9 @@ def _make_empty_sky_image(
         "wave_unit": "mm",
         "wcs": {
             "crval": chan_coords[len(chan_coords) // 2],
-            "cdelt": chan_coords[1] - chan_coords[0]
-            if len(chan_coords) > 1
-            else 1000.0,
+            "cdelt": (
+                chan_coords[1] - chan_coords[0] if len(chan_coords) > 1 else 1000.0
+            ),
             "pc": 1.0,
         },
     }
@@ -143,7 +143,7 @@ def _make_empty_sky_image(
                 "units": ["rad", "rad", "m"],
                 "value": np.array([
                     -1.1825465955049892, -0.3994149869262738, 6379946.01326443
-                ])
+                ]),
             },
         },
         "history": None,

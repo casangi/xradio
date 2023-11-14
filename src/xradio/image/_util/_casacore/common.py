@@ -4,7 +4,7 @@ from typing import Dict, Generator, List
 
 
 @contextmanager
-def _open_image_ro(infile:str) -> Generator[images.image, None, None]:
+def _open_image_ro(infile: str) -> Generator[images.image, None, None]:
     image = images.image(infile)
     try:
         yield image
@@ -15,7 +15,9 @@ def _open_image_ro(infile:str) -> Generator[images.image, None, None]:
 
 
 @contextmanager
-def _open_new_image(outfile:str, shape:List[int]) -> Generator[images.image, None, None]:
+def _open_new_image(
+    outfile: str, shape: List[int]
+) -> Generator[images.image, None, None]:
     # new image will be opened rw
     image = images.image(outfile, shape=shape)
     try:

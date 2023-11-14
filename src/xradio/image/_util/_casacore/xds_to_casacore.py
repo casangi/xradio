@@ -88,12 +88,12 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
     long = xds.right_ascension
     lat = xds.declination
     direction["units"] = np.array([long.attrs["unit"], lat.attrs["unit"]], dtype="<U16")
-    direction["crval"] = np.array(
-        [long.attrs["wcs"]["crval"], lat.attrs["wcs"]["crval"]]
-    )
-    direction["cdelt"] = np.array(
-        [long.attrs["wcs"]["cdelt"], lat.attrs["wcs"]["cdelt"]]
-    )
+    direction["crval"] = np.array([
+        long.attrs["wcs"]["crval"], lat.attrs["wcs"]["crval"]
+    ])
+    direction["cdelt"] = np.array([
+        long.attrs["wcs"]["cdelt"], lat.attrs["wcs"]["cdelt"]
+    ])
     crpix = _compute_ref_pix(xds, direction)
     direction["crpix"] = np.array([crpix[0], crpix[1]])
     direction["pc"] = xds_dir["pc"]
@@ -191,10 +191,10 @@ def _coord_dict_from_xds(xds: xr.Dataset) -> dict:
     for i in range(3):
         telpos[f"m{i}"] = {
             "unit": xds.attrs["telescope"]["position"]["units"][i],
-            "value": xds.attrs["telescope"]["position"]["value"][i]
+            "value": xds.attrs["telescope"]["position"]["value"][i],
         }
     telpos["type"] = "position"
-    coord['telescopeposition'] = telpos
+    coord["telescopeposition"] = telpos
     coord["direction0"] = _compute_direction_dict(xds)
     coord["stokes1"] = {
         "axes": np.array(["Stokes"], dtype="<U16"),

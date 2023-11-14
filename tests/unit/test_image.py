@@ -69,12 +69,7 @@ class ImageBase(unittest.TestCase):
                 "units": ["rad", "rad", "m"],
                 "value": np.array([0.0, 0.0, 0.0]),
             },
-            "epoch": {
-                "refer": "LAST",
-                "units": "d",
-                "value": 0.0,
-                "type": "quantity"
-            },
+            "epoch": {"refer": "LAST", "units": "d", "value": 0.0, "type": "quantity"},
             "system": "LSRK",
         },
         "native_type": "FREQ",
@@ -128,9 +123,9 @@ class ImageBase(unittest.TestCase):
             "type": "position",
             "ellipsoid": "GRS80",
             "units": ["rad", "rad", "m"],
-            "value": np.array([
-                -1.1825465955049892, -0.3994149869262738, 6379946.01326443
-            ])
+            "value": np.array(
+                [-1.1825465955049892, -0.3994149869262738, 6379946.01326443]
+            ),
         },
     }
     _exp_attrs["user"] = {}
@@ -354,8 +349,7 @@ class ImageBase(unittest.TestCase):
             "Incorrect frequency cdelt",
         )
         self.dict_equality(
-            xds.frequency.attrs["conversion"], ev["freq_conversion"],
-            "got", "expected"
+            xds.frequency.attrs["conversion"], ev["freq_conversion"], "got", "expected"
         )
         self.assertEqual(xds.frequency.attrs["type"], "frequency", "Wrong measure type")
         self.assertEqual(
@@ -409,8 +403,9 @@ class ImageBase(unittest.TestCase):
             xds.velocity.attrs["unit"], ev["vel_unit"], "Incoorect velocity unit"
         )
         self.assertEqual(
-            xds.velocity.attrs["type"], ev["vel_mea_type"],
-            "Incoorect doppler measure type"
+            xds.velocity.attrs["type"],
+            ev["vel_mea_type"],
+            "Incoorect doppler measure type",
         )
 
     def compare_ra_dec(self, xds: xr.Dataset, fits: bool = False) -> None:
@@ -905,7 +900,8 @@ class make_empty_sky_image_test(ImageBase):
                     "type": "sky_coord",
                 },
                 "epoch": {
-                    "units": "d", "value": 0.0,
+                    "units": "d",
+                    "value": 0.0,
                     "refer": "LAST",
                     "type": "quantity",
                 },
@@ -926,7 +922,6 @@ class make_empty_sky_image_test(ImageBase):
             "wcs": {"crval": 1413000000.0, "cdelt": 1000000.0, "pc": 1.0},
         }
         self.dict_equality(skel.frequency.attrs, expec, "got", "expected")
-
 
     def test_vel_coord(self):
         skel = self.skel_im()
@@ -1215,9 +1210,9 @@ class make_empty_sky_image_test(ImageBase):
                     "type": "position",
                     "ellipsoid": "GRS80",
                     "units": ["rad", "rad", "m"],
-                    "value": np.array([
-                        -1.1825465955049892, -0.3994149869262738, 6379946.01326443
-                    ])
+                    "value": np.array(
+                        [-1.1825465955049892, -0.3994149869262738, 6379946.01326443]
+                    ),
                 },
             },
             "history": None,

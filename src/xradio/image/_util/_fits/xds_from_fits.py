@@ -82,7 +82,10 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
         conv["direction"]["units"] = ["rad", "rad"]
         conv["direction"]["value"] = [0.0, np.pi / 2]
         conv["epoch"] = {
-            "value": 0.0, "units": "d", "type": "quantity", "refer": "LAST"
+            "value": 0.0,
+            "units": "d",
+            "type": "quantity",
+            "refer": "LAST",
         }
         conv["position"] = {
             "type": "position",
@@ -247,7 +250,7 @@ def _get_telescope_metadata(helpers: dict, header) -> dict:
         # I haven't seen a FITS keyword for reference frame of telescope posiiton
         "ellipsoid": "GRS80",
         "units": ["rad", "rad", "m"],
-        "value": np.array([long, lat, r])
+        "value": np.array([long, lat, r]),
     }
     helpers["tel_pos"] = tel["position"]
     return tel
@@ -298,18 +301,16 @@ def _user_attrs_from_header(header) -> dict:
         "TIMESYS",
         "VELREF",
     ]
-    regex = r"|".join(
-        [
-            "^NAXIS\\d?$",
-            "^CRVAL\\d$",
-            "^CRPIX\\d$",
-            "^CTYPE\\d$",
-            "^CDELT\\d$",
-            "^CUNIT\\d$",
-            "^OBSGEO-(X|Y|Z)$",
-            "^P(C|V)\\d_\\d$",
-        ]
-    )
+    regex = r"|".join([
+        "^NAXIS\\d?$",
+        "^CRVAL\\d$",
+        "^CRPIX\\d$",
+        "^CTYPE\\d$",
+        "^CDELT\\d$",
+        "^CUNIT\\d$",
+        "^OBSGEO-(X|Y|Z)$",
+        "^P(C|V)\\d_\\d$",
+    ])
     user = {}
     for k, v in header.items():
         if re.search(regex, k) or k in exclude:
@@ -724,7 +725,7 @@ def _read_image_array(
         mychunks = _get_chunk_list(chunks, helpers)
     else:
         raise ValueError(
-            f"incorrect type {type(chunks)} for parameter chunks. Must be " "dict"
+            f"incorrect type {type(chunks)} for parameter chunks. Must be dict"
         )
     transpose_list, new_axes = _get_transpose_list(helpers)
     data_type = helpers["dtype"]

@@ -1,7 +1,8 @@
 import numpy as np
 import xarray as xr
 import os
-from .common import (_np_types, _top_level_sub_xds)
+from .common import _np_types, _top_level_sub_xds
+
 
 def _write_zarr(xds: xr.Dataset, zarr_store: str):
     xds_copy = xds.copy(deep=True)
@@ -16,7 +17,7 @@ def _encode(xds: xr.Dataset):
     return xds, xds_dict
 
 
-def _encode_dict(my_dict: dict, top_key='') -> tuple:
+def _encode_dict(my_dict: dict, top_key="") -> tuple:
     xds_dict = {}
     del_keys = []
     for k, v in my_dict.items():
@@ -27,9 +28,9 @@ def _encode_dict(my_dict: dict, top_key='') -> tuple:
                 xds_dict[k] = ret_xds_dict
         elif isinstance(v, np.ndarray):
             my_dict[k] = {}
-            my_dict[k]['_type'] = 'numpy.ndarray'
-            my_dict[k]['_value'] = v.tolist()
-            my_dict[k]['_dtype'] = str(v.dtype)
+            my_dict[k]["_type"] = "numpy.ndarray"
+            my_dict[k]["_value"] = v.tolist()
+            my_dict[k]["_dtype"] = str(v.dtype)
         elif isinstance(v, xr.Dataset):
             xds_dict[k] = v.copy(deep=True)
             del_keys.append(k)
@@ -40,7 +41,7 @@ def _encode_dict(my_dict: dict, top_key='') -> tuple:
 
 def _write_sub_xdses(zarr_store: str, xds_dict: dict, path: str):
     for k, v in xds_dict.items():
-        my_path = f'{path}_{k}' if path else f'{k}'
+        my_path = f"{path}_{k}" if path else f"{k}"
         if isinstance(v, dict):
             _write_sub_xdses(zarr_store, xds_dict[k], my_path)
         elif isinstance(v, xr.Dataset):

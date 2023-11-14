@@ -89,22 +89,20 @@ def _make_empty_sky_image(
         "system": spectral_reference.upper(),
         "unit": "Hz",
         "wave_unit": "mm",
-        "wcs": {
-            "crval": chan_coords[len(chan_coords) // 2],
-            "cdelt": (
-                chan_coords[1] - chan_coords[0] if len(chan_coords) > 1 else 1000.0
-            ),
-            "pc": 1.0,
-        },
+        "crval": chan_coords[len(chan_coords) // 2],
+        "cdelt": (chan_coords[1] - chan_coords[0] if len(chan_coords) > 1 else 1000.0),
+        "pc": 1.0,
     }
     xds.velocity.attrs = {"doppler_type": "RADIO", "unit": "m/s"}
     xds.right_ascension.attrs = {
         "unit": "rad",
-        "wcs": {"crval": phase_center[0], "cdelt": -abs(cell_size[0])},
+        "crval": phase_center[0],
+        "cdelt": -abs(cell_size[0]),
     }
     xds.declination.attrs = {
         "unit": "rad",
-        "wcs": {"crval": phase_center[1], "cdelt": abs(cell_size[1])},
+        "crval": phase_center[1],
+        "cdelt": abs(cell_size[1]),
     }
     xds.attrs = {
         "direction": {
@@ -141,9 +139,9 @@ def _make_empty_sky_image(
                 "type": "position",
                 "ellipsoid": "GRS80",
                 "units": ["rad", "rad", "m"],
-                "value": np.array([
-                    -1.1825465955049892, -0.3994149869262738, 6379946.01326443
-                ]),
+                "value": np.array(
+                    [-1.1825465955049892, -0.3994149869262738, 6379946.01326443]
+                ),
             },
         },
         "history": None,

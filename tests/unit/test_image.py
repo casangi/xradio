@@ -431,30 +431,30 @@ class ImageBase(unittest.TestCase):
             ev["dec_cdelt"] = dd["cdelt"][1] * f
         if fits:
             self.assertTrue(
-                np.isclose(xds.right_ascension.attrs["wcs"]["crval"], ev["ra_crval"]),
+                np.isclose(xds.right_ascension.attrs["crval"], ev["ra_crval"]),
                 "Incorrect RA crval",
             )
             self.assertTrue(
-                np.isclose(xds.right_ascension.attrs["wcs"]["cdelt"], ev["ra_cdelt"]),
+                np.isclose(xds.right_ascension.attrs["cdelt"], ev["ra_cdelt"]),
                 "Incorrect RA cdelt",
             )
             self.assertTrue(
-                np.isclose(xds.declination.attrs["wcs"]["cdelt"], ev["dec_cdelt"]),
+                np.isclose(xds.declination.attrs["cdelt"], ev["dec_cdelt"]),
                 "Incorrect Dec cdelt",
             )
         else:
             self.assertEqual(
-                xds.right_ascension.attrs["wcs"]["crval"],
+                xds.right_ascension.attrs["crval"],
                 ev["ra_crval"],
                 "Incorrect RA crval",
             )
             self.assertEqual(
-                xds.right_ascension.attrs["wcs"]["cdelt"],
+                xds.right_ascension.attrs["cdelt"],
                 ev["ra_cdelt"],
                 "Incorrect RA cdelt",
             )
             self.assertEqual(
-                xds.declination.attrs["wcs"]["cdelt"],
+                xds.declination.attrs["cdelt"],
                 ev["dec_cdelt"],
                 "Incorrect Dec cdelt",
             )
@@ -472,7 +472,7 @@ class ImageBase(unittest.TestCase):
             xds.declination.attrs["unit"], ev["dec_unit"], "Incorrect Dec unit"
         )
         self.assertEqual(
-            xds.declination.attrs["wcs"]["crval"],
+            xds.declination.attrs["crval"],
             ev["dec_crval"],
             "Incorrect Dec crval",
         )
@@ -1055,7 +1055,7 @@ class make_empty_sky_image_test(ImageBase):
             np.isclose(skel.right_ascension, expec).all(),
             "Incorrect right_ascension coordinate values",
         )
-        expec = {"unit": "rad", "wcs": {"crval": 0.2, "cdelt": -0.0002908882086657216}}
+        expec = {"unit": "rad", "crval": 0.2, "cdelt": -0.0002908882086657216}
         self.dict_equality(skel.right_ascension.attrs, expec, "got", "expected")
 
     def test_declination_coord(self):
@@ -1186,7 +1186,7 @@ class make_empty_sky_image_test(ImageBase):
             np.isclose(skel.declination, expec).all(),
             "Incorrect declinationion coordinate values",
         )
-        expec = {"unit": "rad", "wcs": {"crval": -0.5, "cdelt": 0.0002908882086657216}}
+        expec = {"unit": "rad", "crval": -0.5, "cdelt": 0.0002908882086657216}
         self.dict_equality(skel.declination.attrs, expec, "got", "expected")
 
     def test_attrs(self):

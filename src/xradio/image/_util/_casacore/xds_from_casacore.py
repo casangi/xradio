@@ -52,9 +52,8 @@ def _add_dir_lin_attrs(xds, coord_dict, dir_axes):
                     unit = "arcsec"
                 ap_unit = 1 * u.Unit(unit)
                 scale = ap_unit.to("rad").value
-                meta["wcs"] = {}
-                meta["wcs"]["crval"] = dd["crval"][i] * scale
-                meta["wcs"]["cdelt"] = dd["cdelt"][i] * scale
+                meta["crval"] = dd["crval"][i] * scale
+                meta["cdelt"] = dd["cdelt"][i] * scale
                 xds[dir_axes[i]].attrs = copy.deepcopy(meta)
             break
         elif k.startswith("linear"):
@@ -62,9 +61,8 @@ def _add_dir_lin_attrs(xds, coord_dict, dir_axes):
             for i in (0, 1):
                 meta = {}
                 meta["unit"] = ld["units"][i]
-                meta["wcs"] = {}
-                meta["wcs"]["crval"] = ld["crval"][i]
-                meta["wcs"]["cdelt"] = ld["cdelt"][i]
+                meta["crval"] = ld["crval"][i]
+                meta["cdelt"] = ld["cdelt"][i]
                 xds[dir_axes[i]].attrs = copy.deepcopy(meta)
             break
     return xds

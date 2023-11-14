@@ -98,11 +98,11 @@ def _make_empty_sky_image(
     xds.velocity.attrs = {"doppler_type": "RADIO", "unit": "m/s"}
     xds.right_ascension.attrs = {
         "unit": "rad",
-        "wcs": {"crval": phase_center[0], "cdelt": -abs(cell_size[0])},
+        "crval": phase_center[0], "cdelt": -abs(cell_size[0]),
     }
     xds.declination.attrs = {
         "unit": "rad",
-        "wcs": {"crval": phase_center[1], "cdelt": abs(cell_size[1])},
+        "crval": phase_center[1], "cdelt": abs(cell_size[1]),
     }
     xds.attrs = {
         "direction": {

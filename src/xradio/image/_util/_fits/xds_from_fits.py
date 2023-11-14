@@ -136,14 +136,14 @@ def _add_dir_lin_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
         for i, name in zip(helpers["dir_axes"], helpers["sphr_axis_names"]):
             meta = {
                 "unit": "rad",
-                "wcs": {"crval": helpers["crval"][i], "cdelt": helpers["cdelt"][i]},
+                "crval": helpers["crval"][i], "cdelt": helpers["cdelt"][i],
             }
             xds.coords[name].attrs = meta
     else:
         for i, j in zip(helpers["dir_axes"], ("u", "v")):
             meta = {
                 "unit": "wavelengths",
-                "wcs": {"crval": helpers["crval"][i], "cdelt": helpers["cdelt"][i]},
+                "crval": helpers["crval"][i], "cdelt": helpers["cdelt"][i],
             }
             xds.coords[j].attrs = meta
     return xds

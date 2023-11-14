@@ -17,8 +17,8 @@ def _compute_ref_pix(xds: xr.Dataset, direction: dict) -> np.ndarray:
     # TODO more general coordinates
     long = xds.right_ascension
     lat = xds.declination
-    ra_crval = long.attrs["wcs"]["crval"]
-    dec_crval = lat.attrs["wcs"]["crval"]
+    ra_crval = long.attrs["crval"]
+    dec_crval = lat.attrs["crval"]
     long_close = np.where(np.isclose(long, ra_crval))
     lat_close = np.where(np.isclose(lat, dec_crval))
     if long_close and lat_close:
@@ -27,7 +27,7 @@ def _compute_ref_pix(xds: xr.Dataset, direction: dict) -> np.ndarray:
         common_indices = [t for t in long_list if t in lat_list]
         if len(common_indices) == 1:
             return np.array(common_indices[0])
-    cdelt = max(abs(long.attrs["wcs"]["cdelt"]), abs(lat.attrs["wcs"]["cdelt"]))
+    cdelt = max(abs(long.attrs["cdelt"]), abs(lat.attrs["cdelt"]))
 
     # this creates an image of mostly NaNs. The few pixels with values are
     # close to the reference pixel
@@ -89,10 +89,10 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
     lat = xds.declination
     direction["units"] = np.array([long.attrs["unit"], lat.attrs["unit"]], dtype="<U16")
     direction["crval"] = np.array([
-        long.attrs["wcs"]["crval"], lat.attrs["wcs"]["crval"]
+        long.attrs["crval"], lat.attrs["crval"]
     ])
     direction["cdelt"] = np.array([
-        long.attrs["wcs"]["cdelt"], lat.attrs["wcs"]["cdelt"]
+        long.attrs["cdelt"], lat.attrs["cdelt"]
     ])
     crpix = _compute_ref_pix(xds, direction)
     direction["crpix"] = np.array([crpix[0], crpix[1]])

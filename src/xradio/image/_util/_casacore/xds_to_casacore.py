@@ -136,10 +136,9 @@ def _compute_spectral_dict(
     }
     del spec_conv["direction"]["units"], spec_conv["direction"]["value"]
     spec_conv["epoch"]["m0"] = {
-        "unit": spec_conv["epoch"]["v"]["units"],
-        "value": spec_conv["epoch"]["v"]["value"],
+        "unit": spec_conv["epoch"]["units"],
+        "value": spec_conv["epoch"]["value"],
     }
-    del spec_conv["epoch"]["v"]
     spec_conv["position"]["refer"] = spec_conv["position"]["ellipsoid"]
     if spec_conv["position"]["ellipsoid"] == "GRS80":
         spec_conv["position"]["refer"] = "ITRF"
@@ -183,14 +182,19 @@ def _coord_dict_from_xds(xds: xr.Dataset) -> dict:
     obsdate["m0"] = {}
     obsdate["m0"]["unit"] = xds.coords["time"].attrs["unit"]
     obsdate["m0"]["value"] = xds.coords["time"].values[0]
-    # obsdate['format'] = xds.time.attrs['format']
     coord["obsdate"] = obsdate
     coord["pointingcenter"] = xds.attrs[_pointing_center].copy()
-    coord["telescopeposition"] = copy.deepcopy(xds.attrs["telescope"]["position"])
-
-    coord["telescopeposition"]["refer"] = xds.attrs["telescope"]["position"]["ellipsoid"]
+    telpos = {}
+    telpos["refer"] = xds.attrs["telescope"]["position"]["ellipsoid"]
     if xds.attrs["telescope"]["position"]["ellipsoid"] == "GRS80":
-        coord["telescopeposition"]["refer"] = "ITRF"
+        telpos["refer"] = "ITRF"
+    for i in range(3):
+        telpos[f"m{i}"] = {
+            "unit": xds.attrs["telescope"]["position"]["units"][i],
+            "value": xds.attrs["telescope"]["position"]["value"][i]
+        }
+    telpos["type"] = "position"
+    coord['telescopeposition'] = telpos
     coord["direction0"] = _compute_direction_dict(xds)
     coord["stokes1"] = {
         "axes": np.array(["Stokes"], dtype="<U16"),

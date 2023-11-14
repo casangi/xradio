@@ -61,18 +61,19 @@ class ImageBase(unittest.TestCase):
                 "frame": "FK5",
                 "equinox": "J2000",
                 "units": ["rad", "rad"],
-                "value": [0.0, 1.5707963267948966],
+                "value": np.array([0.0, 1.5707963267948966]),
             },
             "position": {
                 "type": "position",
                 "ellipsoid": "GRS80",
                 "units": ["rad", "rad", "m"],
-                "value": [0.0, 0.0, 0.0],
+                "value": np.array([0.0, 0.0, 0.0]),
             },
             "epoch": {
                 "refer": "LAST",
-                "type": "epoch",
-                "v": {"units": "d", "value": 0.0, "type": "quantity"},
+                "units": "d",
+                "value": 0.0,
+                "type": "quantity"
             },
             "system": "LSRK",
         },
@@ -126,9 +127,10 @@ class ImageBase(unittest.TestCase):
         "position": {
             "type": "position",
             "ellipsoid": "GRS80",
-            "m2": {"value": 6379946.01326443, "unit": "m"},
-            "m1": {"unit": "rad", "value": -0.3994149869262738},
-            "m0": {"unit": "rad", "value": -1.1825465955049892},
+            "units": ["rad", "rad", "m"],
+            "value": np.array([
+                -1.1825465955049892, -0.3994149869262738, 6379946.01326443
+            ])
         },
     }
     _exp_attrs["user"] = {}
@@ -351,13 +353,9 @@ class ImageBase(unittest.TestCase):
             np.isclose(xds.frequency.attrs["wcs"]["cdelt"], ev["freq_wcs"]["cdelt"]),
             "Incorrect frequency cdelt",
         )
-        self.assertEqual(
-            xds.frequency.attrs["conversion"],
-            ev["freq_conversion"],
-            (
-                f'Incorrect frquency conversion. Got {xds.frequency.attrs["conversion"]}. '
-                + 'Exprected {ev["freq_conversion"'
-            ),
+        self.dict_equality(
+            xds.frequency.attrs["conversion"], ev["freq_conversion"],
+            "got", "expected"
         )
         self.assertEqual(xds.frequency.attrs["type"], "frequency", "Wrong measure type")
         self.assertEqual(
@@ -625,7 +623,7 @@ class casacore_to_xds_to_casacore(ImageBase):
         super().tearDownClass()
         for f in [
             cls._imname2,
-            cls._imname3,
+            # cls._imname3,
             cls._outname2,
             cls._outname3,
             cls._outname4,
@@ -700,6 +698,9 @@ class casacore_to_xds_to_casacore(ImageBase):
         download(self._imname3)
         # case 1: no mask + no nans = no mask
         xds = read_image(self._imname3)
+        first_attrs = xds.attrs
+        t = copy.deepcopy(xds.attrs)
+        c = copy.deepcopy(xds.coords)
         write_image(xds, self._outname3, out_format="casa")
         subdirs = glob(f"{self._outname3}/*/")
         subdirs = [d[d.index("/") + 1 : -1] for d in subdirs]
@@ -711,6 +712,9 @@ class casacore_to_xds_to_casacore(ImageBase):
         # case 2a: no mask + nans = nan_mask
         xds.sky[0, 1, 1, 1, 1] = float("NaN")
         shutil.rmtree(self._outname3)
+        second_attrs = xds.attrs
+        second_coords = xds.coords
+        self.dict_equality(t, second_attrs, "xds before", "xds after", ["history"])
         write_image(xds, self._outname3, out_format="casa")
         subdirs = glob(f"{self._outname3}/*/")
         subdirs = [d[d.index("/") + 1 : -1] for d in subdirs]
@@ -876,7 +880,7 @@ class make_empty_sky_image_test(ImageBase):
         self.assertTrue(
             np.isclose(skel.time, [54000.1]).all(), "Incorrect time coordinate values"
         )
-        expec = {"refer": "UTC", "unit": "d", "format": "MJD"}
+        expec = {"scale": "UTC", "unit": "d", "format": "MJD"}
         self.dict_equality(skel.time.attrs, expec, "got", "expected")
 
     def test_polarization_coord(self):
@@ -895,21 +899,20 @@ class make_empty_sky_image_test(ImageBase):
         expec = {
             "conversion": {
                 "direction": {
-                    "m0": {"unit": "rad", "value": 0.0},
-                    "m1": {"unit": "rad", "value": 1.5707963267948966},
-                    "refer": "FK5",
-                    "type": "direction",
+                    "units": ["rad", "rad"],
+                    "value": np.array([0.0, 1.5707963267948966]),
+                    "frame": "FK5",
+                    "type": "sky_coord",
                 },
                 "epoch": {
-                    "m0": {"unit": "d", "value": 0.0},
+                    "units": "d", "value": 0.0,
                     "refer": "LAST",
-                    "type": "epoch",
+                    "type": "quantity",
                 },
                 "position": {
-                    "m0": {"unit": "rad", "value": 0.0},
-                    "m1": {"unit": "rad", "value": 0.0},
-                    "m2": {"unit": "m", "value": 0.0},
-                    "refer": "ITRF",
+                    "units": ["rad", "rad", "m"],
+                    "value": np.array([0.0, 0.0, 0.0]),
+                    "ellipsoid": "GRS80",
                     "type": "position",
                 },
                 "system": "LSRK",
@@ -923,6 +926,7 @@ class make_empty_sky_image_test(ImageBase):
             "wcs": {"crval": 1413000000.0, "cdelt": 1000000.0, "pc": 1.0},
         }
         self.dict_equality(skel.frequency.attrs, expec, "got", "expected")
+
 
     def test_vel_coord(self):
         skel = self.skel_im()
@@ -1201,7 +1205,7 @@ class make_empty_sky_image_test(ImageBase):
             "active_mask": "",
             "beam": None,
             "object_name": "",
-            "obsdate": {"refer": "UTC", "format": "MJD", "value": 54000.0, "unit": "d"},
+            "obsdate": {"scale": "UTC", "format": "MJD", "value": 54000.0, "unit": "d"},
             "observer": "Karl Jansky",
             "pointing_center": {"value": np.array([0.2, -0.5]), "initial": True},
             "description": "",
@@ -1209,10 +1213,11 @@ class make_empty_sky_image_test(ImageBase):
                 "name": "ALMA",
                 "position": {
                     "type": "position",
-                    "refer": "ITRF",
-                    "m2": {"value": 6379946.01326443, "unit": "m"},
-                    "m1": {"unit": "rad", "value": -0.3994149869262738},
-                    "m0": {"unit": "rad", "value": -1.1825465955049892},
+                    "ellipsoid": "GRS80",
+                    "units": ["rad", "rad", "m"],
+                    "value": np.array([
+                        -1.1825465955049892, -0.3994149869262738, 6379946.01326443
+                    ])
                 },
             },
             "history": None,

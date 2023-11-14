@@ -111,12 +111,12 @@ def _add_freq_attrs(xds, coord_dict):
             for m in ["m0", "m1", "m2"]:
                 del conv["position"][m]
             # epoch has missing values necessary to make a time measure
-            conv["epoch"]["v"] = {
+            conv["epoch"] = {
                 "units": conv["epoch"]["m0"]["unit"],
                 "value": conv["epoch"]["m0"]["value"],
                 "type": "quantity",
+                "refer": conv["epoch"]["refer"]
             }
-            del conv["epoch"]["m0"]
             meta["conversion"] = conv
             meta["native_type"] = _native_types[sd["nativeType"]]
             meta["restfreq"] = sd["restfreq"]
@@ -272,7 +272,20 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
                 telescope["position"]["ellipsoid"] = telescope["position"]["refer"]
                 if telescope["position"]["refer"] == "ITRF":
                     telescope["position"]["ellipsoid"] = "GRS80"
-                del telescope["position"]["refer"]
+                telescope["position"]["units"] = [
+                    telescope["position"]["m0"]["unit"],
+                    telescope["position"]["m1"]["unit"],
+                    telescope["position"]["m2"]["unit"],
+                ]
+                telescope["position"]["value"] = [
+                    telescope["position"]["m0"]["value"],
+                    telescope["position"]["m1"]["value"],
+                    telescope["position"]["m2"]["value"],
+                ]
+                del (
+                    telescope["position"]["refer"], telescope["position"]["m0"],
+                    telescope["position"]["m1"], telescope["position"]["m2"]
+                )
         elif k == "obsdate":
             obsdate["scale"] = coord_dict[k]["refer"]
             obsdate["unit"] = coord_dict[k]["m0"]["unit"]

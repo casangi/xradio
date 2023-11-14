@@ -73,42 +73,28 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     if helpers["has_freq"]:
         conv = {}
         conv["direction"] = {
-            "m0": {"unit": "rad", "value": 0.0},
-            "m1": {"unit": "rad", "value": np.pi / 2},
+            "units": ["rad", "rad"],
+            "value": np.array([0.0, np.pi / 2]),
             "frame": helpers["ref_sys"],
             "equinox": helpers["ref_eqx"],
             "type": "sky_coord",
         }
         conv["direction"]["units"] = ["rad", "rad"]
         conv["direction"]["value"] = [0.0, np.pi / 2]
-        del conv["direction"]["m0"], conv["direction"]["m1"]
-        conv["epoch"] = {"m0": {"value": 0.0, "unit": "d"}, "refer": "LAST"}
+        conv["epoch"] = {
+            "value": 0.0, "units": "d", "type": "quantity", "refer": "LAST"
+        }
         conv["position"] = {
-            "m0": {"unit": "rad", "value": 0.0},
-            "m1": {"unit": "rad", "value": 0.0},
-            "m2": {"unit": "m", "value": 0.0},
-            "refer": "ITRF",
+            "type": "position",
+            "units": ["rad", "rad", "m"],
+            "value": np.array([0.0, 0.0, 0.0]),
+            "ellipsoid": "GRS80",
         }
-        conv["epoch"]["type"] = "epoch"
-        conv["epoch"]["v"] = {
-            "type": "quantity",
-            "units": conv["epoch"]["m0"]["unit"],
-            "value": conv["epoch"]["m0"]["value"],
-        }
-        del conv["epoch"]["m0"]
         conv["position"]["type"] = "position"
-        conv["position"]["ellipsoid"] = conv["position"]["refer"]
-        if conv["position"]["refer"] == "ITRF":
-            conv["position"]["ellipsoid"] = "GRS80"
-        del conv["position"]["refer"]
-        for z, m in zip(["units", "value"], ["unit", "value"]):
-            conv["position"][z] = [
-                conv["position"]["m0"][m],
-                conv["position"]["m1"][m],
-                conv["position"]["m2"][m],
-            ]
-        for i in range(3):
-            del conv["position"][f"m{i}"]
+        # I haven't seen a FITS keyword which relates to the position ellipsoid
+        conv["position"]["ellipsoid"] = "GRS80"
+        conv["position"]["units"] = ["rad", "rad", "m"]
+        conv["position"]["value"] = np.array([0.0, 0.0, 0.0])
         conv["system"] = helpers["specsys"]
         meta["conversion"] = conv
         meta["native_type"] = helpers["native_type"]
@@ -260,9 +246,8 @@ def _get_telescope_metadata(helpers: dict, header) -> dict:
         "type": "position",
         # I haven't seen a FITS keyword for reference frame of telescope posiiton
         "ellipsoid": "GRS80",
-        "m2": {"value": r, "unit": "m"},
-        "m1": {"unit": "rad", "value": lat},
-        "m0": {"unit": "rad", "value": long},
+        "units": ["rad", "rad", "m"],
+        "value": np.array([long, lat, r])
     }
     helpers["tel_pos"] = tel["position"]
     return tel

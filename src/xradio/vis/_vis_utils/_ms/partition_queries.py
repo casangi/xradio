@@ -1,4 +1,6 @@
+import itertools
 import logging
+import numbers
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
@@ -8,6 +10,8 @@ import xarray as xr
 from casacore import tables
 
 from ._tables.table_query import open_table_ro, open_query
+from ._tables.read import read_generic_table
+from .subtables import subt_rename_ids
 
 
 def make_partition_ids_by_ddi_scan(
@@ -266,3 +270,112 @@ def make_partition_ids_by_ddi_intent(
     scan_number = [None] * len(state_id_partitions)
 
     return data_desc_id, scan_number, state_id_partitions, intent_names
+
+
+def create_taql_query_and_file_name(out_file, intent, state_ids, field_id, ddi):
+    file_name = (
+        out_file
+        + "/"
+        + out_file.replace(".vis.zarr", "").split("/")[-1]
+        + "_ddi_"
+        + str(ddi)
+        + "_intent_"
+        + intent
+    )
+
+    taql_where = f"where (DATA_DESC_ID = {ddi})"
+
+    if isinstance(state_ids, numbers.Integral):
+        taql_where += f" AND (STATE_ID = {state_ids})"
+    else:
+        state_ids_or = " OR STATE_ID = ".join(np.char.mod("%d", state_ids))
+        taql_where += f" AND (STATE_ID = {state_ids_or})"
+
+    if field_id is not None:
+        taql_where += f" AND (FIELD_ID = {field_id})"
+        file_name = file_name + "_field_id_" + str(field_id)
+
+    return taql_where, file_name
+
+
+def get_unqiue_intents(in_file):
+    """_summary_
+
+    Parameters
+    ----------
+    in_file : str
+        _description_
+
+    Returns
+    -------
+    _type_
+        _description_
+    """
+    state_xds = read_generic_table(
+        in_file,
+        "STATE",
+        rename_ids=subt_rename_ids["STATE"],
+    )
+
+    if len(state_xds.data_vars) > 0:
+        obs_mode_dict = {}
+        for i, obs_mode in enumerate(state_xds.obs_mode.values):
+            if obs_mode in obs_mode_dict:
+                obs_mode_dict[obs_mode].append(i)
+            else:
+                obs_mode_dict[obs_mode] = [i]
+        return list(obs_mode_dict.keys()), list(obs_mode_dict.values())
+    else:  # empty state table
+        return ["None"], [0]
+
+
+def enumerated_product(*args):
+    yield from zip(
+        itertools.product(*(range(len(x)) for x in args)), itertools.product(*args)
+    )
+
+
+def create_partition_enumerated_product(in_file: str, partition_scheme: str):
+    """Creates an enumerated_product of the data_desc_ids, state_ids, field_ids in a MS v2 that define the partions in a processing set.
+
+    Parameters
+    ----------
+    in_file : str
+        _description_
+    partition_scheme : str
+        _description_
+
+    Returns
+    -------
+    _type_
+        _description_
+    """
+    # Unused?
+    # spw_xds = read_generic_table(
+    #     in_file,
+    #     "SPECTRAL_WINDOW",
+    #     rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
+    # )
+
+    # TODO: probably get this via query to subtable instead of read_generic_table, we just
+    # need the row numbers
+    ddi_xds = read_generic_table(in_file, "DATA_DESCRIPTION")
+    data_desc_ids = np.arange(ddi_xds.dims["row"])
+
+    if partition_scheme == "ddi_intent_field":
+        intents, state_ids = get_unqiue_intents(in_file)
+        field_ids = np.arange(read_generic_table(in_file, "FIELD").dims["row"])
+    elif partition_scheme == "ddi_state_field":
+        state_xds = read_generic_table(in_file, "STATE")
+
+        if len(state_xds.data_vars) > 0:
+            state_ids = [np.arange(state_xds.dims["row"])]
+            intents = state_xds.obs_mode.values
+        else:  # empty state table
+            state_ids = [0]
+            intents = ["None"]
+        # print(state_xds, intents)
+        # field_ids = [None]
+        field_ids = np.arange(read_generic_table(in_file, "FIELD").dims["row"])
+
+    return enumerated_product(data_desc_ids, state_ids, field_ids), intents

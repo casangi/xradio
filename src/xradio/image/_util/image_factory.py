@@ -93,7 +93,7 @@ def _make_empty_sky_image(
         "cdelt": (chan_coords[1] - chan_coords[0] if len(chan_coords) > 1 else 1000.0),
         "pc": 1.0,
     }
-    xds.velocity.attrs = {"doppler_type": "RADIO", "unit": "m/s"}
+    xds.velocity.attrs = {"doppler_type": "RADIO", "units": "m/s"}
     xds.right_ascension.attrs = {
         "unit": "rad",
         "crval": phase_center[0],

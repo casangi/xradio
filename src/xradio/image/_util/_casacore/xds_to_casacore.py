@@ -155,7 +155,7 @@ def _compute_spectral_dict(
     spec["system"] = xds.frequency.attrs["frame"]
     spec["unit"] = xds.frequency.attrs["units"]
     spec["velType"] = _doppler_types.index(xds.velocity.attrs["doppler_type"])
-    spec["velUnit"] = xds.velocity.attrs["unit"]
+    spec["velUnit"] = xds.velocity.attrs["units"]
     spec["version"] = 2
     spec["waveUnit"] = xds.frequency.attrs["wave_unit"]
     wcs = {}

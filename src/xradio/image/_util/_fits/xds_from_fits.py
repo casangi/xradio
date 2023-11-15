@@ -120,7 +120,7 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
 
 def _add_vel_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     vel_coord = xds.coords["velocity"]
-    meta = {"unit": "m/s"}
+    meta = {"units": "m/s"}
     if helpers["has_freq"]:
         meta["doppler_type"] = helpers["doppler"]
     else:

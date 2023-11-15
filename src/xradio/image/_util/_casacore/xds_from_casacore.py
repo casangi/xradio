@@ -183,7 +183,7 @@ def _add_time_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
 
 def _add_vel_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
     vel_coord = xds["velocity"]
-    meta = {"unit": "m/s"}
+    meta = {"units": "m/s"}
     for k in coord_dict:
         if k.startswith("spectral"):
             sd = coord_dict[k]

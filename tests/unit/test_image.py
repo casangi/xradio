@@ -401,7 +401,7 @@ class ImageBase(unittest.TestCase):
                 "Incoorect velocity type",
             )
         self.assertEqual(
-            xds.velocity.attrs["unit"], ev["vel_unit"], "Incoorect velocity unit"
+            xds.velocity.attrs["units"], ev["vel_unit"], "Incoorect velocity unit"
         )
         self.assertEqual(
             xds.velocity.attrs["type"],
@@ -932,7 +932,7 @@ class make_empty_sky_image_test(ImageBase):
             np.isclose(skel.velocity, [212167.34465675, 0]).all(),
             "Incorrect vel coordinate values",
         )
-        expec = {"doppler_type": "RADIO", "unit": "m/s"}
+        expec = {"doppler_type": "RADIO", "units": "m/s"}
         self.dict_equality(skel.velocity.attrs, expec, "got", "expected")
 
     def test_right_ascension_coord(self):

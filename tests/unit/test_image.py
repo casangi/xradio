@@ -73,7 +73,7 @@ class ImageBase(unittest.TestCase):
             "system": "LSRK",
         },
         # "native_type": "FREQ",
-        "restfreq": {'type': 'quantity', 'value': 1420405751.7860003, 'units': 'Hz'},
+        "rest_frequency": {'type': 'quantity', 'value': 1420405751.7860003, 'units': 'Hz'},
         # "restfreqs": {'type': 'quantity', 'value': [1.42040575e09], 'units': 'Hz'},
         "freq_units": "Hz",
         "freq_frame": "LSRK",
@@ -336,7 +336,7 @@ class ImageBase(unittest.TestCase):
             np.isclose(xds.frequency, ev["frequency"]).all(), "Incorrect frequencies"
         )
         self.dict_equality(
-            xds.frequency.attrs["restfreq"], ev["restfreq"], 'got', 'expected'
+            xds.frequency.attrs["rest_frequency"], ev["rest_frequency"], 'got', 'expected'
         )
         """
         self.dict_equality(
@@ -374,7 +374,7 @@ class ImageBase(unittest.TestCase):
             # even though the doppler type is RADIO in the casacore
             # image
             freqs = xds.coords["frequency"].values
-            rest_freq = xds.coords["frequency"].attrs["restfreq"]['value']
+            rest_freq = xds.coords["frequency"].attrs["rest_frequency"]['value']
             v_opt = (rest_freq / freqs - 1) * 299792458
             self.assertTrue(
                 np.isclose(xds.velocity, v_opt).all(), "Incorrect velocities"
@@ -917,7 +917,7 @@ class make_empty_sky_image_test(ImageBase):
                 "system": "LSRK",
             },
             # "native_type": "FREQ",
-            "restfreq": {'type': 'quantity', 'value': 1413000000.0, 'units': 'Hz'},
+            "rest_frequency": {'type': 'quantity', 'value': 1413000000.0, 'units': 'Hz'},
             # "restfreqs":{'type': 'quantity', 'value': [1413000000.0], 'units': 'Hz'},
             "system": "LSRK",
             "unit": "Hz",

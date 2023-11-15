@@ -117,7 +117,7 @@ def _add_freq_attrs(xds, coord_dict):
             }
             meta["conversion"] = conv
             # meta["native_type"] = _native_types[sd["nativeType"]]
-            meta["restfreq"] = {'type': 'quantity', 'units': 'Hz', 'value': sd["restfreq"]}
+            meta["rest_frequency"] = {'type': 'quantity', 'units': 'Hz', 'value': sd["restfreq"]}
             # meta["restfreqs"] = {'type': 'quantity', 'units': 'Hz', 'value': list(sd["restfreqs"])}
             meta["type"] = "frequency"
             meta["units"] = sd["unit"]

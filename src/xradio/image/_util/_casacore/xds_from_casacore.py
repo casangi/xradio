@@ -223,18 +223,23 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
         system = "system"
         if system not in coord_dir_dict:
             raise RuntimeError("No direction reference frame found")
-        dir_dict = {"type": "sky_coord"}
         casa_system = coord_dir_dict[system]
         ap_system, ap_equinox = _convert_direction_system(casa_system, "native")
-        dir_dict["frame"] = ap_system
-        dir_dict["equinox"] = ap_equinox if ap_equinox else None
-        dir_dict["reference_value"] = np.array([0.0, 0.0])
-        for i in range(2):
-            unit = u.Unit(_get_unit(coord_dir_dict["units"][i]))
-            q = coord_dir_dict["crval"][i] * unit
-            x = q.to("rad")
-            dir_dict["reference_value"][i] = x.value
-        dir_dict["units"] = ["rad", "rad"]
+        dir_dict = {}
+        dir_dict["reference"] = {
+            "frame": ap_system,
+            "type": "sky_coord",
+            "equinox": ap_equinox if ap_equinox else None,
+            "value": [0.0, 0.0],
+            "cdelt": [0.0, 0.0],
+            "units": ["rad", "rad"]
+        }
+        for c, r in zip(["crval", "cdelt"], ["value", "cdelt"]):
+            for i in range(2):
+                unit = u.Unit(_get_unit(coord_dir_dict["units"][i]))
+                q = coord_dir_dict[c][i] * unit
+                x = q.to("rad")
+                dir_dict["reference"][r][i] = x.value
         # dir_dict["conversion_system"] = None
         """
         cs = "conversionSystem"

@@ -71,34 +71,34 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     freq_coord = xds.coords["frequency"]
     meta = {}
     if helpers["has_freq"]:
-        conv = {}
-        conv["direction"] = {
-            "units": ["rad", "rad"],
-            "value": np.array([0.0, np.pi / 2]),
-            "frame": helpers["ref_sys"],
-            "equinox": helpers["ref_eqx"],
-            "type": "sky_coord",
-        }
-        conv["direction"]["units"] = ["rad", "rad"]
-        conv["direction"]["value"] = [0.0, np.pi / 2]
-        conv["epoch"] = {
-            "value": 0.0,
-            "units": "d",
-            "type": "quantity",
-            "refer": "LAST",
-        }
-        conv["position"] = {
-            "type": "position",
-            "units": ["rad", "rad", "m"],
-            "value": np.array([0.0, 0.0, 0.0]),
-            "ellipsoid": "GRS80",
-        }
-        conv["position"]["type"] = "position"
+        #conv = {}
+        #conv["direction"] = {
+        #    "units": ["rad", "rad"],
+        #    "value": np.array([0.0, np.pi / 2]),
+        #    "frame": helpers["ref_sys"],
+        #    "equinox": helpers["ref_eqx"],
+        #    "type": "sky_coord",
+        #}
+        #conv["direction"]["units"] = ["rad", "rad"]
+        #conv["direction"]["value"] = [0.0, np.pi / 2]
+        #conv["epoch"] = {
+        #    "value": 0.0,
+        #    "units": "d",
+        #    "type": "quantity",
+        #    "refer": "LAST",
+        #}
+        #conv["position"] = {
+        #    "type": "position",
+        #    "units": ["rad", "rad", "m"],
+        #    "value": np.array([0.0, 0.0, 0.0]),
+        #    "ellipsoid": "GRS80",
+        #}
+        # conv["position"]["type"] = "position"
         # I haven't seen a FITS keyword which relates to the position ellipsoid
-        conv["position"]["ellipsoid"] = "GRS80"
-        conv["position"]["units"] = ["rad", "rad", "m"]
-        conv["position"]["value"] = np.array([0.0, 0.0, 0.0])
-        conv["system"] = helpers["specsys"]
+        # conv["position"]["ellipsoid"] = "GRS80"
+        # conv["position"]["units"] = ["rad", "rad", "m"]
+        # conv["position"]["value"] = np.array([0.0, 0.0, 0.0])
+        # conv["system"] = helpers["specsys"]
         # meta["conversion"] = conv
         # meta["native_type"] = helpers["native_type"]
         meta["rest_frequency"] = {
@@ -183,16 +183,22 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
     direction["conversion_system"] = ref_sys
     direction["conversion_equinox"] = ref_eqx
     """
-    direction["frame"] = ref_sys
-    direction["equinox"] = ref_eqx
-    direction["units"] = ["rad", "rad"]
-    direction["reference_value"] = np.array([0.0, 0.0])
+    direction["reference"] = {
+        "type": "sky_coord",
+        "frame": ref_sys,
+        "equinox": ref_eqx,
+        "units": ["rad", "rad"],
+        "value": [0.0, 0.0],
+        "cdelt": [0.0, 0.0]
+    }
     dir_axes = helpers["dir_axes"]
     for i in dir_axes:
         x = helpers["crval"][i] * u.Unit(_get_unit(helpers["cunit"][i]))
         x = x.to("rad")
-        direction["reference_value"][i] = x.value
-    direction["type"] = "sky_coord"
+        direction["reference"]["value"][i] = x.value
+        x = helpers["cdelt"][i] * u.Unit(_get_unit(helpers["cunit"][i]))
+        x = x.to("rad")
+        direction["reference"]["cdelt"][i] = x.value
     direction["latpole"] = {
         "value": header["LATPOLE"] * _deg_to_rad,
         "units": "rad",

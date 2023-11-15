@@ -112,6 +112,14 @@ def _make_empty_sky_image(
         "direction": {
             # "conversion_system": direction_reference,
             # "conversion_equinox": "J2000",
+            "reference": {
+                "type": "sky_coord",
+                "frame": direction_reference,
+                "equinox": "J2000",
+                "value": list(phase_center),
+                "units": ["rad", "rad"],
+                "cdelt": [-abs(cell_size[0]), abs(cell_size[1])]
+            },
             "long_pole": 0.0,
             "lat_pole": 0.0,
             #'pc': np.array([[1.0, 0.0], [0.0, 1.0]]),
@@ -119,8 +127,6 @@ def _make_empty_sky_image(
             "projection": projection,
             #'projection_parameters': np.array([0.0, 0.0]),
             "projection_parameters": [0.0, 0.0],
-            "system": direction_reference,
-            "equinox": "J2000",
         },
         "active_mask": "",
         "beam": None,

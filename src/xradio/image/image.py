@@ -53,6 +53,7 @@ def read_image(infile: str, chunks: dict = {}, verbose: bool = False) -> xr.Data
         )
         do_casa = False
     if do_casa:
+        # next statement is for debug
         # return _read_casa_image(infile, chunks, verbose=verbose)
         try:
             return _read_casa_image(infile, chunks, verbose=verbose)

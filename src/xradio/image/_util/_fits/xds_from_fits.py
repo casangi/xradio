@@ -100,7 +100,7 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
         conv["position"]["value"] = np.array([0.0, 0.0, 0.0])
         conv["system"] = helpers["specsys"]
         meta["conversion"] = conv
-        meta["native_type"] = helpers["native_type"]
+        # meta["native_type"] = helpers["native_type"]
         meta["restfreq"] = {'type': 'quantity', 'units': 'Hz', 'value': helpers["restfreq"]}
         meta["restfreqs"] = {'type': 'quantity', 'units': 'Hz', 'value':[helpers["restfreq"]]}
         meta["frame"] = helpers["specsys"]
@@ -357,7 +357,7 @@ def _create_dim_map(helpers: dict, header) -> dict:
         elif _is_freq_like(ax_type):
             dim_map["freq"] = i - 1
             helpers["has_freq"] = True
-            helpers["native_type"] = ax_type
+            # helpers["native_type"] = ax_type
         else:
             raise RuntimeError(f"{ax_type} is an unsupported axis")
     helpers["t_axes"] = t_axes

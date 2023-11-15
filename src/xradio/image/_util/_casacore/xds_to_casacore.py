@@ -7,7 +7,7 @@ import numpy as np
 import os
 from typing import Union
 import xarray as xr
-from .common import _active_mask, _native_types, _object_name, _pointing_center
+from .common import _active_mask, _object_name, _pointing_center
 from ..common import _doppler_types
 from ...._utils._casacore.tables import open_table_rw
 
@@ -149,7 +149,9 @@ def _compute_spectral_dict(
     spec["conversion"] = spec_conv
     spec["formatUnit"] = ""
     spec["name"] = "Frequency"
-    spec["nativeType"] = _native_types.index(xds.frequency.attrs["native_type"])
+    # spec["nativeType"] = _native_types.index(xds.frequency.attrs["native_type"])
+    # FREQ
+    spec["nativeType"] = 0
     spec["restfreq"] = xds.frequency.attrs["restfreq"]['value']
     spec["restfreqs"] = copy.deepcopy(xds.frequency.attrs["restfreqs"]["value"])
     spec["system"] = xds.frequency.attrs["frame"]

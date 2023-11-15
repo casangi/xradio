@@ -117,8 +117,8 @@ def _add_freq_attrs(xds, coord_dict):
             }
             meta["conversion"] = conv
             meta["native_type"] = _native_types[sd["nativeType"]]
-            meta["restfreq"] = sd["restfreq"]
-            meta["restfreqs"] = sd["restfreqs"]
+            meta["restfreq"] = {'type': 'quantity', 'units': 'Hz', 'value': sd["restfreq"]}
+            meta["restfreqs"] = {'type': 'quantity', 'units': 'Hz', 'value': list(sd["restfreqs"])}
             meta["type"] = "frequency"
             meta["units"] = sd["unit"]
             meta["frame"] = sd["system"]
@@ -129,9 +129,6 @@ def _add_freq_attrs(xds, coord_dict):
         # this is the default frequency information CASA creates
         meta = _default_freq_info()
     freq_coord.attrs = meta
-    # xds['frequency'] = freq_coord
-    # return xds
-
 
 def _add_mask(
     xds: xr.Dataset, name: str, ary: Union[np.ndarray, da.array], dimorder: list

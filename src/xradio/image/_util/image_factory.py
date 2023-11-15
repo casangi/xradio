@@ -85,7 +85,7 @@ def _make_empty_sky_image(
         },
         # "native_type": "FREQ",
         "restfreq": {'type': 'quantity', 'units': 'Hz', 'value': restfreq,},
-        "restfreqs":{'type': 'quantity', 'units': 'Hz', 'value': [restfreq],},
+        # "restfreqs":{'type': 'quantity', 'units': 'Hz', 'value': [restfreq],},
         "system": spectral_reference.upper(),
         "unit": "Hz",
         "wave_unit": "mm",

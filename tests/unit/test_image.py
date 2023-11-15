@@ -74,7 +74,7 @@ class ImageBase(unittest.TestCase):
         },
         # "native_type": "FREQ",
         "restfreq": {'type': 'quantity', 'value': 1420405751.7860003, 'units': 'Hz'},
-        "restfreqs": {'type': 'quantity', 'value': [1.42040575e09], 'units': 'Hz'},
+        # "restfreqs": {'type': 'quantity', 'value': [1.42040575e09], 'units': 'Hz'},
         "freq_units": "Hz",
         "freq_frame": "LSRK",
         "wave_unit": "mm",
@@ -338,9 +338,11 @@ class ImageBase(unittest.TestCase):
         self.dict_equality(
             xds.frequency.attrs["restfreq"], ev["restfreq"], 'got', 'expected'
         )
+        """
         self.dict_equality(
             xds.frequency.attrs["restfreqs"], ev["restfreqs"], 'got', 'expected'
         )
+        """
         self.assertTrue(
             np.isclose(xds.frequency.attrs["crval"], ev["freq_crval"]),
             "Incorrect frequency crval",
@@ -916,7 +918,7 @@ class make_empty_sky_image_test(ImageBase):
             },
             # "native_type": "FREQ",
             "restfreq": {'type': 'quantity', 'value': 1413000000.0, 'units': 'Hz'},
-            "restfreqs":{'type': 'quantity', 'value': [1413000000.0], 'units': 'Hz'},
+            # "restfreqs":{'type': 'quantity', 'value': [1413000000.0], 'units': 'Hz'},
             "system": "LSRK",
             "unit": "Hz",
             "wave_unit": "mm",

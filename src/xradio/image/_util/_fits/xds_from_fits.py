@@ -102,7 +102,7 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
         meta["conversion"] = conv
         # meta["native_type"] = helpers["native_type"]
         meta["restfreq"] = {'type': 'quantity', 'units': 'Hz', 'value': helpers["restfreq"]}
-        meta["restfreqs"] = {'type': 'quantity', 'units': 'Hz', 'value':[helpers["restfreq"]]}
+        # meta["restfreqs"] = {'type': 'quantity', 'units': 'Hz', 'value':[helpers["restfreq"]]}
         meta["frame"] = helpers["specsys"]
         meta["units"] = "Hz"
         meta["type"] = "frequency"

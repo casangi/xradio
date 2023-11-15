@@ -154,7 +154,7 @@ def _compute_spectral_dict(
     # spec["nativeType"] = _native_types.index(xds.frequency.attrs["native_type"])
     # FREQ
     spec["nativeType"] = 0
-    spec["restfreq"] = xds.frequency.attrs["rest_frequency"]['value']
+    spec["restfreq"] = xds.frequency.attrs["rest_frequency"]["value"]
     # spec["restfreqs"] = copy.deepcopy(xds.frequency.attrs["restfreqs"]["value"])
     spec["restfreqs"] = [spec["restfreq"]]
     spec["system"] = xds.frequency.attrs["frame"]

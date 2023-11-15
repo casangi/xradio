@@ -73,7 +73,11 @@ class ImageBase(unittest.TestCase):
         #    "system": "LSRK",
         # },
         # "native_type": "FREQ",
-        "rest_frequency": {'type': 'quantity', 'value': 1420405751.7860003, 'units': 'Hz'},
+        "rest_frequency": {
+            "type": "quantity",
+            "value": 1420405751.7860003,
+            "units": "Hz",
+        },
         # "restfreqs": {'type': 'quantity', 'value': [1.42040575e09], 'units': 'Hz'},
         "freq_units": "Hz",
         "freq_frame": "LSRK",
@@ -224,9 +228,13 @@ class ImageBase(unittest.TestCase):
                         + f"{one} vs\n{two}",
                     )
                 elif (isinstance(one, list) and isinstance(two, np.ndarray)) or (
-                    isinstance(one, np.ndarray) and isinstance(two, list) or (
-                        isinstance(one, list) and isinstance(two, list) and
-                        isinstance(one[0], numbers.Number))
+                    isinstance(one, np.ndarray)
+                    and isinstance(two, list)
+                    or (
+                        isinstance(one, list)
+                        and isinstance(two, list)
+                        and isinstance(one[0], numbers.Number)
+                    )
                 ):
                     self.assertTrue(
                         np.isclose(np.array(one), np.array(two)).all(),
@@ -337,7 +345,10 @@ class ImageBase(unittest.TestCase):
         )
         print(ev.keys())
         self.dict_equality(
-            xds.frequency.attrs["rest_frequency"], ev["rest_frequency"], 'got', 'expected'
+            xds.frequency.attrs["rest_frequency"],
+            ev["rest_frequency"],
+            "got",
+            "expected",
         )
         """
         self.dict_equality(
@@ -377,7 +388,7 @@ class ImageBase(unittest.TestCase):
             # even though the doppler type is RADIO in the casacore
             # image
             freqs = xds.coords["frequency"].values
-            rest_freq = xds.coords["frequency"].attrs["rest_frequency"]['value']
+            rest_freq = xds.coords["frequency"].attrs["rest_frequency"]["value"]
             v_opt = (rest_freq / freqs - 1) * 299792458
             self.assertTrue(
                 np.isclose(xds.velocity, v_opt).all(), "Incorrect velocities"
@@ -898,7 +909,7 @@ class make_empty_sky_image_test(ImageBase):
             "Incorrect frequency coordinate values",
         )
         expec = {
-            #"conversion": {
+            # "conversion": {
             #    "direction": {
             #        "units": ["rad", "rad"],
             #        "value": np.array([0.0, 1.5707963267948966]),
@@ -918,9 +929,13 @@ class make_empty_sky_image_test(ImageBase):
             #        "type": "position",
             #    },
             #    "system": "LSRK",
-            #},
+            # },
             # "native_type": "FREQ",
-            "rest_frequency": {'type': 'quantity', 'value': 1413000000.0, 'units': 'Hz'},
+            "rest_frequency": {
+                "type": "quantity",
+                "value": 1413000000.0,
+                "units": "Hz",
+            },
             # "restfreqs":{'type': 'quantity', 'value': [1413000000.0], 'units': 'Hz'},
             "system": "LSRK",
             "unit": "Hz",

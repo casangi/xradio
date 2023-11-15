@@ -74,6 +74,7 @@ def _add_freq_attrs(xds, coord_dict):
     for k in coord_dict:
         if k.startswith("spectral"):
             sd = coord_dict[k]
+            """
             conv = copy.deepcopy(sd["conversion"])
             conv["direction"]["type"] = "sky_coord"
             (
@@ -116,6 +117,7 @@ def _add_freq_attrs(xds, coord_dict):
                 "refer": conv["epoch"]["refer"],
             }
             meta["conversion"] = conv
+            """
             # meta["native_type"] = _native_types[sd["nativeType"]]
             meta["rest_frequency"] = {'type': 'quantity', 'units': 'Hz', 'value': sd["restfreq"]}
             # meta["restfreqs"] = {'type': 'quantity', 'units': 'Hz', 'value': list(sd["restfreqs"])}
@@ -228,8 +230,8 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
             x = q.to("rad")
             dir_dict["reference_value"][i] = x.value
         dir_dict["units"] = ["rad", "rad"]
-        dir_dict["conversion_system"] = None
-
+        # dir_dict["conversion_system"] = None
+        """
         cs = "conversionSystem"
         if cs in coord_dir_dict and (coord_dir_dict[cs] != coord_dir_dict[system]):
             logging.warn(
@@ -240,6 +242,7 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
             )
         dir_dict["conversion_system"] = dir_dict["frame"]
         dir_dict["conversion_equinox"] = dir_dict["equinox"]
+        """
         k = "latpole"
         if k in coord_dir_dict:
             for j in (k, "longpole"):

@@ -111,6 +111,7 @@ def _compute_spectral_dict(
     for a CASA image coordinate system
     """
     spec = {}
+    """
     spec_conv = copy.deepcopy(xds.frequency.attrs["conversion"])
     for k in ("direction", "epoch", "position"):
         spec_conv[k]["type"] = k
@@ -147,6 +148,7 @@ def _compute_spectral_dict(
     del spec_conv["position"]["units"], spec_conv["position"]["value"]
 
     spec["conversion"] = spec_conv
+    """
     spec["formatUnit"] = ""
     spec["name"] = "Frequency"
     # spec["nativeType"] = _native_types.index(xds.frequency.attrs["native_type"])

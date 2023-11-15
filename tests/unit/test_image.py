@@ -55,23 +55,23 @@ class ImageBase(unittest.TestCase):
             1.415003e09,
             1.415004e09,
         ],
-        "freq_conversion": {
-            "direction": {
-                "type": "sky_coord",
-                "frame": "FK5",
-                "equinox": "J2000",
-                "units": ["rad", "rad"],
-                "value": np.array([0.0, 1.5707963267948966]),
-            },
-            "position": {
-                "type": "position",
-                "ellipsoid": "GRS80",
-                "units": ["rad", "rad", "m"],
-                "value": np.array([0.0, 0.0, 0.0]),
-            },
-            "epoch": {"refer": "LAST", "units": "d", "value": 0.0, "type": "quantity"},
-            "system": "LSRK",
-        },
+        # "freq_conversion": {
+        #    "direction": {
+        #        "type": "sky_coord",
+        #        "frame": "FK5",
+        #        "equinox": "J2000",
+        #        "units": ["rad", "rad"],
+        #        "value": np.array([0.0, 1.5707963267948966]),
+        #    },
+        #    "position": {
+        #        "type": "position",
+        #        "ellipsoid": "GRS80",
+        #        "units": ["rad", "rad", "m"],
+        #        "value": np.array([0.0, 0.0, 0.0]),
+        #    },
+        #    "epoch": {"refer": "LAST", "units": "d", "value": 0.0, "type": "quantity"},
+        #    "system": "LSRK",
+        # },
         # "native_type": "FREQ",
         "rest_frequency": {'type': 'quantity', 'value': 1420405751.7860003, 'units': 'Hz'},
         # "restfreqs": {'type': 'quantity', 'value': [1.42040575e09], 'units': 'Hz'},
@@ -89,8 +89,8 @@ class ImageBase(unittest.TestCase):
         "equinox": "J2000",
         "reference_value": np.array([1.832595714594046, -0.6981317007977318]),
         "units": ["rad", "rad"],
-        "conversion_system": "FK5",
-        "conversion_equinox": "J2000",
+        # "conversion_system": "FK5",
+        # "conversion_equinox": "J2000",
         # there seems to be a casacore bug here that changing either the
         # crval or pointingcenter will also change the latpole when the
         # casacore image is reopened. As long as the xds gets the latpole
@@ -335,6 +335,7 @@ class ImageBase(unittest.TestCase):
         self.assertTrue(
             np.isclose(xds.frequency, ev["frequency"]).all(), "Incorrect frequencies"
         )
+        print(ev.keys())
         self.dict_equality(
             xds.frequency.attrs["rest_frequency"], ev["rest_frequency"], 'got', 'expected'
         )
@@ -351,9 +352,11 @@ class ImageBase(unittest.TestCase):
             np.isclose(xds.frequency.attrs["cdelt"], ev["freq_cdelt"]),
             "Incorrect frequency cdelt",
         )
+        """
         self.dict_equality(
             xds.frequency.attrs["conversion"], ev["freq_conversion"], "got", "expected"
         )
+        """
         self.assertEqual(xds.frequency.attrs["type"], "frequency", "Wrong measure type")
         self.assertEqual(
             xds.frequency.attrs["units"], ev["freq_units"], "Wrong frequency unit"
@@ -895,27 +898,27 @@ class make_empty_sky_image_test(ImageBase):
             "Incorrect frequency coordinate values",
         )
         expec = {
-            "conversion": {
-                "direction": {
-                    "units": ["rad", "rad"],
-                    "value": np.array([0.0, 1.5707963267948966]),
-                    "frame": "FK5",
-                    "type": "sky_coord",
-                },
-                "epoch": {
-                    "units": "d",
-                    "value": 0.0,
-                    "refer": "LAST",
-                    "type": "quantity",
-                },
-                "position": {
-                    "units": ["rad", "rad", "m"],
-                    "value": np.array([0.0, 0.0, 0.0]),
-                    "ellipsoid": "GRS80",
-                    "type": "position",
-                },
-                "system": "LSRK",
-            },
+            #"conversion": {
+            #    "direction": {
+            #        "units": ["rad", "rad"],
+            #        "value": np.array([0.0, 1.5707963267948966]),
+            #        "frame": "FK5",
+            #        "type": "sky_coord",
+            #    },
+            #    "epoch": {
+            #        "units": "d",
+            #        "value": 0.0,
+            #        "refer": "LAST",
+            #        "type": "quantity",
+            #    },
+            #    "position": {
+            #        "units": ["rad", "rad", "m"],
+            #        "value": np.array([0.0, 0.0, 0.0]),
+            #        "ellipsoid": "GRS80",
+            #        "type": "position",
+            #    },
+            #    "system": "LSRK",
+            #},
             # "native_type": "FREQ",
             "rest_frequency": {'type': 'quantity', 'value': 1413000000.0, 'units': 'Hz'},
             # "restfreqs":{'type': 'quantity', 'value': [1413000000.0], 'units': 'Hz'},
@@ -1192,8 +1195,8 @@ class make_empty_sky_image_test(ImageBase):
         skel = self.skel_im()
         expec = {
             "direction": {
-                "conversion_system": "FK5",
-                "conversion_equinox": "J2000",
+                # "conversion_system": "FK5",
+                # "conversion_equinox": "J2000",
                 "long_pole": 0.0,
                 "lat_pole": 0.0,
                 "pc": np.array([[1.0, 0.0], [0.0, 1.0]]),

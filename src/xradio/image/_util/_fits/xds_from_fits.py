@@ -99,7 +99,7 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
         conv["position"]["units"] = ["rad", "rad", "m"]
         conv["position"]["value"] = np.array([0.0, 0.0, 0.0])
         conv["system"] = helpers["specsys"]
-        meta["conversion"] = conv
+        # meta["conversion"] = conv
         # meta["native_type"] = helpers["native_type"]
         meta["rest_frequency"] = {'type': 'quantity', 'units': 'Hz', 'value': helpers["restfreq"]}
         # meta["restfreqs"] = {'type': 'quantity', 'units': 'Hz', 'value':[helpers["restfreq"]]}
@@ -175,8 +175,10 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
     helpers["ref_sys"] = ref_sys
     helpers["ref_eqx"] = ref_eqx
     # fits does not support conversion frames
+    """
     direction["conversion_system"] = ref_sys
     direction["conversion_equinox"] = ref_eqx
+    """
     direction["frame"] = ref_sys
     direction["equinox"] = ref_eqx
     direction["units"] = ["rad", "rad"]

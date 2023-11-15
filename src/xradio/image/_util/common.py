@@ -69,8 +69,9 @@ def _numpy_arrayize(xds):
     return xds
 
 
-def _default_freq_info() -> dict():
+def _default_freq_info() -> dict:
     return {
+        """
         "conversion": {
             "direction": {
                 "m0": {"unit": "rad", "value": 0.0},
@@ -90,6 +91,7 @@ def _default_freq_info() -> dict():
             },
             "system": "LSRK",
         },
+        """
         # "nativeType": "FREQ",
         "rest_frequency": 1420405751.7860003,
         # "restfreqs": [1420405751.7860003],

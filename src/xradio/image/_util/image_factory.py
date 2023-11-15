@@ -62,27 +62,27 @@ def _make_empty_sky_image(
     xds = xds.assign_coords(coords)
     xds.time.attrs = {"format": "MJD", "scale": "UTC", "unit": "d"}
     xds.frequency.attrs = {
-        "conversion": {
-            "direction": {
-                "type": "sky_coord",
-                "units": ["rad", "rad"],
-                "frame": "FK5",
-                "value": np.array([0.0, 1.5707963267948966]),
-            },
-            "epoch": {
-                "units": "d",
-                "value": 0.0,
-                "refer": "LAST",
-                "type": "quantity",
-            },
-            "position": {
-                "units": ["rad", "rad", "m"],
-                "value": np.array([0.0, 0.0, 0.0]),
-                "ellipsoid": "GRS80",
-                "type": "position",
-            },
-            "system": spectral_reference.upper(),
-        },
+        # "conversion": {
+        #    "direction": {
+        #        "type": "sky_coord",
+        #        "units": ["rad", "rad"],
+        #        "frame": "FK5",
+        #        "value": np.array([0.0, 1.5707963267948966]),
+        #    },
+        #    "epoch": {
+        #        "units": "d",
+        #        "value": 0.0,
+        #        "refer": "LAST",
+        #        "type": "quantity",
+        #    },
+        #    "position": {
+        #        "units": ["rad", "rad", "m"],
+        #        "value": np.array([0.0, 0.0, 0.0]),
+        #        "ellipsoid": "GRS80",
+        #        "type": "position",
+        #    },
+        #    "system": spectral_reference.upper(),
+        #},
         # "native_type": "FREQ",
         "rest_frequency": {'type': 'quantity', 'units': 'Hz', 'value': restfreq,},
         # "restfreqs":{'type': 'quantity', 'units': 'Hz', 'value': [restfreq],},
@@ -106,8 +106,8 @@ def _make_empty_sky_image(
     }
     xds.attrs = {
         "direction": {
-            "conversion_system": direction_reference,
-            "conversion_equinox": "J2000",
+            # "conversion_system": direction_reference,
+            # "conversion_equinox": "J2000",
             "long_pole": 0.0,
             "lat_pole": 0.0,
             #'pc': np.array([[1.0, 0.0], [0.0, 1.0]]),

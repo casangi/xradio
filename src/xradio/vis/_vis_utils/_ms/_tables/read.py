@@ -1,4 +1,5 @@
-import logging, os
+import logging
+import os
 from pathlib import Path
 import re
 from typing import Any, List, Dict, Tuple, Union
@@ -582,4 +583,21 @@ def read_col_chunk(
     if len(didxs) > 0:
         fulldata[tidxs[didxs], bidxs[didxs]] = data[didxs]
 
+    return fulldata
+
+
+def read_col_conversion(
+    tb_tool,
+    col: str,
+    cshape: Tuple[int],
+    tidxs: np.ndarray,
+    bidxs: np.ndarray,
+):
+    """
+    Function to perform delayed reads from table columns when converting
+    (no need for didxs)
+    """
+    data = tb_tool.getcol(col)
+    fulldata = np.full(cshape + data.shape[1:], np.nan, dtype=data.dtype)
+    fulldata[tidxs, bidxs] = data
     return fulldata

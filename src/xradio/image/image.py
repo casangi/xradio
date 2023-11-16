@@ -20,27 +20,29 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 def read_image(infile: str, chunks: dict = {}, verbose: bool = False) -> xr.Dataset:
     """
-    Read Image (currently only supports casacore images) or zarr to ngCASA image format
+    Convert CASA, FITS, or zarr image to xradio image xds format
     ngCASA image spec is located at
     https://docs.google.com/spreadsheets/d/1WW0Gl6z85cJVPgtdgW4dxucurHFa06OKGjgoK8OREFA/edit#gid=1719181934
-    :param infile: Path to the input CASA image
-    :type infile: str, required
-    :param chunks: The desired dask chunk size. Only applicable for casacore and fits images.
-                   Supported optional keys are 'l', 'm', 'frequency', 'polarization',
-                   and 'time'. The supported values are positive integers,
-                   indicating the length of a chunk on that particular axis. If
-                   a key is missing, then the associated chunk length along that axis
-                   is equal to the number of pixels along that axis.
-                   for zarr images, this parameter is ignored and the chunk size
-                   used to store the arrays in the zarr image is used.
-                   'l' represents the longitude like dimension, and 'm'
-                   represents the latitude like dimension. For apeature images,
-                   'u' may be used in place of 'l', and 'v' in place of 'm'.
-    :type chunks: dict, required
-    :param verbose: emit debugging messages? Default is False.
-    :type verbose: bool, optional
-    :return: xr.Dataset image that conforms to the ngCASA image spec
-    :rtype: xr.Dataset
+
+    Parameters
+    ----------
+    infile : str
+        Path to the input CASA image
+    :chunks : dict
+        The desired dask chunk size. Only applicable for casacore and fits images.
+        Supported optional keys are 'l', 'm', 'frequency', 'polarization', and 'time'.
+        The supported values are positive integers, indicating the length of a chunk
+        on that particular axis. If a key is missing, then the associated chunk length
+        along that axis is equal to the number of pixels along that axis. For zarr
+        images, this parameter is ignored and the chunk size used to store the arrays
+        in the zarr image is used. 'l' represents the longitude like dimension, and 'm'
+        represents the latitude like dimension. For apeature images, 'u' may be used in
+        place of 'l', and 'v' in place of 'm'.
+    verbose : bool
+        emit debugging messages? Default is False.
+    Returns
+    -------
+    xarray.Dataset
     """
     emsgs = []
     do_casa = True
@@ -76,21 +78,25 @@ def read_image(infile: str, chunks: dict = {}, verbose: bool = False) -> xr.Data
 
 
 def load_image(infile: str, block_des: dict = {}) -> xr.Dataset:
-    """Load an image or portion of an image (subimage) into memory
-    :param infile: Path to the input image, currently only casacore images are supported
-    :type infile: str, required
-    :param block_des: The description of data to return, supported keys are time,
-        polarization, frequency, l (or u if apeture image), m (or v if apeture image) a
-        missing key indicates to return the entire axis length for that
+    """
+    Load an image or portion of an image (subimage) into memory
+
+    Parameters
+    ----------
+    infile : str
+        Path to the input image, currently CASA and zarr images are supported
+    block_des : dict
+        The description of data to return, supported keys are time,
+        polarization, frequency, l (or u if apeture image), m (or v if apeture
+        image) a missing key indicates to return the entire axis length for that
         dimension. Values can be non-negative integers or slices. Slicing
         behaves as numpy slicing does, that is the start pixel is included in
         the selection, and the end pixel is not. An empty dictionary (the
-        default) indicates that the entire image should be returned.
-    :type block_des: dict
-    :return: dataset with all numpy arrays, dask arrays cannot be used in the
-        implementation of this function since this function will be called in a
-        delayed context.
-    :rtype: xr.Dataset, all contained arrays must be numpy arrays, not dask arrays
+        default) indicates that the entire image should be returned. The returned
+        dataset will have data variables stored as numpy, not dask, arrays as
+    Returns
+    -------
+    xarray.Dataset
     """
     do_casa = True
     emsgs = []
@@ -129,13 +135,17 @@ def load_image(infile: str, block_des: dict = {}) -> xr.Dataset:
 
 
 def write_image(xds: xr.Dataset, imagename: str, out_format: str = "casa") -> None:
-    """Convert xds image to CASA image
-    :param xds: XDS to convert
-    :type xds: xr.Dataset, required
-    :param imagename: path to output CASA image
-    :type imagename: str
-    :param out_format: format of output image, currently only 'casa' is supported
-    :type out_format: str
+    """
+    Convert an xds image to CASA or zarr image.
+    xds : xarray.Dataset
+        XDS to convert
+    imagename : str
+        Path to output CASA image
+    out_format : str
+        Format of output image, currently "casa" and "zarr" are supported
+    Returns
+    -------
+    None
     """
     my_format = out_format.lower()
     if my_format == "casa":

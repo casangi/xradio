@@ -60,54 +60,66 @@ def _make_empty_sky_image(
         "declination": (("l", "m"), lat),
     }
     xds = xds.assign_coords(coords)
-    xds.time.attrs = {"format": "MJD", "scale": "UTC", "unit": "d"}
+    xds.time.attrs = {"format": "MJD", "scale": "UTC", "units": "d"}
     xds.frequency.attrs = {
-        "conversion": {
-            "direction": {
-                "type": "sky_coord",
-                "units": ["rad", "rad"],
-                "frame": "FK5",
-                "value": [0.0, 1.5707963267948966],
-            },
-            "epoch": {
-                "units": "d",
-                "value": 0.0,
-                "refer": "LAST",
-                "type": "quantity",
-            },
-            "position": {
-                "units": ["rad", "rad", "m"],
-                "value": [0.0, 0.0, 0.0],
-                "ellipsoid": "GRS80",
-                "type": "position",
-            },
-            "system": spectral_reference.upper(),
+        # "conversion": {
+        #    "direction": {
+        #        "type": "sky_coord",
+        #        "units": ["rad", "rad"],
+        #        "frame": "FK5",
+        #        "value": np.array([0.0, 1.5707963267948966]),
+        #    },
+        #    "epoch": {
+        #        "units": "d",
+        #        "value": 0.0,
+        #        "refer": "LAST",
+        #        "type": "quantity",
+        #    },
+        #    "position": {
+        #        "units": ["rad", "rad", "m"],
+        #        "value": np.array([0.0, 0.0, 0.0]),
+        #        "ellipsoid": "GRS80",
+        #        "type": "position",
+        #    },
+        #    "system": spectral_reference.upper(),
+        # },
+        # "native_type": "FREQ",
+        "rest_frequency": {
+            "type": "quantity",
+            "units": "Hz",
+            "value": restfreq,
         },
-        "native_type": "FREQ",
-        "restfreq": restfreq,
-        "restfreqs": [restfreq],
-        "system": spectral_reference.upper(),
-        "unit": "Hz",
+        # "restfreqs":{'type': 'quantity', 'units': 'Hz', 'value': [restfreq],},
+        "frame": spectral_reference.upper(),
+        "units": "Hz",
         "wave_unit": "mm",
         "crval": chan_coords[len(chan_coords) // 2],
         "cdelt": (chan_coords[1] - chan_coords[0] if len(chan_coords) > 1 else 1000.0),
         "pc": 1.0,
     }
-    xds.velocity.attrs = {"doppler_type": "RADIO", "unit": "m/s"}
+    xds.velocity.attrs = {"doppler_type": "RADIO", "units": "m/s"}
     xds.right_ascension.attrs = {
-        "unit": "rad",
+        "units": "rad",
         "crval": phase_center[0],
         "cdelt": -abs(cell_size[0]),
     }
     xds.declination.attrs = {
-        "unit": "rad",
+        "units": "rad",
         "crval": phase_center[1],
         "cdelt": abs(cell_size[1]),
     }
     xds.attrs = {
         "direction": {
-            "conversion_system": direction_reference,
-            "conversion_equinox": "J2000",
+            # "conversion_system": direction_reference,
+            # "conversion_equinox": "J2000",
+            "reference": {
+                "type": "sky_coord",
+                "frame": direction_reference,
+                "equinox": "J2000",
+                "value": list(phase_center),
+                "units": ["rad", "rad"],
+                "cdelt": [-abs(cell_size[0]), abs(cell_size[1])],
+            },
             "long_pole": 0.0,
             "lat_pole": 0.0,
             #'pc': np.array([[1.0, 0.0], [0.0, 1.0]]),
@@ -115,8 +127,6 @@ def _make_empty_sky_image(
             "projection": projection,
             #'projection_parameters': np.array([0.0, 0.0]),
             "projection_parameters": [0.0, 0.0],
-            "system": direction_reference,
-            "equinox": "J2000",
         },
         "active_mask": "",
         "beam": None,
@@ -125,7 +135,7 @@ def _make_empty_sky_image(
             "scale": "UTC",
             "format": "MJD",
             "value": time_coords[0],
-            "unit": "d",
+            "units": "d",
         },
         "observer": "Karl Jansky",
         #'pointing_center': {

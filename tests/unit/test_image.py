@@ -39,7 +39,7 @@ class ImageBase(unittest.TestCase):
         "time_format": "MJD",
         "time_refer": "UTC",
         "time_unit": "d",
-        "unit": "Jy/beam",
+        "units": "Jy/beam",
         "vel_type": "RADIO",
         "vel_unit": "m/s",
         "vel_mea_type": "doppler",
@@ -55,42 +55,49 @@ class ImageBase(unittest.TestCase):
             1.415003e09,
             1.415004e09,
         ],
-        "freq_conversion": {
-            "direction": {
-                "type": "sky_coord",
-                "frame": "FK5",
-                "equinox": "J2000",
-                "units": ["rad", "rad"],
-                "value": np.array([0.0, 1.5707963267948966]),
-            },
-            "position": {
-                "type": "position",
-                "ellipsoid": "GRS80",
-                "units": ["rad", "rad", "m"],
-                "value": np.array([0.0, 0.0, 0.0]),
-            },
-            "epoch": {"refer": "LAST", "units": "d", "value": 0.0, "type": "quantity"},
-            "system": "LSRK",
+        # "freq_conversion": {
+        #    "direction": {
+        #        "type": "sky_coord",
+        #        "frame": "FK5",
+        #        "equinox": "J2000",
+        #        "units": ["rad", "rad"],
+        #        "value": np.array([0.0, 1.5707963267948966]),
+        #    },
+        #    "position": {
+        #        "type": "position",
+        #        "ellipsoid": "GRS80",
+        #        "units": ["rad", "rad", "m"],
+        #        "value": np.array([0.0, 0.0, 0.0]),
+        #    },
+        #    "epoch": {"refer": "LAST", "units": "d", "value": 0.0, "type": "quantity"},
+        #    "system": "LSRK",
+        # },
+        # "native_type": "FREQ",
+        "rest_frequency": {
+            "type": "quantity",
+            "value": 1420405751.7860003,
+            "units": "Hz",
         },
-        "native_type": "FREQ",
-        "restfreq": 1420405751.7860003,
-        "restfreqs": [1.42040575e09],
+        # "restfreqs": {'type': 'quantity', 'value': [1.42040575e09], 'units': 'Hz'},
         "freq_units": "Hz",
         "freq_frame": "LSRK",
         "wave_unit": "mm",
         "freq_crval": 1415000000.0,
         "freq_cdelt": 1000.0,
     }
-
+    _rad_to_arcmin = np.pi / 180 / 60
     _exp_attrs = {}
     _exp_attrs["direction"] = {
-        "type": "sky_coord",
-        "frame": "FK5",
-        "equinox": "J2000",
-        "reference_value": np.array([1.832595714594046, -0.6981317007977318]),
-        "units": ["rad", "rad"],
-        "conversion_system": "FK5",
-        "conversion_equinox": "J2000",
+        "reference": {
+            "type": "sky_coord",
+            "frame": "FK5",
+            "equinox": "J2000",
+            "value": [1.832595714594046, -0.6981317007977318],
+            "cdelt": [-_rad_to_arcmin, _rad_to_arcmin],
+            "units": ["rad", "rad"],
+        },
+        # "conversion_system": "FK5",
+        # "conversion_equinox": "J2000",
         # there seems to be a casacore bug here that changing either the
         # crval or pointingcenter will also change the latpole when the
         # casacore image is reopened. As long as the xds gets the latpole
@@ -107,7 +114,7 @@ class ImageBase(unittest.TestCase):
         "type": "time",
         "scale": "UTC",
         "value": 51544.00000000116,
-        "unit": "d",
+        "units": "d",
         "format": "MJD",
     }
     _exp_attrs["observer"] = "Karl Jansky"
@@ -224,7 +231,13 @@ class ImageBase(unittest.TestCase):
                         + f"{one} vs\n{two}",
                     )
                 elif (isinstance(one, list) and isinstance(two, np.ndarray)) or (
-                    isinstance(one, np.ndarray) and isinstance(two, list)
+                    isinstance(one, np.ndarray)
+                    and isinstance(two, list)
+                    or (
+                        isinstance(one, list)
+                        and isinstance(two, list)
+                        and isinstance(one[0], numbers.Number)
+                    )
                 ):
                     self.assertTrue(
                         np.isclose(np.array(one), np.array(two)).all(),
@@ -269,7 +282,7 @@ class ImageBase(unittest.TestCase):
         self.assertEqual(
             xds.sky.attrs["image_type"], ev["image_type"], "Wrong image type"
         )
-        self.assertEqual(xds.sky.attrs["unit"], ev["unit"], "Wrong unit")
+        self.assertEqual(xds.sky.attrs["units"], ev["units"], "Wrong unit")
         self.assertEqual(xds.sky.chunksizes["frequency"], (5, 5), "Incorrect chunksize")
         self.assertEqual(
             xds.mask0.chunksizes["frequency"], (5, 5), "Incorrect chunksize"
@@ -317,7 +330,7 @@ class ImageBase(unittest.TestCase):
             "Incoorect time axis refer",
         )
         self.assertEqual(
-            xds.coords["time"].attrs["unit"],
+            xds.coords["time"].attrs["units"],
             ev["time_unit"],
             "Incoorect time axis unitt",
         )
@@ -333,14 +346,18 @@ class ImageBase(unittest.TestCase):
         self.assertTrue(
             np.isclose(xds.frequency, ev["frequency"]).all(), "Incorrect frequencies"
         )
-        self.assertTrue(
-            np.isclose(xds.frequency.attrs["restfreq"], ev["restfreq"]),
-            "Incorrect rest frequency",
+        print(ev.keys())
+        self.dict_equality(
+            xds.frequency.attrs["rest_frequency"],
+            ev["rest_frequency"],
+            "got",
+            "expected",
         )
-        self.assertTrue(
-            np.isclose(xds.frequency.attrs["restfreqs"][0], ev["restfreqs"][0]),
-            "Incorrect rest frequencies",
+        """
+        self.dict_equality(
+            xds.frequency.attrs["restfreqs"], ev["restfreqs"], 'got', 'expected'
         )
+        """
         self.assertTrue(
             np.isclose(xds.frequency.attrs["crval"], ev["freq_crval"]),
             "Incorrect frequency crval",
@@ -349,9 +366,11 @@ class ImageBase(unittest.TestCase):
             np.isclose(xds.frequency.attrs["cdelt"], ev["freq_cdelt"]),
             "Incorrect frequency cdelt",
         )
+        """
         self.dict_equality(
             xds.frequency.attrs["conversion"], ev["freq_conversion"], "got", "expected"
         )
+        """
         self.assertEqual(xds.frequency.attrs["type"], "frequency", "Wrong measure type")
         self.assertEqual(
             xds.frequency.attrs["units"], ev["freq_units"], "Wrong frequency unit"
@@ -372,7 +391,7 @@ class ImageBase(unittest.TestCase):
             # even though the doppler type is RADIO in the casacore
             # image
             freqs = xds.coords["frequency"].values
-            rest_freq = xds.coords["frequency"].attrs["restfreq"]
+            rest_freq = xds.coords["frequency"].attrs["rest_frequency"]["value"]
             v_opt = (rest_freq / freqs - 1) * 299792458
             self.assertTrue(
                 np.isclose(xds.velocity, v_opt).all(), "Incorrect velocities"
@@ -401,7 +420,7 @@ class ImageBase(unittest.TestCase):
                 "Incoorect velocity type",
             )
         self.assertEqual(
-            xds.velocity.attrs["unit"], ev["vel_unit"], "Incoorect velocity unit"
+            xds.velocity.attrs["units"], ev["vel_unit"], "Incoorect velocity unit"
         )
         self.assertEqual(
             xds.velocity.attrs["type"],
@@ -442,6 +461,18 @@ class ImageBase(unittest.TestCase):
                 np.isclose(xds.declination.attrs["cdelt"], ev["dec_cdelt"]),
                 "Incorrect Dec cdelt",
             )
+            self.assertTrue(
+                np.isclose(
+                    xds.attrs["direction"]["reference"]["cdelt"][0], ev["ra_cdelt"]
+                ),
+                "Incorrect RA cdelt",
+            )
+            self.assertTrue(
+                np.isclose(
+                    xds.attrs["direction"]["reference"]["cdelt"][1], ev["dec_cdelt"]
+                ),
+                "Incorrect Dec cdelt",
+            )
         else:
             self.assertEqual(
                 xds.right_ascension.attrs["crval"],
@@ -458,6 +489,16 @@ class ImageBase(unittest.TestCase):
                 ev["dec_cdelt"],
                 "Incorrect Dec cdelt",
             )
+            self.assertEqual(
+                xds.attrs["direction"]["reference"]["cdelt"][0],
+                ev["ra_cdelt"],
+                "Incorrect RA cdelt",
+            )
+            self.assertEqual(
+                xds.attrs["direction"]["reference"]["cdelt"][1],
+                ev["dec_cdelt"],
+                "Incorrect Dec cdelt",
+            )
         self.assertTrue(
             np.allclose(xds.right_ascension, ev["ra"], atol=1e-15),
             "Incorrect RA values",
@@ -466,10 +507,10 @@ class ImageBase(unittest.TestCase):
             np.allclose(xds.declination, ev["dec"], atol=1e-15), "Incorrect Dec values"
         )
         self.assertEqual(
-            xds.right_ascension.attrs["unit"], ev["ra_unit"], "Incorrect RA unit"
+            xds.right_ascension.attrs["units"], ev["ra_unit"], "Incorrect RA unit"
         )
         self.assertEqual(
-            xds.declination.attrs["unit"], ev["dec_unit"], "Incorrect Dec unit"
+            xds.declination.attrs["units"], ev["dec_unit"], "Incorrect Dec unit"
         )
         self.assertEqual(
             xds.declination.attrs["crval"],
@@ -619,7 +660,7 @@ class casacore_to_xds_to_casacore(ImageBase):
         super().tearDownClass()
         for f in [
             cls._imname2,
-            # cls._imname3,
+            cls._imname3,
             cls._outname2,
             cls._outname3,
             cls._outname4,
@@ -876,7 +917,7 @@ class make_empty_sky_image_test(ImageBase):
         self.assertTrue(
             np.isclose(skel.time, [54000.1]).all(), "Incorrect time coordinate values"
         )
-        expec = {"scale": "UTC", "unit": "d", "format": "MJD"}
+        expec = {"scale": "UTC", "units": "d", "format": "MJD"}
         self.dict_equality(skel.time.attrs, expec, "got", "expected")
 
     def test_polarization_coord(self):
@@ -893,32 +934,36 @@ class make_empty_sky_image_test(ImageBase):
             "Incorrect frequency coordinate values",
         )
         expec = {
-            "conversion": {
-                "direction": {
-                    "units": ["rad", "rad"],
-                    "value": np.array([0.0, 1.5707963267948966]),
-                    "frame": "FK5",
-                    "type": "sky_coord",
-                },
-                "epoch": {
-                    "units": "d",
-                    "value": 0.0,
-                    "refer": "LAST",
-                    "type": "quantity",
-                },
-                "position": {
-                    "units": ["rad", "rad", "m"],
-                    "value": np.array([0.0, 0.0, 0.0]),
-                    "ellipsoid": "GRS80",
-                    "type": "position",
-                },
-                "system": "LSRK",
+            # "conversion": {
+            #    "direction": {
+            #        "units": ["rad", "rad"],
+            #        "value": np.array([0.0, 1.5707963267948966]),
+            #        "frame": "FK5",
+            #        "type": "sky_coord",
+            #    },
+            #    "epoch": {
+            #        "units": "d",
+            #        "value": 0.0,
+            #        "refer": "LAST",
+            #        "type": "quantity",
+            #    },
+            #    "position": {
+            #        "units": ["rad", "rad", "m"],
+            #        "value": np.array([0.0, 0.0, 0.0]),
+            #        "ellipsoid": "GRS80",
+            #        "type": "position",
+            #    },
+            #    "system": "LSRK",
+            # },
+            # "native_type": "FREQ",
+            "rest_frequency": {
+                "type": "quantity",
+                "value": 1413000000.0,
+                "units": "Hz",
             },
-            "native_type": "FREQ",
-            "restfreq": 1413000000.0,
-            "restfreqs": [1413000000.0],
-            "system": "LSRK",
-            "unit": "Hz",
+            # "restfreqs":{'type': 'quantity', 'value': [1413000000.0], 'units': 'Hz'},
+            "frame": "LSRK",
+            "units": "Hz",
             "wave_unit": "mm",
             "crval": 1413000000.0,
             "cdelt": 1000000.0,
@@ -932,7 +977,7 @@ class make_empty_sky_image_test(ImageBase):
             np.isclose(skel.velocity, [212167.34465675, 0]).all(),
             "Incorrect vel coordinate values",
         )
-        expec = {"doppler_type": "RADIO", "unit": "m/s"}
+        expec = {"doppler_type": "RADIO", "units": "m/s"}
         self.dict_equality(skel.velocity.attrs, expec, "got", "expected")
 
     def test_right_ascension_coord(self):
@@ -1052,7 +1097,7 @@ class make_empty_sky_image_test(ImageBase):
             np.isclose(skel.right_ascension, expec).all(),
             "Incorrect right_ascension coordinate values",
         )
-        expec = {"unit": "rad", "crval": 0.2, "cdelt": -0.0002908882086657216}
+        expec = {"units": "rad", "crval": 0.2, "cdelt": -0.0002908882086657216}
         self.dict_equality(skel.right_ascension.attrs, expec, "got", "expected")
 
     def test_declination_coord(self):
@@ -1183,27 +1228,49 @@ class make_empty_sky_image_test(ImageBase):
             np.isclose(skel.declination, expec).all(),
             "Incorrect declinationion coordinate values",
         )
-        expec = {"unit": "rad", "crval": -0.5, "cdelt": 0.0002908882086657216}
+        expec = {"units": "rad", "crval": -0.5, "cdelt": 0.0002908882086657216}
         self.dict_equality(skel.declination.attrs, expec, "got", "expected")
+        expec2 = {
+            "type": "sky_coord",
+            "frame": "FK5",
+            "equinox": "J2000",
+            "value": [0.2, -0.5],
+            "cdelt": [-0.0002908882086657216, 0.0002908882086657216],
+            "units": ["rad", "rad"],
+        }
+        self.dict_equality(
+            skel.attrs["direction"]["reference"], expec2, "got", "expected"
+        )
 
     def test_attrs(self):
         skel = self.skel_im()
         expec = {
             "direction": {
-                "conversion_system": "FK5",
-                "conversion_equinox": "J2000",
+                # "conversion_system": "FK5",
+                # "conversion_equinox": "J2000",
                 "long_pole": 0.0,
                 "lat_pole": 0.0,
                 "pc": np.array([[1.0, 0.0], [0.0, 1.0]]),
                 "projection": "SIN",
                 "projection_parameters": np.array([0.0, 0.0]),
-                "system": "FK5",
-                "equinox": "J2000",
+                "reference": {
+                    "type": "sky_coord",
+                    "frame": "FK5",
+                    "equinox": "J2000",
+                    "value": [0.2, -0.5],
+                    "cdelt": [-0.0002908882086657216, 0.0002908882086657216],
+                    "units": ["rad", "rad"],
+                },
             },
             "active_mask": "",
             "beam": None,
             "object_name": "",
-            "obsdate": {"scale": "UTC", "format": "MJD", "value": 54000.0, "unit": "d"},
+            "obsdate": {
+                "scale": "UTC",
+                "format": "MJD",
+                "value": 54000.0,
+                "units": "d",
+            },
             "observer": "Karl Jansky",
             "pointing_center": {"value": np.array([0.2, -0.5]), "initial": True},
             "description": "",

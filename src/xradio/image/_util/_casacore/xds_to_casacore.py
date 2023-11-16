@@ -7,7 +7,7 @@ import numpy as np
 import os
 from typing import Union
 import xarray as xr
-from .common import _active_mask, _native_types, _object_name, _pointing_center
+from .common import _active_mask, _object_name, _pointing_center
 from ..common import _doppler_types
 from ...._utils._casacore.tables import open_table_rw
 
@@ -51,14 +51,14 @@ def _compute_ref_pix(xds: xr.Dataset, direction: dict) -> np.ndarray:
     wcs_dict = {}
     wcs_dict[f"CTYPE1"] = f"RA---{proj}"
     wcs_dict[f"NAXIS1"] = long.shape[0]
-    wcs_dict[f"CUNIT1"] = long.attrs["unit"]
+    wcs_dict[f"CUNIT1"] = long.attrs["units"]
     # FITS arrays are 1-based
     wcs_dict[f"CRPIX1"] = pix[0] + 1
     wcs_dict[f"CRVAL1"] = long[pix[0], pix[1]].item(0)
     wcs_dict[f"CDELT1"] = long.attrs["wcs"]["cdelt"]
     wcs_dict[f"CTYPE2"] = f"DEC--{proj}"
     wcs_dict[f"NAXIS2"] = lat.shape[1]
-    wcs_dict[f"CUNIT2"] = lat.attrs["unit"]
+    wcs_dict[f"CUNIT2"] = lat.attrs["units"]
     # FITS arrays are 1-based
     wcs_dict[f"CRPIX2"] = pix[1] + 1
     wcs_dict[f"CRVAL2"] = lat[pix[0], pix[1]].item(0)
@@ -70,7 +70,7 @@ def _compute_ref_pix(xds: xr.Dataset, direction: dict) -> np.ndarray:
         dec_crval,
         frame=xds.attrs["direction"]["system"].lower(),
         equinox=xds.attrs["direction"]["equinox"],
-        unit=long.attrs["unit"],
+        unit=long.attrs["units"],
     )
     return w.world_to_pixel(sky)
 
@@ -82,14 +82,17 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
     """
     direction = {}
     xds_dir = xds.attrs["direction"]
-    direction["system"] = xds_dir["equinox"]
+    direction["system"] = xds_dir["reference"]["equinox"]
     direction["projection"] = xds_dir["projection"]
     direction["projection_parameters"] = xds_dir["projection_parameters"]
     long = xds.right_ascension
     lat = xds.declination
-    direction["units"] = np.array([long.attrs["unit"], lat.attrs["unit"]], dtype="<U16")
-    direction["crval"] = np.array([long.attrs["crval"], lat.attrs["crval"]])
-    direction["cdelt"] = np.array([long.attrs["cdelt"], lat.attrs["cdelt"]])
+    # direction["units"] = np.array([long.attrs["unit"], lat.attrs["unit"]], dtype="<U16")
+    direction["units"] = np.array(xds_dir["reference"]["units"], dtype="<U16")
+    # direction["crval"] = np.array([long.attrs["crval"], lat.attrs["crval"]])
+    direction["crval"] = np.array(xds_dir["reference"]["value"])
+    direction["cdelt"] = np.array(xds_dir["reference"]["cdelt"])
+    print("direction", direction)
     crpix = _compute_ref_pix(xds, direction)
     direction["crpix"] = np.array([crpix[0], crpix[1]])
     direction["pc"] = xds_dir["pc"]
@@ -111,6 +114,7 @@ def _compute_spectral_dict(
     for a CASA image coordinate system
     """
     spec = {}
+    """
     spec_conv = copy.deepcopy(xds.frequency.attrs["conversion"])
     for k in ("direction", "epoch", "position"):
         spec_conv[k]["type"] = k
@@ -147,15 +151,19 @@ def _compute_spectral_dict(
     del spec_conv["position"]["units"], spec_conv["position"]["value"]
 
     spec["conversion"] = spec_conv
+    """
     spec["formatUnit"] = ""
     spec["name"] = "Frequency"
-    spec["nativeType"] = _native_types.index(xds.frequency.attrs["native_type"])
-    spec["restfreq"] = xds.frequency.attrs["restfreq"]
-    spec["restfreqs"] = copy.deepcopy(xds.frequency.attrs["restfreqs"])
+    # spec["nativeType"] = _native_types.index(xds.frequency.attrs["native_type"])
+    # FREQ
+    spec["nativeType"] = 0
+    spec["restfreq"] = xds.frequency.attrs["rest_frequency"]["value"]
+    # spec["restfreqs"] = copy.deepcopy(xds.frequency.attrs["restfreqs"]["value"])
+    spec["restfreqs"] = [spec["restfreq"]]
     spec["system"] = xds.frequency.attrs["frame"]
     spec["unit"] = xds.frequency.attrs["units"]
     spec["velType"] = _doppler_types.index(xds.velocity.attrs["doppler_type"])
-    spec["velUnit"] = xds.velocity.attrs["unit"]
+    spec["velUnit"] = xds.velocity.attrs["units"]
     spec["version"] = 2
     spec["waveUnit"] = xds.frequency.attrs["wave_unit"]
     wcs = {}
@@ -176,7 +184,7 @@ def _coord_dict_from_xds(xds: xr.Dataset) -> dict:
     obsdate["refer"] = xds.coords["time"].attrs["scale"]
     obsdate["type"] = "epoch"
     obsdate["m0"] = {}
-    obsdate["m0"]["unit"] = xds.coords["time"].attrs["unit"]
+    obsdate["m0"]["unit"] = xds.coords["time"].attrs["units"]
     obsdate["m0"]["value"] = xds.coords["time"].values[0]
     coord["obsdate"] = obsdate
     coord["pointingcenter"] = xds.attrs[_pointing_center].copy()
@@ -257,7 +265,7 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
         pp = {}
         pp["nChannels"] = len(xds.frequency)
         pp["nStokes"] = len(xds.polarization)
-        bu = xds.beam.attrs["unit"]
+        bu = xds.beam.attrs["units"]
         chan = 0
         polarization = 0
         bv = xds.beam.values
@@ -277,6 +285,8 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
     elif "beam" in xds.attrs and xds.attrs["beam"]:
         # do nothing if xds.attrs['beam'] is None
         ii["restoringbeam"] = xds.attrs["beam"]
+        for k in ["major", "minor", "pa"]:
+            del ii["restoringbeam"][k]["type"]
     return ii
 
 

@@ -233,7 +233,7 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
             "equinox": ap_equinox if ap_equinox else None,
             "value": [0.0, 0.0],
             "cdelt": [0.0, 0.0],
-            "units": ["rad", "rad"]
+            "units": ["rad", "rad"],
         }
         for c, r in zip(["crval", "cdelt"], ["value", "cdelt"]):
             for i in range(2):
@@ -436,7 +436,6 @@ def _compute_world_sph_dims(
     long *= _deg_to_rad
     lat *= _deg_to_rad
     return [[long_axis_name, long], [lat_axis_name, lat]]
-
 
 
 def _convert_direction_system(

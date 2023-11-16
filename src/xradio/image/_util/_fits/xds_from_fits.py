@@ -72,28 +72,28 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     freq_coord = xds.coords["frequency"]
     meta = {}
     if helpers["has_freq"]:
-        #conv = {}
-        #conv["direction"] = {
+        # conv = {}
+        # conv["direction"] = {
         #    "units": ["rad", "rad"],
         #    "value": np.array([0.0, np.pi / 2]),
         #    "frame": helpers["ref_sys"],
         #    "equinox": helpers["ref_eqx"],
         #    "type": "sky_coord",
-        #}
-        #conv["direction"]["units"] = ["rad", "rad"]
-        #conv["direction"]["value"] = [0.0, np.pi / 2]
-        #conv["epoch"] = {
+        # }
+        # conv["direction"]["units"] = ["rad", "rad"]
+        # conv["direction"]["value"] = [0.0, np.pi / 2]
+        # conv["epoch"] = {
         #    "value": 0.0,
         #    "units": "d",
         #    "type": "quantity",
         #    "refer": "LAST",
-        #}
-        #conv["position"] = {
+        # }
+        # conv["position"] = {
         #    "type": "position",
         #    "units": ["rad", "rad", "m"],
         #    "value": np.array([0.0, 0.0, 0.0]),
         #    "ellipsoid": "GRS80",
-        #}
+        # }
         # conv["position"]["type"] = "position"
         # I haven't seen a FITS keyword which relates to the position ellipsoid
         # conv["position"]["ellipsoid"] = "GRS80"
@@ -190,7 +190,7 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
         "equinox": ref_eqx,
         "units": ["rad", "rad"],
         "value": [0.0, 0.0],
-        "cdelt": [0.0, 0.0]
+        "cdelt": [0.0, 0.0],
     }
     dir_axes = helpers["dir_axes"]
     for i in dir_axes:

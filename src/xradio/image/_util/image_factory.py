@@ -118,7 +118,7 @@ def _make_empty_sky_image(
                 "equinox": "J2000",
                 "value": list(phase_center),
                 "units": ["rad", "rad"],
-                "cdelt": [-abs(cell_size[0]), abs(cell_size[1])]
+                "cdelt": [-abs(cell_size[0]), abs(cell_size[1])],
             },
             "long_pole": 0.0,
             "lat_pole": 0.0,

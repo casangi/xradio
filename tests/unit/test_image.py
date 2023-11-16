@@ -462,11 +462,15 @@ class ImageBase(unittest.TestCase):
                 "Incorrect Dec cdelt",
             )
             self.assertTrue(
-                np.isclose(xds.attrs['direction']['reference']["cdelt"][0], ev["ra_cdelt"]),
+                np.isclose(
+                    xds.attrs["direction"]["reference"]["cdelt"][0], ev["ra_cdelt"]
+                ),
                 "Incorrect RA cdelt",
             )
             self.assertTrue(
-                np.isclose(xds.attrs['direction']['reference']["cdelt"][1], ev["dec_cdelt"]),
+                np.isclose(
+                    xds.attrs["direction"]["reference"]["cdelt"][1], ev["dec_cdelt"]
+                ),
                 "Incorrect Dec cdelt",
             )
         else:
@@ -486,12 +490,12 @@ class ImageBase(unittest.TestCase):
                 "Incorrect Dec cdelt",
             )
             self.assertEqual(
-                xds.attrs['direction']['reference']["cdelt"][0],
+                xds.attrs["direction"]["reference"]["cdelt"][0],
                 ev["ra_cdelt"],
                 "Incorrect RA cdelt",
             )
             self.assertEqual(
-                xds.attrs['direction']['reference']["cdelt"][1],
+                xds.attrs["direction"]["reference"]["cdelt"][1],
                 ev["dec_cdelt"],
                 "Incorrect Dec cdelt",
             )
@@ -1227,14 +1231,16 @@ class make_empty_sky_image_test(ImageBase):
         expec = {"unit": "rad", "crval": -0.5, "cdelt": 0.0002908882086657216}
         self.dict_equality(skel.declination.attrs, expec, "got", "expected")
         expec2 = {
-            'type': 'sky_coord',
-            'frame': 'FK5',
-            'equinox': 'J2000',
-            'value': [0.2, -0.5],
-            'cdelt': [-0.0002908882086657216, 0.0002908882086657216],
-            'units': ['rad', 'rad']
+            "type": "sky_coord",
+            "frame": "FK5",
+            "equinox": "J2000",
+            "value": [0.2, -0.5],
+            "cdelt": [-0.0002908882086657216, 0.0002908882086657216],
+            "units": ["rad", "rad"],
         }
-        self.dict_equality(skel.attrs['direction']['reference'], expec2, "got", "expected")
+        self.dict_equality(
+            skel.attrs["direction"]["reference"], expec2, "got", "expected"
+        )
 
     def test_attrs(self):
         skel = self.skel_im()
@@ -1252,9 +1258,9 @@ class make_empty_sky_image_test(ImageBase):
                     "frame": "FK5",
                     "equinox": "J2000",
                     "value": [0.2, -0.5],
-                    'cdelt': [-0.0002908882086657216, 0.0002908882086657216],
-                    "units": ["rad", "rad"]
-                }
+                    "cdelt": [-0.0002908882086657216, 0.0002908882086657216],
+                    "units": ["rad", "rad"],
+                },
             },
             "active_mask": "",
             "beam": None,

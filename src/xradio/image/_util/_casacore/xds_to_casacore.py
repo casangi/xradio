@@ -82,17 +82,17 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
     """
     direction = {}
     xds_dir = xds.attrs["direction"]
-    direction["system"] = xds_dir['reference']["equinox"]
+    direction["system"] = xds_dir["reference"]["equinox"]
     direction["projection"] = xds_dir["projection"]
     direction["projection_parameters"] = xds_dir["projection_parameters"]
     long = xds.right_ascension
     lat = xds.declination
     # direction["units"] = np.array([long.attrs["unit"], lat.attrs["unit"]], dtype="<U16")
-    direction["units"] = np.array(xds_dir['reference']['units'], dtype="<U16")
+    direction["units"] = np.array(xds_dir["reference"]["units"], dtype="<U16")
     # direction["crval"] = np.array([long.attrs["crval"], lat.attrs["crval"]])
-    direction["crval"] = np.array(xds_dir['reference']['value'])
-    direction["cdelt"] = np.array(xds_dir['reference']['cdelt'])
-    print('direction', direction)
+    direction["crval"] = np.array(xds_dir["reference"]["value"])
+    direction["cdelt"] = np.array(xds_dir["reference"]["cdelt"])
+    print("direction", direction)
     crpix = _compute_ref_pix(xds, direction)
     direction["crpix"] = np.array([crpix[0], crpix[1]])
     direction["pc"] = xds_dir["pc"]
@@ -285,8 +285,8 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
     elif "beam" in xds.attrs and xds.attrs["beam"]:
         # do nothing if xds.attrs['beam'] is None
         ii["restoringbeam"] = xds.attrs["beam"]
-        for k in ['major', 'minor', 'pa']:
-            del ii['restoringbeam'][k]['type']
+        for k in ["major", "minor", "pa"]:
+            del ii["restoringbeam"][k]["type"]
     return ii
 
 

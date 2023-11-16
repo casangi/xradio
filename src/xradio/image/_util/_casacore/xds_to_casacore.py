@@ -285,6 +285,8 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
     elif "beam" in xds.attrs and xds.attrs["beam"]:
         # do nothing if xds.attrs['beam'] is None
         ii["restoringbeam"] = xds.attrs["beam"]
+        for k in ['major', 'minor', 'pa']:
+            del ii['restoringbeam'][k]['type']
     return ii
 
 

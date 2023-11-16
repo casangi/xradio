@@ -4,6 +4,7 @@ from astropy.io import fits
 from astropy.time import Time
 from ..common import (
     _c,
+    _convert_beam_to_rad,
     _default_freq_info,
     _doppler_types,
     _freq_from_vel,
@@ -338,11 +339,12 @@ def _beam_attr_from_header(helpers: dict, header) -> Union[dict, str, None]:
     helpers["has_multibeam"] = False
     if "BMAJ" in header:
         # single global beam
-        return {
-            "bmaj": {"unit": "arcsec", "value": header["BMAJ"]},
-            "bmin": {"unit": "arcsec", "value": header["BMIN"]},
-            "positionangle": {"unit": "arcsec", "value": header["BPA"]},
+        beam = {
+            "bmaj": {"type": "quantity", "unit": "arcsec", "value": header["BMAJ"]},
+            "bmin": {"type": "quantity", "unit": "arcsec", "value": header["BMIN"]},
+            "pa": {"type": "quantity", "unit": "arcsec", "value": header["BPA"]},
         }
+        return _convert_beam_to_rad(beam)
     elif "CASAMBM" in header and header["CASAMBM"]:
         # multi-beam
         helpers["has_multibeam"] = True

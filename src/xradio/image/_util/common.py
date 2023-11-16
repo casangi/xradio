@@ -1,3 +1,4 @@
+import astropy as ap
 import astropy.units as u
 import dask
 import dask.array as da
@@ -16,6 +17,20 @@ def _get_xds_dim_order(has_sph: bool) -> list:
     dir_lin = ["l", "m"] if has_sph else ["u", "v"]
     dimorder.extend(dir_lin)
     return dimorder
+
+
+def _convert_beam_to_rad(beam: dict) -> dict:
+    """Convert a beam dictionary to radians"""
+    mybeam = {}
+    for k in beam:
+        q = u.quantity.Quantity(f"{beam[k]['value']}{beam[k]['unit']}")
+        q = q.to("rad")
+        # q = quanta.quantity(beam[k])
+        # q.convert(quanta.quantity("1rad"))
+        j = "pa" if k == "positionangle" else k
+        mybeam[j] = {"type": "quantity", "value": q.value, "units": str(q.unit)}
+        # mybeam[j]['type'] = 'quantity'
+    return mybeam
 
 
 def _get_unit(u: str) -> str:

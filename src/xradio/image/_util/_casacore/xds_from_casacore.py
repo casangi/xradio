@@ -20,6 +20,7 @@ from .common import (
 )
 from ..common import (
     _c,
+    _convert_beam_to_rad,
     _dask_arrayize,
     _default_freq_info,
     _doppler_types,
@@ -437,16 +438,6 @@ def _compute_world_sph_dims(
     return [[long_axis_name, long], [lat_axis_name, lat]]
 
 
-def _convert_beam_to_rad(beam: dict) -> dict:
-    """Convert a beam dictionary to radians"""
-    mybeam = {}
-    for k in beam:
-        q = quanta.quantity(beam[k])
-        q.convert(quanta.quantity("1rad"))
-        j = "pa" if k == "positionangle" else k
-        mybeam[j] = q.to_dict()
-    return mybeam
-
 
 def _convert_direction_system(
     casa_system: str, which: str, verbose: bool = True
@@ -835,9 +826,8 @@ def _multibeam_array(
     """This should only be called after the xds.beam attr has been set"""
     if xds.attrs["beam"] is None:
         # the image may have multiple beams
-        casa_image = images.image(img_full_path)
-        imageinfo = casa_image.info()["imageinfo"]
-        del casa_image
+        with _open_image_ro(img_full_path) as casa_image:
+            imageinfo = casa_image.info()["imageinfo"]
         mb = _get_multibeam(imageinfo)
         if mb is not None:
             # multiple beams are stored as a data varialbe, so remove

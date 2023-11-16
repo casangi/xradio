@@ -105,6 +105,8 @@ def load_image(infile: str, block_des: dict = {}) -> xr.Dataset:
         )
         do_casa = False
     if do_casa:
+        # comment next line when done debugging
+        # return _load_casa_image_block(infile, block_des)
         try:
             return _load_casa_image_block(infile, block_des)
         except Exception as e:

@@ -90,7 +90,7 @@ def _make_empty_sky_image(
             "value": restfreq,
         },
         # "restfreqs":{'type': 'quantity', 'units': 'Hz', 'value': [restfreq],},
-        "system": spectral_reference.upper(),
+        "frame": spectral_reference.upper(),
         "units": "Hz",
         "wave_unit": "mm",
         "crval": chan_coords[len(chan_coords) // 2],
@@ -149,9 +149,8 @@ def _make_empty_sky_image(
                 "type": "position",
                 "ellipsoid": "GRS80",
                 "units": ["rad", "rad", "m"],
-                "value": np.array(
-                    [-1.1825465955049892, -0.3994149869262738, 6379946.01326443]
-                ),
+                "value": [-1.1825465955049892, -0.3994149869262738, 6379946.01326443]
+                ,
             },
         },
         "history": None,

@@ -962,7 +962,7 @@ class make_empty_sky_image_test(ImageBase):
                 "units": "Hz",
             },
             # "restfreqs":{'type': 'quantity', 'value': [1413000000.0], 'units': 'Hz'},
-            "system": "LSRK",
+            "frame": "LSRK",
             "units": "Hz",
             "wave_unit": "mm",
             "crval": 1413000000.0,

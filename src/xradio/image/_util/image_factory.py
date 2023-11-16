@@ -60,7 +60,7 @@ def _make_empty_sky_image(
         "declination": (("l", "m"), lat),
     }
     xds = xds.assign_coords(coords)
-    xds.time.attrs = {"format": "MJD", "scale": "UTC", "unit": "d"}
+    xds.time.attrs = {"format": "MJD", "scale": "UTC", "units": "d"}
     xds.frequency.attrs = {
         # "conversion": {
         #    "direction": {
@@ -91,7 +91,7 @@ def _make_empty_sky_image(
         },
         # "restfreqs":{'type': 'quantity', 'units': 'Hz', 'value': [restfreq],},
         "system": spectral_reference.upper(),
-        "unit": "Hz",
+        "units": "Hz",
         "wave_unit": "mm",
         "crval": chan_coords[len(chan_coords) // 2],
         "cdelt": (chan_coords[1] - chan_coords[0] if len(chan_coords) > 1 else 1000.0),
@@ -99,12 +99,12 @@ def _make_empty_sky_image(
     }
     xds.velocity.attrs = {"doppler_type": "RADIO", "units": "m/s"}
     xds.right_ascension.attrs = {
-        "unit": "rad",
+        "units": "rad",
         "crval": phase_center[0],
         "cdelt": -abs(cell_size[0]),
     }
     xds.declination.attrs = {
-        "unit": "rad",
+        "units": "rad",
         "crval": phase_center[1],
         "cdelt": abs(cell_size[1]),
     }
@@ -135,7 +135,7 @@ def _make_empty_sky_image(
             "scale": "UTC",
             "format": "MJD",
             "value": time_coords[0],
-            "unit": "d",
+            "units": "d",
         },
         "observer": "Karl Jansky",
         #'pointing_center': {

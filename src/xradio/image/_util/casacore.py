@@ -113,7 +113,7 @@ def _xds_to_casa_image(xds: xr.Dataset, imagename: str) -> None:
     # create coordinates
     coord = _coord_dict_from_xds(xds)
     ii = _imageinfo_dict_from_xds(xds)
-    units = xds.sky.attrs["unit"] if "unit" in xds.sky.attrs else None
+    units = xds.sky.attrs["units"] if "units" in xds.sky.attrs else None
     miscinfo = (
         xds.attrs["user"]
         if "user" in xds.attrs and len(xds.attrs["user"]) > 0

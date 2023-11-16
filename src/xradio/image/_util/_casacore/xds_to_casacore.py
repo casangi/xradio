@@ -51,14 +51,14 @@ def _compute_ref_pix(xds: xr.Dataset, direction: dict) -> np.ndarray:
     wcs_dict = {}
     wcs_dict[f"CTYPE1"] = f"RA---{proj}"
     wcs_dict[f"NAXIS1"] = long.shape[0]
-    wcs_dict[f"CUNIT1"] = long.attrs["unit"]
+    wcs_dict[f"CUNIT1"] = long.attrs["units"]
     # FITS arrays are 1-based
     wcs_dict[f"CRPIX1"] = pix[0] + 1
     wcs_dict[f"CRVAL1"] = long[pix[0], pix[1]].item(0)
     wcs_dict[f"CDELT1"] = long.attrs["wcs"]["cdelt"]
     wcs_dict[f"CTYPE2"] = f"DEC--{proj}"
     wcs_dict[f"NAXIS2"] = lat.shape[1]
-    wcs_dict[f"CUNIT2"] = lat.attrs["unit"]
+    wcs_dict[f"CUNIT2"] = lat.attrs["units"]
     # FITS arrays are 1-based
     wcs_dict[f"CRPIX2"] = pix[1] + 1
     wcs_dict[f"CRVAL2"] = lat[pix[0], pix[1]].item(0)
@@ -70,7 +70,7 @@ def _compute_ref_pix(xds: xr.Dataset, direction: dict) -> np.ndarray:
         dec_crval,
         frame=xds.attrs["direction"]["system"].lower(),
         equinox=xds.attrs["direction"]["equinox"],
-        unit=long.attrs["unit"],
+        unit=long.attrs["units"],
     )
     return w.world_to_pixel(sky)
 
@@ -184,7 +184,7 @@ def _coord_dict_from_xds(xds: xr.Dataset) -> dict:
     obsdate["refer"] = xds.coords["time"].attrs["scale"]
     obsdate["type"] = "epoch"
     obsdate["m0"] = {}
-    obsdate["m0"]["unit"] = xds.coords["time"].attrs["unit"]
+    obsdate["m0"]["unit"] = xds.coords["time"].attrs["units"]
     obsdate["m0"]["value"] = xds.coords["time"].values[0]
     coord["obsdate"] = obsdate
     coord["pointingcenter"] = xds.attrs[_pointing_center].copy()
@@ -265,7 +265,7 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
         pp = {}
         pp["nChannels"] = len(xds.frequency)
         pp["nStokes"] = len(xds.polarization)
-        bu = xds.beam.attrs["unit"]
+        bu = xds.beam.attrs["units"]
         chan = 0
         polarization = 0
         bv = xds.beam.values

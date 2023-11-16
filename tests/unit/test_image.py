@@ -39,7 +39,7 @@ class ImageBase(unittest.TestCase):
         "time_format": "MJD",
         "time_refer": "UTC",
         "time_unit": "d",
-        "unit": "Jy/beam",
+        "units": "Jy/beam",
         "vel_type": "RADIO",
         "vel_unit": "m/s",
         "vel_mea_type": "doppler",
@@ -114,7 +114,7 @@ class ImageBase(unittest.TestCase):
         "type": "time",
         "scale": "UTC",
         "value": 51544.00000000116,
-        "unit": "d",
+        "units": "d",
         "format": "MJD",
     }
     _exp_attrs["observer"] = "Karl Jansky"
@@ -282,7 +282,7 @@ class ImageBase(unittest.TestCase):
         self.assertEqual(
             xds.sky.attrs["image_type"], ev["image_type"], "Wrong image type"
         )
-        self.assertEqual(xds.sky.attrs["unit"], ev["unit"], "Wrong unit")
+        self.assertEqual(xds.sky.attrs["units"], ev["units"], "Wrong unit")
         self.assertEqual(xds.sky.chunksizes["frequency"], (5, 5), "Incorrect chunksize")
         self.assertEqual(
             xds.mask0.chunksizes["frequency"], (5, 5), "Incorrect chunksize"
@@ -330,7 +330,7 @@ class ImageBase(unittest.TestCase):
             "Incoorect time axis refer",
         )
         self.assertEqual(
-            xds.coords["time"].attrs["unit"],
+            xds.coords["time"].attrs["units"],
             ev["time_unit"],
             "Incoorect time axis unitt",
         )
@@ -507,10 +507,10 @@ class ImageBase(unittest.TestCase):
             np.allclose(xds.declination, ev["dec"], atol=1e-15), "Incorrect Dec values"
         )
         self.assertEqual(
-            xds.right_ascension.attrs["unit"], ev["ra_unit"], "Incorrect RA unit"
+            xds.right_ascension.attrs["units"], ev["ra_unit"], "Incorrect RA unit"
         )
         self.assertEqual(
-            xds.declination.attrs["unit"], ev["dec_unit"], "Incorrect Dec unit"
+            xds.declination.attrs["units"], ev["dec_unit"], "Incorrect Dec unit"
         )
         self.assertEqual(
             xds.declination.attrs["crval"],
@@ -917,7 +917,7 @@ class make_empty_sky_image_test(ImageBase):
         self.assertTrue(
             np.isclose(skel.time, [54000.1]).all(), "Incorrect time coordinate values"
         )
-        expec = {"scale": "UTC", "unit": "d", "format": "MJD"}
+        expec = {"scale": "UTC", "units": "d", "format": "MJD"}
         self.dict_equality(skel.time.attrs, expec, "got", "expected")
 
     def test_polarization_coord(self):
@@ -963,7 +963,7 @@ class make_empty_sky_image_test(ImageBase):
             },
             # "restfreqs":{'type': 'quantity', 'value': [1413000000.0], 'units': 'Hz'},
             "system": "LSRK",
-            "unit": "Hz",
+            "units": "Hz",
             "wave_unit": "mm",
             "crval": 1413000000.0,
             "cdelt": 1000000.0,
@@ -1097,7 +1097,7 @@ class make_empty_sky_image_test(ImageBase):
             np.isclose(skel.right_ascension, expec).all(),
             "Incorrect right_ascension coordinate values",
         )
-        expec = {"unit": "rad", "crval": 0.2, "cdelt": -0.0002908882086657216}
+        expec = {"units": "rad", "crval": 0.2, "cdelt": -0.0002908882086657216}
         self.dict_equality(skel.right_ascension.attrs, expec, "got", "expected")
 
     def test_declination_coord(self):
@@ -1228,7 +1228,7 @@ class make_empty_sky_image_test(ImageBase):
             np.isclose(skel.declination, expec).all(),
             "Incorrect declinationion coordinate values",
         )
-        expec = {"unit": "rad", "crval": -0.5, "cdelt": 0.0002908882086657216}
+        expec = {"units": "rad", "crval": -0.5, "cdelt": 0.0002908882086657216}
         self.dict_equality(skel.declination.attrs, expec, "got", "expected")
         expec2 = {
             "type": "sky_coord",
@@ -1265,7 +1265,7 @@ class make_empty_sky_image_test(ImageBase):
             "active_mask": "",
             "beam": None,
             "object_name": "",
-            "obsdate": {"scale": "UTC", "format": "MJD", "value": 54000.0, "unit": "d"},
+            "obsdate": {"scale": "UTC", "format": "MJD", "value": 54000.0, "units": "d"},
             "observer": "Karl Jansky",
             "pointing_center": {"value": np.array([0.2, -0.5]), "initial": True},
             "description": "",

@@ -20,16 +20,18 @@ def _get_xds_dim_order(has_sph: bool) -> list:
 
 
 def _convert_beam_to_rad(beam: dict) -> dict:
-    """Convert a beam dictionary to radians"""
+    """
+    Convert something that looks like a CASA beam dictionary or close to
+    to it to an xradio beam dict, with xradio quantities for major, minor,
+    and pa, with the quantities converted to radians. Conversions are
+    done using astropy. The input beam is not modified.
+    """
     mybeam = {}
     for k in beam:
         q = u.quantity.Quantity(f"{beam[k]['value']}{beam[k]['unit']}")
         q = q.to("rad")
-        # q = quanta.quantity(beam[k])
-        # q.convert(quanta.quantity("1rad"))
         j = "pa" if k == "positionangle" else k
-        mybeam[j] = {"type": "quantity", "value": q.value, "units": str(q.unit)}
-        # mybeam[j]['type'] = 'quantity'
+        mybeam[j] = {"type": "quantity", "value": q.value, "units": "rad"}
     return mybeam
 
 
@@ -108,15 +110,14 @@ def _default_freq_info() -> dict:
         },
         """
         # "nativeType": "FREQ",
-        "rest_frequency": 1420405751.7860003,
+        "rest_frequency": {"value": 1420405751.7860003, "units": "Hz", "type": "quantity"},
         # "restfreqs": [1420405751.7860003],
-        "system": "LSRK",
-        "unit": "Hz",
+        "type": "frequency",
+        "frame": "LSRK",
+        "units": "Hz",
         "waveUnit": "mm",
-        "wcs": {
-            "cdelt": 1000.0,
-            "crval": 1415000000.0,
-        },
+        "cdelt": 1000.0,
+        "crval": 1415000000.0,
     }
 
 

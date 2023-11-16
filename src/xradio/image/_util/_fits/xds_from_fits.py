@@ -140,7 +140,7 @@ def _add_dir_lin_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     if helpers["sphr_dims"]:
         for i, name in zip(helpers["dir_axes"], helpers["sphr_axis_names"]):
             meta = {
-                "unit": "rad",
+                "units": "rad",
                 "crval": helpers["crval"][i],
                 "cdelt": helpers["cdelt"][i],
             }
@@ -148,7 +148,7 @@ def _add_dir_lin_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     else:
         for i, j in zip(helpers["dir_axes"], ("u", "v")):
             meta = {
-                "unit": "wavelengths",
+                "units": "wavelengths",
                 "crval": helpers["crval"][i],
                 "cdelt": helpers["cdelt"][i],
             }
@@ -340,9 +340,9 @@ def _beam_attr_from_header(helpers: dict, header) -> Union[dict, str, None]:
     if "BMAJ" in header:
         # single global beam
         beam = {
-            "bmaj": {"type": "quantity", "unit": "arcsec", "value": header["BMAJ"]},
-            "bmin": {"type": "quantity", "unit": "arcsec", "value": header["BMIN"]},
-            "pa": {"type": "quantity", "unit": "arcsec", "value": header["BPA"]},
+            "bmaj": {"type": "quantity", "units": "arcsec", "value": header["BMAJ"]},
+            "bmin": {"type": "quantity", "units": "arcsec", "value": header["BMIN"]},
+            "pa": {"type": "quantity", "units": "arcsec", "value": header["BPA"]},
         }
         return _convert_beam_to_rad(beam)
     elif "CASAMBM" in header and header["CASAMBM"]:
@@ -435,7 +435,7 @@ def _fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList) -> dict:
     obsdate = {}
     obsdate["type"] = "time"
     obsdate["value"] = Time(header["DATE-OBS"], format="isot").mjd
-    obsdate["unit"] = "d"
+    obsdate["units"] = "d"
     obsdate["scale"] = header["TIMESYS"]
     obsdate["format"] = "MJD"
     attrs["obsdate"] = obsdate
@@ -674,7 +674,7 @@ def _do_multibeam(xds: xr.Dataset, imname: str) -> xr.Dataset:
             )
             xdb = xdb.rename("beam")
             xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
-            xdb.attrs["unit"] = "rad"
+            xdb.attrs["units"] = "rad"
             xds["beam"] = xdb
             return xds
     raise RuntimeError(
@@ -718,7 +718,7 @@ def _add_sky_or_apeture(
     image_type = helpers["btype"]
     unit = helpers["bunit"]
     xda.attrs[_image_type] = image_type
-    xda.attrs["unit"] = unit
+    xda.attrs["units"] = unit
     name = "sky" if has_sph_dims else "apeture"
     xda = xda.rename(name)
     xds[xda.name] = xda

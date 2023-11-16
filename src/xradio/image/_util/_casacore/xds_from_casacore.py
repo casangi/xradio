@@ -45,7 +45,7 @@ def _add_dir_lin_attrs(xds, coord_dict, dir_axes):
             dd = coord_dict[k]
             for i in (0, 1):
                 meta = {}
-                meta["unit"] = "rad"
+                meta["units"] = "rad"
                 unit = dd["units"][i]
                 if unit == "'":
                     unit = "arcmin"
@@ -61,7 +61,7 @@ def _add_dir_lin_attrs(xds, coord_dict, dir_axes):
             ld = coord_dict[k]
             for i in (0, 1):
                 meta = {}
-                meta["unit"] = ld["units"][i]
+                meta["units"] = ld["units"][i]
                 meta["crval"] = ld["crval"][i]
                 meta["cdelt"] = ld["cdelt"][i]
                 xds[dir_axes[i]].attrs = copy.deepcopy(meta)
@@ -163,7 +163,7 @@ def _add_sky_or_apeture(
     unit = casa_image.unit()
     del casa_image
     xda.attrs[_image_type] = image_type
-    xda.attrs["unit"] = unit
+    xda.attrs["units"] = unit
     name = "sky" if has_sph_dims else "apeture"
     xda = xda.rename(name)
     xds[xda.name] = xda
@@ -182,8 +182,8 @@ def _add_time_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
     meta = {}
     meta["type"] = "time"
     meta["scale"] = coord_dict["obsdate"]["refer"]
-    meta["unit"] = coord_dict["obsdate"]["m0"]["unit"]
-    meta["format"] = _get_time_format(xds["time"][0], meta["unit"])
+    meta["units"] = coord_dict["obsdate"]["m0"]["unit"]
+    meta["format"] = _get_time_format(xds["time"][0], meta["units"])
     xds["time"].attrs = copy.deepcopy(meta)
     # xds['time'] = time_coord
     return xds
@@ -298,9 +298,10 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
                 )
         elif k == "obsdate":
             obsdate["scale"] = coord_dict[k]["refer"]
-            obsdate["unit"] = coord_dict[k]["m0"]["unit"]
+            obsdate["units"] = coord_dict[k]["m0"]["unit"]
             obsdate["value"] = coord_dict[k]["m0"]["value"]
-            obsdate["format"] = _get_time_format(obsdate["value"], obsdate["unit"])
+            obsdate["format"] = _get_time_format(obsdate["value"], obsdate["units"])
+            obsdate["type"] = "time"
         else:
             attrs[k] = coord_dict[k] if k in coord_dict else ""
     imageinfo = meta_dict["imageinfo"]
@@ -839,7 +840,7 @@ def _multibeam_array(
             )
             xdb = xdb.rename("beam")
             xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
-            xdb.attrs["unit"] = "rad"
+            xdb.attrs["units"] = "rad"
             return xdb
     else:
         return None

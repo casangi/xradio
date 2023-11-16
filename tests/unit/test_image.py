@@ -1265,7 +1265,12 @@ class make_empty_sky_image_test(ImageBase):
             "active_mask": "",
             "beam": None,
             "object_name": "",
-            "obsdate": {"scale": "UTC", "format": "MJD", "value": 54000.0, "units": "d"},
+            "obsdate": {
+                "scale": "UTC",
+                "format": "MJD",
+                "value": 54000.0,
+                "units": "d",
+            },
             "observer": "Karl Jansky",
             "pointing_center": {"value": np.array([0.2, -0.5]), "initial": True},
             "description": "",

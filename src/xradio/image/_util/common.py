@@ -110,7 +110,11 @@ def _default_freq_info() -> dict:
         },
         """
         # "nativeType": "FREQ",
-        "rest_frequency": {"value": 1420405751.7860003, "units": "Hz", "type": "quantity"},
+        "rest_frequency": {
+            "value": 1420405751.7860003,
+            "units": "Hz",
+            "type": "quantity",
+        },
         # "restfreqs": [1420405751.7860003],
         "type": "frequency",
         "frame": "LSRK",

@@ -67,7 +67,7 @@ def _make_empty_sky_image(
                 "type": "sky_coord",
                 "units": ["rad", "rad"],
                 "frame": "FK5",
-                "value": np.array([0.0, 1.5707963267948966]),
+                "value": [0.0, 1.5707963267948966],
             },
             "epoch": {
                 "units": "d",
@@ -77,7 +77,7 @@ def _make_empty_sky_image(
             },
             "position": {
                 "units": ["rad", "rad", "m"],
-                "value": np.array([0.0, 0.0, 0.0]),
+                "value": [0.0, 0.0, 0.0],
                 "ellipsoid": "GRS80",
                 "type": "position",
             },
@@ -139,9 +139,8 @@ def _make_empty_sky_image(
                 "type": "position",
                 "ellipsoid": "GRS80",
                 "units": ["rad", "rad", "m"],
-                "value": np.array(
-                    [-1.1825465955049892, -0.3994149869262738, 6379946.01326443]
-                ),
+                "value": [-1.1825465955049892, -0.3994149869262738, 6379946.01326443]
+                ,
             },
         },
         "history": None,

@@ -37,6 +37,21 @@ casacore_to_msv4_measure_type = {
 
 casacore_to_msv4_ref = {"J2000": "FK5", "ITRF": "GRS80"}
 
+casa_frequency_frames = [
+    "REST",
+    "LSRK",
+    "LSRD",
+    "BARY",
+    "GEO",
+    "TOPO",
+    "GALACTO",
+    "LGROUP",
+    "CMB",
+    "Undefined",
+]
+
+casa_frequency_frames_codes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 64]
+
 
 def column_description_casacore_to_msv4_measure(
     casacore_column_description, ref_code=None, time_format="unix"
@@ -61,7 +76,15 @@ def column_description_casacore_to_msv4_measure(
                 "TabRefTypes"
             ][ref_index]
         else:
-            casa_ref = casacore_column_description["keywords"]["MEASINFO"]["Ref"]
+            if "Ref" in casacore_column_description["keywords"]["MEASINFO"]:
+                casa_ref = casacore_column_description["keywords"]["MEASINFO"]["Ref"]
+            elif (
+                casacore_column_description["keywords"]["MEASINFO"]["type"]
+                == "frequency"
+            ):
+                # Some MSv2 don't have the "TabRefCodes".
+                ref_index = np.where(casa_frequency_frames_codes == ref_code)[0][0]
+                casa_ref = casa_frequency_frames[ref_index]
 
         if casa_ref in casacore_to_msv4_ref:
             casa_ref = casacore_to_msv4_ref[casa_ref]

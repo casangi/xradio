@@ -46,6 +46,11 @@ FILE_ID = {
         "id": "4azivw1q7vby4ffawy0tt",
         "rlkey": "91g0hxwx6x4892aisbj5u195z&dl",
     },
+    "small_lofar.ms": {
+        "file": "small_lofar.ms.zip",
+        "id": "k95j7p0yfwadqtqx9es3r",
+        "rlkey": "hg2gjxzod1riu5foc9muqqjgp&dl",
+    },
 }
 
 

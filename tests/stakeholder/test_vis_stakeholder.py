@@ -7,6 +7,7 @@ from xradio.data.datasets import download
 import numpy as np
 import pytest
 import os
+import pkg_resources
 
 relative_tolerance = 10 ** (-12)
 

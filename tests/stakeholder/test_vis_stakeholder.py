@@ -12,6 +12,12 @@ relative_tolerance = 10 ** (-12)
 
 
 def base_test(msv2_name, expected_sum_value):
+    if os.environ["USER"] == "runner":
+        casa_data_dir = pkg_resources.resource_filename("casadata", "__data__")
+        rc_file = open(os.path.expanduser("~/.casarc"), "a+")  # append mode
+        rc_file.write("\nmeasures.directory: " + casa_data_dir)
+        rc_file.close()
+
     download(file=msv2_name, source="dropbox")
     ps_name = msv2_name[:-3] + ".vis.zarr"
     convert_msv2_to_processing_set(

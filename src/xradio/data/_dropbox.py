@@ -51,8 +51,12 @@ FILE_ID = {
         "id": "k95j7p0yfwadqtqx9es3r",
         "rlkey": "hg2gjxzod1riu5foc9muqqjgp&dl",
     },
+    "small_meerkat.ms": {
+        "file": "small_meerkat.ms.zip",
+        "id": "yxuiz5jm8iy1d2r8ye76j",
+        "rlkey": "wihq0716yny24dmsz6cwf9c45&dl",
+    },
 }
-
 
 def download(file, folder="."):
     if os.path.exists("/".join((folder, file))):
@@ -92,3 +96,5 @@ def download(file, folder="."):
 
         # Let's clean up after ourselves
         os.remove(fullname)
+
+        

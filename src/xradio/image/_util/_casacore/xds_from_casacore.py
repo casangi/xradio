@@ -13,13 +13,14 @@ import xarray as xr
 
 from .common import (
     _active_mask,
-    _native_types,
+    # _native_types,
     _object_name,
     _open_image_ro,
     _pointing_center,
 )
 from ..common import (
     _c,
+    _convert_beam_to_rad,
     _dask_arrayize,
     _default_freq_info,
     _doppler_types,
@@ -44,7 +45,7 @@ def _add_dir_lin_attrs(xds, coord_dict, dir_axes):
             dd = coord_dict[k]
             for i in (0, 1):
                 meta = {}
-                meta["unit"] = "rad"
+                meta["units"] = "rad"
                 unit = dd["units"][i]
                 if unit == "'":
                     unit = "arcmin"
@@ -60,7 +61,7 @@ def _add_dir_lin_attrs(xds, coord_dict, dir_axes):
             ld = coord_dict[k]
             for i in (0, 1):
                 meta = {}
-                meta["unit"] = ld["units"][i]
+                meta["units"] = ld["units"][i]
                 meta["crval"] = ld["crval"][i]
                 meta["cdelt"] = ld["cdelt"][i]
                 xds[dir_axes[i]].attrs = copy.deepcopy(meta)
@@ -74,6 +75,7 @@ def _add_freq_attrs(xds, coord_dict):
     for k in coord_dict:
         if k.startswith("spectral"):
             sd = coord_dict[k]
+            """
             conv = copy.deepcopy(sd["conversion"])
             conv["direction"]["type"] = "sky_coord"
             (
@@ -116,9 +118,14 @@ def _add_freq_attrs(xds, coord_dict):
                 "refer": conv["epoch"]["refer"],
             }
             meta["conversion"] = conv
-            meta["native_type"] = _native_types[sd["nativeType"]]
-            meta["restfreq"] = sd["restfreq"]
-            meta["restfreqs"] = sd["restfreqs"]
+            """
+            # meta["native_type"] = _native_types[sd["nativeType"]]
+            meta["rest_frequency"] = {
+                "type": "quantity",
+                "units": "Hz",
+                "value": sd["restfreq"],
+            }
+            # meta["restfreqs"] = {'type': 'quantity', 'units': 'Hz', 'value': list(sd["restfreqs"])}
             meta["type"] = "frequency"
             meta["units"] = sd["unit"]
             meta["frame"] = sd["system"]
@@ -129,8 +136,6 @@ def _add_freq_attrs(xds, coord_dict):
         # this is the default frequency information CASA creates
         meta = _default_freq_info()
     freq_coord.attrs = meta
-    # xds['frequency'] = freq_coord
-    # return xds
 
 
 def _add_mask(
@@ -158,7 +163,7 @@ def _add_sky_or_apeture(
     unit = casa_image.unit()
     del casa_image
     xda.attrs[_image_type] = image_type
-    xda.attrs["unit"] = unit
+    xda.attrs["units"] = unit
     name = "sky" if has_sph_dims else "apeture"
     xda = xda.rename(name)
     xds[xda.name] = xda
@@ -177,8 +182,8 @@ def _add_time_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
     meta = {}
     meta["type"] = "time"
     meta["scale"] = coord_dict["obsdate"]["refer"]
-    meta["unit"] = coord_dict["obsdate"]["m0"]["unit"]
-    meta["format"] = _get_time_format(xds["time"][0], meta["unit"])
+    meta["units"] = coord_dict["obsdate"]["m0"]["unit"]
+    meta["format"] = _get_time_format(xds["time"][0], meta["units"])
     xds["time"].attrs = copy.deepcopy(meta)
     # xds['time'] = time_coord
     return xds
@@ -186,7 +191,7 @@ def _add_time_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
 
 def _add_vel_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
     vel_coord = xds["velocity"]
-    meta = {"unit": "m/s"}
+    meta = {"units": "m/s"}
     for k in coord_dict:
         if k.startswith("spectral"):
             sd = coord_dict[k]
@@ -219,20 +224,25 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
         system = "system"
         if system not in coord_dir_dict:
             raise RuntimeError("No direction reference frame found")
-        dir_dict = {"type": "sky_coord"}
         casa_system = coord_dir_dict[system]
         ap_system, ap_equinox = _convert_direction_system(casa_system, "native")
-        dir_dict["frame"] = ap_system
-        dir_dict["equinox"] = ap_equinox if ap_equinox else None
-        dir_dict["reference_value"] = np.array([0.0, 0.0])
-        for i in range(2):
-            unit = u.Unit(_get_unit(coord_dir_dict["units"][i]))
-            q = coord_dir_dict["crval"][i] * unit
-            x = q.to("rad")
-            dir_dict["reference_value"][i] = x.value
-        dir_dict["units"] = ["rad", "rad"]
-        dir_dict["conversion_system"] = None
-
+        dir_dict = {}
+        dir_dict["reference"] = {
+            "frame": ap_system,
+            "type": "sky_coord",
+            "equinox": ap_equinox if ap_equinox else None,
+            "value": [0.0, 0.0],
+            "cdelt": [0.0, 0.0],
+            "units": ["rad", "rad"],
+        }
+        for c, r in zip(["crval", "cdelt"], ["value", "cdelt"]):
+            for i in range(2):
+                unit = u.Unit(_get_unit(coord_dir_dict["units"][i]))
+                q = coord_dir_dict[c][i] * unit
+                x = q.to("rad")
+                dir_dict["reference"][r][i] = x.value
+        # dir_dict["conversion_system"] = None
+        """
         cs = "conversionSystem"
         if cs in coord_dir_dict and (coord_dir_dict[cs] != coord_dir_dict[system]):
             logging.warn(
@@ -243,6 +253,7 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
             )
         dir_dict["conversion_system"] = dir_dict["frame"]
         dir_dict["conversion_equinox"] = dir_dict["equinox"]
+        """
         k = "latpole"
         if k in coord_dir_dict:
             for j in (k, "longpole"):
@@ -287,9 +298,10 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
                 )
         elif k == "obsdate":
             obsdate["scale"] = coord_dict[k]["refer"]
-            obsdate["unit"] = coord_dict[k]["m0"]["unit"]
+            obsdate["units"] = coord_dict[k]["m0"]["unit"]
             obsdate["value"] = coord_dict[k]["m0"]["value"]
-            obsdate["format"] = _get_time_format(obsdate["value"], obsdate["unit"])
+            obsdate["format"] = _get_time_format(obsdate["value"], obsdate["units"])
+            obsdate["type"] = "time"
         else:
             attrs[k] = coord_dict[k] if k in coord_dict else ""
     imageinfo = meta_dict["imageinfo"]
@@ -425,17 +437,6 @@ def _compute_world_sph_dims(
     long *= _deg_to_rad
     lat *= _deg_to_rad
     return [[long_axis_name, long], [lat_axis_name, lat]]
-
-
-def _convert_beam_to_rad(beam: dict) -> dict:
-    """Convert a beam dictionary to radians"""
-    mybeam = {}
-    for k in beam:
-        q = quanta.quantity(beam[k])
-        q.convert(quanta.quantity("1rad"))
-        j = "pa" if k == "positionangle" else k
-        mybeam[j] = q.to_dict()
-    return mybeam
 
 
 def _convert_direction_system(
@@ -825,9 +826,8 @@ def _multibeam_array(
     """This should only be called after the xds.beam attr has been set"""
     if xds.attrs["beam"] is None:
         # the image may have multiple beams
-        casa_image = images.image(img_full_path)
-        imageinfo = casa_image.info()["imageinfo"]
-        del casa_image
+        with _open_image_ro(img_full_path) as casa_image:
+            imageinfo = casa_image.info()["imageinfo"]
         mb = _get_multibeam(imageinfo)
         if mb is not None:
             # multiple beams are stored as a data varialbe, so remove
@@ -840,7 +840,7 @@ def _multibeam_array(
             )
             xdb = xdb.rename("beam")
             xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
-            xdb.attrs["unit"] = "rad"
+            xdb.attrs["units"] = "rad"
             return xdb
     else:
         return None

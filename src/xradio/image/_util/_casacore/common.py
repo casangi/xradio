@@ -27,6 +27,6 @@ def _open_new_image(
 
 
 _active_mask = "active_mask"
-_native_types = ["FREQ", "VRAD", "VOPT", "BETA", "WAVE", "AWAV"]
+# _native_types = ["FREQ", "VRAD", "VOPT", "BETA", "WAVE", "AWAV"]
 _object_name = "object_name"
 _pointing_center = "pointing_center"

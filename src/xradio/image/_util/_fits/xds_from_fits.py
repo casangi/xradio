@@ -4,6 +4,7 @@ from astropy.io import fits
 from astropy.time import Time
 from ..common import (
     _c,
+    _convert_beam_to_rad,
     _default_freq_info,
     _doppler_types,
     _freq_from_vel,
@@ -71,38 +72,42 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     freq_coord = xds.coords["frequency"]
     meta = {}
     if helpers["has_freq"]:
-        conv = {}
-        conv["direction"] = {
-            "units": ["rad", "rad"],
-            "value": np.array([0.0, np.pi / 2]),
-            "frame": helpers["ref_sys"],
-            "equinox": helpers["ref_eqx"],
-            "type": "sky_coord",
-        }
-        conv["direction"]["units"] = ["rad", "rad"]
-        conv["direction"]["value"] = [0.0, np.pi / 2]
-        conv["epoch"] = {
-            "value": 0.0,
-            "units": "d",
-            "type": "quantity",
-            "refer": "LAST",
-        }
-        conv["position"] = {
-            "type": "position",
-            "units": ["rad", "rad", "m"],
-            "value": np.array([0.0, 0.0, 0.0]),
-            "ellipsoid": "GRS80",
-        }
-        conv["position"]["type"] = "position"
+        # conv = {}
+        # conv["direction"] = {
+        #    "units": ["rad", "rad"],
+        #    "value": np.array([0.0, np.pi / 2]),
+        #    "frame": helpers["ref_sys"],
+        #    "equinox": helpers["ref_eqx"],
+        #    "type": "sky_coord",
+        # }
+        # conv["direction"]["units"] = ["rad", "rad"]
+        # conv["direction"]["value"] = [0.0, np.pi / 2]
+        # conv["epoch"] = {
+        #    "value": 0.0,
+        #    "units": "d",
+        #    "type": "quantity",
+        #    "refer": "LAST",
+        # }
+        # conv["position"] = {
+        #    "type": "position",
+        #    "units": ["rad", "rad", "m"],
+        #    "value": np.array([0.0, 0.0, 0.0]),
+        #    "ellipsoid": "GRS80",
+        # }
+        # conv["position"]["type"] = "position"
         # I haven't seen a FITS keyword which relates to the position ellipsoid
-        conv["position"]["ellipsoid"] = "GRS80"
-        conv["position"]["units"] = ["rad", "rad", "m"]
-        conv["position"]["value"] = np.array([0.0, 0.0, 0.0])
-        conv["system"] = helpers["specsys"]
-        meta["conversion"] = conv
-        meta["native_type"] = helpers["native_type"]
-        meta["restfreq"] = helpers["restfreq"]
-        meta["restfreqs"] = [helpers["restfreq"]]
+        # conv["position"]["ellipsoid"] = "GRS80"
+        # conv["position"]["units"] = ["rad", "rad", "m"]
+        # conv["position"]["value"] = np.array([0.0, 0.0, 0.0])
+        # conv["system"] = helpers["specsys"]
+        # meta["conversion"] = conv
+        # meta["native_type"] = helpers["native_type"]
+        meta["rest_frequency"] = {
+            "type": "quantity",
+            "units": "Hz",
+            "value": helpers["restfreq"],
+        }
+        # meta["restfreqs"] = {'type': 'quantity', 'units': 'Hz', 'value':[helpers["restfreq"]]}
         meta["frame"] = helpers["specsys"]
         meta["units"] = "Hz"
         meta["type"] = "frequency"
@@ -120,7 +125,7 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
 
 def _add_vel_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     vel_coord = xds.coords["velocity"]
-    meta = {"unit": "m/s"}
+    meta = {"units": "m/s"}
     if helpers["has_freq"]:
         meta["doppler_type"] = helpers["doppler"]
     else:
@@ -135,7 +140,7 @@ def _add_dir_lin_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     if helpers["sphr_dims"]:
         for i, name in zip(helpers["dir_axes"], helpers["sphr_axis_names"]):
             meta = {
-                "unit": "rad",
+                "units": "rad",
                 "crval": helpers["crval"][i],
                 "cdelt": helpers["cdelt"][i],
             }
@@ -143,7 +148,7 @@ def _add_dir_lin_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     else:
         for i, j in zip(helpers["dir_axes"], ("u", "v")):
             meta = {
-                "unit": "wavelengths",
+                "units": "wavelengths",
                 "crval": helpers["crval"][i],
                 "cdelt": helpers["cdelt"][i],
             }
@@ -175,18 +180,26 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
     helpers["ref_sys"] = ref_sys
     helpers["ref_eqx"] = ref_eqx
     # fits does not support conversion frames
+    """
     direction["conversion_system"] = ref_sys
     direction["conversion_equinox"] = ref_eqx
-    direction["frame"] = ref_sys
-    direction["equinox"] = ref_eqx
-    direction["units"] = ["rad", "rad"]
-    direction["reference_value"] = np.array([0.0, 0.0])
+    """
+    direction["reference"] = {
+        "type": "sky_coord",
+        "frame": ref_sys,
+        "equinox": ref_eqx,
+        "units": ["rad", "rad"],
+        "value": [0.0, 0.0],
+        "cdelt": [0.0, 0.0],
+    }
     dir_axes = helpers["dir_axes"]
     for i in dir_axes:
         x = helpers["crval"][i] * u.Unit(_get_unit(helpers["cunit"][i]))
         x = x.to("rad")
-        direction["reference_value"][i] = x.value
-    direction["type"] = "sky_coord"
+        direction["reference"]["value"][i] = x.value
+        x = helpers["cdelt"][i] * u.Unit(_get_unit(helpers["cunit"][i]))
+        x = x.to("rad")
+        direction["reference"]["cdelt"][i] = x.value
     direction["latpole"] = {
         "value": header["LATPOLE"] * _deg_to_rad,
         "units": "rad",
@@ -326,11 +339,12 @@ def _beam_attr_from_header(helpers: dict, header) -> Union[dict, str, None]:
     helpers["has_multibeam"] = False
     if "BMAJ" in header:
         # single global beam
-        return {
-            "bmaj": {"unit": "arcsec", "value": header["BMAJ"]},
-            "bmin": {"unit": "arcsec", "value": header["BMIN"]},
-            "positionangle": {"unit": "arcsec", "value": header["BPA"]},
+        beam = {
+            "bmaj": {"type": "quantity", "units": "arcsec", "value": header["BMAJ"]},
+            "bmin": {"type": "quantity", "units": "arcsec", "value": header["BMIN"]},
+            "pa": {"type": "quantity", "units": "arcsec", "value": header["BPA"]},
         }
+        return _convert_beam_to_rad(beam)
     elif "CASAMBM" in header and header["CASAMBM"]:
         # multi-beam
         helpers["has_multibeam"] = True
@@ -357,7 +371,7 @@ def _create_dim_map(helpers: dict, header) -> dict:
         elif _is_freq_like(ax_type):
             dim_map["freq"] = i - 1
             helpers["has_freq"] = True
-            helpers["native_type"] = ax_type
+            # helpers["native_type"] = ax_type
         else:
             raise RuntimeError(f"{ax_type} is an unsupported axis")
     helpers["t_axes"] = t_axes
@@ -421,7 +435,7 @@ def _fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList) -> dict:
     obsdate = {}
     obsdate["type"] = "time"
     obsdate["value"] = Time(header["DATE-OBS"], format="isot").mjd
-    obsdate["unit"] = "d"
+    obsdate["units"] = "d"
     obsdate["scale"] = header["TIMESYS"]
     obsdate["format"] = "MJD"
     attrs["obsdate"] = obsdate
@@ -660,7 +674,7 @@ def _do_multibeam(xds: xr.Dataset, imname: str) -> xr.Dataset:
             )
             xdb = xdb.rename("beam")
             xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
-            xdb.attrs["unit"] = "rad"
+            xdb.attrs["units"] = "rad"
             xds["beam"] = xdb
             return xds
     raise RuntimeError(
@@ -704,7 +718,7 @@ def _add_sky_or_apeture(
     image_type = helpers["btype"]
     unit = helpers["bunit"]
     xda.attrs[_image_type] = image_type
-    xda.attrs["unit"] = unit
+    xda.attrs["units"] = unit
     name = "sky" if has_sph_dims else "apeture"
     xda = xda.rename(name)
     xds[xda.name] = xda

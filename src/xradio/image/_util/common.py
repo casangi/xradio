@@ -1,3 +1,4 @@
+import astropy as ap
 import astropy.units as u
 import dask
 import dask.array as da
@@ -16,6 +17,22 @@ def _get_xds_dim_order(has_sph: bool) -> list:
     dir_lin = ["l", "m"] if has_sph else ["u", "v"]
     dimorder.extend(dir_lin)
     return dimorder
+
+
+def _convert_beam_to_rad(beam: dict) -> dict:
+    """
+    Convert something that looks like a CASA beam dictionary or close to
+    to it to an xradio beam dict, with xradio quantities for major, minor,
+    and pa, with the quantities converted to radians. Conversions are
+    done using astropy. The input beam is not modified.
+    """
+    mybeam = {}
+    for k in beam:
+        q = u.quantity.Quantity(f"{beam[k]['value']}{beam[k]['unit']}")
+        q = q.to("rad")
+        j = "pa" if k == "positionangle" else k
+        mybeam[j] = {"type": "quantity", "value": q.value, "units": "rad"}
+    return mybeam
 
 
 def _get_unit(u: str) -> str:
@@ -69,8 +86,9 @@ def _numpy_arrayize(xds):
     return xds
 
 
-def _default_freq_info() -> dict():
+def _default_freq_info() -> dict:
     return {
+        """
         "conversion": {
             "direction": {
                 "m0": {"unit": "rad", "value": 0.0},
@@ -90,16 +108,20 @@ def _default_freq_info() -> dict():
             },
             "system": "LSRK",
         },
-        "nativeType": "FREQ",
-        "restfreq": 1420405751.7860003,
-        "restfreqs": [1420405751.7860003],
-        "system": "LSRK",
-        "unit": "Hz",
-        "waveUnit": "mm",
-        "wcs": {
-            "cdelt": 1000.0,
-            "crval": 1415000000.0,
+        """
+        # "nativeType": "FREQ",
+        "rest_frequency": {
+            "value": 1420405751.7860003,
+            "units": "Hz",
+            "type": "quantity",
         },
+        # "restfreqs": [1420405751.7860003],
+        "type": "frequency",
+        "frame": "LSRK",
+        "units": "Hz",
+        "waveUnit": "mm",
+        "cdelt": 1000.0,
+        "crval": 1415000000.0,
     }
 
 

@@ -8,7 +8,7 @@ import warnings, time, os, logging
 import numpy as np
 import astropy.wcs
 from .common import _get_xds_dim_order, _dask_arrayize
-from ._casacore.common import _active_mask
+from ._casacore.common import _active_mask, _open_image_ro
 from ._casacore.xds_to_casacore import (
     _coord_dict_from_xds,
     _history_from_xds,
@@ -43,10 +43,9 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 def _load_casa_image_block(infile: str, block_des: dict) -> xr.Dataset:
     image_full_path = os.path.expanduser(infile)
-    casa_image = image(image_full_path)
-    coords = casa_image.coordinates()
-    cshape = casa_image.shape()
-    del casa_image
+    with _open_image_ro(image_full_path) as casa_image:
+        coords = casa_image.coordinates()
+        cshape = casa_image.shape()
     ret = _casa_image_to_xds_metadata(image_full_path, False)
     xds = ret["xds"]
     starts, shapes, slices = _get_starts_shapes_slices(block_des, coords, cshape)
@@ -114,7 +113,7 @@ def _xds_to_casa_image(xds: xr.Dataset, imagename: str) -> None:
     # create coordinates
     coord = _coord_dict_from_xds(xds)
     ii = _imageinfo_dict_from_xds(xds)
-    units = xds.sky.attrs["unit"] if "unit" in xds.sky.attrs else None
+    units = xds.sky.attrs["units"] if "units" in xds.sky.attrs else None
     miscinfo = (
         xds.attrs["user"]
         if "user" in xds.attrs and len(xds.attrs["user"]) > 0

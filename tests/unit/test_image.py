@@ -144,8 +144,6 @@ class ImageBase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.maxDiff = None
-        print('*************************************')
-        print('&*&*&*&',cls._ran_measures_code,os.environ["USER"])
         if not cls._ran_measures_code and os.environ["USER"] == "runner":
             casa_data_dir = pkg_resources.resource_filename("casadata", "__data__")
             rc_file = open(os.path.expanduser("~/.casarc"), "a+")  # append mode

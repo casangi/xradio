@@ -13,13 +13,13 @@ import xarray as xr
 
 from .common import (
     _active_mask,
-    # _native_types,
     _object_name,
     _open_image_ro,
     _pointing_center,
 )
 from ..common import (
     _c,
+    _compute_world_sph_dims,
     _convert_beam_to_rad,
     _dask_arrayize,
     _default_freq_info,
@@ -370,11 +370,26 @@ def _casa_image_to_xds_metadata(img_full_path: str, verbose: bool = False) -> di
             if k.startswith("direction"):
                 dc = coordinates.directioncoordinate(coord_dict[k])
                 break
-        l_world, m_world = _compute_world_sph_dims(
+        crpix = _flatten_list(csys.get_referencepixel()[::-1])
+        crval = _flatten_list(csys.get_referencevalue()[::-1])
+        inc = _flatten_list(csys.get_increment()[::-1])
+        unit = _flatten_list(csys.get_unit()[::-1])
+        my_ret = _compute_world_sph_dims(
+            projection=dc.get_projection(),
+            shape=[shape[sphr_dims[0]], shape[sphr_dims[1]]][::-1],
+            ctype=diraxes[::-1],
+            crpix=[crpix[sphr_dims[0]], crpix[sphr_dims[1]]],
+            crval=[crval[sphr_dims[0]], crval[sphr_dims[1]]],
+            cdelt=[inc[sphr_dims[0]], inc[sphr_dims[1]]],
+            cunit=[unit[sphr_dims[0]], unit[sphr_dims[1]]],
+        )
+        """
+        l_world, m_world  = _compute_world_sph_dims(
             sphr_dims, diraxes, csys, dc, shape, dimmap
         )
-        coords[l_world[0]] = (["l", "m"], l_world[1])
-        coords[m_world[0]] = (["l", "m"], m_world[1])
+        """
+        coords[my_ret["axis_name"][0]] = (["l", "m"], my_ret["value"][0])
+        coords[my_ret["axis_name"][1]] = (["l", "m"], my_ret["value"][1])
         # attrs['sky_ref_value'] = [l_world[1], m_world[1]]
     else:
         # Fourier image
@@ -384,7 +399,7 @@ def _casa_image_to_xds_metadata(img_full_path: str, verbose: bool = False) -> di
     attrs["xds"] = xds
     return attrs
 
-
+"""
 def _compute_world_sph_dims(
     sphr_dims: list,
     dir_axes: list,
@@ -419,12 +434,6 @@ def _compute_world_sph_dims(
             wcs_dict["CTYPE2"] = f"DEC--{proj}"
             wcs_dict[f"NAXIS2"] = shape[dimmap["m"]]
         t_unit = _get_unit(unit[dc_index][i])
-        """
-        if t_unit == "'":
-            t_unit = 'arcmin'
-        elif t_unit == '"':
-            t_unit = 'arcsec'
-        """
         wcs_dict[f"CUNIT{fi}"] = t_unit
         wcs_dict[f"CDELT{fi}"] = inc[dc_index][i]
         # FITS arrays are 1-based
@@ -437,7 +446,7 @@ def _compute_world_sph_dims(
     long *= _deg_to_rad
     lat *= _deg_to_rad
     return [[long_axis_name, long], [lat_axis_name, lat]]
-
+"""
 
 def _convert_direction_system(
     casa_system: str, which: str, verbose: bool = True
@@ -473,7 +482,7 @@ def _convert_direction_system(
 def _flatten_list(list_of_lists: list) -> list:
     flat = []
     for x in list_of_lists:
-        if type(x) == list:
+        if type(x) == list or type(x) == np.ndarray:
             flat.extend(_flatten_list(x))
         else:
             flat.append(x)

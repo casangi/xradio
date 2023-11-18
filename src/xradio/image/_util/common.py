@@ -3,8 +3,9 @@ import astropy.units as u
 import dask
 import dask.array as da
 import numpy as np
+from typing import List
 import xarray as xr
-
+from ..._utils.common import _deg_to_rad
 
 _c = 2.99792458e08 * u.m / u.s
 # OPTICAL = Z
@@ -168,3 +169,52 @@ def _freq_from_vel(
     else:
         raise RuntimeError(f"Unhandled doppler type {ctype}")
     return f_dict, v_dict
+
+
+def _compute_world_sph_dims(
+    projection: str,
+    shape: List[int], # two element list of long-lat shape
+    ctype: List[str], # two element list of long-lat axis names
+    crpix: List[float], # two element list of long-lat crpix
+    crval: List[float], # two element list of long-lat crval
+    cdelt: List[float], # two element list of long-lat increments
+    cunit: List[str], # two element list of long-lat units
+) -> dict:
+    # Note that if doesn't matter if the inputs are in long, lat or lat, long order,
+    # as long as all inputs have consistent ordering
+    wcs_dict = {}
+    ret = {
+        "axis_name": [None, None],
+        "ref_val": [None, None],
+        "inc": [None, None],
+        "unit": ["rad", "rad"],
+        "value": [None, None]
+    }
+    for i in range(2):
+        axis_name = ctype[i].lower()
+        if axis_name.startswith("right") or axis_name.startswith('ra'):
+            fi = 1
+            wcs_dict[f"CTYPE1"] = f"RA---{projection}"
+            new_name = "right_ascension"
+        if axis_name.startswith("dec"):
+            fi = 2
+            wcs_dict["CTYPE2"] = f"DEC--{projection}"
+            new_name = "declination"
+        wcs_dict[f"NAXIS{fi}"] = shape[i]
+        j = fi - 1
+        x_unit = _get_unit(cunit[i])
+        wcs_dict[f"CUNIT{fi}"] = x_unit
+        wcs_dict[f"CDELT{fi}"] = cdelt[i]
+        # FITS arrays are 1-based
+        wcs_dict[f"CRPIX{fi}"] = crpix[i] + 1
+        wcs_dict[f"CRVAL{fi}"] = crval[i]
+        ret["axis_name"][j] = new_name
+        ret["ref_val"][j] = u.quantity.Quantity(f"{crval[i]}{x_unit}").to("rad").value
+        ret["inc"][j] = u.quantity.Quantity(f"{cdelt[i]}{x_unit}").to("rad").value
+    w = ap.wcs.WCS(wcs_dict)
+    x, y = np.indices(w.pixel_shape)
+    long, lat = w.pixel_to_world_values(x, y)
+    # long, lat from above eqn will always be in degrees, so convert to rad
+    ret["value"][0] = long * _deg_to_rad
+    ret["value"][1] = lat * _deg_to_rad
+    return ret

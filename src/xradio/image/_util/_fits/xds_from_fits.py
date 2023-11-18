@@ -4,6 +4,7 @@ from astropy.io import fits
 from astropy.time import Time
 from ..common import (
     _c,
+    _compute_world_sph_dims,
     _convert_beam_to_rad,
     _default_freq_info,
     _doppler_types,
@@ -480,13 +481,35 @@ def _create_coords(helpers, header):
     coords["polarization"] = _get_pol_values(helpers)
     coords["frequency"] = _get_freq_values(helpers)
     coords["velocity"] = (["frequency"], _get_velocity_values(helpers))
+    print('helpers', helpers)
     if len(sphr_dims) > 0:
+        pick = lambda mylist : [ mylist[i] for i in sphr_dims ]
+        my_ret = _compute_world_sph_dims(
+            projection=helpers['projection'],
+            shape=pick(helpers["shape"]),
+            ctype=pick(helpers["ctype"]),
+            crpix=pick(helpers['crpix']),
+            crval=pick(helpers['crval']),
+            cdelt=pick(helpers["cdelt"]),
+            cunit=pick(helpers["cunit"]),
+        )
+        # ref_pix = helpers["crpix"]
+        # ref_val = helpers["crval"]
+        for i, j in zip(dir_axes, (0, 1)):
+            helpers["cunit"][i] = my_ret["unit"][j]
+            helpers["crval"][i] = my_ret["ref_val"][j]
+            helpers["cdelt"][i] = my_ret["inc"][j]
+
+        """
         l_world, m_world = _compute_world_sph_dims(
             sphr_dims, dir_axes, dim_map, helpers
         )
-        coords[l_world[0]] = (["l", "m"], l_world[1])
-        coords[m_world[0]] = (["l", "m"], m_world[1])
-        helpers["sphr_axis_names"] = (l_world[0], m_world[0])
+        """
+        print("axis name", my_ret["axis_name"])
+        coords[my_ret["axis_name"][0]] = (["l", "m"], my_ret["value"][0])
+        coords[my_ret["axis_name"][1]] = (["l", "m"], my_ret["value"][1])
+        # helpers["sphr_axis_names"] = (l_world[0], m_world[0])
+        helpers["sphr_axis_names"] = tuple(my_ret["axis_name"])
     else:
         # Fourier image
         coords["u"], coords["v"] = _get_uv_values(helpers)
@@ -597,7 +620,7 @@ def _get_velocity_values(helpers: dict) -> list:
             helpers["velocity"] = v
             return v.value
 
-
+"""
 def _compute_world_sph_dims(
     sphr_dims: list, dir_axes: list, dim_map: dict, helpers: dict
 ) -> list:
@@ -619,11 +642,7 @@ def _compute_world_sph_dims(
             fi = 2
             wcs_dict["CTYPE2"] = ctype[i]
             wcs_dict[f"NAXIS2"] = shape[dim_map["m"]]
-        t_unit = unit[i]
-        if t_unit == "'":
-            t_unit = "arcmin"
-        elif t_unit == '"':
-            t_unit = "arcsec"
+        t_unit = _get_unit(unit[i])
         wcs_dict[f"CUNIT{fi}"] = t_unit
         wcs_dict[f"CDELT{fi}"] = delt[i]
         # FITS arrays are 1-based
@@ -646,7 +665,7 @@ def _compute_world_sph_dims(
         helpers["crval"][i] = wcrval[j]
         helpers["cdelt"][i] *= _deg_to_rad
     return [[long_axis_name, long], [lat_axis_name, lat]]
-
+"""
 
 def _do_multibeam(xds: xr.Dataset, imname: str) -> xr.Dataset:
     """Only run if we are sure there are multiple beams"""

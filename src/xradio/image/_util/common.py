@@ -153,8 +153,8 @@ def _freq_from_vel(
         "cdelt": cdelt,
         "crpix": crpix,
     }
-    uctype = ctype.upper()
-    if uctype == "Z" or uctype == "OPTICAL":
+    uctype = ctype.lower()
+    if uctype in ["z", "optical"]:
         freq = restfreq / (np.array(vel.value) * vel.unit / _c + 1)
         freq = freq.to(u.Hz)
         fcrval = restfreq / (crval * vel.unit / _c + 1)
@@ -218,3 +218,27 @@ def _compute_world_sph_dims(
     ret["value"][0] = long * _deg_to_rad
     ret["value"][1] = lat * _deg_to_rad
     return ret
+
+
+def _compute_velocity_values(
+    restfreq: float, # in Hz
+    freq_values: List[float], # in Hz
+    doppler: str # doppler definition
+) -> List[float]:
+    dop = doppler.lower()
+    if dop == 'radio':
+        return [((1 - f / restfreq) * _c).value for f in freq_values]
+    elif dop in ['z', 'optical']:
+        return [((restfreq/f - 1) * _c).value for f in freq_values]
+    else:
+        raise RuntimeError(f"Doppler definition {doppler} not supported")
+
+
+def _compute_linear_world_values(
+    naxis:int, crval:float, crpix:float, cdelt:float
+) -> np.ndarray:
+    """
+    Simple linear transformation to get world values which can be used for certain
+    coordinates like (often) frequency, l, m, u, v
+    """
+    return np.array([ crval + (i-crpix)*cdelt for i in range(naxis) ])

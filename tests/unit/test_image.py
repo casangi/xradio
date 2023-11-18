@@ -343,6 +343,8 @@ class ImageBase(unittest.TestCase):
 
     def compare_frequency(self, xds: xr.Dataset):
         ev = self._exp_vals
+        print("got", xds.frequency)
+        print("expec", ev["frequency"])
         self.assertTrue(
             np.isclose(xds.frequency, ev["frequency"]).all(), "Incorrect frequencies"
         )
@@ -353,11 +355,6 @@ class ImageBase(unittest.TestCase):
             "got",
             "expected",
         )
-        """
-        self.dict_equality(
-            xds.frequency.attrs["restfreqs"], ev["restfreqs"], 'got', 'expected'
-        )
-        """
         self.assertTrue(
             np.isclose(xds.frequency.attrs["crval"], ev["freq_crval"]),
             "Incorrect frequency crval",

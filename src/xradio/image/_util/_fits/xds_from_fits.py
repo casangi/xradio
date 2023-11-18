@@ -3,7 +3,8 @@ from astropy import units as u
 from astropy.io import fits
 from astropy.time import Time
 from ..common import (
-    _c,
+    _compute_linear_world_values,
+    _compute_velocity_values,
     _compute_world_sph_dims,
     _convert_beam_to_rad,
     _default_freq_info,
@@ -481,7 +482,6 @@ def _create_coords(helpers, header):
     coords["polarization"] = _get_pol_values(helpers)
     coords["frequency"] = _get_freq_values(helpers)
     coords["velocity"] = (["frequency"], _get_velocity_values(helpers))
-    print('helpers', helpers)
     if len(sphr_dims) > 0:
         pick = lambda mylist : [ mylist[i] for i in sphr_dims ]
         my_ret = _compute_world_sph_dims(
@@ -493,29 +493,17 @@ def _create_coords(helpers, header):
             cdelt=pick(helpers["cdelt"]),
             cunit=pick(helpers["cunit"]),
         )
-        # ref_pix = helpers["crpix"]
-        # ref_val = helpers["crval"]
         for i, j in zip(dir_axes, (0, 1)):
             helpers["cunit"][i] = my_ret["unit"][j]
             helpers["crval"][i] = my_ret["ref_val"][j]
             helpers["cdelt"][i] = my_ret["inc"][j]
-
-        """
-        l_world, m_world = _compute_world_sph_dims(
-            sphr_dims, dir_axes, dim_map, helpers
-        )
-        """
-        print("axis name", my_ret["axis_name"])
         coords[my_ret["axis_name"][0]] = (["l", "m"], my_ret["value"][0])
         coords[my_ret["axis_name"][1]] = (["l", "m"], my_ret["value"][1])
-        # helpers["sphr_axis_names"] = (l_world[0], m_world[0])
         helpers["sphr_axis_names"] = tuple(my_ret["axis_name"])
     else:
         # Fourier image
         coords["u"], coords["v"] = _get_uv_values(helpers)
     xds = xr.Dataset(coords=coords)
-    # attrs['xds'] = xds
-    # return attrs
     return xds
 
 
@@ -571,13 +559,11 @@ def _get_freq_values(helpers: dict) -> list:
     if "FREQ" in ctype:
         freq_idx = ctype.index("FREQ")
         helpers["freq_axis"] = freq_idx
-        crval = helpers["crval"][freq_idx]
-        crpix = helpers["crpix"][freq_idx]
-        cdelt = helpers["cdelt"][freq_idx]
-        cunit = helpers["cunit"][freq_idx]
-        freq_start_val = crval - cdelt * crpix
-        for i in range(helpers["shape"][freq_idx]):
-            vals.append(freq_start_val + i * cdelt)
+        vals = _compute_linear_world_values(
+            naxis=helpers["shape"][freq_idx], crval=helpers["crval"][freq_idx],
+            crpix=helpers["crpix"][freq_idx], cdelt=helpers["cdelt"][freq_idx],
+            cunit=helpers["cunit"][freq_idx]
+        )
         helpers["frequency"] = vals * u.Unit(cunit)
         return vals
     elif "VOPT" in ctype:
@@ -611,61 +597,14 @@ def _get_velocity_values(helpers: dict) -> list:
     if "velocity" in helpers:
         return helpers["velocity"].to(u.m / u.s).value
     elif "frequency" in helpers:
-        if helpers["doppler"] == "Z":
-            # (-1 + f0/f) = v/c
-            v = (
-                helpers["restfreq"] * u.Hz / helpers["frequency"].to("Hz").value - 1
-            ) * _c
-            v = v.to(u.m / u.s)
-            helpers["velocity"] = v
-            return v.value
+        v = _compute_velocity_values(
+            restfreq=helpers["reestfreq"],
+            freq_values=helpers["frequency"].to("Hz").value,
+            doppler=helpers["doppler"]
+        )
+        helpers["velocity"] = v * (u.m / u.s)
+        return v
 
-"""
-def _compute_world_sph_dims(
-    sphr_dims: list, dir_axes: list, dim_map: dict, helpers: dict
-) -> list:
-    shape = helpers["shape"]
-    ctype = helpers["ctype"]
-    unit = helpers["cunit"]
-    delt = helpers["cdelt"]
-    ref_pix = helpers["crpix"]
-    ref_val = helpers["crval"]
-    wcs_dict = {}
-    for i in dir_axes:
-        if ctype[i].startswith("RA"):
-            long_axis_name = "right_ascension"
-            fi = 1
-            wcs_dict[f"CTYPE1"] = ctype[i]
-            wcs_dict[f"NAXIS1"] = shape[dim_map["l"]]
-        if ctype[i].startswith("DEC"):
-            lat_axis_name = "declination"
-            fi = 2
-            wcs_dict["CTYPE2"] = ctype[i]
-            wcs_dict[f"NAXIS2"] = shape[dim_map["m"]]
-        t_unit = _get_unit(unit[i])
-        wcs_dict[f"CUNIT{fi}"] = t_unit
-        wcs_dict[f"CDELT{fi}"] = delt[i]
-        # FITS arrays are 1-based
-        wcs_dict[f"CRPIX{fi}"] = ref_pix[i] + 1
-        wcs_dict[f"CRVAL{fi}"] = ref_val[i]
-
-    w = ap.wcs.WCS(wcs_dict)
-    x, y = np.indices(w.pixel_shape)
-    long, lat = w.pixel_to_world_values(x, y)
-    # long, lat will always be in degrees, so convert to rad
-    long *= _deg_to_rad
-    lat *= _deg_to_rad
-    crpix = helpers["crpix"][dir_axes[0]], helpers["crpix"][dir_axes[1]]
-    wcrvalx, wcrvaly = w.pixel_to_world_values(crpix[0], crpix[1])
-    wcrvalx = wcrvalx.tolist() * _deg_to_rad
-    wcrvaly = wcrvaly.tolist() * _deg_to_rad
-    wcrval = [wcrvalx, wcrvaly]
-    for i, j in zip(dir_axes, (0, 1)):
-        helpers["cunit"][i] = "rad"
-        helpers["crval"][i] = wcrval[j]
-        helpers["cdelt"][i] *= _deg_to_rad
-    return [[long_axis_name, long], [lat_axis_name, lat]]
-"""
 
 def _do_multibeam(xds: xr.Dataset, imname: str) -> xr.Dataset:
     """Only run if we are sure there are multiple beams"""

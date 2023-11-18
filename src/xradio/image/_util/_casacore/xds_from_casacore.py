@@ -18,7 +18,8 @@ from .common import (
     _pointing_center,
 )
 from ..common import (
-    _c,
+    _compute_linear_world_values,
+    _compute_velocity_values,
     _compute_world_sph_dims,
     _convert_beam_to_rad,
     _dask_arrayize,
@@ -75,50 +76,6 @@ def _add_freq_attrs(xds, coord_dict):
     for k in coord_dict:
         if k.startswith("spectral"):
             sd = coord_dict[k]
-            """
-            conv = copy.deepcopy(sd["conversion"])
-            conv["direction"]["type"] = "sky_coord"
-            (
-                conv["direction"]["frame"],
-                conv["direction"]["equinox"],
-            ) = _convert_direction_system(conv["direction"]["refer"], False)
-            del conv["direction"]["refer"]
-            conv["direction"]["units"] = [
-                conv["direction"]["m0"]["unit"],
-                conv["direction"]["m1"]["unit"],
-            ]
-            conv["direction"]["value"] = [
-                conv["direction"]["m0"]["value"],
-                conv["direction"]["m1"]["value"],
-            ]
-            del conv["direction"]["m0"], conv["direction"]["m1"]
-            pf = conv["position"]["refer"]
-            if pf == "ITRF":
-                conv["position"]["ellipsoid"] = "GRS80"
-                del conv["position"]["refer"]
-            else:
-                raise RuntimeError(f"Unhandled earth location frame {pf}")
-            conv["position"]["units"] = [
-                conv["position"]["m0"]["unit"],
-                conv["position"]["m1"]["unit"],
-                conv["position"]["m2"]["unit"],
-            ]
-            conv["position"]["value"] = [
-                conv["position"]["m0"]["value"],
-                conv["position"]["m1"]["value"],
-                conv["position"]["m2"]["value"],
-            ]
-            for m in ["m0", "m1", "m2"]:
-                del conv["position"][m]
-            # epoch has missing values necessary to make a time measure
-            conv["epoch"] = {
-                "units": conv["epoch"]["m0"]["unit"],
-                "value": conv["epoch"]["m0"]["value"],
-                "type": "quantity",
-                "refer": conv["epoch"]["refer"],
-            }
-            meta["conversion"] = conv
-            """
             # meta["native_type"] = _native_types[sd["nativeType"]]
             meta["rest_frequency"] = {
                 "type": "quantity",
@@ -241,19 +198,6 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
                 q = coord_dir_dict[c][i] * unit
                 x = q.to("rad")
                 dir_dict["reference"][r][i] = x.value
-        # dir_dict["conversion_system"] = None
-        """
-        cs = "conversionSystem"
-        if cs in coord_dir_dict and (coord_dir_dict[cs] != coord_dir_dict[system]):
-            logging.warn(
-                "Conversion direction frame differs from native direction "
-                "frame in CASA image. However, ngCASA does not support conversion "
-                "frames at this time so the ngCASA image's conversion frame "
-                "will be set to the native frame"
-            )
-        dir_dict["conversion_system"] = dir_dict["frame"]
-        dir_dict["conversion_equinox"] = dir_dict["equinox"]
-        """
         k = "latpole"
         if k in coord_dir_dict:
             for j in (k, "longpole"):
@@ -374,23 +318,18 @@ def _casa_image_to_xds_metadata(img_full_path: str, verbose: bool = False) -> di
         crval = _flatten_list(csys.get_referencevalue()[::-1])
         inc = _flatten_list(csys.get_increment()[::-1])
         unit = _flatten_list(csys.get_unit()[::-1])
+        pick = lambda my_list : [ my_list[i] for i in sphr_dims ]
         my_ret = _compute_world_sph_dims(
             projection=dc.get_projection(),
-            shape=[shape[sphr_dims[0]], shape[sphr_dims[1]]][::-1],
+            shape=pick(shape)[::-1],
             ctype=diraxes[::-1],
-            crpix=[crpix[sphr_dims[0]], crpix[sphr_dims[1]]],
-            crval=[crval[sphr_dims[0]], crval[sphr_dims[1]]],
-            cdelt=[inc[sphr_dims[0]], inc[sphr_dims[1]]],
-            cunit=[unit[sphr_dims[0]], unit[sphr_dims[1]]],
+            crval=pick(crval),
+            crpix=pick(crpix),
+            cdelt=pick(inc),
+            cunit=pick(unit),
         )
-        """
-        l_world, m_world  = _compute_world_sph_dims(
-            sphr_dims, diraxes, csys, dc, shape, dimmap
-        )
-        """
         coords[my_ret["axis_name"][0]] = (["l", "m"], my_ret["value"][0])
         coords[my_ret["axis_name"][1]] = (["l", "m"], my_ret["value"][1])
-        # attrs['sky_ref_value'] = [l_world[1], m_world[1]]
     else:
         # Fourier image
         coords["u"], coords["v"] = _get_uv_values(coord_dict, axis_names, shape)
@@ -399,54 +338,6 @@ def _casa_image_to_xds_metadata(img_full_path: str, verbose: bool = False) -> di
     attrs["xds"] = xds
     return attrs
 
-"""
-def _compute_world_sph_dims(
-    sphr_dims: list,
-    dir_axes: list,
-    csys: dict,
-    dc: coordinates.directioncoordinate,
-    shape: tuple,
-    dimmap: dict,
-) -> list:
-    proj = dc.get_projection()
-    # casacore csys getters return values in opposite order as the real axes order
-    coord_names = csys.get_names()[::-1]
-    for i, name in enumerate(coord_names):
-        if name.startswith("direction"):
-            dc_index = i
-            break
-    unit = csys.get_unit()[::-1]
-    inc = csys.get_increment()[::-1]
-    ref_pix = csys.get_referencepixel()[::-1]
-    ref_val = csys.get_referencevalue()[::-1]
-    wcs_dict = {}
-    # opposite of what you expect because, even though the coordinates have
-    # been ordered coorectly, the two direction coordinate axes are still flipped
-    for i, name in enumerate(dir_axes[::-1]):
-        if name.startswith("right"):
-            long_axis_name = name
-            fi = 1
-            wcs_dict[f"CTYPE1"] = f"RA---{proj}"
-            wcs_dict[f"NAXIS1"] = shape[dimmap["l"]]
-        if name.startswith("dec"):
-            lat_axis_name = name
-            fi = 2
-            wcs_dict["CTYPE2"] = f"DEC--{proj}"
-            wcs_dict[f"NAXIS2"] = shape[dimmap["m"]]
-        t_unit = _get_unit(unit[dc_index][i])
-        wcs_dict[f"CUNIT{fi}"] = t_unit
-        wcs_dict[f"CDELT{fi}"] = inc[dc_index][i]
-        # FITS arrays are 1-based
-        wcs_dict[f"CRPIX{fi}"] = ref_pix[dc_index][i] + 1
-        wcs_dict[f"CRVAL{fi}"] = ref_val[dc_index][i]
-    w = astropy.wcs.WCS(wcs_dict)
-    x, y = np.indices(w.pixel_shape)
-    long, lat = w.pixel_to_world_values(x, y)
-    # long, lat from above eqn will always be in degrees, so convert to rad
-    long *= _deg_to_rad
-    lat *= _deg_to_rad
-    return [[long_axis_name, long], [lat_axis_name, lat]]
-"""
 
 def _convert_direction_system(
     casa_system: str, which: str, verbose: bool = True
@@ -588,12 +479,11 @@ def _get_freq_values(coords: coordinates.coordinatesystem, shape: tuple) -> list
         coord_dict = coords.dict()
         for k in coord_dict:
             if k.startswith("spectral"):
-                freqs = []
                 wcs = coord_dict[k]["wcs"]
-                crpix = wcs["crpix"]
-                crval = wcs["crval"]
-                cdelt = wcs["cdelt"]
-                return [(i - crpix) * cdelt + crval for i in range(shape[idx])]
+                return _compute_linear_world_values(
+                    naxis=shape[idx], crval=wcs["crval"], crpix=wcs["crpix"],
+                    cdelt=wcs["cdelt"]
+                )
     else:
         return [1420e6]
 
@@ -792,8 +682,11 @@ def _get_velocity_values(coord_dict: dict, freq_values: list) -> list:
         if k.startswith("spectral"):
             restfreq = coord_dict[k]["restfreq"]
             break
+    return _compute_velocity_values(
+        restfreq=restfreq, freq_values=freq_values, doppler="RADIO"
+    )
     # doppler type = RADIO definition
-    return [((1 - f / restfreq) * _c).value for f in freq_values]
+    # return [((1 - f / restfreq) * _c).value for f in freq_values]
 
 
 def _make_coord_subset(xds: xr.Dataset, slices: dict) -> xr.Dataset:

@@ -36,12 +36,13 @@ def _add_coord_attrs(xds: xr.Dataset, icoords: dict, diraxes: list) -> xr.Datase
     _add_time_attrs(xds, icoords)
     _add_freq_attrs(xds, icoords)
     xds = _add_vel_attrs(xds, icoords)
-    xds = _add_dir_lin_attrs(xds, icoords, diraxes)
+    xds = _add_lin_attrs(xds, icoords, diraxes)
     return xds
 
 
-def _add_dir_lin_attrs(xds, coord_dict, dir_axes):
+def _add_lin_attrs(xds, coord_dict, dir_axes):
     for k in coord_dict:
+        """
         if k.startswith("direction"):
             dd = coord_dict[k]
             for i in (0, 1):
@@ -58,7 +59,8 @@ def _add_dir_lin_attrs(xds, coord_dict, dir_axes):
                 meta["cdelt"] = dd["cdelt"][i] * scale
                 xds[dir_axes[i]].attrs = copy.deepcopy(meta)
             break
-        elif k.startswith("linear"):
+        """
+        if k.startswith("linear"):
             ld = coord_dict[k]
             for i in (0, 1):
                 meta = {}

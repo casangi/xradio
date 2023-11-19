@@ -445,7 +445,10 @@ class ImageBase(unittest.TestCase):
             ev["ra_cdelt"] = dd["cdelt"][0] * f
             ev["dec_crval"] = dd["crval"][1] * f
             ev["dec_cdelt"] = dd["cdelt"][1] * f
+        self.assertEqual(xds.right_ascension.attrs, {}, "RA has attrs but shouldn't")
+        self.assertEqual(xds.declination.attrs, {}, "RA has attrs but shouldn't")
         if fits:
+            """
             self.assertTrue(
                 np.isclose(xds.right_ascension.attrs["crval"], ev["ra_crval"]),
                 "Incorrect RA crval",
@@ -458,6 +461,7 @@ class ImageBase(unittest.TestCase):
                 np.isclose(xds.declination.attrs["cdelt"], ev["dec_cdelt"]),
                 "Incorrect Dec cdelt",
             )
+            """
             self.assertTrue(
                 np.isclose(
                     xds.attrs["direction"]["reference"]["cdelt"][0], ev["ra_cdelt"]
@@ -471,6 +475,7 @@ class ImageBase(unittest.TestCase):
                 "Incorrect Dec cdelt",
             )
         else:
+            """
             self.assertEqual(
                 xds.right_ascension.attrs["crval"],
                 ev["ra_crval"],
@@ -486,6 +491,7 @@ class ImageBase(unittest.TestCase):
                 ev["dec_cdelt"],
                 "Incorrect Dec cdelt",
             )
+            """
             self.assertEqual(
                 xds.attrs["direction"]["reference"]["cdelt"][0],
                 ev["ra_cdelt"],
@@ -503,6 +509,7 @@ class ImageBase(unittest.TestCase):
         self.assertTrue(
             np.allclose(xds.declination, ev["dec"], atol=1e-15), "Incorrect Dec values"
         )
+        """
         self.assertEqual(
             xds.right_ascension.attrs["units"], ev["ra_unit"], "Incorrect RA unit"
         )
@@ -514,6 +521,7 @@ class ImageBase(unittest.TestCase):
             ev["dec_crval"],
             "Incorrect Dec crval",
         )
+        """
 
     def compare_attrs(self, xds: xr.Dataset, fits: bool = False):
         my_exp_attrs = copy.deepcopy(self.exp_attrs())

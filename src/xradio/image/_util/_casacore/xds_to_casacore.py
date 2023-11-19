@@ -7,72 +7,9 @@ import numpy as np
 import os
 from typing import Union
 import xarray as xr
-from .common import _active_mask, _object_name, _pointing_center
-from ..common import _doppler_types
+from .common import _active_mask, _object_name, _open_image_rw, _pointing_center
+from ..common import _compute_sky_reference_pixel, _doppler_types
 from ...._utils._casacore.tables import open_table_rw
-
-
-# TODO move this to a common file to be shared
-def _compute_ref_pix(xds: xr.Dataset, direction: dict) -> np.ndarray:
-    # TODO more general coordinates
-    long = xds.right_ascension
-    lat = xds.declination
-    ra_crval = long.attrs["crval"]
-    dec_crval = lat.attrs["crval"]
-    long_close = np.where(np.isclose(long, ra_crval))
-    lat_close = np.where(np.isclose(lat, dec_crval))
-    if long_close and lat_close:
-        long_list = [(i, j) for i, j in zip(long_close[0], long_close[1])]
-        lat_list = [(i, j) for i, j in zip(lat_close[0], lat_close[1])]
-        common_indices = [t for t in long_list if t in lat_list]
-        if len(common_indices) == 1:
-            return np.array(common_indices[0])
-    cdelt = max(abs(long.attrs["cdelt"]), abs(lat.attrs["cdelt"]))
-
-    # this creates an image of mostly NaNs. The few pixels with values are
-    # close to the reference pixel
-    ra_diff = long - ra_crval
-    dec_diff = lat - dec_crval
-    # this returns a 2-tuple of indices where the values in aa are not NaN
-    indices_close = np.where(
-        ra_diff * ra_diff + dec_diff * dec_diff < 2 * cdelt * cdelt
-    )
-    # this determines the closest pixel to the reference pixel
-    closest = 5e10
-    pix = []
-    for i, j in zip(indices_close[0], indices_close[1]):
-        dra = long[i, j] - ra_crval
-        ddec = lat[i, j] - dec_crval
-        if dra * dra + ddec * ddec < closest:
-            pix = [i, j]
-    xds_dir = xds.attrs["direction"]
-    # get the actual ref pix
-    proj = direction["projection"]
-    wcs_dict = {}
-    wcs_dict[f"CTYPE1"] = f"RA---{proj}"
-    wcs_dict[f"NAXIS1"] = long.shape[0]
-    wcs_dict[f"CUNIT1"] = long.attrs["units"]
-    # FITS arrays are 1-based
-    wcs_dict[f"CRPIX1"] = pix[0] + 1
-    wcs_dict[f"CRVAL1"] = long[pix[0], pix[1]].item(0)
-    wcs_dict[f"CDELT1"] = long.attrs["wcs"]["cdelt"]
-    wcs_dict[f"CTYPE2"] = f"DEC--{proj}"
-    wcs_dict[f"NAXIS2"] = lat.shape[1]
-    wcs_dict[f"CUNIT2"] = lat.attrs["units"]
-    # FITS arrays are 1-based
-    wcs_dict[f"CRPIX2"] = pix[1] + 1
-    wcs_dict[f"CRVAL2"] = lat[pix[0], pix[1]].item(0)
-    wcs_dict[f"CDELT2"] = lat.attrs["wcs"]["cdelt"]
-    w = astropy.wcs.WCS(wcs_dict)
-    x, y = np.indices(w.pixel_shape)
-    sky = SkyCoord(
-        ra_crval,
-        dec_crval,
-        frame=xds.attrs["direction"]["system"].lower(),
-        equinox=xds.attrs["direction"]["equinox"],
-        unit=long.attrs["units"],
-    )
-    return w.world_to_pixel(sky)
 
 
 def _compute_direction_dict(xds: xr.Dataset) -> dict:
@@ -87,13 +24,10 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
     direction["projection_parameters"] = xds_dir["projection_parameters"]
     long = xds.right_ascension
     lat = xds.declination
-    # direction["units"] = np.array([long.attrs["unit"], lat.attrs["unit"]], dtype="<U16")
     direction["units"] = np.array(xds_dir["reference"]["units"], dtype="<U16")
-    # direction["crval"] = np.array([long.attrs["crval"], lat.attrs["crval"]])
     direction["crval"] = np.array(xds_dir["reference"]["value"])
     direction["cdelt"] = np.array(xds_dir["reference"]["cdelt"])
-    print("direction", direction)
-    crpix = _compute_ref_pix(xds, direction)
+    crpix = _compute_sky_reference_pixel(xds)
     direction["crpix"] = np.array([crpix[0], crpix[1]])
     direction["pc"] = xds_dir["pc"]
     direction["axes"] = ["Right Ascension", "Declination"]
@@ -114,44 +48,6 @@ def _compute_spectral_dict(
     for a CASA image coordinate system
     """
     spec = {}
-    """
-    spec_conv = copy.deepcopy(xds.frequency.attrs["conversion"])
-    for k in ("direction", "epoch", "position"):
-        spec_conv[k]["type"] = k
-    spec_conv["direction"]["refer"] = spec_conv["direction"]["frame"]
-    del spec_conv["direction"]["frame"]
-    if (
-        spec_conv["direction"]["refer"] == "FK5"
-        and spec_conv["direction"]["equinox"] == "J2000"
-    ):
-        spec_conv["direction"]["refer"] = "J2000"
-    del spec_conv["direction"]["equinox"]
-    spec_conv["direction"]["m0"] = {
-        "unit": spec_conv["direction"]["units"][0],
-        "value": spec_conv["direction"]["value"][0],
-    }
-    spec_conv["direction"]["m1"] = {
-        "unit": spec_conv["direction"]["units"][1],
-        "value": spec_conv["direction"]["value"][1],
-    }
-    del spec_conv["direction"]["units"], spec_conv["direction"]["value"]
-    spec_conv["epoch"]["m0"] = {
-        "unit": spec_conv["epoch"]["units"],
-        "value": spec_conv["epoch"]["value"],
-    }
-    spec_conv["position"]["refer"] = spec_conv["position"]["ellipsoid"]
-    if spec_conv["position"]["ellipsoid"] == "GRS80":
-        spec_conv["position"]["refer"] = "ITRF"
-    del spec_conv["position"]["ellipsoid"]
-    for i in range(3):
-        spec_conv["position"][f"m{i}"] = {
-            "unit": spec_conv["position"]["units"][i],
-            "value": spec_conv["position"]["value"][i],
-        }
-    del spec_conv["position"]["units"], spec_conv["position"]["value"]
-
-    spec["conversion"] = spec_conv
-    """
     spec["formatUnit"] = ""
     spec["name"] = "Frequency"
     # spec["nativeType"] = _native_types.index(xds.frequency.attrs["native_type"])
@@ -220,7 +116,6 @@ def _coord_dict_from_xds(xds: xr.Dataset) -> dict:
     coord["worldmap0"] = np.array([0, 1], dtype=np.int32)
     coord["worldmap1"] = np.array([2], dtype=np.int32)
     coord["worldmap2"] = np.array([3], dtype=np.int32)
-    # coord['worldreplace0'] = coord['direction0']['crval']
     # this probbably needs some verification
     coord["worldreplace0"] = [0.0, 0.0]
     coord["worldreplace1"] = np.array(coord["stokes1"]["crval"])
@@ -396,8 +291,9 @@ def _write_initial_image(
     # create the image and then delete the object
     if not maskname:
         maskname = ""
-    casa_image = images.image(image_full_path, maskname=maskname, shape=image_shape)
-    del casa_image
+    with _open_image_rw(image_full_path, maskname, shape=image_shape) as casa_image:
+        # just create the image, don't do anythong with it
+        pass
 
 
 def _write_image_block(xda: xr.DataArray, outfile: str, blc: tuple) -> None:

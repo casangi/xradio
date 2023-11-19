@@ -54,7 +54,7 @@ def _add_coord_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     xds = _add_time_attrs(xds, helpers)
     xds = _add_freq_attrs(xds, helpers)
     xds = _add_vel_attrs(xds, helpers)
-    xds = _add_dir_lin_attrs(xds, helpers)
+    xds = _add_lin_attrs(xds, helpers)
     return xds
 
 
@@ -138,7 +138,8 @@ def _add_vel_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     return xds
 
 
-def _add_dir_lin_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
+def _add_lin_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
+    """
     if helpers["sphr_dims"]:
         for i, name in zip(helpers["dir_axes"], helpers["sphr_axis_names"]):
             meta = {
@@ -147,7 +148,8 @@ def _add_dir_lin_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
                 "cdelt": helpers["cdelt"][i],
             }
             xds.coords[name].attrs = meta
-    else:
+    """
+    if not helpers["sphr_dims"]:
         for i, j in zip(helpers["dir_axes"], ("u", "v")):
             meta = {
                 "units": "wavelengths",

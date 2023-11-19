@@ -13,6 +13,14 @@ def _open_image_ro(infile: str) -> Generator[images.image, None, None]:
         # just delete the object to clear it from the table cache
         del image
 
+@contextmanager
+def _open_image_rw(infile: str, mask: str, shape: tuple) -> Generator[images.image, None, None]:
+    image = images.image(infile, maskname=mask, shape=shape)
+    try:
+        yield image
+    finally:
+        del image
+
 
 @contextmanager
 def _open_new_image(

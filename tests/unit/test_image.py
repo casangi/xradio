@@ -8,7 +8,6 @@ from xradio.image._util._casacore.common import (
 )
 from xradio._utils._casacore.tables import open_table_ro
 
-# import dask.array.ma as dma
 import dask.array as da
 from glob import glob
 import numbers
@@ -55,30 +54,11 @@ class ImageBase(unittest.TestCase):
             1.415003e09,
             1.415004e09,
         ],
-        # "freq_conversion": {
-        #    "direction": {
-        #        "type": "sky_coord",
-        #        "frame": "FK5",
-        #        "equinox": "J2000",
-        #        "units": ["rad", "rad"],
-        #        "value": np.array([0.0, 1.5707963267948966]),
-        #    },
-        #    "position": {
-        #        "type": "position",
-        #        "ellipsoid": "GRS80",
-        #        "units": ["rad", "rad", "m"],
-        #        "value": np.array([0.0, 0.0, 0.0]),
-        #    },
-        #    "epoch": {"refer": "LAST", "units": "d", "value": 0.0, "type": "quantity"},
-        #    "system": "LSRK",
-        # },
-        # "native_type": "FREQ",
         "rest_frequency": {
             "type": "quantity",
             "value": 1420405751.7860003,
             "units": "Hz",
         },
-        # "restfreqs": {'type': 'quantity', 'value': [1.42040575e09], 'units': 'Hz'},
         "freq_units": "Hz",
         "freq_frame": "LSRK",
         "wave_unit": "mm",
@@ -363,11 +343,6 @@ class ImageBase(unittest.TestCase):
             np.isclose(xds.frequency.attrs["cdelt"], ev["freq_cdelt"]),
             "Incorrect frequency cdelt",
         )
-        """
-        self.dict_equality(
-            xds.frequency.attrs["conversion"], ev["freq_conversion"], "got", "expected"
-        )
-        """
         self.assertEqual(xds.frequency.attrs["type"], "frequency", "Wrong measure type")
         self.assertEqual(
             xds.frequency.attrs["units"], ev["freq_units"], "Wrong frequency unit"
@@ -448,20 +423,6 @@ class ImageBase(unittest.TestCase):
         self.assertEqual(xds.right_ascension.attrs, {}, "RA has attrs but shouldn't")
         self.assertEqual(xds.declination.attrs, {}, "RA has attrs but shouldn't")
         if fits:
-            """
-            self.assertTrue(
-                np.isclose(xds.right_ascension.attrs["crval"], ev["ra_crval"]),
-                "Incorrect RA crval",
-            )
-            self.assertTrue(
-                np.isclose(xds.right_ascension.attrs["cdelt"], ev["ra_cdelt"]),
-                "Incorrect RA cdelt",
-            )
-            self.assertTrue(
-                np.isclose(xds.declination.attrs["cdelt"], ev["dec_cdelt"]),
-                "Incorrect Dec cdelt",
-            )
-            """
             self.assertTrue(
                 np.isclose(
                     xds.attrs["direction"]["reference"]["cdelt"][0], ev["ra_cdelt"]
@@ -475,23 +436,6 @@ class ImageBase(unittest.TestCase):
                 "Incorrect Dec cdelt",
             )
         else:
-            """
-            self.assertEqual(
-                xds.right_ascension.attrs["crval"],
-                ev["ra_crval"],
-                "Incorrect RA crval",
-            )
-            self.assertEqual(
-                xds.right_ascension.attrs["cdelt"],
-                ev["ra_cdelt"],
-                "Incorrect RA cdelt",
-            )
-            self.assertEqual(
-                xds.declination.attrs["cdelt"],
-                ev["dec_cdelt"],
-                "Incorrect Dec cdelt",
-            )
-            """
             self.assertEqual(
                 xds.attrs["direction"]["reference"]["cdelt"][0],
                 ev["ra_cdelt"],
@@ -509,19 +453,7 @@ class ImageBase(unittest.TestCase):
         self.assertTrue(
             np.allclose(xds.declination, ev["dec"], atol=1e-15), "Incorrect Dec values"
         )
-        """
-        self.assertEqual(
-            xds.right_ascension.attrs["units"], ev["ra_unit"], "Incorrect RA unit"
-        )
-        self.assertEqual(
-            xds.declination.attrs["units"], ev["dec_unit"], "Incorrect Dec unit"
-        )
-        self.assertEqual(
-            xds.declination.attrs["crval"],
-            ev["dec_crval"],
-            "Incorrect Dec crval",
-        )
-        """
+
 
     def compare_attrs(self, xds: xr.Dataset, fits: bool = False):
         my_exp_attrs = copy.deepcopy(self.exp_attrs())
@@ -939,34 +871,11 @@ class make_empty_sky_image_test(ImageBase):
             "Incorrect frequency coordinate values",
         )
         expec = {
-            # "conversion": {
-            #    "direction": {
-            #        "units": ["rad", "rad"],
-            #        "value": np.array([0.0, 1.5707963267948966]),
-            #        "frame": "FK5",
-            #        "type": "sky_coord",
-            #    },
-            #    "epoch": {
-            #        "units": "d",
-            #        "value": 0.0,
-            #        "refer": "LAST",
-            #        "type": "quantity",
-            #    },
-            #    "position": {
-            #        "units": ["rad", "rad", "m"],
-            #        "value": np.array([0.0, 0.0, 0.0]),
-            #        "ellipsoid": "GRS80",
-            #        "type": "position",
-            #    },
-            #    "system": "LSRK",
-            # },
-            # "native_type": "FREQ",
             "rest_frequency": {
                 "type": "quantity",
                 "value": 1413000000.0,
                 "units": "Hz",
             },
-            # "restfreqs":{'type': 'quantity', 'value': [1413000000.0], 'units': 'Hz'},
             "frame": "LSRK",
             "units": "Hz",
             "wave_unit": "mm",
@@ -1102,8 +1011,11 @@ class make_empty_sky_image_test(ImageBase):
             np.isclose(skel.right_ascension, expec).all(),
             "Incorrect right_ascension coordinate values",
         )
-        expec = {"units": "rad", "crval": 0.2, "cdelt": -0.0002908882086657216}
-        self.dict_equality(skel.right_ascension.attrs, expec, "got", "expected")
+        self.assertEqual(
+            skel.right_ascension.attrs,
+            {},
+            "right ascension has non-empty attrs dict but it should be empty"
+        )
 
     def test_declination_coord(self):
         skel = self.skel_im()
@@ -1233,8 +1145,11 @@ class make_empty_sky_image_test(ImageBase):
             np.isclose(skel.declination, expec).all(),
             "Incorrect declinationion coordinate values",
         )
-        expec = {"units": "rad", "crval": -0.5, "cdelt": 0.0002908882086657216}
-        self.dict_equality(skel.declination.attrs, expec, "got", "expected")
+        self.assertEqual(
+            skel.declination.attrs,
+            {},
+            "declination attrs dict is not empty but it should be empty"
+        )
         expec2 = {
             "type": "sky_coord",
             "frame": "FK5",

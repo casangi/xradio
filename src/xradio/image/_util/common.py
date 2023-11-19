@@ -175,7 +175,7 @@ def _compute_world_sph_dims(
     projection: str,
     shape: List[int], # two element list of long-lat shape
     ctype: List[str], # two element list of long-lat axis names
-    crpix: List[float], # two element list of long-lat crpix
+    crpix: List[float], # two element list of long-lat crpix (zero-based)
     crval: List[float], # two element list of long-lat crval
     cdelt: List[float], # two element list of long-lat increments
     cunit: List[str], # two element list of long-lat units

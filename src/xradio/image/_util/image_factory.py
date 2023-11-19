@@ -2,7 +2,7 @@ from astropy.wcs import WCS
 import numpy as np
 import xarray as xr
 from typing import Union
-from .common import _c
+from .common import _c, _compute_world_sph_dims
 from ..._utils.common import _deg_to_rad
 
 
@@ -24,25 +24,17 @@ def _make_empty_sky_image(
         raise ValueError("phase_center must have exactly two elements")
     if len(cell_size) != 2:
         raise ValueError("cell_size must have exactly two elements")
-    wcs_dict = {}
-    wcs_dict["NAXIS1"] = image_size[0]
-    wcs_dict["CTYPE1"] = f"RA---{projection}"
-    wcs_dict["CRVAL1"] = phase_center[0]
-    wcs_dict["CRPIX1"] = image_size[0] // 2 + 1
-    wcs_dict["CDELT1"] = -abs(cell_size[0])
-    wcs_dict["CUNIT1"] = "rad"
-    wcs_dict["NAXIS2"] = image_size[1]
-    wcs_dict["CTYPE2"] = f"DEC--{projection}"
-    wcs_dict["CRVAL2"] = phase_center[1]
-    wcs_dict["CRPIX2"] = image_size[1] // 2 + 1
-    wcs_dict["CDELT2"] = abs(cell_size[1])
-    wcs_dict["CUNIT2"] = "rad"
-    w = WCS(wcs_dict)
-    x, y = np.indices(w.pixel_shape)
-    long, lat = w.pixel_to_world_values(x, y)
-    # long, lat from above eqn will always be in degrees, so convert to rad
-    long *= _deg_to_rad
-    lat *= _deg_to_rad
+    long, lat = _compute_world_sph_dims(
+        projection=projection,
+        shape=image_size,
+        ctype=["RA", "Dec"],
+        crpix=[image_size[0] // 2, image_size[1] // 2],
+        crval=phase_center,
+        cdelt=[-abs(cell_size[0]), abs(cell_size[1])],
+        cunit=["rad", "rad"]
+    )["value"]
+
+
     if not isinstance(chan_coords, list) and not isinstance(chan_coords, np.ndarray):
         chan_coords = [chan_coords]
     chan_coords = np.array(chan_coords, dtype=np.float64)
@@ -62,34 +54,11 @@ def _make_empty_sky_image(
     xds = xds.assign_coords(coords)
     xds.time.attrs = {"format": "MJD", "scale": "UTC", "units": "d"}
     xds.frequency.attrs = {
-        # "conversion": {
-        #    "direction": {
-        #        "type": "sky_coord",
-        #        "units": ["rad", "rad"],
-        #        "frame": "FK5",
-        #        "value": np.array([0.0, 1.5707963267948966]),
-        #    },
-        #    "epoch": {
-        #        "units": "d",
-        #        "value": 0.0,
-        #        "refer": "LAST",
-        #        "type": "quantity",
-        #    },
-        #    "position": {
-        #        "units": ["rad", "rad", "m"],
-        #        "value": np.array([0.0, 0.0, 0.0]),
-        #        "ellipsoid": "GRS80",
-        #        "type": "position",
-        #    },
-        #    "system": spectral_reference.upper(),
-        # },
-        # "native_type": "FREQ",
         "rest_frequency": {
             "type": "quantity",
             "units": "Hz",
             "value": restfreq,
         },
-        # "restfreqs":{'type': 'quantity', 'units': 'Hz', 'value': [restfreq],},
         "frame": spectral_reference.upper(),
         "units": "Hz",
         "wave_unit": "mm",
@@ -98,20 +67,8 @@ def _make_empty_sky_image(
         "pc": 1.0,
     }
     xds.velocity.attrs = {"doppler_type": "RADIO", "units": "m/s"}
-    xds.right_ascension.attrs = {
-        "units": "rad",
-        "crval": phase_center[0],
-        "cdelt": -abs(cell_size[0]),
-    }
-    xds.declination.attrs = {
-        "units": "rad",
-        "crval": phase_center[1],
-        "cdelt": abs(cell_size[1]),
-    }
     xds.attrs = {
         "direction": {
-            # "conversion_system": direction_reference,
-            # "conversion_equinox": "J2000",
             "reference": {
                 "type": "sky_coord",
                 "frame": direction_reference,
@@ -122,10 +79,8 @@ def _make_empty_sky_image(
             },
             "long_pole": 0.0,
             "lat_pole": 0.0,
-            #'pc': np.array([[1.0, 0.0], [0.0, 1.0]]),
             "pc": [[1.0, 0.0], [0.0, 1.0]],
             "projection": projection,
-            #'projection_parameters': np.array([0.0, 0.0]),
             "projection_parameters": [0.0, 0.0],
         },
         "active_mask": "",
@@ -138,9 +93,6 @@ def _make_empty_sky_image(
             "units": "d",
         },
         "observer": "Karl Jansky",
-        #'pointing_center': {
-        #    'value': np.array(phase_center), 'initial': True
-        # },
         "pointing_center": {"value": list(phase_center), "initial": True},
         "description": "",
         "telescope": {

@@ -16,16 +16,14 @@ from ._casacore.xds_to_casacore import (
     _write_casa_data,
 )
 from ._casacore.xds_from_casacore import (
-    _add_coord_attrs,
     _add_mask,
     _add_sky_or_apeture,
     _casa_image_to_xds_attrs,
-    _casa_image_to_xds_metadata,
+    _casa_image_to_xds_coords,
     _get_mask_names,
     _get_persistent_block,
     _get_starts_shapes_slices,
     _get_transpose_list,
-    _make_coord_subset,
     _multibeam_array,
     _read_image_array,
 )
@@ -46,10 +44,9 @@ def _load_casa_image_block(infile: str, block_des: dict) -> xr.Dataset:
     with _open_image_ro(image_full_path) as casa_image:
         coords = casa_image.coordinates()
         cshape = casa_image.shape()
-    ret = _casa_image_to_xds_metadata(image_full_path, False)
-    xds = ret["xds"]
+    ret = _casa_image_to_xds_coords(image_full_path, False)
+    xds = ret["xds"].isel(block_des)
     starts, shapes, slices = _get_starts_shapes_slices(block_des, coords, cshape)
-    xds = _make_coord_subset(xds, slices)
     dimorder = _get_xds_dim_order(ret["sphr_dims"])
     transpose_list, new_axes = _get_transpose_list(coords)
     block = _get_persistent_block(
@@ -71,7 +68,6 @@ def _load_casa_image_block(infile: str, block_des: dict) -> xr.Dataset:
             if k in block_des:
                 selectors[k] = block_des[k]
         xds["beam"] = mb.isel(selectors)
-    xds = _add_coord_attrs(xds, ret["icoords"], ret["dir_axes"])
     return xds
 
 
@@ -83,7 +79,7 @@ def _read_casa_image(
     verbose: bool = False,
 ) -> xr.Dataset:
     img_full_path = os.path.expanduser(infile)
-    ret = _casa_image_to_xds_metadata(img_full_path, verbose)
+    ret = _casa_image_to_xds_coords(img_full_path, verbose)
     xds = ret["xds"]
     dimorder = _get_xds_dim_order(ret["sphr_dims"])
     xds = _add_sky_or_apeture(
@@ -102,7 +98,7 @@ def _read_casa_image(
     mb = _multibeam_array(xds, img_full_path, True)
     if mb is not None:
         xds["beam"] = mb
-    xds = _add_coord_attrs(xds, ret["icoords"], ret["dir_axes"])
+    # xds = _add_coord_attrs(xds, ret["icoords"], ret["dir_axes"])
     xds = _dask_arrayize(xds)
     return xds
 

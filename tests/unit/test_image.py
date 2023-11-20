@@ -176,6 +176,7 @@ class ImageBase(unittest.TestCase):
         cls._xds = read_image(cls._imname, {"frequency": 5})
         write_image(cls._xds, cls._outname, out_format="casa")
 
+
     def imname(self):
         return self._imname
 
@@ -503,6 +504,7 @@ class ImageBase(unittest.TestCase):
             "right_ascension",
             "declination",
         ):
+            print(f"block xds {c} {xds[c].attrs}")
             self.dict_equality(
                 xds[c].attrs, big_xds[c].attrs, f"block xds {c}", "main xds {c}"
             )

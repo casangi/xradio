@@ -8,7 +8,7 @@ import dask.array as da
 import logging
 import numpy as np
 import os
-from typing import List, Union
+from typing import List, Tuple, Union
 import xarray as xr
 
 from .common import (
@@ -32,34 +32,18 @@ from ...._utils._casacore.tables import extract_table_attributes, open_table_ro
 from ...._utils.common import _deg_to_rad
 
 
-def _add_coord_attrs(xds: xr.Dataset, icoords: dict, diraxes: list) -> xr.Dataset:
+"""
+def _add_coord_attrs(xds: xr.Dataset, icoords: dict, dir_axes: list) -> xr.Dataset:
     _add_time_attrs(xds, icoords)
     _add_freq_attrs(xds, icoords)
     xds = _add_vel_attrs(xds, icoords)
-    xds = _add_lin_attrs(xds, icoords, diraxes)
+    xds = _add_lin_attrs(xds, icoords, dir_axes)
     return xds
+"""
 
 
 def _add_lin_attrs(xds, coord_dict, dir_axes):
     for k in coord_dict:
-        """
-        if k.startswith("direction"):
-            dd = coord_dict[k]
-            for i in (0, 1):
-                meta = {}
-                meta["units"] = "rad"
-                unit = dd["units"][i]
-                if unit == "'":
-                    unit = "arcmin"
-                elif unit == '"':
-                    unit = "arcsec"
-                ap_unit = 1 * u.Unit(unit)
-                scale = ap_unit.to("rad").value
-                meta["crval"] = dd["crval"][i] * scale
-                meta["cdelt"] = dd["cdelt"][i] * scale
-                xds[dir_axes[i]].attrs = copy.deepcopy(meta)
-            break
-        """
         if k.startswith("linear"):
             ld = coord_dict[k]
             for i in (0, 1):
@@ -117,10 +101,9 @@ def _add_sky_or_apeture(
     has_sph_dims: bool,
 ) -> xr.Dataset:
     xda = xr.DataArray(ary, dims=dimorder)
-    casa_image = images.image(img_full_path)
-    image_type = casa_image.info()["imageinfo"]["imagetype"]
-    unit = casa_image.unit()
-    del casa_image
+    with _open_image_ro(img_full_path) as casa_image:
+        image_type = casa_image.info()["imageinfo"]["imagetype"]
+        unit = casa_image.unit()
     xda.attrs[_image_type] = image_type
     xda.attrs["units"] = unit
     name = "sky" if has_sph_dims else "apeture"
@@ -275,7 +258,7 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
     return copy.deepcopy(attrs)
 
 
-def _casa_image_to_xds_metadata(img_full_path: str, verbose: bool = False) -> dict:
+def _casa_image_to_xds_coords(img_full_path: str, verbose: bool = False) -> dict:
     """
     TODO: complete documentation
     Create an xds without any pixel data from metadata from the specified CASA image
@@ -304,39 +287,56 @@ def _casa_image_to_xds_metadata(img_full_path: str, verbose: bool = False) -> di
     )
     attrs["sphr_dims"] = sphr_dims
     coords = {}
-    coords["time"] = _get_time_values(coord_dict)
-    coords["polarization"] = _get_pol_values(coord_dict)
-    coords["frequency"] = _get_freq_values(csys, shape)
-    coords["velocity"] = (
-        ["frequency"],
-        _get_velocity_values(coord_dict, coords["frequency"]),
-    )
+    coord_attrs = {}
+    (coords["time"], coord_attrs["time"]) = _get_time_values_attrs(coord_dict)
+    (coords["polarization"], coord_attrs["polarization"]) = _get_pol_values_attrs(coord_dict)
+    (coords["frequency"], coord_attrs["frequency"]) = _get_freq_values_attrs(csys, shape)
+    (velocity_vals, coord_attrs["velocity"]) = _get_velocity_values_attrs(coord_dict, coords["frequency"])
+    coords["velocity"] = (["frequency"], velocity_vals)
     if len(sphr_dims) > 0:
+        crpix = _flatten_list(csys.get_referencepixel())[::-1]
+        inc = _flatten_list(csys.get_increment())[::-1]
+        unit = _flatten_list(csys.get_unit())[::-1]
+        for c in ["l", "m"]:
+            idx = dimmap[c]
+            delta = (abs(inc[idx]) * u.Unit(_get_unit(unit[idx]))).to("rad").value
+            coords[c] = _compute_linear_world_values(
+                naxis=shape[idx], crval=0.0, crpix=crpix[idx], cdelt=delta
+            )
+            coord_attrs[c] = {
+                "type": "quantity",
+                "units": "rad",
+                "crval": 0.0,
+                "cdelt": delta
+            }
         for k in coord_dict.keys():
             if k.startswith("direction"):
                 dc = coordinates.directioncoordinate(coord_dict[k])
                 break
-        crpix = _flatten_list(csys.get_referencepixel()[::-1])
-        crval = _flatten_list(csys.get_referencevalue()[::-1])
-        inc = _flatten_list(csys.get_increment()[::-1])
-        unit = _flatten_list(csys.get_unit()[::-1])
+        crval = _flatten_list(csys.get_referencevalue())[::-1]
         pick = lambda my_list : [ my_list[i] for i in sphr_dims ]
         my_ret = _compute_world_sph_dims(
             projection=dc.get_projection(),
-            shape=pick(shape)[::-1],
-            ctype=diraxes[::-1],
+            shape=pick(shape),
+            ctype=diraxes,
             crval=pick(crval),
             crpix=pick(crpix),
             cdelt=pick(inc),
             cunit=pick(unit),
         )
-        coords[my_ret["axis_name"][0]] = (["l", "m"], my_ret["value"][0])
-        coords[my_ret["axis_name"][1]] = (["l", "m"], my_ret["value"][1])
+        for i in [0, 1]:
+            axis_name = my_ret["axis_name"][i]
+            coords[axis_name] = (["l", "m"], my_ret["value"][i])
+            coord_attrs[axis_name] = {}
     else:
         # Fourier image
-        coords["u"], coords["v"] = _get_uv_values(coord_dict, axis_names, shape)
+        ret = _get_uv_values_attrs(coord_dict, axis_names, shape)
+        for z in ["u", "v"]:
+            coords[z], coord_attrs[z] = ret[z]
     attrs["shape"] = shape
     xds = xr.Dataset(coords=coords)
+    for c in coord_attrs.keys():
+        xds[c].attrs = coord_attrs[c]
     attrs["xds"] = xds
     return attrs
 
@@ -490,6 +490,43 @@ def _get_freq_values(coords: coordinates.coordinatesystem, shape: tuple) -> list
         return [1420e6]
 
 
+def _get_freq_values_attrs(
+    casa_coords: coordinates.coordinatesystem,
+    shape: tuple
+) -> Tuple[List[float], dict]:
+    values = None
+    attrs = {}
+    idx = _get_image_axis_order(casa_coords)[::-1].index("Frequency")
+    if idx >= 0:
+        casa_coord_dict = casa_coords.dict()
+        for k in casa_coord_dict:
+            if k.startswith("spectral"):
+                sd = casa_coord_dict[k]
+                wcs = sd["wcs"]
+                values = _compute_linear_world_values(
+                    naxis=shape[idx], crval=wcs["crval"], crpix=wcs["crpix"],
+                    cdelt=wcs["cdelt"]
+                )
+                attrs["rest_frequency"] = {
+                    "type": "quantity",
+                    "units": "Hz",
+                    "value": sd["restfreq"],
+                }
+                attrs["type"] = "frequency"
+                attrs["units"] = sd["unit"]
+                attrs["frame"] = sd["system"]
+                attrs["wave_unit"] = sd["waveUnit"]
+                attrs["crval"] = sd["wcs"]["crval"]
+                attrs["cdelt"] = sd["wcs"]["cdelt"]
+                attrs = copy.deepcopy(attrs)
+                break
+    else:
+        values = [1420e6]
+        # this is the default frequency information CASA creates
+        attrs = _default_freq_info()
+    return (values, attrs)
+
+
 def _get_image_axis_order(coords: coordinates.coordinatesystem) -> list:
     """
     get the *reverse* order of image axes
@@ -576,7 +613,19 @@ def _get_persistent_block(
     return block
 
 
-def _get_pol_values(coord_dict):
+def _get_pol_values_attrs(casa_coord_dict:dict) -> Tuple[List[str], dict]:
+    values = None
+    for k in casa_coord_dict:
+        if k.startswith("stokes"):
+            values = casa_coord_dict[k]["stokes"]
+    if values is None:
+        values = ["I"]
+    return (values, {})
+
+
+
+
+def _get_pol_values(coord_dict:dict) -> List[str]:
     for k in coord_dict:
         if k.startswith("stokes"):
             return coord_dict[k]["stokes"]
@@ -609,6 +658,17 @@ def _get_starts_shapes_slices(
             starts.append(0)
             shapes.append(cshape[i])
     return starts, shapes, slices
+
+
+def _get_time_values_attrs(cimage_coord_dict: dict) -> Tuple[List[float], dict]:
+    attrs = {}
+    attrs["type"] = "time"
+    attrs["scale"] = cimage_coord_dict["obsdate"]["refer"]
+    unit = cimage_coord_dict["obsdate"]["m0"]["unit"]
+    attrs["units"] = unit
+    time_val = cimage_coord_dict["obsdate"]["m0"]["value"]
+    attrs["format"] = _get_time_format(time_val, unit)
+    return ([time_val], copy.deepcopy(attrs))
 
 
 def _get_time_values(coord_dict):
@@ -657,7 +717,7 @@ def _get_transpose_list(coords: coordinates.coordinatesystem) -> list:
     return transpose_list, new_axes
 
 
-def _get_uv_values(coord_dict, axis_names, shape):
+def _get_uv_values(coord_dict: dict, axis_names: List[str], shape: Tuple[int]) -> Tuple[List[float]]:
     for i, axis in enumerate(["UU", "VV"]):
         idx = axis_names.index(axis)
         if idx >= 0:
@@ -678,6 +738,38 @@ def _get_uv_values(coord_dict, axis_names, shape):
     return u, v
 
 
+def _get_uv_values_attrs(
+    casa_coord_dict: dict,
+    axis_names: List[str],
+    shape: Tuple[int]
+) -> dict:
+    ret = {}
+    for i, axis in enumerate(["UU", "VV"]):
+        idx = axis_names.index(axis)
+        if idx >= 0:
+            for k in casa_coord_dict:
+                cdict = casa_coord_dict[k]
+                if k.startswith("linear"):
+                    crpix = cdict["crpix"][i]
+                    crval = cdict["crval"][i]
+                    cdelt = cdict["cdelt"][i]
+                    attrs = {
+                        "crval": crval,
+                        "cdelt": cdelt,
+                        "units": cdict["unit"],
+                        "type": "quantity"
+                    }
+                    z = _compute_linear_world_values(
+                        naxis=shape[idx],
+                        crpix=crpix,
+                        crval=crval,
+                        cdelt=cdelt,
+                    )
+                    name = "u" if axis == "UU" else "v"
+                    ret[name] = (z, attrs)
+    return ret
+
+
 def _get_velocity_values(coord_dict: dict, freq_values: list) -> list:
     restfreq = 1420405751.786
     for k in coord_dict:
@@ -687,10 +779,30 @@ def _get_velocity_values(coord_dict: dict, freq_values: list) -> list:
     return _compute_velocity_values(
         restfreq=restfreq, freq_values=freq_values, doppler="RADIO"
     )
-    # doppler type = RADIO definition
-    # return [((1 - f / restfreq) * _c).value for f in freq_values]
 
 
+def _get_velocity_values_attrs(coord_dict: dict, freq_values: List[float]) -> Tuple[List[float], dict]:
+    restfreq = 1420405751.786
+    attrs = {}
+    for k in coord_dict:
+        if k.startswith("spectral"):
+            sd = coord_dict[k]
+            restfreq = sd["restfreq"]
+            attrs["doppler_type"] = _doppler_types[sd["velType"]]
+            break
+    if not attrs:
+        attrs["doppler_type"] = _doppler_types[0]
+
+    attrs["units"] = "m/s"
+    attrs["type"] = "doppler"
+    return (
+        _compute_velocity_values(
+            restfreq=restfreq, freq_values=freq_values, doppler="RADIO"
+        ),
+        copy.deepcopy(attrs)
+    )
+
+"""
 def _make_coord_subset(xds: xr.Dataset, slices: dict) -> xr.Dataset:
     dim_to_coord_map = {}
     coord_to_dim_map = {}
@@ -702,27 +814,37 @@ def _make_coord_subset(xds: xr.Dataset, slices: dict) -> xr.Dataset:
                     dim_to_coord_map[d].append(c)
                 else:
                     dim_to_coord_map[d] = [c]
-    save_coord = {}
+    print(f"dim_to_coord_map {dim_to_coord_map}")
+    print(f"coord_to_dim_map {coord_to_dim_map}")
+    save_values = {}
+    print(f"slices {slices}")
+    save_attrs = {}
     for dim in slices:
         if dim in dim_to_coord_map:
             for coord_name in dim_to_coord_map[dim]:
+                print(f"dim {dim} coord {coord_name}")
                 for dim_num, coord_dim in enumerate(xds[coord_name].dims):
                     if coord_dim == dim:
-                        if coord_name not in save_coord:
-                            save_coord[coord_name] = xds[coord_name].values
-                        save_coord[coord_name] = np.take(
-                            save_coord[coord_name],
+                        if coord_name not in save_values:
+                            save_values[coord_name] = xds[coord_name].values
+                            save_attrs[coord_name] = xds[coord_name].attrs
+                        save_values[coord_name] = np.take(
+                            save_values[coord_name],
                             range(slices[dim].start, slices[dim].stop),
                             dim_num,
                         )
-    xds = xds.drop_vars(save_coord.keys())
+                        print(f"save_values[{coord_name}] {save_values[coord_name]}")
+    xds = xds.drop_vars(save_values.keys())
     for coord in xds.coords:
         if coord in slices:
             xds[coord] = xds[coord][slices[coord]]
-    for coord in save_coord:
-        xds = xds.assign_coords({coord: (coord_to_dim_map[coord], save_coord[coord])})
+    for coord in save_values:
+        print(f"coord {coord}")
+        print(f"save_values[{coord}] {save_values[coord]}")
+        xds = xds.assign_coords({coord: (coord_to_dim_map[coord], save_values[coord])})
+        xds[coord].attrs = save_attrs[coord]
     return xds
-
+"""
 
 def _multibeam_array(
     xds: xr.Dataset, img_full_path: str, as_dask_array: bool

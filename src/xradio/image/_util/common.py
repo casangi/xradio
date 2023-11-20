@@ -244,6 +244,13 @@ def _compute_linear_world_values(
     return np.array([ crval + (i-crpix)*cdelt for i in range(naxis) ])
 
 
+#def _compute_pixel_values(naxis:int, crpix:float) -> np.ndarray:
+    """
+    Simple linear transformation to get all pixel values in a specific dimension
+    """
+    #return np.array([ i-crpix for i in range(naxis) ])
+
+
 #def _compute_ref_pix(xds: xr.Dataset, direction: dict) -> np.ndarray:
 def _compute_sky_reference_pixel(xds: xr.Dataset) -> np.ndarray:
     # TODO more general coordinates

@@ -25,7 +25,7 @@ from typing import Union
 import xarray as xr
 
 
-def _fits_image_to_xds(img_full_path: str, chunks: dict, verbose: bool = False) -> dict:
+def _fits_image_to_xds(img_full_path: str, chunks: dict, verbose: bool, do_sky_coords : bool) -> dict:
     """
     TODO: complete documentation
     Create an xds without any pixel data from metadata from the specified FITS image
@@ -38,7 +38,7 @@ def _fits_image_to_xds(img_full_path: str, chunks: dict, verbose: bool = False) 
     hdulist.close()
     # avoid keeping reference to mem-mapped fits file
     del hdulist
-    xds = _create_coords(helpers, header)
+    xds = _create_coords(helpers, header, do_sky_coords)
     sphr_dims = helpers["sphr_dims"]
     ary = _read_image_array(img_full_path, chunks, helpers, verbose)
     dim_order = _get_xds_dim_order(sphr_dims)
@@ -145,8 +145,8 @@ def _add_l_m_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
             attrs = {
                 "type": "quantity",
                 "crval": 0.0,
-                "units": "rad",
-                "cdelt": abs(helpers["cdelt"][helpers["dim_map"][c]])
+                "units": helpers[c]["cunit"],
+                "cdelt": helpers[c]["cdelt"]
             }
             xds[c].attrs = attrs
     return xds
@@ -486,7 +486,7 @@ def _make_history_xds(header):
             history_list.pop(i)
 
 
-def _create_coords(helpers, header):
+def _create_coords(helpers : dict, header : fits.header, do_sky_coords : bool) -> xr.Dataset:
     dir_axes = helpers["dir_axes"]
     dim_map = helpers["dim_map"]
     sphr_dims = (
@@ -499,33 +499,37 @@ def _create_coords(helpers, header):
     coords["frequency"] = _get_freq_values(helpers)
     coords["velocity"] = (["frequency"], _get_velocity_values(helpers))
     if len(sphr_dims) > 0:
-        pick = lambda mylist : [ mylist[i] for i in sphr_dims ]
-        my_ret = _compute_world_sph_dims(
-            projection=helpers['projection'],
-            shape=pick(helpers["shape"]),
-            ctype=pick(helpers["ctype"]),
-            crpix=pick(helpers['crpix']),
-            crval=pick(helpers['crval']),
-            cdelt=pick(helpers["cdelt"]),
-            cunit=pick(helpers["cunit"]),
-        )
-        for c, i in zip(["l", "m"], (0, 1)):
+        for i, c in enumerate(["l", "m"]):
             idx = sphr_dims[i]
-            cdelt_rad = abs(helpers["cdelt"][idx]) * u.Unit(_get_unit(helpers["cunit"][idx]))
-            cdelt_rad = cdelt_rad.to("rad").value
+            cdelt_rad = helpers["cdelt"][idx] * u.Unit(_get_unit(helpers["cunit"][idx]))
+            cdelt_rad = abs(cdelt_rad.to("rad").value)
+            helpers[c] = {}
+            helpers[c]["cunit"] = "rad"
+            helpers[c]["cdelt"] = cdelt_rad
             coords[c] = _compute_linear_world_values(
                 naxis=helpers["shape"][idx],
                 crpix=helpers["crpix"][idx],
                 crval=0.0,
                 cdelt=cdelt_rad,
             )
-        for i, j in zip(dir_axes, (0, 1)):
-            helpers["cunit"][i] = my_ret["unit"][j]
-            helpers["crval"][i] = my_ret["ref_val"][j]
-            helpers["cdelt"][i] = my_ret["inc"][j]
-        coords[my_ret["axis_name"][0]] = (["l", "m"], my_ret["value"][0])
-        coords[my_ret["axis_name"][1]] = (["l", "m"], my_ret["value"][1])
-        helpers["sphr_axis_names"] = tuple(my_ret["axis_name"])
+        if do_sky_coords:
+            pick = lambda mylist : [ mylist[i] for i in sphr_dims ]
+            my_ret = _compute_world_sph_dims(
+                projection=helpers['projection'],
+                shape=pick(helpers["shape"]),
+                ctype=pick(helpers["ctype"]),
+                crpix=pick(helpers['crpix']),
+                crval=pick(helpers['crval']),
+                cdelt=pick(helpers["cdelt"]),
+                cunit=pick(helpers["cunit"]),
+            )
+            for j, i in enumerate(dir_axes):
+                helpers["cunit"][i] = my_ret["unit"][j]
+                helpers["crval"][i] = my_ret["ref_val"][j]
+                helpers["cdelt"][i] = my_ret["inc"][j]
+            coords[my_ret["axis_name"][0]] = (["l", "m"], my_ret["value"][0])
+            coords[my_ret["axis_name"][1]] = (["l", "m"], my_ret["value"][1])
+            helpers["sphr_axis_names"] = tuple(my_ret["axis_name"])
     else:
         # Fourier image
         coords["u"], coords["v"] = _get_uv_values(helpers)

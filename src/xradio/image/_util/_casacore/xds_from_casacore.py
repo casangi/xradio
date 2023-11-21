@@ -258,7 +258,7 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
     return copy.deepcopy(attrs)
 
 
-def _casa_image_to_xds_coords(img_full_path: str, verbose: bool = False) -> dict:
+def _casa_image_to_xds_coords(img_full_path: str, verbose: bool, do_sky_coords : bool) -> dict:
     """
     TODO: complete documentation
     Create an xds without any pixel data from metadata from the specified CASA image
@@ -309,25 +309,26 @@ def _casa_image_to_xds_coords(img_full_path: str, verbose: bool = False) -> dict
                 "crval": 0.0,
                 "cdelt": delta
             }
-        for k in coord_dict.keys():
-            if k.startswith("direction"):
-                dc = coordinates.directioncoordinate(coord_dict[k])
-                break
-        crval = _flatten_list(csys.get_referencevalue())[::-1]
-        pick = lambda my_list : [ my_list[i] for i in sphr_dims ]
-        my_ret = _compute_world_sph_dims(
-            projection=dc.get_projection(),
-            shape=pick(shape),
-            ctype=diraxes,
-            crval=pick(crval),
-            crpix=pick(crpix),
-            cdelt=pick(inc),
-            cunit=pick(unit),
-        )
-        for i in [0, 1]:
-            axis_name = my_ret["axis_name"][i]
-            coords[axis_name] = (["l", "m"], my_ret["value"][i])
-            coord_attrs[axis_name] = {}
+        if do_sky_coords:
+            for k in coord_dict.keys():
+                if k.startswith("direction"):
+                    dc = coordinates.directioncoordinate(coord_dict[k])
+                    break
+            crval = _flatten_list(csys.get_referencevalue())[::-1]
+            pick = lambda my_list : [ my_list[i] for i in sphr_dims ]
+            my_ret = _compute_world_sph_dims(
+                projection=dc.get_projection(),
+                shape=pick(shape),
+                ctype=diraxes,
+                crval=pick(crval),
+                crpix=pick(crpix),
+                cdelt=pick(inc),
+                cunit=pick(unit),
+            )
+            for i in [0, 1]:
+                axis_name = my_ret["axis_name"][i]
+                coords[axis_name] = (["l", "m"], my_ret["value"][i])
+                coord_attrs[axis_name] = {}
     else:
         # Fourier image
         ret = _get_uv_values_attrs(coord_dict, axis_names, shape)

@@ -17,6 +17,7 @@ def _make_empty_sky_image(
     direction_reference: str,
     projection: str,
     spectral_reference: str,
+    do_sky_coords: bool,
 ) -> xr.Dataset:
     if len(image_size) != 2:
         raise ValueError("image_size must have exactly two elements")
@@ -24,15 +25,16 @@ def _make_empty_sky_image(
         raise ValueError("phase_center must have exactly two elements")
     if len(cell_size) != 2:
         raise ValueError("cell_size must have exactly two elements")
-    long, lat = _compute_world_sph_dims(
-        projection=projection,
-        shape=image_size,
-        ctype=["RA", "Dec"],
-        crpix=[image_size[0] // 2, image_size[1] // 2],
-        crval=phase_center,
-        cdelt=[-abs(cell_size[0]), abs(cell_size[1])],
-        cunit=["rad", "rad"]
-    )["value"]
+    if do_sky_coords:
+        long, lat = _compute_world_sph_dims(
+            projection=projection,
+            shape=image_size,
+            ctype=["RA", "Dec"],
+            crpix=[image_size[0] // 2, image_size[1] // 2],
+            crval=phase_center,
+            cdelt=[-abs(cell_size[0]), abs(cell_size[1])],
+            cunit=["rad", "rad"]
+        )["value"]
     l_coords = [ (i - image_size[0] // 2) * abs(cell_size[0]) for i in range(image_size[0]) ]
     m_coords = [ (i - image_size[1] // 2) * abs(cell_size[1]) for i in range(image_size[1]) ]
 
@@ -44,16 +46,26 @@ def _make_empty_sky_image(
     if not isinstance(time_coords, list) and not isinstance(time_coords, np.ndarray):
         time_coords = [time_coords]
     time_coords = np.array(time_coords, dtype=np.float64)
-    coords = {
-        "time": time_coords,
-        "polarization": pol_coords,
-        "frequency": chan_coords,
-        "velocity": ("frequency", vel),
-        "l": l_coords,
-        "m": m_coords,
-        "right_ascension": (("l", "m"), long),
-        "declination": (("l", "m"), lat),
-    }
+    if do_sky_coords:
+        coords = {
+            "time": time_coords,
+            "polarization": pol_coords,
+            "frequency": chan_coords,
+            "velocity": ("frequency", vel),
+            "l": l_coords,
+            "m": m_coords,
+            "right_ascension": (("l", "m"), long),
+            "declination": (("l", "m"), lat),
+        }
+    else:
+        coords = {
+            "time": time_coords,
+            "polarization": pol_coords,
+            "frequency": chan_coords,
+            "velocity": ("frequency", vel),
+            "l": l_coords,
+            "m": m_coords,
+        }
     xds = xds.assign_coords(coords)
     xds.time.attrs = {"format": "MJD", "scale": "UTC", "units": "d"}
     xds.frequency.attrs = {

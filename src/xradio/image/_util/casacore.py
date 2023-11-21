@@ -39,12 +39,12 @@ from casacore.images import image
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 
-def _load_casa_image_block(infile: str, block_des: dict) -> xr.Dataset:
+def _load_casa_image_block(infile: str, block_des: dict, do_sky_coords) -> xr.Dataset:
     image_full_path = os.path.expanduser(infile)
     with _open_image_ro(image_full_path) as casa_image:
         coords = casa_image.coordinates()
         cshape = casa_image.shape()
-    ret = _casa_image_to_xds_coords(image_full_path, False)
+    ret = _casa_image_to_xds_coords(image_full_path, False, do_sky_coords)
     xds = ret["xds"].isel(block_des)
     starts, shapes, slices = _get_starts_shapes_slices(block_des, coords, cshape)
     dimorder = _get_xds_dim_order(ret["sphr_dims"])
@@ -74,12 +74,13 @@ def _load_casa_image_block(infile: str, block_des: dict) -> xr.Dataset:
 def _read_casa_image(
     infile: str,
     chunks: Union[list, dict],
+    verbose: bool,
+    do_sky_coords: bool,
     masks: bool = True,
     history: bool = True,
-    verbose: bool = False,
 ) -> xr.Dataset:
     img_full_path = os.path.expanduser(infile)
-    ret = _casa_image_to_xds_coords(img_full_path, verbose)
+    ret = _casa_image_to_xds_coords(img_full_path, verbose, do_sky_coords)
     xds = ret["xds"]
     dimorder = _get_xds_dim_order(ret["sphr_dims"])
     xds = _add_sky_or_apeture(

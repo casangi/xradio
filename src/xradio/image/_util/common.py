@@ -253,6 +253,13 @@ def _compute_linear_world_values(
 
 #def _compute_ref_pix(xds: xr.Dataset, direction: dict) -> np.ndarray:
 def _compute_sky_reference_pixel(xds: xr.Dataset) -> np.ndarray:
+    crpix = [None, None]
+    for i, c in enumerate(["l", "m"]):
+        vals = xds[c].values
+        idx = np.array(range(len(vals)))
+        crpix[i] = np.interp(0.0, vals, idx)
+    return np.array(crpix)
+    """
     # TODO more general coordinates
     ref = xds.attrs['direction']["reference"]
     long = xds.right_ascension
@@ -311,5 +318,6 @@ def _compute_sky_reference_pixel(xds: xr.Dataset) -> np.ndarray:
         unit=ref["units"][0],
     )
     return w.world_to_pixel(sky)
+    """
 
 

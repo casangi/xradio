@@ -28,6 +28,9 @@ class ImageBase(unittest.TestCase):
     _infits: str = "inp.fits"
     _xds = None
     _exp_vals: dict = {
+        "shape": xr.core.utils.Frozen({
+            "time": 1, "polarization": 4, "frequency": 10, "l": 30, "m": 20
+        }),
         "dec_unit": "rad",
         "freq_cdelt": 1000,
         "freq_crpix": 20,
@@ -134,7 +137,11 @@ class ImageBase(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        for f in [cls._imname, cls._outname, cls._infits]:
+        for f in [
+            cls._imname,
+            cls._outname,
+            cls._infits
+        ]:
             if os.path.exists(f):
                 if os.path.isdir(f):
                     shutil.rmtree(f)
@@ -174,6 +181,7 @@ class ImageBase(unittest.TestCase):
         im.tofits(cls._infits)
         del im
         cls._xds = read_image(cls._imname, {"frequency": 5})
+        cls.assertTrue(cls._xds.dims == cls._exp_vals["shape"], "Incorrect shape")
         write_image(cls._xds, cls._outname, out_format="casa")
 
 
@@ -324,12 +332,9 @@ class ImageBase(unittest.TestCase):
 
     def compare_frequency(self, xds: xr.Dataset):
         ev = self._exp_vals
-        print("got", xds.frequency)
-        print("expec", ev["frequency"])
         self.assertTrue(
             np.isclose(xds.frequency, ev["frequency"]).all(), "Incorrect frequencies"
         )
-        print(ev.keys())
         self.dict_equality(
             xds.frequency.attrs["rest_frequency"],
             ev["rest_frequency"],
@@ -400,6 +405,28 @@ class ImageBase(unittest.TestCase):
             ev["vel_mea_type"],
             "Incoorect doppler measure type",
         )
+
+
+    def compare_l_m(self, xds: xr.Dataset) -> None:
+        l_vals = xds.coords["l"].values
+        m_vals = xds.coords["m"].values
+        cdelt = np.pi / 180 / 60
+        self.assertTrue(
+            np.isclose(
+                l_vals, np.array([ (i - 15) * cdelt for i in range(xds.dims["l"])])
+            ).all(),
+            "Wrong l values"
+        )
+        self.assertTrue(
+            np.isclose(m_vals, np.array([ (i - 10) * cdelt for i in range(xds.dims["m"]) ])).all(),
+            "Wrong m values"
+        )
+        l_attrs = xds.coords["l"].attrs
+        m_attrs = xds.coords["m"].attrs
+        e_attrs = {"crval": 0, "cdelt": cdelt, "units": "rad", "type": "quantity"}
+        self.dict_equality(l_attrs, e_attrs, "got l attrs", "expec l attrs")
+        self.dict_equality(m_attrs, e_attrs, "got m attrs", "expec l attrs")
+
 
     def compare_ra_dec(self, xds: xr.Dataset, fits: bool = False) -> None:
         ev = self._exp_vals
@@ -498,13 +525,14 @@ class ImageBase(unittest.TestCase):
         )
         for c in (
             "time",
-            "frequency",
             "polarization",
+            "frequency",
             "velocity",
+            "l",
+            "m",
             "right_ascension",
             "declination",
         ):
-            print(f"block xds {c} {xds[c].attrs}")
             self.dict_equality(
                 xds[c].attrs, big_xds[c].attrs, f"block xds {c}", "main xds {c}"
             )
@@ -564,6 +592,10 @@ class casa_image_to_xds_test(ImageBase):
     def test_xds_vel_axis(self):
         """Test xds has correct velocity values and metadata"""
         self.compare_vel_axis(self.xds())
+
+    def test_xds_l_m_axis(self):
+        """Test xds has correct l and m values and attributes"""
+        self.compare_l_m(self.xds())
 
     def test_xds_ra_dec_axis(self):
         """Test xds has correct RA and Dec values and attributes"""
@@ -816,6 +848,10 @@ class xds_to_zarr_to_xds_test(ImageBase):
         """Test xds has correct velocity values and metadata"""
         self.compare_vel_axis(self._zds)
 
+    def test_xds_l_m_axis(self):
+        """Test xds has correct l and m values and attributes"""
+        self.compare_l_m(self._zds)
+
     def test_xds_ra_dec_axis(self):
         """Test xds has correct RA and Dec values and attributes"""
         self.compare_ra_dec(self._zds)
@@ -895,6 +931,20 @@ class make_empty_sky_image_test(ImageBase):
         )
         expec = {"doppler_type": "RADIO", "units": "m/s"}
         self.dict_equality(skel.velocity.attrs, expec, "got", "expected")
+
+    def test_l_m_coord(self):
+        skel = self.skel_im()
+        cdelt = np.pi /180/60
+        expec = [ (i - 5) * cdelt for i in range(10) ]
+        expec_attrs = {
+            "type": "quantity",
+            "crval": 0.0,
+            "cdelt": cdelt,
+            "units": "rad"
+        }
+        for c in ["l", "m"]:
+            self.assertTrue(np.isclose(skel[c].values, expec).all(), f"Incorrect {c} coord values")
+            self.dict_equality(skel[c].attrs, expec_attrs, f"got {c} attrs", "expec {c} attrs")
 
     def test_right_ascension_coord(self):
         skel = self.skel_im()
@@ -1254,6 +1304,10 @@ class fits_to_xds_test(ImageBase):
     def test_xds_vel_axis(self):
         """Test xds has correct velocity values and metadata"""
         self.compare_vel_axis(self._fds, True)
+
+    def test_xds_l_m_axis(self):
+        """Test xds has correct l and m values and attributes"""
+        self.compare_l_m(self._fds)
 
     def test_xds_ra_dec_axis(self):
         """Test xds has correct RA and Dec values and attributes"""

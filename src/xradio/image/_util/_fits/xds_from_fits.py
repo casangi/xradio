@@ -54,6 +54,7 @@ def _add_coord_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     xds = _add_time_attrs(xds, helpers)
     xds = _add_freq_attrs(xds, helpers)
     xds = _add_vel_attrs(xds, helpers)
+    xds = _add_l_m_attrs(xds, helpers)
     xds = _add_lin_attrs(xds, helpers)
     return xds
 
@@ -135,6 +136,19 @@ def _add_vel_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     meta["type"] = "doppler"
     vel_coord.attrs = copy.deepcopy(meta)
     xds.coords["velocity"] = vel_coord
+    return xds
+
+
+def _add_l_m_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
+    for c in ["l", "m"]:
+        if c in xds.coords:
+            attrs = {
+                "type": "quantity",
+                "crval": 0.0,
+                "units": "rad",
+                "cdelt": abs(helpers["cdelt"][helpers["dim_map"][c]])
+            }
+            xds[c].attrs = attrs
     return xds
 
 
@@ -495,6 +509,16 @@ def _create_coords(helpers, header):
             cdelt=pick(helpers["cdelt"]),
             cunit=pick(helpers["cunit"]),
         )
+        for c, i in zip(["l", "m"], (0, 1)):
+            idx = sphr_dims[i]
+            cdelt_rad = abs(helpers["cdelt"][idx]) * u.Unit(_get_unit(helpers["cunit"][idx]))
+            cdelt_rad = cdelt_rad.to("rad").value
+            coords[c] = _compute_linear_world_values(
+                naxis=helpers["shape"][idx],
+                crpix=helpers["crpix"][idx],
+                crval=0.0,
+                cdelt=cdelt_rad,
+            )
         for i, j in zip(dir_axes, (0, 1)):
             helpers["cunit"][i] = my_ret["unit"][j]
             helpers["crval"][i] = my_ret["ref_val"][j]

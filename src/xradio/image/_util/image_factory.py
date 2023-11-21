@@ -33,7 +33,8 @@ def _make_empty_sky_image(
         cdelt=[-abs(cell_size[0]), abs(cell_size[1])],
         cunit=["rad", "rad"]
     )["value"]
-
+    l_coords = [ (i - image_size[0] // 2) * abs(cell_size[0]) for i in range(image_size[0]) ]
+    m_coords = [ (i - image_size[1] // 2) * abs(cell_size[1]) for i in range(image_size[1]) ]
 
     if not isinstance(chan_coords, list) and not isinstance(chan_coords, np.ndarray):
         chan_coords = [chan_coords]
@@ -48,6 +49,8 @@ def _make_empty_sky_image(
         "polarization": pol_coords,
         "frequency": chan_coords,
         "velocity": ("frequency", vel),
+        "l": l_coords,
+        "m": m_coords,
         "right_ascension": (("l", "m"), long),
         "declination": (("l", "m"), lat),
     }
@@ -67,6 +70,8 @@ def _make_empty_sky_image(
         "pc": 1.0,
     }
     xds.velocity.attrs = {"doppler_type": "RADIO", "units": "m/s"}
+    xds.l.attrs = {"type": "quantity", "crval": 0.0, "cdelt": abs(cell_size[0]), "units": "rad"}
+    xds.m.attrs = {"type": "quantity", "crval": 0.0, "cdelt": abs(cell_size[1]), "units": "rad"}
     xds.attrs = {
         "direction": {
             "reference": {

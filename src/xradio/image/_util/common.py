@@ -3,8 +3,9 @@ import astropy.units as u
 import dask
 import dask.array as da
 import numpy as np
+from typing import List
 import xarray as xr
-
+from ..._utils.common import _deg_to_rad
 
 _c = 2.99792458e08 * u.m / u.s
 # OPTICAL = Z
@@ -152,8 +153,8 @@ def _freq_from_vel(
         "cdelt": cdelt,
         "crpix": crpix,
     }
-    uctype = ctype.upper()
-    if uctype == "Z" or uctype == "OPTICAL":
+    uctype = ctype.lower()
+    if uctype in ["z", "optical"]:
         freq = restfreq / (np.array(vel.value) * vel.unit / _c + 1)
         freq = freq.to(u.Hz)
         fcrval = restfreq / (crval * vel.unit / _c + 1)
@@ -168,3 +169,152 @@ def _freq_from_vel(
     else:
         raise RuntimeError(f"Unhandled doppler type {ctype}")
     return f_dict, v_dict
+
+
+def _compute_world_sph_dims(
+    projection: str,
+    shape: List[int],  # two element list of long-lat shape
+    ctype: List[str],  # two element list of long-lat axis names
+    crpix: List[float],  # two element list of long-lat crpix (zero-based)
+    crval: List[float],  # two element list of long-lat crval
+    cdelt: List[float],  # two element list of long-lat increments
+    cunit: List[str],  # two element list of long-lat units
+) -> dict:
+    # Note that if doesn't matter if the inputs are in long, lat or lat, long order,
+    # as long as all inputs have consistent ordering
+    wcs_dict = {}
+    ret = {
+        "axis_name": [None, None],
+        "ref_val": [None, None],
+        "inc": [None, None],
+        "unit": ["rad", "rad"],
+        "value": [None, None],
+    }
+    for i in range(2):
+        axis_name = ctype[i].lower()
+        if axis_name.startswith("right") or axis_name.startswith("ra"):
+            fi = 1
+            wcs_dict[f"CTYPE1"] = f"RA---{projection}"
+            new_name = "right_ascension"
+        if axis_name.startswith("dec"):
+            fi = 2
+            wcs_dict["CTYPE2"] = f"DEC--{projection}"
+            new_name = "declination"
+        wcs_dict[f"NAXIS{fi}"] = shape[i]
+        j = fi - 1
+        x_unit = _get_unit(cunit[i])
+        wcs_dict[f"CUNIT{fi}"] = x_unit
+        wcs_dict[f"CDELT{fi}"] = cdelt[i]
+        # FITS arrays are 1-based
+        wcs_dict[f"CRPIX{fi}"] = crpix[i] + 1
+        wcs_dict[f"CRVAL{fi}"] = crval[i]
+        ret["axis_name"][j] = new_name
+        ret["ref_val"][j] = u.quantity.Quantity(f"{crval[i]}{x_unit}").to("rad").value
+        ret["inc"][j] = u.quantity.Quantity(f"{cdelt[i]}{x_unit}").to("rad").value
+    w = ap.wcs.WCS(wcs_dict)
+    x, y = np.indices(w.pixel_shape)
+    long, lat = w.pixel_to_world_values(x, y)
+    # long, lat from above eqn will always be in degrees, so convert to rad
+    ret["value"][0] = long * _deg_to_rad
+    ret["value"][1] = lat * _deg_to_rad
+    return ret
+
+
+def _compute_velocity_values(
+    restfreq: float,  # in Hz
+    freq_values: List[float],  # in Hz
+    doppler: str,  # doppler definition
+) -> List[float]:
+    dop = doppler.lower()
+    if dop == "radio":
+        return [((1 - f / restfreq) * _c).value for f in freq_values]
+    elif dop in ["z", "optical"]:
+        return [((restfreq / f - 1) * _c).value for f in freq_values]
+    else:
+        raise RuntimeError(f"Doppler definition {doppler} not supported")
+
+
+def _compute_linear_world_values(
+    naxis: int, crval: float, crpix: float, cdelt: float
+) -> np.ndarray:
+    """
+    Simple linear transformation to get world values which can be used for certain
+    coordinates like (often) frequency, l, m, u, v
+    """
+    return np.array([crval + (i - crpix) * cdelt for i in range(naxis)])
+
+    # def _compute_pixel_values(naxis:int, crpix:float) -> np.ndarray:
+    """
+    Simple linear transformation to get all pixel values in a specific dimension
+    """
+    # return np.array([ i-crpix for i in range(naxis) ])
+
+
+# def _compute_ref_pix(xds: xr.Dataset, direction: dict) -> np.ndarray:
+def _compute_sky_reference_pixel(xds: xr.Dataset) -> np.ndarray:
+    crpix = [None, None]
+    for i, c in enumerate(["l", "m"]):
+        vals = xds[c].values
+        idx = np.array(range(len(vals)))
+        crpix[i] = np.interp(0.0, vals, idx)
+    return np.array(crpix)
+    """
+    # TODO more general coordinates
+    ref = xds.attrs['direction']["reference"]
+    long = xds.right_ascension
+    lat = xds.declination
+    [ ra_crval, dec_crval ] = ref["value"]
+    long_close = np.where(np.isclose(long, ra_crval))
+    lat_close = np.where(np.isclose(lat, dec_crval))
+    if long_close and lat_close:
+        long_list = [(i, j) for i, j in zip(long_close[0], long_close[1])]
+        lat_list = [(i, j) for i, j in zip(lat_close[0], lat_close[1])]
+        common_indices = [t for t in long_list if t in lat_list]
+        if len(common_indices) == 1:
+            return np.array(common_indices[0])
+    cdelt = max(abs(ref["cdelt"]))
+
+    # this creates an image of mostly NaNs. The few pixels with values are
+    # close to the reference pixel
+    ra_diff = long - ra_crval
+    dec_diff = lat - dec_crval
+    # this returns a 2-tuple of indices where the values in aa are not NaN
+    indices_close = np.where(
+        ra_diff * ra_diff + dec_diff * dec_diff < 2 * cdelt * cdelt
+    )
+    # this determines the closest pixel to the reference pixel
+    closest = 5e10
+    pix = []
+    for i, j in zip(indices_close[0], indices_close[1]):
+        dra = long[i, j] - ra_crval
+        ddec = lat[i, j] - dec_crval
+        if dra * dra + ddec * ddec < closest:
+            pix = [i, j]
+    # get the actual ref pix
+    proj = xds.attrs["direction"]["projection"]
+    wcs_dict = {}
+    wcs_dict[f"CTYPE1"] = f"RA---{proj}"
+    wcs_dict[f"NAXIS1"] = long.shape[0]
+    wcs_dict[f"CUNIT1"] = ref["units"][0]
+    # FITS arrays are 1-based
+    wcs_dict[f"CRPIX1"] = pix[0] + 1
+    wcs_dict[f"CRVAL1"] = long[pix[0], pix[1]].item(0)
+    wcs_dict[f"CDELT1"] = ref["cdelt"][0]
+    wcs_dict[f"CTYPE2"] = f"DEC--{proj}"
+    wcs_dict[f"NAXIS2"] = lat.shape[1]
+    wcs_dict[f"CUNIT2"] = ref["units"][1]
+    # FITS arrays are 1-based
+    wcs_dict[f"CRPIX2"] = pix[1] + 1
+    wcs_dict[f"CRVAL2"] = lat[pix[0], pix[1]].item(0)
+    wcs_dict[f"CDELT2"] = ref["cdelt"][1]
+    w = astropy.wcs.WCS(wcs_dict)
+    x, y = np.indices(w.pixel_shape)
+    sky = SkyCoord(
+        ra_crval,
+        dec_crval,
+        frame=xds.attrs["direction"]["system"].lower(),
+        equinox=xds.attrs["direction"]["equinox"],
+        unit=ref["units"][0],
+    )
+    return w.world_to_pixel(sky)
+    """

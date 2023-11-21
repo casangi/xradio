@@ -3,7 +3,9 @@ from astropy import units as u
 from astropy.io import fits
 from astropy.time import Time
 from ..common import (
-    _c,
+    _compute_linear_world_values,
+    _compute_velocity_values,
+    _compute_world_sph_dims,
     _convert_beam_to_rad,
     _default_freq_info,
     _doppler_types,
@@ -23,7 +25,9 @@ from typing import Union
 import xarray as xr
 
 
-def _fits_image_to_xds(img_full_path: str, chunks: dict, verbose: bool = False) -> dict:
+def _fits_image_to_xds(
+    img_full_path: str, chunks: dict, verbose: bool, do_sky_coords: bool
+) -> dict:
     """
     TODO: complete documentation
     Create an xds without any pixel data from metadata from the specified FITS image
@@ -36,7 +40,7 @@ def _fits_image_to_xds(img_full_path: str, chunks: dict, verbose: bool = False) 
     hdulist.close()
     # avoid keeping reference to mem-mapped fits file
     del hdulist
-    xds = _create_coords(helpers, header)
+    xds = _create_coords(helpers, header, do_sky_coords)
     sphr_dims = helpers["sphr_dims"]
     ary = _read_image_array(img_full_path, chunks, helpers, verbose)
     dim_order = _get_xds_dim_order(sphr_dims)
@@ -52,7 +56,8 @@ def _add_coord_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     xds = _add_time_attrs(xds, helpers)
     xds = _add_freq_attrs(xds, helpers)
     xds = _add_vel_attrs(xds, helpers)
-    xds = _add_dir_lin_attrs(xds, helpers)
+    xds = _add_l_m_attrs(xds, helpers)
+    xds = _add_lin_attrs(xds, helpers)
     return xds
 
 
@@ -136,7 +141,21 @@ def _add_vel_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     return xds
 
 
-def _add_dir_lin_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
+def _add_l_m_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
+    for c in ["l", "m"]:
+        if c in xds.coords:
+            attrs = {
+                "type": "quantity",
+                "crval": 0.0,
+                "units": helpers[c]["cunit"],
+                "cdelt": helpers[c]["cdelt"],
+            }
+            xds[c].attrs = attrs
+    return xds
+
+
+def _add_lin_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
+    """
     if helpers["sphr_dims"]:
         for i, name in zip(helpers["dir_axes"], helpers["sphr_axis_names"]):
             meta = {
@@ -145,7 +164,8 @@ def _add_dir_lin_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
                 "cdelt": helpers["cdelt"][i],
             }
             xds.coords[name].attrs = meta
-    else:
+    """
+    if not helpers["sphr_dims"]:
         for i, j in zip(helpers["dir_axes"], ("u", "v")):
             meta = {
                 "units": "wavelengths",
@@ -468,7 +488,9 @@ def _make_history_xds(header):
             history_list.pop(i)
 
 
-def _create_coords(helpers, header):
+def _create_coords(
+    helpers: dict, header: fits.header, do_sky_coords: bool
+) -> xr.Dataset:
     dir_axes = helpers["dir_axes"]
     dim_map = helpers["dim_map"]
     sphr_dims = (
@@ -481,18 +503,41 @@ def _create_coords(helpers, header):
     coords["frequency"] = _get_freq_values(helpers)
     coords["velocity"] = (["frequency"], _get_velocity_values(helpers))
     if len(sphr_dims) > 0:
-        l_world, m_world = _compute_world_sph_dims(
-            sphr_dims, dir_axes, dim_map, helpers
-        )
-        coords[l_world[0]] = (["l", "m"], l_world[1])
-        coords[m_world[0]] = (["l", "m"], m_world[1])
-        helpers["sphr_axis_names"] = (l_world[0], m_world[0])
+        for i, c in enumerate(["l", "m"]):
+            idx = sphr_dims[i]
+            cdelt_rad = helpers["cdelt"][idx] * u.Unit(_get_unit(helpers["cunit"][idx]))
+            cdelt_rad = abs(cdelt_rad.to("rad").value)
+            helpers[c] = {}
+            helpers[c]["cunit"] = "rad"
+            helpers[c]["cdelt"] = cdelt_rad
+            coords[c] = _compute_linear_world_values(
+                naxis=helpers["shape"][idx],
+                crpix=helpers["crpix"][idx],
+                crval=0.0,
+                cdelt=cdelt_rad,
+            )
+        if do_sky_coords:
+            pick = lambda mylist: [mylist[i] for i in sphr_dims]
+            my_ret = _compute_world_sph_dims(
+                projection=helpers["projection"],
+                shape=pick(helpers["shape"]),
+                ctype=pick(helpers["ctype"]),
+                crpix=pick(helpers["crpix"]),
+                crval=pick(helpers["crval"]),
+                cdelt=pick(helpers["cdelt"]),
+                cunit=pick(helpers["cunit"]),
+            )
+            for j, i in enumerate(dir_axes):
+                helpers["cunit"][i] = my_ret["unit"][j]
+                helpers["crval"][i] = my_ret["ref_val"][j]
+                helpers["cdelt"][i] = my_ret["inc"][j]
+            coords[my_ret["axis_name"][0]] = (["l", "m"], my_ret["value"][0])
+            coords[my_ret["axis_name"][1]] = (["l", "m"], my_ret["value"][1])
+            helpers["sphr_axis_names"] = tuple(my_ret["axis_name"])
     else:
         # Fourier image
         coords["u"], coords["v"] = _get_uv_values(helpers)
     xds = xr.Dataset(coords=coords)
-    # attrs['xds'] = xds
-    # return attrs
     return xds
 
 
@@ -548,13 +593,13 @@ def _get_freq_values(helpers: dict) -> list:
     if "FREQ" in ctype:
         freq_idx = ctype.index("FREQ")
         helpers["freq_axis"] = freq_idx
-        crval = helpers["crval"][freq_idx]
-        crpix = helpers["crpix"][freq_idx]
-        cdelt = helpers["cdelt"][freq_idx]
-        cunit = helpers["cunit"][freq_idx]
-        freq_start_val = crval - cdelt * crpix
-        for i in range(helpers["shape"][freq_idx]):
-            vals.append(freq_start_val + i * cdelt)
+        vals = _compute_linear_world_values(
+            naxis=helpers["shape"][freq_idx],
+            crval=helpers["crval"][freq_idx],
+            crpix=helpers["crpix"][freq_idx],
+            cdelt=helpers["cdelt"][freq_idx],
+            cunit=helpers["cunit"][freq_idx],
+        )
         helpers["frequency"] = vals * u.Unit(cunit)
         return vals
     elif "VOPT" in ctype:
@@ -588,64 +633,13 @@ def _get_velocity_values(helpers: dict) -> list:
     if "velocity" in helpers:
         return helpers["velocity"].to(u.m / u.s).value
     elif "frequency" in helpers:
-        if helpers["doppler"] == "Z":
-            # (-1 + f0/f) = v/c
-            v = (
-                helpers["restfreq"] * u.Hz / helpers["frequency"].to("Hz").value - 1
-            ) * _c
-            v = v.to(u.m / u.s)
-            helpers["velocity"] = v
-            return v.value
-
-
-def _compute_world_sph_dims(
-    sphr_dims: list, dir_axes: list, dim_map: dict, helpers: dict
-) -> list:
-    shape = helpers["shape"]
-    ctype = helpers["ctype"]
-    unit = helpers["cunit"]
-    delt = helpers["cdelt"]
-    ref_pix = helpers["crpix"]
-    ref_val = helpers["crval"]
-    wcs_dict = {}
-    for i in dir_axes:
-        if ctype[i].startswith("RA"):
-            long_axis_name = "right_ascension"
-            fi = 1
-            wcs_dict[f"CTYPE1"] = ctype[i]
-            wcs_dict[f"NAXIS1"] = shape[dim_map["l"]]
-        if ctype[i].startswith("DEC"):
-            lat_axis_name = "declination"
-            fi = 2
-            wcs_dict["CTYPE2"] = ctype[i]
-            wcs_dict[f"NAXIS2"] = shape[dim_map["m"]]
-        t_unit = unit[i]
-        if t_unit == "'":
-            t_unit = "arcmin"
-        elif t_unit == '"':
-            t_unit = "arcsec"
-        wcs_dict[f"CUNIT{fi}"] = t_unit
-        wcs_dict[f"CDELT{fi}"] = delt[i]
-        # FITS arrays are 1-based
-        wcs_dict[f"CRPIX{fi}"] = ref_pix[i] + 1
-        wcs_dict[f"CRVAL{fi}"] = ref_val[i]
-
-    w = ap.wcs.WCS(wcs_dict)
-    x, y = np.indices(w.pixel_shape)
-    long, lat = w.pixel_to_world_values(x, y)
-    # long, lat will always be in degrees, so convert to rad
-    long *= _deg_to_rad
-    lat *= _deg_to_rad
-    crpix = helpers["crpix"][dir_axes[0]], helpers["crpix"][dir_axes[1]]
-    wcrvalx, wcrvaly = w.pixel_to_world_values(crpix[0], crpix[1])
-    wcrvalx = wcrvalx.tolist() * _deg_to_rad
-    wcrvaly = wcrvaly.tolist() * _deg_to_rad
-    wcrval = [wcrvalx, wcrvaly]
-    for i, j in zip(dir_axes, (0, 1)):
-        helpers["cunit"][i] = "rad"
-        helpers["crval"][i] = wcrval[j]
-        helpers["cdelt"][i] *= _deg_to_rad
-    return [[long_axis_name, long], [lat_axis_name, lat]]
+        v = _compute_velocity_values(
+            restfreq=helpers["reestfreq"],
+            freq_values=helpers["frequency"].to("Hz").value,
+            doppler=helpers["doppler"],
+        )
+        helpers["velocity"] = v * (u.m / u.s)
+        return v
 
 
 def _do_multibeam(xds: xr.Dataset, imname: str) -> xr.Dataset:

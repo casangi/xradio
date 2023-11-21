@@ -8,18 +8,19 @@ import dask.array as da
 import logging
 import numpy as np
 import os
-from typing import List, Union
+from typing import List, Tuple, Union
 import xarray as xr
 
 from .common import (
     _active_mask,
-    # _native_types,
     _object_name,
     _open_image_ro,
     _pointing_center,
 )
 from ..common import (
-    _c,
+    _compute_linear_world_values,
+    _compute_velocity_values,
+    _compute_world_sph_dims,
     _convert_beam_to_rad,
     _dask_arrayize,
     _default_freq_info,
@@ -31,33 +32,19 @@ from ...._utils._casacore.tables import extract_table_attributes, open_table_ro
 from ...._utils.common import _deg_to_rad
 
 
-def _add_coord_attrs(xds: xr.Dataset, icoords: dict, diraxes: list) -> xr.Dataset:
+"""
+def _add_coord_attrs(xds: xr.Dataset, icoords: dict, dir_axes: list) -> xr.Dataset:
     _add_time_attrs(xds, icoords)
     _add_freq_attrs(xds, icoords)
     xds = _add_vel_attrs(xds, icoords)
-    xds = _add_dir_lin_attrs(xds, icoords, diraxes)
+    xds = _add_lin_attrs(xds, icoords, dir_axes)
     return xds
+"""
 
 
-def _add_dir_lin_attrs(xds, coord_dict, dir_axes):
+def _add_lin_attrs(xds, coord_dict, dir_axes):
     for k in coord_dict:
-        if k.startswith("direction"):
-            dd = coord_dict[k]
-            for i in (0, 1):
-                meta = {}
-                meta["units"] = "rad"
-                unit = dd["units"][i]
-                if unit == "'":
-                    unit = "arcmin"
-                elif unit == '"':
-                    unit = "arcsec"
-                ap_unit = 1 * u.Unit(unit)
-                scale = ap_unit.to("rad").value
-                meta["crval"] = dd["crval"][i] * scale
-                meta["cdelt"] = dd["cdelt"][i] * scale
-                xds[dir_axes[i]].attrs = copy.deepcopy(meta)
-            break
-        elif k.startswith("linear"):
+        if k.startswith("linear"):
             ld = coord_dict[k]
             for i in (0, 1):
                 meta = {}
@@ -75,50 +62,6 @@ def _add_freq_attrs(xds, coord_dict):
     for k in coord_dict:
         if k.startswith("spectral"):
             sd = coord_dict[k]
-            """
-            conv = copy.deepcopy(sd["conversion"])
-            conv["direction"]["type"] = "sky_coord"
-            (
-                conv["direction"]["frame"],
-                conv["direction"]["equinox"],
-            ) = _convert_direction_system(conv["direction"]["refer"], False)
-            del conv["direction"]["refer"]
-            conv["direction"]["units"] = [
-                conv["direction"]["m0"]["unit"],
-                conv["direction"]["m1"]["unit"],
-            ]
-            conv["direction"]["value"] = [
-                conv["direction"]["m0"]["value"],
-                conv["direction"]["m1"]["value"],
-            ]
-            del conv["direction"]["m0"], conv["direction"]["m1"]
-            pf = conv["position"]["refer"]
-            if pf == "ITRF":
-                conv["position"]["ellipsoid"] = "GRS80"
-                del conv["position"]["refer"]
-            else:
-                raise RuntimeError(f"Unhandled earth location frame {pf}")
-            conv["position"]["units"] = [
-                conv["position"]["m0"]["unit"],
-                conv["position"]["m1"]["unit"],
-                conv["position"]["m2"]["unit"],
-            ]
-            conv["position"]["value"] = [
-                conv["position"]["m0"]["value"],
-                conv["position"]["m1"]["value"],
-                conv["position"]["m2"]["value"],
-            ]
-            for m in ["m0", "m1", "m2"]:
-                del conv["position"][m]
-            # epoch has missing values necessary to make a time measure
-            conv["epoch"] = {
-                "units": conv["epoch"]["m0"]["unit"],
-                "value": conv["epoch"]["m0"]["value"],
-                "type": "quantity",
-                "refer": conv["epoch"]["refer"],
-            }
-            meta["conversion"] = conv
-            """
             # meta["native_type"] = _native_types[sd["nativeType"]]
             meta["rest_frequency"] = {
                 "type": "quantity",
@@ -158,10 +101,9 @@ def _add_sky_or_apeture(
     has_sph_dims: bool,
 ) -> xr.Dataset:
     xda = xr.DataArray(ary, dims=dimorder)
-    casa_image = images.image(img_full_path)
-    image_type = casa_image.info()["imageinfo"]["imagetype"]
-    unit = casa_image.unit()
-    del casa_image
+    with _open_image_ro(img_full_path) as casa_image:
+        image_type = casa_image.info()["imageinfo"]["imagetype"]
+        unit = casa_image.unit()
     xda.attrs[_image_type] = image_type
     xda.attrs["units"] = unit
     name = "sky" if has_sph_dims else "apeture"
@@ -241,19 +183,6 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
                 q = coord_dir_dict[c][i] * unit
                 x = q.to("rad")
                 dir_dict["reference"][r][i] = x.value
-        # dir_dict["conversion_system"] = None
-        """
-        cs = "conversionSystem"
-        if cs in coord_dir_dict and (coord_dir_dict[cs] != coord_dir_dict[system]):
-            logging.warn(
-                "Conversion direction frame differs from native direction "
-                "frame in CASA image. However, ngCASA does not support conversion "
-                "frames at this time so the ngCASA image's conversion frame "
-                "will be set to the native frame"
-            )
-        dir_dict["conversion_system"] = dir_dict["frame"]
-        dir_dict["conversion_equinox"] = dir_dict["equinox"]
-        """
         k = "latpole"
         if k in coord_dir_dict:
             for j in (k, "longpole"):
@@ -329,7 +258,9 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
     return copy.deepcopy(attrs)
 
 
-def _casa_image_to_xds_metadata(img_full_path: str, verbose: bool = False) -> dict:
+def _casa_image_to_xds_coords(
+    img_full_path: str, verbose: bool, do_sky_coords: bool
+) -> dict:
     """
     TODO: complete documentation
     Create an xds without any pixel data from metadata from the specified CASA image
@@ -358,85 +289,65 @@ def _casa_image_to_xds_metadata(img_full_path: str, verbose: bool = False) -> di
     )
     attrs["sphr_dims"] = sphr_dims
     coords = {}
-    coords["time"] = _get_time_values(coord_dict)
-    coords["polarization"] = _get_pol_values(coord_dict)
-    coords["frequency"] = _get_freq_values(csys, shape)
-    coords["velocity"] = (
-        ["frequency"],
-        _get_velocity_values(coord_dict, coords["frequency"]),
+    coord_attrs = {}
+    (coords["time"], coord_attrs["time"]) = _get_time_values_attrs(coord_dict)
+    (coords["polarization"], coord_attrs["polarization"]) = _get_pol_values_attrs(
+        coord_dict
     )
+    (coords["frequency"], coord_attrs["frequency"]) = _get_freq_values_attrs(
+        csys, shape
+    )
+    (velocity_vals, coord_attrs["velocity"]) = _get_velocity_values_attrs(
+        coord_dict, coords["frequency"]
+    )
+    coords["velocity"] = (["frequency"], velocity_vals)
     if len(sphr_dims) > 0:
-        for k in coord_dict.keys():
-            if k.startswith("direction"):
-                dc = coordinates.directioncoordinate(coord_dict[k])
-                break
-        l_world, m_world = _compute_world_sph_dims(
-            sphr_dims, diraxes, csys, dc, shape, dimmap
-        )
-        coords[l_world[0]] = (["l", "m"], l_world[1])
-        coords[m_world[0]] = (["l", "m"], m_world[1])
-        # attrs['sky_ref_value'] = [l_world[1], m_world[1]]
+        crpix = _flatten_list(csys.get_referencepixel())[::-1]
+        inc = _flatten_list(csys.get_increment())[::-1]
+        unit = _flatten_list(csys.get_unit())[::-1]
+        for c in ["l", "m"]:
+            idx = dimmap[c]
+            delta = (abs(inc[idx]) * u.Unit(_get_unit(unit[idx]))).to("rad").value
+            coords[c] = _compute_linear_world_values(
+                naxis=shape[idx], crval=0.0, crpix=crpix[idx], cdelt=delta
+            )
+            coord_attrs[c] = {
+                "type": "quantity",
+                "units": "rad",
+                "crval": 0.0,
+                "cdelt": delta,
+            }
+        if do_sky_coords:
+            for k in coord_dict.keys():
+                if k.startswith("direction"):
+                    dc = coordinates.directioncoordinate(coord_dict[k])
+                    break
+            crval = _flatten_list(csys.get_referencevalue())[::-1]
+            pick = lambda my_list: [my_list[i] for i in sphr_dims]
+            my_ret = _compute_world_sph_dims(
+                projection=dc.get_projection(),
+                shape=pick(shape),
+                ctype=diraxes,
+                crval=pick(crval),
+                crpix=pick(crpix),
+                cdelt=pick(inc),
+                cunit=pick(unit),
+            )
+            for i in [0, 1]:
+                axis_name = my_ret["axis_name"][i]
+                coords[axis_name] = (["l", "m"], my_ret["value"][i])
+                coord_attrs[axis_name] = {}
     else:
         # Fourier image
-        coords["u"], coords["v"] = _get_uv_values(coord_dict, axis_names, shape)
+        ret = _get_uv_values_attrs(coord_dict, axis_names, shape)
+        for z in ["u", "v"]:
+            coords[z], coord_attrs[z] = ret[z]
     attrs["shape"] = shape
     xds = xr.Dataset(coords=coords)
+    for c in coord_attrs.keys():
+        xds[c].attrs = coord_attrs[c]
     attrs["xds"] = xds
     return attrs
-
-
-def _compute_world_sph_dims(
-    sphr_dims: list,
-    dir_axes: list,
-    csys: dict,
-    dc: coordinates.directioncoordinate,
-    shape: tuple,
-    dimmap: dict,
-) -> list:
-    proj = dc.get_projection()
-    # casacore csys getters return values in opposite order as the real axes order
-    coord_names = csys.get_names()[::-1]
-    for i, name in enumerate(coord_names):
-        if name.startswith("direction"):
-            dc_index = i
-            break
-    unit = csys.get_unit()[::-1]
-    inc = csys.get_increment()[::-1]
-    ref_pix = csys.get_referencepixel()[::-1]
-    ref_val = csys.get_referencevalue()[::-1]
-    wcs_dict = {}
-    # opposite of what you expect because, even though the coordinates have
-    # been ordered coorectly, the two direction coordinate axes are still flipped
-    for i, name in enumerate(dir_axes[::-1]):
-        if name.startswith("right"):
-            long_axis_name = name
-            fi = 1
-            wcs_dict[f"CTYPE1"] = f"RA---{proj}"
-            wcs_dict[f"NAXIS1"] = shape[dimmap["l"]]
-        if name.startswith("dec"):
-            lat_axis_name = name
-            fi = 2
-            wcs_dict["CTYPE2"] = f"DEC--{proj}"
-            wcs_dict[f"NAXIS2"] = shape[dimmap["m"]]
-        t_unit = _get_unit(unit[dc_index][i])
-        """
-        if t_unit == "'":
-            t_unit = 'arcmin'
-        elif t_unit == '"':
-            t_unit = 'arcsec'
-        """
-        wcs_dict[f"CUNIT{fi}"] = t_unit
-        wcs_dict[f"CDELT{fi}"] = inc[dc_index][i]
-        # FITS arrays are 1-based
-        wcs_dict[f"CRPIX{fi}"] = ref_pix[dc_index][i] + 1
-        wcs_dict[f"CRVAL{fi}"] = ref_val[dc_index][i]
-    w = astropy.wcs.WCS(wcs_dict)
-    x, y = np.indices(w.pixel_shape)
-    long, lat = w.pixel_to_world_values(x, y)
-    # long, lat from above eqn will always be in degrees, so convert to rad
-    long *= _deg_to_rad
-    lat *= _deg_to_rad
-    return [[long_axis_name, long], [lat_axis_name, lat]]
 
 
 def _convert_direction_system(
@@ -473,7 +384,7 @@ def _convert_direction_system(
 def _flatten_list(list_of_lists: list) -> list:
     flat = []
     for x in list_of_lists:
-        if type(x) == list:
+        if type(x) == list or type(x) == np.ndarray:
             flat.extend(_flatten_list(x))
         else:
             flat.append(x)
@@ -579,14 +490,53 @@ def _get_freq_values(coords: coordinates.coordinatesystem, shape: tuple) -> list
         coord_dict = coords.dict()
         for k in coord_dict:
             if k.startswith("spectral"):
-                freqs = []
                 wcs = coord_dict[k]["wcs"]
-                crpix = wcs["crpix"]
-                crval = wcs["crval"]
-                cdelt = wcs["cdelt"]
-                return [(i - crpix) * cdelt + crval for i in range(shape[idx])]
+                return _compute_linear_world_values(
+                    naxis=shape[idx],
+                    crval=wcs["crval"],
+                    crpix=wcs["crpix"],
+                    cdelt=wcs["cdelt"],
+                )
     else:
         return [1420e6]
+
+
+def _get_freq_values_attrs(
+    casa_coords: coordinates.coordinatesystem, shape: tuple
+) -> Tuple[List[float], dict]:
+    values = None
+    attrs = {}
+    idx = _get_image_axis_order(casa_coords)[::-1].index("Frequency")
+    if idx >= 0:
+        casa_coord_dict = casa_coords.dict()
+        for k in casa_coord_dict:
+            if k.startswith("spectral"):
+                sd = casa_coord_dict[k]
+                wcs = sd["wcs"]
+                values = _compute_linear_world_values(
+                    naxis=shape[idx],
+                    crval=wcs["crval"],
+                    crpix=wcs["crpix"],
+                    cdelt=wcs["cdelt"],
+                )
+                attrs["rest_frequency"] = {
+                    "type": "quantity",
+                    "units": "Hz",
+                    "value": sd["restfreq"],
+                }
+                attrs["type"] = "frequency"
+                attrs["units"] = sd["unit"]
+                attrs["frame"] = sd["system"]
+                attrs["wave_unit"] = sd["waveUnit"]
+                attrs["crval"] = sd["wcs"]["crval"]
+                attrs["cdelt"] = sd["wcs"]["cdelt"]
+                attrs = copy.deepcopy(attrs)
+                break
+    else:
+        values = [1420e6]
+        # this is the default frequency information CASA creates
+        attrs = _default_freq_info()
+    return (values, attrs)
 
 
 def _get_image_axis_order(coords: coordinates.coordinatesystem) -> list:
@@ -675,7 +625,17 @@ def _get_persistent_block(
     return block
 
 
-def _get_pol_values(coord_dict):
+def _get_pol_values_attrs(casa_coord_dict: dict) -> Tuple[List[str], dict]:
+    values = None
+    for k in casa_coord_dict:
+        if k.startswith("stokes"):
+            values = casa_coord_dict[k]["stokes"]
+    if values is None:
+        values = ["I"]
+    return (values, {})
+
+
+def _get_pol_values(coord_dict: dict) -> List[str]:
     for k in coord_dict:
         if k.startswith("stokes"):
             return coord_dict[k]["stokes"]
@@ -708,6 +668,17 @@ def _get_starts_shapes_slices(
             starts.append(0)
             shapes.append(cshape[i])
     return starts, shapes, slices
+
+
+def _get_time_values_attrs(cimage_coord_dict: dict) -> Tuple[List[float], dict]:
+    attrs = {}
+    attrs["type"] = "time"
+    attrs["scale"] = cimage_coord_dict["obsdate"]["refer"]
+    unit = cimage_coord_dict["obsdate"]["m0"]["unit"]
+    attrs["units"] = unit
+    time_val = cimage_coord_dict["obsdate"]["m0"]["value"]
+    attrs["format"] = _get_time_format(time_val, unit)
+    return ([time_val], copy.deepcopy(attrs))
 
 
 def _get_time_values(coord_dict):
@@ -756,7 +727,9 @@ def _get_transpose_list(coords: coordinates.coordinatesystem) -> list:
     return transpose_list, new_axes
 
 
-def _get_uv_values(coord_dict, axis_names, shape):
+def _get_uv_values(
+    coord_dict: dict, axis_names: List[str], shape: Tuple[int]
+) -> Tuple[List[float]]:
     for i, axis in enumerate(["UU", "VV"]):
         idx = axis_names.index(axis)
         if idx >= 0:
@@ -777,16 +750,72 @@ def _get_uv_values(coord_dict, axis_names, shape):
     return u, v
 
 
+def _get_uv_values_attrs(
+    casa_coord_dict: dict, axis_names: List[str], shape: Tuple[int]
+) -> dict:
+    ret = {}
+    for i, axis in enumerate(["UU", "VV"]):
+        idx = axis_names.index(axis)
+        if idx >= 0:
+            for k in casa_coord_dict:
+                cdict = casa_coord_dict[k]
+                if k.startswith("linear"):
+                    crpix = cdict["crpix"][i]
+                    crval = cdict["crval"][i]
+                    cdelt = cdict["cdelt"][i]
+                    attrs = {
+                        "crval": crval,
+                        "cdelt": cdelt,
+                        "units": cdict["unit"],
+                        "type": "quantity",
+                    }
+                    z = _compute_linear_world_values(
+                        naxis=shape[idx],
+                        crpix=crpix,
+                        crval=crval,
+                        cdelt=cdelt,
+                    )
+                    name = "u" if axis == "UU" else "v"
+                    ret[name] = (z, attrs)
+    return ret
+
+
 def _get_velocity_values(coord_dict: dict, freq_values: list) -> list:
     restfreq = 1420405751.786
     for k in coord_dict:
         if k.startswith("spectral"):
             restfreq = coord_dict[k]["restfreq"]
             break
-    # doppler type = RADIO definition
-    return [((1 - f / restfreq) * _c).value for f in freq_values]
+    return _compute_velocity_values(
+        restfreq=restfreq, freq_values=freq_values, doppler="RADIO"
+    )
 
 
+def _get_velocity_values_attrs(
+    coord_dict: dict, freq_values: List[float]
+) -> Tuple[List[float], dict]:
+    restfreq = 1420405751.786
+    attrs = {}
+    for k in coord_dict:
+        if k.startswith("spectral"):
+            sd = coord_dict[k]
+            restfreq = sd["restfreq"]
+            attrs["doppler_type"] = _doppler_types[sd["velType"]]
+            break
+    if not attrs:
+        attrs["doppler_type"] = _doppler_types[0]
+
+    attrs["units"] = "m/s"
+    attrs["type"] = "doppler"
+    return (
+        _compute_velocity_values(
+            restfreq=restfreq, freq_values=freq_values, doppler="RADIO"
+        ),
+        copy.deepcopy(attrs),
+    )
+
+
+"""
 def _make_coord_subset(xds: xr.Dataset, slices: dict) -> xr.Dataset:
     dim_to_coord_map = {}
     coord_to_dim_map = {}
@@ -798,26 +827,37 @@ def _make_coord_subset(xds: xr.Dataset, slices: dict) -> xr.Dataset:
                     dim_to_coord_map[d].append(c)
                 else:
                     dim_to_coord_map[d] = [c]
-    save_coord = {}
+    print(f"dim_to_coord_map {dim_to_coord_map}")
+    print(f"coord_to_dim_map {coord_to_dim_map}")
+    save_values = {}
+    print(f"slices {slices}")
+    save_attrs = {}
     for dim in slices:
         if dim in dim_to_coord_map:
             for coord_name in dim_to_coord_map[dim]:
+                print(f"dim {dim} coord {coord_name}")
                 for dim_num, coord_dim in enumerate(xds[coord_name].dims):
                     if coord_dim == dim:
-                        if coord_name not in save_coord:
-                            save_coord[coord_name] = xds[coord_name].values
-                        save_coord[coord_name] = np.take(
-                            save_coord[coord_name],
+                        if coord_name not in save_values:
+                            save_values[coord_name] = xds[coord_name].values
+                            save_attrs[coord_name] = xds[coord_name].attrs
+                        save_values[coord_name] = np.take(
+                            save_values[coord_name],
                             range(slices[dim].start, slices[dim].stop),
                             dim_num,
                         )
-    xds = xds.drop_vars(save_coord.keys())
+                        print(f"save_values[{coord_name}] {save_values[coord_name]}")
+    xds = xds.drop_vars(save_values.keys())
     for coord in xds.coords:
         if coord in slices:
             xds[coord] = xds[coord][slices[coord]]
-    for coord in save_coord:
-        xds = xds.assign_coords({coord: (coord_to_dim_map[coord], save_coord[coord])})
+    for coord in save_values:
+        print(f"coord {coord}")
+        print(f"save_values[{coord}] {save_values[coord]}")
+        xds = xds.assign_coords({coord: (coord_to_dim_map[coord], save_values[coord])})
+        xds[coord].attrs = save_attrs[coord]
     return xds
+"""
 
 
 def _multibeam_array(

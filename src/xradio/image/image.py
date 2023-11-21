@@ -18,7 +18,9 @@ import xarray as xr
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 
-def read_image(infile: str, chunks: dict = {}, verbose: bool = False) -> xr.Dataset:
+def read_image(
+    infile: str, chunks: dict = {}, verbose: bool = False, do_sky_coords: bool = True
+) -> xr.Dataset:
     """
     Convert CASA, FITS, or zarr image to xradio image xds format
     ngCASA image spec is located at
@@ -40,6 +42,12 @@ def read_image(infile: str, chunks: dict = {}, verbose: bool = False) -> xr.Data
         place of 'l', and 'v' in place of 'm'.
     verbose : bool
         emit debugging messages? Default is False.
+    do_sky_coords : bool
+        Compute SkyCoord at each pixel and add spherical (sky) dimensions as non-dimensional
+        coordinates in the returned xr.Dataset. Only applies to CASA and FITS images; zarr
+        images will have these coordinates added if they were saved with the zarr dataset,
+        and if zarr image didn't have these coordinates when it was written, the resulting
+        xr.Dataset will not.
     Returns
     -------
     xarray.Dataset
@@ -56,15 +64,15 @@ def read_image(infile: str, chunks: dict = {}, verbose: bool = False) -> xr.Data
         do_casa = False
     if do_casa:
         # next statement is for debug
-        # return _read_casa_image(infile, chunks, verbose=verbose)
+        # return _read_casa_image(infile, chunks, verbose, do_sky_coords)
         try:
-            return _read_casa_image(infile, chunks, verbose=verbose)
+            return _read_casa_image(infile, chunks, verbose, do_sky_coords)
         except Exception as e:
             emsgs.append(f"image format appears not to be casacore: {e.args}")
     # next statement is for debug, comment when done debugging
-    # return _read_fits_image(infile, chunks, verbose)
+    # return _read_fits_image(infile, chunks, verbose, do_sky_coords)
     try:
-        return _read_fits_image(infile, chunks, verbose)
+        return _read_fits_image(infile, chunks, verbose, do_sky_coords)
     except Exception as e:
         emsgs.append(f"image format appears not to be fits {e.args}")
     try:
@@ -72,12 +80,12 @@ def read_image(infile: str, chunks: dict = {}, verbose: bool = False) -> xr.Data
     except Exception as e:
         emsgs.append(f"image format appears not to be zarr {e.args}")
     emsgs.insert(
-        0, f"Unrecognized image format. Supported types are casacore and zarr.\n"
+        0, f"Unrecognized image format. Supported types are CASA, FITS, and zarr.\n"
     )
     raise RuntimeError("\n".join(emsgs))
 
 
-def load_image(infile: str, block_des: dict = {}) -> xr.Dataset:
+def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Dataset:
     """
     Load an image or portion of an image (subimage) into memory
 
@@ -94,6 +102,12 @@ def load_image(infile: str, block_des: dict = {}) -> xr.Dataset:
         the selection, and the end pixel is not. An empty dictionary (the
         default) indicates that the entire image should be returned. The returned
         dataset will have data variables stored as numpy, not dask, arrays as
+    do_sky_coords : bool
+        Compute SkyCoord at each pixel and add spherical (sky) dimensions as non-dimensional
+        coordinates in the returned xr.Dataset. Only applies to CASA and FITS images; zarr
+        images will have these coordinates added if they were saved with the zarr dataset,
+        and if zarr image didn't have these coordinates when it was written, the resulting
+        xr.Dataset will not.
     Returns
     -------
     xarray.Dataset
@@ -115,7 +129,7 @@ def load_image(infile: str, block_des: dict = {}) -> xr.Dataset:
         # comment next line when done debugging
         # return _load_casa_image_block(infile, block_des)
         try:
-            return _load_casa_image_block(infile, block_des)
+            return _load_casa_image_block(infile, block_des, do_sky_coords)
         except Exception as e:
             emsgs.append(f"image format appears not to be casacore: {e.args}")
     """
@@ -170,6 +184,7 @@ def make_empty_sky_image(
     direction_reference: str = "FK5",
     projection: str = "SIN",
     spectral_reference: str = "lsrk",
+    do_sky_coords: bool = True,
 ) -> xr.Dataset:
     """
     Create an image xarray.Dataset with only coordinates (no datavariables).
@@ -195,6 +210,9 @@ def make_empty_sky_image(
     direction_reference : str, default = 'FK5'
     projection : str, default = 'SIN'
     spectral_reference : str, default = 'lsrk'
+    do_sky_coords : bool
+        If True, compute SkyCoord at each pixel and add spherical (sky) dimensions as
+        non-dimensional coordinates in the returned xr.Dataset.
     Returns
     -------
     xarray.Dataset
@@ -210,4 +228,5 @@ def make_empty_sky_image(
         direction_reference,
         projection,
         spectral_reference,
+        do_sky_coords,
     )

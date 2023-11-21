@@ -28,9 +28,9 @@ class ImageBase(unittest.TestCase):
     _infits: str = "inp.fits"
     _xds = None
     _exp_vals: dict = {
-        "shape": xr.core.utils.Frozen({
-            "time": 1, "polarization": 4, "frequency": 10, "l": 30, "m": 20
-        }),
+        "shape": xr.core.utils.Frozen(
+            {"time": 1, "polarization": 4, "frequency": 10, "l": 30, "m": 20}
+        ),
         "dec_unit": "rad",
         "freq_cdelt": 1000,
         "freq_crpix": 20,
@@ -137,11 +137,7 @@ class ImageBase(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        for f in [
-            cls._imname,
-            cls._outname,
-            cls._infits
-        ]:
+        for f in [cls._imname, cls._outname, cls._infits]:
             if os.path.exists(f):
                 if os.path.isdir(f):
                     shutil.rmtree(f)
@@ -183,7 +179,6 @@ class ImageBase(unittest.TestCase):
         cls._xds_no_sky = read_image(cls._imname, {"frequency": 5}, False, False)
         cls.assertTrue(cls._xds.dims == cls._exp_vals["shape"], "Incorrect shape")
         write_image(cls._xds, cls._outname, out_format="casa")
-
 
     def imname(self):
         return self._imname
@@ -410,27 +405,27 @@ class ImageBase(unittest.TestCase):
             "Incoorect doppler measure type",
         )
 
-
     def compare_l_m(self, xds: xr.Dataset) -> None:
         cdelt = np.pi / 180 / 60
         l_vals = xds.coords["l"].values
         m_vals = xds.coords["m"].values
         self.assertTrue(
             np.isclose(
-                l_vals, np.array([ (i - 15) * cdelt for i in range(xds.dims["l"])])
+                l_vals, np.array([(i - 15) * cdelt for i in range(xds.dims["l"])])
             ).all(),
-            "Wrong l values"
+            "Wrong l values",
         )
         self.assertTrue(
-            np.isclose(m_vals, np.array([ (i - 10) * cdelt for i in range(xds.dims["m"]) ])).all(),
-            "Wrong m values"
+            np.isclose(
+                m_vals, np.array([(i - 10) * cdelt for i in range(xds.dims["m"])])
+            ).all(),
+            "Wrong m values",
         )
         l_attrs = xds.coords["l"].attrs
         m_attrs = xds.coords["m"].attrs
         e_attrs = {"crval": 0, "cdelt": cdelt, "units": "rad", "type": "quantity"}
         self.dict_equality(l_attrs, e_attrs, "got l attrs", "expec l attrs")
         self.dict_equality(m_attrs, e_attrs, "got m attrs", "expec l attrs")
-
 
     def compare_ra_dec(self, xds: xr.Dataset, fits: bool = False) -> None:
         ev = self._exp_vals
@@ -486,7 +481,6 @@ class ImageBase(unittest.TestCase):
             np.allclose(xds.declination, ev["dec"], atol=1e-15), "Incorrect Dec values"
         )
 
-
     def compare_attrs(self, xds: xr.Dataset, fits: bool = False):
         my_exp_attrs = copy.deepcopy(self.exp_attrs())
         if fits:
@@ -515,7 +509,7 @@ class ImageBase(unittest.TestCase):
                     "polarization": slice(0, 1),
                     "frequency": slice(0, 4),
                 },
-                do_sky_coords=i == 0
+                do_sky_coords=i == 0,
             )
             self.assertEqual(xds.sky.shape, (1, 1, 4, 8, 12), "Wrong block shape")
             big_xds = self._xds if i == 0 else self._xds_no_sky
@@ -535,7 +529,9 @@ class ImageBase(unittest.TestCase):
                 coords.extend(["right_ascension", "declination"])
             elif i == 1:
                 for c in ["right_ascension", "declination"]:
-                    self.assertTrue(c not in xds.coords, "{c} in coords but should not be")
+                    self.assertTrue(
+                        c not in xds.coords, "{c} in coords but should not be"
+                    )
             for c in coords:
                 self.dict_equality(
                     xds[c].attrs, big_xds[c].attrs, f"block xds {c}", "main xds {c}"
@@ -610,7 +606,6 @@ class casa_image_to_xds_test(ImageBase):
         expec.remove("declination")
         self.assertEqual(set(xds.coords.keys()), expec, "Incorrect coords")
 
-
     def test_xds_ra_dec_axis(self):
         """Test xds has correct RA and Dec values and attributes"""
         self.compare_ra_dec(self.xds())
@@ -628,13 +623,14 @@ class casacore_to_xds_to_casacore(ImageBase):
     test casacore -> xds -> casacore round trip, ensure
     the two casacore images are identical
     """
+
     _outname_no_sky = "from_xds_no_sky.im"
     _imname2: str = "demo_simulated.im"
     _imname3: str = "no_mask.im"
     _outname2: str = "check_beam.im"
-    _outname2_no_sky : str = _outname2 + "_no_sky"
+    _outname2_no_sky: str = _outname2 + "_no_sky"
     _outname3: str = "xds_2_casa_no_mask.im"
-    _outname3_no_sky : str = _outname3 + "_no_sky"
+    _outname3_no_sky: str = _outname3 + "_no_sky"
     _outname4: str = "xds_2_casa_nans_and_mask.im"
     _outname4_no_sky: str = _outname4 + "_no_sky"
     _outname5: str = "xds_2_casa_nans_already_masked.im"
@@ -675,7 +671,9 @@ class casacore_to_xds_to_casacore(ImageBase):
                     self.assertTrue(
                         (im1.getdata() == im2.getdata()).all(), "Incorrect pixel values"
                     )
-                    self.assertTrue((im1.getmask() == im2.getmask()).all(), "Incorrect mask values")
+                    self.assertTrue(
+                        (im1.getmask() == im2.getmask()).all(), "Incorrect mask values"
+                    )
 
     def test_metadata(self):
         """Test to verify metadata in two casacore images is the same"""
@@ -704,7 +702,9 @@ class casacore_to_xds_to_casacore(ImageBase):
         download(self._imname2), f"failed to download {self._imname2}"
         with open_image_ro(self._imname2) as im1:
             beams1 = im1.imageinfo()["perplanebeams"]
-            for do_sky, outname in zip([True, False], [self._outname2, self._outname2_no_sky]):
+            for do_sky, outname in zip(
+                [True, False], [self._outname2, self._outname2_no_sky]
+            ):
                 xds = read_image(self._imname2, do_sky_coords=do_sky)
                 write_image(xds, outname, out_format="casa")
                 with open_image_ro(outname) as im2:
@@ -781,7 +781,9 @@ class casacore_to_xds_to_casacore(ImageBase):
             xds.attrs["active_mask"] = "mask0"
             write_image(xds, out_1, out_format="casa")
             self.assertEqual(
-                xds.attrs["active_mask"], "mask0", "xds active mask was incorrectly reset"
+                xds.attrs["active_mask"],
+                "mask0",
+                "xds active mask was incorrectly reset",
             )
             subdirs = glob(f"{out_1}/*/")
             subdirs = [d[d.index("/") + 1 : -1] for d in subdirs]
@@ -802,7 +804,9 @@ class casacore_to_xds_to_casacore(ImageBase):
             xds["sky"][0, 1, 1, 1, 1] = 0
             write_image(xds, out_2, out_format="casa")
             self.assertEqual(
-                xds.attrs["active_mask"], "mask0", "xds active mask was incorrectly reset"
+                xds.attrs["active_mask"],
+                "mask0",
+                "xds active mask was incorrectly reset",
             )
             subdirs = glob(f"{out_2}/*/")
             subdirs = [d[d.index("/") + 1 : -1] for d in subdirs]
@@ -902,7 +906,7 @@ class make_empty_sky_image_test(ImageBase):
             [1.412e9, 1.413e9],
             ["I", "Q", "U"],
             [54000.1],
-            do_sky_coords=True
+            do_sky_coords=True,
         )
         cls._skel_im_no_sky = make_empty_sky_image(
             xxds,
@@ -912,7 +916,7 @@ class make_empty_sky_image_test(ImageBase):
             [1.412e9, 1.413e9],
             ["I", "Q", "U"],
             [54000.1],
-            do_sky_coords=False
+            do_sky_coords=False,
         )
 
     @classmethod
@@ -928,7 +932,8 @@ class make_empty_sky_image_test(ImageBase):
     def test_time_coord(self):
         for skel in [self.skel_im(), self.skel_im_no_sky()]:
             self.assertTrue(
-                np.isclose(skel.time, [54000.1]).all(), "Incorrect time coordinate values"
+                np.isclose(skel.time, [54000.1]).all(),
+                "Incorrect time coordinate values",
             )
             expec = {"scale": "UTC", "units": "d", "format": "MJD"}
             self.dict_equality(skel.time.attrs, expec, "got", "expected")
@@ -971,18 +976,18 @@ class make_empty_sky_image_test(ImageBase):
             self.dict_equality(skel.velocity.attrs, expec, "got", "expected")
 
     def test_l_m_coord(self):
-        cdelt = np.pi /180/60
-        expec = [ (i - 5) * cdelt for i in range(10) ]
-        expec_attrs = {
-            "type": "quantity",
-            "crval": 0.0,
-            "cdelt": cdelt,
-            "units": "rad"
-        }
+        cdelt = np.pi / 180 / 60
+        expec = [(i - 5) * cdelt for i in range(10)]
+        expec_attrs = {"type": "quantity", "crval": 0.0, "cdelt": cdelt, "units": "rad"}
         for skel in [self.skel_im(), self.skel_im_no_sky()]:
             for c in ["l", "m"]:
-                self.assertTrue(np.isclose(skel[c].values, expec).all(), f"Incorrect {c} coord values")
-                self.dict_equality(skel[c].attrs, expec_attrs, f"got {c} attrs", "expec {c} attrs")
+                self.assertTrue(
+                    np.isclose(skel[c].values, expec).all(),
+                    f"Incorrect {c} coord values",
+                )
+                self.dict_equality(
+                    skel[c].attrs, expec_attrs, f"got {c} attrs", "expec {c} attrs"
+                )
 
     def test_right_ascension_coord(self):
         expec = [
@@ -1105,10 +1110,13 @@ class make_empty_sky_image_test(ImageBase):
                 self.assertEqual(
                     skel.right_ascension.attrs,
                     {},
-                    "right ascension has non-empty attrs dict but it should be empty"
+                    "right ascension has non-empty attrs dict but it should be empty",
                 )
             else:
-                self.assertTrue("right_ascension" not in skel.coords, "right_ascension is incorrectly in coords")
+                self.assertTrue(
+                    "right_ascension" not in skel.coords,
+                    "right_ascension is incorrectly in coords",
+                )
 
     def test_declination_coord(self):
         expec = [
@@ -1250,10 +1258,13 @@ class make_empty_sky_image_test(ImageBase):
                 self.assertEqual(
                     skel.declination.attrs,
                     {},
-                    "declination attrs dict is not empty but it should be empty"
+                    "declination attrs dict is not empty but it should be empty",
                 )
             else:
-                self.assertTrue("declination" not in skel.coords, "declination incorrectly in coords")
+                self.assertTrue(
+                    "declination" not in skel.coords,
+                    "declination incorrectly in coords",
+                )
             self.dict_equality(
                 skel.attrs["direction"]["reference"], expec2, "got", "expected"
             )
@@ -1318,7 +1329,9 @@ class fits_to_xds_test(ImageBase):
         # xds which is located in the super class
         super().setUpClass()
         cls._fds = read_image(cls.infits(), {"frequency": 5}, do_sky_coords=True)
-        cls._fds_no_sky = read_image(cls.infits(), {"frequency": 5}, do_sky_coords=False)
+        cls._fds_no_sky = read_image(
+            cls.infits(), {"frequency": 5}, do_sky_coords=False
+        )
 
     @classmethod
     def tearDownClass(cls):
@@ -1367,7 +1380,9 @@ class fits_to_xds_test(ImageBase):
                 self.compare_ra_dec(fds, True)
             else:
                 for c in ["right_ascension", "declination"]:
-                    self.assertTrue(c not in fds.coords, f"{c} in coords but should not be")
+                    self.assertTrue(
+                        c not in fds.coords, f"{c} in coords but should not be"
+                    )
 
     def test_xds_attrs(self):
         """Test xds level attributes"""

@@ -18,7 +18,9 @@ import xarray as xr
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 
-def read_image(infile: str, chunks: dict = {}, verbose: bool = False, do_sky_coords:bool = True) -> xr.Dataset:
+def read_image(
+    infile: str, chunks: dict = {}, verbose: bool = False, do_sky_coords: bool = True
+) -> xr.Dataset:
     """
     Convert CASA, FITS, or zarr image to xradio image xds format
     ngCASA image spec is located at
@@ -83,7 +85,7 @@ def read_image(infile: str, chunks: dict = {}, verbose: bool = False, do_sky_coo
     raise RuntimeError("\n".join(emsgs))
 
 
-def load_image(infile: str, block_des: dict = {}, do_sky_coords = True) -> xr.Dataset:
+def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Dataset:
     """
     Load an image or portion of an image (subimage) into memory
 
@@ -182,7 +184,7 @@ def make_empty_sky_image(
     direction_reference: str = "FK5",
     projection: str = "SIN",
     spectral_reference: str = "lsrk",
-    do_sky_coords : bool = True
+    do_sky_coords: bool = True,
 ) -> xr.Dataset:
     """
     Create an image xarray.Dataset with only coordinates (no datavariables).
@@ -226,5 +228,5 @@ def make_empty_sky_image(
         direction_reference,
         projection,
         spectral_reference,
-        do_sky_coords
+        do_sky_coords,
     )

@@ -25,7 +25,9 @@ from typing import Union
 import xarray as xr
 
 
-def _fits_image_to_xds(img_full_path: str, chunks: dict, verbose: bool, do_sky_coords : bool) -> dict:
+def _fits_image_to_xds(
+    img_full_path: str, chunks: dict, verbose: bool, do_sky_coords: bool
+) -> dict:
     """
     TODO: complete documentation
     Create an xds without any pixel data from metadata from the specified FITS image
@@ -146,7 +148,7 @@ def _add_l_m_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
                 "type": "quantity",
                 "crval": 0.0,
                 "units": helpers[c]["cunit"],
-                "cdelt": helpers[c]["cdelt"]
+                "cdelt": helpers[c]["cdelt"],
             }
             xds[c].attrs = attrs
     return xds
@@ -486,7 +488,9 @@ def _make_history_xds(header):
             history_list.pop(i)
 
 
-def _create_coords(helpers : dict, header : fits.header, do_sky_coords : bool) -> xr.Dataset:
+def _create_coords(
+    helpers: dict, header: fits.header, do_sky_coords: bool
+) -> xr.Dataset:
     dir_axes = helpers["dir_axes"]
     dim_map = helpers["dim_map"]
     sphr_dims = (
@@ -513,13 +517,13 @@ def _create_coords(helpers : dict, header : fits.header, do_sky_coords : bool) -
                 cdelt=cdelt_rad,
             )
         if do_sky_coords:
-            pick = lambda mylist : [ mylist[i] for i in sphr_dims ]
+            pick = lambda mylist: [mylist[i] for i in sphr_dims]
             my_ret = _compute_world_sph_dims(
-                projection=helpers['projection'],
+                projection=helpers["projection"],
                 shape=pick(helpers["shape"]),
                 ctype=pick(helpers["ctype"]),
-                crpix=pick(helpers['crpix']),
-                crval=pick(helpers['crval']),
+                crpix=pick(helpers["crpix"]),
+                crval=pick(helpers["crval"]),
                 cdelt=pick(helpers["cdelt"]),
                 cunit=pick(helpers["cunit"]),
             )
@@ -590,9 +594,11 @@ def _get_freq_values(helpers: dict) -> list:
         freq_idx = ctype.index("FREQ")
         helpers["freq_axis"] = freq_idx
         vals = _compute_linear_world_values(
-            naxis=helpers["shape"][freq_idx], crval=helpers["crval"][freq_idx],
-            crpix=helpers["crpix"][freq_idx], cdelt=helpers["cdelt"][freq_idx],
-            cunit=helpers["cunit"][freq_idx]
+            naxis=helpers["shape"][freq_idx],
+            crval=helpers["crval"][freq_idx],
+            crpix=helpers["crpix"][freq_idx],
+            cdelt=helpers["cdelt"][freq_idx],
+            cunit=helpers["cunit"][freq_idx],
         )
         helpers["frequency"] = vals * u.Unit(cunit)
         return vals
@@ -630,7 +636,7 @@ def _get_velocity_values(helpers: dict) -> list:
         v = _compute_velocity_values(
             restfreq=helpers["reestfreq"],
             freq_values=helpers["frequency"].to("Hz").value,
-            doppler=helpers["doppler"]
+            doppler=helpers["doppler"],
         )
         helpers["velocity"] = v * (u.m / u.s)
         return v

@@ -33,10 +33,14 @@ def _make_empty_sky_image(
             crpix=[image_size[0] // 2, image_size[1] // 2],
             crval=phase_center,
             cdelt=[-abs(cell_size[0]), abs(cell_size[1])],
-            cunit=["rad", "rad"]
+            cunit=["rad", "rad"],
         )["value"]
-    l_coords = [ (i - image_size[0] // 2) * abs(cell_size[0]) for i in range(image_size[0]) ]
-    m_coords = [ (i - image_size[1] // 2) * abs(cell_size[1]) for i in range(image_size[1]) ]
+    l_coords = [
+        (i - image_size[0] // 2) * abs(cell_size[0]) for i in range(image_size[0])
+    ]
+    m_coords = [
+        (i - image_size[1] // 2) * abs(cell_size[1]) for i in range(image_size[1])
+    ]
 
     if not isinstance(chan_coords, list) and not isinstance(chan_coords, np.ndarray):
         chan_coords = [chan_coords]
@@ -82,8 +86,18 @@ def _make_empty_sky_image(
         "pc": 1.0,
     }
     xds.velocity.attrs = {"doppler_type": "RADIO", "units": "m/s"}
-    xds.l.attrs = {"type": "quantity", "crval": 0.0, "cdelt": abs(cell_size[0]), "units": "rad"}
-    xds.m.attrs = {"type": "quantity", "crval": 0.0, "cdelt": abs(cell_size[1]), "units": "rad"}
+    xds.l.attrs = {
+        "type": "quantity",
+        "crval": 0.0,
+        "cdelt": abs(cell_size[0]),
+        "units": "rad",
+    }
+    xds.m.attrs = {
+        "type": "quantity",
+        "crval": 0.0,
+        "cdelt": abs(cell_size[1]),
+        "units": "rad",
+    }
     xds.attrs = {
         "direction": {
             "reference": {

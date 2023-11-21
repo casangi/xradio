@@ -173,12 +173,12 @@ def _freq_from_vel(
 
 def _compute_world_sph_dims(
     projection: str,
-    shape: List[int], # two element list of long-lat shape
-    ctype: List[str], # two element list of long-lat axis names
-    crpix: List[float], # two element list of long-lat crpix (zero-based)
-    crval: List[float], # two element list of long-lat crval
-    cdelt: List[float], # two element list of long-lat increments
-    cunit: List[str], # two element list of long-lat units
+    shape: List[int],  # two element list of long-lat shape
+    ctype: List[str],  # two element list of long-lat axis names
+    crpix: List[float],  # two element list of long-lat crpix (zero-based)
+    crval: List[float],  # two element list of long-lat crval
+    cdelt: List[float],  # two element list of long-lat increments
+    cunit: List[str],  # two element list of long-lat units
 ) -> dict:
     # Note that if doesn't matter if the inputs are in long, lat or lat, long order,
     # as long as all inputs have consistent ordering
@@ -188,11 +188,11 @@ def _compute_world_sph_dims(
         "ref_val": [None, None],
         "inc": [None, None],
         "unit": ["rad", "rad"],
-        "value": [None, None]
+        "value": [None, None],
     }
     for i in range(2):
         axis_name = ctype[i].lower()
-        if axis_name.startswith("right") or axis_name.startswith('ra'):
+        if axis_name.startswith("right") or axis_name.startswith("ra"):
             fi = 1
             wcs_dict[f"CTYPE1"] = f"RA---{projection}"
             new_name = "right_ascension"
@@ -221,37 +221,36 @@ def _compute_world_sph_dims(
 
 
 def _compute_velocity_values(
-    restfreq: float, # in Hz
-    freq_values: List[float], # in Hz
-    doppler: str # doppler definition
+    restfreq: float,  # in Hz
+    freq_values: List[float],  # in Hz
+    doppler: str,  # doppler definition
 ) -> List[float]:
     dop = doppler.lower()
-    if dop == 'radio':
+    if dop == "radio":
         return [((1 - f / restfreq) * _c).value for f in freq_values]
-    elif dop in ['z', 'optical']:
-        return [((restfreq/f - 1) * _c).value for f in freq_values]
+    elif dop in ["z", "optical"]:
+        return [((restfreq / f - 1) * _c).value for f in freq_values]
     else:
         raise RuntimeError(f"Doppler definition {doppler} not supported")
 
 
 def _compute_linear_world_values(
-    naxis:int, crval:float, crpix:float, cdelt:float
+    naxis: int, crval: float, crpix: float, cdelt: float
 ) -> np.ndarray:
     """
     Simple linear transformation to get world values which can be used for certain
     coordinates like (often) frequency, l, m, u, v
     """
-    return np.array([ crval + (i-crpix)*cdelt for i in range(naxis) ])
+    return np.array([crval + (i - crpix) * cdelt for i in range(naxis)])
 
-
-#def _compute_pixel_values(naxis:int, crpix:float) -> np.ndarray:
+    # def _compute_pixel_values(naxis:int, crpix:float) -> np.ndarray:
     """
     Simple linear transformation to get all pixel values in a specific dimension
     """
-    #return np.array([ i-crpix for i in range(naxis) ])
+    # return np.array([ i-crpix for i in range(naxis) ])
 
 
-#def _compute_ref_pix(xds: xr.Dataset, direction: dict) -> np.ndarray:
+# def _compute_ref_pix(xds: xr.Dataset, direction: dict) -> np.ndarray:
 def _compute_sky_reference_pixel(xds: xr.Dataset) -> np.ndarray:
     crpix = [None, None]
     for i, c in enumerate(["l", "m"]):
@@ -319,5 +318,3 @@ def _compute_sky_reference_pixel(xds: xr.Dataset) -> np.ndarray:
     )
     return w.world_to_pixel(sky)
     """
-
-

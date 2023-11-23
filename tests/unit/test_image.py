@@ -26,6 +26,7 @@ class ImageBase(unittest.TestCase):
     _imname: str = "inp.im"
     _outname: str = "out.im"
     _infits: str = "inp.fits"
+    _uv_image: str = "complex_valued_uv.im"
     _xds = None
     _exp_vals: dict = {
         "shape": xr.core.utils.Frozen(
@@ -124,6 +125,8 @@ class ImageBase(unittest.TestCase):
 
     _ran_measures_code = False
 
+    _expec_uv = {}
+
     @classmethod
     def setUpClass(cls):
         cls.maxDiff = None
@@ -135,9 +138,10 @@ class ImageBase(unittest.TestCase):
             cls._ran_measures_code = True
         cls._make_image()
 
+
     @classmethod
     def tearDownClass(cls):
-        for f in [cls._imname, cls._outname, cls._infits]:
+        for f in [cls._imname, cls._outname, cls._infits, cls._uv_image]:
             if os.path.exists(f):
                 if os.path.isdir(f):
                     shutil.rmtree(f)
@@ -195,8 +199,13 @@ class ImageBase(unittest.TestCase):
     def xds_no_sky(self):
         return self._xds_no_sky
 
+    @classmethod
     def outname(self):
         return self._outname
+
+    @classmethod
+    def uv_image(self):
+        return self._uv_image
 
     def exp_attrs(self):
         return self._exp_attrs
@@ -568,6 +577,35 @@ class ImageBase(unittest.TestCase):
                     f"Wrong type for coord or data value {k}, got {type(v)}, must be a numpy.ndarray",
                 )
 
+    def compare_uv(self, xds:xr.Dataset, image:str) -> None:
+        if not self._expec_uv:
+            with open_image_ro(image) as im:
+                uv_coords = im.coordinates().dict()["linear0"]
+                shape = im.shape()
+            uv = {}
+            for i, z in enumerate(["u", "v"]):
+                uv[z] = {}
+                x = uv[z]
+                x["attrs"] = {
+                    "type": "quantity",
+                    "crval": 0.0,
+                    "units": uv_coords["units"][i],
+                    "cdelt": uv_coords["cdelt"][i]
+                }
+                x["npix"] = shape[3] if z == "u" else shape[2]
+            self._expec_uv = copy.deepcopy(uv)
+        expec_coords = set(["time", "polarization", "frequency", "velocity", "u", "v"])
+        self.assertEqual(xds.coords.keys(), expec_coords, "incorrect coordinates")
+        for c in ["u", "v"]:
+            attrs = self._expec_uv[c]["attrs"]
+            self.dict_equality(xds[c].attrs, attrs, f"got attrs {c}", f"expec attrs {c}")
+            npix = self._expec_uv[c]["npix"]
+            self.assertEqual(xds.dims[c], npix, "Incorrect axis length")
+            expec = [ (i - npix // 2) * attrs["cdelt"] for i in range(npix) ]
+            self.assertTrue(
+                (xds[c].values == np.array(expec)).all(),
+                f"Incorrect values for coordinate {c}"
+            )
 
 class casa_image_to_xds_test(ImageBase):
     """
@@ -616,6 +654,13 @@ class casa_image_to_xds_test(ImageBase):
 
     def test_get_img_ds_block(self):
         self.compare_image_block(self.imname())
+
+    def test_uv_image(self):
+        image = self.uv_image()
+        download(image)
+        self.assertTrue(os.path.isdir(image), f"Cound not download {image}")
+        xds = read_image(image)
+        self.compare_uv(xds, image)
 
 
 class casacore_to_xds_to_casacore(ImageBase):

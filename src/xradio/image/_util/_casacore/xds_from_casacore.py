@@ -651,7 +651,7 @@ def _get_starts_shapes_slices(
     slices = {}
     for i, dim in enumerate(img_dim_order):
         if dim not in ["polarization", "frequency", "l", "m", "u", "v"]:
-            raise Exception(f"Unsupported dimension {dim}")
+            raise RuntimeError(f"Unsupported dimension {dim}")
         if dim in blockdes:
             extent = blockdes[dim]
             if isinstance(extent, int):
@@ -766,7 +766,7 @@ def _get_uv_values_attrs(
                     attrs = {
                         "crval": crval,
                         "cdelt": cdelt,
-                        "units": cdict["unit"],
+                        "units": cdict["units"][i],
                         "type": "quantity",
                     }
                     z = _compute_linear_world_values(
@@ -1105,7 +1105,7 @@ def _read_image_array(
     # shape list is the reverse of the actual image shape
     cshape = casa_image.shape()
     transpose_list, new_axes = _get_transpose_list(casa_image.coordinates())
-    data_type = casa_image.datatype()
+    data_type = casa_image.datatype().lower()
     del casa_image
     if verbose:
         print(f"cshape: {cshape}")

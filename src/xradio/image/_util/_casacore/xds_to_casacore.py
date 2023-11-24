@@ -7,7 +7,7 @@ import numpy as np
 import os
 from typing import Union
 import xarray as xr
-from .common import _active_mask, _object_name, _open_image_rw, _pointing_center
+from .common import _active_mask, _create_new_image, _object_name, _pointing_center
 from ..common import _compute_sky_reference_pixel, _doppler_types
 from ...._utils._casacore.tables import open_table_rw
 
@@ -37,12 +37,30 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
     return direction
 
 
-def _compute_spectral_dict(
-    xds: xr.Dataset,
-    direction: dict,
-    obsdate: dict,
-    tel_pos: dict,
-) -> dict:
+def _compute_linear_dict(xds: xr.Dataset) -> dict:
+    linear = {}
+    u = xds["u"].attrs
+    v = xds["v"].attrs
+    linear["crval"] = np.array([u["crval"], v["crval"]])
+    linear["cdelt"] = np.array([u["cdelt"], v["cdelt"]])
+    linear["axes"] = ["UU", "VV"]
+    linear["units"] = [u["units"], v["units"]]
+    lu = len(xds.coords["u"])
+    lv = len(xds.coords["v"])
+    linear["crpix"] = np.array([0.0, 0.0], dtype=np.float64)
+    # np.interp() appears to require the x coordinate be monotonically increasing
+    for i, w, z in zip([0, 1], [u, v], ["u", "v"]):
+        x = xds.coords[z].values
+        y = np.array(range(len(x)), dtype=np.float64)
+        if w["cdelt"] < 0:
+            x = x[::-1]
+            y = y[::-1]
+        linear["crpix"][i] = np.interp(0, x, y)
+    linear["pc"] = np.array([[1.0, 0.0],[0.0, 1.0]])
+    return linear
+
+
+def _compute_spectral_dict(xds: xr.Dataset) -> dict:
     """
     Given xds metadata, compute the spectral dict that is valid
     for a CASA image coordinate system
@@ -95,7 +113,10 @@ def _coord_dict_from_xds(xds: xr.Dataset) -> dict:
         }
     telpos["type"] = "position"
     coord["telescopeposition"] = telpos
-    coord["direction0"] = _compute_direction_dict(xds)
+    if "l" in xds.coords:
+        coord["direction0"] = _compute_direction_dict(xds)
+    else:
+        coord["linear0"] = _compute_linear_dict(xds)
     coord["stokes1"] = {
         "axes": np.array(["Stokes"], dtype="<U16"),
         "cdelt": np.array([1.0]),
@@ -104,9 +125,7 @@ def _coord_dict_from_xds(xds: xr.Dataset) -> dict:
         "pc": np.array([[1.0]]),
         "stokes": np.array(xds.polarization.values, dtype="<U16"),
     }
-    coord["spectral2"] = _compute_spectral_dict(
-        xds, coord["direction0"], coord["obsdate"], coord["telescopeposition"]
-    )
+    coord["spectral2"] = _compute_spectral_dict(xds)
     coord["pixelmap0"] = np.array([0, 1])
     coord["pixelmap1"] = np.array([2])
     coord["pixelmap2"] = np.array([3])
@@ -151,8 +170,9 @@ def _history_from_xds(xds: xr.Dataset, image: str) -> None:
 
 def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
     ii = {}
+    ap_sky = "sky" if "l" in xds.coords else "apeture"
     ii["image_type"] = (
-        xds.sky.attrs["image_type"] if "image_type" in xds.sky.attrs else ""
+        xds[ap_sky].attrs["image_type"] if "image_type" in xds[ap_sky].attrs else ""
     )
     ii["objectname"] = xds.attrs[_object_name]
     if "beam" in xds.data_vars:
@@ -179,20 +199,25 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
         ii["perplanebeams"] = pp
     elif "beam" in xds.attrs and xds.attrs["beam"]:
         # do nothing if xds.attrs['beam'] is None
-        ii["restoringbeam"] = xds.attrs["beam"]
+        ii["restoringbeam"] = copy.deepcopy(xds.attrs["beam"])
         for k in ["major", "minor", "pa"]:
             del ii["restoringbeam"][k]["type"]
+            ii["restoringbeam"][k]["unit"] = ii["restoringbeam"][k]["units"]
+            del ii["restoringbeam"][k]["units"]
+        ii["restoringbeam"]["positionangle"] = copy.deepcopy(ii["restoringbeam"]["pa"])
+        del ii["restoringbeam"]["pa"]
     return ii
 
 
 def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
-    sky_ap = "sky" if "sky" in xds else "apeature"
+    sky_ap = "sky" if "sky" in xds else "apeture"
     if xds[sky_ap].shape[0] != 1:
-        raise Exception("XDS can only be converted if it has exactly one time plane")
+        raise RuntimeError("XDS can only be converted if it has exactly one time plane")
+    trans_coords = ("frequency", "polarization", "m", "l") if sky_ap == "sky" else ("frequency", "polarization", "v", "u")
     casa_image_shape = (
         xds[sky_ap]
         .isel(time=0)
-        .transpose(*("frequency", "polarization", "m", "l"))
+        .transpose(*trans_coords)
         .shape[::-1]
     )
     active_mask = xds.attrs["active_mask"] if _active_mask in xds.attrs else ""
@@ -273,6 +298,7 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
                 dask="allowed",
             )
         active_mask = mask_name
+    data_type = "complex" if "u" in xds.coords else "float"
     _write_initial_image(xds, image_full_path, active_mask, casa_image_shape[::-1])
     for v in myvars:
         _write_pixels(v, active_mask, image_full_path, xds)
@@ -286,15 +312,17 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
 
 def _write_initial_image(
     xds: xr.Dataset, imagename: str, maskname: str, image_shape: tuple
-):
-    image_full_path = os.path.expanduser(imagename)
-    # create the image and then delete the object
+) -> None:
     if not maskname:
         maskname = ""
-    with _open_image_rw(image_full_path, maskname, shape=image_shape) as casa_image:
+    for dv in ["sky", "apeture"]:
+        if dv in xds.data_vars:
+            value = xds[dv][0, 0, 0, 0, 0].values.item()
+            break
+    image_full_path = os.path.expanduser(imagename)
+    with _create_new_image(image_full_path, mask=maskname, shape=image_shape, value=value) as casa_image:
         # just create the image, don't do anythong with it
         pass
-
 
 def _write_image_block(xda: xr.DataArray, outfile: str, blc: tuple) -> None:
     """
@@ -332,8 +360,15 @@ def _write_pixels(
             tb = tables.table(os.sep.join([image_full_path, active_mask]))
             tb.copy(filename, deep=True, valuecopy=True)
             tb.close()
+    if "l" in xds.coords:
+        trans_coords = ("frequency", "polarization", "m", "l")
+    elif "u" in xds.coords:
+        trans_coords = ("frequency", "polarization", "v", "u")
+    else:
+        raise RuntimeError(f"Unhandled coords combination {xds.coords.keys()}")
+    trans_coord = ("frequency", "polarization", "m", "l")
     arr = xds[v] if v in xds.data_vars else value
-    arr = arr.isel(time=0).transpose(*("frequency", "polarization", "m", "l"))
+    arr = arr.isel(time=0).transpose(*trans_coords)
     chunk_bounds = arr.chunks
     b = [0, 0, 0, 0]
     loc0, loc1, loc2, loc3 = (0, 0, 0, 0)

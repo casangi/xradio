@@ -254,9 +254,12 @@ def _compute_linear_world_values(
 def _compute_sky_reference_pixel(xds: xr.Dataset) -> np.ndarray:
     crpix = [None, None]
     for i, c in enumerate(["l", "m"]):
-        vals = xds[c].values
-        idx = np.array(range(len(vals)))
-        crpix[i] = np.interp(0.0, vals, idx)
+        x = xds[c].values
+        y = np.array(range(len(x)))
+        if x[1] < x[0]:
+            x = x[::-1]
+            y = y[::-1]
+        crpix[i] = np.interp(0.0, x, y)
     return np.array(crpix)
     """
     # TODO more general coordinates

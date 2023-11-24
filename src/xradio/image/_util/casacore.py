@@ -108,9 +108,10 @@ def _xds_to_casa_image(xds: xr.Dataset, imagename: str) -> None:
     image_full_path = os.path.expanduser(imagename)
     _write_casa_data(xds, image_full_path)
     # create coordinates
+    ap_sky = "sky" if "sky" in xds.data_vars else "apeture"
     coord = _coord_dict_from_xds(xds)
     ii = _imageinfo_dict_from_xds(xds)
-    units = xds.sky.attrs["units"] if "units" in xds.sky.attrs else None
+    units = xds[ap_sky].attrs["units"] if "units" in xds[ap_sky].attrs else None
     miscinfo = (
         xds.attrs["user"]
         if "user" in xds.attrs and len(xds.attrs["user"]) > 0

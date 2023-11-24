@@ -4,7 +4,7 @@ from xradio.data.datasets import download
 from xradio.image._util.common import _image_type as image_type
 from xradio.image._util._casacore.common import (
     _open_image_ro as open_image_ro,
-    _open_new_image as open_new_image,
+    _create_new_image as create_new_image,
 )
 from xradio._utils._casacore.tables import open_table_ro
 
@@ -26,6 +26,7 @@ class ImageBase(unittest.TestCase):
     _imname: str = "inp.im"
     _outname: str = "out.im"
     _infits: str = "inp.fits"
+    _uv_image: str = "complex_valued_uv.im"
     _xds = None
     _exp_vals: dict = {
         "shape": xr.core.utils.Frozen(
@@ -124,6 +125,8 @@ class ImageBase(unittest.TestCase):
 
     _ran_measures_code = False
 
+    _expec_uv = {}
+
     @classmethod
     def setUpClass(cls):
         cls.maxDiff = None
@@ -137,7 +140,7 @@ class ImageBase(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        for f in [cls._imname, cls._outname, cls._infits]:
+        for f in [cls._imname, cls._outname, cls._infits, cls._uv_image]:
             if os.path.exists(f):
                 if os.path.isdir(f):
                     shutil.rmtree(f)
@@ -154,7 +157,7 @@ class ImageBase(unittest.TestCase):
             shape
         )
         masked_array = ma.masked_array(pix, mask)
-        with open_new_image(cls._imname, shape=shape) as im:
+        with create_new_image(cls._imname, shape=shape) as im:
             im.put(masked_array)
             shape = im.shape()
         t = casacore.tables.table(cls._imname, readonly=False)
@@ -174,6 +177,7 @@ class ImageBase(unittest.TestCase):
         t.flush()
         t.close()
         with open_image_ro(cls._imname) as im:
+            print("dt", im.datatype())
             im.tofits(cls._infits)
         cls._xds = read_image(cls._imname, {"frequency": 5})
         cls._xds_no_sky = read_image(cls._imname, {"frequency": 5}, False, False)
@@ -195,8 +199,13 @@ class ImageBase(unittest.TestCase):
     def xds_no_sky(self):
         return self._xds_no_sky
 
+    @classmethod
     def outname(self):
         return self._outname
+
+    @classmethod
+    def uv_image(self):
+        return self._uv_image
 
     def exp_attrs(self):
         return self._exp_attrs
@@ -568,6 +577,38 @@ class ImageBase(unittest.TestCase):
                     f"Wrong type for coord or data value {k}, got {type(v)}, must be a numpy.ndarray",
                 )
 
+    def compare_uv(self, xds: xr.Dataset, image: str) -> None:
+        if not self._expec_uv:
+            with open_image_ro(image) as im:
+                uv_coords = im.coordinates().dict()["linear0"]
+                shape = im.shape()
+            uv = {}
+            for i, z in enumerate(["u", "v"]):
+                uv[z] = {}
+                x = uv[z]
+                x["attrs"] = {
+                    "type": "quantity",
+                    "crval": 0.0,
+                    "units": uv_coords["units"][i],
+                    "cdelt": uv_coords["cdelt"][i],
+                }
+                x["npix"] = shape[3] if z == "u" else shape[2]
+            self._expec_uv = copy.deepcopy(uv)
+        expec_coords = set(["time", "polarization", "frequency", "velocity", "u", "v"])
+        self.assertEqual(xds.coords.keys(), expec_coords, "incorrect coordinates")
+        for c in ["u", "v"]:
+            attrs = self._expec_uv[c]["attrs"]
+            self.dict_equality(
+                xds[c].attrs, attrs, f"got attrs {c}", f"expec attrs {c}"
+            )
+            npix = self._expec_uv[c]["npix"]
+            self.assertEqual(xds.dims[c], npix, "Incorrect axis length")
+            expec = [(i - npix // 2) * attrs["cdelt"] for i in range(npix)]
+            self.assertTrue(
+                (xds[c].values == np.array(expec)).all(),
+                f"Incorrect values for coordinate {c}",
+            )
+
 
 class casa_image_to_xds_test(ImageBase):
     """
@@ -617,6 +658,13 @@ class casa_image_to_xds_test(ImageBase):
     def test_get_img_ds_block(self):
         self.compare_image_block(self.imname())
 
+    def test_uv_image(self):
+        image = self.uv_image()
+        download(image)
+        self.assertTrue(os.path.isdir(image), f"Cound not download {image}")
+        xds = read_image(image)
+        self.compare_uv(xds, image)
+
 
 class casacore_to_xds_to_casacore(ImageBase):
     """
@@ -635,6 +683,7 @@ class casacore_to_xds_to_casacore(ImageBase):
     _outname4_no_sky: str = _outname4 + "_no_sky"
     _outname5: str = "xds_2_casa_nans_already_masked.im"
     _outname5_no_sky: str = _outname5 + "_no_sky"
+    _output_uv: str = "output_uv.im"
 
     @classmethod
     def setUpClass(cls):
@@ -656,6 +705,7 @@ class casacore_to_xds_to_casacore(ImageBase):
             cls._outname4_no_sky,
             cls._outname5,
             cls._outname5_no_sky,
+            cls._output_uv,
         ]:
             if os.path.exists(f):
                 if os.path.isdir(f):
@@ -821,6 +871,21 @@ class casacore_to_xds_to_casacore(ImageBase):
             self.assertTrue(casa_mask[2, 2, 2, 2], "Wrong pixel masked")
             self.assertEqual(casa_mask.sum(), 1, "Wrong number of pixels masked")
 
+    def test_output_uv_casa_image(self):
+        image = self.uv_image()
+        download(image)
+        self.assertTrue(os.path.isdir(image), f"Cound not download {image}")
+        xds = read_image(image)
+        write_image(xds, self._output_uv, "casa")
+        with open_image_ro(self._output_uv) as test_im:
+            with open_image_ro(image) as expec_im:
+                got = test_im.coordinates().dict()["linear0"]
+                expec = expec_im.coordinates().dict()["linear0"]
+                self.dict_equality(got, expec, "got uv", "expec uv")
+                got = test_im.getdata()
+                expec = test_im.getdata()
+                self.assertTrue(np.isclose(got, expec).all(), "Incorrect pixel data")
+
 
 class xds_to_zarr_to_xds_test(ImageBase):
     """
@@ -828,6 +893,7 @@ class xds_to_zarr_to_xds_test(ImageBase):
     """
 
     _zarr_store: str = "out.zarr"
+    _zarr_uv_store: str = "out_uv.zarr"
 
     @classmethod
     def setUpClass(cls):
@@ -843,6 +909,7 @@ class xds_to_zarr_to_xds_test(ImageBase):
         super().tearDownClass()
         for f in [
             cls._zarr_store,
+            cls._zarr_uv_store,
         ]:
             if os.path.exists(f):
                 if os.path.isdir(f):
@@ -890,6 +957,18 @@ class xds_to_zarr_to_xds_test(ImageBase):
 
     def test_get_img_ds_block(self):
         self.compare_image_block(self._zarr_store, zarr=True)
+
+    def test_output_uv_zarr_image(self):
+        image = self.uv_image()
+        download(image)
+        self.assertTrue(os.path.isdir(image), f"Cound not download {image}")
+        xds = read_image(image)
+        write_image(xds, self._zarr_uv_store, "zarr")
+        xds2 = read_image(self._zarr_uv_store)
+        self.assertTrue(
+            np.isclose(xds2.apeture.values, xds.apeture.values).all(),
+            "Incorrect apeture pixel values",
+        )
 
 
 class make_empty_sky_image_test(ImageBase):

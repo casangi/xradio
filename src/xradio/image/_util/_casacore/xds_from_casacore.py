@@ -651,7 +651,7 @@ def _get_starts_shapes_slices(
     slices = {}
     for i, dim in enumerate(img_dim_order):
         if dim not in ["polarization", "frequency", "l", "m", "u", "v"]:
-            raise Exception(f"Unsupported dimension {dim}")
+            raise RuntimeError(f"Unsupported dimension {dim}")
         if dim in blockdes:
             extent = blockdes[dim]
             if isinstance(extent, int):
@@ -766,7 +766,7 @@ def _get_uv_values_attrs(
                     attrs = {
                         "crval": crval,
                         "cdelt": cdelt,
-                        "units": cdict["unit"],
+                        "units": cdict["units"][i],
                         "type": "quantity",
                     }
                     z = _compute_linear_world_values(
@@ -813,51 +813,6 @@ def _get_velocity_values_attrs(
         ),
         copy.deepcopy(attrs),
     )
-
-
-"""
-def _make_coord_subset(xds: xr.Dataset, slices: dict) -> xr.Dataset:
-    dim_to_coord_map = {}
-    coord_to_dim_map = {}
-    for c in xds.coords:
-        coord_to_dim_map[c] = xds[c].dims
-        for d in xds[c].dims:
-            if c != d:
-                if d in dim_to_coord_map:
-                    dim_to_coord_map[d].append(c)
-                else:
-                    dim_to_coord_map[d] = [c]
-    print(f"dim_to_coord_map {dim_to_coord_map}")
-    print(f"coord_to_dim_map {coord_to_dim_map}")
-    save_values = {}
-    print(f"slices {slices}")
-    save_attrs = {}
-    for dim in slices:
-        if dim in dim_to_coord_map:
-            for coord_name in dim_to_coord_map[dim]:
-                print(f"dim {dim} coord {coord_name}")
-                for dim_num, coord_dim in enumerate(xds[coord_name].dims):
-                    if coord_dim == dim:
-                        if coord_name not in save_values:
-                            save_values[coord_name] = xds[coord_name].values
-                            save_attrs[coord_name] = xds[coord_name].attrs
-                        save_values[coord_name] = np.take(
-                            save_values[coord_name],
-                            range(slices[dim].start, slices[dim].stop),
-                            dim_num,
-                        )
-                        print(f"save_values[{coord_name}] {save_values[coord_name]}")
-    xds = xds.drop_vars(save_values.keys())
-    for coord in xds.coords:
-        if coord in slices:
-            xds[coord] = xds[coord][slices[coord]]
-    for coord in save_values:
-        print(f"coord {coord}")
-        print(f"save_values[{coord}] {save_values[coord]}")
-        xds = xds.assign_coords({coord: (coord_to_dim_map[coord], save_values[coord])})
-        xds[coord].attrs = save_attrs[coord]
-    return xds
-"""
 
 
 def _multibeam_array(
@@ -1087,26 +1042,37 @@ def _read_image_array(
 
     """
     img_full_path = os.path.expanduser(infile)
-    casa_image = images.image(img_full_path)
-    """
-    if isinstance(chunks, list):
-        mychunks = tuple(chunks)
-    elif isinstance(chunks, dict):
-    """
-    if isinstance(chunks, dict):
-        mychunks = _get_chunk_list(
-            chunks, casa_image.coordinates().get_names()[::-1], casa_image.shape()[::-1]
-        )
+    with _open_image_ro(img_full_path) as casa_image:
+        """
+        if isinstance(chunks, list):
+            mychunks = tuple(chunks)
+        elif isinstance(chunks, dict):
+        """
+        if isinstance(chunks, dict):
+            mychunks = _get_chunk_list(
+                chunks,
+                casa_image.coordinates().get_names()[::-1],
+                casa_image.shape()[::-1],
+            )
+        else:
+            raise RuntimeError(
+                f"incorrect type {type(chunks)} for parameter chunks. Must be "
+                "either tuple or dict"
+            )
+        # shape list is the reverse of the actual image shape
+        cshape = casa_image.shape()
+        transpose_list, new_axes = _get_transpose_list(casa_image.coordinates())
+        data_type = casa_image.datatype().lower()
+    if data_type == "float":
+        data_type = np.float32
+    elif data_type == "double":
+        data_type = np.float64
+    elif data_type == "complex":
+        data_type = np.complex64
+    elif data_type == "dcomplex":
+        data_type = np.complex128
     else:
-        raise Exception(
-            f"incorrect type {type(chunks)} for parameter chunks. Must be "
-            "either tuple or dict"
-        )
-    # shape list is the reverse of the actual image shape
-    cshape = casa_image.shape()
-    transpose_list, new_axes = _get_transpose_list(casa_image.coordinates())
-    data_type = casa_image.datatype()
-    del casa_image
+        raise RuntimeError(f"Unhandled data type {data_type}")
     if verbose:
         print(f"cshape: {cshape}")
     if mask:

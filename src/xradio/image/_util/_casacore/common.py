@@ -1,6 +1,7 @@
 from casacore import images
 from contextlib import contextmanager
-from typing import Dict, Generator, List
+import numpy as np
+from typing import Dict, Generator, List, Union
 
 
 @contextmanager
@@ -14,6 +15,7 @@ def _open_image_ro(infile: str) -> Generator[images.image, None, None]:
         del image
 
 
+"""
 @contextmanager
 def _open_image_rw(
     infile: str, mask: str, shape: tuple
@@ -23,14 +25,15 @@ def _open_image_rw(
         yield image
     finally:
         del image
+"""
 
 
 @contextmanager
-def _open_new_image(
-    outfile: str, shape: List[int]
+def _create_new_image(
+    outfile: str, shape: List[int], mask="", value=np.float32(0.0)
 ) -> Generator[images.image, None, None]:
     # new image will be opened rw
-    image = images.image(outfile, shape=shape)
+    image = images.image(outfile, maskname=mask, shape=shape, values=value)
     try:
         yield image
     finally:

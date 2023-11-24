@@ -16,11 +16,6 @@ FILE_ID = {
         "id": "9v0a1rv7nzm3kqte0u7vp",
         "rlkey": "ws6vd0jbo1dg7jvxsit42q5ba&dl",
     },
-    "demo_simulated.im": {
-        "file": "demo_simulated.im.zip",
-        "id": "z87gibxshwg9e2h155ukk",
-        "rlkey": "bn7uvs697wtedij63fa2hu7ed&dl",
-    },
     "Antennae_North.cal.lsrk.ms": {
         "file": "Antennae_North.cal.lsrk.ms.zip",
         "id": "olx5qv9avdxxiyjlhlwx2",
@@ -40,6 +35,16 @@ FILE_ID = {
         "file": "Antennae_North.cal.lsrk.split.ms.zip",
         "id": "hctg3tegkl6ttf2kol0wh",
         "rlkey": "7hxaag4vqk0d674v3368dudad&dl",
+    },
+    "complex_valued_uv.im": {
+        "file": "complex_valued_uv.im.zip",
+        "id": "wpcctbai8zqzrlpn9bjj4",
+        "rlkey": "h3qdjedq785uwlwirqyr0oo98&dl",
+    },
+    "demo_simulated.im": {
+        "file": "demo_simulated.im.zip",
+        "id": "z87gibxshwg9e2h155ukk",
+        "rlkey": "bn7uvs697wtedij63fa2hu7ed&dl",
     },
     "no_mask.im": {
         "file": "no_mask.zip",
@@ -97,4 +102,4 @@ def download(file, folder="."):
         # Let's clean up after ourselves
         os.remove(fullname)
 
-        
+

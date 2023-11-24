@@ -56,7 +56,7 @@ def _compute_linear_dict(xds: xr.Dataset) -> dict:
             x = x[::-1]
             y = y[::-1]
         linear["crpix"][i] = np.interp(0, x, y)
-    linear["pc"] = np.array([[1.0, 0.0],[0.0, 1.0]])
+    linear["pc"] = np.array([[1.0, 0.0], [0.0, 1.0]])
     return linear
 
 
@@ -213,13 +213,12 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
     sky_ap = "sky" if "sky" in xds else "apeture"
     if xds[sky_ap].shape[0] != 1:
         raise RuntimeError("XDS can only be converted if it has exactly one time plane")
-    trans_coords = ("frequency", "polarization", "m", "l") if sky_ap == "sky" else ("frequency", "polarization", "v", "u")
-    casa_image_shape = (
-        xds[sky_ap]
-        .isel(time=0)
-        .transpose(*trans_coords)
-        .shape[::-1]
+    trans_coords = (
+        ("frequency", "polarization", "m", "l")
+        if sky_ap == "sky"
+        else ("frequency", "polarization", "v", "u")
     )
+    casa_image_shape = xds[sky_ap].isel(time=0).transpose(*trans_coords).shape[::-1]
     active_mask = xds.attrs["active_mask"] if _active_mask in xds.attrs else ""
     masks = []
     masks_rec = {}
@@ -320,9 +319,12 @@ def _write_initial_image(
             value = xds[dv][0, 0, 0, 0, 0].values.item()
             break
     image_full_path = os.path.expanduser(imagename)
-    with _create_new_image(image_full_path, mask=maskname, shape=image_shape, value=value) as casa_image:
+    with _create_new_image(
+        image_full_path, mask=maskname, shape=image_shape, value=value
+    ) as casa_image:
         # just create the image, don't do anythong with it
         pass
+
 
 def _write_image_block(xda: xr.DataArray, outfile: str, blc: tuple) -> None:
     """

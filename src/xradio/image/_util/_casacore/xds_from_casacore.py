@@ -1050,7 +1050,9 @@ def _read_image_array(
         """
         if isinstance(chunks, dict):
             mychunks = _get_chunk_list(
-                chunks, casa_image.coordinates().get_names()[::-1], casa_image.shape()[::-1]
+                chunks,
+                casa_image.coordinates().get_names()[::-1],
+                casa_image.shape()[::-1],
             )
         else:
             raise RuntimeError(

@@ -14,6 +14,7 @@ def _open_image_ro(infile: str) -> Generator[images.image, None, None]:
         # just delete the object to clear it from the table cache
         del image
 
+
 """
 @contextmanager
 def _open_image_rw(
@@ -26,9 +27,10 @@ def _open_image_rw(
         del image
 """
 
+
 @contextmanager
 def _create_new_image(
-        outfile: str, shape: List[int], mask="", value=np.float32(0.0)
+    outfile: str, shape: List[int], mask="", value=np.float32(0.0)
 ) -> Generator[images.image, None, None]:
     # new image will be opened rw
     image = images.image(outfile, maskname=mask, shape=shape, values=value)

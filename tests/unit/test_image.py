@@ -138,15 +138,9 @@ class ImageBase(unittest.TestCase):
             cls._ran_measures_code = True
         cls._make_image()
 
-
     @classmethod
     def tearDownClass(cls):
-        for f in [
-            cls._imname,
-            cls._outname,
-            cls._infits,
-            cls._uv_image
-        ]:
+        for f in [cls._imname, cls._outname, cls._infits, cls._uv_image]:
             if os.path.exists(f):
                 if os.path.isdir(f):
                     shutil.rmtree(f)
@@ -583,7 +577,7 @@ class ImageBase(unittest.TestCase):
                     f"Wrong type for coord or data value {k}, got {type(v)}, must be a numpy.ndarray",
                 )
 
-    def compare_uv(self, xds:xr.Dataset, image:str) -> None:
+    def compare_uv(self, xds: xr.Dataset, image: str) -> None:
         if not self._expec_uv:
             with open_image_ro(image) as im:
                 uv_coords = im.coordinates().dict()["linear0"]
@@ -596,7 +590,7 @@ class ImageBase(unittest.TestCase):
                     "type": "quantity",
                     "crval": 0.0,
                     "units": uv_coords["units"][i],
-                    "cdelt": uv_coords["cdelt"][i]
+                    "cdelt": uv_coords["cdelt"][i],
                 }
                 x["npix"] = shape[3] if z == "u" else shape[2]
             self._expec_uv = copy.deepcopy(uv)
@@ -604,14 +598,17 @@ class ImageBase(unittest.TestCase):
         self.assertEqual(xds.coords.keys(), expec_coords, "incorrect coordinates")
         for c in ["u", "v"]:
             attrs = self._expec_uv[c]["attrs"]
-            self.dict_equality(xds[c].attrs, attrs, f"got attrs {c}", f"expec attrs {c}")
+            self.dict_equality(
+                xds[c].attrs, attrs, f"got attrs {c}", f"expec attrs {c}"
+            )
             npix = self._expec_uv[c]["npix"]
             self.assertEqual(xds.dims[c], npix, "Incorrect axis length")
-            expec = [ (i - npix // 2) * attrs["cdelt"] for i in range(npix) ]
+            expec = [(i - npix // 2) * attrs["cdelt"] for i in range(npix)]
             self.assertTrue(
                 (xds[c].values == np.array(expec)).all(),
-                f"Incorrect values for coordinate {c}"
+                f"Incorrect values for coordinate {c}",
             )
+
 
 class casa_image_to_xds_test(ImageBase):
     """
@@ -686,7 +683,7 @@ class casacore_to_xds_to_casacore(ImageBase):
     _outname4_no_sky: str = _outname4 + "_no_sky"
     _outname5: str = "xds_2_casa_nans_already_masked.im"
     _outname5_no_sky: str = _outname5 + "_no_sky"
-    _output_uv : str = "output_uv.im"
+    _output_uv: str = "output_uv.im"
 
     @classmethod
     def setUpClass(cls):
@@ -970,8 +967,9 @@ class xds_to_zarr_to_xds_test(ImageBase):
         xds2 = read_image(self._zarr_uv_store)
         self.assertTrue(
             np.isclose(xds2.apeture.values, xds.apeture.values).all(),
-            "Incorrect apeture pixel values"
+            "Incorrect apeture pixel values",
         )
+
 
 class make_empty_sky_image_test(ImageBase):
     """Test making skeleton image"""

@@ -896,6 +896,7 @@ class xds_to_zarr_to_xds_test(ImageBase):
     """
 
     _zarr_store: str = "out.zarr"
+    _zarr_uv_store: str = "out_uv.zarr"
 
     @classmethod
     def setUpClass(cls):
@@ -911,6 +912,7 @@ class xds_to_zarr_to_xds_test(ImageBase):
         super().tearDownClass()
         for f in [
             cls._zarr_store,
+            cls._zarr_uv_store,
         ]:
             if os.path.exists(f):
                 if os.path.isdir(f):
@@ -959,6 +961,17 @@ class xds_to_zarr_to_xds_test(ImageBase):
     def test_get_img_ds_block(self):
         self.compare_image_block(self._zarr_store, zarr=True)
 
+    def test_output_uv_zarr_image(self):
+        image = self.uv_image()
+        download(image)
+        self.assertTrue(os.path.isdir(image), f"Cound not download {image}")
+        xds = read_image(image)
+        write_image(xds, self._zarr_uv_store, "zarr")
+        xds2 = read_image(self._zarr_uv_store)
+        self.assertTrue(
+            np.isclose(xds2.apeture.values, xds.apeture.values).all(),
+            "Incorrect apeture pixel values"
+        )
 
 class make_empty_sky_image_test(ImageBase):
     """Test making skeleton image"""

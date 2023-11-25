@@ -89,34 +89,11 @@ def _numpy_arrayize(xds):
 
 def _default_freq_info() -> dict:
     return {
-        """
-        "conversion": {
-            "direction": {
-                "m0": {"unit": "rad", "value": 0.0},
-                "m1": {"unit": "rad", "value": 1.5707963267948966},
-                "system": "FK5",
-                "equinox": "J2000",
-            },
-            "epoch": {
-                "m0": {"unit": "d", "value": 0.0},
-                "refer": "LAST",
-            },
-            "position": {
-                "m0": {"unit": "rad", "value": 0.0},
-                "m1": {"unit": "rad", "value": 0.0},
-                "m2": {"unit": "m", "value": 0.0},
-                "refer": "ITRF",
-            },
-            "system": "LSRK",
-        },
-        """
-        # "nativeType": "FREQ",
         "rest_frequency": {
             "value": 1420405751.7860003,
             "units": "Hz",
             "type": "quantity",
         },
-        # "restfreqs": [1420405751.7860003],
         "type": "frequency",
         "frame": "LSRK",
         "units": "Hz",
@@ -243,12 +220,6 @@ def _compute_linear_world_values(
     """
     return np.array([crval + (i - crpix) * cdelt for i in range(naxis)])
 
-    # def _compute_pixel_values(naxis:int, crpix:float) -> np.ndarray:
-    """
-    Simple linear transformation to get all pixel values in a specific dimension
-    """
-    # return np.array([ i-crpix for i in range(naxis) ])
-
 
 # def _compute_ref_pix(xds: xr.Dataset, direction: dict) -> np.ndarray:
 def _compute_sky_reference_pixel(xds: xr.Dataset) -> np.ndarray:
@@ -261,63 +232,3 @@ def _compute_sky_reference_pixel(xds: xr.Dataset) -> np.ndarray:
             y = y[::-1]
         crpix[i] = np.interp(0.0, x, y)
     return np.array(crpix)
-    """
-    # TODO more general coordinates
-    ref = xds.attrs['direction']["reference"]
-    long = xds.right_ascension
-    lat = xds.declination
-    [ ra_crval, dec_crval ] = ref["value"]
-    long_close = np.where(np.isclose(long, ra_crval))
-    lat_close = np.where(np.isclose(lat, dec_crval))
-    if long_close and lat_close:
-        long_list = [(i, j) for i, j in zip(long_close[0], long_close[1])]
-        lat_list = [(i, j) for i, j in zip(lat_close[0], lat_close[1])]
-        common_indices = [t for t in long_list if t in lat_list]
-        if len(common_indices) == 1:
-            return np.array(common_indices[0])
-    cdelt = max(abs(ref["cdelt"]))
-
-    # this creates an image of mostly NaNs. The few pixels with values are
-    # close to the reference pixel
-    ra_diff = long - ra_crval
-    dec_diff = lat - dec_crval
-    # this returns a 2-tuple of indices where the values in aa are not NaN
-    indices_close = np.where(
-        ra_diff * ra_diff + dec_diff * dec_diff < 2 * cdelt * cdelt
-    )
-    # this determines the closest pixel to the reference pixel
-    closest = 5e10
-    pix = []
-    for i, j in zip(indices_close[0], indices_close[1]):
-        dra = long[i, j] - ra_crval
-        ddec = lat[i, j] - dec_crval
-        if dra * dra + ddec * ddec < closest:
-            pix = [i, j]
-    # get the actual ref pix
-    proj = xds.attrs["direction"]["projection"]
-    wcs_dict = {}
-    wcs_dict[f"CTYPE1"] = f"RA---{proj}"
-    wcs_dict[f"NAXIS1"] = long.shape[0]
-    wcs_dict[f"CUNIT1"] = ref["units"][0]
-    # FITS arrays are 1-based
-    wcs_dict[f"CRPIX1"] = pix[0] + 1
-    wcs_dict[f"CRVAL1"] = long[pix[0], pix[1]].item(0)
-    wcs_dict[f"CDELT1"] = ref["cdelt"][0]
-    wcs_dict[f"CTYPE2"] = f"DEC--{proj}"
-    wcs_dict[f"NAXIS2"] = lat.shape[1]
-    wcs_dict[f"CUNIT2"] = ref["units"][1]
-    # FITS arrays are 1-based
-    wcs_dict[f"CRPIX2"] = pix[1] + 1
-    wcs_dict[f"CRVAL2"] = lat[pix[0], pix[1]].item(0)
-    wcs_dict[f"CDELT2"] = ref["cdelt"][1]
-    w = astropy.wcs.WCS(wcs_dict)
-    x, y = np.indices(w.pixel_shape)
-    sky = SkyCoord(
-        ra_crval,
-        dec_crval,
-        frame=xds.attrs["direction"]["system"].lower(),
-        equinox=xds.attrs["direction"]["equinox"],
-        unit=ref["units"][0],
-    )
-    return w.world_to_pixel(sky)
-    """

@@ -1419,10 +1419,7 @@ class fits_to_xds_test(ImageBase):
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
-        for f in [
-            cls._imname1,
-            cls._outname1
-        ]:
+        for f in [cls._imname1, cls._outname1]:
             if os.path.exists(f):
                 if os.path.isdir(f):
                     shutil.rmtree(f)
@@ -1483,7 +1480,9 @@ class fits_to_xds_test(ImageBase):
 
     def test_multibeam(self):
         download(self._imname1)
-        self.assertTrue(os.path.exists(self._imname1), f"{self._imname1} not downloaded")
+        self.assertTrue(
+            os.path.exists(self._imname1), f"{self._imname1} not downloaded"
+        )
         with open_image_ro(self._imname1) as casa_image:
             casa_image.tofits(self._outname1)
             expec = casa_image.imageinfo()["perplanebeams"]
@@ -1494,15 +1493,18 @@ class fits_to_xds_test(ImageBase):
                 for b in ["major", "minor", "pa"]:
                     bb = "positionangle" if b == "pa" else b
                     expec_comp = expec[f"*{p*50+c}"][bb]
-                    expec_comp = (expec_comp["value"] * u.Unit(expec_comp["unit"])).to("rad").value,
-                    got_comp = got.isel(dict(time=0, polarization=p, frequency=c)).sel(dict(beam_param=b))
+                    expec_comp = (
+                        (expec_comp["value"] * u.Unit(expec_comp["unit"]))
+                        .to("rad")
+                        .value,
+                    )
+                    got_comp = got.isel(dict(time=0, polarization=p, frequency=c)).sel(
+                        dict(beam_param=b)
+                    )
                 self.assertTrue(
                     np.isclose(got_comp, expec_comp),
-                    f"Incorrect {b} value for polarization {p}, channel {c}. {got_comp.item()} rad vs {expec_comp} rad."
+                    f"Incorrect {b} value for polarization {p}, channel {c}. {got_comp.item()} rad vs {expec_comp} rad.",
                 )
-
-
-
 
     # TODO
     def test_get_img_ds_block(self):

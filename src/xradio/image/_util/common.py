@@ -232,4 +232,3 @@ def _compute_sky_reference_pixel(xds: xr.Dataset) -> np.ndarray:
             y = y[::-1]
         crpix[i] = np.interp(0.0, x, y)
     return np.array(crpix)
-

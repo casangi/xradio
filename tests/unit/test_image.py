@@ -421,7 +421,8 @@ class ImageBase(unittest.TestCase):
         m_vals = xds.coords["m"].values
         self.assertTrue(
             np.isclose(
-                l_vals, np.array([(i - 15) * cdelt for i in range(xds.dims["l"])])
+                l_vals,
+                np.array([(i - 15) * (-1) * cdelt for i in range(xds.dims["l"])]),
             ).all(),
             "Wrong l values",
         )
@@ -433,9 +434,30 @@ class ImageBase(unittest.TestCase):
         )
         l_attrs = xds.coords["l"].attrs
         m_attrs = xds.coords["m"].attrs
-        e_attrs = {"crval": 0, "cdelt": cdelt, "units": "rad", "type": "quantity"}
-        self.dict_equality(l_attrs, e_attrs, "got l attrs", "expec l attrs")
-        self.dict_equality(m_attrs, e_attrs, "got m attrs", "expec l attrs")
+        e_l_attrs = {
+            "crval": 0,
+            "cdelt": -cdelt,
+            "units": "rad",
+            "type": "quantity",
+            "note": (
+                "l is the angle measured from the phase center to the east. "
+                "So l = x*cdelt, where x is the number of pixels from the phase center. "
+                "See AIPS Memo #27, Section III."
+            ),
+        }
+        e_m_attrs = {
+            "crval": 0,
+            "cdelt": cdelt,
+            "units": "rad",
+            "type": "quantity",
+            "note": (
+                "m is the angle measured from the phase center to the north. "
+                "So m = y*cdelt, where y is the number of pixels from the phase center. "
+                "See AIPS Memo #27, Section III."
+            ),
+        }
+        self.dict_equality(l_attrs, e_l_attrs, "got l attrs", "expec l attrs")
+        self.dict_equality(m_attrs, e_m_attrs, "got m attrs", "expec m attrs")
 
     def compare_ra_dec(self, xds: xr.Dataset, fits: bool = False) -> None:
         ev = self._exp_vals
@@ -1058,7 +1080,26 @@ class make_empty_sky_image_test(ImageBase):
     def test_l_m_coord(self):
         cdelt = np.pi / 180 / 60
         expec = [(i - 5) * cdelt for i in range(10)]
-        expec_attrs = {"type": "quantity", "crval": 0.0, "cdelt": cdelt, "units": "rad"}
+        expec_attrs = {
+            "l": {
+                "type": "quantity",
+                "crval": 0.0,
+                "cdelt": -cdelt,
+                "units": "rad",
+                "note": "l is the angle measured from the phase center to the east. "
+                "So l = x*cdelt, where x is the number of pixels from the phase center. "
+                "See AIPS Memo #27, Section III.",
+            },
+            "m": {
+                "type": "quantity",
+                "crval": 0.0,
+                "cdelt": cdelt,
+                "units": "rad",
+                "note": "m is the angle measured from the phase center to the north. "
+                "So m = y*cdelt, where y is the number of pixels from the phase center. "
+                "See AIPS Memo #27, Section III.",
+            },
+        }
         for skel in [self.skel_im(), self.skel_im_no_sky()]:
             for c in ["l", "m"]:
                 self.assertTrue(
@@ -1066,7 +1107,7 @@ class make_empty_sky_image_test(ImageBase):
                     f"Incorrect {c} coord values",
                 )
                 self.dict_equality(
-                    skel[c].attrs, expec_attrs, f"got {c} attrs", "expec {c} attrs"
+                    skel[c].attrs, expec_attrs[c], f"got {c} attrs", "expec {c} attrs"
                 )
 
     def test_right_ascension_coord(self):

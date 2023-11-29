@@ -2,7 +2,7 @@ from astropy.wcs import WCS
 import numpy as np
 import xarray as xr
 from typing import Union
-from .common import _c, _compute_world_sph_dims
+from .common import _c, _compute_world_sph_dims, _l_m_attr_notes
 from ..._utils.common import _deg_to_rad
 
 
@@ -86,17 +86,22 @@ def _make_empty_sky_image(
         "pc": 1.0,
     }
     xds.velocity.attrs = {"doppler_type": "RADIO", "units": "m/s"}
+    attr_note = _l_m_attr_notes()
     xds.l.attrs = {
         "type": "quantity",
         "crval": 0.0,
-        "cdelt": abs(cell_size[0]),
+        "cdelt": -abs(cell_size[0]),
         "units": "rad",
+        "type": "quantity",
+        "note": attr_note["l"],
     }
     xds.m.attrs = {
         "type": "quantity",
         "crval": 0.0,
         "cdelt": abs(cell_size[1]),
         "units": "rad",
+        "type": "quantity",
+        "note": attr_note["m"],
     }
     xds.attrs = {
         "direction": {

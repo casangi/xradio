@@ -3,7 +3,7 @@ import astropy.units as u
 import dask
 import dask.array as da
 import numpy as np
-from typing import List
+from typing import Dict, List
 import xarray as xr
 from ..._utils.common import _deg_to_rad
 
@@ -232,3 +232,14 @@ def _compute_sky_reference_pixel(xds: xr.Dataset) -> np.ndarray:
             y = y[::-1]
         crpix[i] = np.interp(0.0, x, y)
     return np.array(crpix)
+
+
+def _l_m_attr_notes() -> Dict[str, str]:
+    return {
+        "l": "l is the angle measured from the phase center to the east. "
+        "So l = x*cdelt, where x is the number of pixels from the phase center. "
+        "See AIPS Memo #27, Section III.",
+        "m": "m is the angle measured from the phase center to the north. "
+        "So m = y*cdelt, where y is the number of pixels from the phase center. "
+        "See AIPS Memo #27, Section III.",
+    }

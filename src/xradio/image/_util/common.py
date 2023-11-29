@@ -241,6 +241,5 @@ def _l_m_attr_notes() -> Dict[str, str]:
         "See AIPS Memo #27, Section III.",
         "m": "m is the angle measured from the phase center to the north. "
         "So m = y*cdelt, where y is the number of pixels from the phase center. "
-        "See AIPS Memo #27, Section III."
+        "See AIPS Memo #27, Section III.",
     }
-

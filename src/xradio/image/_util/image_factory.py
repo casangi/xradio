@@ -93,7 +93,7 @@ def _make_empty_sky_image(
         "cdelt": -abs(cell_size[0]),
         "units": "rad",
         "type": "quantity",
-        "note": attr_note["l"]
+        "note": attr_note["l"],
     }
     xds.m.attrs = {
         "type": "quantity",
@@ -101,7 +101,7 @@ def _make_empty_sky_image(
         "cdelt": abs(cell_size[1]),
         "units": "rad",
         "type": "quantity",
-        "note": attr_note["m"]
+        "note": attr_note["m"],
     }
     xds.attrs = {
         "direction": {

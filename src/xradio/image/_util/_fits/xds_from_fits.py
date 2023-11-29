@@ -120,7 +120,7 @@ def _add_l_m_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
                 "cdelt": helpers[c]["cdelt"],
                 "units": "rad",
                 "type": "quantity",
-                "note": attr_note[c]
+                "note": attr_note[c],
             }
     return xds
 
@@ -474,7 +474,7 @@ def _create_coords(
             idx = sphr_dims[i]
             cdelt_rad = helpers["cdelt"][idx] * u.Unit(_get_unit(helpers["cunit"][idx]))
             cdelt_rad = abs(cdelt_rad.to("rad").value)
-            if c == 'l':
+            if c == "l":
                 # l values increase to the east
                 cdelt_rad = -cdelt_rad
             helpers[c] = {}

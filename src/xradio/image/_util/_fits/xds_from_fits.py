@@ -13,6 +13,7 @@ from ..common import (
     _get_unit,
     _get_xds_dim_order,
     _image_type,
+    _l_m_attr_notes,
 )
 from ...._utils.common import _deg_to_rad
 import copy
@@ -111,15 +112,16 @@ def _add_vel_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
 
 
 def _add_l_m_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
+    attr_note = _l_m_attr_notes()
     for c in ["l", "m"]:
         if c in xds.coords:
-            attrs = {
-                "type": "quantity",
+            xds[c].attrs = {
                 "crval": 0.0,
-                "units": helpers[c]["cunit"],
                 "cdelt": helpers[c]["cdelt"],
+                "units": "rad",
+                "type": "quantity",
+                "note": attr_note[c]
             }
-            xds[c].attrs = attrs
     return xds
 
 
@@ -472,6 +474,9 @@ def _create_coords(
             idx = sphr_dims[i]
             cdelt_rad = helpers["cdelt"][idx] * u.Unit(_get_unit(helpers["cunit"][idx]))
             cdelt_rad = abs(cdelt_rad.to("rad").value)
+            if c == 'l':
+                # l values increase to the east
+                cdelt_rad = -cdelt_rad
             helpers[c] = {}
             helpers[c]["cunit"] = "rad"
             helpers[c]["cdelt"] = cdelt_rad

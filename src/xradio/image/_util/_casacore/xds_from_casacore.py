@@ -27,6 +27,7 @@ from ..common import (
     _doppler_types,
     _get_unit,
     _image_type,
+    _l_m_attr_notes,
 )
 from ...._utils._casacore.tables import extract_table_attributes, open_table_ro
 from ...._utils.common import _deg_to_rad
@@ -305,17 +306,19 @@ def _casa_image_to_xds_coords(
         crpix = _flatten_list(csys.get_referencepixel())[::-1]
         inc = _flatten_list(csys.get_increment())[::-1]
         unit = _flatten_list(csys.get_unit())[::-1]
+        attr_note = _l_m_attr_notes()
         for c in ["l", "m"]:
             idx = dimmap[c]
-            delta = (abs(inc[idx]) * u.Unit(_get_unit(unit[idx]))).to("rad").value
+            delta = ((inc[idx]) * u.Unit(_get_unit(unit[idx]))).to("rad").value
             coords[c] = _compute_linear_world_values(
                 naxis=shape[idx], crval=0.0, crpix=crpix[idx], cdelt=delta
             )
             coord_attrs[c] = {
-                "type": "quantity",
-                "units": "rad",
                 "crval": 0.0,
                 "cdelt": delta,
+                "units": "rad",
+                "type": "quantity",
+                "note": attr_note[c],
             }
         if do_sky_coords:
             for k in coord_dict.keys():

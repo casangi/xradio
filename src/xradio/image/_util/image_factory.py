@@ -1,76 +1,50 @@
 from astropy.wcs import WCS
 import numpy as np
 import xarray as xr
-from typing import Union
+from typing import List, Union
 from .common import _c, _compute_world_sph_dims, _l_m_attr_notes
 from ..._utils.common import _deg_to_rad
 
 
-def _make_empty_sky_image(
+def _input_checks(
     phase_center: Union[list, np.ndarray],
     image_size: Union[list, np.ndarray],
     cell_size: Union[list, np.ndarray],
-    chan_coords: Union[list, np.ndarray],
-    pol_coords: Union[list, np.ndarray],
-    time_coords: Union[list, np.ndarray],
-    direction_reference: str,
-    projection: str,
-    spectral_reference: str,
-    do_sky_coords: bool,
-) -> xr.Dataset:
+) -> None:
     if len(image_size) != 2:
         raise ValueError("image_size must have exactly two elements")
     if len(phase_center) != 2:
         raise ValueError("phase_center must have exactly two elements")
     if len(cell_size) != 2:
         raise ValueError("cell_size must have exactly two elements")
-    if do_sky_coords:
-        long, lat = _compute_world_sph_dims(
-            projection=projection,
-            shape=image_size,
-            ctype=["RA", "Dec"],
-            crpix=[image_size[0] // 2, image_size[1] // 2],
-            crval=phase_center,
-            cdelt=[-abs(cell_size[0]), abs(cell_size[1])],
-            cunit=["rad", "rad"],
-        )["value"]
-    l_coords = [
-        (i - image_size[0] // 2) * abs(cell_size[0]) for i in range(image_size[0])
-    ]
-    m_coords = [
-        (i - image_size[1] // 2) * abs(cell_size[1]) for i in range(image_size[1])
-    ]
 
+
+def _make_coords(
+    chan_coords: Union[list, np.ndarray],
+    time_coords: Union[list, np.ndarray],
+) -> dict:
     if not isinstance(chan_coords, list) and not isinstance(chan_coords, np.ndarray):
         chan_coords = [chan_coords]
     chan_coords = np.array(chan_coords, dtype=np.float64)
     restfreq = chan_coords[len(chan_coords) // 2]
-    vel = (1 - chan_coords / restfreq) * _c
+    vel_coords = (1 - chan_coords / restfreq) * _c
     if not isinstance(time_coords, list) and not isinstance(time_coords, np.ndarray):
         time_coords = [time_coords]
     time_coords = np.array(time_coords, dtype=np.float64)
-    if do_sky_coords:
-        coords = {
-            "time": time_coords,
-            "polarization": pol_coords,
-            "frequency": chan_coords,
-            "velocity": ("frequency", vel),
-            "l": l_coords,
-            "m": m_coords,
-            "right_ascension": (("l", "m"), long),
-            "declination": (("l", "m"), lat),
-        }
-    else:
-        coords = {
-            "time": time_coords,
-            "polarization": pol_coords,
-            "frequency": chan_coords,
-            "velocity": ("frequency", vel),
-            "l": l_coords,
-            "m": m_coords,
-        }
-    xds = xr.Dataset(coords=coords)
+    return dict(chan=chan_coords, vel=vel_coords, time=time_coords, restfreq=restfreq)
+
+
+def _add_common_attrs(
+    xds: xr.Dataset,
+    restfreq: float,
+    spectral_reference: str,
+    direction_reference: str,
+    phase_center: Union[List[float], np.ndarray],
+    cell_size: Union[List[float], np.ndarray],
+    projection: str,
+) -> xr.Dataset:
     xds.time.attrs = {"format": "MJD", "scale": "UTC", "units": "d"}
+    freq_vals = np.array(xds.frequency)
     xds.frequency.attrs = {
         "rest_frequency": {
             "type": "quantity",
@@ -80,28 +54,12 @@ def _make_empty_sky_image(
         "frame": spectral_reference.upper(),
         "units": "Hz",
         "wave_unit": "mm",
-        "crval": chan_coords[len(chan_coords) // 2],
-        "cdelt": (chan_coords[1] - chan_coords[0] if len(chan_coords) > 1 else 1000.0),
+        # "crval": chan_coords[len(chan_coords) // 2],
+        "crval": freq_vals[len(freq_vals) // 2].item(),
+        "cdelt": (freq_vals[1] - freq_vals[0] if len(freq_vals) > 1 else 1000.0),
         "pc": 1.0,
     }
     xds.velocity.attrs = {"doppler_type": "RADIO", "units": "m/s"}
-    attr_note = _l_m_attr_notes()
-    xds.l.attrs = {
-        "type": "quantity",
-        "crval": 0.0,
-        "cdelt": -abs(cell_size[0]),
-        "units": "rad",
-        "type": "quantity",
-        "note": attr_note["l"],
-    }
-    xds.m.attrs = {
-        "type": "quantity",
-        "crval": 0.0,
-        "cdelt": abs(cell_size[1]),
-        "units": "rad",
-        "type": "quantity",
-        "note": attr_note["m"],
-    }
     xds.attrs = {
         "direction": {
             "reference": {
@@ -124,7 +82,7 @@ def _make_empty_sky_image(
         "obsdate": {
             "scale": "UTC",
             "format": "MJD",
-            "value": time_coords[0],
+            "value": np.array(xds.time)[0],
             "units": "d",
         },
         "observer": "Karl Jansky",
@@ -141,4 +99,127 @@ def _make_empty_sky_image(
         },
         "history": None,
     }
+    return xds
+
+
+def _make_empty_sky_image(
+    phase_center: Union[list, np.ndarray],
+    image_size: Union[list, np.ndarray],
+    cell_size: Union[list, np.ndarray],
+    chan_coords: Union[list, np.ndarray],
+    pol_coords: Union[list, np.ndarray],
+    time_coords: Union[list, np.ndarray],
+    direction_reference: str,
+    projection: str,
+    spectral_reference: str,
+    do_sky_coords: bool,
+) -> xr.Dataset:
+    _input_checks(phase_center, image_size, cell_size)
+    some_coords = _make_coords(chan_coords, time_coords)
+    if do_sky_coords:
+        long, lat = _compute_world_sph_dims(
+            projection=projection,
+            shape=image_size,
+            ctype=["RA", "Dec"],
+            crpix=[image_size[0] // 2, image_size[1] // 2],
+            crval=phase_center,
+            cdelt=[-abs(cell_size[0]), abs(cell_size[1])],
+            cunit=["rad", "rad"],
+        )["value"]
+    l_coords = [
+        (i - image_size[0] // 2) * abs(cell_size[0]) for i in range(image_size[0])
+    ]
+    m_coords = [
+        (i - image_size[1] // 2) * abs(cell_size[1]) for i in range(image_size[1])
+    ]
+    coords = {
+        "time": some_coords["time"],
+        "polarization": pol_coords,
+        "frequency": some_coords["chan"],
+        "velocity": ("frequency", some_coords["vel"]),
+        "l": l_coords,
+        "m": m_coords,
+    }
+    if do_sky_coords:
+        coords["right_ascension"] = (("l", "m"), long)
+        coords["declination"] = (("l", "m"), lat)
+    xds = xr.Dataset(coords=coords)
+    attr_note = _l_m_attr_notes()
+    xds.l.attrs = {
+        "type": "quantity",
+        "crval": 0.0,
+        "cdelt": -abs(cell_size[0]),
+        "units": "rad",
+        "type": "quantity",
+        "note": attr_note["l"],
+    }
+    xds.m.attrs = {
+        "type": "quantity",
+        "crval": 0.0,
+        "cdelt": abs(cell_size[1]),
+        "units": "rad",
+        "type": "quantity",
+        "note": attr_note["m"],
+    }
+    _add_common_attrs(
+        xds,
+        some_coords["restfreq"],
+        spectral_reference,
+        direction_reference,
+        phase_center,
+        cell_size,
+        projection,
+    )
+    return xds
+
+
+def _make_empty_apeture_image(
+    phase_center: Union[list, np.ndarray],
+    image_size: Union[list, np.ndarray],
+    sky_image_cell_size: Union[list, np.ndarray],
+    chan_coords: Union[list, np.ndarray],
+    pol_coords: Union[list, np.ndarray],
+    time_coords: Union[list, np.ndarray],
+    direction_reference: str,
+    projection: str,
+    spectral_reference: str,
+) -> xr.Dataset:
+    _input_checks(phase_center, image_size, sky_image_cell_size)
+    some_coords = _make_coords(chan_coords, time_coords)
+    im_size_wave = 1 / np.array(sky_image_cell_size)
+    uv_cell_size = im_size_wave / np.array(image_size)
+
+    # u decreases like RA
+    u_coords = [
+        (i - image_size[0] // 2) * abs(uv_cell_size[0]) for i in range(image_size[0])
+    ]
+    v_coords = [
+        (i - image_size[1] // 2) * abs(uv_cell_size[1]) for i in range(image_size[1])
+    ]
+    coords = {
+        "time": some_coords["time"],
+        "polarization": pol_coords,
+        "frequency": some_coords["chan"],
+        "velocity": ("frequency", some_coords["vel"]),
+        "u": u_coords,
+        "v": v_coords,
+    }
+    xds = xr.Dataset(coords=coords)
+    xds.u.attrs = {
+        "crval": 0.0,
+        "cdelt": abs(uv_cell_size[0]),
+    }
+    xds.v.attrs = {
+        "crval": 0.0,
+        "cdelt": abs(uv_cell_size[1]),
+    }
+    _add_common_attrs(
+        xds,
+        some_coords["restfreq"],
+        spectral_reference,
+        direction_reference,
+        phase_center,
+        sky_image_cell_size,
+        projection,
+    )
     return xds

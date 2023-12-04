@@ -999,9 +999,7 @@ class make_empty_sky_image_test(ImageBase):
 
     @classmethod
     def setUpClass(cls):
-        xxds = xr.Dataset()
         cls._skel_im = make_empty_sky_image(
-            xxds,
             [0.2, -0.5],
             [10, 10],
             [np.pi / 180 / 60, np.pi / 180 / 60],
@@ -1011,7 +1009,6 @@ class make_empty_sky_image_test(ImageBase):
             do_sky_coords=True,
         )
         cls._skel_im_no_sky = make_empty_sky_image(
-            xxds,
             [0.2, -0.5],
             [10, 10],
             [np.pi / 180 / 60, np.pi / 180 / 60],

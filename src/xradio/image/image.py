@@ -174,7 +174,6 @@ def write_image(xds: xr.Dataset, imagename: str, out_format: str = "casa") -> No
 
 
 def make_empty_sky_image(
-    xds: xr.Dataset,
     phase_center: Union[list, np.ndarray],
     image_size: Union[list, np.ndarray],
     cell_size: Union[list, np.ndarray],
@@ -193,8 +192,6 @@ def make_empty_sky_image(
 
     Parameters
     ----------
-    xds : xarray.Dataset
-        Empty dataset (dataset = xarray.Dataset()) to be modified
     phase_center : array of float, length = 2, units = rad
         Image phase center.
     image_size : array of int, length = 2, units = rad
@@ -218,7 +215,6 @@ def make_empty_sky_image(
     xarray.Dataset
     """
     return _make_empty_sky_image(
-        xds,
         phase_center,
         image_size,
         cell_size,

@@ -19,7 +19,6 @@ def _input_checks(
         raise ValueError("cell_size must have exactly two elements")
 
 
-
 def _make_coords(
     chan_coords: Union[list, np.ndarray],
     time_coords: Union[list, np.ndarray],
@@ -36,9 +35,13 @@ def _make_coords(
 
 
 def _add_common_attrs(
-    xds: xr.Dataset, restfreq: float, spectral_reference: str,
-    direction_reference: str, phase_center: Union[List[float], np.ndarray],
-    cell_size: Union[List[float], np.ndarray], projection: str
+    xds: xr.Dataset,
+    restfreq: float,
+    spectral_reference: str,
+    direction_reference: str,
+    phase_center: Union[List[float], np.ndarray],
+    cell_size: Union[List[float], np.ndarray],
+    projection: str,
 ) -> xr.Dataset:
     xds.time.attrs = {"format": "MJD", "scale": "UTC", "units": "d"}
     freq_vals = np.array(xds.frequency)
@@ -159,9 +162,13 @@ def _make_empty_sky_image(
         "note": attr_note["m"],
     }
     _add_common_attrs(
-        xds, some_coords["restfreq"], spectral_reference,
-        direction_reference, phase_center, cell_size,
-        projection
+        xds,
+        some_coords["restfreq"],
+        spectral_reference,
+        direction_reference,
+        phase_center,
+        cell_size,
+        projection,
     )
     return xds
 
@@ -179,8 +186,8 @@ def _make_empty_apeture_image(
 ) -> xr.Dataset:
     _input_checks(phase_center, image_size, sky_image_cell_size)
     some_coords = _make_coords(chan_coords, time_coords)
-    im_size_wave = 1/np.array(sky_image_cell_size)
-    uv_cell_size = im_size_wave/np.array(image_size)
+    im_size_wave = 1 / np.array(sky_image_cell_size)
+    uv_cell_size = im_size_wave / np.array(image_size)
 
     # u decreases like RA
     u_coords = [
@@ -207,8 +214,12 @@ def _make_empty_apeture_image(
         "cdelt": abs(uv_cell_size[1]),
     }
     _add_common_attrs(
-        xds, some_coords["restfreq"], spectral_reference,
-        direction_reference, phase_center, sky_image_cell_size,
-        projection
+        xds,
+        some_coords["restfreq"],
+        spectral_reference,
+        direction_reference,
+        phase_center,
+        sky_image_cell_size,
+        projection,
     )
     return xds

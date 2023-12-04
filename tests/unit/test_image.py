@@ -1,6 +1,12 @@
 import astropy.units as u
 import casacore.images, casacore.tables
-from xradio.image import load_image, make_empty_apeture_image, make_empty_sky_image, read_image, write_image
+from xradio.image import (
+    load_image,
+    make_empty_apeture_image,
+    make_empty_sky_image,
+    read_image,
+    write_image,
+)
 from xradio.data.datasets import download
 from xradio.image._util.common import _image_type as image_type
 from xradio.image._util._casacore.common import (
@@ -1549,6 +1555,7 @@ class fits_to_xds_test(ImageBase):
         # self.compare_image_block(self.imname())
         pass
 
+
 class make_empty_apeture_image_test(ImageBase):
     """Test making skeleton image"""
 
@@ -1563,14 +1570,12 @@ class make_empty_apeture_image_test(ImageBase):
             [54000.1],
         )
 
-
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
 
     def skel_im(self):
         return self._skel_im
-
 
     def test_time_coord(self):
         skel = self.skel_im()
@@ -1640,7 +1645,6 @@ class make_empty_apeture_image_test(ImageBase):
             self.dict_equality(
                 skel[c].attrs, expec_attrs[c], f"got {c} attrs", "expec {c} attrs"
             )
-
 
     def test_attrs(self):
         skel = self.skel_im()

@@ -1,6 +1,6 @@
 import astropy.units as u
 import casacore.images, casacore.tables
-from xradio.image import load_image, make_empty_sky_image, read_image, write_image
+from xradio.image import load_image, make_empty_apeture_image, make_empty_sky_image, read_image, write_image
 from xradio.data.datasets import download
 from xradio.image._util.common import _image_type as image_type
 from xradio.image._util._casacore.common import (
@@ -1548,6 +1548,146 @@ class fits_to_xds_test(ImageBase):
     def test_get_img_ds_block(self):
         # self.compare_image_block(self.imname())
         pass
+
+class make_empty_apeture_image_test(ImageBase):
+    """Test making skeleton image"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls._skel_im = make_empty_apeture_image(
+            [0.2, -0.5],
+            [10, 10],
+            [np.pi / 180 / 60, np.pi / 180 / 60],
+            [1.412e9, 1.413e9],
+            ["I", "Q", "U"],
+            [54000.1],
+        )
+
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+
+    def skel_im(self):
+        return self._skel_im
+
+
+    def test_time_coord(self):
+        skel = self.skel_im()
+        self.assertTrue(
+            np.isclose(skel.time, [54000.1]).all(),
+            "Incorrect time coordinate values",
+        )
+        expec = {"scale": "UTC", "units": "d", "format": "MJD"}
+        self.dict_equality(skel.time.attrs, expec, "got", "expected")
+
+    def test_polarization_coord(self):
+        skel = self.skel_im()
+        self.assertTrue(
+            (skel.polarization == ["I", "Q", "U"]).all(),
+            "Incorrect polarization coordinate values",
+        )
+
+    def test_frequency_coord(self):
+        expec = {
+            "rest_frequency": {
+                "type": "quantity",
+                "value": 1413000000.0,
+                "units": "Hz",
+            },
+            "frame": "LSRK",
+            "units": "Hz",
+            "wave_unit": "mm",
+            "crval": 1413000000.0,
+            "cdelt": 1000000.0,
+            "pc": 1.0,
+        }
+        skel = self.skel_im()
+        self.assertTrue(
+            np.isclose(skel.frequency, [1.412e09, 1.413e09]).all(),
+            "Incorrect frequency coordinate values",
+        )
+        self.dict_equality(skel.frequency.attrs, expec, "got", "expected")
+
+    def test_vel_coord(self):
+        expec = {"doppler_type": "RADIO", "units": "m/s"}
+        skel = self.skel_im()
+        self.assertTrue(
+            np.isclose(skel.velocity, [212167.34465675, 0]).all(),
+            "Incorrect vel coordinate values",
+        )
+        self.dict_equality(skel.velocity.attrs, expec, "got", "expected")
+
+    def test_u_v_coord(self):
+        cdelt = 180 * 60 / np.pi / 10
+        expec = np.array([(i - 5) * cdelt for i in range(10)])
+        expec_attrs = {
+            "u": {
+                "crval": 0.0,
+                "cdelt": cdelt,
+            },
+            "v": {
+                "crval": 0.0,
+                "cdelt": cdelt,
+            },
+        }
+        skel = self.skel_im()
+        for c in ["u", "v"]:
+            self.assertTrue(
+                np.isclose(skel[c].values, expec).all(),
+                f"Incorrect {c} coord values, {skel[c].values} vs {expec}.",
+            )
+            self.dict_equality(
+                skel[c].attrs, expec_attrs[c], f"got {c} attrs", "expec {c} attrs"
+            )
+
+
+    def test_attrs(self):
+        skel = self.skel_im()
+        expec = {
+            "direction": {
+                # "conversion_system": "FK5",
+                # "conversion_equinox": "J2000",
+                "long_pole": 0.0,
+                "lat_pole": 0.0,
+                "pc": np.array([[1.0, 0.0], [0.0, 1.0]]),
+                "projection": "SIN",
+                "projection_parameters": np.array([0.0, 0.0]),
+                "reference": {
+                    "type": "sky_coord",
+                    "frame": "FK5",
+                    "equinox": "J2000",
+                    "value": [0.2, -0.5],
+                    "cdelt": [-0.0002908882086657216, 0.0002908882086657216],
+                    "units": ["rad", "rad"],
+                },
+            },
+            "active_mask": "",
+            "beam": None,
+            "object_name": "",
+            "obsdate": {
+                "scale": "UTC",
+                "format": "MJD",
+                "value": 54000.0,
+                "units": "d",
+            },
+            "observer": "Karl Jansky",
+            "pointing_center": {"value": np.array([0.2, -0.5]), "initial": True},
+            "description": "",
+            "telescope": {
+                "name": "ALMA",
+                "position": {
+                    "type": "position",
+                    "ellipsoid": "GRS80",
+                    "units": ["rad", "rad", "m"],
+                    "value": np.array(
+                        [-1.1825465955049892, -0.3994149869262738, 6379946.01326443]
+                    ),
+                },
+            },
+            "history": None,
+        }
+        self.dict_equality(skel.attrs, expec, "got", "expected")
 
 
 if __name__ == "__main__":

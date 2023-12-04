@@ -7,7 +7,6 @@ from ..._utils.common import _deg_to_rad
 
 
 def _make_empty_sky_image(
-    xds: xr.Dataset,
     phase_center: Union[list, np.ndarray],
     image_size: Union[list, np.ndarray],
     cell_size: Union[list, np.ndarray],
@@ -70,7 +69,7 @@ def _make_empty_sky_image(
             "l": l_coords,
             "m": m_coords,
         }
-    xds = xds.assign_coords(coords)
+    xds = xr.Dataset(coords=coords)
     xds.time.attrs = {"format": "MJD", "scale": "UTC", "units": "d"}
     xds.frequency.attrs = {
         "rest_frequency": {

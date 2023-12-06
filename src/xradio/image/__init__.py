@@ -3,6 +3,7 @@
 from .image import (
     load_image,
     make_empty_apeture_image,
+    make_empty_lmuv_image,
     make_empty_sky_image,
     read_image,
     write_image,
@@ -11,6 +12,7 @@ from .image import (
 __all__ = [
     "load_image",
     "make_empty_apeture_image",
+    "make_empty_lmuv_image",
     "make_empty_sky_image",
     "read_image",
     "write_image",

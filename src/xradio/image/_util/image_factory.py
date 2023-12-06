@@ -129,7 +129,8 @@ def _make_empty_sky_image(
     # l follows RA as far as increasing/decreasing, see AIPS Meme 27, change in alpha
     # definition three lines below Figure 2 and the first of the pair of equations 10.
     l_coords = [
-        (i - image_size[0] // 2) * (-1)*abs(cell_size[0]) for i in range(image_size[0])
+        (i - image_size[0] // 2) * (-1) * abs(cell_size[0])
+        for i in range(image_size[0])
     ]
     m_coords = [
         (i - image_size[1] // 2) * abs(cell_size[1]) for i in range(image_size[1])
@@ -235,7 +236,7 @@ def _make_empty_lmuv_image(
     direction_reference: str,
     projection: str,
     spectral_reference: str,
-    do_sky_coords:bool
+    do_sky_coords: bool,
 ) -> xr.Dataset:
     _input_checks(phase_center, image_size, sky_image_cell_size)
     some_coords = _make_coords(chan_coords, time_coords)
@@ -252,10 +253,12 @@ def _make_empty_lmuv_image(
     # L follows RA as far as increasing/decreasing, see AIPS Meme 27, change in alpha
     # definition three lines below Figure 2 and the first of the pair of equations 10.
     l_coords = [
-        (i - image_size[0] // 2) * (-1) * abs(sky_image_cell_size[0]) for i in range(image_size[0])
+        (i - image_size[0] // 2) * (-1) * abs(sky_image_cell_size[0])
+        for i in range(image_size[0])
     ]
     m_coords = [
-        (i - image_size[1] // 2) * abs(sky_image_cell_size[1]) for i in range(image_size[1])
+        (i - image_size[1] // 2) * abs(sky_image_cell_size[1])
+        for i in range(image_size[1])
     ]
     # im_size_wave = 1 / np.array(sky_image_cell_size)
     # uv_cell_size = im_size_wave / np.array(image_size)

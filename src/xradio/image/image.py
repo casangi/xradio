@@ -280,7 +280,6 @@ def make_empty_apeture_image(
     )
 
 
-
 def make_empty_apeture_image(
     phase_center: Union[List[float], np.ndarray],
     image_size: Union[List[int], np.ndarray],
@@ -383,5 +382,3 @@ def make_empty_lmuv_image(
         spectral_reference,
         do_sky_coords,
     )
-
-

@@ -1775,7 +1775,6 @@ class make_empty_lmuv_image_test(ImageBase):
         )
         self.dict_equality(skel.velocity.attrs, expec, "got", "expected")
 
-
     def test_l_m_coord(self):
         cdelt = np.pi / 180 / 60
         expec = {"m": np.array([(i - 5) * cdelt for i in range(10)])}
@@ -1805,12 +1804,11 @@ class make_empty_lmuv_image_test(ImageBase):
             for c in ["l", "m"]:
                 self.assertTrue(
                     np.isclose(skel[c].values, expec[c]).all(),
-                    f"Incorrect {c} coord values, {skel[c].values} vs {expec[c]}"
+                    f"Incorrect {c} coord values, {skel[c].values} vs {expec[c]}",
                 )
                 self.dict_equality(
                     skel[c].attrs, expec_attrs[c], f"got {c} attrs", "expec {c} attrs"
                 )
-
 
     def test_right_ascension_coord(self):
         expec = [
@@ -2091,8 +2089,6 @@ class make_empty_lmuv_image_test(ImageBase):
             self.dict_equality(
                 skel.attrs["direction"]["reference"], expec2, "got", "expected"
             )
-
-
 
     def test_u_v_coord(self):
         cdelt = 180 * 60 / np.pi / 10

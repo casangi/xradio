@@ -5,7 +5,11 @@
 #################################
 from ._util.casacore import _load_casa_image_block, _xds_to_casa_image
 from ._util.fits import _read_fits_image
-from ._util.image_factory import _make_empty_apeture_image, _make_empty_sky_image
+from ._util.image_factory import (
+    _make_empty_apeture_image,
+    _make_empty_lmuv_image,
+    _make_empty_sky_image,
+)
 from ._util.zarr import _xds_to_zarr, _xds_from_zarr
 import warnings, time, os, logging
 import numpy as np
@@ -188,7 +192,6 @@ def make_empty_sky_image(
     """
     Create an image xarray.Dataset with only coordinates (no datavariables).
     The image dimensionality is time, pol, chan, l, m
-        l, m, time, chan, pol
 
     Parameters
     ----------
@@ -274,4 +277,108 @@ def make_empty_apeture_image(
         direction_reference,
         projection,
         spectral_reference,
+    )
+
+
+def make_empty_apeture_image(
+    phase_center: Union[List[float], np.ndarray],
+    image_size: Union[List[int], np.ndarray],
+    sky_image_cell_size: Union[List[float], np.ndarray],
+    chan_coords: Union[List[float], np.ndarray],
+    pol_coords: Union[List[str], np.ndarray],
+    time_coords: Union[List[float], np.ndarray],
+    direction_reference: str = "FK5",
+    projection: str = "SIN",
+    spectral_reference: str = "lsrk",
+) -> xr.Dataset:
+    """
+    Create an apeture (uv) mage xarray.Dataset with only coordinates (no datavariables).
+    The image dimensionality is time, pol, chan, u, v
+
+    Parameters
+    ----------
+    phase_center : array of float, length = 2, units = rad
+        Image phase center.
+    image_size : array of int, length = 2
+        Number of x and y axis pixels in image.
+    sky_image_cell_size : array of float, length = 2, units = rad
+        Cell size of x and y axis pixels in sky image, used to get cell size in uv image
+    chan_coords : list or np.ndarray
+        The center frequency in Hz of each image channel.
+    pol_coords : list or np.ndarray
+        The polarization code for each image polarization.
+    time_coords : list or np.ndarray
+        The time for each temporal plane in MJD.
+    direction_reference : str, default = 'FK5'
+    projection : str, default = 'SIN'
+    spectral_reference : str, default = 'lsrk'
+    Returns
+    -------
+    xarray.Dataset
+    """
+    return _make_empty_apeture_image(
+        phase_center,
+        image_size,
+        sky_image_cell_size,
+        chan_coords,
+        pol_coords,
+        time_coords,
+        direction_reference,
+        projection,
+        spectral_reference,
+    )
+
+
+def make_empty_lmuv_image(
+    phase_center: Union[List[float], np.ndarray],
+    image_size: Union[List[int], np.ndarray],
+    sky_image_cell_size: Union[List[float], np.ndarray],
+    chan_coords: Union[List[float], np.ndarray],
+    pol_coords: Union[List[float], np.ndarray],
+    time_coords: Union[List[float], np.ndarray],
+    direction_reference: str = "FK5",
+    projection: str = "SIN",
+    spectral_reference: str = "lsrk",
+    do_sky_coords: bool = True,
+) -> xr.Dataset:
+    """
+    Create an image xarray.Dataset with only coordinates (no datavariables).
+    The image dimensionality is time, pol, chan, l, m, u, v
+
+    Parameters
+    ----------
+    phase_center : array of float, length = 2, units = rad
+        Image phase center.
+    image_size : array of int, length = 2
+        Number of x and y axis pixels in image.
+    sky_image_cell_size : array of float, length = 2, units = rad
+        Cell size of sky image. The cell size of the u,v image will be computed from
+        1/(image_size * sky_image_cell_size)
+    chan_coords : list or np.ndarray
+        The center frequency in Hz of each image channel.
+    pol_coords : list or np.ndarray
+        The polarization code for each image polarization.
+    time_coords : list or np.ndarray
+        The time for each temporal plane in MJD.
+    direction_reference : str, default = 'FK5'
+    projection : str, default = 'SIN'
+    spectral_reference : str, default = 'lsrk'
+    do_sky_coords : bool
+        If True, compute SkyCoord at each pixel and add spherical (sky) dimensions as
+        non-dimensional coordinates in the returned xr.Dataset.
+    Returns
+    -------
+    xarray.Dataset
+    """
+    return _make_empty_lmuv_image(
+        phase_center,
+        image_size,
+        sky_image_cell_size,
+        chan_coords,
+        pol_coords,
+        time_coords,
+        direction_reference,
+        projection,
+        spectral_reference,
+        do_sky_coords,
     )

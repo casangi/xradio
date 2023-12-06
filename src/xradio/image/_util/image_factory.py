@@ -126,8 +126,11 @@ def _make_empty_sky_image(
             cdelt=[-abs(cell_size[0]), abs(cell_size[1])],
             cunit=["rad", "rad"],
         )["value"]
+    # l follows RA as far as increasing/decreasing, see AIPS Meme 27, change in alpha
+    # definition three lines below Figure 2 and the first of the pair of equations 10.
     l_coords = [
-        (i - image_size[0] // 2) * abs(cell_size[0]) for i in range(image_size[0])
+        (i - image_size[0] // 2) * (-1) * abs(cell_size[0])
+        for i in range(image_size[0])
     ]
     m_coords = [
         (i - image_size[1] // 2) * abs(cell_size[1]) for i in range(image_size[1])
@@ -188,8 +191,6 @@ def _make_empty_apeture_image(
     some_coords = _make_coords(chan_coords, time_coords)
     im_size_wave = 1 / np.array(sky_image_cell_size)
     uv_cell_size = im_size_wave / np.array(image_size)
-
-    # u decreases like RA
     u_coords = [
         (i - image_size[0] // 2) * abs(uv_cell_size[0]) for i in range(image_size[0])
     ]
@@ -205,6 +206,100 @@ def _make_empty_apeture_image(
         "v": v_coords,
     }
     xds = xr.Dataset(coords=coords)
+    xds.u.attrs = {
+        "crval": 0.0,
+        "cdelt": abs(uv_cell_size[0]),
+    }
+    xds.v.attrs = {
+        "crval": 0.0,
+        "cdelt": abs(uv_cell_size[1]),
+    }
+    _add_common_attrs(
+        xds,
+        some_coords["restfreq"],
+        spectral_reference,
+        direction_reference,
+        phase_center,
+        sky_image_cell_size,
+        projection,
+    )
+    return xds
+
+
+def _make_empty_lmuv_image(
+    phase_center: Union[list, np.ndarray],
+    image_size: Union[list, np.ndarray],
+    sky_image_cell_size: Union[list, np.ndarray],
+    chan_coords: Union[list, np.ndarray],
+    pol_coords: Union[list, np.ndarray],
+    time_coords: Union[list, np.ndarray],
+    direction_reference: str,
+    projection: str,
+    spectral_reference: str,
+    do_sky_coords: bool,
+) -> xr.Dataset:
+    _input_checks(phase_center, image_size, sky_image_cell_size)
+    some_coords = _make_coords(chan_coords, time_coords)
+    if do_sky_coords:
+        long, lat = _compute_world_sph_dims(
+            projection=projection,
+            shape=image_size,
+            ctype=["RA", "Dec"],
+            crpix=[image_size[0] // 2, image_size[1] // 2],
+            crval=phase_center,
+            cdelt=[-abs(sky_image_cell_size[0]), abs(sky_image_cell_size[1])],
+            cunit=["rad", "rad"],
+        )["value"]
+    # L follows RA as far as increasing/decreasing, see AIPS Meme 27, change in alpha
+    # definition three lines below Figure 2 and the first of the pair of equations 10.
+    l_coords = [
+        (i - image_size[0] // 2) * (-1) * abs(sky_image_cell_size[0])
+        for i in range(image_size[0])
+    ]
+    m_coords = [
+        (i - image_size[1] // 2) * abs(sky_image_cell_size[1])
+        for i in range(image_size[1])
+    ]
+    # im_size_wave = 1 / np.array(sky_image_cell_size)
+    # uv_cell_size = im_size_wave / np.array(image_size)
+    uv_cell_size = 1 / (np.array(image_size) * np.array(sky_image_cell_size))
+    u_coords = [
+        (i - image_size[0] // 2) * abs(uv_cell_size[0]) for i in range(image_size[0])
+    ]
+    v_coords = [
+        (i - image_size[1] // 2) * abs(uv_cell_size[1]) for i in range(image_size[1])
+    ]
+    coords = {
+        "time": some_coords["time"],
+        "polarization": pol_coords,
+        "frequency": some_coords["chan"],
+        "velocity": ("frequency", some_coords["vel"]),
+        "l": l_coords,
+        "m": m_coords,
+        "u": u_coords,
+        "v": v_coords,
+    }
+    if do_sky_coords:
+        coords["right_ascension"] = (("l", "m"), long)
+        coords["declination"] = (("l", "m"), lat)
+    xds = xr.Dataset(coords=coords)
+    attr_note = _l_m_attr_notes()
+    xds.l.attrs = {
+        "type": "quantity",
+        "crval": 0.0,
+        "cdelt": -abs(sky_image_cell_size[0]),
+        "units": "rad",
+        "type": "quantity",
+        "note": attr_note["l"],
+    }
+    xds.m.attrs = {
+        "type": "quantity",
+        "crval": 0.0,
+        "cdelt": abs(sky_image_cell_size[1]),
+        "units": "rad",
+        "type": "quantity",
+        "note": attr_note["m"],
+    }
     xds.u.attrs = {
         "crval": 0.0,
         "cdelt": abs(uv_cell_size[0]),

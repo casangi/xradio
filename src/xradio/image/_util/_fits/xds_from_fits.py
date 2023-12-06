@@ -476,6 +476,9 @@ def _create_coords(
             cdelt_rad = abs(cdelt_rad.to("rad").value)
             if c == "l":
                 # l values increase to the east
+                # l follows RA as far as increasing/decreasing, see AIPS Meme 27,
+                # change in alpha definition three lines below Figure 2 and the first
+                # of the pair of equations 10.
                 cdelt_rad = -cdelt_rad
             helpers[c] = {}
             helpers[c]["cunit"] = "rad"

@@ -31,6 +31,73 @@ import copy
 
 
 class ImageBase(unittest.TestCase):
+    def dict_equality(self, dict1, dict2, dict1_name, dict2_name, exclude_keys=[]):
+        self.assertEqual(
+            dict1.keys(),
+            dict2.keys(),
+            f"{dict1_name} has different keys than {dict2_name}:"
+            f"\n{dict1.keys()} vs\n {dict2.keys()}",
+        )
+        for k in dict1.keys():
+            if k not in exclude_keys:
+                one = dict1[k]
+                two = dict2[k]
+                if isinstance(one, numbers.Number) and isinstance(two, numbers.Number):
+                    self.assertTrue(
+                        np.isclose(one, two),
+                        f"{dict1_name}[{k}] != {dict2_name}[{k}]:\n"
+                        + f"{one} vs\n{two}",
+                    )
+                elif (isinstance(one, list) and isinstance(two, np.ndarray)) or (
+                    isinstance(one, np.ndarray)
+                    and isinstance(two, list)
+                    or (
+                        isinstance(one, list)
+                        and isinstance(two, list)
+                        and isinstance(one[0], numbers.Number)
+                    )
+                ):
+                    self.assertTrue(
+                        np.isclose(np.array(one), np.array(two)).all(),
+                        f"{dict1_name}[{k}] != {dict2_name}[{k}]",
+                    )
+                else:
+                    self.assertEqual(
+                        type(dict1[k]),
+                        type(dict2[k]),
+                        f"Types are different {dict1_name}[{k}] {type(dict1[k])} "
+                        + f"vs {dict2_name}[{k}] {type(dict2[k])}",
+                    )
+                    if isinstance(dict1[k], dict) and isinstance(dict2[k], dict):
+                        self.dict_equality(
+                            dict1[k],
+                            dict2[k],
+                            f"{dict1_name}[{k}]",
+                            f"{dict2_name}[{k}]",
+                        )
+                    elif isinstance(one, np.ndarray):
+                        if k == "crpix":
+                            self.assertTrue(
+                                np.allclose(one, two, rtol=3e-5),
+                                f"{dict1_name}[{k}] != {dict2_name}[{k}], {one} vs {two}",
+                            )
+                        else:
+                            self.assertTrue(
+                                np.allclose(one, two),
+                                f"{dict1_name}[{k}] != {dict2_name}[{k}], {one} vs {two}",
+                            )
+                    else:
+                        self.assertEqual(
+                            dict1[k],
+                            dict2[k],
+                            f"{dict1_name}[{k}] != {dict2_name}[{k}]:\n"
+                            + f"{dict1[k]} vs\n{dict2[k]}",
+                        )
+
+
+class xds_from_image_test(ImageBase):
+
+
     _imname: str = "inp.im"
     _outname: str = "out.im"
     _infits: str = "inp.fits"
@@ -131,9 +198,12 @@ class ImageBase(unittest.TestCase):
     _exp_attrs["user"] = {}
     _exp_attrs["history"] = None
 
+
     _ran_measures_code = False
 
+
     _expec_uv = {}
+
 
     @classmethod
     def setUpClass(cls):
@@ -146,6 +216,7 @@ class ImageBase(unittest.TestCase):
             cls._ran_measures_code = True
         cls._make_image()
 
+
     @classmethod
     def tearDownClass(cls):
         for f in [cls._imname, cls._outname, cls._infits, cls._uv_image]:
@@ -154,6 +225,7 @@ class ImageBase(unittest.TestCase):
                     shutil.rmtree(f)
                 else:
                     os.remove(f)
+
 
     @classmethod
     def _make_image(cls):
@@ -192,101 +264,38 @@ class ImageBase(unittest.TestCase):
         cls.assertTrue(cls._xds.dims == cls._exp_vals["shape"], "Incorrect shape")
         write_image(cls._xds, cls._outname, out_format="casa")
 
+
     def imname(self):
         return self._imname
+
 
     @classmethod
     def infits(self):
         return self._infits
 
+
     @classmethod
     def xds(self):
         return self._xds
+
 
     @classmethod
     def xds_no_sky(self):
         return self._xds_no_sky
 
+
     @classmethod
     def outname(self):
         return self._outname
+
 
     @classmethod
     def uv_image(self):
         return self._uv_image
 
+
     def exp_attrs(self):
         return self._exp_attrs
-
-    def dict_equality(self, dict1, dict2, dict1_name, dict2_name, exclude_keys=[]):
-        self.assertEqual(
-            dict1.keys(),
-            dict2.keys(),
-            f"{dict1_name} has different keys than {dict2_name}:"
-            f"\n{dict1.keys()} vs\n {dict2.keys()}",
-        )
-        for k in dict1.keys():
-            if k not in exclude_keys:
-                one = dict1[k]
-                two = dict2[k]
-                if isinstance(one, numbers.Number) and isinstance(two, numbers.Number):
-                    self.assertTrue(
-                        np.isclose(one, two),
-                        f"{dict1_name}[{k}] != {dict2_name}[{k}]:\n"
-                        + f"{one} vs\n{two}",
-                    )
-                elif (isinstance(one, list) and isinstance(two, np.ndarray)) or (
-                    isinstance(one, np.ndarray)
-                    and isinstance(two, list)
-                    or (
-                        isinstance(one, list)
-                        and isinstance(two, list)
-                        and isinstance(one[0], numbers.Number)
-                    )
-                ):
-                    self.assertTrue(
-                        np.isclose(np.array(one), np.array(two)).all(),
-                        f"{dict1_name}[{k}] != {dict2_name}[{k}]",
-                    )
-                else:
-                    self.assertEqual(
-                        type(dict1[k]),
-                        type(dict2[k]),
-                        f"Types are different {dict1_name}[{k}] {type(dict1[k])} "
-                        + f"vs {dict2_name}[{k}] {type(dict2[k])}",
-                    )
-                    if isinstance(dict1[k], dict) and isinstance(dict2[k], dict):
-                        self.dict_equality(
-                            dict1[k],
-                            dict2[k],
-                            f"{dict1_name}[{k}]",
-                            f"{dict2_name}[{k}]",
-                        )
-                    elif isinstance(one, np.ndarray):
-                        if k == "crpix":
-                            self.assertTrue(
-                                np.allclose(one, two, rtol=3e-5),
-                                f"{dict1_name}[{k}] != {dict2_name}[{k}], {one} vs {two}",
-                            )
-                        else:
-                            self.assertTrue(
-                                np.allclose(one, two),
-                                f"{dict1_name}[{k}] != {dict2_name}[{k}], {one} vs {two}",
-                            )
-                    else:
-                        self.assertEqual(
-                            dict1[k],
-                            dict2[k],
-                            f"{dict1_name}[{k}] != {dict2_name}[{k}]:\n"
-                            + f"{dict1[k]} vs\n{dict2[k]}",
-                        )
-
-
-
-
-
-
-class xds_from_image_test(ImageBase):
 
 
     def compare_sky_mask(self, xds: xr.Dataset, fits=False):
@@ -711,7 +720,7 @@ class casa_image_to_xds_test(xds_from_image_test):
         self.compare_uv(xds, image)
 
 
-class casacore_to_xds_to_casacore(ImageBase):
+class casacore_to_xds_to_casacore(xds_from_image_test):
     """
     test casacore -> xds -> casacore round trip, ensure
     the two casacore images are identical

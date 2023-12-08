@@ -80,6 +80,7 @@ def _add_common_attrs(
         "beam": None,
         "object_name": "",
         "obsdate": {
+            "type": "time",
             "scale": "UTC",
             "format": "MJD",
             "value": np.array(xds.time)[0],

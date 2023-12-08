@@ -31,6 +31,71 @@ import copy
 
 
 class ImageBase(unittest.TestCase):
+    def dict_equality(self, dict1, dict2, dict1_name, dict2_name, exclude_keys=[]):
+        self.assertEqual(
+            dict1.keys(),
+            dict2.keys(),
+            f"{dict1_name} has different keys than {dict2_name}:"
+            f"\n{dict1.keys()} vs\n {dict2.keys()}",
+        )
+        for k in dict1.keys():
+            if k not in exclude_keys:
+                one = dict1[k]
+                two = dict2[k]
+                if isinstance(one, numbers.Number) and isinstance(two, numbers.Number):
+                    self.assertTrue(
+                        np.isclose(one, two),
+                        f"{dict1_name}[{k}] != {dict2_name}[{k}]:\n"
+                        + f"{one} vs\n{two}",
+                    )
+                elif (isinstance(one, list) and isinstance(two, np.ndarray)) or (
+                    isinstance(one, np.ndarray)
+                    and isinstance(two, list)
+                    or (
+                        isinstance(one, list)
+                        and isinstance(two, list)
+                        and isinstance(one[0], numbers.Number)
+                    )
+                ):
+                    self.assertTrue(
+                        np.isclose(np.array(one), np.array(two)).all(),
+                        f"{dict1_name}[{k}] != {dict2_name}[{k}]",
+                    )
+                else:
+                    self.assertEqual(
+                        type(dict1[k]),
+                        type(dict2[k]),
+                        f"Types are different {dict1_name}[{k}] {type(dict1[k])} "
+                        + f"vs {dict2_name}[{k}] {type(dict2[k])}",
+                    )
+                    if isinstance(dict1[k], dict) and isinstance(dict2[k], dict):
+                        self.dict_equality(
+                            dict1[k],
+                            dict2[k],
+                            f"{dict1_name}[{k}]",
+                            f"{dict2_name}[{k}]",
+                        )
+                    elif isinstance(one, np.ndarray):
+                        if k == "crpix":
+                            self.assertTrue(
+                                np.allclose(one, two, rtol=3e-5),
+                                f"{dict1_name}[{k}] != {dict2_name}[{k}], {one} vs {two}",
+                            )
+                        else:
+                            self.assertTrue(
+                                np.allclose(one, two),
+                                f"{dict1_name}[{k}] != {dict2_name}[{k}], {one} vs {two}",
+                            )
+                    else:
+                        self.assertEqual(
+                            dict1[k],
+                            dict2[k],
+                            f"{dict1_name}[{k}] != {dict2_name}[{k}]:\n"
+                            + f"{dict1[k]} vs\n{dict2[k]}",
+                        )
+
+
+class xds_from_image_test(ImageBase):
     _imname: str = "inp.im"
     _outname: str = "out.im"
     _infits: str = "inp.fits"
@@ -217,69 +282,6 @@ class ImageBase(unittest.TestCase):
 
     def exp_attrs(self):
         return self._exp_attrs
-
-    def dict_equality(self, dict1, dict2, dict1_name, dict2_name, exclude_keys=[]):
-        self.assertEqual(
-            dict1.keys(),
-            dict2.keys(),
-            f"{dict1_name} has different keys than {dict2_name}:"
-            f"\n{dict1.keys()} vs\n {dict2.keys()}",
-        )
-        for k in dict1.keys():
-            if k not in exclude_keys:
-                one = dict1[k]
-                two = dict2[k]
-                if isinstance(one, numbers.Number) and isinstance(two, numbers.Number):
-                    self.assertTrue(
-                        np.isclose(one, two),
-                        f"{dict1_name}[{k}] != {dict2_name}[{k}]:\n"
-                        + f"{one} vs\n{two}",
-                    )
-                elif (isinstance(one, list) and isinstance(two, np.ndarray)) or (
-                    isinstance(one, np.ndarray)
-                    and isinstance(two, list)
-                    or (
-                        isinstance(one, list)
-                        and isinstance(two, list)
-                        and isinstance(one[0], numbers.Number)
-                    )
-                ):
-                    self.assertTrue(
-                        np.isclose(np.array(one), np.array(two)).all(),
-                        f"{dict1_name}[{k}] != {dict2_name}[{k}]",
-                    )
-                else:
-                    self.assertEqual(
-                        type(dict1[k]),
-                        type(dict2[k]),
-                        f"Types are different {dict1_name}[{k}] {type(dict1[k])} "
-                        + f"vs {dict2_name}[{k}] {type(dict2[k])}",
-                    )
-                    if isinstance(dict1[k], dict) and isinstance(dict2[k], dict):
-                        self.dict_equality(
-                            dict1[k],
-                            dict2[k],
-                            f"{dict1_name}[{k}]",
-                            f"{dict2_name}[{k}]",
-                        )
-                    elif isinstance(one, np.ndarray):
-                        if k == "crpix":
-                            self.assertTrue(
-                                np.allclose(one, two, rtol=3e-5),
-                                f"{dict1_name}[{k}] != {dict2_name}[{k}], {one} vs {two}",
-                            )
-                        else:
-                            self.assertTrue(
-                                np.allclose(one, two),
-                                f"{dict1_name}[{k}] != {dict2_name}[{k}], {one} vs {two}",
-                            )
-                    else:
-                        self.assertEqual(
-                            dict1[k],
-                            dict2[k],
-                            f"{dict1_name}[{k}] != {dict2_name}[{k}]:\n"
-                            + f"{dict1[k]} vs\n{dict2[k]}",
-                        )
 
     def compare_sky_mask(self, xds: xr.Dataset, fits=False):
         """Compare got sky and mask values to expected values"""
@@ -640,7 +642,7 @@ class ImageBase(unittest.TestCase):
             )
 
 
-class casa_image_to_xds_test(ImageBase):
+class casa_image_to_xds_test(xds_from_image_test):
     """
     test casa_image_to_xds
     """
@@ -696,7 +698,7 @@ class casa_image_to_xds_test(ImageBase):
         self.compare_uv(xds, image)
 
 
-class casacore_to_xds_to_casacore(ImageBase):
+class casacore_to_xds_to_casacore(xds_from_image_test):
     """
     test casacore -> xds -> casacore round trip, ensure
     the two casacore images are identical
@@ -917,7 +919,7 @@ class casacore_to_xds_to_casacore(ImageBase):
                 self.assertTrue(np.isclose(got, expec).all(), "Incorrect pixel data")
 
 
-class xds_to_zarr_to_xds_test(ImageBase):
+class xds_to_zarr_to_xds_test(xds_from_image_test):
     """
     test xds -> zarr -> xds round trip
     """
@@ -1001,449 +1003,7 @@ class xds_to_zarr_to_xds_test(ImageBase):
         )
 
 
-class make_empty_sky_image_test(ImageBase):
-    """Test making skeleton image"""
-
-    @classmethod
-    def setUpClass(cls):
-        cls._skel_im = make_empty_sky_image(
-            [0.2, -0.5],
-            [10, 10],
-            [np.pi / 180 / 60, np.pi / 180 / 60],
-            [1.412e9, 1.413e9],
-            ["I", "Q", "U"],
-            [54000.1],
-            do_sky_coords=True,
-        )
-        cls._skel_im_no_sky = make_empty_sky_image(
-            [0.2, -0.5],
-            [10, 10],
-            [np.pi / 180 / 60, np.pi / 180 / 60],
-            [1.412e9, 1.413e9],
-            ["I", "Q", "U"],
-            [54000.1],
-            do_sky_coords=False,
-        )
-
-    @classmethod
-    def tearDownClass(cls):
-        super().tearDownClass()
-
-    def skel_im(self):
-        return self._skel_im
-
-    def skel_im_no_sky(self):
-        return self._skel_im_no_sky
-
-    def test_time_coord(self):
-        for skel in [self.skel_im(), self.skel_im_no_sky()]:
-            self.assertTrue(
-                np.isclose(skel.time, [54000.1]).all(),
-                "Incorrect time coordinate values",
-            )
-            expec = {"scale": "UTC", "units": "d", "format": "MJD"}
-            self.dict_equality(skel.time.attrs, expec, "got", "expected")
-
-    def test_polarization_coord(self):
-        for skel in [self.skel_im(), self.skel_im_no_sky()]:
-            self.assertTrue(
-                (skel.polarization == ["I", "Q", "U"]).all(),
-                "Incorrect polarization coordinate values",
-            )
-
-    def test_frequency_coord(self):
-        expec = {
-            "rest_frequency": {
-                "type": "quantity",
-                "value": 1413000000.0,
-                "units": "Hz",
-            },
-            "frame": "LSRK",
-            "units": "Hz",
-            "wave_unit": "mm",
-            "crval": 1413000000.0,
-            "cdelt": 1000000.0,
-            "pc": 1.0,
-        }
-        for skel in [self.skel_im(), self.skel_im_no_sky()]:
-            self.assertTrue(
-                np.isclose(skel.frequency, [1.412e09, 1.413e09]).all(),
-                "Incorrect frequency coordinate values",
-            )
-            self.dict_equality(skel.frequency.attrs, expec, "got", "expected")
-
-    def test_vel_coord(self):
-        expec = {"doppler_type": "RADIO", "units": "m/s"}
-        for skel in [self.skel_im(), self.skel_im_no_sky()]:
-            self.assertTrue(
-                np.isclose(skel.velocity, [212167.34465675, 0]).all(),
-                "Incorrect vel coordinate values",
-            )
-            self.dict_equality(skel.velocity.attrs, expec, "got", "expected")
-
-    def test_l_m_coord(self):
-        cdelt = np.pi / 180 / 60
-        expec = {"m": np.array([(i - 5) * cdelt for i in range(10)])}
-        expec["l"] = -expec["m"]
-        expec_attrs = {
-            "l": {
-                "type": "quantity",
-                "crval": 0.0,
-                "cdelt": -cdelt,
-                "units": "rad",
-                "note": "l is the angle measured from the phase center to the east. "
-                "So l = x*cdelt, where x is the number of pixels from the phase center. "
-                "See AIPS Memo #27, Section III.",
-            },
-            "m": {
-                "type": "quantity",
-                "crval": 0.0,
-                "cdelt": cdelt,
-                "units": "rad",
-                "note": "m is the angle measured from the phase center to the north. "
-                "So m = y*cdelt, where y is the number of pixels from the phase center. "
-                "See AIPS Memo #27, Section III.",
-            },
-        }
-        for skel in [self.skel_im(), self.skel_im_no_sky()]:
-            for c in ["l", "m"]:
-                self.assertTrue(
-                    np.isclose(skel[c].values, expec[c]).all(),
-                    f"Incorrect {c} coord values",
-                )
-                self.dict_equality(
-                    skel[c].attrs, expec_attrs[c], f"got {c} attrs", "expec {c} attrs"
-                )
-
-    def test_right_ascension_coord(self):
-        expec = [
-            [
-                0.20165865,
-                0.20165838,
-                0.20165812,
-                0.20165785,
-                0.20165759,
-                0.20165733,
-                0.20165706,
-                0.2016568,
-                0.20165654,
-                0.20165628,
-            ],
-            [
-                0.20132692,
-                0.20132671,
-                0.20132649,
-                0.20132628,
-                0.20132607,
-                0.20132586,
-                0.20132565,
-                0.20132544,
-                0.20132523,
-                0.20132502,
-            ],
-            [
-                0.20099519,
-                0.20099503,
-                0.20099487,
-                0.20099471,
-                0.20099455,
-                0.2009944,
-                0.20099424,
-                0.20099408,
-                0.20099392,
-                0.20099377,
-            ],
-            [
-                0.20066346,
-                0.20066335,
-                0.20066325,
-                0.20066314,
-                0.20066304,
-                0.20066293,
-                0.20066283,
-                0.20066272,
-                0.20066262,
-                0.20066251,
-            ],
-            [
-                0.20033173,
-                0.20033168,
-                0.20033162,
-                0.20033157,
-                0.20033152,
-                0.20033147,
-                0.20033141,
-                0.20033136,
-                0.20033131,
-                0.20033126,
-            ],
-            [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2],
-            [
-                0.19966827,
-                0.19966832,
-                0.19966838,
-                0.19966843,
-                0.19966848,
-                0.19966853,
-                0.19966859,
-                0.19966864,
-                0.19966869,
-                0.19966874,
-            ],
-            [
-                0.19933654,
-                0.19933665,
-                0.19933675,
-                0.19933686,
-                0.19933696,
-                0.19933707,
-                0.19933717,
-                0.19933728,
-                0.19933738,
-                0.19933749,
-            ],
-            [
-                0.19900481,
-                0.19900497,
-                0.19900513,
-                0.19900529,
-                0.19900545,
-                0.1990056,
-                0.19900576,
-                0.19900592,
-                0.19900608,
-                0.19900623,
-            ],
-            [
-                0.19867308,
-                0.19867329,
-                0.19867351,
-                0.19867372,
-                0.19867393,
-                0.19867414,
-                0.19867435,
-                0.19867456,
-                0.19867477,
-                0.19867498,
-            ],
-        ]
-        for i, skel in enumerate([self.skel_im(), self.skel_im_no_sky()]):
-            if i == 0:
-                self.assertTrue(
-                    np.isclose(skel.right_ascension, expec).all(),
-                    "Incorrect right_ascension coordinate values",
-                )
-                self.assertEqual(
-                    skel.right_ascension.attrs,
-                    {},
-                    "right ascension has non-empty attrs dict but it should be empty",
-                )
-            else:
-                self.assertTrue(
-                    "right_ascension" not in skel.coords,
-                    "right_ascension is incorrectly in coords",
-                )
-
-    def test_declination_coord(self):
-        expec = [
-            [
-                -0.50145386,
-                -0.50116297,
-                -0.50087209,
-                -0.5005812,
-                -0.50029031,
-                -0.49999942,
-                -0.49970853,
-                -0.49941765,
-                -0.49912676,
-                -0.49883587,
-            ],
-            [
-                -0.50145407,
-                -0.50116318,
-                -0.50087229,
-                -0.50058141,
-                -0.50029052,
-                -0.49999963,
-                -0.49970874,
-                -0.49941785,
-                -0.49912697,
-                -0.49883608,
-            ],
-            [
-                -0.50145423,
-                -0.50116334,
-                -0.50087246,
-                -0.50058157,
-                -0.50029068,
-                -0.49999979,
-                -0.4997089,
-                -0.49941802,
-                -0.49912713,
-                -0.49883624,
-            ],
-            [
-                -0.50145435,
-                -0.50116346,
-                -0.50087257,
-                -0.50058168,
-                -0.5002908,
-                -0.49999991,
-                -0.49970902,
-                -0.49941813,
-                -0.49912724,
-                -0.49883635,
-            ],
-            [
-                -0.50145442,
-                -0.50116353,
-                -0.50087264,
-                -0.50058175,
-                -0.50029087,
-                -0.49999998,
-                -0.49970909,
-                -0.4994182,
-                -0.49912731,
-                -0.49883642,
-            ],
-            [
-                -0.50145444,
-                -0.50116355,
-                -0.50087266,
-                -0.50058178,
-                -0.50029089,
-                -0.5,
-                -0.49970911,
-                -0.49941822,
-                -0.49912734,
-                -0.49883645,
-            ],
-            [
-                -0.50145442,
-                -0.50116353,
-                -0.50087264,
-                -0.50058175,
-                -0.50029087,
-                -0.49999998,
-                -0.49970909,
-                -0.4994182,
-                -0.49912731,
-                -0.49883642,
-            ],
-            [
-                -0.50145435,
-                -0.50116346,
-                -0.50087257,
-                -0.50058168,
-                -0.5002908,
-                -0.49999991,
-                -0.49970902,
-                -0.49941813,
-                -0.49912724,
-                -0.49883635,
-            ],
-            [
-                -0.50145423,
-                -0.50116334,
-                -0.50087246,
-                -0.50058157,
-                -0.50029068,
-                -0.49999979,
-                -0.4997089,
-                -0.49941802,
-                -0.49912713,
-                -0.49883624,
-            ],
-            [
-                -0.50145407,
-                -0.50116318,
-                -0.50087229,
-                -0.50058141,
-                -0.50029052,
-                -0.49999963,
-                -0.49970874,
-                -0.49941785,
-                -0.49912697,
-                -0.49883608,
-            ],
-        ]
-        expec2 = {
-            "type": "sky_coord",
-            "frame": "FK5",
-            "equinox": "J2000",
-            "value": [0.2, -0.5],
-            "cdelt": [-0.0002908882086657216, 0.0002908882086657216],
-            "units": ["rad", "rad"],
-        }
-        for i, skel in enumerate([self.skel_im(), self.skel_im_no_sky()]):
-            if i == 0:
-                self.assertTrue(
-                    np.isclose(skel.declination, expec).all(),
-                    "Incorrect declinationion coordinate values",
-                )
-                self.assertEqual(
-                    skel.declination.attrs,
-                    {},
-                    "declination attrs dict is not empty but it should be empty",
-                )
-            else:
-                self.assertTrue(
-                    "declination" not in skel.coords,
-                    "declination incorrectly in coords",
-                )
-            self.dict_equality(
-                skel.attrs["direction"]["reference"], expec2, "got", "expected"
-            )
-
-    def test_attrs(self):
-        for skel in [self.skel_im(), self.skel_im_no_sky()]:
-            expec = {
-                "direction": {
-                    # "conversion_system": "FK5",
-                    # "conversion_equinox": "J2000",
-                    "long_pole": 0.0,
-                    "lat_pole": 0.0,
-                    "pc": np.array([[1.0, 0.0], [0.0, 1.0]]),
-                    "projection": "SIN",
-                    "projection_parameters": np.array([0.0, 0.0]),
-                    "reference": {
-                        "type": "sky_coord",
-                        "frame": "FK5",
-                        "equinox": "J2000",
-                        "value": [0.2, -0.5],
-                        "cdelt": [-0.0002908882086657216, 0.0002908882086657216],
-                        "units": ["rad", "rad"],
-                    },
-                },
-                "active_mask": "",
-                "beam": None,
-                "object_name": "",
-                "obsdate": {
-                    "scale": "UTC",
-                    "format": "MJD",
-                    "value": 54000.0,
-                    "units": "d",
-                },
-                "observer": "Karl Jansky",
-                "pointing_center": {"value": np.array([0.2, -0.5]), "initial": True},
-                "description": "",
-                "telescope": {
-                    "name": "ALMA",
-                    "position": {
-                        "type": "position",
-                        "ellipsoid": "GRS80",
-                        "units": ["rad", "rad", "m"],
-                        "value": np.array(
-                            [-1.1825465955049892, -0.3994149869262738, 6379946.01326443]
-                        ),
-                    },
-                },
-                "history": None,
-            }
-            self.dict_equality(skel.attrs, expec, "got", "expected")
-
-
-class fits_to_xds_test(ImageBase):
+class fits_to_xds_test(xds_from_image_test):
     """
     test fits_to_xds
     """
@@ -1558,29 +1118,21 @@ class fits_to_xds_test(ImageBase):
         pass
 
 
-class make_empty_apeture_image_test(ImageBase):
-    """Test making skeleton image"""
-
+class make_empty_image_tests(ImageBase):
     @classmethod
-    def setUpClass(cls):
-        cls._skel_im = make_empty_apeture_image(
+    def create_image(cls, code, do_sky_coords=None):
+        args = [
             [0.2, -0.5],
             [10, 10],
             [np.pi / 180 / 60, np.pi / 180 / 60],
             [1.412e9, 1.413e9],
             ["I", "Q", "U"],
             [54000.1],
-        )
+        ]
+        kwargs = {} if do_sky_coords is None else {"do_sky_coords": do_sky_coords}
+        return code(*args, **kwargs)
 
-    @classmethod
-    def tearDownClass(cls):
-        super().tearDownClass()
-
-    def skel_im(self):
-        return self._skel_im
-
-    def test_time_coord(self):
-        skel = self.skel_im()
+    def run_time_tests(self, skel):
         self.assertTrue(
             np.isclose(skel.time, [54000.1]).all(),
             "Incorrect time coordinate values",
@@ -1588,14 +1140,13 @@ class make_empty_apeture_image_test(ImageBase):
         expec = {"scale": "UTC", "units": "d", "format": "MJD"}
         self.dict_equality(skel.time.attrs, expec, "got", "expected")
 
-    def test_polarization_coord(self):
-        skel = self.skel_im()
+    def run_polarization_tests(self, skel):
         self.assertTrue(
             (skel.polarization == ["I", "Q", "U"]).all(),
             "Incorrect polarization coordinate values",
         )
 
-    def test_frequency_coord(self):
+    def run_frequency_tests(self, skel):
         expec = {
             "rest_frequency": {
                 "type": "quantity",
@@ -1609,176 +1160,24 @@ class make_empty_apeture_image_test(ImageBase):
             "cdelt": 1000000.0,
             "pc": 1.0,
         }
-        skel = self.skel_im()
         self.assertTrue(
             np.isclose(skel.frequency, [1.412e09, 1.413e09]).all(),
             "Incorrect frequency coordinate values",
         )
         self.dict_equality(skel.frequency.attrs, expec, "got", "expected")
 
-    def test_vel_coord(self):
+    def run_velocity_tests(self, skel):
         expec = {"doppler_type": "RADIO", "units": "m/s"}
-        skel = self.skel_im()
         self.assertTrue(
             np.isclose(skel.velocity, [212167.34465675, 0]).all(),
-            "Incorrect vel coordinate values",
+            "Incorrect velocity coordinate values",
         )
         self.dict_equality(skel.velocity.attrs, expec, "got", "expected")
 
-    def test_u_v_coord(self):
-        cdelt = 180 * 60 / np.pi / 10
-        expec = np.array([(i - 5) * cdelt for i in range(10)])
-        expec_attrs = {
-            "u": {
-                "crval": 0.0,
-                "cdelt": cdelt,
-            },
-            "v": {
-                "crval": 0.0,
-                "cdelt": cdelt,
-            },
-        }
-        skel = self.skel_im()
-        for c in ["u", "v"]:
-            self.assertTrue(
-                np.isclose(skel[c].values, expec).all(),
-                f"Incorrect {c} coord values, {skel[c].values} vs {expec}.",
-            )
-            self.dict_equality(
-                skel[c].attrs, expec_attrs[c], f"got {c} attrs", "expec {c} attrs"
-            )
-
-    def test_attrs(self):
-        skel = self.skel_im()
-        expec = {
-            "direction": {
-                # "conversion_system": "FK5",
-                # "conversion_equinox": "J2000",
-                "long_pole": 0.0,
-                "lat_pole": 0.0,
-                "pc": np.array([[1.0, 0.0], [0.0, 1.0]]),
-                "projection": "SIN",
-                "projection_parameters": np.array([0.0, 0.0]),
-                "reference": {
-                    "type": "sky_coord",
-                    "frame": "FK5",
-                    "equinox": "J2000",
-                    "value": [0.2, -0.5],
-                    "cdelt": [-0.0002908882086657216, 0.0002908882086657216],
-                    "units": ["rad", "rad"],
-                },
-            },
-            "active_mask": "",
-            "beam": None,
-            "object_name": "",
-            "obsdate": {
-                "scale": "UTC",
-                "format": "MJD",
-                "value": 54000.0,
-                "units": "d",
-            },
-            "observer": "Karl Jansky",
-            "pointing_center": {"value": np.array([0.2, -0.5]), "initial": True},
-            "description": "",
-            "telescope": {
-                "name": "ALMA",
-                "position": {
-                    "type": "position",
-                    "ellipsoid": "GRS80",
-                    "units": ["rad", "rad", "m"],
-                    "value": np.array(
-                        [-1.1825465955049892, -0.3994149869262738, 6379946.01326443]
-                    ),
-                },
-            },
-            "history": None,
-        }
-        self.dict_equality(skel.attrs, expec, "got", "expected")
-
-
-class make_empty_lmuv_image_test(ImageBase):
-    """Test making skeleton image"""
-
-    @classmethod
-    def setUpClass(cls):
-        cls._skel_im = make_empty_lmuv_image(
-            [0.2, -0.5],
-            [10, 10],
-            [np.pi / 180 / 60, np.pi / 180 / 60],
-            [1.412e9, 1.413e9],
-            ["I", "Q", "U"],
-            [54000.1],
-        )
-        cls._skel_im_no_sky = make_empty_lmuv_image(
-            [0.2, -0.5],
-            [10, 10],
-            [np.pi / 180 / 60, np.pi / 180 / 60],
-            [1.412e9, 1.413e9],
-            ["I", "Q", "U"],
-            [54000.1],
-            do_sky_coords=False,
-        )
-
-    @classmethod
-    def tearDownClass(cls):
-        super().tearDownClass()
-
-    def skel_im(self):
-        return self._skel_im
-
-    def skel_im_no_sky(self):
-        return self._skel_im_no_sky
-
-    def test_time_coord(self):
-        skel = self.skel_im()
-        self.assertTrue(
-            np.isclose(skel.time, [54000.1]).all(),
-            "Incorrect time coordinate values",
-        )
-        expec = {"scale": "UTC", "units": "d", "format": "MJD"}
-        self.dict_equality(skel.time.attrs, expec, "got", "expected")
-
-    def test_polarization_coord(self):
-        skel = self.skel_im()
-        self.assertTrue(
-            (skel.polarization == ["I", "Q", "U"]).all(),
-            "Incorrect polarization coordinate values",
-        )
-
-    def test_frequency_coord(self):
-        expec = {
-            "rest_frequency": {
-                "type": "quantity",
-                "value": 1413000000.0,
-                "units": "Hz",
-            },
-            "frame": "LSRK",
-            "units": "Hz",
-            "wave_unit": "mm",
-            "crval": 1413000000.0,
-            "cdelt": 1000000.0,
-            "pc": 1.0,
-        }
-        skel = self.skel_im()
-        self.assertTrue(
-            np.isclose(skel.frequency, [1.412e09, 1.413e09]).all(),
-            "Incorrect frequency coordinate values",
-        )
-        self.dict_equality(skel.frequency.attrs, expec, "got", "expected")
-
-    def test_vel_coord(self):
-        expec = {"doppler_type": "RADIO", "units": "m/s"}
-        skel = self.skel_im()
-        self.assertTrue(
-            np.isclose(skel.velocity, [212167.34465675, 0]).all(),
-            "Incorrect vel coordinate values",
-        )
-        self.dict_equality(skel.velocity.attrs, expec, "got", "expected")
-
-    def test_l_m_coord(self):
+    def run_l_m_tests(self, skel):
         cdelt = np.pi / 180 / 60
         expec = {"m": np.array([(i - 5) * cdelt for i in range(10)])}
-        expec["l"] = (-1) * expec["m"]
+        expec["l"] = -expec["m"]
         expec_attrs = {
             "l": {
                 "type": "quantity",
@@ -1799,18 +1198,16 @@ class make_empty_lmuv_image_test(ImageBase):
                 "See AIPS Memo #27, Section III.",
             },
         }
-        for skel in [self.skel_im(), self.skel_im_no_sky()]:
-            print(skel)
-            for c in ["l", "m"]:
-                self.assertTrue(
-                    np.isclose(skel[c].values, expec[c]).all(),
-                    f"Incorrect {c} coord values, {skel[c].values} vs {expec[c]}",
-                )
-                self.dict_equality(
-                    skel[c].attrs, expec_attrs[c], f"got {c} attrs", "expec {c} attrs"
-                )
+        for c in ["l", "m"]:
+            self.assertTrue(
+                np.isclose(skel[c].values, expec[c]).all(),
+                f"Incorrect {c} coord values",
+            )
+            self.dict_equality(
+                skel[c].attrs, expec_attrs[c], f"got {c} attrs", "expec {c} attrs"
+            )
 
-    def test_right_ascension_coord(self):
+    def run_right_ascension_tests(self, skel, do_sky_coords):
         expec = [
             [
                 0.20165865,
@@ -1922,24 +1319,23 @@ class make_empty_lmuv_image_test(ImageBase):
                 0.19867498,
             ],
         ]
-        for i, skel in enumerate([self.skel_im(), self.skel_im_no_sky()]):
-            if i == 0:
-                self.assertTrue(
-                    np.isclose(skel.right_ascension, expec).all(),
-                    "Incorrect right_ascension coordinate values",
-                )
-                self.assertEqual(
-                    skel.right_ascension.attrs,
-                    {},
-                    "right ascension has non-empty attrs dict but it should be empty",
-                )
-            else:
-                self.assertTrue(
-                    "right_ascension" not in skel.coords,
-                    "right_ascension is incorrectly in coords",
-                )
+        if do_sky_coords:
+            self.assertTrue(
+                np.isclose(skel.right_ascension, expec).all(),
+                "Incorrect right_ascension coordinate values",
+            )
+            self.assertEqual(
+                skel.right_ascension.attrs,
+                {},
+                "right ascension has non-empty attrs dict but it should be empty",
+            )
+        else:
+            self.assertTrue(
+                "right_ascension" not in skel.coords,
+                "right_ascension is incorrectly in coords",
+            )
 
-    def test_declination_coord(self):
+    def run_declination_tests(self, skel, do_sky_coords):
         expec = [
             [
                 -0.50145386,
@@ -2070,27 +1466,26 @@ class make_empty_lmuv_image_test(ImageBase):
             "cdelt": [-0.0002908882086657216, 0.0002908882086657216],
             "units": ["rad", "rad"],
         }
-        for i, skel in enumerate([self.skel_im(), self.skel_im_no_sky()]):
-            if i == 0:
-                self.assertTrue(
-                    np.isclose(skel.declination, expec).all(),
-                    "Incorrect declinationion coordinate values",
-                )
-                self.assertEqual(
-                    skel.declination.attrs,
-                    {},
-                    "declination attrs dict is not empty but it should be empty",
-                )
-            else:
-                self.assertTrue(
-                    "declination" not in skel.coords,
-                    "declination incorrectly in coords",
-                )
-            self.dict_equality(
-                skel.attrs["direction"]["reference"], expec2, "got", "expected"
+        if do_sky_coords:
+            self.assertTrue(
+                np.isclose(skel.declination, expec).all(),
+                "Incorrect declinationion coordinate values",
             )
+            self.assertEqual(
+                skel.declination.attrs,
+                {},
+                "declination attrs dict is not empty but it should be empty",
+            )
+        else:
+            self.assertTrue(
+                "declination" not in skel.coords,
+                "declination incorrectly in coords",
+            )
+        self.dict_equality(
+            skel.attrs["direction"]["reference"], expec2, "got", "expected"
+        )
 
-    def test_u_v_coord(self):
+    def run_u_v_tests(self, skel):
         cdelt = 180 * 60 / np.pi / 10
         expec = np.array([(i - 5) * cdelt for i in range(10)])
         expec_attrs = {
@@ -2103,7 +1498,6 @@ class make_empty_lmuv_image_test(ImageBase):
                 "cdelt": cdelt,
             },
         }
-        skel = self.skel_im()
         for c in ["u", "v"]:
             self.assertTrue(
                 np.isclose(skel[c].values, expec).all(),
@@ -2113,8 +1507,7 @@ class make_empty_lmuv_image_test(ImageBase):
                 skel[c].attrs, expec_attrs[c], f"got {c} attrs", "expec {c} attrs"
             )
 
-    def test_attrs(self):
-        skel = self.skel_im()
+    def run_attrs_tests(self, skel):
         expec = {
             "direction": {
                 # "conversion_system": "FK5",
@@ -2137,6 +1530,7 @@ class make_empty_lmuv_image_test(ImageBase):
             "beam": None,
             "object_name": "",
             "obsdate": {
+                "type": "time",
                 "scale": "UTC",
                 "format": "MJD",
                 "value": 54000.0,
@@ -2159,6 +1553,158 @@ class make_empty_lmuv_image_test(ImageBase):
             "history": None,
         }
         self.dict_equality(skel.attrs, expec, "got", "expected")
+
+
+class make_empty_sky_image_tests(make_empty_image_tests):
+    """Test making skeleton image"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls._skel_im = make_empty_image_tests.create_image(make_empty_sky_image, True)
+        cls._skel_im_no_sky = make_empty_image_tests.create_image(
+            make_empty_sky_image, False
+        )
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+
+    @classmethod
+    def skel_im(cls):
+        return cls._skel_im
+
+    def skel_im_no_sky(self):
+        return self._skel_im_no_sky
+
+    def test_time_coord(self):
+        for skel in [self.skel_im(), self.skel_im_no_sky()]:
+            self.run_time_tests(skel)
+
+    def test_polarization_coord(self):
+        for skel in [self.skel_im(), self.skel_im_no_sky()]:
+            self.run_polarization_tests(skel)
+
+    def test_frequency_coord(self):
+        for skel in [self.skel_im(), self.skel_im_no_sky()]:
+            self.run_frequency_tests(skel)
+
+    def test_vel_coord(self):
+        for skel in [self.skel_im(), self.skel_im_no_sky()]:
+            self.run_velocity_tests(skel)
+
+    def test_l_m_coord(self):
+        for skel in [self.skel_im(), self.skel_im_no_sky()]:
+            self.run_l_m_tests(skel)
+
+    def test_right_ascension_coord(self):
+        for i, skel in enumerate([self.skel_im(), self.skel_im_no_sky()]):
+            self.run_right_ascension_tests(skel, do_sky_coords=i == 0)
+
+    def test_declination_coord(self):
+        for i, skel in enumerate([self.skel_im(), self.skel_im_no_sky()]):
+            self.run_declination_tests(skel, do_sky_coords=i == 0)
+
+    def test_attrs(self):
+        for skel in [self.skel_im(), self.skel_im_no_sky()]:
+            self.run_attrs_tests(skel)
+
+
+class make_empty_apeture_image_tests(make_empty_image_tests):
+    """Test making skeleton image"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls._skel_im = make_empty_image_tests.create_image(
+            make_empty_apeture_image, None
+        )
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+
+    def skel_im(self):
+        return self._skel_im
+
+    def test_time_coord(self):
+        skel = self.skel_im()
+        self.run_time_tests(skel)
+
+    def test_polarization_coord(self):
+        skel = self.skel_im()
+        self.run_polarization_tests(skel)
+
+    def test_frequency_coord(self):
+        skel = self.skel_im()
+        self.run_frequency_tests(skel)
+
+    def test_vel_coord(self):
+        skel = self.skel_im()
+        self.run_velocity_tests(skel)
+
+    def test_u_v_coord(self):
+        skel = self.skel_im()
+        self.run_u_v_tests(skel)
+
+    def test_attrs(self):
+        skel = self.skel_im()
+        self.run_attrs_tests(skel)
+
+
+class make_empty_lmuv_image_tests(make_empty_image_tests):
+    """Tests making image with l, m, u, v coordinates"""
+
+    @classmethod
+    def setUpClass(cls):
+        cls._skel_im = make_empty_image_tests.create_image(make_empty_lmuv_image, True)
+        cls._skel_im_no_sky = make_empty_image_tests.create_image(
+            make_empty_lmuv_image, False
+        )
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+
+    def skel_im(self):
+        return self._skel_im
+
+    def skel_im_no_sky(self):
+        return self._skel_im_no_sky
+
+    def test_time_coord(self):
+        skel = self.skel_im()
+        self.run_time_tests(skel)
+
+    def test_polarization_coord(self):
+        skel = self.skel_im()
+        self.run_polarization_tests(skel)
+
+    def test_frequency_coord(self):
+        skel = self.skel_im()
+        self.run_frequency_tests(skel)
+
+    def test_vel_coord(self):
+        skel = self.skel_im()
+        self.run_velocity_tests(skel)
+
+    def test_l_m_coord(self):
+        for skel in [self.skel_im(), self.skel_im_no_sky()]:
+            self.run_l_m_tests(skel)
+
+    def test_right_ascension_coord(self):
+        for i, skel in enumerate([self.skel_im(), self.skel_im_no_sky()]):
+            self.run_right_ascension_tests(skel, do_sky_coords=i == 0)
+
+    def test_declination_coord(self):
+        for i, skel in enumerate([self.skel_im(), self.skel_im_no_sky()]):
+            self.run_declination_tests(skel, do_sky_coords=i == 0)
+
+    def test_u_v_coord(self):
+        skel = self.skel_im()
+        self.run_u_v_tests(skel)
+
+    def test_attrs(self):
+        skel = self.skel_im()
+        self.run_attrs_tests(skel)
 
 
 if __name__ == "__main__":

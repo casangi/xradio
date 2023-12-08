@@ -281,35 +281,6 @@ class ImageBase(unittest.TestCase):
                             + f"{dict1[k]} vs\n{dict2[k]}",
                         )
 
-    def compare_sky_mask(self, xds: xr.Dataset, fits=False):
-        """Compare got sky and mask values to expected values"""
-        ev = self._exp_vals
-        self.assertEqual(
-            xds.sky.attrs["image_type"], ev["image_type"], "Wrong image type"
-        )
-        self.assertEqual(xds.sky.attrs["units"], ev["units"], "Wrong unit")
-        self.assertEqual(xds.sky.chunksizes["frequency"], (5, 5), "Incorrect chunksize")
-        self.assertEqual(
-            xds.mask0.chunksizes["frequency"], (5, 5), "Incorrect chunksize"
-        )
-        got_data = da.squeeze(da.transpose(xds.sky, [2, 1, 4, 3, 0]), 4)
-        got_mask = da.squeeze(da.transpose(xds.mask0, [2, 1, 4, 3, 0]), 4)
-        if "sky_array" not in ev:
-            im = casacore.images.image(self.imname())
-            ev["sky"] = im.getdata()
-            # getmask returns the negated value of the casa image mask, so True
-            # has the same meaning as it does in xds.mask0
-            ev["mask0"] = im.getmask()
-            ev["sum"] = im.statistics()["sum"][0]
-        if fits:
-            self.assertTrue(
-                not np.isnan(got_data == ev["sky"]).all(), "pixel values incorrect"
-            )
-        else:
-            self.assertTrue((got_data == ev["sky"]).all(), "pixel values incorrect")
-        self.assertTrue((got_mask == ev["mask0"]).all(), "mask values incorrect")
-        got_ma = da.ma.masked_array(xds.sky, xds.mask0)
-        self.assertEqual(da.sum(got_ma), ev["sum"], "Incorrect value for sum")
 
     def compare_time(self, xds: xr.Dataset) -> None:
         ev = self._exp_vals
@@ -640,7 +611,41 @@ class ImageBase(unittest.TestCase):
             )
 
 
-class casa_image_to_xds_test(ImageBase):
+class xds_from_image_test(ImageBase):
+
+
+    def compare_sky_mask(self, xds: xr.Dataset, fits=False):
+        """Compare got sky and mask values to expected values"""
+        ev = self._exp_vals
+        self.assertEqual(
+            xds.sky.attrs["image_type"], ev["image_type"], "Wrong image type"
+        )
+        self.assertEqual(xds.sky.attrs["units"], ev["units"], "Wrong unit")
+        self.assertEqual(xds.sky.chunksizes["frequency"], (5, 5), "Incorrect chunksize")
+        self.assertEqual(
+            xds.mask0.chunksizes["frequency"], (5, 5), "Incorrect chunksize"
+        )
+        got_data = da.squeeze(da.transpose(xds.sky, [2, 1, 4, 3, 0]), 4)
+        got_mask = da.squeeze(da.transpose(xds.mask0, [2, 1, 4, 3, 0]), 4)
+        if "sky_array" not in ev:
+            im = casacore.images.image(self.imname())
+            ev["sky"] = im.getdata()
+            # getmask returns the negated value of the casa image mask, so True
+            # has the same meaning as it does in xds.mask0
+            ev["mask0"] = im.getmask()
+            ev["sum"] = im.statistics()["sum"][0]
+        if fits:
+            self.assertTrue(
+                not np.isnan(got_data == ev["sky"]).all(), "pixel values incorrect"
+            )
+        else:
+            self.assertTrue((got_data == ev["sky"]).all(), "pixel values incorrect")
+        self.assertTrue((got_mask == ev["mask0"]).all(), "mask values incorrect")
+        got_ma = da.ma.masked_array(xds.sky, xds.mask0)
+        self.assertEqual(da.sum(got_ma), ev["sum"], "Incorrect value for sum")
+
+
+class casa_image_to_xds_test(xds_from_image_test):
     """
     test casa_image_to_xds
     """
@@ -917,7 +922,7 @@ class casacore_to_xds_to_casacore(ImageBase):
                 self.assertTrue(np.isclose(got, expec).all(), "Incorrect pixel data")
 
 
-class xds_to_zarr_to_xds_test(ImageBase):
+class xds_to_zarr_to_xds_test(xds_from_image_test):
     """
     test xds -> zarr -> xds round trip
     """
@@ -1002,7 +1007,7 @@ class xds_to_zarr_to_xds_test(ImageBase):
 
 
 
-class fits_to_xds_test(ImageBase):
+class fits_to_xds_test(xds_from_image_test):
     """
     test fits_to_xds
     """
@@ -1492,6 +1497,77 @@ class make_empty_image_tests(ImageBase):
         )
 
 
+    def run_u_v_tests(self, skel):
+        cdelt = 180 * 60 / np.pi / 10
+        expec = np.array([(i - 5) * cdelt for i in range(10)])
+        expec_attrs = {
+            "u": {
+                "crval": 0.0,
+                "cdelt": cdelt,
+            },
+            "v": {
+                "crval": 0.0,
+                "cdelt": cdelt,
+            },
+        }
+        for c in ["u", "v"]:
+            self.assertTrue(
+                np.isclose(skel[c].values, expec).all(),
+                f"Incorrect {c} coord values, {skel[c].values} vs {expec}.",
+            )
+            self.dict_equality(
+                skel[c].attrs, expec_attrs[c], f"got {c} attrs", "expec {c} attrs"
+            )
+
+
+    def run_attrs_tests(self, skel):
+        expec = {
+            "direction": {
+                # "conversion_system": "FK5",
+                # "conversion_equinox": "J2000",
+                "long_pole": 0.0,
+                "lat_pole": 0.0,
+                "pc": np.array([[1.0, 0.0], [0.0, 1.0]]),
+                "projection": "SIN",
+                "projection_parameters": np.array([0.0, 0.0]),
+                "reference": {
+                    "type": "sky_coord",
+                    "frame": "FK5",
+                    "equinox": "J2000",
+                    "value": [0.2, -0.5],
+                    "cdelt": [-0.0002908882086657216, 0.0002908882086657216],
+                    "units": ["rad", "rad"],
+                },
+            },
+            "active_mask": "",
+            "beam": None,
+            "object_name": "",
+            "obsdate": {
+                "type": "time",
+                "scale": "UTC",
+                "format": "MJD",
+                "value": 54000.0,
+                "units": "d",
+            },
+            "observer": "Karl Jansky",
+            "pointing_center": {"value": np.array([0.2, -0.5]), "initial": True},
+            "description": "",
+            "telescope": {
+                "name": "ALMA",
+                "position": {
+                    "type": "position",
+                    "ellipsoid": "GRS80",
+                    "units": ["rad", "rad", "m"],
+                    "value": np.array(
+                        [-1.1825465955049892, -0.3994149869262738, 6379946.01326443]
+                    ),
+                },
+            },
+            "history": None,
+        }
+        self.dict_equality(skel.attrs, expec, "got", "expected")
+
+
 class make_empty_sky_image_tests(make_empty_image_tests):
     """Test making skeleton image"""
 
@@ -1551,51 +1627,7 @@ class make_empty_sky_image_tests(make_empty_image_tests):
 
     def test_attrs(self):
         for skel in [self.skel_im(), self.skel_im_no_sky()]:
-            expec = {
-                "direction": {
-                    # "conversion_system": "FK5",
-                    # "conversion_equinox": "J2000",
-                    "long_pole": 0.0,
-                    "lat_pole": 0.0,
-                    "pc": np.array([[1.0, 0.0], [0.0, 1.0]]),
-                    "projection": "SIN",
-                    "projection_parameters": np.array([0.0, 0.0]),
-                    "reference": {
-                        "type": "sky_coord",
-                        "frame": "FK5",
-                        "equinox": "J2000",
-                        "value": [0.2, -0.5],
-                        "cdelt": [-0.0002908882086657216, 0.0002908882086657216],
-                        "units": ["rad", "rad"],
-                    },
-                },
-                "active_mask": "",
-                "beam": None,
-                "object_name": "",
-                "obsdate": {
-                    "scale": "UTC",
-                    "format": "MJD",
-                    "value": 54000.0,
-                    "units": "d",
-                },
-                "observer": "Karl Jansky",
-                "pointing_center": {"value": np.array([0.2, -0.5]), "initial": True},
-                "description": "",
-                "telescope": {
-                    "name": "ALMA",
-                    "position": {
-                        "type": "position",
-                        "ellipsoid": "GRS80",
-                        "units": ["rad", "rad", "m"],
-                        "value": np.array(
-                            [-1.1825465955049892, -0.3994149869262738, 6379946.01326443]
-                        ),
-                    },
-                },
-                "history": None,
-            }
-            self.dict_equality(skel.attrs, expec, "got", "expected")
-
+            self.run_attrs_tests(skel)
 
 
 class make_empty_apeture_image_tests(make_empty_image_tests):
@@ -1634,74 +1666,13 @@ class make_empty_apeture_image_tests(make_empty_image_tests):
 
 
     def test_u_v_coord(self):
-        cdelt = 180 * 60 / np.pi / 10
-        expec = np.array([(i - 5) * cdelt for i in range(10)])
-        expec_attrs = {
-            "u": {
-                "crval": 0.0,
-                "cdelt": cdelt,
-            },
-            "v": {
-                "crval": 0.0,
-                "cdelt": cdelt,
-            },
-        }
         skel = self.skel_im()
-        for c in ["u", "v"]:
-            self.assertTrue(
-                np.isclose(skel[c].values, expec).all(),
-                f"Incorrect {c} coord values, {skel[c].values} vs {expec}.",
-            )
-            self.dict_equality(
-                skel[c].attrs, expec_attrs[c], f"got {c} attrs", "expec {c} attrs"
-            )
+        self.run_u_v_tests(skel)
+
 
     def test_attrs(self):
         skel = self.skel_im()
-        expec = {
-            "direction": {
-                # "conversion_system": "FK5",
-                # "conversion_equinox": "J2000",
-                "long_pole": 0.0,
-                "lat_pole": 0.0,
-                "pc": np.array([[1.0, 0.0], [0.0, 1.0]]),
-                "projection": "SIN",
-                "projection_parameters": np.array([0.0, 0.0]),
-                "reference": {
-                    "type": "sky_coord",
-                    "frame": "FK5",
-                    "equinox": "J2000",
-                    "value": [0.2, -0.5],
-                    "cdelt": [-0.0002908882086657216, 0.0002908882086657216],
-                    "units": ["rad", "rad"],
-                },
-            },
-            "active_mask": "",
-            "beam": None,
-            "object_name": "",
-            "obsdate": {
-                "scale": "UTC",
-                "format": "MJD",
-                "value": 54000.0,
-                "units": "d",
-            },
-            "observer": "Karl Jansky",
-            "pointing_center": {"value": np.array([0.2, -0.5]), "initial": True},
-            "description": "",
-            "telescope": {
-                "name": "ALMA",
-                "position": {
-                    "type": "position",
-                    "ellipsoid": "GRS80",
-                    "units": ["rad", "rad", "m"],
-                    "value": np.array(
-                        [-1.1825465955049892, -0.3994149869262738, 6379946.01326443]
-                    ),
-                },
-            },
-            "history": None,
-        }
-        self.dict_equality(skel.attrs, expec, "got", "expected")
+        self.run_attrs_tests(skel)
 
 
 class make_empty_lmuv_image_tests(make_empty_image_tests):
@@ -1759,74 +1730,13 @@ class make_empty_lmuv_image_tests(make_empty_image_tests):
 
 
     def test_u_v_coord(self):
-        cdelt = 180 * 60 / np.pi / 10
-        expec = np.array([(i - 5) * cdelt for i in range(10)])
-        expec_attrs = {
-            "u": {
-                "crval": 0.0,
-                "cdelt": cdelt,
-            },
-            "v": {
-                "crval": 0.0,
-                "cdelt": cdelt,
-            },
-        }
         skel = self.skel_im()
-        for c in ["u", "v"]:
-            self.assertTrue(
-                np.isclose(skel[c].values, expec).all(),
-                f"Incorrect {c} coord values, {skel[c].values} vs {expec}.",
-            )
-            self.dict_equality(
-                skel[c].attrs, expec_attrs[c], f"got {c} attrs", "expec {c} attrs"
-            )
+        self.run_u_v_tests(skel)
+
 
     def test_attrs(self):
         skel = self.skel_im()
-        expec = {
-            "direction": {
-                # "conversion_system": "FK5",
-                # "conversion_equinox": "J2000",
-                "long_pole": 0.0,
-                "lat_pole": 0.0,
-                "pc": np.array([[1.0, 0.0], [0.0, 1.0]]),
-                "projection": "SIN",
-                "projection_parameters": np.array([0.0, 0.0]),
-                "reference": {
-                    "type": "sky_coord",
-                    "frame": "FK5",
-                    "equinox": "J2000",
-                    "value": [0.2, -0.5],
-                    "cdelt": [-0.0002908882086657216, 0.0002908882086657216],
-                    "units": ["rad", "rad"],
-                },
-            },
-            "active_mask": "",
-            "beam": None,
-            "object_name": "",
-            "obsdate": {
-                "scale": "UTC",
-                "format": "MJD",
-                "value": 54000.0,
-                "units": "d",
-            },
-            "observer": "Karl Jansky",
-            "pointing_center": {"value": np.array([0.2, -0.5]), "initial": True},
-            "description": "",
-            "telescope": {
-                "name": "ALMA",
-                "position": {
-                    "type": "position",
-                    "ellipsoid": "GRS80",
-                    "units": ["rad", "rad", "m"],
-                    "value": np.array(
-                        [-1.1825465955049892, -0.3994149869262738, 6379946.01326443]
-                    ),
-                },
-            },
-            "history": None,
-        }
-        self.dict_equality(skel.attrs, expec, "got", "expected")
+        self.run_attrs_tests(skel)
 
 
 if __name__ == "__main__":

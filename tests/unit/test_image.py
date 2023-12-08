@@ -96,8 +96,6 @@ class ImageBase(unittest.TestCase):
 
 
 class xds_from_image_test(ImageBase):
-
-
     _imname: str = "inp.im"
     _outname: str = "out.im"
     _infits: str = "inp.fits"
@@ -198,12 +196,9 @@ class xds_from_image_test(ImageBase):
     _exp_attrs["user"] = {}
     _exp_attrs["history"] = None
 
-
     _ran_measures_code = False
 
-
     _expec_uv = {}
-
 
     @classmethod
     def setUpClass(cls):
@@ -216,7 +211,6 @@ class xds_from_image_test(ImageBase):
             cls._ran_measures_code = True
         cls._make_image()
 
-
     @classmethod
     def tearDownClass(cls):
         for f in [cls._imname, cls._outname, cls._infits, cls._uv_image]:
@@ -225,7 +219,6 @@ class xds_from_image_test(ImageBase):
                     shutil.rmtree(f)
                 else:
                     os.remove(f)
-
 
     @classmethod
     def _make_image(cls):
@@ -264,39 +257,31 @@ class xds_from_image_test(ImageBase):
         cls.assertTrue(cls._xds.dims == cls._exp_vals["shape"], "Incorrect shape")
         write_image(cls._xds, cls._outname, out_format="casa")
 
-
     def imname(self):
         return self._imname
-
 
     @classmethod
     def infits(self):
         return self._infits
 
-
     @classmethod
     def xds(self):
         return self._xds
-
 
     @classmethod
     def xds_no_sky(self):
         return self._xds_no_sky
 
-
     @classmethod
     def outname(self):
         return self._outname
-
 
     @classmethod
     def uv_image(self):
         return self._uv_image
 
-
     def exp_attrs(self):
         return self._exp_attrs
-
 
     def compare_sky_mask(self, xds: xr.Dataset, fits=False):
         """Compare got sky and mask values to expected values"""
@@ -328,7 +313,6 @@ class xds_from_image_test(ImageBase):
         got_ma = da.ma.masked_array(xds.sky, xds.mask0)
         self.assertEqual(da.sum(got_ma), ev["sum"], "Incorrect value for sum")
 
-
     def compare_time(self, xds: xr.Dataset) -> None:
         ev = self._exp_vals
         if "time" not in ev:
@@ -358,13 +342,11 @@ class xds_from_image_test(ImageBase):
             "Incoorect time axis unitt",
         )
 
-
     def compare_polarization(self, xds: xr.Dataset) -> None:
         self.assertTrue(
             (xds.coords["polarization"] == self._exp_vals["stokes"]).all(),
             "Incorrect polarization values",
         )
-
 
     def compare_frequency(self, xds: xr.Dataset):
         ev = self._exp_vals
@@ -397,7 +379,6 @@ class xds_from_image_test(ImageBase):
             ev["freq_waveunit"],
             "Incorrect wavelength unit",
         )
-
 
     def compare_vel_axis(self, xds: xr.Dataset, fits: bool = False):
         ev = self._exp_vals
@@ -487,7 +468,6 @@ class xds_from_image_test(ImageBase):
         self.dict_equality(l_attrs, e_l_attrs, "got l attrs", "expec l attrs")
         self.dict_equality(m_attrs, e_m_attrs, "got m attrs", "expec m attrs")
 
-
     def compare_ra_dec(self, xds: xr.Dataset, fits: bool = False) -> None:
         ev = self._exp_vals
         if "ra" not in ev:
@@ -559,7 +539,6 @@ class xds_from_image_test(ImageBase):
                 "Incorrect type for history data",
             )
 
-
     def compare_image_block(self, imagename, zarr=False):
         x = [0] if zarr else [0, 1]
         for i in x:
@@ -629,7 +608,6 @@ class xds_from_image_test(ImageBase):
                     isinstance(v.data, np.ndarray),
                     f"Wrong type for coord or data value {k}, got {type(v)}, must be a numpy.ndarray",
                 )
-
 
     def compare_uv(self, xds: xr.Dataset, image: str) -> None:
         if not self._expec_uv:
@@ -1025,7 +1003,6 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
         )
 
 
-
 class fits_to_xds_test(xds_from_image_test):
     """
     test fits_to_xds
@@ -1142,8 +1119,6 @@ class fits_to_xds_test(xds_from_image_test):
 
 
 class make_empty_image_tests(ImageBase):
-
-
     @classmethod
     def create_image(cls, code, do_sky_coords=None):
         args = [
@@ -1157,7 +1132,6 @@ class make_empty_image_tests(ImageBase):
         kwargs = {} if do_sky_coords is None else {"do_sky_coords": do_sky_coords}
         return code(*args, **kwargs)
 
-
     def run_time_tests(self, skel):
         self.assertTrue(
             np.isclose(skel.time, [54000.1]).all(),
@@ -1165,7 +1139,6 @@ class make_empty_image_tests(ImageBase):
         )
         expec = {"scale": "UTC", "units": "d", "format": "MJD"}
         self.dict_equality(skel.time.attrs, expec, "got", "expected")
-
 
     def run_polarization_tests(self, skel):
         self.assertTrue(
@@ -1193,7 +1166,6 @@ class make_empty_image_tests(ImageBase):
         )
         self.dict_equality(skel.frequency.attrs, expec, "got", "expected")
 
-
     def run_velocity_tests(self, skel):
         expec = {"doppler_type": "RADIO", "units": "m/s"}
         self.assertTrue(
@@ -1201,7 +1173,6 @@ class make_empty_image_tests(ImageBase):
             "Incorrect velocity coordinate values",
         )
         self.dict_equality(skel.velocity.attrs, expec, "got", "expected")
-
 
     def run_l_m_tests(self, skel):
         cdelt = np.pi / 180 / 60
@@ -1364,7 +1335,6 @@ class make_empty_image_tests(ImageBase):
                 "right_ascension is incorrectly in coords",
             )
 
-
     def run_declination_tests(self, skel, do_sky_coords):
         expec = [
             [
@@ -1515,7 +1485,6 @@ class make_empty_image_tests(ImageBase):
             skel.attrs["direction"]["reference"], expec2, "got", "expected"
         )
 
-
     def run_u_v_tests(self, skel):
         cdelt = 180 * 60 / np.pi / 10
         expec = np.array([(i - 5) * cdelt for i in range(10)])
@@ -1537,7 +1506,6 @@ class make_empty_image_tests(ImageBase):
             self.dict_equality(
                 skel[c].attrs, expec_attrs[c], f"got {c} attrs", "expec {c} attrs"
             )
-
 
     def run_attrs_tests(self, skel):
         expec = {
@@ -1593,37 +1561,32 @@ class make_empty_sky_image_tests(make_empty_image_tests):
     @classmethod
     def setUpClass(cls):
         cls._skel_im = make_empty_image_tests.create_image(make_empty_sky_image, True)
-        cls._skel_im_no_sky = make_empty_image_tests.create_image(make_empty_sky_image, False)
-
+        cls._skel_im_no_sky = make_empty_image_tests.create_image(
+            make_empty_sky_image, False
+        )
 
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
 
-
     @classmethod
     def skel_im(cls):
         return cls._skel_im
 
-
     def skel_im_no_sky(self):
         return self._skel_im_no_sky
-
 
     def test_time_coord(self):
         for skel in [self.skel_im(), self.skel_im_no_sky()]:
             self.run_time_tests(skel)
 
-
     def test_polarization_coord(self):
         for skel in [self.skel_im(), self.skel_im_no_sky()]:
             self.run_polarization_tests(skel)
 
-
     def test_frequency_coord(self):
         for skel in [self.skel_im(), self.skel_im_no_sky()]:
             self.run_frequency_tests(skel)
-
 
     def test_vel_coord(self):
         for skel in [self.skel_im(), self.skel_im_no_sky()]:
@@ -1633,16 +1596,13 @@ class make_empty_sky_image_tests(make_empty_image_tests):
         for skel in [self.skel_im(), self.skel_im_no_sky()]:
             self.run_l_m_tests(skel)
 
-
     def test_right_ascension_coord(self):
         for i, skel in enumerate([self.skel_im(), self.skel_im_no_sky()]):
-            self.run_right_ascension_tests(skel, do_sky_coords = i == 0)
-
+            self.run_right_ascension_tests(skel, do_sky_coords=i == 0)
 
     def test_declination_coord(self):
         for i, skel in enumerate([self.skel_im(), self.skel_im_no_sky()]):
-            self.run_declination_tests(skel, do_sky_coords = i == 0)
-
+            self.run_declination_tests(skel, do_sky_coords=i == 0)
 
     def test_attrs(self):
         for skel in [self.skel_im(), self.skel_im_no_sky()]:
@@ -1654,8 +1614,9 @@ class make_empty_apeture_image_tests(make_empty_image_tests):
 
     @classmethod
     def setUpClass(cls):
-        cls._skel_im = make_empty_image_tests.create_image(make_empty_apeture_image, None)
-
+        cls._skel_im = make_empty_image_tests.create_image(
+            make_empty_apeture_image, None
+        )
 
     @classmethod
     def tearDownClass(cls):
@@ -1668,26 +1629,21 @@ class make_empty_apeture_image_tests(make_empty_image_tests):
         skel = self.skel_im()
         self.run_time_tests(skel)
 
-
     def test_polarization_coord(self):
         skel = self.skel_im()
         self.run_polarization_tests(skel)
-
 
     def test_frequency_coord(self):
         skel = self.skel_im()
         self.run_frequency_tests(skel)
 
-
     def test_vel_coord(self):
         skel = self.skel_im()
         self.run_velocity_tests(skel)
 
-
     def test_u_v_coord(self):
         skel = self.skel_im()
         self.run_u_v_tests(skel)
-
 
     def test_attrs(self):
         skel = self.skel_im()
@@ -1700,8 +1656,9 @@ class make_empty_lmuv_image_tests(make_empty_image_tests):
     @classmethod
     def setUpClass(cls):
         cls._skel_im = make_empty_image_tests.create_image(make_empty_lmuv_image, True)
-        cls._skel_im_no_sky = make_empty_image_tests.create_image(make_empty_lmuv_image, False)
-
+        cls._skel_im_no_sky = make_empty_image_tests.create_image(
+            make_empty_lmuv_image, False
+        )
 
     @classmethod
     def tearDownClass(cls):
@@ -1717,41 +1674,33 @@ class make_empty_lmuv_image_tests(make_empty_image_tests):
         skel = self.skel_im()
         self.run_time_tests(skel)
 
-
     def test_polarization_coord(self):
         skel = self.skel_im()
         self.run_polarization_tests(skel)
-
 
     def test_frequency_coord(self):
         skel = self.skel_im()
         self.run_frequency_tests(skel)
 
-
     def test_vel_coord(self):
         skel = self.skel_im()
         self.run_velocity_tests(skel)
-
 
     def test_l_m_coord(self):
         for skel in [self.skel_im(), self.skel_im_no_sky()]:
             self.run_l_m_tests(skel)
 
-
     def test_right_ascension_coord(self):
         for i, skel in enumerate([self.skel_im(), self.skel_im_no_sky()]):
-            self.run_right_ascension_tests(skel, do_sky_coords = i == 0)
-
+            self.run_right_ascension_tests(skel, do_sky_coords=i == 0)
 
     def test_declination_coord(self):
         for i, skel in enumerate([self.skel_im(), self.skel_im_no_sky()]):
-            self.run_declination_tests(skel, do_sky_coords = i == 0)
-
+            self.run_declination_tests(skel, do_sky_coords=i == 0)
 
     def test_u_v_coord(self):
         skel = self.skel_im()
         self.run_u_v_tests(skel)
-
 
     def test_attrs(self):
         skel = self.skel_im()

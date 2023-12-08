@@ -282,6 +282,44 @@ class ImageBase(unittest.TestCase):
                         )
 
 
+
+
+
+
+class xds_from_image_test(ImageBase):
+
+
+    def compare_sky_mask(self, xds: xr.Dataset, fits=False):
+        """Compare got sky and mask values to expected values"""
+        ev = self._exp_vals
+        self.assertEqual(
+            xds.sky.attrs["image_type"], ev["image_type"], "Wrong image type"
+        )
+        self.assertEqual(xds.sky.attrs["units"], ev["units"], "Wrong unit")
+        self.assertEqual(xds.sky.chunksizes["frequency"], (5, 5), "Incorrect chunksize")
+        self.assertEqual(
+            xds.mask0.chunksizes["frequency"], (5, 5), "Incorrect chunksize"
+        )
+        got_data = da.squeeze(da.transpose(xds.sky, [2, 1, 4, 3, 0]), 4)
+        got_mask = da.squeeze(da.transpose(xds.mask0, [2, 1, 4, 3, 0]), 4)
+        if "sky_array" not in ev:
+            im = casacore.images.image(self.imname())
+            ev["sky"] = im.getdata()
+            # getmask returns the negated value of the casa image mask, so True
+            # has the same meaning as it does in xds.mask0
+            ev["mask0"] = im.getmask()
+            ev["sum"] = im.statistics()["sum"][0]
+        if fits:
+            self.assertTrue(
+                not np.isnan(got_data == ev["sky"]).all(), "pixel values incorrect"
+            )
+        else:
+            self.assertTrue((got_data == ev["sky"]).all(), "pixel values incorrect")
+        self.assertTrue((got_mask == ev["mask0"]).all(), "mask values incorrect")
+        got_ma = da.ma.masked_array(xds.sky, xds.mask0)
+        self.assertEqual(da.sum(got_ma), ev["sum"], "Incorrect value for sum")
+
+
     def compare_time(self, xds: xr.Dataset) -> None:
         ev = self._exp_vals
         if "time" not in ev:
@@ -311,11 +349,13 @@ class ImageBase(unittest.TestCase):
             "Incoorect time axis unitt",
         )
 
+
     def compare_polarization(self, xds: xr.Dataset) -> None:
         self.assertTrue(
             (xds.coords["polarization"] == self._exp_vals["stokes"]).all(),
             "Incorrect polarization values",
         )
+
 
     def compare_frequency(self, xds: xr.Dataset):
         ev = self._exp_vals
@@ -348,6 +388,7 @@ class ImageBase(unittest.TestCase):
             ev["freq_waveunit"],
             "Incorrect wavelength unit",
         )
+
 
     def compare_vel_axis(self, xds: xr.Dataset, fits: bool = False):
         ev = self._exp_vals
@@ -437,6 +478,7 @@ class ImageBase(unittest.TestCase):
         self.dict_equality(l_attrs, e_l_attrs, "got l attrs", "expec l attrs")
         self.dict_equality(m_attrs, e_m_attrs, "got m attrs", "expec m attrs")
 
+
     def compare_ra_dec(self, xds: xr.Dataset, fits: bool = False) -> None:
         ev = self._exp_vals
         if "ra" not in ev:
@@ -508,6 +550,7 @@ class ImageBase(unittest.TestCase):
                 "Incorrect type for history data",
             )
 
+
     def compare_image_block(self, imagename, zarr=False):
         x = [0] if zarr else [0, 1]
         for i in x:
@@ -578,6 +621,7 @@ class ImageBase(unittest.TestCase):
                     f"Wrong type for coord or data value {k}, got {type(v)}, must be a numpy.ndarray",
                 )
 
+
     def compare_uv(self, xds: xr.Dataset, image: str) -> None:
         if not self._expec_uv:
             with open_image_ro(image) as im:
@@ -609,40 +653,6 @@ class ImageBase(unittest.TestCase):
                 (xds[c].values == np.array(expec)).all(),
                 f"Incorrect values for coordinate {c}",
             )
-
-
-class xds_from_image_test(ImageBase):
-
-
-    def compare_sky_mask(self, xds: xr.Dataset, fits=False):
-        """Compare got sky and mask values to expected values"""
-        ev = self._exp_vals
-        self.assertEqual(
-            xds.sky.attrs["image_type"], ev["image_type"], "Wrong image type"
-        )
-        self.assertEqual(xds.sky.attrs["units"], ev["units"], "Wrong unit")
-        self.assertEqual(xds.sky.chunksizes["frequency"], (5, 5), "Incorrect chunksize")
-        self.assertEqual(
-            xds.mask0.chunksizes["frequency"], (5, 5), "Incorrect chunksize"
-        )
-        got_data = da.squeeze(da.transpose(xds.sky, [2, 1, 4, 3, 0]), 4)
-        got_mask = da.squeeze(da.transpose(xds.mask0, [2, 1, 4, 3, 0]), 4)
-        if "sky_array" not in ev:
-            im = casacore.images.image(self.imname())
-            ev["sky"] = im.getdata()
-            # getmask returns the negated value of the casa image mask, so True
-            # has the same meaning as it does in xds.mask0
-            ev["mask0"] = im.getmask()
-            ev["sum"] = im.statistics()["sum"][0]
-        if fits:
-            self.assertTrue(
-                not np.isnan(got_data == ev["sky"]).all(), "pixel values incorrect"
-            )
-        else:
-            self.assertTrue((got_data == ev["sky"]).all(), "pixel values incorrect")
-        self.assertTrue((got_mask == ev["mask0"]).all(), "mask values incorrect")
-        got_ma = da.ma.masked_array(xds.sky, xds.mask0)
-        self.assertEqual(da.sum(got_ma), ev["sum"], "Incorrect value for sum")
 
 
 class casa_image_to_xds_test(xds_from_image_test):

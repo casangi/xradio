@@ -287,7 +287,7 @@ def create_taql_query_and_file_name(out_file, intent, state_ids, field_id, ddi):
 
     if isinstance(state_ids, numbers.Integral):
         taql_where += f" AND (STATE_ID = {state_ids})"
-    else:
+    elif state_ids:
         state_ids_or = " OR STATE_ID = ".join(np.char.mod("%d", state_ids))
         taql_where += f" AND (STATE_ID = {state_ids_or})"
 
@@ -326,7 +326,7 @@ def get_unqiue_intents(in_file):
                 obs_mode_dict[obs_mode] = [i]
         return list(obs_mode_dict.keys()), list(obs_mode_dict.values())
     else:  # empty state table
-        return ["None"], [0]
+        return ["None"], [None]
 
 
 def enumerated_product(*args):
@@ -372,7 +372,7 @@ def create_partition_enumerated_product(in_file: str, partition_scheme: str):
             state_ids = [np.arange(state_xds.dims["row"])]
             intents = state_xds.obs_mode.values
         else:  # empty state table
-            state_ids = [0]
+            state_ids = [None]
             intents = ["None"]
         # print(state_xds, intents)
         # field_ids = [None]

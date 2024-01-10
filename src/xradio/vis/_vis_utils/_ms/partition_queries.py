@@ -361,12 +361,12 @@ def create_partition_enumerated_product(in_file: str, partition_scheme: str):
     # need the row numbers
     ddi_xds = read_generic_table(in_file, "DATA_DESCRIPTION")
     data_desc_ids = np.arange(ddi_xds.dims["row"])
+    state_xds = read_generic_table(in_file, "STATE")
 
-    if partition_scheme == "ddi_intent_field":
+    if (partition_scheme == "ddi_intent_field") and (len(state_xds.data_vars) > 0):
         intents, state_ids = get_unqiue_intents(in_file)
         field_ids = np.arange(read_generic_table(in_file, "FIELD").dims["row"])
-    elif partition_scheme == "ddi_state_field":
-        state_xds = read_generic_table(in_file, "STATE")
+    else: #partition_scheme == "ddi_state_field"
 
         if len(state_xds.data_vars) > 0:
             state_ids = [np.arange(state_xds.dims["row"])]

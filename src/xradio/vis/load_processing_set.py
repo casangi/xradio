@@ -104,9 +104,12 @@ def _load_no_dask_zarr(zarr_name, slice_dict={}):
         if (var_attrs[DIMENSION_KEY][0] == var_name) and (
             len(var_attrs[DIMENSION_KEY]) == 1
         ):
-            coords[var_name] = var[
+            coord = var[
                 slice_dict_complete[var_attrs[DIMENSION_KEY][0]]
             ]  # Dimension coordinates.
+            del var_attrs['_ARRAY_DIMENSIONS']
+            xds = xds.assign_coords({var_name:coord})
+            xds[var_name].attrs = var_attrs
         else:
             # Construct slicing
             slicing_list = []
@@ -116,8 +119,12 @@ def _load_no_dask_zarr(zarr_name, slice_dict={}):
             xds[var_name] = xr.DataArray(
                 var[slicing_tuple], dims=var_attrs[DIMENSION_KEY]
             )
+            
+            if 'coordinates' in var_attrs:
+                del var_attrs['coordinates']
+            del var_attrs['_ARRAY_DIMENSIONS']
+            xds[var_name].attrs = var_attrs
 
-    xds = xds.assign_coords(coords)
 
     xds.attrs = group_attrs
 

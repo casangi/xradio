@@ -9,42 +9,47 @@
 import sys
 import os
 
-project = 'xradio'
-copyright = '2023, Jan-Willem Steeb'
-author = 'Jan-Willem Steeb'
+project = "xradio"
+copyright = "2023, Jan-Willem Steeb"
+author = "Jan-Willem Steeb"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.autosectionlabel'
-]
+extensions = ["sphinx.ext.autodoc", "sphinx.ext.autosectionlabel", "xradio_sphinx"]
 
-templates_path = ['_templates']
+templates_path = ["_templates"]
 exclude_patterns = []
 
 sys.path.insert(0, os.path.abspath(os.path.join("..", "..", "src")))
+sys.path.insert(0, os.path.abspath("."))
 
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-html_theme = 'alabaster'
-html_static_path = ['_static']
+import sphinx_adc_theme
+
+html_theme = "sphinx_adc_theme"
+html_theme_path = [sphinx_adc_theme.get_html_theme_path()]
+html_static_path = ["_static"]
+html_css_files = [
+    "custom.css",
+]
 
 autodoc_class_signature = "mixed"
-html_theme = 'groundwork'
+
 autodoc_type_aliases = {
-    'Time': 'xradio.vis.model.Time',
-    'BaselineId': 'BaselineId',
-    'Channel': 'Channel',
-    'Polarization': 'Polarization',
-    'UvwLabel': 'UvwLabel',
-    'Data': 'Data',
-    'Attr': 'Attr',
-    'Dataof': 'Dataof',
-    'Attrof': 'Attrof',
+    "Time": "xradio.vis.model.Time",
+    "BaselineId": "BaselineId",
+    "Channel": "Channel",
+    "Polarization": "Polarization",
+    "UvwLabel": "UvwLabel",
+    "Data": "Data",
+    "Attr": "Attr",
+    "Dataof": "Dataof",
+    "Attrof": "Attrof",
 }
 
-#nitpicky = True
- 
+# nitpicky = True
+
+add_module_names = False

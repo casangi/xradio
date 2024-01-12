@@ -1,4 +1,5 @@
 import importlib
+import dataclasses
 
 from docutils import nodes, utils
 from docutils.parsers.rst import Directive, DirectiveError
@@ -87,7 +88,14 @@ class SchemaTableDirective(ObjectDescription):
         self._tbody += row
 
     def _add_row(
-        self, name="", dimss=[], types=[], meta=None, descr="", optional=False
+        self,
+        name="",
+        dimss=[],
+        types=[],
+        meta=None,
+        descr="",
+        optional=False,
+        default=dataclasses.MISSING,
     ):
 
         # Create row
@@ -136,6 +144,11 @@ class SchemaTableDirective(ObjectDescription):
             vl.append(descr, "")
             with switch_source_input(self.state, vl):
                 self.state.nested_parse(vl, 0, entry)
+        if default is not dataclasses.MISSING:
+            vl = StringList()
+            vl.append(f"**Default:** ``{repr(default)}``", "")
+            with switch_source_input(self.state, vl):
+                self.state.nested_parse(vl, 0, entry)
 
 
 class ArraySchemaTableDirective(SchemaTableDirective):
@@ -164,6 +177,7 @@ class ArraySchemaTableDirective(SchemaTableDirective):
                     coord.schema_name,
                     coord.docstring or coord.data_docstring,
                     optional=coord.optional,
+                    default=coord.default,
                 )
 
         # Add attributes
@@ -177,6 +191,7 @@ class ArraySchemaTableDirective(SchemaTableDirective):
                     f"{attr.typ.__module__}.{attr.typ.__name__}",
                     attr.docstring,
                     optional=attr.optional,
+                    default=attr.default,
                 )
 
 
@@ -205,6 +220,7 @@ class DatasetSchemaTableDirective(SchemaTableDirective):
                     coord.schema_name,
                     coord.docstring or coord.data_docstring,
                     optional=coord.optional,
+                    default=coord.default,
                 )
 
         # Add data variables
@@ -218,6 +234,7 @@ class DatasetSchemaTableDirective(SchemaTableDirective):
                     data_var.schema_name,
                     data_var.docstring or data_var.data_docstring,
                     optional=data_var.optional,
+                    default=data_var.default,
                 )
 
         # Add attributes
@@ -231,4 +248,5 @@ class DatasetSchemaTableDirective(SchemaTableDirective):
                     f"{attr.typ.__module__}.{attr.typ.__name__}",
                     attr.docstring,
                     optional=attr.optional,
+                    default=attr.default,
                 )

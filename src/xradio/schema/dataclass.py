@@ -102,6 +102,7 @@ def extract_xarray_dataclass(klass):
                     name=field.name,
                     typ=get_annotated(typ),
                     optional=is_optional(typ),
+                    default=field.default,
                     docstring=field_docstrings.get(field.name),
                 )
             )
@@ -133,6 +134,7 @@ def extract_xarray_dataclass(klass):
             schema_ref = ArraySchemaRef(
                 name=field.name,
                 optional=is_optional(typ),
+                default=field.default,
                 docstring=field_docstrings.get(field.name),
                 **arr_schema_fields,
             )
@@ -143,6 +145,7 @@ def extract_xarray_dataclass(klass):
             schema_ref = ArraySchemaRef(
                 name=field.name,
                 optional=is_optional(typ),
+                default=field.default,
                 docstring=field_docstrings.get(field.name),
                 schema_name=f"{klass.__module__}.{klass.__qualname__}.{field.name}",
                 dimensions=get_dims(typ),

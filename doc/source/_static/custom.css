@@ -1,0 +1,34 @@
+
+/* Fix table layout */
+
+table.docutils td, table.docutils th {
+    padding: 4px;
+}
+
+/* Fix even/odd background for longer tables */
+.row-odd {
+    background: #F0F5F9 !important;
+}
+
+.row-even {
+    background: #FFFFFF !important;
+}
+
+/* Space paragraphs a bit more tightly within tables.
+   Especially make the first paragraph not have top margin so that
+   it aligns properly with cells that don't have paragraphs
+*/
+
+table.docutils p {
+    margin-bottom: 0 !important;
+}
+
+table.docutils p:first-child {
+    margin-top: 0;
+}
+
+/* Preformatted text seems to get rendered a bit larger than "normal" text.
+   To make it flow better, we make it smaller. */
+code.literal {
+    font-size: 11px;
+}

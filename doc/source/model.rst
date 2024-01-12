@@ -1,6 +1,4 @@
 
-:tocdepth: 3
-          
 Data Models
 ===========
 
@@ -32,28 +30,28 @@ Data model axes. Associate indices in :ref:`Dimensions` with data.
 .. autoclass:: xradio.vis.model.TimeAxis
 
    .. xradio_array_schema_table:: xradio.vis.model.TimeAxis
-               
+
 .. autoclass:: xradio.vis.model.BaselineAxis
 
    .. xradio_array_schema_table:: xradio.vis.model.BaselineAxis
-               
+
 .. autoclass:: xradio.vis.model.BaselineAntennaAxis
 
    .. xradio_array_schema_table:: xradio.vis.model.BaselineAntennaAxis
-               
+
 .. autoclass:: xradio.vis.model.FrequencyAxis
 
    .. xradio_array_schema_table:: xradio.vis.model.FrequencyAxis
-               
+
 .. autoclass:: xradio.vis.model.PolarizationAxis
 
    .. xradio_array_schema_table:: xradio.vis.model.PolarizationAxis
-               
+
 .. autoclass:: xradio.vis.model.UvwLabelAxis
 
    .. xradio_array_schema_table:: xradio.vis.model.UvwLabelAxis
 
-                  
+
 Data Arrays
 -----------
 
@@ -62,23 +60,23 @@ Data arrays. Bulk data gathered into :ref:`Data sets`.
 .. autoclass:: xradio.vis.model.VisibilityArray
 
    .. xradio_array_schema_table:: xradio.vis.model.VisibilityArray
-               
+
 .. autoclass:: xradio.vis.model.FlagArray
 
    .. xradio_array_schema_table:: xradio.vis.model.FlagArray
-               
+
 .. autoclass:: xradio.vis.model.WeightArray
 
    .. xradio_array_schema_table:: xradio.vis.model.WeightArray
-               
+
 .. autoclass:: xradio.vis.model.UvwArray
 
    .. xradio_array_schema_table:: xradio.vis.model.UvwArray
-               
+
 .. autoclass:: xradio.vis.model.TimeSamplingArray
 
    .. xradio_array_schema_table:: xradio.vis.model.TimeSamplingArray
-               
+
 .. autoclass:: xradio.vis.model.FreqSamplingArray
 
    .. xradio_array_schema_table:: xradio.vis.model.FreqSamplingArray
@@ -92,7 +90,7 @@ Data sets. Collects together a number of :ref:`Data arrays` and
 view of the data.
 
 .. autoclass:: xradio.vis.model.VisibilityXds
-   
+
    .. xradio_dataset_schema_table:: xradio.vis.model.VisibilityXds
 
 Information

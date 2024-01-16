@@ -166,7 +166,7 @@ def write_generic_table(xds: xr.Dataset, outfile: str, subtable="", cols=None):
         cols = list(
             set(
                 list(xds.data_vars)
-                + [cc for cc in xds.coords if cc not in xds.dims]
+                + [cc for cc in xds.coords if cc not in xds.sizes]
                 + (
                     list(
                         xds.attrs["column_descriptions"].keys()
@@ -178,7 +178,7 @@ def write_generic_table(xds: xr.Dataset, outfile: str, subtable="", cols=None):
         )
     cols = list(np.atleast_1d(cols))
 
-    max_rows = xds.row.shape[0] if "row" in xds.dims else 0
+    max_rows = xds.row.shape[0] if "row" in xds.sizes else 0
     create_table(
         os.path.join(outfile, subtable),
         xds,

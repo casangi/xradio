@@ -963,7 +963,7 @@ def read_generic_table(infile, subtables=False, timecols=None, ignore=None):
                 )
 
         xds = xr.Dataset(mvars, coords=mcoords)
-        xds = xds.rename(dict([(dv, dims[di]) for di, dv in enumerate(xds.dims)]))
+        xds = xds.rename(dict([(dv, dims[di]) for di, dv in enumerate(xds.sizes)]))
         attrs["bad_cols"] = list(
             np.setdiff1d(
                 [dv for dv in tb_tool.colnames()],
@@ -989,7 +989,7 @@ def read_generic_table(infile, subtables=False, timecols=None, ignore=None):
                     timecols=timecols,
                     ignore=ignore,
                 )
-                if len(sxds.dims) != 0:
+                if len(sxds.sizes) != 0:
                     attrs["subtables"] += [(subtable, sxds)]
         xds = xds.assign_attrs(attrs)
     return xds

@@ -254,7 +254,7 @@ class xds_from_image_test(ImageBase):
             im.tofits(cls._infits)
         cls._xds = read_image(cls._imname, {"frequency": 5})
         cls._xds_no_sky = read_image(cls._imname, {"frequency": 5}, False, False)
-        cls.assertTrue(cls._xds.dims == cls._exp_vals["shape"], "Incorrect shape")
+        cls.assertTrue(cls._xds.sizes == cls._exp_vals["shape"], "Incorrect shape")
         write_image(cls._xds, cls._outname, out_format="casa")
 
     def imname(self):
@@ -431,13 +431,13 @@ class xds_from_image_test(ImageBase):
         self.assertTrue(
             np.isclose(
                 l_vals,
-                np.array([(i - 15) * (-1) * cdelt for i in range(xds.dims["l"])]),
+                np.array([(i - 15) * (-1) * cdelt for i in range(xds.sizes["l"])]),
             ).all(),
             "Wrong l values",
         )
         self.assertTrue(
             np.isclose(
-                m_vals, np.array([(i - 10) * cdelt for i in range(xds.dims["m"])])
+                m_vals, np.array([(i - 10) * cdelt for i in range(xds.sizes["m"])])
             ).all(),
             "Wrong m values",
         )
@@ -634,7 +634,7 @@ class xds_from_image_test(ImageBase):
                 xds[c].attrs, attrs, f"got attrs {c}", f"expec attrs {c}"
             )
             npix = self._expec_uv[c]["npix"]
-            self.assertEqual(xds.dims[c], npix, "Incorrect axis length")
+            self.assertEqual(xds.sizes[c], npix, "Incorrect axis length")
             expec = [(i - npix // 2) * attrs["cdelt"] for i in range(npix)]
             self.assertTrue(
                 (xds[c].values == np.array(expec)).all(),
@@ -855,7 +855,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
             data[0, 2, 2, 2, 2] = True
             mask0 = xr.DataArray(
                 data=data,
-                dims=xds.sky.dims,
+                dims=xds.sky.sizes,
                 coords=xds.sky.coords,
                 attrs={image_type: "Mask"},
             )

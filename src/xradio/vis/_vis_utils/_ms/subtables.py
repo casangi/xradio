@@ -71,7 +71,7 @@ def read_ms_subtables(
                 rename_ids=subt_rename_ids.get(subt_name, None),
             )
 
-        if len(xds.dims) != 0:
+        if len(xds.sizes) != 0:
             subtables[subt_name.lower()] = xds
 
     if "field" in subtables:

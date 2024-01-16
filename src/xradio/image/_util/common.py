@@ -49,7 +49,7 @@ def _coords_to_numpy(xds):
     for k, v in xds.coords.items():
         if dask.is_dask_collection(v):
             attrs = xds[k].attrs
-            xds = xds.assign_coords({k: (v.dims, v.to_numpy())})
+            xds = xds.assign_coords({k: (v.sizes, v.to_numpy())})
             xds[k].attrs = attrs
     return xds
 
@@ -64,7 +64,7 @@ def _dask_arrayize(xds):
         if not dask.is_dask_collection(v):
             attrs = xds[k].attrs
             xds = xds.drop_vars([k])
-            # may need to add dims to this call as in numpy method analogs in this file
+            # may need to add sizes to this call as in numpy method analogs in this file
             xds = xds.assign({k: da.array(v)})
             xds[k].attrs = attrs
     for k, v in xds.attrs.items():
@@ -79,7 +79,7 @@ def _numpy_arrayize(xds):
         if dask.is_dask_collection(v):
             attrs = xds[k].attrs
             xds = xds.drop_vars([k])
-            xds = xds.assign({k: (v.dims, v.to_numpy())})
+            xds = xds.assign({k: (v.sizes, v.to_numpy())})
             xds[k].attrs = attrs
     for k, v in xds.attrs.items():
         if isinstance(v, xr.Dataset):

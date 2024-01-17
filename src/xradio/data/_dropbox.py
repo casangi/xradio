@@ -61,6 +61,11 @@ FILE_ID = {
         "id": "yxuiz5jm8iy1d2r8ye76j",
         "rlkey": "wihq0716yny24dmsz6cwf9c45&dl",
     },
+    "global_vlbi_gg084b_reduced.ms": {
+        "file": "global_vlbi_gg084b_reduced.ms.zip",
+        "id": "we8898t15tfz2eogenhvb",
+        "rlkey": "mtp82hozzlvl92fmizu7fi577&dl",
+    },
 }
 
 

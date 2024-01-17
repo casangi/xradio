@@ -66,8 +66,12 @@ FILE_ID = {
         "id": "we8898t15tfz2eogenhvb",
         "rlkey": "mtp82hozzlvl92fmizu7fi577&dl",
     },
+    "VLBA_TL016B_split_lsrk.ms": {
+        "file": "VLBA_TL016B_split_lsrk.ms.zip",
+        "id": "55r8orm3zm8mvqltya050",
+        "rlkey": "npzmoj6dnq9uadfbmcwtsc8yu&dl",
+    },
 }
-
 
 def download(file, folder="."):
     if os.path.exists("/".join((folder, file))):

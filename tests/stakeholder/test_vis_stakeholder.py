@@ -72,11 +72,14 @@ def test_meerkat():
     base_test("small_meerkat.ms", 333866268.0)
 
 def test_global_vlbi():
-    base_test("global_vlbi_gg084b_reduced.ms", 333866268.0)
+    base_test("global_vlbi_gg084b_reduced.ms", 161588975616.0)
 
+def test_vlba():
+    base_test("VLBA_TL016B_split_lsrk.ms", 97083664384.0)
 
 # test_alma()
 # test_ska_mid()
 # test_lofar()
 # test_meerkat()
-test_global_vlbi()
+# test_global_vlbi()
+# test_vlba()

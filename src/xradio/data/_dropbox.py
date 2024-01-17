@@ -61,6 +61,16 @@ FILE_ID = {
         "id": "yxuiz5jm8iy1d2r8ye76j",
         "rlkey": "wihq0716yny24dmsz6cwf9c45&dl",
     },
+    "feather_sim_sd_c1_pI.im": {
+        "file": "feather_sim_sd_c1_pI.im.zip",
+        "id": "z4e57yy19xm44sfmkyzaz",
+        "rlkey": "30o6aqrmwv2i630tdn7003ohr",
+    },
+    "feather_sim_vla_c1_pI.im": {
+        "file": "feather_sim_vla_c1_pI.im.zip",
+        "id": "98eysvd1rjyuvwrvrr600",
+        "rlkey": "c4ny98duexaodmsje0lpz2fh3&dl",
+    },
 }
 
 

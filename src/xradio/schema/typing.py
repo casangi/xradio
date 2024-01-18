@@ -33,7 +33,10 @@ from typing import (
     Generic,
     Collection,
 )
-from types import UnionType
+try:
+    from types import UnionType
+except ImportError:
+    from types import Union as UnionType
 import numpy as np
 from itertools import chain
 from enum import Enum

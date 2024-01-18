@@ -74,8 +74,18 @@ FILE_ID = {
     "ngEHT_E17A10.0.bin0000.source0000_split_lsrk.ms": {
         "file": "ngEHT_E17A10.0.bin0000.source0000_split_lsrk.ms.zip",
         "id": "pguaml1pk1pcpv5flli7k",
-        "rlkey": "ulk48tpnrttmtwmu0crnbqraa&",
+        "rlkey": "ulk48tpnrttmtwmu0crnbqraa&dl",
     },
+    "venus_ephem_test.ms": {
+        "file": "venus_ephem_test.ms.zip",
+        "id": "cuwle8kz6ifq9iw6330xy",
+        "rlkey": "qg73t7gwv1gtdpibkde6jkref&dl",
+    }, 
+    "sdimaging.ms": {
+        "file": "sdimaging.ms.zip",
+        "id": "6ng24m36yv5j0k25ybynw",
+        "rlkey": "b4uokqafyfaruwzkr6jl98mir&dl",
+    }, 
 }
 
 

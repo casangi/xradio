@@ -71,7 +71,13 @@ FILE_ID = {
         "id": "55r8orm3zm8mvqltya050",
         "rlkey": "npzmoj6dnq9uadfbmcwtsc8yu&dl",
     },
+    "ngEHT_E17A10.0.bin0000.source0000_split_lsrk.ms": {
+        "file": "ngEHT_E17A10.0.bin0000.source0000_split_lsrk.ms.zip",
+        "id": "pguaml1pk1pcpv5flli7k",
+        "rlkey": "ulk48tpnrttmtwmu0crnbqraa&",
+    },
 }
+
 
 def download(file, folder="."):
     if os.path.exists("/".join((folder, file))):

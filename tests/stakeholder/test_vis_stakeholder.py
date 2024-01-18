@@ -77,9 +77,13 @@ def test_global_vlbi():
 def test_vlba():
     base_test("VLBA_TL016B_split_lsrk.ms", 97083664384.0)
 
+def test_ngeht():
+    base_test("ngEHT_E17A10.0.bin0000.source0000_split_lsrk.ms", 64282601472.0)
+
 # test_alma()
 # test_ska_mid()
 # test_lofar()
 # test_meerkat()
 # test_global_vlbi()
 # test_vlba()
+# test_ngeht()

@@ -204,7 +204,7 @@ def xarray_dataclass_to_array_schema(klass):
         dtypes=data_vars[0].dtypes,
         coordinates=coordinates,
         attributes=attributes,
-        class_docstring=klass.__doc__,
+        class_docstring=inspect.cleandoc(klass.__doc__),
         data_docstring=data_vars[0].docstring,
     )
 
@@ -259,5 +259,5 @@ def xarray_dataclass_to_dataset_schema(klass):
         coordinates=coordinates,
         data_vars=data_vars,
         attributes=attributes,
-        class_docstring=klass.__doc__,
+        class_docstring=inspect.cleandoc(klass.__doc__),
     )

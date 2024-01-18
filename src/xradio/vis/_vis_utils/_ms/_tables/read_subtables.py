@@ -116,7 +116,7 @@ def read_delayed_pointing_table(
 
     xds = xr.Dataset(mvars, coords=mcoords)
     if rename_ids:
-        rename_ids = {k: v for k, v in rename_ids.items() if k in xds.dims}
+        rename_ids = {k: v for k, v in rename_ids.items() if k in xds.sizes}
     xds = xds.rename_dims(rename_ids)
     xds = xds.assign_attrs(attrs)
 

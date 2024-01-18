@@ -159,7 +159,7 @@ def read_ms_scan_subscan_partitions(
                 rowidxs=None,
                 ignore_msv2_cols=ignore_msv2_cols,
             )
-        if len(xds.dims) == 0:
+        if len(xds.sizes) == 0:
             continue
 
         coords = make_coords(xds, ddi, (ant_xds, ddi_xds, spw_xds, pol_xds))
@@ -276,7 +276,7 @@ def read_ms_ddi_partitions(
                 chunks=chunks[ddi] if type(chunks) == dict else chunks,
                 ignore_msv2_cols=ignore_msv2_cols,
             )
-        if len(xds.dims) == 0:
+        if len(xds.sizes) == 0:
             continue
 
         coords = make_coords(xds, ddi, (ant_xds, ddi_xds, spw_xds, pol_xds))

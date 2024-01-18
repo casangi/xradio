@@ -217,7 +217,7 @@ def create_data_variables(
                                 tidxs,
                                 bidxs,
                             )[:, :, None, :],
-                            (1, 1, xds.dims["frequency"], 1),
+                            (1, 1, xds.sizes["frequency"], 1),
                         ),
                         dims=col_dims[col],
                     )
@@ -316,7 +316,15 @@ def convert_and_write_partition(
             # logging.debug("Calc indx for row split "+ str(time.time()-start))
 
             xds = xr.Dataset()
-            interval = check_if_consistent(tb_tool.getcol("INTERVAL"), "INTERVAL")
+            #interval = check_if_consistent(tb_tool.getcol("INTERVAL"), "INTERVAL")
+            interval = tb_tool.getcol("INTERVAL")
+            interval_unique = np.unique(interval)
+            if len(interval_unique) > 1:
+                print('Integration time (interval) not consitent in partition, using median.')
+                interval = np.median(interval)
+            else:
+                interval = interval_unique[0]
+
             xds = create_coordinates(
                 xds, in_file, ddi, utime, interval, baseline_ant1_id, baseline_ant2_id
             )

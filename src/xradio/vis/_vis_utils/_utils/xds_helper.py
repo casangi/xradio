@@ -165,7 +165,7 @@ def flatten_xds(xds: xr.Dataset) -> xr.Dataset:
     txds = xds.copy()
 
     # flatten the time x baseline dimensions of main table
-    if ("time" in xds.dims) and ("baseline" in xds.dims):
+    if ("time" in xds.sizes) and ("baseline" in xds.sizes):
         txds = xds.stack({"row": ("time", "baseline")}).transpose("row", ...)
         txds = txds.where(
             (txds.state_id != nan_int) & (txds.field_id != nan_int), drop=True

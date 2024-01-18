@@ -355,9 +355,9 @@ def read_generic_table(
 
     dim_prefix = "dim"
     dims = ["row"] + [f"{dim_prefix}_{i}" for i in range(1, 20)]
-    xds = xds.rename(dict([(dv, dims[di]) for di, dv in enumerate(xds.dims)]))
+    xds = xds.rename(dict([(dv, dims[di]) for di, dv in enumerate(xds.sizes)]))
     if rename_ids:
-        rename_ids = {k: v for k, v in rename_ids.items() if k in xds.dims}
+        rename_ids = {k: v for k, v in rename_ids.items() if k in xds.sizes}
     xds = xds.rename_dims(rename_ids)
 
     attrs["other"]["msv2"]["bad_cols"] = list(

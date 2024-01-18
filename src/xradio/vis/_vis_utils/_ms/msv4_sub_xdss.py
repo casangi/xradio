@@ -59,7 +59,7 @@ def create_ant_xds(in_file: str):
     ant_xds = xr.Dataset()
 
     coords = {
-        "antenna_id": np.arange(generic_ant_xds.dims["antenna_id"]),
+        "antenna_id": np.arange(generic_ant_xds.sizes["antenna_id"]),
         "xyz_label": ["x", "y", "z"],
     }
     for key in generic_ant_xds:

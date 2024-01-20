@@ -36,7 +36,7 @@ from typing import (
 try:
     from types import UnionType
 except ImportError:
-    from types import Union as UnionType
+    from typing import Union as UnionType, Literal
 import numpy as np
 from itertools import chain
 from enum import Enum

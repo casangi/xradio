@@ -20,7 +20,7 @@ Dim3 = Literal["Dim3"]
 
 
 @dataclasses.dataclass(frozen=True)
-class TestArraySchema:
+class _TestArraySchema:
     """
     Docstring of array schema
 
@@ -41,11 +41,11 @@ class TestArraySchema:
 
 # The equivalent of the above in the meta-model
 TEST_ARRAY_SCHEMA = ArraySchema(
-    schema_name=__name__ + ".TestArraySchema",
+    schema_name=__name__ + "._TestArraySchema",
     dimensions=[("Dim1",)],
     coordinates=[
         ArraySchemaRef(
-            schema_name="tests.unit.test_schema.TestArraySchema.coord",
+            schema_name="tests.unit.test_schema._TestArraySchema.coord",
             name="coord",
             dtypes=[numpy.dtype(float)],
             dimensions=[("Dim1",)],
@@ -90,11 +90,11 @@ TEST_ARRAY_SCHEMA = ArraySchema(
 def test_xarray_dataclass_to_array_schema():
     """Ensure that extracting the model from the dataclass is consistent"""
 
-    assert xarray_dataclass_to_array_schema(TestArraySchema) == TEST_ARRAY_SCHEMA
+    assert xarray_dataclass_to_array_schema(_TestArraySchema) == TEST_ARRAY_SCHEMA
 
 
 @dataclasses.dataclass(frozen=True)
-class TestDatasetSchemaCoord:
+class _TestDatasetSchemaCoord:
     """
     Docstring of array schema for coordinate
     """
@@ -110,18 +110,18 @@ class TestDatasetSchemaCoord:
 
 
 @dataclasses.dataclass(frozen=True)
-class TestDatasetSchema:
+class _TestDatasetSchema:
     """
     Docstring of dataset schema
 
     Again multiple lines!
     """
 
-    coord: Coordof[TestDatasetSchemaCoord]
+    coord: Coordof[_TestDatasetSchemaCoord]
     """Docstring of coordinate"""
     coord2: Coord[Dim2, int]
     """Docstring of second coordinate"""
-    data_var: Dataof[TestArraySchema]
+    data_var: Dataof[_TestArraySchema]
     """Docstring of external data variable"""
     data_var_simple: Optional[Data[Dim2, numpy.float32]]
     """Docstring of simple optional data variable"""
@@ -143,11 +143,11 @@ def _dataclass_to_dict(obj, ignore=[]):
 
 # The equivalent of the above in the meta-model
 TEST_DATASET_SCHEMA = DatasetSchema(
-    schema_name=__name__ + ".TestDatasetSchema",
+    schema_name=__name__ + "._TestDatasetSchema",
     dimensions=[["Dim1", "Dim2"]],
     coordinates=[
         ArraySchemaRef(
-            schema_name=__name__ + ".TestDatasetSchemaCoord",
+            schema_name=__name__ + "._TestDatasetSchemaCoord",
             name="coord",
             dtypes=[numpy.dtype(complex)],
             dimensions=[("Dim1",)],
@@ -160,7 +160,7 @@ TEST_DATASET_SCHEMA = DatasetSchema(
             data_docstring="Docstring of coordinate data",
         ),
         ArraySchemaRef(
-            schema_name=__name__ + ".TestDatasetSchema.coord2",
+            schema_name=__name__ + "._TestDatasetSchema.coord2",
             name="coord2",
             dtypes=[numpy.dtype(int)],
             dimensions=[("Dim2",)],
@@ -182,7 +182,7 @@ TEST_DATASET_SCHEMA = DatasetSchema(
             **_dataclass_to_dict(TEST_ARRAY_SCHEMA)
         ),
         ArraySchemaRef(
-            schema_name=__name__ + ".TestDatasetSchema.data_var_simple",
+            schema_name=__name__ + "._TestDatasetSchema.data_var_simple",
             name="data_var_simple",
             dtypes=[numpy.float32],
             dimensions=[("Dim2",)],
@@ -224,4 +224,5 @@ TEST_DATASET_SCHEMA = DatasetSchema(
 
 def test_xarray_dataclass_to_dataset_schema():
 
-    assert xarray_dataclass_to_dataset_schema(TestDatasetSchema) == TEST_DATASET_SCHEMA
+    assert xarray_dataclass_to_dataset_schema(_TestDatasetSchema) == TEST_DATASET_SCHEMA
+

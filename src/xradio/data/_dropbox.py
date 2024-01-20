@@ -61,6 +61,31 @@ FILE_ID = {
         "id": "yxuiz5jm8iy1d2r8ye76j",
         "rlkey": "wihq0716yny24dmsz6cwf9c45&dl",
     },
+    "global_vlbi_gg084b_reduced.ms": {
+        "file": "global_vlbi_gg084b_reduced.ms.zip",
+        "id": "we8898t15tfz2eogenhvb",
+        "rlkey": "mtp82hozzlvl92fmizu7fi577&dl",
+    },
+    "VLBA_TL016B_split_lsrk.ms": {
+        "file": "VLBA_TL016B_split_lsrk.ms.zip",
+        "id": "55r8orm3zm8mvqltya050",
+        "rlkey": "npzmoj6dnq9uadfbmcwtsc8yu&dl",
+    },
+    "ngEHT_E17A10.0.bin0000.source0000_split_lsrk.ms": {
+        "file": "ngEHT_E17A10.0.bin0000.source0000_split_lsrk.ms.zip",
+        "id": "pguaml1pk1pcpv5flli7k",
+        "rlkey": "ulk48tpnrttmtwmu0crnbqraa&dl",
+    },
+    "venus_ephem_test.ms": {
+        "file": "venus_ephem_test.ms.zip",
+        "id": "cuwle8kz6ifq9iw6330xy",
+        "rlkey": "qg73t7gwv1gtdpibkde6jkref&dl",
+    }, 
+    "sdimaging.ms": {
+        "file": "sdimaging.ms.zip",
+        "id": "6ng24m36yv5j0k25ybynw",
+        "rlkey": "b4uokqafyfaruwzkr6jl98mir&dl",
+    }, 
     "feather_sim_sd_c1_pI.im": {
         "file": "feather_sim_sd_c1_pI.im.zip",
         "id": "z4e57yy19xm44sfmkyzaz",

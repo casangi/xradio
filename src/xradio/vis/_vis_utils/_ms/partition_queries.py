@@ -287,7 +287,7 @@ def create_taql_query_and_file_name(out_file, intent, state_ids, field_id, ddi):
 
     if isinstance(state_ids, numbers.Integral):
         taql_where += f" AND (STATE_ID = {state_ids})"
-    elif state_ids:
+    elif state_ids is not None:
         state_ids_or = " OR STATE_ID = ".join(np.char.mod("%d", state_ids))
         taql_where += f" AND (STATE_ID = {state_ids_or})"
 

@@ -14,7 +14,7 @@ from xradio.vis._vis_utils._ms.conversion import convert_and_write_partition
 def convert_msv2_to_processing_set(
     in_file: str,
     out_file: str,
-    partition_scheme: str = "intent_field",
+    partition_scheme: {"ddi_intent_field", "ddi_state_field"} = "ddi_intent_field",
     main_chunksize: Union[Dict, str, None] = None,
     pointing_chunksize: Union[Dict, str, None] = None,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),

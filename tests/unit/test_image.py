@@ -1,3 +1,6 @@
+# run with eg
+# PYTHONPATH=../xradio/src python -m pytest ../xradio/tests/unit/test_image.py
+
 import astropy.units as u
 import casacore.images, casacore.tables
 from xradio.image import (
@@ -1512,8 +1515,8 @@ class make_empty_image_tests(ImageBase):
             "direction": {
                 # "conversion_system": "FK5",
                 # "conversion_equinox": "J2000",
-                "long_pole": 0.0,
-                "lat_pole": 0.0,
+                "longpole": 0.0,
+                "latpole": 0.0,
                 "pc": np.array([[1.0, 0.0], [0.0, 1.0]]),
                 "projection": "SIN",
                 "projection_parameters": np.array([0.0, 0.0]),

@@ -114,22 +114,23 @@ def create_weather_xds(in_file: str):
         "wind_speed": "WIND_SPEED",
     }
     data_variable_dims = {
-        "h2o": ["time", "antenna_id"],
-        "ionos_electron": ["time", "antenna_id"],
-        "pressure": ["time", "antenna_id"],
-        "rel_humidity": ["time", "antenna_id"],
-        "temperature": ["time", "antenna_id"],
-        "dew_point": ["time", "antenna_id"],
-        "wind_direction": ["time", "antenna_id"],
-        "wind_speed": ["time", "antenna_id"],
+        "h2o": ["station_id", "time"],
+        "ionos_electron": ["station_id", "time"],
+        "pressure": ["station_id", "time"],
+        "rel_humidity": ["station_id", "time"],
+        "temperature": ["station_id", "time"],
+        "dew_point": ["station_id", "time"],
+        "wind_direction": ["station_id", "time"],
+        "wind_speed": ["station_id", "time"],
     }
     to_new_coord_names = {
-        "time": "time",
-        "antenna_id": "antenna_id",
+        # No MS data cols are turned into xds coords
     }
     coord_dims = {
-        "time": ["time"],
-        "antenna_id": ["antenna_id"],
+        # No MS data cols are turned into xds coords
+    }
+    to_new_dim_names = {
+        "antenna_id": "station_id",
     }
 
     # Read WEATHER table into a Xarray Dataset.
@@ -138,6 +139,7 @@ def create_weather_xds(in_file: str):
         "WEATHER",
         rename_ids=subt_rename_ids["WEATHER"],
     )
+    generic_weather_xds = generic_weather_xds.rename_dims(to_new_dim_names)
 
     weather_column_description = generic_weather_xds.attrs["other"]["msv2"]["ctds_attrs"][
         "column_descriptions"
@@ -148,8 +150,8 @@ def create_weather_xds(in_file: str):
     weather_xds = xr.Dataset()
 
     coords = {
-        "antenna_id": np.arange(generic_weather_xds.dims["antenna_id"]),
-        "xyz_label": ["x", "y", "z"],
+        "station_id": np.arange(generic_weather_xds.dims["station_id"]),
+        "time": generic_weather_xds["time"],
     }
     for key in generic_weather_xds:
         msv4_measure = column_description_casacore_to_msv4_measure(

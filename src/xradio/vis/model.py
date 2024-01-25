@@ -7,15 +7,15 @@ from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof, Name
 import numpy
 
 # Dimensions
-Time = Literal["Time"]
+Time = Literal["time"]
 """ Observation time dimension """
-BaselineId = Literal["BL"]
+BaselineId = Literal["baseline_id"]
 """ Baseline dimension """
-Channel = Literal["Channel"]
+Channel = Literal["frequency"]
 """ Channel dimension """
-Polarization = Literal["Polar"]
+Polarization = Literal["polarization"]
 """ Polarization dimension """
-UvwLabel = Literal["Uvw"]
+UvwLabel = Literal["uvw_label"]
 """ Coordinate dimension of UVW data (typically shape 3 for 'u', 'v', 'w') """
 
 # Plain data class models
@@ -257,11 +257,11 @@ class FreqSamplingArray(AsDataArray):
 
 
 # Data Sets
-@dataclass(frozen=True, kw_only=True)
+@dataclass(frozen=True)
 class VisibilityXds(AsDataset):
     """TODO: documentation"""
 
-    # Coordinates
+    # Required Coordinates
     time: Coordof[TimeAxis]
     """The time coordinate is the mid-point of the nominal sampling interval, as
     speciﬁed in the ms_v4.time.attrs['integration_time'] (ms v2 interval). The
@@ -276,15 +276,25 @@ class VisibilityXds(AsDataset):
     """
     Labels for polarization types, e.g. ``['XX','XY','YX','YY']``, ``['RR','RL','LR','LL']``.
     """
-    uvw_label: Optional[Coordof[UvwLabelAxis]] = None
+    uvw_label: Optional[Coordof[UvwLabelAxis]]
+
+    # Required data variables / arrays
+    VISIBILITY: Dataof[VisibilityArray]
+
+    # Required Attributes
+    field_info: Attr[FieldInfo]
+    """Values without any phase rotation. See data array (``VISIBILITY`` and ``UVW``) attribute phase center for phase rotated value. """
+    source_info: Attr[SourceInfo]
+    antenna_xds: Attr[AntennaXds]
+
+    # Optional Coordinates
     """Should be ``('u','v','w')``, used by ``UVW``"""
     baseline_antenna1_id: Optional[Coordof[BaselineAntennaAxis]] = None
     """Antenna id for 1st antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_id``"""
     baseline_antenna2_id: Optional[Coordof[BaselineAntennaAxis]] = None
     """Antenna id for 2nd antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_id``"""
 
-    # Data variables / arrays
-    VISIBILITY: Dataof[VisibilityArray]
+    # Optional data variables / arrays
     """Complex visibilities, either simulated or measured by interferometer."""
     FLAG: Optional[Dataof[FlagArray]] = None
     """VISIBILITY are ﬂagged bad if the FLAG array element is True."""
@@ -315,11 +325,7 @@ class VisibilityXds(AsDataset):
     FREQUENCY_CENTROID: Optional[Dataof[FreqSamplingArray]] = None
     """Includes the effects of missing data unlike ``frequency``."""
 
-    # Attributes
-    field_info: Attr[FieldInfo]
-    """Values without any phase rotation. See data array (``VISIBILITY`` and ``UVW``) attribute phase center for phase rotated value. """
-    source_info: Attr[SourceInfo]
-    antenna_xds: Attr[AntennaXds]
+    # Optional Attributes
     pointing_xds: Optional[Attr[PointingXds]] = None
     source_xds: Optional[Attr[SourceXds]] = None
     pased_array_xds: Optional[Attr[PhasedArrayXds]] = None

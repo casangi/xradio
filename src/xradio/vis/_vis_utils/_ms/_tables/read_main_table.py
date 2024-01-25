@@ -90,6 +90,9 @@ def get_partition_ids(mtable: tables.table, taql_where: str) -> Dict:
     taql_ids = f"select DISTINCT ARRAY_ID, OBSERVATION_ID, PROCESSOR_ID from $mtable {taql_where}"
     with open_query(mtable, taql_ids) as query:
         # array_id, observation_id, processor_id
+    
+        # TODO
+        # swap np.unique(arr) for np.sort(pd.unique(arr))
         array_id = np.unique(query.getcol("ARRAY_ID"))
         obs_id = np.unique(query.getcol("OBSERVATION_ID"))
         proc_id = np.unique(query.getcol("PROCESSOR_ID"))
@@ -208,6 +211,9 @@ def read_main_table_chunks(
             atql = f"ANTENNA1 BETWEEN {ants[0]} and {ants[1]}"
             ts_taql = f"select * from $mtable {taql_where} AND {ttql} AND {atql}"
             with open_query(None, ts_taql) as query_times_ants:
+
+                # TODO
+                # swap np.searchsorted() to njit searchsorted
                 tidxs = (
                     np.searchsorted(utimes, query_times_ants.getcol("TIME", 0, -1)) - tc
                 )
@@ -216,10 +222,15 @@ def read_main_table_chunks(
                     query_times_ants.getcol("ANTENNA2", 0, -1),
                 )
 
+            # TODO
+            # swap string baseline identifiers with integer based cantor pairing
             ts_bases = [
                 str(ll[0]).zfill(3) + "_" + str(ll[1]).zfill(3)
                 for ll in np.hstack([ts_ant1[:, None], ts_ant2[:, None]])
             ]
+
+            # TODO
+            # swap np.searchsorted() to njit searchsorted
             bidxs = np.searchsorted(baselines, ts_bases) - bc
 
             # some antenna 2's will be out of bounds for this chunk, store rows that are in bounds
@@ -259,6 +270,9 @@ def read_main_table_chunks(
 def get_utimes_tol(mtable: tables.table, taql_where: str) -> Tuple[np.ndarray, float]:
     taql_utimes = f"select DISTINCT TIME from $mtable {taql_where}"
     with open_query(mtable, taql_utimes) as query_utimes:
+        
+        # TODO
+        # swap np.unique(arr) for np.sort(pd.unique(arr))
         utimes = np.unique(query_utimes.getcol("TIME", 0, -1))
         # add a tol around the time ranges returned by taql
         if len(utimes) < 2:
@@ -269,9 +283,16 @@ def get_utimes_tol(mtable: tables.table, taql_where: str) -> Tuple[np.ndarray, f
     return utimes, tol
 
 
+
+# TODO
+# swap string baseline identifiers with integer based cantor pairing
 def get_baselines(tb_tool: tables.table) -> np.ndarray:
     # main table uses time x (antenna1,antenna2)
     ant1, ant2 = tb_tool.getcol("ANTENNA1", 0, -1), tb_tool.getcol("ANTENNA2", 0, -1)
+        
+    # TODO
+    # swap np.unique(arr) for np.sort(pd.unique(arr))
+    # swap string baseline identifiers with integer based cantor pairing
     baselines = np.array(
         [
             str(ll[0]).zfill(3) + "_" + str(ll[1]).zfill(3)

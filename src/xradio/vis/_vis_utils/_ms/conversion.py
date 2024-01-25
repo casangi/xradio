@@ -42,6 +42,9 @@ def check_if_consistent(col, col_name):
     _type_
         _description_
     """
+    
+    # TODO
+    # swap np.unique(arr) for np.sort(pd.unique(arr))
     col_unique = np.unique(col)
     assert len(col_unique) == 1, col_name + " is not consistent."
     return col_unique[0]
@@ -59,8 +62,13 @@ def calc_indx_for_row_split(tb_tool, taql_where):
 
     freq_cnt, pol_cnt = [(cc[0], cc[1]) for cc in cshapes if len(cc) == 2][0]
     utimes, tol = get_utimes_tol(tb_tool, taql_where)
+    
+    # TODO
+    # swap np.unique(arr) for np.sort(pd.unique(arr))
     # utimes = np.unique(tb_tool.getcol("TIME"))
 
+    # TODO
+    # swap np.searchsorted() to njit searchsorted
     tidxs = np.searchsorted(utimes, tb_tool.getcol("TIME"))
 
     ts_ant1, ts_ant2 = (
@@ -68,15 +76,26 @@ def calc_indx_for_row_split(tb_tool, taql_where):
         tb_tool.getcol("ANTENNA2"),
     )
 
+    # TODO
+    # swap string baseline identifiers with integer based cantor pairing
     ts_bases = [
         str(ll[0]).zfill(3) + "_" + str(ll[1]).zfill(3)
         for ll in np.hstack([ts_ant1[:, None], ts_ant2[:, None]])
     ]
+
+    # TODO
+    # swap np.searchsorted() to njit searchsorted
     bidxs = np.searchsorted(baselines, ts_bases)
 
     # some antenna 2"s will be out of bounds for this chunk, store rows that are in bounds
+    
+    # TODO
+    # swap string baseline identifiers with integer based cantor pairing
     didxs = np.where((bidxs >= 0) & (bidxs < len(baselines)))[0]
+    
 
+    # TODO
+    # swap string baseline identifiers with integer based cantor pairing
     baseline_ant1_id, baseline_ant2_id = np.array(
         [tuple(map(int, x.split("_"))) for x in baselines]
     ).T
@@ -151,6 +170,9 @@ def create_coordinates(
     # Add if doppler table is present
     # xds.frequency.attrs["doppler_velocity"] =
     # xds.frequency.attrs["doppler_type"] =
+    
+    # TODO
+    # swap np.unique(arr) for np.sort(pd.unique(arr))
     unique_chan_width = np.unique(
         spw_xds.chan_width.data[np.logical_not(np.isnan(spw_xds.chan_width.data))]
     )
@@ -318,6 +340,9 @@ def convert_and_write_partition(
             xds = xr.Dataset()
             #interval = check_if_consistent(tb_tool.getcol("INTERVAL"), "INTERVAL")
             interval = tb_tool.getcol("INTERVAL")
+            
+            # TODO
+            # swap np.unique(arr) for np.sort(pd.unique(arr))
             interval_unique = np.unique(interval)
             if len(interval_unique) > 1:
                 print('Integration time (interval) not consitent in partition, using median.')

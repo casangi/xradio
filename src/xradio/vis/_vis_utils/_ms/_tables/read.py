@@ -423,10 +423,15 @@ def read_generic_cols(
             continue  # not supported
 
         try:
+            # TODO
+            # benchmark np.stack() performance
             data = np.stack(
                 [row[col] for row in trows]
             )  # .astype(col_cells[col].dtype)
             if isinstance(trows[0][col], dict):
+                
+                # TODO
+                # benchmark np.stack() performance
                 data = np.stack(
                     [
                         row[col]["array"].reshape(row[col]["shape"])
@@ -437,11 +442,17 @@ def read_generic_cols(
                 )
         except Exception:
             # sometimes the cols are variable, so we need to standardize to the largest sizes
+            
+            # TODO
+            # swap np.unique(arr) for np.sort(pd.unique(arr))
             if len(np.unique([isinstance(row[col], dict) for row in trows])) > 1:
                 continue  # can't deal with this case
             mshape = np.array(max([np.array(row[col]).shape for row in trows]))
             try:
                 pad_nan = get_pad_nan(col_cells[col])
+                
+                # TODO
+                # benchmark np.stack() performance
                 data = np.stack(
                     [
                         np.pad(
@@ -510,6 +521,9 @@ def read_flat_col_chunk(infile, col, cshape, ridxs, cstart, pstart) -> np.ndarra
     with open_table_ro(infile) as tb_tool:
         rgrps = [
             (rr[0], rr[-1])
+            
+            # TODO
+            # swap np.unique(arr) for np.sort(pd.unique(arr))
             for rr in np.split(ridxs, np.where(np.diff(ridxs) > 1)[0] + 1)
         ]
         # try:
@@ -598,6 +612,9 @@ def read_col_conversion(
     (no need for didxs)
     """
     data = tb_tool.getcol(col)
+    
+    # TODO
+    # check np.full() with np.nan performance vs np.zeros or np.ones
     fulldata = np.full(cshape + data.shape[1:], np.nan, dtype=data.dtype)
     fulldata[tidxs, bidxs] = data
     return fulldata

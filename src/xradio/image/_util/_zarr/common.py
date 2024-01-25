@@ -13,9 +13,4 @@ _np_types = {
     "int64": np.int64,
 }
 
-if hasattr(np, "complex256"):
-    _np_types["complex256"] = np.complex256
-if hasattr(np, "float128"):
-    _np_types["float128"] = np.float128
-
 _top_level_sub_xds = "_attrs_xds"

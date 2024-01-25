@@ -22,17 +22,15 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
     direction["system"] = xds_dir["reference"]["equinox"]
     direction["projection"] = xds_dir["projection"]
     direction["projection_parameters"] = xds_dir["projection_parameters"]
-    # long = xds.right_ascension
-    # lat = xds.declination
     direction["units"] = np.array(xds_dir["reference"]["units"], dtype="<U16")
     direction["crval"] = np.array(xds_dir["reference"]["value"])
     direction["cdelt"] = np.array(xds_dir["reference"]["cdelt"])
-    crpix = _compute_sky_reference_pixel(xds)
-    direction["crpix"] = np.array([crpix[0], crpix[1]])
-    direction["pc"] = xds_dir["pc"]
+    direction["crpix"] = _compute_sky_reference_pixel(xds)
+    direction["pc"] = np.array(xds_dir["pc"])
     direction["axes"] = ["Right Ascension", "Declination"]
     direction["conversionSystem"] = direction["system"]
     for s in ["longpole", "latpole"]:
+        # longpole, latpole are numerical values in degrees in casa images
         direction[s] = Angle(str(xds_dir[s]["value"]) + xds_dir[s]["units"]).deg
     return direction
 

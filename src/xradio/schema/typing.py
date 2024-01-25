@@ -7,16 +7,6 @@ type annotations, especially adding xradio-specific support for multiple
 options in data variable / coordinate dimensionality and dtype.
 """
 
-from typing_extensions import (
-    get_type_hints,
-    get_args,
-    TypeAlias,
-    get_origin,
-    Literal,
-    Annotated,
-    Protocol,
-    ParamSpec,
-)
 
 from typing import (
     Any,
@@ -32,11 +22,24 @@ from typing import (
     Sequence,
     Generic,
     Collection,
+    Literal,
+    get_type_hints,
+    get_args,
+    get_origin,
+    Annotated,
+    Protocol,
 )
+
 try:
+    from typing import TypeAlias, ParamSpec
     from types import UnionType
 except ImportError:
-    from typing import Union as UnionType, Literal
+    # Required for Python 3.9
+    from typing_extensions import (
+        TypeAlias,
+        ParamSpec,
+    )
+    from typing import Union as UnionType
 import numpy as np
 from itertools import chain
 from enum import Enum
@@ -376,3 +379,14 @@ def get_role(tp: Any, default: Role = Role.OTHER) -> Role:
         return get_annotations(tp)[0]
     except TypeError:
         return default
+
+
+def is_optional(type_ann):
+    """
+    Check whether a type annotation indicates that the value is optional
+
+    Boils down to checking whether it's a union type that includes None
+    """
+    if get_origin(type_ann) is Union:
+        return None.__class__ in get_args(type_ann)
+    return False

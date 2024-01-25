@@ -46,14 +46,14 @@ class ArraySchema:
 
     schema_name: str
     """(Class) name of the schema"""
-    dimensions: [[str]]
+    dimensions: typing.List[typing.List[str]]
     """List of possible dimensions"""
-    dtypes: [[type]]
+    dtypes: typing.List[typing.List["numpy.dtype"]]
     """List of possible (numpy) types"""
 
-    coordinates: ["ArraySchemaRef"]
+    coordinates: typing.List["ArraySchemaRef"]
     """Coordinates data arrays giving values to dimensions"""
-    attributes: [AttrSchemaRef]
+    attributes: typing.List[AttrSchemaRef]
     """Attributes associated with data array"""
 
     class_docstring: typing.Optional[str]

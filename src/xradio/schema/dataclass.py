@@ -1,5 +1,5 @@
-from typing_extensions import get_type_hints, get_args, TypeAlias, get_origin, Literal
-from .typing import get_dims, get_dtypes, get_role, Role, get_annotated
+from typing import get_type_hints, get_args
+from .typing import get_dims, get_dtypes, get_role, Role, get_annotated, is_optional
 
 import typing
 import inspect
@@ -60,17 +60,6 @@ def extract_field_docstrings(klass):
                 docstrings[name] = None
 
     return docstrings
-
-
-def is_optional(type_ann):
-    """
-    Check whether a type annotation indicates that the value is optional
-
-    Boils down to checking whether it's a union type that includes None
-    """
-    if typing.get_origin(type_ann) is typing.Union:
-        return None.__class__ in typing.get_args(type_ann)
-    return False
 
 
 def extract_xarray_dataclass(klass):

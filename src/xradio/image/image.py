@@ -6,7 +6,7 @@
 from ._util.casacore import _load_casa_image_block, _xds_to_casa_image
 from ._util.fits import _read_fits_image
 from ._util.image_factory import (
-    _make_empty_apeture_image,
+    _make_empty_aperture_image,
     _make_empty_lmuv_image,
     _make_empty_sky_image,
 )
@@ -99,7 +99,7 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
         Path to the input image, currently CASA and zarr images are supported
     block_des : dict
         The description of data to return, supported keys are time,
-        polarization, frequency, l (or u if apeture image), m (or v if apeture
+        polarization, frequency, l (or u if aperture image), m (or v if aperture
         image) a missing key indicates to return the entire axis length for that
         dimension. Values can be non-negative integers or slices. Slicing
         behaves as numpy slicing does, that is the start pixel is included in
@@ -231,7 +231,7 @@ def make_empty_sky_image(
     )
 
 
-def make_empty_apeture_image(
+def make_empty_aperture_image(
     phase_center: Union[List[float], np.ndarray],
     image_size: Union[List[int], np.ndarray],
     sky_image_cell_size: Union[List[float], np.ndarray],
@@ -243,7 +243,7 @@ def make_empty_apeture_image(
     spectral_reference: str = "lsrk",
 ) -> xr.Dataset:
     """
-    Create an apeture (uv) mage xarray.Dataset with only coordinates (no datavariables).
+    Create an aperture (uv) mage xarray.Dataset with only coordinates (no datavariables).
     The image dimensionality is time, pol, chan, u, v
 
     Parameters
@@ -267,7 +267,7 @@ def make_empty_apeture_image(
     -------
     xarray.Dataset
     """
-    return _make_empty_apeture_image(
+    return _make_empty_aperture_image(
         phase_center,
         image_size,
         sky_image_cell_size,
@@ -280,7 +280,7 @@ def make_empty_apeture_image(
     )
 
 
-def make_empty_apeture_image(
+def make_empty_aperture_image(
     phase_center: Union[List[float], np.ndarray],
     image_size: Union[List[int], np.ndarray],
     sky_image_cell_size: Union[List[float], np.ndarray],
@@ -292,7 +292,7 @@ def make_empty_apeture_image(
     spectral_reference: str = "lsrk",
 ) -> xr.Dataset:
     """
-    Create an apeture (uv) mage xarray.Dataset with only coordinates (no datavariables).
+    Create an aperture (uv) mage xarray.Dataset with only coordinates (no datavariables).
     The image dimensionality is time, pol, chan, u, v
 
     Parameters
@@ -316,7 +316,7 @@ def make_empty_apeture_image(
     -------
     xarray.Dataset
     """
-    return _make_empty_apeture_image(
+    return _make_empty_aperture_image(
         phase_center,
         image_size,
         sky_image_cell_size,

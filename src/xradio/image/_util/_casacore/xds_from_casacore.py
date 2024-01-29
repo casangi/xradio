@@ -94,20 +94,20 @@ def _add_mask(
     return xds
 
 
-def _add_sky_or_apeture(
+def _add_sky_or_aperture(
     xds: xr.Dataset,
     ary: Union[np.ndarray, da.array],
     dimorder: list,
     img_full_path: str,
     has_sph_dims: bool,
 ) -> xr.Dataset:
-    xda = xr.DataArray(ary, dims=dimorder)
+    xda = xr.DataArray(ary, dims=dimorder).astype(ary.dtype)
     with _open_image_ro(img_full_path) as casa_image:
         image_type = casa_image.info()["imageinfo"]["imagetype"]
         unit = casa_image.unit()
     xda.attrs[_image_type] = image_type
     xda.attrs["units"] = unit
-    name = "sky" if has_sph_dims else "apeture"
+    name = "sky" if has_sph_dims else "aperture"
     xda = xda.rename(name)
     xds[xda.name] = xda
     return xds

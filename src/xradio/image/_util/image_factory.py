@@ -177,7 +177,7 @@ def _make_empty_sky_image(
     return xds
 
 
-def _make_empty_apeture_image(
+def _make_empty_aperture_image(
     phase_center: Union[list, np.ndarray],
     image_size: Union[list, np.ndarray],
     sky_image_cell_size: Union[list, np.ndarray],

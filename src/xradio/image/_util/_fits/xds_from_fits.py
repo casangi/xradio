@@ -45,7 +45,7 @@ def _fits_image_to_xds(
     sphr_dims = helpers["sphr_dims"]
     ary = _read_image_array(img_full_path, chunks, helpers, verbose)
     dim_order = _get_xds_dim_order(sphr_dims)
-    xds = _add_sky_or_apeture(xds, ary, dim_order, helpers, sphr_dims)
+    xds = _add_sky_or_aperture(xds, ary, dim_order, helpers, sphr_dims)
     xds.attrs = attrs
     xds = _add_coord_attrs(xds, helpers)
     if helpers["has_multibeam"]:
@@ -674,7 +674,7 @@ def _get_uv_values(helpers: dict) -> tuple:
     return u, v
 
 
-def _add_sky_or_apeture(
+def _add_sky_or_aperture(
     xds: xr.Dataset,
     ary: Union[np.ndarray, da.array],
     dim_order: list,
@@ -686,7 +686,7 @@ def _add_sky_or_apeture(
     unit = helpers["bunit"]
     xda.attrs[_image_type] = image_type
     xda.attrs["units"] = unit
-    name = "sky" if has_sph_dims else "apeture"
+    name = "sky" if has_sph_dims else "aperture"
     xda = xda.rename(name)
     xds[xda.name] = xda
     if helpers["has_mask"]:

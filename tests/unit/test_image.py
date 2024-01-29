@@ -2,7 +2,7 @@ import astropy.units as u
 import casacore.images, casacore.tables
 from xradio.image import (
     load_image,
-    make_empty_apeture_image,
+    make_empty_aperture_image,
     make_empty_lmuv_image,
     make_empty_sky_image,
     read_image,
@@ -312,6 +312,11 @@ class xds_from_image_test(ImageBase):
         self.assertTrue((got_mask == ev["mask0"]).all(), "mask values incorrect")
         got_ma = da.ma.masked_array(xds.sky, xds.mask0)
         self.assertEqual(da.sum(got_ma), ev["sum"], "Incorrect value for sum")
+        self.assertTrue(
+            got_data.dtype == ev["sky"].dtype,
+            f"Incoorect data type, got {got_data.dtype}, expected {ev['sky'].dtype}"
+        )
+
 
     def compare_time(self, xds: xr.Dataset) -> None:
         ev = self._exp_vals
@@ -552,6 +557,17 @@ class xds_from_image_test(ImageBase):
                 },
                 do_sky_coords=i == 0,
             )
+            if not zarr:
+                with open_image_ro(imagename) as im:
+                    self.assertTrue(
+                        xds["sky"].dtype == im.datatype()
+                        or (
+                            xds["sky"].dtype == np.float32
+                            and im.datatype() == "float"
+                        ),
+                        f"got wrong data type, got {xds['sky'].dtype}, "
+                        + f"expected {im.datatype()}"
+                    )
             self.assertEqual(xds.sky.shape, (1, 1, 4, 8, 12), "Wrong block shape")
             big_xds = self._xds if i == 0 else self._xds_no_sky
             self.assertTrue(
@@ -755,6 +771,13 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                     )
                     self.assertTrue(
                         (im1.getmask() == im2.getmask()).all(), "Incorrect mask values"
+                    )
+                    self.assertTrue(
+                        (
+                            im1.datatype() == im2.datatype(),
+                            f"Incorrect round trip pixel type, input {im1.datatype()}, "
+                            + f"output {im2.datatype()}"
+                        )
                     )
 
     def test_metadata(self):
@@ -998,8 +1021,8 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
         write_image(xds, self._zarr_uv_store, "zarr")
         xds2 = read_image(self._zarr_uv_store)
         self.assertTrue(
-            np.isclose(xds2.apeture.values, xds.apeture.values).all(),
-            "Incorrect apeture pixel values",
+            np.isclose(xds2.aperture.values, xds.aperture.values).all(),
+            "Incorrect aperture pixel values",
         )
 
 
@@ -1609,13 +1632,13 @@ class make_empty_sky_image_tests(make_empty_image_tests):
             self.run_attrs_tests(skel)
 
 
-class make_empty_apeture_image_tests(make_empty_image_tests):
+class make_empty_aperture_image_tests(make_empty_image_tests):
     """Test making skeleton image"""
 
     @classmethod
     def setUpClass(cls):
         cls._skel_im = make_empty_image_tests.create_image(
-            make_empty_apeture_image, None
+            make_empty_aperture_image, None
         )
 
     @classmethod

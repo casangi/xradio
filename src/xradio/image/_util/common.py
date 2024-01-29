@@ -262,7 +262,3 @@ def _set_multibeam_array(xds, beam_ary, units):
     xdb.attrs["units"] = units
     xds["beam"] = xdb
     return xds
-
-
-
-

@@ -168,7 +168,7 @@ def _history_from_xds(xds: xr.Dataset, image: str) -> None:
 
 def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
     ii = {}
-    ap_sky = "sky" if "l" in xds.coords else "apeture"
+    ap_sky = "sky" if "l" in xds.coords else "aperture"
     ii["image_type"] = (
         xds[ap_sky].attrs["image_type"] if "image_type" in xds[ap_sky].attrs else ""
     )
@@ -208,7 +208,7 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
 
 
 def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
-    sky_ap = "sky" if "sky" in xds else "apeture"
+    sky_ap = "sky" if "sky" in xds else "aperture"
     if xds[sky_ap].shape[0] != 1:
         raise RuntimeError("XDS can only be converted if it has exactly one time plane")
     trans_coords = (
@@ -312,10 +312,11 @@ def _write_initial_image(
 ) -> None:
     if not maskname:
         maskname = ""
-    for dv in ["sky", "apeture"]:
+    for dv in ["sky", "aperture"]:
         if dv in xds.data_vars:
             value = xds[dv][0, 0, 0, 0, 0].values.item()
             break
+    # print(type(value))
     image_full_path = os.path.expanduser(imagename)
     with _create_new_image(
         image_full_path, mask=maskname, shape=image_shape, value=value
@@ -349,7 +350,7 @@ def _write_pixels(
     value: xr.DataArray = None,
 ) -> None:
     flip = False
-    if v == "sky" or v == "apeture":
+    if v == "sky" or v == "aperture":
         filename = image_full_path
     else:
         # mask

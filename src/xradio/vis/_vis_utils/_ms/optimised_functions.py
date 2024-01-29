@@ -14,9 +14,6 @@
 # function changes to be made:
 
 
-# np.unique() -> unique()
-
-
 # ts_bases = [
 #         str(ll[0]).zfill(3) + "_" + str(ll[1]).zfill(3)
 #         for ll in np.hstack([ts_ant1[:, None], ts_ant2[:, None]])
@@ -33,9 +30,6 @@
 # baseline_ant1_id, baseline_ant2_id = baselines_to_antennas()
 
 
-
-
-
 ########################################################################
 
 # NOTE: the function get_baselines() in read_main_table module is distinct 
@@ -47,21 +41,23 @@
 
 ########################################################################
 # functions to test
+from typing import Union
 import numpy as np
 import pandas as pd
 from casacore import tables
-# TODO check numba is a dependency
-import numba as nb
 
 
 
-def unique(arr):
-    return np.unique(arr)
+def unique(array: Union[np.ndarray, list]) -> np.ndarray:
+    """Optimised version of np.unique for 1D arrays.
+    
+    Args:
+        array (np.ndarray/list): a 1D array or list of values.
 
-# Optimised function
-# def unique(arr):
-#     return np.sort(pd.unique(arr))
-
+    Returns:
+        np.ndarray: a sorted array of unique values.
+    """
+    return np.sort(pd.unique(array))
 
 
 

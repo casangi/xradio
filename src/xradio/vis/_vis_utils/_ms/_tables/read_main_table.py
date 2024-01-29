@@ -16,6 +16,7 @@ from .read import (
 )
 
 from .table_query import open_table_ro, open_query
+from xradio.vis._vis_utils._ms.optimised_functions import unique
 
 rename_msv2_cols = {
     "antenna1": "antenna1_id",
@@ -90,12 +91,9 @@ def get_partition_ids(mtable: tables.table, taql_where: str) -> Dict:
     taql_ids = f"select DISTINCT ARRAY_ID, OBSERVATION_ID, PROCESSOR_ID from $mtable {taql_where}"
     with open_query(mtable, taql_ids) as query:
         # array_id, observation_id, processor_id
-    
-        # TODO
-        # swap np.unique(arr) for np.sort(pd.unique(arr))
-        array_id = np.unique(query.getcol("ARRAY_ID"))
-        obs_id = np.unique(query.getcol("OBSERVATION_ID"))
-        proc_id = np.unique(query.getcol("PROCESSOR_ID"))
+        array_id = unique(query.getcol("ARRAY_ID"))
+        obs_id = unique(query.getcol("OBSERVATION_ID"))
+        proc_id = unique(query.getcol("PROCESSOR_ID"))
         check_vars = [
             (array_id, "array_id"),
             (obs_id, "observation_id"),
@@ -270,10 +268,7 @@ def read_main_table_chunks(
 def get_utimes_tol(mtable: tables.table, taql_where: str) -> Tuple[np.ndarray, float]:
     taql_utimes = f"select DISTINCT TIME from $mtable {taql_where}"
     with open_query(mtable, taql_utimes) as query_utimes:
-        
-        # TODO
-        # swap np.unique(arr) for np.sort(pd.unique(arr))
-        utimes = np.unique(query_utimes.getcol("TIME", 0, -1))
+        utimes = unique(query_utimes.getcol("TIME", 0, -1))
         # add a tol around the time ranges returned by taql
         if len(utimes) < 2:
             tol = 1e-5
@@ -289,9 +284,7 @@ def get_utimes_tol(mtable: tables.table, taql_where: str) -> Tuple[np.ndarray, f
 def get_baselines(tb_tool: tables.table) -> np.ndarray:
     # main table uses time x (antenna1,antenna2)
     ant1, ant2 = tb_tool.getcol("ANTENNA1", 0, -1), tb_tool.getcol("ANTENNA2", 0, -1)
-        
-    # TODO
-    # swap np.unique(arr) for np.sort(pd.unique(arr))
+
     # swap string baseline identifiers with integer based cantor pairing
     baselines = np.array(
         [

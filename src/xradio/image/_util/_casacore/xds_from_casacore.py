@@ -397,7 +397,6 @@ def _flatten_list(list_of_lists: list) -> list:
 def _get_beam(imageinfo: dict):
     """Returns None if no beam. Multiple beams are handled elsewhere"""
     k = "restoringbeam"
-    key = None
     if k in imageinfo and "major" in imageinfo[k]:
         return _convert_beam_to_rad(imageinfo[k])
     return None

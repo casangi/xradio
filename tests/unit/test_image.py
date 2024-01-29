@@ -314,9 +314,8 @@ class xds_from_image_test(ImageBase):
         self.assertEqual(da.sum(got_ma), ev["sum"], "Incorrect value for sum")
         self.assertTrue(
             got_data.dtype == ev["sky"].dtype,
-            f"Incoorect data type, got {got_data.dtype}, expected {ev['sky'].dtype}"
+            f"Incoorect data type, got {got_data.dtype}, expected {ev['sky'].dtype}",
         )
-
 
     def compare_time(self, xds: xr.Dataset) -> None:
         ev = self._exp_vals
@@ -562,11 +561,10 @@ class xds_from_image_test(ImageBase):
                     self.assertTrue(
                         xds["sky"].dtype == im.datatype()
                         or (
-                            xds["sky"].dtype == np.float32
-                            and im.datatype() == "float"
+                            xds["sky"].dtype == np.float32 and im.datatype() == "float"
                         ),
                         f"got wrong data type, got {xds['sky'].dtype}, "
-                        + f"expected {im.datatype()}"
+                        + f"expected {im.datatype()}",
                     )
             self.assertEqual(xds.sky.shape, (1, 1, 4, 8, 12), "Wrong block shape")
             big_xds = self._xds if i == 0 else self._xds_no_sky
@@ -776,7 +774,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                         (
                             im1.datatype() == im2.datatype(),
                             f"Incorrect round trip pixel type, input {im1.datatype()}, "
-                            + f"output {im2.datatype()}"
+                            + f"output {im2.datatype()}",
                         )
                     )
 

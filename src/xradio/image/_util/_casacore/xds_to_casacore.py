@@ -316,7 +316,7 @@ def _write_initial_image(
         if dv in xds.data_vars:
             value = xds[dv][0, 0, 0, 0, 0].values.item()
             break
-    #print(type(value))
+    # print(type(value))
     image_full_path = os.path.expanduser(imagename)
     with _create_new_image(
         image_full_path, mask=maskname, shape=image_shape, value=value

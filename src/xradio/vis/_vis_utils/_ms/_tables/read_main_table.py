@@ -181,58 +181,51 @@ def read_main_table_chunks(
     ]
     chan_cnt, pol_cnt = [(cc[0], cc[1]) for cc in cshapes if len(cc) == 2][0]
 
-    utimes, tol = get_utimes_tol(tb_tool, taql_where)
+    unique_times, tol = get_utimes_tol(tb_tool, taql_where)
 
     tvars = {}
+    n_baselines = len(baselines)
+    n_unique_times = len(unique_times)
+    n_time_chunks = chunks[0]
+    n_baseline_chunks = chunks[1]
     # loop over time chunks
-    for tc in range(0, len(utimes), chunks[0]):
-        times = (
-            utimes[tc] - tol,
-            utimes[min(len(utimes) - 1, tc + chunks[0] - 1)] + tol,
-        )
+    for time_chunk in range(0, n_unique_times, n_time_chunks):
+        time_start = unique_times[time_chunk] - tol,
+        time_end = unique_times[min(n_unique_times, time_chunk + n_time_chunks) - 1] + tol
+
         # chunk time length
-        ctlen = min(len(utimes), tc + chunks[0]) - tc
+        ctlen = min(n_unique_times, time_chunk + n_time_chunks) - time_chunk
 
         bvars = {}
         # loop over baseline chunks
-        for bc in range(0, len(baselines), chunks[1]):
-            blines = (
-                baselines[bc],
-                baselines[min(len(baselines) - 1, bc + chunks[1] - 1)],
-            )
-            cblen = min(len(baselines) - bc, chunks[1])
+        for baseline_chunk in range(0, n_baselines, n_baseline_chunks):
+            cblen = min(n_baselines - baseline_chunk, n_baseline_chunks)
 
             # read the specified chunk of data
             # def read_chunk(infile, ddi, times, blines, chans, pols):
-            ttql = f"TIME BETWEEN {times[0]} and {times[1]}"
-            ants = (int(blines[0].split("_")[0]), int(blines[1].split("_")[0]))
-            atql = f"ANTENNA1 BETWEEN {ants[0]} and {ants[1]}"
+            ttql = f"TIME BETWEEN {time_start} and {time_end}"
+            ant1_start = baselines[baseline_chunk][0]
+            ant1_end = baselines[cblen + baseline_chunk - 1][0]
+            atql = f"ANTENNA1 BETWEEN {ant1_start} and {ant1_end}"
             ts_taql = f"select * from $mtable {taql_where} AND {ttql} AND {atql}"
             with open_query(None, ts_taql) as query_times_ants:
                 # TODO
                 # swap np.searchsorted() to njit searchsorted
                 tidxs = (
-                    np.searchsorted(utimes, query_times_ants.getcol("TIME", 0, -1)) - tc
+                    np.searchsorted(unique_times, query_times_ants.getcol("TIME", 0, -1)) - time_chunk
                 )
                 ts_ant1, ts_ant2 = (
                     query_times_ants.getcol("ANTENNA1", 0, -1),
                     query_times_ants.getcol("ANTENNA2", 0, -1),
                 )
 
-            # TODO
-            # swap string baseline identifiers with integer based cantor pairing
-            ts_bases = [
-                str(ll[0]).zfill(3) + "_" + str(ll[1]).zfill(3)
-                for ll in np.hstack([ts_ant1[:, None], ts_ant2[:, None]])
-            ]
+            ts_bases = np.column_stack((ts_ant1, ts_ant2))
 
-            # TODO
-            # swap np.searchsorted() to njit searchsorted
-            bidxs = np.searchsorted(baselines, ts_bases) - bc
+            bidxs = np.searchsorted(baselines, ts_bases) - baseline_chunk
 
             # some antenna 2's will be out of bounds for this chunk, store rows that are in bounds
             didxs = np.where(
-                (bidxs >= 0) & (bidxs < min(chunks[1], len(baselines) - bc))
+                (bidxs >= 0) & (bidxs < min(chunks[1], n_baselines - baseline_chunk))
             )[0]
 
             delayed_params = (infile, ts_taql, (ctlen, cblen), tidxs, bidxs, didxs)
@@ -246,8 +239,8 @@ def read_main_table_chunks(
     dims = ["time", "baseline", "freq", "pol"]
     mvars = concat_tvars_to_mvars(dims, tvars, pol_cnt, chan_cnt)
     mcoords = {
-        "time": xr.DataArray(convert_casacore_time(utimes), dims=["time"]),
-        "baseline": xr.DataArray(np.arange(len(baselines)), dims=["baseline"]),
+        "time": xr.DataArray(convert_casacore_time(unique_times), dims=["time"]),
+        "baseline": xr.DataArray(np.arange(n_baselines), dims=["baseline"]),
     }
 
     # add xds global attributes
@@ -277,19 +270,12 @@ def get_utimes_tol(mtable: tables.table, taql_where: str) -> Tuple[np.ndarray, f
     return utimes, tol
 
 
-# TODO
-# swap string baseline identifiers with integer based cantor pairing
 def get_baselines(tb_tool: tables.table) -> np.ndarray:
     # main table uses time x (antenna1,antenna2)
     ant1, ant2 = tb_tool.getcol("ANTENNA1", 0, -1), tb_tool.getcol("ANTENNA2", 0, -1)
 
     # swap string baseline identifiers with integer based cantor pairing
-    baselines = np.array(
-        [
-            str(ll[0]).zfill(3) + "_" + str(ll[1]).zfill(3)
-            for ll in np.unique(np.hstack([ant1[:, None], ant2[:, None]]), axis=0)
-        ]
-    )
+    baselines = np.unique(np.column_stack((ant1, ant2)), axis=0)
 
     return baselines
 

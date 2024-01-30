@@ -12,7 +12,7 @@ import astropy.units
 from casacore import tables
 
 from .table_query import open_query, open_table_ro
-from xradio.vis._vis_utils._ms.optimised_functions import unique
+from xradio.vis._vis_utils._ms.optimised_functions import unique_1d
 
 CASACORE_TO_PD_TIME_CORRECTION = 3506716800.0
 SECS_IN_DAY = 86400
@@ -429,7 +429,6 @@ def read_generic_cols(
                 [row[col] for row in trows]
             )  # .astype(col_cells[col].dtype)
             if isinstance(trows[0][col], dict):
-                
                 # TODO
                 # benchmark np.stack() performance
                 data = np.stack(
@@ -443,12 +442,12 @@ def read_generic_cols(
         except Exception:
             # sometimes the cols are variable, so we need to standardize to the largest sizes
 
-            if len(unique([isinstance(row[col], dict) for row in trows])) > 1:
+            if len(unique_1d([isinstance(row[col], dict) for row in trows])) > 1:
                 continue  # can't deal with this case
             mshape = np.array(max([np.array(row[col]).shape for row in trows]))
             try:
                 pad_nan = get_pad_nan(col_cells[col])
-                
+
                 # TODO
                 # benchmark np.stack() performance
                 data = np.stack(
@@ -519,7 +518,6 @@ def read_flat_col_chunk(infile, col, cshape, ridxs, cstart, pstart) -> np.ndarra
     with open_table_ro(infile) as tb_tool:
         rgrps = [
             (rr[0], rr[-1])
-            
             # TODO
             # swap np.unique(arr) for np.sort(pd.unique(arr))
             for rr in np.split(ridxs, np.where(np.diff(ridxs) > 1)[0] + 1)
@@ -610,7 +608,7 @@ def read_col_conversion(
     (no need for didxs)
     """
     data = tb_tool.getcol(col)
-    
+
     # TODO
     # check np.full() with np.nan performance vs np.zeros or np.ones
     fulldata = np.full(cshape + data.shape[1:], np.nan, dtype=data.dtype)

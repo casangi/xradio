@@ -25,7 +25,7 @@ from ._tables.read import (
 )
 from ._tables.read_main_table import get_baselines, get_utimes_tol
 from .._utils.stokes_types import stokes_types
-from xradio.vis._vis_utils._ms.optimised_functions import unique
+from xradio.vis._vis_utils._ms.optimised_functions import unique_1d
 
 
 def check_if_consistent(col, col_name):
@@ -44,7 +44,7 @@ def check_if_consistent(col, col_name):
         _description_
     """
 
-    col_unique = unique(col)
+    col_unique = unique_1d(col)
     assert len(col_unique) == 1, col_name + " is not consistent."
     return col_unique[0]
 
@@ -83,11 +83,10 @@ def calc_indx_for_row_split(tb_tool, taql_where):
     bidxs = np.searchsorted(baselines, ts_bases)
 
     # some antenna 2"s will be out of bounds for this chunk, store rows that are in bounds
-    
+
     # TODO
     # swap string baseline identifiers with integer based cantor pairing
     didxs = np.where((bidxs >= 0) & (bidxs < len(baselines)))[0]
-    
 
     # TODO
     # swap string baseline identifiers with integer based cantor pairing
@@ -166,7 +165,7 @@ def create_coordinates(
     # xds.frequency.attrs["doppler_velocity"] =
     # xds.frequency.attrs["doppler_type"] =
 
-    unique_chan_width = unique(
+    unique_chan_width = unique_1d(
         spw_xds.chan_width.data[np.logical_not(np.isnan(spw_xds.chan_width.data))]
     )
     # assert len(unique_chan_width) == 1, "Channel width varies for spw."
@@ -331,12 +330,14 @@ def convert_and_write_partition(
             # logging.debug("Calc indx for row split "+ str(time.time()-start))
 
             xds = xr.Dataset()
-            #interval = check_if_consistent(tb_tool.getcol("INTERVAL"), "INTERVAL")
+            # interval = check_if_consistent(tb_tool.getcol("INTERVAL"), "INTERVAL")
             interval = tb_tool.getcol("INTERVAL")
 
-            interval_unique = unique(interval)
+            interval_unique = unique_1d(interval)
             if len(interval_unique) > 1:
-                print('Integration time (interval) not consitent in partition, using median.')
+                print(
+                    "Integration time (interval) not consitent in partition, using median."
+                )
                 interval = np.median(interval)
             else:
                 interval = interval_unique[0]

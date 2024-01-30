@@ -16,7 +16,7 @@ from .read import (
 )
 
 from .table_query import open_table_ro, open_query
-from xradio.vis._vis_utils._ms.optimised_functions import unique
+from xradio.vis._vis_utils._ms.optimised_functions import unique_1d
 
 rename_msv2_cols = {
     "antenna1": "antenna1_id",
@@ -91,9 +91,9 @@ def get_partition_ids(mtable: tables.table, taql_where: str) -> Dict:
     taql_ids = f"select DISTINCT ARRAY_ID, OBSERVATION_ID, PROCESSOR_ID from $mtable {taql_where}"
     with open_query(mtable, taql_ids) as query:
         # array_id, observation_id, processor_id
-        array_id = unique(query.getcol("ARRAY_ID"))
-        obs_id = unique(query.getcol("OBSERVATION_ID"))
-        proc_id = unique(query.getcol("PROCESSOR_ID"))
+        array_id = unique_1d(query.getcol("ARRAY_ID"))
+        obs_id = unique_1d(query.getcol("OBSERVATION_ID"))
+        proc_id = unique_1d(query.getcol("PROCESSOR_ID"))
         check_vars = [
             (array_id, "array_id"),
             (obs_id, "observation_id"),
@@ -209,7 +209,6 @@ def read_main_table_chunks(
             atql = f"ANTENNA1 BETWEEN {ants[0]} and {ants[1]}"
             ts_taql = f"select * from $mtable {taql_where} AND {ttql} AND {atql}"
             with open_query(None, ts_taql) as query_times_ants:
-
                 # TODO
                 # swap np.searchsorted() to njit searchsorted
                 tidxs = (
@@ -268,7 +267,7 @@ def read_main_table_chunks(
 def get_utimes_tol(mtable: tables.table, taql_where: str) -> Tuple[np.ndarray, float]:
     taql_utimes = f"select DISTINCT TIME from $mtable {taql_where}"
     with open_query(mtable, taql_utimes) as query_utimes:
-        utimes = unique(query_utimes.getcol("TIME", 0, -1))
+        utimes = unique_1d(query_utimes.getcol("TIME", 0, -1))
         # add a tol around the time ranges returned by taql
         if len(utimes) < 2:
             tol = 1e-5
@@ -276,7 +275,6 @@ def get_utimes_tol(mtable: tables.table, taql_where: str) -> Tuple[np.ndarray, f
             tol = np.diff(utimes).min() / 4
 
     return utimes, tol
-
 
 
 # TODO

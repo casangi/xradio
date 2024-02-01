@@ -32,3 +32,8 @@ table.docutils p:first-child {
 code.literal {
     font-size: 11px;
 }
+
+div.sphinxsidebarwrapper p.caption {
+    display: inline-block;
+}
+

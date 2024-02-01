@@ -1,6 +1,5 @@
 """Contains optimised functions to be used within other modules."""
 
-from typing import Union
 import numpy as np
 import pandas as pd
 

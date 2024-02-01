@@ -49,7 +49,7 @@ def make_partition_ids_by_ddi_scan(
             )
             if do_subscans:
                 state_id = query_states.getcol("STATE_ID")
-                data_desc_id = [None] * len(scan_number)
+                data_desc_id = np.full(len(scan_number), None)
             else:
                 state_id = [None] * len(scan_number)
                 logging.debug(f"Got col STATE_ID (len: {len(state_id)}): {state_id}")

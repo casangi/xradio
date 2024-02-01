@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Tuple, Union
 import dask, dask.array
 import numpy as np
 import xarray as xr
+import pandas as pd
 
 from casacore import tables
 
@@ -16,6 +17,11 @@ from .read import (
 )
 
 from .table_query import open_table_ro, open_query
+from xradio.vis._vis_utils._ms.optimised_functions import (
+    unique_1d,
+    pairing_function,
+    inverse_pairing_function,
+)
 
 rename_msv2_cols = {
     "antenna1": "antenna1_id",
@@ -90,9 +96,9 @@ def get_partition_ids(mtable: tables.table, taql_where: str) -> Dict:
     taql_ids = f"select DISTINCT ARRAY_ID, OBSERVATION_ID, PROCESSOR_ID from $mtable {taql_where}"
     with open_query(mtable, taql_ids) as query:
         # array_id, observation_id, processor_id
-        array_id = np.unique(query.getcol("ARRAY_ID"))
-        obs_id = np.unique(query.getcol("OBSERVATION_ID"))
-        proc_id = np.unique(query.getcol("PROCESSOR_ID"))
+        array_id = unique_1d(query.getcol("ARRAY_ID"))
+        obs_id = unique_1d(query.getcol("OBSERVATION_ID"))
+        proc_id = unique_1d(query.getcol("PROCESSOR_ID"))
         check_vars = [
             (array_id, "array_id"),
             (obs_id, "observation_id"),
@@ -180,51 +186,49 @@ def read_main_table_chunks(
     ]
     chan_cnt, pol_cnt = [(cc[0], cc[1]) for cc in cshapes if len(cc) == 2][0]
 
-    utimes, tol = get_utimes_tol(tb_tool, taql_where)
+    unique_times, tol = get_utimes_tol(tb_tool, taql_where)
 
     tvars = {}
+    n_baselines = len(baselines)
+    n_unique_times = len(unique_times)
+    n_time_chunks = chunks[0]
+    n_baseline_chunks = chunks[1]
     # loop over time chunks
-    for tc in range(0, len(utimes), chunks[0]):
-        times = (
-            utimes[tc] - tol,
-            utimes[min(len(utimes) - 1, tc + chunks[0] - 1)] + tol,
-        )
+    for time_chunk in range(0, n_unique_times, n_time_chunks):
+        time_start = unique_times[time_chunk] - tol,
+        time_end = unique_times[min(n_unique_times, time_chunk + n_time_chunks) - 1] + tol
+
         # chunk time length
-        ctlen = min(len(utimes), tc + chunks[0]) - tc
+        ctlen = min(n_unique_times, time_chunk + n_time_chunks) - time_chunk
 
         bvars = {}
         # loop over baseline chunks
-        for bc in range(0, len(baselines), chunks[1]):
-            blines = (
-                baselines[bc],
-                baselines[min(len(baselines) - 1, bc + chunks[1] - 1)],
-            )
-            cblen = min(len(baselines) - bc, chunks[1])
+        for baseline_chunk in range(0, n_baselines, n_baseline_chunks):
+            cblen = min(n_baselines - baseline_chunk, n_baseline_chunks)
 
             # read the specified chunk of data
             # def read_chunk(infile, ddi, times, blines, chans, pols):
-            ttql = f"TIME BETWEEN {times[0]} and {times[1]}"
-            ants = (int(blines[0].split("_")[0]), int(blines[1].split("_")[0]))
-            atql = f"ANTENNA1 BETWEEN {ants[0]} and {ants[1]}"
+            ttql = f"TIME BETWEEN {time_start} and {time_end}"
+            ant1_start = baselines[baseline_chunk][0]
+            ant1_end = baselines[cblen + baseline_chunk - 1][0]
+            atql = f"ANTENNA1 BETWEEN {ant1_start} and {ant1_end}"
             ts_taql = f"select * from $mtable {taql_where} AND {ttql} AND {atql}"
             with open_query(None, ts_taql) as query_times_ants:
                 tidxs = (
-                    np.searchsorted(utimes, query_times_ants.getcol("TIME", 0, -1)) - tc
+                    np.searchsorted(unique_times, query_times_ants.getcol("TIME", 0, -1)) - time_chunk
                 )
                 ts_ant1, ts_ant2 = (
                     query_times_ants.getcol("ANTENNA1", 0, -1),
                     query_times_ants.getcol("ANTENNA2", 0, -1),
                 )
 
-            ts_bases = [
-                str(ll[0]).zfill(3) + "_" + str(ll[1]).zfill(3)
-                for ll in np.hstack([ts_ant1[:, None], ts_ant2[:, None]])
-            ]
-            bidxs = np.searchsorted(baselines, ts_bases) - bc
+            ts_bases = np.column_stack((ts_ant1, ts_ant2))
+
+            bidxs = get_baseline_indices(baselines, ts_bases) - baseline_chunk
 
             # some antenna 2's will be out of bounds for this chunk, store rows that are in bounds
             didxs = np.where(
-                (bidxs >= 0) & (bidxs < min(chunks[1], len(baselines) - bc))
+                (bidxs >= 0) & (bidxs < min(chunks[1], n_baselines - baseline_chunk))
             )[0]
 
             delayed_params = (infile, ts_taql, (ctlen, cblen), tidxs, bidxs, didxs)
@@ -238,8 +242,8 @@ def read_main_table_chunks(
     dims = ["time", "baseline", "freq", "pol"]
     mvars = concat_tvars_to_mvars(dims, tvars, pol_cnt, chan_cnt)
     mcoords = {
-        "time": xr.DataArray(convert_casacore_time(utimes), dims=["time"]),
-        "baseline": xr.DataArray(np.arange(len(baselines)), dims=["baseline"]),
+        "time": xr.DataArray(convert_casacore_time(unique_times), dims=["time"]),
+        "baseline": xr.DataArray(np.arange(n_baselines), dims=["baseline"]),
     }
 
     # add xds global attributes
@@ -259,7 +263,7 @@ def read_main_table_chunks(
 def get_utimes_tol(mtable: tables.table, taql_where: str) -> Tuple[np.ndarray, float]:
     taql_utimes = f"select DISTINCT TIME from $mtable {taql_where}"
     with open_query(mtable, taql_utimes) as query_utimes:
-        utimes = np.unique(query_utimes.getcol("TIME", 0, -1))
+        utimes = unique_1d(query_utimes.getcol("TIME", 0, -1))
         # add a tol around the time ranges returned by taql
         if len(utimes) < 2:
             tol = 1e-5
@@ -270,16 +274,62 @@ def get_utimes_tol(mtable: tables.table, taql_where: str) -> Tuple[np.ndarray, f
 
 
 def get_baselines(tb_tool: tables.table) -> np.ndarray:
-    # main table uses time x (antenna1,antenna2)
-    ant1, ant2 = tb_tool.getcol("ANTENNA1", 0, -1), tb_tool.getcol("ANTENNA2", 0, -1)
-    baselines = np.array(
-        [
-            str(ll[0]).zfill(3) + "_" + str(ll[1]).zfill(3)
-            for ll in np.unique(np.hstack([ant1[:, None], ant2[:, None]]), axis=0)
-        ]
-    )
+    """Gets the unique baselines from antenna 1 and antenna 2 ids.
 
-    return baselines
+    Uses a pairing function and inverse pairing function to decrease the
+    computation time of finding unique values.
+
+    Args:
+        tb_tool (tables.table): MeasurementSet table to get the antenna ids.
+
+    Returns:
+        unique_baselines (np.ndarray): a 2D array of unique antenna pairs
+        (baselines) from the MeasurementSet table provided.
+    """
+    ant1, ant2 = tb_tool.getcol("ANTENNA1", 0, -1), tb_tool.getcol("ANTENNA2", 0, -1)
+
+    baselines = np.column_stack((ant1, ant2))
+
+    # Using pairing function to reduce the computation time of finding unique values.
+    baselines_paired = pairing_function(baselines)
+    unique_baselines_paired = pd.unique(baselines_paired)
+    unique_baselines = inverse_pairing_function(unique_baselines_paired)
+
+    # Sorting the unique baselines.
+    unique_baselines = unique_baselines[unique_baselines[:,1].argsort()]
+    unique_baselines = unique_baselines[unique_baselines[:,0].argsort(kind='mergesort')]
+
+    return unique_baselines
+
+
+def get_baseline_indices(unique_baselines: np.ndarray, baseline_set: np.ndarray) -> np.ndarray:
+    """Finds the baseline indices of a set of baselines using the unique baselines.
+    
+    Uses a pairing function to reduce the number of values so it's more
+    efficient to find the indices.
+
+    Args:
+        unique_baselines (np.ndarray): a 2D array of unique antenna pairs
+        (baselines).
+        baseline_set (np.ndarray): a 2D array of antenna pairs (baselines). This
+        array may contain duplicates.
+
+    Returns:
+        baseline_indices (np.ndarray): the indices of the baseline set that
+        correspond to the unique baselines.
+    """
+    unique_baselines_paired = pairing_function(unique_baselines)
+    baseline_set_paired = pairing_function(baseline_set)
+
+    # Pairing function doesn't preserve order so they need to be sorted.
+    unique_baselines_sorted = np.argsort(unique_baselines_paired)
+    sorted_indices = np.searchsorted(
+        unique_baselines_paired[unique_baselines_sorted], 
+        baseline_set_paired,
+    )
+    baseline_indices = unique_baselines_sorted[sorted_indices]
+
+    return baseline_indices
 
 
 def read_all_cols_bvars(

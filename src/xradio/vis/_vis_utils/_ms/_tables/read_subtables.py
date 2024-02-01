@@ -19,6 +19,7 @@ from .read import (
     read_generic_table,
 )
 from .write import revert_time
+from xradio.vis._vis_utils._ms.optimised_functions import unique_1d
 
 
 def read_ephemerides(
@@ -86,10 +87,10 @@ def read_delayed_pointing_table(
                 return xr.Dataset()
 
             # pointing table uses time x antenna_id
-            antennas = np.unique(query_all.getcol("ANTENNA_ID", 0, -1))
+            antennas = unique_1d(query_all.getcol("ANTENNA_ID", 0, -1))
             taql_times = f"select DISTINCT TIME from $mtable {taql_time}"
             with open_query(None, taql_times) as query_times:
-                utimes = np.unique(query_times.getcol("TIME", 0, -1))
+                utimes = unique_1d(query_times.getcol("TIME", 0, -1))
 
             tvars = read_delayed_pointing_times(
                 infile, antennas, utimes, chunks, query_all, times
@@ -150,7 +151,7 @@ def normalize_time_slice(mtable: tables.table, time_slice: slice):
         # instead of int cast could be operator.index(time_slice.start)
         taql_utimes = "select DISTINCT TIME from $mtable"
         with open_query(mtable, taql_utimes) as query_utimes:
-            utimes = np.unique(query_utimes.getcol("TIME", 0, -1))
+            utimes = unique_1d(query_utimes.getcol("TIME", 0, -1))
             # add a tol around the time ranges returned by taql
             if len(utimes) < 2:
                 tol = 1e-5

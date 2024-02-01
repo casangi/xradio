@@ -12,6 +12,8 @@ from .read_main_table import get_partition_ids, redim_id_data_vars, rename_vars
 from .read import add_units_measures, convert_casacore_time, extract_table_attributes
 from .write import revert_time
 from .table_query import open_query, open_table_ro
+from xradio.vis._vis_utils._ms._tables.read_main_table import get_baselines, get_baseline_indices
+from xradio.vis._vis_utils._ms.optimised_functions import unique_1d
 
 
 def load_expanded_main_table_chunk(
@@ -203,7 +205,7 @@ def get_chunk_times(
 
     taql_utimes = f"select DISTINCT TIME from $mtable {taql_pre}"
     with open_query(None, taql_utimes) as query_utimes:
-        utimes = np.unique(query_utimes.getcol("TIME", 0, -1))
+        utimes = unique_1d(query_utimes.getcol("TIME", 0, -1))
         # add a tol around the time ranges returned by taql
         if len(utimes) < 2:
             tol = 1e-5
@@ -251,22 +253,15 @@ def get_chunk_baselines(tb_tool, chunk) -> Tuple[np.ndarray, Tuple[int, int], in
 
     :return: array of baselines + (first, last) baseline in the chunk
     """
-    # main table uses time x (antenna1,antenna2)
-    ant1, ant2 = tb_tool.getcol("ANTENNA1", 0, -1), tb_tool.getcol("ANTENNA2", 0, -1)
-    baselines = np.array(
-        [
-            str(ll[0]).zfill(3) + "_" + str(ll[1]).zfill(3)
-            for ll in np.unique(np.hstack([ant1[:, None], ant2[:, None]]), axis=0)
-        ]
-    )
+    baselines = get_baselines(tb_tool)
 
     if "baseline" in chunk:
-        bl_slice = chunk["baseline"]
-        blines = (int(bl_slice.start), int(bl_slice.stop))
+        baseline_chunk = chunk["baseline"]
+        baseline_boundaries = (int(baseline_chunk.start), int(baseline_chunk.stop))
     else:
-        blines = (int(baselines[0].split("_")[0]), int(baselines[-1].split("_")[0]) - 1)
+        baseline_boundaries = (baselines[0][0], baselines[-1][0] - 1)
 
-    return baselines, blines
+    return baselines, baseline_boundaries
 
 
 def get_chunk_data_indices(
@@ -310,11 +305,9 @@ def get_chunk_data_indices(
             query_times_ants.getcol("ANTENNA2", 0, -1),
         )
 
-        ts_bases = [
-            str(ll[0]).zfill(3) + "_" + str(ll[1]).zfill(3)
-            for ll in np.hstack([ts_ant1[:, None], ts_ant2[:, None]])
-        ]
-        bidxs = np.searchsorted(baselines, ts_bases) - blines[0]
+        ts_bases = np.column_stack((ts_ant1, ts_ant2))
+
+        bidxs = get_baseline_indices(baselines, ts_bases) - blines[0]
 
     # some antenna 2's will be out of bounds for this chunk, store rows that are in bounds
     didxs = np.where(

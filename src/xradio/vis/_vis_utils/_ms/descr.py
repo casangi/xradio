@@ -6,6 +6,7 @@ import pandas as pd
 
 from ._tables.read import read_generic_table, read_flat_col_chunk
 from ._tables.table_query import open_query, open_table_ro
+from xradio.vis._vis_utils._ms.optimised_functions import unique_1d
 
 
 def describe_ms(
@@ -94,7 +95,7 @@ def populate_ms_descr(
         ]
         sdf.update(
             {
-                "times": len(np.unique(times)),
+                "times": len(unique_1d(times)),
                 "baselines": len(np.unique(np.hstack(baselines), axis=0)),
             }
         )

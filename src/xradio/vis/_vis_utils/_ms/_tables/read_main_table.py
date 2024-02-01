@@ -214,8 +214,6 @@ def read_main_table_chunks(
             atql = f"ANTENNA1 BETWEEN {ant1_start} and {ant1_end}"
             ts_taql = f"select * from $mtable {taql_where} AND {ttql} AND {atql}"
             with open_query(None, ts_taql) as query_times_ants:
-                # TODO
-                # swap np.searchsorted() to njit searchsorted
                 tidxs = (
                     np.searchsorted(unique_times, query_times_ants.getcol("TIME", 0, -1)) - time_chunk
                 )

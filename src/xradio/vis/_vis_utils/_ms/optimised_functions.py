@@ -18,10 +18,10 @@ def unique_1d(array: np.ndarray) -> np.ndarray:
 
 def pairing_function(antenna_pairs: np.ndarray) -> np.ndarray:
     """Pairing function to convert each array pair to a single value.
-    
+
     This custom pairing function will only work if the maximum value is less
     than 2**20 and less than 2,048 if using signed 32-bit integers.
-    
+
     Args:
         antenna_pairs (np.ndarray): a 2D array containing antenna 1 and antenna
         2 ids, which forms a baseline.
@@ -34,9 +34,9 @@ def pairing_function(antenna_pairs: np.ndarray) -> np.ndarray:
 
 def inverse_pairing_function(paired_array: np.ndarray) -> np.ndarray:
     """Inverse pairing function to convert each paired value to an antenna pair.
-    
+
     This inverse pairing function is the inverse of the custom pairing function.
-    
+
     Args:
         paired_array (np.ndarray): a 1D array of the paired values.
 

@@ -23,7 +23,7 @@ from ._tables.read import (
     read_col_conversion,
     read_generic_table,
 )
-from ._tables.read_main_table import get_baselines, get_utimes_tol
+from ._tables.read_main_table import get_baselines, get_baseline_indices, get_utimes_tol
 from .._utils.stokes_types import stokes_types
 from xradio.vis._vis_utils._ms.optimised_functions import unique_1d
 
@@ -70,7 +70,7 @@ def calc_indx_for_row_split(tb_tool, taql_where):
     )
 
     ts_bases = np.column_stack((ts_ant1, ts_ant2))
-    bidxs = np.searchsorted(baselines, ts_bases)
+    bidxs = get_baseline_indices(baselines, ts_bases)
 
     # some antenna 2"s will be out of bounds for this chunk, store rows that are in bounds
 

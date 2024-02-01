@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Tuple, Union
 import dask, dask.array
 import numpy as np
 import xarray as xr
+import pandas as pd
 
 from casacore import tables
 
@@ -16,7 +17,11 @@ from .read import (
 )
 
 from .table_query import open_table_ro, open_query
-from xradio.vis._vis_utils._ms.optimised_functions import unique_1d
+from xradio.vis._vis_utils._ms.optimised_functions import (
+    unique_1d,
+    pairing_function,
+    inverse_pairing_function,
+)
 
 rename_msv2_cols = {
     "antenna1": "antenna1_id",
@@ -221,7 +226,7 @@ def read_main_table_chunks(
 
             ts_bases = np.column_stack((ts_ant1, ts_ant2))
 
-            bidxs = np.searchsorted(baselines, ts_bases) - baseline_chunk
+            bidxs = get_baseline_indices(baselines, ts_bases) - baseline_chunk
 
             # some antenna 2's will be out of bounds for this chunk, store rows that are in bounds
             didxs = np.where(
@@ -274,10 +279,23 @@ def get_baselines(tb_tool: tables.table) -> np.ndarray:
     # main table uses time x (antenna1,antenna2)
     ant1, ant2 = tb_tool.getcol("ANTENNA1", 0, -1), tb_tool.getcol("ANTENNA2", 0, -1)
 
-    # swap string baseline identifiers with integer based cantor pairing
-    baselines = np.unique(np.column_stack((ant1, ant2)), axis=0)
+    baselines = np.column_stack((ant1, ant2))
+    baselines_paired = pairing_function(baselines)
+    unique_baselines_paired = pd.unique(baselines_paired)
+    unique_baselines = inverse_pairing_function(unique_baselines_paired)
+    unique_baselines = unique_baselines[unique_baselines[:,1].argsort()]
+    unique_baselines = unique_baselines[unique_baselines[:,0].argsort(kind='mergesort')]
 
     return baselines
+
+
+def get_baseline_indices(unique_baselines, baseline_set):
+    unique_baselines_paired = pairing_function(unique_baselines)
+    baseline_set_paired = pairing_function(baseline_set)
+    unique_baselines_sorted = np.argsort(unique_baselines_paired)
+    sorted_indices = np.searchsorted(unique_baselines_paired[unique_baselines_sorted], baseline_set_paired)
+    indices = unique_baselines_sorted[sorted_indices]
+    return indices
 
 
 def read_all_cols_bvars(

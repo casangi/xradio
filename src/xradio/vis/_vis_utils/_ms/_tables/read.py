@@ -518,8 +518,6 @@ def read_flat_col_chunk(infile, col, cshape, ridxs, cstart, pstart) -> np.ndarra
     with open_table_ro(infile) as tb_tool:
         rgrps = [
             (rr[0], rr[-1])
-            # TODO
-            # swap np.unique(arr) for np.sort(pd.unique(arr))
             for rr in np.split(ridxs, np.where(np.diff(ridxs) > 1)[0] + 1)
         ]
         # try:

@@ -3,6 +3,8 @@ from typing import Literal, Optional, Union
 import numpy
 import xarray
 import dask.array
+import pytest
+import inspect
 
 from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof, Name
 from xradio.schema.metamodel import (
@@ -11,11 +13,12 @@ from xradio.schema.metamodel import (
     AttrSchemaRef,
     DatasetSchema,
 )
-from xradio.schema.check import check_array, check_dataset
+from xradio.schema.check import check_array, check_dataset, schema_checked, SchemaIssues
 from xradio.schema.dataclass import (
     xarray_dataclass_to_array_schema,
     xarray_dataclass_to_dataset_schema,
 )
+from xradio.schema.bases import AsDataArray
 
 Dim1 = Literal["coord"]
 Dim2 = Literal["coord2"]
@@ -23,7 +26,7 @@ Dim3 = Literal["coord3"]
 
 
 @dataclasses.dataclass(frozen=True)
-class _TestArraySchema:
+class _TestArraySchema(AsDataArray):
     """
     Docstring of array schema
 
@@ -98,11 +101,16 @@ def test_xarray_dataclass_to_array_schema():
 
 def test_check_array():
 
+    # Should succeed
     data = numpy.zeros(10, dtype=complex)
     coords = [("coord", numpy.arange(10, dtype=float))]
     attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
     array = xarray.DataArray(data, coords, attrs=attrs)
-    assert not check_array(array, TEST_ARRAY_SCHEMA)
+    issues = check_array(array, TEST_ARRAY_SCHEMA)
+    assert not issues
+
+    # Should not raise
+    issues.expect()
 
 
 def test_check_array_dask():
@@ -125,7 +133,24 @@ def test_check_array_dtype_mismatch():
         xarray.DataArray(data_f, coords, attrs=attrs), TEST_ARRAY_SCHEMA
     )
     assert len(results) == 1
-    assert results[0].path == [("dtype", "")]
+    assert results[0].path == [("dtype", None)]
+    assert results[0].found == numpy.dtype(float)
+    assert results[0].expected == [numpy.dtype(complex)]
+
+    with pytest.raises(SchemaIssues):
+        results.expect()
+
+
+def test_check_array_dtype_mismatch_expect():
+
+    data_f = numpy.zeros(10, dtype=float)
+    coords = [("coord", numpy.arange(10, dtype=float))]
+    attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
+    results = check_array(
+        xarray.DataArray(data_f, coords, attrs=attrs), TEST_ARRAY_SCHEMA
+    )
+    assert len(results) == 1
+    assert results[0].path == [("dtype", None)]
     assert results[0].found == numpy.dtype(float)
     assert results[0].expected == [numpy.dtype(complex)]
 
@@ -142,7 +167,7 @@ def test_check_array_extra_coord():
         xarray.DataArray(data2, coords2, attrs=attrs), TEST_ARRAY_SCHEMA
     )
     assert len(results) == 1
-    assert results[0].path == [("dims", "")]
+    assert results[0].path == [("dims", None)]
     assert results[0].found == ("coord", "coord2")
     assert results[0].expected == [("coord",)]
 
@@ -153,7 +178,7 @@ def test_check_array_missing_coord():
     attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
     results = check_array(xarray.DataArray(data0, {}, attrs=attrs), TEST_ARRAY_SCHEMA)
     assert len(results) == 2
-    assert results[0].path == [("dims", "")]
+    assert results[0].path == [("dims", None)]
     assert results[0].found == ()
     assert results[0].expected == [("coord",)]
     assert results[1].path == [("coords", "coord")]
@@ -168,7 +193,7 @@ def test_check_array_wrong_coord():
         xarray.DataArray(data, coords3, attrs=attrs), TEST_ARRAY_SCHEMA
     )
     assert len(results) == 2
-    assert results[0].path == [("dims", "")]
+    assert results[0].path == [("dims", None)]
     assert results[0].found == ("coord2",)
     assert results[0].expected == [("coord",)]
     assert results[1].path == [("coords", "coord")]
@@ -220,6 +245,109 @@ def test_check_array_wrong_type():
     assert results[2].path == [("attrs", "attr3")]
     assert results[2].found == float
     assert results[2].expected == [int]
+
+
+def test_schema_checked_wrap():
+    @schema_checked
+    def fn(a: int, b: _TestArraySchema) -> str:
+        """Docstring"""
+
+    # Make sure docstring and signature survives (mostly for Sphinx'
+    # benefit...)
+    assert fn.__doc__ == "Docstring"
+    sig = inspect.signature(fn)
+    assert sig.parameters["a"].annotation == int
+    assert sig.parameters["b"].annotation == _TestArraySchema
+    assert sig.return_annotation == str
+
+
+def test_schema_checked_no_annotation():
+    @schema_checked
+    def fn(array):
+        pass
+
+    # Should be able to pass any parameters
+    fn(0)
+    fn(None)
+    fn(xarray.DataArray(numpy.zeros(10)))
+
+
+def test_schema_checked_annotation():
+    @schema_checked
+    def fn(array: _TestArraySchema):
+        pass
+
+    data = numpy.zeros(10, dtype=complex)
+    coords = [("coord", numpy.arange(10, dtype=float))]
+    attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
+    array = xarray.DataArray(data, coords, attrs=attrs)
+    fn(array)
+
+    data = numpy.zeros(10, dtype=float)
+    array = xarray.DataArray(data, coords, attrs=attrs)
+    with pytest.raises(SchemaIssues) as exc_info:
+        fn(array)
+    assert exc_info.value.issues[0].path == [("array", None), ("dtype", None)]
+
+    with pytest.raises(SchemaIssues) as exc_info:
+        fn(None)
+    assert exc_info.value.issues[0].path == [("array", None)]
+
+
+def test_schema_checked_annotation_optional():
+    @schema_checked
+    def fn(array: Optional[_TestArraySchema]):
+        pass
+
+    data = numpy.zeros(10, dtype=complex)
+    coords = [("coord", numpy.arange(10, dtype=float))]
+    attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
+    array = xarray.DataArray(data, coords, attrs=attrs)
+    fn(array)
+
+    data = numpy.zeros(10, dtype=float)
+    array = xarray.DataArray(data, coords, attrs=attrs)
+    with pytest.raises(SchemaIssues) as exc_info:
+        fn(array)
+    assert exc_info.value.issues[0].path == [("array", None), ("dtype", None)]
+
+    # Should succeed
+    fn(None)
+
+    # Should fail
+    with pytest.raises(SchemaIssues) as exc_info:
+        fn(1)
+    assert exc_info.value.issues[0].path == [("array", None)]
+    assert exc_info.value.issues[0].expected == [xarray.DataArray, type(None)]
+    assert exc_info.value.issues[0].found == int
+
+
+def test_schema_checked_annotation_optional():
+    @schema_checked
+    def fn(array: Optional[_TestArraySchema]):
+        pass
+
+    data = numpy.zeros(10, dtype=complex)
+    coords = [("coord", numpy.arange(10, dtype=float))]
+    attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
+    array = xarray.DataArray(data, coords, attrs=attrs)
+    fn(array)
+
+    data = numpy.zeros(10, dtype=float)
+    array = xarray.DataArray(data, coords, attrs=attrs)
+    with pytest.raises(SchemaIssues) as exc_info:
+        fn(array)
+    assert exc_info.value.issues[0].path == [("array", None), ("dtype", None)]
+
+    # Should succeed
+    fn(None)
+
+    # Should fail
+    with pytest.raises(SchemaIssues) as exc_info:
+        fn(1)
+    assert exc_info.value.issues[0].path == [("array", None)]
+    assert exc_info.value.issues[0].expected == [xarray.DataArray, type(None)]
+    assert exc_info.value.issues[0].found == int
 
 
 @dataclasses.dataclass(frozen=True)
@@ -438,10 +566,10 @@ def test_check_dataset_dtype_mismatch():
     dataset = xarray.Dataset(data_vars, coords, attrs)
     issues = check_dataset(dataset, TEST_DATASET_SCHEMA)
     assert len(issues) == 2
-    assert issues[0].path == [("coords", "coord2"), ("dtype", "")]
+    assert issues[0].path == [("coords", "coord2"), ("dtype", None)]
     assert issues[0].expected == [numpy.dtype(int)]
     assert issues[0].found == numpy.dtype(float)
-    assert issues[1].path == [("data_vars", "data_var_simple"), ("dtype", "")]
+    assert issues[1].path == [("data_vars", "data_var_simple"), ("dtype", None)]
     assert issues[1].expected == [numpy.float32]
     assert issues[1].found == numpy.dtype(float)
 
@@ -462,7 +590,7 @@ def test_check_dataset_wrong_dim():
     dataset = xarray.Dataset(data_vars, coords, attrs)
     issues = check_dataset(dataset, TEST_DATASET_SCHEMA)
     assert len(issues) == 1
-    assert issues[0].path == [("data_vars", "data_var_simple"), ("dims", "")]
+    assert issues[0].path == [("data_vars", "data_var_simple"), ("dims", None)]
     assert issues[0].expected == [("coord2",)]
     assert issues[0].found == ("coord",)
 

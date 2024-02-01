@@ -1,5 +1,7 @@
 import dataclasses
 import typing
+import inspect
+import functools
 
 import xarray
 import numpy
@@ -58,6 +60,7 @@ class SchemaIssue:
             err += f" (expected: {options} found: {repr(self.found)})"
         return err
 
+
 class SchemaIssues(Exception):
     """
     List of issues found in a schema check
@@ -68,7 +71,7 @@ class SchemaIssues(Exception):
 
     issues: [SchemaIssue]
     """List of issues found"""
-    
+
     def __init__(self, issues=None):
         if issues is None:
             self.issues = []
@@ -77,7 +80,7 @@ class SchemaIssues(Exception):
         else:
             self.issues = list(issues)
 
-    def at_path(self, elem: str, ix: str = None) -> "SchemaIssues":
+    def at_path(self, elem: str, ix: typing.Optional[str] = None) -> "SchemaIssues":
         for issue in self.issues:
             issue.path.insert(0, (elem, ix))
         return self
@@ -100,6 +103,32 @@ class SchemaIssues(Exception):
     def __getitem__(self, ix):
         return self.issues[ix]
 
+    def __str__(self):
+        if not self.issues:
+            return "No schema issues found"
+        else:
+            issues_string = "\n * ".join(repr(issue) for issue in self.issues)
+            return f"\n * {issues_string}"
+
+    def expect(
+        self, elem: typing.Optional[str] = None, ix: typing.Optional[str] = None
+    ):
+        """
+        Raises this object if issues were found
+
+        :param elem: If given, will be added to path
+        :param ix: If given, will be added to path
+        :raises: SchemaIssues
+        """
+        if elem is not None:
+            self.at_path(elem, ix)
+
+        # Hide this function in pytest tracebacks
+        __tracebackhide__ = True
+        if self.issues:
+            raise self
+
+
 def check_array(array: xarray.DataArray, schema: metamodel.ArraySchema) -> SchemaIssues:
     """
     Check whether an xarray DataArray conforms to a schema
@@ -114,12 +143,10 @@ def check_array(array: xarray.DataArray, schema: metamodel.ArraySchema) -> Schem
         raise TypeError(
             f"check_array: Expected xarray.DataArray, but got {type(array)}!"
         )
-    if isinstance(schema, AsDataArray):
+    if type(schema) == type and issubclass(schema, AsDataArray):
         schema = xarray_dataclass_to_array_schema(schema)
     if not isinstance(schema, metamodel.ArraySchema):
-        raise TypeError(
-            f"check_dataset: Expected ArraySchema, but got {type(schema)}!"
-        )
+        raise TypeError(f"check_array: Expected ArraySchema, but got {type(schema)}!")
 
     # Check dimensions
     issues = check_dimensions(array.dims, schema.dimensions)
@@ -136,7 +163,9 @@ def check_array(array: xarray.DataArray, schema: metamodel.ArraySchema) -> Schem
     return issues
 
 
-def check_dataset(dataset: xarray.Dataset, schema: metamodel.DatasetSchema) -> SchemaIssues:
+def check_dataset(
+    dataset: xarray.Dataset, schema: metamodel.DatasetSchema
+) -> SchemaIssues:
     """
     Check whether an xarray DataArray conforms to a schema
 
@@ -172,7 +201,9 @@ def check_dataset(dataset: xarray.Dataset, schema: metamodel.DatasetSchema) -> S
     return issues
 
 
-def check_dimensions(dims: [str], expected: [[str]], check_order: bool = True) -> SchemaIssues:
+def check_dimensions(
+    dims: [str], expected: [[str]], check_order: bool = True
+) -> SchemaIssues:
     """
     Check whether a dimension list conforms to a schema
 
@@ -201,14 +232,16 @@ def check_dimensions(dims: [str], expected: [[str]], check_order: bool = True) -
         if not check_order or tuple(exp_dims) == tuple(dims):
             return SchemaIssues()
 
-        return SchemaIssues([
-            SchemaIssue(
-                path=[("dims", "")],
-                message="Dimensions are in the wrong order! Consider transpose()",
-                found=list(dims),
-                expected=[exp_dims],
-            )
-        ])
+        return SchemaIssues(
+            [
+                SchemaIssue(
+                    path=[("dims", None)],
+                    message="Dimensions are in the wrong order! Consider transpose()",
+                    found=list(dims),
+                    expected=[exp_dims],
+                )
+            ]
+        )
 
     # Dimensionality not supported - try to give a helpful suggestion
     hint_remove = [f"'{hint}'" for hint in dims_set - best]
@@ -221,14 +254,16 @@ def check_dimensions(dims: [str], expected: [[str]], check_order: bool = True) -
         message = f"Missing dimension {','.join(hint_add)}!"
     else:
         message = f"Unexpected dimensions/coordinates!"
-    return SchemaIssues([
-        SchemaIssue(
-            path=[("dims", "")],
-            message=message,
-            found=dims,
-            expected=expected,
-        )
-    ])
+    return SchemaIssues(
+        [
+            SchemaIssue(
+                path=[("dims", None)],
+                message=message,
+                found=dims,
+                expected=expected,
+            )
+        ]
+    )
 
 
 def check_dtype(dtype: numpy.dtype, expected: [numpy.dtype]) -> SchemaIssues:
@@ -246,14 +281,16 @@ def check_dtype(dtype: numpy.dtype, expected: [numpy.dtype]) -> SchemaIssues:
 
     # Not sure there's anything more helpful that we can do here? Any special
     # cases worth considering?
-    return SchemaIssues([
-        SchemaIssue(
-            path=[("dtype", "")],
-            message="Wrong numpy dtype",
-            found=dtype,
-            expected=expected,
-        )
-    ])
+    return SchemaIssues(
+        [
+            SchemaIssue(
+                path=[("dtype", None)],
+                message="Wrong numpy dtype",
+                found=dtype,
+                expected=expected,
+            )
+        ]
+    )
 
 
 def check_attributes(
@@ -284,25 +321,10 @@ def check_attributes(
                 )
             continue
 
-        # Is data array? Check
-        if issubclass(attr_schema.typ, AsDataArray):
-            issues += check_array(val, attr_schema.typ).at_path("attrs", attr_schema.name)
-
-        # Is dataset? Check
-        elif issubclass(attr_schema.typ, AsDataset):
-            issues += check_dataset(val, attr_schema.typ).at_path("attrs", attr_schema.name)
-
-        # Otherwise - check type straight
-        elif type(val) != attr_schema.typ:
-
-            issues.add(
-                SchemaIssue(
-                    path=[("attrs", attr_schema.name)],
-                    message=f"Type mismatch!",
-                    expected=[attr_schema.typ],
-                    found=type(val),
-                )
-            )
+        # Check attribute value
+        issues += _check_value_union(val, attr_schema.typ).at_path(
+            "attrs", attr_schema.name
+        )
 
     # Extra attributes are always okay
 
@@ -351,8 +373,170 @@ def check_data_vars(
             continue
 
         # Check array schema
-        issues += check_array(data_var, data_var_schema).at_path(data_var_kind, data_var_schema.name)
+        issues += check_array(data_var, data_var_schema).at_path(
+            data_var_kind, data_var_schema.name
+        )
 
     # Extra data_varinates / data variables are always okay
 
     return issues
+
+
+def _check_value(val, ann):
+    """
+    Check whether value satisfies annotation
+
+    If the annotation is a data array or dataset schema, it will be checked.
+
+    :param val: Value to check
+    :param ann: Type annotation of value
+    :returns: Schema issues
+    """
+
+    # Is supposed to be a data array?
+    if type(ann) == type and issubclass(ann, AsDataArray):
+        if not isinstance(val, xarray.DataArray):
+            return SchemaIssues(
+                [
+                    SchemaIssue(
+                        path=[],
+                        message="Unexpected type",
+                        expected=[xarray.DataArray],
+                        found=type(val),
+                    )
+                ]
+            )
+        else:
+            return check_array(val, ann)
+
+    # Is supposed to be a dataset?
+    if type(ann) == type and issubclass(ann, AsDataset):
+        if not isinstance(val, xarray.Dataset):
+            return SchemaIssues(
+                [
+                    SchemaIssue(
+                        path=[],
+                        message="Unexpected type",
+                        expected=[xarray.DataArray],
+                        found=type(val),
+                    )
+                ]
+            )
+        else:
+            return check_dataset(val, ann)
+
+    # Otherwise straight type check (TODO - be more fancy, possibly by
+    # importing from Typeguard module? Don't want to overdo it...)
+    if not isinstance(val, ann):
+        return SchemaIssues(
+            [
+                SchemaIssue(
+                    path=[], message="Unexpected type", expected=[ann], found=type(val)
+                )
+            ]
+        )
+
+    return SchemaIssues()
+
+
+def _check_value_union(val, ann):
+    """
+    Check whether value satisfies annotations, including union types
+
+    If the annotation is a data array or dataset schema, it will be checked.
+
+    :param val: Value to check
+    :param ann: Type annotation of value
+    :returns: Schema issues
+    """
+
+    if ann is None or ann is inspect.Signature.empty:
+        return SchemaIssues()
+
+    # Account for union types (this especially catches "Optional")
+    if typing.get_origin(ann) is typing.Union:
+        options = typing.get_args(ann)
+    else:
+        options = [ann]
+
+    # Go through options, try to find one without issues
+    args_issues = None
+    okay = False
+    for option in options:
+        arg_issues = _check_value(val, option)
+        # We can immediately return if we find no issues with
+        # some schema check
+        if not arg_issues:
+            return SchemaIssues()
+        if args_issues is None:
+            args_issues = arg_issues
+
+        # Fancy merging of expected options (for "unexpected type")
+        elif (
+            len(args_issues) == 1
+            and len(arg_issues) == 1
+            and args_issues[0].message == arg_issues[0].message
+        ):
+
+            args_issues[0].expected += arg_issues[0].expected
+
+    # Return representative issues list
+    if not args_issues:
+        raise ValueError("Empty union set?")
+    return args_issues
+
+
+def schema_checked(fn, check_parameters: bool = True, check_return: bool = True):
+    """
+    Function decorator to check parameters and return value for
+    schema conformance
+
+    :param fn: Function to decorate
+    :param check_parameters: Whether to check parameters. Can also
+       pass an iterable with parameters to check
+    :param check_return: Whether to check return value
+    :returns: Decorated function
+    """
+    anns = inspect.getfullargspec(fn).annotations
+    signature = inspect.signature(fn)
+
+    if isinstance(check_parameters, bool):
+        if check_parameters:
+            parameters_to_check = set(signature.parameters)
+        else:
+            parameters_to_check = {}
+    else:
+        parameters_to_check = set(check_parameters)
+        assert parameters_to_check.issubset(signature.parameters)
+
+    @functools.wraps(fn)
+    def _check_fn(*args, **kwargs):
+
+        # Hide this function in pytest tracebacks
+        __tracebackhide__ = True
+
+        # Bind parameters, collect (potential) issues
+        bound = signature.bind(*args, **kwargs)
+        issues = SchemaIssues()
+        for arg, val in bound.arguments.items():
+            if arg not in parameters_to_check:
+                continue
+
+            # Get annotation
+            issues += _check_value_union(val, anns.get(arg)).at_path(arg)
+
+        # Any issues found? raise
+        issues.expect()
+
+        # Execute function
+        result = fn(*args, **kwargs)
+
+        # Check return
+        if check_return:
+            issues = _check_value_union(val, signature.return_annotation)
+            issues.at_path("return").expect()
+
+        # Check return value
+        return result
+
+    return _check_fn

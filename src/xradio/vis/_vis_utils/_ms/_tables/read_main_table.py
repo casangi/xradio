@@ -274,7 +274,6 @@ def get_utimes_tol(mtable: tables.table, taql_where: str) -> Tuple[np.ndarray, f
 
 
 def get_baselines(tb_tool: tables.table) -> np.ndarray:
-    # main table uses time x (antenna1,antenna2)
     ant1, ant2 = tb_tool.getcol("ANTENNA1", 0, -1), tb_tool.getcol("ANTENNA2", 0, -1)
 
     baselines = np.column_stack((ant1, ant2))

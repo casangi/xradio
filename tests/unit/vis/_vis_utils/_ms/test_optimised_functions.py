@@ -47,7 +47,7 @@ import xradio.vis._vis_utils._ms.optimised_functions as opt
                 ]
             ),
             np.array([1]),
-        )
+        ),
     ],
 )
 def test_unique_1d(input_array, expected_unique_array):
@@ -56,4 +56,3 @@ def test_unique_1d(input_array, expected_unique_array):
 
     # Assert
     np.testing.assert_array_almost_equal(unique_array, expected_unique_array)
-

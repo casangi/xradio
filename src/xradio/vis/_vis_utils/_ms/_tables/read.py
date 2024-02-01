@@ -12,7 +12,6 @@ import astropy.units
 from casacore import tables
 
 from .table_query import open_query, open_table_ro
-from xradio.vis._vis_utils._ms.optimised_functions import unique_1d
 
 CASACORE_TO_PD_TIME_CORRECTION = 3506716800.0
 SECS_IN_DAY = 86400
@@ -442,7 +441,7 @@ def read_generic_cols(
         except Exception:
             # sometimes the cols are variable, so we need to standardize to the largest sizes
 
-            if len(unique_1d([isinstance(row[col], dict) for row in trows])) > 1:
+            if len(set([isinstance(row[col], dict) for row in trows])) > 1:
                 continue  # can't deal with this case
             mshape = np.array(max([np.array(row[col]).shape for row in trows]))
             try:

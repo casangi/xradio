@@ -1,4 +1,4 @@
-import logging
+import graphviper.utils.logger as logger
 import numcodecs
 from typing import Dict, Union
 
@@ -55,7 +55,7 @@ def convert_msv2_to_processing_set(
     delayed_list = []
     for idx, pair in partition_enumerated_product:
         ddi, state_id, field_id = pair
-        logging.debug(
+        logger.debug(
             "DDI " + str(ddi) + ", STATE " + str(state_id) + ", FIELD " + str(field_id)
         )
 

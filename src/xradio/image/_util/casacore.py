@@ -4,17 +4,14 @@
 # Not exposed in API
 #
 #################################
-import warnings, time, os, logging
-import numpy as np
-import astropy.wcs
-from .common import _get_xds_dim_order, _dask_arrayize
-from ._casacore.common import _active_mask, _open_image_ro
-from ._casacore.xds_to_casacore import (
-    _coord_dict_from_xds,
-    _history_from_xds,
-    _imageinfo_dict_from_xds,
-    _write_casa_data,
-)
+import os
+import warnings
+from typing import Union
+
+import xarray as xr
+
+from casacore import tables
+from ._casacore.common import _open_image_ro
 from ._casacore.xds_from_casacore import (
     _add_mask,
     _add_sky_or_aperture,
@@ -27,14 +24,13 @@ from ._casacore.xds_from_casacore import (
     _multibeam_array,
     _read_image_array,
 )
-from astropy.coordinates import SkyCoord  # High-level coordinates
-from astropy.coordinates import ICRS, Galactic, FK4, FK5  # Low-level frames
-from astropy.coordinates import Angle, Latitude, Longitude  # Angles
-from astropy import units as u
-from casacore import tables
-from typing import Union
-import xarray as xr
-from casacore.images import image
+from ._casacore.xds_to_casacore import (
+    _coord_dict_from_xds,
+    _history_from_xds,
+    _imageinfo_dict_from_xds,
+    _write_casa_data,
+)
+from .common import _get_xds_dim_order, _dask_arrayize
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 

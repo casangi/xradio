@@ -233,9 +233,9 @@ def create_data_variables(
                         ),
                         dims=col_dims[col],
                     )
-                    # logging.info("Time to read column " + str(col) + " : " + str(time.time()-start))
+                    # logger.info("Time to read column " + str(col) + " : " + str(time.time()-start))
             except:
-                # logging.debug("Could not load column",col)
+                # logger.debug("Could not load column",col)
                 continue
 
             xds[col_to_data_variable_names[col]].attrs.update(
@@ -313,7 +313,7 @@ def convert_and_write_partition(
                 utime,
             ) = calc_indx_for_row_split(tb_tool, taql_where)
             time_baseline_shape = (len(utime), len(baseline_ant1_id))
-            # logging.debug("Calc indx for row split "+ str(time.time()-start))
+            # logger.debug("Calc indx for row split "+ str(time.time()-start))
 
             xds = xr.Dataset()
             # interval = check_if_consistent(tb_tool.getcol("INTERVAL"), "INTERVAL")
@@ -385,4 +385,4 @@ def convert_and_write_partition(
                 # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
                 raise
 
-    # logging.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
+    # logger.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")

@@ -3,6 +3,12 @@
 # Public interface
 #
 #################################
+import warnings
+from typing import List, Union
+
+import numpy as np
+import xarray as xr
+
 from ._util.casacore import _load_casa_image_block, _xds_to_casa_image
 from ._util.fits import _read_fits_image
 from ._util.image_factory import (
@@ -11,13 +17,6 @@ from ._util.image_factory import (
     _make_empty_sky_image,
 )
 from ._util.zarr import _xds_to_zarr, _xds_from_zarr
-import warnings, time, os, logging
-import numpy as np
-import astropy.wcs
-import xradio
-from astropy import units as u
-from typing import List, Union
-import xarray as xr
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -118,8 +117,6 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
     """
     do_casa = True
     emsgs = []
-
-    from ._util.casacore import _read_casa_image
 
     try:
         from ._util.casacore import _read_casa_image

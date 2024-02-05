@@ -713,7 +713,6 @@ class casa_image_to_xds_test(xds_from_image_test):
 
 
 class xds_to_casacore(xds_from_image_test):
-
     _outname = "rabbit.im"
 
     @classmethod
@@ -746,6 +745,7 @@ class xds_to_casacore(xds_from_image_test):
             p = im.getdata()
         exp_data = np.squeeze(np.transpose(xds.sky, [2, 1, 4, 3, 0]), 4)
         self.assertTrue((p == exp_data).all(), "Incorrect pixel values")
+
 
 class casacore_to_xds_to_casacore(xds_from_image_test):
     """

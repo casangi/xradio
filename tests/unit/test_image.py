@@ -712,6 +712,41 @@ class casa_image_to_xds_test(xds_from_image_test):
         self.compare_uv(xds, image)
 
 
+class xds_to_casacore(xds_from_image_test):
+
+    _outname = "rabbit.im"
+
+    @classmethod
+    def _clean(cls):
+        for f in [cls._outname]:
+            if os.path.exists(f):
+                if os.path.isdir(f):
+                    shutil.rmtree(f)
+                else:
+                    os.remove(f)
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls._clean()
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        cls._clean()
+
+    def test_writing_numpy_array_as_data_var(self):
+        """
+        Test writing an xds which has a numpy array as the
+        sky data var to a casa image.
+        """
+        xds = self.xds()
+        write_image(xds, self._outname, "casa")
+        with open_image_ro(self._outname) as im:
+            p = im.getdata()
+        exp_data = np.squeeze(np.transpose(xds.sky, [2, 1, 4, 3, 0]), 4)
+        self.assertTrue((p == exp_data).all(), "Incorrect pixel values")
+
 class casacore_to_xds_to_casacore(xds_from_image_test):
     """
     test casacore -> xds -> casacore round trip, ensure

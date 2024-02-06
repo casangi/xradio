@@ -96,8 +96,17 @@ FILE_ID = {
         "id": "98eysvd1rjyuvwrvrr600",
         "rlkey": "c4ny98duexaodmsje0lpz2fh3&dl",
     },
+    "ngEHT_E17A10.0.bin0000.source0000_split.ms": {
+        "file": "ngEHT_E17A10.0.bin0000.source0000_split.ms.zip",
+        "id": "ss3deh10m5oh6p188tz7o",
+        "rlkey": "d1rempfgmkuzpyf98o8okvtji&dl",
+    },
+    "VLBA_TL016B_split.ms": {
+        "file": "VLBA_TL016B_split.ms.zip",
+        "id": "5nrl3a7rgjimokgt7clcz",
+        "rlkey": "0rzc84wnrlwkeb4sipy75leyr&d",
+    },
 }
-
 
 def download(file, folder="."):
     if os.path.exists("/".join((folder, file))):

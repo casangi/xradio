@@ -3,7 +3,7 @@ from xradio.vis import (
     load_processing_set,
     convert_msv2_to_processing_set,
 )
-from xradio.data.datasets import download
+from graphviper.utils.data import download
 import numpy as np
 import pytest
 import os
@@ -19,7 +19,7 @@ def base_test(msv2_name, expected_sum_value):
         rc_file.write("\nmeasures.directory: " + casa_data_dir)
         rc_file.close()
 
-    download(file=msv2_name, source="dropbox")
+    download(file=msv2_name)
     ps_name = msv2_name[:-3] + ".vis.zarr"
     convert_msv2_to_processing_set(
         in_file=msv2_name,

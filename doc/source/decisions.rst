@@ -1,6 +1,6 @@
 
-Data models collaboration - decision log
-========================================
+Design decisions log
+====================
 
 The following objectives were formulated for this collaboration:
 
@@ -80,6 +80,7 @@ Developers and users should be able to use this library to:
 
 * determining whether a certain data structure is compliant - and if so, how it
   is to be interpreted in detail
+  
   * to some degree, this can be achieved simply by having the data structure be
     self-describing, and leaning on xarray's rules (i.e. coordinate-data
     variable association, and descriptive attributes)
@@ -87,11 +88,11 @@ Developers and users should be able to use this library to:
     and document more detailed conventions (completeness, semantic descriptions
     etc).
 * easily generate compliant data structures
-  * allow generating APIs from lower-level APIs (e.g. dask or numpy arrays)
-    * We will have to assume that there are going to be a large number of
-      possible producers for this data - especially processing functions. For
-      instance, given that xarray can be a front for dask arrays, it is a valid
-      use case to wrap an entire computation graph behind an xradio-compliant
-      API
-  * allow conversion of existing formats
-    * Measurement set v2/3 being the obvious first stop
+
+  * allow generating APIs from lower-level APIs (e.g. dask or numpy arrays) We
+    will have to assume that there are going to be a large number of possible
+    producers for this data - especially processing functions. For instance,
+    given that xarray can be a front for dask arrays, it is a valid use case to
+    wrap an entire computation graph behind an xradio-compliant API
+  * allow conversion of existing formats. Measurement set v2/3 being the
+    obvious first step

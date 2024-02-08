@@ -82,11 +82,11 @@ def test_global_vlbi():
 
 
 def test_vlba():
-    base_test("VLBA_TL016B_split_lsrk.ms", 97083664384.0)
+    base_test("VLBA_TL016B_split.ms", 94965412864.0)
 
 
 def test_ngeht():
-    base_test("ngEHT_E17A10.0.bin0000.source0000_split_lsrk.ms", 64282601472.0)
+    base_test("ngEHT_E17A10.0.bin0000.source0000_split.ms", 64306946048.0)
 
 
 def test_ephemeris():

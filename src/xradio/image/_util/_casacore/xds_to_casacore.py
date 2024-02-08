@@ -370,7 +370,7 @@ def _write_pixels(
     trans_coord = ("frequency", "polarization", "m", "l")
     arr = xds[v] if v in xds.data_vars else value
     arr = arr.isel(time=0).transpose(*trans_coords)
-    chunk_bounds = arr.chunks
+    chunk_bounds = tuple(zip(arr.shape)) if arr.chunks is None else arr.chunks
     b = [0, 0, 0, 0]
     loc0, loc1, loc2, loc3 = (0, 0, 0, 0)
     for i0 in chunk_bounds[0]:

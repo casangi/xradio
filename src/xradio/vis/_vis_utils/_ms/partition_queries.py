@@ -1,5 +1,5 @@
 import itertools
-import logging
+import graphviper.utils.logger as logger
 import numbers
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
@@ -40,11 +40,11 @@ def make_partition_ids_by_ddi_scan(
                 "select DISTINCT SCAN_NUMBER, DATA_DESC_ID from $cctable"
             )
         with open_query(cctable, taql_distinct_states) as query_states:
-            logging.debug(
+            logger.debug(
                 f"Got query, nrows: {query_states.nrows()}, query: {query_states}"
             )
             scan_number = query_states.getcol("SCAN_NUMBER")
-            logging.debug(
+            logger.debug(
                 f"Got col SCAN_NUMBER (len: {len(scan_number)}): {scan_number}"
             )
             if do_subscans:
@@ -52,13 +52,13 @@ def make_partition_ids_by_ddi_scan(
                 data_desc_id = np.full(len(scan_number), None)
             else:
                 state_id = [None] * len(scan_number)
-                logging.debug(f"Got col STATE_ID (len: {len(state_id)}): {state_id}")
+                logger.debug(f"Got col STATE_ID (len: {len(state_id)}): {state_id}")
                 data_desc_id = query_states.getcol("DATA_DESC_ID")
 
-        logging.debug(
+        logger.debug(
             f"Got col DATA_DESC_ID (len: {len(data_desc_id)}): {data_desc_id}"
         )
-        logging.debug(
+        logger.debug(
             f"Len of DISTINCT SCAN_NUMBER,etc.: {len(scan_number)}. Will generate that number of partitions"
         )
     finally:
@@ -94,7 +94,7 @@ def partition_when_empty_state(
             # scan_number = query_per_intent.getcol("SCAN_NUMBER")
             distinct_ddis = query_per_intent.getcol("DATA_DESC_ID")
 
-        logging.debug(
+        logger.debug(
             f"Producing {len(distinct_ddis)} partitions for ddis: {distinct_ddis}"
         )
         nparts = len(distinct_ddis)
@@ -121,13 +121,13 @@ def find_distinct_obs_mode(
     taql_distinct_intents = "select DISTINCT OBS_MODE from $state_table"
     with open_query(state_table, taql_distinct_intents) as query_intents:
         if query_intents.nrows() == 0:
-            logging.warning(
+            logger.warning(
                 "STATE subtable has no data. Cannot partition by scan/subscan intent"
             )
             return None
 
         distinct_obs_mode = query_intents.getcol("OBS_MODE")
-        logging.debug(
+        logger.debug(
             f"  Query for distinct OBS_MODE len: {len(distinct_obs_mode)}, values: {distinct_obs_mode}"
         )
         return distinct_obs_mode
@@ -229,7 +229,7 @@ def make_ddi_state_intent_lists(
             intents_ddi = filter_intents_per_ddi(ddis, "WVR", intent, spw_name_by_ddi)
             intent_names.extend(intents_ddi)
 
-    logging.debug(
+    logger.debug(
         f"Produced data_desc_id: {data_desc_id},\n state_id_partitions: {state_id_partitions}"
     )
     return data_desc_id, state_id_partitions, intent_names
@@ -239,7 +239,7 @@ def make_partition_ids_by_ddi_intent(
     infile: str, spw_names: xr.DataArray
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Produces arrays of per-partition ddi, scan, state_id, for when
-    using the partiion scheme 'intents' (ddi, scan, subscans(state_ids))
+    using the partition scheme 'intents' (ddi, scan, subscans(state_ids))
 
     :param infile:
     :return: arrays with indices that define every partition

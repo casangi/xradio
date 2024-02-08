@@ -1,7 +1,7 @@
-import logging
 import os
-from typing import Union
+
 import xarray as xr
+
 from ._fits.xds_from_fits import _fits_image_to_xds
 
 

@@ -1,4 +1,4 @@
-import logging, os
+import graphviper.utils.logger as logger, os
 from typing import Tuple
 
 import numpy as np
@@ -161,7 +161,7 @@ def write_generic_table(xds: xr.Dataset, outfile: str, subtable="", cols=None):
         List of cols to write. Default None writes all columns
     """
     outfile = os.path.expanduser(outfile)
-    logging.debug("writing {os.path.join(outfile, subtable)}")
+    logger.debug("writing {os.path.join(outfile, subtable)}")
     if cols is None:
         cols = list(
             set(

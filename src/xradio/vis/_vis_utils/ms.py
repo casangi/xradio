@@ -1,4 +1,5 @@
-import logging, os
+import os
+import graphviper.utils.logger as logger
 from typing import Dict, List, Tuple, Union
 
 import xarray as xr
@@ -12,12 +13,6 @@ from ._ms.partitions import (
 )
 from ._ms.subtables import read_ms_subtables
 from ._utils.xds_helper import vis_xds_packager_cds
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)-8s %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
 
 
 def read_ms(
@@ -77,12 +72,12 @@ def read_ms(
     if partition_scheme not in part_descr:
         raise ValueError(f"Invalid partition_scheme: {partition_scheme}")
 
-    logging.info(
+    logger.info(
         f"Reading {infile} as MSv2 and applying partitioning by {part_descr[partition_scheme]}"
     )
 
     if partition_scheme == "ddi":
-        logging.info(f"Reading {infile} as MSv2 and applying DDI partitioning")
+        logger.info(f"Reading {infile} as MSv2 and applying DDI partitioning")
         # get the indices of the ms selection (if any)
         # rowmap = ms_selection(infile, verbose=verbose, **kwargs)
         rowmap = None
@@ -120,7 +115,7 @@ def load_vis_chunk(
     """
     infile = os.path.expanduser(infile)
 
-    logging.info(f"Loading from {infile} as MSv2 a chunk of data into memory")
+    logger.info(f"Loading from {infile} as MSv2 a chunk of data into memory")
 
     if not os.path.isdir(infile):
         raise ValueError(f"invalid input filename to read_ms {infile}")

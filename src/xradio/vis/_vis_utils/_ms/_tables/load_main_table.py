@@ -1,4 +1,4 @@
-import logging
+import graphviper.utils.logger as logger
 from typing import Dict, List, Tuple, Union
 
 import pandas as pd
@@ -294,7 +294,7 @@ def get_chunk_data_indices(
     taql_where_chunk = f"{taql_pre} AND {taql_time} AND {taql_ant}"
     taql_chunk = f"select * from $mtable {taql_where_chunk}"
     with open_query(None, taql_chunk) as query_times_ants:
-        logging.debug(
+        logger.debug(
             f"Opened chunk query, with {query_times_ants.nrows()} rows. Query: {taql_chunk}"
         )
         tidxs = (

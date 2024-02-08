@@ -1,4 +1,4 @@
-import logging
+import graphviper.utils.logger as logger
 from pathlib import Path
 from typing import Dict, Tuple, Union
 
@@ -39,7 +39,7 @@ def read_ephemerides(
     ]
     ephem = []
     for sdir in subdirs:
-        logging.debug(f"Reading ephemerides info from: FIELD / {sdir.name}")
+        logger.debug(f"Reading ephemerides info from: FIELD / {sdir.name}")
         # One "EPHEM_*.tab" (each with a difference ephemeris_id) to concatenate
         ephem.append(
             read_generic_table(infile, str(Path("field", sdir)), timecols=["MJD"])
@@ -83,7 +83,7 @@ def read_delayed_pointing_table(
                     note = (
                         " within the selected time range: {times.start} - {times.stop}"
                     )
-                logging.warning(f"POINTING subtable has no data{note}")
+                logger.warning(f"POINTING subtable has no data{note}")
                 return xr.Dataset()
 
             # pointing table uses time x antenna_id
@@ -202,12 +202,12 @@ def read_delayed_pointing_times(
     # loop over time chunks
     if time_slice:
         time_chunks = [0]
-        logging.debug(
+        logger.debug(
             f"reading single chunk from pointing, with times {time_slice.start} - {time_slice.stop}"
         )
     else:
         time_chunks = range(0, len(utimes), chunks[0])
-        logging.debug(
+        logger.debug(
             f"reading pointing table into {len(time_chunks)} time x {len(antenna_chunks)} antenna chunks"
         )
 

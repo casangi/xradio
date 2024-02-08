@@ -1,9 +1,10 @@
-import logging, numcodecs, os, time
+import numcodecs, os, time
 from pathlib import Path
 from typing import Dict, Union
 
 import zarr
 import xradio
+import graphviper.utils.logger as logger
 
 from ._utils.cds import CASAVisSet
 from ._zarr.read import read_part_keys, read_partitions, read_subtables
@@ -20,7 +21,7 @@ def is_zarr_vis(inpath) -> bool:
     """
     try:
         with zarr.open(Path(inpath, "partition_keys"), mode="r"):
-            logging.debug(f"{inpath} can be opened as Zarr format data")
+            logger.debug(f"{inpath} can be opened as Zarr format data")
             return True
     except zarr.errors.PathNotFoundError:
         return False
@@ -44,7 +45,7 @@ def read_vis(
     if not os.path.isdir(inpath):
         raise ValueError(f"invalid input filename to read_vis {inpath}")
 
-    logging.info(f"Reading {inpath} as visibilities dataset stored in Zarr format")
+    logger.info(f"Reading {inpath} as visibilities dataset stored in Zarr format")
 
     all_start = time.time()
 
@@ -56,7 +57,7 @@ def read_vis(
     partitions = read_partitions(inpath, part_keys)
 
     all_time = time.time() - all_start
-    logging.info(f"Time to read dataset from_zarr {inpath}: {all_time}")
+    logger.info(f"Time to read dataset from_zarr {inpath}: {all_time}")
 
     vers = xradio.__version__
     descr_add = "read_vis from zarr"
@@ -106,4 +107,4 @@ def write_vis(
     write_partitions(outpath, cds.partitions, chunks_on_disk, compressor)
 
     all_time = time.time() - all_start
-    logging.info(f"Time to prepare and save dataset to_zarr {outpath}: {all_time}")
+    logger.info(f"Time to prepare and save dataset to_zarr {outpath}: {all_time}")

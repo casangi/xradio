@@ -1,4 +1,7 @@
-import logging, os
+import os
+
+import graphviper.utils.logger as logger
+
 from pathlib import Path
 from typing import Dict, List
 
@@ -52,10 +55,10 @@ def read_ms_subtables(
     subtables = {}
     for _ii, subt_name in enumerate(stbl_list):
         if not asdm_subtables and subt_name.startswith("ASDM_"):
-            logging.debug(f"skipping ASDM_ subtable {subt_name}...")
+            logger.debug(f"skipping ASDM_ subtable {subt_name}...")
             continue
         else:
-            logging.debug(f"reading subtable {subt_name}...")
+            logger.debug(f"reading subtable {subt_name}...")
 
         if subt_name == "POINTING":
             subt_path = Path(infile, subt_name)

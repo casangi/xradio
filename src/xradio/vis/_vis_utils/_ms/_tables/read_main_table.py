@@ -1,4 +1,4 @@
-import logging
+import graphviper.utils.logger as logger
 from typing import Any, Dict, List, Tuple, Union
 
 import dask, dask.array
@@ -106,7 +106,7 @@ def get_partition_ids(mtable: tables.table, taql_where: str) -> Dict:
         ]
         for var, var_name in check_vars:
             if len(var) != 1:
-                logging.warning(
+                logger.warning(
                     f"Did not get exactly one {var_name} (got {var} for this partition. TaQL: {taql_where}"
                 )
 

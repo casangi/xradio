@@ -1,12 +1,12 @@
-import astropy
-from astropy.coordinates import Angle, SkyCoord
-from casacore import images, tables
 import copy
+import os
+
 import dask.array as da
 import numpy as np
-import os
-from typing import Union
 import xarray as xr
+from astropy.coordinates import Angle
+from casacore import tables
+
 from .common import _active_mask, _create_new_image, _object_name, _pointing_center
 from ..common import _compute_sky_reference_pixel, _doppler_types
 from ...._utils._casacore.tables import open_table_rw

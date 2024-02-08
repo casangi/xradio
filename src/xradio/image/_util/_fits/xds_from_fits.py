@@ -19,7 +19,6 @@ from ...._utils.common import _deg_to_rad
 import copy
 import dask
 import dask.array as da
-import logging
 import numpy as np
 import re
 from typing import Union

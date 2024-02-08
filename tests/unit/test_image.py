@@ -8,7 +8,7 @@ from xradio.image import (
     read_image,
     write_image,
 )
-from xradio.data.datasets import download
+from graphviper.utils.data import download
 from xradio.image._util.common import _image_type as image_type
 from xradio.image._util._casacore.common import (
     _open_image_ro as open_image_ro,

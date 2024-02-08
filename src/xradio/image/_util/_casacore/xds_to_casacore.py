@@ -315,6 +315,8 @@ def _write_initial_image(
     for dv in ["sky", "aperture"]:
         if dv in xds.data_vars:
             value = xds[dv][0, 0, 0, 0, 0].values.item()
+            if xds[dv][0, 0, 0, 0, 0].values.dtype == "float32":
+                value = "default"
             break
     # print(type(value))
     image_full_path = os.path.expanduser(imagename)

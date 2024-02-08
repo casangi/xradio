@@ -250,7 +250,6 @@ class xds_from_image_test(ImageBase):
         t.flush()
         t.close()
         with open_image_ro(cls._imname) as im:
-            print("dt", im.datatype())
             im.tofits(cls._infits)
         cls._xds = read_image(cls._imname, {"frequency": 5})
         cls._xds_no_sky = read_image(cls._imname, {"frequency": 5}, False, False)
@@ -806,11 +805,9 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                         (im1.getmask() == im2.getmask()).all(), "Incorrect mask values"
                     )
                     self.assertTrue(
-                        (
-                            im1.datatype() == im2.datatype(),
-                            f"Incorrect round trip pixel type, input {im1.datatype()}, "
-                            + f"output {im2.datatype()}",
-                        )
+                        im1.datatype() == im2.datatype(),
+                        f"Incorrect round trip pixel type, input {im1.name()} {im1.datatype()}, "
+                        + f"output {im2.name()} {im2.datatype()}",
                     )
 
     def test_metadata(self):

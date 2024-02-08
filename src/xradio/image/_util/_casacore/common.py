@@ -32,9 +32,6 @@ def _open_image_rw(
 def _create_new_image(
     outfile: str, shape: List[int], mask="", value="default"
 ) -> Generator[images.image, None, None]:
-#def _create_new_image(
-#    outfile: str, shape: List[int], mask=""
-#) -> Generator[images.image, None, None]:
     # new image will be opened rw
     # the crux of the issue here seems to be that python has no single
     # precision floating point value, but we need single precision for

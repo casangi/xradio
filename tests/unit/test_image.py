@@ -159,7 +159,7 @@ class xds_from_image_test(ImageBase):
         # crval or pointingcenter will also change the latpole when the
         # casacore image is reopened. As long as the xds gets the latpole
         # that the casacore image has is all we care about for testing
-        "latpole": {"value": -40 * np.pi / 180, "units": "rad", "type": "quantity"},
+        "latpole": {"value": -40.0 * np.pi / 180, "units": "rad", "type": "quantity"},
         "longpole": {"value": np.pi, "units": "rad", "type": "quantity"},
         "pc": np.array([[1.0, 0.0], [0.0, 1.0]]),
         "projection_parameters": np.array([0.0, 0.0]),
@@ -1565,8 +1565,8 @@ class make_empty_image_tests(ImageBase):
             "direction": {
                 # "conversion_system": "FK5",
                 # "conversion_equinox": "J2000",
-                "longpole": {"type": "quantity", "value": 0, "units": "rad"},
-                "latpole": {"type": "quantity", "value": np.pi, "units": "rad"},
+                "longpole": {"type": "quantity", "value": np.pi, "units": "rad"},
+                "latpole": {"type": "quantity", "value": 0.0, "units": "rad"},
                 "pc": np.array([[1.0, 0.0], [0.0, 1.0]]),
                 "projection": "SIN",
                 "projection_parameters": np.array([0.0, 0.0]),

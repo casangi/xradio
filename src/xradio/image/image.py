@@ -5,7 +5,7 @@
 #################################
 import warnings
 from typing import List, Union
-
+import copy
 import numpy as np
 import xarray as xr
 
@@ -117,7 +117,11 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
     """
     do_casa = True
     emsgs = []
-
+    bd = copy.deepcopy(block_des) if block_des else block_des
+    if bd:
+        for k, v in bd.items():
+            if type(v) == int:
+                bd[k] = slice(v, v + 1)
     try:
         from ._util.casacore import _read_casa_image
     except Exception as e:
@@ -128,9 +132,9 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
         do_casa = False
     if do_casa:
         # comment next line when done debugging
-        # return _load_casa_image_block(infile, block_des)
+        # return _load_casa_image_block(infile, bd, do_sky_coords)
         try:
-            return _load_casa_image_block(infile, block_des, do_sky_coords)
+            return _load_casa_image_block(infile, bd, do_sky_coords)
         except Exception as e:
             emsgs.append(f"image format appears not to be casacore: {e.args}")
     """
@@ -140,7 +144,7 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
         emsgs.append(f'image format appears not to be fits {e.args}')
     """
     try:
-        return _xds_from_zarr(infile, False).isel(block_des)
+        return _xds_from_zarr(infile, False).isel(bd)
     except Exception as e:
         emsgs.append(f"image format appears not to be zarr {e.args}")
     emsgs.insert(

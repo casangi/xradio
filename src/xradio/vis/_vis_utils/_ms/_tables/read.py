@@ -227,6 +227,7 @@ def redimension_ms_subtable(xds: xr.Dataset, subt_name: str) -> xr.Dataset:
             "spectral_window_id",
             "time",
         ],
+        "POINTING": ["time", "antenna_id"],
         "SOURCE": ["source_id", "time", "spectral_window_id"],
         "SYSCAL": ["antenna_id", "feed_id", "spectral_window_id", "time"],
         "WEATHER": ["antenna_id", "time"],
@@ -366,7 +367,7 @@ def read_generic_table(
         )
     )
 
-    if tname in ["DOPPLER", "FREQ_OFFSET", "SOURCE", "SYSCAL", "WEATHER"]:
+    if tname in ["DOPPLER", "FREQ_OFFSET", "POINTING", "SOURCE", "SYSCAL", "WEATHER"]:
         xds = redimension_ms_subtable(xds, tname)
 
     if is_ephem_subtable(tname):

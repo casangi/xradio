@@ -7,7 +7,7 @@ import numpy as np
 import xarray as xr
 
 from .msv4_infos import create_field_info
-from .msv4_sub_xdss import create_ant_xds
+from .msv4_sub_xdss import create_ant_xds, create_weather_xds
 from .msv2_to_msv4_meta import (
     column_description_casacore_to_msv4_measure,
     create_attribute_metadata,
@@ -343,6 +343,9 @@ def convert_and_write_partition(
             # Create ant_xds
             ant_xds = create_ant_xds(in_file)
 
+            # Create weather_xds
+            weather_xds = create_weather_xds(in_file)
+
             # To do: add other _info and _xds creation functions.
 
             # Fix UVW frame
@@ -381,6 +384,8 @@ def convert_and_write_partition(
             if storage_backend == "zarr":
                 xds.to_zarr(store=file_name + "/MAIN", mode=mode)
                 ant_xds.to_zarr(store=file_name + "/ANTENNA", mode=mode)
+                if weather_xds:
+                    weather_xds.to_zarr(store=file_name + "/WEATHER", mode=mode)
             elif storage_backend == "netcdf":
                 # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
                 raise

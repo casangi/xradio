@@ -68,9 +68,23 @@ def _load_ms_xds_core(ms_xds_name, slice_dict):
     ms_xds = _load_no_dask_zarr(
         zarr_name=os.path.join(ms_xds_name, "MAIN"), slice_dict=slice_dict
     )
-    ms_xds.attrs["antenna_xds"] = _load_no_dask_zarr(
-        zarr_name=os.path.join(ms_xds_name, "ANTENNA")
-    )
+    sub_xds = {
+        "antenna_xds": "ANTENNA",
+    }
+    for sub_xds_key, sub_xds_name in sub_xds.items():
+        ms_xds.attrs[sub_xds_key] = _load_no_dask_zarr(
+            zarr_name=os.path.join(ms_xds_name, sub_xds_name)
+        )
+    optional_sub_xds = {
+        "weather_xds": "WEATHER",
+    }
+    for sub_xds_key, sub_xds_name in sub_xds.items():
+        sub_xds_path = os.path.join(ms_xds_name, sub_xds_name)
+        if os.path.isdir(sub_xds_path):
+            ms_xds.attrs[sub_xds_key] = _load_no_dask_zarr(
+                zarr_name=os.path.join(ms_xds_name, sub_xds_name)
+            )
+
     return ms_xds
 
 
@@ -107,8 +121,8 @@ def _load_no_dask_zarr(zarr_name, slice_dict={}):
             coord = var[
                 slice_dict_complete[var_attrs[DIMENSION_KEY][0]]
             ]  # Dimension coordinates.
-            del var_attrs['_ARRAY_DIMENSIONS']
-            xds = xds.assign_coords({var_name:coord})
+            del var_attrs["_ARRAY_DIMENSIONS"]
+            xds = xds.assign_coords({var_name: coord})
             xds[var_name].attrs = var_attrs
         else:
             # Construct slicing
@@ -119,12 +133,11 @@ def _load_no_dask_zarr(zarr_name, slice_dict={}):
             xds[var_name] = xr.DataArray(
                 var[slicing_tuple], dims=var_attrs[DIMENSION_KEY]
             )
-            
-            if 'coordinates' in var_attrs:
-                del var_attrs['coordinates']
-            del var_attrs['_ARRAY_DIMENSIONS']
-            xds[var_name].attrs = var_attrs
 
+            if "coordinates" in var_attrs:
+                del var_attrs["coordinates"]
+            del var_attrs["_ARRAY_DIMENSIONS"]
+            xds[var_name].attrs = var_attrs
 
     xds.attrs = group_attrs
 

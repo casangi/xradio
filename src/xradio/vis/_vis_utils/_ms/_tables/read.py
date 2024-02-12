@@ -483,6 +483,14 @@ def read_generic_cols(
         if col.endswith("_ID") or (
             infile.endswith(subts_with_time_key) and col == "TIME"
         ):
+            # weather table: importasdm produces very wrong "-1" ANTENNA_ID
+            if (
+                infile.endswith("WEATHER")
+                and col == "ANTENNA_ID"
+                and "NS_WX_STATION_ID" in colnames
+            ):
+                data = np.stack([row["NS_WX_STATION_ID"] for row in trows])
+
             mcoords[col.lower()] = xr.DataArray(
                 data,
                 dims=[

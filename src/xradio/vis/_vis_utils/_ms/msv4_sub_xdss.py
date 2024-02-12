@@ -134,23 +134,27 @@ def create_weather_xds(in_file: str):
     }
 
     # Read WEATHER table into a Xarray Dataset.
-    generic_weather_xds = read_generic_table(
-        in_file,
-        "WEATHER",
-        rename_ids=subt_rename_ids["WEATHER"],
-    )
+    try:
+        generic_weather_xds = read_generic_table(
+            in_file,
+            "WEATHER",
+            rename_ids=subt_rename_ids["WEATHER"],
+        )
+    except ValueError as _exc:
+        return None
+
     generic_weather_xds = generic_weather_xds.rename_dims(to_new_dim_names)
 
-    weather_column_description = generic_weather_xds.attrs["other"]["msv2"]["ctds_attrs"][
-        "column_descriptions"
-    ]
+    weather_column_description = generic_weather_xds.attrs["other"]["msv2"][
+        "ctds_attrs"
+    ]["column_descriptions"]
     # ['ANTENNA_ID', 'TIME', 'INTERVAL', 'H2O', 'IONOS_ELECTRON',
     #  'PRESSURE', 'REL_HUMIDITY', 'TEMPERATURE', 'DEW_POINT',
     #  'WIND_DIRECTION', 'WIND_SPEED']
     weather_xds = xr.Dataset()
 
     coords = {
-        "station_id": np.arange(generic_weather_xds.dims["station_id"]),
+        "station_id": generic_weather_xds["station_id"],
         "time": generic_weather_xds["time"],
     }
     for key in generic_weather_xds:
@@ -167,9 +171,7 @@ def create_weather_xds(in_file: str):
                 weather_xds[var_name].attrs.update(msv4_measure)
 
             if key in ["interval"]:
-                weather_xds[var_name].attrs.update(
-                    {"units": ["s"], "type": "quantity"}
-                )
+                weather_xds[var_name].attrs.update({"units": ["s"], "type": "quantity"})
             elif key in ["h2o"]:
                 weather_xds[var_name].attrs.update(
                     {"units": ["/m^2"], "type": "quantity"}
@@ -183,17 +185,11 @@ def create_weather_xds(in_file: str):
                     {"units": ["Pa"], "type": "quantity"}
                 )
             elif key in ["rel_humidity"]:
-                weather_xds[var_name].attrs.update(
-                    {"units": ["%"], "type": "quantity"}
-                )
+                weather_xds[var_name].attrs.update({"units": ["%"], "type": "quantity"})
             elif key in ["temperature"]:
-                weather_xds[var_name].attrs.update(
-                    {"units": ["K"], "type": "quantity"}
-                )
+                weather_xds[var_name].attrs.update({"units": ["K"], "type": "quantity"})
             elif key in ["dew_point"]:
-                weather_xds[var_name].attrs.update(
-                    {"units": ["K"], "type": "quantity"}
-                )
+                weather_xds[var_name].attrs.update({"units": ["K"], "type": "quantity"})
             elif key in ["wind_direction"]:
                 weather_xds[var_name].attrs.update(
                     {"units": ["rad"], "type": "quantity"}

@@ -381,7 +381,8 @@ def convert_and_write_partition(
             if storage_backend == "zarr":
                 xds.to_zarr(store=file_name + "/MAIN", mode=mode)
                 ant_xds.to_zarr(store=file_name + "/ANTENNA", mode=mode)
-                weather_xds.to_zarr(store=file_name + "/WEATHER", mode=mode)
+                if weather_xds:
+                    weather_xds.to_zarr(store=file_name + "/WEATHER", mode=mode)
             elif storage_backend == "netcdf":
                 # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
                 raise

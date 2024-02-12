@@ -154,8 +154,8 @@ def create_weather_xds(in_file: str):
     weather_xds = xr.Dataset()
 
     coords = {
-        "station_id": generic_weather_xds["station_id"],
-        "time": generic_weather_xds["time"],
+        "station_id": generic_weather_xds["station_id"].data,
+        "time": generic_weather_xds["time"].data,
     }
     for key in generic_weather_xds:
         msv4_measure = column_description_casacore_to_msv4_measure(

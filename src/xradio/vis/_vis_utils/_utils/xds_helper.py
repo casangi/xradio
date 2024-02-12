@@ -1,5 +1,5 @@
 from importlib_metadata import version
-import logging, multiprocessing, psutil
+import graphviper.utils.logger as logger, multiprocessing, psutil
 from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
@@ -286,7 +286,7 @@ def calc_optimal_ms_chunk_shape(
     try:
         assert single_row_mem < factor * memory_available_in_bytes
     except AssertionError as err:
-        logging.exception(
+        logger.exception(
             "Not engough memory in a thread to contain a row of "
             + column_name
             + ". Need at least "
@@ -300,7 +300,7 @@ def calc_optimal_ms_chunk_shape(
     if rows_chunk_size > shape[0]:
         rows_chunk_size = shape[0]
 
-    logging.debug(
+    logger.debug(
         "Numbers of rows in chunk for " + column_name + ": " + str(rows_chunk_size)
     )
 

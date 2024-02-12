@@ -1,15 +1,16 @@
-import astropy
 from astropy import units as u
-from casacore import images, quanta, tables
-from casacore.images import coordinates
 import copy
-import dask
-import dask.array as da
-import logging
-import numpy as np
 import os
 from typing import List, Tuple, Union
+
+import dask
+import dask.array as da
+import graphviper.utils.logger as logger
+import numpy as np
 import xarray as xr
+from astropy import units as u
+from casacore import tables
+from casacore.images import coordinates
 
 from .common import (
     _active_mask,
@@ -22,7 +23,6 @@ from ..common import (
     _compute_velocity_values,
     _compute_world_sph_dims,
     _convert_beam_to_rad,
-    _dask_arrayize,
     _default_freq_info,
     _doppler_types,
     _get_unit,
@@ -31,7 +31,6 @@ from ..common import (
 )
 from ...._utils._casacore.tables import extract_table_attributes, open_table_ro
 from ...._utils.common import _deg_to_rad
-
 
 """
 def _add_coord_attrs(xds: xr.Dataset, icoords: dict, dir_axes: list) -> xr.Dataset:
@@ -94,20 +93,20 @@ def _add_mask(
     return xds
 
 
-def _add_sky_or_apeture(
+def _add_sky_or_aperture(
     xds: xr.Dataset,
     ary: Union[np.ndarray, da.array],
     dimorder: list,
     img_full_path: str,
     has_sph_dims: bool,
 ) -> xr.Dataset:
-    xda = xr.DataArray(ary, dims=dimorder)
+    xda = xr.DataArray(ary, dims=dimorder).astype(ary.dtype)
     with _open_image_ro(img_full_path) as casa_image:
         image_type = casa_image.info()["imageinfo"]["imagetype"]
         unit = casa_image.unit()
     xda.attrs[_image_type] = image_type
     xda.attrs["units"] = unit
-    name = "sky" if has_sph_dims else "apeture"
+    name = "sky" if has_sph_dims else "aperture"
     xda = xda.rename(name)
     xds[xda.name] = xda
     return xds
@@ -253,7 +252,7 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
         if os.path.isdir(htable):
             attrs["history"] = read_generic_table(htable)
         else:
-            logging.warn(
+            logger.warning(
                 f"Unable to find history table {htable}. History will not be included"
             )
     return copy.deepcopy(attrs)
@@ -358,7 +357,7 @@ def _convert_direction_system(
 ) -> tuple:
     if casa_system == "J2000":
         if verbose:
-            logging.info(
+            logger.info(
                 f"J2000 found as {which} reference frame in CASA image "
                 'This corresponds to FK5(equinox="J2000") in astropy. '
                 "Metadata will be written appropriately"
@@ -366,7 +365,7 @@ def _convert_direction_system(
         return ("FK5", "J2000")
     elif casa_system == "B1950":
         if verbose:
-            logging.info(
+            logger.info(
                 f"B1950 found as {which} reference frame in CASA image "
                 'This corresponds to FK4(equinox="B1950") in astropy. '
                 "Metadata will be written appropriately"
@@ -397,7 +396,6 @@ def _flatten_list(list_of_lists: list) -> list:
 def _get_beam(imageinfo: dict):
     """Returns None if no beam. Multiple beams are handled elsewhere"""
     k = "restoringbeam"
-    key = None
     if k in imageinfo and "major" in imageinfo[k]:
         return _convert_beam_to_rad(imageinfo[k])
     return None

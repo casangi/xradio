@@ -70,9 +70,9 @@ def _add_common_attrs(
                 "units": ["rad", "rad"],
                 "cdelt": [-abs(cell_size[0]), abs(cell_size[1])],
             },
-            "long_pole": 0.0,
-            "lat_pole": 0.0,
-            "pc": [[1.0, 0.0], [0.0, 1.0]],
+            "longpole": {"type": "quantity", "value": np.pi, "units": "rad"},
+            "latpole": {"type": "quantity", "value": 0.0, "units": "rad"},
+            "pc": np.array([[1.0, 0.0], [0.0, 1.0]]),
             "projection": projection,
             "projection_parameters": [0.0, 0.0],
         },
@@ -177,7 +177,7 @@ def _make_empty_sky_image(
     return xds
 
 
-def _make_empty_apeture_image(
+def _make_empty_aperture_image(
     phase_center: Union[list, np.ndarray],
     image_size: Union[list, np.ndarray],
     sky_image_cell_size: Union[list, np.ndarray],

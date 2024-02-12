@@ -2,13 +2,13 @@ import astropy.units as u
 import casacore.images, casacore.tables
 from xradio.image import (
     load_image,
-    make_empty_apeture_image,
+    make_empty_aperture_image,
     make_empty_lmuv_image,
     make_empty_sky_image,
     read_image,
     write_image,
 )
-from xradio.data.datasets import download
+from graphviper.utils.data import download
 from xradio.image._util.common import _image_type as image_type
 from xradio.image._util._casacore.common import (
     _open_image_ro as open_image_ro,
@@ -159,7 +159,7 @@ class xds_from_image_test(ImageBase):
         # crval or pointingcenter will also change the latpole when the
         # casacore image is reopened. As long as the xds gets the latpole
         # that the casacore image has is all we care about for testing
-        "latpole": {"value": -40 * np.pi / 180, "units": "rad", "type": "quantity"},
+        "latpole": {"value": -40.0 * np.pi / 180, "units": "rad", "type": "quantity"},
         "longpole": {"value": np.pi, "units": "rad", "type": "quantity"},
         "pc": np.array([[1.0, 0.0], [0.0, 1.0]]),
         "projection_parameters": np.array([0.0, 0.0]),
@@ -250,7 +250,6 @@ class xds_from_image_test(ImageBase):
         t.flush()
         t.close()
         with open_image_ro(cls._imname) as im:
-            print("dt", im.datatype())
             im.tofits(cls._infits)
         cls._xds = read_image(cls._imname, {"frequency": 5})
         cls._xds_no_sky = read_image(cls._imname, {"frequency": 5}, False, False)
@@ -312,6 +311,10 @@ class xds_from_image_test(ImageBase):
         self.assertTrue((got_mask == ev["mask0"]).all(), "mask values incorrect")
         got_ma = da.ma.masked_array(xds.sky, xds.mask0)
         self.assertEqual(da.sum(got_ma), ev["sum"], "Incorrect value for sum")
+        self.assertTrue(
+            got_data.dtype == ev["sky"].dtype,
+            f"Incoorect data type, got {got_data.dtype}, expected {ev['sky'].dtype}",
+        )
 
     def compare_time(self, xds: xr.Dataset) -> None:
         ev = self._exp_vals
@@ -552,6 +555,16 @@ class xds_from_image_test(ImageBase):
                 },
                 do_sky_coords=i == 0,
             )
+            if not zarr:
+                with open_image_ro(imagename) as im:
+                    self.assertTrue(
+                        xds["sky"].dtype == im.datatype()
+                        or (
+                            xds["sky"].dtype == np.float32 and im.datatype() == "float"
+                        ),
+                        f"got wrong data type, got {xds['sky'].dtype}, "
+                        + f"expected {im.datatype()}",
+                    )
             self.assertEqual(xds.sky.shape, (1, 1, 4, 8, 12), "Wrong block shape")
             big_xds = self._xds if i == 0 else self._xds_no_sky
             self.assertTrue(
@@ -698,6 +711,41 @@ class casa_image_to_xds_test(xds_from_image_test):
         self.compare_uv(xds, image)
 
 
+class xds_to_casacore(xds_from_image_test):
+    _outname = "rabbit.im"
+
+    @classmethod
+    def _clean(cls):
+        for f in [cls._outname]:
+            if os.path.exists(f):
+                if os.path.isdir(f):
+                    shutil.rmtree(f)
+                else:
+                    os.remove(f)
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls._clean()
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        cls._clean()
+
+    def test_writing_numpy_array_as_data_var(self):
+        """
+        Test writing an xds which has a numpy array as the
+        sky data var to a casa image.
+        """
+        xds = self.xds()
+        write_image(xds, self._outname, "casa")
+        with open_image_ro(self._outname) as im:
+            p = im.getdata()
+        exp_data = np.squeeze(np.transpose(xds.sky, [2, 1, 4, 3, 0]), 4)
+        self.assertTrue((p == exp_data).all(), "Incorrect pixel values")
+
+
 class casacore_to_xds_to_casacore(xds_from_image_test):
     """
     test casacore -> xds -> casacore round trip, ensure
@@ -755,6 +803,11 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                     )
                     self.assertTrue(
                         (im1.getmask() == im2.getmask()).all(), "Incorrect mask values"
+                    )
+                    self.assertTrue(
+                        im1.datatype() == im2.datatype(),
+                        f"Incorrect round trip pixel type, input {im1.name()} {im1.datatype()}, "
+                        + f"output {im2.name()} {im2.datatype()}",
                     )
 
     def test_metadata(self):
@@ -998,8 +1051,8 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
         write_image(xds, self._zarr_uv_store, "zarr")
         xds2 = read_image(self._zarr_uv_store)
         self.assertTrue(
-            np.isclose(xds2.apeture.values, xds.apeture.values).all(),
-            "Incorrect apeture pixel values",
+            np.isclose(xds2.aperture.values, xds.aperture.values).all(),
+            "Incorrect aperture pixel values",
         )
 
 
@@ -1512,8 +1565,8 @@ class make_empty_image_tests(ImageBase):
             "direction": {
                 # "conversion_system": "FK5",
                 # "conversion_equinox": "J2000",
-                "long_pole": 0.0,
-                "lat_pole": 0.0,
+                "longpole": {"type": "quantity", "value": np.pi, "units": "rad"},
+                "latpole": {"type": "quantity", "value": 0.0, "units": "rad"},
                 "pc": np.array([[1.0, 0.0], [0.0, 1.0]]),
                 "projection": "SIN",
                 "projection_parameters": np.array([0.0, 0.0]),
@@ -1609,13 +1662,13 @@ class make_empty_sky_image_tests(make_empty_image_tests):
             self.run_attrs_tests(skel)
 
 
-class make_empty_apeture_image_tests(make_empty_image_tests):
+class make_empty_aperture_image_tests(make_empty_image_tests):
     """Test making skeleton image"""
 
     @classmethod
     def setUpClass(cls):
         cls._skel_im = make_empty_image_tests.create_image(
-            make_empty_apeture_image, None
+            make_empty_aperture_image, None
         )
 
     @classmethod

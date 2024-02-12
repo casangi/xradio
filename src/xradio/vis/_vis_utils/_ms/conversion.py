@@ -23,8 +23,9 @@ from ._tables.read import (
     read_col_conversion,
     read_generic_table,
 )
-from ._tables.read_main_table import get_baselines, get_utimes_tol
+from ._tables.read_main_table import get_baselines, get_baseline_indices, get_utimes_tol
 from .._utils.stokes_types import stokes_types
+from xradio.vis._vis_utils._ms.optimised_functions import unique_1d
 
 
 def check_if_consistent(col, col_name):
@@ -42,7 +43,8 @@ def check_if_consistent(col, col_name):
     _type_
         _description_
     """
-    col_unique = np.unique(col)
+
+    col_unique = unique_1d(col)
     assert len(col_unique) == 1, col_name + " is not consistent."
     return col_unique[0]
 
@@ -59,7 +61,6 @@ def calc_indx_for_row_split(tb_tool, taql_where):
 
     freq_cnt, pol_cnt = [(cc[0], cc[1]) for cc in cshapes if len(cc) == 2][0]
     utimes, tol = get_utimes_tol(tb_tool, taql_where)
-    # utimes = np.unique(tb_tool.getcol("TIME"))
 
     tidxs = np.searchsorted(utimes, tb_tool.getcol("TIME"))
 
@@ -68,18 +69,16 @@ def calc_indx_for_row_split(tb_tool, taql_where):
         tb_tool.getcol("ANTENNA2"),
     )
 
-    ts_bases = [
-        str(ll[0]).zfill(3) + "_" + str(ll[1]).zfill(3)
-        for ll in np.hstack([ts_ant1[:, None], ts_ant2[:, None]])
-    ]
-    bidxs = np.searchsorted(baselines, ts_bases)
+    ts_bases = np.column_stack((ts_ant1, ts_ant2))
+    bidxs = get_baseline_indices(baselines, ts_bases)
 
     # some antenna 2"s will be out of bounds for this chunk, store rows that are in bounds
+
     didxs = np.where((bidxs >= 0) & (bidxs < len(baselines)))[0]
 
-    baseline_ant1_id, baseline_ant2_id = np.array(
-        [tuple(map(int, x.split("_"))) for x in baselines]
-    ).T
+    baseline_ant1_id = baselines[:, 0]
+    baseline_ant2_id = baselines[:, 1]
+
     return (
         tidxs,
         bidxs,
@@ -151,7 +150,8 @@ def create_coordinates(
     # Add if doppler table is present
     # xds.frequency.attrs["doppler_velocity"] =
     # xds.frequency.attrs["doppler_type"] =
-    unique_chan_width = np.unique(
+
+    unique_chan_width = unique_1d(
         spw_xds.chan_width.data[np.logical_not(np.isnan(spw_xds.chan_width.data))]
     )
     # assert len(unique_chan_width) == 1, "Channel width varies for spw."
@@ -233,9 +233,9 @@ def create_data_variables(
                         ),
                         dims=col_dims[col],
                     )
-                    # logging.info("Time to read column " + str(col) + " : " + str(time.time()-start))
+                    # logger.info("Time to read column " + str(col) + " : " + str(time.time()-start))
             except:
-                # logging.debug("Could not load column",col)
+                # logger.debug("Could not load column",col)
                 continue
 
             xds[col_to_data_variable_names[col]].attrs.update(
@@ -313,14 +313,17 @@ def convert_and_write_partition(
                 utime,
             ) = calc_indx_for_row_split(tb_tool, taql_where)
             time_baseline_shape = (len(utime), len(baseline_ant1_id))
-            # logging.debug("Calc indx for row split "+ str(time.time()-start))
+            # logger.debug("Calc indx for row split "+ str(time.time()-start))
 
             xds = xr.Dataset()
-            #interval = check_if_consistent(tb_tool.getcol("INTERVAL"), "INTERVAL")
+            # interval = check_if_consistent(tb_tool.getcol("INTERVAL"), "INTERVAL")
             interval = tb_tool.getcol("INTERVAL")
-            interval_unique = np.unique(interval)
+
+            interval_unique = unique_1d(interval)
             if len(interval_unique) > 1:
-                print('Integration time (interval) not consitent in partition, using median.')
+                print(
+                    "Integration time (interval) not consitent in partition, using median."
+                )
                 interval = np.median(interval)
             else:
                 interval = interval_unique[0]
@@ -387,4 +390,4 @@ def convert_and_write_partition(
                 # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
                 raise
 
-    # logging.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
+    # logger.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")

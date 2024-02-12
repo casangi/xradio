@@ -243,3 +243,22 @@ def _l_m_attr_notes() -> Dict[str, str]:
         "So m = y*cdelt, where y is the number of pixels from the phase center. "
         "See AIPS Memo #27, Section III.",
     }
+
+
+def _set_multibeam_array(xds, beam_ary, units):
+    if "beam" in xds.attrs:
+        if xds.attrs["beam"] is None:
+            del xds.attrs["beam"]
+        else:
+            raise RuntimeError(
+                "Error: xds has beam attr. It must be removed "
+                "before multiple beams can be added"
+            )
+    xdb = xr.DataArray(
+        beam_ary, dims=["time", "polarization", "frequency", "beam_param"]
+    )
+    xdb = xdb.rename("beam")
+    xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
+    xdb.attrs["units"] = units
+    xds["beam"] = xdb
+    return xds

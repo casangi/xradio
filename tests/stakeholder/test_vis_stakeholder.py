@@ -3,7 +3,7 @@ from xradio.vis import (
     load_processing_set,
     convert_msv2_to_processing_set,
 )
-from xradio.data.datasets import download
+from graphviper.utils.data import download
 import numpy as np
 import pytest
 import os
@@ -19,7 +19,7 @@ def base_test(msv2_name, expected_sum_value):
         rc_file.write("\nmeasures.directory: " + casa_data_dir)
         rc_file.close()
 
-    download(file=msv2_name, source="dropbox")
+    download(file=msv2_name)
     ps_name = msv2_name[:-3] + ".vis.zarr"
     convert_msv2_to_processing_set(
         in_file=msv2_name,
@@ -35,12 +35,17 @@ def base_test(msv2_name, expected_sum_value):
 
     sum = 0.0
     sum_lazy = 0.0
+
     for ms_xds_name in ps.keys():
+        if "VISIBILITY" in ps[ms_xds_name]:
+            data_name = "VISIBILITY"
+        else:
+            data_name = "SPECTRUM"
         sum = sum + np.nansum(
-            np.abs(ps[ms_xds_name].VISIBILITY * ps[ms_xds_name].WEIGHT)
+            np.abs(ps[ms_xds_name][data_name] * ps[ms_xds_name].WEIGHT)
         )
         sum_lazy = sum_lazy + np.nansum(
-            np.abs(ps_lazy[ms_xds_name].VISIBILITY * ps_lazy[ms_xds_name].WEIGHT)
+            np.abs(ps_lazy[ms_xds_name][data_name] * ps_lazy[ms_xds_name].WEIGHT)
         )
 
     print(sum)
@@ -72,7 +77,32 @@ def test_meerkat():
     base_test("small_meerkat.ms", 333866268.0)
 
 
+def test_global_vlbi():
+    base_test("global_vlbi_gg084b_reduced.ms", 161588975616.0)
+
+
+def test_vlba():
+    base_test("VLBA_TL016B_split.ms", 94965412864.0)
+
+
+def test_ngeht():
+    base_test("ngEHT_E17A10.0.bin0000.source0000_split.ms", 64306946048.0)
+
+
+def test_ephemeris():
+    base_test("venus_ephem_test.ms", 81741343621120.0)
+
+
+def test_single_dish():
+    base_test("sdimaging.ms", 5487446.5)
+
+
 # test_alma()
 # test_ska_mid()
 # test_lofar()
 # test_meerkat()
+# test_global_vlbi()
+# test_vlba()
+# test_ngeht()
+# test_ephemeris()
+# test_single_dish()

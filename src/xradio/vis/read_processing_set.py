@@ -1,7 +1,7 @@
 import os
+
 import xarray as xr
 from ._processing_set import processing_set
-
 
 def read_processing_set(ps_name, intents=None, fields=None):
     items = os.listdir(ps_name)

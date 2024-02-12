@@ -3,21 +3,20 @@
 # Public interface
 #
 #################################
+import warnings
+from typing import List, Union
+import copy
+import numpy as np
+import xarray as xr
+
 from ._util.casacore import _load_casa_image_block, _xds_to_casa_image
 from ._util.fits import _read_fits_image
 from ._util.image_factory import (
-    _make_empty_apeture_image,
+    _make_empty_aperture_image,
     _make_empty_lmuv_image,
     _make_empty_sky_image,
 )
 from ._util.zarr import _xds_to_zarr, _xds_from_zarr
-import warnings, time, os, logging
-import numpy as np
-import astropy.wcs
-import xradio
-from astropy import units as u
-from typing import List, Union
-import xarray as xr
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -99,7 +98,7 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
         Path to the input image, currently CASA and zarr images are supported
     block_des : dict
         The description of data to return, supported keys are time,
-        polarization, frequency, l (or u if apeture image), m (or v if apeture
+        polarization, frequency, l (or u if aperture image), m (or v if aperture
         image) a missing key indicates to return the entire axis length for that
         dimension. Values can be non-negative integers or slices. Slicing
         behaves as numpy slicing does, that is the start pixel is included in
@@ -118,9 +117,11 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
     """
     do_casa = True
     emsgs = []
-
-    from ._util.casacore import _read_casa_image
-
+    bd = copy.deepcopy(block_des) if block_des else block_des
+    if bd:
+        for k, v in bd.items():
+            if type(v) == int:
+                bd[k] = slice(v, v + 1)
     try:
         from ._util.casacore import _read_casa_image
     except Exception as e:
@@ -131,9 +132,9 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
         do_casa = False
     if do_casa:
         # comment next line when done debugging
-        # return _load_casa_image_block(infile, block_des)
+        # return _load_casa_image_block(infile, bd, do_sky_coords)
         try:
-            return _load_casa_image_block(infile, block_des, do_sky_coords)
+            return _load_casa_image_block(infile, bd, do_sky_coords)
         except Exception as e:
             emsgs.append(f"image format appears not to be casacore: {e.args}")
     """
@@ -143,7 +144,7 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
         emsgs.append(f'image format appears not to be fits {e.args}')
     """
     try:
-        return _xds_from_zarr(infile, False).isel(block_des)
+        return _xds_from_zarr(infile, False).isel(bd)
     except Exception as e:
         emsgs.append(f"image format appears not to be zarr {e.args}")
     emsgs.insert(
@@ -231,7 +232,7 @@ def make_empty_sky_image(
     )
 
 
-def make_empty_apeture_image(
+def make_empty_aperture_image(
     phase_center: Union[List[float], np.ndarray],
     image_size: Union[List[int], np.ndarray],
     sky_image_cell_size: Union[List[float], np.ndarray],
@@ -243,7 +244,7 @@ def make_empty_apeture_image(
     spectral_reference: str = "lsrk",
 ) -> xr.Dataset:
     """
-    Create an apeture (uv) mage xarray.Dataset with only coordinates (no datavariables).
+    Create an aperture (uv) mage xarray.Dataset with only coordinates (no datavariables).
     The image dimensionality is time, pol, chan, u, v
 
     Parameters
@@ -267,7 +268,7 @@ def make_empty_apeture_image(
     -------
     xarray.Dataset
     """
-    return _make_empty_apeture_image(
+    return _make_empty_aperture_image(
         phase_center,
         image_size,
         sky_image_cell_size,
@@ -280,7 +281,7 @@ def make_empty_apeture_image(
     )
 
 
-def make_empty_apeture_image(
+def make_empty_aperture_image(
     phase_center: Union[List[float], np.ndarray],
     image_size: Union[List[int], np.ndarray],
     sky_image_cell_size: Union[List[float], np.ndarray],
@@ -292,7 +293,7 @@ def make_empty_apeture_image(
     spectral_reference: str = "lsrk",
 ) -> xr.Dataset:
     """
-    Create an apeture (uv) mage xarray.Dataset with only coordinates (no datavariables).
+    Create an aperture (uv) mage xarray.Dataset with only coordinates (no datavariables).
     The image dimensionality is time, pol, chan, u, v
 
     Parameters
@@ -316,7 +317,7 @@ def make_empty_apeture_image(
     -------
     xarray.Dataset
     """
-    return _make_empty_apeture_image(
+    return _make_empty_aperture_image(
         phase_center,
         image_size,
         sky_image_cell_size,

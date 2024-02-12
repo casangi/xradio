@@ -1,4 +1,4 @@
-import logging
+import graphviper.utils.logger as logger
 import numcodecs
 from typing import Dict, Union
 
@@ -14,7 +14,7 @@ from xradio.vis._vis_utils._ms.conversion import convert_and_write_partition
 def convert_msv2_to_processing_set(
     in_file: str,
     out_file: str,
-    partition_scheme: str = "intent_field",
+    partition_scheme: {"ddi_intent_field", "ddi_state_field"} = "ddi_intent_field",
     main_chunksize: Union[Dict, str, None] = None,
     pointing_chunksize: Union[Dict, str, None] = None,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
@@ -55,7 +55,7 @@ def convert_msv2_to_processing_set(
     delayed_list = []
     for idx, pair in partition_enumerated_product:
         ddi, state_id, field_id = pair
-        logging.debug(
+        logger.debug(
             "DDI " + str(ddi) + ", STATE " + str(state_id) + ", FIELD " + str(field_id)
         )
 

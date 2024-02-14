@@ -1,4 +1,4 @@
-import logging, numcodecs, os, time, warnings
+import graphviper.utils.logger as logger, numcodecs, os, time, warnings
 from itertools import cycle
 from pathlib import Path
 from typing import Any, Dict, Union
@@ -52,7 +52,7 @@ def write_metainfo(
     os.mkdir(metadir)
     for key, xds in metainfo.items():
         xds_outpath = Path(metadir, key)
-        logging.debug(f"Saving metainfo xds {key} into {xds_outpath}")
+        logger.debug(f"Saving metainfo xds {key} into {xds_outpath}")
         write_xds_to_zarr(
             xds, key, xds_outpath, chunks_on_disk, compressor, consolidated=True
         )
@@ -74,7 +74,7 @@ def write_partitions(
     for cnt, (key, xds) in enumerate(partitions.items()):
         xds_name = f"xds_{cnt}"
         xds_outpath = Path(partdir, str(xds_name))
-        logging.debug(f"Saving partition xds {key} into {xds_outpath}")
+        logger.debug(f"Saving partition xds {key} into {xds_outpath}")
         write_xds_to_zarr(
             xds, xds_name, xds_outpath, chunks_on_disk, compressor, consolidated=True
         )
@@ -146,7 +146,7 @@ def write_xds_to_zarr(
             consolidated=consolidated,
         )
     time_to_calc_and_store = time.time() - start
-    logging.debug(
+    logger.debug(
         f"time to store and execute graph ({graph_name}) for {name}: {time_to_calc_and_store}"
     )
 

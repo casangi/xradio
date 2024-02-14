@@ -13,7 +13,7 @@ from ._tables.read import read_generic_table, make_freq_attrs
 from ._tables.read_subtables import read_delayed_pointing_table
 from .._utils.partition_attrs import add_partition_attrs
 from .._utils.xds_helper import make_coords
-
+from xradio.vis._vis_utils._ms.optimised_functions import unique_1d
 
 def read_spw_ddi_ant_pol(inpath: str) -> Tuple[xr.Dataset]:
     """
@@ -66,7 +66,7 @@ def load_main_chunk(
     data_desc_id, scan_number, state_id = make_partition_ids_by_ddi_scan(infile, False)
 
     all_xdss = {}
-    data_desc_id = np.unique(data_desc_id)
+    data_desc_id = unique_1d(data_desc_id)
     for ddi in data_desc_id:
         xds, part_ids, attrs = load_expanded_main_table_chunk(
             infile, ddi, chunk, ignore_msv2_cols=ignore_msv2_cols

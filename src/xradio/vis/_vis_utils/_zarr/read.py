@@ -1,4 +1,4 @@
-import logging
+import graphviper.utils.logger as logger
 import os
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
@@ -41,7 +41,7 @@ def read_subtables(inpath: str, asdm_subtables: bool) -> Dict[str, xr.Dataset]:
     for subt in sorted(metadir.iterdir()):
         if subt.is_dir():
             if not asdm_subtables and subt.name.startswith("ASDM_"):
-                logging.debug(f"Not loading ASDM_ subtable {subt.name}...")
+                logger.debug(f"Not loading ASDM_ subtable {subt.name}...")
                 continue
 
             metainfo[subt.name] = read_xds(subt, consolidated=True)

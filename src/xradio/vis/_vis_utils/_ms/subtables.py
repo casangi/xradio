@@ -1,4 +1,7 @@
-import logging, os
+import os
+
+import graphviper.utils.logger as logger
+
 from pathlib import Path
 from typing import Dict, List
 
@@ -14,7 +17,7 @@ subt_rename_ids = {
     "FIELD": {"row": "field_id", "dim_1": "poly_id", "dim_2": "ra/dec"},
     "FREQ_OFFSET": {"antenna1": "antenna1_id", "antenna2": "antenna2_id"},
     "OBSERVATION": {"row": "observation_id", "dim_1": "start/end"},
-    "POINTING": {"dim_2": "poly_id", "dim_3": "ra/dec"},
+    "POINTING": {"dim_1": "n_polynomial", "dim_2": "ra/dec", "dim_3": "ra/dec"},
     "POLARIZATION": {"row": "pol_setup_id", "dim_2": "product_id"},
     "PROCESSOR": {"row": "processor_id"},
     "SPECTRAL_WINDOW": {"row": "spectral_window_id", "dim_1": "chan"},
@@ -52,10 +55,10 @@ def read_ms_subtables(
     subtables = {}
     for _ii, subt_name in enumerate(stbl_list):
         if not asdm_subtables and subt_name.startswith("ASDM_"):
-            logging.debug(f"skipping ASDM_ subtable {subt_name}...")
+            logger.debug(f"skipping ASDM_ subtable {subt_name}...")
             continue
         else:
-            logging.debug(f"reading subtable {subt_name}...")
+            logger.debug(f"reading subtable {subt_name}...")
 
         if subt_name == "POINTING":
             subt_path = Path(infile, subt_name)

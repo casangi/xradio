@@ -1,4 +1,4 @@
-import logging
+import graphviper.utils.logger as logger
 import os
 from pathlib import Path
 import re
@@ -12,7 +12,6 @@ import astropy.units
 from casacore import tables
 
 from .table_query import open_query, open_table_ro
-
 
 CASACORE_TO_PD_TIME_CORRECTION = 3506716800.0
 SECS_IN_DAY = 86400
@@ -92,14 +91,14 @@ def add_units_measures(
             if "QuantumUnits" in col_descrs[col]["keywords"]:
                 cc_units = col_descrs[col]["keywords"]["QuantumUnits"]
                 if not isinstance(cc_units, list) or not cc_units:
-                    logging.warning(
+                    logger.warning(
                         f"Invalid units found for column/variable {col}: {cc_units}"
                     )
                 mvars[var_name].attrs["units"] = cc_units[0]
                 try:
                     astropy.units.Unit(cc_units[0])
                 except Exception as exc:
-                    logging.warning(
+                    logger.warning(
                         f"Unsupported units found for column/variable {col}: "
                         f"{cc_units}. Cannot create an astropy.units.Units object from it: {exc}"
                     )
@@ -228,6 +227,7 @@ def redimension_ms_subtable(xds: xr.Dataset, subt_name: str) -> xr.Dataset:
             "spectral_window_id",
             "time",
         ],
+        "POINTING": ["time", "antenna_id"],
         "SOURCE": ["source_id", "time", "spectral_window_id"],
         "SYSCAL": ["antenna_id", "feed_id", "spectral_window_id", "time"],
         "WEATHER": ["antenna_id", "time"],
@@ -247,7 +247,7 @@ def redimension_ms_subtable(xds: xr.Dataset, subt_name: str) -> xr.Dataset:
             if rxds[var].dtype != xds[var].dtype:
                 rxds[var] = rxds[var].astype(xds[var].dtype)
     except Exception as exc:
-        logging.warning(
+        logger.warning(
             f"Cannot expand rows to {key_dims}, possibly duplicate values in those coordinates. Exception: {exc}"
         )
         rxds = xds.copy()
@@ -335,14 +335,14 @@ def read_generic_table(
     cc_attrs = extract_table_attributes(infile)
     attrs: Dict[str, Any] = {"other": {"msv2": {"ctds_attrs": cc_attrs}}}
     if is_nested_ms(attrs):
-        logging.warning(
+        logger.warning(
             f"Skipping subtable that looks like a MeasurementSet main table: {inpath} {tname}"
         )
         return xr.Dataset()
 
     with open_table_ro(infile) as tb_tool:
         if tb_tool.nrows() == 0:
-            logging.debug(f"table is empty: {inpath} {tname}")
+            logger.debug(f"table is empty: {inpath} {tname}")
             return xr.Dataset(attrs=attrs)
 
         colnames = tb_tool.colnames()
@@ -367,7 +367,7 @@ def read_generic_table(
         )
     )
 
-    if tname in ["DOPPLER", "FREQ_OFFSET", "SOURCE", "SYSCAL", "WEATHER"]:
+    if tname in ["DOPPLER", "FREQ_OFFSET", "POINTING", "SOURCE", "SYSCAL", "WEATHER"]:
         xds = redimension_ms_subtable(xds, tname)
 
     if is_ephem_subtable(tname):
@@ -423,10 +423,14 @@ def read_generic_cols(
             continue  # not supported
 
         try:
+            # TODO
+            # benchmark np.stack() performance
             data = np.stack(
                 [row[col] for row in trows]
             )  # .astype(col_cells[col].dtype)
             if isinstance(trows[0][col], dict):
+                # TODO
+                # benchmark np.stack() performance
                 data = np.stack(
                     [
                         row[col]["array"].reshape(row[col]["shape"])
@@ -437,11 +441,15 @@ def read_generic_cols(
                 )
         except Exception:
             # sometimes the cols are variable, so we need to standardize to the largest sizes
-            if len(np.unique([isinstance(row[col], dict) for row in trows])) > 1:
+
+            if len(set([isinstance(row[col], dict) for row in trows])) > 1:
                 continue  # can't deal with this case
             mshape = np.array(max([np.array(row[col]).shape for row in trows]))
             try:
                 pad_nan = get_pad_nan(col_cells[col])
+
+                # TODO
+                # benchmark np.stack() performance
                 data = np.stack(
                     [
                         np.pad(
@@ -456,10 +464,10 @@ def read_generic_cols(
                     ]
                 )
             except Exception as exc:
-                level = logging.WARNING
+                level = logger.WARNING
                 if col in known_misbehaving_cols:
-                    level = logging.DEBUG
-                logging.log(
+                    level = logger.DEBUG
+                logger.log(
                     level, f"{infile}: failed to read data for column {col}: {exc}"
                 )
                 data = []
@@ -474,7 +482,7 @@ def read_generic_cols(
                     data = convert_casacore_time(data)
                 except pd.errors.OutOfBoundsDatetime as exc:
                     if infile.endswith("WEATHER"):
-                        logging.error(
+                        logger.error(
                             f"Exception when converting WEATHER/TIME: {exc}. TIME data: {data}"
                         )
                     else:
@@ -483,6 +491,14 @@ def read_generic_cols(
         if col.endswith("_ID") or (
             infile.endswith(subts_with_time_key) and col == "TIME"
         ):
+            # weather table: importasdm produces very wrong "-1" ANTENNA_ID
+            if (
+                infile.endswith("WEATHER")
+                and col == "ANTENNA_ID"
+                and "NS_WX_STATION_ID" in colnames
+            ):
+                data = np.stack([row["NS_WX_STATION_ID"] for row in trows])
+
             mcoords[col.lower()] = xr.DataArray(
                 data,
                 dims=[
@@ -598,6 +614,9 @@ def read_col_conversion(
     (no need for didxs)
     """
     data = tb_tool.getcol(col)
+
+    # TODO
+    # check np.full() with np.nan performance vs np.zeros or np.ones
     fulldata = np.full(cshape + data.shape[1:], np.nan, dtype=data.dtype)
     fulldata[tidxs, bidxs] = data
     return fulldata

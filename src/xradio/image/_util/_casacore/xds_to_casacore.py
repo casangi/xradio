@@ -1,12 +1,12 @@
-import astropy
-from astropy.coordinates import Angle, SkyCoord
-from casacore import images, tables
 import copy
+import os
+
 import dask.array as da
 import numpy as np
-import os
-from typing import Union
 import xarray as xr
+from astropy.coordinates import Angle
+from casacore import tables
+
 from .common import _active_mask, _create_new_image, _object_name, _pointing_center
 from ..common import _compute_sky_reference_pixel, _doppler_types
 from ...._utils._casacore.tables import open_table_rw
@@ -22,17 +22,15 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
     direction["system"] = xds_dir["reference"]["equinox"]
     direction["projection"] = xds_dir["projection"]
     direction["projection_parameters"] = xds_dir["projection_parameters"]
-    # long = xds.right_ascension
-    # lat = xds.declination
     direction["units"] = np.array(xds_dir["reference"]["units"], dtype="<U16")
     direction["crval"] = np.array(xds_dir["reference"]["value"])
     direction["cdelt"] = np.array(xds_dir["reference"]["cdelt"])
-    crpix = _compute_sky_reference_pixel(xds)
-    direction["crpix"] = np.array([crpix[0], crpix[1]])
-    direction["pc"] = xds_dir["pc"]
+    direction["crpix"] = _compute_sky_reference_pixel(xds)
+    direction["pc"] = np.array(xds_dir["pc"])
     direction["axes"] = ["Right Ascension", "Declination"]
     direction["conversionSystem"] = direction["system"]
     for s in ["longpole", "latpole"]:
+        # longpole, latpole are numerical values in degrees in casa images
         direction[s] = Angle(str(xds_dir[s]["value"]) + xds_dir[s]["units"]).deg
     return direction
 
@@ -170,7 +168,7 @@ def _history_from_xds(xds: xr.Dataset, image: str) -> None:
 
 def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
     ii = {}
-    ap_sky = "sky" if "l" in xds.coords else "apeture"
+    ap_sky = "sky" if "l" in xds.coords else "aperture"
     ii["image_type"] = (
         xds[ap_sky].attrs["image_type"] if "image_type" in xds[ap_sky].attrs else ""
     )
@@ -210,7 +208,7 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
 
 
 def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
-    sky_ap = "sky" if "sky" in xds else "apeture"
+    sky_ap = "sky" if "sky" in xds else "aperture"
     if xds[sky_ap].shape[0] != 1:
         raise RuntimeError("XDS can only be converted if it has exactly one time plane")
     trans_coords = (
@@ -314,10 +312,13 @@ def _write_initial_image(
 ) -> None:
     if not maskname:
         maskname = ""
-    for dv in ["sky", "apeture"]:
+    for dv in ["sky", "aperture"]:
         if dv in xds.data_vars:
             value = xds[dv][0, 0, 0, 0, 0].values.item()
+            if xds[dv][0, 0, 0, 0, 0].values.dtype == "float32":
+                value = "default"
             break
+    # print(type(value))
     image_full_path = os.path.expanduser(imagename)
     with _create_new_image(
         image_full_path, mask=maskname, shape=image_shape, value=value
@@ -351,7 +352,7 @@ def _write_pixels(
     value: xr.DataArray = None,
 ) -> None:
     flip = False
-    if v == "sky" or v == "apeture":
+    if v == "sky" or v == "aperture":
         filename = image_full_path
     else:
         # mask
@@ -371,7 +372,7 @@ def _write_pixels(
     trans_coord = ("frequency", "polarization", "m", "l")
     arr = xds[v] if v in xds.data_vars else value
     arr = arr.isel(time=0).transpose(*trans_coords)
-    chunk_bounds = arr.chunks
+    chunk_bounds = tuple(zip(arr.shape)) if arr.chunks is None else arr.chunks
     b = [0, 0, 0, 0]
     loc0, loc1, loc2, loc3 = (0, 0, 0, 0)
     for i0 in chunk_bounds[0]:

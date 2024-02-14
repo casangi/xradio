@@ -1,4 +1,4 @@
-import logging
+import graphviper.utils.logger as logger
 from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
@@ -257,7 +257,7 @@ def read_ms_ddi_partitions(
             (chanidxs is not None) and (len(chanidxs) == 0)
         ):
             continue
-        logging.debug(
+        logger.debug(
             "reading DDI %i with chunking %s..."
             % (ddi, str(chunks[ddi] if type(chunks) == dict else chunks))
         )

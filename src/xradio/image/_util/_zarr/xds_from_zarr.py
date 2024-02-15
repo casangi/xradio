@@ -6,8 +6,8 @@ from .common import _np_types, _top_level_sub_xds
 from ..common import _dask_arrayize, _numpy_arrayize
 
 
-def _read_zarr(zarr_store: str, do_dask: bool) -> xr.Dataset:
-    tmp_xds = xr.open_zarr(zarr_store)
+def _read_zarr(zarr_store: str, do_dask: bool, selection: dict = {}) -> xr.Dataset:
+    tmp_xds = xr.open_zarr(zarr_store).isel(selection)
     xds = _decode(tmp_xds, zarr_store, do_dask)
     if do_dask:
         return _dask_arrayize(xds)

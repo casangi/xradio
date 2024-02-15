@@ -104,7 +104,8 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
         behaves as numpy slicing does, that is the start pixel is included in
         the selection, and the end pixel is not. An empty dictionary (the
         default) indicates that the entire image should be returned. The returned
-        dataset will have data variables stored as numpy, not dask, arrays as
+        dataset will have data variables stored as numpy, not dask, arrays.
+        TODO I'd really like to rename this parameter "selection"
     do_sky_coords : bool
         Compute SkyCoord at each pixel and add spherical (sky) dimensions as non-dimensional
         coordinates in the returned xr.Dataset. Only applies to CASA and FITS images; zarr
@@ -117,11 +118,11 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
     """
     do_casa = True
     emsgs = []
-    bd = copy.deepcopy(block_des) if block_des else block_des
-    if bd:
-        for k, v in bd.items():
+    selection = copy.deepcopy(block_des) if block_des else block_des
+    if selection:
+        for k, v in selection.items():
             if type(v) == int:
-                bd[k] = slice(v, v + 1)
+                selection[k] = slice(v, v + 1)
     try:
         from ._util.casacore import _read_casa_image
     except Exception as e:
@@ -134,7 +135,7 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
         # comment next line when done debugging
         # return _load_casa_image_block(infile, bd, do_sky_coords)
         try:
-            return _load_casa_image_block(infile, bd, do_sky_coords)
+            return _load_casa_image_block(infile, selection, do_sky_coords)
         except Exception as e:
             emsgs.append(f"image format appears not to be casacore: {e.args}")
     """
@@ -144,7 +145,7 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
         emsgs.append(f'image format appears not to be fits {e.args}')
     """
     try:
-        return _xds_from_zarr(infile, False).isel(bd)
+        return _xds_from_zarr(infile, False, selection)
     except Exception as e:
         emsgs.append(f"image format appears not to be zarr {e.args}")
     emsgs.insert(

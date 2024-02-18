@@ -1,5 +1,6 @@
 import copy
 import dask.array as da
+
 # import graphviper.utils.logger as logger
 import numpy as np
 import os
@@ -16,7 +17,7 @@ def _read_zarr(
     #    what data variables should be returned as.
     #    "numpy": numpy arrays
     #    "dask": dask arrays
-    #"coords"
+    # "coords"
     #    what coords should be returned as
     #    "numpy": numpy arrays
     # it's easiest just to copy the object rather than figuring out
@@ -57,13 +58,11 @@ def _read_zarr(
     return xds
 
 
-def _decode(
-    xds: xr.Dataset, zarr_store: str, output: dict
-) -> (xr.Dataset, bool):
+def _decode(xds: xr.Dataset, zarr_store: str, output: dict) -> (xr.Dataset, bool):
     xds.attrs = _decode_dict(xds.attrs, "")
     sub_xdses = _decode_sub_xdses(zarr_store, output)
     for k, v in sub_xdses.items():
-       xds.attrs[k] = v
+        xds.attrs[k] = v
     return xds
 
 

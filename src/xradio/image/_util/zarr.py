@@ -15,7 +15,7 @@ def _xds_from_zarr(
     #    what data variables should be returned as.
     #    "numpy": numpy arrays
     #    "dask": dask arrays
-    #"coords"
+    # "coords"
     #    what coordinates should be returned as
     #    "numpy": numpy arrays
     return _read_zarr(zarr_store, output, selection)

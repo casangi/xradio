@@ -22,8 +22,11 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 def read_image(
-    infile: str, chunks: dict = {}, verbose: bool = False,
-    do_sky_coords: bool = True, selection: dict = {}
+    infile: str,
+    chunks: dict = {},
+    verbose: bool = False,
+    do_sky_coords: bool = True,
+    selection: dict = {},
 ) -> xr.Dataset:
     """
     Convert CASA, FITS, or zarr image to xradio image xds format
@@ -92,7 +95,9 @@ def read_image(
     # when done debuggin comment out next line
     # return _xds_from_zarr(infile, {"dv": "dask", "coords": "numpy"}, selection=selection)
     try:
-        return _xds_from_zarr(infile, {"dv": "dask", "coords": "numpy"}, selection=selection)
+        return _xds_from_zarr(
+            infile, {"dv": "dask", "coords": "numpy"}, selection=selection
+        )
     except Exception as e:
         emsgs.append(f"image format appears not to be zarr {e.args}")
     emsgs.insert(

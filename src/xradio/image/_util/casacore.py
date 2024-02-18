@@ -30,7 +30,7 @@ from ._casacore.xds_to_casacore import (
     _imageinfo_dict_from_xds,
     _write_casa_data,
 )
-from .common import _get_xds_dim_order, _dask_arrayize
+from .common import _get_xds_dim_order, _dask_arrayize_dv
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -96,7 +96,7 @@ def _read_casa_image(
     if mb is not None:
         xds["beam"] = mb
     # xds = _add_coord_attrs(xds, ret["icoords"], ret["dir_axes"])
-    xds = _dask_arrayize(xds)
+    xds = _dask_arrayize_dv(xds)
     return xds
 
 

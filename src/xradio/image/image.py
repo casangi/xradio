@@ -22,7 +22,8 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 def read_image(
-    infile: str, chunks: dict = {}, verbose: bool = False, do_sky_coords: bool = True
+    infile: str, chunks: dict = {}, verbose: bool = False,
+    do_sky_coords: bool = True, selection: dict = {}
 ) -> xr.Dataset:
     """
     Convert CASA, FITS, or zarr image to xradio image xds format
@@ -51,6 +52,16 @@ def read_image(
         images will have these coordinates added if they were saved with the zarr dataset,
         and if zarr image didn't have these coordinates when it was written, the resulting
         xr.Dataset will not.
+    selection : dict
+        The selection of data to return, supported keys are time,
+        polarization, frequency, l (or u if aperture image), m (or v if aperture
+        image) a missing key indicates to return the entire axis length for that
+        dimension. Values can be non-negative integers or slices. Slicing
+        behaves as numpy slicing does, that is the start pixel is included in
+        the selection, and the end pixel is not. An empty dictionary (the
+        default) indicates that the entire image should be returned. Currently
+        only supported for images stored in zarr format.
+
     Returns
     -------
     xarray.Dataset
@@ -78,8 +89,10 @@ def read_image(
         return _read_fits_image(infile, chunks, verbose, do_sky_coords)
     except Exception as e:
         emsgs.append(f"image format appears not to be fits {e.args}")
+    # when done debuggin comment out next line
+    # return _xds_from_zarr(infile, {"dv": "dask", "coords": "numpy"}, selection=selection)
     try:
-        return _xds_from_zarr(infile, True)
+        return _xds_from_zarr(infile, {"dv": "dask", "coords": "numpy"}, selection=selection)
     except Exception as e:
         emsgs.append(f"image format appears not to be zarr {e.args}")
     emsgs.insert(
@@ -90,7 +103,10 @@ def read_image(
 
 def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Dataset:
     """
-    Load an image or portion of an image (subimage) into memory
+    Load an image or portion of an image (subimage) into memory with data variables
+    being converted from dask to numpy arrays and coordinate arrays being converted
+    from dask arrays to numpy arrays. If already a numpy array, that data variable
+    or coordinate is left unaltered.
 
     Parameters
     ----------
@@ -144,8 +160,10 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
     except Exception as e:
         emsgs.append(f'image format appears not to be fits {e.args}')
     """
+    # when done debugging, comment out next line
+    # return _xds_from_zarr(infile, {"dv": "numpy"}, selection)
     try:
-        return _xds_from_zarr(infile, False, selection)
+        return _xds_from_zarr(infile, {"dv": "numpy", "coords": "numpy"}, selection)
     except Exception as e:
         emsgs.append(f"image format appears not to be zarr {e.args}")
     emsgs.insert(

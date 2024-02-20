@@ -54,6 +54,6 @@ def create_field_info(in_file, field_id):
         "reference_direction": reference_dir,
         "field_id": field_id,
     }
-    #xds.attrs["field_info"] = field_info
+    # xds.attrs["field_info"] = field_info
 
     return field_info

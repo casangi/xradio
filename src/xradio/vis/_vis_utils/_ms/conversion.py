@@ -234,9 +234,14 @@ def create_data_variables(
                         ),
                         dims=col_dims[col],
                     )
-                    logger.debug("Time to read column " + str(col) + " : " + str(time.time()-start))
+                    logger.debug(
+                        "Time to read column "
+                        + str(col)
+                        + " : "
+                        + str(time.time() - start)
+                    )
             except:
-                #logger.debug("Could not load column",col)
+                # logger.debug("Could not load column",col)
                 continue
 
             xds[col_to_data_variable_names[col]].attrs.update(
@@ -304,7 +309,7 @@ def convert_and_write_partition(
                 tb_tool.close()
                 mtable.close()
                 return xr.Dataset(), {}, {}
-            
+
             logger.debug("Starting a real convert_and_write_partition")
             (
                 tidxs,
@@ -315,8 +320,7 @@ def convert_and_write_partition(
                 utime,
             ) = calc_indx_for_row_split(tb_tool, taql_where)
             time_baseline_shape = (len(utime), len(baseline_ant1_id))
-            logger.debug("Calc indx for row split "+ str(time.time()-start))
-
+            logger.debug("Calc indx for row split " + str(time.time() - start))
 
             start = time.time()
             xds = xr.Dataset()
@@ -335,40 +339,38 @@ def convert_and_write_partition(
             xds = create_coordinates(
                 xds, in_file, ddi, utime, interval, baseline_ant1_id, baseline_ant2_id
             )
-            logger.debug("Time create coordinates "+ str(time.time()-start))
+            logger.debug("Time create coordinates " + str(time.time() - start))
 
             start = time.time()
             create_data_variables(
                 in_file, xds, tb_tool, time_baseline_shape, tidxs, bidxs, didxs
             )
-            logger.debug("Time create data variables "+ str(time.time()-start))
+            logger.debug("Time create data variables " + str(time.time() - start))
 
             # Create field_info
-            start=time.time()
+            start = time.time()
             field_id = check_if_consistent(tb_tool.getcol("FIELD_ID"), "FIELD_ID")
             field_info = create_field_info(in_file, field_id)
-            logger.debug("Time field info "+ str(time.time()-start))
-            
+            logger.debug("Time field info " + str(time.time() - start))
+
             # Create ant_xds
-            start=time.time()
+            start = time.time()
             ant_xds = create_ant_xds(in_file)
-            logger.debug("Time ant xds  "+ str(time.time()-start))
+            logger.debug("Time ant xds  " + str(time.time() - start))
 
             # Create weather_xds
-            start=time.time()
+            start = time.time()
             weather_xds = create_weather_xds(in_file)
-            logger.debug("Time weather "+ str(time.time()-start))
+            logger.debug("Time weather " + str(time.time() - start))
 
-            start=time.time()
+            start = time.time()
             pointing_xds = create_pointing_xds(in_file)
-            logger.debug("Time pointing "+ str(time.time()-start))
+            logger.debug("Time pointing " + str(time.time() - start))
 
-            start=time.time()
+            start = time.time()
             # Fix UVW frame
             # From CASA fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking center. calcuvw does not yet force the UVW column and field centers to use the same reference frame! Blank = use the phase tracking frame of vis.
-            xds.UVW.attrs["frame"] = field_info["phase_direction"][
-                "attrs"
-            ]["frame"]
+            xds.UVW.attrs["frame"] = field_info["phase_direction"]["attrs"]["frame"]
 
             xds.attrs["intent"] = intent
             xds.attrs["ddi"] = ddi
@@ -384,21 +386,21 @@ def convert_and_write_partition(
             xds.attrs["data_groups"] = {}
             if "VISIBILITY" in xds:
                 xds.attrs["data_groups"]["base"] = {
-                        "visibility": "VISIBILITY",
-                        "flag": "FLAG",
-                        "weight": "WEIGHT",
-                        "uvw": "UVW",
-                    }
-                xds.VISIBILITY.attrs['field_info'] = field_info
-             
+                    "visibility": "VISIBILITY",
+                    "flag": "FLAG",
+                    "weight": "WEIGHT",
+                    "uvw": "UVW",
+                }
+                xds.VISIBILITY.attrs["field_info"] = field_info
+
             if "VISIBILITY_CORRECTED" in xds:
                 xds.attrs["data_groups"]["corrected"] = {
-                        "visibility": "VISIBILITY_CORRECTED",
-                        "flag": "FLAG",
-                        "weight": "WEIGHT",
-                        "uvw": "UVW",
-                    }
-                xds.VISIBILITY_CORRECTED.attrs['field_info'] = field_info
+                    "visibility": "VISIBILITY_CORRECTED",
+                    "flag": "FLAG",
+                    "weight": "WEIGHT",
+                    "uvw": "UVW",
+                }
+                xds.VISIBILITY_CORRECTED.attrs["field_info"] = field_info
 
             if overwrite:
                 mode = "w"
@@ -406,7 +408,7 @@ def convert_and_write_partition(
                 mode = "w-"
 
             add_encoding(xds, compressor=compressor, chunks=main_chunksize)
-            logger.debug("Time add compressor and chunk "+ str(time.time()-start))
+            logger.debug("Time add compressor and chunk " + str(time.time() - start))
 
             start = time.time()
             if storage_backend == "zarr":
@@ -418,6 +420,6 @@ def convert_and_write_partition(
             elif storage_backend == "netcdf":
                 # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
                 raise
-            logger.debug("Write data  "+ str(time.time()-start))
+            logger.debug("Write data  " + str(time.time() - start))
 
     # logger.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")

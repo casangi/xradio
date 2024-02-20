@@ -34,7 +34,7 @@ def make_coords(
     coords = {
         "freq": freq,
         "pol": pol_names,
-        "antenna_id": ant_id
+        "antenna_id": ant_id,
         # These will be metainfo in partitions
         # "spw_id": [ddi_xds["spectral_window_id"].values[ddi]],
         # "pol_id": [ddi_xds["polarization_id"].values[ddi]],
@@ -224,13 +224,13 @@ def optimal_chunking(
     min_chunk_sizes = (
         np.ceil(np.array(data_shape) / 80).astype(int)
         if data_shape is not None
-        else [1000, 1, 1]
-        if ndim == 3
-        else [dd for ii, dd in enumerate([10, 10, 1, 1, 1]) if ii < ndim]
+        else (
+            [1000, 1, 1]
+            if ndim == 3
+            else [dd for ii, dd in enumerate([10, 10, 1, 1, 1]) if ii < ndim]
+        )
     )
-    target_size = (
-        175 * 1024**2 / 8
-    )  # ~175 MB chunk worst case with 8-byte DATA column
+    target_size = 175 * 1024**2 / 8  # ~175 MB chunk worst case with 8-byte DATA column
     bytes_per_core = int(
         round(
             ((psutil.virtual_memory().available * 0.10) / multiprocessing.cpu_count())

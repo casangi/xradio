@@ -24,6 +24,7 @@ DirectionLabel = Literal["direction_label"]
 TimePolynomial = Literal["time_polynomial"]
 """ For data that is represented as variable in time using Taylor expansion """
 
+
 # Plain data class models
 @dataclass
 class SourceInfoDict:
@@ -39,6 +40,7 @@ class FieldInfoDict:
     Defines a field position on the sky. For interferometers, this is the correlated field position.
     For single dishes, this is the nominal pointing direction.
     """
+
     name: str
     """Field name."""
     field_id: int
@@ -51,7 +53,7 @@ class FieldInfoDict:
     the scale and format given for ``time`` (see :py:class:`TimeAxis`).
     """
     delay_direction: SkyCoordDict
-    
+
     # TODO
     pass
 
@@ -61,10 +63,12 @@ class QuantityDict:
     # TODO
     pass
 
+
 @dataclass
 class SkyCoordDict:
     # TODO
     pass
+
 
 @dataclass(frozen=True)
 class ObservationInfoDict:
@@ -79,6 +83,7 @@ class ObservationInfoDict:
     execution_block_UID: Optional[str]
     session_reference: Optional[str]
     observing_script: Optional[str]
+
 
 # Coordinates / Axes
 @dataclass(frozen=True)
@@ -103,6 +108,7 @@ class TimeAxis(AsDataArray):
     """ Astropy time scales, see :py:class:`astropy.time.Time` """
     format: Attr[str] = "unix"
     """ Astropy format, see :py:class:`astropy.time.Time`. Default seconds from 1970-01-01 00:00:00 UTC """
+
 
 @dataclass(frozen=True)
 class AntennaAxis(AsDataArray):
@@ -167,6 +173,7 @@ class FrequencyAxis(AsDataArray):
     frame is given that this is the default.
     """
 
+
 @dataclass(frozen=True)
 class PolarizationAxis(AsDataArray):
     """
@@ -206,6 +213,7 @@ class UvwLabelAxis(AsDataArray):
     """Should be ``('u','v','w')``, used by :py:class:`UvwArray`"""
     long_name: Attr[str] = "U/V/W label"
     """ Long-form name to use for axis. Should be ``"U/V/W label"``"""
+
 
 # Data variables
 @dataclass(frozen=True)
@@ -386,6 +394,7 @@ class FreqSamplingArray(AsDataArray):
     frame is given that this is the default.
     """
 
+
 # Data Sets
 @dataclass(frozen=True)
 class VisibilityXds(AsDataset):
@@ -457,7 +466,7 @@ class PointingXds(AsDataset):
     # TODO
     pass
 
-    
+
 @dataclass(frozen=True)
 class SpectralCoordXds(AsDataset):
     # TODO

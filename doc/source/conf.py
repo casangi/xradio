@@ -20,7 +20,7 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.intersphinx",
     "xradio_sphinx",
-    "nbsphinx"
+    "nbsphinx",
 ]
 
 templates_path = ["_templates"]
@@ -58,10 +58,10 @@ autodoc_type_aliases = {
 # nitpicky = True
 
 intersphinx_mapping = {
-    'astropy': ('https://docs.astropy.org/en/stable', None),
-    'xarray': ('https://docs.xarray.dev/en/stable', None),
-    'dask': ('https://docs.dask.org/en/stable', None),
-    'numpy': ('https://numpy.org/doc/stable', None),
+    "astropy": ("https://docs.astropy.org/en/stable", None),
+    "xarray": ("https://docs.xarray.dev/en/stable", None),
+    "dask": ("https://docs.dask.org/en/stable", None),
+    "numpy": ("https://numpy.org/doc/stable", None),
 }
 
 add_module_names = False

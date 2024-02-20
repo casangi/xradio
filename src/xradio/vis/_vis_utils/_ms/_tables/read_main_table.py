@@ -195,8 +195,10 @@ def read_main_table_chunks(
     n_baseline_chunks = chunks[1]
     # loop over time chunks
     for time_chunk in range(0, n_unique_times, n_time_chunks):
-        time_start = unique_times[time_chunk] - tol,
-        time_end = unique_times[min(n_unique_times, time_chunk + n_time_chunks) - 1] + tol
+        time_start = (unique_times[time_chunk] - tol,)
+        time_end = (
+            unique_times[min(n_unique_times, time_chunk + n_time_chunks) - 1] + tol
+        )
 
         # chunk time length
         ctlen = min(n_unique_times, time_chunk + n_time_chunks) - time_chunk
@@ -215,7 +217,10 @@ def read_main_table_chunks(
             ts_taql = f"select * from $mtable {taql_where} AND {ttql} AND {atql}"
             with open_query(None, ts_taql) as query_times_ants:
                 tidxs = (
-                    np.searchsorted(unique_times, query_times_ants.getcol("TIME", 0, -1)) - time_chunk
+                    np.searchsorted(
+                        unique_times, query_times_ants.getcol("TIME", 0, -1)
+                    )
+                    - time_chunk
                 )
                 ts_ant1, ts_ant2 = (
                     query_times_ants.getcol("ANTENNA1", 0, -1),
@@ -296,15 +301,19 @@ def get_baselines(tb_tool: tables.table) -> np.ndarray:
     unique_baselines = inverse_pairing_function(unique_baselines_paired)
 
     # Sorting the unique baselines.
-    unique_baselines = unique_baselines[unique_baselines[:,1].argsort()]
-    unique_baselines = unique_baselines[unique_baselines[:,0].argsort(kind='mergesort')]
+    unique_baselines = unique_baselines[unique_baselines[:, 1].argsort()]
+    unique_baselines = unique_baselines[
+        unique_baselines[:, 0].argsort(kind="mergesort")
+    ]
 
     return unique_baselines
 
 
-def get_baseline_indices(unique_baselines: np.ndarray, baseline_set: np.ndarray) -> np.ndarray:
+def get_baseline_indices(
+    unique_baselines: np.ndarray, baseline_set: np.ndarray
+) -> np.ndarray:
     """Finds the baseline indices of a set of baselines using the unique baselines.
-    
+
     Uses a pairing function to reduce the number of values so it's more
     efficient to find the indices.
 
@@ -324,7 +333,7 @@ def get_baseline_indices(unique_baselines: np.ndarray, baseline_set: np.ndarray)
     # Pairing function doesn't preserve order so they need to be sorted.
     unique_baselines_sorted = np.argsort(unique_baselines_paired)
     sorted_indices = np.searchsorted(
-        unique_baselines_paired[unique_baselines_sorted], 
+        unique_baselines_paired[unique_baselines_sorted],
         baseline_set_paired,
     )
     baseline_indices = unique_baselines_sorted[sorted_indices]

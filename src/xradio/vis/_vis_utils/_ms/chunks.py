@@ -15,6 +15,7 @@ from .._utils.partition_attrs import add_partition_attrs
 from .._utils.xds_helper import make_coords
 from xradio.vis._vis_utils._ms.optimised_functions import unique_1d
 
+
 def read_spw_ddi_ant_pol(inpath: str) -> Tuple[xr.Dataset]:
     """
     Reads the four metainfo subtables needed to load data chunks into xdss.

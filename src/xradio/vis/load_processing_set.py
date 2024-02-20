@@ -73,7 +73,6 @@ def _load_ms_xds_core(ms_xds_name, slice_dict):
     )
     sub_xds = {
         "antenna_xds": "ANTENNA",
-        "pointing_xds": "POINTING",
     }
     for sub_xds_key, sub_xds_name in sub_xds.items():
         ms_xds.attrs[sub_xds_key] = _load_no_dask_zarr(
@@ -81,6 +80,7 @@ def _load_ms_xds_core(ms_xds_name, slice_dict):
         )
     optional_sub_xds = {
         "weather_xds": "WEATHER",
+        "pointing_xds": "POINTING",
     }
     for sub_xds_key, sub_xds_name in sub_xds.items():
         sub_xds_path = os.path.join(ms_xds_name, sub_xds_name)

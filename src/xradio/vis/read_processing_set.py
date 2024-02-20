@@ -18,7 +18,6 @@ def read_processing_set(ps_name, intents=None, fields=None):
                     ps[i] = xds
                     sub_xds = {
                         "antenna_xds": "ANTENNA",
-                        "pointing_xds": "POINTING",
                     }
                     for sub_xds_key, sub_xds_name in sub_xds.items():
                         ps[i].attrs[sub_xds_key] = xr.open_zarr(
@@ -27,6 +26,7 @@ def read_processing_set(ps_name, intents=None, fields=None):
 
                     optional_sub_xds = {
                         "weather_xds": "WEATHER",
+                        "pointing_xds": "POINTING",
                     }
                     for sub_xds_key, sub_xds_name in optional_sub_xds.items():
                         sub_xds_path = ps_name + "/" + i + "/" + sub_xds_name

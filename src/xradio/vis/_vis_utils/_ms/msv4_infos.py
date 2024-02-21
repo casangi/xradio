@@ -3,7 +3,7 @@ from .subtables import subt_rename_ids
 from ._tables.read import read_generic_table
 
 
-def create_field_info(xds, in_file, field_id):
+def create_field_info(in_file, field_id):
     field_xds = read_generic_table(
         in_file,
         "FIELD",
@@ -54,6 +54,6 @@ def create_field_info(xds, in_file, field_id):
         "reference_direction": reference_dir,
         "field_id": field_id,
     }
-    xds.attrs["field_info"] = field_info
+    # xds.attrs["field_info"] = field_info
 
-    return xds
+    return field_info

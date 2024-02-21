@@ -88,9 +88,11 @@ def populate_ms_descr(
             else read_flat_col_chunk(infile, "TIME", (1,), rowmap[ddi][0], 0, 0)
         )
         baselines = [
-            query_per_ddi.getcol(rr)[:, None]
-            if rowmap is None
-            else read_flat_col_chunk(infile, rr, (1,), rowmap[ddi][0], 0, 0)
+            (
+                query_per_ddi.getcol(rr)[:, None]
+                if rowmap is None
+                else read_flat_col_chunk(infile, rr, (1,), rowmap[ddi][0], 0, 0)
+            )
             for rr in ["ANTENNA1", "ANTENNA2"]
         ]
         sdf.update(
@@ -104,9 +106,11 @@ def populate_ms_descr(
     pols = pol_xds.num_corr.values
     sdf.update(
         {
-            "chans": chans[spw_ids[ddi]]
-            if (rowmap is None) or (rowmap[ddi][1] is None)
-            else len(rowmap[ddi][1]),
+            "chans": (
+                chans[spw_ids[ddi]]
+                if (rowmap is None) or (rowmap[ddi][1] is None)
+                else len(rowmap[ddi][1])
+            ),
             "pols": pols[pol_ids[ddi]],
         }
     )

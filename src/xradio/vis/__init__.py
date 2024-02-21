@@ -7,6 +7,7 @@ from .vis_io import read_vis, load_vis_block, write_vis
 from .model import VisibilityXds
 
 __all__ = [
-    "read_vis", "load_vis_block", "write_vis"
-    "VisibilityXds",
+    "read_vis",
+    "load_vis_block",
+    "write_vis" "VisibilityXds",
 ]

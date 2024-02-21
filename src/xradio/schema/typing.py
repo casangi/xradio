@@ -7,7 +7,6 @@ type annotations, especially adding xradio-specific support for multiple
 options in data variable / coordinate dimensionality and dtype.
 """
 
-
 from typing import (
     Any,
     List,
@@ -64,8 +63,7 @@ Sizes = Dict[str, int]
 class DataClass(Protocol[PInit]):
     """Type hint for dataclass objects."""
 
-    def __init__(self, *args: PInit.args, **kwargs: PInit.kwargs) -> None:
-        ...
+    def __init__(self, *args: PInit.args, **kwargs: PInit.kwargs) -> None: ...
 
     __dataclass_fields__: ClassVar[Dict[str, AnyField]]
 

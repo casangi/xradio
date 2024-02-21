@@ -9,6 +9,38 @@ from numcodecs.compat import (
     ensure_contiguous_ndarray_like,
 )
 
+full_dims_lm = ["frequency", "polarization", "l", "m"]
+full_dims_uv = ["frequency", "polarization", "l", "m"]
+norm_dims = ["frequency", "polarization"]
+
+image_data_varaibles_and_dims = {
+    "aperture": {"dims": full_dims_uv, "dtype": "<c16", "name": "APERTURE"},
+    "aperture_normalization": {
+        "dims": norm_dims,
+        "dtype": "<c16",
+        "name": "APERTURE_NORMALIZATION",
+    },
+    "primary_beam": {"dims": full_dims_lm, "dtype": "<f8", "name": "PRIMARY_BEAM"},
+    "uv_sampling": {"dims": full_dims_uv, "dtype": "<c16", "name": "UV_SAMPLING"},
+    "uv_sampling_normalization": {
+        "dims": norm_dims,
+        "dtype": "<c16",
+        "name": "UV_SAMPLING_NORMALIZATION",
+    },
+    "point_spread_function": {
+        "dims": full_dims_lm,
+        "dtype": "<f8",
+        "name": "POINT_SPREAD_FUNCTION",
+    },
+    "visibility": {"dims": full_dims_uv, "dtype": "<c16", "name": "VISIBILITY"},
+    "visibility_normalization": {
+        "dims": norm_dims,
+        "dtype": "<c16",
+        "name": "VISIBILITY_NORMALIZATION",
+    },
+    "sky": {"dims": full_dims_lm, "dtype": "<f8", "name": "SKY"},
+}
+
 
 def pad_array_with_nans(input_array, output_shape, dtype):
     """
@@ -213,3 +245,37 @@ def create_data_variable_meta_data_on_disk(
 
         write_json_file(zarray, os.path.join(data_variable_path, ".zarray"))
     return zarr_meta
+
+
+
+def write_chunk(img_xds,meta,parallel_dims_chunk_id,compressor,image_file):
+    dims = meta["dims"]
+    dtype = meta["dtype"]
+    data_varaible_name = meta["name"]
+    chunks = meta["chunks"]
+    shape = meta["shape"]
+    chunk_name = ""
+    if data_varaible_name in img_xds:
+        for d in img_xds[data_varaible_name].dims:
+            if d in parallel_dims_chunk_id:
+                chunk_name = chunk_name + str(parallel_dims_chunk_id[d]) + "."
+            else:
+                chunk_name = chunk_name + "0."
+        chunk_name = chunk_name[:-1]
+
+        if list(img_xds[data_varaible_name].shape) != list(chunks):
+            array = pad_array_with_nans(
+                img_xds[data_varaible_name].values,
+                output_shape=chunks,
+                dtype=dtype,
+            )
+        else:
+            array = img_xds[data_varaible_name].values
+
+        write_binary_blob_to_disk(
+            array,
+            file_path=os.path.join(
+                image_file, data_varaible_name, chunk_name
+            ),
+            compressor=compressor,
+        )

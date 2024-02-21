@@ -386,7 +386,7 @@ def convert_and_write_partition(
             xds.attrs["data_groups"] = {}
             if "VISIBILITY" in xds:
                 xds.attrs["data_groups"]["base"] = {
-                    "visibility": "VISIBILITY",
+                    "data": "VISIBILITY",
                     "flag": "FLAG",
                     "weight": "WEIGHT",
                     "uvw": "UVW",
@@ -395,12 +395,30 @@ def convert_and_write_partition(
 
             if "VISIBILITY_CORRECTED" in xds:
                 xds.attrs["data_groups"]["corrected"] = {
-                    "visibility": "VISIBILITY_CORRECTED",
+                    "data": "VISIBILITY_CORRECTED",
                     "flag": "FLAG",
                     "weight": "WEIGHT",
                     "uvw": "UVW",
                 }
                 xds.VISIBILITY_CORRECTED.attrs["field_info"] = field_info
+
+            if "SPECTRUM" in xds:
+                xds.attrs["data_groups"]["base"] = {
+                    "data": "SPECTRUM",
+                    "flag": "FLAG",
+                    "weight": "WEIGHT",
+                    "uvw": "UVW",
+                }
+                xds.SPECTRUM.attrs["field_info"] = field_info
+
+            if "SPECTRUM_CORRECTED" in xds:
+                xds.attrs["data_groups"]["corrected"] = {
+                    "data": "SPECTRUM_CORRECTED",
+                    "flag": "FLAG",
+                    "weight": "WEIGHT",
+                    "uvw": "UVW",
+                }
+                xds.SPECTRUM_CORRECTED.attrs["field_info"] = field_info
 
             if overwrite:
                 mode = "w"

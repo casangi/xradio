@@ -19,14 +19,20 @@ class processing_set(dict):
             summary_data["name"].append(key)
             summary_data["ddi"].append(value.attrs["ddi"])
             summary_data["intent"].append(value.attrs["intent"])
-            vis_name = value.attrs["data_groups"][data_group]["data"]
+
+            if "visibility" in value.attrs["data_groups"][data_group]:
+                data_name = value.attrs["data_groups"][data_group]["visibility"]
+
+            if "spectrum" in value.attrs["data_groups"][data_group]:
+                data_name = value.attrs["data_groups"][data_group]["spectrum"]
+
             summary_data["field_id"].append(
-                value[vis_name].attrs[
+                value[data_name].attrs[
                     "field_info"
                 ]["field_id"]
             )
             summary_data["field_name"].append(
-                value[vis_name].attrs[
+                value[data_name].attrs[
                     "field_info"
                 ]["name"]
             )

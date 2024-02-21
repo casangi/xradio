@@ -15,7 +15,7 @@ def read_processing_set(ps_name, intents=None, data_group='base', fields=None):
 
             if (intents is None) or (xds.attrs["intent"] in intents):
                 
-                vis_name = value.attrs["data_groups"][data_group]["visibility"]
+                vis_name = xds.attrs["data_groups"][data_group]["visibility"]
                 if (fields is None) or (xds[vis_name]["field_info"]["name"] in fields):
                     ps[i] = xds
                     sub_xds = {

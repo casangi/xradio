@@ -21,7 +21,7 @@ def read_processing_set(ps_name, intents=None, data_group='base', fields=None):
                 if "spectrum" in xds.attrs["data_groups"][data_group]:
                     data_name = xds.attrs["data_groups"][data_group]["spectrum"]
 
-                if (fields is None) or (xds[data_name]["field_info"]["name"] in fields):
+                if (fields is None) or (xds[data_name].attrs["field_info"]["name"] in fields):
                     ps[i] = xds
                     sub_xds = {
                         "antenna_xds": "ANTENNA",

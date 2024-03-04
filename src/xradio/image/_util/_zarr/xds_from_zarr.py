@@ -48,7 +48,6 @@ def _read_zarr(
             )
     # do not pass selection, because that is only for the top level data vars
     xds = _decode(xds, zarr_store, output)
-    print("output", output)
     if do_np_coords:
         xds = _coords_to_numpy(xds)
     if do_dask:

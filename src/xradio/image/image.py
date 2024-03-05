@@ -177,7 +177,7 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
     raise RuntimeError("\n".join(emsgs))
 
 
-def write_image(xds: xr.Dataset, imagename: str, out_format: str = "casa") -> None:
+def write_image(xds: xr.Dataset, imagename: str, out_format: str = "casa", overwrite=False) -> None:
     """
     Convert an xds image to CASA or zarr image.
     xds : xarray.Dataset
@@ -191,6 +191,11 @@ def write_image(xds: xr.Dataset, imagename: str, out_format: str = "casa") -> No
     None
     """
     my_format = out_format.lower()
+
+    if overwrite:
+        import os
+        os.system('rm -rf ' + imagename)
+
     if my_format == "casa":
         _xds_to_casa_image(xds, imagename)
     elif my_format == "zarr":

@@ -9,11 +9,11 @@ from numcodecs.compat import (
     ensure_contiguous_ndarray_like,
 )
 
-full_dims_lm = ["frequency", "polarization", "l", "m"]
-full_dims_uv = ["frequency", "polarization", "l", "m"]
-norm_dims = ["frequency", "polarization"]
+full_dims_lm = ["time", "polarization", "frequency", "l", "m"]
+full_dims_uv = ["time", "polarization", "frequency", "l", "m"]
+norm_dims = ["polarization", "frequency"]
 
-image_data_varaibles_and_dims = {
+image_data_variables_and_dims_double_precision = {
     "aperture": {"dims": full_dims_uv, "dtype": "<c16", "name": "APERTURE"},
     "aperture_normalization": {
         "dims": norm_dims,
@@ -40,6 +40,35 @@ image_data_varaibles_and_dims = {
     },
     "sky": {"dims": full_dims_lm, "dtype": "<f8", "name": "SKY"},
 }
+
+image_data_variables_and_dims_single_precision = {
+    "aperture": {"dims": full_dims_uv, "dtype": "<c8", "name": "APERTURE"},
+    "aperture_normalization": {
+        "dims": norm_dims,
+        "dtype": "<c16",
+        "name": "APERTURE_NORMALIZATION",
+    },
+    "primary_beam": {"dims": full_dims_lm, "dtype": "<f4", "name": "PRIMARY_BEAM"},
+    "uv_sampling": {"dims": full_dims_uv, "dtype": "<c8", "name": "UV_SAMPLING"},
+    "uv_sampling_normalization": {
+        "dims": norm_dims,
+        "dtype": "<c16",
+        "name": "UV_SAMPLING_NORMALIZATION",
+    },
+    "point_spread_function": {
+        "dims": full_dims_lm,
+        "dtype": "<f8",
+        "name": "POINT_SPREAD_FUNCTION",
+    },
+    "visibility": {"dims": full_dims_uv, "dtype": "<c8", "name": "VISIBILITY"},
+    "visibility_normalization": {
+        "dims": norm_dims,
+        "dtype": "<c16",
+        "name": "VISIBILITY_NORMALIZATION",
+    },
+    "sky": {"dims": full_dims_lm, "dtype": "<f4", "name": "SKY"},
+}
+
 
 
 def pad_array_with_nans(input_array, output_shape, dtype):
@@ -105,6 +134,7 @@ def read_binary_blob_from_disk(file_path, compressor, dtype=np.float64):
     Returns:
     - The decoded NumPy array.
     """
+
     # Check if the file exists
     if not os.path.exists(file_path):
         print(f"Error: File '{file_path}' not found.")

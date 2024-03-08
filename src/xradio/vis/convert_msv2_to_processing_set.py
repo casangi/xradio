@@ -4,7 +4,6 @@ from typing import Dict, Union
 
 import dask
 
-from xradio.vis._vis_utils._ms.msv2_msv3 import ignore_msv2_cols
 from xradio.vis._vis_utils._ms.partition_queries import (
     create_partition_enumerated_product,
 )
@@ -37,7 +36,7 @@ def convert_msv2_to_processing_set(
     main_chunksize : Union[Dict, str, None], optional
         A dictionary that defines the chunk size of the main dataset. Acceptable keys are "time", "baseline", "antenna", "frequency", "polarization". By default, None.
     pointing_chunksize : Union[Dict, str, None], optional
-        A dictionary that defines the chunk size of the pointing dataset. Acceptable keys are "time", "antenna", "polarization". By default, None.
+        A dictionary that defines the chunk size of the pointing dataset. Acceptable keys are "time" and "antenna". By default, None.
     compressor : numcodecs.abc.Codec, optional
         The Blosc compressor to use when saving the converted data to disk using Zarr, by default numcodecs.Zstd(level=2).
     storage_backend : {"zarr", "netcdf"}, optional
@@ -73,8 +72,8 @@ def convert_msv2_to_processing_set(
                     ddi,
                     state_id,
                     field_id,
-                    ignore_msv2_cols=ignore_msv2_cols,
                     main_chunksize=main_chunksize,
+                    pointing_chunksize=pointing_chunksize,
                     compressor=compressor,
                     overwrite=overwrite,
                 )
@@ -87,8 +86,8 @@ def convert_msv2_to_processing_set(
                 ddi,
                 state_id,
                 field_id,
-                ignore_msv2_cols=ignore_msv2_cols,
                 main_chunksize=main_chunksize,
+                pointing_chunksize=pointing_chunksize,
                 compressor=compressor,
                 storage_backend=storage_backend,
                 overwrite=overwrite,

@@ -17,7 +17,7 @@ subt_rename_ids = {
     "FIELD": {"row": "field_id", "dim_1": "poly_id", "dim_2": "ra/dec"},
     "FREQ_OFFSET": {"antenna1": "antenna1_id", "antenna2": "antenna2_id"},
     "OBSERVATION": {"row": "observation_id", "dim_1": "start/end"},
-    "POINTING": {"dim_1": "n_polynomial", "dim_2": "ra/dec", "dim_3": "ra/dec"},
+    "POINTING": {"dim_1": "n_polynomial", "dim_2": "dir", "dim_3": "dir"},
     "POLARIZATION": {"row": "pol_setup_id", "dim_2": "product_id"},
     "PROCESSOR": {"row": "processor_id"},
     "SPECTRAL_WINDOW": {"row": "spectral_window_id", "dim_1": "chan"},
@@ -62,9 +62,8 @@ def read_ms_subtables(
 
         if subt_name == "POINTING":
             subt_path = Path(infile, subt_name)
-            xds = read_delayed_pointing_table(
-                str(subt_path), rename_ids=subt_rename_ids.get(subt_name, None)
-            )
+            rename_ids = {"dim_2": "n_polynomial", "dim_3": "dir"}
+            xds = read_delayed_pointing_table(str(subt_path), rename_ids=rename_ids)
         else:
             xds = read_generic_table(
                 infile,

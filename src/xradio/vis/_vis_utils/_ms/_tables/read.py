@@ -302,11 +302,14 @@ def read_generic_table(
     inpath: str,
     tname: str,
     timecols: Union[List[str], None] = None,
-    ignore=None,
+    ignore: Union[List[str], None] = None,
     rename_ids: Dict[str, str] = None,
 ) -> xr.Dataset:
-    """read generic casacore (sub)table into memory resident xds. This reads the table
-    and and loads the data.
+    """
+    load generic casacore (sub)table into memory resident xds (xarray wrapped
+    numpy arrays). This reads through the table columns and loads the data.
+
+    TODO: change read_ name to load_ name (and most if not all this module)
 
     Parameters
     ----------
@@ -346,7 +349,9 @@ def read_generic_table(
             return xr.Dataset(attrs=attrs)
 
         colnames = tb_tool.colnames()
-        mcoords, mvars = read_generic_cols(infile, tb_tool, timecols, ignore)
+        mcoords, mvars = load_cols_into_coords_data_vars(
+            infile, tb_tool, timecols, ignore
+        )
 
     mvars = add_units_measures(mvars, cc_attrs)
     mcoords = add_units_measures(mcoords, cc_attrs)
@@ -379,49 +384,83 @@ def read_generic_table(
     return xds
 
 
-def read_generic_cols(
-    infile: str, tb_tool, timecols, ignore, dim_prefix: str = "dim"
+def load_cols_into_coords_data_vars(
+    inpath: str,
+    tb_tool: tables.table,
+    timecols: Union[List[str], None] = None,
+    ignore: Union[List[str], None] = None,
 ) -> Tuple[Dict[str, xr.Dataset], Dict[str, xr.Dataset]]:
-    """Reads data for each MS column (loading the data in memory) into
-    Xarray datasets
+    """
+    Produce a set of coordinate xarrays and a set of data variables xarrays
+    from the columns of a table.
+    """
+    columns_loader = find_best_col_loader(inpath, tb_tool.nrows())
 
-    :param infile: path name of the MS
-    :param tb_tool: table to red the columns
+    mcoords, mvars = columns_loader(inpath, tb_tool, timecols, ignore)
+
+    return mcoords, mvars
+
+
+def find_best_col_loader(inpath: str, nrows: int):
+    """
+    Simple heuristic: for any tables other than POINTING, use the generic_load_cols
+    function that is able to deal with variable size columns. For POINTING (and if it has
+    more rows than an arbitrary "small" threshold) use a more efficient load function that
+    loads the data by column (but is not able to deal with any generic table).
+    For now, all other subtables are loaded using the generic column loader.
+
+    Background: the POINTING subtable can have a very large number of rows. For example in
+    ALMA it is sampled at ~50ms intervals which typically produces of the order of
+    [10^5, 10^7] rows. This becomes a serious performance bottleneck when loading the
+    table using row() (and one dict allocated per row).
+    This function chooses an alternative "by-column" load function to load in the columns
+    when the table is POINTING. See xradio issue #128 for now this distinction is made
+    solely for performance reasons.
+
+    :param inpath: path name of the MS table
+    :param nrows: number of rows found in the table
+
+    :return: function best suited to load the data from the columns of this table
+    """
+    # do not give up generic by-row() loading if nrows is (arbitrary) small
+    ARBITRARY_MIN_ROWS = 1000
+
+    if inpath.endswith("POINTING") and nrows >= ARBITRARY_MIN_ROWS:
+        columns_loader = load_fixed_size_cols
+    else:
+        columns_loader = load_generic_cols
+
+    return columns_loader
+
+
+def load_generic_cols(
+    inpath: str,
+    tb_tool: tables.table,
+    timecols: Union[List[str], None],
+    ignore: Union[List[str], None],
+) -> Tuple[Dict[str, xr.Dataset], Dict[str, xr.Dataset]]:
+    """Loads data for each MS column (loading the data in memory) into Xarray datasets
+
+    This function is generic in that it can load variable size array columns. See also
+    load_fixed_size_cols() as a simpler and much better performing alternative
+    for tables that are large and expected/guaranteed to not have columns with variable
+    size cells.
+
+    :param inpath: path name of the MS table
+    :param tb_tool: table to load the columns
     :param timecols: columns names to convert to datetime format
-    :param ignore: list of column names to skip and not try to read.
+    :param ignore: list of column names to skip and not try to load.
 
     :return: dict of coordinates and dict of data vars.
     """
 
-    # Almost sure that when TIME is present (in a standard MS subt) it
-    # is part of the key. But what about non-std subtables, ASDM subts?
-    subts_with_time_key = (
-        "FEED",
-        "FLAG_CMD",
-        "FREQ_OFFSET",
-        "HISTORY",
-        "SOURCE",
-        "SYSCAL",
-        "WEATHER",
-    )
-    # Optional cols known to sometimes have inconsistent values
-    known_misbehaving_cols = ["ASSOC_NATURE"]
-
-    colnames = tb_tool.colnames()
-    col_cells = {
-        col: tb_tool.getcell(col, 0)
-        for col in colnames
-        if (col not in ignore) and (tb_tool.iscelldefined(col, 0))
-    }
+    col_cells = find_loadable_filled_cols(tb_tool, ignore)
 
     trows = tb_tool.row(ignore, exclude=True)[:]
 
     # Produce coords and data vars from MS columns
     mcoords, mvars = {}, {}
     for col in col_cells.keys():
-        if tb_tool.coldatatype(col) == "record":
-            continue  # not supported
-
         try:
             # TODO
             # benchmark np.stack() performance
@@ -446,82 +485,219 @@ def read_generic_cols(
 
             if len(set([isinstance(row[col], dict) for row in trows])) > 1:
                 continue  # can't deal with this case
-            mshape = np.array(max([np.array(row[col]).shape for row in trows]))
-            try:
-                pad_nan = get_pad_nan(col_cells[col])
 
-                # TODO
-                # benchmark np.stack() performance
-                data = np.stack(
-                    [
-                        np.pad(
-                            (
-                                row[col]
-                                if len(row[col]) > 0
-                                else np.array(row[col]).reshape(
-                                    np.arange(len(mshape)) * 0
-                                )
-                            ),
-                            [(0, ss) for ss in mshape - np.array(row[col]).shape],
-                            "constant",
-                            constant_values=pad_nan,
-                        )
-                        for row in trows
-                    ]
-                )
-            except Exception as exc:
-                level = logger.WARNING
-                if col in known_misbehaving_cols:
-                    level = logger.DEBUG
-                logger.log(
-                    level, f"{infile}: failed to read data for column {col}: {exc}"
-                )
-                data = []
+            data = handle_variable_col_issues(inpath, col, col_cells, trows)
 
         if len(data) == 0:
             continue
-        if col in timecols:
-            if col == "MJD":
-                data = convert_mjd_time(data)
-            else:
-                try:
-                    data = convert_casacore_time(data)
-                except pd.errors.OutOfBoundsDatetime as exc:
-                    if infile.endswith("WEATHER"):
-                        logger.error(
-                            f"Exception when converting WEATHER/TIME: {exc}. TIME data: {data}"
-                        )
-                    else:
-                        raise
-        # should also probably add INTERVAL not only TIME
-        if col.endswith("_ID") or (
-            infile.endswith(subts_with_time_key) and col == "TIME"
-        ):
-            # weather table: importasdm produces very wrong "-1" ANTENNA_ID
-            if (
-                infile.endswith("WEATHER")
-                and col == "ANTENNA_ID"
-                and "NS_WX_STATION_ID" in colnames
-            ):
-                data = np.stack([row["NS_WX_STATION_ID"] for row in trows])
 
-            mcoords[col.lower()] = xr.DataArray(
-                data,
-                dims=[
-                    f"{dim_prefix}_{di}_{ds}"
-                    for di, ds in enumerate(np.array(data).shape)
-                ],
-            )
-        else:
-            mvars[col.lower()] = xr.DataArray(
-                data,
-                dims=[
-                    f"{dim_prefix}_{di}_{ds}"
-                    for di, ds in enumerate(np.array(data).shape)
-                ],
-            )
+        array_type, array_data = raw_col_data_to_coords_vars(
+            inpath, tb_tool, col, data, timecols
+        )
+        if array_type == "coord":
+            mcoords[col.lower()] = array_data
+        elif array_type == "data_var":
+            mvars[col.lower()] = array_data
 
     return mcoords, mvars
+
+
+def load_fixed_size_cols(
+    inpath: str,
+    tb_tool: tables.table,
+    timecols: Union[List[str], None],
+    ignore: Union[List[str], None],
+) -> Tuple[Dict[str, xr.Dataset], Dict[str, xr.Dataset]]:
+    """
+    Loads columns into memory via the table tool getcol() function, as opposed to
+    load_generic_cols() which loads on a per-row basis via row().
+    This function is 2+ orders of magnitude faster for large tables (pointing tables with
+    the order of >=10^5 rows)
+    Prefer this function for performance reasons when all rows can be assumed to be fixed
+    size (even if they are of array type).
+    This is performance-critical for the POINTING subtable.
+
+    :param inpath: path name of the MS
+    :param tb_tool: table to red the columns
+    :param timecols: columns names to convert to datetime format
+    :param ignore: list of column names to skip and not try to load.
+
+    :return: dict of coordinates and dict of data vars, ready to construct
+    an xr.Dataset
+    """
+
+    loadable_cols = find_loadable_filled_cols(tb_tool, ignore)
+
+    # Produce coords and data vars from MS columns
+    mcoords, mvars = {}, {}
+    for col in loadable_cols.keys():
+        try:
+            data = tb_tool.getcol(col)
+            if isinstance(data, dict):
+                data = data["array"].reshape(data["shape"])
+        except Exception as exc:
+            logger.warning(
+                f"{inpath}: failed to load data with getcol for column {col}: {exc}"
+            )
+            data = []
+
+        if len(data) == 0:
+            continue
+
+        array_type, array_data = raw_col_data_to_coords_vars(
+            inpath, tb_tool, col, data, timecols
+        )
+        if array_type == "coord":
+            mcoords[col.lower()] = array_data
+        elif array_type == "data_var":
+            mvars[col.lower()] = array_data
+
+    return mcoords, mvars
+
+
+def find_loadable_filled_cols(tb_tool: tables.table, ignore: Union[List[str], None]):
+    """
+    For a table, finds the columns that are:
+    - loadable = not of record type, and not to be ignored
+    - filled = the column cells are populated.
+
+    :param tb_tool: table to red the columns
+    :param ignore: list of column names to skip and not try to load.
+
+    :return: dict of {column name => first cell} for columns that can/should be loaded
+    """
+
+    colnames = tb_tool.colnames()
+    # columns that are not populated are skipped. record columns are not supported
+    loadable_cols = {
+        col: tb_tool.getcell(col, 0)
+        for col in colnames
+        if (col not in ignore)
+        and (tb_tool.iscelldefined(col, 0))
+        and tb_tool.coldatatype(col) != "record"
+    }
+    return loadable_cols
+
+
+def raw_col_data_to_coords_vars(
+    inpath: str,
+    tb_tool: tables.table,
+    col: str,
+    data: np.ndarray,
+    timecols: Union[List[str], None],
+) -> Tuple[str, xr.DataArray]:
+    """
+    From a raw np array of data (freshly loaded from a table column), prepares either a
+    coord or a data_var ready to be added to an xr.Dataset
+
+    :return: whether this column is a 'coord' or a 'data_var', DataArray
+    with column data/coord values ready to be added to the table xds
+    """
+
+    # Almost sure that when TIME is present (in a standard MS subt) it
+    # is part of the key. But what about non-std subtables, ASDM subts?
+    subts_with_time_key = (
+        "FEED",
+        "FLAG_CMD",
+        "FREQ_OFFSET",
+        "HISTORY",
+        "POINTING",
+        "SOURCE",
+        "SYSCAL",
+        "WEATHER",
+    )
+    dim_prefix = "dim"
+
+    if col in timecols:
+        if col == "MJD":
+            data = convert_mjd_time(data)
+        else:
+            try:
+                data = convert_casacore_time(data)
+            except pd.errors.OutOfBoundsDatetime as exc:
+                if inpath.endswith("WEATHER"):
+                    logger.error(
+                        f"Exception when converting WEATHER/TIME: {exc}. TIME data: {data}"
+                    )
+                else:
+                    raise
+    # should also probably add INTERVAL not only TIME
+    if col.endswith("_ID") or (inpath.endswith(subts_with_time_key) and col == "TIME"):
+        # weather table: importasdm produces very wrong "-1" ANTENNA_ID
+        if (
+            inpath.endswith("WEATHER")
+            and col == "ANTENNA_ID"
+            and "NS_WX_STATION_ID" in tb_tool.colnames()
+        ):
+            data = tb_tool.getcol("NS_WX_STATION_ID")
+
+        array_type = "coord"
+        array_data = xr.DataArray(
+            data,
+            dims=[
+                f"{dim_prefix}_{di}_{ds}" for di, ds in enumerate(np.array(data).shape)
+            ],
+        )
+    else:
+        array_type = "data_var"
+        array_data = xr.DataArray(
+            data,
+            dims=[
+                f"{dim_prefix}_{di}_{ds}" for di, ds in enumerate(np.array(data).shape)
+            ],
+        )
+
+    return array_type, array_data
+
+
+def handle_variable_col_issues(
+    inpath: str, col: str, col_cells: dict, trows: tables.tablerow
+) -> np.ndarray:
+    """
+    load variable-size array columns, padding with nans wherever
+    needed. This happens for example often in the SPECTRAL_WINDOW
+    table (CHAN_WIDTH, EFFECTIVE_BW, etc.).
+    Also handle exceptions gracefully when trying to load the rows.
+
+    :param inpath: path name of the MS
+    :param col: column being loaded
+    :param col_cells: {col: cell} values
+    :param trows: rows from a table as loaded by tables.row()
+
+    :return: array with column values (possibly padded if rows vary in size)
+    """
+
+    # Optional cols known to sometimes have inconsistent values
+    known_misbehaving_cols = ["ASSOC_NATURE"]
+
+    mshape = np.array(max([np.array(row[col]).shape for row in trows]))
+    try:
+        pad_nan = get_pad_nan(col_cells[col])
+
+        # TODO
+        # benchmark np.stack() performance
+        data = np.stack(
+            [
+                np.pad(
+                    row[col]
+                    if len(row[col]) > 0
+                    else np.array(row[col]).reshape(np.arange(len(mshape)) * 0),
+                    [(0, ss) for ss in mshape - np.array(row[col]).shape],
+                    "constant",
+                    constant_values=pad_nan,
+                )
+                for row in trows
+            ]
+        )
+    except Exception as exc:
+        msg = f"{inpath}: failed to load data for column {col}: {exc}"
+        if col in known_misbehaving_cols:
+            logger.debug(msg)
+        else:
+            logger.warning(msg)
+        data = np.empty(0)
+
+    return data
 
 
 def read_flat_col_chunk(infile, col, cshape, ridxs, cstart, pstart) -> np.ndarray:

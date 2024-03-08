@@ -194,6 +194,30 @@ def create_coordinates(
     return xds
 
 
+def find_min_max_times_taql(tb_tool, taql_where: str):
+    """
+    Find the min/max times in an MSv4, for constraining pointing.
+
+    Parameters
+    ----------
+    tb_tool : tables.table
+        table (query) opened with an MSv4 query
+
+    taql_where : str
+        TaQL where for this MSv4
+
+    Returns
+    -------
+    str
+        TaQL string with the min/max time where constraint
+    """
+    utimes, tol = get_utimes_tol(tb_tool, taql_where)
+    time_min = utimes.min() - tol
+    time_max = utimes.max() + tol
+    taql = f"where TIME >= {time_min} AND TIME <= {time_max}"
+    return taql
+
+
 def create_data_variables(
     in_file, xds, tb_tool, time_baseline_shape, tidxs, bidxs, didxs
 ):
@@ -256,7 +280,6 @@ def convert_and_write_partition(
     ddi: int = 0,
     state_ids=None,
     field_id: int = None,
-    ignore_msv2_cols: Union[list, None] = None,
     main_chunksize: Union[Dict, None] = None,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend="zarr",
@@ -278,8 +301,6 @@ def convert_and_write_partition(
         _description_, by default None
     field_id : int, optional
         _description_, by default None
-    ignore_msv2_cols : Union[list, None], optional
-        _description_, by default None
     main_chunksize : Union[Dict, None], optional
         _description_, by default None
     compressor : numcodecs.abc.Codec, optional
@@ -294,8 +315,6 @@ def convert_and_write_partition(
     _type_
         _description_
     """
-    if ignore_msv2_cols is None:
-        ignore_msv2_cols = []
 
     taql_where, file_name = create_taql_query_and_file_name(
         out_file, intent, state_ids, field_id, ddi
@@ -364,8 +383,13 @@ def convert_and_write_partition(
             logger.debug("Time weather " + str(time.time() - start))
 
             start = time.time()
-            pointing_xds = create_pointing_xds(in_file)
-            logger.debug("Time pointing " + str(time.time() - start))
+            taql_pointing = find_min_max_times_taql(tb_tool, taql_where)
+            pointing_xds = create_pointing_xds(in_file, taql_pointing)
+            add_encoding(pointing_xds, compressor=compressor)
+            logger.debug(
+                "Time pointing (with add compressor and chunking) "
+                + str(time.time() - start)
+            )
 
             start = time.time()
             # Fix UVW frame

@@ -304,6 +304,7 @@ def read_generic_table(
     timecols: Union[List[str], None] = None,
     ignore: Union[List[str], None] = None,
     rename_ids: Dict[str, str] = None,
+    taql_where: str = None,
 ) -> xr.Dataset:
     """
     load generic casacore (sub)table into memory resident xds (xarray wrapped
@@ -320,6 +321,7 @@ def read_generic_table(
     leaves times as their original casacore format.
     :param ignore: list of column names to ignore and not try to read.
     :rename_ids: dict with dimension renaming mapping
+    :taql_where: TaQL string to optionally constain the rows/columns to read
 
     :return: table loaded as XArray dataset
     """
@@ -343,15 +345,23 @@ def read_generic_table(
         )
         return xr.Dataset()
 
-    with open_table_ro(infile) as tb_tool:
-        if tb_tool.nrows() == 0:
+    with open_table_ro(infile) as gtable:
+        if gtable.nrows() == 0:
             logger.debug(f"table is empty: {inpath} {tname}")
             return xr.Dataset(attrs=attrs)
 
-        colnames = tb_tool.colnames()
-        mcoords, mvars = load_cols_into_coords_data_vars(
-            infile, tb_tool, timecols, ignore
-        )
+        taql_gtable = f"select * from $gtable {taql_where}"
+        with open_query(gtable, taql_gtable) as tb_tool:
+            if tb_tool.nrows() == 0:
+                logger.debug(
+                    f"table query is empty: {inpath} {tname}, with where {taql_where}"
+                )
+                return xr.Dataset(attrs=attrs)
+
+            colnames = tb_tool.colnames()
+            mcoords, mvars = load_cols_into_coords_data_vars(
+                infile, tb_tool, timecols, ignore
+            )
 
     mvars = add_units_measures(mvars, cc_attrs)
     mcoords = add_units_measures(mcoords, cc_attrs)

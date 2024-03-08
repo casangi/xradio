@@ -16,6 +16,7 @@ def convert_msv2_to_processing_set(
     partition_scheme: {"ddi_intent_field", "ddi_state_field"} = "ddi_intent_field",
     main_chunksize: Union[Dict, str, None] = None,
     pointing_chunksize: Union[Dict, str, None] = None,
+    pointing_interpolate: bool = False,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend="zarr",
     parallel: bool = False,
@@ -37,6 +38,8 @@ def convert_msv2_to_processing_set(
         A dictionary that defines the chunk size of the main dataset. Acceptable keys are "time", "baseline", "antenna", "frequency", "polarization". By default, None.
     pointing_chunksize : Union[Dict, str, None], optional
         A dictionary that defines the chunk size of the pointing dataset. Acceptable keys are "time" and "antenna". By default, None.
+    pointing_interpolate : bool, optional
+        Whether to interpolate the time axis of the pointing sub-dataset to the time axis of the main dataset
     compressor : numcodecs.abc.Codec, optional
         The Blosc compressor to use when saving the converted data to disk using Zarr, by default numcodecs.Zstd(level=2).
     storage_backend : {"zarr", "netcdf"}, optional
@@ -74,6 +77,7 @@ def convert_msv2_to_processing_set(
                     field_id,
                     main_chunksize=main_chunksize,
                     pointing_chunksize=pointing_chunksize,
+                    pointing_interpolate=pointing_interpolate,
                     compressor=compressor,
                     overwrite=overwrite,
                 )
@@ -88,6 +92,7 @@ def convert_msv2_to_processing_set(
                 field_id,
                 main_chunksize=main_chunksize,
                 pointing_chunksize=pointing_chunksize,
+                pointing_interpolate=pointing_interpolate,
                 compressor=compressor,
                 storage_backend=storage_backend,
                 overwrite=overwrite,

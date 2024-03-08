@@ -282,6 +282,7 @@ def convert_and_write_partition(
     field_id: int = None,
     main_chunksize: Union[Dict, None] = None,
     pointing_chunksize: Union[Dict, None] = None,
+    pointing_interpolate: bool = False,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend="zarr",
     overwrite: bool = False,
@@ -305,6 +306,8 @@ def convert_and_write_partition(
     main_chunksize : Union[Dict, None], optional
         _description_, by default None
     pointing_chunksize : Union[Dict, None], optional
+        _description_, by default None
+    pointing_interpolate : bool, optional
         _description_, by default None
     compressor : numcodecs.abc.Codec, optional
         _description_, by default numcodecs.Zstd(level=2)
@@ -387,7 +390,11 @@ def convert_and_write_partition(
 
             start = time.time()
             taql_pointing = find_min_max_times_taql(tb_tool, taql_where)
-            pointing_xds = create_pointing_xds(in_file, taql_pointing)
+            if pointing_interpolate:
+                pointing_interp_time = xds.time
+            else:
+                pointing_interp_time = None
+            pointing_xds = create_pointing_xds(in_file, taql_pointing, pointing_interp_time)
             add_encoding(pointing_xds, compressor=compressor, chunks=pointing_chunksize)
             logger.debug(
                 "Time pointing (with add compressor and chunking) "

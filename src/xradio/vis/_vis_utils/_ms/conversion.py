@@ -281,6 +281,7 @@ def convert_and_write_partition(
     state_ids=None,
     field_id: int = None,
     main_chunksize: Union[Dict, None] = None,
+    with_pointing: bool = True,
     pointing_chunksize: Union[Dict, None] = None,
     pointing_interpolate: bool = False,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
@@ -305,6 +306,8 @@ def convert_and_write_partition(
         _description_, by default None
     main_chunksize : Union[Dict, None], optional
         _description_, by default None
+    with_pointing: bool, optional
+        _description_, by default True
     pointing_chunksize : Union[Dict, None], optional
         _description_, by default None
     pointing_interpolate : bool, optional
@@ -388,18 +391,23 @@ def convert_and_write_partition(
             weather_xds = create_weather_xds(in_file)
             logger.debug("Time weather " + str(time.time() - start))
 
-            start = time.time()
-            taql_pointing = find_min_max_times_taql(tb_tool, taql_where)
-            if pointing_interpolate:
-                pointing_interp_time = xds.time
-            else:
-                pointing_interp_time = None
-            pointing_xds = create_pointing_xds(in_file, taql_pointing, pointing_interp_time)
-            add_encoding(pointing_xds, compressor=compressor, chunks=pointing_chunksize)
-            logger.debug(
-                "Time pointing (with add compressor and chunking) "
-                + str(time.time() - start)
-            )
+            if with_pointing:
+                start = time.time()
+                taql_pointing = find_min_max_times_taql(tb_tool, taql_where)
+                if pointing_interpolate:
+                    pointing_interp_time = xds.time
+                else:
+                    pointing_interp_time = None
+                pointing_xds = create_pointing_xds(
+                    in_file, taql_pointing, pointing_interp_time
+                )
+                add_encoding(
+                    pointing_xds, compressor=compressor, chunks=pointing_chunksize
+                )
+                logger.debug(
+                    "Time pointing (with add compressor and chunking) "
+                    + str(time.time() - start)
+                )
 
             start = time.time()
             # Fix UVW frame
@@ -466,7 +474,8 @@ def convert_and_write_partition(
             if storage_backend == "zarr":
                 xds.to_zarr(store=file_name + "/MAIN", mode=mode)
                 ant_xds.to_zarr(store=file_name + "/ANTENNA", mode=mode)
-                pointing_xds.to_zarr(store=file_name + "/POINTING", mode=mode)
+                if with_pointing:
+                    pointing_xds.to_zarr(store=file_name + "/POINTING", mode=mode)
                 if weather_xds:
                     weather_xds.to_zarr(store=file_name + "/WEATHER", mode=mode)
             elif storage_backend == "netcdf":

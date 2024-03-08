@@ -15,6 +15,7 @@ def convert_msv2_to_processing_set(
     out_file: str,
     partition_scheme: {"ddi_intent_field", "ddi_state_field"} = "ddi_intent_field",
     main_chunksize: Union[Dict, str, None] = None,
+    with_pointing: bool = True,
     pointing_chunksize: Union[Dict, str, None] = None,
     pointing_interpolate: bool = False,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
@@ -36,6 +37,8 @@ def convert_msv2_to_processing_set(
         By default, "ddi_intent_field".
     main_chunksize : Union[Dict, str, None], optional
         A dictionary that defines the chunk size of the main dataset. Acceptable keys are "time", "baseline", "antenna", "frequency", "polarization". By default, None.
+    with_pointing : bool, optional
+        Whether to convert the POINTING subtable into pointing sub-datasets
     pointing_chunksize : Union[Dict, str, None], optional
         A dictionary that defines the chunk size of the pointing dataset. Acceptable keys are "time" and "antenna". By default, None.
     pointing_interpolate : bool, optional
@@ -76,6 +79,7 @@ def convert_msv2_to_processing_set(
                     state_id,
                     field_id,
                     main_chunksize=main_chunksize,
+                    with_pointing=with_pointing,
                     pointing_chunksize=pointing_chunksize,
                     pointing_interpolate=pointing_interpolate,
                     compressor=compressor,
@@ -91,6 +95,7 @@ def convert_msv2_to_processing_set(
                 state_id,
                 field_id,
                 main_chunksize=main_chunksize,
+                with_pointing=with_pointing,
                 pointing_chunksize=pointing_chunksize,
                 pointing_interpolate=pointing_interpolate,
                 compressor=compressor,

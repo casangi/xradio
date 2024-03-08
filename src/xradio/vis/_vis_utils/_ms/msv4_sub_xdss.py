@@ -1,5 +1,6 @@
 import graphviper.utils.logger as logger
 import time
+from typing import Union
 
 import numpy as np
 import xarray as xr
@@ -212,7 +213,7 @@ def create_weather_xds(in_file: str):
     return weather_xds
 
 
-def create_pointing_xds(in_file: str, taql_where: str) -> xr.Dataset:
+def create_pointing_xds(in_file: str, taql_where: str, interp_time: Union[float, None] = None) -> xr.Dataset:
     """Creates a Pointing Xarray Dataset from an MS v2 POINTING (sub)table.
 
     WIP: details of a few direction variables (and possibly moving some to attributes) to be
@@ -225,6 +226,9 @@ def create_pointing_xds(in_file: str, taql_where: str) -> xr.Dataset:
 
     taql_where : str
         TaQL where string to constrain TIME, etc.
+
+    interp_time : xr.DataArray
+        interpolate time to this (presumably main dataset time)
 
     Returns
     -------
@@ -326,6 +330,12 @@ def create_pointing_xds(in_file: str, taql_where: str) -> xr.Dataset:
             ),
         }
     # TODO: move also source_offset/pointing_offset from data_vars to attrs?
+
+    if interp_time is not None:
+        logger.info(" Interpolating pointing_xds time coordinate to main_xds time")
+        pointing_xds = pointing_xds.interp(
+            time=interp_time, method="linear", assume_sorted=True
+        )
 
     logger.debug(f"create_pointing_xds() execution time {time.time() - start:0.2f} s")
 

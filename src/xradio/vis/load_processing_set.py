@@ -159,6 +159,7 @@ def load_processing_set(ps_name, sel_parms):
         ps[name_ms_xds] = _load_ms_xds(ps_name, name_ms_xds, ms_xds_sel_parms)[0]
     return ps
 
+
 class processing_set_iterator:
 
     def __init__(self, data_selection, input_data_store, input_data=None):
@@ -175,15 +176,15 @@ class processing_set_iterator:
             xds_name = next(self.xds_name_iter)
         except Exception as e:
             raise StopIteration
-        
+
         if self.input_data is None:
             slice_description = self.data_selection[xds_name]
             ps = load_processing_set(
-                    ps_name=self.input_data_store,
-                    sel_parms={xds_name: slice_description},
-                )
+                ps_name=self.input_data_store,
+                sel_parms={xds_name: slice_description},
+            )
             xds = ps.get(0)
         else:
-            xds = self.input_data[xds_name] #In memory
+            xds = self.input_data[xds_name]  # In memory
 
         return xds

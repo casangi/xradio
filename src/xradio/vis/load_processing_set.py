@@ -3,16 +3,18 @@ import zarr
 import copy
 import os
 from ._processing_set import processing_set
+from .._utils.zarr.common import _load_no_dask_zarr
 
 DIMENSION_KEY = "_ARRAY_DIMENSIONS"  # Used by xarray to store array labeling info in zarr meta data.
 # from xradio._utils._logger import _get_logger
 
-
+"""
 def _get_attrs(zarr_obj):
-    """
+    ""
     get attributes of zarr obj (groups or arrays)
-    """
+    ""
     return {k: v for k, v in zarr_obj.attrs.asdict().items() if not k.startswith("_NC")}
+"""
 
 
 def _load_ms_xds(
@@ -91,9 +93,9 @@ def _load_ms_xds_core(ms_xds_name, slice_dict):
 
     return ms_xds
 
-
+"""
 def _load_no_dask_zarr(zarr_name, slice_dict={}):
-    """
+    ""
     Alternative to xarray open_zarr where the arrays are not Dask Arrays.
 
     slice_dict: A dictionary of slice objects for which values to read form a dimension.
@@ -103,7 +105,7 @@ def _load_no_dask_zarr(zarr_name, slice_dict={}):
         xarray.Dataset()
 
     #Should go into general utils.
-    """
+    ""
 
     # logger = _get_logger()
     zarr_group = zarr.open_group(store=zarr_name, mode="r")
@@ -146,7 +148,7 @@ def _load_no_dask_zarr(zarr_name, slice_dict={}):
     xds.attrs = group_attrs
 
     return xds
-
+    """
 
 def load_processing_set(ps_name, sel_parms):
     """

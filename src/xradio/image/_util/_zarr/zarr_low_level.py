@@ -93,7 +93,7 @@ def pad_array_with_nans(input_array, output_shape, dtype):
     padded_array[:] = np.nan
 
     # Copy the input array to the appropriate position within the padded array
-    padded_array[: input_shape[0], : input_shape[1]] = input_array
+    padded_array[: input_shape[0], : input_shape[1], : input_shape[2]] = input_array
 
     return padded_array
 

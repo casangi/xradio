@@ -9,6 +9,8 @@ import copy
 import numpy as np
 import xarray as xr
 
+# from .._utils.zarr.common import _load_no_dask_zarr
+
 from ._util.casacore import _load_casa_image_block, _xds_to_casa_image
 from ._util.fits import _read_fits_image
 from ._util.image_factory import (
@@ -16,7 +18,7 @@ from ._util.image_factory import (
     _make_empty_lmuv_image,
     _make_empty_sky_image,
 )
-from ._util.zarr import _xds_to_zarr, _xds_from_zarr
+from ._util.zarr import _load_image_from_zarr_no_dask, _xds_from_zarr, _xds_to_zarr
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -166,9 +168,11 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
         emsgs.append(f'image format appears not to be fits {e.args}')
     """
     # when done debugging, comment out next line
+    # return _load_image_from_zarr_no_dask(infile, block_des)
     # return _xds_from_zarr(infile, {"dv": "numpy"}, selection)
     try:
-        return _xds_from_zarr(infile, {"dv": "numpy", "coords": "numpy"}, selection)
+        return _load_image_from_zarr_no_dask(infile, block_des)
+        # return _xds_from_zarr(infile, {"dv": "numpy", "coords": "numpy"}, selection)
     except Exception as e:
         emsgs.append(f"image format appears not to be zarr {e.args}")
     emsgs.insert(
@@ -177,7 +181,9 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
     raise RuntimeError("\n".join(emsgs))
 
 
-def write_image(xds: xr.Dataset, imagename: str, out_format: str = "casa", overwrite=False) -> None:
+def write_image(
+    xds: xr.Dataset, imagename: str, out_format: str = "casa", overwrite=False
+) -> None:
     """
     Convert an xds image to CASA or zarr image.
     xds : xarray.Dataset
@@ -194,7 +200,8 @@ def write_image(xds: xr.Dataset, imagename: str, out_format: str = "casa", overw
 
     if overwrite:
         import os
-        os.system('rm -rf ' + imagename)
+
+        os.system("rm -rf " + imagename)
 
     if my_format == "casa":
         _xds_to_casa_image(xds, imagename)

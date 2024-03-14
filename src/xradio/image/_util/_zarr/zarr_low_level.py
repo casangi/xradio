@@ -70,7 +70,6 @@ image_data_variables_and_dims_single_precision = {
 }
 
 
-
 def pad_array_with_nans(input_array, output_shape, dtype):
     """
     Pad an integer array with NaN values to match the specified output shape.
@@ -277,8 +276,7 @@ def create_data_variable_meta_data_on_disk(
     return zarr_meta
 
 
-
-def write_chunk(img_xds,meta,parallel_dims_chunk_id,compressor,image_file):
+def write_chunk(img_xds, meta, parallel_dims_chunk_id, compressor, image_file):
     dims = meta["dims"]
     dtype = meta["dtype"]
     data_varaible_name = meta["name"]
@@ -304,8 +302,6 @@ def write_chunk(img_xds,meta,parallel_dims_chunk_id,compressor,image_file):
 
         write_binary_blob_to_disk(
             array,
-            file_path=os.path.join(
-                image_file, data_varaible_name, chunk_name
-            ),
+            file_path=os.path.join(image_file, data_varaible_name, chunk_name),
             compressor=compressor,
         )

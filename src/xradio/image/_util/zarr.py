@@ -3,7 +3,7 @@ from ._zarr.xds_from_zarr import _read_zarr
 import numpy as np
 import os
 import xarray as xr
-from ..._utils.zarr.common import _load_no_dask_zarr
+from ..._utils.zarr.common import _open_dataset
 
 
 def _xds_to_zarr(xds: xr.Dataset, zarr_store: str):
@@ -25,11 +25,11 @@ def _xds_from_zarr(
 
 
 def _load_image_from_zarr_no_dask(zarr_file: str, selection: dict) -> xr.Dataset:
-    image_xds = _load_no_dask_zarr(zarr_file, selection)
+    image_xds = _open_dataset(zarr_file, selection, load=True)
     for h in ["HISTORY", "_attrs_xds_history"]:
         history = os.sep.join([zarr_file, h])
         if os.path.isdir(history):
-            image_xds.attrs["history"] = _load_no_dask_zarr(history)
+            image_xds.attrs["history"] = _open_dataset(history, load=True)
             break
     _iter_dict(image_xds.attrs)
     return image_xds

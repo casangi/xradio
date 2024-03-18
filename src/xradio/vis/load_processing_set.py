@@ -38,11 +38,13 @@ def load_processing_set(
 
 class processing_set_iterator:
 
-    def __init__(self, data_selection, input_data_store, input_data=None):
+    def __init__(self, sel_parms, input_data_store, input_data=None, data_variables=None, load_sub_datasets=True):
         self.input_data = input_data
         self.input_data_store = input_data_store
-        self.data_selection = data_selection
-        self.xds_name_iter = iter(data_selection.keys())
+        self.sel_parms = sel_parms
+        self.xds_name_iter = iter(sel_parms.keys())
+        self.data_variables = data_variables
+        self.load_sub_datasets = load_sub_datasets
 
     def __iter__(self):
         return self
@@ -54,10 +56,12 @@ class processing_set_iterator:
             raise StopIteration
 
         if self.input_data is None:
-            slice_description = self.data_selection[xds_name]
+            slice_description = self.sel_parms[xds_name]
             ps = load_processing_set(
                 ps_name=self.input_data_store,
                 sel_parms={xds_name: slice_description},
+                data_variables=self.data_variables,
+                load_sub_datasets=self.load_sub_datasets
             )
             xds = ps.get(0)
         else:

@@ -565,6 +565,8 @@ class xds_from_image_test(ImageBase):
                         f"got wrong data type, got {xds['sky'].dtype}, "
                         + f"expected {im.datatype()}",
                     )
+            print(xds.attrs["direction"])
+
             self.assertEqual(xds.sky.shape, (1, 1, 4, 8, 12), "Wrong block shape")
             big_xds = self._xds if i == 0 else self._xds_no_sky
             self.assertTrue(

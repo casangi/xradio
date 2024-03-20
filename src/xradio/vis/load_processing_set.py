@@ -3,22 +3,48 @@ import zarr
 import copy
 import os
 from ._processing_set import processing_set
+from typing import Dict, Union
 
 
 def load_processing_set(
-    ps_name, sel_parms, data_variables=None, load_sub_datasets=True
-):
-    """
-    sel_parms
+    ps_store: str,
+    sel_parms: dict,
+    data_variables: Union[list, None] = None,
+    load_sub_datasets: bool = True,
+)->processing_set:
+    """Loads a processing set into memory.
+
+    Parameters
+    ----------
+    ps_store : str
+        String of the path and name of the processing set. For example '/users/user_1/uid___A002_Xf07bba_Xbe5c_target.lsrk.vis.zarr'.
+    sel_parms : dict
         A dictionary where the keys are the names of the ms_xds's and the values are slice_dicts.
         slice_dicts: A dictionary where the keys are the dimension names and the values are slices.
-    """
+        For example::
+
+            {
+                'ms_v4_name_1': {'frequency': slice(0, 160, None),'time':slice(0,100)},
+                ...
+                'ms_v4_name_n': {'frequency': slice(0, 160, None),'time':slice(0,100)},
+            }
+
+    data_variables : Union[list, None], optional
+        The list of data variables to load into memory for example ['VISIBILITY', 'WEIGHT, 'FLAGS']. By default None which will load all data variables into memory.
+    load_sub_datasets : bool, optional
+        If true sub-datasets (for example weather_xds, antenna_xds, pointing_xds, ...) will be loaded into memory, by default True.
+
+    Returns
+    -------
+    processing_set
+        In memory representation of processing set (data is represented by Dask.arrays). 
+    """    
     from xradio._utils.zarr.common import _open_dataset
 
     ps = processing_set()
     for ms_dir_name, ms_xds_isel in sel_parms.items():
         xds = _open_dataset(
-            os.path.join(ps_name, ms_dir_name, "MAIN"),
+            os.path.join(ps_store, ms_dir_name, "MAIN"),
             ms_xds_isel,
             data_variables,
             load=True,
@@ -29,7 +55,7 @@ def load_processing_set(
 
             xds.attrs = {
                 **xds.attrs,
-                **_read_sub_xds(os.path.join(ps_name, ms_dir_name), load=True),
+                **_read_sub_xds(os.path.join(ps_store, ms_dir_name), load=True),
             }
 
         ps[ms_dir_name] = xds
@@ -38,7 +64,38 @@ def load_processing_set(
 
 class processing_set_iterator:
 
-    def __init__(self, sel_parms, input_data_store, input_data=None, data_variables=None, load_sub_datasets=True):
+    def __init__(
+        self,
+        sel_parms: dict,
+        input_data_store: str,
+        input_data: Union[Dict, processing_set, None] = None,
+        data_variables: list = None,
+        load_sub_datasets: bool = True,
+    ):
+        """An iterator that will go through a processing set one MS v4 at a time.
+
+        Parameters
+        ----------
+        sel_parms : dict
+            A dictionary where the keys are the names of the ms_xds's and the values are slice_dicts.
+            slice_dicts: A dictionary where the keys are the dimension names and the values are slices.
+            For example::
+
+                {
+                    'ms_v4_name_1': {'frequency': slice(0, 160, None),'time':slice(0,100)},
+                    ...
+                    'ms_v4_name_n': {'frequency': slice(0, 160, None),'time':slice(0,100)},
+                }
+        input_data_store : str
+            String of the path and name of the processing set. For example '/users/user_1/uid___A002_Xf07bba_Xbe5c_target.lsrk.vis.zarr'.
+        input_data : Union[Dict, processing_set, None], optional
+            If the processing set is in memory already it can be supplied here. By default None which will make the iterator load data using the supplied input_data_store.
+        data_variables : list, optional
+            The list of data variables to load into memory for example ['VISIBILITY', 'WEIGHT, 'FLAGS']. By default None which will load all data variables into memory.
+        load_sub_datasets : bool, optional
+            If true sub-datasets (for example weather_xds, antenna_xds, pointing_xds, ...) will be loaded into memory, by default True.
+        """        
+
         self.input_data = input_data
         self.input_data_store = input_data_store
         self.sel_parms = sel_parms
@@ -58,90 +115,13 @@ class processing_set_iterator:
         if self.input_data is None:
             slice_description = self.sel_parms[xds_name]
             ps = load_processing_set(
-                ps_name=self.input_data_store,
+                ps_store=self.input_data_store,
                 sel_parms={xds_name: slice_description},
                 data_variables=self.data_variables,
-                load_sub_datasets=self.load_sub_datasets
+                load_sub_datasets=self.load_sub_datasets,
             )
             xds = ps.get(0)
         else:
             xds = self.input_data[xds_name]  # In memory
 
         return xds
-
-
-# def _load_ms_xds(
-#     ps_name, ms_xds_name, slice_dict={}, cache_dir=None, chunk_id=None, date_time=""
-# ):
-#     # logger = _get_logger()
-#     if cache_dir:
-#         xds_cached_name = (
-#             os.path.join(cache_dir, ms_xds_name) + "_" + str(chunk_id) + "_" + date_time
-#         )
-
-#         # Check if already chached:
-#         try:
-#             ms_xds = _load_ms_xds_core(
-#                 ms_xds_name=xds_cached_name, slice_dict=slice_dict
-#             )
-
-#             # logger.debug(ms_xds_name + ' chunk ' + str(slice_dict) + ' was found in cache: ' + xds_cached)
-#             found_in_cache = True
-#             return xds, found_in_cache
-#         except:
-#             # logger.debug(xds_cached + ' chunk ' + str(slice_dict) + ' was not found in cache or failed to load. Retrieving chunk from ' + ms_xds_name + ' .')
-#             ms_xds = _load_ms_xds_core(
-#                 ms_xds_name=os.path.join(ps_name, ms_xds_name), slice_dict=slice_dict
-#             )
-#             write_ms_xds(ms_xds, xds_cached_name)
-
-#             found_in_cache = False
-#             return xds, found_in_cache
-#     else:
-#         found_in_cache = None
-#         ms_xds = _load_ms_xds_core(
-#             ms_xds_name=os.path.join(ps_name, ms_xds_name), slice_dict=slice_dict
-#         )
-#         return ms_xds, found_in_cache
-
-
-# def _write_ms_xds(ms_xds, ms_xds_name):
-#     ms_xds_temp = ms_xds
-#     xr.Dataset.to_zarr(
-#         ms_xds.attrs["ANTENNA"],
-#         os.path.join(xds_cached_name, "ANTENNA"),
-#         consolidated=True,
-#     )
-#     ms_xds_temp = ms_xds
-#     ms_xds_temp.attrs["ANTENNA"] = {}
-#     xr.Dataset.to_zarr(
-#         ms_xds_temp, os.path.join(xds_cached_name, "MAIN"), consolidated=True
-#     )
-
-
-# def _load_ms_xds_core(ms_xds_name, slice_dict):
-#     ms_xds = _load_no_dask_zarr(
-#         zarr_name=os.path.join(ms_xds_name, "MAIN"), slice_dict=slice_dict
-#     )
-#     ms_xds.attrs["antenna_xds"] = _load_no_dask_zarr(
-#         zarr_name=os.path.join(ms_xds_name, "ANTENNA")
-#     )
-#     sub_xds = {
-#         "antenna_xds": "ANTENNA",
-#     }
-#     for sub_xds_key, sub_xds_name in sub_xds.items():
-#         ms_xds.attrs[sub_xds_key] = _load_no_dask_zarr(
-#             zarr_name=os.path.join(ms_xds_name, sub_xds_name)
-#         )
-#     optional_sub_xds = {
-#         "weather_xds": "WEATHER",
-#         "pointing_xds": "POINTING",
-#     }
-#     for sub_xds_key, sub_xds_name in sub_xds.items():
-#         sub_xds_path = os.path.join(ms_xds_name, sub_xds_name)
-#         if os.path.isdir(sub_xds_path):
-#             ms_xds.attrs[sub_xds_key] = _load_no_dask_zarr(
-#                 zarr_name=os.path.join(ms_xds_name, sub_xds_name)
-#             )
-
-#     return ms_xds

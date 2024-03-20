@@ -25,7 +25,7 @@ class processing_set(dict):
         else:
             self.meta["max_dims"] = self._get_ps_max_dims()
             return self.meta["max_dims"]
-        
+
     def get_ps_freq_axis(self):
         if "freq_axis" in self.meta:
             return self.meta["freq_axis"]
@@ -67,19 +67,22 @@ class processing_set(dict):
             summary_data["end_frequency"].append(value["frequency"].values[-1])
         summary_df = pd.DataFrame(summary_data)
         return summary_df
-    
+
     def _get_ps_freq_axis(self):
         import xarray as xr
+
         spw_ids = []
         freq_axis_list = []
-        frame = self.get(0).frequency.attrs['frame']
+        frame = self.get(0).frequency.attrs["frame"]
         for ms_xds in self.values():
-            assert frame == ms_xds.frequency.attrs['frame'], "Frequency reference frame not consistent in processing set."
-            if ms_xds.frequency.attrs['spw_id'] not in spw_ids:
-                spw_ids.append(ms_xds.frequency.attrs['spw_id'])
+            assert (
+                frame == ms_xds.frequency.attrs["frame"]
+            ), "Frequency reference frame not consistent in processing set."
+            if ms_xds.frequency.attrs["spw_id"] not in spw_ids:
+                spw_ids.append(ms_xds.frequency.attrs["spw_id"])
                 freq_axis_list.append(ms_xds.frequency)
 
-        freq_axis = xr.concat(freq_axis_list, dim='frequency').sortby('frequency')
+        freq_axis = xr.concat(freq_axis_list, dim="frequency").sortby("frequency")
         return freq_axis
 
     def _get_ps_max_dims(self):

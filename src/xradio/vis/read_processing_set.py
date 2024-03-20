@@ -5,13 +5,33 @@ import graphviper.utils.logger as logger
 from xradio._utils.zarr.common import _open_dataset
 
 
-def read_processing_set(ps_name, intents=None, data_group="base", fields=None):
-    items = os.listdir(ps_name)
+def read_processing_set(
+    ps_store: str, intents: list = None, fields: str = None
+)->processing_set:
+    """Creates a lazy representation of a Processing Set (only meta-data is loaded into memory).
+
+    Parameters
+    ----------
+    ps_store : str
+        String of the path and name of the processing set. For example '/users/user_1/uid___A002_Xf07bba_Xbe5c_target.lsrk.vis.zarr'.
+    intents : list, optional
+        A list of the intents to be read for example ['OBSERVE_TARGET#ON_SOURCE']. The intents in a processing set can be seem by calling processing_set.summary().
+        By default None, which will read all intents.
+    fields : str, optional
+       The list of field names that will be read, by default None which will read all fields. 
+       
+    Returns
+    -------
+    processing_set
+        Lazy representation of processing set (data is represented by Dask.arrays). 
+    """    
+    items = os.listdir(ps_store)
     ms_xds = xr.Dataset()
     ps = processing_set()
+    data_group = 'base'
     for ms_dir_name in items:
         if "ddi" in ms_dir_name:
-            xds = _open_dataset(os.path.join(ps_name, ms_dir_name, "MAIN"))
+            xds = _open_dataset(os.path.join(ps_store, ms_dir_name, "MAIN"))
             if (intents is None) or (xds.attrs["intent"] in intents):
                 data_name = _get_data_name(xds, data_group)
 
@@ -20,7 +40,7 @@ def read_processing_set(ps_name, intents=None, data_group="base", fields=None):
                 ):
                     xds.attrs = {
                         **xds.attrs,
-                        **_read_sub_xds(os.path.join(ps_name, ms_dir_name)),
+                        **_read_sub_xds(os.path.join(ps_store, ms_dir_name)),
                     }
                     ps[ms_dir_name] = xds
     return ps

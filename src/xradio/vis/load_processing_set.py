@@ -17,7 +17,7 @@ def load_processing_set(
     Parameters
     ----------
     ps_store : str
-        String of the path and name of the processing set. For example '/users/user_1/uid___A002_Xf07bba_Xbe5c_target.lsrk.vis.zarr'.
+        String of the path and name of the processing set. For example '/users/user_1/uid___A002_Xf07bba_Xbe5c_target.lsrk.vis.zarr' for a file stored on a local file system, or 's3://viper-test-data/Antennae_North.cal.lsrk.split.vis.zarr/' for a file in AWS object storage.
     sel_parms : dict
         A dictionary where the keys are the names of the ms_xds's and the values are slice_dicts.
         slice_dicts: A dictionary where the keys are the dimension names and the values are slices.
@@ -40,11 +40,31 @@ def load_processing_set(
         In memory representation of processing set (data is represented by Dask.arrays). 
     """    
     from xradio._utils.zarr.common import _open_dataset
+    import s3fs
 
     ps = processing_set()
     for ms_dir_name, ms_xds_isel in sel_parms.items():
+
+        # before the _open_dataset call, check if dealing with an S3 bucket URL
+        if ps_store.startswith("s3"):
+            try:
+                s3 = s3fs.S3FileSystem(anon=False, requester_pays=False)
+            except PermissionError:
+                # only public, read-only buckets will be accessible
+                s3 = s3fs.S3FileSystem(anon=True)
+
+            # surely a stronger guarantee of conformance is desireable,
+            # e.g., a processing_set version/spec file ala zarr's .zmeta...
+            if s3.find(ps_store, prefix=".zgroup") in ps_store:
+                # and probably a better way to ensure that store contains valid MSv4 datasets, at that
+                main_xds = s3.isdir(ps_store+ms_dir_name+"/MAIN")
+
+        else:
+            # fall back to the default case of assuming the files are on local disk
+            main_xds = os.path.join(ps_store, ms_dir_name, "MAIN"),
+
         xds = _open_dataset(
-            os.path.join(ps_store, ms_dir_name, "MAIN"),
+            main_xds,
             ms_xds_isel,
             data_variables,
             load=True,

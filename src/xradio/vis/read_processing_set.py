@@ -3,7 +3,7 @@ import xarray as xr
 from ._processing_set import processing_set
 import graphviper.utils.logger as logger
 from xradio._utils.zarr.common import _open_dataset
-
+import s3fs
 
 def read_processing_set(
     ps_store: str, intents: list = None, fields: str = None
@@ -25,13 +25,47 @@ def read_processing_set(
     processing_set
         Lazy representation of processing set (data is represented by Dask.arrays). 
     """    
-    items = os.listdir(ps_store)
+    if os.isdir(ps_store):
+        # default to assuming the data are accessible on local file system
+        ps_store_is_s3dir = False
+        items = os.listdir(ps_store)
+
+    elif ps_store.startswith("s3"):
+        # only if not found locally, check if dealing with an S3 bucket URL
+        try:
+            # initiatlize the S3 "file system", first attempting to use pre-configured credentials
+            s3 = s3fs.S3FileSystem(anon=False, requester_pays=False)
+        except PermissionError:
+            # only public, read-only buckets will be accessible; might want to add messaging
+            s3 = s3fs.S3FileSystem(anon=True)
+
+        if s3.isdir(ps_store):
+            ps_store_is_s3dir = True
+            if not ps_store.endswith("/"):
+                # just for consistency, as there is no os.path equivalent in s3fs
+                ps.store.append("/")
+
+        if s3.find(ps_store, prefix=".zgroup") in ps_store:
+            # surely a stronger guarantee of conformance is desireable,
+            # e.g., a processing_set version/spec file ala zarr's .zmeta...
+            # and probably a better way to ensure that store contains valid MSv4 datasets, at that
+            items = [bd.split(sep='/')[-1] for bd in s3.listdir(ps_store, detail=False)]
+    else:
+        raise(FileNotFoundError, f"Could not find {ps_store} either locally or in the cloud.")
+
     ms_xds = xr.Dataset()
     ps = processing_set()
     data_group = 'base'
     for ms_dir_name in items:
         if "ddi" in ms_dir_name:
-            xds = _open_dataset(os.path.join(ps_store, ms_dir_name, "MAIN"))
+            if ps_store_is_s3dir:
+                store_path = ps_store+ms_dir_name
+                store_path_main = store_path, "/MAIN"
+            else:
+                store_path = os.path.join(ps_store, ms_dir_name)
+                store_path_main = os.path.join(store_path, "MAIN")
+            xds = _open_dataset(store_path_main)
+
             if (intents is None) or (xds.attrs["intent"] in intents):
                 data_name = _get_data_name(xds, data_group)
 
@@ -40,7 +74,7 @@ def read_processing_set(
                 ):
                     xds.attrs = {
                         **xds.attrs,
-                        **_read_sub_xds(os.path.join(ps_store, ms_dir_name)),
+                        **_read_sub_xds(store_path),
                     }
                     ps[ms_dir_name] = xds
     return ps

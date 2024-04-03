@@ -61,6 +61,39 @@ def base_test(msv2_name, expected_sum_value):
     ), "VISIBILITY and WEIGHT values have changed."
 
 
+@pytest.mark.parametrize(("s3_ps_name, expected_sum_value"), [("s3://viper-test-data/Antennae_North.cal.lsrk.split.ms", 190.0405216217041)])
+def test_s3_read_processing_set(s3_ps_name, expected_sum_value):
+
+    ps_lazy = read_processing_set(s3_ps_name)
+
+    sel_parms = {key: {} for key in ps_lazy.keys()}
+    ps = load_processing_set(s3_ps_name, sel_parms=sel_parms)
+
+    sum = 0.0
+    sum_lazy = 0.0
+
+    for ms_xds_name in ps.keys():
+        if "VISIBILITY" in ps[ms_xds_name]:
+            data_name = "VISIBILITY"
+        else:
+            data_name = "SPECTRUM"
+        sum = sum + np.nansum(
+            np.abs(ps[ms_xds_name][data_name] * ps[ms_xds_name].WEIGHT)
+        )
+        sum_lazy = sum_lazy + np.nansum(
+            np.abs(ps_lazy[ms_xds_name][data_name] * ps_lazy[ms_xds_name].WEIGHT)
+        )
+
+    print(sum)
+
+    assert (
+        sum == sum_lazy
+    ), "read_processing_set and load_processing_set VISIBILITY and WEIGHT values differ."
+    assert sum == pytest.approx(
+        expected_sum_value, rel=relative_tolerance
+    ), "VISIBILITY and WEIGHT values have changed."
+
+
 def test_alma():
     base_test("Antennae_North.cal.lsrk.split.ms", 190.0405216217041)
 

@@ -53,11 +53,11 @@ def load_processing_set(
                 # only public, read-only buckets will be accessible
                 s3 = s3fs.S3FileSystem(anon=True)
 
-            # surely a stronger guarantee of conformance is desireable,
-            # e.g., a processing_set version/spec file ala zarr's .zmeta...
-            if s3.find(ps_store, prefix=".zgroup") in ps_store:
+            if (len([ff for ff in s3.find(ps_store) if ".zgroup" in ff]) >= 1) == True:
+                # surely a stronger guarantee of conformance is desireable,
+                # e.g., a processing_set version/spec file ala zarr's .zmeta...
                 # and probably a better way to ensure that store contains valid MSv4 datasets, at that
-                main_xds = s3.isdir(ps_store+ms_dir_name+"/MAIN")
+                main_xds = ps_store+ms_dir_name+"/MAIN"
 
         else:
             # fall back to the default case of assuming the files are on local disk

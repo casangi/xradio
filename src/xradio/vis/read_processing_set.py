@@ -25,7 +25,7 @@ def read_processing_set(
     processing_set
         Lazy representation of processing set (data is represented by Dask.arrays). 
     """    
-    if os.isdir(ps_store):
+    if os.path.isdir(ps_store):
         # default to assuming the data are accessible on local file system
         ps_store_is_s3dir = False
         items = os.listdir(ps_store)
@@ -45,7 +45,7 @@ def read_processing_set(
                 # just for consistency, as there is no os.path equivalent in s3fs
                 ps.store.append("/")
 
-        if s3.find(ps_store, prefix=".zgroup") in ps_store:
+        if (len([ff for ff in s3.find(ps_store) if ".zgroup" in ff]) >= 1) == True:
             # surely a stronger guarantee of conformance is desireable,
             # e.g., a processing_set version/spec file ala zarr's .zmeta...
             # and probably a better way to ensure that store contains valid MSv4 datasets, at that
@@ -60,10 +60,10 @@ def read_processing_set(
         if "ddi" in ms_dir_name:
             if ps_store_is_s3dir:
                 store_path = ps_store+ms_dir_name
-                store_path_main = store_path, "/MAIN"
+                store_path_main = store_path + "/MAIN"
             else:
-                store_path = os.path.join(ps_store, ms_dir_name)
-                store_path_main = os.path.join(store_path, "MAIN")
+                store_path_main = os.path.join(ps_store, ms_dir_name, "MAIN")
+                store_path = os.path.split(store_path_main)[0]
             xds = _open_dataset(store_path_main)
 
             if (intents is None) or (xds.attrs["intent"] in intents):

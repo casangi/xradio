@@ -22,7 +22,7 @@ import numbers
 import numpy as np
 import numpy.ma as ma
 import os
-import pkg_resources
+import importlib.resources
 import shutil
 import sys
 import unittest
@@ -204,7 +204,7 @@ class xds_from_image_test(ImageBase):
     def setUpClass(cls):
         cls.maxDiff = None
         if not cls._ran_measures_code and os.environ["USER"] == "runner":
-            casa_data_dir = pkg_resources.resource_filename("casadata", "__data__")
+            casa_data_dir = (importlib.resources.files('casadata') / "__data__").as_posix()
             rc_file = open(os.path.expanduser("~/.casarc"), "a+")  # append mode
             rc_file.write("\nmeasures.directory: " + casa_data_dir)
             rc_file.close()

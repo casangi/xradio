@@ -7,14 +7,14 @@ from graphviper.utils.data import download
 import numpy as np
 import pytest
 import os
-import pkg_resources
+import importlib.resources
 
 relative_tolerance = 10 ** (-12)
 
 
 def base_test(msv2_name, expected_sum_value):
     if os.environ["USER"] == "runner":
-        casa_data_dir = pkg_resources.resource_filename("casadata", "__data__")
+        casa_data_dir = (importlib.resources.files('casadata') / "__data__").as_posix()
         rc_file = open(os.path.expanduser("~/.casarc"), "a+")  # append mode
         rc_file.write("\nmeasures.directory: " + casa_data_dir)
         rc_file.close()

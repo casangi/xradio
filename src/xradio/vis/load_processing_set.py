@@ -11,7 +11,7 @@ def load_processing_set(
     sel_parms: dict,
     data_variables: Union[list, None] = None,
     load_sub_datasets: bool = True,
-)->processing_set:
+) -> processing_set:
     """Loads a processing set into memory.
 
     Parameters
@@ -37,8 +37,8 @@ def load_processing_set(
     Returns
     -------
     processing_set
-        In memory representation of processing set (data is represented by Dask.arrays). 
-    """    
+        In memory representation of processing set (data is represented by Dask.arrays).
+    """
     from xradio._utils.zarr.common import _open_dataset
     import s3fs
 
@@ -57,11 +57,11 @@ def load_processing_set(
                 # surely a stronger guarantee of conformance is desireable,
                 # e.g., a processing_set version/spec file ala zarr's .zmeta...
                 # and probably a better way to ensure that store contains valid MSv4 datasets, at that
-                main_xds = ps_store+ms_dir_name+"/MAIN"
+                main_xds = ps_store + ms_dir_name + "/MAIN"
 
         else:
             # fall back to the default case of assuming the files are on local disk
-            main_xds = os.path.join(ps_store, ms_dir_name, "MAIN"),
+            main_xds = os.path.join(ps_store, ms_dir_name, "MAIN")
 
         xds = _open_dataset(
             main_xds,
@@ -114,7 +114,7 @@ class processing_set_iterator:
             The list of data variables to load into memory for example ['VISIBILITY', 'WEIGHT, 'FLAGS']. By default None which will load all data variables into memory.
         load_sub_datasets : bool, optional
             If true sub-datasets (for example weather_xds, antenna_xds, pointing_xds, ...) will be loaded into memory, by default True.
-        """        
+        """
 
         self.input_data = input_data
         self.input_data_store = input_data_store

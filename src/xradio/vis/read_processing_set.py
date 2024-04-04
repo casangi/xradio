@@ -5,9 +5,10 @@ import graphviper.utils.logger as logger
 from xradio._utils.zarr.common import _open_dataset
 import s3fs
 
+
 def read_processing_set(
     ps_store: str, intents: list = None, fields: str = None
-)->processing_set:
+) -> processing_set:
     """Creates a lazy representation of a Processing Set (only meta-data is loaded into memory).
 
     Parameters
@@ -18,13 +19,13 @@ def read_processing_set(
         A list of the intents to be read for example ['OBSERVE_TARGET#ON_SOURCE']. The intents in a processing set can be seem by calling processing_set.summary().
         By default None, which will read all intents.
     fields : str, optional
-       The list of field names that will be read, by default None which will read all fields. 
-       
+       The list of field names that will be read, by default None which will read all fields.
+
     Returns
     -------
     processing_set
-        Lazy representation of processing set (data is represented by Dask.arrays). 
-    """    
+        Lazy representation of processing set (data is represented by Dask.arrays).
+    """
     if os.path.isdir(ps_store):
         # default to assuming the data are accessible on local file system
         ps_store_is_s3dir = False
@@ -49,17 +50,20 @@ def read_processing_set(
             # surely a stronger guarantee of conformance is desireable,
             # e.g., a processing_set version/spec file ala zarr's .zmeta...
             # and probably a better way to ensure that store contains valid MSv4 datasets, at that
-            items = [bd.split(sep='/')[-1] for bd in s3.listdir(ps_store, detail=False)]
+            items = [bd.split(sep="/")[-1] for bd in s3.listdir(ps_store, detail=False)]
     else:
-        raise(FileNotFoundError, f"Could not find {ps_store} either locally or in the cloud.")
+        raise (
+            FileNotFoundError,
+            f"Could not find {ps_store} either locally or in the cloud.",
+        )
 
     ms_xds = xr.Dataset()
     ps = processing_set()
-    data_group = 'base'
+    data_group = "base"
     for ms_dir_name in items:
         if "ddi" in ms_dir_name:
             if ps_store_is_s3dir:
-                store_path = ps_store+ms_dir_name
+                store_path = ps_store + ms_dir_name
                 store_path_main = store_path + "/MAIN"
             else:
                 store_path_main = os.path.join(ps_store, ms_dir_name, "MAIN")

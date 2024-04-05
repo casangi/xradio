@@ -255,7 +255,7 @@ def check_dimensions(
     hint_remove = [f"'{hint}'" for hint in dims_set - best]
     hint_add = [f"'{hint}'" for hint in best - dims_set]
     if hint_remove and hint_add:
-        message = f"Unexpected coordinates, replace {','.join(hint_add)} by {','.join(hint_remove)}?"
+        message = f"Unexpected coordinates, replace {','.join(hint_remove)} by {','.join(hint_add)}?"
     elif hint_remove:
         message = f"Superflous coordinate {','.join(hint_remove)}?"
     elif hint_add:
@@ -284,7 +284,14 @@ def check_dtype(dtype: numpy.dtype, expected: [numpy.dtype]) -> SchemaIssues:
     """
 
     for exp_dtype in expected:
-        if dtype == exp_dtype:
+
+        # If the expected dtype has no size (e.g. "U", a.k.a. a string of
+        # arbitrary length), we don't check itemsize, only kind.
+        if (
+            dtype.kind == exp_dtype.kind
+            and exp_dtype.itemsize == 0
+            or exp_dtype == dtype
+        ):
             return SchemaIssues()
 
     # Not sure there's anything more helpful that we can do here? Any special
@@ -420,6 +427,19 @@ def _check_value(val, ann):
 
     # Is supposed to be a data array?
     if type(ann) == type and issubclass(ann, AsDataArray):
+        # Attempt to convert dictionaries automatically
+        if isinstance(val, dict):
+            try:
+                val = xarray.DataArray.from_dict(val)
+            except ValueError as e:
+                return SchemaIssues(
+                    [
+                        SchemaIssue(
+                            path=[], message=str(e), expected=[ann], found=type(val)
+                        )
+                    ]
+                )
+
         if not isinstance(val, xarray.DataArray):
             return SchemaIssues(
                 [
@@ -436,6 +456,18 @@ def _check_value(val, ann):
 
     # Is supposed to be a dataset?
     if type(ann) == type and issubclass(ann, AsDataset):
+        # Attempt to convert dictionaries automatically
+        if isinstance(val, dict):
+            try:
+                val = xarray.Dataset.from_dict(val)
+            except ValueError as e:
+                return SchemaIssues(
+                    [
+                        SchemaIssue(
+                            path=[], message=str(t), expected=[ann], found=type(val)
+                        )
+                    ]
+                )
         if not isinstance(val, xarray.Dataset):
             return SchemaIssues(
                 [

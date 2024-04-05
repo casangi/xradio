@@ -11,6 +11,8 @@ Time = Literal["time"]
 """ Observation time dimension """
 AntennaId = Literal["antenna_id"]
 """ Antenna ID dimension """
+ReceptorName = Literal["receptor_name"]
+""" Receptor name dimension """
 BaselineId = Literal["baseline_id"]
 """ Baseline ID dimension """
 Frequency = Literal["frequency"]
@@ -19,10 +21,13 @@ Polarization = Literal["polarization"]
 """ Polarization dimension """
 UvwLabel = Literal["uvw_label"]
 """ Coordinate dimension of UVW data (typically shape 3 for 'u', 'v', 'w') """
-DirectionLabel = Literal["direction_label"]
-""" Coordinate dimension of UVW data (typically shape 3 for 'u', 'v', 'w') """
+XyzLabel = Literal["xyz_label"]
+""" Coordinate dimension of earth location data (typically shape 3 and 'x', 'y', 'z')"""
 TimePolynomial = Literal["time_polynomial"]
 """ For data that is represented as variable in time using Taylor expansion """
+SkyCoordLabel = Literal["sky_coord_label"]
+""" Unlabeled axis """
+
 
 # Plain data class models
 @dataclass
@@ -39,32 +44,94 @@ class FieldInfoDict(AsDict):
     Defines a field position on the sky. For interferometers, this is the correlated field position.
     For single dishes, this is the nominal pointing direction.
     """
+
     name: str
     """Field name."""
     field_id: int
     """Field id"""
     code: str
     """Field code indicating special characteristics of the field; user specified."""
-    time_reference: str
+    time_reference: Optional[TimeArray]
     """
     Time reference for the directions and rates. When used in :py:class:`VisibilityXds` should match 
-    the scale and format given for ``time`` (see :py:class:`TimeAxis`).
+    the scale and format given for ``time`` (see :py:class:`TimeArray`).
     """
-    delay_direction: SkyCoordDict
-    
-    # TODO
-    pass
+    delay_direction: SkyCoordArray
 
 
 @dataclass
-class QuantityDict(AsDict):
-    # TODO
-    pass
+class QuantityArray(AsDataArray):
+    """
+    Anonymous quantity
+    """
+
+    data: Data[tuple[AntennaId, XyzLabel] | tuple[AntennaId], float]
+
+    type: Attr[str]
+    units: Attr[list]
+
 
 @dataclass
-class SkyCoordDict(AsDict):
-    # TODO
-    pass
+class TimeArray(AsDataArray):
+
+    data: Data[(), float]
+
+    scale: Attr[str] = "tai"
+    """Astropy time scales."""
+    format: Attr[str] = "unix"
+    """Seconds from 1970-01-01 00:00:00 UTC"""
+
+    type: Attr[str] = "time"
+    units: Attr[list] = ("s",)
+
+
+@dataclass
+class SpectralCoordArray(AsDataArray):
+
+    data: Data[(), float]
+
+    frame: Attr[str] = "gcrs"
+    """Astropy time scales."""
+
+    type: Attr[str] = "frequency"
+    units: Attr[list] = ("Hz",)
+
+
+@dataclass
+class SkyCoordArray(AsDataArray):
+
+    data: Data[tuple[SkyCoordLabel] | tuple[TimePolynomial, SkyCoordLabel], float]
+
+    type: Attr[str] = "sky_coord"
+    units: Attr[list] = ("rad", "rad")
+    frame: Attr[str] = ""
+    """
+    From fixvis docs: clean and the im tool ignore the reference frame
+    claimed by the UVW column (it is often mislabelled as ITRF when it is
+    really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame
+    as the phase tracking center. calcuvw does not yet force the UVW column and
+    field centers to use the same reference frame! Blank = use the phase
+    tracking frame of vis.
+    """
+
+
+@dataclass
+class EarthLocationArray(AsDataArray):
+
+    data: Data[tuple[AntennaId, XyzLabel] | tuple[XyzLabel], float]
+
+    ellipsoid: Attr[str]
+    """
+    ITRF makes use of GRS80 ellipsoid and WGS84 makes use of WGS84 ellipsoid
+    """
+    units: Attr[list] = ("m", "m", "m")
+    """
+    If the units are a list of strings then it must be the same length as
+    the last dimension of the data array. This allows for having different
+    units in the same data array,for example geodetic coordinates could use
+    ``['rad','rad','m']``.
+    """
+
 
 @dataclass(frozen=True)
 class ObservationInfoDict(AsDict):
@@ -80,17 +147,18 @@ class ObservationInfoDict(AsDict):
     session_reference: Optional[str]
     observing_script: Optional[str]
 
+
 # Coordinates / Axes
 @dataclass(frozen=True)
-class TimeAxis(AsDataArray):
+class TimeArray(AsDataArray):
     """Data model of time axis"""
 
     data: Data[Time, float]
     """ Time, expressed in SI seconds since the epoch (see ``scale`` & ``format``). """
 
-    integration_time: Attr[Optional[QuantityDict]] = None
+    integration_time: Attr[Optional[TimeArray]] = None
     """ The nominal sampling interval (ms v2). Units of seconds. """
-    effective_integration_time: Attr[Optional[QuantityDict]] = None
+    effective_integration_time: Attr[Optional[TimeArray]] = None
     """ Name of data array that contains the integration time that includes the effects of missing data. """
 
     long_name: Attr[str] = "Observation Time"
@@ -104,8 +172,9 @@ class TimeAxis(AsDataArray):
     format: Attr[str] = "unix"
     """ Astropy format, see :py:class:`astropy.time.Time`. Default seconds from 1970-01-01 00:00:00 UTC """
 
+
 @dataclass(frozen=True)
-class AntennaAxis(AsDataArray):
+class AntennaArray(AsDataArray):
     data: Data[AntennaId, int]
     """
     Antenna id of an antenna. Maps to ``antenna_id``
@@ -115,7 +184,7 @@ class AntennaAxis(AsDataArray):
 
 
 @dataclass(frozen=True)
-class BaselineAxis(AsDataArray):
+class BaselineArray(AsDataArray):
     """TODO: documentation"""
 
     data: Data[BaselineId, int]
@@ -124,7 +193,7 @@ class BaselineAxis(AsDataArray):
 
 
 @dataclass(frozen=True)
-class BaselineAntennaAxis(AsDataArray):
+class BaselineAntennaArray(AsDataArray):
     data: Data[BaselineId, int]
     """
     Antenna id for an antenna in a baseline. Maps to ``attrs['antenna_xds'].antenna_id``
@@ -134,7 +203,7 @@ class BaselineAntennaAxis(AsDataArray):
 
 
 @dataclass(frozen=True)
-class FrequencyAxis(AsDataArray):
+class FrequencyArray(AsDataArray):
     """TODO: documentation"""
 
     data: Data[Frequency, float]
@@ -143,12 +212,12 @@ class FrequencyAxis(AsDataArray):
     """ Name associated with spectral window. """
     frequency_group_name: Attr[str]
     """ Name associated with frequency group - needed for multi-band VLBI fringe-fitting."""
-    reference_frequency: Attr[QuantityDict]
+    reference_frequency: Attr[SpectralCoordArray]
     """ A frequency representative of the spectral window, usually the sky
     frequency corresponding to the DC edge of the baseband. Used by the calibration
     system if a ﬁxed scaling frequency is required or in algorithms to identify the
     observing band. """
-    channel_width: Attr[QuantityDict]
+    channel_width: Attr[SpectralCoordArray]
     """ The nominal channel bandwidth. Same units as data array (see units key). """
     doppler: Optional[Attr[DopplerXds]]
     """ Doppler tracking information """
@@ -167,8 +236,9 @@ class FrequencyAxis(AsDataArray):
     frame is given that this is the default.
     """
 
+
 @dataclass(frozen=True)
-class PolarizationAxis(AsDataArray):
+class PolarizationArray(AsDataArray):
     """
     Possible correlations that can be formed from polarised receptors. Possible
     values, taken from `Measures/Stokes.h
@@ -190,14 +260,12 @@ class PolarizationAxis(AsDataArray):
 
     data: Data[Polarization, str]
     """ Polarization names. """
-    type: Attr[str] = "polarization"
-    """ Coordinate type. Should be ``"polarization"``. """
     long_name: Attr[str] = "Polarization"
     """ Long-form name to use for axis. Should be ``"Polarization"``"""
 
 
 @dataclass(frozen=True)
-class UvwLabelAxis(AsDataArray):
+class UvwLabelArray(AsDataArray):
     """
     Coordinate axis to make up ``("u", "v", "w")`` tuple, see :py:class:`UvwArray`.
     """
@@ -206,6 +274,7 @@ class UvwLabelAxis(AsDataArray):
     """Should be ``('u','v','w')``, used by :py:class:`UvwArray`"""
     long_name: Attr[str] = "U/V/W label"
     """ Long-form name to use for axis. Should be ``"U/V/W label"``"""
+
 
 # Data variables
 @dataclass(frozen=True)
@@ -216,11 +285,11 @@ class VisibilityArray(AsDataArray):
         tuple[Time, BaselineId, Frequency, Polarization],
         numpy.complex64 | numpy.complex128,
     ]
-    time: Coordof[TimeAxis]
-    baseline_id: Coordof[BaselineAxis]
-    frequency: Coordof[FrequencyAxis]
-    polarization: Coordof[PolarizationAxis]
-    delay_direction: Attr[SkyCoordDict]
+    time: Coordof[TimeArray]
+    baseline_id: Coordof[BaselineArray]
+    frequency: Coordof[FrequencyArray]
+    polarization: Coordof[PolarizationArray]
+    delay_direction: Attr[SkyCoordArray]
     """ 
     Direction of delay center, i.e. what the coorelator originally phased the
     visibilities to.
@@ -229,7 +298,7 @@ class VisibilityArray(AsDataArray):
     keywords by default. If frame varies with field, it refers PhaseDir_Ref
     column instead.
     """
-    phase_direction: Attr[SkyCoordDict]
+    phase_direction: Attr[SkyCoordArray]
     """
     Phase direction of visibilities, i.e. the sky direction from which flux
     would result in real-valued visibilities independent of baseline UVW.
@@ -253,10 +322,10 @@ class FlagArray(AsDataArray):
         | tuple[Time, BaselineId],
         bool,
     ]
-    time: Coordof[TimeAxis]
-    baseline_id: Coordof[BaselineAxis]
-    frequency: Coordof[FrequencyAxis]
-    polarization: Optional[Coordof[PolarizationAxis]] = None
+    time: Coordof[TimeArray]
+    baseline_id: Coordof[BaselineArray]
+    frequency: Coordof[FrequencyArray]
+    polarization: Optional[Coordof[PolarizationArray]] = None
     long_name: Attr[str] = "Visibility flags"
 
 
@@ -277,10 +346,10 @@ class WeightArray(AsDataArray):
         numpy.float16 | numpy.float32 | numpy.float64,
     ]
     """Visibility weights"""
-    time: Coordof[TimeAxis]
-    baseline_id: Coordof[BaselineAxis]
-    frequency: Optional[Coordof[FrequencyAxis]] = None
-    polarization: Optional[Coordof[PolarizationAxis]] = None
+    time: Coordof[TimeArray]
+    baseline_id: Coordof[BaselineArray]
+    frequency: Optional[Coordof[FrequencyArray]] = None
+    polarization: Optional[Coordof[PolarizationArray]] = None
     long_name: Attr[str] = "Visibility weights"
 
 
@@ -321,14 +390,14 @@ class UvwArray(AsDataArray):
         numpy.float16 | numpy.float32 | numpy.float64,
     ]
     """Baseline coordinates from ``baseline_antenna2_id`` to ``baseline_antenna1_id``"""
-    time: Coordof[TimeAxis]
-    baseline_id: Coordof[BaselineAxis]
-    frequency: Optional[Coordof[FrequencyAxis]] = None
-    polarization: Optional[Coordof[PolarizationAxis]] = None
-    uvw_label: Coordof[UvwLabelAxis] = ("u", "v", "w")
+    time: Coordof[TimeArray]
+    baseline_id: Coordof[BaselineArray]
+    frequency: Optional[Coordof[FrequencyArray]] = None
+    polarization: Optional[Coordof[PolarizationArray]] = None
+    uvw_label: Coordof[UvwLabelArray] = ("u", "v", "w")
     long_name: Attr[str] = "Baseline coordinates"
     """ Long-form name to use for axis. Should be ``"Baseline coordinates``"""
-    units: Attr[tuple[str]] = ("m",)
+    units: Attr[list[str]] = ("m",)
 
 
 @dataclass(frozen=True)
@@ -342,10 +411,10 @@ class TimeSamplingArray(AsDataArray):
         float,
     ]
 
-    time: Coordof[TimeAxis]
-    baseline_id: Coordof[BaselineAxis]
-    frequency: Optional[Coordof[FrequencyAxis]] = None
-    polarization: Optional[Coordof[PolarizationAxis]] = None
+    time: Coordof[TimeArray]
+    baseline_id: Coordof[BaselineArray]
+    frequency: Optional[Coordof[FrequencyArray]] = None
+    polarization: Optional[Coordof[PolarizationArray]] = None
 
     scale: Attr[str] = "tai"
     """ Astropy time scales, see :py:class:`astropy.time.Time` """
@@ -372,10 +441,10 @@ class FreqSamplingArray(AsDataArray):
     time. Concrete function depends on concrete data array within
     :py:class:`VisibilityXds`.
     """
-    frequency: Coordof[FrequencyAxis]
-    time: Optional[Coordof[TimeAxis]] = None
-    baseline_id: Optional[Coordof[BaselineAxis]] = None
-    polarization: Optional[Coordof[PolarizationAxis]] = None
+    frequency: Coordof[FrequencyArray]
+    time: Optional[Coordof[TimeArray]] = None
+    baseline_id: Optional[Coordof[BaselineArray]] = None
+    polarization: Optional[Coordof[PolarizationArray]] = None
     long_name: Attr[str] = "Frequency sampling data"
     units: Attr[str] = "Hz"
     frame: Attr[str] = "icrs"
@@ -386,25 +455,26 @@ class FreqSamplingArray(AsDataArray):
     frame is given that this is the default.
     """
 
+
 # Data Sets
 @dataclass(frozen=True)
 class VisibilityXds(AsDataset):
     """TODO: documentation"""
 
     # Required Coordinates
-    time: Coordof[TimeAxis]
+    time: Coordof[TimeArray]
     """
     The time coordinate is the mid-point of the nominal sampling interval, as
     speciﬁed in the ``ms_v4.time.attrs['integration_time']`` (ms v2 interval).
     """
-    baseline_id: Coordof[BaselineAxis]
-    frequency: Coordof[FrequencyAxis]
+    baseline_id: Coordof[BaselineArray]
+    frequency: Coordof[FrequencyArray]
     """Center frequencies for each channel."""
-    polarization: Coordof[PolarizationAxis]
+    polarization: Coordof[PolarizationArray]
     """
     Labels for polarization types, e.g. ``['XX','XY','YX','YY']``, ``['RR','RL','LR','LL']``.
     """
-    uvw_label: Optional[Coordof[UvwLabelAxis]]
+    uvw_label: Optional[Coordof[UvwLabelArray]]
 
     # Required data variables / arrays
     VISIBILITY: Dataof[VisibilityArray]
@@ -415,9 +485,9 @@ class VisibilityXds(AsDataset):
     antenna_xds: Attr[AntennaXds]
 
     # Optional Coordinates
-    baseline_antenna1_id: Optional[Coordof[BaselineAntennaAxis]] = None
+    baseline_antenna1_id: Optional[Coordof[BaselineAntennaArray]] = None
     """Antenna id for 1st antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_id``"""
-    baseline_antenna2_id: Optional[Coordof[BaselineAntennaAxis]] = None
+    baseline_antenna2_id: Optional[Coordof[BaselineAntennaArray]] = None
     """Antenna id for 2nd antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_id``"""
     scan_id: Optional[Coord[Time, int]] = None
     """Arbitary scan number to identify data taken in the same logical scan."""
@@ -431,12 +501,12 @@ class VisibilityXds(AsDataset):
     """
     The integration time, including the effects of missing data, in contrast to
     ``integration_time`` attribute of the ``time`` coordinate,
-    see :py:class:`TimeAxis`. (MS v2: ``exposure``).
+    see :py:class:`TimeArray`. (MS v2: ``exposure``).
     """
     TIME_CENTROID: Optional[Dataof[TimeSamplingArray]] = None
     """
     The time centroid of the visibility, includes the effects of missing data
-    unlike the ``time`` coordinate, see :py:class:`TimeAxis`.
+    unlike the ``time`` coordinate, see :py:class:`TimeArray`.
     """
     TIME_CENTROID_EXTRA_PRECISION: Optional[Dataof[TimeSamplingArray]] = None
     """Additional precision for ``TIME_CENTROID``"""
@@ -457,7 +527,7 @@ class PointingXds(AsDataset):
     # TODO
     pass
 
-    
+
 @dataclass(frozen=True)
 class SpectralCoordXds(AsDataset):
     # TODO
@@ -466,8 +536,49 @@ class SpectralCoordXds(AsDataset):
 
 @dataclass(frozen=True)
 class AntennaXds(AsDataset):
-    # TODO
-    pass
+
+    antenna_id: Coordof[AntennaArray]
+    """Antenna ID"""
+    xyz_label: Coord[XyzLabel, str]
+    """Coordinate dimension of earth location data (typically shape 3 and 'x', 'y', 'z')"""
+    sky_coord_label: Optional[Coord[SkyCoordLabel, str]]
+    """Coordinate dimension of earth location data (typically shape 3 and 'x', 'y', 'z')"""
+
+    name: Coord[AntennaId, str]
+    """Antenna name."""
+    station: Coord[AntennaId, str]
+    """Name of the station pad (relevant to arrays with moving antennas)."""
+    type: Coord[AntennaId, str]
+    """Antenna type.
+
+    Reserved keywords include: (``GROUND-BASED`` - conventional
+    antennas; ``SPACE-BASED`` - orbiting antennas; ``TRACKING-STN`` - tracking
+    stations)."""
+    mount: Coord[AntennaId, str]
+    """Mount type of the antenna.
+
+    Reserved keywords include: (``EQUATORIAL`` - equatorial mount; ``ALTAZ`` -
+    azimuth-elevation mount; ``X-Y`` - x-y mount; ``SPACE-HALCA`` - specific
+    orientation model.)"""
+    observatory: Optional[Coord[AntennaId, str]]
+    """Support for VLBI"""
+    receptor_name: Optional[Coord[ReceptorName, str]]
+    """Names of receptors"""
+
+    POSITION: Dataof[EarthLocationArray]
+    """
+    In a right-handed frame, X towards the intersection of the equator and
+    the Greenwich meridian, Z towards the pole.
+    """
+    FEED_OFFSET: Dataof[QuantityArray]
+    """
+    Offset of feed relative to position (Antenna_Table.offset + Feed_Table.position).
+    """
+    DISH_DIAMETER: Dataof[QuantityArray]
+    """
+    Offset of feed relative to position (Antenna_Table.offset + Feed_Table.position).
+    """
+    BEAM_OFFSET: Optional[Dataof[SkyCoordArray]]
 
 
 @dataclass(frozen=True)

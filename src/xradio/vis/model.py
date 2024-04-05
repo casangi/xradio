@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Literal, Optional, Union
-from xradio.schema.bases import AsDataArray, AsDataset
+from xradio.schema.bases import AsDataArray, AsDataset, AsDict
 from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof, Name
 import numpy
 
@@ -32,7 +32,7 @@ class SourceInfoDict:
 
 
 @dataclass
-class FieldInfoDict:
+class FieldInfoDict(AsDict):
     """
     Field positions for each source.
 
@@ -57,17 +57,17 @@ class FieldInfoDict:
 
 
 @dataclass
-class QuantityDict:
+class QuantityDict(AsDict):
     # TODO
     pass
 
 @dataclass
-class SkyCoordDict:
+class SkyCoordDict(AsDict):
     # TODO
     pass
 
 @dataclass(frozen=True)
-class ObservationInfoDict:
+class ObservationInfoDict(AsDict):
     observer: List[str]
     """List of observer names."""
     project: str
@@ -97,7 +97,7 @@ class TimeAxis(AsDataArray):
     """ Long-form name to use for axis"""
     type: Attr[str] = "time"
     """ Coordinate type. Should be ``"time"``. """
-    units: Attr[tuple[str]] = ("s",)
+    units: Attr[list[str]] = ("s",)
     """ Units to associate with axis"""
     scale: Attr[str] = "tai"
     """ Astropy time scales, see :py:class:`astropy.time.Time` """
@@ -157,7 +157,7 @@ class FrequencyAxis(AsDataArray):
     """ Coordinate type. Should be ``"spectral_coord"``. """
     long_name: Attr[str] = "Frequency"
     """ Long-form name to use for axis"""
-    units: Attr[tuple[str]] = ("Hz",)
+    units: Attr[list[str]] = ("Hz",)
     """ Units to associate with axis"""
     frame: Attr[str] = "icrs"
     """
@@ -236,7 +236,7 @@ class VisibilityArray(AsDataArray):
     """
     long_name: Attr[str] = "Visibility values"
     """ Long-form name to use for axis. Should be ``"Visibility values"``"""
-    units: Attr[tuple[str]] = ("Jy",)
+    units: Attr[list] = ("Jy",)
 
 
 @dataclass(frozen=True)

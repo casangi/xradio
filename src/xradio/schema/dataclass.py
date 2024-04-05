@@ -250,3 +250,35 @@ def xarray_dataclass_to_dataset_schema(klass):
         attributes=attributes,
         class_docstring=inspect.cleandoc(klass.__doc__),
     )
+
+
+def xarray_dataclass_to_dict_schema(klass):
+    """
+    Convert an xarray-dataclass style schema dataclass to an DictSchema
+
+    This should work on any class that we would derive from AsDict
+    """
+
+    # Get docstrings and type hints
+    field_docstrings = extract_field_docstrings(klass)
+    type_hints = get_type_hints(klass, include_extras=True)
+    attributes = []
+    for field in dataclasses.fields(klass):
+        typ = type_hints[field.name]
+
+        attributes.append(
+            AttrSchemaRef(
+                name=field.name,
+                typ=typ,
+                optional=is_optional(typ),
+                default=field.default,
+                docstring=field_docstrings.get(field.name),
+            )
+        )
+
+    # Return
+    return DictSchema(
+        schema_name=f"{klass.__module__}.{klass.__qualname__}",
+        attributes=attributes,
+        class_docstring=inspect.cleandoc(klass.__doc__),
+    )

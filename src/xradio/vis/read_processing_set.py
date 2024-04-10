@@ -36,7 +36,7 @@ def read_processing_set(
         try:
             # initiatlize the S3 "file system", first attempting to use pre-configured credentials
             s3 = s3fs.S3FileSystem(anon=False, requester_pays=False)
-        except PermissionError:
+        except (NoCredentialsError, PermissionError) as e:
             # only public, read-only buckets will be accessible; might want to add messaging
             s3 = s3fs.S3FileSystem(anon=True)
 
@@ -44,7 +44,7 @@ def read_processing_set(
             ps_store_is_s3dir = True
             if not ps_store.endswith("/"):
                 # just for consistency, as there is no os.path equivalent in s3fs
-                ps.store.append("/")
+                ps_store.append("/")
 
         if (len([ff for ff in s3.find(ps_store) if ".zgroup" in ff]) >= 1) == True:
             # surely a stronger guarantee of conformance is desireable,

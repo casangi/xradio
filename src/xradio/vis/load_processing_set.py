@@ -49,7 +49,7 @@ def load_processing_set(
         if ps_store.startswith("s3"):
             try:
                 s3 = s3fs.S3FileSystem(anon=False, requester_pays=False)
-            except PermissionError:
+            except (NoCredentialsError, PermissionError) as e:
                 # only public, read-only buckets will be accessible
                 s3 = s3fs.S3FileSystem(anon=True)
 

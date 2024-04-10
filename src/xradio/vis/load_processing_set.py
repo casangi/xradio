@@ -41,6 +41,7 @@ def load_processing_set(
     """
     from xradio._utils.zarr.common import _open_dataset
     import s3fs
+    from botocore.exceptions import NoCredentialsError
 
     ps = processing_set()
     for ms_dir_name, ms_xds_isel in sel_parms.items():
@@ -58,17 +59,24 @@ def load_processing_set(
                 # e.g., a processing_set version/spec file ala zarr's .zmeta...
                 # and probably a better way to ensure that store contains valid MSv4 datasets, at that
                 main_xds = ps_store + ms_dir_name + "/MAIN"
+                xds = _open_dataset(
+                    main_xds,
+                    ms_xds_isel,
+                    data_variables,
+                    load=True,
+                    s3=s3
+                )
 
         else:
             # fall back to the default case of assuming the files are on local disk
             main_xds = os.path.join(ps_store, ms_dir_name, "MAIN")
-
-        xds = _open_dataset(
-            main_xds,
-            ms_xds_isel,
-            data_variables,
-            load=True,
-        )
+            xds = _open_dataset(
+                main_xds,
+                ms_xds_isel,
+                data_variables,
+                load=True,
+                s3=s3
+            )
 
         if load_sub_datasets:
             from xradio.vis.read_processing_set import _read_sub_xds

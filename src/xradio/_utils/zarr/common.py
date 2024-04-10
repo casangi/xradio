@@ -3,7 +3,7 @@ import xarray as xr
 import zarr
 
 
-def _open_dataset(store, xds_isel=None, data_variables=None, load=False):
+def _open_dataset(store, xds_isel=None, data_variables=None, load=False, **kwargs):
     """
 
     Parameters
@@ -25,7 +25,10 @@ def _open_dataset(store, xds_isel=None, data_variables=None, load=False):
 
     import dask
 
-    xds = xr.open_zarr(store)
+    if "s3" in kwargs.keys():
+        xds = xr.open_zarr(store, s3=kwargs["s3"], check=False)
+    else:
+        xds = xr.open_zarr(store)
 
     if xds_isel is not None:
         xds = xds.isel(xds_isel)

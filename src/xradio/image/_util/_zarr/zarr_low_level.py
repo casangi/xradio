@@ -109,18 +109,54 @@ def write_binary_blob_to_disk(arr, file_path, compressor):
     Returns:
     - None
     """
+    import graphviper.utils.logger as logger
     # Encode the NumPy array using the codec
+    logger.debug('1. Before compressor ' + file_path)
     compressed_arr = compressor.encode(np.ascontiguousarray(arr))
 
+    logger.debug('2. Before makedir')
     # Ensure the directory exists before saving the file
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
-    # Save the compressed array to disk
-    with open(file_path, "wb") as file:
-        file.write(compressed_arr)
+    arr_len = len(compressed_arr)
+    logger.debug('3. Before write the len is: ' + str(arr_len))
+    #Save the compressed array to disk
+    # with open(file_path, "wb") as file:
+    #     file.write(compressed_arr)
+    
+    logger.debug('4. Using new writer: ' + str(arr_len))
+    write_to_lustre_chunked(file_path, compressed_arr)
+        
+    # /.lustre/aoc/sciops/pford/CHILES/cube_image/uid___A002_Xee7674_X2844_Cube_3.img.zarr/SKY/0.0.110.0.0
+    # 348192501 bytes
+    # 332.0622453689575 M
+    
+    # from io import BufferedWriter
+    # # Calculate buffer size based on compressed_arr size (adjust multiplier)
+    # buffer_size = min(len(compressed_arr), 1024 * 1024 * 4)  # Max 4 MB buffer
+    # with BufferedWriter(open(file_path, "wb"), buffer_size) as f:
+    #     f.write(compressed_arr)
+    #     f.flush()  # Ensure data gets written to disk 
+    
+    
+    logger.debug('4. Write completed')
 
     # print(f"Compressed array saved to {file_path}")
 
+
+def write_to_lustre_chunked(file_path, compressed_arr, chunk_size=1024 * 1024 * 128):  # 128 MiB chunks
+  """
+  Writes compressed data to a Lustre file path with chunking.
+
+  Args:
+      file_path: Path to the file for writing.
+      compressed_arr: Compressed data array to write.
+      chunk_size: Size of each data chunk in bytes (default: 128 MiB).
+  """
+  with open(file_path, "wb") as f:
+    for i in range(0, len(compressed_arr), chunk_size):
+      chunk = compressed_arr[i:i + chunk_size]
+      f.write(chunk)
 
 def read_binary_blob_from_disk(file_path, compressor, dtype=np.float64):
     """

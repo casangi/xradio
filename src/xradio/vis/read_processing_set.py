@@ -1,10 +1,10 @@
-import os
+import osAA
 import xarray as xr
 from ._processing_set import processing_set
 import graphviper.utils.logger as logger
 from xradio._utils.zarr.common import _open_dataset
 import s3fs
-
+from botocore.exceptions import NoCredentialsError
 
 def read_processing_set(
     ps_store: str, intents: list = None, fields: str = None
@@ -26,6 +26,7 @@ def read_processing_set(
     processing_set
         Lazy representation of processing set (data is represented by Dask.arrays).
     """
+    s3 = None
     if os.path.isdir(ps_store):
         # default to assuming the data are accessible on local file system
         ps_store_is_s3dir = False
@@ -68,7 +69,10 @@ def read_processing_set(
             else:
                 store_path_main = os.path.join(ps_store, ms_dir_name, "MAIN")
                 store_path = os.path.split(store_path_main)[0]
-            xds = _open_dataset(store_path_main)
+            if s3 is not None:
+                xds = _open_dataset(store_path_main, s3)
+            else:
+                xds = _open_dataset(store_path_main)
 
             if (intents is None) or (xds.attrs["intent"] in intents):
                 data_name = _get_data_name(xds, data_group)
@@ -91,9 +95,14 @@ def _read_sub_xds(ms_store, load=False):
         "antenna_xds": "ANTENNA",
     }
     for sub_xds_key, sub_xds_name in sub_xds.items():
-        sub_xds_dict[sub_xds_key] = _open_dataset(
-            os.path.join(ms_store, sub_xds_name), load=load
-        )
+        if s3 is not None:
+            sub_xds_dict[sub_xds_key] = _open_dataset(
+                os.path.join(ms_store, sub_xds_name), load=load, s3=s3
+            )
+        else:
+            sub_xds_dict[sub_xds_key] = _open_dataset(
+                os.path.join(ms_store, sub_xds_name), load=load
+            )            
 
     optional_sub_xds = {
         "weather_xds": "WEATHER",
@@ -102,7 +111,10 @@ def _read_sub_xds(ms_store, load=False):
     for sub_xds_key, sub_xds_name in optional_sub_xds.items():
         sub_xds_path = os.path.join(ms_store, sub_xds_name)
         if os.path.isdir(sub_xds_path):
-            sub_xds_dict[sub_xds_key] = _open_dataset(sub_xds_path, load=load)
+            if s3 is not None:
+                sub_xds_dict[sub_xds_key] = _open_dataset(sub_xds_path, load=load, s3=s3)
+            else:
+                sub_xds_dict[sub_xds_key] = _open_dataset(sub_xds_path, load=load)
 
     return sub_xds_dict
 

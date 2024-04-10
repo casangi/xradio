@@ -61,7 +61,7 @@ def base_test(msv2_name, expected_sum_value):
     ), "VISIBILITY and WEIGHT values have changed."
 
 
-@pytest.mark.parametrize(("s3_ps_name, expected_sum_value"), [("s3://viper-test-data/Antennae_North.cal.lsrk.split.ms", 190.0405216217041)])
+@pytest.mark.parametrize(("s3_ps_name, expected_sum_value"), [("s3://viper-test-data/Antennae_North.cal.lsrk.split.ms.zarr", 190.0405216217041)])
 def test_s3_read_processing_set(s3_ps_name, expected_sum_value):
 
     ps_lazy = read_processing_set(s3_ps_name)

@@ -42,18 +42,6 @@ def read_processing_set(
             # initiatlize the S3 "file system", first attempting to use pre-configured credentials
             s3 = s3fs.S3FileSystem(anon=False, requester_pays=False)
 
-            if not ps_store.endswith("/"):
-                # just for consistency, as there is no os.path equivalent in s3fs
-                ps_store = ps_store + "/"
-
-            if (len([ff for ff in s3.find(ps_store) if ".zgroup" in ff]) >= 1) == True:
-                # surely a stronger guarantee of conformance is desireable,
-                # e.g., a processing_set version/spec file ala zarr's .zmeta...
-                # and probably a better way to ensure that store contains valid MSv4 datasets, at that
-                items = [
-                    bd.split(sep="/")[-1] for bd in s3.listdir(ps_store, detail=False)
-                ]
-
         except (NoCredentialsError, PermissionError) as e:
             # only public, read-only buckets will be accessible
             # we will want to add messaging and error handling here,
@@ -61,6 +49,16 @@ def read_processing_set(
             s3 = s3fs.S3FileSystem(
                 anon=True, aws_access_key_id="", aws_secret_access_key=""
             )
+
+        if not ps_store.endswith("/"):
+            # just for consistency, as there is no os.path equivalent in s3fs
+            ps_store = ps_store + "/"
+
+        if (len([ff for ff in s3.find(ps_store) if ".zgroup" in ff]) >= 1) == True:
+            # surely a stronger guarantee of conformance is desireable,
+            # e.g., a processing_set version/spec file ala zarr's .zmeta...
+            # and probably a better way to ensure that store contains valid MSv4 datasets, at that
+            items = [bd.split(sep="/")[-1] for bd in s3.listdir(ps_store, detail=False)]
 
     else:
         raise (

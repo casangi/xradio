@@ -81,22 +81,30 @@ def read_processing_set(
                 if (fields is None) or (
                     xds[data_name].attrs["field_info"]["name"] in fields
                 ):
-                    xds.attrs = {
-                        **xds.attrs,
-                        **_read_sub_xds(store_path),
-                    }
-                    ps[ms_dir_name] = xds
+                    if s3 is not None:
+                        xds.attrs = {
+                            **xds.attrs,
+                            **_read_sub_xds(store_path, s3=s3),
+                        }
+                        ps[ms_dir_name] = xds
+                    else:
+                        xds.attrs = {
+                            **xds.attrs,
+                            **_read_sub_xds(store_path),
+                        }
+                        ps[ms_dir_name] = xds
+
     return ps
 
 
-def _read_sub_xds(ms_store, load=False):
+def _read_sub_xds(ms_store, load=False, **kwargs):
     sub_xds_dict = {}
 
     sub_xds = {
         "antenna_xds": "ANTENNA",
     }
     for sub_xds_key, sub_xds_name in sub_xds.items():
-        if s3 is not None:
+        if "s3" in kwargs.keys():
             sub_xds_dict[sub_xds_key] = _open_dataset(
                 os.path.join(ms_store, sub_xds_name), load=load, s3=s3
             )
@@ -112,7 +120,7 @@ def _read_sub_xds(ms_store, load=False):
     for sub_xds_key, sub_xds_name in optional_sub_xds.items():
         sub_xds_path = os.path.join(ms_store, sub_xds_name)
         if os.path.isdir(sub_xds_path):
-            if s3 is not None:
+            if "s3" in kwargs.keys():
                 sub_xds_dict[sub_xds_key] = _open_dataset(
                     sub_xds_path, load=load, s3=s3
                 )

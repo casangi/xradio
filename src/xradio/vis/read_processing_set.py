@@ -28,25 +28,27 @@ def read_processing_set(
         Lazy representation of processing set (data is represented by Dask.arrays).
     """
     s3 = None
+    ps_store_is_s3dir = None
+
     if os.path.isdir(ps_store):
-        # default to assuming the data are accessible on local file system
         ps_store_is_s3dir = False
+        # default to assuming the data are accessible on local file system
         items = os.listdir(ps_store)
 
     elif ps_store.startswith("s3"):
         # only if not found locally, check if dealing with an S3 bucket URL
+        ps_store_is_s3dir = True
         try:
             # initiatlize the S3 "file system", first attempting to use pre-configured credentials
             s3 = s3fs.S3FileSystem(anon=False, requester_pays=False)
-        except (NoCredentialsError, PermissionError) as e:
-            # only public, read-only buckets will be accessible; might want to add messaging
-            s3 = s3fs.S3FileSystem(anon=True)
 
-        if s3.isdir(ps_store):
-            ps_store_is_s3dir = True
             if not ps_store.endswith("/"):
                 # just for consistency, as there is no os.path equivalent in s3fs
                 ps_store.append("/")
+
+        except (NoCredentialsError, PermissionError) as e:
+            # only public, read-only buckets will be accessible; might want to add messaging
+            s3 = s3fs.S3FileSystem(anon=True)
 
         if (len([ff for ff in s3.find(ps_store) if ".zgroup" in ff]) >= 1) == True:
             # surely a stronger guarantee of conformance is desireable,

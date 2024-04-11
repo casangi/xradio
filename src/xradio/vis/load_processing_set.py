@@ -60,23 +60,13 @@ def load_processing_set(
                 # and probably a better way to ensure that store contains valid MSv4 datasets, at that
                 main_xds = ps_store + ms_dir_name + "/MAIN"
                 xds = _open_dataset(
-                    main_xds,
-                    ms_xds_isel,
-                    data_variables,
-                    load=True,
-                    s3=s3
+                    main_xds, ms_xds_isel, data_variables, load=True, s3=s3
                 )
 
         else:
             # fall back to the default case of assuming the files are on local disk
             main_xds = os.path.join(ps_store, ms_dir_name, "MAIN")
-            xds = _open_dataset(
-                main_xds,
-                ms_xds_isel,
-                data_variables,
-                load=True,
-                s3=s3
-            )
+            xds = _open_dataset(main_xds, ms_xds_isel, data_variables, load=True, s3=s3)
 
         if load_sub_datasets:
             from xradio.vis.read_processing_set import _read_sub_xds

@@ -1,10 +1,11 @@
-import osAA
+import os
 import xarray as xr
 from ._processing_set import processing_set
 import graphviper.utils.logger as logger
 from xradio._utils.zarr.common import _open_dataset
 import s3fs
 from botocore.exceptions import NoCredentialsError
+
 
 def read_processing_set(
     ps_store: str, intents: list = None, fields: str = None
@@ -102,7 +103,7 @@ def _read_sub_xds(ms_store, load=False):
         else:
             sub_xds_dict[sub_xds_key] = _open_dataset(
                 os.path.join(ms_store, sub_xds_name), load=load
-            )            
+            )
 
     optional_sub_xds = {
         "weather_xds": "WEATHER",
@@ -112,7 +113,9 @@ def _read_sub_xds(ms_store, load=False):
         sub_xds_path = os.path.join(ms_store, sub_xds_name)
         if os.path.isdir(sub_xds_path):
             if s3 is not None:
-                sub_xds_dict[sub_xds_key] = _open_dataset(sub_xds_path, load=load, s3=s3)
+                sub_xds_dict[sub_xds_key] = _open_dataset(
+                    sub_xds_path, load=load, s3=s3
+                )
             else:
                 sub_xds_dict[sub_xds_key] = _open_dataset(sub_xds_path, load=load)
 

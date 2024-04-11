@@ -44,7 +44,7 @@ def read_processing_set(
 
             if not ps_store.endswith("/"):
                 # just for consistency, as there is no os.path equivalent in s3fs
-                ps_store.append("/")
+                ps_store = ps_store + "/"
 
         except (NoCredentialsError, PermissionError) as e:
             # only public, read-only buckets will be accessible; might want to add messaging

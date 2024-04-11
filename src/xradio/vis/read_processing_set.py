@@ -5,6 +5,9 @@ import graphviper.utils.logger as logger
 from xradio._utils.zarr.common import _open_dataset
 import s3fs
 from botocore.exceptions import NoCredentialsError
+from botocore import UNSIGNED
+from botocore.config import Config
+from botocore.session import Session
 
 
 def read_processing_set(
@@ -42,17 +45,23 @@ def read_processing_set(
             # initiatlize the S3 "file system", first attempting to use pre-configured credentials
             s3 = s3fs.S3FileSystem(anon=False, requester_pays=False)
 
+            if s3.isdir(ps_store):
+                if not ps_store.endswith("/"):
+                    # just for consistency, as there is no os.path equivalent in s3fs
+                    ps_store = ps_store + "/"
+
         except (NoCredentialsError, PermissionError) as e:
             # only public, read-only buckets will be accessible
-            # we will want to add messaging and error handling here,
-            # since this  will cause subsequent s3fs calls to raise NoCredentialsError
-            s3 = s3fs.S3FileSystem(
-                anon=True, aws_access_key_id="", aws_secret_access_key=""
-            )
+            # we will want to add messaging and error handling here
+            session = Session()
+            config = Config(signature_version=UNSIGNED)
+            boto_s3 = session.create_client("s3", config=config)
 
-        if not ps_store.endswith("/"):
-            # just for consistency, as there is no os.path equivalent in s3fs
-            ps_store = ps_store + "/"
+            s3 = s3fs.S3FileSystem(anon=True)
+
+            if not ps_store.endswith("/"):
+                # just for consistency, as there is no os.path equivalent in s3fs
+                ps_store = ps_store + "/"
 
         if (len([ff for ff in s3.find(ps_store) if ".zgroup" in ff]) >= 1) == True:
             # surely a stronger guarantee of conformance is desireable,

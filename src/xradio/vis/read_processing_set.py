@@ -58,7 +58,9 @@ def read_processing_set(
             # only public, read-only buckets will be accessible
             # we will want to add messaging and error handling here,
             # since this  will cause subsequent s3fs calls to raise NoCredentialsError
-            s3 = s3fs.S3FileSystem(anon=True)
+            s3 = s3fs.S3FileSystem(
+                anon=True, aws_access_key_id="", aws_secret_access_key=""
+            )
 
     else:
         raise (

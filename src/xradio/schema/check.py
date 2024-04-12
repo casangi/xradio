@@ -267,7 +267,7 @@ def check_dimensions(
             SchemaIssue(
                 path=[("dims", None)],
                 message=message,
-                found=dims,
+                found=list(dims),
                 expected=expected,
             )
         ]

@@ -16,6 +16,14 @@ dimensions, forming a comprehensive view of visibility data.
 
    .. xradio_dataset_schema_table:: xradio.vis.model.VisibilityXds
 
+.. autoclass:: xradio.vis.model.AntennaXds()
+
+   .. xradio_dataset_schema_table:: xradio.vis.model.AntennaXds
+
+.. autoclass:: xradio.vis.model.PointingXds()
+
+   .. xradio_dataset_schema_table:: xradio.vis.model.PointingXds
+
 .. _visibility arrays:
 
 Data Arrays
@@ -40,6 +48,10 @@ Bulk data gathered into :ref:`Visibility Datasets`.
 
    .. xradio_array_schema_table:: xradio.vis.model.UvwArray
 
+.. autoclass:: xradio.vis.model.SkyCoordArray()
+
+   .. xradio_array_schema_table:: xradio.vis.model.SkyCoordArray
+
 .. autoclass:: xradio.vis.model.TimeSamplingArray()
 
    .. xradio_array_schema_table:: xradio.vis.model.TimeSamplingArray
@@ -60,29 +72,37 @@ visibility data array might have an associated channel or time step count. Use
 :ref:`Visibility Coordinates` to associate dimension indicies with values such
 as frequencies or timestamps.
 
-.. autoclass:: xradio.vis.model.TimeAxis()
+.. autoclass:: xradio.vis.model.TimeArray()
 
-   .. xradio_array_schema_table:: xradio.vis.model.TimeAxis
+   .. xradio_array_schema_table:: xradio.vis.model.TimeArray
 
-.. autoclass:: xradio.vis.model.BaselineAxis()
+.. autoclass:: xradio.vis.model.BaselineArray()
 
-   .. xradio_array_schema_table:: xradio.vis.model.BaselineAxis
+   .. xradio_array_schema_table:: xradio.vis.model.BaselineArray
 
-.. autoclass:: xradio.vis.model.BaselineAntennaAxis()
+.. autoclass:: xradio.vis.model.BaselineAntennaArray()
 
-   .. xradio_array_schema_table:: xradio.vis.model.BaselineAntennaAxis
+   .. xradio_array_schema_table:: xradio.vis.model.BaselineAntennaArray
 
-.. autoclass:: xradio.vis.model.FrequencyAxis()
+.. autoclass:: xradio.vis.model.FrequencyArray()
 
-   .. xradio_array_schema_table:: xradio.vis.model.FrequencyAxis
+   .. xradio_array_schema_table:: xradio.vis.model.FrequencyArray
 
-.. autoclass:: xradio.vis.model.PolarizationAxis()
+.. autoclass:: xradio.vis.model.PolarizationArray()
 
-   .. xradio_array_schema_table:: xradio.vis.model.PolarizationAxis
+   .. xradio_array_schema_table:: xradio.vis.model.PolarizationArray
 
-.. autoclass:: xradio.vis.model.UvwLabelAxis()
+.. autoclass:: xradio.vis.model.UvwLabelArray()
 
-   .. xradio_array_schema_table:: xradio.vis.model.UvwLabelAxis
+   .. xradio_array_schema_table:: xradio.vis.model.UvwLabelArray
+
+.. autoclass:: xradio.vis.model.QuantityArray()
+                                                 
+   .. xradio_array_schema_table:: xradio.vis.model.QuantityArray
+
+.. autoclass:: xradio.vis.model.EarthLocationArray()
+                                                 
+   .. xradio_array_schema_table:: xradio.vis.model.EarthLocationArray
 
 .. _visibility attributes:
 
@@ -92,6 +112,6 @@ Attributes
 Attribute data
 
 .. automodule:: xradio.vis.model
-   :members: SourceInfo, FieldInfo, Quantity
+   :members: SourceInfoDict, FieldInfoDict
    :undoc-members:
    :member-order: bysource

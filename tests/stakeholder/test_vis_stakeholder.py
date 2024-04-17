@@ -14,7 +14,7 @@ relative_tolerance = 10 ** (-12)
 
 def base_test(msv2_name, expected_sum_value):
     if os.environ["USER"] == "runner":
-        casa_data_dir = (importlib.resources.files('casadata') / "__data__").as_posix()
+        casa_data_dir = (importlib.resources.files("casadata") / "__data__").as_posix()
         rc_file = open(os.path.expanduser("~/.casarc"), "a+")  # append mode
         rc_file.write("\nmeasures.directory: " + casa_data_dir)
         rc_file.close()
@@ -61,7 +61,15 @@ def base_test(msv2_name, expected_sum_value):
     ), "VISIBILITY and WEIGHT values have changed."
 
 
-@pytest.mark.parametrize(("s3_ps_name, expected_sum_value"), [("s3://viper-test-data/Antennae_North.cal.lsrk.split.ms.zarr", 190.0405216217041)])
+@pytest.mark.parametrize(
+    ("s3_ps_name, expected_sum_value"),
+    [
+        (
+            "s3://viper-test-data/Antennae_North.cal.lsrk.split.vis.zarr",
+            190.0405216217041,
+        )
+    ],
+)
 def test_s3_read_processing_set(s3_ps_name, expected_sum_value):
 
     ps_lazy = read_processing_set(s3_ps_name)

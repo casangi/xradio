@@ -55,6 +55,11 @@ def load_processing_set(
                 # only public, read-only buckets will be accessible
                 s3 = s3fs.S3FileSystem(anon=True)
 
+            if s3.isdir(ps_store):
+                if not ps_store.endswith("/"):
+                    # just for consistency, as there is no os.path equivalent in s3fs
+                    ps_store = ps_store + "/"
+
             if (len([ff for ff in s3.find(ps_store) if ".zgroup" in ff]) >= 1) == True:
                 # surely a stronger guarantee of conformance is desireable,
                 # e.g., a processing_set version/spec file ala zarr's .zmeta...

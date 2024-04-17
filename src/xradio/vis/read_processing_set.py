@@ -5,9 +5,6 @@ import graphviper.utils.logger as logger
 from xradio._utils.zarr.common import _open_dataset
 import s3fs
 from botocore.exceptions import NoCredentialsError
-from botocore import UNSIGNED
-from botocore.config import Config
-from botocore.session import Session
 
 
 def read_processing_set(
@@ -45,28 +42,20 @@ def read_processing_set(
             # initiatlize the S3 "file system", first attempting to use pre-configured credentials
             s3 = s3fs.S3FileSystem(anon=False, requester_pays=False)
 
-            if s3.isdir(ps_store):
-                if not ps_store.endswith("/"):
-                    # just for consistency, as there is no os.path equivalent in s3fs
-                    ps_store = ps_store + "/"
-
         except (NoCredentialsError, PermissionError) as e:
             # only public, read-only buckets will be accessible
             # we will want to add messaging and error handling here
-            session = Session()
-            config = Config(signature_version=UNSIGNED)
-            boto_s3 = session.create_client("s3", config=config)
 
             s3 = s3fs.S3FileSystem(anon=True)
 
-            if not ps_store.endswith("/"):
-                # just for consistency, as there is no os.path equivalent in s3fs
-                ps_store = ps_store + "/"
+        if not ps_store.endswith("/"):
+            # just for consistency, as there is no os.path equivalent in s3fs
+            ps_store = ps_store + "/"
 
         if (len([ff for ff in s3.find(ps_store) if ".zgroup" in ff]) >= 1) == True:
             # surely a stronger guarantee of conformance is desireable,
             # e.g., a processing_set version/spec file ala zarr's .zmeta...
-            # and probably a better way to ensure that store contains valid MSv4 datasets, at that
+            # and probably a better way to ensure that store contains valid MSv4 datasets at that
             items = [bd.split(sep="/")[-1] for bd in s3.listdir(ps_store, detail=False)]
 
     else:
@@ -87,7 +76,7 @@ def read_processing_set(
                 store_path_main = os.path.join(ps_store, ms_dir_name, "MAIN")
                 store_path = os.path.split(store_path_main)[0]
             if s3 is not None:
-                xds = _open_dataset(store_path_main, s3)
+                xds = _open_dataset(store_path_main, s3=s3)
             else:
                 xds = _open_dataset(store_path_main)
 
@@ -121,8 +110,9 @@ def _read_sub_xds(ms_store, load=False, **kwargs):
     }
     for sub_xds_key, sub_xds_name in sub_xds.items():
         if "s3" in kwargs.keys():
+            joined_store = ms_store + "/" + sub_xds_name
             sub_xds_dict[sub_xds_key] = _open_dataset(
-                os.path.join(ms_store, sub_xds_name), load=load, s3=s3
+                joined_store, load=load, s3=kwargs["s3"]
             )
         else:
             sub_xds_dict[sub_xds_key] = _open_dataset(
@@ -138,7 +128,7 @@ def _read_sub_xds(ms_store, load=False, **kwargs):
         if os.path.isdir(sub_xds_path):
             if "s3" in kwargs.keys():
                 sub_xds_dict[sub_xds_key] = _open_dataset(
-                    sub_xds_path, load=load, s3=s3
+                    sub_xds_path, load=load, s3=kwargs["s3"]
                 )
             else:
                 sub_xds_dict[sub_xds_key] = _open_dataset(sub_xds_path, load=load)

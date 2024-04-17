@@ -38,24 +38,21 @@ def read_processing_set(
     elif ps_store.startswith("s3"):
         # only if not found locally, check if dealing with an S3 bucket URL
         ps_store_is_s3dir = True
-        try:
-            # initiatlize the S3 "file system", first attempting to use pre-configured credentials
-            s3 = s3fs.S3FileSystem(anon=False, requester_pays=False)
-
-        except (NoCredentialsError, PermissionError) as e:
-            # only public, read-only buckets will be accessible
-            # we will want to add messaging and error handling here
-
-            s3 = s3fs.S3FileSystem(anon=True)
-
         if not ps_store.endswith("/"):
             # just for consistency, as there is no os.path equivalent in s3fs
             ps_store = ps_store + "/"
 
-        if (len([ff for ff in s3.find(ps_store) if ".zgroup" in ff]) >= 1) == True:
-            # surely a stronger guarantee of conformance is desireable,
-            # e.g., a processing_set version/spec file ala zarr's .zmeta...
-            # and probably a better way to ensure that store contains valid MSv4 datasets at that
+        try:
+            # initiatlize the S3 "file system", first attempting to use pre-configured credentials
+            s3 = s3fs.S3FileSystem(anon=False, requester_pays=False)
+
+            items = [bd.split(sep="/")[-1] for bd in s3.listdir(ps_store, detail=False)]
+
+        except (NoCredentialsError, PermissionError) as e:
+            # only public, read-only buckets will be accessible
+            # we will want to add messaging and error handling here
+            s3 = s3fs.S3FileSystem(anon=True)
+
             items = [bd.split(sep="/")[-1] for bd in s3.listdir(ps_store, detail=False)]
 
     else:
@@ -126,12 +123,13 @@ def _read_sub_xds(ms_store, load=False, **kwargs):
     for sub_xds_key, sub_xds_name in optional_sub_xds.items():
         sub_xds_path = os.path.join(ms_store, sub_xds_name)
         if os.path.isdir(sub_xds_path):
-            if "s3" in kwargs.keys():
+            sub_xds_dict[sub_xds_key] = _open_dataset(sub_xds_path, load=load)
+        elif "s3" in kwargs.keys():
+            joined_store = ms_store + "/" + sub_xds_name
+            if kwargs["s3"].isdir(joined_store):
                 sub_xds_dict[sub_xds_key] = _open_dataset(
-                    sub_xds_path, load=load, s3=kwargs["s3"]
+                    joined_store, load=load, s3=kwargs["s3"]
                 )
-            else:
-                sub_xds_dict[sub_xds_key] = _open_dataset(sub_xds_path, load=load)
 
     return sub_xds_dict
 

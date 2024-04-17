@@ -49,25 +49,18 @@ def load_processing_set(
 
         # before the _open_dataset call, check if dealing with an S3 bucket URL
         if ps_store.startswith("s3"):
+            if not ps_store.endswith("/"):
+                # just for consistency, as there is no os.path equivalent in s3fs
+                ps_store = ps_store + "/"
+
             try:
                 s3 = s3fs.S3FileSystem(anon=False, requester_pays=False)
-            except (NoCredentialsError, PermissionError) as e:
-                # only public, read-only buckets will be accessible
-                s3 = s3fs.S3FileSystem(anon=True)
 
-            if s3.isdir(ps_store):
-                if not ps_store.endswith("/"):
-                    # just for consistency, as there is no os.path equivalent in s3fs
-                    ps_store = ps_store + "/"
-
-            if (len([ff for ff in s3.find(ps_store) if ".zgroup" in ff]) >= 1) == True:
-                # surely a stronger guarantee of conformance is desireable,
-                # e.g., a processing_set version/spec file ala zarr's .zmeta...
-                # and probably a better way to ensure that store contains valid MSv4 datasets, at that
                 main_xds = ps_store + ms_dir_name + "/MAIN"
                 xds = _open_dataset(
                     main_xds, ms_xds_isel, data_variables, load=True, s3=s3
                 )
+
                 if load_sub_datasets:
                     from xradio.vis.read_processing_set import _read_sub_xds
 
@@ -78,17 +71,35 @@ def load_processing_set(
                         ),
                     }
 
+            except (NoCredentialsError, PermissionError) as e:
+                # only public, read-only buckets will be accessible
+                s3 = s3fs.S3FileSystem(anon=True)
+
+                main_xds = ps_store + ms_dir_name + "/MAIN"
+                xds = _open_dataset(
+                    main_xds, ms_xds_isel, data_variables, load=True, s3=s3
+                )
+
+                if load_sub_datasets:
+                    from xradio.vis.read_processing_set import _read_sub_xds
+
+                    xds.attrs = {
+                        **xds.attrs,
+                        **_read_sub_xds(
+                            os.path.join(ps_store, ms_dir_name), load=True, s3=s3
+                        ),
+                    }
         else:
             # fall back to the default case of assuming the files are on local disk
             main_xds = os.path.join(ps_store, ms_dir_name, "MAIN")
             xds = _open_dataset(main_xds, ms_xds_isel, data_variables, load=True)
-        if load_sub_datasets:
-            from xradio.vis.read_processing_set import _read_sub_xds
+            if load_sub_datasets:
+                from xradio.vis.read_processing_set import _read_sub_xds
 
-            xds.attrs = {
-                **xds.attrs,
-                **_read_sub_xds(os.path.join(ps_store, ms_dir_name), load=True),
-            }
+                xds.attrs = {
+                    **xds.attrs,
+                    **_read_sub_xds(os.path.join(ps_store, ms_dir_name), load=True),
+                }
 
         ps[ms_dir_name] = xds
     return ps

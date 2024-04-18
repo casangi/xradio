@@ -43,7 +43,7 @@ def read_processing_set(
             ps_store = ps_store + "/"
 
         try:
-            # initiatlize the S3 "file system", first attempting to use pre-configured credentials
+            # initialize the S3 "file system", first attempting to use pre-configured credentials
             s3 = s3fs.S3FileSystem(anon=False, requester_pays=False)
 
             items = [bd.split(sep="/")[-1] for bd in s3.listdir(ps_store, detail=False)]

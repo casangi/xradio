@@ -13,6 +13,10 @@ _doppler_types = ["RADIO", "Z", "RATIO", "BETA", "GAMMA"]
 _image_type = "image_type"
 
 
+def _aperture_or_sky(xds: xr.Dataset) -> str:
+    return "SKY" if "SKY" in xds.data_vars or "l" in xds.coords else "APERTURE"
+
+
 def _get_xds_dim_order(has_sph: bool) -> list:
     dimorder = ["time", "polarization", "frequency"]
     dir_lin = ["l", "m"] if has_sph else ["u", "v"]

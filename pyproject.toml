@@ -22,6 +22,7 @@ dependencies = [
     'pytest',
     'pytest-cov',
     'pytest-html',
+    's3fs',
     'scipy',
     'tqdm',
     'xarray',

@@ -498,25 +498,7 @@ def _check_value(val, ann):
         else:
             return check_dict(val, ann)
 
-    # Otherwise straight type check (TODO - be more fancy, possibly by
-    # importing from Typeguard module? Don't want to overdo it...)
-    # try:
-    #     if not isinstance(val, ann):
-    #         return SchemaIssues(
-    #             [
-    #                 SchemaIssue(
-    #                     path=[], message="Unexpected type", expected=[ann], found=type(val)
-    #                 )
-    #             ]
-    #         )
-    # except TypeError as t:
-    #     return SchemaIssues(
-    #         [
-    #             SchemaIssue(
-    #                 path=[], message=str(t), expected=[ann], found=type(val)
-    #             )
-    #         ]
-    #     )
+    # Otherwise straight type check using typeguard
     try:
         check_type(val, ann)
     except TypeCheckError as t:

@@ -101,7 +101,7 @@ def _add_vel_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     vel_coord = xds.coords["velocity"]
     meta = {"units": "m/s"}
     if helpers["has_freq"]:
-        meta["doppler_type"] = helpers["doppler"]
+        meta["doppler_type"] = helpers.get("doppler", "RADIO")
     else:
         meta["doppler_type"] = _doppler_types[0]
     meta["type"] = "doppler"
@@ -569,9 +569,9 @@ def _get_freq_values(helpers: dict) -> list:
             naxis=helpers["shape"][freq_idx],
             crval=helpers["crval"][freq_idx],
             crpix=helpers["crpix"][freq_idx],
-            cdelt=helpers["cdelt"][freq_idx],
-            cunit=helpers["cunit"][freq_idx],
+            cdelt=helpers["cdelt"][freq_idx]
         )
+        cunit=helpers["cunit"][freq_idx]
         helpers["frequency"] = vals * u.Unit(cunit)
         return vals
     elif "VOPT" in ctype:
@@ -606,9 +606,9 @@ def _get_velocity_values(helpers: dict) -> list:
         return helpers["velocity"].to(u.m / u.s).value
     elif "frequency" in helpers:
         v = _compute_velocity_values(
-            restfreq=helpers["reestfreq"],
+            restfreq=helpers["restfreq"],
             freq_values=helpers["frequency"].to("Hz").value,
-            doppler=helpers["doppler"],
+            doppler=helpers.get("doppler", "RADIO"),
         )
         helpers["velocity"] = v * (u.m / u.s)
         return v
@@ -796,7 +796,7 @@ def _get_transpose_list(helpers: dict) -> tuple:
             transpose_list[4] = i
             not_covered.remove("m")
             not_covered.remove("v")
-        elif b.startswith("frequency") or b.startswith("vopt") or b.startswith("vrad"):
+        elif b.startswith("frequency") or b.startswith("freq") or b.startswith("vopt") or b.startswith("vrad"):
             transpose_list[2] = i
             not_covered.remove("f")
         elif b.startswith("stok"):

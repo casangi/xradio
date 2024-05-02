@@ -168,7 +168,7 @@ def test_check_array_extra_coord():
     )
     assert len(results) == 1
     assert results[0].path == [("dims", None)]
-    assert results[0].found == ("coord", "coord2")
+    assert results[0].found == ["coord", "coord2"]
     assert results[0].expected == [("coord",)]
 
 
@@ -179,7 +179,7 @@ def test_check_array_missing_coord():
     results = check_array(xarray.DataArray(data0, {}, attrs=attrs), TEST_ARRAY_SCHEMA)
     assert len(results) == 2
     assert results[0].path == [("dims", None)]
-    assert results[0].found == ()
+    assert results[0].found == []
     assert results[0].expected == [("coord",)]
     assert results[1].path == [("coords", "coord")]
 
@@ -194,7 +194,7 @@ def test_check_array_wrong_coord():
     )
     assert len(results) == 2
     assert results[0].path == [("dims", None)]
-    assert results[0].found == ("coord2",)
+    assert results[0].found == ["coord2",]
     assert results[0].expected == [("coord",)]
     assert results[1].path == [("coords", "coord")]
 
@@ -318,6 +318,7 @@ def test_schema_checked_annotation_optional():
     with pytest.raises(SchemaIssues) as exc_info:
         fn(1)
     assert exc_info.value.issues[0].path == [("array", None)]
+    print(exc_info.value.issues[0].expected)
     assert exc_info.value.issues[0].expected == [xarray.DataArray, type(None)]
     assert exc_info.value.issues[0].found == int
 
@@ -441,7 +442,7 @@ TEST_DATASET_SCHEMA = DatasetSchema(
         ArraySchemaRef(
             schema_name=__name__ + "._TestDatasetSchema.data_var_simple",
             name="data_var_simple",
-            dtypes=[numpy.float32],
+            dtypes=[numpy.dtype(numpy.float32)],
             dimensions=[("coord2",)],
             coordinates=[],
             attributes=[],
@@ -592,7 +593,7 @@ def test_check_dataset_wrong_dim():
     assert len(issues) == 1
     assert issues[0].path == [("data_vars", "data_var_simple"), ("dims", None)]
     assert issues[0].expected == [("coord2",)]
-    assert issues[0].found == ("coord",)
+    assert issues[0].found == ["coord"]
 
 
 def test_check_dataset_extra_datavar():

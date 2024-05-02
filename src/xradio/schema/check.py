@@ -441,16 +441,8 @@ def _check_value(val, ann):
                 )
 
         if not isinstance(val, xarray.DataArray):
-            return SchemaIssues(
-                [
-                    SchemaIssue(
-                        path=[],
-                        message="Unexpected type",
-                        expected=[xarray.DataArray],
-                        found=type(val),
-                    )
-                ]
-            )
+            # Fall through to plain type check
+            ann = xarray.DataArray
         else:
             return check_array(val, ann)
 
@@ -469,32 +461,16 @@ def _check_value(val, ann):
                     ]
                 )
         if not isinstance(val, xarray.Dataset):
-            return SchemaIssues(
-                [
-                    SchemaIssue(
-                        path=[],
-                        message="Unexpected type",
-                        expected=[xarray.DataArray],
-                        found=type(val),
-                    )
-                ]
-            )
+            # Fall through to plain type check
+            ann = xarray.Dataset
         else:
             return check_dataset(val, ann)
 
     # Is supposed to be a dictionary?
     if type(ann) == type and issubclass(ann, AsDict):
         if not isinstance(val, dict):
-            return SchemaIssues(
-                [
-                    SchemaIssue(
-                        path=[],
-                        message="Unexpected type",
-                        expected=[dict],
-                        found=type(val),
-                    )
-                ]
-            )
+            # Fall through to plain type check
+            ann = dict
         else:
             return check_dict(val, ann)
 
@@ -502,6 +478,7 @@ def _check_value(val, ann):
     try:
         check_type(val, ann)
     except TypeCheckError as t:
+        print(ann)
         return SchemaIssues(
             [SchemaIssue(path=[], message=str(t), expected=[ann], found=type(val))]
         )
@@ -534,6 +511,7 @@ def _check_value_union(val, ann):
     okay = False
     for option in options:
         arg_issues = _check_value(val, option)
+        print(val, option, arg_issues)
         # We can immediately return if we find no issues with
         # some schema check
         if not arg_issues:
@@ -541,13 +519,8 @@ def _check_value_union(val, ann):
         if args_issues is None:
             args_issues = arg_issues
 
-        # Fancy merging of expected options (for "unexpected type")
-        elif (
-            len(args_issues) == 1
-            and len(arg_issues) == 1
-            and args_issues[0].message == arg_issues[0].message
-        ):
-
+        # Crude merging of expected options (for "unexpected type")
+        elif len(args_issues) == 1 and len(arg_issues) == 1:
             args_issues[0].expected += arg_issues[0].expected
 
     # Return representative issues list

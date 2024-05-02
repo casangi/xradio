@@ -195,10 +195,8 @@ def read_main_table_chunks(
     n_baseline_chunks = chunks[1]
     # loop over time chunks
     for time_chunk in range(0, n_unique_times, n_time_chunks):
-        time_start = (unique_times[time_chunk] - tol,)
-        time_end = (
-            unique_times[min(n_unique_times, time_chunk + n_time_chunks) - 1] + tol
-        )
+        time_start = unique_times[time_chunk] - tol
+        time_end = unique_times[min(n_unique_times, time_chunk + n_time_chunks) - 1] + tol
 
         # chunk time length
         ctlen = min(n_unique_times, time_chunk + n_time_chunks) - time_chunk

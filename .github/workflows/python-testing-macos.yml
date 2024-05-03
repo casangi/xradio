@@ -22,8 +22,9 @@ jobs:
         python-version: ["3.9", "3.10", "3.11"]
     steps:
       - name: Setup Conda
-        uses: conda-incubator/setup-miniconda@v2
+        uses: conda-incubator/setup-miniconda@v3
         with:
+          miniconda-version: "latest"
           auto-activate-base: false
           activate-environment: vipertest
           auto-update-conda: true

@@ -13,6 +13,10 @@ _doppler_types = ["RADIO", "Z", "RATIO", "BETA", "GAMMA"]
 _image_type = "image_type"
 
 
+def _aperture_or_sky(xds: xr.Dataset) -> str:
+    return "SKY" if "SKY" in xds.data_vars or "l" in xds.coords else "APERTURE"
+
+
 def _get_xds_dim_order(has_sph: bool) -> list:
     dimorder = ["time", "polarization", "frequency"]
     dir_lin = ["l", "m"] if has_sph else ["u", "v"]
@@ -54,36 +58,42 @@ def _coords_to_numpy(xds):
     return xds
 
 
-def _dask_arrayize(xds):
+def _dask_arrayize_dv(xds: xr.Dataset) -> xr.Dataset:
     """
-    If necessary, change coordinates to numpy arrays and data
-    variables to dask arrays
+    If necessary, change data variables to dask arrays
     """
-    xds = _coords_to_numpy(xds)
     for k, v in xds.data_vars.items():
         if not dask.is_dask_collection(v):
-            attrs = xds[k].attrs
+            dv_attrs = xds[k].attrs
             xds = xds.drop_vars([k])
             # may need to add sizes to this call as in numpy method analogs in this file
             xds = xds.assign({k: da.array(v)})
-            xds[k].attrs = attrs
-    for k, v in xds.attrs.items():
-        if isinstance(v, xr.Dataset):
-            xds.attrs[k] = _dask_arrayize(v)
+            xds[k].attrs = dv_attrs
+    # only do the upper level data variables for now,
+    # we don't have any data variables at sublevels so don't worry about them (yet)
+    """
+    if not is_copy:
+        for k, v in xds.attrs.items():
+            if isinstance(v, xr.Dataset):
+                xds.attrs[k], is_copy = _dask_arrayize(v, is_copy)
+    """
     return xds
 
 
-def _numpy_arrayize(xds):
-    xds = _coords_to_numpy(xds)
+def _numpy_arrayize_dv(xds: xr.Dataset) -> xr.Dataset:
+    # just data variables right now
+    # xds, is_copy = _coords_to_numpy(xds, is_copy)
     for k, v in xds.data_vars.items():
         if dask.is_dask_collection(v):
-            attrs = xds[k].attrs
+            attrs_dv = xds[k].attrs
             xds = xds.drop_vars([k])
             xds = xds.assign({k: (v.sizes, v.to_numpy())})
-            xds[k].attrs = attrs
+            xds[k].attrs = attrs_dv
+    """
     for k, v in xds.attrs.items():
         if isinstance(v, xr.Dataset):
-            xds.attrs[k] = _dask_arrayize(v)
+            xds.attrs[k], is_copy = _dask_arrayize(v, is_copy)
+    """
     return xds
 
 

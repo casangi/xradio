@@ -9,6 +9,66 @@ from numcodecs.compat import (
     ensure_contiguous_ndarray_like,
 )
 
+full_dims_lm = ["time", "polarization", "frequency", "l", "m"]
+full_dims_uv = ["time", "polarization", "frequency", "l", "m"]
+norm_dims = ["polarization", "frequency"]
+
+image_data_variables_and_dims_double_precision = {
+    "aperture": {"dims": full_dims_uv, "dtype": "<c16", "name": "APERTURE"},
+    "aperture_normalization": {
+        "dims": norm_dims,
+        "dtype": "<c16",
+        "name": "APERTURE_NORMALIZATION",
+    },
+    "primary_beam": {"dims": full_dims_lm, "dtype": "<f8", "name": "PRIMARY_BEAM"},
+    "uv_sampling": {"dims": full_dims_uv, "dtype": "<c16", "name": "UV_SAMPLING"},
+    "uv_sampling_normalization": {
+        "dims": norm_dims,
+        "dtype": "<c16",
+        "name": "UV_SAMPLING_NORMALIZATION",
+    },
+    "point_spread_function": {
+        "dims": full_dims_lm,
+        "dtype": "<f8",
+        "name": "POINT_SPREAD_FUNCTION",
+    },
+    "visibility": {"dims": full_dims_uv, "dtype": "<c16", "name": "VISIBILITY"},
+    "visibility_normalization": {
+        "dims": norm_dims,
+        "dtype": "<c16",
+        "name": "VISIBILITY_NORMALIZATION",
+    },
+    "sky": {"dims": full_dims_lm, "dtype": "<f8", "name": "SKY"},
+}
+
+image_data_variables_and_dims_single_precision = {
+    "aperture": {"dims": full_dims_uv, "dtype": "<c8", "name": "APERTURE"},
+    "aperture_normalization": {
+        "dims": norm_dims,
+        "dtype": "<c16",
+        "name": "APERTURE_NORMALIZATION",
+    },
+    "primary_beam": {"dims": full_dims_lm, "dtype": "<f4", "name": "PRIMARY_BEAM"},
+    "uv_sampling": {"dims": full_dims_uv, "dtype": "<c8", "name": "UV_SAMPLING"},
+    "uv_sampling_normalization": {
+        "dims": norm_dims,
+        "dtype": "<c16",
+        "name": "UV_SAMPLING_NORMALIZATION",
+    },
+    "point_spread_function": {
+        "dims": full_dims_lm,
+        "dtype": "<f8",
+        "name": "POINT_SPREAD_FUNCTION",
+    },
+    "visibility": {"dims": full_dims_uv, "dtype": "<c8", "name": "VISIBILITY"},
+    "visibility_normalization": {
+        "dims": norm_dims,
+        "dtype": "<c16",
+        "name": "VISIBILITY_NORMALIZATION",
+    },
+    "sky": {"dims": full_dims_lm, "dtype": "<f4", "name": "SKY"},
+}
+
 
 def pad_array_with_nans(input_array, output_shape, dtype):
     """
@@ -32,7 +92,7 @@ def pad_array_with_nans(input_array, output_shape, dtype):
     padded_array[:] = np.nan
 
     # Copy the input array to the appropriate position within the padded array
-    padded_array[: input_shape[0], : input_shape[1]] = input_array
+    padded_array[: input_shape[0], : input_shape[1], : input_shape[2]] = input_array
 
     return padded_array
 
@@ -49,18 +109,54 @@ def write_binary_blob_to_disk(arr, file_path, compressor):
     Returns:
     - None
     """
+    import graphviper.utils.logger as logger
     # Encode the NumPy array using the codec
+    logger.debug('1. Before compressor ' + file_path)
     compressed_arr = compressor.encode(np.ascontiguousarray(arr))
 
+    logger.debug('2. Before makedir')
     # Ensure the directory exists before saving the file
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
-    # Save the compressed array to disk
-    with open(file_path, "wb") as file:
-        file.write(compressed_arr)
+    arr_len = len(compressed_arr)
+    logger.debug('3. Before write the len is: ' + str(arr_len))
+    #Save the compressed array to disk
+    # with open(file_path, "wb") as file:
+    #     file.write(compressed_arr)
+    
+    logger.debug('4. Using new writer: ' + str(arr_len))
+    write_to_lustre_chunked(file_path, compressed_arr)
+        
+    # /.lustre/aoc/sciops/pford/CHILES/cube_image/uid___A002_Xee7674_X2844_Cube_3.img.zarr/SKY/0.0.110.0.0
+    # 348192501 bytes
+    # 332.0622453689575 M
+    
+    # from io import BufferedWriter
+    # # Calculate buffer size based on compressed_arr size (adjust multiplier)
+    # buffer_size = min(len(compressed_arr), 1024 * 1024 * 4)  # Max 4 MB buffer
+    # with BufferedWriter(open(file_path, "wb"), buffer_size) as f:
+    #     f.write(compressed_arr)
+    #     f.flush()  # Ensure data gets written to disk 
+    
+    
+    logger.debug('4. Write completed')
 
     # print(f"Compressed array saved to {file_path}")
 
+
+def write_to_lustre_chunked(file_path, compressed_arr, chunk_size=1024 * 1024 * 128):  # 128 MiB chunks
+  """
+  Writes compressed data to a Lustre file path with chunking.
+
+  Args:
+      file_path: Path to the file for writing.
+      compressed_arr: Compressed data array to write.
+      chunk_size: Size of each data chunk in bytes (default: 128 MiB).
+  """
+  with open(file_path, "wb") as f:
+    for i in range(0, len(compressed_arr), chunk_size):
+      chunk = compressed_arr[i:i + chunk_size]
+      f.write(chunk)
 
 def read_binary_blob_from_disk(file_path, compressor, dtype=np.float64):
     """
@@ -73,6 +169,7 @@ def read_binary_blob_from_disk(file_path, compressor, dtype=np.float64):
     Returns:
     - The decoded NumPy array.
     """
+
     # Check if the file exists
     if not os.path.exists(file_path):
         print(f"Error: File '{file_path}' not found.")
@@ -213,3 +310,34 @@ def create_data_variable_meta_data_on_disk(
 
         write_json_file(zarray, os.path.join(data_variable_path, ".zarray"))
     return zarr_meta
+
+
+def write_chunk(img_xds, meta, parallel_dims_chunk_id, compressor, image_file):
+    dims = meta["dims"]
+    dtype = meta["dtype"]
+    data_varaible_name = meta["name"]
+    chunks = meta["chunks"]
+    shape = meta["shape"]
+    chunk_name = ""
+    if data_varaible_name in img_xds:
+        for d in img_xds[data_varaible_name].dims:
+            if d in parallel_dims_chunk_id:
+                chunk_name = chunk_name + str(parallel_dims_chunk_id[d]) + "."
+            else:
+                chunk_name = chunk_name + "0."
+        chunk_name = chunk_name[:-1]
+
+        if list(img_xds[data_varaible_name].shape) != list(chunks):
+            array = pad_array_with_nans(
+                img_xds[data_varaible_name].values,
+                output_shape=chunks,
+                dtype=dtype,
+            )
+        else:
+            array = img_xds[data_varaible_name].values
+
+        write_binary_blob_to_disk(
+            array,
+            file_path=os.path.join(image_file, data_varaible_name, chunk_name),
+            compressor=compressor,
+        )

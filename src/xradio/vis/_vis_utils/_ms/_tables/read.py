@@ -433,9 +433,11 @@ def read_generic_cols(
                 # benchmark np.stack() performance
                 data = np.stack(
                     [
-                        row[col]["array"].reshape(row[col]["shape"])
-                        if len(row[col]["array"]) > 0
-                        else np.array([""])
+                        (
+                            row[col]["array"].reshape(row[col]["shape"])
+                            if len(row[col]["array"]) > 0
+                            else np.array([""])
+                        )
                         for row in trows
                     ]
                 )
@@ -453,9 +455,13 @@ def read_generic_cols(
                 data = np.stack(
                     [
                         np.pad(
-                            row[col]
-                            if len(row[col]) > 0
-                            else np.array(row[col]).reshape(np.arange(len(mshape)) * 0),
+                            (
+                                row[col]
+                                if len(row[col]) > 0
+                                else np.array(row[col]).reshape(
+                                    np.arange(len(mshape)) * 0
+                                )
+                            ),
                             [(0, ss) for ss in mshape - np.array(row[col]).shape],
                             "constant",
                             constant_values=pad_nan,

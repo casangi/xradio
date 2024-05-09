@@ -9,6 +9,8 @@ import copy
 import numpy as np
 import xarray as xr
 
+# from .._utils.zarr.common import _load_no_dask_zarr
+
 from ._util.casacore import _load_casa_image_block, _xds_to_casa_image
 from ._util.fits import _read_fits_image
 from ._util.image_factory import (
@@ -16,13 +18,17 @@ from ._util.image_factory import (
     _make_empty_lmuv_image,
     _make_empty_sky_image,
 )
-from ._util.zarr import _xds_to_zarr, _xds_from_zarr
+from ._util.zarr import _load_image_from_zarr_no_dask, _xds_from_zarr, _xds_to_zarr
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 def read_image(
-    infile: str, chunks: dict = {}, verbose: bool = False, do_sky_coords: bool = True
+    infile: str,
+    chunks: dict = {},
+    verbose: bool = False,
+    do_sky_coords: bool = True,
+    selection: dict = {},
 ) -> xr.Dataset:
     """
     Convert CASA, FITS, or zarr image to xradio image xds format
@@ -51,6 +57,16 @@ def read_image(
         images will have these coordinates added if they were saved with the zarr dataset,
         and if zarr image didn't have these coordinates when it was written, the resulting
         xr.Dataset will not.
+    selection : dict
+        The selection of data to return, supported keys are time,
+        polarization, frequency, l (or u if aperture image), m (or v if aperture
+        image) a missing key indicates to return the entire axis length for that
+        dimension. Values can be non-negative integers or slices. Slicing
+        behaves as numpy slicing does, that is the start pixel is included in
+        the selection, and the end pixel is not. An empty dictionary (the
+        default) indicates that the entire image should be returned. Currently
+        only supported for images stored in zarr format.
+
     Returns
     -------
     xarray.Dataset
@@ -78,8 +94,12 @@ def read_image(
         return _read_fits_image(infile, chunks, verbose, do_sky_coords)
     except Exception as e:
         emsgs.append(f"image format appears not to be fits {e.args}")
+    # when done debuggin comment out next line
+    # return _xds_from_zarr(infile, {"dv": "dask", "coords": "numpy"}, selection=selection)
     try:
-        return _xds_from_zarr(infile, True)
+        return _xds_from_zarr(
+            infile, {"dv": "dask", "coords": "numpy"}, selection=selection
+        )
     except Exception as e:
         emsgs.append(f"image format appears not to be zarr {e.args}")
     emsgs.insert(
@@ -90,7 +110,10 @@ def read_image(
 
 def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Dataset:
     """
-    Load an image or portion of an image (subimage) into memory
+    Load an image or portion of an image (subimage) into memory with data variables
+    being converted from dask to numpy arrays and coordinate arrays being converted
+    from dask arrays to numpy arrays. If already a numpy array, that data variable
+    or coordinate is left unaltered.
 
     Parameters
     ----------
@@ -104,7 +127,8 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
         behaves as numpy slicing does, that is the start pixel is included in
         the selection, and the end pixel is not. An empty dictionary (the
         default) indicates that the entire image should be returned. The returned
-        dataset will have data variables stored as numpy, not dask, arrays as
+        dataset will have data variables stored as numpy, not dask, arrays.
+        TODO I'd really like to rename this parameter "selection"
     do_sky_coords : bool
         Compute SkyCoord at each pixel and add spherical (sky) dimensions as non-dimensional
         coordinates in the returned xr.Dataset. Only applies to CASA and FITS images; zarr
@@ -117,11 +141,11 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
     """
     do_casa = True
     emsgs = []
-    bd = copy.deepcopy(block_des) if block_des else block_des
-    if bd:
-        for k, v in bd.items():
+    selection = copy.deepcopy(block_des) if block_des else block_des
+    if selection:
+        for k, v in selection.items():
             if type(v) == int:
-                bd[k] = slice(v, v + 1)
+                selection[k] = slice(v, v + 1)
     try:
         from ._util.casacore import _read_casa_image
     except Exception as e:
@@ -134,7 +158,7 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
         # comment next line when done debugging
         # return _load_casa_image_block(infile, bd, do_sky_coords)
         try:
-            return _load_casa_image_block(infile, bd, do_sky_coords)
+            return _load_casa_image_block(infile, selection, do_sky_coords)
         except Exception as e:
             emsgs.append(f"image format appears not to be casacore: {e.args}")
     """
@@ -143,8 +167,12 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
     except Exception as e:
         emsgs.append(f'image format appears not to be fits {e.args}')
     """
+    # when done debugging, comment out next line
+    # return _load_image_from_zarr_no_dask(infile, block_des)
+    # return _xds_from_zarr(infile, {"dv": "numpy"}, selection)
     try:
-        return _xds_from_zarr(infile, False).isel(bd)
+        return _load_image_from_zarr_no_dask(infile, block_des)
+        # return _xds_from_zarr(infile, {"dv": "numpy", "coords": "numpy"}, selection)
     except Exception as e:
         emsgs.append(f"image format appears not to be zarr {e.args}")
     emsgs.insert(
@@ -153,7 +181,9 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
     raise RuntimeError("\n".join(emsgs))
 
 
-def write_image(xds: xr.Dataset, imagename: str, out_format: str = "casa") -> None:
+def write_image(
+    xds: xr.Dataset, imagename: str, out_format: str = "casa", overwrite=False
+) -> None:
     """
     Convert an xds image to CASA or zarr image.
     xds : xarray.Dataset
@@ -167,6 +197,12 @@ def write_image(xds: xr.Dataset, imagename: str, out_format: str = "casa") -> No
     None
     """
     my_format = out_format.lower()
+
+    if overwrite:
+        import os
+
+        os.system("rm -rf " + imagename)
+
     if my_format == "casa":
         _xds_to_casa_image(xds, imagename)
     elif my_format == "zarr":

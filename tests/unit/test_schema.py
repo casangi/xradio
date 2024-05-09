@@ -437,7 +437,7 @@ TEST_DATASET_SCHEMA = DatasetSchema(
             optional=False,
             default=dataclasses.MISSING,
             docstring="Docstring of external data variable",
-            **_dataclass_to_dict(TEST_ARRAY_SCHEMA)
+            **_dataclass_to_dict(TEST_ARRAY_SCHEMA),
         ),
         ArraySchemaRef(
             schema_name=__name__ + "._TestDatasetSchema.data_var_simple",

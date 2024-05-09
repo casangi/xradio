@@ -7,9 +7,9 @@ from .vis_io import read_vis, load_vis_block, write_vis
 from .schema import VisibilityXds
 
 __all__ = [
-    "read_processing_set",
-    "load_processing_set",
-    "convert_msv2_to_processing_set",
+    "read_vis",
+    "load_vis_block",
+    "write_vis",
     "VisibilityXds",
     "PointingXds",
     "AntennaXds",

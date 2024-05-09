@@ -55,9 +55,7 @@ def make_partition_ids_by_ddi_scan(
                 logger.debug(f"Got col STATE_ID (len: {len(state_id)}): {state_id}")
                 data_desc_id = query_states.getcol("DATA_DESC_ID")
 
-        logger.debug(
-            f"Got col DATA_DESC_ID (len: {len(data_desc_id)}): {data_desc_id}"
-        )
+        logger.debug(f"Got col DATA_DESC_ID (len: {len(data_desc_id)}): {data_desc_id}")
         logger.debug(
             f"Len of DISTINCT SCAN_NUMBER,etc.: {len(scan_number)}. Will generate that number of partitions"
         )
@@ -366,7 +364,7 @@ def create_partition_enumerated_product(in_file: str, partition_scheme: str):
     if (partition_scheme == "ddi_intent_field") and (len(state_xds.data_vars) > 0):
         intents, state_ids = get_unqiue_intents(in_file)
         field_ids = np.arange(read_generic_table(in_file, "FIELD").sizes["row"])
-    else: #partition_scheme == "ddi_state_field"
+    else:  # partition_scheme == "ddi_state_field"
 
         if len(state_xds.data_vars) > 0:
             state_ids = [np.arange(state_xds.sizes["row"])]

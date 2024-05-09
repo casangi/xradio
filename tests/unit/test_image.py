@@ -22,7 +22,7 @@ import numbers
 import numpy as np
 import numpy.ma as ma
 import os
-import pkg_resources
+import importlib.resources
 import shutil
 import sys
 import unittest
@@ -204,7 +204,7 @@ class xds_from_image_test(ImageBase):
     def setUpClass(cls):
         cls.maxDiff = None
         if not cls._ran_measures_code and os.environ["USER"] == "runner":
-            casa_data_dir = pkg_resources.resource_filename("casadata", "__data__")
+            casa_data_dir = (importlib.resources.files('casadata') / "__data__").as_posix()
             rc_file = open(os.path.expanduser("~/.casarc"), "a+")  # append mode
             rc_file.write("\nmeasures.directory: " + casa_data_dir)
             rc_file.close()
@@ -286,14 +286,14 @@ class xds_from_image_test(ImageBase):
         """Compare got sky and mask values to expected values"""
         ev = self._exp_vals
         self.assertEqual(
-            xds.sky.attrs["image_type"], ev["image_type"], "Wrong image type"
+            xds.SKY.attrs["image_type"], ev["image_type"], "Wrong image type"
         )
-        self.assertEqual(xds.sky.attrs["units"], ev["units"], "Wrong unit")
-        self.assertEqual(xds.sky.chunksizes["frequency"], (5, 5), "Incorrect chunksize")
+        self.assertEqual(xds.SKY.attrs["units"], ev["units"], "Wrong unit")
+        self.assertEqual(xds.SKY.chunksizes["frequency"], (5, 5), "Incorrect chunksize")
         self.assertEqual(
             xds.mask0.chunksizes["frequency"], (5, 5), "Incorrect chunksize"
         )
-        got_data = da.squeeze(da.transpose(xds.sky, [2, 1, 4, 3, 0]), 4)
+        got_data = da.squeeze(da.transpose(xds.SKY, [2, 1, 4, 3, 0]), 4)
         got_mask = da.squeeze(da.transpose(xds.mask0, [2, 1, 4, 3, 0]), 4)
         if "sky_array" not in ev:
             im = casacore.images.image(self.imname())
@@ -309,7 +309,7 @@ class xds_from_image_test(ImageBase):
         else:
             self.assertTrue((got_data == ev["sky"]).all(), "pixel values incorrect")
         self.assertTrue((got_mask == ev["mask0"]).all(), "mask values incorrect")
-        got_ma = da.ma.masked_array(xds.sky, xds.mask0)
+        got_ma = da.ma.masked_array(xds.SKY, xds.mask0)
         self.assertEqual(da.sum(got_ma), ev["sum"], "Incorrect value for sum")
         self.assertTrue(
             got_data.dtype == ev["sky"].dtype,
@@ -558,18 +558,20 @@ class xds_from_image_test(ImageBase):
             if not zarr:
                 with open_image_ro(imagename) as im:
                     self.assertTrue(
-                        xds["sky"].dtype == im.datatype()
+                        xds["SKY"].dtype == im.datatype()
                         or (
-                            xds["sky"].dtype == np.float32 and im.datatype() == "float"
+                            xds["SKY"].dtype == np.float32 and im.datatype() == "float"
                         ),
-                        f"got wrong data type, got {xds['sky'].dtype}, "
+                        f"got wrong data type, got {xds['SKY'].dtype}, "
                         + f"expected {im.datatype()}",
                     )
-            self.assertEqual(xds.sky.shape, (1, 1, 4, 8, 12), "Wrong block shape")
+            print(xds.attrs["direction"])
+
+            self.assertEqual(xds.SKY.shape, (1, 1, 4, 8, 12), "Wrong block shape")
             big_xds = self._xds if i == 0 else self._xds_no_sky
             self.assertTrue(
-                (xds.sky == big_xds.sky[:, 0:1, 0:4, 2:10, 3:15]).all(),
-                "Wrong block sky array",
+                (xds.SKY == big_xds.SKY[:, 0:1, 0:4, 2:10, 3:15]).all(),
+                "Wrong block SKY array",
             )
             self.assertTrue(
                 (xds.mask0 == big_xds.mask0[:, 0:1, 0:4, 2:10, 3:15]).all(),
@@ -742,7 +744,7 @@ class xds_to_casacore(xds_from_image_test):
         write_image(xds, self._outname, "casa")
         with open_image_ro(self._outname) as im:
             p = im.getdata()
-        exp_data = np.squeeze(np.transpose(xds.sky, [2, 1, 4, 3, 0]), 4)
+        exp_data = np.squeeze(np.transpose(xds.SKY, [2, 1, 4, 3, 0]), 4)
         self.assertTrue((p == exp_data).all(), "Incorrect pixel values")
 
 
@@ -880,7 +882,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                 f"Unexpected directory (mask?) found. subdirs is {subdirs}",
             )
             # case 2a: no mask + nans = nan_mask
-            xds.sky[0, 1, 1, 1, 1] = float("NaN")
+            xds.SKY[0, 1, 1, 1, 1] = float("NaN")
             shutil.rmtree(outname)
             second_attrs = xds.attrs
             second_coords = xds.coords
@@ -903,13 +905,13 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
             # the first positional parameter is a dummy array, so make an
             # empty array
             data = da.zeros_like(
-                np.array([]), shape=xds.sky.shape, chunks=xds.sky.chunks, dtype=bool
+                np.array([]), shape=xds.SKY.shape, chunks=xds.SKY.chunks, dtype=bool
             )
             data[0, 2, 2, 2, 2] = True
             mask0 = xr.DataArray(
                 data=data,
-                dims=xds.sky.sizes,
-                coords=xds.sky.coords,
+                dims=xds.SKY.sizes,
+                coords=xds.SKY.coords,
                 attrs={image_type: "Mask"},
             )
             xds = xds.assign(mask0=mask0)
@@ -935,8 +937,8 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                 self.assertTrue(casa_mask[2, 2, 2, 2], "Wrong pixels are masked")
                 self.assertEqual(casa_mask.sum(), 2, "Wrong pixels are masked")
             # case 2c: all nans are already masked by default mask = no new masks are created
-            xds["sky"][0, 2, 2, 2, 2] = float("NaN")
-            xds["sky"][0, 1, 1, 1, 1] = 0
+            xds["SKY"][0, 2, 2, 2, 2] = float("NaN")
+            xds["SKY"][0, 1, 1, 1, 1] = 0
             write_image(xds, out_2, out_format="casa")
             self.assertEqual(
                 xds.attrs["active_mask"],
@@ -1051,7 +1053,7 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
         write_image(xds, self._zarr_uv_store, "zarr")
         xds2 = read_image(self._zarr_uv_store)
         self.assertTrue(
-            np.isclose(xds2.aperture.values, xds.aperture.values).all(),
+            np.isclose(xds2.APERTURE.values, xds.APERTURE.values).all(),
             "Incorrect aperture pixel values",
         )
 

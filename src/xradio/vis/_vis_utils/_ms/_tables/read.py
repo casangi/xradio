@@ -619,10 +619,53 @@ def read_col_conversion(
     Function to perform delayed reads from table columns when converting
     (no need for didxs)
     """
-    data = tb_tool.getcol(col)
+    
+    
+    # Workaround for https://github.com/casacore/python-casacore/issues/130
+    # WARNING: Assumes tb_tool is a single measurement set not an MMS.
+    # WARNING: Assumes the num_frequencies * num_polarisations > 2**29. If false,
+    # https://github.com/casacore/python-casacore/issues/130 isn't mitigated.
+    
+    # Use casacore to get the shape of a row for this column
+    
+    #################################################################################
+    
+    # Get the total number of rows in the base measurement set
+    nrows_total = tb_tool.nrows()
+    
+    
+    # getcolshapestring() only works on columns where a row element is an 
+    # array (ie fails for TIME, etc)
+    # Assumes RuntimeError is because the column is a scalar
+    try:
+        
+        shape_string = tb_tool.getcolshapestring(col)[0]
+        extra_dimensions = tuple([int(idx) for idx in shape_string.replace("[", "").replace("]", "").split(", ")])
+        full_shape = tuple([nrows_total] + [int(idx) for idx in shape_string.replace("[", "").replace("]", "").split(", ")])
+    except RuntimeError:
+        extra_dimensions = ()
+        full_shape = (nrows_total, )
+        
+    #################################################################################
+
+
+    # Get dtype of the column. Only read first row from disk
+    col_dtype = np.array(tb_tool.col(col)[0]).dtype
+
+    # Construct the numpy array to populate with data
+    data = np.empty(full_shape, dtype=col_dtype)
+
+    # Use built-in casacore table iterator to populate the data column by unique times.
+    start_row = 0
+    for ts in tb_tool.iter("TIME", sort=False):
+        num_rows = ts.nrows()
+        # Note don't use getcol() because it's less safe. See:
+        # https://github.com/casacore/python-casacore/issues/130#issuecomment-463202373
+        ts.getcolnp(col, data[start_row:start_row+num_rows])
+        start_row += num_rows
 
     # TODO
-    # check np.full() with np.nan performance vs np.zeros or np.ones
-    fulldata = np.full(cshape + data.shape[1:], np.nan, dtype=data.dtype)
+    # Can we return a view of `data` instead of copying?
+    fulldata = np.full(cshape + extra_dimensions, np.nan, dtype=col_dtype)
     fulldata[tidxs, bidxs] = data
     return fulldata

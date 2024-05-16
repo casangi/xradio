@@ -29,7 +29,7 @@ import unittest
 import xarray as xr
 import copy
 
-data_variable_name = 'sky'
+data_variable_name = 'SKY'
 
 class ImageBase(unittest.TestCase):
     def dict_equality(self, dict1, dict2, dict1_name, dict2_name, exclude_keys=[]):
@@ -544,7 +544,6 @@ class xds_from_image_test(ImageBase):
             )
 
     def compare_image_block(self, imagename, zarr=False):
-        print('*********************',imagename)
         x = [0] if zarr else [0, 1]
         for i in x:
             xds = load_image(
@@ -990,7 +989,7 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
         # so we must explicitly call the super class' method here to create the
         # xds which is located in the super class
         super().setUpClass()
-        write_image(cls.xds(), cls._zarr_store, out_format="zarr")
+        write_image(cls.xds(), cls._zarr_store, out_format="zarr", overwrite=True)
         cls._zds = read_image(cls._zarr_store)
 
     @classmethod
@@ -1055,7 +1054,7 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
         write_image(xds, self._zarr_uv_store, "zarr")
         xds2 = read_image(self._zarr_uv_store)
         self.assertTrue(
-            np.isclose(xds2.aperture.values, xds.aperture.values).all(),
+            np.isclose(xds2.APERTURE.values, xds.APERTURE.values).all(),
             "Incorrect aperture pixel values",
         )
 

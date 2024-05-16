@@ -12,13 +12,21 @@ from xradio.schema.metamodel import (
     ArraySchemaRef,
     AttrSchemaRef,
     DatasetSchema,
+    DictSchema,
 )
-from xradio.schema.check import check_array, check_dataset, schema_checked, SchemaIssues
+from xradio.schema.check import (
+    check_array,
+    check_dataset,
+    check_dict,
+    schema_checked,
+    SchemaIssues,
+)
 from xradio.schema.dataclass import (
+    xarray_dataclass_to_dict_schema,
     xarray_dataclass_to_array_schema,
     xarray_dataclass_to_dataset_schema,
 )
-from xradio.schema.bases import AsDataArray
+from xradio.schema.bases import AsDataset, AsDataArray, AsDict
 
 Dim1 = Literal["coord"]
 Dim2 = Literal["coord2"]
@@ -194,7 +202,9 @@ def test_check_array_wrong_coord():
     )
     assert len(results) == 2
     assert results[0].path == [("dims", None)]
-    assert results[0].found == ["coord2",]
+    assert results[0].found == [
+        "coord2",
+    ]
     assert results[0].expected == [("coord",)]
     assert results[1].path == [("coords", "coord")]
 
@@ -352,7 +362,107 @@ def test_schema_checked_annotation_optional():
 
 
 @dataclasses.dataclass(frozen=True)
-class _TestDatasetSchemaCoord:
+class _TestDictSchema(AsDict):
+    """
+    Docstring of dict schema
+
+    Multiple lines!
+    """
+
+    attr1: str
+    """Required attribute"""
+    attr2: int = 123
+    """Required attribute with default"""
+    attr3: Optional[int] = None
+    """Optional attribute with default"""
+
+
+# The equivalent of the above in the meta-model
+TEST_DICT_SCHEMA = DictSchema(
+    schema_name=__name__ + "._TestDictSchema",
+    class_docstring="Docstring of dict schema\n\nMultiple lines!",
+    attributes=[
+        AttrSchemaRef(
+            name="attr1",
+            typ=str,
+            optional=False,
+            default=dataclasses.MISSING,
+            docstring="Required attribute",
+        ),
+        AttrSchemaRef(
+            name="attr2",
+            typ=int,
+            optional=False,
+            default=123,
+            docstring="Required attribute with default",
+        ),
+        AttrSchemaRef(
+            name="attr3",
+            typ=int,
+            optional=True,
+            default=None,
+            docstring="Optional attribute with default",
+        ),
+    ],
+)
+
+
+def test_xarray_dataclass_to_dict_schema():
+    """Ensure that extracting the model from the dataclass is consistent"""
+
+    assert xarray_dataclass_to_dict_schema(_TestDictSchema) == TEST_DICT_SCHEMA
+
+
+def test_check_dict():
+
+    # Should succeed
+    data = {"attr1": "asd", "attr2": 234, "attr3": 345}
+    issues = check_dict(data, TEST_DICT_SCHEMA)
+
+    # Should not raise
+    issues.expect()
+
+
+def test_check_dict_optional():
+
+    # Should succeed
+    data = {"attr1": "asd", "attr2": 234}
+    issues = check_dict(data, TEST_DICT_SCHEMA)
+
+    # Should not raise
+    issues.expect()
+
+
+def test_check_dict_typ():
+
+    # Should succeed
+    data = {"attr1": "asd", "attr2": "foo"}
+    results = check_dict(data, TEST_DICT_SCHEMA)
+    assert len(results) == 1
+    assert results[0].path == [("", "attr2")]
+    assert results[0].found == str
+    assert results[0].expected == [int]
+
+    with pytest.raises(SchemaIssues):
+        results.expect()
+
+
+def test_check_dict_missing():
+
+    # Should succeed
+    data = {"attr1": "asd"}
+    results = check_dict(data, TEST_DICT_SCHEMA)
+    assert len(results) == 1
+    assert results[0].path == [("", "attr2")]
+    assert results[0].found == None
+    assert results[0].expected == [int]
+
+    with pytest.raises(SchemaIssues):
+        results.expect()
+
+
+@dataclasses.dataclass(frozen=True)
+class _TestDatasetSchemaCoord(AsDataArray):
     """
     Docstring of array schema for coordinate
     """
@@ -368,7 +478,7 @@ class _TestDatasetSchemaCoord:
 
 
 @dataclasses.dataclass(frozen=True)
-class _TestDatasetSchema:
+class _TestDatasetSchema(AsDataset):
     """
     Docstring of dataset schema
 

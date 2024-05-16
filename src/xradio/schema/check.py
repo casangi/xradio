@@ -329,10 +329,18 @@ def check_attributes(
         val = attrs.get(attr_schema.name)
         if val is None:
             if not attr_schema.optional:
+
+                # Get options
+                if typing.get_origin(attr_schema.typ) is typing.Union:
+                    options = typing.get_args(attr_schema.typ)
+                else:
+                    options = [attr_schema.typ]
+
                 issues.add(
                     SchemaIssue(
                         path=[(attr_kind, attr_schema.name)],
                         message=f"Required attribute {attr_schema.name} is missing!",
+                        expected=options,
                     )
                 )
             continue
@@ -478,7 +486,6 @@ def _check_value(val, ann):
     try:
         check_type(val, ann)
     except TypeCheckError as t:
-        print(ann)
         return SchemaIssues(
             [SchemaIssue(path=[], message=str(t), expected=[ann], found=type(val))]
         )
@@ -511,7 +518,6 @@ def _check_value_union(val, ann):
     okay = False
     for option in options:
         arg_issues = _check_value(val, option)
-        print(val, option, arg_issues)
         # We can immediately return if we find no issues with
         # some schema check
         if not arg_issues:

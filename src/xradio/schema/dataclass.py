@@ -298,11 +298,20 @@ def xarray_dataclass_to_dict_schema(klass):
     for field in dataclasses.fields(klass):
         typ = type_hints[field.name]
 
+        # Handle optional value: Strip "None" from the types
+        optional = is_optional(typ)
+        if optional:
+            typs = [typ for typ in get_args(typ) if typ is not None.__class__]
+            if len(typs) == 1:
+                typ = typs[0]
+            else:
+                typ = typing.Union[*typs]
+
         attributes.append(
             AttrSchemaRef(
                 name=field.name,
                 typ=typ,
-                optional=is_optional(typ),
+                optional=optional,
                 default=field.default,
                 docstring=field_docstrings.get(field.name),
             )

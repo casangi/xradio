@@ -31,7 +31,8 @@ dependencies = [
     'jupyterlab',
     'pyarrow',
     'python_casacore>=3.5.2; sys_platform != "darwin" ',
-    'typing_extensions; python_version < "3.10"'
+    'typing_extensions; python_version < "3.10"',
+    'typeguard'
 ]
 
 [project.optional-dependencies]

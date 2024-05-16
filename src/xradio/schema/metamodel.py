@@ -6,6 +6,7 @@ __all__ = [
     "ArraySchema",
     "ArraySchemaRef",
     "DatasetSchema",
+    "DictSchema",
 ]
 
 
@@ -117,6 +118,22 @@ class DatasetSchema:
     """List of coordinate data arrays"""
     data_vars: [ArraySchemaRef]
     """List of data arrays"""
+    attributes: [AttrSchemaRef]
+    """List of attributes"""
+
+    class_docstring: typing.Optional[str]
+    """Documentation string of class"""
+
+
+@dataclass
+class DictSchema:
+    """
+    Schema for a simple dictionary
+    """
+
+    schema_name: str
+    """(Class) name of the schema"""
+
     attributes: [AttrSchemaRef]
     """List of attributes"""
 

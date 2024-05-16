@@ -1,10 +1,12 @@
 from typing import get_type_hints, get_args
-from .typing import get_dims, get_dtypes, get_role, Role, get_annotated, is_optional
+from .typing import get_dims, get_types, get_role, Role, get_annotated, is_optional
 
 import typing
 import inspect
 import ast
 import dataclasses
+import numpy
+import itertools
 
 from xradio.schema.metamodel import *
 
@@ -130,20 +132,50 @@ def extract_xarray_dataclass(klass):
 
         else:
 
-            # Assume that it's an "inline" declaration using "Coord"/"Data"
-            schema_ref = ArraySchemaRef(
-                name=field.name,
-                optional=is_optional(typ),
-                default=field.default,
-                docstring=field_docstrings.get(field.name),
-                schema_name=f"{klass.__module__}.{klass.__qualname__}.{field.name}",
-                dimensions=get_dims(typ),
-                dtypes=get_dtypes(typ),
-                coordinates=[],
-                attributes=[],
-                class_docstring=None,
-                data_docstring=None,
-            )
+            # Get dimensions and dtypes
+            dims = get_dims(typ)
+            types = get_types(typ)
+
+            # Is types a (single) dataclass?
+            if len(types) == 1 and dataclasses.is_dataclass(types[0]):
+
+                # Recursively get array schema for data class
+                arr_schema = xarray_dataclass_to_array_schema(types[0])
+
+                # Prepend dimensions to array schema
+                arr_schema.dimensions = [
+                    dims1 + dims2
+                    for dims1, dims2 in itertools.product(dims, arr_schema.dimensions)
+                ]
+
+                # Repackage as reference
+                arr_schema_fields = {
+                    f.name: getattr(arr_schema, f.name)
+                    for f in dataclasses.fields(ArraySchema)
+                }
+                schema_ref = ArraySchemaRef(
+                    name=field.name,
+                    optional=is_optional(typ),
+                    default=field.default,
+                    docstring=field_docstrings.get(field.name),
+                    **arr_schema_fields,
+                )
+            else:
+
+                # Assume that it's an "inline" declaration using "Coord"/"Data"
+                schema_ref = ArraySchemaRef(
+                    name=field.name,
+                    optional=is_optional(typ),
+                    default=field.default,
+                    docstring=field_docstrings.get(field.name),
+                    schema_name=f"{klass.__module__}.{klass.__qualname__}.{field.name}",
+                    dimensions=dims,
+                    dtypes=[numpy.dtype(typ) for typ in types],
+                    coordinates=[],
+                    attributes=[],
+                    class_docstring=None,
+                    data_docstring=None,
+                )
 
         if is_coord:
 
@@ -247,6 +279,38 @@ def xarray_dataclass_to_dataset_schema(klass):
         dimensions=dimensions,
         coordinates=coordinates,
         data_vars=data_vars,
+        attributes=attributes,
+        class_docstring=inspect.cleandoc(klass.__doc__),
+    )
+
+
+def xarray_dataclass_to_dict_schema(klass):
+    """
+    Convert an xarray-dataclass style schema dataclass to an DictSchema
+
+    This should work on any class that we would derive from AsDict
+    """
+
+    # Get docstrings and type hints
+    field_docstrings = extract_field_docstrings(klass)
+    type_hints = get_type_hints(klass, include_extras=True)
+    attributes = []
+    for field in dataclasses.fields(klass):
+        typ = type_hints[field.name]
+
+        attributes.append(
+            AttrSchemaRef(
+                name=field.name,
+                typ=typ,
+                optional=is_optional(typ),
+                default=field.default,
+                docstring=field_docstrings.get(field.name),
+            )
+        )
+
+    # Return
+    return DictSchema(
+        schema_name=f"{klass.__module__}.{klass.__qualname__}",
         attributes=attributes,
         class_docstring=inspect.cleandoc(klass.__doc__),
     )

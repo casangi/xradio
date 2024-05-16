@@ -326,35 +326,39 @@ def get_dims(tp: Any) -> List[Dims]:
     return dims_out
 
 
-def get_dtypes(tp: Any) -> List[AnyDType]:
-    """Extract a NumPy data types (dtype)."""
+def get_types(tp: Any) -> List[AnyDType]:
+    """Extract data types from type annotation
+
+    E.g. Coord[..., Type1 | Type2 | ...] or Data[..., Type1 | Type2 | ...]
+
+    """
     try:
-        dtype = get_args(get_args(get_annotated(tp))[1])[0]
+        typ = get_args(get_args(get_annotated(tp))[1])[0]
     except TypeError:
         raise TypeError(f"Could not find any dtype in {tp!r}.")
 
     # List of allowed dtypes (might just be one)
-    if get_origin(dtype) is UnionType:
-        dtypes_in = get_args(dtype)
+    if get_origin(typ) is UnionType:
+        types_in = get_args(typ)
     else:
-        dtypes_in = [dtype]
+        types_in = [typ]
 
-    dtypes_out = []
-    for dt in dtypes_in:
+    types_out = []
+    for dt in types_in:
 
         # Handle case that we want to allow "Any"
         if dt is Any or dt is type(None):
-            dtypes_out.append(None)
+            types_out.append(None)
             continue
 
-        # Allow specifying dtype as literal (e.g. string)
+        # Allow specifying type as literal (e.g. string)
         elif get_origin(dt) is Literal:
-            dtype = get_args(dt)[0]
+            dt = get_args(dt)[0]
 
-        # Construct numpy dtype
-        dtypes_out.append(np.dtype(dt))
+        # Return type
+        types_out.append(dt)
 
-    return dtypes_out
+    return types_out
 
 
 def get_name(tp: Any, default: Hashable = None) -> Hashable:

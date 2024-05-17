@@ -57,7 +57,7 @@ class FieldInfoDict(AsDict):
     Time reference for the directions and rates. When used in :py:class:`VisibilityXds` should match 
     the scale and format given for ``time`` (see :py:class:`TimeArray`).
     """
-    delay_direction: SkyCoordDict
+    delay_direction: SkyCoordArray
 
 
 @dataclass
@@ -90,7 +90,7 @@ class TimeArray(AsDataArray):
 @dataclass
 class SpectralCoordArray(AsDataArray):
 
-    data: Data[(), float]
+    data: Data[tuple[()], float]
 
     frame: Attr[str] = "gcrs"
     """Astropy time scales."""
@@ -211,7 +211,7 @@ class BaselineArray(AsDataArray):
 
 @dataclass(frozen=True)
 class BaselineAntennaArray(AsDataArray):
-    data: Data[BaselineId, int]
+    data: Data[BaselineId, int | numpy.int32]
     """
     Antenna id for an antenna in a baseline. Maps to ``attrs['antenna_xds'].antenna_id``
     in :py:class:`VisibilityXds`
@@ -583,7 +583,7 @@ class AntennaXds(AsDataset):
     """Antenna name."""
     station: Coord[AntennaId, str]
     """Name of the station pad (relevant to arrays with moving antennas)."""
-    antenna_type: Coord[AntennaId, str]
+    antenna_type: Optional[Coord[AntennaId, str]]
     """Antenna type.
     
     Reserved keywords include: (``GROUND-BASED`` - conventional
@@ -597,11 +597,11 @@ class AntennaXds(AsDataset):
     orientation model.)"""
     observatory: Optional[Coord[AntennaId, str]]
     """Support for VLBI"""
-    receptor_name: Coord[ReceptorName, str]
+    receptor_name: Optional[Coord[ReceptorName, str]]
     """Names of receptors"""
     xyz_label: Coord[XyzLabel, str]
     """Coordinate dimension of earth location data (typically shape 3 and 'x', 'y', 'z')"""
-    sky_coord_label: Coord[SkyCoordLabel, str]
+    sky_coord_label: Optional[Coord[SkyCoordLabel, str]]
     """Coordinate dimension of earth location data (typically shape 3 and 'x', 'y', 'z')"""
 
     # --- Data variables ---
@@ -618,12 +618,12 @@ class AntennaXds(AsDataset):
     """
     Offset of feed relative to position (``Antenna_Table.offset + Feed_Table.position``).
     """
-    BEAM_OFFSET: Data[AntennaId, SkyCoordArray]
+    BEAM_OFFSET: Optional[Data[AntennaId, SkyCoordArray]]
     """
     Beam position offset, as defined on the sky but in the antenna
     reference frame.
     """
-    RECEPTOR_ANGLE: Data[tuple[AntennaId, ReceptorName], QuantityArray]
+    RECEPTOR_ANGLE: Optional[Data[tuple[AntennaId, ReceptorName], QuantityArray]]
     """
     Polarization reference angle. Converts into parallactic angle in the sky domain.
     """
@@ -631,15 +631,15 @@ class AntennaXds(AsDataset):
     """
     Focus length. As defined along the optical axis of the antenna.
     """
-    ARRAY_CENTER: Data[AntennaId, EarthLocationArray]
-    EFFECTIVE_DISH_DIAMETER: Data[AntennaId, QuantityArray]
+    ARRAY_CENTER: Optional[Data[AntennaId, EarthLocationArray]]
+    EFFECTIVE_DISH_DIAMETER: Optional[Data[AntennaId, QuantityArray]]
 
     # --- Attributes ---
-    telescope_name: Attr[str]
+    telescope_name: Optional[Attr[str]]
     """
     From MS v2 observation table
     """
-    type: Attr[str]
+    type: Attr[str] = "antenna"
     """
     Type of dataset. Expected to be ``antenna``
     """

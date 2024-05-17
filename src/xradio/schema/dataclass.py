@@ -203,6 +203,10 @@ def xarray_dataclass_to_array_schema(klass):
     refer to using CoordOf or DataOf
     """
 
+    # Cached?
+    if hasattr(klass, "__xradio_array_schema"):
+        return klass.__xradio_array_schema
+
     # Extract from data class
     coordinates, data_vars, attributes = extract_xarray_dataclass(klass)
 
@@ -219,7 +223,7 @@ def xarray_dataclass_to_array_schema(klass):
         )
 
     # Make class
-    return ArraySchema(
+    schema = ArraySchema(
         schema_name=f"{klass.__module__}.{klass.__qualname__}",
         dimensions=data_vars[0].dimensions,
         dtypes=data_vars[0].dtypes,
@@ -228,6 +232,8 @@ def xarray_dataclass_to_array_schema(klass):
         class_docstring=inspect.cleandoc(klass.__doc__),
         data_docstring=data_vars[0].docstring,
     )
+    klass.__xradio_array_schema = schema
+    return schema
 
 
 def xarray_dataclass_to_dataset_schema(klass):
@@ -237,6 +243,10 @@ def xarray_dataclass_to_dataset_schema(klass):
     This should work on any class that we would derive from AsDataArray, or
     refer to using CoordOf or DataOf
     """
+
+    # Cached?
+    if hasattr(klass, "__xradio_dataset_schema"):
+        return klass.__xradio_dataset_schema
 
     # Extract from data class
     coordinates, data_vars, attributes = extract_xarray_dataclass(klass)
@@ -274,7 +284,7 @@ def xarray_dataclass_to_dataset_schema(klass):
     dimensions = [[dim for dim in all_dimensions if dim in dims] for dims in dimensions]
 
     # Make class
-    return DatasetSchema(
+    schema = DatasetSchema(
         schema_name=f"{klass.__module__}.{klass.__qualname__}",
         dimensions=dimensions,
         coordinates=coordinates,
@@ -282,6 +292,8 @@ def xarray_dataclass_to_dataset_schema(klass):
         attributes=attributes,
         class_docstring=inspect.cleandoc(klass.__doc__),
     )
+    klass.__xradio_dataset_schema = schema
+    return schema
 
 
 def xarray_dataclass_to_dict_schema(klass):
@@ -290,6 +302,10 @@ def xarray_dataclass_to_dict_schema(klass):
 
     This should work on any class that we would derive from AsDict
     """
+
+    # Cached?
+    if hasattr(klass, "__xradio_dict_schema"):
+        return klass.__xradio_dict_schema
 
     # Get docstrings and type hints
     field_docstrings = extract_field_docstrings(klass)
@@ -318,8 +334,10 @@ def xarray_dataclass_to_dict_schema(klass):
         )
 
     # Return
-    return DictSchema(
+    schema = DictSchema(
         schema_name=f"{klass.__module__}.{klass.__qualname__}",
         attributes=attributes,
         class_docstring=inspect.cleandoc(klass.__doc__),
     )
+    klass.__xradio_dict_schema = schema
+    return schema

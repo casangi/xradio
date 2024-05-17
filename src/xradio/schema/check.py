@@ -268,7 +268,7 @@ def check_dimensions(
                 path=[("dims", None)],
                 message=message,
                 found=list(dims),
-                expected=expected,
+                expected=list(expected),
             )
         ]
     )
@@ -302,7 +302,7 @@ def check_dtype(dtype: numpy.dtype, expected: [numpy.dtype]) -> SchemaIssues:
                 path=[("dtype", None)],
                 message="Wrong numpy dtype",
                 found=dtype,
-                expected=expected,
+                expected=list(expected),
             )
         ]
     )

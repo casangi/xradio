@@ -143,7 +143,7 @@ def extract_xarray_dataclass(klass):
                 arr_schema = xarray_dataclass_to_array_schema(types[0])
 
                 # Prepend dimensions to array schema
-                arr_schema.dimensions = [
+                combined_dimensions = [
                     dims1 + dims2
                     for dims1, dims2 in itertools.product(dims, arr_schema.dimensions)
                 ]
@@ -153,6 +153,7 @@ def extract_xarray_dataclass(klass):
                     f.name: getattr(arr_schema, f.name)
                     for f in dataclasses.fields(ArraySchema)
                 }
+                arr_schema_fields['dimensions'] = combined_dimensions
                 schema_ref = ArraySchemaRef(
                     name=field.name,
                     optional=is_optional(typ),

@@ -21,7 +21,7 @@ def create_field_info(in_file, field_id):
         ref_code=getattr(field_xds.get("refdir_ref"), "data", None),
     )
     delay_dir = {
-        "dims": "",
+        "dims": "sky_coord_label",
         "data": list(field_xds["delay_dir"].data[0, :]),
         "attrs": msv4_measure,
     }
@@ -31,7 +31,7 @@ def create_field_info(in_file, field_id):
         ref_code=getattr(field_xds.get("phasedir_ref"), "data", None),
     )
     phase_dir = {
-        "dims": "",
+        "dims": "sky_coord_label",
         "data": list(field_xds["phase_dir"].data[0, :]),
         "attrs": msv4_measure,
     }
@@ -41,7 +41,7 @@ def create_field_info(in_file, field_id):
         ref_code=getattr(field_xds.get("delaydir_ref"), "data", None),
     )
     reference_dir = {
-        "dims": "",
+        "dims": "sky_coord_label",
         "data": list(field_xds["delay_dir"].data[0, :]),
         "attrs": msv4_measure,
     }

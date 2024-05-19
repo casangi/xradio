@@ -29,7 +29,8 @@ import unittest
 import xarray as xr
 import copy
 
-data_variable_name = 'sky'
+data_variable_name = "SKY"
+
 
 class ImageBase(unittest.TestCase):
     def dict_equality(self, dict1, dict2, dict1_name, dict2_name, exclude_keys=[]):
@@ -205,7 +206,9 @@ class xds_from_image_test(ImageBase):
     def setUpClass(cls):
         cls.maxDiff = None
         if not cls._ran_measures_code and os.environ["USER"] == "runner":
-            casa_data_dir = (importlib.resources.files('casadata') / "__data__").as_posix()
+            casa_data_dir = (
+                importlib.resources.files("casadata") / "__data__"
+            ).as_posix()
             rc_file = open(os.path.expanduser("~/.casarc"), "a+")  # append mode
             rc_file.write("\nmeasures.directory: " + casa_data_dir)
             rc_file.close()
@@ -287,10 +290,18 @@ class xds_from_image_test(ImageBase):
         """Compare got sky and mask values to expected values"""
         ev = self._exp_vals
         self.assertEqual(
-            xds[data_variable_name].attrs["image_type"], ev["image_type"], "Wrong image type"
+            xds[data_variable_name].attrs["image_type"],
+            ev["image_type"],
+            "Wrong image type",
         )
-        self.assertEqual(xds[data_variable_name].attrs["units"], ev["units"], "Wrong unit")
-        self.assertEqual(xds[data_variable_name].chunksizes["frequency"], (5, 5), "Incorrect chunksize")
+        self.assertEqual(
+            xds[data_variable_name].attrs["units"], ev["units"], "Wrong unit"
+        )
+        self.assertEqual(
+            xds[data_variable_name].chunksizes["frequency"],
+            (5, 5),
+            "Incorrect chunksize",
+        )
         self.assertEqual(
             xds.mask0.chunksizes["frequency"], (5, 5), "Incorrect chunksize"
         )
@@ -305,10 +316,13 @@ class xds_from_image_test(ImageBase):
             ev["sum"] = im.statistics()["sum"][0]
         if fits:
             self.assertTrue(
-                not np.isnan(got_data == ev[data_variable_name]).all(), "pixel values incorrect"
+                not np.isnan(got_data == ev[data_variable_name]).all(),
+                "pixel values incorrect",
             )
         else:
-            self.assertTrue((got_data == ev[data_variable_name]).all(), "pixel values incorrect")
+            self.assertTrue(
+                (got_data == ev[data_variable_name]).all(), "pixel values incorrect"
+            )
         self.assertTrue((got_mask == ev["mask0"]).all(), "mask values incorrect")
         got_ma = da.ma.masked_array(xds[data_variable_name], xds.mask0)
         self.assertEqual(da.sum(got_ma), ev["sum"], "Incorrect value for sum")
@@ -544,7 +558,6 @@ class xds_from_image_test(ImageBase):
             )
 
     def compare_image_block(self, imagename, zarr=False):
-        print('*********************',imagename)
         x = [0] if zarr else [0, 1]
         for i in x:
             xds = load_image(
@@ -562,17 +575,23 @@ class xds_from_image_test(ImageBase):
                     self.assertTrue(
                         xds[data_variable_name].dtype == im.datatype()
                         or (
-                            xds[data_variable_name].dtype == np.float32 and im.datatype() == "float"
+                            xds[data_variable_name].dtype == np.float32
+                            and im.datatype() == "float"
                         ),
                         f"got wrong data type, got {xds[data_variable_name].dtype}, "
                         + f"expected {im.datatype()}",
                     )
             print(xds.attrs["direction"])
 
-            self.assertEqual(xds[data_variable_name].shape, (1, 1, 4, 8, 12), "Wrong block shape")
+            self.assertEqual(
+                xds[data_variable_name].shape, (1, 1, 4, 8, 12), "Wrong block shape"
+            )
             big_xds = self._xds if i == 0 else self._xds_no_sky
             self.assertTrue(
-                (xds[data_variable_name] == big_xds[data_variable_name][:, 0:1, 0:4, 2:10, 3:15]).all(),
+                (
+                    xds[data_variable_name]
+                    == big_xds[data_variable_name][:, 0:1, 0:4, 2:10, 3:15]
+                ).all(),
                 "Wrong block SKY array",
             )
             self.assertTrue(
@@ -907,7 +926,10 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
             # the first positional parameter is a dummy array, so make an
             # empty array
             data = da.zeros_like(
-                np.array([]), shape=xds[data_variable_name].shape, chunks=xds[data_variable_name].chunks, dtype=bool
+                np.array([]),
+                shape=xds[data_variable_name].shape,
+                chunks=xds[data_variable_name].chunks,
+                dtype=bool,
             )
             data[0, 2, 2, 2, 2] = True
             mask0 = xr.DataArray(
@@ -990,7 +1012,7 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
         # so we must explicitly call the super class' method here to create the
         # xds which is located in the super class
         super().setUpClass()
-        write_image(cls.xds(), cls._zarr_store, out_format="zarr")
+        write_image(cls.xds(), cls._zarr_store, out_format="zarr", overwrite=True)
         cls._zds = read_image(cls._zarr_store)
 
     @classmethod
@@ -1055,7 +1077,7 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
         write_image(xds, self._zarr_uv_store, "zarr")
         xds2 = read_image(self._zarr_uv_store)
         self.assertTrue(
-            np.isclose(xds2.aperture.values, xds.aperture.values).all(),
+            np.isclose(xds2.APERTURE.values, xds.APERTURE.values).all(),
             "Incorrect aperture pixel values",
         )
 

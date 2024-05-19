@@ -43,10 +43,11 @@ class processing_set(dict):
             "start_frequency": [],
             "end_frequency": [],
             "shape": [],
-            "field_coords": []
+            "field_coords": [],
         }
         from astropy.coordinates import SkyCoord
         import astropy.units as u
+
         for key, value in self.items():
             summary_data["name"].append(key)
             summary_data["ddi"].append(value.attrs["ddi"])
@@ -69,11 +70,23 @@ class processing_set(dict):
             summary_data["start_frequency"].append(value["frequency"].values[0])
             summary_data["end_frequency"].append(value["frequency"].values[-1])
 
-            ra_dec_rad = value[data_name].attrs["field_info"]['phase_direction']['data']
-            frame = value[data_name].attrs["field_info"]['phase_direction']['attrs']['frame'].lower()
-            coord = SkyCoord(ra=ra_dec_rad[0]*u.rad, dec=ra_dec_rad[1]*u.rad, frame=frame)
+            ra_dec_rad = value[data_name].attrs["field_info"]["phase_direction"]["data"]
+            frame = (
+                value[data_name]
+                .attrs["field_info"]["phase_direction"]["attrs"]["frame"]
+                .lower()
+            )
+            coord = SkyCoord(
+                ra=ra_dec_rad[0] * u.rad, dec=ra_dec_rad[1] * u.rad, frame=frame
+            )
 
-            summary_data["field_coords"].append([frame, coord.ra.to_string(unit=u.hour), coord.dec.to_string(unit=u.deg)])
+            summary_data["field_coords"].append(
+                [
+                    frame,
+                    coord.ra.to_string(unit=u.hour),
+                    coord.dec.to_string(unit=u.deg),
+                ]
+            )
         summary_df = pd.DataFrame(summary_data)
         return summary_df
 

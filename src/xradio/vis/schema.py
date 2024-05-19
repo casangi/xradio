@@ -162,6 +162,14 @@ class ObservationInfoDict(AsDict):
     observing_log: Optional[str]
     """ASDM: Logs of the observation during this execu- tion block."""
 
+@dataclass(frozen=True)
+class ProcessorInfoDict(AsDict):
+    type: str
+    """Processor type; reserved keywords include (”CORRELATOR” -
+    interferometric correlator; ”SPECTROMETER” - single-dish correlator;
+    ”RADIOMETER” - generic detector/integrator)."""
+    sub_type: str
+    """Processor sub-type, e.g. ”GBT” or ”JIVE”."""
 
 
 # Coordinates / Axes
@@ -204,14 +212,14 @@ class AntennaArray(AsDataArray):
 class BaselineArray(AsDataArray):
     """TODO: documentation"""
 
-    data: Data[BaselineId, int]
+    data: Data[BaselineId, numpy.int64 | numpy.int32]
     """Unique id for each baseline."""
     long_name: Optional[Attr[str]] = "Baseline ID"
 
 
 @dataclass(frozen=True)
 class BaselineAntennaArray(AsDataArray):
-    data: Data[BaselineId, int | numpy.int32]
+    data: Data[BaselineId, numpy.int64 | numpy.int32]
     """
     Antenna id for an antenna in a baseline. Maps to ``attrs['antenna_xds'].antenna_id``
     in :py:class:`VisibilityXds`
@@ -522,11 +530,16 @@ class VisibilityXds(AsDataset):
     source_xds: Optional[Attr[SourceXds]] = None
     pased_array_xds: Optional[Attr[PhasedArrayXds]] = None
     observation_info: Optional[Attr[ObservationInfoDict]] = None
+    observation_info: Optional[Attr[ProcessorInfoDict]] = None
 
+    version: Optional[Attr[str]] = None # TODO:
+    """Semantic version of xradio data format"""
     creation_date: Optional[Attr[str]] = None
     """Date visibility dataset was created . Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
     intent: Optional[Attr[str]] = None
-    """Scan intent"""
+    """Identifies the intention of the scan, such as to calibrate or observe a
+    target. See :ref:`scan intents` for possible values.
+    """
     data_description_id: Optional[Attr[str]] = None
     """
     The id assigned to this combination of spectral window and polarization setup.
@@ -602,7 +615,7 @@ class AntennaXds(AsDataset):
     xyz_label: Coord[XyzLabel, str]
     """Coordinate dimension of earth location data (typically shape 3 and 'x', 'y', 'z')"""
     sky_coord_label: Optional[Coord[SkyCoordLabel, str]]
-    """Coordinate dimension of earth location data (typically shape 3 and 'x', 'y', 'z')"""
+    """Coordinate dimension of sky coordinate data (possibly shape 2 and 'RA', "Dec")"""
 
     # --- Data variables ---
     POSITION: Data[AntennaId, EarthLocationArray]
@@ -616,7 +629,7 @@ class AntennaXds(AsDataset):
     """
     DISH_DIAMETER: Data[AntennaId, QuantityArray]
     """
-    Offset of feed relative to position (``Antenna_Table.offset + Feed_Table.position``).
+    Nominal diameter of dish, as opposed to the effective diameter.
     """
     BEAM_OFFSET: Optional[Data[AntennaId, SkyCoordArray]]
     """

@@ -105,8 +105,8 @@ as frequencies or timestamps.
 
 .. _visibility attributes:
 
-Attributes
-----------
+Dictionaries
+------------
 
 Attribute data
 
@@ -114,3 +114,58 @@ Attribute data
    :members: SourceInfoDict, FieldInfoDict
    :undoc-members:
    :member-order: bysource
+
+Value Keys
+----------
+
+.. _scan intents:
+
+Scan Intents
+~~~~~~~~~~~~
+
+Scan intents to be used with :py:class:`VisibilityXds` ``.intent``:
+
+* CALIBRATE AMPLI : Amplitude calibration scan
+* CALIBRATE ANTENNA PHASE : Requested by EVLA.
+* CALIBRATE ANTENNA POINTING MODEL : Requested by EVLA.
+* CALIBRATE ANTENNA POSITION : Requested by EVLA.
+* CALIBRATE APPPHASE ACTIVE : Calculate and apply phasing solutions. Applicable at ALMA.
+* CALIBRATE APPPHASE PASSIVE : Apply previously obtained phasing solutions. Applicable at ALMA.
+* CALIBRATE ATMOSPHERE : Atmosphere calibration scan
+* CALIBRATE BANDPASS : Bandpass calibration scan
+* CALIBRATE DELAY : Delay calibration scan
+* CALIBRATE DIFFGAIN : Enable a gain differential target type
+* CALIBRATE FLUX : flux measurement scan.
+* CALIBRATE FOCUS : Focus calibration scan. Z coordinate to be derived
+* CALIBRATE FOCUS X : Focus calibration scan; X focus coordinate to be derived
+* CALIBRATE FOCUS Y : Focus calibration scan; Y focus coordinate to be derived
+* CALIBRATE PHASE : Phase calibration scan
+* CALIBRATE POINTING : Pointing calibration scan
+* CALIBRATE POL ANGLE :
+* CALIBRATE POL LEAKAGE :
+* CALIBRATE POLARIZATION : Polarization calibration scan
+* CALIBRATE SIDEBAND RATIO : measure relative gains of sidebands.
+* CALIBRATE WVR : Data from the water vapor radiometers (and correlation data) are used to derive their calibration parameters.
+* DO SKYDIP : Skydip calibration scan
+* MAP ANTENNA SURFACE : Holography calibration scan
+* MAP PRIMARY BEAM : Data on a celestial calibration source are used to derive a map of the primary beam.
+* MEASURE RFI : Requested by EVLA.
+* OBSERVE CHECK SOURCE :
+* OBSERVE TARGET : Target source scan
+* SYSTEM CONFIGURATION : Requested by EVLA.
+* TEST : used for development.
+* UNSPECIFIED : Unspecified scan intent
+
+Sub-scan intents to be used with :py:class:`VisibilityXds` ``.sub_intent``:
+
+* ON SOURCE : on-source measurement
+* OFF SOURCE : off-source measurement
+* MIXED : Pointing measurement, some antennas are on -ource, some off-source
+* REFERENCE : reference measurement (used for boresight in holography).
+* SCANNING : antennas are scanning.
+* HOT : hot load measurement.
+* AMBIENT : ambient load measurement.
+* SIGNAL : Signal sideband measurement.
+* IMAGE : Image sideband measurement.
+* TEST : reserved for development.
+* UNSPECIFIED : Unspecified

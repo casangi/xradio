@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Literal, Optional, Union
-from xradio.schema.bases import AsDataArray, AsDataset, AsDict
+from typing import Literal, Optional, Union, List
+from xradio.schema.bases import (
+    xarray_dataset_schema,
+    xarray_dataarray_schema,
+    dict_schema,
+)
 from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof, Name
 import numpy
 
@@ -29,16 +32,47 @@ SkyCoordLabel = Literal["sky_coord_label"]
 """ Unlabeled axis """
 
 
-
 # Plain data class models
-@dataclass
+@dict_schema
 class SourceInfoDict:
     # TODO
     pass
 
 
-@dataclass
-class FieldInfoDict(AsDict):
+@xarray_dataarray_schema
+class TimeArray:
+
+    data: Data[Time, float]
+
+    scale: Attr[str] = "tai"
+    """Astropy time scales."""
+    format: Attr[str] = "unix"
+    """Seconds from 1970-01-01 00:00:00 UTC"""
+
+    type: Attr[str] = "time"
+    units: Attr[list] = ("s",)
+
+
+@xarray_dataarray_schema
+class SkyCoordArray:
+
+    data: Data[SkyCoordLabel, float]
+
+    type: Attr[str] = "sky_coord"
+    units: Attr[list] = ("rad", "rad")
+    frame: Attr[str] = ""
+    """
+    From fixvis docs: clean and the im tool ignore the reference frame
+    claimed by the UVW column (it is often mislabelled as ITRF when it is
+    really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame
+    as the phase tracking center. calcuvw does not yet force the UVW column and
+    field centers to use the same reference frame! Blank = use the phase
+    tracking frame of vis.
+    """
+
+
+@dict_schema
+class FieldInfoDict:
     """
     Field positions for each source.
 
@@ -60,8 +94,8 @@ class FieldInfoDict(AsDict):
     delay_direction: SkyCoordArray
 
 
-@dataclass
-class QuantityArray(AsDataArray):
+@xarray_dataarray_schema
+class QuantityArray:
     """
     Anonymous quantity
     """
@@ -72,23 +106,8 @@ class QuantityArray(AsDataArray):
     units: Attr[list]
 
 
-
-@dataclass
-class TimeArray(AsDataArray):
-
-    data: Data[Time, float]
-
-    scale: Attr[str] = "tai"
-    """Astropy time scales."""
-    format: Attr[str] = "unix"
-    """Seconds from 1970-01-01 00:00:00 UTC"""
-
-    type: Attr[str] = "time"
-    units: Attr[list] = ("s",)
-
-
-@dataclass
-class SpectralCoordArray(AsDataArray):
+@xarray_dataarray_schema
+class SpectralCoordArray:
 
     data: Data[tuple[()], float]
 
@@ -99,26 +118,8 @@ class SpectralCoordArray(AsDataArray):
     units: Attr[list] = ("Hz",)
 
 
-@dataclass
-class SkyCoordArray(AsDataArray):
-
-    data: Data[SkyCoordLabel, float]
-
-    type: Attr[str] = "sky_coord"
-    units: Attr[list] = ("rad", "rad")
-    frame: Attr[str] = ""
-    """
-    From fixvis docs: clean and the im tool ignore the reference frame
-    claimed by the UVW column (it is often mislabelled as ITRF when it is
-    really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame
-    as the phase tracking center. calcuvw does not yet force the UVW column and
-    field centers to use the same reference frame! Blank = use the phase
-    tracking frame of vis.
-    """
-
-
-@dataclass
-class EarthLocationArray(AsDataArray):
+@xarray_dataarray_schema
+class EarthLocationArray:
 
     data: Data[XyzLabel, float]
 
@@ -135,9 +136,8 @@ class EarthLocationArray(AsDataArray):
     """
 
 
-
-@dataclass(frozen=True)
-class ObservationInfoDict(AsDict):
+@dict_schema
+class ObservationInfoDict:
     observer: List[str]
     """List of observer names."""
     project: str
@@ -162,8 +162,9 @@ class ObservationInfoDict(AsDict):
     observing_log: Optional[str]
     """ASDM: Logs of the observation during this execu- tion block."""
 
-@dataclass(frozen=True)
-class ProcessorInfoDict(AsDict):
+
+@dict_schema
+class ProcessorInfoDict:
     type: str
     """Processor type; reserved keywords include (”CORRELATOR” -
     interferometric correlator; ”SPECTROMETER” - single-dish correlator;
@@ -173,8 +174,8 @@ class ProcessorInfoDict(AsDict):
 
 
 # Coordinates / Axes
-@dataclass(frozen=True)
-class TimeArray(AsDataArray):
+@xarray_dataarray_schema
+class TimeArray:
     """Data model of time axis"""
 
     data: Data[Time, float]
@@ -197,9 +198,8 @@ class TimeArray(AsDataArray):
     """ Long-form name to use for axis"""
 
 
-
-@dataclass(frozen=True)
-class AntennaArray(AsDataArray):
+@xarray_dataarray_schema
+class AntennaArray:
     data: Data[AntennaId, int]
     """
     Antenna id of an antenna. Maps to ``antenna_id``
@@ -208,8 +208,8 @@ class AntennaArray(AsDataArray):
     long_name: Optional[Attr[str]] = "Antenna ID"
 
 
-@dataclass(frozen=True)
-class BaselineArray(AsDataArray):
+@xarray_dataarray_schema
+class BaselineArray:
     """TODO: documentation"""
 
     data: Data[BaselineId, numpy.int64 | numpy.int32]
@@ -217,8 +217,8 @@ class BaselineArray(AsDataArray):
     long_name: Optional[Attr[str]] = "Baseline ID"
 
 
-@dataclass(frozen=True)
-class BaselineAntennaArray(AsDataArray):
+@xarray_dataarray_schema
+class BaselineAntennaArray:
     data: Data[BaselineId, numpy.int64 | numpy.int32]
     """
     Antenna id for an antenna in a baseline. Maps to ``attrs['antenna_xds'].antenna_id``
@@ -227,8 +227,14 @@ class BaselineAntennaArray(AsDataArray):
     long_name: Optional[Attr[str]] = "Baseline Antenna ID"
 
 
-@dataclass(frozen=True)
-class FrequencyArray(AsDataArray):
+@xarray_dataset_schema
+class DopplerXds:
+    # TODO
+    pass
+
+
+@xarray_dataarray_schema
+class FrequencyArray:
     """TODO: documentation"""
 
     data: Data[Frequency, float]
@@ -262,8 +268,8 @@ class FrequencyArray(AsDataArray):
     """
 
 
-@dataclass(frozen=True)
-class PolarizationArray(AsDataArray):
+@xarray_dataarray_schema
+class PolarizationArray:
     """
     Possible correlations that can be formed from polarised receptors. Possible
     values, taken from `Measures/Stokes.h
@@ -289,8 +295,8 @@ class PolarizationArray(AsDataArray):
     """ Long-form name to use for axis. Should be ``"Polarization"``"""
 
 
-@dataclass(frozen=True)
-class UvwLabelArray(AsDataArray):
+@xarray_dataarray_schema
+class UvwLabelArray:
     """
     Coordinate axis to make up ``("u", "v", "w")`` tuple, see :py:class:`UvwArray`.
     """
@@ -302,8 +308,8 @@ class UvwLabelArray(AsDataArray):
 
 
 # Data variables
-@dataclass(frozen=True)
-class VisibilityArray(AsDataArray):
+@xarray_dataarray_schema
+class VisibilityArray:
     """TODO: documentation"""
 
     data: Data[
@@ -320,8 +326,8 @@ class VisibilityArray(AsDataArray):
     units: Attr[list] = ("Jy",)
 
 
-@dataclass(frozen=True)
-class FlagArray(AsDataArray):
+@xarray_dataarray_schema
+class FlagArray:
     """
     An array of Boolean values with the same shape as `VISIBILITY`,
     representing the cumulative flags applying to this data matrix. Data are
@@ -341,8 +347,8 @@ class FlagArray(AsDataArray):
     long_name: Optional[Attr[str]] = "Visibility flags"
 
 
-@dataclass(frozen=True)
-class WeightArray(AsDataArray):
+@xarray_dataarray_schema
+class WeightArray:
     """
     The weight for each channel, with the same shape as the associated
     :py:class:`VisibilityArray`, as assigned by the correlator or processor.
@@ -365,8 +371,8 @@ class WeightArray(AsDataArray):
     long_name: Optional[Attr[str]] = "Visibility weights"
 
 
-@dataclass(frozen=True)
-class UvwArray(AsDataArray):
+@xarray_dataarray_schema
+class UvwArray:
     """
     Coordinates for the baseline from ``baseline_antenna2_id`` to
     ``baseline_antenna1_id``, i.e. the baseline is equal to the difference
@@ -412,8 +418,8 @@ class UvwArray(AsDataArray):
     units: Attr[list[str]] = ("m",)
 
 
-@dataclass(frozen=True)
-class TimeSamplingArray(AsDataArray):
+@xarray_dataarray_schema
+class TimeSamplingArray:
     """TODO: documentation"""
 
     data: Data[
@@ -437,8 +443,8 @@ class TimeSamplingArray(AsDataArray):
     units: Attr[str] = "s"
 
 
-@dataclass(frozen=True)
-class FreqSamplingArray(AsDataArray):
+@xarray_dataarray_schema
+class FreqSamplingArray:
     """TODO: documentation"""
 
     data: Data[
@@ -469,124 +475,10 @@ class FreqSamplingArray(AsDataArray):
 
 
 # Data Sets
-@dataclass(frozen=True)
-class VisibilityXds(AsDataset):
-    """TODO: documentation"""
-
-    # --- Required Coordinates ---
-    time: Coordof[TimeArray]
-    """
-    The time coordinate is the mid-point of the nominal sampling interval, as
-    speciﬁed in the ``ms_v4.time.attrs['integration_time']`` (ms v2 interval).
-    """
-    baseline_id: Coordof[BaselineArray]
-    frequency: Coordof[FrequencyArray]
-    """Center frequencies for each channel."""
-    polarization: Coordof[PolarizationArray]
-    """
-    Labels for polarization types, e.g. ``['XX','XY','YX','YY']``, ``['RR','RL','LR','LL']``.
-    """
-    uvw_label: Optional[Coordof[UvwLabelArray]]
-
-    # --- Required data variables ---
-    VISIBILITY: Dataof[VisibilityArray]
-
-    # --- Required Attributes ---
-    antenna_xds: Attr[AntennaXds]
-
-    # --- Optional Coordinates ---
-    baseline_antenna1_id: Optional[Coordof[BaselineAntennaArray]] = None
-    """Antenna id for 1st antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_id``"""
-    baseline_antenna2_id: Optional[Coordof[BaselineAntennaArray]] = None
-    """Antenna id for 2nd antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_id``"""
-    scan_id: Optional[Coord[Time, int]] = None
-    """Arbitary scan number to identify data taken in the same logical scan."""
-
-    # --- Optional data variables / arrays ---
-    """Complex visibilities, either simulated or measured by interferometer."""
-    FLAG: Optional[Dataof[FlagArray]] = None
-    WEIGHT: Optional[Dataof[WeightArray]] = None
-    UVW: Optional[Dataof[UvwArray]] = None
-    EFFECTIVE_INTEGRATION_TIME: Optional[Dataof[TimeSamplingArray]] = None
-    """
-    The integration time, including the effects of missing data, in contrast to
-    ``integration_time`` attribute of the ``time`` coordinate,
-    see :py:class:`TimeArray`. (MS v2: ``exposure``).
-    """
-    TIME_CENTROID: Optional[Dataof[TimeSamplingArray]] = None
-    """
-    The time centroid of the visibility, includes the effects of missing data
-    unlike the ``time`` coordinate, see :py:class:`TimeArray`.
-    """
-    TIME_CENTROID_EXTRA_PRECISION: Optional[Dataof[TimeSamplingArray]] = None
-    """Additional precision for ``TIME_CENTROID``"""
-    EFFECTIVE_CHANNEL_WIDTH: Optional[Dataof[FreqSamplingArray]] = None
-    """The channel bandwidth that includes the effects of missing data."""
-    FREQUENCY_CENTROID: Optional[Dataof[FreqSamplingArray]] = None
-    """Includes the effects of missing data unlike ``frequency``."""
-
-    # --- Optional Attributes ---
-    pointing_xds: Optional[Attr[PointingXds]] = None
-    source_xds: Optional[Attr[SourceXds]] = None
-    pased_array_xds: Optional[Attr[PhasedArrayXds]] = None
-    observation_info: Optional[Attr[ObservationInfoDict]] = None
-    observation_info: Optional[Attr[ProcessorInfoDict]] = None
-
-    version: Optional[Attr[str]] = None # TODO:
-    """Semantic version of xradio data format"""
-    creation_date: Optional[Attr[str]] = None
-    """Date visibility dataset was created . Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
-    intent: Optional[Attr[str]] = None
-    """Identifies the intention of the scan, such as to calibrate or observe a
-    target. See :ref:`scan intents` for possible values.
-    """
-    data_description_id: Optional[Attr[str]] = None
-    """
-    The id assigned to this combination of spectral window and polarization setup.
-    """
-
-    type: Attr[str] = "visibility"
 
 
-@dataclass(frozen=True)
-class PointingXds(AsDataset):
-
-    time: Coordof[TimeArray]
-    """
-    Mid-point of the time interval for which the information in this row is
-    valid.  Required to use the same time measure reference as in visibility dataset
-    """
-    antenna_id: Coordof[AntennaArray]
-    """
-    Antenna identifier, as specified by baseline_antenna1/2_id in visibility dataset
-    """
-    sky_coord_label: Coord[SkyCoordLabel, str]
-    """
-    Direction labels.
-    """
-
-    BEAM_POINTING: Data[
-        tuple[Time, AntennaId, TimePolynomial] | tuple[Time, AntennaId], SkyCoordArray
-    ]
-    """
-    Antenna pointing direction, optionally expressed as polynomial coefficients. DIRECTION in MSv3.
-    """
-    DISH_MEASURED_POINTING: Optional[Data[tuple[Time, AntennaId], SkyCoordArray]]
-    """
-    The current encoder values on the primary axes of the mount type for
-    the antenna. ENCODER in MSv3.
-    """
-    OVER_THE_TOP: Optional[Data[tuple[Time, AntennaId], bool]]
-
-
-@dataclass(frozen=True)
-class SpectralCoordXds(AsDataset):
-    # TODO
-    pass
-
-
-@dataclass(frozen=True)
-class AntennaXds(AsDataset):
+@xarray_dataset_schema
+class AntennaXds:
 
     # --- Coordinates ---
     antenna_id: Coordof[AntennaArray]
@@ -658,19 +550,129 @@ class AntennaXds(AsDataset):
     """
 
 
-@dataclass(frozen=True)
-class SourceXds(AsDataset):
+@xarray_dataset_schema
+class PointingXds:
+
+    time: Coordof[TimeArray]
+    """
+    Mid-point of the time interval for which the information in this row is
+    valid.  Required to use the same time measure reference as in visibility dataset
+    """
+    antenna_id: Coordof[AntennaArray]
+    """
+    Antenna identifier, as specified by baseline_antenna1/2_id in visibility dataset
+    """
+    sky_coord_label: Coord[SkyCoordLabel, str]
+    """
+    Direction labels.
+    """
+
+    BEAM_POINTING: Data[
+        tuple[Time, AntennaId, TimePolynomial] | tuple[Time, AntennaId], SkyCoordArray
+    ]
+    """
+    Antenna pointing direction, optionally expressed as polynomial coefficients. DIRECTION in MSv3.
+    """
+    DISH_MEASURED_POINTING: Optional[Data[tuple[Time, AntennaId], SkyCoordArray]]
+    """
+    The current encoder values on the primary axes of the mount type for
+    the antenna. ENCODER in MSv3.
+    """
+    OVER_THE_TOP: Optional[Data[tuple[Time, AntennaId], bool]]
+
+
+@xarray_dataset_schema
+class SpectralCoordXds:
     # TODO
     pass
 
 
-@dataclass(frozen=True)
-class PhasedArrayXds(AsDataset):
+@xarray_dataset_schema
+class SourceXds:
     # TODO
     pass
 
 
-@dataclass(frozen=True)
-class DopplerXds(AsDataset):
+@xarray_dataset_schema
+class PhasedArrayXds:
     # TODO
     pass
+
+
+@xarray_dataset_schema
+class VisibilityXds:
+    """TODO: documentation"""
+
+    # --- Required Coordinates ---
+    time: Coordof[TimeArray]
+    """
+    The time coordinate is the mid-point of the nominal sampling interval, as
+    speciﬁed in the ``ms_v4.time.attrs['integration_time']`` (ms v2 interval).
+    """
+    baseline_id: Coordof[BaselineArray]
+    frequency: Coordof[FrequencyArray]
+    """Center frequencies for each channel."""
+    polarization: Coordof[PolarizationArray]
+    """
+    Labels for polarization types, e.g. ``['XX','XY','YX','YY']``, ``['RR','RL','LR','LL']``.
+    """
+    uvw_label: Optional[Coordof[UvwLabelArray]]
+
+    # --- Required data variables ---
+    VISIBILITY: Dataof[VisibilityArray]
+
+    # --- Required Attributes ---
+    antenna_xds: Attr[AntennaXds]
+
+    # --- Optional Coordinates ---
+    baseline_antenna1_id: Optional[Coordof[BaselineAntennaArray]] = None
+    """Antenna id for 1st antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_id``"""
+    baseline_antenna2_id: Optional[Coordof[BaselineAntennaArray]] = None
+    """Antenna id for 2nd antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_id``"""
+    scan_id: Optional[Coord[Time, int]] = None
+    """Arbitary scan number to identify data taken in the same logical scan."""
+
+    # --- Optional data variables / arrays ---
+    """Complex visibilities, either simulated or measured by interferometer."""
+    FLAG: Optional[Dataof[FlagArray]] = None
+    WEIGHT: Optional[Dataof[WeightArray]] = None
+    UVW: Optional[Dataof[UvwArray]] = None
+    EFFECTIVE_INTEGRATION_TIME: Optional[Dataof[TimeSamplingArray]] = None
+    """
+    The integration time, including the effects of missing data, in contrast to
+    ``integration_time`` attribute of the ``time`` coordinate,
+    see :py:class:`TimeArray`. (MS v2: ``exposure``).
+    """
+    TIME_CENTROID: Optional[Dataof[TimeSamplingArray]] = None
+    """
+    The time centroid of the visibility, includes the effects of missing data
+    unlike the ``time`` coordinate, see :py:class:`TimeArray`.
+    """
+    TIME_CENTROID_EXTRA_PRECISION: Optional[Dataof[TimeSamplingArray]] = None
+    """Additional precision for ``TIME_CENTROID``"""
+    EFFECTIVE_CHANNEL_WIDTH: Optional[Dataof[FreqSamplingArray]] = None
+    """The channel bandwidth that includes the effects of missing data."""
+    FREQUENCY_CENTROID: Optional[Dataof[FreqSamplingArray]] = None
+    """Includes the effects of missing data unlike ``frequency``."""
+
+    # --- Optional Attributes ---
+    pointing_xds: Optional[Attr[PointingXds]] = None
+    source_xds: Optional[Attr[SourceXds]] = None
+    pased_array_xds: Optional[Attr[PhasedArrayXds]] = None
+    observation_info: Optional[Attr[ObservationInfoDict]] = None
+    observation_info: Optional[Attr[ProcessorInfoDict]] = None
+
+    version: Optional[Attr[str]] = None  # TODO:
+    """Semantic version of xradio data format"""
+    creation_date: Optional[Attr[str]] = None
+    """Date visibility dataset was created . Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
+    intent: Optional[Attr[str]] = None
+    """Identifies the intention of the scan, such as to calibrate or observe a
+    target. See :ref:`scan intents` for possible values.
+    """
+    data_description_id: Optional[Attr[str]] = None
+    """
+    The id assigned to this combination of spectral window and polarization setup.
+    """
+
+    type: Attr[str] = "visibility"

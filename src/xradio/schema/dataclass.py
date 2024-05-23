@@ -20,7 +20,10 @@ def extract_field_docstrings(klass):
     """
 
     # Parse class body
-    src = inspect.getsource(klass)
+    try:
+        src = inspect.getsource(klass)
+    except OSError:
+        return {}
     module = ast.parse(src)
 
     # Expect module containing a class definition
@@ -153,7 +156,7 @@ def extract_xarray_dataclass(klass):
                     f.name: getattr(arr_schema, f.name)
                     for f in dataclasses.fields(ArraySchema)
                 }
-                arr_schema_fields['dimensions'] = combined_dimensions
+                arr_schema_fields["dimensions"] = combined_dimensions
                 schema_ref = ArraySchemaRef(
                     name=field.name,
                     optional=is_optional(typ),
@@ -212,15 +215,22 @@ def xarray_dataclass_to_array_schema(klass):
     coordinates, data_vars, attributes = extract_xarray_dataclass(klass)
 
     # For a dataclass there must be exactly one data variable
-    # (typically called "data", but we don't check that)
     if not data_vars:
         raise ValueError(
-            f"Found no data declaration in (supposed) data darray class {klass.__name__}!"
+            f"Found no data declaration in (supposed) data array class {klass.__name__}!"
         )
     if len(data_vars) > 1:
         raise ValueError(
             f"Found multiple data variables ({', '.join(v.name for v in data_vars)})"
-            f" in supposed data darray class {klass.__name__}!"
+            f" in supposed data array class {klass.__name__}!"
+        )
+
+    # Check that data variable is named "data". This is important for this to
+    # match up with parameters to xarray.DataArray() later (see bases.AsArray)
+    if data_vars[0].name != "data":
+        raise ValueError(
+            f"Data variable in data array class {klass.__name__} "
+            f'must be called "data", not {data_vars[0].name}!'
         )
 
     # Make class
@@ -301,7 +311,7 @@ def xarray_dataclass_to_dict_schema(klass):
     """
     Convert an xarray-dataclass style schema dataclass to an DictSchema
 
-    This should work on any class that we would derive from AsDict
+    This should work on any class annotated with :py:func:`~xradio.schema.bases.dict_schema`
     """
 
     # Cached?

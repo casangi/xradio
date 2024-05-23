@@ -45,6 +45,7 @@ The main aims of the library are:
    :maxdepth: 1
    :caption: Reference
 
+   schema
    vis_api
    vis_model
 

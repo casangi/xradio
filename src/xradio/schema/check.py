@@ -9,12 +9,10 @@ from typeguard import check_type, TypeCheckError
 
 from xradio.schema import (
     metamodel,
+    bases,
     xarray_dataclass_to_array_schema,
     xarray_dataclass_to_dataset_schema,
     xarray_dataclass_to_dict_schema,
-    AsDataset,
-    AsDataArray,
-    AsDict,
 )
 
 
@@ -151,7 +149,7 @@ def check_array(
         raise TypeError(
             f"check_array: Expected xarray.DataArray, but got {type(array)}!"
         )
-    if type(schema) == type and issubclass(schema, AsDataArray):
+    if bases.is_dataarray_schema(schema):
         schema = xarray_dataclass_to_array_schema(schema)
     if not isinstance(schema, metamodel.ArraySchema):
         raise TypeError(f"check_array: Expected ArraySchema, but got {type(schema)}!")
@@ -187,7 +185,7 @@ def check_dataset(
         raise TypeError(
             f"check_dataset: Expected xarray.Dataset, but got {type(dataset)}!"
         )
-    if type(schema) == type and issubclass(schema, AsDataset):
+    if bases.is_dataset_schema(schema):
         schema = xarray_dataclass_to_dataset_schema(schema)
     if not isinstance(schema, metamodel.DatasetSchema):
         raise TypeError(
@@ -413,7 +411,7 @@ def check_dict(
     # Check that this is actually a dictionary
     if not isinstance(dct, dict):
         raise TypeError(f"check_dict: Expected dictionary, but got {type(dct)}!")
-    if type(schema) == type and issubclass(schema, AsDict):
+    if bases.is_dict_schema(schema):
         schema = xarray_dataclass_to_dict_schema(schema)
     if not isinstance(schema, metamodel.DictSchema):
         raise TypeError(f"check_dict: Expected DictSchema, but got {type(schema)}!")
@@ -434,7 +432,7 @@ def _check_value(val, ann):
     """
 
     # Is supposed to be a data array?
-    if type(ann) == type and issubclass(ann, AsDataArray):
+    if bases.is_dataarray_schema(ann):
         # Attempt to convert dictionaries automatically
         if isinstance(val, dict):
             try:
@@ -455,7 +453,7 @@ def _check_value(val, ann):
             return check_array(val, ann)
 
     # Is supposed to be a dataset?
-    if type(ann) == type and issubclass(ann, AsDataset):
+    if type(ann) == type and issubclass(ann, bases.AsDataset):
         # Attempt to convert dictionaries automatically
         if isinstance(val, dict):
             try:
@@ -475,7 +473,7 @@ def _check_value(val, ann):
             return check_dataset(val, ann)
 
     # Is supposed to be a dictionary?
-    if type(ann) == type and issubclass(ann, AsDict):
+    if bases.is_dict_schema(ann):
         if not isinstance(val, dict):
             # Fall through to plain type check
             ann = dict

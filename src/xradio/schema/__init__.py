@@ -3,7 +3,11 @@ from .dataclass import (
     xarray_dataclass_to_dataset_schema,
     xarray_dataclass_to_dict_schema,
 )
-from .bases import AsDataArray, AsDataset, AsDict
+from .bases import (
+    xarray_dataarray_schema,
+    xarray_dataset_schema,
+    dict_schema,
+)
 from .check import (
     SchemaIssue,
     SchemaIssues,
@@ -20,6 +24,8 @@ __all__ = [
     "AsDataArray",
     "AsDataset",
     "AsDict",
+    "xarray_dataarray_schema",
+    "xarray_dataset_schema",
     "SchemaIssue",
     "SchemaIssues",
     "check_array",

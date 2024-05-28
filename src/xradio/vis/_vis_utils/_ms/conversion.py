@@ -258,6 +258,8 @@ def convert_and_write_partition(
     field_id: int = None,
     ignore_msv2_cols: Union[list, None] = None,
     main_chunksize: Union[Dict, None] = None,
+    do_pointing: bool = False,
+    pointing_chunksize: Union[Dict, str, None] = None,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend="zarr",
     overwrite: bool = False,
@@ -364,7 +366,8 @@ def convert_and_write_partition(
             logger.debug("Time weather " + str(time.time() - start))
 
             start = time.time()
-            pointing_xds = create_pointing_xds(in_file)
+            if do_pointing:
+                pointing_xds = create_pointing_xds(in_file)
             logger.debug("Time pointing " + str(time.time() - start))
 
             start = time.time()
@@ -419,6 +422,11 @@ def convert_and_write_partition(
                     "uvw": "UVW",
                 }
                 xds.SPECTRUM_CORRECTED.attrs["field_info"] = field_info
+                
+                
+            #Create source_xds (combines field, source and ephemeris data into one super dataset)
+            source_xds = create_source_xds(in_file, field_id)
+            
 
             if overwrite:
                 mode = "w"
@@ -432,7 +440,8 @@ def convert_and_write_partition(
             if storage_backend == "zarr":
                 xds.to_zarr(store=file_name + "/MAIN", mode=mode)
                 ant_xds.to_zarr(store=file_name + "/ANTENNA", mode=mode)
-                pointing_xds.to_zarr(store=file_name + "/POINTING", mode=mode)
+                if do_pointing:
+                    pointing_xds.to_zarr(store=file_name + "/POINTING", mode=mode)
                 if weather_xds:
                     weather_xds.to_zarr(store=file_name + "/WEATHER", mode=mode)
             elif storage_backend == "netcdf":
@@ -441,3 +450,97 @@ def convert_and_write_partition(
             logger.debug("Write data  " + str(time.time() - start))
 
     # logger.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
+
+
+def create_source_xds(in_file, field_id):
+    # print('create_source_xds')
+    # field_xds = read_generic_table(
+    #     in_file,
+    #     "FIELD",
+    #     rename_ids=subt_rename_ids["FIELD"],
+    # ).sel(field_id=field_id)
+    # print(field_xds)
+    
+    observation_orientation_xds = xr.Dataset()
+    
+    field_info = create_field_info(in_file, field_id)
+    
+    
+    import pprint
+
+    # Prints the nicely formatted dictionary
+    pprint.pprint(field_info)
+
+    
+    source_id = field_info["source_id"]
+    ephemeris_id = field_info["ephemeris_id"]
+    
+    
+    #Look for attached ephemeris tables (this is a non-standard thing CASA importasdm does).
+    import os
+    files = os.listdir('./ALMA_uid___A002_X1003af4_X75a3.split.ms/FIELD')
+    ephemeris_table_name_start = 'EPHEM' + str(ephemeris_id)
+ 
+    ephemeris_name_table_index = [i for i in range(len(files)) if ephemeris_table_name_start in files[i]]
+    
+    print('*******',ephemeris_name_table_index,len(ephemeris_name_table_index))
+    
+    if len(ephemeris_name_table_index) > 0: #Are there any ephemeris tables.
+        assert len(ephemeris_name_table_index) == 1, "More than one ephemeris table which starts with " + ephemeris_table_name_start
+        e_index = ephemeris_name_table_index[0]
+        
+        ephemeris_path = os.path.join(in_file, 'FIELD')
+        ephemeris_xds = read_generic_table(
+                                ephemeris_path,
+                                files[e_index],
+                                #rename_ids=subt_rename_ids["FIELD"],
+                            )
+        
+        assert len(ephemeris_xds.ephemeris_id) == 1, 'Non standard ephemeris table.'
+        ephemeris_xds = ephemeris_xds.isel(ephemeris_id=0)
+        
+        observation_orientation_xds['EPHEMERIS_DIRECTION'] = np.concatenate((ephemeris_xds['ra'].data, ephemeris_xds['dec'].data))
+        
+        field_column_description = ephemeris_xds.attrs["other"]["msv2"]["ctds_attrs"][
+            "column_descriptions"
+        ]
+        
+        print('??? field_column_description')
+        pprint.pprint(field_column_description['RA'])
+        print('************')
+        
+        msv4_measure = column_description_casacore_to_msv4_measure(
+            field_column_description["RA"],
+        )
+        print('msv4_measure',msv4_measure)
+    print(observation_orientation_xds)
+        
+   
+   
+#    The ephemeris_xds is  <xarray.Dataset> Size: 2kB
+# Dimensions:           (ephemeris_row_id: 33)
+# Coordinates:
+#   * ephemeris_row_id  (ephemeris_row_id) int64 264B 0 1 2 3 4 ... 28 29 30 31 32
+#     ephemeris_id      uint32 4B 0
+# Data variables:
+#     time              (ephemeris_row_id) float64 264B 5.988e+04 ... 5.988e+04
+#     ra                (ephemeris_row_id) float64 264B 209.7 209.7 ... 210.0
+#     dec               (ephemeris_row_id) float64 264B -12.06 -12.07 ... -12.17
+#     rho               (ephemeris_row_id) float64 264B 0.9944 0.9944 ... 0.9943
+#     radvel            (ephemeris_row_id) float64 264B -0.0002714 ... -0.0002727
+#     disklong          (ephemeris_row_id) float64 264B 0.0 0.0 0.0 ... 0.0 0.0
+#     disklat           (ephemeris_row_id) float64 264B 0.0 0.0 0.0 ... 0.0 0.0
+# Attributes:
+#     other:    {'msv2': {'ctds_attrs': {'VS_CREATE': '2024/05/17/14:41', 'VS_D...
+    
+#     print('The ephemeris_xds is ',ephemeris_xds)
+
+    
+#     print('*********************')
+#     source_xds = read_generic_table(
+#         in_file,
+#         "SOURCE",
+#     )
+#     print(source_xds)
+    
+    

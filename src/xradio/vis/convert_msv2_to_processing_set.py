@@ -16,6 +16,7 @@ def convert_msv2_to_processing_set(
     out_file: str,
     partition_scheme: {"ddi_intent_field", "ddi_state_field"} = "ddi_intent_field",
     main_chunksize: Union[Dict, str, None] = None,
+    do_pointing: bool = False,
     pointing_chunksize: Union[Dict, str, None] = None,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend="zarr",
@@ -36,6 +37,8 @@ def convert_msv2_to_processing_set(
         By default, "ddi_intent_field".
     main_chunksize : Union[Dict, str, None], optional
         A dictionary that defines the chunk size of the main dataset. Acceptable keys are "time", "baseline", "antenna", "frequency", "polarization". By default, None.
+    do_pointing : Bool , optional
+        If True the pointing dataset is created. By default, False.
     pointing_chunksize : Union[Dict, str, None], optional
         A dictionary that defines the chunk size of the pointing dataset. Acceptable keys are "time", "antenna", "polarization". By default, None.
     compressor : numcodecs.abc.Codec, optional
@@ -51,6 +54,8 @@ def convert_msv2_to_processing_set(
     partition_enumerated_product, intents = create_partition_enumerated_product(
         in_file, partition_scheme
     )
+    
+    print(partition_enumerated_product, intents)
 
     delayed_list = []
     for idx, pair in partition_enumerated_product:
@@ -59,14 +64,32 @@ def convert_msv2_to_processing_set(
             "DDI " + str(ddi) + ", STATE " + str(state_id) + ", FIELD " + str(field_id)
         )
 
-        if partition_scheme == "ddi_intent_field":
-            intent = intents[idx[1]]
-        else:
-            intent = intents[idx[1]] + "_" + str(state_id)
+        if ddi==2 and field_id==13:
+            print("DDI " + str(ddi) + ", STATE " + str(state_id) + ", FIELD " + str(field_id))
+            if partition_scheme == "ddi_intent_field":
+                intent = intents[idx[1]]
+            else:
+                intent = intents[idx[1]] + "_" + str(state_id)
 
-        if parallel:
-            delayed_list.append(
-                dask.delayed(convert_and_write_partition)(
+            if parallel:
+                delayed_list.append(
+                    dask.delayed(convert_and_write_partition)(
+                        in_file,
+                        out_file,
+                        intent,
+                        ddi,
+                        state_id,
+                        field_id,
+                        ignore_msv2_cols=ignore_msv2_cols,
+                        main_chunksize=main_chunksize,
+                        pointing_chunksize=pointing_chunksize,
+                        do_pointing=do_pointing,
+                        compressor=compressor,
+                        overwrite=overwrite,
+                    )
+                )
+            else:
+                convert_and_write_partition(
                     in_file,
                     out_file,
                     intent,
@@ -75,24 +98,12 @@ def convert_msv2_to_processing_set(
                     field_id,
                     ignore_msv2_cols=ignore_msv2_cols,
                     main_chunksize=main_chunksize,
+                    pointing_chunksize=pointing_chunksize,
+                    do_pointing=do_pointing,
                     compressor=compressor,
+                    storage_backend=storage_backend,
                     overwrite=overwrite,
                 )
-            )
-        else:
-            convert_and_write_partition(
-                in_file,
-                out_file,
-                intent,
-                ddi,
-                state_id,
-                field_id,
-                ignore_msv2_cols=ignore_msv2_cols,
-                main_chunksize=main_chunksize,
-                compressor=compressor,
-                storage_backend=storage_backend,
-                overwrite=overwrite,
-            )
 
     if parallel:
         dask.compute(delayed_list)

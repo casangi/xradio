@@ -53,6 +53,8 @@ def create_field_info(in_file, field_id):
         "phase_direction": phase_dir,
         "reference_direction": reference_dir,
         "field_id": field_id,
+        "source_id": int(field_xds["source_id"].data),
+        "ephemeris_id": int(field_xds["ephemeris_id"].data),
     }
     # xds.attrs["field_info"] = field_info
 

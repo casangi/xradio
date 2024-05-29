@@ -373,7 +373,7 @@ def convert_and_write_partition(
             start = time.time()
             # Fix UVW frame
             # From CASA fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking center. calcuvw does not yet force the UVW column and field centers to use the same reference frame! Blank = use the phase tracking frame of vis.
-            xds.UVW.attrs["frame"] = field_info["phase_direction"]["attrs"]["frame"]
+            xds.UVW.attrs["frame"] = field_info["phase_direction"].attrs["frame"]
 
             xds.attrs["intent"] = intent
             xds.attrs["ddi"] = ddi
@@ -394,7 +394,7 @@ def convert_and_write_partition(
                     "weight": "WEIGHT",
                     "uvw": "UVW",
                 }
-                xds.VISIBILITY.attrs["field_info"] = field_info
+                #xds.VISIBILITY.attrs["field_info"] = field_info
 
             if "VISIBILITY_CORRECTED" in xds:
                 xds.attrs["data_groups"]["corrected"] = {
@@ -424,8 +424,8 @@ def convert_and_write_partition(
                 xds.SPECTRUM_CORRECTED.attrs["field_info"] = field_info
                 
                 
-            #Create source_xds (combines field, source and ephemeris data into one super dataset)
-            source_xds = create_source_xds(in_file, field_id)
+            #Create field_xds (combines field, source and ephemeris data into one super dataset)
+            field_xds = create_field_xds(in_file, field_id)
             
 
             if overwrite:
@@ -444,6 +444,8 @@ def convert_and_write_partition(
                     pointing_xds.to_zarr(store=file_name + "/POINTING", mode=mode)
                 if weather_xds:
                     weather_xds.to_zarr(store=file_name + "/WEATHER", mode=mode)
+                if field_xds:
+                    field_xds.to_zarr(store=file_name + "/FIELD", mode=mode)
             elif storage_backend == "netcdf":
                 # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
                 raise
@@ -452,8 +454,8 @@ def convert_and_write_partition(
     # logger.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
 
 
-def create_source_xds(in_file, field_id):
-    # print('create_source_xds')
+def create_field_xds(in_file, field_id):
+    # print('create_field_xds')
     # field_xds = read_generic_table(
     #     in_file,
     #     "FIELD",
@@ -461,7 +463,7 @@ def create_source_xds(in_file, field_id):
     # ).sel(field_id=field_id)
     # print(field_xds)
     
-    observation_orientation_xds = xr.Dataset()
+    field_xds = xr.Dataset()
     
     field_info = create_field_info(in_file, field_id)
     
@@ -499,8 +501,8 @@ def create_source_xds(in_file, field_id):
         assert len(ephemeris_xds.ephemeris_id) == 1, 'Non standard ephemeris table.'
         ephemeris_xds = ephemeris_xds.isel(ephemeris_id=0)
         
-        observation_orientation_xds['EPHEMERIS_DIRECTION'] = np.concatenate((ephemeris_xds['ra'].data, ephemeris_xds['dec'].data))
-        
+        field_xds['SOURCE_DIRECTION'] = xr.DataArray(np.column_stack((ephemeris_xds['ra'].data, ephemeris_xds['dec'].data)), dims=['time','direction_label']) 
+
         field_column_description = ephemeris_xds.attrs["other"]["msv2"]["ctds_attrs"][
             "column_descriptions"
         ]
@@ -513,7 +515,24 @@ def create_source_xds(in_file, field_id):
             field_column_description["RA"],
         )
         print('msv4_measure',msv4_measure)
-    print(observation_orientation_xds)
+        
+        field_xds['FIELD_PHASE_CENTER_OFFSET'] = field_info['phase_direction']
+        print('XXX field_xds[FIELD_PHASE_CENTER_OFFSET]',field_xds['FIELD_PHASE_CENTER_OFFSET'])
+        field_xds['FIELD_PHASE_CENTER_OFFSET'].attrs['type'] = 'sky_coord_offset'
+        
+        field_xds['FIELD_DELAY_CENTER_OFFSET'] = field_info["delay_direction"]
+        field_xds['FIELD_DELAY_CENTER_OFFSET'].attrs['type'] = 'sky_coord_offset'
+        
+        field_xds['FIELD_REFERENCE_CENTER_OFFSET'] = field_info["reference_direction"]
+        field_xds['FIELD_REFERENCE_CENTER_OFFSET'].attrs['type'] = 'sky_coord_offset'
+        
+    else: #No ephemeris tables.
+        field_xds['FIELD_PHASE_CENTER'] = field_info['phase_direction']
+        field_xds['FIELD_DELAY_CENTER'] = field_info["delay_direction"]
+        field_xds['FIELD_REFERENCE_CENTER'] = field_info["reference_direction"]
+        
+
+    print(field_xds)
         
    
    

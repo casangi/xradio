@@ -1,6 +1,7 @@
 from .msv2_to_msv4_meta import column_description_casacore_to_msv4_measure
 from .subtables import subt_rename_ids
 from ._tables.read import read_generic_table
+import xarray as xr
 
 
 def create_field_info(in_file, field_id):
@@ -20,31 +21,32 @@ def create_field_info(in_file, field_id):
         field_column_description["REFERENCE_DIR"],
         ref_code=getattr(field_xds.get("refdir_ref"), "data", None),
     )
-    delay_dir = {
-        "dims": "sky_coord_label",
+    
+    delay_dir = xr.DataArray.from_dict({
+        "dims": "direction_label",
         "data": list(field_xds["delay_dir"].data[0, :]),
         "attrs": msv4_measure,
-    }
+    })
 
     msv4_measure = column_description_casacore_to_msv4_measure(
         field_column_description["PHASE_DIR"],
         ref_code=getattr(field_xds.get("phasedir_ref"), "data", None),
     )
-    phase_dir = {
-        "dims": "sky_coord_label",
+    phase_dir = xr.DataArray.from_dict({
+        "dims": "direction_label",
         "data": list(field_xds["phase_dir"].data[0, :]),
         "attrs": msv4_measure,
-    }
+    })
 
     msv4_measure = column_description_casacore_to_msv4_measure(
         field_column_description["DELAY_DIR"],
         ref_code=getattr(field_xds.get("delaydir_ref"), "data", None),
     )
-    reference_dir = {
-        "dims": "sky_coord_label",
+    reference_dir = xr.DataArray.from_dict({
+        "dims": "direction_label",
         "data": list(field_xds["delay_dir"].data[0, :]),
         "attrs": msv4_measure,
-    }
+    })
 
     field_info = {
         "name": str(field_xds["name"].data),

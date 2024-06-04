@@ -44,6 +44,8 @@ class processing_set(dict):
             "end_frequency": [],
             "shape": [],
             "field_coords": [],
+            "polarization": [],
+            "spw_id": [],
         }
         from astropy.coordinates import SkyCoord
         import astropy.units as u
@@ -52,6 +54,9 @@ class processing_set(dict):
             summary_data["name"].append(key)
             summary_data["ddi"].append(value.attrs["ddi"])
             summary_data["intent"].append(value.attrs["intent"])
+            summary_data["spw_id"].append(value.frequency.attrs["spw_id"])
+            summary_data["polarization"].append(value.polarization.values)
+            
 
             if "visibility" in value.attrs["data_groups"][data_group]:
                 data_name = value.attrs["data_groups"][data_group]["visibility"]
@@ -123,3 +128,33 @@ class processing_set(dict):
 
     def get(self, id):
         return self[list(self.keys())[id]]
+    
+    def ps_sel(self, **kwargs):
+        
+        summary_table = self.summary()
+        for key, value in kwargs.items():
+            print("%s == %s" % (key, value))
+            if isinstance(value, list):
+                summary_table = summary_table[summary_table[key].isin(value)]
+            else:   
+                summary_table = summary_table[summary_table[key] == value]
+        
+        sub_ps = processing_set()
+        for key, val in self.items():
+            if key in summary_table["name"].values:
+                sub_ps[key] =  val
+                
+        return sub_ps
+                 
+    def sel(self, **kwargs):
+        sub_ps = processing_set()
+        for key,val in self.items():
+            sub_ps[key] = val.sel(kwargs)  
+        return sub_ps
+            
+    def isel(self, **kwargs):
+        sub_ps = processing_set()
+        for key,val in self.items():
+            sub_ps[key] = val.isel(kwargs)  
+        return sub_ps
+

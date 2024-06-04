@@ -470,12 +470,12 @@ def read_generic_cols(
                     ]
                 )
             except Exception as exc:
-                level = logger.WARNING
-                if col in known_misbehaving_cols:
-                    level = logger.DEBUG
-                logger.log(
-                    level, f"{infile}: failed to read data for column {col}: {exc}"
-                )
+                # level = logger.WARNING
+                # if col in known_misbehaving_cols:
+                #     level = logger.DEBUG
+                # logger.log(
+                #     level, f"{infile}: failed to read data for column {col}: {exc}"
+                # )
                 data = []
 
         if len(data) == 0:

@@ -13,6 +13,10 @@ _doppler_types = ["RADIO", "Z", "RATIO", "BETA", "GAMMA"]
 _image_type = "image_type"
 
 
+def _aperture_or_sky(xds: xr.Dataset) -> str:
+    return "SKY" if "SKY" in xds.data_vars or "l" in xds.coords else "APERTURE"
+
+
 def _get_xds_dim_order(has_sph: bool) -> list:
     dimorder = ["time", "polarization", "frequency"]
     dir_lin = ["l", "m"] if has_sph else ["u", "v"]
@@ -29,7 +33,10 @@ def _convert_beam_to_rad(beam: dict) -> dict:
     """
     mybeam = {}
     for k in beam:
-        q = u.quantity.Quantity(f"{beam[k]['value']}{beam[k]['unit']}")
+        try:
+            q = u.quantity.Quantity(f"{beam[k]['value']}{beam[k]['unit']}")
+        except:
+            q = u.quantity.Quantity(f"{beam[k]['value']}{beam[k]['units']}")
         q = q.to("rad")
         j = "pa" if k == "positionangle" else k
         mybeam[j] = {"type": "quantity", "value": q.value, "units": "rad"}

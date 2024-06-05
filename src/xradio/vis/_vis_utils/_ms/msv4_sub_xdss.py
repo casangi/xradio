@@ -1,3 +1,7 @@
+import graphviper.utils.logger as logger
+import time
+from typing import Union
+
 import numpy as np
 import xarray as xr
 
@@ -209,7 +213,7 @@ def create_weather_xds(in_file: str):
     return weather_xds
 
 
-def create_pointing_xds(in_file: str):
+def create_pointing_xds(in_file: str, taql_where: str, interp_time: Union[float, None] = None) -> xr.Dataset:
     """Creates a Pointing Xarray Dataset from an MS v2 POINTING (sub)table.
 
     WIP: details of a few direction variables (and possibly moving some to attributes) to be
@@ -220,11 +224,18 @@ def create_pointing_xds(in_file: str):
     in_file : str
         Input MS name.
 
+    taql_where : str
+        TaQL where string to constrain TIME, etc.
+
+    interp_time : xr.DataArray
+        interpolate time to this (presumably main dataset time)
+
     Returns
     -------
     pointing_xds : xarray.Dataset
         Pointing Xarray Dataset.
     """
+    start = time.time()
 
     # Dictionaries that define the conversion from MSv2 to MSv4:
     to_new_data_variable_names = {
@@ -262,6 +273,7 @@ def create_pointing_xds(in_file: str):
         in_file,
         "POINTING",
         rename_ids=subt_rename_ids["POINTING"],
+        taql_where=taql_where,
     )
     if not generic_pointing_xds.data_vars:
         # apparently empty MS/POINTING table => produce empty xds
@@ -318,5 +330,13 @@ def create_pointing_xds(in_file: str):
             ),
         }
     # TODO: move also source_offset/pointing_offset from data_vars to attrs?
+
+    if interp_time is not None:
+        logger.info(" Interpolating pointing_xds time coordinate to main_xds time")
+        pointing_xds = pointing_xds.interp(
+            time=interp_time, method="linear", assume_sorted=True
+        )
+
+    logger.debug(f"create_pointing_xds() execution time {time.time() - start:0.2f} s")
 
     return pointing_xds

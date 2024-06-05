@@ -1,4 +1,5 @@
 import numcodecs
+import math
 import time
 from .._zarr.encoding import add_encoding
 from typing import Dict, Union
@@ -27,6 +28,328 @@ from ._tables.read import (
 from ._tables.read_main_table import get_baselines, get_baseline_indices, get_utimes_tol
 from .._utils.stokes_types import stokes_types
 from xradio.vis._vis_utils._ms.optimised_functions import unique_1d
+
+
+def parse_chunksize(
+    chunksize: Union[Dict, float, None], xds_type: str, xds: xr.Dataset
+) -> Dict[str, int]:
+    """
+    Parameters
+    ----------
+    chunksize : Union[Dict, float, None]
+        Desired maximum size of the chunks, either as a dict of per-dimension sizes or as
+        an amount of memory
+    xds_type : str
+        whether to use chunking logic for main or pointing datasets
+    xds : xr.Dataset
+        dataset to calculate best chunking
+
+    Returns
+    -------
+    _dict_
+        dictionary of chunk sizes (as dim->size)
+    """
+    if isinstance(chunksize, dict):
+        check_chunksize(chunksize, xds_type)
+    elif isinstance(chunksize, float):
+        chunksize = mem_chunksize_to_dict(chunksize, xds_type, xds)
+    elif chunksize is not None:
+        raise ValueError(f"Chunk size expected as a dict or a float, got: "
+                         f" {chunksize} (of type {type(chunksize)}")
+
+    return chunksize
+
+
+def check_chunksize(chunksize: dict, xds_type: str) -> None:
+    """
+    Rudimentary check of the chunksize parameters to catch obvious errors early before
+    more work is done.
+    """
+    # perphaps start using some TypeDict or/and validator like pydantic?
+    if xds_type == "main":
+        allowed_dims = [
+            "time",
+            "baseline_id",
+            "antenna_id",
+            "frequency",
+            "polarization",
+        ]
+    elif xds_type == "pointing":
+        allowed_dims = ["time", "antenna"]
+
+    msg = ""
+    for dim in chunksize.keys():
+        if dim not in allowed_dims:
+            msg += f"dimension {dim} not allowed in {xds_type} dataset:\n"
+    if msg:
+        raise ValueError(f"Wrong keys found in chunksize: {msg}")
+
+
+def mem_chunksize_to_dict(
+    chunksize: float, xds_type: str, xds: xr.Dataset
+) -> Dict[str, int]:
+    """
+    Given a desired 'chunksize' as amount of memory in GB, calculate best chunk sizes
+    for every dimension of an xds.
+
+    Parameters
+    ----------
+    chunksize : float
+        Desired maximum size of the chunks
+    xds_type : str
+        whether to use chunking logic for main or pointing datasets
+    xds : xr.Dataset
+        dataset to auto-calculate chunking of its dimensions
+
+    Returns
+    -------
+    _dict_
+        dictionary of chunk sizes (as dim->size)
+    """
+
+    if xds_type == "pointing":
+        sizes = mem_chunksize_to_dict_pointing(chunksize, xds)
+    elif xds_type == "main":
+        sizes = mem_chunksize_to_dict_main(chunksize, xds)
+    else:
+        raise RuntimeError(f"Unexpected type: {xds_type=}")
+
+    return sizes
+
+
+GiBYTES_TO_BYTES = 1024 * 1024 * 1024
+
+
+def mem_chunksize_to_dict_main(chunksize: float, xds: xr.Dataset) -> Dict[str, int]:
+    """
+    Checks the assumption that all polarizations can be held in memory, at least for one
+    data point (one time, one freq, one channel).
+
+    It presently relies on the logic of mem_chunksize_to_dict_main_balanced() to find a
+    balanced list of dimension sizes for the chunks
+
+    Assumes these relevant dims: (time, antenna_id/baseline_id, frequency,
+    polarization).
+    """
+
+    sizeof_vis = itemsize_vis_spec(xds)
+    size_all_pols = sizeof_vis * xds.sizes["polarization"]
+    if size_all_pols / GiBYTES_TO_BYTES > chunksize:
+        raise RuntimeError(
+            "Cannot calculate chunk sizes when memory bound ({chunksize}) does not even allow all polarizations in one chunk"
+        )
+
+    baseline_or_antenna_id = find_baseline_or_antenna_var(xds)
+    total_size = calc_used_gb(xds.sizes, baseline_or_antenna_id, sizeof_vis)
+
+    ratio = chunksize / total_size
+    chunked_dims = ["time", baseline_or_antenna_id, "frequency", "polarization"]
+    if ratio >= 1:
+        result = {dim: xds.sizes[dim] for dim in chunked_dims}
+        logger.debug(
+            f"{chunksize=} GiB is enough to fully hold {total_size=} GiB (for {xds.sizes=}) in memory in one chunk"
+        )
+    else:
+        xds_dim_sizes = {k: xds.sizes[k] for k in chunked_dims}
+        result = mem_chunksize_to_dict_main_balanced(
+            chunksize, xds_dim_sizes, baseline_or_antenna_id, sizeof_vis
+        )
+
+    return result
+
+
+def mem_chunksize_to_dict_main_balanced(
+    chunksize: float, xds_dim_sizes: dict, baseline_or_antenna_id: str, sizeof_vis: int
+) -> Dict[str, int]:
+    """
+    Assumes the ratio is <1 and all pols can fit in memory (from
+    mem_chunksize_to_dict_main()).
+
+    What is kept balanced is the fraction of the total size of every dimension included in a
+    chunk. For example, time: 10, baseline: 100, freq: 1000, if we can afford about 33% in
+    one chunk, the chunksize will be ~ time: 3, baseline: 33, freq: 333.
+    The polarization axis is excluded from the calculations.
+    Because this can leave a leftover (below or above the desired chunksize limit) and
+    adjustment is done to get the final memory use below but as close as possible to
+    'chunksize'. This adjustment alters the balance.
+
+    Parameters
+    ----------
+    chunksize : float
+        Desired maximum size of the chunks
+    xds_dim_sizes : dict
+        Dataset dimension sizes as dim_name->size
+    sizeof_vis : int
+        Size in bytes of a data point (one visibility / spectrum value)
+
+    Returns
+    -------
+    _dict_
+        dictionary of chunk sizes (as dim->size)
+    """
+
+    dim_names = [name for name in xds_dim_sizes.keys()]
+    dim_sizes = [size for size in xds_dim_sizes.values()]
+    # Fix fourth dim (polarization) to all (not free to auto-calculate)
+    free_dims_mask = np.array([True, True, True, False])
+
+    total_size = np.prod(dim_sizes) * sizeof_vis / GiBYTES_TO_BYTES
+    ratio = chunksize / total_size
+
+    dim_chunksizes = np.array(dim_sizes, dtype="int64")
+    factor = ratio ** (1 / np.sum(free_dims_mask))
+    dim_chunksizes[free_dims_mask] = np.maximum(
+        dim_chunksizes[free_dims_mask] * factor, 1
+    )
+    used = np.prod(dim_chunksizes) * sizeof_vis / GiBYTES_TO_BYTES
+
+    logger.debug(
+        f"Auto-calculating main chunk sizes. First order approximation {dim_chunksizes=}, used total: {used} GiB (with {chunksize=} GiB)"
+    )
+
+    # Iterate through the dims, starting from the dims with lower chunk size
+    #  (=bigger impact of a +1)
+    # Note the use of math.floor, this iteration can either increase or decrease sizes,
+    #  if increasing sizes we want to keep mem use below the upper limit, floor(2.3) = +2
+    #  if decreasing sizes we want to take mem use below the upper limit, floor(-2.3) = -3
+    indices = np.argsort(dim_chunksizes[free_dims_mask])
+    for idx in indices:
+        left = chunksize - used
+        other_dims_mask = np.ones(free_dims_mask.shape, dtype=bool)
+        other_dims_mask[idx] = False
+        delta = np.divide(
+            left,
+            np.prod(dim_chunksizes[other_dims_mask]) * sizeof_vis / GiBYTES_TO_BYTES,
+        )
+        int_delta = np.floor(delta)
+        if abs(int_delta) > 0 and int_delta + dim_chunksizes[idx] > 0:
+            dim_chunksizes[idx] += int_delta
+        used = np.prod(dim_chunksizes) * sizeof_vis / GiBYTES_TO_BYTES
+
+    chunked_dim_names = ["time", baseline_or_antenna_id, "frequency", "polarization"]
+    dim_chunksizes_int = [int(v) for v in dim_chunksizes]
+    result = dict(zip(chunked_dim_names, dim_chunksizes_int))
+
+    logger.debug(
+        f"Auto-calculated main chunk sizes with {chunksize=}, {total_size=} GiB (for {dim_sizes=}): {result=} which uses {used} GiB."
+    )
+
+    return result
+
+
+def mem_chunksize_to_dict_pointing(chunksize: float, xds: xr.Dataset) -> Dict[str, int]:
+    """
+    Equivalent to mem_chunksize_to_dict_main adapted to pointing xdss.
+    Assumes these relevant dims: (time, antenna, direction).
+    """
+
+    if not xds.sizes:
+        return {}
+
+    sizeof_pointing = itemsize_pointing_spec(xds)
+    chunked_dim_names = [name for name in xds.sizes.keys()]
+    dim_sizes = [size for size in xds.sizes.values()]
+    total_size = np.prod(dim_sizes) * sizeof_pointing / GiBYTES_TO_BYTES
+
+    # Fix third dim (direction) to all
+    free_dims_mask = np.array([True, True, False])
+
+    ratio = chunksize / total_size
+    if ratio >= 1:
+        logger.debug(
+            f"Pointing chunsize: {chunksize=} GiB is enough to fully hold {total_size=} GiB (for {xds.sizes=}) in memory in one chunk"
+        )
+        dim_chunksizes = dim_sizes
+    else:
+        # balanced
+        dim_chunksizes = np.array(dim_sizes, dtype="int")
+        factor = ratio ** (1 / np.sum(free_dims_mask))
+        dim_chunksizes[free_dims_mask] = np.maximum(
+            dim_chunksizes[free_dims_mask] * factor, 1
+        )
+        used = np.prod(dim_chunksizes) * sizeof_pointing / GiBYTES_TO_BYTES
+
+        logger.debug(
+            f"Auto-calculating pointing chunk sizes. First order approximation: {dim_chunksizes=}, used total: {used=} GiB (with {chunksize=} GiB"
+        )
+
+        indices = np.argsort(dim_chunksizes[free_dims_mask])
+        # refine dim_chunksizes
+        for idx in indices:
+            left = chunksize - used
+            other_dims_mask = np.ones(free_dims_mask.shape, dtype=bool)
+            other_dims_mask[idx] = False
+            delta = np.divide(
+                left,
+                np.prod(dim_chunksizes[other_dims_mask])
+                * sizeof_pointing
+                / GiBYTES_TO_BYTES,
+            )
+            int_delta = np.floor(delta)
+            if abs(int_delta) > 0 and int_delta + dim_chunksizes[idx] > 0:
+                dim_chunksizes[idx] += int_delta
+
+            used = np.prod(dim_chunksizes) * sizeof_pointing / GiBYTES_TO_BYTES
+
+    dim_chunksizes_int = [int(v) for v in dim_chunksizes]
+    result = dict(zip(chunked_dim_names, dim_chunksizes_int))
+
+    if ratio < 1:
+        logger.debug(
+            f"Auto-calculated pointing chunk sizes with {chunksize=}, {total_size=} GiB (for {xds.sizes=}): {result=} which uses {used} GiB."
+        )
+
+    return result
+
+
+def find_baseline_or_antenna_var(xds: xr.Dataset) -> str:
+    if "baseline_id" in xds.coords:
+        baseline_or_antenna_id = "baseline_id"
+    elif "antenna_id" in xds.coords:
+        baseline_or_antenna_id = "antenna_id"
+
+    return baseline_or_antenna_id
+
+
+def itemsize_vis_spec(xds: xr.Dataset) -> int:
+    """
+    Size in bytes of one visibility (or spectrum) value.
+    """
+    names = ["SPECTRUM", "VISIBILITY"]
+    itemsize = 8
+    for var in names:
+        if var in xds.data_vars:
+            var_name = var
+            itemsize = np.dtype(xds.data_vars[var_name].dtype).itemsize
+            break
+
+    return itemsize
+
+
+def itemsize_pointing_spec(xds: xr.Dataset) -> int:
+    """
+    Size in bytes of one pointing (or spectrum) value.
+    """
+    pnames = ["BEAM_POINTING"]
+    itemsize = 8
+    for var in pnames:
+        if var in xds.data_vars:
+            var_name = var
+            itemsize = np.dtype(xds.data_vars[var_name].dtype).itemsize
+            break
+
+    return itemsize
+
+
+def calc_used_gb(chunksizes: dict, baseline_or_antenna_id: str, sizeof_vis: int):
+    return (
+        chunksizes["time"]
+        * chunksizes[baseline_or_antenna_id]
+        * chunksizes["frequency"]
+        * chunksizes["polarization"]
+        * sizeof_vis
+        / GiBYTES_TO_BYTES
+    )
 
 
 def check_if_consistent(col, col_name):
@@ -194,6 +517,30 @@ def create_coordinates(
     return xds
 
 
+def find_min_max_times_taql(tb_tool, taql_where: str):
+    """
+    Find the min/max times in an MSv4, for constraining pointing.
+
+    Parameters
+    ----------
+    tb_tool : tables.table
+        table (query) opened with an MSv4 query
+
+    taql_where : str
+        TaQL where for this MSv4
+
+    Returns
+    -------
+    str
+        TaQL string with the min/max time where constraint
+    """
+    utimes, tol = get_utimes_tol(tb_tool, taql_where)
+    time_min = utimes.min() - tol
+    time_max = utimes.max() + tol
+    taql = f"where TIME >= {time_min} AND TIME <= {time_max}"
+    return taql
+
+
 def create_data_variables(
     in_file, xds, tb_tool, time_baseline_shape, tidxs, bidxs, didxs
 ):
@@ -256,8 +603,10 @@ def convert_and_write_partition(
     ddi: int = 0,
     state_ids=None,
     field_id: int = None,
-    ignore_msv2_cols: Union[list, None] = None,
-    main_chunksize: Union[Dict, None] = None,
+    main_chunksize: Union[Dict, float, None] = None,
+    with_pointing: bool = True,
+    pointing_chunksize: Union[Dict, float, None] = None,
+    pointing_interpolate: bool = False,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend="zarr",
     overwrite: bool = False,
@@ -278,9 +627,13 @@ def convert_and_write_partition(
         _description_, by default None
     field_id : int, optional
         _description_, by default None
-    ignore_msv2_cols : Union[list, None], optional
+    main_chunksize : Union[Dict, float, None], optional
         _description_, by default None
-    main_chunksize : Union[Dict, None], optional
+    with_pointing: bool, optional
+        _description_, by default True
+    pointing_chunksize : Union[Dict, float, None], optional
+        _description_, by default None
+    pointing_interpolate : bool, optional
         _description_, by default None
     compressor : numcodecs.abc.Codec, optional
         _description_, by default numcodecs.Zstd(level=2)
@@ -294,8 +647,6 @@ def convert_and_write_partition(
     _type_
         _description_
     """
-    if ignore_msv2_cols is None:
-        ignore_msv2_cols = []
 
     taql_where, file_name = create_taql_query_and_file_name(
         out_file, intent, state_ids, field_id, ddi
@@ -363,9 +714,26 @@ def convert_and_write_partition(
             weather_xds = create_weather_xds(in_file)
             logger.debug("Time weather " + str(time.time() - start))
 
-            start = time.time()
-            pointing_xds = create_pointing_xds(in_file)
-            logger.debug("Time pointing " + str(time.time() - start))
+            if with_pointing:
+                start = time.time()
+                taql_pointing = find_min_max_times_taql(tb_tool, taql_where)
+                if pointing_interpolate:
+                    pointing_interp_time = xds.time
+                else:
+                    pointing_interp_time = None
+                pointing_xds = create_pointing_xds(
+                    in_file, taql_pointing, pointing_interp_time
+                )
+                pointing_chunksize = parse_chunksize(
+                    pointing_chunksize, "pointing", pointing_xds
+                )
+                add_encoding(
+                    pointing_xds, compressor=compressor, chunks=pointing_chunksize
+                )
+                logger.debug(
+                    "Time pointing (with add compressor and chunking) "
+                    + str(time.time() - start)
+                )
 
             start = time.time()
             # Fix UVW frame
@@ -425,6 +793,7 @@ def convert_and_write_partition(
             else:
                 mode = "w-"
 
+            main_chunksize = parse_chunksize(main_chunksize, "main", xds)
             add_encoding(xds, compressor=compressor, chunks=main_chunksize)
             logger.debug("Time add compressor and chunk " + str(time.time() - start))
 
@@ -432,7 +801,8 @@ def convert_and_write_partition(
             if storage_backend == "zarr":
                 xds.to_zarr(store=file_name + "/MAIN", mode=mode)
                 ant_xds.to_zarr(store=file_name + "/ANTENNA", mode=mode)
-                pointing_xds.to_zarr(store=file_name + "/POINTING", mode=mode)
+                if with_pointing:
+                    pointing_xds.to_zarr(store=file_name + "/POINTING", mode=mode)
                 if weather_xds:
                     weather_xds.to_zarr(store=file_name + "/WEATHER", mode=mode)
             elif storage_backend == "netcdf":

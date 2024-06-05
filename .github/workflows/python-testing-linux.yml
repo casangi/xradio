@@ -17,10 +17,10 @@ jobs:
         os: [ubuntu-latest]
         python-version: ["3.9","3.10","3.11"]
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Set up Python 3
-      uses: actions/setup-python@v3
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ matrix.python-version }}
 
@@ -33,7 +33,7 @@ jobs:
         pytest -v tests/ --html=test-results.html --self-contained-html --cov=xradio --no-cov-on-fail --cov-report=html --doctest-modules
 
     - name: Upload pytest test results and coverage reports
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: pytest-results-${{ matrix.python-version }}
         path: |

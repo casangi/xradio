@@ -30,7 +30,7 @@ from ._casacore.xds_to_casacore import (
     _imageinfo_dict_from_xds,
     _write_casa_data,
 )
-from .common import _get_xds_dim_order, _dask_arrayize_dv
+from .common import _aperture_or_sky, _get_xds_dim_order, _dask_arrayize_dv
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -104,7 +104,7 @@ def _xds_to_casa_image(xds: xr.Dataset, imagename: str) -> None:
     image_full_path = os.path.expanduser(imagename)
     _write_casa_data(xds, image_full_path)
     # create coordinates
-    ap_sky = "sky" if "sky" in xds.data_vars else "aperture"
+    ap_sky = _aperture_or_sky(xds)
     coord = _coord_dict_from_xds(xds)
     ii = _imageinfo_dict_from_xds(xds)
     units = xds[ap_sky].attrs["units"] if "units" in xds[ap_sky].attrs else None

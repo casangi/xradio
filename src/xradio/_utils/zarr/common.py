@@ -1,9 +1,10 @@
 import copy
 import xarray as xr
 import zarr
+import s3fs
 
 
-def _open_dataset(store, xds_isel=None, data_variables=None, load=False):
+def _open_dataset(store, xds_isel=None, data_variables=None, load=False, **kwargs):
     """
 
     Parameters
@@ -25,7 +26,11 @@ def _open_dataset(store, xds_isel=None, data_variables=None, load=False):
 
     import dask
 
-    xds = xr.open_zarr(store)
+    if "s3" in kwargs.keys():
+        mapping = s3fs.S3Map(root=store, s3=kwargs["s3"], check=False)
+        xds = xr.open_zarr(store=mapping)
+    else:
+        xds = xr.open_zarr(store)
 
     if xds_isel is not None:
         xds = xds.isel(xds_isel)

@@ -8,7 +8,7 @@ from astropy.coordinates import Angle
 from casacore import tables
 
 from .common import _active_mask, _create_new_image, _object_name, _pointing_center
-from ..common import _compute_sky_reference_pixel, _doppler_types
+from ..common import _aperture_or_sky, _compute_sky_reference_pixel, _doppler_types
 from ...._utils._casacore.tables import open_table_rw
 
 
@@ -168,7 +168,7 @@ def _history_from_xds(xds: xr.Dataset, image: str) -> None:
 
 def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
     ii = {}
-    ap_sky = "sky" if "l" in xds.coords else "aperture"
+    ap_sky = _aperture_or_sky(xds)
     ii["image_type"] = (
         xds[ap_sky].attrs["image_type"] if "image_type" in xds[ap_sky].attrs else ""
     )
@@ -208,12 +208,12 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
 
 
 def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
-    sky_ap = "sky" if "sky" in xds else "aperture"
+    sky_ap = _aperture_or_sky(xds)
     if xds[sky_ap].shape[0] != 1:
         raise RuntimeError("XDS can only be converted if it has exactly one time plane")
     trans_coords = (
         ("frequency", "polarization", "m", "l")
-        if sky_ap == "sky"
+        if sky_ap == "SKY"
         else ("frequency", "polarization", "v", "u")
     )
     casa_image_shape = xds[sky_ap].isel(time=0).transpose(*trans_coords).shape[::-1]
@@ -312,7 +312,7 @@ def _write_initial_image(
 ) -> None:
     if not maskname:
         maskname = ""
-    for dv in ["sky", "aperture"]:
+    for dv in ["SKY", "APERTURE"]:
         if dv in xds.data_vars:
             value = xds[dv][0, 0, 0, 0, 0].values.item()
             if xds[dv][0, 0, 0, 0, 0].values.dtype == "float32":
@@ -352,7 +352,7 @@ def _write_pixels(
     value: xr.DataArray = None,
 ) -> None:
     flip = False
-    if v == "sky" or v == "aperture":
+    if v == "SKY" or v == "APERTURE":
         filename = image_full_path
     else:
         # mask

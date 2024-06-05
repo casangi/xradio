@@ -106,7 +106,7 @@ def _add_sky_or_aperture(
         unit = casa_image.unit()
     xda.attrs[_image_type] = image_type
     xda.attrs["units"] = unit
-    name = "sky" if has_sph_dims else "aperture"
+    name = "SKY" if has_sph_dims else "APERTURE"
     xda = xda.rename(name)
     xds[xda.name] = xda
     return xds

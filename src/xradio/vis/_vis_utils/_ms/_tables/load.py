@@ -17,16 +17,29 @@ def load_col_chunk(
     """
     Loads a slice of a col (using casacore getcol(slice))
 
-    :param tb_tool: a table/TaQL query open and being used to load columns
-    :param col: colum to load
-    :param cshape: shape of the resulting col data chunk
-    :param tidxs: time axis indices
-    :param bidxs: baseline axis indices
-    :param didxs: (effective) data indices, excluding missing baselines
-    :param d1: indices to load on dimension 1 (None=all, pols or chans)
-    :param d2: indices to load on dimension 2 (None=all, pols)
+    Parameters
+    ----------
+    tb_tool : tables.table
+        a table/TaQL query open and being used to load columns
+    col : str
+        colum to load
+    cshape : Tuple[int]
+        shape of the resulting col data chunk
+    tidxs : np.ndarray
+        time axis indices
+    bidxs : np.ndarray
+        baseline axis indices
+    didxs : np.ndarray
+        effective) data indices, excluding missing baselines
+    d1 : Tuple[int, int]
+        indices to load on dimension 1 (None=all, pols or chans)
+    d2 : Tuple[int, int]
+        indices to load on dimension 2 (None=all, pols)
 
-    :return: data array loaded directly with casacore getcol/getcolslice
+    Returns
+    -------
+    np.ndarray
+        data array loaded directly with casacore getcol/getcolslice
     """
 
     if (len(cshape) == 2) or (col == "UVW"):

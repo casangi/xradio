@@ -3,6 +3,7 @@ from typing import Dict, Union
 
 import numpy as np
 import pandas as pd
+import xarray as xr
 
 from ._tables.read import read_generic_table, read_flat_col_chunk
 from ._tables.table_query import open_query, open_table_ro
@@ -10,21 +11,29 @@ from xradio.vis._vis_utils._ms.optimised_functions import unique_1d
 
 
 def describe_ms(
-    infile: str, mode="summary", rowmap: Union[dict, None] = None
+    infile: str, mode: str = "summary", rowmap: Union[dict, None] = None
 ) -> Union[pd.DataFrame, Dict]:
     """
     Summarize the contents of an MS directory in casacore table format
 
-    :param infile: input MS filename
-    :param mode: type of information returned ('summary', 'flat', 'expanded').
-    'summary' returns a pandas dataframe that is nice for displaying in notebooks
-    etc. 'flat' returns a list of tuples of (ddi, row, chan, pol). 'expanded'
-    returns a list of tuples of (ddi, time, baseline, chan, pol). These latter two
-    are good for trying to determine chunk size for read_ms(expand=True/False).
-    :param rowmap: dict of DDI to tuple of (row indices, channel indices). Returned
-    by ms_selection function. Default None ignores selections
+    Parameters
+    ----------
+    infile : str
+        input MS filename
+    mode : str (Default value = "summary")
+        type of information returned ('summary', 'flat', 'expanded').
+        'summary' returns a pandas dataframe that is nice for displaying in notebooks
+        etc. 'flat' returns a list of tuples of (ddi, row, chan, pol). 'expanded'
+        returns a list of tuples of (ddi, time, baseline, chan, pol). These latter two
+        are good for trying to determine chunk size for read_ms(expand=True/False). (Default value = "summary")
+    rowmap : Union[dict, None] (Default value = None)
+        dict of DDI to tuple of (row indices, channel indices). Returned
+        by ms_selection function. Default None ignores selections
 
-    :return: summary as a pd dataframe
+    Returns
+    -------
+    Union[pd.DataFrame, Dict]
+        summary as a pd dataframe
     """
     infile = os.path.expanduser(infile)  # does nothing if $HOME is unknown
     if not os.path.isdir(infile):
@@ -57,16 +66,29 @@ def describe_ms(
 
 
 def populate_ms_descr(
-    infile, mode, query_per_ddi, summary, ddi, ddi_xds, rowmap=None
+    infile: str, mode: str, query_per_ddi, summary: dict, ddi: int, ddi_xds: xr.Dataset, rowmap: Union[Dict, None] = None
 ) -> pd.DataFrame:
-    """Adds information from the time and baseline (antenna1+antenna2)
+    """
+    Adds information from the time and baseline (antenna1+antenna2)
     columns as well as channel and polarizations, based on a taql
     query.
 
-    :param mode: mode (as in describe_ms())
-    :param query_per_ddi: a TaQL query with data per individual DDI
-    :param sdf: summary dict being populated
-    :param summary: final summary object being populated from the invividual sdf's
+    Parameters
+    ----------
+    infile : str
+        input table/MS path
+    mode : str
+        mode (as in describe_ms())
+    query_per_ddi :
+        a TaQL query with data per individual DDI
+    summary : Dict
+        summary dict being populated
+    ddi_xds : xr.Dataset
+        final summary object being populated from the invividual sdf's
+
+    Returns
+    -------
+    pd.DataFrame
     """
     spw_ids = ddi_xds.spectral_window_id.values
     pol_ids = ddi_xds.polarization_id.values

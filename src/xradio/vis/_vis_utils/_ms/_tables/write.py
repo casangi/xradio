@@ -8,11 +8,19 @@ from casacore import tables
 
 
 def revert_time(datetimes: np.ndarray) -> np.ndarray:
-    """Convert time back from pandas datetime ref to casacore ref
+    """
+    Convert time back from pandas datetime ref to casacore ref
     (reverse of read.convert_casacore_time).
 
-    :param rawtimes: times in pandas reference
-    :return: times converted to casacore reference
+    Parameters
+    ----------
+    datetimes : np.ndarray
+        times in pandas reference
+
+    Returns
+    -------
+    np.ndarray
+        times converted to casacore reference
 
     """
     return (datetimes.astype(float) / 10**9) + 3506716800.0
@@ -151,14 +159,16 @@ def write_generic_table(xds: xr.Dataset, outfile: str, subtable="", cols=None):
     Parameters
     ----------
     xds : xr.Dataset
-        Source xarray dataset data
+
     outfile : str
-        Destination filename (or parent main table if writing subtable)
-    subtable : str
-        Name of the subtable being written, triggers special logic to add subtable to
-        parent table.  Default '' for normal generic writes
-    cols : str or list
-        List of cols to write. Default None writes all columns
+
+    subtable : str (Default value = "")
+
+    cols : List[str] (Default value = None)
+
+    Returns
+    -------
+
     """
     outfile = os.path.expanduser(outfile)
     logger.debug("writing {os.path.join(outfile, subtable)}")
@@ -232,6 +242,25 @@ def write_main_table_slice(
 ):
     """
     Write an xds row chunk to the corresponding main table slice
+
+    Parameters
+    ----------
+    xda : xr.DataArray
+
+    outfile : str
+
+    ddi : int
+
+    col : str
+
+    full_shape : Tuple
+
+    starts : Tuple
+
+
+    Returns
+    -------
+
     """
     # trigger the DAG for this chunk and return values while the table is unlocked
     values = xda.compute().values

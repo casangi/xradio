@@ -11,7 +11,8 @@ from ._tables.read import read_generic_table
 
 
 def create_ant_xds(in_file: str):
-    """Creates an Antenna Xarray Dataset from a MS v2 ANTENNA table.
+    """
+    Creates an Antenna Xarray Dataset from a MS v2 ANTENNA table.
 
     Parameters
     ----------
@@ -20,7 +21,7 @@ def create_ant_xds(in_file: str):
 
     Returns
     -------
-    ant_xds : xarray.Dataset
+    xr.Dataset
         Antenna Xarray Dataset.
     """
     # Dictionaries that define the conversion from MSv2 to MSv4:
@@ -94,7 +95,8 @@ def create_ant_xds(in_file: str):
 
 
 def create_weather_xds(in_file: str):
-    """Creates a Weather Xarray Dataset from a MS v2 WEATHER table.
+    """
+    Creates a Weather Xarray Dataset from a MS v2 WEATHER table.
 
     Parameters
     ----------
@@ -103,7 +105,7 @@ def create_weather_xds(in_file: str):
 
     Returns
     -------
-    weather_xds : xarray.Dataset
+    xr.Dataset
         Weather Xarray Dataset.
     """
     # Dictionaries that define the conversion from MSv2 to MSv4:
@@ -213,8 +215,9 @@ def create_weather_xds(in_file: str):
     return weather_xds
 
 
-def create_pointing_xds(in_file: str, taql_where: str, interp_time: Union[float, None] = None) -> xr.Dataset:
-    """Creates a Pointing Xarray Dataset from an MS v2 POINTING (sub)table.
+def create_pointing_xds(in_file: str, taql_where: str, interp_time: Union[xr.DataArray, None] = None) -> xr.Dataset:
+    """
+    Creates a Pointing Xarray Dataset from an MS v2 POINTING (sub)table.
 
     WIP: details of a few direction variables (and possibly moving some to attributes) to be
     settled (see MSv4 spreadsheet).
@@ -223,17 +226,15 @@ def create_pointing_xds(in_file: str, taql_where: str, interp_time: Union[float,
     ----------
     in_file : str
         Input MS name.
-
     taql_where : str
         TaQL where string to constrain TIME, etc.
-
-    interp_time : xr.DataArray
+    interp_time : Union[xr.DataArray, None] (Default value = None)
         interpolate time to this (presumably main dataset time)
 
     Returns
     -------
-    pointing_xds : xarray.Dataset
-        Pointing Xarray Dataset.
+    xr.Dataset
+         Pointing Xarray dataset
     """
     start = time.time()
 

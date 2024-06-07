@@ -21,7 +21,9 @@ def table_exists(path: str) -> bool:
     return tables.tableexists(path)
 
 
-def convert_casacore_time(rawtimes: np.ndarray, convert_to_datetime: bool = True) -> np.ndarray:
+def convert_casacore_time(
+    rawtimes: np.ndarray, convert_to_datetime: bool = True
+) -> np.ndarray:
     """
     Read time columns to datetime format
     pandas datetimes are referenced against a 0 of 1970-01-01
@@ -672,7 +674,9 @@ def load_fixed_size_cols(
     return mcoords, mvars
 
 
-def find_loadable_filled_cols(tb_tool: tables.table, ignore: Union[List[str], None]) -> Dict:
+def find_loadable_filled_cols(
+    tb_tool: tables.table, ignore: Union[List[str], None]
+) -> Dict:
     """
     For a table, finds the columns that are:
     - loadable = not of record type, and not to be ignored
@@ -828,9 +832,11 @@ def handle_variable_col_issues(
         data = np.stack(
             [
                 np.pad(
-                    row[col]
-                    if len(row[col]) > 0
-                    else np.array(row[col]).reshape(np.arange(len(mshape)) * 0),
+                    (
+                        row[col]
+                        if len(row[col]) > 0
+                        else np.array(row[col]).reshape(np.arange(len(mshape)) * 0)
+                    ),
                     [(0, ss) for ss in mshape - np.array(row[col]).shape],
                     "constant",
                     constant_values=pad_nan,

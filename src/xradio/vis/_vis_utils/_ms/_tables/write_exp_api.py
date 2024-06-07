@@ -16,7 +16,7 @@ from casacore import tables
 def write_ms(
     mxds: xr.Dataset,
     outfile: str,
-    infile: str =None,
+    infile: str = None,
     subtables: bool = False,
     modcols: Union[List[str], None] = None,
     verbose: bool = False,

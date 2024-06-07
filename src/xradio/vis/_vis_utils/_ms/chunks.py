@@ -148,7 +148,9 @@ def finalize_chunks(
     return pnt_chunks
 
 
-def finalize_chunk_xds(infile: str, chunk_xds: xr.Dataset, pointing_xds: xr.Dataset) -> xr.Dataset:
+def finalize_chunk_xds(
+    infile: str, chunk_xds: xr.Dataset, pointing_xds: xr.Dataset
+) -> xr.Dataset:
     """
     Adds pointing variables to one chunk xds.
 

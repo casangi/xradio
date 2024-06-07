@@ -215,7 +215,9 @@ def create_weather_xds(in_file: str):
     return weather_xds
 
 
-def create_pointing_xds(in_file: str, taql_where: str, interp_time: Union[xr.DataArray, None] = None) -> xr.Dataset:
+def create_pointing_xds(
+    in_file: str, taql_where: str, interp_time: Union[xr.DataArray, None] = None
+) -> xr.Dataset:
     """
     Creates a Pointing Xarray Dataset from an MS v2 POINTING (sub)table.
 

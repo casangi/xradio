@@ -284,7 +284,9 @@ def get_chunk_times(
     return utimes, times
 
 
-def get_chunk_baselines(tb_tool: tables.table, chunk: Dict[str, slice]) -> Tuple[np.ndarray, Tuple[int, int]]:
+def get_chunk_baselines(
+    tb_tool: tables.table, chunk: Dict[str, slice]
+) -> Tuple[np.ndarray, Tuple[int, int]]:
     """
     Produces the basline col/axis related values for a chunk: an array of
     baselines and the start/stop baseline indices.

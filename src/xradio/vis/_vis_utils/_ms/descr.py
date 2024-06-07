@@ -66,7 +66,13 @@ def describe_ms(
 
 
 def populate_ms_descr(
-    infile: str, mode: str, query_per_ddi, summary: dict, ddi: int, ddi_xds: xr.Dataset, rowmap: Union[Dict, None] = None
+    infile: str,
+    mode: str,
+    query_per_ddi,
+    summary: dict,
+    ddi: int,
+    ddi_xds: xr.Dataset,
+    rowmap: Union[Dict, None] = None,
 ) -> pd.DataFrame:
     """
     Adds information from the time and baseline (antenna1+antenna2)

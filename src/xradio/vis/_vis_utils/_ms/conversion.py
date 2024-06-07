@@ -56,8 +56,10 @@ def parse_chunksize(
     elif isinstance(chunksize, float):
         chunksize = mem_chunksize_to_dict(chunksize, xds_type, xds)
     elif chunksize is not None:
-        raise ValueError(f"Chunk size expected as a dict or a float, got: "
-                         f" {chunksize} (of type {type(chunksize)}")
+        raise ValueError(
+            f"Chunk size expected as a dict or a float, got: "
+            f" {chunksize} (of type {type(chunksize)}"
+        )
 
     return chunksize
 
@@ -343,7 +345,9 @@ def itemsize_pointing_spec(xds: xr.Dataset) -> int:
     return itemsize
 
 
-def calc_used_gb(chunksizes: dict, baseline_or_antenna_id: str, sizeof_vis: int) -> float:
+def calc_used_gb(
+    chunksizes: dict, baseline_or_antenna_id: str, sizeof_vis: int
+) -> float:
     return (
         chunksizes["time"]
         * chunksizes[baseline_or_antenna_id]

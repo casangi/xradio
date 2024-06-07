@@ -23,7 +23,7 @@ def create_field_info(in_file, field_id):
     )
     
     delay_dir = xr.DataArray.from_dict({
-        "dims": "direction_label",
+        "dims": "sky_dir_label",
         "data": list(field_xds["delay_dir"].data[0, :]),
         "attrs": msv4_measure,
     })
@@ -33,7 +33,7 @@ def create_field_info(in_file, field_id):
         ref_code=getattr(field_xds.get("phasedir_ref"), "data", None),
     )
     phase_dir = xr.DataArray.from_dict({
-        "dims": "direction_label",
+        "dims": "sky_dir_label",
         "data": list(field_xds["phase_dir"].data[0, :]),
         "attrs": msv4_measure,
     })
@@ -43,21 +43,24 @@ def create_field_info(in_file, field_id):
         ref_code=getattr(field_xds.get("delaydir_ref"), "data", None),
     )
     reference_dir = xr.DataArray.from_dict({
-        "dims": "direction_label",
+        "dims": "sky_dir_label",
         "data": list(field_xds["delay_dir"].data[0, :]),
         "attrs": msv4_measure,
     })
-
-    field_info = {
-        "name": str(field_xds["name"].data),
-        "code": str(field_xds["code"].data),
+    
+    field_directions = {
         "delay_direction": delay_dir,
         "phase_direction": phase_dir,
         "reference_direction": reference_dir,
+    }   
+
+    field_info = {
+        "field_name": str(field_xds["name"].data),
+        #"field_code": str(field_xds["code"].data),
         "field_id": field_id,
         "source_id": int(field_xds["source_id"].data),
         "ephemeris_id": int(field_xds["ephemeris_id"].data),
     }
     # xds.attrs["field_info"] = field_info
 
-    return field_info
+    return field_directions, field_info

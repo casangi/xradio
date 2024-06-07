@@ -3,6 +3,7 @@ import time
 from .._zarr.encoding import add_encoding
 from typing import Dict, Union
 import graphviper.utils.logger as logger
+import os
 
 import numpy as np
 import xarray as xr
@@ -15,7 +16,7 @@ from .msv2_to_msv4_meta import (
     col_to_data_variable_names,
     col_dims,
 )
-from .partition_queries import create_taql_query_and_file_name
+from .partition_queries import create_taql_query
 from .subtables import subt_rename_ids
 from ._tables.table_query import open_table_ro, open_query
 from ._tables.read import (
@@ -103,15 +104,15 @@ def create_coordinates(
 
     ddi_xds = read_generic_table(in_file, "DATA_DESCRIPTION").sel(row=ddi)
     pol_setup_id = ddi_xds.polarization_id.values
-    spw_id = ddi_xds.spectral_window_id.values
+    spectral_window_id = ddi_xds.spectral_window_id.values
 
-    spw_xds = read_generic_table(
+    spectral_window_xds = read_generic_table(
         in_file,
         "SPECTRAL_WINDOW",
         rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
-    ).sel(spectral_window_id=spw_id)
-    coords["frequency"] = spw_xds["chan_freq"].data[
-        ~(np.isnan(spw_xds["chan_freq"].data))
+    ).sel(spectral_window_id=spectral_window_id)
+    coords["frequency"] = spectral_window_xds["chan_freq"].data[
+        ~(np.isnan(spectral_window_xds["chan_freq"].data))
     ]
 
     pol_xds = read_generic_table(
@@ -127,25 +128,25 @@ def create_coordinates(
     xds = xds.assign_coords(coords)
 
     ###### Create Frequency Coordinate ######
-    freq_column_description = spw_xds.attrs["other"]["msv2"]["ctds_attrs"][
+    freq_column_description = spectral_window_xds.attrs["other"]["msv2"]["ctds_attrs"][
         "column_descriptions"
     ]
 
     msv4_measure = column_description_casacore_to_msv4_measure(
-        freq_column_description["CHAN_FREQ"], ref_code=spw_xds["meas_freq_ref"].data
+        freq_column_description["CHAN_FREQ"], ref_code=spectral_window_xds["meas_freq_ref"].data
     )
     xds.frequency.attrs.update(msv4_measure)
 
-    xds.frequency.attrs["spectral_window_name"] = str(spw_xds.name.values)
+    xds.frequency.attrs["spectral_window_name"] = str(spectral_window_xds.name.values)
     msv4_measure = column_description_casacore_to_msv4_measure(
-        freq_column_description["REF_FREQUENCY"], ref_code=spw_xds["meas_freq_ref"].data
+        freq_column_description["REF_FREQUENCY"], ref_code=spectral_window_xds["meas_freq_ref"].data
     )
     xds.frequency.attrs["reference_frequency"] = {
         "dims": "",
-        "data": float(spw_xds.ref_frequency.values),
+        "data": float(spectral_window_xds.ref_frequency.values),
         "attrs": msv4_measure,
     }
-    xds.frequency.attrs["spw_id"] = spw_id
+    xds.frequency.attrs["spectral_window_id"] = spectral_window_id
 
     # xds.frequency.attrs["effective_channel_width"] = "EFFECTIVE_CHANNEL_WIDTH"
     # Add if doppler table is present
@@ -153,14 +154,14 @@ def create_coordinates(
     # xds.frequency.attrs["doppler_type"] =
 
     unique_chan_width = unique_1d(
-        spw_xds.chan_width.data[np.logical_not(np.isnan(spw_xds.chan_width.data))]
+        spectral_window_xds.chan_width.data[np.logical_not(np.isnan(spectral_window_xds.chan_width.data))]
     )
-    # assert len(unique_chan_width) == 1, "Channel width varies for spw."
-    # xds.frequency.attrs["channel_width"] = spw_xds.chan_width.data[
-    #    ~(np.isnan(spw_xds.chan_width.data))
+    # assert len(unique_chan_width) == 1, "Channel width varies for spectral_window."
+    # xds.frequency.attrs["channel_width"] = spectral_window_xds.chan_width.data[
+    #    ~(np.isnan(spectral_window_xds.chan_width.data))
     # ]  # unique_chan_width[0]
     msv4_measure = column_description_casacore_to_msv4_measure(
-        freq_column_description["CHAN_WIDTH"], ref_code=spw_xds["meas_freq_ref"].data
+        freq_column_description["CHAN_WIDTH"], ref_code=spectral_window_xds["meas_freq_ref"].data
     )
     if not msv4_measure:
         msv4_measure["type"] = "quantity"
@@ -253,6 +254,7 @@ def convert_and_write_partition(
     in_file: str,
     out_file: str,
     intent: str,
+    ms_v4_id: int,
     ddi: int = 0,
     state_ids=None,
     field_id: int = None,
@@ -299,8 +301,8 @@ def convert_and_write_partition(
     if ignore_msv2_cols is None:
         ignore_msv2_cols = []
 
-    taql_where, file_name = create_taql_query_and_file_name(
-        out_file, intent, state_ids, field_id, ddi
+    taql_where = create_taql_query(
+        state_ids, field_id, ddi
     )
 
     start = time.time()
@@ -352,7 +354,6 @@ def convert_and_write_partition(
             # Create field_info
             start = time.time()
             field_id = check_if_consistent(tb_tool.getcol("FIELD_ID"), "FIELD_ID")
-            field_info = create_field_info(in_file, field_id)
             logger.debug("Time field info " + str(time.time() - start))
 
             # Create ant_xds
@@ -371,9 +372,6 @@ def convert_and_write_partition(
             logger.debug("Time pointing " + str(time.time() - start))
 
             start = time.time()
-            # Fix UVW frame
-            # From CASA fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking center. calcuvw does not yet force the UVW column and field centers to use the same reference frame! Blank = use the phase tracking frame of vis.
-            xds.UVW.attrs["frame"] = field_info["phase_direction"].attrs["frame"]
 
             xds.attrs["intent"] = intent
             xds.attrs["ddi"] = ddi
@@ -394,7 +392,6 @@ def convert_and_write_partition(
                     "weight": "WEIGHT",
                     "uvw": "UVW",
                 }
-                #xds.VISIBILITY.attrs["field_info"] = field_info
 
             if "VISIBILITY_CORRECTED" in xds:
                 xds.attrs["data_groups"]["corrected"] = {
@@ -403,7 +400,7 @@ def convert_and_write_partition(
                     "weight": "WEIGHT",
                     "uvw": "UVW",
                 }
-                xds.VISIBILITY_CORRECTED.attrs["field_info"] = field_info
+                
 
             if "SPECTRUM" in xds:
                 xds.attrs["data_groups"]["base"] = {
@@ -412,7 +409,7 @@ def convert_and_write_partition(
                     "weight": "WEIGHT",
                     "uvw": "UVW",
                 }
-                xds.SPECTRUM.attrs["field_info"] = field_info
+
 
             if "SPECTRUM_CORRECTED" in xds:
                 xds.attrs["data_groups"]["corrected"] = {
@@ -421,13 +418,17 @@ def convert_and_write_partition(
                     "weight": "WEIGHT",
                     "uvw": "UVW",
                 }
-                xds.SPECTRUM_CORRECTED.attrs["field_info"] = field_info
-                
-                
-            #Create field_xds (combines field, source and ephemeris data into one super dataset)
-            field_xds = create_field_xds(in_file, field_id)
-            
 
+            #Create field_and_source_xds (combines field, source and ephemeris data into one super dataset)
+            field_and_source_xds = create_field_and_source_xds(in_file, field_id, xds.frequency.attrs["spectral_window_id"])
+            # Fix UVW frame
+            # From CASA fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking center. calcuvw does not yet force the UVW column and field centers to use the same reference frame! Blank = use the phase tracking frame of vis.
+            #print('##################',field_and_source_xds)
+            if 'FIELD_PHASE_CENTER' in field_and_source_xds:
+                xds.UVW.attrs["frame"] = field_and_source_xds['FIELD_PHASE_CENTER'].attrs["frame"]
+            else:
+                xds.UVW.attrs["frame"] = field_and_source_xds['FIELD_PHASE_CENTER_OFFSET'].attrs["frame"]
+            
             if overwrite:
                 mode = "w"
             else:
@@ -435,107 +436,77 @@ def convert_and_write_partition(
 
             add_encoding(xds, compressor=compressor, chunks=main_chunksize)
             logger.debug("Time add compressor and chunk " + str(time.time() - start))
-
+            
+            file_name = os.path.join(out_file,out_file.replace(".vis.zarr", "").replace(".zarr","").split("/")[-1] + "_" + str(ms_v4_id))
+  
             start = time.time()
             if storage_backend == "zarr":
-                xds.to_zarr(store=file_name + "/MAIN", mode=mode)
-                ant_xds.to_zarr(store=file_name + "/ANTENNA", mode=mode)
+                xds.to_zarr(store=os.path.join(file_name,"MAIN"), mode=mode)
+                ant_xds.to_zarr(store=os.path.join(file_name, "ANTENNA"), mode=mode)
+                field_and_source_xds.to_zarr(store=os.path.join(file_name, "FIELD_AND_SOURCE_BASE"), mode=mode)
+                
                 if do_pointing:
-                    pointing_xds.to_zarr(store=file_name + "/POINTING", mode=mode)
+                    pointing_xds.to_zarr(store=os.path.join(file_name, "POINTING"), mode=mode)
                 if weather_xds:
-                    weather_xds.to_zarr(store=file_name + "/WEATHER", mode=mode)
-                if field_xds:
-                    field_xds.to_zarr(store=file_name + "/FIELD", mode=mode)
+                    weather_xds.to_zarr(store=os.path.join(file_name, "WEATHER"), mode=mode)
+
             elif storage_backend == "netcdf":
                 # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
                 raise
             logger.debug("Write data  " + str(time.time() - start))
 
     # logger.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
+    
+    
+def extract_ephemeris_info(xds, path, table_name):
 
+    #The JPL-Horizons ephemris table implmenation in CASA does not follow the standard way of defining measures. Consequently a lot of hardcoding is needed to extract the information.
+    # https://casadocs.readthedocs.io/en/latest/notebooks/external-data.html
+    
+    ephemeris_xds = read_generic_table(
+                            path,
+                            table_name,
+                        )
+    
+    assert len(ephemeris_xds.ephemeris_id) == 1, 'Non standard ephemeris table.'
+    ephemeris_xds = ephemeris_xds.isel(ephemeris_id=0)
 
-def create_field_xds(in_file, field_id):
-    # print('create_field_xds')
-    # field_xds = read_generic_table(
-    #     in_file,
-    #     "FIELD",
-    #     rename_ids=subt_rename_ids["FIELD"],
-    # ).sel(field_id=field_id)
-    # print(field_xds)
-    
-    field_xds = xr.Dataset()
-    
-    field_info = create_field_info(in_file, field_id)
-    
-    
-    import pprint
+    ephemeris_meta = ephemeris_xds.attrs["other"]["msv2"]["ctds_attrs"]
+    ephemris_column_description = ephemeris_xds.attrs["other"]["msv2"]["ctds_attrs"][
+        "column_descriptions"
+    ]
 
-    # Prints the nicely formatted dictionary
-    pprint.pprint(field_info)
+    assert ephemeris_meta['obsloc'] == 'GEOCENTRIC', 'Only geocentric ephemeris are supported.'
+    sky_coord_frame = ephemeris_meta['posrefsys'].replace("ICRF/","")
+    
+    xds['SOURCE_POSITION'] = xr.DataArray(np.column_stack((ephemeris_xds['ra'].data, ephemeris_xds['dec'].data, ephemeris_xds['rho'].data)), dims=['time','sky_pos_label'])
+    sky_coord_units = [ephemris_column_description["RA"]['keywords']['UNIT'],ephemris_column_description["DEC"]['keywords']['UNIT'],ephemris_column_description["Rho"]['keywords']['UNIT']]
+    xds['SOURCE_POSITION'].attrs.update({'type':'sky_coord', 'frame':sky_coord_frame, 'unit':sky_coord_units})
+    
+    ####
+    # xds['SOURCE_DIRECTION'] = xr.DataArray(np.column_stack((ephemeris_xds['ra'].data, ephemeris_xds['dec'].data)), dims=['time','direction_label'])
+    # sky_coord_units = [ephemris_column_description["RA"]['keywords']['UNIT'],ephemris_column_description["DEC"]['keywords']['UNIT']]
+    # xds['SOURCE_DIRECTION'].attrs.update({'type':'sky_coord', 'frame':sky_coord_frame, 'unit':sky_coord_units})
+    
+    # xds['SOURCE_DISTANCE'] = xr.DataArray(ephemeris_xds['rho'].data, dims=['time'])
+    # distance_units = [ephemris_column_description["Rho"]['keywords']['UNIT']]
+    # xds['SOURCE_DISTANCE'].attrs.update({'type':'quantity', 'unit':distance_units})
+    # #######
+    
+    
+    xds['SOURCE_RADIAL_VELOCITY'] = xr.DataArray(ephemeris_xds['radvel'].data, dims=['time'])
+    xds['SOURCE_RADIAL_VELOCITY'].attrs.update({'type':'quantity','unit':[ephemris_column_description["RadVel"]['keywords']['UNIT']]})
+    
+    observation_position = [ephemeris_meta["GeoLong"],ephemeris_meta["GeoLat"],ephemeris_meta["GeoDist"]]
+    xds['OBSERVATION_POSITION'] = xr.DataArray(observation_position, dims=['spherical_pos_label'])
+    xds['OBSERVATION_POSITION'].attrs.update({'type':'earth_location', 'units':['deg','deg','m'], 'data': observation_position, 'ellipsoid':'WGS84','coordinate_system':ephemeris_meta['obsloc'].lower()}) #I think the units are ['deg','deg','m'] and 'WGS84'.
+    
 
+    xds = xds.assign_coords({'spherical_pos_label' : ['lon','lat','dist'],'time':ephemeris_xds['time'].data, 'sky_pos_label':['ra','dec','dist']})
+    xds['time'].attrs.update({'type':'time', 'units':ephemris_column_description["MJD"]['keywords']['UNIT'], 'scale':'utc', 'format':'mjd'}) #I think the time scale is always utc and the format is mjd.
     
-    source_id = field_info["source_id"]
-    ephemeris_id = field_info["ephemeris_id"]
-    
-    
-    #Look for attached ephemeris tables (this is a non-standard thing CASA importasdm does).
-    import os
-    files = os.listdir('./ALMA_uid___A002_X1003af4_X75a3.split.ms/FIELD')
-    ephemeris_table_name_start = 'EPHEM' + str(ephemeris_id)
- 
-    ephemeris_name_table_index = [i for i in range(len(files)) if ephemeris_table_name_start in files[i]]
-    
-    print('*******',ephemeris_name_table_index,len(ephemeris_name_table_index))
-    
-    if len(ephemeris_name_table_index) > 0: #Are there any ephemeris tables.
-        assert len(ephemeris_name_table_index) == 1, "More than one ephemeris table which starts with " + ephemeris_table_name_start
-        e_index = ephemeris_name_table_index[0]
-        
-        ephemeris_path = os.path.join(in_file, 'FIELD')
-        ephemeris_xds = read_generic_table(
-                                ephemeris_path,
-                                files[e_index],
-                                #rename_ids=subt_rename_ids["FIELD"],
-                            )
-        
-        assert len(ephemeris_xds.ephemeris_id) == 1, 'Non standard ephemeris table.'
-        ephemeris_xds = ephemeris_xds.isel(ephemeris_id=0)
-        
-        field_xds['SOURCE_DIRECTION'] = xr.DataArray(np.column_stack((ephemeris_xds['ra'].data, ephemeris_xds['dec'].data)), dims=['time','direction_label']) 
+    return xds
 
-        field_column_description = ephemeris_xds.attrs["other"]["msv2"]["ctds_attrs"][
-            "column_descriptions"
-        ]
-        
-        print('??? field_column_description')
-        pprint.pprint(field_column_description['RA'])
-        print('************')
-        
-        msv4_measure = column_description_casacore_to_msv4_measure(
-            field_column_description["RA"],
-        )
-        print('msv4_measure',msv4_measure)
-        
-        field_xds['FIELD_PHASE_CENTER_OFFSET'] = field_info['phase_direction']
-        print('XXX field_xds[FIELD_PHASE_CENTER_OFFSET]',field_xds['FIELD_PHASE_CENTER_OFFSET'])
-        field_xds['FIELD_PHASE_CENTER_OFFSET'].attrs['type'] = 'sky_coord_offset'
-        
-        field_xds['FIELD_DELAY_CENTER_OFFSET'] = field_info["delay_direction"]
-        field_xds['FIELD_DELAY_CENTER_OFFSET'].attrs['type'] = 'sky_coord_offset'
-        
-        field_xds['FIELD_REFERENCE_CENTER_OFFSET'] = field_info["reference_direction"]
-        field_xds['FIELD_REFERENCE_CENTER_OFFSET'].attrs['type'] = 'sky_coord_offset'
-        
-    else: #No ephemeris tables.
-        field_xds['FIELD_PHASE_CENTER'] = field_info['phase_direction']
-        field_xds['FIELD_DELAY_CENTER'] = field_info["delay_direction"]
-        field_xds['FIELD_REFERENCE_CENTER'] = field_info["reference_direction"]
-        
-
-    print(field_xds)
-        
-   
-   
 #    The ephemeris_xds is  <xarray.Dataset> Size: 2kB
 # Dimensions:           (ephemeris_row_id: 33)
 # Coordinates:
@@ -547,6 +518,7 @@ def create_field_xds(in_file, field_id):
 #     dec               (ephemeris_row_id) float64 264B -12.06 -12.07 ... -12.17
 #     rho               (ephemeris_row_id) float64 264B 0.9944 0.9944 ... 0.9943
 #     radvel            (ephemeris_row_id) float64 264B -0.0002714 ... -0.0002727
+
 #     disklong          (ephemeris_row_id) float64 264B 0.0 0.0 0.0 ... 0.0 0.0
 #     disklat           (ephemeris_row_id) float64 264B 0.0 0.0 0.0 ... 0.0 0.0
 # Attributes:
@@ -561,5 +533,145 @@ def create_field_xds(in_file, field_id):
 #         "SOURCE",
 #     )
 #     print(source_xds)
+
+
+def extract_source_info(xds, path, is_ephemeris, source_id, spectral_window_id):
+    source_xds = read_generic_table(
+                            path,
+                            'SOURCE',
+                        ).isel(source_id=source_id,spectral_window_id=spectral_window_id)
+    
+    assert len(source_xds.time) == 1, 'Can only process source table with a single time entry for a source_id and spectral_window_id.'
+    source_xds = source_xds.isel(time=0)
+
+    print('*********',source_xds)
+    
+    xds.attrs['source_name'] = source_xds['name'].data
+    xds.attrs['code'] = source_xds['code'].data
+    
+    if not is_ephemeris:
+        source_column_description = source_xds.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]
+        msv4_measure = column_description_casacore_to_msv4_measure(source_column_description["DIRECTION"])
+        xds['SOURCE_DIRECTION'] = xr.DataArray(source_xds['direction'].data,dims=['sky_dir_label'])
+        xds['SOURCE_DIRECTION'].attrs.update(msv4_measure)
+        
+        msv4_measure = column_description_casacore_to_msv4_measure(source_column_description["PROPER_MOTION"])
+        xds['SOURCE_PROPER_MOTION'] = xr.DataArray(source_xds['proper_motion'].data,dims=['sky_dir_label'])
+        xds['SOURCE_PROPER_MOTION'].attrs.update(msv4_measure)
+        
+    optional_data_variables = {'rest_frequency':'LINE_REST_FREQUENCY','sysvel':'LINE_SYSTEMIC_VELOCITY'}
+    found_line_info = False
+    
+    for generic_name, msv4_name in optional_data_variables.items():
+        if generic_name in source_xds:
+            msv4_measure = column_description_casacore_to_msv4_measure(source_column_description[generic_name])
+            xds[msv4_name] = xr.DataArray(source_xds[generic_name].data)
+            xds[msv4_name].attrs.update(msv4_measure)
+            found_line_info = True
+            
+    # if 
+    #     coords ={''}
+        
+
+    #Need to add doppler info if present. Add check.
+
+    
+    return xds
+    
+    
+#     Dimensions:             (dim_1: 2)
+# Coordinates:
+#     source_id           int64 8B 0
+#     time                float64 8B 7.198e+09
+#     spectral_window_id  int64 8B 2
+# Dimensions without coordinates: dim_1
+# Data variables:
+#     direction           (dim_1) float64 16B -2.623 -0.2109
+#     proper_motion       (dim_1) float64 16B 0.0 0.0
+#     calibration_group   int64 8B 0
+#     code                <U4 16B 'none'
+#     interval            float64 8B 4.05e+09
+#     name                <U10 40B 'Sun_10'
+#     num_lines           int64 8B 1
+# Attributes:
+#     other:    {'msv2': {'ctds_attrs': {'column_descriptions': {'DIRECTION': {...
+
+
+
+
+
+
+def create_field_and_source_xds(in_file, field_id, spectral_window_id):
+
+    field_and_source_xds = xr.Dataset()
+    field_directions, field_info = create_field_info(in_file, field_id)
+    
+    # import pprint
+    # Prints the nicely formatted dictionary
+    # pprint.pprint(field_info)
+
+    source_id = field_info["source_id"]
+    ephemeris_id = field_info["ephemeris_id"]
+    
+    
+    #Look for attached ephemeris tables (this is a non-standard thing CASA importasdm does).
+    import os
+    files = os.listdir(os.path.join(in_file,'FIELD'))
+    ephemeris_table_name_start = 'EPHEM' + str(ephemeris_id)
+ 
+    ephemeris_name_table_index = [i for i in range(len(files)) if ephemeris_table_name_start in files[i]]
+    coords = {}
+    coords['sky_dir_label'] = ['ra','dec'] 
+    
+    if len(ephemeris_name_table_index) > 0: #Are there any ephemeris tables. 
+        is_ephemeris = True
+        assert len(ephemeris_name_table_index) == 1, "More than one ephemeris table which starts with " + ephemeris_table_name_start
+        e_index = ephemeris_name_table_index[0]
+        
+        ephemeris_path = os.path.join(in_file, 'FIELD')
+        ephemeris_table_name = files[e_index]
+        coords['spherical_pos_label'] = ['long','lat','dist']
+        field_and_source_xds = extract_ephemeris_info(field_and_source_xds, ephemeris_path, ephemeris_table_name)
+
+        field_and_source_xds['FIELD_PHASE_CENTER_OFFSET'] = field_directions['phase_direction']
+        field_and_source_xds['FIELD_PHASE_CENTER_OFFSET'].attrs['type'] = 'sky_coord_offset'
+        
+        field_and_source_xds['FIELD_DELAY_CENTER_OFFSET'] = field_directions["delay_direction"]
+        field_and_source_xds['FIELD_DELAY_CENTER_OFFSET'].attrs['type'] = 'sky_coord_offset'
+        
+        field_and_source_xds['FIELD_REFERENCE_CENTER_OFFSET'] = field_directions["reference_direction"]
+        field_and_source_xds['FIELD_REFERENCE_CENTER_OFFSET'].attrs['type'] = 'sky_coord_offset'
+        
+        field_and_source_xds.attrs['field_and_source_xds_type'] = 'ephemeris'
+    else: #No ephemeris tables.
+        is_ephemeris = False
+        field_and_source_xds['FIELD_PHASE_CENTER'] = field_directions['phase_direction']
+        field_and_source_xds['FIELD_DELAY_CENTER'] = field_directions["delay_direction"]
+        field_and_source_xds['FIELD_REFERENCE_CENTER'] = field_directions["reference_direction"]
+        field_and_source_xds.attrs['field_and_source_xds_type'] = 'standard'
+        
+    field_and_source_xds = extract_source_info(field_and_source_xds, in_file, is_ephemeris, source_id, spectral_window_id)
+        
+    del field_info['ephemeris_id']
+    field_and_source_xds = field_and_source_xds.assign_coords(coords)
+    field_and_source_xds.attrs={**field_and_source_xds.attrs, **field_info}
+
+    return field_and_source_xds
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+   
+
     
     

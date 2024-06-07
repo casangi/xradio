@@ -8,7 +8,7 @@ from botocore.exceptions import NoCredentialsError
 
 
 def read_processing_set(
-    ps_store: str, intents: list = None, fields: str = None
+    ps_store: str, intents: list = None, 
 ) -> processing_set:
     """Creates a lazy representation of a Processing Set (only meta-data is loaded into memory).
 
@@ -19,8 +19,6 @@ def read_processing_set(
     intents : list, optional
         A list of the intents to be read for example ['OBSERVE_TARGET#ON_SOURCE']. The intents in a processing set can be seem by calling processing_set.summary().
         By default None, which will read all intents.
-    fields : str, optional
-       The list of field names that will be read, by default None which will read all fields.
 
     Returns
     -------
@@ -31,29 +29,28 @@ def read_processing_set(
     ps_store_is_s3dir = None
 
     if os.path.isdir(ps_store):
-        ps_store_is_s3dir = False
         # default to assuming the data are accessible on local file system
         items = os.listdir(ps_store)
+        file_system = os
 
     elif ps_store.startswith("s3"):
         # only if not found locally, check if dealing with an S3 bucket URL
-        ps_store_is_s3dir = True
-        if not ps_store.endswith("/"):
-            # just for consistency, as there is no os.path equivalent in s3fs
-            ps_store = ps_store + "/"
+        # if not ps_store.endswith("/"):
+        #     # just for consistency, as there is no os.path equivalent in s3fs
+        #     ps_store = ps_store + "/"
 
         try:
             # initialize the S3 "file system", first attempting to use pre-configured credentials
-            s3 = s3fs.S3FileSystem(anon=False, requester_pays=False)
+            file_system = s3fs.S3FileSystem(anon=False, requester_pays=False)
 
-            items = [bd.split(sep="/")[-1] for bd in s3.listdir(ps_store, detail=False)]
+            items = [bd.split(sep="/")[-1] for bd in file_system.listdir(ps_store, detail=False)]
 
         except (NoCredentialsError, PermissionError) as e:
             # only public, read-only buckets will be accessible
             # we will want to add messaging and error handling here
-            s3 = s3fs.S3FileSystem(anon=True)
+            file_system = s3fs.S3FileSystem(anon=True)
 
-            items = [bd.split(sep="/")[-1] for bd in s3.listdir(ps_store, detail=False)]
+            items = [bd.split(sep="/")[-1] for bd in file_system.listdir(ps_store, detail=False)]
 
     else:
         raise (
@@ -61,75 +58,108 @@ def read_processing_set(
             f"Could not find {ps_store} either locally or in the cloud.",
         )
 
-    ms_xds = xr.Dataset()
     ps = processing_set()
     data_group = "base"
     for ms_dir_name in items:
-        if "ddi" in ms_dir_name:
-            if ps_store_is_s3dir:
-                store_path = ps_store + ms_dir_name
-                store_path_main = store_path + "/MAIN"
-            else:
-                store_path_main = os.path.join(ps_store, ms_dir_name, "MAIN")
-                store_path = os.path.split(store_path_main)[0]
-            if s3 is not None:
-                xds = _open_dataset(store_path_main, s3=s3)
-            else:
-                xds = _open_dataset(store_path_main)
+        #try:              
+        store_path = os.path.join(ps_store, ms_dir_name)
+        store_path_main = os.path.join(store_path, "MAIN")
 
-            if (intents is None) or (xds.attrs["intent"] in intents):
-                data_name = _get_data_name(xds, data_group)
+        xds = _open_dataset(store_path_main, file_system)
+        data_groups = xds.attrs["data_groups"]
 
-                if (fields is None) or (
-                    xds[data_name].attrs["field_info"]["name"] in fields
-                ):
-                    if s3 is not None:
-                        xds.attrs = {
-                            **xds.attrs,
-                            **_read_sub_xds(store_path, s3=s3),
-                        }
-                        ps[ms_dir_name] = xds
-                    else:
-                        xds.attrs = {
-                            **xds.attrs,
-                            **_read_sub_xds(store_path),
-                        }
-                        ps[ms_dir_name] = xds
+        if (intents is None) or (xds.attrs["intent"] in intents):
+            sub_xds_dict, field_and_source_xds_dict = _read_sub_xds(store_path, file_system=file_system, data_groups=data_groups)
+            
+            xds.attrs = {
+                    **xds.attrs,
+                    **sub_xds_dict,
+                }
+            
+            for data_group_name, data_group_vals in data_groups.items():
+                xds[data_group_vals['visibility']].attrs['field_and_source_xds'] = field_and_source_xds_dict[data_group_name]
+            
+            ps[ms_dir_name] = xds
+        # except Exception as e:  
+        #     logger.warning(f"Could not read {ms_dir_name} due to {e}")  
+        #     continue
+                
 
     return ps
 
 
-def _read_sub_xds(ms_store, load=False, **kwargs):
+def _read_sub_xds(ms_store, file_system, data_groups, load=False):
     sub_xds_dict = {}
-
-    sub_xds = {
-        "antenna_xds": "ANTENNA",
+    field_and_source_xds_dict = {}
+    
+    xds_names = {
+        "ANTENNA":"antenna_xds",
+        "WEATHER":"weather_xds",
+        "POINTING":"pointing_xds",
     }
-    for sub_xds_key, sub_xds_name in sub_xds.items():
-        if "s3" in kwargs.keys():
-            joined_store = ms_store + "/" + sub_xds_name
-            sub_xds_dict[sub_xds_key] = _open_dataset(
-                joined_store, load=load, s3=kwargs["s3"]
-            )
+    
+    if  isinstance(file_system, s3fs.core.S3FileSystem):
+        file_names = [bd.split(sep="/")[-1] for bd in file_system.listdir(ms_store, detail=False)]
+    else:
+        file_names = file_system.listdir(ms_store)
+        
+    file_names.remove("MAIN")
+        
+    field_dict = {"FIELD_AND_SOURCE_" + key.upper(): key for key in data_groups.keys()}
+        
+    # field_and_source_xds_name_start = "FIELD"
+    for n in file_names:
+        xds = _open_dataset(os.path.join(ms_store, n), load=load, file_system=file_system)
+        if n in field_dict.keys():
+            field_and_source_xds_dict[field_dict[n]] = xds
         else:
-            sub_xds_dict[sub_xds_key] = _open_dataset(
-                os.path.join(ms_store, sub_xds_name), load=load
-            )
+            sub_xds_dict[xds_names[n]] = xds
+            
+    
+    return sub_xds_dict, field_and_source_xds_dict
+        
+    
+    
+    
 
-    optional_sub_xds = {
-        "weather_xds": "WEATHER",
-        "pointing_xds": "POINTING",
-    }
-    for sub_xds_key, sub_xds_name in optional_sub_xds.items():
-        sub_xds_path = os.path.join(ms_store, sub_xds_name)
-        if os.path.isdir(sub_xds_path):
-            sub_xds_dict[sub_xds_key] = _open_dataset(sub_xds_path, load=load)
-        elif "s3" in kwargs.keys():
-            joined_store = ms_store + "/" + sub_xds_name
-            if kwargs["s3"].isdir(joined_store):
-                sub_xds_dict[sub_xds_key] = _open_dataset(
-                    joined_store, load=load, s3=kwargs["s3"]
-                )
+    # sub_xds = {
+    #     "antenna_xds": "ANTENNA",
+    # }
+    # for sub_xds_key, sub_xds_name in sub_xds.items():
+    #     if "s3" in kwargs.keys():
+    #         joined_store = ms_store + "/" + sub_xds_name
+    #         sub_xds_dict[sub_xds_key] = _open_dataset(
+    #             joined_store, load=load, s3=kwargs["s3"]
+    #         )
+    #     else:
+    #         sub_xds_dict[sub_xds_key] = _open_dataset(
+    #             os.path.join(ms_store, sub_xds_name), load=load
+    #         )
+
+    # optional_sub_xds = {
+    #     "weather_xds": "WEATHER",
+    #     "pointing_xds": "POINTING",
+    # }
+    # for sub_xds_key, sub_xds_name in optional_sub_xds.items():
+    #     sub_xds_path = os.path.join(ms_store, sub_xds_name)
+    #     if os.path.isdir(sub_xds_path):
+    #         sub_xds_dict[sub_xds_key] = _open_dataset(sub_xds_path, load=load)
+    #     elif "s3" in kwargs.keys():
+    #         joined_store = ms_store + "/" + sub_xds_name
+    #         if kwargs["s3"].isdir(joined_store):
+    #             sub_xds_dict[sub_xds_key] = _open_dataset(
+    #                 joined_store, load=load, s3=kwargs["s3"]
+    #             )
+    
+    # if  "s3" in kwargs.keys():
+    #     files = os.listdir(os.path.join(ms_store))
+    # else:
+    # field_and_source_xds_name_start = "FIELD"
+ 
+    # for f in files:
+    #     if "FIELD" in 
+    
+    
 
     return sub_xds_dict
 

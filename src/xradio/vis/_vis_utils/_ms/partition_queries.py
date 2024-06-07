@@ -270,17 +270,7 @@ def make_partition_ids_by_ddi_intent(
     return data_desc_id, scan_number, state_id_partitions, intent_names
 
 
-def create_taql_query_and_file_name(out_file, intent, state_ids, field_id, ddi):
-    file_name = (
-        out_file
-        + "/"
-        + out_file.replace(".vis.zarr", "").split("/")[-1]
-        + "_ddi_"
-        + str(ddi)
-        + "_intent_"
-        + intent
-    )
-
+def create_taql_query(state_ids, field_id, ddi):
     taql_where = f"where (DATA_DESC_ID = {ddi})"
 
     if isinstance(state_ids, numbers.Integral):
@@ -291,9 +281,8 @@ def create_taql_query_and_file_name(out_file, intent, state_ids, field_id, ddi):
 
     if field_id is not None:
         taql_where += f" AND (FIELD_ID = {field_id})"
-        file_name = file_name + "_field_id_" + str(field_id)
 
-    return taql_where, file_name
+    return taql_where
 
 
 def get_unqiue_intents(in_file):

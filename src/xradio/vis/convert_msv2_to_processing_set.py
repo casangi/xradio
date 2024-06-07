@@ -54,10 +54,9 @@ def convert_msv2_to_processing_set(
     partition_enumerated_product, intents = create_partition_enumerated_product(
         in_file, partition_scheme
     )
-    
-    print(partition_enumerated_product, intents)
 
     delayed_list = []
+    ms_v4_id = 0
     for idx, pair in partition_enumerated_product:
         ddi, state_id, field_id = pair
         logger.debug(
@@ -65,18 +64,20 @@ def convert_msv2_to_processing_set(
         )
 
         if ddi==2 and field_id==13:
+            #if True:
             print("DDI " + str(ddi) + ", STATE " + str(state_id) + ", FIELD " + str(field_id))
             if partition_scheme == "ddi_intent_field":
                 intent = intents[idx[1]]
             else:
                 intent = intents[idx[1]] + "_" + str(state_id)
-
+                
             if parallel:
                 delayed_list.append(
                     dask.delayed(convert_and_write_partition)(
                         in_file,
                         out_file,
                         intent,
+                        ms_v4_id,
                         ddi,
                         state_id,
                         field_id,
@@ -93,6 +94,7 @@ def convert_msv2_to_processing_set(
                     in_file,
                     out_file,
                     intent,
+                    ms_v4_id,
                     ddi,
                     state_id,
                     field_id,
@@ -104,6 +106,8 @@ def convert_msv2_to_processing_set(
                     storage_backend=storage_backend,
                     overwrite=overwrite,
                 )
+                
+            ms_v4_id = ms_v4_id + 1
 
     if parallel:
         dask.compute(delayed_list)

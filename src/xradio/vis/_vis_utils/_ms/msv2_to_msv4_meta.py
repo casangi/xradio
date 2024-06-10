@@ -33,6 +33,7 @@ casacore_to_msv4_measure_type = {
     "frequency": {"type": "spectral_coord", "Ref": "frame"},
     "position": {"type": "earth_location", "Ref": "ellipsoid"},
     "uvw": {"type": "uvw", "Ref": "frame"},
+    "radialvelocity": {"type": "quantity", "Ref": None},
 }
 
 casacore_to_msv4_ref = {"J2000": "FK5", "ITRF": "GRS80"}
@@ -96,6 +97,11 @@ def column_description_casacore_to_msv4_measure(
 
         if msv4_measure["type"] == "time":
             msv4_measure["format"] = "unix"
+    elif "QuantumUnits" in casacore_column_description["keywords"]:
+        msv4_measure = {'type':'quantity', 'units':list(
+            casacore_column_description["keywords"]["QuantumUnits"]
+        )}
+        
     return msv4_measure
 
 

@@ -53,7 +53,7 @@ def convert_mjd_time(rawtimes: np.ndarray) -> np.ndarray:
     """
     return pd.to_datetime(
         rawtimes * SECS_IN_DAY - CASACORE_TO_PD_TIME_CORRECTION, unit="s"
-    ).values
+    ).values.astype("float64")
 
 
 def extract_table_attributes(infile: str) -> Dict[str, Dict]:
@@ -350,7 +350,14 @@ def read_generic_table(
             logger.debug(f"table is empty: {inpath} {tname}")
             return xr.Dataset(attrs=attrs)
 
-        taql_gtable = f"select * from $gtable {taql_where}"
+        if len(ignore) > 0: #This is needed because some SOURCE tables have a SOURCE_MODEL column that is corrupted and this causes the open_query to fail.
+            select_columns = gtable.colnames()
+            select_columns_str = str([item for item in select_columns if item not in ignore])[1:-1].replace("'", "") #Converts an array to a comma sepearted string. For example ['a', 'b', 'c'] to 'a, b, c'.
+            taql_gtable = f"select " + select_columns_str + f" from $gtable {taql_where}"
+        else:
+            taql_gtable = f"select * from $gtable {taql_where}"
+            
+        
         with open_query(gtable, taql_gtable) as tb_tool:
             if tb_tool.nrows() == 0:
                 logger.debug(

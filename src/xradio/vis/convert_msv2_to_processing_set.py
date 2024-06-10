@@ -64,35 +64,19 @@ def convert_msv2_to_processing_set(
         logger.debug(
             "DDI " + str(ddi) + ", STATE " + str(state_id) + ", FIELD " + str(field_id)
         )
-
-        if ddi==2 and field_id==13:
-            #if True:
-            print("DDI " + str(ddi) + ", STATE " + str(state_id) + ", FIELD " + str(field_id))
-            if partition_scheme == "ddi_intent_field":
-                intent = intents[idx[1]]
-            else:
-                intent = intents[idx[1]] + "_" + str(state_id)
-                
-            if parallel:
-                delayed_list.append(
-                    dask.delayed(convert_and_write_partition)(
-                        in_file,
-                        out_file,
-                        intent,
-                        ms_v4_id,
-                        ddi,
-                        state_id,
-                        field_id,
-                        main_chunksize=main_chunksize,
-                        with_pointing=with_pointing,
-                        pointing_chunksize=pointing_chunksize,
-                        pointing_interpolate=pointing_interpolate,
-                        compressor=compressor,
-                        overwrite=overwrite,
-                    )
-                )
-            else:
-                convert_and_write_partition(
+        
+        # print("DDI " + str(ddi) + ", STATE " + str(state_id) + ", FIELD " + str(field_id)  )
+        # #DDI 0, STATE [19], FIELD 2
+        
+        # if ddi==0 and state_id[0]==19 and field_id==2:
+        if partition_scheme == "ddi_intent_field":
+            intent = intents[idx[1]]
+        else:
+            intent = intents[idx[1]] + "_" + str(state_id)
+            
+        if parallel:
+            delayed_list.append(
+                dask.delayed(convert_and_write_partition)(
                     in_file,
                     out_file,
                     intent,
@@ -105,10 +89,27 @@ def convert_msv2_to_processing_set(
                     pointing_chunksize=pointing_chunksize,
                     pointing_interpolate=pointing_interpolate,
                     compressor=compressor,
-                    storage_backend=storage_backend,
                     overwrite=overwrite,
                 )
-            ms_v4_id = ms_v4_id + 1
+            )
+        else:
+            convert_and_write_partition(
+                in_file,
+                out_file,
+                intent,
+                ms_v4_id,
+                ddi,
+                state_id,
+                field_id,
+                main_chunksize=main_chunksize,
+                with_pointing=with_pointing,
+                pointing_chunksize=pointing_chunksize,
+                pointing_interpolate=pointing_interpolate,
+                compressor=compressor,
+                storage_backend=storage_backend,
+                overwrite=overwrite,
+            )
+        ms_v4_id = ms_v4_id + 1
 
     if parallel:
         dask.compute(delayed_list)

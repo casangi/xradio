@@ -6,6 +6,8 @@ import xarray as xr
 
 from casacore import tables
 
+from ..msv2_msv3 import ignore_msv2_cols
+
 
 def revert_time(datetimes: np.ndarray) -> np.ndarray:
     """Convert time back from pandas datetime ref to casacore ref
@@ -54,22 +56,45 @@ def create_table(
         os.system("rm -fr %s" % outfile)
 
     # create column descriptions for table description
+    ctds_attrs = {}
+    try:
+        ctds_attrs = xds.attrs["other"]["msv2"]["ctds_attrs"]
+    except KeyError as exc:
+        pass
+
     if cols is None:
-        cols = list(
-            set(list(xds.data_vars) + list(xds.attrs["column_descriptions"].keys()))
-            if "column_descriptions" in xds.attrs
-            else list(xds.data_vars)
-        )
+        if ctds_attrs and "column_descriptions" in ctds_attrs:
+            cols = {col: col.lower() for col in ctds_attrs["column_descriptions"]}
+        else:
+            cols = {var.upper(): var for var in xds.data_vars}
+            # Would add all xds data vars regardless of description availability
+            # +
+            # list(xds.data_vars) +
+
     tabledesc = {}
-    for col in cols:
-        if ("column_descriptions" in xds.attrs) and (
-            col in xds.attrs["column_descriptions"]
+    for col, var_name in cols.items():
+        if ("column_descriptions" in ctds_attrs) and (
+            col in ctds_attrs["column_descriptions"]
         ):
-            coldesc = xds.attrs["column_descriptions"][col]
+            coldesc = ctds_attrs["column_descriptions"][col]
+            # col not in ignore_msv2_cols
+            if (
+                not generic
+                and "DATA" in col
+                and "shape" not in coldesc
+                and var_name in xds.data_vars
+            ):
+                coldesc["shape"] = tuple(np.clip(xds[var_name].shape[1:], 1, None))
+
+            if col == "UVW" or (
+                (not "shape" in coldesc or type(coldesc["shape"]) == str)
+                and var_name in xds.data_vars
+            ):
+                coldesc["shape"] = tuple(np.clip(xds[var_name].shape[1:], 1, None))
         else:
             coldesc = {"valueType": type_converter(xds[col].dtype)}
             if generic or (
-                col == "UVW"
+                col == "UVW" or col == "DATA"
             ):  # will be statically shaped even if not originally
                 coldesc = {"shape": tuple(np.clip(xds[col].shape[1:], 1, None))}
             elif xds[col].ndim > 1:  # make variably shaped
@@ -79,9 +104,10 @@ def create_table(
         tabledesc[col] = coldesc
 
         # fix the fun set of edge cases from casatestdata that cause errors
-        if (tabledesc[col]["dataManagerType"] == "TiledShapeStMan") and (
-            tabledesc[col]["ndim"] == 1
-        ):
+        if (
+            "dataManagerType" in tabledesc[col]
+            and tabledesc[col]["dataManagerType"] == "TiledShapeStMan"
+        ) and (tabledesc[col]["ndim"] == 1):
             tabledesc[col]["dataManagerType"] = ""
 
     if generic:
@@ -101,16 +127,16 @@ def create_table(
 
     # write xds attributes to table keywords, skipping certain reserved attributes
     existing_keywords = tb_tool.getkeywords()
-    for attr in xds.attrs:
+    for attr in ctds_attrs:
         if attr in [
             "other",
             "history",
             "info",
         ] + list(existing_keywords.keys()):
             continue
-        tb_tool.putkeyword(attr, xds.attrs[attr])
-    if "info" in xds.attrs:
-        tb_tool.putinfo(xds.attrs["info"])
+        tb_tool.putkeyword(attr, ctds_attrs[attr])
+    if "info" in ctds_attrs:
+        tb_tool.putinfo(ctds_attrs["info"])
 
     # copy subtables and add to main table
     if infile:
@@ -162,23 +188,25 @@ def write_generic_table(xds: xr.Dataset, outfile: str, subtable="", cols=None):
     """
     outfile = os.path.expanduser(outfile)
     logger.debug("writing {os.path.join(outfile, subtable)}")
-    if cols is None:
-        cols = list(
-            set(
-                list(xds.data_vars)
-                + [cc for cc in xds.coords if cc not in xds.sizes]
-                + (
-                    list(
-                        xds.attrs["column_descriptions"].keys()
-                        if "column_descriptions" in xds.attrs
-                        else []
-                    )
-                )
-            )
-        )
-    cols = list(np.atleast_1d(cols))
 
-    max_rows = xds.row.shape[0] if "row" in xds.sizes else 0
+    try:
+        ctds_attrs = {}
+        ctds_attrs = xds.attrs["other"]["msv2"]["ctds_attrs"]
+    except KeyError as exc:
+        pass
+
+    if cols is None:
+        cols = {var.upper(): var for var in xds.data_vars}
+        cols.update({coo.upper(): coo for coo in xds.coords if coo not in xds.dims})
+        # Would add cols with a description regardless of presence in xds
+        # + (
+        #     list(
+        #         ctds_attrs["column_descriptions"].keys()
+        #         if "column_descriptions" in ctds_attrs
+        #         else []
+        #     )
+        # )
+    max_rows = xds.row.shape[0] if "row" in xds.dims else 0
     create_table(
         os.path.join(outfile, subtable),
         xds,
@@ -195,7 +223,7 @@ def write_generic_table(xds: xr.Dataset, outfile: str, subtable="", cols=None):
         ack=False,
     )
     try:
-        for dv in cols:
+        for dv, col in cols.items():
             if (dv not in xds) or (np.prod(xds[dv].shape) == 0):
                 continue
             values = (
@@ -203,7 +231,7 @@ def write_generic_table(xds: xr.Dataset, outfile: str, subtable="", cols=None):
                 if xds[dv].dtype != "datetime64[ns]"
                 else revert_time(xds[dv].values)
             )
-            tb_tool.putcol(dv, values, 0, values.shape[0], 1)
+            tb_tool.putcol(col, values, 0, values.shape[0], 1)
     except Exception:
         print(
             "ERROR: exception in write generic table - %s, %s, %s, %s"

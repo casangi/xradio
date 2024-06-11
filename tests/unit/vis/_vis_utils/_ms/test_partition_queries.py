@@ -123,8 +123,8 @@ def test_filter_intents_per_ddi_wvr(mixed_intents_wvr, expected_results):
         8: "ALMA_R_B03#BB_4#SW-01#CH_AVG",
     }
 
-    with pytest.raises(KeyError, match="0"):
-        res = filter_intents_per_ddi([0], "WVR", mixed_intents_wvr, {})
+    res = filter_intents_per_ddi([0], "WVR", mixed_intents_wvr, {})
+    assert res == [mixed_intents_wvr]
 
     res = filter_intents_per_ddi([0], "WVR", mixed_intents_wvr, spw_name_by_ddi)
     assert res == expected_results
@@ -189,12 +189,15 @@ def test_make_partition_ids_by_ddi_intent_vlass(ms_vlass_subset_evla_36473386):
         ms_vlass_subset_evla_36473386.fname, xr.Dataset()
     )
 
-    nddis = 2
+    nddis = 1
     exp = (
         np.arange(nddis),
-        nddis * [None],
-        np.arange(4, 223),
-        ["OBSERVE_TARGET#UNSPECIFIED", "OBSERVE_TARGET#UNSPECIFIED"],
+        2 * nddis * [None],
+        np.stack((np.arange(22, 38), np.arange(38, 54)), axis=0),
+        [
+            "OBSERVE_TARGET#ON_SOURCE",
+            "OBSERVE_TARGET#ON_SOURCE,CALIBRATE_WVR#ON_SOURCE",
+        ],
     )
     assert res
     assert np.allclose(res[0], exp[0])

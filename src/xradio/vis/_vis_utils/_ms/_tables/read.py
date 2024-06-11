@@ -21,7 +21,7 @@ def table_exists(path: str) -> bool:
     return tables.tableexists(path)
 
 
-def convert_casacore_time(rawtimes: np.ndarray) -> np.ndarray:
+def convert_casacore_time(rawtimes: np.ndarray, convert_to_datetime=True) -> np.ndarray:
     """
     Read time columns to datetime format
     pandas datetimes are referenced against a 0 of 1970-01-01
@@ -32,10 +32,11 @@ def convert_casacore_time(rawtimes: np.ndarray) -> np.ndarray:
     :param rawtimes: times in casacore ref
     :return: times converted to pandas reference
     """
-
-    return pd.to_datetime(
-        np.array(rawtimes) - CASACORE_TO_PD_TIME_CORRECTION, unit="s"
-    ).values
+    times_reref = np.array(rawtimes) - CASACORE_TO_PD_TIME_CORRECTION
+    if convert_to_datetime:
+        return pd.to_datetime(times_reref, unit="s").values
+    else:
+        return times_reref
     # dt = pd.to_datetime(np.atleast_1d(rawtimes) - correction, unit='s').values
     # if len(np.array(rawtimes).shape) == 0: dt = dt[0]
     # return dt
@@ -347,7 +348,9 @@ def read_generic_table(
             logger.debug(f"table is empty: {inpath} {tname}")
             return xr.Dataset(attrs=attrs)
 
-        taql_gtable = f"select * from $gtable {taql_where or ''}"
+        # relatively often broken columns that we do not need
+        exclude_pattern = ", !~p/SOURCE_MODEL/"
+        taql_gtable = f"select *{exclude_pattern} from $gtable {taql_where or ''}"
         with open_query(gtable, taql_gtable) as tb_tool:
             if tb_tool.nrows() == 0:
                 logger.debug(

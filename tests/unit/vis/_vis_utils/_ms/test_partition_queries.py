@@ -179,14 +179,14 @@ def test_make_partition_ids_by_ddi_intent_min(ms_minimal_required):
     assert res[3] == exp[3]
 
 
-@pytest.mark.uses_gdown
-def test_make_partition_ids_by_ddi_intent_vlass(ms_vlass_subset_evla_36473386):
+@pytest.mark.uses_download
+def test_make_partition_ids_by_ddi_intent_antennae(ms_alma_antennae_north_split):
     from xradio.vis._vis_utils._ms.partition_queries import (
         make_partition_ids_by_ddi_intent,
     )
 
     res = make_partition_ids_by_ddi_intent(
-        ms_vlass_subset_evla_36473386.fname, xr.Dataset()
+        ms_alma_antennae_north_split.fname, xr.Dataset()
     )
 
     nddis = 1

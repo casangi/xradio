@@ -3,21 +3,21 @@ import pytest
 from xradio.vis._vis_utils._utils.cds_checks import check_cds
 
 
-@pytest.mark.uses_gdown
-def test_read_vlass_ms_default(ms_vlass_subset_evla_36473386):
+@pytest.mark.uses_download
+def test_read_alma_ms_default(ms_alma_antennae_north_split):
     """ Read with default parameters ('intent' partitioning) """
     from xradio.vis._vis_utils.ms import read_ms
 
-    vis = read_ms(ms_vlass_subset_evla_36473386.fname)
+    vis = read_ms(ms_alma_antennae_north_split.fname)
     check_cds(vis)
 
 
-@pytest.mark.uses_gdown
-def test_read_vlass_ms_by_ddi(ms_vlass_subset_evla_36473386):
+@pytest.mark.uses_download
+def test_read_alma_ms_by_ddi(ms_alma_antennae_north_split):
     from xradio.vis._vis_utils.ms import read_ms
 
     scheme = "ddi"
-    vis = read_ms(ms_vlass_subset_evla_36473386.fname, partition_scheme=scheme)
+    vis = read_ms(ms_alma_antennae_north_split.fname, partition_scheme=scheme)
     check_cds(vis, partition_scheme=scheme)
 
 

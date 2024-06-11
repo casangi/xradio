@@ -162,7 +162,8 @@ def test_load_vis_block_ms_min(ms_minimal_required):
     assert vis.metainfo == {}
 
 
-def test_load_chunk_ms_vlass(ms_vlass_subset_evla_36473386):
+@pytest.mark.uses_download
+def test_load_chunk_ms_alma(ms_alma_antennae_north_split):
     from xradio.vis import load_vis_block
 
     chunk = {
@@ -173,7 +174,7 @@ def test_load_chunk_ms_vlass(ms_vlass_subset_evla_36473386):
     }
 
     vis = load_vis_block(
-        ms_vlass_subset_evla_36473386.fname, chunk, (0, 0, "scan_intent#subscan_intent")
+        ms_alma_antennae_north_split.fname, chunk, (0, 0, "scan_intent#subscan_intent")
     )
     check_cds(vis, subtables=[], chunks=True)
 

@@ -682,7 +682,7 @@ def convert_and_write_partition(
 
             interval_unique = unique_1d(interval)
             if len(interval_unique) > 1:
-                logger.info(
+                logger.debug(
                     "Integration time (interval) not consitent in partition, using median."
                 )
                 interval = np.median(interval)

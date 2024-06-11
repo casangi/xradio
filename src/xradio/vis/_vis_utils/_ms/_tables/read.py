@@ -13,7 +13,7 @@ from casacore import tables
 
 from .table_query import open_query, open_table_ro
 
-CASACORE_TO_PD_TIME_CORRECTION = 3506716800.0
+CASACORE_TO_PD_TIME_CORRECTION = 3_506_716_800.0
 SECS_IN_DAY = 86400
 
 
@@ -21,7 +21,7 @@ def table_exists(path: str) -> bool:
     return tables.tableexists(path)
 
 
-def convert_casacore_time(rawtimes: np.ndarray, convert_to_datetime=True) -> np.ndarray:
+def convert_casacore_time(rawtimes: np.ndarray) -> np.ndarray:
     """
     Read time columns to datetime format
     pandas datetimes are referenced against a 0 of 1970-01-01
@@ -33,12 +33,9 @@ def convert_casacore_time(rawtimes: np.ndarray, convert_to_datetime=True) -> np.
     :return: times converted to pandas reference
     """
 
-    if convert_to_datetime:
-        return pd.to_datetime(
-            np.array(rawtimes) - CASACORE_TO_PD_TIME_CORRECTION, unit="s"
-        ).values
-    else:
-        return np.array(rawtimes) - CASACORE_TO_PD_TIME_CORRECTION
+    return pd.to_datetime(
+        np.array(rawtimes) - CASACORE_TO_PD_TIME_CORRECTION, unit="s"
+    ).values
     # dt = pd.to_datetime(np.atleast_1d(rawtimes) - correction, unit='s').values
     # if len(np.array(rawtimes).shape) == 0: dt = dt[0]
     # return dt
@@ -350,7 +347,7 @@ def read_generic_table(
             logger.debug(f"table is empty: {inpath} {tname}")
             return xr.Dataset(attrs=attrs)
 
-        taql_gtable = f"select * from $gtable {taql_where}"
+        taql_gtable = f"select * from $gtable {taql_where or ''}"
         with open_query(gtable, taql_gtable) as tb_tool:
             if tb_tool.nrows() == 0:
                 logger.debug(
@@ -626,7 +623,8 @@ def raw_col_data_to_coords_vars(
                 data = convert_casacore_time(data)
             except pd.errors.OutOfBoundsDatetime as exc:
                 if inpath.endswith("WEATHER"):
-                    logger.error(
+                    # intentionally not callling logging.exception
+                    logger.warning(
                         f"Exception when converting WEATHER/TIME: {exc}. TIME data: {data}"
                     )
                 else:
@@ -689,9 +687,11 @@ def handle_variable_col_issues(
         data = np.stack(
             [
                 np.pad(
-                    row[col]
-                    if len(row[col]) > 0
-                    else np.array(row[col]).reshape(np.arange(len(mshape)) * 0),
+                    (
+                        row[col]
+                        if len(row[col]) > 0
+                        else np.array(row[col]).reshape(np.arange(len(mshape)) * 0)
+                    ),
                     [(0, ss) for ss in mshape - np.array(row[col]).shape],
                     "constant",
                     constant_values=pad_nan,

@@ -194,7 +194,8 @@ def filter_intents_per_ddi(
     every_intent = intents.split(",")
     filtered_intents = []
     for ddi in ddis:
-        spw_name = spw_name_by_ddi[ddi]
+        spw_name = spw_name_by_ddi.get(ddi, "")
+
         if not spw_name:
             # we cannot say / cannot filter
             filtered_intents.append(intents)

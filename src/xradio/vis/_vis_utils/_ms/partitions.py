@@ -174,13 +174,15 @@ def read_ms_scan_subscan_partitions(
         if partition_scheme == "intent":
             intent = distinct_intents[cnt]
             cnt += 1
+        else:
+            intent = ""
 
         if partition_scheme == "scan":
             scan_state = (scan, None)
         else:
             scan_state = (scan, state)
         # experimenting, comparing overheads of expanded vs. flat
-        expanded = True
+        expanded = not expand
         if expanded:
             xds, part_ids, attrs = read_expanded_main_table(
                 infile, ddi, scan_state=scan_state, ignore_msv2_cols=ignore_msv2_cols
@@ -309,7 +311,7 @@ def read_ms_ddi_partitions(
         )
 
         # experimenting, comparing overheads of expanded vs. flat
-        expanded = True
+        expanded = not expand
         if expanded:
             xds, part_ids, attrs = read_expanded_main_table(
                 infile, ddi, ignore_msv2_cols=ignore_msv2_cols

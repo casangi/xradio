@@ -1,16 +1,46 @@
 import os, time
-from typing import Optional
+from typing import List, Optional
 
 import dask
 import numpy as np
 import xarray as xr
-
 
 from ..._utils.xds_helper import flatten_xds, calc_optimal_ms_chunk_shape
 from .write import write_generic_table, write_main_table_slice
 from .write import create_table, revert_time
 
 from casacore import tables
+
+
+# TODO: this should be consolidated with the equivalent in read_main_table,
+# if we keep this mapping
+rename_to_msv2_cols = {
+    "antenna1_id": "antenna1",
+    "antenna2_id": "antenna2",
+    "feed1_id": "feed1",
+    "feed2_id": "feed2",
+    # optional cols:
+    # "weight": "weight_spectrum",
+    "vis_corrected": "corrected_data",
+    "vis": "data",
+    "vis_model": "model_data",
+    "autocorr": "float_data",
+}
+# cols added in xds not in MSv2
+cols_not_in_msv2 = ["baseline_ant1_id", "baseline_ant2_id"]
+
+
+def cols_from_xds_to_ms(cols: List[str]) -> List[str]:
+    """
+    Translates between lowercase/uppercase convention
+    Rename some MS_colum_names <-> xds_data_var_names
+    Excludes the pointing_ vars that are in the xds but should not be written to MS
+    """
+    return {
+        rename_to_msv2_cols.get(col, col).upper(): col
+        for col in cols
+        if (col and col not in cols_not_in_msv2 and not col.startswith("pointing_"))
+    }
 
 
 def write_ms(
@@ -57,13 +87,13 @@ def write_ms(
         print("initializing output...")
     start = time.time()
 
-    xds_list = [
-        flatten_xds(mxds.attrs[kk]) for kk in mxds.attrs if kk.startswith("xds")
-    ]
-    cols = list(set([dv for dx in xds_list for dv in dx.data_vars]))
+    xds_list = [flatten_xds(xds) for _key, xds in mxds.partitions.items()]
+
+    cols = cols_from_xds_to_ms(
+        list(set([dv for dx in xds_list for dv in dx.data_vars]))
+    )
     if modcols is None:
         modcols = cols
-    modcols = list(np.atleast_1d(modcols))
 
     # create an empty main table with enough space for all desired xds partitions
     # the first selected xds partition will be passed to create_table to provide a definition of columns and table keywords
@@ -77,37 +107,42 @@ def write_ms(
     # the SPECTRAL_WINDOW, POLARIZATION, and DATA_DESCRIPTION tables must always be present and will always be written
     delayed_writes = [
         dask.delayed(write_generic_table)(
-            mxds.SPECTRAL_WINDOW, outfile, "SPECTRAL_WINDOW", cols=None
+            mxds.metainfo["spectral_window"], outfile, "SPECTRAL_WINDOW", cols=None
         )
     ]
     delayed_writes += [
         dask.delayed(write_generic_table)(
-            mxds.POLARIZATION, outfile, "POLARIZATION", cols=None
+            mxds.metainfo["polarization"], outfile, "POLARIZATION", cols=None
         )
     ]
-    delayed_writes += [
-        dask.delayed(write_generic_table)(
-            mxds.DATA_DESCRIPTION, outfile, "DATA_DESCRIPTION", cols=None
-        )
-    ]
+    # should data_description be kept somewhere (in attrs?) or rebuilt?
+    # delayed_writes += [
+    #     dask.delayed(write_generic_table)(
+    #         mxds.metainfo["data_description"], outfile, "DATA_DESCRIPTION", cols=None
+    #     )
+    # ]
     if subtables:  # also write the rest of the subtables
         for subtable in list(mxds.attrs.keys()):
-            if subtable.startswith("xds") or (
-                subtable in ["SPECTRAL_WINDOW", "POLARIZATION", "DATA_DESCRIPTION"]
+            if (
+                subtable.startswith("xds")
+                or (subtable in ["spectral_window", "polarization", "data_description"])
+                or not isinstance(subtable, xr.Dataset)
             ):
                 continue
+
             if verbose:
                 print("writing subtable %s..." % subtable)
             delayed_writes += [
                 dask.delayed(write_generic_table)(
-                    mxds.attrs[subtable], outfile, subtable, cols=None, verbose=verbose
+                    mxds.attrs[subtable], outfile, subtable, cols=None
                 )
             ]
 
     ddi_row_start = 0  # output rows will be ordered by DDI
     for xds in xds_list:
         txds = xds.copy().unify_chunks()
-        ddi = txds.data_desc_id[:1].values[0]
+        # TODO: carry over or rebuild?
+        ddi = 0  # txds.data_desc_id[:1].values[0]
 
         # serial write entire DDI column first so subsequent delayed writes can find their spot
         if verbose:
@@ -117,6 +152,10 @@ def write_ms(
         for col in modcols:
             if col not in txds:
                 continue  # this can happen with bad_cols, should still be created in create_table()
+
+            if col in cols_not_in_msv2:
+                continue
+
             chunks = txds[col].chunks
             dims = txds[col].dims
             for d0 in range(len(chunks[0])):
@@ -167,9 +206,13 @@ def write_ms(
         max_chunk_size = np.prod(
             [txds.chunks[kk][0] for kk in txds.chunks if kk in ["row", "freq", "pol"]]
         )
-        for col in list(np.setdiff1d(cols, modcols)):
+        for col in list(np.setdiff1d(list(cols), modcols)):
             if col not in txds:
                 continue  # this can happen with bad_cols, should still be created in create_table()
+
+            if col in cols_not_in_msv2:
+                continue
+
             col_chunk_size = np.prod([kk[0] for kk in txds[col].chunks])
             col_rows = (
                 int(np.ceil(max_chunk_size / col_chunk_size)) * txds[col].chunks[0][0]
@@ -181,7 +224,7 @@ def write_ms(
                         txda,
                         outfile,
                         ddi=ddi,
-                        col=col,
+                        col=rename_to_msv2_cols.get(col, col).upper(),
                         full_shape=txda.shape[1:],
                         starts=(rr + ddi_row_start,) + (0,) * (len(txda.shape) - 1),
                     )
@@ -248,11 +291,9 @@ def write_ms_serial(
         print("initializing output...")
     # start = time.time()
 
-    xds_list = [
-        flatten_xds(mxds.attrs[kk]) for kk in mxds.attrs if kk.startswith("xds")
-    ]
+    xds_list = [flatten_xds(xds) for _key, xds in mxds.partitions.items()]
     cols = list(set([dv for dx in xds_list for dv in dx.data_vars]))
-    cols = list(np.atleast_1d(cols))
+    cols = cols_from_xds_to_ms(list(np.atleast_1d(cols)))
 
     # create an empty main table with enough space for all desired xds partitions
     # the first selected xds partition will be passed to create_table to provide a definition of columns and table keywords
@@ -264,9 +305,14 @@ def write_ms_serial(
 
     # start a list of dask delayed writes to disk (to be executed later)
     # the SPECTRAL_WINDOW, POLARIZATION, and DATA_DESCRIPTION tables must always be present and will always be written
-    write_generic_table(mxds.SPECTRAL_WINDOW, outfile, "SPECTRAL_WINDOW", cols=None)
-    write_generic_table(mxds.POLARIZATION, outfile, "POLARIZATION", cols=None)
-    write_generic_table(mxds.DATA_DESCRIPTION, outfile, "DATA_DESCRIPTION", cols=None)
+    write_generic_table(
+        mxds.metainfo["spectral_window"], outfile, "SPECTRAL_WINDOW", cols=None
+    )
+    write_generic_table(
+        mxds.metainfo["polarization"], outfile, "POLARIZATION", cols=None
+    )
+    # should data_description be kept somewhere (in attrs?) or rebuilt?
+    # write_generic_table(mxds.metainfo.data_description, outfile, "DATA_DESCRIPTION", cols=None)
 
     if subtables:  # also write the rest of the subtables
         # for subtable in list(mxds.attrs.keys()):
@@ -275,20 +321,24 @@ def write_ms_serial(
         # ['FEED','FIELD','ANTENNA','HISTORY']
         # ,'FIELD','ANTENNA'
         # for subtable in ['OBSERVATION']:
-        for subtable in list(mxds.attrs.keys()):
+        for subtable in list(mxds.metainfo.keys()):
             if subtable.startswith("xds") or (
-                subtable in ["SPECTRAL_WINDOW", "POLARIZATION", "DATA_DESCRIPTION"]
+                subtable in ["spectral_window", "polarization", "data_description"]
             ):
                 continue
             if verbose:
                 print("writing subtable %s..." % subtable)
             # print(subtable)
             # print(mxds.attrs[subtable])
-            write_generic_table(
-                mxds.attrs[subtable], outfile, subtable, cols=None, verbose=verbose
-            )
+            try:
+                write_generic_table(
+                    mxds.metainfo[subtable], outfile, subtable.upper(), cols=None
+                )
+            except (RuntimeError, KeyError) as exc:
+                print(f"Exception writing subtable {subtable}: {exc}")
 
-    vis_data_shape = mxds.xds0.data.shape
+    part_key0 = next(iter(mxds.partitions))
+    vis_data_shape = mxds.partitions[part_key0].vis.shape
     rows_chunk_size = calc_optimal_ms_chunk_shape(
         memory_available_in_bytes, vis_data_shape, 16, "DATA"
     )
@@ -301,8 +351,8 @@ def write_ms_serial(
     )
 
     start_main = time.time()
-    for col in cols:
-        xda = mxds.xds0[col]
+    for col, var_name in cols.items():
+        xda = mxds.partitions[part_key0][var_name]
         # print(col,xda.dtype)
 
         for start_row in np.arange(0, vis_data_shape[0], rows_chunk_size):
@@ -317,8 +367,11 @@ def write_ms_serial(
             # print('1. Time', time.time()-start, values.shape)
 
             # start = time.time()
-            tbs.putcol(col, values, start_row, len(values))
-            # print('2. Time', time.time()-start)
+            try:
+                tbs.putcol(col, values, start_row, len(values))
+                # print('2. Time', time.time()-start)
+            except RuntimeError as exc:
+                print(f"Exception writing main table column {col}: {exc}")
 
     print("3. Time", time.time() - start_main)
 

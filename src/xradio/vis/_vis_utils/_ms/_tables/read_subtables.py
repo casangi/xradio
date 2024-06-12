@@ -49,7 +49,7 @@ def read_ephemerides(
         logger.debug(f"Reading ephemerides info from: FIELD / {sdir.name}")
         # One "EPHEM_*.tab" (each with a difference ephemeris_id) to concatenate
         ephem.append(
-            read_generic_table(infile, str(Path("field", sdir)), timecols=["MJD"])
+            read_generic_table(infile, str(Path(*sdir.parts[-2:])), timecols=["MJD"])
         )
 
     if ephem:

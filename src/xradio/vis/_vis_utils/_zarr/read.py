@@ -215,8 +215,9 @@ def read_zarr(
 
 
 def _fix_dict_for_ms(name, xds):
-    xds.attrs["column_descriptions"] = xds.attrs["column_descriptions"][0]
-    xds.attrs["info"] = xds.attrs["info"][0]
+    # Used to be:
+    # xds.attrs["column_descriptions"] = xds.attrs["column_descriptions"][0]
+    # xds.attrs["info"] = xds.attrs["info"][0]
 
     if "xds" in name:
         xds.column_descriptions["UVW"]["shape"] = np.array(

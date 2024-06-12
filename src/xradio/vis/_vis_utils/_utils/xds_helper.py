@@ -119,7 +119,7 @@ def vis_xds_packager_mxds(
     return mxds
 
 
-def make_global_coords(mxds: xr.Dataset):
+def make_global_coords(mxds: xr.Dataset) -> Dict[str, xr.DataArray]:
     coords = {}
     metainfo = mxds.attrs["metainfo"]
     if "antenna" in metainfo:
@@ -172,7 +172,9 @@ def expand_xds(xds: xr.Dataset) -> xr.Dataset:
 
     txds = xds.copy()
     unique_baselines, baselines = np.unique(
-        [txds.antenna1.values, txds.antenna2.values], axis=1, return_inverse=True
+        [txds.baseline_ant1_id.values, txds.baseline_ant2_id.values],
+        axis=1,
+        return_inverse=True,
     )
     txds["baseline"] = xr.DataArray(baselines.astype("int32"), dims=["row"])
 
@@ -218,8 +220,11 @@ def flatten_xds(xds: xr.Dataset) -> xr.Dataset:
     # flatten the time x baseline dimensions of main table
     if ("time" in xds.sizes) and ("baseline" in xds.sizes):
         txds = xds.stack({"row": ("time", "baseline")}).transpose("row", ...)
+        # compute for issue https://github.com/hainegroup/oceanspy/issues/332
+        # drop=True silently does compute (or at least used to)
         txds = txds.where(
-            (txds.state_id != nan_int) & (txds.field_id != nan_int), drop=True
+            ((txds.state_id != nan_int) & (txds.field_id != nan_int)).compute(),
+            drop=True,
         )  # .unify_chunks()
         for dv in list(xds.data_vars):
             txds[dv] = txds[dv].astype(xds[dv].dtype)
@@ -358,17 +363,13 @@ def calc_optimal_ms_chunk_shape(
     # total_mem = np.prod(shape)*element_size_in_bytes
     single_row_mem = np.prod(shape[1:]) * element_size_in_bytes
 
-    try:
-        assert single_row_mem < factor * memory_available_in_bytes
-    except AssertionError as err:
-        logger.exception(
+    if not single_row_mem < factor * memory_available_in_bytes:
+        msg = (
             "Not engough memory in a thread to contain a row of "
-            + column_name
-            + ". Need at least "
-            + str(single_row_mem / factor)
-            + " bytes."
+            f"{column_name}. Need at least {single_row_mem / factor}"
+            " bytes."
         )
-        raise err
+        raise RuntimeError(msg)
 
     rows_chunk_size = int((factor * memory_available_in_bytes) / single_row_mem)
 

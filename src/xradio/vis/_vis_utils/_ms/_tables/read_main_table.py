@@ -90,12 +90,14 @@ def redim_id_data_vars(mvars: Dict[str, xr.DataArray]) -> Dict[str, xr.DataArray
         "state_id",
     ]
     for vname in var_names:
-        mvars[vname] = mvars[vname].sel(baseline=0, drop=True)
+        if "baseline" in mvars[vname].coords:
+            mvars[vname] = mvars[vname].sel(baseline=0, drop=True)
 
     for idx in ["1", "2"]:
         new_name = f"baseline_ant{idx}_id"
         mvars[new_name] = mvars.pop(f"antenna{idx}_id")
-        mvars[new_name] = mvars[new_name].sel(time=0, drop=True)
+        if "time" in mvars[new_name].coords:
+            mvars[new_name] = mvars[new_name].sel(time=0, drop=True)
 
     return mvars
 
@@ -626,7 +628,7 @@ def read_flat_main_table(
         # we keep this read_flat functionality
         _scans, states = scan_state
         # get row indices relative to full main table
-        if states:
+        if states is not None:
             taql_where += (
                 f" AND SCAN_NUMBER = {scan_state[0]} AND STATE_ID = {scan_state[1]}"
             )
@@ -642,11 +644,10 @@ def read_flat_main_table(
         taql_rowid = f"select rowid() as ROWS from $mtable {taql_where}"
         with open_query(mtable, taql_rowid) as query_rows:
             rowidxs = query_rows.getcol("ROWS")
-            mtable.close()
 
     nrows = len(rowidxs)
     if nrows == 0:
-        return xr.Dataset()
+        return xr.Dataset(), {}, {}
 
     part_ids = get_partition_ids(mtable, taql_where)
 
@@ -664,7 +665,7 @@ def read_flat_main_table(
                 (col, query_cols.getcol(col, 0, 1))
                 for col in cols
                 if (col not in ignore)
-                and (ignore_msv2_cols and (col not in ignore_msv2_cols))
+                and not (ignore_msv2_cols and col in ignore_msv2_cols)
             ]
         )
         chan_cnt, pol_cnt = [
@@ -762,7 +763,7 @@ def read_flat_main_table(
             )
 
     mvars["time"] = xr.DataArray(
-        convert_casacore_time(mvars["TIME"].values), dims=["row"]
+        convert_casacore_time(mvars["time"].values), dims=["row"]
     ).chunk({"row": chunks[0]})
 
     # add xds global attributes

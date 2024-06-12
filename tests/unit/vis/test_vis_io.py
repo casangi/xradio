@@ -1,6 +1,6 @@
 import os
+from pathlib import Path
 import pytest
-import shutil
 
 # using unittest.mock, we could add pytest_mock to dependencies
 from unittest.mock import patch
@@ -179,19 +179,14 @@ def test_load_chunk_ms_alma(ms_alma_antennae_north_split):
     check_cds(vis, subtables=[], chunks=True)
 
 
-def clear_output(path):
-    if os.path.lexists(path):
-        shutil.rmtree(path)
-
-
 @patch("xradio.vis._vis_utils.zarr.write_vis")
-def test_write_vis_empty(mock_write_vis):
+def test_write_vis_empty(mock_write_vis, tmp_path):
     from xradio.vis import write_vis
     from xradio.vis._vis_utils._utils.cds import CASAVisSet
     import xarray
 
     cds = CASAVisSet({}, {(0, 0, "intent"): xarray.Dataset()}, "empty vis set")
-    outname = "test_vis_empty.zarr"
+    outname = Path(tmp_path, "test_vis_empty.zarr")
     write_vis(cds, outname, out_format="zarr")
     assert mock_write_vis.called_once()
     assert mock_write_vis.call_args[0] == (cds, outname, None, None)

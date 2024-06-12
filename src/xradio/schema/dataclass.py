@@ -7,6 +7,7 @@ import ast
 import dataclasses
 import numpy
 import itertools
+import textwrap
 
 from xradio.schema.metamodel import *
 
@@ -24,7 +25,7 @@ def extract_field_docstrings(klass):
         src = inspect.getsource(klass)
     except OSError:
         return {}
-    module = ast.parse(src)
+    module = ast.parse(textwrap.dedent(src))
 
     # Expect module containing a class definition
     if not isinstance(module, ast.Module) or len(module.body) != 1:

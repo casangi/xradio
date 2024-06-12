@@ -453,7 +453,7 @@ def _check_value(val, ann):
             return check_array(val, ann)
 
     # Is supposed to be a dataset?
-    if type(ann) == type and issubclass(ann, bases.AsDataset):
+    if bases.is_dataset_schema(ann):
         # Attempt to convert dictionaries automatically
         if isinstance(val, dict):
             try:

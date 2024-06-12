@@ -1101,3 +1101,68 @@ def test_check_dataset_optional_coordinate():
     dataset = xarray.Dataset(data_vars, coords, attrs)
     issues = check_dataset(dataset, TEST_DATASET_SCHEMA)
     assert not issues
+
+
+def test_check_dict_dataset_attribute():
+
+    # Make dataset
+    attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
+    coords = {
+        "coord": xarray.DataArray(
+            numpy.arange(10, dtype=float), dims=("coord",), attrs=attrs
+        ),
+    }
+    data_vars = {
+        "data_var": (("coord",), numpy.zeros(10, dtype=complex), attrs),
+    }
+    dataset = xarray.Dataset(data_vars, coords, attrs)
+
+    # Check inside dictionary
+    @dict_schema
+    class _DictSchema:
+        ds: _TestDatasetSchema
+
+    assert not check_dict(
+        {
+            "ds": dataset,
+        },
+        _DictSchema,
+    )
+    assert check_dict(
+        {
+            "ds": xarray.Dataset(data_vars, coords),
+        },
+        _DictSchema,
+    )
+
+
+def test_check_dict_array_attribute():
+
+    # Make array
+    data = numpy.zeros(10, dtype=complex)
+    coords = [("coord", numpy.arange(10, dtype=float))]
+    attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
+    array = xarray.DataArray(data, coords, attrs=attrs)
+
+    # Check inside dictionary
+    @dict_schema
+    class _DictSchema:
+        da: _TestArraySchema
+
+    assert not check_dict({"da": array}, _DictSchema)
+
+    array = xarray.DataArray(data, coords)
+    assert check_dict({"da": array}, _DictSchema)
+
+
+def test_check_dict_dict_attribute():
+
+    # Check inside dictionary
+    @dict_schema
+    class _DictSchema:
+        da: _TestDictSchema
+
+    assert not check_dict(
+        {"da": {"attr1": "asd", "attr2": 234, "attr3": 345}}, _DictSchema
+    )
+    assert check_dict({"da": {"attr2": 234, "attr3": 345}}, _DictSchema)

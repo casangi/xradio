@@ -163,7 +163,9 @@ def flatten_xds(xds: xr.Dataset) -> xr.Dataset:
     """
     flatten (time, baseline) dimensions of xds back to single dimension (row)
     """
-    nan_int = np.array([np.nan]).astype("int32")[0]
+    # known invalid cast warning when casting to integer
+    with np.errstate(invalid="ignore"):
+        nan_int = np.array([np.nan]).astype("int32")[0]
     txds = xds.copy()
 
     # flatten the time x baseline dimensions of main table

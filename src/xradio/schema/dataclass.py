@@ -332,7 +332,7 @@ def xarray_dataclass_to_dict_schema(klass):
             if len(typs) == 1:
                 typ = typs[0]
             else:
-                typ = typing.Union[*typs]
+                typ = typing.Union.__getitem__[tuple(typs)]
 
         attributes.append(
             AttrSchemaRef(

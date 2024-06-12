@@ -212,14 +212,14 @@ class AntennaArray:
 class BaselineArray:
     """TODO: documentation"""
 
-    data: Data[BaselineId, numpy.int64 | numpy.int32]
+    data: Data[BaselineId, Union[numpy.int64, numpy.int32]]
     """Unique id for each baseline."""
     long_name: Optional[Attr[str]] = "Baseline ID"
 
 
 @xarray_dataarray_schema
 class BaselineAntennaArray:
-    data: Data[BaselineId, numpy.int64 | numpy.int32]
+    data: Data[BaselineId, Union[numpy.int64, numpy.int32]]
     """
     Antenna id for an antenna in a baseline. Maps to ``attrs['antenna_xds'].antenna_id``
     in :py:class:`VisibilityXds`
@@ -314,7 +314,7 @@ class VisibilityArray:
 
     data: Data[
         tuple[Time, BaselineId, Frequency, Polarization],
-        numpy.complex64 | numpy.complex128,
+        Union[numpy.complex64, numpy.complex128],
     ]
     time: Coord[tuple[()], TimeArray]
     baseline_id: Coord[tuple[()], BaselineArray]
@@ -335,9 +335,11 @@ class FlagArray:
     """
 
     data: Data[
-        tuple[Time, BaselineId, Frequency, Polarization]
-        | tuple[Time, BaselineId, Frequency]
-        | tuple[Time, BaselineId],
+        Union[
+            tuple[Time, BaselineId, Frequency, Polarization],
+            tuple[Time, BaselineId, Frequency],
+            tuple[Time, BaselineId],
+        ],
         bool,
     ]
     time: Coordof[TimeArray]
@@ -358,10 +360,12 @@ class WeightArray:
     """
 
     data: Data[
-        tuple[Time, BaselineId, Frequency, Polarization]
-        | tuple[Time, BaselineId, Frequency]
-        | tuple[Time, BaselineId],
-        numpy.float16 | numpy.float32 | numpy.float64,
+        Union[
+            tuple[Time, BaselineId, Frequency, Polarization],
+            tuple[Time, BaselineId, Frequency],
+            tuple[Time, BaselineId],
+        ],
+        Union[numpy.float16, numpy.float32, numpy.float64],
     ]
     """Visibility weights"""
     time: Coordof[TimeArray]
@@ -402,10 +406,16 @@ class UvwArray:
     """
 
     data: Data[
-        tuple[Time, BaselineId, Frequency, Polarization, UvwLabel]
-        | tuple[Time, BaselineId, Frequency, UvwLabel]
-        | tuple[Time, BaselineId, UvwLabel],
-        numpy.float16 | numpy.float32 | numpy.float64,
+        Union[
+            tuple[Time, BaselineId, Frequency, Polarization, UvwLabel],
+            tuple[Time, BaselineId, Frequency, UvwLabel],
+            tuple[Time, BaselineId, UvwLabel],
+        ],
+        Union[
+            numpy.float16,
+            numpy.float32,
+            numpy.float64,
+        ],
     ]
     """Baseline coordinates from ``baseline_antenna2_id`` to ``baseline_antenna1_id``"""
     time: Coordof[TimeArray]
@@ -423,9 +433,11 @@ class TimeSamplingArray:
     """TODO: documentation"""
 
     data: Data[
-        tuple[Time, BaselineId, Frequency, Polarization]
-        | tuple[Time, BaselineId, Frequency]
-        | tuple[Time, BaselineId],
+        Union[
+            tuple[Time, BaselineId, Frequency, Polarization],
+            tuple[Time, BaselineId, Frequency],
+            tuple[Time, BaselineId],
+        ],
         float,
     ]
 
@@ -448,10 +460,12 @@ class FreqSamplingArray:
     """TODO: documentation"""
 
     data: Data[
-        tuple[Time, BaselineId, Frequency, Polarization]
-        | tuple[Time, BaselineId, Frequency]
-        | tuple[Time, Frequency]
-        | tuple[Frequency],
+        Union[
+            tuple[Time, BaselineId, Frequency, Polarization],
+            tuple[Time, BaselineId, Frequency],
+            tuple[Time, Frequency],
+            tuple[Frequency],
+        ],
         float,
     ]
     """
@@ -568,7 +582,8 @@ class PointingXds:
     """
 
     BEAM_POINTING: Data[
-        tuple[Time, AntennaId, TimePolynomial] | tuple[Time, AntennaId], SkyCoordArray
+        Union[tuple[Time, AntennaId, TimePolynomial], tuple[Time, AntennaId]],
+        SkyCoordArray,
     ]
     """
     Antenna pointing direction, optionally expressed as polynomial coefficients. DIRECTION in MSv3.

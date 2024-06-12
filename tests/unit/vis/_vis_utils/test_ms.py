@@ -1,6 +1,6 @@
 import pytest
 
-from xradio.vis._vis_utils._utils.cds_checks import check_cds
+from tests.unit.vis.ms_test_utils.cds_checks import check_cds
 
 
 @pytest.mark.uses_download

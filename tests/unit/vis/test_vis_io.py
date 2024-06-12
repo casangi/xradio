@@ -5,7 +5,7 @@ import shutil
 # using unittest.mock, we could add pytest_mock to dependencies
 from unittest.mock import patch
 
-from xradio.vis._vis_utils._utils.cds_checks import check_cds
+from .ms_test_utils.cds_checks import check_cds
 
 
 @patch("xradio.vis._vis_utils.ms.read_ms")

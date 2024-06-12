@@ -178,7 +178,8 @@ def flatten_xds(xds: xr.Dataset) -> xr.Dataset:
             drop=True,
         )  # .unify_chunks()
         for dv in list(xds.data_vars):
-            txds[dv] = txds[dv].astype(xds[dv].dtype)
+            if txds[dv].dtype != xds[dv].dtype:
+                txds[dv] = txds[dv].astype(xds[dv].dtype)
 
     return txds
 

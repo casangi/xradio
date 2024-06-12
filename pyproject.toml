@@ -17,7 +17,7 @@ dependencies = [
     'graphviper',
     'matplotlib',
     'numba>=0.57.0',
-    'numpy',
+    'numpy==1.25.0',
     'prettytable',
     'pytest',
     'pytest-cov',
@@ -48,4 +48,16 @@ docs = [
     'sphinx_rtd_theme',
     'twine',
     'pandoc'
+]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+    "--strict-markers"
+]
+testpaths = [
+    "tests"
+]
+pythonpath = [
+    "."
 ]

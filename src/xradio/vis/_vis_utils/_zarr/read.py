@@ -11,9 +11,16 @@ def read_part_keys(inpath: str) -> List[Tuple]:
     """
     Reads the partition keys from a Zarr-stored cds.
 
-    :param inpath: path to read from
+    Parameters
+    ----------
+    inpath : str
+        path to read from
 
-    :return: partition keys from a cds
+    Returns
+    -------
+    List[Tuple]
+        partition keys from a cds
+
     """
 
     xds_keys = xr.open_zarr(
@@ -31,9 +38,19 @@ def read_subtables(inpath: str, asdm_subtables: bool) -> Dict[str, xr.Dataset]:
     """
     Reads the metainfo subtables from a Zarr-stored cds.
 
-    :param inpath: path to read from
+    Parameters
+    ----------
+    inpath : str
+        path to read from
 
-    :return: metainfo subtables from a cds
+    asdm_subtables : bool
+
+
+    Returns
+    -------
+    Dict[str, xr.Dataset]
+        metainfo subtables from a cds
+
     """
 
     metainfo = {}
@@ -53,9 +70,18 @@ def read_partitions(inpath: str, part_keys: List[Tuple]) -> Dict[str, xr.Dataset
     """
     Reads all the data partitions a Zarr-stored cds.
 
-    :param inpath: path to read from
+    Parameters
+    ----------
+    inpath : str
+        path to read from
+    part_keys : List[Tuple]
 
-    :return: partitions from a cds
+
+    Returns
+    -------
+    Dict[str, xr.Dataset]
+        partitions from a cds
+
     """
 
     partitions = {}
@@ -79,13 +105,23 @@ def read_xds(
     """
     Read single xds from zarr storage.
 
-    :param inpath: path to read from
-    :param chunks: set chunk size per dimension. Dict is in the form of
-    'dim':chunk_size, for example {'time':100, 'baseline':400, 'chan':32, 'pol':1}.
-    Default None uses the original chunking in the zarr input.
-    :param consolidated: use zarr consolidated metadata.
-    :param overwrite_encoded_chunks: drop the zarr chunks encoded for each variable
-    when a dataset is loaded with specified chunk sizes.
+    Parameters
+    ----------
+    inpath : str
+        path to read from
+    chunks : Union[Dict, None] (Default value = None)
+        set chunk size per dimension. Dict is in the form of
+        'dim':chunk_size, for example {'time':100, 'baseline':400, 'chan':32, 'pol':1}.
+        Default None uses the original chunking in the zarr input.
+    consolidated : boold (Default value = True)
+        use zarr consolidated metadata.
+    overwrite_encoded_chunks : bool (Default value = True)
+        drop the zarr chunks encoded for each variable
+        when a dataset is loaded with specified chunk sizes.
+
+    Returns
+    -------
+    xr.Dataset
     """
 
     xds = xr.open_zarr(
@@ -99,11 +135,11 @@ def read_xds(
 
 
 def read_zarr(
-    infile,
-    sel_xds=None,
-    chunks=None,
-    consolidated=True,
-    overwrite_encoded_chunks=True,
+    infile: str,
+    sel_xds: Union[List, str] = None,
+    chunks: Dict = None,
+    consolidated: bool = True,
+    overwrite_encoded_chunks: bool = True,
     **kwargs,
 ):
     """
@@ -128,11 +164,12 @@ def read_zarr(
     overwrite_encoded_chunks : bool
         drop the zarr chunks encoded for each variable when a dataset is loaded with
         specified chunk sizes.  Default True, only applies when chunks is not None.
+    **kwargs :
+
 
     Returns
     -------
-    xarray.core.dataset.Dataset
-        New xarray Dataset of Visibility data contents
+
     """
 
     if chunks is None:
@@ -178,8 +215,9 @@ def read_zarr(
 
 
 def _fix_dict_for_ms(name, xds):
-    xds.attrs["column_descriptions"] = xds.attrs["column_descriptions"][0]
-    xds.attrs["info"] = xds.attrs["info"][0]
+    # Used to be:
+    # xds.attrs["column_descriptions"] = xds.attrs["column_descriptions"][0]
+    # xds.attrs["info"] = xds.attrs["info"][0]
 
     if "xds" in name:
         xds.column_descriptions["UVW"]["shape"] = np.array(

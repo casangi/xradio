@@ -27,6 +27,8 @@ def base_test(msv2_name, expected_sum_value):
         in_file=msv2_name,
         out_file=ps_name,
         partition_scheme="ddi_intent_field",
+        main_chunksize=0.01,
+        pointing_chunksize=0.00001,
         overwrite=True,
     )
 

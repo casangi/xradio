@@ -1,18 +1,16 @@
 import pytest
 
+# Ensure pytest assert introspection in vis data checks
+pytest.register_assert_rewrite("tests.unit.vis.ms_test_utils.cds_checks")
+
 from collections import namedtuple
 import shutil
 
 import xarray as xr
 
 from tests.unit.vis.ms_test_utils.gen_test_ms import gen_test_ms, make_ms_empty
+from tests.unit.vis.ms_test_utils.cds_checks import check_cds
 
-
-# Ensure pytest assert introspection in vis data checker
-pytest.register_assert_rewrite("xradio.vis._vis_utils._utils.cds_checks")
-# If we included a check module inside tests/unit/vis:
-# pytest.register_assert_rewrite("tests.unit.vis.xds_schema_checker")
-# from tests.unit.vis.xds_schema_checker import ...
 
 """
 A tuple with an MS filename (as str) and a description of its expected structure and contents (as a dict).
@@ -108,29 +106,6 @@ def vis_zarr_empty():
     xds.to_zarr(name)
     yield name
     shutil.rmtree(name)
-
-
-@pytest.fixture(scope="session")
-def cds_minimal_required(ms_minimal_required):
-    """ a simple cds data structure read from an MS (also a fixture defined here) """
-    from xradio.vis import read_vis
-
-    cds = read_vis(ms_minimal_required.fname)
-    # Crude fix for unsupported attrs => update/extend attrs dict filters
-    for key, part in cds.partitions.items():
-        # shape attributes which take ndarray type values, added through python-casacore
-        # , "UVW"]: (but UVW was expected, from CASA tests MSs)
-        for col in ["DATA", "CORRECTED_DATA", "MODEL_DATA"]:
-            if (
-                col in part.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]
-                and "shape"
-                in part.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"][col]
-            ):
-                part.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"][
-                    col
-                ].pop("shape")
-
-    yield cds
 
 
 @pytest.fixture(scope="session")
@@ -239,7 +214,33 @@ def main_xds_min(ms_minimal_required):
     yield part
 
 
-# TODO: consider @pytest.mark.ms_custom_spec({...})
+@pytest.fixture(scope="session")
+def cds_minimal_required(ms_minimal_required):
+    """a simple cds data structure read from an MS (also a fixture defined here)"""
+    from xradio.vis import read_vis
+
+    cds = read_vis(ms_minimal_required.fname)
+    # Crude fix for unsupported attrs => update/extend attrs dict filters
+    for key, part in cds.partitions.items():
+        # shape attributes which take ndarray type values, added through python-casacore
+        # , "UVW"]: (but UVW was expected, from CASA tests MSs)
+        for col in ["DATA", "CORRECTED_DATA", "MODEL_DATA"]:
+            if (
+                col in part.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]
+                and "shape"
+                in part.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"][col]
+            ):
+                part.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"][
+                    col
+                ].pop("shape")
+
+    yield cds
+
+
+# TODO: a flat_main_xds fixture, if we week that longer term
+
+
+# TODO: more differentiated custom MSs, consider @pytest.mark.ms_custom_spec({...})
 @pytest.fixture(scope="session")
 def ms_custom(spec):
     name = "test_ms_custom.ms"  # + rnd

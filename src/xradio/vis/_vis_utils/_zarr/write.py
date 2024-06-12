@@ -10,10 +10,21 @@ import zarr
 def write_part_keys(
     partitions: Dict[Any, xr.Dataset], outpath: str, compressor: numcodecs.abc.Codec
 ) -> None:
-    """Writes an xds with the partition keys.
+    """
+    Writes an xds with the partition keys.
 
-    :param partitions: partitions from a cds
-    :param outpath: path to write a cds
+    Parameters
+    ----------
+    partitions : Dict[Any, xr.Dataset]
+        partitions from a cds
+    outpath : str
+        path to write a cds
+    compressor : numcodecs.abc.Codec
+        compressor used for the partition keys variable
+
+    Returns
+    -------
+
     """
 
     spw_ids, pol_setup_ids, intents = map(list, zip(*partitions.keys()))
@@ -47,6 +58,23 @@ def write_metainfo(
 ) -> None:
     """
     Write all metainfo subtables from a cds to zarr storage
+
+    Parameters
+    ----------
+    outpath : str
+
+    metainfo : Dict[str, xr.Dataset]:
+
+    chunks_on_disk : Union[Dict, None] (Default value = None)
+
+    compressor : Union[numcodecs.abc.Codec, None) (Default value = None)
+
+    consolidated : bool (Default value = True)
+
+
+    Returns
+    -------
+
     """
     metadir = Path(outpath, "metainfo")
     os.mkdir(metadir)
@@ -67,6 +95,23 @@ def write_partitions(
 ) -> None:
     """
     Write all data partitions metainfo from a cds to zarr storage
+
+    Parameters
+    ----------
+    outpath : str :
+
+    partitions : Dict[str, xr.Dataset]
+
+    chunks_on_disk : Union[Dict, None] (Default value = None)
+
+    compressor : Union[numcodecs.abc.Codec, None] (Default value = True)
+
+    consolidated: bool (Default value = True)
+
+
+    Returns
+    -------
+
     """
 
     partdir = Path(outpath, "partitions")
@@ -92,11 +137,28 @@ def write_xds_to_zarr(
     """
     Write one xr dataset from a cds (either metainfo or a partition).
 
-    :param xds: cds (sub)dataset
-    :param name: dataset name (example subtable name, or xds{i})
-    :param graph_name: the time taken to execute the graph and save the
-    dataset is measured and saved as an attribute in the zarr file.
-    The graph_name is the label for this timing information.
+    Parameters
+    ----------
+    xds : xr.Dataset
+        cds (sub)dataset
+    name : str
+        dataset name (example subtable name, or xds{i})
+    outpath: str :
+
+    chunks_on_disk : Union[Dict, None] (Default value = None)
+
+    compressor : Union[numcodecs.abc.Codec, None] (Default value = None)
+
+    consolidated : bool (Default value = True)
+
+    graph_name : str
+        the time taken to execute the graph and save the
+        dataset is measured and saved as an attribute in the zarr file.
+        The graph_name is the label for this timing information.
+
+    Returns
+    -------
+
     """
 
     xds_for_disk = xds
@@ -159,8 +221,20 @@ def write_xds_to_zarr(
 
 
 def prepare_attrs_for_zarr(name: str, xds: xr.Dataset) -> xr.Dataset:
-    """Deal with types that cannot be serialized as they are in the
+    """
+    Deal with types that cannot be serialized as they are in the
     cds/xds (ndarray etc.)
+
+    Parameters
+    ----------
+    name : str
+
+    xds : xr.Dataset
+
+
+    Returns
+    -------
+
     """
     ctds_attrs = xds.attrs["other"]["msv2"]["ctds_attrs"]
     col_descrs = ctds_attrs["column_descriptions"]

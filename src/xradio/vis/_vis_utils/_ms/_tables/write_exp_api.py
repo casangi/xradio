@@ -1,5 +1,5 @@
 import os, time
-from typing import List, Optional
+from typing import List, Optional, Union
 
 import dask
 import numpy as np
@@ -44,38 +44,43 @@ def cols_from_xds_to_ms(cols: List[str]) -> List[str]:
 
 
 def write_ms(
-    mxds,
-    outfile,
-    infile=None,
-    subtables=False,
-    modcols=None,
-    verbose=False,
-    execute=True,
+    mxds: xr.Dataset,
+    outfile: str,
+    infile: str = None,
+    subtables: bool = False,
+    modcols: Union[List[str], None] = None,
+    verbose: bool = False,
+    execute: bool = True,
 ) -> Optional[list]:
     """
     Write ms format xds contents back to casacore MS (CTDS - casacore Table Data System) format on disk
 
     Parameters
     ----------
-    mxds : xarray.Dataset
+    mxds : xr.Dataset,
         Source multi-xarray dataset (originally created by read_ms)
     outfile : str
         Destination filename
-    infile : str
+    infile : Union[str, None] (Default value = None)
         Source filename to copy subtables from. Generally faster than reading/writing through mxds via the subtables parameter. Default None
         does not copy subtables to output.
-    subtables : bool
+    subtables : bool (Default value = False)
         Also write subtables from mxds. Default of False only writes mxds attributes that begin with xdsN to the MS main table.
         Setting to True will write all other mxds attributes to subtables of the main table.  This is probably going to be SLOW!
         Use infile instead whenever possible.
-    modcols : list
+    modcols : Union[List[str], None] (Default value = None)
         List of strings indicating what column(s) were modified (aka xds data_vars). Different logic can be applied to speed up processing when
         a data_var has not been modified from the input. Default None assumes everything has been modified (SLOW)
-    verbose : bool
+    verbose : bool (Default value = False)
         Whether or not to print output progress. Since writes will typically execute the DAG, if something is
         going to go wrong, it will be here.  Default False
-    execute : bool
+    execute : bool (Default value = True)
         Whether or not to actually execute the DAG, or just return it with write steps appended. Default True will execute it
+
+    Returns
+    -------
+    Optional[list]
+        delayed write functions
     """
     outfile = os.path.expanduser(outfile)
     if verbose:
@@ -243,38 +248,41 @@ def write_ms(
 
 
 def write_ms_serial(
-    mxds,
-    outfile,
-    infile=None,
-    subtables=False,
-    verbose=False,
-    execute=True,
-    memory_available_in_bytes=500000000000,
+    mxds: xr.Dataset,
+    outfile: str,
+    infile: str = None,
+    subtables: bool = False,
+    verbose: bool = False,
+    execute: bool = True,
+    memory_available_in_bytes: int = 500000000000,
 ):
     """
     Write ms format xds contents back to casacore table format on disk
 
     Parameters
     ----------
-    mxds : xarray.Dataset
+    mxds : xr.Dataset
         Source multi-xarray dataset (originally created by read_ms)
     outfile : str
         Destination filename
-    infile : str
+    infile : str (Default value = None)
         Source filename to copy subtables from. Generally faster than reading/writing through mxds via the subtables parameter. Default None
         does not copy subtables to output.
-    subtables : bool
+    subtables : bool (Default value = False)
         Also write subtables from mxds. Default of False only writes mxds attributes that begin with xdsN to the MS main table.
         Setting to True will write all other mxds attributes to subtables of the main table.  This is probably going to be SLOW!
         Use infile instead whenever possible.
-    modcols : list
-        List of strings indicating what column(s) were modified (aka xds data_vars). Different logic can be applied to speed up processing when
-        a data_var has not been modified from the input. Default None assumes everything has been modified (SLOW)
-    verbose : bool
+    verbose : bool (Default value = False)
         Whether or not to print output progress. Since writes will typically execute the DAG, if something is
         going to go wrong, it will be here.  Default False
-    execute : bool
+
+    execute : bool (Default value = True)
         Whether or not to actually execute the DAG, or just return it with write steps appended. Default True will execute it
+    memory_available_in_bytes : (Default value = 500000000000)
+
+    Returns
+    -------
+
     """
 
     print("*********************")

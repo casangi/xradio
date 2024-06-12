@@ -20,8 +20,15 @@ def read_spw_ddi_ant_pol(inpath: str) -> Tuple[xr.Dataset]:
     """
     Reads the four metainfo subtables needed to load data chunks into xdss.
 
-    :param inpath: MS path (main table)
-    :return: tuple with antenna, ddi, spw, and polarization setup subtables info
+    Parameters
+    ----------
+    inpath : str
+        MS path (main table)
+
+    Returns
+    -------
+    Tuple[xr.Dataset]
+        tuple with antenna, ddi, spw, and polarization setup subtables info
     """
     spw_xds = read_generic_table(
         inpath,
@@ -41,7 +48,8 @@ def read_spw_ddi_ant_pol(inpath: str) -> Tuple[xr.Dataset]:
 def load_main_chunk(
     infile: str, chunk: Dict[str, slice]
 ) -> Dict[Tuple[int, int], xr.Dataset]:
-    """Loads a chunk of visibility data. For every DDI, a separate
+    """
+    Loads a chunk of visibility data. For every DDI, a separate
     dataset is produced.
     This is very loosely equivalent to the
     partitions.read_*_partitions functions, but in a load (not lazy)
@@ -51,10 +59,17 @@ def load_main_chunk(
     Xarray datasets. It produces one dataset per DDI found within the
     chunk slice of time/baseline.
 
-    :param infile: MS path (main table)
-    :param chunk: specification of chunk to load
+    Parameters
+    ----------
+    infile : str
+        MS path (main table)
+    chunk : Dict[str, slice]
+        specification of chunk to load
 
-    :return: dictionary of chunk datasets (keys are spw and pol_setup IDs)
+    Returns
+    -------
+    Dict[Tuple[int, int], xr.Dataset]
+        dictionary of chunk datasets (keys are spw and pol_setup IDs)
     """
 
     chunk_dims = ["time", "baseline", "freq", "pol"]
@@ -97,12 +112,20 @@ def finalize_chunks(
     Adds pointing variables to a dictionary of chunk xdss. This is
     intended to be added after reading chunks from an MS main table.
 
-    :param infile: MS path (main table)
-    :param chunks: chunk xdss
-    :param chunk_spec: specification of chunk to load
+    Parameters
+    ----------
+    infile : str
+        MS path (main table)
+    chunks : Dict[str, xr.Dataset]
+        chunk xdss
+    chunk_spec : Dict[str, slice]
+        specification of chunk to load
 
-    :return: dictionary of chunk xdss where every xds now has pointing
-    data variables
+    Returns
+    -------
+    Dict[Tuple[int, int], xr.Dataset]
+        dictionary of chunk xdss where every xds now has pointing
+        data variables
     """
     pnt_name = "POINTING"
     pnt_path = Path(infile, pnt_name)
@@ -129,16 +152,26 @@ def finalize_chunks(
     return pnt_chunks
 
 
-def finalize_chunk_xds(infile: str, chunk_xds: xr.Dataset, pointing_xds) -> xr.Dataset:
+def finalize_chunk_xds(
+    infile: str, chunk_xds: xr.Dataset, pointing_xds: xr.Dataset
+) -> xr.Dataset:
     """
     Adds pointing variables to one chunk xds.
 
-    :param infile: MS path (main table)
-    :param xds_chunk: chunks xds
-    :param pointing_xds: pointing (sub)table xds
+    Parameters
+    ----------
+    infile : str
+        MS path (main table)
+    xds_chunk : xr.Dataset
+        chunks xds
+    pointing_xds : xr.Dataset
+        pointing (sub)table xds
 
-    :return: chunk xds with pointing data variables interpolated form
-    the pointing (sub)table
+    Returns
+    -------
+    xr.Dataset
+        chunk xds with pointing data variables interpolated form
+        the pointing (sub)table
     """
 
     interp_pnt = pointing_xds.interp(time=chunk_xds.time, method="nearest")

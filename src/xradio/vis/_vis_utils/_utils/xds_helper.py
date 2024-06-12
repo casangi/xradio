@@ -12,7 +12,8 @@ from .stokes_types import stokes_types
 def make_coords(
     xds: xr.Dataset, ddi: int, subtables: Tuple[xr.Dataset, ...]
 ) -> Dict[str, np.ndarray]:
-    """Make the coords to be added to a partition or chunk (besides
+    """
+    Make the coords to be added to a partition or chunk (besides
     the time, baseline) basic structure
 
     Grabs:
@@ -20,7 +21,18 @@ def make_coords(
     - pol idxs from the pol+ddi subtables -> pol names via the stokes_types
     - antenna IDs from antenna subtable
 
-    :param: sub-xds as (ant_xds, ddi_xds, spw_xds, pol_xds)
+    Parameters
+    ----------
+    xds : xr.Dataset
+
+    ddi : int
+
+    subtables: Tuple[xr.Dataset, ...]
+
+
+    Returns
+    -------
+    Dict[str, np.ndarray]
     """
     ant_xds, ddi_xds, spw_xds, pol_xds = subtables
     freq = spw_xds.chan_freq.values[
@@ -46,15 +58,25 @@ def vis_xds_packager_cds(
     subtables: List[Tuple[str, xr.Dataset]],
     partitions: Dict[Any, xr.Dataset],
     descr_add: str = "",
-):
-    """Takes a a list of subtable xds datasets and a dictionary of data
+) -> CASAVisSet:
+    """
+    Takes a a list of subtable xds datasets and a dictionary of data
     partition xds datasets and and packages them as a CASA vis dataset
     (cds)
 
-    :param partitions: data partiions as xds datasets
-    :param subtables: subtables as xds datasets
-    :param descr_add: substring to add to the short descr string of the cds
-    :return: A "cds" - container for the metainfo subtables and data partitions
+    Parameters
+    ----------
+    partitions : List[Tuple[str, xr.Dataset]]
+        data partiions as xds datasets
+    subtables : Dict[Any, xr.Dataset]
+        subtables as xds datasets
+    descr_add : str (Default value = "")
+        substring to add to the short descr string of the cds
+
+    Returns
+    -------
+    CASAVisSet
+        A "cds" - container for the metainfo subtables and data partitions
     """
     vers = version("xradio")
 
@@ -70,14 +92,24 @@ def vis_xds_packager_mxds(
     subtables: List[Tuple[str, xr.Dataset]],
     add_global_coords: bool = True,
 ) -> xr.Dataset:
-    """Takes a dictionary of data partition xds datasets and a list of
+    """
+    Takes a dictionary of data partition xds datasets and a list of
     subtable xds datasets and packages them as a dataset of datasets
     (mxds)
 
-    :param partitions: data partiions as xds datasets
-    :param subtables: subtables as xds datasets
-    :add_global_coords: whether to add coords to the output mxds
-    :return: A "mxds" - xr.dataset of datasets
+    Parameters
+    ----------
+    partitions : Dict[Any, xr.Dataset]
+        data partiions as xds datasets
+    subtables : List[Tuple[str, xr.Dataset]]
+        subtables as xds datasets
+        :add_global_coords: whether to add coords to the output mxds
+    add_global_coords: bool (Default value = True)
+
+    Returns
+    -------
+    xr.Dataset
+        A "mxds" - xr.dataset of datasets
     """
     mxds = xr.Dataset(attrs={"metainfo": subtables, "partitions": partitions})
 
@@ -125,6 +157,16 @@ def make_global_coords(mxds: xr.Dataset) -> Dict[str, xr.DataArray]:
 def expand_xds(xds: xr.Dataset) -> xr.Dataset:
     """
     expand single (row) dimension of xds to (time, baseline)
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        "flat" dataset (with row dimension - without (time, baseline) dimensions)
+
+    Returns
+    -------
+    xr.Dataset
+        expanded dataset, with (time, baseline) dimensions
     """
     assert "baseline" not in xds.coords
 
@@ -162,6 +204,15 @@ def expand_xds(xds: xr.Dataset) -> xr.Dataset:
 def flatten_xds(xds: xr.Dataset) -> xr.Dataset:
     """
     flatten (time, baseline) dimensions of xds back to single dimension (row)
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+
+
+    Returns
+    -------
+    xr.Dataset
     """
     nan_int = np.array([np.nan]).astype("int32")[0]
     txds = xds.copy()
@@ -193,21 +244,30 @@ def optimal_chunking(
     Determine the optimal chunk shape for reading an MS or Image based
     on machine resources and intended operations
 
-    :param ndim: number of dimensions to chunk. An MS is 3, an
-    expanded MS is 4. An image could be anywhere from 2 to 5. Not
-    needed if data_shape is given.
-    :param didxs: dimension indices over which subsequent operations
-    will be performed. Values should be less than ndim. Tries to
-    reduce inter-process communication of data contents. Needs to
-    know the shape to do this well. Default None balances chunk size
-    across all dimensions.
-    :param chunk_size: target chunk size ('large', 'small', 'auto').
-    Default 'auto' tries to guess by looking at CPU core count and
-    available memory.
-    :param data_shape: shape of the total MS DDI or Image data. Helps
-    to know. Default None does not optimize based on shape
+    Parameters
+    ----------
+    ndim : Union[int, None] = None
+        number of dimensions to chunk. An MS is 3, an
+        expanded MS is 4. An image could be anywhere from 2 to 5. Not
+        needed if data_shape is given.
+    didxs : Union[Tuple[int], List[int], None] = None
+        dimension indices over which subsequent operations
+        will be performed. Values should be less than ndim. Tries to
+        reduce inter-process communication of data contents. Needs to
+        know the shape to do this well. Default None balances chunk size
+        across all dimensions.
+    chunk_size : str (Default value = "auto")
+        target chunk size ('large', 'small', 'auto').
+        Default 'auto' tries to guess by looking at CPU core count and
+        available memory.
+    data_shape : Union[tuple, None] = None
+        shape of the total MS DDI or Image data. Helps
+        to know. Default None does not optimize based on shape
 
-    :return: optimal chunking for reading the ms (row, chan, pol)
+    Returns
+    -------
+    tuple
+        optimal chunking for reading the ms (row, chan, pol)
     """
     assert (ndim is not None) or (
         data_shape is not None
@@ -283,6 +343,21 @@ def calc_optimal_ms_chunk_shape(
     """
     Calculates the max number of rows (1st dim in shape) of a variable
     that can be fit in the memory for a thread.
+
+    Parameters
+    ----------
+    memory_available_in_bytes :
+
+    shape :
+
+    element_size_in_bytes :
+
+    column_name :
+
+
+    Returns
+    -------
+    int
     """
     factor = 0.8  # Account for memory used by other objects in thread.
     # total_mem = np.prod(shape)*element_size_in_bytes

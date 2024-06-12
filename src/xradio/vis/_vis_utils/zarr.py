@@ -59,7 +59,7 @@ def read_vis(
     all_time = time.time() - all_start
     logger.info(f"Time to read dataset from_zarr {inpath}: {all_time}")
 
-    vers = xradio.__version__
+    vers = "version-WIP"
     descr_add = "read_vis from zarr"
     cds = CASAVisSet(
         metainfo=metainfo,

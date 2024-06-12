@@ -115,6 +115,10 @@ def finalize_chunks(
         rename_ids=subt_rename_ids.get(pnt_name, None),
         time_slice=time_slice,
     )
+
+    if "time" not in pnt_xds.dims:
+        return xr.Dataset()
+
     pnt_xds = pnt_xds.compute()
 
     pnt_chunks = {

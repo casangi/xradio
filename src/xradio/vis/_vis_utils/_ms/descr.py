@@ -38,18 +38,22 @@ def describe_ms(
 
     ddi_xds = read_generic_table(infile, "DATA_DESCRIPTION")
     ddis = list(ddi_xds.row.values) if rowmap is None else list(rowmap.keys())
-
     summary: Union[pd.DataFrame, Dict] = []
     if mode == "summary":
         summary = pd.DataFrame([])
 
+    all_sdf = []
     with open_table_ro(infile) as tb_tool:
         for ddi in ddis:
             taql = f"select * from $tb_tool where DATA_DESC_ID = {ddi}"
             with open_query(tb_tool, taql) as query_per_ddi:
-                populate_ms_descr(infile, mode, query_per_ddi, summary, ddi, ddi_xds)
+                sdf = populate_ms_descr(
+                    infile, mode, query_per_ddi, summary, ddi, ddi_xds
+                )
+                all_sdf.append(sdf)
 
     if mode == "summary":
+        summary = pd.DataFrame(all_sdf)
         summary = summary.set_index("ddi").sort_index()
     else:
         summary = dict(summary)

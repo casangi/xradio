@@ -3,6 +3,40 @@ import xarray as xr
 import zarr
 import s3fs
 import os
+from botocore.exceptions import NoCredentialsError
+
+
+def _get_ms_stores_and_file_system(ps_store: str):
+    
+    if os.path.isdir(ps_store):
+        # default to assuming the data are accessible on local file system
+        items = os.listdir(ps_store)
+        file_system = os
+
+    elif ps_store.startswith("s3"):
+        # only if not found locally, check if dealing with an S3 bucket URL
+        # if not ps_store.endswith("/"):
+        #     # just for consistency, as there is no os.path equivalent in s3fs
+        #     ps_store = ps_store + "/"
+
+        try:
+            # initialize the S3 "file system", first attempting to use pre-configured credentials
+            file_system = s3fs.S3FileSystem(anon=False, requester_pays=False)
+            items = [bd.split(sep="/")[-1] for bd in file_system.listdir(ps_store, detail=False)]
+
+        except (NoCredentialsError, PermissionError) as e:
+            # only public, read-only buckets will be accessible
+            # we will want to add messaging and error handling here
+            file_system = s3fs.S3FileSystem(anon=True)
+            items = [bd.split(sep="/")[-1] for bd in file_system.listdir(ps_store, detail=False)]
+    else:
+        raise (
+            FileNotFoundError,
+            f"Could not find {ps_store} either locally or in the cloud.",
+        )
+    
+    items = [item for item in items if not item.startswith('.')] #Mac OS likes to place hidden files in the directory (.DStore).
+    return file_system, items
 
 
 def _open_dataset(store, file_system=os, xds_isel=None, data_variables=None, load=False):

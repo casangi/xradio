@@ -76,7 +76,7 @@ def base_test(msv2_name, expected_sum_value):
     ("s3_ps_name, expected_sum_value"),
     [
         (
-            "s3://viper-test-data/Antennae_North.cal.lsrk.split.vis.zarr",
+            "s3://viper-test-data/Antennae_North.cal.lsrk.split.v2.vis.zarr",
             190.0405216217041,
         )
     ],
@@ -149,7 +149,7 @@ def test_single_dish():
     base_test("sdimaging.ms", 5487446.5)
 
 
-test_alma()
+# test_alma()
 # test_ska_mid()
 # test_lofar()
 # test_meerkat()

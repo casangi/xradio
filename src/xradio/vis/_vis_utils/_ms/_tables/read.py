@@ -125,6 +125,10 @@ def add_units_measures(
         if var_name in mvars and "keywords" in col_descrs[col]:
             if "QuantumUnits" in col_descrs[col]["keywords"]:
                 cc_units = col_descrs[col]["keywords"]["QuantumUnits"]
+                
+                if isinstance(cc_units, str): #Little fix for Meerkat data where the units are a string.
+                    cc_units = [cc_units]
+                
                 if not isinstance(cc_units, list) or not cc_units:
                     logger.warning(
                         f"Invalid units found for column/variable {col}: {cc_units}"
@@ -410,7 +414,7 @@ def read_generic_table(
             f"Skipping subtable that looks like a MeasurementSet main table: {inpath} {tname}"
         )
         return xr.Dataset()
-
+    
     with open_table_ro(infile) as gtable:
         if gtable.nrows() == 0:
             logger.debug(f"table is empty: {inpath} {tname}")

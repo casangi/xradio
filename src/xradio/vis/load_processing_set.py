@@ -39,71 +39,37 @@ def load_processing_set(
     processing_set
         In memory representation of processing set (data is represented by Dask.arrays).
     """
-    from xradio._utils.zarr.common import _open_dataset
-    import s3fs
-    from botocore.exceptions import NoCredentialsError
+    from xradio._utils.zarr.common import _open_dataset, _get_ms_stores_and_file_system
 
-    s3 = None
+    file_system, ms_store_list = _get_ms_stores_and_file_system(ps_store)
+
     ps = processing_set()
-    for ms_dir_name, ms_xds_isel in sel_parms.items():
+    for ms_name, ms_xds_isel in sel_parms.items():
+        ms_store = os.path.join(ps_store, ms_name)
+        ms_main_store = os.path.join(ms_store, "MAIN")
 
-        # before the _open_dataset call, check if dealing with an S3 bucket URL
-        if ps_store.startswith("s3"):
-            if not ps_store.endswith("/"):
-                # just for consistency, as there is no os.path equivalent in s3fs
-                ps_store = ps_store + "/"
+        xds = _open_dataset(
+            ms_main_store, file_system, ms_xds_isel, data_variables, load=True,
+        )
+        data_groups = xds.attrs["data_groups"]
 
-            try:
-                s3 = s3fs.S3FileSystem(anon=False, requester_pays=False)
+        if load_sub_datasets:
+            from xradio.vis.read_processing_set import _read_sub_xds
+            sub_xds_dict, field_and_source_xds_dict = _read_sub_xds(ms_store, file_system=file_system, load=True, data_groups=data_groups)
 
-                main_xds = ps_store + ms_dir_name + "/MAIN"
-                xds = _open_dataset(
-                    main_xds, ms_xds_isel, data_variables, load=True, s3=s3
-                )
+            xds.attrs = {
+                **xds.attrs,
+                **sub_xds_dict,
+            }
+            for data_group_name, data_group_vals in data_groups.items():
+                if "visibility" in data_group_vals:
+                    xds[data_group_vals['visibility']].attrs['field_and_source_xds'] = field_and_source_xds_dict[data_group_name]
+                elif "spectrum" in data_group_vals:
+                    xds[data_group_vals['spectrum']].attrs['field_and_source_xds'] = field_and_source_xds_dict[data_group_name]
 
-                if load_sub_datasets:
-                    from xradio.vis.read_processing_set import _read_sub_xds
-
-                    xds.attrs = {
-                        **xds.attrs,
-                        **_read_sub_xds(
-                            os.path.join(ps_store, ms_dir_name), load=True, s3=s3
-                        ),
-                    }
-
-            except (NoCredentialsError, PermissionError) as e:
-                # only public, read-only buckets will be accessible
-                s3 = s3fs.S3FileSystem(anon=True)
-
-                main_xds = ps_store + ms_dir_name + "/MAIN"
-                xds = _open_dataset(
-                    main_xds, ms_xds_isel, data_variables, load=True, s3=s3
-                )
-
-                if load_sub_datasets:
-                    from xradio.vis.read_processing_set import _read_sub_xds
-
-                    xds.attrs = {
-                        **xds.attrs,
-                        **_read_sub_xds(
-                            os.path.join(ps_store, ms_dir_name), load=True, s3=s3
-                        ),
-                    }
-        else:
-            # fall back to the default case of assuming the files are on local disk
-            main_xds = os.path.join(ps_store, ms_dir_name, "MAIN")
-            xds = _open_dataset(main_xds, ms_xds_isel, data_variables, load=True)
-            if load_sub_datasets:
-                from xradio.vis.read_processing_set import _read_sub_xds
-
-                xds.attrs = {
-                    **xds.attrs,
-                    **_read_sub_xds(os.path.join(ps_store, ms_dir_name), load=True),
-                }
-
-        ps[ms_dir_name] = xds
+        ps[ms_name] = xds
+        
     return ps
-
 
 class processing_set_iterator:
 

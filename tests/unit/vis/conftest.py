@@ -190,17 +190,13 @@ def source_xds_min(cds_minimal_required):
     return subt
 
 
-@pytest.fixture(scope="session")
-def main_xds_min(ms_minimal_required):
-    """A main xds (one partition, when partitioning by intent"""
-    from xradio.vis._vis_utils.ms import read_ms
-
-    cds = read_ms(ms_minimal_required.fname, partition_scheme="intent")
-    part_key = (0, 0, "scan_intent#subscan_intent")
-    part = cds.partitions[part_key]
-    # shape attributes which take ndarray type values, added through
-    # python-casacore, "fix" for the experimental write MS
-    # , "UVW"]: (but UVW was expected, from CASA tests MSs)
+def quick_fix_ndarray_shape_attrs(part):
+    """
+    Crude fix for unsupported attrs => update/extend attrs dict filters.
+    Shape attributes which take ndarray type values, added through python-casacore,
+    "fix" for the experimental write MS , "UVW"]: (but UVW was expected, from CASA
+    tests MSs)
+    """
     for col in ["DATA", "CORRECTED_DATA", "MODEL_DATA"]:
         if (
             col in part.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]
@@ -211,6 +207,18 @@ def main_xds_min(ms_minimal_required):
                 "shape"
             )
 
+
+@pytest.fixture(scope="session")
+def main_xds_min(ms_minimal_required):
+    """A main xds (one partition, when partitioning by intent"""
+    from xradio.vis._vis_utils.ms import read_ms
+
+    cds = read_ms(ms_minimal_required.fname, partition_scheme="intent")
+    part_key = (0, 0, "scan_intent#subscan_intent")
+    part = cds.partitions[part_key]
+
+    quick_fix_ndarray_shape_attrs(part)
+
     yield part
 
 
@@ -220,24 +228,24 @@ def cds_minimal_required(ms_minimal_required):
     from xradio.vis import read_vis
 
     cds = read_vis(ms_minimal_required.fname)
-    # Crude fix for unsupported attrs => update/extend attrs dict filters
-    for key, part in cds.partitions.items():
-        # shape attributes which take ndarray type values, added through python-casacore
-        # , "UVW"]: (but UVW was expected, from CASA tests MSs)
-        for col in ["DATA", "CORRECTED_DATA", "MODEL_DATA"]:
-            if (
-                col in part.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]
-                and "shape"
-                in part.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"][col]
-            ):
-                part.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"][
-                    col
-                ].pop("shape")
+
+    for _key, part in cds.partitions.items():
+        quick_fix_ndarray_shape_attrs(part)
 
     yield cds
 
 
-# TODO: a flat_main_xds fixture, if we week that longer term
+@pytest.fixture(scope="session")
+def main_xds_flat_min(ms_minimal_required):
+    """A "flat" (row dim) main xds (one partition, when partitioning by ddi)"""
+    from xradio.vis._vis_utils._ms._tables.read_main_table  import read_flat_main_table
+    from xradio.vis._vis_utils._ms.msv2_msv3 import ignore_msv2_cols
+
+
+    xds, _part_ids, _attrs = read_flat_main_table(ms_minimal_required.fname, 0,
+                                                  ignore_msv2_cols=ignore_msv2_cols)
+
+    yield xds
 
 
 # TODO: more differentiated custom MSs, consider @pytest.mark.ms_custom_spec({...})

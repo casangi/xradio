@@ -187,8 +187,9 @@ def flatten_xds(xds: xr.Dataset) -> xr.Dataset:
             else:
                 astyped_data_vars[dv] = txds[dv]
 
-        flat_xds = xr.Dataset(astyped_data_vars, coords=txds.coords,
-                               attrs=txds.attrs)
+        flat_xds = xr.Dataset(astyped_data_vars, coords=txds.coords, attrs=txds.attrs)
+        flat_xds = flat_xds.reset_index(["time", "baseline"])
+
     else:
         flat_xds = txds
 

@@ -94,6 +94,7 @@ def test_expand_xds_ddi_min(main_xds_flat_min):
     assert res
     assert all([coord in res.coords for coord in ["baseline", "time"]])
 
+
 def test_flatten_xds_empty():
     from xradio.vis._vis_utils._utils.xds_helper import flatten_xds
 
@@ -104,17 +105,26 @@ def test_flatten_xds_empty():
 
 def test_flatten_xds_main_min(main_xds_min):
     from xradio.vis._vis_utils._utils.xds_helper import flatten_xds
+
+    res = flatten_xds(main_xds_min)
+    assert all(
+        [dim in res.dims for dim in ["row", "uvw_coords", "freq", "pol", "antenna_id"]]
+    )
+
+
+def test_flatten_then_expand_xds_main_min(main_xds_min):
+    from xradio.vis._vis_utils._utils.xds_helper import flatten_xds
     from xradio.vis._vis_utils._utils.xds_helper import expand_xds
 
     res = flatten_xds(main_xds_min)
-    assert [
-        dim in res.dims for dim in ["row", "uvw_coords", "freq", "pol", "antenna_id"]
-    ]
-    # A separate test/fixture would be better?
-    print(f" Thse are {res.dims=}, {res.coords=}")
-    print(f" This is {res.data_vars=}")
     res = res.drop_vars("baseline")
     res_expanded = expand_xds(res)
+    assert all(
+        [
+            dim in res_expanded.dims
+            for dim in ["time", "baseline", "uvw_coords", "freq", "pol", "antenna_id"]
+        ]
+    )
 
 
 BYTES_TO_GB = 1024 * 1024 * 1204

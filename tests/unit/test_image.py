@@ -570,6 +570,7 @@ class xds_from_image_test(ImageBase):
                 },
                 do_sky_coords=i == 0,
             )
+            print(xds)
             if not zarr:
                 with open_image_ro(imagename) as im:
                     self.assertTrue(

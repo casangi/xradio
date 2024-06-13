@@ -55,7 +55,7 @@ casa_frequency_frames_codes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 64]
 
 
 def column_description_casacore_to_msv4_measure(
-    casacore_column_description, ref_code=None, time_format="unix"
+    casacore_column_description, ref_code=None, time_format="UNIX"
 ):
     import numpy as np
 
@@ -96,7 +96,7 @@ def column_description_casacore_to_msv4_measure(
         ] = casa_ref
 
         if msv4_measure["type"] == "time":
-            msv4_measure["format"] = "unix"
+            msv4_measure["format"] = "UNIX"
     elif "QuantumUnits" in casacore_column_description["keywords"]:
         msv4_measure = {'type':'quantity', 'units':list(
             casacore_column_description["keywords"]["QuantumUnits"]

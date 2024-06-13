@@ -25,7 +25,8 @@ def _xds_from_zarr(
 
 
 def _load_image_from_zarr_no_dask(zarr_file: str, selection: dict) -> xr.Dataset:
-    image_xds = _open_dataset(zarr_file, selection, load=True)
+    #At the moment image module does not support S3 file system. file_system=os is hardcoded.
+    image_xds = _open_dataset(store=zarr_file,file_system=os, xds_isel=selection, load=True)
     for h in ["HISTORY", "_attrs_xds_history"]:
         history = os.sep.join([zarr_file, h])
         if os.path.isdir(history):

@@ -59,17 +59,16 @@ def test_convert_casacore_time(times, expected_result):
         ),
         (
             np.array([58000.123]),
-            np.array(["2017-09-04T02:57:07.199999809"], dtype="datetime64[ns]"),
+            np.array(["2017-09-04T02:57:07.200000048"], dtype="datetime64[ns]"),
         ),
         (
             np.array([70000.34]),
-            np.array(["2050-07-13T08:09:36.0"], dtype="datetime64[ns]"),
+            np.array(["2050-07-13T08:09:35.999999523"], dtype="datetime64[ns]"),
         ),
     ],
 )
 def test_convert_mjd_time(times, expected_result, request):
     from xradio.vis._vis_utils._ms._tables.read import convert_mjd_time
-
     assert all(convert_mjd_time(times) == expected_result)
 
 

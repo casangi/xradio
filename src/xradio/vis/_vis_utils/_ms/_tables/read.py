@@ -15,6 +15,7 @@ from .table_query import open_query, open_table_ro
 
 CASACORE_TO_PD_TIME_CORRECTION = 3_506_716_800.0
 SECS_IN_DAY = 86400
+MJD_DIF_UNIX = 40587
 
 
 def table_exists(path: str) -> bool:
@@ -68,11 +69,13 @@ def convert_mjd_time(rawtimes: np.ndarray) -> np.ndarray:
     np.ndarray
         times converted to pandas reference and datetime type
     """
-    return pd.to_datetime(
-        rawtimes * SECS_IN_DAY - CASACORE_TO_PD_TIME_CORRECTION, unit="s"
-    ).values.astype("float64")
-
-
+    times_reref = pd.to_datetime(
+        (rawtimes - MJD_DIF_UNIX)*SECS_IN_DAY, unit="s"
+    ).values
+    
+    return times_reref
+    
+    
 def extract_table_attributes(infile: str) -> Dict[str, Dict]:
     """
     Return a dictionary of table attributes created from MS keywords and column descriptions
@@ -766,7 +769,7 @@ def raw_col_data_to_coords_vars(
 
     if col in timecols:
         if col == "MJD":
-            data = convert_mjd_time(data)
+            data = convert_mjd_time(data).astype("float64")/1e9
         else:
             try:
                 data = convert_casacore_time(data)

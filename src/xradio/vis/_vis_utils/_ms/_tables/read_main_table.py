@@ -307,6 +307,7 @@ def read_main_table_chunks(
 
     dims = ["time", "baseline", "freq", "pol"]
     mvars = concat_tvars_to_mvars(dims, tvars, pol_cnt, chan_cnt)
+    
     mcoords = {
         "time": xr.DataArray(convert_casacore_time(unique_times), dims=["time"]),
         "baseline": xr.DataArray(np.arange(n_baselines), dims=["baseline"]),

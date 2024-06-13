@@ -8,6 +8,8 @@ import graphviper.utils.logger as logger
 import numpy as np
 import xarray as xr
 
+from casacore import tables
+
 from .msv4_infos import create_field_info
 from .msv4_sub_xdss import create_ant_xds, create_pointing_xds, create_weather_xds
 from .msv2_to_msv4_meta import (
@@ -46,7 +48,7 @@ def parse_chunksize(
 
     Returns
     -------
-    _dict_
+    Dict[str, int]
         dictionary of chunk sizes (as dim->size)
     """
     if isinstance(chunksize, dict):
@@ -54,8 +56,10 @@ def parse_chunksize(
     elif isinstance(chunksize, float):
         chunksize = mem_chunksize_to_dict(chunksize, xds_type, xds)
     elif chunksize is not None:
-        raise ValueError(f"Chunk size expected as a dict or a float, got: "
-                         f" {chunksize} (of type {type(chunksize)}")
+        raise ValueError(
+            f"Chunk size expected as a dict or a float, got: "
+            f" {chunksize} (of type {type(chunksize)}"
+        )
 
     return chunksize
 
@@ -103,7 +107,7 @@ def mem_chunksize_to_dict(
 
     Returns
     -------
-    _dict_
+    Dict[str, int]
         dictionary of chunk sizes (as dim->size)
     """
 
@@ -184,7 +188,7 @@ def mem_chunksize_to_dict_main_balanced(
 
     Returns
     -------
-    _dict_
+    Dict[str, int]
         dictionary of chunk sizes (as dim->size)
     """
 
@@ -341,7 +345,9 @@ def itemsize_pointing_spec(xds: xr.Dataset) -> int:
     return itemsize
 
 
-def calc_used_gb(chunksizes: dict, baseline_or_antenna_id: str, sizeof_vis: int):
+def calc_used_gb(
+    chunksizes: dict, baseline_or_antenna_id: str, sizeof_vis: int
+) -> float:
     return (
         chunksizes["time"]
         * chunksizes[baseline_or_antenna_id]
@@ -517,7 +523,7 @@ def create_coordinates(
     return xds
 
 
-def find_min_max_times_taql(tb_tool, taql_where: str):
+def find_min_max_times_taql(tb_tool: tables.table, taql_where: str) -> str:
     """
     Find the min/max times in an MSv4, for constraining pointing.
 

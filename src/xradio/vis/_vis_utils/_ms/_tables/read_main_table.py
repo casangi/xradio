@@ -38,14 +38,22 @@ rename_msv2_cols = {
 
 
 def rename_vars(mvars: Dict[str, xr.DataArray]) -> Dict[str, xr.DataArray]:
-    """Apply rename rules. Also preserve ordering of data_vars
+    """
+    Apply rename rules. Also preserve ordering of data_vars
 
     Note: not using xr.DataArray.rename because we have optional
     column renames and rename complains if some of the names passed
     are not present in the dataset
 
-    :param mvars: dictionary of data_vars to be used to create an xr.Dataset
-    :return: similar dictionary after applying MSv2 => MSv3/ngCASA renaming rules
+    Parameters
+    ----------
+    mvars : Dict[str, xr.DataArray]
+        dictionary of data_vars to be used to create an xr.Dataset
+
+    Returns
+    -------
+    Dict[str, xr.DataArray]
+        similar dictionary after applying MSv2 => MSv3/ngCASA renaming rules
     """
     renamed = {
         rename_msv2_cols[name] if name in rename_msv2_cols else name: var
@@ -62,8 +70,16 @@ def redim_id_data_vars(mvars: Dict[str, xr.DataArray]) -> Dict[str, xr.DataArray
     The antenna id data vars:
      From MS (antenna1_id(time, baseline), antenna2_id(time,baseline)
      To cds (baseline_ant1_id(baseline), baseline_ant2_id(baseline)
-    :param mvars: data variables being prepared for a partition xds
-    :return: data variables with the ant id ones modified to cds type
+
+    Parameters
+    ----------
+    mvars : Dict[str, xr.DataArray]
+        data variables being prepared for a partition xds
+
+    Returns
+    -------
+    Dict[str, xr.DataArray]
+        data variables with the ant id ones modified to cds type
     """
     # Vars to drop baseline dim
     var_names = [
@@ -87,12 +103,21 @@ def redim_id_data_vars(mvars: Dict[str, xr.DataArray]) -> Dict[str, xr.DataArray
 
 
 def get_partition_ids(mtable: tables.table, taql_where: str) -> Dict:
-    """Get some of the partition IDs that we have to retrieve from some
+    """
+    Get some of the partition IDs that we have to retrieve from some
     of the top level ID/sorting cols of the main table of the MS.
 
-    :param mtable: MS main table
-    :param taql_where: where part that defines the partition in TaQL
-    :return: ids of array, observation, and processor
+    Parameters
+    ----------
+    mtable : tables.table
+        MS main table
+    taql_where : str
+        where part that defines the partition in TaQL
+
+    Returns
+    -------
+    Dict
+        ids of array, observation, and processor
     """
 
     taql_ids = f"select DISTINCT ARRAY_ID, OBSERVATION_ID, PROCESSOR_ID from $mtable {taql_where}"
@@ -132,6 +157,23 @@ def read_expanded_main_table(
     This is the expanded version (time, baseline) dims.
 
     Chunk tuple: (time, baseline, freq, pol)
+
+    Parameters
+    ----------
+    infile : str
+
+    ddi : int  (Default value = 0)
+
+    scan_state : Union[Tuple[int, int], None] (Default value = None)
+
+    ignore_msv2_cols: Union[list, None] (Default value = None)
+
+    chunks: Tuple[int, ...] (Default value = (400, 200, 100, 2))
+
+
+    Returns
+    -------
+    Tuple[xr.Dataset, Dict[str, Any], Dict[str, Any]]
     """
     if ignore_msv2_cols is None:
         ignore_msv2_cols = []
@@ -177,6 +219,23 @@ def read_main_table_chunks(
     """
     Iterates through the time,baseline chunks and reads slices from
     all the data columns.
+
+    Parameters
+    ----------
+    infile : str
+
+    tb_tool : tables.table
+
+    taql_where : str
+
+    ignore_msv2_cols : Union[list, None] (Default value = None)
+
+    chunks: Tuple[int, ...] (Default value = (400, 200, 100, 2))
+
+
+    Returns
+    -------
+    Tuple[xr.Dataset, Dict[str, Any]]
     """
     baselines = get_baselines(tb_tool)
 
@@ -281,16 +340,21 @@ def get_utimes_tol(mtable: tables.table, taql_where: str) -> Tuple[np.ndarray, f
 
 
 def get_baselines(tb_tool: tables.table) -> np.ndarray:
-    """Gets the unique baselines from antenna 1 and antenna 2 ids.
+    """
+    Gets the unique baselines from antenna 1 and antenna 2 ids.
 
     Uses a pairing function and inverse pairing function to decrease the
     computation time of finding unique values.
 
-    Args:
-        tb_tool (tables.table): MeasurementSet table to get the antenna ids.
+    Parameters
+    ----------
+    tb_tool : tables.table
+        MeasurementSet table to get the antenna ids.
 
-    Returns:
-        unique_baselines (np.ndarray): a 2D array of unique antenna pairs
+    Returns
+    -------
+    unique_baselines : np.ndarray
+        a 2D array of unique antenna pairs
         (baselines) from the MeasurementSet table provided.
     """
     ant1, ant2 = tb_tool.getcol("ANTENNA1", 0, -1), tb_tool.getcol("ANTENNA2", 0, -1)
@@ -314,19 +378,23 @@ def get_baselines(tb_tool: tables.table) -> np.ndarray:
 def get_baseline_indices(
     unique_baselines: np.ndarray, baseline_set: np.ndarray
 ) -> np.ndarray:
-    """Finds the baseline indices of a set of baselines using the unique baselines.
+    """
+    Finds the baseline indices of a set of baselines using the unique baselines.
 
     Uses a pairing function to reduce the number of values so it's more
     efficient to find the indices.
 
-    Args:
-        unique_baselines (np.ndarray): a 2D array of unique antenna pairs
-        (baselines).
-        baseline_set (np.ndarray): a 2D array of antenna pairs (baselines). This
-        array may contain duplicates.
+    Parameters
+    ----------
+    unique_baselines : np.ndarray
+        a 2D array of unique antenna pairs (baselines).
+    baseline_set : np.ndarray
+        a 2D array of antenna pairs (baselines). This array may contain duplicates.
 
-    Returns:
-        baseline_indices (np.ndarray): the indices of the baseline set that
+    Returns
+    -------
+    baseline_indices : np.ndarray
+        the indices of the baseline set that
         correspond to the unique baselines.
     """
     unique_baselines_paired = pairing_function(unique_baselines)
@@ -347,12 +415,31 @@ def read_all_cols_bvars(
     tb_tool: tables.table,
     chunks: Tuple[int, ...],
     chan_cnt: int,
-    ignore_msv2_cols,
+    ignore_msv2_cols: bool,
     delayed_params: Tuple,
     bvars: Dict[str, xr.DataArray],
 ) -> None:
     """
     Loops over each column and create delayed dask arrays
+
+    Parameters
+    ----------
+    tb_tool : tables.table
+
+    chunks : Tuple[int, ...]
+
+    chan_cnt : int
+
+    ignore_msv2_cols : bool
+
+    delayed_params : Tuple
+
+    bvars : Dict[str, xr.DataArray]
+
+
+    Returns
+    -------
+
     """
 
     col_names = tb_tool.colnames()
@@ -432,6 +519,17 @@ def concat_bvars_update_tvars(
     concats all the dask chunks from each baseline. This is intended to
     be called iteratively, for every time chunk iteration, once all the
     baseline chunks have been read.
+
+    Parameters
+    ----------
+    bvars: Dict[str, xr.DataArray]
+
+    tvars: Dict[str, xr.DataArray]
+
+
+    Returns
+    -------
+
     """
     for kk in bvars.keys():
         if len(bvars[kk]) == 0:
@@ -448,12 +546,21 @@ def concat_tvars_to_mvars(
     Concat into a single dask array all the dask arrays from each time
     chunk to make the final arrays of the xds.
 
-    :param dims: dimension names
-    :param tvars: variables as lists of dask arrays per time chunk
-    :param pol_cnt: len of pol axis/dim
-    :param chan_cnt: len of freq axis/dim (chan indices)
+    Parameters
+    ----------
+    dims : List[str]
+        dimension names
+    tvars : Dict[str, xr.DataArray]
+        variables as lists of dask arrays per time chunk
+    pol_cnt : int
+        len of pol axis/dim
+    chan_cnt : int
+        len of freq axis/dim (chan indices)
 
-    :return: variables as concated dask arrays
+    Returns
+    -------
+    Dict[str, xr.DataArray]
+        variables as concated dask arrays
     """
 
     mvars = {}
@@ -496,6 +603,24 @@ def read_flat_main_table(
     features may be missing and/or flaky.
 
     Chunk tuple: (row, freq, pol)
+
+    Parameters
+    ----------
+    infile : str
+
+    ddi : Union[int, None] (Default value = None)
+
+    scan_state : Union[Tuple[int, int], None] (Default value = None)
+
+    rowidxs : np.ndarray (Default value = None)
+
+    ignore_msv2_cols : Union[List, None] (Default value = None)
+
+    chunks : Tuple[int, ...] (Default value = (22000, 512, 2))
+
+    Returns
+    -------
+    Tuple[xr.Dataset, Dict[str, Any], Dict[str, Any]]
     """
     taql_where = f"where DATA_DESC_ID = {ddi}"
     if scan_state:

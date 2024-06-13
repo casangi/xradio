@@ -24,7 +24,8 @@ def read_ms(
     expand: bool = False,
     **kwargs: str,
 ) -> CASAVisSet:
-    """Read a MeasurementSet (MSv2 format) into a next generation CASA
+    """
+    Read a MeasurementSet (MSv2 format) into a next generation CASA
     dataset (visibilities dataset as a set of Xarray datasets).
 
     The MS is partitioned into multiple sub- Xarray datasets (where the data variables are read as
@@ -33,28 +34,37 @@ def read_ms(
     and polarizations) and, subject to experimentation, by scan and subscan. This results in multiple
     partitions as xarray datasets (xds) contained within a main xds (mxds).
 
-    :param infile: Input MS filename
-    :param subtables: Also read and include subtables along with main table selection. Default False will
-    omit subtables (faster)
-    :param asdm_subtables: in addition to MeasurementSet subtables (if enabled), also read extension
-    subtables named "ASDM_*"
-    :param partition_scheme: (experimenting) Whether to partition sub-xds datasets by scan/subscan
-    (in addition to DDI), or other alternative partitioning schemes. Accepted values: 'scan/subscan',
-    'scan', 'ddi', 'intent'. Default: 'intent'
-    :param chunks: Can be used to set a specific chunk shape (with a tuple of ints), or to control the
-    optimization used for automatic chunking (with a list of ints). A tuple of ints in the form of (row,
-    chan, pol) will use a fixed chunk shape. A list or numpy array of ints in the form of [idx1, etc]
-    will trigger auto-chunking optimized for the given indices, with row=0, chan=1, pol=2. Default None
-    uses auto-chunking with a best fit across all dimensions (probably sub-optimal for most cases).
-    :param expand: (to be removed) Whether or not to return the original flat row structure of the MS (False)
-    or expand the rows to time x baseline dimensions (True). Expanding the rows allows for easier indexing
-    and parallelization across time and baseline dimensions, at the cost of some conversion time. Default
-    False
-    :param **kwargs: (to be removed?) Selection parameters from the standard way of making CASA MS
-    selections. Supported keys are: spw, field, scan, baseline, time, scanintent, uvdist, polarization,
-    array, observation.  Values are strings.
+    Parameters
+    ----------
+    infile : str
+        Input MS filename
+    subtables : bool (Default value = True)
+        Also read and include subtables along with main table selection. Default False will
+        omit subtables (faster)
+    asdm_subtables : bool (Default value = False)
+        in addition to MeasurementSet subtables (if enabled), also read extension
+        subtables named "ASDM_*"
+    partition_scheme : str (Default value = "intent")
+        experimenting) Whether to partition sub-xds datasets by scan/subscan
+        (in addition to DDI), or other alternative partitioning schemes. Accepted values: 'scan/subscan',
+        'scan', 'ddi', 'intent'. Default: 'intent'
+    chunks : Union[Tuple[int], List[int]] (Default value = None)
+        Can be used to set a specific chunk shape (with a tuple of ints), or to control the
+        optimization used for automatic chunking (with a list of ints). A tuple of ints in the form of (row,
+        chan, pol) will use a fixed chunk shape. A list or numpy array of ints in the form of [idx1, etc]
+        will trigger auto-chunking optimized for the given indices, with row=0, chan=1, pol=2. Default None
+        uses auto-chunking with a best fit across all dimensions (probably sub-optimal for most cases).
+    expand : bool (Default value = False)
+        to be removed) Whether or not to return the original flat row structure of the MS (False)
+        or expand the rows to time x baseline dimensions (True). Expanding the rows allows for easier indexing
+        and parallelization across time and baseline dimensions, at the cost of some conversion time.
+    **kwargs: str :
 
-    :return: Main xarray dataset of datasets for this visibility dataset
+
+    Returns
+    -------
+    CASAVisSet
+        Main xarray dataset of datasets for this visibility dataset
     """
 
     infile = os.path.expanduser(infile)
@@ -104,14 +114,23 @@ def load_vis_chunk(
     block_des: Dict[str, slice],
     partition_key: Tuple[int, int, str],
 ) -> Dict[Tuple[int, int], xr.Dataset]:
-    """Read a chunk of a MeasurementSet (MSv2 format) into an Xarray
+    """
+    Read a chunk of a MeasurementSet (MSv2 format) into an Xarray
     dataset, loading the data in memory.
 
-    :param infile: Input MS filename
-    :param block_des: specification of chunk to load
+    Parameters
+    ----------
+    infile : str
+        Input MS filename
+    block_des : Dict[str, slice]
+        specification of chunk to load
+    partition_key: partition_key: Tuple[int, int, str]
 
-    :return: Xarray datasets with chunk of visibility data, one per DDI
-    (spw_id, pol_setup_id pair)
+    Returns
+    -------
+    Dict[Tuple[int, int], xr.Dataset]
+        Xarray datasets with chunk of visibility data, one per DDI
+        (spw_id, pol_setup_id pair)
     """
     infile = os.path.expanduser(infile)
 

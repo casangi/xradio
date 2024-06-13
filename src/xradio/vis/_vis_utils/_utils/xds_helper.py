@@ -150,7 +150,7 @@ def expand_xds(xds: xr.Dataset) -> xr.Dataset:
             if txds[dv].dtype != xds[dv].dtype:
                 txds[dv] = txds[dv].astype(xds[dv].dtype)
     except Exception as exc:
-        print(
+        logger.warning(
             f"WARNING: Cannot expand rows to (time, baseline), "
             f"possibly duplicate values in (time, baseline). Exception: {exc}"
         )
@@ -177,11 +177,22 @@ def flatten_xds(xds: xr.Dataset) -> xr.Dataset:
             ((txds.state_id != nan_int) & (txds.field_id != nan_int)).compute(),
             drop=True,
         )  # .unify_chunks()
-        for dv in list(xds.data_vars):
-            if txds[dv].dtype != xds[dv].dtype:
-                txds[dv] = txds[dv].astype(xds[dv].dtype)
 
-    return txds
+        # re-assigning (implicitly dropping index coords) one by one produces
+        # DeprecationWarnings: https://github.com/pydata/xarray/issues/6505
+        astyped_data_vars = dict(xds.data_vars)
+        for dv in list(txds.data_vars):
+            if txds[dv].dtype != xds[dv].dtype:
+                astyped_data_vars[dv] = txds[dv].astype(xds[dv].dtype)
+            else:
+                astyped_data_vars[dv] = txds[dv]
+
+        flat_xds = xr.Dataset(astyped_data_vars, coords=txds.coords,
+                               attrs=txds.attrs)
+    else:
+        flat_xds = txds
+
+    return flat_xds
 
 
 ####################################

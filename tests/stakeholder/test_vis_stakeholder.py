@@ -2,7 +2,9 @@ from xradio.vis import (
     read_processing_set,
     load_processing_set,
     convert_msv2_to_processing_set,
+    VisibilityXds
 )
+from xradio.schema.check import check_dataset
 from graphviper.utils.data import download
 import numpy as np
 import pytest
@@ -50,8 +52,6 @@ def base_test(msv2_name, expected_sum_value):
             np.abs(ps_lazy[ms_xds_name][data_name] * ps_lazy[ms_xds_name].WEIGHT)
         )
 
-    print(sum)
-
     os.system("rm -rf " + msv2_name)
     os.system("rm -rf " + ps_name)
 
@@ -61,6 +61,13 @@ def base_test(msv2_name, expected_sum_value):
     assert sum == pytest.approx(
         expected_sum_value, rel=relative_tolerance
     ), "VISIBILITY and WEIGHT values have changed."
+    
+    for xds_name in ps.keys():
+        issues = check_dataset(ps[xds_name], VisibilityXds)
+        if not issues:
+            print(f"{xds_name}: okay\n")
+        else:
+            print(f"{xds_name}: {issues}\n")
 
 
 @pytest.mark.parametrize(
@@ -94,7 +101,7 @@ def test_s3_read_processing_set(s3_ps_name, expected_sum_value):
             np.abs(ps_lazy[ms_xds_name][data_name] * ps_lazy[ms_xds_name].WEIGHT)
         )
 
-    print(sum)
+    print('hallow', sum)
 
     assert (
         sum == sum_lazy
@@ -102,7 +109,7 @@ def test_s3_read_processing_set(s3_ps_name, expected_sum_value):
     assert sum == pytest.approx(
         expected_sum_value, rel=relative_tolerance
     ), "VISIBILITY and WEIGHT values have changed."
-
+    
 
 def test_alma():
     base_test("Antennae_North.cal.lsrk.split.ms", 190.0405216217041)
@@ -140,7 +147,7 @@ def test_single_dish():
     base_test("sdimaging.ms", 5487446.5)
 
 
-# test_alma()
+test_alma()
 # test_ska_mid()
 # test_lofar()
 # test_meerkat()

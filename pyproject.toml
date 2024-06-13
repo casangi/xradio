@@ -50,3 +50,15 @@ docs = [
     'twine',
     'pandoc'
 ]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+    "--strict-markers"
+]
+testpaths = [
+    "tests"
+]
+pythonpath = [
+    "."
+]

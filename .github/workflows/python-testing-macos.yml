@@ -2,8 +2,6 @@ name: MacOS
 
 on:
   push:
-    branches:
-      - main
     paths-ignore:
       - '**.md'
       - '**.rst'

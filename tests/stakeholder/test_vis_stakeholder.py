@@ -62,14 +62,14 @@ def base_test(msv2_name, expected_sum_value):
         expected_sum_value, rel=relative_tolerance
     ), "VISIBILITY and WEIGHT values have changed."
     
-    from xradio.schema.check import check_dataset
-    from xradio.vis.schema import VisibilityXds
-    for xds_name in ps.keys():
-        issues = check_dataset(ps[xds_name], VisibilityXds)
-        if not issues:
-            print(f"{xds_name}: okay\n")
-        else:
-            print(f"{xds_name}: {issues}\n")
+    # from xradio.schema.check import check_dataset
+    # from xradio.vis.schema import VisibilityXds
+    # for xds_name in ps.keys():
+    #     issues = check_dataset(ps[xds_name], VisibilityXds)
+    #     if not issues:
+    #         print(f"{xds_name}: okay\n")
+    #     else:
+    #         print(f"{xds_name}: {issues}\n")
 
 
 @pytest.mark.parametrize(

@@ -17,13 +17,22 @@ from .subtables import subt_rename_ids
 def make_partition_ids_by_ddi_scan(
     infile: str, do_subscans: bool
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Produces arrays of per-partition ddi, scan, state_id, for when
+    """
+    Produces arrays of per-partition ddi, scan, state_id, for when
     using partiion schemes 'scan' or 'scan/subscan', that is
     partitioning by some variant of (ddi, scan, subscan(state_id))
 
-    :param infile: Path to MS
-    :param do_subscans: also partitioning by subscan, not only scan
-    :return: arrays with indices that define every partition
+    Parameters
+    ----------
+    infile : str
+        Path to MS
+    do_subscans : bool
+        also partitioning by subscan, not only scan
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray, np.ndarray]
+        arrays with indices that define every partition
     """
     try:
         cctable = None
@@ -69,16 +78,24 @@ def make_partition_ids_by_ddi_scan(
 def partition_when_empty_state(
     infile: str,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Generate fallback partition ids when trying to partition by
+    """
+    Generate fallback partition ids when trying to partition by
     'intent' but the STATE table is empty.
 
     Some MSs have no STATE rows and in the main table STATE_ID==-1
     (that is not a valid MSv2 but it happens).
 
-    :param infile: Path to the MS
-    :return: same as make_partition_ids_by_ddi_intent but with
-    effectively only ddi indices and other indices set to None ("any
-    IDs found")
+    Parameters
+    ----------
+    infile : str
+        Path to the MS
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        same as make_partition_ids_by_ddi_intent but with
+        effectively only ddi indices and other indices set to None ("any
+        IDs found")
     """
     try:
         main_table = None
@@ -107,14 +124,22 @@ def partition_when_empty_state(
 def find_distinct_obs_mode(
     infile: str, state_table: tables.table
 ) -> Union[List[str], None]:
-    """Produce a list of unique "scan/subscan" intents.
+    """
+    Produce a list of unique "scan/subscan" intents.
 
-    :param infile: Path to the MS
-    :param state_table: casacore table object to read from
-    :return: List of unique "scan/subscan" intents as given in the
-    OBS_MODE column of the STATE subtable. None if the STATE subtable
-    is empty or there is a problem reading it
+    Parameters
+    ----------
+    infile : str
+        Path to the MS
+    state_table : tables.table
+        casacore table object to read from
 
+    Returns
+    -------
+    Union[List[str], None]
+        List of unique "scan/subscan" intents as given in the
+        OBS_MODE column of the STATE subtable. None if the STATE subtable
+        is empty or there is a problem reading it
     """
     taql_distinct_intents = "select DISTINCT OBS_MODE from $state_table"
     with open_query(state_table, taql_distinct_intents) as query_intents:
@@ -134,7 +159,8 @@ def find_distinct_obs_mode(
 def filter_intents_per_ddi(
     ddis: List[int], substr: str, intents: str, spw_name_by_ddi: Dict[int, str]
 ) -> List[str]:
-    """For a given pair of:
+    """
+    For a given pair of:
     - substring (say 'WVR') associated with a type of intent we want to differentiate
     - intents string (multiple comma-separated scan/subscan intents)
     => do: for every DDI passed in the list of ddis, either keep only the
@@ -142,14 +168,23 @@ def filter_intents_per_ddi(
     whether that substring is present in the SPW name. This is to filter in only
     the intents that really apply to every DDI/SPW.
 
-    :param ddis: list of ddis for which the intents have to be filtered
-    :param substr: substring to filter by
-    :param intents: string with a comma-separated list of individual
-    scan/subscan intent strings (like scan/subscan intents as stored
-    in the MS STATE/OBS_MODE
-    :param spw_name_by_ddi: SPW names by DDI ID (row index) key
-    :return: list where the intents related to 'substr' have been filtered in our out
+    Parameters
+    ----------
+    ddis : List[int]
+        list of ddis for which the intents have to be filtered
+    substr : str
+        substring to filter by
+    intents : str
+        string with a comma-separated list of individual
+        scan/subscan intent strings (like scan/subscan intents as stored
+        in the MS STATE/OBS_MODE
+    spw_name_by_ddi : Dict[int, str]
+        SPW names by DDI ID (row index) key
 
+    Returns
+    -------
+    List[str]
+        list where the intents related to 'substr' have been filtered in our out
     """
     present = substr in intents
     # Nothing to effectively filter, full cs-list of intents apply to all DDIs
@@ -159,7 +194,8 @@ def filter_intents_per_ddi(
     every_intent = intents.split(",")
     filtered_intents = []
     for ddi in ddis:
-        spw_name = spw_name_by_ddi[ddi]
+        spw_name = spw_name_by_ddi.get(ddi, "")
+
         if not spw_name:
             # we cannot say / cannot filter
             filtered_intents.append(intents)
@@ -182,7 +218,8 @@ def make_ddi_state_intent_lists(
     distinct_obs_mode: np.ndarray,
     spw_name_by_ddi: Dict[int, str],
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Produce arrays of (ddi indices, state indices, intent string)
+    """
+    Produce arrays of (ddi indices, state indices, intent string)
     for every distinct intent string, where every item represents one
     partition of the main table
 
@@ -193,11 +230,21 @@ def make_ddi_state_intent_lists(
     intent is the only kept when the DDI/SPW has WVR in its name). See
     call to filter_intents_per_ddi()
 
-    :param main_tbl: main MS table openend as a casacore.tables.table
-    :state_tbl: STATE subtable openend as a casacore.tables.table
-    :param distinct_obs_mode: list of unique/distinct OBS_MODE strings from the STATE table
-    :return: arrays of (ddi indices, state indices, intent string)
+    Parameters
+    ----------
+    main_tbl : tables.table
+        main MS table openend as a casacore.tables.table
+    state_tbl : tables.table
+        STATE subtable openend as a casacore.tables.table
+    distinct_obs_mode : np.ndarray
+        list of unique/distinct OBS_MODE strings from the STATE table
+    spw_name_by_ddi: Dict[int, str]
 
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray, np.ndarray]
+        arrays of (ddi indices, state indices, intent string)
     """
     data_desc_id, state_id_partitions, intent_names = [], [], []
     for intent in distinct_obs_mode:
@@ -236,11 +283,21 @@ def make_ddi_state_intent_lists(
 def make_partition_ids_by_ddi_intent(
     infile: str, spw_names: xr.DataArray
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Produces arrays of per-partition ddi, scan, state_id, for when
+    """
+    Produces arrays of per-partition ddi, scan, state_id, for when
     using the partition scheme 'intents' (ddi, scan, subscans(state_ids))
 
-    :param infile:
-    :return: arrays with indices that define every partition
+    Parameters
+    ----------
+    infile : str
+        return: arrays with indices that define every partition
+    spw_names: xr.DataArray
+
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        arrays with indices that define every partition
     """
     # TODO: could explore other TAQL alternatives, like
     # select ... from ::STATE where OBS_MODE = ...
@@ -286,7 +343,8 @@ def create_taql_query(state_ids, field_id, ddi):
 
 
 def get_unqiue_intents(in_file):
-    """_summary_
+    """
+    _summary_
 
     Parameters
     ----------
@@ -323,7 +381,8 @@ def enumerated_product(*args):
 
 
 def create_partition_enumerated_product(in_file: str, partition_scheme: str):
-    """Creates an enumerated_product of the data_desc_ids, state_ids, field_ids in a MS v2 that define the partions in a processing set.
+    """
+    Creates an enumerated_product of the data_desc_ids, state_ids, field_ids in a MS v2 that define the partions in a processing set.
 
     Parameters
     ----------

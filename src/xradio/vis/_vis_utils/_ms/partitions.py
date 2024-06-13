@@ -29,8 +29,19 @@ def make_spw_names_by_ddi(ddi_xds: xr.Dataset, spw_xds: xr.Dataset) -> Dict[int,
 
 
 def split_intents(intents: str):
-    """Make a dict with two scan / subscan levels of intents from an
+    """
+    Make a dict with two scan / subscan levels of intents from an
     intent string from the STATE/OBS_MODE of an MS.
+
+    Parameters
+    ----------
+    intents : str
+        intents "OBS_MODE" string from an MS/STATE row
+
+    Returns
+    -------
+    Dict[str, list]
+        per scan intent list of individual subscan intent strings
     """
     sub_sep = "#"
     if sub_sep not in intents:
@@ -60,13 +71,25 @@ def make_part_key(
     partition_scheme: str,
     intent: str = "",
     scan_state: Union[Tuple, None] = None,
-):
+) -> PartitionKey:
     """
     Makes the key that a partition (sub)xds will have in the partitions dictionary of a cds.
 
-    :param xds: partition xds with data and attrs
-    :param partition_scheme: one of the schemes supported in the read_ms_*_partitions() functions
-    :param scan_state: scan/state ids, required when partition_scheme != 'ddi'
+    Parameters
+    ----------
+    xds : xr.Dataset
+        partition xds with data and attrs
+    partition_scheme : str
+        one of the schemes supported in the read_ms_*_partitions() functions
+    intent : str (Default value = "")
+        partition intent
+    scan_state : Union[Tuple, None] (Default value = None)
+        scan/state ids, required when partition_scheme != 'ddi'
+
+    Returns
+    -------
+    PartitionKey
+        partition key
     """
     spw_id = xds.attrs["partition_ids"]["spw_id"]
     pol_setup_id = xds.attrs["partition_ids"]["pol_setup_id"]
@@ -91,17 +114,28 @@ def read_ms_scan_subscan_partitions(
     expand: bool = False,
     chunks: Union[Tuple[int], List[int], None] = None,
 ) -> Tuple[VisSetPartitions, Dict[str, xr.Dataset], List[str]]:
-    """partitions per scan_number/subscans
+    """
+    partitions per scan_number/subscans
     (main table column SCAN_NUMBER / STATE_ID)
 
-    :param infile: MS path (main table)
-    :param partition_scheme: this functions can do 'intent', 'scan', and 'scan/subscan'
-    :param expand: wether to use (time, baseline) dimensions rather than 1d (row)
-    (only relevant when using the read_flat variant of read functions)
-    :param chunk: Dask chunking as tuple (time, baseline, chan, pol)
-    :return: a dictionary of partitions, a dict of subtable
-    xr.Datasets to use later for metainformation, and a list of the
-    subtables already read
+    Parameters
+    ----------
+    infile : str
+        MS path (main table)
+    partition_scheme : str
+        this functions can do 'intent', 'scan', and 'scan/subscan'
+    expand : bool (Default value = False)
+        wether to use (time, baseline) dimensions rather than 1d (row)
+        (only relevant when using the read_flat variant of read functions)
+    chunk : Union[Tuple[int], List[int], None] (Default value = None)
+        Dask chunking as tuple (time, baseline, chan, pol)
+
+    Returns
+    -------
+    Tuple[VisSetPartitions, Dict[str, xr.Dataset], List[str]]
+        a dictionary of partitions, a dict of subtable
+        xr.Datasets to use later for metainformation, and a list of the
+        subtables already read
     """
 
     spw_xds = read_generic_table(
@@ -140,13 +174,15 @@ def read_ms_scan_subscan_partitions(
         if partition_scheme == "intent":
             intent = distinct_intents[cnt]
             cnt += 1
+        else:
+            intent = ""
 
         if partition_scheme == "scan":
             scan_state = (scan, None)
         else:
             scan_state = (scan, state)
         # experimenting, comparing overheads of expanded vs. flat
-        expanded = True
+        expanded = not expand
         if expanded:
             xds, part_ids, attrs = read_expanded_main_table(
                 infile, ddi, scan_state=scan_state, ignore_msv2_cols=ignore_msv2_cols
@@ -207,11 +243,23 @@ def read_ms_ddi_partitions(
     from the DDIs. First looks into the SPECTRAL_WINDOW, POLARIZATION,
     DATA_DESCRIPTION tables to define the partitions.
 
-    :param expand: redimension (row)->(time,baseline)
-    :param rowmap: to be removed
-    :param chunks: array data chunk sizes
-    :return: dictionary of partitions, dict of subtable xr.Datasets to use later
-    for metainformation, and a list of the subtables already read
+    Parameters
+    ----------
+    infile : str
+        input MS path
+    expand : bool (Default value = False)
+        redimension (row)->(time,baseline)
+    rowmap : Union[dict, None] (Default value = None)
+        to be removed
+    chunks : Union[Tuple[int], List[int], None] (Default value = None)
+        array data chunk sizes
+
+    Returns
+    -------
+    Tuple[VisSetPartitions, Dict[str, xr.Dataset], List[str]]
+        dictionary of partitions, dict of subtable xr.Datasets to use later
+        for metainformation, and a list of the subtables already read
+
     """
     # we need the antenna, spectral window, polarization, and data description tables
     # to define the (sub)datasets (their dims and coords) and to process the main table
@@ -263,7 +311,7 @@ def read_ms_ddi_partitions(
         )
 
         # experimenting, comparing overheads of expanded vs. flat
-        expanded = True
+        expanded = not expand
         if expanded:
             xds, part_ids, attrs = read_expanded_main_table(
                 infile, ddi, ignore_msv2_cols=ignore_msv2_cols
@@ -319,13 +367,22 @@ def read_ms_ddi_partitions(
 def finalize_partitions(
     parts: Dict[str, xr.Dataset], subts: Dict[str, xr.Dataset]
 ) -> Dict[str, xr.Dataset]:
-    """Once the partition datasets and the metainfo/subtable datasets
+    """
+    Once the partition datasets and the metainfo/subtable datasets
     have been read, add to the partitions:
     - pointing variables from the pointing subtable
 
-    :param parts: partitions as xarray datasets, as read from an MS main table
-    :param subts: subtables of an MS read as xarray datasets
-    :return: partitions with additions taken from subtables
+    Parameters
+    ----------
+    parts : Dict[str, xr.Dataset]
+        partitions as xarray datasets, as read from an MS main table
+    subts : Dict[str, xr.Dataset]
+        subtables of an MS read as xarray datasets
+
+    Returns
+    -------
+    Dict[str, xr.Dataset]
+        partitions with additions taken from subtables
     """
     if "pointing" in subts:
         pointing = subts["pointing"]

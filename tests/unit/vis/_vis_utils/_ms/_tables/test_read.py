@@ -126,7 +126,11 @@ def test_get_pad_nan_feed1(main_xds_min):
     from xradio.vis._vis_utils._ms._tables.read import get_pad_nan
 
     res = get_pad_nan(main_xds_min.data_vars["feed1_id"])
-    assert res == -2147483648
+    # Beware, with integer types this can be different integer values
+    # depending on platform (https://github.com/numpy/numpy/issues/21166)
+    with np.errstate(invalid="ignore"):
+        expected_nan = np.array([np.nan]).astype(np.int32)
+    assert res == expected_nan
 
 
 def test_redimension_ms_subtable_source(source_xds_min):

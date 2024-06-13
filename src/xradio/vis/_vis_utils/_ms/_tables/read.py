@@ -974,8 +974,13 @@ def read_col_chunk(
             elif len(cshape) == 4:  # DATA and FLAG
                 data = query.getcolslice(col, (d1[0], d2[0]), (d1[1], d2[1]), [], 0, -1)
 
-    # full data is the maximum of the data shape and chunk shape dimensions
-    fulldata = np.full(cshape, np.nan, dtype=data.dtype)
+    policy = "warn"
+    if np.issubdtype(data.dtype, np.integer):
+        policy = "ignore"
+    with np.errstate(invalid=policy):
+        # full data is the maximum of the data shape and chunk shape dimensions
+        fulldata = np.full(cshape, np.nan, dtype=data.dtype)
+
     if len(didxs) > 0:
         fulldata[tidxs[didxs], bidxs[didxs]] = data[didxs]
 

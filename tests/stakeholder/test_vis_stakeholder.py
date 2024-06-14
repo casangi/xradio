@@ -2,7 +2,9 @@ from xradio.vis import (
     read_processing_set,
     load_processing_set,
     convert_msv2_to_processing_set,
+    VisibilityXds,
 )
+from xradio.schema.check import check_dataset
 from graphviper.utils.data import download
 import numpy as np
 import pytest
@@ -49,8 +51,6 @@ def base_test(msv2_name, expected_sum_value):
         sum_lazy = sum_lazy + np.nansum(
             np.abs(ps_lazy[ms_xds_name][data_name] * ps_lazy[ms_xds_name].WEIGHT)
         )
-
-    print(sum)
 
     os.system("rm -rf " + msv2_name)
     os.system("rm -rf " + ps_name)

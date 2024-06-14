@@ -58,6 +58,7 @@ autodoc_type_aliases = {
 # nitpicky = True
 
 intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
     "astropy": ("https://docs.astropy.org/en/stable", None),
     "xarray": ("https://docs.xarray.dev/en/stable", None),
     "dask": ("https://docs.dask.org/en/stable", None),
@@ -65,3 +66,8 @@ intersphinx_mapping = {
 }
 
 add_module_names = False
+
+nbsphinx_allow_errors = True
+
+# Enable syntax highlighting
+pygments_style = "sphinx"

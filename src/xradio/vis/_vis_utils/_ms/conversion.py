@@ -474,7 +474,7 @@ def create_coordinates(
         ref_code=spectral_window_xds["meas_freq_ref"].data,
     )
     xds.frequency.attrs["reference_frequency"] = {
-        "dims": "",
+        "dims": [],
         "data": float(spectral_window_xds.ref_frequency.values),
         "attrs": msv4_measure,
     }
@@ -502,7 +502,7 @@ def create_coordinates(
         msv4_measure["type"] = "quantity"
         msv4_measure["units"] = ["Hz"]
     xds.frequency.attrs["channel_width"] = {
-        "dims": "",
+        "dims": [],
         "data": np.abs(unique_chan_width[0]),
         "attrs": msv4_measure,
     }
@@ -522,7 +522,7 @@ def create_coordinates(
         msv4_measure["type"] = "quantity"
         msv4_measure["units"] = ["s"]
     xds.time.attrs["integration_time"] = {
-        "dims": "",
+        "dims": [],
         "data": interval,
         "attrs": msv4_measure,
     }

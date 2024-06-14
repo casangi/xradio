@@ -9,12 +9,10 @@ from typeguard import check_type, TypeCheckError
 
 from xradio.schema import (
     metamodel,
+    bases,
     xarray_dataclass_to_array_schema,
     xarray_dataclass_to_dataset_schema,
     xarray_dataclass_to_dict_schema,
-    AsDataset,
-    AsDataArray,
-    AsDict,
 )
 
 
@@ -151,7 +149,7 @@ def check_array(
         raise TypeError(
             f"check_array: Expected xarray.DataArray, but got {type(array)}!"
         )
-    if type(schema) == type and issubclass(schema, AsDataArray):
+    if bases.is_dataarray_schema(schema):
         schema = xarray_dataclass_to_array_schema(schema)
     if not isinstance(schema, metamodel.ArraySchema):
         raise TypeError(f"check_array: Expected ArraySchema, but got {type(schema)}!")
@@ -187,7 +185,7 @@ def check_dataset(
         raise TypeError(
             f"check_dataset: Expected xarray.Dataset, but got {type(dataset)}!"
         )
-    if type(schema) == type and issubclass(schema, AsDataset):
+    if bases.is_dataset_schema(schema):
         schema = xarray_dataclass_to_dataset_schema(schema)
     if not isinstance(schema, metamodel.DatasetSchema):
         raise TypeError(
@@ -268,7 +266,7 @@ def check_dimensions(
                 path=[("dims", None)],
                 message=message,
                 found=list(dims),
-                expected=expected,
+                expected=list(expected),
             )
         ]
     )
@@ -302,7 +300,7 @@ def check_dtype(dtype: numpy.dtype, expected: [numpy.dtype]) -> SchemaIssues:
                 path=[("dtype", None)],
                 message="Wrong numpy dtype",
                 found=dtype,
-                expected=expected,
+                expected=list(expected),
             )
         ]
     )
@@ -329,10 +327,18 @@ def check_attributes(
         val = attrs.get(attr_schema.name)
         if val is None:
             if not attr_schema.optional:
+
+                # Get options
+                if typing.get_origin(attr_schema.typ) is typing.Union:
+                    options = typing.get_args(attr_schema.typ)
+                else:
+                    options = [attr_schema.typ]
+
                 issues.add(
                     SchemaIssue(
                         path=[(attr_kind, attr_schema.name)],
                         message=f"Required attribute {attr_schema.name} is missing!",
+                        expected=options,
                     )
                 )
             continue
@@ -405,7 +411,7 @@ def check_dict(
     # Check that this is actually a dictionary
     if not isinstance(dct, dict):
         raise TypeError(f"check_dict: Expected dictionary, but got {type(dct)}!")
-    if type(schema) == type and issubclass(schema, AsDict):
+    if bases.is_dict_schema(schema):
         schema = xarray_dataclass_to_dict_schema(schema)
     if not isinstance(schema, metamodel.DictSchema):
         raise TypeError(f"check_dict: Expected DictSchema, but got {type(schema)}!")
@@ -426,7 +432,7 @@ def _check_value(val, ann):
     """
 
     # Is supposed to be a data array?
-    if type(ann) == type and issubclass(ann, AsDataArray):
+    if bases.is_dataarray_schema(ann):
         # Attempt to convert dictionaries automatically
         if isinstance(val, dict):
             try:
@@ -447,7 +453,7 @@ def _check_value(val, ann):
             return check_array(val, ann)
 
     # Is supposed to be a dataset?
-    if type(ann) == type and issubclass(ann, AsDataset):
+    if bases.is_dataset_schema(ann):
         # Attempt to convert dictionaries automatically
         if isinstance(val, dict):
             try:
@@ -467,7 +473,7 @@ def _check_value(val, ann):
             return check_dataset(val, ann)
 
     # Is supposed to be a dictionary?
-    if type(ann) == type and issubclass(ann, AsDict):
+    if bases.is_dict_schema(ann):
         if not isinstance(val, dict):
             # Fall through to plain type check
             ann = dict
@@ -478,7 +484,6 @@ def _check_value(val, ann):
     try:
         check_type(val, ann)
     except TypeCheckError as t:
-        print(ann)
         return SchemaIssues(
             [SchemaIssue(path=[], message=str(t), expected=[ann], found=type(val))]
         )
@@ -511,7 +516,6 @@ def _check_value_union(val, ann):
     okay = False
     for option in options:
         arg_issues = _check_value(val, option)
-        print(val, option, arg_issues)
         # We can immediately return if we find no issues with
         # some schema check
         if not arg_issues:

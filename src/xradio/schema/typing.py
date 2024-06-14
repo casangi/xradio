@@ -29,16 +29,24 @@ from typing import (
     Protocol,
 )
 
+from typing import Union
+
 try:
+    # Python 3.10 forward: TypeAlias, ParamSpec are standard, and there is the
+    # "a | b" UnionType alternative to "Union[a,b]"
     from typing import TypeAlias, ParamSpec
     from types import UnionType
+
+    HAVE_UNIONTYPE = True
 except ImportError:
-    # Required for Python 3.9
+    # Python 3.9: Get TypeAlias, ParamSpec from typing_extensions, no support
+    # for "a | b"
     from typing_extensions import (
         TypeAlias,
         ParamSpec,
     )
-    from typing import Union as UnionType
+
+    HAVE_UNIONTYPE = False
 import numpy as np
 from itertools import chain
 from enum import Enum
@@ -295,7 +303,9 @@ def get_dims(tp: Any) -> List[Dims]:
         raise TypeError(f"Could not find any dims in {tp!r}.")
 
     # List of allowed dtypes (might just be one)
-    if get_origin(dims) is UnionType:
+    if get_origin(dims) is Union:
+        dims_in = get_args(dims)
+    elif HAVE_UNIONTYPE and get_origin(dims) is UnionType:
         dims_in = get_args(dims)
     else:
         dims_in = [dims]
@@ -338,7 +348,9 @@ def get_types(tp: Any) -> List[AnyDType]:
         raise TypeError(f"Could not find any dtype in {tp!r}.")
 
     # List of allowed dtypes (might just be one)
-    if get_origin(typ) is UnionType:
+    if get_origin(typ) is Union:
+        types_in = get_args(typ)
+    elif HAVE_UNIONTYPE and get_origin(typ) is UnionType:
         types_in = get_args(typ)
     else:
         types_in = [typ]

@@ -10,7 +10,7 @@ __all__ = [
 ]
 
 
-@dataclass
+@dataclass(frozen=True)
 class AttrSchemaRef:
     """
     Schema information about an attribute as referenced from an array or
@@ -35,7 +35,7 @@ class AttrSchemaRef:
     """Documentation string of attribute reference"""
 
 
-@dataclass
+@dataclass(frozen=True)
 class ArraySchema:
     """
     Schema for xarray data array
@@ -84,7 +84,7 @@ class ArraySchema:
         return req_dims
 
 
-@dataclass
+@dataclass(frozen=True)
 class ArraySchemaRef(ArraySchema):
     """
     Schema for xarray data array as referenced from a dataset schema
@@ -103,7 +103,7 @@ class ArraySchemaRef(ArraySchema):
     """Documentation string of array reference"""
 
 
-@dataclass
+@dataclass(frozen=True)
 class DatasetSchema:
     """
     Schema for an xarray dataset
@@ -125,7 +125,7 @@ class DatasetSchema:
     """Documentation string of class"""
 
 
-@dataclass
+@dataclass(frozen=True)
 class DictSchema:
     """
     Schema for a simple dictionary

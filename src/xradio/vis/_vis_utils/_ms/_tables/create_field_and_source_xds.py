@@ -207,7 +207,7 @@ def extract_ephemeris_info(xds, path, table_name):
             ),
             dims=["time", "spherical_dir_label"],
         )
-        
+
         if "DiskLong" in ephemris_column_description:
             units_key_lon = "DiskLong"
             units_key_lat = "DiskLat"
@@ -226,7 +226,9 @@ def extract_ephemeris_info(xds, path, table_name):
                         ]
                     ),
                     cast_to_str(
-                        ephemris_column_description[units_key_lat]["keywords"][unit_keyword]
+                        ephemris_column_description[units_key_lat]["keywords"][
+                            unit_keyword
+                        ]
                     ),
                 ],
             }

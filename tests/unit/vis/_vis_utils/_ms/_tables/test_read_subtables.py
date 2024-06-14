@@ -2,6 +2,7 @@ import pytest
 
 import pandas as pd
 
+
 def test_normalize_time_slice_invalid():
     from xradio.vis._vis_utils._ms._tables.read_subtables import normalize_time_slice
 

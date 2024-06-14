@@ -194,7 +194,9 @@ def test_check_array_wrong_coord():
     )
     assert len(results) == 2
     assert results[0].path == [("dims", None)]
-    assert results[0].found == ["coord2",]
+    assert results[0].found == [
+        "coord2",
+    ]
     assert results[0].expected == [("coord",)]
     assert results[1].path == [("coords", "coord")]
 

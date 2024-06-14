@@ -7,7 +7,7 @@ from botocore.exceptions import NoCredentialsError
 
 
 def _get_ms_stores_and_file_system(ps_store: str):
-    
+
     if os.path.isdir(ps_store):
         # default to assuming the data are accessible on local file system
         items = os.listdir(ps_store)
@@ -22,24 +22,34 @@ def _get_ms_stores_and_file_system(ps_store: str):
         try:
             # initialize the S3 "file system", first attempting to use pre-configured credentials
             file_system = s3fs.S3FileSystem(anon=False, requester_pays=False)
-            items = [bd.split(sep="/")[-1] for bd in file_system.listdir(ps_store, detail=False)]
+            items = [
+                bd.split(sep="/")[-1]
+                for bd in file_system.listdir(ps_store, detail=False)
+            ]
 
         except (NoCredentialsError, PermissionError) as e:
             # only public, read-only buckets will be accessible
             # we will want to add messaging and error handling here
             file_system = s3fs.S3FileSystem(anon=True)
-            items = [bd.split(sep="/")[-1] for bd in file_system.listdir(ps_store, detail=False)]
+            items = [
+                bd.split(sep="/")[-1]
+                for bd in file_system.listdir(ps_store, detail=False)
+            ]
     else:
         raise (
             FileNotFoundError,
             f"Could not find {ps_store} either locally or in the cloud.",
         )
-    
-    items = [item for item in items if not item.startswith('.')] #Mac OS likes to place hidden files in the directory (.DStore).
+
+    items = [
+        item for item in items if not item.startswith(".")
+    ]  # Mac OS likes to place hidden files in the directory (.DStore).
     return file_system, items
 
 
-def _open_dataset(store, file_system=os, xds_isel=None, data_variables=None, load=False):
+def _open_dataset(
+    store, file_system=os, xds_isel=None, data_variables=None, load=False
+):
     """
 
     Parameters
@@ -61,7 +71,7 @@ def _open_dataset(store, file_system=os, xds_isel=None, data_variables=None, loa
 
     import dask
 
-    if  isinstance(file_system, s3fs.core.S3FileSystem):
+    if isinstance(file_system, s3fs.core.S3FileSystem):
         mapping = s3fs.S3Map(root=store, s3=file_system, check=False)
         xds = xr.open_zarr(store=mapping)
     else:

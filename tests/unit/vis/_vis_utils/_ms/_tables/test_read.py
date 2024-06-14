@@ -69,6 +69,7 @@ def test_convert_casacore_time(times, expected_result):
 )
 def test_convert_mjd_time(times, expected_result, request):
     from xradio.vis._vis_utils._ms._tables.read import convert_mjd_time
+
     assert all(convert_mjd_time(times) == expected_result)
 
 

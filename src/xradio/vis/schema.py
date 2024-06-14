@@ -29,7 +29,6 @@ SkyCoordLabel = Literal["sky_coord_label"]
 """ Unlabeled axis """
 
 
-
 # Plain data class models
 @dataclass
 class SourceInfoDict:
@@ -70,7 +69,6 @@ class QuantityArray(AsDataArray):
 
     type: Attr[str]
     units: Attr[list]
-
 
 
 @dataclass
@@ -135,7 +133,6 @@ class EarthLocationArray(AsDataArray):
     """
 
 
-
 @dataclass(frozen=True)
 class ObservationInfoDict(AsDict):
     observer: List[str]
@@ -163,7 +160,6 @@ class ObservationInfoDict(AsDict):
     """ASDM: Logs of the observation during this execu- tion block."""
 
 
-
 # Coordinates / Axes
 @dataclass(frozen=True)
 class TimeArray(AsDataArray):
@@ -187,7 +183,6 @@ class TimeArray(AsDataArray):
     """ Astropy format, see :py:class:`astropy.time.Time`. Default seconds from 1970-01-01 00:00:00 UTC """
     long_name: Optional[Attr[str]] = "Observation Time"
     """ Long-form name to use for axis"""
-
 
 
 @dataclass(frozen=True)

@@ -5,8 +5,10 @@ import graphviper.utils.logger as logger
 from xradio._utils.zarr.common import _open_dataset, _get_ms_stores_and_file_system
 import s3fs
 
+
 def read_processing_set(
-    ps_store: str, intents: list = None, 
+    ps_store: str,
+    intents: list = None,
 ) -> processing_set:
     """Creates a lazy representation of a Processing Set (only meta-data is loaded into memory).
 
@@ -28,7 +30,7 @@ def read_processing_set(
     ps = processing_set()
     data_group = "base"
     for ms_name in ms_store_list:
-        #try:              
+        # try:
         ms_store = os.path.join(ps_store, ms_name)
         ms_main_store = os.path.join(ms_store, "MAIN")
 
@@ -36,24 +38,29 @@ def read_processing_set(
         data_groups = xds.attrs["data_groups"]
 
         if (intents is None) or (xds.attrs["intent"] in intents):
-            sub_xds_dict, field_and_source_xds_dict = _read_sub_xds(ms_store, file_system=file_system, data_groups=data_groups)
-            
+            sub_xds_dict, field_and_source_xds_dict = _read_sub_xds(
+                ms_store, file_system=file_system, data_groups=data_groups
+            )
+
             xds.attrs = {
-                    **xds.attrs,
-                    **sub_xds_dict,
-                }
-            
+                **xds.attrs,
+                **sub_xds_dict,
+            }
+
             for data_group_name, data_group_vals in data_groups.items():
                 if "visibility" in data_group_vals:
-                    xds[data_group_vals['visibility']].attrs['field_and_source_xds'] = field_and_source_xds_dict[data_group_name]
+                    xds[data_group_vals["visibility"]].attrs["field_and_source_xds"] = (
+                        field_and_source_xds_dict[data_group_name]
+                    )
                 elif "spectrum" in data_group_vals:
-                    xds[data_group_vals['spectrum']].attrs['field_and_source_xds'] = field_and_source_xds_dict[data_group_name]
-            
+                    xds[data_group_vals["spectrum"]].attrs["field_and_source_xds"] = (
+                        field_and_source_xds_dict[data_group_name]
+                    )
+
             ps[ms_name] = xds
-        # except Exception as e:  
-        #     logger.warning(f"Could not read {ms_name} due to {e}")  
+        # except Exception as e:
+        #     logger.warning(f"Could not read {ms_name} due to {e}")
         #     continue
-                
 
     return ps
 
@@ -61,32 +68,35 @@ def read_processing_set(
 def _read_sub_xds(ms_store, file_system, data_groups, load=False):
     sub_xds_dict = {}
     field_and_source_xds_dict = {}
-    
+
     xds_names = {
-        "ANTENNA":"antenna_xds",
-        "WEATHER":"weather_xds",
-        "POINTING":"pointing_xds",
+        "ANTENNA": "antenna_xds",
+        "WEATHER": "weather_xds",
+        "POINTING": "pointing_xds",
     }
-    
-    if  isinstance(file_system, s3fs.core.S3FileSystem):
-        file_names = [bd.split(sep="/")[-1] for bd in file_system.listdir(ms_store, detail=False)]
+
+    if isinstance(file_system, s3fs.core.S3FileSystem):
+        file_names = [
+            bd.split(sep="/")[-1] for bd in file_system.listdir(ms_store, detail=False)
+        ]
     else:
         file_names = file_system.listdir(ms_store)
-    file_names = [item for item in file_names if not item.startswith('.')]
-        
+    file_names = [item for item in file_names if not item.startswith(".")]
+
     file_names.remove("MAIN")
-        
+
     field_dict = {"FIELD_AND_SOURCE_" + key.upper(): key for key in data_groups.keys()}
-        
+
     # field_and_source_xds_name_start = "FIELD"
     for n in file_names:
-        xds = _open_dataset(os.path.join(ms_store, n), load=load, file_system=file_system)
+        xds = _open_dataset(
+            os.path.join(ms_store, n), load=load, file_system=file_system
+        )
         if n in field_dict.keys():
             field_and_source_xds_dict[field_dict[n]] = xds
         else:
             sub_xds_dict[xds_names[n]] = xds
-            
-    
+
     return sub_xds_dict, field_and_source_xds_dict
 
 

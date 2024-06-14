@@ -49,13 +49,20 @@ def load_processing_set(
         ms_main_store = os.path.join(ms_store, "MAIN")
 
         xds = _open_dataset(
-            ms_main_store, file_system, ms_xds_isel, data_variables, load=True,
+            ms_main_store,
+            file_system,
+            ms_xds_isel,
+            data_variables,
+            load=True,
         )
         data_groups = xds.attrs["data_groups"]
 
         if load_sub_datasets:
             from xradio.vis.read_processing_set import _read_sub_xds
-            sub_xds_dict, field_and_source_xds_dict = _read_sub_xds(ms_store, file_system=file_system, load=True, data_groups=data_groups)
+
+            sub_xds_dict, field_and_source_xds_dict = _read_sub_xds(
+                ms_store, file_system=file_system, load=True, data_groups=data_groups
+            )
 
             xds.attrs = {
                 **xds.attrs,
@@ -63,13 +70,18 @@ def load_processing_set(
             }
             for data_group_name, data_group_vals in data_groups.items():
                 if "visibility" in data_group_vals:
-                    xds[data_group_vals['visibility']].attrs['field_and_source_xds'] = field_and_source_xds_dict[data_group_name]
+                    xds[data_group_vals["visibility"]].attrs["field_and_source_xds"] = (
+                        field_and_source_xds_dict[data_group_name]
+                    )
                 elif "spectrum" in data_group_vals:
-                    xds[data_group_vals['spectrum']].attrs['field_and_source_xds'] = field_and_source_xds_dict[data_group_name]
+                    xds[data_group_vals["spectrum"]].attrs["field_and_source_xds"] = (
+                        field_and_source_xds_dict[data_group_name]
+                    )
 
         ps[ms_name] = xds
-        
+
     return ps
+
 
 class processing_set_iterator:
 

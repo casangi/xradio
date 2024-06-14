@@ -11,7 +11,9 @@ import xarray as xr
 
 from casacore import tables
 from .msv4_sub_xdss import create_ant_xds, create_pointing_xds, create_weather_xds
-from xradio.vis._vis_utils._ms._tables.create_field_and_source_xds import create_field_and_source_xds
+from xradio.vis._vis_utils._ms._tables.create_field_and_source_xds import (
+    create_field_and_source_xds,
+)
 from .msv2_to_msv4_meta import (
     column_description_casacore_to_msv4_measure,
     create_attribute_metadata,
@@ -461,13 +463,15 @@ def create_coordinates(
     ]
 
     msv4_measure = column_description_casacore_to_msv4_measure(
-        freq_column_description["CHAN_FREQ"], ref_code=spectral_window_xds["meas_freq_ref"].data
+        freq_column_description["CHAN_FREQ"],
+        ref_code=spectral_window_xds["meas_freq_ref"].data,
     )
     xds.frequency.attrs.update(msv4_measure)
 
     xds.frequency.attrs["spectral_window_name"] = str(spectral_window_xds.name.values)
     msv4_measure = column_description_casacore_to_msv4_measure(
-        freq_column_description["REF_FREQUENCY"], ref_code=spectral_window_xds["meas_freq_ref"].data
+        freq_column_description["REF_FREQUENCY"],
+        ref_code=spectral_window_xds["meas_freq_ref"].data,
     )
     xds.frequency.attrs["reference_frequency"] = {
         "dims": "",
@@ -482,14 +486,17 @@ def create_coordinates(
     # xds.frequency.attrs["doppler_type"] =
 
     unique_chan_width = unique_1d(
-        spectral_window_xds.chan_width.data[np.logical_not(np.isnan(spectral_window_xds.chan_width.data))]
+        spectral_window_xds.chan_width.data[
+            np.logical_not(np.isnan(spectral_window_xds.chan_width.data))
+        ]
     )
     # assert len(unique_chan_width) == 1, "Channel width varies for spectral_window."
     # xds.frequency.attrs["channel_width"] = spectral_window_xds.chan_width.data[
     #    ~(np.isnan(spectral_window_xds.chan_width.data))
     # ]  # unique_chan_width[0]
     msv4_measure = column_description_casacore_to_msv4_measure(
-        freq_column_description["CHAN_WIDTH"], ref_code=spectral_window_xds["meas_freq_ref"].data
+        freq_column_description["CHAN_WIDTH"],
+        ref_code=spectral_window_xds["meas_freq_ref"].data,
     )
     if not msv4_measure:
         msv4_measure["type"] = "quantity"
@@ -655,9 +662,7 @@ def convert_and_write_partition(
         _description_
     """
 
-    taql_where = create_taql_query(
-        state_ids, field_id, ddi
-    )
+    taql_where = create_taql_query(state_ids, field_id, ddi)
 
     start = time.time()
     with open_table_ro(in_file) as mtable:
@@ -770,7 +775,6 @@ def convert_and_write_partition(
                     "weight": "WEIGHT",
                     "uvw": "UVW",
                 }
-                
 
             if "SPECTRUM" in xds:
                 xds.attrs["data_groups"]["base"] = {
@@ -780,7 +784,6 @@ def convert_and_write_partition(
                     "uvw": "UVW",
                 }
 
-
             if "SPECTRUM_CORRECTED" in xds:
                 xds.attrs["data_groups"]["corrected"] = {
                     "spectrum": "SPECTRUM_CORRECTED",
@@ -789,16 +792,22 @@ def convert_and_write_partition(
                     "uvw": "UVW",
                 }
 
-            #Create field_and_source_xds (combines field, source and ephemeris data into one super dataset)
-            field_and_source_xds = create_field_and_source_xds(in_file, field_id, xds.frequency.attrs["spectral_window_id"])
+            # Create field_and_source_xds (combines field, source and ephemeris data into one super dataset)
+            field_and_source_xds = create_field_and_source_xds(
+                in_file, field_id, xds.frequency.attrs["spectral_window_id"]
+            )
             # Fix UVW frame
             # From CASA fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking center. calcuvw does not yet force the UVW column and field centers to use the same reference frame! Blank = use the phase tracking frame of vis.
-            #print('##################',field_and_source_xds)
-            if 'FIELD_PHASE_CENTER' in field_and_source_xds:
-                xds.UVW.attrs["frame"] = field_and_source_xds['FIELD_PHASE_CENTER'].attrs["frame"]
+            # print('##################',field_and_source_xds)
+            if "FIELD_PHASE_CENTER" in field_and_source_xds:
+                xds.UVW.attrs["frame"] = field_and_source_xds[
+                    "FIELD_PHASE_CENTER"
+                ].attrs["frame"]
             else:
-                xds.UVW.attrs["frame"] = field_and_source_xds['FIELD_PHASE_CENTER_OFFSET'].attrs["frame"]
-            
+                xds.UVW.attrs["frame"] = field_and_source_xds[
+                    "FIELD_PHASE_CENTER_OFFSET"
+                ].attrs["frame"]
+
             if overwrite:
                 mode = "w"
             else:
@@ -807,20 +816,29 @@ def convert_and_write_partition(
             main_chunksize = parse_chunksize(main_chunksize, "main", xds)
             add_encoding(xds, compressor=compressor, chunks=main_chunksize)
             logger.debug("Time add compressor and chunk " + str(time.time() - start))
-            
-            file_name = os.path.join(out_file,out_file.replace(".vis.zarr", "").replace(".zarr","").split("/")[-1] + "_" + str(ms_v4_id))
-  
+
+            file_name = os.path.join(
+                out_file,
+                out_file.replace(".vis.zarr", "").replace(".zarr", "").split("/")[-1]
+                + "_"
+                + str(ms_v4_id),
+            )
+
             start = time.time()
             if storage_backend == "zarr":
-                xds.to_zarr(store=os.path.join(file_name,"MAIN"), mode=mode)
+                xds.to_zarr(store=os.path.join(file_name, "MAIN"), mode=mode)
                 ant_xds.to_zarr(store=os.path.join(file_name, "ANTENNA"), mode=mode)
-                field_and_source_xds.to_zarr(store=os.path.join(file_name, "FIELD_AND_SOURCE_BASE"), mode=mode)
-                
+                field_and_source_xds.to_zarr(
+                    store=os.path.join(file_name, "FIELD_AND_SOURCE_BASE"), mode=mode
+                )
+
                 if with_pointing:
                     pointing_xds.to_zarr(store=file_name + "/POINTING", mode=mode)
 
                 if weather_xds:
-                    weather_xds.to_zarr(store=os.path.join(file_name, "WEATHER"), mode=mode)
+                    weather_xds.to_zarr(
+                        store=os.path.join(file_name, "WEATHER"), mode=mode
+                    )
 
             elif storage_backend == "netcdf":
                 # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
@@ -828,20 +846,3 @@ def convert_and_write_partition(
             logger.debug("Write data  " + str(time.time() - start))
 
     # logger.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
-    
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-   
-
-    
-    

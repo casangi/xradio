@@ -64,16 +64,12 @@ def convert_msv2_to_processing_set(
         logger.debug(
             "DDI " + str(ddi) + ", STATE " + str(state_id) + ", FIELD " + str(field_id)
         )
-        
-        # print("DDI " + str(ddi) + ", STATE " + str(state_id) + ", FIELD " + str(field_id)  )
-        # #DDI 0, STATE [19], FIELD 2
-        
-        # if ddi==0 and state_id[0]==19 and field_id==2:
+
         if partition_scheme == "ddi_intent_field":
             intent = intents[idx[1]]
         else:
             intent = intents[idx[1]] + "_" + str(state_id)
-            
+
         if parallel:
             delayed_list.append(
                 dask.delayed(convert_and_write_partition)(

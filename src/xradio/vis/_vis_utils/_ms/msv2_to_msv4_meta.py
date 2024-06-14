@@ -98,10 +98,11 @@ def column_description_casacore_to_msv4_measure(
         if msv4_measure["type"] == "time":
             msv4_measure["format"] = "UNIX"
     elif "QuantumUnits" in casacore_column_description["keywords"]:
-        msv4_measure = {'type':'quantity', 'units':list(
-            casacore_column_description["keywords"]["QuantumUnits"]
-        )}
-        
+        msv4_measure = {
+            "type": "quantity",
+            "units": list(casacore_column_description["keywords"]["QuantumUnits"]),
+        }
+
     return msv4_measure
 
 

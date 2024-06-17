@@ -1,6 +1,6 @@
 import graphviper.utils.logger as logger
 import time
-from typing import Union
+from typing import Tuple, Union
 
 import numpy as np
 import xarray as xr
@@ -215,8 +215,30 @@ def create_weather_xds(in_file: str):
     return weather_xds
 
 
+def make_taql_min_max_times(max_min: Tuple[np.int64, np.int64]) -> Union[str, None]:
+    """
+    From a numerical min/max, produce a TaQL string to select between those
+    min/max times in a POINTING subtable.
+
+    Parameters
+    ----------
+    max_min : Tuple[np.int64, np.int64]
+        min / max time values
+
+    Returns
+    -------
+    taql_where : str
+        TaQL (sub)string with the min/max time 'where' constraint
+    """
+    (time_min, time_max) = max_min
+    taql = f"where TIME >= {time_min} AND TIME <= {time_max}"
+    return taql
+
+
 def create_pointing_xds(
-    in_file: str, taql_where: str, interp_time: Union[xr.DataArray, None] = None
+    in_file: str,
+    time_min_max: Union[Tuple[np.int64, np.int64], None],
+    interp_time: Union[xr.DataArray, None] = None,
 ) -> xr.Dataset:
     """
     Creates a Pointing Xarray Dataset from an MS v2 POINTING (sub)table.
@@ -228,8 +250,8 @@ def create_pointing_xds(
     ----------
     in_file : str
         Input MS name.
-    taql_where : str
-        TaQL where string to constrain TIME, etc.
+    time_min_max : tuple
+        min / max times values to constrain loading (from the TIME column)
     interp_time : Union[xr.DataArray, None] (Default value = None)
         interpolate time to this (presumably main dataset time)
 
@@ -271,6 +293,7 @@ def create_pointing_xds(
     to_new_coord_names = {"ra/dec": "direction"}
     coord_dims = {}
 
+    taql_where = make_taql_min_max_times(time_min_max)
     # Read POINTING table into a Xarray Dataset.
     generic_pointing_xds = read_generic_table(
         in_file,

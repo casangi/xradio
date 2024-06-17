@@ -1,12 +1,18 @@
+import os
+from typing import Tuple, Union
+
 from xradio.vis._vis_utils._ms.msv2_to_msv4_meta import (
     column_description_casacore_to_msv4_measure,
 )
 from xradio.vis._vis_utils._ms.subtables import subt_rename_ids
-from xradio.vis._vis_utils._ms._tables.read import read_generic_table
+from xradio.vis._vis_utils._ms._tables.read import (
+    convert_casacore_time_to_mjd,
+    read_generic_table,
+)
+from xradio.vis._vis_utils._ms._tables.table_query import open_table_ro
 import graphviper.utils.logger as logger
 import numpy as np
 import xarray as xr
-import os
 
 
 def cast_to_str(x):
@@ -16,7 +22,55 @@ def cast_to_str(x):
         return x
 
 
-def create_field_and_source_xds(in_file, field_id, spectral_window_id):
+def make_taql_min_max_times_mjd(
+    time_min_max: Tuple[np.int64, np.int64], path: str, ephem_table_name: str
+) -> Union[str, None]:
+    """
+    Produce a TaQL string to constrain loading of rows (MJD column from EPHEM*
+    tables).
+
+    The time interval of the MJD column is often very coarse (for example 20min)
+    and there might not be any rows within the range of one MSv4 (one
+    field-intent/scan). So at a minimum try to take the two MJD-time points around
+    the range of times of the msv4.
+
+    Parameters
+    ----------
+    min_max : Tuple[np.int64, np.int64]
+        min / max time values (in raw casacore time epoch and units, as in the
+        main table TIME column.
+    path : str
+        The path to the input ephem table (not including basename).
+    ephem_table_name : str
+        The name of the ephemeris table.
+
+    Returns
+    -------
+    taql_where : Union[str, None]
+        TaQL (sub)string with the min/max MJD 'where' constraint for EPHEM tables
+    """
+
+    with open_table_ro(os.path.join(path, ephem_table_name)) as tb_tool:
+        if tb_tool.nrows() == 0:
+            return None
+
+        mjd = tb_tool.getcol("MJD")
+
+    sorted_mjd = np.sort(mjd)
+    (min_time, max_time) = time_min_max
+    min_mjd_days = convert_casacore_time_to_mjd(min_time)
+    max_mjd_days = convert_casacore_time_to_mjd(max_time)
+
+    min_mjd = max(0, np.searchsorted(sorted_mjd, min_mjd_days, side="left") - 1)
+    max_mjd = np.searchsorted(sorted_mjd, max_mjd_days, side="right")
+
+    taql = f"where MJD >= {sorted_mjd[min_mjd]} AND MJD <= {sorted_mjd[max_mjd]}"
+    return taql
+
+
+def create_field_and_source_xds(
+    in_file, field_id, spectral_window_id, time_min_max: Tuple[np.int64, np.int64]
+):
     """
     Create a field and source xarray dataset (xds) from the given input file, field ID, and spectral window ID.
 
@@ -28,6 +82,8 @@ def create_field_and_source_xds(in_file, field_id, spectral_window_id):
         The ID of the field.
     spectral_window_id : int
         The ID of the spectral window.
+    time_min_max: Tuple[np.int64, np.int64]
+        Min / max times to constrain loading (usually to the time range relevant to an MSv4)
 
     Returns:
     -------
@@ -44,7 +100,7 @@ def create_field_and_source_xds(in_file, field_id, spectral_window_id):
 
     if ephemeris_path is not None:
         field_and_source_xds = extract_ephemeris_info(
-            field_and_source_xds, ephemeris_path, ephemeris_table_name
+            field_and_source_xds, ephemeris_path, ephemeris_table_name, time_min_max
         )
         field_and_source_xds = extract_source_info(
             field_and_source_xds, in_file, True, source_id, spectral_window_id
@@ -57,7 +113,9 @@ def create_field_and_source_xds(in_file, field_id, spectral_window_id):
     return field_and_source_xds
 
 
-def extract_ephemeris_info(xds, path, table_name):
+def extract_ephemeris_info(
+    xds, path, table_name, time_min_max: Tuple[np.int64, np.int64]
+):
     """
     Extracts ephemeris information from the given path and table name and adds it to the xarray dataset.
 
@@ -69,6 +127,8 @@ def extract_ephemeris_info(xds, path, table_name):
         The path to the input file.
     table_name : str
         The name of the ephemeris table.
+    time_min_max : Tuple[np.int64, np.int64]
+        Min / max times to constrain loading (usually to the time range relevant to an MSv4)
 
     Returns:
     -------
@@ -79,7 +139,10 @@ def extract_ephemeris_info(xds, path, table_name):
     # Consequently a lot of hardcoding is needed to extract the information.
     # https://casadocs.readthedocs.io/en/latest/notebooks/external-data.html
 
-    ephemeris_xds = read_generic_table(path, table_name, timecols=["MJD"])
+    taql_time_range = make_taql_min_max_times_mjd(time_min_max, path, table_name)
+    ephemeris_xds = read_generic_table(
+        path, table_name, timecols=["MJD"], taql_where=taql_time_range
+    )
 
     # print(ephemeris_xds)
 

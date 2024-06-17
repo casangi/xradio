@@ -530,9 +530,14 @@ def create_coordinates(
     return xds
 
 
-def find_min_max_times_taql(tb_tool: tables.table, taql_where: str) -> str:
+def find_min_max_times(tb_tool: tables.table, taql_where: str) -> tuple:
     """
     Find the min/max times in an MSv4, for constraining pointing.
+
+    To avoid numerical comparison issues (leaving out some times at the edges),
+    it substracts/adds a tolerance from/to the min and max values. The tolerance
+    is a fraction of the difference between times / interval of the MS (see
+    get_utimes_tol()).
 
     Parameters
     ----------
@@ -540,18 +545,17 @@ def find_min_max_times_taql(tb_tool: tables.table, taql_where: str) -> str:
         table (query) opened with an MSv4 query
 
     taql_where : str
-        TaQL where for this MSv4
+        TaQL where that defines the partition of this MSv4
 
     Returns
     -------
-    str
-        TaQL string with the min/max time where constraint
+    tuple
+        min/max times (raw time values from the Msv2 table)
     """
     utimes, tol = get_utimes_tol(tb_tool, taql_where)
     time_min = utimes.min() - tol
     time_max = utimes.max() + tol
-    taql = f"where TIME >= {time_min} AND TIME <= {time_max}"
-    return taql
+    return (time_min, time_max)
 
 
 def create_data_variables(
@@ -725,15 +729,17 @@ def convert_and_write_partition(
             weather_xds = create_weather_xds(in_file)
             logger.debug("Time weather " + str(time.time() - start))
 
+            # To constrain the time range to load (in pointing, ephemerides data_vars)
+            time_min_max = find_min_max_times(tb_tool, taql_where)
+
             if with_pointing:
                 start = time.time()
-                taql_pointing = find_min_max_times_taql(tb_tool, taql_where)
                 if pointing_interpolate:
                     pointing_interp_time = xds.time
                 else:
                     pointing_interp_time = None
                 pointing_xds = create_pointing_xds(
-                    in_file, taql_pointing, pointing_interp_time
+                    in_file, time_min_max, pointing_interp_time
                 )
                 pointing_chunksize = parse_chunksize(
                     pointing_chunksize, "pointing", pointing_xds
@@ -794,7 +800,10 @@ def convert_and_write_partition(
 
             # Create field_and_source_xds (combines field, source and ephemeris data into one super dataset)
             field_and_source_xds = create_field_and_source_xds(
-                in_file, field_id, xds.frequency.attrs["spectral_window_id"]
+                in_file,
+                field_id,
+                xds.frequency.attrs["spectral_window_id"],
+                time_min_max,
             )
             # Fix UVW frame
             # From CASA fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking center. calcuvw does not yet force the UVW column and field centers to use the same reference frame! Blank = use the phase tracking frame of vis.

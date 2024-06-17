@@ -76,6 +76,25 @@ def convert_mjd_time(rawtimes: np.ndarray) -> np.ndarray:
     return times_reref
 
 
+def convert_casacore_time_to_mjd(rawtimes: np.ndarray) -> np.ndarray:
+    """
+    From CASA/casacore time (as used in the TIME column of the main table) to MJD
+    (as used in the EPHEMi*.tab ephemeris tables). As the epochs are the same, this
+    is just a conversion of units.
+
+    Parameters
+    ----------
+    rawtimes : np.ndarray
+        times from a TIME column (seconds, casacore time epoch)
+
+    Returns
+    -------
+    np.ndarray
+        times converted to (ephemeris) MJD (days since casacore time epoch (1858-11-17))
+    """
+    return rawtimes / SECS_IN_DAY
+
+
 def extract_table_attributes(infile: str) -> Dict[str, Dict]:
     """
     Return a dictionary of table attributes created from MS keywords and column descriptions
@@ -391,7 +410,7 @@ def read_generic_table(
         list of column names to ignore and not try to read.
     rename_ids : Dict[str, str] (Default value = None)
         dict with dimension renaming mapping
-    taql_where : str
+    taql_where : str (Default value = None)
          TaQL string to optionally constain the rows/columns to read
          (Default value = None)
 

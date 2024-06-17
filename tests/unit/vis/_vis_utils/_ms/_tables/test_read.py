@@ -73,6 +73,24 @@ def test_convert_mjd_time(times, expected_result, request):
     assert all(convert_mjd_time(times) == expected_result)
 
 
+@pytest.mark.parametrize(
+    "times, expected_result",
+    [
+        (np.array([5.123456789e09]), np.array([59299.268391])),
+        (
+            np.array([5.05366344e09, 5.05366345e09, 5.05366369e09, 5.05366426e09]),
+            np.array([58491.475, 58491.47511574, 58491.47789352, 58491.48449074]),
+        ),
+    ],
+)
+def test_convert_casacore_time_to_mjd(times, expected_result):
+    from xradio.vis._vis_utils._ms._tables.read import convert_casacore_time_to_mjd
+
+    np.testing.assert_array_almost_equal(
+        convert_casacore_time_to_mjd(times), expected_result
+    )
+
+
 def test_extract_table_attributes_main(ms_minimal_required):
     from xradio.vis._vis_utils._ms._tables.read import extract_table_attributes
 

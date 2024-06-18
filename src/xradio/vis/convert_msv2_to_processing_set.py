@@ -18,6 +18,7 @@ def convert_msv2_to_processing_set(
     with_pointing: bool = True,
     pointing_chunksize: Union[Dict, float, None] = None,
     pointing_interpolate: bool = False,
+    ephemeris_interpolate: bool = False,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend="zarr",
     parallel: bool = False,
@@ -43,6 +44,8 @@ def convert_msv2_to_processing_set(
         Defines the chunk size of the pointing dataset. If given as a dictionary, defines the sizes of several dimensions, acceptable keys are "time" and "antenna_id". If given as a float, defines the size of a chunk in GiB. By default, None.
     pointing_interpolate : bool, optional
         Whether to interpolate the time axis of the pointing sub-dataset to the time axis of the main dataset
+    ephemeris_interpolate : bool, optional
+        Whether to interpolate the time axis of the ephemeris data variables (of the field_and_source sub-dataset) to the time axis of the main dataset
     compressor : numcodecs.abc.Codec, optional
         The Blosc compressor to use when saving the converted data to disk using Zarr, by default numcodecs.Zstd(level=2).
     storage_backend : {"zarr", "netcdf"}, optional
@@ -84,6 +87,7 @@ def convert_msv2_to_processing_set(
                     with_pointing=with_pointing,
                     pointing_chunksize=pointing_chunksize,
                     pointing_interpolate=pointing_interpolate,
+                    ephemeris_interpolate=ephemeris_interpolate,
                     compressor=compressor,
                     overwrite=overwrite,
                 )
@@ -101,6 +105,7 @@ def convert_msv2_to_processing_set(
                 with_pointing=with_pointing,
                 pointing_chunksize=pointing_chunksize,
                 pointing_interpolate=pointing_interpolate,
+                ephemeris_interpolate=ephemeris_interpolate,
                 compressor=compressor,
                 storage_backend=storage_backend,
                 overwrite=overwrite,

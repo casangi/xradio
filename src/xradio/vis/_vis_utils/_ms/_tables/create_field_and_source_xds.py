@@ -1,9 +1,14 @@
 import os
+import time
 from typing import Tuple, Union
+
+import numpy as np
+import xarray as xr
 
 from xradio.vis._vis_utils._ms.msv2_to_msv4_meta import (
     column_description_casacore_to_msv4_measure,
 )
+from xradio.vis._vis_utils._ms.msv4_sub_xdss import interpolate_to_time
 from xradio.vis._vis_utils._ms.subtables import subt_rename_ids
 from xradio.vis._vis_utils._ms._tables.read import (
     convert_casacore_time_to_mjd,
@@ -11,8 +16,6 @@ from xradio.vis._vis_utils._ms._tables.read import (
 )
 from xradio.vis._vis_utils._ms._tables.table_query import open_table_ro
 import graphviper.utils.logger as logger
-import numpy as np
-import xarray as xr
 
 
 def cast_to_str(x):
@@ -36,13 +39,13 @@ def make_taql_min_max_times_mjd(
 
     Parameters
     ----------
-    min_max : Tuple[np.int64, np.int64]
+    time_min_max : Tuple[np.int64, np.int64]
         min / max time values (in raw casacore time epoch and units, as in the
         main table TIME column.
     path : str
         The path to the input ephem table (not including basename).
     ephem_table_name : str
-        The name of the ephemeris table.
+        Name of the ephemeris table.
 
     Returns
     -------
@@ -69,7 +72,11 @@ def make_taql_min_max_times_mjd(
 
 
 def create_field_and_source_xds(
-    in_file, field_id, spectral_window_id, time_min_max: Tuple[np.int64, np.int64]
+    in_file,
+    field_id,
+    spectral_window_id,
+    time_min_max: Tuple[np.int64, np.int64],
+    ephemeris_interp_time: Union[xr.DataArray, None] = None,
 ):
     """
     Create a field and source xarray dataset (xds) from the given input file, field ID, and spectral window ID.
@@ -82,14 +89,18 @@ def create_field_and_source_xds(
         The ID of the field.
     spectral_window_id : int
         The ID of the spectral window.
-    time_min_max: Tuple[np.int64, np.int64]
+    time_min_max : Tuple[np.int64, np.int64]
         Min / max times to constrain loading (usually to the time range relevant to an MSv4)
+    ephemeris_interp_time : Union[xr.DataArray, None]
+        Time axis to interpolate the ephemeris data vars to (usually main MSv4 time)
 
     Returns:
     -------
     field_and_source_xds : xr.Dataset
         The xarray dataset containing the field and source information.
     """
+
+    start_time = time.time()
 
     field_and_source_xds = xr.Dataset()
 
@@ -100,7 +111,11 @@ def create_field_and_source_xds(
 
     if ephemeris_path is not None:
         field_and_source_xds = extract_ephemeris_info(
-            field_and_source_xds, ephemeris_path, ephemeris_table_name, time_min_max
+            field_and_source_xds,
+            ephemeris_path,
+            ephemeris_table_name,
+            time_min_max,
+            ephemeris_interp_time,
         )
         field_and_source_xds = extract_source_info(
             field_and_source_xds, in_file, True, source_id, spectral_window_id
@@ -110,11 +125,19 @@ def create_field_and_source_xds(
             field_and_source_xds, in_file, False, source_id, spectral_window_id
         )
 
+    logger.debug(
+        f"create_field_and_source_xds() execution time {time.time() - start_time:0.2f} s"
+    )
+
     return field_and_source_xds
 
 
 def extract_ephemeris_info(
-    xds, path, table_name, time_min_max: Tuple[np.int64, np.int64]
+    xds,
+    path,
+    table_name,
+    time_min_max: Tuple[np.int64, np.int64],
+    interp_time: Union[xr.DataArray, None],
 ):
     """
     Extracts ephemeris information from the given path and table name and adds it to the xarray dataset.
@@ -129,6 +152,8 @@ def extract_ephemeris_info(
         The name of the ephemeris table.
     time_min_max : Tuple[np.int64, np.int64]
         Min / max times to constrain loading (usually to the time range relevant to an MSv4)
+    ephemeris_interp_time : Union[xr.DataArray, None]
+        Time axis to interpolate the data vars to (usually main MSv4 time)
 
     Returns:
     -------
@@ -362,6 +387,8 @@ def extract_ephemeris_info(
     xds["time"].attrs.update(
         {"type": "time", "units": ["s"], "scale": "UTC", "format": "UNIX"}
     )
+
+    xds = interpolate_to_time(xds, interp_time, "field_and_source_xds")
 
     return xds
 

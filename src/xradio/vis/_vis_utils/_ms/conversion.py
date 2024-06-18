@@ -625,6 +625,7 @@ def convert_and_write_partition(
     with_pointing: bool = True,
     pointing_chunksize: Union[Dict, float, None] = None,
     pointing_interpolate: bool = False,
+    ephemeris_interpolate: bool = False,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend="zarr",
     overwrite: bool = False,
@@ -652,6 +653,8 @@ def convert_and_write_partition(
     pointing_chunksize : Union[Dict, float, None], optional
         _description_, by default None
     pointing_interpolate : bool, optional
+        _description_, by default None
+    ephemeris_interpolate : bool, optional
         _description_, by default None
     compressor : numcodecs.abc.Codec, optional
         _description_, by default numcodecs.Zstd(level=2)
@@ -799,11 +802,16 @@ def convert_and_write_partition(
                 }
 
             # Create field_and_source_xds (combines field, source and ephemeris data into one super dataset)
+            if pointing_interpolate:
+                ephemeris_interp_time = xds.time
+            else:
+                ephemeris_interp_time = None
             field_and_source_xds = create_field_and_source_xds(
                 in_file,
                 field_id,
                 xds.frequency.attrs["spectral_window_id"],
                 time_min_max,
+                ephemeris_interp_time,
             )
             # Fix UVW frame
             # From CASA fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking center. calcuvw does not yet force the UVW column and field centers to use the same reference frame! Blank = use the phase tracking frame of vis.

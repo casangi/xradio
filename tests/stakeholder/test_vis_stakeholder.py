@@ -29,6 +29,8 @@ def base_test(msv2_name, expected_sum_value):
         partition_scheme="ddi_intent_field",
         main_chunksize=0.01,
         pointing_chunksize=0.00001,
+        pointing_interpolate=True,
+        ephemeris_interpolate=True,
         overwrite=True,
     )
 

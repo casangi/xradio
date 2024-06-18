@@ -12,6 +12,7 @@ from xradio.vis._vis_utils._ms.msv4_sub_xdss import interpolate_to_time
 from xradio.vis._vis_utils._ms.subtables import subt_rename_ids
 from xradio.vis._vis_utils._ms._tables.read import (
     convert_casacore_time_to_mjd,
+    make_taql_where_between_min_max,
     read_generic_table,
 )
 from xradio.vis._vis_utils._ms._tables.table_query import open_table_ro
@@ -25,57 +26,11 @@ def cast_to_str(x):
         return x
 
 
-def make_taql_min_max_times_mjd(
-    time_min_max: Tuple[np.int64, np.int64], path: str, ephem_table_name: str
-) -> Union[str, None]:
-    """
-    Produce a TaQL string to constrain loading of rows (MJD column from EPHEM*
-    tables).
-
-    The time interval of the MJD column is often very coarse (for example 20min)
-    and there might not be any rows within the range of one MSv4 (one
-    field-intent/scan). So at a minimum try to take the two MJD-time points around
-    the range of times of the msv4.
-
-    Parameters
-    ----------
-    time_min_max : Tuple[np.int64, np.int64]
-        min / max time values (in raw casacore time epoch and units, as in the
-        main table TIME column.
-    path : str
-        The path to the input ephem table (not including basename).
-    ephem_table_name : str
-        Name of the ephemeris table.
-
-    Returns
-    -------
-    taql_where : Union[str, None]
-        TaQL (sub)string with the min/max MJD 'where' constraint for EPHEM tables
-    """
-
-    with open_table_ro(os.path.join(path, ephem_table_name)) as tb_tool:
-        if tb_tool.nrows() == 0:
-            return None
-
-        mjd = tb_tool.getcol("MJD")
-
-    sorted_mjd = np.sort(mjd)
-    (min_time, max_time) = time_min_max
-    min_mjd_days = convert_casacore_time_to_mjd(min_time)
-    max_mjd_days = convert_casacore_time_to_mjd(max_time)
-
-    min_mjd = max(0, np.searchsorted(sorted_mjd, min_mjd_days, side="left") - 1)
-    max_mjd = np.searchsorted(sorted_mjd, max_mjd_days, side="right")
-
-    taql = f"where MJD >= {sorted_mjd[min_mjd]} AND MJD <= {sorted_mjd[max_mjd]}"
-    return taql
-
-
 def create_field_and_source_xds(
     in_file,
     field_id,
     spectral_window_id,
-    time_min_max: Tuple[np.int64, np.int64],
+    time_min_max: Tuple[np.float64, np.float64],
     ephemeris_interp_time: Union[xr.DataArray, None] = None,
 ):
     """
@@ -89,7 +44,7 @@ def create_field_and_source_xds(
         The ID of the field.
     spectral_window_id : int
         The ID of the spectral window.
-    time_min_max : Tuple[np.int64, np.int64]
+    time_min_max : Tuple[np.float64, np.float46]
         Min / max times to constrain loading (usually to the time range relevant to an MSv4)
     ephemeris_interp_time : Union[xr.DataArray, None]
         Time axis to interpolate the ephemeris data vars to (usually main MSv4 time)
@@ -136,7 +91,7 @@ def extract_ephemeris_info(
     xds,
     path,
     table_name,
-    time_min_max: Tuple[np.int64, np.int64],
+    time_min_max: Tuple[np.float64, np.float64],
     interp_time: Union[xr.DataArray, None],
 ):
     """
@@ -150,7 +105,7 @@ def extract_ephemeris_info(
         The path to the input file.
     table_name : str
         The name of the ephemeris table.
-    time_min_max : Tuple[np.int64, np.int64]
+    time_min_max : Tuple[np.float46, np.float64]
         Min / max times to constrain loading (usually to the time range relevant to an MSv4)
     ephemeris_interp_time : Union[xr.DataArray, None]
         Time axis to interpolate the data vars to (usually main MSv4 time)
@@ -164,7 +119,13 @@ def extract_ephemeris_info(
     # Consequently a lot of hardcoding is needed to extract the information.
     # https://casadocs.readthedocs.io/en/latest/notebooks/external-data.html
 
-    taql_time_range = make_taql_min_max_times_mjd(time_min_max, path, table_name)
+    min_max_mjd = (
+        convert_casacore_time_to_mjd(time_min_max[0]),
+        convert_casacore_time_to_mjd(time_min_max[1]),
+    )
+    taql_time_range = make_taql_where_between_min_max(
+        min_max_mjd, path, table_name, "MJD"
+    )
     ephemeris_xds = read_generic_table(
         path, table_name, timecols=["MJD"], taql_where=taql_time_range
     )

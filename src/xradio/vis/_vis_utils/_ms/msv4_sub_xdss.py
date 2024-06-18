@@ -7,7 +7,7 @@ import xarray as xr
 
 from .msv2_to_msv4_meta import column_description_casacore_to_msv4_measure
 from .subtables import subt_rename_ids
-from ._tables.read import read_generic_table
+from ._tables.read import make_taql_where_between_min_max, read_generic_table
 
 
 def interpolate_to_time(
@@ -43,7 +43,7 @@ def interpolate_to_time(
             method = "linear"
         else:
             method = "nearest"
-        xds = xds.interp(time=interp_time, method="nearest", assume_sorted=True)
+        xds = xds.interp(time=interp_time, method=method, assume_sorted=True)
         points_after = xds.time.size
         logger.info(
             f"{message_prefix}: interpolating the time coordinate "
@@ -258,29 +258,9 @@ def create_weather_xds(in_file: str):
     return weather_xds
 
 
-def make_taql_min_max_times(min_max: Tuple[np.int64, np.int64]) -> Union[str, None]:
-    """
-    From a numerical min/max, produce a TaQL string to select between those
-    min/max times in a POINTING subtable.
-
-    Parameters
-    ----------
-    min_max : Tuple[np.int64, np.int64]
-        min / max time values
-
-    Returns
-    -------
-    taql_where : str
-        TaQL (sub)string with the min/max time 'where' constraint
-    """
-    (time_min, time_max) = min_max
-    taql = f"where TIME >= {time_min} AND TIME <= {time_max}"
-    return taql
-
-
 def create_pointing_xds(
     in_file: str,
-    time_min_max: Union[Tuple[np.int64, np.int64], None],
+    time_min_max: Union[Tuple[np.float64, np.float64], None],
     interp_time: Union[xr.DataArray, None] = None,
 ) -> xr.Dataset:
     """
@@ -336,13 +316,15 @@ def create_pointing_xds(
     to_new_coord_names = {"ra/dec": "direction"}
     coord_dims = {}
 
-    taql_where = make_taql_min_max_times(time_min_max)
+    taql_time_range = make_taql_where_between_min_max(
+        time_min_max, in_file, "POINTING", "TIME"
+    )
     # Read POINTING table into a Xarray Dataset.
     generic_pointing_xds = read_generic_table(
         in_file,
         "POINTING",
         rename_ids=subt_rename_ids["POINTING"],
-        taql_where=taql_where,
+        taql_where=taql_time_range,
     )
     if not generic_pointing_xds.data_vars:
         # apparently empty MS/POINTING table => produce empty xds

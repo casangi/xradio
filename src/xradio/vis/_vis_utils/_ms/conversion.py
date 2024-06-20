@@ -845,9 +845,13 @@ def convert_and_write_partition(
             if storage_backend == "zarr":
                 xds.to_zarr(store=os.path.join(file_name, "MAIN"), mode=mode)
                 ant_xds.to_zarr(store=os.path.join(file_name, "ANTENNA"), mode=mode)
-                field_and_source_xds.to_zarr(
-                    store=os.path.join(file_name, "FIELD_AND_SOURCE_BASE"), mode=mode
-                )
+                for group_name in xds.attrs["data_groups"]:
+                    field_and_source_xds.to_zarr(
+                        store=os.path.join(
+                            file_name, f"FIELD_AND_SOURCE_{group_name.upper()}"
+                        ),
+                        mode=mode,
+                    )
 
                 if with_pointing:
                     pointing_xds.to_zarr(store=file_name + "/POINTING", mode=mode)

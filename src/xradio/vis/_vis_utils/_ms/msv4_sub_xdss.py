@@ -10,7 +10,7 @@ from .subtables import subt_rename_ids
 from ._tables.read import read_generic_table
 
 
-def create_ant_xds(in_file: str):
+def create_ant_xds(in_file: str, spectral_window_id: int):
     """
     Creates an Antenna Xarray Dataset from a MS v2 ANTENNA table.
 
@@ -26,26 +26,24 @@ def create_ant_xds(in_file: str):
     """
     # Dictionaries that define the conversion from MSv2 to MSv4:
     to_new_data_variable_names = {
-        "position": "POSITION",
-        "offset": "FEED_OFFSET",
-        "dish_diameter": "DISH_DIAMETER",
+        "position": "ANTENNA_POSITION",
+        "offset": "ANTENNA_FEED_OFFSET",
+        "dish_diameter": "ANTENNA_DISH_DIAMETER",
     }
     data_variable_dims = {
-        "position": ["antenna_id", "xyz_label"],
-        "offset": ["antenna_id", "xyz_label"],
+        "position": ["antenna_id", "cartesian_pos_label"],
+        "offset": ["antenna_id", "cartesian_pos_label"],
         "dish_diameter": ["antenna_id"],
     }
     to_new_coord_names = {
         "name": "name",
         "station": "station",
-        "type": "type",
         "mount": "mount",
         "phased_array_id": "phased_array_id",
     }
     coord_dims = {
         "name": ["antenna_id"],
         "station": ["antenna_id"],
-        "type": ["antenna_id"],
         "mount": ["antenna_id"],
         "phased_array_id": ["antenna_id"],
     }
@@ -56,16 +54,26 @@ def create_ant_xds(in_file: str):
         "ANTENNA",
         rename_ids=subt_rename_ids["ANTENNA"],
     )
+    
+    generic_feed_xds = read_generic_table(
+        in_file,
+        "FEED",
+        rename_ids=subt_rename_ids["FEED"],
+        taql_where=f" where SPECTRAL_WINDOW_ID = {spectral_window_id}"
+    )   
+    
+    print(generic_feed_xds)
+    print('*'*50)
 
     ant_column_description = generic_ant_xds.attrs["other"]["msv2"]["ctds_attrs"][
         "column_descriptions"
     ]
-    # ['OFFSET', 'POSITION', 'TYPE', 'DISH_DIAMETER', 'FLAG_ROW', 'MOUNT', 'NAME', 'STATION']
+    # ['OFFSET', 'POSITION', 'DISH_DIAMETER', 'FLAG_ROW', 'MOUNT', 'NAME', 'STATION']
     ant_xds = xr.Dataset()
 
     coords = {
         "antenna_id": np.arange(generic_ant_xds.sizes["antenna_id"]),
-        "xyz_label": ["x", "y", "z"],
+        "cartesian_pos_label": ["x", "y", "z"],
     }
     for key in generic_ant_xds:
         msv4_measure = column_description_casacore_to_msv4_measure(
@@ -90,8 +98,23 @@ def create_ant_xds(in_file: str):
                 generic_ant_xds[key].data,
             )
 
+    ant_xds['ANTENNA_FEED_OFFSET'].attrs['type'] = 'earth_location_offset'
+    ant_xds['ANTENNA_FEED_OFFSET'].attrs['coordinate_system'] = 'geocentric'
+    ant_xds['ANTENNA_POSITION'].attrs['coordinate_system'] = 'geocentric'
+
     ant_xds = ant_xds.assign_coords(coords)
     return ant_xds
+
+
+
+
+
+
+
+
+
+
+
 
 
 def create_weather_xds(in_file: str):

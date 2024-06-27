@@ -753,6 +753,7 @@ def convert_and_write_partition(
                 )
 
             start = time.time()
+            xds.attrs["type"] = "visibility"
 
             # Time and frequency should always be increasing
             if len(xds.frequency) > 1 and xds.frequency[1] - xds.frequency[0] < 0:

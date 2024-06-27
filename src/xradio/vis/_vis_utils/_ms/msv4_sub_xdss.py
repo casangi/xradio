@@ -104,8 +104,9 @@ def create_ant_xds(in_file: str):
         "column_descriptions"
     ]
     # ['OFFSET', 'POSITION', 'TYPE', 'DISH_DIAMETER', 'FLAG_ROW', 'MOUNT', 'NAME', 'STATION']
-    ant_xds = xr.Dataset()
 
+    # Convert columns
+    data_vars = {}
     coords = {
         "antenna_id": np.arange(generic_ant_xds.sizes["antenna_id"]),
         "xyz_label": ["x", "y", "z"],
@@ -115,26 +116,31 @@ def create_ant_xds(in_file: str):
             ant_column_description[key.upper()]
         )
         if key in to_new_data_variable_names:
-            ant_xds[to_new_data_variable_names[key]] = xr.DataArray(
-                generic_ant_xds[key].data, dims=data_variable_dims[key]
+
+            # Collect data array attributes
+            da_attrs = {}
+            if msv4_measure:
+                da_attrs.update(msv4_measure)
+            if key in ["dish_diameter"]:
+                da_attrs["units"] = ["m"]
+                da_attrs["type"] = "quantity"
+
+            # Add data variable
+            data_vars[to_new_data_variable_names[key]] = xr.DataArray(
+                generic_ant_xds[key].data,
+                dims=data_variable_dims[key],
+                attrs=da_attrs,
             )
 
-            if msv4_measure:
-                ant_xds[to_new_data_variable_names[key]].attrs.update(msv4_measure)
-
-            if key in ["dish_diameter"]:
-                ant_xds[to_new_data_variable_names[key]].attrs.update(
-                    {"units": ["m"], "type": "quantity"}
-                )
-
+        # Add coordinate?
         if key in to_new_coord_names:
             coords[to_new_coord_names[key]] = (
                 coord_dims[key],
                 generic_ant_xds[key].data,
             )
 
-    ant_xds = ant_xds.assign_coords(coords)
-    return ant_xds
+    attrs = {"type": "antenna"}
+    return xr.Dataset(data_vars, coords, attrs)
 
 
 def create_weather_xds(in_file: str):

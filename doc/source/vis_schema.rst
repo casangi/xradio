@@ -1,6 +1,6 @@
 
-Visibility data model
-=====================
+Visibility schema
+=================
 
 .. _visibility datasets:
 
@@ -74,6 +74,10 @@ as frequencies or timestamps.
 .. autoclass:: xradio.vis.schema.TimeArray()
 
    .. xradio_array_schema_table:: xradio.vis.schema.TimeArray
+
+.. autoclass:: xradio.vis.schema.TimeCoordArray()
+
+   .. xradio_array_schema_table:: xradio.vis.schema.TimeCoordArray
 
 .. autoclass:: xradio.vis.schema.BaselineArray()
 

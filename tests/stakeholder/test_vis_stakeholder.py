@@ -2,7 +2,7 @@ from xradio.vis import (
     read_processing_set,
     load_processing_set,
     convert_msv2_to_processing_set,
-    VisibilityXds
+    VisibilityXds,
 )
 from xradio.schema.check import check_dataset
 from graphviper.utils.data import download
@@ -10,6 +10,8 @@ import numpy as np
 import pytest
 import os
 import importlib.resources
+import tempfile
+import pathlib
 
 relative_tolerance = 10 ** (-12)
 
@@ -21,53 +23,56 @@ def base_test(msv2_name, expected_sum_value):
         rc_file.write("\nmeasures.directory: " + casa_data_dir)
         rc_file.close()
 
-    download(file=msv2_name)
-    ps_name = msv2_name[:-3] + ".vis.zarr"
-    convert_msv2_to_processing_set(
-        in_file=msv2_name,
-        out_file=ps_name,
-        partition_scheme="ddi_intent_field",
-        main_chunksize=0.01,
-        pointing_chunksize=0.00001,
-        overwrite=True,
-    )
+    # Use temporary directory to automate cleanup
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = pathlib.Path(tmpdir)
 
-    ps_lazy = read_processing_set(ps_name)
-
-    sel_parms = {key: {} for key in ps_lazy.keys()}
-    ps = load_processing_set(ps_name, sel_parms=sel_parms)
-
-    sum = 0.0
-    sum_lazy = 0.0
-
-    for ms_xds_name in ps.keys():
-        if "VISIBILITY" in ps[ms_xds_name]:
-            data_name = "VISIBILITY"
-        else:
-            data_name = "SPECTRUM"
-        sum = sum + np.nansum(
-            np.abs(ps[ms_xds_name][data_name] * ps[ms_xds_name].WEIGHT)
-        )
-        sum_lazy = sum_lazy + np.nansum(
-            np.abs(ps_lazy[ms_xds_name][data_name] * ps_lazy[ms_xds_name].WEIGHT)
+        download(file=msv2_name, folder=tmpdir)
+        ps_name = msv2_name[:-3] + ".vis.zarr"
+        convert_msv2_to_processing_set(
+            in_file=tmpdir / msv2_name,
+            out_file=tmpdir / ps_name,
+            partition_scheme="ddi_intent_field",
+            main_chunksize=0.01,
+            pointing_chunksize=0.00001,
+            overwrite=True,
         )
 
-    os.system("rm -rf " + msv2_name)
-    os.system("rm -rf " + ps_name)
+        print("Reading from ", tmpdir / ps_name)
+        ps_lazy = read_processing_set(tmpdir / ps_name)
 
-    assert (
-        sum == sum_lazy
-    ), "read_processing_set and load_processing_set VISIBILITY and WEIGHT values differ."
-    assert sum == pytest.approx(
-        expected_sum_value, rel=relative_tolerance
-    ), "VISIBILITY and WEIGHT values have changed."
-    
-    for xds_name in ps.keys():
-        issues = check_dataset(ps[xds_name], VisibilityXds)
-        if not issues:
-            print(f"{xds_name}: okay\n")
-        else:
-            print(f"{xds_name}: {issues}\n")
+        sel_parms = {key: {} for key in ps_lazy.keys()}
+        ps = load_processing_set(tmpdir / ps_name, sel_parms=sel_parms)
+
+        sum = 0.0
+        sum_lazy = 0.0
+
+        for ms_xds_name in ps.keys():
+            if "VISIBILITY" in ps[ms_xds_name]:
+                data_name = "VISIBILITY"
+            else:
+                data_name = "SPECTRUM"
+            sum = sum + np.nansum(
+                np.abs(ps[ms_xds_name][data_name] * ps[ms_xds_name].WEIGHT)
+            )
+            sum_lazy = sum_lazy + np.nansum(
+                np.abs(ps_lazy[ms_xds_name][data_name] * ps_lazy[ms_xds_name].WEIGHT)
+            )
+
+        assert (
+            sum == sum_lazy
+        ), "read_processing_set and load_processing_set VISIBILITY and WEIGHT values differ."
+        assert sum == pytest.approx(
+            expected_sum_value, rel=relative_tolerance
+        ), "VISIBILITY and WEIGHT values have changed."
+
+        # Perform schema check
+        for xds_name in ps.keys():
+            issues = check_dataset(ps[xds_name], VisibilityXds)
+            if not issues:
+                print(f"{xds_name}: okay\n")
+            else:
+                print(f"{xds_name}: {issues}\n")
 
 
 @pytest.mark.parametrize(
@@ -101,15 +106,13 @@ def test_s3_read_processing_set(s3_ps_name, expected_sum_value):
             np.abs(ps_lazy[ms_xds_name][data_name] * ps_lazy[ms_xds_name].WEIGHT)
         )
 
-    print('hallow', sum)
-
     assert (
         sum == sum_lazy
     ), "read_processing_set and load_processing_set VISIBILITY and WEIGHT values differ."
     assert sum == pytest.approx(
         expected_sum_value, rel=relative_tolerance
     ), "VISIBILITY and WEIGHT values have changed."
-    
+
 
 def test_alma():
     base_test("Antennae_North.cal.lsrk.split.ms", 190.0405216217041)

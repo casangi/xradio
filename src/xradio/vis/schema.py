@@ -41,12 +41,36 @@ class SourceInfoDict:
 
 @xarray_dataarray_schema
 class TimeArray:
-    data: Data[Time, float]
+    """
+    Representation of a time quantity.
+
+    :py:class:`astropy.time.Time` serves as the reference implementation.
+    Data can be converted as follows::
+
+        astropy.time.Time(data * astropy.units.Unit(attrs['units'][0]),
+                          format=attrs['format'], scale=attrs['scale'])
+
+    All formats that express time as floating point numbers since an epoch
+    are permissible, so at present the realistic options are:
+
+    * ``mjd`` (from 1858-11-17 00:00:00 UTC)
+    * ``unix`` (from 1970-01-01 00:00:00 UTC)
+    * ``unix_tai`` (from 1970-01-01 00:00:00 TAI)
+    * ``cxcsec`` (from 1998-01-01 00:00:00 TT)
+    * ``gps`` (from 1980-01-06 00:00:00 UTC)
+
+    """
+
+    data: Data[tuple[()], float]
+    """Time in seconds since epoch."""
 
     scale: Attr[str] = "tai"
-    """Astropy time scales."""
-    format: Attr[str] = "unix"
-    """Seconds from 1970-01-01 00:00:00 UTC"""
+    """
+    Time scale of data. Must be one of ``(‘tai’, ‘tcb’, ‘tcg’, ‘tdb’, ‘tt’, ‘ut1’, ‘utc’)``,
+    see :py:class:`astropy.time.Time`
+    """
+    format: Attr[str] = "unix_tai"
+    """Time representation and epoch, see :py:class:`TimeArray`."""
 
     type: Attr[str] = "time"
     units: Attr[list] = ("s",)
@@ -187,9 +211,9 @@ class TimeArray:
     units: Attr[list[str]] = ("s",)
     """ Units to associate with axis"""
     scale: Attr[str] = "tai"
-    """ Astropy time scales, see :py:class:`astropy.time.Time` """
+    """ Astropy time scales, see :py:class:`TimeArray` """
     format: Attr[str] = "unix"
-    """ Astropy format, see :py:class:`astropy.time.Time`. Default seconds from 1970-01-01 00:00:00 UTC """
+    """ Astropy format, see :py:class:`TimeArray`"""
     long_name: Optional[Attr[str]] = "Observation Time"
     """ Long-form name to use for axis"""
 

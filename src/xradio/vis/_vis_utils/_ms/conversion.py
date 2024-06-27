@@ -807,7 +807,7 @@ def convert_and_write_partition(
             if storage_backend == "zarr":
                 xds.to_zarr(store=file_name + "/MAIN", mode=mode)
                 ant_xds.to_zarr(store=file_name + "/ANTENNA", mode=mode)
-                if with_pointing:
+                if with_pointing and len(pointing_xds.data_vars) > 0:
                     pointing_xds.to_zarr(store=file_name + "/POINTING", mode=mode)
                 if weather_xds:
                     weather_xds.to_zarr(store=file_name + "/WEATHER", mode=mode)

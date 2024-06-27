@@ -95,7 +95,7 @@ def column_description_casacore_to_msv4_measure(
         ] = casa_ref
 
         if msv4_measure["type"] == "time":
-            msv4_measure["format"] = "unix"
+            msv4_measure["format"] = time_format
     return msv4_measure
 
 

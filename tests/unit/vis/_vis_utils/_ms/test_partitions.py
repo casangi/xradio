@@ -15,14 +15,18 @@ def test_make_spw_names_by_ddi():
 
 def test_make_spw_names_by_ddi_min(ddi_xds_min, spw_xds_min):
     from xradio.vis._vis_utils._ms.partitions import make_spw_names_by_ddi
-    
+
     res = make_spw_names_by_ddi(ddi_xds_min, spw_xds_min)
     assert res
     nddis = 4
     assert np.all(np.arange(nddis) == sorted(res.keys()))
     # exp_names = {0: 'unspecified_test#0', 1: 'unspecified_test#0', 2: 'unspecified_test#0', 3: 'unspecified_test#0', 4: 'unspecified_test#1', 5: 'unspecified_test#1', 6: 'unspecified_test#1', 7: 'unspecified_test#1'}
-    exp_names = {0: 'unspecified_test#0', 1: 'unspecified_test#0',
-                 2: 'unspecified_test#1', 3: 'unspecified_test#1'}
+    exp_names = {
+        0: "unspecified_test#0",
+        1: "unspecified_test#0",
+        2: "unspecified_test#1",
+        3: "unspecified_test#1",
+    }
     assert res == exp_names
 
 
@@ -30,8 +34,7 @@ def test_make_spw_names_by_ddi_min_only_ddi(ddi_xds_min):
     from xradio.vis._vis_utils._ms.partitions import make_spw_names_by_ddi
     import xarray
 
-    with pytest.raises(
-            AttributeError, match="object has no attribute 'name'"):
+    with pytest.raises(AttributeError, match="object has no attribute 'name'"):
         res = make_spw_names_by_ddi(ddi_xds_min, xarray.Dataset())
         assert res
 
@@ -41,23 +44,38 @@ def test_make_spw_names_by_ddi_min_only_spw(spw_xds_min):
     import xarray
 
     with pytest.raises(
-            AttributeError, match="object has no attribute 'spectral_window_id'"):
+        AttributeError, match="object has no attribute 'spectral_window_id'"
+    ):
         res = make_spw_names_by_ddi(xarray.Dataset(), spw_xds_min)
         assert res
 
 
-@pytest.mark.parametrize("intents, expected_results", [
-    ("OBSERVE_TARGET#ON_SOURCE,POSITION_SWITCH", {"OBSERVE_TARGET": ["ON_SOURCE"], "POSITION_SWITCH": [""]}),
-    ("OBSERVE_TARGET#UNSPECIFIED", {"OBSERVE_TARGET": ["UNSPECIFIED"]}),
-    ("CALIBRATE_DELAY#ON_SOURCE,CALIBRATE_PHASE#ON_SOURCE",
-     {"CALIBRATE_DELAY": ["ON_SOURCE"], "CALIBRATE_PHASE": ["ON_SOURCE"]}),
-    ("CALIBRATE_ATMOSPHERE#OFF_SOURCE,CALIBRATE_ATMOSPHERE#ON_SOURCE,CALIBRATE_WVR#OFF_SOURCE,CALIBRATE_WVR#ON_SOURCE",
-     {"CALIBRATE_ATMOSPHERE": ["OFF_SOURCE", "ON_SOURCE"],
-      "CALIBRATE_WVR": ["OFF_SOURCE", "ON_SOURCE"]}),
-    ("OBSERVE_TARGET.UNSPECIFIED", {"OBSERVE_TARGET": ["UNSPECIFIED"]}),
-    ("CALIBRATE_DELAY.ON_SOURCE,CALIBRATE_PHASE.ON_SOURCE",
-     {"CALIBRATE_DELAY": ["ON_SOURCE"], "CALIBRATE_PHASE": ["ON_SOURCE"]}),
-])
+@pytest.mark.parametrize(
+    "intents, expected_results",
+    [
+        (
+            "OBSERVE_TARGET#ON_SOURCE,POSITION_SWITCH",
+            {"OBSERVE_TARGET": ["ON_SOURCE"], "POSITION_SWITCH": [""]},
+        ),
+        ("OBSERVE_TARGET#UNSPECIFIED", {"OBSERVE_TARGET": ["UNSPECIFIED"]}),
+        (
+            "CALIBRATE_DELAY#ON_SOURCE,CALIBRATE_PHASE#ON_SOURCE",
+            {"CALIBRATE_DELAY": ["ON_SOURCE"], "CALIBRATE_PHASE": ["ON_SOURCE"]},
+        ),
+        (
+            "CALIBRATE_ATMOSPHERE#OFF_SOURCE,CALIBRATE_ATMOSPHERE#ON_SOURCE,CALIBRATE_WVR#OFF_SOURCE,CALIBRATE_WVR#ON_SOURCE",
+            {
+                "CALIBRATE_ATMOSPHERE": ["OFF_SOURCE", "ON_SOURCE"],
+                "CALIBRATE_WVR": ["OFF_SOURCE", "ON_SOURCE"],
+            },
+        ),
+        ("OBSERVE_TARGET.UNSPECIFIED", {"OBSERVE_TARGET": ["UNSPECIFIED"]}),
+        (
+            "CALIBRATE_DELAY.ON_SOURCE,CALIBRATE_PHASE.ON_SOURCE",
+            {"CALIBRATE_DELAY": ["ON_SOURCE"], "CALIBRATE_PHASE": ["ON_SOURCE"]},
+        ),
+    ],
+)
 def test_split_intents(intents, expected_results):
     from xradio.vis._vis_utils._ms.partitions import split_intents
 

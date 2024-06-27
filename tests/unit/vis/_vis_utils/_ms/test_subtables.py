@@ -25,4 +25,3 @@ def test_subtables_pointing_to_partition():
     ):
         res = add_pointing_to_partition(xarray.Dataset(), xarray.Dataset())
         assert res
-

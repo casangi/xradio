@@ -47,20 +47,24 @@ def test__fix_dict_for_ms(main_xds_min):
 
     # Crude way of giving this function what it expects. Iterate.
     xds = copy.deepcopy(main_xds_min)
-    xds.attrs["column_descriptions"] = xds.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]
+    xds.attrs["column_descriptions"] = xds.attrs["other"]["msv2"]["ctds_attrs"][
+        "column_descriptions"
+    ]
     with pytest.raises(AttributeError, match="has no attribut"):
         res = _fix_dict_for_ms("xds_test", xds)
         assert res
+
 
 def test__fix_dict_for_ms_spw(spw_xds_min):
     from xradio.vis._vis_utils._zarr.read import _fix_dict_for_ms
     from xradio.vis._vis_utils._zarr.write import prepare_attrs_for_zarr
     import copy
-    
+
     # Crude way of giving this function what it expects. Iterate.
-    preproc = prepare_attrs_for_zarr("spectral_window",
-                                     copy.deepcopy(spw_xds_min))
-    preproc.attrs["column_descriptions"] = preproc.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]
+    preproc = prepare_attrs_for_zarr("spectral_window", copy.deepcopy(spw_xds_min))
+    preproc.attrs["column_descriptions"] = preproc.attrs["other"]["msv2"]["ctds_attrs"][
+        "column_descriptions"
+    ]
     # with pytest.raises(KeyError, match="0"):
     res = _fix_dict_for_ms("spectral_window", preproc)
     assert res
@@ -69,10 +73,12 @@ def test__fix_dict_for_ms_spw(spw_xds_min):
 def test__fix_dict_for_ms_ant(ant_xds_min):
     from xradio.vis._vis_utils._zarr.read import _fix_dict_for_ms
     from xradio.vis._vis_utils._zarr.write import prepare_attrs_for_zarr
-    
+
     # Crude way of giving this function what it expects. Iterate.
     preproc = prepare_attrs_for_zarr("antenna", ant_xds_min)
-    preproc.attrs["column_descriptions"] = preproc.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]
+    preproc.attrs["column_descriptions"] = preproc.attrs["other"]["msv2"]["ctds_attrs"][
+        "column_descriptions"
+    ]
     res = _fix_dict_for_ms("antenna", preproc)
     assert res
 
@@ -80,10 +86,12 @@ def test__fix_dict_for_ms_ant(ant_xds_min):
 def test__fix_dict_for_ms_field(field_xds_min):
     from xradio.vis._vis_utils._zarr.read import _fix_dict_for_ms
     from xradio.vis._vis_utils._zarr.write import prepare_attrs_for_zarr
-    
+
     # Crude way of giving this function what it expects. Iterate.
     preproc = prepare_attrs_for_zarr("field", field_xds_min)
-    preproc.attrs["column_descriptions"] = preproc.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]
+    preproc.attrs["column_descriptions"] = preproc.attrs["other"]["msv2"]["ctds_attrs"][
+        "column_descriptions"
+    ]
     res = _fix_dict_for_ms("field", preproc)
     assert res
 
@@ -91,10 +99,12 @@ def test__fix_dict_for_ms_field(field_xds_min):
 def test__fix_dict_for_ms_feed(feed_xds_min):
     from xradio.vis._vis_utils._zarr.read import _fix_dict_for_ms
     from xradio.vis._vis_utils._zarr.write import prepare_attrs_for_zarr
-    
+
     # Crude way of giving this function what it expects. Iterate.
     preproc = prepare_attrs_for_zarr("feed", feed_xds_min)
-    preproc.attrs["column_descriptions"] = preproc.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]
+    preproc.attrs["column_descriptions"] = preproc.attrs["other"]["msv2"]["ctds_attrs"][
+        "column_descriptions"
+    ]
     res = _fix_dict_for_ms("feed", preproc)
     assert res
 
@@ -102,9 +112,11 @@ def test__fix_dict_for_ms_feed(feed_xds_min):
 def test__fix_dict_for_ms_observation(observation_xds_min):
     from xradio.vis._vis_utils._zarr.read import _fix_dict_for_ms
     from xradio.vis._vis_utils._zarr.write import prepare_attrs_for_zarr
-    
+
     # Crude way of giving this function what it expects. Iterate.
     preproc = prepare_attrs_for_zarr("observation", observation_xds_min)
-    preproc.attrs["column_descriptions"] = preproc.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]
+    preproc.attrs["column_descriptions"] = preproc.attrs["other"]["msv2"]["ctds_attrs"][
+        "column_descriptions"
+    ]
     res = _fix_dict_for_ms("observation", preproc)
     assert res

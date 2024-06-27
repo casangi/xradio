@@ -158,13 +158,13 @@ def test_mem_chunksize_to_dict(
     "mem_size, pseudo_xds, expected_chunksize, expected_error",
     [
         (
-            1e-9,   # not enough even for one data point / all pols
+            1e-9,  # not enough even for one data point / all pols
             xds_main,
             {"baseline_id": 28, "frequency": 2048, "polarization": 2, "time": 117},
             pytest.raises(RuntimeError, match="memory bound"),
         ),
         (
-            0.9,   # enough to hold all in mem
+            0.9,  # enough to hold all in mem
             xds_main,
             {"time": 220, "baseline_id": 55, "frequency": 3890, "polarization": 2},
             no_raises(),
@@ -181,7 +181,9 @@ def test_mem_chunksize_to_dict_main(
     mem_size, pseudo_xds, expected_chunksize, expected_error
 ):
     with expected_error:
-        assert conv.mem_chunksize_to_dict_main(mem_size, pseudo_xds) == expected_chunksize
+        assert (
+            conv.mem_chunksize_to_dict_main(mem_size, pseudo_xds) == expected_chunksize
+        )
 
 
 @pytest.mark.parametrize(

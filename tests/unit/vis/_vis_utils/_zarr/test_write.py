@@ -1,6 +1,7 @@
 import pytest
 import tempfile
 
+
 def test_write_part_keys_empty():
     from xradio.vis._vis_utils._zarr.write import write_part_keys
     import xarray as xr
@@ -65,15 +66,16 @@ def test_write_xds_to_zarr_main_min(main_xds_min):
     import xarray as xr
 
     # with pytest.raises(TypeError, match="Invalid attribute"):
-    res = write_xds_to_zarr(main_xds_min, "xds_main_test", "output_path",
-                            chunks_on_disk={"time": 20})
+    res = write_xds_to_zarr(
+        main_xds_min, "xds_main_test", "output_path", chunks_on_disk={"time": 20}
+    )
     assert not res
 
 
 def test_prepare_attrs_for_zarr_empty():
     from xradio.vis._vis_utils._zarr.write import prepare_attrs_for_zarr
     import xarray as xr
-    
+
     with pytest.raises(KeyError, match="other"):
         res = prepare_attrs_for_zarr("empty/test", xr.Dataset())
         assert res
@@ -82,8 +84,10 @@ def test_prepare_attrs_for_zarr_empty():
 def test_prepare_attrs_for_zarr_main_min(main_xds_min):
     from xradio.vis._vis_utils._zarr.write import prepare_attrs_for_zarr
     import xarray as xr
-    
+
     # TODO: very crude way of exercising corner-case filtering
-    main_xds_min.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]["TIME"]["keywords"]["CHANNEL_SELECTION"] = {}
+    main_xds_min.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]["TIME"][
+        "keywords"
+    ]["CHANNEL_SELECTION"] = {}
     res = prepare_attrs_for_zarr("xds_test", main_xds_min)
     assert res

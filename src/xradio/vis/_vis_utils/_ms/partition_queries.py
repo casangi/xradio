@@ -328,15 +328,8 @@ def make_partition_ids_by_ddi_intent(
 
 
 def create_taql_query_and_file_name(out_file, intent, state_ids, field_id, ddi):
-    file_name = (
-        out_file
-        + "/"
-        + out_file.replace(".vis.zarr", "").split("/")[-1]
-        + "_ddi_"
-        + str(ddi)
-        + "_intent_"
-        + intent
-    )
+    out_file = Path(out_file)
+    file_name = out_file / f"{out_file.stem}_ddi_{ddi}_intent_{intent}"
 
     taql_where = f"where (DATA_DESC_ID = {ddi})"
 
@@ -348,7 +341,7 @@ def create_taql_query_and_file_name(out_file, intent, state_ids, field_id, ddi):
 
     if field_id is not None:
         taql_where += f" AND (FIELD_ID = {field_id})"
-        file_name = file_name + "_field_id_" + str(field_id)
+        file_name = f"{file_name}_field_id_{field_id}"
 
     return taql_where, file_name
 

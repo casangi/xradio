@@ -45,6 +45,7 @@ def load_processing_set(
 
     s3 = None
     ps = processing_set()
+    ps_store = str(ps_store)
     for ms_dir_name, ms_xds_isel in sel_parms.items():
 
         # before the _open_dataset call, check if dealing with an S3 bucket URL

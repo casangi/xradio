@@ -7,7 +7,7 @@ from casacore import tables
 @contextmanager
 def open_table_ro(infile: str) -> Generator[tables.table, None, None]:
     table = tables.table(
-        infile, readonly=True, lockoptions={"option": "usernoread"}, ack=False
+        str(infile), readonly=True, lockoptions={"option": "usernoread"}, ack=False
     )
     try:
         yield table

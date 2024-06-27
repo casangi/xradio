@@ -859,7 +859,7 @@ def convert_and_write_partition(
                         mode=mode,
                     )
 
-                if with_pointing:
+                if with_pointing and len(pointing_xds.data_vars) > 0:
                     pointing_xds.to_zarr(store=file_name + "/POINTING", mode=mode)
 
                 if weather_xds:

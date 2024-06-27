@@ -31,12 +31,7 @@ TimePolynomial = Literal["time_polynomial"]
 SkyCoordLabel = Literal["sky_coord_label"]
 """ Unlabeled axis """
 
-
-# Plain data class models
-@dict_schema
-class SourceInfoDict:
-    # TODO
-    pass
+# Quantities
 
 
 @xarray_dataarray_schema
@@ -195,15 +190,18 @@ class ProcessorInfoDict:
 
 # Coordinates / Axes
 @xarray_dataarray_schema
-class TimeArray:
-    """Data model of time axis"""
+class TimeCoordArray:
+    """Data model of visibility time axis. See also :py:class:`TimeArray`."""
 
     data: Data[Time, float]
-    """ Time, expressed in SI seconds since the epoch (see ``scale`` & ``format``). """
+    """
+    Time, expressed in seconds since the epoch (see ``scale`` &
+    ``format``), see also see :py:class:`TimeArray`.
+    """
 
-    integration_time: Attr[Optional[TimeArray]] = None
+    integration_time: Optional[Attr[TimeArray]] = None
     """ The nominal sampling interval (ms v2). Units of seconds. """
-    effective_integration_time: Attr[Optional[TimeArray]] = None
+    effective_integration_time: Optional[Attr[TimeArray]] = None
     """ Name of data array that contains the integration time that includes the effects of missing data. """
 
     type: Attr[str] = "time"
@@ -637,7 +635,7 @@ class VisibilityXds:
     """TODO: documentation"""
 
     # --- Required Coordinates ---
-    time: Coordof[TimeArray]
+    time: Coordof[TimeCoordArray]
     """
     The time coordinate is the mid-point of the nominal sampling interval, as
     speciﬁed in the ``ms_v4.time.attrs['integration_time']`` (ms v2 interval).

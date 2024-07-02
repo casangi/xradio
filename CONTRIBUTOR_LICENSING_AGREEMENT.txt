@@ -31,11 +31,10 @@ Work to which you have contributed, constitutes direct or contributory patent in
 any patent licenses granted to that entity under this Agreement for that Contribution or Work
 shall terminate as of the date such litigation is filed.
 
-4. You represent that you are legally entitled to grant the above license. If your employer(s) has
-rights to intellectual property that you create that includes your Contributions, you represent
-that you have received permission to make Contributions on behalf of that employer, that your
-employer has waived such rights for your Contributions to the Project, or that your employer
-has executed a separate agreement.
+4. You represent that you are legally entitled to grant the above license. If a third party has rights to 
+intellectual property that you create that includes your Contributions, you represent that you have received 
+permission to make Contributions on behalf of that party, that they have waived such rights for your Contributions 
+to the Project, or that they have executed a separate agreement.
 
 5. You represent that each of Your Contributions is Your original creation. You represent that Your
 Contribution submissions include complete details of any third-party license or other restriction

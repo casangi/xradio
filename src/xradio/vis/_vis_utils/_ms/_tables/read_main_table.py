@@ -632,7 +632,7 @@ def read_flat_main_table(
             state_ids_or = " OR STATE_ID = ".join(np.char.mod("%d", states))
             taql_where += f" AND (STATE_ID = {state_ids_or})"
         elif states is not None:
-            taql_where += f" AND AND STATE_ID = {state}"
+            taql_where += f" AND STATE_ID = {states}"
         elif scans is not None:
             taql_where += f" AND SCAN_NUMBER = {scans}"
 

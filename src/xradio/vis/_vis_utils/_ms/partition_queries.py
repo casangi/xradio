@@ -327,7 +327,7 @@ def make_partition_ids_by_ddi_intent(
     return data_desc_id, scan_number, state_id_partitions, intent_names
 
 
-def create_taql_query(state_ids, field_id, ddi):
+def create_taql_query(state_ids, field_id, ddi, scan_id):
     taql_where = f"where (DATA_DESC_ID = {ddi})"
 
     if isinstance(state_ids, numbers.Integral):
@@ -338,6 +338,9 @@ def create_taql_query(state_ids, field_id, ddi):
 
     if field_id is not None:
         taql_where += f" AND (FIELD_ID = {field_id})"
+        
+    if scan_id is not None:
+        taql_where += f" AND (SCAN_NUMBER = {scan_id})"
 
     return taql_where
 
@@ -373,6 +376,20 @@ def get_unqiue_intents(in_file):
     else:  # empty state table
         return ["None"], [None]
 
+def get_unqiue_scan_ids(in_file):
+    # with open_query(main_tbl, f"select SCAN_NUMBER from $main_tbl") as query_scans:
+    #     print('query_scans',query_scans)
+    #     scan_ids = np.unique(query_scans.getcol("SCAN_NUMBER"))
+    
+    main_table = tables.table(
+        in_file, readonly=True, lockoptions={"option": "usernoread"}, ack=False
+    )
+    
+    taql_ddis = "select DISTINCT SCAN_NUMBER from $main_table"
+    with open_query(main_table, taql_ddis) as query_per_intent:
+        scan_ids = query_per_intent.getcol("SCAN_NUMBER")
+        
+    return scan_ids
 
 def enumerated_product(*args):
     yield from zip(
@@ -412,7 +429,8 @@ def create_partition_enumerated_product(in_file: str, partition_scheme: str):
     if (partition_scheme == "ddi_intent_field") and (len(state_xds.data_vars) > 0):
         intents, state_ids = get_unqiue_intents(in_file)
         field_ids = np.arange(read_generic_table(in_file, "FIELD").sizes["row"])
-    else:  # partition_scheme == "ddi_state_field"
+        scan_ids = [None]
+    elif partition_scheme == "ddi_state_field":  # partition_scheme == "ddi_state_field"
 
         if len(state_xds.data_vars) > 0:
             state_ids = [np.arange(state_xds.sizes["row"])]
@@ -422,6 +440,16 @@ def create_partition_enumerated_product(in_file: str, partition_scheme: str):
             intents = ["None"]
         # print(state_xds, intents)
         # field_ids = [None]
+        scan_ids = [None]
         field_ids = np.arange(read_generic_table(in_file, "FIELD").sizes["row"])
-
-    return enumerated_product(data_desc_ids, state_ids, field_ids), intents
+    elif partition_scheme == 'ddi_intent_scan': 
+        intents, state_ids = get_unqiue_intents(in_file)
+        field_ids = [None]
+        scan_ids = get_unqiue_scan_ids(in_file)
+    # Need to ensure that only a single source is present
+    # elif partition_scheme == 'ddi_intent_source': #VLA_OTF mode
+    #     intents, state_ids = get_unqiue_intents(in_file)
+    #     field_ids = [None]
+    #     scan_ids = [None] 
+    
+    return enumerated_product(data_desc_ids, state_ids, field_ids, scan_ids), intents

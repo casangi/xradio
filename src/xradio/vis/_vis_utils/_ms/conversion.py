@@ -31,7 +31,7 @@ from ._tables.read import (
 )
 from ._tables.read_main_table import get_baselines, get_baseline_indices, get_utimes_tol
 from .._utils.stokes_types import stokes_types
-from xradio.vis._vis_utils._ms.optimised_functions import unique_1d
+from xradio._utils.array import check_if_consistent, unique_1d
 
 
 def parse_chunksize(
@@ -359,28 +359,6 @@ def calc_used_gb(
         / GiBYTES_TO_BYTES
     )
 
-
-def check_if_consistent(col, col_name):
-    """_summary_
-
-    Parameters
-    ----------
-    col : _type_
-        _description_
-    col_name : _type_
-        _description_
-
-    Returns
-    -------
-    _type_
-        _description_
-    """
-
-    col_unique = unique_1d(col)
-    assert len(col_unique) == 1, col_name + " is not consistent."
-    return col_unique[0]
-
-
 # TODO: if the didxs are not used in read_col_conversion, remove didxs from here (and convert_and_write_partition)
 def calc_indx_for_row_split(tb_tool, taql_where):
     baselines = get_baselines(tb_tool)
@@ -434,7 +412,7 @@ def create_coordinates(
 
     ddi_xds = read_generic_table(in_file, "DATA_DESCRIPTION").sel(row=ddi)
     pol_setup_id = ddi_xds.polarization_id.values
-    spectral_window_id = ddi_xds.spectral_window_id.values
+    spectral_window_id = int(ddi_xds.spectral_window_id.values)
 
     spectral_window_xds = read_generic_table(
         in_file,
@@ -621,6 +599,8 @@ def convert_and_write_partition(
     ddi: int = 0,
     state_ids=None,
     field_id: int = None,
+    scan_id: int = None,
+    partition_scheme: str = "ddi_intent_field",
     main_chunksize: Union[Dict, float, None] = None,
     with_pointing: bool = True,
     pointing_chunksize: Union[Dict, float, None] = None,
@@ -669,7 +649,7 @@ def convert_and_write_partition(
         _description_
     """
 
-    taql_where = create_taql_query(state_ids, field_id, ddi)
+    taql_where = create_taql_query(state_ids, field_id, ddi, scan_id)
 
     start = time.time()
     with open_table_ro(in_file) as mtable:
@@ -716,11 +696,6 @@ def convert_and_write_partition(
                 in_file, xds, tb_tool, time_baseline_shape, tidxs, bidxs, didxs
             )
             logger.debug("Time create data variables " + str(time.time() - start))
-
-            # Create field_info
-            start = time.time()
-            field_id = check_if_consistent(tb_tool.getcol("FIELD_ID"), "FIELD_ID")
-            logger.debug("Time field info " + str(time.time() - start))
 
             # Create ant_xds
             start = time.time()
@@ -785,6 +760,7 @@ def convert_and_write_partition(
                     "uvw": "UVW",
                 }
 
+            is_single_dish = False
             if "SPECTRUM" in xds:
                 xds.attrs["data_groups"]["base"] = {
                     "spectrum": "SPECTRUM",
@@ -792,6 +768,7 @@ def convert_and_write_partition(
                     "weight": "WEIGHT",
                     "uvw": "UVW",
                 }
+                is_single_dish = True
 
             if "SPECTRUM_CORRECTED" in xds:
                 xds.attrs["data_groups"]["corrected"] = {
@@ -800,29 +777,81 @@ def convert_and_write_partition(
                     "weight": "WEIGHT",
                     "uvw": "UVW",
                 }
+                is_single_dish = True
 
             # Create field_and_source_xds (combines field, source and ephemeris data into one super dataset)
-            if pointing_interpolate:
+            start = time.time()
+            if ephemeris_interpolate:
                 ephemeris_interp_time = xds.time
             else:
                 ephemeris_interp_time = None
+                
+                
+            def get_field_times(field_ids, unique_field_ids, times, utimes):
+                """Assigns a time to each field.
+
+                Args:
+                    field_ids (_type_): _description_
+                    unique_field_ids (_type_): _description_
+                    times (_type_): _description_
+
+                Returns:
+                    _type_: _description_
+                """
+                field_times = np.zeros(utime.shape)
+                
+                for i, ut in enumerate(utimes):
+                    print('*()',np.where(times == ut)[0], field_ids[np.where(times == ut)[0]])
+                    field_times
+                
+                # unique_times = np.zeros(len(unique_field_ids))
+                # for i, fid in enumerate(unique_field_ids):
+                #     unique_times[i] = np.mean(times[np.where(field_ids == fid)[0]])
+                # return unique_times
+                
+            if partition_scheme == "ddi_intent_source" or partition_scheme == "ddi_intent_scan":
+                # times = tb_tool.getcol("TIME")
+                # field_ids = tb_tool.getcol("FIELD_ID")#
+                # unique_field_ids = unique_1d(field_ids)
+                
+                field_id = read_col_conversion(
+                            tb_tool,
+                            "FIELD_ID",
+                            time_baseline_shape,
+                            tidxs,
+                            bidxs,
+                        )
+                
+                print('field_id',field_id)
+                #field_times = get_field_times(field_ids, unique_field_ids, times, utime)
+            else:
+                field_id = check_if_consistent(tb_tool.getcol("FIELD_ID"), "FIELD_ID")
+                field_times = None
+            
+            # col_unique = unique_1d(col)
+            # assert len(col_unique) == 1, col_name + " is not consistent."
+            # return col_unique[0]
+ 
             field_and_source_xds = create_field_and_source_xds(
                 in_file,
                 field_id,
                 xds.frequency.attrs["spectral_window_id"],
+                is_single_dish,
                 time_min_max,
                 ephemeris_interp_time,
             )
+            logger.debug("Time field_and_source_xds " + str(time.time() - start))   
+            
             # Fix UVW frame
             # From CASA fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking center. calcuvw does not yet force the UVW column and field centers to use the same reference frame! Blank = use the phase tracking frame of vis.
             # print('##################',field_and_source_xds)
-            if "FIELD_PHASE_CENTER" in field_and_source_xds:
+            if is_single_dish:
+                xds.UVW.attrs["frame"] = field_and_source_xds[
+                    "FIELD_REFERENCE_CENTER"
+                ].attrs["frame"]
+            else:                
                 xds.UVW.attrs["frame"] = field_and_source_xds[
                     "FIELD_PHASE_CENTER"
-                ].attrs["frame"]
-            else:
-                xds.UVW.attrs["frame"] = field_and_source_xds[
-                    "FIELD_PHASE_CENTER_OFFSET"
                 ].attrs["frame"]
 
             if overwrite:
@@ -840,6 +869,18 @@ def convert_and_write_partition(
                 + "_"
                 + str(ms_v4_id),
             )
+            
+            xds.attrs['partition_info'] = {
+                'spectral_window_id': xds.frequency.attrs["spectral_window_id"],
+                'spectral_window_name': xds.frequency.attrs["spectral_window_name"],
+                'field_id': field_id,
+                'field_name': field_and_source_xds.attrs['field_name'],
+                'source_id': field_and_source_xds.attrs['source_id'],
+                'source_name': field_and_source_xds.attrs['source_name'],
+                'polarization_setup': list(xds.polarization.values),
+                'intent': intent,
+                'taql' : taql_where,
+            }
 
             start = time.time()
             if storage_backend == "zarr":

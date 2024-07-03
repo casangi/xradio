@@ -13,8 +13,7 @@ from ._tables.read import read_generic_table, make_freq_attrs
 from ._tables.read_subtables import read_delayed_pointing_table
 from .._utils.partition_attrs import add_partition_attrs
 from .._utils.xds_helper import make_coords
-from xradio.vis._vis_utils._ms.optimised_functions import unique_1d
-
+from xradio._utils.array import  unique_1d
 
 def read_spw_ddi_ant_pol(inpath: str) -> Tuple[xr.Dataset]:
     """

@@ -7,7 +7,7 @@ import xarray as xr
 
 from ._tables.read import read_generic_table, read_flat_col_chunk
 from ._tables.table_query import open_query, open_table_ro
-from xradio.vis._vis_utils._ms.optimised_functions import unique_1d
+from xradio._utils.array import unique_1d
 
 
 def describe_ms(

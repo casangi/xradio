@@ -16,7 +16,7 @@ from xradio.vis._vis_utils._ms._tables.read_main_table import (
     get_baselines,
     get_baseline_indices,
 )
-from xradio.vis._vis_utils._ms.optimised_functions import unique_1d
+from xradio._utils.array import unique_1d
 
 
 def load_expanded_main_table_chunk(

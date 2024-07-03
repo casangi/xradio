@@ -17,7 +17,7 @@ from .read import (
 )
 
 from .table_query import open_table_ro, open_query
-from xradio.vis._vis_utils._ms.optimised_functions import (
+from xradio._utils.array import  (
     unique_1d,
     pairing_function,
     inverse_pairing_function,

@@ -1027,58 +1027,57 @@ def read_col_conversion(
 
     # Workaround for https://github.com/casacore/python-casacore/issues/130
     # WARNING: Assumes tb_tool is a single measurement set not an MMS.
-    # WARNING: Assumes the num_frequencies * num_polarisations > 2**29. If false,
+    # WARNING: Assumes the num_frequencies * num_polarizations < 2**29. If false,
     # https://github.com/casacore/python-casacore/issues/130 isn't mitigated.
 
     # Use casacore to get the shape of a row for this column
-
     #################################################################################
 
     # Get the total number of rows in the base measurement set
     nrows_total = tb_tool.nrows()
 
     # getcolshapestring() only works on columns where a row element is an
-    # array (ie fails for TIME, etc)
-    # Assumes RuntimeError is because the column is a scalar
+    # array ie. fails for TIME
+    # Assumes the RuntimeError is because the column is a scalar
     try:
 
         shape_string = tb_tool.getcolshapestring(col)[0]
+        # Convert `shape_string` into a tuple that numpy understands
         extra_dimensions = tuple(
             [
                 int(idx)
                 for idx in shape_string.replace("[", "").replace("]", "").split(", ")
             ]
         )
-        full_shape = tuple(
-            [nrows_total]
-            + [
-                int(idx)
-                for idx in shape_string.replace("[", "").replace("]", "").split(", ")
-            ]
-        )
     except RuntimeError:
         extra_dimensions = ()
-        full_shape = (nrows_total,)
 
     #################################################################################
 
     # Get dtype of the column. Only read first row from disk
     col_dtype = np.array(tb_tool.col(col)[0]).dtype
 
-    # Construct the numpy array to populate with data
-    data = np.empty(full_shape, dtype=col_dtype)
+    # Construct a numpy array to populate. `data` has shape (n_times, n_baselines, n_frequencies, n_polarizations)
+    data = np.full(cshape + extra_dimensions, np.nan, dtype=col_dtype)
 
     # Use built-in casacore table iterator to populate the data column by unique times.
     start_row = 0
     for ts in tb_tool.iter("TIME", sort=False):
         num_rows = ts.nrows()
-        # Note don't use getcol() because it's less safe. See:
+        
+        # Create small temporary array to store the partial column
+        tmp_arr = np.full((num_rows,)+extra_dimensions, np.nan, dtype=col_dtype)
+        
+        # Note we don't use `getcol()` because it's less safe. See:
         # https://github.com/casacore/python-casacore/issues/130#issuecomment-463202373
-        ts.getcolnp(col, data[start_row : start_row + num_rows])
+        ts.getcolnp(col, tmp_arr)
+        
+        # Get the slice of rows contained in `tmp_arr`. 
+        # Used to get the relevant integer indexes from `tidxs` and `bidxs`
+        tmp_slice = slice(start_row, start_row + num_rows)
+        
+        # Copy `tmp_arr` into correct elements of `tmp_arr`
+        data[tidxs[tmp_slice], bidxs[tmp_slice]] = tmp_arr
         start_row += num_rows
 
-    # TODO
-    # Can we return a view of `data` instead of copying?
-    fulldata = np.full(cshape + extra_dimensions, np.nan, dtype=col_dtype)
-    fulldata[tidxs, bidxs] = data
-    return fulldata
+    return data

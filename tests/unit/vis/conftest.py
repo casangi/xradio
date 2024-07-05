@@ -238,12 +238,12 @@ def cds_minimal_required(ms_minimal_required):
 @pytest.fixture(scope="session")
 def main_xds_flat_min(ms_minimal_required):
     """A "flat" (row dim) main xds (one partition, when partitioning by ddi)"""
-    from xradio.vis._vis_utils._ms._tables.read_main_table  import read_flat_main_table
+    from xradio.vis._vis_utils._ms._tables.read_main_table import read_flat_main_table
     from xradio.vis._vis_utils._ms.msv2_msv3 import ignore_msv2_cols
 
-
-    xds, _part_ids, _attrs = read_flat_main_table(ms_minimal_required.fname, 0,
-                                                  ignore_msv2_cols=ignore_msv2_cols)
+    xds, _part_ids, _attrs = read_flat_main_table(
+        ms_minimal_required.fname, 0, ignore_msv2_cols=ignore_msv2_cols
+    )
 
     yield xds
 

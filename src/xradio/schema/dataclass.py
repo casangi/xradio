@@ -37,7 +37,6 @@ def extract_field_docstrings(klass):
     # Go through body, collect dostrings
     docstrings = {}
     for i, assign in enumerate(cls.body):
-
         # Handle both annotated and unannotated case
         if isinstance(assign, ast.AnnAssign):
             if not isinstance(assign.target, ast.Name):
@@ -84,7 +83,6 @@ def extract_xarray_dataclass(klass):
     data_vars = []
     attributes = []
     for field in dataclasses.fields(klass):
-
         # Get field "role" (coordinate / data variable / attribute) from its
         # type hint
         typ = type_hints[field.name]
@@ -117,7 +115,6 @@ def extract_xarray_dataclass(klass):
         # Defined using a dataclass, i.e. Coordof/Dataof?
         dataclass = typing.get_args(get_annotated(typ))[0]
         if dataclasses.is_dataclass(dataclass):
-
             # Recursively get array schema for data class
             arr_schema = xarray_dataclass_to_array_schema(dataclass)
             arr_schema_fields = {
@@ -135,14 +132,12 @@ def extract_xarray_dataclass(klass):
             )
 
         else:
-
             # Get dimensions and dtypes
             dims = get_dims(typ)
             types = get_types(typ)
 
             # Is types a (single) dataclass?
             if len(types) == 1 and dataclasses.is_dataclass(types[0]):
-
                 # Recursively get array schema for data class
                 arr_schema = xarray_dataclass_to_array_schema(types[0])
 
@@ -166,7 +161,6 @@ def extract_xarray_dataclass(klass):
                     **arr_schema_fields,
                 )
             else:
-
                 # Assume that it's an "inline" declaration using "Coord"/"Data"
                 schema_ref = ArraySchemaRef(
                     name=field.name,
@@ -183,7 +177,6 @@ def extract_xarray_dataclass(klass):
                 )
 
         if is_coord:
-
             # Make sure that it is valid to use as a coordinate - i.e. we don't
             # have "recursive" (?!) coordinate definitions
             if not schema_ref.is_coord():

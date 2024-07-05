@@ -46,7 +46,6 @@ def load_processing_set(
     s3 = None
     ps = processing_set()
     for ms_dir_name, ms_xds_isel in sel_parms.items():
-
         # before the _open_dataset call, check if dealing with an S3 bucket URL
         if ps_store.startswith("s3"):
             if not ps_store.endswith("/"):
@@ -106,7 +105,6 @@ def load_processing_set(
 
 
 class processing_set_iterator:
-
     def __init__(
         self,
         sel_parms: dict,

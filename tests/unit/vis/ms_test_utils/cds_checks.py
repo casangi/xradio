@@ -144,7 +144,6 @@ def check_vis_partitions_load(vis, partition_scheme, descr, chunks):
 
 
 def check_partition_data(part, descr):
-
     expected_coords_with_dim = {"time", "baseline", "pol", "freq", "antenna_id"}
     check_partition_coords(part.coords, expected_coords_with_dim)
 
@@ -211,8 +210,13 @@ def check_partition_data_vars(data_vars):
 
 def check_partition_metainfo(part, partition_scheme, descr, chunks):
     check_part_attrs(part.attrs, partition_scheme, chunks)
-    exp_ids = {'array_id': [0], 'observation_id': [0], 'pol_setup_id': 0,
-               'processor_id': [0], "spw_id": 0}
+    exp_ids = {
+        "array_id": [0],
+        "observation_id": [0],
+        "pol_setup_id": 0,
+        "processor_id": [0],
+        "spw_id": 0,
+    }
     # For the values we'd need a properly populated 'descr'
     assert part.attrs["partition_ids"].keys() == exp_ids.keys()
 

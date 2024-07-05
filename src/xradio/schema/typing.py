@@ -30,11 +30,13 @@ from typing import (
 )
 
 from typing import Union
+
 try:
     # Python 3.10 forward: TypeAlias, ParamSpec are standard, and there is the
     # "a | b" UnionType alternative to "Union[a,b]"
     from typing import TypeAlias, ParamSpec
     from types import UnionType
+
     HAVE_UNIONTYPE = True
 except ImportError:
     # Python 3.9: Get TypeAlias, ParamSpec from typing_extensions, no support
@@ -43,6 +45,7 @@ except ImportError:
         TypeAlias,
         ParamSpec,
     )
+
     HAVE_UNIONTYPE = False
 import numpy as np
 from itertools import chain
@@ -354,7 +357,6 @@ def get_types(tp: Any) -> List[AnyDType]:
 
     types_out = []
     for dt in types_in:
-
         # Handle case that we want to allow "Any"
         if dt is Any or dt is type(None):
             types_out.append(None)

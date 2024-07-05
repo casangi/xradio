@@ -424,7 +424,6 @@ def create_partition_enumerated_product(in_file: str, partition_scheme: str):
         intents, state_ids = get_unqiue_intents(in_file)
         field_ids = np.arange(read_generic_table(in_file, "FIELD").sizes["row"])
     else:  # partition_scheme == "ddi_state_field"
-
         if len(state_xds.data_vars) > 0:
             state_ids = [np.arange(state_xds.sizes["row"])]
             intents = state_xds.obs_mode.values

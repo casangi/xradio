@@ -1031,7 +1031,6 @@ def read_col_conversion(
     # array (ie fails for TIME, etc)
     # Assumes RuntimeError is because the column is a scalar
     try:
-
         shape_string = tb_tool.getcolshapestring(col)[0]
         extra_dimensions = tuple(
             [

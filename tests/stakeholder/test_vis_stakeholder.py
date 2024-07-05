@@ -80,7 +80,6 @@ def base_test(msv2_name, expected_sum_value):
     ],
 )
 def test_s3_read_processing_set(s3_ps_name, expected_sum_value):
-
     ps_lazy = read_processing_set(s3_ps_name)
 
     sel_parms = {key: {} for key in ps_lazy.keys()}

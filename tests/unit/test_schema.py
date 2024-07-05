@@ -112,7 +112,6 @@ def test_xarray_dataclass_to_array_schema():
 
 
 def test_check_array():
-
     # Should succeed
     data = numpy.zeros(10, dtype=complex)
     coords = [("coord", numpy.arange(10, dtype=float))]
@@ -134,7 +133,6 @@ def test_check_array():
 
 
 def test_check_array_dask():
-
     data = dask.array.zeros(10, dtype=complex)
     coords = [("coord", numpy.arange(10, dtype=float))]
     attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
@@ -145,7 +143,6 @@ def test_check_array_dask():
 
 
 def test_check_array_constructor_array_style():
-
     # Try by using constructor xarray.DataArray-style
     data = numpy.zeros(10, dtype=complex)
     coords = [("coord", numpy.arange(10, dtype=float))]
@@ -164,7 +161,6 @@ def test_check_array_constructor_array_style():
 
 
 def test_check_array_constructor_dataclass_style():
-
     # Check when passing parameter (dataclass-style)
     array = _TestArraySchema(
         data=numpy.zeros(10, dtype=complex),
@@ -186,7 +182,6 @@ def test_check_array_constructor_dataclass_style():
 
 
 def test_check_array_constructor_from_dataarray():
-
     # Create schema-conformant DataArray
     data = numpy.zeros(10, dtype=complex)
     coords = [("coord", numpy.arange(10, dtype=float))]
@@ -208,7 +203,6 @@ def test_check_array_constructor_from_dataarray():
 
 
 def test_check_array_constructor_from_dataarray_override():
-
     # Create schema-conformant DataArray
     data = numpy.zeros(10, dtype=complex)
     coords = [("coord", numpy.arange(10, dtype=float))]
@@ -235,7 +229,6 @@ def test_check_array_constructor_from_dataarray_override():
 
 
 def test_check_array_constructor_auto_coords():
-
     # Check that we can omit "coords", which should result in them getting
     # filled in by a "numpy.arange" automatically
     array = _TestArraySchema(
@@ -254,7 +247,6 @@ def test_check_array_constructor_auto_coords():
 
 
 def test_check_array_constructor_list():
-
     # Check that we can use lists instead of numpy arrays, and they get
     # converted into numpy arrays of the schema type
     array = _TestArraySchema(
@@ -280,7 +272,6 @@ def test_check_array_constructor_list():
 
 
 def test_check_array_constructor_defaults():
-
     # Check when passing parameter (dataclass-style, using positional
     # parameters and defaults)
     array = _TestArraySchema(
@@ -300,7 +291,6 @@ def test_check_array_constructor_defaults():
 
 
 def test_check_array_constructor_mixed():
-
     # Check when passing parameter (everything)
     array = _TestArraySchema(
         numpy.zeros(10, dtype=complex),
@@ -324,7 +314,6 @@ def test_check_array_constructor_mixed():
 
 
 def test_check_array_dtype_mismatch():
-
     data_f = numpy.zeros(10, dtype=float)
     coords = [("coord", numpy.arange(10, dtype=float))]
     attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
@@ -341,7 +330,6 @@ def test_check_array_dtype_mismatch():
 
 
 def test_check_array_dtype_mismatch_constructor():
-
     with pytest.raises(SchemaIssues):
         _TestArraySchema(
             numpy.zeros(10, dtype=float), numpy.arange(10, dtype=float), attr1="str"
@@ -349,7 +337,6 @@ def test_check_array_dtype_mismatch_constructor():
 
 
 def test_check_array_dtype_mismatch_expect():
-
     data_f = numpy.zeros(10, dtype=float)
     coords = [("coord", numpy.arange(10, dtype=float))]
     attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
@@ -363,7 +350,6 @@ def test_check_array_dtype_mismatch_expect():
 
 
 def test_check_array_extra_coord():
-
     coords2 = [
         ("coord", numpy.arange(10, dtype=float)),
         ("coord2", numpy.arange(1, dtype=float)),
@@ -380,7 +366,6 @@ def test_check_array_extra_coord():
 
 
 def test_check_array_missing_coord():
-
     data0 = numpy.array(None, dtype=complex)
     attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
     results = check_array(xarray.DataArray(data0, {}, attrs=attrs), TEST_ARRAY_SCHEMA)
@@ -392,7 +377,6 @@ def test_check_array_missing_coord():
 
 
 def test_check_array_wrong_coord():
-
     data = numpy.zeros(10, dtype=complex)
     coords3 = [("coord2", numpy.arange(10, dtype=int))]
     attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
@@ -409,7 +393,6 @@ def test_check_array_wrong_coord():
 
 
 def test_check_array_missing_attr():
-
     data = numpy.zeros(10, dtype=complex)
     coords = [("coord", numpy.arange(10, dtype=float))]
     results = check_array(xarray.DataArray(data, coords), TEST_ARRAY_SCHEMA)
@@ -419,7 +402,6 @@ def test_check_array_missing_attr():
 
 
 def test_check_array_extra_attr():
-
     data = numpy.zeros(10, dtype=complex)
     coords = [("coord", numpy.arange(10, dtype=float))]
     attrs = {"attr1": "str", "attr2": 123, "attr3": 345, "attr4": "asd"}
@@ -428,7 +410,6 @@ def test_check_array_extra_attr():
 
 
 def test_check_array_optional_attr():
-
     data = numpy.zeros(10, dtype=complex)
     coords = [("coord", numpy.arange(10, dtype=float))]
     attrs = {"attr1": "str", "attr2": 123}
@@ -437,7 +418,6 @@ def test_check_array_optional_attr():
 
 
 def test_check_array_wrong_type():
-
     data = numpy.zeros(10, dtype=complex)
     coords = [("coord", numpy.arange(10, dtype=float))]
     wrong_attrs = {"attr1": 123, "attr2": str, "attr3": 345.0}
@@ -613,7 +593,6 @@ def test_xarray_dataclass_to_dict_schema():
 
 
 def test_check_dict():
-
     # Should succeed
     data = {"attr1": "asd", "attr2": 234, "attr3": 345}
     issues = check_dict(data, TEST_DICT_SCHEMA)
@@ -622,7 +601,6 @@ def test_check_dict():
 
 
 def test_check_dict_optional():
-
     # Should succeed
     data = {"attr1": "asd", "attr2": 234}
     issues = check_dict(data, TEST_DICT_SCHEMA)
@@ -631,7 +609,6 @@ def test_check_dict_optional():
 
 
 def test_check_dict_constructor():
-
     # Should succeed
     data = _TestDictSchema(attr1="asd", attr2=234, attr3=345)
     assert isinstance(data, dict)
@@ -643,7 +620,6 @@ def test_check_dict_constructor():
 
 
 def test_check_dict_constructor_defaults():
-
     # Should succeed
     data = _TestDictSchema(attr1="asd")
     assert isinstance(data, dict)
@@ -655,7 +631,6 @@ def test_check_dict_constructor_defaults():
 
 
 def test_check_dict_typ():
-
     # Should succeed
     data = {"attr1": "asd", "attr2": "foo"}
     results = check_dict(data, TEST_DICT_SCHEMA)
@@ -669,7 +644,6 @@ def test_check_dict_typ():
 
 
 def test_check_dict_missing():
-
     # Should succeed
     data = {"attr1": "asd"}
     results = check_dict(data, TEST_DICT_SCHEMA)
@@ -812,12 +786,10 @@ TEST_DATASET_SCHEMA = DatasetSchema(
 
 
 def test_xarray_dataclass_to_dataset_schema():
-
     assert xarray_dataclass_to_dataset_schema(_TestDatasetSchema) == TEST_DATASET_SCHEMA
 
 
 def test_check_dataset():
-
     attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
     coords = {
         "coord": xarray.DataArray(
@@ -967,7 +939,6 @@ def test_check_dataset_constructor_auto_coords():
 
 
 def test_check_dataset():
-
     attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
     coords = {
         "coord": xarray.DataArray(
@@ -989,7 +960,6 @@ def test_check_dataset():
 
 
 def test_check_dataset_wrong_dim_order():
-
     attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
     coords = {
         "coord2": numpy.arange(5, dtype=int),
@@ -1007,7 +977,6 @@ def test_check_dataset_wrong_dim_order():
 
 
 def test_check_dataset_dtype_mismatch():
-
     attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
     coords = {
         "coord": xarray.DataArray(
@@ -1031,7 +1000,6 @@ def test_check_dataset_dtype_mismatch():
 
 
 def test_check_dataset_wrong_dim():
-
     attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
     coords = {
         "coord2": numpy.arange(5, dtype=int),
@@ -1052,7 +1020,6 @@ def test_check_dataset_wrong_dim():
 
 
 def test_check_dataset_extra_datavar():
-
     attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
     coords = {
         "coord2": numpy.arange(5, dtype=int),
@@ -1071,7 +1038,6 @@ def test_check_dataset_extra_datavar():
 
 
 def test_check_dataset_optional_datavar():
-
     attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
     coords = {
         "coord": xarray.DataArray(
@@ -1088,7 +1054,6 @@ def test_check_dataset_optional_datavar():
 
 
 def test_check_dataset_optional_coordinate():
-
     attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
     coords = {
         "coord": xarray.DataArray(
@@ -1104,7 +1069,6 @@ def test_check_dataset_optional_coordinate():
 
 
 def test_check_dict_dataset_attribute():
-
     # Make dataset
     attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
     coords = {
@@ -1137,7 +1101,6 @@ def test_check_dict_dataset_attribute():
 
 
 def test_check_dict_array_attribute():
-
     # Make array
     data = numpy.zeros(10, dtype=complex)
     coords = [("coord", numpy.arange(10, dtype=float))]
@@ -1156,7 +1119,6 @@ def test_check_dict_array_attribute():
 
 
 def test_check_dict_dict_attribute():
-
     # Check inside dictionary
     @dict_schema
     class _DictSchema:

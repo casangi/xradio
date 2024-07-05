@@ -310,9 +310,7 @@ def optimal_chunking(
             else [dd for ii, dd in enumerate([10, 10, 1, 1, 1]) if ii < ndim]
         )
     )
-    target_size = (
-        175 * 1024**2 / 8
-    )  # ~175 MB chunk worst case with 8-byte DATA column
+    target_size = 175 * 1024**2 / 8  # ~175 MB chunk worst case with 8-byte DATA column
     bytes_per_core = int(
         round(
             ((psutil.virtual_memory().available * 0.10) / multiprocessing.cpu_count())

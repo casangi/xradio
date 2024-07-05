@@ -225,14 +225,12 @@ def _fix_dict_for_ms(name, xds):
         ).astype(int)
 
     if "spectral_window" == name:
-        xds.column_descriptions["CHAN_FREQ"]["keywords"]["MEASINFO"][
-            "TabRefCodes"
-        ] = np.array(
-            xds.column_descriptions["CHAN_FREQ"]["keywords"]["MEASINFO"][
-                "TabRefCodes"
-            ].split(",")
-        ).astype(
-            int
+        xds.column_descriptions["CHAN_FREQ"]["keywords"]["MEASINFO"]["TabRefCodes"] = (
+            np.array(
+                xds.column_descriptions["CHAN_FREQ"]["keywords"]["MEASINFO"][
+                    "TabRefCodes"
+                ].split(",")
+            ).astype(int)
         )
         xds.column_descriptions["REF_FREQUENCY"]["keywords"]["MEASINFO"][
             "TabRefCodes"

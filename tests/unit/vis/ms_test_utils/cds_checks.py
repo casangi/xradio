@@ -144,7 +144,6 @@ def check_vis_partitions_load(vis, partition_scheme, descr, chunks):
 
 
 def check_partition_data(part, descr):
-
     expected_coords_with_dim = {"time", "baseline", "pol", "freq", "antenna_id"}
     check_partition_coords(part.coords, expected_coords_with_dim)
 

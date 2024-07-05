@@ -211,8 +211,13 @@ def check_partition_data_vars(data_vars):
 
 def check_partition_metainfo(part, partition_scheme, descr, chunks):
     check_part_attrs(part.attrs, partition_scheme, chunks)
-    exp_ids = {'array_id': [0], 'observation_id': [0], 'pol_setup_id': 0,
-               'processor_id': [0], "spw_id": 0}
+    exp_ids = {
+        "array_id": [0],
+        "observation_id": [0],
+        "pol_setup_id": 0,
+        "processor_id": [0],
+        "spw_id": 0,
+    }
     # For the values we'd need a properly populated 'descr'
     assert part.attrs["partition_ids"].keys() == exp_ids.keys()
 

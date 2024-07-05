@@ -1,6 +1,6 @@
-
 def test_cds():
     from xradio.vis._vis_utils._utils.xds_helper import CASAVisSet
+
     descr = "any"
     cds = CASAVisSet({}, {}, "any")
     assert cds["metainfo"] == {}

@@ -2,7 +2,7 @@ from xradio.vis import (
     read_processing_set,
     load_processing_set,
     convert_msv2_to_processing_set,
-    VisibilityXds
+    VisibilityXds,
 )
 from xradio.schema.check import check_dataset
 from graphviper.utils.data import download
@@ -61,7 +61,7 @@ def base_test(msv2_name, expected_sum_value):
     assert sum == pytest.approx(
         expected_sum_value, rel=relative_tolerance
     ), "VISIBILITY and WEIGHT values have changed."
-    
+
     for xds_name in ps.keys():
         issues = check_dataset(ps[xds_name], VisibilityXds)
         if not issues:
@@ -101,7 +101,7 @@ def test_s3_read_processing_set(s3_ps_name, expected_sum_value):
             np.abs(ps_lazy[ms_xds_name][data_name] * ps_lazy[ms_xds_name].WEIGHT)
         )
 
-    print('hallow', sum)
+    print("hallow", sum)
 
     assert (
         sum == sum_lazy
@@ -109,7 +109,7 @@ def test_s3_read_processing_set(s3_ps_name, expected_sum_value):
     assert sum == pytest.approx(
         expected_sum_value, rel=relative_tolerance
     ), "VISIBILITY and WEIGHT values have changed."
-    
+
 
 def test_alma():
     base_test("Antennae_North.cal.lsrk.split.ms", 190.0405216217041)

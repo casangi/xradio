@@ -30,6 +30,7 @@ def create_field_and_source_xds(
     in_file,
     field_id,
     spectral_window_id,
+    field_times,
     is_single_dish,
     time_min_max: Tuple[np.float64, np.float64],
     ephemeris_interp_time: Union[xr.DataArray, None] = None,
@@ -61,7 +62,7 @@ def create_field_and_source_xds(
     field_and_source_xds = xr.Dataset()
 
     field_and_source_xds, ephemeris_path, ephemeris_table_name = (
-        create_field_info_and_check_ephemeris(field_and_source_xds, in_file, field_id, is_single_dish)
+        create_field_info_and_check_ephemeris(field_and_source_xds, in_file, field_id, field_times, is_single_dish)
     )
     source_id = field_and_source_xds.attrs["source_id"]
 
@@ -437,6 +438,7 @@ def extract_source_info(xds, path, is_ephemeris, source_id, spectral_window_id):
         logger.warning(
             f"Source_id is -1. No source information will be included in the field_and_source_xds."
         )
+        xds.attrs['source_name'] = 'None'
         return xds
 
     source_xds = read_generic_table(
@@ -450,6 +452,7 @@ def extract_source_info(xds, path, is_ephemeris, source_id, spectral_window_id):
         logger.warning(
             f"SOURCE table empty for source_id {source_id} and spectral_window_id {spectral_window_id}."
         )
+        xds.attrs['source_name'] = 'None'
         return xds
 
     assert (
@@ -520,7 +523,7 @@ def extract_source_info(xds, path, is_ephemeris, source_id, spectral_window_id):
     return xds
 
 
-def create_field_info_and_check_ephemeris(field_and_source_xds, in_file, field_id, is_single_dish):
+def create_field_info_and_check_ephemeris(field_and_source_xds, in_file, field_id, field_times, is_single_dish):
     """
     Create field information and check for ephemeris in the FIELD table folder.
 
@@ -547,7 +550,8 @@ def create_field_info_and_check_ephemeris(field_and_source_xds, in_file, field_i
         "FIELD",
         rename_ids=subt_rename_ids["FIELD"],
     )#.sel(field_id=field_id)
-    field_xds['field_id'] = np.arange(len(field_xds.field_id))
+    #print('1****',field_xds)
+    #field_xds['field_id'] = np.arange(len(field_xds.field_id))
     
     assert len(field_xds.poly_id) == 1, "Polynomial field positions not supported."
     field_xds = field_xds.isel(poly_id=0)
@@ -556,21 +560,22 @@ def create_field_info_and_check_ephemeris(field_and_source_xds, in_file, field_i
     from xradio._utils.array import check_if_consistent
     
     source_id = check_if_consistent(field_xds.source_id, "source_id")
+        
     
-    print('source_id', source_id)
-
+    # print('source_id', source_id)
+    # print(field_xds)
+    # print('***')
+    # print(field_xds.field_id)
+    # print('***')
+    # print(field_id)
     
-    print(field_xds)
     
-    raise
-
-
     field_and_source_xds.attrs.update(
         {
             "field_name": str(field_xds["name"].data),
             "field_code": str(field_xds["code"].data),
-            "field_id": field_id,
-            "source_id": int(field_xds["source_id"].data),
+            #"field_id": field_id,
+            "source_id": source_id,
         }
     )
 
@@ -580,7 +585,7 @@ def create_field_info_and_check_ephemeris(field_and_source_xds, in_file, field_i
     
     # Need to check if ephemeris_id is present and if epehemeris table is present.
     if "ephemeris_id" in field_xds:
-        ephemeris_id = int(field_xds["ephemeris_id"].data)
+        ephemeris_id = check_if_consistent(field_xds.ephemeris_id, "ephemeris_id") #int(field_xds["ephemeris_id"].data)
         if ephemeris_id > -1:
             files = os.listdir(os.path.join(in_file, "FIELD"))
             ephemeris_table_name_start = "EPHEM" + str(ephemeris_id)
@@ -638,16 +643,29 @@ def create_field_info_and_check_ephemeris(field_and_source_xds, in_file, field_i
     field_column_description = field_xds.attrs["other"]["msv2"]["ctds_attrs"][
         "column_descriptions"
     ]  # Keys are ['DELAY_DIR', 'PHASE_DIR', 'REFERENCE_DIR', 'CODE', 'FLAG_ROW', 'NAME', 'NUM_POLY', 'SOURCE_ID', 'TIME']
-
+    
+    coords = {}
+    coords["sky_dir_label"] = ["ra", "dec"]
+    if field_times is not None:
+        coords["time"] = field_times
+        dims = ["time", "sky_dir_label"]
+    else:      
+        dims = ["sky_dir_label"]
+        
     for generic_name, msv4_name in field_data_variables.items():
+        
+        if field_xds.get("delaydir_ref") is None:
+            delaydir_ref = None
+        else:
+            delaydir_ref = check_if_consistent(field_xds.get("delaydir_ref"), "delaydir_ref")
         msv4_measure = column_description_casacore_to_msv4_measure(
             field_column_description[generic_name.upper()],
-            ref_code=getattr(field_xds.get("delaydir_ref"), "data", None),
+            ref_code=delaydir_ref
         )
 
         field_and_source_xds[msv4_name] = xr.DataArray.from_dict(
             {
-                "dims": "sky_dir_label",
+                "dims": dims,
                 "data": list(field_xds[generic_name].data),
                 "attrs": msv4_measure,
             }
@@ -655,7 +673,6 @@ def create_field_info_and_check_ephemeris(field_and_source_xds, in_file, field_i
 
         field_and_source_xds[msv4_name].attrs["type"] = field_measures_type
 
-    coords = {}
-    coords["sky_dir_label"] = ["ra", "dec"]
+ 
     field_and_source_xds = field_and_source_xds.assign_coords(coords)
     return field_and_source_xds, ephemeris_path, ephemeris_table_name

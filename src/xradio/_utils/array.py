@@ -16,6 +16,8 @@ def check_if_consistent(array: np.ndarray, array_name: str) -> np.ndarray:
     _type_
         _description_
     """
+    if array.ndim == 0:
+        return array.item()
 
     array_unique = unique_1d(array)
     assert len(array_unique) == 1, array_name + " is not consistent."

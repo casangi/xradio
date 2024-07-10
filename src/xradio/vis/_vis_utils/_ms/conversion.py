@@ -584,6 +584,7 @@ def create_data_variables(
                     )
             except:
                 # logger.debug("Could not load column",col)
+                print("Could not load column", col)
                 continue
 
             xds[col_to_data_variable_names[col]].attrs.update(
@@ -594,12 +595,8 @@ def create_data_variables(
 def convert_and_write_partition(
     in_file: str,
     out_file: str,
-    intent: str,
     ms_v4_id: int,
-    ddi: int = 0,
-    state_ids=None,
-    field_id: int = None,
-    scan_id: int = None,
+    partition_info: Dict,
     partition_scheme: str = "ddi_intent_field",
     main_chunksize: Union[Dict, float, None] = None,
     with_pointing: bool = True,
@@ -648,13 +645,52 @@ def convert_and_write_partition(
     _type_
         _description_
     """
+    
+# where (DATA_DESC_ID = 0) AND   (STATE_ID = 32 OR STATE_ID = 23 OR STATE_ID = 30 OR STATE_ID = 37) AND (FIELD_ID = 0)
+#  WHERE (DATA_DESC_ID IN [0]) AND(STATE_ID IN [32,23,30,37])                                        AND(FIELD_ID IN [0]) AND(SCAN_NUMBER IN [11,2,9,16]) 
 
-    taql_where = create_taql_query(state_ids, field_id, ddi, scan_id)
-
+# 1. tb_tool rows 2225
+# where (DATA_DESC_ID = 0) AND (STATE_ID = 33 OR STATE_ID = 24 OR STATE_ID = 31) AND (FIELD_ID = 1)
+# 1. tb_tool rows 1725
+# where (DATA_DESC_ID = 0) AND (STATE_ID = 34 OR STATE_ID = 25 OR STATE_ID = 32) AND (FIELD_ID = 2)
+# 1. tb_tool rows 1725
+# where (DATA_DESC_ID = 0) AND (STATE_ID = 48 OR STATE_ID = 39 OR STATE_ID = 46 OR STATE_ID = 53) AND (FIELD_ID = 0)
+# 1. tb_tool rows 1420
+# where (DATA_DESC_ID = 0) AND (STATE_ID = 49 OR STATE_ID = 40 OR STATE_ID = 47) AND (FIELD_ID = 1)
+# 1. tb_tool rows 1095
+# where (DATA_DESC_ID = 0) AND (STATE_ID = 50 OR STATE_ID = 41 OR STATE_ID = 48) AND (FIELD_ID = 2)
+# 1. tb_tool rows 1095
+    
+    # ddi: int = 0,
+    # state_ids=None,
+    # field_id: int = None,
+    # scan_id: int = None,
+    #taql_where = create_taql_query(state_ids=partition_info['STATE_ID'], field_id=partition_info['FIELD_ID'], ddi=partition_info['DATA_DESC_ID'], scan_id=partition_info['SCAN_ID'])
+    #taql_where = create_taql_query(state_ids=partition_info['STATE_ID'], field_id=partition_info['FIELD_ID'][0], ddi=partition_info['DATA_DESC_ID'][0], scan_id=None)
+    
+    def create_taql_query2(partition_info):
+        main_par_table_cols = ['DATA_DESC_ID', 'STATE_ID', 'FIELD_ID', 'SCAN_NUMBER', 'STATE_ID']
+        
+        taql_where = 'WHERE '
+        for col_name in main_par_table_cols:
+            if col_name in partition_info:  
+                taql_where = taql_where + f"({col_name} IN [{','.join(map(str, partition_info[col_name]))}]) AND"
+        taql_where = taql_where[:-3]
+                
+        return taql_where
+        
+    taql_where = create_taql_query2(partition_info)
+    ddi = partition_info['DATA_DESC_ID'][0]
+    intent = str(partition_info['INTENT'][0])
+    print(taql_where)
+    
     start = time.time()
     with open_table_ro(in_file) as mtable:
         taql_main = f"select * from $mtable {taql_where}"
         with open_query(mtable, taql_main) as tb_tool:
+            
+            print('1. tb_tool rows',tb_tool.nrows())
+            
             if tb_tool.nrows() == 0:
                 tb_tool.close()
                 mtable.close()
@@ -786,44 +822,17 @@ def convert_and_write_partition(
             else:
                 ephemeris_interp_time = None
                 
-                
-            def get_field_times(field_ids, unique_field_ids, times, utimes):
-                """Assigns a time to each field.
+            scan_id = np.full(time_baseline_shape, -42, dtype=int)
+            scan_id[tidxs, bidxs] = tb_tool.getcol("SCAN_NUMBER")
+            #print('1. scan_id',scan_id)
+            scan_id = np.max(scan_id,axis=1)
+            #print('2. scan_id',scan_id)
 
-                Args:
-                    field_ids (_type_): _description_
-                    unique_field_ids (_type_): _description_
-                    times (_type_): _description_
-
-                Returns:
-                    _type_: _description_
-                """
-                field_times = np.zeros(utime.shape)
-                
-                for i, ut in enumerate(utimes):
-                    print('*()',np.where(times == ut)[0], field_ids[np.where(times == ut)[0]])
-                    field_times
-                
-                # unique_times = np.zeros(len(unique_field_ids))
-                # for i, fid in enumerate(unique_field_ids):
-                #     unique_times[i] = np.mean(times[np.where(field_ids == fid)[0]])
-                # return unique_times
-                
             if partition_scheme == "ddi_intent_source" or partition_scheme == "ddi_intent_scan":
-                # times = tb_tool.getcol("TIME")
-                # field_ids = tb_tool.getcol("FIELD_ID")#
-                # unique_field_ids = unique_1d(field_ids)
-                
-                field_id = read_col_conversion(
-                            tb_tool,
-                            "FIELD_ID",
-                            time_baseline_shape,
-                            tidxs,
-                            bidxs,
-                        )
-                
-                print('field_id',field_id)
-                #field_times = get_field_times(field_ids, unique_field_ids, times, utime)
+                field_id = np.full(time_baseline_shape, -42, dtype=int)
+                field_id[tidxs, bidxs] = tb_tool.getcol("FIELD_ID")
+                field_id = np.max(field_id,axis=1)
+                field_times = utime
             else:
                 field_id = check_if_consistent(tb_tool.getcol("FIELD_ID"), "FIELD_ID")
                 field_times = None
@@ -836,11 +845,14 @@ def convert_and_write_partition(
                 in_file,
                 field_id,
                 xds.frequency.attrs["spectral_window_id"],
+                field_times,
                 is_single_dish,
                 time_min_max,
                 ephemeris_interp_time,
             )
             logger.debug("Time field_and_source_xds " + str(time.time() - start))   
+            
+     
             
             # Fix UVW frame
             # From CASA fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking center. calcuvw does not yet force the UVW column and field centers to use the same reference frame! Blank = use the phase tracking frame of vis.
@@ -870,6 +882,9 @@ def convert_and_write_partition(
                 + str(ms_v4_id),
             )
             
+            if isinstance(field_id,np.ndarray):
+                field_id = 'OTF'
+            
             xds.attrs['partition_info'] = {
                 'spectral_window_id': xds.frequency.attrs["spectral_window_id"],
                 'spectral_window_name': xds.frequency.attrs["spectral_window_name"],
@@ -881,6 +896,8 @@ def convert_and_write_partition(
                 'intent': intent,
                 'taql' : taql_where,
             }
+            
+            #print(xds)
 
             start = time.time()
             if storage_backend == "zarr":

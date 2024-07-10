@@ -6,6 +6,7 @@ import dask
 
 from xradio.vis._vis_utils._ms.partition_queries import (
     create_partition_enumerated_product,
+    create_partition_enumerated_product2
 )
 from xradio.vis._vis_utils._ms.conversion import convert_and_write_partition
 
@@ -56,67 +57,129 @@ def convert_msv2_to_processing_set(
         Whether to overwrite an existing processing set, by default False.
     """
 
-    partition_enumerated_product, intents = create_partition_enumerated_product(
-        in_file, partition_scheme
+    # partition_enumerated_product, intents = create_partition_enumerated_product(
+    #     in_file, partition_scheme
+    # )
+    
+    print('*******'*10)
+    
+    partitions = create_partition_enumerated_product2(
+        in_file, partition_scheme = ['DATA_DESC_ID', 'INTENT', 'FIELD_ID']
     )
-
+    
+    print(len(partitions))
+    
     delayed_list = []
     ms_v4_id = 0
-    for idx, pair in partition_enumerated_product:
-        ddi, state_id, field_id, scan_id = pair
-        logger.debug(
-            "DDI " + str(ddi) + ", STATE " + str(state_id) + ", FIELD " + str(field_id) + ", SCAN " + str(scan_id)
-        )
-        
-        if scan_id == 67: #67
+    for partition_info in partitions:
+        # logger.debug(
+        #     "DDI " + str(partition_info['DATA_DESC_ID']) + ", STATE " + str(partition_info['STATE_ID']) + ", FIELD " + str(partition_info['FIELD_ID']) + ", SCAN " + str(partition_info['SCAN_NUMBER'])
+        # )
 
-            if partition_scheme == "ddi_intent_field":
-                intent = intents[idx[1]]
-            else:
-                intent = intents[idx[1]] + "_" + str(state_id)
+    #     if partition_scheme == "ddi_intent_field":
+    #         intent = intents[idx[1]]
+    #     else:
+    #         intent = intents[idx[1]] + "_" + str(state_id)
 
-            if parallel:
-                delayed_list.append(
-                    dask.delayed(convert_and_write_partition)(
-                        in_file,
-                        out_file,
-                        intent,
-                        ms_v4_id,
-                        ddi,
-                        state_id,
-                        field_id,
-                        scan_id,
-                        partition_scheme,
-                        main_chunksize=main_chunksize,
-                        with_pointing=with_pointing,
-                        pointing_chunksize=pointing_chunksize,
-                        pointing_interpolate=pointing_interpolate,
-                        ephemeris_interpolate=ephemeris_interpolate,
-                        compressor=compressor,
-                        overwrite=overwrite,
-                    )
-                )
-            else:
-                convert_and_write_partition(
+        if parallel:
+            delayed_list.append(
+                dask.delayed(convert_and_write_partition)(
                     in_file,
                     out_file,
-                    intent,
                     ms_v4_id,
-                    ddi,
-                    state_id,
-                    field_id,
-                    scan_id,
-                    partition_scheme,
+                    partition_info=partition_info,
+                    partition_scheme=partition_scheme,
                     main_chunksize=main_chunksize,
                     with_pointing=with_pointing,
                     pointing_chunksize=pointing_chunksize,
                     pointing_interpolate=pointing_interpolate,
                     ephemeris_interpolate=ephemeris_interpolate,
                     compressor=compressor,
-                    storage_backend=storage_backend,
                     overwrite=overwrite,
                 )
-            ms_v4_id = ms_v4_id + 1
+            )
+        else:
+            convert_and_write_partition(
+                in_file,
+                out_file,
+                ms_v4_id,
+                partition_info=partition_info,
+                partition_scheme=partition_scheme,
+                main_chunksize=main_chunksize,
+                with_pointing=with_pointing,
+                pointing_chunksize=pointing_chunksize,
+                pointing_interpolate=pointing_interpolate,
+                ephemeris_interpolate=ephemeris_interpolate,
+                compressor=compressor,
+                overwrite=overwrite,
+            )
+        ms_v4_id = ms_v4_id + 1
 
     if parallel:
         dask.compute(delayed_list)
+
+
+
+
+    # delayed_list = []
+    # ms_v4_id = 0
+    # for idx, pair in partition_enumerated_product:
+    #     ddi, state_id, field_id, scan_id = pair
+    #     # logger.debug(
+    #     #     "DDI " + str(ddi) + ", STATE " + str(state_id) + ", FIELD " + str(field_id) + ", SCAN " + str(scan_id)
+    #     # )
+        
+    #     # if scan_id == 67: #67
+    #     #     logger.debug(
+    #     #     "DDI " + str(ddi) + ", STATE " + str(state_id) + ", FIELD " + str(field_id) + ", SCAN " + str(scan_id)
+    #     #     )
+    #     if partition_scheme == "ddi_intent_field":
+    #         intent = intents[idx[1]]
+    #     else:
+    #         intent = intents[idx[1]] + "_" + str(state_id)
+
+    #     if parallel:
+    #         delayed_list.append(
+    #             dask.delayed(convert_and_write_partition)(
+    #                 in_file,
+    #                 out_file,
+    #                 intent,
+    #                 ms_v4_id,
+    #                 ddi,
+    #                 state_id,
+    #                 field_id,
+    #                 scan_id,
+    #                 partition_scheme,
+    #                 main_chunksize=main_chunksize,
+    #                 with_pointing=with_pointing,
+    #                 pointing_chunksize=pointing_chunksize,
+    #                 pointing_interpolate=pointing_interpolate,
+    #                 ephemeris_interpolate=ephemeris_interpolate,
+    #                 compressor=compressor,
+    #                 overwrite=overwrite,
+    #             )
+    #         )
+    #     else:
+    #         convert_and_write_partition(
+    #             in_file,
+    #             out_file,
+    #             intent,
+    #             ms_v4_id,
+    #             ddi,
+    #             state_id,
+    #             field_id,
+    #             scan_id,
+    #             partition_scheme,
+    #             main_chunksize=main_chunksize,
+    #             with_pointing=with_pointing,
+    #             pointing_chunksize=pointing_chunksize,
+    #             pointing_interpolate=pointing_interpolate,
+    #             ephemeris_interpolate=ephemeris_interpolate,
+    #             compressor=compressor,
+    #             storage_backend=storage_backend,
+    #             overwrite=overwrite,
+    #         )
+    #     ms_v4_id = ms_v4_id + 1
+
+    # if parallel:
+    #     dask.compute(delayed_list)

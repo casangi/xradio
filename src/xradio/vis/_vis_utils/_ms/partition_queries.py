@@ -426,8 +426,12 @@ def create_partition_enumerated_product(in_file: str, partition_scheme: str):
     data_desc_ids = np.arange(ddi_xds.sizes["row"])
     state_xds = read_generic_table(in_file, "STATE")
 
-    if (partition_scheme == "ddi_intent_field") and (len(state_xds.data_vars) > 0):
-        intents, state_ids = get_unqiue_intents(in_file)
+    if (partition_scheme == "ddi_intent_field"):
+        if (len(state_xds.data_vars) > 0):
+            intents, state_ids = get_unqiue_intents(in_file)
+        else:
+            state_ids = [None]
+            intents = ["None"]
         field_ids = np.arange(read_generic_table(in_file, "FIELD").sizes["row"])
         scan_ids = [None]
     elif partition_scheme == "ddi_state_field":  # partition_scheme == "ddi_state_field"
@@ -453,3 +457,78 @@ def create_partition_enumerated_product(in_file: str, partition_scheme: str):
     #     scan_ids = [None] 
     
     return enumerated_product(data_desc_ids, state_ids, field_ids, scan_ids), intents
+
+
+def create_partition_enumerated_product2(in_file: str, partition_scheme: np.ndarray, vla_otf=False):
+    #Create partition table
+    from casacore import tables
+    import numpy as np
+    import xarray as xr
+    import  pandas as pd
+    import os
+
+    #Open MSv2 tables with required info:
+    par_df = pd.DataFrame()
+    main_tb = tables.table(in_file, readonly=True, lockoptions={"option": "usernoread"}, ack=False)
+    par_df['DATA_DESC_ID'] = main_tb.getcol('DATA_DESC_ID')
+    par_df['FIELD_ID'] = main_tb.getcol('FIELD_ID')
+    par_df['SCAN_NUMBER'] = main_tb.getcol('SCAN_NUMBER')
+    par_df['STATE_ID'] = main_tb.getcol('STATE_ID')
+    par_df = par_df.drop_duplicates()
+    
+    field_tb = tables.table(os.path.join(in_file,"FIELD"), readonly=True, lockoptions={"option": "usernoread"}, ack=False)
+    if vla_otf:
+        par_df['FIELD_NAME'] = np.array(field_tb.getcol('NAME'))[par_df['FIELD_ID']]
+        
+    if os.path.isdir(os.path.join(os.path.join(in_file,"SOURCE"))):
+        source_tb = tables.table(os.path.join(in_file,"SOURCE"), readonly=True, lockoptions={"option": "usernoread"}, ack=False)
+        if source_tb.nrows() != 0:
+            par_df['SOURCE_ID'] = field_tb.getcol('SOURCE_ID')[par_df['FIELD_ID']]
+            if vla_otf:
+                par_df['SOURCE_NAME'] = np.array(source_tb.getcol('NAME'))[par_df['SOURCE_ID']]
+
+    if os.path.isdir(os.path.join(in_file,"STATE")):
+        state_tb = tables.table(os.path.join(in_file,"STATE"), readonly=True, lockoptions={"option": "usernoread"}, ack=False)  
+        if state_tb.nrows() != 0:
+            #print('state_tb',state_tb.nrows(),state_tb)
+            par_df['INTENT'] = np.array(state_tb.getcol('OBS_MODE'))[par_df['STATE_ID']]    
+            par_df['SUB_SCAN_NUMBER'] = state_tb.getcol('SUB_SCAN')[par_df['STATE_ID']]
+        else:
+            par_df.drop(['STATE_ID'],axis=1)
+
+    partition_scheme_updated = []
+    partition_criteria = {}
+    for par in partition_scheme:
+        if par in par_df.columns:
+            partition_criteria[par] = par_df[par].unique()
+            partition_scheme_updated.append(par)
+    #print(partition_criteria)
+    
+    enumerated_partitions = enumerated_product(*list(partition_criteria.values()))
+
+    partitions = []
+    partition_axis_names = ['DATA_DESC_ID', 'FIELD_ID', 'SCAN_NUMBER', 'STATE_ID', 'SOURCE_ID', 'INTENT', 'SUB_SCAN_NUMBER']
+    for idx, pair in enumerated_partitions:
+        query = ""
+        for i,par in enumerate(partition_scheme_updated):
+            if isinstance(pair[i], str):
+                query = query + f'{par} == "{pair[i]}" and '
+            else:
+                query = query + f'{par} == {pair[i]} and '
+        query = query[:-4]  #remove last and
+        sub_par_df = par_df.query(query).drop_duplicates()
+
+        if sub_par_df.shape[0] != 0:
+            partition_info = {}
+            
+            #FIELD_NAME	SOURCE_NAME
+            for col_name in partition_axis_names:
+                if col_name in sub_par_df.columns:
+                    partition_info[col_name] = sub_par_df[col_name].unique()
+                else:
+                    partition_info[col_name] = [None]
+                
+            partitions.append(partition_info)
+
+    return partitions
+

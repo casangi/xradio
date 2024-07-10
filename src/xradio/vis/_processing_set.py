@@ -62,7 +62,7 @@ class processing_set(dict):
             summary_data["shape"].append(value[data_name].shape)
 
             summary_data["field_id"].append(
-                value[data_name].attrs["field_and_source_xds"].attrs["field_id"]
+                value.attrs['partition_info']["field_id"]
             )
             summary_data["field_name"].append(
                 value[data_name].attrs["field_and_source_xds"].attrs["field_name"]

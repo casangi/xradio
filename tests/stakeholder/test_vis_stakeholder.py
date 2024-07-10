@@ -64,6 +64,7 @@ def base_test(msv2_name, expected_sum_value):
         expected_sum_value, rel=relative_tolerance
     ), "VISIBILITY and WEIGHT values have changed."
 
+    ###################
     # from xradio.schema.check import check_dataset
     # from xradio.vis.schema import VisibilityXds
     # for xds_name in ps.keys():
@@ -151,12 +152,12 @@ def test_single_dish():
     base_test("sdimaging.ms", 5487446.5)
 
 
-# test_alma()
-# test_ska_mid()
-# test_lofar()
-# test_meerkat()
-# test_global_vlbi()
-# test_vlba()
-# test_ngeht()
-# test_ephemeris()
-# test_single_dish()
+test_alma()
+test_ska_mid()
+test_lofar()
+test_meerkat()
+test_global_vlbi()
+test_vlba()
+test_ngeht()
+test_ephemeris()
+test_single_dish()

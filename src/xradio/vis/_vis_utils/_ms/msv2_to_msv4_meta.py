@@ -4,6 +4,7 @@ col_to_data_variable_names = {
     "FLOAT_DATA": "SPECTRUM",
     "DATA": "VISIBILITY",
     "CORRECTED_DATA": "VISIBILITY_CORRECTED",
+    "MODEL_DATA": "VISIBILITY_MODEL",
     "WEIGHT_SPECTRUM": "WEIGHT",
     "WEIGHT": "WEIGHT",
     "FLAG": "FLAG",
@@ -14,6 +15,7 @@ col_to_data_variable_names = {
 col_dims = {
     "DATA": ("time", "baseline_id", "frequency", "polarization"),
     "CORRECTED_DATA": ("time", "baseline_id", "frequency", "polarization"),
+    "MODEL_DATA": ("time", "baseline_id", "frequency", "polarization"),
     "WEIGHT_SPECTRUM": ("time", "baseline_id", "frequency", "polarization"),
     "WEIGHT": ("time", "baseline_id", "frequency", "polarization"),
     "FLAG": ("time", "baseline_id", "frequency", "polarization"),

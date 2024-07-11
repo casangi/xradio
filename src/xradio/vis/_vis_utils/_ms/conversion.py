@@ -762,42 +762,8 @@ def convert_and_write_partition(
                 xds = xds.sel(time=slice(None, None, -1))
 
             # Add data_groups and field_info
-            xds.attrs["data_groups"] = {}
-            if "VISIBILITY" in xds:
-                xds.attrs["data_groups"]["base"] = {
-                    "visibility": "VISIBILITY",
-                    "flag": "FLAG",
-                    "weight": "WEIGHT",
-                    "uvw": "UVW",
-                }
-
-            if "VISIBILITY_CORRECTED" in xds:
-                xds.attrs["data_groups"]["corrected"] = {
-                    "visibility": "VISIBILITY_CORRECTED",
-                    "flag": "FLAG",
-                    "weight": "WEIGHT",
-                    "uvw": "UVW",
-                }
-
-            is_single_dish = False
-            if "SPECTRUM" in xds:
-                xds.attrs["data_groups"]["base"] = {
-                    "spectrum": "SPECTRUM",
-                    "flag": "FLAG",
-                    "weight": "WEIGHT",
-                    "uvw": "UVW",
-                }
-                is_single_dish = True
-
-            if "SPECTRUM_CORRECTED" in xds:
-                xds.attrs["data_groups"]["corrected"] = {
-                    "spectrum": "SPECTRUM_CORRECTED",
-                    "flag": "FLAG",
-                    "weight": "WEIGHT",
-                    "uvw": "UVW",
-                }
-                is_single_dish = True
-
+            xds, is_single_dish = add_data_groups(xds)
+            
             # Create field_and_source_xds (combines field, source and ephemeris data into one super dataset)
             start = time.time()
             if ephemeris_interpolate:
@@ -907,3 +873,54 @@ def convert_and_write_partition(
             logger.debug("Write data  " + str(time.time() - start))
 
     # logger.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
+
+
+
+
+def add_data_groups(xds):
+    xds.attrs["data_groups"] = {}
+    if "VISIBILITY" in xds:
+        xds.attrs["data_groups"]["base"] = {
+            "visibility": "VISIBILITY",
+            "flag": "FLAG",
+            "weight": "WEIGHT",
+            "uvw": "UVW",
+        }
+
+    if "VISIBILITY_CORRECTED" in xds:
+        xds.attrs["data_groups"]["corrected"] = {
+            "visibility": "VISIBILITY_CORRECTED",
+            "flag": "FLAG",
+            "weight": "WEIGHT",
+            "uvw": "UVW",
+        }
+        
+    
+    if "VISIBILITY_MODEL" in xds:
+        xds.attrs["data_groups"]["model"] = {
+            "visibility": "VISIBILITY_MODEL",
+            "flag": "FLAG",
+            "weight": "WEIGHT",
+            "uvw": "UVW",
+        }
+
+    is_single_dish = False
+    if "SPECTRUM" in xds:
+        xds.attrs["data_groups"]["base"] = {
+            "spectrum": "SPECTRUM",
+            "flag": "FLAG",
+            "weight": "WEIGHT",
+            "uvw": "UVW",
+        }
+        is_single_dish = True
+
+    if "SPECTRUM_CORRECTED" in xds:
+        xds.attrs["data_groups"]["corrected"] = {
+            "spectrum": "SPECTRUM_CORRECTED",
+            "flag": "FLAG",
+            "weight": "WEIGHT",
+            "uvw": "UVW",
+        }
+        is_single_dish = True
+        
+    return xds, is_single_dish

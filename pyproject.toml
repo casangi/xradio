@@ -1,7 +1,7 @@
 [project]
 name = "xradio"
-version = "0.0.28"
-description = "Xarray Radio Astronomy Data IO"
+version = "0.0.29"
+description = " Xarray Radio Astronomy Data IO"
 authors = [
     {name = "Jan-Willem Steeb", email="jsteeb@nrao.edu"},
 ]
@@ -17,7 +17,7 @@ dependencies = [
     'graphviper',
     'matplotlib',
     'numba>=0.57.0',
-    'numpy',
+    'numpy<2.0.0',
     'prettytable',
     'pytest',
     'pytest-cov',
@@ -27,15 +27,15 @@ dependencies = [
     'tqdm',
     'xarray',
     'zarr',
-    'bokeh',
-    'jupyterlab',
     'pyarrow',
     'python_casacore>=3.5.2; sys_platform != "darwin" ',
-    'typing_extensions; python_version < "3.10"'
+    'typing_extensions; python_version < "3.10"',
+    'typeguard'
 ]
 
 [project.optional-dependencies]
 docs = [
+    'jupyterlab',
     'ipykernel',
     'ipympl',
     'ipython',
@@ -49,3 +49,20 @@ docs = [
     'twine',
     'pandoc'
 ]
+
+[tool.pytest.ini_options]
+addopts = [
+    "--import-mode=importlib",
+    "--strict-markers"
+]
+testpaths = [
+    "tests"
+]
+pythonpath = [
+    "."
+]
+
+[tool.black]
+line-length = 88
+target-version = ['py39']
+include = '\.py$'

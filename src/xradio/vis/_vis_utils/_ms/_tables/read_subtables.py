@@ -19,7 +19,7 @@ from .read import (
     read_generic_table,
 )
 from .write import revert_time
-from xradio.vis._vis_utils._ms.optimised_functions import unique_1d
+from xradio._utils.array import unique_1d
 
 
 def read_ephemerides(
@@ -28,8 +28,15 @@ def read_ephemerides(
     """
     Read ephemerides info from MSv2 FIELD/EPHEMi_....tab subtables
 
-    :param infile: path to MS
-    :return: ephemerides xds with metainfo as in the MSv3/EPHEMERIDES subtable
+    Parameters
+    ----------
+    infile : str
+        path to MS
+
+    Returns
+    -------
+    Union[xr.Dataset, None]
+        ephemerides xds with metainfo as in the MSv3/EPHEMERIDES subtable
     """
     field_subt = Path(infile, "FIELD")
     subdirs = [
@@ -42,7 +49,7 @@ def read_ephemerides(
         logger.debug(f"Reading ephemerides info from: FIELD / {sdir.name}")
         # One "EPHEM_*.tab" (each with a difference ephemeris_id) to concatenate
         ephem.append(
-            read_generic_table(infile, str(Path("field", sdir)), timecols=["MJD"])
+            read_generic_table(infile, str(Path(*sdir.parts[-2:])), timecols=["MJD"])
         )
 
     if ephem:
@@ -62,9 +69,21 @@ def read_delayed_pointing_table(
     """
     Read MS pointing subtable in delayed arrays into an xr.Dataset
 
-    :param infile: path to pointing table
-    :rename_ids: dict with dimension renaming mapping
-    :param chunks: chunks for the arrays. Chunks tuple: time, antenna, data_vars_dim_1, data_vars_dim_2
+    Parameters
+    ----------
+    infile : str
+        path to pointing table
+    rename_ids : Dict[str, str] (Default value = None)
+        dict with dimension renaming mapping
+    chunks : Tuple (Default value = (10000, 100, 2, 20))
+        chunks for the arrays. Chunks tuple: time, antenna, data_vars_dim_1, data_vars_dim_2
+    time_slice: slice
+        time bounds
+
+    Returns
+    -------
+    xr.Dataset
+        pointing dataset
     """
 
     with open_table_ro(infile) as mtable:
@@ -124,18 +143,25 @@ def read_delayed_pointing_table(
     return xds
 
 
-def normalize_time_slice(mtable: tables.table, time_slice: slice):
+def normalize_time_slice(mtable: tables.table, time_slice: slice) -> slice:
     """
     If we get indices, produce the TIME column time value for the
     start/top indices. If we get timestamps, convert them to casacore
     refeference.
 
-    :param mtable: a casacore table from which we are reading a TIME
-    column
-    :param time_slice: slice giving start/stop time. Can be given as
-    integer indices or as timestamps (Xarray / pandas reference)
+    Parameters
+    ----------
+    mtable : tables.table
+        a casacore table from which we are reading a TIME
+        column
+    time_slice : slice
+        slice giving start/stop time. Can be given as
+        integer indices or as timestamps (Xarray / pandas reference)
 
-    :return: a (start, stop) slice with times in casacore ref frame
+    Returns
+    -------
+    slice
+        a (start, stop) slice with times in casacore ref frame
     """
     if type(time_slice.start) == pd.Timestamp and type(time_slice.stop) == pd.Timestamp:
         # Add tol?
@@ -189,12 +215,25 @@ def read_delayed_pointing_times(
     Read pointing table in delayed time / antenna chunks. Loops over
     time chunks
 
-    :param infile: path to pointing table
-    :param antennas: antenna ids
-    :param utimes: unique times from table
-    :param chunks: chunks for the arrays
-    :param query_all: table to read columns
-    :return: dictionary of columns=>variables (read as dask.delayed)
+    Parameters
+    ----------
+    infile : str
+        path to pointing table
+    antennas : np.ndarray
+        antenna ids
+    utimes : np.ndarray
+        unique times from table
+    chunks : tuple
+        chunks for the arrays
+    query_all : tables.table
+        table to read columns
+    time_slice: slice :
+        time bounds
+
+    Returns
+    -------
+    Dict[str, xr.DataArray]
+        dictionary of columns=>variables (read as dask.delayed)
     """
 
     antenna_chunks = range(0, len(antennas), chunks[1])
@@ -232,7 +271,7 @@ def read_delayed_pointing_chunks(
     infile: str,
     antennas: np.ndarray,
     chunks: tuple,
-    utimes: np.array,
+    utimes: np.ndarray,
     tc: int,
     tb_tool: tables.table,
 ) -> Dict[str, xr.DataArray]:
@@ -240,13 +279,25 @@ def read_delayed_pointing_chunks(
     For one time chunk, read the baseline/antenna chunks. Loops over
     antenna_id chunks and reads all columns as dask.delayed calls.
 
-    :param infile: path to pointing table
-    :param antennas: antenna ids
-    :param chunks: chunks for the arrays
-    :param utimes: unique times from table
-    :param tc: time index
-    :param tb_tool: table to read columns
-    :return: dictionary of columns=>variables (read as dask.delayed)
+    Parameters
+    ----------
+    infile : str
+        path to pointing table
+    antennas : np.ndarray
+        antenna ids
+    chunks : tuple
+        chunks for the arrays
+    utimes : np.ndarray
+        unique times from table
+    tc : int
+        time index
+    tb_tool : tables.table
+        table to read columns
+
+    Returns
+    -------
+    Dict[str, xr.DataArray]
+        dictionary of columns=>variables (read as dask.delayed)
     """
 
     # add a tol around the time ranges returned by taql, for the next taql queries

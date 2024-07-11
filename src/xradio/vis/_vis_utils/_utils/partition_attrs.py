@@ -29,11 +29,19 @@ VisGroup = TypedDict(
 
 
 def make_vis_group_attr(xds: xr.Dataset) -> Dict:
-    """Add an attribute with the initial data/vis groups that have been
+    """
+    Add an attribute with the initial data/vis groups that have been
     read from the MS (DATA / CORRECTED_DATA / MODEL_DATA)
 
-    :param xds: dataset to make the vis_group depending on its data_vars
-    :return: vis_group derived form this dataset
+    Parameters
+    ----------
+    xds : xr.Dataset
+        dataset to make the vis_group depending on its data_vars
+
+    Returns
+    -------
+    Dict
+        vis_group derived form this dataset
     """
     msv2_extended_vis_vars = ["vis", "vis_corrected", "vis_model"]
     msv2_col_names = ["DATA", "CORRECTED_DATA", "MODEL_DATA"]
@@ -87,7 +95,8 @@ def add_partition_attrs(
     part_ids: PartitionIds,
     other_attrs: Dict,
 ) -> xr.Dataset:
-    """add attributes to the xr.Dataset:
+    """
+    add attributes to the xr.Dataset:
     - sub-dict of partition-id related ones
     - sub-dict of data/vis groups
     - sub-dict of attributes coming from the lower level read
@@ -96,13 +105,23 @@ def add_partition_attrs(
     Produces the partition IDs that can be retrieved from the DD subtable and also
     adds the ones passed in part_ids
 
-    :param xds: dataset partition
-    :param ddi: DDI of this partition
-    :param ddi_xds: dataset for the DATA_DESCRIPTION subtable
-    :param part_ids: partition id attrs
-    :param other_attrs: additional attributes produced by the read functions
-    :return: dataset with attributes added
+    Parameters
+    ----------
+    xds : xr.Dataset
+        dataset partition
+    ddi : int
+        DDI of this partition
+    ddi_xds : xr.Dataset
+        dataset for the DATA_DESCRIPTION subtable
+    part_ids : PartitionIds
+        partition id attrs
+    other_attrs : Dict
+        additional attributes produced by the read functions
 
+    Returns
+    -------
+    xr.Dataset
+        dataset with attributes added
     """
 
     xds = xds.assign_attrs(

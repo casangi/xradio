@@ -13,11 +13,11 @@ from ._tables.read_subtables import read_ephemerides, read_delayed_pointing_tabl
 
 subt_rename_ids = {
     "ANTENNA": {"row": "antenna_id", "dim_1": "xyz"},
-    "FEED": {"dim_1": "xyz", "dim_2": "receptor", "dim_3": "receptor"},
+    "FEED": {"dim_1": "xyz", "dim_2": "receptor", "dim_3": "receptor2"},
     "FIELD": {"row": "field_id", "dim_1": "poly_id", "dim_2": "ra/dec"},
     "FREQ_OFFSET": {"antenna1": "antenna1_id", "antenna2": "antenna2_id"},
     "OBSERVATION": {"row": "observation_id", "dim_1": "start/end"},
-    "POINTING": {"dim_1": "n_polynomial", "dim_2": "ra/dec", "dim_3": "ra/dec"},
+    "POINTING": {"dim_1": "n_polynomial", "dim_3": "dir"},
     "POLARIZATION": {"row": "pol_setup_id", "dim_2": "product_id"},
     "PROCESSOR": {"row": "processor_id"},
     "SPECTRAL_WINDOW": {"row": "spectral_window_id", "dim_1": "chan"},
@@ -35,10 +35,20 @@ def read_ms_subtables(
     """
     Read MSv2 subtables (main table keywords) as xr.Dataset
 
-    :param infile: input MeasurementSet path
-    :param done_subt: Subtables that were already read, to skip them
-    :param asdm_subtables: Whether to also read ASDM_* subtables
-    :return: dict of xarray datasets read from subtables (metadata tables)
+    Parameters
+    ----------
+    infile : str
+        input MeasurementSet path
+    done_subt : List[str]
+        Subtables that were already read, to skip them
+    asdm_subtables : bool (Default value = False)
+        Whether to also read ASDM_* subtables
+
+    Returns
+    -------
+    Dict[str, xr.Dataset]
+        dict of xarray datasets read from subtables (metadata tables)
+
     """
     ignore_msv2_cols_subt = ["FLAG_CMD", "FLAG_ROW", "BEAM_ID"]
     skip_tables = ["SORTED_TABLE", "FLAG_CMD"] + done_subt
@@ -62,9 +72,8 @@ def read_ms_subtables(
 
         if subt_name == "POINTING":
             subt_path = Path(infile, subt_name)
-            xds = read_delayed_pointing_table(
-                str(subt_path), rename_ids=subt_rename_ids.get(subt_name, None)
-            )
+            rename_ids = {"dim_2": "n_polynomial", "dim_3": "dir"}
+            xds = read_delayed_pointing_table(str(subt_path), rename_ids=rename_ids)
         else:
             xds = read_generic_table(
                 infile,
@@ -88,14 +97,23 @@ def read_ms_subtables(
 def add_pointing_to_partition(
     xds_part: xr.Dataset, xds_pointing: xr.Dataset
 ) -> xr.Dataset:
-    """Take pointing variables from a (delayed) pointing dataset and
+    """
+    Take pointing variables from a (delayed) pointing dataset and
     transfer them to a main table partition dataset (interpolating into
     the destination time axis)
 
-    :param xds_part: a partition/sub-xds of the main table
-    :param xds_pointing: the xds read from the pointing subtable
-    :return: partition xds with pointing variables added/interpolated from the
-    pointing_xds into its time axis
+    Parameters
+    ----------
+    xds_part : xr.Dataset
+        a partition/sub-xds of the main table
+    xds_pointing : xr.Dataset
+        the xds read from the pointing subtable
+
+    Returns
+    -------
+    xr.Dataset
+        partition xds with pointing variables added/interpolated from the
+        pointing_xds into its time axis
 
     """
     interp_xds = xds_pointing.interp(time=xds_part.time, method="nearest")

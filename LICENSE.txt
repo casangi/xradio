@@ -1,6 +1,11 @@
 BSD 3-Clause License
 
-Copyright (c) 2023, Associated Universities, Inc.
+All works in this repository are copyrighted 2024.  
+For inquiries contact  Associated Universities, Inc., 2650 Park Tower Drive Vienna, VA 22180, USA.
+
+Portions of this repository are copyrighted by the following entities:
+1. AUI/NRAO, ESO, NAOJ, in the framework of the ALMA partnership.
+2. AUI/NRAO in the framework of the ngVLA project.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:

@@ -66,32 +66,40 @@ class processing_set(dict):
 
             summary_data["shape"].append(value[data_name].shape)
 
-            summary_data["field_id"].append(
-                value[data_name].attrs["field_info"]["field_id"]
-            )
+            summary_data["field_id"].append(value.attrs["partition_info"]["field_id"])
             summary_data["field_name"].append(
-                value[data_name].attrs["field_info"]["name"]
+                value[data_name].attrs["field_and_source_xds"].attrs["field_name"]
             )
             summary_data["start_frequency"].append(value["frequency"].values[0])
             summary_data["end_frequency"].append(value["frequency"].values[-1])
 
-            ra_dec_rad = value[data_name].attrs["field_info"]["phase_direction"]["data"]
-            frame = (
-                value[data_name]
-                .attrs["field_info"]["phase_direction"]["attrs"]["frame"]
-                .lower()
-            )
-            coord = SkyCoord(
-                ra=ra_dec_rad[0] * u.rad, dec=ra_dec_rad[1] * u.rad, frame=frame
-            )
+            if value[data_name].attrs["field_and_source_xds"].is_ephemeris:
+                summary_data["field_coords"].append("Ephemeris")
+            else:
+                ra_dec_rad = (
+                    value[data_name]
+                    .attrs["field_and_source_xds"]["FIELD_PHASE_CENTER"]
+                    .values
+                )
+                frame = (
+                    value[data_name]
+                    .attrs["field_and_source_xds"]["FIELD_PHASE_CENTER"]
+                    .attrs["frame"]
+                    .lower()
+                )
 
-            summary_data["field_coords"].append(
-                [
-                    frame,
-                    coord.ra.to_string(unit=u.hour),
-                    coord.dec.to_string(unit=u.deg),
-                ]
-            )
+                coord = SkyCoord(
+                    ra=ra_dec_rad[0] * u.rad, dec=ra_dec_rad[1] * u.rad, frame=frame
+                )
+
+                summary_data["field_coords"].append(
+                    [
+                        frame,
+                        coord.ra.to_string(unit=u.hour),
+                        coord.dec.to_string(unit=u.deg),
+                    ]
+                )
+
         summary_df = pd.DataFrame(summary_data)
         return summary_df
 

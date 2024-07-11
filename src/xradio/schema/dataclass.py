@@ -1,10 +1,13 @@
 from typing import get_type_hints, get_args
-from .typing import get_dims, get_dtypes, get_role, Role, get_annotated, is_optional
+from .typing import get_dims, get_types, get_role, Role, get_annotated, is_optional
 
 import typing
 import inspect
 import ast
 import dataclasses
+import numpy
+import itertools
+import textwrap
 
 from xradio.schema.metamodel import *
 
@@ -18,8 +21,11 @@ def extract_field_docstrings(klass):
     """
 
     # Parse class body
-    src = inspect.getsource(klass)
-    module = ast.parse(src)
+    try:
+        src = inspect.getsource(klass)
+    except OSError:
+        return {}
+    module = ast.parse(textwrap.dedent(src))
 
     # Expect module containing a class definition
     if not isinstance(module, ast.Module) or len(module.body) != 1:
@@ -31,7 +37,6 @@ def extract_field_docstrings(klass):
     # Go through body, collect dostrings
     docstrings = {}
     for i, assign in enumerate(cls.body):
-
         # Handle both annotated and unannotated case
         if isinstance(assign, ast.AnnAssign):
             if not isinstance(assign.target, ast.Name):
@@ -78,7 +83,6 @@ def extract_xarray_dataclass(klass):
     data_vars = []
     attributes = []
     for field in dataclasses.fields(klass):
-
         # Get field "role" (coordinate / data variable / attribute) from its
         # type hint
         typ = type_hints[field.name]
@@ -111,7 +115,6 @@ def extract_xarray_dataclass(klass):
         # Defined using a dataclass, i.e. Coordof/Dataof?
         dataclass = typing.get_args(get_annotated(typ))[0]
         if dataclasses.is_dataclass(dataclass):
-
             # Recursively get array schema for data class
             arr_schema = xarray_dataclass_to_array_schema(dataclass)
             arr_schema_fields = {
@@ -129,24 +132,51 @@ def extract_xarray_dataclass(klass):
             )
 
         else:
+            # Get dimensions and dtypes
+            dims = get_dims(typ)
+            types = get_types(typ)
 
-            # Assume that it's an "inline" declaration using "Coord"/"Data"
-            schema_ref = ArraySchemaRef(
-                name=field.name,
-                optional=is_optional(typ),
-                default=field.default,
-                docstring=field_docstrings.get(field.name),
-                schema_name=f"{klass.__module__}.{klass.__qualname__}.{field.name}",
-                dimensions=get_dims(typ),
-                dtypes=get_dtypes(typ),
-                coordinates=[],
-                attributes=[],
-                class_docstring=None,
-                data_docstring=None,
-            )
+            # Is types a (single) dataclass?
+            if len(types) == 1 and dataclasses.is_dataclass(types[0]):
+                # Recursively get array schema for data class
+                arr_schema = xarray_dataclass_to_array_schema(types[0])
+
+                # Prepend dimensions to array schema
+                combined_dimensions = [
+                    dims1 + dims2
+                    for dims1, dims2 in itertools.product(dims, arr_schema.dimensions)
+                ]
+
+                # Repackage as reference
+                arr_schema_fields = {
+                    f.name: getattr(arr_schema, f.name)
+                    for f in dataclasses.fields(ArraySchema)
+                }
+                arr_schema_fields["dimensions"] = combined_dimensions
+                schema_ref = ArraySchemaRef(
+                    name=field.name,
+                    optional=is_optional(typ),
+                    default=field.default,
+                    docstring=field_docstrings.get(field.name),
+                    **arr_schema_fields,
+                )
+            else:
+                # Assume that it's an "inline" declaration using "Coord"/"Data"
+                schema_ref = ArraySchemaRef(
+                    name=field.name,
+                    optional=is_optional(typ),
+                    default=field.default,
+                    docstring=field_docstrings.get(field.name),
+                    schema_name=f"{klass.__module__}.{klass.__qualname__}.{field.name}",
+                    dimensions=dims,
+                    dtypes=[numpy.dtype(typ) for typ in types],
+                    coordinates=[],
+                    attributes=[],
+                    class_docstring=None,
+                    data_docstring=None,
+                )
 
         if is_coord:
-
             # Make sure that it is valid to use as a coordinate - i.e. we don't
             # have "recursive" (?!) coordinate definitions
             if not schema_ref.is_coord():
@@ -171,23 +201,34 @@ def xarray_dataclass_to_array_schema(klass):
     refer to using CoordOf or DataOf
     """
 
+    # Cached?
+    if hasattr(klass, "__xradio_array_schema"):
+        return klass.__xradio_array_schema
+
     # Extract from data class
     coordinates, data_vars, attributes = extract_xarray_dataclass(klass)
 
     # For a dataclass there must be exactly one data variable
-    # (typically called "data", but we don't check that)
     if not data_vars:
         raise ValueError(
-            f"Found no data declaration in (supposed) data darray class {klass.__name__}!"
+            f"Found no data declaration in (supposed) data array class {klass.__name__}!"
         )
     if len(data_vars) > 1:
         raise ValueError(
             f"Found multiple data variables ({', '.join(v.name for v in data_vars)})"
-            f" in supposed data darray class {klass.__name__}!"
+            f" in supposed data array class {klass.__name__}!"
+        )
+
+    # Check that data variable is named "data". This is important for this to
+    # match up with parameters to xarray.DataArray() later (see bases.AsArray)
+    if data_vars[0].name != "data":
+        raise ValueError(
+            f"Data variable in data array class {klass.__name__} "
+            f'must be called "data", not {data_vars[0].name}!'
         )
 
     # Make class
-    return ArraySchema(
+    schema = ArraySchema(
         schema_name=f"{klass.__module__}.{klass.__qualname__}",
         dimensions=data_vars[0].dimensions,
         dtypes=data_vars[0].dtypes,
@@ -196,6 +237,8 @@ def xarray_dataclass_to_array_schema(klass):
         class_docstring=inspect.cleandoc(klass.__doc__),
         data_docstring=data_vars[0].docstring,
     )
+    klass.__xradio_array_schema = schema
+    return schema
 
 
 def xarray_dataclass_to_dataset_schema(klass):
@@ -205,6 +248,10 @@ def xarray_dataclass_to_dataset_schema(klass):
     This should work on any class that we would derive from AsDataArray, or
     refer to using CoordOf or DataOf
     """
+
+    # Cached?
+    if hasattr(klass, "__xradio_dataset_schema"):
+        return klass.__xradio_dataset_schema
 
     # Extract from data class
     coordinates, data_vars, attributes = extract_xarray_dataclass(klass)
@@ -242,7 +289,7 @@ def xarray_dataclass_to_dataset_schema(klass):
     dimensions = [[dim for dim in all_dimensions if dim in dims] for dims in dimensions]
 
     # Make class
-    return DatasetSchema(
+    schema = DatasetSchema(
         schema_name=f"{klass.__module__}.{klass.__qualname__}",
         dimensions=dimensions,
         coordinates=coordinates,
@@ -250,3 +297,52 @@ def xarray_dataclass_to_dataset_schema(klass):
         attributes=attributes,
         class_docstring=inspect.cleandoc(klass.__doc__),
     )
+    klass.__xradio_dataset_schema = schema
+    return schema
+
+
+def xarray_dataclass_to_dict_schema(klass):
+    """
+    Convert an xarray-dataclass style schema dataclass to an DictSchema
+
+    This should work on any class annotated with :py:func:`~xradio.schema.bases.dict_schema`
+    """
+
+    # Cached?
+    if hasattr(klass, "__xradio_dict_schema"):
+        return klass.__xradio_dict_schema
+
+    # Get docstrings and type hints
+    field_docstrings = extract_field_docstrings(klass)
+    type_hints = get_type_hints(klass, include_extras=True)
+    attributes = []
+    for field in dataclasses.fields(klass):
+        typ = type_hints[field.name]
+
+        # Handle optional value: Strip "None" from the types
+        optional = is_optional(typ)
+        if optional:
+            typs = [typ for typ in get_args(typ) if typ is not None.__class__]
+            if len(typs) == 1:
+                typ = typs[0]
+            else:
+                typ = typing.Union.__getitem__[tuple(typs)]
+
+        attributes.append(
+            AttrSchemaRef(
+                name=field.name,
+                typ=typ,
+                optional=optional,
+                default=field.default,
+                docstring=field_docstrings.get(field.name),
+            )
+        )
+
+    # Return
+    schema = DictSchema(
+        schema_name=f"{klass.__module__}.{klass.__qualname__}",
+        attributes=attributes,
+        class_docstring=inspect.cleandoc(klass.__doc__),
+    )
+    klass.__xradio_dict_schema = schema
+    return schema

@@ -16,7 +16,7 @@ from xradio.vis._vis_utils._ms._tables.read_main_table import (
     get_baselines,
     get_baseline_indices,
 )
-from xradio.vis._vis_utils._ms.optimised_functions import unique_1d
+from xradio._utils.array import unique_1d
 
 
 def load_expanded_main_table_chunk(
@@ -29,12 +29,21 @@ def load_expanded_main_table_chunk(
     Load a chunk of data from main table into memory, with expanded
     dims: (time, baseline, freq, pols)
 
-    :param infile: Input MS path
-    :param ddi: DDI to load chunk from
-    :param chunk: specification of chunk to load
-    :param ignore_msv2_cols: cols that should not be loaded (deprecated MSv2 or similar)
+    Parameters
+    ----------
+    infile : str
+        Input MS path
+    ddi : int
+        DDI to load chunk from
+    chunk : Dict[str, slice]
+        specification of chunk to load
+    ignore_msv2_cols : Union[list, None] (Default value = None)
+        cols that should not be loaded (deprecated MSv2 or similar)
 
-    :return: Xarray datasets with chunk of visibility data, one per DDI (spw_id, pol_setup_id) pair
+    Returns
+    -------
+    xr.Dataset
+        Xarray datasets with chunk of visibility data, one per DDI (spw_id, pol_setup_id) pair
     """
 
     taql_where = f"where DATA_DESC_ID = {ddi}"
@@ -64,16 +73,24 @@ def load_expanded_ddi_chunk(
     xr.Dataset from a DII once the table and initial query(ies) have
     been opened successfully.
 
-    :param infile: Input MS path
-    :param tb_tool: table query contrained to one DDI and chunk time
-    range
-    :param taql_pre: TaQL query used for tb_tool, with some
-    pre-selection of rows and columns
-    :param chunk: specification of data chunk to load
-    :param ignore_msv2_cols: propagated from calling funtions
+    Parameters
+    ----------
+    infile : str
+        Input MS path
+    tb_tool : tables.table
+        table query contrained to one DDI and chunk time range
+    taql_pre : str
+        TaQL query used for tb_tool, with some pre-selection of rows and columns
+    chunk : Dict[str, slice]
+        specification of data chunk to load
+    ignore_msv2_cols : Union[list, None] (Default value = None)
+        propagated from calling funtions
 
-    :return: An Xarray datasets with data variables as plain numpy
-    arrays loaded directly from the MS columns
+    Returns
+    -------
+    xr.Dataset
+        An Xarray dataset with data variables as plain numpy
+        arrays loaded directly from the MS columns
     """
 
     # read the specified chunk of data, figure out indices and lens
@@ -124,16 +141,30 @@ def load_ddi_cols_chunk(
     """
     For a given chunk and DDI, load all the MSv2 columns
 
-    :param ctlen: length of the time axis/dim of the chunk
-    :param cblen: length of the baseline axis of the chunk
-    :param tidxs: time axis indices
-    :param bidxs: baseline axis indices
-    :param didxs: (effective) data indices, excluding missing baselines
-    :param tb_tool: a table/TaQL query open and being used to load columns
-    :param chunk: data chunk specification
-    :param ignore_msv2_cols: propagated from calling funtions
+    Parameters
+    ----------
+    ctlen : int
+        length of the time axis/dim of the chunk
+    cblen : int
+        length of the baseline axis of the chunk
+    tidxs : np.ndarray
+        time axis indices
+    bidxs : np.ndarray
+        baseline axis indices
+    didxs : np.ndarray
+        (effective) data indices, excluding missing baselines
+    tb_tool : tables.table
+        a table/TaQL query open and being used to load columns
+    chunk : Dict[str, slice]
+        data chunk specification
+    ignore_msv2_cols : Union[list, None] (Default value = None)
+        propagated from calling funtions
 
-    :return: columns loaded into memory as np arrays
+    Returns
+    -------
+    Dict[str, np.ndarray]
+        columns loaded into memory as np arrays
+
     """
     cols = tb_tool.colnames()
 
@@ -194,16 +225,23 @@ def load_ddi_cols_chunk(
 
 def get_chunk_times(
     taql_pre: str, chunk: Dict[str, slice]
-) -> Tuple[np.ndarray, Tuple[int, int], int]:
+) -> Tuple[np.ndarray, Tuple[int, int]]:
     """
     Produces time col/axis related values for a chunk: unique times,
     start/stop times.
 
-    :param chunk: specification of data chunk to load
-    :param taql_pre: TaQL query used for tb_tool, with some pre-selection
-    of rows and columns.
+    Parameters
+    ----------
+    taql_pre : str
+        TaQL query used for tb_tool, with some pre-selection
+        of rows and columns.
+    chunk : Dict[str, slice]
+        specification of data chunk to load
 
-    :return: array of unique times + (firsr, last) time in the chunk
+    Returns
+    -------
+    Tuple[np.ndarray, Tuple[int, int]]
+        array of unique times + (firsr, last) time in the chunk
     """
 
     taql_utimes = f"select DISTINCT TIME from $mtable {taql_pre}"
@@ -246,15 +284,24 @@ def get_chunk_times(
     return utimes, times
 
 
-def get_chunk_baselines(tb_tool, chunk) -> Tuple[np.ndarray, Tuple[int, int], int]:
+def get_chunk_baselines(
+    tb_tool: tables.table, chunk: Dict[str, slice]
+) -> Tuple[np.ndarray, Tuple[int, int]]:
     """
-    Produces the basline col/axis related values for a chunk: an array
-    of baselines and the start/stop baseline indices.
+    Produces the basline col/axis related values for a chunk: an array of
+    baselines and the start/stop baseline indices.
 
-    :param tb_tool: table/query opened with prev selections (time)
-    :param chunk: specification of data chunk to load
+    Parameters
+    ----------
+    tb_tool : tables.table
+        table/query opened with prev selections (time)
+    chunk : Dict[str, slice]
+        specification of data chunk to load
 
-    :return: array of baselines + (first, last) baseline in the chunk
+    Returns
+    -------
+    Tuple[np.ndarray, Tuple[int, int]]
+        array of baselines + (first, last) baseline in the chunk
     """
     baselines = get_baselines(tb_tool)
 
@@ -274,22 +321,35 @@ def get_chunk_data_indices(
     times: Tuple[int, int],
     baselines: np.ndarray,
     blines: Tuple[int, int],
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, str]:
     """
-    Produces indices to pass to the casacore getcol(slice) functions
-    to load the chunk of data. tidxs (time), bidxs (baseline),
-    didxs (effective data indices, considering present/absent
-    baselines).
+    Produces indices to pass to the casacore getcol(slice) functions to load
+    the chunk of data. tidxs (time), bidxs (baseline), didxs (effective data
+    indices, considering present/absent baselines).
 
     Time selection is added on top of that.
 
-    :param utimes: array of times in the chunk
-    :param times: start, stop time indices
-    :param baselines: array of baselines inthe chunk
-    :param blines: start, stop baseline indices
+    Parameters
+    ----------
+    taql_pre : str
+        TaQL query constraints to prepend/inject
+    chunk : Dict[str, slice]
+        specification of data chunk
+    utimes : np.ndarray
+        array of times in the chunk
+    times : Tuple[int, int]
+        start, stop time indices
+    baselines : np.ndarray
+        array of baselines inthe chunk
+    blines : Tuple[int, int]
+        start, stop baseline indices
 
-    :return: indices along the time, baseline and data (time/baseline)
-    axes + the full where... defined for this chunk
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray, np.ndarray]
+        indices along the time, baseline and data (time/baseline)
+        axes + the full where... string defined for this chunk
+
     """
 
     taql_time = f"TIME BETWEEN {utimes[times[0]]} AND {utimes[times[1]]}"
@@ -333,14 +393,25 @@ def get_col_1d_pols(
     indices for the last dimension (either pol or freq).
     It also produces the adequate dimension names.
 
-    :param cell_shape: shape of the column
-    :param dims: full list of dataset dimensions
-    :param chan_cnt: number of channels
-    :param pol_cnt: number of pols
-    :param chunk: data chunk specification
+    Parameters
+    ----------
+    cell_shape : Tuple[int]
+        shape of the column
+    dims : List[str]
+        full list of dataset dimensions
+    chan_cnt : int
+        number of channels
+    pol_cnt : int
+        number of pols
+    chunk : Dict[str, slice]
+        data chunk specification
 
-    :return: first and last pol/freq index of the chunk, and its
-    dimension name
+    Returns
+    -------
+    Tuple[Tuple[int, int], List[str]]
+        first and last pol/freq index of the chunk, and its
+        dimension names
+
     """
     if cell_shape == chan_cnt:
         # chan/freq
@@ -379,13 +450,23 @@ def get_col_2d_chans_pols(
     The dimension names can be assumed to be the full list of dims in
     visibilities (time, baseline, freq, pol).
 
-    :param cell_shape: shape of the column
-    :param chan_cnt: number of channels
-    :param pol_cnt: number of pols
-    :param chunk: data chunk specification
+    Parameters
+    ----------
+    cell_shape : Tuple[int]
+        shape of the column
+    chan_cnt : int
+        number of channels
+    pol_cnt : int
+        number of pols
+    chunk : Dict[str, slice]
+        data chunk specification
 
-    :return: first and last index for freq (channel) and pol axes of
-    the chunk
+    Returns
+    -------
+    Tuple[Tuple[int, int], Tuple[int, int]]
+        first and last index for freq (channel) and pol axes of
+        the chunk
+
     """
     if "freq" in chunk:
         chans = (

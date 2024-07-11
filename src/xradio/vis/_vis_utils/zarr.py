@@ -11,13 +11,19 @@ from ._zarr.read import read_part_keys, read_partitions, read_subtables
 from ._zarr.write import write_metainfo, write_part_keys, write_partitions
 
 
-def is_zarr_vis(inpath) -> bool:
+def is_zarr_vis(inpath: str) -> bool:
     """
     Check if a given path has a visibilities dataset in Zarr format
 
-    :param inpath: path to a (possibly) Zarr vis dataset
+    Parameters
+    ----------
+    inpath : str
+        path to a (possibly) Zarr vis dataset
 
-    :return: whether zarr.open can open this path
+    Returns
+    -------
+    bool
+        whether zarr.open can open this path
     """
     try:
         with zarr.open(Path(inpath, "partition_keys"), mode="r"):
@@ -35,11 +41,19 @@ def read_vis(
     """
     Read a CASAVisSet stored in zarr format.
 
-    :param inpath: Input Zarr path
-    :param subtables: Also read and (metainformation) subtables along with main visibilities data.
-    :param asdm_subtables: Also read extension subtables named "ASDM_*"
+    Parameters
+    ----------
+    inpath : str
+        Input Zarr path
+    subtables : bool (Default value = True)
+        Also read and (metainformation) subtables along with main visibilities data.
+    asdm_subtables : bool (Default value = False)
+        Also read extension subtables named "ASDM_*"
 
-    :return: Main xarray dataset of datasets for this visibility dataset
+    Returns
+    -------
+    CASAVisSet
+        Main xarray dataset of datasets for this visibility dataset
     """
     inpath = os.path.expanduser(inpath)
     if not os.path.isdir(inpath):
@@ -59,7 +73,7 @@ def read_vis(
     all_time = time.time() - all_start
     logger.info(f"Time to read dataset from_zarr {inpath}: {all_time}")
 
-    vers = xradio.__version__
+    vers = "version-WIP"
     descr_add = "read_vis from zarr"
     cds = CASAVisSet(
         metainfo=metainfo,
@@ -71,25 +85,35 @@ def read_vis(
 
 
 def write_vis(
-    cds,
+    cds: CASAVisSet,
     outpath: str,
     chunks_on_disk: Union[Dict, None] = None,
     compressor: Union[numcodecs.abc.Codec, None] = None,
 ) -> None:
-    """Write CASA vis dataset to zarr format on disk. When
+    """
+    Write CASA vis dataset to zarr format on disk. When
     chunks_on_disk is not specified the chunking in the input dataset
     is used. When chunks_on_disk is specified that dataset is saved
     using that chunking.
 
-    :param cds: CASA visibilities dataset to write to disk
-    :param outpath: output path, generally ends in .zarr
-    :param chunks_on_disk: a dictionary with the chunk size that will
-    be used when writing to disk. For example {'time': 20, 'chan': 6}.
-    If chunks_on_disk is not specified the chunking of dataset will
-    be used.
-    :param compressor: the blosc compressor to use when saving the
-    converted data to disk using zarr. If None the zstd compression
-    algorithm used with compression level 2.
+    Parameters
+    ----------
+    cds : CASAVisSet
+        CASA visibilities dataset to write to disk
+    outpath : str
+        output path, generally ends in .zarr
+    chunks_on_disk : Union[Dict, None] = None (Default value = None)
+        a dictionary with the chunk size that will
+        be used when writing to disk. For example {'time': 20, 'chan': 6}.
+        If chunks_on_disk is not specified the chunking of dataset will
+        be used.
+    compressor : Union[numcodecs.abc.Codec, None] (Default value = None)
+        the blosc compressor to use when saving the
+        converted data to disk using zarr. If None the zstd compression
+        algorithm used with compression level 2.
+
+    Returns
+    -------
     """
 
     if compressor is None:

@@ -4,9 +4,7 @@ from typing import Dict, Union
 
 import dask
 
-from xradio.vis._vis_utils._ms.partition_queries import (
-    create_partitions
-)
+from xradio.vis._vis_utils._ms.partition_queries import create_partitions
 from xradio.vis._vis_utils._ms.conversion import convert_and_write_partition
 
 
@@ -56,16 +54,21 @@ def convert_msv2_to_processing_set(
         Whether to overwrite an existing processing set, by default False.
     """
 
-    partitions = create_partitions(
-        in_file, partition_scheme = partition_scheme
-    )
+    partitions = create_partitions(in_file, partition_scheme=partition_scheme)
     logger.info("Number of partitions: " + str(len(partitions)))
-    
+
     delayed_list = []
     ms_v4_id = 0
     for partition_info in partitions:
         logger.debug(
-            "DDI " + str(partition_info['DATA_DESC_ID']) + ", STATE " + str(partition_info['STATE_ID']) + ", FIELD " + str(partition_info['FIELD_ID']) + ", SCAN " + str(partition_info['SCAN_NUMBER'])
+            "DDI "
+            + str(partition_info["DATA_DESC_ID"])
+            + ", STATE "
+            + str(partition_info["STATE_ID"])
+            + ", FIELD "
+            + str(partition_info["FIELD_ID"])
+            + ", SCAN "
+            + str(partition_info["SCAN_NUMBER"])
         )
 
         if parallel:
@@ -105,9 +108,6 @@ def convert_msv2_to_processing_set(
     if parallel:
         dask.compute(delayed_list)
 
-
-
-
     # delayed_list = []
     # ms_v4_id = 0
     # for idx, pair in partition_enumerated_product:
@@ -115,7 +115,7 @@ def convert_msv2_to_processing_set(
     #     # logger.debug(
     #     #     "DDI " + str(ddi) + ", STATE " + str(state_id) + ", FIELD " + str(field_id) + ", SCAN " + str(scan_id)
     #     # )
-        
+
     #     # if scan_id == 67: #67
     #     #     logger.debug(
     #     #     "DDI " + str(ddi) + ", STATE " + str(state_id) + ", FIELD " + str(field_id) + ", SCAN " + str(scan_id)

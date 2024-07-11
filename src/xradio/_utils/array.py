@@ -1,5 +1,7 @@
 """Contains optimised functions to be used within other modules."""
+
 import numpy as np
+
 
 def check_if_consistent(array: np.ndarray, array_name: str) -> np.ndarray:
     """_summary_
@@ -22,6 +24,7 @@ def check_if_consistent(array: np.ndarray, array_name: str) -> np.ndarray:
     array_unique = unique_1d(array)
     assert len(array_unique) == 1, array_name + " is not consistent."
     return array_unique[0]
+
 
 import numpy as np
 import pandas as pd

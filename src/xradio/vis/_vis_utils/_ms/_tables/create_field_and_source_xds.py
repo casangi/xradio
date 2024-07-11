@@ -62,7 +62,9 @@ def create_field_and_source_xds(
     field_and_source_xds = xr.Dataset()
 
     field_and_source_xds, ephemeris_path, ephemeris_table_name = (
-        create_field_info_and_check_ephemeris(field_and_source_xds, in_file, field_id, field_times, is_single_dish)
+        create_field_info_and_check_ephemeris(
+            field_and_source_xds, in_file, field_id, field_times, is_single_dish
+        )
     )
     source_id = field_and_source_xds.attrs["source_id"]
 
@@ -77,9 +79,13 @@ def create_field_and_source_xds(
         )
         field_and_source_xds.attrs["is_ephemeris"] = True
         field_and_source_xds = extract_source_info(
-            field_and_source_xds, in_file, True, source_id, spectral_window_id, 
+            field_and_source_xds,
+            in_file,
+            True,
+            source_id,
+            spectral_window_id,
         )
-        
+
     else:
         field_and_source_xds = extract_source_info(
             field_and_source_xds, in_file, False, source_id, spectral_window_id
@@ -260,7 +266,7 @@ def extract_ephemeris_info(
                 (
                     ephemeris_xds["disklong"].data,
                     ephemeris_xds["disklat"].data,
-                    np.zeros(ephemeris_xds["disklong"].shape)
+                    np.zeros(ephemeris_xds["disklong"].shape),
                 )
             ),
             dims=["time", "ellipsoid_pos_label"],
@@ -277,7 +283,7 @@ def extract_ephemeris_info(
             {
                 "type": "location",
                 "ellipsoid": "NA",
-                "origin_object_name": ephemeris_meta['NAME'],
+                "origin_object_name": ephemeris_meta["NAME"],
                 "coordinate_system": "planetodetic",
                 "units": [
                     cast_to_str(
@@ -290,7 +296,7 @@ def extract_ephemeris_info(
                             unit_keyword
                         ]
                     ),
-                    'm'
+                    "m",
                 ],
             }
         )
@@ -360,30 +366,51 @@ def extract_ephemeris_info(
     xds["time"].attrs.update(
         {"type": "time", "units": ["s"], "scale": "UTC", "format": "UNIX"}
     )
-    
+
     xds = convert_to_si_units(xds)
     xds = interpolate_to_time(xds, interp_time, "field_and_source_xds")
-    
+
     if is_single_dish:
-        xds["FIELD_REFERENCE_CENTER"] = xr.DataArray(add_position_offsets(np.append(xds["FIELD_REFERENCE_CENTER"].data,0), xds["SOURCE_POSITION"].data), dims=["time", "sky_pos_label"])
+        xds["FIELD_REFERENCE_CENTER"] = xr.DataArray(
+            add_position_offsets(
+                np.append(xds["FIELD_REFERENCE_CENTER"].data, 0),
+                xds["SOURCE_POSITION"].data,
+            ),
+            dims=["time", "sky_pos_label"],
+        )
     else:
-        xds["FIELD_PHASE_CENTER"] = xr.DataArray(add_position_offsets(np.append(xds["FIELD_PHASE_CENTER"].data,0), xds["SOURCE_POSITION"].data), dims=["time", "sky_pos_label"])
-          
+        xds["FIELD_PHASE_CENTER"] = xr.DataArray(
+            add_position_offsets(
+                np.append(xds["FIELD_PHASE_CENTER"].data, 0),
+                xds["SOURCE_POSITION"].data,
+            ),
+            dims=["time", "sky_pos_label"],
+        )
+
     xds["FIELD_PHASE_CENTER"].attrs.update(xds["SOURCE_POSITION"].attrs)
 
     return xds
 
+
 def add_position_offsets(dv_1, dv_2):
     new_pos = dv_1 + dv_2
-    
-    while np.any(new_pos[:,0] > np.pi) or np.any(new_pos[:,0] < -np.pi):
-        new_pos[:,0] = np.where(new_pos[:,0] > np.pi, new_pos[:,0] - 2*np.pi, new_pos[:,0])
-        new_pos[:,0] = np.where(new_pos[:,0] < -np.pi, new_pos[:,0] + 2*np.pi, new_pos[:,0])
 
-    while np.any(new_pos[:,1] > np.pi/2) or np.any(new_pos[:,1] < -np.pi/2):
-        new_pos[:,1] = np.where(new_pos[:,1] > np.pi/2, new_pos[:,1] - np.pi, new_pos[:,1])
-        new_pos[:,1] = np.where(new_pos[:,1] < -np.pi/2, new_pos[:,1] + np.pi, new_pos[:,1])
-        
+    while np.any(new_pos[:, 0] > np.pi) or np.any(new_pos[:, 0] < -np.pi):
+        new_pos[:, 0] = np.where(
+            new_pos[:, 0] > np.pi, new_pos[:, 0] - 2 * np.pi, new_pos[:, 0]
+        )
+        new_pos[:, 0] = np.where(
+            new_pos[:, 0] < -np.pi, new_pos[:, 0] + 2 * np.pi, new_pos[:, 0]
+        )
+
+    while np.any(new_pos[:, 1] > np.pi / 2) or np.any(new_pos[:, 1] < -np.pi / 2):
+        new_pos[:, 1] = np.where(
+            new_pos[:, 1] > np.pi / 2, new_pos[:, 1] - np.pi, new_pos[:, 1]
+        )
+        new_pos[:, 1] = np.where(
+            new_pos[:, 1] < -np.pi / 2, new_pos[:, 1] + np.pi, new_pos[:, 1]
+        )
+
     return new_pos
 
 
@@ -392,24 +419,27 @@ def convert_to_si_units(xds):
         if "units" in xds[data_var].attrs:
             for u_i, u in enumerate(xds[data_var].attrs["units"]):
                 if u == "km":
-                    xds[data_var][...,u_i] = xds[data_var][...,u_i] * 1e3
+                    xds[data_var][..., u_i] = xds[data_var][..., u_i] * 1e3
                     xds[data_var].attrs["units"][u_i] = "m"
                 if u == "km/s":
-                    xds[data_var][...,u_i] = xds[data_var][...,u_i] * 1e3
+                    xds[data_var][..., u_i] = xds[data_var][..., u_i] * 1e3
                     xds[data_var].attrs["units"][u_i] = "m/s"
                 if u == "deg":
-                    xds[data_var][...,u_i] = xds[data_var][...,u_i] * np.pi / 180
-                    xds[data_var].attrs["units"][u_i] = "rad"  
+                    xds[data_var][..., u_i] = xds[data_var][..., u_i] * np.pi / 180
+                    xds[data_var].attrs["units"][u_i] = "rad"
                 if u == "Au" or u == "AU":
-                    xds[data_var][...,u_i] = xds[data_var][...,u_i] * 149597870700
+                    xds[data_var][..., u_i] = xds[data_var][..., u_i] * 149597870700
                     xds[data_var].attrs["units"][u_i] = "m"
                 if u == "Au/d" or u == "AU/d":
-                    xds[data_var][...,u_i] = xds[data_var][...,u_i] * 149597870700 / 86400
-                    xds[data_var].attrs["units"][u_i] = "m/s"  
-                if u== "arcsec":
-                    xds[data_var][...,u_i] = xds[data_var][...,u_i] * np.pi / 648000
+                    xds[data_var][..., u_i] = (
+                        xds[data_var][..., u_i] * 149597870700 / 86400
+                    )
+                    xds[data_var].attrs["units"][u_i] = "m/s"
+                if u == "arcsec":
+                    xds[data_var][..., u_i] = xds[data_var][..., u_i] * np.pi / 648000
                     xds[data_var].attrs["units"][u_i] = "rad"
     return xds
+
 
 def extract_source_info(xds, path, is_ephemeris, source_id, spectral_window_id):
     """
@@ -438,7 +468,7 @@ def extract_source_info(xds, path, is_ephemeris, source_id, spectral_window_id):
         logger.warning(
             f"Source_id is -1. No source information will be included in the field_and_source_xds."
         )
-        xds.attrs['source_name'] = 'None'
+        xds.attrs["source_name"] = "None"
         return xds
 
     source_xds = read_generic_table(
@@ -452,7 +482,7 @@ def extract_source_info(xds, path, is_ephemeris, source_id, spectral_window_id):
         logger.warning(
             f"SOURCE table empty for source_id {source_id} and spectral_window_id {spectral_window_id}."
         )
-        xds.attrs['source_name'] = 'None'
+        xds.attrs["source_name"] = "None"
         return xds
 
     assert (
@@ -487,7 +517,7 @@ def extract_source_info(xds, path, is_ephemeris, source_id, spectral_window_id):
         # xds["SOURCE_PROPER_MOTION"] = xr.DataArray(
         #     source_xds["proper_motion"].data, dims=["sky_dir_label"]
         # )
-        #xds["SOURCE_PROPER_MOTION"].attrs.update(msv4_measure)
+        # xds["SOURCE_PROPER_MOTION"].attrs.update(msv4_measure)
 
     # ['DIRECTION', 'PROPER_MOTION', 'CALIBRATION_GROUP', 'CODE', 'INTERVAL', 'NAME', 'NUM_LINES', 'SOURCE_ID', 'SPECTRAL_WINDOW_ID', 'TIME', 'POSITION', 'TRANSITION', 'REST_FREQUENCY', 'SYSVEL']
     if source_xds["num_lines"] > 0:
@@ -523,7 +553,9 @@ def extract_source_info(xds, path, is_ephemeris, source_id, spectral_window_id):
     return xds
 
 
-def create_field_info_and_check_ephemeris(field_and_source_xds, in_file, field_id, field_times, is_single_dish):
+def create_field_info_and_check_ephemeris(
+    field_and_source_xds, in_file, field_id, field_times, is_single_dish
+):
     """
     Create field information and check for ephemeris in the FIELD table folder.
 
@@ -549,32 +581,30 @@ def create_field_info_and_check_ephemeris(field_and_source_xds, in_file, field_i
         in_file,
         "FIELD",
         rename_ids=subt_rename_ids["FIELD"],
-    )#.sel(field_id=field_id)
-    #print('1****',field_xds)
-    #field_xds['field_id'] = np.arange(len(field_xds.field_id))
-    
+    )  # .sel(field_id=field_id)
+    # print('1****',field_xds)
+    # field_xds['field_id'] = np.arange(len(field_xds.field_id))
+
     assert len(field_xds.poly_id) == 1, "Polynomial field positions not supported."
     field_xds = field_xds.isel(poly_id=0)
     field_xds = field_xds.sel(field_id=field_id)
-    
+
     from xradio._utils.array import check_if_consistent
-    
+
     source_id = check_if_consistent(field_xds.source_id, "source_id")
-        
-    
+
     # print('source_id', source_id)
     # print(field_xds)
     # print('***')
     # print(field_xds.field_id)
     # print('***')
     # print(field_id)
-    
-    
+
     field_and_source_xds.attrs.update(
         {
             "field_name": str(field_xds["name"].data),
             "field_code": str(field_xds["code"].data),
-            #"field_id": field_id,
+            # "field_id": field_id,
             "source_id": source_id,
         }
     )
@@ -582,10 +612,12 @@ def create_field_info_and_check_ephemeris(field_and_source_xds, in_file, field_i
     ephemeris_table_name = None
     ephemeris_path = None
     is_ephemeris = False
-    
+
     # Need to check if ephemeris_id is present and if epehemeris table is present.
     if "ephemeris_id" in field_xds:
-        ephemeris_id = check_if_consistent(field_xds.ephemeris_id, "ephemeris_id") #int(field_xds["ephemeris_id"].data)
+        ephemeris_id = check_if_consistent(
+            field_xds.ephemeris_id, "ephemeris_id"
+        )  # int(field_xds["ephemeris_id"].data)
         if ephemeris_id > -1:
             files = os.listdir(os.path.join(in_file, "FIELD"))
             ephemeris_table_name_start = "EPHEM" + str(ephemeris_id)
@@ -624,17 +656,17 @@ def create_field_info_and_check_ephemeris(field_and_source_xds, in_file, field_i
     #     }
     #     field_measures_type = "sky_coord"
     #     field_and_source_xds.attrs["field_and_source_xds_type"] = "standard"
-    
+
     if is_single_dish:
         field_data_variables = {
-                "reference_dir": "FIELD_REFERENCE_CENTER",
-            }
+            "reference_dir": "FIELD_REFERENCE_CENTER",
+        }
     else:
         field_data_variables = {
-                #"delay_dir": "FIELD_DELAY_CENTER",
-                "phase_dir": "FIELD_PHASE_CENTER",
-                #"reference_dir": "FIELD_REFERENCE_CENTER",
-            }
+            # "delay_dir": "FIELD_DELAY_CENTER",
+            "phase_dir": "FIELD_PHASE_CENTER",
+            # "reference_dir": "FIELD_REFERENCE_CENTER",
+        }
 
     field_measures_type = "sky_coord"
 
@@ -643,24 +675,25 @@ def create_field_info_and_check_ephemeris(field_and_source_xds, in_file, field_i
     field_column_description = field_xds.attrs["other"]["msv2"]["ctds_attrs"][
         "column_descriptions"
     ]  # Keys are ['DELAY_DIR', 'PHASE_DIR', 'REFERENCE_DIR', 'CODE', 'FLAG_ROW', 'NAME', 'NUM_POLY', 'SOURCE_ID', 'TIME']
-    
+
     coords = {}
     coords["sky_dir_label"] = ["ra", "dec"]
     if field_times is not None:
         coords["time"] = field_times
         dims = ["time", "sky_dir_label"]
-    else:      
+    else:
         dims = ["sky_dir_label"]
-        
+
     for generic_name, msv4_name in field_data_variables.items():
-        
+
         if field_xds.get("delaydir_ref") is None:
             delaydir_ref = None
         else:
-            delaydir_ref = check_if_consistent(field_xds.get("delaydir_ref"), "delaydir_ref")
+            delaydir_ref = check_if_consistent(
+                field_xds.get("delaydir_ref"), "delaydir_ref"
+            )
         msv4_measure = column_description_casacore_to_msv4_measure(
-            field_column_description[generic_name.upper()],
-            ref_code=delaydir_ref
+            field_column_description[generic_name.upper()], ref_code=delaydir_ref
         )
 
         field_and_source_xds[msv4_name] = xr.DataArray.from_dict(
@@ -673,6 +706,5 @@ def create_field_info_and_check_ephemeris(field_and_source_xds, in_file, field_i
 
         field_and_source_xds[msv4_name].attrs["type"] = field_measures_type
 
- 
     field_and_source_xds = field_and_source_xds.assign_coords(coords)
     return field_and_source_xds, ephemeris_path, ephemeris_table_name

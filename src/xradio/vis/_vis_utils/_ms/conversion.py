@@ -359,6 +359,7 @@ def calc_used_gb(
         / GiBYTES_TO_BYTES
     )
 
+
 # TODO: if the didxs are not used in read_col_conversion, remove didxs from here (and convert_and_write_partition)
 def calc_indx_for_row_split(tb_tool, taql_where):
     baselines = get_baselines(tb_tool)
@@ -591,16 +592,27 @@ def create_data_variables(
                 create_attribute_metadata(col, main_column_descriptions)
             )
 
+
 def create_taql_query(partition_info):
-    main_par_table_cols = ['DATA_DESC_ID', 'STATE_ID', 'FIELD_ID', 'SCAN_NUMBER', 'STATE_ID']
-    
-    taql_where = 'WHERE '
+    main_par_table_cols = [
+        "DATA_DESC_ID",
+        "STATE_ID",
+        "FIELD_ID",
+        "SCAN_NUMBER",
+        "STATE_ID",
+    ]
+
+    taql_where = "WHERE "
     for col_name in main_par_table_cols:
-        if col_name in partition_info:  
-            taql_where = taql_where + f"({col_name} IN [{','.join(map(str, partition_info[col_name]))}]) AND"
+        if col_name in partition_info:
+            taql_where = (
+                taql_where
+                + f"({col_name} IN [{','.join(map(str, partition_info[col_name]))}]) AND"
+            )
     taql_where = taql_where[:-3]
-            
+
     return taql_where
+
 
 def convert_and_write_partition(
     in_file: str,
@@ -655,16 +667,16 @@ def convert_and_write_partition(
     _type_
         _description_
     """
-        
+
     taql_where = create_taql_query(partition_info)
-    ddi = partition_info['DATA_DESC_ID'][0]
-    intent = str(partition_info['INTENT'][0])
-    
+    ddi = partition_info["DATA_DESC_ID"][0]
+    intent = str(partition_info["INTENT"][0])
+
     start = time.time()
     with open_table_ro(in_file) as mtable:
         taql_main = f"select * from $mtable {taql_where}"
         with open_query(mtable, taql_main) as tb_tool:
-            
+
             if tb_tool.nrows() == 0:
                 tb_tool.close()
                 mtable.close()
@@ -795,24 +807,27 @@ def convert_and_write_partition(
                 ephemeris_interp_time = xds.time
             else:
                 ephemeris_interp_time = None
-                
+
             scan_id = np.full(time_baseline_shape, -42, dtype=int)
             scan_id[tidxs, bidxs] = tb_tool.getcol("SCAN_NUMBER")
-            scan_id = np.max(scan_id,axis=1)
+            scan_id = np.max(scan_id, axis=1)
 
-            if partition_scheme == "ddi_intent_source" or partition_scheme == "ddi_intent_scan":
+            if (
+                partition_scheme == "ddi_intent_source"
+                or partition_scheme == "ddi_intent_scan"
+            ):
                 field_id = np.full(time_baseline_shape, -42, dtype=int)
                 field_id[tidxs, bidxs] = tb_tool.getcol("FIELD_ID")
-                field_id = np.max(field_id,axis=1)
+                field_id = np.max(field_id, axis=1)
                 field_times = utime
             else:
                 field_id = check_if_consistent(tb_tool.getcol("FIELD_ID"), "FIELD_ID")
                 field_times = None
-            
+
             # col_unique = unique_1d(col)
             # assert len(col_unique) == 1, col_name + " is not consistent."
             # return col_unique[0]
- 
+
             field_and_source_xds = create_field_and_source_xds(
                 in_file,
                 field_id,
@@ -822,10 +837,8 @@ def convert_and_write_partition(
                 time_min_max,
                 ephemeris_interp_time,
             )
-            logger.debug("Time field_and_source_xds " + str(time.time() - start))   
-            
-     
-            
+            logger.debug("Time field_and_source_xds " + str(time.time() - start))
+
             # Fix UVW frame
             # From CASA fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking center. calcuvw does not yet force the UVW column and field centers to use the same reference frame! Blank = use the phase tracking frame of vis.
             # print('##################',field_and_source_xds)
@@ -833,7 +846,7 @@ def convert_and_write_partition(
                 xds.UVW.attrs["frame"] = field_and_source_xds[
                     "FIELD_REFERENCE_CENTER"
                 ].attrs["frame"]
-            else:                
+            else:
                 xds.UVW.attrs["frame"] = field_and_source_xds[
                     "FIELD_PHASE_CENTER"
                 ].attrs["frame"]
@@ -853,23 +866,23 @@ def convert_and_write_partition(
                 + "_"
                 + str(ms_v4_id),
             )
-            
-            if isinstance(field_id,np.ndarray):
-                field_id = 'OTF'
-            
-            xds.attrs['partition_info'] = {
-                'spectral_window_id': xds.frequency.attrs["spectral_window_id"],
-                'spectral_window_name': xds.frequency.attrs["spectral_window_name"],
-                'field_id': field_id,
-                'field_name': field_and_source_xds.attrs['field_name'],
-                'source_id': field_and_source_xds.attrs['source_id'],
-                'source_name': field_and_source_xds.attrs['source_name'],
-                'polarization_setup': list(xds.polarization.values),
-                'intent': intent,
-                'taql' : taql_where,
+
+            if isinstance(field_id, np.ndarray):
+                field_id = "OTF"
+
+            xds.attrs["partition_info"] = {
+                "spectral_window_id": xds.frequency.attrs["spectral_window_id"],
+                "spectral_window_name": xds.frequency.attrs["spectral_window_name"],
+                "field_id": field_id,
+                "field_name": field_and_source_xds.attrs["field_name"],
+                "source_id": field_and_source_xds.attrs["source_id"],
+                "source_name": field_and_source_xds.attrs["source_name"],
+                "polarization_setup": list(xds.polarization.values),
+                "intent": intent,
+                "taql": taql_where,
             }
-            
-            #print(xds)
+
+            # print(xds)
 
             start = time.time()
             if storage_backend == "zarr":

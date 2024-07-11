@@ -21,6 +21,7 @@ from .read import (
 from .write import revert_time
 from xradio._utils.array import unique_1d
 
+
 def read_ephemerides(
     infile: str,
 ) -> Union[xr.Dataset, None]:

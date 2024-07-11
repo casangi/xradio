@@ -5,8 +5,7 @@ from typing import Dict, Union
 import dask
 
 from xradio.vis._vis_utils._ms.partition_queries import (
-    create_partition_enumerated_product,
-    create_partition_enumerated_product2
+    create_partitions
 )
 from xradio.vis._vis_utils._ms.conversion import convert_and_write_partition
 
@@ -57,17 +56,9 @@ def convert_msv2_to_processing_set(
         Whether to overwrite an existing processing set, by default False.
     """
 
-    # partition_enumerated_product, intents = create_partition_enumerated_product(
-    #     in_file, partition_scheme
-    # )
-    
-    print('*******'*10)
-    
-    partitions = create_partition_enumerated_product2(
-        in_file, partition_scheme = ['DATA_DESC_ID', 'INTENT', 'FIELD_ID']
+    partitions = create_partitions(
+        in_file, partition_scheme = partition_scheme
     )
-    
-    print(len(partitions))
     
     delayed_list = []
     ms_v4_id = 0

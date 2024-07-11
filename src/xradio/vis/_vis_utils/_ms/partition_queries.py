@@ -13,6 +13,186 @@ from ._tables.table_query import open_table_ro, open_query
 from ._tables.read import read_generic_table
 from .subtables import subt_rename_ids
 
+def enumerated_product(*args):
+    yield from zip(
+        itertools.product(*(range(len(x)) for x in args)), itertools.product(*args)
+    )
+
+
+def create_partition_enumerated_product(in_file: str, partition_scheme: str):
+    """
+    Creates an enumerated_product of the data_desc_ids, state_ids, field_ids in a MS v2 that define the partions in a processing set.
+
+    Parameters
+    ----------
+    in_file : str
+        _description_
+    partition_scheme : str
+        _description_
+
+    Returns
+    -------
+    _type_
+        _description_
+    """
+    # Unused?
+    # spw_xds = read_generic_table(
+    #     in_file,
+    #     "SPECTRAL_WINDOW",
+    #     rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
+    # )
+
+    # TODO: probably get this via query to subtable instead of read_generic_table, we just
+    # need the row numbers
+    ddi_xds = read_generic_table(in_file, "DATA_DESCRIPTION")
+    data_desc_ids = np.arange(ddi_xds.sizes["row"])
+    state_xds = read_generic_table(in_file, "STATE")
+
+    if (partition_scheme == "ddi_intent_field"):
+        if (len(state_xds.data_vars) > 0):
+            intents, state_ids = get_unqiue_intents(in_file)
+        else:
+            state_ids = [None]
+            intents = ["None"]
+        field_ids = np.arange(read_generic_table(in_file, "FIELD").sizes["row"])
+        scan_ids = [None]
+    elif partition_scheme == "ddi_state_field":  # partition_scheme == "ddi_state_field"
+
+        if len(state_xds.data_vars) > 0:
+            state_ids = [np.arange(state_xds.sizes["row"])]
+            intents = state_xds.obs_mode.values
+        else:  # empty state table
+            state_ids = [None]
+            intents = ["None"]
+        # print(state_xds, intents)
+        # field_ids = [None]
+        scan_ids = [None]
+        field_ids = np.arange(read_generic_table(in_file, "FIELD").sizes["row"])
+    elif partition_scheme == 'ddi_intent_scan': 
+        intents, state_ids = get_unqiue_intents(in_file)
+        field_ids = [None]
+        scan_ids = get_unqiue_scan_ids(in_file)
+    # Need to ensure that only a single source is present
+    # elif partition_scheme == 'ddi_intent_source': #VLA_OTF mode
+    #     intents, state_ids = get_unqiue_intents(in_file)
+    #     field_ids = [None]
+    #     scan_ids = [None] 
+    
+    return enumerated_product(data_desc_ids, state_ids, field_ids, scan_ids), intents
+
+
+def create_partitions(in_file: str, partition_scheme: Union[str, list], vla_otf=False):
+    """ Create a list of dictionaries with the partition information. 
+
+    Args:
+        in_file (str): Input MSv2 file path.
+        partition_scheme (Union[str, list]): Partition scheme to be used.
+        vla_otf (bool, optional):  The partioning of VLA OTF (on the fly) mosaics needs a special partitioning scheme. Defaults to False.
+
+    Returns:
+        list: list of dictionaries with the partition information.
+    """
+    
+    #Create partition table
+    from casacore import tables
+    import numpy as np
+    import xarray as xr
+    import  pandas as pd
+    import os
+    
+    if partition_scheme == "ddi_intent_field":
+        partition_scheme = ['DATA_DESC_ID', 'INTENT', 'FIELD_ID']
+    elif partition_scheme == "ddi_intent_scan":
+        partition_scheme = ['DATA_DESC_ID', 'INTENT', 'SCAN_NUMBER']
+        
+    #Open MSv2 tables and add columns to partition table (par_df):
+    par_df = pd.DataFrame()
+    main_tb = tables.table(in_file, readonly=True, lockoptions={"option": "usernoread"}, ack=False)
+    par_df['DATA_DESC_ID'] = main_tb.getcol('DATA_DESC_ID')
+    par_df['FIELD_ID'] = main_tb.getcol('FIELD_ID')
+    par_df['SCAN_NUMBER'] = main_tb.getcol('SCAN_NUMBER')
+    par_df['STATE_ID'] = main_tb.getcol('STATE_ID')
+    par_df = par_df.drop_duplicates()
+    
+    field_tb = tables.table(os.path.join(in_file,"FIELD"), readonly=True, lockoptions={"option": "usernoread"}, ack=False)
+    if vla_otf:
+        par_df['FIELD_NAME'] = np.array(field_tb.getcol('NAME'))[par_df['FIELD_ID']]
+        
+    #Get source ids if available from source table.
+    if os.path.isdir(os.path.join(os.path.join(in_file,"SOURCE"))):
+        source_tb = tables.table(os.path.join(in_file,"SOURCE"), readonly=True, lockoptions={"option": "usernoread"}, ack=False)
+        if source_tb.nrows() != 0:
+            par_df['SOURCE_ID'] = field_tb.getcol('SOURCE_ID')[par_df['FIELD_ID']]
+            if vla_otf:
+                par_df['SOURCE_NAME'] = np.array(source_tb.getcol('NAME'))[par_df['SOURCE_ID']]
+
+    #Get intents and subscan numbers if available from state table.
+    if os.path.isdir(os.path.join(in_file,"STATE")):
+        state_tb = tables.table(os.path.join(in_file,"STATE"), readonly=True, lockoptions={"option": "usernoread"}, ack=False)  
+        if state_tb.nrows() != 0:
+            #print('state_tb',state_tb.nrows(),state_tb)
+            par_df['INTENT'] = np.array(state_tb.getcol('OBS_MODE'))[par_df['STATE_ID']]    
+            par_df['SUB_SCAN_NUMBER'] = state_tb.getcol('SUB_SCAN')[par_df['STATE_ID']]
+        else:
+            par_df.drop(['STATE_ID'],axis=1)
+
+    #Check if all partition scheme criteria are present in the partition table.
+    partition_scheme_updated = []
+    partition_criteria = {}
+    for par in partition_scheme:
+        if par in par_df.columns:
+            partition_criteria[par] = par_df[par].unique()
+            partition_scheme_updated.append(par)
+    logger.info(f'Partition scheme that will be used: {partition_scheme_updated}')
+    
+    # Make all possible combinations of the partition criteria.
+    enumerated_partitions = enumerated_product(*list(partition_criteria.values()))
+
+    #Create a list of dictionaries with the partition information. This will be used to query the MSv2 main table.
+    partitions = []
+    partition_axis_names = ['DATA_DESC_ID', 'FIELD_ID', 'SCAN_NUMBER', 'STATE_ID', 'SOURCE_ID', 'INTENT', 'SUB_SCAN_NUMBER']
+    for idx, pair in enumerated_partitions:
+        query = ""
+        for i,par in enumerate(partition_scheme_updated):
+            if isinstance(pair[i], str):
+                query = query + f'{par} == "{pair[i]}" and '
+            else:
+                query = query + f'{par} == {pair[i]} and '
+        query = query[:-4]  #remove last and
+        sub_par_df = par_df.query(query).drop_duplicates()
+
+        if sub_par_df.shape[0] != 0:
+            partition_info = {}
+            
+            #FIELD_NAME	SOURCE_NAME
+            for col_name in partition_axis_names:
+                if col_name in sub_par_df.columns:
+                    partition_info[col_name] = sub_par_df[col_name].unique()
+                else:
+                    partition_info[col_name] = [None]
+                
+            partitions.append(partition_info)
+
+    return partitions
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#Used by code that will be deprecated at some stage.
 
 def make_partition_ids_by_ddi_scan(
     infile: str, do_subscans: bool
@@ -75,50 +255,53 @@ def make_partition_ids_by_ddi_scan(
     return data_desc_id, scan_number, state_id
 
 
-def partition_when_empty_state(
-    infile: str,
+
+def make_partition_ids_by_ddi_intent(
+    infile: str, spw_names: xr.DataArray
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
-    Generate fallback partition ids when trying to partition by
-    'intent' but the STATE table is empty.
-
-    Some MSs have no STATE rows and in the main table STATE_ID==-1
-    (that is not a valid MSv2 but it happens).
+    Produces arrays of per-partition ddi, scan, state_id, for when
+    using the partition scheme 'intents' (ddi, scan, subscans(state_ids))
 
     Parameters
     ----------
     infile : str
-        Path to the MS
+        return: arrays with indices that define every partition
+    spw_names: xr.DataArray
+
 
     Returns
     -------
     Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
-        same as make_partition_ids_by_ddi_intent but with
-        effectively only ddi indices and other indices set to None ("any
-        IDs found")
+        arrays with indices that define every partition
     """
-    try:
-        main_table = None
+    # TODO: could explore other TAQL alternatives, like
+    # select ... from ::STATE where OBS_MODE = ...
+    #
+    # This will work only if intents are already alphabetically sorted (grouped),
+    # won't work for alternating intents:
+    # taql_intents = "select rowid() as ROWS from $state_tbl GROUPBY OBS_MODE "
 
-        main_table = tables.table(
-            infile, readonly=True, lockoptions={"option": "usernoread"}, ack=False
-        )
-        taql_ddis = "select DISTINCT DATA_DESC_ID from $main_table"
-        with open_query(main_table, taql_ddis) as query_per_intent:
-            # Will take whatever scans given the STATE_IDs and DDIs
-            # scan_number = query_per_intent.getcol("SCAN_NUMBER")
-            distinct_ddis = query_per_intent.getcol("DATA_DESC_ID")
+    with open_table_ro(str(Path(infile, "STATE"))) as state_tbl:
+        distinct_obs_mode = find_distinct_obs_mode(infile, state_tbl)
 
-        logger.debug(
-            f"Producing {len(distinct_ddis)} partitions for ddis: {distinct_ddis}"
-        )
-        nparts = len(distinct_ddis)
+        if distinct_obs_mode is None:
+            return partition_when_empty_state(infile)
 
-    finally:
-        if main_table:
-            main_table.close()
+        with open_table_ro(infile) as main_tbl:
+            (
+                data_desc_id,
+                state_id_partitions,
+                intent_names,
+            ) = make_ddi_state_intent_lists(
+                main_tbl, state_tbl, distinct_obs_mode, spw_names
+            )
 
-    return distinct_ddis, [None] * nparts, [None] * nparts, [""] * nparts
+    # Take whatever scans given by the STATE_IDs and DDIs
+    scan_number = [None] * len(state_id_partitions)
+
+    return data_desc_id, scan_number, state_id_partitions, intent_names
+
 
 
 def find_distinct_obs_mode(
@@ -154,62 +337,8 @@ def find_distinct_obs_mode(
             f"  Query for distinct OBS_MODE len: {len(distinct_obs_mode)}, values: {distinct_obs_mode}"
         )
         return distinct_obs_mode
-
-
-def filter_intents_per_ddi(
-    ddis: List[int], substr: str, intents: str, spw_name_by_ddi: Dict[int, str]
-) -> List[str]:
-    """
-    For a given pair of:
-    - substring (say 'WVR') associated with a type of intent we want to differentiate
-    - intents string (multiple comma-separated scan/subscan intents)
-    => do: for every DDI passed in the list of ddis, either keep only the
-    intents that have that substring (if there are any) or drop them, depending on
-    whether that substring is present in the SPW name. This is to filter in only
-    the intents that really apply to every DDI/SPW.
-
-    Parameters
-    ----------
-    ddis : List[int]
-        list of ddis for which the intents have to be filtered
-    substr : str
-        substring to filter by
-    intents : str
-        string with a comma-separated list of individual
-        scan/subscan intent strings (like scan/subscan intents as stored
-        in the MS STATE/OBS_MODE
-    spw_name_by_ddi : Dict[int, str]
-        SPW names by DDI ID (row index) key
-
-    Returns
-    -------
-    List[str]
-        list where the intents related to 'substr' have been filtered in our out
-    """
-    present = substr in intents
-    # Nothing to effectively filter, full cs-list of intents apply to all DDIs
-    if not present:
-        return [intents] * len(ddis)
-
-    every_intent = intents.split(",")
-    filtered_intents = []
-    for ddi in ddis:
-        spw_name = spw_name_by_ddi.get(ddi, "")
-
-        if not spw_name:
-            # we cannot say / cannot filter
-            filtered_intents.append(intents)
-            continue
-
-        # A not-xor to select/deselect (or keep-only/drop) the intents that apply
-        # to this DDI
-        ddi_intents = [
-            intnt for intnt in every_intent if (substr in intnt) == (substr in spw_name)
-        ]
-        ddi_intents = ",".join(ddi_intents)
-        filtered_intents.append(ddi_intents)
-
-    return filtered_intents
+    
+    
 
 
 def make_ddi_state_intent_lists(
@@ -280,255 +409,107 @@ def make_ddi_state_intent_lists(
     return data_desc_id, state_id_partitions, intent_names
 
 
-def make_partition_ids_by_ddi_intent(
-    infile: str, spw_names: xr.DataArray
+
+
+def filter_intents_per_ddi(
+    ddis: List[int], substr: str, intents: str, spw_name_by_ddi: Dict[int, str]
+) -> List[str]:
+    """
+    For a given pair of:
+    - substring (say 'WVR') associated with a type of intent we want to differentiate
+    - intents string (multiple comma-separated scan/subscan intents)
+    => do: for every DDI passed in the list of ddis, either keep only the
+    intents that have that substring (if there are any) or drop them, depending on
+    whether that substring is present in the SPW name. This is to filter in only
+    the intents that really apply to every DDI/SPW.
+
+    Parameters
+    ----------
+    ddis : List[int]
+        list of ddis for which the intents have to be filtered
+    substr : str
+        substring to filter by
+    intents : str
+        string with a comma-separated list of individual
+        scan/subscan intent strings (like scan/subscan intents as stored
+        in the MS STATE/OBS_MODE
+    spw_name_by_ddi : Dict[int, str]
+        SPW names by DDI ID (row index) key
+
+    Returns
+    -------
+    List[str]
+        list where the intents related to 'substr' have been filtered in our out
+    """
+    present = substr in intents
+    # Nothing to effectively filter, full cs-list of intents apply to all DDIs
+    if not present:
+        return [intents] * len(ddis)
+
+    every_intent = intents.split(",")
+    filtered_intents = []
+    for ddi in ddis:
+        spw_name = spw_name_by_ddi.get(ddi, "")
+
+        if not spw_name:
+            # we cannot say / cannot filter
+            filtered_intents.append(intents)
+            continue
+
+        # A not-xor to select/deselect (or keep-only/drop) the intents that apply
+        # to this DDI
+        ddi_intents = [
+            intnt for intnt in every_intent if (substr in intnt) == (substr in spw_name)
+        ]
+        ddi_intents = ",".join(ddi_intents)
+        filtered_intents.append(ddi_intents)
+
+    return filtered_intents
+
+
+
+
+def partition_when_empty_state(
+    infile: str,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
-    Produces arrays of per-partition ddi, scan, state_id, for when
-    using the partition scheme 'intents' (ddi, scan, subscans(state_ids))
+    Generate fallback partition ids when trying to partition by
+    'intent' but the STATE table is empty.
+
+    Some MSs have no STATE rows and in the main table STATE_ID==-1
+    (that is not a valid MSv2 but it happens).
 
     Parameters
     ----------
     infile : str
-        return: arrays with indices that define every partition
-    spw_names: xr.DataArray
-
+        Path to the MS
 
     Returns
     -------
     Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
-        arrays with indices that define every partition
+        same as make_partition_ids_by_ddi_intent but with
+        effectively only ddi indices and other indices set to None ("any
+        IDs found")
     """
-    # TODO: could explore other TAQL alternatives, like
-    # select ... from ::STATE where OBS_MODE = ...
-    #
-    # This will work only if intents are already alphabetically sorted (grouped),
-    # won't work for alternating intents:
-    # taql_intents = "select rowid() as ROWS from $state_tbl GROUPBY OBS_MODE "
+    try:
+        main_table = None
 
-    with open_table_ro(str(Path(infile, "STATE"))) as state_tbl:
-        distinct_obs_mode = find_distinct_obs_mode(infile, state_tbl)
+        main_table = tables.table(
+            infile, readonly=True, lockoptions={"option": "usernoread"}, ack=False
+        )
+        taql_ddis = "select DISTINCT DATA_DESC_ID from $main_table"
+        with open_query(main_table, taql_ddis) as query_per_intent:
+            # Will take whatever scans given the STATE_IDs and DDIs
+            # scan_number = query_per_intent.getcol("SCAN_NUMBER")
+            distinct_ddis = query_per_intent.getcol("DATA_DESC_ID")
 
-        if distinct_obs_mode is None:
-            return partition_when_empty_state(infile)
+        logger.debug(
+            f"Producing {len(distinct_ddis)} partitions for ddis: {distinct_ddis}"
+        )
+        nparts = len(distinct_ddis)
 
-        with open_table_ro(infile) as main_tbl:
-            (
-                data_desc_id,
-                state_id_partitions,
-                intent_names,
-            ) = make_ddi_state_intent_lists(
-                main_tbl, state_tbl, distinct_obs_mode, spw_names
-            )
+    finally:
+        if main_table:
+            main_table.close()
 
-    # Take whatever scans given by the STATE_IDs and DDIs
-    scan_number = [None] * len(state_id_partitions)
-
-    return data_desc_id, scan_number, state_id_partitions, intent_names
-
-
-def create_taql_query(state_ids, field_id, ddi, scan_id):
-    taql_where = f"where (DATA_DESC_ID = {ddi})"
-
-    if isinstance(state_ids, numbers.Integral):
-        taql_where += f" AND (STATE_ID = {state_ids})"
-    elif state_ids is not None:
-        state_ids_or = " OR STATE_ID = ".join(np.char.mod("%d", state_ids))
-        taql_where += f" AND (STATE_ID = {state_ids_or})"
-
-    if field_id is not None:
-        taql_where += f" AND (FIELD_ID = {field_id})"
-        
-    if scan_id is not None:
-        taql_where += f" AND (SCAN_NUMBER = {scan_id})"
-
-    return taql_where
-
-
-def get_unqiue_intents(in_file):
-    """
-    _summary_
-
-    Parameters
-    ----------
-    in_file : str
-        _description_
-
-    Returns
-    -------
-    _type_
-        _description_
-    """
-    state_xds = read_generic_table(
-        in_file,
-        "STATE",
-        rename_ids=subt_rename_ids["STATE"],
-    )
-
-    if len(state_xds.data_vars) > 0:
-        obs_mode_dict = {}
-        for i, obs_mode in enumerate(state_xds.obs_mode.values):
-            if obs_mode in obs_mode_dict:
-                obs_mode_dict[obs_mode].append(i)
-            else:
-                obs_mode_dict[obs_mode] = [i]
-        return list(obs_mode_dict.keys()), list(obs_mode_dict.values())
-    else:  # empty state table
-        return ["None"], [None]
-
-def get_unqiue_scan_ids(in_file):
-    # with open_query(main_tbl, f"select SCAN_NUMBER from $main_tbl") as query_scans:
-    #     print('query_scans',query_scans)
-    #     scan_ids = np.unique(query_scans.getcol("SCAN_NUMBER"))
-    
-    main_table = tables.table(
-        in_file, readonly=True, lockoptions={"option": "usernoread"}, ack=False
-    )
-    
-    taql_ddis = "select DISTINCT SCAN_NUMBER from $main_table"
-    with open_query(main_table, taql_ddis) as query_per_intent:
-        scan_ids = query_per_intent.getcol("SCAN_NUMBER")
-        
-    return scan_ids
-
-def enumerated_product(*args):
-    yield from zip(
-        itertools.product(*(range(len(x)) for x in args)), itertools.product(*args)
-    )
-
-
-def create_partition_enumerated_product(in_file: str, partition_scheme: str):
-    """
-    Creates an enumerated_product of the data_desc_ids, state_ids, field_ids in a MS v2 that define the partions in a processing set.
-
-    Parameters
-    ----------
-    in_file : str
-        _description_
-    partition_scheme : str
-        _description_
-
-    Returns
-    -------
-    _type_
-        _description_
-    """
-    # Unused?
-    # spw_xds = read_generic_table(
-    #     in_file,
-    #     "SPECTRAL_WINDOW",
-    #     rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
-    # )
-
-    # TODO: probably get this via query to subtable instead of read_generic_table, we just
-    # need the row numbers
-    ddi_xds = read_generic_table(in_file, "DATA_DESCRIPTION")
-    data_desc_ids = np.arange(ddi_xds.sizes["row"])
-    state_xds = read_generic_table(in_file, "STATE")
-
-    if (partition_scheme == "ddi_intent_field"):
-        if (len(state_xds.data_vars) > 0):
-            intents, state_ids = get_unqiue_intents(in_file)
-        else:
-            state_ids = [None]
-            intents = ["None"]
-        field_ids = np.arange(read_generic_table(in_file, "FIELD").sizes["row"])
-        scan_ids = [None]
-    elif partition_scheme == "ddi_state_field":  # partition_scheme == "ddi_state_field"
-
-        if len(state_xds.data_vars) > 0:
-            state_ids = [np.arange(state_xds.sizes["row"])]
-            intents = state_xds.obs_mode.values
-        else:  # empty state table
-            state_ids = [None]
-            intents = ["None"]
-        # print(state_xds, intents)
-        # field_ids = [None]
-        scan_ids = [None]
-        field_ids = np.arange(read_generic_table(in_file, "FIELD").sizes["row"])
-    elif partition_scheme == 'ddi_intent_scan': 
-        intents, state_ids = get_unqiue_intents(in_file)
-        field_ids = [None]
-        scan_ids = get_unqiue_scan_ids(in_file)
-    # Need to ensure that only a single source is present
-    # elif partition_scheme == 'ddi_intent_source': #VLA_OTF mode
-    #     intents, state_ids = get_unqiue_intents(in_file)
-    #     field_ids = [None]
-    #     scan_ids = [None] 
-    
-    return enumerated_product(data_desc_ids, state_ids, field_ids, scan_ids), intents
-
-
-def create_partition_enumerated_product2(in_file: str, partition_scheme: np.ndarray, vla_otf=False):
-    #Create partition table
-    from casacore import tables
-    import numpy as np
-    import xarray as xr
-    import  pandas as pd
-    import os
-
-    #Open MSv2 tables with required info:
-    par_df = pd.DataFrame()
-    main_tb = tables.table(in_file, readonly=True, lockoptions={"option": "usernoread"}, ack=False)
-    par_df['DATA_DESC_ID'] = main_tb.getcol('DATA_DESC_ID')
-    par_df['FIELD_ID'] = main_tb.getcol('FIELD_ID')
-    par_df['SCAN_NUMBER'] = main_tb.getcol('SCAN_NUMBER')
-    par_df['STATE_ID'] = main_tb.getcol('STATE_ID')
-    par_df = par_df.drop_duplicates()
-    
-    field_tb = tables.table(os.path.join(in_file,"FIELD"), readonly=True, lockoptions={"option": "usernoread"}, ack=False)
-    if vla_otf:
-        par_df['FIELD_NAME'] = np.array(field_tb.getcol('NAME'))[par_df['FIELD_ID']]
-        
-    if os.path.isdir(os.path.join(os.path.join(in_file,"SOURCE"))):
-        source_tb = tables.table(os.path.join(in_file,"SOURCE"), readonly=True, lockoptions={"option": "usernoread"}, ack=False)
-        if source_tb.nrows() != 0:
-            par_df['SOURCE_ID'] = field_tb.getcol('SOURCE_ID')[par_df['FIELD_ID']]
-            if vla_otf:
-                par_df['SOURCE_NAME'] = np.array(source_tb.getcol('NAME'))[par_df['SOURCE_ID']]
-
-    if os.path.isdir(os.path.join(in_file,"STATE")):
-        state_tb = tables.table(os.path.join(in_file,"STATE"), readonly=True, lockoptions={"option": "usernoread"}, ack=False)  
-        if state_tb.nrows() != 0:
-            #print('state_tb',state_tb.nrows(),state_tb)
-            par_df['INTENT'] = np.array(state_tb.getcol('OBS_MODE'))[par_df['STATE_ID']]    
-            par_df['SUB_SCAN_NUMBER'] = state_tb.getcol('SUB_SCAN')[par_df['STATE_ID']]
-        else:
-            par_df.drop(['STATE_ID'],axis=1)
-
-    partition_scheme_updated = []
-    partition_criteria = {}
-    for par in partition_scheme:
-        if par in par_df.columns:
-            partition_criteria[par] = par_df[par].unique()
-            partition_scheme_updated.append(par)
-    #print(partition_criteria)
-    
-    enumerated_partitions = enumerated_product(*list(partition_criteria.values()))
-
-    partitions = []
-    partition_axis_names = ['DATA_DESC_ID', 'FIELD_ID', 'SCAN_NUMBER', 'STATE_ID', 'SOURCE_ID', 'INTENT', 'SUB_SCAN_NUMBER']
-    for idx, pair in enumerated_partitions:
-        query = ""
-        for i,par in enumerate(partition_scheme_updated):
-            if isinstance(pair[i], str):
-                query = query + f'{par} == "{pair[i]}" and '
-            else:
-                query = query + f'{par} == {pair[i]} and '
-        query = query[:-4]  #remove last and
-        sub_par_df = par_df.query(query).drop_duplicates()
-
-        if sub_par_df.shape[0] != 0:
-            partition_info = {}
-            
-            #FIELD_NAME	SOURCE_NAME
-            for col_name in partition_axis_names:
-                if col_name in sub_par_df.columns:
-                    partition_info[col_name] = sub_par_df[col_name].unique()
-                else:
-                    partition_info[col_name] = [None]
-                
-            partitions.append(partition_info)
-
-    return partitions
-
+    return distinct_ddis, [None] * nparts, [None] * nparts, [""] * nparts

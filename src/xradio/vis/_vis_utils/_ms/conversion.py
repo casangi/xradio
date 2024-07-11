@@ -20,7 +20,7 @@ from .msv2_to_msv4_meta import (
     col_to_data_variable_names,
     col_dims,
 )
-from .partition_queries import create_taql_query
+
 from .subtables import subt_rename_ids
 from ._tables.table_query import open_table_ro, open_query
 from ._tables.read import (
@@ -591,6 +591,16 @@ def create_data_variables(
                 create_attribute_metadata(col, main_column_descriptions)
             )
 
+def create_taql_query(partition_info):
+    main_par_table_cols = ['DATA_DESC_ID', 'STATE_ID', 'FIELD_ID', 'SCAN_NUMBER', 'STATE_ID']
+    
+    taql_where = 'WHERE '
+    for col_name in main_par_table_cols:
+        if col_name in partition_info:  
+            taql_where = taql_where + f"({col_name} IN [{','.join(map(str, partition_info[col_name]))}]) AND"
+    taql_where = taql_where[:-3]
+            
+    return taql_where
 
 def convert_and_write_partition(
     in_file: str,
@@ -645,41 +655,8 @@ def convert_and_write_partition(
     _type_
         _description_
     """
-    
-# where (DATA_DESC_ID = 0) AND   (STATE_ID = 32 OR STATE_ID = 23 OR STATE_ID = 30 OR STATE_ID = 37) AND (FIELD_ID = 0)
-#  WHERE (DATA_DESC_ID IN [0]) AND(STATE_ID IN [32,23,30,37])                                        AND(FIELD_ID IN [0]) AND(SCAN_NUMBER IN [11,2,9,16]) 
-
-# 1. tb_tool rows 2225
-# where (DATA_DESC_ID = 0) AND (STATE_ID = 33 OR STATE_ID = 24 OR STATE_ID = 31) AND (FIELD_ID = 1)
-# 1. tb_tool rows 1725
-# where (DATA_DESC_ID = 0) AND (STATE_ID = 34 OR STATE_ID = 25 OR STATE_ID = 32) AND (FIELD_ID = 2)
-# 1. tb_tool rows 1725
-# where (DATA_DESC_ID = 0) AND (STATE_ID = 48 OR STATE_ID = 39 OR STATE_ID = 46 OR STATE_ID = 53) AND (FIELD_ID = 0)
-# 1. tb_tool rows 1420
-# where (DATA_DESC_ID = 0) AND (STATE_ID = 49 OR STATE_ID = 40 OR STATE_ID = 47) AND (FIELD_ID = 1)
-# 1. tb_tool rows 1095
-# where (DATA_DESC_ID = 0) AND (STATE_ID = 50 OR STATE_ID = 41 OR STATE_ID = 48) AND (FIELD_ID = 2)
-# 1. tb_tool rows 1095
-    
-    # ddi: int = 0,
-    # state_ids=None,
-    # field_id: int = None,
-    # scan_id: int = None,
-    #taql_where = create_taql_query(state_ids=partition_info['STATE_ID'], field_id=partition_info['FIELD_ID'], ddi=partition_info['DATA_DESC_ID'], scan_id=partition_info['SCAN_ID'])
-    #taql_where = create_taql_query(state_ids=partition_info['STATE_ID'], field_id=partition_info['FIELD_ID'][0], ddi=partition_info['DATA_DESC_ID'][0], scan_id=None)
-    
-    def create_taql_query2(partition_info):
-        main_par_table_cols = ['DATA_DESC_ID', 'STATE_ID', 'FIELD_ID', 'SCAN_NUMBER', 'STATE_ID']
         
-        taql_where = 'WHERE '
-        for col_name in main_par_table_cols:
-            if col_name in partition_info:  
-                taql_where = taql_where + f"({col_name} IN [{','.join(map(str, partition_info[col_name]))}]) AND"
-        taql_where = taql_where[:-3]
-                
-        return taql_where
-        
-    taql_where = create_taql_query2(partition_info)
+    taql_where = create_taql_query(partition_info)
     ddi = partition_info['DATA_DESC_ID'][0]
     intent = str(partition_info['INTENT'][0])
     print(taql_where)

@@ -6,12 +6,6 @@ class processing_set(dict):
         super().__init__(*args, **kwargs)
         self.meta = {"summary": {}}
 
-    #     generate_meta(self)
-
-    # def generate_meta(self):
-    #     self.meta['summary'] = {"base": _summary(self)}
-    #     self.meta['max_dims'] = _get_ps_max_dims(self)
-
     def summary(self, data_group="base"):
         if data_group in self.meta["summary"]:
             return self.meta["summary"][data_group]
@@ -36,28 +30,34 @@ class processing_set(dict):
     def _summary(self, data_group="base"):
         summary_data = {
             "name": [],
-            "ddi": [],
             "intent": [],
-            "field_id": [],
+            "shape": [],
+            "polarization": [],
+            "spw_id": [],
             "field_name": [],
+            "field_id": [],
+            "field_coords": [],
             "start_frequency": [],
             "end_frequency": [],
-            "shape": [],
-            "field_coords": [],
         }
         from astropy.coordinates import SkyCoord
         import astropy.units as u
 
         for key, value in self.items():
             summary_data["name"].append(key)
-            summary_data["ddi"].append(value.attrs["ddi"])
-            summary_data["intent"].append(value.attrs["intent"])
+            summary_data["intent"].append(value.attrs["partition_info"]["intent"])
+            summary_data["spw_id"].append(
+                value.attrs["partition_info"]["spectral_window_id"]
+            )
+            summary_data["polarization"].append(value.polarization.values)
 
             if "visibility" in value.attrs["data_groups"][data_group]:
                 data_name = value.attrs["data_groups"][data_group]["visibility"]
+                center_name = "FIELD_PHASE_CENTER"
 
             if "spectrum" in value.attrs["data_groups"][data_group]:
                 data_name = value.attrs["data_groups"][data_group]["spectrum"]
+                center_name = "FIELD_REFERENCE_CENTER"
 
             summary_data["shape"].append(value[data_name].shape)
 
@@ -72,13 +72,11 @@ class processing_set(dict):
                 summary_data["field_coords"].append("Ephemeris")
             else:
                 ra_dec_rad = (
-                    value[data_name]
-                    .attrs["field_and_source_xds"]["FIELD_PHASE_CENTER"]
-                    .values
+                    value[data_name].attrs["field_and_source_xds"][center_name].values
                 )
                 frame = (
                     value[data_name]
-                    .attrs["field_and_source_xds"]["FIELD_PHASE_CENTER"]
+                    .attrs["field_and_source_xds"][center_name]
                     .attrs["frame"]
                     .lower()
                 )
@@ -90,8 +88,8 @@ class processing_set(dict):
                 summary_data["field_coords"].append(
                     [
                         frame,
-                        coord.ra.to_string(unit=u.hour),
-                        coord.dec.to_string(unit=u.deg),
+                        coord.ra.to_string(unit=u.hour, precision=2),
+                        coord.dec.to_string(unit=u.deg, precision=2),
                     ]
                 )
 
@@ -131,3 +129,36 @@ class processing_set(dict):
 
     def get(self, id):
         return self[list(self.keys())[id]]
+
+    def sel(self, **kwargs):
+        import numpy as np
+
+        summary_table = self.summary()
+        for key, value in kwargs.items():
+            if isinstance(value, list) or isinstance(value, np.ndarray):
+                summary_table = summary_table[summary_table[key].isin(value)]
+            elif isinstance(value, slice):
+                summary_table = summary_table[
+                    summary_table[key].between(value.start, value.stop)
+                ]
+            else:
+                summary_table = summary_table[summary_table[key] == value]
+
+        sub_ps = processing_set()
+        for key, val in self.items():
+            if key in summary_table["name"].values:
+                sub_ps[key] = val
+
+        return sub_ps
+
+    def ms_sel(self, **kwargs):
+        sub_ps = processing_set()
+        for key, val in self.items():
+            sub_ps[key] = val.sel(kwargs)
+        return sub_ps
+
+    def ms_isel(self, **kwargs):
+        sub_ps = processing_set()
+        for key, val in self.items():
+            sub_ps[key] = val.isel(kwargs)
+        return sub_ps

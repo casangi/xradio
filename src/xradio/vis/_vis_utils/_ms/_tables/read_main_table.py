@@ -17,7 +17,7 @@ from .read import (
 )
 
 from .table_query import open_table_ro, open_query
-from xradio.vis._vis_utils._ms.optimised_functions import (
+from xradio._utils.array import (
     unique_1d,
     pairing_function,
     inverse_pairing_function,
@@ -307,6 +307,7 @@ def read_main_table_chunks(
 
     dims = ["time", "baseline", "freq", "pol"]
     mvars = concat_tvars_to_mvars(dims, tvars, pol_cnt, chan_cnt)
+
     mcoords = {
         "time": xr.DataArray(convert_casacore_time(unique_times), dims=["time"]),
         "baseline": xr.DataArray(np.arange(n_baselines), dims=["baseline"]),

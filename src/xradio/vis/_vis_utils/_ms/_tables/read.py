@@ -15,6 +15,7 @@ from .table_query import open_query, open_table_ro
 
 CASACORE_TO_PD_TIME_CORRECTION = 3_506_716_800.0
 SECS_IN_DAY = 86400
+MJD_DIF_UNIX = 40587
 
 
 def table_exists(path: str) -> bool:
@@ -68,9 +69,166 @@ def convert_mjd_time(rawtimes: np.ndarray) -> np.ndarray:
     np.ndarray
         times converted to pandas reference and datetime type
     """
-    return pd.to_datetime(
-        rawtimes * SECS_IN_DAY - CASACORE_TO_PD_TIME_CORRECTION, unit="s"
+    times_reref = pd.to_datetime(
+        (rawtimes - MJD_DIF_UNIX) * SECS_IN_DAY, unit="s"
     ).values
+
+    return times_reref
+
+
+def convert_casacore_time_to_mjd(rawtimes: np.ndarray) -> np.ndarray:
+    """
+    From CASA/casacore time (as used in the TIME column of the main table) to MJD
+    (as used in the EPHEMi*.tab ephemeris tables). As the epochs are the same, this
+    is just a conversion of units.
+
+    Parameters
+    ----------
+    rawtimes : np.ndarray
+        times from a TIME column (seconds, casacore time epoch)
+
+    Returns
+    -------
+    np.ndarray
+        times converted to (ephemeris) MJD (days since casacore time epoch (1858-11-17))
+    """
+    return rawtimes / SECS_IN_DAY
+
+
+def make_taql_where_between_min_max(
+    min_max: Tuple[np.float64, np.float64],
+    path: str,
+    table_name: str,
+    colname="TIME",
+) -> Union[str, None]:
+    """
+    From a numerical min/max range, produce a TaQL string to select between
+    those min/max values (example: times) in a table.
+    The table can be for example a POINTING subtable or an EPHEM* ephemeris
+    table.
+    This is meant to be used on MSv2 table columns that will be loaded as a
+    coordinate in MSv4s and their sub-xdss (example: POINTING/TIME ephemeris/MJD).
+
+    This can be used for example to produce a TaQL string to constraing loading of:
+    - POINTING rows (based on the min/max from the time coordinate of the main MSv4)
+    - ephemeris rows, from EPHEM* tables ((based on the MJD column and the min/max
+      from the main MSv4 time coordinate).
+
+    Parameters
+    ----------
+    min_max : Tuple[np.float64, np.float64]
+        min / max values of time or other column used as coordinate
+        (assumptions: float values, sortable, typically: time coord from MSv4)
+    path :
+        Path to input MS or location of the table
+    table_name :
+        Name of the table where to load a column (example: 'POINTING')
+    colname :
+        Name of the column to search for min/max values (examples: 'TIME', 'MJD')
+
+    Returns
+    -------
+    taql_where : str
+        TaQL (sub)string with the min/max time 'WHERE' constraint
+    """
+
+    min_max_range = find_projected_min_max_table(min_max, path, table_name, colname)
+    if min_max_range is None:
+        taql = None
+    else:
+        (min_val, max_val) = min_max_range
+        taql = f"where {colname} >= {min_val} AND {colname} <= {max_val}"
+
+    return taql
+
+
+def find_projected_min_max_table(
+    min_max: Tuple[np.float64, np.float64], path: str, table_name: str, colname: str
+) -> Union[Tuple[np.float64, np.float64], None]:
+    """
+    We have: min/max values that define a range (for example of time)
+    We want: to project that min/max range on a sortable column (for example a
+    range of times onto a TIME column), and find min and max values
+    derived from that table column such that the range between those min and max
+    values includes at least the input min/max range.
+
+    The returned min/max can then be used in a data selection TaQL query to
+    select at least the values within the input range (possibly extended if
+    the input range overlaps only partially or not at all with the column
+    values). A tolerance is added to the min/max to prevent numerical issues in
+    comparisons and conversios between numerical types and strings.
+
+    When the range given as input is wider than the range of values found in
+    the column, use the input range, as it is sufficient and more inclusive.
+
+    When the range given as input is narrow (projected on the target table/column)
+    and falls between two points of the column values, or overlaps with only one
+    point, the min/max are extended to include at least the two column values that
+    define a range within which the input range is included.
+    Example scenario: an ephemeris table is sampled at a coarse interval
+    (20 min) and we want to find a min/max range projected from the time min/max
+    of a main MSv4 time coordinate sampled at ~1s for a field-scan/intent
+    that spans ~2 min. Those ~2 min will typically fall between ephemeris samples.
+
+    Parameters
+    ----------
+    min_max : Tuple[np.float64, np.float64]
+        min / max values of time or other column used as coordinate
+        (assumptions: float values, sortable)
+    path :
+        Path to input MS or location of the table
+    table_name :
+        Name of the table where to load a column (example: 'POINTING')
+    colname :
+        Name of the column to search for min/max values (example: 'TIME')
+
+    Returns
+    -------
+    output_min_max : Union[Tuple[np.float64, np.float64], None]
+        min/max values derived from the input min/max and the column values
+    """
+    with open_table_ro(os.path.join(path, table_name)) as tb_tool:
+        if tb_tool.nrows() == 0:
+            return None
+        col = tb_tool.getcol(colname)
+
+    out_min_max = find_projected_min_max_array(min_max, col)
+    return out_min_max
+
+
+def find_projected_min_max_array(
+    min_max: Tuple[np.float64, np.float64], array: np.array
+) -> Tuple[np.float64, np.float64]:
+    """Does the min/max checks and search for find_projected_min_max_table()"""
+
+    sorted_array = np.sort(array)
+    (range_min, range_max) = min_max
+    if len(sorted_array) < 2:
+        tol = np.finfo(sorted_array.dtype).eps * 4
+    else:
+        tol = np.diff(sorted_array[np.nonzero(sorted_array)]).min() / 4
+
+    if range_max > sorted_array[-1]:
+        projected_max = range_max + tol
+    else:
+        max_idx = sorted_array.size - 1
+        max_array_idx = min(
+            max_idx, np.searchsorted(sorted_array, range_max, side="right")
+        )
+        projected_max = sorted_array[max_array_idx] + tol
+
+    if range_min < sorted_array[0]:
+        projected_min = range_min - tol
+    else:
+        min_array_idx = max(
+            0, np.searchsorted(sorted_array, range_min, side="left") - 1
+        )
+        # ensure 'sorted_array[min_array_idx] < range_min' when values ==
+        if sorted_array[min_array_idx] == range_min:
+            min_array_idx = max(0, min_array_idx - 1)
+        projected_min = sorted_array[min_array_idx] - tol
+
+    return (projected_min, projected_max)
 
 
 def extract_table_attributes(infile: str) -> Dict[str, Dict]:
@@ -125,6 +283,12 @@ def add_units_measures(
         if var_name in mvars and "keywords" in col_descrs[col]:
             if "QuantumUnits" in col_descrs[col]["keywords"]:
                 cc_units = col_descrs[col]["keywords"]["QuantumUnits"]
+
+                if isinstance(
+                    cc_units, str
+                ):  # Little fix for Meerkat data where the units are a string.
+                    cc_units = [cc_units]
+
                 if not isinstance(cc_units, list) or not cc_units:
                     logger.warning(
                         f"Invalid units found for column/variable {col}: {cc_units}"
@@ -392,7 +556,7 @@ def read_generic_table(
         list of column names to ignore and not try to read.
     rename_ids : Dict[str, str] (Default value = None)
         dict with dimension renaming mapping
-    taql_where : str
+    taql_where : str (Default value = None)
          TaQL string to optionally constain the rows/columns to read
          (Default value = None)
 
@@ -426,9 +590,17 @@ def read_generic_table(
             logger.debug(f"table is empty: {inpath} {tname}")
             return xr.Dataset(attrs=attrs)
 
+        # if len(ignore) > 0: #This is needed because some SOURCE tables have a SOURCE_MODEL column that is corrupted and this causes the open_query to fail.
+        #     select_columns = gtable.colnames()
+        #     select_columns_str = str([item for item in select_columns if item not in ignore])[1:-1].replace("'", "") #Converts an array to a comma sepearted string. For example ['a', 'b', 'c'] to 'a, b, c'.
+        #     taql_gtable = f"select " + select_columns_str + f" from $gtable {taql_where}"
+        # else:
+        #     taql_gtable = f"select * from $gtable {taql_where}"
+
         # relatively often broken columns that we do not need
         exclude_pattern = ", !~p/SOURCE_MODEL/"
         taql_gtable = f"select *{exclude_pattern} from $gtable {taql_where or ''}"
+
         with open_query(gtable, taql_gtable) as tb_tool:
             if tb_tool.nrows() == 0:
                 logger.debug(
@@ -764,7 +936,7 @@ def raw_col_data_to_coords_vars(
 
     if col in timecols:
         if col == "MJD":
-            data = convert_mjd_time(data)
+            data = convert_mjd_time(data).astype("float64") / 1e9
         else:
             try:
                 data = convert_casacore_time(data)

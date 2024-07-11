@@ -59,11 +59,11 @@ def test_convert_casacore_time(times, expected_result):
         ),
         (
             np.array([58000.123]),
-            np.array(["2017-09-04T02:57:07.199999809"], dtype="datetime64[ns]"),
+            np.array(["2017-09-04T02:57:07.200000048"], dtype="datetime64[ns]"),
         ),
         (
             np.array([70000.34]),
-            np.array(["2050-07-13T08:09:36.0"], dtype="datetime64[ns]"),
+            np.array(["2050-07-13T08:09:35.999999523"], dtype="datetime64[ns]"),
         ),
     ],
 )
@@ -71,6 +71,24 @@ def test_convert_mjd_time(times, expected_result, request):
     from xradio.vis._vis_utils._ms._tables.read import convert_mjd_time
 
     assert all(convert_mjd_time(times) == expected_result)
+
+
+@pytest.mark.parametrize(
+    "times, expected_result",
+    [
+        (np.array([5.123456789e09]), np.array([59299.268391])),
+        (
+            np.array([5.05366344e09, 5.05366345e09, 5.05366369e09, 5.05366426e09]),
+            np.array([58491.475, 58491.47511574, 58491.47789352, 58491.48449074]),
+        ),
+    ],
+)
+def test_convert_casacore_time_to_mjd(times, expected_result):
+    from xradio.vis._vis_utils._ms._tables.read import convert_casacore_time_to_mjd
+
+    np.testing.assert_array_almost_equal(
+        convert_casacore_time_to_mjd(times), expected_result
+    )
 
 
 def test_extract_table_attributes_main(ms_minimal_required):
@@ -82,6 +100,156 @@ def test_extract_table_attributes_main(ms_minimal_required):
     assert len(res["column_descriptions"]) == 22
     columns = ["TIME", "DATA_DESC_ID", "ANTENNA1", "ANTENNA2", "WEIGHT"]
     assert all([col in res["column_descriptions"] for col in columns])
+
+
+# Tolerances used in min/max TaQL queries
+tol_eps = np.finfo(np.float64).eps * 4
+tol_interval = 0.1e9 / 4
+
+
+@pytest.mark.parametrize(
+    "in_min_max, expected_result",
+    [
+        ((0, 1.6e9), (0, 2.0e9)),
+        ((0, 2.3e9), (0, 2.3e9)),
+    ],
+)
+def test_find_projected_min_max_table(ms_minimal_required, in_min_max, expected_result):
+    from xradio.vis._vis_utils._ms._tables.read import find_projected_min_max_table
+
+    res = find_projected_min_max_table(
+        in_min_max, ms_minimal_required.fname, "POINTING", "TIME"
+    )
+    np.testing.assert_array_almost_equal(res, expected_result)
+
+
+# example from casatestdata/.../alma_ephemobj_icrs.ms, largely truncated
+mjd_ephemeris_uranus = np.array(
+    [57362.97916667, 57362.99305556, 57363.00694444, 57363.02083333, 57363.03472222]
+)
+# example from casatestdata/.../titan-one-baseline-one-timestamp.ms, largely truncated
+mjd_ephemeris_titan = np.array(
+    [56090.0, 56091.0, 56092.0, 56093.0, 56094.0, 56095.0, 56096.0]
+)
+# example from casatestdata/.../uid___A002_X1c6e54_X223-thinned.ms
+time_pointing_ngc3256 = np.array(
+    [
+        4808345570.024,
+        4808345606.024,
+        4808345606.024,
+        4808345642.024,
+        4808345675.024,
+        4808345702.024,
+        4808345705.024,
+        4808345720.024,
+        4808345735.024,
+        4808345735.024,
+        4808345765.024,
+        4808345765.024,
+        4808345777.024,
+        4808345777.024,
+    ]
+)
+
+
+@pytest.mark.parametrize(
+    "in_min_max, in_array, expected_result",
+    [
+        ((0, 4.6e9), (np.array([5e9])), (0, 5.0e9)),
+        ((0, 4.3e9), (np.array([4e9])), (0, 4.3e9)),
+        (
+            (4.95e9, 5.3e9),
+            np.array([4.9e9, 5.0e9]),
+            (4.9e9 - tol_interval, 5.3e9 + tol_interval),
+        ),
+        (
+            (3.88e9, 4.1e9),
+            np.array([3.8e9, 3.9e9, 4.0e9]),
+            (3.8e9 - tol_interval, 4.1e9 + tol_interval),
+        ),
+        (
+            (3.88e9, 4.0e9),
+            np.array([3.8e9, 3.9e9, 4.0e9]),
+            (3.8e9 - tol_interval, 4.0e9 + tol_interval),
+        ),
+        (
+            (58491.475746944445, 58491.4852313889),
+            np.array([58491.47222222, 58491.48611111]),
+            (58491.46875, 58491.489583),
+        ),
+        (
+            (57363.0023961111, 57363.00245944445),
+            mjd_ephemeris_uranus,
+            (57362.989583, 57363.010417),
+        ),
+        (
+            (57363.0023961111, 57363.00811111),
+            mjd_ephemeris_uranus,
+            (57362.989583, 57363.024306),
+        ),
+        (
+            (56093.97593833323, 56093.97593833345),
+            mjd_ephemeris_titan,
+            (56092.75, 56094.25),
+        ),
+        (
+            (56092.97, 56095.99),
+            mjd_ephemeris_titan,
+            (56091.75, 56096.25),
+        ),
+        (
+            (4808345861.784, 4808346243.816),
+            time_pointing_ngc3256,
+            (4808345777.024, 4808346243.816),
+        ),
+        (
+            (4808345661.784, 4808345843.816),
+            time_pointing_ngc3256,
+            (4808345642.024, 4808345843.816),
+        ),
+        (
+            (4808345699.064, 4808345744.424),
+            time_pointing_ngc3256,
+            (4808345675.024, 4808345765.024),
+        ),
+        (
+            (4808345000.064, 4808345744.424),
+            time_pointing_ngc3256,
+            (4808345000.064, 4808345765.024),
+        ),
+        (
+            (4808345699.064, 4808345744.424),
+            time_pointing_ngc3256,
+            (4808345675.024, 4808345765.024),
+        ),
+    ],
+)
+def test_find_projected_min_max_array(in_min_max, in_array, expected_result):
+    from xradio.vis._vis_utils._ms._tables.read import find_projected_min_max_array
+
+    res = find_projected_min_max_array(in_min_max, in_array)
+    np.set_printoptions(precision=13)
+    np.set_printoptions(formatter={"float": "{: 0.3f}".format})
+    np.testing.assert_array_almost_equal(res, expected_result)
+
+
+@pytest.mark.parametrize(
+    "in_min_max, expected_result",
+    [
+        ((0, 1.0e9), f"where TIME >= {-tol_eps} AND TIME <= {2e9 + tol_eps}"),
+        ((0, 3.0e9), f"where TIME >= {-tol_eps} AND TIME <= {3e9 + tol_eps}"),
+    ],
+)
+def test_make_taql_where_between_min_max(
+    ms_minimal_required, in_min_max, expected_result
+):
+    from xradio.vis._vis_utils._ms._tables.read import make_taql_where_between_min_max
+
+    res = make_taql_where_between_min_max(
+        in_min_max, ms_minimal_required.fname, "POINTING", "TIME"
+    )
+
+    assert res == expected_result
 
 
 def test_extract_table_attributes_ant(ms_minimal_required):

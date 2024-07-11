@@ -29,6 +29,8 @@ def base_test(msv2_name, expected_sum_value):
         partition_scheme="ddi_intent_field",
         main_chunksize=0.01,
         pointing_chunksize=0.00001,
+        pointing_interpolate=True,
+        ephemeris_interpolate=True,
         overwrite=True,
     )
 
@@ -74,7 +76,7 @@ def base_test(msv2_name, expected_sum_value):
     ("s3_ps_name, expected_sum_value"),
     [
         (
-            "s3://viper-test-data/Antennae_North.cal.lsrk.split.vis.zarr",
+            "s3://viper-test-data/Antennae_North.cal.lsrk.split.v2.vis.zarr",
             190.0405216217041,
         )
     ],
@@ -99,8 +101,6 @@ def test_s3_read_processing_set(s3_ps_name, expected_sum_value):
         sum_lazy = sum_lazy + np.nansum(
             np.abs(ps_lazy[ms_xds_name][data_name] * ps_lazy[ms_xds_name].WEIGHT)
         )
-
-    print("hallow", sum)
 
     assert (
         sum == sum_lazy
@@ -146,12 +146,12 @@ def test_single_dish():
     base_test("sdimaging.ms", 5487446.5)
 
 
-test_alma()
+# test_alma()
 # test_ska_mid()
 # test_lofar()
 # test_meerkat()
 # test_global_vlbi()
 # test_vlba()
 # test_ngeht()
-# test_ephemeris()
+test_ephemeris()
 # test_single_dish()

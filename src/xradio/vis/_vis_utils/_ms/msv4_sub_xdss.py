@@ -45,7 +45,7 @@ def interpolate_to_time(
             method = "nearest"
         xds = xds.interp(time=interp_time, method=method, assume_sorted=True)
         points_after = xds.time.size
-        logger.info(
+        logger.debug(
             f"{message_prefix}: interpolating the time coordinate "
             f"from {points_before} to {points_after} points"
         )

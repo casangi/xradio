@@ -584,7 +584,7 @@ def create_data_variables(
                     )
             except:
                 # logger.debug("Could not load column",col)
-                print("Could not load column", col)
+                # print("Could not load column", col)
                 continue
 
             xds[col_to_data_variable_names[col]].attrs.update(
@@ -659,14 +659,11 @@ def convert_and_write_partition(
     taql_where = create_taql_query(partition_info)
     ddi = partition_info['DATA_DESC_ID'][0]
     intent = str(partition_info['INTENT'][0])
-    print(taql_where)
     
     start = time.time()
     with open_table_ro(in_file) as mtable:
         taql_main = f"select * from $mtable {taql_where}"
         with open_query(mtable, taql_main) as tb_tool:
-            
-            print('1. tb_tool rows',tb_tool.nrows())
             
             if tb_tool.nrows() == 0:
                 tb_tool.close()
@@ -801,9 +798,7 @@ def convert_and_write_partition(
                 
             scan_id = np.full(time_baseline_shape, -42, dtype=int)
             scan_id[tidxs, bidxs] = tb_tool.getcol("SCAN_NUMBER")
-            #print('1. scan_id',scan_id)
             scan_id = np.max(scan_id,axis=1)
-            #print('2. scan_id',scan_id)
 
             if partition_scheme == "ddi_intent_source" or partition_scheme == "ddi_intent_scan":
                 field_id = np.full(time_baseline_shape, -42, dtype=int)

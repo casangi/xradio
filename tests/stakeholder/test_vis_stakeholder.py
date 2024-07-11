@@ -64,15 +64,12 @@ def base_test(msv2_name, expected_sum_value):
         expected_sum_value, rel=relative_tolerance
     ), "VISIBILITY and WEIGHT values have changed."
 
-    ###################
-    # from xradio.schema.check import check_dataset
-    # from xradio.vis.schema import VisibilityXds
-    # for xds_name in ps.keys():
-    #     issues = check_dataset(ps[xds_name], VisibilityXds)
-    #     if not issues:
-    #         print(f"{xds_name}: okay\n")
-    #     else:
-    #         print(f"{xds_name}: {issues}\n")
+    for xds_name in ps.keys():
+        issues = check_dataset(ps[xds_name], VisibilityXds)
+        if not issues:
+            print(f"{xds_name}: okay\n")
+        else:
+            print(f"{xds_name}: {issues}\n")
 
 
 @pytest.mark.parametrize(
@@ -85,7 +82,6 @@ def base_test(msv2_name, expected_sum_value):
     ],
 )
 def test_s3_read_processing_set(s3_ps_name, expected_sum_value):
-
     ps_lazy = read_processing_set(s3_ps_name)
 
     sel_parms = {key: {} for key in ps_lazy.keys()}
@@ -105,8 +101,6 @@ def test_s3_read_processing_set(s3_ps_name, expected_sum_value):
         sum_lazy = sum_lazy + np.nansum(
             np.abs(ps_lazy[ms_xds_name][data_name] * ps_lazy[ms_xds_name].WEIGHT)
         )
-
-    print("hallow", sum)
 
     assert (
         sum == sum_lazy
@@ -152,12 +146,12 @@ def test_single_dish():
     base_test("sdimaging.ms", 5487446.5)
 
 
-test_alma()
+# test_alma()
 # test_ska_mid()
 # test_lofar()
 # test_meerkat()
 # test_global_vlbi()
 # test_vlba()
 # test_ngeht()
-# test_ephemeris()
+test_ephemeris()
 # test_single_dish()

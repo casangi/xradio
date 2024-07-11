@@ -357,7 +357,6 @@ def get_types(tp: Any) -> List[AnyDType]:
 
     types_out = []
     for dt in types_in:
-
         # Handle case that we want to allow "Any"
         if dt is Any or dt is type(None):
             types_out.append(None)

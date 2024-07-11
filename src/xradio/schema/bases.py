@@ -60,7 +60,6 @@ def _np_convert(val: typing.Any, schema: metamodel.ArraySchemaRef):
 
     # Array schema refs that are not yet a numpy or xarray data type?
     if isinstance(val, list) or isinstance(val, tuple) and isinstance(val[1], list):
-
         # Check whether we can "guess" the dtype from the object
         dtype = None
         if len(schema.dtypes) > 1:
@@ -99,7 +98,6 @@ def _dataarray_new(
     indexes=None,
     **kwargs,
 ):
-
     # Convert parameters
     if coords is not None and isinstance(coords, list):
         coords = dict(coords)
@@ -261,7 +259,6 @@ class AsDataArray:
 
 
 def _dataset_new(cls, *args, data_vars=None, coords=None, attrs=None, **kwargs):
-
     # Get standard xarray parameters (data_vars, coords, attrs)
     # Note that we only support these as keyword arguments for now
     if data_vars is None:
@@ -303,7 +300,6 @@ def _dataset_new(cls, *args, data_vars=None, coords=None, attrs=None, **kwargs):
             val = xarray.Variable(*val)
             dims = val.dims
         else:
-
             # We are dealing with a plain value. Try to convert it to numpy first
             val = _np_convert(val, data_var)
 
@@ -394,7 +390,6 @@ class AsDataset:
 
 
 def _dict_new(cls, *args, **kwargs):
-
     # Get signature of __init__, map parameters and apply defaults. This
     # will raise an exception if there are any extra parameters.
     sig = inspect.Signature.from_callable(cls.__init__)

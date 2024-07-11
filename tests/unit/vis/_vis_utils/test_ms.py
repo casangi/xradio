@@ -95,10 +95,8 @@ def test_read_ms_by_scan_with_expand(ms_minimal_required):
 def test_read_ms_by_intent_expand_raises(ms_minimal_required):
     from xradio.vis._vis_utils.ms import read_ms
 
-    # TODO: fixture for an xds (main)
-    with pytest.raises(RuntimeError, match="Error in TaQL command"):
-        cds = read_ms(ms_minimal_required.fname, partition_scheme="intent", expand=True)
-        assert cds
+    cds = read_ms(ms_minimal_required.fname, partition_scheme="intent", expand=True)
+    assert cds
 
 
 # def test_load_vis_chunk_empty_required(ms_empty_required):

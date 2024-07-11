@@ -627,14 +627,15 @@ def read_flat_main_table(
     if scan_state:
         # TODO: support additional intent/scan/subscan conditions if
         # we keep this read_flat functionality
-        _scans, states = scan_state
+        scans, states = scan_state
         # get row indices relative to full main table
-        if states is not None:
-            taql_where += (
-                f" AND SCAN_NUMBER = {scan_state[0]} AND STATE_ID = {scan_state[1]}"
-            )
-        else:
-            taql_where += f" AND SCAN_NUMBER = {scan_state[0]}"
+        if type(states) == np.ndarray:
+            state_ids_or = " OR STATE_ID = ".join(np.char.mod("%d", states))
+            taql_where += f" AND (STATE_ID = {state_ids_or})"
+        elif states is not None:
+            taql_where += f" AND STATE_ID = {states}"
+        elif scans is not None:
+            taql_where += f" AND SCAN_NUMBER = {scans}"
 
     mtable = tables.table(
         infile, readonly=True, lockoptions={"option": "usernoread"}, ack=False
@@ -648,6 +649,7 @@ def read_flat_main_table(
 
     nrows = len(rowidxs)
     if nrows == 0:
+        mtable.close()
         return xr.Dataset(), {}, {}
 
     part_ids = get_partition_ids(mtable, taql_where)

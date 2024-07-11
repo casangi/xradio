@@ -59,18 +59,14 @@ def convert_msv2_to_processing_set(
     partitions = create_partitions(
         in_file, partition_scheme = partition_scheme
     )
+    logger.info("Number of partitions: " + str(len(partitions)))
     
     delayed_list = []
     ms_v4_id = 0
     for partition_info in partitions:
-        # logger.debug(
-        #     "DDI " + str(partition_info['DATA_DESC_ID']) + ", STATE " + str(partition_info['STATE_ID']) + ", FIELD " + str(partition_info['FIELD_ID']) + ", SCAN " + str(partition_info['SCAN_NUMBER'])
-        # )
-
-    #     if partition_scheme == "ddi_intent_field":
-    #         intent = intents[idx[1]]
-    #     else:
-    #         intent = intents[idx[1]] + "_" + str(state_id)
+        logger.debug(
+            "DDI " + str(partition_info['DATA_DESC_ID']) + ", STATE " + str(partition_info['STATE_ID']) + ", FIELD " + str(partition_info['FIELD_ID']) + ", SCAN " + str(partition_info['SCAN_NUMBER'])
+        )
 
         if parallel:
             delayed_list.append(

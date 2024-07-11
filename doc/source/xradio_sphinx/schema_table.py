@@ -29,7 +29,6 @@ class SchemaTableDirective(ObjectDescription):
     }
 
     def run(self):
-
         # Import the referenced class
         klass_path = self.arguments[0].rsplit(".", 1)
         if len(klass_path) != 2:
@@ -82,7 +81,6 @@ class SchemaTableDirective(ObjectDescription):
         return [self._table]
 
     def _add_section(self, name):
-
         # Create row
         row = nodes.row("", nodes.entry("", nodes.strong("", name), morecols=4))
         self._tbody += row
@@ -97,7 +95,6 @@ class SchemaTableDirective(ObjectDescription):
         optional=False,
         default=dataclasses.MISSING,
     ):
-
         # Create row
         row = nodes.row()
         self._tbody += row
@@ -153,7 +150,6 @@ class SchemaTableDirective(ObjectDescription):
 
 class ArraySchemaTableDirective(SchemaTableDirective):
     def _add_table_contents(self, klass):
-
         # Extract schema
         schema = xarray_dataclass_to_array_schema(klass)
 
@@ -197,7 +193,6 @@ class ArraySchemaTableDirective(SchemaTableDirective):
 
 class DatasetSchemaTableDirective(SchemaTableDirective):
     def _add_table_contents(self, klass):
-
         # Extract schema
         schema = xarray_dataclass_to_dataset_schema(klass)
 

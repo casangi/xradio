@@ -84,7 +84,6 @@ def load_processing_set(
 
 
 class processing_set_iterator:
-
     def __init__(
         self,
         sel_parms: dict,

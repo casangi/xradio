@@ -460,8 +460,18 @@ def redimension_ms_subtable(xds: xr.Dataset, subt_name: str) -> xr.Dataset:
 
     rxds = xds.copy()
     try:
+        # drop_duplicates() needed (https://github.com/casangi/xradio/issues/185). Examples:
+        # - Some early ALMA datasets have bogus WEATHER tables with many/most rows with
+        #   (ANTENNA_ID=0, TIME=0) and no other columns to figure out the right IDs, such
+        #   as "NS_WX_STATION_ID" or similar. (example: X425.pm04.scan4.ms)
+        # - Some GBT MSs have duplicated (ANTENNA_ID=0, TIME=xxx). (example: analytic_variable.ms)
         with np.errstate(invalid="ignore"):
-            rxds = rxds.set_index(row=key_dims).unstack("row").transpose(*key_dims, ...)
+            rxds = (
+                rxds.set_index(row=key_dims)
+                .drop_duplicates("row")
+                .unstack("row")
+                .transpose(*key_dims, ...)
+            )
         # unstack changes type to float when it needs to introduce NaNs, so
         # we need to reset to the original type.
         for var in rxds.data_vars:
@@ -1202,7 +1212,6 @@ def read_col_conversion(
     # array ie. fails for TIME
     # Assumes the RuntimeError is because the column is a scalar
     try:
-
         shape_string = tb_tool.getcolshapestring(col)[0]
         # Convert `shape_string` into a tuple that numpy understands
         extra_dimensions = tuple(
@@ -1226,18 +1235,18 @@ def read_col_conversion(
     start_row = 0
     for ts in tb_tool.iter("TIME", sort=False):
         num_rows = ts.nrows()
-        
+
         # Create small temporary array to store the partial column
-        tmp_arr = np.full((num_rows,)+extra_dimensions, np.nan, dtype=col_dtype)
-        
+        tmp_arr = np.full((num_rows,) + extra_dimensions, np.nan, dtype=col_dtype)
+
         # Note we don't use `getcol()` because it's less safe. See:
         # https://github.com/casacore/python-casacore/issues/130#issuecomment-463202373
         ts.getcolnp(col, tmp_arr)
-        
-        # Get the slice of rows contained in `tmp_arr`. 
+
+        # Get the slice of rows contained in `tmp_arr`.
         # Used to get the relevant integer indexes from `tidxs` and `bidxs`
         tmp_slice = slice(start_row, start_row + num_rows)
-        
+
         # Copy `tmp_arr` into correct elements of `tmp_arr`
         data[tidxs[tmp_slice], bidxs[tmp_slice]] = tmp_arr
         start_row += num_rows

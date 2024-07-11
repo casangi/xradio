@@ -13,8 +13,9 @@ import importlib.resources
 
 relative_tolerance = 10 ** (-12)
 
+
 def download_and_convert_msv2_to_processing_set(msv2_name):
-    #We can remove this once there is a new release of casacore
+    # We can remove this once there is a new release of casacore
     if os.environ["USER"] == "runner":
         casa_data_dir = (importlib.resources.files("casadata") / "__data__").as_posix()
         rc_file = open(os.path.expanduser("~/.casarc"), "a+")  # append mode
@@ -37,7 +38,7 @@ def download_and_convert_msv2_to_processing_set(msv2_name):
 
 
 def base_test(file_name, expected_sum_value, is_s3=False):
-    
+
     if is_s3:
         ps_name = file_name
     else:
@@ -47,10 +48,10 @@ def base_test(file_name, expected_sum_value, is_s3=False):
 
     sel_parms = {key: {} for key in ps_lazy.keys()}
     ps = load_processing_set(ps_name, sel_parms=sel_parms)
-    
+
     ps_lazy_df = ps_lazy.summary()
     ps_df = ps.summary()
-    
+
     sum = 0.0
     sum_lazy = 0.0
 
@@ -84,8 +85,14 @@ def base_test(file_name, expected_sum_value, is_s3=False):
         else:
             print(f"{xds_name}: {issues}\n")
 
+
 def test_s3():
-    base_test("s3://viper-test-data/Antennae_North.cal.lsrk.split.v3.vis.zarr", 190.0405216217041, is_s3=True)
+    base_test(
+        "s3://viper-test-data/Antennae_North.cal.lsrk.split.v3.vis.zarr",
+        190.0405216217041,
+        is_s3=True,
+    )
+
 
 def test_alma():
     base_test("Antennae_North.cal.lsrk.split.ms", 190.0405216217041)
@@ -121,6 +128,7 @@ def test_ephemeris():
 
 def test_single_dish():
     base_test("sdimaging.ms", 5487446.5)
+
 
 # test_s3()
 # test_alma()

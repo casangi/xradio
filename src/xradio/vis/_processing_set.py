@@ -45,10 +45,11 @@ class processing_set(dict):
 
         for key, value in self.items():
             summary_data["name"].append(key)
-            summary_data["intent"].append(value.attrs['partition_info']["intent"])
-            summary_data["spw_id"].append(value.attrs['partition_info']["spectral_window_id"])
+            summary_data["intent"].append(value.attrs["partition_info"]["intent"])
+            summary_data["spw_id"].append(
+                value.attrs["partition_info"]["spectral_window_id"]
+            )
             summary_data["polarization"].append(value.polarization.values)
-            
 
             if "visibility" in value.attrs["data_groups"][data_group]:
                 data_name = value.attrs["data_groups"][data_group]["visibility"]
@@ -71,9 +72,7 @@ class processing_set(dict):
                 summary_data["field_coords"].append("Ephemeris")
             else:
                 ra_dec_rad = (
-                    value[data_name]
-                    .attrs["field_and_source_xds"][center_name]
-                    .values
+                    value[data_name].attrs["field_and_source_xds"][center_name].values
                 )
                 frame = (
                     value[data_name]
@@ -89,8 +88,8 @@ class processing_set(dict):
                 summary_data["field_coords"].append(
                     [
                         frame,
-                        coord.ra.to_string(unit=u.hour,precision=2),
-                        coord.dec.to_string(unit=u.deg,precision=2),
+                        coord.ra.to_string(unit=u.hour, precision=2),
+                        coord.dec.to_string(unit=u.deg, precision=2),
                     ]
                 )
 
@@ -130,34 +129,36 @@ class processing_set(dict):
 
     def get(self, id):
         return self[list(self.keys())[id]]
-    
+
     def sel(self, **kwargs):
         import numpy as np
+
         summary_table = self.summary()
         for key, value in kwargs.items():
             if isinstance(value, list) or isinstance(value, np.ndarray):
                 summary_table = summary_table[summary_table[key].isin(value)]
             elif isinstance(value, slice):
-                summary_table = summary_table[summary_table[key].between(value.start, value.stop)]
-            else:   
+                summary_table = summary_table[
+                    summary_table[key].between(value.start, value.stop)
+                ]
+            else:
                 summary_table = summary_table[summary_table[key] == value]
-        
+
         sub_ps = processing_set()
         for key, val in self.items():
             if key in summary_table["name"].values:
-                sub_ps[key] =  val
-                
-        return sub_ps
-                 
-    def ms_sel(self, **kwargs):
-        sub_ps = processing_set()
-        for key,val in self.items():
-            sub_ps[key] = val.sel(kwargs)  
-        return sub_ps
-            
-    def ms_isel(self, **kwargs):
-        sub_ps = processing_set()
-        for key,val in self.items():
-            sub_ps[key] = val.isel(kwargs)  
+                sub_ps[key] = val
+
         return sub_ps
 
+    def ms_sel(self, **kwargs):
+        sub_ps = processing_set()
+        for key, val in self.items():
+            sub_ps[key] = val.sel(kwargs)
+        return sub_ps
+
+    def ms_isel(self, **kwargs):
+        sub_ps = processing_set()
+        for key, val in self.items():
+            sub_ps[key] = val.isel(kwargs)
+        return sub_ps

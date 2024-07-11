@@ -763,7 +763,7 @@ def convert_and_write_partition(
 
             # Add data_groups and field_info
             xds, is_single_dish = add_data_groups(xds)
-            
+
             # Create field_and_source_xds (combines field, source and ephemeris data into one super dataset)
             start = time.time()
             if ephemeris_interpolate:
@@ -875,8 +875,6 @@ def convert_and_write_partition(
     # logger.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
 
 
-
-
 def add_data_groups(xds):
     xds.attrs["data_groups"] = {}
     if "VISIBILITY" in xds:
@@ -894,8 +892,7 @@ def add_data_groups(xds):
             "weight": "WEIGHT",
             "uvw": "UVW",
         }
-        
-    
+
     if "VISIBILITY_MODEL" in xds:
         xds.attrs["data_groups"]["model"] = {
             "visibility": "VISIBILITY_MODEL",
@@ -922,5 +919,5 @@ def add_data_groups(xds):
             "uvw": "UVW",
         }
         is_single_dish = True
-        
+
     return xds, is_single_dish

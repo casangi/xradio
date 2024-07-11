@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-import xradio.vis._vis_utils._ms.optimised_functions as opt
+import xradio._utils.array as opt
 
 
 @pytest.mark.parametrize(

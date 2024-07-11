@@ -754,9 +754,6 @@ def convert_and_write_partition(
 
             start = time.time()
 
-            xds.attrs["intent"] = intent
-            xds.attrs["ddi"] = ddi
-
             # Time and frequency should always be increasing
             if len(xds.frequency) > 1 and xds.frequency[1] - xds.frequency[0] < 0:
                 xds = xds.sel(frequency=slice(None, None, -1))

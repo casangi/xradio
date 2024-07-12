@@ -71,7 +71,7 @@ def base_test(file_name, expected_sum_value, is_s3=False):
         os.system("rm -rf " + file_name)
         os.system("rm -rf " + ps_name)
 
-    #print(sum,sum_lazy)
+    # print(sum,sum_lazy)
     assert (
         sum == sum_lazy
     ), "read_processing_set and load_processing_set VISIBILITY and WEIGHT values differ."
@@ -129,9 +129,10 @@ def test_ephemeris():
 
 def test_single_dish():
     base_test("sdimaging.ms", 5487446.5)
-    
+
+
 def test_alma_ephemris_mosaic():
-    base_test("ALMA_uid___A002_X1003af4_X75a3.split.avg.ms", 8.11051993222426e+17)
+    base_test("ALMA_uid___A002_X1003af4_X75a3.split.avg.ms", 8.11051993222426e17)
 
 
 # test_s3()
@@ -144,9 +145,9 @@ def test_alma_ephemris_mosaic():
 # test_ngeht()
 # test_ephemeris()
 # test_single_dish()
-test_alma_ephemris_mosaic()
+# test_alma_ephemris_mosaic()
 
-#How data was created:
+# How data was created:
 # ALMA Example
 """
 ALMA_uid___A002_X1003af4_X75a3.split.avg.ms: An ephemeris mosaic observation of the sun.

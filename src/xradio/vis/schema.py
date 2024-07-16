@@ -68,7 +68,7 @@ class TimeArray:
     """Time representation and epoch, see :py:class:`TimeArray`."""
 
     type: Attr[str] = "time"
-    units: Attr[tuple[str]] = ("s",)
+    units: Attr[list[str]] = ("s",)
 
 
 @xarray_dataarray_schema
@@ -76,7 +76,7 @@ class SkyCoordArray:
     data: Data[SkyCoordLabel, float]
 
     type: Attr[str] = "sky_coord"
-    units: Attr[tuple[str]] = ("rad", "rad")
+    units: Attr[list[str]] = ("rad", "rad")
     frame: Attr[str] = ""
     """
     From fixvis docs: clean and the im tool ignore the reference frame
@@ -120,7 +120,7 @@ class QuantityArray:
 
     data: Data[tuple[()], float]
 
-    units: Attr[tuple[str]]
+    units: Attr[list[str]]
     type: Attr[str] = "quantity"
 
 
@@ -132,7 +132,7 @@ class SpectralCoordArray:
     """Astropy time scales."""
 
     type: Attr[str] = "frequency"
-    units: Attr[tuple[str]] = ("Hz",)
+    units: Attr[list[str]] = ("Hz",)
 
 
 @xarray_dataarray_schema
@@ -143,7 +143,7 @@ class EarthLocationArray:
     """
     ITRF makes use of GRS80 ellipsoid and WGS84 makes use of WGS84 ellipsoid
     """
-    units: Attr[tuple[str]] = ("m", "m", "m")
+    units: Attr[list[str]] = ("m", "m", "m")
     """
     If the units are a list of strings then it must be the same length as
     the last dimension of the data array. This allows for having different
@@ -202,12 +202,12 @@ class TimeCoordArray:
 
     integration_time: Optional[Attr[TimeArray]] = None
     """ The nominal sampling interval (ms v2). Units of seconds. """
-    effective_integration_time: Optional[Attr[TimeArray]] = None
+    effective_integration_time: Optional[Attr[str]] = None
     """ Name of data array that contains the integration time that includes the effects of missing data. """
 
     type: Attr[str] = "time"
     """ Coordinate type. Should be ``"time"``. """
-    units: Attr[tuple[str]] = ("s",)
+    units: Attr[list[str]] = ("s",)
     """ Units to associate with axis"""
     scale: Attr[str] = "tai"
     """ Astropy time scales, see :py:class:`TimeArray` """
@@ -276,7 +276,7 @@ class FrequencyArray:
     """ Coordinate type. Should be ``"spectral_coord"``. """
     long_name: Optional[Attr[str]] = "Frequency"
     """ Long-form name to use for axis"""
-    units: Attr[tuple[str]] = ("Hz",)
+    units: Attr[list[str]] = ("Hz",)
     """ Units to associate with axis"""
     frame: Attr[str] = "icrs"
     """
@@ -342,7 +342,7 @@ class VisibilityArray:
     field_info: Attr[FieldInfoDict]
     long_name: Optional[Attr[str]] = "Visibility values"
     """ Long-form name to use for axis. Should be ``"Visibility values"``"""
-    units: Attr[tuple[str]] = ("Jy",)
+    units: Attr[list[str]] = ("Jy",)
 
 
 @xarray_dataarray_schema
@@ -444,7 +444,7 @@ class UvwArray:
     uvw_label: Coordof[UvwLabelArray] = ("u", "v", "w")
     long_name: Optional[Attr[str]] = "Baseline coordinates"
     """ Long-form name to use for axis. Should be ``"Baseline coordinates``"""
-    units: Attr[tuple[str]] = ("m",)
+    units: Attr[list[str]] = ("m",)
 
 
 @xarray_dataarray_schema
@@ -471,7 +471,7 @@ class TimeSamplingArray:
     """ Astropy format, see :py:class:`astropy.time.Time`. Default seconds from 1970-01-01 00:00:00 UTC """
 
     long_name: Optional[Attr[str]] = "Time sampling data"
-    units: Attr[tuple[str]] = ("s",)
+    units: Attr[list[str]] = ("s",)
 
 
 @xarray_dataarray_schema
@@ -497,7 +497,7 @@ class FreqSamplingArray:
     baseline_id: Optional[Coordof[BaselineArray]] = None
     polarization: Optional[Coordof[PolarizationArray]] = None
     long_name: Optional[Attr[str]] = "Frequency sampling data"
-    units: Attr[tuple[str]] = ("Hz",)
+    units: Attr[list[str]] = ("Hz",)
     frame: Attr[str] = "icrs"
     """
     Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).

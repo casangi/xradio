@@ -284,6 +284,21 @@ def _dataset_new(cls, *args, data_vars=None, coords=None, attrs=None, **kwargs):
         val = _np_convert(
             _set_parameter(coords.get(coord.name), mapping.arguments, coord), coord
         )
+        # Determine dimensions / convert to Variable
+        if (
+            val is not None
+            and not isinstance(val, xarray.Variable)
+            and not isinstance(val, tuple)
+        ):
+            default_attrs = {
+                attr.name: attr.default
+                for attr in coord.attributes
+                if attr.default is not None
+            }
+            for dims in coord.dimensions:
+                if len(dims) == len(val.shape):
+                    val = xarray.Variable(dims, val, default_attrs)
+                    break
         if val is not None:
             coords[coord.name] = val
     for data_var in schema.data_vars:
@@ -318,8 +333,15 @@ def _dataset_new(cls, *args, data_vars=None, coords=None, attrs=None, **kwargs):
                     f" expected {' or '.join(options)}!"
                 )
 
+            # Get default attributes
+            default_attrs = {
+                attr.name: attr.default
+                for attr in data_var.attributes
+                if attr.default is not dataclasses.MISSING
+            }
+
             # Replace by variable
-            val = xarray.Variable(dims, val)
+            val = xarray.Variable(dims, val, default_attrs)
 
         # Default coordinates used by this data variable to numpy arange. We
         # can only do this now because we need an example to determine the

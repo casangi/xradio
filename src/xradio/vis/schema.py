@@ -115,7 +115,9 @@ class FieldInfoDict:
 @xarray_dataarray_schema
 class QuantityArray:
     """
-    Anonymous quantity
+    Anonymous quantity, possibly with associated units
+
+    Often used for distances / differences (integration time, channel width etcetera).
     """
 
     data: Data[tuple[()], float]
@@ -200,10 +202,13 @@ class TimeCoordArray:
     ``format``), see also see :py:class:`TimeArray`.
     """
 
-    integration_time: Optional[Attr[TimeArray]] = None
+    integration_time: Optional[Attr[QuantityArray]] = None
     """ The nominal sampling interval (ms v2). Units of seconds. """
     effective_integration_time: Optional[Attr[str]] = None
-    """ Name of data array that contains the integration time that includes the effects of missing data. """
+    """
+    Name of data array that contains the integration time that includes
+    the effects of missing data.
+    """
 
     type: Attr[str] = "time"
     """ Coordinate type. Should be ``"time"``. """
@@ -267,7 +272,7 @@ class FrequencyArray:
     frequency corresponding to the DC edge of the baseband. Used by the calibration
     system if a ﬁxed scaling frequency is required or in algorithms to identify the
     observing band. """
-    channel_width: Attr[SpectralCoordArray]
+    channel_width: Attr[QuantityArray] # Not SpectralCoord, as it is a difference
     """ The nominal channel bandwidth. Same units as data array (see units key). """
     doppler: Optional[Attr[DopplerXds]]
     """ Doppler tracking information """
@@ -669,7 +674,16 @@ class VisibilityXds:
     FLAG: Optional[Dataof[FlagArray]] = None
     WEIGHT: Optional[Dataof[WeightArray]] = None
     UVW: Optional[Dataof[UvwArray]] = None
-    EFFECTIVE_INTEGRATION_TIME: Optional[Dataof[TimeSamplingArray]] = None
+    EFFECTIVE_INTEGRATION_TIME: Optional[
+        Data[
+            Union[
+                tuple[Time, BaselineId],
+                tuple[Time, BaselineId, Frequency],
+                tuple[Time, BaselineId, Frequency, Polarization],
+            ],
+            QuantityArray
+        ]
+    ] = None
     """
     The integration time, including the effects of missing data, in contrast to
     ``integration_time`` attribute of the ``time`` coordinate,

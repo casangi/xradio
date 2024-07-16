@@ -109,6 +109,7 @@ class FieldInfoDict:
     the scale and format given for ``time`` (see :py:class:`TimeArray`).
     """
     delay_direction: SkyCoordArray
+    phase_direction: SkyCoordArray
 
 
 @xarray_dataarray_schema
@@ -259,7 +260,7 @@ class FrequencyArray:
     """ Time, expressed in SI seconds since the epoch. """
     spectral_window_name: Attr[str]
     """ Name associated with spectral window. """
-    frequency_group_name: Attr[str]
+    frequency_group_name: Optional[Attr[str]]
     """ Name associated with frequency group - needed for multi-band VLBI fringe-fitting."""
     reference_frequency: Attr[SpectralCoordArray]
     """ A frequency representative of the spectral window, usually the sky
@@ -334,7 +335,7 @@ class VisibilityArray:
         tuple[Time, BaselineId, Frequency, Polarization],
         Union[numpy.complex64, numpy.complex128],
     ]
-    time: Coord[tuple[()], TimeArray]
+    time: Coord[tuple[()], TimeCoordArray]
     baseline_id: Coord[tuple[()], BaselineArray]
     frequency: Coord[tuple[()], FrequencyArray]
     polarization: Coord[tuple[()], PolarizationArray]
@@ -360,7 +361,7 @@ class FlagArray:
         ],
         bool,
     ]
-    time: Coordof[TimeArray]
+    time: Coordof[TimeCoordArray]
     baseline_id: Coordof[BaselineArray]
     frequency: Coordof[FrequencyArray]
     polarization: Optional[Coordof[PolarizationArray]] = None
@@ -386,7 +387,7 @@ class WeightArray:
         Union[numpy.float16, numpy.float32, numpy.float64],
     ]
     """Visibility weights"""
-    time: Coordof[TimeArray]
+    time: Coordof[TimeCoordArray]
     baseline_id: Coordof[BaselineArray]
     frequency: Optional[Coordof[FrequencyArray]] = None
     polarization: Optional[Coordof[PolarizationArray]] = None
@@ -436,7 +437,7 @@ class UvwArray:
         ],
     ]
     """Baseline coordinates from ``baseline_antenna2_id`` to ``baseline_antenna1_id``"""
-    time: Coordof[TimeArray]
+    time: Coordof[TimeCoordArray]
     baseline_id: Coordof[BaselineArray]
     frequency: Optional[Coordof[FrequencyArray]] = None
     polarization: Optional[Coordof[PolarizationArray]] = None
@@ -459,7 +460,7 @@ class TimeSamplingArray:
         float,
     ]
 
-    time: Coordof[TimeArray]
+    time: Coordof[TimeCoordArray]
     baseline_id: Coordof[BaselineArray]
     frequency: Optional[Coordof[FrequencyArray]] = None
     polarization: Optional[Coordof[PolarizationArray]] = None
@@ -492,7 +493,7 @@ class FreqSamplingArray:
     :py:class:`VisibilityXds`.
     """
     frequency: Coordof[FrequencyArray]
-    time: Optional[Coordof[TimeArray]] = None
+    time: Optional[Coordof[TimeCoordArray]] = None
     baseline_id: Optional[Coordof[BaselineArray]] = None
     polarization: Optional[Coordof[PolarizationArray]] = None
     long_name: Optional[Attr[str]] = "Frequency sampling data"
@@ -583,7 +584,7 @@ class AntennaXds:
 
 @xarray_dataset_schema
 class PointingXds:
-    time: Coordof[TimeArray]
+    time: Coordof[TimeCoordArray]
     """
     Mid-point of the time interval for which the information in this row is
     valid.  Required to use the same time measure reference as in visibility dataset

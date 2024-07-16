@@ -291,7 +291,9 @@ def _dataset_new(cls, *args, data_vars=None, coords=None, attrs=None, **kwargs):
 
         # Determine dimensions / convert to Variable
         dims = None
-        if isinstance(val, xarray.Variable):
+        if val is None:
+            dims = None
+        elif isinstance(val, xarray.Variable):
             dims = val.dims
         elif isinstance(val, xarray.DataArray):
             val = val.variable
@@ -322,12 +324,16 @@ def _dataset_new(cls, *args, data_vars=None, coords=None, attrs=None, **kwargs):
         # Default coordinates used by this data variable to numpy arange. We
         # can only do this now because we need an example to determine the
         # intended size of the coordinate
-        for coord in schema.coordinates:
-            if coord.name in dims and coords.get(coord.name) is None:
-                dim_ix = dims.index(coord.name)
-                if dim_ix is not None and dim_ix < len(val.shape):
-                    dtype = coord.dtypes[0]
-                    coords[coord.name] = numpy.arange(val.shape[dim_ix], dtype=dtype)
+        if dims is not None:
+            for coord in schema.coordinates:
+                if coord.name in dims and coords.get(coord.name) is None:
+                    dim_ix = dims.index(coord.name)
+                    if dim_ix is not None and dim_ix < len(val.shape):
+                        dtype = coord.dtypes[0]
+                        if numpy.issubdtype(dtype, numpy.number):
+                            coords[coord.name] = numpy.arange(
+                                val.shape[dim_ix], dtype=dtype
+                            )
 
         if val is not None:
             data_vars[data_var.name] = val

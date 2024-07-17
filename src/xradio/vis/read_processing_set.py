@@ -37,7 +37,7 @@ def read_processing_set(
         xds = _open_dataset(ms_main_store, file_system)
         data_groups = xds.attrs["data_groups"]
 
-        if (intents is None) or (xds.attrs["intent"] in intents):
+        if (intents is None) or (xds.attrs["partition_info"]["intent"] in intents):
             sub_xds_dict, field_and_source_xds_dict = _read_sub_xds(
                 ms_store, file_system=file_system, data_groups=data_groups
             )

@@ -637,7 +637,7 @@ def convert_and_write_partition(
         _description_
     out_file : str
         _description_
-    intent : str
+    obs_mode : str
         _description_
     ddi : int, optional
         _description_, by default 0
@@ -670,7 +670,7 @@ def convert_and_write_partition(
 
     taql_where = create_taql_query(partition_info)
     ddi = partition_info["DATA_DESC_ID"][0]
-    intent = str(partition_info["INTENT"][0])
+    obs_mode = str(partition_info["OBS_MODE"][0])
 
     start = time.time()
     with open_table_ro(in_file) as mtable:
@@ -767,7 +767,7 @@ def convert_and_write_partition(
             # Create field_and_source_xds (combines field, source and ephemeris data into one super dataset)
             start = time.time()
             if ephemeris_interpolate:
-                ephemeris_interp_time = xds.time
+                ephemeris_interp_time = xds.time.values
             else:
                 ephemeris_interp_time = None
 
@@ -775,10 +775,7 @@ def convert_and_write_partition(
             scan_id[tidxs, bidxs] = tb_tool.getcol("SCAN_NUMBER")
             scan_id = np.max(scan_id, axis=1)
 
-            if (
-                partition_scheme == "ddi_intent_source"
-                or partition_scheme == "ddi_intent_scan"
-            ):
+            if "FIELD_ID" not in partition_scheme:
                 field_id = np.full(time_baseline_shape, -42, dtype=int)
                 field_id[tidxs, bidxs] = tb_tool.getcol("FIELD_ID")
                 field_id = np.max(field_id, axis=1)
@@ -791,7 +788,7 @@ def convert_and_write_partition(
             # assert len(col_unique) == 1, col_name + " is not consistent."
             # return col_unique[0]
 
-            field_and_source_xds = create_field_and_source_xds(
+            field_and_source_xds, source_id = create_field_and_source_xds(
                 in_file,
                 field_id,
                 xds.frequency.attrs["spectral_window_id"],
@@ -830,18 +827,19 @@ def convert_and_write_partition(
                 + str(ms_v4_id),
             )
 
-            if isinstance(field_id, np.ndarray):
-                field_id = "OTF"
-
             xds.attrs["partition_info"] = {
                 "spectral_window_id": xds.frequency.attrs["spectral_window_id"],
                 "spectral_window_name": xds.frequency.attrs["spectral_window_name"],
-                "field_id": field_id,
-                "field_name": field_and_source_xds.attrs["field_name"],
-                "source_id": field_and_source_xds.attrs["source_id"],
-                "source_name": field_and_source_xds.attrs["source_name"],
-                "polarization_setup": list(xds.polarization.values),
-                "intent": intent,
+                #"field_id": to_list(field_id),
+                "field_name": to_list(np.unique(field_and_source_xds.field_name.values)),
+                #"source_id": to_list(source_id),
+                "source_name": to_list(np.unique(field_and_source_xds.source_name.values)),
+                # "field_id": 0,
+                # "field_name": "VLASS_OTF_FIELD",
+                # "source_id": 0,
+                # "source_name": "VLASS_OTF_SOURCE",
+                "polarization_setup": to_list(xds.polarization.values),
+                "obs_mode": obs_mode,
                 "taql": taql_where,
             }
 
@@ -874,6 +872,12 @@ def convert_and_write_partition(
 
     # logger.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
 
+def to_list(x):
+    if isinstance(x, (list, np.ndarray)):
+        if x.ndim == 0:
+            return [x.item()]
+        return list(x) #needed for json serialization
+    return [x]
 
 def add_data_groups(xds):
     xds.attrs["data_groups"] = {}

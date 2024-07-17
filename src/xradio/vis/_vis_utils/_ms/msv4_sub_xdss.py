@@ -11,7 +11,7 @@ from ._tables.read import make_taql_where_between_min_max, read_generic_table
 
 
 def interpolate_to_time(
-    xds: xr.Dataset, interp_time: Union[xr.DataArray, None], message_prefix: str
+    xds: xr.Dataset, interp_time: Union[xr.DataArray, None], message_prefix: str, time_name: str = "time"
 ) -> xr.Dataset:
     """
     Interpolate the time coordinate of the input xarray dataset to the
@@ -38,13 +38,13 @@ def interpolate_to_time(
         xarray dataset with time axis interpolated to interp_time.
     """
     if interp_time is not None:
-        points_before = xds.time.size
+        points_before = xds[time_name].size
         if points_before > 1:
             method = "linear"
         else:
             method = "nearest"
-        xds = xds.interp(time=interp_time, method=method, assume_sorted=True)
-        points_after = xds.time.size
+        xds = xds.interp({time_name:interp_time}, method=method, assume_sorted=True)
+        points_after = xds[time_name].size
         logger.debug(
             f"{message_prefix}: interpolating the time coordinate "
             f"from {points_before} to {points_after} points"

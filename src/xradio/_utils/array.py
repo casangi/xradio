@@ -1,6 +1,7 @@
 """Contains optimised functions to be used within other modules."""
 
 import numpy as np
+import xarray as xr
 
 
 def check_if_consistent(array: np.ndarray, array_name: str) -> np.ndarray:
@@ -45,6 +46,12 @@ def unique_1d(array: np.ndarray) -> np.ndarray:
         a sorted array of unique values.
 
     """
+    if isinstance(array, xr.core.dataarray.DataArray):
+        array = array.values
+    
+    if array.ndim == 0:
+        return np.array([array.item()])
+    
     return np.sort(pd.unique(array))
 
 

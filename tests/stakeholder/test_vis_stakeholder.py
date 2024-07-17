@@ -71,7 +71,7 @@ def base_test(file_name, expected_sum_value, is_s3=False, partition_schemes=[[],
         if not is_s3:
             os.system("rm -rf " + ps_name)
 
-        #print('sum',sum,sum_lazy)
+        print('sum',sum,sum_lazy)
         assert (
             sum == sum_lazy
         ), "read_processing_set and load_processing_set VISIBILITY and WEIGHT values differ."
@@ -92,7 +92,7 @@ def base_test(file_name, expected_sum_value, is_s3=False, partition_schemes=[[],
 
 def test_s3():
     base_test(
-        "s3://viper-test-data/Antennae_North.cal.lsrk.split.v3.vis.zarr",
+        "s3://viper-test-data/Antennae_North.cal.lsrk.split.vis.v4.zarr",
         190.0405216217041,
         is_s3=True,
         partition_schemes=[[]]
@@ -136,10 +136,14 @@ def test_single_dish():
 
 def test_alma_ephemris_mosaic():
     base_test("ALMA_uid___A002_X1003af4_X75a3.split.avg.ms", 8.11051993222426e17)
+    
+def test_vlass():
+    #Don't do partition_scheme ['FIELD_ID'], will try and create >800 partitions.
+    base_test("VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6.ms", 173858574208.0, partition_schemes=[[]])
 
-
-# test_s3()
-test_alma()
+test_s3()
+test_vlass()
+# test_alma()
 # test_ska_mid()
 # test_lofar()
 # test_meerkat()

@@ -6,7 +6,7 @@ def test_interpolate_to_time_bogus(ddi_xds_min, main_xds_min):
     from xradio.vis._vis_utils._ms.msv4_sub_xdss import interpolate_to_time
 
     input_time = main_xds_min.time
-    with pytest.raises(AttributeError, match="object has no attribute"):
+    with pytest.raises(KeyError):
         out_xds = interpolate_to_time(
             ddi_xds_min, interp_time=input_time, message_prefix="test_call"
         )

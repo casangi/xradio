@@ -106,8 +106,8 @@ class processing_set(dict):
             assert (
                 frame == ms_xds.frequency.attrs["frame"]
             ), "Frequency reference frame not consistent in processing set."
-            if ms_xds.frequency.attrs["spw_id"] not in spw_ids:
-                spw_ids.append(ms_xds.frequency.attrs["spw_id"])
+            if ms_xds.frequency.attrs["spectral_window_id"] not in spw_ids:
+                spw_ids.append(ms_xds.frequency.attrs["spectral_window_id"])
                 freq_axis_list.append(ms_xds.frequency)
 
         freq_axis = xr.concat(freq_axis_list, dim="frequency").sortby("frequency")

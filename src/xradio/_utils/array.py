@@ -48,10 +48,10 @@ def unique_1d(array: np.ndarray) -> np.ndarray:
     """
     if isinstance(array, xr.core.dataarray.DataArray):
         array = array.values
-    
+
     if array.ndim == 0:
         return np.array([array.item()])
-    
+
     return np.sort(pd.unique(array))
 
 

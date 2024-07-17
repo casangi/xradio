@@ -830,10 +830,14 @@ def convert_and_write_partition(
             xds.attrs["partition_info"] = {
                 "spectral_window_id": xds.frequency.attrs["spectral_window_id"],
                 "spectral_window_name": xds.frequency.attrs["spectral_window_name"],
-                #"field_id": to_list(field_id),
-                "field_name": to_list(np.unique(field_and_source_xds.field_name.values)),
-                #"source_id": to_list(source_id),
-                "source_name": to_list(np.unique(field_and_source_xds.source_name.values)),
+                # "field_id": to_list(field_id),
+                "field_name": to_list(
+                    np.unique(field_and_source_xds.field_name.values)
+                ),
+                # "source_id": to_list(source_id),
+                "source_name": to_list(
+                    np.unique(field_and_source_xds.source_name.values)
+                ),
                 # "field_id": 0,
                 # "field_name": "VLASS_OTF_FIELD",
                 # "source_id": 0,
@@ -872,12 +876,14 @@ def convert_and_write_partition(
 
     # logger.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
 
+
 def to_list(x):
     if isinstance(x, (list, np.ndarray)):
         if x.ndim == 0:
             return [x.item()]
-        return list(x) #needed for json serialization
+        return list(x)  # needed for json serialization
     return [x]
+
 
 def add_data_groups(xds):
     xds.attrs["data_groups"] = {}

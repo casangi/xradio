@@ -11,10 +11,11 @@ import pytest
 import os
 import importlib.resources
 
-#relative_tolerance = 10 ** (-12)
+# relative_tolerance = 10 ** (-12)
 relative_tolerance = 10 ** (-6)
 
-def download_and_convert_msv2_to_processing_set(msv2_name,partition_scheme):
+
+def download_and_convert_msv2_to_processing_set(msv2_name, partition_scheme):
     # We can remove this once there is a new release of casacore
     if os.environ["USER"] == "runner":
         casa_data_dir = (importlib.resources.files("casadata") / "__data__").as_posix()
@@ -37,13 +38,17 @@ def download_and_convert_msv2_to_processing_set(msv2_name,partition_scheme):
     return ps_name
 
 
-def base_test(file_name, expected_sum_value, is_s3=False, partition_schemes=[[],['FIELD_ID']]):
+def base_test(
+    file_name, expected_sum_value, is_s3=False, partition_schemes=[[], ["FIELD_ID"]]
+):
 
     for partition_scheme in partition_schemes:
         if is_s3:
             ps_name = file_name
         else:
-            ps_name = download_and_convert_msv2_to_processing_set(file_name,partition_scheme)
+            ps_name = download_and_convert_msv2_to_processing_set(
+                file_name, partition_scheme
+            )
 
         ps_lazy = read_processing_set(ps_name)
 
@@ -71,7 +76,7 @@ def base_test(file_name, expected_sum_value, is_s3=False, partition_schemes=[[],
         if not is_s3:
             os.system("rm -rf " + ps_name)
 
-        print('sum',sum,sum_lazy)
+        print("sum", sum, sum_lazy)
         assert (
             sum == sum_lazy
         ), "read_processing_set and load_processing_set VISIBILITY and WEIGHT values differ."
@@ -85,9 +90,9 @@ def base_test(file_name, expected_sum_value, is_s3=False, partition_schemes=[[],
                 print(f"{xds_name}: okay\n")
             else:
                 print(f"{xds_name}: {issues}\n")
-                
+
     if not is_s3:
-        os.system("rm -rf " + file_name) #Remove downloaded MSv2 file.
+        os.system("rm -rf " + file_name)  # Remove downloaded MSv2 file.
 
 
 def test_s3():
@@ -95,12 +100,13 @@ def test_s3():
         "s3://viper-test-data/Antennae_North.cal.lsrk.split.vis.v4.zarr",
         190.0405216217041,
         is_s3=True,
-        partition_schemes=[[]]
+        partition_schemes=[[]],
     )
 
 
 def test_alma():
     base_test("Antennae_North.cal.lsrk.split.ms", 190.0405216217041)
+
 
 def test_ska_mid():
     base_test("AA2-Mid-sim_00000.ms", 551412.3125)
@@ -136,10 +142,16 @@ def test_single_dish():
 
 def test_alma_ephemris_mosaic():
     base_test("ALMA_uid___A002_X1003af4_X75a3.split.avg.ms", 8.11051993222426e17)
-    
+
+
 def test_vlass():
-    #Don't do partition_scheme ['FIELD_ID'], will try and create >800 partitions.
-    base_test("VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6.ms", 173858574208.0, partition_schemes=[[]])
+    # Don't do partition_scheme ['FIELD_ID'], will try and create >800 partitions.
+    base_test(
+        "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6.ms",
+        173858574208.0,
+        partition_schemes=[[]],
+    )
+
 
 test_s3()
 test_vlass()

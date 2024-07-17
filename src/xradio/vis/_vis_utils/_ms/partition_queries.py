@@ -26,13 +26,13 @@ def create_partitions(in_file: str, partition_scheme: list):
     Args:
         in_file (str): Input MSv2 file path.
         partition_scheme (list) : A MS v4 can only contain a single data description (spectral window and polarization setup), and observation mode. Consequently, the MS v2 is partitioned when converting to MS v4.
-        In addition to data description and polarization setup a finer partitioning is possible by specifying a list of partitioning keys. Any combination of the following keys are possible: 
-        "FIELD_ID", "SCAN_NUMBER", "STATE_ID", "SOURCE_ID", "SUB_SCAN_NUMBER". For mosaics where the phase center is rapidly changing (such as VLA on the fly mosaics) 
+        In addition to data description and polarization setup a finer partitioning is possible by specifying a list of partitioning keys. Any combination of the following keys are possible:
+        "FIELD_ID", "SCAN_NUMBER", "STATE_ID", "SOURCE_ID", "SUB_SCAN_NUMBER". For mosaics where the phase center is rapidly changing (such as VLA on the fly mosaics)
         partition_scheme should be set to an empty list []. By default, ["FIELD_ID"].
     Returns:
         list: list of dictionaries with the partition information.
     """
-    #vla_otf (bool, optional):  The partioning of VLA OTF (on the fly) mosaics needs a special partitioning scheme. Defaults to False.
+    # vla_otf (bool, optional):  The partioning of VLA OTF (on the fly) mosaics needs a special partitioning scheme. Defaults to False.
 
     # Create partition table
     from casacore import tables
@@ -43,7 +43,7 @@ def create_partitions(in_file: str, partition_scheme: list):
     import time
 
     partition_scheme = ["DATA_DESC_ID", "OBS_MODE"] + partition_scheme
-    
+
     # Open MSv2 tables and add columns to partition table (par_df):
     par_df = pd.DataFrame()
     main_tb = tables.table(
@@ -89,7 +89,9 @@ def create_partitions(in_file: str, partition_scheme: list):
         )
         if state_tb.nrows() != 0:
             # print('state_tb',state_tb.nrows(),state_tb)
-            par_df["OBS_MODE"] = np.array(state_tb.getcol("OBS_MODE"))[par_df["STATE_ID"]]
+            par_df["OBS_MODE"] = np.array(state_tb.getcol("OBS_MODE"))[
+                par_df["STATE_ID"]
+            ]
             par_df["SUB_SCAN_NUMBER"] = state_tb.getcol("SUB_SCAN")[par_df["STATE_ID"]]
         else:
             par_df.drop(["STATE_ID"], axis=1)
@@ -140,13 +142,6 @@ def create_partitions(in_file: str, partition_scheme: list):
             partitions.append(partition_info)
 
     return partitions
-
-
-
-
-
-
-
 
 
 # Used by code that will be deprecated at some stage.

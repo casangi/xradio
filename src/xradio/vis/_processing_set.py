@@ -35,7 +35,7 @@ class processing_set(dict):
             "polarization": [],
             "spw_id": [],
             "field_name": [],
-            #"field_id": [],
+            # "field_id": [],
             "source_name": [],
             "field_coords": [],
             "start_frequency": [],
@@ -62,22 +62,25 @@ class processing_set(dict):
 
             summary_data["shape"].append(value[data_name].shape)
 
-            #summary_data["field_id"].append(value.attrs["partition_info"]["field_id"])
+            # summary_data["field_id"].append(value.attrs["partition_info"]["field_id"])
             # summary_data["field_name"].append(
             #     value[data_name].attrs["field_and_source_xds"].attrs["field_name"]
             # )
             summary_data["field_name"].append(
-                 value.attrs["partition_info"]["field_name"]
+                value.attrs["partition_info"]["field_name"]
             )
             summary_data["source_name"].append(
-                 value.attrs["partition_info"]["source_name"]
+                value.attrs["partition_info"]["source_name"]
             )
             summary_data["start_frequency"].append(value["frequency"].values[0])
             summary_data["end_frequency"].append(value["frequency"].values[-1])
 
             if value[data_name].attrs["field_and_source_xds"].is_ephemeris:
                 summary_data["field_coords"].append("Ephemeris")
-            elif "time" in value[data_name].attrs["field_and_source_xds"][center_name].coords:
+            elif (
+                "time"
+                in value[data_name].attrs["field_and_source_xds"][center_name].coords
+            ):
                 summary_data["field_coords"].append("Multi-Phase-Center")
             else:
                 ra_dec_rad = (

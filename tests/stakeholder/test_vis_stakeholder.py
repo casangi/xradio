@@ -73,8 +73,8 @@ def base_test(
                 np.abs(ps_lazy[ms_xds_name][data_name] * ps_lazy[ms_xds_name].WEIGHT)
             )
 
-        if not is_s3:
-            os.system("rm -rf " + ps_name)
+        # if not is_s3:
+        #     os.system("rm -rf " + ps_name)
 
         print("sum", sum, sum_lazy)
         assert (
@@ -97,7 +97,7 @@ def base_test(
 
 def test_s3():
     base_test(
-        "s3://viper-test-data/Antennae_North.cal.lsrk.split.vis.v4.zarr",
+        "s3://viper-test-data/Antennae_North.cal.lsrk.split.v5.vis.zarr",
         190.0405216217041,
         is_s3=True,
         partition_schemes=[[]],
@@ -153,9 +153,9 @@ def test_vlass():
     )
 
 
-test_s3()
-test_vlass()
-# test_alma()
+# test_s3()
+# test_vlass()
+test_alma()
 # test_ska_mid()
 # test_lofar()
 # test_meerkat()

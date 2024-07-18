@@ -17,7 +17,12 @@ from xradio.vis._vis_utils._ms._tables.read import (
 )
 from xradio.vis._vis_utils._ms._tables.table_query import open_table_ro
 import graphviper.utils.logger as logger
-from xradio._utils.array import check_if_consistent, unique_1d
+from xradio._utils.list_and_array import (
+    check_if_consistent,
+    unique_1d,
+    to_list,
+    to_np_array,
+)
 
 
 def cast_to_str(x):
@@ -28,23 +33,25 @@ def cast_to_str(x):
 
 
 def create_field_and_source_xds(
-    in_file,
-    field_id,
-    spectral_window_id,
-    field_times,
-    is_single_dish,
+    in_file: str,
+    field_id: list,
+    spectral_window_id: int,
+    field_times: list,
+    is_single_dish: bool,
     time_min_max: Tuple[np.float64, np.float64],
     ephemeris_interp_time: Union[xr.DataArray, None] = None,
 ):
     """
     Create a field and source xarray dataset (xds) from the given input file, field ID, and spectral window ID.
+    Data is extracted from the FIELD and SOURCE tables and if there is ephemeris data, it is also extracted.
+    field_id will only be guaranteed to be a list of length 1 when partition_scheme does not include "FIELD_ID".
 
     Parameters:
     ----------
     in_file : str
         The path to the input file.
-    field_id : int
-        The ID of the field.
+    field_id : list of int
+        The field ids to select.
     spectral_window_id : int
         The ID of the spectral window.
     time_min_max : Tuple[np.float64, np.float46]
@@ -68,7 +75,7 @@ def create_field_and_source_xds(
         )
     )
 
-    if ephemeris_path is not None:
+    if field_and_source_xds.attrs["is_ephemeris"]:
         field_and_source_xds = extract_ephemeris_info(
             field_and_source_xds,
             ephemeris_path,
@@ -77,20 +84,10 @@ def create_field_and_source_xds(
             time_min_max,
             ephemeris_interp_time,
         )
-        field_and_source_xds.attrs["is_ephemeris"] = True
-        field_and_source_xds = extract_source_info(
-            field_and_source_xds,
-            in_file,
-            True,
-            source_id,
-            spectral_window_id,
-        )
 
-    else:
-        field_and_source_xds = extract_source_info(
-            field_and_source_xds, in_file, False, source_id, spectral_window_id
-        )
-        field_and_source_xds.attrs["is_ephemeris"] = False
+    field_and_source_xds = extract_source_info(
+        field_and_source_xds, in_file, source_id, spectral_window_id
+    )
 
     logger.debug(
         f"create_field_and_source_xds() execution time {time.time() - start_time:0.2f} s"
@@ -128,10 +125,11 @@ def extract_ephemeris_info(
     xds : xr.Dataset
         The xarray dataset with the added ephemeris information.
     """
-    # The JPL-Horizons ephemris table implmenation in CASA does not follow the standard way of defining measures.
+    # The JPL-Horizons ephemeris table implementation in CASA does not follow the standard way of defining measures.
     # Consequently a lot of hardcoding is needed to extract the information.
     # https://casadocs.readthedocs.io/en/latest/notebooks/external-data.html
 
+    # Only read data between the min and max times of the visibility data in the MSv4.
     min_max_mjd = (
         convert_casacore_time_to_mjd(time_min_max[0]),
         convert_casacore_time_to_mjd(time_min_max[1]),
@@ -143,9 +141,14 @@ def extract_ephemeris_info(
         path, table_name, timecols=["MJD"], taql_where=taql_time_range
     )
 
-    assert len(ephemeris_xds.ephemeris_id) == 1, "Non standard ephemeris table."
-    ephemeris_xds = ephemeris_xds.isel(ephemeris_id=0)
+    assert (
+        len(ephemeris_xds.ephemeris_id) == 1
+    ), "Non standard ephemeris table. Only a single ephemeris is allowed per MSv4."
+    ephemeris_xds = ephemeris_xds.isel(
+        ephemeris_id=0
+    )  # Collapse the ephemeris_id dimension.
 
+    # Get meta data.
     ephemeris_meta = ephemeris_xds.attrs["other"]["msv2"]["ctds_attrs"]
     ephemris_column_description = ephemeris_xds.attrs["other"]["msv2"]["ctds_attrs"][
         "column_descriptions"
@@ -168,12 +171,15 @@ def extract_ephemeris_info(
 
     coords = {
         "ellipsoid_pos_label": ["lon", "lat", "dist"],
-        "ephem_time": ephemeris_xds["time"].data,
+        "ephem_time": ephemeris_xds[
+            "time"
+        ].data,  # We are using the "ephem_time" label because it might not match the optional time axis of the source and field info. If ephemeris_interpolate=True then rename it to time.
         "sky_pos_label": ["ra", "dec", "dist"],
     }
 
     temp_xds = xr.Dataset()
 
+    # Add mandatory data: SOURCE_POSITION
     temp_xds["SOURCE_POSITION"] = xr.DataArray(
         np.column_stack(
             (
@@ -184,7 +190,7 @@ def extract_ephemeris_info(
         ),
         dims=["ephem_time", "sky_pos_label"],
     )
-    # Have to use cast_to_str because the ephemris table units are not consistently in a list or a string.
+    # Have to use cast_to_str because the ephemeris table units are not consistently in a list or a string.
     sky_coord_units = [
         cast_to_str(ephemris_column_description["RA"]["keywords"][unit_keyword]),
         cast_to_str(ephemris_column_description["DEC"]["keywords"][unit_keyword]),
@@ -194,6 +200,7 @@ def extract_ephemeris_info(
         {"type": "sky_coord", "frame": sky_coord_frame, "units": sky_coord_units}
     )
 
+    # Add mandatory data: SOURCE_RADIAL_VELOCITY
     temp_xds["SOURCE_RADIAL_VELOCITY"] = xr.DataArray(
         ephemeris_xds["radvel"].data, dims=["ephem_time"]
     )
@@ -208,6 +215,7 @@ def extract_ephemeris_info(
         }
     )
 
+    # Add mandatory data: OBSERVATION_POSITION
     observation_position = [
         ephemeris_meta["GeoLong"],
         ephemeris_meta["GeoLat"],
@@ -227,9 +235,7 @@ def extract_ephemeris_info(
         }
     )  # I think the units are ['deg','deg','m'] and 'WGS84'.
 
-    # Add optional data
-    # NORTH_POLE_POSITION_ANGLE
-
+    # Add optional data NORTH_POLE_POSITION_ANGLE and NORTH_POLE_ANGULAR_DISTANCE
     if "np_ang" in ephemeris_xds.data_vars:
         temp_xds["NORTH_POLE_POSITION_ANGLE"] = xr.DataArray(
             ephemeris_xds["np_ang"].data, dims=["ephem_time"]
@@ -260,6 +266,7 @@ def extract_ephemeris_info(
             }
         )
 
+    # Add optional data: SUB_OBSERVER_POSITION and SUB_SOLAR_POSITION
     if "disklong" in ephemeris_xds.data_vars:
         temp_xds["SUB_OBSERVER_POSITION"] = xr.DataArray(
             np.column_stack(
@@ -332,6 +339,7 @@ def extract_ephemeris_info(
             }
         )
 
+    # Add optional data: HELIOCENTRIC_RADIAL_VELOCITY
     if "rdot" in ephemeris_xds.data_vars:
         temp_xds["HELIOCENTRIC_RADIAL_VELOCITY"] = xr.DataArray(
             ephemeris_xds["rdot"].data, dims=["ephem_time"]
@@ -347,6 +355,7 @@ def extract_ephemeris_info(
             }
         )
 
+    # Add optional data: OBSERVER_PHASE_ANGLE
     if "phang" in ephemeris_xds.data_vars:
         temp_xds["OBSERVER_PHASE_ANGLE"] = xr.DataArray(
             ephemeris_xds["phang"].data, dims=["ephem_time"]
@@ -367,16 +376,21 @@ def extract_ephemeris_info(
         {"type": "time", "units": ["s"], "scale": "UTC", "format": "UNIX"}
     )
 
+    # Convert to si units and interpolate if ephemeris_interpolate=True:
     temp_xds = convert_to_si_units(temp_xds)
     temp_xds = interpolate_to_time(
         temp_xds, interp_time, "field_and_source_xds", time_name="ephem_time"
     )
 
+    # If we interpolate rename the ephem_time axis to time.
     if interp_time is not None:
-        temp_xds = temp_xds.swap_dims({"ephem_time": "time"}).drop("ephem_time")
+        temp_xds = temp_xds.swap_dims({"ephem_time": "time"}).drop_vars("ephem_time")
 
     xds = xr.merge([xds, temp_xds])
 
+    # Add the SOURCE_POSITION to the FIELD_PHASE_CENTER or FIELD_REFERENCE_CENTER. When loaded from the MSv2 field table the FIELD_REFERENCE_CENTER or FIELD_PHASE_CENTER only contain an offset from the SOURCE_POSITION.
+    # We also need to add a distance dimension to the FIELD_PHASE_CENTER or FIELD_REFERENCE_CENTER to match the SOURCE_POSITION.
+    # FIELD_PHASE_CENTER is used for interferometer data and FIELD_REFERENCE_CENTER is used for single dish data.
     if is_single_dish:
         center_dv = "FIELD_REFERENCE_CENTER"
     else:
@@ -411,6 +425,7 @@ def extract_ephemeris_info(
 
 
 def add_position_offsets(dv_1, dv_2):
+    # Fun with angles: We are adding angles together. We need to make sure that the results are between -pi and pi.
     new_pos = dv_1 + dv_2
 
     while np.any(new_pos[:, 0] > np.pi) or np.any(new_pos[:, 0] < -np.pi):
@@ -433,6 +448,7 @@ def add_position_offsets(dv_1, dv_2):
 
 
 def convert_to_si_units(xds):
+    # This should live somewhere else.
     for data_var in xds.data_vars:
         if "units" in xds[data_var].attrs:
             for u_i, u in enumerate(xds[data_var].attrs["units"]):
@@ -459,7 +475,7 @@ def convert_to_si_units(xds):
     return xds
 
 
-def extract_source_info(xds, path, is_ephemeris, source_id, spectral_window_id):
+def extract_source_info(xds, path, source_id, spectral_window_id):
     """
     Extracts source information from the given path and adds it to the xarray dataset.
 
@@ -469,8 +485,6 @@ def extract_source_info(xds, path, is_ephemeris, source_id, spectral_window_id):
         The xarray dataset to which the source information will be added.
     path : str
         The path to the input file.
-    is_ephemeris : bool
-        Flag indicating if the source is an ephemeris.
     source_id : int
         The ID of the source.
     spectral_window_id : int
@@ -482,18 +496,22 @@ def extract_source_info(xds, path, is_ephemeris, source_id, spectral_window_id):
         The xarray dataset with the added source information.
     """
 
+    is_ephemeris = xds.attrs[
+        "is_ephemeris"
+    ]  # If ephemeris data is present we ignore the SOURCE_DIRECTION in the source table.
+
     if all(source_id == -1):
         logger.warning(
             f"Source_id is -1. No source information will be included in the field_and_source_xds."
         )
-        xds = xds.assign_coords({"source_name": "Unknown"})
+        xds = xds.assign_coords(
+            {"source_name": "Unknown"}
+        )  # Need to add this for ps.summary() to work.
         return xds
 
-    from xradio._utils.array import check_if_consistent, unique_1d
+    from xradio._utils.list_and_array import check_if_consistent, unique_1d
 
-    # source_id = check_if_consistent(field_xds.source_id, "source_id")
     unique_source_id = unique_1d(source_id)
-
     taql_where = f"where (SOURCE_ID IN [{','.join(map(str, unique_source_id))}]) AND (SPECTRAL_WINDOW_ID = {spectral_window_id})"
 
     source_xds = read_generic_table(
@@ -507,12 +525,17 @@ def extract_source_info(xds, path, is_ephemeris, source_id, spectral_window_id):
         logger.warning(
             f"SOURCE table empty for source_id {source_id} and spectral_window_id {spectral_window_id}."
         )
-        xds = xds.assign_coords({"source_name": "Unknown"})
+        xds = xds.assign_coords(
+            {"source_name": "Unknown"}
+        )  # Need to add this for ps.summary() to work.
         return xds
 
     assert (
         len(source_xds.spectral_window_id) == 1
     ), "Can only process source table with a single spectral_window_id for a given MSv4 partition."
+
+    # This source table time is not the same as the time in the field_and_source_xds that is derived from the main MSv4 time axis.
+    # The source_id maps to the time axis in the field_and_source_xds. That is why "if len(source_id) == 1" is used to check if there should be a time axis.
     assert (
         len(source_xds.time) == 1
     ), "Can only process source table with a single time entry for a source_id and spectral_window_id."
@@ -522,6 +545,8 @@ def extract_source_info(xds, path, is_ephemeris, source_id, spectral_window_id):
         "column_descriptions"
     ]
 
+    # Get source name (the time axis is an optional that will probably be required if the partition scheme does not include 'FIELD_ID' or 'SOURCE_ID'.).
+    # Note again that this optional time axis has nothing to do with the original time axis in the source table that we drop.
     coords = {}
     if len(source_id) == 1:
         source_xds = source_xds.sel(source_id=source_id[0])
@@ -533,6 +558,7 @@ def extract_source_info(xds, path, is_ephemeris, source_id, spectral_window_id):
         coords["source_name"] = ("time", source_xds["name"].data)
         direction_dims = ["time", "sky_dir_label"]
 
+    # If ephemeris data is present we ignore the SOURCE_DIRECTION.
     if not is_ephemeris:
         msv4_measure = column_description_casacore_to_msv4_measure(
             source_column_description["DIRECTION"]
@@ -542,15 +568,24 @@ def extract_source_info(xds, path, is_ephemeris, source_id, spectral_window_id):
         )
         xds["SOURCE_DIRECTION"].attrs.update(msv4_measure)
 
+    # Do we have line data:
     if source_xds["num_lines"].data.ndim == 0:
         num_lines = np.array([source_xds["num_lines"].data.item()])
     else:
         num_lines = source_xds["num_lines"].data
 
-    if any(num_lines > 0) and (len(source_id) == 1):
-        # print('source_xds',source_xds)
-        coords_lines = {"line_name": source_xds["transition"].data}
-        xds = xds.assign_coords(coords_lines)
+    if any(num_lines > 0):
+
+        if len(source_id) == 1:
+            coords_lines = {"line_name": source_xds["transition"].data}
+            xds = xds.assign_coords(coords_lines)
+            line_dims = ["line_label"]
+        else:
+            coords_lines = {
+                "line_name": (("time", "line_label"), source_xds["transition"].data)
+            }
+            xds = xds.assign_coords(coords_lines)
+            line_dims = ["time", "line_label"]
 
         optional_data_variables = {
             "rest_frequency": "LINE_REST_FREQUENCY",
@@ -563,9 +598,8 @@ def extract_source_info(xds, path, is_ephemeris, source_id, spectral_window_id):
                 )
 
                 xds[msv4_name] = xr.DataArray(
-                    source_xds[generic_name].data, dims=["line_name"]
+                    source_xds[generic_name].data, dims=line_dims
                 )
-
                 xds[msv4_name].attrs.update(msv4_measure)
 
     # Need to add doppler info if present. Add check.
@@ -576,7 +610,7 @@ def extract_source_info(xds, path, is_ephemeris, source_id, spectral_window_id):
         )
         assert (
             False
-        ), "Doppler table present. Please open an issue on https://github.com/casangi/xradio/issues so that we can addd support for this."
+        ), "Doppler table present. Please open an issue on https://github.com/casangi/xradio/issues so that we can add support for this."
     except:
         pass
 
@@ -614,36 +648,21 @@ def create_field_info_and_check_ephemeris(
         rename_ids=subt_rename_ids["FIELD"],
     )  # .sel(field_id=field_id)
 
-    # field_xds['field_id'] = np.arange(len(field_xds.field_id))
-
-    assert len(field_xds.poly_id) == 1, "Polynomial field positions not supported."
+    assert (
+        len(field_xds.poly_id) == 1
+    ), "Polynomial field positions not supported. Please open an issue on https://github.com/casangi/xradio/issues so that we can add support for this."
     field_xds = field_xds.isel(poly_id=0, drop=True)
     field_xds = field_xds.sel(field_id=field_id, drop=False)
-
-    # from xradio._utils.array import check_if_consistent, unique_1d
-
-    # source_id = check_if_consistent(field_xds.source_id, "source_id")
-    # source_id =  unique_1d(field_xds.source_id)
-    source_id = field_xds.source_id.values
-    if source_id.data.ndim == 0:
-        source_id = np.array([source_id.item()])
-    else:
-        source_id = source_id
-
-    # field_and_source_xds.attrs.update(
-    #     {
-    #         "field_name": str(field_xds["name"].data),
-    #         "field_code": str(field_xds["code"].data),
-    #         "field_id": field_id,
-    #         "source_id": source_id,
-    #     }
-    # )
+    source_id = to_np_array(field_xds.source_id.values)
 
     ephemeris_table_name = None
     ephemeris_path = None
     is_ephemeris = False
+    field_and_source_xds.attrs["is_ephemeris"] = (
+        False  # If we find a path to the ephemeris table we will set this to True.
+    )
 
-    # Need to check if ephemeris_id is present and if epehemeris table is present.
+    # Need to check if ephemeris_id is present and if ephemeris table is present.
     if "ephemeris_id" in field_xds:
         ephemeris_id = check_if_consistent(
             field_xds.ephemeris_id, "ephemeris_id"
@@ -667,6 +686,7 @@ def create_field_info_and_check_ephemeris(
                 e_index = ephemeris_name_table_index[0]
                 ephemeris_path = os.path.join(in_file, "FIELD")
                 ephemeris_table_name = files[e_index]
+                field_and_source_xds.attrs["is_ephemeris"] = True
             else:
                 logger.warning(
                     f"Could not find ephemeris table for field_id {field_id}. Ephemeris information will not be included in the field_and_source_xds."

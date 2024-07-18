@@ -1,6 +1,6 @@
 import pytest
 import numpy as np
-import xradio._utils.array as opt
+import xradio._utils.list_and_array as opt
 
 
 @pytest.mark.parametrize(

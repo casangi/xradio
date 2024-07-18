@@ -31,7 +31,7 @@ from ._tables.read import (
 )
 from ._tables.read_main_table import get_baselines, get_baseline_indices, get_utimes_tol
 from .._utils.stokes_types import stokes_types
-from xradio._utils.array import check_if_consistent, unique_1d
+from xradio._utils.list_and_array import check_if_consistent, unique_1d, to_list
 
 
 def parse_chunksize(
@@ -875,14 +875,6 @@ def convert_and_write_partition(
             logger.debug("Write data  " + str(time.time() - start))
 
     # logger.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
-
-
-def to_list(x):
-    if isinstance(x, (list, np.ndarray)):
-        if x.ndim == 0:
-            return [x.item()]
-        return list(x)  # needed for json serialization
-    return [x]
 
 
 def add_data_groups(xds):

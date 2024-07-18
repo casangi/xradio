@@ -167,7 +167,7 @@ def extract_xarray_dataclass(klass):
                     optional=is_optional(typ),
                     default=field.default,
                     docstring=field_docstrings.get(field.name),
-                    schema_name=f"{klass.__module__}.{klass.__qualname__}.{field.name}",
+                    schema_name=None,
                     dimensions=dims,
                     dtypes=[numpy.dtype(typ) for typ in types],
                     coordinates=[],

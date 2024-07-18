@@ -32,9 +32,11 @@ EllipsoidPosLabel = Literal["ellipsoid_pos_label"]
 """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
 CartesianPosLabel = Literal["cartesian_pos_label"]
 """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
+XyzLabel = Literal["xyz_label"]
+""" Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
 TimePolynomial = Literal["time_polynomial"]
 """ For data that is represented as variable in time using Taylor expansion """
-LineNames = Literal["line_names"]
+LineName = Literal["line_name"]
 """ Line names (e.g. v=1, J=1-0, SiO). """
 
 # Quantities
@@ -158,7 +160,7 @@ class FieldSourceXds:
 
     time: Optional[Coordof[TimeCoordArray]]
     """Midpoint of time for which this set of parameters is accurate"""
-    line_names: Optional[Coord[LineNames, str]]
+    line_name: Optional[Coord[LineName, str]]
     """ Line names (e.g. v=1, J=1-0, SiO). """
 
     FIELD_PHASE_CENTER: Optional[Data[Union[tuple[()], Time], SkyCoordOffsetArray]]
@@ -173,6 +175,14 @@ class FieldSourceXds:
     FIELD_DELAY_CENTER: Optional[
         Data[Union[tuple[SkyDirLabel], tuple[Time, SkyDirLabel]], float]
     ]
+    """
+    Offset from the SOURCE_DIRECTION that gives the direction of delay
+    center where coherence is maximized by inserting delay into one element of
+    an interferometer to compensate for the geometrical and instrumental
+    differential delay. (For conversion from MSv2, frame refers column keywords
+    by default. If frame varies with field, it refers PhaseDir_Ref column
+    instead.)
+    """
 
     SOURCE_POSITION: Optional[
         Data[Union[tuple[SkyPosLabel], tuple[Time, SkyPosLabel]], float]
@@ -201,7 +211,7 @@ class FieldSourceXds:
 
     field_name: Attr[str]
     """Field name."""
-    code: Attr[str]
+    code: Optional[Attr[str]]
     """
     Field code indicating special characteristics of the field;
     e.g. Bandpass calibrator
@@ -226,7 +236,7 @@ class FieldSourceXds:
         "height",
     )
     """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
-    cartesian_pos_label: Optional[Coord[CartesianPosLabel, str]] = ("x", "y", "z")
+    cartesian_pos_label: Optional[Coord[XyzLabel, str]] = ("x", "y", "z")
     """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
 
 
@@ -243,7 +253,7 @@ class SpectralCoordArray:
 
 @xarray_dataarray_schema
 class EarthLocationArray:
-    data: Data[CartesianPosLabel, float]
+    data: Data[XyzLabel, float]
 
     ellipsoid: Attr[str]
     """
@@ -614,7 +624,7 @@ class AntennaXds:
     """Support for VLBI"""
     receptor_name: Optional[Coord[ReceptorName, str]]
     """Names of receptors"""
-    xyz_label: Coord[CartesianPosLabel, str]
+    xyz_label: Coord[XyzLabel, str]
     """Coordinate dimension of earth location data (typically shape 3 and 'x', 'y', 'z')"""
     sky_dir_label: Optional[Coord[SkyDirLabel, str]]
     """Coordinate dimension of sky coordinate data (possibly shape 2 and 'RA', "Dec")"""
@@ -625,7 +635,7 @@ class AntennaXds:
     In a right-handed frame, X towards the intersection of the equator and
     the Greenwich meridian, Z towards the pole.
     """
-    FEED_OFFSET: Data[tuple[AntennaId, CartesianPosLabel], QuantityArray]
+    FEED_OFFSET: Data[tuple[AntennaId, XyzLabel], QuantityArray]
     """
     Offset of feed relative to position (``Antenna_Table.offset + Feed_Table.position``).
     """

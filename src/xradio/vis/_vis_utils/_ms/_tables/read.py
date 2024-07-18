@@ -747,13 +747,13 @@ def load_generic_cols(
         dict of coordinates and dict of data vars.
     """
 
-    col_cells = find_loadable_filled_cols(tb_tool, ignore)
+    col_types = find_loadable_cols(tb_tool, ignore)
 
     trows = tb_tool.row(ignore, exclude=True)[:]
 
     # Produce coords and data vars from MS columns
     mcoords, mvars = {}, {}
-    for col in col_cells.keys():
+    for col in col_types.keys():
         try:
             # TODO
             # benchmark np.stack() performance
@@ -779,7 +779,7 @@ def load_generic_cols(
             if len(set([isinstance(row[col], dict) for row in trows])) > 1:
                 continue  # can't deal with this case
 
-            data = handle_variable_col_issues(inpath, col, col_cells, trows)
+            data = handle_variable_col_issues(inpath, col, col_types[col], trows)
 
         if len(data) == 0:
             continue
@@ -827,7 +827,7 @@ def load_fixed_size_cols(
         dict of coordinates and dict of data vars, ready to construct an xr.Dataset
     """
 
-    loadable_cols = find_loadable_filled_cols(tb_tool, ignore)
+    loadable_cols = find_loadable_cols(tb_tool, ignore)
 
     # Produce coords and data vars from MS columns
     mcoords, mvars = {}, {}
@@ -856,13 +856,16 @@ def load_fixed_size_cols(
     return mcoords, mvars
 
 
-def find_loadable_filled_cols(
+def find_loadable_cols(
     tb_tool: tables.table, ignore: Union[List[str], None]
-) -> Dict:
+) -> Dict[str, str]:
     """
-    For a table, finds the columns that are:
-    - loadable = not of record type, and not to be ignored
-    - filled = the column cells are populated.
+    For a table, finds the columns that are loadable = not of record type,
+    and not to be ignored
+    In extreme cases of variable size columns, it can happen that all the
+    cells are empty (iscelldefined() == false). This is still considered a
+    loadable column, even though all values of the resulting data var will
+    be empty.
 
     Parameters
     ----------
@@ -874,17 +877,15 @@ def find_loadable_filled_cols(
     Returns
     -------
     Dict
-        dict of {column name => first cell} for columns that can/should be loaded
+        dict of {column name: column type} for columns that can/should be loaded
     """
 
     colnames = tb_tool.colnames()
-    # columns that are not populated are skipped. record columns are not supported
+    table_desc = tb_tool.getdesc()
     loadable_cols = {
-        col: tb_tool.getcell(col, 0)
+        col: table_desc[col]["valueType"]
         for col in colnames
-        if (col not in ignore)
-        and (tb_tool.iscelldefined(col, 0))
-        and tb_tool.coldatatype(col) != "record"
+        if (col not in ignore) and tb_tool.coldatatype(col) != "record"
     }
     return loadable_cols
 
@@ -978,7 +979,7 @@ def raw_col_data_to_coords_vars(
 
 
 def handle_variable_col_issues(
-    inpath: str, col: str, col_cells: dict, trows: tables.tablerow
+    inpath: str, col: str, col_type: str, trows: tables.tablerow
 ) -> np.ndarray:
     """
     load variable-size array columns, padding with nans wherever
@@ -992,8 +993,8 @@ def handle_variable_col_issues(
         path name of the MS
     col : str
         column being loaded
-    col_cells : dict
-        col: cell} values
+    col_type : str
+        type of the column cell values
     trows : tables.tablerow
         rows from a table as loaded by tables.row()
 
@@ -1008,7 +1009,7 @@ def handle_variable_col_issues(
 
     mshape = np.array(max([np.array(row[col]).shape for row in trows]))
     try:
-        pad_nan = get_pad_nan(col_cells[col])
+        pad_nan = get_pad_nan(np.array((), dtype=col_type))
 
         # TODO
         # benchmark np.stack() performance

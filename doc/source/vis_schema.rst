@@ -23,6 +23,10 @@ dimensions, forming a comprehensive view of visibility data.
 
    .. xradio_dataset_schema_table:: xradio.vis.schema.PointingXds
 
+.. autoclass:: xradio.vis.schema.FieldSourceXds()
+
+   .. xradio_dataset_schema_table:: xradio.vis.schema.FieldSourceXds
+
 .. _visibility arrays:
 
 Data Arrays
@@ -108,16 +112,6 @@ as frequencies or timestamps.
    .. xradio_array_schema_table:: xradio.vis.schema.EarthLocationArray
 
 .. _visibility attributes:
-
-Dictionaries
-------------
-
-Attribute data
-
-.. automodule:: xradio.vis.schema
-   :members: SourceInfoDict, FieldInfoDict
-   :undoc-members:
-   :member-order: bysource
 
 Value Keys
 ----------

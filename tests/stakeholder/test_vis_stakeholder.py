@@ -73,8 +73,8 @@ def base_test(
                 np.abs(ps_lazy[ms_xds_name][data_name] * ps_lazy[ms_xds_name].WEIGHT)
             )
 
-        # if not is_s3:
-        #     os.system("rm -rf " + ps_name)
+        if not is_s3:
+            os.system("rm -rf " + ps_name)
 
         print("sum", sum, sum_lazy)
         assert (

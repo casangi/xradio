@@ -23,13 +23,7 @@ from xradio._utils.list_and_array import (
     to_list,
     to_np_array,
 )
-
-
-def cast_to_str(x):
-    if isinstance(x, list):
-        return x[0]
-    else:
-        return x
+from xradio._utils.common import cast_to_str, convert_to_si_units, add_position_offsets
 
 
 def create_field_and_source_xds(
@@ -388,7 +382,7 @@ def extract_ephemeris_info(
 
     xds = xr.merge([xds, temp_xds])
 
-    # Add the SOURCE_POSITION to the FIELD_PHASE_CENTER or FIELD_REFERENCE_CENTER. When loaded from the MSv2 field table the FIELD_REFERENCE_CENTER or FIELD_PHASE_CENTER only contain an offset from the SOURCE_POSITION.
+    # Add the SOURCE_POSITION to the FIELD_PHASE_CENTER or FIELD_REFERENCE_CENTER. Ephemeris obs: When loaded from the MSv2 field table the FIELD_REFERENCE_CENTER or FIELD_PHASE_CENTER only contain an offset from the SOURCE_POSITION.
     # We also need to add a distance dimension to the FIELD_PHASE_CENTER or FIELD_REFERENCE_CENTER to match the SOURCE_POSITION.
     # FIELD_PHASE_CENTER is used for interferometer data and FIELD_REFERENCE_CENTER is used for single dish data.
     if is_single_dish:
@@ -421,57 +415,6 @@ def extract_ephemeris_info(
 
     xds["FIELD_PHASE_CENTER"].attrs.update(xds["SOURCE_POSITION"].attrs)
 
-    return xds
-
-
-def add_position_offsets(dv_1, dv_2):
-    # Fun with angles: We are adding angles together. We need to make sure that the results are between -pi and pi.
-    new_pos = dv_1 + dv_2
-
-    while np.any(new_pos[:, 0] > np.pi) or np.any(new_pos[:, 0] < -np.pi):
-        new_pos[:, 0] = np.where(
-            new_pos[:, 0] > np.pi, new_pos[:, 0] - 2 * np.pi, new_pos[:, 0]
-        )
-        new_pos[:, 0] = np.where(
-            new_pos[:, 0] < -np.pi, new_pos[:, 0] + 2 * np.pi, new_pos[:, 0]
-        )
-
-    while np.any(new_pos[:, 1] > np.pi / 2) or np.any(new_pos[:, 1] < -np.pi / 2):
-        new_pos[:, 1] = np.where(
-            new_pos[:, 1] > np.pi / 2, new_pos[:, 1] - np.pi, new_pos[:, 1]
-        )
-        new_pos[:, 1] = np.where(
-            new_pos[:, 1] < -np.pi / 2, new_pos[:, 1] + np.pi, new_pos[:, 1]
-        )
-
-    return new_pos
-
-
-def convert_to_si_units(xds):
-    # This should live somewhere else.
-    for data_var in xds.data_vars:
-        if "units" in xds[data_var].attrs:
-            for u_i, u in enumerate(xds[data_var].attrs["units"]):
-                if u == "km":
-                    xds[data_var][..., u_i] = xds[data_var][..., u_i] * 1e3
-                    xds[data_var].attrs["units"][u_i] = "m"
-                if u == "km/s":
-                    xds[data_var][..., u_i] = xds[data_var][..., u_i] * 1e3
-                    xds[data_var].attrs["units"][u_i] = "m/s"
-                if u == "deg":
-                    xds[data_var][..., u_i] = xds[data_var][..., u_i] * np.pi / 180
-                    xds[data_var].attrs["units"][u_i] = "rad"
-                if u == "Au" or u == "AU":
-                    xds[data_var][..., u_i] = xds[data_var][..., u_i] * 149597870700
-                    xds[data_var].attrs["units"][u_i] = "m"
-                if u == "Au/d" or u == "AU/d":
-                    xds[data_var][..., u_i] = (
-                        xds[data_var][..., u_i] * 149597870700 / 86400
-                    )
-                    xds[data_var].attrs["units"][u_i] = "m/s"
-                if u == "arcsec":
-                    xds[data_var][..., u_i] = xds[data_var][..., u_i] * np.pi / 648000
-                    xds[data_var].attrs["units"][u_i] = "rad"
     return xds
 
 
@@ -545,7 +488,7 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
         "column_descriptions"
     ]
 
-    # Get source name (the time axis is an optional that will probably be required if the partition scheme does not include 'FIELD_ID' or 'SOURCE_ID'.).
+    # Get source name (the time axis is optional and will probably be required if the partition scheme does not include 'FIELD_ID' or 'SOURCE_ID'.).
     # Note again that this optional time axis has nothing to do with the original time axis in the source table that we drop.
     coords = {}
     if len(source_id) == 1:
@@ -642,11 +585,17 @@ def create_field_info_and_check_ephemeris(
     ephemeris_table_name : str
         The name of the ephemeris table.
     """
+
+    # Federico do know how to do this taql query?
+    # unqiue_field_id = unique_1d(field_id) # field_ids can be repeated so that the time mapping is correct if there are multiple fields. The read_generic_table required unique field_ids.
+    # taql_where = f"where (ROW IN [{','.join(map(str, unqiue_field_id))}])"
+    # taql_where = f"GIVING [{','.join(map(str, unqiue_field_id))}]"
     field_xds = read_generic_table(
         in_file,
         "FIELD",
         rename_ids=subt_rename_ids["FIELD"],
-    )  # .sel(field_id=field_id)
+        # taql_where=taql_where,
+    )
 
     assert (
         len(field_xds.poly_id) == 1
@@ -692,23 +641,6 @@ def create_field_info_and_check_ephemeris(
                     f"Could not find ephemeris table for field_id {field_id}. Ephemeris information will not be included in the field_and_source_xds."
                 )
 
-    # if is_ephemeris:
-    #     field_data_variables = {
-    #         "delay_dir": "FIELD_DELAY_CENTER_OFFSET",
-    #         "phase_dir": "FIELD_PHASE_CENTER_OFFSET",
-    #         "reference_dir": "FIELD_REFERENCE_CENTER_OFFSET",
-    #     }
-    #     field_measures_type = "sky_coord_offset"
-    #     field_and_source_xds.attrs["field_and_source_xds_type"] = "ephemeris"
-    # else:
-    #     field_data_variables = {
-    #         "delay_dir": "FIELD_DELAY_CENTER",
-    #         "phase_dir": "FIELD_PHASE_CENTER",
-    #         "reference_dir": "FIELD_REFERENCE_CENTER",
-    #     }
-    #     field_measures_type = "sky_coord"
-    #     field_and_source_xds.attrs["field_and_source_xds_type"] = "standard"
-
     if is_single_dish:
         field_data_variables = {
             "reference_dir": "FIELD_REFERENCE_CENTER",
@@ -726,9 +658,10 @@ def create_field_info_and_check_ephemeris(
     coords["sky_dir_label"] = ["ra", "dec"]
     field_column_description = field_xds.attrs["other"]["msv2"]["ctds_attrs"][
         "column_descriptions"
-    ]  # Keys are ['DELAY_DIR', 'PHASE_DIR', 'REFERENCE_DIR', 'CODE', 'FLAG_ROW', 'NAME', 'NUM_POLY', 'SOURCE_ID', 'TIME']
+    ]
 
     coords = {}
+    # field_times is the same as the time axis in the main MSv4 dataset and is used if more than one field is present.
     if field_times is not None:
         coords["time"] = field_times
         dims = ["time", "sky_dir_label"]

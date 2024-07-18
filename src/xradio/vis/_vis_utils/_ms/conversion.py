@@ -830,24 +830,18 @@ def convert_and_write_partition(
             xds.attrs["partition_info"] = {
                 "spectral_window_id": xds.frequency.attrs["spectral_window_id"],
                 "spectral_window_name": xds.frequency.attrs["spectral_window_name"],
-                # "field_id": to_list(field_id),
+                "field_id": to_list(unique_1d(field_id)),
                 "field_name": to_list(
                     np.unique(field_and_source_xds.field_name.values)
                 ),
-                # "source_id": to_list(source_id),
+                "source_id": to_list(unique_1d(source_id)),
                 "source_name": to_list(
                     np.unique(field_and_source_xds.source_name.values)
                 ),
-                # "field_id": 0,
-                # "field_name": "VLASS_OTF_FIELD",
-                # "source_id": 0,
-                # "source_name": "VLASS_OTF_SOURCE",
                 "polarization_setup": to_list(xds.polarization.values),
                 "obs_mode": obs_mode,
                 "taql": taql_where,
             }
-
-            # print(xds)
 
             start = time.time()
             if storage_backend == "zarr":

@@ -47,7 +47,7 @@ The main aims of the library are:
 
    schema
    vis_api
-   vis_model
+   vis_schema
 
 
 Indices and tables

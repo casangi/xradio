@@ -108,8 +108,8 @@ def extract_xarray_dataclass(klass):
             is_coord = False
         else:
             raise ValueError(
-                f"Unexpected role in '{klass.__name__}',"
-                f" field '{field.name}': {get_role(typ)}"
+                f"Expected field '{field.name}' in '{klass.__name__}' "
+                "to be annotated with either Coord, Data or Attr!"
             )
 
         # Defined using a dataclass, i.e. Coordof/Dataof?
@@ -167,7 +167,7 @@ def extract_xarray_dataclass(klass):
                     optional=is_optional(typ),
                     default=field.default,
                     docstring=field_docstrings.get(field.name),
-                    schema_name=f"{klass.__module__}.{klass.__qualname__}.{field.name}",
+                    schema_name=None,
                     dimensions=dims,
                     dtypes=[numpy.dtype(typ) for typ in types],
                     coordinates=[],

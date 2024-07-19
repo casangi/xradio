@@ -94,6 +94,9 @@ def _read_sub_xds(ms_store, file_system, data_groups, load=False):
         xds = _open_dataset(
             os.path.join(ms_store, n), load=load, file_system=file_system
         )
+        # Skip empty tables
+        if not xds.coords and not xds.data_vars:
+            continue
         if n in field_dict.keys():
             field_and_source_xds_dict[field_dict[n]] = xds
         else:

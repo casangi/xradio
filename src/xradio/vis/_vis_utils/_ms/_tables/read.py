@@ -578,7 +578,10 @@ def read_generic_table(
         )
 
     cc_attrs = extract_table_attributes(infile)
-    attrs: Dict[str, Any] = {"other": {"msv2": {"ctds_attrs": cc_attrs}}}
+    attrs: Dict[str, Any] = {
+        "other": {"msv2": {"ctds_attrs": cc_attrs}},
+        "type": tname.lower(),
+    }
     if is_nested_ms(attrs):
         logger.warning(
             f"Skipping subtable that looks like a MeasurementSet main table: {inpath} {tname}"

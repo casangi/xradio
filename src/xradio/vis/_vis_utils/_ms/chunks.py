@@ -6,7 +6,6 @@ import numpy as np
 
 
 from .msv2_msv3 import ignore_msv2_cols
-from .partition_queries import make_partition_ids_by_ddi_scan
 from .subtables import subt_rename_ids
 from ._tables.load_main_table import load_expanded_main_table_chunk
 from ._tables.read import read_generic_table, make_freq_attrs
@@ -43,66 +42,6 @@ def read_spw_ddi_ant_pol(inpath: str) -> Tuple[xr.Dataset]:
         inpath, "POLARIZATION", rename_ids=subt_rename_ids["POLARIZATION"]
     )
     return ant_xds, ddi_xds, spw_xds, pol_xds
-
-
-def load_main_chunk(
-    infile: str, chunk: Dict[str, slice]
-) -> Dict[Tuple[int, int], xr.Dataset]:
-    """
-    Loads a chunk of visibility data. For every DDI, a separate
-    dataset is produced.
-    This is very loosely equivalent to the
-    partitions.read_*_partitions functions, but in a load (not lazy)
-    fashion and with an implicit single partition wrt. anything but
-    DDIs.
-    Metainfo (sub)tables) are not loaded, and the result is one or more
-    Xarray datasets. It produces one dataset per DDI found within the
-    chunk slice of time/baseline.
-
-    Parameters
-    ----------
-    infile : str
-        MS path (main table)
-    chunk : Dict[str, slice]
-        specification of chunk to load
-
-    Returns
-    -------
-    Dict[Tuple[int, int], xr.Dataset]
-        dictionary of chunk datasets (keys are spw and pol_setup IDs)
-    """
-
-    chunk_dims = ["time", "baseline", "freq", "pol"]
-    if not all(key in chunk_dims for key in chunk):
-        raise ValueError(f"chunks dict has unknown keys. Accepted ones: {chunk_dims}")
-
-    ant_xds, ddi_xds, spw_xds, pol_xds = read_spw_ddi_ant_pol(infile)
-
-    # TODO: constrain this better/ properly
-    data_desc_id, scan_number, state_id = make_partition_ids_by_ddi_scan(infile, False)
-
-    all_xdss = {}
-    data_desc_id = unique_1d(data_desc_id)
-    for ddi in data_desc_id:
-        xds, part_ids, attrs = load_expanded_main_table_chunk(
-            infile, ddi, chunk, ignore_msv2_cols=ignore_msv2_cols
-        )
-
-        coords = make_coords(xds, ddi, (ant_xds, ddi_xds, spw_xds, pol_xds))
-        xds = xds.assign_coords(coords)
-        xds = add_partition_attrs(xds, ddi, ddi_xds, part_ids, other_attrs={})
-
-        # freq dim needs to pull its units/measure info from the SPW subtable
-        spw_id = xds.attrs["partition_ids"]["spw_id"]
-        xds.freq.attrs.update(make_freq_attrs(spw_xds, spw_id))
-        pol_setup_id = ddi_xds.polarization_id.values[ddi]
-
-        chunk_ddi_key = (spw_id, pol_setup_id)
-        all_xdss[chunk_ddi_key] = xds
-
-    chunk_xdss = finalize_chunks(infile, all_xdss, chunk)
-
-    return chunk_xdss
 
 
 def finalize_chunks(

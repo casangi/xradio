@@ -5,7 +5,6 @@ from typing import Dict, List, Tuple, Union
 import xarray as xr
 
 from ._utils.cds import CASAVisSet
-from ._ms.chunks import load_main_chunk
 from ._ms.partitions import (
     finalize_partitions,
     read_ms_ddi_partitions,
@@ -107,42 +106,3 @@ def read_ms(
     # build the visibilities container (metainfo + partitions) to return
     cds = vis_xds_packager_cds(subts, parts, "read_ms")
     return cds
-
-
-def load_vis_chunk(
-    infile: str,
-    block_des: Dict[str, slice],
-    partition_key: Tuple[int, int, str],
-) -> Dict[Tuple[int, int], xr.Dataset]:
-    """
-    Read a chunk of a MeasurementSet (MSv2 format) into an Xarray
-    dataset, loading the data in memory.
-
-    Parameters
-    ----------
-    infile : str
-        Input MS filename
-    block_des : Dict[str, slice]
-        specification of chunk to load
-    partition_key: partition_key: Tuple[int, int, str]
-
-    Returns
-    -------
-    Dict[Tuple[int, int], xr.Dataset]
-        Xarray datasets with chunk of visibility data, one per DDI
-        (spw_id, pol_setup_id pair)
-    """
-    infile = os.path.expanduser(infile)
-
-    logger.info(f"Loading from {infile} as MSv2 a chunk of data into memory")
-
-    if not os.path.isdir(infile):
-        raise ValueError(f"invalid input filename to read_ms {infile}")
-
-    orig_chunk_to_improve = load_main_chunk(infile, block_des)
-    res = vis_xds_packager_cds(
-        subtables={},
-        partitions={partition_key: orig_chunk_to_improve},
-        descr_add="load_vis_block",
-    )
-    return res

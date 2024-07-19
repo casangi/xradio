@@ -23,14 +23,19 @@ def enumerated_product(*args):
 def create_partitions(in_file: str, partition_scheme: list):
     """Create a list of dictionaries with the partition information.
 
-    Args:
-        in_file (str): Input MSv2 file path.
-        partition_scheme (list) : A MS v4 can only contain a single data description (spectral window and polarization setup), and observation mode. Consequently, the MS v2 is partitioned when converting to MS v4.
+    Parameters
+    ----------
+    in_file: str
+        Input MSv2 file path.
+    partition_scheme:  list
+        A MS v4 can only contain a single data description (spectral window and polarization setup), and observation mode. Consequently, the MS v2 is partitioned when converting to MS v4.
         In addition to data description and polarization setup a finer partitioning is possible by specifying a list of partitioning keys. Any combination of the following keys are possible:
-        "FIELD_ID", "SCAN_NUMBER", "STATE_ID", "SOURCE_ID", "SUB_SCAN_NUMBER". For mosaics where the phase center is rapidly changing (such as VLA on the fly mosaics)
-        partition_scheme should be set to an empty list []. By default, ["FIELD_ID"].
-    Returns:
-        list: list of dictionaries with the partition information.
+        "FIELD_ID", "SCAN_NUMBER", "STATE_ID", "SOURCE_ID", "SUB_SCAN_NUMBER".
+        For mosaics where the phase center is rapidly changing (such as VLA on the fly mosaics)  partition_scheme should be set to an empty list []. By default, ["FIELD_ID"].
+    Returns
+    -------
+    list
+        list of dictionaries with the partition information.
     """
     # vla_otf (bool, optional):  The partioning of VLA OTF (on the fly) mosaics needs a special partitioning scheme. Defaults to False.
 
@@ -144,68 +149,8 @@ def create_partitions(in_file: str, partition_scheme: list):
     return partitions
 
 
-# Used by code that will be deprecated at some stage.
-
-
-def make_partition_ids_by_ddi_scan(
-    infile: str, do_subscans: bool
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Produces arrays of per-partition ddi, scan, state_id, for when
-    using partiion schemes 'scan' or 'scan/subscan', that is
-    partitioning by some variant of (ddi, scan, subscan(state_id))
-
-    Parameters
-    ----------
-    infile : str
-        Path to MS
-    do_subscans : bool
-        also partitioning by subscan, not only scan
-
-    Returns
-    -------
-    Tuple[np.ndarray, np.ndarray, np.ndarray]
-        arrays with indices that define every partition
-    """
-    try:
-        cctable = None
-        taql_distinct_states = None
-        cctable = tables.table(
-            infile, readonly=True, lockoptions={"option": "usernoread"}, ack=False
-        )
-        if do_subscans:
-            taql_distinct_states = (
-                "select DISTINCT SCAN_NUMBER, STATE_ID, DATA_DESC_ID from $cctable"
-            )
-        else:
-            taql_distinct_states = (
-                "select DISTINCT SCAN_NUMBER, DATA_DESC_ID from $cctable"
-            )
-        with open_query(cctable, taql_distinct_states) as query_states:
-            logger.debug(
-                f"Got query, nrows: {query_states.nrows()}, query: {query_states}"
-            )
-            scan_number = query_states.getcol("SCAN_NUMBER")
-            logger.debug(
-                f"Got col SCAN_NUMBER (len: {len(scan_number)}): {scan_number}"
-            )
-            if do_subscans:
-                state_id = query_states.getcol("STATE_ID")
-                data_desc_id = np.full(len(scan_number), None)
-            else:
-                state_id = [None] * len(scan_number)
-                logger.debug(f"Got col STATE_ID (len: {len(state_id)}): {state_id}")
-                data_desc_id = query_states.getcol("DATA_DESC_ID")
-
-        logger.debug(f"Got col DATA_DESC_ID (len: {len(data_desc_id)}): {data_desc_id}")
-        logger.debug(
-            f"Len of DISTINCT SCAN_NUMBER,etc.: {len(scan_number)}. Will generate that number of partitions"
-        )
-    finally:
-        if cctable:
-            cctable.close()
-
-    return data_desc_id, scan_number, state_id
+# Used by code that will be deprecated at some stage. See #192
+# Still need to clarify what to do about intent string filtering ('WVR', etc.)
 
 
 def make_partition_ids_by_ddi_intent(
@@ -458,113 +403,3 @@ def partition_when_empty_state(
             main_table.close()
 
     return distinct_ddis, [None] * nparts, [None] * nparts, [""] * nparts
-
-
-def create_taql_query_and_file_name(out_file, intent, state_ids, field_id, ddi):
-    file_name = (
-        out_file
-        + "/"
-        + out_file.replace(".vis.zarr", "").split("/")[-1]
-        + "_ddi_"
-        + str(ddi)
-        + "_intent_"
-        + intent
-    )
-
-    taql_where = f"where (DATA_DESC_ID = {ddi})"
-
-    if isinstance(state_ids, numbers.Integral):
-        taql_where += f" AND (STATE_ID = {state_ids})"
-    elif state_ids is not None:
-        state_ids_or = " OR STATE_ID = ".join(np.char.mod("%d", state_ids))
-        taql_where += f" AND (STATE_ID = {state_ids_or})"
-
-    if field_id is not None:
-        taql_where += f" AND (FIELD_ID = {field_id})"
-        file_name = file_name + "_field_id_" + str(field_id)
-
-    return taql_where, file_name
-
-
-def get_unqiue_intents(in_file):
-    """
-    _summary_
-
-    Parameters
-    ----------
-    in_file : str
-        _description_
-
-    Returns
-    -------
-    _type_
-        _description_
-    """
-    state_xds = read_generic_table(
-        in_file,
-        "STATE",
-        rename_ids=subt_rename_ids["STATE"],
-    )
-
-    if len(state_xds.data_vars) > 0:
-        obs_mode_dict = {}
-        for i, obs_mode in enumerate(state_xds.obs_mode.values):
-            if obs_mode in obs_mode_dict:
-                obs_mode_dict[obs_mode].append(i)
-            else:
-                obs_mode_dict[obs_mode] = [i]
-        return list(obs_mode_dict.keys()), list(obs_mode_dict.values())
-    else:  # empty state table
-        return ["None"], [None]
-
-
-def enumerated_product(*args):
-    yield from zip(
-        itertools.product(*(range(len(x)) for x in args)), itertools.product(*args)
-    )
-
-
-def create_partition_enumerated_product(in_file: str, partition_scheme: str):
-    """
-    Creates an enumerated_product of the data_desc_ids, state_ids, field_ids in a MS v2 that define the partions in a processing set.
-
-    Parameters
-    ----------
-    in_file : str
-        _description_
-    partition_scheme : str
-        _description_
-
-    Returns
-    -------
-    _type_
-        _description_
-    """
-    # Unused?
-    # spw_xds = read_generic_table(
-    #     in_file,
-    #     "SPECTRAL_WINDOW",
-    #     rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
-    # )
-
-    # TODO: probably get this via query to subtable instead of read_generic_table, we just
-    # need the row numbers
-    ddi_xds = read_generic_table(in_file, "DATA_DESCRIPTION")
-    data_desc_ids = np.arange(ddi_xds.sizes["row"])
-    state_xds = read_generic_table(in_file, "STATE")
-
-    if (partition_scheme == "ddi_intent_field") and (len(state_xds.data_vars) > 0):
-        intents, state_ids = get_unqiue_intents(in_file)
-        field_ids = np.arange(read_generic_table(in_file, "FIELD").sizes["row"])
-    else:  # partition_scheme == "ddi_state_field"
-        if len(state_xds.data_vars) > 0:
-            state_ids = [np.arange(state_xds.sizes["row"])]
-            intents = state_xds.obs_mode.values
-        else:  # empty state table
-            state_ids = [None]
-            intents = ["None"]
-        # print(state_xds, intents)
-        # field_ids = [None]
-        field_ids = np.arange(read_generic_table(in_file, "FIELD").sizes["row"])
-
-    return enumerated_product(data_desc_ids, state_ids, field_ids), intents

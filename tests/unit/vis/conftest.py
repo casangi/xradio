@@ -225,9 +225,9 @@ def main_xds_min(ms_minimal_required):
 @pytest.fixture(scope="session")
 def cds_minimal_required(ms_minimal_required):
     """a simple cds data structure read from an MS (also a fixture defined here)"""
-    from xradio.vis import read_vis
+    from xradio.vis._vis_utils.ms import read_ms
 
-    cds = read_vis(ms_minimal_required.fname)
+    cds = read_ms(ms_minimal_required.fname)
 
     for _key, part in cds.partitions.items():
         quick_fix_ndarray_shape_attrs(part)

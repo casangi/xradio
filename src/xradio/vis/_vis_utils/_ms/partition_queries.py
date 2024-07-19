@@ -23,14 +23,19 @@ def enumerated_product(*args):
 def create_partitions(in_file: str, partition_scheme: list):
     """Create a list of dictionaries with the partition information.
 
-    Args:
-        in_file (str): Input MSv2 file path.
-        partition_scheme (list) : A MS v4 can only contain a single data description (spectral window and polarization setup), and observation mode. Consequently, the MS v2 is partitioned when converting to MS v4.
+    Parameters
+    ----------
+    in_file: str
+        Input MSv2 file path.
+    partition_scheme:  list
+        A MS v4 can only contain a single data description (spectral window and polarization setup), and observation mode. Consequently, the MS v2 is partitioned when converting to MS v4.
         In addition to data description and polarization setup a finer partitioning is possible by specifying a list of partitioning keys. Any combination of the following keys are possible:
-        "FIELD_ID", "SCAN_NUMBER", "STATE_ID", "SOURCE_ID", "SUB_SCAN_NUMBER". For mosaics where the phase center is rapidly changing (such as VLA on the fly mosaics)
-        partition_scheme should be set to an empty list []. By default, ["FIELD_ID"].
-    Returns:
-        list: list of dictionaries with the partition information.
+        "FIELD_ID", "SCAN_NUMBER", "STATE_ID", "SOURCE_ID", "SUB_SCAN_NUMBER".
+        For mosaics where the phase center is rapidly changing (such as VLA on the fly mosaics)  partition_scheme should be set to an empty list []. By default, ["FIELD_ID"].
+    Returns
+    -------
+    list
+        list of dictionaries with the partition information.
     """
     # vla_otf (bool, optional):  The partioning of VLA OTF (on the fly) mosaics needs a special partitioning scheme. Defaults to False.
 
@@ -144,7 +149,8 @@ def create_partitions(in_file: str, partition_scheme: list):
     return partitions
 
 
-# Used by code that will be deprecated at some stage.
+# Used by code that will be deprecated at some stage. See #192
+# Still need to clarify what to do about intent string filtering ('WVR', etc.)
 
 
 def make_partition_ids_by_ddi_intent(

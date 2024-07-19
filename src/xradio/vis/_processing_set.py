@@ -30,12 +30,14 @@ class processing_set(dict):
     def _summary(self, data_group="base"):
         summary_data = {
             "name": [],
-            "intent": [],
+            "obs_mode": [],
             "shape": [],
             "polarization": [],
             "spw_id": [],
+            # "field_id": [],
             "field_name": [],
-            "field_id": [],
+            # "source_id": [],
+            "source_name": [],
             "field_coords": [],
             "start_frequency": [],
             "end_frequency": [],
@@ -45,7 +47,7 @@ class processing_set(dict):
 
         for key, value in self.items():
             summary_data["name"].append(key)
-            summary_data["intent"].append(value.attrs["partition_info"]["intent"])
+            summary_data["obs_mode"].append(value.attrs["partition_info"]["obs_mode"])
             summary_data["spw_id"].append(
                 value.attrs["partition_info"]["spectral_window_id"]
             )
@@ -61,15 +63,25 @@ class processing_set(dict):
 
             summary_data["shape"].append(value[data_name].shape)
 
-            summary_data["field_id"].append(value.attrs["partition_info"]["field_id"])
+            # summary_data["field_id"].append(value.attrs["partition_info"]["field_id"])
+            # summary_data["source_id"].append(value.attrs["partition_info"]["source_id"])
+
             summary_data["field_name"].append(
-                value[data_name].attrs["field_and_source_xds"].attrs["field_name"]
+                value.attrs["partition_info"]["field_name"]
+            )
+            summary_data["source_name"].append(
+                value.attrs["partition_info"]["source_name"]
             )
             summary_data["start_frequency"].append(value["frequency"].values[0])
             summary_data["end_frequency"].append(value["frequency"].values[-1])
 
             if value[data_name].attrs["field_and_source_xds"].is_ephemeris:
                 summary_data["field_coords"].append("Ephemeris")
+            elif (
+                "time"
+                in value[data_name].attrs["field_and_source_xds"][center_name].coords
+            ):
+                summary_data["field_coords"].append("Multi-Phase-Center")
             else:
                 ra_dec_rad = (
                     value[data_name].attrs["field_and_source_xds"][center_name].values

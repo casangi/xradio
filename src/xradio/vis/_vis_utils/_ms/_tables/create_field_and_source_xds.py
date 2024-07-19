@@ -493,13 +493,21 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
     coords = {}
     if len(source_id) == 1:
         source_xds = source_xds.sel(source_id=source_id[0])
-        coords["source_name"] = source_xds["name"].data
-
+        coords["source_name"] = (
+            source_xds["name"].values.item() + "_" + str(source_id[0])
+        )
         direction_dims = ["sky_dir_label"]
+        # coords["source_id"] = source_id[0]
     else:
         source_xds = source_xds.sel(source_id=source_id)
-        coords["source_name"] = ("time", source_xds["name"].data)
+        coords["source_name"] = (
+            "time",
+            np.char.add(
+                source_xds["name"].data, np.char.add("_", source_id.astype(str))
+            ),
+        )
         direction_dims = ["time", "sky_dir_label"]
+        # coords["source_id"] = ("time", source_id)
 
     # If ephemeris data is present we ignore the SOURCE_DIRECTION.
     if not is_ephemeris:
@@ -587,20 +595,23 @@ def create_field_info_and_check_ephemeris(
     """
 
     # Federico do know how to do this taql query?
-    # unqiue_field_id = unique_1d(field_id) # field_ids can be repeated so that the time mapping is correct if there are multiple fields. The read_generic_table required unique field_ids.
-    # taql_where = f"where (ROW IN [{','.join(map(str, unqiue_field_id))}])"
-    # taql_where = f"GIVING [{','.join(map(str, unqiue_field_id))}]"
+    unqiue_field_id = unique_1d(
+        field_id
+    )  # field_ids can be repeated so that the time mapping is correct if there are multiple fields. The read_generic_table required unique field_ids.
+    taql_where = f"where (ROWID() IN [{','.join(map(str, unqiue_field_id))}])"
     field_xds = read_generic_table(
         in_file,
         "FIELD",
         rename_ids=subt_rename_ids["FIELD"],
-        # taql_where=taql_where,
+        taql_where=taql_where,
     )
 
     assert (
         len(field_xds.poly_id) == 1
     ), "Polynomial field positions not supported. Please open an issue on https://github.com/casangi/xradio/issues so that we can add support for this."
     field_xds = field_xds.isel(poly_id=0, drop=True)
+    # field_xds = field_xds.assign_coords({'field_id':field_xds['field_id'].data})
+    field_xds = field_xds.assign_coords({"field_id": unqiue_field_id})
     field_xds = field_xds.sel(field_id=field_id, drop=False)
     source_id = to_np_array(field_xds.source_id.values)
 
@@ -665,10 +676,15 @@ def create_field_info_and_check_ephemeris(
     if field_times is not None:
         coords["time"] = field_times
         dims = ["time", "sky_dir_label"]
-        coords["field_name"] = ("time", field_xds["name"].data)
+        coords["field_name"] = (
+            "time",
+            np.char.add(field_xds["name"].data, np.char.add("_", field_id.astype(str))),
+        )
+        # coords["field_id"] = ("time", field_id)
     else:
+        coords["field_name"] = field_xds["name"].values.item() + "_" + str(field_id)
+        # coords["field_id"] = field_id
         dims = ["sky_dir_label"]
-        coords["field_name"] = field_xds["name"].data
 
     for generic_name, msv4_name in field_data_variables.items():
 

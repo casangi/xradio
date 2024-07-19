@@ -34,9 +34,9 @@ class processing_set(dict):
             "shape": [],
             "polarization": [],
             "spw_id": [],
-            "field_id": [],
+            # "field_id": [],
             "field_name": [],
-            "source_id": [],
+            # "source_id": [],
             "source_name": [],
             "field_coords": [],
             "start_frequency": [],
@@ -63,8 +63,8 @@ class processing_set(dict):
 
             summary_data["shape"].append(value[data_name].shape)
 
-            summary_data["field_id"].append(value.attrs["partition_info"]["field_id"])
-            summary_data["source_id"].append(value.attrs["partition_info"]["source_id"])
+            # summary_data["field_id"].append(value.attrs["partition_info"]["field_id"])
+            # summary_data["source_id"].append(value.attrs["partition_info"]["source_id"])
 
             summary_data["field_name"].append(
                 value.attrs["partition_info"]["field_name"]

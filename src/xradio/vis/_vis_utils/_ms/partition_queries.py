@@ -147,67 +147,6 @@ def create_partitions(in_file: str, partition_scheme: list):
 # Used by code that will be deprecated at some stage.
 
 
-def make_partition_ids_by_ddi_scan(
-    infile: str, do_subscans: bool
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Produces arrays of per-partition ddi, scan, state_id, for when
-    using partiion schemes 'scan' or 'scan/subscan', that is
-    partitioning by some variant of (ddi, scan, subscan(state_id))
-
-    Parameters
-    ----------
-    infile : str
-        Path to MS
-    do_subscans : bool
-        also partitioning by subscan, not only scan
-
-    Returns
-    -------
-    Tuple[np.ndarray, np.ndarray, np.ndarray]
-        arrays with indices that define every partition
-    """
-    try:
-        cctable = None
-        taql_distinct_states = None
-        cctable = tables.table(
-            infile, readonly=True, lockoptions={"option": "usernoread"}, ack=False
-        )
-        if do_subscans:
-            taql_distinct_states = (
-                "select DISTINCT SCAN_NUMBER, STATE_ID, DATA_DESC_ID from $cctable"
-            )
-        else:
-            taql_distinct_states = (
-                "select DISTINCT SCAN_NUMBER, DATA_DESC_ID from $cctable"
-            )
-        with open_query(cctable, taql_distinct_states) as query_states:
-            logger.debug(
-                f"Got query, nrows: {query_states.nrows()}, query: {query_states}"
-            )
-            scan_number = query_states.getcol("SCAN_NUMBER")
-            logger.debug(
-                f"Got col SCAN_NUMBER (len: {len(scan_number)}): {scan_number}"
-            )
-            if do_subscans:
-                state_id = query_states.getcol("STATE_ID")
-                data_desc_id = np.full(len(scan_number), None)
-            else:
-                state_id = [None] * len(scan_number)
-                logger.debug(f"Got col STATE_ID (len: {len(state_id)}): {state_id}")
-                data_desc_id = query_states.getcol("DATA_DESC_ID")
-
-        logger.debug(f"Got col DATA_DESC_ID (len: {len(data_desc_id)}): {data_desc_id}")
-        logger.debug(
-            f"Len of DISTINCT SCAN_NUMBER,etc.: {len(scan_number)}. Will generate that number of partitions"
-        )
-    finally:
-        if cctable:
-            cctable.close()
-
-    return data_desc_id, scan_number, state_id
-
-
 def make_partition_ids_by_ddi_intent(
     infile: str, spw_names: xr.DataArray
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:

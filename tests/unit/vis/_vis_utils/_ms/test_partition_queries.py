@@ -5,57 +5,6 @@ import shutil
 import xarray as xr
 
 
-# Tests for _vis_utils/_ms/partition_queries. Move to its own file
-def test_make_partition_ids_by_ddi_scan(ms_empty_required):
-    from xradio.vis._vis_utils._ms.partition_queries import (
-        make_partition_ids_by_ddi_scan,
-    )
-
-    res = make_partition_ids_by_ddi_scan(ms_empty_required.fname, do_subscans=False)
-
-    exp = (np.empty(0, dtype=np.int32), np.empty(0, dtype=np.int32), [])
-    assert res
-    assert np.allclose(res[1], exp[1])
-    assert res[2] == exp[2]
-
-
-def test_make_partition_ids_by_ddi_scan_ms_min(ms_minimal_required):
-    from xradio.vis._vis_utils._ms.partition_queries import (
-        make_partition_ids_by_ddi_scan,
-    )
-
-    res = make_partition_ids_by_ddi_scan(ms_minimal_required.fname, do_subscans=False)
-
-    nddis = ms_minimal_required.descr["nddis"]
-    exp = (
-        np.arange(nddis, dtype=np.int32),
-        np.ones(nddis, dtype=np.int32),
-        nddis * [None],
-    )
-    assert res
-    assert np.allclose(res[0], exp[0])
-    assert np.allclose(res[1], exp[1])
-    assert res[2] == exp[2]
-
-
-def test_make_partition_ids_by_ddi_scan_subs(ms_empty_required):
-    from xradio.vis._vis_utils._ms.partition_queries import (
-        make_partition_ids_by_ddi_scan,
-    )
-
-    res = make_partition_ids_by_ddi_scan(ms_empty_required.fname, do_subscans=True)
-
-    exp = (
-        np.array([], dtype=np.int32),
-        np.array([], dtype=np.int32),
-        np.array([], dtype=np.int32),
-    )
-    assert res
-    assert np.array_equal(res[0], exp[0])
-    assert np.allclose(res[1], exp[1])
-    assert np.allclose(res[2], exp[2])
-
-
 def test_partition_when_empty_state(ms_empty_required):
     from xradio.vis._vis_utils._ms.partition_queries import partition_when_empty_state
 

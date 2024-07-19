@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import json
+import zarr
 
 from numcodecs.compat import (
     ensure_text,
@@ -339,8 +340,13 @@ def write_chunk(img_xds, meta, parallel_dims_chunk_id, compressor, image_file):
         else:
             array = img_xds[data_variable_name].values
 
-        write_binary_blob_to_disk(
-            array,
-            file_path=os.path.join(image_file, data_variable_name, chunk_name),
+        z_chunk = zarr.open(
+            os.path.join(image_file, data_variable_name, chunk_name),
+            mode="a",
+            shape=meta["shape"],
+            chunks=meta["chunks"],
+            dtype=meta["dtype"],
             compressor=compressor,
         )
+
+        return z_chunk

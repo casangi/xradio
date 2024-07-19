@@ -31,7 +31,6 @@ def test_zarr_write_exists():
 
 
 def test_zarr_write_ms_minimal(cds_minimal_required, tmp_path):
-    from xradio.vis import read_vis
     from xradio.vis._vis_utils.zarr import write_vis
     import copy
 

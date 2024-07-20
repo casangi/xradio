@@ -155,7 +155,7 @@ def test_vlass():
 
 # test_s3()
 # test_vlass()
-test_alma()
+# test_alma()
 # test_ska_mid()
 # test_lofar()
 # test_meerkat()

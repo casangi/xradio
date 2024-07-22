@@ -155,14 +155,16 @@ def create_ant_xds(
         rename_ids=subt_rename_ids["FEED"],
         taql_where=f" where (SPECTRAL_WINDOW_ID = {spectral_window_id}) AND (ANTENNA_ID IN [{','.join(map(str, antenna_id))}]) AND (FEED_ID IN [{','.join(map(str, feed_id))}])",
     )
+
+    assert (
+        len(generic_feed_xds.antenna_id) == len(ant_xds.antenna_id)
+    ), "Can only process feed table with a single time entry for an antenna and spectral_window_id."
+
     generic_ant_xds = generic_ant_xds.sel(
         antenna_id=ant_xds.antenna_id
     )  # Make sure the antenna_id is in the same order as the xds.
-
-    assert (
-        len(generic_feed_xds.time) == 1
-    ), "Can only process feed table with a single time entry for a source_id and spectral_window_id."
-    generic_feed_xds = generic_feed_xds.squeeze("time")
+    # print(generic_feed_xds)
+    # print("*" * 50)
 
     assert (
         len(unique_1d(generic_feed_xds.num_receptors)) == 1
@@ -171,8 +173,6 @@ def create_ant_xds(
     feed_column_description = generic_feed_xds.attrs["other"]["msv2"]["ctds_attrs"][
         "column_descriptions"
     ]
-    # print(generic_feed_xds)
-    # print("*" * 50)
 
     to_new_data_variable_names = {
         "beam_offset": "BEAM_OFFSET",

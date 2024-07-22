@@ -412,16 +412,16 @@ def create_coordinates(
     }
 
     ddi_xds = read_generic_table(in_file, "DATA_DESCRIPTION").sel(row=ddi)
-    pol_setup_id = ddi_xds.polarization_id.values
-    spectral_window_id = int(ddi_xds.spectral_window_id.values)
+    pol_setup_id = ddi_xds.POLARIZATION_ID.values
+    spectral_window_id = int(ddi_xds.SPECTRAL_WINDOW_ID.values)
 
     spectral_window_xds = read_generic_table(
         in_file,
         "SPECTRAL_WINDOW",
         rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
     ).sel(spectral_window_id=spectral_window_id)
-    coords["frequency"] = spectral_window_xds["chan_freq"].data[
-        ~(np.isnan(spectral_window_xds["chan_freq"].data))
+    coords["frequency"] = spectral_window_xds["CHAN_FREQ"].data[
+        ~(np.isnan(spectral_window_xds["CHAN_FREQ"].data))
     ]
 
     pol_xds = read_generic_table(
@@ -429,9 +429,9 @@ def create_coordinates(
         "POLARIZATION",
         rename_ids=subt_rename_ids["POLARIZATION"],
     )
-    num_corr = int(pol_xds["num_corr"][pol_setup_id].values)
+    num_corr = int(pol_xds["NUM_CORR"][pol_setup_id].values)
     coords["polarization"] = np.vectorize(stokes_types.get)(
-        pol_xds["corr_type"][pol_setup_id, :num_corr].values
+        pol_xds["CORR_TYPE"][pol_setup_id, :num_corr].values
     )
 
     xds = xds.assign_coords(coords)
@@ -443,18 +443,18 @@ def create_coordinates(
 
     msv4_measure = column_description_casacore_to_msv4_measure(
         freq_column_description["CHAN_FREQ"],
-        ref_code=spectral_window_xds["meas_freq_ref"].data,
+        ref_code=spectral_window_xds["MEAS_FREQ_REF"].data,
     )
     xds.frequency.attrs.update(msv4_measure)
 
-    xds.frequency.attrs["spectral_window_name"] = str(spectral_window_xds.name.values)
+    xds.frequency.attrs["spectral_window_name"] = str(spectral_window_xds.NAME.values)
     msv4_measure = column_description_casacore_to_msv4_measure(
         freq_column_description["REF_FREQUENCY"],
-        ref_code=spectral_window_xds["meas_freq_ref"].data,
+        ref_code=spectral_window_xds["MEAS_FREQ_REF"].data,
     )
     xds.frequency.attrs["reference_frequency"] = {
         "dims": [],
-        "data": float(spectral_window_xds.ref_frequency.values),
+        "data": float(spectral_window_xds.REF_FREQUENCY.values),
         "attrs": msv4_measure,
     }
     xds.frequency.attrs["spectral_window_id"] = spectral_window_id
@@ -465,8 +465,8 @@ def create_coordinates(
     # xds.frequency.attrs["doppler_type"] =
 
     unique_chan_width = unique_1d(
-        spectral_window_xds.chan_width.data[
-            np.logical_not(np.isnan(spectral_window_xds.chan_width.data))
+        spectral_window_xds["CHAN_WIDTH"].data[
+            np.logical_not(np.isnan(spectral_window_xds["CHAN_WIDTH"].data))
         ]
     )
     # assert len(unique_chan_width) == 1, "Channel width varies for spectral_window."
@@ -475,7 +475,7 @@ def create_coordinates(
     # ]  # unique_chan_width[0]
     msv4_measure = column_description_casacore_to_msv4_measure(
         freq_column_description["CHAN_WIDTH"],
-        ref_code=spectral_window_xds["meas_freq_ref"].data,
+        ref_code=spectral_window_xds["MEAS_FREQ_REF"].data,
     )
     if not msv4_measure:
         msv4_measure["type"] = "quantity"

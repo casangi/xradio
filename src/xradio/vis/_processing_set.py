@@ -6,12 +6,6 @@ class processing_set(dict):
         super().__init__(*args, **kwargs)
         self.meta = {"summary": {}}
 
-    #     generate_meta(self)
-
-    # def generate_meta(self):
-    #     self.meta['summary'] = {"base": _summary(self)}
-    #     self.meta['max_dims'] = _get_ps_max_dims(self)
-
     def summary(self, data_group="base"):
         if data_group in self.meta["summary"]:
             return self.meta["summary"][data_group]
@@ -36,52 +30,69 @@ class processing_set(dict):
     def _summary(self, data_group="base"):
         summary_data = {
             "name": [],
-            "ddi": [],
-            "intent": [],
-            "field_id": [],
+            "obs_mode": [],
+            "shape": [],
+            "polarization": [],
+            "spw_id": [],
+            # "field_id": [],
             "field_name": [],
+            # "source_id": [],
+            "source_name": [],
+            "field_coords": [],
             "start_frequency": [],
             "end_frequency": [],
-            "shape": [],
-            "field_coords": [],
         }
         from astropy.coordinates import SkyCoord
         import astropy.units as u
 
         for key, value in self.items():
             summary_data["name"].append(key)
-            summary_data["ddi"].append(value.attrs["ddi"])
-            summary_data["intent"].append(value.attrs["intent"])
+            summary_data["obs_mode"].append(value.attrs["partition_info"]["obs_mode"])
+            summary_data["spw_id"].append(
+                value.attrs["partition_info"]["spectral_window_id"]
+            )
+            summary_data["polarization"].append(value.polarization.values)
 
             if "visibility" in value.attrs["data_groups"][data_group]:
                 data_name = value.attrs["data_groups"][data_group]["visibility"]
+                center_name = "FIELD_PHASE_CENTER"
 
             if "spectrum" in value.attrs["data_groups"][data_group]:
                 data_name = value.attrs["data_groups"][data_group]["spectrum"]
+                center_name = "FIELD_REFERENCE_CENTER"
 
             summary_data["shape"].append(value[data_name].shape)
 
-            summary_data["field_id"].append(
-                value[data_name].attrs["field_and_source_xds"].attrs["field_id"]
-            )
+            # summary_data["field_id"].append(value.attrs["partition_info"]["field_id"])
+            # summary_data["source_id"].append(value.attrs["partition_info"]["source_id"])
+
             summary_data["field_name"].append(
-                value[data_name].attrs["field_and_source_xds"].attrs["field_name"]
+                value.attrs["partition_info"]["field_name"]
+            )
+            summary_data["source_name"].append(
+                value.attrs["partition_info"]["source_name"]
             )
             summary_data["start_frequency"].append(value["frequency"].values[0])
             summary_data["end_frequency"].append(value["frequency"].values[-1])
 
-            if "FIELD_PHASE_CENTER" in value[data_name].attrs["field_and_source_xds"]:
+            if value[data_name].attrs["field_and_source_xds"].is_ephemeris:
+                summary_data["field_coords"].append("Ephemeris")
+            elif (
+                "time"
+                in value[data_name].attrs["field_and_source_xds"][center_name].coords
+            ):
+                summary_data["field_coords"].append("Multi-Phase-Center")
+            else:
                 ra_dec_rad = (
-                    value[data_name]
-                    .attrs["field_and_source_xds"]["FIELD_PHASE_CENTER"]
-                    .values
+                    value[data_name].attrs["field_and_source_xds"][center_name].values
                 )
                 frame = (
                     value[data_name]
-                    .attrs["field_and_source_xds"]["FIELD_PHASE_CENTER"]
+                    .attrs["field_and_source_xds"][center_name]
                     .attrs["frame"]
                     .lower()
                 )
+
                 coord = SkyCoord(
                     ra=ra_dec_rad[0] * u.rad, dec=ra_dec_rad[1] * u.rad, frame=frame
                 )
@@ -89,12 +100,10 @@ class processing_set(dict):
                 summary_data["field_coords"].append(
                     [
                         frame,
-                        coord.ra.to_string(unit=u.hour),
-                        coord.dec.to_string(unit=u.deg),
+                        coord.ra.to_string(unit=u.hour, precision=2),
+                        coord.dec.to_string(unit=u.deg, precision=2),
                     ]
                 )
-            else:
-                summary_data["field_coords"].append("Ephemeris")
 
         summary_df = pd.DataFrame(summary_data)
         return summary_df
@@ -109,8 +118,8 @@ class processing_set(dict):
             assert (
                 frame == ms_xds.frequency.attrs["frame"]
             ), "Frequency reference frame not consistent in processing set."
-            if ms_xds.frequency.attrs["spw_id"] not in spw_ids:
-                spw_ids.append(ms_xds.frequency.attrs["spw_id"])
+            if ms_xds.frequency.attrs["spectral_window_id"] not in spw_ids:
+                spw_ids.append(ms_xds.frequency.attrs["spectral_window_id"])
                 freq_axis_list.append(ms_xds.frequency)
 
         freq_axis = xr.concat(freq_axis_list, dim="frequency").sortby("frequency")
@@ -132,3 +141,36 @@ class processing_set(dict):
 
     def get(self, id):
         return self[list(self.keys())[id]]
+
+    def sel(self, **kwargs):
+        import numpy as np
+
+        summary_table = self.summary()
+        for key, value in kwargs.items():
+            if isinstance(value, list) or isinstance(value, np.ndarray):
+                summary_table = summary_table[summary_table[key].isin(value)]
+            elif isinstance(value, slice):
+                summary_table = summary_table[
+                    summary_table[key].between(value.start, value.stop)
+                ]
+            else:
+                summary_table = summary_table[summary_table[key] == value]
+
+        sub_ps = processing_set()
+        for key, val in self.items():
+            if key in summary_table["name"].values:
+                sub_ps[key] = val
+
+        return sub_ps
+
+    def ms_sel(self, **kwargs):
+        sub_ps = processing_set()
+        for key, val in self.items():
+            sub_ps[key] = val.sel(kwargs)
+        return sub_ps
+
+    def ms_isel(self, **kwargs):
+        sub_ps = processing_set()
+        for key, val in self.items():
+            sub_ps[key] = val.isel(kwargs)
+        return sub_ps

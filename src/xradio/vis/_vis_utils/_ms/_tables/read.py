@@ -76,6 +76,161 @@ def convert_mjd_time(rawtimes: np.ndarray) -> np.ndarray:
     return times_reref
 
 
+def convert_casacore_time_to_mjd(rawtimes: np.ndarray) -> np.ndarray:
+    """
+    From CASA/casacore time (as used in the TIME column of the main table) to MJD
+    (as used in the EPHEMi*.tab ephemeris tables). As the epochs are the same, this
+    is just a conversion of units.
+
+    Parameters
+    ----------
+    rawtimes : np.ndarray
+        times from a TIME column (seconds, casacore time epoch)
+
+    Returns
+    -------
+    np.ndarray
+        times converted to (ephemeris) MJD (days since casacore time epoch (1858-11-17))
+    """
+    return rawtimes / SECS_IN_DAY
+
+
+def make_taql_where_between_min_max(
+    min_max: Tuple[np.float64, np.float64],
+    path: str,
+    table_name: str,
+    colname="TIME",
+) -> Union[str, None]:
+    """
+    From a numerical min/max range, produce a TaQL string to select between
+    those min/max values (example: times) in a table.
+    The table can be for example a POINTING subtable or an EPHEM* ephemeris
+    table.
+    This is meant to be used on MSv2 table columns that will be loaded as a
+    coordinate in MSv4s and their sub-xdss (example: POINTING/TIME ephemeris/MJD).
+
+    This can be used for example to produce a TaQL string to constraing loading of:
+    - POINTING rows (based on the min/max from the time coordinate of the main MSv4)
+    - ephemeris rows, from EPHEM* tables ((based on the MJD column and the min/max
+      from the main MSv4 time coordinate).
+
+    Parameters
+    ----------
+    min_max : Tuple[np.float64, np.float64]
+        min / max values of time or other column used as coordinate
+        (assumptions: float values, sortable, typically: time coord from MSv4)
+    path :
+        Path to input MS or location of the table
+    table_name :
+        Name of the table where to load a column (example: 'POINTING')
+    colname :
+        Name of the column to search for min/max values (examples: 'TIME', 'MJD')
+
+    Returns
+    -------
+    taql_where : str
+        TaQL (sub)string with the min/max time 'WHERE' constraint
+    """
+
+    min_max_range = find_projected_min_max_table(min_max, path, table_name, colname)
+    if min_max_range is None:
+        taql = None
+    else:
+        (min_val, max_val) = min_max_range
+        taql = f"where {colname} >= {min_val} AND {colname} <= {max_val}"
+
+    return taql
+
+
+def find_projected_min_max_table(
+    min_max: Tuple[np.float64, np.float64], path: str, table_name: str, colname: str
+) -> Union[Tuple[np.float64, np.float64], None]:
+    """
+    We have: min/max values that define a range (for example of time)
+    We want: to project that min/max range on a sortable column (for example a
+    range of times onto a TIME column), and find min and max values
+    derived from that table column such that the range between those min and max
+    values includes at least the input min/max range.
+
+    The returned min/max can then be used in a data selection TaQL query to
+    select at least the values within the input range (possibly extended if
+    the input range overlaps only partially or not at all with the column
+    values). A tolerance is added to the min/max to prevent numerical issues in
+    comparisons and conversios between numerical types and strings.
+
+    When the range given as input is wider than the range of values found in
+    the column, use the input range, as it is sufficient and more inclusive.
+
+    When the range given as input is narrow (projected on the target table/column)
+    and falls between two points of the column values, or overlaps with only one
+    point, the min/max are extended to include at least the two column values that
+    define a range within which the input range is included.
+    Example scenario: an ephemeris table is sampled at a coarse interval
+    (20 min) and we want to find a min/max range projected from the time min/max
+    of a main MSv4 time coordinate sampled at ~1s for a field-scan/intent
+    that spans ~2 min. Those ~2 min will typically fall between ephemeris samples.
+
+    Parameters
+    ----------
+    min_max : Tuple[np.float64, np.float64]
+        min / max values of time or other column used as coordinate
+        (assumptions: float values, sortable)
+    path :
+        Path to input MS or location of the table
+    table_name :
+        Name of the table where to load a column (example: 'POINTING')
+    colname :
+        Name of the column to search for min/max values (example: 'TIME')
+
+    Returns
+    -------
+    output_min_max : Union[Tuple[np.float64, np.float64], None]
+        min/max values derived from the input min/max and the column values
+    """
+    with open_table_ro(os.path.join(path, table_name)) as tb_tool:
+        if tb_tool.nrows() == 0:
+            return None
+        col = tb_tool.getcol(colname)
+
+    out_min_max = find_projected_min_max_array(min_max, col)
+    return out_min_max
+
+
+def find_projected_min_max_array(
+    min_max: Tuple[np.float64, np.float64], array: np.array
+) -> Tuple[np.float64, np.float64]:
+    """Does the min/max checks and search for find_projected_min_max_table()"""
+
+    sorted_array = np.sort(array)
+    (range_min, range_max) = min_max
+    if len(sorted_array) < 2:
+        tol = np.finfo(sorted_array.dtype).eps * 4
+    else:
+        tol = np.diff(sorted_array[np.nonzero(sorted_array)]).min() / 4
+
+    if range_max > sorted_array[-1]:
+        projected_max = range_max + tol
+    else:
+        max_idx = sorted_array.size - 1
+        max_array_idx = min(
+            max_idx, np.searchsorted(sorted_array, range_max, side="right")
+        )
+        projected_max = sorted_array[max_array_idx] + tol
+
+    if range_min < sorted_array[0]:
+        projected_min = range_min - tol
+    else:
+        min_array_idx = max(
+            0, np.searchsorted(sorted_array, range_min, side="left") - 1
+        )
+        # ensure 'sorted_array[min_array_idx] < range_min' when values ==
+        if sorted_array[min_array_idx] == range_min:
+            min_array_idx = max(0, min_array_idx - 1)
+        projected_min = sorted_array[min_array_idx] - tol
+
+    return (projected_min, projected_max)
+
+
 def extract_table_attributes(infile: str) -> Dict[str, Dict]:
     """
     Return a dictionary of table attributes created from MS keywords and column descriptions
@@ -305,8 +460,18 @@ def redimension_ms_subtable(xds: xr.Dataset, subt_name: str) -> xr.Dataset:
 
     rxds = xds.copy()
     try:
+        # drop_duplicates() needed (https://github.com/casangi/xradio/issues/185). Examples:
+        # - Some early ALMA datasets have bogus WEATHER tables with many/most rows with
+        #   (ANTENNA_ID=0, TIME=0) and no other columns to figure out the right IDs, such
+        #   as "NS_WX_STATION_ID" or similar. (example: X425.pm04.scan4.ms)
+        # - Some GBT MSs have duplicated (ANTENNA_ID=0, TIME=xxx). (example: analytic_variable.ms)
         with np.errstate(invalid="ignore"):
-            rxds = rxds.set_index(row=key_dims).unstack("row").transpose(*key_dims, ...)
+            rxds = (
+                rxds.set_index(row=key_dims)
+                .drop_duplicates("row")
+                .unstack("row")
+                .transpose(*key_dims, ...)
+            )
         # unstack changes type to float when it needs to introduce NaNs, so
         # we need to reset to the original type.
         for var in rxds.data_vars:
@@ -391,7 +556,7 @@ def read_generic_table(
         list of column names to ignore and not try to read.
     rename_ids : Dict[str, str] (Default value = None)
         dict with dimension renaming mapping
-    taql_where : str
+    taql_where : str (Default value = None)
          TaQL string to optionally constain the rows/columns to read
          (Default value = None)
 
@@ -582,13 +747,13 @@ def load_generic_cols(
         dict of coordinates and dict of data vars.
     """
 
-    col_cells = find_loadable_filled_cols(tb_tool, ignore)
+    col_types = find_loadable_cols(tb_tool, ignore)
 
     trows = tb_tool.row(ignore, exclude=True)[:]
 
     # Produce coords and data vars from MS columns
     mcoords, mvars = {}, {}
-    for col in col_cells.keys():
+    for col in col_types.keys():
         try:
             # TODO
             # benchmark np.stack() performance
@@ -614,7 +779,7 @@ def load_generic_cols(
             if len(set([isinstance(row[col], dict) for row in trows])) > 1:
                 continue  # can't deal with this case
 
-            data = handle_variable_col_issues(inpath, col, col_cells, trows)
+            data = handle_variable_col_issues(inpath, col, col_types[col], trows)
 
         if len(data) == 0:
             continue
@@ -662,7 +827,7 @@ def load_fixed_size_cols(
         dict of coordinates and dict of data vars, ready to construct an xr.Dataset
     """
 
-    loadable_cols = find_loadable_filled_cols(tb_tool, ignore)
+    loadable_cols = find_loadable_cols(tb_tool, ignore)
 
     # Produce coords and data vars from MS columns
     mcoords, mvars = {}, {}
@@ -691,13 +856,16 @@ def load_fixed_size_cols(
     return mcoords, mvars
 
 
-def find_loadable_filled_cols(
+def find_loadable_cols(
     tb_tool: tables.table, ignore: Union[List[str], None]
-) -> Dict:
+) -> Dict[str, str]:
     """
-    For a table, finds the columns that are:
-    - loadable = not of record type, and not to be ignored
-    - filled = the column cells are populated.
+    For a table, finds the columns that are loadable = not of record type,
+    and not to be ignored
+    In extreme cases of variable size columns, it can happen that all the
+    cells are empty (iscelldefined() == false). This is still considered a
+    loadable column, even though all values of the resulting data var will
+    be empty.
 
     Parameters
     ----------
@@ -709,17 +877,15 @@ def find_loadable_filled_cols(
     Returns
     -------
     Dict
-        dict of {column name => first cell} for columns that can/should be loaded
+        dict of {column name: column type} for columns that can/should be loaded
     """
 
     colnames = tb_tool.colnames()
-    # columns that are not populated are skipped. record columns are not supported
+    table_desc = tb_tool.getdesc()
     loadable_cols = {
-        col: tb_tool.getcell(col, 0)
+        col: table_desc[col]["valueType"]
         for col in colnames
-        if (col not in ignore)
-        and (tb_tool.iscelldefined(col, 0))
-        and tb_tool.coldatatype(col) != "record"
+        if (col not in ignore) and tb_tool.coldatatype(col) != "record"
     }
     return loadable_cols
 
@@ -813,7 +979,7 @@ def raw_col_data_to_coords_vars(
 
 
 def handle_variable_col_issues(
-    inpath: str, col: str, col_cells: dict, trows: tables.tablerow
+    inpath: str, col: str, col_type: str, trows: tables.tablerow
 ) -> np.ndarray:
     """
     load variable-size array columns, padding with nans wherever
@@ -827,8 +993,8 @@ def handle_variable_col_issues(
         path name of the MS
     col : str
         column being loaded
-    col_cells : dict
-        col: cell} values
+    col_type : str
+        type of the column cell values
     trows : tables.tablerow
         rows from a table as loaded by tables.row()
 
@@ -843,7 +1009,7 @@ def handle_variable_col_issues(
 
     mshape = np.array(max([np.array(row[col]).shape for row in trows]))
     try:
-        pad_nan = get_pad_nan(col_cells[col])
+        pad_nan = get_pad_nan(np.array((), dtype=col_type))
 
         # TODO
         # benchmark np.stack() performance
@@ -1034,58 +1200,56 @@ def read_col_conversion(
 
     # Workaround for https://github.com/casacore/python-casacore/issues/130
     # WARNING: Assumes tb_tool is a single measurement set not an MMS.
-    # WARNING: Assumes the num_frequencies * num_polarisations > 2**29. If false,
+    # WARNING: Assumes the num_frequencies * num_polarizations < 2**29. If false,
     # https://github.com/casacore/python-casacore/issues/130 isn't mitigated.
 
     # Use casacore to get the shape of a row for this column
-
     #################################################################################
 
     # Get the total number of rows in the base measurement set
     nrows_total = tb_tool.nrows()
 
     # getcolshapestring() only works on columns where a row element is an
-    # array (ie fails for TIME, etc)
-    # Assumes RuntimeError is because the column is a scalar
+    # array ie. fails for TIME
+    # Assumes the RuntimeError is because the column is a scalar
     try:
-
         shape_string = tb_tool.getcolshapestring(col)[0]
+        # Convert `shape_string` into a tuple that numpy understands
         extra_dimensions = tuple(
             [
                 int(idx)
                 for idx in shape_string.replace("[", "").replace("]", "").split(", ")
             ]
         )
-        full_shape = tuple(
-            [nrows_total]
-            + [
-                int(idx)
-                for idx in shape_string.replace("[", "").replace("]", "").split(", ")
-            ]
-        )
     except RuntimeError:
         extra_dimensions = ()
-        full_shape = (nrows_total,)
 
     #################################################################################
 
     # Get dtype of the column. Only read first row from disk
     col_dtype = np.array(tb_tool.col(col)[0]).dtype
 
-    # Construct the numpy array to populate with data
-    data = np.empty(full_shape, dtype=col_dtype)
+    # Construct a numpy array to populate. `data` has shape (n_times, n_baselines, n_frequencies, n_polarizations)
+    data = np.full(cshape + extra_dimensions, np.nan, dtype=col_dtype)
 
     # Use built-in casacore table iterator to populate the data column by unique times.
     start_row = 0
     for ts in tb_tool.iter("TIME", sort=False):
         num_rows = ts.nrows()
-        # Note don't use getcol() because it's less safe. See:
+
+        # Create small temporary array to store the partial column
+        tmp_arr = np.full((num_rows,) + extra_dimensions, np.nan, dtype=col_dtype)
+
+        # Note we don't use `getcol()` because it's less safe. See:
         # https://github.com/casacore/python-casacore/issues/130#issuecomment-463202373
-        ts.getcolnp(col, data[start_row : start_row + num_rows])
+        ts.getcolnp(col, tmp_arr)
+
+        # Get the slice of rows contained in `tmp_arr`.
+        # Used to get the relevant integer indexes from `tidxs` and `bidxs`
+        tmp_slice = slice(start_row, start_row + num_rows)
+
+        # Copy `tmp_arr` into correct elements of `tmp_arr`
+        data[tidxs[tmp_slice], bidxs[tmp_slice]] = tmp_arr
         start_row += num_rows
 
-    # TODO
-    # Can we return a view of `data` instead of copying?
-    fulldata = np.full(cshape + extra_dimensions, np.nan, dtype=col_dtype)
-    fulldata[tidxs, bidxs] = data
-    return fulldata
+    return data

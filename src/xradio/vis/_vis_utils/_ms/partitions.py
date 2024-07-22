@@ -7,7 +7,6 @@ import xarray as xr
 from .msv2_msv3 import ignore_msv2_cols
 from .partition_queries import (
     make_partition_ids_by_ddi_intent,
-    make_partition_ids_by_ddi_scan,
 )
 from .subtables import subt_rename_ids, add_pointing_to_partition
 from .descr import describe_ms
@@ -154,10 +153,7 @@ def read_ms_scan_subscan_partitions(
             distinct_intents,
         ) = make_partition_ids_by_ddi_intent(infile, spw_names_by_ddi)
     else:
-        do_subscans = partition_scheme == "scan/subscan"
-        data_desc_id, scan_number, state_id = make_partition_ids_by_ddi_scan(
-            infile, do_subscans
-        )
+        raise ValueError("foo")
 
     ant_xds = read_generic_table(
         infile, "ANTENNA", rename_ids=subt_rename_ids["ANTENNA"]

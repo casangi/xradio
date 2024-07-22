@@ -1,7 +1,10 @@
+import graphviper.utils.logger as logger
+
 col_to_data_variable_names = {
     "FLOAT_DATA": "SPECTRUM",
     "DATA": "VISIBILITY",
     "CORRECTED_DATA": "VISIBILITY_CORRECTED",
+    "MODEL_DATA": "VISIBILITY_MODEL",
     "WEIGHT_SPECTRUM": "WEIGHT",
     "WEIGHT": "WEIGHT",
     "FLAG": "FLAG",
@@ -12,6 +15,7 @@ col_to_data_variable_names = {
 col_dims = {
     "DATA": ("time", "baseline_id", "frequency", "polarization"),
     "CORRECTED_DATA": ("time", "baseline_id", "frequency", "polarization"),
+    "MODEL_DATA": ("time", "baseline_id", "frequency", "polarization"),
     "WEIGHT_SPECTRUM": ("time", "baseline_id", "frequency", "polarization"),
     "WEIGHT": ("time", "baseline_id", "frequency", "polarization"),
     "FLAG": ("time", "baseline_id", "frequency", "polarization"),
@@ -26,17 +30,37 @@ col_to_coord_names = {
     "ANTENNA2": "baseline_ant2_id",
 }
 
+# Map casacore measures to astropy
 casacore_to_msv4_measure_type = {
-    "quanta": {"type": "quantity", "Ref": None},
-    "direction": {"type": "sky_coord", "Ref": "frame"},
-    "epoch": {"type": "time", "Ref": "scale"},
-    "frequency": {"type": "spectral_coord", "Ref": "frame"},
-    "position": {"type": "earth_location", "Ref": "ellipsoid"},
-    "uvw": {"type": "uvw", "Ref": "frame"},
-    "radialvelocity": {"type": "quantity", "Ref": None},
+    "quanta": {
+        "type": "quantity",
+    },
+    "direction": {"type": "sky_coord", "Ref": "frame", "Ref_map": {"J2000": "fk5"}},
+    "epoch": {"type": "time", "Ref": "scale", "Ref_map": {"UTC": "utc"}},
+    "frequency": {
+        "type": "spectral_coord",
+        "Ref": "frame",
+        "Ref_map": {
+            "REST": "REST",
+            "LSRK": "LSRK",
+            "LSRD": "LSRD",
+            "BARY": "BARY",
+            "GEO": "GEO",
+            "TOPO": "TOPO",
+            "GALACTO": "GALACTO",
+            "LGROUP": "LGROUP",
+            "CMB": "CMB",
+            "Undefined": "Undefined",
+        },
+    },
+    "position": {
+        "type": "earth_location",
+        "Ref": "ellipsoid",
+        "Ref_map": {"ITRF": "GRS80"},
+    },
+    "uvw": {"type": "uvw", "Ref": "frame", "Ref_map": {"ITRF": "GRS80"}},
+    "radialvelocity": {"type": "quantity"},
 }
-
-casacore_to_msv4_ref = {"J2000": "FK5", "ITRF": "GRS80"}
 
 casa_frequency_frames = [
     "REST",
@@ -61,42 +85,48 @@ def column_description_casacore_to_msv4_measure(
 
     msv4_measure = {}
     if "MEASINFO" in casacore_column_description["keywords"]:
-        msv4_measure["type"] = casacore_to_msv4_measure_type[
-            casacore_column_description["keywords"]["MEASINFO"]["type"]
-        ]["type"]
+        measinfo = casacore_column_description["keywords"]["MEASINFO"]
+
+        # Get conversion information
+        msv4_measure_conversion = casacore_to_msv4_measure_type[measinfo["type"]]
+
+        # Convert type, copy unit
+        msv4_measure["type"] = msv4_measure_conversion["type"]
         msv4_measure["units"] = list(
             casacore_column_description["keywords"]["QuantumUnits"]
         )
 
-        if "TabRefCodes" in casacore_column_description["keywords"]["MEASINFO"]:
-            ref_index = np.where(
-                casacore_column_description["keywords"]["MEASINFO"]["TabRefCodes"]
-                == ref_code
-            )[0][0]
-            casa_ref = casacore_column_description["keywords"]["MEASINFO"][
-                "TabRefTypes"
-            ][ref_index]
-        else:
-            if "Ref" in casacore_column_description["keywords"]["MEASINFO"]:
-                casa_ref = casacore_column_description["keywords"]["MEASINFO"]["Ref"]
-            elif (
-                casacore_column_description["keywords"]["MEASINFO"]["type"]
-                == "frequency"
-            ):
+        # Reference frame to convert?
+        if "Ref" in msv4_measure_conversion:
+            # Find reference frame
+            if "TabRefCodes" in measinfo:
+                ref_index = np.where(measinfo["TabRefCodes"] == ref_code)[0][0]
+                casa_ref = measinfo["TabRefTypes"][ref_index]
+            elif "Ref" in measinfo:
+                casa_ref = measinfo["Ref"]
+            elif measinfo["type"] == "frequency":
                 # Some MSv2 don't have the "TabRefCodes".
                 ref_index = np.where(casa_frequency_frames_codes == ref_code)[0][0]
                 casa_ref = casa_frequency_frames[ref_index]
+            else:
+                logger.debug(
+                    f"Could not determine {measinfo['type']} measure "
+                    "reference frame!"
+                )
 
-        if casa_ref in casacore_to_msv4_ref:
-            casa_ref = casacore_to_msv4_ref[casa_ref]
-        msv4_measure[
-            casacore_to_msv4_measure_type[
-                casacore_column_description["keywords"]["MEASINFO"]["type"]
-            ]["Ref"]
-        ] = casa_ref
+            # Convert into MSv4 representation of reference frame, warn if unknown
+            if casa_ref in msv4_measure_conversion.get("Ref_map", {}):
+                casa_ref = msv4_measure_conversion["Ref_map"][casa_ref]
+            else:
+                logger.debug(
+                    f"Unknown reference frame for {measinfo['type']} "
+                    f"measure, using verbatim: {casa_ref}"
+                )
+
+            msv4_measure[msv4_measure_conversion["Ref"]] = casa_ref
 
         if msv4_measure["type"] == "time":
-            msv4_measure["format"] = "UNIX"
+            msv4_measure["format"] = time_format
     elif "QuantumUnits" in casacore_column_description["keywords"]:
         msv4_measure = {
             "type": "quantity",

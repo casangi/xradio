@@ -282,7 +282,6 @@ def check_dtype(dtype: numpy.dtype, expected: [numpy.dtype]) -> SchemaIssues:
     """
 
     for exp_dtype in expected:
-
         # If the expected dtype has no size (e.g. "U", a.k.a. a string of
         # arbitrary length), we don't check itemsize, only kind.
         if (
@@ -321,13 +320,11 @@ def check_attributes(
 
     issues = SchemaIssues()
     for attr_schema in attrs_schema:
-
         # Attribute missing? Note that a value of "None" is equivalent for the
         # purpose of the check
         val = attrs.get(attr_schema.name)
         if val is None:
             if not attr_schema.optional:
-
                 # Get options
                 if typing.get_origin(attr_schema.typ) is typing.Union:
                     options = typing.get_args(attr_schema.typ)
@@ -374,7 +371,6 @@ def check_data_vars(
 
     issues = SchemaIssues()
     for data_var_schema in data_vars_schema:
-
         # Data_Varinate missing?
         data_var = data_vars.get(data_var_schema.name)
         if data_var is None:
@@ -407,7 +403,6 @@ def check_data_vars(
 def check_dict(
     dct: dict, schema: typing.Union[type, metamodel.DictSchema]
 ) -> SchemaIssues:
-
     # Check that this is actually a dictionary
     if not isinstance(dct, dict):
         raise TypeError(f"check_dict: Expected dictionary, but got {type(dct)}!")
@@ -558,7 +553,6 @@ def schema_checked(fn, check_parameters: bool = True, check_return: bool = True)
 
     @functools.wraps(fn)
     def _check_fn(*args, **kwargs):
-
         # Hide this function in pytest tracebacks
         __tracebackhide__ = True
 

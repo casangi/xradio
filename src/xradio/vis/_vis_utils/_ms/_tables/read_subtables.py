@@ -19,7 +19,7 @@ from .read import (
     read_generic_table,
 )
 from .write import revert_time
-from xradio.vis._vis_utils._ms.optimised_functions import unique_1d
+from xradio._utils.list_and_array import unique_1d
 
 
 def read_ephemerides(

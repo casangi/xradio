@@ -41,7 +41,6 @@ class SourceInfoDict:
 
 @xarray_dataarray_schema
 class TimeArray:
-
     data: Data[Time, float]
 
     scale: Attr[str] = "tai"
@@ -55,7 +54,6 @@ class TimeArray:
 
 @xarray_dataarray_schema
 class SkyCoordArray:
-
     data: Data[SkyCoordLabel, float]
 
     type: Attr[str] = "sky_coord"
@@ -108,7 +106,6 @@ class QuantityArray:
 
 @xarray_dataarray_schema
 class SpectralCoordArray:
-
     data: Data[tuple[()], float]
 
     frame: Attr[str] = "gcrs"
@@ -120,7 +117,6 @@ class SpectralCoordArray:
 
 @xarray_dataarray_schema
 class EarthLocationArray:
-
     data: Data[XyzLabel, float]
 
     ellipsoid: Attr[str]
@@ -493,7 +489,6 @@ class FreqSamplingArray:
 
 @xarray_dataset_schema
 class AntennaXds:
-
     # --- Coordinates ---
     antenna_id: Coordof[AntennaArray]
     """Antenna ID"""
@@ -566,7 +561,6 @@ class AntennaXds:
 
 @xarray_dataset_schema
 class PointingXds:
-
     time: Coordof[TimeArray]
     """
     Mid-point of the time interval for which the information in this row is

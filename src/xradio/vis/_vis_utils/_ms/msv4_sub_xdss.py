@@ -1,13 +1,59 @@
 import graphviper.utils.logger as logger
 import time
-from typing import Union
+from typing import Tuple, Union
 
 import numpy as np
 import xarray as xr
 
 from .msv2_to_msv4_meta import column_description_casacore_to_msv4_measure
 from .subtables import subt_rename_ids
-from ._tables.read import read_generic_table
+from ._tables.read import make_taql_where_between_min_max, read_generic_table
+
+
+def interpolate_to_time(
+    xds: xr.Dataset,
+    interp_time: Union[xr.DataArray, None],
+    message_prefix: str,
+    time_name: str = "time",
+) -> xr.Dataset:
+    """
+    Interpolate the time coordinate of the input xarray dataset to the
+    a data array. This can be used for example to interpolate a pointing_xds
+    to the time coord of the (main) MSv4, or similarly the ephemeris
+    data variables of a field_and_source_xds.
+
+    Uses interpolation method "linear", unless the source number of points is
+    1 in which case "nearest" is used, to avoid divide-by-zero issues.
+
+    Parameters:
+    ----------
+    xds : xr.Dataset
+        Xarray dataset to interpolate (presumably a pointing_xds or an xds of
+        ephemeris variables)
+    interp_time : Union[xr.DataArray, None]
+        Time axis to interpolate the dataset to (usually main MSv4 time)
+    message_prefix: str
+        A prefix for info/debug/etc. messages
+
+    Returns:
+    -------
+    interpolated_xds : xr.Dataset
+        xarray dataset with time axis interpolated to interp_time.
+    """
+    if interp_time is not None:
+        points_before = xds[time_name].size
+        if points_before > 1:
+            method = "linear"
+        else:
+            method = "nearest"
+        xds = xds.interp({time_name: interp_time}, method=method, assume_sorted=True)
+        points_after = xds[time_name].size
+        logger.debug(
+            f"{message_prefix}: interpolating the time coordinate "
+            f"from {points_before} to {points_after} points"
+        )
+
+    return xds
 
 
 def create_ant_xds(in_file: str, spectral_window_id: int):
@@ -239,7 +285,9 @@ def create_weather_xds(in_file: str):
 
 
 def create_pointing_xds(
-    in_file: str, taql_where: str, interp_time: Union[xr.DataArray, None] = None
+    in_file: str,
+    time_min_max: Union[Tuple[np.float64, np.float64], None],
+    interp_time: Union[xr.DataArray, None] = None,
 ) -> xr.Dataset:
     """
     Creates a Pointing Xarray Dataset from an MS v2 POINTING (sub)table.
@@ -251,8 +299,8 @@ def create_pointing_xds(
     ----------
     in_file : str
         Input MS name.
-    taql_where : str
-        TaQL where string to constrain TIME, etc.
+    time_min_max : tuple
+        min / max times values to constrain loading (from the TIME column)
     interp_time : Union[xr.DataArray, None] (Default value = None)
         interpolate time to this (presumably main dataset time)
 
@@ -294,12 +342,15 @@ def create_pointing_xds(
     to_new_coord_names = {"ra/dec": "direction"}
     coord_dims = {}
 
+    taql_time_range = make_taql_where_between_min_max(
+        time_min_max, in_file, "POINTING", "TIME"
+    )
     # Read POINTING table into a Xarray Dataset.
     generic_pointing_xds = read_generic_table(
         in_file,
         "POINTING",
         rename_ids=subt_rename_ids["POINTING"],
-        taql_where=taql_where,
+        taql_where=taql_time_range,
     )
     if not generic_pointing_xds.data_vars:
         # apparently empty MS/POINTING table => produce empty xds
@@ -357,11 +408,7 @@ def create_pointing_xds(
         }
     # TODO: move also source_offset/pointing_offset from data_vars to attrs?
 
-    if interp_time is not None:
-        logger.info(" Interpolating pointing_xds time coordinate to main_xds time")
-        pointing_xds = pointing_xds.interp(
-            time=interp_time, method="linear", assume_sorted=True
-        )
+    pointing_xds = interpolate_to_time(pointing_xds, interp_time, "pointing_xds")
 
     logger.debug(f"create_pointing_xds() execution time {time.time() - start:0.2f} s")
 

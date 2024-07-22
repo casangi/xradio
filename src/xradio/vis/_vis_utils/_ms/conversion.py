@@ -20,7 +20,7 @@ from .msv2_to_msv4_meta import (
     col_to_data_variable_names,
     col_dims,
 )
-from .partition_queries import create_taql_query
+
 from .subtables import subt_rename_ids
 from ._tables.table_query import open_table_ro, open_query
 from ._tables.read import (
@@ -31,7 +31,7 @@ from ._tables.read import (
 )
 from ._tables.read_main_table import get_baselines, get_baseline_indices, get_utimes_tol
 from .._utils.stokes_types import stokes_types
-from xradio.vis._vis_utils._ms.optimised_functions import unique_1d
+from xradio._utils.list_and_array import check_if_consistent, unique_1d, to_list
 
 
 def parse_chunksize(
@@ -360,27 +360,6 @@ def calc_used_gb(
     )
 
 
-def check_if_consistent(col, col_name):
-    """_summary_
-
-    Parameters
-    ----------
-    col : _type_
-        _description_
-    col_name : _type_
-        _description_
-
-    Returns
-    -------
-    _type_
-        _description_
-    """
-
-    col_unique = unique_1d(col)
-    assert len(col_unique) == 1, col_name + " is not consistent."
-    return col_unique[0]
-
-
 # TODO: if the didxs are not used in read_col_conversion, remove didxs from here (and convert_and_write_partition)
 def calc_indx_for_row_split(tb_tool, taql_where):
     baselines = get_baselines(tb_tool)
@@ -434,7 +413,7 @@ def create_coordinates(
 
     ddi_xds = read_generic_table(in_file, "DATA_DESCRIPTION").sel(row=ddi)
     pol_setup_id = ddi_xds.polarization_id.values
-    spectral_window_id = ddi_xds.spectral_window_id.values
+    spectral_window_id = int(ddi_xds.spectral_window_id.values)
 
     spectral_window_xds = read_generic_table(
         in_file,
@@ -530,9 +509,14 @@ def create_coordinates(
     return xds
 
 
-def find_min_max_times_taql(tb_tool: tables.table, taql_where: str) -> str:
+def find_min_max_times(tb_tool: tables.table, taql_where: str) -> tuple:
     """
     Find the min/max times in an MSv4, for constraining pointing.
+
+    To avoid numerical comparison issues (leaving out some times at the edges),
+    it substracts/adds a tolerance from/to the min and max values. The tolerance
+    is a fraction of the difference between times / interval of the MS (see
+    get_utimes_tol()).
 
     Parameters
     ----------
@@ -540,18 +524,17 @@ def find_min_max_times_taql(tb_tool: tables.table, taql_where: str) -> str:
         table (query) opened with an MSv4 query
 
     taql_where : str
-        TaQL where for this MSv4
+        TaQL where that defines the partition of this MSv4
 
     Returns
     -------
-    str
-        TaQL string with the min/max time where constraint
+    tuple
+        min/max times (raw time values from the Msv2 table)
     """
     utimes, tol = get_utimes_tol(tb_tool, taql_where)
     time_min = utimes.min() - tol
     time_max = utimes.max() + tol
-    taql = f"where TIME >= {time_min} AND TIME <= {time_max}"
-    return taql
+    return (time_min, time_max)
 
 
 def create_data_variables(
@@ -602,6 +585,7 @@ def create_data_variables(
                     )
             except:
                 # logger.debug("Could not load column",col)
+                # print("Could not load column", col)
                 continue
 
             xds[col_to_data_variable_names[col]].attrs.update(
@@ -609,18 +593,38 @@ def create_data_variables(
             )
 
 
+def create_taql_query(partition_info):
+    main_par_table_cols = [
+        "DATA_DESC_ID",
+        "STATE_ID",
+        "FIELD_ID",
+        "SCAN_NUMBER",
+        "STATE_ID",
+    ]
+
+    taql_where = "WHERE "
+    for col_name in main_par_table_cols:
+        if col_name in partition_info:
+            taql_where = (
+                taql_where
+                + f"({col_name} IN [{','.join(map(str, partition_info[col_name]))}]) AND"
+            )
+    taql_where = taql_where[:-3]
+
+    return taql_where
+
+
 def convert_and_write_partition(
     in_file: str,
     out_file: str,
-    intent: str,
     ms_v4_id: int,
-    ddi: int = 0,
-    state_ids=None,
-    field_id: int = None,
+    partition_info: Dict,
+    partition_scheme: str = "ddi_intent_field",
     main_chunksize: Union[Dict, float, None] = None,
     with_pointing: bool = True,
     pointing_chunksize: Union[Dict, float, None] = None,
     pointing_interpolate: bool = False,
+    ephemeris_interpolate: bool = False,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend="zarr",
     overwrite: bool = False,
@@ -633,7 +637,7 @@ def convert_and_write_partition(
         _description_
     out_file : str
         _description_
-    intent : str
+    obs_mode : str
         _description_
     ddi : int, optional
         _description_, by default 0
@@ -649,6 +653,8 @@ def convert_and_write_partition(
         _description_, by default None
     pointing_interpolate : bool, optional
         _description_, by default None
+    ephemeris_interpolate : bool, optional
+        _description_, by default None
     compressor : numcodecs.abc.Codec, optional
         _description_, by default numcodecs.Zstd(level=2)
     storage_backend : str, optional
@@ -662,12 +668,15 @@ def convert_and_write_partition(
         _description_
     """
 
-    taql_where = create_taql_query(state_ids, field_id, ddi)
+    taql_where = create_taql_query(partition_info)
+    ddi = partition_info["DATA_DESC_ID"][0]
+    obs_mode = str(partition_info["OBS_MODE"][0])
 
     start = time.time()
     with open_table_ro(in_file) as mtable:
         taql_main = f"select * from $mtable {taql_where}"
         with open_query(mtable, taql_main) as tb_tool:
+
             if tb_tool.nrows() == 0:
                 tb_tool.close()
                 mtable.close()
@@ -710,11 +719,6 @@ def convert_and_write_partition(
             )
             logger.debug("Time create data variables " + str(time.time() - start))
 
-            # Create field_info
-            start = time.time()
-            field_id = check_if_consistent(tb_tool.getcol("FIELD_ID"), "FIELD_ID")
-            logger.debug("Time field info " + str(time.time() - start))
-
             # Create ant_xds
             start = time.time()
             ant_xds = create_ant_xds(in_file,xds.frequency.attrs["spectral_window_id"])
@@ -725,15 +729,17 @@ def convert_and_write_partition(
             weather_xds = create_weather_xds(in_file)
             logger.debug("Time weather " + str(time.time() - start))
 
+            # To constrain the time range to load (in pointing, ephemerides data_vars)
+            time_min_max = find_min_max_times(tb_tool, taql_where)
+
             if with_pointing:
                 start = time.time()
-                taql_pointing = find_min_max_times_taql(tb_tool, taql_where)
                 if pointing_interpolate:
                     pointing_interp_time = xds.time
                 else:
                     pointing_interp_time = None
                 pointing_xds = create_pointing_xds(
-                    in_file, taql_pointing, pointing_interp_time
+                    in_file, time_min_max, pointing_interp_time
                 )
                 pointing_chunksize = parse_chunksize(
                     pointing_chunksize, "pointing", pointing_xds
@@ -748,9 +754,6 @@ def convert_and_write_partition(
 
             start = time.time()
 
-            xds.attrs["intent"] = intent
-            xds.attrs["ddi"] = ddi
-
             # Time and frequency should always be increasing
             if len(xds.frequency) > 1 and xds.frequency[1] - xds.frequency[0] < 0:
                 xds = xds.sel(frequency=slice(None, None, -1))
@@ -759,53 +762,53 @@ def convert_and_write_partition(
                 xds = xds.sel(time=slice(None, None, -1))
 
             # Add data_groups and field_info
-            xds.attrs["data_groups"] = {}
-            if "VISIBILITY" in xds:
-                xds.attrs["data_groups"]["base"] = {
-                    "visibility": "VISIBILITY",
-                    "flag": "FLAG",
-                    "weight": "WEIGHT",
-                    "uvw": "UVW",
-                }
-
-            if "VISIBILITY_CORRECTED" in xds:
-                xds.attrs["data_groups"]["corrected"] = {
-                    "visibility": "VISIBILITY_CORRECTED",
-                    "flag": "FLAG",
-                    "weight": "WEIGHT",
-                    "uvw": "UVW",
-                }
-
-            if "SPECTRUM" in xds:
-                xds.attrs["data_groups"]["base"] = {
-                    "spectrum": "SPECTRUM",
-                    "flag": "FLAG",
-                    "weight": "WEIGHT",
-                    "uvw": "UVW",
-                }
-
-            if "SPECTRUM_CORRECTED" in xds:
-                xds.attrs["data_groups"]["corrected"] = {
-                    "spectrum": "SPECTRUM_CORRECTED",
-                    "flag": "FLAG",
-                    "weight": "WEIGHT",
-                    "uvw": "UVW",
-                }
+            xds, is_single_dish = add_data_groups(xds)
 
             # Create field_and_source_xds (combines field, source and ephemeris data into one super dataset)
-            field_and_source_xds = create_field_and_source_xds(
-                in_file, field_id, xds.frequency.attrs["spectral_window_id"]
+            start = time.time()
+            if ephemeris_interpolate:
+                ephemeris_interp_time = xds.time.values
+            else:
+                ephemeris_interp_time = None
+
+            scan_id = np.full(time_baseline_shape, -42, dtype=int)
+            scan_id[tidxs, bidxs] = tb_tool.getcol("SCAN_NUMBER")
+            scan_id = np.max(scan_id, axis=1)
+
+            if "FIELD_ID" not in partition_scheme:
+                field_id = np.full(time_baseline_shape, -42, dtype=int)
+                field_id[tidxs, bidxs] = tb_tool.getcol("FIELD_ID")
+                field_id = np.max(field_id, axis=1)
+                field_times = utime
+            else:
+                field_id = check_if_consistent(tb_tool.getcol("FIELD_ID"), "FIELD_ID")
+                field_times = None
+
+            # col_unique = unique_1d(col)
+            # assert len(col_unique) == 1, col_name + " is not consistent."
+            # return col_unique[0]
+
+            field_and_source_xds, source_id = create_field_and_source_xds(
+                in_file,
+                field_id,
+                xds.frequency.attrs["spectral_window_id"],
+                field_times,
+                is_single_dish,
+                time_min_max,
+                ephemeris_interp_time,
             )
+            logger.debug("Time field_and_source_xds " + str(time.time() - start))
+
             # Fix UVW frame
             # From CASA fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking center. calcuvw does not yet force the UVW column and field centers to use the same reference frame! Blank = use the phase tracking frame of vis.
             # print('##################',field_and_source_xds)
-            if "FIELD_PHASE_CENTER" in field_and_source_xds:
+            if is_single_dish:
                 xds.UVW.attrs["frame"] = field_and_source_xds[
-                    "FIELD_PHASE_CENTER"
+                    "FIELD_REFERENCE_CENTER"
                 ].attrs["frame"]
             else:
                 xds.UVW.attrs["frame"] = field_and_source_xds[
-                    "FIELD_PHASE_CENTER_OFFSET"
+                    "FIELD_PHASE_CENTER"
                 ].attrs["frame"]
 
             if overwrite:
@@ -824,13 +827,33 @@ def convert_and_write_partition(
                 + str(ms_v4_id),
             )
 
+            xds.attrs["partition_info"] = {
+                "spectral_window_id": xds.frequency.attrs["spectral_window_id"],
+                "spectral_window_name": xds.frequency.attrs["spectral_window_name"],
+                "field_id": to_list(unique_1d(field_id)),
+                "field_name": to_list(
+                    np.unique(field_and_source_xds.field_name.values)
+                ),
+                "source_id": to_list(unique_1d(source_id)),
+                "source_name": to_list(
+                    np.unique(field_and_source_xds.source_name.values)
+                ),
+                "polarization_setup": to_list(xds.polarization.values),
+                "obs_mode": obs_mode,
+                "taql": taql_where,
+            }
+
             start = time.time()
             if storage_backend == "zarr":
                 xds.to_zarr(store=os.path.join(file_name, "MAIN"), mode=mode)
                 ant_xds.to_zarr(store=os.path.join(file_name, "ANTENNA"), mode=mode)
-                field_and_source_xds.to_zarr(
-                    store=os.path.join(file_name, "FIELD_AND_SOURCE_BASE"), mode=mode
-                )
+                for group_name in xds.attrs["data_groups"]:
+                    field_and_source_xds.to_zarr(
+                        store=os.path.join(
+                            file_name, f"FIELD_AND_SOURCE_{group_name.upper()}"
+                        ),
+                        mode=mode,
+                    )
 
                 if with_pointing:
                     pointing_xds.to_zarr(store=file_name + "/POINTING", mode=mode)
@@ -846,3 +869,51 @@ def convert_and_write_partition(
             logger.debug("Write data  " + str(time.time() - start))
 
     # logger.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
+
+
+def add_data_groups(xds):
+    xds.attrs["data_groups"] = {}
+    if "VISIBILITY" in xds:
+        xds.attrs["data_groups"]["base"] = {
+            "visibility": "VISIBILITY",
+            "flag": "FLAG",
+            "weight": "WEIGHT",
+            "uvw": "UVW",
+        }
+
+    if "VISIBILITY_CORRECTED" in xds:
+        xds.attrs["data_groups"]["corrected"] = {
+            "visibility": "VISIBILITY_CORRECTED",
+            "flag": "FLAG",
+            "weight": "WEIGHT",
+            "uvw": "UVW",
+        }
+
+    if "VISIBILITY_MODEL" in xds:
+        xds.attrs["data_groups"]["model"] = {
+            "visibility": "VISIBILITY_MODEL",
+            "flag": "FLAG",
+            "weight": "WEIGHT",
+            "uvw": "UVW",
+        }
+
+    is_single_dish = False
+    if "SPECTRUM" in xds:
+        xds.attrs["data_groups"]["base"] = {
+            "spectrum": "SPECTRUM",
+            "flag": "FLAG",
+            "weight": "WEIGHT",
+            "uvw": "UVW",
+        }
+        is_single_dish = True
+
+    if "SPECTRUM_CORRECTED" in xds:
+        xds.attrs["data_groups"]["corrected"] = {
+            "spectrum": "SPECTRUM_CORRECTED",
+            "flag": "FLAG",
+            "weight": "WEIGHT",
+            "uvw": "UVW",
+        }
+        is_single_dish = True
+
+    return xds, is_single_dish

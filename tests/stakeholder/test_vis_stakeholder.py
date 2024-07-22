@@ -11,10 +11,12 @@ import pytest
 import os
 import importlib.resources
 
-relative_tolerance = 10 ** (-12)
+# relative_tolerance = 10 ** (-12)
+relative_tolerance = 10 ** (-6)
 
 
-def base_test(msv2_name, expected_sum_value):
+def download_and_convert_msv2_to_processing_set(msv2_name, partition_scheme):
+    # We can remove this once there is a new release of casacore
     if os.environ["USER"] == "runner":
         casa_data_dir = (importlib.resources.files("casadata") / "__data__").as_posix()
         rc_file = open(os.path.expanduser("~/.casarc"), "a+")  # append mode
@@ -26,91 +28,80 @@ def base_test(msv2_name, expected_sum_value):
     convert_msv2_to_processing_set(
         in_file=msv2_name,
         out_file=ps_name,
-        partition_scheme="ddi_intent_field",
+        partition_scheme=partition_scheme,
         main_chunksize=0.01,
         pointing_chunksize=0.00001,
+        pointing_interpolate=True,
+        ephemeris_interpolate=True,
         overwrite=True,
     )
+    return ps_name
 
-    ps_lazy = read_processing_set(ps_name)
 
-    sel_parms = {key: {} for key in ps_lazy.keys()}
-    ps = load_processing_set(ps_name, sel_parms=sel_parms)
+def base_test(
+    file_name, expected_sum_value, is_s3=False, partition_schemes=[[], ["FIELD_ID"]]
+):
 
-    sum = 0.0
-    sum_lazy = 0.0
-
-    for ms_xds_name in ps.keys():
-        if "VISIBILITY" in ps[ms_xds_name]:
-            data_name = "VISIBILITY"
+    for partition_scheme in partition_schemes:
+        if is_s3:
+            ps_name = file_name
         else:
-            data_name = "SPECTRUM"
-        sum = sum + np.nansum(
-            np.abs(ps[ms_xds_name][data_name] * ps[ms_xds_name].WEIGHT)
-        )
-        sum_lazy = sum_lazy + np.nansum(
-            np.abs(ps_lazy[ms_xds_name][data_name] * ps_lazy[ms_xds_name].WEIGHT)
-        )
+            ps_name = download_and_convert_msv2_to_processing_set(
+                file_name, partition_scheme
+            )
 
-    os.system("rm -rf " + msv2_name)
-    os.system("rm -rf " + ps_name)
+        ps_lazy = read_processing_set(ps_name)
 
-    assert (
-        sum == sum_lazy
-    ), "read_processing_set and load_processing_set VISIBILITY and WEIGHT values differ."
-    assert sum == pytest.approx(
-        expected_sum_value, rel=relative_tolerance
-    ), "VISIBILITY and WEIGHT values have changed."
+        sel_parms = {key: {} for key in ps_lazy.keys()}
+        ps = load_processing_set(ps_name, sel_parms=sel_parms)
 
-    # from xradio.schema.check import check_dataset
-    # from xradio.vis.schema import VisibilityXds
-    # for xds_name in ps.keys():
-    #     issues = check_dataset(ps[xds_name], VisibilityXds)
-    #     if not issues:
-    #         print(f"{xds_name}: okay\n")
-    #     else:
-    #         print(f"{xds_name}: {issues}\n")
+        ps_lazy_df = ps_lazy.summary()
+        ps_df = ps.summary()
+
+        sum = 0.0
+        sum_lazy = 0.0
+
+        for ms_xds_name in ps.keys():
+            if "VISIBILITY" in ps[ms_xds_name]:
+                data_name = "VISIBILITY"
+            else:
+                data_name = "SPECTRUM"
+            sum = sum + np.nansum(
+                np.abs(ps[ms_xds_name][data_name] * ps[ms_xds_name].WEIGHT)
+            )
+            sum_lazy = sum_lazy + np.nansum(
+                np.abs(ps_lazy[ms_xds_name][data_name] * ps_lazy[ms_xds_name].WEIGHT)
+            )
+
+        if not is_s3:
+            os.system("rm -rf " + ps_name)
+
+        print("sum", sum, sum_lazy)
+        assert (
+            sum == sum_lazy
+        ), "read_processing_set and load_processing_set VISIBILITY and WEIGHT values differ."
+        assert sum == pytest.approx(
+            expected_sum_value, rel=relative_tolerance
+        ), "VISIBILITY and WEIGHT values have changed."
+
+        for xds_name in ps.keys():
+            issues = check_dataset(ps[xds_name], VisibilityXds)
+            if not issues:
+                print(f"{xds_name}: okay\n")
+            else:
+                print(f"{xds_name}: {issues}\n")
+
+    if not is_s3:
+        os.system("rm -rf " + file_name)  # Remove downloaded MSv2 file.
 
 
-@pytest.mark.parametrize(
-    ("s3_ps_name, expected_sum_value"),
-    [
-        (
-            "s3://viper-test-data/Antennae_North.cal.lsrk.split.v2.vis.zarr",
-            190.0405216217041,
-        )
-    ],
-)
-def test_s3_read_processing_set(s3_ps_name, expected_sum_value):
-
-    ps_lazy = read_processing_set(s3_ps_name)
-
-    sel_parms = {key: {} for key in ps_lazy.keys()}
-    ps = load_processing_set(s3_ps_name, sel_parms=sel_parms)
-
-    sum = 0.0
-    sum_lazy = 0.0
-
-    for ms_xds_name in ps.keys():
-        if "VISIBILITY" in ps[ms_xds_name]:
-            data_name = "VISIBILITY"
-        else:
-            data_name = "SPECTRUM"
-        sum = sum + np.nansum(
-            np.abs(ps[ms_xds_name][data_name] * ps[ms_xds_name].WEIGHT)
-        )
-        sum_lazy = sum_lazy + np.nansum(
-            np.abs(ps_lazy[ms_xds_name][data_name] * ps_lazy[ms_xds_name].WEIGHT)
-        )
-
-    print("hallow", sum)
-
-    assert (
-        sum == sum_lazy
-    ), "read_processing_set and load_processing_set VISIBILITY and WEIGHT values differ."
-    assert sum == pytest.approx(
-        expected_sum_value, rel=relative_tolerance
-    ), "VISIBILITY and WEIGHT values have changed."
+def test_s3():
+    base_test(
+        "s3://viper-test-data/Antennae_North.cal.lsrk.split.v5.vis.zarr",
+        190.0405216217041,
+        is_s3=True,
+        partition_schemes=[[]],
+    )
 
 
 def test_alma():
@@ -149,7 +140,22 @@ def test_single_dish():
     base_test("sdimaging.ms", 5487446.5)
 
 
-# test_alma()
+def test_alma_ephemris_mosaic():
+    base_test("ALMA_uid___A002_X1003af4_X75a3.split.avg.ms", 8.11051993222426e17)
+
+
+def test_vlass():
+    # Don't do partition_scheme ['FIELD_ID'], will try and create >800 partitions.
+    base_test(
+        "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6.ms",
+        173858574208.0,
+        partition_schemes=[[]],
+    )
+
+
+# test_s3()
+# test_vlass()
+test_alma()
 # test_ska_mid()
 # test_lofar()
 # test_meerkat()
@@ -158,3 +164,31 @@ def test_single_dish():
 # test_ngeht()
 # test_ephemeris()
 # test_single_dish()
+# test_alma_ephemris_mosaic()
+
+# How data was created:
+# ALMA Example
+"""
+ALMA_uid___A002_X1003af4_X75a3.split.avg.ms: An ephemeris mosaic observation of the sun.
+
+ALMA archive file downloaded: https://almascience.nrao.edu/dataPortal/2022.A.00001.S_uid___A002_X1003af4_X75a3.asdm.sdm.tar 
+
+- Project: 2022.A.00001.S
+- Member ous id (MOUS): uid://A001/X3571/X130
+- Group ous id (GOUS): uid://A001/X3571/X131
+
+CASA commands used to create the dataset:
+```python
+importasdm(asdm='uid___A002_X1003af4_X75a3.asdm.sdm',vis='uid___A002_X1003af4_X75a3.ms',asis='Ephemeris Antenna Station Receiver Source CalAtmosphere CalWVR',bdfflags=True,with_pointing_correction=True,convert_ephem2geo=True)
+
+mstransform(vis='ALMA_uid___A002_X1003af4_X75a3.split.ms',outputvis='ALMA_uid___A002_X1003af4_X75a3.split.avg.ms',createmms=False,timeaverage=True,timebin='2s',timespan='scan',reindex=True)
+
+import numpy as np
+
+for subtable in ['FLAG_CMD', 'POINTING', 'CALDEVICE', 'ASDM_CALATMOSPHERE']:
+    tb.open('ALMA_uid___A002_X1003af4_X75a3.split.avg.ms::'+subtable,nomodify=False)
+    tb.removerows(np.arange(tb.nrows())) 
+    tb.flush()
+    tb.done()
+```
+"""

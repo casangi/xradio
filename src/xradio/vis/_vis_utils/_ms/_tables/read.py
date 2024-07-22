@@ -452,6 +452,7 @@ def redimension_ms_subtable(xds: xr.Dataset, subt_name: str) -> xr.Dataset:
         "SOURCE": ["source_id", "time", "spectral_window_id"],
         "SYSCAL": ["antenna_id", "feed_id", "spectral_window_id", "time"],
         "WEATHER": ["antenna_id", "time"],
+        "FEED": ["antenna_id","time"],
         # added tables (MSv3 but not preent in MSv2). Build it from "EPHEMi_... tables
         # Not clear what to do about 'time' var/dim:  , "time"],
         "EPHEMERIDES": ["ephemeris_row_id", "ephemeris_id"],
@@ -632,7 +633,7 @@ def read_generic_table(
         )
     )
 
-    if tname in ["DOPPLER", "FREQ_OFFSET", "POINTING", "SOURCE", "SYSCAL", "WEATHER"]:
+    if tname in ["DOPPLER", "FREQ_OFFSET", "POINTING", "FEED", "SOURCE", "SYSCAL", "WEATHER"]:
         xds = redimension_ms_subtable(xds, tname)
 
     if is_ephem_subtable(tname):

@@ -101,16 +101,6 @@ def create_ant_xds(in_file: str, spectral_window_id: int):
         rename_ids=subt_rename_ids["ANTENNA"],
     )
 
-    generic_feed_xds = read_generic_table(
-        in_file,
-        "FEED",
-        rename_ids=subt_rename_ids["FEED"],
-        taql_where=f" where SPECTRAL_WINDOW_ID = {spectral_window_id}",
-    )
-
-    print(generic_feed_xds)
-    print("*" * 50)
-
     ant_column_description = generic_ant_xds.attrs["other"]["msv2"]["ctds_attrs"][
         "column_descriptions"
     ]
@@ -147,6 +137,16 @@ def create_ant_xds(in_file: str, spectral_window_id: int):
     ant_xds["ANTENNA_FEED_OFFSET"].attrs["type"] = "earth_location_offset"
     ant_xds["ANTENNA_FEED_OFFSET"].attrs["coordinate_system"] = "geocentric"
     ant_xds["ANTENNA_POSITION"].attrs["coordinate_system"] = "geocentric"
+    
+    generic_feed_xds = read_generic_table(
+        in_file,
+        "FEED",
+        rename_ids=subt_rename_ids["FEED"],
+        taql_where=f" where SPECTRAL_WINDOW_ID = {spectral_window_id}",
+    )
+
+    print(generic_feed_xds)
+    print("*" * 50)
 
     ant_xds = ant_xds.assign_coords(coords)
     return ant_xds

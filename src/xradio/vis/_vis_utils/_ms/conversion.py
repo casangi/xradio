@@ -721,10 +721,23 @@ def convert_and_write_partition(
 
             # Create ant_xds
             start = time.time()
-            feed_id = unique_1d(np.concatenate([unique_1d(tb_tool.getcol("FEED1")),unique_1d(tb_tool.getcol("FEED2"))]))
-            antenna_id = unique_1d(np.concatenate([xds['baseline_antenna1_id'].data, xds['baseline_antenna2_id'].data]))
-            
-            ant_xds = create_ant_xds(in_file, xds.frequency.attrs["spectral_window_id"],antenna_id,feed_id)
+            feed_id = unique_1d(
+                np.concatenate(
+                    [
+                        unique_1d(tb_tool.getcol("FEED1")),
+                        unique_1d(tb_tool.getcol("FEED2")),
+                    ]
+                )
+            )
+            antenna_id = unique_1d(
+                np.concatenate(
+                    [xds["baseline_antenna1_id"].data, xds["baseline_antenna2_id"].data]
+                )
+            )
+
+            ant_xds = create_ant_xds(
+                in_file, xds.frequency.attrs["spectral_window_id"], antenna_id, feed_id
+            )
             logger.debug("Time ant xds  " + str(time.time() - start))
 
             # Create weather_xds

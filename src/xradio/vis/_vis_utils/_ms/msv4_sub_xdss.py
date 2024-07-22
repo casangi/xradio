@@ -63,7 +63,9 @@ def interpolate_to_time(
     return xds
 
 
-def create_ant_xds(in_file: str, spectral_window_id: int, antenna_id: list, feed_id: list):
+def create_ant_xds(
+    in_file: str, spectral_window_id: int, antenna_id: list, feed_id: list
+):
     """
     Creates an Antenna Xarray Dataset from a MS v2 ANTENNA table.
 
@@ -106,7 +108,7 @@ def create_ant_xds(in_file: str, spectral_window_id: int, antenna_id: list, feed
         in_file,
         "ANTENNA",
         rename_ids=subt_rename_ids["ANTENNA"],
-        taql_where=f" where (ROWID() IN [{','.join(map(str, antenna_id))}])"
+        taql_where=f" where (ROWID() IN [{','.join(map(str, antenna_id))}])",
     )
 
     ant_column_description = generic_ant_xds.attrs["other"]["msv2"]["ctds_attrs"][
@@ -145,21 +147,23 @@ def create_ant_xds(in_file: str, spectral_window_id: int, antenna_id: list, feed
     ant_xds["ANTENNA_FEED_OFFSET"].attrs["type"] = "earth_location_offset"
     ant_xds["ANTENNA_FEED_OFFSET"].attrs["coordinate_system"] = "geocentric"
     ant_xds["ANTENNA_POSITION"].attrs["coordinate_system"] = "geocentric"
-    
-    #Extract feed information
+
+    # Extract feed information
     generic_feed_xds = read_generic_table(
         in_file,
         "FEED",
         rename_ids=subt_rename_ids["FEED"],
-        taql_where=f" where (SPECTRAL_WINDOW_ID = {spectral_window_id}) AND (ANTENNA_ID IN [{','.join(map(str, antenna_id))}]) AND (FEED_ID IN [{','.join(map(str, feed_id))}])"
+        taql_where=f" where (SPECTRAL_WINDOW_ID = {spectral_window_id}) AND (ANTENNA_ID IN [{','.join(map(str, antenna_id))}]) AND (FEED_ID IN [{','.join(map(str, feed_id))}])",
     )
-    generic_ant_xds = generic_ant_xds.sel(antenna_id=ant_xds.antenna_id) #Make sure the antenna_id is in the same order as the xds.
-   
+    generic_ant_xds = generic_ant_xds.sel(
+        antenna_id=ant_xds.antenna_id
+    )  # Make sure the antenna_id is in the same order as the xds.
+
     assert (
         len(generic_feed_xds.time) == 1
     ), "Can only process feed table with a single time entry for a source_id and spectral_window_id."
     generic_feed_xds = generic_feed_xds.squeeze("time")
-    
+
     assert (
         len(unique_1d(generic_feed_xds.num_receptors)) == 1
     ), "The number of receptors must be constant in feed table."
@@ -174,20 +178,20 @@ def create_ant_xds(in_file: str, spectral_window_id: int, antenna_id: list, feed
         "beam_offset": "BEAM_OFFSET",
         "receptor_angle": "RECEPTOR_ANGLE",
         "polarization_type": "POLARIZATION_TYPE",
-        #"pol_response": "POLARIZATION_RESPONSE", ?repeated dim creates problems.
-        "focus_length": "FOCUS_LENGTH", #optional
-        "position": "ANTENNA_FEED_OFFSET" #Will be added to the existing position in ant_xds
+        # "pol_response": "POLARIZATION_RESPONSE", ?repeated dim creates problems.
+        "focus_length": "FOCUS_LENGTH",  # optional
+        # "position": "ANTENNA_FEED_OFFSET" #Will be added to the existing position in ant_xds
     }
-    
+
     data_variable_dims = {
         "beam_offset": ["antenna_id", "receptor_name", "sky_dir_label"],
         "receptor_angle": ["antenna_id", "receptor_name"],
         "polarization_type": ["antenna_id", "receptor_name"],
-        #"pol_response": ["antenna_id", "receptor_name", "receptor_name_"],
+        # "pol_response": ["antenna_id", "receptor_name", "receptor_name_"],
         "focus_length": ["antenna_id"],
-        "position": ["antenna_id", "cartesian_pos_label"],
+        # "position": ["antenna_id", "cartesian_pos_label"],
     }
-    
+
     for key in generic_feed_xds:
         msv4_measure = column_description_casacore_to_msv4_measure(
             feed_column_description[key.upper()]
@@ -205,8 +209,12 @@ def create_ant_xds(in_file: str, spectral_window_id: int, antenna_id: list, feed
                 coord_dims[key],
                 generic_feed_xds[key].data,
             )
-            
-    coords['receptor_name'] = np.arange(ant_xds.sizes["receptor_name"]).astype(str)
+
+    ant_xds["ANTENNA_FEED_OFFSET"] = (
+        ant_xds["ANTENNA_FEED_OFFSET"] + generic_ant_xds["position"].data
+    )
+
+    coords["receptor_name"] = np.arange(ant_xds.sizes["receptor_name"]).astype(str)
 
     ant_xds = ant_xds.assign_coords(coords)
     return ant_xds

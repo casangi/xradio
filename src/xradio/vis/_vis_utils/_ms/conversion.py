@@ -721,7 +721,7 @@ def convert_and_write_partition(
 
             # Create ant_xds
             start = time.time()
-            ant_xds = create_ant_xds(in_file,xds.frequency.attrs["spectral_window_id"])
+            ant_xds = create_ant_xds(in_file, xds.frequency.attrs["spectral_window_id"])
             logger.debug("Time ant xds  " + str(time.time() - start))
 
             # Create weather_xds

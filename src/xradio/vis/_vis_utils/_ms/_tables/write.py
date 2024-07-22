@@ -72,9 +72,9 @@ def create_table(
 
     if cols is None:
         if ctds_attrs and "column_descriptions" in ctds_attrs:
-            cols = {col: col.lower() for col in ctds_attrs["column_descriptions"]}
+            cols = {col: col for col in ctds_attrs["column_descriptions"]}
         else:
-            cols = {var.upper(): var for var in xds.data_vars}
+            cols = {var: var for var in xds.data_vars}
             # Would add all xds data vars regardless of description availability
             # +
             # list(xds.data_vars) +

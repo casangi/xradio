@@ -73,8 +73,8 @@ def init_partition_ids(
     ddi_xds: xr.Dataset,
     part_ids: PartitionIds,
 ) -> PartitionIds:
-    spw_id = ddi_xds.spectral_window_id.values[ddi]
-    pol_setup_id = ddi_xds.polarization_id.values[ddi]
+    spw_id = ddi_xds.SPECTRAL_WINDOW_ID.values[ddi]
+    pol_setup_id = ddi_xds.POLARIZATION_ID.values[ddi]
     ids: PartitionIds = {
         # The -1 are expected to be be updated from part_ids
         "array_id": -1,

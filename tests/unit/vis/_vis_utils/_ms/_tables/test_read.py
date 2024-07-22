@@ -269,9 +269,9 @@ def test_add_units_measures(main_xds_min):
     from xradio.vis._vis_utils._ms._tables.read import add_units_measures
 
     col_descr = {"column_descriptions": {}}
-    xds_vars = {"uvw": main_xds_min.uvw, "time": main_xds_min.time}
+    xds_vars = {"UVW": main_xds_min.UVW, "time": main_xds_min.time}
     res = add_units_measures(xds_vars, col_descr)
-    assert xds_vars["uvw"].attrs
+    assert xds_vars["UVW"].attrs
     assert xds_vars["time"].attrs
 
 
@@ -286,7 +286,7 @@ def test_make_freq_attrs_uvw(spw_xds_min):
 def test_get_pad_nan_uvw(main_xds_min):
     from xradio.vis._vis_utils._ms._tables.read import get_pad_nan
 
-    res = get_pad_nan(main_xds_min.data_vars["uvw"])
+    res = get_pad_nan(main_xds_min.data_vars["UVW"])
     assert np.isnan(res)
 
 
@@ -307,7 +307,7 @@ def test_redimension_ms_subtable_source(source_xds_min):
 
     res = redimension_ms_subtable(source_xds_min, "SOURCE")
     assert isinstance(res, xr.Dataset)
-    src_coords = ["source_id", "time", "spectral_window_id", "pulsar_id"]
+    src_coords = ["SOURCE_ID", "TIME", "SPECTRAL_WINDOW_ID", "PULSAR_ID"]
     assert all([coord in res.coords for coord in src_coords])
 
 
@@ -323,7 +323,7 @@ def test_add_ephemeris_vars(ms_minimal_required):
     import xarray as xr
 
     # would need an ephem_xds fixture
-    ephem_xds = xr.Dataset(data_vars={"mjd": ("row", np.array([]))})
+    ephem_xds = xr.Dataset(data_vars={"MJD": ("row", np.array([]))})
     res = add_ephemeris_vars(
         Path(ms_minimal_required.fname) / "FIELD" / "EPHEM0_f0.tab", ephem_xds
     )
@@ -385,7 +385,7 @@ def test_read_generic_table_state(ms_minimal_required):
     assert all(
         [
             xvar in res.data_vars
-            for xvar in ["cal", "load", "sig", "sub_scan", "obs_mode"]
+            for xvar in ["CAL", "LOAD", "SIG", "SUB_SCAN", "OBS_MODE"]
         ]
     )
 
@@ -398,7 +398,7 @@ def test_read_generic_table_ephem(ms_minimal_required):
     exp_attrs = {
         "other": {
             "msv2": {
-                "bad_cols": ["MJD"],
+                "bad_cols": [],
                 "ctds_attrs": {
                     "column_descriptions": {
                         "MJD": {
@@ -440,9 +440,9 @@ def test_load_generic_cols_state(ms_minimal_required):
         assert res
         assert isinstance(res, tuple)
         assert res[0] == {}
-        assert all([col.lower() not in res[1] for col in ignore_cols])
+        assert all([col not in res[1] for col in ignore_cols])
         assert all(
-            [var in res[1] for var in ["load", "obs_mode", "ref", "sig", "sub_scan"]]
+            [var in res[1] for var in ["LOAD", "OBS_MODE", "REF", "SIG", "SUB_SCAN"]]
         )
         assert all([isinstance(val, xr.DataArray) for val in res[1].values()])
 
@@ -463,17 +463,17 @@ def test_load_generic_cols_spw(ms_minimal_required):
         assert res[0] == {}
         assert all([col not in res[1] for col in ignore_cols])
         expected_vars = [
-            "chan_freq",
-            "ref_frequency",
-            "effective_bw",
-            "resolution",
-            "freq_group",
-            "freq_group_name",
-            "if_conv_chain",
-            "name",
-            "net_sideband",
-            "num_chan",
-            "total_bandwidth",
+            "CHAN_FREQ",
+            "REF_FREQUENCY",
+            "EFFECTIVE_BW",
+            "RESOLUTION",
+            "FREQ_GROUP",
+            "FREQ_GROUP_NAME",
+            "IF_CONV_CHAIN",
+            "NAME",
+            "NET_SIDEBAND",
+            "NUM_CHAN",
+            "TOTAL_BANDWIDTH",
         ]
         assert all([var in res[1] for var in expected_vars])
         assert all([isinstance(val, xr.DataArray) for val in res[1].values()])

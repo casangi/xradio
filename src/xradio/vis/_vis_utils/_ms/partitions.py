@@ -22,8 +22,8 @@ VisSetPartitions = Dict[PartitionKey, xr.Dataset]
 
 
 def make_spw_names_by_ddi(ddi_xds: xr.Dataset, spw_xds: xr.Dataset) -> Dict[int, str]:
-    spw_ids_by_ddi = ddi_xds.spectral_window_id[ddi_xds.row].values
-    spw_names = spw_xds.name[spw_ids_by_ddi].values
+    spw_ids_by_ddi = ddi_xds.SPECTRAL_WINDOW_ID[ddi_xds.row].values
+    spw_names = spw_xds.NAME[spw_ids_by_ddi].values
     return {ddi: spw_names[ddi] for ddi in np.arange(0, len(spw_names))}
 
 
@@ -335,9 +335,9 @@ def read_ms_ddi_partitions(
         # filter by channel selection
         if (chanidxs is not None) and (len(chanidxs) < len(xds.chan)):
             xds = xds.isel(chan=chanidxs)
-            spw_xds["chan_freq"][
-                ddi_xds.spectral_window_id.values[ddi], : len(chanidxs)
-            ] = spw_xds.chan_freq[ddi_xds.spectral_window_id.values[ddi], chanidxs]
+            spw_xds["CHAN_FREQ"][
+                ddi_xds.SPECTRAL_WINDOW_ID.values[ddi], : len(chanidxs)
+            ] = spw_xds.CHAN_FREQ[ddi_xds.SPECTRAL_WINDOW_ID.values[ddi], chanidxs]
 
         # expand the row dimension out to (time, baseline)
         if not expanded and expand:

@@ -15,16 +15,16 @@ from casacore import tables
 # TODO: this should be consolidated with the equivalent in read_main_table,
 # if we keep this mapping
 rename_to_msv2_cols = {
-    "antenna1_id": "antenna1",
-    "antenna2_id": "antenna2",
-    "feed1_id": "feed1",
-    "feed2_id": "feed2",
+    "antenna1_id": "ANTENNA1",
+    "antenna2_id": "ANTENNA2",
+    "feed1_id": "FEED1",
+    "feed2_id": "FEED2",
     # optional cols:
-    # "weight": "weight_spectrum",
-    "vis_corrected": "corrected_data",
-    "vis": "data",
-    "vis_model": "model_data",
-    "autocorr": "float_data",
+    # "WEIGHT": "WEIGHT_SPECTRUM",
+    "VIS_CORRECTED": "CORRECTED_DATA",
+    "VIS": "DATA",
+    "VIS_MODEL": "MODEL_DATA",
+    "AUTOCORR": "FLOAT_DATA",
 }
 # cols added in xds not in MSv2
 cols_not_in_msv2 = ["baseline_ant1_id", "baseline_ant2_id"]
@@ -338,7 +338,7 @@ def write_ms_serial(
                 print(f"Exception writing subtable {subtable}: {exc}")
 
     part_key0 = next(iter(mxds.partitions))
-    vis_data_shape = mxds.partitions[part_key0].vis.shape
+    vis_data_shape = mxds.partitions[part_key0].VIS.shape
     rows_chunk_size = calc_optimal_ms_chunk_shape(
         memory_available_in_bytes, vis_data_shape, 16, "DATA"
     )

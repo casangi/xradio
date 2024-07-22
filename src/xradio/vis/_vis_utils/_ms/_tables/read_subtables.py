@@ -339,7 +339,7 @@ def read_delayed_pointing_chunks(
                 ):
                     continue
                 if col not in bvars:
-                    bvars[col.lower()] = []
+                    bvars[col] = []
 
                 cdata = tb_tool.getcol(col, 0, 1)[0]
                 if isinstance(cdata, str):
@@ -356,7 +356,7 @@ def read_delayed_pointing_chunks(
                         None,
                         None,
                     )
-                    bvars[col.lower()] += [
+                    bvars[col] += [
                         dask.array.from_delayed(
                             delayed_array, (ctlen, cblen), cdata.dtype
                         )
@@ -390,6 +390,6 @@ def read_delayed_pointing_chunks(
                                 )
                             ]
                         d1_list += [dask.array.concatenate(d2_list, axis=3)]
-                    bvars[col.lower()] += [dask.array.concatenate(d1_list, axis=2)]
+                    bvars[col] += [dask.array.concatenate(d1_list, axis=2)]
 
     return bvars

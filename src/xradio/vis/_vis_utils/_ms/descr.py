@@ -100,8 +100,8 @@ def populate_ms_descr(
     -------
     pd.DataFrame
     """
-    spw_ids = ddi_xds.spectral_window_id.values
-    pol_ids = ddi_xds.polarization_id.values
+    spw_ids = ddi_xds.SPECTRAL_WINDOW_ID.values
+    pol_ids = ddi_xds.POLARIZATION_ID.values
     sdf = {
         "ddi": ddi,
         "spw_id": spw_ids[ddi],
@@ -134,8 +134,8 @@ def populate_ms_descr(
             }
         )
 
-    chans = spw_xds.num_chan.values
-    pols = pol_xds.num_corr.values
+    chans = spw_xds.NUM_CHAN.values
+    pols = pol_xds.NUM_CORR.values
     sdf.update(
         {
             "chans": (

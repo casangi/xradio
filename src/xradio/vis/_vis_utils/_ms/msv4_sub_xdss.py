@@ -56,7 +56,7 @@ def interpolate_to_time(
     return xds
 
 
-def create_ant_xds(in_file: str, spectral_window_id: int):
+def create_ant_xds(in_file: str, spectral_window_id: int, antenna_id: list, feed_id: list):
     """
     Creates an Antenna Xarray Dataset from a MS v2 ANTENNA table.
 
@@ -99,6 +99,7 @@ def create_ant_xds(in_file: str, spectral_window_id: int):
         in_file,
         "ANTENNA",
         rename_ids=subt_rename_ids["ANTENNA"],
+        taql_where=f" where (ROWID() IN [{','.join(map(str, antenna_id))}])"
     )
 
     ant_column_description = generic_ant_xds.attrs["other"]["msv2"]["ctds_attrs"][
@@ -142,9 +143,10 @@ def create_ant_xds(in_file: str, spectral_window_id: int):
         in_file,
         "FEED",
         rename_ids=subt_rename_ids["FEED"],
-        taql_where=f" where SPECTRAL_WINDOW_ID = {spectral_window_id}",
+        taql_where=f" where (SPECTRAL_WINDOW_ID = {spectral_window_id}) AND (ANTENNA_ID IN [{','.join(map(str, antenna_id))}]) AND (FEED_ID IN [{','.join(map(str, feed_id))}])"
     )
 
+    #(FEED_ID IN [{','.join(map(str, feed_id))}])
     print(generic_feed_xds)
     print("*" * 50)
 

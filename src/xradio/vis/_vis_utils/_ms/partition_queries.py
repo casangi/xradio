@@ -1,6 +1,5 @@
 import itertools
 import graphviper.utils.logger as logger
-import numbers
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
@@ -10,8 +9,6 @@ import xarray as xr
 from casacore import tables
 
 from ._tables.table_query import open_table_ro, open_query
-from ._tables.read import read_generic_table
-from .subtables import subt_rename_ids
 
 
 def enumerated_product(*args):
@@ -42,10 +39,8 @@ def create_partitions(in_file: str, partition_scheme: list):
     # Create partition table
     from casacore import tables
     import numpy as np
-    import xarray as xr
     import pandas as pd
     import os
-    import time
 
     partition_scheme = ["DATA_DESC_ID", "OBS_MODE"] + partition_scheme
 

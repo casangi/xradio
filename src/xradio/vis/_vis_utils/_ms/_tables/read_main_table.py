@@ -24,16 +24,16 @@ from xradio._utils.list_and_array import (
 )
 
 rename_msv2_cols = {
-    "antenna1": "antenna1_id",
-    "antenna2": "antenna2_id",
-    "feed1": "feed1_id",
-    "feed2": "feed2_id",
+    "ANTENNA1": "antenna1_id",
+    "ANTENNA2": "antenna2_id",
+    "FEED1": "feed1_id",
+    "FEED2": "feed2_id",
     # optional cols:
-    "weight_spectrum": "weight",
-    "corrected_data": "vis_corrected",
-    "data": "vis",
-    "model_data": "vis_model",
-    "float_data": "autocorr",
+    "WEIGHT_SPECTRUM": "WEIGHT",
+    "CORRECTED_DATA": "VIS_CORRECTED",
+    "DATA": "VIS",
+    "MODEL_DATA": "VIS_MODEL",
+    "FLOAT_DATA": "AUTOCORR",
 }
 
 
@@ -83,11 +83,11 @@ def redim_id_data_vars(mvars: Dict[str, xr.DataArray]) -> Dict[str, xr.DataArray
     """
     # Vars to drop baseline dim
     var_names = [
-        "array_id",
-        "observation_id",
-        "processor_id",
-        "scan_number",
-        "state_id",
+        "ARRAY_ID",
+        "OBSERVATION_ID",
+        "PROCESSOR_ID",
+        "SCAN_NUMBER",
+        "STATE_ID",
     ]
     for vname in var_names:
         if "baseline" in mvars[vname].coords:
@@ -566,7 +566,7 @@ def concat_tvars_to_mvars(
 
     mvars = {}
     for tvr in tvars.keys():
-        data_var = tvr.lower()
+        data_var = tvr
         if tvr == "UVW":
             mvars[data_var] = xr.DataArray(
                 dask.array.concatenate(tvars[tvr], axis=0),
@@ -742,8 +742,7 @@ def read_flat_main_table(
     # now concat all the dask chunks from each time to make the xds
     mvars = {}
     for kk in bvars.keys():
-        # from uppercase MS col names to lowercase xds var names:
-        data_var = kk.lower()
+        data_var = kk
         if len(bvars[kk]) == 0:
             ignore += [kk]
             continue
@@ -766,7 +765,7 @@ def read_flat_main_table(
             )
 
     mvars["time"] = xr.DataArray(
-        convert_casacore_time(mvars["time"].values), dims=["row"]
+        convert_casacore_time(mvars["TIME"].values), dims=["row"]
     ).chunk({"row": chunks[0]})
 
     # add xds global attributes

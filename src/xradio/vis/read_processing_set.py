@@ -1,5 +1,5 @@
 import os
-import xarray as xr
+
 from ._processing_set import processing_set
 import graphviper.utils.logger as logger
 from xradio._utils.zarr.common import _open_dataset, _get_ms_stores_and_file_system
@@ -17,7 +17,7 @@ def read_processing_set(
     ps_store : str
         String of the path and name of the processing set. For example '/users/user_1/uid___A002_Xf07bba_Xbe5c_target.lsrk.vis.zarr'.
     obs_modes : list, optional
-        A list of obs_mode to be read for example ['OBSERVE_TARGET#ON_SOURCE']. The obs_mode in a processing set can be seem by calling processing_set.summary().
+        A list of obs_mode to be read for example ['OBSERVE_TARGET#ON_SOURCE']. The obs_mode in a processing set can be seen by calling processing_set.summary().
         By default None, which will read all obs_mode.
 
     Returns

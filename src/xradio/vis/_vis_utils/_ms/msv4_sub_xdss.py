@@ -7,7 +7,7 @@ import xarray as xr
 
 from .msv2_to_msv4_meta import column_description_casacore_to_msv4_measure
 from .subtables import subt_rename_ids
-from ._tables.read import make_taql_where_between_min_max, read_generic_table
+from ._tables.read import make_taql_where_between_min_max, load_generic_table
 
 from xradio._utils.list_and_array import (
     check_if_consistent,
@@ -81,46 +81,72 @@ def create_ant_xds(
     """
     # Dictionaries that define the conversion from MSv2 to MSv4:
     to_new_data_variable_names = {
-        "position": "ANTENNA_POSITION",
-        "offset": "ANTENNA_FEED_OFFSET",
-        "dish_diameter": "ANTENNA_DISH_DIAMETER",
+        "POSITION": "ANTENNA_POSITION",
+        "OFFSET": "ANTENNA_FEED_OFFSET",
+        "DISH_DIAMETER": "ANTENNA_DISH_DIAMETER",
     }
     data_variable_dims = {
-        "position": ["antenna_id", "cartesian_pos_label"],
-        "offset": ["antenna_id", "cartesian_pos_label"],
-        "dish_diameter": ["antenna_id"],
+        "POSITION": ["antenna_id", "cartesian_pos_label"],
+        "OFFSET": ["antenna_id", "cartesian_pos_label"],
+        "DISH_DIAMETER": ["antenna_id"],
     }
     to_new_coord_names = {
-        "name": "name",
-        "station": "station",
-        "mount": "mount",
-        "phased_array_id": "phased_array_id",
+        "NAME": "name",
+        "STATION": "station",
+        "MOUNT": "mount",
+        "PHASED_ARRAY_ID": "phased_array_id",
     }
+    
+    # coord_dims = {
+    #     "name": ["antenna_id"],
+    #     "station": ["antenna_id"],
+    #     "mount": ["antenna_id"],
+    #     "phased_array_id": ["antenna_id"],
+    #     "POSITION": "POSITION",
+    #     "OFFSET": "FEED_OFFSET",
+    #     "DISH_DIAMETER": "DISH_DIAMETER",
+    # }
+    # data_variable_dims = {
+    #     "POSITION": ["antenna_id", "xyz_label"],
+    #     "OFFSET": ["antenna_id", "xyz_label"],
+    #     "DISH_DIAMETER": ["antenna_id"],
+    # }
+    # to_new_coord_names = {
+    #     "NAME": "name",
+    #     "STATION": "station",
+    #     "TYPE": "type",
+    #     "MOUNT": "mount",
+    #     "PHASED_ARRAY_ID": "phased_array_id",
+    # }
     coord_dims = {
-        "name": ["antenna_id"],
-        "station": ["antenna_id"],
-        "mount": ["antenna_id"],
-        "phased_array_id": ["antenna_id"],
+        "NAME": ["antenna_id"],
+        "STATION": ["antenna_id"],
+        "TYPE": ["antenna_id"],
+        "MOUNT": ["antenna_id"],
+        "PHASED_ARRAY_ID": ["antenna_id"],
     }
 
     # Read ANTENNA table into a Xarray Dataset.
-    generic_ant_xds = read_generic_table(
+    unique_antenna_id = unique_1d(antenna_id) #Also ensures that it is sorted otherwise TaQL will give wrong results.
+    
+    generic_ant_xds = load_generic_table(
         in_file,
         "ANTENNA",
         rename_ids=subt_rename_ids["ANTENNA"],
-        taql_where=f" where (ROWID() IN [{','.join(map(str, antenna_id))}])",
+        taql_where=f" where (ROWID() IN [{','.join(map(str,unique_antenna_id))}])", #order is not guaranteed
     )
-
+    generic_ant_xds = generic_ant_xds.assign_coords({"antenna_id": unique_antenna_id})
+    generic_ant_xds = generic_ant_xds.sel(antenna_id=antenna_id, drop=False)  # Make sure the antenna_id order is correct.
+    
     ant_column_description = generic_ant_xds.attrs["other"]["msv2"]["ctds_attrs"][
         "column_descriptions"
     ]
+
     # ['OFFSET', 'POSITION', 'DISH_DIAMETER', 'FLAG_ROW', 'MOUNT', 'NAME', 'STATION']
     ant_xds = xr.Dataset()
+    ant_xds = ant_xds.assign_coords({"antenna_id": antenna_id, "cartesian_pos_label": ["x", "y", "z"]})
 
-    coords = {
-        "antenna_id": np.arange(generic_ant_xds.sizes["antenna_id"]),
-        "cartesian_pos_label": ["x", "y", "z"],
-    }
+    coords={}
     for key in generic_ant_xds:
         msv4_measure = column_description_casacore_to_msv4_measure(
             ant_column_description[key.upper()]
@@ -133,7 +159,7 @@ def create_ant_xds(
             if msv4_measure:
                 ant_xds[to_new_data_variable_names[key]].attrs.update(msv4_measure)
 
-            if key in ["dish_diameter"]:
+            if key in ["DISH_DIAMETER"]:
                 ant_xds[to_new_data_variable_names[key]].attrs.update(
                     {"units": ["m"], "type": "quantity"}
                 )
@@ -149,39 +175,32 @@ def create_ant_xds(
     ant_xds["ANTENNA_POSITION"].attrs["coordinate_system"] = "geocentric"
 
     # Extract feed information
-    generic_feed_xds = read_generic_table(
+    generic_feed_xds = load_generic_table(
         in_file,
         "FEED",
         rename_ids=subt_rename_ids["FEED"],
-        taql_where=f" where (ANTENNA_ID IN [{','.join(map(str, antenna_id))}]) AND (FEED_ID IN [{','.join(map(str, feed_id))}])",
+        taql_where=f" where (ANTENNA_ID IN [{','.join(map(str, unique_antenna_id))}]) AND (FEED_ID IN [{','.join(map(str, feed_id))}])",
     )  # Some Lofar and MeerKAT data have the spw column set to -1 so we can't use '(SPECTRAL_WINDOW_ID = {spectral_window_id})'
 
-    print(spectral_window_id, antenna_id, feed_id)
-    print(generic_feed_xds)
-    print("*" * 50)
-
-    if not all(generic_feed_xds.spectral_window_id == -1):
+    if not all(generic_feed_xds.SPECTRAL_WINDOW_ID == -1):
         generic_feed_xds = generic_feed_xds.where(
-            generic_feed_xds.spectral_window_id == spectral_window_id, drop=True
+            generic_feed_xds.SPECTRAL_WINDOW_ID == spectral_window_id, drop=True
         )
-
-    # print(generic_feed_xds)
-    # print("*" * 50)
-    # print('&&',len(generic_feed_xds.row))
 
     if not (
         len(generic_feed_xds.row) == 0
     ):  # Some times the feed table is empty (this is the case with ALMA spw WVR#NOMINAL).
-        assert len(generic_feed_xds.antenna_id) == len(
+        assert len(generic_feed_xds.ANTENNA_ID) == len(
             ant_xds.antenna_id
         ), "Can only process feed table with a single time entry for an antenna and spectral_window_id."
-
-        generic_ant_xds = generic_ant_xds.sel(
-            antenna_id=ant_xds.antenna_id
-        )  # Make sure the antenna_id is in the same order as the xds.
+        generic_feed_xds = generic_feed_xds.set_xindex("ANTENNA_ID") # Allows for non-dimension coordinate selection.
+        generic_feed_xds = generic_feed_xds.sel(ANTENNA_ID=ant_xds.antenna_id) # Make sure the antenna_id is in the same order as the xds.
+        
+        num_receptors = np.ravel(generic_feed_xds.NUM_RECEPTORS)
+        num_receptors = unique_1d(num_receptors[~np.isnan(num_receptors)])
 
         assert (
-            len(unique_1d(generic_feed_xds.num_receptors)) == 1
+            len(num_receptors) == 1
         ), "The number of receptors must be constant in feed table."
 
         feed_column_description = generic_feed_xds.attrs["other"]["msv2"]["ctds_attrs"][
@@ -189,20 +208,20 @@ def create_ant_xds(
         ]
 
         to_new_data_variable_names = {
-            "beam_offset": "BEAM_OFFSET",
-            "receptor_angle": "RECEPTOR_ANGLE",
-            "polarization_type": "POLARIZATION_TYPE",
+            "BEAM_OFFSET": "BEAM_OFFSET",
+            "RECEPTOR_ANGLE": "RECEPTOR_ANGLE",
+            "POLARIZATION_TYPE": "POLARIZATION_TYPE",
             # "pol_response": "POLARIZATION_RESPONSE", ?repeated dim creates problems.
-            "focus_length": "FOCUS_LENGTH",  # optional
+            "FOCUS_LENGTH": "FOCUS_LENGTH",  # optional
             # "position": "ANTENNA_FEED_OFFSET" #Will be added to the existing position in ant_xds
         }
 
         data_variable_dims = {
-            "beam_offset": ["antenna_id", "receptor_name", "sky_dir_label"],
-            "receptor_angle": ["antenna_id", "receptor_name"],
-            "polarization_type": ["antenna_id", "receptor_name"],
+            "BEAM_OFFSET": ["antenna_id", "receptor_name", "sky_dir_label"],
+            "RECEPTOR_ANGLE": ["antenna_id", "receptor_name"],
+            "POLARIZATION_TYPE": ["antenna_id", "receptor_name"],
             # "pol_response": ["antenna_id", "receptor_name", "receptor_name_"],
-            "focus_length": ["antenna_id"],
+            "FOCUS_LENGTH": ["antenna_id"],
             # "position": ["antenna_id", "cartesian_pos_label"],
         }
 
@@ -225,14 +244,13 @@ def create_ant_xds(
                 )
 
         ant_xds["ANTENNA_FEED_OFFSET"] = (
-            ant_xds["ANTENNA_FEED_OFFSET"] + generic_ant_xds["position"].data
+            ant_xds["ANTENNA_FEED_OFFSET"] + generic_ant_xds["POSITION"].data
         )
 
         coords["receptor_name"] = np.arange(ant_xds.sizes["receptor_name"]).astype(str)
         
-    #
-
     ant_xds = ant_xds.assign_coords(coords)
+
     return ant_xds
 
 
@@ -251,25 +269,27 @@ def create_weather_xds(in_file: str):
         Weather Xarray Dataset.
     """
     # Dictionaries that define the conversion from MSv2 to MSv4:
+    # Dict from col/data_var names in generic_weather_xds (from MSv2) to MSV4
+    # weather_xds produced here
     to_new_data_variable_names = {
-        "h2o": "H2O",
-        "ionos_electron": "IONOS_ELECTRON",
-        "pressure": "PRESSURE",
-        "rel_humidity": "REL_HUMIDITY",
-        "temperature": "TEMPERATURE",
-        "dew_point": "DEW_POINT",
-        "wind_direction": "WIND_DIRECTION",
-        "wind_speed": "WIND_SPEED",
+        "H2O": "H2O",
+        "IONOS_ELECTRON": "IONOS_ELECTRON",
+        "PRESSURE": "PRESSURE",
+        "REL_HUMIDITY": "REL_HUMIDITY",
+        "TEMPERATURE": "TEMPERATURE",
+        "DEW_POINT": "DEW_POINT",
+        "WIND_DIRECTION": "WIND_DIRECTION",
+        "WIND_SPEED": "WIND_SPEED",
     }
     data_variable_dims = {
-        "h2o": ["station_id", "time"],
-        "ionos_electron": ["station_id", "time"],
-        "pressure": ["station_id", "time"],
-        "rel_humidity": ["station_id", "time"],
-        "temperature": ["station_id", "time"],
-        "dew_point": ["station_id", "time"],
-        "wind_direction": ["station_id", "time"],
-        "wind_speed": ["station_id", "time"],
+        "H2O": ["station_id", "time"],
+        "IONOS_ELECTRON": ["station_id", "time"],
+        "PRESSURE": ["station_id", "time"],
+        "REL_HUMIDITY": ["station_id", "time"],
+        "TEMPERATURE": ["station_id", "time"],
+        "DEW_POINT": ["station_id", "time"],
+        "WIND_DIRECTION": ["station_id", "time"],
+        "WIND_SPEED": ["station_id", "time"],
     }
     to_new_coord_names = {
         # No MS data cols are turned into xds coords
@@ -278,12 +298,12 @@ def create_weather_xds(in_file: str):
         # No MS data cols are turned into xds coords
     }
     to_new_dim_names = {
-        "antenna_id": "station_id",
+        "ANTENNA_ID": "STATION_ID",
     }
 
     # Read WEATHER table into a Xarray Dataset.
     try:
-        generic_weather_xds = read_generic_table(
+        generic_weather_xds = load_generic_table(
             in_file,
             "WEATHER",
             rename_ids=subt_rename_ids["WEATHER"],
@@ -302,8 +322,8 @@ def create_weather_xds(in_file: str):
     weather_xds = xr.Dataset()
 
     coords = {
-        "station_id": generic_weather_xds["station_id"].data,
-        "time": generic_weather_xds["time"].data,
+        "station_id": generic_weather_xds["STATION_ID"].data,
+        "time": generic_weather_xds["TIME"].data,
     }
     for key in generic_weather_xds:
         msv4_measure = column_description_casacore_to_msv4_measure(
@@ -318,31 +338,31 @@ def create_weather_xds(in_file: str):
             if msv4_measure:
                 weather_xds[var_name].attrs.update(msv4_measure)
 
-            if key in ["interval"]:
+            if key in ["INTERVAL"]:
                 weather_xds[var_name].attrs.update({"units": ["s"], "type": "quantity"})
-            elif key in ["h2o"]:
+            elif key in ["H2O"]:
                 weather_xds[var_name].attrs.update(
                     {"units": ["/m^2"], "type": "quantity"}
                 )
-            elif key in ["ionos_electron"]:
+            elif key in ["IONOS_ELECTRON"]:
                 weather_xds[var_name].attrs.update(
                     {"units": ["/m^2"], "type": "quantity"}
                 )
-            elif key in ["pressure"]:
+            elif key in ["PRESSURE"]:
                 weather_xds[var_name].attrs.update(
                     {"units": ["Pa"], "type": "quantity"}
                 )
-            elif key in ["rel_humidity"]:
+            elif key in ["REL_HUMIDITY"]:
                 weather_xds[var_name].attrs.update({"units": ["%"], "type": "quantity"})
-            elif key in ["temperature"]:
+            elif key in ["TEMPERATURE"]:
                 weather_xds[var_name].attrs.update({"units": ["K"], "type": "quantity"})
-            elif key in ["dew_point"]:
+            elif key in ["DEW_POINT"]:
                 weather_xds[var_name].attrs.update({"units": ["K"], "type": "quantity"})
-            elif key in ["wind_direction"]:
+            elif key in ["WIND_DIRECTION"]:
                 weather_xds[var_name].attrs.update(
                     {"units": ["rad"], "type": "quantity"}
                 )
-            elif key in ["wind_speed"]:
+            elif key in ["WIND_SPEED"]:
                 weather_xds[var_name].attrs.update(
                     {"units": ["m/s"], "type": "quantity"}
                 )
@@ -388,38 +408,40 @@ def create_pointing_xds(
     to_new_data_variable_names = {
         # "name": "NAME",   # removed
         # "time_origin": "TIME_ORIGIN",  # removed?
-        "direction": "BEAM_POINTING",
-        "encoder": "DISH_MEASURED_POINTING",
-        "target": "TARGET",  # => attribute?
-        "pointing_offset": "POINTING_OFFSET",
-        "source_offset": "SOURCE_OFFSET",
+        "DIRECTION": "BEAM_POINTING",
+        "ENCODER": "DISH_MEASURED_POINTING",
+        "TARGET": "TARGET",  # => attribute?
+        "POINTING_OFFSET": "POINTING_OFFSET",
+        "SOURCE_OFFSET": "SOURCE_OFFSET",
         # "pointing_model_id": "POINTING_MODEL_ID",   # removed
         # "tracking": "TRACKING",   # => attribute
         # "on_source": "ON_SOURCE",   # removed
-        "over_the_top": "OVER_THE_TOP",
+        "OVER_THE_TOP": "OVER_THE_TOP",
     }
-    time_ant_ids = ["time", "antenna_id"]
+    time_ant_dims = ["time", "antenna_id"]
+    time_ant_dir_dims = time_ant_dims + ["direction"]
     data_variable_dims = {
         # "name": ["time", "antenna_id"],   # removed
         # "time_origin": ["time", "antenna_id"],   # removed?
-        "direction": ["time", "antenna_id", "direction"],
-        "encoder": ["time", "antenna_id", "direction"],
-        "target": ["time", "antenna_id", "direction"],
-        "pointing_offset": ["time", "antenna_id", "direction"],
-        "source_offset": ["time", "antenna_id", "direction"],
+        "DIRECTION": time_ant_dir_dims,
+        "ENCODER": time_ant_dir_dims,
+        "TARGET": time_ant_dir_dims,
+        "POINTING_OFFSET": time_ant_dir_dims,
+        "SOURCE_OFFSET": time_ant_dir_dims,
         # "pointing_model_id": ["time", "antenna_id"],   # removed
         # "tracking": ["time", "antenna_id"],   # => attribute
         # "on_source": ["time", "antenna_id"],  # removed
-        "over_the_top": ["time", "antenna_id"],
+        "OVER_THE_TOP": time_ant_dims,
     }
-    to_new_coord_names = {"ra/dec": "direction"}
-    coord_dims = {}
+    # Unused here
+    # to_new_coord_names = {"ra/dec": "direction"}
+    # coord_dims = {}
 
     taql_time_range = make_taql_where_between_min_max(
         time_min_max, in_file, "POINTING", "TIME"
     )
     # Read POINTING table into a Xarray Dataset.
-    generic_pointing_xds = read_generic_table(
+    generic_pointing_xds = load_generic_table(
         in_file,
         "POINTING",
         rename_ids=subt_rename_ids["POINTING"],
@@ -454,8 +476,8 @@ def create_pointing_xds(
                 pointing_xds[data_var_name].attrs.update(msv4_measure)
 
     coords = {
-        "time": generic_pointing_xds["time"].values,
-        "antenna_id": np.arange(generic_pointing_xds.sizes["antenna_id"]),
+        "time": generic_pointing_xds["TIME"].values,
+        "antenna_id": np.arange(generic_pointing_xds.sizes["ANTENNA_ID"]),
         "direction": ["ra", "dec"],
     }
     pointing_xds = pointing_xds.assign_coords(coords)
@@ -463,15 +485,15 @@ def create_pointing_xds(
     # missing attributes
     pointing_xds["time"].attrs.update({"units": ["s"], "type": "quantity"})
 
-    if "tracking" in generic_pointing_xds.data_vars:
+    if "TRACKING" in generic_pointing_xds.data_vars:
         pointing_xds.attrs["tracking"] = generic_pointing_xds.data_vars[
-            "tracking"
+            "TRACKING"
         ].values[0, 0]
 
     # Move target from data_vars to attributes?
     move_target_as_attr = False
     if move_target_as_attr:
-        target = generic_pointing_xds.data_vars["target"]
+        target = generic_pointing_xds.data_vars["TARGET"]
         pointing_xds.attrs["target"] = {
             "dims": ["direction"],
             "data": target.values[0, 0].tolist(),
@@ -484,5 +506,4 @@ def create_pointing_xds(
     pointing_xds = interpolate_to_time(pointing_xds, interp_time, "pointing_xds")
 
     logger.debug(f"create_pointing_xds() execution time {time.time() - start:0.2f} s")
-
     return pointing_xds

@@ -161,7 +161,7 @@ def test_vlass():
 # test_lofar()
 # test_meerkat()
 # test_global_vlbi()
-test_vlba()
+# test_vlba()
 # test_ngeht()
 # test_ephemeris()
 # test_single_dish()

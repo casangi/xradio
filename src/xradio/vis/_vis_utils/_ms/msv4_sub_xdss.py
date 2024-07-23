@@ -153,17 +153,21 @@ def create_ant_xds(
         in_file,
         "FEED",
         rename_ids=subt_rename_ids["FEED"],
-        taql_where=f" where (SPECTRAL_WINDOW_ID = {spectral_window_id}) AND (ANTENNA_ID IN [{','.join(map(str, antenna_id))}]) AND (FEED_ID IN [{','.join(map(str, feed_id))}])",
-    )
+        taql_where=f" where (ANTENNA_ID IN [{','.join(map(str, antenna_id))}]) AND (FEED_ID IN [{','.join(map(str, feed_id))}])",
+    )  # Some Lofar and MeerKAT data have the spw column set to -1 so we can't use '(SPECTRAL_WINDOW_ID = {spectral_window_id})'
 
-    assert (
-        len(generic_feed_xds.antenna_id) == len(ant_xds.antenna_id)
+    if not all(generic_feed_xds.spectral_window_id == -1):
+        generic_feed_xds = generic_feed_xds.sel(SPECTRAL_WINDOW_ID=spectral_window_id)
+
+    assert len(generic_feed_xds.antenna_id) == len(
+        ant_xds.antenna_id
     ), "Can only process feed table with a single time entry for an antenna and spectral_window_id."
 
     generic_ant_xds = generic_ant_xds.sel(
         antenna_id=ant_xds.antenna_id
     )  # Make sure the antenna_id is in the same order as the xds.
     # print(generic_feed_xds)
+    # print(generic_feed_xds.pol_response.values)
     # print("*" * 50)
 
     assert (

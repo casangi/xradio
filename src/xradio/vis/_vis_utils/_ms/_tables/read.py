@@ -479,10 +479,13 @@ def redimension_ms_subtable(xds: xr.Dataset, subt_name: str) -> xr.Dataset:
         # we need to reset to the original type.
         for var in rxds.data_vars:
             if rxds[var].dtype != xds[var].dtype:
-                rxds[var] = rxds[var].astype(xds[var].dtype)
+                # beware of gaps/empty==nan values when redimensioning
+                with np.errstate(invalid="ignore"):
+                    rxds[var] = rxds[var].astype(xds[var].dtype)
     except Exception as exc:
         logger.warning(
-            f"Cannot expand rows to {key_dims}, possibly duplicate values in those coordinates. Exception: {exc}"
+            f"Cannot expand rows in table {subt_name} to {key_dims}, possibly duplicate values in those coordinates. "
+            f"Exception: {exc}"
         )
         rxds = xds.copy()
 

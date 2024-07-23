@@ -15,12 +15,10 @@ from xradio.vis._vis_utils._ms._tables.read import (
     make_taql_where_between_min_max,
     read_generic_table,
 )
-from xradio.vis._vis_utils._ms._tables.table_query import open_table_ro
 import graphviper.utils.logger as logger
 from xradio._utils.list_and_array import (
     check_if_consistent,
     unique_1d,
-    to_list,
     to_np_array,
 )
 from xradio._utils.common import cast_to_str, convert_to_si_units, add_position_offsets
@@ -451,8 +449,6 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
             {"source_name": "Unknown"}
         )  # Need to add this for ps.summary() to work.
         return xds
-
-    from xradio._utils.list_and_array import check_if_consistent, unique_1d
 
     unique_source_id = unique_1d(source_id)
     taql_where = f"where (SOURCE_ID IN [{','.join(map(str, unique_source_id))}]) AND (SPECTRAL_WINDOW_ID = {spectral_window_id})"

@@ -10,8 +10,6 @@ import xarray as xr
 from casacore import tables
 
 from ._tables.table_query import open_table_ro, open_query
-from ._tables.read import read_generic_table
-from .subtables import subt_rename_ids
 
 
 def enumerated_product(*args):

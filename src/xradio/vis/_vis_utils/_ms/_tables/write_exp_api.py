@@ -217,10 +217,12 @@ def write_ms(
             if max_chunk_size <= 0:
                 max_chunk_size = 19200
             if col_chunk_size <= 0:
-                col_chunk_size = int(max_chunk_size / 64)
-            col_rows = (
-                int(np.ceil(max_chunk_size / col_chunk_size)) * txds[col].chunks[0][0]
-            )
+                col_rows = max_chunk_size
+            else:
+                col_rows = (
+                    int(np.ceil(max_chunk_size / col_chunk_size))
+                    * txds[col].chunks[0][0]
+                )
             for rr in range(0, txds[col].row.shape[0], col_rows):
                 txda = txds[col].isel(row=slice(rr, rr + col_rows))
                 delayed_writes += [

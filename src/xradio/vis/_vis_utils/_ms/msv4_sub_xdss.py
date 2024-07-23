@@ -96,7 +96,7 @@ def create_ant_xds(
         "MOUNT": "mount",
         "PHASED_ARRAY_ID": "phased_array_id",
     }
-    
+
     # coord_dims = {
     #     "name": ["antenna_id"],
     #     "station": ["antenna_id"],
@@ -127,26 +127,32 @@ def create_ant_xds(
     }
 
     # Read ANTENNA table into a Xarray Dataset.
-    unique_antenna_id = unique_1d(antenna_id) #Also ensures that it is sorted otherwise TaQL will give wrong results.
-    
+    unique_antenna_id = unique_1d(
+        antenna_id
+    )  # Also ensures that it is sorted otherwise TaQL will give wrong results.
+
     generic_ant_xds = load_generic_table(
         in_file,
         "ANTENNA",
         rename_ids=subt_rename_ids["ANTENNA"],
-        taql_where=f" where (ROWID() IN [{','.join(map(str,unique_antenna_id))}])", #order is not guaranteed
+        taql_where=f" where (ROWID() IN [{','.join(map(str,unique_antenna_id))}])",  # order is not guaranteed
     )
     generic_ant_xds = generic_ant_xds.assign_coords({"antenna_id": unique_antenna_id})
-    generic_ant_xds = generic_ant_xds.sel(antenna_id=antenna_id, drop=False)  # Make sure the antenna_id order is correct.
-    
+    generic_ant_xds = generic_ant_xds.sel(
+        antenna_id=antenna_id, drop=False
+    )  # Make sure the antenna_id order is correct.
+
     ant_column_description = generic_ant_xds.attrs["other"]["msv2"]["ctds_attrs"][
         "column_descriptions"
     ]
 
     # ['OFFSET', 'POSITION', 'DISH_DIAMETER', 'FLAG_ROW', 'MOUNT', 'NAME', 'STATION']
     ant_xds = xr.Dataset()
-    ant_xds = ant_xds.assign_coords({"antenna_id": antenna_id, "cartesian_pos_label": ["x", "y", "z"]})
+    ant_xds = ant_xds.assign_coords(
+        {"antenna_id": antenna_id, "cartesian_pos_label": ["x", "y", "z"]}
+    )
 
-    coords={}
+    coords = {}
     for key in generic_ant_xds:
         msv4_measure = column_description_casacore_to_msv4_measure(
             ant_column_description[key.upper()]
@@ -193,9 +199,13 @@ def create_ant_xds(
         assert len(generic_feed_xds.ANTENNA_ID) == len(
             ant_xds.antenna_id
         ), "Can only process feed table with a single time entry for an antenna and spectral_window_id."
-        generic_feed_xds = generic_feed_xds.set_xindex("ANTENNA_ID") # Allows for non-dimension coordinate selection.
-        generic_feed_xds = generic_feed_xds.sel(ANTENNA_ID=ant_xds.antenna_id) # Make sure the antenna_id is in the same order as the xds.
-        
+        generic_feed_xds = generic_feed_xds.set_xindex(
+            "ANTENNA_ID"
+        )  # Allows for non-dimension coordinate selection.
+        generic_feed_xds = generic_feed_xds.sel(
+            ANTENNA_ID=ant_xds.antenna_id
+        )  # Make sure the antenna_id is in the same order as the xds.
+
         num_receptors = np.ravel(generic_feed_xds.NUM_RECEPTORS)
         num_receptors = unique_1d(num_receptors[~np.isnan(num_receptors)])
 
@@ -248,7 +258,7 @@ def create_ant_xds(
         )
 
         coords["receptor_name"] = np.arange(ant_xds.sizes["receptor_name"]).astype(str)
-        
+
     ant_xds = ant_xds.assign_coords(coords)
 
     return ant_xds

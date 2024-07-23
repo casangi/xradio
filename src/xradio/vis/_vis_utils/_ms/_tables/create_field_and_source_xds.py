@@ -139,8 +139,8 @@ def extract_ephemeris_info(
     ephemeris_xds = ephemeris_xds.isel(
         ephemeris_id=0
     )  # Collapse the ephemeris_id dimension.
-    #Data varaibles  ['time', 'RA', 'DEC', 'Rho', 'RadVel', 'NP_ang', 'NP_dist', 'DiskLong', 'DiskLat', 'Sl_lon', 'Sl_lat', 'r', 'rdot', 'phang']
- 
+    # Data varaibles  ['time', 'RA', 'DEC', 'Rho', 'RadVel', 'NP_ang', 'NP_dist', 'DiskLong', 'DiskLat', 'Sl_lon', 'Sl_lat', 'r', 'rdot', 'phang']
+
     # Get meta data.
     ephemeris_meta = ephemeris_xds.attrs["other"]["msv2"]["ctds_attrs"]
     ephemris_column_description = ephemeris_xds.attrs["other"]["msv2"]["ctds_attrs"][
@@ -266,7 +266,7 @@ def extract_ephemeris_info(
     else:
         key_lon = "diskLong"
         key_lat = "diskLat"
-    
+
     if key_lon in ephemeris_xds.data_vars:
         temp_xds["SUB_OBSERVER_POSITION"] = xr.DataArray(
             np.column_stack(
@@ -287,14 +287,10 @@ def extract_ephemeris_info(
                 "coordinate_system": "planetodetic",
                 "units": [
                     cast_to_str(
-                        ephemris_column_description[key_lon]["keywords"][
-                            unit_keyword
-                        ]
+                        ephemris_column_description[key_lon]["keywords"][unit_keyword]
                     ),
                     cast_to_str(
-                        ephemris_column_description[key_lat]["keywords"][
-                            unit_keyword
-                        ]
+                        ephemris_column_description[key_lat]["keywords"][unit_keyword]
                     ),
                     "m",
                 ],
@@ -610,7 +606,9 @@ def create_field_info_and_check_ephemeris(
     field_xds = field_xds.isel(poly_id=0, drop=True)
     # field_xds = field_xds.assign_coords({'field_id':field_xds['field_id'].data})
     field_xds = field_xds.assign_coords({"field_id": unique_field_id})
-    field_xds = field_xds.sel(field_id=field_id, drop=False) # Make sure field_id match up with time axis (duplicate fields are allowed).
+    field_xds = field_xds.sel(
+        field_id=field_id, drop=False
+    )  # Make sure field_id match up with time axis (duplicate fields are allowed).
     source_id = to_np_array(field_xds.SOURCE_ID.values)
 
     ephemeris_table_name = None
@@ -622,9 +620,7 @@ def create_field_info_and_check_ephemeris(
 
     # Need to check if ephemeris_id is present and if ephemeris table is present.
     if "EPHEMERIS_ID" in field_xds:
-        ephemeris_id = check_if_consistent(
-            field_xds.EPHEMERIS_ID, "EPHEMERIS_ID"
-        ) 
+        ephemeris_id = check_if_consistent(field_xds.EPHEMERIS_ID, "EPHEMERIS_ID")
 
         if ephemeris_id > -1:
             files = os.listdir(os.path.join(in_file, "FIELD"))

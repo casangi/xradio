@@ -304,22 +304,24 @@ def create_pointing_xds(
         # "on_source": "ON_SOURCE",   # removed
         "OVER_THE_TOP": "OVER_THE_TOP",
     }
-    time_ant_ids = ["time", "antenna_id"]
+    time_ant_dims = ["time", "antenna_id"]
+    time_ant_dir_dims = time_ant_dims + ["direction"]
     data_variable_dims = {
         # "name": ["time", "antenna_id"],   # removed
         # "time_origin": ["time", "antenna_id"],   # removed?
-        "DIRECTION": ["time", "antenna_id", "direction"],
-        "ENCODER": ["time", "antenna_id", "direction"],
-        "TARGET": ["time", "antenna_id", "direction"],
-        "POINTING_OFFSET": ["time", "antenna_id", "direction"],
-        "SOURCE_OFFSET": ["time", "antenna_id", "direction"],
+        "DIRECTION": time_ant_dir_dims,
+        "ENCODER": time_ant_dir_dims,
+        "TARGET": time_ant_dir_dims,
+        "POINTING_OFFSET": time_ant_dir_dims,
+        "SOURCE_OFFSET": time_ant_dir_dims,
         # "pointing_model_id": ["time", "antenna_id"],   # removed
         # "tracking": ["time", "antenna_id"],   # => attribute
         # "on_source": ["time", "antenna_id"],  # removed
-        "OVER_THE_TOP": ["time", "antenna_id"],
+        "OVER_THE_TOP": time_ant_dims,
     }
-    to_new_coord_names = {"ra/dec": "direction"}
-    coord_dims = {}
+    # Unused here
+    # to_new_coord_names = {"ra/dec": "direction"}
+    # coord_dims = {}
 
     taql_time_range = make_taql_where_between_min_max(
         time_min_max, in_file, "POINTING", "TIME"

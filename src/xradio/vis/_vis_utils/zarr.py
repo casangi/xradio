@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import Dict, Union
 
 import zarr
-import xradio
 import graphviper.utils.logger as logger
 
 from ._utils.cds import CASAVisSet

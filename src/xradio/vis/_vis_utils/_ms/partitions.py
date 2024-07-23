@@ -277,7 +277,7 @@ def read_ms_ddi_partitions(
     ddis = np.arange(ddi_xds.row.shape[0]) if rowmap is None else list(rowmap.keys())
 
     # figure out the chunking for each DDI, either one fixed shape or an auto-computed one
-    if type(chunks) != tuple:
+    if type(chunks) is not tuple:
         mshape = describe_ms(infile, mode="flat", rowmap=rowmap)
         chunks = dict(
             [
@@ -303,7 +303,7 @@ def read_ms_ddi_partitions(
             continue
         logger.debug(
             "reading DDI %i with chunking %s..."
-            % (ddi, str(chunks[ddi] if type(chunks) == dict else chunks))
+            % (ddi, str(chunks[ddi] if type(chunks) is dict else chunks))
         )
 
         # experimenting, comparing overheads of expanded vs. flat
@@ -317,7 +317,7 @@ def read_ms_ddi_partitions(
                 infile,
                 ddi,
                 rowidxs=rowidxs,
-                chunks=chunks[ddi] if type(chunks) == dict else chunks,
+                chunks=chunks[ddi] if type(chunks) is dict else chunks,
                 ignore_msv2_cols=ignore_msv2_cols,
             )
         if len(xds.sizes) == 0:

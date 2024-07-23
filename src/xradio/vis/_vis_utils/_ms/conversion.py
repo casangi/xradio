@@ -1,5 +1,4 @@
 import numcodecs
-import math
 import time
 from .._zarr.encoding import add_encoding
 from typing import Dict, Union
@@ -215,7 +214,7 @@ def mem_chunksize_to_dict_main_balanced(
 
     # Iterate through the dims, starting from the dims with lower chunk size
     #  (=bigger impact of a +1)
-    # Note the use of math.floor, this iteration can either increase or decrease sizes,
+    # Note the use of np.floor, this iteration can either increase or decrease sizes,
     #  if increasing sizes we want to keep mem use below the upper limit, floor(2.3) = +2
     #  if decreasing sizes we want to take mem use below the upper limit, floor(-2.3) = -3
     indices = np.argsort(dim_chunksizes[free_dims_mask])

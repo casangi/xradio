@@ -1,5 +1,5 @@
 import os
-import xarray as xr
+
 from ._processing_set import processing_set
 import graphviper.utils.logger as logger
 from xradio._utils.zarr.common import _open_dataset, _get_ms_stores_and_file_system

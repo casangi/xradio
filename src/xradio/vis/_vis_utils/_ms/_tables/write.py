@@ -6,8 +6,6 @@ import xarray as xr
 
 from casacore import tables
 
-from ..msv2_msv3 import ignore_msv2_cols
-
 
 def revert_time(datetimes: np.ndarray) -> np.ndarray:
     """

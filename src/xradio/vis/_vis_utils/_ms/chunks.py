@@ -2,17 +2,11 @@ from pathlib import Path
 from typing import Dict, Tuple
 
 import xarray as xr
-import numpy as np
 
 
-from .msv2_msv3 import ignore_msv2_cols
 from .subtables import subt_rename_ids
-from ._tables.load_main_table import load_expanded_main_table_chunk
-from ._tables.read import read_generic_table, make_freq_attrs
+from ._tables.read import read_generic_table
 from ._tables.read_subtables import read_delayed_pointing_table
-from .._utils.partition_attrs import add_partition_attrs
-from .._utils.xds_helper import make_coords
-from xradio._utils.list_and_array import unique_1d
 
 
 def read_spw_ddi_ant_pol(inpath: str) -> Tuple[xr.Dataset]:

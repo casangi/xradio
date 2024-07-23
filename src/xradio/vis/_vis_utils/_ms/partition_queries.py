@@ -1,6 +1,5 @@
 import itertools
 import graphviper.utils.logger as logger
-import numbers
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
@@ -40,10 +39,8 @@ def create_partitions(in_file: str, partition_scheme: list):
     # Create partition table
     from casacore import tables
     import numpy as np
-    import xarray as xr
     import pandas as pd
     import os
-    import time
 
     partition_scheme = ["DATA_DESC_ID", "OBS_MODE"] + partition_scheme
 

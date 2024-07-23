@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from ._tables.read import read_generic_table, read_flat_col_chunk
+from ._tables.read import load_generic_table, read_flat_col_chunk
 from ._tables.table_query import open_query, open_table_ro
 from xradio._utils.list_and_array import unique_1d
 
@@ -45,7 +45,7 @@ def describe_ms(
     ]:
         raise ValueError("invalid mode, must be summary, flat or expanded")
 
-    ddi_xds = read_generic_table(infile, "DATA_DESCRIPTION")
+    ddi_xds = load_generic_table(infile, "DATA_DESCRIPTION")
     ddis = list(ddi_xds.row.values) if rowmap is None else list(rowmap.keys())
     summary: Union[pd.DataFrame, Dict] = []
     if mode == "summary":
@@ -100,8 +100,8 @@ def populate_ms_descr(
     -------
     pd.DataFrame
     """
-    spw_ids = ddi_xds.spectral_window_id.values
-    pol_ids = ddi_xds.polarization_id.values
+    spw_ids = ddi_xds.SPECTRAL_WINDOW_ID.values
+    pol_ids = ddi_xds.POLARIZATION_ID.values
     sdf = {
         "ddi": ddi,
         "spw_id": spw_ids[ddi],
@@ -110,8 +110,8 @@ def populate_ms_descr(
     }
 
     # figure out characteristics of main table from select subtables (must all be present)
-    spw_xds = read_generic_table(infile, "SPECTRAL_WINDOW")
-    pol_xds = read_generic_table(infile, "POLARIZATION")
+    spw_xds = load_generic_table(infile, "SPECTRAL_WINDOW")
+    pol_xds = load_generic_table(infile, "POLARIZATION")
 
     if mode in ["expanded", "summary"]:
         times = (
@@ -134,8 +134,8 @@ def populate_ms_descr(
             }
         )
 
-    chans = spw_xds.num_chan.values
-    pols = pol_xds.num_corr.values
+    chans = spw_xds.NUM_CHAN.values
+    pols = pol_xds.NUM_CORR.values
     sdf.update(
         {
             "chans": (

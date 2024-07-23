@@ -6,8 +6,8 @@ from pathlib import Path
     "cols, expected_output",
     [
         (
-            ["observation_id", "vis", "flag"],
-            {"OBSERVATION_ID": "observation_id", "DATA": "vis", "FLAG": "flag"},
+            ["OBSERVATION_ID", "VIS", "FLAG"],
+            {"OBSERVATION_ID": "OBSERVATION_ID", "DATA": "VIS", "FLAG": "FLAG"},
         ),
         (["antenna1_id", "feed1_id"], {"ANTENNA1": "antenna1_id", "FEED1": "feed1_id"}),
     ],

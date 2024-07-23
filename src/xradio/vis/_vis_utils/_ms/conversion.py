@@ -26,7 +26,7 @@ from ._tables.read import (
     convert_casacore_time,
     extract_table_attributes,
     read_col_conversion,
-    read_generic_table,
+    load_generic_table,
 )
 from ._tables.read_main_table import get_baselines, get_baseline_indices, get_utimes_tol
 from .._utils.stokes_types import stokes_types
@@ -410,11 +410,11 @@ def create_coordinates(
         "baseline_id": np.arange(len(baseline_ant1_id)),
     }
 
-    ddi_xds = read_generic_table(in_file, "DATA_DESCRIPTION").sel(row=ddi)
+    ddi_xds = load_generic_table(in_file, "DATA_DESCRIPTION").sel(row=ddi)
     pol_setup_id = ddi_xds.POLARIZATION_ID.values
     spectral_window_id = int(ddi_xds.SPECTRAL_WINDOW_ID.values)
 
-    spectral_window_xds = read_generic_table(
+    spectral_window_xds = load_generic_table(
         in_file,
         "SPECTRAL_WINDOW",
         rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
@@ -423,7 +423,7 @@ def create_coordinates(
         ~(np.isnan(spectral_window_xds["CHAN_FREQ"].data))
     ]
 
-    pol_xds = read_generic_table(
+    pol_xds = load_generic_table(
         in_file,
         "POLARIZATION",
         rename_ids=subt_rename_ids["POLARIZATION"],

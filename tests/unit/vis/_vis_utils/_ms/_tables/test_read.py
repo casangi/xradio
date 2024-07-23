@@ -364,21 +364,21 @@ def test_is_nested_ms_ms_min(ms_minimal_required):
     assert res == True
 
 
-def test_read_generic_table_ant(ms_minimal_required):
-    from xradio.vis._vis_utils._ms._tables.read import read_generic_table
+def test_load_generic_table_ant(ms_minimal_required):
+    from xradio.vis._vis_utils._ms._tables.read import load_generic_table
     import xarray as xr
 
-    res = read_generic_table(ms_minimal_required.fname, "ANTENNA")
+    res = load_generic_table(ms_minimal_required.fname, "ANTENNA")
     assert res
     assert type(res) == xr.Dataset
     assert all([dim in res.dims for dim in ["row", "dim_1"]])
 
 
-def test_read_generic_table_state(ms_minimal_required):
-    from xradio.vis._vis_utils._ms._tables.read import read_generic_table
+def test_load_generic_table_state(ms_minimal_required):
+    from xradio.vis._vis_utils._ms._tables.read import load_generic_table
     import xarray as xr
 
-    res = read_generic_table(ms_minimal_required.fname, "STATE")
+    res = load_generic_table(ms_minimal_required.fname, "STATE")
     assert res
     assert type(res) == xr.Dataset
     assert all([dim in res.dims for dim in ["row"]])
@@ -390,11 +390,11 @@ def test_read_generic_table_state(ms_minimal_required):
     )
 
 
-def test_read_generic_table_ephem(ms_minimal_required):
-    from xradio.vis._vis_utils._ms._tables.read import read_generic_table
+def test_load_generic_table_ephem(ms_minimal_required):
+    from xradio.vis._vis_utils._ms._tables.read import load_generic_table
     import xarray as xr
 
-    res = read_generic_table(ms_minimal_required.fname, "FIELD/EPHEM0_FIELDNAME.tab")
+    res = load_generic_table(ms_minimal_required.fname, "FIELD/EPHEM0_FIELDNAME.tab")
     exp_attrs = {
         "other": {
             "msv2": {

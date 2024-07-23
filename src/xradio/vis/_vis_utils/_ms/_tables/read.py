@@ -535,7 +535,7 @@ def is_nested_ms(attrs: Dict) -> bool:
     )
 
 
-def read_generic_table(
+def load_generic_table(
     inpath: str,
     tname: str,
     timecols: Union[List[str], None] = None,
@@ -580,7 +580,7 @@ def read_generic_table(
     infile = str(infile.expanduser())
     if not os.path.isdir(infile):
         raise ValueError(
-            f"invalid input filename to read_generic_table: {infile} table {tname}"
+            f"invalid input filename to load_generic_table: {infile} table {tname}"
         )
 
     cc_attrs = extract_table_attributes(infile)

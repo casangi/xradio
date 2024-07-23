@@ -7,7 +7,7 @@ from typing import Dict, List
 
 import xarray as xr
 
-from ._tables.read import read_generic_table, table_exists
+from ._tables.read import load_generic_table, table_exists
 from ._tables.read_subtables import read_ephemerides, read_delayed_pointing_table
 
 
@@ -75,7 +75,7 @@ def read_ms_subtables(
             rename_ids = {"dim_2": "n_polynomial", "dim_3": "dir"}
             xds = read_delayed_pointing_table(str(subt_path), rename_ids=rename_ids)
         else:
-            xds = read_generic_table(
+            xds = load_generic_table(
                 infile,
                 subt_name,
                 timecols=["TIME"],

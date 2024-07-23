@@ -5,7 +5,7 @@ import xarray as xr
 
 
 from .subtables import subt_rename_ids
-from ._tables.read import read_generic_table
+from ._tables.read import load_generic_table
 from ._tables.read_subtables import read_delayed_pointing_table
 
 
@@ -23,16 +23,16 @@ def read_spw_ddi_ant_pol(inpath: str) -> Tuple[xr.Dataset]:
     Tuple[xr.Dataset]
         tuple with antenna, ddi, spw, and polarization setup subtables info
     """
-    spw_xds = read_generic_table(
+    spw_xds = load_generic_table(
         inpath,
         "SPECTRAL_WINDOW",
         rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
     )
-    ddi_xds = read_generic_table(inpath, "DATA_DESCRIPTION")
-    ant_xds = read_generic_table(
+    ddi_xds = load_generic_table(inpath, "DATA_DESCRIPTION")
+    ant_xds = load_generic_table(
         inpath, "ANTENNA", rename_ids=subt_rename_ids["ANTENNA"]
     )
-    pol_xds = read_generic_table(
+    pol_xds = load_generic_table(
         inpath, "POLARIZATION", rename_ids=subt_rename_ids["POLARIZATION"]
     )
     return ant_xds, ddi_xds, spw_xds, pol_xds

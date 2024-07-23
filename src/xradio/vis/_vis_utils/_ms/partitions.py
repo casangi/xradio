@@ -10,7 +10,7 @@ from .partition_queries import (
 )
 from .subtables import subt_rename_ids, add_pointing_to_partition
 from .descr import describe_ms
-from ._tables.read import read_generic_table, make_freq_attrs
+from ._tables.read import load_generic_table, make_freq_attrs
 from ._tables.read_main_table import read_flat_main_table, read_expanded_main_table
 from .._utils.partition_attrs import add_partition_attrs
 from .._utils.xds_helper import expand_xds, make_coords, optimal_chunking
@@ -137,12 +137,12 @@ def read_ms_scan_subscan_partitions(
         subtables already read
     """
 
-    spw_xds = read_generic_table(
+    spw_xds = load_generic_table(
         infile,
         "SPECTRAL_WINDOW",
         rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
     )
-    ddi_xds = read_generic_table(infile, "DATA_DESCRIPTION")
+    ddi_xds = load_generic_table(infile, "DATA_DESCRIPTION")
 
     if partition_scheme == "intent":
         spw_names_by_ddi = make_spw_names_by_ddi(ddi_xds, spw_xds)
@@ -155,10 +155,10 @@ def read_ms_scan_subscan_partitions(
     else:
         raise ValueError("foo")
 
-    ant_xds = read_generic_table(
+    ant_xds = load_generic_table(
         infile, "ANTENNA", rename_ids=subt_rename_ids["ANTENNA"]
     )
-    pol_xds = read_generic_table(
+    pol_xds = load_generic_table(
         infile, "POLARIZATION", rename_ids=subt_rename_ids["POLARIZATION"]
     )
 
@@ -259,18 +259,18 @@ def read_ms_ddi_partitions(
     """
     # we need the antenna, spectral window, polarization, and data description tables
     # to define the (sub)datasets (their dims and coords) and to process the main table
-    ant_xds = read_generic_table(
+    ant_xds = load_generic_table(
         infile, "ANTENNA", rename_ids=subt_rename_ids["ANTENNA"]
     )
-    spw_xds = read_generic_table(
+    spw_xds = load_generic_table(
         infile,
         "SPECTRAL_WINDOW",
         rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
     )
-    pol_xds = read_generic_table(
+    pol_xds = load_generic_table(
         infile, "POLARIZATION", rename_ids=subt_rename_ids["POLARIZATION"]
     )
-    ddi_xds = read_generic_table(infile, "DATA_DESCRIPTION")
+    ddi_xds = load_generic_table(infile, "DATA_DESCRIPTION")
 
     # each DATA_DESC_ID (ddi) is a fixed shape that may differ from others
     # form a list of ddis to process, each will be placed it in its own xarray dataset and partition

@@ -13,7 +13,7 @@ from xradio.vis._vis_utils._ms.subtables import subt_rename_ids
 from xradio.vis._vis_utils._ms._tables.read import (
     convert_casacore_time_to_mjd,
     make_taql_where_between_min_max,
-    read_generic_table,
+    load_generic_table,
 )
 import graphviper.utils.logger as logger
 from xradio._utils.list_and_array import (
@@ -129,7 +129,7 @@ def extract_ephemeris_info(
     taql_time_range = make_taql_where_between_min_max(
         min_max_mjd, path, table_name, "MJD"
     )
-    ephemeris_xds = read_generic_table(
+    ephemeris_xds = load_generic_table(
         path, table_name, timecols=["MJD"], taql_where=taql_time_range
     )
 
@@ -453,7 +453,7 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
     unique_source_id = unique_1d(source_id)
     taql_where = f"where (SOURCE_ID IN [{','.join(map(str, unique_source_id))}]) AND (SPECTRAL_WINDOW_ID = {spectral_window_id})"
 
-    source_xds = read_generic_table(
+    source_xds = load_generic_table(
         path,
         "SOURCE",
         ignore=["SOURCE_MODEL"],  # Trying to read SOURCE_MODEL causes an error.
@@ -552,7 +552,7 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
 
     # Need to add doppler info if present. Add check.
     try:
-        doppler_xds = read_generic_table(
+        doppler_xds = load_generic_table(
             path,
             "DOPPLER",
         )
@@ -594,9 +594,9 @@ def create_field_info_and_check_ephemeris(
     # Federico do know how to do this taql query?
     unique_field_id = unique_1d(
         field_id
-    )  # field_ids can be repeated so that the time mapping is correct if there are multiple fields. The read_generic_table required unique field_ids.
+    )  # field_ids can be repeated so that the time mapping is correct if there are multiple fields. The load_generic_table required unique field_ids.
     taql_where = f"where (ROWID() IN [{','.join(map(str, unique_field_id))}])"
-    field_xds = read_generic_table(
+    field_xds = load_generic_table(
         in_file,
         "FIELD",
         rename_ids=subt_rename_ids["FIELD"],

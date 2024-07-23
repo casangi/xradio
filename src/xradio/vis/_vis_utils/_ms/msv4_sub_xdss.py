@@ -7,7 +7,7 @@ import xarray as xr
 
 from .msv2_to_msv4_meta import column_description_casacore_to_msv4_measure
 from .subtables import subt_rename_ids
-from ._tables.read import make_taql_where_between_min_max, read_generic_table
+from ._tables.read import make_taql_where_between_min_max, load_generic_table
 
 
 def interpolate_to_time(
@@ -97,7 +97,7 @@ def create_ant_xds(in_file: str):
     }
 
     # Read ANTENNA table into a Xarray Dataset.
-    generic_ant_xds = read_generic_table(
+    generic_ant_xds = load_generic_table(
         in_file,
         "ANTENNA",
         rename_ids=subt_rename_ids["ANTENNA"],
@@ -189,7 +189,7 @@ def create_weather_xds(in_file: str):
 
     # Read WEATHER table into a Xarray Dataset.
     try:
-        generic_weather_xds = read_generic_table(
+        generic_weather_xds = load_generic_table(
             in_file,
             "WEATHER",
             rename_ids=subt_rename_ids["WEATHER"],
@@ -327,7 +327,7 @@ def create_pointing_xds(
         time_min_max, in_file, "POINTING", "TIME"
     )
     # Read POINTING table into a Xarray Dataset.
-    generic_pointing_xds = read_generic_table(
+    generic_pointing_xds = load_generic_table(
         in_file,
         "POINTING",
         rename_ids=subt_rename_ids["POINTING"],

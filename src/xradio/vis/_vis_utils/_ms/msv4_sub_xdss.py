@@ -156,69 +156,79 @@ def create_ant_xds(
         taql_where=f" where (ANTENNA_ID IN [{','.join(map(str, antenna_id))}]) AND (FEED_ID IN [{','.join(map(str, feed_id))}])",
     )  # Some Lofar and MeerKAT data have the spw column set to -1 so we can't use '(SPECTRAL_WINDOW_ID = {spectral_window_id})'
 
+    print(spectral_window_id, antenna_id, feed_id)
+    print(generic_feed_xds)
+    print("*" * 50)
+
     if not all(generic_feed_xds.spectral_window_id == -1):
-        generic_feed_xds = generic_feed_xds.sel(SPECTRAL_WINDOW_ID=spectral_window_id)
-
-    assert len(generic_feed_xds.antenna_id) == len(
-        ant_xds.antenna_id
-    ), "Can only process feed table with a single time entry for an antenna and spectral_window_id."
-
-    generic_ant_xds = generic_ant_xds.sel(
-        antenna_id=ant_xds.antenna_id
-    )  # Make sure the antenna_id is in the same order as the xds.
-    # print(generic_feed_xds)
-    # print(generic_feed_xds.pol_response.values)
-    # print("*" * 50)
-
-    assert (
-        len(unique_1d(generic_feed_xds.num_receptors)) == 1
-    ), "The number of receptors must be constant in feed table."
-
-    feed_column_description = generic_feed_xds.attrs["other"]["msv2"]["ctds_attrs"][
-        "column_descriptions"
-    ]
-
-    to_new_data_variable_names = {
-        "beam_offset": "BEAM_OFFSET",
-        "receptor_angle": "RECEPTOR_ANGLE",
-        "polarization_type": "POLARIZATION_TYPE",
-        # "pol_response": "POLARIZATION_RESPONSE", ?repeated dim creates problems.
-        "focus_length": "FOCUS_LENGTH",  # optional
-        # "position": "ANTENNA_FEED_OFFSET" #Will be added to the existing position in ant_xds
-    }
-
-    data_variable_dims = {
-        "beam_offset": ["antenna_id", "receptor_name", "sky_dir_label"],
-        "receptor_angle": ["antenna_id", "receptor_name"],
-        "polarization_type": ["antenna_id", "receptor_name"],
-        # "pol_response": ["antenna_id", "receptor_name", "receptor_name_"],
-        "focus_length": ["antenna_id"],
-        # "position": ["antenna_id", "cartesian_pos_label"],
-    }
-
-    for key in generic_feed_xds:
-        msv4_measure = column_description_casacore_to_msv4_measure(
-            feed_column_description[key.upper()]
+        generic_feed_xds = generic_feed_xds.where(
+            generic_feed_xds.spectral_window_id == spectral_window_id, drop=True
         )
-        if key in to_new_data_variable_names:
-            ant_xds[to_new_data_variable_names[key]] = xr.DataArray(
-                generic_feed_xds[key].data, dims=data_variable_dims[key]
+
+    # print(generic_feed_xds)
+    # print("*" * 50)
+    # print('&&',len(generic_feed_xds.row))
+
+    if not (
+        len(generic_feed_xds.row) == 0
+    ):  # Some times the feed table is empty (this is the case with ALMA spw WVR#NOMINAL).
+        assert len(generic_feed_xds.antenna_id) == len(
+            ant_xds.antenna_id
+        ), "Can only process feed table with a single time entry for an antenna and spectral_window_id."
+
+        generic_ant_xds = generic_ant_xds.sel(
+            antenna_id=ant_xds.antenna_id
+        )  # Make sure the antenna_id is in the same order as the xds.
+
+        assert (
+            len(unique_1d(generic_feed_xds.num_receptors)) == 1
+        ), "The number of receptors must be constant in feed table."
+
+        feed_column_description = generic_feed_xds.attrs["other"]["msv2"]["ctds_attrs"][
+            "column_descriptions"
+        ]
+
+        to_new_data_variable_names = {
+            "beam_offset": "BEAM_OFFSET",
+            "receptor_angle": "RECEPTOR_ANGLE",
+            "polarization_type": "POLARIZATION_TYPE",
+            # "pol_response": "POLARIZATION_RESPONSE", ?repeated dim creates problems.
+            "focus_length": "FOCUS_LENGTH",  # optional
+            # "position": "ANTENNA_FEED_OFFSET" #Will be added to the existing position in ant_xds
+        }
+
+        data_variable_dims = {
+            "beam_offset": ["antenna_id", "receptor_name", "sky_dir_label"],
+            "receptor_angle": ["antenna_id", "receptor_name"],
+            "polarization_type": ["antenna_id", "receptor_name"],
+            # "pol_response": ["antenna_id", "receptor_name", "receptor_name_"],
+            "focus_length": ["antenna_id"],
+            # "position": ["antenna_id", "cartesian_pos_label"],
+        }
+
+        for key in generic_feed_xds:
+            msv4_measure = column_description_casacore_to_msv4_measure(
+                feed_column_description[key.upper()]
             )
+            if key in to_new_data_variable_names:
+                ant_xds[to_new_data_variable_names[key]] = xr.DataArray(
+                    generic_feed_xds[key].data, dims=data_variable_dims[key]
+                )
 
-            if msv4_measure:
-                ant_xds[to_new_data_variable_names[key]].attrs.update(msv4_measure)
+                if msv4_measure:
+                    ant_xds[to_new_data_variable_names[key]].attrs.update(msv4_measure)
 
-        if key in to_new_coord_names:
-            coords[to_new_coord_names[key]] = (
-                coord_dims[key],
-                generic_feed_xds[key].data,
-            )
+            if key in to_new_coord_names:
+                coords[to_new_coord_names[key]] = (
+                    coord_dims[key],
+                    generic_feed_xds[key].data,
+                )
 
-    ant_xds["ANTENNA_FEED_OFFSET"] = (
-        ant_xds["ANTENNA_FEED_OFFSET"] + generic_ant_xds["position"].data
-    )
+        ant_xds["ANTENNA_FEED_OFFSET"] = (
+            ant_xds["ANTENNA_FEED_OFFSET"] + generic_ant_xds["position"].data
+        )
 
-    coords["receptor_name"] = np.arange(ant_xds.sizes["receptor_name"]).astype(str)
+        coords["receptor_name"] = np.arange(ant_xds.sizes["receptor_name"]).astype(str)
 
     ant_xds = ant_xds.assign_coords(coords)
     return ant_xds

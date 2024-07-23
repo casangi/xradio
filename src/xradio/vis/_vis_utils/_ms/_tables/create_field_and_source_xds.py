@@ -139,7 +139,7 @@ def extract_ephemeris_info(
         len(ephemeris_xds.ephemeris_id) == 1
     ), "Non standard ephemeris table. Only a single ephemeris is allowed per MSv4."
     ephemeris_xds = ephemeris_xds.isel(
-        ephemeris_id=0
+        EPHEMERIS_ID=0
     )  # Collapse the ephemeris_id dimension.
 
     # Get meta data.
@@ -177,9 +177,9 @@ def extract_ephemeris_info(
     temp_xds["SOURCE_POSITION"] = xr.DataArray(
         np.column_stack(
             (
-                ephemeris_xds["ra"].data,
-                ephemeris_xds["dec"].data,
-                ephemeris_xds["rho"].data,
+                ephemeris_xds["RA"].data,
+                ephemeris_xds["DEC"].data,
+                ephemeris_xds["RHO"].data,
             )
         ),
         dims=["ephem_time", "sky_pos_label"],
@@ -196,7 +196,7 @@ def extract_ephemeris_info(
 
     # Add mandatory data: SOURCE_RADIAL_VELOCITY
     temp_xds["SOURCE_RADIAL_VELOCITY"] = xr.DataArray(
-        ephemeris_xds["radvel"].data, dims=["ephem_time"]
+        ephemeris_xds["RadVel"].data, dims=["ephem_time"]
     )
     temp_xds["SOURCE_RADIAL_VELOCITY"].attrs.update(
         {
@@ -230,9 +230,9 @@ def extract_ephemeris_info(
     )  # I think the units are ['deg','deg','m'] and 'WGS84'.
 
     # Add optional data NORTH_POLE_POSITION_ANGLE and NORTH_POLE_ANGULAR_DISTANCE
-    if "np_ang" in ephemeris_xds.data_vars:
+    if "NP_ang" in ephemeris_xds.data_vars:
         temp_xds["NORTH_POLE_POSITION_ANGLE"] = xr.DataArray(
-            ephemeris_xds["np_ang"].data, dims=["ephem_time"]
+            ephemeris_xds["NP_ang"].data, dims=["ephem_time"]
         )
         temp_xds["NORTH_POLE_POSITION_ANGLE"].attrs.update(
             {
@@ -245,9 +245,9 @@ def extract_ephemeris_info(
             }
         )
 
-    if "np_dist" in ephemeris_xds.data_vars:
+    if "NP_dist" in ephemeris_xds.data_vars:
         temp_xds["NORTH_POLE_ANGULAR_DISTANCE"] = xr.DataArray(
-            ephemeris_xds["np_dist"].data, dims=["ephem_time"]
+            ephemeris_xds["NP_dist"].data, dims=["ephem_time"]
         )
         temp_xds["NORTH_POLE_ANGULAR_DISTANCE"].attrs.update(
             {
@@ -261,13 +261,13 @@ def extract_ephemeris_info(
         )
 
     # Add optional data: SUB_OBSERVER_POSITION and SUB_SOLAR_POSITION
-    if "disklong" in ephemeris_xds.data_vars:
+    if "diskLong" in ephemeris_xds.data_vars:
         temp_xds["SUB_OBSERVER_POSITION"] = xr.DataArray(
             np.column_stack(
                 (
-                    ephemeris_xds["disklong"].data,
-                    ephemeris_xds["disklat"].data,
-                    np.zeros(ephemeris_xds["disklong"].shape),
+                    ephemeris_xds["diskLong"].data,
+                    ephemeris_xds["diskLat"].data,
+                    np.zeros(ephemeris_xds["diskLong"].shape),
                 )
             ),
             dims=["ephem_time", "ellipsoid_pos_label"],
@@ -302,12 +302,12 @@ def extract_ephemeris_info(
             }
         )
 
-    if "si_lon" in ephemeris_xds.data_vars:
+    if "SI_lon" in ephemeris_xds.data_vars:
         temp_xds["SUB_SOLAR_POSITION"] = xr.DataArray(
             np.column_stack(
                 (
-                    ephemeris_xds["si_lon"].data,
-                    ephemeris_xds["si_lat"].data,
+                    ephemeris_xds["SI_lon"].data,
+                    ephemeris_xds["SI_lat"].data,
                     ephemeris_xds["r"].data,
                 )
             ),
@@ -474,16 +474,16 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
         return xds
 
     assert (
-        len(source_xds.spectral_window_id) == 1
+        len(source_xds.SPECTRAL_WINDOW_ID) == 1
     ), "Can only process source table with a single spectral_window_id for a given MSv4 partition."
 
     # This source table time is not the same as the time in the field_and_source_xds that is derived from the main MSv4 time axis.
     # The source_id maps to the time axis in the field_and_source_xds. That is why "if len(source_id) == 1" is used to check if there should be a time axis.
     assert (
-        len(source_xds.time) == 1
+        len(source_xds.TIME) == 1
     ), "Can only process source table with a single time entry for a source_id and spectral_window_id."
 
-    source_xds = source_xds.isel(time=0, spectral_window_id=0, drop=True)
+    source_xds = source_xds.isel(TIME=0, SPECTRAL_WINDOW_ID=0, drop=True)
     source_column_description = source_xds.attrs["other"]["msv2"]["ctds_attrs"][
         "column_descriptions"
     ]
@@ -492,18 +492,18 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
     # Note again that this optional time axis has nothing to do with the original time axis in the source table that we drop.
     coords = {}
     if len(source_id) == 1:
-        source_xds = source_xds.sel(source_id=source_id[0])
+        source_xds = source_xds.sel(SOURCE_ID=source_id[0])
         coords["source_name"] = (
-            source_xds["name"].values.item() + "_" + str(source_id[0])
+            source_xds["NAME"].values.item() + "_" + str(source_id[0])
         )
         direction_dims = ["sky_dir_label"]
         # coords["source_id"] = source_id[0]
     else:
-        source_xds = source_xds.sel(source_id=source_id)
+        source_xds = source_xds.sel(SOURCE_ID=source_id)
         coords["source_name"] = (
             "time",
             np.char.add(
-                source_xds["name"].data, np.char.add("_", source_id.astype(str))
+                source_xds["NAME"].data, np.char.add("_", source_id.astype(str))
             ),
         )
         direction_dims = ["time", "sky_dir_label"]
@@ -511,41 +511,42 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
 
     # If ephemeris data is present we ignore the SOURCE_DIRECTION.
     if not is_ephemeris:
+        direction_msv2_col = "DIRECTION"
         msv4_measure = column_description_casacore_to_msv4_measure(
-            source_column_description["DIRECTION"]
+            source_column_description[direction_msv2_col]
         )
         xds["SOURCE_DIRECTION"] = xr.DataArray(
-            source_xds["direction"].data, dims=direction_dims
+            source_xds[direction_msv2_col].data, dims=direction_dims
         )
         xds["SOURCE_DIRECTION"].attrs.update(msv4_measure)
 
     # Do we have line data:
-    if source_xds["num_lines"].data.ndim == 0:
-        num_lines = np.array([source_xds["num_lines"].data.item()])
+    if source_xds["NUM_LINES"].data.ndim == 0:
+        num_lines = np.array([source_xds["NUM_LINES"].data.item()])
     else:
-        num_lines = source_xds["num_lines"].data
+        num_lines = source_xds["NUM_LINES"].data
 
     if any(num_lines > 0):
 
         if len(source_id) == 1:
-            coords_lines = {"line_name": source_xds["transition"].data}
+            coords_lines = {"line_name": source_xds["TRANSITION"].data}
             xds = xds.assign_coords(coords_lines)
             line_dims = ["line_label"]
         else:
             coords_lines = {
-                "line_name": (("time", "line_label"), source_xds["transition"].data)
+                "line_name": (("time", "line_label"), source_xds["TRANSITION"].data)
             }
             xds = xds.assign_coords(coords_lines)
             line_dims = ["time", "line_label"]
 
         optional_data_variables = {
-            "rest_frequency": "LINE_REST_FREQUENCY",
-            "sysvel": "LINE_SYSTEMIC_VELOCITY",
+            "REST_FREQUENCY": "LINE_REST_FREQUENCY",
+            "SYSVEL": "LINE_SYSTEMIC_VELOCITY",
         }
         for generic_name, msv4_name in optional_data_variables.items():
             if generic_name in source_xds:
                 msv4_measure = column_description_casacore_to_msv4_measure(
-                    source_column_description[generic_name.upper()]
+                    source_column_description[generic_name]
                 )
 
                 xds[msv4_name] = xr.DataArray(
@@ -595,10 +596,10 @@ def create_field_info_and_check_ephemeris(
     """
 
     # Federico do know how to do this taql query?
-    unqiue_field_id = unique_1d(
+    unique_field_id = unique_1d(
         field_id
     )  # field_ids can be repeated so that the time mapping is correct if there are multiple fields. The read_generic_table required unique field_ids.
-    taql_where = f"where (ROWID() IN [{','.join(map(str, unqiue_field_id))}])"
+    taql_where = f"where (ROWID() IN [{','.join(map(str, unique_field_id))}])"
     field_xds = read_generic_table(
         in_file,
         "FIELD",
@@ -611,9 +612,9 @@ def create_field_info_and_check_ephemeris(
     ), "Polynomial field positions not supported. Please open an issue on https://github.com/casangi/xradio/issues so that we can add support for this."
     field_xds = field_xds.isel(poly_id=0, drop=True)
     # field_xds = field_xds.assign_coords({'field_id':field_xds['field_id'].data})
-    field_xds = field_xds.assign_coords({"field_id": unqiue_field_id})
+    field_xds = field_xds.assign_coords({"field_id": unique_field_id})
     field_xds = field_xds.sel(field_id=field_id, drop=False)
-    source_id = to_np_array(field_xds.source_id.values)
+    source_id = to_np_array(field_xds.SOURCE_ID.values)
 
     ephemeris_table_name = None
     ephemeris_path = None
@@ -626,7 +627,7 @@ def create_field_info_and_check_ephemeris(
     if "ephemeris_id" in field_xds:
         ephemeris_id = check_if_consistent(
             field_xds.ephemeris_id, "ephemeris_id"
-        )  # int(field_xds["ephemeris_id"].data)
+        )  # int(field_xds["EPHEMERIS_ID"].data)
 
         if ephemeris_id > -1:
             files = os.listdir(os.path.join(in_file, "FIELD"))
@@ -654,13 +655,13 @@ def create_field_info_and_check_ephemeris(
 
     if is_single_dish:
         field_data_variables = {
-            "reference_dir": "FIELD_REFERENCE_CENTER",
+            "REFERENCE_DIR": "FIELD_REFERENCE_CENTER",
         }
     else:
         field_data_variables = {
-            # "delay_dir": "FIELD_DELAY_CENTER",
-            "phase_dir": "FIELD_PHASE_CENTER",
-            # "reference_dir": "FIELD_REFERENCE_CENTER",
+            # "DELAY_DIR": "FIELD_DELAY_CENTER",
+            "PHASE_DIR": "FIELD_PHASE_CENTER",
+            # "REFERENCE_DIR": "FIELD_REFERENCE_CENTER",
         }
 
     field_measures_type = "sky_coord"
@@ -678,24 +679,26 @@ def create_field_info_and_check_ephemeris(
         dims = ["time", "sky_dir_label"]
         coords["field_name"] = (
             "time",
-            np.char.add(field_xds["name"].data, np.char.add("_", field_id.astype(str))),
+            np.char.add(field_xds["NAME"].data, np.char.add("_", field_id.astype(str))),
         )
         # coords["field_id"] = ("time", field_id)
     else:
-        coords["field_name"] = field_xds["name"].values.item() + "_" + str(field_id)
+        coords["field_name"] = field_xds["NAME"].values.item() + "_" + str(field_id)
         # coords["field_id"] = field_id
         dims = ["sky_dir_label"]
 
     for generic_name, msv4_name in field_data_variables.items():
 
-        if field_xds.get("delaydir_ref") is None:
+        delay_dir_ref_col = "DelayDir_Ref"
+        if field_xds.get(delay_dir_ref_col) is None:
             delaydir_ref = None
         else:
             delaydir_ref = check_if_consistent(
-                field_xds.get("delaydir_ref"), "delaydir_ref"
+                field_xds.get(delay_dir_ref_col), delay_dir_ref_col
             )
+
         msv4_measure = column_description_casacore_to_msv4_measure(
-            field_column_description[generic_name.upper()], ref_code=delaydir_ref
+            field_column_description[generic_name], ref_code=delaydir_ref
         )
 
         field_and_source_xds[msv4_name] = xr.DataArray.from_dict(

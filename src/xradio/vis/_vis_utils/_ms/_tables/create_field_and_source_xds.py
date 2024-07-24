@@ -476,7 +476,7 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
     # This source table time is not the same as the time in the field_and_source_xds that is derived from the main MSv4 time axis.
     # The source_id maps to the time axis in the field_and_source_xds. That is why "if len(source_id) == 1" is used to check if there should be a time axis.
     assert (
-        len(source_xds.TIME) == 1
+        len(source_xds.TIME) <= len(unique_source_id)
     ), "Can only process source table with a single time entry for a source_id and spectral_window_id."
 
     source_xds = source_xds.isel(TIME=0, SPECTRAL_WINDOW_ID=0, drop=True)

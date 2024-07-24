@@ -462,7 +462,7 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
 
     if len(source_xds.data_vars) == 0:  # The source xds is empty.
         logger.warning(
-            f"SOURCE table empty for source_id {source_id} and spectral_window_id {spectral_window_id}."
+            f"SOURCE table empty for (unique) source_id {unique_source_id} and spectral_window_id {spectral_window_id}."
         )
         xds = xds.assign_coords(
             {"source_name": "Unknown"}
@@ -475,8 +475,8 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
 
     # This source table time is not the same as the time in the field_and_source_xds that is derived from the main MSv4 time axis.
     # The source_id maps to the time axis in the field_and_source_xds. That is why "if len(source_id) == 1" is used to check if there should be a time axis.
-    assert (
-        len(source_xds.TIME) <= len(unique_source_id)
+    assert len(source_xds.TIME) <= len(
+        unique_source_id
     ), "Can only process source table with a single time entry for a source_id and spectral_window_id."
 
     source_xds = source_xds.isel(TIME=0, SPECTRAL_WINDOW_ID=0, drop=True)

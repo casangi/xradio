@@ -34,6 +34,7 @@ def download_and_convert_msv2_to_processing_set(msv2_name, partition_scheme):
         pointing_interpolate=True,
         ephemeris_interpolate=True,
         overwrite=True,
+        parallel=False,
     )
     return ps_name
 

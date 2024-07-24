@@ -638,7 +638,14 @@ def load_generic_table(
         )
     )
 
-    if tname in ["DOPPLER", "FREQ_OFFSET", "POINTING", "SOURCE", "SYSCAL", "WEATHER"]:
+    if tname in [
+        "DOPPLER",
+        "FREQ_OFFSET",
+        "POINTING",
+        "SOURCE",
+        "SYSCAL",
+        "WEATHER",
+    ]:
         xds = redimension_ms_subtable(xds, tname)
 
     if is_ephem_subtable(tname):
@@ -930,7 +937,6 @@ def raw_col_data_to_coords_vars(
     # Almost sure that when TIME is present (in a standard MS subt) it
     # is part of the key. But what about non-std subtables, ASDM subts?
     subts_with_time_key = (
-        "FEED",
         "FLAG_CMD",
         "FREQ_OFFSET",
         "HISTORY",

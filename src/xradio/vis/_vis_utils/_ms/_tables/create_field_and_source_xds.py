@@ -137,8 +137,9 @@ def extract_ephemeris_info(
         len(ephemeris_xds.ephemeris_id) == 1
     ), "Non standard ephemeris table. Only a single ephemeris is allowed per MSv4."
     ephemeris_xds = ephemeris_xds.isel(
-        EPHEMERIS_ID=0
+        ephemeris_id=0
     )  # Collapse the ephemeris_id dimension.
+    # Data varaibles  ['time', 'RA', 'DEC', 'Rho', 'RadVel', 'NP_ang', 'NP_dist', 'DiskLong', 'DiskLat', 'Sl_lon', 'Sl_lat', 'r', 'rdot', 'phang']
 
     # Get meta data.
     ephemeris_meta = ephemeris_xds.attrs["other"]["msv2"]["ctds_attrs"]
@@ -177,7 +178,7 @@ def extract_ephemeris_info(
             (
                 ephemeris_xds["RA"].data,
                 ephemeris_xds["DEC"].data,
-                ephemeris_xds["RHO"].data,
+                ephemeris_xds["Rho"].data,
             )
         ),
         dims=["ephem_time", "sky_pos_label"],
@@ -259,24 +260,24 @@ def extract_ephemeris_info(
         )
 
     # Add optional data: SUB_OBSERVER_POSITION and SUB_SOLAR_POSITION
-    if "diskLong" in ephemeris_xds.data_vars:
+    if "DiskLong" in ephemris_column_description:
+        key_lon = "DiskLong"
+        key_lat = "DiskLat"
+    else:
+        key_lon = "diskLong"
+        key_lat = "diskLat"
+
+    if key_lon in ephemeris_xds.data_vars:
         temp_xds["SUB_OBSERVER_POSITION"] = xr.DataArray(
             np.column_stack(
                 (
-                    ephemeris_xds["diskLong"].data,
-                    ephemeris_xds["diskLat"].data,
-                    np.zeros(ephemeris_xds["diskLong"].shape),
+                    ephemeris_xds[key_lon].data,
+                    ephemeris_xds[key_lat].data,
+                    np.zeros(ephemeris_xds[key_lon].shape),
                 )
             ),
             dims=["ephem_time", "ellipsoid_pos_label"],
         )
-
-        if "DiskLong" in ephemris_column_description:
-            units_key_lon = "DiskLong"
-            units_key_lat = "DiskLat"
-        else:
-            units_key_lon = "diskLong"
-            units_key_lat = "diskLat"
 
         temp_xds["SUB_OBSERVER_POSITION"].attrs.update(
             {
@@ -286,14 +287,10 @@ def extract_ephemeris_info(
                 "coordinate_system": "planetodetic",
                 "units": [
                     cast_to_str(
-                        ephemris_column_description[units_key_lon]["keywords"][
-                            unit_keyword
-                        ]
+                        ephemris_column_description[key_lon]["keywords"][unit_keyword]
                     ),
                     cast_to_str(
-                        ephemris_column_description[units_key_lat]["keywords"][
-                            unit_keyword
-                        ]
+                        ephemris_column_description[key_lat]["keywords"][unit_keyword]
                     ),
                     "m",
                 ],
@@ -609,7 +606,9 @@ def create_field_info_and_check_ephemeris(
     field_xds = field_xds.isel(poly_id=0, drop=True)
     # field_xds = field_xds.assign_coords({'field_id':field_xds['field_id'].data})
     field_xds = field_xds.assign_coords({"field_id": unique_field_id})
-    field_xds = field_xds.sel(field_id=field_id, drop=False)
+    field_xds = field_xds.sel(
+        field_id=field_id, drop=False
+    )  # Make sure field_id match up with time axis (duplicate fields are allowed).
     source_id = to_np_array(field_xds.SOURCE_ID.values)
 
     ephemeris_table_name = None
@@ -620,10 +619,8 @@ def create_field_info_and_check_ephemeris(
     )
 
     # Need to check if ephemeris_id is present and if ephemeris table is present.
-    if "ephemeris_id" in field_xds:
-        ephemeris_id = check_if_consistent(
-            field_xds.ephemeris_id, "ephemeris_id"
-        )  # int(field_xds["EPHEMERIS_ID"].data)
+    if "EPHEMERIS_ID" in field_xds:
+        ephemeris_id = check_if_consistent(field_xds.EPHEMERIS_ID, "EPHEMERIS_ID")
 
         if ephemeris_id > -1:
             files = os.listdir(os.path.join(in_file, "FIELD"))

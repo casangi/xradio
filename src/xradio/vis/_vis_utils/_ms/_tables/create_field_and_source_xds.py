@@ -535,14 +535,17 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
 
     if any(num_lines > 0):
 
+        # if TRANSITION is left empty (or otherwise incomplete), and num_lines > 1,
+        # the data_vars expect a "num_lines" size in the last dimension
+        vars_shape = source_xds["TRANSITION"].data.shape[:-1] + (np.max(num_lines),)
+        coords_lines_data = np.broadcast_to(source_xds["TRANSITION"].data, vars_shape)
+
         if len(source_id) == 1:
-            coords_lines = {"line_name": source_xds["TRANSITION"].data}
+            coords_lines = {"line_name": coords_lines_data}
             xds = xds.assign_coords(coords_lines)
             line_dims = ["line_label"]
         else:
-            coords_lines = {
-                "line_name": (("time", "line_label"), source_xds["TRANSITION"].data)
-            }
+            coords_lines = {"line_name": (("time", "line_label"), coords_lines_data)}
             xds = xds.assign_coords(coords_lines)
             line_dims = ["time", "line_label"]
 

@@ -511,9 +511,20 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
         msv4_measure = column_description_casacore_to_msv4_measure(
             source_column_description[direction_msv2_col]
         )
-        xds["SOURCE_DIRECTION"] = xr.DataArray(
-            source_xds[direction_msv2_col].data, dims=direction_dims
-        )
+
+        msv2_direction_dims = source_xds[direction_msv2_col].dims
+        if (
+            len(msv2_direction_dims) == 3
+            and "dim_1" in msv2_direction_dims
+            and "dim_2" in msv2_direction_dims
+        ):
+            # CASA simulator produces transposed direction values, adding an
+            # unexpected dimension. Drop it (https://github.com/casangi/xradio/issues/#196)
+            direction_var = source_xds[direction_msv2_col].isel(dim_1=0, drop=True)
+        else:
+            direction_var = source_xds[direction_msv2_col]
+
+        xds["SOURCE_DIRECTION"] = xr.DataArray(direction_var.data, dims=direction_dims)
         xds["SOURCE_DIRECTION"].attrs.update(msv4_measure)
 
     # Do we have line data:

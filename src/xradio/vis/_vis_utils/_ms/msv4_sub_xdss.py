@@ -188,14 +188,14 @@ def create_ant_xds(
         taql_where=f" where (ANTENNA_ID IN [{','.join(map(str, unique_antenna_id))}]) AND (FEED_ID IN [{','.join(map(str, feed_id))}])",
     )  # Some Lofar and MeerKAT data have the spw column set to -1 so we can't use '(SPECTRAL_WINDOW_ID = {spectral_window_id})'
 
-    if not all(generic_feed_xds.SPECTRAL_WINDOW_ID == -1):
+    if "SPECTRAL_WINDOW_ID" in generic_feed_xds and not all(
+        generic_feed_xds.SPECTRAL_WINDOW_ID == -1
+    ):
         generic_feed_xds = generic_feed_xds.where(
             generic_feed_xds.SPECTRAL_WINDOW_ID == spectral_window_id, drop=True
         )
-
-    if not (
-        len(generic_feed_xds.row) == 0
-    ):  # Some times the feed table is empty (this is the case with ALMA spw WVR#NOMINAL).
+    if "row" in generic_feed_xds and len(generic_feed_xds.row) > 0:
+        # Some times the feed table is empty (this is the case with ALMA spw WVR#NOMINAL).
         assert len(generic_feed_xds.ANTENNA_ID) == len(
             ant_xds.antenna_id
         ), "Can only process feed table with a single time entry for an antenna and spectral_window_id."
@@ -475,8 +475,41 @@ def create_pointing_xds(
     for key in generic_pointing_xds:
         if key in to_new_data_variable_names:
             data_var_name = to_new_data_variable_names[key]
+            # Corrects dim sizes of "empty cell" variables, such as empty DIRECTION, TARGET, etc.
+            # TODO: this should be moved to a function when/if stable - perhaps 'correct_generic_pointing_xds'
+            if (
+                "dim_2" in generic_pointing_xds.sizes
+                and generic_pointing_xds.sizes["dim_2"] == 0
+            ):
+                # When all direction variables are "empty"
+                data_var_data = xr.DataArray(
+                    [[[[np.nan, np.nan]]]],
+                    dims=generic_pointing_xds.dims,
+                ).isel(n_polynomial=0, drop=True)
+            elif (
+                "dir" in generic_pointing_xds.sizes
+                and generic_pointing_xds.sizes["dir"] == 0
+            ):
+                # When some direction variables are "empty" but some are populated properly
+                if "dim_2" in generic_pointing_xds[key].sizes:
+                    data_var_data = xr.DataArray(
+                        generic_pointing_xds[key].values,
+                        dims=generic_pointing_xds[key].dims,
+                    )
+                else:
+                    shape = tuple(
+                        generic_pointing_xds.sizes[dim]
+                        for dim in ["TIME", "ANTENNA_ID"]
+                    ) + (2,)
+                    data_var_data = xr.DataArray(
+                        np.full(shape, np.nan),
+                        dims=generic_pointing_xds[key].dims,
+                    )
+            else:
+                data_var_data = generic_pointing_xds[key].data
+
             pointing_xds[data_var_name] = xr.DataArray(
-                generic_pointing_xds[key].data, dims=data_variable_dims[key]
+                data_var_data, dims=data_variable_dims[key]
             )
 
             msv4_measure = column_description_casacore_to_msv4_measure(

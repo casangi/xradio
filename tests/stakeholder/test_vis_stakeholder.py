@@ -10,10 +10,10 @@ import numpy as np
 import pytest
 import os
 import importlib.resources
+from graphviper.utils.logger import setup_logger
 
 # relative_tolerance = 10 ** (-12)
 relative_tolerance = 10 ** (-6)
-
 
 def download_and_convert_msv2_to_processing_set(msv2_name, partition_scheme):
     # We can remove this once there is a new release of casacore
@@ -22,6 +22,18 @@ def download_and_convert_msv2_to_processing_set(msv2_name, partition_scheme):
         rc_file = open(os.path.expanduser("~/.casarc"), "a+")  # append mode
         rc_file.write("\nmeasures.directory: " + casa_data_dir)
         rc_file.close()
+
+    _logger_name = "xradio"
+    if os.getenv("VIPER_LOGGER_NAME") != _logger_name:
+        os.environ["VIPER_LOGGER_NAME"] = _logger_name
+        setup_logger(
+            logger_name="xradio",
+            log_to_term=True,
+            log_to_file=False,  # True
+            log_file="xradio-logfile",
+            #log_level="DEBUG",
+            log_level="INFO"
+        )
 
     download(file=msv2_name)
     ps_name = msv2_name[:-3] + ".vis.zarr"
@@ -92,8 +104,8 @@ def base_test(
             else:
                 print(f"{xds_name}: {issues}\n")
 
-    if not is_s3:
-        os.system("rm -rf " + file_name)  # Remove downloaded MSv2 file.
+    # if not is_s3:
+    #     os.system("rm -rf " + file_name)  # Remove downloaded MSv2 file.
 
 
 def test_s3():
@@ -153,6 +165,23 @@ def test_vlass():
         partition_schemes=[[]],
     )
 
+# def test_sd_A002_X1015532_X1926f():
+#     base_test("uid___A002_X1015532_X1926f.small.ms", 5.964230735563984e+21)
+    
+def test_sd_A002_Xae00c5_X2e6b():
+    base_test("uid___A002_Xae00c5_X2e6b.small.ms", 2451894476.0)
+    
+# Passes
+# def test_sd_A002_Xced5df_Xf9d9():
+#     base_test("uid___A002_Xced5df_Xf9d9.small.ms", 9.892002713707104e+21)
+    
+# def test_sd_A002_Xe3a5fd_Xe38e():
+#     base_test("uid___A002_Xe3a5fd_Xe38e.small.ms", 1.0)
+    
+#test_sd_A002_X1015532_X1926f()   #Takes too long
+test_sd_A002_Xae00c5_X2e6b()      #Takes too long
+#test_sd_A002_Xced5df_Xf9d9() #works
+#test_sd_A002_Xe3a5fd_Xe38e()
 
 # test_s3()
 # test_vlass()

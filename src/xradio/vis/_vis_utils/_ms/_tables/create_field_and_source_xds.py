@@ -419,7 +419,7 @@ def extract_ephemeris_info(
             dims=[xds["SOURCE_POSITION"].dims[0], "sky_pos_label"],
         )
 
-    xds["FIELD_PHASE_CENTER"].attrs.update(xds["SOURCE_POSITION"].attrs)
+    xds[center_dv].attrs.update(xds["SOURCE_POSITION"].attrs)
 
     return xds
 

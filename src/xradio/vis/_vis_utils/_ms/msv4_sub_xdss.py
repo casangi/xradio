@@ -188,14 +188,14 @@ def create_ant_xds(
         taql_where=f" where (ANTENNA_ID IN [{','.join(map(str, unique_antenna_id))}]) AND (FEED_ID IN [{','.join(map(str, feed_id))}])",
     )  # Some Lofar and MeerKAT data have the spw column set to -1 so we can't use '(SPECTRAL_WINDOW_ID = {spectral_window_id})'
 
-    if not all(generic_feed_xds.SPECTRAL_WINDOW_ID == -1):
+    if "SPECTRAL_WINDOW_ID" in generic_feed_xds and not all(
+        generic_feed_xds.SPECTRAL_WINDOW_ID == -1
+    ):
         generic_feed_xds = generic_feed_xds.where(
             generic_feed_xds.SPECTRAL_WINDOW_ID == spectral_window_id, drop=True
         )
-
-    if not (
-        len(generic_feed_xds.row) == 0
-    ):  # Some times the feed table is empty (this is the case with ALMA spw WVR#NOMINAL).
+    if "row" in generic_feed_xds and len(generic_feed_xds.row) > 0:
+        # Some times the feed table is empty (this is the case with ALMA spw WVR#NOMINAL).
         assert len(generic_feed_xds.ANTENNA_ID) == len(
             ant_xds.antenna_id
         ), "Can only process feed table with a single time entry for an antenna and spectral_window_id."

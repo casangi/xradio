@@ -536,12 +536,15 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
         if "TRANSITION" in source_xds.data_vars:
             transition_var_data = source_xds["TRANSITION"]
         else:
-            transition_var_data = np.zeros(source_xds["NAME"].shape, dtype="str")
+            transition_var_data = np.zeros(source_xds["DIRECTION"].shape, dtype="str")
 
         # if TRANSITION is left empty (or otherwise incomplete), and num_lines > 1,
         # the data_vars expect a "num_lines" size in the last dimension
         vars_shape = transition_var_data.shape[:-1] + (np.max(num_lines),)
-        coords_lines_data = np.broadcast_to(transition_var_data, vars_shape)
+        if transition_var_data.shape == vars_shape:
+            coords_lines_data = transition_var_data
+        else:
+            coords_lines_data = np.broadcast_to(transition_var_data, max(transition_var_data.shape, vars_shape))
 
         if len(source_id) == 1:
             coords_lines = {"line_name": coords_lines_data}

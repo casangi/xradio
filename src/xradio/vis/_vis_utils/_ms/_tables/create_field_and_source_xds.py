@@ -511,7 +511,7 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
 
         msv2_direction_dims = source_xds[direction_msv2_col].dims
         if (
-            len(msv2_direction_dims) == 3
+            len(msv2_direction_dims) == len(direction_dims) + 1
             and "dim_1" in msv2_direction_dims
             and "dim_2" in msv2_direction_dims
         ):
@@ -640,6 +640,7 @@ def create_field_info_and_check_ephemeris(
 
     # Need to check if ephemeris_id is present and if ephemeris table is present.
     if "EPHEMERIS_ID" in field_xds:
+        # Note: this assumes partition_scheme includes "FIELD_ID"
         ephemeris_id = check_if_consistent(field_xds.EPHEMERIS_ID, "EPHEMERIS_ID")
 
         if ephemeris_id > -1:

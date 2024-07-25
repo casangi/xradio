@@ -79,12 +79,9 @@ def base_test(file_name, expected_sum_value, is_s3=False):
         expected_sum_value, rel=relative_tolerance
     ), "VISIBILITY and WEIGHT values have changed."
 
+    # Check against schemas
     for xds_name in ps.keys():
-        issues = check_dataset(ps[xds_name], VisibilityXds)
-        if not issues:
-            print(f"{xds_name}: okay\n")
-        else:
-            print(f"{xds_name}: {issues}\n")
+        check_dataset(ps[xds_name], VisibilityXds).expect()
 
 
 def test_s3():

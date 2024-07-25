@@ -25,9 +25,9 @@ def check_if_consistent(array: np.ndarray, array_name: str) -> np.ndarray:
 
     Parameters
     ----------
-    col : _type_
+    array : _type_
         _description_
-    col_name : _type_
+    array_name : _type_
         _description_
 
     Returns

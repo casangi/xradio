@@ -111,12 +111,12 @@ def vis_zarr_empty():
 @pytest.fixture(scope="session")
 def ddi_xds_min(ms_minimal_required):
     """A DATA_DESCRIPTION/DDI xds, loaded from the minimal MS"""
-    from xradio.vis._vis_utils._ms._tables.read import read_generic_table
+    from xradio.vis._vis_utils._ms._tables.read import load_generic_table
 
     # not available:
     # subt = cds_minimal_required.metainfo["ddi"]
 
-    subt = read_generic_table(ms_minimal_required.fname, "DATA_DESCRIPTION")
+    subt = load_generic_table(ms_minimal_required.fname, "DATA_DESCRIPTION")
     return subt
 
 
@@ -126,7 +126,7 @@ def spw_xds_min(cds_minimal_required):  # ms_minimal_required):
 
     subt = cds_minimal_required.metainfo["spectral_window"]
     # Or alternatively, from ms_minimal_required read subtable
-    # subt = read_generic_table(ms_minimal_required.fname, "SPECTRAL_WINDOW")
+    # subt = load_generic_table(ms_minimal_required.fname, "SPECTRAL_WINDOW")
     return subt
 
 
@@ -136,7 +136,7 @@ def pol_xds_min(cds_minimal_required):
 
     subt = cds_minimal_required.metainfo["polarization"]
     # Or alternatively, from ms_minimal_required read subtable
-    # subt = read_generic_table(ms_minimal_required.fname, "POLARIZATION")
+    # subt = load_generic_table(ms_minimal_required.fname, "POLARIZATION")
     return subt
 
 
@@ -146,7 +146,7 @@ def ant_xds_min(cds_minimal_required):
 
     subt = cds_minimal_required.metainfo["antenna"]
     # Or alternatively, from ms_minimal_required read subtable
-    # subt = read_generic_table(ms_minimal_required.fname, "ANTENNA")
+    # subt = load_generic_table(ms_minimal_required.fname, "ANTENNA")
     return subt
 
 
@@ -156,7 +156,7 @@ def field_xds_min(cds_minimal_required):
 
     subt = cds_minimal_required.metainfo["field"]
     # Or alternatively, from ms_minimal_required read subtable
-    # subt = read_generic_table(ms_minimal_required.fname, "FIELD")
+    # subt = load_generic_table(ms_minimal_required.fname, "FIELD")
     return subt
 
 
@@ -166,7 +166,7 @@ def feed_xds_min(cds_minimal_required):
 
     subt = cds_minimal_required.metainfo["feed"]
     # Or alternatively, from ms_minimal_required read subtable
-    # subt = read_generic_table(ms_minimal_required.fname, "FEED")
+    # subt = load_generic_table(ms_minimal_required.fname, "FEED")
     return subt
 
 
@@ -176,7 +176,7 @@ def observation_xds_min(cds_minimal_required):
 
     subt = cds_minimal_required.metainfo["observation"]
     # Or alternatively, from ms_minimal_required read subtable
-    # subt = read_generic_table(ms_minimal_required.fname, "OBSERVATION")
+    # subt = load_generic_table(ms_minimal_required.fname, "OBSERVATION")
     return subt
 
 
@@ -186,7 +186,7 @@ def source_xds_min(cds_minimal_required):
 
     subt = cds_minimal_required.metainfo["source"]
     # Or alternatively, from ms_minimal_required read subtable
-    # subt = read_generic_table(ms_minimal_required.fname, "SOURCE")
+    # subt = load_generic_table(ms_minimal_required.fname, "SOURCE")
     return subt
 
 
@@ -225,9 +225,9 @@ def main_xds_min(ms_minimal_required):
 @pytest.fixture(scope="session")
 def cds_minimal_required(ms_minimal_required):
     """a simple cds data structure read from an MS (also a fixture defined here)"""
-    from xradio.vis import read_vis
+    from xradio.vis._vis_utils.ms import read_ms
 
-    cds = read_vis(ms_minimal_required.fname)
+    cds = read_ms(ms_minimal_required.fname)
 
     for _key, part in cds.partitions.items():
         quick_fix_ndarray_shape_attrs(part)

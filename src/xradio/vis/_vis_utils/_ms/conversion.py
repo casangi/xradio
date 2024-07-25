@@ -1,5 +1,4 @@
 import numcodecs
-import math
 import time
 from .._zarr.encoding import add_encoding
 from typing import Dict, Union
@@ -27,11 +26,11 @@ from ._tables.read import (
     convert_casacore_time,
     extract_table_attributes,
     read_col_conversion,
-    read_generic_table,
+    load_generic_table,
 )
 from ._tables.read_main_table import get_baselines, get_baseline_indices, get_utimes_tol
 from .._utils.stokes_types import stokes_types
-from xradio._utils.array import check_if_consistent, unique_1d
+from xradio._utils.list_and_array import check_if_consistent, unique_1d, to_list
 
 
 def parse_chunksize(
@@ -215,7 +214,7 @@ def mem_chunksize_to_dict_main_balanced(
 
     # Iterate through the dims, starting from the dims with lower chunk size
     #  (=bigger impact of a +1)
-    # Note the use of math.floor, this iteration can either increase or decrease sizes,
+    # Note the use of np.floor, this iteration can either increase or decrease sizes,
     #  if increasing sizes we want to keep mem use below the upper limit, floor(2.3) = +2
     #  if decreasing sizes we want to take mem use below the upper limit, floor(-2.3) = -3
     indices = np.argsort(dim_chunksizes[free_dims_mask])
@@ -411,27 +410,27 @@ def create_coordinates(
         "baseline_id": np.arange(len(baseline_ant1_id)),
     }
 
-    ddi_xds = read_generic_table(in_file, "DATA_DESCRIPTION").sel(row=ddi)
-    pol_setup_id = ddi_xds.polarization_id.values
-    spectral_window_id = int(ddi_xds.spectral_window_id.values)
+    ddi_xds = load_generic_table(in_file, "DATA_DESCRIPTION").sel(row=ddi)
+    pol_setup_id = ddi_xds.POLARIZATION_ID.values
+    spectral_window_id = int(ddi_xds.SPECTRAL_WINDOW_ID.values)
 
-    spectral_window_xds = read_generic_table(
+    spectral_window_xds = load_generic_table(
         in_file,
         "SPECTRAL_WINDOW",
         rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
     ).sel(spectral_window_id=spectral_window_id)
-    coords["frequency"] = spectral_window_xds["chan_freq"].data[
-        ~(np.isnan(spectral_window_xds["chan_freq"].data))
+    coords["frequency"] = spectral_window_xds["CHAN_FREQ"].data[
+        ~(np.isnan(spectral_window_xds["CHAN_FREQ"].data))
     ]
 
-    pol_xds = read_generic_table(
+    pol_xds = load_generic_table(
         in_file,
         "POLARIZATION",
         rename_ids=subt_rename_ids["POLARIZATION"],
     )
-    num_corr = int(pol_xds["num_corr"][pol_setup_id].values)
+    num_corr = int(pol_xds["NUM_CORR"][pol_setup_id].values)
     coords["polarization"] = np.vectorize(stokes_types.get)(
-        pol_xds["corr_type"][pol_setup_id, :num_corr].values
+        pol_xds["CORR_TYPE"][pol_setup_id, :num_corr].values
     )
 
     xds = xds.assign_coords(coords)
@@ -443,18 +442,18 @@ def create_coordinates(
 
     msv4_measure = column_description_casacore_to_msv4_measure(
         freq_column_description["CHAN_FREQ"],
-        ref_code=spectral_window_xds["meas_freq_ref"].data,
+        ref_code=spectral_window_xds["MEAS_FREQ_REF"].data,
     )
     xds.frequency.attrs.update(msv4_measure)
 
-    xds.frequency.attrs["spectral_window_name"] = str(spectral_window_xds.name.values)
+    xds.frequency.attrs["spectral_window_name"] = str(spectral_window_xds.NAME.values)
     msv4_measure = column_description_casacore_to_msv4_measure(
         freq_column_description["REF_FREQUENCY"],
-        ref_code=spectral_window_xds["meas_freq_ref"].data,
+        ref_code=spectral_window_xds["MEAS_FREQ_REF"].data,
     )
     xds.frequency.attrs["reference_frequency"] = {
         "dims": [],
-        "data": float(spectral_window_xds.ref_frequency.values),
+        "data": float(spectral_window_xds.REF_FREQUENCY.values),
         "attrs": msv4_measure,
     }
     xds.frequency.attrs["spectral_window_id"] = spectral_window_id
@@ -465,8 +464,8 @@ def create_coordinates(
     # xds.frequency.attrs["doppler_type"] =
 
     unique_chan_width = unique_1d(
-        spectral_window_xds.chan_width.data[
-            np.logical_not(np.isnan(spectral_window_xds.chan_width.data))
+        spectral_window_xds["CHAN_WIDTH"].data[
+            np.logical_not(np.isnan(spectral_window_xds["CHAN_WIDTH"].data))
         ]
     )
     # assert len(unique_chan_width) == 1, "Channel width varies for spectral_window."
@@ -475,7 +474,7 @@ def create_coordinates(
     # ]  # unique_chan_width[0]
     msv4_measure = column_description_casacore_to_msv4_measure(
         freq_column_description["CHAN_WIDTH"],
-        ref_code=spectral_window_xds["meas_freq_ref"].data,
+        ref_code=spectral_window_xds["MEAS_FREQ_REF"].data,
     )
     if not msv4_measure:
         msv4_measure["type"] = "quantity"
@@ -637,7 +636,7 @@ def convert_and_write_partition(
         _description_
     out_file : str
         _description_
-    intent : str
+    obs_mode : str
         _description_
     ddi : int, optional
         _description_, by default 0
@@ -670,7 +669,7 @@ def convert_and_write_partition(
 
     taql_where = create_taql_query(partition_info)
     ddi = partition_info["DATA_DESC_ID"][0]
-    intent = str(partition_info["INTENT"][0])
+    obs_mode = str(partition_info["OBS_MODE"][0])
 
     start = time.time()
     with open_table_ro(in_file) as mtable:
@@ -721,7 +720,23 @@ def convert_and_write_partition(
 
             # Create ant_xds
             start = time.time()
-            ant_xds = create_ant_xds(in_file)
+            feed_id = unique_1d(
+                np.concatenate(
+                    [
+                        unique_1d(tb_tool.getcol("FEED1")),
+                        unique_1d(tb_tool.getcol("FEED2")),
+                    ]
+                )
+            )
+            antenna_id = unique_1d(
+                np.concatenate(
+                    [xds["baseline_antenna1_id"].data, xds["baseline_antenna2_id"].data]
+                )
+            )
+
+            ant_xds = create_ant_xds(
+                in_file, xds.frequency.attrs["spectral_window_id"], antenna_id, feed_id
+            )
             logger.debug("Time ant xds  " + str(time.time() - start))
 
             # Create weather_xds
@@ -768,7 +783,7 @@ def convert_and_write_partition(
             # Create field_and_source_xds (combines field, source and ephemeris data into one super dataset)
             start = time.time()
             if ephemeris_interpolate:
-                ephemeris_interp_time = xds.time
+                ephemeris_interp_time = xds.time.values
             else:
                 ephemeris_interp_time = None
 
@@ -776,10 +791,7 @@ def convert_and_write_partition(
             scan_id[tidxs, bidxs] = tb_tool.getcol("SCAN_NUMBER")
             scan_id = np.max(scan_id, axis=1)
 
-            if (
-                partition_scheme == "ddi_intent_source"
-                or partition_scheme == "ddi_intent_scan"
-            ):
+            if "FIELD_ID" not in partition_scheme:
                 field_id = np.full(time_baseline_shape, -42, dtype=int)
                 field_id[tidxs, bidxs] = tb_tool.getcol("FIELD_ID")
                 field_id = np.max(field_id, axis=1)
@@ -792,7 +804,7 @@ def convert_and_write_partition(
             # assert len(col_unique) == 1, col_name + " is not consistent."
             # return col_unique[0]
 
-            field_and_source_xds = create_field_and_source_xds(
+            field_and_source_xds, source_id = create_field_and_source_xds(
                 in_file,
                 field_id,
                 xds.frequency.attrs["spectral_window_id"],
@@ -831,22 +843,21 @@ def convert_and_write_partition(
                 + str(ms_v4_id),
             )
 
-            if isinstance(field_id, np.ndarray):
-                field_id = "OTF"
-
             xds.attrs["partition_info"] = {
                 "spectral_window_id": xds.frequency.attrs["spectral_window_id"],
                 "spectral_window_name": xds.frequency.attrs["spectral_window_name"],
-                "field_id": field_id,
-                "field_name": field_and_source_xds.attrs["field_name"],
-                "source_id": field_and_source_xds.attrs["source_id"],
-                "source_name": field_and_source_xds.attrs["source_name"],
-                "polarization_setup": list(xds.polarization.values),
-                "intent": intent,
+                "field_id": to_list(unique_1d(field_id)),
+                "field_name": to_list(
+                    np.unique(field_and_source_xds.field_name.values)
+                ),
+                "source_id": to_list(unique_1d(source_id)),
+                "source_name": to_list(
+                    np.unique(field_and_source_xds.source_name.values)
+                ),
+                "polarization_setup": to_list(xds.polarization.values),
+                "obs_mode": obs_mode,
                 "taql": taql_where,
             }
-
-            # print(xds)
 
             start = time.time()
             if storage_backend == "zarr":

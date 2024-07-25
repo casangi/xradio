@@ -1,6 +1,23 @@
 """Contains optimised functions to be used within other modules."""
 
 import numpy as np
+import xarray as xr
+
+
+def to_list(x):
+    if isinstance(x, (list, np.ndarray)):
+        if x.ndim == 0:
+            return [x.item()]
+        return list(x)  # needed for json serialization
+    return [x]
+
+
+def to_np_array(x):
+    if isinstance(x, (list, np.ndarray)):
+        if x.ndim == 0:
+            return np.array([x.item()])
+        return np.array(x)  # needed for json serialization
+    return np.array([x])
 
 
 def check_if_consistent(array: np.ndarray, array_name: str) -> np.ndarray:
@@ -8,9 +25,9 @@ def check_if_consistent(array: np.ndarray, array_name: str) -> np.ndarray:
 
     Parameters
     ----------
-    col : _type_
+    array : _type_
         _description_
-    col_name : _type_
+    array_name : _type_
         _description_
 
     Returns
@@ -45,7 +62,15 @@ def unique_1d(array: np.ndarray) -> np.ndarray:
         a sorted array of unique values.
 
     """
-    return np.sort(pd.unique(array))
+    if isinstance(array, xr.core.dataarray.DataArray):
+        array = array.values
+
+    if array.ndim == 0:
+        return np.array([array.item()])
+
+    return np.sort(
+        pd.unique(array)
+    )  # Don't remove the sort! It will cause errors that are very difficult to detect. Specifically create_field_info_and_check_ephemeris has a TaQL query that requires this.
 
 
 def pairing_function(antenna_pairs: np.ndarray) -> np.ndarray:

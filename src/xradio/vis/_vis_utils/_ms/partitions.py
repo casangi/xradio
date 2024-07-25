@@ -7,11 +7,10 @@ import xarray as xr
 from .msv2_msv3 import ignore_msv2_cols
 from .partition_queries import (
     make_partition_ids_by_ddi_intent,
-    make_partition_ids_by_ddi_scan,
 )
 from .subtables import subt_rename_ids, add_pointing_to_partition
 from .descr import describe_ms
-from ._tables.read import read_generic_table, make_freq_attrs
+from ._tables.read import load_generic_table, make_freq_attrs
 from ._tables.read_main_table import read_flat_main_table, read_expanded_main_table
 from .._utils.partition_attrs import add_partition_attrs
 from .._utils.xds_helper import expand_xds, make_coords, optimal_chunking
@@ -23,8 +22,8 @@ VisSetPartitions = Dict[PartitionKey, xr.Dataset]
 
 
 def make_spw_names_by_ddi(ddi_xds: xr.Dataset, spw_xds: xr.Dataset) -> Dict[int, str]:
-    spw_ids_by_ddi = ddi_xds.spectral_window_id[ddi_xds.row].values
-    spw_names = spw_xds.name[spw_ids_by_ddi].values
+    spw_ids_by_ddi = ddi_xds.SPECTRAL_WINDOW_ID[ddi_xds.row].values
+    spw_names = spw_xds.NAME[spw_ids_by_ddi].values
     return {ddi: spw_names[ddi] for ddi in np.arange(0, len(spw_names))}
 
 
@@ -138,12 +137,12 @@ def read_ms_scan_subscan_partitions(
         subtables already read
     """
 
-    spw_xds = read_generic_table(
+    spw_xds = load_generic_table(
         infile,
         "SPECTRAL_WINDOW",
         rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
     )
-    ddi_xds = read_generic_table(infile, "DATA_DESCRIPTION")
+    ddi_xds = load_generic_table(infile, "DATA_DESCRIPTION")
 
     if partition_scheme == "intent":
         spw_names_by_ddi = make_spw_names_by_ddi(ddi_xds, spw_xds)
@@ -154,15 +153,12 @@ def read_ms_scan_subscan_partitions(
             distinct_intents,
         ) = make_partition_ids_by_ddi_intent(infile, spw_names_by_ddi)
     else:
-        do_subscans = partition_scheme == "scan/subscan"
-        data_desc_id, scan_number, state_id = make_partition_ids_by_ddi_scan(
-            infile, do_subscans
-        )
+        raise ValueError("foo")
 
-    ant_xds = read_generic_table(
+    ant_xds = load_generic_table(
         infile, "ANTENNA", rename_ids=subt_rename_ids["ANTENNA"]
     )
-    pol_xds = read_generic_table(
+    pol_xds = load_generic_table(
         infile, "POLARIZATION", rename_ids=subt_rename_ids["POLARIZATION"]
     )
 
@@ -263,25 +259,25 @@ def read_ms_ddi_partitions(
     """
     # we need the antenna, spectral window, polarization, and data description tables
     # to define the (sub)datasets (their dims and coords) and to process the main table
-    ant_xds = read_generic_table(
+    ant_xds = load_generic_table(
         infile, "ANTENNA", rename_ids=subt_rename_ids["ANTENNA"]
     )
-    spw_xds = read_generic_table(
+    spw_xds = load_generic_table(
         infile,
         "SPECTRAL_WINDOW",
         rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
     )
-    pol_xds = read_generic_table(
+    pol_xds = load_generic_table(
         infile, "POLARIZATION", rename_ids=subt_rename_ids["POLARIZATION"]
     )
-    ddi_xds = read_generic_table(infile, "DATA_DESCRIPTION")
+    ddi_xds = load_generic_table(infile, "DATA_DESCRIPTION")
 
     # each DATA_DESC_ID (ddi) is a fixed shape that may differ from others
     # form a list of ddis to process, each will be placed it in its own xarray dataset and partition
     ddis = np.arange(ddi_xds.row.shape[0]) if rowmap is None else list(rowmap.keys())
 
     # figure out the chunking for each DDI, either one fixed shape or an auto-computed one
-    if type(chunks) != tuple:
+    if type(chunks) is not tuple:
         mshape = describe_ms(infile, mode="flat", rowmap=rowmap)
         chunks = dict(
             [
@@ -307,7 +303,7 @@ def read_ms_ddi_partitions(
             continue
         logger.debug(
             "reading DDI %i with chunking %s..."
-            % (ddi, str(chunks[ddi] if type(chunks) == dict else chunks))
+            % (ddi, str(chunks[ddi] if type(chunks) is dict else chunks))
         )
 
         # experimenting, comparing overheads of expanded vs. flat
@@ -321,7 +317,7 @@ def read_ms_ddi_partitions(
                 infile,
                 ddi,
                 rowidxs=rowidxs,
-                chunks=chunks[ddi] if type(chunks) == dict else chunks,
+                chunks=chunks[ddi] if type(chunks) is dict else chunks,
                 ignore_msv2_cols=ignore_msv2_cols,
             )
         if len(xds.sizes) == 0:
@@ -339,9 +335,9 @@ def read_ms_ddi_partitions(
         # filter by channel selection
         if (chanidxs is not None) and (len(chanidxs) < len(xds.chan)):
             xds = xds.isel(chan=chanidxs)
-            spw_xds["chan_freq"][
-                ddi_xds.spectral_window_id.values[ddi], : len(chanidxs)
-            ] = spw_xds.chan_freq[ddi_xds.spectral_window_id.values[ddi], chanidxs]
+            spw_xds["CHAN_FREQ"][
+                ddi_xds.SPECTRAL_WINDOW_ID.values[ddi], : len(chanidxs)
+            ] = spw_xds.CHAN_FREQ[ddi_xds.SPECTRAL_WINDOW_ID.values[ddi], chanidxs]
 
         # expand the row dimension out to (time, baseline)
         if not expanded and expand:

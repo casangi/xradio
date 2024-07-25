@@ -279,7 +279,10 @@ def add_units_measures(
     col_descrs = cc_attrs["column_descriptions"]
     # TODO: Should probably loop the other way around, over mvars
     for col in col_descrs:
-        var_name = col.lower()
+        if col == "TIME":
+            var_name = "time"
+        else:
+            var_name = col
         if var_name in mvars and "keywords" in col_descrs[col]:
             if "QuantumUnits" in col_descrs[col]["keywords"]:
                 cc_units = col_descrs[col]["keywords"]["QuantumUnits"]
@@ -364,12 +367,12 @@ def make_freq_attrs(spw_xds: xr.Dataset, spw_id: int) -> Dict[str, Any]:
     ctds_cols = spw_xds.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]
     cfreq = ctds_cols["CHAN_FREQ"]
 
-    cf_attrs = spw_xds.chan_freq.attrs
+    cf_attrs = spw_xds.data_vars["CHAN_FREQ"].attrs
     if "MEASINFO" in cfreq["keywords"] and "VarRefCol" in cfreq["keywords"]["MEASINFO"]:
         fattrs = cfreq["keywords"]["MEASINFO"]
         var_ref_col = fattrs["VarRefCol"]
         # This should point to the SPW/MEAS_FREQ_REF col
-        meas_freq_ref_idx = spw_xds.data_vars[var_ref_col.lower()].values[spw_id]
+        meas_freq_ref_idx = spw_xds.data_vars[var_ref_col].values[spw_id]
 
         if "TabRefCodes" not in fattrs or "TabRefTypes" not in fattrs:
             # Datasets like vla/ic2233_1.ms say "VarRefCol" but "TabRefTypes" is missing
@@ -384,8 +387,8 @@ def make_freq_attrs(spw_xds: xr.Dataset, spw_id: int) -> Dict[str, Any]:
         }
 
         # Also set the 'VarRefCol' for CHAN_FREQ and REF_FREQUENCEY
-        spw_xds.data_vars["chan_freq"].attrs.update(cf_attrs)
-        spw_xds.data_vars["ref_frequency"].attrs.update(cf_attrs)
+        spw_xds.data_vars["CHAN_FREQ"].attrs.update(cf_attrs)
+        spw_xds.data_vars["REF_FREQUENCY"].attrs.update(cf_attrs)
 
     return cf_attrs
 
@@ -440,18 +443,18 @@ def redimension_ms_subtable(xds: xr.Dataset, subt_name: str) -> xr.Dataset:
         (one dimension for every columns)
     """
     subt_key_cols = {
-        "DOPPLER": ["doppler_id", "source_id"],
+        "DOPPLER": ["DOPPLER_ID", "SOURCE_ID"],
         "FREQ_OFFSET": [
-            "antenna1",
-            "antenna2",
-            "feed_id",
-            "spectral_window_id",
-            "time",
+            "ANTENNA1",
+            "ANTENNA2",
+            "FEED_ID",
+            "SPECTRAL_WINDOW_ID",
+            "TIME",
         ],
-        "POINTING": ["time", "antenna_id"],
-        "SOURCE": ["source_id", "time", "spectral_window_id"],
-        "SYSCAL": ["antenna_id", "feed_id", "spectral_window_id", "time"],
-        "WEATHER": ["antenna_id", "time"],
+        "POINTING": ["TIME", "ANTENNA_ID"],
+        "SOURCE": ["SOURCE_ID", "TIME", "SPECTRAL_WINDOW_ID"],
+        "SYSCAL": ["ANTENNA_ID", "FEED_ID", "SPECTRAL_WINDOW_ID", "TIME"],
+        "WEATHER": ["ANTENNA_ID", "TIME"],
         # added tables (MSv3 but not preent in MSv2). Build it from "EPHEMi_... tables
         # Not clear what to do about 'time' var/dim:  , "time"],
         "EPHEMERIDES": ["ephemeris_row_id", "ephemeris_id"],
@@ -476,10 +479,13 @@ def redimension_ms_subtable(xds: xr.Dataset, subt_name: str) -> xr.Dataset:
         # we need to reset to the original type.
         for var in rxds.data_vars:
             if rxds[var].dtype != xds[var].dtype:
-                rxds[var] = rxds[var].astype(xds[var].dtype)
+                # beware of gaps/empty==nan values when redimensioning
+                with np.errstate(invalid="ignore"):
+                    rxds[var] = rxds[var].astype(xds[var].dtype)
     except Exception as exc:
         logger.warning(
-            f"Cannot expand rows to {key_dims}, possibly duplicate values in those coordinates. Exception: {exc}"
+            f"Cannot expand rows in table {subt_name} to {key_dims}, possibly duplicate values in those coordinates. "
+            f"Exception: {exc}"
         )
         rxds = xds.copy()
 
@@ -500,9 +506,9 @@ def add_ephemeris_vars(tname: str, xds: xr.Dataset) -> xr.Dataset:
         ephem_id = 0
 
     xds["ephemeris_id"] = np.uint32(ephem_id) * xr.ones_like(
-        xds["mjd"], dtype=np.uint32
+        xds["MJD"], dtype=np.uint32
     )
-    xds = xds.rename({"mjd": "time"})
+    xds = xds.rename({"MJD": "time"})
     xds["ephemeris_row_id"] = (
         xr.zeros_like(xds["time"], dtype=np.uint32) + xds["row"].values
     )
@@ -529,7 +535,7 @@ def is_nested_ms(attrs: Dict) -> bool:
     )
 
 
-def read_generic_table(
+def load_generic_table(
     inpath: str,
     tname: str,
     timecols: Union[List[str], None] = None,
@@ -574,7 +580,7 @@ def read_generic_table(
     infile = str(infile.expanduser())
     if not os.path.isdir(infile):
         raise ValueError(
-            f"invalid input filename to read_generic_table: {infile} table {tname}"
+            f"invalid input filename to load_generic_table: {infile} table {tname}"
         )
 
     cc_attrs = extract_table_attributes(infile)
@@ -632,7 +638,14 @@ def read_generic_table(
         )
     )
 
-    if tname in ["DOPPLER", "FREQ_OFFSET", "POINTING", "SOURCE", "SYSCAL", "WEATHER"]:
+    if tname in [
+        "DOPPLER",
+        "FREQ_OFFSET",
+        "POINTING",
+        "SOURCE",
+        "SYSCAL",
+        "WEATHER",
+    ]:
         xds = redimension_ms_subtable(xds, tname)
 
     if is_ephem_subtable(tname):
@@ -747,13 +760,13 @@ def load_generic_cols(
         dict of coordinates and dict of data vars.
     """
 
-    col_cells = find_loadable_filled_cols(tb_tool, ignore)
+    col_types = find_loadable_cols(tb_tool, ignore)
 
     trows = tb_tool.row(ignore, exclude=True)[:]
 
     # Produce coords and data vars from MS columns
     mcoords, mvars = {}, {}
-    for col in col_cells.keys():
+    for col in col_types.keys():
         try:
             # TODO
             # benchmark np.stack() performance
@@ -779,7 +792,7 @@ def load_generic_cols(
             if len(set([isinstance(row[col], dict) for row in trows])) > 1:
                 continue  # can't deal with this case
 
-            data = handle_variable_col_issues(inpath, col, col_cells, trows)
+            data = handle_variable_col_issues(inpath, col, col_types[col], trows)
 
         if len(data) == 0:
             continue
@@ -788,9 +801,9 @@ def load_generic_cols(
             inpath, tb_tool, col, data, timecols
         )
         if array_type == "coord":
-            mcoords[col.lower()] = array_data
+            mcoords[col] = array_data
         elif array_type == "data_var":
-            mvars[col.lower()] = array_data
+            mvars[col] = array_data
 
     return mcoords, mvars
 
@@ -827,7 +840,7 @@ def load_fixed_size_cols(
         dict of coordinates and dict of data vars, ready to construct an xr.Dataset
     """
 
-    loadable_cols = find_loadable_filled_cols(tb_tool, ignore)
+    loadable_cols = find_loadable_cols(tb_tool, ignore)
 
     # Produce coords and data vars from MS columns
     mcoords, mvars = {}, {}
@@ -849,20 +862,23 @@ def load_fixed_size_cols(
             inpath, tb_tool, col, data, timecols
         )
         if array_type == "coord":
-            mcoords[col.lower()] = array_data
+            mcoords[col] = array_data
         elif array_type == "data_var":
-            mvars[col.lower()] = array_data
+            mvars[col] = array_data
 
     return mcoords, mvars
 
 
-def find_loadable_filled_cols(
+def find_loadable_cols(
     tb_tool: tables.table, ignore: Union[List[str], None]
-) -> Dict:
+) -> Dict[str, str]:
     """
-    For a table, finds the columns that are:
-    - loadable = not of record type, and not to be ignored
-    - filled = the column cells are populated.
+    For a table, finds the columns that are loadable = not of record type,
+    and not to be ignored
+    In extreme cases of variable size columns, it can happen that all the
+    cells are empty (iscelldefined() == false). This is still considered a
+    loadable column, even though all values of the resulting data var will
+    be empty.
 
     Parameters
     ----------
@@ -874,17 +890,15 @@ def find_loadable_filled_cols(
     Returns
     -------
     Dict
-        dict of {column name => first cell} for columns that can/should be loaded
+        dict of {column name: column type} for columns that can/should be loaded
     """
 
     colnames = tb_tool.colnames()
-    # columns that are not populated are skipped. record columns are not supported
+    table_desc = tb_tool.getdesc()
     loadable_cols = {
-        col: tb_tool.getcell(col, 0)
+        col: table_desc[col]["valueType"]
         for col in colnames
-        if (col not in ignore)
-        and (tb_tool.iscelldefined(col, 0))
-        and tb_tool.coldatatype(col) != "record"
+        if (col not in ignore) and tb_tool.coldatatype(col) != "record"
     }
     return loadable_cols
 
@@ -923,7 +937,6 @@ def raw_col_data_to_coords_vars(
     # Almost sure that when TIME is present (in a standard MS subt) it
     # is part of the key. But what about non-std subtables, ASDM subts?
     subts_with_time_key = (
-        "FEED",
         "FLAG_CMD",
         "FREQ_OFFSET",
         "HISTORY",
@@ -978,7 +991,7 @@ def raw_col_data_to_coords_vars(
 
 
 def handle_variable_col_issues(
-    inpath: str, col: str, col_cells: dict, trows: tables.tablerow
+    inpath: str, col: str, col_type: str, trows: tables.tablerow
 ) -> np.ndarray:
     """
     load variable-size array columns, padding with nans wherever
@@ -992,8 +1005,8 @@ def handle_variable_col_issues(
         path name of the MS
     col : str
         column being loaded
-    col_cells : dict
-        col: cell} values
+    col_type : str
+        type of the column cell values
     trows : tables.tablerow
         rows from a table as loaded by tables.row()
 
@@ -1008,7 +1021,7 @@ def handle_variable_col_issues(
 
     mshape = np.array(max([np.array(row[col]).shape for row in trows]))
     try:
-        pad_nan = get_pad_nan(col_cells[col])
+        pad_nan = get_pad_nan(np.array((), dtype=col_type))
 
         # TODO
         # benchmark np.stack() performance

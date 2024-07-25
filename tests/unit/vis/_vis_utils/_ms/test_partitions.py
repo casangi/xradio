@@ -7,7 +7,7 @@ def test_make_spw_names_by_ddi():
     import xarray
 
     with pytest.raises(
-        AttributeError, match="object has no attribute 'spectral_window_id'"
+        AttributeError, match="object has no attribute 'SPECTRAL_WINDOW_ID'"
     ):
         res = make_spw_names_by_ddi(xarray.Dataset(), xarray.Dataset())
         assert res
@@ -34,7 +34,7 @@ def test_make_spw_names_by_ddi_min_only_ddi(ddi_xds_min):
     from xradio.vis._vis_utils._ms.partitions import make_spw_names_by_ddi
     import xarray
 
-    with pytest.raises(AttributeError, match="object has no attribute 'name'"):
+    with pytest.raises(AttributeError, match="object has no attribute 'NAME'"):
         res = make_spw_names_by_ddi(ddi_xds_min, xarray.Dataset())
         assert res
 
@@ -44,7 +44,7 @@ def test_make_spw_names_by_ddi_min_only_spw(spw_xds_min):
     import xarray
 
     with pytest.raises(
-        AttributeError, match="object has no attribute 'spectral_window_id'"
+        AttributeError, match="object has no attribute 'SPECTRAL_WINDOW_ID'"
     ):
         res = make_spw_names_by_ddi(xarray.Dataset(), spw_xds_min)
         assert res
@@ -96,7 +96,7 @@ def test_read_ms_scan_subscan_partitions(ms_empty_required):
     from xradio.vis._vis_utils._ms.partitions import read_ms_scan_subscan_partitions
 
     with pytest.raises(
-        AttributeError, match="object has no attribute 'spectral_window_id'"
+        AttributeError, match="object has no attribute 'SPECTRAL_WINDOW_ID'"
     ):
         res = read_ms_scan_subscan_partitions(ms_empty_required.fname, "intent")
         assert res

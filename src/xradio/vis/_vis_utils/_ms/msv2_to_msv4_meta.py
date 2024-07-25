@@ -109,7 +109,7 @@ def column_description_casacore_to_msv4_measure(
                 ref_index = np.where(casa_frequency_frames_codes == ref_code)[0][0]
                 casa_ref = casa_frequency_frames[ref_index]
             else:
-                logger.warning(
+                logger.debug(
                     f"Could not determine {measinfo['type']} measure "
                     "reference frame!"
                 )
@@ -118,7 +118,7 @@ def column_description_casacore_to_msv4_measure(
             if casa_ref in msv4_measure_conversion.get("Ref_map", {}):
                 casa_ref = msv4_measure_conversion["Ref_map"][casa_ref]
             else:
-                logger.warning(
+                logger.debug(
                     f"Unknown reference frame for {measinfo['type']} "
                     f"measure, using verbatim: {casa_ref}"
                 )

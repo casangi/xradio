@@ -534,7 +534,7 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
 
         # Transition is an optional column and occasionally not populated
         if "TRANSITION" in source_xds.data_vars:
-            transition_var_data = source_xds["TRANSITION"]
+            transition_var_data = source_xds["TRANSITION"].data
         else:
             transition_var_data = np.zeros(source_xds["DIRECTION"].shape, dtype="str")
 

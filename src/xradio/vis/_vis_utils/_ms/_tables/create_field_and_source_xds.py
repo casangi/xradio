@@ -544,7 +544,9 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
         if transition_var_data.shape == vars_shape:
             coords_lines_data = transition_var_data
         else:
-            coords_lines_data = np.broadcast_to(transition_var_data, max(transition_var_data.shape, vars_shape))
+            coords_lines_data = np.broadcast_to(
+                transition_var_data, max(transition_var_data.shape, vars_shape)
+            )
 
         if len(source_id) == 1:
             coords_lines = {"line_name": coords_lines_data}

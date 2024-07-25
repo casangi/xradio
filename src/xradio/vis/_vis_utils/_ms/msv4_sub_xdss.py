@@ -475,8 +475,20 @@ def create_pointing_xds(
     for key in generic_pointing_xds:
         if key in to_new_data_variable_names:
             data_var_name = to_new_data_variable_names[key]
+            if (
+                "dim_2" in generic_pointing_xds.sizes
+                and generic_pointing_xds.sizes["dim_2"] == 0
+            ):
+                # Corrects dim sizes of "empty cell" variables, such as empty DIRECTION, TARGET, etc.
+                data_var_data = xr.DataArray(
+                    [[[[np.nan, np.nan]]]],
+                    dims=generic_pointing_xds.dims,
+                ).isel(n_polynomial=0, drop=True)
+            else:
+                data_var_data = generic_pointing_xds[key].data
+
             pointing_xds[data_var_name] = xr.DataArray(
-                generic_pointing_xds[key].data, dims=data_variable_dims[key]
+                data_var_data, dims=data_variable_dims[key]
             )
 
             msv4_measure = column_description_casacore_to_msv4_measure(

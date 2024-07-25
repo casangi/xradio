@@ -470,7 +470,7 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
 
     if len(source_xds.data_vars) == 0:  # The source xds is empty.
         logger.warning(
-            f"SOURCE table empty for source_id {source_id} and spectral_window_id {spectral_window_id}."
+            f"SOURCE table empty for (unique) source_id {unique_source_id} and spectral_window_id {spectral_window_id}."
         )
         xds = xds.assign_coords(
             {"source_name": "Unknown"}
@@ -483,8 +483,8 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
 
     # This source table time is not the same as the time in the field_and_source_xds that is derived from the main MSv4 time axis.
     # The source_id maps to the time axis in the field_and_source_xds. That is why "if len(source_id) == 1" is used to check if there should be a time axis.
-    assert (
-        len(source_xds.TIME) == 1
+    assert len(source_xds.TIME) <= len(
+        unique_source_id
     ), "Can only process source table with a single time entry for a source_id and spectral_window_id."
 
     source_xds = source_xds.isel(TIME=0, SPECTRAL_WINDOW_ID=0, drop=True)
@@ -518,9 +518,20 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
         msv4_measure = column_description_casacore_to_msv4_measure(
             source_column_description[direction_msv2_col]
         )
-        xds["SOURCE_DIRECTION"] = xr.DataArray(
-            source_xds[direction_msv2_col].data, dims=direction_dims
-        )
+
+        msv2_direction_dims = source_xds[direction_msv2_col].dims
+        if (
+            len(msv2_direction_dims) == len(direction_dims) + 1
+            and "dim_1" in msv2_direction_dims
+            and "dim_2" in msv2_direction_dims
+        ):
+            # CASA simulator produces transposed direction values, adding an
+            # unexpected dimension. Drop it (https://github.com/casangi/xradio/issues/#196)
+            direction_var = source_xds[direction_msv2_col].isel(dim_1=0, drop=True)
+        else:
+            direction_var = source_xds[direction_msv2_col]
+
+        xds["SOURCE_DIRECTION"] = xr.DataArray(direction_var.data, dims=direction_dims)
         xds["SOURCE_DIRECTION"].attrs.update(msv4_measure)
 
     # Do we have line data:
@@ -531,14 +542,28 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
 
     if any(num_lines > 0):
 
+        # Transition is an optional column and occasionally not populated
+        if "TRANSITION" in source_xds.data_vars:
+            transition_var_data = source_xds["TRANSITION"].data
+        else:
+            transition_var_data = np.zeros(source_xds["DIRECTION"].shape, dtype="str")
+
+        # if TRANSITION is left empty (or otherwise incomplete), and num_lines > 1,
+        # the data_vars expect a "num_lines" size in the last dimension
+        vars_shape = transition_var_data.shape[:-1] + (np.max(num_lines),)
+        if transition_var_data.shape == vars_shape:
+            coords_lines_data = transition_var_data
+        else:
+            coords_lines_data = np.broadcast_to(
+                transition_var_data, max(transition_var_data.shape, vars_shape)
+            )
+
         if len(source_id) == 1:
-            coords_lines = {"line_name": source_xds["TRANSITION"].data}
+            coords_lines = {"line_name": coords_lines_data}
             xds = xds.assign_coords(coords_lines)
             line_dims = ["line_label"]
         else:
-            coords_lines = {
-                "line_name": (("time", "line_label"), source_xds["TRANSITION"].data)
-            }
+            coords_lines = {"line_name": (("time", "line_label"), coords_lines_data)}
             xds = xds.assign_coords(coords_lines)
             line_dims = ["time", "line_label"]
 
@@ -630,6 +655,7 @@ def create_field_info_and_check_ephemeris(
 
     # Need to check if ephemeris_id is present and if ephemeris table is present.
     if "EPHEMERIS_ID" in field_xds:
+        # Note: this assumes partition_scheme includes "FIELD_ID"
         ephemeris_id = check_if_consistent(field_xds.EPHEMERIS_ID, "EPHEMERIS_ID")
 
         if ephemeris_id > -1:

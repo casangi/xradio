@@ -287,6 +287,7 @@ def _dataset_new(cls, *args, data_vars=None, coords=None, attrs=None, **kwargs):
         # Determine dimensions / convert to Variable
         if (
             val is not None
+            and not isinstance(val, xarray.DataArray)
             and not isinstance(val, xarray.Variable)
             and not isinstance(val, tuple)
         ):

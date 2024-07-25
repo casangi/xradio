@@ -84,6 +84,17 @@ def create_field_and_source_xds(
     logger.debug(
         f"create_field_and_source_xds() execution time {time.time() - start_time:0.2f} s"
     )
+    
+    #Check if we can drop time axis. The phase centers are repeated.
+    if field_times is not None:
+        if is_single_dish:
+            center_dv = "FIELD_REFERENCE_CENTER"
+        else:
+            center_dv = "FIELD_PHASE_CENTER"
+ 
+        if np.unique(field_and_source_xds[center_dv],axis=0).shape[0] == 1:
+            field_and_source_xds = field_and_source_xds.isel(time=0).drop_vars("time")
+            
 
     return field_and_source_xds, source_id
 
@@ -433,7 +444,7 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
     xds : xr.Dataset
         The xarray dataset with the added source information.
     """
-
+    coords = {}
     is_ephemeris = xds.attrs[
         "is_ephemeris"
     ]  # If ephemeris data is present we ignore the SOURCE_DIRECTION in the source table.
@@ -483,7 +494,6 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
 
     # Get source name (the time axis is optional and will probably be required if the partition scheme does not include 'FIELD_ID' or 'SOURCE_ID'.).
     # Note again that this optional time axis has nothing to do with the original time axis in the source table that we drop.
-    coords = {}
     if len(source_id) == 1:
         source_xds = source_xds.sel(SOURCE_ID=source_id[0])
         coords["source_name"] = (
@@ -587,8 +597,8 @@ def create_field_info_and_check_ephemeris(
     ephemeris_table_name : str
         The name of the ephemeris table.
     """
+    coords = {}
 
-    # Federico do know how to do this taql query?
     unique_field_id = unique_1d(
         field_id
     )  # field_ids can be repeated so that the time mapping is correct if there are multiple fields. The load_generic_table required unique field_ids.
@@ -659,13 +669,11 @@ def create_field_info_and_check_ephemeris(
 
     field_measures_type = "sky_coord"
 
-    coords = {}
     coords["sky_dir_label"] = ["ra", "dec"]
     field_column_description = field_xds.attrs["other"]["msv2"]["ctds_attrs"][
         "column_descriptions"
     ]
 
-    coords = {}
     # field_times is the same as the time axis in the main MSv4 dataset and is used if more than one field is present.
     if field_times is not None:
         coords["time"] = field_times

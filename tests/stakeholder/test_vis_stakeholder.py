@@ -60,7 +60,7 @@ def base_test(
     start = time.time()
     from graphviper.dask.client import local_client
 
-    #Strange bug when running test in paralell (the unrelated image tests fail).
+    # Strange bug when running test in paralell (the unrelated image tests fail).
     # viper_client = local_client(cores=4, memory_limit="4GB")
     # viper_client
 
@@ -194,6 +194,7 @@ def test_sd_A002_Xe3a5fd_Xe38e():
 
 
 if __name__ == "__main__":
+    a = 42
     # test_sd_A002_X1015532_X1926f()
     # test_sd_A002_Xae00c5_X2e6b()
     # test_sd_A002_Xced5df_Xf9d9()

@@ -17,6 +17,7 @@ def convert_msv2_to_processing_set(
     pointing_chunksize: Union[Dict, float, None] = None,
     pointing_interpolate: bool = False,
     ephemeris_interpolate: bool = False,
+    use_table_iter: bool = False,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend="zarr",
     parallel: bool = False,
@@ -45,6 +46,8 @@ def convert_msv2_to_processing_set(
         Whether to interpolate the time axis of the pointing sub-dataset to the time axis of the main dataset
     ephemeris_interpolate : bool, optional
         Whether to interpolate the time axis of the ephemeris data variables (of the field_and_source sub-dataset) to the time axis of the main dataset
+    use_table_iter : bool, optional
+        Whether to use the table iterator to read the main table of the MS v2. This should be set to True when reading datasets with large number of rows and few partitions, by default False.
     compressor : numcodecs.abc.Codec, optional
         The Blosc compressor to use when saving the converted data to disk using Zarr, by default numcodecs.Zstd(level=2).
     storage_backend : {"zarr", "netcdf"}, optional
@@ -80,6 +83,7 @@ def convert_msv2_to_processing_set(
                     out_file,
                     ms_v4_id,
                     partition_info=partition_info,
+                    use_table_iter=use_table_iter,
                     partition_scheme=partition_scheme,
                     main_chunksize=main_chunksize,
                     with_pointing=with_pointing,
@@ -96,6 +100,7 @@ def convert_msv2_to_processing_set(
                 out_file,
                 ms_v4_id,
                 partition_info=partition_info,
+                use_table_iter=use_table_iter,
                 partition_scheme=partition_scheme,
                 main_chunksize=main_chunksize,
                 with_pointing=with_pointing,

@@ -1188,6 +1188,7 @@ def read_col_conversion(
     cshape: Tuple[int],
     tidxs: np.ndarray,
     bidxs: np.ndarray,
+    use_table_iter: bool,
 ) -> np.ndarray:
     """
     Function to perform delayed reads from table columns when converting
@@ -1245,23 +1246,26 @@ def read_col_conversion(
     data = np.full(cshape + extra_dimensions, np.nan, dtype=col_dtype)
 
     # Use built-in casacore table iterator to populate the data column by unique times.
-    start_row = 0
-    for ts in tb_tool.iter("TIME", sort=False):
-        num_rows = ts.nrows()
+    if use_table_iter:
+        start_row = 0
+        for ts in tb_tool.iter("TIME", sort=False):
+            num_rows = ts.nrows()
 
-        # Create small temporary array to store the partial column
-        tmp_arr = np.full((num_rows,) + extra_dimensions, np.nan, dtype=col_dtype)
+            # Create small temporary array to store the partial column
+            tmp_arr = np.full((num_rows,) + extra_dimensions, np.nan, dtype=col_dtype)
 
-        # Note we don't use `getcol()` because it's less safe. See:
-        # https://github.com/casacore/python-casacore/issues/130#issuecomment-463202373
-        ts.getcolnp(col, tmp_arr)
+            # Note we don't use `getcol()` because it's less safe. See:
+            # https://github.com/casacore/python-casacore/issues/130#issuecomment-463202373
+            ts.getcolnp(col, tmp_arr)
 
-        # Get the slice of rows contained in `tmp_arr`.
-        # Used to get the relevant integer indexes from `tidxs` and `bidxs`
-        tmp_slice = slice(start_row, start_row + num_rows)
+            # Get the slice of rows contained in `tmp_arr`.
+            # Used to get the relevant integer indexes from `tidxs` and `bidxs`
+            tmp_slice = slice(start_row, start_row + num_rows)
 
-        # Copy `tmp_arr` into correct elements of `tmp_arr`
-        data[tidxs[tmp_slice], bidxs[tmp_slice]] = tmp_arr
-        start_row += num_rows
+            # Copy `tmp_arr` into correct elements of `tmp_arr`
+            data[tidxs[tmp_slice], bidxs[tmp_slice]] = tmp_arr
+            start_row += num_rows
+    else:
+        data[tidxs, bidxs] = tb_tool.getcol(col)
 
     return data

@@ -10,6 +10,8 @@ import numpy as np
 import pytest
 import os
 import importlib.resources
+from graphviper.utils.logger import setup_logger
+import time
 
 # relative_tolerance = 10 ** (-12)
 relative_tolerance = 10 ** (-6)
@@ -23,6 +25,18 @@ def download_and_convert_msv2_to_processing_set(msv2_name, partition_scheme):
         rc_file.write("\nmeasures.directory: " + casa_data_dir)
         rc_file.close()
 
+    _logger_name = "xradio"
+    if os.getenv("VIPER_LOGGER_NAME") != _logger_name:
+        os.environ["VIPER_LOGGER_NAME"] = _logger_name
+        setup_logger(
+            logger_name="xradio",
+            log_to_term=True,
+            log_to_file=False,  # True
+            log_file="xradio-logfile",
+            # log_level="DEBUG",
+            log_level="INFO",
+        )
+
     download(file=msv2_name)
     ps_name = msv2_name[:-3] + ".vis.zarr"
     convert_msv2_to_processing_set(
@@ -33,6 +47,7 @@ def download_and_convert_msv2_to_processing_set(msv2_name, partition_scheme):
         pointing_chunksize=0.00001,
         pointing_interpolate=True,
         ephemeris_interpolate=True,
+        use_table_iter=False,
         overwrite=True,
         parallel=False,
     )
@@ -42,6 +57,12 @@ def download_and_convert_msv2_to_processing_set(msv2_name, partition_scheme):
 def base_test(
     file_name, expected_sum_value, is_s3=False, partition_schemes=[[], ["FIELD_ID"]]
 ):
+    start = time.time()
+    from graphviper.dask.client import local_client
+
+    # Strange bug when running test in paralell (the unrelated image tests fail).
+    # viper_client = local_client(cores=4, memory_limit="4GB")
+    # viper_client
 
     for partition_scheme in partition_schemes:
         if is_s3:
@@ -94,6 +115,8 @@ def base_test(
 
     if not is_s3:
         os.system("rm -rf " + file_name)  # Remove downloaded MSv2 file.
+
+    print("Time taken:", time.time() - start)
 
 
 def test_s3():
@@ -154,18 +177,93 @@ def test_vlass():
     )
 
 
-# test_s3()
-# test_vlass()
-# test_alma()
-# test_ska_mid()
-# test_lofar()
-# test_meerkat()
-# test_global_vlbi()
-# test_vlba()
-# test_ngeht()
-# test_ephemeris()
-# test_single_dish()
-# test_alma_ephemris_mosaic()
+def test_sd_A002_X1015532_X1926f():
+    base_test("uid___A002_X1015532_X1926f.small.ms", 5.964230735563984e21)
+
+
+def test_sd_A002_Xae00c5_X2e6b():
+    base_test("uid___A002_Xae00c5_X2e6b.small.ms", 2451894476.0)
+
+
+def test_sd_A002_Xced5df_Xf9d9():
+    base_test("uid___A002_Xced5df_Xf9d9.small.ms", 9.892002713707104e21)
+
+
+def test_sd_A002_Xe3a5fd_Xe38e():
+    base_test("uid___A002_Xe3a5fd_Xe38e.small.ms", 246949088254189.5)
+
+
+if __name__ == "__main__":
+    a = 42
+    # test_sd_A002_X1015532_X1926f()
+    # test_sd_A002_Xae00c5_X2e6b()
+    # test_sd_A002_Xced5df_Xf9d9()
+    # test_sd_A002_Xe3a5fd_Xe38e()
+    # test_s3()
+    # test_vlass()
+    # test_alma()
+    # test_ska_mid()
+    # test_lofar()
+    # test_meerkat()
+    # test_global_vlbi()
+    # test_vlba()
+    # test_ngeht()
+    # test_ephemeris()
+    # test_single_dish()
+    # test_alma_ephemris_mosaic()
+
+# All test preformed on MAC with M3 and 16 GB Ram.
+# pytest --durations=0 .
+# Timing. Parallel False + get_col
+# 33.33s call     tests/stakeholder/test_vis_stakeholder.py::test_alma_ephemris_mosaic
+# 27.98s call     tests/stakeholder/test_vis_stakeholder.py::test_vlass
+# 25.89s call     tests/stakeholder/test_vis_stakeholder.py::test_sd_A002_Xe3a5fd_Xe38e
+# 25.29s call     tests/stakeholder/test_vis_stakeholder.py::test_s3
+# 22.36s call     tests/stakeholder/test_vis_stakeholder.py::test_sd_A002_Xced5df_Xf9d9
+# 14.06s call     tests/stakeholder/test_vis_stakeholder.py::test_sd_A002_X1015532_X1926f
+# 13.03s call     tests/stakeholder/test_vis_stakeholder.py::test_sd_A002_Xae00c5_X2e6b
+# 4.42s call     tests/stakeholder/test_vis_stakeholder.py::test_ephemeris
+# 3.85s call     tests/stakeholder/test_vis_stakeholder.py::test_single_dish
+# 3.62s call     tests/stakeholder/test_vis_stakeholder.py::test_alma
+# 3.17s call     tests/stakeholder/test_vis_stakeholder.py::test_global_vlbi
+# 3.01s call     tests/stakeholder/test_vis_stakeholder.py::test_vlba
+# 2.97s call     tests/stakeholder/test_vis_stakeholder.py::test_meerkat
+# 2.75s call     tests/stakeholder/test_vis_stakeholder.py::test_ska_mid
+# 2.68s call     tests/stakeholder/test_vis_stakeholder.py::test_ngeht
+# 2.33s call     tests/stakeholder/test_vis_stakeholder.py::test_lofar
+
+# Timing. Parallel True + get_col
+# 25.49s call     tests/stakeholder/test_vis_stakeholder.py::test_s3
+# 19.05s call     tests/stakeholder/test_vis_stakeholder.py::test_alma_ephemris_mosaic
+# 17.01s call     tests/stakeholder/test_vis_stakeholder.py::test_sd_A002_Xe3a5fd_Xe38e
+# 12.86s call     tests/stakeholder/test_vis_stakeholder.py::test_vlass
+# 10.26s call     tests/stakeholder/test_vis_stakeholder.py::test_sd_A002_Xced5df_Xf9d9
+# 7.68s call     tests/stakeholder/test_vis_stakeholder.py::test_sd_A002_X1015532_X1926f
+# 7.00s call     tests/stakeholder/test_vis_stakeholder.py::test_sd_A002_Xae00c5_X2e6b
+# 4.61s call     tests/stakeholder/test_vis_stakeholder.py::test_alma
+# 4.58s call     tests/stakeholder/test_vis_stakeholder.py::test_global_vlbi
+# 3.40s call     tests/stakeholder/test_vis_stakeholder.py::test_ephemeris
+# 3.20s call     tests/stakeholder/test_vis_stakeholder.py::test_ngeht
+# 3.01s call     tests/stakeholder/test_vis_stakeholder.py::test_single_dish
+# 2.98s call     tests/stakeholder/test_vis_stakeholder.py::test_vlba
+# 2.89s call     tests/stakeholder/test_vis_stakeholder.py::test_ska_mid
+# 2.40s call     tests/stakeholder/test_vis_stakeholder.py::test_meerkat
+# 2.39s call     tests/stakeholder/test_vis_stakeholder.py::test_lofar
+
+# Timing. Parallel False + iter col
+# 87.50s call     tests/stakeholder/test_vis_stakeholder.py::test_vlass
+# 42.37s call     tests/stakeholder/test_vis_stakeholder.py::test_alma_ephemris_mosaic
+# 23.41s call     tests/stakeholder/test_vis_stakeholder.py::test_s3
+# 14.96s call     tests/stakeholder/test_vis_stakeholder.py::test_ngeht
+# 12.69s call     tests/stakeholder/test_vis_stakeholder.py::test_single_dish
+# 6.80s call     tests/stakeholder/test_vis_stakeholder.py::test_vlba
+# 4.05s call     tests/stakeholder/test_vis_stakeholder.py::test_ephemeris
+# 3.66s call     tests/stakeholder/test_vis_stakeholder.py::test_alma
+# 3.41s call     tests/stakeholder/test_vis_stakeholder.py::test_meerkat
+# 3.00s call     tests/stakeholder/test_vis_stakeholder.py::test_global_vlbi
+# 2.99s call     tests/stakeholder/test_vis_stakeholder.py::test_ska_mid
+# 2.62s call     tests/stakeholder/test_vis_stakeholder.py::test_lofar
+
 
 # How data was created:
 # ALMA Example

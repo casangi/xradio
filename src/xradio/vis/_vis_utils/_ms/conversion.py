@@ -668,6 +668,7 @@ def convert_and_write_partition(
     """
 
     taql_where = create_taql_query(partition_info)
+    #print("taql_where", taql_where)
     ddi = partition_info["DATA_DESC_ID"][0]
     obs_mode = str(partition_info["OBS_MODE"][0])
 
@@ -716,6 +717,13 @@ def convert_and_write_partition(
             create_data_variables(
                 in_file, xds, tb_tool, time_baseline_shape, tidxs, bidxs, didxs
             )
+            
+            if "WEIGHT" not in xds.data_vars: #Some single dish datasets don't have WEIGHT.
+                xds["WEIGHT"] = xr.DataArray(
+                    np.ones(xds.SPECTRUM.shape, dtype=np.float64),
+                    dims=xds.SPECTRUM.dims,
+                )
+            
             logger.debug("Time create data variables " + str(time.time() - start))
 
             # Create ant_xds

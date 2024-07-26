@@ -54,6 +54,10 @@ def download_and_convert_msv2_to_processing_set(msv2_name, partition_scheme):
 def base_test(
     file_name, expected_sum_value, is_s3=False, partition_schemes=[[], ["FIELD_ID"]]
 ):
+    from graphviper.dask.client import local_client
+
+    # viper_client = local_client(cores=4, memory_limit="4GB")
+    # viper_client
 
     for partition_scheme in partition_schemes:
         if is_s3:
@@ -165,24 +169,22 @@ def test_vlass():
         partition_schemes=[[]],
     )
 
-# def test_sd_A002_X1015532_X1926f():
-#     base_test("uid___A002_X1015532_X1926f.small.ms", 5.964230735563984e+21)
+def test_sd_A002_X1015532_X1926f():
+    base_test("uid___A002_X1015532_X1926f.small.ms", 5.964230735563984e+21)
     
 def test_sd_A002_Xae00c5_X2e6b():
     base_test("uid___A002_Xae00c5_X2e6b.small.ms", 2451894476.0)
     
-# Passes
-# def test_sd_A002_Xced5df_Xf9d9():
-#     base_test("uid___A002_Xced5df_Xf9d9.small.ms", 9.892002713707104e+21)
+def test_sd_A002_Xced5df_Xf9d9():
+    base_test("uid___A002_Xced5df_Xf9d9.small.ms", 9.892002713707104e+21)
     
-# def test_sd_A002_Xe3a5fd_Xe38e():
-#     base_test("uid___A002_Xe3a5fd_Xe38e.small.ms", 1.0)
+def test_sd_A002_Xe3a5fd_Xe38e():
+    base_test("uid___A002_Xe3a5fd_Xe38e.small.ms", 246949088254189.5)
     
-#test_sd_A002_X1015532_X1926f()   #Takes too long
-test_sd_A002_Xae00c5_X2e6b()      #Takes too long
-#test_sd_A002_Xced5df_Xf9d9() #works
+#test_sd_A002_X1015532_X1926f()   
+#test_sd_A002_Xae00c5_X2e6b()      
+#test_sd_A002_Xced5df_Xf9d9() 
 #test_sd_A002_Xe3a5fd_Xe38e()
-
 # test_s3()
 # test_vlass()
 # test_alma()

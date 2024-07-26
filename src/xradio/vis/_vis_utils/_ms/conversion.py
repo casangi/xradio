@@ -537,7 +537,7 @@ def find_min_max_times(tb_tool: tables.table, taql_where: str) -> tuple:
 
 
 def create_data_variables(
-    in_file, xds, tb_tool, time_baseline_shape, tidxs, bidxs, didxs
+    in_file, xds, tb_tool, time_baseline_shape, tidxs, bidxs, didxs, use_table_iter
 ):
     # Create Data Variables
     col_names = tb_tool.colnames()
@@ -559,6 +559,7 @@ def create_data_variables(
                                 time_baseline_shape,
                                 tidxs,
                                 bidxs,
+                                use_table_iter,
                             )[:, :, None, :],
                             (1, 1, xds.sizes["frequency"], 1),
                         ),
@@ -573,6 +574,7 @@ def create_data_variables(
                             time_baseline_shape,
                             tidxs,
                             bidxs,
+                            use_table_iter,
                         ),
                         dims=col_dims[col],
                     )
@@ -618,6 +620,7 @@ def convert_and_write_partition(
     out_file: str,
     ms_v4_id: int,
     partition_info: Dict,
+    use_table_iter: bool,
     partition_scheme: str = "ddi_intent_field",
     main_chunksize: Union[Dict, float, None] = None,
     with_pointing: bool = True,
@@ -668,7 +671,7 @@ def convert_and_write_partition(
     """
 
     taql_where = create_taql_query(partition_info)
-    #print("taql_where", taql_where)
+    # print("taql_where", taql_where)
     ddi = partition_info["DATA_DESC_ID"][0]
     obs_mode = str(partition_info["OBS_MODE"][0])
 
@@ -715,15 +718,24 @@ def convert_and_write_partition(
 
             start = time.time()
             create_data_variables(
-                in_file, xds, tb_tool, time_baseline_shape, tidxs, bidxs, didxs
+                in_file,
+                xds,
+                tb_tool,
+                time_baseline_shape,
+                tidxs,
+                bidxs,
+                didxs,
+                use_table_iter,
             )
-            
-            if "WEIGHT" not in xds.data_vars: #Some single dish datasets don't have WEIGHT.
+
+            if (
+                "WEIGHT" not in xds.data_vars
+            ):  # Some single dish datasets don't have WEIGHT.
                 xds["WEIGHT"] = xr.DataArray(
                     np.ones(xds.SPECTRUM.shape, dtype=np.float64),
                     dims=xds.SPECTRUM.dims,
                 )
-            
+
             logger.debug("Time create data variables " + str(time.time() - start))
 
             # Create ant_xds

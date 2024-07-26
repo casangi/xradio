@@ -84,17 +84,16 @@ def create_field_and_source_xds(
     logger.debug(
         f"create_field_and_source_xds() execution time {time.time() - start_time:0.2f} s"
     )
-    
-    #Check if we can drop time axis. The phase centers are repeated.
+
+    # Check if we can drop time axis. The phase centers are repeated.
     if field_times is not None:
         if is_single_dish:
             center_dv = "FIELD_REFERENCE_CENTER"
         else:
             center_dv = "FIELD_PHASE_CENTER"
- 
-        if np.unique(field_and_source_xds[center_dv],axis=0).shape[0] == 1:
+
+        if np.unique(field_and_source_xds[center_dv], axis=0).shape[0] == 1:
             field_and_source_xds = field_and_source_xds.isel(time=0).drop_vars("time")
-            
 
     return field_and_source_xds, source_id
 

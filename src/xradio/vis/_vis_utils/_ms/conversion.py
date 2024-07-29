@@ -711,9 +711,6 @@ def convert_and_write_partition(
                 
             telescope_name = get_observation_info(in_file, observation_id)
             
-            print('telescope_name', telescope_name)
-                
-
             start = time.time()
             xds = xr.Dataset()
             # interval = check_if_consistent(tb_tool.getcol("INTERVAL"), "INTERVAL")
@@ -887,11 +884,11 @@ def convert_and_write_partition(
             xds.attrs["partition_info"] = {
                 # "spectral_window_id": xds.frequency.attrs["spectral_window_id"],
                 "spectral_window_name": xds.frequency.attrs["spectral_window_name"],
-                "field_id": to_list(unique_1d(field_id)),
+                #"field_id": to_list(unique_1d(field_id)),
                 "field_name": to_list(
                     np.unique(field_and_source_xds.field_name.values)
                 ),
-                "source_id": to_list(unique_1d(source_id)),
+                #"source_id": to_list(unique_1d(source_id)),
                 "source_name": to_list(
                     np.unique(field_and_source_xds.source_name.values)
                 ),

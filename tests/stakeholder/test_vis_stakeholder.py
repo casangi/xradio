@@ -49,29 +49,33 @@ def download_and_convert_msv2_to_processing_set(msv2_name, partition_scheme):
         ephemeris_interpolate=True,
         use_table_iter=False,
         overwrite=True,
-        parallel=False,
+        parallel=True,
     )
     return ps_name
 
 
 def base_test(
-    file_name, expected_sum_value, is_s3=False, partition_schemes=[[], ["FIELD_ID"]]
+    file_name, expected_sum_value, is_s3=False, partition_schemes=[[], ["FIELD_ID"]], preconverted=False
 ):
     start = time.time()
     from graphviper.dask.client import local_client
 
     # Strange bug when running test in paralell (the unrelated image tests fail).
-    # viper_client = local_client(cores=4, memory_limit="4GB")
-    # viper_client
+    viper_client = local_client(cores=4, memory_limit="4GB")
+    viper_client
 
     for partition_scheme in partition_schemes:
         if is_s3:
+            ps_name = file_name
+        elif preconverted:
+            download(file=file_name)
             ps_name = file_name
         else:
             ps_name = download_and_convert_msv2_to_processing_set(
                 file_name, partition_scheme
             )
 
+        print("ps_name", ps_name)   
         ps_lazy = read_processing_set(ps_name)
 
         sel_parms = {key: {} for key in ps_lazy.keys()}
@@ -95,8 +99,9 @@ def base_test(
                 np.abs(ps_lazy[ms_xds_name][data_name] * ps_lazy[ms_xds_name].WEIGHT)
             )
 
-        if not is_s3:
-            os.system("rm -rf " + ps_name)
+
+        os.system("rm -rf " + ps_name) # Remove vis.zarr folder.
+        os.system("rm -rf " + file_name) # Remove downloaded MSv2 folder.
 
         print("sum", sum, sum_lazy)
         assert (
@@ -113,9 +118,6 @@ def base_test(
             else:
                 print(f"{xds_name}: {issues}\n")
 
-    if not is_s3:
-        os.system("rm -rf " + file_name)  # Remove downloaded MSv2 file.
-
     print("Time taken:", time.time() - start)
 
 
@@ -130,6 +132,13 @@ def test_s3():
 
 def test_alma():
     base_test("Antennae_North.cal.lsrk.split.ms", 190.0405216217041)
+    
+def test_preconverted_alma(): 
+    # If this test has failed on its own it most probably means the schema has changed.
+    # Create a fresh version using "Antennae_North.cal.lsrk.split.ms" and reconvert it using generate_zarr.py (in dropbox folder).
+    # Zip this folder and add it to the dropbox folder and update the file.download.json file. 
+    # If you not sure how to do any of this contact jsteeb@nrao.edu
+    base_test("Antennae_North.cal.lsrk.split.vis.zarr", 190.0405216217041, preconverted=True,partition_schemes=[[]])
 
 
 def test_ska_mid():
@@ -201,7 +210,8 @@ if __name__ == "__main__":
     # test_sd_A002_Xe3a5fd_Xe38e()
     # test_s3()
     # test_vlass()
-    test_alma()
+    # test_alma()
+    # test_preconverted_alma()
     # test_ska_mid()
     # test_lofar()
     # test_meerkat()

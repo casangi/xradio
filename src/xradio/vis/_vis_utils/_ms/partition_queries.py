@@ -108,8 +108,8 @@ def create_partitions(in_file: str, partition_scheme: list):
 
     # Make all possible combinations of the partition criteria.
     enumerated_partitions = enumerated_product(*list(partition_criteria.values()))
-    
-    #print('par_df',par_df)
+
+    # print('par_df',par_df)
 
     # Create a list of dictionaries with the partition information. This will be used to query the MSv2 main table.
     partitions = []

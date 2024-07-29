@@ -863,7 +863,7 @@ def convert_and_write_partition(
             )
 
             xds.attrs["partition_info"] = {
-                "spectral_window_id": xds.frequency.attrs["spectral_window_id"],
+                # "spectral_window_id": xds.frequency.attrs["spectral_window_id"],
                 "spectral_window_name": xds.frequency.attrs["spectral_window_name"],
                 "field_id": to_list(unique_1d(field_id)),
                 "field_name": to_list(

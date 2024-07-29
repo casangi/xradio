@@ -33,7 +33,7 @@ class processing_set(dict):
             "obs_mode": [],
             "shape": [],
             "polarization": [],
-            "spw_id": [],
+            "spw_name": [],
             # "field_id": [],
             "field_name": [],
             # "source_id": [],
@@ -48,8 +48,8 @@ class processing_set(dict):
         for key, value in self.items():
             summary_data["name"].append(key)
             summary_data["obs_mode"].append(value.attrs["partition_info"]["obs_mode"])
-            summary_data["spw_id"].append(
-                value.attrs["partition_info"]["spectral_window_id"]
+            summary_data["spw_name"].append(
+                value.attrs["partition_info"]["spectral_window_name"]
             )
             summary_data["polarization"].append(value.polarization.values)
 

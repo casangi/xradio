@@ -79,6 +79,14 @@ def create_ant_xds(
     xr.Dataset
         Antenna Xarray Dataset.
     """
+    # generic_obs_xds = load_generic_table(
+    #     in_file,
+    #     "OBSERVATION",
+    #     taql_where=f" where (ROWID() IN [{','.join(map(str,unique_antenna_id))}])",  # order is not guaranteed
+    # )
+    
+    
+    
     # Dictionaries that define the conversion from MSv2 to MSv4:
     to_new_data_variable_names = {
         "POSITION": "ANTENNA_POSITION",

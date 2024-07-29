@@ -49,7 +49,7 @@ def download_and_convert_msv2_to_processing_set(msv2_name, partition_scheme):
         ephemeris_interpolate=True,
         use_table_iter=False,
         overwrite=True,
-        parallel=True,
+        parallel=False,
     )
     return ps_name
 
@@ -65,8 +65,8 @@ def base_test(
     from graphviper.dask.client import local_client
 
     # Strange bug when running test in paralell (the unrelated image tests fail).
-    viper_client = local_client(cores=4, memory_limit="4GB")
-    viper_client
+    # viper_client = local_client(cores=4, memory_limit="4GB")
+    # viper_client
 
     for partition_scheme in partition_schemes:
         if is_s3:

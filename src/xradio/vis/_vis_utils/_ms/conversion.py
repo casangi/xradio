@@ -10,7 +10,7 @@ import xarray as xr
 
 from casacore import tables
 from .msv4_sub_xdss import create_ant_xds, create_pointing_xds, create_weather_xds
-from xradio.vis._vis_utils._ms._tables.create_field_and_source_xds import (
+from xradio.vis._vis_utils._ms.create_field_and_source_xds import (
     create_field_and_source_xds,
 )
 from .msv2_to_msv4_meta import (

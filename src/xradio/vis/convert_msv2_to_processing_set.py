@@ -66,7 +66,9 @@ def convert_msv2_to_processing_set(
         # print(ms_v4_id,len(partition_info['FIELD_ID']))
 
         logger.info(
-            "DDI "
+            "OBSERVATION_ID "
+            + str(partition_info["OBSERVATION_ID"])
+            + ", DDI "
             + str(partition_info["DATA_DESC_ID"])
             + ", STATE "
             + str(partition_info["STATE_ID"])

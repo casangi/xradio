@@ -64,7 +64,11 @@ def interpolate_to_time(
 
 
 def create_ant_xds(
-    in_file: str, spectral_window_id: int, antenna_id: list, feed_id: list
+    in_file: str,
+    spectral_window_id: int,
+    antenna_id: list,
+    feed_id: list,
+    telescope_name: str,
 ):
     """
     Creates an Antenna Xarray Dataset from a MS v2 ANTENNA table.
@@ -79,6 +83,12 @@ def create_ant_xds(
     xr.Dataset
         Antenna Xarray Dataset.
     """
+    # generic_obs_xds = load_generic_table(
+    #     in_file,
+    #     "OBSERVATION",
+    #     taql_where=f" where (ROWID() IN [{','.join(map(str,unique_antenna_id))}])",  # order is not guaranteed
+    # )
+
     # Dictionaries that define the conversion from MSv2 to MSv4:
     to_new_data_variable_names = {
         "POSITION": "ANTENNA_POSITION",
@@ -260,6 +270,8 @@ def create_ant_xds(
         coords["receptor_name"] = np.arange(ant_xds.sizes["receptor_name"]).astype(str)
 
     ant_xds = ant_xds.assign_coords(coords)
+
+    ant_xds.attrs["overall_telescope_name"] = telescope_name
 
     return ant_xds
 

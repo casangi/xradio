@@ -42,7 +42,7 @@ def create_partitions(in_file: str, partition_scheme: list):
     import pandas as pd
     import os
 
-    partition_scheme = ["DATA_DESC_ID", "OBS_MODE"] + partition_scheme
+    partition_scheme = ["DATA_DESC_ID", "OBS_MODE", "OBSERVATION_ID"] + partition_scheme
 
     # Open MSv2 tables and add columns to partition table (par_df):
     par_df = pd.DataFrame()
@@ -53,6 +53,7 @@ def create_partitions(in_file: str, partition_scheme: list):
     par_df["FIELD_ID"] = main_tb.getcol("FIELD_ID")
     par_df["SCAN_NUMBER"] = main_tb.getcol("SCAN_NUMBER")
     par_df["STATE_ID"] = main_tb.getcol("STATE_ID")
+    par_df["OBSERVATION_ID"] = main_tb.getcol("OBSERVATION_ID")
     par_df = par_df.drop_duplicates()
 
     field_tb = tables.table(
@@ -108,10 +109,13 @@ def create_partitions(in_file: str, partition_scheme: list):
     # Make all possible combinations of the partition criteria.
     enumerated_partitions = enumerated_product(*list(partition_criteria.values()))
 
+    # print('par_df',par_df)
+
     # Create a list of dictionaries with the partition information. This will be used to query the MSv2 main table.
     partitions = []
     partition_axis_names = [
         "DATA_DESC_ID",
+        "OBSERVATION_ID",
         "FIELD_ID",
         "SCAN_NUMBER",
         "STATE_ID",

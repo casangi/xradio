@@ -445,8 +445,10 @@ def create_coordinates(
         ref_code=spectral_window_xds["MEAS_FREQ_REF"].data,
     )
     xds.frequency.attrs.update(msv4_measure)
-    
-    if (spectral_window_xds.NAME.values.item() is None) or (spectral_window_xds.NAME.values.item() == "none"):
+
+    if (spectral_window_xds.NAME.values.item() is None) or (
+        spectral_window_xds.NAME.values.item() == "none"
+    ):
         spw_name = "spw_" + str(spectral_window_id)
     else:
         spw_name = spectral_window_xds.NAME.values.item()
@@ -713,13 +715,15 @@ def convert_and_write_partition(
                     "OBSERVATION",
                     taql_where=f" where (ROWID() IN [{str(observation_id)}])",
                 )
-                
+
                 if obs_mode == "None":
                     obs_mode = "obs_" + str(observation_id)
 
                 return generic_observation_xds["TELESCOPE_NAME"].values[0], obs_mode
 
-            telescope_name, obs_mode = get_observation_info(in_file, observation_id, obs_mode)
+            telescope_name, obs_mode = get_observation_info(
+                in_file, observation_id, obs_mode
+            )
 
             start = time.time()
             xds = xr.Dataset()

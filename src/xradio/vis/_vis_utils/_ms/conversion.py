@@ -445,8 +445,13 @@ def create_coordinates(
         ref_code=spectral_window_xds["MEAS_FREQ_REF"].data,
     )
     xds.frequency.attrs.update(msv4_measure)
+    
+    if (spectral_window_xds.NAME.values.item() is None) or (spectral_window_xds.NAME.values.item() == "none"):
+        spw_name = "spw_" + str(spectral_window_id)
+    else:
+        spw_name = spectral_window_xds.NAME.values.item()
 
-    xds.frequency.attrs["spectral_window_name"] = str(spectral_window_xds.NAME.values)
+    xds.frequency.attrs["spectral_window_name"] = spw_name
     msv4_measure = column_description_casacore_to_msv4_measure(
         freq_column_description["REF_FREQUENCY"],
         ref_code=spectral_window_xds["MEAS_FREQ_REF"].data,
@@ -702,16 +707,19 @@ def convert_and_write_partition(
                 tb_tool.getcol("OBSERVATION_ID"), "OBSERVATION_ID"
             )
 
-            def get_observation_info(in_file, observation_id):
+            def get_observation_info(in_file, observation_id, obs_mode):
                 generic_observation_xds = load_generic_table(
                     in_file,
                     "OBSERVATION",
                     taql_where=f" where (ROWID() IN [{str(observation_id)}])",
                 )
+                
+                if obs_mode == "None":
+                    obs_mode = "obs_" + str(observation_id)
 
-                return generic_observation_xds["TELESCOPE_NAME"].values[0]
+                return generic_observation_xds["TELESCOPE_NAME"].values[0], obs_mode
 
-            telescope_name = get_observation_info(in_file, observation_id)
+            telescope_name, obs_mode = get_observation_info(in_file, observation_id, obs_mode)
 
             start = time.time()
             xds = xr.Dataset()

@@ -201,7 +201,7 @@ if __name__ == "__main__":
     # test_sd_A002_Xe3a5fd_Xe38e()
     # test_s3()
     # test_vlass()
-    # test_alma()
+    test_alma()
     # test_ska_mid()
     # test_lofar()
     # test_meerkat()

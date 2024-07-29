@@ -597,6 +597,7 @@ def create_data_variables(
 def create_taql_query(partition_info):
     main_par_table_cols = [
         "DATA_DESC_ID",
+        "OBSERVATION_ID",
         "STATE_ID",
         "FIELD_ID",
         "SCAN_NUMBER",
@@ -696,6 +697,22 @@ def convert_and_write_partition(
             ) = calc_indx_for_row_split(tb_tool, taql_where)
             time_baseline_shape = (len(utime), len(baseline_ant1_id))
             logger.debug("Calc indx for row split " + str(time.time() - start))
+            
+            observation_id = check_if_consistent(tb_tool.getcol("OBSERVATION_ID"), "OBSERVATION_ID")
+            
+            def get_observation_info(in_file, observation_id):
+                generic_observation_xds = load_generic_table(
+                            in_file,
+                            "OBSERVATION",
+                            taql_where=f" where (ROWID() IN [{str(observation_id)}])",
+                        )
+
+                return generic_observation_xds['TELESCOPE_NAME'].values[0]
+                
+            telescope_name = get_observation_info(in_file, observation_id)
+            
+            print('telescope_name', telescope_name)
+                
 
             start = time.time()
             xds = xr.Dataset()
@@ -755,7 +772,7 @@ def convert_and_write_partition(
             )
 
             ant_xds = create_ant_xds(
-                in_file, xds.frequency.attrs["spectral_window_id"], antenna_id, feed_id
+                in_file, xds.frequency.attrs["spectral_window_id"], antenna_id, feed_id, telescope_name
             )
             
             #Change antenna_ids to antenna_names
@@ -896,7 +913,7 @@ def convert_and_write_partition(
                     )
 
                 if with_pointing:
-                    pointing_xds.to_zarr(store=file_name + "/POINTING", mode=mode)
+                    pointing_xds.to_zarr(store=os.path.join(file_name, "POINTING"), mode=mode)
 
                 if weather_xds:
                     weather_xds.to_zarr(
@@ -912,8 +929,12 @@ def convert_and_write_partition(
 
 
 def antenna_ids_to_names(xds,ant_xds):
-    moving_antennas = True
     
+    if ant_xds.attrs['overall_telescope_name'] in ['ALMA','VLA','NOEMA','EVLA']:
+        moving_antennas = True
+    else:
+        moving_antennas = False
+            
     if moving_antennas:
         if "baseline_antenna1_id" in xds: #Interferometer
             

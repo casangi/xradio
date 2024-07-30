@@ -449,7 +449,7 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
     ]  # If ephemeris data is present we ignore the SOURCE_DIRECTION in the source table.
 
     if all(source_id == -1):
-        logger.warning(
+        logger.debug(
             f"Source_id is -1. No source information will be included in the field_and_source_xds."
         )
         xds = xds.assign_coords(
@@ -468,7 +468,7 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
     )
 
     if len(source_xds.data_vars) == 0:  # The source xds is empty.
-        logger.warning(
+        logger.debug(
             f"SOURCE table empty for (unique) source_id {unique_source_id} and spectral_window_id {spectral_window_id}."
         )
         xds = xds.assign_coords(

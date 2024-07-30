@@ -54,6 +54,7 @@ def create_partitions(in_file: str, partition_scheme: list):
     par_df["SCAN_NUMBER"] = main_tb.getcol("SCAN_NUMBER")
     par_df["STATE_ID"] = main_tb.getcol("STATE_ID")
     par_df["OBSERVATION_ID"] = main_tb.getcol("OBSERVATION_ID")
+    par_df["ANTENNA1"] = main_tb.getcol("ANTENNA1")
     par_df = par_df.drop_duplicates()
 
     field_tb = tables.table(
@@ -96,6 +97,7 @@ def create_partitions(in_file: str, partition_scheme: list):
             par_df["SUB_SCAN_NUMBER"] = state_tb.getcol("SUB_SCAN")[par_df["STATE_ID"]]
         else:
             par_df.drop(["STATE_ID"], axis=1)
+        state_tb.close()
 
     # Check if all partition scheme criteria are present in the partition table.
     partition_scheme_updated = []
@@ -109,7 +111,7 @@ def create_partitions(in_file: str, partition_scheme: list):
     # Make all possible combinations of the partition criteria.
     enumerated_partitions = enumerated_product(*list(partition_criteria.values()))
 
-    # print('par_df',par_df)
+    #print('par_df',par_df)
 
     # Create a list of dictionaries with the partition information. This will be used to query the MSv2 main table.
     partitions = []
@@ -122,6 +124,7 @@ def create_partitions(in_file: str, partition_scheme: list):
         "SOURCE_ID",
         "OBS_MODE",
         "SUB_SCAN_NUMBER",
+        "ANTENNA1",
     ]
     for idx, pair in enumerated_partitions:
         query = ""
@@ -144,7 +147,9 @@ def create_partitions(in_file: str, partition_scheme: list):
                     partition_info[col_name] = [None]
 
             partitions.append(partition_info)
-
+    main_tb.close()
+    field_tb.close()
+    
     return partitions
 
 

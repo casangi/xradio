@@ -609,6 +609,7 @@ def create_taql_query(partition_info):
         "FIELD_ID",
         "SCAN_NUMBER",
         "STATE_ID",
+        "ANTENNA1"
     ]
 
     taql_where = "WHERE "
@@ -679,7 +680,7 @@ def convert_and_write_partition(
     """
 
     taql_where = create_taql_query(partition_info)
-    # print("taql_where", taql_where)
+    print("taql_where", taql_where)
     ddi = partition_info["DATA_DESC_ID"][0]
     obs_mode = str(partition_info["OBS_MODE"][0])
 

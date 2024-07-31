@@ -566,6 +566,7 @@ def create_data_variables(
                         tidxs,
                         bidxs,
                         use_table_iter,
+                        main_column_descriptions,
                     )
                 else:
                     xds[col_to_data_variable_names[col]] = xr.DataArray(
@@ -601,10 +602,20 @@ def create_data_variables(
                         tidxs,
                         bidxs,
                         use_table_iter,
+                        main_column_descriptions,
                     )
 
 
-def get_weight(xds, col, tb_tool, time_baseline_shape, tidxs, bidxs, use_table_iter):
+def get_weight(
+    xds,
+    col,
+    tb_tool,
+    time_baseline_shape,
+    tidxs,
+    bidxs,
+    use_table_iter,
+    main_column_descriptions,
+):
     xds[col_to_data_variable_names[col]] = xr.DataArray(
         np.tile(
             read_col_conversion(

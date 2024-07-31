@@ -558,21 +558,16 @@ def create_data_variables(
             try:
                 start = time.time()
                 if col == "WEIGHT":
-                    xds[col_to_data_variable_names[col]] = xr.DataArray(
-                        np.tile(
-                            read_col_conversion(
-                                tb_tool,
-                                col,
-                                time_baseline_shape,
-                                tidxs,
-                                bidxs,
-                                use_table_iter,
-                            )[:, :, None, :],
-                            (1, 1, xds.sizes["frequency"], 1),
-                        ),
-                        dims=col_dims[col],
+                    xds = get_weight(
+                        xds,
+                        col,
+                        tb_tool,
+                        time_baseline_shape,
+                        tidxs,
+                        bidxs,
+                        use_table_iter,
+                        main_column_descriptions,
                     )
-
                 else:
                     xds[col_to_data_variable_names[col]] = xr.DataArray(
                         read_col_conversion(
@@ -585,20 +580,61 @@ def create_data_variables(
                         ),
                         dims=col_dims[col],
                     )
-                    logger.debug(
-                        "Time to read column "
-                        + str(col)
-                        + " : "
-                        + str(time.time() - start)
-                    )
-            except:
-                # logger.debug("Could not load column",col)
-                # print("Could not load column", col)
-                continue
 
-            xds[col_to_data_variable_names[col]].attrs.update(
-                create_attribute_metadata(col, main_column_descriptions)
-            )
+                xds[col_to_data_variable_names[col]].attrs.update(
+                    create_attribute_metadata(col, main_column_descriptions)
+                )
+
+                logger.debug(
+                    "Time to read column " + str(col) + " : " + str(time.time() - start)
+                )
+            except:
+                logger.debug("Could not load column", col)
+
+                if ("WEIGHT_SPECTRUM" == col) and (
+                    "WEIGHT" in col_names
+                ):  # Bogus WEIGHT_SPECTRUM column, need to use WEIGHT.
+                    xds = get_weight(
+                        xds,
+                        "WEIGHT",
+                        tb_tool,
+                        time_baseline_shape,
+                        tidxs,
+                        bidxs,
+                        use_table_iter,
+                        main_column_descriptions,
+                    )
+
+
+def get_weight(
+    xds,
+    col,
+    tb_tool,
+    time_baseline_shape,
+    tidxs,
+    bidxs,
+    use_table_iter,
+    main_column_descriptions,
+):
+    xds[col_to_data_variable_names[col]] = xr.DataArray(
+        np.tile(
+            read_col_conversion(
+                tb_tool,
+                col,
+                time_baseline_shape,
+                tidxs,
+                bidxs,
+                use_table_iter,
+            )[:, :, None, :],
+            (1, 1, xds.sizes["frequency"], 1),
+        ),
+        dims=col_dims[col],
+    )
+
+    xds[col_to_data_variable_names[col]].attrs.update(
+        create_attribute_metadata(col, main_column_descriptions)
+    )
+    return xds
 
 
 def create_taql_query(partition_info):
@@ -756,13 +792,22 @@ def convert_and_write_partition(
                 use_table_iter,
             )
 
+            # Add data_groups and field_info
+            xds, is_single_dish = add_data_groups(xds)
+
             if (
                 "WEIGHT" not in xds.data_vars
             ):  # Some single dish datasets don't have WEIGHT.
-                xds["WEIGHT"] = xr.DataArray(
-                    np.ones(xds.SPECTRUM.shape, dtype=np.float64),
-                    dims=xds.SPECTRUM.dims,
-                )
+                if is_single_dish:
+                    xds["WEIGHT"] = xr.DataArray(
+                        np.ones(xds.SPECTRUM.shape, dtype=np.float64),
+                        dims=xds.SPECTRUM.dims,
+                    )
+                else:
+                    xds["WEIGHT"] = xr.DataArray(
+                        np.ones(xds.VISIBILITY.shape, dtype=np.float64),
+                        dims=xds.VISIBILITY.dims,
+                    )
 
             logger.debug("Time create data variables " + str(time.time() - start))
 
@@ -831,9 +876,6 @@ def convert_and_write_partition(
 
             if len(xds.time) > 1 and xds.time[1] - xds.time[0] < 0:
                 xds = xds.sel(time=slice(None, None, -1))
-
-            # Add data_groups and field_info
-            xds, is_single_dish = add_data_groups(xds)
 
             # Create field_and_source_xds (combines field, source and ephemeris data into one super dataset)
             start = time.time()

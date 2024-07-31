@@ -780,7 +780,7 @@ def convert_and_write_partition(
                 didxs,
                 use_table_iter,
             )
-            
+
             # Add data_groups and field_info
             xds, is_single_dish = add_data_groups(xds)
 
@@ -796,7 +796,7 @@ def convert_and_write_partition(
                     xds["WEIGHT"] = xr.DataArray(
                         np.ones(xds.VISIBILITY.shape, dtype=np.float64),
                         dims=xds.VISIBILITY.dims,
-                    ) 
+                    )
 
             logger.debug("Time create data variables " + str(time.time() - start))
 

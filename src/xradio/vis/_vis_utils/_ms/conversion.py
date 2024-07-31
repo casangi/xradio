@@ -780,14 +780,23 @@ def convert_and_write_partition(
                 didxs,
                 use_table_iter,
             )
+            
+            # Add data_groups and field_info
+            xds, is_single_dish = add_data_groups(xds)
 
             if (
                 "WEIGHT" not in xds.data_vars
             ):  # Some single dish datasets don't have WEIGHT.
-                xds["WEIGHT"] = xr.DataArray(
-                    np.ones(xds.SPECTRUM.shape, dtype=np.float64),
-                    dims=xds.SPECTRUM.dims,
-                )
+                if is_single_dish:
+                    xds["WEIGHT"] = xr.DataArray(
+                        np.ones(xds.SPECTRUM.shape, dtype=np.float64),
+                        dims=xds.SPECTRUM.dims,
+                    )
+                else:
+                    xds["WEIGHT"] = xr.DataArray(
+                        np.ones(xds.VISIBILITY.shape, dtype=np.float64),
+                        dims=xds.VISIBILITY.dims,
+                    ) 
 
             logger.debug("Time create data variables " + str(time.time() - start))
 
@@ -856,9 +865,6 @@ def convert_and_write_partition(
 
             if len(xds.time) > 1 and xds.time[1] - xds.time[0] < 0:
                 xds = xds.sel(time=slice(None, None, -1))
-
-            # Add data_groups and field_info
-            xds, is_single_dish = add_data_groups(xds)
 
             # Create field_and_source_xds (combines field, source and ephemeris data into one super dataset)
             start = time.time()

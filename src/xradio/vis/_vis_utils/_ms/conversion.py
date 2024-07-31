@@ -588,8 +588,8 @@ def create_data_variables(
             except:
                 logger.debug("Could not load column", col)
 
-                if (
-                    "WEIGHT_SPECTRUM" == col
+                if ("WEIGHT_SPECTRUM" == col) and (
+                    "WEIGHT" in col_names
                 ):  # Bogus WEIGHT_SPECTRUM column, need to use WEIGHT.
                     xds = get_weight(
                         xds,

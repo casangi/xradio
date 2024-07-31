@@ -299,7 +299,7 @@ CASA commands used to create the dataset:
 ```python
 importasdm(asdm='uid___A002_X1003af4_X75a3.asdm.sdm',vis='uid___A002_X1003af4_X75a3.ms',asis='Ephemeris Antenna Station Receiver Source CalAtmosphere CalWVR',bdfflags=True,with_pointing_correction=True,convert_ephem2geo=True)
 
-mstransform(vis='ALMA_uid___A002_X1003af4_X75a3.split.ms',outputvis='ALMA_uid___A002_X1003af4_X75a3.split.avg.ms',createmms=False,timeaverage=True,timebin='2s',timespan='scan',reindex=True)
+mstransform(vis='ALMA_uid___A002_X1003af4_X75a3.split.ms',outputvis='ALMA_uid___A002_X1003af4_X75a3.split.avg.ms',createmms=False,timeaverage=True,timebin='2s',timespan='scan',scan='6~8', spw='3,4,5:60~66', reindex=True,datacolumn='all')
 
 import numpy as np
 
@@ -308,5 +308,20 @@ for subtable in ['FLAG_CMD', 'POINTING', 'CALDEVICE', 'ASDM_CALATMOSPHERE']:
     tb.removerows(np.arange(tb.nrows())) 
     tb.flush()
     tb.done()
+```
+"""
+
+"""
+SNR_G55_10s.ms : VLA
+
+ALMA archive file downloaded: http://casa.nrao.edu/Data/EVLA/SNRG55/SNR_G55_10s.tar.gz
+
+
+
+```python
+
+mstransform(vis='SNR_G55_10s.ms',outputvis='SNR_G55_10s.split.ms',createmms=False,timeaverage=True,timebin='2s',spw='1,2:30~34',timespan='scan',reindex=True,datacolumn='all')
+
+
 ```
 """

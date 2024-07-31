@@ -579,12 +579,14 @@ def create_data_variables(
                         ),
                         dims=col_dims[col],
                     )
-                    logger.debug(
-                        "Time to read column "
-                        + str(col)
-                        + " : "
-                        + str(time.time() - start)
-                    )
+
+                xds[col_to_data_variable_names[col]].attrs.update(
+                    create_attribute_metadata(col, main_column_descriptions)
+                )
+
+                logger.debug(
+                    "Time to read column " + str(col) + " : " + str(time.time() - start)
+                )
             except:
                 logger.debug("Could not load column", col)
 
@@ -601,10 +603,6 @@ def create_data_variables(
                         use_table_iter,
                     )
 
-            xds[col_to_data_variable_names[col]].attrs.update(
-                create_attribute_metadata(col, main_column_descriptions)
-            )
-
 
 def get_weight(xds, col, tb_tool, time_baseline_shape, tidxs, bidxs, use_table_iter):
     xds[col_to_data_variable_names[col]] = xr.DataArray(
@@ -620,6 +618,10 @@ def get_weight(xds, col, tb_tool, time_baseline_shape, tidxs, bidxs, use_table_i
             (1, 1, xds.sizes["frequency"], 1),
         ),
         dims=col_dims[col],
+    )
+
+    xds[col_to_data_variable_names[col]].attrs.update(
+        create_attribute_metadata(col, main_column_descriptions)
     )
     return xds
 

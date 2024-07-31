@@ -558,7 +558,15 @@ def create_data_variables(
             try:
                 start = time.time()
                 if col == "WEIGHT":
-                    xds = get_weight(xds,col, tb_tool, time_baseline_shape, tidxs, bidxs, use_table_iter)
+                    xds = get_weight(
+                        xds,
+                        col,
+                        tb_tool,
+                        time_baseline_shape,
+                        tidxs,
+                        bidxs,
+                        use_table_iter,
+                    )
                 else:
                     xds[col_to_data_variable_names[col]] = xr.DataArray(
                         read_col_conversion(
@@ -578,35 +586,42 @@ def create_data_variables(
                         + str(time.time() - start)
                     )
             except:
-                logger.debug("Could not load column",col)
-                
-                if "WEIGHT_SPECTRUM" == col: #Bogus WEIGHT_SPECTRUM column, need to use WEIGHT.
-                    xds = get_weight(xds,"WEIGHT", tb_tool, time_baseline_shape, tidxs, bidxs, use_table_iter)
+                logger.debug("Could not load column", col)
+
+                if (
+                    "WEIGHT_SPECTRUM" == col
+                ):  # Bogus WEIGHT_SPECTRUM column, need to use WEIGHT.
+                    xds = get_weight(
+                        xds,
+                        "WEIGHT",
+                        tb_tool,
+                        time_baseline_shape,
+                        tidxs,
+                        bidxs,
+                        use_table_iter,
+                    )
 
             xds[col_to_data_variable_names[col]].attrs.update(
                 create_attribute_metadata(col, main_column_descriptions)
             )
 
 
-
-def get_weight(xds,col, tb_tool, time_baseline_shape, tidxs, bidxs, use_table_iter):
+def get_weight(xds, col, tb_tool, time_baseline_shape, tidxs, bidxs, use_table_iter):
     xds[col_to_data_variable_names[col]] = xr.DataArray(
-                            np.tile(
-                                read_col_conversion(
-                                    tb_tool,
-                                    col,
-                                    time_baseline_shape,
-                                    tidxs,
-                                    bidxs,
-                                    use_table_iter,
-                                )[:, :, None, :],
-                                (1, 1, xds.sizes["frequency"], 1),
-                            ),
-                            dims=col_dims[col],
-                        )
+        np.tile(
+            read_col_conversion(
+                tb_tool,
+                col,
+                time_baseline_shape,
+                tidxs,
+                bidxs,
+                use_table_iter,
+            )[:, :, None, :],
+            (1, 1, xds.sizes["frequency"], 1),
+        ),
+        dims=col_dims[col],
+    )
     return xds
-
-
 
 
 def create_taql_query(partition_info):

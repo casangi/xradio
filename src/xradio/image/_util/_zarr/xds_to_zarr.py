@@ -7,7 +7,6 @@ from .common import _np_types, _top_level_sub_xds
 def _write_zarr(xds: xr.Dataset, zarr_store: str):
     xds_copy = xds.copy(deep=True)
     xds_copy, xds_dict = _encode(xds_copy)
-    print(zarr_store)
     z_obj = xds_copy.to_zarr(store=zarr_store, compute=True)
     _write_sub_xdses(zarr_store, xds_dict, _top_level_sub_xds)
 

@@ -35,11 +35,11 @@ def make_coords(
     Dict[str, np.ndarray]
     """
     ant_xds, ddi_xds, spw_xds, pol_xds = subtables
-    freq = spw_xds.chan_freq.values[
-        ddi_xds.spectral_window_id.values[ddi], : xds.freq.shape[0]
+    freq = spw_xds.CHAN_FREQ.values[
+        ddi_xds.SPECTRAL_WINDOW_ID.values[ddi], : xds.freq.shape[0]
     ]
-    pol_ids = pol_xds.corr_type.values[
-        ddi_xds.polarization_id.values[ddi], : xds.pol.shape[0]
+    pol_ids = pol_xds.CORR_TYPE.values[
+        ddi_xds.POLARIZATION_ID.values[ddi], : xds.pol.shape[0]
     ]
     pol_names = np.vectorize(stokes_types.get)(pol_ids)
     ant_id = ant_xds.antenna_id.values
@@ -125,31 +125,31 @@ def make_global_coords(mxds: xr.Dataset) -> Dict[str, xr.DataArray]:
     if "antenna" in metainfo:
         coords["antenna_ids"] = metainfo["antenna"].antenna_id.values
         coords["antennas"] = xr.DataArray(
-            metainfo["antenna"].name.values, dims=["antenna_ids"]
+            metainfo["antenna"].NAME.values, dims=["antenna_ids"]
         )
     if "field" in metainfo:
         coords["field_ids"] = metainfo["field"].field_id.values
         coords["fields"] = xr.DataArray(
-            metainfo["field"].name.values, dims=["field_ids"]
+            metainfo["field"].NAME.values, dims=["field_ids"]
         )
     if "feed" in mxds.attrs:
-        coords["feed_ids"] = metainfo["feed"].feed_id.values
+        coords["feed_ids"] = metainfo["feed"].FEED_ID.values
     if "observation" in metainfo:
         coords["observation_ids"] = metainfo["observation"].observation_id.values
         coords["observations"] = xr.DataArray(
-            metainfo["observation"].project.values, dims=["observation_ids"]
+            metainfo["observation"].PROJECT.values, dims=["observation_ids"]
         )
     if "polarization" in metainfo:
         coords["polarization_ids"] = metainfo["polarization"].pol_setup_id.values
     if "source" in metainfo:
-        coords["source_ids"] = metainfo["source"].source_id.values
+        coords["source_ids"] = metainfo["source"].SOURCE_ID.values
         coords["sources"] = xr.DataArray(
-            metainfo["source"].name.values, dims=["source_ids"]
+            metainfo["source"].NAME.values, dims=["source_ids"]
         )
     if "spectral_window" in metainfo:
         coords["spw_ids"] = metainfo["spectral_window"].spw_id.values
     if "state" in metainfo:
-        coords["state_ids"] = metainfo["state"].state_id.values
+        coords["state_ids"] = metainfo["state"].STATE_ID.values
 
     return coords
 
@@ -225,7 +225,7 @@ def flatten_xds(xds: xr.Dataset) -> xr.Dataset:
         # compute for issue https://github.com/hainegroup/oceanspy/issues/332
         # drop=True silently does compute (or at least used to)
         txds = txds.where(
-            ((txds.state_id != nan_int) & (txds.field_id != nan_int)).compute(),
+            ((txds.STATE_ID != nan_int) & (txds.FIELD_ID != nan_int)).compute(),
             drop=True,
         )  # .unify_chunks()
 

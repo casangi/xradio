@@ -25,9 +25,9 @@ def check_if_consistent(array: np.ndarray, array_name: str) -> np.ndarray:
 
     Parameters
     ----------
-    col : _type_
+    array : _type_
         _description_
-    col_name : _type_
+    array_name : _type_
         _description_
 
     Returns
@@ -68,7 +68,9 @@ def unique_1d(array: np.ndarray) -> np.ndarray:
     if array.ndim == 0:
         return np.array([array.item()])
 
-    return np.sort(pd.unique(array))
+    return np.sort(
+        pd.unique(array)
+    )  # Don't remove the sort! It will cause errors that are very difficult to detect. Specifically create_field_info_and_check_ephemeris has a TaQL query that requires this.
 
 
 def pairing_function(antenna_pairs: np.ndarray) -> np.ndarray:

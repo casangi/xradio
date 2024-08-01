@@ -1,5 +1,4 @@
 import numcodecs
-import math
 import time
 from .._zarr.encoding import add_encoding
 from typing import Dict, Union
@@ -11,7 +10,7 @@ import xarray as xr
 
 from casacore import tables
 from .msv4_sub_xdss import create_ant_xds, create_pointing_xds, create_weather_xds
-from xradio.vis._vis_utils._ms._tables.create_field_and_source_xds import (
+from xradio.vis._vis_utils._ms.create_field_and_source_xds import (
     create_field_and_source_xds,
 )
 from .msv2_to_msv4_meta import (
@@ -27,7 +26,7 @@ from ._tables.read import (
     convert_casacore_time,
     extract_table_attributes,
     read_col_conversion,
-    read_generic_table,
+    load_generic_table,
 )
 from ._tables.read_main_table import get_baselines, get_baseline_indices, get_utimes_tol
 from .._utils.stokes_types import stokes_types
@@ -215,7 +214,7 @@ def mem_chunksize_to_dict_main_balanced(
 
     # Iterate through the dims, starting from the dims with lower chunk size
     #  (=bigger impact of a +1)
-    # Note the use of math.floor, this iteration can either increase or decrease sizes,
+    # Note the use of np.floor, this iteration can either increase or decrease sizes,
     #  if increasing sizes we want to keep mem use below the upper limit, floor(2.3) = +2
     #  if decreasing sizes we want to take mem use below the upper limit, floor(-2.3) = -3
     indices = np.argsort(dim_chunksizes[free_dims_mask])
@@ -411,27 +410,27 @@ def create_coordinates(
         "baseline_id": np.arange(len(baseline_ant1_id)),
     }
 
-    ddi_xds = read_generic_table(in_file, "DATA_DESCRIPTION").sel(row=ddi)
-    pol_setup_id = ddi_xds.polarization_id.values
-    spectral_window_id = int(ddi_xds.spectral_window_id.values)
+    ddi_xds = load_generic_table(in_file, "DATA_DESCRIPTION").sel(row=ddi)
+    pol_setup_id = ddi_xds.POLARIZATION_ID.values
+    spectral_window_id = int(ddi_xds.SPECTRAL_WINDOW_ID.values)
 
-    spectral_window_xds = read_generic_table(
+    spectral_window_xds = load_generic_table(
         in_file,
         "SPECTRAL_WINDOW",
         rename_ids=subt_rename_ids["SPECTRAL_WINDOW"],
     ).sel(spectral_window_id=spectral_window_id)
-    coords["frequency"] = spectral_window_xds["chan_freq"].data[
-        ~(np.isnan(spectral_window_xds["chan_freq"].data))
+    coords["frequency"] = spectral_window_xds["CHAN_FREQ"].data[
+        ~(np.isnan(spectral_window_xds["CHAN_FREQ"].data))
     ]
 
-    pol_xds = read_generic_table(
+    pol_xds = load_generic_table(
         in_file,
         "POLARIZATION",
         rename_ids=subt_rename_ids["POLARIZATION"],
     )
-    num_corr = int(pol_xds["num_corr"][pol_setup_id].values)
+    num_corr = int(pol_xds["NUM_CORR"][pol_setup_id].values)
     coords["polarization"] = np.vectorize(stokes_types.get)(
-        pol_xds["corr_type"][pol_setup_id, :num_corr].values
+        pol_xds["CORR_TYPE"][pol_setup_id, :num_corr].values
     )
 
     xds = xds.assign_coords(coords)
@@ -443,18 +442,25 @@ def create_coordinates(
 
     msv4_measure = column_description_casacore_to_msv4_measure(
         freq_column_description["CHAN_FREQ"],
-        ref_code=spectral_window_xds["meas_freq_ref"].data,
+        ref_code=spectral_window_xds["MEAS_FREQ_REF"].data,
     )
     xds.frequency.attrs.update(msv4_measure)
 
-    xds.frequency.attrs["spectral_window_name"] = str(spectral_window_xds.name.values)
+    if (spectral_window_xds.NAME.values.item() is None) or (
+        spectral_window_xds.NAME.values.item() == "none"
+    ):
+        spw_name = "spw_" + str(spectral_window_id)
+    else:
+        spw_name = spectral_window_xds.NAME.values.item()
+
+    xds.frequency.attrs["spectral_window_name"] = spw_name
     msv4_measure = column_description_casacore_to_msv4_measure(
         freq_column_description["REF_FREQUENCY"],
-        ref_code=spectral_window_xds["meas_freq_ref"].data,
+        ref_code=spectral_window_xds["MEAS_FREQ_REF"].data,
     )
     xds.frequency.attrs["reference_frequency"] = {
         "dims": [],
-        "data": float(spectral_window_xds.ref_frequency.values),
+        "data": float(spectral_window_xds.REF_FREQUENCY.values),
         "attrs": msv4_measure,
     }
     xds.frequency.attrs["spectral_window_id"] = spectral_window_id
@@ -465,8 +471,8 @@ def create_coordinates(
     # xds.frequency.attrs["doppler_type"] =
 
     unique_chan_width = unique_1d(
-        spectral_window_xds.chan_width.data[
-            np.logical_not(np.isnan(spectral_window_xds.chan_width.data))
+        spectral_window_xds["CHAN_WIDTH"].data[
+            np.logical_not(np.isnan(spectral_window_xds["CHAN_WIDTH"].data))
         ]
     )
     # assert len(unique_chan_width) == 1, "Channel width varies for spectral_window."
@@ -475,7 +481,7 @@ def create_coordinates(
     # ]  # unique_chan_width[0]
     msv4_measure = column_description_casacore_to_msv4_measure(
         freq_column_description["CHAN_WIDTH"],
-        ref_code=spectral_window_xds["meas_freq_ref"].data,
+        ref_code=spectral_window_xds["MEAS_FREQ_REF"].data,
     )
     if not msv4_measure:
         msv4_measure["type"] = "quantity"
@@ -538,7 +544,7 @@ def find_min_max_times(tb_tool: tables.table, taql_where: str) -> tuple:
 
 
 def create_data_variables(
-    in_file, xds, tb_tool, time_baseline_shape, tidxs, bidxs, didxs
+    in_file, xds, tb_tool, time_baseline_shape, tidxs, bidxs, didxs, use_table_iter
 ):
     # Create Data Variables
     col_names = tb_tool.colnames()
@@ -552,20 +558,16 @@ def create_data_variables(
             try:
                 start = time.time()
                 if col == "WEIGHT":
-                    xds[col_to_data_variable_names[col]] = xr.DataArray(
-                        np.tile(
-                            read_col_conversion(
-                                tb_tool,
-                                col,
-                                time_baseline_shape,
-                                tidxs,
-                                bidxs,
-                            )[:, :, None, :],
-                            (1, 1, xds.sizes["frequency"], 1),
-                        ),
-                        dims=col_dims[col],
+                    xds = get_weight(
+                        xds,
+                        col,
+                        tb_tool,
+                        time_baseline_shape,
+                        tidxs,
+                        bidxs,
+                        use_table_iter,
+                        main_column_descriptions,
                     )
-
                 else:
                     xds[col_to_data_variable_names[col]] = xr.DataArray(
                         read_col_conversion(
@@ -574,28 +576,71 @@ def create_data_variables(
                             time_baseline_shape,
                             tidxs,
                             bidxs,
+                            use_table_iter,
                         ),
                         dims=col_dims[col],
                     )
-                    logger.debug(
-                        "Time to read column "
-                        + str(col)
-                        + " : "
-                        + str(time.time() - start)
-                    )
-            except:
-                # logger.debug("Could not load column",col)
-                # print("Could not load column", col)
-                continue
 
-            xds[col_to_data_variable_names[col]].attrs.update(
-                create_attribute_metadata(col, main_column_descriptions)
-            )
+                xds[col_to_data_variable_names[col]].attrs.update(
+                    create_attribute_metadata(col, main_column_descriptions)
+                )
+
+                logger.debug(
+                    "Time to read column " + str(col) + " : " + str(time.time() - start)
+                )
+            except:
+                logger.debug("Could not load column", col)
+
+                if ("WEIGHT_SPECTRUM" == col) and (
+                    "WEIGHT" in col_names
+                ):  # Bogus WEIGHT_SPECTRUM column, need to use WEIGHT.
+                    xds = get_weight(
+                        xds,
+                        "WEIGHT",
+                        tb_tool,
+                        time_baseline_shape,
+                        tidxs,
+                        bidxs,
+                        use_table_iter,
+                        main_column_descriptions,
+                    )
+
+
+def get_weight(
+    xds,
+    col,
+    tb_tool,
+    time_baseline_shape,
+    tidxs,
+    bidxs,
+    use_table_iter,
+    main_column_descriptions,
+):
+    xds[col_to_data_variable_names[col]] = xr.DataArray(
+        np.tile(
+            read_col_conversion(
+                tb_tool,
+                col,
+                time_baseline_shape,
+                tidxs,
+                bidxs,
+                use_table_iter,
+            )[:, :, None, :],
+            (1, 1, xds.sizes["frequency"], 1),
+        ),
+        dims=col_dims[col],
+    )
+
+    xds[col_to_data_variable_names[col]].attrs.update(
+        create_attribute_metadata(col, main_column_descriptions)
+    )
+    return xds
 
 
 def create_taql_query(partition_info):
     main_par_table_cols = [
         "DATA_DESC_ID",
+        "OBSERVATION_ID",
         "STATE_ID",
         "FIELD_ID",
         "SCAN_NUMBER",
@@ -619,6 +664,7 @@ def convert_and_write_partition(
     out_file: str,
     ms_v4_id: int,
     partition_info: Dict,
+    use_table_iter: bool,
     partition_scheme: str = "ddi_intent_field",
     main_chunksize: Union[Dict, float, None] = None,
     with_pointing: bool = True,
@@ -669,6 +715,7 @@ def convert_and_write_partition(
     """
 
     taql_where = create_taql_query(partition_info)
+    # print("taql_where", taql_where)
     ddi = partition_info["DATA_DESC_ID"][0]
     obs_mode = str(partition_info["OBS_MODE"][0])
 
@@ -694,6 +741,26 @@ def convert_and_write_partition(
             time_baseline_shape = (len(utime), len(baseline_ant1_id))
             logger.debug("Calc indx for row split " + str(time.time() - start))
 
+            observation_id = check_if_consistent(
+                tb_tool.getcol("OBSERVATION_ID"), "OBSERVATION_ID"
+            )
+
+            def get_observation_info(in_file, observation_id, obs_mode):
+                generic_observation_xds = load_generic_table(
+                    in_file,
+                    "OBSERVATION",
+                    taql_where=f" where (ROWID() IN [{str(observation_id)}])",
+                )
+
+                if obs_mode == "None":
+                    obs_mode = "obs_" + str(observation_id)
+
+                return generic_observation_xds["TELESCOPE_NAME"].values[0], obs_mode
+
+            telescope_name, obs_mode = get_observation_info(
+                in_file, observation_id, obs_mode
+            )
+
             start = time.time()
             xds = xr.Dataset()
             # interval = check_if_consistent(tb_tool.getcol("INTERVAL"), "INTERVAL")
@@ -715,13 +782,62 @@ def convert_and_write_partition(
 
             start = time.time()
             create_data_variables(
-                in_file, xds, tb_tool, time_baseline_shape, tidxs, bidxs, didxs
+                in_file,
+                xds,
+                tb_tool,
+                time_baseline_shape,
+                tidxs,
+                bidxs,
+                didxs,
+                use_table_iter,
             )
+
+            # Add data_groups and field_info
+            xds, is_single_dish = add_data_groups(xds)
+
+            if (
+                "WEIGHT" not in xds.data_vars
+            ):  # Some single dish datasets don't have WEIGHT.
+                if is_single_dish:
+                    xds["WEIGHT"] = xr.DataArray(
+                        np.ones(xds.SPECTRUM.shape, dtype=np.float64),
+                        dims=xds.SPECTRUM.dims,
+                    )
+                else:
+                    xds["WEIGHT"] = xr.DataArray(
+                        np.ones(xds.VISIBILITY.shape, dtype=np.float64),
+                        dims=xds.VISIBILITY.dims,
+                    )
+
             logger.debug("Time create data variables " + str(time.time() - start))
 
             # Create ant_xds
             start = time.time()
-            ant_xds = create_ant_xds(in_file)
+            feed_id = unique_1d(
+                np.concatenate(
+                    [
+                        unique_1d(tb_tool.getcol("FEED1")),
+                        unique_1d(tb_tool.getcol("FEED2")),
+                    ]
+                )
+            )
+            antenna_id = unique_1d(
+                np.concatenate(
+                    [xds["baseline_antenna1_id"].data, xds["baseline_antenna2_id"].data]
+                )
+            )
+
+            ant_xds = create_ant_xds(
+                in_file,
+                xds.frequency.attrs["spectral_window_id"],
+                antenna_id,
+                feed_id,
+                telescope_name,
+            )
+
+            # Change antenna_ids to antenna_names
+            xds = antenna_ids_to_names(xds, ant_xds)
+
             logger.debug("Time ant xds  " + str(time.time() - start))
 
             # Create weather_xds
@@ -760,9 +876,6 @@ def convert_and_write_partition(
 
             if len(xds.time) > 1 and xds.time[1] - xds.time[0] < 0:
                 xds = xds.sel(time=slice(None, None, -1))
-
-            # Add data_groups and field_info
-            xds, is_single_dish = add_data_groups(xds)
 
             # Create field_and_source_xds (combines field, source and ephemeris data into one super dataset)
             start = time.time()
@@ -828,13 +941,13 @@ def convert_and_write_partition(
             )
 
             xds.attrs["partition_info"] = {
-                "spectral_window_id": xds.frequency.attrs["spectral_window_id"],
+                # "spectral_window_id": xds.frequency.attrs["spectral_window_id"],
                 "spectral_window_name": xds.frequency.attrs["spectral_window_name"],
-                "field_id": to_list(unique_1d(field_id)),
+                # "field_id": to_list(unique_1d(field_id)),
                 "field_name": to_list(
                     np.unique(field_and_source_xds.field_name.values)
                 ),
-                "source_id": to_list(unique_1d(source_id)),
+                # "source_id": to_list(unique_1d(source_id)),
                 "source_name": to_list(
                     np.unique(field_and_source_xds.source_name.values)
                 ),
@@ -856,7 +969,9 @@ def convert_and_write_partition(
                     )
 
                 if with_pointing:
-                    pointing_xds.to_zarr(store=file_name + "/POINTING", mode=mode)
+                    pointing_xds.to_zarr(
+                        store=os.path.join(file_name, "POINTING"), mode=mode
+                    )
 
                 if weather_xds:
                     weather_xds.to_zarr(
@@ -869,6 +984,74 @@ def convert_and_write_partition(
             logger.debug("Write data  " + str(time.time() - start))
 
     # logger.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
+
+
+def antenna_ids_to_names(xds, ant_xds):
+
+    if ant_xds.attrs["overall_telescope_name"] in ["ALMA", "VLA", "NOEMA", "EVLA"]:
+        moving_antennas = True
+    else:
+        moving_antennas = False
+
+    if moving_antennas:
+        if "baseline_antenna1_id" in xds:  # Interferometer
+
+            baseline_ant1_name = np.core.defchararray.add(
+                ant_xds["name"].sel(antenna_id=xds["baseline_antenna1_id"]).values, "_"
+            )
+            baseline_ant1_name = np.core.defchararray.add(
+                baseline_ant1_name,
+                ant_xds["station"].sel(antenna_id=xds["baseline_antenna1_id"]).values,
+            )
+            baseline_ant2_name = np.core.defchararray.add(
+                ant_xds["name"].sel(antenna_id=xds["baseline_antenna2_id"]).values, "_"
+            )
+            baseline_ant2_name = np.core.defchararray.add(
+                baseline_ant2_name,
+                ant_xds["station"].sel(antenna_id=xds["baseline_antenna2_id"]).values,
+            )
+
+            xds["baseline_antenna1_id"] = xr.DataArray(
+                baseline_ant1_name, dims="baseline_id"
+            )
+            xds["baseline_antenna2_id"] = xr.DataArray(
+                baseline_ant2_name, dims="baseline_id"
+            )
+            xds = xds.rename(
+                {
+                    "baseline_antenna1_id": "baseline_antenna1_name",
+                    "baseline_antenna2_id": "baseline_antenna2_name",
+                }
+            )
+        else:  # Single Dish
+            antenna_name = np.core.defchararray.add(
+                ant_xds["name"].sel(antenna_id=xds["antenna_id"]).values, "_"
+            )
+            antenna_name = np.core.defchararray.add(
+                antenna_name,
+                ant_xds["station"].sel(antenna_id=xds["antenna_id"]).values,
+            )
+            xds["antenna_id"] = xr.DataArray(antenna_name, dims="baseline_id")
+            xds = xds.rename({"antenna_id": "antenna_name"})
+    else:
+        if "baseline_antenna1_id" in xds:  # Interferometer
+            xds["baseline_antenna1_id"] = ant_xds["name"].sel(
+                antenna_id=xds["baseline_antenna1_id"]
+            )
+            xds["baseline_antenna2_id"] = ant_xds["name"].sel(
+                antenna_id=xds["baseline_antenna2_id"]
+            )
+            xds = xds.rename(
+                {
+                    "baseline_antenna1_id": "baseline_antenna1_name",
+                    "baseline_antenna2_id": "baseline_antenna2_name",
+                }
+            )
+        else:  # Single Dish
+            xds["antenna_id"] = ant_xds["name"].sel(antenna_id=xds["antenna_id"])
+            xds = xds.rename({"antenna_id": "antenna_name"})
+
+    return xds
 
 
 def add_data_groups(xds):

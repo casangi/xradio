@@ -187,7 +187,7 @@ def load_ddi_cols_chunk(
         cell_shape = cdata.shape
         if len(cell_shape) == 0:
             col_dims = dims[:2]
-            mvars[col.lower()] = xr.DataArray(
+            mvars[col] = xr.DataArray(
                 load_col_chunk(
                     tb_tool, col, (ctlen, cblen), tidxs, bidxs, didxs, None, None
                 ),
@@ -196,7 +196,7 @@ def load_ddi_cols_chunk(
 
         elif col == "UVW":
             col_dims = dims[:2] + ["uvw_coords"]
-            mvars[col.lower()] = xr.DataArray(
+            mvars[col] = xr.DataArray(
                 load_col_chunk(
                     tb_tool, col, (ctlen, cblen, 3), tidxs, bidxs, didxs, None, None
                 ),
@@ -206,7 +206,7 @@ def load_ddi_cols_chunk(
         elif len(cell_shape) == 1:
             pols, col_dims = get_col_1d_pols(cell_shape, dims, chan_cnt, pol_cnt, chunk)
             cshape = (ctlen, cblen) + (pols[1] - pols[0] + 1,)
-            mvars[col.lower()] = xr.DataArray(
+            mvars[col] = xr.DataArray(
                 load_col_chunk(tb_tool, col, cshape, tidxs, bidxs, didxs, pols, None),
                 dims=col_dims,
             )
@@ -215,7 +215,7 @@ def load_ddi_cols_chunk(
             chans, pols = get_col_2d_chans_pols(cell_shape, chan_cnt, pol_cnt, chunk)
             cshape = (ctlen, cblen) + (chans[1] - chans[0] + 1, pols[1] - pols[0] + 1)
             col_dims = dims
-            mvars[col.lower()] = xr.DataArray(
+            mvars[col] = xr.DataArray(
                 load_col_chunk(tb_tool, col, cshape, tidxs, bidxs, didxs, chans, pols),
                 dims=col_dims,
             )

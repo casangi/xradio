@@ -7,7 +7,7 @@ import xarray
 def test_partitions_make_coords():
     from xradio.vis._vis_utils._utils.xds_helper import make_coords
 
-    with pytest.raises(AttributeError, match="object has no attribute 'chan_freq'"):
+    with pytest.raises(AttributeError, match="object has no attribute 'CHAN_FREQ'"):
         res = make_coords(
             xarray.Dataset(),
             0,

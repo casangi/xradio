@@ -1,8 +1,6 @@
 import os
 import graphviper.utils.logger as logger
-from typing import Dict, List, Tuple, Union
-
-import xarray as xr
+from typing import List, Tuple, Union
 
 from ._utils.cds import CASAVisSet
 from ._ms.partitions import (

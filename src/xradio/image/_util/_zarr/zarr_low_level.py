@@ -3,7 +3,7 @@ import numpy as np
 import json
 import zarr
 import s3fs
-from xradio._utils.zarr.common import _get_ms_stores_and_file_system
+from xradio._utils.zarr.common import _get_file_system_and_items
 
 from numcodecs.compat import (
     ensure_text,
@@ -254,7 +254,7 @@ def create_data_variable_meta_data(
 ):
     zarr_meta = data_variables_and_dims
 
-    fs, items = _get_ms_stores_and_file_system(zarr_group_name)
+    fs, items = _get_file_system_and_items(zarr_group_name)
 
     for data_variable_key, dims_dtype_name in data_variables_and_dims.items():
         # print(data_variable_key, dims_dtype_name)

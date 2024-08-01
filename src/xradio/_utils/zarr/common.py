@@ -6,7 +6,7 @@ import os
 from botocore.exceptions import NoCredentialsError
 
 
-def _get_ms_stores_and_file_system(ps_store: str):
+def _get_file_system_and_items(ps_store: str):
 
     if os.path.isdir(ps_store):
         # default to assuming the data are accessible on local file system

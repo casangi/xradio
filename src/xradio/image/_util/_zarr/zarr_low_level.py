@@ -247,7 +247,7 @@ def write_json_file(data, file_path):
         )
 
 
-def create_data_variable_meta_data_on_disk(
+def create_data_variable_meta_data(
     zarr_group_name, data_variables_and_dims, xds_dims, parallel_coords, compressor
 ):
     zarr_meta = data_variables_and_dims

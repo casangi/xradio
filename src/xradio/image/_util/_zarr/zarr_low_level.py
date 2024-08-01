@@ -2,6 +2,8 @@ import os
 import numpy as np
 import json
 import zarr
+import s3fs
+from xradio._utils.zarr.common import _get_ms_stores_and_file_system
 
 from numcodecs.compat import (
     ensure_text,
@@ -252,14 +254,24 @@ def create_data_variable_meta_data(
 ):
     zarr_meta = data_variables_and_dims
 
+    fs, items = _get_ms_stores_and_file_system(zarr_group_name)
+
     for data_variable_key, dims_dtype_name in data_variables_and_dims.items():
         # print(data_variable_key, dims_dtype_name)
 
         dims = dims_dtype_name["dims"]
         dtype = dims_dtype_name["dtype"]
         data_variable_name = dims_dtype_name["name"]
+
         data_variable_path = os.path.join(zarr_group_name, data_variable_name)
-        os.system("mkdir " + data_variable_path)
+        if isinstance(fs, s3fs.core.S3FileSystem):
+            # N.b.,stateful "folder creation" is not a well defined concept for S3 objects and URIs
+            # see https://github.com/fsspec/s3fs/issues/401
+            # nor is a path specifier (cf. "URI")
+            fs.mkdir(data_variable_path)
+        else:
+            # default to assuming we can use the os module and mkdir system call
+            os.system("mkdir " + data_variable_path)
         # Create .zattrs
         zattrs = {
             "_ARRAY_DIMENSIONS": dims,
@@ -276,7 +288,23 @@ def create_data_variable_meta_data(
                 chunks.append(xds_dims[d])
 
         # print(chunks,shape)
-        write_json_file(zattrs, os.path.join(data_variable_path, ".zattrs"))
+        # assuming data_variable_path has been set compatibly
+        zattrs_file = os.path.join(data_variable_path, ".zattrs")
+
+        if isinstance(fs, s3fs.core.S3FileSystem):
+            with fs.open(zattrs_file, "w") as file:
+                json.dump(
+                    zattrs,
+                    file,
+                    indent=4,
+                    sort_keys=True,
+                    ensure_ascii=True,
+                    separators=(",", ": "),
+                    cls=NumberEncoder,
+                )
+        else:
+            # default to assuming we can use primitives
+            write_json_file(zattrs, zattrs_file)
 
         # Create .zarray
         from zarr import n5
@@ -312,7 +340,24 @@ def create_data_variable_meta_data(
         zarr_meta[data_variable_key]["chunks"] = chunks
         zarr_meta[data_variable_key]["shape"] = shape
 
-        write_json_file(zarray, os.path.join(data_variable_path, ".zarray"))
+        # again, assuming data_variable_path has been set compatibly
+        zarray_file = os.path.join(data_variable_path, ".zarray")
+
+        if isinstance(fs, s3fs.core.S3FileSystem):
+            with fs.open(zattrs_file, "w") as file:
+                json.dump(
+                    zattrs,
+                    file,
+                    indent=4,
+                    sort_keys=True,
+                    ensure_ascii=True,
+                    separators=(",", ": "),
+                    cls=NumberEncoder,
+                )
+        else:
+            # default to assuming we can use primitives
+            write_json_file(zarray, zarray_file)
+
     return zarr_meta
 
 

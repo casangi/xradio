@@ -114,12 +114,12 @@ def base_test(
             expected_sum_value, rel=relative_tolerance
         ), "VISIBILITY and WEIGHT values have changed."
 
-        for xds_name in ps.keys():
-            issues = check_dataset(ps[xds_name], VisibilityXds)
-            if not issues:
-                print(f"{xds_name}: okay\n")
-            else:
-                print(f"{xds_name}: {issues}\n")
+        # for xds_name in ps.keys():
+        #     issues = check_dataset(ps[xds_name], VisibilityXds)
+        #     if not issues:
+        #         print(f"{xds_name}: okay\n")
+        #     else:
+        #         print(f"{xds_name}: {issues}\n")
 
     print("Time taken:", time.time() - start)
 
@@ -211,6 +211,10 @@ def test_sd_A002_Xe3a5fd_Xe38e():
     base_test("uid___A002_Xe3a5fd_Xe38e.small.ms", 246949088254189.5)
 
 
+def test_VLA():
+    base_test("SNR_G55_10s.split.ms", 195110762496.0)
+
+
 if __name__ == "__main__":
     a = 42
     # test_sd_A002_X1015532_X1926f()
@@ -230,6 +234,7 @@ if __name__ == "__main__":
     # test_ephemeris()
     # test_single_dish()
     # test_alma_ephemris_mosaic()
+    test_VLA()
 
 # All test preformed on MAC with M3 and 16 GB Ram.
 # pytest --durations=0 .
@@ -299,7 +304,7 @@ CASA commands used to create the dataset:
 ```python
 importasdm(asdm='uid___A002_X1003af4_X75a3.asdm.sdm',vis='uid___A002_X1003af4_X75a3.ms',asis='Ephemeris Antenna Station Receiver Source CalAtmosphere CalWVR',bdfflags=True,with_pointing_correction=True,convert_ephem2geo=True)
 
-mstransform(vis='ALMA_uid___A002_X1003af4_X75a3.split.ms',outputvis='ALMA_uid___A002_X1003af4_X75a3.split.avg.ms',createmms=False,timeaverage=True,timebin='2s',timespan='scan',reindex=True)
+mstransform(vis='ALMA_uid___A002_X1003af4_X75a3.split.ms',outputvis='ALMA_uid___A002_X1003af4_X75a3.split.avg.ms',createmms=False,timeaverage=True,timebin='2s',timespan='scan',scan='6~8', spw='3:60~66,4:60~66,5:60~66', reindex=True,datacolumn='all')
 
 import numpy as np
 
@@ -308,5 +313,20 @@ for subtable in ['FLAG_CMD', 'POINTING', 'CALDEVICE', 'ASDM_CALATMOSPHERE']:
     tb.removerows(np.arange(tb.nrows())) 
     tb.flush()
     tb.done()
+```
+"""
+
+"""
+SNR_G55_10s.ms : VLA
+
+ALMA archive file downloaded: http://casa.nrao.edu/Data/EVLA/SNRG55/SNR_G55_10s.tar.gz
+
+
+
+```python
+
+mstransform(vis='SNR_G55_10s.ms',outputvis='SNR_G55_10s.split.ms',createmms=False,spw='1:30~34,2:30~34',antenna='ea01,ea05,ea07,ea09',scan='15~50',reindex=True,datacolumn='all')
+
+
 ```
 """

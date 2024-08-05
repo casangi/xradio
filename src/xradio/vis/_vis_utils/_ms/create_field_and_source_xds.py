@@ -77,7 +77,7 @@ def create_field_and_source_xds(
             ephemeris_interp_time,
         )
 
-    field_and_source_xds = extract_source_info(
+    field_and_source_xds, num_lines = extract_source_info(
         field_and_source_xds, in_file, source_id, spectral_window_id
     )
 
@@ -95,7 +95,7 @@ def create_field_and_source_xds(
         if np.unique(field_and_source_xds[center_dv], axis=0).shape[0] == 1:
             field_and_source_xds = field_and_source_xds.isel(time=0).drop_vars("time")
 
-    return field_and_source_xds, source_id
+    return field_and_source_xds, source_id, num_lines
 
 
 def extract_ephemeris_info(
@@ -538,7 +538,7 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
         num_lines = np.array([source_xds["NUM_LINES"].data.item()])
     else:
         num_lines = source_xds["NUM_LINES"].data
-
+        
     if any(num_lines > 0):
 
         # Transition is an optional column and occasionally not populated
@@ -594,7 +594,11 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
         pass
 
     xds = xds.assign_coords(coords)
-    return xds
+    
+    
+    _ , unique_source_ids_indices = np.unique(source_xds.SOURCE_ID,return_index=True)
+    
+    return xds, np.sum(num_lines[unique_source_ids_indices])
 
 
 def create_field_info_and_check_ephemeris(

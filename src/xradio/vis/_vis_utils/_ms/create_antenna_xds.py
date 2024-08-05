@@ -147,14 +147,14 @@ def create_antenna_xds(
         taql_where=f" where (ANTENNA_ID IN [{','.join(map(str, unique_antenna_id))}]) AND (FEED_ID IN [{','.join(map(str, feed_id))}])",
     )  # Some Lofar and MeerKAT data have the spw column set to -1 so we can't use '(SPECTRAL_WINDOW_ID = {spectral_window_id})'
 
-    print("generic_ant_xds", generic_ant_xds)
-    print("******" * 10)
+    # print("generic_ant_xds", generic_ant_xds)
+    # print("******" * 10)
 
-    print("ant_xds", ant_xds)
-    print("******" * 10)
+    # print("ant_xds", ant_xds)
+    # print("******" * 10)
 
-    print("generic_feed_xds", generic_feed_xds)
-    print("******" * 10)
+    # print("generic_feed_xds", generic_feed_xds)
+    # print("******" * 10)
 
     # if "SPECTRAL_WINDOW_ID" in generic_feed_xds and not all(
     #     generic_feed_xds.SPECTRAL_WINDOW_ID == -1
@@ -228,8 +228,8 @@ def create_antenna_xds(
 
     #     coords["receptor_name"] = np.arange(ant_xds.sizes["receptor_name"]).astype(str)
 
-    # ant_xds = ant_xds.assign_coords(coords)
 
+    ant_xds = ant_xds.assign_coords(coords)
     print("telescope_name", telescope_name)
     ant_xds.attrs["overall_telescope_name"] = telescope_name
 
@@ -250,9 +250,9 @@ def extract_phase_cal_info(xds, path, antenna_id):
             ANTENNA_ID=antenna_id
         )  # Make sure the antenna_id is in the same order as the xds.
 
-        print("xds", xds)
-        print("******" * 10)
-        print("phase_cal_xds", generic_phase_cal_xds)
+        # print("xds", xds)
+        # print("******" * 10)
+        # print("phase_cal_xds", generic_phase_cal_xds)
 
         # to_new_data_variable_names = {
 

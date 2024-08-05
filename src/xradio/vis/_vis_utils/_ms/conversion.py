@@ -901,7 +901,7 @@ def convert_and_write_partition(
             # assert len(col_unique) == 1, col_name + " is not consistent."
             # return col_unique[0]
 
-            field_and_source_xds, source_id = create_field_and_source_xds(
+            field_and_source_xds, source_id, num_lines = create_field_and_source_xds(
                 in_file,
                 field_id,
                 xds.frequency.attrs["spectral_window_id"],
@@ -952,6 +952,7 @@ def convert_and_write_partition(
                     np.unique(field_and_source_xds.source_name.values)
                 ),
                 "polarization_setup": to_list(xds.polarization.values),
+                "num_lines": num_lines,
                 "obs_mode": obs_mode,
                 "taql": taql_where,
             }

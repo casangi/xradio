@@ -446,12 +446,12 @@ def create_coordinates(
     )
     xds.frequency.attrs.update(msv4_measure)
 
-    if (spectral_window_xds.NAME.values.item() is None) or (
-        spectral_window_xds.NAME.values.item() == "none"
-    ):
+    spw_name = spectral_window_xds.NAME.values.item()
+    if (spw_name is None) or (spw_name == "none") or (spw_name == ""):
         spw_name = "spw_" + str(spectral_window_id)
     else:
-        spw_name = spectral_window_xds.NAME.values.item()
+        # spw_name = spectral_window_xds.NAME.values.item()
+        spw_name = spw_name + "_" + str(spectral_window_id)
 
     xds.frequency.attrs["spectral_window_name"] = spw_name
     msv4_measure = column_description_casacore_to_msv4_measure(

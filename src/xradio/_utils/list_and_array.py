@@ -5,10 +5,12 @@ import xarray as xr
 
 
 def to_list(x):
-    if isinstance(x, (list, np.ndarray)):
+    if isinstance(x, np.ndarray):
         if x.ndim == 0:
             return [x.item()]
         return list(x)  # needed for json serialization
+    elif isinstance(x, list):
+        return x
     return [x]
 
 

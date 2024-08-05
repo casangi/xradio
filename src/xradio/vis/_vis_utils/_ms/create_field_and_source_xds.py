@@ -538,7 +538,7 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
         num_lines = np.array([source_xds["NUM_LINES"].data.item()])
     else:
         num_lines = source_xds["NUM_LINES"].data
-        
+
     if any(num_lines > 0):
 
         # Transition is an optional column and occasionally not populated
@@ -594,10 +594,9 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
         pass
 
     xds = xds.assign_coords(coords)
-    
-    
-    _ , unique_source_ids_indices = np.unique(source_xds.SOURCE_ID,return_index=True)
-    
+
+    _, unique_source_ids_indices = np.unique(source_xds.SOURCE_ID, return_index=True)
+
     return xds, np.sum(num_lines[unique_source_ids_indices])
 
 

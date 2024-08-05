@@ -228,7 +228,6 @@ def create_antenna_xds(
 
     #     coords["receptor_name"] = np.arange(ant_xds.sizes["receptor_name"]).astype(str)
 
-
     ant_xds = ant_xds.assign_coords(coords)
     print("telescope_name", telescope_name)
     ant_xds.attrs["overall_telescope_name"] = telescope_name

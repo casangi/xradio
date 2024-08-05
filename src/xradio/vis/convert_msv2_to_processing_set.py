@@ -22,6 +22,8 @@ def convert_msv2_to_processing_set(
     storage_backend="zarr",
     parallel: bool = False,
     overwrite: bool = False,
+    lofar: bool = False,
+    lofar_read_size: int = 1024,
 ):
     """Convert a Measurement Set v2 into a Processing Set of Measurement Set v4.
 
@@ -48,6 +50,7 @@ def convert_msv2_to_processing_set(
         Whether to interpolate the time axis of the ephemeris data variables (of the field_and_source sub-dataset) to the time axis of the main dataset
     use_table_iter : bool, optional
         Whether to use the table iterator to read the main table of the MS v2. This should be set to True when reading datasets with large number of rows and few partitions, by default False.
+        This option is ignored when `lofar` set to True.
     compressor : numcodecs.abc.Codec, optional
         The Blosc compressor to use when saving the converted data to disk using Zarr, by default numcodecs.Zstd(level=2).
     storage_backend : {"zarr", "netcdf"}, optional
@@ -56,6 +59,11 @@ def convert_msv2_to_processing_set(
         Makes use of Dask to execute conversion in parallel, by default False.
     overwrite : bool, optional
         Whether to overwrite an existing processing set, by default False.
+    lofar : bool, optional
+        Choose whether to read column in "lofar" mode, False by default.
+        lofar mode allows larger than memory partitions to be converted. The method ignores the `main_chunksize`. Instead chunks only along the time dimension and can be controlled using the `lofar_read_size` option.
+    lofar_read_size : int, optional
+        The target number of MiB to read from the MSv2 and insert into a zarr chunk. Defaults to 1024 MiB.
     """
 
     partitions = create_partitions(in_file, partition_scheme=partition_scheme)
@@ -94,6 +102,8 @@ def convert_msv2_to_processing_set(
                     ephemeris_interpolate=ephemeris_interpolate,
                     compressor=compressor,
                     overwrite=overwrite,
+                    lofar=lofar,
+                    lofar_read_size=lofar_read_size,
                 )
             )
         else:
@@ -111,6 +121,8 @@ def convert_msv2_to_processing_set(
                 ephemeris_interpolate=ephemeris_interpolate,
                 compressor=compressor,
                 overwrite=overwrite,
+                lofar=lofar,
+                lofar_read_size=lofar_read_size,
             )
 
     if parallel:

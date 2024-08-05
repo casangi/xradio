@@ -4,6 +4,8 @@ from pathlib import Path
 import re
 from typing import Any, Callable, Dict, List, Tuple, Union
 
+import math
+import dask.array as da
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -11,7 +13,7 @@ import xarray as xr
 import astropy.units
 from casacore import tables
 
-from .table_query import open_query, open_table_ro
+from .table_query import open_query, open_table_ro, TableManager
 
 CASACORE_TO_PD_TIME_CORRECTION = 3_506_716_800.0
 SECS_IN_DAY = 86400
@@ -1182,13 +1184,14 @@ def read_col_chunk(
     return fulldata
 
 
-def read_col_conversion(
-    tb_tool: tables.table,
+def read_col_conversion_numpy(
+    table_manager: TableManager,
     col: str,
     cshape: Tuple[int],
     tidxs: np.ndarray,
     bidxs: np.ndarray,
     use_table_iter: bool,
+    lofar_read_size: int,
 ) -> np.ndarray:
     """
     Function to perform delayed reads from table columns when converting
@@ -1216,56 +1219,209 @@ def read_col_conversion(
     # WARNING: Assumes the num_frequencies * num_polarizations < 2**29. If false,
     # https://github.com/casacore/python-casacore/issues/130 isn't mitigated.
 
+    with table_manager.get_table() as tb_tool:
+
+        # Use casacore to get the shape of a row for this column
+        #################################################################################
+
+        # Get the total number of rows in the base measurement set
+        nrows_total = tb_tool.nrows()
+
+        # getcolshapestring() only works on columns where a row element is an
+        # array ie. fails for TIME
+        # Assumes the RuntimeError is because the column is a scalar
+        try:
+            shape_string = tb_tool.getcolshapestring(col)[0]
+            # Convert `shape_string` into a tuple that numpy understands
+            extra_dimensions = tuple(
+                [
+                    int(idx)
+                    for idx in shape_string.replace("[", "")
+                    .replace("]", "")
+                    .split(", ")
+                ]
+            )
+        except RuntimeError:
+            extra_dimensions = ()
+
+        #################################################################################
+
+        # Get dtype of the column. Only read first row from disk
+        col_dtype = np.array(tb_tool.col(col)[0]).dtype
+
+        # Construct a numpy array to populate. `data` has shape (n_times, n_baselines, n_frequencies, n_polarizations)
+        data = np.full(cshape + extra_dimensions, np.nan, dtype=col_dtype)
+
+        # Use built-in casacore table iterator to populate the data column by unique times.
+        if use_table_iter:
+            start_row = 0
+            for ts in tb_tool.iter("TIME", sort=False):
+                num_rows = ts.nrows()
+
+                # Create small temporary array to store the partial column
+                tmp_arr = np.full(
+                    (num_rows,) + extra_dimensions, np.nan, dtype=col_dtype
+                )
+
+                # Note we don't use `getcol()` because it's less safe. See:
+                # https://github.com/casacore/python-casacore/issues/130#issuecomment-463202373
+                ts.getcolnp(col, tmp_arr)
+
+                # Get the slice of rows contained in `tmp_arr`.
+                # Used to get the relevant integer indexes from `tidxs` and `bidxs`
+                tmp_slice = slice(start_row, start_row + num_rows)
+
+                # Copy `tmp_arr` into correct elements of `tmp_arr`
+                data[tidxs[tmp_slice], bidxs[tmp_slice]] = tmp_arr
+                start_row += num_rows
+        else:
+            data[tidxs, bidxs] = tb_tool.getcol(col)
+
+    return data
+
+
+def read_col_conversion_dask(
+    table_manager: TableManager,
+    col: str,
+    cshape: Tuple[int],
+    tidxs: np.ndarray,
+    bidxs: np.ndarray,
+    use_table_iter: bool,
+    lofar_read_size: int,
+) -> da.Array:
+    """
+    Function to perform delayed reads from table columns when converting
+    (no need for didxs)
+
+    Parameters
+    ----------
+    tb_tool : tables.table
+
+    col : str
+
+    cshape : Tuple[int]
+
+    tidxs : np.ndarray
+
+    bidxs : np.ndarray
+
+    Returns
+    -------
+    da.Array
+    """
+
     # Use casacore to get the shape of a row for this column
     #################################################################################
 
-    # Get the total number of rows in the base measurement set
-    nrows_total = tb_tool.nrows()
-
-    # getcolshapestring() only works on columns where a row element is an
+    # The line in the try block only works on columns where a row element is an
     # array ie. fails for TIME
-    # Assumes the RuntimeError is because the column is a scalar
-    try:
-        shape_string = tb_tool.getcolshapestring(col)[0]
-        # Convert `shape_string` into a tuple that numpy understands
-        extra_dimensions = tuple(
-            [
-                int(idx)
-                for idx in shape_string.replace("[", "").replace("]", "").split(", ")
-            ]
-        )
-    except RuntimeError:
+    with table_manager.get_table() as tb_tool:
+        first_row = tb_tool.row(col)[0][col]
+
+    if isinstance(first_row, np.ndarray):
+        extra_dimensions = first_row.shape
+
+    else:
         extra_dimensions = ()
 
     #################################################################################
 
-    # Get dtype of the column. Only read first row from disk
-    col_dtype = np.array(tb_tool.col(col)[0]).dtype
+    # Use dask primitives to lazily read chunks of data from the MeasurementSet
+    # Takes inspiration from dask_image https://image.dask.org/en/latest/
+    #################################################################################
 
-    # Construct a numpy array to populate. `data` has shape (n_times, n_baselines, n_frequencies, n_polarizations)
-    data = np.full(cshape + extra_dimensions, np.nan, dtype=col_dtype)
+    # Get dtype of the column. Wrap in numpy array in case of scalar column
+    col_dtype = np.array(first_row).dtype
+    full_shape = cshape + extra_dimensions
 
-    # Use built-in casacore table iterator to populate the data column by unique times.
-    if use_table_iter:
-        start_row = 0
-        for ts in tb_tool.iter("TIME", sort=False):
-            num_rows = ts.nrows()
+    # Get the number of rows for a single TIME value
+    num_utimes = cshape[0]
+    rows_per_time = cshape[1]
 
-            # Create small temporary array to store the partial column
-            tmp_arr = np.full((num_rows,) + extra_dimensions, np.nan, dtype=col_dtype)
+    element_nbytes = col_dtype.itemsize
+    MiB_per_utime = (
+        rows_per_time * math.prod(extra_dimensions) * element_nbytes
+    ) / 1024**2
+    target_utimes_per_query = round(lofar_read_size / MiB_per_utime)
 
-            # Note we don't use `getcol()` because it's less safe. See:
-            # https://github.com/casacore/python-casacore/issues/130#issuecomment-463202373
-            ts.getcolnp(col, tmp_arr)
+    # Calculate the chunks of unique times that gives the target chunk sizes
+    tmp_chunks = da.core.normalize_chunks(target_utimes_per_query, (num_utimes,))[0]
 
-            # Get the slice of rows contained in `tmp_arr`.
-            # Used to get the relevant integer indexes from `tidxs` and `bidxs`
-            tmp_slice = slice(start_row, start_row + num_rows)
+    sum = 0
+    arr_start_end_rows = []
+    for chunk in tmp_chunks:
+        start = (sum) * rows_per_time
+        end = (sum + chunk) * rows_per_time
 
-            # Copy `tmp_arr` into correct elements of `tmp_arr`
-            data[tidxs[tmp_slice], bidxs[tmp_slice]] = tmp_arr
-            start_row += num_rows
-    else:
-        data[tidxs, bidxs] = tb_tool.getcol(col)
+        arr_start_end_rows.append((start, end))
+        sum += chunk
+
+    # Store the start and end rows that should be read for the chunk
+    arr_start_end_rows = da.from_array(arr_start_end_rows, chunks=(1, 2))
+
+    # Specify the output shape `load_col_chunk`
+    output_chunkshape = (tmp_chunks, cshape[1]) + extra_dimensions
+
+    # Apply `load_col_chunk` to each chunk
+    data = arr_start_end_rows.map_blocks(
+        load_col_chunk,
+        table_manager=table_manager,
+        col_name=col,
+        col_dtype=col_dtype,
+        tidxs=tidxs,
+        bidxs=bidxs,
+        rows_per_time=rows_per_time,
+        cshape=cshape,
+        extra_dimensions=extra_dimensions,
+        drop_axis=[1],
+        new_axis=list(range(1, len(cshape + extra_dimensions))),
+        meta=np.array([], dtype=col_dtype),
+        chunks=output_chunkshape,
+    )
 
     return data
+
+
+def load_col_chunk(
+    x,
+    table_manager,
+    col_name,
+    col_dtype,
+    tidxs,
+    bidxs,
+    rows_per_time,
+    cshape,
+    extra_dimensions,
+):
+    start_row = x[0][0]
+    end_row = x[0][1]
+    num_rows = end_row - start_row
+    assert (num_rows % rows_per_time) == 0
+    num_utimes = num_rows // rows_per_time
+
+    # Create memory buffer to populate with data from disk
+    row_data = np.full((num_rows,) + extra_dimensions, np.nan, dtype=col_dtype)
+
+    # Load data from the column
+    # Release the casacore table as soon as possible
+    with table_manager.get_table() as tb_tool:
+        tb_tool.getcolnp(col_name, row_data, startrow=start_row, nrow=num_rows)
+
+    # Initialise reshaped numpy array
+    reshaped_data = np.full(
+        (num_utimes, cshape[1]) + extra_dimensions, np.nan, dtype=col_dtype
+    )
+
+    # Create slice object for readability
+    slc = slice(start_row, end_row)
+    tidxs_slc = tidxs[slc]
+
+    tidxs_slc = (
+        tidxs_slc - tidxs_slc[0]
+    )  # Indices of reshaped_data along time differ from values in tidxs. Assumes first time is earliest time
+    bidxs_slc = bidxs[slc]
+
+    # Populate `reshaped_data` with `row_data`
+    reshaped_data[tidxs_slc, bidxs_slc] = row_data
+
+    return reshaped_data

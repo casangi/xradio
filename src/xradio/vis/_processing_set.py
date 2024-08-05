@@ -1,12 +1,39 @@
 import pandas as pd
+from xradio._utils.list_and_array import to_list
 
 
 class processing_set(dict):
+    """
+    A dictionary subclass representing a Processing Set (PS) that is a set of Measurement Sets v4 (MS).
+
+    This class extends the built-in `dict` class and provides additional methods for manipulating and selecting subsets of the Processing Set.
+
+    Attributes:
+        meta (dict): A dictionary containing metadata information about the Processing Set.
+
+    Methods:
+        summary(data_group="base"): Returns a summary of the Processing Set as a Pandas table.
+        get_ps_max_dims(): Returns the maximum dimension of all the MSs in the Processing Set.
+        get_ps_freq_axis(): Combines the frequency axis of all MSs.
+        sel(query:str=None, **kwargs): Selects a subset of the Processing Set based on column names and values or a Pandas query.
+        ms_sel(**kwargs): Selects a subset of the Processing Set by applying the `sel` method to each individual MS.
+        ms_isel(**kwargs): Selects a subset of the Processing Set by applying the `isel` method to each individual MS.
+    """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.meta = {"summary": {}}
 
     def summary(self, data_group="base"):
+        """
+        Returns a summary of the Processing Set as a Pandas table.
+
+        Args:
+            data_group (str): The data group to summarize. Default is "base".
+
+        Returns:
+            pandas.DataFrame: A DataFrame containing the summary information.
+        """
         if data_group in self.meta["summary"]:
             return self.meta["summary"][data_group]
         else:
@@ -14,6 +41,14 @@ class processing_set(dict):
             return self.meta["summary"][data_group]
 
     def get_ps_max_dims(self):
+        """
+        Returns the maximum dimension of all the MSs in the Processing Set.
+
+        For example, if the Processing Set contains two MSs with dimensions (50, 20, 30) and (10, 30, 40), the maximum dimensions will be (50, 30, 40).
+
+        Returns:
+            dict: A dictionary containing the maximum dimensions of the Processing Set.
+        """
         if "max_dims" in self.meta:
             return self.meta["max_dims"]
         else:
@@ -21,6 +56,12 @@ class processing_set(dict):
             return self.meta["max_dims"]
 
     def get_ps_freq_axis(self):
+        """
+        Combines the frequency axis of all MSs.
+
+        Returns:
+            xarray.DataArray: The frequency axis of the Processing Set.
+        """
         if "freq_axis" in self.meta:
             return self.meta["freq_axis"]
         else:
@@ -117,7 +158,7 @@ class processing_set(dict):
         for ms_xds in self.values():
             assert (
                 frame == ms_xds.frequency.attrs["frame"]
-            ), "Frequency reference frame not consistent in processing set."
+            ), "Frequency reference frame not consistent in Processing Set."
             if ms_xds.frequency.attrs["spectral_window_id"] not in spw_ids:
                 spw_ids.append(ms_xds.frequency.attrs["spectral_window_id"])
                 freq_axis_list.append(ms_xds.frequency)
@@ -142,19 +183,43 @@ class processing_set(dict):
     def get(self, id):
         return self[list(self.keys())[id]]
 
-    def sel(self, **kwargs):
+    def sel(self, query: str = None, **kwargs):
+        """
+        Selects a subset of the Processing Set based on column names and values or a Pandas query.
+
+        The following columns are supported: name, obs_mode, polarization, spw_name, field_name, source_name, field_coords, start_frequency, end_frequency.
+
+        This function will not apply any selection on the MS data so data will not be dropped for example if a MS has field_name=['field_0','field_10','field_08'] and ps.sel(field_name='field_0') is done the resulting MS will still have field_name=['field_0','field_10','field_08'].
+
+        Examples:
+            ps.sel(obs_mode='OBSERVE_TARGET#ON_SOURCE', polarization=['RR', 'LL']) # Select all MSs with obs_mode 'OBSERVE_TARGET#ON_SOURCE' and polarization 'RR' or 'LL'.
+            ps.sel(query='start_frequency > 100e9 AND end_frequency < 200e9') # Select all MSs with start_frequency greater than 100 GHz and less than 200 GHz.
+
+        Args:
+            query (str): A Pandas query string. Default is None.
+            **kwargs: Keyword arguments representing column names and values to filter the Processing Set.
+
+        Returns:
+            processing_set: The subset of the Processing Set.
+        """
         import numpy as np
+
+        def select_rows(df, col, input_strings):
+            return df[df[col].apply(lambda x: any(i in x for i in input_strings))]
 
         summary_table = self.summary()
         for key, value in kwargs.items():
-            if isinstance(value, list) or isinstance(value, np.ndarray):
-                summary_table = summary_table[summary_table[key].isin(value)]
-            elif isinstance(value, slice):
+            value = to_list(value)  # make sure value is a list.
+
+            if len(value) == 1 and isinstance(value[0], slice):
                 summary_table = summary_table[
-                    summary_table[key].between(value.start, value.stop)
+                    summary_table[key].between(value[0].start, value[0].stop)
                 ]
             else:
-                summary_table = summary_table[summary_table[key] == value]
+                summary_table = select_rows(summary_table, key, value)
+
+        if query is not None:
+            summary_table = summary_table.query(query)
 
         sub_ps = processing_set()
         for key, val in self.items():
@@ -164,12 +229,30 @@ class processing_set(dict):
         return sub_ps
 
     def ms_sel(self, **kwargs):
+        """
+        Selects a subset of the Processing Set by applying the `sel` method to each MS.
+
+        Args:
+            **kwargs: Keyword arguments representing column names and values to filter the Processing Set.
+
+        Returns:
+            processing_set: The subset of the Processing Set.
+        """
         sub_ps = processing_set()
         for key, val in self.items():
             sub_ps[key] = val.sel(kwargs)
         return sub_ps
 
     def ms_isel(self, **kwargs):
+        """
+        Selects a subset of the Processing Set by applying the `isel` method to each MS.
+
+        Args:
+            **kwargs: Keyword arguments representing dimension names and indices to select from the Processing Set.
+
+        Returns:
+            processing_set: The subset of the Processing Set.
+        """
         sub_ps = processing_set()
         for key, val in self.items():
             sub_ps[key] = val.isel(kwargs)

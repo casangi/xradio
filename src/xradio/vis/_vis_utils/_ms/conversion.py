@@ -738,6 +738,10 @@ def convert_and_write_partition(
         _description_, by default "zarr"
     overwrite : bool, optional
         _description_, by default False
+    lofar : bool, optional
+        _description_, by default False
+    lofar_read_size : int, optional
+        _description_, by default 1024
 
     Returns
     -------

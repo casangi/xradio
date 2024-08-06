@@ -455,7 +455,7 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
         xds = xds.assign_coords(
             {"source_name": "Unknown"}
         )  # Need to add this for ps.summary() to work.
-        return xds
+        return xds, 0
 
     unique_source_id = unique_1d(source_id)
     taql_where = f"where (SOURCE_ID IN [{','.join(map(str, unique_source_id))}]) AND (SPECTRAL_WINDOW_ID = {spectral_window_id})"
@@ -474,7 +474,7 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
         xds = xds.assign_coords(
             {"source_name": "Unknown"}
         )  # Need to add this for ps.summary() to work.
-        return xds
+        return xds, 0
 
     assert (
         len(source_xds.SPECTRAL_WINDOW_ID) == 1

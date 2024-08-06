@@ -225,7 +225,7 @@ if __name__ == "__main__":
     # test_vlass()
     # test_alma()
     # test_preconverted_alma()
-    # test_ska_mid()
+    test_ska_mid()
     # test_lofar()
     # test_meerkat()
     # test_global_vlbi()
@@ -234,7 +234,7 @@ if __name__ == "__main__":
     # test_ephemeris()
     # test_single_dish()
     # test_alma_ephemris_mosaic()
-    test_VLA()
+    # test_VLA()
 
 # All test preformed on MAC with M3 and 16 GB Ram.
 # pytest --durations=0 .

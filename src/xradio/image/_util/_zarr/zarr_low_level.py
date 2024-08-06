@@ -344,9 +344,9 @@ def create_data_variable_meta_data(
         zarray_file = os.path.join(data_variable_path, ".zarray")
 
         if isinstance(fs, s3fs.core.S3FileSystem):
-            with fs.open(zattrs_file, "w") as file:
+            with fs.open(zarray_file, "w") as file:
                 json.dump(
-                    zattrs,
+                    zarray,
                     file,
                     indent=4,
                     sort_keys=True,

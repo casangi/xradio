@@ -214,8 +214,10 @@ def extract_gain_curve_info(ant_xds, path, spectral_window_id):
             "GAIN_CURVE",
             taql_where=f" where (ANTENNA_ID IN [{','.join(map(str,ant_xds.antenna_id.values))}]) AND (SPECTRAL_WINDOW_ID = {spectral_window_id})",
         )
-        
-        if generic_gain_curve_xds.data_vars:  # Some times the gain_curve table is empty (this is the case with ngEHT simulation).
+
+        if (
+            generic_gain_curve_xds.data_vars
+        ):  # Some times the gain_curve table is empty (this is the case with ngEHT simulation).
 
             assert (
                 len(generic_gain_curve_xds.SPECTRAL_WINDOW_ID) == 1

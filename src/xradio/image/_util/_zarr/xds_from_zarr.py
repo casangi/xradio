@@ -5,8 +5,10 @@ import dask.array as da
 import numpy as np
 import os
 import xarray as xr
+import s3fs
 from .common import _np_types, _top_level_sub_xds
 from ..common import _coords_to_numpy, _dask_arrayize_dv, _numpy_arrayize_dv
+from xradio._utils.zarr.common import _get_file_system_and_items
 
 
 def _read_zarr(
@@ -85,8 +87,18 @@ def _decode_dict(my_dict: dict, top_key: str) -> dict:
 
 def _decode_sub_xdses(zarr_store: str, output: dict) -> dict:
     sub_xdses = {}
-    for root, dirs, files in os.walk(zarr_store):
-        # top down walk
+
+    fs, store_contents = _get_file_system_and_items(zarr_store)
+
+    if isinstance(fs, s3fs.core.S3FileSystem):
+        # could we just use the items as returned from the helper function..?
+        store_tree = fs.walk(zarr_store, topdown=True)
+        prepend_s3 = "s3://"
+    else:
+        store_tree = os.walk(zarr_store, topdown=True)
+        prepend_s3 = ""
+
+    for root, dirs, files in store_tree:
         for d in dirs:
             if d.startswith(_top_level_sub_xds):
                 xds = _read_zarr(os.sep.join([root, d]), output)
@@ -94,4 +106,5 @@ def _decode_sub_xdses(zarr_store: str, output: dict) -> dict:
                 #    xds = xds.drop_vars([k]).assign({k: v.compute()})
                 ky = d[len(_top_level_sub_xds) + 1 :]
                 sub_xdses[ky] = xds
+
     return sub_xdses

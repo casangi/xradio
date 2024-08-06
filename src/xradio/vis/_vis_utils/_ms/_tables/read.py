@@ -455,7 +455,8 @@ def redimension_ms_subtable(xds: xr.Dataset, subt_name: str) -> xr.Dataset:
         "SOURCE": ["SOURCE_ID", "TIME", "SPECTRAL_WINDOW_ID"],
         "SYSCAL": ["ANTENNA_ID", "FEED_ID", "SPECTRAL_WINDOW_ID", "TIME"],
         "WEATHER": ["ANTENNA_ID", "TIME"],
-        "PHASE_CAL": ["ANTENNA_ID", "TIME"],
+        "PHASE_CAL": ["ANTENNA_ID", "TIME", "SPECTRAL_WINDOW_ID"],
+        "GAIN_CURVE": ["ANTENNA_ID", "TIME", "SPECTRAL_WINDOW_ID"],
         "FEED": ["ANTENNA_ID", "SPECTRAL_WINDOW_ID"],
         # added tables (MSv3 but not preent in MSv2). Build it from "EPHEMi_... tables
         # Not clear what to do about 'time' var/dim:  , "time"],
@@ -648,6 +649,7 @@ def load_generic_table(
         "SYSCAL",
         "WEATHER",
         "PHASE_CAL",
+        "GAIN_CURVE",
         "FEED",
     ]:
         xds = redimension_ms_subtable(xds, tname)
@@ -949,6 +951,7 @@ def raw_col_data_to_coords_vars(
         "SYSCAL",
         "WEATHER",
         "PHASE_CAL",
+        "GAIN_CURVE",
         "FEED",
     )
     dim_prefix = "dim"

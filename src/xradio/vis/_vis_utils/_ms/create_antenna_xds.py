@@ -47,8 +47,12 @@ def create_antenna_xds(
         ant_xds, in_file, antenna_id, feed_id, spectral_window_id
     )
 
-    ant_xds = extract_phase_cal_info(ant_xds, in_file)  # Only used in VLBI.
-    # ant_xds = extract_phase_cal_info(ant_xds, in_file, unique_antenna_id) #Only used in VLBI.
+    ant_xds = extract_phase_cal_info(
+        ant_xds, in_file, spectral_window_id
+    )  # Only used in VLBI.
+    ant_xds = extract_gain_curve_info(
+        ant_xds, in_file, spectral_window_id
+    )  # Only used in VLBI.
 
     ant_xds.attrs["overall_telescope_name"] = telescope_name
     return ant_xds
@@ -66,6 +70,9 @@ def extract_feed_info(ant_xds, in_file, antenna_id, feed_id, spectral_window_id)
     if (
         generic_feed_xds.data_vars
     ):  # Some times the feed table is empty (this is the case with ALMA spw WVR#NOMINAL).
+        assert (
+            len(generic_feed_xds.SPECTRAL_WINDOW_ID) == 1
+        ), "Only one spectral window is supported."
         generic_feed_xds = generic_feed_xds.isel(
             SPECTRAL_WINDOW_ID=0, drop=True
         )  # Only one spectral window is present.
@@ -199,54 +206,119 @@ def extract_antenna_info(ant_xds, in_file, antenna_id, telescope_name):
     return ant_xds
 
 
-def extract_phase_cal_info(xds, path):
+def extract_gain_curve_info(ant_xds, path, spectral_window_id):
+
+    if os.path.exists(os.path.join(path, "GAIN_CURVE")):
+        generic_gain_curve_xds = load_generic_table(
+            path,
+            "GAIN_CURVE",
+            taql_where=f" where (ANTENNA_ID IN [{','.join(map(str,ant_xds.antenna_id.values))}]) AND (SPECTRAL_WINDOW_ID = {spectral_window_id})",
+        )
+        
+        if generic_gain_curve_xds.data_vars:  # Some times the gain_curve table is empty (this is the case with ngEHT simulation).
+
+            assert (
+                len(generic_gain_curve_xds.SPECTRAL_WINDOW_ID) == 1
+            ), "Only one spectral window is supported."
+            generic_gain_curve_xds = generic_gain_curve_xds.isel(
+                SPECTRAL_WINDOW_ID=0, drop=True
+            )  # Drop the spectral window dimension as it is singleton.
+
+            generic_gain_curve_xds = generic_gain_curve_xds.sel(
+                ANTENNA_ID=ant_xds.antenna_id, drop=False
+            )  # Make sure the antenna_id is in the same order as the xds .
+
+            to_new_data_variable_names = {
+                "INTERVAL": "GAIN_CURVE_INTERVAL",
+                "GAIN": "GAIN_CURVE",
+                "GAIN_CURVE_SENSITIVITY": "SENSITIVITY",
+            }
+
+            data_variable_dims = {
+                "INTERVAL": ["antenna_id", "gain_curve_time"],
+                "GAIN": ["antenna_id", "gain_curve_time", "poly_term", "receptor_name"],
+                "SENSITIVITY": ["antenna_id", "gain_curve_time", "receptor_name"],
+            }
+
+            to_new_coord_names = {
+                "TIME": "gain_curve_time",
+            }
+
+            ant_xds = convert_generic_xds_to_msv4_xds(
+                generic_gain_curve_xds,
+                ant_xds,
+                to_new_data_variable_names,
+                data_variable_dims,
+                coord_dims={},
+                to_new_coord_names=to_new_coord_names,
+            )
+        return ant_xds
+
+    else:
+        return ant_xds
+
+
+def extract_phase_cal_info(ant_xds, path, spectral_window_id):
 
     if os.path.exists(os.path.join(path, "PHASE_CAL")):
         generic_phase_cal_xds = load_generic_table(
             path,
             "PHASE_CAL",
-            taql_where=f" where (ANTENNA_ID IN [{','.join(map(str,antenna_id))}])",
+            taql_where=f" where (ANTENNA_ID IN [{','.join(map(str,ant_xds.antenna_id.values))}]) AND (SPECTRAL_WINDOW_ID = {spectral_window_id})",
         )
+
+        assert (
+            len(generic_phase_cal_xds.SPECTRAL_WINDOW_ID) == 1
+        ), "Only one spectral window is supported."
+        generic_phase_cal_xds = generic_phase_cal_xds.isel(
+            SPECTRAL_WINDOW_ID=0, drop=True
+        )  # Drop the spectral window dimension as it is singleton.
+
         generic_phase_cal_xds = generic_phase_cal_xds.sel(
-            ANTENNA_ID=antenna_id
+            ANTENNA_ID=ant_xds.antenna_id, drop=False
         )  # Make sure the antenna_id is in the same order as the xds.
 
-        # print("xds", xds)
-        # print("******" * 10)
-        # print("phase_cal_xds", generic_phase_cal_xds)
+        to_new_data_variable_names = {
+            "INTERVAL": "PHASE_CAL_INTERVAL",
+            "TONE_FREQUENCY": "PHASE_CAL_TONE_FREQUENCY",
+            "PHASE_CAL": "PHASE_CAL",
+            "CABLE_CAL": "PHASE_CAL_CABLE_CAL",
+        }
 
-        # to_new_data_variable_names = {
+        data_variable_dims = {
+            "INTERVAL": ["antenna_id", "phase_cal_time"],
+            "TONE_FREQUENCY": [
+                "antenna_id",
+                "phase_cal_time",
+                "receptor_name",
+                "tone_label",
+            ],
+            "PHASE_CAL": [
+                "antenna_id",
+                "phase_cal_time",
+                "receptor_name",
+                "tone_label",
+            ],
+            "CABLE_CAL": ["antenna_id", "phase_cal_time"],
+        }
 
-        # }
+        to_new_coord_names = {
+            "TIME": "phase_cal_time",
+        }
 
-        # data_variable_dims = {}
+        ant_xds = convert_generic_xds_to_msv4_xds(
+            generic_phase_cal_xds,
+            ant_xds,
+            to_new_data_variable_names,
+            data_variable_dims,
+            coord_dims={},
+            to_new_coord_names=to_new_coord_names,
+        )
 
-        # coord_dims = {}
-
-        # to_new_coord_names = {}
-
-        # convert_generic_xds_to_msv4_xds(generic_phase_cal_xds,xds,to_new_data_variable_names,data_variable_dims,coord_dims,to_new_coord_names)
-
-        return xds
+        return ant_xds
 
     else:
-        return xds
-
-
-#         Coordinates:
-#     ANTENNA_ID          (row) int64 182kB 0 0 0 0 0 0 0 0 0 ... 9 9 9 9 9 9 9 9
-#     FEED_ID             (row) int64 182kB -1 -1 -1 -1 -1 -1 ... -1 -1 -1 -1 -1
-#     SPECTRAL_WINDOW_ID  (row) int64 182kB 0 1 2 3 0 1 2 3 0 ... 0 1 2 3 0 1 2 3
-# Dimensions without coordinates: row, dim_1, dim_2
-# Data variables:
-#     TIME                (row) float64 182kB 5.152e+09 5.152e+09 ... 5.152e+09
-#     INTERVAL            (row) float64 182kB 30.0 30.0 30.0 ... 28.0 28.0 28.0
-#     NUM_TONES           (row) int64 182kB 2 2 2 2 2 2 2 2 2 ... 2 2 2 2 2 2 2 2
-#     TONE_FREQUENCY      (row, dim_1, dim_2) float64 730kB 5.013e+09 ... 5.251...
-#     PHASE_CAL           (row, dim_1, dim_2) complex64 730kB (-0.007327407+0.0...
-#     CABLE_CAL           (row) float64 182kB 1.507e-09 1.507e-09 ... 1.412e-09
-# Attributes:
-#     other:    {'msv2': {'ctds_attrs': {'column_descriptions': {'ANTENNA_ID': ...
+        return ant_xds
 
 
 def convert_generic_xds_to_msv4_xds(

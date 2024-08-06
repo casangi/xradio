@@ -840,7 +840,7 @@ def convert_and_write_partition(
             )
 
             # Change antenna_ids to antenna_names
-            xds = antenna_ids_to_names(xds, ant_xds)
+            # xds = antenna_ids_to_names(xds, ant_xds, moving_antennas)
 
             logger.debug("Time ant xds  " + str(time.time() - start))
 
@@ -991,12 +991,7 @@ def convert_and_write_partition(
     # logger.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
 
 
-def antenna_ids_to_names(xds, ant_xds):
-
-    if ant_xds.attrs["overall_telescope_name"] in ["ALMA", "VLA", "NOEMA", "EVLA"]:
-        moving_antennas = True
-    else:
-        moving_antennas = False
+def antenna_ids_to_names(xds, ant_xds, moving_antennas):
 
     if moving_antennas:
         if "baseline_antenna1_id" in xds:  # Interferometer

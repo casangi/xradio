@@ -62,7 +62,7 @@ def create_field_and_source_xds(
     field_and_source_xds = xr.Dataset()
 
     field_and_source_xds, ephemeris_path, ephemeris_table_name, source_id = (
-        create_field_info_and_check_ephemeris(
+        extract_field_info_and_check_ephemeris(
             field_and_source_xds, in_file, field_id, field_times, is_single_dish
         )
     )
@@ -600,7 +600,7 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
     return xds, np.sum(num_lines[unique_source_ids_indices])
 
 
-def create_field_info_and_check_ephemeris(
+def extract_field_info_and_check_ephemeris(
     field_and_source_xds, in_file, field_id, field_times, is_single_dish
 ):
     """

@@ -79,7 +79,7 @@ class processing_set(dict):
             "field_name": [],
             # "source_id": [],
             "source_name": [],
-            #"num_lines": [],
+            # "num_lines": [],
             "field_coords": [],
             "start_frequency": [],
             "end_frequency": [],
@@ -114,7 +114,7 @@ class processing_set(dict):
             summary_data["source_name"].append(
                 value.attrs["partition_info"]["source_name"]
             )
-            #summary_data["num_lines"].append(value.attrs["partition_info"]["num_lines"])
+            # summary_data["num_lines"].append(value.attrs["partition_info"]["num_lines"])
             summary_data["start_frequency"].append(value["frequency"].values[0])
             summary_data["end_frequency"].append(value["frequency"].values[-1])
 

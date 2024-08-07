@@ -1,6 +1,9 @@
 import os
 import numpy as np
 import json
+import zarr
+import s3fs
+from xradio._utils.zarr.common import _get_file_system_and_items
 
 from numcodecs.compat import (
     ensure_text,
@@ -246,10 +249,12 @@ def write_json_file(data, file_path):
         )
 
 
-def create_data_variable_meta_data_on_disk(
+def create_data_variable_meta_data(
     zarr_group_name, data_variables_and_dims, xds_dims, parallel_coords, compressor
 ):
     zarr_meta = data_variables_and_dims
+
+    fs, items = _get_file_system_and_items(zarr_group_name)
 
     for data_variable_key, dims_dtype_name in data_variables_and_dims.items():
         # print(data_variable_key, dims_dtype_name)
@@ -257,8 +262,16 @@ def create_data_variable_meta_data_on_disk(
         dims = dims_dtype_name["dims"]
         dtype = dims_dtype_name["dtype"]
         data_variable_name = dims_dtype_name["name"]
+
         data_variable_path = os.path.join(zarr_group_name, data_variable_name)
-        os.system("mkdir " + data_variable_path)
+        if isinstance(fs, s3fs.core.S3FileSystem):
+            # N.b.,stateful "folder creation" is not a well defined concept for S3 objects and URIs
+            # see https://github.com/fsspec/s3fs/issues/401
+            # nor is a path specifier (cf. "URI")
+            fs.mkdir(data_variable_path)
+        else:
+            # default to assuming we can use the os module and mkdir system call
+            os.system("mkdir " + data_variable_path)
         # Create .zattrs
         zattrs = {
             "_ARRAY_DIMENSIONS": dims,
@@ -275,7 +288,23 @@ def create_data_variable_meta_data_on_disk(
                 chunks.append(xds_dims[d])
 
         # print(chunks,shape)
-        write_json_file(zattrs, os.path.join(data_variable_path, ".zattrs"))
+        # assuming data_variable_path has been set compatibly
+        zattrs_file = os.path.join(data_variable_path, ".zattrs")
+
+        if isinstance(fs, s3fs.core.S3FileSystem):
+            with fs.open(zattrs_file, "w") as file:
+                json.dump(
+                    zattrs,
+                    file,
+                    indent=4,
+                    sort_keys=True,
+                    ensure_ascii=True,
+                    separators=(",", ": "),
+                    cls=NumberEncoder,
+                )
+        else:
+            # default to assuming we can use primitives
+            write_json_file(zattrs, zattrs_file)
 
         # Create .zarray
         from zarr import n5
@@ -311,36 +340,58 @@ def create_data_variable_meta_data_on_disk(
         zarr_meta[data_variable_key]["chunks"] = chunks
         zarr_meta[data_variable_key]["shape"] = shape
 
-        write_json_file(zarray, os.path.join(data_variable_path, ".zarray"))
+        # again, assuming data_variable_path has been set compatibly
+        zarray_file = os.path.join(data_variable_path, ".zarray")
+
+        if isinstance(fs, s3fs.core.S3FileSystem):
+            with fs.open(zarray_file, "w") as file:
+                json.dump(
+                    zarray,
+                    file,
+                    indent=4,
+                    sort_keys=True,
+                    ensure_ascii=True,
+                    separators=(",", ": "),
+                    cls=NumberEncoder,
+                )
+        else:
+            # default to assuming we can use primitives
+            write_json_file(zarray, zarray_file)
+
     return zarr_meta
 
 
 def write_chunk(img_xds, meta, parallel_dims_chunk_id, compressor, image_file):
     dims = meta["dims"]
     dtype = meta["dtype"]
-    data_varaible_name = meta["name"]
+    data_variable_name = meta["name"]
     chunks = meta["chunks"]
     shape = meta["shape"]
     chunk_name = ""
-    if data_varaible_name in img_xds:
-        for d in img_xds[data_varaible_name].dims:
+    if data_variable_name in img_xds:
+        for d in img_xds[data_variable_name].dims:
             if d in parallel_dims_chunk_id:
                 chunk_name = chunk_name + str(parallel_dims_chunk_id[d]) + "."
             else:
                 chunk_name = chunk_name + "0."
         chunk_name = chunk_name[:-1]
 
-        if list(img_xds[data_varaible_name].shape) != list(chunks):
+        if list(img_xds[data_variable_name].shape) != list(chunks):
             array = pad_array_with_nans(
-                img_xds[data_varaible_name].values,
+                img_xds[data_variable_name].values,
                 output_shape=chunks,
                 dtype=dtype,
             )
         else:
-            array = img_xds[data_varaible_name].values
+            array = img_xds[data_variable_name].values
 
-        write_binary_blob_to_disk(
-            array,
-            file_path=os.path.join(image_file, data_varaible_name, chunk_name),
+        z_chunk = zarr.open(
+            os.path.join(image_file, data_variable_name, chunk_name),
+            mode="a",
+            shape=meta["shape"],
+            chunks=meta["chunks"],
+            dtype=meta["dtype"],
             compressor=compressor,
         )
+
+        return z_chunk

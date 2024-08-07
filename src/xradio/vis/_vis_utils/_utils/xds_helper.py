@@ -180,7 +180,6 @@ def expand_xds(xds: xr.Dataset) -> xr.Dataset:
 
     txds["baseline"] = xr.DataArray(baselines.astype("int32"), dims=["row"])
 
-
     try:
         txds = (
             txds.set_index(row=["time", "baseline"])
@@ -226,18 +225,18 @@ def flatten_xds(xds: xr.Dataset) -> xr.Dataset:
         txds = xds.stack({"row": ("time", "baseline")}).transpose("row", ...)
         # compute for issue https://github.com/hainegroup/oceanspy/issues/332
         # drop=True silently does compute (or at least used to)
-        
-        #Skip this step for now since on Mac nan_int=0. See issue https://github.com/casangi/xradio/issues/219
+
+        # Skip this step for now since on Mac nan_int=0. See issue https://github.com/casangi/xradio/issues/219
         # txds = txds.where(
         #     ((txds.STATE_ID != nan_int) & (txds.FIELD_ID != nan_int)).compute(),
         #     drop=True,
         # )  # .unify_chunks()
-        
+
         txds = txds.where(
-            ~np.isnan(txds['EXPOSURE']).compute(),
+            ~np.isnan(txds["EXPOSURE"]).compute(),
             drop=True,
         )  # .unify_chunks()
-        
+
         # re-assigning (implicitly dropping index coords) one by one produces
         # DeprecationWarnings: https://github.com/pydata/xarray/issues/6505
         astyped_data_vars = dict(xds.data_vars)

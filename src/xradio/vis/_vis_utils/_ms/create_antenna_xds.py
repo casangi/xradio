@@ -199,8 +199,13 @@ def extract_antenna_info(ant_xds, in_file, antenna_id, telescope_name):
 
         # Have to use private numpy functions to get around this.
         antenna_name = ant_xds["name"].values
-        antenna_name = np._core.defchararray.add(antenna_name, "_")
-        antenna_name = np._core.defchararray.add(
+        # antenna_name = np._core.defchararray.add(antenna_name, "_")
+        # antenna_name = np._core.defchararray.add(
+        #     antenna_name,
+        #     ant_xds["station"].values,
+        # )
+        antenna_name = np._core.add(antenna_name, "_")
+        antenna_name = np._core.add(
             antenna_name,
             ant_xds["station"].values,
         )

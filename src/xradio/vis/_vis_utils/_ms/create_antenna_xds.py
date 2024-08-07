@@ -193,7 +193,8 @@ def extract_antenna_info(ant_xds, in_file, antenna_id, telescope_name):
     ant_xds["ANTENNA_POSITION"].attrs["coordinate_system"] = "geocentric"
 
     if telescope_name in ["ALMA", "VLA", "NOEMA", "EVLA"]:
-        ant_name = ant_xds["name"].values + np.array(["_"]) + ant_xds["station"].values
+        #ant_name = ant_xds["name"].values + np.array(["_"]) + ant_xds["station"].values
+        ant_name = ant_xds["name"].values + ant_xds["station"].values
         ant_xds["name"] = xr.DataArray(ant_name, dims=["antenna_id"])
         ant_xds.attrs["relocatable_antennas"] = True
     else:

@@ -36,9 +36,9 @@ def load_processing_set(
     processing_set
         In memory representation of processing set (data is represented by Dask.arrays).
     """
-    from xradio._utils.zarr.common import _open_dataset, _get_ms_stores_and_file_system
+    from xradio._utils.zarr.common import _open_dataset, _get_file_system_and_items
 
-    file_system, ms_store_list = _get_ms_stores_and_file_system(ps_store)
+    file_system, ms_store_list = _get_file_system_and_items(ps_store)
 
     ps = processing_set()
     for ms_name, ms_xds_isel in sel_parms.items():

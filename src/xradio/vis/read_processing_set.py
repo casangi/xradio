@@ -2,7 +2,7 @@ import os
 
 from ._processing_set import processing_set
 import graphviper.utils.logger as logger
-from xradio._utils.zarr.common import _open_dataset, _get_ms_stores_and_file_system
+from xradio._utils.zarr.common import _open_dataset, _get_file_system_and_items
 import s3fs
 
 
@@ -25,7 +25,7 @@ def read_processing_set(
     processing_set
         Lazy representation of processing set (data is represented by Dask.arrays).
     """
-    file_system, ms_store_list = _get_ms_stores_and_file_system(ps_store)
+    file_system, ms_store_list = _get_file_system_and_items(ps_store)
 
     ps = processing_set()
     data_group = "base"

@@ -24,21 +24,27 @@ def create_antenna_xds(
     antenna_id: list,
     feed_id: list,
     telescope_name: str,
-):
+) -> xr.Dataset:
     """
-    Creates an Antenna Xarray Dataset from a MS v2 ANTENNA table.
+    Create an Xarray Dataset containing antenna information.
 
     Parameters
     ----------
     in_file : str
-        Input MS name.
+        Path to the input MSv2.
+    spectral_window_id : int
+        Spectral window ID.
+    antenna_id : list
+        List of antenna IDs.
+    feed_id : list
+        List of feed IDs.
+    telescope_name : str
+        Name of the telescope.
 
     Returns
-    -------
-    xr.Dataset
-        Antenna Xarray Dataset.
+    ----------
+        xr.Dataset: Xarray Dataset containing the antenna information.
     """
-
     ant_xds = xr.Dataset()
 
     ant_xds = extract_antenna_info(ant_xds, in_file, antenna_id, telescope_name)
@@ -57,8 +63,133 @@ def create_antenna_xds(
     ant_xds.attrs["overall_telescope_name"] = telescope_name
     return ant_xds
 
+def extract_antenna_info(ant_xds: xr.Dataset, in_file: str, antenna_id: list, telescope_name: str)-> xr.Dataset:
+    """Reformats MSv2 Antenna table content to MSv4 schema.
 
-def extract_feed_info(ant_xds, in_file, antenna_id, feed_id, spectral_window_id):
+    Parameters
+    ----------
+    ant_xds : xr.Dataset
+        The dataset that will be updated with antenna information.
+    in_file : str
+        Path to the input MSv2.
+    antenna_id : list
+        A list of antenna IDs to extract information for.
+    telescope_name : str
+        The name of the telescope.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset updated to contain the antenna information.
+    """
+    to_new_data_variables = {
+        "POSITION": ["ANTENNA_POSITION",["name", "cartesian_pos_label"]],
+        "OFFSET": ["ANTENNA_FEED_OFFSET",["name", "cartesian_pos_label"]],
+        "DISH_DIAMETER": ["ANTENNA_DISH_DIAMETER",["name"]],
+    }
+
+    to_new_coords = {
+        "NAME": ["name",["name"]],
+        "STATION": ["station",["name"]],
+        "MOUNT": ["mount",["name"]],
+        "PHASED_ARRAY_ID": ["phased_array_id",["name"]],
+        "antenna_id": ["antenna_id",["name"]],
+    }
+    
+
+    # Read ANTENNA table into a Xarray Dataset.
+    unique_antenna_id = unique_1d(
+        antenna_id
+    )  # Also ensures that it is sorted otherwise TaQL will give wrong results.
+
+    generic_ant_xds = load_generic_table(
+        in_file,
+        "ANTENNA",
+        rename_ids=subt_rename_ids["ANTENNA"],
+        taql_where=f" where (ROWID() IN [{','.join(map(str,unique_antenna_id))}])",  # order is not guaranteed
+    )
+    generic_ant_xds = generic_ant_xds.assign_coords({"antenna_id": unique_antenna_id})
+    generic_ant_xds = generic_ant_xds.sel(
+        antenna_id=antenna_id, drop=False
+    )  # Make sure the antenna_id order is correct.
+
+    # ['OFFSET', 'POSITION', 'DISH_DIAMETER', 'FLAG_ROW', 'MOUNT', 'NAME', 'STATION']
+    ant_xds = xr.Dataset()
+    ant_xds = ant_xds.assign_coords(
+        {"cartesian_pos_label": ["x", "y", "z"]}
+    )
+
+    ant_xds = convert_generic_xds_to_msv4_xds_2(
+        generic_ant_xds,
+        ant_xds,
+        to_new_data_variables,
+        to_new_coords
+    )
+
+    ant_xds["ANTENNA_DISH_DIAMETER"].attrs.update({"units": ["m"], "type": "quantity"})
+
+    ant_xds["ANTENNA_FEED_OFFSET"].attrs["type"] = "earth_location_offset"
+    ant_xds["ANTENNA_FEED_OFFSET"].attrs["coordinate_system"] = "geocentric"
+    ant_xds["ANTENNA_POSITION"].attrs["coordinate_system"] = "geocentric"
+
+    if telescope_name in ["ALMA", "VLA", "NOEMA", "EVLA"]:
+        # antenna_name = ant_xds["name"].values + "_" + ant_xds["station"].values
+        # works on laptop but fails in github test runner with error:
+        # numpy.core._exceptions._UFuncNoLoopError: ufunc 'add' did not contain a loop with signature matching types (dtype('<U4'), dtype('<U4')) -> None
+
+        # Also doesn't work on github test runner:
+        # antenna_name = ant_xds["name"].values
+        # antenna_name = np._core.defchararray.add(antenna_name, "_")
+        # antenna_name = np._core.defchararray.add(
+        #     antenna_name,
+        #     ant_xds["station"].values,
+        # )
+
+        # None of the native numpy functions work on the github test runner.
+        antenna_name = ant_xds["name"].values
+        station = ant_xds["station"].values
+        antenna_name = np.array(
+            list(map(lambda x, y: x + "_" + y, antenna_name, station))
+        )
+
+        ant_xds["name"] = xr.DataArray(antenna_name, dims=["name"])
+        ant_xds.attrs["relocatable_antennas"] = True
+    else:
+        ant_xds.attrs["relocatable_antennas"] = False
+      
+    return ant_xds
+
+
+
+def extract_feed_info(
+    ant_xds: xr.Dataset,
+    in_file: str,
+    antenna_id: list,
+    feed_id: int,
+    spectral_window_id: int,
+) -> xr.Dataset:
+    """
+    Reformats MSv2 Feed table content to MSv4 schema.
+
+    Parameters
+    ----------
+    ant_xds : xr.Dataset
+        Xarray Dataset containing antenna information.
+    in_file : str
+        Path to the input MSv2.
+    antenna_id : list
+        List of antenna IDs.
+    feed_id : int
+        Feed ID.
+    spectral_window_id : int
+        Spectral window ID.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset updated to contain the feed information.
+    """
+    
     # Extract feed information
     generic_feed_xds = load_generic_table(
         in_file,
@@ -90,32 +221,21 @@ def extract_feed_info(ant_xds, in_file, antenna_id, feed_id, spectral_window_id)
         assert (
             len(num_receptors) == 1
         ), "The number of receptors must be constant in feed table."
-
-        to_new_data_variable_names = {
-            "BEAM_OFFSET": "BEAM_OFFSET",
-            "RECEPTOR_ANGLE": "RECEPTOR_ANGLE",
-            "POLARIZATION_TYPE": "POLARIZATION_TYPE",
-            # "pol_response": "POLARIZATION_RESPONSE", ?repeated dim creates problems.
-            "FOCUS_LENGTH": "FOCUS_LENGTH",  # optional
-            # "position": "ANTENNA_FEED_OFFSET" #Will be added to the existing position in ant_xds
+        
+        to_new_data_variables = {
+            "BEAM_OFFSET": ["BEAM_OFFSET",["name", "receptor_name", "sky_dir_label"]],
+            "RECEPTOR_ANGLE": ["RECEPTOR_ANGLE",["name", "receptor_name"]],
+            "POLARIZATION_TYPE": ["POLARIZATION_TYPE",["name", "receptor_name"]],
+            # "pol_response": ["POLARIZATION_RESPONSE", ["name", "receptor_name", "receptor_name_"]] #repeated dim creates problems.
+            "FOCUS_LENGTH": ["FOCUS_LENGTH",["name"]]  # optional
+            # "position": ["ANTENNA_FEED_OFFSET",["name", "cartesian_pos_label"]] #Will be added to the existing position in ant_xds
         }
-
-        data_variable_dims = {
-            "BEAM_OFFSET": ["antenna_id", "receptor_name", "sky_dir_label"],
-            "RECEPTOR_ANGLE": ["antenna_id", "receptor_name"],
-            "POLARIZATION_TYPE": ["antenna_id", "receptor_name"],
-            # "pol_response": ["antenna_id", "receptor_name", "receptor_name_"],
-            "FOCUS_LENGTH": ["antenna_id"],
-            # "position": ["antenna_id", "cartesian_pos_label"],
-        }
-
-        ant_xds = convert_generic_xds_to_msv4_xds(
+        
+        ant_xds = convert_generic_xds_to_msv4_xds_2(
             generic_feed_xds,
             ant_xds,
-            to_new_data_variable_names,
-            data_variable_dims,
-            coord_dims={},
-            to_new_coord_names={},
+            to_new_data_variables,
+            to_new_coords={},
         )
 
         ant_xds["ANTENNA_FEED_OFFSET"] = (
@@ -123,115 +243,39 @@ def extract_feed_info(ant_xds, in_file, antenna_id, feed_id, spectral_window_id)
         )
         coords = {}
         coords["receptor_name"] = np.arange(ant_xds.sizes["receptor_name"]).astype(str)
+        coords["sky_dir_label"] = ["ra", "dec"]
         ant_xds = ant_xds.assign_coords(coords)
     return ant_xds
 
 
-def extract_antenna_info(ant_xds, in_file, antenna_id, telescope_name):
+def extract_gain_curve_info(ant_xds: xr.Dataset, in_file:str, spectral_window_id: int) -> xr.Dataset:
+    """
+    Reformats MSv2 GAIN CURVE table content to MSv4 schema.
 
-    # Dictionaries that define the conversion from MSv2 to MSv4:
-    to_new_data_variable_names = {
-        "POSITION": "ANTENNA_POSITION",
-        "OFFSET": "ANTENNA_FEED_OFFSET",
-        "DISH_DIAMETER": "ANTENNA_DISH_DIAMETER",
-    }
-    data_variable_dims = {
-        "POSITION": ["antenna_id", "cartesian_pos_label"],
-        "OFFSET": ["antenna_id", "cartesian_pos_label"],
-        "DISH_DIAMETER": ["antenna_id"],
-    }
-    to_new_coord_names = {
-        "NAME": "name",
-        "STATION": "station",
-        "MOUNT": "mount",
-        "PHASED_ARRAY_ID": "phased_array_id",
-    }
+    Parameters
+    ----------
+    ant_xds : xr.Dataset
+        The dataset that will be updated with gain curve information.
+    in_file : str
+        Path to the input MSv2.
+    spectral_window_id : int
+        The ID of the spectral window.
 
-    coord_dims = {
-        "NAME": ["antenna_id"],
-        "STATION": ["antenna_id"],
-        "TYPE": ["antenna_id"],
-        "MOUNT": ["antenna_id"],
-        "PHASED_ARRAY_ID": ["antenna_id"],
-    }
-
-    # Read ANTENNA table into a Xarray Dataset.
-    unique_antenna_id = unique_1d(
-        antenna_id
-    )  # Also ensures that it is sorted otherwise TaQL will give wrong results.
-
-    generic_ant_xds = load_generic_table(
-        in_file,
-        "ANTENNA",
-        rename_ids=subt_rename_ids["ANTENNA"],
-        taql_where=f" where (ROWID() IN [{','.join(map(str,unique_antenna_id))}])",  # order is not guaranteed
-    )
-    generic_ant_xds = generic_ant_xds.assign_coords({"antenna_id": unique_antenna_id})
-    generic_ant_xds = generic_ant_xds.sel(
-        antenna_id=antenna_id, drop=False
-    )  # Make sure the antenna_id order is correct.
-
-    # ['OFFSET', 'POSITION', 'DISH_DIAMETER', 'FLAG_ROW', 'MOUNT', 'NAME', 'STATION']
-    ant_xds = xr.Dataset()
-    ant_xds = ant_xds.assign_coords(
-        {"antenna_id": antenna_id, "cartesian_pos_label": ["x", "y", "z"]}
-    )
-
-    ant_xds = convert_generic_xds_to_msv4_xds(
-        generic_ant_xds,
-        ant_xds,
-        to_new_data_variable_names,
-        data_variable_dims,
-        coord_dims,
-        to_new_coord_names,
-    )
-
-    ant_xds["ANTENNA_DISH_DIAMETER"].attrs.update({"units": ["m"], "type": "quantity"})
-
-    ant_xds["ANTENNA_FEED_OFFSET"].attrs["type"] = "earth_location_offset"
-    ant_xds["ANTENNA_FEED_OFFSET"].attrs["coordinate_system"] = "geocentric"
-    ant_xds["ANTENNA_POSITION"].attrs["coordinate_system"] = "geocentric"
-
-    if telescope_name in ["ALMA", "VLA", "NOEMA", "EVLA"]:
-        # antenna_name = ant_xds["name"].values + "_" + ant_xds["station"].values
-        # works on laptop but fails in github test runner with error:
-        # numpy.core._exceptions._UFuncNoLoopError: ufunc 'add' did not contain a loop with signature matching types (dtype('<U4'), dtype('<U4')) -> None
-
-        # Also doesn't work on github test runner:
-        # antenna_name = ant_xds["name"].values
-        # antenna_name = np._core.defchararray.add(antenna_name, "_")
-        # antenna_name = np._core.defchararray.add(
-        #     antenna_name,
-        #     ant_xds["station"].values,
-        # )
-
-        # None of the native numpy functions work on the github test runner.
-        antenna_name = ant_xds["name"].values
-        station = ant_xds["station"].values
-        antenna_name = np.array(
-            list(map(lambda x, y: x + "_" + y, antenna_name, station))
-        )
-
-        ant_xds["name"] = xr.DataArray(antenna_name, dims=["antenna_id"])
-        ant_xds.attrs["relocatable_antennas"] = True
-    else:
-        ant_xds.attrs["relocatable_antennas"] = False
-
-    return ant_xds
-
-
-def extract_gain_curve_info(ant_xds, path, spectral_window_id):
-
-    if os.path.exists(os.path.join(path, "GAIN_CURVE")):
+    Returns
+    -------
+    xr.Dataset
+        The updated antenna dataset with gain curve information.
+    """
+    if os.path.exists(os.path.join(in_file, "GAIN_CURVE")): #Check if the table exists.
         generic_gain_curve_xds = load_generic_table(
-            path,
+            in_file,
             "GAIN_CURVE",
             taql_where=f" where (ANTENNA_ID IN [{','.join(map(str,ant_xds.antenna_id.values))}]) AND (SPECTRAL_WINDOW_ID = {spectral_window_id})",
         )
 
         if (
             generic_gain_curve_xds.data_vars
-        ):  # Some times the gain_curve table is empty (this is the case with ngEHT simulation).
+        ):  # Some times the gain_curve table is empty (this is the case with ngEHT simulation data we have).
 
             assert (
                 len(generic_gain_curve_xds.SPECTRAL_WINDOW_ID) == 1
@@ -244,29 +288,21 @@ def extract_gain_curve_info(ant_xds, path, spectral_window_id):
                 ANTENNA_ID=ant_xds.antenna_id, drop=False
             )  # Make sure the antenna_id is in the same order as the xds .
 
-            to_new_data_variable_names = {
-                "INTERVAL": "GAIN_CURVE_INTERVAL",
-                "GAIN": "GAIN_CURVE",
-                "GAIN_CURVE_SENSITIVITY": "SENSITIVITY",
+            to_new_data_variables = {
+                "INTERVAL": ["GAIN_CURVE_INTERVAL",["antenna_id", "gain_curve_time"]],
+                "GAIN": ["GAIN_CURVE",["antenna_id", "gain_curve_time", "poly_term", "receptor_name"]],
+                "GAIN_CURVE_SENSITIVITY": ["SENSITIVITY",["antenna_id", "gain_curve_time", "receptor_name"]],
             }
 
-            data_variable_dims = {
-                "INTERVAL": ["antenna_id", "gain_curve_time"],
-                "GAIN": ["antenna_id", "gain_curve_time", "poly_term", "receptor_name"],
-                "SENSITIVITY": ["antenna_id", "gain_curve_time", "receptor_name"],
+            to_new_coords = {
+                "TIME": ["gain_curve_time",["gain_curve_time"]],
             }
 
-            to_new_coord_names = {
-                "TIME": "gain_curve_time",
-            }
-
-            ant_xds = convert_generic_xds_to_msv4_xds(
+            ant_xds = convert_generic_xds_to_msv4_xds_2(
                 generic_gain_curve_xds,
                 ant_xds,
-                to_new_data_variable_names,
-                data_variable_dims,
-                coord_dims={},
-                to_new_coord_names=to_new_coord_names,
+                to_new_data_variables,
+                to_new_coords,
             )
         return ant_xds
 
@@ -275,6 +311,23 @@ def extract_gain_curve_info(ant_xds, path, spectral_window_id):
 
 
 def extract_phase_cal_info(ant_xds, path, spectral_window_id):
+    """
+    Reformats MSv2 Phase Cal table content to MSv4 schema.
+
+    Parameters
+    ----------
+    ant_xds : xr.Dataset
+        The dataset that will be updated with phase cal information.
+    in_file : str
+        Path to the input MSv2.
+    spectral_window_id : int
+        The ID of the spectral window.
+
+    Returns
+    -------
+    xr.Dataset
+        The updated antenna dataset with phase cal information.
+    """
 
     if os.path.exists(os.path.join(path, "PHASE_CAL")):
         generic_phase_cal_xds = load_generic_table(
@@ -294,57 +347,62 @@ def extract_phase_cal_info(ant_xds, path, spectral_window_id):
             ANTENNA_ID=ant_xds.antenna_id, drop=False
         )  # Make sure the antenna_id is in the same order as the xds.
 
-        to_new_data_variable_names = {
-            "INTERVAL": "PHASE_CAL_INTERVAL",
-            "TONE_FREQUENCY": "PHASE_CAL_TONE_FREQUENCY",
-            "PHASE_CAL": "PHASE_CAL",
-            "CABLE_CAL": "PHASE_CAL_CABLE_CAL",
+        to_new_data_variables = {
+            "INTERVAL": ["PHASE_CAL_INTERVAL",["antenna_id", "phase_cal_time"]],
+            "TONE_FREQUENCY": ["PHASE_CAL_TONE_FREQUENCY",["antenna_id", "phase_cal_time", "receptor_name", "tone_label"]],
+            "PHASE_CAL": ["PHASE_CAL",["antenna_id", "phase_cal_time", "receptor_name", "tone_label"]],
+            "CABLE_CAL": ["PHASE_CAL_CABLE_CAL",["antenna_id", "phase_cal_time"]],
         }
 
-        data_variable_dims = {
-            "INTERVAL": ["antenna_id", "phase_cal_time"],
-            "TONE_FREQUENCY": [
-                "antenna_id",
-                "phase_cal_time",
-                "receptor_name",
-                "tone_label",
-            ],
-            "PHASE_CAL": [
-                "antenna_id",
-                "phase_cal_time",
-                "receptor_name",
-                "tone_label",
-            ],
-            "CABLE_CAL": ["antenna_id", "phase_cal_time"],
+        to_new_coords = {
+            "TIME": ["phase_cal_time",["phase_cal_time"]],
         }
-
-        to_new_coord_names = {
-            "TIME": "phase_cal_time",
-        }
-
-        ant_xds = convert_generic_xds_to_msv4_xds(
+        
+        ant_xds = convert_generic_xds_to_msv4_xds_2(
             generic_phase_cal_xds,
             ant_xds,
-            to_new_data_variable_names,
-            data_variable_dims,
-            coord_dims={},
-            to_new_coord_names=to_new_coord_names,
+            to_new_data_variables,
+            to_new_coords
         )
-
         return ant_xds
 
     else:
         return ant_xds
-
-
+    
+    
+    
 def convert_generic_xds_to_msv4_xds(
-    generic_xds,
-    msv4_xds,
-    to_new_data_variable_names,
-    data_variable_dims,
-    coord_dims,
-    to_new_coord_names,
-):
+    generic_xds: xr.Dataset,
+    msv4_xds: xr.Dataset,
+    to_new_data_variable: dict,
+    data_variable_dims: dict,
+    coord_dims: dict,
+    to_new_coord_names: dict,
+) -> xr.Dataset:
+    """
+    Convert a generic xarray Dataset to an MSv4 xarray Dataset.
+
+    Parameters
+    ----------
+    generic_xds : xr.Dataset
+        The generic xarray Dataset to be converted.
+    msv4_xds : xr.Dataset
+        The MSv4 xarray Dataset to store the converted data.
+    to_new_data_variable_names : dict
+        A dictionary mapping the original data variable names to the new data variable names.
+    data_variable_dims : dict
+        A dictionary mapping the data variable names to their new corresponding dimensions.
+    coord_dims : dict
+        A dictionary mapping the coordinate names to their new corresponding dimensions.
+    to_new_coord_names : dict
+        A dictionary mapping the original coordinate names to the new coordinate names.
+
+    Returns
+    -------
+    xr.Dataset
+        The converted MSv4 xarray Dataset.
+    """
+    
     column_description = generic_xds.attrs["other"]["msv2"]["ctds_attrs"][
         "column_descriptions"
     ]
@@ -364,6 +422,71 @@ def convert_generic_xds_to_msv4_xds(
         if key in to_new_coord_names:
             coords[to_new_coord_names[key]] = (
                 coord_dims[key],
+                generic_xds[key].data,
+            )
+    msv4_xds = msv4_xds.assign_coords(coords)
+    return msv4_xds
+
+
+def convert_generic_xds_to_msv4_xds_2(
+    generic_xds: xr.Dataset,
+    msv4_xds: xr.Dataset,
+    to_new_data_variables: dict,
+    to_new_coords: dict,
+) -> xr.Dataset:
+    """
+    Convert a generic xarray Dataset to an MSv4 xarray Dataset.
+
+    Parameters
+    ----------
+    generic_xds : xr.Dataset
+        The generic xarray Dataset to be converted.
+    msv4_xds : xr.Dataset
+        The MSv4 xarray Dataset to store the converted data.
+    to_new_data_variable_names : dict
+        A dictionary mapping the original data variable names to the new data variable names.
+    data_variable_dims : dict
+        A dictionary mapping the data variable names to their new corresponding dimensions.
+    coord_dims : dict
+        A dictionary mapping the coordinate names to their new corresponding dimensions.
+    to_new_coord_names : dict
+        A dictionary mapping the original coordinate names to the new coordinate names.
+
+    Returns
+    -------
+    xr.Dataset
+        The converted MSv4 xarray Dataset.
+    """
+    
+    column_description = generic_xds.attrs["other"]["msv2"]["ctds_attrs"][
+        "column_descriptions"
+    ]
+    coords = {}
+    
+    name_keys = list(generic_xds.data_vars.keys()) + list(generic_xds.coords.keys())
+
+    for key in name_keys:
+        
+        if key in column_description:
+            msv4_measure = column_description_casacore_to_msv4_measure(
+                column_description[key]
+            )
+        else:
+            msv4_measure = None
+            
+        if key in to_new_data_variables:
+            new_dv = to_new_data_variables[key]
+            msv4_xds[new_dv[0]] = xr.DataArray(
+                generic_xds[key].data, dims=new_dv[1]
+            )
+
+            if msv4_measure:
+                msv4_xds[new_dv[0]].attrs.update(msv4_measure)
+
+        if key in to_new_coords:
+            new_coord = to_new_coords[key]
+            coords[new_coord[0]] = (
+                new_coord[1],
                 generic_xds[key].data,
             )
     msv4_xds = msv4_xds.assign_coords(coords)

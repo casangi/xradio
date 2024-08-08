@@ -289,14 +289,14 @@ def extract_gain_curve_info(
             )  # Make sure the antenna_id is in the same order as the xds .
 
             to_new_data_variables = {
-                "INTERVAL": ["GAIN_CURVE_INTERVAL", ["antenna_id", "gain_curve_time"]],
+                "INTERVAL": ["GAIN_CURVE_INTERVAL", ["name", "gain_curve_time"]],
                 "GAIN": [
                     "GAIN_CURVE",
-                    ["antenna_id", "gain_curve_time", "poly_term", "receptor_name"],
+                    ["name", "gain_curve_time", "poly_term", "receptor_name"],
                 ],
-                "GAIN_CURVE_SENSITIVITY": [
-                    "SENSITIVITY",
-                    ["antenna_id", "gain_curve_time", "receptor_name"],
+                "SENSITIVITY": [
+                    "GAIN_CURVE_SENSITIVITY",
+                    ["name", "gain_curve_time", "receptor_name"],
                 ],
             }
 

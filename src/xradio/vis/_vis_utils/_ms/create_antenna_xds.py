@@ -193,21 +193,23 @@ def extract_antenna_info(ant_xds, in_file, antenna_id, telescope_name):
     ant_xds["ANTENNA_POSITION"].attrs["coordinate_system"] = "geocentric"
 
     if telescope_name in ["ALMA", "VLA", "NOEMA", "EVLA"]:
-        # ant_name = ant_xds["name"].values + "_" + ant_xds["station"].values
+        # antenna_name = ant_xds["name"].values + "_" + ant_xds["station"].values
         # works on laptop but fails in github test runner with error:
         # numpy.core._exceptions._UFuncNoLoopError: ufunc 'add' did not contain a loop with signature matching types (dtype('<U4'), dtype('<U4')) -> None
 
-        # Have to use private numpy functions to get around this.
-        antenna_name = ant_xds["name"].values
+        # Also doesn't work on github test runner:
+        # antenna_name = ant_xds["name"].values
         # antenna_name = np._core.defchararray.add(antenna_name, "_")
         # antenna_name = np._core.defchararray.add(
         #     antenna_name,
         #     ant_xds["station"].values,
         # )
-        antenna_name = np._core.add(antenna_name, "_")
-        antenna_name = np._core.add(
-            antenna_name,
-            ant_xds["station"].values,
+
+        # None of the native numpy functions work on the github test runner.
+        antenna_name = ant_xds["name"].values
+        station = ant_xds["station"].values
+        antenna_name = np.array(
+            list(map(lambda x, y: x + "_" + y, antenna_name, station))
         )
 
         ant_xds["name"] = xr.DataArray(antenna_name, dims=["antenna_id"])

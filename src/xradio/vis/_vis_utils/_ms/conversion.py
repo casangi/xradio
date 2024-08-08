@@ -841,7 +841,9 @@ def convert_and_write_partition(
 
             # Change antenna_ids to antenna_names
             xds = antenna_ids_to_names(xds, ant_xds)
-            ant_xds = ant_xds.drop("antenna_id") #No longer needed after convewrting to name.
+            ant_xds = ant_xds.drop(
+                "antenna_id"
+            )  # No longer needed after convewrting to name.
 
             logger.debug("Time ant xds  " + str(time.time() - start))
 
@@ -993,7 +995,9 @@ def convert_and_write_partition(
 
 
 def antenna_ids_to_names(xds, ant_xds):
-    ant_xds = ant_xds.set_xindex("antenna_id") #Allows for non-dimension coordinate selection.
+    ant_xds = ant_xds.set_xindex(
+        "antenna_id"
+    )  # Allows for non-dimension coordinate selection.
 
     if "baseline_antenna1_id" in xds:  # Interferometer
         xds["baseline_antenna1_id"] = ant_xds["name"].sel(

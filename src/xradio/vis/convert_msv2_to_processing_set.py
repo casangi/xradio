@@ -77,8 +77,7 @@ def convert_msv2_to_processing_set(
             + ", SCAN "
             + str(partition_info["SCAN_NUMBER"])
             + (
-                ", ANTENNA "
-                + str(partition_info["ANTENNA1"])
+                ", ANTENNA " + str(partition_info["ANTENNA1"])
                 if "ANTENNA1" in partition_info
                 else ""
             )

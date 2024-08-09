@@ -54,6 +54,7 @@ def create_partitions(in_file: str, partition_scheme: list):
     par_df["SCAN_NUMBER"] = main_tb.getcol("SCAN_NUMBER")
     par_df["STATE_ID"] = main_tb.getcol("STATE_ID")
     par_df["OBSERVATION_ID"] = main_tb.getcol("OBSERVATION_ID")
+    par_df["ANTENNA1"] = main_tb.getcol("ANTENNA1")
     par_df = par_df.drop_duplicates()
 
     field_tb = tables.table(
@@ -123,6 +124,9 @@ def create_partitions(in_file: str, partition_scheme: list):
         "OBS_MODE",
         "SUB_SCAN_NUMBER",
     ]
+    if "ANTENNA1" in partition_scheme:
+        partition_axis_names.append("ANTENNA1")
+
     for idx, pair in enumerated_partitions:
         query = ""
         for i, par in enumerate(partition_scheme_updated):

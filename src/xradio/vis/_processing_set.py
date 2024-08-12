@@ -1,5 +1,6 @@
 import pandas as pd
 from xradio._utils.list_and_array import to_list
+import numbers
 
 
 class processing_set(dict):
@@ -37,7 +38,9 @@ class processing_set(dict):
         if data_group in self.meta["summary"]:
             return self.meta["summary"][data_group]
         else:
-            self.meta["summary"][data_group] = self._summary(data_group).sort_values(by=["name"],ascending=True)
+            self.meta["summary"][data_group] = self._summary(data_group).sort_values(
+                by=["name"], ascending=True
+            )
             return self.meta["summary"][data_group]
 
     def get_ps_max_dims(self):
@@ -185,7 +188,7 @@ class processing_set(dict):
     def get(self, id):
         return self[list(self.keys())[id]]
 
-    def sel(self, query: str = None, **kwargs):
+    def sel(self, string_exact_match: bool =True, query: str = None, **kwargs):
         """
         Selects a subset of the Processing Set based on column names and values or a Pandas query.
 
@@ -199,6 +202,7 @@ class processing_set(dict):
 
         Args:
             query (str): A Pandas query string. Default is None.
+            string_exact_match (bool): If True, the selection will be an exact match for string and string list columns. Default is True.
             **kwargs: Keyword arguments representing column names and values to filter the Processing Set.
 
         Returns:
@@ -206,8 +210,33 @@ class processing_set(dict):
         """
         import numpy as np
 
-        def select_rows(df, col, input_strings):
-            return df[df[col].apply(lambda x: any(i in x for i in input_strings))]
+        # def select_rows(df, col, input_strings):
+        #     return df[df[col].apply(lambda x: any(i in x for i in input_strings))]
+
+        # def select_rows(df, col, sel, string_exact_match):
+        #     def check_selection(row_val):
+        #         if isinstance(row_val, numbers.Number) or string_exact_match:
+        #             return any(i == row_val for i in sel) #If values are numbers
+        #         return any(i in row_val for i in sel) #If values are strings
+        #     return df[df[col].apply(check_selection)]
+
+        def select_rows(df, col, sel_vals, string_exact_match):
+            def check_selection(row_val):
+                row_val = to_list(
+                    row_val
+                )  # make sure that it is a list so that we can iterate over it.
+
+                for rw in row_val:
+                    for s in sel_vals:
+                        if string_exact_match:
+                            if rw == s:
+                                return True
+                        else:
+                            if s in rw:
+                                return True
+                return False
+
+            return df[df[col].apply(check_selection)]
 
         summary_table = self.summary()
         for key, value in kwargs.items():
@@ -218,7 +247,9 @@ class processing_set(dict):
                     summary_table[key].between(value[0].start, value[0].stop)
                 ]
             else:
-                summary_table = select_rows(summary_table, key, value)
+                summary_table = select_rows(
+                    summary_table, key, value, string_exact_match
+                )
 
         if query is not None:
             summary_table = summary_table.query(query)

@@ -42,9 +42,8 @@ def _get_file_system_and_items(ps_store: str):
                 for bd in file_system.listdir(ps_store, detail=False)
             ]
     else:
-        raise (
-            FileNotFoundError,
-            f"Could not find {ps_store} either locally or in the cloud.",
+        raise FileNotFoundError(
+            f"Could not find {ps_store} either locally or in the cloud."
         )
 
     items = [

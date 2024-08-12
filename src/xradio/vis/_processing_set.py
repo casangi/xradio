@@ -79,6 +79,7 @@ class processing_set(dict):
             "field_name": [],
             # "source_id": [],
             "source_name": [],
+            # "num_lines": [],
             "field_coords": [],
             "start_frequency": [],
             "end_frequency": [],
@@ -113,6 +114,7 @@ class processing_set(dict):
             summary_data["source_name"].append(
                 value.attrs["partition_info"]["source_name"]
             )
+            # summary_data["num_lines"].append(value.attrs["partition_info"]["num_lines"])
             summary_data["start_frequency"].append(value["frequency"].values[0])
             summary_data["end_frequency"].append(value["frequency"].values[-1])
 
@@ -189,6 +191,8 @@ class processing_set(dict):
 
         The following columns are supported: name, obs_mode, polarization, spw_name, field_name, source_name, field_coords, start_frequency, end_frequency.
 
+        This function will not apply any selection on the MS data so data will not be dropped for example if a MS has field_name=['field_0','field_10','field_08'] and ps.sel(field_name='field_0') is done the resulting MS will still have field_name=['field_0','field_10','field_08'].
+
         Examples:
             ps.sel(obs_mode='OBSERVE_TARGET#ON_SOURCE', polarization=['RR', 'LL']) # Select all MSs with obs_mode 'OBSERVE_TARGET#ON_SOURCE' and polarization 'RR' or 'LL'.
             ps.sel(query='start_frequency > 100e9 AND end_frequency < 200e9') # Select all MSs with start_frequency greater than 100 GHz and less than 200 GHz.
@@ -207,7 +211,6 @@ class processing_set(dict):
 
         summary_table = self.summary()
         for key, value in kwargs.items():
-            print("key:", key, "value:", value)
             value = to_list(value)  # make sure value is a list.
 
             if len(value) == 1 and isinstance(value[0], slice):

@@ -119,6 +119,7 @@ def test_flatten_then_expand_xds_main_min(main_xds_min):
     res = flatten_xds(main_xds_min)
     res = res.drop_vars("baseline")
     res_expanded = expand_xds(res)
+
     assert all(
         [
             dim in res_expanded.dims

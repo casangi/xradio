@@ -62,7 +62,7 @@ def create_field_and_source_xds(
     field_and_source_xds = xr.Dataset()
 
     field_and_source_xds, ephemeris_path, ephemeris_table_name, source_id = (
-        create_field_info_and_check_ephemeris(
+        extract_field_info_and_check_ephemeris(
             field_and_source_xds, in_file, field_id, field_times, is_single_dish
         )
     )
@@ -77,7 +77,7 @@ def create_field_and_source_xds(
             ephemeris_interp_time,
         )
 
-    field_and_source_xds = extract_source_info(
+    field_and_source_xds, num_lines = extract_source_info(
         field_and_source_xds, in_file, source_id, spectral_window_id
     )
 
@@ -95,7 +95,7 @@ def create_field_and_source_xds(
         if np.unique(field_and_source_xds[center_dv], axis=0).shape[0] == 1:
             field_and_source_xds = field_and_source_xds.isel(time=0).drop_vars("time")
 
-    return field_and_source_xds, source_id
+    return field_and_source_xds, source_id, num_lines
 
 
 def extract_ephemeris_info(
@@ -455,7 +455,7 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
         xds = xds.assign_coords(
             {"source_name": "Unknown"}
         )  # Need to add this for ps.summary() to work.
-        return xds
+        return xds, 0
 
     unique_source_id = unique_1d(source_id)
     taql_where = f"where (SOURCE_ID IN [{','.join(map(str, unique_source_id))}]) AND (SPECTRAL_WINDOW_ID = {spectral_window_id})"
@@ -474,7 +474,7 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
         xds = xds.assign_coords(
             {"source_name": "Unknown"}
         )  # Need to add this for ps.summary() to work.
-        return xds
+        return xds, 0
 
     assert (
         len(source_xds.SPECTRAL_WINDOW_ID) == 1
@@ -594,10 +594,13 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
         pass
 
     xds = xds.assign_coords(coords)
-    return xds
+
+    _, unique_source_ids_indices = np.unique(source_xds.SOURCE_ID, return_index=True)
+
+    return xds, np.sum(num_lines[unique_source_ids_indices])
 
 
-def create_field_info_and_check_ephemeris(
+def extract_field_info_and_check_ephemeris(
     field_and_source_xds, in_file, field_id, field_times, is_single_dish
 ):
     """

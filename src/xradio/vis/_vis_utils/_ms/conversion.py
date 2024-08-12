@@ -9,7 +9,11 @@ import numpy as np
 import xarray as xr
 
 from casacore import tables
-from .msv4_sub_xdss import create_ant_xds, create_pointing_xds, create_weather_xds
+from xradio.vis._vis_utils._ms.msv4_sub_xdss import (
+    create_pointing_xds,
+    create_weather_xds,
+)
+from xradio.vis._vis_utils._ms.create_antenna_xds import create_antenna_xds
 from xradio.vis._vis_utils._ms.create_field_and_source_xds import (
     create_field_and_source_xds,
 )
@@ -827,7 +831,7 @@ def convert_and_write_partition(
                 )
             )
 
-            ant_xds = create_ant_xds(
+            ant_xds = create_antenna_xds(
                 in_file,
                 xds.frequency.attrs["spectral_window_id"],
                 antenna_id,
@@ -837,6 +841,9 @@ def convert_and_write_partition(
 
             # Change antenna_ids to antenna_names
             xds = antenna_ids_to_names(xds, ant_xds)
+            ant_xds = ant_xds.drop(
+                "antenna_id"
+            )  # No longer needed after convewrting to name.
 
             logger.debug("Time ant xds  " + str(time.time() - start))
 
@@ -901,7 +908,7 @@ def convert_and_write_partition(
             # assert len(col_unique) == 1, col_name + " is not consistent."
             # return col_unique[0]
 
-            field_and_source_xds, source_id = create_field_and_source_xds(
+            field_and_source_xds, source_id, num_lines = create_field_and_source_xds(
                 in_file,
                 field_id,
                 xds.frequency.attrs["spectral_window_id"],
@@ -952,6 +959,7 @@ def convert_and_write_partition(
                     np.unique(field_and_source_xds.source_name.values)
                 ),
                 "polarization_setup": to_list(xds.polarization.values),
+                "num_lines": num_lines,
                 "obs_mode": obs_mode,
                 "taql": taql_where,
             }
@@ -987,69 +995,26 @@ def convert_and_write_partition(
 
 
 def antenna_ids_to_names(xds, ant_xds):
+    ant_xds = ant_xds.set_xindex(
+        "antenna_id"
+    )  # Allows for non-dimension coordinate selection.
 
-    if ant_xds.attrs["overall_telescope_name"] in ["ALMA", "VLA", "NOEMA", "EVLA"]:
-        moving_antennas = True
-    else:
-        moving_antennas = False
-
-    if moving_antennas:
-        if "baseline_antenna1_id" in xds:  # Interferometer
-
-            baseline_ant1_name = np.core.defchararray.add(
-                ant_xds["name"].sel(antenna_id=xds["baseline_antenna1_id"]).values, "_"
-            )
-            baseline_ant1_name = np.core.defchararray.add(
-                baseline_ant1_name,
-                ant_xds["station"].sel(antenna_id=xds["baseline_antenna1_id"]).values,
-            )
-            baseline_ant2_name = np.core.defchararray.add(
-                ant_xds["name"].sel(antenna_id=xds["baseline_antenna2_id"]).values, "_"
-            )
-            baseline_ant2_name = np.core.defchararray.add(
-                baseline_ant2_name,
-                ant_xds["station"].sel(antenna_id=xds["baseline_antenna2_id"]).values,
-            )
-
-            xds["baseline_antenna1_id"] = xr.DataArray(
-                baseline_ant1_name, dims="baseline_id"
-            )
-            xds["baseline_antenna2_id"] = xr.DataArray(
-                baseline_ant2_name, dims="baseline_id"
-            )
-            xds = xds.rename(
-                {
-                    "baseline_antenna1_id": "baseline_antenna1_name",
-                    "baseline_antenna2_id": "baseline_antenna2_name",
-                }
-            )
-        else:  # Single Dish
-            antenna_name = np.core.defchararray.add(
-                ant_xds["name"].sel(antenna_id=xds["antenna_id"]).values, "_"
-            )
-            antenna_name = np.core.defchararray.add(
-                antenna_name,
-                ant_xds["station"].sel(antenna_id=xds["antenna_id"]).values,
-            )
-            xds["antenna_id"] = xr.DataArray(antenna_name, dims="baseline_id")
-            xds = xds.rename({"antenna_id": "antenna_name"})
-    else:
-        if "baseline_antenna1_id" in xds:  # Interferometer
-            xds["baseline_antenna1_id"] = ant_xds["name"].sel(
-                antenna_id=xds["baseline_antenna1_id"]
-            )
-            xds["baseline_antenna2_id"] = ant_xds["name"].sel(
-                antenna_id=xds["baseline_antenna2_id"]
-            )
-            xds = xds.rename(
-                {
-                    "baseline_antenna1_id": "baseline_antenna1_name",
-                    "baseline_antenna2_id": "baseline_antenna2_name",
-                }
-            )
-        else:  # Single Dish
-            xds["antenna_id"] = ant_xds["name"].sel(antenna_id=xds["antenna_id"])
-            xds = xds.rename({"antenna_id": "antenna_name"})
+    if "baseline_antenna1_id" in xds:  # Interferometer
+        xds["baseline_antenna1_id"] = ant_xds["name"].sel(
+            antenna_id=xds["baseline_antenna1_id"]
+        )
+        xds["baseline_antenna2_id"] = ant_xds["name"].sel(
+            antenna_id=xds["baseline_antenna2_id"]
+        )
+        xds = xds.rename(
+            {
+                "baseline_antenna1_id": "baseline_antenna1_name",
+                "baseline_antenna2_id": "baseline_antenna2_name",
+            }
+        )
+    else:  # Single Dish
+        xds["antenna_id"] = ant_xds["name"].sel(antenna_id=xds["antenna_id"])
+        xds = xds.rename({"antenna_id": "antenna_name"})
 
     return xds
 

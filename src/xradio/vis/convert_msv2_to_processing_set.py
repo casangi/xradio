@@ -78,6 +78,8 @@ def convert_msv2_to_processing_set(
             + str(partition_info["SCAN_NUMBER"])
         )
 
+        # prepend '0' to ms_v4_id as needed
+        ms_v4_id = f"{ms_v4_id:0>{len(str(len(partitions) - 1))}}"
         if parallel:
             delayed_list.append(
                 dask.delayed(convert_and_write_partition)(

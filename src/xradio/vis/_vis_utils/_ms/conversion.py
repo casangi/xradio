@@ -666,7 +666,7 @@ def create_taql_query(partition_info):
 def convert_and_write_partition(
     in_file: str,
     out_file: str,
-    ms_v4_id: int,
+    ms_v4_id: Union[int, str],
     partition_info: Dict,
     use_table_iter: bool,
     partition_scheme: str = "ddi_intent_field",

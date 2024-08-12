@@ -37,7 +37,7 @@ class processing_set(dict):
         if data_group in self.meta["summary"]:
             return self.meta["summary"][data_group]
         else:
-            self.meta["summary"][data_group] = self._summary(data_group)
+            self.meta["summary"][data_group] = self._summary(data_group).sort_values(by=["name"],ascending=True)
             return self.meta["summary"][data_group]
 
     def get_ps_max_dims(self):

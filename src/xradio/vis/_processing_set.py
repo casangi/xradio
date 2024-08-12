@@ -77,12 +77,14 @@ class processing_set(dict):
             "obs_mode": [],
             "shape": [],
             "polarization": [],
+            "scan_number": [],
             "spw_name": [],
             # "field_id": [],
             "field_name": [],
             # "source_id": [],
             "source_name": [],
             # "num_lines": [],
+            "line_name": [],
             "field_coords": [],
             "start_frequency": [],
             "end_frequency": [],
@@ -97,6 +99,9 @@ class processing_set(dict):
                 value.attrs["partition_info"]["spectral_window_name"]
             )
             summary_data["polarization"].append(value.polarization.values)
+            summary_data["scan_number"].append(
+                value.attrs["partition_info"]["scan_number"]
+            )
 
             if "visibility" in value.attrs["data_groups"][data_group]:
                 data_name = value.attrs["data_groups"][data_group]["visibility"]
@@ -117,6 +122,9 @@ class processing_set(dict):
             summary_data["source_name"].append(
                 value.attrs["partition_info"]["source_name"]
             )
+
+            summary_data["line_name"].append(value.attrs["partition_info"]["line_name"])
+
             # summary_data["num_lines"].append(value.attrs["partition_info"]["num_lines"])
             summary_data["start_frequency"].append(value["frequency"].values[0])
             summary_data["end_frequency"].append(value["frequency"].values[-1])
@@ -188,7 +196,7 @@ class processing_set(dict):
     def get(self, id):
         return self[list(self.keys())[id]]
 
-    def sel(self, string_exact_match: bool =True, query: str = None, **kwargs):
+    def sel(self, string_exact_match: bool = True, query: str = None, **kwargs):
         """
         Selects a subset of the Processing Set based on column names and values or a Pandas query.
 

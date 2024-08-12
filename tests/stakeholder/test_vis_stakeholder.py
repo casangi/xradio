@@ -217,13 +217,13 @@ def test_VLA():
 
 if __name__ == "__main__":
     a = 42
-    # test_sd_A002_X1015532_X1926f()
+    test_sd_A002_X1015532_X1926f()
     # test_sd_A002_Xae00c5_X2e6b()
     # test_sd_A002_Xced5df_Xf9d9()
-    # test_sd_A002_Xe3a5fd_Xe38e()
+    test_sd_A002_Xe3a5fd_Xe38e()
     # test_s3()
     # test_vlass()
-    test_alma()
+    # test_alma()
     # test_preconverted_alma()
     # test_ska_mid()
     # test_lofar()
@@ -231,10 +231,15 @@ if __name__ == "__main__":
     # test_global_vlbi()
     # test_vlba()
     # test_ngeht()
-    # test_ephemeris()
+    test_ephemeris()
     # test_single_dish()
-    # test_alma_ephemris_mosaic()
+    test_alma_ephemris_mosaic()
     # test_VLA()
+
+    # FAILED test_vis_stakeholder.py::test_ephemeris - ValueError: Buffer has wrong number of dimensions (expected 1, got 2)
+    # FAILED test_vis_stakeholder.py::test_alma_ephemris_mosaic - ValueError: Buffer has wrong number of dimensions (expected 1, got 2)
+    # FAILED test_vis_stakeholder.py::test_sd_A002_X1015532_X1926f - ValueError: Buffer has wrong number of dimensions (expected 1, got 2)
+    # FAILED test_vis_stakeholder.py::test_sd_A002_Xe3a5fd_Xe38e - ValueError: Buffer has wrong number of dimensions (expected 1, got 2)
 
 # All test preformed on MAC with M3 and 16 GB Ram.
 # pytest --durations=0 .

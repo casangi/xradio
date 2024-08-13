@@ -68,6 +68,9 @@ def base_test(
     # viper_client = local_client(cores=4, memory_limit="4GB")
     # viper_client
 
+    ps_list = (
+        []
+    )  # Create a list of PS for each partition scheme. This will be returned.
     for partition_scheme in partition_schemes:
         if is_s3:
             ps_name = file_name
@@ -120,8 +123,9 @@ def base_test(
         #         print(f"{xds_name}: okay\n")
         #     else:
         #         print(f"{xds_name}: {issues}\n")
-
+        ps_list.append(ps)
     print("Time taken:", time.time() - start)
+    return ps_list
 
 
 def test_s3():
@@ -183,7 +187,65 @@ def test_single_dish():
 
 
 def test_alma_ephemris_mosaic():
-    base_test("ALMA_uid___A002_X1003af4_X75a3.split.avg.ms", 8.11051993222426e17)
+    ps_list = base_test(
+        "ALMA_uid___A002_X1003af4_X75a3.split.avg.ms", 8.11051993222426e17
+    )
+    # Here we test if the field_and_source_xds structure is correct.
+    check_source_and_field_xds(
+        ps_list[0], "ALMA_uid___A002_X1003af4_X75a3.split.avg_17", 127796.84837227
+    )
+    check_source_and_field_xds(
+        ps_list[1], "ALMA_uid___A002_X1003af4_X75a3.split.avg_81", 4915.66000546
+    )
+
+    # Test PS sel
+    check_ps_sel(ps_list[0])
+    check_ps_sel(ps_list[1])
+
+
+def check_ps_sel(ps):
+    ps.sel(
+        query="start_frequency > 2.46e11",
+        field_coords="Ephemeris",
+        field_name=["Sun_10_10", "Sun_10_11"],
+    ).summary()
+    min_freq = min(ps.summary()["start_frequency"])
+    ps.sel(start_frequency=min_freq).summary()
+    ps.sel(
+        name="ALMA_uid___A002_X1003af4_X75a3.split.avg_01", string_exact_match=True
+    ).summary()
+    ps.sel(field_name="Sun_10", string_exact_match=False).summary()
+    ps.sel(
+        name="ALMA_uid___A002_X1003af4_X75a3.split.avg", string_exact_match=False
+    ).summary()
+
+
+def check_source_and_field_xds(ps, msv4_name, expected_NP_sum):
+    field_and_source_xds = ps[msv4_name].VISIBILITY.attrs["field_and_source_xds"]
+    field_and_source_data_variable_names = [
+        "FIELD_PHASE_CENTER",
+        "HELIOCENTRIC_RADIAL_VELOCITY",
+        "LINE_REST_FREQUENCY",
+        "LINE_SYSTEMIC_VELOCITY",
+        "NORTH_POLE_ANGULAR_DISTANCE",
+        "NORTH_POLE_POSITION_ANGLE",
+        "OBSERVATION_POSITION",
+        "OBSERVER_PHASE_ANGLE",
+        "SOURCE_POSITION",
+        "SOURCE_RADIAL_VELOCITY",
+        "SUB_OBSERVER_POSITION",
+    ]
+    assert are_all_variables_in_dataset(
+        field_and_source_xds, field_and_source_data_variable_names
+    ), "field_and_source_xds is missing data variables."
+
+    assert np.sum(field_and_source_xds.NORTH_POLE_ANGULAR_DISTANCE) == pytest.approx(
+        expected_NP_sum, rel=relative_tolerance
+    ), "The sum of the NORTH_POLE_ANGULAR_DISTANCE has changed."
+
+
+def are_all_variables_in_dataset(dataset, variable_list):
+    return all(var in dataset.data_vars for var in variable_list)
 
 
 def test_vlass():
@@ -217,10 +279,10 @@ def test_VLA():
 
 if __name__ == "__main__":
     a = 42
-    test_sd_A002_X1015532_X1926f()
+    # test_sd_A002_X1015532_X1926f()
     # test_sd_A002_Xae00c5_X2e6b()
     # test_sd_A002_Xced5df_Xf9d9()
-    test_sd_A002_Xe3a5fd_Xe38e()
+    # test_sd_A002_Xe3a5fd_Xe38e()
     # test_s3()
     # test_vlass()
     # test_alma()
@@ -231,7 +293,7 @@ if __name__ == "__main__":
     # test_global_vlbi()
     # test_vlba()
     # test_ngeht()
-    test_ephemeris()
+    # test_ephemeris()
     # test_single_dish()
     test_alma_ephemris_mosaic()
     # test_VLA()

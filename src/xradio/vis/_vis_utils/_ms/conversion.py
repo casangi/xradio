@@ -977,7 +977,7 @@ def convert_and_write_partition(
                 ),
                 "polarization_setup": to_list(xds.polarization.values),
                 "num_lines": num_lines,
-                "obs_mode": obs_mode,
+                "obs_mode": obs_mode.split(","),
                 "taql": taql_where,
             }
 

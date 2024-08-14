@@ -221,17 +221,20 @@ def extract_feed_info(
         to_new_data_variables = {
             "BEAM_OFFSET": ["BEAM_OFFSET", ["name", "receptor_name", "sky_dir_label"]],
             "RECEPTOR_ANGLE": ["RECEPTOR_ANGLE", ["name", "receptor_name"]],
-            "POLARIZATION_TYPE": ["POLARIZATION_TYPE", ["name", "receptor_name"]],
             # "pol_response": ["POLARIZATION_RESPONSE", ["name", "receptor_name", "receptor_name_"]] #repeated dim creates problems.
             "FOCUS_LENGTH": ["FOCUS_LENGTH", ["name"]],  # optional
             # "position": ["ANTENNA_FEED_OFFSET",["name", "cartesian_pos_label"]] #Will be added to the existing position in ant_xds
+        }
+
+        to_new_coords = {
+            "POLARIZATION_TYPE": ["polarization_type", ["name", "receptor_name"]]
         }
 
         ant_xds = convert_generic_xds_to_xradio_schema(
             generic_feed_xds,
             ant_xds,
             to_new_data_variables,
-            to_new_coords={},
+            to_new_coords=to_new_coords,
         )
 
         ant_xds["ANTENNA_FEED_OFFSET"] = (
@@ -302,7 +305,10 @@ def extract_gain_curve_info(
 
             to_new_coords = {
                 "TIME": ["gain_curve_time", ["gain_curve_time"]],
+                "TYPE": ["gain_curve_type", ["name", "gain_curve_time"]],
             }
+
+            # print(generic_gain_curve_xds)
 
             ant_xds = convert_generic_xds_to_xradio_schema(
                 generic_gain_curve_xds,
@@ -310,6 +316,10 @@ def extract_gain_curve_info(
                 to_new_data_variables,
                 to_new_coords,
             )
+            ant_xds["GAIN_CURVE"] = ant_xds["GAIN_CURVE"].transpose(
+                "name", "gain_curve_time", "receptor_name", "poly_term"
+            )
+
         return ant_xds
 
     else:
@@ -354,16 +364,16 @@ def extract_phase_cal_info(ant_xds, path, spectral_window_id):
         )  # Make sure the antenna_id is in the same order as the xds.
 
         to_new_data_variables = {
-            "INTERVAL": ["PHASE_CAL_INTERVAL", ["antenna_id", "phase_cal_time"]],
+            "INTERVAL": ["PHASE_CAL_INTERVAL", ["name", "phase_cal_time"]],
             "TONE_FREQUENCY": [
                 "PHASE_CAL_TONE_FREQUENCY",
-                ["antenna_id", "phase_cal_time", "receptor_name", "tone_label"],
+                ["name", "phase_cal_time", "tone_label", "receptor_name"],
             ],
             "PHASE_CAL": [
                 "PHASE_CAL",
-                ["antenna_id", "phase_cal_time", "receptor_name", "tone_label"],
+                ["name", "phase_cal_time", "tone_label", "receptor_name"],
             ],
-            "CABLE_CAL": ["PHASE_CAL_CABLE_CAL", ["antenna_id", "phase_cal_time"]],
+            "CABLE_CAL": ["PHASE_CAL_CABLE_CAL", ["name", "phase_cal_time"]],
         }
 
         to_new_coords = {
@@ -373,6 +383,13 @@ def extract_phase_cal_info(ant_xds, path, spectral_window_id):
         ant_xds = convert_generic_xds_to_xradio_schema(
             generic_phase_cal_xds, ant_xds, to_new_data_variables, to_new_coords
         )
+        ant_xds["PHASE_CAL"] = ant_xds["PHASE_CAL"].transpose(
+            "name", "phase_cal_time", "receptor_name", "tone_label"
+        )
+        ant_xds["PHASE_CAL_TONE_FREQUENCY"] = ant_xds[
+            "PHASE_CAL_TONE_FREQUENCY"
+        ].transpose("name", "phase_cal_time", "receptor_name", "tone_label")
+
         return ant_xds
 
     else:

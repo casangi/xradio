@@ -126,7 +126,9 @@ class processing_set(dict):
             summary_data["line_name"].append(value.attrs["partition_info"]["line_name"])
 
             # summary_data["num_lines"].append(value.attrs["partition_info"]["num_lines"])
-            summary_data["start_frequency"].append(to_list(value["frequency"].values)[0])
+            summary_data["start_frequency"].append(
+                to_list(value["frequency"].values)[0]
+            )
             summary_data["end_frequency"].append(to_list(value["frequency"].values)[-1])
 
             if value[data_name].attrs["field_and_source_xds"].is_ephemeris:

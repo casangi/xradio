@@ -107,7 +107,6 @@ def base_test(
             )
 
         os.system("rm -rf " + ps_name)  # Remove vis.zarr folder.
-        os.system("rm -rf " + file_name)  # Remove downloaded MSv2 folder.
 
         print("sum", sum, sum_lazy)
         assert (
@@ -124,6 +123,7 @@ def base_test(
         #     else:
         #         print(f"{xds_name}: {issues}\n")
         ps_list.append(ps)
+    os.system("rm -rf " + file_name)  # Remove downloaded MSv2 folder.
     print("Time taken:", time.time() - start)
     return ps_list
 
@@ -277,8 +277,39 @@ def test_VLA():
     base_test("SNR_G55_10s.split.ms", 195110762496.0)
 
 
+def test_askap_59749_bp_8beams_pattern():
+    base_test("59749_bp_8beams_pattern.ms", 5652688384.0)
+
+
+def test_askap_59750_altaz_2settings():
+    base_test("59750_altaz_2settings.ms", 1878356864.0)
+
+
+def test_askap_59754_altaz_2weights_0():
+    base_test("59754_altaz_2weights_0.ms", 1504652800.0)
+
+
+def test_askap_59754_altaz_2weights_15():
+    base_test("59754_altaz_2weights_15.ms", 1334662656.0)
+
+
+def test_askap_59755_eq_interleave_0():
+    base_test("59755_eq_interleave_0.ms", 3052425984.0)
+
+
+def test_askap_59755_eq_interleave_15():
+    base_test("59755_eq_interleave_15.ms", 2949046016.0)
+
+
 if __name__ == "__main__":
     a = 42
+    # test_askap_59749_bp_8beams_pattern()
+    # test_askap_59750_altaz_2settings()
+    # test_askap_59754_altaz_2weights_0()
+    # test_askap_59754_altaz_2weights_15()
+    # test_askap_59755_eq_interleave_0()
+    # test_askap_59755_eq_interleave_15()
+
     # test_sd_A002_X1015532_X1926f()
     # test_sd_A002_Xae00c5_X2e6b()
     # test_sd_A002_Xced5df_Xf9d9()

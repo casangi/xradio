@@ -284,6 +284,22 @@ def _dataset_new(cls, *args, data_vars=None, coords=None, attrs=None, **kwargs):
         val = _np_convert(
             _set_parameter(coords.get(coord.name), mapping.arguments, coord), coord
         )
+        # Determine dimensions / convert to Variable
+        if (
+            val is not None
+            and not isinstance(val, xarray.DataArray)
+            and not isinstance(val, xarray.Variable)
+            and not isinstance(val, tuple)
+        ):
+            default_attrs = {
+                attr.name: attr.default
+                for attr in coord.attributes
+                if attr.default is not None
+            }
+            for dims in coord.dimensions:
+                if len(dims) == len(val.shape):
+                    val = xarray.Variable(dims, val, default_attrs)
+                    break
         if val is not None:
             coords[coord.name] = val
     for data_var in schema.data_vars:
@@ -291,7 +307,9 @@ def _dataset_new(cls, *args, data_vars=None, coords=None, attrs=None, **kwargs):
 
         # Determine dimensions / convert to Variable
         dims = None
-        if isinstance(val, xarray.Variable):
+        if val is None:
+            dims = None
+        elif isinstance(val, xarray.Variable):
             dims = val.dims
         elif isinstance(val, xarray.DataArray):
             val = val.variable
@@ -316,18 +334,29 @@ def _dataset_new(cls, *args, data_vars=None, coords=None, attrs=None, **kwargs):
                     f" expected {' or '.join(options)}!"
                 )
 
+            # Get default attributes
+            default_attrs = {
+                attr.name: attr.default
+                for attr in data_var.attributes
+                if attr.default is not dataclasses.MISSING
+            }
+
             # Replace by variable
-            val = xarray.Variable(dims, val)
+            val = xarray.Variable(dims, val, default_attrs)
 
         # Default coordinates used by this data variable to numpy arange. We
         # can only do this now because we need an example to determine the
         # intended size of the coordinate
-        for coord in schema.coordinates:
-            if coord.name in dims and coords.get(coord.name) is None:
-                dim_ix = dims.index(coord.name)
-                if dim_ix is not None and dim_ix < len(val.shape):
-                    dtype = coord.dtypes[0]
-                    coords[coord.name] = numpy.arange(val.shape[dim_ix], dtype=dtype)
+        if dims is not None:
+            for coord in schema.coordinates:
+                if coord.name in dims and coords.get(coord.name) is None:
+                    dim_ix = dims.index(coord.name)
+                    if dim_ix is not None and dim_ix < len(val.shape):
+                        dtype = coord.dtypes[0]
+                        if numpy.issubdtype(dtype, numpy.number):
+                            coords[coord.name] = numpy.arange(
+                                val.shape[dim_ix], dtype=dtype
+                            )
 
         if val is not None:
             data_vars[data_var.name] = val

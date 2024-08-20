@@ -440,6 +440,14 @@ def _check_value(val, ann):
                         )
                     ]
                 )
+            except TypeError as e:
+                return SchemaIssues(
+                    [
+                        SchemaIssue(
+                            path=[], message=str(e), expected=[ann], found=type(val)
+                        )
+                    ]
+                )
 
         if not isinstance(val, xarray.DataArray):
             # Fall through to plain type check

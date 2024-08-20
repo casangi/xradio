@@ -114,12 +114,12 @@ def base_test(
             expected_sum_value, rel=relative_tolerance
         ), "VISIBILITY and WEIGHT values have changed."
 
-        # for xds_name in ps.keys():
-        #     issues = check_dataset(ps[xds_name], VisibilityXds)
-        #     if not issues:
-        #         print(f"{xds_name}: okay\n")
-        #     else:
-        #         print(f"{xds_name}: {issues}\n")
+        # issues = check_dataset(ps[xds_name], VisibilityXds)
+        # if not issues:
+        #     print(f"{xds_name}: okay\n")
+        # else:
+        #     print(f"{xds_name}: {issues}\n")
+        check_dataset(ps[xds_name], VisibilityXds).expect()
 
     print("Time taken:", time.time() - start)
 

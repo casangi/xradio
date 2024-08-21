@@ -163,6 +163,9 @@ class FieldSourceXds:
     line_label: Optional[Coord[LineLabel, str]]
     """ Line labels (for line names and variables). """
 
+    line_names: Optional[Coord[Union[tuple[LineLabel], tuple[Time, LineLabel]], str]]
+    """ Line names (e.g. v=1, J=1-0, SiO). """
+
     FIELD_PHASE_CENTER: Optional[Data[Union[tuple[()], Time], SkyCoordOffsetArray]]
     """
     Offset from the SOURCE_DIRECTION that gives the direction of phase

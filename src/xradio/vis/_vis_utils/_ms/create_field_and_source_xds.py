@@ -182,8 +182,8 @@ def extract_ephemeris_info(
 
     temp_xds = xr.Dataset()
 
-    # Add mandatory data: SOURCE_POSITION
-    temp_xds["SOURCE_POSITION"] = xr.DataArray(
+    # Add mandatory data: SOURCE_LOCATION (POSITION / sky_pos_label)
+    temp_xds["SOURCE_LOCATION"] = xr.DataArray(
         np.column_stack(
             (
                 ephemeris_xds["RA"].data,
@@ -199,7 +199,7 @@ def extract_ephemeris_info(
         cast_to_str(ephemris_column_description["DEC"]["keywords"][unit_keyword]),
         cast_to_str(ephemris_column_description["Rho"]["keywords"][unit_keyword]),
     ]
-    temp_xds["SOURCE_POSITION"].attrs.update(
+    temp_xds["SOURCE_LOCATION"].attrs.update(
         {"type": "sky_coord", "frame": sky_coord_frame, "units": sky_coord_units}
     )
 
@@ -387,8 +387,8 @@ def extract_ephemeris_info(
 
     xds = xr.merge([xds, temp_xds])
 
-    # Add the SOURCE_POSITION to the FIELD_PHASE_CENTER or FIELD_REFERENCE_CENTER. Ephemeris obs: When loaded from the MSv2 field table the FIELD_REFERENCE_CENTER or FIELD_PHASE_CENTER only contain an offset from the SOURCE_POSITION.
-    # We also need to add a distance dimension to the FIELD_PHASE_CENTER or FIELD_REFERENCE_CENTER to match the SOURCE_POSITION.
+    # Add the SOURCE_LOCATION to the FIELD_PHASE_CENTER or FIELD_REFERENCE_CENTER. Ephemeris obs: When loaded from the MSv2 field table the FIELD_REFERENCE_CENTER or FIELD_PHASE_CENTER only contain an offset from the SOURCE_LOCATION.
+    # We also need to add a distance dimension to the FIELD_PHASE_CENTER or FIELD_REFERENCE_CENTER to match the SOURCE_LOCATION.
     # FIELD_PHASE_CENTER is used for interferometer data and FIELD_REFERENCE_CENTER is used for single dish data.
     if is_single_dish:
         center_dv = "FIELD_REFERENCE_CENTER"
@@ -405,20 +405,20 @@ def extract_ephemeris_info(
                 np.column_stack(
                     (xds[center_dv].values, np.zeros(xds[center_dv].values.shape[0]))
                 ),
-                xds["SOURCE_POSITION"].values,
+                xds["SOURCE_LOCATION"].values,
             ),
-            dims=[xds["SOURCE_POSITION"].dims[0], "sky_pos_label"],
+            dims=[xds["SOURCE_LOCATION"].dims[0], "sky_pos_label"],
         )
     else:
         xds[center_dv] = xr.DataArray(
             add_position_offsets(
                 np.append(xds[center_dv].values, 0),
-                xds["SOURCE_POSITION"].values,
+                xds["SOURCE_LOCATION"].values,
             ),
-            dims=[xds["SOURCE_POSITION"].dims[0], "sky_pos_label"],
+            dims=[xds["SOURCE_LOCATION"].dims[0], "sky_pos_label"],
         )
 
-    xds[center_dv].attrs.update(xds["SOURCE_POSITION"].attrs)
+    xds[center_dv].attrs.update(xds["SOURCE_LOCATION"].attrs)
 
     return xds
 
@@ -491,6 +491,7 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
         "column_descriptions"
     ]
 
+
     # Get source name (the time axis is optional and will probably be required if the partition scheme does not include 'FIELD_ID' or 'SOURCE_ID'.).
     # Note again that this optional time axis has nothing to do with the original time axis in the source table that we drop.
     if len(source_id) == 1:
@@ -530,8 +531,9 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
         else:
             direction_var = source_xds[direction_msv2_col]
 
-        xds["SOURCE_DIRECTION"] = xr.DataArray(direction_var.data, dims=direction_dims)
-        xds["SOURCE_DIRECTION"].attrs.update(msv4_measure)
+        # SOURCE_LOCATION (DIRECTION / sky_dir_label)
+        xds["SOURCE_LOCATION"] = xr.DataArray(direction_var.data, dims=direction_dims)
+        xds["SOURCE_LOCATION"].attrs.update(msv4_measure)
 
     # Do we have line data:
     if source_xds["NUM_LINES"].data.ndim == 0:

@@ -212,13 +212,11 @@ class FieldSourceXds:
     https://ssd.jpl.nasa.gov/horizons/manual.html : 1. Astrometric RA & DEC
     """
 
-    field_name: Attr[str]
+    source_name: Optional[Attr[str]]
+    """ Source name. """
+    field_name: Optional[Attr[str]]
     """Field name."""
-    code: Optional[Attr[str]]
-    """
-    Field code indicating special characteristics of the field;
-    e.g. Bandpass calibrator
-    """
+
     source_model_url: Optional[Attr[str]]
     """URL to access source model"""
     ephemeris_name: Optional[Attr[str]]

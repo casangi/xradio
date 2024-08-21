@@ -442,6 +442,8 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
     -------
     xds : xr.Dataset
         The xarray dataset with the added source information.
+    num_lines : int
+        Sum of num_lines for all unique sources extracted.
     """
     coords = {}
     is_ephemeris = xds.attrs[
@@ -491,7 +493,6 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
         "column_descriptions"
     ]
 
-
     # Get source name (the time axis is optional and will probably be required if the partition scheme does not include 'FIELD_ID' or 'SOURCE_ID'.).
     # Note again that this optional time axis has nothing to do with the original time axis in the source table that we drop.
     if len(source_id) == 1:
@@ -515,10 +516,6 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
     # If ephemeris data is present we ignore the SOURCE_DIRECTION.
     if not is_ephemeris:
         direction_msv2_col = "DIRECTION"
-        msv4_measure = column_description_casacore_to_msv4_measure(
-            source_column_description[direction_msv2_col]
-        )
-
         msv2_direction_dims = source_xds[direction_msv2_col].dims
         if (
             len(msv2_direction_dims) == len(direction_dims) + 1
@@ -533,7 +530,11 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
 
         # SOURCE_LOCATION (DIRECTION / sky_dir_label)
         xds["SOURCE_LOCATION"] = xr.DataArray(direction_var.data, dims=direction_dims)
-        xds["SOURCE_LOCATION"].attrs.update(msv4_measure)
+        location_msv4_measure = column_description_casacore_to_msv4_measure(
+            source_column_description[direction_msv2_col]
+        )
+
+        xds["SOURCE_LOCATION"].attrs.update(location_msv4_measure)
 
     # Do we have line data:
     if source_xds["NUM_LINES"].data.ndim == 0:
@@ -596,6 +597,11 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
         pass
 
     xds = xds.assign_coords(coords)
+    if "time" in xds.coords:
+        time_msv4_measure = column_description_casacore_to_msv4_measure(
+            source_column_description["TIME"]
+        )
+        xds.time.attrs.update(time_msv4_measure)
 
     _, unique_source_ids_indices = np.unique(source_xds.SOURCE_ID, return_index=True)
 

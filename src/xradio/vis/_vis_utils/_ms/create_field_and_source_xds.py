@@ -119,7 +119,7 @@ def extract_ephemeris_info(
         The name of the ephemeris table.
     time_min_max : Tuple[np.float46, np.float64]
         Min / max times to constrain loading (usually to the time range relevant to an MSv4)
-    ephemeris_interp_time : Union[xr.DataArray, None]
+    interp_time : Union[xr.DataArray, None]
         Time axis to interpolate the data vars to (usually main MSv4 time)
 
     Returns:
@@ -371,9 +371,13 @@ def extract_ephemeris_info(
         )
 
     temp_xds = temp_xds.assign_coords(coords)
-    temp_xds["ephem_time"].attrs.update(
-        {"type": "time", "units": ["s"], "scale": "UTC", "format": "UNIX"}
-    )
+    time_coord_attrs = {
+        "type": "time",
+        "units": ["s"],
+        "scale": "UTC",
+        "format": "UNIX",
+    }
+    temp_xds["ephem_time"].attrs.update(time_coord_attrs)
 
     # Convert to si units and interpolate if ephemeris_interpolate=True:
     temp_xds = convert_to_si_units(temp_xds)
@@ -383,6 +387,9 @@ def extract_ephemeris_info(
 
     # If we interpolate rename the ephem_time axis to time.
     if interp_time is not None:
+        time_coord = {"time": ("ephem_time", interp_time.data)}
+        temp_xds = temp_xds.assign_coords(time_coord)
+        temp_xds.coords["time"].attrs.update(time_coord_attrs)
         temp_xds = temp_xds.swap_dims({"ephem_time": "time"}).drop_vars("ephem_time")
 
     xds = xr.merge([xds, temp_xds])
@@ -563,7 +570,7 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
         line_label_data = np.arange(coords_lines_data.shape[-1]).astype(str)
         if len(source_id) == 1:
             coords_lines = {
-                "line_names": coords_lines_data,
+                "line_names": ("line_label", coords_lines_data),
                 "line_label": line_label_data,
             }
             xds = xds.assign_coords(coords_lines)

@@ -19,7 +19,7 @@ def convert_msv2_to_processing_set(
     ephemeris_interpolate: bool = False,
     use_table_iter: bool = False,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
-    storage_backend="zarr",
+    storage_backend: str = "zarr",
     parallel: bool = False,
     overwrite: bool = False,
 ):

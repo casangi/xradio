@@ -36,8 +36,8 @@ XyzLabel = Literal["xyz_label"]
 """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
 TimePolynomial = Literal["time_polynomial"]
 """ For data that is represented as variable in time using Taylor expansion """
-LineName = Literal["line_name"]
-""" Line names (e.g. v=1, J=1-0, SiO). """
+LineLabel = Literal["line_label"]
+""" Line labels (for line names and variables). """
 
 # Quantities
 
@@ -160,8 +160,8 @@ class FieldSourceXds:
 
     time: Optional[Coordof[TimeCoordArray]]
     """Midpoint of time for which this set of parameters is accurate"""
-    line_name: Optional[Coord[LineName, str]]
-    """ Line names (e.g. v=1, J=1-0, SiO). """
+    line_label: Optional[Coord[LineLabel, str]]
+    """ Line labels (for line names and variables). """
 
     FIELD_PHASE_CENTER: Optional[Data[Union[tuple[()], Time], SkyCoordOffsetArray]]
     """

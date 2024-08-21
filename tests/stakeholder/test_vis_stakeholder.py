@@ -130,7 +130,7 @@ def base_test(
 
 def test_s3():
     base_test(
-        "s3://viper-test-data/Antennae_North.cal.lsrk.split.v5.vis.zarr",
+        "s3://viper-test-data/Antennae_North.cal.lsrk.split.v6.vis.zarr",
         190.0405216217041,
         is_s3=True,
         partition_schemes=[[]],
@@ -326,7 +326,7 @@ if __name__ == "__main__":
     # test_ngeht()
     # test_ephemeris()
     # test_single_dish()
-    test_alma_ephemris_mosaic()
+    # test_alma_ephemris_mosaic()
     # test_VLA()
 
     # FAILED test_vis_stakeholder.py::test_ephemeris - ValueError: Buffer has wrong number of dimensions (expected 1, got 2)

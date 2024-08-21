@@ -742,7 +742,8 @@ class VisibilityXds:
     VISIBILITY: Dataof[VisibilityArray]
 
     # --- Required Attributes ---
-    antenna_xds: Attr[AntennaXds]
+    # TODO: on hold while antenna_xds is reviewed/ updated
+    # antenna_xds: Attr[AntennaXds]
 
     # --- Optional Coordinates ---
     baseline_antenna1_id: Optional[Coordof[BaselineAntennaArray]] = None

@@ -426,11 +426,33 @@ class VisibilityArray:
     ]
     time: Coord[tuple[()], TimeCoordArray]
     baseline_id: Coord[tuple[()], BaselineArray]
-    frequency: Coord[tuple[()], FrequencyArray]
     polarization: Coord[tuple[()], PolarizationArray]
+    frequency: Coord[tuple[()], FrequencyArray]
     field_and_source_xds: Attr[FieldSourceXds]
     long_name: Optional[Attr[str]] = "Visibility values"
     """ Long-form name to use for axis. Should be ``"Visibility values"``"""
+    units: Attr[list[str]] = ("Jy",)
+
+
+@xarray_dataarray_schema
+class SpectrumArray:
+    """Definition of xr.DataArray for SPECTRUM data (single dish)"""
+
+    data: Data[
+        tuple[Time, BaselineId, Frequency, Polarization],
+        Union[numpy.float64, numpy.float32, numpy.float16],
+    ]
+    time: Coord[tuple[()], TimeCoordArray]
+
+    # in the spreadsheet this is antenna_id:
+    # antenna_id: Coord[tuple[()], AntennaArray]
+    baseline_id: Coord[tuple[()], BaselineArray]
+
+    polarization: Coord[tuple[()], PolarizationArray]
+    frequency: Coord[tuple[()], FrequencyArray]
+    field_and_source_xds: Attr[FieldSourceXds]
+    long_name: Optional[Attr[str]] = "Spectrum values"
+    """ Long-form name to use for axis. Should be ``"Spectrum values"``"""
     units: Attr[list[str]] = ("Jy",)
 
 
@@ -740,7 +762,9 @@ class VisibilityXds:
     uvw_label: Optional[Coordof[UvwLabelArray]]
 
     # --- Required data variables ---
-    VISIBILITY: Dataof[VisibilityArray]
+    # Either VISIBILITY (interferometry) or SPECTRUM (single-dish)
+    VISIBILITY: Optional[Dataof[VisibilityArray]]
+    SPECTRUM: Optional[Dataof[SpectrumArray]]
 
     # --- Required Attributes ---
     # TODO: on hold while antenna_xds is reviewed/ updated

@@ -130,7 +130,7 @@ def base_test(
 
 def test_s3():
     base_test(
-        "s3://viper-test-data/Antennae_North.cal.lsrk.split.v6.vis.zarr",
+        "s3://viper-test-data/Antennae_North.cal.lsrk.split.py39.vis.zarr",
         190.0405216217041,
         is_s3=True,
         partition_schemes=[[]],
@@ -147,7 +147,7 @@ def test_preconverted_alma():
     # Zip this folder and add it to the dropbox folder and update the file.download.json file.
     # If you not sure how to do any of this contact jsteeb@nrao.edu
     base_test(
-        "Antennae_North.cal.lsrk.split.vis.zarr",
+        "Antennae_North.cal.lsrk.split.py39.vis.zarr",
         190.0405216217041,
         preconverted=True,
         partition_schemes=[[]],
@@ -314,10 +314,10 @@ if __name__ == "__main__":
     # test_sd_A002_Xae00c5_X2e6b()
     # test_sd_A002_Xced5df_Xf9d9()
     # test_sd_A002_Xe3a5fd_Xe38e()
-    # test_s3()
+    test_s3()
     # test_vlass()
     # test_alma()
-    # test_preconverted_alma()
+    test_preconverted_alma()
     # test_ska_mid()
     # test_lofar()
     # test_meerkat()

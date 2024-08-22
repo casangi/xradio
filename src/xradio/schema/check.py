@@ -255,7 +255,7 @@ def check_dimensions(
     if hint_remove and hint_add:
         message = f"Unexpected coordinates, replace {','.join(hint_remove)} by {','.join(hint_add)}?"
     elif hint_remove:
-        message = f"Superflous coordinate {','.join(hint_remove)}?"
+        message = f"Superfluous coordinate {','.join(hint_remove)}?"
     elif hint_add:
         message = f"Missing dimension {','.join(hint_add)}!"
     else:

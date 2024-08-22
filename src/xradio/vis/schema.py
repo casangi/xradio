@@ -789,7 +789,7 @@ class VisibilityXds:
     # --- Optional Attributes ---
     pointing_xds: Optional[Attr[PointingXds]] = None
     source_xds: Optional[Attr[SourceXds]] = None
-    pased_array_xds: Optional[Attr[PhasedArrayXds]] = None
+    phased_array_xds: Optional[Attr[PhasedArrayXds]] = None
     observation_info: Optional[Attr[ObservationInfoDict]] = None
     observation_info: Optional[Attr[ProcessorInfoDict]] = None
 

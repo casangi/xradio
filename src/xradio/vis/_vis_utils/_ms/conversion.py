@@ -404,7 +404,7 @@ def calc_indx_for_row_split(tb_tool, taql_where):
 
 
 def create_coordinates(
-    xds, in_file, ddi, utime, interval, baseline_ant1_id, baseline_ant2_id
+    xds, in_file, ddi, utime, interval, baseline_ant1_id, baseline_ant2_id, scan_id
 ):
     coords = {
         "time": utime,
@@ -412,6 +412,7 @@ def create_coordinates(
         "baseline_antenna2_id": ("baseline_id", baseline_ant2_id),
         "uvw_label": ["u", "v", "w"],
         "baseline_id": np.arange(len(baseline_ant1_id)),
+        "scan_number": ("time", scan_id),
     }
 
     ddi_xds = load_generic_table(in_file, "DATA_DESCRIPTION").sel(row=ddi)
@@ -779,8 +780,19 @@ def convert_and_write_partition(
             else:
                 interval = interval_unique[0]
 
+            scan_id = np.full(time_baseline_shape, -42, dtype=int)
+            scan_id[tidxs, bidxs] = tb_tool.getcol("SCAN_NUMBER")
+            scan_id = np.max(scan_id, axis=1)
+
             xds = create_coordinates(
-                xds, in_file, ddi, utime, interval, baseline_ant1_id, baseline_ant2_id
+                xds,
+                in_file,
+                ddi,
+                utime,
+                interval,
+                baseline_ant1_id,
+                baseline_ant2_id,
+                scan_id,
             )
             logger.debug("Time create coordinates " + str(time.time() - start))
 
@@ -891,10 +903,6 @@ def convert_and_write_partition(
             else:
                 ephemeris_interp_time = None
 
-            scan_id = np.full(time_baseline_shape, -42, dtype=int)
-            scan_id[tidxs, bidxs] = tb_tool.getcol("SCAN_NUMBER")
-            scan_id = np.max(scan_id, axis=1)
-
             if "FIELD_ID" not in partition_scheme:
                 field_id = np.full(time_baseline_shape, -42, dtype=int)
                 field_id[tidxs, bidxs] = tb_tool.getcol("FIELD_ID")
@@ -947,6 +955,13 @@ def convert_and_write_partition(
                 + str(ms_v4_id),
             )
 
+            if "line_name" in field_and_source_xds.coords:
+                line_name = to_list(
+                    unique_1d(np.ravel(field_and_source_xds.line_name.values))
+                )
+            else:
+                line_name = []
+
             xds.attrs["partition_info"] = {
                 # "spectral_window_id": xds.frequency.attrs["spectral_window_id"],
                 "spectral_window_name": xds.frequency.attrs["spectral_window_name"],
@@ -955,12 +970,14 @@ def convert_and_write_partition(
                     np.unique(field_and_source_xds.field_name.values)
                 ),
                 # "source_id": to_list(unique_1d(source_id)),
+                "line_name": line_name,
+                "scan_number": to_list(np.unique(scan_id)),
                 "source_name": to_list(
                     np.unique(field_and_source_xds.source_name.values)
                 ),
                 "polarization_setup": to_list(xds.polarization.values),
                 "num_lines": num_lines,
-                "obs_mode": obs_mode,
+                "obs_mode": obs_mode.split(","),
                 "taql": taql_where,
             }
 

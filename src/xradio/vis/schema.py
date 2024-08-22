@@ -16,6 +16,8 @@ AntennaId = Literal["antenna_id"]
 """ Antenna ID dimension """
 StationId = Literal["station_id"]
 """ Station ID dimension """
+ReceptorId = Literal["receptor_id"]
+""" Receptor ID dimension """
 ReceptorName = Literal["receptor_name"]
 """ Receptor name dimension """
 BaselineId = Literal["baseline_id"]
@@ -766,6 +768,18 @@ class PhasedArrayXds:
 
 
 @xarray_dataset_schema
+class SystemCalibrationXds:
+    """TODO: largely incomplete"""
+
+    antenna_id: Coordof[AntennaArray]
+    """ Antenna identifier """
+    time: Coord[Time, numpy.float64]
+    """ Midpoint of time for which this set of parameters is accurate """
+    receptor_id: Coord[ReceptorId, numpy.float64]
+    """  """
+
+
+@xarray_dataset_schema
 class VisibilityXds:
     """TODO: documentation"""
 
@@ -845,6 +859,7 @@ class VisibilityXds:
     weather_xds: Optional[Attr[WeatherXds]] = None
     pointing_xds: Optional[Attr[PointingXds]] = None
     phased_array_xds: Optional[Attr[PhasedArrayXds]] = None
+    system_calibration_xds: Optional[Attr[SystemCalibrationXds]] = None
 
     version: Optional[Attr[str]] = None  # TODO:
     """Semantic version of xradio data format"""

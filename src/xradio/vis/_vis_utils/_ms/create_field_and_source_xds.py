@@ -46,6 +46,10 @@ def create_field_and_source_xds(
         The field ids to select.
     spectral_window_id : int
         The ID of the spectral window.
+    field_times: list
+        Time data for field. It is the same as the time axis in the main MSv4 dataset and is used if more than one field is present.
+    is_single_dish: bool
+        whether the main xds has single-dish (SPECTRUM) data
     time_min_max : Tuple[np.float64, np.float46]
         Min / max times to constrain loading (usually to the time range relevant to an MSv4)
     ephemeris_interp_time : Union[xr.DataArray, None]
@@ -172,11 +176,10 @@ def extract_ephemeris_info(
     else:
         unit_keyword = "QuantumUnits"
 
+    # We are using the "time_ephemeris_axis" label because it might not match the optional time axis of the source and field info. If ephemeris_interpolate=True then rename it to time.
     coords = {
         "ellipsoid_pos_label": ["lon", "lat", "dist"],
-        "time_ephemeris_axis": ephemeris_xds[
-            "time"
-        ].data,  # We are using the "time_ephemeris_axis" label because it might not match the optional time axis of the source and field info. If ephemeris_interpolate=True then rename it to time.
+        "time_ephemeris_axis": ephemeris_xds["time"].data,
         "sky_pos_label": ["ra", "dec", "dist"],
     }
 
@@ -613,11 +616,6 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
         pass
 
     xds = xds.assign_coords(coords)
-    if "time" in xds.coords:
-        time_msv4_measure = column_description_casacore_to_msv4_measure(
-            source_column_description["TIME"]
-        )
-        xds.time.attrs.update(time_msv4_measure)
     _, unique_source_ids_indices = np.unique(source_xds.SOURCE_ID, return_index=True)
 
     return xds, np.sum(num_lines[unique_source_ids_indices])
@@ -764,5 +762,13 @@ def extract_field_info_and_check_ephemeris(
         field_and_source_xds[msv4_name].attrs["type"] = field_measures_type
 
     field_and_source_xds = field_and_source_xds.assign_coords(coords)
+    if "time" in field_and_source_xds:
+        time_column_description = field_xds.attrs["other"]["msv2"]["ctds_attrs"][
+            "column_descriptions"
+        ]["TIME"]
+        time_msv4_measure = column_description_casacore_to_msv4_measure(
+            time_column_description
+        )
+        field_and_source_xds.coords["time"].attrs.update(time_msv4_measure)
 
     return field_and_source_xds, ephemeris_path, ephemeris_table_name, source_id

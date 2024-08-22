@@ -114,14 +114,12 @@ def base_test(
             expected_sum_value, rel=relative_tolerance
         ), "VISIBILITY and WEIGHT values have changed."
 
-        # issues = check_dataset(ps[ms_xds_name], VisibilityXds)
-        # if not issues:
-        #     print(f"{ms_xds_name}: okay\n")
-        # else:
-        #     print(f"{ms_xds_name}: {issues}\n")
+        msv4 = ps[ms_xds_name]
+        start_check = time.time()
         check_dataset(ps[ms_xds_name], VisibilityXds).expect()
+        print(f"Time to check dataset: {time.time() - start_check}")
 
-    print("Time taken:", time.time() - start)
+    print("Time taken in test:", time.time() - start)
 
 
 def test_s3():

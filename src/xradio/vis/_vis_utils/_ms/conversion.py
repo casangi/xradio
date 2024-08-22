@@ -855,9 +855,9 @@ def convert_and_write_partition(
 
             # Change antenna_ids to antenna_names
             xds = antenna_ids_to_names(xds, ant_xds)
-            ant_xds = ant_xds.drop(
+            ant_xds = ant_xds.drop_vars(
                 "antenna_id"
-            )  # No longer needed after convewrting to name.
+            )  # No longer needed after converting to name.
 
             logger.debug("Time ant xds  " + str(time.time() - start))
 

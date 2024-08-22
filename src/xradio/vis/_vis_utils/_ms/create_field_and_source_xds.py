@@ -174,9 +174,9 @@ def extract_ephemeris_info(
 
     coords = {
         "ellipsoid_pos_label": ["lon", "lat", "dist"],
-        "ephem_time": ephemeris_xds[
+        "time_ephemeris_axis": ephemeris_xds[
             "time"
-        ].data,  # We are using the "ephem_time" label because it might not match the optional time axis of the source and field info. If ephemeris_interpolate=True then rename it to time.
+        ].data,  # We are using the "time_ephemeris_axis" label because it might not match the optional time axis of the source and field info. If ephemeris_interpolate=True then rename it to time.
         "sky_pos_label": ["ra", "dec", "dist"],
     }
 
@@ -191,7 +191,7 @@ def extract_ephemeris_info(
                 ephemeris_xds["Rho"].data,
             )
         ),
-        dims=["ephem_time", "sky_pos_label"],
+        dims=["time_ephemeris_axis", "sky_pos_label"],
     )
     # Have to use cast_to_str because the ephemeris table units are not consistently in a list or a string.
     sky_coord_units = [
@@ -205,7 +205,7 @@ def extract_ephemeris_info(
 
     # Add mandatory data: SOURCE_RADIAL_VELOCITY
     temp_xds["SOURCE_RADIAL_VELOCITY"] = xr.DataArray(
-        ephemeris_xds["RadVel"].data, dims=["ephem_time"]
+        ephemeris_xds["RadVel"].data, dims=["time_ephemeris_axis"]
     )
     temp_xds["SOURCE_RADIAL_VELOCITY"].attrs.update(
         {
@@ -241,7 +241,7 @@ def extract_ephemeris_info(
     # Add optional data NORTH_POLE_POSITION_ANGLE and NORTH_POLE_ANGULAR_DISTANCE
     if "NP_ang" in ephemeris_xds.data_vars:
         temp_xds["NORTH_POLE_POSITION_ANGLE"] = xr.DataArray(
-            ephemeris_xds["NP_ang"].data, dims=["ephem_time"]
+            ephemeris_xds["NP_ang"].data, dims=["time_ephemeris_axis"]
         )
         temp_xds["NORTH_POLE_POSITION_ANGLE"].attrs.update(
             {
@@ -256,7 +256,7 @@ def extract_ephemeris_info(
 
     if "NP_dist" in ephemeris_xds.data_vars:
         temp_xds["NORTH_POLE_ANGULAR_DISTANCE"] = xr.DataArray(
-            ephemeris_xds["NP_dist"].data, dims=["ephem_time"]
+            ephemeris_xds["NP_dist"].data, dims=["time_ephemeris_axis"]
         )
         temp_xds["NORTH_POLE_ANGULAR_DISTANCE"].attrs.update(
             {
@@ -286,7 +286,7 @@ def extract_ephemeris_info(
                     np.zeros(ephemeris_xds[key_lon].shape),
                 )
             ),
-            dims=["ephem_time", "ellipsoid_pos_label"],
+            dims=["time_ephemeris_axis", "ellipsoid_pos_label"],
         )
 
         temp_xds["SUB_OBSERVER_POSITION"].attrs.update(
@@ -316,7 +316,7 @@ def extract_ephemeris_info(
                     ephemeris_xds["r"].data,
                 )
             ),
-            dims=["ephem_time", "ellipsoid_pos_label"],
+            dims=["time_ephemeris_axis", "ellipsoid_pos_label"],
         )
         temp_xds["SUB_SOLAR_POSITION"].attrs.update(
             {
@@ -341,7 +341,7 @@ def extract_ephemeris_info(
     # Add optional data: HELIOCENTRIC_RADIAL_VELOCITY
     if "rdot" in ephemeris_xds.data_vars:
         temp_xds["HELIOCENTRIC_RADIAL_VELOCITY"] = xr.DataArray(
-            ephemeris_xds["rdot"].data, dims=["ephem_time"]
+            ephemeris_xds["rdot"].data, dims=["time_ephemeris_axis"]
         )
         temp_xds["HELIOCENTRIC_RADIAL_VELOCITY"].attrs.update(
             {
@@ -357,7 +357,7 @@ def extract_ephemeris_info(
     # Add optional data: OBSERVER_PHASE_ANGLE
     if "phang" in ephemeris_xds.data_vars:
         temp_xds["OBSERVER_PHASE_ANGLE"] = xr.DataArray(
-            ephemeris_xds["phang"].data, dims=["ephem_time"]
+            ephemeris_xds["phang"].data, dims=["time_ephemeris_axis"]
         )
         temp_xds["OBSERVER_PHASE_ANGLE"].attrs.update(
             {
@@ -377,20 +377,22 @@ def extract_ephemeris_info(
         "scale": "UTC",
         "format": "UNIX",
     }
-    temp_xds["ephem_time"].attrs.update(time_coord_attrs)
+    temp_xds["time_ephemeris_axis"].attrs.update(time_coord_attrs)
 
     # Convert to si units and interpolate if ephemeris_interpolate=True:
     temp_xds = convert_to_si_units(temp_xds)
     temp_xds = interpolate_to_time(
-        temp_xds, interp_time, "field_and_source_xds", time_name="ephem_time"
+        temp_xds, interp_time, "field_and_source_xds", time_name="time_ephemeris_axis"
     )
 
-    # If we interpolate rename the ephem_time axis to time.
+    # If we interpolate rename the time_ephemeris_axis axis to time.
     if interp_time is not None:
-        time_coord = {"time": ("ephem_time", interp_time.data)}
+        time_coord = {"time": ("time_ephemeris_axis", interp_time.data)}
         temp_xds = temp_xds.assign_coords(time_coord)
         temp_xds.coords["time"].attrs.update(time_coord_attrs)
-        temp_xds = temp_xds.swap_dims({"ephem_time": "time"}).drop_vars("ephem_time")
+        temp_xds = temp_xds.swap_dims({"time_ephemeris_axis": "time"}).drop_vars(
+            "time_ephemeris_axis"
+        )
 
     xds = xr.merge([xds, temp_xds])
 
@@ -616,7 +618,6 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
             source_column_description["TIME"]
         )
         xds.time.attrs.update(time_msv4_measure)
-
     _, unique_source_ids_indices = np.unique(source_xds.SOURCE_ID, return_index=True)
 
     return xds, np.sum(num_lines[unique_source_ids_indices])
@@ -763,4 +764,5 @@ def extract_field_info_and_check_ephemeris(
         field_and_source_xds[msv4_name].attrs["type"] = field_measures_type
 
     field_and_source_xds = field_and_source_xds.assign_coords(coords)
+
     return field_and_source_xds, ephemeris_path, ephemeris_table_name, source_id

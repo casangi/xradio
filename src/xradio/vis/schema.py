@@ -32,12 +32,14 @@ EllipsoidPosLabel = Literal["ellipsoid_pos_label"]
 """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
 CartesianPosLabel = Literal["cartesian_pos_label"]
 """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
-XyzLabel = Literal["xyz_label"]
-""" Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
 TimePolynomial = Literal["time_polynomial"]
 """ For data that is represented as variable in time using Taylor expansion """
 LineName = Literal["line_name"]
 """ Line names (e.g. v=1, J=1-0, SiO). """
+
+# Represents "no dimension", i.e. used for coordinates and data variables with
+# zero dimensions.
+ZD = tuple[()]
 
 # Quantities
 
@@ -64,7 +66,7 @@ class TimeArray:
 
     """
 
-    data: Data[tuple[()], float]
+    data: Data[ZD, float]
     """Time since epoch, typically in seconds (see ``units``)."""
 
     scale: Attr[str] = "tai"
@@ -112,7 +114,7 @@ class QuantityArray:
     Often used for distances / differences (integration time, channel width etcetera).
     """
 
-    data: Data[tuple[()], float]
+    data: Data[ZD, float]
 
     units: Attr[list[str]]
     type: Attr[str] = "quantity"
@@ -163,7 +165,7 @@ class FieldSourceXds:
     line_name: Optional[Coord[LineName, str]]
     """ Line names (e.g. v=1, J=1-0, SiO). """
 
-    FIELD_PHASE_CENTER: Optional[Data[Union[tuple[()], Time], SkyCoordOffsetArray]]
+    FIELD_PHASE_CENTER: Optional[Data[Union[ZD, Time], SkyCoordOffsetArray]]
     """
     Offset from the SOURCE_DIRECTION that gives the direction of phase
     center for which the fringes have been stopped-that is a point source in
@@ -209,7 +211,7 @@ class FieldSourceXds:
     https://ssd.jpl.nasa.gov/horizons/manual.html : 1. Astrometric RA & DEC
     """
 
-    field_name: Attr[str]
+    field_name: Coord[Union[ZD, Time], str]
     """Field name."""
     code: Optional[Attr[str]]
     """
@@ -236,13 +238,13 @@ class FieldSourceXds:
         "height",
     )
     """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
-    cartesian_pos_label: Optional[Coord[XyzLabel, str]] = ("x", "y", "z")
+    cartesian_pos_label: Optional[Coord[CartesianPosLabel, str]] = ("x", "y", "z")
     """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
 
 
 @xarray_dataarray_schema
 class SpectralCoordArray:
-    data: Data[tuple[()], float]
+    data: Data[ZD, float]
 
     frame: Attr[str] = "gcrs"
     """Astropy time scales."""
@@ -253,7 +255,7 @@ class SpectralCoordArray:
 
 @xarray_dataarray_schema
 class EarthLocationArray:
-    data: Data[XyzLabel, float]
+    data: Data[CartesianPosLabel, float]
 
     ellipsoid: Attr[str]
     """
@@ -304,15 +306,6 @@ class ProcessorInfoDict:
     sub_type: str
     """Processor sub-type, e.g. ”GBT” or ”JIVE”."""
 
-
-@xarray_dataarray_schema
-class AntennaArray:
-    data: Data[AntennaId, int]
-    """
-    Antenna id of an antenna. Maps to ``antenna_id``
-    in :py:class:`AntennaXds`.
-    """
-    long_name: Optional[Attr[str]] = "Antenna ID"
 
 
 @xarray_dataarray_schema
@@ -423,10 +416,10 @@ class VisibilityArray:
         tuple[Time, BaselineId, Frequency, Polarization],
         Union[numpy.complex64, numpy.complex128],
     ]
-    time: Coord[tuple[()], TimeCoordArray]
-    baseline_id: Coord[tuple[()], BaselineArray]
-    frequency: Coord[tuple[()], FrequencyArray]
-    polarization: Coord[tuple[()], PolarizationArray]
+    time: Coord[ZD, TimeCoordArray]
+    baseline_id: Coord[ZD, BaselineArray]
+    frequency: Coord[ZD, FrequencyArray]
+    polarization: Coord[ZD, PolarizationArray]
     field_and_source_xds: Attr[FieldSourceXds]
     long_name: Optional[Attr[str]] = "Visibility values"
     """ Long-form name to use for axis. Should be ``"Visibility values"``"""
@@ -601,7 +594,7 @@ class FreqSamplingArray:
 @xarray_dataset_schema
 class AntennaXds:
     # --- Coordinates ---
-    antenna_id: Coordof[AntennaArray]
+    antenna_id: Coord[AntennaId, Union[int, numpy.int32]]
     """Antenna ID"""
     name: Coord[AntennaId, str]
 
@@ -624,22 +617,22 @@ class AntennaXds:
     """Support for VLBI"""
     receptor_name: Optional[Coord[ReceptorName, str]]
     """Names of receptors"""
-    xyz_label: Coord[XyzLabel, str]
+    cartesian_pos_label: Coord[CartesianPosLabel, str]
     """Coordinate dimension of earth location data (typically shape 3 and 'x', 'y', 'z')"""
     sky_dir_label: Optional[Coord[SkyDirLabel, str]]
     """Coordinate dimension of sky coordinate data (possibly shape 2 and 'RA', "Dec")"""
 
     # --- Data variables ---
-    POSITION: Data[AntennaId, EarthLocationArray]
+    ANTENNA_POSITION: Data[AntennaId, EarthLocationArray]
     """
     In a right-handed frame, X towards the intersection of the equator and
     the Greenwich meridian, Z towards the pole.
     """
-    FEED_OFFSET: Data[tuple[AntennaId, XyzLabel], QuantityArray]
+    ANTENNA_FEED_OFFSET: Data[tuple[AntennaId, CartesianPosLabel], QuantityArray]
     """
     Offset of feed relative to position (``Antenna_Table.offset + Feed_Table.position``).
     """
-    DISH_DIAMETER: Data[AntennaId, QuantityArray]
+    ANTENNA_DISH_DIAMETER: Data[AntennaId, QuantityArray]
     """
     Nominal diameter of dish, as opposed to the effective diameter.
     """
@@ -677,7 +670,7 @@ class PointingXds:
     Mid-point of the time interval for which the information in this row is
     valid.  Required to use the same time measure reference as in visibility dataset
     """
-    antenna_id: Coordof[AntennaArray]
+    antenna_id: Coord[AntennaId, Union[int, numpy.int32]]
     """
     Antenna identifier, as specified by baseline_antenna1/2_id in visibility dataset
     """
@@ -738,9 +731,6 @@ class VisibilityXds:
     """
     uvw_label: Optional[Coordof[UvwLabelArray]]
 
-    # --- Required data variables ---
-    VISIBILITY: Dataof[VisibilityArray]
-
     # --- Required Attributes ---
     antenna_xds: Attr[AntennaXds]
 
@@ -752,8 +742,12 @@ class VisibilityXds:
     scan_id: Optional[Coord[Time, int]] = None
     """Arbitary scan number to identify data taken in the same logical scan."""
 
+    # --- Required data variables ---
+
     # --- Optional data variables / arrays ---
     """Complex visibilities, either simulated or measured by interferometer."""
+    VISIBILITY: Optional[Dataof[VisibilityArray]] = None
+    SPECTRUM: Optional[Dataof[VisibilityArray]] = None
     FLAG: Optional[Dataof[FlagArray]] = None
     WEIGHT: Optional[Dataof[WeightArray]] = None
     UVW: Optional[Dataof[UvwArray]] = None

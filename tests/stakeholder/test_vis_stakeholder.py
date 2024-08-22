@@ -180,7 +180,7 @@ def test_single_dish():
     base_test("sdimaging.ms", 5487446.5)
 
 
-def test_alma_ephemris_mosaic():
+def test_alma_ephemeris_mosaic():
     base_test("ALMA_uid___A002_X1003af4_X75a3.split.avg.ms", 8.11051993222426e17)
 
 
@@ -231,13 +231,13 @@ if __name__ == "__main__":
     # test_ngeht()
     # test_ephemeris()
     # test_single_dish()
-    # test_alma_ephemris_mosaic()
+    # test_alma_ephemeris_mosaic()
     # test_VLA()
 
 # All test preformed on MAC with M3 and 16 GB Ram.
 # pytest --durations=0 .
 # Timing. Parallel False + get_col
-# 33.33s call     tests/stakeholder/test_vis_stakeholder.py::test_alma_ephemris_mosaic
+# 33.33s call     tests/stakeholder/test_vis_stakeholder.py::test_alma_ephemeris_mosaic
 # 27.98s call     tests/stakeholder/test_vis_stakeholder.py::test_vlass
 # 25.89s call     tests/stakeholder/test_vis_stakeholder.py::test_sd_A002_Xe3a5fd_Xe38e
 # 25.29s call     tests/stakeholder/test_vis_stakeholder.py::test_s3
@@ -256,7 +256,7 @@ if __name__ == "__main__":
 
 # Timing. Parallel True + get_col
 # 25.49s call     tests/stakeholder/test_vis_stakeholder.py::test_s3
-# 19.05s call     tests/stakeholder/test_vis_stakeholder.py::test_alma_ephemris_mosaic
+# 19.05s call     tests/stakeholder/test_vis_stakeholder.py::test_alma_ephemeris_mosaic
 # 17.01s call     tests/stakeholder/test_vis_stakeholder.py::test_sd_A002_Xe3a5fd_Xe38e
 # 12.86s call     tests/stakeholder/test_vis_stakeholder.py::test_vlass
 # 10.26s call     tests/stakeholder/test_vis_stakeholder.py::test_sd_A002_Xced5df_Xf9d9
@@ -274,7 +274,7 @@ if __name__ == "__main__":
 
 # Timing. Parallel False + iter col
 # 87.50s call     tests/stakeholder/test_vis_stakeholder.py::test_vlass
-# 42.37s call     tests/stakeholder/test_vis_stakeholder.py::test_alma_ephemris_mosaic
+# 42.37s call     tests/stakeholder/test_vis_stakeholder.py::test_alma_ephemeris_mosaic
 # 23.41s call     tests/stakeholder/test_vis_stakeholder.py::test_s3
 # 14.96s call     tests/stakeholder/test_vis_stakeholder.py::test_ngeht
 # 12.69s call     tests/stakeholder/test_vis_stakeholder.py::test_single_dish

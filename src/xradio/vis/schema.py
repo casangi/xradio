@@ -830,4 +830,8 @@ class VisibilityXds:
     The id assigned to this combination of spectral window and polarization setup.
     """
 
-    type: Attr[str] = "visibility"
+    # Disabled (#223) temporarily until clarified/fixed in downloaded stk datasets
+    # type: Attr[str] = "visibility"
+    # """
+    # Dataset type
+    # """

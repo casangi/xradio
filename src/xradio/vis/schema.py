@@ -622,6 +622,11 @@ class FreqSamplingArray:
 
 
 @xarray_dataset_schema
+class AntennaXdsEmptyWhileRevampedTODO:
+    """No checks are being done. TODO: update AntennaXds once review moves on"""
+
+
+@xarray_dataset_schema
 class AntennaXds:
     # --- Coordinates ---
     antenna_id: Coordof[AntennaArray]
@@ -731,12 +736,6 @@ class SpectralCoordXds:
 
 
 @xarray_dataset_schema
-class SourceXds:
-    # TODO
-    pass
-
-
-@xarray_dataset_schema
 class PhasedArrayXds:
     # TODO
     pass
@@ -769,6 +768,7 @@ class VisibilityXds:
     # --- Required Attributes ---
     # TODO: on hold while antenna_xds is reviewed/ updated
     # antenna_xds: Attr[AntennaXds]
+    antenna_xds: Attr[AntennaXdsEmptyWhileRevampedTODO]
 
     # --- Optional Coordinates ---
     baseline_antenna1_id: Optional[Coordof[BaselineAntennaArray]] = None
@@ -815,7 +815,7 @@ class VisibilityXds:
     source_xds: Optional[Attr[SourceXds]] = None
     phased_array_xds: Optional[Attr[PhasedArrayXds]] = None
     observation_info: Optional[Attr[ObservationInfoDict]] = None
-    observation_info: Optional[Attr[ProcessorInfoDict]] = None
+    processor_info: Optional[Attr[ProcessorInfoDict]] = None
 
     version: Optional[Attr[str]] = None  # TODO:
     """Semantic version of xradio data format"""

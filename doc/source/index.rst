@@ -30,10 +30,14 @@ The main aims of the library are:
    :maxdepth: 1
    :caption: Guides
 
+   ephemeris_conversion
+   global_vlbi
    lofar_conversion
    meerkat_conversion
-   meta_data_proposal
+   ngEHT_conversion
+   single_dish_conversion
    ska_mid_conversion
+   VLBA_conversion
 
 .. toctree::
    :maxdepth: 1

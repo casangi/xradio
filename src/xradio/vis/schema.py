@@ -787,7 +787,9 @@ class VisibilityXds:
     # --- Required data variables ---
     # Either VISIBILITY (interferometry) or SPECTRUM (single-dish)
     VISIBILITY: Optional[Dataof[VisibilityArray]]
+    """Complex visibilities, either simulated or measured by interferometer."""
     SPECTRUM: Optional[Dataof[SpectrumArray]]
+    """Single dish data, either simulated or measured by an antenna."""
 
     # --- Required Attributes ---
     # TODO: on hold while antenna_xds is reviewed/ updated
@@ -803,7 +805,10 @@ class VisibilityXds:
     """Arbitary scan number to identify data taken in the same logical scan."""
 
     # --- Optional data variables / arrays ---
-    """Complex visibilities, either simulated or measured by interferometer."""
+    VISIBILITY_CORRECTED: Optional[Dataof[VisibilityArray]] = None
+    VISIBILITY_MODEL: Optional[Dataof[VisibilityArray]] = None
+    SPECTRUM_CORRECTED: Optional[Dataof[SpectrumArray]] = None
+
     FLAG: Optional[Dataof[FlagArray]] = None
     WEIGHT: Optional[Dataof[WeightArray]] = None
     UVW: Optional[Dataof[UvwArray]] = None

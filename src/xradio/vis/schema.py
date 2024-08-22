@@ -30,8 +30,12 @@ UvwLabel = Literal["uvw_label"]
 """ Coordinate dimension of UVW data (typically shape 3 for 'u', 'v', 'w') """
 SkyDirLabel = Literal["sky_dir_label"]
 """ Coordinate labels of sky directions (typically shape 2 and 'ra', 'dec') """
+SphericalDirLabel = Literal["spherical_dir_label"]
+""" Coordinate labels of spherical directions (shape 2 and 'lon', 'lat1' """
 SkyPosLabel = Literal["sky_pos_label"]
-""" Coordinate lables of sky positions (typically shape 3 and 'ra', 'dec', 'dist') """
+""" Coordinate labels of sky positions (typically shape 3 and 'ra', 'dec', 'dist') """
+SphericalPosLabel = Literal["spherical_pos_label"]
+""" Coordinate labels of spherical positions (shape shape 3 and 'lon', 'lat1', 'dist2') """
 EllipsoidPosLabel = Literal["ellipsoid_pos_label"]
 """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
 CartesianPosLabel = Literal["cartesian_pos_label"]
@@ -162,14 +166,21 @@ class FieldSourceXds:
     For single dishes, this is the nominal pointing direction.
     """
 
+    source_name: Optional[Attr[str]]
+    """ Source name. """
+    field_name: Optional[Attr[str]]
+    """Field name."""
+
     time: Optional[Coordof[TimeCoordArray]]
     """Midpoint of time for which this set of parameters is accurate"""
+
     line_label: Optional[Coord[LineLabel, str]]
     """ Line labels (for line names and variables). """
 
     line_names: Optional[Coord[Union[tuple[LineLabel], tuple[Time, LineLabel]], str]]
     """ Line names (e.g. v=1, J=1-0, SiO). """
 
+    # Either FIELD_PHASE_CENTER (interferometry) or FIELD_DELAY_CENTER (single dish)
     FIELD_PHASE_CENTER: Optional[Data[Union[tuple[()], Time], SkyCoordOffsetArray]]
     """
     Offset from the SOURCE_DIRECTION that gives the direction of phase
@@ -180,7 +191,7 @@ class FieldSourceXds:
     varies with field, it refers DelayDir_Ref column instead.
     """
     FIELD_DELAY_CENTER: Optional[
-        Data[Union[tuple[SkyDirLabel], tuple[Time, SkyDirLabel]], float]
+        Data[Union[tuple[SkyDirLabel], tuple[Time, SkyDirLabel]], numpy.float64]
     ]
     """
     Offset from the SOURCE_DIRECTION that gives the direction of delay
@@ -191,20 +202,16 @@ class FieldSourceXds:
     instead.)
     """
 
-    SOURCE_POSITION: Optional[
-        Data[Union[tuple[SkyPosLabel], tuple[Time, SkyPosLabel]], float]
-    ]
-    """
-    CASA Table Cols: RA,DEC,Rho."Astrometric RA and Dec and Geocentric
-    distance with respect to the observer’s location (Geocentric). "Adjusted
-    for light-time aberration only. With respect to the reference plane and
-    equinox of the chosen system (ICRF or FK4/B1950). If the FK4/B1950 frame
-    output is selected, elliptic aberration terms are added. Astrometric RA/DEC
-    is generally used when comparing or reducing data against a star catalog."
-    https://ssd.jpl.nasa.gov/horizons/manual.html : 1. Astrometric RA & DEC
-    """
-    SOURCE_DIRECTION: Optional[
-        Data[Union[tuple[SkyDirLabel], tuple[Time, SkyDirLabel]], float]
+    SOURCE_LOCATION: Optional[
+        Data[
+            Union[
+                tuple[SkyPosLabel],
+                tuple[Time, SkyPosLabel],
+                tuple[SkyDirLabel],
+                tuple[Time, SkyDirLabel],
+            ],
+            numpy.float64,
+        ]
     ]
     """
     CASA Table Cols: RA,DEC,Rho."Astrometric RA and Dec and Geocentric
@@ -216,10 +223,47 @@ class FieldSourceXds:
     https://ssd.jpl.nasa.gov/horizons/manual.html : 1. Astrometric RA & DEC
     """
 
-    source_name: Optional[Attr[str]]
-    """ Source name. """
-    field_name: Optional[Attr[str]]
-    """Field name."""
+    LINE_REST_FREQUENCY: Optional[
+        Data[Union[tuple[LineLabel], tuple[Time, LineLabel]], numpy.float64]
+    ]
+    """ Rest frequencies for the transitions. """
+
+    LINE_SYSTEMIC_VELOCITY: Optional[
+        Data[Union[tuple[LineLabel], tuple[Time, LineLabel]], numpy.float64]
+    ]
+    """ Systemic velocity at reference """
+
+    SOURCE_RADIAL_VELOCITY: Optional[Data[tuple[Time], numpy.float64]]
+    """ CASA Table Cols: RadVel. Geocentric distance rate """
+
+    NORTH_POLE_POSITION_ANGLE: Optional[Data[tuple[Time], numpy.float64]]
+    """ CASA Table cols: NP_ang, "Targets' apparent north-pole position angle (counter-clockwise with respect to direction of true-of-date reference-frame north pole) and angular distance from the sub-observer point (center of disc) at print time. A negative distance indicates the north-pole is on the hidden hemisphere." https://ssd.jpl.nasa.gov/horizons/manual.html : 17. North pole position angle & distance from disc center. """
+
+    NORTH_POLE_ANGULAR_DISTANCE: Optional[Data[tuple[Time], numpy.float64]]
+    """ CASA Table cols: NP_dist, "Targets' apparent north-pole position angle (counter-clockwise with respect to direction of true-of date reference-frame north pole) and angular distance from the sub-observer point (center of disc) at print time. A negative distance indicates the north-pole is on the hidden hemisphere."https://ssd.jpl.nasa.gov/horizons/manual.html : 17. North pole position angle & distance from disc center. """
+
+    SUB_OBSERVER_DIRECTION: Optional[
+        Data[tuple[Time, SphericalDirLabel], numpy.float64]
+    ]
+    """ CASA Table cols: DiskLong, DiskLat. "Apparent planetodetic longitude and latitude of the center of the target disc seen by the OBSERVER at print-time. This is not exactly the same as the "nearest point" for a non-spherical target shape (since the center of the disc might not be the point closest to the observer), but is generally very close if not a very irregular body shape. The IAU2009 rotation models are used except for Earth and MOON, which use higher-precision models. For the gas giants Jupiter, Saturn, Uranus and Neptune, IAU2009 longitude is based on the "System III" prime meridian rotation angle of the magnetic field. By contrast, pole direction (thus latitude) is relative to the body dynamical equator. There can be an offset between the magnetic pole and the dynamical pole of rotation. Down-leg light travel-time from target to observer is taken into account. Latitude is the angle between the equatorial plane and perpendicular to the reference ellipsoid of the body and body oblateness thereby included. The reference ellipsoid is an oblate spheroid with a single flatness coefficient in which the y-axis body radius is taken to be the same value as the x-axis radius. Whether longitude is positive to the east or west for the target will be indicated at the end of the output ephemeris." https://ssd.jpl.nasa.gov/horizons/manual.html : 14. Observer sub-longitude & sub-latitude """
+
+    SUB_SOLAR_POSITION: Optional[Data[tuple[Time, SphericalPosLabel], numpy.float64]]
+    """ CASA Table cols: Sl_lon, Sl_lat, r. "Heliocentric distance along with "Apparent sub-solar longitude and latitude of the Sun on the target. The apparent planetodetic longitude and latitude of the center of the target disc as seen from the Sun, as seen by the observer at print-time.  This is _NOT_ exactly the same as the "sub-solar" (nearest) point for a non-spherical target shape (since the center of the disc seen from the Sun might not be the closest point to the Sun), but is very close if not a highly irregular body shape.  Light travel-time from Sun to target and from target to observer is taken into account.  Latitude is the angle between the equatorial plane and the line perpendicular to the reference ellipsoid of the body. The reference ellipsoid is an oblate spheroid with a single flatness coefficient in which the y-axis body radius is taken to be the same value as the x-axis radius. Uses IAU2009 rotation models except for Earth and Moon, which uses a higher precision models. Values for Jupiter, Saturn, Uranus and Neptune are Set III, referring to rotation of their magnetic fields.  Whether longitude is positive to the east or west for the target will be indicated at the end of the output ephemeris." https://ssd.jpl.nasa.gov/horizons/manual.html : 15. Solar sub-longitude & sub-latitude  """
+
+    HELIOCENTRIC_RADIAL_VELOCITY: Optional[Data[tuple[Time], numpy.float64]]
+    """ CASA Table cols: rdot."The Sun's apparent range-rate relative to the target, as seen by the observer. A positive "rdot" means the target was moving away from the Sun, negative indicates movement toward the Sun." https://ssd.jpl.nasa.gov/horizons/manual.html : 19. Solar range & range-rate (relative to target) """
+
+    OBSERVER_PHASE_ANGLE: Optional[Data[tuple[Time], numpy.float64]]
+    """ CASA Table cols: phang.""phi" is the true PHASE ANGLE at the observers' location at print time. "PAB-LON" and "PAB-LAT" are the FK4/B1950 or ICRF/J2000 ecliptic longitude and latitude of the phase angle bisector direction; the outward directed angle bisecting the arc created by the apparent vector from Sun to target center and the astrometric vector from observer to target center. For an otherwise uniform ellipsoid, the time when its long-axis is perpendicular to the PAB direction approximately corresponds to lightcurve maximum (or maximum brightness) of the body. PAB is discussed in Harris et al., Icarus 57, 251-258 (1984)." https://ssd.jpl.nasa.gov/horizons/manual.html : Phase angle and bisector """
+
+    OBSERVER_POSITION: Optional[
+        Data[Union[tuple[EllipsoidPosLabel], tuple[CartesianPosLabel]], numpy.float64]
+    ]
+    """ Observer location. """
+
+    # --- Attributes ---
+    DOPPLER_SHIFT_VELOCITY: Optional[Attr[numpy.float64]]
+    """ Velocity definition of the Doppler shift, e.g., RADIO or OPTICAL velocity in m/s """
 
     source_model_url: Optional[Attr[str]]
     """URL to access source model"""
@@ -231,6 +275,7 @@ class FieldSourceXds:
     """
     is_ephemeris: Attr[bool] = False
 
+    # --- Optional coordinates ---
     sky_dir_label: Optional[Coord[SkyDirLabel, str]] = ("ra", "dec")
     """ Coordinate labels of sky directions (typically shape 2 and 'ra', 'dec') """
     sky_pos_label: Optional[Coord[SkyPosLabel, str]] = ("ra", "dec", "dist")
@@ -241,7 +286,7 @@ class FieldSourceXds:
         "height",
     )
     """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
-    cartesian_pos_label: Optional[Coord[XyzLabel, str]] = ("x", "y", "z")
+    cartesian_pos_label: Optional[Coord[CartesianPosLabel, str]] = ("x", "y", "z")
     """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
 
 

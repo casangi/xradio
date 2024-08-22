@@ -14,6 +14,8 @@ Time = Literal["time"]
 """ Observation time dimension """
 AntennaId = Literal["antenna_id"]
 """ Antenna ID dimension """
+StationId = Literal["station_id"]
+""" Station ID dimension """
 ReceptorName = Literal["receptor_name"]
 """ Receptor name dimension """
 BaselineId = Literal["baseline_id"]
@@ -623,7 +625,19 @@ class FreqSamplingArray:
 
 @xarray_dataset_schema
 class AntennaXdsEmptyWhileRevampedTODO:
-    """No checks are being done. TODO: update AntennaXds once review moves on"""
+    """Minimal placeholder so that it shows in the main xds
+    docs. TODO: update AntennaXds once review moves on
+    """
+
+    name: Coord[Literal["name"], str]
+    antenna_id: Optional[Coordof[AntennaArray]]
+    receptor_name: Optional[Coord[ReceptorName, str]]
+    cartesian_pos_label: Coord[CartesianPosLabel, str]
+    sky_dir_label: Optional[Coord[SkyDirLabel, str]]
+    gain_curve_time: Optional[Coord[Literal["gain_curve_time"], numpy.float64]]
+    poly_term: Optional[Coord[Literal["poly_term"], numpy.int64]]
+    phase_cal_time: Optional[Coord[Literal["phase_cal_time"], numpy.float64]]
+    tone_label: Optional[Coord[Literal["tone_label"], numpy.int64]]
 
 
 @xarray_dataset_schema
@@ -696,6 +710,16 @@ class AntennaXds:
     """
     Type of dataset. Expected to be ``antenna``
     """
+
+
+@xarray_dataset_schema
+class WeatherXds:
+    """TODO: largely incomplete"""
+
+    station_id: Coord[StationId, numpy.int64]
+    """ Station identifier """
+    time: Coord[Time, numpy.float64]
+    """ Mid-point of the time interval """
 
 
 @xarray_dataset_schema
@@ -811,11 +835,11 @@ class VisibilityXds:
     """Includes the effects of missing data unlike ``frequency``."""
 
     # --- Optional Attributes ---
-    pointing_xds: Optional[Attr[PointingXds]] = None
-    source_xds: Optional[Attr[SourceXds]] = None
-    phased_array_xds: Optional[Attr[PhasedArrayXds]] = None
     observation_info: Optional[Attr[ObservationInfoDict]] = None
     processor_info: Optional[Attr[ProcessorInfoDict]] = None
+    weather_xds: Optional[Attr[WeatherXds]] = None
+    pointing_xds: Optional[Attr[PointingXds]] = None
+    phased_array_xds: Optional[Attr[PhasedArrayXds]] = None
 
     version: Optional[Attr[str]] = None  # TODO:
     """Semantic version of xradio data format"""

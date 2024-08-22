@@ -4,6 +4,7 @@ from .._zarr.encoding import add_encoding
 from typing import Dict, Union
 import graphviper.utils.logger as logger
 import os
+import pathlib
 
 import numpy as np
 import xarray as xr
@@ -838,7 +839,7 @@ def convert_and_write_partition(
 
             file_name = os.path.join(
                 out_file,
-                out_file.replace(".vis.zarr", "").replace(".zarr", "").split("/")[-1]
+                pathlib.Path(out_file).name.replace(".vis.zarr", "").replace(".zarr", "")
                 + "_"
                 + str(ms_v4_id),
             )

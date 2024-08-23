@@ -27,7 +27,7 @@ The main aims of the library are:
    image_tutorial
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Guides
 
    ephemeris_conversion
@@ -46,7 +46,7 @@ The main aims of the library are:
    decisions
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Reference
 
    schema

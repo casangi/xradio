@@ -24,31 +24,31 @@ Sub-datasets
 ------------
 
 antenna_xds
-+++++++++++
+~~~~~~~~~~~
 .. autoclass:: xradio.vis.schema.AntennaXds()
 
    .. xradio_dataset_schema_table:: xradio.vis.schema.AntennaXds
 
 weather_xds
-+++++++++++
+~~~~~~~~~~~
 .. autoclass:: xradio.vis.schema.WeatherXds()
 
    .. xradio_dataset_schema_table:: xradio.vis.schema.WeatherXds
 
 pointing_xds
-++++++++++++
+~~~~~~~~~~~~
 .. autoclass:: xradio.vis.schema.PointingXds()
 
    .. xradio_dataset_schema_table:: xradio.vis.schema.PointingXds
 
 phased_array_xds
-++++++++++++++++
+~~~~~~~~~~~~~~~~
 .. autoclass:: xradio.vis.schema.PhasedArrayXds()
 
    .. xradio_dataset_schema_table:: xradio.vis.schema.PhasedArrayXds
 
 system_calibration_xds
-++++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~~~
 .. autoclass:: xradio.vis.schema.SystemCalibrationXds()
 
    .. xradio_dataset_schema_table:: xradio.vis.schema.SystemCalibrationXds
@@ -56,7 +56,7 @@ system_calibration_xds
 .. _field_and_source_xds:
 
 field_and_source_xds
-++++++++++++++++++++
+~~~~~~~~~~~~~~~~~~~~
 .. autoclass:: xradio.vis.schema.FieldSourceXds()
 
    .. xradio_dataset_schema_table:: xradio.vis.schema.FieldSourceXds

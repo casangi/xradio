@@ -382,6 +382,7 @@ def extract_phase_cal_info(ant_xds, path, spectral_window_id,time_min_max, phase
         generic_phase_cal_xds = load_generic_table(
             path,
             "PHASE_CAL",
+            timecols=["TIME"],
             taql_where=f" {taql_time_range} AND (ANTENNA_ID IN [{','.join(map(str,ant_xds.antenna_id.values))}]) AND (SPECTRAL_WINDOW_ID = {spectral_window_id})",
         )
 
@@ -428,6 +429,8 @@ def extract_phase_cal_info(ant_xds, path, spectral_window_id,time_min_max, phase
         ant_xds= ant_xds.assign_coords({"tone_label" : np.array(
             list(map(lambda x, y: x + "_" + y, ["freq"]*ant_xds.sizes["tone_label"], np.arange(ant_xds.sizes["tone_label"]).astype(str)))
         )}) 
+        
+        ant_xds['time_phase_cal'] = ant_xds.time_phase_cal.astype('float64').astype('float64')/10**9
         
         ant_xds = interpolate_to_time(
             ant_xds, phase_cal_interp_time, "antenna_xds", time_name="time_phase_cal"

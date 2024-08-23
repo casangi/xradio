@@ -255,7 +255,11 @@ def extract_feed_info(
         ant_xds["ANTENNA_FEED_OFFSET"] + generic_feed_xds["POSITION"].data
     )
     coords = {}
-    coords["receptor_label"] = "pol_" + np.arange(ant_xds.sizes["receptor_label"]).astype(str)
+    #coords["receptor_label"] = "pol_" + np.arange(ant_xds.sizes["receptor_label"]).astype(str) #Works on laptop but fails in github test runner.
+    coords["receptor_label"] = np.array(
+            list(map(lambda x, y: x + "_" + y, ["pol"]*ant_xds.sizes["receptor_label"], np.arange(ant_xds.sizes["receptor_label"]).astype(str)))
+        )
+    
     coords["sky_dir_label"] = ["ra", "dec"]
     ant_xds = ant_xds.assign_coords(coords)
     return ant_xds
@@ -420,7 +424,10 @@ def extract_phase_cal_info(ant_xds, path, spectral_window_id,time_min_max, phase
             "PHASE_CAL_TONE_FREQUENCY"
         ].transpose("antenna_name", "time_phase_cal", "receptor_label", "tone_label")
         
-        ant_xds.assign_coords({"tone_label" : "freq_" + np.arange(ant_xds.sizes["tone_label"]).astype(str)})
+        #ant_xds = ant_xds.assign_coords({"tone_label" : "freq_" + np.arange(ant_xds.sizes["tone_label"]).astype(str)}) #Works on laptop but fails in github test runner.
+        ant_xds= ant_xds.assign_coords({"tone_label" : np.array(
+            list(map(lambda x, y: x + "_" + y, ["freq"]*ant_xds.sizes["tone_label"], np.arange(ant_xds.sizes["tone_label"]).astype(str)))
+        )}) 
         
         ant_xds = interpolate_to_time(
             ant_xds, phase_cal_interp_time, "antenna_xds", time_name="time_phase_cal"

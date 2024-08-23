@@ -40,12 +40,14 @@ EllipsoidPosLabel = Literal["ellipsoid_pos_label"]
 """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
 CartesianPosLabel = Literal["cartesian_pos_label"]
 """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
-XyzLabel = Literal["xyz_label"]
-""" Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
 TimePolynomial = Literal["time_polynomial"]
 """ For data that is represented as variable in time using Taylor expansion """
 LineLabel = Literal["line_label"]
 """ Line labels (for line names and variables). """
+
+# Represents "no dimension", i.e. used for coordinates and data variables with
+# zero dimensions.
+ZD = tuple[()]
 
 # Quantities
 
@@ -72,7 +74,7 @@ class TimeArray:
 
     """
 
-    data: Data[tuple[()], float]
+    data: Data[ZD, float]
     """Time since epoch, typically in seconds (see ``units``)."""
 
     scale: Attr[str] = "tai"
@@ -120,7 +122,7 @@ class QuantityArray:
     Often used for distances / differences (integration time, channel width etcetera).
     """
 
-    data: Data[tuple[()], float]
+    data: Data[ZD, float]
 
     units: Attr[list[str]]
     type: Attr[str] = "quantity"
@@ -166,9 +168,9 @@ class FieldSourceXds:
     For single dishes, this is the nominal pointing direction.
     """
 
-    source_name: Optional[Attr[str]]
+    source_name: Optional[Coord[Union[ZD, Time], str]]
     """ Source name. """
-    field_name: Optional[Attr[str]]
+    field_name: Optional[Coord[Union[ZD, Time], str]]
     """Field name."""
 
     time: Optional[Coordof[TimeCoordArray]]
@@ -180,8 +182,7 @@ class FieldSourceXds:
     line_names: Optional[Coord[Union[tuple[LineLabel], tuple[Time, LineLabel]], str]]
     """ Line names (e.g. v=1, J=1-0, SiO). """
 
-    # Either FIELD_PHASE_CENTER (interferometry) or FIELD_DELAY_CENTER (single dish)
-    FIELD_PHASE_CENTER: Optional[Data[Union[tuple[()], Time], SkyCoordOffsetArray]]
+    FIELD_PHASE_CENTER: Optional[Data[Union[ZD, Time], SkyCoordOffsetArray]]
     """
     Offset from the SOURCE_DIRECTION that gives the direction of phase
     center for which the fringes have been stopped-that is a point source in
@@ -292,7 +293,7 @@ class FieldSourceXds:
 
 @xarray_dataarray_schema
 class SpectralCoordArray:
-    data: Data[tuple[()], float]
+    data: Data[ZD, float]
 
     frame: Attr[str] = "gcrs"
     """Astropy time scales."""
@@ -303,7 +304,7 @@ class SpectralCoordArray:
 
 @xarray_dataarray_schema
 class EarthLocationArray:
-    data: Data[XyzLabel, float]
+    data: Data[CartesianPosLabel, float]
 
     ellipsoid: Attr[str]
     """
@@ -353,16 +354,6 @@ class ProcessorInfoDict:
     ”RADIOMETER” - generic detector/integrator)."""
     sub_type: str
     """Processor sub-type, e.g. ”GBT” or ”JIVE”."""
-
-
-@xarray_dataarray_schema
-class AntennaArray:
-    data: Data[AntennaId, int]
-    """
-    Antenna id of an antenna. Maps to ``antenna_id``
-    in :py:class:`AntennaXds`.
-    """
-    long_name: Optional[Attr[str]] = "Antenna ID"
 
 
 @xarray_dataarray_schema
@@ -473,10 +464,16 @@ class VisibilityArray:
         tuple[Time, BaselineId, Frequency, Polarization],
         Union[numpy.complex64, numpy.complex128],
     ]
+
     time: Coord[tuple[()], TimeCoordArray]
     baseline_id: Coord[tuple[()], BaselineArray]
     polarization: Coord[tuple[()], PolarizationArray]
     frequency: Coord[tuple[()], FrequencyArray]
+    time: Coord[ZD, TimeCoordArray]
+    baseline_id: Coord[ZD, BaselineArray]
+    polarization: Coord[ZD, PolarizationArray]
+    frequency: Coord[ZD, FrequencyArray]
+
     field_and_source_xds: Attr[FieldSourceXds]
     long_name: Optional[Attr[str]] = "Visibility values"
     """ Long-form name to use for axis. Should be ``"Visibility values"``"""
@@ -494,7 +491,7 @@ class SpectrumArray:
     time: Coord[tuple[()], TimeCoordArray]
 
     # in the spreadsheet this is antenna_id:
-    # antenna_id: Coord[tuple[()], AntennaArray]
+    # antenna_id: Coord[AntennaId, Union[int, numpy.int32]]
     baseline_id: Coord[tuple[()], BaselineArray]
 
     polarization: Coord[tuple[()], PolarizationArray]
@@ -677,7 +674,7 @@ class AntennaXdsEmptyWhileRevampedTODO:
     """
 
     name: Coord[Literal["name"], str]
-    antenna_id: Optional[Coordof[AntennaArray]]
+    antenna_id: Optional[Coord[AntennaId, Union[int, numpy.int32]]]
     receptor_name: Optional[Coord[ReceptorName, str]]
     cartesian_pos_label: Coord[CartesianPosLabel, str]
     sky_dir_label: Optional[Coord[SkyDirLabel, str]]
@@ -690,7 +687,7 @@ class AntennaXdsEmptyWhileRevampedTODO:
 @xarray_dataset_schema
 class AntennaXds:
     # --- Coordinates ---
-    antenna_id: Coordof[AntennaArray]
+    antenna_id: Coord[AntennaId, Union[int, numpy.int32]]
     """Antenna ID"""
     name: Coord[AntennaId, str]
 
@@ -713,22 +710,22 @@ class AntennaXds:
     """Support for VLBI"""
     receptor_name: Optional[Coord[ReceptorName, str]]
     """Names of receptors"""
-    xyz_label: Coord[XyzLabel, str]
+    cartesian_pos_label: Coord[CartesianPosLabel, str]
     """Coordinate dimension of earth location data (typically shape 3 and 'x', 'y', 'z')"""
     sky_dir_label: Optional[Coord[SkyDirLabel, str]]
     """Coordinate dimension of sky coordinate data (possibly shape 2 and 'RA', "Dec")"""
 
     # --- Data variables ---
-    POSITION: Data[AntennaId, EarthLocationArray]
+    ANTENNA_POSITION: Data[AntennaId, EarthLocationArray]
     """
     In a right-handed frame, X towards the intersection of the equator and
     the Greenwich meridian, Z towards the pole.
     """
-    FEED_OFFSET: Data[tuple[AntennaId, XyzLabel], QuantityArray]
+    ANTENNA_FEED_OFFSET: Data[tuple[AntennaId, CartesianPosLabel], QuantityArray]
     """
     Offset of feed relative to position (``Antenna_Table.offset + Feed_Table.position``).
     """
-    DISH_DIAMETER: Data[AntennaId, QuantityArray]
+    ANTENNA_DISH_DIAMETER: Data[AntennaId, QuantityArray]
     """
     Nominal diameter of dish, as opposed to the effective diameter.
     """
@@ -776,7 +773,7 @@ class PointingXds:
     Mid-point of the time interval for which the information in this row is
     valid.  Required to use the same time measure reference as in visibility dataset
     """
-    antenna_id: Coordof[AntennaArray]
+    antenna_id: Coord[AntennaId, Union[int, numpy.int32]]
     """
     Antenna identifier, as specified by baseline_antenna1/2_id in visibility dataset
     """
@@ -816,7 +813,7 @@ class PhasedArrayXds:
 class SystemCalibrationXds:
     """TODO: largely incomplete"""
 
-    antenna_id: Coordof[AntennaArray]
+    antenna_id: Coord[AntennaId, Union[int, numpy.int32]]
     """ Antenna identifier """
     time: Coord[Time, numpy.float64]
     """ Midpoint of time for which this set of parameters is accurate """
@@ -843,13 +840,6 @@ class VisibilityXds:
     """
     uvw_label: Optional[Coordof[UvwLabelArray]]
 
-    # --- Required data variables ---
-    # Either VISIBILITY (interferometry) or SPECTRUM (single-dish)
-    VISIBILITY: Optional[Dataof[VisibilityArray]]
-    """Complex visibilities, either simulated or measured by interferometer."""
-    SPECTRUM: Optional[Dataof[SpectrumArray]]
-    """Single dish data, either simulated or measured by an antenna."""
-
     # --- Required Attributes ---
     # TODO: on hold while antenna_xds is reviewed/ updated
     # antenna_xds: Attr[AntennaXds]
@@ -863,7 +853,16 @@ class VisibilityXds:
     scan_id: Optional[Coord[Time, int]] = None
     """Arbitary scan number to identify data taken in the same logical scan."""
 
+    # --- Required data variables ---
+
     # --- Optional data variables / arrays ---
+
+    # Either VISIBILITY (interferometry) or SPECTRUM (single-dish)
+    VISIBILITY: Optional[Dataof[VisibilityArray]] = None
+    """Complex visibilities, either simulated or measured by interferometer."""
+    SPECTRUM: Optional[Dataof[SpectrumArray]] = None
+    """Single dish data, either simulated or measured by an antenna."""
+
     VISIBILITY_CORRECTED: Optional[Dataof[VisibilityArray]] = None
     VISIBILITY_MODEL: Optional[Dataof[VisibilityArray]] = None
     SPECTRUM_CORRECTED: Optional[Dataof[SpectrumArray]] = None

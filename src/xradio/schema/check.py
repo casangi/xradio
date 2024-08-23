@@ -58,7 +58,10 @@ class SchemaIssue:
         err = f"Schema issue with {self.path_str()}: {self.message}"
         if self.expected is not None:
             options = " or ".join(repr(option) for option in self.expected)
-            err += f" (expected: {options} found: {repr(self.found)})"
+            if self.found is not None:
+                err += f" (expected: {options} found: {repr(self.found)})"
+            else:
+                err += f" (expected: {options})"
         return err
 
 
@@ -381,7 +384,8 @@ def check_data_vars(
                     )
                 else:
                     message = (
-                        f"Required data variable '{data_var_schema.name}' is missing!"
+                        f"Required data variable '{data_var_schema.name}' is missing "
+                        f"(have {','.join(data_vars)})!"
                     )
                 issues.add(
                     SchemaIssue(

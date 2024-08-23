@@ -330,7 +330,7 @@ def create_pointing_xds(
     if move_target_as_attr:
         target = generic_pointing_xds.data_vars["TARGET"]
         pointing_xds.attrs["target"] = {
-            "dims": ["direction"],
+            "dims": ["sky_dir_label"],
             "data": target.values[0, 0].tolist(),
             "attrs": column_description_casacore_to_msv4_measure(
                 pointing_column_descriptions["TARGET"]

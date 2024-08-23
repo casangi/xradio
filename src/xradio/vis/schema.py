@@ -18,7 +18,7 @@ StationId = Literal["station_id"]
 """ Station ID dimension """
 ReceptorId = Literal["receptor_id"]
 """ Receptor ID dimension """
-ReceptorName = Literal["receptor_name"]
+ReceptorName = Literal["receptor_label"]
 """ Receptor name dimension """
 BaselineId = Literal["baseline_id"]
 """ Baseline ID dimension """
@@ -673,9 +673,8 @@ class AntennaXdsEmptyWhileRevampedTODO:
     docs. TODO: update AntennaXds once review moves on
     """
 
-    name: Coord[Literal["name"], str]
-    antenna_id: Optional[Coord[AntennaId, Union[int, numpy.int32]]]
-    receptor_name: Optional[Coord[ReceptorName, str]]
+    antenna_name: Coord[Literal["antenna_name"], str]
+    receptor_label: Optional[Coord[ReceptorName, str]]
     cartesian_pos_label: Coord[CartesianPosLabel, str]
     sky_dir_label: Optional[Coord[SkyDirLabel, str]]
     gain_curve_time: Optional[Coord[Literal["gain_curve_time"], numpy.float64]]
@@ -843,7 +842,7 @@ class VisibilityXds:
     # --- Required Attributes ---
     # TODO: on hold while antenna_xds is reviewed/ updated
     # antenna_xds: Attr[AntennaXds]
-    antenna_xds: Attr[AntennaXdsEmptyWhileRevampedTODO]
+    # antenna_xds: Attr[AntennaXdsEmptyWhileRevampedTODO]
 
     # --- Optional Coordinates ---
     baseline_antenna1_id: Optional[Coordof[BaselineAntennaArray]] = None

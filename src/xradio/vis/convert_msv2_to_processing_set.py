@@ -17,6 +17,7 @@ def convert_msv2_to_processing_set(
     pointing_chunksize: Union[Dict, float, None] = None,
     pointing_interpolate: bool = False,
     ephemeris_interpolate: bool = False,
+    phase_cal_interpolate: bool = False,
     use_table_iter: bool = False,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend: str = "zarr",
@@ -94,6 +95,7 @@ def convert_msv2_to_processing_set(
                     pointing_chunksize=pointing_chunksize,
                     pointing_interpolate=pointing_interpolate,
                     ephemeris_interpolate=ephemeris_interpolate,
+                    phase_cal_interpolate=phase_cal_interpolate,
                     compressor=compressor,
                     overwrite=overwrite,
                 )
@@ -111,6 +113,7 @@ def convert_msv2_to_processing_set(
                 pointing_chunksize=pointing_chunksize,
                 pointing_interpolate=pointing_interpolate,
                 ephemeris_interpolate=ephemeris_interpolate,
+                phase_cal_interpolate=phase_cal_interpolate,
                 compressor=compressor,
                 overwrite=overwrite,
             )

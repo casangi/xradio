@@ -689,6 +689,7 @@ def convert_and_write_partition(
     pointing_chunksize: Union[Dict, float, None] = None,
     pointing_interpolate: bool = False,
     ephemeris_interpolate: bool = False,
+    phase_cal_interpolate: bool = False,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend="zarr",
     overwrite: bool = False,
@@ -842,6 +843,9 @@ def convert_and_write_partition(
 
             logger.debug("Time create data variables " + str(time.time() - start))
 
+            # To constrain the time range to load (in pointing, ephemerides, phase_cal data_vars)
+            time_min_max = find_min_max_times(tb_tool, taql_where)
+
             # Create ant_xds
             start = time.time()
             feed_id = unique_1d(
@@ -857,6 +861,10 @@ def convert_and_write_partition(
                     [xds["baseline_antenna1_id"].data, xds["baseline_antenna2_id"].data]
                 )
             )
+            if phase_cal_interpolate:
+                phase_cal_interp_time = xds.time.values
+            else:
+                phase_cal_interp_time = None
 
             ant_xds = create_antenna_xds(
                 in_file,
@@ -864,6 +872,8 @@ def convert_and_write_partition(
                 antenna_id,
                 feed_id,
                 telescope_name,
+                time_min_max,
+                phase_cal_interp_time,
             )
 
             # Change antenna_ids to antenna_names
@@ -879,9 +889,7 @@ def convert_and_write_partition(
             weather_xds = create_weather_xds(in_file)
             logger.debug("Time weather " + str(time.time() - start))
 
-            # To constrain the time range to load (in pointing, ephemerides data_vars)
-            time_min_max = find_min_max_times(tb_tool, taql_where)
-
+            # Create pointing_xds
             if with_pointing:
                 start = time.time()
                 if pointing_interpolate:
@@ -1035,10 +1043,10 @@ def antenna_ids_to_names(xds, ant_xds):
     )  # Allows for non-dimension coordinate selection.
 
     if "baseline_antenna1_id" in xds:  # Interferometer
-        xds["baseline_antenna1_id"] = ant_xds["name"].sel(
+        xds["baseline_antenna1_id"] = ant_xds["antenna_name"].sel(
             antenna_id=xds["baseline_antenna1_id"]
         )
-        xds["baseline_antenna2_id"] = ant_xds["name"].sel(
+        xds["baseline_antenna2_id"] = ant_xds["antenna_name"].sel(
             antenna_id=xds["baseline_antenna2_id"]
         )
         xds = xds.rename(
@@ -1048,7 +1056,7 @@ def antenna_ids_to_names(xds, ant_xds):
             }
         )
     else:  # Single Dish
-        xds["antenna_id"] = ant_xds["name"].sel(antenna_id=xds["antenna_id"])
+        xds["antenna_id"] = ant_xds["antenna_name"].sel(antenna_id=xds["antenna_id"])
         xds = xds.rename({"antenna_id": "antenna_name"})
 
     return xds

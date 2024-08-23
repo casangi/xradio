@@ -1,3 +1,12 @@
+import importlib.resources
+import numpy as np
+import os
+import pathlib
+import pytest
+import time
+
+from graphviper.utils.data import download
+from graphviper.utils.logger import setup_logger
 from xradio.vis import (
     read_processing_set,
     load_processing_set,
@@ -5,19 +14,13 @@ from xradio.vis import (
     VisibilityXds,
 )
 from xradio.schema.check import check_dataset
-from graphviper.utils.data import download
-import numpy as np
-import pytest
-import os
-import importlib.resources
-from graphviper.utils.logger import setup_logger
-import time
 
 # relative_tolerance = 10 ** (-12)
 relative_tolerance = 10 ** (-6)
 
 
-def download_and_convert_msv2_to_processing_set(msv2_name, partition_scheme):
+def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_scheme):
+
     # We can remove this once there is a new release of casacore
     if os.environ["USER"] == "runner":
         casa_data_dir = (importlib.resources.files("casadata") / "__data__").as_posix()
@@ -37,10 +40,12 @@ def download_and_convert_msv2_to_processing_set(msv2_name, partition_scheme):
             log_level="INFO",
         )
 
-    download(file=msv2_name)
-    ps_name = msv2_name[:-3] + ".vis.zarr"
+    download(file=msv2_name, folder=folder)
+    ps_name = folder / (msv2_name[:-3] + ".vis.zarr")
+    if os.path.isdir(ps_name):
+        os.system("rm -rf " + str(ps_name))  # Remove vis.zarr folder.
     convert_msv2_to_processing_set(
-        in_file=msv2_name,
+        in_file=str(folder / msv2_name),
         out_file=ps_name,
         partition_scheme=partition_scheme,
         main_chunksize=0.01,
@@ -55,11 +60,13 @@ def download_and_convert_msv2_to_processing_set(msv2_name, partition_scheme):
 
 
 def base_test(
-    file_name,
-    expected_sum_value,
-    is_s3=False,
-    partition_schemes=[[], ["FIELD_ID"]],
-    preconverted=False,
+    file_name: str,
+    folder: pathlib.Path,
+    expected_sum_value: float,
+    is_s3: bool = False,
+    partition_schemes: list = [[], ["FIELD_ID"]],
+    preconverted: bool = False,
+    do_schema_check: bool = True,
 ):
     start = time.time()
     from graphviper.dask.client import local_client
@@ -79,14 +86,14 @@ def base_test(
             ps_name = file_name
         else:
             ps_name = download_and_convert_msv2_to_processing_set(
-                file_name, partition_scheme
+                file_name, folder, partition_scheme
             )
 
-        print("ps_name", ps_name)
-        ps_lazy = read_processing_set(ps_name)
+        print(f"Reading Processing Set, {ps_name=}")
+        ps_lazy = read_processing_set(str(ps_name))
 
         sel_parms = {key: {} for key in ps_lazy.keys()}
-        ps = load_processing_set(ps_name, sel_parms=sel_parms)
+        ps = load_processing_set(str(ps_name), sel_parms=sel_parms)
 
         ps_lazy_df = ps_lazy.summary()
         ps_df = ps.summary()
@@ -106,8 +113,6 @@ def base_test(
                 np.abs(ps_lazy[ms_xds_name][data_name] * ps_lazy[ms_xds_name].WEIGHT)
             )
 
-        os.system("rm -rf " + ps_name)  # Remove vis.zarr folder.
-
         print("sum", sum, sum_lazy)
         assert (
             sum == sum_lazy
@@ -116,79 +121,86 @@ def base_test(
             expected_sum_value, rel=relative_tolerance
         ), "VISIBILITY and WEIGHT values have changed."
 
-        # for xds_name in ps.keys():
-        #     issues = check_dataset(ps[xds_name], VisibilityXds)
-        #     if not issues:
-        #         print(f"{xds_name}: okay\n")
-        #     else:
-        #         print(f"{xds_name}: {issues}\n")
+        if do_schema_check:
+            start_check = time.time()
+            for xds_name in ps.keys():
+                check_dataset(ps[xds_name], VisibilityXds).expect()
+            print(f"Time to check datasets (all MSv4s): {time.time() - start_check}")
+
         ps_list.append(ps)
-    os.system("rm -rf " + file_name)  # Remove downloaded MSv2 folder.
-    print("Time taken:", time.time() - start)
+
+    print("Time taken in test:", time.time() - start)
     return ps_list
 
 
-def test_s3():
+def test_s3(tmp_path):
+    # Similar to 'test_preconverted_alma' if this test fails on its own that
+    # probably is because the schema, the converter or the schema cheker have
+    # changed since the dataset was uploaded.
     base_test(
         "s3://viper-test-data/Antennae_North.cal.lsrk.split.py39.vis.zarr",
+        tmp_path,
         190.0405216217041,
         is_s3=True,
         partition_schemes=[[]],
+        do_schema_check=False,
     )
 
 
-def test_alma():
-    base_test("Antennae_North.cal.lsrk.split.ms", 190.0405216217041)
+def test_alma(tmp_path):
+    base_test("Antennae_North.cal.lsrk.split.ms", tmp_path, 190.0405216217041)
 
 
-def test_preconverted_alma():
+def test_preconverted_alma(tmp_path):
     # If this test has failed on its own it most probably means the schema has changed.
     # Create a fresh version using "Antennae_North.cal.lsrk.split.ms" and reconvert it using generate_zarr.py (in dropbox folder).
     # Zip this folder and add it to the dropbox folder and update the file.download.json file.
     # If you not sure how to do any of this contact jsteeb@nrao.edu
     base_test(
         "Antennae_North.cal.lsrk.split.py39.vis.zarr",
+        tmp_path,
         190.0405216217041,
         preconverted=True,
         partition_schemes=[[]],
+        do_schema_check=False,
     )
 
 
-def test_ska_mid():
-    base_test("AA2-Mid-sim_00000.ms", 551412.3125)
+def test_ska_mid(tmp_path):
+    base_test("AA2-Mid-sim_00000.ms", tmp_path, 551412.3125)
 
 
-def test_lofar():
-    base_test("small_lofar.ms", 10345086189568.0)
+def test_lofar(tmp_path):
+    base_test("small_lofar.ms", tmp_path, 10345086189568.0)
 
 
-def test_meerkat():
-    base_test("small_meerkat.ms", 333866268.0)
+def test_meerkat(tmp_path):
+    base_test("small_meerkat.ms", tmp_path, 333866268.0)
 
 
-def test_global_vlbi():
-    base_test("global_vlbi_gg084b_reduced.ms", 161588975616.0)
+def test_global_vlbi(tmp_path):
+    base_test("global_vlbi_gg084b_reduced.ms", tmp_path, 161588975616.0)
 
 
-def test_vlba():
-    base_test("VLBA_TL016B_split.ms", 94965412864.0)
+def test_vlba(tmp_path):
+    base_test("VLBA_TL016B_split.ms", tmp_path, 94965412864.0)
 
 
-def test_ngeht():
-    base_test("ngEHT_E17A10.0.bin0000.source0000_split.ms", 64306946048.0)
+def test_ngeht(tmp_path):
+    base_test("ngEHT_E17A10.0.bin0000.source0000_split.ms", tmp_path, 64306946048.0)
 
 
-def test_ephemeris():
-    base_test("venus_ephem_test.ms", 81741343621120.0)
+def test_ephemeris(tmp_path):
+    base_test("venus_ephem_test.ms", tmp_path, 81741343621120.0)
 
 
-def test_single_dish():
-    base_test("sdimaging.ms", 5487446.5)
+def test_single_dish(tmp_path):
+    base_test("sdimaging.ms", tmp_path, 5487446.5)
 
 
-def test_alma_ephemris_mosaic():
+def test_alma_ephemris_mosaic(tmp_path):
     ps_list = base_test(
-        "ALMA_uid___A002_X1003af4_X75a3.split.avg.ms", 8.11051993222426e17
+        "ALMA_uid___A002_X1003af4_X75a3.split.avg.ms", tmp_path, 8.11051993222426e17
     )
     # Here we test if the field_and_source_xds structure is correct.
     check_source_and_field_xds(
@@ -231,7 +243,7 @@ def check_source_and_field_xds(ps, msv4_name, expected_NP_sum):
         "NORTH_POLE_POSITION_ANGLE",
         "OBSERVATION_POSITION",
         "OBSERVER_PHASE_ANGLE",
-        "SOURCE_POSITION",
+        "SOURCE_LOCATION",
         "SOURCE_RADIAL_VELOCITY",
         "SUB_OBSERVER_POSITION",
     ]
@@ -248,57 +260,58 @@ def are_all_variables_in_dataset(dataset, variable_list):
     return all(var in dataset.data_vars for var in variable_list)
 
 
-def test_vlass():
+def test_vlass(tmp_path):
     # Don't do partition_scheme ['FIELD_ID'], will try and create >800 partitions.
     base_test(
         "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6.ms",
+        tmp_path,
         173858574208.0,
         partition_schemes=[[]],
     )
 
 
-def test_sd_A002_X1015532_X1926f():
-    base_test("uid___A002_X1015532_X1926f.small.ms", 5.964230735563984e21)
+def test_sd_A002_X1015532_X1926f(tmp_path):
+    base_test("uid___A002_X1015532_X1926f.small.ms", tmp_path, 5.964230735563984e21)
 
 
-def test_sd_A002_Xae00c5_X2e6b():
-    base_test("uid___A002_Xae00c5_X2e6b.small.ms", 2451894476.0)
+def test_sd_A002_Xae00c5_X2e6b(tmp_path):
+    base_test("uid___A002_Xae00c5_X2e6b.small.ms", tmp_path, 2451894476.0)
 
 
-def test_sd_A002_Xced5df_Xf9d9():
-    base_test("uid___A002_Xced5df_Xf9d9.small.ms", 9.892002713707104e21)
+def test_sd_A002_Xced5df_Xf9d9(tmp_path):
+    base_test("uid___A002_Xced5df_Xf9d9.small.ms", tmp_path, 9.892002713707104e21)
 
 
-def test_sd_A002_Xe3a5fd_Xe38e():
-    base_test("uid___A002_Xe3a5fd_Xe38e.small.ms", 246949088254189.5)
+def test_sd_A002_Xe3a5fd_Xe38e(tmp_path):
+    base_test("uid___A002_Xe3a5fd_Xe38e.small.ms", tmp_path, 246949088254189.5)
 
 
-def test_VLA():
-    base_test("SNR_G55_10s.split.ms", 195110762496.0)
+def test_VLA(tmp_path):
+    base_test("SNR_G55_10s.split.ms", tmp_path, 195110762496.0)
 
 
-def test_askap_59749_bp_8beams_pattern():
-    base_test("59749_bp_8beams_pattern.ms", 5652688384.0)
+def test_askap_59749_bp_8beams_pattern(tmp_path):
+    base_test("59749_bp_8beams_pattern.ms", tmp_path, 5652688384.0)
 
 
-def test_askap_59750_altaz_2settings():
-    base_test("59750_altaz_2settings.ms", 1878356864.0)
+def test_askap_59750_altaz_2settings(tmp_path):
+    base_test("59750_altaz_2settings.ms", tmp_path, 1878356864.0)
 
 
-def test_askap_59754_altaz_2weights_0():
-    base_test("59754_altaz_2weights_0.ms", 1504652800.0)
+def test_askap_59754_altaz_2weights_0(tmp_path):
+    base_test("59754_altaz_2weights_0.ms", tmp_path, 1504652800.0)
 
 
-def test_askap_59754_altaz_2weights_15():
-    base_test("59754_altaz_2weights_15.ms", 1334662656.0)
+def test_askap_59754_altaz_2weights_15(tmp_path):
+    base_test("59754_altaz_2weights_15.ms", tmp_path, 1334662656.0)
 
 
-def test_askap_59755_eq_interleave_0():
-    base_test("59755_eq_interleave_0.ms", 3052425984.0)
+def test_askap_59755_eq_interleave_0(tmp_path):
+    base_test("59755_eq_interleave_0.ms", tmp_path, 3052425984.0)
 
 
-def test_askap_59755_eq_interleave_15():
-    base_test("59755_eq_interleave_15.ms", 2949046016.0)
+def test_askap_59755_eq_interleave_15(tmp_path):
+    base_test("59755_eq_interleave_15.ms", tmp_path, 2949046016.0)
 
 
 if __name__ == "__main__":
@@ -326,7 +339,7 @@ if __name__ == "__main__":
     # test_ngeht()
     # test_ephemeris()
     # test_single_dish()
-    # test_alma_ephemris_mosaic()
+    # test_alma_ephemeris_mosaic()
     # test_VLA()
 
     # FAILED test_vis_stakeholder.py::test_ephemeris - ValueError: Buffer has wrong number of dimensions (expected 1, got 2)
@@ -337,7 +350,7 @@ if __name__ == "__main__":
 # All test preformed on MAC with M3 and 16 GB Ram.
 # pytest --durations=0 .
 # Timing. Parallel False + get_col
-# 33.33s call     tests/stakeholder/test_vis_stakeholder.py::test_alma_ephemris_mosaic
+# 33.33s call     tests/stakeholder/test_vis_stakeholder.py::test_alma_ephemeris_mosaic
 # 27.98s call     tests/stakeholder/test_vis_stakeholder.py::test_vlass
 # 25.89s call     tests/stakeholder/test_vis_stakeholder.py::test_sd_A002_Xe3a5fd_Xe38e
 # 25.29s call     tests/stakeholder/test_vis_stakeholder.py::test_s3
@@ -356,7 +369,7 @@ if __name__ == "__main__":
 
 # Timing. Parallel True + get_col
 # 25.49s call     tests/stakeholder/test_vis_stakeholder.py::test_s3
-# 19.05s call     tests/stakeholder/test_vis_stakeholder.py::test_alma_ephemris_mosaic
+# 19.05s call     tests/stakeholder/test_vis_stakeholder.py::test_alma_ephemeris_mosaic
 # 17.01s call     tests/stakeholder/test_vis_stakeholder.py::test_sd_A002_Xe3a5fd_Xe38e
 # 12.86s call     tests/stakeholder/test_vis_stakeholder.py::test_vlass
 # 10.26s call     tests/stakeholder/test_vis_stakeholder.py::test_sd_A002_Xced5df_Xf9d9
@@ -374,7 +387,7 @@ if __name__ == "__main__":
 
 # Timing. Parallel False + iter col
 # 87.50s call     tests/stakeholder/test_vis_stakeholder.py::test_vlass
-# 42.37s call     tests/stakeholder/test_vis_stakeholder.py::test_alma_ephemris_mosaic
+# 42.37s call     tests/stakeholder/test_vis_stakeholder.py::test_alma_ephemeris_mosaic
 # 23.41s call     tests/stakeholder/test_vis_stakeholder.py::test_s3
 # 14.96s call     tests/stakeholder/test_vis_stakeholder.py::test_ngeht
 # 12.69s call     tests/stakeholder/test_vis_stakeholder.py::test_single_dish

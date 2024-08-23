@@ -58,7 +58,10 @@ class SchemaIssue:
         err = f"Schema issue with {self.path_str()}: {self.message}"
         if self.expected is not None:
             options = " or ".join(repr(option) for option in self.expected)
-            err += f" (expected: {options} found: {repr(self.found)})"
+            if self.found is not None:
+                err += f" (expected: {options} found: {repr(self.found)})"
+            else:
+                err += f" (expected: {options})"
         return err
 
 
@@ -255,7 +258,7 @@ def check_dimensions(
     if hint_remove and hint_add:
         message = f"Unexpected coordinates, replace {','.join(hint_remove)} by {','.join(hint_add)}?"
     elif hint_remove:
-        message = f"Superflous coordinate {','.join(hint_remove)}?"
+        message = f"Superfluous coordinate {','.join(hint_remove)}?"
     elif hint_add:
         message = f"Missing dimension {','.join(hint_add)}!"
     else:
@@ -381,7 +384,8 @@ def check_data_vars(
                     )
                 else:
                     message = (
-                        f"Required data variable '{data_var_schema.name}' is missing!"
+                        f"Required data variable '{data_var_schema.name}' is missing "
+                        f"(have {','.join(data_vars)})!"
                     )
                 issues.add(
                     SchemaIssue(
@@ -433,6 +437,14 @@ def _check_value(val, ann):
             try:
                 val = xarray.DataArray.from_dict(val)
             except ValueError as e:
+                return SchemaIssues(
+                    [
+                        SchemaIssue(
+                            path=[], message=str(e), expected=[ann], found=type(val)
+                        )
+                    ]
+                )
+            except TypeError as e:
                 return SchemaIssues(
                     [
                         SchemaIssue(

@@ -45,7 +45,7 @@ def create_antenna_xds(
     ----------
         xr.Dataset: Xarray Dataset containing the antenna information.
     """
-    ant_xds = xr.Dataset()
+    ant_xds = xr.Dataset(attrs={"type": "antenna"})
 
     ant_xds = extract_antenna_info(ant_xds, in_file, antenna_id, telescope_name)
 

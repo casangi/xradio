@@ -1,27 +1,82 @@
 
-Visibility data model
-=====================
+Visibility schema
+=================
 
 .. _visibility datasets:
 
-Data sets
----------
+Main dataset
+------------
 
-Model of visibility :py:class:`xarray.Dataset`: A collection of
+Model of visibility (or spectrum) :py:class:`xarray.Dataset`: A collection of
 :ref:`Visibility arrays` and :ref:`visibility Coordinates` sharing the same
-dimensions, forming a comprehensive view of visibility data.
+dimensions, forming a comprehensive view of visibility data. The main dataset
+contains several :ref:`sub-datasets` and :ref:`info dictionaries`. The
+visibility or spectrum arrays have a :ref:`field_and_source_xds` sub-dataset.
 
 .. autoclass:: xradio.vis.schema.VisibilityXds()
 
    .. xradio_dataset_schema_table:: xradio.vis.schema.VisibilityXds
 
+
+.. _sub-datasets:
+
+Sub-datasets
+------------
+
+antenna_xds
+~~~~~~~~~~~
 .. autoclass:: xradio.vis.schema.AntennaXds()
 
    .. xradio_dataset_schema_table:: xradio.vis.schema.AntennaXds
 
+weather_xds
+~~~~~~~~~~~
+.. autoclass:: xradio.vis.schema.WeatherXds()
+
+   .. xradio_dataset_schema_table:: xradio.vis.schema.WeatherXds
+
+pointing_xds
+~~~~~~~~~~~~
 .. autoclass:: xradio.vis.schema.PointingXds()
 
    .. xradio_dataset_schema_table:: xradio.vis.schema.PointingXds
+
+phased_array_xds
+~~~~~~~~~~~~~~~~
+.. autoclass:: xradio.vis.schema.PhasedArrayXds()
+
+   .. xradio_dataset_schema_table:: xradio.vis.schema.PhasedArrayXds
+
+system_calibration_xds
+~~~~~~~~~~~~~~~~~~~~~~
+.. autoclass:: xradio.vis.schema.SystemCalibrationXds()
+
+   .. xradio_dataset_schema_table:: xradio.vis.schema.SystemCalibrationXds
+
+.. _field_and_source_xds:
+
+field_and_source_xds
+~~~~~~~~~~~~~~~~~~~~
+.. autoclass:: xradio.vis.schema.FieldSourceXds()
+
+   .. xradio_dataset_schema_table:: xradio.vis.schema.FieldSourceXds
+
+.. _info dictionaries:
+
+Info dictionaries
+-----------------
+
+Observation info
+~~~~~~~~~~~~~~~~
+.. autoclass:: xradio.vis.schema.ObservationInfoDict()
+
+   .. xradio_dict_schema_table:: xradio.vis.schema.ObservationInfoDict
+
+Processor info
+~~~~~~~~~~~~~~
+.. autoclass:: xradio.vis.schema.ProcessorInfoDict()
+
+   .. xradio_dict_schema_table:: xradio.vis.schema.ProcessorInfoDict
 
 .. _visibility arrays:
 
@@ -34,6 +89,10 @@ Bulk data gathered into :ref:`Visibility Datasets`.
 .. autoclass:: xradio.vis.schema.VisibilityArray()
 
    .. xradio_array_schema_table:: xradio.vis.schema.VisibilityArray
+
+.. autoclass:: xradio.vis.schema.SpectrumArray()
+
+   .. xradio_array_schema_table:: xradio.vis.schema.SpectrumArray
 
 .. autoclass:: xradio.vis.schema.FlagArray()
 
@@ -75,6 +134,10 @@ as frequencies or timestamps.
 
    .. xradio_array_schema_table:: xradio.vis.schema.TimeArray
 
+.. autoclass:: xradio.vis.schema.TimeCoordArray()
+
+   .. xradio_array_schema_table:: xradio.vis.schema.TimeCoordArray
+
 .. autoclass:: xradio.vis.schema.BaselineArray()
 
    .. xradio_array_schema_table:: xradio.vis.schema.BaselineArray
@@ -104,16 +167,6 @@ as frequencies or timestamps.
    .. xradio_array_schema_table:: xradio.vis.schema.EarthLocationArray
 
 .. _visibility attributes:
-
-Dictionaries
-------------
-
-Attribute data
-
-.. automodule:: xradio.vis.schema
-   :members: SourceInfoDict, FieldInfoDict
-   :undoc-members:
-   :member-order: bysource
 
 Value Keys
 ----------

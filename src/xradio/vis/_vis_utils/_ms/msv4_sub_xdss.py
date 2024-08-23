@@ -221,7 +221,7 @@ def create_pointing_xds(
         "OVER_THE_TOP": "OVER_THE_TOP",
     }
     time_ant_dims = ["time", "antenna_id"]
-    time_ant_dir_dims = time_ant_dims + ["direction"]
+    time_ant_dir_dims = time_ant_dims + ["sky_dir_label"]
     data_variable_dims = {
         # "name": ["time", "antenna_id"],   # removed
         # "time_origin": ["time", "antenna_id"],   # removed?
@@ -313,7 +313,7 @@ def create_pointing_xds(
     coords = {
         "time": generic_pointing_xds["TIME"].values,
         "antenna_id": np.arange(generic_pointing_xds.sizes["ANTENNA_ID"]),
-        "direction": ["ra", "dec"],
+        "sky_dir_label": ["ra", "dec"],
     }
     pointing_xds = pointing_xds.assign_coords(coords)
 
@@ -330,7 +330,7 @@ def create_pointing_xds(
     if move_target_as_attr:
         target = generic_pointing_xds.data_vars["TARGET"]
         pointing_xds.attrs["target"] = {
-            "dims": ["direction"],
+            "dims": ["sky_dir_label"],
             "data": target.values[0, 0].tolist(),
             "attrs": column_description_casacore_to_msv4_measure(
                 pointing_column_descriptions["TARGET"]

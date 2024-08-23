@@ -4,6 +4,7 @@ from .._zarr.encoding import add_encoding
 from typing import Dict, Union
 import graphviper.utils.logger as logger
 import os
+import pathlib
 
 import numpy as np
 import xarray as xr
@@ -611,6 +612,18 @@ def create_data_variables(
                     )
 
 
+def add_missing_data_var_attrs(xds):
+    """Adds in attributes expected metadata that cannot be found
+    in the input MSv2. For now specifically for missing
+    single-dish/SPECTRUM metadata"""
+    data_var_names = ["SPECTRUM", "SPECTRUM_CORRECTED"]
+    for var_name in data_var_names:
+        if var_name in xds.data_vars:
+            xds.data_vars[var_name].attrs["units"] = ["Jy"]
+
+    return xds
+
+
 def get_weight(
     xds,
     col,
@@ -808,8 +821,10 @@ def convert_and_write_partition(
                 use_table_iter,
             )
 
-            # Add data_groups and field_info
+            # Add data_groups
             xds, is_single_dish = add_data_groups(xds)
+
+            xds = add_missing_data_var_attrs(xds)
 
             if (
                 "WEIGHT" not in xds.data_vars
@@ -853,9 +868,9 @@ def convert_and_write_partition(
 
             # Change antenna_ids to antenna_names
             xds = antenna_ids_to_names(xds, ant_xds)
-            ant_xds = ant_xds.drop(
+            ant_xds = ant_xds.drop_vars(
                 "antenna_id"
-            )  # No longer needed after convewrting to name.
+            )  # No longer needed after converting to name.
 
             logger.debug("Time ant xds  " + str(time.time() - start))
 
@@ -888,6 +903,7 @@ def convert_and_write_partition(
                 )
 
             start = time.time()
+            xds.attrs["type"] = "visibility"
 
             # Time and frequency should always be increasing
             if len(xds.frequency) > 1 and xds.frequency[1] - xds.frequency[0] < 0:
@@ -950,7 +966,9 @@ def convert_and_write_partition(
 
             file_name = os.path.join(
                 out_file,
-                out_file.replace(".vis.zarr", "").replace(".zarr", "").split("/")[-1]
+                pathlib.Path(out_file)
+                .name.replace(".vis.zarr", "")
+                .replace(".zarr", "")
                 + "_"
                 + str(ms_v4_id),
             )
@@ -993,7 +1011,7 @@ def convert_and_write_partition(
                         mode=mode,
                     )
 
-                if with_pointing:
+                if with_pointing and len(pointing_xds.data_vars) > 1:
                     pointing_xds.to_zarr(
                         store=os.path.join(file_name, "POINTING"), mode=mode
                     )

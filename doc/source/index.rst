@@ -27,13 +27,17 @@ The main aims of the library are:
    image_tutorial
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Guides
 
+   ephemeris_conversion
+   global_vlbi
    lofar_conversion
    meerkat_conversion
-   meta_data_proposal
+   ngEHT_conversion
+   single_dish_conversion
    ska_mid_conversion
+   VLBA_conversion
 
 .. toctree::
    :maxdepth: 1
@@ -42,12 +46,12 @@ The main aims of the library are:
    decisions
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Reference
 
    schema
    vis_api
-   vis_model
+   vis_schema
 
 
 Indices and tables

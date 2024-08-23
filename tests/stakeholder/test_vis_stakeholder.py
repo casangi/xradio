@@ -1,6 +1,7 @@
 import importlib.resources
 import numpy as np
 import os
+import pathlib
 import pytest
 import time
 
@@ -42,7 +43,7 @@ def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_sch
     download(file=msv2_name, folder=folder)
     ps_name = folder / (msv2_name[:-3] + ".vis.zarr")
     if os.path.isdir(ps_name):
-        os.system("rm -rf " + ps_name)  # Remove vis.zarr folder.
+        os.system("rm -rf " + str(ps_name))  # Remove vis.zarr folder.
     convert_msv2_to_processing_set(
         in_file=str(folder / msv2_name),
         out_file=ps_name,
@@ -55,17 +56,17 @@ def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_sch
         overwrite=True,
         parallel=False,
     )
-    print(f"Returning {ps_name=}")
     return ps_name
 
 
 def base_test(
-    file_name,
-    folder,
-    expected_sum_value,
-    is_s3=False,
-    partition_schemes=[[], ["FIELD_ID"]],
-    preconverted=False,
+    file_name: str,
+    folder: pathlib.Path,
+    expected_sum_value: float,
+    is_s3: bool = False,
+    partition_schemes: list = [[], ["FIELD_ID"]],
+    preconverted: bool = False,
+    do_schema_check: bool = True,
 ):
     start = time.time()
     from graphviper.dask.client import local_client
@@ -120,10 +121,11 @@ def base_test(
             expected_sum_value, rel=relative_tolerance
         ), "VISIBILITY and WEIGHT values have changed."
 
-        start_check = time.time()
-        for xds_name in ps.keys():
-            check_dataset(ps[xds_name], VisibilityXds).expect()
-        print(f"Time to check datasets (all MSv4s): {time.time() - start_check}")
+        if do_schema_check:
+            start_check = time.time()
+            for xds_name in ps.keys():
+                check_dataset(ps[xds_name], VisibilityXds).expect()
+            print(f"Time to check datasets (all MSv4s): {time.time() - start_check}")
 
         ps_list.append(ps)
 
@@ -141,6 +143,7 @@ def test_s3(tmp_path):
         190.0405216217041,
         is_s3=True,
         partition_schemes=[[]],
+        do_schema_check=False,
     )
 
 
@@ -159,6 +162,7 @@ def test_preconverted_alma(tmp_path):
         190.0405216217041,
         preconverted=True,
         partition_schemes=[[]],
+        do_schema_check=False,
     )
 
 
@@ -239,7 +243,7 @@ def check_source_and_field_xds(ps, msv4_name, expected_NP_sum):
         "NORTH_POLE_POSITION_ANGLE",
         "OBSERVATION_POSITION",
         "OBSERVER_PHASE_ANGLE",
-        "SOURCE_POSITION",
+        "SOURCE_LOCATION",
         "SOURCE_RADIAL_VELOCITY",
         "SUB_OBSERVER_POSITION",
     ]

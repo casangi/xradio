@@ -41,6 +41,8 @@ def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_sch
 
     download(file=msv2_name, folder=folder)
     ps_name = folder / (msv2_name[:-3] + ".vis.zarr")
+    if os.path.isdir(ps_name):
+        os.system("rm -rf " + ps_name)  # Remove vis.zarr folder.
     convert_msv2_to_processing_set(
         in_file=str(folder / msv2_name),
         out_file=ps_name,
@@ -72,6 +74,9 @@ def base_test(
     # viper_client = local_client(cores=4, memory_limit="4GB")
     # viper_client
 
+    ps_list = (
+        []
+    )  # Create a list of PS for each partition scheme. This will be returned.
     for partition_scheme in partition_schemes:
         if is_s3:
             ps_name = file_name
@@ -120,7 +125,10 @@ def base_test(
             check_dataset(ps[xds_name], VisibilityXds).expect()
         print(f"Time to check datasets (all MSv4s): {time.time() - start_check}")
 
+        ps_list.append(ps)
+
     print("Time taken in test:", time.time() - start)
+    return ps_list
 
 
 def test_s3(tmp_path):
@@ -128,7 +136,7 @@ def test_s3(tmp_path):
     # probably is because the schema, the converter or the schema cheker have
     # changed since the dataset was uploaded.
     base_test(
-        "s3://viper-test-data/Antennae_North.cal.lsrk.split.v5.vis.zarr",
+        "s3://viper-test-data/Antennae_North.cal.lsrk.split.py39.vis.zarr",
         tmp_path,
         190.0405216217041,
         is_s3=True,
@@ -140,13 +148,13 @@ def test_alma(tmp_path):
     base_test("Antennae_North.cal.lsrk.split.ms", tmp_path, 190.0405216217041)
 
 
-def DISABLED223test_preconverted_alma(tmp_path):
+def test_preconverted_alma(tmp_path):
     # If this test has failed on its own it most probably means the schema has changed.
     # Create a fresh version using "Antennae_North.cal.lsrk.split.ms" and reconvert it using generate_zarr.py (in dropbox folder).
     # Zip this folder and add it to the dropbox folder and update the file.download.json file.
     # If you not sure how to do any of this contact jsteeb@nrao.edu
     base_test(
-        "Antennae_North.cal.lsrk.split.vis.zarr",
+        "Antennae_North.cal.lsrk.split.py39.vis.zarr",
         tmp_path,
         190.0405216217041,
         preconverted=True,
@@ -187,9 +195,65 @@ def test_single_dish(tmp_path):
 
 
 def test_alma_ephemris_mosaic(tmp_path):
-    base_test(
+    ps_list = base_test(
         "ALMA_uid___A002_X1003af4_X75a3.split.avg.ms", tmp_path, 8.11051993222426e17
     )
+    # Here we test if the field_and_source_xds structure is correct.
+    check_source_and_field_xds(
+        ps_list[0], "ALMA_uid___A002_X1003af4_X75a3.split.avg_17", 127796.84837227
+    )
+    check_source_and_field_xds(
+        ps_list[1], "ALMA_uid___A002_X1003af4_X75a3.split.avg_81", 4915.66000546
+    )
+
+    # Test PS sel
+    check_ps_sel(ps_list[0])
+    check_ps_sel(ps_list[1])
+
+
+def check_ps_sel(ps):
+    ps.sel(
+        query="start_frequency > 2.46e11",
+        field_coords="Ephemeris",
+        field_name=["Sun_10_10", "Sun_10_11"],
+    ).summary()
+    min_freq = min(ps.summary()["start_frequency"])
+    ps.sel(start_frequency=min_freq).summary()
+    ps.sel(
+        name="ALMA_uid___A002_X1003af4_X75a3.split.avg_01", string_exact_match=True
+    ).summary()
+    ps.sel(field_name="Sun_10", string_exact_match=False).summary()
+    ps.sel(
+        name="ALMA_uid___A002_X1003af4_X75a3.split.avg", string_exact_match=False
+    ).summary()
+
+
+def check_source_and_field_xds(ps, msv4_name, expected_NP_sum):
+    field_and_source_xds = ps[msv4_name].VISIBILITY.attrs["field_and_source_xds"]
+    field_and_source_data_variable_names = [
+        "FIELD_PHASE_CENTER",
+        "HELIOCENTRIC_RADIAL_VELOCITY",
+        "LINE_REST_FREQUENCY",
+        "LINE_SYSTEMIC_VELOCITY",
+        "NORTH_POLE_ANGULAR_DISTANCE",
+        "NORTH_POLE_POSITION_ANGLE",
+        "OBSERVATION_POSITION",
+        "OBSERVER_PHASE_ANGLE",
+        "SOURCE_POSITION",
+        "SOURCE_RADIAL_VELOCITY",
+        "SUB_OBSERVER_POSITION",
+    ]
+    assert are_all_variables_in_dataset(
+        field_and_source_xds, field_and_source_data_variable_names
+    ), "field_and_source_xds is missing data variables."
+
+    assert np.sum(field_and_source_xds.NORTH_POLE_ANGULAR_DISTANCE) == pytest.approx(
+        expected_NP_sum, rel=relative_tolerance
+    ), "The sum of the NORTH_POLE_ANGULAR_DISTANCE has changed."
+
+
+def are_all_variables_in_dataset(dataset, variable_list):
+    return all(var in dataset.data_vars for var in variable_list)
 
 
 def test_vlass(tmp_path):
@@ -222,16 +286,47 @@ def test_VLA(tmp_path):
     base_test("SNR_G55_10s.split.ms", tmp_path, 195110762496.0)
 
 
+def test_askap_59749_bp_8beams_pattern(tmp_path):
+    base_test("59749_bp_8beams_pattern.ms", tmp_path, 5652688384.0)
+
+
+def test_askap_59750_altaz_2settings(tmp_path):
+    base_test("59750_altaz_2settings.ms", tmp_path, 1878356864.0)
+
+
+def test_askap_59754_altaz_2weights_0(tmp_path):
+    base_test("59754_altaz_2weights_0.ms", tmp_path, 1504652800.0)
+
+
+def test_askap_59754_altaz_2weights_15(tmp_path):
+    base_test("59754_altaz_2weights_15.ms", tmp_path, 1334662656.0)
+
+
+def test_askap_59755_eq_interleave_0(tmp_path):
+    base_test("59755_eq_interleave_0.ms", tmp_path, 3052425984.0)
+
+
+def test_askap_59755_eq_interleave_15(tmp_path):
+    base_test("59755_eq_interleave_15.ms", tmp_path, 2949046016.0)
+
+
 if __name__ == "__main__":
     a = 42
+    # test_askap_59749_bp_8beams_pattern()
+    # test_askap_59750_altaz_2settings()
+    # test_askap_59754_altaz_2weights_0()
+    # test_askap_59754_altaz_2weights_15()
+    # test_askap_59755_eq_interleave_0()
+    # test_askap_59755_eq_interleave_15()
+
     # test_sd_A002_X1015532_X1926f()
     # test_sd_A002_Xae00c5_X2e6b()
     # test_sd_A002_Xced5df_Xf9d9()
     # test_sd_A002_Xe3a5fd_Xe38e()
-    # test_s3()
+    test_s3()
     # test_vlass()
-    test_alma()
-    # test_preconverted_alma()
+    # test_alma()
+    test_preconverted_alma()
     # test_ska_mid()
     # test_lofar()
     # test_meerkat()
@@ -242,6 +337,11 @@ if __name__ == "__main__":
     # test_single_dish()
     # test_alma_ephemeris_mosaic()
     # test_VLA()
+
+    # FAILED test_vis_stakeholder.py::test_ephemeris - ValueError: Buffer has wrong number of dimensions (expected 1, got 2)
+    # FAILED test_vis_stakeholder.py::test_alma_ephemris_mosaic - ValueError: Buffer has wrong number of dimensions (expected 1, got 2)
+    # FAILED test_vis_stakeholder.py::test_sd_A002_X1015532_X1926f - ValueError: Buffer has wrong number of dimensions (expected 1, got 2)
+    # FAILED test_vis_stakeholder.py::test_sd_A002_Xe3a5fd_Xe38e - ValueError: Buffer has wrong number of dimensions (expected 1, got 2)
 
 # All test preformed on MAC with M3 and 16 GB Ram.
 # pytest --durations=0 .

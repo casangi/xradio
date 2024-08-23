@@ -43,7 +43,7 @@ def _get_file_system_and_items(ps_store: str):
             ]
     else:
         raise FileNotFoundError(
-            f"Could not find {ps_store} either locally or in the cloud.",
+            f"Could not find {ps_store} either locally or in the cloud."
         )
 
     items = [

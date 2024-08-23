@@ -191,56 +191,60 @@ def extract_feed_info(
         in_file,
         "FEED",
         rename_ids=subt_rename_ids["FEED"],
-        taql_where=f" where (ANTENNA_ID IN [{','.join(map(str, ant_xds.antenna_id.values))}]) AND (FEED_ID IN [{','.join(map(str, feed_id))}]) AND (SPECTRAL_WINDOW_ID = {spectral_window_id})",
+        taql_where=f" where (ANTENNA_ID IN [{','.join(map(str, ant_xds.antenna_id.values))}]) AND (FEED_ID IN [{','.join(map(str, feed_id))}])",
     )  # Some Lofar and MeerKAT data have the spw column set to -1 so we can't use '(SPECTRAL_WINDOW_ID = {spectral_window_id})'
 
-    if (
-        generic_feed_xds.data_vars
-    ):  # Some times the feed table is empty (this is the case with ALMA spw WVR#NOMINAL).
-        assert (
-            len(generic_feed_xds.SPECTRAL_WINDOW_ID) == 1
-        ), "Only one spectral window is supported."
-        generic_feed_xds = generic_feed_xds.isel(
-            SPECTRAL_WINDOW_ID=0, drop=True
-        )  # Only one spectral window is present.
+    feed_spw = np.unique(generic_feed_xds.SPECTRAL_WINDOW_ID)
+    if len(feed_spw) == 1 and feed_spw[0] == -1:
+        generic_feed_xds = generic_feed_xds.isel(SPECTRAL_WINDOW_ID=0, drop=True)
+    else:
+        if spectral_window_id not in feed_spw:
+            return ant_xds  # For some spw the feed table is empty (this is the case with ALMA spw WVR#NOMINAL).
+        else:
+            generic_feed_xds = generic_feed_xds.sel(
+                SPECTRAL_WINDOW_ID=spectral_window_id, drop=True
+            )
 
-        assert len(generic_feed_xds.TIME) == len(
-            antenna_id
-        ), "Can only process feed table with a single time entry for an feed, antenna and spectral_window_id."
-        generic_feed_xds = generic_feed_xds.sel(
-            ANTENNA_ID=antenna_id, drop=False
-        )  # Make sure the antenna_id is in the same order as the xds.
+    assert len(generic_feed_xds.TIME) == len(
+        antenna_id
+    ), "Can only process feed table with a single time entry for an feed, antenna and spectral_window_id."
+    generic_feed_xds = generic_feed_xds.sel(
+        ANTENNA_ID=antenna_id, drop=False
+    )  # Make sure the antenna_id is in the same order as the xds.
 
-        num_receptors = np.ravel(generic_feed_xds.NUM_RECEPTORS)
-        num_receptors = unique_1d(num_receptors[~np.isnan(num_receptors)])
+    num_receptors = np.ravel(generic_feed_xds.NUM_RECEPTORS)
+    num_receptors = unique_1d(num_receptors[~np.isnan(num_receptors)])
 
-        assert (
-            len(num_receptors) == 1
-        ), "The number of receptors must be constant in feed table."
+    assert (
+        len(num_receptors) == 1
+    ), "The number of receptors must be constant in feed table."
 
-        to_new_data_variables = {
-            "BEAM_OFFSET": ["BEAM_OFFSET", ["name", "receptor_name", "sky_dir_label"]],
-            "RECEPTOR_ANGLE": ["RECEPTOR_ANGLE", ["name", "receptor_name"]],
-            "POLARIZATION_TYPE": ["POLARIZATION_TYPE", ["name", "receptor_name"]],
-            # "pol_response": ["POLARIZATION_RESPONSE", ["name", "receptor_name", "receptor_name_"]] #repeated dim creates problems.
-            "FOCUS_LENGTH": ["FOCUS_LENGTH", ["name"]],  # optional
-            # "position": ["ANTENNA_FEED_OFFSET",["name", "cartesian_pos_label"]] #Will be added to the existing position in ant_xds
-        }
+    to_new_data_variables = {
+        "BEAM_OFFSET": ["BEAM_OFFSET", ["name", "receptor_name", "sky_dir_label"]],
+        "RECEPTOR_ANGLE": ["RECEPTOR_ANGLE", ["name", "receptor_name"]],
+        # "pol_response": ["POLARIZATION_RESPONSE", ["name", "receptor_name", "receptor_name_"]] #repeated dim creates problems.
+        "FOCUS_LENGTH": ["FOCUS_LENGTH", ["name"]],  # optional
+        # "position": ["ANTENNA_FEED_OFFSET",["name", "cartesian_pos_label"]] #Will be added to the existing position in ant_xds
+    }
 
-        ant_xds = convert_generic_xds_to_xradio_schema(
-            generic_feed_xds,
-            ant_xds,
-            to_new_data_variables,
-            to_new_coords={},
-        )
+    to_new_coords = {
+        "POLARIZATION_TYPE": ["polarization_type", ["name", "receptor_name"]]
+    }
 
-        ant_xds["ANTENNA_FEED_OFFSET"] = (
-            ant_xds["ANTENNA_FEED_OFFSET"] + generic_feed_xds["POSITION"].data
-        )
-        coords = {}
-        coords["receptor_name"] = np.arange(ant_xds.sizes["receptor_name"]).astype(str)
-        coords["sky_dir_label"] = ["ra", "dec"]
-        ant_xds = ant_xds.assign_coords(coords)
+    ant_xds = convert_generic_xds_to_xradio_schema(
+        generic_feed_xds,
+        ant_xds,
+        to_new_data_variables,
+        to_new_coords=to_new_coords,
+    )
+
+    ant_xds["ANTENNA_FEED_OFFSET"] = (
+        ant_xds["ANTENNA_FEED_OFFSET"] + generic_feed_xds["POSITION"].data
+    )
+    coords = {}
+    coords["receptor_name"] = np.arange(ant_xds.sizes["receptor_name"]).astype(str)
+    coords["sky_dir_label"] = ["ra", "dec"]
+    ant_xds = ant_xds.assign_coords(coords)
     return ant_xds
 
 
@@ -302,7 +306,10 @@ def extract_gain_curve_info(
 
             to_new_coords = {
                 "TIME": ["gain_curve_time", ["gain_curve_time"]],
+                "TYPE": ["gain_curve_type", ["name", "gain_curve_time"]],
             }
+
+            # print(generic_gain_curve_xds)
 
             ant_xds = convert_generic_xds_to_xradio_schema(
                 generic_gain_curve_xds,
@@ -310,6 +317,10 @@ def extract_gain_curve_info(
                 to_new_data_variables,
                 to_new_coords,
             )
+            ant_xds["GAIN_CURVE"] = ant_xds["GAIN_CURVE"].transpose(
+                "name", "gain_curve_time", "receptor_name", "poly_term"
+            )
+
         return ant_xds
 
     else:
@@ -354,16 +365,16 @@ def extract_phase_cal_info(ant_xds, path, spectral_window_id):
         )  # Make sure the antenna_id is in the same order as the xds.
 
         to_new_data_variables = {
-            "INTERVAL": ["PHASE_CAL_INTERVAL", ["antenna_id", "phase_cal_time"]],
+            "INTERVAL": ["PHASE_CAL_INTERVAL", ["name", "phase_cal_time"]],
             "TONE_FREQUENCY": [
                 "PHASE_CAL_TONE_FREQUENCY",
-                ["antenna_id", "phase_cal_time", "receptor_name", "tone_label"],
+                ["name", "phase_cal_time", "tone_label", "receptor_name"],
             ],
             "PHASE_CAL": [
                 "PHASE_CAL",
-                ["antenna_id", "phase_cal_time", "receptor_name", "tone_label"],
+                ["name", "phase_cal_time", "tone_label", "receptor_name"],
             ],
-            "CABLE_CAL": ["PHASE_CAL_CABLE_CAL", ["antenna_id", "phase_cal_time"]],
+            "CABLE_CAL": ["PHASE_CAL_CABLE_CAL", ["name", "phase_cal_time"]],
         }
 
         to_new_coords = {
@@ -373,6 +384,13 @@ def extract_phase_cal_info(ant_xds, path, spectral_window_id):
         ant_xds = convert_generic_xds_to_xradio_schema(
             generic_phase_cal_xds, ant_xds, to_new_data_variables, to_new_coords
         )
+        ant_xds["PHASE_CAL"] = ant_xds["PHASE_CAL"].transpose(
+            "name", "phase_cal_time", "receptor_name", "tone_label"
+        )
+        ant_xds["PHASE_CAL_TONE_FREQUENCY"] = ant_xds[
+            "PHASE_CAL_TONE_FREQUENCY"
+        ].transpose("name", "phase_cal_time", "receptor_name", "tone_label")
+
         return ant_xds
 
     else:

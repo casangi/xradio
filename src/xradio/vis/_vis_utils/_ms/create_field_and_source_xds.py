@@ -582,12 +582,19 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
                 transition_var_data, max(transition_var_data.shape, vars_shape)
             )
 
+        line_label_data = np.arange(coords_lines_data.shape[-1]).astype(str)
         if len(source_id) == 1:
-            coords_lines = {"line_name": coords_lines_data}
+            coords_lines = {
+                "line_name": ("line_label", coords_lines_data),
+                "line_label": line_label_data,
+            }
             xds = xds.assign_coords(coords_lines)
             line_dims = ["line_label"]
         else:
-            coords_lines = {"line_name": (("time", "line_label"), coords_lines_data)}
+            coords_lines = {
+                "line_name": (("time", "line_label"), coords_lines_data),
+                "line_label": line_label_data,
+            }
             xds = xds.assign_coords(coords_lines)
             line_dims = ["time", "line_label"]
 

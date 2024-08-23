@@ -65,7 +65,7 @@ def create_antenna_xds(
     )
 
     ant_xds = extract_phase_cal_info(
-        ant_xds, in_file, spectral_window_id,time_min_max, phase_cal_interp_time
+        ant_xds, in_file, spectral_window_id, time_min_max, phase_cal_interp_time
     )  # Only used in VLBI.
     ant_xds = extract_gain_curve_info(
         ant_xds, in_file, spectral_window_id
@@ -231,7 +231,10 @@ def extract_feed_info(
     ), "The number of receptors must be constant in feed table."
 
     to_new_data_variables = {
-        "BEAM_OFFSET": ["BEAM_OFFSET", ["antenna_name", "receptor_label", "sky_dir_label"]],
+        "BEAM_OFFSET": [
+            "BEAM_OFFSET",
+            ["antenna_name", "receptor_label", "sky_dir_label"],
+        ],
         "RECEPTOR_ANGLE": ["RECEPTOR_ANGLE", ["antenna_name", "receptor_label"]],
         # "pol_response": ["POLARIZATION_RESPONSE", ["antenna_name", "receptor_label", "receptor_name_"]] #repeated dim creates problems.
         "FOCUS_LENGTH": ["FOCUS_LENGTH", ["antenna_name"]],  # optional
@@ -255,11 +258,17 @@ def extract_feed_info(
         ant_xds["ANTENNA_FEED_OFFSET"] + generic_feed_xds["POSITION"].data
     )
     coords = {}
-    #coords["receptor_label"] = "pol_" + np.arange(ant_xds.sizes["receptor_label"]).astype(str) #Works on laptop but fails in github test runner.
+    # coords["receptor_label"] = "pol_" + np.arange(ant_xds.sizes["receptor_label"]).astype(str) #Works on laptop but fails in github test runner.
     coords["receptor_label"] = np.array(
-            list(map(lambda x, y: x + "_" + y, ["pol"]*ant_xds.sizes["receptor_label"], np.arange(ant_xds.sizes["receptor_label"]).astype(str)))
+        list(
+            map(
+                lambda x, y: x + "_" + y,
+                ["pol"] * ant_xds.sizes["receptor_label"],
+                np.arange(ant_xds.sizes["receptor_label"]).astype(str),
+            )
         )
-    
+    )
+
     coords["sky_dir_label"] = ["ra", "dec"]
     ant_xds = ant_xds.assign_coords(coords)
     return ant_xds
@@ -304,18 +313,16 @@ def extract_gain_curve_info(
             generic_gain_curve_xds = generic_gain_curve_xds.isel(
                 SPECTRAL_WINDOW_ID=0, drop=True
             )  # Drop the spectral window dimension as it is singleton.
-            
-            assert(
+
+            assert (
                 len(generic_gain_curve_xds.TIME) == 1
             ), "Only one gain curve measurement per antenna is supported."
-            generic_gain_curve_xds = generic_gain_curve_xds.isel(
-                TIME=0, drop=True
-            )
+            generic_gain_curve_xds = generic_gain_curve_xds.isel(TIME=0, drop=True)
 
             generic_gain_curve_xds = generic_gain_curve_xds.sel(
                 ANTENNA_ID=ant_xds.antenna_id, drop=False
             )  # Make sure the antenna_id is in the same order as the xds .
-            
+
             to_new_data_variables = {
                 "INTERVAL": ["GAIN_CURVE_INTERVAL", ["antenna_name"]],
                 "GAIN": [
@@ -350,7 +357,9 @@ def extract_gain_curve_info(
         return ant_xds
 
 
-def extract_phase_cal_info(ant_xds, path, spectral_window_id,time_min_max, phase_cal_interp_time):
+def extract_phase_cal_info(
+    ant_xds, path, spectral_window_id, time_min_max, phase_cal_interp_time
+):
     """
     Reformats MSv2 Phase Cal table content to MSv4 schema.
 
@@ -374,7 +383,7 @@ def extract_phase_cal_info(ant_xds, path, spectral_window_id,time_min_max, phase
     """
 
     if os.path.exists(os.path.join(path, "PHASE_CAL")):
-        
+
         # Only read data between the min and max times of the visibility data in the MSv4.
         taql_time_range = make_taql_where_between_min_max(
             time_min_max, path, "PHASE_CAL", "TIME"
@@ -420,28 +429,40 @@ def extract_phase_cal_info(ant_xds, path, spectral_window_id,time_min_max, phase
         ant_xds["PHASE_CAL"] = ant_xds["PHASE_CAL"].transpose(
             "antenna_name", "time_phase_cal", "receptor_label", "tone_label"
         )
-        
+
         ant_xds["PHASE_CAL_TONE_FREQUENCY"] = ant_xds[
             "PHASE_CAL_TONE_FREQUENCY"
         ].transpose("antenna_name", "time_phase_cal", "receptor_label", "tone_label")
-        
-        #ant_xds = ant_xds.assign_coords({"tone_label" : "freq_" + np.arange(ant_xds.sizes["tone_label"]).astype(str)}) #Works on laptop but fails in github test runner.
-        ant_xds= ant_xds.assign_coords({"tone_label" : np.array(
-            list(map(lambda x, y: x + "_" + y, ["freq"]*ant_xds.sizes["tone_label"], np.arange(ant_xds.sizes["tone_label"]).astype(str)))
-        )}) 
-        
-        ant_xds['time_phase_cal'] = ant_xds.time_phase_cal.astype('float64').astype('float64')/10**9
-        
+
+        # ant_xds = ant_xds.assign_coords({"tone_label" : "freq_" + np.arange(ant_xds.sizes["tone_label"]).astype(str)}) #Works on laptop but fails in github test runner.
+        ant_xds = ant_xds.assign_coords(
+            {
+                "tone_label": np.array(
+                    list(
+                        map(
+                            lambda x, y: x + "_" + y,
+                            ["freq"] * ant_xds.sizes["tone_label"],
+                            np.arange(ant_xds.sizes["tone_label"]).astype(str),
+                        )
+                    )
+                )
+            }
+        )
+
+        ant_xds["time_phase_cal"] = (
+            ant_xds.time_phase_cal.astype("float64").astype("float64") / 10**9
+        )
+
         ant_xds = interpolate_to_time(
             ant_xds, phase_cal_interp_time, "antenna_xds", time_name="time_phase_cal"
         )
-        
+
         time_coord_attrs = {
             "type": "time",
             "units": ["s"],
             "scale": "UTC",
             "format": "UNIX",
-            }
+        }
 
         # If we interpolate rename the time_ephemeris_axis axis to time.
         if phase_cal_interp_time is not None:

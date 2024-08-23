@@ -317,6 +317,7 @@ def test_askap_59755_eq_interleave_15(tmp_path):
 if __name__ == "__main__":
     a = 42
     from pathlib import Path
+
     # test_askap_59749_bp_8beams_pattern()
     # test_askap_59750_altaz_2settings()
     # test_askap_59754_altaz_2weights_0()
@@ -330,7 +331,7 @@ if __name__ == "__main__":
     # test_sd_A002_Xe3a5fd_Xe38e()
     # test_s3()
     # test_vlass()
-    test_alma(tmp_path=Path('.'))
+    test_alma(tmp_path=Path("."))
     # test_preconverted_alma()
     # test_ska_mid()
     # test_lofar()

@@ -842,7 +842,7 @@ def convert_and_write_partition(
                     )
 
             logger.debug("Time create data variables " + str(time.time() - start))
-            
+
             # To constrain the time range to load (in pointing, ephemerides, phase_cal data_vars)
             time_min_max = find_min_max_times(tb_tool, taql_where)
 

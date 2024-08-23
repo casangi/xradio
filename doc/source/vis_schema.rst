@@ -10,8 +10,8 @@ Main dataset
 Model of visibility (or spectrum) :py:class:`xarray.Dataset`: A collection of
 :ref:`Visibility arrays` and :ref:`visibility Coordinates` sharing the same
 dimensions, forming a comprehensive view of visibility data. The main dataset
-contains several :ref:`sub-datasets`. The visibility or spectrum arrays have
-a :ref:`field_and_source_xds` sub-dataset .
+contains several :ref:`sub-datasets` and :ref:`info dictionaries`. The
+visibility or spectrum arrays have a :ref:`field_and_source_xds` sub-dataset.
 
 .. autoclass:: xradio.vis.schema.VisibilityXds()
 
@@ -60,6 +60,23 @@ field_and_source_xds
 .. autoclass:: xradio.vis.schema.FieldSourceXds()
 
    .. xradio_dataset_schema_table:: xradio.vis.schema.FieldSourceXds
+
+.. _info dictionaries:
+
+Info dictionaries
+-----------------
+
+Observation info
+~~~~~~~~~~~~~~~~
+.. autoclass:: xradio.vis.schema.ObservationInfoDict()
+
+   .. xradio_dict_schema_table:: xradio.vis.schema.ObservationInfoDict
+
+Processor info
+~~~~~~~~~~~~~~
+.. autoclass:: xradio.vis.schema.ProcessorInfoDict()
+
+   .. xradio_dict_schema_table:: xradio.vis.schema.ProcessorInfoDict
 
 .. _visibility arrays:
 

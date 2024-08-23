@@ -13,6 +13,7 @@ from sphinx.util.docutils import switch_source_input
 from xradio.schema import (
     xarray_dataclass_to_array_schema,
     xarray_dataclass_to_dataset_schema,
+    xarray_dataclass_to_dict_schema,
 )
 
 
@@ -243,5 +244,23 @@ class DatasetSchemaTableDirective(SchemaTableDirective):
                     f"{attr.typ.__module__}.{attr.typ.__name__}",
                     attr.docstring,
                     optional=attr.optional,
+                    default=attr.default,
+                )
+
+
+class DictSchemaTableDirective(SchemaTableDirective):
+    def _add_table_contents(self, klass):
+        # Extract schema
+        schema = xarray_dataclass_to_dict_schema(klass)
+
+        # Add attributes
+        if schema.attributes:
+            self._add_section("Fields:")
+            for attr in schema.attributes:
+                self._add_row(
+                    attr.name,
+                    types=[f"{attr.typ.__name__}"],
+                    optional=attr.optional,
+                    descr=attr.docstring,
                     default=attr.default,
                 )

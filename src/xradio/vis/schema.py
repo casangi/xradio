@@ -321,7 +321,7 @@ class EarthLocationArray:
 
 @dict_schema
 class ObservationInfoDict:
-    observer: List[str]
+    observer: list
     """List of observer names."""
     project: str
     """Project Code/Project_UID"""

@@ -471,162 +471,158 @@ def extract_source_info(xds, path, source_id, spectral_window_id):
         )  # Need to add this for ps.summary() to work.
         return xds, 0
 
-    if os.path.isdir(os.path.join(path, "SOURCE")):
-        unique_source_id = unique_1d(source_id)
-        taql_where = f"where (SOURCE_ID IN [{','.join(map(str, unique_source_id))}]) AND (SPECTRAL_WINDOW_ID = {spectral_window_id})"
-
-        source_xds = load_generic_table(
-            path,
-            "SOURCE",
-            ignore=["SOURCE_MODEL"],  # Trying to read SOURCE_MODEL causes an error.
-            taql_where=taql_where,
-        )
-
-        if len(source_xds.data_vars) == 0:  # The source xds is empty.
-            logger.warning(
-                f"SOURCE table empty for (unique) source_id {unique_source_id} and spectral_window_id {spectral_window_id}."
-            )
-            xds = xds.assign_coords(
-                {"source_name": "Unknown"}
-            )  # Need to add this for ps.summary() to work.
-            return xds, 0
-
-        assert (
-            len(source_xds.SPECTRAL_WINDOW_ID) == 1
-        ), "Can only process source table with a single spectral_window_id for a given MSv4 partition."
-
-        # This source table time is not the same as the time in the field_and_source_xds that is derived from the main MSv4 time axis.
-        # The source_id maps to the time axis in the field_and_source_xds. That is why "if len(source_id) == 1" is used to check if there should be a time axis.
-        assert len(source_xds.TIME) <= len(
-            unique_source_id
-        ), "Can only process source table with a single time entry for a source_id and spectral_window_id."
-
-        source_xds = source_xds.isel(TIME=0, SPECTRAL_WINDOW_ID=0, drop=True)
-        source_column_description = source_xds.attrs["other"]["msv2"]["ctds_attrs"][
-            "column_descriptions"
-        ]
-
-        # Get source name (the time axis is optional and will probably be required if the partition scheme does not include 'FIELD_ID' or 'SOURCE_ID'.).
-        # Note again that this optional time axis has nothing to do with the original time axis in the source table that we drop.
-        if len(source_id) == 1:
-            source_xds = source_xds.sel(SOURCE_ID=source_id[0])
-            coords["source_name"] = (
-                source_xds["NAME"].values.item() + "_" + str(source_id[0])
-            )
-            direction_dims = ["sky_dir_label"]
-            # coords["source_id"] = source_id[0]
-        else:
-            source_xds = source_xds.sel(SOURCE_ID=source_id)
-            coords["source_name"] = (
-                "time",
-                np.char.add(
-                    source_xds["NAME"].data, np.char.add("_", source_id.astype(str))
-                ),
-            )
-            direction_dims = ["time", "sky_dir_label"]
-            # coords["source_id"] = ("time", source_id)
-
-        # If ephemeris data is present we ignore the SOURCE_DIRECTION.
-        if not is_ephemeris:
-            direction_msv2_col = "DIRECTION"
-            msv4_measure = column_description_casacore_to_msv4_measure(
-                source_column_description[direction_msv2_col]
-            )
-
-            msv2_direction_dims = source_xds[direction_msv2_col].dims
-            if (
-                len(msv2_direction_dims) == len(direction_dims) + 1
-                and "dim_1" in msv2_direction_dims
-                and "dim_2" in msv2_direction_dims
-            ):
-                # CASA simulator produces transposed direction values, adding an
-                # unexpected dimension. Drop it (https://github.com/casangi/xradio/issues/#196)
-                direction_var = source_xds[direction_msv2_col].isel(dim_1=0, drop=True)
-            else:
-                direction_var = source_xds[direction_msv2_col]
-
-            xds["SOURCE_DIRECTION"] = xr.DataArray(
-                direction_var.data, dims=direction_dims
-            )
-            xds["SOURCE_DIRECTION"].attrs.update(msv4_measure)
-
-        # Do we have line data:
-        if source_xds["NUM_LINES"].data.ndim == 0:
-            num_lines = np.array([source_xds["NUM_LINES"].data.item()])
-        else:
-            num_lines = source_xds["NUM_LINES"].data
-
-        if any(num_lines > 0):
-
-            # Transition is an optional column and occasionally not populated
-            if "TRANSITION" in source_xds.data_vars:
-                transition_var_data = source_xds["TRANSITION"].data
-            else:
-                transition_var_data = np.zeros(
-                    source_xds["DIRECTION"].shape, dtype="str"
-                )
-
-            # if TRANSITION is left empty (or otherwise incomplete), and num_lines > 1,
-            # the data_vars expect a "num_lines" size in the last dimension
-            vars_shape = transition_var_data.shape[:-1] + (np.max(num_lines),)
-            if transition_var_data.shape == vars_shape:
-                coords_lines_data = transition_var_data
-            else:
-                coords_lines_data = np.broadcast_to(
-                    transition_var_data, max(transition_var_data.shape, vars_shape)
-                )
-
-            if len(source_id) == 1:
-                coords_lines = {"line_name": coords_lines_data}
-                xds = xds.assign_coords(coords_lines)
-                line_dims = ["line_label"]
-            else:
-                coords_lines = {
-                    "line_name": (("time", "line_label"), coords_lines_data)
-                }
-                xds = xds.assign_coords(coords_lines)
-                line_dims = ["time", "line_label"]
-
-            optional_data_variables = {
-                "REST_FREQUENCY": "LINE_REST_FREQUENCY",
-                "SYSVEL": "LINE_SYSTEMIC_VELOCITY",
-            }
-            for generic_name, msv4_name in optional_data_variables.items():
-                if generic_name in source_xds:
-                    msv4_measure = column_description_casacore_to_msv4_measure(
-                        source_column_description[generic_name]
-                    )
-
-                    xds[msv4_name] = xr.DataArray(
-                        source_xds[generic_name].data, dims=line_dims
-                    )
-                    xds[msv4_name].attrs.update(msv4_measure)
-
-        # Need to add doppler info if present. Add check.
-        try:
-            doppler_xds = load_generic_table(
-                path,
-                "DOPPLER",
-            )
-            assert (
-                False
-            ), "Doppler table present. Please open an issue on https://github.com/casangi/xradio/issues so that we can add support for this."
-        except:
-            pass
-
-        xds = xds.assign_coords(coords)
-
-        _, unique_source_ids_indices = np.unique(
-            source_xds.SOURCE_ID, return_index=True
-        )
-
-        return xds, np.sum(num_lines[unique_source_ids_indices])
-    else:
+    if not os.path.isdir(os.path.join(path, "SOURCE")):
         logger.warning(
             f"Could not find SOURCE table for source_id {source_id}. Source information will not be included in the field_and_source_xds."
         )
         xds = xds.assign_coords({"source_name": "Unknown"})
         return xds, 0
+
+    unique_source_id = unique_1d(source_id)
+    taql_where = f"where (SOURCE_ID IN [{','.join(map(str, unique_source_id))}]) AND (SPECTRAL_WINDOW_ID = {spectral_window_id})"
+
+    source_xds = load_generic_table(
+        path,
+        "SOURCE",
+        ignore=["SOURCE_MODEL"],  # Trying to read SOURCE_MODEL causes an error.
+        taql_where=taql_where,
+    )
+
+    if len(source_xds.data_vars) == 0:  # The source xds is empty.
+        logger.warning(
+            f"SOURCE table empty for (unique) source_id {unique_source_id} and spectral_window_id {spectral_window_id}."
+        )
+        xds = xds.assign_coords(
+            {"source_name": "Unknown"}
+        )  # Need to add this for ps.summary() to work.
+        return xds, 0
+
+    assert (
+        len(source_xds.SPECTRAL_WINDOW_ID) == 1
+    ), "Can only process source table with a single spectral_window_id for a given MSv4 partition."
+
+    # This source table time is not the same as the time in the field_and_source_xds that is derived from the main MSv4 time axis.
+    # The source_id maps to the time axis in the field_and_source_xds. That is why "if len(source_id) == 1" is used to check if there should be a time axis.
+    assert len(source_xds.TIME) <= len(
+        unique_source_id
+    ), "Can only process source table with a single time entry for a source_id and spectral_window_id."
+
+    source_xds = source_xds.isel(TIME=0, SPECTRAL_WINDOW_ID=0, drop=True)
+    source_column_description = source_xds.attrs["other"]["msv2"]["ctds_attrs"][
+        "column_descriptions"
+    ]
+
+    # Get source name (the time axis is optional and will probably be required if the partition scheme does not include 'FIELD_ID' or 'SOURCE_ID'.).
+    # Note again that this optional time axis has nothing to do with the original time axis in the source table that we drop.
+    if len(source_id) == 1:
+        source_xds = source_xds.sel(SOURCE_ID=source_id[0])
+        coords["source_name"] = (
+            source_xds["NAME"].values.item() + "_" + str(source_id[0])
+        )
+        direction_dims = ["sky_dir_label"]
+        # coords["source_id"] = source_id[0]
+    else:
+        source_xds = source_xds.sel(SOURCE_ID=source_id)
+        coords["source_name"] = (
+            "time",
+            np.char.add(
+                source_xds["NAME"].data, np.char.add("_", source_id.astype(str))
+            ),
+        )
+        direction_dims = ["time", "sky_dir_label"]
+        # coords["source_id"] = ("time", source_id)
+
+    # If ephemeris data is present we ignore the SOURCE_DIRECTION.
+    if not is_ephemeris:
+        direction_msv2_col = "DIRECTION"
+        msv4_measure = column_description_casacore_to_msv4_measure(
+            source_column_description[direction_msv2_col]
+        )
+
+        msv2_direction_dims = source_xds[direction_msv2_col].dims
+        if (
+            len(msv2_direction_dims) == len(direction_dims) + 1
+            and "dim_1" in msv2_direction_dims
+            and "dim_2" in msv2_direction_dims
+        ):
+            # CASA simulator produces transposed direction values, adding an
+            # unexpected dimension. Drop it (https://github.com/casangi/xradio/issues/#196)
+            direction_var = source_xds[direction_msv2_col].isel(dim_1=0, drop=True)
+        else:
+            direction_var = source_xds[direction_msv2_col]
+
+        # SOURCE_LOCATION (DIRECTION / sky_dir_label)
+        xds["SOURCE_LOCATION"] = xr.DataArray(direction_var.data, dims=direction_dims)
+        location_msv4_measure = column_description_casacore_to_msv4_measure(
+            source_column_description[direction_msv2_col]
+        )
+        xds["SOURCE_LOCATION"].attrs.update(location_msv4_measure)
+
+    # Do we have line data:
+    if source_xds["NUM_LINES"].data.ndim == 0:
+        num_lines = np.array([source_xds["NUM_LINES"].data.item()])
+    else:
+        num_lines = source_xds["NUM_LINES"].data
+
+    if any(num_lines > 0):
+
+        # Transition is an optional column and occasionally not populated
+        if "TRANSITION" in source_xds.data_vars:
+            transition_var_data = source_xds["TRANSITION"].data
+        else:
+            transition_var_data = np.zeros(source_xds["DIRECTION"].shape, dtype="str")
+
+        # if TRANSITION is left empty (or otherwise incomplete), and num_lines > 1,
+        # the data_vars expect a "num_lines" size in the last dimension
+        vars_shape = transition_var_data.shape[:-1] + (np.max(num_lines),)
+        if transition_var_data.shape == vars_shape:
+            coords_lines_data = transition_var_data
+        else:
+            coords_lines_data = np.broadcast_to(
+                transition_var_data, max(transition_var_data.shape, vars_shape)
+            )
+
+        if len(source_id) == 1:
+            coords_lines = {"line_name": coords_lines_data}
+            xds = xds.assign_coords(coords_lines)
+            line_dims = ["line_label"]
+        else:
+            coords_lines = {"line_name": (("time", "line_label"), coords_lines_data)}
+            xds = xds.assign_coords(coords_lines)
+            line_dims = ["time", "line_label"]
+
+        optional_data_variables = {
+            "REST_FREQUENCY": "LINE_REST_FREQUENCY",
+            "SYSVEL": "LINE_SYSTEMIC_VELOCITY",
+        }
+        for generic_name, msv4_name in optional_data_variables.items():
+            if generic_name in source_xds:
+                msv4_measure = column_description_casacore_to_msv4_measure(
+                    source_column_description[generic_name]
+                )
+
+                xds[msv4_name] = xr.DataArray(
+                    source_xds[generic_name].data, dims=line_dims
+                )
+                xds[msv4_name].attrs.update(msv4_measure)
+
+    # Need to add doppler info if present. Add check.
+    try:
+        doppler_xds = load_generic_table(
+            path,
+            "DOPPLER",
+        )
+        assert (
+            False
+        ), "Doppler table present. Please open an issue on https://github.com/casangi/xradio/issues so that we can add support for this."
+    except:
+        pass
+
+    xds = xds.assign_coords(coords)
+
+    _, unique_source_ids_indices = np.unique(source_xds.SOURCE_ID, return_index=True)
+
+    return xds, np.sum(num_lines[unique_source_ids_indices])
 
 
 def extract_field_info_and_check_ephemeris(

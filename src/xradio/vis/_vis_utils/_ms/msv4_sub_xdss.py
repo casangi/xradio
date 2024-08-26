@@ -5,7 +5,7 @@ from typing import Tuple, Union
 import numpy as np
 import xarray as xr
 
-from .msv2_to_msv4_meta import column_description_casacore_to_msv4_measure
+from xradio._utils.zarr.common import column_description_casacore_to_msv4_measure
 from .subtables import subt_rename_ids
 from ._tables.read import make_taql_where_between_min_max, load_generic_table
 

@@ -4,9 +4,10 @@ import zarr
 import s3fs
 import os
 from botocore.exceptions import NoCredentialsError
-from xradio.vis._vis_utils._ms.msv2_to_msv4_meta import (
-    column_description_casacore_to_msv4_measure,
-)
+
+# from xradio.vis._vis_utils._ms.msv2_to_msv4_meta import (
+#     column_description_casacore_to_msv4_measure,
+# )
 
 
 def _get_file_system_and_items(ps_store: str):
@@ -248,3 +249,109 @@ def convert_generic_xds_to_xradio_schema(
             )
     msv4_xds = msv4_xds.assign_coords(coords)
     return msv4_xds
+
+
+def column_description_casacore_to_msv4_measure(
+    casacore_column_description, ref_code=None, time_format="UNIX"
+):
+    import numpy as np
+
+    msv4_measure = {}
+    if "MEASINFO" in casacore_column_description["keywords"]:
+        measinfo = casacore_column_description["keywords"]["MEASINFO"]
+
+        # Get conversion information
+        msv4_measure_conversion = casacore_to_msv4_measure_type[measinfo["type"]]
+
+        # Convert type, copy unit
+        msv4_measure["type"] = msv4_measure_conversion["type"]
+        msv4_measure["units"] = list(
+            casacore_column_description["keywords"]["QuantumUnits"]
+        )
+
+        # Reference frame to convert?
+        if "Ref" in msv4_measure_conversion:
+            # Find reference frame
+            if "TabRefCodes" in measinfo:
+                ref_index = np.where(measinfo["TabRefCodes"] == ref_code)[0][0]
+                casa_ref = measinfo["TabRefTypes"][ref_index]
+            elif "Ref" in measinfo:
+                casa_ref = measinfo["Ref"]
+            elif measinfo["type"] == "frequency":
+                # Some MSv2 don't have the "TabRefCodes".
+                ref_index = np.where(casa_frequency_frames_codes == ref_code)[0][0]
+                casa_ref = casa_frequency_frames[ref_index]
+            else:
+                logger.debug(
+                    f"Could not determine {measinfo['type']} measure "
+                    "reference frame!"
+                )
+
+            # Convert into MSv4 representation of reference frame, warn if unknown
+            if casa_ref in msv4_measure_conversion.get("Ref_map", {}):
+                casa_ref = msv4_measure_conversion["Ref_map"][casa_ref]
+            else:
+                logger.debug(
+                    f"Unknown reference frame for {measinfo['type']} "
+                    f"measure, using verbatim: {casa_ref}"
+                )
+
+            msv4_measure[msv4_measure_conversion["Ref"]] = casa_ref
+
+        if msv4_measure["type"] == "time":
+            msv4_measure["format"] = time_format
+    elif "QuantumUnits" in casacore_column_description["keywords"]:
+        msv4_measure = {
+            "type": "quantity",
+            "units": list(casacore_column_description["keywords"]["QuantumUnits"]),
+        }
+
+    return msv4_measure
+
+
+# Map casacore measures to astropy
+casacore_to_msv4_measure_type = {
+    "quanta": {
+        "type": "quantity",
+    },
+    "direction": {"type": "sky_coord", "Ref": "frame", "Ref_map": {"J2000": "fk5"}},
+    "epoch": {"type": "time", "Ref": "scale", "Ref_map": {"UTC": "utc"}},
+    "frequency": {
+        "type": "spectral_coord",
+        "Ref": "frame",
+        "Ref_map": {
+            "REST": "REST",
+            "LSRK": "LSRK",
+            "LSRD": "LSRD",
+            "BARY": "BARY",
+            "GEO": "GEO",
+            "TOPO": "TOPO",
+            "GALACTO": "GALACTO",
+            "LGROUP": "LGROUP",
+            "CMB": "CMB",
+            "Undefined": "Undefined",
+        },
+    },
+    "position": {
+        "type": "earth_location",
+        "Ref": "ellipsoid",
+        "Ref_map": {"ITRF": "GRS80"},
+    },
+    "uvw": {"type": "uvw", "Ref": "frame", "Ref_map": {"ITRF": "GRS80"}},
+    "radialvelocity": {"type": "quantity"},
+}
+
+casa_frequency_frames = [
+    "REST",
+    "LSRK",
+    "LSRD",
+    "BARY",
+    "GEO",
+    "TOPO",
+    "GALACTO",
+    "LGROUP",
+    "CMB",
+    "Undefined",
+]
+
+casa_frequency_frames_codes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 64]

@@ -12,7 +12,7 @@ from xradio.vis._vis_utils._ms._tables.read import (
     convert_casacore_time_to_mjd,
     make_taql_where_between_min_max,
 )
-from xradio._utils.zarr.common import convert_generic_xds_to_xradio_schema
+from xradio._utils.schema import convert_generic_xds_to_xradio_schema
 from xradio.vis._vis_utils._ms.msv4_sub_xdss import interpolate_to_time
 
 from xradio._utils.list_and_array import (

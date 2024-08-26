@@ -5,9 +5,7 @@ from typing import Tuple, Union
 import numpy as np
 import xarray as xr
 
-from xradio.vis._vis_utils._ms.msv2_to_msv4_meta import (
-    column_description_casacore_to_msv4_measure,
-)
+from xradio._utils.schema import column_description_casacore_to_msv4_measure
 from xradio.vis._vis_utils._ms.msv4_sub_xdss import interpolate_to_time
 from xradio.vis._vis_utils._ms.subtables import subt_rename_ids
 from xradio.vis._vis_utils._ms._tables.read import (

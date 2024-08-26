@@ -18,8 +18,8 @@ from xradio.vis._vis_utils._ms.create_antenna_xds import create_antenna_xds
 from xradio.vis._vis_utils._ms.create_field_and_source_xds import (
     create_field_and_source_xds,
 )
+from xradio._utils.schema import column_description_casacore_to_msv4_measure
 from .msv2_to_msv4_meta import (
-    column_description_casacore_to_msv4_measure,
     create_attribute_metadata,
     col_to_data_variable_names,
     col_dims,
@@ -594,7 +594,7 @@ def create_data_variables(
                 logger.debug(
                     "Time to read column " + str(col) + " : " + str(time.time() - start)
                 )
-            except:
+            except Exception as e:
                 logger.debug("Could not load column", col)
 
                 if ("WEIGHT_SPECTRUM" == col) and (

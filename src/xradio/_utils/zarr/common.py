@@ -4,9 +4,10 @@ import zarr
 import s3fs
 import os
 from botocore.exceptions import NoCredentialsError
-from xradio.vis._vis_utils._ms.msv2_to_msv4_meta import (
-    column_description_casacore_to_msv4_measure,
-)
+
+# from xradio.vis._vis_utils._ms.msv2_to_msv4_meta import (
+#     column_description_casacore_to_msv4_measure,
+# )
 
 
 def _get_file_system_and_items(ps_store: str):
@@ -166,85 +167,3 @@ def _load_no_dask_zarr(zarr_name, slice_dict={}):
     xds.attrs = group_attrs
 
     return xds
-
-
-def convert_generic_xds_to_xradio_schema(
-    generic_xds: xr.Dataset,
-    msv4_xds: xr.Dataset,
-    to_new_data_variables: dict,
-    to_new_coords: dict,
-) -> xr.Dataset:
-    """Converts a generic xarray Dataset to the xradio schema.
-
-    This function takes a generic xarray Dataset and converts it to an xradio schema
-    represented by the msv4_xds Dataset. It performs the conversion based on the provided
-    mappings in the to_new_data_variables and to_new_coords dictionaries.
-
-    Parameters
-    ----------
-    generic_xds : xr.Dataset
-        The generic xarray Dataset to be converted.
-    msv4_xds : xr.Dataset
-        The xradio schema represented by the msv4_xds Dataset.
-    to_new_data_variables : dict
-        A dictionary mapping the data variables/coordinates in the generic_xds Dataset to the new data variables
-        in the msv4_xds Dataset. The keys are the old data variables/coordinates and the values are a list of the new name and a list of the new dimension names.
-    to_new_coords : dict
-        A dictionary mapping  data variables/coordinates in the generic_xds Dataset to the new coordinates
-        in the msv4_xds Dataset. The keys are the old data variables/coordinates and the values are a list of the new name and a list of the new dimension names.
-
-    Returns
-    -------
-    xr.Dataset
-        The converted xradio schema represented by the msv4_xds Dataset.
-
-    Notes
-    -----
-    Example to_new_data_variables:
-    to_new_data_variables = {
-        "POSITION": ["ANTENNA_POSITION",["name", "cartesian_pos_label"]],
-        "OFFSET": ["ANTENNA_FEED_OFFSET",["name", "cartesian_pos_label"]],
-        "DISH_DIAMETER": ["ANTENNA_DISH_DIAMETER",["name"]],
-    }
-
-    Example to_new_coords:
-    to_new_coords = {
-        "NAME": ["name",["name"]],
-        "STATION": ["station",["name"]],
-        "MOUNT": ["mount",["name"]],
-        "PHASED_ARRAY_ID": ["phased_array_id",["name"]],
-        "antenna_id": ["antenna_id",["name"]],
-    }
-    """
-
-    column_description = generic_xds.attrs["other"]["msv2"]["ctds_attrs"][
-        "column_descriptions"
-    ]
-    coords = {}
-
-    name_keys = list(generic_xds.data_vars.keys()) + list(generic_xds.coords.keys())
-
-    for key in name_keys:
-
-        if key in column_description:
-            msv4_measure = column_description_casacore_to_msv4_measure(
-                column_description[key]
-            )
-        else:
-            msv4_measure = None
-
-        if key in to_new_data_variables:
-            new_dv = to_new_data_variables[key]
-            msv4_xds[new_dv[0]] = xr.DataArray(generic_xds[key].data, dims=new_dv[1])
-
-            if msv4_measure:
-                msv4_xds[new_dv[0]].attrs.update(msv4_measure)
-
-        if key in to_new_coords:
-            new_coord = to_new_coords[key]
-            coords[new_coord[0]] = (
-                new_coord[1],
-                generic_xds[key].data,
-            )
-    msv4_xds = msv4_xds.assign_coords(coords)
-    return msv4_xds

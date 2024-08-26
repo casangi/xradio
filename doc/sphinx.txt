@@ -25,3 +25,4 @@ recommonmark==0.7.1
 scanpydoc==0.9.5
 twine==4.0.2
 pandoc==2.3
+graphviper==0.0.26

@@ -1,0 +1,26 @@
+################################################
+# minimal set of packages needed by sphinx to build documentation
+# since mock imports doesnt work with automodapi, and some ngcasa modules import things
+# at the top level, additional packages (numba, dask, scipy etc) are needed right now
+# that will slow down readthedocs
+################################################
+Sphinx==7.2.6
+sphinx-autoapi==3.0.0
+sphinx-autosummary-accessors==2023.4.0
+sphinx-rtd-theme==1.3.0
+sphinxcontrib-applehelp==1.0.7
+sphinxcontrib-devhelp==1.0.5
+sphinxcontrib-htmlhelp==2.0.4
+sphinxcontrib-jquery==4.1
+sphinxcontrib-jsmath==1.0.1
+sphinxcontrib-qthelp==1.0.6
+sphinxcontrib-serializinghtml==1.1.9
+ipykernel==6.25.2
+ipympl==0.9.3
+ipython==8.16.1
+jupyter-client==8.4.0
+nbsphinx==0.9.3
+recommonmark==0.7.1
+scanpydoc==0.9.5
+twine==4.0.2
+pandoc==2.3

@@ -2,6 +2,8 @@
 Xradio - Xarray-style radio astronomy data
 ==========================================
 
+**Docs and code are still under development.**
+
 The goal of the Xradio library is to establish a new standard for handling
 radio interferometry data, especially visibilities. It is envisioned to act as
 a successor to the "measurement set" format (see

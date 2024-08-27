@@ -810,14 +810,52 @@ class PhasedArrayXds:
 
 @xarray_dataset_schema
 class SystemCalibrationXds:
-    """TODO: largely incomplete"""
+    """System calibration. Contains time- and frequency- variable
+    calibration measurements for each antenna, as indexed on receptor"""
 
+    # Coordinates
     antenna_id: Coord[AntennaId, Union[int, numpy.int32]]
     """ Antenna identifier """
     time: Coord[Time, numpy.float64]
     """ Midpoint of time for which this set of parameters is accurate """
-    receptor_id: Coord[ReceptorId, numpy.float64]
+    receptor_id: Optional[Coord[ReceptorId, numpy.float64]] = None
     """  """
+    frequency: Optional[Coordof[FrequencyArray]] = None
+    """  """
+
+    # Data variables (all optional)
+    PHASE_DIFFERENCE: Optional[Data[tuple[Time, AntennaId], numpy.float64]] = None
+    """ Phase difference between receptor 0 and receptor 1 """
+    TCAL: Optional[
+        Data[tuple[Time, AntennaId, ReceptorId, Frequency], numpy.float64]
+    ] = None
+    """ Calibration temp """
+    TRX: Optional[
+        Data[tuple[Time, AntennaId, ReceptorId, Frequency], numpy.float64]
+    ] = None
+    """ Receiver temperature """
+    TSKY: Optional[
+        Data[tuple[Time, AntennaId, ReceptorId, Frequency], numpy.float64]
+    ] = None
+    """ Sky temperature """
+    TSYS: Optional[
+        Data[tuple[Time, AntennaId, ReceptorId, Frequency], numpy.float64]
+    ] = None
+    """ System temperature """
+    TANT: Optional[
+        Data[tuple[Time, AntennaId, ReceptorId, Frequency], numpy.float64]
+    ] = None
+    """ Antenna temperature """
+    TANT_SYS: Optional[
+        Data[tuple[Time, AntennaId, ReceptorId, Frequency], numpy.float64]
+    ] = None
+    """ TANT/TSYS """
+
+    # Attributes
+    type: Attr[str] = "system_calibration"
+    """
+    Type of dataset.
+    """
 
 
 @xarray_dataset_schema

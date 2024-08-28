@@ -1,6 +1,6 @@
 [project]
 name = "xradio"
-version = "0.0.36"
+version = "0.0.37"
 description = " Xarray Radio Astronomy Data IO"
 authors = [
     {name = "Jan-Willem Steeb", email="jsteeb@nrao.edu"},
@@ -17,7 +17,7 @@ dependencies = [
     'graphviper',
     'matplotlib',
     'numba>=0.57.0',
-    'numpy<2.0.0',
+    'numpy',
     'prettytable',
     'pytest',
     'pytest-cov',
@@ -28,7 +28,7 @@ dependencies = [
     'xarray',
     'zarr',
     'pyarrow',
-    'python_casacore>=3.5.2; sys_platform != "darwin" ',
+    'python_casacore>=3.6.1; sys_platform != "darwin" ',
     'typing_extensions; python_version < "3.10"',
     'typeguard'
 ]

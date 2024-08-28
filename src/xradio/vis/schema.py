@@ -333,6 +333,22 @@ class EarthLocationArray:
 
 
 @dict_schema
+class PartitionInfoDict:
+    # spectral_window_id: missing / remove for good?
+    spectral_window_name: Attr[str]
+    # field_id: missing / probably remove for good?
+    field_name: Attr[list[str]]
+    # source_id: mising / remove for good?
+    line_name: Attr[list[str]]
+    scan_number: Attr[list[int]]
+    source_name: Attr[list[str]]
+    polarization_setup: Attr[list[str]]
+    num_lines: Attr[int]
+    obs_mode: Attr[list[str]]
+    taql: Optional[Attr[str]]
+
+
+@dict_schema
 class ObservationInfoDict:
     observer: list
     """List of observer names."""
@@ -980,6 +996,7 @@ class VisibilityXds:
     uvw_label: Optional[Coordof[UvwLabelArray]]
 
     # --- Required Attributes ---
+    partition_info: Attr[PartitionInfoDict]
     antenna_xds: Attr[AntennaXds]
 
     # --- Optional Coordinates ---

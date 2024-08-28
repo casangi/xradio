@@ -127,7 +127,6 @@ def extract_antenna_info(
     )  # Make sure the antenna_id order is correct.
 
     # ['OFFSET', 'POSITION', 'DISH_DIAMETER', 'FLAG_ROW', 'MOUNT', 'NAME', 'STATION']
-    ant_xds = xr.Dataset()
     ant_xds = ant_xds.assign_coords({"cartesian_pos_label": ["x", "y", "z"]})
 
     ant_xds = convert_generic_xds_to_xradio_schema(
@@ -254,9 +253,13 @@ def extract_feed_info(
 
     # print('ant_xds["ANTENNA_FEED_OFFSET"]',ant_xds["ANTENNA_FEED_OFFSET"].data)
     # print('generic_feed_xds["POSITION"].data',generic_feed_xds["POSITION"].data)
+    feed_offset_attrs = ant_xds["ANTENNA_FEED_OFFSET"].attrs
     ant_xds["ANTENNA_FEED_OFFSET"] = (
         ant_xds["ANTENNA_FEED_OFFSET"] + generic_feed_xds["POSITION"].data
     )
+    # recover attrs after arithmetic operation
+    ant_xds["ANTENNA_FEED_OFFSET"].attrs.update(feed_offset_attrs)
+
     coords = {}
     # coords["receptor_label"] = "pol_" + np.arange(ant_xds.sizes["receptor_label"]).astype(str) #Works on laptop but fails in github test runner.
     coords["receptor_label"] = np.array(

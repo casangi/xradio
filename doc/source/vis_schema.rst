@@ -66,6 +66,12 @@ field_and_source_xds
 Info dictionaries
 -----------------
 
+Partition info
+~~~~~~~~~~~~~~
+.. autoclass:: xradio.vis.schema.PartitionInfoDict()
+
+   .. xradio_dict_schema_table:: xradio.vis.schema.PartitionInfoDict
+
 Observation info
 ~~~~~~~~~~~~~~~~
 .. autoclass:: xradio.vis.schema.ObservationInfoDict()

@@ -30,7 +30,7 @@ def create_field_and_source_xds(
     is_single_dish: bool,
     time_min_max: Tuple[np.float64, np.float64],
     ephemeris_interp_time: Union[xr.DataArray, None] = None,
-):
+) -> tuple[xr.Dataset, int]:
     """
     Create a field and source xarray dataset (xds) from the given input file, field ID, and spectral window ID.
     Data is extracted from the FIELD and SOURCE tables and if there is ephemeris data, it is also extracted.
@@ -57,11 +57,13 @@ def create_field_and_source_xds(
     -------
     field_and_source_xds : xr.Dataset
         The xarray dataset containing the field and source information.
+    num_lines : int
+        Sum of num_lines for all unique sources.
     """
 
     start_time = time.time()
 
-    field_and_source_xds = xr.Dataset()
+    field_and_source_xds = xr.Dataset(attrs={"type": "field_and_source"})
 
     field_and_source_xds, ephemeris_path, ephemeris_table_name, source_id = (
         extract_field_info_and_check_ephemeris(
@@ -433,7 +435,9 @@ def extract_ephemeris_info(
     return xds
 
 
-def extract_source_info(xds, path, source_id, spectral_window_id):
+def extract_source_info(
+    xds: xr.Dataset, path: str, source_id: int, spectral_window_id: int
+) -> tuple[xr.Dataset, int]:
     """
     Extracts source information from the given path and adds it to the xarray dataset.
 

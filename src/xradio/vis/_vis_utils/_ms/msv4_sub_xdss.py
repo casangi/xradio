@@ -121,11 +121,13 @@ def create_weather_xds(in_file: str):
     # ['ANTENNA_ID', 'TIME', 'INTERVAL', 'H2O', 'IONOS_ELECTRON',
     #  'PRESSURE', 'REL_HUMIDITY', 'TEMPERATURE', 'DEW_POINT',
     #  'WIND_DIRECTION', 'WIND_SPEED']
-    weather_xds = xr.Dataset()
-
+    weather_xds = xr.Dataset(attrs={"type": "weather"})
+    time_attrs = column_description_casacore_to_msv4_measure(
+        weather_column_description["TIME"]
+    )
     coords = {
         "station_id": generic_weather_xds["STATION_ID"].data,
-        "time": generic_weather_xds["TIME"].data,
+        "time": ("time", generic_weather_xds["TIME"].data, time_attrs),
     }
     for key in generic_weather_xds:
         msv4_measure = column_description_casacore_to_msv4_measure(
@@ -263,7 +265,7 @@ def create_pointing_xds(
         "ctds_attrs"
     ]["column_descriptions"]
 
-    pointing_xds = xr.Dataset()
+    pointing_xds = xr.Dataset(attrs={"type": "pointing"})
     for key in generic_pointing_xds:
         if key in to_new_data_variable_names:
             data_var_name = to_new_data_variable_names[key]

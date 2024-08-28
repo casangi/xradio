@@ -276,6 +276,11 @@ class FieldSourceXds:
     """
     is_ephemeris: Attr[bool] = False
 
+    type: Attr[str] = "field_and_source"
+    """
+    Type of dataset.
+    """
+
     # --- Optional coordinates ---
     sky_dir_label: Optional[Coord[SkyDirLabel, str]] = ("ra", "dec")
     """ Coordinate labels of sky directions (typically shape 2 and 'ra', 'dec') """
@@ -757,12 +762,42 @@ class AntennaXds:
 
 @xarray_dataset_schema
 class WeatherXds:
-    """TODO: largely incomplete"""
+    """Weather. Contains station positions and time-dependent mean external
+    atmosphere and weather information"""
 
-    station_id: Coord[StationId, numpy.int64]
-    """ Station identifier """
+    # Coordinates
     time: Coord[Time, numpy.float64]
     """ Mid-point of the time interval """
+    station_id: Coord[StationId, numpy.int64]
+    """ Station identifier """
+    antenna_id: Optional[Coord[StationId, numpy.int64]]
+    """ Antenna identifier """
+
+    # Data variables (all optional)
+    H2O: Optional[Data[tuple[StationId, Time], numpy.float64]] = None
+    """ Average column density of water """
+    IONOS_ELECTRON: Optional[Data[tuple[StationId, Time], numpy.float64]] = None
+    """ Average column density of electrons """
+    PRESSURE: Optional[Data[tuple[StationId, Time], numpy.float64]] = None
+    """ Ambient atmospheric pressure """
+    REL_HUMIDITY: Optional[Data[tuple[StationId, Time], numpy.float64]] = None
+    """ Ambient relative humidity """
+    TEMPERATURE: Optional[Data[tuple[StationId, Time], numpy.float64]] = None
+    """ Ambient air temperature for an antenna """
+    DEW_POINT: Optional[Data[tuple[StationId, Time], numpy.float64]] = None
+    """ Dew point """
+    WIND_DIRECTION: Optional[Data[tuple[StationId, Time], numpy.float64]] = None
+    """ Average wind direction """
+    WIND_SPEED: Optional[Data[tuple[StationId, Time], numpy.float64]] = None
+    """ Average wind speed """
+    STATION_POSITION: Optional[Data[tuple[StationId], numpy.float64]] = None
+    """ Station position """
+
+    # Attributes
+    type: Attr[str] = "weather"
+    """
+    Type of dataset.
+    """
 
 
 @xarray_dataset_schema

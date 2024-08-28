@@ -833,7 +833,7 @@ class WeatherXds:
     atmosphere and weather information"""
 
     # Coordinates
-    time: Coord[Time, numpy.float64]
+    time: Coordof[TimeCoordArray]
     """ Mid-point of the time interval """
     station_id: Coord[StationId, numpy.int64]
     """ Station identifier """
@@ -841,23 +841,23 @@ class WeatherXds:
     """ Antenna identifier """
 
     # Data variables (all optional)
-    H2O: Optional[Data[tuple[StationId, Time], numpy.float64]] = None
+    H2O: Optional[Data[tuple[StationId, Time], QuantityArray]] = None
     """ Average column density of water """
-    IONOS_ELECTRON: Optional[Data[tuple[StationId, Time], numpy.float64]] = None
+    IONOS_ELECTRON: Optional[Data[tuple[StationId, Time], QuantityArray]] = None
     """ Average column density of electrons """
-    PRESSURE: Optional[Data[tuple[StationId, Time], numpy.float64]] = None
+    PRESSURE: Optional[Data[tuple[StationId, Time], QuantityArray]] = None
     """ Ambient atmospheric pressure """
-    REL_HUMIDITY: Optional[Data[tuple[StationId, Time], numpy.float64]] = None
+    REL_HUMIDITY: Optional[Data[tuple[StationId, Time], QuantityArray]] = None
     """ Ambient relative humidity """
-    TEMPERATURE: Optional[Data[tuple[StationId, Time], numpy.float64]] = None
+    TEMPERATURE: Optional[Data[tuple[StationId, Time], QuantityArray]] = None
     """ Ambient air temperature for an antenna """
-    DEW_POINT: Optional[Data[tuple[StationId, Time], numpy.float64]] = None
+    DEW_POINT: Optional[Data[tuple[StationId, Time], QuantityArray]] = None
     """ Dew point """
-    WIND_DIRECTION: Optional[Data[tuple[StationId, Time], numpy.float64]] = None
+    WIND_DIRECTION: Optional[Data[tuple[StationId, Time], QuantityArray]] = None
     """ Average wind direction """
-    WIND_SPEED: Optional[Data[tuple[StationId, Time], numpy.float64]] = None
+    WIND_SPEED: Optional[Data[tuple[StationId, Time], QuantityArray]] = None
     """ Average wind speed """
-    STATION_POSITION: Optional[Data[tuple[StationId], numpy.float64]] = None
+    STATION_POSITION: Optional[Data[tuple[StationId], QuantityArray]] = None
     """ Station position """
 
     # Attributes
@@ -918,7 +918,7 @@ class SystemCalibrationXds:
     # Coordinates
     antenna_id: Coord[AntennaId, Union[int, numpy.int32]]
     """ Antenna identifier """
-    time: Coord[Time, numpy.float64]
+    time: Coordof[TimeCoordArray]
     """ Midpoint of time for which this set of parameters is accurate """
     receptor_id: Optional[Coord[ReceptorId, numpy.float64]] = None
     """  """
@@ -929,27 +929,27 @@ class SystemCalibrationXds:
     PHASE_DIFFERENCE: Optional[Data[tuple[Time, AntennaId], numpy.float64]] = None
     """ Phase difference between receptor 0 and receptor 1 """
     TCAL: Optional[
-        Data[tuple[Time, AntennaId, ReceptorId, Frequency], numpy.float64]
+        Data[tuple[Time, AntennaId, ReceptorId, Frequency], QuantityArray]
     ] = None
     """ Calibration temp """
     TRX: Optional[
-        Data[tuple[Time, AntennaId, ReceptorId, Frequency], numpy.float64]
+        Data[tuple[Time, AntennaId, ReceptorId, Frequency], QuantityArray]
     ] = None
     """ Receiver temperature """
     TSKY: Optional[
-        Data[tuple[Time, AntennaId, ReceptorId, Frequency], numpy.float64]
+        Data[tuple[Time, AntennaId, ReceptorId, Frequency], QuantityArray]
     ] = None
     """ Sky temperature """
     TSYS: Optional[
-        Data[tuple[Time, AntennaId, ReceptorId, Frequency], numpy.float64]
+        Data[tuple[Time, AntennaId, ReceptorId, Frequency], QuantityArray]
     ] = None
     """ System temperature """
     TANT: Optional[
-        Data[tuple[Time, AntennaId, ReceptorId, Frequency], numpy.float64]
+        Data[tuple[Time, AntennaId, ReceptorId, Frequency], QuantityArray]
     ] = None
     """ Antenna temperature """
     TANT_SYS: Optional[
-        Data[tuple[Time, AntennaId, ReceptorId, Frequency], numpy.float64]
+        Data[tuple[Time, AntennaId, ReceptorId, Frequency], QuantityArray]
     ] = None
     """ TANT/TSYS """
 

@@ -198,7 +198,7 @@ class xds_from_image_test(ImageBase):
     _exp_attrs["user"] = {}
     _exp_attrs["history"] = None
 
-    #_ran_measures_code = False
+    # _ran_measures_code = False
 
     _expec_uv = {}
 

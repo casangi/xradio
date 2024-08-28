@@ -14,12 +14,16 @@ Time = Literal["time"]
 """ Observation time dimension """
 AntennaId = Literal["antenna_id"]
 """ Antenna ID dimension """
+AntennaName = Literal["antenna_name"]
+""" Antenna name dimension """
 StationId = Literal["station_id"]
 """ Station ID dimension """
 ReceptorId = Literal["receptor_id"]
 """ Receptor ID dimension """
-ReceptorName = Literal["receptor_label"]
-""" Receptor name dimension """
+ReceptorLabel = Literal["receptor_label"]
+""" Receptor label dimension """
+ToneLabel = Literal["tone_label"]
+""" Tone label dimension """
 BaselineId = Literal["baseline_id"]
 """ Baseline ID dimension """
 Frequency = Literal["frequency"]
@@ -40,8 +44,12 @@ EllipsoidPosLabel = Literal["ellipsoid_pos_label"]
 """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
 CartesianPosLabel = Literal["cartesian_pos_label"]
 """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
+TimePhaseCal = Literal["time_phase_cal"]
+""" Coordinate label for VLBI-specific phase cal time axis """
 TimePolynomial = Literal["time_polynomial"]
 """ For data that is represented as variable in time using Taylor expansion """
+PolyTerm = Literal["poly_term"]
+""" Polynomial term used in VLBI GAIN_CURVE """
 LineLabel = Literal["line_label"]
 """ Line labels (for line names and variables). """
 
@@ -673,87 +681,146 @@ class FreqSamplingArray:
 
 
 @xarray_dataset_schema
-class AntennaXdsEmptyWhileRevampedTODO:
-    """Minimal placeholder so that it shows in the main xds
-    docs. TODO: update AntennaXds once review moves on
-    """
-
-    antenna_name: Coord[Literal["antenna_name"], str]
-    receptor_label: Optional[Coord[ReceptorName, str]]
-    cartesian_pos_label: Coord[CartesianPosLabel, str]
-    sky_dir_label: Optional[Coord[SkyDirLabel, str]]
-    gain_curve_time: Optional[Coord[Literal["gain_curve_time"], numpy.float64]]
-    poly_term: Optional[Coord[Literal["poly_term"], numpy.int64]]
-    phase_cal_time: Optional[Coord[Literal["phase_cal_time"], numpy.float64]]
-    tone_label: Optional[Coord[Literal["tone_label"], numpy.int64]]
-
-
-@xarray_dataset_schema
 class AntennaXds:
-    # --- Coordinates ---
-    antenna_id: Coord[AntennaId, Union[int, numpy.int32]]
-    """Antenna ID"""
-    name: Coord[AntennaId, str]
-
-    """Antenna name."""
-    station: Coord[AntennaId, str]
-    """Name of the station pad (relevant to arrays with moving antennas)."""
-    antenna_type: Optional[Coord[AntennaId, str]]
-    """Antenna type.
-    
-    Reserved keywords include: (``GROUND-BASED`` - conventional
-    antennas; ``SPACE-BASED`` - orbiting antennas; ``TRACKING-STN`` - tracking
-    stations)."""
-    mount: Coord[AntennaId, str]
-    """Mount type of the antenna.
-
-    Reserved keywords include: (``EQUATORIAL`` - equatorial mount; ``ALTAZ`` -
-    azimuth-elevation mount; ``X-Y`` - x-y mount; ``SPACE-HALCA`` - specific
-    orientation model.)"""
-    observatory: Optional[Coord[AntennaId, str]]
-    """Support for VLBI"""
-    receptor_name: Optional[Coord[ReceptorName, str]]
-    """Names of receptors"""
-    cartesian_pos_label: Coord[CartesianPosLabel, str]
-    """Coordinate dimension of earth location data (typically shape 3 and 'x', 'y', 'z')"""
+    # Coordinates
+    antenna_name: Coord[AntennaName, str]
+    """ Antenna name """
+    station: Coord[AntennaName, str]
+    """ Name of the station pad (relevant to arrays with moving antennas). """
+    mount: Coord[AntennaName, str]
+    """ Mount type of the antenna. Reserved keywords include: ”EQUATORIAL” - equatorial mount;
+    ”ALT-AZ” - azimuth-elevation mount;
+    "ALT-AZ+ROTATOR"  alt-az mount with feed rotator; introduced for ASKAP dishes;
+    "ALT-AZ+NASMYTH-R": Nasmyth mount with receivers at the right-hand side of the cabin. Many high-frequency antennas used for VLBI have such a mount typel;
+    "ALT-AZ+NASMYTH-L:: Nasmyth mount with receivers at the left-hand side of the cabin.
+    ”X-Y” - x-y mount;
+    ”SPACE-HALCA” - specific orientation model."""
+    telescope_name: Optional[Coord[AntennaName, str]]
+    """ Useful when data is combined from mutiple arrays for example ACA + ALMA. """
+    # TODO: receptor_label, polarization_type, sky_dir_label set as optional
+    # for datasets like test_alma_ephemris_mosaic. See also BEAM_OFFSET below.
+    receptor_label: Optional[Coord[ReceptorLabel, str]]
+    """ Names of receptors """
+    polarization_type: Optional[Coord[tuple[AntennaName, ReceptorLabel], str]]
+    """ Polarization type to which each receptor responds (e.g. ”R”,”L”,”X” or ”Y”).
+    This is the receptor polarization type as recorded in the final correlated data (e.g. ”RR”); i.e.
+    as measured after all polarization combiners. ['X','Y'], ['R','L'] """
+    cartesian_pos_label: Optional[Coord[CartesianPosLabel, str]]
+    """ (x,y,z) - either cartesian or ellipsoid """
+    ellipsoid_pos_label: Optional[Coord[EllipsoidPosLabel, str]]
+    """ (lon, lat, dist) - either cartesian or ellipsoid"""
     sky_dir_label: Optional[Coord[SkyDirLabel, str]]
-    """Coordinate dimension of sky coordinate data (possibly shape 2 and 'RA', "Dec")"""
+    """ ra, dec """
+    time: Optional[Coordof[TimeCoordArray]]
+    """ Time for VLBI phase cal"""
+    time_phase_cal: Optional[Coord[TimePhaseCal, numpy.float64]]
+    """ Time for VLBI phase cal"""
+    tone_label: Optional[Coord[ToneLabel, str]]
+    """ ? """
+    gain_curve_type: Optional[Coord[AntennaName, str]]
+    """ ? """
 
-    # --- Data variables ---
-    ANTENNA_POSITION: Data[AntennaId, EarthLocationArray]
+    # Data variables
+    ANTENNA_POSITION: Data[
+        Union[
+            tuple[AntennaName, EllipsoidPosLabel], tuple[AntennaName, CartesianPosLabel]
+        ],
+        QuantityArray,
+    ]  # EarthLocationArray
     """
     In a right-handed frame, X towards the intersection of the equator and
     the Greenwich meridian, Z towards the pole.
     """
-    ANTENNA_FEED_OFFSET: Data[tuple[AntennaId, CartesianPosLabel], QuantityArray]
+    ANTENNA_FEED_OFFSET: Data[
+        Union[
+            tuple[AntennaName, EllipsoidPosLabel], tuple[AntennaName, CartesianPosLabel]
+        ],
+        QuantityArray,
+    ]
     """
     Offset of feed relative to position (``Antenna_Table.offset + Feed_Table.position``).
     """
-    ANTENNA_DISH_DIAMETER: Data[AntennaId, QuantityArray]
+    ANTENNA_DISH_DIAMETER: Optional[Data[tuple[AntennaName], QuantityArray]]
     """
     Nominal diameter of dish, as opposed to the effective diameter.
     """
-    BEAM_OFFSET: Optional[Data[AntennaId, SkyCoordArray]]
+    ANTENNA_EFFECTIVE_DISH_DIAMETER: Optional[
+        Data[tuple[AntennaName, ReceptorLabel, SkyDirLabel], QuantityArray]
+    ]
+    """ Airy Disk Model .... """
+
+    # TODO: setting BEAM_OFFSET and RECEPTOR_ANGLE as optional for now, as it
+    # is not present in some datasets (example: test_alma_ephemris_mosaic)
+    BEAM_OFFSET: Optional[Data[tuple[AntennaName, ReceptorLabel], SkyCoordArray]]
     """
     Beam position offset, as defined on the sky but in the antenna
     reference frame.
     """
-    RECEPTOR_ANGLE: Optional[Data[tuple[AntennaId, ReceptorName], QuantityArray]]
+    RECEPTOR_ANGLE: Optional[Data[tuple[AntennaName, ReceptorLabel], QuantityArray]]
     """
     Polarization reference angle. Converts into parallactic angle in the sky domain.
     """
-    FOCUS_LENGTH: Optional[Data[AntennaId, QuantityArray]]
+    FOCUS_LENGTH: Optional[Data[tuple[AntennaName], QuantityArray]]
     """
     Focus length. As defined along the optical axis of the antenna.
     """
-    ARRAY_CENTER: Optional[Data[AntennaId, EarthLocationArray]]
-    EFFECTIVE_DISH_DIAMETER: Optional[Data[AntennaId, QuantityArray]]
 
-    # --- Attributes ---
-    telescope_name: Optional[Attr[str]]
+    GAIN_CURVE: Optional[
+        Data[tuple[AntennaName, ReceptorLabel, PolyTerm], numpy.float32]
+    ]
+    """ VLBI. ?  """
+    GAIN_CURVE_INTERVAL: Optional[Data[tuple[AntennaName], QuantityArray]]
+    """ VLBI. ?  """
+    GAIN_CURVE_SENSITIVITY: Optional[
+        Data[tuple[AntennaName, ReceptorLabel], numpy.float32]
+    ]
+    """ VLBI. ?  """
+    PHASE_CAL: Optional[
+        Data[
+            Union[
+                tuple[AntennaName, Time, ReceptorLabel, ToneLabel],
+                tuple[AntennaName, TimePhaseCal, ReceptorLabel, ToneLabel],
+            ],
+            numpy.complex64,
+        ]
+    ]
+    """ VLBI. ?  """
+    PHASE_CAL_CABLE_CAL: Optional[
+        Data[
+            Union[tuple[AntennaName, Time], tuple[AntennaName, TimePhaseCal]],
+            QuantityArray,
+        ]
+    ]
+    """ VLBI. ?  """
+    PHASE_CAL_INTERVAL: Optional[
+        Data[
+            Union[tuple[AntennaName, Time], tuple[AntennaName, TimePhaseCal]],
+            QuantityArray,
+        ]
+    ]
+    """ VLBI. ?  """
+    PHASE_CAL_TONE_FREQUENCY: Optional[
+        Data[
+            Union[
+                tuple[AntennaName, Time, ReceptorLabel, ToneLabel],
+                tuple[AntennaName, TimePhaseCal, ReceptorLabel, ToneLabel],
+            ],
+            QuantityArray,
+        ]
+    ]
+    """ VLBI. ?  """
+
+    # Attributes
+    overall_telescope_name: Optional[Attr[str]]
     """
-    From MS v2 observation table
+    The name of the collection of arrays and dishes that were used for the observation.
+    In many instances this will only be a single array or dish. An example of a
+    telescope consistening of mutiple arrays and dishes is the EHT. The coordinate
+    telescope_name will give the names of the constituent arrays and dishes. From
+    MSv2 observation table.
     """
+    relocatable_antennas: Optional[Attr[bool]]
+    """ Can the antennas be moved (ALMA, VLA, NOEMA) """
     type: Attr[str] = "antenna"
     """
     Type of dataset. Expected to be ``antenna``
@@ -913,9 +980,7 @@ class VisibilityXds:
     uvw_label: Optional[Coordof[UvwLabelArray]]
 
     # --- Required Attributes ---
-    # TODO: on hold while antenna_xds is reviewed/ updated
-    # antenna_xds: Attr[AntennaXds]
-    # antenna_xds: Attr[AntennaXdsEmptyWhileRevampedTODO]
+    antenna_xds: Attr[AntennaXds]
 
     # --- Optional Coordinates ---
     baseline_antenna1_id: Optional[Coordof[BaselineAntennaArray]] = None

@@ -335,17 +335,17 @@ class EarthLocationArray:
 @dict_schema
 class PartitionInfoDict:
     # spectral_window_id: missing / remove for good?
-    spectral_window_name: Attr[str]
+    spectral_window_name: str
     # field_id: missing / probably remove for good?
-    field_name: Attr[list[str]]
+    field_name: list[str]
     # source_id: mising / remove for good?
-    line_name: Attr[list[str]]
-    scan_number: Attr[list[int]]
-    source_name: Attr[list[str]]
-    polarization_setup: Attr[list[str]]
-    num_lines: Attr[int]
-    obs_mode: Attr[list[str]]
-    taql: Optional[Attr[str]]
+    line_name: list[str]
+    scan_number: list[int]
+    source_name: list[str]
+    polarization_setup: list[str]
+    num_lines: int
+    obs_mode: list[str]
+    taql: Optional[str]
 
 
 @dict_schema

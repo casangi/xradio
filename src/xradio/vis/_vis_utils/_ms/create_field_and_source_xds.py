@@ -61,7 +61,7 @@ def create_field_and_source_xds(
 
     start_time = time.time()
 
-    field_and_source_xds = xr.Dataset()
+    field_and_source_xds = xr.Dataset(attrs={"type": "field_and_source"})
 
     field_and_source_xds, ephemeris_path, ephemeris_table_name, source_id = (
         extract_field_info_and_check_ephemeris(

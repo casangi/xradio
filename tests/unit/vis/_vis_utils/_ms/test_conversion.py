@@ -20,29 +20,39 @@ xds_main = minxds(
 )
 xds_main_sd = minxds(
     {"SPECTRUM": np.empty((1), dtype=np.complex64)},
-    {"antenna_id"},
+    {"antenna_name"},
     {
         "time": 1200,
-        "antenna_id": 11,
+        "antenna_name": 11,
+        "frequency": 1800,
+        "polarization": 2,
+    },
+)
+xds_main_sd_bogus = minxds(
+    {"SPECTRUM": np.empty((1), dtype=np.complex64)},
+    {"antenna_name"},
+    {
+        "time": 1200,
+        "bogus": 11,
         "frequency": 1800,
         "polarization": 2,
     },
 )
 xds_pointing = minxds(
     {"BEAM_POINTING": np.empty((1), dtype=np.complex64)},
-    {"antenna_id"},
+    {"antenna_name"},
     {
         "time": 10220,
-        "antenna_id": 55,
+        "antenna_name": 55,
         "direction": 2,
     },
 )
 xds_pointing_small = minxds(
     {"BEAM_POINTING": np.empty((1), dtype=np.complex64)},
-    {"antenna_id"},
+    {"antenna_name"},
     {
         "time": 102,
-        "antenna_id": 12,
+        "antenna_name": 12,
         "direction": 2,
     },
 )
@@ -78,14 +88,21 @@ xds_pointing_small = minxds(
             0.01,
             "main",
             xds_main_sd,
-            {"time": 408, "antenna_id": 3, "frequency": 548, "polarization": 2},
+            {"time": 408, "antenna_name": 3, "frequency": 548, "polarization": 2},
             no_raises(),
+        ),
+        (
+            0.01,
+            "main",
+            xds_main_sd_bogus,
+            None,
+            pytest.raises(KeyError, match="antenna_name"),
         ),
         (
             0.0002,
             "pointing",
             xds_pointing,
-            {"time": 1677, "antenna_id": 8, "direction": 2},
+            {"time": 1677, "antenna_name": 8, "direction": 2},
             no_raises(),
         ),
     ],
@@ -172,8 +189,14 @@ def test_mem_chunksize_to_dict(
         (
             0.01,
             xds_main_sd,
-            {"antenna_id": 3, "frequency": 548, "polarization": 2, "time": 408},
+            {"antenna_name": 3, "frequency": 548, "polarization": 2, "time": 408},
             no_raises(),
+        ),
+        (
+            0.01,
+            xds_main_sd_bogus,
+            None,
+            pytest.raises(KeyError, match="antenna_name"),
         ),
     ],
 )
@@ -224,7 +247,7 @@ def test_mem_chunksize_to_dict_main_balanced(mem_size, dim_sizes, expected_chunk
         (
             0.1,
             xds_pointing,
-            {"time": 10220, "antenna_id": 55, "direction": 2},
+            {"time": 10220, "antenna_name": 55, "direction": 2},
         ),
         (
             0.5,

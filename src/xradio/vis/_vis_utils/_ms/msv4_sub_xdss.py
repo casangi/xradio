@@ -183,6 +183,7 @@ def create_weather_xds(in_file: str):
 
 def create_pointing_xds(
     in_file: str,
+    ant_xds_name_ids: xr.DataArray,
     time_min_max: Union[Tuple[np.float64, np.float64], None],
     interp_time: Union[xr.DataArray, None] = None,
 ) -> xr.Dataset:
@@ -196,6 +197,8 @@ def create_pointing_xds(
     ----------
     in_file : str
         Input MS name.
+    ant_xds_name_ids : xr.Dataset
+        antenna_name data array from antenna_xds, with name/id information
     time_min_max : tuple
         min / max times values to constrain loading (from the TIME column)
     interp_time : Union[xr.DataArray, None] (Default value = None)
@@ -222,19 +225,19 @@ def create_pointing_xds(
         # "on_source": "ON_SOURCE",   # removed
         "OVER_THE_TOP": "OVER_THE_TOP",
     }
-    time_ant_dims = ["time", "antenna_id"]
+    time_ant_dims = ["time", "antenna_name"]
     time_ant_dir_dims = time_ant_dims + ["sky_dir_label"]
     data_variable_dims = {
-        # "name": ["time", "antenna_id"],   # removed
-        # "time_origin": ["time", "antenna_id"],   # removed?
+        # "name": ["time", "antenna_name"],   # removed
+        # "time_origin": ["time", "antenna_name"],   # removed?
         "DIRECTION": time_ant_dir_dims,
         "ENCODER": time_ant_dir_dims,
         "TARGET": time_ant_dir_dims,
         "POINTING_OFFSET": time_ant_dir_dims,
         "SOURCE_OFFSET": time_ant_dir_dims,
-        # "pointing_model_id": ["time", "antenna_id"],   # removed
-        # "tracking": ["time", "antenna_id"],   # => attribute
-        # "on_source": ["time", "antenna_id"],  # removed
+        # "pointing_model_id": ["time", "antenna_name"],   # removed
+        # "tracking": ["time", "antenna_name"],   # => attribute
+        # "on_source": ["time", "antenna_name"],  # removed
         "OVER_THE_TOP": time_ant_dims,
     }
     # Unused here
@@ -314,7 +317,9 @@ def create_pointing_xds(
 
     coords = {
         "time": generic_pointing_xds["TIME"].values,
-        "antenna_id": np.arange(generic_pointing_xds.sizes["ANTENNA_ID"]),
+        "antenna_name": ant_xds_name_ids.sel(
+            antenna_id=generic_pointing_xds["ANTENNA_ID"]
+        ).data,
         "sky_dir_label": ["ra", "dec"],
     }
     pointing_xds = pointing_xds.assign_coords(coords)

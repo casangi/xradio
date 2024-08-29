@@ -12,8 +12,6 @@ import numpy
 # Dimensions
 Time = Literal["time"]
 """ Observation time dimension """
-AntennaId = Literal["antenna_id"]
-""" Antenna ID dimension """
 AntennaName = Literal["antenna_name"]
 """ Antenna name dimension """
 StationId = Literal["station_id"]
@@ -395,13 +393,22 @@ class BaselineArray:
 
 
 @xarray_dataarray_schema
-class BaselineAntennaArray:
-    data: Data[BaselineId, Union[numpy.int64, numpy.int32]]
-    """
-    Antenna id for an antenna in a baseline. Maps to ``attrs['antenna_xds'].antenna_id``
-    in :py:class:`VisibilityXds`
-    """
-    long_name: Optional[Attr[str]] = "Baseline Antenna ID"
+class BaselineAntennaNameArray:
+    """Array of antenna_name by baseline_id, as used in main_xds and main_sd_xds
+    (antenna_name by baseline_id dim"""
+
+    data: Data[BaselineId, str]
+    """Unique id for each baseline."""
+    long_name: Optional[Attr[str]] = "Antenna name by baseline_id"
+
+
+@xarray_dataarray_schema
+class AntennaNameArray:
+    """TODO: documentation"""
+
+    data: Data[AntennaName, str]
+    """Unique name for each antenna(_station)."""
+    long_name: Optional[Attr[str]] = "Antenna name"
 
 
 @xarray_dataset_schema
@@ -514,17 +521,15 @@ class SpectrumArray:
     """Definition of xr.DataArray for SPECTRUM data (single dish)"""
 
     data: Data[
-        tuple[Time, BaselineId, Frequency, Polarization],
+        tuple[Time, AntennaName, Frequency, Polarization],
         Union[numpy.float64, numpy.float32, numpy.float16],
     ]
-    time: Coord[tuple[()], TimeCoordArray]
 
-    # in the spreadsheet this is antenna_id:
-    # antenna_id: Coord[AntennaId, Union[int, numpy.int32]]
-    baseline_id: Coord[tuple[()], BaselineArray]
+    time: Coordof[TimeCoordArray]
+    antenna_name: Coordof[AntennaNameArray]
+    frequency: Coordof[FrequencyArray]
+    polarization: Coordof[PolarizationArray]
 
-    polarization: Coord[tuple[()], PolarizationArray]
-    frequency: Coord[tuple[()], FrequencyArray]
     field_and_source_xds: Attr[FieldSourceXds]
     long_name: Optional[Attr[str]] = "Spectrum values"
     """ Long-form name to use for axis. Should be ``"Spectrum values"``"""
@@ -544,11 +549,13 @@ class FlagArray:
             tuple[Time, BaselineId, Frequency, Polarization],
             tuple[Time, BaselineId, Frequency],
             tuple[Time, BaselineId],
+            tuple[Time, AntennaName, Frequency, Polarization],  # SD
         ],
         bool,
     ]
     time: Coordof[TimeCoordArray]
-    baseline_id: Coordof[BaselineArray]
+    baseline_id: Optional[Coordof[BaselineArray]]  # Only IF
+    antenna_name: Optional[Coordof[AntennaNameArray]]  # Only SD
     frequency: Coordof[FrequencyArray]
     polarization: Optional[Coordof[PolarizationArray]] = None
     long_name: Optional[Attr[str]] = "Visibility flags"
@@ -569,12 +576,14 @@ class WeightArray:
             tuple[Time, BaselineId, Frequency, Polarization],
             tuple[Time, BaselineId, Frequency],
             tuple[Time, BaselineId],
+            tuple[Time, AntennaName, Frequency, Polarization],  # SD
         ],
         Union[numpy.float16, numpy.float32, numpy.float64],
     ]
     """Visibility weights"""
     time: Coordof[TimeCoordArray]
-    baseline_id: Coordof[BaselineArray]
+    baseline_id: Optional[Coordof[BaselineArray]]  # Only IF
+    antenna_name: Optional[Coordof[AntennaNameArray]]  # Only SD
     frequency: Optional[Coordof[FrequencyArray]] = None
     polarization: Optional[Coordof[PolarizationArray]] = None
     long_name: Optional[Attr[str]] = "Visibility weights"
@@ -615,6 +624,9 @@ class UvwArray:
             tuple[Time, BaselineId, Frequency, Polarization, UvwLabel],
             tuple[Time, BaselineId, Frequency, UvwLabel],
             tuple[Time, BaselineId, UvwLabel],
+            tuple[Time, AntennaName, UvwLabel],  # SD
+            tuple[Time, AntennaName, Frequency, UvwLabel],  # SD
+            tuple[Time, AntennaName, Frequency, Polarization],  # SD
         ],
         Union[
             numpy.float16,
@@ -624,7 +636,8 @@ class UvwArray:
     ]
     """Baseline coordinates from ``baseline_antenna2_id`` to ``baseline_antenna1_id``"""
     time: Coordof[TimeCoordArray]
-    baseline_id: Coordof[BaselineArray]
+    baseline_id: Optional[Coordof[BaselineArray]]  # Only IF
+    antenna_name: Optional[Coordof[AntennaNameArray]]  # Only SD
     frequency: Optional[Coordof[FrequencyArray]] = None
     polarization: Optional[Coordof[PolarizationArray]] = None
     uvw_label: Coordof[UvwLabelArray] = ("u", "v", "w")
@@ -642,12 +655,14 @@ class TimeSamplingArray:
             tuple[Time, BaselineId, Frequency, Polarization],
             tuple[Time, BaselineId, Frequency],
             tuple[Time, BaselineId],
+            tuple[Time, AntennaName],  # SD
         ],
         float,
     ]
 
     time: Coordof[TimeCoordArray]
-    baseline_id: Coordof[BaselineArray]
+    baseline_id: Optional[Coordof[BaselineArray]]  # Only IF
+    antenna_name: Optional[Coordof[AntennaNameArray]]  # Only SD
     frequency: Optional[Coordof[FrequencyArray]] = None
     polarization: Optional[Coordof[PolarizationArray]] = None
 
@@ -699,7 +714,7 @@ class FreqSamplingArray:
 @xarray_dataset_schema
 class AntennaXds:
     # Coordinates
-    antenna_name: Coord[AntennaName, str]
+    antenna_name: Coordof[AntennaNameArray]
     """ Antenna name """
     station: Coord[AntennaName, str]
     """ Name of the station pad (relevant to arrays with moving antennas). """
@@ -853,7 +868,7 @@ class WeatherXds:
     """ Mid-point of the time interval """
     station_id: Coord[StationId, numpy.int64]
     """ Station identifier """
-    antenna_id: Optional[Coord[StationId, numpy.int64]]
+    antenna_name: Optional[Coordof[AntennaNameArray]]
     """ Antenna identifier """
 
     # Data variables (all optional)
@@ -890,9 +905,9 @@ class PointingXds:
     Mid-point of the time interval for which the information in this row is
     valid.  Required to use the same time measure reference as in visibility dataset
     """
-    antenna_id: Coord[AntennaId, Union[int, numpy.int32]]
+    antenna_name: Coordof[AntennaNameArray]
     """
-    Antenna identifier, as specified by baseline_antenna1/2_id in visibility dataset
+    Antenna name, as specified by baseline_antenna1/2_name in visibility dataset
     """
     sky_dir_label: Coord[SkyDirLabel, str]
     """
@@ -900,18 +915,18 @@ class PointingXds:
     """
 
     BEAM_POINTING: Data[
-        Union[tuple[Time, AntennaId, TimePolynomial], tuple[Time, AntennaId]],
+        Union[tuple[Time, AntennaName, TimePolynomial], tuple[Time, AntennaName]],
         SkyCoordArray,
     ]
     """
     Antenna pointing direction, optionally expressed as polynomial coefficients. DIRECTION in MSv3.
     """
-    DISH_MEASURED_POINTING: Optional[Data[tuple[Time, AntennaId], SkyCoordArray]]
+    DISH_MEASURED_POINTING: Optional[Data[tuple[Time, AntennaName], SkyCoordArray]]
     """
     The current encoder values on the primary axes of the mount type for
     the antenna. ENCODER in MSv3.
     """
-    OVER_THE_TOP: Optional[Data[tuple[Time, AntennaId], bool]]
+    OVER_THE_TOP: Optional[Data[tuple[Time, AntennaName], bool]]
 
 
 @xarray_dataset_schema
@@ -932,7 +947,7 @@ class SystemCalibrationXds:
     calibration measurements for each antenna, as indexed on receptor"""
 
     # Coordinates
-    antenna_id: Coord[AntennaId, Union[int, numpy.int32]]
+    antenna_name: Coordof[AntennaNameArray]
     """ Antenna identifier """
     time: Coordof[TimeCoordArray]
     """ Midpoint of time for which this set of parameters is accurate """
@@ -942,30 +957,30 @@ class SystemCalibrationXds:
     """  """
 
     # Data variables (all optional)
-    PHASE_DIFFERENCE: Optional[Data[tuple[Time, AntennaId], numpy.float64]] = None
+    PHASE_DIFFERENCE: Optional[Data[tuple[Time, AntennaName], numpy.float64]] = None
     """ Phase difference between receptor 0 and receptor 1 """
     TCAL: Optional[
-        Data[tuple[Time, AntennaId, ReceptorId, Frequency], QuantityArray]
+        Data[tuple[Time, AntennaName, ReceptorId, Frequency], QuantityArray]
     ] = None
     """ Calibration temp """
     TRX: Optional[
-        Data[tuple[Time, AntennaId, ReceptorId, Frequency], QuantityArray]
+        Data[tuple[Time, AntennaName, ReceptorId, Frequency], QuantityArray]
     ] = None
     """ Receiver temperature """
     TSKY: Optional[
-        Data[tuple[Time, AntennaId, ReceptorId, Frequency], QuantityArray]
+        Data[tuple[Time, AntennaName, ReceptorId, Frequency], QuantityArray]
     ] = None
     """ Sky temperature """
     TSYS: Optional[
-        Data[tuple[Time, AntennaId, ReceptorId, Frequency], QuantityArray]
+        Data[tuple[Time, AntennaName, ReceptorId, Frequency], QuantityArray]
     ] = None
     """ System temperature """
     TANT: Optional[
-        Data[tuple[Time, AntennaId, ReceptorId, Frequency], QuantityArray]
+        Data[tuple[Time, AntennaName, ReceptorId, Frequency], QuantityArray]
     ] = None
     """ Antenna temperature """
     TANT_SYS: Optional[
-        Data[tuple[Time, AntennaId, ReceptorId, Frequency], QuantityArray]
+        Data[tuple[Time, AntennaName, ReceptorId, Frequency], QuantityArray]
     ] = None
     """ TANT/TSYS """
 
@@ -986,7 +1001,12 @@ class VisibilityXds:
     The time coordinate is the mid-point of the nominal sampling interval, as
     speciﬁed in the ``ms_v4.time.attrs['integration_time']`` (ms v2 interval).
     """
-    baseline_id: Coordof[BaselineArray]
+    baseline_id: Optional[Coordof[BaselineArray]]  # IF. not present in main_sd_xds
+    """ Baseline ID """
+    antenna_name: Optional[
+        Coordof[AntennaNameArray]
+    ]  # Single-dish. not present in main_xds
+    """ antenna_name """
     frequency: Coordof[FrequencyArray]
     """Center frequencies for each channel."""
     polarization: Coordof[PolarizationArray]
@@ -994,17 +1014,18 @@ class VisibilityXds:
     Labels for polarization types, e.g. ``['XX','XY','YX','YY']``, ``['RR','RL','LR','LL']``.
     """
     uvw_label: Optional[Coordof[UvwLabelArray]]
+    """ u,v,w """
+    baseline_antenna1_name: Optional[Coordof[BaselineAntennaNameArray]]  # IF
+    """Antenna name for 1st antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_name``"""
+    baseline_antenna2_name: Optional[Coordof[BaselineAntennaNameArray]]  # IF
+    """Antenna name for 2nd antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_name``"""
 
     # --- Required Attributes ---
     partition_info: Attr[PartitionInfoDict]
     antenna_xds: Attr[AntennaXds]
 
     # --- Optional Coordinates ---
-    baseline_antenna1_id: Optional[Coordof[BaselineAntennaArray]] = None
-    """Antenna id for 1st antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_id``"""
-    baseline_antenna2_id: Optional[Coordof[BaselineAntennaArray]] = None
-    """Antenna id for 2nd antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_id``"""
-    scan_id: Optional[Coord[Time, int]] = None
+    scan_number: Optional[Coord[Time, Union[numpy.int64, numpy.int32]]] = None
     """Arbitary scan number to identify data taken in the same logical scan."""
 
     # --- Required data variables ---
@@ -1030,6 +1051,9 @@ class VisibilityXds:
                 tuple[Time, BaselineId],
                 tuple[Time, BaselineId, Frequency],
                 tuple[Time, BaselineId, Frequency, Polarization],
+                tuple[Time, AntennaName],  # SD
+                tuple[Time, AntennaName, Frequency],  # SD
+                tuple[Time, AntennaName, Frequency, Polarization],  # SD
             ],
             QuantityArray,
         ]

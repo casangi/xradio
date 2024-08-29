@@ -198,7 +198,7 @@ def test_single_dish(tmp_path):
     base_test("sdimaging.ms", tmp_path, 5487446.5)
 
 
-def test_alma_ephemris_mosaic(tmp_path):
+def test_alma_ephemeris_mosaic(tmp_path):
     ps_list = base_test(
         "ALMA_uid___A002_X1003af4_X75a3.split.avg.ms", tmp_path, 8.11051993222426e17
     )
@@ -345,7 +345,7 @@ if __name__ == "__main__":
     # test_VLA(tmp_path=Path("."))
 
     # FAILED test_vis_stakeholder.py::test_ephemeris - ValueError: Buffer has wrong number of dimensions (expected 1, got 2)
-    # FAILED test_vis_stakeholder.py::test_alma_ephemris_mosaic - ValueError: Buffer has wrong number of dimensions (expected 1, got 2)
+    # FAILED test_vis_stakeholder.py::test_alma_ephemeris_mosaic - ValueError: Buffer has wrong number of dimensions (expected 1, got 2)
     # FAILED test_vis_stakeholder.py::test_sd_A002_X1015532_X1926f - ValueError: Buffer has wrong number of dimensions (expected 1, got 2)
     # FAILED test_vis_stakeholder.py::test_sd_A002_Xe3a5fd_Xe38e - ValueError: Buffer has wrong number of dimensions (expected 1, got 2)
 

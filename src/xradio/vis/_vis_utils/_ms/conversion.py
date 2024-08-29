@@ -666,6 +666,7 @@ def create_taql_query(partition_info):
         "FIELD_ID",
         "SCAN_NUMBER",
         "STATE_ID",
+        "ANTENNA1",
     ]
 
     taql_where = "WHERE "
@@ -675,6 +676,11 @@ def create_taql_query(partition_info):
                 taql_where
                 + f"({col_name} IN [{','.join(map(str, partition_info[col_name]))}]) AND"
             )
+            if col_name == "ANTENNA1":
+                taql_where = (
+                    taql_where
+                    + f"(ANTENNA2 IN [{','.join(map(str, partition_info[col_name]))}]) AND"
+                )
     taql_where = taql_where[:-3]
 
     return taql_where

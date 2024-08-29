@@ -80,7 +80,7 @@ def check_chunksize(chunksize: dict, xds_type: str) -> None:
         allowed_dims = [
             "time",
             "baseline_id",
-            "antenna_id",
+            "antenna_name",
             "frequency",
             "polarization",
         ]
@@ -138,7 +138,7 @@ def mem_chunksize_to_dict_main(chunksize: float, xds: xr.Dataset) -> Dict[str, i
     It presently relies on the logic of mem_chunksize_to_dict_main_balanced() to find a
     balanced list of dimension sizes for the chunks
 
-    Assumes these relevant dims: (time, antenna_id/baseline_id, frequency,
+    Assumes these relevant dims: (time, antenna_name/baseline_id, frequency,
     polarization).
     """
 
@@ -149,11 +149,11 @@ def mem_chunksize_to_dict_main(chunksize: float, xds: xr.Dataset) -> Dict[str, i
             "Cannot calculate chunk sizes when memory bound ({chunksize}) does not even allow all polarizations in one chunk"
         )
 
-    baseline_or_antenna_id = find_baseline_or_antenna_var(xds)
-    total_size = calc_used_gb(xds.sizes, baseline_or_antenna_id, sizeof_vis)
+    baseline_or_antenna_name = find_baseline_or_antenna_var(xds)
+    total_size = calc_used_gb(xds.sizes, baseline_or_antenna_name, sizeof_vis)
 
     ratio = chunksize / total_size
-    chunked_dims = ["time", baseline_or_antenna_id, "frequency", "polarization"]
+    chunked_dims = ["time", baseline_or_antenna_name, "frequency", "polarization"]
     if ratio >= 1:
         result = {dim: xds.sizes[dim] for dim in chunked_dims}
         logger.debug(
@@ -162,14 +162,17 @@ def mem_chunksize_to_dict_main(chunksize: float, xds: xr.Dataset) -> Dict[str, i
     else:
         xds_dim_sizes = {k: xds.sizes[k] for k in chunked_dims}
         result = mem_chunksize_to_dict_main_balanced(
-            chunksize, xds_dim_sizes, baseline_or_antenna_id, sizeof_vis
+            chunksize, xds_dim_sizes, baseline_or_antenna_name, sizeof_vis
         )
 
     return result
 
 
 def mem_chunksize_to_dict_main_balanced(
-    chunksize: float, xds_dim_sizes: dict, baseline_or_antenna_id: str, sizeof_vis: int
+    chunksize: float,
+    xds_dim_sizes: dict,
+    baseline_or_antenna_name: str,
+    sizeof_vis: int,
 ) -> Dict[str, int]:
     """
     Assumes the ratio is <1 and all pols can fit in memory (from
@@ -236,7 +239,7 @@ def mem_chunksize_to_dict_main_balanced(
             dim_chunksizes[idx] += int_delta
         used = np.prod(dim_chunksizes) * sizeof_vis / GiBYTES_TO_BYTES
 
-    chunked_dim_names = ["time", baseline_or_antenna_id, "frequency", "polarization"]
+    chunked_dim_names = ["time", baseline_or_antenna_name, "frequency", "polarization"]
     dim_chunksizes_int = [int(v) for v in dim_chunksizes]
     result = dict(zip(chunked_dim_names, dim_chunksizes_int))
 
@@ -314,11 +317,11 @@ def mem_chunksize_to_dict_pointing(chunksize: float, xds: xr.Dataset) -> Dict[st
 
 def find_baseline_or_antenna_var(xds: xr.Dataset) -> str:
     if "baseline_id" in xds.coords:
-        baseline_or_antenna_id = "baseline_id"
-    elif "antenna_id" in xds.coords:
-        baseline_or_antenna_id = "antenna_id"
+        baseline_or_antenna_name = "baseline_id"
+    elif "antenna_name" in xds.coords:
+        baseline_or_antenna_name = "antenna_name"
 
-    return baseline_or_antenna_id
+    return baseline_or_antenna_name
 
 
 def itemsize_vis_spec(xds: xr.Dataset) -> int:
@@ -352,11 +355,11 @@ def itemsize_pointing_spec(xds: xr.Dataset) -> int:
 
 
 def calc_used_gb(
-    chunksizes: dict, baseline_or_antenna_id: str, sizeof_vis: int
+    chunksizes: dict, baseline_or_antenna_name: str, sizeof_vis: int
 ) -> float:
     return (
         chunksizes["time"]
-        * chunksizes[baseline_or_antenna_id]
+        * chunksizes[baseline_or_antenna_name]
         * chunksizes["frequency"]
         * chunksizes["polarization"]
         * sizeof_vis
@@ -734,7 +737,6 @@ def convert_and_write_partition(
     """
 
     taql_where = create_taql_query(partition_info)
-    # print("taql_where", taql_where)
     ddi = partition_info["DATA_DESC_ID"][0]
     obs_mode = str(partition_info["OBS_MODE"][0])
 
@@ -877,7 +879,8 @@ def convert_and_write_partition(
             )
 
             # Change antenna_ids to antenna_names
-            xds = antenna_ids_to_names(xds, ant_xds)
+            xds = antenna_ids_to_names(xds, ant_xds, is_single_dish)
+            ant_xds_name_ids = ant_xds["antenna_name"].set_xindex("antenna_id")
             ant_xds = ant_xds.drop_vars(
                 "antenna_id"
             )  # No longer needed after converting to name.
@@ -897,7 +900,7 @@ def convert_and_write_partition(
                 else:
                     pointing_interp_time = None
                 pointing_xds = create_pointing_xds(
-                    in_file, time_min_max, pointing_interp_time
+                    in_file, ant_xds_name_ids, time_min_max, pointing_interp_time
                 )
                 pointing_chunksize = parse_chunksize(
                     pointing_chunksize, "pointing", pointing_xds
@@ -953,7 +956,6 @@ def convert_and_write_partition(
 
             # Fix UVW frame
             # From CASA fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking center. calcuvw does not yet force the UVW column and field centers to use the same reference frame! Blank = use the phase tracking frame of vis.
-            # print('##################',field_and_source_xds)
             if is_single_dish:
                 xds.UVW.attrs["frame"] = field_and_source_xds[
                     "FIELD_REFERENCE_CENTER"
@@ -1037,17 +1039,19 @@ def convert_and_write_partition(
     # logger.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
 
 
-def antenna_ids_to_names(xds, ant_xds):
+def antenna_ids_to_names(
+    xds: xr.Dataset, ant_xds: xr.Dataset, is_single_dish: bool
+) -> xr.Dataset:
     ant_xds = ant_xds.set_xindex(
         "antenna_id"
     )  # Allows for non-dimension coordinate selection.
 
-    if "baseline_antenna1_id" in xds:  # Interferometer
-        xds["baseline_antenna1_id"] = ant_xds["antenna_name"].sel(
-            antenna_id=xds["baseline_antenna1_id"]
+    if not is_single_dish:  # Interferometer
+        xds["baseline_antenna1_id"].data = ant_xds["antenna_name"].sel(
+            antenna_id=xds["baseline_antenna1_id"].data
         )
-        xds["baseline_antenna2_id"] = ant_xds["antenna_name"].sel(
-            antenna_id=xds["baseline_antenna2_id"]
+        xds["baseline_antenna2_id"].data = ant_xds["antenna_name"].sel(
+            antenna_id=xds["baseline_antenna2_id"].data
         )
         xds = xds.rename(
             {
@@ -1055,9 +1059,23 @@ def antenna_ids_to_names(xds, ant_xds):
                 "baseline_antenna2_id": "baseline_antenna2_name",
             }
         )
-    else:  # Single Dish
-        xds["antenna_id"] = ant_xds["antenna_name"].sel(antenna_id=xds["antenna_id"])
-        xds = xds.rename({"antenna_id": "antenna_name"})
+    else:
+        xds["baseline_id"] = ant_xds["antenna_name"].sel(antenna_id=xds["baseline_id"])
+        unwanted_coords_from_ant_xds = [
+            "antenna_id",
+            "antenna_name",
+            "mount",
+            "station",
+        ]
+        for unwanted_coord in unwanted_coords_from_ant_xds:
+            xds = xds.drop_vars(unwanted_coord)
+        xds = xds.rename({"baseline_id": "antenna_name"})
+
+        # drop more vars that seem unwanted in main_sd_xds, but there shouuld be a better way
+        # of not creating them in the first place
+        unwanted_coords_sd = ["baseline_antenna1_id", "baseline_antenna2_id"]
+        for unwanted_coord in unwanted_coords_sd:
+            xds = xds.drop_vars(unwanted_coord)
 
     return xds
 

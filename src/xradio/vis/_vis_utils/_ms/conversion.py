@@ -976,10 +976,7 @@ def convert_and_write_partition(
 
             file_name = os.path.join(
                 out_file,
-                pathlib.Path(in_file)
-                .name.replace(".ms", "")
-                + "_"
-                + str(ms_v4_id),
+                pathlib.Path(in_file).name.replace(".ms", "") + "_" + str(ms_v4_id),
             )
 
             if "line_name" in field_and_source_xds.coords:

@@ -976,9 +976,8 @@ def convert_and_write_partition(
 
             file_name = os.path.join(
                 out_file,
-                pathlib.Path(out_file)
-                .name.replace(".vis.zarr", "")
-                .replace(".zarr", "")
+                pathlib.Path(in_file)
+                .name.replace(".ms", "")
                 + "_"
                 + str(ms_v4_id),
             )

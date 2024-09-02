@@ -2,6 +2,12 @@ import numpy as np
 
 _deg_to_rad = np.pi / 180
 
+# Fill values for missing/NaN data in integer variables, based on usual
+# numpy fill values. See https://github.com/numpy/numpy/issues/21166,
+# https://github.com/casangi/xradio/issues/219, https://github.com/casangi/xradio/pull/177
+fill_value_int32 = np.int32(-2147483648)
+fill_value_int64 = np.int64(-9223372036854775808)
+
 
 def cast_to_str(x):
     if isinstance(x, list):

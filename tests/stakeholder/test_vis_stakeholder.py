@@ -22,11 +22,11 @@ relative_tolerance = 10 ** (-6)
 def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_scheme):
 
     # We can remove this once there is a new release of casacore
-    if os.environ["USER"] == "runner":
-        casa_data_dir = (importlib.resources.files("casadata") / "__data__").as_posix()
-        rc_file = open(os.path.expanduser("~/.casarc"), "a+")  # append mode
-        rc_file.write("\nmeasures.directory: " + casa_data_dir)
-        rc_file.close()
+    # if os.environ["USER"] == "runner":
+    #     casa_data_dir = (importlib.resources.files("casadata") / "__data__").as_posix()
+    #     rc_file = open(os.path.expanduser("~/.casarc"), "a+")  # append mode
+    #     rc_file.write("\nmeasures.directory: " + casa_data_dir)
+    #     rc_file.close()
 
     _logger_name = "xradio"
     if os.getenv("VIPER_LOGGER_NAME") != _logger_name:

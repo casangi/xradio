@@ -1,4 +1,4 @@
-from importlib_metadata import version
+from importlib.metadata import version
 import graphviper.utils.logger as logger, multiprocessing, psutil
 from typing import Any, Dict, List, Tuple, Union
 

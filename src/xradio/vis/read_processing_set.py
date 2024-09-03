@@ -38,7 +38,7 @@ def read_processing_set(
         data_groups = xds.attrs["data_groups"]
 
         if (obs_modes is None) or (
-            xds.attrs["partition_info"]["obs_mode"] in obs_modes
+            bool(set(xds.attrs["partition_info"]["obs_mode"]).intersection(obs_modes))
         ):
             sub_xds_dict, field_and_source_xds_dict = _read_sub_xds(
                 ms_store, file_system=file_system, data_groups=data_groups

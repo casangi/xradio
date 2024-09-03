@@ -196,7 +196,8 @@ def expand_xds(xds: xr.Dataset) -> xr.Dataset:
     except Exception as exc:
         logger.warning(
             f"WARNING: Cannot expand rows to (time, baseline), "
-            f"possibly duplicate values in (time, baseline). Exception: {exc}"
+            f"possibly duplicate values in (time, baseline). Exception: {exc}."
+            f"\nDataset: {txds=}"
         )
         txds = xds.copy()
 

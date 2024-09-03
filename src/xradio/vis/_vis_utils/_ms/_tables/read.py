@@ -416,10 +416,16 @@ def get_pad_value(col: np.ndarray) -> np.ndarray:
         return fill_value_int64
     elif np.issubdtype(col.dtype, np.floating):
         return np.nan
+    elif np.issubdtype(col.dtype, np.complexfloating):
+        return complex(np.nan, np.nan)
+    elif np.issubdtype(col.dtype, np.bool_):
+        return False
+    elif np.issubdtype(col.dtype, str):
+        return ""
     else:
         raise RuntimeError(
-            "Padding / missing value not defined for types other "
-            f"than np.floating, np.int32/int64. Got type: {col.dtype}"
+            "Padding / missing value not defined for the type requested: "
+            f"{col.dtype}"
         )
 
 

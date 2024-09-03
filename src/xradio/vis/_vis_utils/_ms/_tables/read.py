@@ -12,6 +12,7 @@ import astropy.units
 from casacore import tables
 
 from .table_query import open_query, open_table_ro
+from ....._utils.common import fill_value_int32, fill_value_int64
 
 CASACORE_TO_PD_TIME_CORRECTION = 3_506_716_800.0
 SECS_IN_DAY = 86400
@@ -393,9 +394,9 @@ def make_freq_attrs(spw_xds: xr.Dataset, spw_id: int) -> Dict[str, Any]:
     return cf_attrs
 
 
-def get_pad_nan(col: np.ndarray) -> np.ndarray:
+def get_pad_value(col: np.ndarray) -> np.ndarray:
     """
-    Produce a padding/nan value appropriate for a data column
+    Produce a padding/missing/nan value appropriate for a data column
     (for when we need to pad data vars coming from columns with rows of
     variable size array values)
 
@@ -407,19 +408,19 @@ def get_pad_nan(col: np.ndarray) -> np.ndarray:
     Returns
     -------
     np.ndarray
-        nan ("nan") value for the type of the input column
+        pad value ("missing" / "fill" or "nan") for the type of the input column
     """
-    # This is causing frequent warnings for integers. Cast of nan to "int nan"
-    # produces -2147483648 but also seems to trigger a
-    # "RuntimeWarning: invalid value encountered in cast" (new in numpy>=1.24)
-    policy = "warn"
-    col_type = np.array(col).dtype
-    if np.issubdtype(col_type, np.integer):
-        policy = "ignore"
-    with np.errstate(invalid=policy):
-        pad_nan = np.array([np.nan]).astype(col_type)[0]
-
-    return pad_nan
+    if col.dtype == np.int32:
+        return fill_value_int32
+    elif col.dtype == np.int64:
+        return fill_value_int64
+    elif np.issubdtype(col.dtype, np.floating):
+        return np.nan
+    else:
+        raise RuntimeError(
+            "Padding / missing value not defined for types other "
+            f"than np.floating, np.int32/int64. Got type: {col.dtype}"
+        )
 
 
 def redimension_ms_subtable(xds: xr.Dataset, subt_name: str) -> xr.Dataset:
@@ -1003,9 +1004,9 @@ def handle_variable_col_issues(
     inpath: str, col: str, col_type: str, trows: tables.tablerow
 ) -> np.ndarray:
     """
-    load variable-size array columns, padding with nans wherever
-    needed. This happens for example often in the SPECTRAL_WINDOW
-    table (CHAN_WIDTH, EFFECTIVE_BW, etc.).
+    load variable-size array columns, padding with missing/fill/nans
+    wherever needed. This happens for example often in the
+    SPECTRAL_WINDOW table (CHAN_WIDTH, EFFECTIVE_BW, etc.).
     Also handle exceptions gracefully when trying to load the rows.
 
     Parameters
@@ -1030,7 +1031,7 @@ def handle_variable_col_issues(
 
     mshape = np.array(max([np.array(row[col]).shape for row in trows]))
     try:
-        pad_nan = get_pad_nan(np.array((), dtype=col_type))
+        pad_val = get_pad_value(np.array((), dtype=col_type))
 
         # TODO
         # benchmark np.stack() performance
@@ -1044,7 +1045,7 @@ def handle_variable_col_issues(
                     ),
                     [(0, ss) for ss in mshape - np.array(row[col]).shape],
                     "constant",
-                    constant_values=pad_nan,
+                    constant_values=pad_val,
                 )
                 for row in trows
             ]

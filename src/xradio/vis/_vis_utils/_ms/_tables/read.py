@@ -12,7 +12,7 @@ import astropy.units
 from casacore import tables
 
 from .table_query import open_query, open_table_ro
-from ....._utils.common import fill_value_int32, fill_value_int64
+from ....._utils.common import get_pad_value
 
 CASACORE_TO_PD_TIME_CORRECTION = 3_506_716_800.0
 SECS_IN_DAY = 86400
@@ -393,41 +393,6 @@ def make_freq_attrs(spw_xds: xr.Dataset, spw_id: int) -> Dict[str, Any]:
 
     return cf_attrs
 
-
-def get_pad_value(col_dtype: np.dtype) -> object:
-    """
-    Produce a padding/missing/nan value appropriate for a data column
-    (for when we need to pad data vars coming from columns with rows of
-    variable size array values)
-
-    Parameters
-    ----------
-    col_dtype : dtype
-        dtype of data being loaded from a table column
-
-    Returns
-    -------
-    object
-        pad value ("missing" / "fill" or "nan") for the type of the input column
-    """
-
-    if col_dtype == np.int32:
-        return fill_value_int32
-    elif col_dtype == np.int64 or col_dtype == "int":
-        return fill_value_int64
-    elif np.issubdtype(col_dtype, np.floating):
-        return np.nan
-    elif np.issubdtype(col_dtype, np.complexfloating):
-        return complex(np.nan, np.nan)
-    elif np.issubdtype(col_dtype, np.bool_):
-        return False
-    elif np.issubdtype(col_dtype, str):
-        return ""
-    else:
-        raise RuntimeError(
-            "Padding / missing value not defined for the type requested: "
-            f"{col_dtype} (of type: {type(col_dtype)})"
-        )
 
 
 def redimension_ms_subtable(xds: xr.Dataset, subt_name: str) -> xr.Dataset:

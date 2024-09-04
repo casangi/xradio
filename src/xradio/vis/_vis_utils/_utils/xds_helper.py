@@ -7,7 +7,7 @@ import xarray as xr
 
 from .cds import CASAVisSet
 from .stokes_types import stokes_types
-from ...._utils.common import fill_value_int32
+from ...._utils.common import get_pad_value
 
 
 def make_coords(
@@ -226,6 +226,7 @@ def flatten_xds(xds: xr.Dataset) -> xr.Dataset:
         # compute for issue https://github.com/hainegroup/oceanspy/issues/332
         # drop=True silently does compute (or at least used to)
 
+        fill_value_int32 = get_pad_value(np.int32)
         txds = txds.where(
             (
                 (txds.STATE_ID != fill_value_int32)

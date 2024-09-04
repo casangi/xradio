@@ -3,7 +3,7 @@ from typing import Tuple
 import numpy as np
 
 from casacore import tables
-from .read import get_pad_value
+from ....._utils.common import get_pad_value
 
 
 def load_col_chunk(

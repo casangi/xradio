@@ -110,6 +110,7 @@ def test_flatten_xds_main_min(main_xds_min):
     assert all(
         [dim in res.dims for dim in ["row", "uvw_coords", "freq", "pol", "antenna_id"]]
     )
+    assert all([dim not in res.dims for dim in ["time", "baseline"]])
 
 
 def test_flatten_then_expand_xds_main_min(main_xds_min):
@@ -117,6 +118,7 @@ def test_flatten_then_expand_xds_main_min(main_xds_min):
     from xradio.vis._vis_utils._utils.xds_helper import expand_xds
 
     res = flatten_xds(main_xds_min)
+    # flatten removes baseline, time from dims but they stay in vars
     res = res.drop_vars("baseline")
     res_expanded = expand_xds(res)
 

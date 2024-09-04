@@ -16,7 +16,7 @@ dependencies = [
     'graphviper',
     'matplotlib',
     'numba>=0.57.0',
-    'numpy<=2.0.2',
+    'numpy',
     'prettytable',
     'pytest',
     'pytest-cov',

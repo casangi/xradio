@@ -970,6 +970,40 @@ def raw_col_data_to_coords_vars(
     return array_type, array_data
 
 
+def get_pad_value_in_tablerow_column(trows: tables.tablerow, col: str) -> object:
+    """
+    Gets the pad value for the type of a column (IMPORTANTLY) as froun in the
+    the type specified in the row / column value dict returned by tablerow.
+    This can differ from the type of the column as given in the casacore
+    column descriptions. See https://github.com/casangi/xradio/issues/242.
+
+    Parameters
+    ----------
+    trows : tables.tablerow
+        list of rows from a table as loaded by tables.row()
+    col: str
+        get the pad value for this column
+
+    Returns
+    -------
+    object
+        pad value as produced by get_pad_value for the appropriate data type from
+    tablerow
+    """
+    col_value = trows[0][col]
+    if isinstance(col_value, np.ndarray):
+        col_dtype = col_value.dtype
+    elif isinstance(col_value, list):
+        col_dtype = type(col_value[0])
+    else:
+        raise RuntimeError(
+            "Found unexpected type (not np.array or list) in column value of "
+            f"first row of column {col}: {col_value}"
+        )
+
+    return get_pad_value(col_dtype)
+
+
 def handle_variable_col_issues(
     inpath: str, col: str, col_type: str, trows: tables.tablerow
 ) -> np.ndarray:
@@ -1001,7 +1035,8 @@ def handle_variable_col_issues(
 
     mshape = np.array(max([np.array(row[col]).shape for row in trows]))
     try:
-        pad_val = get_pad_value(col_type)
+        pad_val = None
+        pad_val = get_pad_value_in_tablerow_column(trows, col)
 
         # TODO
         # benchmark np.stack() performance
@@ -1021,7 +1056,7 @@ def handle_variable_col_issues(
             ]
         )
     except Exception as exc:
-        msg = f"{inpath}: failed to load data for column {col}: {exc}"
+        msg = f"{inpath}: failed to load data for column {col}, with {pad_val=}: {exc}"
         if col in known_misbehaving_cols:
             logger.debug(msg)
         else:

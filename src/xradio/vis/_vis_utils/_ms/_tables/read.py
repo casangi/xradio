@@ -443,13 +443,12 @@ def redimension_ms_subtable(xds: xr.Dataset, subt_name: str) -> xr.Dataset:
         #   (ANTENNA_ID=0, TIME=0) and no other columns to figure out the right IDs, such
         #   as "NS_WX_STATION_ID" or similar. (example: X425.pm04.scan4.ms)
         # - Some GBT MSs have duplicated (ANTENNA_ID=0, TIME=xxx). (example: analytic_variable.ms)
-        with np.errstate(invalid="ignore"):
-            rxds = (
-                rxds.set_index(row=key_dims)
-                .drop_duplicates("row")
-                .unstack("row")
-                .transpose(*key_dims, ...)
-            )
+        rxds = (
+            rxds.set_index(row=key_dims)
+            .drop_duplicates("row")
+            .unstack("row")
+            .transpose(*key_dims, ...)
+        )
         # unstack changes type to float when it needs to introduce NaNs, so
         # we need to reset to the original type.
         for var in rxds.data_vars:

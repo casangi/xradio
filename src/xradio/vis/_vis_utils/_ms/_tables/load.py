@@ -55,7 +55,7 @@ def load_col_chunk(
         data = tb_tool.getcolslice(col, (d1[0], d2[0]), (d1[1], d2[1]), [], 0, -1)
 
     # full data is the maximum of the data shape and chunk shape dimensions
-    fill_value = get_pad_value(data)
+    fill_value = get_pad_value(data.dtype)
     chunk = np.full(cshape, np.fill_value, dtype=data.dtype)
     if len(didxs) > 0:
         chunk[tidxs[didxs], bidxs[didxs]] = data[didxs]

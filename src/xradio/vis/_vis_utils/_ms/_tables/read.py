@@ -394,7 +394,7 @@ def make_freq_attrs(spw_xds: xr.Dataset, spw_id: int) -> Dict[str, Any]:
     return cf_attrs
 
 
-def get_pad_value(col: np.ndarray) -> object:
+def get_pad_value(col_dtype: np.dtype) -> object:
     """
     Produce a padding/missing/nan value appropriate for a data column
     (for when we need to pad data vars coming from columns with rows of
@@ -402,30 +402,31 @@ def get_pad_value(col: np.ndarray) -> object:
 
     Parameters
     ----------
-    col : np.ndarray
-        data being loaded from a table column
+    col_dtype : dtype
+        dtype of data being loaded from a table column
 
     Returns
     -------
-    np.ndarray
+    object
         pad value ("missing" / "fill" or "nan") for the type of the input column
     """
-    if col.dtype == np.int32:
+
+    if col_dtype == np.int32:
         return fill_value_int32
-    elif col.dtype == np.int64:
+    elif col_dtype == np.int64 or col_dtype == "int":
         return fill_value_int64
-    elif np.issubdtype(col.dtype, np.floating):
+    elif np.issubdtype(col_dtype, np.floating):
         return np.nan
-    elif np.issubdtype(col.dtype, np.complexfloating):
+    elif np.issubdtype(col_dtype, np.complexfloating):
         return complex(np.nan, np.nan)
-    elif np.issubdtype(col.dtype, np.bool_):
+    elif np.issubdtype(col_dtype, np.bool_):
         return False
-    elif np.issubdtype(col.dtype, str):
+    elif np.issubdtype(col_dtype, str):
         return ""
     else:
         raise RuntimeError(
             "Padding / missing value not defined for the type requested: "
-            f"{col.dtype}"
+            f"{col_dtype} (of type: {type(col_dtype)})"
         )
 
 
@@ -1037,7 +1038,7 @@ def handle_variable_col_issues(
 
     mshape = np.array(max([np.array(row[col]).shape for row in trows]))
     try:
-        pad_val = get_pad_value(np.array((), dtype=col_type))
+        pad_val = get_pad_value(col_type)
 
         # TODO
         # benchmark np.stack() performance
@@ -1185,7 +1186,7 @@ def read_col_chunk(
             elif len(cshape) == 4:  # DATA and FLAG
                 data = query.getcolslice(col, (d1[0], d2[0]), (d1[1], d2[1]), [], 0, -1)
 
-    fill_value = get_pad_value(data)
+    fill_value = get_pad_value(data.dtype)
     fulldata = np.full(cshape, fill_value, dtype=data.dtype)
 
     if len(didxs) > 0:
@@ -1254,7 +1255,7 @@ def read_col_conversion(
     # Get dtype of the column. Only read first row from disk
     col_dtype = np.array(tb_tool.col(col)[0]).dtype
     # Use a custom/safe fill value (https://github.com/casangi/xradio/issues/219)
-    fill_value = get_pad_value(data)
+    fill_value = get_pad_value(col_dtype)
 
     # Construct a numpy array to populate. `data` has shape (n_times, n_baselines, n_frequencies, n_polarizations)
     data = np.full(cshape + extra_dimensions, fill_value, dtype=col_dtype)

@@ -247,7 +247,10 @@ def create_pointing_xds(
     taql_time_range = make_taql_where_between_min_max(
         time_min_max, in_file, "POINTING", "TIME"
     )
-    taql_where = taql_time_range + f" AND (ANTENNA_ID IN [{','.join(map(str, ant_xds_name_ids.antenna_id.values))}])"
+    taql_where = (
+        taql_time_range
+        + f" AND (ANTENNA_ID IN [{','.join(map(str, ant_xds_name_ids.antenna_id.values))}])"
+    )
     # Read POINTING table into a Xarray Dataset.
     generic_pointing_xds = load_generic_table(
         in_file,

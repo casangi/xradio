@@ -394,7 +394,7 @@ def make_freq_attrs(spw_xds: xr.Dataset, spw_id: int) -> Dict[str, Any]:
     return cf_attrs
 
 
-def get_pad_value(col: np.ndarray) -> np.ndarray:
+def get_pad_value(col: np.ndarray) -> object:
     """
     Produce a padding/missing/nan value appropriate for a data column
     (for when we need to pad data vars coming from columns with rows of
@@ -1022,7 +1022,7 @@ def handle_variable_col_issues(
     col : str
         column being loaded
     col_type : str
-        type of the column cell values
+        type of the column cell values (as numpy dtype string)
     trows : tables.tablerow
         rows from a table as loaded by tables.row()
 
@@ -1253,9 +1253,11 @@ def read_col_conversion(
 
     # Get dtype of the column. Only read first row from disk
     col_dtype = np.array(tb_tool.col(col)[0]).dtype
+    # Use a custom/safe fill value (https://github.com/casangi/xradio/issues/219)
+    fill_value = get_pad_value(data)
 
     # Construct a numpy array to populate. `data` has shape (n_times, n_baselines, n_frequencies, n_polarizations)
-    data = np.full(cshape + extra_dimensions, np.nan, dtype=col_dtype)
+    data = np.full(cshape + extra_dimensions, fill_value, dtype=col_dtype)
 
     # Use built-in casacore table iterator to populate the data column by unique times.
     if use_table_iter:
@@ -1264,7 +1266,9 @@ def read_col_conversion(
             num_rows = ts.nrows()
 
             # Create small temporary array to store the partial column
-            tmp_arr = np.full((num_rows,) + extra_dimensions, np.nan, dtype=col_dtype)
+            tmp_arr = np.full(
+                (num_rows,) + extra_dimensions, fill_value, dtype=col_dtype
+            )
 
             # Note we don't use `getcol()` because it's less safe. See:
             # https://github.com/casacore/python-casacore/issues/130#issuecomment-463202373

@@ -283,22 +283,28 @@ def test_make_freq_attrs_uvw(spw_xds_min):
     assert res == expected
 
 
-def test_get_pad_nan_uvw(main_xds_min):
-    from xradio.vis._vis_utils._ms._tables.read import get_pad_nan
+def test_get_pad_value_uvw(main_xds_min):
+    from xradio.vis._vis_utils._ms._tables.read import get_pad_value
 
-    res = get_pad_nan(main_xds_min.data_vars["UVW"])
+    res = get_pad_value(main_xds_min.data_vars["UVW"].dtype)
     assert np.isnan(res)
 
 
-def test_get_pad_nan_feed1(main_xds_min):
-    from xradio.vis._vis_utils._ms._tables.read import get_pad_nan
+def test_get_pad_value_feed1(main_xds_min):
+    from xradio._utils.common import get_pad_value
 
-    res = get_pad_nan(main_xds_min.data_vars["feed1_id"])
-    # Beware, with integer types this can be different integer values
-    # depending on platform (https://github.com/numpy/numpy/issues/21166)
-    with np.errstate(invalid="ignore"):
-        expected_nan = np.array([np.nan]).astype(np.int32)
-    assert res == expected_nan
+    res = get_pad_value(main_xds_min.data_vars["feed1_id"].dtype)
+
+    assert res == get_pad_value(np.int32)
+
+
+def test_get_pad_value_state_id(main_xds_min):
+    from xradio._utils.common import get_pad_value
+
+    # In the xds from xds_helper all ints are turned into int32, still check int64
+    res = get_pad_value(main_xds_min.data_vars["STATE_ID"].astype(np.int64).dtype)
+
+    assert res == get_pad_value(np.int64)
 
 
 def test_redimension_ms_subtable_source(source_xds_min):

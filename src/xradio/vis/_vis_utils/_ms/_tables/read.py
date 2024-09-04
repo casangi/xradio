@@ -12,6 +12,7 @@ import astropy.units
 from casacore import tables
 
 from .table_query import open_query, open_table_ro
+from ....._utils.common import get_pad_value
 
 CASACORE_TO_PD_TIME_CORRECTION = 3_506_716_800.0
 SECS_IN_DAY = 86400
@@ -391,35 +392,6 @@ def make_freq_attrs(spw_xds: xr.Dataset, spw_id: int) -> Dict[str, Any]:
         spw_xds.data_vars["REF_FREQUENCY"].attrs.update(cf_attrs)
 
     return cf_attrs
-
-
-def get_pad_nan(col: np.ndarray) -> np.ndarray:
-    """
-    Produce a padding/nan value appropriate for a data column
-    (for when we need to pad data vars coming from columns with rows of
-    variable size array values)
-
-    Parameters
-    ----------
-    col : np.ndarray
-        data being loaded from a table column
-
-    Returns
-    -------
-    np.ndarray
-        nan ("nan") value for the type of the input column
-    """
-    # This is causing frequent warnings for integers. Cast of nan to "int nan"
-    # produces -2147483648 but also seems to trigger a
-    # "RuntimeWarning: invalid value encountered in cast" (new in numpy>=1.24)
-    policy = "warn"
-    col_type = np.array(col).dtype
-    if np.issubdtype(col_type, np.integer):
-        policy = "ignore"
-    with np.errstate(invalid=policy):
-        pad_nan = np.array([np.nan]).astype(col_type)[0]
-
-    return pad_nan
 
 
 def redimension_ms_subtable(xds: xr.Dataset, subt_name: str) -> xr.Dataset:
@@ -1003,9 +975,9 @@ def handle_variable_col_issues(
     inpath: str, col: str, col_type: str, trows: tables.tablerow
 ) -> np.ndarray:
     """
-    load variable-size array columns, padding with nans wherever
-    needed. This happens for example often in the SPECTRAL_WINDOW
-    table (CHAN_WIDTH, EFFECTIVE_BW, etc.).
+    load variable-size array columns, padding with missing/fill/nans
+    wherever needed. This happens for example often in the
+    SPECTRAL_WINDOW table (CHAN_WIDTH, EFFECTIVE_BW, etc.).
     Also handle exceptions gracefully when trying to load the rows.
 
     Parameters
@@ -1015,7 +987,7 @@ def handle_variable_col_issues(
     col : str
         column being loaded
     col_type : str
-        type of the column cell values
+        type of the column cell values (as numpy dtype string)
     trows : tables.tablerow
         rows from a table as loaded by tables.row()
 
@@ -1030,7 +1002,7 @@ def handle_variable_col_issues(
 
     mshape = np.array(max([np.array(row[col]).shape for row in trows]))
     try:
-        pad_nan = get_pad_nan(np.array((), dtype=col_type))
+        pad_val = get_pad_value(col_type)
 
         # TODO
         # benchmark np.stack() performance
@@ -1044,7 +1016,7 @@ def handle_variable_col_issues(
                     ),
                     [(0, ss) for ss in mshape - np.array(row[col]).shape],
                     "constant",
-                    constant_values=pad_nan,
+                    constant_values=pad_val,
                 )
                 for row in trows
             ]
@@ -1178,12 +1150,8 @@ def read_col_chunk(
             elif len(cshape) == 4:  # DATA and FLAG
                 data = query.getcolslice(col, (d1[0], d2[0]), (d1[1], d2[1]), [], 0, -1)
 
-    policy = "warn"
-    if np.issubdtype(data.dtype, np.integer):
-        policy = "ignore"
-    with np.errstate(invalid=policy):
-        # full data is the maximum of the data shape and chunk shape dimensions
-        fulldata = np.full(cshape, np.nan, dtype=data.dtype)
+    fill_value = get_pad_value(data.dtype)
+    fulldata = np.full(cshape, fill_value, dtype=data.dtype)
 
     if len(didxs) > 0:
         fulldata[tidxs[didxs], bidxs[didxs]] = data[didxs]
@@ -1250,9 +1218,11 @@ def read_col_conversion(
 
     # Get dtype of the column. Only read first row from disk
     col_dtype = np.array(tb_tool.col(col)[0]).dtype
+    # Use a custom/safe fill value (https://github.com/casangi/xradio/issues/219)
+    fill_value = get_pad_value(col_dtype)
 
     # Construct a numpy array to populate. `data` has shape (n_times, n_baselines, n_frequencies, n_polarizations)
-    data = np.full(cshape + extra_dimensions, np.nan, dtype=col_dtype)
+    data = np.full(cshape + extra_dimensions, fill_value, dtype=col_dtype)
 
     # Use built-in casacore table iterator to populate the data column by unique times.
     if use_table_iter:
@@ -1261,7 +1231,9 @@ def read_col_conversion(
             num_rows = ts.nrows()
 
             # Create small temporary array to store the partial column
-            tmp_arr = np.full((num_rows,) + extra_dimensions, np.nan, dtype=col_dtype)
+            tmp_arr = np.full(
+                (num_rows,) + extra_dimensions, fill_value, dtype=col_dtype
+            )
 
             # Note we don't use `getcol()` because it's less safe. See:
             # https://github.com/casacore/python-casacore/issues/130#issuecomment-463202373

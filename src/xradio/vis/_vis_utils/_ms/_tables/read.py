@@ -394,7 +394,6 @@ def make_freq_attrs(spw_xds: xr.Dataset, spw_id: int) -> Dict[str, Any]:
     return cf_attrs
 
 
-
 def redimension_ms_subtable(xds: xr.Dataset, subt_name: str) -> xr.Dataset:
     """
     Expand a MeasurementSet subtable xds from single dimension (row)

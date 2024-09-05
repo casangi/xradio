@@ -125,7 +125,9 @@ def base_test(
             start_check = time.time()
             for xds_name in ps.keys():
                 check_dataset(ps[xds_name], VisibilityXds).expect()
-            print(f"Time to check datasets (all MSv4s): {time.time() - start_check}")
+            print(
+                f"Time to check datasets (all MSv4s) against schema: {time.time() - start_check}"
+            )
 
         ps_list.append(ps)
 

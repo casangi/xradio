@@ -5,7 +5,10 @@ from typing import Tuple, Union
 import numpy as np
 import xarray as xr
 
-from xradio._utils.schema import column_description_casacore_to_msv4_measure
+from xradio._utils.schema import (
+    column_description_casacore_to_msv4_measure,
+    convert_generic_xds_to_xradio_schema,
+)
 from .subtables import subt_rename_ids
 from ._tables.read import make_taql_where_between_min_max, load_generic_table
 
@@ -70,37 +73,22 @@ def create_weather_xds(in_file: str):
     xr.Dataset
         Weather Xarray Dataset.
     """
-    # Dictionaries that define the conversion from MSv2 to MSv4:
-    # Dict from col/data_var names in generic_weather_xds (from MSv2) to MSV4
-    # weather_xds produced here
-    to_new_data_variable_names = {
-        "H2O": "H2O",
-        "IONOS_ELECTRON": "IONOS_ELECTRON",
-        "PRESSURE": "PRESSURE",
-        "REL_HUMIDITY": "REL_HUMIDITY",
-        "TEMPERATURE": "TEMPERATURE",
-        "DEW_POINT": "DEW_POINT",
-        "WIND_DIRECTION": "WIND_DIRECTION",
-        "WIND_SPEED": "WIND_SPEED",
+
+    dims_station_time = ["station_id", "time"]
+    to_new_data_variables = {
+        "H20": ["H2O", dims_station_time],
+        "IONOS_ELECTRON": ["IONOS_ELECTRON", dims_station_time],
+        "PRESSURE": ["PRESSURE", dims_station_time],
+        "REL_HUMIDITY": ["REL_HUMIDITY", dims_station_time],
+        "TEMPERATURE": ["TEMPERATURE", dims_station_time],
+        "DEW_POINT": ["DEW_POINT", dims_station_time],
+        "WIND_DIRECTION": ["WIND_DIRECTION", dims_station_time],
+        "WIND_SPEED": ["WIND_SPEED", dims_station_time],
     }
-    data_variable_dims = {
-        "H2O": ["station_id", "time"],
-        "IONOS_ELECTRON": ["station_id", "time"],
-        "PRESSURE": ["station_id", "time"],
-        "REL_HUMIDITY": ["station_id", "time"],
-        "TEMPERATURE": ["station_id", "time"],
-        "DEW_POINT": ["station_id", "time"],
-        "WIND_DIRECTION": ["station_id", "time"],
-        "WIND_SPEED": ["station_id", "time"],
-    }
-    to_new_coord_names = {
-        # No MS data cols are turned into xds coords
-    }
-    coord_dims = {
-        # No MS data cols are turned into xds coords
-    }
-    to_new_dim_names = {
-        "ANTENNA_ID": "STATION_ID",
+
+    to_new_coords = {
+        "ANTENNA_ID": ["station_id", ["station_id"]],
+        "TIME": ["time", ["time"]],
     }
 
     # Read WEATHER table into a Xarray Dataset.
@@ -113,71 +101,21 @@ def create_weather_xds(in_file: str):
     except ValueError as _exc:
         return None
 
-    generic_weather_xds = generic_weather_xds.rename_dims(to_new_dim_names)
+    weather_xds = xr.Dataset(attrs={"type": "weather"})
+    weather_xds = convert_generic_xds_to_xradio_schema(
+        generic_weather_xds, weather_xds, to_new_data_variables, to_new_coords
+    )
 
+    # TODO: TIME's col descr/attr should be handled in convert_generic_xds...
+    # but it doesn't seem to catch that
     weather_column_description = generic_weather_xds.attrs["other"]["msv2"][
         "ctds_attrs"
     ]["column_descriptions"]
-    # ['ANTENNA_ID', 'TIME', 'INTERVAL', 'H2O', 'IONOS_ELECTRON',
-    #  'PRESSURE', 'REL_HUMIDITY', 'TEMPERATURE', 'DEW_POINT',
-    #  'WIND_DIRECTION', 'WIND_SPEED']
-    weather_xds = xr.Dataset(attrs={"type": "weather"})
     time_attrs = column_description_casacore_to_msv4_measure(
         weather_column_description["TIME"]
     )
-    coords = {
-        "station_id": generic_weather_xds["STATION_ID"].data,
-        "time": ("time", generic_weather_xds["TIME"].data, time_attrs),
-    }
-    for key in generic_weather_xds:
-        msv4_measure = column_description_casacore_to_msv4_measure(
-            weather_column_description[key.upper()]
-        )
-        if key in to_new_data_variable_names:
-            var_name = to_new_data_variable_names[key]
-            weather_xds[var_name] = xr.DataArray(
-                generic_weather_xds[key].data, dims=data_variable_dims[key]
-            )
+    weather_xds.coords["time"].attrs.update(time_attrs)
 
-            if msv4_measure:
-                weather_xds[var_name].attrs.update(msv4_measure)
-
-            if key in ["INTERVAL"]:
-                weather_xds[var_name].attrs.update({"units": ["s"], "type": "quantity"})
-            elif key in ["H2O"]:
-                weather_xds[var_name].attrs.update(
-                    {"units": ["/m^2"], "type": "quantity"}
-                )
-            elif key in ["IONOS_ELECTRON"]:
-                weather_xds[var_name].attrs.update(
-                    {"units": ["/m^2"], "type": "quantity"}
-                )
-            elif key in ["PRESSURE"]:
-                weather_xds[var_name].attrs.update(
-                    {"units": ["Pa"], "type": "quantity"}
-                )
-            elif key in ["REL_HUMIDITY"]:
-                weather_xds[var_name].attrs.update({"units": ["%"], "type": "quantity"})
-            elif key in ["TEMPERATURE"]:
-                weather_xds[var_name].attrs.update({"units": ["K"], "type": "quantity"})
-            elif key in ["DEW_POINT"]:
-                weather_xds[var_name].attrs.update({"units": ["K"], "type": "quantity"})
-            elif key in ["WIND_DIRECTION"]:
-                weather_xds[var_name].attrs.update(
-                    {"units": ["rad"], "type": "quantity"}
-                )
-            elif key in ["WIND_SPEED"]:
-                weather_xds[var_name].attrs.update(
-                    {"units": ["m/s"], "type": "quantity"}
-                )
-
-        if key in to_new_coord_names:
-            coords[to_new_coord_names[key]] = (
-                coord_dims[key],
-                generic_weather_xds[key].data,
-            )
-
-    weather_xds = weather_xds.assign_coords(coords)
     return weather_xds
 
 

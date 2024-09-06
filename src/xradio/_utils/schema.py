@@ -102,6 +102,9 @@ def column_description_casacore_to_msv4_measure(
             casacore_column_description["keywords"]["QuantumUnits"]
         )
 
+        # Beware: casa_ref won't be found in cases such as the custom
+        # 'NRAO_GBT_USER/NRAO_GBT_USER_DIR_REF' in POINTING
+        casa_ref = None
         # Reference frame to convert?
         if "Ref" in msv4_measure_conversion:
             # Find reference frame

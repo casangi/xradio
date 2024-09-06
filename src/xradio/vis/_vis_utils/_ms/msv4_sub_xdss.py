@@ -233,7 +233,11 @@ def create_pointing_xds(
         "OVER_THE_TOP": ["OVER_THE_TOP", time_ant_dims],
     }
 
-    to_new_coords = {}
+    to_new_coords = {
+        "TIME": ["time", ["time"]],
+        # "ANTENNA_ID": ["antenna_name", ["antenna_name"]],
+        "dim_2": ["sky_dir_label", ["sky_dir_label"]],
+    }
 
     taql_time_range = make_taql_where_between_min_max(
         time_min_max, in_file, "POINTING", "TIME"
@@ -259,24 +263,17 @@ def create_pointing_xds(
         generic_pointing_xds, to_new_data_variables
     )
 
-    pointing_column_descriptions = generic_pointing_xds.attrs["other"]["msv2"][
-        "ctds_attrs"
-    ]["column_descriptions"]
     pointing_xds = xr.Dataset(attrs={"type": "pointing"})
-    pointing_xds = convert_generic_xds_to_xradio_schema(
-        generic_pointing_xds, pointing_xds, to_new_data_variables, to_new_coords
-    )
-
-    # TODO: coords + missing attributes
     coords = {
-        "time": generic_pointing_xds["TIME"].values,
         "antenna_name": ant_xds_name_ids.sel(
             antenna_id=generic_pointing_xds["ANTENNA_ID"]
         ).data,
         "sky_dir_label": ["ra", "dec"],
     }
     pointing_xds = pointing_xds.assign_coords(coords)
-    pointing_xds["time"].attrs.update({"units": ["s"], "type": "quantity"})
+    pointing_xds = convert_generic_xds_to_xradio_schema(
+        generic_pointing_xds, pointing_xds, to_new_data_variables, to_new_coords
+    )
 
     # Add attributes specific to pointing_xds
     if "TRACKING" in generic_pointing_xds.data_vars:
@@ -287,6 +284,10 @@ def create_pointing_xds(
     # Move target from data_vars to attributes?
     move_target_as_attr = False
     if move_target_as_attr:
+        pointing_column_descriptions = generic_pointing_xds.attrs["other"]["msv2"][
+            "ctds_attrs"
+        ]["column_descriptions"]
+
         target = generic_pointing_xds.data_vars["TARGET"]
         pointing_xds.attrs["target"] = {
             "dims": ["sky_dir_label"],

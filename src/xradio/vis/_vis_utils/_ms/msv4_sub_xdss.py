@@ -106,6 +106,9 @@ def create_weather_xds(in_file: str):
         generic_weather_xds, weather_xds, to_new_data_variables, to_new_coords
     )
 
+    # correct expected types
+    weather_xds["station_id"] = weather_xds["station_id"].astype(np.int64)
+
     # TODO: TIME's col descr/attr should be handled in convert_generic_xds...
     # but it doesn't seem to catch that
     weather_column_description = generic_weather_xds.attrs["other"]["msv2"][

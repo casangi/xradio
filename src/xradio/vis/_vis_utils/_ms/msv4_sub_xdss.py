@@ -119,6 +119,78 @@ def create_weather_xds(in_file: str):
     return weather_xds
 
 
+def correct_generic_pointing_xds(
+    generic_pointing_xds: xr.Dataset, to_new_data_variables: dict[str, list]
+) -> xr.Dataset:
+    """
+    Takes a (generic) pointing_xds as read from a POINTING subtable of an MSv2
+    and tries to correct several deviations from the MSv2 specs seen in
+    common test data.
+    The problems fixed here include wrong dimensions:
+    - for example transposed dimensions with respect to the MSv2 specs (output
+    from CASA simulator),
+    - missing/additional unexpected dimensions when some of the columns are
+    empty (in the sense of "empty casacore cells").
+
+    This function modifies the data arrays of the data vars affected by such
+    issues.
+
+    Parameters
+    ----------
+    generic_pointing_xds: xr.Dataset
+        The generic pointing dataset (loaded from MSv2) to be fixed
+    to_new_data_variables: dict
+        The dict used for convert_generic_xds_to_xradio_schema, which gives all
+        the data variables relevant for the final MSv4 dataset.
+
+    Returns:
+    --------
+    xr.Dataset
+        Corrected dataset with dimensions conforming to MSv2 specs.
+    """
+
+    correct_pointing_xds = generic_pointing_xds.copy()
+
+    for key in generic_pointing_xds:
+        if key in to_new_data_variables:
+            data_var_name = to_new_data_variables[key]
+            # Corrects dim sizes of "empty cell" variables, such as empty DIRECTION, TARGET, etc.
+            # TODO: this should be moved to a function when/if stable - perhaps 'correct_generic_pointing_xds'
+            if (
+                "dim_2" in generic_pointing_xds.sizes
+                and generic_pointing_xds.sizes["dim_2"] == 0
+            ):
+                # When all direction variables are "empty"
+                data_var_data = xr.DataArray(
+                    [[[[np.nan, np.nan]]]],
+                    dims=generic_pointing_xds.dims,
+                ).isel(n_polynomial=0, drop=True)
+                correct_pointing_xds[data_var_name].data = data_var_data
+
+            elif (
+                "dir" in generic_pointing_xds.sizes
+                and generic_pointing_xds.sizes["dir"] == 0
+            ):
+                # When some direction variables are "empty" but some are populated properly
+                if "dim_2" in generic_pointing_xds[key].sizes:
+                    data_var_data = xr.DataArray(
+                        generic_pointing_xds[key].values,
+                        dims=generic_pointing_xds[key].dims,
+                    )
+                else:
+                    shape = tuple(
+                        generic_pointing_xds.sizes[dim]
+                        for dim in ["TIME", "ANTENNA_ID"]
+                    ) + (2,)
+                    data_var_data = xr.DataArray(
+                        np.full(shape, np.nan),
+                        dims=generic_pointing_xds[key].dims,
+                    )
+                correct_pointing_xds[data_var_name].data = data_var_data
+
+    return correct_pointing_xds
+
+
 def create_pointing_xds(
     in_file: str,
     ant_xds_name_ids: xr.DataArray,
@@ -149,38 +221,19 @@ def create_pointing_xds(
     """
     start = time.time()
 
-    # Dictionaries that define the conversion from MSv2 to MSv4:
-    to_new_data_variable_names = {
-        # "name": "NAME",   # removed
-        # "time_origin": "TIME_ORIGIN",  # removed?
-        "DIRECTION": "BEAM_POINTING",
-        "ENCODER": "DISH_MEASURED_POINTING",
-        "TARGET": "TARGET",  # => attribute?
-        "POINTING_OFFSET": "POINTING_OFFSET",
-        "SOURCE_OFFSET": "SOURCE_OFFSET",
-        # "pointing_model_id": "POINTING_MODEL_ID",   # removed
-        # "tracking": "TRACKING",   # => attribute
-        # "on_source": "ON_SOURCE",   # removed
-        "OVER_THE_TOP": "OVER_THE_TOP",
-    }
     time_ant_dims = ["time", "antenna_name"]
     time_ant_dir_dims = time_ant_dims + ["sky_dir_label"]
-    data_variable_dims = {
-        # "name": ["time", "antenna_name"],   # removed
-        # "time_origin": ["time", "antenna_name"],   # removed?
-        "DIRECTION": time_ant_dir_dims,
-        "ENCODER": time_ant_dir_dims,
-        "TARGET": time_ant_dir_dims,
-        "POINTING_OFFSET": time_ant_dir_dims,
-        "SOURCE_OFFSET": time_ant_dir_dims,
-        # "pointing_model_id": ["time", "antenna_name"],   # removed
-        # "tracking": ["time", "antenna_name"],   # => attribute
-        # "on_source": ["time", "antenna_name"],  # removed
-        "OVER_THE_TOP": time_ant_dims,
+    to_new_data_variables = {
+        "DIRECTION": ["BEAM_POINTING", time_ant_dir_dims],
+        "ENCODER": ["DISH_MEASURED_POINTING", time_ant_dir_dims],
+        # => attribute?
+        "TARGET": ["TARGET", time_ant_dir_dims],
+        "POINTING_OFFSET": ["POINTING_OFFSET", time_ant_dir_dims],
+        "SOURCE_OFFSET": ["SOURCE_OFFSET", time_ant_dir_dims],
+        "OVER_THE_TOP": ["OVER_THE_TOP", time_ant_dims],
     }
-    # Unused here
-    # to_new_coord_names = {"ra/dec": "direction"}
-    # coord_dims = {}
+
+    to_new_coords = {}
 
     taql_time_range = make_taql_where_between_min_max(
         time_min_max, in_file, "POINTING", "TIME"
@@ -202,57 +255,19 @@ def create_pointing_xds(
         if size == 1:
             generic_pointing_xds = generic_pointing_xds.sel({"n_polynomial": 0})
 
+    generic_pointing_xds = correct_generic_pointing_xds(
+        generic_pointing_xds, to_new_data_variables
+    )
+
     pointing_column_descriptions = generic_pointing_xds.attrs["other"]["msv2"][
         "ctds_attrs"
     ]["column_descriptions"]
-
     pointing_xds = xr.Dataset(attrs={"type": "pointing"})
-    for key in generic_pointing_xds:
-        if key in to_new_data_variable_names:
-            data_var_name = to_new_data_variable_names[key]
-            # Corrects dim sizes of "empty cell" variables, such as empty DIRECTION, TARGET, etc.
-            # TODO: this should be moved to a function when/if stable - perhaps 'correct_generic_pointing_xds'
-            if (
-                "dim_2" in generic_pointing_xds.sizes
-                and generic_pointing_xds.sizes["dim_2"] == 0
-            ):
-                # When all direction variables are "empty"
-                data_var_data = xr.DataArray(
-                    [[[[np.nan, np.nan]]]],
-                    dims=generic_pointing_xds.dims,
-                ).isel(n_polynomial=0, drop=True)
-            elif (
-                "dir" in generic_pointing_xds.sizes
-                and generic_pointing_xds.sizes["dir"] == 0
-            ):
-                # When some direction variables are "empty" but some are populated properly
-                if "dim_2" in generic_pointing_xds[key].sizes:
-                    data_var_data = xr.DataArray(
-                        generic_pointing_xds[key].values,
-                        dims=generic_pointing_xds[key].dims,
-                    )
-                else:
-                    shape = tuple(
-                        generic_pointing_xds.sizes[dim]
-                        for dim in ["TIME", "ANTENNA_ID"]
-                    ) + (2,)
-                    data_var_data = xr.DataArray(
-                        np.full(shape, np.nan),
-                        dims=generic_pointing_xds[key].dims,
-                    )
-            else:
-                data_var_data = generic_pointing_xds[key].data
+    pointing_xds = convert_generic_xds_to_xradio_schema(
+        generic_pointing_xds, pointing_xds, to_new_data_variables, to_new_coords
+    )
 
-            pointing_xds[data_var_name] = xr.DataArray(
-                data_var_data, dims=data_variable_dims[key]
-            )
-
-            msv4_measure = column_description_casacore_to_msv4_measure(
-                pointing_column_descriptions[key.upper()]
-            )
-            if msv4_measure:
-                pointing_xds[data_var_name].attrs.update(msv4_measure)
-
+    # TODO: coords + missing attributes
     coords = {
         "time": generic_pointing_xds["TIME"].values,
         "antenna_name": ant_xds_name_ids.sel(
@@ -261,10 +276,9 @@ def create_pointing_xds(
         "sky_dir_label": ["ra", "dec"],
     }
     pointing_xds = pointing_xds.assign_coords(coords)
-
-    # missing attributes
     pointing_xds["time"].attrs.update({"units": ["s"], "type": "quantity"})
 
+    # Add attributes specific to pointing_xds
     if "TRACKING" in generic_pointing_xds.data_vars:
         pointing_xds.attrs["tracking"] = generic_pointing_xds.data_vars[
             "TRACKING"
@@ -286,4 +300,5 @@ def create_pointing_xds(
     pointing_xds = interpolate_to_time(pointing_xds, interp_time, "pointing_xds")
 
     logger.debug(f"create_pointing_xds() execution time {time.time() - start:0.2f} s")
+
     return pointing_xds

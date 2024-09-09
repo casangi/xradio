@@ -23,7 +23,7 @@ The main aims of the library are:
 
 .. toctree::
    :maxdepth: 1
-   :caption: Getting Started
+   :caption: Tutorials
 
    tutorials/processing_set/ps_vis
    tutorials/image/image

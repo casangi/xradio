@@ -438,8 +438,71 @@ def extract_ephemeris_info(
     return xds
 
 
+def make_line_dims_and_coords(
+        source_xds: xr.Dataset, source_id: Union[int, np.ndarray], num_lines: int
+) -> tuple[list, dict]:
+    """
+    Produces the dimensions and coordinates used in data variables related
+    to line information (LINE_REST_FREQUENCY, LINE_SYSTEMIC_VELOCITY).
+
+    In the dimensions, "time" is optional. To produce the points of the
+    coordinates we need to look into the (optional) TRANSITION column or
+    alternatively other columns (DIRECTION) to produce coordinates points of
+    appropriate shape, given the "num_lines" "and source_id".
+
+    Parameters:
+    ----------
+    source_xds: xr.Dataset
+        generic source xarray dataset
+    source_id: Union[int, np.ndarray]
+        source_id of the dataset, when it is an array that indicates the
+        presence of the "time" dimension
+    num_line: int
+        number of lines in the source dataset
+
+    Returns:
+    -------
+    tuple : xr.Dataset
+        The dimensions with to use with line data variables. The dimensions
+        are produced as a list of dimension names, and the coordinates as a
+        dict for xarray coords.
+    """
+
+    # Transition is an optional column and occasionally not populated
+    if "TRANSITION" in source_xds.data_vars:
+        transition_var_data = source_xds["TRANSITION"].data
+    else:
+        transition_var_data = np.zeros(source_xds["DIRECTION"].shape, dtype="str")
+
+    # if TRANSITION is left empty (or otherwise incomplete), and num_lines > 1,
+    # the data_vars expect a "num_lines" size in the last dimension
+    vars_shape = transition_var_data.shape[:-1] + (np.max(num_lines),)
+    if transition_var_data.shape == vars_shape:
+        coords_lines_data = transition_var_data
+    else:
+        coords_lines_data = np.broadcast_to(
+            transition_var_data, max(transition_var_data.shape, vars_shape)
+        )
+
+    line_label_data = np.arange(coords_lines_data.shape[-1]).astype(str)
+    if len(source_id) == 1:
+        line_coords = {
+            "line_name": ("line_label", coords_lines_data),
+            "line_label": line_label_data,
+        }
+        line_dims = ["line_label"]
+    else:
+        line_coords = {
+            "line_name": (("time", "line_label"), coords_lines_data),
+            "line_label": line_label_data,
+        }
+        line_dims = ["time", "line_label"]
+
+    return line_dims, line_coords
+
+
 def extract_source_info(
-    xds: xr.Dataset, path: str, source_id: int, spectral_window_id: int
+    xds: xr.Dataset, path: str, source_id: Union[int, np.ndarray], spectral_window_id: int
 ) -> tuple[xr.Dataset, int]:
     """
     Extracts source information from the given path and adds it to the xarray dataset.
@@ -450,7 +513,7 @@ def extract_source_info(
         The xarray dataset to which the source information will be added.
     path : str
         The path to the input file.
-    source_id : int
+    source_id : Union[int, np.ndarray]
         The ID of the source.
     spectral_window_id : int
         The ID of the spectral window.
@@ -557,11 +620,12 @@ def extract_source_info(
             direction_var = source_xds[direction_msv2_col]
 
         # SOURCE_LOCATION (DIRECTION / sky_dir_label)
-        xds["SOURCE_LOCATION"] = xr.DataArray(direction_var.data, dims=direction_dims)
         location_msv4_measure = column_description_casacore_to_msv4_measure(
             source_column_description[direction_msv2_col]
         )
-        xds["SOURCE_LOCATION"].attrs.update(location_msv4_measure)
+        xds["SOURCE_LOCATION"] = xr.DataArray(
+            direction_var.data, dims=direction_dims, attrs=location_msv4_measure
+        )
 
     # Do we have line data:
     if source_xds["NUM_LINES"].data.ndim == 0:
@@ -570,40 +634,8 @@ def extract_source_info(
         num_lines = source_xds["NUM_LINES"].data
 
     if any(num_lines > 0):
-
-        # Transition is an optional column and occasionally not populated
-        if "TRANSITION" in source_xds.data_vars:
-            transition_var_data = source_xds["TRANSITION"].data
-        else:
-            transition_var_data = np.zeros(source_xds["DIRECTION"].shape, dtype="str")
-
-        # if TRANSITION is left empty (or otherwise incomplete), and num_lines > 1,
-        # the data_vars expect a "num_lines" size in the last dimension
-        vars_shape = transition_var_data.shape[:-1] + (np.max(num_lines),)
-        if transition_var_data.shape == vars_shape:
-            coords_lines_data = transition_var_data
-        else:
-            coords_lines_data = np.broadcast_to(
-                transition_var_data, max(transition_var_data.shape, vars_shape)
-            )
-
-        # Move to something like:
-        # lines_coords, line_dims = make_line_dims_coords(source_xds)
-        line_label_data = np.arange(coords_lines_data.shape[-1]).astype(str)
-        if len(source_id) == 1:
-            coords_lines = {
-                "line_name": ("line_label", coords_lines_data),
-                "line_label": line_label_data,
-            }
-            xds = xds.assign_coords(coords_lines)
-            line_dims = ["line_label"]
-        else:
-            coords_lines = {
-                "line_name": (("time", "line_label"), coords_lines_data),
-                "line_label": line_label_data,
-            }
-            xds = xds.assign_coords(coords_lines)
-            line_dims = ["time", "line_label"]
+        line_dims, line_coords = make_line_dims_and_coords(source_xds, source_id, num_lines)
+        xds = xds.assign_coords(line_coords)
 
         to_new_data_variables = {
             "REST_FREQUENCY": ["LINE_REST_FREQUENCY", line_dims],

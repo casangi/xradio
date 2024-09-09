@@ -5,7 +5,7 @@ from typing import Tuple, Union
 import numpy as np
 import xarray as xr
 
-from xradio._utils.schema import column_description_casacore_to_msv4_measure
+import graphviper.utils.logger as logger
 from xradio.vis._vis_utils._ms.msv4_sub_xdss import interpolate_to_time
 from xradio.vis._vis_utils._ms.subtables import subt_rename_ids
 from xradio.vis._vis_utils._ms._tables.read import (
@@ -13,13 +13,16 @@ from xradio.vis._vis_utils._ms._tables.read import (
     make_taql_where_between_min_max,
     load_generic_table,
 )
-import graphviper.utils.logger as logger
+from xradio._utils.common import cast_to_str, convert_to_si_units, add_position_offsets
 from xradio._utils.list_and_array import (
     check_if_consistent,
     unique_1d,
     to_np_array,
 )
-from xradio._utils.common import cast_to_str, convert_to_si_units, add_position_offsets
+from xradio._utils.schema import (
+    column_description_casacore_to_msv4_measure,
+    convert_generic_xds_to_xradio_schema,
+)
 
 
 def create_field_and_source_xds(
@@ -584,6 +587,8 @@ def extract_source_info(
                 transition_var_data, max(transition_var_data.shape, vars_shape)
             )
 
+        # Move to something like:
+        # lines_coords, line_dims = make_line_dims_coords(source_xds)
         line_label_data = np.arange(coords_lines_data.shape[-1]).astype(str)
         if len(source_id) == 1:
             coords_lines = {
@@ -600,20 +605,16 @@ def extract_source_info(
             xds = xds.assign_coords(coords_lines)
             line_dims = ["time", "line_label"]
 
-        optional_data_variables = {
-            "REST_FREQUENCY": "LINE_REST_FREQUENCY",
-            "SYSVEL": "LINE_SYSTEMIC_VELOCITY",
+        to_new_data_variables = {
+            "REST_FREQUENCY": ["LINE_REST_FREQUENCY", line_dims],
+            "SYSVEL": ["LINE_SYSTEMIC_VELOCITY", line_dims],
         }
-        for generic_name, msv4_name in optional_data_variables.items():
-            if generic_name in source_xds:
-                msv4_measure = column_description_casacore_to_msv4_measure(
-                    source_column_description[generic_name]
-                )
-
-                xds[msv4_name] = xr.DataArray(
-                    source_xds[generic_name].data, dims=line_dims
-                )
-                xds[msv4_name].attrs.update(msv4_measure)
+        to_new_coords = {
+            "TIME": ["time", ["time"]],
+        }
+        convert_generic_xds_to_xradio_schema(
+            source_xds, xds, to_new_data_variables, to_new_coords
+        )
 
     # Need to add doppler info if present. Add check.
     try:

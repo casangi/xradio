@@ -158,7 +158,6 @@ def correct_generic_pointing_xds(
         if key in to_new_data_variables:
             data_var_name = to_new_data_variables[key]
             # Corrects dim sizes of "empty cell" variables, such as empty DIRECTION, TARGET, etc.
-            # TODO: this should be moved to a function when/if stable - perhaps 'correct_generic_pointing_xds'
             if (
                 "dim_2" in generic_pointing_xds.sizes
                 and generic_pointing_xds.sizes["dim_2"] == 0

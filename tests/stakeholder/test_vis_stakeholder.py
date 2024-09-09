@@ -318,12 +318,12 @@ if __name__ == "__main__":
     a = 42
     from pathlib import Path
 
-    test_askap_59749_bp_8beams_pattern(tmp_path=Path("."))
-    test_askap_59750_altaz_2settings(tmp_path=Path("."))
-    test_askap_59754_altaz_2weights_0(tmp_path=Path("."))
-    test_askap_59754_altaz_2weights_15(tmp_path=Path("."))
-    test_askap_59755_eq_interleave_0(tmp_path=Path("."))
-    test_askap_59755_eq_interleave_15(tmp_path=Path("."))
+    # test_askap_59749_bp_8beams_pattern(tmp_path=Path("."))
+    # test_askap_59750_altaz_2settings(tmp_path=Path("."))
+    # test_askap_59754_altaz_2weights_0(tmp_path=Path("."))
+    # test_askap_59754_altaz_2weights_15(tmp_path=Path("."))
+    # test_askap_59755_eq_interleave_0(tmp_path=Path("."))
+    # test_askap_59755_eq_interleave_15(tmp_path=Path("."))
 
     # test_sd_A002_X1015532_X1926f(tmp_path=Path("."))
     # test_sd_A002_Xae00c5_X2e6b(tmp_path=Path("."))

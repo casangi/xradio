@@ -439,7 +439,7 @@ def extract_ephemeris_info(
 
 
 def make_line_dims_and_coords(
-        source_xds: xr.Dataset, source_id: Union[int, np.ndarray], num_lines: int
+    source_xds: xr.Dataset, source_id: Union[int, np.ndarray], num_lines: int
 ) -> tuple[list, dict]:
     """
     Produces the dimensions and coordinates used in data variables related
@@ -462,10 +462,10 @@ def make_line_dims_and_coords(
 
     Returns:
     -------
-    tuple : xr.Dataset
-        The dimensions with to use with line data variables. The dimensions
-        are produced as a list of dimension names, and the coordinates as a
-        dict for xarray coords.
+    tuple : tuple[list, dict]
+        The dimensions and coordinates to use with line data variables. The
+        dimensions are produced as a list of dimension names, and the
+        coordinates as a dict for xarray coords.
     """
 
     # Transition is an optional column and occasionally not populated
@@ -502,7 +502,10 @@ def make_line_dims_and_coords(
 
 
 def extract_source_info(
-    xds: xr.Dataset, path: str, source_id: Union[int, np.ndarray], spectral_window_id: int
+    xds: xr.Dataset,
+    path: str,
+    source_id: Union[int, np.ndarray],
+    spectral_window_id: int,
 ) -> tuple[xr.Dataset, int]:
     """
     Extracts source information from the given path and adds it to the xarray dataset.
@@ -634,7 +637,9 @@ def extract_source_info(
         num_lines = source_xds["NUM_LINES"].data
 
     if any(num_lines > 0):
-        line_dims, line_coords = make_line_dims_and_coords(source_xds, source_id, num_lines)
+        line_dims, line_coords = make_line_dims_and_coords(
+            source_xds, source_id, num_lines
+        )
         xds = xds.assign_coords(line_coords)
 
         to_new_data_variables = {
@@ -667,8 +672,56 @@ def extract_source_info(
     return xds, np.sum(num_lines[unique_source_ids_indices])
 
 
+def make_field_dims_and_coords(
+    field_xds: xr.Dataset, field_id: Union[int, np.ndarray], field_times: list
+) -> tuple[list, dict]:
+    """
+    Produces the dimensions and coordinates used in the field data variables
+    extracted from the MSv2 FIELD subtable (FIELD_PHASE_CENTER/
+    FIELD_REFERENCE_CENTER).
+
+    Parameters:
+    ----------
+    field_xds: xr.Dataset
+        generic field xarray dataset
+    field_id: Union[int, np.ndarray]
+        field_id of the dataset
+    field_times:
+        Unique times for the dataset (when not partitioning by FIELD_ID)
+
+    Returns:
+    -------
+    tuple : tuple[list, dict]
+        The dimensions and coordinates to use with field data variables. The
+        dimensions are produced as a list of dimension names, and the
+        coordinates as a dict for xarray coords.
+    """
+
+    coords = {"sky_dir_label": ["ra", "dec"]}
+
+    # field_times is the same as the time axis in the main MSv4 dataset and is used if more than one field is present.
+    if field_times is not None:
+        coords["time"] = field_times
+        dims = ["time", "sky_dir_label"]
+        coords["field_name"] = (
+            "time",
+            np.char.add(field_xds["NAME"].data, np.char.add("_", field_id.astype(str))),
+        )
+        # coords["field_id"] = ("time", field_id)
+    else:
+        coords["field_name"] = field_xds["NAME"].values.item() + "_" + str(field_id)
+        # coords["field_id"] = field_id
+        dims = ["sky_dir_label"]
+
+    return dims, coords
+
+
 def extract_field_info_and_check_ephemeris(
-    field_and_source_xds, in_file, field_id, field_times, is_single_dish
+    field_and_source_xds: xr.Dataset,
+    in_file: str,
+    field_id: Union[int, np.ndarray],
+    field_times: list,
+    is_single_dish: bool,
 ):
     """
     Create field information and check for ephemeris in the FIELD table folder.
@@ -679,8 +732,12 @@ def extract_field_info_and_check_ephemeris(
         The xarray dataset to which the field and source information will be added.
     in_file : str
         The path to the input file.
-    field_id : int
+    field_id : Union[int, np.ndarray]
         The ID of the field.
+    field_times: list
+        Time of the MSv4
+    is_single_dish: bool
+        Whether to extract single dish (FIELD_REFERENCE_CENTER) info
 
     Returns:
     -------
@@ -691,7 +748,6 @@ def extract_field_info_and_check_ephemeris(
     ephemeris_table_name : str
         The name of the ephemeris table.
     """
-    coords = {}
 
     unique_field_id = unique_1d(
         field_id
@@ -751,6 +807,8 @@ def extract_field_info_and_check_ephemeris(
                     f"Could not find ephemeris table for field_id {field_id}. Ephemeris information will not be included in the field_and_source_xds."
                 )
 
+    dims, coords = make_field_dims_and_coords(field_xds, field_id, field_times)
+
     if is_single_dish:
         field_data_variables = {
             "REFERENCE_DIR": "FIELD_REFERENCE_CENTER",
@@ -762,26 +820,9 @@ def extract_field_info_and_check_ephemeris(
             # "REFERENCE_DIR": "FIELD_REFERENCE_CENTER",
         }
 
-    field_measures_type = "sky_coord"
-
-    coords["sky_dir_label"] = ["ra", "dec"]
     field_column_description = field_xds.attrs["other"]["msv2"]["ctds_attrs"][
         "column_descriptions"
     ]
-
-    # field_times is the same as the time axis in the main MSv4 dataset and is used if more than one field is present.
-    if field_times is not None:
-        coords["time"] = field_times
-        dims = ["time", "sky_dir_label"]
-        coords["field_name"] = (
-            "time",
-            np.char.add(field_xds["NAME"].data, np.char.add("_", field_id.astype(str))),
-        )
-        # coords["field_id"] = ("time", field_id)
-    else:
-        coords["field_name"] = field_xds["NAME"].values.item() + "_" + str(field_id)
-        # coords["field_id"] = field_id
-        dims = ["sky_dir_label"]
 
     for generic_name, msv4_name in field_data_variables.items():
 
@@ -805,6 +846,7 @@ def extract_field_info_and_check_ephemeris(
             }
         )
 
+        field_measures_type = "sky_coord"
         field_and_source_xds[msv4_name].attrs["type"] = field_measures_type
 
     field_and_source_xds = field_and_source_xds.assign_coords(coords)

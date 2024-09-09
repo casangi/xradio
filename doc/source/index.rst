@@ -25,21 +25,21 @@ The main aims of the library are:
    :maxdepth: 1
    :caption: Getting Started
 
-   vis_tutorial
-   image_tutorial
+   tutorials/processing_set/ps_vis
+   tutorials/image/image
 
 .. toctree::
    :maxdepth: 2
    :caption: Guides
 
-   ephemeris_conversion
-   global_vlbi
-   lofar_conversion
-   meerkat_conversion
-   ngEHT_conversion
-   single_dish_conversion
-   ska_mid_conversion
-   VLBA_conversion
+   guides/processing_set/ALMA_ephemeris
+   guides/processing_set/global_VLBI
+   guides/processing_set/LOFAR
+   guides/processing_set/MeerKAT
+   guides/processing_set/ngEHT
+   guides/processing_set/ALMA_single_dish
+   guides/processing_set/SKA_mid
+   guides/processing_set/VLBA
 
 .. toctree::
    :maxdepth: 1

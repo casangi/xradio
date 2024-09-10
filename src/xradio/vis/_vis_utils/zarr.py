@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Dict, Union
 
 import zarr
-import graphviper.utils.logger as logger
+import toolviper.utils.logger as logger
 
 from ._utils.cds import CASAVisSet
 from ._zarr.read import read_part_keys, read_partitions, read_subtables

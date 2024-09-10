@@ -1,5 +1,5 @@
 import os
-import graphviper.utils.logger as logger
+import toolviper.utils.logger as logger
 from typing import List, Tuple, Union
 
 from ._utils.cds import CASAVisSet

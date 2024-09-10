@@ -1,4 +1,4 @@
-import graphviper.utils.logger as logger
+import toolviper.utils.logger as logger
 import xarray as xr
 
 

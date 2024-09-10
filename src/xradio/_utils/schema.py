@@ -55,6 +55,7 @@ def convert_generic_xds_to_xradio_schema(
         "column_descriptions"
     ]
     coords = {}
+    coord_attrs = {}
 
     name_keys = list(generic_xds.data_vars.keys()) + list(generic_xds.coords.keys())
 
@@ -80,7 +81,14 @@ def convert_generic_xds_to_xradio_schema(
                 new_coord[1],
                 generic_xds[key].data,
             )
+
+            if msv4_measure:
+                coord_attrs[new_coord[0]] = msv4_measure
+
     msv4_xds = msv4_xds.assign_coords(coords)
+    for coord, coord_attrs in coord_attrs.items():
+        msv4_xds.coords[coord].attrs.update(coord_attrs)
+
     return msv4_xds
 
 

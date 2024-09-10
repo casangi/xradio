@@ -109,16 +109,6 @@ def create_weather_xds(in_file: str):
     # correct expected types
     weather_xds["station_id"] = weather_xds["station_id"].astype(np.int64)
 
-    # TODO: TIME's col descr/attr should be handled in convert_generic_xds...
-    # but it doesn't seem to catch that
-    weather_column_description = generic_weather_xds.attrs["other"]["msv2"][
-        "ctds_attrs"
-    ]["column_descriptions"]
-    time_attrs = column_description_casacore_to_msv4_measure(
-        weather_column_description["TIME"]
-    )
-    weather_xds.coords["time"].attrs.update(time_attrs)
-
     return weather_xds
 
 

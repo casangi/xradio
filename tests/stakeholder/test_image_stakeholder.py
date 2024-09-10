@@ -5,8 +5,8 @@ import pathlib
 import pytest
 import time
 
-from graphviper.utils.data import download
-from graphviper.utils.logger import setup_logger
+from toolviper.utils.data import download
+from toolviper.utils.logger import setup_logger
 from xradio.schema.check import check_dataset
 
 # relative_tolerance = 10 ** (-12)

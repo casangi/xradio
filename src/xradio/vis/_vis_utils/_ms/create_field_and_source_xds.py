@@ -5,7 +5,7 @@ from typing import Tuple, Union
 import numpy as np
 import xarray as xr
 
-import graphviper.utils.logger as logger
+import toolviper.utils.logger as logger
 from xradio.vis._vis_utils._ms.msv4_sub_xdss import interpolate_to_time
 from xradio.vis._vis_utils._ms.subtables import subt_rename_ids
 from xradio.vis._vis_utils._ms._tables.read import (

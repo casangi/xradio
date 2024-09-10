@@ -1,4 +1,4 @@
-import graphviper.utils.logger as logger
+import toolviper.utils.logger as logger
 import os
 from pathlib import Path
 import re

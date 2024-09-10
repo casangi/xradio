@@ -112,7 +112,7 @@ def write_binary_blob_to_disk(arr, file_path, compressor):
     Returns:
     - None
     """
-    import graphviper.utils.logger as logger
+    import toolviper.utils.logger as logger
 
     # Encode the NumPy array using the codec
     logger.debug("1. Before compressor " + file_path)

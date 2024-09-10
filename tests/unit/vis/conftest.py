@@ -263,7 +263,7 @@ def ms_alma_antennae_north_split():
     An MS that is downloaded (one of the smallest), with multiple fields (3)
     + with SOURCE and STATE populated
     """
-    from graphviper.utils.data import download
+    from toolviper.utils.data import download
 
     name = "Antennae_North.cal.lsrk.split.ms"
     # name = "small_meerkat.ms"

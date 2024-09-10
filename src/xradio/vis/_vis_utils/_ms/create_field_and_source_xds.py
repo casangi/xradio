@@ -241,63 +241,24 @@ def extract_ephemeris_info(
     convert_generic_xds_to_xradio_schema(
         ephemeris_xds, temp_xds, to_new_data_variables, {}
     )
-    # Adjust metadata:
-    temp_xds["SOURCE_RADIAL_VELOCITY"].attrs.update(
-        {
-            "type": "quantity",
-            "units": [
-                cast_to_str(
-                    ephemris_column_description["RadVel"]["keywords"][unit_keyword]
-                )
-            ],
-        }
-    )
-    # TODO: loop to set keywords mandatory: RadVel, loop optional: (NP_ang, NP_dist, rdot, phang)
-    if "NP_ang" in ephemeris_xds.data_vars:
-        temp_xds["NORTH_POLE_POSITION_ANGLE"].attrs.update(
-            {
-                "type": "quantity",
-                "units": [
-                    cast_to_str(
-                        ephemris_column_description["NP_ang"]["keywords"][unit_keyword]
-                    )
-                ],
-            }
-        )
 
-    if "NP_dist" in ephemeris_xds.data_vars:
-        temp_xds["NORTH_POLE_ANGULAR_DISTANCE"].attrs.update(
-            {
-                "type": "quantity",
-                "units": [
-                    cast_to_str(
-                        ephemris_column_description["NP_dist"]["keywords"][unit_keyword]
-                    )
-                ],
-            }
-        )
-    if "rdot" in ephemeris_xds.data_vars:
-        temp_xds["HELIOCENTRIC_RADIAL_VELOCITY"].attrs.update(
-            {
-                "type": "quantity",
-                "units": [
-                    cast_to_str(
-                        ephemris_column_description["rdot"]["keywords"][unit_keyword]
-                    )
-                ],
-            }
-        )
-    if "phang" in ephemeris_xds.data_vars:
-        temp_xds["OBSERVER_PHASE_ANGLE"].attrs.update(
-            {
-                "type": "quantity",
-                "units": [
-                    cast_to_str(
-                        ephemris_column_description["phang"]["keywords"][unit_keyword]
-                    )
-                ],
-            }
-        )
+    # Adjust metadata:
+    for generic_var_name, msv4_variable_def in to_new_data_variables.items():
+        msv4_var_name = msv4_variable_def[0]
+        if msv4_var_name in temp_xds:
+            temp_xds[msv4_var_name].attrs.update(
+                {
+                    "type": "quantity",
+                    "units": [
+                        cast_to_str(
+                            ephemris_column_description[generic_var_name]["keywords"][
+                                unit_keyword
+                            ]
+                        )
+                    ],
+                }
+            )
+
 
     # Add optional data: SUB_OBSERVER_POSITION and SUB_SOLAR_POSITION
     if "DiskLong" in ephemris_column_description:

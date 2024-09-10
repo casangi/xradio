@@ -259,7 +259,6 @@ def extract_ephemeris_info(
                 }
             )
 
-
     # Add optional data: SUB_OBSERVER_POSITION and SUB_SOLAR_POSITION
     if "DiskLong" in ephemris_column_description:
         key_lon = "DiskLong"

@@ -179,50 +179,7 @@ def extract_ephemeris_info(
     else:
         unit_keyword = "QuantumUnits"
 
-    # We are using the "time_ephemeris_axis" label because it might not match the optional time axis of the source and field info. If ephemeris_interpolate=True then rename it to time.
-    coords = {
-        "ellipsoid_pos_label": ["lon", "lat", "dist"],
-        "time_ephemeris_axis": ephemeris_xds["time"].data,
-        "sky_pos_label": ["ra", "dec", "dist"],
-    }
-
     temp_xds = xr.Dataset()
-
-    # Add mandatory data: SOURCE_LOCATION (POSITION / sky_pos_label)
-    temp_xds["SOURCE_LOCATION"] = xr.DataArray(
-        np.column_stack(
-            (
-                ephemeris_xds["RA"].data,
-                ephemeris_xds["DEC"].data,
-                ephemeris_xds["Rho"].data,
-            )
-        ),
-        dims=["time_ephemeris_axis", "sky_pos_label"],
-    )
-    # Have to use cast_to_str because the ephemeris table units are not consistently in a list or a string.
-    sky_coord_units = [
-        cast_to_str(ephemris_column_description["RA"]["keywords"][unit_keyword]),
-        cast_to_str(ephemris_column_description["DEC"]["keywords"][unit_keyword]),
-        cast_to_str(ephemris_column_description["Rho"]["keywords"][unit_keyword]),
-    ]
-    temp_xds["SOURCE_LOCATION"].attrs.update(
-        {"type": "sky_coord", "frame": sky_coord_frame, "units": sky_coord_units}
-    )
-
-    # Add mandatory data: SOURCE_RADIAL_VELOCITY
-    temp_xds["SOURCE_RADIAL_VELOCITY"] = xr.DataArray(
-        ephemeris_xds["RadVel"].data, dims=["time_ephemeris_axis"]
-    )
-    temp_xds["SOURCE_RADIAL_VELOCITY"].attrs.update(
-        {
-            "type": "quantity",
-            "units": [
-                cast_to_str(
-                    ephemris_column_description["RadVel"]["keywords"][unit_keyword]
-                )
-            ],
-        }
-    )
 
     # Add mandatory data: OBSERVATION_POSITION
     observation_position = [
@@ -244,11 +201,59 @@ def extract_ephemeris_info(
         }
     )  # I think the units are ['deg','deg','m'] and 'WGS84'.
 
-    # Add optional data NORTH_POLE_POSITION_ANGLE and NORTH_POLE_ANGULAR_DISTANCE
+    # Add (optional) data: SOURCE_LOCATION (POSITION / sky_pos_label)
+    temp_xds["SOURCE_LOCATION"] = xr.DataArray(
+        np.column_stack(
+            (
+                ephemeris_xds["RA"].data,
+                ephemeris_xds["DEC"].data,
+                ephemeris_xds["Rho"].data,
+            )
+        ),
+        dims=["time_ephemeris_axis", "sky_pos_label"],
+    )
+    # Have to use cast_to_str because the ephemeris table units are not consistently in a list or a string.
+    sky_coord_units = [
+        cast_to_str(ephemris_column_description["RA"]["keywords"][unit_keyword]),
+        cast_to_str(ephemris_column_description["DEC"]["keywords"][unit_keyword]),
+        cast_to_str(ephemris_column_description["Rho"]["keywords"][unit_keyword]),
+    ]
+    temp_xds["SOURCE_LOCATION"].attrs.update(
+        {"type": "sky_coord", "frame": sky_coord_frame, "units": sky_coord_units}
+    )
+
+    # Convert a few columns/variables that can be converted with standard
+    # convert_generic_xds_to_xradio_schema().
+    # Metadata has to be fixed manually. Alternatively, issues like
+    # UNIT/QuantumUnits issue could be handled in convert_generic_xds_to_xradio_schema,
+    # but for now preferring not to pollute that function.
+    to_new_data_variables = {
+        # mandatory: SOURCE_RADIAL_VELOCITY
+        "RadVel": ["SOURCE_RADIAL_VELOCITY", ["time_ephemeris_axis"]],
+        # optional: data NORTH_POLE_POSITION_ANGLE and NORTH_POLE_ANGULAR_DISTANCE
+        "NP_ang": ["NORTH_POLE_POSITION_ANGLE", ["time_ephemeris_axis"]],
+        "NP_dist": ["NORTH_POLE_ANGULAR_DISTANCE", ["time_ephemeris_axis"]],
+        # optional: HELIOCENTRIC_RADIAL_VELOCITY
+        "rdot": ["HELIOCENTRIC_RADIAL_VELOCITY", ["time_ephemeris_axis"]],
+        # optional: OBSERVER_PHASE_ANGLE
+        "phang": ["OBSERVER_PHASE_ANGLE", ["time_ephemeris_axis"]],
+    }
+    convert_generic_xds_to_xradio_schema(
+        ephemeris_xds, temp_xds, to_new_data_variables, {}
+    )
+    # Adjust metadata:
+    temp_xds["SOURCE_RADIAL_VELOCITY"].attrs.update(
+        {
+            "type": "quantity",
+            "units": [
+                cast_to_str(
+                    ephemris_column_description["RadVel"]["keywords"][unit_keyword]
+                )
+            ],
+        }
+    )
+    # TODO: loop to set keywords mandatory: RadVel, loop optional: (NP_ang, NP_dist, rdot, phang)
     if "NP_ang" in ephemeris_xds.data_vars:
-        temp_xds["NORTH_POLE_POSITION_ANGLE"] = xr.DataArray(
-            ephemeris_xds["NP_ang"].data, dims=["time_ephemeris_axis"]
-        )
         temp_xds["NORTH_POLE_POSITION_ANGLE"].attrs.update(
             {
                 "type": "quantity",
@@ -261,15 +266,34 @@ def extract_ephemeris_info(
         )
 
     if "NP_dist" in ephemeris_xds.data_vars:
-        temp_xds["NORTH_POLE_ANGULAR_DISTANCE"] = xr.DataArray(
-            ephemeris_xds["NP_dist"].data, dims=["time_ephemeris_axis"]
-        )
         temp_xds["NORTH_POLE_ANGULAR_DISTANCE"].attrs.update(
             {
                 "type": "quantity",
                 "units": [
                     cast_to_str(
                         ephemris_column_description["NP_dist"]["keywords"][unit_keyword]
+                    )
+                ],
+            }
+        )
+    if "rdot" in ephemeris_xds.data_vars:
+        temp_xds["HELIOCENTRIC_RADIAL_VELOCITY"].attrs.update(
+            {
+                "type": "quantity",
+                "units": [
+                    cast_to_str(
+                        ephemris_column_description["rdot"]["keywords"][unit_keyword]
+                    )
+                ],
+            }
+        )
+    if "phang" in ephemeris_xds.data_vars:
+        temp_xds["OBSERVER_PHASE_ANGLE"].attrs.update(
+            {
+                "type": "quantity",
+                "units": [
+                    cast_to_str(
+                        ephemris_column_description["phang"]["keywords"][unit_keyword]
                     )
                 ],
             }
@@ -344,38 +368,12 @@ def extract_ephemeris_info(
             }
         )
 
-    # Add optional data: HELIOCENTRIC_RADIAL_VELOCITY
-    if "rdot" in ephemeris_xds.data_vars:
-        temp_xds["HELIOCENTRIC_RADIAL_VELOCITY"] = xr.DataArray(
-            ephemeris_xds["rdot"].data, dims=["time_ephemeris_axis"]
-        )
-        temp_xds["HELIOCENTRIC_RADIAL_VELOCITY"].attrs.update(
-            {
-                "type": "quantity",
-                "units": [
-                    cast_to_str(
-                        ephemris_column_description["rdot"]["keywords"][unit_keyword]
-                    )
-                ],
-            }
-        )
-
-    # Add optional data: OBSERVER_PHASE_ANGLE
-    if "phang" in ephemeris_xds.data_vars:
-        temp_xds["OBSERVER_PHASE_ANGLE"] = xr.DataArray(
-            ephemeris_xds["phang"].data, dims=["time_ephemeris_axis"]
-        )
-        temp_xds["OBSERVER_PHASE_ANGLE"].attrs.update(
-            {
-                "type": "quantity",
-                "units": [
-                    cast_to_str(
-                        ephemris_column_description["phang"]["keywords"][unit_keyword]
-                    )
-                ],
-            }
-        )
-
+    # We are using the "time_ephemeris_axis" label because it might not match the optional time axis of the source and field info. If ephemeris_interpolate=True then rename it to time.
+    coords = {
+        "ellipsoid_pos_label": ["lon", "lat", "dist"],
+        "time_ephemeris_axis": ephemeris_xds["time"].data,
+        "sky_pos_label": ["ra", "dec", "dist"],
+    }
     temp_xds = temp_xds.assign_coords(coords)
     time_coord_attrs = {
         "type": "time",

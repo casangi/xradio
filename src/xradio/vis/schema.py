@@ -1022,6 +1022,7 @@ class VisibilityXds:
 
     # --- Required Attributes ---
     partition_info: Attr[PartitionInfoDict]
+    processor_info: Attr[ProcessorInfoDict]
     antenna_xds: Attr[AntennaXds]
 
     # --- Optional Coordinates ---
@@ -1077,7 +1078,6 @@ class VisibilityXds:
 
     # --- Optional Attributes ---
     observation_info: Optional[Attr[ObservationInfoDict]] = None
-    processor_info: Optional[Attr[ProcessorInfoDict]] = None
     weather_xds: Optional[Attr[WeatherXds]] = None
     pointing_xds: Optional[Attr[PointingXds]] = None
     phased_array_xds: Optional[Attr[PhasedArrayXds]] = None

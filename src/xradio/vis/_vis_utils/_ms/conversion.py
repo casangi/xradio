@@ -14,6 +14,7 @@ from xradio.vis._vis_utils._ms.msv4_sub_xdss import (
     create_pointing_xds,
     create_weather_xds,
 )
+from .msv4_info_dicts import create_processor_info
 from xradio.vis._vis_utils._ms.create_antenna_xds import create_antenna_xds
 from xradio.vis._vis_utils._ms.create_field_and_source_xds import (
     create_field_and_source_xds,
@@ -1004,6 +1005,11 @@ def convert_and_write_partition(
                 "obs_mode": obs_mode.split(","),
                 "taql": taql_where,
             }
+
+            processor_id = check_if_consistent(
+                tb_tool.getcol("PROCESSOR_ID"), "PROCESSOR_ID"
+            )
+            xds.attrs["processor_info"] = create_processor_info(in_file, processor_id)
 
             start = time.time()
             if storage_backend == "zarr":

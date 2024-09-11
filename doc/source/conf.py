@@ -10,8 +10,8 @@ import sys
 import os
 
 project = "xradio"
-copyright = "2023, Jan-Willem Steeb"
-author = "Jan-Willem Steeb"
+copyright = "Associated Universities, Inc."
+author = " "
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -21,6 +21,11 @@ extensions = [
     "sphinx.ext.intersphinx",
     "xradio_sphinx",
     "nbsphinx",
+    "sphinx.ext.todo",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.coverage",
+    "sphinx.ext.githubpages",
+    "sphinx.ext.napoleon",
 ]
 
 templates_path = ["_templates"]
@@ -32,14 +37,30 @@ sys.path.insert(0, os.path.abspath("."))
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
-import sphinx_adc_theme
+# import sphinx_adc_theme
+import sphinx_rtd_theme
 
-html_theme = "sphinx_adc_theme"
-html_theme_path = [sphinx_adc_theme.get_html_theme_path()]
+# html_theme = "sphinx_adc_theme"
+# html_theme_path = [sphinx_adc_theme.get_html_theme_path()]
+html_theme = "sphinx_rtd_theme"
+html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 html_static_path = ["_static"]
 html_css_files = [
     "custom.css",
 ]
+
+html_logo = "_images/xradio_logo.png"
+
+# Theme options are theme-specific and customize the look and feel of a theme
+# further.  For a list of options available for each theme, see the
+# documentation.
+#
+html_theme_options = {
+    "collapse_navigation": True,
+    "navigation_depth": 3,
+    "style_nav_header_background": "white",
+    "logo_only": True,
+}
 
 autodoc_class_signature = "mixed"
 

@@ -1,44 +1,37 @@
-
-/* Fix table layout */
-
-table.docutils td, table.docutils th {
-    padding: 4px;
+.wy-nav-side {
+    background: #ffffff;
 }
 
-/* Fix even/odd background for longer tables */
-.row-odd {
-    background: #F0F5F9 !important;
+.wy-nav-content {
+   max-width: none;
 }
 
-.row-even {
-    background: #FFFFFF !important;
+
+.wy-menu-vertical a {
+  color: black;
 }
 
-/* Space paragraphs a bit more tightly within tables.
-   Especially make the first paragraph not have top margin so that
-   it aligns properly with cells that don't have paragraphs
-*/
 
-table.docutils p {
-    margin-bottom: 0 !important;
+.wy-menu-vertical a:hover {
+  background-color: #e6e6e6;
 }
 
-table.docutils p:first-child {
-    margin-top: 0;
+
+/* override table width restrictions */
+@media screen and (min-width: 767px) {
+
+   .wy-table-responsive table td {
+      /* !important prevents the common CSS stylesheets from overriding
+         this as on RTD they are loaded after this stylesheet */
+      white-space: normal !important;
+   }
+
+   .wy-table-responsive {
+      overflow: visible !important;
+   }
 }
 
-/* Preformatted text seems to get rendered a bit larger than "normal" text.
-   To make it flow better, we make it smaller. */
-code.literal {
-    font-size: 11px;
-}
 
-div.sphinxsidebarwrapper p.caption {
-    display: inline-block;
-    font-size: 15px;
-    font-weight: bold;
-}
-
-h2 {
-    margin-top: 1em;
+.customcolor {
+   color: red;
 }

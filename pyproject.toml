@@ -13,7 +13,6 @@ dependencies = [
     'astropy',
     'dask',
     'distributed',
-    'graphviper',
     'toolviper',
     'matplotlib',
     'numba>=0.57.0',

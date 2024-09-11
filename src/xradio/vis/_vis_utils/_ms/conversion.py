@@ -966,11 +966,6 @@ def convert_and_write_partition(
                     "FIELD_PHASE_CENTER"
                 ].attrs["frame"]
 
-            if overwrite:
-                mode = "w"
-            else:
-                mode = "w-"
-
             partition_info_misc_fields = {
                 "scan_id": scan_id,
                 "obs_mode": obs_mode,
@@ -983,6 +978,7 @@ def convert_and_write_partition(
             xds.attrs.update(info_dicts)
 
             # xds ready, prepare to write
+            start = time.time()
             main_chunksize = parse_chunksize(main_chunksize, "main", xds)
             add_encoding(xds, compressor=compressor, chunks=main_chunksize)
             logger.debug("Time add compressor and chunk " + str(time.time() - start))
@@ -991,6 +987,11 @@ def convert_and_write_partition(
                 out_file,
                 pathlib.Path(in_file).name.replace(".ms", "") + "_" + str(ms_v4_id),
             )
+
+            if overwrite:
+                mode = "w"
+            else:
+                mode = "w-"
 
             start = time.time()
             if storage_backend == "zarr":

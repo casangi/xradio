@@ -1,4 +1,4 @@
-import graphviper.utils.logger as logger, numcodecs, os, time, warnings
+import toolviper.utils.logger as logger, numcodecs, os, time, warnings
 from itertools import cycle
 from pathlib import Path
 from typing import Any, Dict, Union

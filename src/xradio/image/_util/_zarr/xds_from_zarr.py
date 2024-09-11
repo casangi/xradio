@@ -1,7 +1,7 @@
 import copy
 import dask.array as da
 
-# import graphviper.utils.logger as logger
+# import toolviper.utils.logger as logger
 import numpy as np
 import os
 import xarray as xr

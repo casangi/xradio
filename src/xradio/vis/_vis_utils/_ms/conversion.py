@@ -2,7 +2,7 @@ import numcodecs
 import time
 from .._zarr.encoding import add_encoding
 from typing import Dict, Union
-import graphviper.utils.logger as logger
+import toolviper.utils.logger as logger
 import os
 import pathlib
 

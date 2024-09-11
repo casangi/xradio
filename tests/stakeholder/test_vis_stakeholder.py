@@ -5,8 +5,8 @@ import pathlib
 import pytest
 import time
 
-from graphviper.utils.data import download
-from graphviper.utils.logger import setup_logger
+from toolviper.utils.data import download
+from toolviper.utils.logger import setup_logger
 from xradio.vis import (
     read_processing_set,
     load_processing_set,
@@ -69,7 +69,7 @@ def base_test(
     do_schema_check: bool = True,
 ):
     start = time.time()
-    from graphviper.dask.client import local_client
+    from toolviper.dask.client import local_client
 
     # Strange bug when running test in paralell (the unrelated image tests fail).
     # viper_client = local_client(cores=4, memory_limit="4GB")

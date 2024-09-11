@@ -1,5 +1,10 @@
+import numpy as np
+import xarray as xr
+
+from casacore import tables
 from .subtables import subt_rename_ids
 from ._tables.read import load_generic_table, convert_casacore_time
+from xradio._utils.list_and_array import check_if_consistent, unique_1d, to_list
 
 
 def create_info_dicts(
@@ -95,7 +100,7 @@ def create_observation_info(in_file: str, observation_id: int):
     observation_info = {
         "observer": [generic_observation_xds["OBSERVER"].values[0]],
         "release_date": str(
-            convert_casacore_time(generic_observation_xds["RELEASE_DATE"].values)
+            convert_casacore_time(generic_observation_xds["RELEASE_DATE"].values)[0]
         ),
     }
     # could just assume lower:upper case but keeping explicit dict for now

@@ -1,6 +1,6 @@
 [project]
 name = "xradio"
-version = "0.0.39"
+version = "0.0.40"
 description = " Xarray Radio Astronomy Data IO"
 authors = [
     {name = "Jan-Willem Steeb", email="jsteeb@nrao.edu"},
@@ -14,6 +14,7 @@ dependencies = [
     'dask',
     'distributed',
     'graphviper',
+    'toolviper',
     'matplotlib',
     'numba>=0.57.0',
     'numpy',

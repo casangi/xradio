@@ -1,4 +1,4 @@
-import graphviper.utils.logger as logger
+import toolviper.utils.logger as logger
 from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np

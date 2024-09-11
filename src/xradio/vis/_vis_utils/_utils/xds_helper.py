@@ -1,5 +1,5 @@
 from importlib.metadata import version
-import graphviper.utils.logger as logger, multiprocessing, psutil
+import toolviper.utils.logger as logger, multiprocessing, psutil
 from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np

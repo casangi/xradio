@@ -1,7 +1,7 @@
 import os
 
 from ._processing_set import processing_set
-import graphviper.utils.logger as logger
+import toolviper.utils.logger as logger
 from xradio._utils.zarr.common import _open_dataset, _get_file_system_and_items
 import s3fs
 

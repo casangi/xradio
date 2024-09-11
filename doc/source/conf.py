@@ -10,8 +10,8 @@ import sys
 import os
 
 project = "xradio"
-copyright = "2023, Jan-Willem Steeb"
-author = "Jan-Willem Steeb"
+copyright = "Associated Universities, Inc."
+author = " "
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
@@ -21,6 +21,11 @@ extensions = [
     "sphinx.ext.intersphinx",
     "xradio_sphinx",
     "nbsphinx",
+    "sphinx.ext.todo",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.coverage",
+    "sphinx.ext.githubpages",
+    "sphinx.ext.napoleon",
 ]
 
 templates_path = ["_templates"]

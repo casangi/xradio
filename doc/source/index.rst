@@ -24,56 +24,45 @@ The main aims of the library are:
   in-memory data
 
 .. toctree::
-   :maxdepth: 1
+   :hidden:
+   :maxdepth: 0
    :caption: Overview
 
    overview
 
 .. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: Development
+
+   development
+
+.. toctree::
+   :hidden:
    :maxdepth: 1
    :caption: Observation Data
 
    obs_overview
+   observation_data/tutorials/index
+   observation_data/guides/index
+
+   observation_data/schema_and_api/index
+
 
 .. toctree::
+   :hidden:
    :maxdepth: 1
    :caption: Image Data
 
    image_overview
 
-.. toctree::
-   :maxdepth: 1
-   :caption: Tutorials
-
-   tutorials/processing_set/ps_vis
-   tutorials/image/image
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Guides
-
-   guides/processing_set/ALMA_ephemeris
-   guides/processing_set/global_VLBI
-   guides/processing_set/LOFAR
-   guides/processing_set/MeerKAT
-   guides/processing_set/ngEHT
-   guides/processing_set/ALMA_single_dish
-   guides/processing_set/SKA_mid
-   guides/processing_set/VLBA
+   image_data/tutorials/index
 
 .. toctree::
    :maxdepth: 1
    :caption: Design
 
    decisions
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Reference
-
-   schema
-   vis_api
-   vis_schema
 
 
 Indices and tables

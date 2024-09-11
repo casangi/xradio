@@ -2,6 +2,8 @@ import numpy as np
 import xarray as xr
 
 from casacore import tables
+import graphviper.utils.logger as logger
+
 from .subtables import subt_rename_ids
 from ._tables.read import load_generic_table, convert_casacore_time
 from xradio._utils.list_and_array import check_if_consistent, unique_1d, to_list
@@ -108,22 +110,61 @@ def create_observation_info(in_file: str, observation_id: int):
     for field_msv4, row_msv2 in mandatory_fields.items():
         observation_info[field_msv4] = generic_observation_xds[row_msv2].values[0]
 
-    # TODO: some of these fields will need to be gathered from ASDM tables
-    # (ExecBlock, etc.)
-    optional_fields = {
-        "execution_block_id": "EXECUTION_BLOCK_ID",
-        "execution_block_number": "EXECUTION_BLOCK_NUMBER",
-        "execution_block_UID": "EXECUTION_BLOCK_UID",
-        "session_reference": "SESSION_REFERENCE",
-        "observing_script": "OBSERVING_SCRIPT",
-        "observing_script_UID": "OBSERVING_SCRIPT_UID",
-        "observing_log": "OBSERVING_LOG",
-    }
-    for field_msv4, row_msv2 in optional_fields.items():
-        if row_msv2 in generic_observation_xds.data_vars:
-            observation_info[field_msv4] = generic_observation_xds[row_msv2].values[0]
+    exec_block_xds = None
+    try:
+        exec_block_xds = load_generic_table(in_file, "ASDM_EXECBLOCK")
+    except ValueError as exc:
+        logger.debug(
+            "Did not find the ASDM_EXECBLOCK subtable, not loading optional fields in observation_info"
+        )
+    if exec_block_xds:
+        exec_block_info = extract_exec_block_info(exec_block_xds)
+        observation_info.update(exec_block_info)
 
     return observation_info
+
+
+def extract_exec_block_info(exec_block_xds: xr.Dataset) -> dict:
+    """
+    Get the (optional) fields of the observation_info that come from the
+    ASDM_EXECBLOCK subtable.
+
+    Note this does not parse strings like 'session_reference':
+    '<EntityRef entityId="uid://A001/X133d/X169f" partId="X00000000" entityTypeName="OUSStatus"'
+    We might want to simplify that to 'uid://A001/X133d/X169f', but keeping the
+    full string for now, as it has additional information such as the type.
+
+    Parameters
+    ----------
+    exec_block_xds: xr.Dataset
+        raw xds read from subtable ASDM_EXECBLOCK
+
+    Returns:
+    --------
+    exec_block_info: dict
+        Execution block description ready for the MSv4 observation_info dict
+    """
+
+    optional_fields = {
+        "execution_block_id": "execBlockId",
+        "execution_block_number": "execBlockNum",
+        "execution_block_UID": "execBlockUID",
+        "session_reference": "sessionReference",
+        "observing_script": "observingScript",
+        "observing_script_UID": "observingScriptUID",
+        "observing_log": "observingLog",
+    }
+
+    exec_block_info = {}
+    for field_msv4, row_msv2 in optional_fields.items():
+        if row_msv2 in exec_block_xds.data_vars:
+            msv2_value = exec_block_xds[row_msv2].values[0]
+            if isinstance(msv2_value, np.ndarray):
+                exec_block_info[field_msv4] = ",".join([log for log in msv2_value])
+            else:
+                exec_block_info[field_msv4] = msv2_value
+
+    return exec_block_info
 
 
 def create_processor_info(in_file: str, processor_id: int):
@@ -133,7 +174,7 @@ def create_processor_info(in_file: str, processor_id: int):
     Parameters
     ----------
     in_file: str
-       path to an input MSv2
+        path to an input MSv2
     processor_id: int
         processor ID for one MSv4 dataset
 

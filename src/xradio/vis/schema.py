@@ -358,7 +358,7 @@ class ObservationInfoDict:
     execution_block_id: Optional[str]
     """ ASDM: Indicates the position of the execution block in the project
     (sequential numbering starting at 1).  """
-    execution_block_number: Optional[str]
+    execution_block_number: Optional[int]
     """ASDM: Indicates the position of the execution block in the project
     (sequential numbering starting at 1)."""
     execution_block_UID: Optional[str]

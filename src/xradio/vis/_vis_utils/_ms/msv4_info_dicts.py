@@ -59,6 +59,13 @@ def create_processor_info(in_file: str, processor_id: int):
     """
     Makes a dict with the processor info extracted from the PROCESSOR subtable.
 
+    Parameters
+    ----------
+    in_file: str
+       path to an input MSv2
+    processor_id: int
+        processor ID for one MSv4 dataset
+
     Returns:
     --------
     processor_info: dict
@@ -72,9 +79,14 @@ def create_processor_info(in_file: str, processor_id: int):
         taql_where=f" where ROWID() = {processor_id}",
     )
 
-    processor_info = {
-        "type": generic_processor_xds["TYPE"].values[0],
-        "sub_type": generic_processor_xds["SUB_TYPE"].values[0],
-    }
+    # Many telescopes (ASKAP, MeerKAT, SKA-Mid, VLBI, VLBA, ngEHT) seem to
+    # produce an empty PROCESSOR subtable
+    if len(generic_processor_xds.data_vars) <= 0:
+        processor_info = {"type": "", "sub_type": ""}
+    else:
+        processor_info = {
+            "type": generic_processor_xds["TYPE"].values[0],
+            "sub_type": generic_processor_xds["SUB_TYPE"].values[0],
+        }
 
     return processor_info

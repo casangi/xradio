@@ -352,7 +352,7 @@ class ObservationInfoDict:
     """List of observer names."""
     project: str
     """Project Code/Project_UID"""
-    release_data: str
+    release_date: str
     """Project release date. This is the date on which the data may become
     public. Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
     execution_block_id: Optional[str]
@@ -1022,6 +1022,7 @@ class VisibilityXds:
 
     # --- Required Attributes ---
     partition_info: Attr[PartitionInfoDict]
+    observation_info: Attr[ObservationInfoDict]
     processor_info: Attr[ProcessorInfoDict]
     antenna_xds: Attr[AntennaXds]
 
@@ -1077,7 +1078,6 @@ class VisibilityXds:
     """Includes the effects of missing data unlike ``frequency``."""
 
     # --- Optional Attributes ---
-    observation_info: Optional[Attr[ObservationInfoDict]] = None
     weather_xds: Optional[Attr[WeatherXds]] = None
     pointing_xds: Optional[Attr[PointingXds]] = None
     phased_array_xds: Optional[Attr[PhasedArrayXds]] = None

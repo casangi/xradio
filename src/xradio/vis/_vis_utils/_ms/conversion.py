@@ -14,7 +14,7 @@ from xradio.vis._vis_utils._ms.msv4_sub_xdss import (
     create_pointing_xds,
     create_weather_xds,
 )
-from .msv4_info_dicts import create_observation_info, create_processor_info
+from .msv4_info_dicts import create_info_dicts
 from xradio.vis._vis_utils._ms.create_antenna_xds import create_antenna_xds
 from xradio.vis._vis_utils._ms.create_field_and_source_xds import (
     create_field_and_source_xds,
@@ -681,46 +681,6 @@ def create_taql_query(partition_info):
     return taql_where
 
 
-def create_info_dicts(
-    in_file: str,
-    xds: xr.Dataset,
-    field_and_source_xds: xr.Dataset,
-    partition_info_misc_fields: dict,
-    tb_tool: tables.table,
-) -> dict:
-
-    if "line_name" in field_and_source_xds.coords:
-        line_name = to_list(unique_1d(np.ravel(field_and_source_xds.line_name.values)))
-    else:
-        line_name = []
-
-    info_dicts = {}
-    info_dicts["partition_info"] = {
-        # "spectral_window_id": xds.frequency.attrs["spectral_window_id"],
-        "spectral_window_name": xds.frequency.attrs["spectral_window_name"],
-        # "field_id": to_list(unique_1d(field_id)),
-        "field_name": to_list(np.unique(field_and_source_xds.field_name.values)),
-        # "source_id": to_list(unique_1d(source_id)),
-        "line_name": line_name,
-        "scan_number": to_list(np.unique(partition_info_misc_fields["scan_id"])),
-        "source_name": to_list(np.unique(field_and_source_xds.source_name.values)),
-        "polarization_setup": to_list(xds.polarization.values),
-        "num_lines": partition_info_misc_fields["num_lines"],
-        "obs_mode": partition_info_misc_fields["obs_mode"].split(","),
-        "taql": partition_info_misc_fields["taql_where"],
-    }
-
-    processor_id = check_if_consistent(tb_tool.getcol("PROCESSOR_ID"), "PROCESSOR_ID")
-    info_dicts["processor_info"] = create_processor_info(in_file, processor_id)
-
-    observation_id = check_if_consistent(
-        tb_tool.getcol("OBSERVATION_ID"), "OBSERVATION_ID"
-    )
-    info_dicts["observation_info"] = create_observation_info(in_file, observation_id)
-
-    return info_dicts
-
-
 def convert_and_write_partition(
     in_file: str,
     out_file: str,
@@ -1011,15 +971,6 @@ def convert_and_write_partition(
             else:
                 mode = "w-"
 
-            main_chunksize = parse_chunksize(main_chunksize, "main", xds)
-            add_encoding(xds, compressor=compressor, chunks=main_chunksize)
-            logger.debug("Time add compressor and chunk " + str(time.time() - start))
-
-            file_name = os.path.join(
-                out_file,
-                pathlib.Path(in_file).name.replace(".ms", "") + "_" + str(ms_v4_id),
-            )
-
             partition_info_misc_fields = {
                 "scan_id": scan_id,
                 "obs_mode": obs_mode,
@@ -1030,6 +981,16 @@ def convert_and_write_partition(
                 in_file, xds, field_and_source_xds, partition_info_misc_fields, tb_tool
             )
             xds.attrs.update(info_dicts)
+
+            # xds ready, prepare to write
+            main_chunksize = parse_chunksize(main_chunksize, "main", xds)
+            add_encoding(xds, compressor=compressor, chunks=main_chunksize)
+            logger.debug("Time add compressor and chunk " + str(time.time() - start))
+
+            file_name = os.path.join(
+                out_file,
+                pathlib.Path(in_file).name.replace(".ms", "") + "_" + str(ms_v4_id),
+            )
 
             start = time.time()
             if storage_backend == "zarr":

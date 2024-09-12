@@ -1,10 +1,12 @@
 
-Xradio - Xarray-style radio astronomy data
+XRADIO - Xarray Radio Astronomy Data I/O
 ==========================================
 
 **Docs and code are still under development.**
 
-The goal of the Xradio library is to establish a new standard for handling
+XRADIO (Xarray Radio Astronomy Data IO) makes working with radio astronomy data in Python simple, efficient, and fun!
+
+The goal of the XRADIO library is to establish a new standard for handling
 radio interferometry data, especially visibilities. It is envisioned to act as
 a successor to the "measurement set" format (see
 e.g. https://casacore.github.io/casacore-notes/229.pdf or
@@ -22,38 +24,45 @@ The main aims of the library are:
   in-memory data
 
 .. toctree::
-   :maxdepth: 1
-   :caption: Getting Started
+   :hidden:
+   :maxdepth: 0
+   :caption: Overview
 
-   vis_tutorial
-   image_tutorial
+   overview
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Guides
+   :hidden:
+   :maxdepth: 1
+   :caption: Development
 
-   ephemeris_conversion
-   global_vlbi
-   lofar_conversion
-   meerkat_conversion
-   ngEHT_conversion
-   single_dish_conversion
-   ska_mid_conversion
-   VLBA_conversion
+   development
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: Observation Data
+
+   obs_overview
+   observation_data/tutorials/index
+   observation_data/guides/index
+
+   observation_data/schema_and_api/index
+
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: Image Data
+
+   image_overview
+
+   image_data/tutorials/index
 
 .. toctree::
    :maxdepth: 1
    :caption: Design
 
    decisions
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Reference
-
-   schema
-   vis_api
-   vis_schema
 
 
 Indices and tables

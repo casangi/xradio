@@ -467,7 +467,7 @@ def extract_phase_cal_info(
             "format": "UNIX",
         }
 
-        # If we interpolate rename the time_ephemeris_axis axis to time.
+        # If we interpolate rename the time_phase_cal axis to time.
         if phase_cal_interp_time is not None:
             time_coord = {"time": ("time_phase_cal", phase_cal_interp_time.data)}
             ant_xds = ant_xds.assign_coords(time_coord)

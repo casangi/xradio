@@ -980,7 +980,11 @@ class SystemCalibrationXds:
     """  """
 
     # Data variables (all optional)
-    PHASE_DIFFERENCE: Optional[Data[Union[tuple[AntennaName, TimeCal], tuple[AntennaName, Time]], numpy.float64]] = None
+    PHASE_DIFFERENCE: Optional[
+        Data[
+            Union[tuple[AntennaName, TimeCal], tuple[AntennaName, Time]], numpy.float64
+        ]
+    ] = None
     """ Phase difference between receptor 0 and receptor 1 """
     TCAL: Optional[
         Data[

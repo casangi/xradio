@@ -160,7 +160,7 @@ def extract_ephemeris_info(
 
     # Get meta data.
     ephemeris_meta = ephemeris_xds.attrs["other"]["msv2"]["ctds_attrs"]
-    ephemris_column_description = ephemeris_xds.attrs["other"]["msv2"]["ctds_attrs"][
+    ephemeris_column_description = ephemeris_xds.attrs["other"]["msv2"]["ctds_attrs"][
         "column_descriptions"
     ]
 
@@ -174,7 +174,7 @@ def extract_ephemeris_info(
         sky_coord_frame = "ICRS"  # We will have to just assume this.
 
     # Find out witch keyword is used for units (UNIT/QuantumUnits)
-    if "UNIT" in ephemris_column_description["RA"]["keywords"]:
+    if "UNIT" in ephemeris_column_description["RA"]["keywords"]:
         unit_keyword = "UNIT"
     else:
         unit_keyword = "QuantumUnits"
@@ -214,9 +214,9 @@ def extract_ephemeris_info(
     )
     # Have to use cast_to_str because the ephemeris table units are not consistently in a list or a string.
     sky_coord_units = [
-        cast_to_str(ephemris_column_description["RA"]["keywords"][unit_keyword]),
-        cast_to_str(ephemris_column_description["DEC"]["keywords"][unit_keyword]),
-        cast_to_str(ephemris_column_description["Rho"]["keywords"][unit_keyword]),
+        cast_to_str(ephemeris_column_description["RA"]["keywords"][unit_keyword]),
+        cast_to_str(ephemeris_column_description["DEC"]["keywords"][unit_keyword]),
+        cast_to_str(ephemeris_column_description["Rho"]["keywords"][unit_keyword]),
     ]
     temp_xds["SOURCE_LOCATION"].attrs.update(
         {"type": "sky_coord", "frame": sky_coord_frame, "units": sky_coord_units}
@@ -251,7 +251,7 @@ def extract_ephemeris_info(
                     "type": "quantity",
                     "units": [
                         cast_to_str(
-                            ephemris_column_description[generic_var_name]["keywords"][
+                            ephemeris_column_description[generic_var_name]["keywords"][
                                 unit_keyword
                             ]
                         )
@@ -260,7 +260,7 @@ def extract_ephemeris_info(
             )
 
     # Add optional data: SUB_OBSERVER_POSITION and SUB_SOLAR_POSITION
-    if "DiskLong" in ephemris_column_description:
+    if "DiskLong" in ephemeris_column_description:
         key_lon = "DiskLong"
         key_lat = "DiskLat"
     else:
@@ -287,10 +287,10 @@ def extract_ephemeris_info(
                 "coordinate_system": "planetodetic",
                 "units": [
                     cast_to_str(
-                        ephemris_column_description[key_lon]["keywords"][unit_keyword]
+                        ephemeris_column_description[key_lon]["keywords"][unit_keyword]
                     ),
                     cast_to_str(
-                        ephemris_column_description[key_lat]["keywords"][unit_keyword]
+                        ephemeris_column_description[key_lat]["keywords"][unit_keyword]
                     ),
                     "m",
                 ],
@@ -316,13 +316,13 @@ def extract_ephemeris_info(
                 "coordinate_system": "planetodetic",
                 "units": [
                     cast_to_str(
-                        ephemris_column_description["SI_lon"]["keywords"][unit_keyword]
+                        ephemeris_column_description["SI_lon"]["keywords"][unit_keyword]
                     ),
                     cast_to_str(
-                        ephemris_column_description["SI_lat"]["keywords"][unit_keyword]
+                        ephemeris_column_description["SI_lat"]["keywords"][unit_keyword]
                     ),
                     cast_to_str(
-                        ephemris_column_description["r"]["keywords"][unit_keyword]
+                        ephemeris_column_description["r"]["keywords"][unit_keyword]
                     ),
                 ],
             }

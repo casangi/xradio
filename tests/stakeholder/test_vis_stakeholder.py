@@ -52,6 +52,8 @@ def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_sch
         pointing_chunksize=0.00001,
         pointing_interpolate=True,
         ephemeris_interpolate=True,
+        # phase_cal_interpolate=True,
+        # sys_cal_interpolate=True,
         use_table_iter=False,
         overwrite=True,
         parallel=False,

@@ -249,7 +249,7 @@ def check_source_and_field_xds(ps, msv4_name, expected_NP_sum):
         "OBSERVER_PHASE_ANGLE",
         "SOURCE_LOCATION",
         "SOURCE_RADIAL_VELOCITY",
-        "SUB_OBSERVER_POSITION",
+        "SUB_OBSERVER_DIRECTION",
     ]
     assert are_all_variables_in_dataset(
         field_and_source_xds, field_and_source_data_variable_names

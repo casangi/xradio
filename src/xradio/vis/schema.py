@@ -12,8 +12,10 @@ import numpy
 # Dimensions
 Time = Literal["time"]
 """ Observation time dimension """
+TimeEphemeris = Literal["time_ephemeris"]
+""" time dimension of ephemeris data (when not interpolated to main time) """
 TimeCal = Literal["time_cal"]
-""" time dimension of system calibration """
+""" time dimension of system calibration (when not interpolated to main time) """
 AntennaName = Literal["antenna_name"]
 """ Antenna name dimension """
 StationId = Literal["station_id"]
@@ -186,6 +188,22 @@ class TimeCalCoordArray(TimeCoordArrayBase):
     """ Coordinate type. Should be ``"time_cal"``. """
 
 
+@xarray_dataarray_schema
+class TimeEphemerisCoordArray(TimeCoordArrayBase):
+    """Data model of 'time_ephemeris' axis (time axis in field_and_source_info_xds
+    when not interpolated to the main time axis. See also
+    :py:class:`TimeCoordArray`."""
+
+    data: Data[TimeEphemeris, float]
+    """
+    Time, expressed in seconds since the epoch (see ``scale`` &
+    ``format``).
+    """
+
+    type: Attr[str] = "time_ephemeris"
+    """ Coordinate type. Should be ``"time_ephemeris"``. """
+
+
 @xarray_dataset_schema
 class FieldSourceXds:
     """
@@ -201,15 +219,28 @@ class FieldSourceXds:
     """Field name."""
 
     time: Optional[Coordof[TimeCoordArray]]
-    """Midpoint of time for which this set of parameters is accurate"""
+    """Midpoint of time for which this set of parameters is accurate. Labeled 'time' when interpolated to main time """
+    time_ephemeris: Optional[Coordof[TimeEphemerisCoordArray]]
+    """Midpoint of time for which this set of parameters is accurate. Labeled 'time_ephemeris' when not interpolating to main time """
 
     line_label: Optional[Coord[LineLabel, str]]
     """ Line labels (for line names and variables). """
 
-    line_names: Optional[Coord[Union[tuple[LineLabel], tuple[Time, LineLabel]], str]]
+    line_names: Optional[
+        Coord[
+            Union[
+                tuple[LineLabel],
+                tuple[Time, LineLabel],
+                tuple[TimeEphemeris, LineLabel],
+            ],
+            str,
+        ]
+    ]
     """ Line names (e.g. v=1, J=1-0, SiO). """
 
-    FIELD_PHASE_CENTER: Optional[Data[Union[ZD, Time], SkyCoordOffsetArray]]
+    FIELD_PHASE_CENTER: Optional[
+        Data[Union[ZD, Time, TimeEphemeris], SkyCoordOffsetArray]
+    ]
     """
     Offset from the SOURCE_DIRECTION that gives the direction of phase
     center for which the fringes have been stopped-that is a point source in
@@ -219,7 +250,14 @@ class FieldSourceXds:
     varies with field, it refers DelayDir_Ref column instead.
     """
     FIELD_DELAY_CENTER: Optional[
-        Data[Union[tuple[SkyDirLabel], tuple[Time, SkyDirLabel]], numpy.float64]
+        Data[
+            Union[
+                tuple[SkyDirLabel],
+                tuple[Time, SkyDirLabel],
+                tuple[TimeEphemeris, SkyDirLabel],
+            ],
+            numpy.float64,
+        ]
     ]
     """
     Offset from the SOURCE_DIRECTION that gives the direction of delay
@@ -233,10 +271,12 @@ class FieldSourceXds:
     SOURCE_LOCATION: Optional[
         Data[
             Union[
-                tuple[SkyPosLabel],
-                tuple[Time, SkyPosLabel],
                 tuple[SkyDirLabel],
+                tuple[SkyPosLabel],
                 tuple[Time, SkyDirLabel],
+                tuple[TimeEphemeris, SkyDirLabel],
+                tuple[Time, SkyPosLabel],
+                tuple[TimeEphemeris, SkyPosLabel],
             ],
             numpy.float64,
         ]
@@ -252,36 +292,72 @@ class FieldSourceXds:
     """
 
     LINE_REST_FREQUENCY: Optional[
-        Data[Union[tuple[LineLabel], tuple[Time, LineLabel]], numpy.float64]
+        Data[
+            Union[
+                tuple[LineLabel],
+                tuple[Time, LineLabel],
+                tuple[TimeEphemeris, LineLabel],
+            ],
+            numpy.float64,
+        ]
     ]
     """ Rest frequencies for the transitions. """
 
     LINE_SYSTEMIC_VELOCITY: Optional[
-        Data[Union[tuple[LineLabel], tuple[Time, LineLabel]], numpy.float64]
+        Data[
+            Union[
+                tuple[LineLabel],
+                tuple[Time, LineLabel],
+                tuple[TimeEphemeris, LineLabel],
+            ],
+            numpy.float64,
+        ]
     ]
     """ Systemic velocity at reference """
 
-    SOURCE_RADIAL_VELOCITY: Optional[Data[tuple[Time], numpy.float64]]
+    SOURCE_RADIAL_VELOCITY: Optional[
+        Data[Union[tuple[Time], tuple[TimeEphemeris]], numpy.float64]
+    ]
     """ CASA Table Cols: RadVel. Geocentric distance rate """
 
-    NORTH_POLE_POSITION_ANGLE: Optional[Data[tuple[Time], numpy.float64]]
+    NORTH_POLE_POSITION_ANGLE: Optional[
+        Data[Union[tuple[Time], tuple[TimeEphemeris]], numpy.float64]
+    ]
     """ CASA Table cols: NP_ang, "Targets' apparent north-pole position angle (counter-clockwise with respect to direction of true-of-date reference-frame north pole) and angular distance from the sub-observer point (center of disc) at print time. A negative distance indicates the north-pole is on the hidden hemisphere." https://ssd.jpl.nasa.gov/horizons/manual.html : 17. North pole position angle & distance from disc center. """
 
-    NORTH_POLE_ANGULAR_DISTANCE: Optional[Data[tuple[Time], numpy.float64]]
+    NORTH_POLE_ANGULAR_DISTANCE: Optional[
+        Data[Union[tuple[Time], tuple[TimeEphemeris]], numpy.float64]
+    ]
     """ CASA Table cols: NP_dist, "Targets' apparent north-pole position angle (counter-clockwise with respect to direction of true-of date reference-frame north pole) and angular distance from the sub-observer point (center of disc) at print time. A negative distance indicates the north-pole is on the hidden hemisphere."https://ssd.jpl.nasa.gov/horizons/manual.html : 17. North pole position angle & distance from disc center. """
 
     SUB_OBSERVER_DIRECTION: Optional[
-        Data[tuple[Time, SphericalDirLabel], numpy.float64]
+        Data[
+            Union[
+                tuple[Time, EllipsoidPosLabel], tuple[TimeEphemeris, EllipsoidPosLabel]
+            ],
+            numpy.float64,
+        ]
     ]
     """ CASA Table cols: DiskLong, DiskLat. "Apparent planetodetic longitude and latitude of the center of the target disc seen by the OBSERVER at print-time. This is not exactly the same as the "nearest point" for a non-spherical target shape (since the center of the disc might not be the point closest to the observer), but is generally very close if not a very irregular body shape. The IAU2009 rotation models are used except for Earth and MOON, which use higher-precision models. For the gas giants Jupiter, Saturn, Uranus and Neptune, IAU2009 longitude is based on the "System III" prime meridian rotation angle of the magnetic field. By contrast, pole direction (thus latitude) is relative to the body dynamical equator. There can be an offset between the magnetic pole and the dynamical pole of rotation. Down-leg light travel-time from target to observer is taken into account. Latitude is the angle between the equatorial plane and perpendicular to the reference ellipsoid of the body and body oblateness thereby included. The reference ellipsoid is an oblate spheroid with a single flatness coefficient in which the y-axis body radius is taken to be the same value as the x-axis radius. Whether longitude is positive to the east or west for the target will be indicated at the end of the output ephemeris." https://ssd.jpl.nasa.gov/horizons/manual.html : 14. Observer sub-longitude & sub-latitude """
 
-    SUB_SOLAR_POSITION: Optional[Data[tuple[Time, SphericalPosLabel], numpy.float64]]
+    SUB_SOLAR_POSITION: Optional[
+        Data[
+            Union[
+                tuple[Time, SphericalPosLabel], tuple[TimeEphemeris, SphericalPosLabel]
+            ],
+            numpy.float64,
+        ]
+    ]
     """ CASA Table cols: Sl_lon, Sl_lat, r. "Heliocentric distance along with "Apparent sub-solar longitude and latitude of the Sun on the target. The apparent planetodetic longitude and latitude of the center of the target disc as seen from the Sun, as seen by the observer at print-time.  This is _NOT_ exactly the same as the "sub-solar" (nearest) point for a non-spherical target shape (since the center of the disc seen from the Sun might not be the closest point to the Sun), but is very close if not a highly irregular body shape.  Light travel-time from Sun to target and from target to observer is taken into account.  Latitude is the angle between the equatorial plane and the line perpendicular to the reference ellipsoid of the body. The reference ellipsoid is an oblate spheroid with a single flatness coefficient in which the y-axis body radius is taken to be the same value as the x-axis radius. Uses IAU2009 rotation models except for Earth and Moon, which uses a higher precision models. Values for Jupiter, Saturn, Uranus and Neptune are Set III, referring to rotation of their magnetic fields.  Whether longitude is positive to the east or west for the target will be indicated at the end of the output ephemeris." https://ssd.jpl.nasa.gov/horizons/manual.html : 15. Solar sub-longitude & sub-latitude  """
 
-    HELIOCENTRIC_RADIAL_VELOCITY: Optional[Data[tuple[Time], numpy.float64]]
+    HELIOCENTRIC_RADIAL_VELOCITY: Optional[
+        Data[Union[tuple[Time], tuple[TimeEphemeris]], numpy.float64]
+    ]
     """ CASA Table cols: rdot."The Sun's apparent range-rate relative to the target, as seen by the observer. A positive "rdot" means the target was moving away from the Sun, negative indicates movement toward the Sun." https://ssd.jpl.nasa.gov/horizons/manual.html : 19. Solar range & range-rate (relative to target) """
 
-    OBSERVER_PHASE_ANGLE: Optional[Data[tuple[Time], numpy.float64]]
+    OBSERVER_PHASE_ANGLE: Optional[
+        Data[Union[tuple[Time], tuple[TimeEphemeris]], numpy.float64]
+    ]
     """ CASA Table cols: phang.""phi" is the true PHASE ANGLE at the observers' location at print time. "PAB-LON" and "PAB-LAT" are the FK4/B1950 or ICRF/J2000 ecliptic longitude and latitude of the phase angle bisector direction; the outward directed angle bisecting the arc created by the apparent vector from Sun to target center and the astrometric vector from observer to target center. For an otherwise uniform ellipsoid, the time when its long-axis is perpendicular to the PAB direction approximately corresponds to lightcurve maximum (or maximum brightness) of the body. PAB is discussed in Harris et al., Icarus 57, 251-258 (1984)." https://ssd.jpl.nasa.gov/horizons/manual.html : Phase angle and bisector """
 
     OBSERVER_POSITION: Optional[
@@ -433,7 +509,8 @@ class AntennaNameArray:
 
 @xarray_dataset_schema
 class DopplerXds:
-    # TODO
+    """Not specified. Not implemented."""
+
     pass
 
 
@@ -971,9 +1048,10 @@ class SystemCalibrationXds:
     """ Antenna identifier """
     receptor_label: Optional[Coord[ReceptorLabel, numpy.int64]]
     """  """
-    time_cal: Optional[Coordof[TimeCalCoordArray]] = None
     time: Optional[Coordof[TimeCoordArray]] = None
-    """ Midpoint of time for which this set of parameters is accurate. Labeled 'time_cal' when not interpolating to main time axis, or 'time' otherwise """
+    """ Midpoint of time for which this set of parameters is accurate. Labeled 'time' when interpolating to main time axis """
+    time_cal: Optional[Coordof[TimeCalCoordArray]] = None
+    """ Midpoint of time for which this set of parameters is accurate. Labeled 'time_cal' when not interpolating to main time axis """
     # frequency: Optional[Coordof[FrequencyArray]] = None
     frequency: Optional[Coord[Frequency, numpy.int64]] = None
     """  """

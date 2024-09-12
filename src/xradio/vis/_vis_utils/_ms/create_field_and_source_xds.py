@@ -268,7 +268,7 @@ def extract_ephemeris_info(
         key_lat = "diskLat"
 
     if key_lon in ephemeris_xds.data_vars:
-        temp_xds["SUB_OBSERVER_POSITION"] = xr.DataArray(
+        temp_xds["SUB_OBSERVER_DIRECTION"] = xr.DataArray(
             np.column_stack(
                 (
                     ephemeris_xds[key_lon].data,
@@ -279,7 +279,7 @@ def extract_ephemeris_info(
             dims=["time_ephemeris_axis", "ellipsoid_pos_label"],
         )
 
-        temp_xds["SUB_OBSERVER_POSITION"].attrs.update(
+        temp_xds["SUB_OBSERVER_DIRECTION"].attrs.update(
             {
                 "type": "location",
                 "ellipsoid": "NA",

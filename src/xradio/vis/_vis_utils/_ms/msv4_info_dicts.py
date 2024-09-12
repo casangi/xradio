@@ -2,7 +2,7 @@ import numpy as np
 import xarray as xr
 
 from casacore import tables
-import graphviper.utils.logger as logger
+import toolviper.utils.logger as logger
 
 from .subtables import subt_rename_ids
 from ._tables.read import load_generic_table, convert_casacore_time

@@ -12,6 +12,7 @@ import xarray as xr
 from casacore import tables
 from xradio.vis._vis_utils._ms.msv4_sub_xdss import (
     create_pointing_xds,
+    create_system_calibration_xds,
     create_weather_xds,
 )
 from .msv4_info_dicts import create_info_dicts
@@ -694,6 +695,7 @@ def convert_and_write_partition(
     pointing_interpolate: bool = False,
     ephemeris_interpolate: bool = False,
     phase_cal_interpolate: bool = False,
+    sys_cal_interpolate: bool = False,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend="zarr",
     overwrite: bool = False,
@@ -723,6 +725,10 @@ def convert_and_write_partition(
     pointing_interpolate : bool, optional
         _description_, by default None
     ephemeris_interpolate : bool, optional
+        _description_, by default None
+    phase_cal_interpolate : bool, optional
+        _description_, by default None
+    sys_cal_interpolate : bool, optional
         _description_, by default None
     compressor : numcodecs.abc.Codec, optional
         _description_, by default numcodecs.Zstd(level=2)
@@ -888,6 +894,20 @@ def convert_and_write_partition(
 
             logger.debug("Time ant xds  " + str(time.time() - start))
 
+            # Create system_calibration_xds
+            start = time.time()
+            if sys_cal_interpolate:
+                sys_cal_interp_time = xds.time.values
+            else:
+                sys_cal_interp_time = None
+            system_calibration_xds = create_system_calibration_xds(
+                in_file,
+                xds.frequency.attrs["spectral_window_id"],
+                ant_xds_name_ids,
+                sys_cal_interp_time,
+            )
+            logger.debug("Time system_calibation " + str(time.time() - start))
+
             # Create weather_xds
             start = time.time()
             weather_xds = create_weather_xds(in_file)
@@ -1013,6 +1033,11 @@ def convert_and_write_partition(
                 if weather_xds:
                     weather_xds.to_zarr(
                         store=os.path.join(file_name, "WEATHER"), mode=mode
+                    )
+
+                if system_calibration_xds:
+                    system_calibration_xds.to_zarr(
+                        store=os.path.join(file_name, "SYSCAL"), mode=mode
                     )
 
             elif storage_backend == "netcdf":

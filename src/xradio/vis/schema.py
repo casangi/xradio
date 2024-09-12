@@ -12,12 +12,12 @@ import numpy
 # Dimensions
 Time = Literal["time"]
 """ Observation time dimension """
+TimeCal = Literal["time_cal"]
+""" time dimension of system calibration """
 AntennaName = Literal["antenna_name"]
 """ Antenna name dimension """
 StationId = Literal["station_id"]
 """ Station ID dimension """
-ReceptorId = Literal["receptor_id"]
-""" Receptor ID dimension """
 ReceptorLabel = Literal["receptor_label"]
 """ Receptor label dimension """
 ToneLabel = Literal["tone_label"]
@@ -135,15 +135,8 @@ class QuantityArray:
 
 
 # Coordinates / Axes
-@xarray_dataarray_schema
-class TimeCoordArray:
-    """Data model of visibility time axis. See also :py:class:`TimeArray`."""
-
-    data: Data[Time, float]
-    """
-    Time, expressed in seconds since the epoch (see ``scale`` &
-    ``format``), see also see :py:class:`TimeArray`.
-    """
+class TimeCoordArrayBase:
+    """Base class with the metadata found in time array coords."""
 
     integration_time: Optional[Attr[QuantityArray]] = None
     """ The nominal sampling interval (ms v2). Units of seconds. """
@@ -153,8 +146,6 @@ class TimeCoordArray:
     the effects of missing data.
     """
 
-    type: Attr[str] = "time"
-    """ Coordinate type. Should be ``"time"``. """
     units: Attr[list[str]] = ("s",)
     """ Units to associate with axis"""
     scale: Attr[str] = "tai"
@@ -163,6 +154,36 @@ class TimeCoordArray:
     """ Astropy format, see :py:class:`TimeArray`"""
     long_name: Optional[Attr[str]] = "Observation Time"
     """ Long-form name to use for axis"""
+
+
+@xarray_dataarray_schema
+class TimeCoordArray(TimeCoordArrayBase):
+    """Data model of visibility time axis. See also :py:class:`TimeArray`."""
+
+    data: Data[Time, float]
+    """
+    Time, expressed in seconds since the epoch (see ``scale`` &
+    ``format``), see also see :py:class:`TimeArray`.
+    """
+
+    type: Attr[str] = "time"
+    """ Coordinate type. Should be ``"time"``. """
+
+
+@xarray_dataarray_schema
+class TimeCalCoordArray(TimeCoordArrayBase):
+    """Data model of 'time_cal' axis (time axis in system_calibration_xds
+    when not interpolated to the main time axis. See also
+    :py:class:`TimeCoordArray`."""
+
+    data: Data[TimeCal, float]
+    """
+    Time, expressed in seconds since the epoch (see ``scale`` &
+    ``format``).
+    """
+
+    type: Attr[str] = "time_cal"
+    """ Coordinate type. Should be ``"time_cal"``. """
 
 
 @xarray_dataset_schema
@@ -949,38 +970,88 @@ class SystemCalibrationXds:
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
     """ Antenna identifier """
-    time: Coordof[TimeCoordArray]
-    """ Midpoint of time for which this set of parameters is accurate """
-    receptor_id: Optional[Coord[ReceptorId, numpy.float64]] = None
+    receptor_label: Optional[Coord[ReceptorLabel, numpy.int64]]
     """  """
-    frequency: Optional[Coordof[FrequencyArray]] = None
+    time_cal: Optional[Coordof[TimeCalCoordArray]] = None
+    time: Optional[Coordof[TimeCoordArray]] = None
+    """ Midpoint of time for which this set of parameters is accurate. Labeled 'time_cal' when not interpolating to main time axis, or 'time' otherwise """
+    # frequency: Optional[Coordof[FrequencyArray]] = None
+    frequency: Optional[Coord[Frequency, numpy.int64]] = None
     """  """
 
     # Data variables (all optional)
-    PHASE_DIFFERENCE: Optional[Data[tuple[Time, AntennaName], numpy.float64]] = None
+    PHASE_DIFFERENCE: Optional[Data[Union[tuple[AntennaName, TimeCal], tuple[AntennaName, Time]], numpy.float64]] = None
     """ Phase difference between receptor 0 and receptor 1 """
     TCAL: Optional[
-        Data[tuple[Time, AntennaName, ReceptorId, Frequency], QuantityArray]
+        Data[
+            Union[
+                tuple[AntennaName, TimeCal, ReceptorLabel, Frequency],
+                tuple[AntennaName, TimeCal, ReceptorLabel],
+                tuple[AntennaName, Time, ReceptorLabel, Frequency],
+                tuple[AntennaName, Time, ReceptorLabel],
+            ],
+            QuantityArray,
+        ]
     ] = None
     """ Calibration temp """
     TRX: Optional[
-        Data[tuple[Time, AntennaName, ReceptorId, Frequency], QuantityArray]
+        Data[
+            Union[
+                tuple[AntennaName, TimeCal, ReceptorLabel, Frequency],
+                tuple[AntennaName, TimeCal, ReceptorLabel],
+                tuple[AntennaName, Time, ReceptorLabel, Frequency],
+                tuple[AntennaName, Time, ReceptorLabel],
+            ],
+            QuantityArray,
+        ]
     ] = None
     """ Receiver temperature """
     TSKY: Optional[
-        Data[tuple[Time, AntennaName, ReceptorId, Frequency], QuantityArray]
+        Data[
+            Union[
+                tuple[AntennaName, TimeCal, ReceptorLabel, Frequency],
+                tuple[AntennaName, TimeCal, ReceptorLabel],
+                tuple[AntennaName, Time, ReceptorLabel, Frequency],
+                tuple[AntennaName, Time, ReceptorLabel],
+            ],
+            QuantityArray,
+        ]
     ] = None
     """ Sky temperature """
     TSYS: Optional[
-        Data[tuple[Time, AntennaName, ReceptorId, Frequency], QuantityArray]
+        Data[
+            Union[
+                tuple[AntennaName, TimeCal, ReceptorLabel, Frequency],
+                tuple[AntennaName, TimeCal, ReceptorLabel],
+                tuple[AntennaName, Time, ReceptorLabel, Frequency],
+                tuple[AntennaName, Time, ReceptorLabel],
+            ],
+            QuantityArray,
+        ]
     ] = None
     """ System temperature """
     TANT: Optional[
-        Data[tuple[Time, AntennaName, ReceptorId, Frequency], QuantityArray]
+        Data[
+            Union[
+                tuple[AntennaName, TimeCal, ReceptorLabel, Frequency],
+                tuple[AntennaName, TimeCal, ReceptorLabel],
+                tuple[AntennaName, Time, ReceptorLabel, Frequency],
+                tuple[AntennaName, Time, ReceptorLabel],
+            ],
+            QuantityArray,
+        ]
     ] = None
     """ Antenna temperature """
     TANT_SYS: Optional[
-        Data[tuple[Time, AntennaName, ReceptorId, Frequency], QuantityArray]
+        Data[
+            Union[
+                tuple[AntennaName, TimeCal, ReceptorLabel, Frequency],
+                tuple[AntennaName, TimeCal, ReceptorLabel],
+                tuple[AntennaName, Time, ReceptorLabel, Frequency],
+                tuple[AntennaName, Time, ReceptorLabel],
+            ],
+            QuantityArray,
+        ]
     ] = None
     """ TANT/TSYS """
 

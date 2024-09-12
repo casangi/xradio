@@ -964,7 +964,7 @@ def convert_and_write_partition(
             # assert len(col_unique) == 1, col_name + " is not consistent."
             # return col_unique[0]
 
-            field_and_source_xds, source_id, num_lines = create_field_and_source_xds(
+            field_and_source_xds, source_id, _num_lines = create_field_and_source_xds(
                 in_file,
                 field_id,
                 xds.frequency.attrs["spectral_window_id"],
@@ -989,7 +989,6 @@ def convert_and_write_partition(
             partition_info_misc_fields = {
                 "scan_id": scan_id,
                 "obs_mode": obs_mode,
-                "num_lines": num_lines,
                 "taql_where": taql_where,
             }
             info_dicts = create_info_dicts(

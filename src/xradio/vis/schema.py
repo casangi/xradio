@@ -357,14 +357,13 @@ class PartitionInfoDict:
     spectral_window_name: str
     # field_id: missing / probably remove for good?
     field_name: list[str]
-    # source_id: mising / remove for good?
-    line_name: list[str]
+    polarization_setup: list[str]
     scan_number: list[int]
     source_name: list[str]
-    polarization_setup: list[str]
-    num_lines: int
+    # source_id: mising / remove for good?
     obs_mode: list[str]
     taql: Optional[str]
+    line_name: list[str]
 
 
 @dict_schema

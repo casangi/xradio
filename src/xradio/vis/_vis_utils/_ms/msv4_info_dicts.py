@@ -33,7 +33,7 @@ def create_info_dicts(
     partition_info_misc_fiels: dict
        dict with several scalar fields for the partition_info dict that are
        collected while processing the main MSv4 table. Expected: scan_id,
-       obs_mode, num_lines, taql_where
+       obs_mode, taql_where
     tb_tool: tables.table
        table (query) on the main table with an MSv4 query
 
@@ -54,14 +54,13 @@ def create_info_dicts(
         "spectral_window_name": xds.frequency.attrs["spectral_window_name"],
         # "field_id": to_list(unique_1d(field_id)),
         "field_name": to_list(np.unique(field_and_source_xds.field_name.values)),
-        # "source_id": to_list(unique_1d(source_id)),
-        "line_name": line_name,
+        "polarization_setup": to_list(xds.polarization.values),
         "scan_number": to_list(np.unique(partition_info_misc_fields["scan_id"])),
         "source_name": to_list(np.unique(field_and_source_xds.source_name.values)),
-        "polarization_setup": to_list(xds.polarization.values),
-        "num_lines": partition_info_misc_fields["num_lines"],
+        # "source_id": to_list(unique_1d(source_id)),
         "obs_mode": partition_info_misc_fields["obs_mode"].split(","),
         "taql": partition_info_misc_fields["taql_where"],
+        "line_name": line_name,
     }
 
     observation_id = check_if_consistent(

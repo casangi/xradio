@@ -306,6 +306,61 @@ def create_pointing_xds(
     return pointing_xds
 
 
+def prepare_generic_sys_cal_xds(generic_sys_cal_xds: xr.Dataset) -> xr.Dataset:
+    """
+    A generic_sys_cal_xds loaded with load_generic_table() cannot be easily
+    used in convert_generic_xds_to_xradio_schema() to produce an MSv4
+    sys_cal_xds dataset, as their structure differs in dimensions and order
+    of dimensions.
+    This function performs various prepareation steps, such as:
+    - filter out dimensions not neeed for an individual MSv4 (SPW, FEED),
+    - drop variables loaded from columns with all items set to empty array,
+    - transpose the dimensions frequency,receptor,
+    - fix dimension names when needed.
+
+    Parameters
+    ----------
+    generic_sys_cal_xds : xr.Dataset
+        generic dataset read from an MSv2 SYSCAL subtable
+
+    Returns
+    -------
+    generic_sys_cal_xds: xr.Dataset
+        System calibration Xarray Dataset prepared for generic conversion
+        to MSv4.
+    """
+
+    # drop SPW and feed dims
+    generic_sys_cal_xds = generic_sys_cal_xds.isel(SPECTRAL_WINDOW_ID=0, drop=True)
+    generic_sys_cal_xds = generic_sys_cal_xds.isel(FEED_ID=0, drop=True)
+
+    # Often some of the T*_SPECTRUM are present but all the cells are populated
+    # with empty arrays
+    empty_arrays_vars = []
+    for data_var in generic_sys_cal_xds.data_vars:
+        if generic_sys_cal_xds[data_var].size == 0:
+            empty_arrays_vars.append(data_var)
+    if empty_arrays_vars:
+        generic_sys_cal_xds = generic_sys_cal_xds.drop_vars(empty_arrays_vars)
+
+    # Re-arrange receptor and frequency dims depending on input structure
+    if (
+        "receptor" in generic_sys_cal_xds.sizes
+        and "frequency" in generic_sys_cal_xds.sizes
+    ):
+        # From MSv2 tables we get (...,frequency, receptor)
+        #  -> transpose to (...,receptor,frequency) ready for MSv4 sys_cal_xds
+        generic_sys_cal_xds = generic_sys_cal_xds.transpose(
+            "ANTENNA_ID", "TIME", "receptor", "frequency"
+        )
+    else:
+        # because order is (...,frequency,receptor), when frequency is missing
+        # receptor can get wrongly labeled as frequency
+        generic_sys_cal_xds = generic_sys_cal_xds.rename_dims({"frequency": "receptor"})
+
+    return generic_sys_cal_xds
+
+
 def create_system_calibration_xds(
     in_file: str,
     spectral_window_id: int,
@@ -349,40 +404,11 @@ def create_system_calibration_xds(
         # even though SYSCAL is an optional subtable, some write it empty
         return None
 
-    # drop SPW and feed dims
-    generic_sys_cal_xds = generic_sys_cal_xds.isel(SPECTRAL_WINDOW_ID=0, drop=True)
-    generic_sys_cal_xds = generic_sys_cal_xds.isel(FEED_ID=0, drop=True)
-
-    # Often some of the T*_SPECTRUM are present but all the cells are populated
-    # with empty arrays
-    empty_arrays_vars = []
-    for data_var in generic_sys_cal_xds.data_vars:
-        if generic_sys_cal_xds[data_var].size == 0:
-            empty_arrays_vars.append(data_var)
-    if empty_arrays_vars:
-        generic_sys_cal_xds = generic_sys_cal_xds.drop_vars(empty_arrays_vars)
-
-    # Re-arrange receptor and frequency dims depending on input structure
-    if (
-        "receptor" in generic_sys_cal_xds.sizes
-        and "frequency" in generic_sys_cal_xds.sizes
-    ):
-        # From MSv2 tables we get (...,frequency, receptor)
-        #  -> transpose to (...,receptor,frequency) ready for MSv4 sys_cal_xds
-        generic_sys_cal_xds = generic_sys_cal_xds.transpose(
-            "ANTENNA_ID", "TIME", "receptor", "frequency"
-        )
-    else:
-        # because order is (...,frequency,receptor), when frequency is missing
-        # receptor can get wrongly labeled as frequency
-        generic_sys_cal_xds = generic_sys_cal_xds.rename_dims({"frequency": "receptor"})
+    generic_sys_cal_xds = prepare_generic_sys_cal_xds(generic_sys_cal_xds)
 
     mandatory_dimensions = ["antenna_name", "time_cal", "receptor_label"]
     if "frequency" not in generic_sys_cal_xds.sizes:
         dims_all = mandatory_dimensions
-    # elif generic_sys_cal_xds.sizes["frequency"] == 1:
-    #     generic_sys_cal_xds = generic_sys_cal_xds.isel(frequency=0, drop=True)
-    #     dims_all = mandatory_dimensions
     else:
         dims_all = mandatory_dimensions + ["frequency"]
 
@@ -421,7 +447,10 @@ def create_system_calibration_xds(
 
     if sys_cal_interp_time is not None:
         sys_cal_xds = interpolate_to_time(
-            sys_cal_xds, sys_cal_interp_time, "", time_name="time_cal"
+            sys_cal_xds,
+            sys_cal_interp_time,
+            "system_calibration_xds",
+            time_name="time_cal",
         )
 
         time_coord_attrs = {

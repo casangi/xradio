@@ -148,9 +148,9 @@ as frequencies or timestamps.
 
    .. xradio_array_schema_table:: xradio.vis.schema.BaselineArray
 
-.. autoclass:: xradio.vis.schema.BaselineAntennaArray()
+.. autoclass:: xradio.vis.schema.BaselineAntennaNameArray()
 
-   .. xradio_array_schema_table:: xradio.vis.schema.BaselineAntennaArray
+   .. xradio_array_schema_table:: xradio.vis.schema.BaselineAntennaNameArray
 
 .. autoclass:: xradio.vis.schema.FrequencyArray()
 

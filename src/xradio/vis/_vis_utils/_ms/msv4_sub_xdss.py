@@ -304,3 +304,141 @@ def create_pointing_xds(
     logger.debug(f"create_pointing_xds() execution time {time.time() - start:0.2f} s")
 
     return pointing_xds
+
+
+def create_system_calibration_xds(
+    in_file: str,
+    spectral_window_id: int,
+    ant_xds_name_ids: xr.DataArray,
+    sys_cal_interp_time: Union[xr.DataArray, None] = None,
+):
+    """
+    Creates a system calibration Xarray Dataset from a MSv2 SYSCAL table.
+
+    Parameters
+    ----------
+    in_file: str
+        Input MS name.
+    spectral_window_id: int
+        SPW ID of this MSv4
+    ant_xds_name_ids : xr.Dataset
+        antenna_name data array from antenna_xds, with name/id information
+    sys_cal_interp_time: Union[xr.DataArray, None] = None,
+        Time axis to interpolate the data vars to (usually main MSv4 time)
+
+    Returns
+    -------
+    sys_cal_xds: xr.Dataset
+        System calibration Xarray Dataset.
+    """
+
+    try:
+        generic_sys_cal_xds = load_generic_table(
+            in_file,
+            "SYSCAL",
+            rename_ids=subt_rename_ids["SYSCAL"],
+            taql_where=(
+                f" where (SPECTRAL_WINDOW_ID = {spectral_window_id})"
+                f" AND (ANTENNA_ID IN [{','.join(map(str, ant_xds_name_ids.antenna_id.values))}])"
+            ),
+        )
+    except ValueError as _exc:
+        return None
+
+    if not generic_sys_cal_xds.data_vars:
+        # even though SYSCAL is an optional subtable, some write it empty
+        return None
+
+    # drop SPW and feed dims
+    generic_sys_cal_xds = generic_sys_cal_xds.isel(SPECTRAL_WINDOW_ID=0, drop=True)
+    generic_sys_cal_xds = generic_sys_cal_xds.isel(FEED_ID=0, drop=True)
+
+    # Often some of the T*_SPECTRUM are present but all the cells are populated
+    # with empty arrays
+    empty_arrays_vars = []
+    for data_var in generic_sys_cal_xds.data_vars:
+        if generic_sys_cal_xds[data_var].size == 0:
+            empty_arrays_vars.append(data_var)
+    if empty_arrays_vars:
+        generic_sys_cal_xds = generic_sys_cal_xds.drop_vars(empty_arrays_vars)
+
+    # Re-arrange receptor and frequency dims depending on input structure
+    if (
+        "receptor" in generic_sys_cal_xds.sizes
+        and "frequency" in generic_sys_cal_xds.sizes
+    ):
+        # From MSv2 tables we get (...,frequency, receptor)
+        #  -> transpose to (...,receptor,frequency) ready for MSv4 sys_cal_xds
+        generic_sys_cal_xds = generic_sys_cal_xds.transpose(
+            "ANTENNA_ID", "TIME", "receptor", "frequency"
+        )
+    else:
+        # because order is (...,frequency,receptor), when frequency is missing
+        # receptor can get wrongly labeled as frequency
+        generic_sys_cal_xds = generic_sys_cal_xds.rename_dims({"frequency": "receptor"})
+
+    mandatory_dimensions = ["antenna_name", "time_cal", "receptor_label"]
+    if "frequency" not in generic_sys_cal_xds.sizes:
+        dims_all = mandatory_dimensions
+    # elif generic_sys_cal_xds.sizes["frequency"] == 1:
+    #     generic_sys_cal_xds = generic_sys_cal_xds.isel(frequency=0, drop=True)
+    #     dims_all = mandatory_dimensions
+    else:
+        dims_all = mandatory_dimensions + ["frequency"]
+
+    to_new_data_variables = {
+        "PHASE_DIFF": ["PHASE_DIFFERENCE", ["antenna_name", "time_cal"]],
+        "TCAL": ["TCAL", dims_all],
+        "TCAL_SPECTRUM": ["TCAL", dims_all],
+        "TRX": ["TRX", dims_all],
+        "TRX_SPECTRUM": ["TRX", dims_all],
+        "TSKY": ["TSKY", dims_all],
+        "TSKY_SPECTRUM": ["TSKY", dims_all],
+        "TSYS": ["TSYS", dims_all],
+        "TSYS_SPECTRUM": ["TSYS", dims_all],
+        "TANT": ["TANT", dims_all],
+        "TANT_SPECTRUM": ["TANT", dims_all],
+        "TAN_TSYS": ["TAN_TSYS", dims_all],
+        "TANT_SYS_SPECTRUM": ["TANT_TSYS", dims_all],
+    }
+
+    to_new_coords = {
+        "TIME": ["time_cal", ["time_cal"]],
+        "receptor": ["receptor_label", ["receptor_label"]],
+        "frequency": ["frequency", ["frequency"]],
+    }
+
+    sys_cal_xds = xr.Dataset(attrs={"type": "sys_cal"})
+    coords = {
+        "antenna_name": ant_xds_name_ids.sel(
+            antenna_id=generic_sys_cal_xds["ANTENNA_ID"]
+        ).data
+    }
+    sys_cal_xds = sys_cal_xds.assign_coords(coords)
+    sys_cal_xds = convert_generic_xds_to_xradio_schema(
+        generic_sys_cal_xds, sys_cal_xds, to_new_data_variables, to_new_coords
+    )
+
+    if sys_cal_interp_time is not None:
+        sys_cal_xds = interpolate_to_time(
+            sys_cal_xds, sys_cal_interp_time, "", time_name="time_cal"
+        )
+
+        time_coord_attrs = {
+            "type": "time",
+            "units": ["s"],
+            "scale": "UTC",
+            "format": "UNIX",
+        }
+        # If interpolating time, rename time_cal => time
+        time_coord = {"time": ("time_cal", sys_cal_interp_time.data)}
+        sys_cal_xds = sys_cal_xds.assign_coords(time_coord)
+        sys_cal_xds.coords["time"].attrs.update(time_coord_attrs)
+        sys_cal_xds = sys_cal_xds.swap_dims({"time_cal": "time"}).drop_vars("time_cal")
+
+    # correct expected types
+    for data_var in sys_cal_xds:
+        if sys_cal_xds.data_vars[data_var].dtype != np.float64:
+            sys_cal_xds[data_var] = sys_cal_xds[data_var].astype(np.float64)
+
+    return sys_cal_xds

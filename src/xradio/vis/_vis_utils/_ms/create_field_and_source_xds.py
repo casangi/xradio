@@ -210,7 +210,7 @@ def extract_ephemeris_info(
                 ephemeris_xds["Rho"].data,
             )
         ),
-        dims=["time_ephemeris_axis", "sky_pos_label"],
+        dims=["time_ephemeris", "sky_pos_label"],
     )
     # Have to use cast_to_str because the ephemeris table units are not consistently in a list or a string.
     sky_coord_units = [
@@ -227,16 +227,17 @@ def extract_ephemeris_info(
     # Metadata has to be fixed manually. Alternatively, issues like
     # UNIT/QuantumUnits issue could be handled in convert_generic_xds_to_xradio_schema,
     # but for now preferring not to pollute that function.
+    time_ephemeris_dim = ["time_ephemeris"]
     to_new_data_variables = {
         # mandatory: SOURCE_RADIAL_VELOCITY
-        "RadVel": ["SOURCE_RADIAL_VELOCITY", ["time_ephemeris_axis"]],
+        "RadVel": ["SOURCE_RADIAL_VELOCITY", time_ephemeris_dim],
         # optional: data NORTH_POLE_POSITION_ANGLE and NORTH_POLE_ANGULAR_DISTANCE
-        "NP_ang": ["NORTH_POLE_POSITION_ANGLE", ["time_ephemeris_axis"]],
-        "NP_dist": ["NORTH_POLE_ANGULAR_DISTANCE", ["time_ephemeris_axis"]],
+        "NP_ang": ["NORTH_POLE_POSITION_ANGLE", time_ephemeris_dim],
+        "NP_dist": ["NORTH_POLE_ANGULAR_DISTANCE", time_ephemeris_dim],
         # optional: HELIOCENTRIC_RADIAL_VELOCITY
-        "rdot": ["HELIOCENTRIC_RADIAL_VELOCITY", ["time_ephemeris_axis"]],
+        "rdot": ["HELIOCENTRIC_RADIAL_VELOCITY", time_ephemeris_dim],
         # optional: OBSERVER_PHASE_ANGLE
-        "phang": ["OBSERVER_PHASE_ANGLE", ["time_ephemeris_axis"]],
+        "phang": ["OBSERVER_PHASE_ANGLE", time_ephemeris_dim],
     }
     convert_generic_xds_to_xradio_schema(
         ephemeris_xds, temp_xds, to_new_data_variables, {}
@@ -276,7 +277,7 @@ def extract_ephemeris_info(
                     np.zeros(ephemeris_xds[key_lon].shape),
                 )
             ),
-            dims=["time_ephemeris_axis", "ellipsoid_pos_label"],
+            dims=["time_ephemeris", "ellipsoid_pos_label"],
         )
 
         temp_xds["SUB_OBSERVER_DIRECTION"].attrs.update(
@@ -306,7 +307,7 @@ def extract_ephemeris_info(
                     ephemeris_xds["r"].data,
                 )
             ),
-            dims=["time_ephemeris_axis", "ellipsoid_pos_label"],
+            dims=["time_ephemeris", "ellipsoid_pos_label"],
         )
         temp_xds["SUB_SOLAR_POSITION"].attrs.update(
             {
@@ -328,10 +329,10 @@ def extract_ephemeris_info(
             }
         )
 
-    # We are using the "time_ephemeris_axis" label because it might not match the optional time axis of the source and field info. If ephemeris_interpolate=True then rename it to time.
+    # We are using the "time_ephemeris" label because it might not match the optional time axis of the source and field info. If ephemeris_interpolate=True then rename it to time.
     coords = {
         "ellipsoid_pos_label": ["lon", "lat", "dist"],
-        "time_ephemeris_axis": ephemeris_xds["time"].data,
+        "time_ephemeris": ephemeris_xds["time"].data,
         "sky_pos_label": ["ra", "dec", "dist"],
     }
     temp_xds = temp_xds.assign_coords(coords)
@@ -341,21 +342,21 @@ def extract_ephemeris_info(
         "scale": "UTC",
         "format": "UNIX",
     }
-    temp_xds["time_ephemeris_axis"].attrs.update(time_coord_attrs)
+    temp_xds["time_ephemeris"].attrs.update(time_coord_attrs)
 
     # Convert to si units and interpolate if ephemeris_interpolate=True:
     temp_xds = convert_to_si_units(temp_xds)
     temp_xds = interpolate_to_time(
-        temp_xds, interp_time, "field_and_source_xds", time_name="time_ephemeris_axis"
+        temp_xds, interp_time, "field_and_source_xds", time_name="time_ephemeris"
     )
 
-    # If we interpolate rename the time_ephemeris_axis axis to time.
+    # If we interpolate rename the time_ephemeris axis to time.
     if interp_time is not None:
-        time_coord = {"time": ("time_ephemeris_axis", interp_time.data)}
+        time_coord = {"time": ("time_ephemeris", interp_time.data)}
         temp_xds = temp_xds.assign_coords(time_coord)
         temp_xds.coords["time"].attrs.update(time_coord_attrs)
-        temp_xds = temp_xds.swap_dims({"time_ephemeris_axis": "time"}).drop_vars(
-            "time_ephemeris_axis"
+        temp_xds = temp_xds.swap_dims({"time_ephemeris": "time"}).drop_vars(
+            "time_ephemeris"
         )
 
     xds = xr.merge([xds, temp_xds])

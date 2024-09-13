@@ -877,7 +877,7 @@ class AntennaXds:
     "ALT-AZ+NASMYTH-L:: Nasmyth mount with receivers at the left-hand side of the cabin.
     ”X-Y” - x-y mount;
     ”SPACE-HALCA” - specific orientation model."""
-    telescope_name: Optional[Coord[AntennaName, str]]
+    telescope_name: Coord[AntennaName, str]
     """ Useful when data is combined from mutiple arrays for example ACA + ALMA. """
     # TODO: receptor_label, polarization_type, sky_dir_label set as optional
     # for datasets like test_alma_ephemris_mosaic. See also BEAM_OFFSET below.
@@ -893,12 +893,6 @@ class AntennaXds:
     """ (lon, lat, dist) - either cartesian or ellipsoid"""
     sky_dir_label: Optional[Coord[SkyDirLabel, str]]
     """ ra, dec """
-    time: Optional[Coordof[TimeCoordArray]]
-    """ Time for VLBI phase cal"""
-    time_phase_cal: Optional[Coord[TimePhaseCal, numpy.float64]]
-    """ Time for VLBI phase cal"""
-    tone_label: Optional[Coord[ToneLabel, str]]
-    """ ? """
 
     # Data variables
     ANTENNA_POSITION: Data[
@@ -945,7 +939,100 @@ class AntennaXds:
     Focus length. As defined along the optical axis of the antenna.
     """
 
+    # Attributes
+    overall_telescope_name: Optional[Attr[str]]
+    """
+    The name of the collection of arrays and dishes that were used for the observation.
+    In many instances this will only be a single array or dish. An example of a
+    telescope consistening of mutiple arrays and dishes is the EHT. The coordinate
+    telescope_name will give the names of the constituent arrays and dishes. From
+    MSv2 observation table.
+    """
+    relocatable_antennas: Optional[Attr[bool]]
+    """ Can the antennas be moved (ALMA, VLA, NOEMA) """
+    type: Attr[str] = "antenna"
+    """
+    Type of dataset. Expected to be ``antenna``
+    """
+
+
+@xarray_dataset_schema
+class GainCurveXds:
+
+    # Coordinates
+    antenna_name: Coordof[AntennaNameArray]
+    """ Antenna name """
+    station: Coord[AntennaName, str]
+    """ Name of the station pad (relevant to arrays with moving antennas). """
+    mount: Coord[AntennaName, str]
+    """ Mount type of the antenna. Reserved keywords include: ”EQUATORIAL” - equatorial mount;
+    ”ALT-AZ” - azimuth-elevation mount;
+    "ALT-AZ+ROTATOR"  alt-az mount with feed rotator; introduced for ASKAP dishes;
+    "ALT-AZ+NASMYTH-R": Nasmyth mount with receivers at the right-hand side of the cabin. Many high-frequency antennas used for VLBI have such a mount typel;
+    "ALT-AZ+NASMYTH-L:: Nasmyth mount with receivers at the left-hand side of the cabin.
+    ”X-Y” - x-y mount;
+    ”SPACE-HALCA” - specific orientation model."""
+    telescope_name: Coord[AntennaName, str]
+    """ Useful when data is combined from mutiple arrays for example ACA + ALMA. """
+    # TODO: receptor_label, polarization_type, sky_dir_label set as optional
+    # for datasets like test_alma_ephemris_mosaic. See also BEAM_OFFSET below.
+    receptor_label: Coord[ReceptorLabel, str]
+    """ Names of receptors """
+    polarization_type: Optional[Coord[tuple[AntennaName, ReceptorLabel], str]]
+    """ Polarization type to which each receptor responds (e.g. ”R”,”L”,”X” or ”Y”).
+    This is the receptor polarization type as recorded in the final correlated data (e.g. ”RR”); i.e.
+    as measured after all polarization combiners. ['X','Y'], ['R','L'] """
+    gain_curve_type: Optional[Coord[AntennaName, str]]
+    """ ? """
+
+    GAIN_CURVE_SENSITIVITY: Data[tuple[AntennaName, ReceptorLabel], numpy.float32]
+    """ VLBI. ? """
+    GAIN_CURVE: Optional[
+        Data[tuple[AntennaName, ReceptorLabel, PolyTerm], numpy.float32]
+    ]
     """ VLBI. ?  """
+    GAIN_CURVE_INTERVAL: Optional[Data[tuple[AntennaName], QuantityArray]]
+    """ VLBI. ?  """
+
+    type: Attr[str] = "gain_curve"
+    """
+    Type of dataset. Expected to be ``gain_curve``
+    """
+
+
+@xarray_dataset_schema
+class PhaseCalibrationXds:
+
+    # Coordinates
+    antenna_name: Coordof[AntennaNameArray]
+    """ Antenna name """
+    station: Coord[AntennaName, str]
+    """ Name of the station pad (relevant to arrays with moving antennas). """
+    mount: Coord[AntennaName, str]
+    """ Mount type of the antenna. Reserved keywords include: ”EQUATORIAL” - equatorial mount;
+    ”ALT-AZ” - azimuth-elevation mount;
+    "ALT-AZ+ROTATOR"  alt-az mount with feed rotator; introduced for ASKAP dishes;
+    "ALT-AZ+NASMYTH-R": Nasmyth mount with receivers at the right-hand side of the cabin. Many high-frequency antennas used for VLBI have such a mount typel;
+    "ALT-AZ+NASMYTH-L:: Nasmyth mount with receivers at the left-hand side of the cabin.
+    ”X-Y” - x-y mount;
+    ”SPACE-HALCA” - specific orientation model."""
+    telescope_name: Coord[AntennaName, str]
+    """ Useful when data is combined from mutiple arrays for example ACA + ALMA. """
+    # TODO: receptor_label, polarization_type, sky_dir_label set as optional
+    # for datasets like test_alma_ephemris_mosaic. See also BEAM_OFFSET below.
+    receptor_label: Optional[Coord[ReceptorLabel, str]]
+    """ Names of receptors """
+    polarization_type: Optional[Coord[tuple[AntennaName, ReceptorLabel], str]]
+    """ Polarization type to which each receptor responds (e.g. ”R”,”L”,”X” or ”Y”).
+    This is the receptor polarization type as recorded in the final correlated data (e.g. ”RR”); i.e.
+    as measured after all polarization combiners. ['X','Y'], ['R','L'] """
+    time: Optional[Coordof[TimeCoordArray]]
+    """ Time for VLBI phase cal"""
+    time_phase_cal: Optional[Coord[TimePhaseCal, numpy.float64]]
+    """ Time for VLBI phase cal"""
+    tone_label: Optional[Coord[ToneLabel, str]]
+    """ ? """
+
     PHASE_CAL: Optional[
         Data[
             Union[
@@ -981,73 +1068,9 @@ class AntennaXds:
     ]
     """ VLBI. ?  """
 
-    # Attributes
-    overall_telescope_name: Optional[Attr[str]]
+    type: Attr[str] = "phase_calibration"
     """
-    The name of the collection of arrays and dishes that were used for the observation.
-    In many instances this will only be a single array or dish. An example of a
-    telescope consistening of mutiple arrays and dishes is the EHT. The coordinate
-    telescope_name will give the names of the constituent arrays and dishes. From
-    MSv2 observation table.
-    """
-    relocatable_antennas: Optional[Attr[bool]]
-    """ Can the antennas be moved (ALMA, VLA, NOEMA) """
-    type: Attr[str] = "antenna"
-    """
-    Type of dataset. Expected to be ``antenna``
-    """
-
-
-@xarray_dataset_schema
-class GainCurveXds:
-
-    # Coordinates
-    antenna_name: Coordof[AntennaNameArray]
-    """ Antenna name """
-    station: Coord[AntennaName, str]
-    """ Name of the station pad (relevant to arrays with moving antennas). """
-    mount: Coord[AntennaName, str]
-    """ Mount type of the antenna. Reserved keywords include: ”EQUATORIAL” - equatorial mount;
-    ”ALT-AZ” - azimuth-elevation mount;
-    "ALT-AZ+ROTATOR"  alt-az mount with feed rotator; introduced for ASKAP dishes;
-    "ALT-AZ+NASMYTH-R": Nasmyth mount with receivers at the right-hand side of the cabin. Many high-frequency antennas used for VLBI have such a mount typel;
-    "ALT-AZ+NASMYTH-L:: Nasmyth mount with receivers at the left-hand side of the cabin.
-    ”X-Y” - x-y mount;
-    ”SPACE-HALCA” - specific orientation model."""
-    telescope_name: Optional[Coord[AntennaName, str]]
-    """ Useful when data is combined from mutiple arrays for example ACA + ALMA. """
-    # TODO: receptor_label, polarization_type, sky_dir_label set as optional
-    # for datasets like test_alma_ephemris_mosaic. See also BEAM_OFFSET below.
-    receptor_label: Optional[Coord[ReceptorLabel, str]]
-    """ Names of receptors """
-    polarization_type: Optional[Coord[tuple[AntennaName, ReceptorLabel], str]]
-    """ Polarization type to which each receptor responds (e.g. ”R”,”L”,”X” or ”Y”).
-    This is the receptor polarization type as recorded in the final correlated data (e.g. ”RR”); i.e.
-    as measured after all polarization combiners. ['X','Y'], ['R','L'] """
-    cartesian_pos_label: Optional[Coord[CartesianPosLabel, str]]
-    """ (x,y,z) - either cartesian or ellipsoid """
-    ellipsoid_pos_label: Optional[Coord[EllipsoidPosLabel, str]]
-    """ (lon, lat, dist) - either cartesian or ellipsoid"""
-    sky_dir_label: Optional[Coord[SkyDirLabel, str]]
-    """ ra, dec """
-    """ Time for VLBI phase cal"""
-    tone_label: Optional[Coord[ToneLabel, str]]
-    """ ? """
-    gain_curve_type: Optional[Coord[AntennaName, str]]
-    """ ? """
-
-    GAIN_CURVE_SENSITIVITY: Data[tuple[AntennaName, ReceptorLabel], numpy.float32]
-    """ VLBI. ? """
-    GAIN_CURVE: Optional[
-        Data[tuple[AntennaName, ReceptorLabel, PolyTerm], numpy.float32]
-    ]
-    """ VLBI. ?  """
-    GAIN_CURVE_INTERVAL: Optional[Data[tuple[AntennaName], QuantityArray]]
-    """ VLBI. ?  """
-
-    type: Attr[str] = "gain_curve"
-    """
-    Type of dataset. Expected to be ``gain_curve``
+    Type of dataset. Expected to be ``phase_calibration``
     """
 
 

@@ -370,10 +370,6 @@ def create_gain_curve_xds(
     }
     gain_curve_xds = gain_curve_xds.assign_coords(ant_borrowed_coords)
 
-    gain_curve_xds["GAIN_CURVE"] = gain_curve_xds["GAIN_CURVE"].transpose(
-        "antenna_name", "receptor_label", "poly_term"
-    )
-
     return gain_curve_xds
 
 

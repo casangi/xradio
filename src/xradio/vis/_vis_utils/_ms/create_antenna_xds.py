@@ -439,29 +439,44 @@ def create_phase_calibration_xds(
     phase_cal_xds = convert_generic_xds_to_xradio_schema(
         generic_phase_cal_xds, phase_cal_xds, to_new_data_variables, to_new_coords
     )
-    phase_cal_xds["PHASE_CAL"] = phase_cal_xds["PHASE_CAL"].transpose(
-        "antenna_name", "time_phase_cal", "receptor_label", "tone_label"
-    )
 
-    phase_cal_xds["PHASE_CAL_TONE_FREQUENCY"] = phase_cal_xds[
-        "PHASE_CAL_TONE_FREQUENCY"
-    ].transpose("antenna_name", "time_phase_cal", "receptor_label", "tone_label")
+    if "PHASE_CAL" in phase_cal_xds.data_vars:
+        phase_cal_xds["PHASE_CAL"] = phase_cal_xds["PHASE_CAL"].transpose(
+            "antenna_name", "time_phase_cal", "receptor_label", "tone_label"
+        )
+    if "PHASE_CAL_TONE_FREQUENCY" in phase_cal_xds.data_vars:
+        phase_cal_xds["PHASE_CAL_TONE_FREQUENCY"] = phase_cal_xds[
+            "PHASE_CAL_TONE_FREQUENCY"
+        ].transpose("antenna_name", "time_phase_cal", "receptor_label", "tone_label")
 
+    ant_borrowed_coords = {
+        "antenna_name": ant_xds.coords["antenna_name"],
+        "station": ant_xds.coords["station"],
+        "mount": ant_xds.coords["mount"],
+        "telescope_name": ant_xds.coords["telescope_name"],
+    }
+    if "receptor_label" in phase_cal_xds.dims:
+        ant_borrowed_coords.update(
+            {
+                "receptor_label": ant_xds.coords["receptor_label"],
+                "polarization_type": ant_xds.coords["polarization_type"],
+            }
+        )
     # phase_cal_xds = phase_cal_xds.assign_coords({"tone_label" : "freq_" + np.arange(phase_cal_xds.sizes["tone_label"]).astype(str)}) #Works on laptop but fails in github test runner.
-    phase_cal_xds = phase_cal_xds.assign_coords(
-        {
-            "tone_label": np.array(
-                list(
-                    map(
-                        lambda x, y: x + "_" + y,
-                        ["freq"] * phase_cal_xds.sizes["tone_label"],
-                        np.arange(phase_cal_xds.sizes["tone_label"]).astype(str),
-                    )
+    tone_label_coord = {
+        "tone_label": np.array(
+            list(
+                map(
+                    lambda x, y: x + "_" + y,
+                    ["freq"] * phase_cal_xds.sizes["tone_label"],
+                    np.arange(phase_cal_xds.sizes["tone_label"]).astype(str),
                 )
             )
-        }
-    )
+        )
+    }
+    phase_cal_xds = phase_cal_xds.assign_coords(ant_borrowed_coords | tone_label_coord)
 
+    # Adjust expected types
     phase_cal_xds["time_phase_cal"] = (
         phase_cal_xds.time_phase_cal.astype("float64").astype("float64") / 10**9
     )
@@ -485,8 +500,8 @@ def create_phase_calibration_xds(
         time_coord = {"time": ("time_phase_cal", phase_cal_interp_time.data)}
         phase_cal_xds = phase_cal_xds.assign_coords(time_coord)
         phase_cal_xds.coords["time"].attrs.update(time_coord_attrs)
-        phase_cal_xds = phase_cal_xds.swap_dims(
-            {"time_phase_cal": "time"}
-        ).drop_vars("time_phase_cal")
+        phase_cal_xds = phase_cal_xds.swap_dims({"time_phase_cal": "time"}).drop_vars(
+            "time_phase_cal"
+        )
 
     return phase_cal_xds

@@ -1,14 +1,15 @@
+import datetime
+import importlib
 import numcodecs
-import time
-from .._zarr.encoding import add_encoding
-from typing import Dict, Union
-import toolviper.utils.logger as logger
 import os
 import pathlib
+import time
+from typing import Dict, Union
 
 import numpy as np
 import xarray as xr
 
+import toolviper.utils.logger as logger
 from casacore import tables
 from xradio.vis._vis_utils._ms.msv4_sub_xdss import (
     create_pointing_xds,
@@ -31,6 +32,7 @@ from .msv2_to_msv4_meta import (
     col_dims,
 )
 
+from .._zarr.encoding import add_encoding
 from .subtables import subt_rename_ids
 from ._tables.table_query import open_table_ro, open_query
 from ._tables.read import (
@@ -794,7 +796,15 @@ def convert_and_write_partition(
             )
 
             start = time.time()
-            xds = xr.Dataset()
+            xds = xr.Dataset(
+                attrs={
+                    "creation_date": datetime.datetime.now().isoformat(),
+                    "xradio_version": importlib.metadata.version("xradio"),
+                    "schema_version": "4.0.-9999",
+                    "type": "visibility",
+                }
+            )
+
             # interval = check_if_consistent(tb_tool.getcol("INTERVAL"), "INTERVAL")
             interval = tb_tool.getcol("INTERVAL")
 
@@ -954,7 +964,6 @@ def convert_and_write_partition(
                 )
 
             start = time.time()
-            xds.attrs["type"] = "visibility"
 
             # Time and frequency should always be increasing
             if len(xds.frequency) > 1 and xds.frequency[1] - xds.frequency[0] < 0:

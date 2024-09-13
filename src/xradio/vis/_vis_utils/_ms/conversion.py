@@ -1,20 +1,27 @@
+import datetime
+import importlib
 import numcodecs
-import time
-from .._zarr.encoding import add_encoding
-from typing import Dict, Union
-import toolviper.utils.logger as logger
 import os
 import pathlib
+import time
+from typing import Dict, Union
 
 import numpy as np
 import xarray as xr
 
+import toolviper.utils.logger as logger
 from casacore import tables
 from xradio.vis._vis_utils._ms.msv4_sub_xdss import (
     create_pointing_xds,
+    create_system_calibration_xds,
     create_weather_xds,
 )
-from xradio.vis._vis_utils._ms.create_antenna_xds import create_antenna_xds
+from .msv4_info_dicts import create_info_dicts
+from xradio.vis._vis_utils._ms.create_antenna_xds import (
+    create_antenna_xds,
+    create_gain_curve_xds,
+    create_phase_calibration_xds,
+)
 from xradio.vis._vis_utils._ms.create_field_and_source_xds import (
     create_field_and_source_xds,
 )
@@ -25,6 +32,7 @@ from .msv2_to_msv4_meta import (
     col_dims,
 )
 
+from .._zarr.encoding import add_encoding
 from .subtables import subt_rename_ids
 from ._tables.table_query import open_table_ro, open_query
 from ._tables.read import (
@@ -693,6 +701,7 @@ def convert_and_write_partition(
     pointing_interpolate: bool = False,
     ephemeris_interpolate: bool = False,
     phase_cal_interpolate: bool = False,
+    sys_cal_interpolate: bool = False,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend="zarr",
     overwrite: bool = False,
@@ -722,6 +731,10 @@ def convert_and_write_partition(
     pointing_interpolate : bool, optional
         _description_, by default None
     ephemeris_interpolate : bool, optional
+        _description_, by default None
+    phase_cal_interpolate : bool, optional
+        _description_, by default None
+    sys_cal_interpolate : bool, optional
         _description_, by default None
     compressor : numcodecs.abc.Codec, optional
         _description_, by default numcodecs.Zstd(level=2)
@@ -783,7 +796,15 @@ def convert_and_write_partition(
             )
 
             start = time.time()
-            xds = xr.Dataset()
+            xds = xr.Dataset(
+                attrs={
+                    "creation_date": datetime.datetime.now().isoformat(),
+                    "xradio_version": importlib.metadata.version("xradio"),
+                    "schema_version": "4.0.-9999",
+                    "type": "visibility",
+                }
+            )
+
             # interval = check_if_consistent(tb_tool.getcol("INTERVAL"), "INTERVAL")
             interval = tb_tool.getcol("INTERVAL")
 
@@ -874,22 +895,51 @@ def convert_and_write_partition(
                 antenna_id,
                 feed_id,
                 telescope_name,
+            )
+
+            logger.debug("Time antenna xds  " + str(time.time() - start))
+
+            start = time.time()
+            gain_curve_xds = create_gain_curve_xds(
+                in_file, xds.frequency.attrs["spectral_window_id"], ant_xds
+            )
+            logger.debug("Time gain_curve xds  " + str(time.time() - start))
+
+            start = time.time()
+            phase_calibration_xds = create_phase_calibration_xds(
+                in_file,
+                xds.frequency.attrs["spectral_window_id"],
+                ant_xds,
                 time_min_max,
                 phase_cal_interp_time,
             )
+            logger.debug("Time phase_calibration xds  " + str(time.time() - start))
 
             # Change antenna_ids to antenna_names
             xds = antenna_ids_to_names(xds, ant_xds, is_single_dish)
+            # but before, keep the name-id arrays, we need them for the pointing and weather xds
             ant_xds_name_ids = ant_xds["antenna_name"].set_xindex("antenna_id")
-            ant_xds = ant_xds.drop_vars(
-                "antenna_id"
-            )  # No longer needed after converting to name.
+            ant_xds_station_name_ids = ant_xds["station"].set_xindex("antenna_id")
+            # No longer needed after converting to name.
+            ant_xds = ant_xds.drop_vars("antenna_id")
 
-            logger.debug("Time ant xds  " + str(time.time() - start))
+            # Create system_calibration_xds
+            start = time.time()
+            if sys_cal_interpolate:
+                sys_cal_interp_time = xds.time.values
+            else:
+                sys_cal_interp_time = None
+            system_calibration_xds = create_system_calibration_xds(
+                in_file,
+                xds.frequency,
+                ant_xds_name_ids,
+                sys_cal_interp_time,
+            )
+            logger.debug("Time system_calibation " + str(time.time() - start))
 
             # Create weather_xds
             start = time.time()
-            weather_xds = create_weather_xds(in_file)
+            weather_xds = create_weather_xds(in_file, ant_xds_station_name_ids)
             logger.debug("Time weather " + str(time.time() - start))
 
             # Create pointing_xds
@@ -914,7 +964,6 @@ def convert_and_write_partition(
                 )
 
             start = time.time()
-            xds.attrs["type"] = "visibility"
 
             # Time and frequency should always be increasing
             if len(xds.frequency) > 1 and xds.frequency[1] - xds.frequency[0] < 0:
@@ -943,7 +992,7 @@ def convert_and_write_partition(
             # assert len(col_unique) == 1, col_name + " is not consistent."
             # return col_unique[0]
 
-            field_and_source_xds, source_id, num_lines = create_field_and_source_xds(
+            field_and_source_xds, source_id, _num_lines = create_field_and_source_xds(
                 in_file,
                 field_id,
                 xds.frequency.attrs["spectral_window_id"],
@@ -965,11 +1014,18 @@ def convert_and_write_partition(
                     "FIELD_PHASE_CENTER"
                 ].attrs["frame"]
 
-            if overwrite:
-                mode = "w"
-            else:
-                mode = "w-"
+            partition_info_misc_fields = {
+                "scan_id": scan_id,
+                "obs_mode": obs_mode,
+                "taql_where": taql_where,
+            }
+            info_dicts = create_info_dicts(
+                in_file, xds, field_and_source_xds, partition_info_misc_fields, tb_tool
+            )
+            xds.attrs.update(info_dicts)
 
+            # xds ready, prepare to write
+            start = time.time()
             main_chunksize = parse_chunksize(main_chunksize, "main", xds)
             add_encoding(xds, compressor=compressor, chunks=main_chunksize)
             logger.debug("Time add compressor and chunk " + str(time.time() - start))
@@ -979,31 +1035,10 @@ def convert_and_write_partition(
                 pathlib.Path(in_file).name.replace(".ms", "") + "_" + str(ms_v4_id),
             )
 
-            if "line_name" in field_and_source_xds.coords:
-                line_name = to_list(
-                    unique_1d(np.ravel(field_and_source_xds.line_name.values))
-                )
+            if overwrite:
+                mode = "w"
             else:
-                line_name = []
-
-            xds.attrs["partition_info"] = {
-                # "spectral_window_id": xds.frequency.attrs["spectral_window_id"],
-                "spectral_window_name": xds.frequency.attrs["spectral_window_name"],
-                # "field_id": to_list(unique_1d(field_id)),
-                "field_name": to_list(
-                    np.unique(field_and_source_xds.field_name.values)
-                ),
-                # "source_id": to_list(unique_1d(source_id)),
-                "line_name": line_name,
-                "scan_number": to_list(np.unique(scan_id)),
-                "source_name": to_list(
-                    np.unique(field_and_source_xds.source_name.values)
-                ),
-                "polarization_setup": to_list(xds.polarization.values),
-                "num_lines": num_lines,
-                "obs_mode": obs_mode.split(","),
-                "taql": taql_where,
-            }
+                mode = "w-"
 
             start = time.time()
             if storage_backend == "zarr":
@@ -1020,6 +1055,21 @@ def convert_and_write_partition(
                 if with_pointing and len(pointing_xds.data_vars) > 1:
                     pointing_xds.to_zarr(
                         store=os.path.join(file_name, "POINTING"), mode=mode
+                    )
+
+                if system_calibration_xds:
+                    system_calibration_xds.to_zarr(
+                        store=os.path.join(file_name, "SYSCAL"), mode=mode
+                    )
+
+                if gain_curve_xds:
+                    gain_curve_xds.to_zarr(
+                        store=os.path.join(file_name, "GAIN_CURVE"), mode=mode
+                    )
+
+                if phase_calibration_xds:
+                    phase_calibration_xds.to_zarr(
+                        store=os.path.join(file_name, "PHASE_CAL"), mode=mode
                     )
 
                 if weather_xds:

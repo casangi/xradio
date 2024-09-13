@@ -23,36 +23,6 @@ visibility or spectrum arrays have a :ref:`field_and_source_xds` sub-dataset.
 Sub-datasets
 ------------
 
-antenna_xds
-~~~~~~~~~~~
-.. autoclass:: xradio.vis.schema.AntennaXds()
-
-   .. xradio_dataset_schema_table:: xradio.vis.schema.AntennaXds
-
-weather_xds
-~~~~~~~~~~~
-.. autoclass:: xradio.vis.schema.WeatherXds()
-
-   .. xradio_dataset_schema_table:: xradio.vis.schema.WeatherXds
-
-pointing_xds
-~~~~~~~~~~~~
-.. autoclass:: xradio.vis.schema.PointingXds()
-
-   .. xradio_dataset_schema_table:: xradio.vis.schema.PointingXds
-
-phased_array_xds
-~~~~~~~~~~~~~~~~
-.. autoclass:: xradio.vis.schema.PhasedArrayXds()
-
-   .. xradio_dataset_schema_table:: xradio.vis.schema.PhasedArrayXds
-
-system_calibration_xds
-~~~~~~~~~~~~~~~~~~~~~~
-.. autoclass:: xradio.vis.schema.SystemCalibrationXds()
-
-   .. xradio_dataset_schema_table:: xradio.vis.schema.SystemCalibrationXds
-
 .. _field_and_source_xds:
 
 field_and_source_xds
@@ -60,6 +30,48 @@ field_and_source_xds
 .. autoclass:: xradio.vis.schema.FieldSourceXds()
 
    .. xradio_dataset_schema_table:: xradio.vis.schema.FieldSourceXds
+
+antenna_xds
+~~~~~~~~~~~
+.. autoclass:: xradio.vis.schema.AntennaXds()
+
+   .. xradio_dataset_schema_table:: xradio.vis.schema.AntennaXds
+
+pointing_xds
+~~~~~~~~~~~~
+.. autoclass:: xradio.vis.schema.PointingXds()
+
+   .. xradio_dataset_schema_table:: xradio.vis.schema.PointingXds
+
+weather_xds
+~~~~~~~~~~~
+.. autoclass:: xradio.vis.schema.WeatherXds()
+
+   .. xradio_dataset_schema_table:: xradio.vis.schema.WeatherXds
+
+system_calibration_xds
+~~~~~~~~~~~~~~~~~~~~~~
+.. autoclass:: xradio.vis.schema.SystemCalibrationXds()
+
+   .. xradio_dataset_schema_table:: xradio.vis.schema.SystemCalibrationXds
+
+gain_curve_xds
+~~~~~~~~~~~~~~
+.. autoclass:: xradio.vis.schema.GainCurveXds()
+
+   .. xradio_dataset_schema_table:: xradio.vis.schema.GainCurveXds
+
+phase_calibration_xds
+~~~~~~~~~~~~~~~~~~~~~
+.. autoclass:: xradio.vis.schema.PhaseCalibrationXds()
+
+   .. xradio_dataset_schema_table:: xradio.vis.schema.PhaseCalibrationXds
+
+phased_array_xds
+~~~~~~~~~~~~~~~~
+.. autoclass:: xradio.vis.schema.PhasedArrayXds()
+
+   .. xradio_dataset_schema_table:: xradio.vis.schema.PhasedArrayXds
 
 .. _info dictionaries:
 
@@ -148,9 +160,9 @@ as frequencies or timestamps.
 
    .. xradio_array_schema_table:: xradio.vis.schema.BaselineArray
 
-.. autoclass:: xradio.vis.schema.BaselineAntennaArray()
+.. autoclass:: xradio.vis.schema.BaselineAntennaNameArray()
 
-   .. xradio_array_schema_table:: xradio.vis.schema.BaselineAntennaArray
+   .. xradio_array_schema_table:: xradio.vis.schema.BaselineAntennaNameArray
 
 .. autoclass:: xradio.vis.schema.FrequencyArray()
 

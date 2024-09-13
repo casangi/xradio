@@ -52,6 +52,8 @@ def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_sch
         pointing_chunksize=0.00001,
         pointing_interpolate=True,
         ephemeris_interpolate=True,
+        # phase_cal_interpolate=True,
+        # sys_cal_interpolate=True,
         use_table_iter=False,
         overwrite=True,
         parallel=False,
@@ -247,7 +249,7 @@ def check_source_and_field_xds(ps, msv4_name, expected_NP_sum):
         "OBSERVER_PHASE_ANGLE",
         "SOURCE_LOCATION",
         "SOURCE_RADIAL_VELOCITY",
-        "SUB_OBSERVER_POSITION",
+        "SUB_OBSERVER_DIRECTION",
     ]
     assert are_all_variables_in_dataset(
         field_and_source_xds, field_and_source_data_variable_names

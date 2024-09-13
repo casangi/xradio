@@ -1,5 +1,5 @@
 Schema and API
-======
+==============
 
 .. toctree::
    :maxdepth: 1

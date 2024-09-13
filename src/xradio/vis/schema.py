@@ -12,6 +12,8 @@ import numpy
 # Dimensions
 Time = Literal["time"]
 """ Observation time dimension """
+TimePointing = Literal["time_pointing"]
+""" time dimension of pointing dataset (when not interpolated to main time) """
 TimeEphemeris = Literal["time_ephemeris"]
 """ time dimension of ephemeris data (when not interpolated to main time) """
 TimeCal = Literal["time_cal"]
@@ -36,6 +38,8 @@ UvwLabel = Literal["uvw_label"]
 """ Coordinate dimension of UVW data (typically shape 3 for 'u', 'v', 'w') """
 SkyDirLabel = Literal["sky_dir_label"]
 """ Coordinate labels of sky directions (typically shape 2 and 'ra', 'dec') """
+LocalSkyDirLabel = Literal["local_sky_dir_label"]
+""" Coordinate labels of local sky directions (typically shape 2 and 'az', 'alt') """
 SphericalDirLabel = Literal["spherical_dir_label"]
 """ Coordinate labels of spherical directions (shape 2 and 'lon', 'lat1' """
 SkyPosLabel = Literal["sky_pos_label"]
@@ -117,6 +121,20 @@ class SkyCoordArray:
 
 
 @xarray_dataarray_schema
+class LocalSkyCoordArray:
+    """Coordinate array for the arrays that have coordinate local_sky_dir_label
+    in pointing_xds"""
+
+    data: Data[LocalSkyDirLabel, float]
+
+    type: Attr[str] = "sky_coord"
+    units: Attr[list[str]] = ("rad", "rad")
+    frame: Attr[str] = ""
+    """
+    """
+
+
+@xarray_dataarray_schema
 class SkyCoordOffsetArray:
     data: Data[Union[SkyDirLabel, SkyPosLabel], float]
 
@@ -188,6 +206,22 @@ class TimeCalCoordArray(TimeCoordArrayBase):
 
     type: Attr[str] = "time_cal"
     """ Coordinate type. Should be ``"time_cal"``. """
+
+
+@xarray_dataarray_schema
+class TimePointingCoordArray(TimeCoordArrayBase):
+    """Data model of 'time_pointing' axis (time axis in pointing_xds
+    when not interpolated to the main time axis. See also
+    :py:class:`TimeCoordArray`."""
+
+    data: Data[TimeCal, float]
+    """
+    Time, expressed in seconds since the epoch (see ``scale`` &
+    ``format``).
+    """
+
+    type: Attr[str] = "time_pointing"
+    """ Coordinate type. Should be ``"time_pointing"``. """
 
 
 @xarray_dataarray_schema
@@ -1017,33 +1051,49 @@ class WeatherXds:
 
 @xarray_dataset_schema
 class PointingXds:
-    time: Coordof[TimeCoordArray]
-    """
-    Mid-point of the time interval for which the information in this row is
-    valid.  Required to use the same time measure reference as in visibility dataset
-    """
     antenna_name: Coordof[AntennaNameArray]
     """
     Antenna name, as specified by baseline_antenna1/2_name in visibility dataset
     """
-    sky_dir_label: Coord[SkyDirLabel, str]
+
+    local_sky_dir_label: Coord[LocalSkyDirLabel, str]
     """
     Direction labels.
     """
 
-    BEAM_POINTING: Data[
-        Union[tuple[Time, AntennaName, TimePolynomial], tuple[Time, AntennaName]],
-        SkyCoordArray,
+    POINTING_BEAM: Data[
+        Union[
+            tuple[Time, AntennaName, TimePolynomial],
+            tuple[TimePointing, AntennaName, TimePolynomial],
+            tuple[Time, AntennaName],
+            tuple[TimePointing, AntennaName],
+        ],
+        LocalSkyCoordArray,
     ]
     """
     Antenna pointing direction, optionally expressed as polynomial coefficients. DIRECTION in MSv3.
     """
-    DISH_MEASURED_POINTING: Optional[Data[tuple[Time, AntennaName], SkyCoordArray]]
+
+    time: Optional[Coordof[TimeCoordArray]] = None
+    """
+    Mid-point of the time interval for which the information in this row is
+    valid. Required to use the same time measure reference as in visibility dataset.
+    Labeled 'time' when interpolating to main time axis.
+    """
+    time_pointing: Optional[Coordof[TimePointingCoordArray]] = None
+    """ Midpoint of time for which this set of parameters is accurate. Labeled
+    'time_pointing' when not interpolating to main time axis """
+
+    POINTING_DISH_MEASURED: Optional[
+        Data[Union[tuple[Time, AntennaName], tuple[TimePointing]], LocalSkyCoordArray]
+    ] = None
     """
     The current encoder values on the primary axes of the mount type for
     the antenna. ENCODER in MSv3.
     """
-    OVER_THE_TOP: Optional[Data[tuple[Time, AntennaName], bool]]
+    POINTING_OVER_THE_TOP: Optional[
+        Data[Union[tuple[Time, AntennaName], tuple[TimePointing, AntennaName]], bool]
+    ] = None
 
 
 @xarray_dataset_schema

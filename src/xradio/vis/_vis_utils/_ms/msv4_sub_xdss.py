@@ -302,16 +302,11 @@ def create_pointing_xds(
     to_new_data_variables = {
         "DIRECTION": ["POINTING_BEAM", time_ant_dir_dims],
         "ENCODER": ["POINTING_DISH_MEASURED", time_ant_dir_dims],
-        # => attribute? / removed for now
-        # "TARGET": ["TARGET", time_ant_dir_dims],
-        # "POINTING_OFFSET": ["POINTING_OFFSET", time_ant_dir_dims],
-        # "SOURCE_OFFSET": ["SOURCE_OFFSET", time_ant_dir_dims],
         "OVER_THE_TOP": ["POINTING_OVER_THE_TOP", time_ant_dims],
     }
 
     to_new_coords = {
         "TIME": ["time", ["time"]],
-        # "ANTENNA_ID": ["antenna_name", ["antenna_name"]],
         "dim_2": ["local_sky_dir_label", ["local_sky_dir_label"]],
     }
 
@@ -329,33 +324,6 @@ def create_pointing_xds(
     pointing_xds = convert_generic_xds_to_xradio_schema(
         generic_pointing_xds, pointing_xds, to_new_data_variables, to_new_coords
     )
-
-    # Tracking removed for now
-    # # Add attributes specific to pointing_xds
-    # if "TRACKING" in generic_pointing_xds.data_vars:
-    #     pointing_xds.attrs["tracking"] = generic_pointing_xds.data_vars[
-    #         "TRACKING"
-    #     ].values[0, 0]
-
-    # TARGET removed for now
-    # # Move target from data_vars to attributes?
-    # move_target_as_attr = False
-    # if move_target_as_attr:
-    #     pointing_column_descriptions = generic_pointing_xds.attrs["other"]["msv2"][
-    #         "ctds_attrs"
-    #     ]["column_descriptions"]
-
-    #     target = generic_pointing_xds.data_vars["TARGET"]
-    #     pointing_xds.attrs["target"] = {
-    #         "dims": ["local_sky_dir_label"],
-    #         "data": target.values[0, 0].tolist(),
-    #         "attrs": column_description_casacore_to_msv4_measure(
-    #             pointing_column_descriptions["TARGET"]
-    #         ),
-    #     }
-
-    # SOURCE_OFFSET/ON_SOURCE/POINTING_OFFSET removed for now
-    # # TODO: move also source_offset/pointing_offset from data_vars to attrs?
 
     pointing_xds = interpolate_to_time(pointing_xds, interp_time, "pointing_xds")
 

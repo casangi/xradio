@@ -36,6 +36,7 @@ The main aims of the library are:
    :caption: Development
 
    development
+   schema
 
 .. toctree::
    :hidden:

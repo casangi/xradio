@@ -5,7 +5,6 @@ Guides
    :maxdepth: 1
 
    ALMA_ephemeris
-   global_VLBI
    LOFAR
    MeerKAT
    ngEHT

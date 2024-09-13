@@ -887,10 +887,11 @@ def convert_and_write_partition(
 
             # Change antenna_ids to antenna_names
             xds = antenna_ids_to_names(xds, ant_xds, is_single_dish)
+            # but before, keep the name-id arrays, we need them for the pointing and weather xds
             ant_xds_name_ids = ant_xds["antenna_name"].set_xindex("antenna_id")
-            ant_xds = ant_xds.drop_vars(
-                "antenna_id"
-            )  # No longer needed after converting to name.
+            ant_xds_station_name_ids = ant_xds["station"].set_xindex("antenna_id")
+            # No longer needed after converting to name.
+            ant_xds = ant_xds.drop_vars("antenna_id")
 
             logger.debug("Time ant xds  " + str(time.time() - start))
 
@@ -910,7 +911,7 @@ def convert_and_write_partition(
 
             # Create weather_xds
             start = time.time()
-            weather_xds = create_weather_xds(in_file)
+            weather_xds = create_weather_xds(in_file, ant_xds_station_name_ids)
             logger.debug("Time weather " + str(time.time() - start))
 
             # Create pointing_xds

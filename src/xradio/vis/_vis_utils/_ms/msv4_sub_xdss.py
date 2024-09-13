@@ -1,4 +1,5 @@
 import toolviper.utils.logger as logger
+import os
 import time
 from typing import Tuple, Union
 
@@ -10,7 +11,12 @@ from xradio._utils.schema import (
     convert_generic_xds_to_xradio_schema,
 )
 from .subtables import subt_rename_ids
-from ._tables.read import make_taql_where_between_min_max, load_generic_table
+from ._tables.read import (
+    load_generic_table,
+    make_taql_where_between_min_max,
+    table_exists,
+    table_has_column,
+)
 
 
 def interpolate_to_time(
@@ -59,7 +65,40 @@ def interpolate_to_time(
     return xds
 
 
-def create_weather_xds(in_file: str):
+def make_taql_where_weather(
+    in_file: str, ant_xds_station_name_ids: xr.DataArray
+) -> str:
+    """
+    The use of taql_where with WEATHER is complicated because of ALMA and its
+    (ab)use of NS_WX_STATION_ID vs. ANTENNA_ID (all -1) (see read.py). We
+    cannot simply use a 'WHERE ANTENNA_ID=...'. This function produces a TaQL
+    where string that uses ANTENNA_ID/NS_WX_STATION_ID depending on waht is
+    found in the WEATHER subtable.
+
+    Parameters
+    ----------
+    in_file : str
+        Input MS name.
+    ant_xds_station_name_ids : xr.DataArray
+        station name data array from antenna_xds, with name/id information
+
+    Returns
+    -------
+    taql_where: str
+        WHERE substring safe to use in taql_where when loading WEATHER subtable
+    """
+    weather_path = os.path.join(in_file, "WEATHER")
+    if table_exists(weather_path) and table_has_column(
+        weather_path, "NS_WX_STATION_ID"
+    ):
+        taql_where = f"WHERE (NS_WX_STATION_ID IN [{','.join(map(str, ant_xds_station_name_ids.antenna_id.values))}])"
+    else:
+        taql_where = f"WHERE (ANTENNA_ID IN [{','.join(map(str, ant_xds_station_name_ids.antenna_id.values))}])"
+
+    return taql_where
+
+
+def create_weather_xds(in_file: str, ant_xds_station_name_ids: xr.DataArray):
     """
     Creates a Weather Xarray Dataset from a MS v2 WEATHER table.
 
@@ -67,6 +106,8 @@ def create_weather_xds(in_file: str):
     ----------
     in_file : str
         Input MS name.
+    ant_xds_station_name_ids : xr.DataArray
+        station name data array from antenna_xds, with name/id information
 
     Returns
     -------
@@ -74,7 +115,33 @@ def create_weather_xds(in_file: str):
         Weather Xarray Dataset.
     """
 
-    dims_station_time = ["station_id", "time"]
+    try:
+        taql_where = make_taql_where_weather(in_file, ant_xds_station_name_ids)
+        generic_weather_xds = load_generic_table(
+            in_file,
+            "WEATHER",
+            rename_ids=subt_rename_ids["WEATHER"],
+            taql_where=taql_where,
+        )
+    except ValueError as _exc:
+        return None
+
+    if not generic_weather_xds.data_vars:
+        # for example when the weather subtable only has info for antennas/stations
+        # not present in the MSv4 (no overlap between antennas loaded in ant_xds and weather)
+        return None
+
+    weather_xds = xr.Dataset(attrs={"type": "weather"})
+    stations_present = ant_xds_station_name_ids.sel(
+        antenna_id=generic_weather_xds["ANTENNA_ID"]
+    )
+    coords = {
+        "station_name": stations_present.data,
+        "antenna_name": stations_present.coords["antenna_name"].data,
+    }
+    weather_xds = weather_xds.assign_coords(coords)
+
+    dims_station_time = ["station_name", "time"]
     to_new_data_variables = {
         "H20": ["H2O", dims_station_time],
         "IONOS_ELECTRON": ["IONOS_ELECTRON", dims_station_time],
@@ -87,27 +154,12 @@ def create_weather_xds(in_file: str):
     }
 
     to_new_coords = {
-        "ANTENNA_ID": ["station_id", ["station_id"]],
         "TIME": ["time", ["time"]],
     }
 
-    # Read WEATHER table into a Xarray Dataset.
-    try:
-        generic_weather_xds = load_generic_table(
-            in_file,
-            "WEATHER",
-            rename_ids=subt_rename_ids["WEATHER"],
-        )
-    except ValueError as _exc:
-        return None
-
-    weather_xds = xr.Dataset(attrs={"type": "weather"})
     weather_xds = convert_generic_xds_to_xradio_schema(
         generic_weather_xds, weather_xds, to_new_data_variables, to_new_coords
     )
-
-    # correct expected types
-    weather_xds["station_id"] = weather_xds["station_id"].astype(np.int64)
 
     return weather_xds
 
@@ -199,7 +251,7 @@ def create_pointing_xds(
     ----------
     in_file : str
         Input MS name.
-    ant_xds_name_ids : xr.Dataset
+    ant_xds_name_ids : xr.DataArray
         antenna_name data array from antenna_xds, with name/id information
     time_min_max : tuple
         min / max times values to constrain loading (from the TIME column)

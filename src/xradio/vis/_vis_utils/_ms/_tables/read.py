@@ -20,7 +20,21 @@ MJD_DIF_UNIX = 40587
 
 
 def table_exists(path: str) -> bool:
+    """
+    Whether a casacore table exists on disk (in the casacore.tables.tableexists sense)
+    """
     return tables.tableexists(path)
+
+
+def table_has_column(path: str, column_name: str) -> bool:
+    """
+    Whether a column is present in a casacore table
+    """
+    with open_table_ro(path) as tb_tool:
+        if column_name in tb_tool.colnames():
+            return True
+        else:
+            return False
 
 
 def convert_casacore_time(

@@ -18,8 +18,8 @@ TimeCal = Literal["time_cal"]
 """ time dimension of system calibration (when not interpolated to main time) """
 AntennaName = Literal["antenna_name"]
 """ Antenna name dimension """
-StationId = Literal["station_id"]
-""" Station ID dimension """
+StationName = Literal["station_name"]
+""" Station identifier dimension """
 ReceptorLabel = Literal["receptor_label"]
 """ Receptor label dimension """
 ToneLabel = Literal["tone_label"]
@@ -961,31 +961,31 @@ class WeatherXds:
     atmosphere and weather information"""
 
     # Coordinates
+    station_name: Coord[StationName, str]
+    """ Station identifier """
     time: Coordof[TimeCoordArray]
     """ Mid-point of the time interval """
-    station_id: Coord[StationId, numpy.int64]
-    """ Station identifier """
     antenna_name: Optional[Coordof[AntennaNameArray]]
     """ Antenna identifier """
 
     # Data variables (all optional)
-    H2O: Optional[Data[tuple[StationId, Time], QuantityArray]] = None
+    H2O: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
     """ Average column density of water """
-    IONOS_ELECTRON: Optional[Data[tuple[StationId, Time], QuantityArray]] = None
+    IONOS_ELECTRON: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
     """ Average column density of electrons """
-    PRESSURE: Optional[Data[tuple[StationId, Time], QuantityArray]] = None
+    PRESSURE: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
     """ Ambient atmospheric pressure """
-    REL_HUMIDITY: Optional[Data[tuple[StationId, Time], QuantityArray]] = None
+    REL_HUMIDITY: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
     """ Ambient relative humidity """
-    TEMPERATURE: Optional[Data[tuple[StationId, Time], QuantityArray]] = None
+    TEMPERATURE: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
     """ Ambient air temperature for an antenna """
-    DEW_POINT: Optional[Data[tuple[StationId, Time], QuantityArray]] = None
+    DEW_POINT: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
     """ Dew point """
-    WIND_DIRECTION: Optional[Data[tuple[StationId, Time], QuantityArray]] = None
+    WIND_DIRECTION: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
     """ Average wind direction """
-    WIND_SPEED: Optional[Data[tuple[StationId, Time], QuantityArray]] = None
+    WIND_SPEED: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
     """ Average wind speed """
-    STATION_POSITION: Optional[Data[tuple[StationId], QuantityArray]] = None
+    STATION_POSITION: Optional[Data[tuple[StationName], QuantityArray]] = None
     """ Station position """
 
     # Attributes

@@ -157,7 +157,7 @@ def extract_antenna_info(
         {
             "telescope_name": (
                 "antenna_name",
-                np.array(ant_xds.dims["antenna_name"] * [telescope_name]),
+                np.array([telescope_name for ant in ant_xds["antenna_name"]]),
             )
         }
     )

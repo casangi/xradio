@@ -961,6 +961,7 @@ class GainCurveXds:
     """
     Gain curve dataset. See See https://casacore.github.io/casacore-notes/265.pdf for a full description.
     """
+
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
     """ Antenna name """

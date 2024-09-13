@@ -67,9 +67,6 @@ def create_antenna_xds(
     ant_xds = extract_phase_cal_info(
         ant_xds, in_file, spectral_window_id, time_min_max, phase_cal_interp_time
     )  # Only used in VLBI.
-    ant_xds = extract_gain_curve_info(
-        ant_xds, in_file, spectral_window_id
-    )  # Only used in VLBI.
 
     ant_xds.attrs["overall_telescope_name"] = telescope_name
     return ant_xds
@@ -163,6 +160,15 @@ def extract_antenna_info(
         ant_xds.attrs["relocatable_antennas"] = True
     else:
         ant_xds.attrs["relocatable_antennas"] = False
+
+    ant_xds = ant_xds.assign_coords(
+        {
+            "telescope_name": (
+                "antenna_name",
+                np.array(ant_xds.dims["antenna_name"] * [telescope_name]),
+            )
+        }
+    )
 
     return ant_xds
 
@@ -277,26 +283,28 @@ def extract_feed_info(
     return ant_xds
 
 
-def extract_gain_curve_info(
-    ant_xds: xr.Dataset, in_file: str, spectral_window_id: int
+def create_gain_curve_xds(
+    in_file: str, spectral_window_id: int, ant_xds: xr.Dataset
 ) -> xr.Dataset:
     """
-    Reformats MSv2 GAIN CURVE table content to MSv4 schema.
+    Produces a gain_curve_xds, reformats MSv2 GAIN CURVE table content to MSv4 schema.
 
     Parameters
     ----------
-    ant_xds : xr.Dataset
-        The dataset that will be updated with gain curve information.
     in_file : str
         Path to the input MSv2.
     spectral_window_id : int
         The ID of the spectral window.
+    ant_xds : xr.Dataset
+        The antenna_xds that has information such as names, stations, etc., for coordinates
 
     Returns
     -------
     xr.Dataset
         The updated antenna dataset with gain curve information.
     """
+
+    gain_curve_xds = None
     if os.path.exists(
         os.path.join(in_file, "GAIN_CURVE")
     ):  # Check if the table exists.
@@ -326,6 +334,8 @@ def extract_gain_curve_info(
                 ANTENNA_ID=ant_xds.antenna_id, drop=False
             )  # Make sure the antenna_id is in the same order as the xds .
 
+            gain_curve_xds = xr.Dataset(attrs={"type": "gain_curve"})
+
             to_new_data_variables = {
                 "INTERVAL": ["GAIN_CURVE_INTERVAL", ["antenna_name"]],
                 "GAIN": [
@@ -342,22 +352,31 @@ def extract_gain_curve_info(
                 "TYPE": ["gain_curve_type", ["antenna_name"]],
             }
 
-            # print(generic_gain_curve_xds)
-
-            ant_xds = convert_generic_xds_to_xradio_schema(
+            gain_curve_xds = convert_generic_xds_to_xradio_schema(
                 generic_gain_curve_xds,
-                ant_xds,
+                gain_curve_xds,
                 to_new_data_variables,
                 to_new_coords,
             )
-            ant_xds["GAIN_CURVE"] = ant_xds["GAIN_CURVE"].transpose(
+
+            ant_borrowed_coords = {
+                "antenna_name": ant_xds.coords["antenna_name"],
+                "station": ant_xds.coords["station"],
+                "mount": ant_xds.coords["mount"],
+                "telescope_name": ant_xds.coords["telescope_name"],
+                "receptor_label": ant_xds.coords["receptor_label"],
+                "polarization_type": ant_xds.coords["polarization_type"],
+            }
+            gain_curve_xds = gain_curve_xds.assign_coords(ant_borrowed_coords)
+
+            gain_curve_xds["GAIN_CURVE"] = gain_curve_xds["GAIN_CURVE"].transpose(
                 "antenna_name", "receptor_label", "poly_term"
             )
 
-        return ant_xds
+        return gain_curve_xds
 
     else:
-        return ant_xds
+        return gain_curve_xds
 
 
 def extract_phase_cal_info(

@@ -987,13 +987,16 @@ class GainCurveXds:
 
     GAIN_CURVE_SENSITIVITY: Data[tuple[AntennaName, ReceptorLabel], numpy.float32]
     """ VLBI. ? """
-    GAIN_CURVE: Optional[
-        Data[tuple[AntennaName, PolyTerm, ReceptorLabel], numpy.float32]
-    ]
+    GAIN_CURVE: Data[tuple[AntennaName, PolyTerm, ReceptorLabel], numpy.float32]
+
     """ VLBI. ?  """
-    GAIN_CURVE_INTERVAL: Optional[Data[tuple[AntennaName], QuantityArray]]
+    GAIN_CURVE_INTERVAL: Data[tuple[AntennaName], QuantityArray]
     """ VLBI. ?  """
 
+    measured_date: Attr[str]
+    """
+    Date gain curve was measured. Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)
+    """
     type: Attr[str] = "gain_curve"
     """
     Type of dataset. Expected to be ``gain_curve``
@@ -1033,38 +1036,30 @@ class PhaseCalibrationXds:
     tone_label: Optional[Coord[ToneLabel, str]]
     """ ? """
 
-    PHASE_CAL: Optional[
-        Data[
-            Union[
-                tuple[AntennaName, Time, ReceptorLabel, ToneLabel],
-                tuple[AntennaName, TimePhaseCal, ReceptorLabel, ToneLabel],
-            ],
-            numpy.complex64,
-        ]
+    PHASE_CAL: Data[
+        Union[
+            tuple[AntennaName, Time, ReceptorLabel, ToneLabel],
+            tuple[AntennaName, TimePhaseCal, ReceptorLabel, ToneLabel],
+        ],
+        numpy.complex64,
     ]
     """ VLBI. ?  """
-    PHASE_CAL_CABLE_CAL: Optional[
-        Data[
-            Union[tuple[AntennaName, Time], tuple[AntennaName, TimePhaseCal]],
-            QuantityArray,
-        ]
+    PHASE_CAL_CABLE_CAL: Data[
+        Union[tuple[AntennaName, Time], tuple[AntennaName, TimePhaseCal]],
+        QuantityArray,
     ]
     """ VLBI. ?  """
-    PHASE_CAL_INTERVAL: Optional[
-        Data[
-            Union[tuple[AntennaName, Time], tuple[AntennaName, TimePhaseCal]],
-            QuantityArray,
-        ]
+    PHASE_CAL_INTERVAL: Data[
+        Union[tuple[AntennaName, Time], tuple[AntennaName, TimePhaseCal]],
+        QuantityArray,
     ]
     """ VLBI. ?  """
-    PHASE_CAL_TONE_FREQUENCY: Optional[
-        Data[
-            Union[
-                tuple[AntennaName, Time, ReceptorLabel, ToneLabel],
-                tuple[AntennaName, TimePhaseCal, ReceptorLabel, ToneLabel],
-            ],
-            QuantityArray,
-        ]
+    PHASE_CAL_TONE_FREQUENCY: Data[
+        Union[
+            tuple[AntennaName, Time, ReceptorLabel, ToneLabel],
+            tuple[AntennaName, TimePhaseCal, ReceptorLabel, ToneLabel],
+        ],
+        QuantityArray,
     ]
     """ VLBI. ?  """
 

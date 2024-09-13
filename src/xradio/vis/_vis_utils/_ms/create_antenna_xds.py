@@ -9,6 +9,7 @@ import os
 from xradio.vis._vis_utils._ms.subtables import subt_rename_ids
 from xradio.vis._vis_utils._ms._tables.read import (
     load_generic_table,
+    convert_casacore_time,
     convert_casacore_time_to_mjd,
     make_taql_where_between_min_max,
     table_exists,
@@ -319,6 +320,7 @@ def create_gain_curve_xds(
     assert (
         len(generic_gain_curve_xds.TIME) == 1
     ), "Only one gain curve measurement per antenna is supported."
+    measured_time = generic_gain_curve_xds.coords["TIME"].values[0]
     generic_gain_curve_xds = generic_gain_curve_xds.isel(TIME=0, drop=True)
 
     generic_gain_curve_xds = generic_gain_curve_xds.sel(
@@ -359,6 +361,14 @@ def create_gain_curve_xds(
         "polarization_type": ant_xds.coords["polarization_type"],
     }
     gain_curve_xds = gain_curve_xds.assign_coords(ant_borrowed_coords)
+
+    gain_curve_xds.attrs.update(
+        {
+            "measured_date": np.datetime_as_string(
+                convert_casacore_time([measured_time])[0]
+            )
+        }
+    )
 
     return gain_curve_xds
 
@@ -440,28 +450,21 @@ def create_phase_calibration_xds(
         generic_phase_cal_xds, phase_cal_xds, to_new_data_variables, to_new_coords
     )
 
-    if "PHASE_CAL" in phase_cal_xds.data_vars:
-        phase_cal_xds["PHASE_CAL"] = phase_cal_xds["PHASE_CAL"].transpose(
-            "antenna_name", "time_phase_cal", "receptor_label", "tone_label"
-        )
-    if "PHASE_CAL_TONE_FREQUENCY" in phase_cal_xds.data_vars:
-        phase_cal_xds["PHASE_CAL_TONE_FREQUENCY"] = phase_cal_xds[
-            "PHASE_CAL_TONE_FREQUENCY"
-        ].transpose("antenna_name", "time_phase_cal", "receptor_label", "tone_label")
+    phase_cal_xds["PHASE_CAL"] = phase_cal_xds["PHASE_CAL"].transpose(
+        "antenna_name", "time_phase_cal", "receptor_label", "tone_label"
+    )
+    phase_cal_xds["PHASE_CAL_TONE_FREQUENCY"] = phase_cal_xds[
+        "PHASE_CAL_TONE_FREQUENCY"
+    ].transpose("antenna_name", "time_phase_cal", "receptor_label", "tone_label")
 
     ant_borrowed_coords = {
         "antenna_name": ant_xds.coords["antenna_name"],
         "station": ant_xds.coords["station"],
         "mount": ant_xds.coords["mount"],
         "telescope_name": ant_xds.coords["telescope_name"],
+        "receptor_label": ant_xds.coords["receptor_label"],
+        "polarization_type": ant_xds.coords["polarization_type"],
     }
-    if "receptor_label" in phase_cal_xds.dims:
-        ant_borrowed_coords.update(
-            {
-                "receptor_label": ant_xds.coords["receptor_label"],
-                "polarization_type": ant_xds.coords["polarization_type"],
-            }
-        )
     # phase_cal_xds = phase_cal_xds.assign_coords({"tone_label" : "freq_" + np.arange(phase_cal_xds.sizes["tone_label"]).astype(str)}) #Works on laptop but fails in github test runner.
     tone_label_coord = {
         "tone_label": np.array(

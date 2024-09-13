@@ -19,6 +19,7 @@ from .msv4_info_dicts import create_info_dicts
 from xradio.vis._vis_utils._ms.create_antenna_xds import (
     create_antenna_xds,
     create_gain_curve_xds,
+    create_phase_calibration_xds,
 )
 from xradio.vis._vis_utils._ms.create_field_and_source_xds import (
     create_field_and_source_xds,
@@ -884,8 +885,6 @@ def convert_and_write_partition(
                 antenna_id,
                 feed_id,
                 telescope_name,
-                time_min_max,
-                phase_cal_interp_time,
             )
 
             logger.debug("Time antenna xds  " + str(time.time() - start))
@@ -895,6 +894,16 @@ def convert_and_write_partition(
                 in_file, xds.frequency.attrs["spectral_window_id"], ant_xds
             )
             logger.debug("Time gain_curve xds  " + str(time.time() - start))
+
+            start = time.time()
+            phase_calibration_xds = create_phase_calibration_xds(
+                in_file,
+                xds.frequency.attrs["spectral_window_id"],
+                ant_xds,
+                time_min_max,
+                phase_cal_interp_time,
+            )
+            logger.debug("Time phase_calibration xds  " + str(time.time() - start))
 
             # Change antenna_ids to antenna_names
             xds = antenna_ids_to_names(xds, ant_xds, is_single_dish)
@@ -1034,24 +1043,29 @@ def convert_and_write_partition(
                         mode=mode,
                     )
 
-                if gain_curve_xds:
-                    gain_curve_xds.to_zarr(
-                        store=os.path.join(file_name, "GAIN_CURVE"), mode=mode
-                    )
-
                 if with_pointing and len(pointing_xds.data_vars) > 1:
                     pointing_xds.to_zarr(
                         store=os.path.join(file_name, "POINTING"), mode=mode
                     )
 
-                if weather_xds:
-                    weather_xds.to_zarr(
-                        store=os.path.join(file_name, "WEATHER"), mode=mode
-                    )
-
                 if system_calibration_xds:
                     system_calibration_xds.to_zarr(
                         store=os.path.join(file_name, "SYSCAL"), mode=mode
+                    )
+
+                if gain_curve_xds:
+                    gain_curve_xds.to_zarr(
+                        store=os.path.join(file_name, "GAIN_CURVE"), mode=mode
+                    )
+
+                if phase_calibration_xds:
+                    phase_calibration_xds.to_zarr(
+                        store=os.path.join(file_name, "PHASE_CAL"), mode=mode
+                    )
+
+                if weather_xds:
+                    weather_xds.to_zarr(
+                        store=os.path.join(file_name, "WEATHER"), mode=mode
                     )
 
             elif storage_backend == "netcdf":

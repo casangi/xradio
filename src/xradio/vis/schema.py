@@ -958,7 +958,9 @@ class AntennaXds:
 
 @xarray_dataset_schema
 class GainCurveXds:
-
+    """
+    Gain curve dataset. See See https://casacore.github.io/casacore-notes/265.pdf for a full description.
+    """
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
     """ Antenna name """
@@ -983,15 +985,20 @@ class GainCurveXds:
     This is the receptor polarization type as recorded in the final correlated data (e.g. ”RR”); i.e.
     as measured after all polarization combiners. ['X','Y'], ['R','L'] """
     gain_curve_type: Optional[Coord[AntennaName, str]]
-    """ ? """
+    """
+    Gain curve type. Reserved keywords include:
+    (”POWER(EL)” - Power as a function of elevation;
+     ”POWER(ZA)” - Power as a function of zenith angle;
+     ”VOLTAGE(EL)” - Voltage as a function of elevation;
+     ”VOLTAGE(ZA)” - Voltage as a function of zenith angle). See https://casacore.github.io/casacore-notes/265.pdf
+    """
 
     GAIN_CURVE_SENSITIVITY: Data[tuple[AntennaName, ReceptorLabel], numpy.float32]
-    """ VLBI. ? """
+    """ Sensitivity of the antenna expressed in K/Jy. This is what AIPS calls “DPFU”. """
     GAIN_CURVE: Data[tuple[AntennaName, PolyTerm, ReceptorLabel], numpy.float32]
-
-    """ VLBI. ?  """
+    """ Coeﬃcients of the polynomial that describes the (power or voltage) gain.  """
     GAIN_CURVE_INTERVAL: Data[tuple[AntennaName], QuantityArray]
-    """ VLBI. ?  """
+    """ Time interval. """
 
     measured_date: Attr[str]
     """
@@ -1034,7 +1041,10 @@ class PhaseCalibrationXds:
     time_phase_cal: Optional[Coord[TimePhaseCal, numpy.float64]]
     """ Time for VLBI phase cal"""
     tone_label: Optional[Coord[ToneLabel, str]]
-    """ ? """
+    """
+    Phase-cal tones that are measured. This number may vary by antenna, and may vary by spectral window as well, especially
+    if spectral windows of varying widths are supported
+    """
 
     PHASE_CAL: Data[
         Union[
@@ -1043,17 +1053,28 @@ class PhaseCalibrationXds:
         ],
         numpy.complex64,
     ]
-    """ VLBI. ?  """
+    """
+    Phase calibration measurements. These are provided as complex values that represent both the phase
+and amplitude for a measured phase-cal tone. Measurements are provided as a two-dimensional array such that
+separate measurements can be provided for each receptor of a feed (so separate values for each polarization)
+for each of the measured tones. See https://casacore.github.io/casacore-notes/265.pdf
+    """
     PHASE_CAL_CABLE_CAL: Data[
         Union[tuple[AntennaName, Time], tuple[AntennaName, TimePhaseCal]],
         QuantityArray,
     ]
-    """ VLBI. ?  """
+    """
+    Cable calibration measurement. This is a measurement of the delay in the cable that provides the
+reference signal to the receiver. There should be only a single reference signal per feed (even if that feed has
+multiple receptors) so this is provided as a simple scalar. See https://casacore.github.io/casacore-notes/265.pdf
+    """
     PHASE_CAL_INTERVAL: Data[
         Union[tuple[AntennaName, Time], tuple[AntennaName, TimePhaseCal]],
         QuantityArray,
     ]
-    """ VLBI. ?  """
+    """
+    Time interval. See https://casacore.github.io/casacore-notes/265.pdf
+    """
     PHASE_CAL_TONE_FREQUENCY: Data[
         Union[
             tuple[AntennaName, Time, ReceptorLabel, ToneLabel],
@@ -1061,7 +1082,9 @@ class PhaseCalibrationXds:
         ],
         QuantityArray,
     ]
-    """ VLBI. ?  """
+    """
+    The sky frequencies of each measured phase-cal tone. See https://casacore.github.io/casacore-notes/265.pdf
+    """
 
     type: Attr[str] = "phase_calibration"
     """

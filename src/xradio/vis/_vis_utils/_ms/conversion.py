@@ -903,7 +903,7 @@ def convert_and_write_partition(
                 sys_cal_interp_time = None
             system_calibration_xds = create_system_calibration_xds(
                 in_file,
-                xds.frequency.attrs["spectral_window_id"],
+                xds.frequency,
                 ant_xds_name_ids,
                 sys_cal_interp_time,
             )

@@ -265,24 +265,6 @@ def create_pointing_xds(
     """
     start = time.time()
 
-    time_ant_dims = ["time", "antenna_name"]
-    time_ant_dir_dims = time_ant_dims + ["sky_dir_label"]
-    to_new_data_variables = {
-        "DIRECTION": ["BEAM_POINTING", time_ant_dir_dims],
-        "ENCODER": ["DISH_MEASURED_POINTING", time_ant_dir_dims],
-        # => attribute?
-        "TARGET": ["TARGET", time_ant_dir_dims],
-        "POINTING_OFFSET": ["POINTING_OFFSET", time_ant_dir_dims],
-        "SOURCE_OFFSET": ["SOURCE_OFFSET", time_ant_dir_dims],
-        "OVER_THE_TOP": ["OVER_THE_TOP", time_ant_dims],
-    }
-
-    to_new_coords = {
-        "TIME": ["time", ["time"]],
-        # "ANTENNA_ID": ["antenna_name", ["antenna_name"]],
-        "dim_2": ["sky_dir_label", ["sky_dir_label"]],
-    }
-
     taql_time_range = make_taql_where_between_min_max(
         time_min_max, in_file, "POINTING", "TIME"
     )
@@ -312,44 +294,65 @@ def create_pointing_xds(
         if size == 1:
             generic_pointing_xds = generic_pointing_xds.sel({"n_polynomial": 0})
 
+    time_ant_dims = ["time", "antenna_name"]
+    time_ant_dir_dims = time_ant_dims + ["local_sky_dir_label"]
+    to_new_data_variables = {
+        "DIRECTION": ["POINTING_BEAM", time_ant_dir_dims],
+        "ENCODER": ["POINTING_DISH_MEASURED", time_ant_dir_dims],
+        # => attribute? / removed for now
+        # "TARGET": ["TARGET", time_ant_dir_dims],
+        # "POINTING_OFFSET": ["POINTING_OFFSET", time_ant_dir_dims],
+        # "SOURCE_OFFSET": ["SOURCE_OFFSET", time_ant_dir_dims],
+        "OVER_THE_TOP": ["POINTING_OVER_THE_TOP", time_ant_dims],
+    }
+
+    to_new_coords = {
+        "TIME": ["time", ["time"]],
+        # "ANTENNA_ID": ["antenna_name", ["antenna_name"]],
+        "dim_2": ["local_sky_dir_label", ["local_sky_dir_label"]],
+    }
+
     generic_pointing_xds = correct_generic_pointing_xds(
         generic_pointing_xds, to_new_data_variables
     )
-
     pointing_xds = xr.Dataset(attrs={"type": "pointing"})
     coords = {
         "antenna_name": ant_xds_name_ids.sel(
             antenna_id=generic_pointing_xds["ANTENNA_ID"]
         ).data,
-        "sky_dir_label": ["ra", "dec"],
+        "local_sky_dir_label": ["az", "alt"],
     }
     pointing_xds = pointing_xds.assign_coords(coords)
     pointing_xds = convert_generic_xds_to_xradio_schema(
         generic_pointing_xds, pointing_xds, to_new_data_variables, to_new_coords
     )
 
-    # Add attributes specific to pointing_xds
-    if "TRACKING" in generic_pointing_xds.data_vars:
-        pointing_xds.attrs["tracking"] = generic_pointing_xds.data_vars[
-            "TRACKING"
-        ].values[0, 0]
+    # Tracking removed for now
+    # # Add attributes specific to pointing_xds
+    # if "TRACKING" in generic_pointing_xds.data_vars:
+    #     pointing_xds.attrs["tracking"] = generic_pointing_xds.data_vars[
+    #         "TRACKING"
+    #     ].values[0, 0]
 
-    # Move target from data_vars to attributes?
-    move_target_as_attr = False
-    if move_target_as_attr:
-        pointing_column_descriptions = generic_pointing_xds.attrs["other"]["msv2"][
-            "ctds_attrs"
-        ]["column_descriptions"]
+    # TARGET removed for now
+    # # Move target from data_vars to attributes?
+    # move_target_as_attr = False
+    # if move_target_as_attr:
+    #     pointing_column_descriptions = generic_pointing_xds.attrs["other"]["msv2"][
+    #         "ctds_attrs"
+    #     ]["column_descriptions"]
 
-        target = generic_pointing_xds.data_vars["TARGET"]
-        pointing_xds.attrs["target"] = {
-            "dims": ["sky_dir_label"],
-            "data": target.values[0, 0].tolist(),
-            "attrs": column_description_casacore_to_msv4_measure(
-                pointing_column_descriptions["TARGET"]
-            ),
-        }
-    # TODO: move also source_offset/pointing_offset from data_vars to attrs?
+    #     target = generic_pointing_xds.data_vars["TARGET"]
+    #     pointing_xds.attrs["target"] = {
+    #         "dims": ["local_sky_dir_label"],
+    #         "data": target.values[0, 0].tolist(),
+    #         "attrs": column_description_casacore_to_msv4_measure(
+    #             pointing_column_descriptions["TARGET"]
+    #         ),
+    #     }
+
+    # SOURCE_OFFSET/ON_SOURCE/POINTING_OFFSET removed for now
+    # # TODO: move also source_offset/pointing_offset from data_vars to attrs?
 
     pointing_xds = interpolate_to_time(pointing_xds, interp_time, "pointing_xds")
 

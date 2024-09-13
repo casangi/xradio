@@ -30,8 +30,6 @@ def create_antenna_xds(
     antenna_id: list,
     feed_id: list,
     telescope_name: str,
-    time_min_max: Tuple[np.float64, np.float64],
-    phase_cal_interp_time: Union[xr.DataArray, None] = None,
 ) -> xr.Dataset:
     """
     Create an Xarray Dataset containing antenna information.
@@ -48,10 +46,6 @@ def create_antenna_xds(
         List of feed IDs.
     telescope_name : str
         Name of the telescope.
-    time_min_max : Tuple[np.float46, np.float64]
-        Min / max times to constrain loading (usually to the time range relevant to an MSv4)
-    phase_cal_interp_time : Union[xr.DataArray, None]
-        Time axis to interpolate the data vars to (usually main MSv4 time)
 
     Returns
     ----------
@@ -64,10 +58,6 @@ def create_antenna_xds(
     ant_xds = extract_feed_info(
         ant_xds, in_file, antenna_id, feed_id, spectral_window_id
     )
-
-    ant_xds = extract_phase_cal_info(
-        ant_xds, in_file, spectral_window_id, time_min_max, phase_cal_interp_time
-    )  # Only used in VLBI.
 
     ant_xds.attrs["overall_telescope_name"] = telescope_name
     return ant_xds
@@ -373,20 +363,24 @@ def create_gain_curve_xds(
     return gain_curve_xds
 
 
-def extract_phase_cal_info(
-    ant_xds, path, spectral_window_id, time_min_max, phase_cal_interp_time
-):
+def create_phase_calibration_xds(
+    in_file: str,
+    spectral_window_id: int,
+    ant_xds: xr.Dataset,
+    time_min_max: Tuple[np.float64, np.float64],
+    phase_cal_interp_time: Union[xr.DataArray, None] = None,
+) -> xr.Dataset:
     """
-    Reformats MSv2 Phase Cal table content to MSv4 schema.
+    Produces a phase_calibration_xds, reformats MSv2 Phase Cal table content to MSv4 schema.
 
     Parameters
     ----------
-    ant_xds : xr.Dataset
-        The dataset that will be updated with phase cal information.
     in_file : str
         Path to the input MSv2.
     spectral_window_id : int
         The ID of the spectral window.
+    ant_xds : xr.Dataset
+        The antenna_xds that has information such as names, stations, etc., for coordinates
     time_min_max : Tuple[np.float46, np.float64]
         Min / max times to constrain loading (usually to the time range relevant to an MSv4)
     interp_time : Union[xr.DataArray, None]
@@ -398,14 +392,15 @@ def extract_phase_cal_info(
         The updated antenna dataset with phase cal information.
     """
 
-    if os.path.exists(os.path.join(path, "PHASE_CAL")):
+    phase_cal_xds = None
+    if table_exists(os.path.join(in_file, "PHASE_CAL")):
 
         # Only read data between the min and max times of the visibility data in the MSv4.
         taql_time_range = make_taql_where_between_min_max(
-            time_min_max, path, "PHASE_CAL", "TIME"
+            time_min_max, in_file, "PHASE_CAL", "TIME"
         )
         generic_phase_cal_xds = load_generic_table(
-            path,
+            in_file,
             "PHASE_CAL",
             timecols=["TIME"],
             taql_where=f" {taql_time_range} AND (ANTENNA_ID IN [{','.join(map(str,ant_xds.antenna_id.values))}]) AND (SPECTRAL_WINDOW_ID = {spectral_window_id})",
@@ -439,38 +434,42 @@ def extract_phase_cal_info(
             "TIME": ["time_phase_cal", ["time_phase_cal"]],
         }
 
-        ant_xds = convert_generic_xds_to_xradio_schema(
-            generic_phase_cal_xds, ant_xds, to_new_data_variables, to_new_coords
+        phase_cal_xds = xr.Dataset(attrs={"type": "phase_cal"})
+        phase_cal_xds = convert_generic_xds_to_xradio_schema(
+            generic_phase_cal_xds, phase_cal_xds, to_new_data_variables, to_new_coords
         )
-        ant_xds["PHASE_CAL"] = ant_xds["PHASE_CAL"].transpose(
+        phase_cal_xds["PHASE_CAL"] = phase_cal_xds["PHASE_CAL"].transpose(
             "antenna_name", "time_phase_cal", "receptor_label", "tone_label"
         )
 
-        ant_xds["PHASE_CAL_TONE_FREQUENCY"] = ant_xds[
+        phase_cal_xds["PHASE_CAL_TONE_FREQUENCY"] = phase_cal_xds[
             "PHASE_CAL_TONE_FREQUENCY"
         ].transpose("antenna_name", "time_phase_cal", "receptor_label", "tone_label")
 
-        # ant_xds = ant_xds.assign_coords({"tone_label" : "freq_" + np.arange(ant_xds.sizes["tone_label"]).astype(str)}) #Works on laptop but fails in github test runner.
-        ant_xds = ant_xds.assign_coords(
+        # phase_cal_xds = phase_cal_xds.assign_coords({"tone_label" : "freq_" + np.arange(phase_cal_xds.sizes["tone_label"]).astype(str)}) #Works on laptop but fails in github test runner.
+        phase_cal_xds = phase_cal_xds.assign_coords(
             {
                 "tone_label": np.array(
                     list(
                         map(
                             lambda x, y: x + "_" + y,
-                            ["freq"] * ant_xds.sizes["tone_label"],
-                            np.arange(ant_xds.sizes["tone_label"]).astype(str),
+                            ["freq"] * phase_cal_xds.sizes["tone_label"],
+                            np.arange(phase_cal_xds.sizes["tone_label"]).astype(str),
                         )
                     )
                 )
             }
         )
 
-        ant_xds["time_phase_cal"] = (
-            ant_xds.time_phase_cal.astype("float64").astype("float64") / 10**9
+        phase_cal_xds["time_phase_cal"] = (
+            phase_cal_xds.time_phase_cal.astype("float64").astype("float64") / 10**9
         )
 
-        ant_xds = interpolate_to_time(
-            ant_xds, phase_cal_interp_time, "antenna_xds", time_name="time_phase_cal"
+        phase_cal_xds = interpolate_to_time(
+            phase_cal_xds,
+            phase_cal_interp_time,
+            "antenna_xds",
+            time_name="time_phase_cal",
         )
 
         time_coord_attrs = {
@@ -483,13 +482,13 @@ def extract_phase_cal_info(
         # If we interpolate rename the time_phase_cal axis to time.
         if phase_cal_interp_time is not None:
             time_coord = {"time": ("time_phase_cal", phase_cal_interp_time.data)}
-            ant_xds = ant_xds.assign_coords(time_coord)
-            ant_xds.coords["time"].attrs.update(time_coord_attrs)
-            ant_xds = ant_xds.swap_dims({"time_phase_cal": "time"}).drop_vars(
-                "time_phase_cal"
-            )
+            phase_cal_xds = phase_cal_xds.assign_coords(time_coord)
+            phase_cal_xds.coords["time"].attrs.update(time_coord_attrs)
+            phase_cal_xds = phase_cal_xds.swap_dims(
+                {"time_phase_cal": "time"}
+            ).drop_vars("time_phase_cal")
 
-        return ant_xds
+        return phase_cal_xds
 
     else:
-        return ant_xds
+        return phase_cal_xds

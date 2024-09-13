@@ -988,7 +988,7 @@ class GainCurveXds:
     GAIN_CURVE_SENSITIVITY: Data[tuple[AntennaName, ReceptorLabel], numpy.float32]
     """ VLBI. ? """
     GAIN_CURVE: Optional[
-        Data[tuple[AntennaName, ReceptorLabel, PolyTerm], numpy.float32]
+        Data[tuple[AntennaName, PolyTerm, ReceptorLabel], numpy.float32]
     ]
     """ VLBI. ?  """
     GAIN_CURVE_INTERVAL: Optional[Data[tuple[AntennaName], QuantityArray]]
@@ -1325,6 +1325,11 @@ class VisibilityXds:
     processor_info: Attr[ProcessorInfoDict]
     antenna_xds: Attr[AntennaXds]
 
+    schema_version: Attr[str] = None
+    """Semantic version of xradio data format"""
+    creation_date: Attr[str] = None
+    """Date visibility dataset was created . Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
+
     # --- Optional Coordinates ---
     scan_number: Optional[Coord[Time, Union[numpy.int64, numpy.int32]]] = None
     """Arbitary scan number to identify data taken in the same logical scan."""
@@ -1377,15 +1382,16 @@ class VisibilityXds:
     """Includes the effects of missing data unlike ``frequency``."""
 
     # --- Optional Attributes ---
-    weather_xds: Optional[Attr[WeatherXds]] = None
     pointing_xds: Optional[Attr[PointingXds]] = None
-    phased_array_xds: Optional[Attr[PhasedArrayXds]] = None
     system_calibration_xds: Optional[Attr[SystemCalibrationXds]] = None
+    gain_curve_xds: Optional[Attr[GainCurveXds]] = None
+    phase_calibration_xds: Optional[Attr[PhaseCalibrationXds]] = None
+    weather_xds: Optional[Attr[WeatherXds]] = None
+    phased_array_xds: Optional[Attr[PhasedArrayXds]] = None
 
-    version: Optional[Attr[str]] = None  # TODO:
-    """Semantic version of xradio data format"""
-    creation_date: Optional[Attr[str]] = None
-    """Date visibility dataset was created . Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
+    xradio_version: Optional[Attr[str]] = None
+    """ Version of XRADIO used if converted from MSv2. """
+
     intent: Optional[Attr[str]] = None
     """Identifies the intention of the scan, such as to calibrate or observe a
     target. See :ref:`scan intents` for possible values.

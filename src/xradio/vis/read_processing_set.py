@@ -73,6 +73,7 @@ def _read_sub_xds(ms_store, file_system, data_groups, load=False):
 
     xds_names = {
         "ANTENNA": "antenna_xds",
+        "GAIN_CURVE": "gain_curve_xds",
         "WEATHER": "weather_xds",
         "SYSCAL": "system_calibration_xds",
         "POINTING": "pointing_xds",

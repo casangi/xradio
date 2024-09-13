@@ -16,7 +16,10 @@ from xradio.vis._vis_utils._ms.msv4_sub_xdss import (
     create_weather_xds,
 )
 from .msv4_info_dicts import create_info_dicts
-from xradio.vis._vis_utils._ms.create_antenna_xds import create_antenna_xds
+from xradio.vis._vis_utils._ms.create_antenna_xds import (
+    create_antenna_xds,
+    create_gain_curve_xds,
+)
 from xradio.vis._vis_utils._ms.create_field_and_source_xds import (
     create_field_and_source_xds,
 )
@@ -885,6 +888,14 @@ def convert_and_write_partition(
                 phase_cal_interp_time,
             )
 
+            logger.debug("Time antenna xds  " + str(time.time() - start))
+
+            start = time.time()
+            gain_curve_xds = create_gain_curve_xds(
+                in_file, xds.frequency.attrs["spectral_window_id"], ant_xds
+            )
+            logger.debug("Time gain_curve xds  " + str(time.time() - start))
+
             # Change antenna_ids to antenna_names
             xds = antenna_ids_to_names(xds, ant_xds, is_single_dish)
             # but before, keep the name-id arrays, we need them for the pointing and weather xds
@@ -892,8 +903,6 @@ def convert_and_write_partition(
             ant_xds_station_name_ids = ant_xds["station"].set_xindex("antenna_id")
             # No longer needed after converting to name.
             ant_xds = ant_xds.drop_vars("antenna_id")
-
-            logger.debug("Time ant xds  " + str(time.time() - start))
 
             # Create system_calibration_xds
             start = time.time()
@@ -1023,6 +1032,11 @@ def convert_and_write_partition(
                             file_name, f"FIELD_AND_SOURCE_{group_name.upper()}"
                         ),
                         mode=mode,
+                    )
+
+                if gain_curve_xds:
+                    gain_curve_xds.to_zarr(
+                        store=os.path.join(file_name, "GAIN_CURVE"), mode=mode
                     )
 
                 if with_pointing and len(pointing_xds.data_vars) > 1:

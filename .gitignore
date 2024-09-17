@@ -6,8 +6,11 @@ __pycache__/
 *$py.class
 
 #Data
-*.zarr
-*.ms
+*.zarr*
+*.ms*
+*.tar*
+*.zip*
+*.fits*
 
 # C extensions
 *.so

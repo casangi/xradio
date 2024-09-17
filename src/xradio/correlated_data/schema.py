@@ -52,7 +52,7 @@ CartesianPosLabel = Literal["cartesian_pos_label"]
 """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
 TimePhaseCal = Literal["time_phase_cal"]
 """ Coordinate label for VLBI-specific phase cal time axis """
-TimePolynomial = Literal["time_polynomial"]
+nPolynomial = Literal["n_polynomial"]
 """ For data that is represented as variable in time using Taylor expansion """
 PolyTerm = Literal["poly_term"]
 """ Polynomial term used in VLBI GAIN_CURVE """
@@ -214,7 +214,7 @@ class TimePointingCoordArray(TimeCoordArrayBase):
     when not interpolated to the main time axis. See also
     :py:class:`TimeCoordArray`."""
 
-    data: Data[TimeCal, float]
+    data: Data[TimePointing, float]
     """
     Time, expressed in seconds since the epoch (see ``scale`` &
     ``format``).
@@ -238,6 +238,101 @@ class TimeEphemerisCoordArray(TimeCoordArrayBase):
 
     type: Attr[str] = "time_ephemeris"
     """ Coordinate type. Should be ``"time_ephemeris"``. """
+
+
+@xarray_dataarray_schema
+class SpectralCoordArray:
+    data: Data[ZD, float]
+
+    frame: Attr[str] = "gcrs"
+    """Astropy time scales."""
+
+    type: Attr[str] = "frequency"
+    units: Attr[list[str]] = ("Hz",)
+
+
+@xarray_dataarray_schema
+class EarthLocationArray:
+    data: Data[CartesianPosLabel, float]
+
+    ellipsoid: Attr[str]
+    """
+    ITRF makes use of GRS80 ellipsoid and WGS84 makes use of WGS84 ellipsoid
+    """
+    units: Attr[list[str]] = ("m", "m", "m")
+    """
+    If the units are a list of strings then it must be the same length as
+    the last dimension of the data array. This allows for having different
+    units in the same data array,for example geodetic coordinates could use
+    ``['rad','rad','m']``.
+    """
+
+
+@xarray_dataarray_schema
+class LocationArray:
+    """
+    Measure type used for example in field_and_source_xds/OBSERVER_POSITION
+    Data dimensions can be EllipsoidPosLabel or CartesianPosLabel
+    """
+
+    data: Data[Union[EllipsoidPosLabel, CartesianPosLabel], float]
+
+    ellipsoid: Attr[str]
+    """
+    ITRF makes use of GRS80 ellipsoid and WGS84 makes use of WGS84 ellipsoid
+    """
+
+    origin_object_name: Attr[str]
+    """
+    earth/sun/moon/etc
+    """
+
+    coordinate_system: Attr[str]
+    """ geocentric/planetcentric, geodetic/planetodetic, orbital """
+
+    type: Attr[str] = "location"
+    """ """
+
+    units: Attr[list[str]] = ("deg", "deg", "m")
+    """
+    If the units are a list of strings then it must be the same length as
+    the last dimension of the data array. This allows for having different
+    units in the same data array,for example geodetic coordinates could use
+    ``['rad','rad','m']``.
+    """
+
+
+@xarray_dataarray_schema
+class EllipsoidPosLocationArray:
+    """
+    Measure type used for example in field_and_source_xds/SUB_OBSERVER_POSITION, SUB_SOLAR_POSITION
+    """
+
+    data: Data[EllipsoidPosLabel, float]
+
+    ellipsoid: Attr[str]
+    """
+    ITRF makes use of GRS80 ellipsoid and WGS84 makes use of WGS84 ellipsoid
+    """
+
+    origin_object_name: Attr[str]
+    """
+    earth/sun/moon/etc
+    """
+
+    coordinate_system: Attr[str]
+    """ geocentric/planetcentric, geodetic/planetodetic, orbital """
+
+    type: Attr[str] = "location"
+    """ """
+
+    units: Attr[list[str]] = ("deg", "deg", "m")
+    """
+    If the units are a list of strings then it must be the same length as
+    the last dimension of the data array. This allows for having different
+    units in the same data array,for example geodetic coordinates could use
+    ``['rad','rad','m']``.
+    """
 
 
 @xarray_dataset_schema
@@ -275,7 +370,7 @@ class FieldSourceXds:
     """ Line names (e.g. v=1, J=1-0, SiO). """
 
     FIELD_PHASE_CENTER: Optional[
-        Data[Union[ZD, Time, TimeEphemeris], SkyCoordOffsetArray]
+        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], SkyCoordOffsetArray]
     ]
     """
     Offset from the SOURCE_DIRECTION that gives the direction of phase
@@ -285,36 +380,15 @@ class FieldSourceXds:
     conversion from MSv2, frame refers column keywords by default. If frame
     varies with field, it refers DelayDir_Ref column instead.
     """
-    FIELD_DELAY_CENTER: Optional[
-        Data[
-            Union[
-                tuple[SkyDirLabel],
-                tuple[Time, SkyDirLabel],
-                tuple[TimeEphemeris, SkyDirLabel],
-            ],
-            numpy.float64,
-        ]
-    ]
-    """
-    Offset from the SOURCE_DIRECTION that gives the direction of delay
-    center where coherence is maximized by inserting delay into one element of
-    an interferometer to compensate for the geometrical and instrumental
-    differential delay. (For conversion from MSv2, frame refers column keywords
-    by default. If frame varies with field, it refers PhaseDir_Ref column
-    instead.)
-    """
 
     SOURCE_LOCATION: Optional[
         Data[
             Union[
-                tuple[SkyDirLabel],
-                tuple[SkyPosLabel],
-                tuple[Time, SkyDirLabel],
-                tuple[TimeEphemeris, SkyDirLabel],
-                tuple[Time, SkyPosLabel],
-                tuple[TimeEphemeris, SkyPosLabel],
+                ZD,
+                tuple[Time],
+                tuple[TimeEphemeris],
             ],
-            numpy.float64,
+            SkyCoordArray,
         ]
     ]
     """
@@ -334,7 +408,7 @@ class FieldSourceXds:
                 tuple[Time, LineLabel],
                 tuple[TimeEphemeris, LineLabel],
             ],
-            numpy.float64,
+            SpectralCoordArray,
         ]
     ]
     """ Rest frequencies for the transitions. """
@@ -346,32 +420,34 @@ class FieldSourceXds:
                 tuple[Time, LineLabel],
                 tuple[TimeEphemeris, LineLabel],
             ],
-            numpy.float64,
+            QuantityArray,
         ]
     ]
     """ Systemic velocity at reference """
 
     SOURCE_RADIAL_VELOCITY: Optional[
-        Data[Union[tuple[Time], tuple[TimeEphemeris]], numpy.float64]
+        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], QuantityArray]
     ]
     """ CASA Table Cols: RadVel. Geocentric distance rate """
 
     NORTH_POLE_POSITION_ANGLE: Optional[
-        Data[Union[tuple[Time], tuple[TimeEphemeris]], numpy.float64]
+        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], QuantityArray]
     ]
     """ CASA Table cols: NP_ang, "Targets' apparent north-pole position angle (counter-clockwise with respect to direction of true-of-date reference-frame north pole) and angular distance from the sub-observer point (center of disc) at print time. A negative distance indicates the north-pole is on the hidden hemisphere." https://ssd.jpl.nasa.gov/horizons/manual.html : 17. North pole position angle & distance from disc center. """
 
     NORTH_POLE_ANGULAR_DISTANCE: Optional[
-        Data[Union[tuple[Time], tuple[TimeEphemeris]], numpy.float64]
+        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], QuantityArray]
     ]
     """ CASA Table cols: NP_dist, "Targets' apparent north-pole position angle (counter-clockwise with respect to direction of true-of date reference-frame north pole) and angular distance from the sub-observer point (center of disc) at print time. A negative distance indicates the north-pole is on the hidden hemisphere."https://ssd.jpl.nasa.gov/horizons/manual.html : 17. North pole position angle & distance from disc center. """
 
     SUB_OBSERVER_DIRECTION: Optional[
         Data[
             Union[
-                tuple[Time, EllipsoidPosLabel], tuple[TimeEphemeris, EllipsoidPosLabel]
+                ZD,
+                tuple[Time],
+                tuple[TimeEphemeris],
             ],
-            numpy.float64,
+            EllipsoidPosLocationArray,
         ]
     ]
     """ CASA Table cols: DiskLong, DiskLat. "Apparent planetodetic longitude and latitude of the center of the target disc seen by the OBSERVER at print-time. This is not exactly the same as the "nearest point" for a non-spherical target shape (since the center of the disc might not be the point closest to the observer), but is generally very close if not a very irregular body shape. The IAU2009 rotation models are used except for Earth and MOON, which use higher-precision models. For the gas giants Jupiter, Saturn, Uranus and Neptune, IAU2009 longitude is based on the "System III" prime meridian rotation angle of the magnetic field. By contrast, pole direction (thus latitude) is relative to the body dynamical equator. There can be an offset between the magnetic pole and the dynamical pole of rotation. Down-leg light travel-time from target to observer is taken into account. Latitude is the angle between the equatorial plane and perpendicular to the reference ellipsoid of the body and body oblateness thereby included. The reference ellipsoid is an oblate spheroid with a single flatness coefficient in which the y-axis body radius is taken to be the same value as the x-axis radius. Whether longitude is positive to the east or west for the target will be indicated at the end of the output ephemeris." https://ssd.jpl.nasa.gov/horizons/manual.html : 14. Observer sub-longitude & sub-latitude """
@@ -379,26 +455,26 @@ class FieldSourceXds:
     SUB_SOLAR_POSITION: Optional[
         Data[
             Union[
-                tuple[Time, SphericalPosLabel], tuple[TimeEphemeris, SphericalPosLabel]
+                ZD,
+                tuple[Time],
+                tuple[TimeEphemeris],
             ],
-            numpy.float64,
+            EllipsoidPosLocationArray,
         ]
     ]
     """ CASA Table cols: Sl_lon, Sl_lat, r. "Heliocentric distance along with "Apparent sub-solar longitude and latitude of the Sun on the target. The apparent planetodetic longitude and latitude of the center of the target disc as seen from the Sun, as seen by the observer at print-time.  This is _NOT_ exactly the same as the "sub-solar" (nearest) point for a non-spherical target shape (since the center of the disc seen from the Sun might not be the closest point to the Sun), but is very close if not a highly irregular body shape.  Light travel-time from Sun to target and from target to observer is taken into account.  Latitude is the angle between the equatorial plane and the line perpendicular to the reference ellipsoid of the body. The reference ellipsoid is an oblate spheroid with a single flatness coefficient in which the y-axis body radius is taken to be the same value as the x-axis radius. Uses IAU2009 rotation models except for Earth and Moon, which uses a higher precision models. Values for Jupiter, Saturn, Uranus and Neptune are Set III, referring to rotation of their magnetic fields.  Whether longitude is positive to the east or west for the target will be indicated at the end of the output ephemeris." https://ssd.jpl.nasa.gov/horizons/manual.html : 15. Solar sub-longitude & sub-latitude  """
 
     HELIOCENTRIC_RADIAL_VELOCITY: Optional[
-        Data[Union[tuple[Time], tuple[TimeEphemeris]], numpy.float64]
+        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], QuantityArray]
     ]
     """ CASA Table cols: rdot."The Sun's apparent range-rate relative to the target, as seen by the observer. A positive "rdot" means the target was moving away from the Sun, negative indicates movement toward the Sun." https://ssd.jpl.nasa.gov/horizons/manual.html : 19. Solar range & range-rate (relative to target) """
 
     OBSERVER_PHASE_ANGLE: Optional[
-        Data[Union[tuple[Time], tuple[TimeEphemeris]], numpy.float64]
+        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], QuantityArray]
     ]
     """ CASA Table cols: phang.""phi" is the true PHASE ANGLE at the observers' location at print time. "PAB-LON" and "PAB-LAT" are the FK4/B1950 or ICRF/J2000 ecliptic longitude and latitude of the phase angle bisector direction; the outward directed angle bisecting the arc created by the apparent vector from Sun to target center and the astrometric vector from observer to target center. For an otherwise uniform ellipsoid, the time when its long-axis is perpendicular to the PAB direction approximately corresponds to lightcurve maximum (or maximum brightness) of the body. PAB is discussed in Harris et al., Icarus 57, 251-258 (1984)." https://ssd.jpl.nasa.gov/horizons/manual.html : Phase angle and bisector """
 
-    OBSERVER_POSITION: Optional[
-        Data[Union[tuple[EllipsoidPosLabel], tuple[CartesianPosLabel]], numpy.float64]
-    ]
+    OBSERVER_POSITION: Optional[Data[ZD, LocationArray]]
     """ Observer location. """
 
     # --- Attributes ---
@@ -435,47 +511,27 @@ class FieldSourceXds:
     """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
 
 
-@xarray_dataarray_schema
-class SpectralCoordArray:
-    data: Data[ZD, float]
-
-    frame: Attr[str] = "gcrs"
-    """Astropy time scales."""
-
-    type: Attr[str] = "frequency"
-    units: Attr[list[str]] = ("Hz",)
-
-
-@xarray_dataarray_schema
-class EarthLocationArray:
-    data: Data[CartesianPosLabel, float]
-
-    ellipsoid: Attr[str]
-    """
-    ITRF makes use of GRS80 ellipsoid and WGS84 makes use of WGS84 ellipsoid
-    """
-    units: Attr[list[str]] = ("m", "m", "m")
-    """
-    If the units are a list of strings then it must be the same length as
-    the last dimension of the data array. This allows for having different
-    units in the same data array,for example geodetic coordinates could use
-    ``['rad','rad','m']``.
-    """
-
-
 @dict_schema
 class PartitionInfoDict:
     # spectral_window_id: missing / remove for good?
     spectral_window_name: str
+    """ Spectral window Name """
     # field_id: missing / probably remove for good?
     field_name: list[str]
+    """ List of all field names """
     polarization_setup: list[str]
+    """ List of polrization bases. """
     scan_number: list[int]
+    """ List of scan numbers. """
     source_name: list[str]
+    """ List of source names. """
     # source_id: mising / remove for good?
     obs_mode: list[str]
+    """ Infromation in obs_mode column of MSv2 """
     taql: Optional[str]
+    """ The taql query used if converted from MSv2. """
     line_name: list[str]
+    """ Spectral line names """
 
 
 @dict_schema
@@ -652,14 +708,10 @@ class VisibilityArray:
         Union[numpy.complex64, numpy.complex128],
     ]
 
-    time: Coord[tuple[()], TimeCoordArray]
-    baseline_id: Coord[tuple[()], BaselineArray]
-    polarization: Coord[tuple[()], PolarizationArray]
-    frequency: Coord[tuple[()], FrequencyArray]
-    time: Coord[ZD, TimeCoordArray]
-    baseline_id: Coord[ZD, BaselineArray]
-    polarization: Coord[ZD, PolarizationArray]
-    frequency: Coord[ZD, FrequencyArray]
+    time: Coordof[TimeCoordArray]
+    baseline_id: Coordof[BaselineArray]
+    polarization: Coordof[PolarizationArray]
+    frequency: Coordof[FrequencyArray]
 
     field_and_source_xds: Attr[FieldSourceXds]
     long_name: Optional[Attr[str]] = "Visibility values"
@@ -1147,10 +1199,10 @@ class PointingXds:
 
     POINTING_BEAM: Data[
         Union[
-            tuple[Time, AntennaName, TimePolynomial],
-            tuple[TimePointing, AntennaName, TimePolynomial],
             tuple[Time, AntennaName],
             tuple[TimePointing, AntennaName],
+            tuple[Time, AntennaName, nPolynomial],
+            tuple[TimePointing, AntennaName, nPolynomial],
         ],
         LocalSkyCoordArray,
     ]
@@ -1169,7 +1221,13 @@ class PointingXds:
     'time_pointing' when not interpolating to main time axis """
 
     POINTING_DISH_MEASURED: Optional[
-        Data[Union[tuple[Time, AntennaName], tuple[TimePointing]], LocalSkyCoordArray]
+        Data[
+            Union[
+                tuple[Time, AntennaName],
+                tuple[TimePointing, AntennaName],
+            ],
+            LocalSkyCoordArray,
+        ]
     ] = None
     """
     The current encoder values on the primary axes of the mount type for
@@ -1330,6 +1388,10 @@ class VisibilityXds:
     polarization: Coordof[PolarizationArray]
     """
     Labels for polarization types, e.g. ``['XX','XY','YX','YY']``, ``['RR','RL','LR','LL']``.
+    """
+    polarization_mixed: Optional[Coord[tuple[BaselineId, Polarization], str]]
+    """
+    If the polarizations are not constant over baseline
     """
     uvw_label: Optional[Coordof[UvwLabelArray]]
     """ u,v,w """

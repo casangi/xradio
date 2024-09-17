@@ -41,13 +41,13 @@ The main aims of the library are:
 .. toctree::
    :hidden:
    :maxdepth: 1
-   :caption: Observation Data
+   :caption: Correlated Data
 
    obs_overview
-   observation_data/tutorials/index
-   observation_data/guides/index
+   correlated_data/tutorials/index
+   correlated_data/guides/index
 
-   observation_data/schema_and_api/index
+   correlated_data/schema_and_api/index
 
 
 .. toctree::

@@ -1,5 +1,5 @@
 import os
-from ._processing_set import processing_set
+from xradio.correlated_data import ProcessingSet
 from typing import Dict, Union
 
 
@@ -8,7 +8,7 @@ def load_processing_set(
     sel_parms: dict,
     data_variables: Union[list, None] = None,
     load_sub_datasets: bool = True,
-) -> processing_set:
+) -> ProcessingSet:
     """Loads a processing set into memory.
 
     Parameters
@@ -33,14 +33,14 @@ def load_processing_set(
 
     Returns
     -------
-    processing_set
+    ProcessingSet
         In memory representation of processing set (data is represented by Dask.arrays).
     """
     from xradio._utils.zarr.common import _open_dataset, _get_file_system_and_items
 
     file_system, ms_store_list = _get_file_system_and_items(ps_store)
 
-    ps = processing_set()
+    ps = ProcessingSet()
     for ms_name, ms_xds_isel in sel_parms.items():
         ms_store = os.path.join(ps_store, ms_name)
         ms_main_store = os.path.join(ms_store, "MAIN")
@@ -55,9 +55,9 @@ def load_processing_set(
         data_groups = xds.attrs["data_groups"]
 
         if load_sub_datasets:
-            from xradio.correlated_data.read_processing_set import _read_sub_xds
+            from xradio.correlated_data.open_processing_set import _open_sub_xds
 
-            sub_xds_dict, field_and_source_xds_dict = _read_sub_xds(
+            sub_xds_dict, field_and_source_xds_dict = _open_sub_xds(
                 ms_store, file_system=file_system, load=True, data_groups=data_groups
             )
 
@@ -66,12 +66,8 @@ def load_processing_set(
                 **sub_xds_dict,
             }
             for data_group_name, data_group_vals in data_groups.items():
-                if "visibility" in data_group_vals:
-                    xds[data_group_vals["visibility"]].attrs["field_and_source_xds"] = (
-                        field_and_source_xds_dict[data_group_name]
-                    )
-                elif "spectrum" in data_group_vals:
-                    xds[data_group_vals["spectrum"]].attrs["field_and_source_xds"] = (
+
+                xds[data_group_vals["correlated_data"]].attrs["field_and_source_xds"] = (
                         field_and_source_xds_dict[data_group_name]
                     )
 
@@ -85,7 +81,7 @@ class processing_set_iterator:
         self,
         sel_parms: dict,
         input_data_store: str,
-        input_data: Union[Dict, processing_set, None] = None,
+        input_data: Union[Dict, ProcessingSet, None] = None,
         data_variables: list = None,
         load_sub_datasets: bool = True,
     ):

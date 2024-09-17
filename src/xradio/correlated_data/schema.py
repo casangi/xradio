@@ -526,8 +526,8 @@ class PartitionInfoDict:
     source_name: list[str]
     """ List of source names. """
     # source_id: mising / remove for good?
-    obs_mode: list[str]
-    """ Infromation in obs_mode column of MSv2 """
+    intents: list[str]
+    """ Infromation in obs_mode column of MSv2 State table. """
     taql: Optional[str]
     """ The taql query used if converted from MSv2. """
     line_name: list[str]

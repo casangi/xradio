@@ -3,7 +3,7 @@ from xradio._utils.list_and_array import to_list
 import numbers
 
 
-class processing_set(dict):
+class ProcessingSet(dict):
     """
     A dictionary subclass representing a Processing Set (PS) that is a set of Measurement Sets v4 (MS).
 
@@ -102,13 +102,12 @@ class processing_set(dict):
             summary_data["scan_number"].append(
                 value.attrs["partition_info"]["scan_number"]
             )
+            data_name = value.attrs["data_groups"][data_group]["correlated_data"]
 
-            if "visibility" in value.attrs["data_groups"][data_group]:
-                data_name = value.attrs["data_groups"][data_group]["visibility"]
+            if "VISIBILITY" in data_name:
                 center_name = "FIELD_PHASE_CENTER"
 
-            if "spectrum" in value.attrs["data_groups"][data_group]:
-                data_name = value.attrs["data_groups"][data_group]["spectrum"]
+            if "SPECTRUM" in data_name:
                 center_name = "FIELD_REFERENCE_CENTER"
 
             summary_data["shape"].append(value[data_name].shape)
@@ -264,7 +263,7 @@ class processing_set(dict):
         if query is not None:
             summary_table = summary_table.query(query)
 
-        sub_ps = processing_set()
+        sub_ps = ProcessingSet()
         for key, val in self.items():
             if key in summary_table["name"].values:
                 sub_ps[key] = val
@@ -281,7 +280,7 @@ class processing_set(dict):
         Returns:
             processing_set: The subset of the Processing Set.
         """
-        sub_ps = processing_set()
+        sub_ps = ProcessingSet()
         for key, val in self.items():
             sub_ps[key] = val.sel(kwargs)
         return sub_ps
@@ -296,7 +295,7 @@ class processing_set(dict):
         Returns:
             processing_set: The subset of the Processing Set.
         """
-        sub_ps = processing_set()
+        sub_ps = ProcessingSet()
         for key, val in self.items():
             sub_ps[key] = val.isel(kwargs)
         return sub_ps

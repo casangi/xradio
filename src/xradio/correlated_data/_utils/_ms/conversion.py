@@ -11,18 +11,18 @@ import xarray as xr
 
 import toolviper.utils.logger as logger
 from casacore import tables
-from xradio.correlated_data._vis_utils._ms.msv4_sub_xdss import (
+from xradio.correlated_data._utils._ms.msv4_sub_xdss import (
     create_pointing_xds,
     create_system_calibration_xds,
     create_weather_xds,
 )
 from .msv4_info_dicts import create_info_dicts
-from xradio.correlated_data._vis_utils._ms.create_antenna_xds import (
+from xradio.correlated_data._utils._ms.create_antenna_xds import (
     create_antenna_xds,
     create_gain_curve_xds,
     create_phase_calibration_xds,
 )
-from xradio.correlated_data._vis_utils._ms.create_field_and_source_xds import (
+from xradio.correlated_data._utils._ms.create_field_and_source_xds import (
     create_field_and_source_xds,
 )
 from xradio._utils.schema import column_description_casacore_to_msv4_measure
@@ -150,7 +150,7 @@ def mem_chunksize_to_dict_main(chunksize: float, xds: xr.Dataset) -> Dict[str, i
     polarization).
     """
 
-    sizeof_vis = itemsize_vis_spec(xds)
+    sizeof_vis = itemsize_spec(xds)
     size_all_pols = sizeof_vis * xds.sizes["polarization"]
     if size_all_pols / GiBYTES_TO_BYTES > chunksize:
         raise RuntimeError(
@@ -332,7 +332,7 @@ def find_baseline_or_antenna_var(xds: xr.Dataset) -> str:
     return baseline_or_antenna_name
 
 
-def itemsize_vis_spec(xds: xr.Dataset) -> int:
+def itemsize_spec(xds: xr.Dataset) -> int:
     """
     Size in bytes of one visibility (or spectrum) value.
     """
@@ -1130,7 +1130,7 @@ def add_data_groups(xds):
     xds.attrs["data_groups"] = {}
     if "VISIBILITY" in xds:
         xds.attrs["data_groups"]["base"] = {
-            "visibility": "VISIBILITY",
+            "correlated_data": "VISIBILITY",
             "flag": "FLAG",
             "weight": "WEIGHT",
             "uvw": "UVW",
@@ -1138,7 +1138,7 @@ def add_data_groups(xds):
 
     if "VISIBILITY_CORRECTED" in xds:
         xds.attrs["data_groups"]["corrected"] = {
-            "visibility": "VISIBILITY_CORRECTED",
+            "correlated_data": "VISIBILITY_CORRECTED",
             "flag": "FLAG",
             "weight": "WEIGHT",
             "uvw": "UVW",
@@ -1146,7 +1146,7 @@ def add_data_groups(xds):
 
     if "VISIBILITY_MODEL" in xds:
         xds.attrs["data_groups"]["model"] = {
-            "visibility": "VISIBILITY_MODEL",
+            "correlated_data": "VISIBILITY_MODEL",
             "flag": "FLAG",
             "weight": "WEIGHT",
             "uvw": "UVW",
@@ -1155,7 +1155,16 @@ def add_data_groups(xds):
     is_single_dish = False
     if "SPECTRUM" in xds:
         xds.attrs["data_groups"]["base"] = {
-            "spectrum": "SPECTRUM",
+            "correlated_data": "SPECTRUM",
+            "flag": "FLAG",
+            "weight": "WEIGHT",
+            "uvw": "UVW",
+        }
+        is_single_dish = True
+        
+    if "SPECTRUM_MODEL" in xds:
+        xds.attrs["data_groups"]["model"] = {
+            "correlated_data": "SPECTRUM_MODEL",
             "flag": "FLAG",
             "weight": "WEIGHT",
             "uvw": "UVW",
@@ -1164,7 +1173,7 @@ def add_data_groups(xds):
 
     if "SPECTRUM_CORRECTED" in xds:
         xds.attrs["data_groups"]["corrected"] = {
-            "spectrum": "SPECTRUM_CORRECTED",
+            "correlated_data": "SPECTRUM_CORRECTED",
             "flag": "FLAG",
             "weight": "WEIGHT",
             "uvw": "UVW",

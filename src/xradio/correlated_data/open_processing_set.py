@@ -1,6 +1,6 @@
 import os
 
-from xradio.correlated_data._processing_set import processing_set
+from xradio.correlated_data import ProcessingSet
 import toolviper.utils.logger as logger
 from xradio._utils.zarr.common import _open_dataset, _get_file_system_and_items
 import s3fs
@@ -9,7 +9,7 @@ import s3fs
 def open_processing_set(
     ps_store: str,
     intents: list = None,
-) -> processing_set:
+) -> ProcessingSet:
     """Creates a lazy representation of a Processing Set (only meta-data is loaded into memory).
 
     Parameters
@@ -27,7 +27,7 @@ def open_processing_set(
     """
     file_system, ms_store_list = _get_file_system_and_items(ps_store)
 
-    ps = processing_set()
+    ps = ProcessingSet()
     data_group = "base"
     for ms_name in ms_store_list:
         # try:
@@ -50,14 +50,9 @@ def open_processing_set(
             }
 
             for data_group_name, data_group_vals in data_groups.items():
-                if "visibility" in data_group_vals:
-                    xds[data_group_vals["visibility"]].attrs["field_and_source_xds"] = (
-                        field_and_source_xds_dict[data_group_name]
-                    )
-                elif "spectrum" in data_group_vals:
-                    xds[data_group_vals["spectrum"]].attrs["field_and_source_xds"] = (
-                        field_and_source_xds_dict[data_group_name]
-                    )
+                xds[data_group_vals["correlated_data"]].attrs["field_and_source_xds"] = (
+                    field_and_source_xds_dict[data_group_name]
+                )
 
             ps[ms_name] = xds
         # except Exception as e:

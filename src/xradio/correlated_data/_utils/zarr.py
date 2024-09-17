@@ -10,7 +10,7 @@ from ._zarr.read import read_part_keys, read_partitions, read_subtables
 from ._zarr.write import write_metainfo, write_part_keys, write_partitions
 
 
-def is_zarr_vis(inpath: str) -> bool:
+def is_zarr_cor(inpath: str) -> bool:
     """
     Check if a given path has a visibilities dataset in Zarr format
 
@@ -32,7 +32,7 @@ def is_zarr_vis(inpath: str) -> bool:
         return False
 
 
-def read_vis(
+def read_cor(
     inpath: str,
     subtables: bool = True,
     asdm_subtables: bool = False,
@@ -83,7 +83,7 @@ def read_vis(
     return cds
 
 
-def write_vis(
+def write_cor(
     cds: CASAVisSet,
     outpath: str,
     chunks_on_disk: Union[Dict, None] = None,

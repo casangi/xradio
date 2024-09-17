@@ -6,9 +6,9 @@ import numpy as np
 import xarray as xr
 
 import toolviper.utils.logger as logger
-from xradio.correlated_data._vis_utils._ms.msv4_sub_xdss import interpolate_to_time
-from xradio.correlated_data._vis_utils._ms.subtables import subt_rename_ids
-from xradio.correlated_data._vis_utils._ms._tables.read import (
+from xradio.correlated_data._utils._ms.msv4_sub_xdss import interpolate_to_time
+from xradio.correlated_data._utils._ms.subtables import subt_rename_ids
+from xradio.correlated_data._utils._ms._tables.read import (
     convert_casacore_time_to_mjd,
     make_taql_where_between_min_max,
     load_generic_table,

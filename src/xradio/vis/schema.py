@@ -515,15 +515,23 @@ class FieldSourceXds:
 class PartitionInfoDict:
     # spectral_window_id: missing / remove for good?
     spectral_window_name: str
+    """ Spectral window Name """
     # field_id: missing / probably remove for good?
     field_name: list[str]
+    """ List of all field names """
     polarization_setup: list[str]
+    """ List of polrization bases. """
     scan_number: list[int]
+    """ List of scan numbers. """
     source_name: list[str]
+    """ List of source names. """
     # source_id: mising / remove for good?
     obs_mode: list[str]
+    """ Infromation in obs_mode column of MSv2 """
     taql: Optional[str]
+    """ The taql query used if converted from MSv2. """
     line_name: list[str]
+    """ Spectral line names """
 
 
 @dict_schema

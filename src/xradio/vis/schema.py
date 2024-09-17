@@ -708,10 +708,10 @@ class VisibilityArray:
         Union[numpy.complex64, numpy.complex128],
     ]
 
-    time: Coord[ZD, TimeCoordArray]
-    baseline_id: Coord[ZD, BaselineArray]
-    polarization: Coord[ZD, PolarizationArray]
-    frequency: Coord[ZD, FrequencyArray]
+    time: Coordof[TimeCoordArray]
+    baseline_id: Coordof[BaselineArray]
+    polarization: Coordof[PolarizationArray]
+    frequency: Coordof[FrequencyArray]
 
     field_and_source_xds: Attr[FieldSourceXds]
     long_name: Optional[Attr[str]] = "Visibility values"

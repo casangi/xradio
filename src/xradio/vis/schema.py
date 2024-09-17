@@ -52,7 +52,7 @@ CartesianPosLabel = Literal["cartesian_pos_label"]
 """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
 TimePhaseCal = Literal["time_phase_cal"]
 """ Coordinate label for VLBI-specific phase cal time axis """
-TimePolynomial = Literal["time_polynomial"]
+nPolynomial = Literal["n_polynomial"]
 """ For data that is represented as variable in time using Taylor expansion """
 PolyTerm = Literal["poly_term"]
 """ Polynomial term used in VLBI GAIN_CURVE """
@@ -214,7 +214,7 @@ class TimePointingCoordArray(TimeCoordArrayBase):
     when not interpolated to the main time axis. See also
     :py:class:`TimeCoordArray`."""
 
-    data: Data[TimeCal, float]
+    data: Data[TimePointing, float]
     """
     Time, expressed in seconds since the epoch (see ``scale`` &
     ``format``).
@@ -1147,10 +1147,10 @@ class PointingXds:
 
     POINTING_BEAM: Data[
         Union[
-            tuple[Time, AntennaName, TimePolynomial],
-            tuple[TimePointing, AntennaName, TimePolynomial],
             tuple[Time, AntennaName],
             tuple[TimePointing, AntennaName],
+            tuple[Time, AntennaName, nPolynomial],
+            tuple[TimePointing, AntennaName, nPolynomial],
         ],
         LocalSkyCoordArray,
     ]
@@ -1169,7 +1169,13 @@ class PointingXds:
     'time_pointing' when not interpolating to main time axis """
 
     POINTING_DISH_MEASURED: Optional[
-        Data[Union[tuple[Time, AntennaName], tuple[TimePointing]], LocalSkyCoordArray]
+        Data[
+            Union[
+                tuple[Time, AntennaName],
+                tuple[TimePointing, AntennaName],
+            ],
+            LocalSkyCoordArray,
+        ]
     ] = None
     """
     The current encoder values on the primary axes of the mount type for

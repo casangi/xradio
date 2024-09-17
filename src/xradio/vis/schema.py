@@ -708,10 +708,6 @@ class VisibilityArray:
         Union[numpy.complex64, numpy.complex128],
     ]
 
-    time: Coord[tuple[()], TimeCoordArray]
-    baseline_id: Coord[tuple[()], BaselineArray]
-    polarization: Coord[tuple[()], PolarizationArray]
-    frequency: Coord[tuple[()], FrequencyArray]
     time: Coord[ZD, TimeCoordArray]
     baseline_id: Coord[ZD, BaselineArray]
     polarization: Coord[ZD, PolarizationArray]
@@ -1392,6 +1388,10 @@ class VisibilityXds:
     polarization: Coordof[PolarizationArray]
     """
     Labels for polarization types, e.g. ``['XX','XY','YX','YY']``, ``['RR','RL','LR','LL']``.
+    """
+    polarization_mixed: Optional[Coord[tuple[BaselineId, Polarization], str]]
+    """
+    If the polarizations are not constant over baseline
     """
     uvw_label: Optional[Coordof[UvwLabelArray]]
     """ u,v,w """

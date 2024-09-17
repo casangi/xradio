@@ -245,7 +245,7 @@ def check_source_and_field_xds(ps, msv4_name, expected_NP_sum):
         "LINE_SYSTEMIC_VELOCITY",
         "NORTH_POLE_ANGULAR_DISTANCE",
         "NORTH_POLE_POSITION_ANGLE",
-        "OBSERVATION_POSITION",
+        "OBSERVER_POSITION",
         "OBSERVER_PHASE_ANGLE",
         "SOURCE_LOCATION",
         "SOURCE_RADIAL_VELOCITY",

@@ -181,20 +181,20 @@ def extract_ephemeris_info(
 
     temp_xds = xr.Dataset()
 
-    # Add mandatory data: OBSERVATION_POSITION
-    observation_position = [
+    # Add mandatory data: OBSERVER_POSITION
+    observer_position = [
         ephemeris_meta["GeoLong"],
         ephemeris_meta["GeoLat"],
         ephemeris_meta["GeoDist"],
     ]
-    temp_xds["OBSERVATION_POSITION"] = xr.DataArray(
-        observation_position, dims=["ellipsoid_pos_label"]
+    temp_xds["OBSERVER_POSITION"] = xr.DataArray(
+        observer_position, dims=["ellipsoid_pos_label"]
     )
-    temp_xds["OBSERVATION_POSITION"].attrs.update(
+    temp_xds["OBSERVER_POSITION"].attrs.update(
         {
             "type": "location",
             "units": ["deg", "deg", "m"],
-            "data": observation_position,
+            "data": observer_position,
             "ellipsoid": "WGS84",
             "origin_object_name": "Earth",
             "coordinate_system": ephemeris_meta["obsloc"].lower(),

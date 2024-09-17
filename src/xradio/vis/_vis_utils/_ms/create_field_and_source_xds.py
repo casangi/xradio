@@ -5,7 +5,7 @@ from typing import Tuple, Union
 import numpy as np
 import xarray as xr
 
-from xradio._utils.schema import column_description_casacore_to_msv4_measure
+import toolviper.utils.logger as logger
 from xradio.vis._vis_utils._ms.msv4_sub_xdss import interpolate_to_time
 from xradio.vis._vis_utils._ms.subtables import subt_rename_ids
 from xradio.vis._vis_utils._ms._tables.read import (
@@ -13,13 +13,16 @@ from xradio.vis._vis_utils._ms._tables.read import (
     make_taql_where_between_min_max,
     load_generic_table,
 )
-import graphviper.utils.logger as logger
+from xradio._utils.common import cast_to_str, convert_to_si_units, add_position_offsets
 from xradio._utils.list_and_array import (
     check_if_consistent,
     unique_1d,
     to_np_array,
 )
-from xradio._utils.common import cast_to_str, convert_to_si_units, add_position_offsets
+from xradio._utils.schema import (
+    column_description_casacore_to_msv4_measure,
+    convert_generic_xds_to_xradio_schema,
+)
 
 
 def create_field_and_source_xds(
@@ -157,7 +160,7 @@ def extract_ephemeris_info(
 
     # Get meta data.
     ephemeris_meta = ephemeris_xds.attrs["other"]["msv2"]["ctds_attrs"]
-    ephemris_column_description = ephemeris_xds.attrs["other"]["msv2"]["ctds_attrs"][
+    ephemeris_column_description = ephemeris_xds.attrs["other"]["msv2"]["ctds_attrs"][
         "column_descriptions"
     ]
 
@@ -171,55 +174,12 @@ def extract_ephemeris_info(
         sky_coord_frame = "ICRS"  # We will have to just assume this.
 
     # Find out witch keyword is used for units (UNIT/QuantumUnits)
-    if "UNIT" in ephemris_column_description["RA"]["keywords"]:
+    if "UNIT" in ephemeris_column_description["RA"]["keywords"]:
         unit_keyword = "UNIT"
     else:
         unit_keyword = "QuantumUnits"
 
-    # We are using the "time_ephemeris_axis" label because it might not match the optional time axis of the source and field info. If ephemeris_interpolate=True then rename it to time.
-    coords = {
-        "ellipsoid_pos_label": ["lon", "lat", "dist"],
-        "time_ephemeris_axis": ephemeris_xds["time"].data,
-        "sky_pos_label": ["ra", "dec", "dist"],
-    }
-
     temp_xds = xr.Dataset()
-
-    # Add mandatory data: SOURCE_LOCATION (POSITION / sky_pos_label)
-    temp_xds["SOURCE_LOCATION"] = xr.DataArray(
-        np.column_stack(
-            (
-                ephemeris_xds["RA"].data,
-                ephemeris_xds["DEC"].data,
-                ephemeris_xds["Rho"].data,
-            )
-        ),
-        dims=["time_ephemeris_axis", "sky_pos_label"],
-    )
-    # Have to use cast_to_str because the ephemeris table units are not consistently in a list or a string.
-    sky_coord_units = [
-        cast_to_str(ephemris_column_description["RA"]["keywords"][unit_keyword]),
-        cast_to_str(ephemris_column_description["DEC"]["keywords"][unit_keyword]),
-        cast_to_str(ephemris_column_description["Rho"]["keywords"][unit_keyword]),
-    ]
-    temp_xds["SOURCE_LOCATION"].attrs.update(
-        {"type": "sky_coord", "frame": sky_coord_frame, "units": sky_coord_units}
-    )
-
-    # Add mandatory data: SOURCE_RADIAL_VELOCITY
-    temp_xds["SOURCE_RADIAL_VELOCITY"] = xr.DataArray(
-        ephemeris_xds["RadVel"].data, dims=["time_ephemeris_axis"]
-    )
-    temp_xds["SOURCE_RADIAL_VELOCITY"].attrs.update(
-        {
-            "type": "quantity",
-            "units": [
-                cast_to_str(
-                    ephemris_column_description["RadVel"]["keywords"][unit_keyword]
-                )
-            ],
-        }
-    )
 
     # Add mandatory data: OBSERVATION_POSITION
     observation_position = [
@@ -241,39 +201,67 @@ def extract_ephemeris_info(
         }
     )  # I think the units are ['deg','deg','m'] and 'WGS84'.
 
-    # Add optional data NORTH_POLE_POSITION_ANGLE and NORTH_POLE_ANGULAR_DISTANCE
-    if "NP_ang" in ephemeris_xds.data_vars:
-        temp_xds["NORTH_POLE_POSITION_ANGLE"] = xr.DataArray(
-            ephemeris_xds["NP_ang"].data, dims=["time_ephemeris_axis"]
-        )
-        temp_xds["NORTH_POLE_POSITION_ANGLE"].attrs.update(
-            {
-                "type": "quantity",
-                "units": [
-                    cast_to_str(
-                        ephemris_column_description["NP_ang"]["keywords"][unit_keyword]
-                    )
-                ],
-            }
-        )
+    # Add (optional) data: SOURCE_LOCATION (POSITION / sky_pos_label)
+    temp_xds["SOURCE_LOCATION"] = xr.DataArray(
+        np.column_stack(
+            (
+                ephemeris_xds["RA"].data,
+                ephemeris_xds["DEC"].data,
+                ephemeris_xds["Rho"].data,
+            )
+        ),
+        dims=["time_ephemeris", "sky_pos_label"],
+    )
+    # Have to use cast_to_str because the ephemeris table units are not consistently in a list or a string.
+    sky_coord_units = [
+        cast_to_str(ephemeris_column_description["RA"]["keywords"][unit_keyword]),
+        cast_to_str(ephemeris_column_description["DEC"]["keywords"][unit_keyword]),
+        cast_to_str(ephemeris_column_description["Rho"]["keywords"][unit_keyword]),
+    ]
+    temp_xds["SOURCE_LOCATION"].attrs.update(
+        {"type": "sky_coord", "frame": sky_coord_frame, "units": sky_coord_units}
+    )
 
-    if "NP_dist" in ephemeris_xds.data_vars:
-        temp_xds["NORTH_POLE_ANGULAR_DISTANCE"] = xr.DataArray(
-            ephemeris_xds["NP_dist"].data, dims=["time_ephemeris_axis"]
-        )
-        temp_xds["NORTH_POLE_ANGULAR_DISTANCE"].attrs.update(
-            {
-                "type": "quantity",
-                "units": [
-                    cast_to_str(
-                        ephemris_column_description["NP_dist"]["keywords"][unit_keyword]
-                    )
-                ],
-            }
-        )
+    # Convert a few columns/variables that can be converted with standard
+    # convert_generic_xds_to_xradio_schema().
+    # Metadata has to be fixed manually. Alternatively, issues like
+    # UNIT/QuantumUnits issue could be handled in convert_generic_xds_to_xradio_schema,
+    # but for now preferring not to pollute that function.
+    time_ephemeris_dim = ["time_ephemeris"]
+    to_new_data_variables = {
+        # mandatory: SOURCE_RADIAL_VELOCITY
+        "RadVel": ["SOURCE_RADIAL_VELOCITY", time_ephemeris_dim],
+        # optional: data NORTH_POLE_POSITION_ANGLE and NORTH_POLE_ANGULAR_DISTANCE
+        "NP_ang": ["NORTH_POLE_POSITION_ANGLE", time_ephemeris_dim],
+        "NP_dist": ["NORTH_POLE_ANGULAR_DISTANCE", time_ephemeris_dim],
+        # optional: HELIOCENTRIC_RADIAL_VELOCITY
+        "rdot": ["HELIOCENTRIC_RADIAL_VELOCITY", time_ephemeris_dim],
+        # optional: OBSERVER_PHASE_ANGLE
+        "phang": ["OBSERVER_PHASE_ANGLE", time_ephemeris_dim],
+    }
+    convert_generic_xds_to_xradio_schema(
+        ephemeris_xds, temp_xds, to_new_data_variables, {}
+    )
+
+    # Adjust metadata:
+    for generic_var_name, msv4_variable_def in to_new_data_variables.items():
+        msv4_var_name = msv4_variable_def[0]
+        if msv4_var_name in temp_xds:
+            temp_xds[msv4_var_name].attrs.update(
+                {
+                    "type": "quantity",
+                    "units": [
+                        cast_to_str(
+                            ephemeris_column_description[generic_var_name]["keywords"][
+                                unit_keyword
+                            ]
+                        )
+                    ],
+                }
+            )
 
     # Add optional data: SUB_OBSERVER_POSITION and SUB_SOLAR_POSITION
-    if "DiskLong" in ephemris_column_description:
+    if "DiskLong" in ephemeris_column_description:
         key_lon = "DiskLong"
         key_lat = "DiskLat"
     else:
@@ -281,7 +269,7 @@ def extract_ephemeris_info(
         key_lat = "diskLat"
 
     if key_lon in ephemeris_xds.data_vars:
-        temp_xds["SUB_OBSERVER_POSITION"] = xr.DataArray(
+        temp_xds["SUB_OBSERVER_DIRECTION"] = xr.DataArray(
             np.column_stack(
                 (
                     ephemeris_xds[key_lon].data,
@@ -289,10 +277,10 @@ def extract_ephemeris_info(
                     np.zeros(ephemeris_xds[key_lon].shape),
                 )
             ),
-            dims=["time_ephemeris_axis", "ellipsoid_pos_label"],
+            dims=["time_ephemeris", "ellipsoid_pos_label"],
         )
 
-        temp_xds["SUB_OBSERVER_POSITION"].attrs.update(
+        temp_xds["SUB_OBSERVER_DIRECTION"].attrs.update(
             {
                 "type": "location",
                 "ellipsoid": "NA",
@@ -300,10 +288,10 @@ def extract_ephemeris_info(
                 "coordinate_system": "planetodetic",
                 "units": [
                     cast_to_str(
-                        ephemris_column_description[key_lon]["keywords"][unit_keyword]
+                        ephemeris_column_description[key_lon]["keywords"][unit_keyword]
                     ),
                     cast_to_str(
-                        ephemris_column_description[key_lat]["keywords"][unit_keyword]
+                        ephemeris_column_description[key_lat]["keywords"][unit_keyword]
                     ),
                     "m",
                 ],
@@ -319,7 +307,7 @@ def extract_ephemeris_info(
                     ephemeris_xds["r"].data,
                 )
             ),
-            dims=["time_ephemeris_axis", "ellipsoid_pos_label"],
+            dims=["time_ephemeris", "ellipsoid_pos_label"],
         )
         temp_xds["SUB_SOLAR_POSITION"].attrs.update(
             {
@@ -329,50 +317,24 @@ def extract_ephemeris_info(
                 "coordinate_system": "planetodetic",
                 "units": [
                     cast_to_str(
-                        ephemris_column_description["SI_lon"]["keywords"][unit_keyword]
+                        ephemeris_column_description["SI_lon"]["keywords"][unit_keyword]
                     ),
                     cast_to_str(
-                        ephemris_column_description["SI_lat"]["keywords"][unit_keyword]
+                        ephemeris_column_description["SI_lat"]["keywords"][unit_keyword]
                     ),
                     cast_to_str(
-                        ephemris_column_description["r"]["keywords"][unit_keyword]
+                        ephemeris_column_description["r"]["keywords"][unit_keyword]
                     ),
                 ],
             }
         )
 
-    # Add optional data: HELIOCENTRIC_RADIAL_VELOCITY
-    if "rdot" in ephemeris_xds.data_vars:
-        temp_xds["HELIOCENTRIC_RADIAL_VELOCITY"] = xr.DataArray(
-            ephemeris_xds["rdot"].data, dims=["time_ephemeris_axis"]
-        )
-        temp_xds["HELIOCENTRIC_RADIAL_VELOCITY"].attrs.update(
-            {
-                "type": "quantity",
-                "units": [
-                    cast_to_str(
-                        ephemris_column_description["rdot"]["keywords"][unit_keyword]
-                    )
-                ],
-            }
-        )
-
-    # Add optional data: OBSERVER_PHASE_ANGLE
-    if "phang" in ephemeris_xds.data_vars:
-        temp_xds["OBSERVER_PHASE_ANGLE"] = xr.DataArray(
-            ephemeris_xds["phang"].data, dims=["time_ephemeris_axis"]
-        )
-        temp_xds["OBSERVER_PHASE_ANGLE"].attrs.update(
-            {
-                "type": "quantity",
-                "units": [
-                    cast_to_str(
-                        ephemris_column_description["phang"]["keywords"][unit_keyword]
-                    )
-                ],
-            }
-        )
-
+    # We are using the "time_ephemeris" label because it might not match the optional time axis of the source and field info. If ephemeris_interpolate=True then rename it to time.
+    coords = {
+        "ellipsoid_pos_label": ["lon", "lat", "dist"],
+        "time_ephemeris": ephemeris_xds["time"].data,
+        "sky_pos_label": ["ra", "dec", "dist"],
+    }
     temp_xds = temp_xds.assign_coords(coords)
     time_coord_attrs = {
         "type": "time",
@@ -380,21 +342,21 @@ def extract_ephemeris_info(
         "scale": "UTC",
         "format": "UNIX",
     }
-    temp_xds["time_ephemeris_axis"].attrs.update(time_coord_attrs)
+    temp_xds["time_ephemeris"].attrs.update(time_coord_attrs)
 
     # Convert to si units and interpolate if ephemeris_interpolate=True:
     temp_xds = convert_to_si_units(temp_xds)
     temp_xds = interpolate_to_time(
-        temp_xds, interp_time, "field_and_source_xds", time_name="time_ephemeris_axis"
+        temp_xds, interp_time, "field_and_source_xds", time_name="time_ephemeris"
     )
 
-    # If we interpolate rename the time_ephemeris_axis axis to time.
+    # If we interpolate rename the time_ephemeris axis to time.
     if interp_time is not None:
-        time_coord = {"time": ("time_ephemeris_axis", interp_time.data)}
+        time_coord = {"time": ("time_ephemeris", interp_time.data)}
         temp_xds = temp_xds.assign_coords(time_coord)
         temp_xds.coords["time"].attrs.update(time_coord_attrs)
-        temp_xds = temp_xds.swap_dims({"time_ephemeris_axis": "time"}).drop_vars(
-            "time_ephemeris_axis"
+        temp_xds = temp_xds.swap_dims({"time_ephemeris": "time"}).drop_vars(
+            "time_ephemeris"
         )
 
     xds = xr.merge([xds, temp_xds])
@@ -435,8 +397,74 @@ def extract_ephemeris_info(
     return xds
 
 
+def make_line_dims_and_coords(
+    source_xds: xr.Dataset, source_id: Union[int, np.ndarray], num_lines: int
+) -> tuple[list, dict]:
+    """
+    Produces the dimensions and coordinates used in data variables related
+    to line information (LINE_REST_FREQUENCY, LINE_SYSTEMIC_VELOCITY).
+
+    In the dimensions, "time" is optional. To produce the points of the
+    coordinates we need to look into the (optional) TRANSITION column or
+    alternatively other columns (DIRECTION) to produce coordinates points of
+    appropriate shape, given the "num_lines" "and source_id".
+
+    Parameters:
+    ----------
+    source_xds: xr.Dataset
+        generic source xarray dataset
+    source_id: Union[int, np.ndarray]
+        source_id of the dataset, when it is an array that indicates the
+        presence of the "time" dimension
+    num_line: int
+        number of lines in the source dataset
+
+    Returns:
+    -------
+    tuple : tuple[list, dict]
+        The dimensions and coordinates to use with line data variables. The
+        dimensions are produced as a list of dimension names, and the
+        coordinates as a dict for xarray coords.
+    """
+
+    # Transition is an optional column and occasionally not populated
+    if "TRANSITION" in source_xds.data_vars:
+        transition_var_data = source_xds["TRANSITION"].data
+    else:
+        transition_var_data = np.zeros(source_xds["DIRECTION"].shape, dtype="str")
+
+    # if TRANSITION is left empty (or otherwise incomplete), and num_lines > 1,
+    # the data_vars expect a "num_lines" size in the last dimension
+    vars_shape = transition_var_data.shape[:-1] + (np.max(num_lines),)
+    if transition_var_data.shape == vars_shape:
+        coords_lines_data = transition_var_data
+    else:
+        coords_lines_data = np.broadcast_to(
+            transition_var_data, max(transition_var_data.shape, vars_shape)
+        )
+
+    line_label_data = np.arange(coords_lines_data.shape[-1]).astype(str)
+    if len(source_id) == 1:
+        line_coords = {
+            "line_name": ("line_label", coords_lines_data),
+            "line_label": line_label_data,
+        }
+        line_dims = ["line_label"]
+    else:
+        line_coords = {
+            "line_name": (("time", "line_label"), coords_lines_data),
+            "line_label": line_label_data,
+        }
+        line_dims = ["time", "line_label"]
+
+    return line_dims, line_coords
+
+
 def extract_source_info(
-    xds: xr.Dataset, path: str, source_id: int, spectral_window_id: int
+    xds: xr.Dataset,
+    path: str,
+    source_id: Union[int, np.ndarray],
+    spectral_window_id: int,
 ) -> tuple[xr.Dataset, int]:
     """
     Extracts source information from the given path and adds it to the xarray dataset.
@@ -447,7 +475,7 @@ def extract_source_info(
         The xarray dataset to which the source information will be added.
     path : str
         The path to the input file.
-    source_id : int
+    source_id : Union[int, np.ndarray]
         The ID of the source.
     spectral_window_id : int
         The ID of the spectral window.
@@ -554,11 +582,12 @@ def extract_source_info(
             direction_var = source_xds[direction_msv2_col]
 
         # SOURCE_LOCATION (DIRECTION / sky_dir_label)
-        xds["SOURCE_LOCATION"] = xr.DataArray(direction_var.data, dims=direction_dims)
         location_msv4_measure = column_description_casacore_to_msv4_measure(
             source_column_description[direction_msv2_col]
         )
-        xds["SOURCE_LOCATION"].attrs.update(location_msv4_measure)
+        xds["SOURCE_LOCATION"] = xr.DataArray(
+            direction_var.data, dims=direction_dims, attrs=location_msv4_measure
+        )
 
     # Do we have line data:
     if source_xds["NUM_LINES"].data.ndim == 0:
@@ -567,53 +596,21 @@ def extract_source_info(
         num_lines = source_xds["NUM_LINES"].data
 
     if any(num_lines > 0):
+        line_dims, line_coords = make_line_dims_and_coords(
+            source_xds, source_id, num_lines
+        )
+        xds = xds.assign_coords(line_coords)
 
-        # Transition is an optional column and occasionally not populated
-        if "TRANSITION" in source_xds.data_vars:
-            transition_var_data = source_xds["TRANSITION"].data
-        else:
-            transition_var_data = np.zeros(source_xds["DIRECTION"].shape, dtype="str")
-
-        # if TRANSITION is left empty (or otherwise incomplete), and num_lines > 1,
-        # the data_vars expect a "num_lines" size in the last dimension
-        vars_shape = transition_var_data.shape[:-1] + (np.max(num_lines),)
-        if transition_var_data.shape == vars_shape:
-            coords_lines_data = transition_var_data
-        else:
-            coords_lines_data = np.broadcast_to(
-                transition_var_data, max(transition_var_data.shape, vars_shape)
-            )
-
-        line_label_data = np.arange(coords_lines_data.shape[-1]).astype(str)
-        if len(source_id) == 1:
-            coords_lines = {
-                "line_name": ("line_label", coords_lines_data),
-                "line_label": line_label_data,
-            }
-            xds = xds.assign_coords(coords_lines)
-            line_dims = ["line_label"]
-        else:
-            coords_lines = {
-                "line_name": (("time", "line_label"), coords_lines_data),
-                "line_label": line_label_data,
-            }
-            xds = xds.assign_coords(coords_lines)
-            line_dims = ["time", "line_label"]
-
-        optional_data_variables = {
-            "REST_FREQUENCY": "LINE_REST_FREQUENCY",
-            "SYSVEL": "LINE_SYSTEMIC_VELOCITY",
+        to_new_data_variables = {
+            "REST_FREQUENCY": ["LINE_REST_FREQUENCY", line_dims],
+            "SYSVEL": ["LINE_SYSTEMIC_VELOCITY", line_dims],
         }
-        for generic_name, msv4_name in optional_data_variables.items():
-            if generic_name in source_xds:
-                msv4_measure = column_description_casacore_to_msv4_measure(
-                    source_column_description[generic_name]
-                )
-
-                xds[msv4_name] = xr.DataArray(
-                    source_xds[generic_name].data, dims=line_dims
-                )
-                xds[msv4_name].attrs.update(msv4_measure)
+        to_new_coords = {
+            "TIME": ["time", ["time"]],
+        }
+        convert_generic_xds_to_xradio_schema(
+            source_xds, xds, to_new_data_variables, to_new_coords
+        )
 
     # Need to add doppler info if present. Add check.
     try:
@@ -634,8 +631,56 @@ def extract_source_info(
     return xds, np.sum(num_lines[unique_source_ids_indices])
 
 
+def make_field_dims_and_coords(
+    field_xds: xr.Dataset, field_id: Union[int, np.ndarray], field_times: list
+) -> tuple[list, dict]:
+    """
+    Produces the dimensions and coordinates used in the field data variables
+    extracted from the MSv2 FIELD subtable (FIELD_PHASE_CENTER/
+    FIELD_REFERENCE_CENTER).
+
+    Parameters:
+    ----------
+    field_xds: xr.Dataset
+        generic field xarray dataset
+    field_id: Union[int, np.ndarray]
+        field_id of the dataset
+    field_times:
+        Unique times for the dataset (when not partitioning by FIELD_ID)
+
+    Returns:
+    -------
+    tuple : tuple[list, dict]
+        The dimensions and coordinates to use with field data variables. The
+        dimensions are produced as a list of dimension names, and the
+        coordinates as a dict for xarray coords.
+    """
+
+    coords = {"sky_dir_label": ["ra", "dec"]}
+
+    # field_times is the same as the time axis in the main MSv4 dataset and is used if more than one field is present.
+    if field_times is not None:
+        coords["time"] = field_times
+        dims = ["time", "sky_dir_label"]
+        coords["field_name"] = (
+            "time",
+            np.char.add(field_xds["NAME"].data, np.char.add("_", field_id.astype(str))),
+        )
+        # coords["field_id"] = ("time", field_id)
+    else:
+        coords["field_name"] = field_xds["NAME"].values.item() + "_" + str(field_id)
+        # coords["field_id"] = field_id
+        dims = ["sky_dir_label"]
+
+    return dims, coords
+
+
 def extract_field_info_and_check_ephemeris(
-    field_and_source_xds, in_file, field_id, field_times, is_single_dish
+    field_and_source_xds: xr.Dataset,
+    in_file: str,
+    field_id: Union[int, np.ndarray],
+    field_times: list,
+    is_single_dish: bool,
 ):
     """
     Create field information and check for ephemeris in the FIELD table folder.
@@ -646,8 +691,12 @@ def extract_field_info_and_check_ephemeris(
         The xarray dataset to which the field and source information will be added.
     in_file : str
         The path to the input file.
-    field_id : int
+    field_id : Union[int, np.ndarray]
         The ID of the field.
+    field_times: list
+        Time of the MSv4
+    is_single_dish: bool
+        Whether to extract single dish (FIELD_REFERENCE_CENTER) info
 
     Returns:
     -------
@@ -658,7 +707,6 @@ def extract_field_info_and_check_ephemeris(
     ephemeris_table_name : str
         The name of the ephemeris table.
     """
-    coords = {}
 
     unique_field_id = unique_1d(
         field_id
@@ -718,6 +766,8 @@ def extract_field_info_and_check_ephemeris(
                     f"Could not find ephemeris table for field_id {field_id}. Ephemeris information will not be included in the field_and_source_xds."
                 )
 
+    dims, coords = make_field_dims_and_coords(field_xds, field_id, field_times)
+
     if is_single_dish:
         field_data_variables = {
             "REFERENCE_DIR": "FIELD_REFERENCE_CENTER",
@@ -729,26 +779,9 @@ def extract_field_info_and_check_ephemeris(
             # "REFERENCE_DIR": "FIELD_REFERENCE_CENTER",
         }
 
-    field_measures_type = "sky_coord"
-
-    coords["sky_dir_label"] = ["ra", "dec"]
     field_column_description = field_xds.attrs["other"]["msv2"]["ctds_attrs"][
         "column_descriptions"
     ]
-
-    # field_times is the same as the time axis in the main MSv4 dataset and is used if more than one field is present.
-    if field_times is not None:
-        coords["time"] = field_times
-        dims = ["time", "sky_dir_label"]
-        coords["field_name"] = (
-            "time",
-            np.char.add(field_xds["NAME"].data, np.char.add("_", field_id.astype(str))),
-        )
-        # coords["field_id"] = ("time", field_id)
-    else:
-        coords["field_name"] = field_xds["NAME"].values.item() + "_" + str(field_id)
-        # coords["field_id"] = field_id
-        dims = ["sky_dir_label"]
 
     for generic_name, msv4_name in field_data_variables.items():
 
@@ -772,6 +805,7 @@ def extract_field_info_and_check_ephemeris(
             }
         )
 
+        field_measures_type = "sky_coord"
         field_and_source_xds[msv4_name].attrs["type"] = field_measures_type
 
     field_and_source_xds = field_and_source_xds.assign_coords(coords)

@@ -5,7 +5,7 @@ from typing import List, Tuple, Union
 
 import dask
 import dask.array as da
-import graphviper.utils.logger as logger
+import toolviper.utils.logger as logger
 import numpy as np
 import xarray as xr
 from astropy import units as u

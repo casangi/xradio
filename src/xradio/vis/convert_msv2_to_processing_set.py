@@ -1,4 +1,4 @@
-import graphviper.utils.logger as logger
+import toolviper.utils.logger as logger
 import numcodecs
 from typing import Dict, Union
 
@@ -18,6 +18,7 @@ def convert_msv2_to_processing_set(
     pointing_interpolate: bool = False,
     ephemeris_interpolate: bool = False,
     phase_cal_interpolate: bool = False,
+    sys_cal_interpolate: bool = False,
     use_table_iter: bool = False,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend: str = "zarr",
@@ -47,6 +48,10 @@ def convert_msv2_to_processing_set(
         Whether to interpolate the time axis of the pointing sub-dataset to the time axis of the main dataset
     ephemeris_interpolate : bool, optional
         Whether to interpolate the time axis of the ephemeris data variables (of the field_and_source sub-dataset) to the time axis of the main dataset
+    phase_cal_interpolate : bool, optional
+        Whether to interpolate the time axis of the phase calibration data variables to the time axis of the main dataset
+    sys_cal_interpolate : bool, optional
+        Whether to interpolate the time axis of the system calibration data variables (sys_cal_xds) to the time axis of the main dataset
     use_table_iter : bool, optional
         Whether to use the table iterator to read the main table of the MS v2. This should be set to True when reading datasets with large number of rows and few partitions, by default False.
     compressor : numcodecs.abc.Codec, optional
@@ -101,6 +106,7 @@ def convert_msv2_to_processing_set(
                     pointing_interpolate=pointing_interpolate,
                     ephemeris_interpolate=ephemeris_interpolate,
                     phase_cal_interpolate=phase_cal_interpolate,
+                    sys_cal_interpolate=sys_cal_interpolate,
                     compressor=compressor,
                     overwrite=overwrite,
                 )
@@ -119,6 +125,7 @@ def convert_msv2_to_processing_set(
                 pointing_interpolate=pointing_interpolate,
                 ephemeris_interpolate=ephemeris_interpolate,
                 phase_cal_interpolate=phase_cal_interpolate,
+                sys_cal_interpolate=sys_cal_interpolate,
                 compressor=compressor,
                 overwrite=overwrite,
             )

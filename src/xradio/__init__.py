@@ -1,5 +1,5 @@
 import os
-from graphviper.utils.logger import setup_logger
+from toolviper.utils.logger import setup_logger
 
 # _logger_name = "xradio"
 # if os.getenv("VIPER_LOGGER_NAME") != _logger_name:

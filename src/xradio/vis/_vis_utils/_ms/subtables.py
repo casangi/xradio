@@ -1,6 +1,6 @@
 import os
 
-import graphviper.utils.logger as logger
+import toolviper.utils.logger as logger
 
 from pathlib import Path
 from typing import Dict, List
@@ -23,7 +23,7 @@ subt_rename_ids = {
     "SPECTRAL_WINDOW": {"row": "spectral_window_id", "dim_1": "chan"},
     "SOURCE": {"dim_1": "ra/dec", "dim_2": "line"},
     "STATE": {"row": "state_id"},
-    "SYSCAL": {"dim_1": "channel", "dim_2": "receiver"},
+    "SYSCAL": {"dim_1": "frequency", "dim_2": "receptor"},
     # Would make sense for non-std "WS_NX_STATION_POSITION"
     "WEATHER": {"dim_1": "xyz"},
 }

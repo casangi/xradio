@@ -1,4 +1,4 @@
-import graphviper.utils.logger as logger
+import toolviper.utils.logger as logger
 import time
 from typing import Tuple, Union
 
@@ -9,8 +9,10 @@ import os
 from xradio.vis._vis_utils._ms.subtables import subt_rename_ids
 from xradio.vis._vis_utils._ms._tables.read import (
     load_generic_table,
+    convert_casacore_time,
     convert_casacore_time_to_mjd,
     make_taql_where_between_min_max,
+    table_exists,
 )
 from xradio._utils.schema import convert_generic_xds_to_xradio_schema
 from xradio.vis._vis_utils._ms.msv4_sub_xdss import interpolate_to_time
@@ -29,8 +31,6 @@ def create_antenna_xds(
     antenna_id: list,
     feed_id: list,
     telescope_name: str,
-    time_min_max: Tuple[np.float64, np.float64],
-    phase_cal_interp_time: Union[xr.DataArray, None] = None,
 ) -> xr.Dataset:
     """
     Create an Xarray Dataset containing antenna information.
@@ -47,10 +47,6 @@ def create_antenna_xds(
         List of feed IDs.
     telescope_name : str
         Name of the telescope.
-    time_min_max : Tuple[np.float46, np.float64]
-        Min / max times to constrain loading (usually to the time range relevant to an MSv4)
-    phase_cal_interp_time : Union[xr.DataArray, None]
-        Time axis to interpolate the data vars to (usually main MSv4 time)
 
     Returns
     ----------
@@ -63,13 +59,6 @@ def create_antenna_xds(
     ant_xds = extract_feed_info(
         ant_xds, in_file, antenna_id, feed_id, spectral_window_id
     )
-
-    ant_xds = extract_phase_cal_info(
-        ant_xds, in_file, spectral_window_id, time_min_max, phase_cal_interp_time
-    )  # Only used in VLBI.
-    ant_xds = extract_gain_curve_info(
-        ant_xds, in_file, spectral_window_id
-    )  # Only used in VLBI.
 
     ant_xds.attrs["overall_telescope_name"] = telescope_name
     return ant_xds
@@ -163,6 +152,15 @@ def extract_antenna_info(
         ant_xds.attrs["relocatable_antennas"] = True
     else:
         ant_xds.attrs["relocatable_antennas"] = False
+
+    ant_xds = ant_xds.assign_coords(
+        {
+            "telescope_name": (
+                "antenna_name",
+                np.array([telescope_name for ant in ant_xds["antenna_name"]]),
+            )
+        }
+    )
 
     return ant_xds
 
@@ -277,103 +275,122 @@ def extract_feed_info(
     return ant_xds
 
 
-def extract_gain_curve_info(
-    ant_xds: xr.Dataset, in_file: str, spectral_window_id: int
+def create_gain_curve_xds(
+    in_file: str, spectral_window_id: int, ant_xds: xr.Dataset
 ) -> xr.Dataset:
     """
-    Reformats MSv2 GAIN CURVE table content to MSv4 schema.
+    Produces a gain_curve_xds, reformats MSv2 GAIN CURVE table content to MSv4 schema.
 
     Parameters
     ----------
-    ant_xds : xr.Dataset
-        The dataset that will be updated with gain curve information.
     in_file : str
         Path to the input MSv2.
     spectral_window_id : int
         The ID of the spectral window.
+    ant_xds : xr.Dataset
+        The antenna_xds that has information such as names, stations, etc., for coordinates
 
     Returns
     -------
     xr.Dataset
         The updated antenna dataset with gain curve information.
     """
-    if os.path.exists(
-        os.path.join(in_file, "GAIN_CURVE")
-    ):  # Check if the table exists.
-        generic_gain_curve_xds = load_generic_table(
-            in_file,
+
+    gain_curve_xds = None
+    if not table_exists(os.path.join(in_file, "GAIN_CURVE")):
+        return gain_curve_xds
+
+    generic_gain_curve_xds = load_generic_table(
+        in_file,
+        "GAIN_CURVE",
+        taql_where=f" where (ANTENNA_ID IN [{','.join(map(str,ant_xds.antenna_id.values))}]) AND (SPECTRAL_WINDOW_ID = {spectral_window_id})",
+    )
+
+    if not generic_gain_curve_xds.data_vars:
+        # Some times the gain_curve table is empty (this is the case with ngEHT simulation data we have).
+        return gain_curve_xds
+
+    assert (
+        len(generic_gain_curve_xds.SPECTRAL_WINDOW_ID) == 1
+    ), "Only one spectral window is supported."
+    generic_gain_curve_xds = generic_gain_curve_xds.isel(
+        SPECTRAL_WINDOW_ID=0, drop=True
+    )  # Drop the spectral window dimension as it is singleton.
+
+    assert (
+        len(generic_gain_curve_xds.TIME) == 1
+    ), "Only one gain curve measurement per antenna is supported."
+    measured_time = generic_gain_curve_xds.coords["TIME"].values[0]
+    generic_gain_curve_xds = generic_gain_curve_xds.isel(TIME=0, drop=True)
+
+    generic_gain_curve_xds = generic_gain_curve_xds.sel(
+        ANTENNA_ID=ant_xds.antenna_id, drop=False
+    )  # Make sure the antenna_id is in the same order as the xds .
+
+    gain_curve_xds = xr.Dataset(attrs={"type": "gain_curve"})
+
+    to_new_data_variables = {
+        "INTERVAL": ["GAIN_CURVE_INTERVAL", ["antenna_name"]],
+        "GAIN": [
             "GAIN_CURVE",
-            taql_where=f" where (ANTENNA_ID IN [{','.join(map(str,ant_xds.antenna_id.values))}]) AND (SPECTRAL_WINDOW_ID = {spectral_window_id})",
-        )
+            ["antenna_name", "poly_term", "receptor_label"],
+        ],
+        "SENSITIVITY": [
+            "GAIN_CURVE_SENSITIVITY",
+            ["antenna_name", "receptor_label"],
+        ],
+    }
 
-        if (
-            generic_gain_curve_xds.data_vars
-        ):  # Some times the gain_curve table is empty (this is the case with ngEHT simulation data we have).
+    to_new_coords = {
+        "TYPE": ["gain_curve_type", ["antenna_name"]],
+    }
 
-            assert (
-                len(generic_gain_curve_xds.SPECTRAL_WINDOW_ID) == 1
-            ), "Only one spectral window is supported."
-            generic_gain_curve_xds = generic_gain_curve_xds.isel(
-                SPECTRAL_WINDOW_ID=0, drop=True
-            )  # Drop the spectral window dimension as it is singleton.
+    gain_curve_xds = convert_generic_xds_to_xradio_schema(
+        generic_gain_curve_xds,
+        gain_curve_xds,
+        to_new_data_variables,
+        to_new_coords,
+    )
 
-            assert (
-                len(generic_gain_curve_xds.TIME) == 1
-            ), "Only one gain curve measurement per antenna is supported."
-            generic_gain_curve_xds = generic_gain_curve_xds.isel(TIME=0, drop=True)
+    ant_borrowed_coords = {
+        "antenna_name": ant_xds.coords["antenna_name"],
+        "station": ant_xds.coords["station"],
+        "mount": ant_xds.coords["mount"],
+        "telescope_name": ant_xds.coords["telescope_name"],
+        "receptor_label": ant_xds.coords["receptor_label"],
+        "polarization_type": ant_xds.coords["polarization_type"],
+    }
+    gain_curve_xds = gain_curve_xds.assign_coords(ant_borrowed_coords)
 
-            generic_gain_curve_xds = generic_gain_curve_xds.sel(
-                ANTENNA_ID=ant_xds.antenna_id, drop=False
-            )  # Make sure the antenna_id is in the same order as the xds .
-
-            to_new_data_variables = {
-                "INTERVAL": ["GAIN_CURVE_INTERVAL", ["antenna_name"]],
-                "GAIN": [
-                    "GAIN_CURVE",
-                    ["antenna_name", "poly_term", "receptor_label"],
-                ],
-                "SENSITIVITY": [
-                    "GAIN_CURVE_SENSITIVITY",
-                    ["antenna_name", "receptor_label"],
-                ],
-            }
-
-            to_new_coords = {
-                "TYPE": ["gain_curve_type", ["antenna_name"]],
-            }
-
-            # print(generic_gain_curve_xds)
-
-            ant_xds = convert_generic_xds_to_xradio_schema(
-                generic_gain_curve_xds,
-                ant_xds,
-                to_new_data_variables,
-                to_new_coords,
+    gain_curve_xds.attrs.update(
+        {
+            "measured_date": np.datetime_as_string(
+                convert_casacore_time([measured_time])[0]
             )
-            ant_xds["GAIN_CURVE"] = ant_xds["GAIN_CURVE"].transpose(
-                "antenna_name", "receptor_label", "poly_term"
-            )
+        }
+    )
 
-        return ant_xds
-
-    else:
-        return ant_xds
+    return gain_curve_xds
 
 
-def extract_phase_cal_info(
-    ant_xds, path, spectral_window_id, time_min_max, phase_cal_interp_time
-):
+def create_phase_calibration_xds(
+    in_file: str,
+    spectral_window_id: int,
+    ant_xds: xr.Dataset,
+    time_min_max: Tuple[np.float64, np.float64],
+    phase_cal_interp_time: Union[xr.DataArray, None] = None,
+) -> xr.Dataset:
     """
-    Reformats MSv2 Phase Cal table content to MSv4 schema.
+    Produces a phase_calibration_xds, reformats MSv2 Phase Cal table content to MSv4 schema.
 
     Parameters
     ----------
-    ant_xds : xr.Dataset
-        The dataset that will be updated with phase cal information.
     in_file : str
         Path to the input MSv2.
     spectral_window_id : int
         The ID of the spectral window.
+    ant_xds : xr.Dataset
+        The antenna_xds that has information such as names, stations, etc., for coordinates
     time_min_max : Tuple[np.float46, np.float64]
         Min / max times to constrain loading (usually to the time range relevant to an MSv4)
     interp_time : Union[xr.DataArray, None]
@@ -385,98 +402,109 @@ def extract_phase_cal_info(
         The updated antenna dataset with phase cal information.
     """
 
-    if os.path.exists(os.path.join(path, "PHASE_CAL")):
+    phase_cal_xds = None
+    if not table_exists(os.path.join(in_file, "PHASE_CAL")):
+        return phase_cal_xds
 
-        # Only read data between the min and max times of the visibility data in the MSv4.
-        taql_time_range = make_taql_where_between_min_max(
-            time_min_max, path, "PHASE_CAL", "TIME"
-        )
-        generic_phase_cal_xds = load_generic_table(
-            path,
+    # Only read data between the min and max times of the visibility data in the MSv4.
+    taql_time_range = make_taql_where_between_min_max(
+        time_min_max, in_file, "PHASE_CAL", "TIME"
+    )
+    generic_phase_cal_xds = load_generic_table(
+        in_file,
+        "PHASE_CAL",
+        timecols=["TIME"],
+        taql_where=f" {taql_time_range} AND (ANTENNA_ID IN [{','.join(map(str,ant_xds.antenna_id.values))}]) AND (SPECTRAL_WINDOW_ID = {spectral_window_id})",
+    )
+
+    assert (
+        len(generic_phase_cal_xds.SPECTRAL_WINDOW_ID) == 1
+    ), "Only one spectral window is supported."
+    generic_phase_cal_xds = generic_phase_cal_xds.isel(
+        SPECTRAL_WINDOW_ID=0, drop=True
+    )  # Drop the spectral window dimension as it is singleton.
+
+    generic_phase_cal_xds = generic_phase_cal_xds.sel(
+        ANTENNA_ID=ant_xds.antenna_id, drop=False
+    )  # Make sure the antenna_id is in the same order as the xds.
+
+    to_new_data_variables = {
+        "INTERVAL": ["PHASE_CAL_INTERVAL", ["antenna_name", "time_phase_cal"]],
+        "TONE_FREQUENCY": [
+            "PHASE_CAL_TONE_FREQUENCY",
+            ["antenna_name", "time_phase_cal", "tone_label", "receptor_label"],
+        ],
+        "PHASE_CAL": [
             "PHASE_CAL",
-            timecols=["TIME"],
-            taql_where=f" {taql_time_range} AND (ANTENNA_ID IN [{','.join(map(str,ant_xds.antenna_id.values))}]) AND (SPECTRAL_WINDOW_ID = {spectral_window_id})",
-        )
+            ["antenna_name", "time_phase_cal", "tone_label", "receptor_label"],
+        ],
+        "CABLE_CAL": ["PHASE_CAL_CABLE_CAL", ["antenna_name", "time_phase_cal"]],
+    }
 
-        assert (
-            len(generic_phase_cal_xds.SPECTRAL_WINDOW_ID) == 1
-        ), "Only one spectral window is supported."
-        generic_phase_cal_xds = generic_phase_cal_xds.isel(
-            SPECTRAL_WINDOW_ID=0, drop=True
-        )  # Drop the spectral window dimension as it is singleton.
+    to_new_coords = {
+        "TIME": ["time_phase_cal", ["time_phase_cal"]],
+    }
 
-        generic_phase_cal_xds = generic_phase_cal_xds.sel(
-            ANTENNA_ID=ant_xds.antenna_id, drop=False
-        )  # Make sure the antenna_id is in the same order as the xds.
+    phase_cal_xds = xr.Dataset(attrs={"type": "phase_cal"})
+    phase_cal_xds = convert_generic_xds_to_xradio_schema(
+        generic_phase_cal_xds, phase_cal_xds, to_new_data_variables, to_new_coords
+    )
 
-        to_new_data_variables = {
-            "INTERVAL": ["PHASE_CAL_INTERVAL", ["antenna_name", "time_phase_cal"]],
-            "TONE_FREQUENCY": [
-                "PHASE_CAL_TONE_FREQUENCY",
-                ["antenna_name", "time_phase_cal", "tone_label", "receptor_label"],
-            ],
-            "PHASE_CAL": [
-                "PHASE_CAL",
-                ["antenna_name", "time_phase_cal", "tone_label", "receptor_label"],
-            ],
-            "CABLE_CAL": ["PHASE_CAL_CABLE_CAL", ["antenna_name", "time_phase_cal"]],
-        }
+    phase_cal_xds["PHASE_CAL"] = phase_cal_xds["PHASE_CAL"].transpose(
+        "antenna_name", "time_phase_cal", "receptor_label", "tone_label"
+    )
+    phase_cal_xds["PHASE_CAL_TONE_FREQUENCY"] = phase_cal_xds[
+        "PHASE_CAL_TONE_FREQUENCY"
+    ].transpose("antenna_name", "time_phase_cal", "receptor_label", "tone_label")
 
-        to_new_coords = {
-            "TIME": ["time_phase_cal", ["time_phase_cal"]],
-        }
-
-        ant_xds = convert_generic_xds_to_xradio_schema(
-            generic_phase_cal_xds, ant_xds, to_new_data_variables, to_new_coords
-        )
-        ant_xds["PHASE_CAL"] = ant_xds["PHASE_CAL"].transpose(
-            "antenna_name", "time_phase_cal", "receptor_label", "tone_label"
-        )
-
-        ant_xds["PHASE_CAL_TONE_FREQUENCY"] = ant_xds[
-            "PHASE_CAL_TONE_FREQUENCY"
-        ].transpose("antenna_name", "time_phase_cal", "receptor_label", "tone_label")
-
-        # ant_xds = ant_xds.assign_coords({"tone_label" : "freq_" + np.arange(ant_xds.sizes["tone_label"]).astype(str)}) #Works on laptop but fails in github test runner.
-        ant_xds = ant_xds.assign_coords(
-            {
-                "tone_label": np.array(
-                    list(
-                        map(
-                            lambda x, y: x + "_" + y,
-                            ["freq"] * ant_xds.sizes["tone_label"],
-                            np.arange(ant_xds.sizes["tone_label"]).astype(str),
-                        )
-                    )
+    ant_borrowed_coords = {
+        "antenna_name": ant_xds.coords["antenna_name"],
+        "station": ant_xds.coords["station"],
+        "mount": ant_xds.coords["mount"],
+        "telescope_name": ant_xds.coords["telescope_name"],
+        "receptor_label": ant_xds.coords["receptor_label"],
+        "polarization_type": ant_xds.coords["polarization_type"],
+    }
+    # phase_cal_xds = phase_cal_xds.assign_coords({"tone_label" : "freq_" + np.arange(phase_cal_xds.sizes["tone_label"]).astype(str)}) #Works on laptop but fails in github test runner.
+    tone_label_coord = {
+        "tone_label": np.array(
+            list(
+                map(
+                    lambda x, y: x + "_" + y,
+                    ["freq"] * phase_cal_xds.sizes["tone_label"],
+                    np.arange(phase_cal_xds.sizes["tone_label"]).astype(str),
                 )
-            }
-        )
-
-        ant_xds["time_phase_cal"] = (
-            ant_xds.time_phase_cal.astype("float64").astype("float64") / 10**9
-        )
-
-        ant_xds = interpolate_to_time(
-            ant_xds, phase_cal_interp_time, "antenna_xds", time_name="time_phase_cal"
-        )
-
-        time_coord_attrs = {
-            "type": "time",
-            "units": ["s"],
-            "scale": "UTC",
-            "format": "UNIX",
-        }
-
-        # If we interpolate rename the time_ephemeris_axis axis to time.
-        if phase_cal_interp_time is not None:
-            time_coord = {"time": ("time_phase_cal", phase_cal_interp_time.data)}
-            ant_xds = ant_xds.assign_coords(time_coord)
-            ant_xds.coords["time"].attrs.update(time_coord_attrs)
-            ant_xds = ant_xds.swap_dims({"time_phase_cal": "time"}).drop_vars(
-                "time_phase_cal"
             )
+        )
+    }
+    phase_cal_xds = phase_cal_xds.assign_coords(ant_borrowed_coords | tone_label_coord)
 
-        return ant_xds
+    # Adjust expected types
+    phase_cal_xds["time_phase_cal"] = (
+        phase_cal_xds.time_phase_cal.astype("float64").astype("float64") / 10**9
+    )
 
-    else:
-        return ant_xds
+    phase_cal_xds = interpolate_to_time(
+        phase_cal_xds,
+        phase_cal_interp_time,
+        "antenna_xds",
+        time_name="time_phase_cal",
+    )
+
+    time_coord_attrs = {
+        "type": "time",
+        "units": ["s"],
+        "scale": "UTC",
+        "format": "UNIX",
+    }
+
+    # If we interpolate rename the time_phase_cal axis to time.
+    if phase_cal_interp_time is not None:
+        time_coord = {"time": ("time_phase_cal", phase_cal_interp_time.data)}
+        phase_cal_xds = phase_cal_xds.assign_coords(time_coord)
+        phase_cal_xds.coords["time"].attrs.update(time_coord_attrs)
+        phase_cal_xds = phase_cal_xds.swap_dims({"time_phase_cal": "time"}).drop_vars(
+            "time_phase_cal"
+        )
+
+    return phase_cal_xds

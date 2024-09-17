@@ -1,4 +1,4 @@
-import graphviper.utils.logger as logger, os
+import toolviper.utils.logger as logger, os
 from typing import Tuple
 
 import numpy as np

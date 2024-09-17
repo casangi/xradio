@@ -5,8 +5,8 @@ import pathlib
 import pytest
 import time
 
-from graphviper.utils.data import download
-from graphviper.utils.logger import setup_logger
+from toolviper.utils.data import download
+from toolviper.utils.logger import setup_logger
 from xradio.vis import (
     read_processing_set,
     load_processing_set,
@@ -22,11 +22,11 @@ relative_tolerance = 10 ** (-6)
 def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_scheme):
 
     # We can remove this once there is a new release of casacore
-    if os.environ["USER"] == "runner":
-        casa_data_dir = (importlib.resources.files("casadata") / "__data__").as_posix()
-        rc_file = open(os.path.expanduser("~/.casarc"), "a+")  # append mode
-        rc_file.write("\nmeasures.directory: " + casa_data_dir)
-        rc_file.close()
+    # if os.environ["USER"] == "runner":
+    #     casa_data_dir = (importlib.resources.files("casadata") / "__data__").as_posix()
+    #     rc_file = open(os.path.expanduser("~/.casarc"), "a+")  # append mode
+    #     rc_file.write("\nmeasures.directory: " + casa_data_dir)
+    #     rc_file.close()
 
     _logger_name = "xradio"
     if os.getenv("VIPER_LOGGER_NAME") != _logger_name:
@@ -52,6 +52,8 @@ def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_sch
         pointing_chunksize=0.00001,
         pointing_interpolate=True,
         ephemeris_interpolate=True,
+        # phase_cal_interpolate=True,
+        # sys_cal_interpolate=True,
         use_table_iter=False,
         overwrite=True,
         parallel=False,
@@ -69,7 +71,7 @@ def base_test(
     do_schema_check: bool = True,
 ):
     start = time.time()
-    from graphviper.dask.client import local_client
+    from toolviper.dask.client import local_client
 
     # Strange bug when running test in paralell (the unrelated image tests fail).
     # viper_client = local_client(cores=4, memory_limit="4GB")
@@ -125,7 +127,9 @@ def base_test(
             start_check = time.time()
             for xds_name in ps.keys():
                 check_dataset(ps[xds_name], VisibilityXds).expect()
-            print(f"Time to check datasets (all MSv4s): {time.time() - start_check}")
+            print(
+                f"Time to check datasets (all MSv4s) against schema: {time.time() - start_check}"
+            )
 
         ps_list.append(ps)
 
@@ -245,7 +249,7 @@ def check_source_and_field_xds(ps, msv4_name, expected_NP_sum):
         "OBSERVER_PHASE_ANGLE",
         "SOURCE_LOCATION",
         "SOURCE_RADIAL_VELOCITY",
-        "SUB_OBSERVER_POSITION",
+        "SUB_OBSERVER_DIRECTION",
     ]
     assert are_all_variables_in_dataset(
         field_and_source_xds, field_and_source_data_variable_names
@@ -318,12 +322,12 @@ if __name__ == "__main__":
     a = 42
     from pathlib import Path
 
-    test_askap_59749_bp_8beams_pattern(tmp_path=Path("."))
-    test_askap_59750_altaz_2settings(tmp_path=Path("."))
-    test_askap_59754_altaz_2weights_0(tmp_path=Path("."))
-    test_askap_59754_altaz_2weights_15(tmp_path=Path("."))
-    test_askap_59755_eq_interleave_0(tmp_path=Path("."))
-    test_askap_59755_eq_interleave_15(tmp_path=Path("."))
+    # test_askap_59749_bp_8beams_pattern(tmp_path=Path("."))
+    # test_askap_59750_altaz_2settings(tmp_path=Path("."))
+    # test_askap_59754_altaz_2weights_0(tmp_path=Path("."))
+    # test_askap_59754_altaz_2weights_15(tmp_path=Path("."))
+    # test_askap_59755_eq_interleave_0(tmp_path=Path("."))
+    # test_askap_59755_eq_interleave_15(tmp_path=Path("."))
 
     # test_sd_A002_X1015532_X1926f(tmp_path=Path("."))
     # test_sd_A002_Xae00c5_X2e6b(tmp_path=Path("."))

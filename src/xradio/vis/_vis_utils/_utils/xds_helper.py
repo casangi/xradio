@@ -1,5 +1,5 @@
-from importlib_metadata import version
-import graphviper.utils.logger as logger, multiprocessing, psutil
+from importlib.metadata import version
+import toolviper.utils.logger as logger, multiprocessing, psutil
 from typing import Any, Dict, List, Tuple, Union
 
 import numpy as np
@@ -7,6 +7,7 @@ import xarray as xr
 
 from .cds import CASAVisSet
 from .stokes_types import stokes_types
+from ...._utils.common import get_pad_value
 
 
 def make_coords(
@@ -195,7 +196,8 @@ def expand_xds(xds: xr.Dataset) -> xr.Dataset:
     except Exception as exc:
         logger.warning(
             f"WARNING: Cannot expand rows to (time, baseline), "
-            f"possibly duplicate values in (time, baseline). Exception: {exc}"
+            f"possibly duplicate values in (time, baseline). Exception: {exc}."
+            f"\nDataset: {txds=}"
         )
         txds = xds.copy()
 
@@ -214,10 +216,8 @@ def flatten_xds(xds: xr.Dataset) -> xr.Dataset:
     Returns
     -------
     xr.Dataset
+        Dataset in flat form (back to 'row' dimension as read by casacore tables)
     """
-    # known invalid cast warning when casting to integer
-    with np.errstate(invalid="ignore"):
-        nan_int = np.array([np.nan]).astype("int32")[0]
     txds = xds.copy()
 
     # flatten the time x baseline dimensions of main table
@@ -226,14 +226,12 @@ def flatten_xds(xds: xr.Dataset) -> xr.Dataset:
         # compute for issue https://github.com/hainegroup/oceanspy/issues/332
         # drop=True silently does compute (or at least used to)
 
-        # Skip this step for now since on Mac nan_int=0. See issue https://github.com/casangi/xradio/issues/219
-        # txds = txds.where(
-        #     ((txds.STATE_ID != nan_int) & (txds.FIELD_ID != nan_int)).compute(),
-        #     drop=True,
-        # )  # .unify_chunks()
-
+        fill_value_int32 = get_pad_value(np.int32)
         txds = txds.where(
-            ~np.isnan(txds["EXPOSURE"]).compute(),
+            (
+                (txds.STATE_ID != fill_value_int32)
+                & (txds.FIELD_ID != fill_value_int32)
+            ).compute(),
             drop=True,
         )  # .unify_chunks()
 

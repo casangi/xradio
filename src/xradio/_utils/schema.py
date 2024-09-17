@@ -1,12 +1,12 @@
-import graphviper.utils.logger as logger
+import toolviper.utils.logger as logger
 import xarray as xr
 
 
 def convert_generic_xds_to_xradio_schema(
     generic_xds: xr.Dataset,
     msv4_xds: xr.Dataset,
-    to_new_data_variables: dict,
-    to_new_coords: dict,
+    to_new_data_variables: dict[str, list],
+    to_new_coords: dict[str, list],
 ) -> xr.Dataset:
     """Converts a generic xarray Dataset to the xradio schema.
 
@@ -55,6 +55,7 @@ def convert_generic_xds_to_xradio_schema(
         "column_descriptions"
     ]
     coords = {}
+    coord_attrs = {}
 
     name_keys = list(generic_xds.data_vars.keys()) + list(generic_xds.coords.keys())
 
@@ -80,7 +81,14 @@ def convert_generic_xds_to_xradio_schema(
                 new_coord[1],
                 generic_xds[key].data,
             )
+
+            if msv4_measure:
+                coord_attrs[new_coord[0]] = msv4_measure
+
     msv4_xds = msv4_xds.assign_coords(coords)
+    for coord, coord_attrs in coord_attrs.items():
+        msv4_xds.coords[coord].attrs.update(coord_attrs)
+
     return msv4_xds
 
 
@@ -102,6 +110,9 @@ def column_description_casacore_to_msv4_measure(
             casacore_column_description["keywords"]["QuantumUnits"]
         )
 
+        # Beware: casa_ref won't be found in cases such as the custom
+        # 'NRAO_GBT_USER/NRAO_GBT_USER_DIR_REF' in POINTING
+        casa_ref = None
         # Reference frame to convert?
         if "Ref" in msv4_measure_conversion:
             # Find reference frame

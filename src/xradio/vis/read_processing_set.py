@@ -1,7 +1,7 @@
 import os
 
 from ._processing_set import processing_set
-import graphviper.utils.logger as logger
+import toolviper.utils.logger as logger
 from xradio._utils.zarr.common import _open_dataset, _get_file_system_and_items
 import s3fs
 
@@ -38,7 +38,7 @@ def read_processing_set(
         data_groups = xds.attrs["data_groups"]
 
         if (obs_modes is None) or (
-            xds.attrs["partition_info"]["obs_mode"] in obs_modes
+            bool(set(xds.attrs["partition_info"]["obs_mode"]).intersection(obs_modes))
         ):
             sub_xds_dict, field_and_source_xds_dict = _read_sub_xds(
                 ms_store, file_system=file_system, data_groups=data_groups
@@ -73,8 +73,11 @@ def _read_sub_xds(ms_store, file_system, data_groups, load=False):
 
     xds_names = {
         "ANTENNA": "antenna_xds",
-        "WEATHER": "weather_xds",
         "POINTING": "pointing_xds",
+        "SYSCAL": "system_calibration_xds",
+        "GAIN_CURVE": "gain_curve_xds",
+        "PHASE_CAL": "phase_calibration_xds",
+        "WEATHER": "weather_xds",
     }
 
     if isinstance(file_system, s3fs.core.S3FileSystem):

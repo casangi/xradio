@@ -8,7 +8,7 @@ from xradio.image import (
     read_image,
     write_image,
 )
-from graphviper.utils.data import download
+from toolviper.utils.data import download
 from xradio.image._util.common import _image_type as image_type
 from xradio.image._util._casacore.common import (
     _open_image_ro as open_image_ro,
@@ -198,21 +198,21 @@ class xds_from_image_test(ImageBase):
     _exp_attrs["user"] = {}
     _exp_attrs["history"] = None
 
-    _ran_measures_code = False
+    # _ran_measures_code = False
 
     _expec_uv = {}
 
     @classmethod
     def setUpClass(cls):
         cls.maxDiff = None
-        if not cls._ran_measures_code and os.environ["USER"] == "runner":
-            casa_data_dir = (
-                importlib.resources.files("casadata") / "__data__"
-            ).as_posix()
-            rc_file = open(os.path.expanduser("~/.casarc"), "a+")  # append mode
-            rc_file.write("\nmeasures.directory: " + casa_data_dir)
-            rc_file.close()
-            cls._ran_measures_code = True
+        # if not cls._ran_measures_code and os.environ["USER"] == "runner":
+        #     # casa_data_dir = (
+        #     #     importlib.resources.files("casadata") / "__data__"
+        #     # ).as_posix()
+        #     # rc_file = open(os.path.expanduser("~/.casarc"), "a+")  # append mode
+        #     # rc_file.write("\nmeasures.directory: " + casa_data_dir)
+        #     # rc_file.close()
+        #     cls._ran_measures_code = True
         cls._make_image()
 
     @classmethod

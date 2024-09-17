@@ -29,7 +29,7 @@ def load_processing_set(
     data_variables : Union[list, None], optional
         The list of data variables to load into memory for example ['VISIBILITY', 'WEIGHT, 'FLAGS']. By default None which will load all data variables into memory.
     load_sub_datasets : bool, optional
-        If true sub-datasets (for example weather_xds, antenna_xds, pointing_xds, ...) will be loaded into memory, by default True.
+        If true sub-datasets (for example weather_xds, antenna_xds, pointing_xds, system_calibration_xds ...) will be loaded into memory, by default True.
 
     Returns
     -------
@@ -110,7 +110,7 @@ class processing_set_iterator:
         data_variables : list, optional
             The list of data variables to load into memory for example ['VISIBILITY', 'WEIGHT, 'FLAGS']. By default None which will load all data variables into memory.
         load_sub_datasets : bool, optional
-            If true sub-datasets (for example weather_xds, antenna_xds, pointing_xds, ...) will be loaded into memory, by default True.
+            If true sub-datasets (for example weather_xds, antenna_xds, pointing_xds, system_calibration_xds ...) will be loaded into memory, by default True.
         """
 
         self.input_data = input_data

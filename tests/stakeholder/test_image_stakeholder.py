@@ -5,8 +5,8 @@ import pathlib
 import pytest
 import time
 
-from graphviper.utils.data import download
-from graphviper.utils.logger import setup_logger
+from toolviper.utils.data import download
+from toolviper.utils.logger import setup_logger
 from xradio.schema.check import check_dataset
 
 # relative_tolerance = 10 ** (-12)
@@ -14,11 +14,11 @@ relative_tolerance = 10 ** (-6)
 
 
 def test_image():
-    if os.environ["USER"] == "runner":
-        casa_data_dir = (importlib.resources.files("casadata") / "__data__").as_posix()
-        rc_file = open(os.path.expanduser("~/.casarc"), "a+")  # append mode
-        rc_file.write("\nmeasures.directory: " + casa_data_dir)
-        rc_file.close()
+    # if os.environ["USER"] == "runner":
+    #     casa_data_dir = (importlib.resources.files("casadata") / "__data__").as_posix()
+    #     rc_file = open(os.path.expanduser("~/.casarc"), "a+")  # append mode
+    #     rc_file.write("\nmeasures.directory: " + casa_data_dir)
+    #     rc_file.close()
 
     image_name = "demo_simulated.im"
     download(image_name)

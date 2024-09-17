@@ -274,8 +274,8 @@ class LocationArray:
     Measure type used for example in field_and_source_xds/OBSERVER_POSITION
     Data dimensions can be EllipsoidPosLabel or CartesianPosLabel
     """
-    data: Data[Union[EllipsoidPosLabel, CartesianPosLabel], float]
 
+    data: Data[Union[EllipsoidPosLabel, CartesianPosLabel], float]
 
     ellipsoid: Attr[str]
     """
@@ -307,8 +307,8 @@ class EllipsoidPosLocationArray:
     """
     Measure type used for example in field_and_source_xds/SUB_OBSERVER_POSITION, SUB_SOLAR_POSITION
     """
-    data: Data[EllipsoidPosLabel, float]
 
+    data: Data[EllipsoidPosLabel, float]
 
     ellipsoid: Attr[str]
     """
@@ -474,9 +474,7 @@ class FieldSourceXds:
     ]
     """ CASA Table cols: phang.""phi" is the true PHASE ANGLE at the observers' location at print time. "PAB-LON" and "PAB-LAT" are the FK4/B1950 or ICRF/J2000 ecliptic longitude and latitude of the phase angle bisector direction; the outward directed angle bisecting the arc created by the apparent vector from Sun to target center and the astrometric vector from observer to target center. For an otherwise uniform ellipsoid, the time when its long-axis is perpendicular to the PAB direction approximately corresponds to lightcurve maximum (or maximum brightness) of the body. PAB is discussed in Harris et al., Icarus 57, 251-258 (1984)." https://ssd.jpl.nasa.gov/horizons/manual.html : Phase angle and bisector """
 
-    OBSERVER_POSITION: Optional[
-        Data[ZD, LocationArray]
-    ]
+    OBSERVER_POSITION: Optional[Data[ZD, LocationArray]]
     """ Observer location. """
 
     # --- Attributes ---

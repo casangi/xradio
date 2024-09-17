@@ -55,7 +55,7 @@ def load_processing_set(
         data_groups = xds.attrs["data_groups"]
 
         if load_sub_datasets:
-            from xradio.vis.read_processing_set import _read_sub_xds
+            from xradio.correlated_data.read_processing_set import _read_sub_xds
 
             sub_xds_dict, field_and_source_xds_dict = _read_sub_xds(
                 ms_store, file_system=file_system, load=True, data_groups=data_groups

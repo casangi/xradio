@@ -144,6 +144,7 @@ def create_partitions(in_file: str, partition_scheme: list):
                     partition_info[col_name] = [None]
 
             partitions.append(partition_info)
+            
 
     return partitions
 

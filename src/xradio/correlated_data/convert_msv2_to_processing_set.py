@@ -4,8 +4,8 @@ from typing import Dict, Union
 
 import dask
 
-from xradio.vis._vis_utils._ms.partition_queries import create_partitions
-from xradio.vis._vis_utils._ms.conversion import convert_and_write_partition
+from xradio.correlated_data._vis_utils._ms.partition_queries import create_partitions
+from xradio.correlated_data._vis_utils._ms.conversion import convert_and_write_partition
 
 
 def convert_msv2_to_processing_set(

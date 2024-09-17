@@ -1,14 +1,14 @@
 import os
 
-from ._processing_set import processing_set
+from xradio.correlated_data._processing_set import processing_set
 import toolviper.utils.logger as logger
 from xradio._utils.zarr.common import _open_dataset, _get_file_system_and_items
 import s3fs
 
 
-def read_processing_set(
+def open_processing_set(
     ps_store: str,
-    obs_modes: list = None,
+    intents: list = None,
 ) -> processing_set:
     """Creates a lazy representation of a Processing Set (only meta-data is loaded into memory).
 
@@ -16,9 +16,9 @@ def read_processing_set(
     ----------
     ps_store : str
         String of the path and name of the processing set. For example '/users/user_1/uid___A002_Xf07bba_Xbe5c_target.lsrk.vis.zarr'.
-    obs_modes : list, optional
-        A list of obs_mode to be read for example ['OBSERVE_TARGET#ON_SOURCE']. The obs_mode in a processing set can be seen by calling processing_set.summary().
-        By default None, which will read all obs_mode.
+    intents : list, optional
+        A list of intents to be open for example ['OBSERVE_TARGET#ON_SOURCE']. The intents in a processing set can be seen by calling processing_set.summary().
+        By default None, which will open all intents.
 
     Returns
     -------
@@ -37,10 +37,10 @@ def read_processing_set(
         xds = _open_dataset(ms_main_store, file_system)
         data_groups = xds.attrs["data_groups"]
 
-        if (obs_modes is None) or (
-            bool(set(xds.attrs["partition_info"]["obs_mode"]).intersection(obs_modes))
+        if (intents is None) or (
+            bool(set(xds.attrs["partition_info"]["intents"]).intersection(intents))
         ):
-            sub_xds_dict, field_and_source_xds_dict = _read_sub_xds(
+            sub_xds_dict, field_and_source_xds_dict = _open_sub_xds(
                 ms_store, file_system=file_system, data_groups=data_groups
             )
 
@@ -61,13 +61,13 @@ def read_processing_set(
 
             ps[ms_name] = xds
         # except Exception as e:
-        #     logger.warning(f"Could not read {ms_name} due to {e}")
+        #     logger.warning(f"Could not open {ms_name} due to {e}")
         #     continue
 
     return ps
 
 
-def _read_sub_xds(ms_store, file_system, data_groups, load=False):
+def _open_sub_xds(ms_store, file_system, data_groups, load=False):
     sub_xds_dict = {}
     field_and_source_xds_dict = {}
 

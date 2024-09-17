@@ -14,16 +14,13 @@ dependencies = [
     'dask',
     'distributed',
     'toolviper',
-    'matplotlib',
     'numba>=0.57.0',
     'numpy',
-    'prettytable',
     'pytest',
     'pytest-cov',
     'pytest-html',
     's3fs',
     'scipy',
-    'tqdm',
     'xarray',
     'zarr',
     'pyarrow',
@@ -33,12 +30,17 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-docs = [
+interactive = [
+    'matplotlib',
+    'prettytable',
     'jupyterlab',
     'ipykernel',
     'ipympl',
     'ipython',
     'jupyter-client',
+]
+
+docs = [
     'nbsphinx',
     'recommonmark',
     'scanpydoc',

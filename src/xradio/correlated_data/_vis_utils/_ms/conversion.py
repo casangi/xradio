@@ -11,18 +11,18 @@ import xarray as xr
 
 import toolviper.utils.logger as logger
 from casacore import tables
-from xradio.vis._vis_utils._ms.msv4_sub_xdss import (
+from xradio.correlated_data._vis_utils._ms.msv4_sub_xdss import (
     create_pointing_xds,
     create_system_calibration_xds,
     create_weather_xds,
 )
 from .msv4_info_dicts import create_info_dicts
-from xradio.vis._vis_utils._ms.create_antenna_xds import (
+from xradio.correlated_data._vis_utils._ms.create_antenna_xds import (
     create_antenna_xds,
     create_gain_curve_xds,
     create_phase_calibration_xds,
 )
-from xradio.vis._vis_utils._ms.create_field_and_source_xds import (
+from xradio.correlated_data._vis_utils._ms.create_field_and_source_xds import (
     create_field_and_source_xds,
 )
 from xradio._utils.schema import column_description_casacore_to_msv4_measure
@@ -714,7 +714,7 @@ def convert_and_write_partition(
         _description_
     out_file : str
         _description_
-    obs_mode : str
+    intents : str
         _description_
     ddi : int, optional
         _description_, by default 0
@@ -751,7 +751,7 @@ def convert_and_write_partition(
 
     taql_where = create_taql_query(partition_info)
     ddi = partition_info["DATA_DESC_ID"][0]
-    obs_mode = str(partition_info["OBS_MODE"][0])
+    intents = str(partition_info["OBS_MODE"][0])
 
     start = time.time()
     with open_table_ro(in_file) as mtable:
@@ -779,20 +779,20 @@ def convert_and_write_partition(
                 tb_tool.getcol("OBSERVATION_ID"), "OBSERVATION_ID"
             )
 
-            def get_observation_info(in_file, observation_id, obs_mode):
+            def get_observation_info(in_file, observation_id, intents):
                 generic_observation_xds = load_generic_table(
                     in_file,
                     "OBSERVATION",
                     taql_where=f" where (ROWID() IN [{str(observation_id)}])",
                 )
 
-                if obs_mode == "None":
-                    obs_mode = "obs_" + str(observation_id)
+                if intents == "None":
+                    intents = "obs_" + str(observation_id)
 
-                return generic_observation_xds["TELESCOPE_NAME"].values[0], obs_mode
+                return generic_observation_xds["TELESCOPE_NAME"].values[0], intents
 
-            telescope_name, obs_mode = get_observation_info(
-                in_file, observation_id, obs_mode
+            telescope_name, intents = get_observation_info(
+                in_file, observation_id, intents
             )
 
             start = time.time()
@@ -1016,7 +1016,7 @@ def convert_and_write_partition(
 
             partition_info_misc_fields = {
                 "scan_id": scan_id,
-                "obs_mode": obs_mode,
+                "intents": intents,
                 "taql_where": taql_where,
             }
             info_dicts = create_info_dicts(

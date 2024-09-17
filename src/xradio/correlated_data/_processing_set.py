@@ -74,7 +74,7 @@ class processing_set(dict):
     def _summary(self, data_group="base"):
         summary_data = {
             "name": [],
-            "obs_mode": [],
+            "intents": [],
             "shape": [],
             "polarization": [],
             "scan_number": [],
@@ -94,7 +94,7 @@ class processing_set(dict):
 
         for key, value in self.items():
             summary_data["name"].append(key)
-            summary_data["obs_mode"].append(value.attrs["partition_info"]["obs_mode"])
+            summary_data["intents"].append(value.attrs["partition_info"]["intents"])
             summary_data["spw_name"].append(
                 value.attrs["partition_info"]["spectral_window_name"]
             )
@@ -202,12 +202,12 @@ class processing_set(dict):
         """
         Selects a subset of the Processing Set based on column names and values or a Pandas query.
 
-        The following columns are supported: name, obs_mode, polarization, spw_name, field_name, source_name, field_coords, start_frequency, end_frequency.
+        The following columns are supported: name, intents, polarization, spw_name, field_name, source_name, field_coords, start_frequency, end_frequency.
 
         This function will not apply any selection on the MS data so data will not be dropped for example if a MS has field_name=['field_0','field_10','field_08'] and ps.sel(field_name='field_0') is done the resulting MS will still have field_name=['field_0','field_10','field_08'].
 
         Examples:
-            ps.sel(obs_mode='OBSERVE_TARGET#ON_SOURCE', polarization=['RR', 'LL']) # Select all MSs with obs_mode 'OBSERVE_TARGET#ON_SOURCE' and polarization 'RR' or 'LL'.
+            ps.sel(intents='OBSERVE_TARGET#ON_SOURCE', polarization=['RR', 'LL']) # Select all MSs with intents 'OBSERVE_TARGET#ON_SOURCE' and polarization 'RR' or 'LL'.
             ps.sel(query='start_frequency > 100e9 AND end_frequency < 200e9') # Select all MSs with start_frequency greater than 100 GHz and less than 200 GHz.
 
         Args:

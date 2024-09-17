@@ -12,7 +12,7 @@ from .read_main_table import get_partition_ids, redim_id_data_vars, rename_vars
 from .read import add_units_measures, convert_casacore_time, extract_table_attributes
 from .write import revert_time
 from .table_query import open_query, open_table_ro
-from xradio.vis._vis_utils._ms._tables.read_main_table import (
+from xradio.correlated_data._vis_utils._ms._tables.read_main_table import (
     get_baselines,
     get_baseline_indices,
 )

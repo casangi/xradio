@@ -58,7 +58,7 @@ def create_info_dicts(
         "scan_number": to_list(np.unique(partition_info_misc_fields["scan_id"])),
         "source_name": to_list(np.unique(field_and_source_xds.source_name.values)),
         # "source_id": to_list(unique_1d(source_id)),
-        "obs_mode": partition_info_misc_fields["obs_mode"].split(","),
+        "intents": partition_info_misc_fields["intents"].split(","),
         "taql": partition_info_misc_fields["taql_where"],
         "line_name": line_name,
     }

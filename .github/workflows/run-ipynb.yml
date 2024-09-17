@@ -1,0 +1,35 @@
+
+name: ipynb
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+      - '**.rst'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.12"]
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies with pip
+      run: |
+        python -m pip install --upgrade pip
+        pip install .
+    - name: Run Jupyter notebooks
+      run: |
+          for dir in docs/source/correlated_data/tutorials docs/source/correlated_data/guides docs/source/image_data/tutorials; do
+            for notebook in $(find $dir -name '*.ipynb'); do
+              jupyter nbconvert --to notebook --execute $notebook --output $notebook
+            done
+          done

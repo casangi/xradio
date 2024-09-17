@@ -5,6 +5,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+#Data
+*.zarr
+*.ms
+
 # C extensions
 *.so
 

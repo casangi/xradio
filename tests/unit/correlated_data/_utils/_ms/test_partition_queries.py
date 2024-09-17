@@ -6,7 +6,9 @@ import xarray as xr
 
 
 def test_partition_when_empty_state(ms_empty_required):
-    from xradio.correlated_data._utils._ms.partition_queries import partition_when_empty_state
+    from xradio.correlated_data._utils._ms.partition_queries import (
+        partition_when_empty_state,
+    )
 
     res = partition_when_empty_state(ms_empty_required.fname)
 
@@ -18,7 +20,9 @@ def test_partition_when_empty_state(ms_empty_required):
 
 
 def test_find_distinct_obs_mode(ms_minimal_required):
-    from xradio.correlated_data._utils._ms.partition_queries import find_distinct_obs_mode
+    from xradio.correlated_data._utils._ms.partition_queries import (
+        find_distinct_obs_mode,
+    )
 
     with pytest.raises(RuntimeError, match="Error in TaQL command"):
         res = find_distinct_obs_mode(ms_minimal_required.fname, "name::STATE")
@@ -36,7 +40,9 @@ def test_find_distinct_obs_mode(ms_minimal_required):
     ],
 )
 def test_filter_intents_per_ddi(mixed_intents_no_wvr, expected_results):
-    from xradio.correlated_data._utils._ms.partition_queries import filter_intents_per_ddi
+    from xradio.correlated_data._utils._ms.partition_queries import (
+        filter_intents_per_ddi,
+    )
 
     spw_name_by_ddi = {
         0: "WVR#NOMINAL",
@@ -58,7 +64,9 @@ def test_filter_intents_per_ddi(mixed_intents_no_wvr, expected_results):
     ],
 )
 def test_filter_intents_per_ddi_wvr(mixed_intents_wvr, expected_results):
-    from xradio.correlated_data._utils._ms.partition_queries import filter_intents_per_ddi
+    from xradio.correlated_data._utils._ms.partition_queries import (
+        filter_intents_per_ddi,
+    )
 
     spw_name_by_ddi = {
         0: "WVR#NOMINAL",
@@ -80,7 +88,9 @@ def test_filter_intents_per_ddi_wvr(mixed_intents_wvr, expected_results):
 
 
 def test_make_ddi_state_intent_lists():
-    from xradio.correlated_data._utils._ms.partition_queries import make_ddi_state_intent_lists
+    from xradio.correlated_data._utils._ms.partition_queries import (
+        make_ddi_state_intent_lists,
+    )
 
     res = make_ddi_state_intent_lists(None, None, np.empty(0), {})
 

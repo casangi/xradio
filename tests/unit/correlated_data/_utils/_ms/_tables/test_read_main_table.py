@@ -6,7 +6,9 @@ def test_rename_vars():
 
 
 def test_redim_id_data_vars():
-    from xradio.correlated_data._utils._ms._tables.read_main_table import redim_id_data_vars
+    from xradio.correlated_data._utils._ms._tables.read_main_table import (
+        redim_id_data_vars,
+    )
 
 
 @pytest.mark.parametrize(
@@ -23,7 +25,9 @@ def test_redim_id_data_vars():
     ],
 )
 def test_get_parittion_ids(ms_minimal_required, where, expected_pids):
-    from xradio.correlated_data._utils._ms._tables.read_main_table import get_partition_ids
+    from xradio.correlated_data._utils._ms._tables.read_main_table import (
+        get_partition_ids,
+    )
     from xradio.correlated_data._utils._ms._tables.table_query import open_table_ro
 
     with open_table_ro(ms_minimal_required.fname) as mtable:
@@ -40,7 +44,9 @@ def test_read_expanded_main_table():
 
 
 def test_read_main_table_chunks():
-    from xradio.correlated_data._utils._ms._tables.read_main_table import read_main_table_chunks
+    from xradio.correlated_data._utils._ms._tables.read_main_table import (
+        read_main_table_chunks,
+    )
 
     # tested one level up for now
 
@@ -59,7 +65,9 @@ def test_read_main_table_chunks():
 
 
 def test_read_flat_main_table_w_scan_subscan(ms_minimal_required):
-    from xradio.correlated_data._utils._ms._tables.read_main_table import read_flat_main_table
+    from xradio.correlated_data._utils._ms._tables.read_main_table import (
+        read_flat_main_table,
+    )
     import xarray as xr
 
     # with pytest.raises(IndexError, match=""):
@@ -72,7 +80,9 @@ def test_read_flat_main_table_w_scan_subscan(ms_minimal_required):
 
 
 def test_read_flat_main_table_no_scan(ms_empty_required):
-    from xradio.correlated_data._utils._ms._tables.read_main_table import read_flat_main_table
+    from xradio.correlated_data._utils._ms._tables.read_main_table import (
+        read_flat_main_table,
+    )
     import xarray as xr
 
     res = read_flat_main_table(ms_empty_required.fname, 0, None)
@@ -83,7 +93,9 @@ def test_read_flat_main_table_no_scan(ms_empty_required):
 
 
 def test_read_flat_main_table_no_subscan(ms_empty_required):
-    from xradio.correlated_data._utils._ms._tables.read_main_table import read_flat_main_table
+    from xradio.correlated_data._utils._ms._tables.read_main_table import (
+        read_flat_main_table,
+    )
     import xarray as xr
 
     res = read_flat_main_table(ms_empty_required.fname, 1, (1, None))

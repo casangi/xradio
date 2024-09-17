@@ -50,9 +50,9 @@ def open_processing_set(
             }
 
             for data_group_name, data_group_vals in data_groups.items():
-                xds[data_group_vals["correlated_data"]].attrs["field_and_source_xds"] = (
-                    field_and_source_xds_dict[data_group_name]
-                )
+                xds[data_group_vals["correlated_data"]].attrs[
+                    "field_and_source_xds"
+                ] = field_and_source_xds_dict[data_group_name]
 
             ps[ms_name] = xds
         # except Exception as e:

@@ -13,7 +13,9 @@ from pathlib import Path
     ],
 )
 def test_cols_from_xds_to_ms(cols, expected_output):
-    from xradio.correlated_data._utils._ms._tables.write_exp_api import cols_from_xds_to_ms
+    from xradio.correlated_data._utils._ms._tables.write_exp_api import (
+        cols_from_xds_to_ms,
+    )
 
     assert cols_from_xds_to_ms(cols) == expected_output
 

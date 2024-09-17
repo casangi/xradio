@@ -8,7 +8,10 @@ import shutil
 
 import xarray as xr
 
-from tests.unit.correlated_data.ms_test_utils.gen_test_ms import gen_test_ms, make_ms_empty
+from tests.unit.correlated_data.ms_test_utils.gen_test_ms import (
+    gen_test_ms,
+    make_ms_empty,
+)
 from tests.unit.correlated_data.ms_test_utils.cds_checks import check_cds
 
 
@@ -238,7 +241,9 @@ def cds_minimal_required(ms_minimal_required):
 @pytest.fixture(scope="session")
 def main_xds_flat_min(ms_minimal_required):
     """A "flat" (row dim) main xds (one partition, when partitioning by ddi)"""
-    from xradio.correlated_data._utils._ms._tables.read_main_table import read_flat_main_table
+    from xradio.correlated_data._utils._ms._tables.read_main_table import (
+        read_flat_main_table,
+    )
     from xradio.correlated_data._utils._ms.msv2_msv3 import ignore_msv2_cols
 
     xds, _part_ids, _attrs = read_flat_main_table(

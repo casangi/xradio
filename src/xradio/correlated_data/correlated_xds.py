@@ -5,11 +5,9 @@ import numbers
 
 
 class CorrelatedXds(xr.Dataset):
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
+
     def to_zarr():
         pass
-        
-    

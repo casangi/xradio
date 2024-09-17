@@ -1161,7 +1161,7 @@ def add_data_groups(xds):
             "uvw": "UVW",
         }
         is_single_dish = True
-        
+
     if "SPECTRUM_MODEL" in xds:
         xds.attrs["data_groups"]["model"] = {
             "correlated_data": "SPECTRUM_MODEL",

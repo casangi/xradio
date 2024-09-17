@@ -147,7 +147,9 @@ def test_calc_otimal_ms_chunk_shape(
     mem_avail, shape, elem_size, col_name, expected_res
 ):
     import numbers
-    from xradio.correlated_data._utils._utils.xds_helper import calc_optimal_ms_chunk_shape
+    from xradio.correlated_data._utils._utils.xds_helper import (
+        calc_optimal_ms_chunk_shape,
+    )
 
     res = calc_optimal_ms_chunk_shape(mem_avail, shape, elem_size, col_name)
     assert res == expected_res
@@ -170,7 +172,9 @@ def test_calc_otimal_ms_chunk_shape_raises(
     mem_avail, shape, elem_size, col_name, expected_raises
 ):
     import numbers
-    from xradio.correlated_data._utils._utils.xds_helper import calc_optimal_ms_chunk_shape
+    from xradio.correlated_data._utils._utils.xds_helper import (
+        calc_optimal_ms_chunk_shape,
+    )
 
     with expected_raises:
         res = calc_optimal_ms_chunk_shape(mem_avail, shape, elem_size, col_name)

@@ -93,7 +93,9 @@ def test_make_part_key():
 
 
 def test_read_ms_scan_subscan_partitions(ms_empty_required):
-    from xradio.correlated_data._utils._ms.partitions import read_ms_scan_subscan_partitions
+    from xradio.correlated_data._utils._ms.partitions import (
+        read_ms_scan_subscan_partitions,
+    )
 
     with pytest.raises(
         AttributeError, match="object has no attribute 'SPECTRAL_WINDOW_ID'"

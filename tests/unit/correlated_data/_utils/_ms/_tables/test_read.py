@@ -84,7 +84,9 @@ def test_convert_mjd_time(times, expected_result, request):
     ],
 )
 def test_convert_casacore_time_to_mjd(times, expected_result):
-    from xradio.correlated_data._utils._ms._tables.read import convert_casacore_time_to_mjd
+    from xradio.correlated_data._utils._ms._tables.read import (
+        convert_casacore_time_to_mjd,
+    )
 
     np.testing.assert_array_almost_equal(
         convert_casacore_time_to_mjd(times), expected_result
@@ -115,7 +117,9 @@ tol_interval = 0.1e9 / 4
     ],
 )
 def test_find_projected_min_max_table(ms_minimal_required, in_min_max, expected_result):
-    from xradio.correlated_data._utils._ms._tables.read import find_projected_min_max_table
+    from xradio.correlated_data._utils._ms._tables.read import (
+        find_projected_min_max_table,
+    )
 
     res = find_projected_min_max_table(
         in_min_max, ms_minimal_required.fname, "POINTING", "TIME"
@@ -225,7 +229,9 @@ time_pointing_ngc3256 = np.array(
     ],
 )
 def test_find_projected_min_max_array(in_min_max, in_array, expected_result):
-    from xradio.correlated_data._utils._ms._tables.read import find_projected_min_max_array
+    from xradio.correlated_data._utils._ms._tables.read import (
+        find_projected_min_max_array,
+    )
 
     res = find_projected_min_max_array(in_min_max, in_array)
     np.set_printoptions(precision=13)
@@ -243,7 +249,9 @@ def test_find_projected_min_max_array(in_min_max, in_array, expected_result):
 def test_make_taql_where_between_min_max(
     ms_minimal_required, in_min_max, expected_result
 ):
-    from xradio.correlated_data._utils._ms._tables.read import make_taql_where_between_min_max
+    from xradio.correlated_data._utils._ms._tables.read import (
+        make_taql_where_between_min_max,
+    )
 
     res = make_taql_where_between_min_max(
         in_min_max, ms_minimal_required.fname, "POINTING", "TIME"

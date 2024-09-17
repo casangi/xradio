@@ -17,7 +17,9 @@ def test_read_alma_ms_by_ddi(ms_alma_antennae_north_split):
     from xradio.correlated_data._utils.ms import read_ms
 
     scheme = "ddi"
-    correlated_data = read_ms(ms_alma_antennae_north_split.fname, partition_scheme=scheme)
+    correlated_data = read_ms(
+        ms_alma_antennae_north_split.fname, partition_scheme=scheme
+    )
     check_cds(correlated_data, partition_scheme=scheme)
 
 

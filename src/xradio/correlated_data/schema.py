@@ -12,12 +12,16 @@ import numpy
 # Dimensions
 Time = Literal["time"]
 """ Observation time dimension """
-TimePointing = Literal["time_pointing"]
-""" time dimension of pointing dataset (when not interpolated to main time) """
+TimeCal = Literal["time_cal"]
+""" time dimension of system calibration (when not interpolated to main time)"""
 TimeEphemeris = Literal["time_ephemeris"]
 """ time dimension of ephemeris data (when not interpolated to main time) """
-TimeCal = Literal["time_cal"]
-""" time dimension of system calibration (when not interpolated to main time) """
+TimePhaseCal = Literal["time_phase_cal"]
+""" Coordinate label for VLBI-specific phase cal time axis """
+TimePointing = Literal["time_pointing"]
+""" time dimension of pointing dataset (when not interpolated to main time) """
+TimeWeather = Literal["time_weather"]
+""" time dimension of weather dataset (when not interpolated to main time) """
 AntennaName = Literal["antenna_name"]
 """ Antenna name dimension """
 StationName = Literal["station_name"]
@@ -50,8 +54,6 @@ EllipsoidPosLabel = Literal["ellipsoid_pos_label"]
 """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
 CartesianPosLabel = Literal["cartesian_pos_label"]
 """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
-TimePhaseCal = Literal["time_phase_cal"]
-""" Coordinate label for VLBI-specific phase cal time axis """
 nPolynomial = Literal["n_polynomial"]
 """ For data that is represented as variable in time using Taylor expansion """
 PolyTerm = Literal["poly_term"]
@@ -91,6 +93,10 @@ class TimeArray:
     data: Data[ZD, float]
     """Time since epoch, typically in seconds (see ``units``)."""
 
+    type: Attr[str] = "time"
+    """ Array type. Should be ``"time"``. """
+    units: Attr[list[str]] = ("s",)
+    """ Units to associate with axis"""
     scale: Attr[str] = "tai"
     """
     Time scale of data. Must be one of ``(‘tai’, ‘tcb’, ‘tcg’, ‘tdb’, ‘tt’, ‘ut1’, ‘utc’)``,
@@ -98,9 +104,6 @@ class TimeArray:
     """
     format: Attr[str] = "unix_tai"
     """Time representation and epoch, see :py:class:`TimeArray`."""
-
-    type: Attr[str] = "time"
-    units: Attr[list[str]] = ("s",)
 
 
 @xarray_dataarray_schema
@@ -157,30 +160,9 @@ class QuantityArray:
 
 
 # Coordinates / Axes
-class TimeCoordArrayBase:
-    """Base class with the metadata found in time array coords."""
-
-    integration_time: Optional[Attr[QuantityArray]] = None
-    """ The nominal sampling interval (ms v2). Units of seconds. """
-    effective_integration_time: Optional[Attr[str]] = None
-    """
-    Name of data array that contains the integration time that includes
-    the effects of missing data.
-    """
-
-    units: Attr[list[str]] = ("s",)
-    """ Units to associate with axis"""
-    scale: Attr[str] = "tai"
-    """ Astropy time scales, see :py:class:`TimeArray` """
-    format: Attr[str] = "unix"
-    """ Astropy format, see :py:class:`TimeArray`"""
-    long_name: Optional[Attr[str]] = "Observation Time"
-    """ Long-form name to use for axis"""
-
-
 @xarray_dataarray_schema
-class TimeCoordArray(TimeCoordArrayBase):
-    """Data model of visibility time axis. See also :py:class:`TimeArray`."""
+class TimeCoordArray:
+    """Data model of the main dataset time axis. See also :py:class:`TimeArray`."""
 
     data: Data[Time, float]
     """
@@ -191,11 +173,53 @@ class TimeCoordArray(TimeCoordArrayBase):
     type: Attr[str] = "time"
     """ Coordinate type. Should be ``"time"``. """
 
+    units: Attr[list[str]] = ("s",)
+    """ Units to associate with axis"""
+
+    scale: Attr[str] = "tai"
+    """ Astropy time scales, see :py:class:`TimeArray` """
+
+    format: Attr[str] = "unix"
+    """ Astropy format, see :py:class:`TimeArray`"""
+
+    integration_time: Attr[QuantityArray] = None
+    """ The nominal sampling interval (ms v2). Units of seconds. """
+
 
 @xarray_dataarray_schema
-class TimeCalCoordArray(TimeCoordArrayBase):
+class TimeInterpolatedCoordArray:
+    """Data model of a time axis when it is interpolated to match the time
+    axis of the main dataset. This can be used in the system_calibration_xds,
+    pointing_xds, weather_xds, field_and_source_info_xds, and phase_cal_xds
+    when their respective time_cal, time_pointing, time_weather,
+    time_ephemeris or time_phase_cal are interpolated to the main dataset
+    time. See also :py:class:`TimeArray`.
+    The only difference with respect to the main TimeCoordArray is the
+    absence of the attribute integration_time"""
+
+    data: Data[Time, float]
+    """
+    Time, expressed in seconds since the epoch (see ``scale`` &
+    ``format``), see also see :py:class:`TimeArray`.
+    """
+
+    type: Attr[str] = "time"
+    """ Coordinate type. Should be ``"time"``. """
+
+    units: Attr[list[str]] = ("s",)
+    """ Units to associate with axis"""
+
+    scale: Attr[str] = "tai"
+    """ Astropy time scales, see :py:class:`TimeArray` """
+
+    format: Attr[str] = "unix"
+    """ Astropy format, see :py:class:`TimeArray`"""
+
+
+@xarray_dataarray_schema
+class TimeCalCoordArray:
     """Data model of 'time_cal' axis (time axis in system_calibration_xds
-    when not interpolated to the main time axis. See also
+    subdataset when not interpolated to the main time axis. See also
     :py:class:`TimeCoordArray`."""
 
     data: Data[TimeCal, float]
@@ -207,11 +231,20 @@ class TimeCalCoordArray(TimeCoordArrayBase):
     type: Attr[str] = "time_cal"
     """ Coordinate type. Should be ``"time_cal"``. """
 
+    units: Attr[list[str]] = ("s",)
+    """ Units to associate with axis"""
+
+    scale: Attr[str] = "tai"
+    """ Astropy time scales, see :py:class:`TimeArray` """
+
+    format: Attr[str] = "unix"
+    """ Astropy format, see :py:class:`TimeArray`"""
+
 
 @xarray_dataarray_schema
-class TimePointingCoordArray(TimeCoordArrayBase):
-    """Data model of 'time_pointing' axis (time axis in pointing_xds
-    when not interpolated to the main time axis. See also
+class TimePointingCoordArray:
+    """Data model of the 'time_pointing' axis (time axis in pointing_xds
+    subdataset when not interpolated to the main time axis. See also
     :py:class:`TimeCoordArray`."""
 
     data: Data[TimePointing, float]
@@ -223,12 +256,21 @@ class TimePointingCoordArray(TimeCoordArrayBase):
     type: Attr[str] = "time_pointing"
     """ Coordinate type. Should be ``"time_pointing"``. """
 
+    units: Attr[list[str]] = ("s",)
+    """ Units to associate with axis"""
+
+    scale: Attr[str] = "tai"
+    """ Astropy time scales, see :py:class:`TimeArray` """
+
+    format: Attr[str] = "unix"
+    """ Astropy format, see :py:class:`TimeArray`"""
+
 
 @xarray_dataarray_schema
-class TimeEphemerisCoordArray(TimeCoordArrayBase):
-    """Data model of 'time_ephemeris' axis (time axis in field_and_source_info_xds
-    when not interpolated to the main time axis. See also
-    :py:class:`TimeCoordArray`."""
+class TimeEphemerisCoordArray:
+    """Data model of the 'time_ephemeris' axis (time axis in the
+    field_and_source_info_xds subdataset when not interpolated to the main
+    time axis. See also :py:class:`TimeCoordArray`."""
 
     data: Data[TimeEphemeris, float]
     """
@@ -238,6 +280,40 @@ class TimeEphemerisCoordArray(TimeCoordArrayBase):
 
     type: Attr[str] = "time_ephemeris"
     """ Coordinate type. Should be ``"time_ephemeris"``. """
+
+    units: Attr[list[str]] = ("s",)
+    """ Units to associate with axis"""
+
+    scale: Attr[str] = "tai"
+    """ Astropy time scales, see :py:class:`TimeArray` """
+
+    format: Attr[str] = "unix"
+    """ Astropy format, see :py:class:`TimeArray`"""
+
+
+@xarray_dataarray_schema
+class TimeWeatherCoordArray:
+    """Data model of the 'time_weather' axis (time axis in the weather_xds
+    subdataset when not interpolated to the main time axis. See also
+    :py:class:`TimeCoordArray`."""
+
+    data: Data[TimeWeather, float]
+    """
+    Time, expressed in seconds since the epoch (see ``scale`` &
+    ``format``).
+    """
+
+    type: Attr[str] = "time_ephemeris"
+    """ Coordinate type. Should be ``"time_ephemeris"``. """
+
+    units: Attr[list[str]] = ("s",)
+    """ Units to associate with axis"""
+
+    scale: Attr[str] = "tai"
+    """ Astropy time scales, see :py:class:`TimeArray` """
+
+    format: Attr[str] = "unix"
+    """ Astropy format, see :py:class:`TimeArray`"""
 
 
 @xarray_dataarray_schema
@@ -332,7 +408,7 @@ class FieldSourceXds:
     field_name: Optional[Coord[Union[ZD, Time], str]]
     """Field name."""
 
-    time: Optional[Coordof[TimeCoordArray]]
+    time: Optional[Coordof[TimeInterpolatedCoordArray]]
     """Midpoint of time for which this set of parameters is accurate. Labeled 'time' when interpolated to main time """
     time_ephemeris: Optional[Coordof[TimeEphemerisCoordArray]]
     """Midpoint of time for which this set of parameters is accurate. Labeled 'time_ephemeris' when not interpolating to main time """
@@ -1067,7 +1143,7 @@ class PhaseCalibrationXds:
     """ Polarization type to which each receptor responds (e.g. ”R”,”L”,”X” or ”Y”).
     This is the receptor polarization type as recorded in the final correlated data (e.g. ”RR”); i.e.
     as measured after all polarization combiners. ['X','Y'], ['R','L'] """
-    time: Optional[Coordof[TimeCoordArray]]
+    time: Optional[Coordof[TimeInterpolatedCoordArray]]
     """ Time for VLBI phase cal"""
     time_phase_cal: Optional[Coord[TimePhaseCal, numpy.float64]]
     """ Time for VLBI phase cal"""
@@ -1131,8 +1207,10 @@ class WeatherXds:
     # Coordinates
     station_name: Coord[StationName, str]
     """ Station identifier """
-    time: Coordof[TimeCoordArray]
-    """ Mid-point of the time interval """
+    time: Optional[Coordof[TimeInterpolatedCoordArray]]
+    """ Mid-point of the time interval. Labeled 'time' when interpolated to main time axis """
+    time_weather: Optional[Coordof[TimeWeatherCoordArray]]
+    """ Mid-point of the time interval. Labeled 'time_cal' when not interpolated to main time axis """
     antenna_name: Optional[Coordof[AntennaNameArray]]
     """ Antenna identifier """
 
@@ -1188,7 +1266,7 @@ class PointingXds:
     Antenna pointing direction, optionally expressed as polynomial coefficients. DIRECTION in MSv3.
     """
 
-    time: Optional[Coordof[TimeCoordArray]] = None
+    time: Optional[Coordof[TimeInterpolatedCoordArray]] = None
     """
     Mid-point of the time interval for which the information in this row is
     valid. Required to use the same time measure reference as in visibility dataset.
@@ -1238,7 +1316,7 @@ class SystemCalibrationXds:
     """ Antenna identifier """
     receptor_label: Coord[ReceptorLabel, numpy.int64]
     """  """
-    time: Optional[Coordof[TimeCoordArray]] = None
+    time: Optional[Coordof[TimeInterpolatedCoordArray]] = None
     """ Midpoint of time for which this set of parameters is accurate. Labeled 'time' when interpolating to main time axis """
     time_cal: Optional[Coordof[TimeCalCoordArray]] = None
     """ Midpoint of time for which this set of parameters is accurate. Labeled 'time_cal' when not interpolating to main time axis """

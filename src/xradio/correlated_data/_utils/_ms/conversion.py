@@ -800,7 +800,7 @@ def convert_and_write_partition(
                 attrs={
                     "creation_date": datetime.datetime.now().isoformat(),
                     "xradio_version": importlib.metadata.version("xradio"),
-                    "schema_version": "4.0.-9999",
+                    "schema_version": "4.0.-9998",
                     "type": "visibility",
                 }
             )
@@ -847,6 +847,8 @@ def convert_and_write_partition(
 
             # Add data_groups
             xds, is_single_dish = add_data_groups(xds)
+            if is_single_dish:
+                xds.attrs["type"] = "single dish"
 
             xds = add_missing_data_var_attrs(xds)
 

@@ -1,21 +1,21 @@
 
-Visibility schema
-=================
+Correlated data schema
+======================
 
-.. _visibility datasets:
+.. _correlated data datasets:
 
 Main dataset
 ------------
 
-Model of visibility (or spectrum) :py:class:`xarray.Dataset`: A collection of
-:ref:`Visibility arrays` and :ref:`visibility Coordinates` sharing the same
-dimensions, forming a comprehensive view of visibility data. The main dataset
-contains several :ref:`sub-datasets` and :ref:`info dictionaries`. The
-visibility or spectrum arrays have a :ref:`field_and_source_xds` sub-dataset.
+Model of correlated data (visibility or spectrum) :py:class:`xarray.Dataset`: a
+collection of :ref:`Correlated data arrays` and :ref:`correlated data coordinates`
+sharing the same dimensions, forming a comprehensive view of correlated data. The
+main dataset contains several :ref:`sub-datasets` and :ref:`info dictionaries`.
+The visibility or spectrum arrays have a :ref:`field_and_source_xds` sub-dataset.
 
-.. autoclass:: xradio.correlated_data.schema.VisibilityXds()
+.. autoclass:: xradio.correlated_data.schema.CorrelatedDataXds()
 
-   .. xradio_dataset_schema_table:: xradio.correlated_data.schema.VisibilityXds
+   .. xradio_dataset_schema_table:: xradio.correlated_data.schema.CorrelatedDataXds
 
 
 .. _sub-datasets:
@@ -96,13 +96,13 @@ Processor info
 
    .. xradio_dict_schema_table:: xradio.correlated_data.schema.ProcessorInfoDict
 
-.. _visibility arrays:
+.. _correlated data arrays:
 
 Data Arrays
 -----------
 
-Models of visibility :py:class:`xarray.DataArray` s.
-Bulk data gathered into :ref:`Visibility Datasets`.
+Models of correlated data :py:class:`xarray.DataArray` s.
+Bulk data gathered into :ref:`correlated data datasets`.
 
 .. autoclass:: xradio.correlated_data.schema.VisibilityArray()
 
@@ -136,7 +136,7 @@ Bulk data gathered into :ref:`Visibility Datasets`.
 
    .. xradio_array_schema_table:: xradio.correlated_data.schema.FreqSamplingArray
 
-.. _visibility coordinates:
+.. _correlated data coordinates:
 
 Coordinates
 -----------
@@ -144,8 +144,8 @@ Coordinates
 Define fundamental dimensions of Xradio data, and associate them with
 values. The shape of all arrays contained in Xradio datasets will be defined by
 a mapping of dimensions to sizes -- the "shape" of the array. For instance, a
-visibility data array might have an associated channel or time step count. Use
-:ref:`Visibility Coordinates` to associate dimension indicies with values such
+data array might have an associated channel or time step count. Use
+:ref:`correlated data Coordinates` to associate dimension indicies with values such
 as frequencies or timestamps.
 
 .. autoclass:: xradio.correlated_data.schema.TimeArray()
@@ -200,7 +200,7 @@ as frequencies or timestamps.
 
    .. xradio_array_schema_table:: xradio.correlated_data.schema.TimeWeatherCoordArray
 
-.. _visibility attributes:
+.. _correlated data attributes:
 
 Value Keys
 ----------
@@ -210,7 +210,7 @@ Value Keys
 Scan Intents
 ~~~~~~~~~~~~
 
-Scan intents to be used with :py:class:`VisibilityXds` ``.intent``:
+Scan intents to be used with :py:class:`CorrelatedDataXds` ``.intent``:
 
 * CALIBRATE AMPLI : Amplitude calibration scan
 * CALIBRATE ANTENNA PHASE : Requested by EVLA.
@@ -243,7 +243,7 @@ Scan intents to be used with :py:class:`VisibilityXds` ``.intent``:
 * TEST : used for development.
 * UNSPECIFIED : Unspecified scan intent
 
-Sub-scan intents to be used with :py:class:`VisibilityXds` ``.sub_intent``:
+Sub-scan intents to be used with :py:class:`CorrelatedDataXds` ``.sub_intent``:
 
 * ON SOURCE : on-source measurement
 * OFF SOURCE : off-source measurement

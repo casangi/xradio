@@ -1,7 +1,7 @@
 
 
-Visibility API
-==============
+Correlated data API
+===================
 
 .. automodule:: xradio.correlated_data
 

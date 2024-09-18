@@ -11,7 +11,7 @@ from xradio.correlated_data import (
     open_processing_set,
     load_processing_set,
     convert_msv2_to_processing_set,
-    VisibilityXds,
+    CorrelatedDataXds,
 )
 from xradio.schema.check import check_dataset
 
@@ -126,7 +126,7 @@ def base_test(
         if do_schema_check:
             start_check = time.time()
             for xds_name in ps.keys():
-                check_dataset(ps[xds_name], VisibilityXds).expect()
+                check_dataset(ps[xds_name], CorrelatedDataXds).expect()
             print(
                 f"Time to check datasets (all MSv4s) against schema: {time.time() - start_check}"
             )

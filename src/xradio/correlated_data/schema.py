@@ -394,6 +394,323 @@ class EllipsoidPosLocationArray:
     """
 
 
+@xarray_dataarray_schema
+class BaselineArray:
+    """TODO: documentation"""
+
+    data: Data[BaselineId, Union[numpy.int64, numpy.int32]]
+    """Unique id for each baseline."""
+    long_name: Optional[Attr[str]] = "Baseline ID"
+
+
+@xarray_dataarray_schema
+class BaselineAntennaNameArray:
+    """Array of antenna_name by baseline_id, as used in main_xds and main_sd_xds
+    (antenna_name by baseline_id dim"""
+
+    data: Data[BaselineId, str]
+    """Unique id for each baseline."""
+    long_name: Optional[Attr[str]] = "Antenna name by baseline_id"
+
+
+@xarray_dataarray_schema
+class AntennaNameArray:
+    """TODO: documentation"""
+
+    data: Data[AntennaName, str]
+    """Unique name for each antenna(_station)."""
+    long_name: Optional[Attr[str]] = "Antenna name"
+
+
+@xarray_dataarray_schema
+class DopplerArray:
+    """Doppler measure information for the frequency coordinate"""
+
+    data: Data[ZD, numpy.float64]
+
+    type: Attr[str] = "doppler"
+    """ Coordinate type. Should be ``"spectral_coord"``. """
+
+    units: Attr[list[str]] = ("m/s",)
+    """ Units to associate with axis, [ratio]/[m/s]"""
+
+    doppler_type: Attr[
+        Literal[
+            "radio", "optical", "z", "ratio", "true", "relativistic", "beta", "gamma"
+        ]
+    ] = "radio"
+    """
+    Allowable values: radio, optical, z, ratio, true, relativistic, beta, gamma. Astropy only has radio and optical. Using casacore types: https://casadocs.readthedocs.io/en/stable/notebooks/memo-series.html?highlight=Spectral%20Frames#Spectral-Frames
+    """
+
+
+@xarray_dataarray_schema
+class FrequencyArray:
+    """TODO: documentation"""
+
+    data: Data[Frequency, float]
+    """ Time, expressed in SI seconds since the epoch. """
+    spectral_window_name: Attr[str]
+    """ Name associated with spectral window. """
+    frequency_group_name: Optional[Attr[str]]
+    """ Name associated with frequency group - needed for multi-band VLBI fringe-fitting."""
+    reference_frequency: Attr[SpectralCoordArray]
+    """ A frequency representative of the spectral window, usually the sky
+    frequency corresponding to the DC edge of the baseband. Used by the calibration
+    system if a ﬁxed scaling frequency is required or in algorithms to identify the
+    observing band. """
+    channel_width: Attr[QuantityArray]  # Not SpectralCoord, as it is a difference
+    """ The nominal channel bandwidth. Same units as data array (see units key). """
+    doppler: Optional[Attr[DopplerArray]]
+    """ Doppler tracking information """
+
+    type: Attr[str] = "spectral_coord"
+    """ Coordinate type. Should be ``"spectral_coord"``. """
+    long_name: Optional[Attr[str]] = "Frequency"
+    """ Long-form name to use for axis"""
+    units: Attr[list[str]] = ("Hz",)
+    """ Units to associate with axis"""
+    frame: Attr[str] = "icrs"
+    """
+    Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
+    Note that Astropy does not use the name
+    'topo' (telescope centric) velocity frame, rather it assumes if no velocity
+    frame is given that this is the default.
+    """
+
+
+@xarray_dataarray_schema
+class FrequencyCalArray:
+    """The frequency_cal coordinate of the system calibration dataset. It has
+    only measures data, as opposed to the frequency array of the main dataset."""
+
+    data: Data[FrequencyCal, float]
+    """ Time, expressed in SI seconds since the epoch. """
+    reference_value: Attr[SpectralCoordArray]
+    """ A frequency representative of the spectral window, usually the sky
+    frequency corresponding to the DC edge of the baseband. Used by the calibration
+    system if a ﬁxed scaling frequency is required or in algorithms to identify the
+    observing band. """
+
+    type: Attr[str] = "spectral_coord"
+    units: Attr[list[str]] = ("Hz",)
+    """ Units to associate with axis"""
+
+
+@xarray_dataarray_schema
+class PolarizationArray:
+    """
+    Possible correlations that can be formed from polarised receptors. Possible
+    values, taken from `Measures/Stokes.h
+    <https://github.com/casacore/casacore/blob/5a8df94738bdc36be27e695d7b14fe949a1cc2df/measures/Measures/Stokes.h>`_:
+
+    * ``I``, ``Q``, ``U``, ``V`` (standard stokes parameters)
+    * ``RR``, ``RL``, ``LR``, ``LL`` (circular correlation products)
+    * ``XX``, ``XY``, ``YX``, ``YY`` (linear correlation products)
+    * ``RX``, ``RY``, ``LX``, ``LY``, ``XR``, ``XL``, ``YR``, ``YL`` (mixed correlation products)
+    * ``PP``, ``PQ``, ``QP``, ``QQ`` (general quasi-orthogonal correlation products)
+    * ``RCircular``, ``LCircular``, ``Linear`` (single dish polarization types)
+    * ``Ptotal`` (polarized intensity: ``sqrt(Q²+U²+V²)``)
+    * ``Plinear`` (linearly polarized intensity: ``sqrt(Q²+U²)``)
+    * ``PFtotal`` (polarization fraction: ``Ptotal/I``)
+    * ``PFlinear`` (linear polarization fraction: ``Plinear/I``)
+    * ``Pangle`` (linear polarization angle: ``0.5 arctan(U/Q)`` in radians)
+
+    """
+
+    data: Data[Polarization, str]
+    """ Polarization names. """
+    long_name: Optional[Attr[str]] = "Polarization"
+    """ Long-form name to use for axis. Should be ``"Polarization"``"""
+
+
+@xarray_dataarray_schema
+class UvwLabelArray:
+    """
+    Coordinate axis to make up ``("u", "v", "w")`` tuple, see :py:class:`UvwArray`.
+    """
+
+    data: Data[UvwLabel, str] = ("u", "v", "w")
+    """Should be ``('u','v','w')``, used by :py:class:`UvwArray`"""
+    long_name: Optional[Attr[str]] = "U/V/W label"
+    """ Long-form name to use for axis. Should be ``"U/V/W label"``"""
+
+
+# Data variables
+@xarray_dataarray_schema
+class FlagArray:
+    """
+    An array of Boolean values with the same shape as `VISIBILITY`,
+    representing the cumulative flags applying to this data matrix. Data are
+    flagged bad if the ``FLAG`` array element is ``True``.
+    """
+
+    data: Data[
+        Union[
+            tuple[Time, BaselineId, Frequency, Polarization],
+            tuple[Time, BaselineId, Frequency],
+            tuple[Time, BaselineId],
+            tuple[Time, AntennaName, Frequency, Polarization],  # SD
+        ],
+        bool,
+    ]
+    time: Coordof[TimeCoordArray]
+    baseline_id: Optional[Coordof[BaselineArray]]  # Only IF
+    antenna_name: Optional[Coordof[AntennaNameArray]]  # Only SD
+    frequency: Coordof[FrequencyArray]
+    polarization: Optional[Coordof[PolarizationArray]] = None
+    long_name: Optional[Attr[str]] = "Visibility flags"
+
+
+@xarray_dataarray_schema
+class WeightArray:
+    """
+    The weight for each channel, with the same shape as the associated
+    :py:class:`VisibilityArray`, as assigned by the correlator or processor.
+
+    Weight spectrum in ms v2 is renamed weight. Should be calculated as
+    1/sigma^2 (sigma rms noise).
+    """
+
+    data: Data[
+        Union[
+            tuple[Time, BaselineId, Frequency, Polarization],
+            tuple[Time, BaselineId, Frequency],
+            tuple[Time, BaselineId],
+            tuple[Time, AntennaName, Frequency, Polarization],  # SD
+        ],
+        Union[numpy.float16, numpy.float32, numpy.float64],
+    ]
+    """Visibility weights"""
+    time: Coordof[TimeCoordArray]
+    baseline_id: Optional[Coordof[BaselineArray]]  # Only IF
+    antenna_name: Optional[Coordof[AntennaNameArray]]  # Only SD
+    frequency: Optional[Coordof[FrequencyArray]] = None
+    polarization: Optional[Coordof[PolarizationArray]] = None
+    long_name: Optional[Attr[str]] = "Visibility weights"
+
+
+@xarray_dataarray_schema
+class UvwArray:
+    """
+    Coordinates for the baseline from ``baseline_antenna2_id`` to
+    ``baseline_antenna1_id``, i.e. the baseline is equal to the difference
+    ``POSITION2 - POSITION1``. The UVW given are for the ``TIME_CENTROID``, and
+    correspond in general to the reference type for the
+    ``field_info.phase_dir``.
+
+    The baseline direction should be: ``W`` towards source direction; ``V`` in
+    plane through source and system's pole; ``U`` in direction of increasing
+    longitude coordinate.  So citing
+    http://casa.nrao.edu/Memos/CoordConvention.pdf: Consider an XYZ Celestial
+    coordinate system centered at the location of the interferometer, with
+    :math:`X` towards the East, :math:`Z` towards the NCP and :math:`Y` to
+    complete a right-handed system. The UVW coordinate system is then defined
+    by the hour-angle and declination of the phase-reference direction such
+    that
+
+    #. when the direction of observation is the NCP (`ha=0,dec=90`),
+       the UVW coordinates are aligned with XYZ,
+    #. V, W and the NCP are always on a Great circle,
+    #. when W is on the local meridian, U points East
+    #. when the direction of observation is at zero declination, an
+       hour-angle of -6 hours makes W point due East.
+
+    This definition also determines the sign of the phase of ``VISIBILITY``.
+
+    """
+
+    data: Data[
+        Union[
+            tuple[Time, BaselineId, Frequency, Polarization, UvwLabel],
+            tuple[Time, BaselineId, Frequency, UvwLabel],
+            tuple[Time, BaselineId, UvwLabel],
+            tuple[Time, AntennaName, UvwLabel],  # SD
+            tuple[Time, AntennaName, Frequency, UvwLabel],  # SD
+            tuple[Time, AntennaName, Frequency, Polarization],  # SD
+        ],
+        Union[
+            numpy.float16,
+            numpy.float32,
+            numpy.float64,
+        ],
+    ]
+    """Baseline coordinates from ``baseline_antenna2_id`` to ``baseline_antenna1_id``"""
+    time: Coordof[TimeCoordArray]
+    baseline_id: Optional[Coordof[BaselineArray]]  # Only IF
+    antenna_name: Optional[Coordof[AntennaNameArray]]  # Only SD
+    frequency: Optional[Coordof[FrequencyArray]] = None
+    polarization: Optional[Coordof[PolarizationArray]] = None
+    uvw_label: Coordof[UvwLabelArray] = ("u", "v", "w")
+    long_name: Optional[Attr[str]] = "Baseline coordinates"
+    """ Long-form name to use for axis. Should be ``"Baseline coordinates``"""
+    units: Attr[list[str]] = ("m",)
+
+
+@xarray_dataarray_schema
+class TimeSamplingArray:
+    """TODO: documentation"""
+
+    data: Data[
+        Union[
+            tuple[Time, BaselineId, Frequency, Polarization],
+            tuple[Time, BaselineId, Frequency],
+            tuple[Time, BaselineId],
+            tuple[Time, AntennaName],  # SD
+        ],
+        float,
+    ]
+
+    time: Coordof[TimeCoordArray]
+    baseline_id: Optional[Coordof[BaselineArray]]  # Only IF
+    antenna_name: Optional[Coordof[AntennaNameArray]]  # Only SD
+    frequency: Optional[Coordof[FrequencyArray]] = None
+    polarization: Optional[Coordof[PolarizationArray]] = None
+
+    scale: Attr[str] = "tai"
+    """ Astropy time scales, see :py:class:`astropy.time.Time` """
+    format: Attr[str] = "unix"
+    """ Astropy format, see :py:class:`astropy.time.Time`. Default seconds from 1970-01-01 00:00:00 UTC """
+
+    long_name: Optional[Attr[str]] = "Time sampling data"
+    units: Attr[list[str]] = ("s",)
+
+
+@xarray_dataarray_schema
+class FreqSamplingArray:
+    """TODO: documentation"""
+
+    data: Data[
+        Union[
+            tuple[Time, BaselineId, Frequency, Polarization],
+            tuple[Time, BaselineId, Frequency],
+            tuple[Time, Frequency],
+            tuple[Frequency],
+        ],
+        float,
+    ]
+    """
+    Data about frequency sampling, such as centroid or integration
+    time. Concrete function depends on concrete data array within
+    :py:class:`CorrelatedDataXds`.
+    """
+    frequency: Coordof[FrequencyArray]
+    time: Optional[Coordof[TimeCoordArray]] = None
+    baseline_id: Optional[Coordof[BaselineArray]] = None
+    polarization: Optional[Coordof[PolarizationArray]] = None
+    long_name: Optional[Attr[str]] = "Frequency sampling data"
+    units: Attr[list[str]] = ("Hz",)
+    frame: Attr[str] = "icrs"
+    """
+    Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
+    Note that Astropy does not use the name
+    'topo' (telescope centric) velocity frame, rather it assumes if no velocity
+    frame is given that this is the default.
+    """
+
+
+# Define FieldAndSourceXds dataset already here, as it is needed in the
+# definition of VisibilityArray
 @xarray_dataset_schema
 class FieldSourceXds:
     """
@@ -570,6 +887,49 @@ class FieldSourceXds:
     """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
 
 
+@xarray_dataarray_schema
+class SpectrumArray:
+    """Definition of xr.DataArray for SPECTRUM data (single dish)"""
+
+    data: Data[
+        tuple[Time, AntennaName, Frequency, Polarization],
+        Union[numpy.float64, numpy.float32, numpy.float16],
+    ]
+
+    time: Coordof[TimeCoordArray]
+    antenna_name: Coordof[AntennaNameArray]
+    frequency: Coordof[FrequencyArray]
+    polarization: Coordof[PolarizationArray]
+
+    field_and_source_xds: Attr[FieldSourceXds]
+    long_name: Optional[Attr[str]] = "Spectrum values"
+    """ Long-form name to use for axis. Should be ``"Spectrum values"``"""
+    units: Attr[list[str]] = ("Jy",)
+
+
+@xarray_dataarray_schema
+class VisibilityArray:
+    """TODO: documentation"""
+
+    data: Data[
+        tuple[Time, BaselineId, Frequency, Polarization],
+        Union[numpy.complex64, numpy.complex128],
+    ]
+
+    time: Coordof[TimeCoordArray]
+    baseline_id: Coordof[BaselineArray]
+    polarization: Coordof[PolarizationArray]
+    frequency: Coordof[FrequencyArray]
+
+    field_and_source_xds: Attr[FieldSourceXds]
+    long_name: Optional[Attr[str]] = "Visibility values"
+    """ Long-form name to use for axis. Should be ``"Visibility values"``"""
+    units: Attr[list[str]] = ("Jy",)
+
+
+# Info dicts
+
+
 @dict_schema
 class PartitionInfoDict:
     # spectral_window_id: missing / remove for good?
@@ -628,346 +988,6 @@ class ProcessorInfoDict:
     ”RADIOMETER” - generic detector/integrator)."""
     sub_type: str
     """Processor sub-type, e.g. ”GBT” or ”JIVE”."""
-
-
-@xarray_dataarray_schema
-class BaselineArray:
-    """TODO: documentation"""
-
-    data: Data[BaselineId, Union[numpy.int64, numpy.int32]]
-    """Unique id for each baseline."""
-    long_name: Optional[Attr[str]] = "Baseline ID"
-
-
-@xarray_dataarray_schema
-class BaselineAntennaNameArray:
-    """Array of antenna_name by baseline_id, as used in main_xds and main_sd_xds
-    (antenna_name by baseline_id dim"""
-
-    data: Data[BaselineId, str]
-    """Unique id for each baseline."""
-    long_name: Optional[Attr[str]] = "Antenna name by baseline_id"
-
-
-@xarray_dataarray_schema
-class AntennaNameArray:
-    """TODO: documentation"""
-
-    data: Data[AntennaName, str]
-    """Unique name for each antenna(_station)."""
-    long_name: Optional[Attr[str]] = "Antenna name"
-
-
-@xarray_dataset_schema
-class DopplerXds:
-    """Not specified. Not implemented."""
-
-    pass
-
-
-@xarray_dataarray_schema
-class FrequencyArray:
-    """TODO: documentation"""
-
-    data: Data[Frequency, float]
-    """ Time, expressed in SI seconds since the epoch. """
-    spectral_window_name: Attr[str]
-    """ Name associated with spectral window. """
-    frequency_group_name: Optional[Attr[str]]
-    """ Name associated with frequency group - needed for multi-band VLBI fringe-fitting."""
-    reference_frequency: Attr[SpectralCoordArray]
-    """ A frequency representative of the spectral window, usually the sky
-    frequency corresponding to the DC edge of the baseband. Used by the calibration
-    system if a ﬁxed scaling frequency is required or in algorithms to identify the
-    observing band. """
-    channel_width: Attr[QuantityArray]  # Not SpectralCoord, as it is a difference
-    """ The nominal channel bandwidth. Same units as data array (see units key). """
-    doppler: Optional[Attr[DopplerXds]]
-    """ Doppler tracking information """
-
-    type: Attr[str] = "spectral_coord"
-    """ Coordinate type. Should be ``"spectral_coord"``. """
-    long_name: Optional[Attr[str]] = "Frequency"
-    """ Long-form name to use for axis"""
-    units: Attr[list[str]] = ("Hz",)
-    """ Units to associate with axis"""
-    frame: Attr[str] = "icrs"
-    """
-    Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
-    Note that Astropy does not use the name
-    'topo' (telescope centric) velocity frame, rather it assumes if no velocity
-    frame is given that this is the default.
-    """
-
-
-@xarray_dataarray_schema
-class FrequencyCalArray:
-    """The frequency_cal coordinate of the system calibration dataset. It has
-    only measures data, as opposed to the frequency array of the main dataset."""
-
-    data: Data[FrequencyCal, float]
-    """ Time, expressed in SI seconds since the epoch. """
-    reference_value: Attr[SpectralCoordArray]
-    """ A frequency representative of the spectral window, usually the sky
-    frequency corresponding to the DC edge of the baseband. Used by the calibration
-    system if a ﬁxed scaling frequency is required or in algorithms to identify the
-    observing band. """
-
-    type: Attr[str] = "spectral_coord"
-    units: Attr[list[str]] = ("Hz",)
-    """ Units to associate with axis"""
-
-
-@xarray_dataarray_schema
-class PolarizationArray:
-    """
-    Possible correlations that can be formed from polarised receptors. Possible
-    values, taken from `Measures/Stokes.h
-    <https://github.com/casacore/casacore/blob/5a8df94738bdc36be27e695d7b14fe949a1cc2df/measures/Measures/Stokes.h>`_:
-
-    * ``I``, ``Q``, ``U``, ``V`` (standard stokes parameters)
-    * ``RR``, ``RL``, ``LR``, ``LL`` (circular correlation products)
-    * ``XX``, ``XY``, ``YX``, ``YY`` (linear correlation products)
-    * ``RX``, ``RY``, ``LX``, ``LY``, ``XR``, ``XL``, ``YR``, ``YL`` (mixed correlation products)
-    * ``PP``, ``PQ``, ``QP``, ``QQ`` (general quasi-orthogonal correlation products)
-    * ``RCircular``, ``LCircular``, ``Linear`` (single dish polarization types)
-    * ``Ptotal`` (polarized intensity: ``sqrt(Q²+U²+V²)``)
-    * ``Plinear`` (linearly polarized intensity: ``sqrt(Q²+U²)``)
-    * ``PFtotal`` (polarization fraction: ``Ptotal/I``)
-    * ``PFlinear`` (linear polarization fraction: ``Plinear/I``)
-    * ``Pangle`` (linear polarization angle: ``0.5 arctan(U/Q)`` in radians)
-
-    """
-
-    data: Data[Polarization, str]
-    """ Polarization names. """
-    long_name: Optional[Attr[str]] = "Polarization"
-    """ Long-form name to use for axis. Should be ``"Polarization"``"""
-
-
-@xarray_dataarray_schema
-class UvwLabelArray:
-    """
-    Coordinate axis to make up ``("u", "v", "w")`` tuple, see :py:class:`UvwArray`.
-    """
-
-    data: Data[UvwLabel, str] = ("u", "v", "w")
-    """Should be ``('u','v','w')``, used by :py:class:`UvwArray`"""
-    long_name: Optional[Attr[str]] = "U/V/W label"
-    """ Long-form name to use for axis. Should be ``"U/V/W label"``"""
-
-
-# Data variables
-@xarray_dataarray_schema
-class VisibilityArray:
-    """TODO: documentation"""
-
-    data: Data[
-        tuple[Time, BaselineId, Frequency, Polarization],
-        Union[numpy.complex64, numpy.complex128],
-    ]
-
-    time: Coordof[TimeCoordArray]
-    baseline_id: Coordof[BaselineArray]
-    polarization: Coordof[PolarizationArray]
-    frequency: Coordof[FrequencyArray]
-
-    field_and_source_xds: Attr[FieldSourceXds]
-    long_name: Optional[Attr[str]] = "Visibility values"
-    """ Long-form name to use for axis. Should be ``"Visibility values"``"""
-    units: Attr[list[str]] = ("Jy",)
-
-
-@xarray_dataarray_schema
-class SpectrumArray:
-    """Definition of xr.DataArray for SPECTRUM data (single dish)"""
-
-    data: Data[
-        tuple[Time, AntennaName, Frequency, Polarization],
-        Union[numpy.float64, numpy.float32, numpy.float16],
-    ]
-
-    time: Coordof[TimeCoordArray]
-    antenna_name: Coordof[AntennaNameArray]
-    frequency: Coordof[FrequencyArray]
-    polarization: Coordof[PolarizationArray]
-
-    field_and_source_xds: Attr[FieldSourceXds]
-    long_name: Optional[Attr[str]] = "Spectrum values"
-    """ Long-form name to use for axis. Should be ``"Spectrum values"``"""
-    units: Attr[list[str]] = ("Jy",)
-
-
-@xarray_dataarray_schema
-class FlagArray:
-    """
-    An array of Boolean values with the same shape as `VISIBILITY`,
-    representing the cumulative flags applying to this data matrix. Data are
-    flagged bad if the ``FLAG`` array element is ``True``.
-    """
-
-    data: Data[
-        Union[
-            tuple[Time, BaselineId, Frequency, Polarization],
-            tuple[Time, BaselineId, Frequency],
-            tuple[Time, BaselineId],
-            tuple[Time, AntennaName, Frequency, Polarization],  # SD
-        ],
-        bool,
-    ]
-    time: Coordof[TimeCoordArray]
-    baseline_id: Optional[Coordof[BaselineArray]]  # Only IF
-    antenna_name: Optional[Coordof[AntennaNameArray]]  # Only SD
-    frequency: Coordof[FrequencyArray]
-    polarization: Optional[Coordof[PolarizationArray]] = None
-    long_name: Optional[Attr[str]] = "Visibility flags"
-
-
-@xarray_dataarray_schema
-class WeightArray:
-    """
-    The weight for each channel, with the same shape as the associated
-    :py:class:`VisibilityArray`, as assigned by the correlator or processor.
-
-    Weight spectrum in ms v2 is renamed weight. Should be calculated as
-    1/sigma^2 (sigma rms noise).
-    """
-
-    data: Data[
-        Union[
-            tuple[Time, BaselineId, Frequency, Polarization],
-            tuple[Time, BaselineId, Frequency],
-            tuple[Time, BaselineId],
-            tuple[Time, AntennaName, Frequency, Polarization],  # SD
-        ],
-        Union[numpy.float16, numpy.float32, numpy.float64],
-    ]
-    """Visibility weights"""
-    time: Coordof[TimeCoordArray]
-    baseline_id: Optional[Coordof[BaselineArray]]  # Only IF
-    antenna_name: Optional[Coordof[AntennaNameArray]]  # Only SD
-    frequency: Optional[Coordof[FrequencyArray]] = None
-    polarization: Optional[Coordof[PolarizationArray]] = None
-    long_name: Optional[Attr[str]] = "Visibility weights"
-
-
-@xarray_dataarray_schema
-class UvwArray:
-    """
-    Coordinates for the baseline from ``baseline_antenna2_id`` to
-    ``baseline_antenna1_id``, i.e. the baseline is equal to the difference
-    ``POSITION2 - POSITION1``. The UVW given are for the ``TIME_CENTROID``, and
-    correspond in general to the reference type for the
-    ``field_info.phase_dir``.
-
-    The baseline direction should be: ``W`` towards source direction; ``V`` in
-    plane through source and system's pole; ``U`` in direction of increasing
-    longitude coordinate.  So citing
-    http://casa.nrao.edu/Memos/CoordConvention.pdf: Consider an XYZ Celestial
-    coordinate system centered at the location of the interferometer, with
-    :math:`X` towards the East, :math:`Z` towards the NCP and :math:`Y` to
-    complete a right-handed system. The UVW coordinate system is then defined
-    by the hour-angle and declination of the phase-reference direction such
-    that
-
-    #. when the direction of observation is the NCP (`ha=0,dec=90`),
-       the UVW coordinates are aligned with XYZ,
-    #. V, W and the NCP are always on a Great circle,
-    #. when W is on the local meridian, U points East
-    #. when the direction of observation is at zero declination, an
-       hour-angle of -6 hours makes W point due East.
-
-    This definition also determines the sign of the phase of ``VISIBILITY``.
-
-    """
-
-    data: Data[
-        Union[
-            tuple[Time, BaselineId, Frequency, Polarization, UvwLabel],
-            tuple[Time, BaselineId, Frequency, UvwLabel],
-            tuple[Time, BaselineId, UvwLabel],
-            tuple[Time, AntennaName, UvwLabel],  # SD
-            tuple[Time, AntennaName, Frequency, UvwLabel],  # SD
-            tuple[Time, AntennaName, Frequency, Polarization],  # SD
-        ],
-        Union[
-            numpy.float16,
-            numpy.float32,
-            numpy.float64,
-        ],
-    ]
-    """Baseline coordinates from ``baseline_antenna2_id`` to ``baseline_antenna1_id``"""
-    time: Coordof[TimeCoordArray]
-    baseline_id: Optional[Coordof[BaselineArray]]  # Only IF
-    antenna_name: Optional[Coordof[AntennaNameArray]]  # Only SD
-    frequency: Optional[Coordof[FrequencyArray]] = None
-    polarization: Optional[Coordof[PolarizationArray]] = None
-    uvw_label: Coordof[UvwLabelArray] = ("u", "v", "w")
-    long_name: Optional[Attr[str]] = "Baseline coordinates"
-    """ Long-form name to use for axis. Should be ``"Baseline coordinates``"""
-    units: Attr[list[str]] = ("m",)
-
-
-@xarray_dataarray_schema
-class TimeSamplingArray:
-    """TODO: documentation"""
-
-    data: Data[
-        Union[
-            tuple[Time, BaselineId, Frequency, Polarization],
-            tuple[Time, BaselineId, Frequency],
-            tuple[Time, BaselineId],
-            tuple[Time, AntennaName],  # SD
-        ],
-        float,
-    ]
-
-    time: Coordof[TimeCoordArray]
-    baseline_id: Optional[Coordof[BaselineArray]]  # Only IF
-    antenna_name: Optional[Coordof[AntennaNameArray]]  # Only SD
-    frequency: Optional[Coordof[FrequencyArray]] = None
-    polarization: Optional[Coordof[PolarizationArray]] = None
-
-    scale: Attr[str] = "tai"
-    """ Astropy time scales, see :py:class:`astropy.time.Time` """
-    format: Attr[str] = "unix"
-    """ Astropy format, see :py:class:`astropy.time.Time`. Default seconds from 1970-01-01 00:00:00 UTC """
-
-    long_name: Optional[Attr[str]] = "Time sampling data"
-    units: Attr[list[str]] = ("s",)
-
-
-@xarray_dataarray_schema
-class FreqSamplingArray:
-    """TODO: documentation"""
-
-    data: Data[
-        Union[
-            tuple[Time, BaselineId, Frequency, Polarization],
-            tuple[Time, BaselineId, Frequency],
-            tuple[Time, Frequency],
-            tuple[Frequency],
-        ],
-        float,
-    ]
-    """
-    Data about frequency sampling, such as centroid or integration
-    time. Concrete function depends on concrete data array within
-    :py:class:`VisibilityXds`.
-    """
-    frequency: Coordof[FrequencyArray]
-    time: Optional[Coordof[TimeCoordArray]] = None
-    baseline_id: Optional[Coordof[BaselineArray]] = None
-    polarization: Optional[Coordof[PolarizationArray]] = None
-    long_name: Optional[Attr[str]] = "Frequency sampling data"
-    units: Attr[list[str]] = ("Hz",)
-    frame: Attr[str] = "icrs"
-    """
-    Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
-    Note that Astropy does not use the name
-    'topo' (telescope centric) velocity frame, rather it assumes if no velocity
-    frame is given that this is the default.
-    """
 
 
 # Data Sets
@@ -1284,18 +1304,6 @@ class PointingXds:
 
 
 @xarray_dataset_schema
-class SpectralCoordXds:
-    # TODO
-    pass
-
-
-@xarray_dataset_schema
-class PhasedArrayXds:
-    # TODO
-    pass
-
-
-@xarray_dataset_schema
 class SystemCalibrationXds:
     """System calibration. Contains time- and frequency- variable
     calibration measurements for each antenna, as indexed on receptor"""
@@ -1413,7 +1421,21 @@ class SystemCalibrationXds:
 
 
 @xarray_dataset_schema
-class VisibilityXds:
+class PhasedArrayXds:
+    """Not specified. Not implemented."""
+
+    pass
+
+
+@xarray_dataset_schema
+class DopplerXds:
+    """Not specified. Not implemented."""
+
+    pass
+
+
+@xarray_dataset_schema
+class CorrelatedDataXds:
     """TODO: documentation"""
 
     # --- Required Coordinates ---

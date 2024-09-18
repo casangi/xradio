@@ -13,9 +13,9 @@ dimensions, forming a comprehensive view of visibility data. The main dataset
 contains several :ref:`sub-datasets` and :ref:`info dictionaries`. The
 visibility or spectrum arrays have a :ref:`field_and_source_xds` sub-dataset.
 
-.. autoclass:: xradio.vis.schema.VisibilityXds()
+.. autoclass:: xradio.correlated_data.schema.VisibilityXds()
 
-   .. xradio_dataset_schema_table:: xradio.vis.schema.VisibilityXds
+   .. xradio_dataset_schema_table:: xradio.correlated_data.schema.VisibilityXds
 
 
 .. _sub-datasets:
@@ -27,51 +27,51 @@ Sub-datasets
 
 field_and_source_xds
 ~~~~~~~~~~~~~~~~~~~~
-.. autoclass:: xradio.vis.schema.FieldSourceXds()
+.. autoclass:: xradio.correlated_data.schema.FieldSourceXds()
 
-   .. xradio_dataset_schema_table:: xradio.vis.schema.FieldSourceXds
+   .. xradio_dataset_schema_table:: xradio.correlated_data.schema.FieldSourceXds
 
 antenna_xds
 ~~~~~~~~~~~
-.. autoclass:: xradio.vis.schema.AntennaXds()
+.. autoclass:: xradio.correlated_data.schema.AntennaXds()
 
-   .. xradio_dataset_schema_table:: xradio.vis.schema.AntennaXds
+   .. xradio_dataset_schema_table:: xradio.correlated_data.schema.AntennaXds
 
 pointing_xds
 ~~~~~~~~~~~~
-.. autoclass:: xradio.vis.schema.PointingXds()
+.. autoclass:: xradio.correlated_data.schema.PointingXds()
 
-   .. xradio_dataset_schema_table:: xradio.vis.schema.PointingXds
+   .. xradio_dataset_schema_table:: xradio.correlated_data.schema.PointingXds
 
 weather_xds
 ~~~~~~~~~~~
-.. autoclass:: xradio.vis.schema.WeatherXds()
+.. autoclass:: xradio.correlated_data.schema.WeatherXds()
 
-   .. xradio_dataset_schema_table:: xradio.vis.schema.WeatherXds
+   .. xradio_dataset_schema_table:: xradio.correlated_data.schema.WeatherXds
 
 system_calibration_xds
 ~~~~~~~~~~~~~~~~~~~~~~
-.. autoclass:: xradio.vis.schema.SystemCalibrationXds()
+.. autoclass:: xradio.correlated_data.schema.SystemCalibrationXds()
 
-   .. xradio_dataset_schema_table:: xradio.vis.schema.SystemCalibrationXds
+   .. xradio_dataset_schema_table:: xradio.correlated_data.schema.SystemCalibrationXds
 
 gain_curve_xds
 ~~~~~~~~~~~~~~
-.. autoclass:: xradio.vis.schema.GainCurveXds()
+.. autoclass:: xradio.correlated_data.schema.GainCurveXds()
 
-   .. xradio_dataset_schema_table:: xradio.vis.schema.GainCurveXds
+   .. xradio_dataset_schema_table:: xradio.correlated_data.schema.GainCurveXds
 
 phase_calibration_xds
 ~~~~~~~~~~~~~~~~~~~~~
-.. autoclass:: xradio.vis.schema.PhaseCalibrationXds()
+.. autoclass:: xradio.correlated_data.schema.PhaseCalibrationXds()
 
-   .. xradio_dataset_schema_table:: xradio.vis.schema.PhaseCalibrationXds
+   .. xradio_dataset_schema_table:: xradio.correlated_data.schema.PhaseCalibrationXds
 
 phased_array_xds
 ~~~~~~~~~~~~~~~~
-.. autoclass:: xradio.vis.schema.PhasedArrayXds()
+.. autoclass:: xradio.correlated_data.schema.PhasedArrayXds()
 
-   .. xradio_dataset_schema_table:: xradio.vis.schema.PhasedArrayXds
+   .. xradio_dataset_schema_table:: xradio.correlated_data.schema.PhasedArrayXds
 
 .. _info dictionaries:
 
@@ -80,21 +80,21 @@ Info dictionaries
 
 Partition info
 ~~~~~~~~~~~~~~
-.. autoclass:: xradio.vis.schema.PartitionInfoDict()
+.. autoclass:: xradio.correlated_data.schema.PartitionInfoDict()
 
-   .. xradio_dict_schema_table:: xradio.vis.schema.PartitionInfoDict
+   .. xradio_dict_schema_table:: xradio.correlated_data.schema.PartitionInfoDict
 
 Observation info
 ~~~~~~~~~~~~~~~~
-.. autoclass:: xradio.vis.schema.ObservationInfoDict()
+.. autoclass:: xradio.correlated_data.schema.ObservationInfoDict()
 
-   .. xradio_dict_schema_table:: xradio.vis.schema.ObservationInfoDict
+   .. xradio_dict_schema_table:: xradio.correlated_data.schema.ObservationInfoDict
 
 Processor info
 ~~~~~~~~~~~~~~
-.. autoclass:: xradio.vis.schema.ProcessorInfoDict()
+.. autoclass:: xradio.correlated_data.schema.ProcessorInfoDict()
 
-   .. xradio_dict_schema_table:: xradio.vis.schema.ProcessorInfoDict
+   .. xradio_dict_schema_table:: xradio.correlated_data.schema.ProcessorInfoDict
 
 .. _visibility arrays:
 
@@ -104,37 +104,37 @@ Data Arrays
 Models of visibility :py:class:`xarray.DataArray` s.
 Bulk data gathered into :ref:`Visibility Datasets`.
 
-.. autoclass:: xradio.vis.schema.VisibilityArray()
+.. autoclass:: xradio.correlated_data.schema.VisibilityArray()
 
-   .. xradio_array_schema_table:: xradio.vis.schema.VisibilityArray
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.VisibilityArray
 
-.. autoclass:: xradio.vis.schema.SpectrumArray()
+.. autoclass:: xradio.correlated_data.schema.SpectrumArray()
 
-   .. xradio_array_schema_table:: xradio.vis.schema.SpectrumArray
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.SpectrumArray
 
-.. autoclass:: xradio.vis.schema.FlagArray()
+.. autoclass:: xradio.correlated_data.schema.FlagArray()
 
-   .. xradio_array_schema_table:: xradio.vis.schema.FlagArray
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.FlagArray
 
-.. autoclass:: xradio.vis.schema.WeightArray()
+.. autoclass:: xradio.correlated_data.schema.WeightArray()
 
-   .. xradio_array_schema_table:: xradio.vis.schema.WeightArray
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.WeightArray
 
-.. autoclass:: xradio.vis.schema.UvwArray()
+.. autoclass:: xradio.correlated_data.schema.UvwArray()
 
-   .. xradio_array_schema_table:: xradio.vis.schema.UvwArray
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.UvwArray
 
-.. autoclass:: xradio.vis.schema.SkyCoordArray()
+.. autoclass:: xradio.correlated_data.schema.SkyCoordArray()
 
-   .. xradio_array_schema_table:: xradio.vis.schema.SkyCoordArray
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.SkyCoordArray
 
-.. autoclass:: xradio.vis.schema.TimeSamplingArray()
+.. autoclass:: xradio.correlated_data.schema.TimeSamplingArray()
 
-   .. xradio_array_schema_table:: xradio.vis.schema.TimeSamplingArray
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.TimeSamplingArray
 
-.. autoclass:: xradio.vis.schema.FreqSamplingArray()
+.. autoclass:: xradio.correlated_data.schema.FreqSamplingArray()
 
-   .. xradio_array_schema_table:: xradio.vis.schema.FreqSamplingArray
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.FreqSamplingArray
 
 .. _visibility coordinates:
 
@@ -148,41 +148,57 @@ visibility data array might have an associated channel or time step count. Use
 :ref:`Visibility Coordinates` to associate dimension indicies with values such
 as frequencies or timestamps.
 
-.. autoclass:: xradio.vis.schema.TimeArray()
+.. autoclass:: xradio.correlated_data.schema.TimeArray()
 
-   .. xradio_array_schema_table:: xradio.vis.schema.TimeArray
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.TimeArray
 
-.. autoclass:: xradio.vis.schema.TimeCoordArray()
+.. autoclass:: xradio.correlated_data.schema.TimeCoordArray()
 
-   .. xradio_array_schema_table:: xradio.vis.schema.TimeCoordArray
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.TimeCoordArray
 
-.. autoclass:: xradio.vis.schema.BaselineArray()
+.. autoclass:: xradio.correlated_data.schema.BaselineArray()
 
-   .. xradio_array_schema_table:: xradio.vis.schema.BaselineArray
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.BaselineArray
 
-.. autoclass:: xradio.vis.schema.BaselineAntennaNameArray()
+.. autoclass:: xradio.correlated_data.schema.BaselineAntennaNameArray()
 
-   .. xradio_array_schema_table:: xradio.vis.schema.BaselineAntennaNameArray
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.BaselineAntennaNameArray
 
-.. autoclass:: xradio.vis.schema.FrequencyArray()
+.. autoclass:: xradio.correlated_data.schema.FrequencyArray()
 
-   .. xradio_array_schema_table:: xradio.vis.schema.FrequencyArray
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.FrequencyArray
 
-.. autoclass:: xradio.vis.schema.PolarizationArray()
+.. autoclass:: xradio.correlated_data.schema.PolarizationArray()
 
-   .. xradio_array_schema_table:: xradio.vis.schema.PolarizationArray
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.PolarizationArray
 
-.. autoclass:: xradio.vis.schema.UvwLabelArray()
+.. autoclass:: xradio.correlated_data.schema.UvwLabelArray()
 
-   .. xradio_array_schema_table:: xradio.vis.schema.UvwLabelArray
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.UvwLabelArray
 
-.. autoclass:: xradio.vis.schema.QuantityArray()
+.. autoclass:: xradio.correlated_data.schema.QuantityArray()
                                                  
-   .. xradio_array_schema_table:: xradio.vis.schema.QuantityArray
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.QuantityArray
 
-.. autoclass:: xradio.vis.schema.LocationArray()
+.. autoclass:: xradio.correlated_data.schema.LocationArray()
                                                  
-   .. xradio_array_schema_table:: xradio.vis.schema.LocationArray
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.LocationArray
+
+.. autoclass:: xradio.correlated_data.schema.TimeCalCoordArray()
+
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.TimeCalCoordArray
+
+.. autoclass:: xradio.correlated_data.schema.TimeEphemerisCoordArray()
+
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.TimeEphemerisCoordArray
+
+.. autoclass:: xradio.correlated_data.schema.TimePointingCoordArray()
+
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.TimePointingCoordArray
+
+.. autoclass:: xradio.correlated_data.schema.TimeWeatherCoordArray()
+
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.TimeWeatherCoordArray
 
 .. _visibility attributes:
 

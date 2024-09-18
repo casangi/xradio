@@ -854,7 +854,7 @@ class FieldSourceXds:
     """ Observer location. """
 
     # --- Attributes ---
-    DOPPLER_SHIFT_VELOCITY: Optional[Attr[numpy.float64]]
+    doppler_shift_velocity: Optional[Attr[QuantityArray]]
     """ Velocity definition of the Doppler shift, e.g., RADIO or OPTICAL velocity in m/s """
 
     source_model_url: Optional[Attr[str]]

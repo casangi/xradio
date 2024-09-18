@@ -195,7 +195,7 @@ def extract_ephemeris_info(
             "type": "location",
             "units": ["deg", "deg", "m"],
             "data": observer_position,
-            "ellipsoid": "WGS84",
+            "frame": "WGS84",
             "origin_object_name": "Earth",
             "coordinate_system": ephemeris_meta["obsloc"].lower(),
         }
@@ -260,7 +260,7 @@ def extract_ephemeris_info(
                 }
             )
 
-    # Add optional data: SUB_OBSERVER_POSITION and SUB_SOLAR_POSITION
+    # Add optional data: SUB_OBSERVER_DIRECTION and SUB_SOLAR_POSITION
     if "DiskLong" in ephemeris_column_description:
         key_lon = "DiskLong"
         key_lat = "DiskLat"
@@ -283,7 +283,7 @@ def extract_ephemeris_info(
         temp_xds["SUB_OBSERVER_DIRECTION"].attrs.update(
             {
                 "type": "location",
-                "ellipsoid": "NA",
+                "frame": "NA",
                 "origin_object_name": ephemeris_meta["NAME"],
                 "coordinate_system": "planetodetic",
                 "units": [
@@ -312,7 +312,7 @@ def extract_ephemeris_info(
         temp_xds["SUB_SOLAR_POSITION"].attrs.update(
             {
                 "type": "location",
-                "ellipsoid": "NA",
+                "frame": "NA",
                 "origin_object_name": "Sun",
                 "coordinate_system": "planetodetic",
                 "units": [

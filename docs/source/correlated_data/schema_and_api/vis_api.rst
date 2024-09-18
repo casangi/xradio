@@ -3,9 +3,9 @@
 Visibility API
 ==============
 
-.. automodule:: xradio.vis
+.. automodule:: xradio.correlated_data
 
-   .. autofunction:: read_processing_set
+   .. autofunction:: open_processing_set
 
    .. autofunction:: load_processing_set
 

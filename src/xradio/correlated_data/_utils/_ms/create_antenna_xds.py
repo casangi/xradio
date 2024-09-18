@@ -87,7 +87,6 @@ def extract_antenna_info(
     """
     to_new_data_variables = {
         "POSITION": ["ANTENNA_POSITION", ["antenna_name", "cartesian_pos_label"]],
-        "OFFSET": ["ANTENNA_FEED_OFFSET", ["antenna_name", "cartesian_pos_label"]],
         "DISH_DIAMETER": ["ANTENNA_DISH_DIAMETER", ["antenna_name"]],
     }
 
@@ -95,7 +94,7 @@ def extract_antenna_info(
         "NAME": ["antenna_name", ["antenna_name"]],
         "STATION": ["station", ["antenna_name"]],
         "MOUNT": ["mount", ["antenna_name"]],
-        "PHASED_ARRAY_ID": ["phased_array_id", ["antenna_name"]],
+        # "PHASED_ARRAY_ID": ["phased_array_id", ["antenna_name"]],
         "antenna_id": ["antenna_id", ["antenna_name"]],
     }
 
@@ -123,9 +122,6 @@ def extract_antenna_info(
     )
 
     ant_xds["ANTENNA_DISH_DIAMETER"].attrs.update({"units": ["m"], "type": "quantity"})
-
-    ant_xds["ANTENNA_FEED_OFFSET"].attrs["type"] = "location_offset"
-    ant_xds["ANTENNA_FEED_OFFSET"].attrs["coordinate_system"] = "geocentric"
 
     ant_xds["ANTENNA_POSITION"].attrs["coordinate_system"] = "geocentric"
     ant_xds["ANTENNA_POSITION"].attrs["origin_object_name"] = "earth"
@@ -230,14 +226,14 @@ def extract_feed_info(
     ), "The number of receptors must be constant in feed table."
 
     to_new_data_variables = {
-        "BEAM_OFFSET": [
-            "BEAM_OFFSET",
-            ["antenna_name", "receptor_label", "sky_dir_label"],
+        "RECEPTOR_ANGLE": [
+            "ANTENNA_RECEPTOR_ANGLE",
+            ["antenna_name", "receptor_label"],
         ],
-        "RECEPTOR_ANGLE": ["RECEPTOR_ANGLE", ["antenna_name", "receptor_label"]],
-        # "pol_response": ["POLARIZATION_RESPONSE", ["antenna_name", "receptor_label", "receptor_name_"]] #repeated dim creates problems.
-        "FOCUS_LENGTH": ["FOCUS_LENGTH", ["antenna_name"]],  # optional
-        # "position": ["ANTENNA_FEED_OFFSET",["antenna_name", "cartesian_pos_label"]] #Will be added to the existing position in ant_xds
+        "FOCUS_LENGTH": [
+            "ANTENNA_FOCUS_LENGTH",
+            ["antenna_name", "receptor_label"],
+        ],  # optional
     }
 
     to_new_coords = {
@@ -250,15 +246,6 @@ def extract_feed_info(
         to_new_data_variables,
         to_new_coords=to_new_coords,
     )
-
-    # print('ant_xds["ANTENNA_FEED_OFFSET"]',ant_xds["ANTENNA_FEED_OFFSET"].data)
-    # print('generic_feed_xds["POSITION"].data',generic_feed_xds["POSITION"].data)
-    feed_offset_attrs = ant_xds["ANTENNA_FEED_OFFSET"].attrs
-    ant_xds["ANTENNA_FEED_OFFSET"] = (
-        ant_xds["ANTENNA_FEED_OFFSET"] + generic_feed_xds["POSITION"].data
-    )
-    # recover attrs after arithmetic operation
-    ant_xds["ANTENNA_FEED_OFFSET"].attrs.update(feed_offset_attrs)
 
     coords = {}
     # coords["receptor_label"] = "pol_" + np.arange(ant_xds.sizes["receptor_label"]).astype(str) #Works on laptop but fails in github test runner.

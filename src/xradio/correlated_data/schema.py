@@ -991,7 +991,7 @@ class AntennaXds:
     telescope_name: Coord[AntennaName, str]
     """ Useful when data is combined from mutiple arrays for example ACA + ALMA. """
     # TODO: receptor_label, polarization_type, sky_dir_label set as optional
-    # for datasets like test_alma_ephemris_mosaic. See also BEAM_OFFSET below.
+    # for datasets like test_alma_ephemris_mosaic. See also ANTENNA_RECEPTOR_ANGLE below.
     receptor_label: Optional[Coord[ReceptorLabel, str]]
     """ Names of receptors """
     polarization_type: Optional[Coord[tuple[AntennaName, ReceptorLabel], str]]
@@ -1011,36 +1011,29 @@ class AntennaXds:
     In a right-handed frame, X towards the intersection of the equator and
     the Greenwich meridian, Z towards the pole.
     """
-    ANTENNA_FEED_OFFSET: Data[
-        Union[
-            tuple[AntennaName, EllipsoidPosLabel], tuple[AntennaName, CartesianPosLabel]
-        ],
-        QuantityArray,
-    ]
-    """
-    Offset of feed relative to position (``Antenna_Table.offset + Feed_Table.position``).
-    """
     ANTENNA_DISH_DIAMETER: Optional[Data[tuple[AntennaName], QuantityArray]]
     """
-    Nominal diameter of dish, as opposed to the effective diameter.
+    The diameter of the main reflector (or the largest dimension for non-circular apertures).
     """
-    ANTENNA_EFFECTIVE_DISH_DIAMETER: Optional[
-        Data[tuple[AntennaName, ReceptorLabel, SkyDirLabel], QuantityArray]
-    ]
-    """ Airy Disk Model .... """
+    ANTENNA_EFFECTIVE_DISH_DIAMETER: Optional[Data[tuple[AntennaName], QuantityArray]]
+    """ Effective dish diameter used in computing beam model (such as airy disk). """
+
+    ANTENNA_BLOCKAGE: Optional[Data[tuple[AntennaName], QuantityArray]]
+    """
+    Blockage caused by secondary reflector used in computing beam model (such as airy disk).
+    """
 
     # TODO: setting BEAM_OFFSET and RECEPTOR_ANGLE as optional for now, as it
     # is not present in some datasets (example: test_alma_ephemris_mosaic)
-    BEAM_OFFSET: Optional[Data[tuple[AntennaName, ReceptorLabel], SkyCoordArray]]
-    """
-    Beam position offset, as defined on the sky but in the antenna
-    reference frame.
-    """
-    RECEPTOR_ANGLE: Optional[Data[tuple[AntennaName, ReceptorLabel], QuantityArray]]
+    ANTENNA_RECEPTOR_ANGLE: Optional[
+        Data[tuple[AntennaName, ReceptorLabel], QuantityArray]
+    ]
     """
     Polarization reference angle. Converts into parallactic angle in the sky domain.
     """
-    FOCUS_LENGTH: Optional[Data[tuple[AntennaName], QuantityArray]]
+    ANTENNA_FOCUS_LENGTH: Optional[
+        Data[tuple[AntennaName, ReceptorLabel], QuantityArray]
+    ]
     """
     Focus length. As defined along the optical axis of the antenna.
     """
@@ -1083,8 +1076,6 @@ class GainCurveXds:
     ”SPACE-HALCA” - specific orientation model."""
     telescope_name: Coord[AntennaName, str]
     """ Useful when data is combined from mutiple arrays for example ACA + ALMA. """
-    # TODO: receptor_label, polarization_type, sky_dir_label set as optional
-    # for datasets like test_alma_ephemris_mosaic. See also BEAM_OFFSET below.
     receptor_label: Coord[ReceptorLabel, str]
     """ Names of receptors """
     polarization_type: Optional[Coord[tuple[AntennaName, ReceptorLabel], str]]
@@ -1135,9 +1126,7 @@ class PhaseCalibrationXds:
     ”SPACE-HALCA” - specific orientation model."""
     telescope_name: Coord[AntennaName, str]
     """ Useful when data is combined from mutiple arrays for example ACA + ALMA. """
-    # TODO: receptor_label, polarization_type, sky_dir_label set as optional
-    # for datasets like test_alma_ephemris_mosaic. See also BEAM_OFFSET below.
-    receptor_label: Optional[Coord[ReceptorLabel, str]]
+    receptor_label: Coord[ReceptorLabel, str]
     """ Names of receptors """
     polarization_type: Optional[Coord[tuple[AntennaName, ReceptorLabel], str]]
     """ Polarization type to which each receptor responds (e.g. ”R”,”L”,”X” or ”Y”).

@@ -180,9 +180,9 @@ as frequencies or timestamps.
                                                  
    .. xradio_array_schema_table:: xradio.vis.schema.QuantityArray
 
-.. autoclass:: xradio.vis.schema.EarthLocationArray()
+.. autoclass:: xradio.vis.schema.LocationArray()
                                                  
-   .. xradio_array_schema_table:: xradio.vis.schema.EarthLocationArray
+   .. xradio_array_schema_table:: xradio.vis.schema.LocationArray
 
 .. _visibility attributes:
 

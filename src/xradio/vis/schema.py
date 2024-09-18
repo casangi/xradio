@@ -252,14 +252,15 @@ class SpectralCoordArray:
 
 
 @xarray_dataarray_schema
-class EarthLocationArray:
-    data: Data[CartesianPosLabel, float]
+class LocationArray:
+    """
+    Measure type used for example in antenna_xds/ANTENNA_POSITION, field_and_source_xds/OBSERVER_POSITION
+    Data dimensions can be EllipsoidPosLabel or CartesianPosLabel
+    """
 
-    ellipsoid: Attr[str]
-    """
-    ITRF makes use of GRS80 ellipsoid and WGS84 makes use of WGS84 ellipsoid
-    """
-    units: Attr[list[str]] = ("m", "m", "m")
+    data: Data[Union[EllipsoidPosLabel, CartesianPosLabel], float]
+
+    units: Attr[list[str]]
     """
     If the units are a list of strings then it must be the same length as
     the last dimension of the data array. This allows for having different
@@ -267,39 +268,21 @@ class EarthLocationArray:
     ``['rad','rad','m']``.
     """
 
-
-@xarray_dataarray_schema
-class LocationArray:
+    frame: Attr[str]
     """
-    Measure type used for example in field_and_source_xds/OBSERVER_POSITION
-    Data dimensions can be EllipsoidPosLabel or CartesianPosLabel
+    Can be ITRF, GRS80, WGS84, WGS72
     """
 
-    data: Data[Union[EllipsoidPosLabel, CartesianPosLabel], float]
-
-    ellipsoid: Attr[str]
-    """
-    ITRF makes use of GRS80 ellipsoid and WGS84 makes use of WGS84 ellipsoid
-    """
+    coordinate_system: Attr[str]
+    """ geocentric/planetcentric, geodetic/planetodetic, orbital """
 
     origin_object_name: Attr[str]
     """
     earth/sun/moon/etc
     """
 
-    coordinate_system: Attr[str]
-    """ geocentric/planetcentric, geodetic/planetodetic, orbital """
-
     type: Attr[str] = "location"
     """ """
-
-    units: Attr[list[str]] = ("deg", "deg", "m")
-    """
-    If the units are a list of strings then it must be the same length as
-    the last dimension of the data array. This allows for having different
-    units in the same data array,for example geodetic coordinates could use
-    ``['rad','rad','m']``.
-    """
 
 
 @xarray_dataarray_schema
@@ -310,18 +293,18 @@ class EllipsoidPosLocationArray:
 
     data: Data[EllipsoidPosLabel, float]
 
-    ellipsoid: Attr[str]
+    frame: Attr[str]
     """
-    ITRF makes use of GRS80 ellipsoid and WGS84 makes use of WGS84 ellipsoid
+    Can be ITRF, GRS80, WGS84, WGS72
     """
+
+    coordinate_system: Attr[str]
+    """ geocentric/planetcentric, geodetic/planetodetic, orbital """
 
     origin_object_name: Attr[str]
     """
     earth/sun/moon/etc
     """
-
-    coordinate_system: Attr[str]
-    """ geocentric/planetcentric, geodetic/planetodetic, orbital """
 
     type: Attr[str] = "location"
     """ """
@@ -947,12 +930,7 @@ class AntennaXds:
     """ ra, dec """
 
     # Data variables
-    ANTENNA_POSITION: Data[
-        Union[
-            tuple[AntennaName, EllipsoidPosLabel], tuple[AntennaName, CartesianPosLabel]
-        ],
-        QuantityArray,
-    ]  # EarthLocationArray
+    ANTENNA_POSITION: Data[tuple[AntennaName], LocationArray]
     """
     In a right-handed frame, X towards the intersection of the equator and
     the Greenwich meridian, Z towards the pole.

@@ -124,9 +124,11 @@ def extract_antenna_info(
 
     ant_xds["ANTENNA_DISH_DIAMETER"].attrs.update({"units": ["m"], "type": "quantity"})
 
-    ant_xds["ANTENNA_FEED_OFFSET"].attrs["type"] = "earth_location_offset"
+    ant_xds["ANTENNA_FEED_OFFSET"].attrs["type"] = "location_offset"
     ant_xds["ANTENNA_FEED_OFFSET"].attrs["coordinate_system"] = "geocentric"
+
     ant_xds["ANTENNA_POSITION"].attrs["coordinate_system"] = "geocentric"
+    ant_xds["ANTENNA_POSITION"].attrs["origin_object_name"] = "earth"
 
     if telescope_name in ["ALMA", "VLA", "NOEMA", "EVLA"]:
         # antenna_name = ant_xds["antenna_name"].values + "_" + ant_xds["station"].values

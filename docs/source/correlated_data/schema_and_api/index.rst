@@ -4,5 +4,5 @@ Schema and API
 .. toctree::
    :maxdepth: 1
 
-   vis_api
-   vis_schema
+   correlated_data_api
+   correlated_data_schema

@@ -164,6 +164,8 @@ def create_weather_xds(in_file: str, ant_xds_station_name_ids: xr.DataArray):
         generic_weather_xds, weather_xds, to_new_data_variables, to_new_coords
     )
 
+    # TODO: option to interpolate to main time
+
     return weather_xds
 
 

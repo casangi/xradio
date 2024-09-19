@@ -177,8 +177,8 @@ casacore_to_msv4_measure_type = {
         },
     },
     "position": {
-        "type": "earth_location",
-        "Ref": "ellipsoid",
+        "type": "location",
+        "Ref": "frame",
         "Ref_map": {"ITRF": "GRS80"},
     },
     "uvw": {"type": "uvw", "Ref": "frame", "Ref_map": {"ITRF": "GRS80"}},

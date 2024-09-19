@@ -76,7 +76,7 @@ def load_processing_set(
     return ps
 
 
-class processing_set_iterator:
+class ProcessingSetIterator:
     def __init__(
         self,
         sel_parms: dict,

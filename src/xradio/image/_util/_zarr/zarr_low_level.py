@@ -148,7 +148,9 @@ def write_binary_blob_to_disk(arr, file_path, compressor):
 
 
 def write_to_lustre_chunked(
-    file_path, compressed_arr, chunk_size=1024 * 1024 * 128, 
+    file_path,
+    compressed_arr,
+    chunk_size=1024 * 1024 * 128,
 ):  # 128 MiB chunks
     """
     Writes compressed data to a Lustre file path with chunking.
@@ -158,8 +160,8 @@ def write_to_lustre_chunked(
         compressed_arr: Compressed data array to write.
         chunk_size: Size of each data chunk in bytes (default: 128 MiB).
     """
-    fs, items = _get_file_system_and_items(file_path.rsplit('/', 1)[0])
-    
+    fs, items = _get_file_system_and_items(file_path.rsplit("/", 1)[0])
+
     if isinstance(fs, s3fs.core.S3FileSystem):
         with fs.open(file_path, "wb") as f:
             for i in range(0, len(compressed_arr), chunk_size):
@@ -245,7 +247,7 @@ def write_json_file(data, file_path):
     Returns:
     - None
     """
-    
+
     with open(file_path, "w") as file:
         json.dump(
             data,
@@ -366,7 +368,7 @@ def create_data_variable_meta_data(
         else:
             # default to assuming we can use primitives
             write_json_file(zarray, zarray_file)
-  
+
     return zarr_meta
 
 
@@ -399,7 +401,7 @@ def write_chunk(img_xds, meta, parallel_dims_chunk_id, compressor, image_file):
             file_path=os.path.join(image_file, data_variable_name, chunk_name),
             compressor=compressor,
         )
-        
+
         # z_chunk = zarr.open(
         #     os.path.join(image_file, data_variable_name, chunk_name),
         #     mode="a",
@@ -409,4 +411,4 @@ def write_chunk(img_xds, meta, parallel_dims_chunk_id, compressor, image_file):
         #     compressor=compressor,
         # )
 
-        #return z_chunk
+        # return z_chunk

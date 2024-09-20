@@ -74,6 +74,19 @@ Location = Literal["location"]
 Doppler = Literal["doppler"]
 
 
+# Units of quantities and measures
+UnitsSeconds = list[Literal["s"]]
+UnitsHertz = list[Literal["Hz"]]
+UnitsMeters = list[Literal["m"]]
+UnitsOfSkyCoordInRadians = list[Literal["rad"], Literal["rad"]]
+UnitsOfLocationInMetersOrRadians = Union[
+    list[Literal["m"], Literal["m"], Literal["m"]],
+    list[Literal["rad"], Literal["rad"], Literal["m"]],
+]
+UnitsOfPositionInRadians = list[Literal["rad"], Literal["rad"], Literal["m"]]
+UnitsOfDopplerShift = Union[list[Literal["ratio"]], list[Literal["m/s"]]]
+
+
 # Quantities
 
 
@@ -110,7 +123,7 @@ class TimeArray:
 
     type: Attr[Time] = "time"
     """ Array type. Should be ``"time"``. """
-    units: Attr[list[str]] = ("s",)
+    units: Attr[UnitsSeconds] = ("s",)
     """ Units to associate with axis"""
     scale: Attr[AllowedTimeScales] = "utc"
     """
@@ -158,7 +171,7 @@ class SkyCoordArray:
     data: Data[Union[SkyDirLabel, SkyPosLabel], float]
 
     type: Attr[SkyCoord] = "sky_coord"
-    units: Attr[list[str]] = ("rad", "rad")
+    units: Attr[UnitsOfSkyCoordInRadians] = ("rad", "rad")
     frame: Attr[AllowedSkyCoordFrames] = ""
     """
     From fixvis docs: clean and the im tool ignore the reference frame
@@ -178,7 +191,7 @@ class LocalSkyCoordArray:
     data: Data[LocalSkyDirLabel, float]
 
     type: Attr[SkyCoord] = "sky_coord"
-    units: Attr[list[str]] = ("rad", "rad")
+    units: Attr[UnitsOfSkyCoordInRadians] = ("rad", "rad")
     frame: Attr[AllowedSkyCoordFrames] = "FK5"
     """
     From fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled
@@ -216,7 +229,7 @@ class TimeCoordArray:
     type: Attr[Time] = "time"
     """ Coordinate type. Should be ``"time"``. """
 
-    units: Attr[list[str]] = ("s",)
+    units: Attr[UnitsSeconds] = ("s",)
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
@@ -252,7 +265,7 @@ class TimeInterpolatedCoordArray:
     type: Attr[Time] = "time"
     """ Coordinate type. Should be ``"time"``. """
 
-    units: Attr[list[str]] = ("s",)
+    units: Attr[UnitsSeconds] = ("s",)
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
@@ -277,7 +290,7 @@ class TimeCalCoordArray:
     type: Attr[Time] = "time_cal"
     """ Coordinate type. Should be ``"time_cal"``. """
 
-    units: Attr[list[str]] = ("s",)
+    units: Attr[UnitsSeconds] = ("s",)
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
@@ -302,7 +315,7 @@ class TimePointingCoordArray:
     type: Attr[TimePointing] = "time_pointing"
     """ Coordinate type. Should be ``"time_pointing"``. """
 
-    units: Attr[list[str]] = ("s",)
+    units: Attr[UnitsSeconds] = ("s",)
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
@@ -327,7 +340,7 @@ class TimeEphemerisCoordArray:
     type: Attr[TimeEphemeris] = "time_ephemeris"
     """ Coordinate type. Should be ``"time_ephemeris"``. """
 
-    units: Attr[list[str]] = ("s",)
+    units: Attr[UnitsSeconds] = ("s",)
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
@@ -352,7 +365,7 @@ class TimeWeatherCoordArray:
     type: Attr[Time] = "time_weather"
     """ Coordinate type. Should be ``"time_weather"``. """
 
-    units: Attr[list[str]] = ("s",)
+    units: Attr[UnitsSeconds] = ("s",)
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
@@ -392,7 +405,7 @@ class SpectralCoordArray:
     """Astropy time scales."""
 
     type: Attr[SpectralCoord] = "spectral_coord"
-    units: Attr[list[str]] = ("Hz",)
+    units: Attr[UnitsHertz] = ("Hz",)
 
 
 AllowedLocationFrames = Literal["ITRF", "GRS80", "WGS84", "WGS72", "NA"]
@@ -416,7 +429,7 @@ class LocationArray:
 
     data: Data[Union[EllipsoidPosLabel, CartesianPosLabel], float]
 
-    units: Attr[list[str]]
+    units: Attr[UnitsOfLocationInMetersOrRadians]
     """
     If the units are a list of strings then it must be the same length as
     the last dimension of the data array. This allows for having different
@@ -465,7 +478,7 @@ class EllipsoidPosLocationArray:
     type: Attr[Location] = "location"
     """ """
 
-    units: Attr[list[str]] = ("deg", "deg", "m")
+    units: Attr[UnitsOfPositionInRadians] = ("rad", "rad", "m")
     """
     If the units are a list of strings then it must be the same length as
     the last dimension of the data array. This allows for having different
@@ -516,7 +529,7 @@ class DopplerArray:
     type: Attr[Doppler] = "doppler"
     """ Coordinate type. Should be ``"spectral_coord"``. """
 
-    units: Attr[list[str]] = ("m/s",)
+    units: Attr[UnitsOfDopplerShift] = ("m/s",)
     """ Units to associate with axis, [ratio]/[m/s]"""
 
     doppler_type: Attr[AllowedDopplerTypes] = "radio"
@@ -551,7 +564,7 @@ class FrequencyArray:
     """ Coordinate type. Should be ``"spectral_coord"``. """
     long_name: Optional[Attr[str]] = "Frequency"
     """ Long-form name to use for axis"""
-    units: Attr[list[str]] = ("Hz",)
+    units: Attr[UnitsHertz] = ("Hz",)
     """ Units to associate with axis"""
     frame: Attr[AllowedSpectralCoordFrames] = "icrs"
     """
@@ -576,7 +589,7 @@ class FrequencyCalArray:
     observing band. """
 
     type: Attr[SpectralCoord] = "spectral_coord"
-    units: Attr[list[str]] = ("Hz",)
+    units: Attr[UnitsHertz] = ("Hz",)
     """ Units to associate with axis"""
 
     frame: Attr[AllowedSpectralCoordFrames] = "icrs"
@@ -735,7 +748,7 @@ class UvwArray:
     uvw_label: Coordof[UvwLabelArray] = ("u", "v", "w")
     long_name: Optional[Attr[str]] = "Baseline coordinates"
     """ Long-form name to use for axis. Should be ``"Baseline coordinates``"""
-    units: Attr[list[str]] = ("m",)
+    units: Attr[UnitsMeters] = ("m",)
 
 
 @xarray_dataarray_schema
@@ -764,7 +777,7 @@ class TimeSamplingArray:
     """ Astropy format, see :py:class:`astropy.time.Time`. Default seconds from 1970-01-01 00:00:00 UTC """
 
     long_name: Optional[Attr[str]] = "Time sampling data"
-    units: Attr[list[str]] = ("s",)
+    units: Attr[UnitsSeconds] = ("s",)
 
 
 @xarray_dataarray_schema
@@ -790,7 +803,7 @@ class FreqSamplingArray:
     baseline_id: Optional[Coordof[BaselineArray]] = None
     polarization: Optional[Coordof[PolarizationArray]] = None
     long_name: Optional[Attr[str]] = "Frequency sampling data"
-    units: Attr[list[str]] = ("Hz",)
+    units: Attr[UnitsHertz] = ("Hz",)
     frame: Attr[AllowedSpectralCoordFrames] = "icrs"
     """
     Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).

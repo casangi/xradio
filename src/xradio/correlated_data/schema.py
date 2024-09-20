@@ -959,7 +959,7 @@ class FieldSourceXds:
     """
     is_ephemeris: Attr[bool] = False
 
-    type: Attr[str] = "field_and_source"
+    type: Attr[Literal["field_and_source"]] = "field_and_source"
     """
     Type of dataset.
     """
@@ -1161,7 +1161,7 @@ class AntennaXds:
     """
     relocatable_antennas: Optional[Attr[bool]]
     """ Can the antennas be moved (ALMA, VLA, NOEMA) """
-    type: Attr[str] = "antenna"
+    type: Attr[Literal["antenna"]] = "antenna"
     """
     Type of dataset. Expected to be ``antenna``
     """
@@ -1214,7 +1214,7 @@ class GainCurveXds:
     """
     Date gain curve was measured. Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)
     """
-    type: Attr[str] = "gain_curve"
+    type: Attr[Literal["gain_curve"]] = "gain_curve"
     """
     Type of dataset. Expected to be ``gain_curve``
     """
@@ -1294,7 +1294,7 @@ multiple receptors) so this is provided as a simple scalar. See https://casacore
     The sky frequencies of each measured phase-cal tone. See https://casacore.github.io/casacore-notes/265.pdf
     """
 
-    type: Attr[str] = "phase_calibration"
+    type: Attr[Literal["phase_calibration"]] = "phase_calibration"
     """
     Type of dataset. Expected to be ``phase_calibration``
     """
@@ -1397,7 +1397,7 @@ class WeatherXds:
     """ Station position """
 
     # Attributes
-    type: Attr[str] = "weather"
+    type: Attr[Literal["weather"]] = "weather"
     """
     Type of dataset.
     """
@@ -1455,6 +1455,11 @@ class PointingXds:
         Data[Union[tuple[Time, AntennaName], tuple[TimePointing, AntennaName]], bool]
     ] = None
 
+    # Attributes
+    type: Attr[Literal["pointing"]] = "pointing"
+    """
+    Type of dataset.
+    """
 
 @xarray_dataset_schema
 class SystemCalibrationXds:
@@ -1702,7 +1707,7 @@ class CorrelatedDataXds:
     The id assigned to this combination of spectral window and polarization setup.
     """
 
-    type: Attr[str] = "visibility"
+    type: Attr[Literal["visibility", "single dish"]] = "visibility"
     """
     Dataset type
     """

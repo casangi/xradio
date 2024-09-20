@@ -144,7 +144,7 @@ def create_weather_xds(in_file: str, ant_xds_station_name_ids: xr.DataArray):
     }
     weather_xds = weather_xds.assign_coords(coords)
 
-    dims_station_time = ["station_name", "time"]
+    dims_station_time = ["station_name", "time_weather"]
     to_new_data_variables = {
         "H20": ["H2O", dims_station_time],
         "IONOS_ELECTRON": ["IONOS_ELECTRON", dims_station_time],
@@ -157,7 +157,7 @@ def create_weather_xds(in_file: str, ant_xds_station_name_ids: xr.DataArray):
     }
 
     to_new_coords = {
-        "TIME": ["time", ["time"]],
+        "TIME": ["time_weather", ["time_weather"]],
     }
 
     weather_xds = convert_generic_xds_to_xradio_schema(
@@ -501,8 +501,8 @@ def create_system_calibration_xds(
         time_coord_attrs = {
             "type": "time",
             "units": ["s"],
-            "scale": "UTC",
-            "format": "UNIX",
+            "scale": "utc",
+            "format": "unix",
         }
         # If interpolating time, rename time_cal => time
         time_coord = {"time": ("time_cal", sys_cal_interp_time.data)}

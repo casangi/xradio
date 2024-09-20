@@ -65,6 +65,7 @@ LineLabel = Literal["line_label"]
 # zero dimensions.
 ZD = tuple[()]
 
+
 # Quantities
 
 
@@ -253,7 +254,7 @@ class TimePointingCoordArray:
     ``format``).
     """
 
-    type: Attr[str] = "time_pointing"
+    type: Attr[Time] = "time_pointing"
     """ Coordinate type. Should be ``"time_pointing"``. """
 
     units: Attr[list[str]] = ("s",)
@@ -278,7 +279,7 @@ class TimeEphemerisCoordArray:
     ``format``).
     """
 
-    type: Attr[str] = "time_ephemeris"
+    type: Attr[Time] = "time_ephemeris"
     """ Coordinate type. Should be ``"time_ephemeris"``. """
 
     units: Attr[list[str]] = ("s",)
@@ -303,8 +304,8 @@ class TimeWeatherCoordArray:
     ``format``).
     """
 
-    type: Attr[str] = "time_ephemeris"
-    """ Coordinate type. Should be ``"time_ephemeris"``. """
+    type: Attr[str] = "time_weather"
+    """ Coordinate type. Should be ``"time_weather"``. """
 
     units: Attr[list[str]] = ("s",)
     """ Units to associate with axis"""
@@ -323,7 +324,7 @@ class SpectralCoordArray:
     frame: Attr[str] = "gcrs"
     """Astropy time scales."""
 
-    type: Attr[str] = "frequency"
+    type: Attr[str] = "spectral_coord"
     units: Attr[list[str]] = ("Hz",)
 
 
@@ -350,7 +351,7 @@ class LocationArray:
     """
 
     coordinate_system: Attr[str]
-    """ geocentric/planetcentric, geodetic/planetodetic, orbital """
+    """ Can be ``geocentric/planetcentric, geodetic/planetodetic, orbital`` """
 
     origin_object_name: Attr[str]
     """
@@ -434,11 +435,7 @@ class DopplerArray:
     units: Attr[list[str]] = ("m/s",)
     """ Units to associate with axis, [ratio]/[m/s]"""
 
-    doppler_type: Attr[
-        Literal[
-            "radio", "optical", "z", "ratio", "true", "relativistic", "beta", "gamma"
-        ]
-    ] = "radio"
+    doppler_type: Attr[str] = "radio"
     """
     Allowable values: radio, optical, z, ratio, true, relativistic, beta, gamma. Astropy only has radio and optical. Using casacore types: https://casadocs.readthedocs.io/en/stable/notebooks/memo-series.html?highlight=Spectral%20Frames#Spectral-Frames
     """
@@ -1224,21 +1221,82 @@ class WeatherXds:
     """ Antenna identifier """
 
     # Data variables (all optional)
-    H2O: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
+    H2O: Optional[
+        Data[
+            Union[tuple[StationName, Time], tuple[StationName, TimeWeather]],
+            QuantityArray,
+        ]
+    ] = None
     """ Average column density of water """
-    IONOS_ELECTRON: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
+    IONOS_ELECTRON: Optional[
+        Data[
+            Union[
+                tuple[StationName, Time],
+                tuple[StationName, TimeWeather],
+            ],
+            QuantityArray,
+        ]
+    ] = None
     """ Average column density of electrons """
-    PRESSURE: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
+    PRESSURE: Optional[
+        Data[
+            Union[
+                tuple[StationName, Time],
+                tuple[StationName, TimeWeather],
+            ],
+            QuantityArray,
+        ]
+    ] = None
     """ Ambient atmospheric pressure """
-    REL_HUMIDITY: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
+    REL_HUMIDITY: Optional[
+        Data[
+            Union[
+                tuple[StationName, Time],
+                tuple[StationName, TimeWeather],
+            ],
+            QuantityArray,
+        ]
+    ] = None
     """ Ambient relative humidity """
-    TEMPERATURE: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
+    TEMPERATURE: Optional[
+        Data[
+            Union[
+                tuple[StationName, Time],
+                tuple[StationName, TimeWeather],
+            ],
+            QuantityArray,
+        ]
+    ] = None
     """ Ambient air temperature for an antenna """
-    DEW_POINT: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
+    DEW_POINT: Optional[
+        Data[
+            Union[
+                tuple[StationName, Time],
+                tuple[StationName, TimeWeather],
+            ],
+            QuantityArray,
+        ]
+    ] = None
     """ Dew point """
-    WIND_DIRECTION: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
+    WIND_DIRECTION: Optional[
+        Data[
+            Union[
+                tuple[StationName, Time],
+                tuple[StationName, TimeWeather],
+            ],
+            QuantityArray,
+        ]
+    ] = None
     """ Average wind direction """
-    WIND_SPEED: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
+    WIND_SPEED: Optional[
+        Data[
+            Union[
+                tuple[StationName, Time],
+                tuple[StationName, TimeWeather],
+            ],
+            QuantityArray,
+        ]
+    ] = None
     """ Average wind speed """
     STATION_POSITION: Optional[Data[tuple[StationName], QuantityArray]] = None
     """ Station position """

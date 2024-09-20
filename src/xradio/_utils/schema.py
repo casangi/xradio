@@ -93,7 +93,7 @@ def convert_generic_xds_to_xradio_schema(
 
 
 def column_description_casacore_to_msv4_measure(
-    casacore_column_description, ref_code=None, time_format="UNIX"
+    casacore_column_description, ref_code=None, time_format="unix"
 ):
     import numpy as np
 

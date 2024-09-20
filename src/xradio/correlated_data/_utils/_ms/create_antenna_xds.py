@@ -483,8 +483,8 @@ def create_phase_calibration_xds(
     time_coord_attrs = {
         "type": "time",
         "units": ["s"],
-        "scale": "UTC",
-        "format": "UNIX",
+        "scale": "utc",
+        "format": "unix",
     }
 
     # If we interpolate rename the time_phase_cal axis to time.

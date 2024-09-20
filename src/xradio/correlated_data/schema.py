@@ -69,6 +69,12 @@ ZD = tuple[()]
 # Quantities
 
 
+AllowedTimeScales = Literal["tai", "tcb", "tcg", "tdb", "tt", "ut1", "utc"]
+
+
+AllowedTimeFormats = Literal["unix", "mjd", "cxcsec", "gps"]
+
+
 @xarray_dataarray_schema
 class TimeArray:
     """
@@ -98,13 +104,45 @@ class TimeArray:
     """ Array type. Should be ``"time"``. """
     units: Attr[list[str]] = ("s",)
     """ Units to associate with axis"""
-    scale: Attr[str] = "tai"
+    scale: Attr[AllowedTimeScales] = "utc"
     """
     Time scale of data. Must be one of ``(‘tai’, ‘tcb’, ‘tcg’, ‘tdb’, ‘tt’, ‘ut1’, ‘utc’)``,
     see :py:class:`astropy.time.Time`
     """
-    format: Attr[str] = "unix_tai"
+    format: Attr[AllowedTimeFormats] = "unix"
     """Time representation and epoch, see :py:class:`TimeArray`."""
+
+
+AllowedSkyCoordFrames = Literal[
+    "ICRS",
+    "FK5",
+    "FK4",
+    "FK4NoETerms",
+    "Galactic",
+    "Galactocentric",
+    "Supergalactic",
+    "AltAz",
+    "HADec",
+    "GCRS",
+    "CIRS",
+    "ITRS",
+    "HCRS",
+    "TEME",
+    "TETE",
+    "PrecessedGeocentric",
+    "GeocentricMeanEcliptic",
+    "BarycentricMeanEcliptic",
+    "HeliocentricMeanEcliptic",
+    "GeocentricTrueEcliptic",
+    "BarycentricTrueEcliptic",
+    "HeliocentricTrueEcliptic",
+    "HeliocentricEclipticIAU76",
+    "CustomBarycentricEcliptic",
+    "LSR",
+    "LSRK",
+    "LSRD",
+    "GalacticLSR",
+]
 
 
 @xarray_dataarray_schema
@@ -113,7 +151,7 @@ class SkyCoordArray:
 
     type: Attr[str] = "sky_coord"
     units: Attr[list[str]] = ("rad", "rad")
-    frame: Attr[str] = ""
+    frame: Attr[AllowedSkyCoordFrames] = ""
     """
     From fixvis docs: clean and the im tool ignore the reference frame
     claimed by the UVW column (it is often mislabelled as ITRF when it is
@@ -133,17 +171,13 @@ class LocalSkyCoordArray:
 
     type: Attr[str] = "sky_coord"
     units: Attr[list[str]] = ("rad", "rad")
-    frame: Attr[str] = ""
+    frame: Attr[AllowedSkyCoordFrames] = "FK5"
     """
+    From fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled
+    as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking
+    center. calcuvw does not yet force the UVW column and field centers to use the same reference frame! Blank = use the
+    phase tracking frame of vis.
     """
-
-
-@xarray_dataarray_schema
-class SkyCoordOffsetArray:
-    data: Data[Union[SkyDirLabel, SkyPosLabel], float]
-
-    type: Attr[str] = "sky_coord"
-    units: Attr[list[str]] = ("rad", "rad")
 
 
 @xarray_dataarray_schema
@@ -177,10 +211,10 @@ class TimeCoordArray:
     units: Attr[list[str]] = ("s",)
     """ Units to associate with axis"""
 
-    scale: Attr[str] = "tai"
+    scale: Attr[AllowedTimeScales] = "utc"
     """ Astropy time scales, see :py:class:`TimeArray` """
 
-    format: Attr[str] = "unix"
+    format: Attr[AllowedTimeFormats] = "unix"
     """ Astropy format, see :py:class:`TimeArray`"""
 
     integration_time: Attr[QuantityArray] = None
@@ -189,14 +223,17 @@ class TimeCoordArray:
 
 @xarray_dataarray_schema
 class TimeInterpolatedCoordArray:
-    """Data model of a time axis when it is interpolated to match the time
+    """
+    Data model of a time axis when it is interpolated to match the time
     axis of the main dataset. This can be used in the system_calibration_xds,
     pointing_xds, weather_xds, field_and_source_info_xds, and phase_cal_xds
     when their respective time_cal, time_pointing, time_weather,
     time_ephemeris or time_phase_cal are interpolated to the main dataset
     time. See also :py:class:`TimeArray`.
+
     The only difference with respect to the main TimeCoordArray is the
-    absence of the attribute integration_time"""
+    absence of the attribute integration_time
+    """
 
     data: Data[Time, float]
     """
@@ -210,10 +247,10 @@ class TimeInterpolatedCoordArray:
     units: Attr[list[str]] = ("s",)
     """ Units to associate with axis"""
 
-    scale: Attr[str] = "tai"
+    scale: Attr[AllowedTimeScales] = "utc"
     """ Astropy time scales, see :py:class:`TimeArray` """
 
-    format: Attr[str] = "unix"
+    format: Attr[AllowedTimeFormats] = "unix"
     """ Astropy format, see :py:class:`TimeArray`"""
 
 
@@ -235,10 +272,10 @@ class TimeCalCoordArray:
     units: Attr[list[str]] = ("s",)
     """ Units to associate with axis"""
 
-    scale: Attr[str] = "tai"
+    scale: Attr[AllowedTimeScales] = "utc"
     """ Astropy time scales, see :py:class:`TimeArray` """
 
-    format: Attr[str] = "unix"
+    format: Attr[AllowedTimeFormats] = "unix"
     """ Astropy format, see :py:class:`TimeArray`"""
 
 
@@ -260,10 +297,10 @@ class TimePointingCoordArray:
     units: Attr[list[str]] = ("s",)
     """ Units to associate with axis"""
 
-    scale: Attr[str] = "tai"
+    scale: Attr[AllowedTimeScales] = "utc"
     """ Astropy time scales, see :py:class:`TimeArray` """
 
-    format: Attr[str] = "unix"
+    format: Attr[AllowedTimeFormats] = "unix"
     """ Astropy format, see :py:class:`TimeArray`"""
 
 
@@ -285,10 +322,10 @@ class TimeEphemerisCoordArray:
     units: Attr[list[str]] = ("s",)
     """ Units to associate with axis"""
 
-    scale: Attr[str] = "tai"
+    scale: Attr[AllowedTimeScales] = "utc"
     """ Astropy time scales, see :py:class:`TimeArray` """
 
-    format: Attr[str] = "unix"
+    format: Attr[AllowedTimeFormats] = "unix"
     """ Astropy format, see :py:class:`TimeArray`"""
 
 
@@ -310,22 +347,56 @@ class TimeWeatherCoordArray:
     units: Attr[list[str]] = ("s",)
     """ Units to associate with axis"""
 
-    scale: Attr[str] = "tai"
+    scale: Attr[AllowedTimeScales] = "utc"
     """ Astropy time scales, see :py:class:`TimeArray` """
 
-    format: Attr[str] = "unix"
+    format: Attr[AllowedTimeFormats] = "unix"
     """ Astropy format, see :py:class:`TimeArray`"""
+
+
+# For now allowing both the casacore frames (from "REST" to "Undefined") as well as the astropy frames
+AllowedSpectralCoordFrames = Literal[
+    "REST",
+    "LSRK",
+    "LSR",
+    "BARY",
+    "GEO",
+    "TOPO",
+    "GALACTO",
+    "LGROUP",
+    "CMB",
+    "Undefined",
+    "gcrs",
+    "icrs",
+    "hcrs",
+    "lsrk",
+    "lsrd",
+    "lsr",
+    "topo",
+]
 
 
 @xarray_dataarray_schema
 class SpectralCoordArray:
     data: Data[ZD, float]
 
-    frame: Attr[str] = "gcrs"
+    frame: Attr[AllowedSpectralCoordFrames] = "gcrs"
     """Astropy time scales."""
 
     type: Attr[str] = "spectral_coord"
     units: Attr[list[str]] = ("Hz",)
+
+
+AllowedLocationFrames = Literal["ITRF", "GRS80", "WGS84", "WGS72", "NA"]
+
+
+AllowedLocationCoordinateSystems = Literal[
+    "geocentric",
+    "planetcentric",
+    "geodetic",
+    "planetodetic",
+    "orbital",
+]
 
 
 @xarray_dataarray_schema
@@ -345,12 +416,12 @@ class LocationArray:
     ``['rad','rad','m']``.
     """
 
-    frame: Attr[str]
+    frame: Attr[AllowedLocationFrames]
     """
     Can be ITRF, GRS80, WGS84, WGS72
     """
 
-    coordinate_system: Attr[str]
+    coordinate_system: Attr[AllowedLocationCoordinateSystems]
     """ Can be ``geocentric/planetcentric, geodetic/planetodetic, orbital`` """
 
     origin_object_name: Attr[str]
@@ -370,13 +441,13 @@ class EllipsoidPosLocationArray:
 
     data: Data[EllipsoidPosLabel, float]
 
-    frame: Attr[str]
+    frame: Attr[AllowedLocationFrames]
     """
     Can be ITRF, GRS80, WGS84, WGS72
     """
 
-    coordinate_system: Attr[str]
-    """ geocentric/planetcentric, geodetic/planetodetic, orbital """
+    coordinate_system: Attr[AllowedLocationCoordinateSystems]
+    """ Can be ``geocentric/planetcentric, geodetic/planetodetic, orbital`` """
 
     origin_object_name: Attr[str]
     """
@@ -423,6 +494,11 @@ class AntennaNameArray:
     long_name: Optional[Attr[str]] = "Antenna name"
 
 
+AllowedDopplerTypes = Literal[
+    "radio", "optical", "z", "ratio", "true", "relativistic", "beta", "gamma"
+]
+
+
 @xarray_dataarray_schema
 class DopplerArray:
     """Doppler measure information for the frequency coordinate"""
@@ -435,7 +511,7 @@ class DopplerArray:
     units: Attr[list[str]] = ("m/s",)
     """ Units to associate with axis, [ratio]/[m/s]"""
 
-    doppler_type: Attr[str] = "radio"
+    doppler_type: Attr[AllowedDopplerTypes] = "radio"
     """
     Allowable values: radio, optical, z, ratio, true, relativistic, beta, gamma. Astropy only has radio and optical. Using casacore types: https://casadocs.readthedocs.io/en/stable/notebooks/memo-series.html?highlight=Spectral%20Frames#Spectral-Frames
     """
@@ -458,6 +534,8 @@ class FrequencyArray:
     observing band. """
     channel_width: Attr[QuantityArray]  # Not SpectralCoord, as it is a difference
     """ The nominal channel bandwidth. Same units as data array (see units key). """
+    effective_channel_width: Optional[Attr[str]]
+    """ Name of data array that contains the channel width that includes the effects of missing data."""
     doppler: Optional[Attr[DopplerArray]]
     """ Doppler tracking information """
 
@@ -467,7 +545,7 @@ class FrequencyArray:
     """ Long-form name to use for axis"""
     units: Attr[list[str]] = ("Hz",)
     """ Units to associate with axis"""
-    frame: Attr[str] = "icrs"
+    frame: Attr[AllowedSpectralCoordFrames] = "icrs"
     """
     Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
     Note that Astropy does not use the name
@@ -492,6 +570,14 @@ class FrequencyCalArray:
     type: Attr[str] = "spectral_coord"
     units: Attr[list[str]] = ("Hz",)
     """ Units to associate with axis"""
+
+    frame: Attr[AllowedSpectralCoordFrames] = "icrs"
+    """
+    Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
+    Note that Astropy does not use the name
+    'topo' (telescope centric) velocity frame, rather it assumes if no velocity
+    frame is given that this is the default.
+    """
 
 
 @xarray_dataarray_schema
@@ -664,9 +750,9 @@ class TimeSamplingArray:
     frequency: Optional[Coordof[FrequencyArray]] = None
     polarization: Optional[Coordof[PolarizationArray]] = None
 
-    scale: Attr[str] = "tai"
+    scale: Attr[AllowedTimeScales] = "utc"
     """ Astropy time scales, see :py:class:`astropy.time.Time` """
-    format: Attr[str] = "unix"
+    format: Attr[AllowedTimeFormats] = "unix"
     """ Astropy format, see :py:class:`astropy.time.Time`. Default seconds from 1970-01-01 00:00:00 UTC """
 
     long_name: Optional[Attr[str]] = "Time sampling data"
@@ -697,7 +783,7 @@ class FreqSamplingArray:
     polarization: Optional[Coordof[PolarizationArray]] = None
     long_name: Optional[Attr[str]] = "Frequency sampling data"
     units: Attr[list[str]] = ("Hz",)
-    frame: Attr[str] = "icrs"
+    frame: Attr[AllowedSpectralCoordFrames] = "icrs"
     """
     Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
     Note that Astropy does not use the name
@@ -743,7 +829,7 @@ class FieldSourceXds:
     """ Line names (e.g. v=1, J=1-0, SiO). """
 
     FIELD_PHASE_CENTER: Optional[
-        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], SkyCoordOffsetArray]
+        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], SkyCoordArray]
     ]
     """
     Offset from the SOURCE_DIRECTION that gives the direction of phase
@@ -752,6 +838,15 @@ class FieldSourceXds:
     https://articles.adsabs.harvard.edu/pdf/1999ASPC..180...79F). For
     conversion from MSv2, frame refers column keywords by default. If frame
     varies with field, it refers DelayDir_Ref column instead.
+    """
+
+    FIELD_REFERENCE_CENTER: Optional[
+        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], SkyCoordArray]
+    ]
+    """
+    Used in single-dish to record the associated reference direction if positionswitching
+    been applied. For conversion from MSv2, frame refers column keywords by default. If
+    frame varies with field, it refers DelayDir_Ref column instead.
     """
 
     SOURCE_LOCATION: Optional[

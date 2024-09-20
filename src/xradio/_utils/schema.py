@@ -158,7 +158,7 @@ casacore_to_msv4_measure_type = {
     "quanta": {
         "type": "quantity",
     },
-    "direction": {"type": "sky_coord", "Ref": "frame", "Ref_map": {"J2000": "fk5"}},
+    "direction": {"type": "sky_coord", "Ref": "frame", "Ref_map": {"J2000": "FK5"}},
     "epoch": {"type": "time", "Ref": "scale", "Ref_map": {"UTC": "utc"}},
     "frequency": {
         "type": "spectral_coord",

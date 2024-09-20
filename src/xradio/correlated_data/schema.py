@@ -66,6 +66,14 @@ LineLabel = Literal["line_label"]
 ZD = tuple[()]
 
 
+# Types of quantity and measures
+Quantity = Literal["quantity"]
+SkyCoord = Literal["sky_coord"]
+SpectralCoord = Literal["spectral_coord"]
+Location = Literal["location"]
+Doppler = Literal["doppler"]
+
+
 # Quantities
 
 
@@ -100,7 +108,7 @@ class TimeArray:
     data: Data[ZD, float]
     """Time since epoch, typically in seconds (see ``units``)."""
 
-    type: Attr[str] = "time"
+    type: Attr[Time] = "time"
     """ Array type. Should be ``"time"``. """
     units: Attr[list[str]] = ("s",)
     """ Units to associate with axis"""
@@ -149,7 +157,7 @@ AllowedSkyCoordFrames = Literal[
 class SkyCoordArray:
     data: Data[Union[SkyDirLabel, SkyPosLabel], float]
 
-    type: Attr[str] = "sky_coord"
+    type: Attr[SkyCoord] = "sky_coord"
     units: Attr[list[str]] = ("rad", "rad")
     frame: Attr[AllowedSkyCoordFrames] = ""
     """
@@ -169,7 +177,7 @@ class LocalSkyCoordArray:
 
     data: Data[LocalSkyDirLabel, float]
 
-    type: Attr[str] = "sky_coord"
+    type: Attr[SkyCoord] = "sky_coord"
     units: Attr[list[str]] = ("rad", "rad")
     frame: Attr[AllowedSkyCoordFrames] = "FK5"
     """
@@ -191,7 +199,7 @@ class QuantityArray:
     data: Data[ZD, float]
 
     units: Attr[list[str]]
-    type: Attr[str] = "quantity"
+    type: Attr[Quantity] = "quantity"
 
 
 # Coordinates / Axes
@@ -205,7 +213,7 @@ class TimeCoordArray:
     ``format``), see also see :py:class:`TimeArray`.
     """
 
-    type: Attr[str] = "time"
+    type: Attr[Time] = "time"
     """ Coordinate type. Should be ``"time"``. """
 
     units: Attr[list[str]] = ("s",)
@@ -241,7 +249,7 @@ class TimeInterpolatedCoordArray:
     ``format``), see also see :py:class:`TimeArray`.
     """
 
-    type: Attr[str] = "time"
+    type: Attr[Time] = "time"
     """ Coordinate type. Should be ``"time"``. """
 
     units: Attr[list[str]] = ("s",)
@@ -266,7 +274,7 @@ class TimeCalCoordArray:
     ``format``).
     """
 
-    type: Attr[str] = "time_cal"
+    type: Attr[Time] = "time_cal"
     """ Coordinate type. Should be ``"time_cal"``. """
 
     units: Attr[list[str]] = ("s",)
@@ -291,7 +299,7 @@ class TimePointingCoordArray:
     ``format``).
     """
 
-    type: Attr[Time] = "time_pointing"
+    type: Attr[TimePointing] = "time_pointing"
     """ Coordinate type. Should be ``"time_pointing"``. """
 
     units: Attr[list[str]] = ("s",)
@@ -316,7 +324,7 @@ class TimeEphemerisCoordArray:
     ``format``).
     """
 
-    type: Attr[Time] = "time_ephemeris"
+    type: Attr[TimeEphemeris] = "time_ephemeris"
     """ Coordinate type. Should be ``"time_ephemeris"``. """
 
     units: Attr[list[str]] = ("s",)
@@ -341,7 +349,7 @@ class TimeWeatherCoordArray:
     ``format``).
     """
 
-    type: Attr[str] = "time_weather"
+    type: Attr[Time] = "time_weather"
     """ Coordinate type. Should be ``"time_weather"``. """
 
     units: Attr[list[str]] = ("s",)
@@ -383,7 +391,7 @@ class SpectralCoordArray:
     frame: Attr[AllowedSpectralCoordFrames] = "gcrs"
     """Astropy time scales."""
 
-    type: Attr[str] = "spectral_coord"
+    type: Attr[SpectralCoord] = "spectral_coord"
     units: Attr[list[str]] = ("Hz",)
 
 
@@ -429,7 +437,7 @@ class LocationArray:
     earth/sun/moon/etc
     """
 
-    type: Attr[str] = "location"
+    type: Attr[Location] = "location"
     """ """
 
 
@@ -454,7 +462,7 @@ class EllipsoidPosLocationArray:
     earth/sun/moon/etc
     """
 
-    type: Attr[str] = "location"
+    type: Attr[Location] = "location"
     """ """
 
     units: Attr[list[str]] = ("deg", "deg", "m")
@@ -505,7 +513,7 @@ class DopplerArray:
 
     data: Data[ZD, numpy.float64]
 
-    type: Attr[str] = "doppler"
+    type: Attr[Doppler] = "doppler"
     """ Coordinate type. Should be ``"spectral_coord"``. """
 
     units: Attr[list[str]] = ("m/s",)
@@ -539,7 +547,7 @@ class FrequencyArray:
     doppler: Optional[Attr[DopplerArray]]
     """ Doppler tracking information """
 
-    type: Attr[str] = "spectral_coord"
+    type: Attr[SpectralCoord] = "spectral_coord"
     """ Coordinate type. Should be ``"spectral_coord"``. """
     long_name: Optional[Attr[str]] = "Frequency"
     """ Long-form name to use for axis"""
@@ -567,7 +575,7 @@ class FrequencyCalArray:
     system if a ﬁxed scaling frequency is required or in algorithms to identify the
     observing band. """
 
-    type: Attr[str] = "spectral_coord"
+    type: Attr[SpectralCoord] = "spectral_coord"
     units: Attr[list[str]] = ("Hz",)
     """ Units to associate with axis"""
 
@@ -1461,6 +1469,7 @@ class PointingXds:
     Type of dataset.
     """
 
+
 @xarray_dataset_schema
 class SystemCalibrationXds:
     """System calibration. Contains time- and frequency- variable
@@ -1572,7 +1581,7 @@ class SystemCalibrationXds:
     """ TANT/TSYS """
 
     # Attributes
-    type: Attr[str] = "system_calibration"
+    type: Attr[Literal["system_calibration"]] = "system_calibration"
     """
     Type of dataset.
     """

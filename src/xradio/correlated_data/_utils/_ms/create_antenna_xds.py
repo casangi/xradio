@@ -434,7 +434,7 @@ def create_phase_calibration_xds(
         "TIME": ["time_phase_cal", ["time_phase_cal"]],
     }
 
-    phase_cal_xds = xr.Dataset(attrs={"type": "phase_cal"})
+    phase_cal_xds = xr.Dataset(attrs={"type": "phase_calibration"})
     phase_cal_xds = convert_generic_xds_to_xradio_schema(
         generic_phase_cal_xds, phase_cal_xds, to_new_data_variables, to_new_coords
     )

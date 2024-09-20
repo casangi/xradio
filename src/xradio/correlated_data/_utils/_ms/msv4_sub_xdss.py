@@ -464,7 +464,7 @@ def create_system_calibration_xds(
         "frequency": ["frequency_cal", ["frequency_cal"]],
     }
 
-    sys_cal_xds = xr.Dataset(attrs={"type": "sys_cal"})
+    sys_cal_xds = xr.Dataset(attrs={"type": "system_calibration"})
     coords = {
         "antenna_name": ant_xds_name_ids.sel(
             antenna_id=generic_sys_cal_xds["ANTENNA_ID"]

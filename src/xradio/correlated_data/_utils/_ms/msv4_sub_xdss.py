@@ -6,6 +6,7 @@ from typing import Tuple, Union
 import numpy as np
 import xarray as xr
 
+from xradio._utils.common import convert_to_si_units
 from xradio._utils.schema import (
     column_description_casacore_to_msv4_measure,
     convert_generic_xds_to_xradio_schema,
@@ -165,6 +166,14 @@ def create_weather_xds(in_file: str, ant_xds_station_name_ids: xr.DataArray):
     )
 
     # TODO: option to interpolate to main time
+
+    # PRESSURE: hPa in MSv2 specs and some MSs => Pa
+    weather_xds = convert_to_si_units(weather_xds)
+
+    # correct expected types (for example "IONOS_ELECTRON", "PRESSURE" can be float32)
+    for data_var in weather_xds:
+        if weather_xds.data_vars[data_var].dtype != np.float64:
+            weather_xds[data_var] = weather_xds[data_var].astype(np.float64)
 
     return weather_xds
 

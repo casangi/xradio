@@ -359,6 +359,11 @@ def create_gain_curve_xds(
         }
     )
 
+    # correct expected types (for example "GAIN_CURVE" can be float32)
+    for data_var in gain_curve_xds:
+        if gain_curve_xds.data_vars[data_var].dtype != np.float64:
+            gain_curve_xds[data_var] = gain_curve_xds[data_var].astype(np.float64)
+
     return gain_curve_xds
 
 

@@ -65,7 +65,151 @@ LineLabel = Literal["line_label"]
 # zero dimensions.
 ZD = tuple[()]
 
+
+# Types of quantity and measures
+Quantity = Literal["quantity"]
+SkyCoord = Literal["sky_coord"]
+SpectralCoord = Literal["spectral_coord"]
+Location = Literal["location"]
+Doppler = Literal["doppler"]
+
+
+# Units of quantities and measures
+UnitsSeconds = list[Literal["s"]]
+UnitsHertz = list[Literal["Hz"]]
+UnitsMeters = list[Literal["m"]]
+
+UnitsOfSkyCoordInRadians = list[Literal["rad"], Literal["rad"]]
+UnitsOfLocationInMetersOrRadians = Union[
+    list[Literal["m"], Literal["m"], Literal["m"]],
+    list[Literal["rad"], Literal["rad"], Literal["m"]],
+]
+UnitsOfPositionInRadians = list[Literal["rad"], Literal["rad"], Literal["m"]]
+UnitsOfDopplerShift = Union[list[Literal["ratio"]], list[Literal["m/s"]]]
+
+UnitsRadians = list[Literal["rad"]]
+UnitsKelvin = list[Literal["K"]]
+UnitsKelvinPerJansky = list[Literal["K/Jy"]]
+UnitsMetersPerSecond = list[Literal["m/s"]]
+UnitsPascal = list[Literal["Pa"]]  # hPa? (in MSv2)
+UnitsPerSquareMeters = list[Literal["/m^2"]]
+
+
 # Quantities
+
+
+@xarray_dataarray_schema
+class QuantityInSecondsArray:
+    """
+    Quantity with units of seconds
+    """
+
+    data: Data[ZD, float]
+
+    units: Attr[UnitsSeconds]
+    type: Attr[Quantity] = "quantity"
+
+
+@xarray_dataarray_schema
+class QuantityInHertzArray:
+    """
+    Quantity with units of Hertz
+    """
+
+    data: Data[ZD, float]
+
+    units: Attr[UnitsHertz]
+    type: Attr[Quantity] = "quantity"
+
+
+@xarray_dataarray_schema
+class QuantityInMetersArray:
+    """
+    Quantity with units of Hertz
+    """
+
+    data: Data[ZD, float]
+
+    units: Attr[UnitsMeters]
+    type: Attr[Quantity] = "quantity"
+
+
+@xarray_dataarray_schema
+class QuantityInMetersPerSecondArray:
+    """
+    Quantity with units of Hertz
+    """
+
+    data: Data[ZD, float]
+
+    units: Attr[UnitsMetersPerSecond]
+    type: Attr[Quantity] = "quantity"
+
+
+@xarray_dataarray_schema
+class QuantityInRadiansArray:
+    """
+    Quantity with units of Hertz
+    """
+
+    data: Data[ZD, float]
+
+    units: Attr[UnitsRadians]
+    type: Attr[Quantity] = "quantity"
+
+
+@xarray_dataarray_schema
+class QuantityInKelvinArray:
+    """
+    Quantity with units of Kelvins
+    """
+
+    data: Data[ZD, float]
+
+    units: Attr[UnitsKelvin]
+    type: Attr[Quantity] = "quantity"
+
+
+@xarray_dataarray_schema
+class QuantityInKelvinPerJanskyArray:
+    """
+    Quantity with units of K/Jy (sensitivity in gain curve)
+    """
+
+    data: Data[ZD, numpy.float64]
+
+    units: Attr[UnitsKelvinPerJansky]
+    type: Attr[Quantity] = "quantity"
+
+
+@xarray_dataarray_schema
+class QuantityInPascalArray:
+    """
+    Quantity with units of Pa
+    """
+
+    data: Data[ZD, numpy.float64]
+
+    units: Attr[UnitsPascal]
+    type: Attr[Quantity] = "quantity"
+
+
+@xarray_dataarray_schema
+class QuantityInPerSquareMetersArray:
+    """
+    Quantity with units of /m^2
+    """
+
+    data: Data[ZD, numpy.float64]
+
+    units: Attr[UnitsPerSquareMeters]
+    type: Attr[Quantity] = "quantity"
+
+
+AllowedTimeScales = Literal["tai", "tcb", "tcg", "tdb", "tt", "ut1", "utc"]
+
+
+AllowedTimeFormats = Literal["unix", "mjd", "cxcsec", "gps"]
 
 
 @xarray_dataarray_schema
@@ -93,26 +237,60 @@ class TimeArray:
     data: Data[ZD, float]
     """Time since epoch, typically in seconds (see ``units``)."""
 
-    type: Attr[str] = "time"
+    type: Attr[Time] = "time"
     """ Array type. Should be ``"time"``. """
-    units: Attr[list[str]] = ("s",)
+    units: Attr[UnitsSeconds] = ("s",)
     """ Units to associate with axis"""
-    scale: Attr[str] = "tai"
+    scale: Attr[AllowedTimeScales] = "utc"
     """
     Time scale of data. Must be one of ``(‘tai’, ‘tcb’, ‘tcg’, ‘tdb’, ‘tt’, ‘ut1’, ‘utc’)``,
     see :py:class:`astropy.time.Time`
     """
-    format: Attr[str] = "unix_tai"
+    format: Attr[AllowedTimeFormats] = "unix"
     """Time representation and epoch, see :py:class:`TimeArray`."""
+
+
+AllowedSkyCoordFrames = Literal[
+    "ICRS",
+    "FK5",
+    "FK4",
+    "FK4NoETerms",
+    "Galactic",
+    "Galactocentric",
+    "Supergalactic",
+    "AltAz",
+    "HADec",
+    "GCRS",
+    "CIRS",
+    "ITRS",
+    "HCRS",
+    "TEME",
+    "TETE",
+    "PrecessedGeocentric",
+    "GeocentricMeanEcliptic",
+    "BarycentricMeanEcliptic",
+    "HeliocentricMeanEcliptic",
+    "GeocentricTrueEcliptic",
+    "BarycentricTrueEcliptic",
+    "HeliocentricTrueEcliptic",
+    "HeliocentricEclipticIAU76",
+    "CustomBarycentricEcliptic",
+    "LSR",
+    "LSRK",
+    "LSRD",
+    "GalacticLSR",
+    # Added for casacore frames that I am not sure can be safely translated:
+    "AZELGEO",  # used very often if not always in pointing table, double-check if safe -> AltAz
+]
 
 
 @xarray_dataarray_schema
 class SkyCoordArray:
     data: Data[Union[SkyDirLabel, SkyPosLabel], float]
 
-    type: Attr[str] = "sky_coord"
-    units: Attr[list[str]] = ("rad", "rad")
-    frame: Attr[str] = ""
+    type: Attr[SkyCoord] = "sky_coord"
+    units: Attr[UnitsOfSkyCoordInRadians] = ("rad", "rad")
+    frame: Attr[AllowedSkyCoordFrames] = ""
     """
     From fixvis docs: clean and the im tool ignore the reference frame
     claimed by the UVW column (it is often mislabelled as ITRF when it is
@@ -130,33 +308,15 @@ class LocalSkyCoordArray:
 
     data: Data[LocalSkyDirLabel, float]
 
-    type: Attr[str] = "sky_coord"
-    units: Attr[list[str]] = ("rad", "rad")
-    frame: Attr[str] = ""
+    type: Attr[SkyCoord] = "sky_coord"
+    units: Attr[UnitsOfSkyCoordInRadians] = ("rad", "rad")
+    frame: Attr[AllowedSkyCoordFrames] = "FK5"
     """
+    From fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled
+    as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking
+    center. calcuvw does not yet force the UVW column and field centers to use the same reference frame! Blank = use the
+    phase tracking frame of vis.
     """
-
-
-@xarray_dataarray_schema
-class SkyCoordOffsetArray:
-    data: Data[Union[SkyDirLabel, SkyPosLabel], float]
-
-    type: Attr[str] = "sky_coord"
-    units: Attr[list[str]] = ("rad", "rad")
-
-
-@xarray_dataarray_schema
-class QuantityArray:
-    """
-    Anonymous quantity, possibly with associated units
-
-    Often used for distances / differences (integration time, channel width etcetera).
-    """
-
-    data: Data[ZD, float]
-
-    units: Attr[list[str]]
-    type: Attr[str] = "quantity"
 
 
 # Coordinates / Axes
@@ -170,32 +330,35 @@ class TimeCoordArray:
     ``format``), see also see :py:class:`TimeArray`.
     """
 
-    type: Attr[str] = "time"
+    type: Attr[Time] = "time"
     """ Coordinate type. Should be ``"time"``. """
 
-    units: Attr[list[str]] = ("s",)
+    units: Attr[UnitsSeconds] = ("s",)
     """ Units to associate with axis"""
 
-    scale: Attr[str] = "tai"
+    scale: Attr[AllowedTimeScales] = "utc"
     """ Astropy time scales, see :py:class:`TimeArray` """
 
-    format: Attr[str] = "unix"
+    format: Attr[AllowedTimeFormats] = "unix"
     """ Astropy format, see :py:class:`TimeArray`"""
 
-    integration_time: Attr[QuantityArray] = None
+    integration_time: Attr[QuantityInSecondsArray] = None
     """ The nominal sampling interval (ms v2). Units of seconds. """
 
 
 @xarray_dataarray_schema
 class TimeInterpolatedCoordArray:
-    """Data model of a time axis when it is interpolated to match the time
+    """
+    Data model of a time axis when it is interpolated to match the time
     axis of the main dataset. This can be used in the system_calibration_xds,
     pointing_xds, weather_xds, field_and_source_info_xds, and phase_cal_xds
     when their respective time_cal, time_pointing, time_weather,
     time_ephemeris or time_phase_cal are interpolated to the main dataset
     time. See also :py:class:`TimeArray`.
+
     The only difference with respect to the main TimeCoordArray is the
-    absence of the attribute integration_time"""
+    absence of the attribute integration_time
+    """
 
     data: Data[Time, float]
     """
@@ -203,16 +366,16 @@ class TimeInterpolatedCoordArray:
     ``format``), see also see :py:class:`TimeArray`.
     """
 
-    type: Attr[str] = "time"
+    type: Attr[Time] = "time"
     """ Coordinate type. Should be ``"time"``. """
 
-    units: Attr[list[str]] = ("s",)
+    units: Attr[UnitsSeconds] = ("s",)
     """ Units to associate with axis"""
 
-    scale: Attr[str] = "tai"
+    scale: Attr[AllowedTimeScales] = "utc"
     """ Astropy time scales, see :py:class:`TimeArray` """
 
-    format: Attr[str] = "unix"
+    format: Attr[AllowedTimeFormats] = "unix"
     """ Astropy format, see :py:class:`TimeArray`"""
 
 
@@ -228,16 +391,16 @@ class TimeCalCoordArray:
     ``format``).
     """
 
-    type: Attr[str] = "time_cal"
+    type: Attr[Time] = "time_cal"
     """ Coordinate type. Should be ``"time_cal"``. """
 
-    units: Attr[list[str]] = ("s",)
+    units: Attr[UnitsSeconds] = ("s",)
     """ Units to associate with axis"""
 
-    scale: Attr[str] = "tai"
+    scale: Attr[AllowedTimeScales] = "utc"
     """ Astropy time scales, see :py:class:`TimeArray` """
 
-    format: Attr[str] = "unix"
+    format: Attr[AllowedTimeFormats] = "unix"
     """ Astropy format, see :py:class:`TimeArray`"""
 
 
@@ -253,16 +416,16 @@ class TimePointingCoordArray:
     ``format``).
     """
 
-    type: Attr[str] = "time_pointing"
+    type: Attr[TimePointing] = "time_pointing"
     """ Coordinate type. Should be ``"time_pointing"``. """
 
-    units: Attr[list[str]] = ("s",)
+    units: Attr[UnitsSeconds] = ("s",)
     """ Units to associate with axis"""
 
-    scale: Attr[str] = "tai"
+    scale: Attr[AllowedTimeScales] = "utc"
     """ Astropy time scales, see :py:class:`TimeArray` """
 
-    format: Attr[str] = "unix"
+    format: Attr[AllowedTimeFormats] = "unix"
     """ Astropy format, see :py:class:`TimeArray`"""
 
 
@@ -278,16 +441,16 @@ class TimeEphemerisCoordArray:
     ``format``).
     """
 
-    type: Attr[str] = "time_ephemeris"
+    type: Attr[TimeEphemeris] = "time_ephemeris"
     """ Coordinate type. Should be ``"time_ephemeris"``. """
 
-    units: Attr[list[str]] = ("s",)
+    units: Attr[UnitsSeconds] = ("s",)
     """ Units to associate with axis"""
 
-    scale: Attr[str] = "tai"
+    scale: Attr[AllowedTimeScales] = "utc"
     """ Astropy time scales, see :py:class:`TimeArray` """
 
-    format: Attr[str] = "unix"
+    format: Attr[AllowedTimeFormats] = "unix"
     """ Astropy format, see :py:class:`TimeArray`"""
 
 
@@ -303,28 +466,62 @@ class TimeWeatherCoordArray:
     ``format``).
     """
 
-    type: Attr[str] = "time_ephemeris"
-    """ Coordinate type. Should be ``"time_ephemeris"``. """
+    type: Attr[Time] = "time_weather"
+    """ Coordinate type. Should be ``"time_weather"``. """
 
-    units: Attr[list[str]] = ("s",)
+    units: Attr[UnitsSeconds] = ("s",)
     """ Units to associate with axis"""
 
-    scale: Attr[str] = "tai"
+    scale: Attr[AllowedTimeScales] = "utc"
     """ Astropy time scales, see :py:class:`TimeArray` """
 
-    format: Attr[str] = "unix"
+    format: Attr[AllowedTimeFormats] = "unix"
     """ Astropy format, see :py:class:`TimeArray`"""
+
+
+# For now allowing both the casacore frames (from "REST" to "Undefined") as well as the astropy frames
+AllowedSpectralCoordFrames = Literal[
+    "REST",
+    "LSRK",
+    "LSR",
+    "BARY",
+    "GEO",
+    "TOPO",
+    "GALACTO",
+    "LGROUP",
+    "CMB",
+    "Undefined",
+    "gcrs",
+    "icrs",
+    "hcrs",
+    "lsrk",
+    "lsrd",
+    "lsr",
+    "topo",
+]
 
 
 @xarray_dataarray_schema
 class SpectralCoordArray:
     data: Data[ZD, float]
 
-    frame: Attr[str] = "gcrs"
+    frame: Attr[AllowedSpectralCoordFrames] = "gcrs"
     """Astropy time scales."""
 
-    type: Attr[str] = "frequency"
-    units: Attr[list[str]] = ("Hz",)
+    type: Attr[SpectralCoord] = "spectral_coord"
+    units: Attr[UnitsHertz] = ("Hz",)
+
+
+AllowedLocationFrames = Literal["ITRF", "GRS80", "WGS84", "WGS72", "NA"]
+
+
+AllowedLocationCoordinateSystems = Literal[
+    "geocentric",
+    "planetcentric",
+    "geodetic",
+    "planetodetic",
+    "orbital",
+]
 
 
 @xarray_dataarray_schema
@@ -336,7 +533,7 @@ class LocationArray:
 
     data: Data[Union[EllipsoidPosLabel, CartesianPosLabel], float]
 
-    units: Attr[list[str]]
+    units: Attr[UnitsOfLocationInMetersOrRadians]
     """
     If the units are a list of strings then it must be the same length as
     the last dimension of the data array. This allows for having different
@@ -344,20 +541,20 @@ class LocationArray:
     ``['rad','rad','m']``.
     """
 
-    frame: Attr[str]
+    frame: Attr[AllowedLocationFrames]
     """
     Can be ITRF, GRS80, WGS84, WGS72
     """
 
-    coordinate_system: Attr[str]
-    """ geocentric/planetcentric, geodetic/planetodetic, orbital """
+    coordinate_system: Attr[AllowedLocationCoordinateSystems]
+    """ Can be ``geocentric/planetcentric, geodetic/planetodetic, orbital`` """
 
     origin_object_name: Attr[str]
     """
     earth/sun/moon/etc
     """
 
-    type: Attr[str] = "location"
+    type: Attr[Location] = "location"
     """ """
 
 
@@ -369,23 +566,23 @@ class EllipsoidPosLocationArray:
 
     data: Data[EllipsoidPosLabel, float]
 
-    frame: Attr[str]
+    frame: Attr[AllowedLocationFrames]
     """
     Can be ITRF, GRS80, WGS84, WGS72
     """
 
-    coordinate_system: Attr[str]
-    """ geocentric/planetcentric, geodetic/planetodetic, orbital """
+    coordinate_system: Attr[AllowedLocationCoordinateSystems]
+    """ Can be ``geocentric/planetcentric, geodetic/planetodetic, orbital`` """
 
     origin_object_name: Attr[str]
     """
     earth/sun/moon/etc
     """
 
-    type: Attr[str] = "location"
+    type: Attr[Location] = "location"
     """ """
 
-    units: Attr[list[str]] = ("deg", "deg", "m")
+    units: Attr[UnitsOfPositionInRadians] = ("rad", "rad", "m")
     """
     If the units are a list of strings then it must be the same length as
     the last dimension of the data array. This allows for having different
@@ -422,23 +619,24 @@ class AntennaNameArray:
     long_name: Optional[Attr[str]] = "Antenna name"
 
 
+AllowedDopplerTypes = Literal[
+    "radio", "optical", "z", "ratio", "true", "relativistic", "beta", "gamma"
+]
+
+
 @xarray_dataarray_schema
 class DopplerArray:
     """Doppler measure information for the frequency coordinate"""
 
     data: Data[ZD, numpy.float64]
 
-    type: Attr[str] = "doppler"
+    type: Attr[Doppler] = "doppler"
     """ Coordinate type. Should be ``"spectral_coord"``. """
 
-    units: Attr[list[str]] = ("m/s",)
+    units: Attr[UnitsOfDopplerShift] = ("m/s",)
     """ Units to associate with axis, [ratio]/[m/s]"""
 
-    doppler_type: Attr[
-        Literal[
-            "radio", "optical", "z", "ratio", "true", "relativistic", "beta", "gamma"
-        ]
-    ] = "radio"
+    doppler_type: Attr[AllowedDopplerTypes] = "radio"
     """
     Allowable values: radio, optical, z, ratio, true, relativistic, beta, gamma. Astropy only has radio and optical. Using casacore types: https://casadocs.readthedocs.io/en/stable/notebooks/memo-series.html?highlight=Spectral%20Frames#Spectral-Frames
     """
@@ -459,18 +657,20 @@ class FrequencyArray:
     frequency corresponding to the DC edge of the baseband. Used by the calibration
     system if a ﬁxed scaling frequency is required or in algorithms to identify the
     observing band. """
-    channel_width: Attr[QuantityArray]  # Not SpectralCoord, as it is a difference
+    channel_width: Attr[
+        QuantityInHertzArray
+    ]  # Not SpectralCoord, as it is a difference
     """ The nominal channel bandwidth. Same units as data array (see units key). """
     doppler: Optional[Attr[DopplerArray]]
     """ Doppler tracking information """
 
-    type: Attr[str] = "spectral_coord"
+    type: Attr[SpectralCoord] = "spectral_coord"
     """ Coordinate type. Should be ``"spectral_coord"``. """
     long_name: Optional[Attr[str]] = "Frequency"
     """ Long-form name to use for axis"""
-    units: Attr[list[str]] = ("Hz",)
+    units: Attr[UnitsHertz] = ("Hz",)
     """ Units to associate with axis"""
-    frame: Attr[str] = "icrs"
+    frame: Attr[AllowedSpectralCoordFrames] = "icrs"
     """
     Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
     Note that Astropy does not use the name
@@ -492,9 +692,17 @@ class FrequencyCalArray:
     system if a ﬁxed scaling frequency is required or in algorithms to identify the
     observing band. """
 
-    type: Attr[str] = "spectral_coord"
-    units: Attr[list[str]] = ("Hz",)
+    type: Attr[SpectralCoord] = "spectral_coord"
+    units: Attr[UnitsHertz] = ("Hz",)
     """ Units to associate with axis"""
+
+    frame: Attr[AllowedSpectralCoordFrames] = "icrs"
+    """
+    Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
+    Note that Astropy does not use the name
+    'topo' (telescope centric) velocity frame, rather it assumes if no velocity
+    frame is given that this is the default.
+    """
 
 
 @xarray_dataarray_schema
@@ -644,7 +852,7 @@ class UvwArray:
     uvw_label: Coordof[UvwLabelArray] = ("u", "v", "w")
     long_name: Optional[Attr[str]] = "Baseline coordinates"
     """ Long-form name to use for axis. Should be ``"Baseline coordinates``"""
-    units: Attr[list[str]] = ("m",)
+    units: Attr[UnitsMeters] = ("m",)
 
 
 @xarray_dataarray_schema
@@ -667,13 +875,13 @@ class TimeSamplingArray:
     frequency: Optional[Coordof[FrequencyArray]] = None
     polarization: Optional[Coordof[PolarizationArray]] = None
 
-    scale: Attr[str] = "tai"
+    scale: Attr[AllowedTimeScales] = "utc"
     """ Astropy time scales, see :py:class:`astropy.time.Time` """
-    format: Attr[str] = "unix"
+    format: Attr[AllowedTimeFormats] = "unix"
     """ Astropy format, see :py:class:`astropy.time.Time`. Default seconds from 1970-01-01 00:00:00 UTC """
 
     long_name: Optional[Attr[str]] = "Time sampling data"
-    units: Attr[list[str]] = ("s",)
+    units: Attr[UnitsSeconds] = ("s",)
 
 
 @xarray_dataarray_schema
@@ -692,15 +900,15 @@ class FreqSamplingArray:
     """
     Data about frequency sampling, such as centroid or integration
     time. Concrete function depends on concrete data array within
-    :py:class:`CorrelatedDataXds`.
+    :py:class:`VisibilityXds` or :py:class:`SpectrumXds`.
     """
     frequency: Coordof[FrequencyArray]
     time: Optional[Coordof[TimeCoordArray]] = None
     baseline_id: Optional[Coordof[BaselineArray]] = None
     polarization: Optional[Coordof[PolarizationArray]] = None
     long_name: Optional[Attr[str]] = "Frequency sampling data"
-    units: Attr[list[str]] = ("Hz",)
-    frame: Attr[str] = "icrs"
+    units: Attr[UnitsHertz] = ("Hz",)
+    frame: Attr[AllowedSpectralCoordFrames] = "icrs"
     """
     Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
     Note that Astropy does not use the name
@@ -746,7 +954,7 @@ class FieldSourceXds:
     """ Line names (e.g. v=1, J=1-0, SiO). """
 
     FIELD_PHASE_CENTER: Optional[
-        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], SkyCoordOffsetArray]
+        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], SkyCoordArray]
     ]
     """
     Offset from the SOURCE_DIRECTION that gives the direction of phase
@@ -755,6 +963,15 @@ class FieldSourceXds:
     https://articles.adsabs.harvard.edu/pdf/1999ASPC..180...79F). For
     conversion from MSv2, frame refers column keywords by default. If frame
     varies with field, it refers DelayDir_Ref column instead.
+    """
+
+    FIELD_REFERENCE_CENTER: Optional[
+        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], SkyCoordArray]
+    ]
+    """
+    Used in single-dish to record the associated reference direction if positionswitching
+    been applied. For conversion from MSv2, frame refers column keywords by default. If
+    frame varies with field, it refers DelayDir_Ref column instead.
     """
 
     SOURCE_LOCATION: Optional[
@@ -796,23 +1013,25 @@ class FieldSourceXds:
                 tuple[Time, LineLabel],
                 tuple[TimeEphemeris, LineLabel],
             ],
-            QuantityArray,
+            QuantityInMetersPerSecondArray,
         ]
     ]
     """ Systemic velocity at reference """
 
     SOURCE_RADIAL_VELOCITY: Optional[
-        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], QuantityArray]
+        Data[
+            Union[ZD, tuple[Time], tuple[TimeEphemeris]], QuantityInMetersPerSecondArray
+        ]
     ]
     """ CASA Table Cols: RadVel. Geocentric distance rate """
 
     NORTH_POLE_POSITION_ANGLE: Optional[
-        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], QuantityArray]
+        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], QuantityInRadiansArray]
     ]
     """ CASA Table cols: NP_ang, "Targets' apparent north-pole position angle (counter-clockwise with respect to direction of true-of-date reference-frame north pole) and angular distance from the sub-observer point (center of disc) at print time. A negative distance indicates the north-pole is on the hidden hemisphere." https://ssd.jpl.nasa.gov/horizons/manual.html : 17. North pole position angle & distance from disc center. """
 
     NORTH_POLE_ANGULAR_DISTANCE: Optional[
-        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], QuantityArray]
+        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], QuantityInRadiansArray]
     ]
     """ CASA Table cols: NP_dist, "Targets' apparent north-pole position angle (counter-clockwise with respect to direction of true-of date reference-frame north pole) and angular distance from the sub-observer point (center of disc) at print time. A negative distance indicates the north-pole is on the hidden hemisphere."https://ssd.jpl.nasa.gov/horizons/manual.html : 17. North pole position angle & distance from disc center. """
 
@@ -841,12 +1060,14 @@ class FieldSourceXds:
     """ CASA Table cols: Sl_lon, Sl_lat, r. "Heliocentric distance along with "Apparent sub-solar longitude and latitude of the Sun on the target. The apparent planetodetic longitude and latitude of the center of the target disc as seen from the Sun, as seen by the observer at print-time.  This is _NOT_ exactly the same as the "sub-solar" (nearest) point for a non-spherical target shape (since the center of the disc seen from the Sun might not be the closest point to the Sun), but is very close if not a highly irregular body shape.  Light travel-time from Sun to target and from target to observer is taken into account.  Latitude is the angle between the equatorial plane and the line perpendicular to the reference ellipsoid of the body. The reference ellipsoid is an oblate spheroid with a single flatness coefficient in which the y-axis body radius is taken to be the same value as the x-axis radius. Uses IAU2009 rotation models except for Earth and Moon, which uses a higher precision models. Values for Jupiter, Saturn, Uranus and Neptune are Set III, referring to rotation of their magnetic fields.  Whether longitude is positive to the east or west for the target will be indicated at the end of the output ephemeris." https://ssd.jpl.nasa.gov/horizons/manual.html : 15. Solar sub-longitude & sub-latitude  """
 
     HELIOCENTRIC_RADIAL_VELOCITY: Optional[
-        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], QuantityArray]
+        Data[
+            Union[ZD, tuple[Time], tuple[TimeEphemeris]], QuantityInMetersPerSecondArray
+        ]
     ]
     """ CASA Table cols: rdot."The Sun's apparent range-rate relative to the target, as seen by the observer. A positive "rdot" means the target was moving away from the Sun, negative indicates movement toward the Sun." https://ssd.jpl.nasa.gov/horizons/manual.html : 19. Solar range & range-rate (relative to target) """
 
     OBSERVER_PHASE_ANGLE: Optional[
-        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], QuantityArray]
+        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], QuantityInRadiansArray]
     ]
     """ CASA Table cols: phang.""phi" is the true PHASE ANGLE at the observers' location at print time. "PAB-LON" and "PAB-LAT" are the FK4/B1950 or ICRF/J2000 ecliptic longitude and latitude of the phase angle bisector direction; the outward directed angle bisecting the arc created by the apparent vector from Sun to target center and the astrometric vector from observer to target center. For an otherwise uniform ellipsoid, the time when its long-axis is perpendicular to the PAB direction approximately corresponds to lightcurve maximum (or maximum brightness) of the body. PAB is discussed in Harris et al., Icarus 57, 251-258 (1984)." https://ssd.jpl.nasa.gov/horizons/manual.html : Phase angle and bisector """
 
@@ -854,7 +1075,7 @@ class FieldSourceXds:
     """ Observer location. """
 
     # --- Attributes ---
-    doppler_shift_velocity: Optional[Attr[QuantityArray]]
+    doppler_shift_velocity: Optional[Attr[UnitsOfDopplerShift]]
     """ Velocity definition of the Doppler shift, e.g., RADIO or OPTICAL velocity in m/s """
 
     source_model_url: Optional[Attr[str]]
@@ -867,7 +1088,7 @@ class FieldSourceXds:
     """
     is_ephemeris: Attr[bool] = False
 
-    type: Attr[str] = "field_and_source"
+    type: Attr[Literal["field_and_source"]] = "field_and_source"
     """
     Type of dataset.
     """
@@ -995,6 +1216,10 @@ class ProcessorInfoDict:
 
 @xarray_dataset_schema
 class AntennaXds:
+    """
+    Antenna dataset: global antenna properties for each antenna.
+    """
+
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
     """ Antenna name """
@@ -1031,14 +1256,16 @@ class AntennaXds:
     In a right-handed frame, X towards the intersection of the equator and
     the Greenwich meridian, Z towards the pole.
     """
-    ANTENNA_DISH_DIAMETER: Optional[Data[tuple[AntennaName], QuantityArray]]
+    ANTENNA_DISH_DIAMETER: Optional[Data[tuple[AntennaName], QuantityInMetersArray]]
     """
     The diameter of the main reflector (or the largest dimension for non-circular apertures).
     """
-    ANTENNA_EFFECTIVE_DISH_DIAMETER: Optional[Data[tuple[AntennaName], QuantityArray]]
+    ANTENNA_EFFECTIVE_DISH_DIAMETER: Optional[
+        Data[tuple[AntennaName], QuantityInMetersArray]
+    ]
     """ Effective dish diameter used in computing beam model (such as airy disk). """
 
-    ANTENNA_BLOCKAGE: Optional[Data[tuple[AntennaName], QuantityArray]]
+    ANTENNA_BLOCKAGE: Optional[Data[tuple[AntennaName], QuantityInMetersArray]]
     """
     Blockage caused by secondary reflector used in computing beam model (such as airy disk).
     """
@@ -1046,13 +1273,13 @@ class AntennaXds:
     # TODO: setting BEAM_OFFSET and RECEPTOR_ANGLE as optional for now, as it
     # is not present in some datasets (example: test_alma_ephemris_mosaic)
     ANTENNA_RECEPTOR_ANGLE: Optional[
-        Data[tuple[AntennaName, ReceptorLabel], QuantityArray]
+        Data[tuple[AntennaName, ReceptorLabel], QuantityInRadiansArray]
     ]
     """
     Polarization reference angle. Converts into parallactic angle in the sky domain.
     """
     ANTENNA_FOCUS_LENGTH: Optional[
-        Data[tuple[AntennaName, ReceptorLabel], QuantityArray]
+        Data[tuple[AntennaName, ReceptorLabel], QuantityInMetersArray]
     ]
     """
     Focus length. As defined along the optical axis of the antenna.
@@ -1069,7 +1296,7 @@ class AntennaXds:
     """
     relocatable_antennas: Optional[Attr[bool]]
     """ Can the antennas be moved (ALMA, VLA, NOEMA) """
-    type: Attr[str] = "antenna"
+    type: Attr[Literal["antenna"]] = "antenna"
     """
     Type of dataset. Expected to be ``antenna``
     """
@@ -1111,18 +1338,20 @@ class GainCurveXds:
      ”VOLTAGE(ZA)” - Voltage as a function of zenith angle). See https://casacore.github.io/casacore-notes/265.pdf
     """
 
-    GAIN_CURVE_SENSITIVITY: Data[tuple[AntennaName, ReceptorLabel], numpy.float32]
-    """ Sensitivity of the antenna expressed in K/Jy. This is what AIPS calls “DPFU”. """
-    GAIN_CURVE: Data[tuple[AntennaName, PolyTerm, ReceptorLabel], numpy.float32]
+    GAIN_CURVE: Data[tuple[AntennaName, PolyTerm, ReceptorLabel], numpy.float64]
     """ Coeﬃcients of the polynomial that describes the (power or voltage) gain.  """
-    GAIN_CURVE_INTERVAL: Data[tuple[AntennaName], QuantityArray]
+    GAIN_CURVE_INTERVAL: Data[tuple[AntennaName], QuantityInSecondsArray]
     """ Time interval. """
+    GAIN_CURVE_SENSITIVITY: Data[
+        tuple[AntennaName, ReceptorLabel], QuantityInKelvinPerJanskyArray
+    ]
+    """ Sensitivity of the antenna expressed in K/Jy. This is what AIPS calls “DPFU”. """
 
     measured_date: Attr[str]
     """
     Date gain curve was measured. Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)
     """
-    type: Attr[str] = "gain_curve"
+    type: Attr[Literal["gain_curve"]] = "gain_curve"
     """
     Type of dataset. Expected to be ``gain_curve``
     """
@@ -1130,6 +1359,9 @@ class GainCurveXds:
 
 @xarray_dataset_schema
 class PhaseCalibrationXds:
+    """
+    Phase calibration dataset: signal chain phase calibration measurements.
+    """
 
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
@@ -1177,7 +1409,7 @@ for each of the measured tones. See https://casacore.github.io/casacore-notes/26
     """
     PHASE_CAL_CABLE_CAL: Data[
         Union[tuple[AntennaName, Time], tuple[AntennaName, TimePhaseCal]],
-        QuantityArray,
+        QuantityInSecondsArray,
     ]
     """
     Cable calibration measurement. This is a measurement of the delay in the cable that provides the
@@ -1186,7 +1418,7 @@ multiple receptors) so this is provided as a simple scalar. See https://casacore
     """
     PHASE_CAL_INTERVAL: Data[
         Union[tuple[AntennaName, Time], tuple[AntennaName, TimePhaseCal]],
-        QuantityArray,
+        QuantityInSecondsArray,
     ]
     """
     Time interval. See https://casacore.github.io/casacore-notes/265.pdf
@@ -1196,13 +1428,13 @@ multiple receptors) so this is provided as a simple scalar. See https://casacore
             tuple[AntennaName, Time, ReceptorLabel, ToneLabel],
             tuple[AntennaName, TimePhaseCal, ReceptorLabel, ToneLabel],
         ],
-        QuantityArray,
+        QuantityInHertzArray,
     ]
     """
     The sky frequencies of each measured phase-cal tone. See https://casacore.github.io/casacore-notes/265.pdf
     """
 
-    type: Attr[str] = "phase_calibration"
+    type: Attr[Literal["phase_calibration"]] = "phase_calibration"
     """
     Type of dataset. Expected to be ``phase_calibration``
     """
@@ -1210,8 +1442,9 @@ multiple receptors) so this is provided as a simple scalar. See https://casacore
 
 @xarray_dataset_schema
 class WeatherXds:
-    """Weather. Contains station positions and time-dependent mean external
-    atmosphere and weather information"""
+    """
+    Weather dataset: station positions and time-dependent mean external atmosphere and weather information
+    """
 
     # Coordinates
     station_name: Coord[StationName, str]
@@ -1224,27 +1457,88 @@ class WeatherXds:
     """ Antenna identifier """
 
     # Data variables (all optional)
-    H2O: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
+    H2O: Optional[
+        Data[
+            Union[tuple[StationName, Time], tuple[StationName, TimeWeather]],
+            QuantityInPerSquareMetersArray,
+        ]
+    ] = None
     """ Average column density of water """
-    IONOS_ELECTRON: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
+    IONOS_ELECTRON: Optional[
+        Data[
+            Union[
+                tuple[StationName, Time],
+                tuple[StationName, TimeWeather],
+            ],
+            QuantityInPerSquareMetersArray,
+        ]
+    ] = None
     """ Average column density of electrons """
-    PRESSURE: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
+    PRESSURE: Optional[
+        Data[
+            Union[
+                tuple[StationName, Time],
+                tuple[StationName, TimeWeather],
+            ],
+            QuantityInPascalArray,
+        ]
+    ] = None
     """ Ambient atmospheric pressure """
-    REL_HUMIDITY: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
+    REL_HUMIDITY: Optional[
+        Data[
+            Union[
+                tuple[StationName, Time],
+                tuple[StationName, TimeWeather],
+            ],
+            numpy.float64,
+        ]
+    ] = None
     """ Ambient relative humidity """
-    TEMPERATURE: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
+    TEMPERATURE: Optional[
+        Data[
+            Union[
+                tuple[StationName, Time],
+                tuple[StationName, TimeWeather],
+            ],
+            QuantityInKelvinArray,
+        ]
+    ] = None
     """ Ambient air temperature for an antenna """
-    DEW_POINT: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
+    DEW_POINT: Optional[
+        Data[
+            Union[
+                tuple[StationName, Time],
+                tuple[StationName, TimeWeather],
+            ],
+            QuantityInKelvinArray,
+        ]
+    ] = None
     """ Dew point """
-    WIND_DIRECTION: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
+    WIND_DIRECTION: Optional[
+        Data[
+            Union[
+                tuple[StationName, Time],
+                tuple[StationName, TimeWeather],
+            ],
+            QuantityInRadiansArray,
+        ]
+    ] = None
     """ Average wind direction """
-    WIND_SPEED: Optional[Data[tuple[StationName, Time], QuantityArray]] = None
+    WIND_SPEED: Optional[
+        Data[
+            Union[
+                tuple[StationName, Time],
+                tuple[StationName, TimeWeather],
+            ],
+            QuantityInMetersPerSecondArray,
+        ]
+    ] = None
     """ Average wind speed """
-    STATION_POSITION: Optional[Data[tuple[StationName], QuantityArray]] = None
+    STATION_POSITION: Optional[Data[tuple[StationName], LocationArray]] = None
     """ Station position """
 
     # Attributes
-    type: Attr[str] = "weather"
+    type: Attr[Literal["weather"]] = "weather"
     """
     Type of dataset.
     """
@@ -1252,6 +1546,10 @@ class WeatherXds:
 
 @xarray_dataset_schema
 class PointingXds:
+    """
+    Pointing dataset: antenna pointing information.
+    """
+
     antenna_name: Coordof[AntennaNameArray]
     """
     Antenna name, as specified by baseline_antenna1/2_name in visibility dataset
@@ -1302,11 +1600,19 @@ class PointingXds:
         Data[Union[tuple[Time, AntennaName], tuple[TimePointing, AntennaName]], bool]
     ] = None
 
+    # Attributes
+    type: Attr[Literal["pointing"]] = "pointing"
+    """
+    Type of dataset.
+    """
+
 
 @xarray_dataset_schema
 class SystemCalibrationXds:
-    """System calibration. Contains time- and frequency- variable
-    calibration measurements for each antenna, as indexed on receptor"""
+    """
+    System calibration dataset: time- and frequency- variable calibration measurements for each antenna,
+    as indexed on receptor
+    """
 
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
@@ -1324,7 +1630,8 @@ class SystemCalibrationXds:
     # Data variables (all optional)
     PHASE_DIFFERENCE: Optional[
         Data[
-            Union[tuple[AntennaName, TimeCal], tuple[AntennaName, Time]], numpy.float64
+            Union[tuple[AntennaName, TimeCal], tuple[AntennaName, Time]],
+            QuantityInRadiansArray,
         ]
     ] = None
     """ Phase difference between receptor 0 and receptor 1 """
@@ -1338,7 +1645,7 @@ class SystemCalibrationXds:
                 tuple[AntennaName, Time, ReceptorLabel, Frequency],
                 tuple[AntennaName, Time, ReceptorLabel],
             ],
-            QuantityArray,
+            QuantityInKelvinArray,
         ]
     ] = None
     """ Calibration temp """
@@ -1352,7 +1659,7 @@ class SystemCalibrationXds:
                 tuple[AntennaName, Time, ReceptorLabel, Frequency],
                 tuple[AntennaName, Time, ReceptorLabel],
             ],
-            QuantityArray,
+            QuantityInKelvinArray,
         ]
     ] = None
     """ Receiver temperature """
@@ -1366,7 +1673,7 @@ class SystemCalibrationXds:
                 tuple[AntennaName, Time, ReceptorLabel, Frequency],
                 tuple[AntennaName, Time, ReceptorLabel],
             ],
-            QuantityArray,
+            QuantityInKelvinArray,
         ]
     ] = None
     """ Sky temperature """
@@ -1380,7 +1687,7 @@ class SystemCalibrationXds:
                 tuple[AntennaName, Time, ReceptorLabel, Frequency],
                 tuple[AntennaName, Time, ReceptorLabel],
             ],
-            QuantityArray,
+            QuantityInKelvinArray,
         ]
     ] = None
     """ System temperature """
@@ -1394,7 +1701,7 @@ class SystemCalibrationXds:
                 tuple[AntennaName, Time, ReceptorLabel, Frequency],
                 tuple[AntennaName, Time, ReceptorLabel],
             ],
-            QuantityArray,
+            QuantityInKelvinArray,
         ]
     ] = None
     """ Antenna temperature """
@@ -1408,13 +1715,13 @@ class SystemCalibrationXds:
                 tuple[AntennaName, Time, ReceptorLabel, Frequency],
                 tuple[AntennaName, Time, ReceptorLabel],
             ],
-            QuantityArray,
+            QuantityInKelvinArray,
         ]
     ] = None
     """ TANT/TSYS """
 
     # Attributes
-    type: Attr[str] = "system_calibration"
+    type: Attr[Literal["system_calibration"]] = "system_calibration"
     """
     Type of dataset.
     """
@@ -1435,8 +1742,8 @@ class DopplerXds:
 
 
 @xarray_dataset_schema
-class CorrelatedDataXds:
-    """TODO: documentation"""
+class VisibilityXds:
+    """TODO: documentation - visibility data for interferometry"""
 
     # --- Required Coordinates ---
     time: Coordof[TimeCoordArray]
@@ -1444,27 +1751,23 @@ class CorrelatedDataXds:
     The time coordinate is the mid-point of the nominal sampling interval, as
     speciﬁed in the ``ms_v4.time.attrs['integration_time']`` (ms v2 interval).
     """
-    baseline_id: Optional[Coordof[BaselineArray]]  # IF. not present in main_sd_xds
+    baseline_id: Coordof[BaselineArray]
     """ Baseline ID """
-    antenna_name: Optional[
-        Coordof[AntennaNameArray]
-    ]  # Single-dish. not present in main_xds
-    """ antenna_name """
     frequency: Coordof[FrequencyArray]
     """Center frequencies for each channel."""
     polarization: Coordof[PolarizationArray]
     """
     Labels for polarization types, e.g. ``['XX','XY','YX','YY']``, ``['RR','RL','LR','LL']``.
     """
-    polarization_mixed: Optional[Coord[tuple[BaselineId, Polarization], str]]
-    """
-    If the polarizations are not constant over baseline
-    """
-    uvw_label: Optional[Coordof[UvwLabelArray]]
-    """ u,v,w """
-    baseline_antenna1_name: Optional[Coordof[BaselineAntennaNameArray]]  # IF
+
+    # --- Required data variables ---
+
+    VISIBILITY: Dataof[VisibilityArray]
+    """Complex visibilities, either simulated or measured by interferometer."""
+
+    baseline_antenna1_name: Coordof[BaselineAntennaNameArray]
     """Antenna name for 1st antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_name``"""
-    baseline_antenna2_name: Optional[Coordof[BaselineAntennaNameArray]]  # IF
+    baseline_antenna2_name: Coordof[BaselineAntennaNameArray]
     """Antenna name for 2nd antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_name``"""
 
     # --- Required Attributes ---
@@ -1473,28 +1776,30 @@ class CorrelatedDataXds:
     processor_info: Attr[ProcessorInfoDict]
     antenna_xds: Attr[AntennaXds]
 
-    schema_version: Attr[str] = None
+    schema_version: Attr[str]
     """Semantic version of xradio data format"""
-    creation_date: Attr[str] = None
+    creation_date: Attr[str]
     """Date visibility dataset was created . Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
 
+    type: Attr[Literal["visibility"]] = "visibility"
+    """
+    Dataset type
+    """
+
     # --- Optional Coordinates ---
+    polarization_mixed: Optional[Coord[tuple[BaselineId, Polarization], str]] = None
+    """
+    If the polarizations are not constant over baseline
+    """
+    uvw_label: Optional[Coordof[UvwLabelArray]] = None
+    """ u,v,w """
     scan_number: Optional[Coord[Time, Union[numpy.int64, numpy.int32]]] = None
     """Arbitary scan number to identify data taken in the same logical scan."""
 
-    # --- Required data variables ---
-
     # --- Optional data variables / arrays ---
-
-    # Either VISIBILITY (interferometry) or SPECTRUM (single-dish)
-    VISIBILITY: Optional[Dataof[VisibilityArray]] = None
-    """Complex visibilities, either simulated or measured by interferometer."""
-    SPECTRUM: Optional[Dataof[SpectrumArray]] = None
-    """Single dish data, either simulated or measured by an antenna."""
 
     VISIBILITY_CORRECTED: Optional[Dataof[VisibilityArray]] = None
     VISIBILITY_MODEL: Optional[Dataof[VisibilityArray]] = None
-    SPECTRUM_CORRECTED: Optional[Dataof[SpectrumArray]] = None
 
     FLAG: Optional[Dataof[FlagArray]] = None
     WEIGHT: Optional[Dataof[WeightArray]] = None
@@ -1505,11 +1810,8 @@ class CorrelatedDataXds:
                 tuple[Time, BaselineId],
                 tuple[Time, BaselineId, Frequency],
                 tuple[Time, BaselineId, Frequency, Polarization],
-                tuple[Time, AntennaName],  # SD
-                tuple[Time, AntennaName, Frequency],  # SD
-                tuple[Time, AntennaName, Frequency, Polarization],  # SD
             ],
-            QuantityArray,
+            QuantityInSecondsArray,
         ]
     ] = None
     """
@@ -1549,7 +1851,106 @@ class CorrelatedDataXds:
     The id assigned to this combination of spectral window and polarization setup.
     """
 
-    type: Attr[str] = "visibility"
+
+@xarray_dataset_schema
+class SpectrumXds:
+    """TODO: documentation - spectrum data for single dish"""
+
+    # --- Required Coordinates ---
+    time: Coordof[TimeCoordArray]
+    """
+    The time coordinate is the mid-point of the nominal sampling interval, as
+    speciﬁed in the ``ms_v4.time.attrs['integration_time']`` (ms v2 interval).
+    """
+    antenna_name: Coordof[AntennaNameArray]
+    """ antenna_name """
+    frequency: Coordof[FrequencyArray]
+    """Center frequencies for each channel."""
+    polarization: Coordof[PolarizationArray]
+    """
+    Labels for polarization types, e.g. ``['XX','XY','YX','YY']``, ``['RR','RL','LR','LL']``.
+    """
+
+    # --- Required data variables ---
+    SPECTRUM: Dataof[SpectrumArray]
+    """Single dish data, either simulated or measured by an antenna."""
+
+    # --- Required Attributes ---
+    partition_info: Attr[PartitionInfoDict]
+    observation_info: Attr[ObservationInfoDict]
+    processor_info: Attr[ProcessorInfoDict]
+    antenna_xds: Attr[AntennaXds]
+
+    schema_version: Attr[str]
+    """Semantic version of xradio data format"""
+    creation_date: Attr[str]
+    """Date MSv4 was created . Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
+
+    type: Attr[Literal["spectrum"]] = "spectrum"
     """
     Dataset type
+    """
+
+    # --- Optional Coordinates ---
+    polarization_mixed: Optional[Coord[tuple[BaselineId, Polarization], str]] = None
+    """
+    If the polarizations are not constant over baseline
+    """
+    uvw_label: Optional[Coordof[UvwLabelArray]] = None
+    """ u,v,w """
+    scan_number: Optional[Coord[Time, Union[numpy.int64, numpy.int32]]] = None
+    """Arbitary scan number to identify data taken in the same logical scan."""
+
+    # --- Optional data variables / arrays ---
+
+    SPECTRUM_CORRECTED: Optional[Dataof[SpectrumArray]] = None
+
+    FLAG: Optional[Dataof[FlagArray]] = None
+    WEIGHT: Optional[Dataof[WeightArray]] = None
+    UVW: Optional[Dataof[UvwArray]] = None
+    EFFECTIVE_INTEGRATION_TIME: Optional[
+        Data[
+            Union[
+                tuple[Time, AntennaName],
+                tuple[Time, AntennaName, Frequency],
+                tuple[Time, AntennaName, Frequency, Polarization],
+            ],
+            QuantityInSecondsArray,
+        ]
+    ] = None
+    """
+    The integration time, including the effects of missing data, in contrast to
+    ``integration_time`` attribute of the ``time`` coordinate,
+    see :py:class:`TimeArray`. (MS v2: ``exposure``).
+    """
+    TIME_CENTROID: Optional[Dataof[TimeSamplingArray]] = None
+    """
+    The time centroid of the visibility, includes the effects of missing data
+    unlike the ``time`` coordinate, see :py:class:`TimeArray`.
+    """
+    TIME_CENTROID_EXTRA_PRECISION: Optional[Dataof[TimeSamplingArray]] = None
+    """Additional precision for ``TIME_CENTROID``"""
+    EFFECTIVE_CHANNEL_WIDTH: Optional[Dataof[FreqSamplingArray]] = None
+    """The channel bandwidth that includes the effects of missing data."""
+    FREQUENCY_CENTROID: Optional[Dataof[FreqSamplingArray]] = None
+    """Includes the effects of missing data unlike ``frequency``."""
+
+    # --- Optional Attributes ---
+    pointing_xds: Optional[Attr[PointingXds]] = None
+    system_calibration_xds: Optional[Attr[SystemCalibrationXds]] = None
+    gain_curve_xds: Optional[Attr[GainCurveXds]] = None
+    phase_calibration_xds: Optional[Attr[PhaseCalibrationXds]] = None
+    weather_xds: Optional[Attr[WeatherXds]] = None
+    phased_array_xds: Optional[Attr[PhasedArrayXds]] = None
+
+    xradio_version: Optional[Attr[str]] = None
+    """ Version of XRADIO used if converted from MSv2. """
+
+    intent: Optional[Attr[str]] = None
+    """Identifies the intention of the scan, such as to calibrate or observe a
+    target. See :ref:`scan intents` for possible values.
+    """
+    data_description_id: Optional[Attr[str]] = None
+    """
+    The id assigned to this combination of spectral window and polarization setup.
     """

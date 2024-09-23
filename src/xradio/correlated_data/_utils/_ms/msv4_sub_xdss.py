@@ -6,6 +6,7 @@ from typing import Tuple, Union
 import numpy as np
 import xarray as xr
 
+from xradio._utils.common import convert_to_si_units
 from xradio._utils.schema import (
     column_description_casacore_to_msv4_measure,
     convert_generic_xds_to_xradio_schema,
@@ -144,7 +145,7 @@ def create_weather_xds(in_file: str, ant_xds_station_name_ids: xr.DataArray):
     }
     weather_xds = weather_xds.assign_coords(coords)
 
-    dims_station_time = ["station_name", "time"]
+    dims_station_time = ["station_name", "time_weather"]
     to_new_data_variables = {
         "H20": ["H2O", dims_station_time],
         "IONOS_ELECTRON": ["IONOS_ELECTRON", dims_station_time],
@@ -157,7 +158,7 @@ def create_weather_xds(in_file: str, ant_xds_station_name_ids: xr.DataArray):
     }
 
     to_new_coords = {
-        "TIME": ["time", ["time"]],
+        "TIME": ["time_weather", ["time_weather"]],
     }
 
     weather_xds = convert_generic_xds_to_xradio_schema(
@@ -165,6 +166,14 @@ def create_weather_xds(in_file: str, ant_xds_station_name_ids: xr.DataArray):
     )
 
     # TODO: option to interpolate to main time
+
+    # PRESSURE: hPa in MSv2 specs and some MSs => Pa
+    weather_xds = convert_to_si_units(weather_xds)
+
+    # correct expected types (for example "IONOS_ELECTRON", "PRESSURE" can be float32)
+    for data_var in weather_xds:
+        if weather_xds.data_vars[data_var].dtype != np.float64:
+            weather_xds[data_var] = weather_xds[data_var].astype(np.float64)
 
     return weather_xds
 
@@ -464,7 +473,7 @@ def create_system_calibration_xds(
         "frequency": ["frequency_cal", ["frequency_cal"]],
     }
 
-    sys_cal_xds = xr.Dataset(attrs={"type": "sys_cal"})
+    sys_cal_xds = xr.Dataset(attrs={"type": "system_calibration"})
     coords = {
         "antenna_name": ant_xds_name_ids.sel(
             antenna_id=generic_sys_cal_xds["ANTENNA_ID"]
@@ -501,8 +510,8 @@ def create_system_calibration_xds(
         time_coord_attrs = {
             "type": "time",
             "units": ["s"],
-            "scale": "UTC",
-            "format": "UNIX",
+            "scale": "utc",
+            "format": "unix",
         }
         # If interpolating time, rename time_cal => time
         time_coord = {"time": ("time_cal", sys_cal_interp_time.data)}

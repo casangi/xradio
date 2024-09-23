@@ -13,10 +13,13 @@ sharing the same dimensions, forming a comprehensive view of correlated data. Th
 main dataset contains several :ref:`sub-datasets` and :ref:`info dictionaries`.
 The visibility or spectrum arrays have a :ref:`field_and_source_xds` sub-dataset.
 
-.. autoclass:: xradio.correlated_data.schema.CorrelatedDataXds()
+.. autoclass:: xradio.correlated_data.schema.VisibilityXds()
 
-   .. xradio_dataset_schema_table:: xradio.correlated_data.schema.CorrelatedDataXds
+   .. xradio_dataset_schema_table:: xradio.correlated_data.schema.VisibilityXds
 
+.. autoclass:: xradio.correlated_data.schema.SpectrumXds()
+
+   .. xradio_dataset_schema_table:: xradio.correlated_data.schema.SpectrumXds
 
 .. _sub-datasets:
 
@@ -128,6 +131,10 @@ Bulk data gathered into :ref:`correlated data datasets`.
 
    .. xradio_array_schema_table:: xradio.correlated_data.schema.SkyCoordArray
 
+.. autoclass:: xradio.correlated_data.schema.LocalSkyCoordArray()
+
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.SkyCoordArray
+
 .. autoclass:: xradio.correlated_data.schema.TimeSamplingArray()
 
    .. xradio_array_schema_table:: xradio.correlated_data.schema.TimeSamplingArray
@@ -176,17 +183,29 @@ as frequencies or timestamps.
 
    .. xradio_array_schema_table:: xradio.correlated_data.schema.UvwLabelArray
 
-.. autoclass:: xradio.correlated_data.schema.QuantityArray()
-                                                 
-   .. xradio_array_schema_table:: xradio.correlated_data.schema.QuantityArray
-
 .. autoclass:: xradio.correlated_data.schema.LocationArray()
                                                  
    .. xradio_array_schema_table:: xradio.correlated_data.schema.LocationArray
 
+.. autoclass:: xradio.correlated_data.schema.EllipsoidPosLocationArray()
+
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.EllipsoidPosLocationArray
+
+.. autoclass:: xradio.correlated_data.schema.DopplerArray()
+
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.DopplerArray
+
+.. autoclass:: xradio.correlated_data.schema.TimeInterpolatedCoordArray()
+
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.TimeInterpolatedCoordArray
+
 .. autoclass:: xradio.correlated_data.schema.TimeCalCoordArray()
 
    .. xradio_array_schema_table:: xradio.correlated_data.schema.TimeCalCoordArray
+
+.. autoclass:: xradio.correlated_data.schema.FrequencyCalArray()
+
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.FrequencyCalArray
 
 .. autoclass:: xradio.correlated_data.schema.TimeEphemerisCoordArray()
 
@@ -200,6 +219,42 @@ as frequencies or timestamps.
 
    .. xradio_array_schema_table:: xradio.correlated_data.schema.TimeWeatherCoordArray
 
+.. autoclass:: xradio.correlated_data.schema.QuantityInSecondsArray()
+
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.QuantityInSecondsArray
+
+.. autoclass:: xradio.correlated_data.schema.QuantityInHertzArray()
+
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.QuantityInHertzArray
+
+.. autoclass:: xradio.correlated_data.schema.QuantityInMetersArray()
+
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.QuantityInMetersArray
+
+.. autoclass:: xradio.correlated_data.schema.QuantityInMetersPerSecondArray()
+
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.QuantityInMetersPerSecondArray
+
+.. autoclass:: xradio.correlated_data.schema.QuantityInRadiansArray()
+
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.QuantityInRadiansArray
+
+.. autoclass:: xradio.correlated_data.schema.QuantityInKelvinArray()
+
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.QuantityInKelvinArray
+
+.. autoclass:: xradio.correlated_data.schema.QuantityInKelvinPerJanskyArray()
+
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.QuantityInKelvinPerJanskyArray
+
+.. autoclass:: xradio.correlated_data.schema.QuantityInPascalArray()
+
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.QuantityInPascalArray
+
+.. autoclass:: xradio.correlated_data.schema.QuantityInPerSquareMetersArray()
+
+   .. xradio_array_schema_table:: xradio.correlated_data.schema.QuantityInPerSquareMetersArray
+
 .. _correlated data attributes:
 
 Value Keys
@@ -210,7 +265,7 @@ Value Keys
 Scan Intents
 ~~~~~~~~~~~~
 
-Scan intents to be used with :py:class:`CorrelatedDataXds` ``.intent``:
+Scan intents to be used with :py:class:`VisibilityXds` and :py:class:`SpectrumXds` ``.intent``:
 
 * CALIBRATE AMPLI : Amplitude calibration scan
 * CALIBRATE ANTENNA PHASE : Requested by EVLA.
@@ -243,7 +298,7 @@ Scan intents to be used with :py:class:`CorrelatedDataXds` ``.intent``:
 * TEST : used for development.
 * UNSPECIFIED : Unspecified scan intent
 
-Sub-scan intents to be used with :py:class:`CorrelatedDataXds` ``.sub_intent``:
+Sub-scan intents to be used with :py:class:`VisibilityXds` and :py:class:`SpectrumXds` ``.sub_intent``:
 
 * ON SOURCE : on-source measurement
 * OFF SOURCE : off-source measurement

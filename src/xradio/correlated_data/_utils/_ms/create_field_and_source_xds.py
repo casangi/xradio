@@ -339,8 +339,8 @@ def extract_ephemeris_info(
     time_coord_attrs = {
         "type": "time",
         "units": ["s"],
-        "scale": "UTC",
-        "format": "UNIX",
+        "scale": "utc",
+        "format": "unix",
     }
     temp_xds["time_ephemeris"].attrs.update(time_coord_attrs)
 

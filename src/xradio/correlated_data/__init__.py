@@ -3,7 +3,7 @@ from .open_processing_set import open_processing_set
 from .load_processing_set import load_processing_set, ProcessingSetIterator
 from .convert_msv2_to_processing_set import convert_msv2_to_processing_set
 
-from .schema import CorrelatedDataXds
+from .schema import SpectrumXds, VisibilityXds
 
 __all__ = [
     "ProcessingSet",
@@ -11,5 +11,6 @@ __all__ = [
     "load_processing_set",
     "ProcessingSetIterator",
     "convert_msv2_to_processing_set",
-    "CorrelatedDataXds",
+    "SpectrumXds",
+    "VisibilityXds",
 ]

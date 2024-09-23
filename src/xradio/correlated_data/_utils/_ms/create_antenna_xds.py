@@ -359,6 +359,11 @@ def create_gain_curve_xds(
         }
     )
 
+    # correct expected types (for example "GAIN_CURVE" can be float32)
+    for data_var in gain_curve_xds:
+        if gain_curve_xds.data_vars[data_var].dtype != np.float64:
+            gain_curve_xds[data_var] = gain_curve_xds[data_var].astype(np.float64)
+
     return gain_curve_xds
 
 
@@ -434,7 +439,7 @@ def create_phase_calibration_xds(
         "TIME": ["time_phase_cal", ["time_phase_cal"]],
     }
 
-    phase_cal_xds = xr.Dataset(attrs={"type": "phase_cal"})
+    phase_cal_xds = xr.Dataset(attrs={"type": "phase_calibration"})
     phase_cal_xds = convert_generic_xds_to_xradio_schema(
         generic_phase_cal_xds, phase_cal_xds, to_new_data_variables, to_new_coords
     )
@@ -483,8 +488,8 @@ def create_phase_calibration_xds(
     time_coord_attrs = {
         "type": "time",
         "units": ["s"],
-        "scale": "UTC",
-        "format": "UNIX",
+        "scale": "utc",
+        "format": "unix",
     }
 
     # If we interpolate rename the time_phase_cal axis to time.

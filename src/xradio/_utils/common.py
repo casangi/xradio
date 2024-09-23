@@ -75,6 +75,12 @@ def convert_to_si_units(xds):
                 if u == "arcsec":
                     xds[data_var][..., u_i] = xds[data_var][..., u_i] * np.pi / 648000
                     xds[data_var].attrs["units"][u_i] = "rad"
+                if u == "hPa":
+                    xds[data_var][..., u_i] = xds[data_var][..., u_i] * 100.0
+                    xds[data_var].attrs["units"][u_i] = "Pa"
+                if u == "m-2":
+                    # IONOS_ELECTRON sometimes has "m-2" instead of "/m^2"
+                    xds[data_var].attrs["units"][u_i] = "/m^2"
     return xds
 
 

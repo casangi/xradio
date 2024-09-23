@@ -1,5 +1,6 @@
 import importlib
 import dataclasses
+import typing
 
 from docutils import nodes, utils
 from docutils.parsers.rst import Directive, DirectiveError
@@ -130,7 +131,10 @@ class SchemaTableDirective(ObjectDescription):
         row += entry
         if meta is not None:
             vl = StringList()
-            vl.append(f":py:class:`~{meta}`", "")
+            if isinstance(meta, str) and meta.startswith("`") and meta.endswith("`"):
+                vl.append(f"{meta}", "")
+            else:
+                vl.append(f":py:class:`~{meta}`", "")
             with switch_source_input(self.state, vl):
                 self.state.nested_parse(vl, 0, entry)
 
@@ -147,6 +151,79 @@ class SchemaTableDirective(ObjectDescription):
             vl.append(f"**Default:** ``{repr(default)}``", "")
             with switch_source_input(self.state, vl):
                 self.state.nested_parse(vl, 0, entry)
+
+
+def format_attr_model_text(attr) -> str:
+    """
+    Formats the text for the 'model' column in schema tables (arrays and datasets).
+    Doesn't aim at supporting any literal types or combinations of types in general,
+    but the following three ones specifically:
+
+    - Literals (with multiple options (implicit Union of literals))
+    - List of literals (e.g. ["rad","rad"]
+    - Union of list of literals (e.g. ["m","m","m"]/["rad","rad","m"]
+
+    This is meant to produce readable text listing literals as quoted text and
+    their combinations, in schema attributes (particularly quantities and measures).
+
+    Everything else than these expected literal based types would be printed as the
+    type name.
+    TODO: could be reorganize to split a copule of helpers and make the function
+    recursive - keeping it flat for now.
+    """
+
+    def nonliteral_types_text(attr):
+        """text to print for non-literal types"""
+        if getattr(attr.typ, "__name__", None) and getattr(
+            attr.typ, "__module__", None
+        ):
+            return f"{attr.typ.__module__}.{attr.typ.__name__}"
+        else:
+            return ""
+
+    if typing.get_origin(attr.typ) == typing.Literal:
+        # Literal, with possibly multiple alternatives (frames, etc.)
+        literal_values = [f'``"{val}"``' for val in typing.get_args(attr.typ)]
+        model_text = f"{' or '.join(map(str, literal_values))}"
+    elif typing.get_origin(attr.typ) == list:
+        # List of literals
+        type_args = typing.get_args(attr.typ)
+        if all([typing.get_origin(arg) == typing.Literal for arg in type_args]):
+            literal_values = [
+                f'"{value}"'
+                for literal in type_args
+                for value in typing.get_args(literal)
+            ]
+            model_text = f"``[{', '.join(map(str, literal_values))}]``"
+        else:
+            model_text = nonliteral_types_text(attr)
+    elif typing.get_origin(attr.typ) == typing.Union:
+        # Union of lists of literals
+        type_args = typing.get_args(attr.typ)
+        # if typing.get_origin(type_args[0]) == list:
+        if all([typing.get_origin(arg) == list for arg in type_args]):
+            # List of literals
+            first_item_type_args = typing.get_args(type_args[0])
+            if all(
+                [
+                    typing.get_origin(first_item_arg) == typing.Literal
+                    for first_item_arg in first_item_type_args
+                ]
+            ):
+                union_texts = []
+                for union_item_args in type_args:
+                    values = [
+                        f'"{typing.get_args(val)[0]}"'
+                        for val in typing.get_args(union_item_args)
+                    ]
+                    union_item_text = f"``[{', '.join(map(str, values))}]``"
+                    union_texts.append(union_item_text)
+                model_text = f"``{' or '.join(map(str, union_texts))}``"
+
+    else:
+        model_text = nonliteral_types_text(attr)
+
+    return model_text
 
 
 class ArraySchemaTableDirective(SchemaTableDirective):
@@ -181,11 +258,12 @@ class ArraySchemaTableDirective(SchemaTableDirective):
         if schema.attributes:
             self._add_section("Attributes:")
             for attr in schema.attributes:
+                model_text = format_attr_model_text(attr)
                 self._add_row(
                     attr.name,
                     [],
                     [],
-                    f"{attr.typ.__module__}.{attr.typ.__name__}",
+                    model_text,
                     attr.docstring,
                     optional=attr.optional,
                     default=attr.default,
@@ -237,11 +315,12 @@ class DatasetSchemaTableDirective(SchemaTableDirective):
         if schema.attributes:
             self._add_section("Attributes:")
             for attr in schema.attributes:
+                model_text = format_attr_model_text(attr)
                 self._add_row(
                     attr.name,
                     [],
                     [],
-                    f"{attr.typ.__module__}.{attr.typ.__name__}",
+                    model_text,
                     attr.docstring,
                     optional=attr.optional,
                     default=attr.default,

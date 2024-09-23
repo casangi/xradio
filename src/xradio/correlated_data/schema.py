@@ -91,7 +91,7 @@ UnitsRadians = list[Literal["rad"]]
 UnitsKelvin = list[Literal["K"]]
 UnitsKelvinPerJansky = list[Literal["K/Jy"]]
 UnitsMetersPerSecond = list[Literal["m/s"]]
-UnitsHectopascal = list[Literal["Pa"]]  # hPa? (in MSv2)
+UnitsPascal = list[Literal["Pa"]]  # hPa? (in MSv2)
 UnitsPerSquareMeters = list[Literal["/m^2"]]
 
 
@@ -183,14 +183,14 @@ class QuantityInKelvinPerJanskyArray:
 
 
 @xarray_dataarray_schema
-class QuantityInHectopascalArray:
+class QuantityInPascalArray:
     """
-    Quantity with units of hPa (hectopascal)
+    Quantity with units of Pa
     """
 
     data: Data[ZD, numpy.float64]
 
-    units: Attr[UnitsHectopascal]
+    units: Attr[UnitsPascal]
     type: Attr[Quantity] = "quantity"
 
 
@@ -900,7 +900,7 @@ class FreqSamplingArray:
     """
     Data about frequency sampling, such as centroid or integration
     time. Concrete function depends on concrete data array within
-    :py:class:`CorrelatedDataXds`.
+    :py:class:`VisibilityXds` or :py:class:`SpectrumXds`.
     """
     frequency: Coordof[FrequencyArray]
     time: Optional[Coordof[TimeCoordArray]] = None
@@ -1216,6 +1216,10 @@ class ProcessorInfoDict:
 
 @xarray_dataset_schema
 class AntennaXds:
+    """
+    Antenna dataset: global antenna properties for each antenna.
+    """
+
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
     """ Antenna name """
@@ -1355,6 +1359,9 @@ class GainCurveXds:
 
 @xarray_dataset_schema
 class PhaseCalibrationXds:
+    """
+    Phase calibration dataset: signal chain phase calibration measurements.
+    """
 
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
@@ -1435,8 +1442,9 @@ multiple receptors) so this is provided as a simple scalar. See https://casacore
 
 @xarray_dataset_schema
 class WeatherXds:
-    """Weather. Contains station positions and time-dependent mean external
-    atmosphere and weather information"""
+    """
+    Weather dataset: station positions and time-dependent mean external atmosphere and weather information
+    """
 
     # Coordinates
     station_name: Coord[StationName, str]
@@ -1472,7 +1480,7 @@ class WeatherXds:
                 tuple[StationName, Time],
                 tuple[StationName, TimeWeather],
             ],
-            QuantityInHectopascalArray,
+            QuantityInPascalArray,
         ]
     ] = None
     """ Ambient atmospheric pressure """
@@ -1538,6 +1546,10 @@ class WeatherXds:
 
 @xarray_dataset_schema
 class PointingXds:
+    """
+    Pointing dataset: antenna pointing information.
+    """
+
     antenna_name: Coordof[AntennaNameArray]
     """
     Antenna name, as specified by baseline_antenna1/2_name in visibility dataset
@@ -1597,8 +1609,10 @@ class PointingXds:
 
 @xarray_dataset_schema
 class SystemCalibrationXds:
-    """System calibration. Contains time- and frequency- variable
-    calibration measurements for each antenna, as indexed on receptor"""
+    """
+    System calibration dataset: time- and frequency- variable calibration measurements for each antenna,
+    as indexed on receptor
+    """
 
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
@@ -1728,8 +1742,8 @@ class DopplerXds:
 
 
 @xarray_dataset_schema
-class CorrelatedDataXds:
-    """TODO: documentation"""
+class VisibilityXds:
+    """TODO: documentation - visibility data for interferometry"""
 
     # --- Required Coordinates ---
     time: Coordof[TimeCoordArray]
@@ -1737,27 +1751,23 @@ class CorrelatedDataXds:
     The time coordinate is the mid-point of the nominal sampling interval, as
     speciﬁed in the ``ms_v4.time.attrs['integration_time']`` (ms v2 interval).
     """
-    baseline_id: Optional[Coordof[BaselineArray]]  # IF. not present in main_sd_xds
+    baseline_id: Coordof[BaselineArray]
     """ Baseline ID """
-    antenna_name: Optional[
-        Coordof[AntennaNameArray]
-    ]  # Single-dish. not present in main_xds
-    """ antenna_name """
     frequency: Coordof[FrequencyArray]
     """Center frequencies for each channel."""
     polarization: Coordof[PolarizationArray]
     """
     Labels for polarization types, e.g. ``['XX','XY','YX','YY']``, ``['RR','RL','LR','LL']``.
     """
-    polarization_mixed: Optional[Coord[tuple[BaselineId, Polarization], str]]
-    """
-    If the polarizations are not constant over baseline
-    """
-    uvw_label: Optional[Coordof[UvwLabelArray]]
-    """ u,v,w """
-    baseline_antenna1_name: Optional[Coordof[BaselineAntennaNameArray]]  # IF
+
+    # --- Required data variables ---
+
+    VISIBILITY: Dataof[VisibilityArray]
+    """Complex visibilities, either simulated or measured by interferometer."""
+
+    baseline_antenna1_name: Coordof[BaselineAntennaNameArray]
     """Antenna name for 1st antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_name``"""
-    baseline_antenna2_name: Optional[Coordof[BaselineAntennaNameArray]]  # IF
+    baseline_antenna2_name: Coordof[BaselineAntennaNameArray]
     """Antenna name for 2nd antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_name``"""
 
     # --- Required Attributes ---
@@ -1766,28 +1776,30 @@ class CorrelatedDataXds:
     processor_info: Attr[ProcessorInfoDict]
     antenna_xds: Attr[AntennaXds]
 
-    schema_version: Attr[str] = None
+    schema_version: Attr[str]
     """Semantic version of xradio data format"""
-    creation_date: Attr[str] = None
+    creation_date: Attr[str]
     """Date visibility dataset was created . Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
 
+    type: Attr[Literal["visibility"]] = "visibility"
+    """
+    Dataset type
+    """
+
     # --- Optional Coordinates ---
+    polarization_mixed: Optional[Coord[tuple[BaselineId, Polarization], str]] = None
+    """
+    If the polarizations are not constant over baseline
+    """
+    uvw_label: Optional[Coordof[UvwLabelArray]] = None
+    """ u,v,w """
     scan_number: Optional[Coord[Time, Union[numpy.int64, numpy.int32]]] = None
     """Arbitary scan number to identify data taken in the same logical scan."""
 
-    # --- Required data variables ---
-
     # --- Optional data variables / arrays ---
-
-    # Either VISIBILITY (interferometry) or SPECTRUM (single-dish)
-    VISIBILITY: Optional[Dataof[VisibilityArray]] = None
-    """Complex visibilities, either simulated or measured by interferometer."""
-    SPECTRUM: Optional[Dataof[SpectrumArray]] = None
-    """Single dish data, either simulated or measured by an antenna."""
 
     VISIBILITY_CORRECTED: Optional[Dataof[VisibilityArray]] = None
     VISIBILITY_MODEL: Optional[Dataof[VisibilityArray]] = None
-    SPECTRUM_CORRECTED: Optional[Dataof[SpectrumArray]] = None
 
     FLAG: Optional[Dataof[FlagArray]] = None
     WEIGHT: Optional[Dataof[WeightArray]] = None
@@ -1798,9 +1810,6 @@ class CorrelatedDataXds:
                 tuple[Time, BaselineId],
                 tuple[Time, BaselineId, Frequency],
                 tuple[Time, BaselineId, Frequency, Polarization],
-                tuple[Time, AntennaName],  # SD
-                tuple[Time, AntennaName, Frequency],  # SD
-                tuple[Time, AntennaName, Frequency, Polarization],  # SD
             ],
             QuantityInSecondsArray,
         ]
@@ -1842,7 +1851,106 @@ class CorrelatedDataXds:
     The id assigned to this combination of spectral window and polarization setup.
     """
 
-    type: Attr[Literal["visibility", "spectrum"]] = "visibility"
+
+@xarray_dataset_schema
+class SpectrumXds:
+    """TODO: documentation - spectrum data for single dish"""
+
+    # --- Required Coordinates ---
+    time: Coordof[TimeCoordArray]
+    """
+    The time coordinate is the mid-point of the nominal sampling interval, as
+    speciﬁed in the ``ms_v4.time.attrs['integration_time']`` (ms v2 interval).
+    """
+    antenna_name: Coordof[AntennaNameArray]
+    """ antenna_name """
+    frequency: Coordof[FrequencyArray]
+    """Center frequencies for each channel."""
+    polarization: Coordof[PolarizationArray]
+    """
+    Labels for polarization types, e.g. ``['XX','XY','YX','YY']``, ``['RR','RL','LR','LL']``.
+    """
+
+    # --- Required data variables ---
+    SPECTRUM: Dataof[SpectrumArray]
+    """Single dish data, either simulated or measured by an antenna."""
+
+    # --- Required Attributes ---
+    partition_info: Attr[PartitionInfoDict]
+    observation_info: Attr[ObservationInfoDict]
+    processor_info: Attr[ProcessorInfoDict]
+    antenna_xds: Attr[AntennaXds]
+
+    schema_version: Attr[str]
+    """Semantic version of xradio data format"""
+    creation_date: Attr[str]
+    """Date MSv4 was created . Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
+
+    type: Attr[Literal["spectrum"]] = "spectrum"
     """
     Dataset type
+    """
+
+    # --- Optional Coordinates ---
+    polarization_mixed: Optional[Coord[tuple[BaselineId, Polarization], str]] = None
+    """
+    If the polarizations are not constant over baseline
+    """
+    uvw_label: Optional[Coordof[UvwLabelArray]] = None
+    """ u,v,w """
+    scan_number: Optional[Coord[Time, Union[numpy.int64, numpy.int32]]] = None
+    """Arbitary scan number to identify data taken in the same logical scan."""
+
+    # --- Optional data variables / arrays ---
+
+    SPECTRUM_CORRECTED: Optional[Dataof[SpectrumArray]] = None
+
+    FLAG: Optional[Dataof[FlagArray]] = None
+    WEIGHT: Optional[Dataof[WeightArray]] = None
+    UVW: Optional[Dataof[UvwArray]] = None
+    EFFECTIVE_INTEGRATION_TIME: Optional[
+        Data[
+            Union[
+                tuple[Time, AntennaName],
+                tuple[Time, AntennaName, Frequency],
+                tuple[Time, AntennaName, Frequency, Polarization],
+            ],
+            QuantityInSecondsArray,
+        ]
+    ] = None
+    """
+    The integration time, including the effects of missing data, in contrast to
+    ``integration_time`` attribute of the ``time`` coordinate,
+    see :py:class:`TimeArray`. (MS v2: ``exposure``).
+    """
+    TIME_CENTROID: Optional[Dataof[TimeSamplingArray]] = None
+    """
+    The time centroid of the visibility, includes the effects of missing data
+    unlike the ``time`` coordinate, see :py:class:`TimeArray`.
+    """
+    TIME_CENTROID_EXTRA_PRECISION: Optional[Dataof[TimeSamplingArray]] = None
+    """Additional precision for ``TIME_CENTROID``"""
+    EFFECTIVE_CHANNEL_WIDTH: Optional[Dataof[FreqSamplingArray]] = None
+    """The channel bandwidth that includes the effects of missing data."""
+    FREQUENCY_CENTROID: Optional[Dataof[FreqSamplingArray]] = None
+    """Includes the effects of missing data unlike ``frequency``."""
+
+    # --- Optional Attributes ---
+    pointing_xds: Optional[Attr[PointingXds]] = None
+    system_calibration_xds: Optional[Attr[SystemCalibrationXds]] = None
+    gain_curve_xds: Optional[Attr[GainCurveXds]] = None
+    phase_calibration_xds: Optional[Attr[PhaseCalibrationXds]] = None
+    weather_xds: Optional[Attr[WeatherXds]] = None
+    phased_array_xds: Optional[Attr[PhasedArrayXds]] = None
+
+    xradio_version: Optional[Attr[str]] = None
+    """ Version of XRADIO used if converted from MSv2. """
+
+    intent: Optional[Attr[str]] = None
+    """Identifies the intention of the scan, such as to calibrate or observe a
+    target. See :ref:`scan intents` for possible values.
+    """
+    data_description_id: Optional[Attr[str]] = None
+    """
+    The id assigned to this combination of spectral window and polarization setup.
     """

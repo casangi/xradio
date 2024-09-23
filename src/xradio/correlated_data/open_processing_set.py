@@ -3,6 +3,7 @@ import os
 from xradio.correlated_data import ProcessingSet
 import toolviper.utils.logger as logger
 from xradio._utils.zarr.common import _open_dataset, _get_file_system_and_items
+from xradio.correlated_data.correlated_xds import CorrelatedXds
 import s3fs
 
 
@@ -32,7 +33,7 @@ def open_processing_set(
     for ms_name in ms_store_list:
         # try:
         ms_store = os.path.join(ps_store, ms_name)
-        ms_main_store = os.path.join(ms_store, "MAIN")
+        ms_main_store = os.path.join(ms_store, "main_xds")
 
         xds = _open_dataset(ms_main_store, file_system)
         data_groups = xds.attrs["data_groups"]
@@ -54,7 +55,7 @@ def open_processing_set(
                     "field_and_source_xds"
                 ] = field_and_source_xds_dict[data_group_name]
 
-            ps[ms_name] = xds
+            ps[ms_name] = CorrelatedXds(xds)
         # except Exception as e:
         #     logger.warning(f"Could not open {ms_name} due to {e}")
         #     continue
@@ -65,16 +66,7 @@ def open_processing_set(
 def _open_sub_xds(ms_store, file_system, data_groups, load=False):
     sub_xds_dict = {}
     field_and_source_xds_dict = {}
-
-    xds_names = {
-        "ANTENNA": "antenna_xds",
-        "POINTING": "pointing_xds",
-        "SYSCAL": "system_calibration_xds",
-        "GAIN_CURVE": "gain_curve_xds",
-        "PHASE_CAL": "phase_calibration_xds",
-        "WEATHER": "weather_xds",
-    }
-
+    
     if isinstance(file_system, s3fs.core.S3FileSystem):
         file_names = [
             bd.split(sep="/")[-1] for bd in file_system.listdir(ms_store, detail=False)
@@ -83,9 +75,9 @@ def _open_sub_xds(ms_store, file_system, data_groups, load=False):
         file_names = file_system.listdir(ms_store)
     file_names = [item for item in file_names if not item.startswith(".")]
 
-    file_names.remove("MAIN")
+    file_names.remove("main_xds")
 
-    field_dict = {"FIELD_AND_SOURCE_" + key.upper(): key for key in data_groups.keys()}
+    field_dict = {"field_and_source_xds_" + key: key for key in data_groups.keys()}
 
     # field_and_source_xds_name_start = "FIELD"
     for n in file_names:
@@ -98,7 +90,7 @@ def _open_sub_xds(ms_store, file_system, data_groups, load=False):
         if n in field_dict.keys():
             field_and_source_xds_dict[field_dict[n]] = xds
         else:
-            sub_xds_dict[xds_names[n]] = xds
+            sub_xds_dict[n] = xds
 
     return sub_xds_dict, field_and_source_xds_dict
 

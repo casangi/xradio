@@ -42,7 +42,7 @@ def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_sch
         )
 
     download(file=msv2_name, folder=folder)
-    ps_name = folder / (msv2_name[:-3] + ".vis.zarr")
+    ps_name = folder / (msv2_name[:-3] + ".ps")
     if os.path.isdir(ps_name):
         os.system("rm -rf " + str(ps_name))  # Remove vis.zarr folder.
     convert_msv2_to_processing_set(
@@ -92,11 +92,14 @@ def base_test(
                 file_name, folder, partition_scheme
             )
 
-        print(f"Opening Processing Set, {ps_name=}")
+        print(f"Opening Processing Set, {ps_name}")
         ps_lazy = open_processing_set(str(ps_name))
+        
+        ps_copy_name = str(ps_name) + "_copy"
+        ps_lazy.to_store(ps_copy_name) #Test writing yo disk.
 
         sel_parms = {key: {} for key in ps_lazy.keys()}
-        ps = load_processing_set(str(ps_name), sel_parms=sel_parms)
+        ps = load_processing_set(str(ps_copy_name), sel_parms=sel_parms)
 
         ps_lazy_df = ps_lazy.summary()
         ps_df = ps.summary()
@@ -344,8 +347,8 @@ if __name__ == "__main__":
     # test_sd_A002_Xe3a5fd_Xe38e(tmp_path=Path("."))
     # test_s3(tmp_path=Path("."))
     # test_vlass(tmp_path=Path("."))
-    # test_alma(tmp_path=Path("."))
-    test_preconverted_alma(tmp_path=Path("."))
+    test_alma(tmp_path=Path("."))
+    # test_preconverted_alma(tmp_path=Path("."))
     # test_ska_mid(tmp_path=Path("."))
     # test_lofar(tmp_path=Path("."))
     # test_meerkat(tmp_path=Path("."))

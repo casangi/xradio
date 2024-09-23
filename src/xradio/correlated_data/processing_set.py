@@ -299,3 +299,21 @@ class ProcessingSet(dict):
         for key, val in self.items():
             sub_ps[key] = val.isel(kwargs)
         return sub_ps
+
+
+
+    def to_store(self, store, **kwargs):
+        """
+        Write the Processing Set to a Zarr store.
+        Does not write to cloud storage yet.
+
+        Args:
+            store (str): The path to the Zarr store.
+            **kwargs: Additional keyword arguments to be passed to `xarray.Dataset.to_zarr`.
+
+        Returns:
+            None
+        """
+        import os
+        for key, value in self.items():
+            value.to_store(os.path.join(store,key), **kwargs)

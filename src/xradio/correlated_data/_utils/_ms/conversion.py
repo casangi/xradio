@@ -1043,39 +1043,39 @@ def convert_and_write_partition(
 
             start = time.time()
             if storage_backend == "zarr":
-                xds.to_zarr(store=os.path.join(file_name, "MAIN"), mode=mode)
-                ant_xds.to_zarr(store=os.path.join(file_name, "ANTENNA"), mode=mode)
+                xds.to_zarr(store=os.path.join(file_name, "main_xds"), mode=mode)
+                ant_xds.to_zarr(store=os.path.join(file_name, "antenna_xds"), mode=mode)
                 for group_name in xds.attrs["data_groups"]:
                     field_and_source_xds.to_zarr(
                         store=os.path.join(
-                            file_name, f"FIELD_AND_SOURCE_{group_name.upper()}"
+                            file_name, f"field_and_source_xds_{group_name}"
                         ),
                         mode=mode,
                     )
 
                 if with_pointing and len(pointing_xds.data_vars) > 1:
                     pointing_xds.to_zarr(
-                        store=os.path.join(file_name, "POINTING"), mode=mode
+                        store=os.path.join(file_name, "pointing_xds"), mode=mode
                     )
 
                 if system_calibration_xds:
                     system_calibration_xds.to_zarr(
-                        store=os.path.join(file_name, "SYSCAL"), mode=mode
+                        store=os.path.join(file_name, "system_calibration_xds"), mode=mode
                     )
 
                 if gain_curve_xds:
                     gain_curve_xds.to_zarr(
-                        store=os.path.join(file_name, "GAIN_CURVE"), mode=mode
+                        store=os.path.join(file_name, "gain_curve_xds"), mode=mode
                     )
 
                 if phase_calibration_xds:
                     phase_calibration_xds.to_zarr(
-                        store=os.path.join(file_name, "PHASE_CAL"), mode=mode
+                        store=os.path.join(file_name, "phase_calibration_xds"), mode=mode
                     )
 
                 if weather_xds:
                     weather_xds.to_zarr(
-                        store=os.path.join(file_name, "WEATHER"), mode=mode
+                        store=os.path.join(file_name, "weather_xds"), mode=mode
                     )
 
             elif storage_backend == "netcdf":

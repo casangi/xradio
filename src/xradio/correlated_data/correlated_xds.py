@@ -25,10 +25,13 @@ class CorrelatedXds(xr.Dataset):
 
         # Remove field_and_source_xds from all correlated_data (VISIBILITY/SPECTRUM) data variables
         # and save them as separate zarr files.
+        print("**********", self.attrs["data_groups"])
         for data_group_name, data_group in self.attrs["data_groups"].items():
             del copy_cor_xds[data_group["correlated_data"]].attrs[
                 "field_and_source_xds"
             ]
+
+            print("data_group_name", data_group_name)
             xr.Dataset.to_zarr(
                 self[data_group["correlated_data"]].attrs["field_and_source_xds"],
                 os.path.join(store, "field_and_source_xds_" + data_group_name),

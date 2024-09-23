@@ -44,7 +44,7 @@ def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_sch
     download(file=msv2_name, folder=folder)
     ps_name = folder / (msv2_name[:-3] + ".ps")
     if os.path.isdir(ps_name):
-        os.system("rm -rf " + str(ps_name))  # Remove vis.zarr folder.
+        os.system("rm -rf " + str(ps_name))  # Remove ps folder.
     convert_msv2_to_processing_set(
         in_file=str(folder / msv2_name),
         out_file=ps_name,
@@ -100,6 +100,9 @@ def base_test(
 
         sel_parms = {key: {} for key in ps_lazy.keys()}
         ps = load_processing_set(str(ps_copy_name), sel_parms=sel_parms)
+
+        if os.path.isdir(ps_copy_name):
+            os.system("rm -rf " + str(ps_copy_name))  # Remove ps copy folder.
 
         ps_lazy_df = ps_lazy.summary()
         ps_df = ps.summary()
@@ -347,9 +350,9 @@ if __name__ == "__main__":
     # test_sd_A002_Xe3a5fd_Xe38e(tmp_path=Path("."))
     # test_s3(tmp_path=Path("."))
     # test_vlass(tmp_path=Path("."))
-    test_alma(tmp_path=Path("."))
+    # test_alma(tmp_path=Path("."))
     # test_preconverted_alma(tmp_path=Path("."))
-    # test_ska_mid(tmp_path=Path("."))
+    test_ska_mid(tmp_path=Path("."))
     # test_lofar(tmp_path=Path("."))
     # test_meerkat(tmp_path=Path("."))
     # test_global_vlbi(tmp_path=Path("."))

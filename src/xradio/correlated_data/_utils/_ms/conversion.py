@@ -482,7 +482,6 @@ def create_coordinates(
     }
     xds.frequency.attrs["spectral_window_id"] = spectral_window_id
 
-    # xds.frequency.attrs["effective_channel_width"] = "EFFECTIVE_CHANNEL_WIDTH"
     # Add if doppler table is present
     # xds.frequency.attrs["doppler_velocity"] =
     # xds.frequency.attrs["doppler_type"] =
@@ -630,7 +629,7 @@ def add_missing_data_var_attrs(xds):
     data_var_names = ["SPECTRUM", "SPECTRUM_CORRECTED"]
     for var_name in data_var_names:
         if var_name in xds.data_vars:
-            xds.data_vars[var_name].attrs["units"] = ["Jy"]
+            xds.data_vars[var_name].attrs["units"] = [""]
 
     return xds
 
@@ -800,7 +799,7 @@ def convert_and_write_partition(
                 attrs={
                     "creation_date": datetime.datetime.utcnow().isoformat(),
                     "xradio_version": importlib.metadata.version("xradio"),
-                    "schema_version": "4.0.-9998",
+                    "schema_version": "4.0.-9997",
                     "type": "visibility",
                 }
             )
@@ -848,7 +847,7 @@ def convert_and_write_partition(
             # Add data_groups
             xds, is_single_dish = add_data_groups(xds)
             if is_single_dish:
-                xds.attrs["type"] = "single dish"
+                xds.attrs["type"] = "spectrum"
 
             xds = add_missing_data_var_attrs(xds)
 

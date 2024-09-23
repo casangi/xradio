@@ -94,9 +94,9 @@ def base_test(
 
         print(f"Opening Processing Set, {ps_name}")
         ps_lazy = open_processing_set(str(ps_name))
-        
+
         ps_copy_name = str(ps_name) + "_copy"
-        ps_lazy.to_store(ps_copy_name) #Test writing yo disk.
+        ps_lazy.to_store(ps_copy_name)  # Test writing yo disk.
 
         sel_parms = {key: {} for key in ps_lazy.keys()}
         ps = load_processing_set(str(ps_copy_name), sel_parms=sel_parms)

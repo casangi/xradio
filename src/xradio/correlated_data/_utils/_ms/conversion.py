@@ -1060,7 +1060,8 @@ def convert_and_write_partition(
 
                 if system_calibration_xds:
                     system_calibration_xds.to_zarr(
-                        store=os.path.join(file_name, "system_calibration_xds"), mode=mode
+                        store=os.path.join(file_name, "system_calibration_xds"),
+                        mode=mode,
                     )
 
                 if gain_curve_xds:
@@ -1070,7 +1071,8 @@ def convert_and_write_partition(
 
                 if phase_calibration_xds:
                     phase_calibration_xds.to_zarr(
-                        store=os.path.join(file_name, "phase_calibration_xds"), mode=mode
+                        store=os.path.join(file_name, "phase_calibration_xds"),
+                        mode=mode,
                     )
 
                 if weather_xds:

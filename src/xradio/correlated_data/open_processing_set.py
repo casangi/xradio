@@ -66,7 +66,7 @@ def open_processing_set(
 def _open_sub_xds(ms_store, file_system, data_groups, load=False):
     sub_xds_dict = {}
     field_and_source_xds_dict = {}
-    
+
     if isinstance(file_system, s3fs.core.S3FileSystem):
         file_names = [
             bd.split(sep="/")[-1] for bd in file_system.listdir(ms_store, detail=False)

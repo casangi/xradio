@@ -13,7 +13,7 @@ from xradio.correlated_data._utils._ms._tables.read import (
     make_taql_where_between_min_max,
     load_generic_table,
 )
-from xradio._utils.common import cast_to_str, convert_to_si_units, add_position_offsets
+from xradio._utils.common import add_position_offsets, cast_to_str, convert_to_si_units
 from xradio._utils.list_and_array import (
     check_if_consistent,
     unique_1d,
@@ -460,6 +460,65 @@ def make_line_dims_and_coords(
     return line_dims, line_coords
 
 
+def pad_missing_sources(
+    source_xds: xr.Dataset, unique_source_ids: np.array
+) -> xr.Dataset:
+    """
+    In some MSs there can be source IDs referenced from the field subtable which do not exist in
+    the source table: https://github.com/casangi/xradio/issues/266
+
+    This addresses the issue by padding/filling those IDs with "Unknown"/nan values. Produces a
+    source_xds that, in addition to the information loaded for the non-missing source IDs, has
+    padding for the IDs that are missing from the input MSv2 source table.
+    This function does not need to do anything when unique_source_ids is a single value
+    (partitioning by "FIELD_ID" or othwerwise single field/source)
+
+    Parameters:
+    ----------
+    xds: xr.Dataset
+        source dataset to fix/pad missing sources
+    unique_source_ids: np.array
+        IDs of the sources included in this partition
+
+    Returns:
+    -------
+    filled_source_xds : xr.Dataset
+        source dataset with padding in the originally missing sources
+    """
+
+    # Only fill gaps in multi-source xdss. If single source_id, no need to
+    if len(unique_source_ids) <= 1:
+        return source_xds
+
+    missing_source_ids = [
+        source_id
+        for source_id in unique_source_ids
+        if source_id not in source_xds.coords["SOURCE_ID"]
+    ]
+
+    # would like to use the new-ish xr.pad, but it creates issues with indices/coords and is
+    # also not free of overheads, as it for example changes all numeric types to float64
+    missing_source_xds = xr.full_like(source_xds.isel(SOURCE_ID=0), fill_value=np.nan)
+    pad_str = "Unknown"
+    pad_str_type = "<U9"
+    for var in missing_source_xds.data_vars:
+        if np.issubdtype(missing_source_xds.data_vars[var].dtype, np.str_):
+            # Avoid truncation to length of previously loaded strings
+            missing_source_xds[var] = missing_source_xds[var].astype(
+                np.dtype(pad_str_type)
+            )
+            missing_source_xds[var] = pad_str
+
+    concat_dim = "SOURCE_ID"
+    xdss_to_concat = [source_xds]
+    for missing_id in missing_source_ids:
+        missing_source_xds[concat_dim] = missing_id
+        xdss_to_concat.append(missing_source_xds)
+    filled_source_xds = xr.concat(xdss_to_concat, concat_dim).sortby(concat_dim)
+
+    return filled_source_xds
+
+
 def extract_source_info(
     xds: xr.Dataset,
     path: str,
@@ -541,6 +600,8 @@ def extract_source_info(
     source_column_description = source_xds.attrs["other"]["msv2"]["ctds_attrs"][
         "column_descriptions"
     ]
+
+    source_xds = pad_missing_sources(source_xds, unique_source_id)
 
     # Get source name (the time axis is optional and will probably be required if the partition scheme does not include 'FIELD_ID' or 'SOURCE_ID'.).
     # Note again that this optional time axis has nothing to do with the original time axis in the source table that we drop.

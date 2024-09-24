@@ -352,8 +352,8 @@ def prepare_generic_sys_cal_xds(generic_sys_cal_xds: xr.Dataset) -> xr.Dataset:
     This function performs various prepareation steps, such as:
     - filter out dimensions not neeed for an individual MSv4 (SPW, FEED),
     - drop variables loaded from columns with all items set to empty array,
-    - transpose the dimensions frequency,receptor,
-    - fix dimension names when needed.
+    - transpose the dimensions frequency,receptor
+    - fix dimension names (and order) when needed.
 
     Parameters
     ----------
@@ -390,10 +390,29 @@ def prepare_generic_sys_cal_xds(generic_sys_cal_xds: xr.Dataset) -> xr.Dataset:
         generic_sys_cal_xds = generic_sys_cal_xds.transpose(
             "ANTENNA_ID", "TIME", "receptor", "frequency"
         )
-    else:
+    elif (
+        "frequency" in generic_sys_cal_xds.sizes
+        and not "dim_3" in generic_sys_cal_xds.sizes
+    ):
         # because order is (...,frequency,receptor), when frequency is missing
         # receptor can get wrongly labeled as frequency
         generic_sys_cal_xds = generic_sys_cal_xds.rename_dims({"frequency": "receptor"})
+    elif (
+        "frequency" not in generic_sys_cal_xds.sizes
+        and "receptor" in generic_sys_cal_xds.sizes
+        and "dim_3" in generic_sys_cal_xds.sizes
+    ):
+        # different *_SPECTRUM array sizes + some empty arrays can create an additional spurious
+        # generic dimension, which should have been "receptor"
+        generic_sys_cal_xds = generic_sys_cal_xds.rename_dims({"receptor": "frequency"})
+        generic_sys_cal_xds = generic_sys_cal_xds.rename_dims({"dim_3": "receptor"})
+        generic_sys_cal_xds = generic_sys_cal_xds.transpose(
+            "ANTENNA_ID", "TIME", "receptor", "frequency"
+        )
+    else:
+        raise RuntimeError(
+            "Cannot understand the arrangement of dimensions of {generic_sys_cal_xds=}"
+        )
 
     return generic_sys_cal_xds
 

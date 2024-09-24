@@ -19,10 +19,12 @@ jobs:
         os: ["macos-latest"]
         python-version: ["3.9", "3.10", "3.11", "3.12"]
     steps:
+      - uses: actions/checkout@v4
+      
       - name: Setup Conda
         uses: conda-incubator/setup-miniconda@v3
         with:
-          miniconda-version: "latest"
+          miniforge-version: "latest"
           auto-activate-base: false
           activate-environment: vipertest
           auto-update-conda: true
@@ -30,8 +32,6 @@ jobs:
           channels: conda-forge
           
       - run: conda install python-casacore
-      
-      - uses: actions/checkout@v4
       
       - name: Install dependencies with pip
         run: |

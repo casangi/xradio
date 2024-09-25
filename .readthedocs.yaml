@@ -12,9 +12,9 @@ build:
 
 python:
   install:
-    - requirements: doc/sphinx.txt
+    - requirements: docs/sphinx.txt
 
 # Configuration for Sphinx documentation
 sphinx:
-   configuration: doc/source/conf.py
+   configuration: docs/source/conf.py
    fail_on_warning: False

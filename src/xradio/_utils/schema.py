@@ -93,7 +93,7 @@ def convert_generic_xds_to_xradio_schema(
 
 
 def column_description_casacore_to_msv4_measure(
-    casacore_column_description, ref_code=None, time_format="UNIX"
+    casacore_column_description, ref_code=None, time_format="unix"
 ):
     import numpy as np
 
@@ -158,7 +158,7 @@ casacore_to_msv4_measure_type = {
     "quanta": {
         "type": "quantity",
     },
-    "direction": {"type": "sky_coord", "Ref": "frame", "Ref_map": {"J2000": "fk5"}},
+    "direction": {"type": "sky_coord", "Ref": "frame", "Ref_map": {"J2000": "FK5"}},
     "epoch": {"type": "time", "Ref": "scale", "Ref_map": {"UTC": "utc"}},
     "frequency": {
         "type": "spectral_coord",
@@ -177,8 +177,8 @@ casacore_to_msv4_measure_type = {
         },
     },
     "position": {
-        "type": "earth_location",
-        "Ref": "ellipsoid",
+        "type": "location",
+        "Ref": "frame",
         "Ref_map": {"ITRF": "GRS80"},
     },
     "uvw": {"type": "uvw", "Ref": "frame", "Ref_map": {"ITRF": "GRS80"}},

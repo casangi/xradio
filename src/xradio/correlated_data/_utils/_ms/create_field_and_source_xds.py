@@ -169,7 +169,12 @@ def extract_ephemeris_info(
     ), "Only geocentric observer ephemeris are supported."
 
     if "posrefsys" in ephemeris_meta:
-        sky_coord_frame = ephemeris_meta["posrefsys"].replace("ICRF/", "")
+        # Note the phase center can be given as "J2000" or "J2000.0"
+        sky_coord_frame = (
+            ephemeris_meta["posrefsys"]
+            .replace("ICRF/", "", 1)
+            .replace("J200.0", "J2000", 1)
+        )
     else:
         sky_coord_frame = "ICRS"  # We will have to just assume this.
 

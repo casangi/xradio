@@ -923,7 +923,10 @@ def convert_and_write_partition(
             logger.debug("Time phase_calibration xds  " + str(time.time() - start))
 
             # Change antenna_ids to antenna_names
-            xds = antenna_ids_to_names(xds, ant_xds, is_single_dish)
+            with_antenna_partitioning = "ANTENNA1" in partition_info
+            xds = antenna_ids_to_names(
+                xds, ant_xds, is_single_dish, with_antenna_partitioning
+            )
             # but before, keep the name-id arrays, we need them for the pointing and weather xds
             ant_xds_name_ids = ant_xds["antenna_name"].set_xindex("antenna_id")
             ant_xds_station_name_ids = ant_xds["station"].set_xindex("antenna_id")
@@ -1093,8 +1096,31 @@ def convert_and_write_partition(
 
 
 def antenna_ids_to_names(
-    xds: xr.Dataset, ant_xds: xr.Dataset, is_single_dish: bool
+    xds: xr.Dataset,
+    ant_xds: xr.Dataset,
+    is_single_dish: bool,
+    with_antenna_partitioning,
 ) -> xr.Dataset:
+    """
+    Turns the antenna_ids that we get from MSv2 into MSv4 antenna_name
+
+    Parameters
+    ----------
+    xds: xr.Dataset
+        A main xds (MSv4)
+    ant_xds: xr.Dataset
+        The antenna_xds for this MSv4
+    is_single_dish: bool
+        Whether a single-dish ("spectrum" data) dataset
+    with_antenna_partitioning: bool
+        Whether the MSv4 partitions include the antenna axis => only
+        one antenna (and implicitly one 'baseline' - auto-correlation)
+
+    Returns
+    ----------
+    xr.Dataset
+        The main xds with antenna_id replaced with antenna_name
+    """
     ant_xds = ant_xds.set_xindex(
         "antenna_id"
     )  # Allows for non-dimension coordinate selection.
@@ -1113,7 +1139,13 @@ def antenna_ids_to_names(
             }
         )
     else:
-        xds["baseline_id"] = ant_xds["antenna_name"].sel(antenna_id=xds["baseline_id"])
+        if not with_antenna_partitioning:
+            xds["baseline_id"] = ant_xds["antenna_name"].sel(
+                antenna_id=xds["baseline_id"]
+            )
+        else:
+            xds["baseline_id"] = ant_xds["antenna_name"]
+
         unwanted_coords_from_ant_xds = [
             "antenna_id",
             "antenna_name",

@@ -623,13 +623,27 @@ def create_data_variables(
 
 
 def add_missing_data_var_attrs(xds):
-    """Adds in attributes expected metadata that cannot be found
-    in the input MSv2. For now specifically for missing
-    single-dish/SPECTRUM metadata"""
+    """
+    Adds in the xds attributes expected metadata that cannot be found in the input MSv2.
+    For now:
+    - missing single-dish/SPECTRUM metadata
+    - missing interferometry/VISIBILITY_MODEL metadata
+    """
     data_var_names = ["SPECTRUM", "SPECTRUM_CORRECTED"]
     for var_name in data_var_names:
         if var_name in xds.data_vars:
             xds.data_vars[var_name].attrs["units"] = [""]
+
+    vis_var_names = ["VISIBILITY_MODEL"]
+    for var_name in vis_var_names:
+        if var_name in xds.data_vars and "units" not in xds.data_vars[var_name].attrs:
+            # Assume MODEL uses the same units
+            if "VISIBILITY" in xds.data_vars:
+                xds.data_vars[var_name].attrs["units"] = xds.data_vars[
+                    "VISIBILITY"
+                ].attrs["units"]
+            else:
+                xds.data_vars[var_name].attrs["units"] = [""]
 
     return xds
 

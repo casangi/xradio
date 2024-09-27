@@ -233,7 +233,7 @@ class ArraySchemaTableDirective(SchemaTableDirective):
 
         # Add dataarray reference as first element
         self._add_row(
-            "",
+            "data",
             schema.dimensions,
             schema.dtypes,
             schema.schema_name,
@@ -274,14 +274,6 @@ class DatasetSchemaTableDirective(SchemaTableDirective):
     def _add_table_contents(self, klass):
         # Extract schema
         schema = xarray_dataclass_to_dataset_schema(klass)
-
-        # Add dataarray reference as first element
-        self._add_row(
-            "",
-            schema.dimensions,
-            [],
-            schema.schema_name,
-        )
 
         # Add coordinates
         if schema.coordinates:

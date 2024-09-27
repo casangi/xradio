@@ -106,6 +106,9 @@ def base_test(
 
         ps_lazy_df = ps_lazy.summary()
         ps_df = ps.summary()
+        
+        ps.get_combined_field_and_source_xds()
+        ps.get_combined_antenna_xds()
 
         sum = 0.0
         sum_lazy = 0.0

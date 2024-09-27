@@ -12,7 +12,7 @@ import astropy.units
 from casacore import tables
 
 from .table_query import open_query, open_table_ro
-from ....._utils.common import get_pad_value
+from xradio._utils.list_and_array import get_pad_value
 
 CASACORE_TO_PD_TIME_CORRECTION = 3_506_716_800.0
 SECS_IN_DAY = 86400

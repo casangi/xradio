@@ -13,7 +13,9 @@ from xradio.correlated_data._utils._ms._tables.read import (
     make_taql_where_between_min_max,
     load_generic_table,
 )
-from xradio._utils.common import cast_to_str, convert_to_si_units, add_position_offsets
+from xradio._utils.list_and_array import cast_to_str
+from xradio._utils.coord_math import convert_to_si_units, add_position_offsets
+
 from xradio._utils.list_and_array import (
     check_if_consistent,
     unique_1d,
@@ -23,7 +25,6 @@ from xradio._utils.schema import (
     column_description_casacore_to_msv4_measure,
     convert_generic_xds_to_xradio_schema,
 )
-
 
 def create_field_and_source_xds(
     in_file: str,

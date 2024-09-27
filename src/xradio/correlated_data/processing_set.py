@@ -1,6 +1,9 @@
 import pandas as pd
 from xradio._utils.list_and_array import to_list
 import numbers
+import numpy as np
+import toolviper.utils.logger as logger
+import xarray as xr
 
 
 class ProcessingSet(dict):
@@ -79,11 +82,8 @@ class ProcessingSet(dict):
             "polarization": [],
             "scan_number": [],
             "spw_name": [],
-            # "field_id": [],
             "field_name": [],
-            # "source_id": [],
             "source_name": [],
-            # "num_lines": [],
             "line_name": [],
             "field_coords": [],
             "start_frequency": [],
@@ -112,9 +112,6 @@ class ProcessingSet(dict):
 
             summary_data["shape"].append(value[data_name].shape)
 
-            # summary_data["field_id"].append(value.attrs["partition_info"]["field_id"])
-            # summary_data["source_id"].append(value.attrs["partition_info"]["source_id"])
-
             summary_data["field_name"].append(
                 value.attrs["partition_info"]["field_name"]
             )
@@ -124,7 +121,6 @@ class ProcessingSet(dict):
 
             summary_data["line_name"].append(value.attrs["partition_info"]["line_name"])
 
-            # summary_data["num_lines"].append(value.attrs["partition_info"]["num_lines"])
             summary_data["start_frequency"].append(
                 to_list(value["frequency"].values)[0]
             )
@@ -164,29 +160,28 @@ class ProcessingSet(dict):
         return summary_df
 
     def _get_ps_freq_axis(self):
-        import xarray as xr
 
         spw_ids = []
         freq_axis_list = []
         frame = self.get(0).frequency.attrs["frame"]
-        for ms_xds in self.values():
+        for cor_xds in self.values():
             assert (
-                frame == ms_xds.frequency.attrs["frame"]
+                frame == cor_xds.frequency.attrs["frame"]
             ), "Frequency reference frame not consistent in Processing Set."
-            if ms_xds.frequency.attrs["spectral_window_id"] not in spw_ids:
-                spw_ids.append(ms_xds.frequency.attrs["spectral_window_id"])
-                freq_axis_list.append(ms_xds.frequency)
+            if cor_xds.frequency.attrs["spectral_window_id"] not in spw_ids:
+                spw_ids.append(cor_xds.frequency.attrs["spectral_window_id"])
+                freq_axis_list.append(cor_xds.frequency)
 
         freq_axis = xr.concat(freq_axis_list, dim="frequency").sortby("frequency")
         return freq_axis
 
     def _get_ps_max_dims(self):
         max_dims = None
-        for ms_xds in self.values():
+        for cor_xds in self.values():
             if max_dims is None:
-                max_dims = dict(ms_xds.sizes)
+                max_dims = dict(cor_xds.sizes)
             else:
-                for dim_name, size in ms_xds.sizes.items():
+                for dim_name, size in cor_xds.sizes.items():
                     if dim_name in max_dims:
                         if max_dims[dim_name] < size:
                             max_dims[dim_name] = size
@@ -218,16 +213,6 @@ class ProcessingSet(dict):
             processing_set: The subset of the Processing Set.
         """
         import numpy as np
-
-        # def select_rows(df, col, input_strings):
-        #     return df[df[col].apply(lambda x: any(i in x for i in input_strings))]
-
-        # def select_rows(df, col, sel, string_exact_match):
-        #     def check_selection(row_val):
-        #         if isinstance(row_val, numbers.Number) or string_exact_match:
-        #             return any(i == row_val for i in sel) #If values are numbers
-        #         return any(i in row_val for i in sel) #If values are strings
-        #     return df[df[col].apply(check_selection)]
 
         def select_rows(df, col, sel_vals, string_exact_match):
             def check_selection(row_val):
@@ -307,7 +292,7 @@ class ProcessingSet(dict):
 
         Args:
             store (str): The path to the Zarr store.
-            **kwargs: Additional keyword arguments to be passed to `xarray.Dataset.to_zarr`.
+            **kwargs: Additional keyword arguments to be passed to `xarray.Dataset.to_zarr`. See https://docs.xarray.dev/en/latest/generated/xarray.Dataset.to_zarr.html for more information.
 
         Returns:
             None
@@ -316,3 +301,196 @@ class ProcessingSet(dict):
 
         for key, value in self.items():
             value.to_store(os.path.join(store, key), **kwargs)
+            
+            
+    def get_combined_field_and_source_xds(self, data_group="base"):
+        """
+        Returns an xarray.Dataset combining the field_and_source_xds of all cor_xds's in a Processing Set for a given data_group. 
+        The combined xarray.Dataset will have a new dimension 'correlated_xds_name' which will be the name of the cor_xds.
+        
+        Returns:
+            list: A list containing the phase center coordinates.
+        """
+        
+        df = self.summary(data_group)
+    
+        # if "Ephemeris" in list(df['field_coords']):
+        #     logger.warning("Cannot combine ephemeris field_and_source_xds yet.")
+        #     return None
+        
+        combined_field_and_source_xds = xr.Dataset()
+        combined_ephemeris_field_and_source_xds = xr.Dataset()
+        for cor_name, cor_xds in self.items():
+            correlated_data_name = cor_xds.attrs["data_groups"][data_group]["correlated_data"]
+            field_and_source_xds = cor_xds[correlated_data_name].attrs["field_and_source_xds"].copy(deep=True)
+            
+            if "time" in field_and_source_xds.coords:
+                if "time" not in field_and_source_xds.field_name.dims:
+                    field_names = np.array([field_and_source_xds.field_name.values.item()]*len(field_and_source_xds.time.values))
+                    source_names = np.array([field_and_source_xds.source_name.values.item()]*len(field_and_source_xds.time.values))
+                    del field_and_source_xds["field_name"]
+                    del field_and_source_xds["source_name"]
+                    field_and_source_xds = field_and_source_xds.assign_coords(field_name = ("time", field_names))
+                    field_and_source_xds = field_and_source_xds.assign_coords(source_name = ("time", source_names))
+                field_and_source_xds = field_and_source_xds.swap_dims({"time":"field_name"})
+                del field_and_source_xds["time"]
+            elif "time_ephemeris" in field_and_source_xds.coords:
+                if "time_ephemeris" not in field_and_source_xds.field_name.dims:
+                    field_names = np.array([field_and_source_xds.field_name.values.item()]*len(field_and_source_xds.time.values))
+                    source_names = np.array([field_and_source_xds.source_name.values.item()]*len(field_and_source_xds.time.values))
+                    del field_and_source_xds["field_name"]
+                    del field_and_source_xds["source_name"]
+                    field_and_source_xds = field_and_source_xds.assign_coords(field_name = ("time_ephemeris", field_names))
+                    field_and_source_xds = field_and_source_xds.assign_coords(source_name = ("time_ephemeris", source_names))
+                field_and_source_xds = field_and_source_xds.swap_dims({"time_ephemeris":"field_name"})
+                del field_and_source_xds["time_ephemeris"]
+            else:
+                for dv_names in field_and_source_xds.data_vars:
+                    if "field_name" not in field_and_source_xds[dv_names].dims:
+                        field_and_source_xds[dv_names] = field_and_source_xds[dv_names].expand_dims("field_name")
+      
+            field_and_source_xds = field_and_source_xds.drop_duplicates("field_name")
+            
+            if field_and_source_xds.is_ephemeris:
+                if len(combined_ephemeris_field_and_source_xds.data_vars) == 0:
+                    combined_ephemeris_field_and_source_xds= field_and_source_xds
+                else:
+                    combined_ephemeris_field_and_source_xds = xr.concat([combined_ephemeris_field_and_source_xds, field_and_source_xds], dim="field_name")
+            else:
+                if len(combined_field_and_source_xds.data_vars) == 0:
+                    combined_field_and_source_xds = field_and_source_xds
+                else:
+                    combined_field_and_source_xds = xr.concat([combined_field_and_source_xds, field_and_source_xds], dim="field_name")
+
+
+
+        if len(combined_field_and_source_xds.data_vars) > 0:
+            combined_field_and_source_xds = combined_field_and_source_xds.drop_duplicates("field_name")
+            
+            combined_field_and_source_xds["MEAN_PHASE_CENTER"] = combined_field_and_source_xds["FIELD_PHASE_CENTER"].mean(dim=["field_name"])
+            
+            ra1 = combined_field_and_source_xds["FIELD_PHASE_CENTER"].sel(sky_dir_label='ra').values
+            dec1 = combined_field_and_source_xds["FIELD_PHASE_CENTER"].sel(sky_dir_label='dec').values
+            ra2 = combined_field_and_source_xds["MEAN_PHASE_CENTER"].sel(sky_dir_label='ra').values
+            dec2 = combined_field_and_source_xds["MEAN_PHASE_CENTER"].sel(sky_dir_label='dec').values
+            
+            from xradio._utils.coord_math import haversine
+            distance = haversine(ra1, dec1, ra2, dec2)
+            min_index = distance.argmin()
+
+            combined_field_and_source_xds.attrs['center_field_name'] = combined_field_and_source_xds.field_name[min_index].values
+        
+        if len(combined_ephemeris_field_and_source_xds.data_vars) > 0:
+            combined_ephemeris_field_and_source_xds = combined_ephemeris_field_and_source_xds.drop_duplicates("field_name")
+            
+            from xradio._utils.coord_math import  wrap_to_pi
+            offset = combined_ephemeris_field_and_source_xds["FIELD_PHASE_CENTER"]-combined_ephemeris_field_and_source_xds["SOURCE_LOCATION"]
+            combined_ephemeris_field_and_source_xds["FIELD_OFFSET"] = xr.DataArray(wrap_to_pi(offset.sel(sky_pos_label=['ra','dec'])).values,dims=["field_name","sky_dir_label"])
+            combined_ephemeris_field_and_source_xds["FIELD_OFFSET"].attrs = combined_ephemeris_field_and_source_xds["FIELD_PHASE_CENTER"].attrs
+            combined_ephemeris_field_and_source_xds["FIELD_OFFSET"].attrs["units"] = combined_ephemeris_field_and_source_xds["FIELD_OFFSET"].attrs["units"][:2]
+
+            ra1 = combined_ephemeris_field_and_source_xds["FIELD_OFFSET"].sel(sky_dir_label='ra').values
+            dec1 = combined_ephemeris_field_and_source_xds["FIELD_OFFSET"].sel(sky_dir_label='dec').values
+            ra2 = 0.0
+            dec2 = 0.0
+            
+            from xradio._utils.coord_math import haversine
+            distance = haversine(ra1, dec1, ra2, dec2)
+            min_index = distance.argmin()
+
+            combined_ephemeris_field_and_source_xds.attrs['center_field_name'] = combined_ephemeris_field_and_source_xds.field_name[min_index].values
+
+            
+        
+        return combined_field_and_source_xds, combined_ephemeris_field_and_source_xds
+
+    def plot_phase_centers(self, label_all_fields=False, data_group='base'):
+        """
+        Used for Mosaics. Plots the phase center locations of all fields in the Processing Set.
+
+        Parameters
+        ----------
+        data_group : _type_
+            _description_
+        """
+        combined_field_and_source_xds, combined_ephemeris_field_and_source_xds = self.get_combined_field_and_source_xds(data_group)
+        from matplotlib import pyplot as plt
+        
+        if len(combined_field_and_source_xds.data_vars) > 0:
+            plt.figure()
+            plt.title('Field Phase Center Locations')
+            plt.scatter(combined_field_and_source_xds["FIELD_PHASE_CENTER"].sel(sky_dir_label='ra'), combined_field_and_source_xds["FIELD_PHASE_CENTER"].sel(sky_dir_label='dec'))
+            
+            center_field_name = combined_field_and_source_xds.attrs['center_field_name']
+            center_field = combined_field_and_source_xds.sel(field_name=center_field_name)
+            plt.scatter(center_field["FIELD_PHASE_CENTER"].sel(sky_dir_label='ra'), center_field["FIELD_PHASE_CENTER"].sel(sky_dir_label='dec'), color='red',label=center_field_name)
+            plt.xlabel('RA (rad)')
+            plt.ylabel('DEC (rad)')
+            plt.legend()
+            plt.show()
+        
+        if len(combined_ephemeris_field_and_source_xds.data_vars) > 0:
+
+            plt.figure()
+            plt.title('Offset of Field Phase Center from Source Location (Ephemeris Data)')
+            plt.scatter(combined_ephemeris_field_and_source_xds['FIELD_OFFSET'].sel(sky_dir_label='ra'), combined_ephemeris_field_and_source_xds['FIELD_OFFSET'].sel(sky_dir_label='dec'))
+            
+            center_field_name = combined_ephemeris_field_and_source_xds.attrs['center_field_name']
+            center_field = combined_ephemeris_field_and_source_xds.sel(field_name=center_field_name)
+            plt.scatter(center_field["FIELD_OFFSET"].sel(sky_dir_label='ra'), center_field["FIELD_OFFSET"].sel(sky_dir_label='dec'), color='red',label=center_field_name)
+            plt.xlabel('RA Offset (rad)')
+            plt.ylabel('DEC Offset (rad)')
+            plt.legend()
+            plt.show()
+            
+    
+    def get_combined_antenna_xds(self):
+        """
+        
+        
+        """
+        combined_antenna_xds = xr.Dataset()
+        for cor_name, cor_xds in self.items():
+            antenna_xds = cor_xds.antenna_xds.copy(deep=True)
+            
+            if len(combined_antenna_xds.data_vars) == 0:
+                combined_antenna_xds = antenna_xds
+            else:
+                combined_antenna_xds = xr.concat([combined_antenna_xds, antenna_xds], dim="antenna_name", data_vars="minimal", coords="minimal")
+                
+        #ALMA WVR antenna_xds data has a NaN value for the antenna receptor angle. 
+        if "ANTENNA_RECEPTOR_ANGLE" in combined_antenna_xds.data_vars:
+            combined_antenna_xds = combined_antenna_xds.dropna("antenna_name")
+                
+        combined_antenna_xds = combined_antenna_xds.drop_duplicates("antenna_name")
+                
+        return combined_antenna_xds
+    
+    def plot_antenna_positions(self):
+        """
+        Plots the antenna positions of all antennas in the Processing Set.
+        """
+        combined_antenna_xds = self.get_combined_antenna_xds()
+        from matplotlib import pyplot as plt
+        
+        plt.figure()
+        plt.title('Antenna Positions')
+        plt.scatter(combined_antenna_xds["ANTENNA_POSITION"].sel(cartesian_pos_label='x'), combined_antenna_xds["ANTENNA_POSITION"].sel(cartesian_pos_label='y'))
+        plt.xlabel('x (m)')
+        plt.ylabel('y (m)')
+        plt.show()
+        
+        plt.figure()
+        plt.title('Antenna Positions')
+        plt.scatter(combined_antenna_xds["ANTENNA_POSITION"].sel(cartesian_pos_label='x'), combined_antenna_xds["ANTENNA_POSITION"].sel(cartesian_pos_label='z'))
+        plt.xlabel('x (m)')
+        plt.ylabel('z (m)')
+        plt.show()
+        
+        plt.figure()
+        plt.title('Antenna Positions')
+        plt.scatter(combined_antenna_xds["ANTENNA_POSITION"].sel(cartesian_pos_label='y'), combined_antenna_xds["ANTENNA_POSITION"].sel(cartesian_pos_label='z'))
+        plt.xlabel('y (m)')
+        plt.ylabel('z (m)')
+        plt.show()
+  

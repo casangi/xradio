@@ -6,7 +6,7 @@ from typing import Tuple, Union
 import numpy as np
 import xarray as xr
 
-from xradio._utils.common import convert_to_si_units
+from xradio._utils.coord_math import convert_to_si_units
 from xradio._utils.schema import (
     column_description_casacore_to_msv4_measure,
     convert_generic_xds_to_xradio_schema,

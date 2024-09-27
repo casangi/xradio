@@ -2,6 +2,53 @@
 
 import numpy as np
 import xarray as xr
+import pandas as pd
+
+def cast_to_str(x):
+    if isinstance(x, list):
+        return x[0]
+    else:
+        return x
+
+def get_pad_value(col_dtype: np.dtype) -> object:
+    """
+    Produce a padding/missing/nan value appropriate for a casacore data column
+    (for when we need to pad data vars coming from columns with rows of
+    variable size array values)
+
+    Parameters
+    ----------
+    col_dtype : dtype
+        dtype of data being loaded from a table column
+
+    Returns
+    -------
+    object
+        pad value ("missing" / "fill") for the type given
+    """
+    # Fill values for missing/NaN data in integer variables, based on usual
+    # numpy fill values. See https://github.com/numpy/numpy/issues/21166,
+    # https://github.com/casangi/xradio/issues/219, https://github.com/casangi/xradio/pull/177
+    fill_value_int32 = np.int32(-2147483648)
+    fill_value_int64 = np.int64(-9223372036854775808)
+
+    if col_dtype == np.int32:
+        return fill_value_int32
+    elif col_dtype == np.int64 or col_dtype == "int":
+        return fill_value_int64
+    elif np.issubdtype(col_dtype, np.floating):
+        return np.nan
+    elif np.issubdtype(col_dtype, np.complexfloating):
+        return complex(np.nan, np.nan)
+    elif np.issubdtype(col_dtype, np.bool_):
+        return False
+    elif np.issubdtype(col_dtype, str):
+        return ""
+    else:
+        raise RuntimeError(
+            "Padding / missing value not defined for the type requested: "
+            f"{col_dtype} (of type: {type(col_dtype)})"
+        )
 
 
 def to_list(x):
@@ -43,11 +90,6 @@ def check_if_consistent(array: np.ndarray, array_name: str) -> np.ndarray:
     array_unique = unique_1d(array)
     assert len(array_unique) == 1, array_name + " is not consistent."
     return array_unique[0]
-
-
-import numpy as np
-import pandas as pd
-
 
 def unique_1d(array: np.ndarray) -> np.ndarray:
     """

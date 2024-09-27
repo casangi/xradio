@@ -199,7 +199,8 @@ def extract_feed_info(
         rename_ids=subt_rename_ids["FEED"],
         taql_where=f" where (ANTENNA_ID IN [{','.join(map(str, ant_xds.antenna_id.values))}]) AND (FEED_ID IN [{','.join(map(str, feed_id))}])",
     )  # Some Lofar and MeerKAT data have the spw column set to -1 so we can't use '(SPECTRAL_WINDOW_ID = {spectral_window_id})'
-
+    
+    
     feed_spw = np.unique(generic_feed_xds.SPECTRAL_WINDOW_ID)
     if len(feed_spw) == 1 and feed_spw[0] == -1:
         generic_feed_xds = generic_feed_xds.isel(SPECTRAL_WINDOW_ID=0, drop=True)
@@ -210,7 +211,7 @@ def extract_feed_info(
             generic_feed_xds = generic_feed_xds.sel(
                 SPECTRAL_WINDOW_ID=spectral_window_id, drop=True
             )
-
+            
     assert len(generic_feed_xds.TIME) == len(
         antenna_id
     ), "Can only process feed table with a single time entry for an feed, antenna and spectral_window_id."

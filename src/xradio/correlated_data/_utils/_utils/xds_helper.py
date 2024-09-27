@@ -7,7 +7,7 @@ import xarray as xr
 
 from .cds import CASAVisSet
 from .stokes_types import stokes_types
-from ...._utils.common import get_pad_value
+from xradio._utils.list_and_array import get_pad_value
 
 
 def make_coords(

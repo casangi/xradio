@@ -32,7 +32,7 @@ class CorrelatedXds(xr.Dataset):
         Returns:
             None
         """
-        
+
         copy_cor_xds = self.copy()  # No deep copy
 
         # Remove field_and_source_xds from all correlated_data (VISIBILITY/SPECTRUM) data variables
@@ -42,10 +42,11 @@ class CorrelatedXds(xr.Dataset):
                 "field_and_source_xds"
             ]
 
-            print("data_group_name", data_group_name)
+            # print("data_group_name", data_group_name)
             xr.Dataset.to_zarr(
                 self[data_group["correlated_data"]].attrs["field_and_source_xds"],
-                os.path.join(store, "field_and_source_xds_" + data_group_name), **kwargs
+                os.path.join(store, "field_and_source_xds_" + data_group_name),
+                **kwargs,
             )
 
         # Remove xds attributes from copy_cor_xds and save xds attributes as separate zarr files.
@@ -58,7 +59,7 @@ class CorrelatedXds(xr.Dataset):
 
         # Save copy_cor_xds as zarr file.
         xr.Dataset.to_zarr(copy_cor_xds, os.path.join(store, "main_xds"), **kwargs)
-        
+
     def sel(self, data_group_name=None, **kwargs):
         """
         Select data along dimension(s) by label.
@@ -69,17 +70,21 @@ class CorrelatedXds(xr.Dataset):
         Returns:
             CorrelatedXds
         """
-        
+
         if data_group_name is not None:
-            sel_data_group_set = set(self.attrs['data_groups'][data_group_name].values())
-            
+            sel_data_group_set = set(
+                self.attrs["data_groups"][data_group_name].values()
+            )
+
             data_variables_to_drop = []
-            for dg in self.attrs['data_groups'].values():
+            for dg in self.attrs["data_groups"].values():
                 temp_set = set(dg.values()) - sel_data_group_set
                 data_variables_to_drop.extend(list(temp_set))
-                
+
             data_variables_to_drop = list(set(data_variables_to_drop))
-            
-            return CorrelatedXds(super().sel(**kwargs).drop_vars(data_variables_to_drop))
+
+            return CorrelatedXds(
+                super().sel(**kwargs).drop_vars(data_variables_to_drop)
+            )
         else:
             return CorrelatedXds(super().sel(**kwargs))

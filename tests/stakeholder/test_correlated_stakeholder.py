@@ -95,7 +95,11 @@ def base_test(
         print(f"Opening Processing Set, {ps_name}")
         ps_lazy = open_processing_set(str(ps_name))
 
-        ps_copy_name = str(ps_name) + "_copy"
+        if is_s3:
+            ps_copy_name = str(ps_name).split("/")[-1] + "_copy"
+        else:
+            ps_copy_name = str(ps_name) + "_copy"
+
         ps_lazy.to_store(ps_copy_name)  # Test writing yo disk.
 
         sel_parms = {key: {} for key in ps_lazy.keys()}
@@ -106,9 +110,10 @@ def base_test(
 
         ps_lazy_df = ps_lazy.summary()
         ps_df = ps.summary()
-        
+
         ps.get_combined_field_and_source_xds()
         ps.get_combined_antenna_xds()
+        ps.get_combined_field_and_source_xds()
 
         sum = 0.0
         sum_lazy = 0.0
@@ -160,7 +165,7 @@ def test_s3(tmp_path):
     # probably is because the schema, the converter or the schema cheker have
     # changed since the dataset was uploaded.
     base_test(
-        "s3://viper-test-data/Antennae_North.cal.lsrk.split.py39.v2.vis.zarr",
+        "s3://viper-test-data/Antennae_North.cal.lsrk.split.py39.v4.vis.zarr",
         tmp_path,
         190.0405216217041,
         is_s3=True,
@@ -354,8 +359,8 @@ if __name__ == "__main__":
     # test_s3(tmp_path=Path("."))
     # test_vlass(tmp_path=Path("."))
     # test_alma(tmp_path=Path("."))
-    # test_preconverted_alma(tmp_path=Path("."))
-    test_ska_mid(tmp_path=Path("."))
+    test_preconverted_alma(tmp_path=Path("."))
+    # test_ska_mid(tmp_path=Path("."))
     # test_lofar(tmp_path=Path("."))
     # test_meerkat(tmp_path=Path("."))
     # test_global_vlbi(tmp_path=Path("."))

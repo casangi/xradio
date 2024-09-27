@@ -897,14 +897,15 @@ def convert_and_write_partition(
                 feed_id,
                 telescope_name,
             )
-            
-            #Needed for ALMA WVR data (has no feed info)
-            if "polarization_type" not in ant_xds:
-                pols = [list(xds.polarization.values[0])]*len(ant_xds.antenna_name)
-                ant_xds = ant_xds.assign_coords(receptor_label = ['pol_0','pol_1'])
-                ant_xds = ant_xds.assign_coords(polarization_type = (['antenna_name','receptor_label'],pols))
 
-                
+            # Needed for ALMA WVR data (has no feed info)
+            if "polarization_type" not in ant_xds:
+                pols = [list(xds.polarization.values[0])] * len(ant_xds.antenna_name)
+                ant_xds = ant_xds.assign_coords(receptor_label=["pol_0", "pol_1"])
+                ant_xds = ant_xds.assign_coords(
+                    polarization_type=(["antenna_name", "receptor_label"], pols)
+                )
+
             logger.debug("Time antenna xds  " + str(time.time() - start))
 
             start = time.time()

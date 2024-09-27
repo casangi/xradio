@@ -4,11 +4,13 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 
+
 def cast_to_str(x):
     if isinstance(x, list):
         return x[0]
     else:
         return x
+
 
 def get_pad_value(col_dtype: np.dtype) -> object:
     """
@@ -90,6 +92,7 @@ def check_if_consistent(array: np.ndarray, array_name: str) -> np.ndarray:
     array_unique = unique_1d(array)
     assert len(array_unique) == 1, array_name + " is not consistent."
     return array_unique[0]
+
 
 def unique_1d(array: np.ndarray) -> np.ndarray:
     """

@@ -116,7 +116,7 @@ class SchemaTableDirective(ObjectDescription):
             else:
                 entry = nodes.entry()
                 for i, line in enumerate(lines):
-                    entry += nodes.line("", "" if i == 0 else "or ", line)
+                    entry += nodes.line("", "" if i == 0 else "or\xa0", line)
                 return entry
 
         row += mk_multi_entry(
@@ -130,13 +130,14 @@ class SchemaTableDirective(ObjectDescription):
         entry = nodes.entry()
         row += entry
         if meta is not None:
-            vl = StringList()
-            if isinstance(meta, str) and meta.startswith("`") and meta.endswith("`"):
-                vl.append(f"{meta}", "")
+            # Preformatted? Just pass through
+            if isinstance(meta, nodes.line):
+                entry += meta
             else:
+                vl = StringList()
                 vl.append(f":py:class:`~{meta}`", "")
-            with switch_source_input(self.state, vl):
-                self.state.nested_parse(vl, 0, entry)
+                with switch_source_input(self.state, vl):
+                    self.state.nested_parse(vl, 0, entry)
 
         # Add description
         entry = nodes.entry()
@@ -153,7 +154,32 @@ class SchemaTableDirective(ObjectDescription):
                 self.state.nested_parse(vl, 0, entry)
 
 
-def format_attr_model_text(attr) -> str:
+def format_literals(typ):
+
+    # a | b | c: Recurse and merge
+    if typing.get_origin(typ) == typing.Union:
+        type_args = typing.get_args(typ)
+        options = []
+        for arg in type_args:
+            options += format_literals(arg)
+        return options
+
+    # Literal['a', 'b', ...]: Wrap into individual "literal" nodes
+    if typing.get_origin(typ) == typing.Literal:
+        return list(map(lambda t: nodes.literal(text=repr(t)), typing.get_args(typ)))
+
+    # list[Literal['a'], Literal['b'], ...]: Format as one literal (compound) value
+    if typing.get_origin(typ) == list:
+        type_args = typing.get_args(typ)
+        if any([typing.get_origin(arg) != typing.Literal for arg in type_args]):
+            raise ValueError(f"List must contain only literals: {typ}")
+        values = [repr(typing.get_args(val)[0]) for val in typing.get_args(typ)]
+        return [nodes.literal(text=f"[{', '.join(values)}]")]
+
+    raise ValueError(f"Must be either a type or a literal: {typ}")
+
+
+def format_attr_model_text(state, attr) -> StringList:
     """
     Formats the text for the 'model' column in schema tables (arrays and datasets).
     Doesn't aim at supporting any literal types or combinations of types in general,
@@ -172,58 +198,42 @@ def format_attr_model_text(attr) -> str:
     recursive - keeping it flat for now.
     """
 
-    def nonliteral_types_text(attr):
-        """text to print for non-literal types"""
-        if getattr(attr.typ, "__name__", None) and getattr(
-            attr.typ, "__module__", None
-        ):
-            return f"{attr.typ.__module__}.{attr.typ.__name__}"
-        else:
-            return ""
+    # A type?
+    line = nodes.line()
+    if isinstance(attr.typ, type):
+        vl = StringList()
+        vl.append(f":py:class:`~{attr.typ.__module__}.{attr.typ.__name__}`", "")
+        with switch_source_input(state, vl):
+            state.nested_parse(vl, 0, line)
+        return line
 
-    if typing.get_origin(attr.typ) == typing.Literal:
-        # Literal, with possibly multiple alternatives (frames, etc.)
-        literal_values = [f'``"{val}"``' for val in typing.get_args(attr.typ)]
-        model_text = f"{' or '.join(map(str, literal_values))}"
-    elif typing.get_origin(attr.typ) == list:
-        # List of literals
-        type_args = typing.get_args(attr.typ)
-        if all([typing.get_origin(arg) == typing.Literal for arg in type_args]):
-            literal_values = [
-                f'"{value}"'
-                for literal in type_args
-                for value in typing.get_args(literal)
-            ]
-            model_text = f"``[{', '.join(map(str, literal_values))}]``"
-        else:
-            model_text = nonliteral_types_text(attr)
-    elif typing.get_origin(attr.typ) == typing.Union:
-        # Union of lists of literals
-        type_args = typing.get_args(attr.typ)
-        # if typing.get_origin(type_args[0]) == list:
-        if all([typing.get_origin(arg) == list for arg in type_args]):
-            # List of literals
-            first_item_type_args = typing.get_args(type_args[0])
-            if all(
-                [
-                    typing.get_origin(first_item_arg) == typing.Literal
-                    for first_item_arg in first_item_type_args
-                ]
-            ):
-                union_texts = []
-                for union_item_args in type_args:
-                    values = [
-                        f'"{typing.get_args(val)[0]}"'
-                        for val in typing.get_args(union_item_args)
-                    ]
-                    union_item_text = f"``[{', '.join(map(str, values))}]``"
-                    union_texts.append(union_item_text)
-                model_text = f"``{' or '.join(map(str, union_texts))}``"
+    # Derived type, e.g. list of types?
+    if typing.get_origin(attr.typ) == list and all(
+        [isinstance(arg, type) for arg in typing.get_args(attr.typ)]
+    ):
+        vl = StringList()
+        vl.append("[", "")
+        for i, arg in enumerate(typing.get_args(attr.typ)):
+            if i > 0:
+                vl.append(", ", "")
+            vl.append(f":py:class:`~{arg.__module__}.{arg.__name__}`", "")
+        vl.append("]", "")
+        with switch_source_input(state, vl):
+            state.nested_parse(vl, 0, line)
+        return line
 
-    else:
-        model_text = nonliteral_types_text(attr)
-
-    return model_text
+    # Assume it's a literal of some kind - collect options
+    literals = format_literals(attr.typ)
+    print(literals)
+    for i, lit in enumerate(literals):
+        if i > 0:
+            if i + 1 >= len(literals):
+                line += nodes.Text(" or\xa0")
+            else:
+                line += nodes.Text(", ")
+        line += lit
+    print(line)
+    return line
 
 
 class ArraySchemaTableDirective(SchemaTableDirective):
@@ -258,7 +268,7 @@ class ArraySchemaTableDirective(SchemaTableDirective):
         if schema.attributes:
             self._add_section("Attributes:")
             for attr in schema.attributes:
-                model_text = format_attr_model_text(attr)
+                model_text = format_attr_model_text(self.state, attr)
                 self._add_row(
                     attr.name,
                     [],
@@ -307,7 +317,7 @@ class DatasetSchemaTableDirective(SchemaTableDirective):
         if schema.attributes:
             self._add_section("Attributes:")
             for attr in schema.attributes:
-                model_text = format_attr_model_text(attr)
+                model_text = format_attr_model_text(self.state, attr)
                 self._add_row(
                     attr.name,
                     [],

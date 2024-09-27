@@ -1337,6 +1337,8 @@ class GainCurveXds:
      ”VOLTAGE(EL)” - Voltage as a function of elevation;
      ”VOLTAGE(ZA)” - Voltage as a function of zenith angle). See https://casacore.github.io/casacore-notes/265.pdf
     """
+    poly_term: Coord[PolyTerm, int]
+    """Term orders in gain curve polynomial"""
 
     GAIN_CURVE: Data[tuple[AntennaName, PolyTerm, ReceptorLabel], numpy.float64]
     """ Coeﬃcients of the polynomial that describes the (power or voltage) gain.  """
@@ -1455,6 +1457,14 @@ class WeatherXds:
     """ Mid-point of the time interval. Labeled 'time_cal' when not interpolated to main time axis """
     antenna_name: Optional[Coordof[AntennaNameArray]]
     """ Antenna identifier """
+    ellipsoid_pos_label: Optional[Coord[EllipsoidPosLabel, str]] = (
+        "lon",
+        "lat",
+        "height",
+    )
+    """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
+    cartesian_pos_label: Optional[Coord[CartesianPosLabel, str]] = ("x", "y", "z")
+    """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
 
     # Data variables (all optional)
     H2O: Optional[
@@ -1626,6 +1636,8 @@ class SystemCalibrationXds:
     # frequency: Optional[Coordof[FrequencyArray]] = None
     frequency: Optional[Coordof[FrequencyCalArray]] = None
     """  """
+    frequency_cal: Optional[Coord[FrequencyCal, int]] = None
+    """TODO: What is this?"""
 
     # Data variables (all optional)
     PHASE_DIFFERENCE: Optional[
@@ -1892,7 +1904,7 @@ class SpectrumXds:
     """
 
     # --- Optional Coordinates ---
-    polarization_mixed: Optional[Coord[tuple[BaselineId, Polarization], str]] = None
+    polarization_mixed: Optional[Coord[tuple[AntennaName, Polarization], str]] = None
     """
     If the polarizations are not constant over baseline
     """

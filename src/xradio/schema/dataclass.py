@@ -67,18 +67,60 @@ def extract_field_docstrings(klass):
     return docstrings
 
 
-def extract_xarray_dataclass(klass):
+def _check_invalid_dims(
+    dims: list[list[str]], all_coord_names: list[str], klass_name: str, field_name: str
+):
+    """
+    Check dimension possibilities for undefined coordinates
+    """
+
+    # Filter out dimension possibilities with undefined coordinates
+    valid_dims = [ds for ds in dims if set(ds).issubset(all_coord_names)]
+    # print(f"{klass_name}.{field_name}", valid_dims, dims, all_coord_names)
+
+    # Raise an exception if this makes the dimension set impossible
+    if dims and not valid_dims:
+        required_dims = sorted(map(lambda ds: set(ds) - all_coord_names, dims), key=len)
+        raise ValueError(
+            f"In '{klass_name}', field '{field_name}' has"
+            f" undefined coordinates, consider defining {required_dims}!"
+        )
+    return valid_dims
+
+
+def extract_xarray_dataclass(klass, allow_undefined_coords: bool = False):
     """
     Go through dataclass fields and interpret them according to xarray-dataclass
 
     Returns a tuple of coordinates, data variables and attributes
+
+    :param allow_undefined_coords: Allow data variables with dimensions
+      that do not have associated coordinates (e.g. for data arrays).
     """
 
     field_docstrings = extract_field_docstrings(klass)
 
+    # Collect type hints, identify coordinates
+    type_hints = get_type_hints(klass, include_extras=True)
+    if allow_undefined_coords:
+
+        def check_invalid_dims(dims, field_name):
+            return dims
+
+    else:
+        all_coord_names = {
+            field.name
+            for field in dataclasses.fields(klass)
+            if get_role(type_hints[field.name]) == Role.COORD
+        }
+
+        def check_invalid_dims(dims, field_name):
+            return _check_invalid_dims(
+                dims, all_coord_names, klass.__name__, field_name
+            )
+
     # Go through attributes, collecting coordinates, data variables and
     # attributes
-    type_hints = get_type_hints(klass, include_extras=True)
     coordinates = []
     data_vars = []
     attributes = []
@@ -122,6 +164,11 @@ def extract_xarray_dataclass(klass):
                 for f in dataclasses.fields(ArraySchema)
             }
 
+            # Check for undefined coordinates
+            arr_schema_fields["dimensions"] = check_invalid_dims(
+                arr_schema_fields["dimensions"], field.name
+            )
+
             # Repackage as reference
             schema_ref = ArraySchemaRef(
                 name=field.name,
@@ -152,7 +199,10 @@ def extract_xarray_dataclass(klass):
                     f.name: getattr(arr_schema, f.name)
                     for f in dataclasses.fields(ArraySchema)
                 }
-                arr_schema_fields["dimensions"] = combined_dimensions
+
+                arr_schema_fields["dimensions"] = check_invalid_dims(
+                    combined_dimensions, field.name
+                )
                 schema_ref = ArraySchemaRef(
                     name=field.name,
                     optional=is_optional(typ),
@@ -168,7 +218,7 @@ def extract_xarray_dataclass(klass):
                     default=field.default,
                     docstring=field_docstrings.get(field.name),
                     schema_name=f"{klass.__module__}.{klass.__qualname__}.{field.name}",
-                    dimensions=dims,
+                    dimensions=check_invalid_dims(dims, field.name),
                     dtypes=[numpy.dtype(typ) for typ in types],
                     coordinates=[],
                     attributes=[],
@@ -206,7 +256,7 @@ def xarray_dataclass_to_array_schema(klass):
         return klass.__xradio_array_schema
 
     # Extract from data class
-    coordinates, data_vars, attributes = extract_xarray_dataclass(klass)
+    coordinates, data_vars, attributes = extract_xarray_dataclass(klass, True)
 
     # For a dataclass there must be exactly one data variable
     if not data_vars:

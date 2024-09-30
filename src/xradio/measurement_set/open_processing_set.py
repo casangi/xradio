@@ -3,7 +3,7 @@ import os
 from xradio.measurement_set import ProcessingSet
 import toolviper.utils.logger as logger
 from xradio._utils.zarr.common import _open_dataset, _get_file_system_and_items
-from xradio.measurement_set.correlated_xds import CorrelatedXds
+from xradio.measurement_set.measurement_set_xds import MeasurementSetXds
 import s3fs
 
 
@@ -55,7 +55,7 @@ def open_processing_set(
                     "field_and_source_xds"
                 ] = field_and_source_xds_dict[data_group_name]
 
-            ps[ms_name] = CorrelatedXds(xds)
+            ps[ms_name] = MeasurementSetXds(xds)
         # except Exception as e:
         #     logger.warning(f"Could not open {ms_name} due to {e}")
         #     continue

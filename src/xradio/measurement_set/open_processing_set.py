@@ -3,7 +3,6 @@ import os
 from xradio.measurement_set import ProcessingSet
 import toolviper.utils.logger as logger
 from xradio._utils.zarr.common import _open_dataset, _get_file_system_and_items
-from xradio.measurement_set.measurement_set_xds import MeasurementSetXds
 import s3fs
 
 
@@ -26,6 +25,7 @@ def open_processing_set(
     processing_set
         Lazy representation of processing set (data is represented by Dask.arrays).
     """
+    from xradio.measurement_set import MeasurementSetXds
     file_system, ms_store_list = _get_file_system_and_items(ps_store)
 
     ps = ProcessingSet()
@@ -33,9 +33,9 @@ def open_processing_set(
     for ms_name in ms_store_list:
         # try:
         ms_store = os.path.join(ps_store, ms_name)
-        ms_main_store = os.path.join(ms_store, "main_xds")
+        correlated_store = os.path.join(ms_store, "correlated_xds")
 
-        xds = _open_dataset(ms_main_store, file_system)
+        xds = _open_dataset(correlated_store, file_system)
         data_groups = xds.attrs["data_groups"]
 
         if (intents is None) or (
@@ -75,7 +75,7 @@ def _open_sub_xds(ms_store, file_system, data_groups, load=False):
         file_names = file_system.listdir(ms_store)
     file_names = [item for item in file_names if not item.startswith(".")]
 
-    file_names.remove("main_xds")
+    file_names.remove("correlated_xds")
 
     field_dict = {"field_and_source_xds_" + key: key for key in data_groups.keys()}
 

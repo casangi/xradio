@@ -43,10 +43,10 @@ def load_processing_set(
     ps = ProcessingSet()
     for ms_name, ms_xds_isel in sel_parms.items():
         ms_store = os.path.join(ps_store, ms_name)
-        ms_main_store = os.path.join(ms_store, "main_xds")
+        correlated_store = os.path.join(ms_store, "correlated_xds")
 
         xds = _open_dataset(
-            ms_main_store,
+            correlated_store,
             file_system,
             ms_xds_isel,
             data_variables,

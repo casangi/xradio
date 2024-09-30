@@ -43,11 +43,11 @@ The main aims of the library are:
    :maxdepth: 1
    :caption: Measurement Set v4.0.0
 
-   obs_overview
-   correlated_data/tutorials/index
-   correlated_data/guides/index
+   measurement_set_overview
+   measurement_set/tutorials/index
+   measurement_set/guides/index
 
-   correlated_data/schema_and_api/index
+   measurement_set/schema_and_api/index
 
 
 .. toctree::

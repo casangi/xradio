@@ -1059,7 +1059,7 @@ def convert_and_write_partition(
 
             start = time.time()
             if storage_backend == "zarr":
-                xds.to_zarr(store=os.path.join(file_name, "main_xds"), mode=mode)
+                xds.to_zarr(store=os.path.join(file_name, "correlated_xds"), mode=mode)
                 ant_xds.to_zarr(store=os.path.join(file_name, "antenna_xds"), mode=mode)
                 for group_name in xds.attrs["data_groups"]:
                     field_and_source_xds.to_zarr(

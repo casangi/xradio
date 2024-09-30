@@ -1,5 +1,5 @@
 import os
-from xradio.correlated_data import ProcessingSet
+from xradio.measurement_set import ProcessingSet
 from typing import Dict, Union
 
 
@@ -55,7 +55,7 @@ def load_processing_set(
         data_groups = xds.attrs["data_groups"]
 
         if load_sub_datasets:
-            from xradio.correlated_data.open_processing_set import _open_sub_xds
+            from xradio.measurement_set.open_processing_set import _open_sub_xds
 
             sub_xds_dict, field_and_source_xds_dict = _open_sub_xds(
                 ms_store, file_system=file_system, load=True, data_groups=data_groups

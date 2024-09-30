@@ -11,18 +11,18 @@ import xarray as xr
 
 import toolviper.utils.logger as logger
 from casacore import tables
-from xradio.correlated_data._utils._ms.msv4_sub_xdss import (
+from xradio.measurement_set._utils._ms.msv4_sub_xdss import (
     create_pointing_xds,
     create_system_calibration_xds,
     create_weather_xds,
 )
 from .msv4_info_dicts import create_info_dicts
-from xradio.correlated_data._utils._ms.create_antenna_xds import (
+from xradio.measurement_set._utils._ms.create_antenna_xds import (
     create_antenna_xds,
     create_gain_curve_xds,
     create_phase_calibration_xds,
 )
-from xradio.correlated_data._utils._ms.create_field_and_source_xds import (
+from xradio.measurement_set._utils._ms.create_field_and_source_xds import (
     create_field_and_source_xds,
 )
 from xradio._utils.schema import column_description_casacore_to_msv4_measure

@@ -41,7 +41,7 @@ The main aims of the library are:
 .. toctree::
    :hidden:
    :maxdepth: 1
-   :caption: Correlated Data
+   :caption: Measurement Set v4.0.0
 
    obs_overview
    correlated_data/tutorials/index

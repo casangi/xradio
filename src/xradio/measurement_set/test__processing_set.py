@@ -1,5 +1,5 @@
 import unittest
-from xradio.src.xradio.correlated_data.processing_set import processing_set
+from xradio.src.xradio.measurement_set.processing_set import processing_set
 
 
 class TestProcessingSet(unittest.TestCase):

@@ -1,9 +1,9 @@
 import os
 
-from xradio.correlated_data import ProcessingSet
+from xradio.measurement_set import ProcessingSet
 import toolviper.utils.logger as logger
 from xradio._utils.zarr.common import _open_dataset, _get_file_system_and_items
-from xradio.correlated_data.correlated_xds import CorrelatedXds
+from xradio.measurement_set.correlated_xds import CorrelatedXds
 import s3fs
 
 

@@ -1048,14 +1048,14 @@ def convert_and_write_partition(
                 mode = "w"
             else:
                 mode = "w-"
-                
+
             if is_single_dish:
                 xds.attrs["type"] = "spectrum"
             else:
-                if any('WVR' in s for s in intents):
-                    xds.attrs['type'] = 'wvr'
+                if any("WVR" in s for s in intents):
+                    xds.attrs["type"] = "wvr"
                 else:
-                    xds.attrs['type'] = 'visibility'
+                    xds.attrs["type"] = "visibility"
 
             start = time.time()
             if storage_backend == "zarr":

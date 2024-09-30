@@ -164,24 +164,24 @@ class ProcessingSet(dict):
         spw_ids = []
         freq_axis_list = []
         frame = self.get(0).frequency.attrs["frame"]
-        for cor_xds in self.values():
+        for ms_xds in self.values():
             assert (
-                frame == cor_xds.frequency.attrs["frame"]
+                frame == ms_xds.frequency.attrs["frame"]
             ), "Frequency reference frame not consistent in Processing Set."
-            if cor_xds.frequency.attrs["spectral_window_id"] not in spw_ids:
-                spw_ids.append(cor_xds.frequency.attrs["spectral_window_id"])
-                freq_axis_list.append(cor_xds.frequency)
+            if ms_xds.frequency.attrs["spectral_window_id"] not in spw_ids:
+                spw_ids.append(ms_xds.frequency.attrs["spectral_window_id"])
+                freq_axis_list.append(ms_xds.frequency)
 
         freq_axis = xr.concat(freq_axis_list, dim="frequency").sortby("frequency")
         return freq_axis
 
     def _get_ps_max_dims(self):
         max_dims = None
-        for cor_xds in self.values():
+        for ms_xds in self.values():
             if max_dims is None:
-                max_dims = dict(cor_xds.sizes)
+                max_dims = dict(ms_xds.sizes)
             else:
-                for dim_name, size in cor_xds.sizes.items():
+                for dim_name, size in ms_xds.sizes.items():
                     if dim_name in max_dims:
                         if max_dims[dim_name] < size:
                             max_dims[dim_name] = size
@@ -304,8 +304,8 @@ class ProcessingSet(dict):
 
     def get_combined_field_and_source_xds(self, data_group="base"):
         """
-        Returns an xarray.Dataset combining the field_and_source_xds of all cor_xds's in a Processing Set for a given data_group.
-        The combined xarray.Dataset will have a new dimension 'correlated_xds_name' which will be the name of the cor_xds.
+        Returns an xarray.Dataset combining the field_and_source_xds of all ms_xds's in a Processing Set for a given data_group.
+        The combined xarray.Dataset will have a new dimension 'correlated_xds_name' which will be the name of the ms_xds.
 
         Returns:
             list: A list containing the phase center coordinates.
@@ -319,13 +319,14 @@ class ProcessingSet(dict):
 
         combined_field_and_source_xds = xr.Dataset()
         combined_ephemeris_field_and_source_xds = xr.Dataset()
-        for cor_name, cor_xds in self.items():
-            correlated_data_name = cor_xds.attrs["data_groups"][data_group][
+        for ms_name, ms_xds in self.items():
+            
+            correlated_data_name = ms_xds.attrs["data_groups"][data_group][
                 "correlated_data"
             ]
 
             field_and_source_xds = (
-                cor_xds[correlated_data_name]
+                ms_xds[correlated_data_name]
                 .attrs["field_and_source_xds"]
                 .copy(deep=True)
             )
@@ -365,11 +366,11 @@ class ProcessingSet(dict):
                 if "time_ephemeris" not in field_and_source_xds.field_name.dims:
                     field_names = np.array(
                         [field_and_source_xds.field_name.values.item()]
-                        * len(field_and_source_xds.time.values)
+                        * len(field_and_source_xds.time_ephemeris.values)
                     )
                     source_names = np.array(
                         [field_and_source_xds.source_name.values.item()]
-                        * len(field_and_source_xds.time.values)
+                        * len(field_and_source_xds.time_ephemeris.values)
                     )
                     del field_and_source_xds["field_name"]
                     del field_and_source_xds["source_name"]
@@ -513,8 +514,8 @@ class ProcessingSet(dict):
             self.get_combined_field_and_source_xds(data_group)
         )
         from matplotlib import pyplot as plt
-
-        if len(combined_field_and_source_xds.data_vars) > 0:
+        
+        if (len(combined_field_and_source_xds.data_vars) > 0) and ("FIELD_PHASE_CENTER" in combined_field_and_source_xds):
             plt.figure()
             plt.title("Field Phase Center Locations")
             plt.scatter(
@@ -541,7 +542,7 @@ class ProcessingSet(dict):
             plt.legend()
             plt.show()
 
-        if len(combined_ephemeris_field_and_source_xds.data_vars) > 0:
+        if (len(combined_ephemeris_field_and_source_xds.data_vars) > 0) and ("FIELD_PHASE_CENTER" in combined_ephemeris_field_and_source_xds):
 
             plt.figure()
             plt.title(
@@ -576,8 +577,8 @@ class ProcessingSet(dict):
     def get_combined_antenna_xds(self):
         """ """
         combined_antenna_xds = xr.Dataset()
-        for cor_name, cor_xds in self.items():
-            antenna_xds = cor_xds.antenna_xds.copy(deep=True)
+        for cor_name, ms_xds in self.items():
+            antenna_xds = ms_xds.antenna_xds.copy(deep=True)
 
             if len(combined_antenna_xds.data_vars) == 0:
                 combined_antenna_xds = antenna_xds

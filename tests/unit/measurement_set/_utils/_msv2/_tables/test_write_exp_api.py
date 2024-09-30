@@ -38,7 +38,9 @@ def test_write_ms_empty():
 
 
 def test_write_ms_serial_empty():
-    from xradio.measurement_set._utils._msv2._tables.write_exp_api import write_ms_serial
+    from xradio.measurement_set._utils._msv2._tables.write_exp_api import (
+        write_ms_serial,
+    )
     from xradio.measurement_set._utils._utils.xds_helper import vis_xds_packager_mxds
 
     mxds = vis_xds_packager_mxds({}, {}, add_global_coords=True)
@@ -60,7 +62,9 @@ def test_write_ms_cds_min(cds_minimal_required, tmp_path):
 
 
 def test_write_ms_serial_cds_min(cds_minimal_required, tmp_path):
-    from xradio.measurement_set._utils._msv2._tables.write_exp_api import write_ms_serial
+    from xradio.measurement_set._utils._msv2._tables.write_exp_api import (
+        write_ms_serial,
+    )
     from xradio.measurement_set._utils._utils.xds_helper import vis_xds_packager_mxds
 
     mxds_min = vis_xds_packager_mxds(

@@ -4,6 +4,7 @@ import xarray as xr
 import numbers
 import os
 
+
 class MeasurementSetXds(xr.Dataset):
     __slots__ = ()
 
@@ -48,7 +49,9 @@ class MeasurementSetXds(xr.Dataset):
                 )
 
         # Save copy_cor_xds as zarr file.
-        xr.Dataset.to_zarr(copy_cor_xds, os.path.join(store, "correlated_xds"), **kwargs)
+        xr.Dataset.to_zarr(
+            copy_cor_xds, os.path.join(store, "correlated_xds"), **kwargs
+        )
 
     def sel(self, data_group_name=None, **kwargs):
         """

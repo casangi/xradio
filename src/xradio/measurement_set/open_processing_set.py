@@ -26,6 +26,7 @@ def open_processing_set(
         Lazy representation of processing set (data is represented by Dask.arrays).
     """
     from xradio.measurement_set import MeasurementSetXds
+
     file_system, ms_store_list = _get_file_system_and_items(ps_store)
 
     ps = ProcessingSet()

@@ -94,7 +94,9 @@ def test_convert_casacore_time_to_mjd(times, expected_result):
 
 
 def test_extract_table_attributes_main(ms_minimal_required):
-    from xradio.measurement_set._utils._msv2._tables.read import extract_table_attributes
+    from xradio.measurement_set._utils._msv2._tables.read import (
+        extract_table_attributes,
+    )
 
     res = extract_table_attributes(ms_minimal_required.fname)
     assert all(entry in res for entry in ["MS_VERSION", "column_descriptions", "info"])
@@ -261,7 +263,9 @@ def test_make_taql_where_between_min_max(
 
 
 def test_extract_table_attributes_ant(ms_minimal_required):
-    from xradio.measurement_set._utils._msv2._tables.read import extract_table_attributes
+    from xradio.measurement_set._utils._msv2._tables.read import (
+        extract_table_attributes,
+    )
 
     res = extract_table_attributes(str(Path(ms_minimal_required.fname) / "ANTENNA"))
     assert len(res) == 2
@@ -357,7 +361,9 @@ def test_is_nested_ms_empty():
 
 def test_is_nested_ms_ant(ms_minimal_required):
     from xradio.measurement_set._utils._msv2._tables.read import is_nested_ms
-    from xradio.measurement_set._utils._msv2._tables.read import extract_table_attributes
+    from xradio.measurement_set._utils._msv2._tables.read import (
+        extract_table_attributes,
+    )
 
     ant_subt = str(Path(ms_minimal_required.fname) / "ANTENNA")
     ctds_attrs = extract_table_attributes(ms_minimal_required.fname)
@@ -369,7 +375,9 @@ def test_is_nested_ms_ant(ms_minimal_required):
 
 def test_is_nested_ms_ms_min(ms_minimal_required):
     from xradio.measurement_set._utils._msv2._tables.read import is_nested_ms
-    from xradio.measurement_set._utils._msv2._tables.read import extract_table_attributes
+    from xradio.measurement_set._utils._msv2._tables.read import (
+        extract_table_attributes,
+    )
 
     ctds_attrs = extract_table_attributes(ms_minimal_required.fname)
     attrs = {"other": {"msv2": {"ctds_attrs": ctds_attrs}}}

@@ -6,8 +6,8 @@ import numpy as np
 import xarray as xr
 import os
 
-from xradio.measurement_set._utils._ms.subtables import subt_rename_ids
-from xradio.measurement_set._utils._ms._tables.read import (
+from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
+from xradio.measurement_set._utils._msv2._tables.read import (
     load_generic_table,
     convert_casacore_time,
     convert_casacore_time_to_mjd,
@@ -15,7 +15,7 @@ from xradio.measurement_set._utils._ms._tables.read import (
     table_exists,
 )
 from xradio._utils.schema import convert_generic_xds_to_xradio_schema
-from xradio.measurement_set._utils._ms.msv4_sub_xdss import interpolate_to_time
+from xradio.measurement_set._utils._msv2.msv4_sub_xdss import interpolate_to_time
 
 from xradio._utils.list_and_array import (
     check_if_consistent,

@@ -7,7 +7,7 @@ import time
 
 from toolviper.utils.data import download
 from toolviper.utils.logger import setup_logger
-from xradio.correlated_data import (
+from xradio.measurement_set import (
     open_processing_set,
     load_processing_set,
     convert_msv2_to_processing_set,

@@ -320,7 +320,7 @@ class ProcessingSet(dict):
         combined_field_and_source_xds = xr.Dataset()
         combined_ephemeris_field_and_source_xds = xr.Dataset()
         for ms_name, ms_xds in self.items():
-            
+
             correlated_data_name = ms_xds.attrs["data_groups"][data_group][
                 "correlated_data"
             ]
@@ -514,8 +514,10 @@ class ProcessingSet(dict):
             self.get_combined_field_and_source_xds(data_group)
         )
         from matplotlib import pyplot as plt
-        
-        if (len(combined_field_and_source_xds.data_vars) > 0) and ("FIELD_PHASE_CENTER" in combined_field_and_source_xds):
+
+        if (len(combined_field_and_source_xds.data_vars) > 0) and (
+            "FIELD_PHASE_CENTER" in combined_field_and_source_xds
+        ):
             plt.figure()
             plt.title("Field Phase Center Locations")
             plt.scatter(
@@ -542,7 +544,9 @@ class ProcessingSet(dict):
             plt.legend()
             plt.show()
 
-        if (len(combined_ephemeris_field_and_source_xds.data_vars) > 0) and ("FIELD_PHASE_CENTER" in combined_ephemeris_field_and_source_xds):
+        if (len(combined_ephemeris_field_and_source_xds.data_vars) > 0) and (
+            "FIELD_PHASE_CENTER" in combined_ephemeris_field_and_source_xds
+        ):
 
             plt.figure()
             plt.title(

@@ -1,0 +1,10 @@
+{
+    "_ARRAY_DIMENSIONS": [
+        "freq"
+    ],
+    "measure": {
+        "ref_frame": "REST",
+        "type": "frequency"
+    },
+    "units": "Hz"
+}

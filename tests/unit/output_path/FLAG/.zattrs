@@ -1,0 +1,9 @@
+{
+    "_ARRAY_DIMENSIONS": [
+        "time",
+        "baseline",
+        "freq",
+        "pol"
+    ],
+    "dtype": "bool"
+}

@@ -1,0 +1,289 @@
+{
+    "other": {
+        "msv2": {
+            "bad_cols": [
+                "FLAG_ROW",
+                "FLAG_CATEGORY",
+                "TIME_EXTRA_PREC",
+                "DATA_DESC_ID",
+                "SIGMA"
+            ],
+            "ctds_attrs": {
+                "MS_VERSION": 2.0,
+                "column_descriptions": {
+                    "ANTENNA1": {
+                        "comment": "ID of first antenna in interferometer",
+                        "dataManagerGroup": "StandardStMan",
+                        "dataManagerType": "StandardStMan",
+                        "keywords": {},
+                        "maxlen": 0,
+                        "option": 0,
+                        "valueType": "int"
+                    },
+                    "ANTENNA2": {
+                        "comment": "ID of second antenna in interferometer",
+                        "dataManagerGroup": "StandardStMan",
+                        "dataManagerType": "StandardStMan",
+                        "keywords": {},
+                        "maxlen": 0,
+                        "option": 0,
+                        "valueType": "int"
+                    },
+                    "ARRAY_ID": {
+                        "comment": "ID of array or subarray",
+                        "dataManagerGroup": "StandardStMan",
+                        "dataManagerType": "StandardStMan",
+                        "keywords": {},
+                        "maxlen": 0,
+                        "option": 0,
+                        "valueType": "int"
+                    },
+                    "DATA": {
+                        "_c_order": true,
+                        "comment": "added by gen_test_ms",
+                        "dataManagerGroup": "DataGroup",
+                        "dataManagerType": "TiledColumnStMan",
+                        "keywords": {},
+                        "maxlen": 0,
+                        "ndim": 2,
+                        "option": 4,
+                        "valueType": "complex"
+                    },
+                    "DATA_DESC_ID": {
+                        "comment": "The data description table index",
+                        "dataManagerGroup": "StandardStMan",
+                        "dataManagerType": "StandardStMan",
+                        "keywords": {},
+                        "maxlen": 0,
+                        "option": 0,
+                        "valueType": "int"
+                    },
+                    "EXPOSURE": {
+                        "comment": "The effective integration time",
+                        "dataManagerGroup": "StandardStMan",
+                        "dataManagerType": "StandardStMan",
+                        "keywords": {
+                            "QuantumUnits": [
+                                "s"
+                            ]
+                        },
+                        "maxlen": 0,
+                        "option": 0,
+                        "valueType": "double"
+                    },
+                    "FEED1": {
+                        "comment": "The feed index for ANTENNA1",
+                        "dataManagerGroup": "StandardStMan",
+                        "dataManagerType": "StandardStMan",
+                        "keywords": {},
+                        "maxlen": 0,
+                        "option": 0,
+                        "valueType": "int"
+                    },
+                    "FEED2": {
+                        "comment": "The feed index for ANTENNA2",
+                        "dataManagerGroup": "StandardStMan",
+                        "dataManagerType": "StandardStMan",
+                        "keywords": {},
+                        "maxlen": 0,
+                        "option": 0,
+                        "valueType": "int"
+                    },
+                    "FIELD_ID": {
+                        "comment": "Unique id for this pointing",
+                        "dataManagerGroup": "StandardStMan",
+                        "dataManagerType": "StandardStMan",
+                        "keywords": {},
+                        "maxlen": 0,
+                        "option": 0,
+                        "valueType": "int"
+                    },
+                    "FLAG": {
+                        "_c_order": true,
+                        "comment": "The data flags, array of bools with same shape as data",
+                        "dataManagerGroup": "StandardStMan",
+                        "dataManagerType": "StandardStMan",
+                        "keywords": {},
+                        "maxlen": 0,
+                        "ndim": 2,
+                        "option": 0,
+                        "valueType": "boolean"
+                    },
+                    "FLAG_CATEGORY": {
+                        "_c_order": true,
+                        "comment": "The flag category, NUM_CAT flags for each datum",
+                        "dataManagerGroup": "StandardStMan",
+                        "dataManagerType": "StandardStMan",
+                        "keywords": {
+                            "CATEGORY": []
+                        },
+                        "maxlen": 0,
+                        "ndim": 3,
+                        "option": 0,
+                        "valueType": "boolean"
+                    },
+                    "FLAG_ROW": {
+                        "comment": "Row flag - flag all data in this row if True",
+                        "dataManagerGroup": "StandardStMan",
+                        "dataManagerType": "StandardStMan",
+                        "keywords": {},
+                        "maxlen": 0,
+                        "option": 0,
+                        "valueType": "boolean"
+                    },
+                    "INTERVAL": {
+                        "comment": "The sampling interval",
+                        "dataManagerGroup": "StandardStMan",
+                        "dataManagerType": "StandardStMan",
+                        "keywords": {
+                            "QuantumUnits": [
+                                "s"
+                            ]
+                        },
+                        "maxlen": 0,
+                        "option": 0,
+                        "valueType": "double"
+                    },
+                    "OBSERVATION_ID": {
+                        "comment": "ID for this observation, index in OBSERVATION table",
+                        "dataManagerGroup": "StandardStMan",
+                        "dataManagerType": "StandardStMan",
+                        "keywords": {},
+                        "maxlen": 0,
+                        "option": 0,
+                        "valueType": "int"
+                    },
+                    "PROCESSOR_ID": {
+                        "comment": "Id for backend processor, index in PROCESSOR table",
+                        "dataManagerGroup": "StandardStMan",
+                        "dataManagerType": "StandardStMan",
+                        "keywords": {},
+                        "maxlen": 0,
+                        "option": 0,
+                        "valueType": "int"
+                    },
+                    "SCAN_NUMBER": {
+                        "comment": "Sequential scan number from on-line system",
+                        "dataManagerGroup": "StandardStMan",
+                        "dataManagerType": "StandardStMan",
+                        "keywords": {},
+                        "maxlen": 0,
+                        "option": 0,
+                        "valueType": "int"
+                    },
+                    "SIGMA": {
+                        "_c_order": true,
+                        "comment": "Estimated rms noise for channel with unity bandpass response",
+                        "dataManagerGroup": "StandardStMan",
+                        "dataManagerType": "StandardStMan",
+                        "keywords": {},
+                        "maxlen": 0,
+                        "ndim": 1,
+                        "option": 0,
+                        "valueType": "float"
+                    },
+                    "STATE_ID": {
+                        "comment": "ID for this observing state",
+                        "dataManagerGroup": "StandardStMan",
+                        "dataManagerType": "StandardStMan",
+                        "keywords": {},
+                        "maxlen": 0,
+                        "option": 0,
+                        "valueType": "int"
+                    },
+                    "TIME": {
+                        "comment": "Modified Julian Day",
+                        "dataManagerGroup": "StandardStMan",
+                        "dataManagerType": "StandardStMan",
+                        "keywords": {
+                            "MEASINFO": {
+                                "Ref": "UTC",
+                                "type": "epoch"
+                            },
+                            "QuantumUnits": [
+                                "s"
+                            ]
+                        },
+                        "maxlen": 0,
+                        "option": 0,
+                        "valueType": "double"
+                    },
+                    "TIME_CENTROID": {
+                        "comment": "Modified Julian Day",
+                        "dataManagerGroup": "StandardStMan",
+                        "dataManagerType": "StandardStMan",
+                        "keywords": {
+                            "MEASINFO": {
+                                "Ref": "UTC",
+                                "type": "epoch"
+                            },
+                            "QuantumUnits": [
+                                "s"
+                            ]
+                        },
+                        "maxlen": 0,
+                        "option": 0,
+                        "valueType": "double"
+                    },
+                    "UVW": {
+                        "_c_order": true,
+                        "comment": "Vector with uvw coordinates (in meters)",
+                        "dataManagerGroup": "UVWGroup",
+                        "dataManagerType": "TiledColumnStMan",
+                        "keywords": {
+                            "MEASINFO": {
+                                "Ref": "ITRF",
+                                "type": "uvw"
+                            },
+                            "QuantumUnits": [
+                                "m",
+                                "m",
+                                "m"
+                            ]
+                        },
+                        "maxlen": 0,
+                        "ndim": 1,
+                        "option": 5,
+                        "shape": "3",
+                        "valueType": "double"
+                    },
+                    "WEIGHT": {
+                        "_c_order": true,
+                        "comment": "Weight for each polarization spectrum",
+                        "dataManagerGroup": "StandardStMan",
+                        "dataManagerType": "StandardStMan",
+                        "keywords": {},
+                        "maxlen": 0,
+                        "ndim": 1,
+                        "option": 0,
+                        "valueType": "float"
+                    }
+                },
+                "info": {
+                    "readme": "This is a MeasurementSet Table holding measurements from a Telescope\n",
+                    "subType": "",
+                    "type": "Measurement Set"
+                }
+            }
+        }
+    },
+    "partition_ids": {
+        "array_id": [
+            0
+        ],
+        "observation_id": [
+            0
+        ],
+        "pol_setup_id": 0,
+        "processor_id": [
+            0
+        ],
+        "spw_id": 0
+    },
+    "scan_subscan_intents": {
+        "scan_intent": [
+            "subscan_intent"
+        ]
+    },
+    "vis_groups": {}
+}

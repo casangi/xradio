@@ -1,0 +1,11 @@
+{
+    "_ARRAY_DIMENSIONS": [
+        "time",
+        "baseline"
+    ],
+    "measure": {
+        "ref_frame": "UTC",
+        "type": "epoch"
+    },
+    "units": "s"
+}

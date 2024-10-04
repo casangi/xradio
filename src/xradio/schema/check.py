@@ -374,28 +374,27 @@ def check_data_vars(
 
     issues = SchemaIssues()
     for data_var_schema in data_vars_schema:
-        
-        
-        allow_mutiple_versions  = False
+
+        allow_mutiple_versions = False
         for attr in data_var_schema.attributes:
-            if hasattr(attr,"name"):
+            if hasattr(attr, "name"):
                 if attr.name == "allow_mutiple_versions":
                     allow_mutiple_versions = attr.default
-        
-        data_vars_names = []         
+
+        data_vars_names = []
         if allow_mutiple_versions:
             for data_var_name in data_vars:
                 if data_var_schema.name in data_var_name:
                     data_vars_names.append(data_var_name)
         else:
             data_vars_names = [data_var_schema.name]
-            
+
         if (len(data_vars_names) == 0) and ~data_var_schema.optional:
             data_vars_names = [data_var_schema.name]
-            
+
         for data_var_name in data_vars_names:
             data_var = data_vars.get(data_var_name)
-            
+
             if data_var is None:
                 if not data_var_schema.optional:
                     if data_var_kind == "coords":
@@ -409,7 +408,8 @@ def check_data_vars(
                         )
                     issues.add(
                         SchemaIssue(
-                            path=[(data_var_kind, data_var_schema.name)], message=message
+                            path=[(data_var_kind, data_var_schema.name)],
+                            message=message,
                         )
                     )
                 continue
@@ -418,7 +418,6 @@ def check_data_vars(
             issues += check_array(data_var, data_var_schema).at_path(
                 data_var_kind, data_var_schema.name
             )
-            
 
     # Extra data_varinates / data variables are always okay
 

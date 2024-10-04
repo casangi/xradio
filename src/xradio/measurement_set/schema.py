@@ -768,8 +768,8 @@ class FlagArray:
     frequency: Coordof[FrequencyArray]
     polarization: Optional[Coordof[PolarizationArray]] = None
     long_name: Optional[Attr[str]] = "Visibility flags"
-    
-    allow_mutiple_versions: Optional[Attr[bool]] = True  
+
+    allow_mutiple_versions: Optional[Attr[bool]] = True
 
 
 @xarray_dataarray_schema
@@ -798,8 +798,8 @@ class WeightArray:
     frequency: Optional[Coordof[FrequencyArray]] = None
     polarization: Optional[Coordof[PolarizationArray]] = None
     long_name: Optional[Attr[str]] = "Visibility weights"
-    
-    allow_mutiple_versions: Optional[Attr[bool]] = True  
+
+    allow_mutiple_versions: Optional[Attr[bool]] = True
 
 
 @xarray_dataarray_schema
@@ -857,8 +857,8 @@ class UvwArray:
     long_name: Optional[Attr[str]] = "Baseline coordinates"
     """ Long-form name to use for axis. Should be ``"Baseline coordinates``"""
     units: Attr[UnitsMeters] = ("m",)
-    
-    allow_mutiple_versions: Optional[Attr[bool]] = True  
+
+    allow_mutiple_versions: Optional[Attr[bool]] = True
 
 
 @xarray_dataarray_schema
@@ -1152,8 +1152,8 @@ class VisibilityArray:
     long_name: Optional[Attr[str]] = "Visibility values"
     """ Long-form name to use for axis. Should be ``"Visibility values"``"""
     units: Attr[list[str]] = ("Jy",)
-    
-    allow_mutiple_versions: Optional[Attr[bool]] = True  
+
+    allow_mutiple_versions: Optional[Attr[bool]] = True
 
 
 # Info dicts
@@ -1919,11 +1919,11 @@ class SpectrumXds:
     scan_number: Optional[Coord[Time, Union[numpy.int64, numpy.int32]]] = None
     """Arbitary scan number to identify data taken in the same logical scan."""
 
-    #SPECTRUM_CORRECTED: Optional[Dataof[SpectrumArray]] = None
+    # SPECTRUM_CORRECTED: Optional[Dataof[SpectrumArray]] = None
 
     FLAG: Dataof[FlagArray] = None
     WEIGHT: Dataof[WeightArray] = None
-    
+
     # --- Optional data variables / arrays ---
     EFFECTIVE_INTEGRATION_TIME: Optional[
         Data[

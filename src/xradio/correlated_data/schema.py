@@ -1278,9 +1278,7 @@ class AntennaXds:
     """
     Polarization reference angle. Converts into parallactic angle in the sky domain.
     """
-    ANTENNA_FOCUS_LENGTH: Optional[
-        Data[tuple[AntennaName, ReceptorLabel], QuantityInMetersArray]
-    ]
+    ANTENNA_FOCUS_LENGTH: Optional[Data[tuple[AntennaName], QuantityInMetersArray]]
     """
     Focus length. As defined along the optical axis of the antenna.
     """

@@ -232,7 +232,7 @@ def extract_feed_info(
         ],
         "FOCUS_LENGTH": [
             "ANTENNA_FOCUS_LENGTH",
-            ["antenna_name", "receptor_label"],
+            ["antenna_name"],
         ],  # optional
     }
 

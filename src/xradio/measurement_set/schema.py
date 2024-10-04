@@ -768,6 +768,8 @@ class FlagArray:
     frequency: Coordof[FrequencyArray]
     polarization: Optional[Coordof[PolarizationArray]] = None
     long_name: Optional[Attr[str]] = "Visibility flags"
+    
+    allow_mutiple_versions: Optional[Attr[bool]] = True  
 
 
 @xarray_dataarray_schema
@@ -796,6 +798,8 @@ class WeightArray:
     frequency: Optional[Coordof[FrequencyArray]] = None
     polarization: Optional[Coordof[PolarizationArray]] = None
     long_name: Optional[Attr[str]] = "Visibility weights"
+    
+    allow_mutiple_versions: Optional[Attr[bool]] = True  
 
 
 @xarray_dataarray_schema
@@ -853,6 +857,8 @@ class UvwArray:
     long_name: Optional[Attr[str]] = "Baseline coordinates"
     """ Long-form name to use for axis. Should be ``"Baseline coordinates``"""
     units: Attr[UnitsMeters] = ("m",)
+    
+    allow_mutiple_versions: Optional[Attr[bool]] = True  
 
 
 @xarray_dataarray_schema
@@ -1146,6 +1152,8 @@ class VisibilityArray:
     long_name: Optional[Attr[str]] = "Visibility values"
     """ Long-form name to use for axis. Should be ``"Visibility values"``"""
     units: Attr[list[str]] = ("Jy",)
+    
+    allow_mutiple_versions: Optional[Attr[bool]] = True  
 
 
 # Info dicts
@@ -1810,12 +1818,12 @@ class VisibilityXds:
 
     # --- Optional data variables / arrays ---
 
-    VISIBILITY_CORRECTED: Optional[Dataof[VisibilityArray]] = None
-    VISIBILITY_MODEL: Optional[Dataof[VisibilityArray]] = None
+    # VISIBILITY_CORRECTED: Optional[Dataof[VisibilityArray]] = None
+    # VISIBILITY_MODEL: Optional[Dataof[VisibilityArray]] = None
 
-    FLAG: Optional[Dataof[FlagArray]] = None
-    WEIGHT: Optional[Dataof[WeightArray]] = None
-    UVW: Optional[Dataof[UvwArray]] = None
+    FLAG: Dataof[FlagArray] = None
+    WEIGHT: Dataof[WeightArray] = None
+    UVW: Dataof[UvwArray] = None
     EFFECTIVE_INTEGRATION_TIME: Optional[
         Data[
             Union[
@@ -1908,18 +1916,15 @@ class SpectrumXds:
     """
     If the polarizations are not constant over baseline
     """
-    uvw_label: Optional[Coordof[UvwLabelArray]] = None
-    """ u,v,w """
     scan_number: Optional[Coord[Time, Union[numpy.int64, numpy.int32]]] = None
     """Arbitary scan number to identify data taken in the same logical scan."""
 
+    #SPECTRUM_CORRECTED: Optional[Dataof[SpectrumArray]] = None
+
+    FLAG: Dataof[FlagArray] = None
+    WEIGHT: Dataof[WeightArray] = None
+    
     # --- Optional data variables / arrays ---
-
-    SPECTRUM_CORRECTED: Optional[Dataof[SpectrumArray]] = None
-
-    FLAG: Optional[Dataof[FlagArray]] = None
-    WEIGHT: Optional[Dataof[WeightArray]] = None
-    UVW: Optional[Dataof[UvwArray]] = None
     EFFECTIVE_INTEGRATION_TIME: Optional[
         Data[
             Union[

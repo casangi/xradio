@@ -385,6 +385,10 @@ def prepare_generic_sys_cal_xds(generic_sys_cal_xds: xr.Dataset) -> xr.Dataset:
         "receptor" in generic_sys_cal_xds.sizes
         and "frequency" in generic_sys_cal_xds.sizes
     ):
+        # dim_3 can be created for example when the T*_SPECTRUM have varying # channels!
+        # more generaly, could transpose with ... to avoid errors with additional spurious dimensions
+        if "dim_3" in generic_sys_cal_xds.dims:
+            generic_sys_cal_xds = generic_sys_cal_xds.drop_dims("dim_3")
         # From MSv2 tables we get (...,frequency, receptor)
         #  -> transpose to (...,receptor,frequency) ready for MSv4 sys_cal_xds
         generic_sys_cal_xds = generic_sys_cal_xds.transpose(

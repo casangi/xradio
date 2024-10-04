@@ -35,3 +35,8 @@
 .customcolor {
    color: red;
 }
+
+/* Make tables a bit more compact */
+.rst-content table.docutils td, .rst-content table.docutils th { padding: 4px 8px; }
+.rst-content dl dd { line-height: 20px; }
+.rst-content code { padding: 1px 2px; }

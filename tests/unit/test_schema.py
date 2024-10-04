@@ -63,7 +63,7 @@ TEST_ARRAY_SCHEMA = ArraySchema(
     dimensions=[("coord",)],
     coordinates=[
         ArraySchemaRef(
-            schema_name="tests.unit.test_schema._TestArraySchema.coord",
+            schema_name=None,
             name="coord",
             dtypes=[numpy.dtype(float)],
             dimensions=[("coord",)],
@@ -723,7 +723,7 @@ TEST_DATASET_SCHEMA = DatasetSchema(
             data_docstring="Docstring of coordinate data",
         ),
         ArraySchemaRef(
-            schema_name=__name__ + "._TestDatasetSchema.coord2",
+            schema_name=None,
             name="coord2",
             dtypes=[numpy.dtype(int)],
             dimensions=[("coord2",)],
@@ -745,7 +745,7 @@ TEST_DATASET_SCHEMA = DatasetSchema(
             **_dataclass_to_dict(TEST_ARRAY_SCHEMA),
         ),
         ArraySchemaRef(
-            schema_name=__name__ + "._TestDatasetSchema.data_var_simple",
+            schema_name=None,
             name="data_var_simple",
             dtypes=[numpy.dtype(numpy.float32)],
             dimensions=[("coord2",)],

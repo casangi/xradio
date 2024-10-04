@@ -19,7 +19,7 @@ author = " "
 extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.intersphinx",
-    "xradio_sphinx",
+    "xradio.sphinx",
     "nbsphinx",
     "sphinx.ext.todo",
     "sphinx.ext.viewcode",

@@ -200,12 +200,17 @@ def extract_feed_info(
         taql_where=f" where (ANTENNA_ID IN [{','.join(map(str, ant_xds.antenna_id.values))}]) AND (FEED_ID IN [{','.join(map(str, feed_id))}])",
     )  # Some Lofar and MeerKAT data have the spw column set to -1 so we can't use '(SPECTRAL_WINDOW_ID = {spectral_window_id})'
 
+    if not generic_feed_xds:
+        # Some MSv2 have a FEED table that does not cover all antenna_id (and feed_id)
+        return ant_xds
+
     feed_spw = np.unique(generic_feed_xds.SPECTRAL_WINDOW_ID)
     if len(feed_spw) == 1 and feed_spw[0] == -1:
         generic_feed_xds = generic_feed_xds.isel(SPECTRAL_WINDOW_ID=0, drop=True)
     else:
         if spectral_window_id not in feed_spw:
-            return ant_xds  # For some spw the feed table is empty (this is the case with ALMA spw WVR#NOMINAL).
+            # For some spw the feed table is empty (this is the case with ALMA spw WVR#NOMINAL).
+            return ant_xds
         else:
             generic_feed_xds = generic_feed_xds.sel(
                 SPECTRAL_WINDOW_ID=spectral_window_id, drop=True

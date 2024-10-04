@@ -1121,7 +1121,11 @@ def antenna_ids_to_names(
             }
         )
     else:
-        xds["baseline_id"] = ant_xds["antenna_name"].sel(antenna_id=xds["baseline_id"])
+        # baseline_antenna1_id will be removed soon below, but it is useful here to know the actual antenna_ids,
+        # as opposed to the baseline_ids which can mismatch when data is missing for some antennas
+        xds["baseline_id"] = ant_xds["antenna_name"].sel(
+            antenna_id=xds["baseline_antenna1_id"]
+        )
         unwanted_coords_from_ant_xds = [
             "antenna_id",
             "antenna_name",

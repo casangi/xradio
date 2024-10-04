@@ -8,11 +8,14 @@ It is recommended to use the conda environment manager from [miniforge](https://
 ```sh
 conda create --name xradio python=3.12 --no-default-packages
 conda activate xradio
-
 ```
 > 📝 On macOS it is required to pre-install `python-casacore` using `conda install -c conda-forge python-casacore`.
 
-Making XRADIO available for download from conda-forge directly is pending, so until then the current recommendation is to sully that pristine environment by calling pip [from within conda](https://www.anaconda.com/blog/using-pip-in-a-conda-environment), like this:
+XRADIO can now be installed using:
 ```sh
 pip install xradio
+```
+This will also install the minimal dependencies for XRADIO. To install the minimal dependencies and the interactive components (JupyterLab) use:
+```sh
+pip install "xradio[interactive]"
 ```

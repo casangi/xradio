@@ -15,7 +15,7 @@ from ..common import (
     _image_type,
     _l_m_attr_notes,
 )
-from ...._utils.common import _deg_to_rad
+from xradio._utils.coord_math import _deg_to_rad
 import copy
 import dask
 import dask.array as da

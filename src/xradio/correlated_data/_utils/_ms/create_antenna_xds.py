@@ -247,7 +247,7 @@ def extract_feed_info(
         to_new_coords=to_new_coords,
     )
 
-    coords = {}
+    coords = {"sky_dir_label": ["ra", "dec"]}
     # coords["receptor_label"] = "pol_" + np.arange(ant_xds.sizes["receptor_label"]).astype(str) #Works on laptop but fails in github test runner.
     coords["receptor_label"] = np.array(
         list(
@@ -256,11 +256,21 @@ def extract_feed_info(
                 ["pol"] * ant_xds.sizes["receptor_label"],
                 np.arange(ant_xds.sizes["receptor_label"]).astype(str),
             )
-        )
+        ),
+        dtype=str,
     )
 
-    coords["sky_dir_label"] = ["ra", "dec"]
     ant_xds = ant_xds.assign_coords(coords)
+
+    # Correct to expected types. Some ALMA-SD (at least) leave receptor_label, polarization_type columns
+    # in the MS empty, causing a type mismatch
+    if (
+        "polarization_type" in ant_xds.coords
+        and ant_xds.coords["polarization_type"].dtype != str
+    ):
+        ant_xds.coords["polarization_type"] = ant_xds.coords[
+            "polarization_type"
+        ].astype(str)
     return ant_xds
 
 

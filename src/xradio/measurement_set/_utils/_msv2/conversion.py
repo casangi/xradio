@@ -422,9 +422,9 @@ def create_coordinates(
         "time": utime,
         "baseline_antenna1_id": ("baseline_id", baseline_ant1_id),
         "baseline_antenna2_id": ("baseline_id", baseline_ant2_id),
-        "uvw_label": ["u", "v", "w"],
         "baseline_id": np.arange(len(baseline_ant1_id)),
         "scan_number": ("time", scan_id),
+        "uvw_label": ["u", "v", "w"],
     }
 
     ddi_xds = load_generic_table(in_file, "DATA_DESCRIPTION").sel(row=ddi)
@@ -846,9 +846,6 @@ def convert_and_write_partition(
 
             # Add data_groups
             xds, is_single_dish = add_data_groups(xds)
-            if is_single_dish:
-                xds.attrs["type"] = "spectrum"
-
             xds = add_missing_data_var_attrs(xds)
 
             if (
@@ -1051,6 +1048,8 @@ def convert_and_write_partition(
 
             if is_single_dish:
                 xds.attrs["type"] = "spectrum"
+                xds = xds.drop_vars(["UVW"])
+                del xds["uvw_label"]
             else:
                 if any("WVR" in s for s in intents):
                     xds.attrs["type"] = "wvr"

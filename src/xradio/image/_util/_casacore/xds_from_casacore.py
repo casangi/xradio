@@ -30,7 +30,7 @@ from ..common import (
     _l_m_attr_notes,
 )
 from ...._utils._casacore.tables import extract_table_attributes, open_table_ro
-from ...._utils.common import _deg_to_rad
+from xradio._utils.coord_math import _deg_to_rad
 
 """
 def _add_coord_attrs(xds: xr.Dataset, icoords: dict, dir_axes: list) -> xr.Dataset:

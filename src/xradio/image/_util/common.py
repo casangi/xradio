@@ -5,7 +5,7 @@ import dask.array as da
 import numpy as np
 from typing import Dict, List
 import xarray as xr
-from ..._utils.common import _deg_to_rad
+from xradio._utils.coord_math import _deg_to_rad
 
 _c = 2.99792458e08 * u.m / u.s
 # OPTICAL = Z

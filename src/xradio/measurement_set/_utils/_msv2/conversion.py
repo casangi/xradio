@@ -813,7 +813,7 @@ def convert_and_write_partition(
                 attrs={
                     "creation_date": datetime.datetime.utcnow().isoformat(),
                     "xradio_version": importlib.metadata.version("xradio"),
-                    "schema_version": "4.0.-9997",
+                    "schema_version": "4.0.-9996",
                     "type": "visibility",
                 }
             )
@@ -907,21 +907,8 @@ def convert_and_write_partition(
                 antenna_id,
                 feed_id,
                 telescope_name,
+                xds.polarization,
             )
-
-            # Needed for special SPWs such as ALMA WVR or CHANNEL_AVERAGE data (have no feed info)
-            if "polarization_type" not in ant_xds:
-                pols_chars = list(xds.polarization.values[0])
-                pols_labels = [f"pol_{idx}" for idx in np.arange(0, len(pols_chars))]
-                ant_xds = ant_xds.assign_coords(receptor_label=pols_labels)
-                pol_type_values = [pols_chars] * len(ant_xds.antenna_name)
-                ant_xds = ant_xds.assign_coords(
-                    polarization_type=(
-                        ["antenna_name", "receptor_label"],
-                        pol_type_values,
-                    )
-                )
-
             logger.debug("Time antenna xds  " + str(time.time() - start))
 
             start = time.time()

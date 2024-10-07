@@ -31,6 +31,7 @@ def create_antenna_xds(
     antenna_id: list,
     feed_id: list,
     telescope_name: str,
+    partition_polarization: xr.DataArray,
 ) -> xr.Dataset:
     """
     Create an Xarray Dataset containing antenna information.
@@ -47,6 +48,8 @@ def create_antenna_xds(
         List of feed IDs.
     telescope_name : str
         Name of the telescope.
+    partition_polarization: xr.DataArray
+        Polarization labels of this partition, needed if that info is not present in FEED
 
     Returns
     ----------
@@ -59,6 +62,18 @@ def create_antenna_xds(
     ant_xds = extract_feed_info(
         ant_xds, in_file, antenna_id, feed_id, spectral_window_id
     )
+    # Needed for special SPWs such as ALMA WVR or CHANNEL_AVERAGE data (have no feed info)
+    if "polarization_type" not in ant_xds:
+        pols_chars = list(partition_polarization.values[0])
+        pols_labels = [f"pol_{idx}" for idx in np.arange(0, len(pols_chars))]
+        ant_xds = ant_xds.assign_coords(receptor_label=pols_labels)
+        pol_type_values = [pols_chars] * len(ant_xds.antenna_name)
+        ant_xds = ant_xds.assign_coords(
+            polarization_type=(
+                ["antenna_name", "receptor_label"],
+                pol_type_values,
+            )
+        )
 
     ant_xds.attrs["overall_telescope_name"] = telescope_name
     return ant_xds

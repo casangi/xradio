@@ -483,7 +483,7 @@ class TimeWeatherCoordArray:
 AllowedSpectralCoordFrames = Literal[
     "REST",
     "LSRK",
-    "LSR",
+    "LSRD",
     "BARY",
     "GEO",
     "TOPO",

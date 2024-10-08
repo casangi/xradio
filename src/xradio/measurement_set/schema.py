@@ -250,6 +250,7 @@ class TimeArray:
     """Time representation and epoch, see :py:class:`TimeArray`."""
 
 
+# Taken from the list of astropy built-in frame classes: https://docs.astropy.org/en/stable/coordinates/index.html
 AllowedSkyCoordFrames = Literal[
     "ICRS",
     "FK5",
@@ -279,8 +280,6 @@ AllowedSkyCoordFrames = Literal[
     "LSRK",
     "LSRD",
     "GalacticLSR",
-    # Added for casacore frames that I am not sure can be safely translated:
-    "AZELGEO",  # used very often if not always in pointing table, double-check if safe -> AltAz
 ]
 
 
@@ -480,6 +479,7 @@ class TimeWeatherCoordArray:
 
 
 # For now allowing both the casacore frames (from "REST" to "Undefined") as well as the astropy frames
+# (taken from the list of SpectralCoord: https://docs.astropy.org/en/stable/coordinates/spectralcoord.html)
 AllowedSpectralCoordFrames = Literal[
     "REST",
     "LSRK",

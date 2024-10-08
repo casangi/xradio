@@ -139,6 +139,11 @@ def column_description_casacore_to_msv4_measure(
                     f"Unknown reference frame for {measinfo['type']} "
                     f"measure, using verbatim: {casa_ref}"
                 )
+                if measinfo["type"] == "direction" and casa_ref == "B1950_VLA":
+                    raise RuntimeError(
+                        f"The direction reference frame {casa_ref} is not supported. "
+                        "Please use CASA to convert the frame to supported frames like J2000 or ICRS."
+                    )
 
             msv4_measure[msv4_measure_conversion["Ref"]] = casa_ref
 

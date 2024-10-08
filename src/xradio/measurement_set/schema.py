@@ -483,7 +483,7 @@ class TimeWeatherCoordArray:
 AllowedSpectralCoordFrames = Literal[
     "REST",
     "LSRK",
-    "LSR",
+    "LSRD",
     "BARY",
     "GEO",
     "TOPO",
@@ -1243,11 +1243,9 @@ class AntennaXds:
     ”SPACE-HALCA” - specific orientation model."""
     telescope_name: Coord[AntennaName, str]
     """ Useful when data is combined from mutiple arrays for example ACA + ALMA. """
-    # TODO: receptor_label, polarization_type, sky_dir_label set as optional
-    # for datasets like test_alma_ephemris_mosaic. See also ANTENNA_RECEPTOR_ANGLE below.
-    receptor_label: Optional[Coord[ReceptorLabel, str]]
+    receptor_label: Coord[ReceptorLabel, str]
     """ Names of receptors """
-    polarization_type: Optional[Coord[tuple[AntennaName, ReceptorLabel], str]]
+    polarization_type: Coord[tuple[AntennaName, ReceptorLabel], str]
     """ Polarization type to which each receptor responds (e.g. ”R”,”L”,”X” or ”Y”).
     This is the receptor polarization type as recorded in the final correlated data (e.g. ”RR”); i.e.
     as measured after all polarization combiners. ['X','Y'], ['R','L'] """
@@ -1286,9 +1284,7 @@ class AntennaXds:
     """
     Polarization reference angle. Converts into parallactic angle in the sky domain.
     """
-    ANTENNA_FOCUS_LENGTH: Optional[
-        Data[tuple[AntennaName, ReceptorLabel], QuantityInMetersArray]
-    ]
+    ANTENNA_FOCUS_LENGTH: Optional[Data[tuple[AntennaName], QuantityInMetersArray]]
     """
     Focus length. As defined along the optical axis of the antenna.
     """

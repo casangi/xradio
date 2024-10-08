@@ -31,6 +31,7 @@ def create_antenna_xds(
     antenna_id: list,
     feed_id: list,
     telescope_name: str,
+    partition_polarization: xr.DataArray,
 ) -> xr.Dataset:
     """
     Create an Xarray Dataset containing antenna information.
@@ -47,6 +48,8 @@ def create_antenna_xds(
         List of feed IDs.
     telescope_name : str
         Name of the telescope.
+    partition_polarization: xr.DataArray
+        Polarization labels of this partition, needed if that info is not present in FEED
 
     Returns
     ----------
@@ -59,6 +62,18 @@ def create_antenna_xds(
     ant_xds = extract_feed_info(
         ant_xds, in_file, antenna_id, feed_id, spectral_window_id
     )
+    # Needed for special SPWs such as ALMA WVR or CHANNEL_AVERAGE data (have no feed info)
+    if "polarization_type" not in ant_xds:
+        pols_chars = list(partition_polarization.values[0])
+        pols_labels = [f"pol_{idx}" for idx in np.arange(0, len(pols_chars))]
+        ant_xds = ant_xds.assign_coords(receptor_label=pols_labels)
+        pol_type_values = [pols_chars] * len(ant_xds.antenna_name)
+        ant_xds = ant_xds.assign_coords(
+            polarization_type=(
+                ["antenna_name", "receptor_label"],
+                pol_type_values,
+            )
+        )
 
     ant_xds.attrs["overall_telescope_name"] = telescope_name
     return ant_xds
@@ -200,12 +215,17 @@ def extract_feed_info(
         taql_where=f" where (ANTENNA_ID IN [{','.join(map(str, ant_xds.antenna_id.values))}]) AND (FEED_ID IN [{','.join(map(str, feed_id))}])",
     )  # Some Lofar and MeerKAT data have the spw column set to -1 so we can't use '(SPECTRAL_WINDOW_ID = {spectral_window_id})'
 
+    if not generic_feed_xds:
+        # Some MSv2 have a FEED table that does not cover all antenna_id (and feed_id)
+        return ant_xds
+
     feed_spw = np.unique(generic_feed_xds.SPECTRAL_WINDOW_ID)
     if len(feed_spw) == 1 and feed_spw[0] == -1:
         generic_feed_xds = generic_feed_xds.isel(SPECTRAL_WINDOW_ID=0, drop=True)
     else:
         if spectral_window_id not in feed_spw:
-            return ant_xds  # For some spw the feed table is empty (this is the case with ALMA spw WVR#NOMINAL).
+            # For some spw the feed table is empty (this is the case with ALMA spw WVR#NOMINAL).
+            return ant_xds
         else:
             generic_feed_xds = generic_feed_xds.sel(
                 SPECTRAL_WINDOW_ID=spectral_window_id, drop=True
@@ -232,7 +252,7 @@ def extract_feed_info(
         ],
         "FOCUS_LENGTH": [
             "ANTENNA_FOCUS_LENGTH",
-            ["antenna_name", "receptor_label"],
+            ["antenna_name"],
         ],  # optional
     }
 
@@ -247,7 +267,7 @@ def extract_feed_info(
         to_new_coords=to_new_coords,
     )
 
-    coords = {}
+    coords = {"sky_dir_label": ["ra", "dec"]}
     # coords["receptor_label"] = "pol_" + np.arange(ant_xds.sizes["receptor_label"]).astype(str) #Works on laptop but fails in github test runner.
     coords["receptor_label"] = np.array(
         list(
@@ -256,11 +276,21 @@ def extract_feed_info(
                 ["pol"] * ant_xds.sizes["receptor_label"],
                 np.arange(ant_xds.sizes["receptor_label"]).astype(str),
             )
-        )
+        ),
+        dtype=str,
     )
 
-    coords["sky_dir_label"] = ["ra", "dec"]
     ant_xds = ant_xds.assign_coords(coords)
+
+    # Correct to expected types. Some ALMA-SD (at least) leave receptor_label, polarization_type columns
+    # in the MS empty, causing a type mismatch
+    if (
+        "polarization_type" in ant_xds.coords
+        and ant_xds.coords["polarization_type"].dtype != str
+    ):
+        ant_xds.coords["polarization_type"] = ant_xds.coords[
+            "polarization_type"
+        ].astype(str)
     return ant_xds
 
 

@@ -210,9 +210,8 @@ def correct_generic_pointing_xds(
 
     correct_pointing_xds = generic_pointing_xds.copy()
 
-    for key in generic_pointing_xds:
-        if key in to_new_data_variables:
-            data_var_name = to_new_data_variables[key]
+    for data_var_name in generic_pointing_xds:
+        if data_var_name in to_new_data_variables:
             # Corrects dim sizes of "empty cell" variables, such as empty DIRECTION, TARGET, etc.
             if (
                 "dim_2" in generic_pointing_xds.sizes
@@ -307,6 +306,8 @@ def create_pointing_xds(
         size = generic_pointing_xds.sizes["n_polynomial"]
         if size == 1:
             generic_pointing_xds = generic_pointing_xds.sel({"n_polynomial": 0})
+        elif size == 0:
+            generic_pointing_xds = generic_pointing_xds.drop_dims("n_polynomial")
 
     time_ant_dims = ["time", "antenna_name"]
     time_ant_dir_dims = time_ant_dims + ["local_sky_dir_label"]
@@ -385,6 +386,10 @@ def prepare_generic_sys_cal_xds(generic_sys_cal_xds: xr.Dataset) -> xr.Dataset:
         "receptor" in generic_sys_cal_xds.sizes
         and "frequency" in generic_sys_cal_xds.sizes
     ):
+        # dim_3 can be created for example when the T*_SPECTRUM have varying # channels!
+        # more generaly, could transpose with ... to avoid errors with additional spurious dimensions
+        if "dim_3" in generic_sys_cal_xds.dims:
+            generic_sys_cal_xds = generic_sys_cal_xds.drop_dims("dim_3")
         # From MSv2 tables we get (...,frequency, receptor)
         #  -> transpose to (...,receptor,frequency) ready for MSv4 sys_cal_xds
         generic_sys_cal_xds = generic_sys_cal_xds.transpose(

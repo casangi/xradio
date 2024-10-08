@@ -623,13 +623,27 @@ def create_data_variables(
 
 
 def add_missing_data_var_attrs(xds):
-    """Adds in attributes expected metadata that cannot be found
-    in the input MSv2. For now specifically for missing
-    single-dish/SPECTRUM metadata"""
+    """
+    Adds in the xds attributes expected metadata that cannot be found in the input MSv2.
+    For now:
+    - missing single-dish/SPECTRUM metadata
+    - missing interferometry/VISIBILITY_MODEL metadata
+    """
     data_var_names = ["SPECTRUM", "SPECTRUM_CORRECTED"]
     for var_name in data_var_names:
         if var_name in xds.data_vars:
             xds.data_vars[var_name].attrs["units"] = [""]
+
+    vis_var_names = ["VISIBILITY_MODEL"]
+    for var_name in vis_var_names:
+        if var_name in xds.data_vars and "units" not in xds.data_vars[var_name].attrs:
+            # Assume MODEL uses the same units
+            if "VISIBILITY" in xds.data_vars:
+                xds.data_vars[var_name].attrs["units"] = xds.data_vars[
+                    "VISIBILITY"
+                ].attrs["units"]
+            else:
+                xds.data_vars[var_name].attrs["units"] = [""]
 
     return xds
 
@@ -799,7 +813,7 @@ def convert_and_write_partition(
                 attrs={
                     "creation_date": datetime.datetime.utcnow().isoformat(),
                     "xradio_version": importlib.metadata.version("xradio"),
-                    "schema_version": "4.0.-9997",
+                    "schema_version": "4.0.-9996",
                     "type": "visibility",
                 }
             )
@@ -893,16 +907,8 @@ def convert_and_write_partition(
                 antenna_id,
                 feed_id,
                 telescope_name,
+                xds.polarization,
             )
-
-            # Needed for ALMA WVR data (has no feed info)
-            if "polarization_type" not in ant_xds:
-                pols = [list(xds.polarization.values[0])] * len(ant_xds.antenna_name)
-                ant_xds = ant_xds.assign_coords(receptor_label=["pol_0", "pol_1"])
-                ant_xds = ant_xds.assign_coords(
-                    polarization_type=(["antenna_name", "receptor_label"], pols)
-                )
-
             logger.debug("Time antenna xds  " + str(time.time() - start))
 
             start = time.time()
@@ -1124,7 +1130,11 @@ def antenna_ids_to_names(
             }
         )
     else:
-        xds["baseline_id"] = ant_xds["antenna_name"].sel(antenna_id=xds["baseline_id"])
+        # baseline_antenna1_id will be removed soon below, but it is useful here to know the actual antenna_ids,
+        # as opposed to the baseline_ids which can mismatch when data is missing for some antennas
+        xds["baseline_id"] = ant_xds["antenna_name"].sel(
+            antenna_id=xds["baseline_antenna1_id"]
+        )
         unwanted_coords_from_ant_xds = [
             "antenna_id",
             "antenna_name",

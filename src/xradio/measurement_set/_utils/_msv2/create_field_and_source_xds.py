@@ -22,6 +22,7 @@ from xradio._utils.list_and_array import (
     to_np_array,
 )
 from xradio._utils.schema import (
+    casacore_to_msv4_measure_type,
     column_description_casacore_to_msv4_measure,
     convert_generic_xds_to_xradio_schema,
 )
@@ -171,7 +172,19 @@ def extract_ephemeris_info(
     ), "Only geocentric observer ephemeris are supported."
 
     if "posrefsys" in ephemeris_meta:
-        sky_coord_frame = ephemeris_meta["posrefsys"].replace("ICRF/", "")
+        # Note the phase center can be given as "J2000" or "J2000.0"
+        ref_frame = (
+            ephemeris_meta["posrefsys"]
+            .replace("ICRF/", "", 1)
+            .replace("J2000.0", "J2000", 1)
+        )
+        if ref_frame in casacore_to_msv4_measure_type["direction"].get("Ref_map", {}):
+            ref_frame = casacore_to_msv4_measure_type["direction"]["Ref_map"][ref_frame]
+        else:
+            logger.debug(
+                f"Unrecognized casacore direction reference frame found in posrefsys: {ref_frame}"
+            )
+        sky_coord_frame = ref_frame
     else:
         sky_coord_frame = "ICRS"  # We will have to just assume this.
 

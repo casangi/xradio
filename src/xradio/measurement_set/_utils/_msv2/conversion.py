@@ -604,8 +604,8 @@ def create_data_variables(
                 logger.debug(
                     "Time to read column " + str(col) + " : " + str(time.time() - start)
                 )
-            except Exception as e:
-                logger.debug("Could not load column", col)
+            except Exception as exc:
+                logger.debug(f"Could not load column {col}, exception: {exc}")
 
                 if ("WEIGHT_SPECTRUM" == col) and (
                     "WEIGHT" in col_names

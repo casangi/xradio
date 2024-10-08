@@ -280,8 +280,9 @@ AllowedSkyCoordFrames = Literal[
     "lsrd",
     "galacticlsr",
     # Added for casacore frames that I am not sure can be safely translated:
-    "azelgeo", 
+    "azelgeo",
 ]
+
 
 @xarray_dataarray_schema
 class SkyCoordArray:
@@ -490,6 +491,7 @@ AllowedSpectralCoordFrames = Literal[
     "LGROUP",
     "CMB",
     "Undefined",
+    "geo",
     "gcrs",
     "icrs",
     "hcrs",

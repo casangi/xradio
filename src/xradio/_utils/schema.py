@@ -141,7 +141,7 @@ def column_description_casacore_to_msv4_measure(
                 )
 
             if msv4_measure["type"] == "location":
-               msv4_measure[msv4_measure_conversion["Ref"]] = casa_ref 
+                msv4_measure[msv4_measure_conversion["Ref"]] = casa_ref
             else:
                 if casa_ref is not None:
                     msv4_measure[msv4_measure_conversion["Ref"]] = casa_ref.lower()

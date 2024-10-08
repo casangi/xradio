@@ -14,7 +14,11 @@ from xradio.measurement_set._utils._msv2._tables.read import (
     load_generic_table,
 )
 from xradio._utils.list_and_array import cast_to_str
-from xradio._utils.coord_math import convert_to_si_units, add_position_offsets, wrap_to_pi
+from xradio._utils.coord_math import (
+    convert_to_si_units,
+    add_position_offsets,
+    wrap_to_pi,
+)
 
 from xradio._utils.list_and_array import (
     check_if_consistent,
@@ -389,28 +393,33 @@ def extract_ephemeris_info(
             interp_time is not None
         ), 'ephemeris_interpolate must be True if there is ephemeris data and multiple fields (this will occur if "FIELD_ID" is not in partition_scheme).'
 
-        field_phase_center = wrap_to_pi(xds[center_dv].values + xds["SOURCE_LOCATION"].sel(sky_coord_pos=['ra','dec']).values)
+        field_phase_center = wrap_to_pi(
+            xds[center_dv].values + xds["SOURCE_LOCATION"][:, 0:2].values
+        )
         field_phase_center = np.column_stack(
-                    (field_phase_center, np.zeros(xds[center_dv].values.shape[0]))
-                )
-        field_phase_center[:,-1] = field_phase_center[:,-1] + xds["SOURCE_LOCATION"].sel(sky_coord_pos='dist').values
-        
+            (field_phase_center, np.zeros(xds[center_dv].values.shape[0]))
+        )
+        field_phase_center[:, -1] = (
+            field_phase_center[:, -1] + xds["SOURCE_LOCATION"][:, -1].values
+        )
 
         xds[center_dv] = xr.DataArray(
             field_phase_center,
             dims=[xds["SOURCE_LOCATION"].dims[0], "sky_pos_label"],
         )
     else:
-        field_phase_center =  np.append(xds[center_dv].values, 0) + xds["SOURCE_LOCATION"].values
-        field_phase_center[:,0:2] = wrap_to_pi(field_phase_center[:,0:2])
-        
+        field_phase_center = (
+            np.append(xds[center_dv].values, 0) + xds["SOURCE_LOCATION"].values
+        )
+        field_phase_center[:, 0:2] = wrap_to_pi(field_phase_center[:, 0:2])
+
         xds[center_dv] = xr.DataArray(
             field_phase_center,
             dims=[xds["SOURCE_LOCATION"].dims[0], "sky_pos_label"],
         )
 
     xds[center_dv].attrs.update(xds["SOURCE_LOCATION"].attrs)
-    
+
     return xds
 
 

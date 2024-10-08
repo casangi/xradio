@@ -188,7 +188,7 @@ def extract_ephemeris_info(
             logger.debug(
                 f"Unrecognized casacore direction reference frame found in posrefsys: {ref_frame}"
             )
-        sky_coord_frame = ref_frame
+        sky_coord_frame = ref_frame.lower()
     else:
         sky_coord_frame = "icrs"  # We will have to just assume this.
 

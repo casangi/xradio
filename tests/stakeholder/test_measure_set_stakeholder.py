@@ -358,7 +358,7 @@ if __name__ == "__main__":
     # test_sd_A002_Xe3a5fd_Xe38e(tmp_path=Path("."))
     # test_s3(tmp_path=Path("."))
     # test_vlass(tmp_path=Path("."))
-    test_alma(tmp_path=Path("."))
+    # test_alma(tmp_path=Path("."))
     # test_preconverted_alma(tmp_path=Path("."))
     # test_ska_mid(tmp_path=Path("."))
     # test_lofar(tmp_path=Path("."))
@@ -367,7 +367,7 @@ if __name__ == "__main__":
     # test_vlba(tmp_path=Path("."))
     # test_ngeht(tmp_path=Path("."))
     # test_ephemeris(tmp_path=Path("."))
-    test_single_dish(tmp_path=Path("."))
+    # test_single_dish(tmp_path=Path("."))
     # test_alma_ephemeris_mosaic(tmp_path=Path("."))
     # test_VLA(tmp_path=Path("."))
 

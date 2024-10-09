@@ -140,7 +140,13 @@ def column_description_casacore_to_msv4_measure(
                     f"measure, using verbatim: {casa_ref}"
                 )
 
-            msv4_measure[msv4_measure_conversion["Ref"]] = casa_ref
+            if msv4_measure["type"] == "location":
+                msv4_measure[msv4_measure_conversion["Ref"]] = casa_ref
+            else:
+                if casa_ref is not None:
+                    msv4_measure[msv4_measure_conversion["Ref"]] = casa_ref.lower()
+                else:
+                    msv4_measure[msv4_measure_conversion["Ref"]] = casa_ref
 
         if msv4_measure["type"] == "time":
             msv4_measure["format"] = time_format

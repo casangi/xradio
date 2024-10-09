@@ -478,27 +478,26 @@ class TimeWeatherCoordArray:
     """ Astropy format, see :py:class:`TimeArray`"""
 
 
-# For now allowing both the casacore frames (from "REST" to "Undefined") as well as the astropy frames
+# For now allowing both the casacore frames (from "rest" to "undefined") as well as the astropy frames
 # (taken from the list of SpectralCoord: https://docs.astropy.org/en/stable/coordinates/spectralcoord.html)
 AllowedSpectralCoordFrames = Literal[
-    "REST",
-    "LSRK",
-    "LSRD",
-    "BARY",
-    "GEO",
-    "TOPO",
-    "GALACTO",
-    "LGROUP",
-    "CMB",
-    "Undefined",
+    "rest",
+    # "LSRK" -> "lsrk",
+    # "LSRD" -> "lsrd",
+    "bary",
     "geo",
+    "topo",
+    "galacto",
+    "lgroup",
+    "cmb",
+    "undefined",
+    # astropy frames
     "gcrs",
     "icrs",
     "hcrs",
     "lsrk",
     "lsrd",
     "lsr",
-    "topo",
 ]
 
 

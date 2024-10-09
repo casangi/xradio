@@ -813,7 +813,7 @@ def convert_and_write_partition(
                 attrs={
                     "creation_date": datetime.datetime.utcnow().isoformat(),
                     "xradio_version": importlib.metadata.version("xradio"),
-                    "schema_version": "4.0.-9996",
+                    "schema_version": "4.0.-9995",
                     "type": "visibility",
                 }
             )

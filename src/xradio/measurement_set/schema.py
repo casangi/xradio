@@ -1254,8 +1254,6 @@ class AntennaXds:
     """ (x,y,z) - either cartesian or ellipsoid """
     ellipsoid_pos_label: Optional[Coord[EllipsoidPosLabel, str]]
     """ (lon, lat, dist) - either cartesian or ellipsoid"""
-    sky_dir_label: Optional[Coord[SkyDirLabel, str]]
-    """ ra, dec """
 
     # Data variables
     ANTENNA_POSITION: Data[tuple[AntennaName], LocationArray]

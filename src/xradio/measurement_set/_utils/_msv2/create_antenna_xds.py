@@ -267,18 +267,19 @@ def extract_feed_info(
         to_new_coords=to_new_coords,
     )
 
-    coords = {"sky_dir_label": ["ra", "dec"]}
     # coords["receptor_label"] = "pol_" + np.arange(ant_xds.sizes["receptor_label"]).astype(str) #Works on laptop but fails in github test runner.
-    coords["receptor_label"] = np.array(
-        list(
-            map(
-                lambda x, y: x + "_" + y,
-                ["pol"] * ant_xds.sizes["receptor_label"],
-                np.arange(ant_xds.sizes["receptor_label"]).astype(str),
-            )
-        ),
-        dtype=str,
-    )
+    coords = {
+        "receptor_label": np.array(
+            list(
+                map(
+                    lambda x, y: x + "_" + y,
+                    ["pol"] * ant_xds.sizes["receptor_label"],
+                    np.arange(ant_xds.sizes["receptor_label"]).astype(str),
+                )
+            ),
+            dtype=str,
+        )
+    }
 
     ant_xds = ant_xds.assign_coords(coords)
 

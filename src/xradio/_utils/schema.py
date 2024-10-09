@@ -139,6 +139,11 @@ def column_description_casacore_to_msv4_measure(
                     f"Unknown reference frame for {measinfo['type']} "
                     f"measure, using verbatim: {casa_ref}"
                 )
+                if measinfo["type"] == "direction" and casa_ref == "B1950_VLA":
+                    raise RuntimeError(
+                        f"The direction reference frame {casa_ref} is not supported. "
+                        "Please use CASA to convert the frame to supported frames like J2000 or ICRS."
+                    )
 
             if msv4_measure["type"] == "location":
                 msv4_measure[msv4_measure_conversion["Ref"]] = casa_ref
@@ -164,7 +169,15 @@ casacore_to_msv4_measure_type = {
     "quanta": {
         "type": "quantity",
     },
-    "direction": {"type": "sky_coord", "Ref": "frame", "Ref_map": {"J2000": "FK5"}},
+    "direction": {
+        "type": "sky_coord",
+        "Ref": "frame",
+        "Ref_map": {
+            "AZELGEO": "AltAz",
+            "ICRS": "ICRS",
+            "J2000": "FK5",
+        },
+    },
     "epoch": {
         "type": "time",
         "Ref": "scale",
@@ -194,7 +207,11 @@ casacore_to_msv4_measure_type = {
         "Ref": "frame",
         "Ref_map": {"ITRF": "GRS80"},
     },
-    "uvw": {"type": "uvw", "Ref": "frame", "Ref_map": {"ITRF": "GRS80"}},
+    "uvw": {
+        "type": "uvw",
+        "Ref": "frame",
+        "Ref_map": {"ITRF": "GRS80", "J2000": "FK5"},
+    },
     "radialvelocity": {"type": "quantity"},
 }
 

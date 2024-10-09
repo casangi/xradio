@@ -250,6 +250,7 @@ class TimeArray:
     """Time representation and epoch, see :py:class:`TimeArray`."""
 
 
+# Taken from the list of astropy built-in frame classes: https://docs.astropy.org/en/stable/coordinates/index.html
 AllowedSkyCoordFrames = Literal[
     "icrs",
     "fk5",
@@ -279,8 +280,6 @@ AllowedSkyCoordFrames = Literal[
     "lsrk",
     "lsrd",
     "galacticlsr",
-    # Added for casacore frames that I am not sure can be safely translated:
-    "azelgeo",
 ]
 
 
@@ -479,26 +478,26 @@ class TimeWeatherCoordArray:
     """ Astropy format, see :py:class:`TimeArray`"""
 
 
-# For now allowing both the casacore frames (from "REST" to "Undefined") as well as the astropy frames
+# For now allowing both the casacore frames (from "rest" to "undefined") as well as the astropy frames
+# (taken from the list of SpectralCoord: https://docs.astropy.org/en/stable/coordinates/spectralcoord.html)
 AllowedSpectralCoordFrames = Literal[
-    "REST",
-    "LSRK",
-    "LSRD",
-    "BARY",
-    "GEO",
-    "TOPO",
-    "GALACTO",
-    "LGROUP",
-    "CMB",
-    "Undefined",
+    "rest",
+    # "LSRK" -> "lsrk",
+    # "LSRD" -> "lsrd",
+    "bary",
     "geo",
+    "topo",
+    "galacto",
+    "lgroup",
+    "cmb",
+    "undefined",
+    # astropy frames
     "gcrs",
     "icrs",
     "hcrs",
     "lsrk",
     "lsrd",
     "lsr",
-    "topo",
 ]
 
 
@@ -803,6 +802,12 @@ class WeightArray:
     allow_mutiple_versions: Optional[Attr[bool]] = True
 
 
+AllowedUvwFrames = Literal[
+    "fk5",
+    "icrs",
+]
+
+
 @xarray_dataarray_schema
 class UvwArray:
     """
@@ -857,6 +862,9 @@ class UvwArray:
     uvw_label: Coordof[UvwLabelArray] = ("u", "v", "w")
     long_name: Optional[Attr[str]] = "Baseline coordinates"
     """ Long-form name to use for axis. Should be ``"Baseline coordinates``"""
+
+    type: Attr[Literal["uvw"]] = "uvw"
+    frame: Attr[AllowedUvwFrames] = "ICRS"
     units: Attr[UnitsMeters] = ("m",)
 
     allow_mutiple_versions: Optional[Attr[bool]] = True
@@ -1254,8 +1262,6 @@ class AntennaXds:
     """ (x,y,z) - either cartesian or ellipsoid """
     ellipsoid_pos_label: Optional[Coord[EllipsoidPosLabel, str]]
     """ (lon, lat, dist) - either cartesian or ellipsoid"""
-    sky_dir_label: Optional[Coord[SkyDirLabel, str]]
-    """ ra, dec """
 
     # Data variables
     ANTENNA_POSITION: Data[tuple[AntennaName], LocationArray]

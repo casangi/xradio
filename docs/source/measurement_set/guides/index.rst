@@ -8,7 +8,7 @@ Guides
    LOFAR
    MeerKAT
    ngEHT
-   ALMA_single_dish
+   GBT_single_dish
    SKA_mid
    VLBA
    VLBI

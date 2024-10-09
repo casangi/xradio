@@ -280,8 +280,6 @@ AllowedSkyCoordFrames = Literal[
     "lsrk",
     "lsrd",
     "galacticlsr",
-    # Added for casacore frames that I am not sure can be safely translated:
-    "azelgeo",
 ]
 
 

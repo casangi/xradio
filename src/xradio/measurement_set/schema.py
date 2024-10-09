@@ -804,8 +804,8 @@ class WeightArray:
 
 
 AllowedUvwFrames = Literal[
-    "FK5",
-    "ICRS",
+    "fk5",
+    "icrs",
 ]
 
 
@@ -863,6 +863,9 @@ class UvwArray:
     uvw_label: Coordof[UvwLabelArray] = ("u", "v", "w")
     long_name: Optional[Attr[str]] = "Baseline coordinates"
     """ Long-form name to use for axis. Should be ``"Baseline coordinates``"""
+
+    type: Attr[Literal["uvw"]] = "uvw"
+    frame: Attr[AllowedUvwFrames] = "ICRS"
     units: Attr[UnitsMeters] = ("m",)
 
     allow_mutiple_versions: Optional[Attr[bool]] = True

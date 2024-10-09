@@ -138,6 +138,8 @@ def base_test(
             expected_sum_value, rel=relative_tolerance
         ), "VISIBILITY and WEIGHT values have changed."
 
+        # print('^^^^^^^',ps.get(0).coords['frequency'].attrs['reference_frequency'])
+
         if do_schema_check:
             start_check = time.time()
             for xds_name in ps.keys():
@@ -358,16 +360,16 @@ if __name__ == "__main__":
     # test_sd_A002_Xe3a5fd_Xe38e(tmp_path=Path("."))
     # test_s3(tmp_path=Path("."))
     # test_vlass(tmp_path=Path("."))
-    test_alma(tmp_path=Path("."))
+    # test_alma(tmp_path=Path("."))
     # test_preconverted_alma(tmp_path=Path("."))
     # test_ska_mid(tmp_path=Path("."))
     # test_lofar(tmp_path=Path("."))
     # test_meerkat(tmp_path=Path("."))
-    # test_global_vlbi(tmp_path=Path("."))
-    # test_vlba(tmp_path=Path("."))
-    # test_ngeht(tmp_path=Path("."))
+    test_global_vlbi(tmp_path=Path("."))
+    test_vlba(tmp_path=Path("."))
+    test_ngeht(tmp_path=Path("."))
     # test_ephemeris(tmp_path=Path("."))
-    test_single_dish(tmp_path=Path("."))
+    # test_single_dish(tmp_path=Path("."))
     # test_alma_ephemeris_mosaic(tmp_path=Path("."))
     # test_VLA(tmp_path=Path("."))
 
@@ -375,6 +377,10 @@ if __name__ == "__main__":
     # FAILED test_cor_stakeholder.py::test_alma_ephemeris_mosaic - ValueError: Buffer has wrong number of dimensions (expected 1, got 2)
     # FAILED test_cor_stakeholder.py::test_sd_A002_X1015532_X1926f - ValueError: Buffer has wrong number of dimensions (expected 1, got 2)
     # FAILED test_cor_stakeholder.py::test_sd_A002_Xe3a5fd_Xe38e - ValueError: Buffer has wrong number of dimensions (expected 1, got 2)
+
+    # FAILED test_measure_set_stakeholder.py::test_global_vlbi - xradio.schema.check.SchemaIssues:
+    # FAILED test_measure_set_stakeholder.py::test_vlba - xradio.schema.check.SchemaIssues:
+    # FAILED test_measure_set_stakeholder.py::test_ngeht - xradio.schema.check.SchemaIssues:
 
 # All test preformed on MAC with M3 and 16 GB Ram.
 # pytest --durations=0 .

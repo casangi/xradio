@@ -803,6 +803,12 @@ class WeightArray:
     allow_mutiple_versions: Optional[Attr[bool]] = True
 
 
+AllowedUvwFrames = Literal[
+    "FK5",
+    "ICRS",
+]
+
+
 @xarray_dataarray_schema
 class UvwArray:
     """

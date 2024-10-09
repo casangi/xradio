@@ -207,7 +207,11 @@ casacore_to_msv4_measure_type = {
         "Ref": "frame",
         "Ref_map": {"ITRF": "GRS80"},
     },
-    "uvw": {"type": "uvw", "Ref": "frame", "Ref_map": {"ITRF": "GRS80"}},
+    "uvw": {
+        "type": "uvw",
+        "Ref": "frame",
+        "Ref_map": {"ITRF": "GRS80", "J2000": "FK5"},
+    },
     "radialvelocity": {"type": "quantity"},
 }
 

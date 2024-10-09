@@ -237,21 +237,22 @@ def _get_telescope_metadata(helpers: dict, header) -> dict:
     # The helpers dict is modified in place. header is not modified
     tel = {}
     tel["name"] = header["TELESCOP"]
-    x = header["OBSGEO-X"]
-    y = header["OBSGEO-Y"]
-    z = header["OBSGEO-Z"]
-    xyz = np.array([x, y, z])
-    r = np.sqrt(np.sum(xyz * xyz))
-    lat = np.arcsin(z / r)
-    long = np.arctan2(y, x)
-    tel["position"] = {
-        "type": "position",
-        # I haven't seen a FITS keyword for reference frame of telescope posiiton
-        "ellipsoid": "GRS80",
-        "units": ["rad", "rad", "m"],
-        "value": np.array([long, lat, r]),
-    }
-    helpers["tel_pos"] = tel["position"]
+    if "OBSGEO-x" in header:
+        x = header["OBSGEO-X"]
+        y = header["OBSGEO-Y"]
+        z = header["OBSGEO-Z"]
+        xyz = np.array([x, y, z])
+        r = np.sqrt(np.sum(xyz * xyz))
+        lat = np.arcsin(z / r)
+        long = np.arctan2(y, x)
+        tel["position"] = {
+            "type": "position",
+            # I haven't seen a FITS keyword for reference frame of telescope posiiton
+            "ellipsoid": "GRS80",
+            "units": ["rad", "rad", "m"],
+            "value": np.array([long, lat, r]),
+        }
+        helpers["tel_pos"] = tel["position"]
     return tel
 
 

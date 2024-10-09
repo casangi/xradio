@@ -204,7 +204,7 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
         if k.startswith("telescope"):
             if k == "telescope":
                 telescope["name"] = coord_dict[k]
-            else:
+            elif k in coord_dict:
                 telescope["position"] = coord_dict[k]
                 telescope["position"]["ellipsoid"] = telescope["position"]["refer"]
                 if telescope["position"]["refer"] == "ITRF":

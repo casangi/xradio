@@ -542,6 +542,8 @@ class xds_from_image_test(ImageBase):
 
     def compare_attrs(self, xds: xr.Dataset, fits: bool = False):
         my_exp_attrs = copy.deepcopy(self.exp_attrs())
+        if "position" not in xds.attrs["telescope"]:
+            del my_exp_attrs["telescope"]["position"]
         if fits:
             # xds from fits do not have history yet
             del my_exp_attrs["history"]

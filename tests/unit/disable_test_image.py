@@ -150,7 +150,7 @@ class xds_from_image_test(ImageBase):
         "reference": {
             "type": "sky_coord",
             "frame": "FK5",
-            "equinox": "J2000",
+            "equinox": "J2000.0",
             "value": [1.832595714594046, -0.6981317007977318],
             "cdelt": [-_rad_to_arcmin, _rad_to_arcmin],
             "units": ["rad", "rad"],

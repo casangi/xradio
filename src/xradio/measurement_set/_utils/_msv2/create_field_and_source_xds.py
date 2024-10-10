@@ -302,7 +302,7 @@ def extract_ephemeris_info(
         temp_xds["SUB_OBSERVER_DIRECTION"].attrs.update(
             {
                 "type": "location",
-                "frame": "NA",
+                "frame": "Undefined",
                 "origin_object_name": ephemeris_meta["NAME"],
                 "coordinate_system": "planetodetic",
                 "units": [
@@ -331,7 +331,7 @@ def extract_ephemeris_info(
         temp_xds["SUB_SOLAR_POSITION"].attrs.update(
             {
                 "type": "location",
-                "frame": "NA",
+                "frame": "Undefined",
                 "origin_object_name": "Sun",
                 "coordinate_system": "planetodetic",
                 "units": [

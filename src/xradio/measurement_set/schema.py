@@ -309,7 +309,7 @@ class LocalSkyCoordArray:
 
     type: Attr[SkyCoord] = "sky_coord"
     units: Attr[UnitsOfSkyCoordInRadians] = ("rad", "rad")
-    frame: Attr[AllowedSkyCoordFrames] = "FK5"
+    frame: Attr[AllowedSkyCoordFrames] = "fk5"
     """
     From fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled
     as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking
@@ -478,19 +478,16 @@ class TimeWeatherCoordArray:
     """ Astropy format, see :py:class:`TimeArray`"""
 
 
-# For now allowing both the casacore frames (from "rest" to "undefined") as well as the astropy frames
-# (taken from the list of SpectralCoord: https://docs.astropy.org/en/stable/coordinates/spectralcoord.html)
+# For now allowing both some of the casacore frames (from "REST" to "TOPO" - all in uppercase) as well as
+# the astropy frames (all in lowercase, taken from the list of SpectralCoord:
+# https://docs.astropy.org/en/stable/coordinates/spectralcoord.html)
 AllowedSpectralCoordFrames = Literal[
-    "rest",
+    "REST",
     # "LSRK" -> "lsrk",
     # "LSRD" -> "lsrd",
-    "bary",
-    "geo",
-    "topo",
-    "galacto",
-    "lgroup",
-    "cmb",
-    "undefined",
+    "BARY",
+    "GEO",
+    "TOPO",
     # astropy frames
     "gcrs",
     "icrs",
@@ -505,14 +502,14 @@ AllowedSpectralCoordFrames = Literal[
 class SpectralCoordArray:
     data: Data[ZD, float]
 
-    frame: Attr[AllowedSpectralCoordFrames] = "gcrs"
+    observer: Attr[AllowedSpectralCoordFrames] = "gcrs"
     """Astropy time scales."""
 
     type: Attr[SpectralCoord] = "spectral_coord"
     units: Attr[UnitsHertz] = ("Hz",)
 
 
-AllowedLocationFrames = Literal["ITRF", "GRS80", "WGS84", "WGS72", "NA"]
+AllowedLocationFrames = Literal["ITRF", "GRS80", "WGS84", "WGS72", "Undefined"]
 
 
 AllowedLocationCoordinateSystems = Literal[
@@ -543,7 +540,7 @@ class LocationArray:
 
     frame: Attr[AllowedLocationFrames]
     """
-    Can be ITRF, GRS80, WGS84, WGS72
+    Can be ITRF, GRS80, WGS84, WGS72, Undefined
     """
 
     coordinate_system: Attr[AllowedLocationCoordinateSystems]
@@ -670,7 +667,7 @@ class FrequencyArray:
     """ Long-form name to use for axis"""
     units: Attr[UnitsHertz] = ("Hz",)
     """ Units to associate with axis"""
-    frame: Attr[AllowedSpectralCoordFrames] = "icrs"
+    observer: Attr[AllowedSpectralCoordFrames] = "icrs"
     """
     Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
     Note that Astropy does not use the name
@@ -696,7 +693,7 @@ class FrequencyCalArray:
     units: Attr[UnitsHertz] = ("Hz",)
     """ Units to associate with axis"""
 
-    frame: Attr[AllowedSpectralCoordFrames] = "icrs"
+    observer: Attr[AllowedSpectralCoordFrames] = "icrs"
     """
     Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
     Note that Astropy does not use the name
@@ -802,9 +799,12 @@ class WeightArray:
     allow_mutiple_versions: Optional[Attr[bool]] = True
 
 
+# J2000=>fk5 is used most often. icrs is used less often. Both fk5 and icrs are also borrowed from the field center (to fix
+# ITRF=>J2000). APP has only been seen in WSRT datasets.
 AllowedUvwFrames = Literal[
     "fk5",
     "icrs",
+    "APP",  # "apparent geocentric position", used in WSRT datasets
 ]
 
 
@@ -864,7 +864,7 @@ class UvwArray:
     """ Long-form name to use for axis. Should be ``"Baseline coordinates``"""
 
     type: Attr[Literal["uvw"]] = "uvw"
-    frame: Attr[AllowedUvwFrames] = "ICRS"
+    frame: Attr[AllowedUvwFrames] = "icrs"
     units: Attr[UnitsMeters] = ("m",)
 
     allow_mutiple_versions: Optional[Attr[bool]] = True
@@ -923,7 +923,7 @@ class FreqSamplingArray:
     polarization: Optional[Coordof[PolarizationArray]] = None
     long_name: Optional[Attr[str]] = "Frequency sampling data"
     units: Attr[UnitsHertz] = ("Hz",)
-    frame: Attr[AllowedSpectralCoordFrames] = "icrs"
+    observer: Attr[AllowedSpectralCoordFrames] = "icrs"
     """
     Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
     Note that Astropy does not use the name
@@ -1644,7 +1644,6 @@ class SystemCalibrationXds:
     """ Midpoint of time for which this set of parameters is accurate. Labeled 'time' when interpolating to main time axis """
     time_cal: Optional[Coordof[TimeCalCoordArray]] = None
     """ Midpoint of time for which this set of parameters is accurate. Labeled 'time_cal' when not interpolating to main time axis """
-    # frequency: Optional[Coordof[FrequencyArray]] = None
     frequency: Optional[Coordof[FrequencyCalArray]] = None
     """  """
     frequency_cal: Optional[Coord[FrequencyCal, int]] = None

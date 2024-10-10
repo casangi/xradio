@@ -518,8 +518,7 @@ def create_system_calibration_xds(
         frequency_measure = {
             "type": main_xds_frequency.attrs["type"],
             "units": main_xds_frequency.attrs["units"],
-            "frame": main_xds_frequency.attrs["frame"],
-            "reference_value": main_xds_frequency.attrs["reference_frequency"],
+            "observer": main_xds_frequency.attrs["observer"],
         }
         sys_cal_xds.coords["frequency_cal"].attrs.update(frequency_measure)
 

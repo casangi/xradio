@@ -701,7 +701,9 @@ def create_taql_query(partition_info):
     return taql_where
 
 
-def fix_uvw_frame(xds: xr.Dataset, is_single_dish: bool) -> xr.Dataset:
+def fix_uvw_frame(
+    xds: xr.Dataset, field_and_source_xds: xr.Dataset, is_single_dish: bool
+) -> xr.Dataset:
     """
     Fix UVW frame
 
@@ -1035,7 +1037,7 @@ def convert_and_write_partition(
             )
             logger.debug("Time field_and_source_xds " + str(time.time() - start))
 
-            xds = fix_uvw_frame(xds, is_single_dish)
+            xds = fix_uvw_frame(xds, field_and_source_xds, is_single_dish)
 
             partition_info_misc_fields = {
                 "scan_id": scan_id,

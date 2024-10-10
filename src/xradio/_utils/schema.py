@@ -136,8 +136,8 @@ def column_description_casacore_to_msv4_measure(
                 casa_ref = msv4_measure_conversion["Ref_map"][casa_ref]
             else:
                 logger.debug(
-                    f"Unknown reference frame for {measinfo['type']} "
-                    f"measure, using verbatim: {casa_ref}"
+                    f"No translation defined for casacore reference frame ({measinfo['type']} "
+                    f"measure), using verbatim: {casa_ref}"
                 )
                 if measinfo["type"] == "direction" and casa_ref == "B1950_VLA":
                     raise RuntimeError(
@@ -145,13 +145,7 @@ def column_description_casacore_to_msv4_measure(
                         "Please use CASA to convert the frame to supported frames like J2000 or ICRS."
                     )
 
-            if msv4_measure["type"] == "location":
-                msv4_measure[msv4_measure_conversion["Ref"]] = casa_ref
-            else:
-                if casa_ref is not None:
-                    msv4_measure[msv4_measure_conversion["Ref"]] = casa_ref.lower()
-                else:
-                    msv4_measure[msv4_measure_conversion["Ref"]] = casa_ref
+            msv4_measure[msv4_measure_conversion["Ref"]] = casa_ref
 
         if msv4_measure["type"] == "time":
             msv4_measure["format"] = time_format
@@ -173,9 +167,9 @@ casacore_to_msv4_measure_type = {
         "type": "sky_coord",
         "Ref": "frame",
         "Ref_map": {
-            "AZELGEO": "AltAz",
-            "ICRS": "ICRS",
-            "J2000": "FK5",
+            "AZELGEO": "altaz",
+            "ICRS": "icrs",
+            "J2000": "fk5",
         },
     },
     "epoch": {
@@ -188,19 +182,15 @@ casacore_to_msv4_measure_type = {
     },
     "frequency": {
         "type": "spectral_coord",
-        "Ref": "frame",
+        "Ref": "observer",
         "Ref_map": {
             "REST": "REST",
-            "LSRK": "LSRK",
-            "LSRD": "LSRD",
+            "LSRK": "lsrk",
+            "LSRD": "lsrd",
             "BARY": "BARY",
             "GEO": "GEO",
             "TOPO": "TOPO",
-            "GALACTO": "GALACTO",
-            "LGROUP": "LGROUP",
-            "CMB": "CMB",
-            "Undefined": "Undefined",
-        },
+        },  # The frames/observer we are not sure if/how to translate to astropy are uppercase
     },
     "position": {
         "type": "location",
@@ -210,7 +200,7 @@ casacore_to_msv4_measure_type = {
     "uvw": {
         "type": "uvw",
         "Ref": "frame",
-        "Ref_map": {"ITRF": "GRS80", "J2000": "FK5"},
+        "Ref_map": {"J2000": "fk5", "APP": "APP"},
     },
     "radialvelocity": {"type": "quantity"},
 }

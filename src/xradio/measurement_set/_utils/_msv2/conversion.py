@@ -701,6 +701,28 @@ def create_taql_query(partition_info):
     return taql_where
 
 
+def fix_uvw_frame(
+    xds: xr.Dataset, field_and_source_xds: xr.Dataset, is_single_dish: bool
+) -> xr.Dataset:
+    """
+    Fix UVW frame
+
+    From CASA fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often
+    mislabelled as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase
+    tracking center. calcuvw does not yet force the UVW column and field centers to use the same reference frame!
+    Blank = use the phase tracking frame of vis.
+    """
+    if xds.UVW.attrs["frame"] == "ITRF":
+        if is_single_dish:
+            center_var = "FIELD_REFERENCE_CENTER"
+        else:
+            center_var = "FIELD_PHASE_CENTER"
+
+        xds.UVW.attrs["frame"] = field_and_source_xds[center_var].attrs["frame"]
+
+    return xds
+
+
 def convert_and_write_partition(
     in_file: str,
     out_file: str,
@@ -813,7 +835,7 @@ def convert_and_write_partition(
                 attrs={
                     "creation_date": datetime.datetime.utcnow().isoformat(),
                     "xradio_version": importlib.metadata.version("xradio"),
-                    "schema_version": "4.0.-9995",
+                    "schema_version": "4.0.-9994",
                     "type": "visibility",
                 }
             )
@@ -1015,16 +1037,7 @@ def convert_and_write_partition(
             )
             logger.debug("Time field_and_source_xds " + str(time.time() - start))
 
-            # Fix UVW frame
-            # From CASA fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking center. calcuvw does not yet force the UVW column and field centers to use the same reference frame! Blank = use the phase tracking frame of vis.
-            if is_single_dish:
-                xds.UVW.attrs["frame"] = field_and_source_xds[
-                    "FIELD_REFERENCE_CENTER"
-                ].attrs["frame"]
-            else:
-                xds.UVW.attrs["frame"] = field_and_source_xds[
-                    "FIELD_PHASE_CENTER"
-                ].attrs["frame"]
+            xds = fix_uvw_frame(xds, field_and_source_xds, is_single_dish)
 
             partition_info_misc_fields = {
                 "scan_id": scan_id,

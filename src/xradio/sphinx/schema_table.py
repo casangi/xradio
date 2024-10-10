@@ -194,37 +194,41 @@ def format_attr_model_text(state, attr) -> StringList:
 
     Everything else than these expected literal based types would be printed as the
     type name.
-    TODO: could be reorganize to split a copule of helpers and make the function
-    recursive - keeping it flat for now.
     """
 
-    # A type?
-    line = nodes.line()
-    if isinstance(attr.typ, type):
-        vl = StringList()
-        vl.append(f":py:class:`~{attr.typ.__module__}.{attr.typ.__name__}`", "")
-        with switch_source_input(state, vl):
-            state.nested_parse(vl, 0, line)
-        return line
+    type_args = typing.get_args(attr.typ)
+    is_list_of_literals = typing.get_origin(attr.typ) is list and all(
+        [typing.get_origin(arg) is typing.Literal for arg in type_args]
+    )
 
-    # Derived type, e.g. list of types?
-    if typing.get_origin(attr.typ) == list and all(
-        [isinstance(arg, type) for arg in typing.get_args(attr.typ)]
-    ):
-        vl = StringList()
-        vl.append("[", "")
-        for i, arg in enumerate(typing.get_args(attr.typ)):
-            if i > 0:
-                vl.append(", ", "")
-            vl.append(f":py:class:`~{arg.__module__}.{arg.__name__}`", "")
-        vl.append("]", "")
-        with switch_source_input(state, vl):
-            state.nested_parse(vl, 0, line)
-        return line
+    line = nodes.line()
+
+    if not is_list_of_literals:
+        # A type?
+        if isinstance(attr.typ, type):
+            vl = StringList()
+            vl.append(f":py:class:`~{attr.typ.__module__}.{attr.typ.__name__}`", "")
+            with switch_source_input(state, vl):
+                state.nested_parse(vl, 0, line)
+            return line
+
+        # Derived type, e.g. list of types?
+        if typing.get_origin(attr.typ) == list and all(
+            [isinstance(arg, type) for arg in type_args]
+        ):
+            vl = StringList()
+            vl.append("[", "")
+            for i, arg in enumerate(typing.get_args(attr.typ)):
+                if i > 0:
+                    vl.append(", ", "")
+                vl.append(f":py:class:`~{arg.__module__}.{arg.__name__}`", "")
+            vl.append("]", "")
+            with switch_source_input(state, vl):
+                state.nested_parse(vl, 0, line)
+            return line
 
     # Assume it's a literal of some kind - collect options
     literals = format_literals(attr.typ)
-    print(literals)
     for i, lit in enumerate(literals):
         if i > 0:
             if i + 1 >= len(literals):
@@ -232,7 +236,7 @@ def format_attr_model_text(state, attr) -> StringList:
             else:
                 line += nodes.Text(", ")
         line += lit
-    print(line)
+
     return line
 
 

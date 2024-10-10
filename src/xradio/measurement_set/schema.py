@@ -215,7 +215,7 @@ AllowedTimeFormats = Literal["unix", "mjd", "cxcsec", "gps"]
 @xarray_dataarray_schema
 class TimeArray:
     """
-    Representation of a time quantity.
+    Representation of a time measure.
 
     :py:class:`astropy.time.Time` serves as the reference implementation.
     Data can be converted as follows::
@@ -285,12 +285,16 @@ AllowedSkyCoordFrames = Literal[
 
 @xarray_dataarray_schema
 class SkyCoordArray:
+    """Measures array for data variables that are sky coordinates, used in :py:class:`FieldSourceXds`"""
+
     data: Data[Union[SkyDirLabel, SkyPosLabel], float]
 
     type: Attr[SkyCoord] = "sky_coord"
     units: Attr[UnitsOfSkyCoordInRadians] = ("rad", "rad")
     frame: Attr[AllowedSkyCoordFrames] = ""
     """
+    Possible values are astropy SkyCoord frames.
+    Several casacore frames found in MSv2 are translated to astropy frames as follows: AZELGEO=>altaz, J2000=>fk5, ICRS=>icrs.
     From fixvis docs: clean and the im tool ignore the reference frame
     claimed by the UVW column (it is often mislabelled as ITRF when it is
     really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame
@@ -302,8 +306,7 @@ class SkyCoordArray:
 
 @xarray_dataarray_schema
 class LocalSkyCoordArray:
-    """Coordinate array for the arrays that have coordinate local_sky_dir_label
-    in pointing_xds"""
+    """Measures array for the arrays that have coordinate local_sky_dir_label in :py:class:`PointingXds`"""
 
     data: Data[LocalSkyDirLabel, float]
 
@@ -500,13 +503,22 @@ AllowedSpectralCoordFrames = Literal[
 
 @xarray_dataarray_schema
 class SpectralCoordArray:
+    """
+    Measures array for data variables and attributes that are spectral coordinates.
+    """
+
     data: Data[ZD, float]
 
+    units: Attr[UnitsHertz] = ("Hz",)
+
     observer: Attr[AllowedSpectralCoordFrames] = "gcrs"
-    """Astropy time scales."""
+    """
+    Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.
+    Astropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)
+    rather it assumes if no velocity frame is given that this is the default.
+    """
 
     type: Attr[SpectralCoord] = "spectral_coord"
-    units: Attr[UnitsHertz] = ("Hz",)
 
 
 AllowedLocationFrames = Literal["ITRF", "GRS80", "WGS84", "WGS72", "Undefined"]
@@ -590,7 +602,7 @@ class EllipsoidPosLocationArray:
 
 @xarray_dataarray_schema
 class BaselineArray:
-    """TODO: documentation"""
+    """Model of the baseline_id coordinate in the main dataset (interferometric data, :py:class:`VisibiiltyXds`)"""
 
     data: Data[BaselineId, Union[numpy.int64, numpy.int32]]
     """Unique id for each baseline."""
@@ -609,7 +621,10 @@ class BaselineAntennaNameArray:
 
 @xarray_dataarray_schema
 class AntennaNameArray:
-    """TODO: documentation"""
+    """
+    Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibiiltyXds`)
+    and several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.
+    """
 
     data: Data[AntennaName, str]
     """Unique name for each antenna(_station)."""
@@ -635,13 +650,14 @@ class DopplerArray:
 
     doppler_type: Attr[AllowedDopplerTypes] = "radio"
     """
-    Allowable values: radio, optical, z, ratio, true, relativistic, beta, gamma. Astropy only has radio and optical. Using casacore types: https://casadocs.readthedocs.io/en/stable/notebooks/memo-series.html?highlight=Spectral%20Frames#Spectral-Frames
+    Allowable values: radio, optical, z, ratio, true, relativistic, beta, gamma.
+    Astropy only has radio and optical. Using casacore types: https://casadocs.readthedocs.io/en/stable/notebooks/memo-series.html?highlight=Spectral%20Frames#Spectral-Frames
     """
 
 
 @xarray_dataarray_schema
 class FrequencyArray:
-    """TODO: documentation"""
+    """Frequency coordinate in the main dataset."""
 
     data: Data[Frequency, float]
     """ Time, expressed in SI seconds since the epoch. """
@@ -683,11 +699,6 @@ class FrequencyCalArray:
 
     data: Data[FrequencyCal, float]
     """ Time, expressed in SI seconds since the epoch. """
-    reference_value: Attr[SpectralCoordArray]
-    """ A frequency representative of the spectral window, usually the sky
-    frequency corresponding to the DC edge of the baseband. Used by the calibration
-    system if a ﬁxed scaling frequency is required or in algorithms to identify the
-    observing band. """
 
     type: Attr[SpectralCoord] = "spectral_coord"
     units: Attr[UnitsHertz] = ("Hz",)
@@ -792,7 +803,7 @@ class WeightArray:
     time: Coordof[TimeCoordArray]
     baseline_id: Optional[Coordof[BaselineArray]]  # Only IF
     antenna_name: Optional[Coordof[AntennaNameArray]]  # Only SD
-    frequency: Optional[Coordof[FrequencyArray]] = None
+    frequency: Coordof[FrequencyArray] = None
     polarization: Optional[Coordof[PolarizationArray]] = None
     long_name: Optional[Attr[str]] = "Visibility weights"
 
@@ -839,14 +850,7 @@ class UvwArray:
     """
 
     data: Data[
-        Union[
-            tuple[Time, BaselineId, Frequency, Polarization, UvwLabel],
-            tuple[Time, BaselineId, Frequency, UvwLabel],
-            tuple[Time, BaselineId, UvwLabel],
-            tuple[Time, AntennaName, UvwLabel],  # SD
-            tuple[Time, AntennaName, Frequency, UvwLabel],  # SD
-            tuple[Time, AntennaName, Frequency, Polarization],  # SD
-        ],
+        Union[tuple[Time, BaselineId, UvwLabel]],
         Union[
             numpy.float16,
             numpy.float32,
@@ -855,16 +859,15 @@ class UvwArray:
     ]
     """Baseline coordinates from ``baseline_antenna2_id`` to ``baseline_antenna1_id``"""
     time: Coordof[TimeCoordArray]
-    baseline_id: Optional[Coordof[BaselineArray]]  # Only IF
-    antenna_name: Optional[Coordof[AntennaNameArray]]  # Only SD
-    frequency: Optional[Coordof[FrequencyArray]] = None
-    polarization: Optional[Coordof[PolarizationArray]] = None
+    baseline_id: Optional[Coordof[BaselineArray]]
     uvw_label: Coordof[UvwLabelArray] = ("u", "v", "w")
+
     long_name: Optional[Attr[str]] = "Baseline coordinates"
     """ Long-form name to use for axis. Should be ``"Baseline coordinates``"""
 
     type: Attr[Literal["uvw"]] = "uvw"
     frame: Attr[AllowedUvwFrames] = "icrs"
+    """ To be defined in astropy (see for example https://github.com/astropy/astropy/issues/7766) """
     units: Attr[UnitsMeters] = ("m",)
 
     allow_mutiple_versions: Optional[Attr[bool]] = True
@@ -872,12 +875,13 @@ class UvwArray:
 
 @xarray_dataarray_schema
 class TimeSamplingArray:
-    """TODO: documentation"""
+    """
+    Model of arrays of measures used in the main dataset for data variables such as TIME_CENTROID and
+    TIME_CENTROID_EXTRA_PRECISION.
+    """
 
     data: Data[
         Union[
-            tuple[Time, BaselineId, Frequency, Polarization],
-            tuple[Time, BaselineId, Frequency],
             tuple[Time, BaselineId],
             tuple[Time, AntennaName],  # SD
         ],
@@ -887,8 +891,6 @@ class TimeSamplingArray:
     time: Coordof[TimeCoordArray]
     baseline_id: Optional[Coordof[BaselineArray]]  # Only IF
     antenna_name: Optional[Coordof[AntennaNameArray]]  # Only SD
-    frequency: Optional[Coordof[FrequencyArray]] = None
-    polarization: Optional[Coordof[PolarizationArray]] = None
 
     scale: Attr[AllowedTimeScales] = "utc"
     """ Astropy time scales, see :py:class:`astropy.time.Time` """
@@ -901,7 +903,9 @@ class TimeSamplingArray:
 
 @xarray_dataarray_schema
 class FreqSamplingArray:
-    """TODO: documentation"""
+    """
+    Model of frequency related data variables of the main dataset, such as EFFECTIV_CHANNEL_WIDTH and FREQUENCY_CENTROID.
+    """
 
     data: Data[
         Union[
@@ -1145,7 +1149,7 @@ class SpectrumArray:
 
 @xarray_dataarray_schema
 class VisibilityArray:
-    """TODO: documentation"""
+    """Visibility data array in main dataset (interferometric data, :py:class:`VisibiiltyXds`)"""
 
     data: Data[
         tuple[Time, BaselineId, Frequency, Polarization],
@@ -1765,7 +1769,7 @@ class DopplerXds:
 
 @xarray_dataset_schema
 class VisibilityXds:
-    """TODO: documentation - visibility data for interferometry"""
+    """Main dataset for interferometric data"""
 
     # --- Required Coordinates ---
     time: Coordof[TimeCoordArray]
@@ -1876,7 +1880,7 @@ class VisibilityXds:
 
 @xarray_dataset_schema
 class SpectrumXds:
-    """TODO: documentation - spectrum data for single dish"""
+    """Main dataset for single dish data"""
 
     # --- Required Coordinates ---
     time: Coordof[TimeCoordArray]

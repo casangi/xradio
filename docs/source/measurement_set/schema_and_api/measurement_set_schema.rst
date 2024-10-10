@@ -127,14 +127,6 @@ Bulk data gathered into :ref:`correlated data datasets`.
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.UvwArray
 
-.. autoclass:: xradio.measurement_set.schema.SkyCoordArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.SkyCoordArray
-
-.. autoclass:: xradio.measurement_set.schema.LocalSkyCoordArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.SkyCoordArray
-
 .. autoclass:: xradio.measurement_set.schema.TimeSamplingArray()
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.TimeSamplingArray
@@ -155,10 +147,6 @@ data array might have an associated channel or time step count. Use
 :ref:`correlated data Coordinates` to associate dimension indicies with values such
 as frequencies or timestamps.
 
-.. autoclass:: xradio.measurement_set.schema.TimeArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.TimeArray
-
 .. autoclass:: xradio.measurement_set.schema.TimeCoordArray()
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.TimeCoordArray
@@ -166,6 +154,10 @@ as frequencies or timestamps.
 .. autoclass:: xradio.measurement_set.schema.BaselineArray()
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.BaselineArray
+
+.. autoclass:: xradio.measurement_set.schema.AntennaNameArray()
+
+   .. xradio_array_schema_table:: xradio.measurement_set.schema.AntennaNameArray
 
 .. autoclass:: xradio.measurement_set.schema.BaselineAntennaNameArray()
 
@@ -182,18 +174,6 @@ as frequencies or timestamps.
 .. autoclass:: xradio.measurement_set.schema.UvwLabelArray()
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.UvwLabelArray
-
-.. autoclass:: xradio.measurement_set.schema.LocationArray()
-                                                 
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.LocationArray
-
-.. autoclass:: xradio.measurement_set.schema.EllipsoidPosLocationArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.EllipsoidPosLocationArray
-
-.. autoclass:: xradio.measurement_set.schema.DopplerArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.DopplerArray
 
 .. autoclass:: xradio.measurement_set.schema.TimeInterpolatedCoordArray()
 
@@ -218,6 +198,46 @@ as frequencies or timestamps.
 .. autoclass:: xradio.measurement_set.schema.TimeWeatherCoordArray()
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.TimeWeatherCoordArray
+
+
+.. _correlated data measures:
+
+Measure arrays
+--------------
+
+.. autoclass:: xradio.measurement_set.schema.TimeArray()
+
+   .. xradio_array_schema_table:: xradio.measurement_set.schema.TimeArray
+
+.. autoclass:: xradio.measurement_set.schema.SpectralCoordArray()
+
+   .. xradio_array_schema_table:: xradio.measurement_set.schema.SpectralCoordArray
+
+.. autoclass:: xradio.measurement_set.schema.SkyCoordArray()
+
+   .. xradio_array_schema_table:: xradio.measurement_set.schema.SkyCoordArray
+
+.. autoclass:: xradio.measurement_set.schema.LocalSkyCoordArray()
+
+   .. xradio_array_schema_table:: xradio.measurement_set.schema.LocalSkyCoordArray
+
+.. autoclass:: xradio.measurement_set.schema.LocationArray()
+
+   .. xradio_array_schema_table:: xradio.measurement_set.schema.LocationArray
+
+.. autoclass:: xradio.measurement_set.schema.EllipsoidPosLocationArray()
+
+   .. xradio_array_schema_table:: xradio.measurement_set.schema.EllipsoidPosLocationArray
+
+.. autoclass:: xradio.measurement_set.schema.DopplerArray()
+
+   .. xradio_array_schema_table:: xradio.measurement_set.schema.DopplerArray
+
+
+.. _correlated data quantities:
+
+Quantity arrays
+---------------
 
 .. autoclass:: xradio.measurement_set.schema.QuantityInSecondsArray()
 

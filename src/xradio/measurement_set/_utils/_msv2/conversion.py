@@ -977,6 +977,8 @@ def convert_and_write_partition(
             logger.debug("Time weather " + str(time.time() - start))
 
             # Create pointing_xds
+            pointing_xds = xr.Dataset()
+            print('with_pointing',with_pointing)
             if with_pointing:
                 start = time.time()
                 if pointing_interpolate:
@@ -996,7 +998,7 @@ def convert_and_write_partition(
                     "Time pointing (with add compressor and chunking) "
                     + str(time.time() - start)
                 )
-
+                
             start = time.time()
 
             # Time and frequency should always be increasing
@@ -1087,7 +1089,7 @@ def convert_and_write_partition(
                         mode=mode,
                     )
 
-                if with_pointing and len(pointing_xds.data_vars) > 1:
+                if with_pointing and len(pointing_xds.data_vars) > 0:
                     pointing_xds.to_zarr(
                         store=os.path.join(file_name, "pointing_xds"), mode=mode
                     )

@@ -150,7 +150,7 @@ class xds_from_image_test(ImageBase):
         "reference": {
             "type": "sky_coord",
             "frame": "FK5",
-            "equinox": "J2000",
+            "equinox": "J2000.0",
             "value": [1.832595714594046, -0.6981317007977318],
             "cdelt": [-_rad_to_arcmin, _rad_to_arcmin],
             "units": ["rad", "rad"],
@@ -542,6 +542,8 @@ class xds_from_image_test(ImageBase):
 
     def compare_attrs(self, xds: xr.Dataset, fits: bool = False):
         my_exp_attrs = copy.deepcopy(self.exp_attrs())
+        if "position" not in xds.attrs["telescope"]:
+            del my_exp_attrs["telescope"]["position"]
         if fits:
             # xds from fits do not have history yet
             del my_exp_attrs["history"]

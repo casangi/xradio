@@ -100,17 +100,18 @@ def _coord_dict_from_xds(xds: xr.Dataset) -> dict:
     obsdate["m0"]["value"] = xds.coords["time"].values[0]
     coord["obsdate"] = obsdate
     coord["pointingcenter"] = xds.attrs[_pointing_center].copy()
-    telpos = {}
-    telpos["refer"] = xds.attrs["telescope"]["position"]["ellipsoid"]
-    if xds.attrs["telescope"]["position"]["ellipsoid"] == "GRS80":
-        telpos["refer"] = "ITRF"
-    for i in range(3):
-        telpos[f"m{i}"] = {
-            "unit": xds.attrs["telescope"]["position"]["units"][i],
-            "value": xds.attrs["telescope"]["position"]["value"][i],
-        }
-    telpos["type"] = "position"
-    coord["telescopeposition"] = telpos
+    if "position" in xds.attrs["telescope"]:
+        telpos = {}
+        telpos["refer"] = xds.attrs["telescope"]["position"]["ellipsoid"]
+        if xds.attrs["telescope"]["position"]["ellipsoid"] == "GRS80":
+            telpos["refer"] = "ITRF"
+        for i in range(3):
+            telpos[f"m{i}"] = {
+                "unit": xds.attrs["telescope"]["position"]["units"][i],
+                "value": xds.attrs["telescope"]["position"]["value"][i],
+            }
+        telpos["type"] = "position"
+        coord["telescopeposition"] = telpos
     if "l" in xds.coords:
         coord["direction0"] = _compute_direction_dict(xds)
     else:

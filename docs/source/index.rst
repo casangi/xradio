@@ -59,14 +59,14 @@ We appreciate your participation in this review process and look forward to your
 
 .. toctree::
    :hidden:
-   :maxdepth: 0
+   :maxdepth: 2
    :caption: Overview
 
    overview
 
 .. toctree::
    :hidden:
-   :maxdepth: 1
+   :maxdepth: 5
    :caption: Development
 
    development
@@ -74,7 +74,7 @@ We appreciate your participation in this review process and look forward to your
 
 .. toctree::
    :hidden:
-   :maxdepth: 1
+   :maxdepth: 5
    :caption: Measurement Set v4.0.0
 
    measurement_set_overview
@@ -86,7 +86,7 @@ We appreciate your participation in this review process and look forward to your
 
 .. toctree::
    :hidden:
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Image Data
 
    image_overview
@@ -95,7 +95,7 @@ We appreciate your participation in this review process and look forward to your
 
 .. toctree::
    :hidden:
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Design
 
    decisions

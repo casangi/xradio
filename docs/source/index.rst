@@ -1,8 +1,6 @@
 XRADIO - Xarray Radio Astronomy Data I/O
 ==========================================
 
-**Docs and code are still under development.**
-
 XRADIO (Xarray Radio Astronomy Data I/O) makes working with radio astronomy data in Python simple, efficient, and fun!
 
 Currently, XRADIO implements a draft of the **Measurement Set v4.0.0** schema, designed for storing radio interferometer and single-dish telescope data for offline processing.
@@ -10,7 +8,7 @@ Currently, XRADIO implements a draft of the **Measurement Set v4.0.0** schema, d
 Measurement Set v4.0.0 Draft Review
 -----------------------------------
 
-The Radio Astronomy Community is invited to review the draft **Measurement Set v4.0.0** schema and reference implementation in XRADIO from October 14 - November 11, 2024.
+The Radio Astronomy Community is invited to review the draft **Measurement Set v4.0.0** schema and reference implementation in XRADIO from October 16 - November 11, 2024.
 
 Providing Feedback
 ^^^^^^^^^^^^^^^^^^
@@ -24,7 +22,7 @@ A panel will review all feedback and provide a comprehensive report.
 Review Timeline
 ^^^^^^^^^^^^^^^
 
-- **October 14, 2024**: Documentation release and community notification.
+- **October 16, 2024**: Documentation release and community notification.
 - **November 11, 2024**: Deadline for feedback via GitHub issues.
 - **November 25, 2024**: Panel input for final agenda.
 - **December 9, 2024**: Review meeting (3 half-days).

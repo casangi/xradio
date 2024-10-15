@@ -49,7 +49,7 @@ To thoroughly review XRADIO and the Measurement Set v4.0.0 draft:
    - Examples show how different telescopes' data can be represented.
    - If your telescope isn't represented, open an issue and attach a Measurement Set v2 (10MB or smaller).
 
-4. Examine the schema and API documentation in the Measurement Set v4.0.0 section.
+4. Examine the [schema](https://xradio.readthedocs.io/en/latest/measurement_set/schema_and_api/measurement_set_schema.html) and [API documentation](https://xradio.readthedocs.io/en/latest/measurement_set/schema_and_api/measurement_set_api.html) in the Measurement Set v4.0.0 section.
 
    - The schema is included in ReadTheDocs for versioning and accessibility.
 

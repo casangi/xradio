@@ -44,16 +44,16 @@ To thoroughly review XRADIO and the Measurement Set v4.0.0 draft:
    - This Jupyter notebook (.ipynb) :doc:`tutorial <measurement_set/tutorials/index>` can be run interactively via the Google Colab link at the top.
    - You can also download and run notebooks locally after installing XRADIO via pip.
 
-3. Review :doc:`guides <measurement_set/guides/index>` relevant to your interests.
+3. Review `guides <https://xradio.readthedocs.io/en/latest/measurement_set/guides/index.html>`_ relevant to your interests.
 
    - Examples show how different telescopes' data can be represented.
    - If your telescope isn't represented, open an issue and attach a Measurement Set v2 (10MB or smaller).
 
-4. Examine the [schema](https://xradio.readthedocs.io/en/latest/measurement_set/schema_and_api/measurement_set_schema.html) and [API documentation](https://xradio.readthedocs.io/en/latest/measurement_set/schema_and_api/measurement_set_api.html) in the Measurement Set v4.0.0 section.
+4. Examine the `schema <https://xradio.readthedocs.io/en/latest/measurement_set/schema_and_api/measurement_set_schema.html>`_ and `API documentation <https://xradio.readthedocs.io/en/latest/measurement_set/schema_and_api/measurement_set_api.html>`_ in the Measurement Set v4.0.0 section.
 
    - The schema is included in ReadTheDocs for versioning and accessibility.
 
-5. Read the [MSv4 Summary of Testing](https://docs.google.com/document/d/1_r4wKGJx06muO8gV6Yb-xJB7GbCPcGUxTV55l6yytxw/edit?usp=sharing).
+5. Read the `MS v4 Summary of Testing <https://docs.google.com/document/d/1_r4wKGJx06muO8gV6Yb-xJB7GbCPcGUxTV55l6yytxw/edit?usp=sharing>`_.
 
 We appreciate your participation in this review process and look forward to your valuable input.
 

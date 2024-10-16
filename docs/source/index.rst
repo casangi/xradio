@@ -53,6 +53,8 @@ To thoroughly review XRADIO and the Measurement Set v4.0.0 draft:
 
    - The schema is included in ReadTheDocs for versioning and accessibility.
 
+5. Read the [MSv4 Summary of Testing](https://docs.google.com/document/d/1_r4wKGJx06muO8gV6Yb-xJB7GbCPcGUxTV55l6yytxw/edit?usp=sharing).
+
 We appreciate your participation in this review process and look forward to your valuable input.
 
 .. toctree::
@@ -80,16 +82,6 @@ We appreciate your participation in this review process and look forward to your
    measurement_set/guides/index
 
    measurement_set/schema_and_api/index
-
-
-.. toctree::
-   :hidden:
-   :maxdepth: 2
-   :caption: Image Data
-
-   image_overview
-
-   image_data/tutorials/index
 
 .. toctree::
    :hidden:

@@ -136,9 +136,14 @@ def column_description_casacore_to_msv4_measure(
                 casa_ref = msv4_measure_conversion["Ref_map"][casa_ref]
             else:
                 logger.debug(
-                    f"Unknown reference frame for {measinfo['type']} "
-                    f"measure, using verbatim: {casa_ref}"
+                    f"No translation defined for casacore reference frame ({measinfo['type']} "
+                    f"measure), using verbatim: {casa_ref}"
                 )
+                if measinfo["type"] == "direction" and casa_ref == "B1950_VLA":
+                    raise RuntimeError(
+                        f"The direction reference frame {casa_ref} is not supported. "
+                        "Please use CASA to convert the frame to supported frames like J2000 or ICRS."
+                    )
 
             msv4_measure[msv4_measure_conversion["Ref"]] = casa_ref
 
@@ -158,30 +163,45 @@ casacore_to_msv4_measure_type = {
     "quanta": {
         "type": "quantity",
     },
-    "direction": {"type": "sky_coord", "Ref": "frame", "Ref_map": {"J2000": "FK5"}},
-    "epoch": {"type": "time", "Ref": "scale", "Ref_map": {"UTC": "utc"}},
-    "frequency": {
-        "type": "spectral_coord",
+    "direction": {
+        "type": "sky_coord",
         "Ref": "frame",
         "Ref_map": {
+            "AZELGEO": "altaz",
+            "ICRS": "icrs",
+            "J2000": "fk5",
+        },
+    },
+    "epoch": {
+        "type": "time",
+        "Ref": "scale",
+        "Ref_map": {
+            "UTC": "utc",
+            "TAI": "tai",
+        },
+    },
+    "frequency": {
+        "type": "spectral_coord",
+        "Ref": "observer",
+        "Ref_map": {
             "REST": "REST",
-            "LSRK": "LSRK",
-            "LSRD": "LSRD",
+            "LSRK": "lsrk",
+            "LSRD": "lsrd",
             "BARY": "BARY",
             "GEO": "GEO",
             "TOPO": "TOPO",
-            "GALACTO": "GALACTO",
-            "LGROUP": "LGROUP",
-            "CMB": "CMB",
-            "Undefined": "Undefined",
-        },
+        },  # The frames/observer we are not sure if/how to translate to astropy are uppercase
     },
     "position": {
         "type": "location",
         "Ref": "frame",
         "Ref_map": {"ITRF": "GRS80"},
     },
-    "uvw": {"type": "uvw", "Ref": "frame", "Ref_map": {"ITRF": "GRS80"}},
+    "uvw": {
+        "type": "uvw",
+        "Ref": "frame",
+        "Ref_map": {"J2000": "fk5", "APP": "APP"},
+    },
     "radialvelocity": {"type": "quantity"},
 }
 

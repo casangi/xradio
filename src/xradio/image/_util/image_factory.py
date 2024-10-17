@@ -3,7 +3,7 @@ import numpy as np
 import xarray as xr
 from typing import List, Union
 from .common import _c, _compute_world_sph_dims, _l_m_attr_notes
-from ..._utils.common import _deg_to_rad
+from xradio._utils.coord_math import _deg_to_rad
 
 
 def _input_checks(

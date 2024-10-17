@@ -11,6 +11,7 @@ from xradio.measurement_set import (
     open_processing_set,
     load_processing_set,
     convert_msv2_to_processing_set,
+    estimate_conversion_memory_and_cores,
     VisibilityXds,
     SpectrumXds,
 )
@@ -114,6 +115,10 @@ def base_test(
         ps.get_combined_field_and_source_xds()
         ps.get_combined_antenna_xds()
         ps.get_combined_field_and_source_xds()
+
+        res = estimate_conversion_memory_and_cores(
+            str(folder / file_name), partition_scheme=partition_scheme
+        )
 
         sum = 0.0
         sum_lazy = 0.0

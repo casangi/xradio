@@ -1,10 +1,11 @@
 from collections import namedtuple
 from contextlib import nullcontext as no_raises
+
 import numpy as np
 import pytest
 import xarray as xr
 
-import xradio.measurement_set._utils._msv2.conversion as conv
+import xradio.measurement_set._utils._msv2.conversion as conversion
 
 
 minxds = namedtuple("minxds", "data_vars coords sizes")
@@ -115,7 +116,8 @@ def test_parse_chunksize(
     # lower level functions
     with expected_error:
         assert (
-            conv.parse_chunksize(input_chunksize, xds_type, xds) == expected_chunksize
+            conversion.parse_chunksize(input_chunksize, xds_type, xds)
+            == expected_chunksize
         )
 
 
@@ -140,7 +142,7 @@ def test_parse_chunksize(
 )
 def test_check_chunksize(chunksize, xds_type, expectation):
     with expectation:
-        conv.check_chunksize(chunksize, xds_type)
+        conversion.check_chunksize(chunksize, xds_type)
 
 
 @pytest.mark.parametrize(
@@ -167,7 +169,8 @@ def test_mem_chunksize_to_dict(
     # mem_chunksize_to_dict_pointing*, etc. which are better tested below
     with expected_error:
         assert (
-            conv.mem_chunksize_to_dict(0.1, xds_type, pseudo_xds) == expected_chunksize
+            conversion.mem_chunksize_to_dict(0.1, xds_type, pseudo_xds)
+            == expected_chunksize
         )
 
 
@@ -205,7 +208,8 @@ def test_mem_chunksize_to_dict_main(
 ):
     with expected_error:
         assert (
-            conv.mem_chunksize_to_dict_main(mem_size, pseudo_xds) == expected_chunksize
+            conversion.mem_chunksize_to_dict_main(mem_size, pseudo_xds)
+            == expected_chunksize
         )
 
 
@@ -235,7 +239,7 @@ def test_mem_chunksize_to_dict_main(
     ],
 )
 def test_mem_chunksize_to_dict_main_balanced(mem_size, dim_sizes, expected_chunksize):
-    res = conv.mem_chunksize_to_dict_main_balanced(
+    res = conversion.mem_chunksize_to_dict_main_balanced(
         mem_size, dim_sizes, "baseline_id", 8
     )
     assert res == pytest.approx(expected_chunksize)
@@ -258,22 +262,39 @@ def test_mem_chunksize_to_dict_main_balanced(mem_size, dim_sizes, expected_chunk
     ],
 )
 def test_mem_chunksize_to_dict_pointing(mem_size, dim_sizes, expected_chunksize):
-    res = conv.mem_chunksize_to_dict_pointing(mem_size, dim_sizes)
+    res = conversion.mem_chunksize_to_dict_pointing(mem_size, dim_sizes)
     assert res == pytest.approx(expected_chunksize)
 
 
 def test_itemsize_spec():
-    assert conv.itemsize_spec(xds_main) == 8
+    assert conversion.itemsize_spec(xds_main) == 8
 
 
 def itemsize_pointing_spec():
-    assert conv.itemsize_spec(xds_pointing) == 8
+    assert conversion.itemsize_spec(xds_pointing) == 8
 
 
 def test_calc_used_gb():
-    res = conv.calc_used_gb(
+    res = conversion.calc_used_gb(
         {"time": 200, "baseline_id": 21, "frequency": 1000, "polarization": 3},
         "baseline_id",
         8,
     )
     assert res == pytest.approx(0.0938773)
+
+
+@pytest.mark.parametrize(
+    "input_name, partitions, expected_estimate",
+    [
+        ("test_ms_minimal_required.ms", {}, (0.0, 0, 0)),
+    ],
+)
+def test_estimate_memory_and_cores_for_partitions(
+    input_name, partitions, expected_estimate
+):
+    # partitions = {}
+
+    res = conversion.estimate_memory_and_cores_for_partitions(input_name, partitions)
+
+    assert res[0] == pytest.approx(expected_estimate[0])
+    assert res[1:] == expected_estimate[1:]

@@ -9,6 +9,7 @@ import xarray as xr
 from casacore import tables
 
 from ._tables.table_query import open_table_ro, open_query
+from ._tables.read import table_exists
 
 
 def enumerated_product(*args):
@@ -37,8 +38,6 @@ def create_partitions(in_file: str, partition_scheme: list):
     # vla_otf (bool, optional):  The partioning of VLA OTF (on the fly) mosaics needs a special partitioning scheme. Defaults to False.
 
     # Create partition table
-    from casacore import tables
-    import numpy as np
     import pandas as pd
     import os
 
@@ -66,7 +65,7 @@ def create_partitions(in_file: str, partition_scheme: list):
     #     par_df["FIELD_NAME"] = np.array(field_tb.getcol("NAME"))[par_df["FIELD_ID"]]
 
     # Get source ids if available from source table.
-    if os.path.isdir(os.path.join(os.path.join(in_file, "SOURCE"))):
+    if table_exists(os.path.join(os.path.join(in_file, "SOURCE"))):
         source_tb = tables.table(
             os.path.join(in_file, "SOURCE"),
             readonly=True,
@@ -81,7 +80,7 @@ def create_partitions(in_file: str, partition_scheme: list):
             #     ]
 
     # Get intents and subscan numbers if available from state table.
-    if os.path.isdir(os.path.join(in_file, "STATE")):
+    if table_exists(os.path.join(in_file, "STATE")):
         state_tb = tables.table(
             os.path.join(in_file, "STATE"),
             readonly=True,

@@ -723,6 +723,73 @@ def fix_uvw_frame(
     return xds
 
 
+def estimate_memory_and_cores_for_partitions(in_file: str, partitions: dict) -> tuple[float, int, int]:
+    """
+    Estimates approximate memory required to convert an MSv2 to MSv4, given
+    a predefined set of partitions.
+    """
+    max_cores = len(partitions)
+
+    size_estimates = []
+    for part_description in partitions:
+        taql_partition = create_taql_query(part_description)
+
+        # TODO: get_partition_nrows()
+        taql_main = f"select * from $mtable {taql_partition}"
+        with open_table_ro(in_file) as mtable:
+            with open_query(mtable, taql_main) as tb_tool:
+                nrows = tb_tool.nrows()
+
+            col_names = mtable.colnames()
+            # complex, double: DATA, CORRECTED_DATA, MODEL_DATA
+            size_all_data_vars = 0
+            size_largest_data = 0
+            for data_col in ["DATA", "CORRECTED_DATA", "MODEL_DATA", "FLOAT_DATA"]:
+                if data_col in col_names:
+                    col_descr = mtable.getcoldesc(data_col)
+                    if "shape" in col_descr and isinstance(col_descr["shape"], np.ndarray):
+                        # example: "shape": array([15,  4]) => gives pols x channels
+                        cells_in_row = col_descr["shape"].prod()
+                    else:
+                        first_row = np.array(mtable.col(data_col)[0])
+                        cells_in_row = np.prod(first_row.shape)
+
+                    if col_descr["valueType"] == "complex":
+                        # Assume. Otherwise, read first column and get the itemsize:
+                        # col_dtype = np.array(mtable.col(data_col)[0]).dtype
+                        # cell_size = col_dtype.itemsize
+                        cell_size = 4
+                        if data_col != "FLOAT_DATA":
+                            cell_size *= 2
+                    elif col_descr["valueType"] == "float":
+                        cell_size = 4
+
+                    size_data_var = cell_size * cells_in_row * nrows
+
+                    if size_data_var > size_largest_data:
+                        size_largest_data = size_data_var
+                    size_all_data_vars += size_data_var
+                    # "valueType" should be complex
+
+            # scalar, single: FLOAT_DATA,
+            # WEIGHT_SPECTRUM size: DATA (IF), DATA/2 (SD)
+            factor_weight = 1.0 if "FLOAT_DATA" in col_names else 0.5
+            # FLAG size: DATA/8 (IF), DATA/4 (SD)
+            factor_flag = 1.0/4.0 if "FLOAT_DATA" in col_names else 1.0/8.0
+
+            # For the rest of columns, including indices/iteration columns
+            # and other scalar columns could say approx 5% of the (large) data cols
+            # Small ones, but as they are loaded into data arrays, why not including,
+            # for example:
+            # UVW (3xscalar), EXPOSURE, TIME_CENTROID
+
+        estimate = (size_all_data_vars + size_largest_data * (factor_weight + factor_flag)) / GiBYTES_TO_BYTES
+        size_estimates.append(estimate)
+
+    max_estimate = np.max(size_estimates) if size_estimates else 0
+    return max_estimate, max_cores, np.ceil(max_cores / 4).astype("int")
+
+
 def convert_and_write_partition(
     in_file: str,
     out_file: str,

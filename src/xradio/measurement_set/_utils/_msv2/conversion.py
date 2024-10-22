@@ -723,7 +723,9 @@ def fix_uvw_frame(
     return xds
 
 
-def estimate_memory_and_cores_for_partitions(in_file: str, partitions: dict) -> tuple[float, int, int]:
+def estimate_memory_and_cores_for_partitions(
+    in_file: str, partitions: dict
+) -> tuple[float, int, int]:
     """
     Estimates approximate memory required to convert an MSv2 to MSv4, given
     a predefined set of partitions.
@@ -747,7 +749,9 @@ def estimate_memory_and_cores_for_partitions(in_file: str, partitions: dict) -> 
             for data_col in ["DATA", "CORRECTED_DATA", "MODEL_DATA", "FLOAT_DATA"]:
                 if data_col in col_names:
                     col_descr = mtable.getcoldesc(data_col)
-                    if "shape" in col_descr and isinstance(col_descr["shape"], np.ndarray):
+                    if "shape" in col_descr and isinstance(
+                        col_descr["shape"], np.ndarray
+                    ):
                         # example: "shape": array([15,  4]) => gives pols x channels
                         cells_in_row = col_descr["shape"].prod()
                     else:
@@ -773,9 +777,10 @@ def estimate_memory_and_cores_for_partitions(in_file: str, partitions: dict) -> 
 
             # scalar, single: FLOAT_DATA,
             # WEIGHT_SPECTRUM size: DATA (IF), DATA/2 (SD)
+            # would seem as overestimating by x*npols wrt MSv2, but that's ok, MSv4/WEIGHT has 'polarization' dim
             factor_weight = 1.0 if "FLOAT_DATA" in col_names else 0.5
             # FLAG size: DATA/8 (IF), DATA/4 (SD)
-            factor_flag = 1.0/4.0 if "FLOAT_DATA" in col_names else 1.0/8.0
+            factor_flag = 1.0 / 4.0 if "FLOAT_DATA" in col_names else 1.0 / 8.0
 
             # For the rest of columns, including indices/iteration columns
             # and other scalar columns could say approx 5% of the (large) data cols
@@ -783,7 +788,9 @@ def estimate_memory_and_cores_for_partitions(in_file: str, partitions: dict) -> 
             # for example:
             # UVW (3xscalar), EXPOSURE, TIME_CENTROID
 
-        estimate = (size_all_data_vars + size_largest_data * (factor_weight + factor_flag)) / GiBYTES_TO_BYTES
+        estimate = (
+            size_all_data_vars + size_largest_data * (factor_weight + factor_flag)
+        ) / GiBYTES_TO_BYTES
         size_estimates.append(estimate)
 
     max_estimate = np.max(size_estimates) if size_estimates else 0

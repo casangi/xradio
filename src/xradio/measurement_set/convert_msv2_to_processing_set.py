@@ -5,7 +5,38 @@ from typing import Dict, Union
 import dask
 
 from xradio.measurement_set._utils._msv2.partition_queries import create_partitions
-from xradio.measurement_set._utils._msv2.conversion import convert_and_write_partition
+from xradio.measurement_set._utils._msv2.conversion import (
+    convert_and_write_partition,
+    estimate_memory_and_cores_for_partitions,
+)
+
+
+def estimate_conversion_memory_and_cores(
+    in_file, partition_scheme: list[str]
+) -> tuple[float, int, int]:
+    """
+    Given an MSv2 and a partition_scheme to use when converting it to MSv4,
+    estimates:
+    - memory (in the sense of the amount expected to be enough to convert)
+    - cores (in the sense of the recommended/optimal number of cores to use to convert)
+
+    Parameters
+    ----------
+    in_file: str
+        Input MS name.
+    partition_scheme: list
+        Partition scheme as used in the function convert_msv2_to_processing_set()
+
+    Returns
+    ----------
+    tuple
+        estimated maximum memory required for one partition, maximum number of cores it makes sense to use
+        (number of partitions), suggested number of cores to use
+    """
+
+    partitions = create_partitions(in_file, partition_scheme=partition_scheme)
+
+    return estimate_memory_and_cores_for_partitions(in_file, partitions)
 
 
 def convert_msv2_to_processing_set(

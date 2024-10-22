@@ -204,7 +204,7 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
         if k.startswith("telescope"):
             if k == "telescope":
                 telescope["name"] = coord_dict[k]
-            else:
+            elif k in coord_dict:
                 telescope["position"] = coord_dict[k]
                 telescope["position"]["ellipsoid"] = telescope["position"]["refer"]
                 if telescope["position"]["refer"] == "ITRF":
@@ -362,7 +362,7 @@ def _convert_direction_system(
                 'This corresponds to FK5(equinox="J2000") in astropy. '
                 "Metadata will be written appropriately"
             )
-        return ("fk5", "J2000.0")
+        return ("FK5", "J2000.0")
     elif casa_system == "B1950":
         if verbose:
             logger.info(
@@ -370,7 +370,7 @@ def _convert_direction_system(
                 'This corresponds to FK4(equinox="B1950") in astropy. '
                 "Metadata will be written appropriately"
             )
-        return ("fk4", "B1950.0")
+        return ("FK4", "B1950.0")
     elif casa_system in ("GALACTIC", "ICRS"):
         return (casa_system.lower(), None)
     else:

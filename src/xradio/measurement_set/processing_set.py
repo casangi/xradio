@@ -8,36 +8,54 @@ import xarray as xr
 
 class ProcessingSet(dict):
     """
-    A dictionary subclass representing a Processing Set (PS) that is a set of Measurement Sets v4 (MS).
+    A dictionary subclass representing a Processing Set (PS) containing Measurement Sets v4 (MS).
 
-    This class extends the built-in `dict` class and provides additional methods for manipulating and selecting subsets of the Processing Set.
+    This class extends the built-in `dict` class to provide additional methods for
+    manipulating and selecting subsets of the Processing Set. It includes functionality
+    for summarizing metadata, selecting subsets based on various criteria, and
+    exporting the data to storage formats.
 
-    Attributes:
-        meta (dict): A dictionary containing metadata information about the Processing Set.
-
-    Methods:
-        summary(data_group="base"): Returns a summary of the Processing Set as a Pandas table.
-        get_ps_max_dims(): Returns the maximum dimension of all the MSs in the Processing Set.
-        get_ps_freq_axis(): Combines the frequency axis of all MSs.
-        sel(query:str=None, **kwargs): Selects a subset of the Processing Set based on column names and values or a Pandas query.
-        ms_sel(**kwargs): Selects a subset of the Processing Set by applying the `sel` method to each individual MS.
-        ms_isel(**kwargs): Selects a subset of the Processing Set by applying the `isel` method to each individual MS.
+    Parameters
+    ----------
+    *args : dict, optional
+        Variable length argument list passed to the base `dict` class.
+    **kwargs : dict, optional
+        Arbitrary keyword arguments passed to the base `dict` class.
     """
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize the ProcessingSet instance.
+
+        Parameters
+        ----------
+        *args : dict, optional
+            Variable length argument list passed to the base `dict` class.
+        **kwargs : dict, optional
+            Arbitrary keyword arguments passed to the base `dict` class.
+        """
         super().__init__(*args, **kwargs)
         self.meta = {"summary": {}}
 
     def summary(self, data_group="base"):
         """
-        Returns a summary of the Processing Set as a Pandas table.
+        Generate and retrieve a summary of the Processing Set.
 
-        Args:
-            data_group (str): The data group to summarize. Default is "base".
+        The summary includes information such as the names of the Measurement Sets,
+        their intents, polarizations, spectral window names, field names, source names,
+        field coordinates, start frequencies, and end frequencies.
 
-        Returns:
-            pandas.DataFrame: A DataFrame containing the summary information.
+        Parameters
+        ----------
+        data_group : str, optional
+            The data group to summarize. Default is "base".
+
+        Returns
+        -------
+        pandas.DataFrame
+            A DataFrame containing the summary information of the specified data group.
         """
+
         if data_group in self.meta["summary"]:
             return self.meta["summary"][data_group]
         else:
@@ -48,12 +66,19 @@ class ProcessingSet(dict):
 
     def get_ps_max_dims(self):
         """
-        Returns the maximum dimension of all the MSs in the Processing Set.
+        Determine the maximum dimensions across all Measurement Sets in the Processing Set.
 
-        For example, if the Processing Set contains two MSs with dimensions (50, 20, 30) and (10, 30, 40), the maximum dimensions will be (50, 30, 40).
+        This method examines each Measurement Set's dimensions and computes the maximum
+        size for each dimension across the entire Processing Set.
 
-        Returns:
-            dict: A dictionary containing the maximum dimensions of the Processing Set.
+        For example, if the Processing Set contains two MSs with dimensions (50, 20, 30) and (10, 30, 40),
+        the maximum dimensions will be (50, 30, 40).
+
+        Returns
+        -------
+        dict
+            A dictionary containing the maximum dimensions of the Processing Set, with dimension names as keys
+            and their maximum sizes as values.
         """
         if "max_dims" in self.meta:
             return self.meta["max_dims"]
@@ -63,10 +88,15 @@ class ProcessingSet(dict):
 
     def get_ps_freq_axis(self):
         """
-        Combines the frequency axis of all MSs.
+        Combine the frequency axes of all Measurement Sets in the Processing Set.
 
-        Returns:
-            xarray.DataArray: The frequency axis of the Processing Set.
+        This method aggregates the frequency information from each Measurement Set to create
+        a unified frequency axis for the entire Processing Set.
+
+        Returns
+        -------
+        xarray.DataArray
+            The combined frequency axis of the Processing Set.
         """
         if "freq_axis" in self.meta:
             return self.meta["freq_axis"]
@@ -194,23 +224,40 @@ class ProcessingSet(dict):
 
     def sel(self, string_exact_match: bool = True, query: str = None, **kwargs):
         """
-        Selects a subset of the Processing Set based on column names and values or a Pandas query.
+        Select a subset of the Processing Set based on specified criteria.
 
-        The following columns are supported: name, intents, polarization, spw_name, field_name, source_name, field_coords, start_frequency, end_frequency.
+        This method allows filtering the Processing Set by matching column names and values
+        or by applying a Pandas query string. The selection criteria can target various
+        attributes of the Measurement Sets such as intents, polarization, spectral window names, etc.
 
-        This function will not apply any selection on the MS data so data will not be dropped for example if a MS has field_name=['field_0','field_10','field_08'] and ps.sel(field_name='field_0') is done the resulting MS will still have field_name=['field_0','field_10','field_08'].
+        Note
+        ----
+        This selection does not modify the actual data within the Measurement Sets. For example, if
+        a Measurement Set has `field_name=['field_0','field_10','field_08']` and `ps.sel(field_name='field_0')`
+        is invoked, the resulting subset will still contain the original list `['field_0','field_10','field_08']`.
 
-        Examples:
-            ps.sel(intents='OBSERVE_TARGET#ON_SOURCE', polarization=['RR', 'LL']) # Select all MSs with intents 'OBSERVE_TARGET#ON_SOURCE' and polarization 'RR' or 'LL'.
-            ps.sel(query='start_frequency > 100e9 AND end_frequency < 200e9') # Select all MSs with start_frequency greater than 100 GHz and less than 200 GHz.
+        Parameters
+        ----------
+        string_exact_match : bool, optional
+            If `True`, string matching will require exact matches for string and string list columns.
+            If `False`, partial matches are allowed. Default is `True`.
+        query : str, optional
+            A Pandas query string to apply additional filtering. Default is `None`.
+        **kwargs : dict
+            Keyword arguments representing column names and their corresponding values to filter the Processing Set.
 
-        Args:
-            query (str): A Pandas query string. Default is None.
-            string_exact_match (bool): If True, the selection will be an exact match for string and string list columns. Default is True.
-            **kwargs: Keyword arguments representing column names and values to filter the Processing Set.
+        Returns
+        -------
+        ProcessingSet
+            A new `ProcessingSet` instance containing only the Measurement Sets that match the selection criteria.
 
-        Returns:
-            processing_set: The subset of the Processing Set.
+        Examples
+        --------
+        >>> # Select all MSs with intents 'OBSERVE_TARGET#ON_SOURCE' and polarization 'RR' or 'LL'
+        >>> selected_ps = ps.sel(intents='OBSERVE_TARGET#ON_SOURCE', polarization=['RR', 'LL'])
+
+        >>> # Select all MSs with start_frequency greater than 100 GHz and less than 200 GHz
+        >>> selected_ps = ps.sel(query='start_frequency > 100e9 AND end_frequency < 200e9')
         """
         import numpy as np
 
@@ -257,13 +304,20 @@ class ProcessingSet(dict):
 
     def ms_sel(self, **kwargs):
         """
-        Selects a subset of the Processing Set by applying the `sel` method to each MS.
+        Select a subset of the Processing Set by applying the `xarray.Dataset.sel` method to each Measurement Set.
 
-        Args:
-            **kwargs: Keyword arguments representing column names and values to filter the Processing Set.
+        This method allows for selection based on label-based indexing for each dimension of the datasets.
 
-        Returns:
-            processing_set: The subset of the Processing Set.
+        Parameters
+        ----------
+        **kwargs : dict
+            Keyword arguments representing dimension names and the labels to select along those dimensions.
+            These are passed directly to the `xarray.Dataset.sel` method.
+
+        Returns
+        -------
+        ProcessingSet
+            A new `ProcessingSet` instance containing the selected subsets of each Measurement Set.
         """
         sub_ps = ProcessingSet()
         for key, val in self.items():
@@ -272,13 +326,20 @@ class ProcessingSet(dict):
 
     def ms_isel(self, **kwargs):
         """
-        Selects a subset of the Processing Set by applying the `isel` method to each MS.
+        Select a subset of the Processing Set by applying the `isel` method to each Measurement Set.
 
-        Args:
-            **kwargs: Keyword arguments representing dimension names and indices to select from the Processing Set.
+        This method allows for selection based on integer-based indexing for each dimension of the datasets.
 
-        Returns:
-            processing_set: The subset of the Processing Set.
+        Parameters
+        ----------
+        **kwargs : dict
+            Keyword arguments representing dimension names and the integer indices to select along those dimensions.
+            These are passed directly to the `isel` method.
+
+        Returns
+        -------
+        ProcessingSet
+            A new `ProcessingSet` instance containing the selected subsets of each Measurement Set.
         """
         sub_ps = ProcessingSet()
         for key, val in self.items():
@@ -288,14 +349,32 @@ class ProcessingSet(dict):
     def to_store(self, store, **kwargs):
         """
         Write the Processing Set to a Zarr store.
-        Does not write to cloud storage yet.
 
-        Args:
-            store (str): The path to the Zarr store.
-            **kwargs: Additional keyword arguments to be passed to `xarray.Dataset.to_zarr`. See https://docs.xarray.dev/en/latest/generated/xarray.Dataset.to_zarr.html for more information.
+        This method serializes each Measurement Set within the Processing Set to a separate Zarr group
+        within the specified store directory. Note that writing to cloud storage is not supported yet.
 
-        Returns:
-            None
+        Parameters
+        ----------
+        store : str
+            The filesystem path to the Zarr store directory where the data will be saved.
+        **kwargs : dict, optional
+            Additional keyword arguments to be passed to the `xarray.Dataset.to_zarr` method.
+            Refer to the [xarray documentation](https://docs.xarray.dev/en/latest/generated/xarray.Dataset.to_zarr.html)
+            for available options.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        OSError
+            If the specified store path is invalid or not writable.
+
+        Examples
+        --------
+        >>> # Save the Processing Set to a local Zarr store
+        >>> ps.to_store('/path/to/zarr_store')
         """
         import os
 
@@ -304,18 +383,29 @@ class ProcessingSet(dict):
 
     def get_combined_field_and_source_xds(self, data_group="base"):
         """
-        Returns an xarray.Dataset combining the field_and_source_xds of all ms_xds's in a Processing Set for a given data_group.
-        The combined xarray.Dataset will have a new dimension 'correlated_xds_name' which will be the name of the ms_xds.
+        Combine the `field_and_source_xds` datasets from all Measurement Sets into a single dataset.
 
-        Returns:
-            list: A list containing the phase center coordinates.
+        The combined `xarray.Dataset` will have a new dimension 'field_name', consolidating data from
+        each Measurement Set. Ephemeris data is handled separately.
+
+        Parameters
+        ----------
+        data_group : str, optional
+            The data group to process. Default is "base".
+
+        Returns
+        -------
+        tuple of xarray.Dataset
+            A tuple containing two `xarray.Dataset` objects:
+            - combined_field_and_source_xds: Combined dataset for standard fields.
+            - combined_ephemeris_field_and_source_xds: Combined dataset for ephemeris fields.
+
+        Raises
+        ------
+        ValueError
+            If the `field_and_source_xds` attribute is missing or improperly formatted in any Measurement Set.
         """
-
         df = self.summary(data_group)
-
-        # if "Ephemeris" in list(df['field_coords']):
-        #     logger.warning("Cannot combine ephemeris field_and_source_xds yet.")
-        #     return None
 
         combined_field_and_source_xds = xr.Dataset()
         combined_ephemeris_field_and_source_xds = xr.Dataset()
@@ -503,12 +593,27 @@ class ProcessingSet(dict):
 
     def plot_phase_centers(self, label_all_fields=False, data_group="base"):
         """
-        Used for Mosaics. Plots the phase center locations of all fields in the Processing Set.
+        Plot the phase center locations of all fields in the Processing Set.
+
+        This method is primarily used for visualizing mosaics. It generates scatter plots of
+        the phase center coordinates for both standard and ephemeris fields. The central field
+        is highlighted in red based on the closest phase center calculation.
 
         Parameters
         ----------
-        data_group : _type_
-            _description_
+        label_all_fields : bool, optional
+            If `True`, all fields will be labeled on the plot. Default is `False`.
+        data_group : str, optional
+            The data group to use for processing. Default is "base".
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        ValueError
+            If the combined datasets are empty or improperly formatted.
         """
         combined_field_and_source_xds, combined_ephemeris_field_and_source_xds = (
             self.get_combined_field_and_source_xds(data_group)
@@ -579,7 +684,21 @@ class ProcessingSet(dict):
             plt.show()
 
     def get_combined_antenna_xds(self):
-        """ """
+        """
+        Combine the `antenna_xds` datasets from all Measurement Sets into a single dataset.
+
+        This method concatenates the antenna datasets from each Measurement Set along the 'antenna_name' dimension.
+
+        Returns
+        -------
+        xarray.Dataset
+            A combined `xarray.Dataset` containing antenna information from all Measurement Sets.
+
+        Raises
+        ------
+        ValueError
+            If antenna datasets are missing required variables or improperly formatted.
+        """
         combined_antenna_xds = xr.Dataset()
         for cor_name, ms_xds in self.items():
             antenna_xds = ms_xds.antenna_xds.copy(deep=True)
@@ -604,7 +723,25 @@ class ProcessingSet(dict):
 
     def plot_antenna_positions(self):
         """
-        Plots the antenna positions of all antennas in the Processing Set.
+        Plot the antenna positions of all antennas in the Processing Set.
+
+        This method generates three scatter plots displaying the antenna positions in different planes:
+        - X vs Y
+        - X vs Z
+        - Y vs Z
+
+        Parameters
+        ----------
+        None
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        ValueError
+            If the combined antenna dataset is empty or missing required coordinates.
         """
         combined_antenna_xds = self.get_combined_antenna_xds()
         from matplotlib import pyplot as plt

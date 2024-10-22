@@ -687,6 +687,7 @@ def create_taql_query(partition_info):
         "FIELD_ID",
         "SCAN_NUMBER",
         "STATE_ID",
+        "ANTENNA1",
     ]
 
     taql_where = "WHERE "
@@ -696,6 +697,11 @@ def create_taql_query(partition_info):
                 taql_where
                 + f"({col_name} IN [{','.join(map(str, partition_info[col_name]))}]) AND"
             )
+            if col_name == "ANTENNA1":
+                taql_where = (
+                    taql_where
+                    + f"(ANTENNA2 IN [{','.join(map(str, partition_info[col_name]))}]) AND"
+                )
     taql_where = taql_where[:-3]
 
     return taql_where
@@ -1024,7 +1030,10 @@ def convert_and_write_partition(
             logger.debug("Time phase_calibration xds  " + str(time.time() - start))
 
             # Change antenna_ids to antenna_names
-            xds = antenna_ids_to_names(xds, ant_xds, is_single_dish)
+            with_antenna_partitioning = "ANTENNA1" in partition_info
+            xds = antenna_ids_to_names(
+                xds, ant_xds, is_single_dish, with_antenna_partitioning
+            )
             # but before, keep the name-id arrays, we need them for the pointing and weather xds
             ant_xds_name_ids = ant_xds["antenna_name"].set_xindex("antenna_id")
             ant_xds_station_name_ids = ant_xds["station"].set_xindex("antenna_id")
@@ -1051,6 +1060,8 @@ def convert_and_write_partition(
             logger.debug("Time weather " + str(time.time() - start))
 
             # Create pointing_xds
+            pointing_xds = xr.Dataset()
+            print("with_pointing", with_pointing)
             if with_pointing:
                 start = time.time()
                 if pointing_interpolate:
@@ -1161,7 +1172,7 @@ def convert_and_write_partition(
                         mode=mode,
                     )
 
-                if with_pointing and len(pointing_xds.data_vars) > 1:
+                if with_pointing and len(pointing_xds.data_vars) > 0:
                     pointing_xds.to_zarr(
                         store=os.path.join(file_name, "pointing_xds"), mode=mode
                     )
@@ -1197,8 +1208,31 @@ def convert_and_write_partition(
 
 
 def antenna_ids_to_names(
-    xds: xr.Dataset, ant_xds: xr.Dataset, is_single_dish: bool
+    xds: xr.Dataset,
+    ant_xds: xr.Dataset,
+    is_single_dish: bool,
+    with_antenna_partitioning,
 ) -> xr.Dataset:
+    """
+    Turns the antenna_ids that we get from MSv2 into MSv4 antenna_name
+
+    Parameters
+    ----------
+    xds: xr.Dataset
+        A main xds (MSv4)
+    ant_xds: xr.Dataset
+        The antenna_xds for this MSv4
+    is_single_dish: bool
+        Whether a single-dish ("spectrum" data) dataset
+    with_antenna_partitioning: bool
+        Whether the MSv4 partitions include the antenna axis => only
+        one antenna (and implicitly one 'baseline' - auto-correlation)
+
+    Returns
+    ----------
+    xr.Dataset
+        The main xds with antenna_id replaced with antenna_name
+    """
     ant_xds = ant_xds.set_xindex(
         "antenna_id"
     )  # Allows for non-dimension coordinate selection.
@@ -1217,11 +1251,15 @@ def antenna_ids_to_names(
             }
         )
     else:
-        # baseline_antenna1_id will be removed soon below, but it is useful here to know the actual antenna_ids,
-        # as opposed to the baseline_ids which can mismatch when data is missing for some antennas
-        xds["baseline_id"] = ant_xds["antenna_name"].sel(
-            antenna_id=xds["baseline_antenna1_id"]
-        )
+        if not with_antenna_partitioning:
+            # baseline_antenna1_id will be removed soon below, but it is useful here to know the actual antenna_ids,
+            # as opposed to the baseline_ids which can mismatch when data is missing for some antennas
+            xds["baseline_id"] = ant_xds["antenna_name"].sel(
+                antenna_id=xds["baseline_antenna1_id"]
+            )
+        else:
+            xds["baseline_id"] = ant_xds["antenna_name"]
+
         unwanted_coords_from_ant_xds = [
             "antenna_id",
             "antenna_name",

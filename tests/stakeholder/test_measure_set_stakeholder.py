@@ -228,8 +228,13 @@ def test_ephemeris(tmp_path):
     base_test("venus_ephem_test.ms", tmp_path, 81741343621120.0)
 
 
+partition_schemes_sd = [[], ["FIELD_ID"], ["FIELD_ID", "ANTENNA1"]]
+
+
 def test_single_dish(tmp_path):
-    base_test("sdimaging.ms", tmp_path, 5487446.5)
+    base_test(
+        "sdimaging.ms", tmp_path, 5487446.5, partition_schemes=partition_schemes_sd
+    )
 
 
 def test_alma_ephemeris_mosaic(tmp_path):
@@ -305,19 +310,39 @@ def test_vlass(tmp_path):
 
 
 def test_sd_A002_X1015532_X1926f(tmp_path):
-    base_test("uid___A002_X1015532_X1926f.small.ms", tmp_path, 5.964230735563984e21)
+    base_test(
+        "uid___A002_X1015532_X1926f.small.ms",
+        tmp_path,
+        5.964230735563984e21,
+        partition_schemes=partition_schemes_sd,
+    )
 
 
 def test_sd_A002_Xae00c5_X2e6b(tmp_path):
-    base_test("uid___A002_Xae00c5_X2e6b.small.ms", tmp_path, 2451894476.0)
+    base_test(
+        "uid___A002_Xae00c5_X2e6b.small.ms",
+        tmp_path,
+        2451894476.0,
+        partition_schemes=partition_schemes_sd,
+    )
 
 
 def test_sd_A002_Xced5df_Xf9d9(tmp_path):
-    base_test("uid___A002_Xced5df_Xf9d9.small.ms", tmp_path, 9.892002713707104e21)
+    base_test(
+        "uid___A002_Xced5df_Xf9d9.small.ms",
+        tmp_path,
+        9.892002713707104e21,
+        partition_schemes=partition_schemes_sd,
+    )
 
 
 def test_sd_A002_Xe3a5fd_Xe38e(tmp_path):
-    base_test("uid___A002_Xe3a5fd_Xe38e.small.ms", tmp_path, 246949088254189.5)
+    base_test(
+        "uid___A002_Xe3a5fd_Xe38e.small.ms",
+        tmp_path,
+        246949088254189.5,
+        partition_schemes=partition_schemes_sd,
+    )
 
 
 def test_VLA(tmp_path):

@@ -113,6 +113,11 @@ def convert_msv2_to_processing_set(
             + str(partition_info["FIELD_ID"])
             + ", SCAN "
             + str(partition_info["SCAN_NUMBER"])
+            + (
+                ", ANTENNA " + str(partition_info["ANTENNA1"])
+                if "ANTENNA1" in partition_info
+                else ""
+            )
         )
 
         # prepend '0' to ms_v4_id as needed

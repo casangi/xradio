@@ -1,7 +1,7 @@
 
 
-Measurement Set API
-===================
+Processing Set and Measurement Set API
+======================================
 
 .. automodule:: xradio.measurement_set
 
@@ -11,6 +11,19 @@ Measurement Set API
 
    .. autofunction:: convert_msv2_to_processing_set
 
+ProcessingSet API
+-----------------
+
+.. automodule:: xradio.measurement_set
+
    .. autoclass:: ProcessingSet
+      :members:
+
+
+MeasurementSetXds API
+---------------------
+
+.. automodule:: xradio.measurement_set
 
    .. autoclass:: MeasurementSetXds
+      :members:

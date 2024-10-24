@@ -3,6 +3,8 @@ from xradio._utils.list_and_array import to_list
 import xarray as xr
 import numbers
 import os
+from collections.abc import Mapping, Iterable
+from typing import Any
 
 
 class MeasurementSetXds(xr.Dataset):
@@ -53,16 +55,37 @@ class MeasurementSetXds(xr.Dataset):
             copy_cor_xds, os.path.join(store, "correlated_xds"), **kwargs
         )
 
-    def sel(self, data_group_name=None, **kwargs):
+    def sel(
+        self,
+        indexers: Mapping[Any, Any] | None = None,
+        method: str | None = None,
+        tolerance: int | float | Iterable[int | float] | None = None,
+        drop: bool = False,
+        **indexers_kwargs: Any,
+    ):
         """
-        Select data along dimension(s) by label.
-
-        Args:
-            **kwargs: Keyword arguments to be passed to `xarray.Dataset.sel`. See https://xarray.pydata.org/en/stable/generated/xarray.Dataset.sel.html for more information.
+        Select data along dimension(s) by label. Overrides `xarray.Dataset.sel <https://xarray.pydata.org/en/stable/generated/xarray.Dataset.sel.html>`__ so that a data group can be selected by name by using the `data_group_name` parameter.
+        For more information on data groups see `Data Groups <https://xradio.readthedocs.io/en/latest/measurement_set_overview.html#Data-Groups>`__ section. See `xarray.Dataset.sel <https://xarray.pydata.org/en/stable/generated/xarray.Dataset.sel.html>`__ for parameter descriptions.
 
         Returns:
             MeasurementSetXds
+
+        Examples
+        --------
+        >>> # Select data group 'corrected' and polarization 'XX'.
+        >>> selected_ms_xds = ms_xds.sel(data_group_name='corrected', polarization='XX')
+
+        >>> # Select data group 'corrected' and polarization 'XX' using a dict.
+        >>> selected_ms_xds = ms_xds.sel({'data_group_name':'corrected', 'polarization':'XX')
         """
+        if "data_group_name" in indexers_kwargs:
+            data_group_name = indexers_kwargs["data_group_name"]
+            del indexers_kwargs["data_group_name"]
+        if (indexers is not None) and ("data_group_name" in indexers):
+            data_group_name = indexers["data_group_name"]
+            del indexers["data_group_name"]
+        else:
+            data_group_name = None
 
         if data_group_name is not None:
             sel_data_group_set = set(
@@ -77,7 +100,11 @@ class MeasurementSetXds(xr.Dataset):
             data_variables_to_drop = list(set(data_variables_to_drop))
 
             return MeasurementSetXds(
-                super().sel(**kwargs).drop_vars(data_variables_to_drop)
+                super()
+                .sel(indexers, method, tolerance, drop, **indexers_kwargs)
+                .drop_vars(data_variables_to_drop)
             )
         else:
-            return MeasurementSetXds(super().sel(**kwargs))
+            return MeasurementSetXds(
+                super().sel(indexers, method, tolerance, drop, **indexers_kwargs)
+            )

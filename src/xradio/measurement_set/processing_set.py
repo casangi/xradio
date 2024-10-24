@@ -108,6 +108,7 @@ class ProcessingSet(dict):
         summary_data = {
             "name": [],
             "intents": [],
+            "data_groups": [],
             "shape": [],
             "polarization": [],
             "scan_number": [],
@@ -312,7 +313,7 @@ class ProcessingSet(dict):
         ----------
         **kwargs : dict
             Keyword arguments representing dimension names and the labels to select along those dimensions.
-            These are passed directly to the `xarray.Dataset.sel` method.
+            These are passed directly to the `xarray.Dataset.sel <https://docs.xarray.dev/en/latest/generated/xarray.Dataset.sel.html>`__ method.
 
         Returns
         -------
@@ -334,7 +335,7 @@ class ProcessingSet(dict):
         ----------
         **kwargs : dict
             Keyword arguments representing dimension names and the integer indices to select along those dimensions.
-            These are passed directly to the `isel` method.
+            These are passed directly to the `xarray.Dataset.isel <https://docs.xarray.dev/en/latest/generated/xarray.Dataset.isel.html>`__ method.
 
         Returns
         -------
@@ -359,7 +360,7 @@ class ProcessingSet(dict):
             The filesystem path to the Zarr store directory where the data will be saved.
         **kwargs : dict, optional
             Additional keyword arguments to be passed to the `xarray.Dataset.to_zarr` method.
-            Refer to the [xarray documentation](https://docs.xarray.dev/en/latest/generated/xarray.Dataset.to_zarr.html)
+            Refer to the `xarray.Dataset.to_zarr <https://docs.xarray.dev/en/latest/generated/xarray.Dataset.to_zarr.html>`__
             for available options.
 
         Returns

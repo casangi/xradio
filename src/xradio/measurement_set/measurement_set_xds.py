@@ -4,7 +4,7 @@ import xarray as xr
 import numbers
 import os
 from collections.abc import Mapping, Iterable
-from typing import Any
+from typing import Any, Union
 
 
 class MeasurementSetXds(xr.Dataset):
@@ -57,9 +57,9 @@ class MeasurementSetXds(xr.Dataset):
 
     def sel(
         self,
-        indexers: Mapping[Any, Any] | None = None,
-        method: str | None = None,
-        tolerance: int | float | Iterable[int | float] | None = None,
+        indexers: Union[Mapping[Any, Any], None] = None,
+        method: Union[str, None] = None,
+        tolerance: Union[int, float, Iterable[Union[int, float]], None] = None,
         drop: bool = False,
         **indexers_kwargs: Any,
     ):

@@ -1573,36 +1573,36 @@ class WeatherXds:
 class PointingXds:
     """
     Pointing dataset: antenna pointing information.
-    
+
     In the past the relationship and definition of the pointing infromation has not been clear. Here we attempt to clarify it by explaining the relationship between the ASDM, MSv2 and MSv4 pointing information.
-    
+
     The following abreviations are used:
-    
+
     - M2: Measurement Set version 2
     - M4: Measurement Set version 4
-    - A : ASDM 
-    
+    - A : ASDM
+
     The following definitions come from the ASDM's `SDM Tables Short Description <https://drive.google.com/file/d/16a3g0GQxgcO7N_ZabfdtexQ8r2jRbYIS/view>`_ page 97-99:
-    
+
     - A_encoder: The values measured from the antenna. They may be however affected by metrology, if applied. Note that for ALMA this column will contain positions obtained using the AZ POSN RSP and EL POSN RSP monitor points of the ACU and not the GET AZ ENC and GET EL ENC monitor points (as these do not include the metrology corrections). It is agreed that the the vendor pointing model will never be applied. AZELNOWAntenna.position
     - A_pointingDirection: This is the commanded direction of the antenna. It is obtained by adding the target and offset columns, and then applying the pointing model referenced by PointingModelId. The pointing model can be the composition of the absolute pointing model and of a local pointing model. In that case their coefficients will both be in the PointingModel table.
     - A_target: This is the field center direction (as given in the Field Table), possibly affected by the optional antenna-based sourceOffset. This column is in horizontal coordinates. AZELNOWAntenna.position
     - A_offset: Additional offsets in horizontal coordinates (usually meant for measuring the pointing corrections, mapping the antenna beam, ...). AZELNOWAntenna.positiontarget
     - A_sourceOffset : Optionally, the antenna-based mapping offsets in the field. These are in the equatorial system, and used, for instance, in on-the-fly mapping when the antennas are driven independently across the field.
-                     
+
     M2_DIRECTION = rotate(A_target,A_offset)   #A_target is rotated to by A_offset
-    
-    if withPointingCorrection : M2_DIRECTION = rotate(A_target,A_offset) + (A_encoder - A_pointingDirection) 
-        
+
+    if withPointingCorrection : M2_DIRECTION = rotate(A_target,A_offset) + (A_encoder - A_pointingDirection)
+
     M2_TARGET = A_target
     M2_POINTING_OFFSET = A_offset
     M2_ENCODER = A_encoder
-    
+
     It should be noted that definition of M2_direction is not consistent, it depends if withPointingCorrection is set to True or False (see the `importasdm documenation <https://casadocs.readthedocs.io/en/v6.2.0/api/tt/casatasks.data.importasdm.html#with-pointing-correction>`_  and `code <https://open-bitbucket.nrao.edu/projects/CASA/repos/casa6/browse/casatools/src/tools/sdm/sdm_cmpt.cc#2257>`_ for details).
-    
+
     M4_DIRECTION = M2_DIRECTION (withPointingCorrection=True)
     M4_ENCODER = M2_ENCODER
-    
+
     """
 
     antenna_name: Coordof[AntennaNameArray]

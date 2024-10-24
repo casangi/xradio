@@ -108,7 +108,6 @@ class ProcessingSet(dict):
         summary_data = {
             "name": [],
             "intents": [],
-            "data_groups": [],
             "shape": [],
             "polarization": [],
             "scan_number": [],

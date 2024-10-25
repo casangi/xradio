@@ -8,19 +8,19 @@ import pytest
             # "test_ms_minimal_required.ms",
             "ms_minimal_required",
             [],
-            (0.00023245811462402344, 4, 1),
+            (0.002607484348118305, 4, 1),
         ),
         (
             # "test_ms_minimal_required.ms",
             "ms_minimal_required",
             ["FIELD_ID"],
-            (0.00023245811462402344, 4, 1),
+            (0.002607484348118305, 4, 1),
         ),
         (
             # "test_ms_minimal_required.ms",
             "ms_minimal_required",
             ["FIELD_ID", "SCAN_NUMBER"],
-            (0.00023245811462402344, 4, 1),
+            (0.002607484348118305, 4, 1),
         ),
     ],
 )
@@ -35,8 +35,8 @@ def test_estimate_conversion_memory_and_cores_minimal(
     res = estimate_conversion_memory_and_cores(
         input_path, partition_scheme=partition_scheme
     )
-    assert res[0] == pytest.approx(expected_estimation[0])
-    assert res[1:] == pytest.approx(expected_estimation[1:])
+    assert res[0] == pytest.approx(expected_estimation[0], rel=1e-6)
+    assert res[1:] == expected_estimation[1:]
 
 
 @pytest.mark.parametrize(

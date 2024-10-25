@@ -119,6 +119,10 @@ def base_test(
         res = estimate_conversion_memory_and_cores(
             str(folder / file_name), partition_scheme=partition_scheme
         )
+        mem_estimate = res[0]
+        assert mem_estimate < 0.1, f"Too high estimate: {mem_estimate}"
+        # test_sd_A002_X1015532_X1926f is the smallest so far
+        assert mem_estimate > 6.5e-5, f"Too low estimate: {mem_estimate}"
 
         sum = 0.0
         sum_lazy = 0.0

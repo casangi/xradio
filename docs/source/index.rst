@@ -13,9 +13,8 @@ The Radio Astronomy Community is invited to review the draft **Measurement Set v
 Providing Feedback
 ^^^^^^^^^^^^^^^^^^
 
-1. Submit an issue to the `XRADIO GitHub repository <https://github.com/casangi/xradio/issues>`_.
-2. Add the label ``MSv4 Review`` to your issue.
-3. Your feedback can address the schema, API, bugs, or documentation. We are particularly interested in suggestions for data and meta-data we should include in the schema that will be used in offline processing.
+1. Submit an issue to the `XRADIO GitHub repository <https://github.com/casangi/xradio/issues>`_ by clicking on `New issue` and then on `Get started` .
+2. Your feedback can address the schema, API, bugs, or documentation. We are particularly interested in suggestions for data and meta-data we should include in the schema that will be used in offline processing.
 
 A panel will review all feedback and provide a comprehensive report.
 

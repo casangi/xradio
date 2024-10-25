@@ -46,6 +46,15 @@ def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_sch
     ps_name = folder / (msv2_name[:-3] + ".ps")
     if os.path.isdir(ps_name):
         os.system("rm -rf " + str(ps_name))  # Remove ps folder.
+
+    estimates = estimate_conversion_memory_and_cores(
+        str(folder / msv2_name), partition_scheme=partition_scheme
+    )
+    mem_estimate = estimates[0]
+    assert mem_estimate < 0.1, f"Too high estimate: {mem_estimate}"
+    # test_sd_A002_X1015532_X1926f is the smallest so far
+    assert mem_estimate > 6.5e-5, f"Too low estimate: {mem_estimate}"
+
     convert_msv2_to_processing_set(
         in_file=str(folder / msv2_name),
         out_file=ps_name,
@@ -115,14 +124,6 @@ def base_test(
         ps.get_combined_field_and_source_xds()
         ps.get_combined_antenna_xds()
         ps.get_combined_field_and_source_xds()
-
-        res = estimate_conversion_memory_and_cores(
-            str(folder / file_name), partition_scheme=partition_scheme
-        )
-        mem_estimate = res[0]
-        assert mem_estimate < 0.1, f"Too high estimate: {mem_estimate}"
-        # test_sd_A002_X1015532_X1926f is the smallest so far
-        assert mem_estimate > 6.5e-5, f"Too low estimate: {mem_estimate}"
 
         sum = 0.0
         sum_lazy = 0.0

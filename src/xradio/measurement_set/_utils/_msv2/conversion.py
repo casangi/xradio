@@ -987,7 +987,6 @@ def convert_and_write_partition(
 
             # Create pointing_xds
             pointing_xds = xr.Dataset()
-            print("with_pointing", with_pointing)
             if with_pointing:
                 start = time.time()
                 if pointing_interpolate:

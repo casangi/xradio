@@ -18,7 +18,7 @@ def enumerated_product(*args):
     )
 
 
-def create_partitions(in_file: str, partition_scheme: list):
+def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
     """Create a list of dictionaries with the partition information.
 
     Parameters

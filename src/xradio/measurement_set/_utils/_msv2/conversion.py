@@ -679,7 +679,7 @@ def get_weight(
     return xds
 
 
-def create_taql_query(partition_info):
+def create_taql_query_where(partition_info: dict):
     main_par_table_cols = [
         "DATA_DESC_ID",
         "OBSERVATION_ID",
@@ -729,8 +729,132 @@ def fix_uvw_frame(
     return xds
 
 
+def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
+    """
+    Aim: given a partition description, estimates a safe maximum memory value, but avoiding overestimation
+    (at least not adding not well understood factors).
+    """
+
+    def calculate_term_all_data(
+        tb_tool: tables.table, ntimes: float, nbaselines: float
+    ) -> tuple[list[float], bool]:
+        """
+        Size that DATA vars from MS will have in the MSv4, whether this MS has FLOAT_DATA
+        """
+        sizes_all_data_vars = []
+        col_names = tb_tool.colnames()
+        for data_col in ["DATA", "CORRECTED_DATA", "MODEL_DATA", "FLOAT_DATA"]:
+            if data_col in col_names:
+                col_descr = tb_tool.getcoldesc(data_col)
+                if "shape" in col_descr and isinstance(col_descr["shape"], np.ndarray):
+                    # example: "shape": array([15,  4]) => gives pols x channels
+                    cells_in_row = col_descr["shape"].prod()
+                    npols = col_descr["shape"][-1]
+                else:
+                    first_row = np.array(tb_tool.col(data_col)[0])
+                    cells_in_row = np.prod(first_row.shape)
+                    npols = first_row.shape[-1]
+
+                if col_descr["valueType"] == "complex":
+                    # Assume. Otherwise, read first column and get the itemsize:
+                    # col_dtype = np.array(mtable.col(data_col)[0]).dtype
+                    # cell_size = col_dtype.itemsize
+                    cell_size = 4
+                    if data_col != "FLOAT_DATA":
+                        cell_size *= 2
+                elif col_descr["valueType"] == "float":
+                    cell_size = 4
+
+                # cells_in_row should account for the polarization and frequency dims
+                size_data_var = ntimes * nbaselines * cells_in_row * cell_size
+
+                sizes_all_data_vars.append(size_data_var)
+
+        is_float_data = "FLOAT_DATA" in col_names
+
+        return sizes_all_data_vars, is_float_data
+
+    def calculate_term_weight_flag(size_largest_data, is_float_data) -> float:
+        """
+        Size that WEIGHT and FLAG will have in the MSv4, derived from the size of the
+        MSv2 DATA col=> MSv4 VIS/SPECTRUM data var.
+        """
+        # Factors of the relative "cell_size" wrt the DATA var
+        # WEIGHT_SPECTRUM size: DATA (IF), DATA/2 (SD)
+        factor_weight = 1.0 if is_float_data else 0.5
+        factor_flag = 1.0 / 4.0 if is_float_data else 1.0 / 8.0
+
+        return size_largest_data * (factor_weight + factor_flag)
+
+    def calculate_term_other_data_vars(
+        ntimes, nbaselines, is_float_data: bool
+    ) -> float:
+        """
+        Size all data vars other than the DATA(visibility/spectrum) vars will have in the MSv4
+
+        For the rest of columns, including indices/iteration columns and other
+        scalar columns could say approx ->5% of the (large) data cols
+
+        """
+        # Small ones, but as they are loaded into data arrays, why not including,
+        # For example: UVW (3xscalar), EXPOSURE, TIME_CENTROID
+        return ntimes * nbaselines * (3 + 1 + 1)
+
+    def calculate_term_attrs(size_estimate_main_xds: float) -> float:
+        """ """
+        return 10 * 1024 * 1024
+
+    def calculate_term_sub_xds(size_estimate_main_xds: float) -> float:
+        """
+        This is still very rough. Just seemingly working for now. Not taking into account the dims
+        of the sub-xdss, interpolation options used, etc.
+        """
+        # Most cases so far 1% seems enough
+        return 0.015 * size_estimate_main_xds
+
+    def calculate_term_to_zarr(size_estimate_main_xds: float) -> float:
+        """
+        The to_zarr call on the main_xds seems to allocate 10s or 100s of MBs, presumably for buffers.
+        That adds on top of the expected main_xds size.
+        This is currently a very rough extrapolation from tests with a limited range of partition sizes.
+        """
+        return 0.10 * size_estimate_main_xds
+
+    taql_partition = create_taql_query_where(partition)
+    taql_main = f"select * from $mtable {taql_partition}"
+    with open_table_ro(in_file) as mtable:
+        col_names = mtable.colnames()
+        with open_query(mtable, taql_main) as tb_tool:
+            # Do not feel tempted to rely on nrows. nrows tends to underestimate memory when baselines are missing.
+            # For some EVN datasets that can easily underestimate by a 50%
+            # nrows = tb_tool.nrows()
+            utimes, _tol = get_utimes_tol(mtable, taql_partition)
+            ntimes = len(utimes)
+            nbaselines = len(get_baselines(tb_tool))
+
+            sizes_all_data, is_float_data = calculate_term_all_data(
+                tb_tool, ntimes, nbaselines
+            )
+
+    size_largest_data = np.max(sizes_all_data)
+    sum_sizes_data = np.sum(sizes_all_data)
+    estimate_main_xds = (
+        sum_sizes_data
+        + calculate_term_weight_flag(size_largest_data, is_float_data)
+        + calculate_term_other_data_vars(ntimes, nbaselines, is_float_data)
+    )
+    estimate = (
+        estimate_main_xds
+        + calculate_term_sub_xds(estimate_main_xds)
+        + calculate_term_to_zarr(estimate_main_xds)
+    )
+    estimate /= GiBYTES_TO_BYTES
+
+    return estimate
+
+
 def estimate_memory_and_cores_for_partitions(
-    in_file: str, partitions: dict
+    in_file: str, partitions: list
 ) -> tuple[float, int, int]:
     """
     Estimates approximate memory required to convert an MSv2 to MSv4, given
@@ -738,69 +862,15 @@ def estimate_memory_and_cores_for_partitions(
     """
     max_cores = len(partitions)
 
-    size_estimates = []
-    for part_description in partitions:
-        taql_partition = create_taql_query(part_description)
-
-        # TODO: get_partition_nrows()
-        taql_main = f"select * from $mtable {taql_partition}"
-        with open_table_ro(in_file) as mtable:
-            with open_query(mtable, taql_main) as tb_tool:
-                nrows = tb_tool.nrows()
-
-            col_names = mtable.colnames()
-            # complex, double: DATA, CORRECTED_DATA, MODEL_DATA
-            size_all_data_vars = 0
-            size_largest_data = 0
-            for data_col in ["DATA", "CORRECTED_DATA", "MODEL_DATA", "FLOAT_DATA"]:
-                if data_col in col_names:
-                    col_descr = mtable.getcoldesc(data_col)
-                    if "shape" in col_descr and isinstance(
-                        col_descr["shape"], np.ndarray
-                    ):
-                        # example: "shape": array([15,  4]) => gives pols x channels
-                        cells_in_row = col_descr["shape"].prod()
-                    else:
-                        first_row = np.array(mtable.col(data_col)[0])
-                        cells_in_row = np.prod(first_row.shape)
-
-                    if col_descr["valueType"] == "complex":
-                        # Assume. Otherwise, read first column and get the itemsize:
-                        # col_dtype = np.array(mtable.col(data_col)[0]).dtype
-                        # cell_size = col_dtype.itemsize
-                        cell_size = 4
-                        if data_col != "FLOAT_DATA":
-                            cell_size *= 2
-                    elif col_descr["valueType"] == "float":
-                        cell_size = 4
-
-                    size_data_var = cell_size * cells_in_row * nrows
-
-                    if size_data_var > size_largest_data:
-                        size_largest_data = size_data_var
-                    size_all_data_vars += size_data_var
-                    # "valueType" should be complex
-
-            # scalar, single: FLOAT_DATA,
-            # WEIGHT_SPECTRUM size: DATA (IF), DATA/2 (SD)
-            # would seem as overestimating by x*npols wrt MSv2, but that's ok, MSv4/WEIGHT has 'polarization' dim
-            factor_weight = 1.0 if "FLOAT_DATA" in col_names else 0.5
-            # FLAG size: DATA/8 (IF), DATA/4 (SD)
-            factor_flag = 1.0 / 4.0 if "FLOAT_DATA" in col_names else 1.0 / 8.0
-
-            # For the rest of columns, including indices/iteration columns
-            # and other scalar columns could say approx 5% of the (large) data cols
-            # Small ones, but as they are loaded into data arrays, why not including,
-            # for example:
-            # UVW (3xscalar), EXPOSURE, TIME_CENTROID
-
-        estimate = (
-            size_all_data_vars + size_largest_data * (factor_weight + factor_flag)
-        ) / GiBYTES_TO_BYTES
-        size_estimates.append(estimate)
-
+    size_estimates = [
+        estimate_memory_for_partition(in_file, part_description)
+        for part_description in partitions
+    ]
     max_estimate = np.max(size_estimates) if size_estimates else 0
-    return max_estimate, max_cores, np.ceil(max_cores / 4).astype("int")
+
+    recommended_cores = np.ceil(max_cores / 4).astype("int")
+
+    return max_estimate, max_cores, recommended_cores
 
 
 def convert_and_write_partition(
@@ -864,7 +934,7 @@ def convert_and_write_partition(
         _description_
     """
 
-    taql_where = create_taql_query(partition_info)
+    taql_where = create_taql_query_where(partition_info)
     ddi = partition_info["DATA_DESC_ID"][0]
     intents = str(partition_info["OBS_MODE"][0])
 
@@ -1159,6 +1229,8 @@ def convert_and_write_partition(
                     xds.attrs["type"] = "wvr"
                 else:
                     xds.attrs["type"] = "visibility"
+
+            import sys
 
             start = time.time()
             if storage_backend == "zarr":

@@ -1339,7 +1339,12 @@ def antenna_ids_to_names(
         ]
         for unwanted_coord in unwanted_coords_from_ant_xds:
             xds = xds.drop_vars(unwanted_coord)
-        xds = xds.rename({"baseline_id": "antenna_name"})
+
+        # Rename a dim coord started generating warnings (index not re-created). Swap dims, create coord
+        # https://github.com/pydata/xarray/pull/6999
+        xds = xds.swap_dims({"baseline_id": "antenna_name"})
+        xds = xds.assign_coords({"antenna_name": xds["baseline_id"].data})
+        xds = xds.drop_vars("baseline_id")
 
         # drop more vars that seem unwanted in main_sd_xds, but there shouuld be a better way
         # of not creating them in the first place

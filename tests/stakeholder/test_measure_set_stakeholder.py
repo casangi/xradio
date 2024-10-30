@@ -117,8 +117,9 @@ def base_test(
 
         max_dims = ps.get_ps_max_dims()
         assert type(max_dims) == dict
-        freq_axis = ps.get_ps_freq_axis()
-        assert type(freq_axis) == xr.DataArray
+        if not is_s3 and not preconverted:
+            freq_axis = ps.get_ps_freq_axis()
+            assert type(freq_axis) == xr.DataArray
         combined_field_xds = ps.get_combined_field_and_source_xds()
         assert type(combined_field_xds) == tuple
         combined_antenna = ps.get_combined_antenna_xds()

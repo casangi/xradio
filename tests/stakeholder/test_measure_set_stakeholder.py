@@ -5,6 +5,8 @@ import pathlib
 import pytest
 import time
 
+import xarray as xr
+
 from toolviper.utils.data import download
 from toolviper.utils.logger import setup_logger
 from xradio.measurement_set import (
@@ -119,10 +121,19 @@ def base_test(
             os.system("rm -rf " + str(ps_copy_name))  # Remove ps copy folder.
 
         ps_lazy_df = ps_lazy.summary()
+        assert "name" in ps_lazy_df
         ps_df = ps.summary()
+        assert "name" in ps_df
 
-        ps.get_combined_field_and_source_xds()
-        ps.get_combined_antenna_xds()
+        max_dims = ps.get_ps_max_dims()
+        assert type(max_dims) == dict
+        if not is_s3 and not preconverted:
+            freq_axis = ps.get_ps_freq_axis()
+            assert type(freq_axis) == xr.DataArray
+        combined_field_xds = ps.get_combined_field_and_source_xds()
+        assert type(combined_field_xds) == tuple
+        combined_antenna = ps.get_combined_antenna_xds()
+        assert type(combined_antenna) == xr.Dataset
         ps.get_combined_field_and_source_xds()
 
         sum = 0.0

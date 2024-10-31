@@ -983,7 +983,7 @@ def convert_and_write_partition(
             start = time.time()
             xds = xr.Dataset(
                 attrs={
-                    "creation_date": datetime.datetime.utcnow().isoformat(),
+                    "creation_date": datetime.datetime.now(datetime.UTC).isoformat(),
                     "xradio_version": importlib.metadata.version("xradio"),
                     "schema_version": "4.0.-9994",
                     "type": "visibility",

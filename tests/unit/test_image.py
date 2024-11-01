@@ -61,7 +61,7 @@ class ImageBase(unittest.TestCase):
                 ):
                     self.assertTrue(
                         np.isclose(np.array(one), np.array(two)).all(),
-                        f"{dict1_name}[{k}] != {dict2_name}[{k}]",
+                        f"{dict1_name}[{k}] != {dict2_name}[{k}], " f"{one} != {two}",
                     )
                 else:
                     self.assertEqual(
@@ -152,7 +152,6 @@ class xds_from_image_test(ImageBase):
             "frame": "FK5",
             "equinox": "J2000.0",
             "value": [1.832595714594046, -0.6981317007977318],
-            "cdelt": [-_rad_to_arcmin, _rad_to_arcmin],
             "units": ["rad", "rad"],
         },
         # "conversion_system": "FK5",
@@ -486,7 +485,7 @@ class xds_from_image_test(ImageBase):
         self.dict_equality(l_attrs, e_l_attrs, "got l attrs", "expec l attrs")
         self.dict_equality(m_attrs, e_m_attrs, "got m attrs", "expec m attrs")
 
-    def compare_ra_dec(self, xds: xr.Dataset, fits: bool = False) -> None:
+    def compare_ra_dec(self, xds: xr.Dataset) -> None:
         ev = self._exp_vals
         if "ra" not in ev:
             im = casacore.images.image(self.imname())
@@ -508,30 +507,6 @@ class xds_from_image_test(ImageBase):
             ev["dec_cdelt"] = dd["cdelt"][1] * f
         self.assertEqual(xds.right_ascension.attrs, {}, "RA has attrs but shouldn't")
         self.assertEqual(xds.declination.attrs, {}, "RA has attrs but shouldn't")
-        if fits:
-            self.assertTrue(
-                np.isclose(
-                    xds.attrs["direction"]["reference"]["cdelt"][0], ev["ra_cdelt"]
-                ),
-                "Incorrect RA cdelt",
-            )
-            self.assertTrue(
-                np.isclose(
-                    xds.attrs["direction"]["reference"]["cdelt"][1], ev["dec_cdelt"]
-                ),
-                "Incorrect Dec cdelt",
-            )
-        else:
-            self.assertEqual(
-                xds.attrs["direction"]["reference"]["cdelt"][0],
-                ev["ra_cdelt"],
-                "Incorrect RA cdelt",
-            )
-            self.assertEqual(
-                xds.attrs["direction"]["reference"]["cdelt"][1],
-                ev["dec_cdelt"],
-                "Incorrect Dec cdelt",
-            )
         self.assertTrue(
             np.allclose(xds.right_ascension, ev["ra"], atol=1e-15),
             "Incorrect RA values",
@@ -1154,7 +1129,7 @@ class fits_to_xds_test(xds_from_image_test):
         """Test xds has correct RA and Dec values and attributes"""
         for i, fds in enumerate([self._fds, self._fds_no_sky]):
             if i == 0:
-                self.compare_ra_dec(fds, True)
+                self.compare_ra_dec(fds)
             else:
                 for c in ["right_ascension", "declination"]:
                     self.assertTrue(
@@ -1545,7 +1520,6 @@ class make_empty_image_tests(ImageBase):
             "frame": "FK5",
             "equinox": "J2000",
             "value": [0.2, -0.5],
-            "cdelt": [-0.0002908882086657216, 0.0002908882086657216],
             "units": ["rad", "rad"],
         }
         if do_sky_coords:
@@ -1604,7 +1578,6 @@ class make_empty_image_tests(ImageBase):
                     "frame": "FK5",
                     "equinox": "J2000",
                     "value": [0.2, -0.5],
-                    "cdelt": [-0.0002908882086657216, 0.0002908882086657216],
                     "units": ["rad", "rad"],
                 },
             },

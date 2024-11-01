@@ -24,7 +24,7 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
     direction["projection_parameters"] = xds_dir["projection_parameters"]
     direction["units"] = np.array(xds_dir["reference"]["units"], dtype="<U16")
     direction["crval"] = np.array(xds_dir["reference"]["value"])
-    direction["cdelt"] = np.array(xds_dir["reference"]["cdelt"])
+    direction["cdelt"] = np.array((xds.l.cdelt, xds.m.cdelt))
     direction["crpix"] = _compute_sky_reference_pixel(xds)
     direction["pc"] = np.array(xds_dir["pc"])
     direction["axes"] = ["Right Ascension", "Declination"]

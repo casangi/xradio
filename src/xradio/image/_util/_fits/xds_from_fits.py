@@ -176,7 +176,6 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
         "equinox": ref_eqx,
         "units": ["rad", "rad"],
         "value": [0.0, 0.0],
-        "cdelt": [0.0, 0.0],
     }
     dir_axes = helpers["dir_axes"]
     for i in dir_axes:
@@ -185,7 +184,6 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
         direction["reference"]["value"][i] = x.value
         x = helpers["cdelt"][i] * u.Unit(_get_unit(helpers["cunit"][i]))
         x = x.to("rad")
-        direction["reference"]["cdelt"][i] = x.value
     direction["latpole"] = {
         "value": header["LATPOLE"] * _deg_to_rad,
         "units": "rad",

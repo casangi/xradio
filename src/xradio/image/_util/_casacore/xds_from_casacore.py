@@ -174,15 +174,13 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
             "type": "sky_coord",
             "equinox": ap_equinox if ap_equinox else None,
             "value": [0.0, 0.0],
-            "cdelt": [0.0, 0.0],
             "units": ["rad", "rad"],
         }
-        for c, r in zip(["crval", "cdelt"], ["value", "cdelt"]):
-            for i in range(2):
-                unit = u.Unit(_get_unit(coord_dir_dict["units"][i]))
-                q = coord_dir_dict[c][i] * unit
-                x = q.to("rad")
-                dir_dict["reference"][r][i] = x.value
+        for i in range(2):
+            unit = u.Unit(_get_unit(coord_dir_dict["units"][i]))
+            q = coord_dir_dict["crval"][i] * unit
+            x = q.to("rad")
+            dir_dict["reference"]["value"][i] = x.value
         k = "latpole"
         if k in coord_dir_dict:
             for j in (k, "longpole"):

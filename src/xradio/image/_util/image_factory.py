@@ -68,7 +68,6 @@ def _add_common_attrs(
                 "equinox": "J2000",
                 "value": list(phase_center),
                 "units": ["rad", "rad"],
-                "cdelt": [-abs(cell_size[0]), abs(cell_size[1])],
             },
             "longpole": {"type": "quantity", "value": np.pi, "units": "rad"},
             "latpole": {"type": "quantity", "value": 0.0, "units": "rad"},

@@ -6,7 +6,9 @@ import numpy as np
 import xarray as xr
 
 import toolviper.utils.logger as logger
-from xradio.measurement_set._utils._msv2.msv4_sub_xdss import interpolate_to_time
+from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
+    rename_and_interpolate_to_time,
+)
 from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
 from xradio.measurement_set._utils._msv2._tables.read import (
     convert_casacore_time_to_mjd,
@@ -363,20 +365,13 @@ def extract_ephemeris_info(
     }
     temp_xds["time_ephemeris"].attrs.update(time_coord_attrs)
 
-    # Convert to si units and interpolate if ephemeris_interpolate=True:
+    # Convert to si units
     temp_xds = convert_to_si_units(temp_xds)
-    temp_xds = interpolate_to_time(
-        temp_xds, interp_time, "field_and_source_xds", time_name="time_ephemeris"
-    )
 
-    # If we interpolate rename the time_ephemeris axis to time.
-    if interp_time is not None:
-        time_coord = {"time": ("time_ephemeris", interp_time.data)}
-        temp_xds = temp_xds.assign_coords(time_coord)
-        temp_xds.coords["time"].attrs.update(time_coord_attrs)
-        temp_xds = temp_xds.swap_dims({"time_ephemeris": "time"}).drop_vars(
-            "time_ephemeris"
-        )
+    # interpolate if ephemeris_interpolate/interp_time=True, and rename time_ephemeris=>time
+    temp_xds = rename_and_interpolate_to_time(
+        temp_xds, "time_ephemeris", interp_time, "field_and_source_xds"
+    )
 
     xds = xr.merge([xds, temp_xds])
 

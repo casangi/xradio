@@ -92,7 +92,7 @@ class MeasurementSetXds(xr.Dataset):
             sel_data_group_set = set(
                 self.attrs["data_groups"][data_group_name].values()
             )
-
+            
             data_variables_to_drop = []
             for dg in self.attrs["data_groups"].values():
                 temp_set = set(dg.values()) - sel_data_group_set

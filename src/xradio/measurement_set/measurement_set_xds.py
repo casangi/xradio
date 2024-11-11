@@ -78,10 +78,11 @@ class MeasurementSetXds(xr.Dataset):
         >>> # Select data group 'corrected' and polarization 'XX' using a dict.
         >>> selected_ms_xds = ms_xds.sel({'data_group_name':'corrected', 'polarization':'XX')
         """
+        
         if "data_group_name" in indexers_kwargs:
             data_group_name = indexers_kwargs["data_group_name"]
             del indexers_kwargs["data_group_name"]
-        if (indexers is not None) and ("data_group_name" in indexers):
+        elif (indexers is not None) and ("data_group_name" in indexers):
             data_group_name = indexers["data_group_name"]
             del indexers["data_group_name"]
         else:
@@ -98,12 +99,18 @@ class MeasurementSetXds(xr.Dataset):
                 data_variables_to_drop.extend(list(temp_set))
 
             data_variables_to_drop = list(set(data_variables_to_drop))
-
-            return MeasurementSetXds(
+            
+            sel_ms_xds = MeasurementSetXds(
                 super()
                 .sel(indexers, method, tolerance, drop, **indexers_kwargs)
                 .drop_vars(data_variables_to_drop)
             )
+            
+            sel_ms_xds.attrs["data_groups"] = {
+                data_group_name: self.attrs["data_groups"][data_group_name]
+            }            
+
+            return sel_ms_xds
         else:
             return MeasurementSetXds(
                 super().sel(indexers, method, tolerance, drop, **indexers_kwargs)

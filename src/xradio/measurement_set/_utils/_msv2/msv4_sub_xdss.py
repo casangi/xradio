@@ -36,11 +36,11 @@ def rename_and_interpolate_to_time(
 ) -> xr.Dataset:
     """
     This function interpolates the time dimension and renames it:
-    
+
     - interpolates a time_* dimension to values given in interp_time (presumably the time
     axis of the main xds)
     - rename/replace that time_* dimension to "time", where time_* is a (sub)xds specific
-    time axis 
+    time axis
     (for example "time_pointing", "time_ephemeris", "time_syscal", "time_phase_cal").
 
     If interp_time is None this will simply return the input xds without modificaitons.

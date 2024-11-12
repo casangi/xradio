@@ -47,7 +47,7 @@ class MeasurementSetXds(xr.Dataset):
             if "xds" in attrs_name:
                 del copy_cor_xds.attrs[attrs_name]
                 xr.Dataset.to_zarr(
-                    self.attrs[attrs_name], os.path.join(store, attrs_name, **kwargs)
+                    self.attrs[attrs_name], os.path.join(store, attrs_name), **kwargs
                 )
 
         # Save copy_cor_xds as zarr file.

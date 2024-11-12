@@ -787,10 +787,10 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
         return size_largest_data * (factor_weight + factor_flag)
 
     def calculate_term_other_data_vars(
-        ntimes, nbaselines, is_float_data: bool
+        ntimes: int, nbaselines: int, is_float_data: bool
     ) -> float:
         """
-        Size all data vars other than the DATA(visibility/spectrum) vars will have in the MSv4
+        Size all data vars other than the DATA (visibility/spectrum) vars will have in the MSv4
 
         For the rest of columns, including indices/iteration columns and other
         scalar columns could say approx ->5% of the (large) data cols
@@ -798,10 +798,32 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
         """
         # Small ones, but as they are loaded into data arrays, why not including,
         # For example: UVW (3xscalar), EXPOSURE, TIME_CENTROID
-        return ntimes * nbaselines * (3 + 1 + 1)
+        # assuming float64 in output MSv4
+        item_size = 8
+        return ntimes * nbaselines * (3 + 1 + 1) * item_size
+
+    def calculate_term_other_indices(ntimes: int, nbaselines: int) -> float:
+        """
+        Account for the allocations to load indices. The converter needs to
+        load: OBSERVATION_ID, INTERVAL, SCAN_NUMBER. These are loaded
+        one after another (allocations do not stack up).
+        Also, in most memory profiles these allocations are freed once we
+        get to create_data_variables(). As such, adding this term will most
+        likely lead to overestimation (for safety).
+
+        In terms of amount of memory represented by this term relative to the
+        total, it becomes relevant proportionally to the ratio between
+           nrows / (chans x pols)
+        - for example LOFAR long scans/partitions with few channels,
+        but its value is independent from # chans, pols.
+        """
+        # assuming float64/int64 in input MSv2, which seems to be the case,
+        # except for OBSERVATION_ID (int32)
+        item_size = 8
+        return ntimes * nbaselines * item_size
 
     def calculate_term_attrs(size_estimate_main_xds: float) -> float:
-        """ """
+        """Rough guess which seems to be more than enough"""
         return 10 * 1024 * 1024
 
     def calculate_term_sub_xds(size_estimate_main_xds: float) -> float:
@@ -845,6 +867,7 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
     )
     estimate = (
         estimate_main_xds
+        + calculate_term_other_indices(ntimes, nbaselines)
         + calculate_term_sub_xds(estimate_main_xds)
         + calculate_term_to_zarr(estimate_main_xds)
     )

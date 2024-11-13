@@ -840,7 +840,7 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
         That adds on top of the expected main_xds size.
         This is currently a very rough extrapolation from tests with a limited range of partition sizes.
         """
-        return 0.10 * size_estimate_main_xds
+        return 0.05 * size_estimate_main_xds
 
     taql_partition = create_taql_query_where(partition)
     taql_main = f"select * from $mtable {taql_partition}"

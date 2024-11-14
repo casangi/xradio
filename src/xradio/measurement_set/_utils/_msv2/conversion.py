@@ -802,14 +802,10 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
         item_size = 8
         return ntimes * nbaselines * (3 + 1 + 1) * item_size
 
-    def calculate_term_other_indices(ntimes: int, nbaselines: int) -> float:
+    def calculate_term_calc_indx_for_row_split(msv2_nrows: int) -> float:
         """
-        Account for the allocations to load indices. The converter needs to
-        load: OBSERVATION_ID, INTERVAL, SCAN_NUMBER. These are loaded
-        one after another (allocations do not stack up).
-        Also, in most memory profiles these allocations are freed once we
-        get to create_data_variables(). As such, adding this term will most
-        likely lead to overestimation (for safety).
+        Account for the indices produced in calc_indx_for_row_split():
+        the dominating ones are: tidxs, bidxs, didxs.
 
         In terms of amount of memory represented by this term relative to the
         total, it becomes relevant proportionally to the ratio between
@@ -817,10 +813,26 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
         - for example LOFAR long scans/partitions with few channels,
         but its value is independent from # chans, pols.
         """
+        item_size = 8
+        # 3 are: tidxs, bidxs, didxs
+        return msv2_nrows * 3 * item_size
+
+    def calculate_term_other_msv2_indices(msv2_nrows: int) -> float:
+        """
+        Account for the allocations to load ID, etc. columns from input MSv2.
+        The converter needs to load: OBSERVATION_ID, INTERVAL, SCAN_NUMBER.
+        These are loaded one after another (allocations do not stack up).
+        Also, in most memory profiles these allocations are released once we
+        get to create_data_variables(). As such, adding this term will most
+        likely lead to overestimation (but adding it for safety).
+
+        Simlarly as with calculate_term_calc_indx_for_row_split() this term
+        becomes relevant when the ratio 'nrows / (chans x pols)' is high.
+        """
         # assuming float64/int64 in input MSv2, which seems to be the case,
         # except for OBSERVATION_ID (int32)
         item_size = 8
-        return ntimes * nbaselines * item_size
+        return msv2_nrows * item_size
 
     def calculate_term_attrs(size_estimate_main_xds: float) -> float:
         """Rough guess which seems to be more than enough"""
@@ -849,10 +861,13 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
         with open_query(mtable, taql_main) as tb_tool:
             # Do not feel tempted to rely on nrows. nrows tends to underestimate memory when baselines are missing.
             # For some EVN datasets that can easily underestimate by a 50%
-            # nrows = tb_tool.nrows()
             utimes, _tol = get_utimes_tol(mtable, taql_partition)
             ntimes = len(utimes)
             nbaselines = len(get_baselines(tb_tool))
+
+            # Still, use nrwos for estimations related to sizes of input (MSv2)
+            # columns, not sizes of output (MSv4) data vars
+            msv2_nrows = tb_tool.nrows()
 
             sizes_all_data, is_float_data = calculate_term_all_data(
                 tb_tool, ntimes, nbaselines
@@ -867,7 +882,8 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
     )
     estimate = (
         estimate_main_xds
-        + calculate_term_other_indices(ntimes, nbaselines)
+        + calculate_term_calc_indx_for_row_split(msv2_nrows)
+        + calculate_term_other_msv2_indices(msv2_nrows)
         + calculate_term_sub_xds(estimate_main_xds)
         + calculate_term_to_zarr(estimate_main_xds)
     )
@@ -889,7 +905,7 @@ def estimate_memory_and_cores_for_partitions(
         estimate_memory_for_partition(in_file, part_description)
         for part_description in partitions
     ]
-    max_estimate = np.max(size_estimates) if size_estimates else 0
+    max_estimate = np.max(size_estimates) if size_estimates else 0.0
 
     recommended_cores = np.ceil(max_cores / 4).astype("int")
 

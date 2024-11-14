@@ -1,6 +1,9 @@
 import pytest
 
 
+mem_estimate_min_ms = 0.0026036426424980164
+
+
 @pytest.mark.parametrize(
     "input_name, partition_scheme, expected_estimation",
     [
@@ -8,19 +11,19 @@ import pytest
             # "test_ms_minimal_required.ms",
             "ms_minimal_required",
             [],
-            (0.002607484348118305, 4, 1),
+            (mem_estimate_min_ms, 4, 1),
         ),
         (
             # "test_ms_minimal_required.ms",
             "ms_minimal_required",
             ["FIELD_ID"],
-            (0.002607484348118305, 4, 1),
+            (mem_estimate_min_ms, 4, 1),
         ),
         (
             # "test_ms_minimal_required.ms",
             "ms_minimal_required",
             ["FIELD_ID", "SCAN_NUMBER"],
-            (0.002607484348118305, 4, 1),
+            (mem_estimate_min_ms, 4, 1),
         ),
     ],
 )

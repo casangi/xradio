@@ -12,7 +12,8 @@ from xradio.measurement_set._utils._msv2.conversion import (
 
 
 def estimate_conversion_memory_and_cores(
-    in_file, partition_scheme: list[str]
+    in_file: str,
+    partition_scheme: list = ["FIELD_ID"],
 ) -> tuple[float, int, int]:
     """
     Given an MSv2 and a partition_scheme to use when converting it to MSv4,

@@ -909,7 +909,7 @@ def estimate_memory_and_cores_for_partitions(
 
     recommended_cores = np.ceil(max_cores / 4).astype("int")
 
-    return max_estimate, max_cores, recommended_cores
+    return float(max_estimate), int(max_cores), int(recommended_cores)
 
 
 def convert_and_write_partition(

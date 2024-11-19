@@ -836,6 +836,7 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
 
     def calculate_term_attrs(size_estimate_main_xds: float) -> float:
         """Rough guess which seems to be more than enough"""
+        # could also account for info_dicts (which seem to require typically ~1 MB)
         return 10 * 1024 * 1024
 
     def calculate_term_sub_xds(size_estimate_main_xds: float) -> float:
@@ -850,7 +851,9 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
         """
         The to_zarr call on the main_xds seems to allocate 10s or 100s of MBs, presumably for buffers.
         That adds on top of the expected main_xds size.
-        This is currently a very rough extrapolation from tests with a limited range of partition sizes.
+        This is currently a very rough extrapolation and is being (mis)used to give a safe up to 5-6%
+        overestimation. Perhaps we should drop this term once other sub-xdss are accounted for (and
+        this term could be replaced by a similar, smaller but still safe over-estimation percentage).
         """
         return 0.05 * size_estimate_main_xds
 

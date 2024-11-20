@@ -21,6 +21,13 @@ def estimate_conversion_memory_and_cores(
     - memory (in the sense of the amount expected to be enough to convert)
     - cores (in the sense of the recommended/optimal number of cores to use to convert)
 
+    Note: this function does not currently try to estimate the memory required for
+    sub-xdss such as pointing_xds and system_calibration_xds, instead it uses a small
+    percentage of the main_xds to account for them. This can lead to underestimation
+    especially for MSv2s with small partitions but large pointing or syscal tables.
+    This should not typically be a concern for sufficiently large partitions
+    (a few or 10s, 100s of GiBs).
+
     Parameters
     ----------
     in_file: str
@@ -31,8 +38,9 @@ def estimate_conversion_memory_and_cores(
     Returns
     ----------
     tuple
-        estimated maximum memory required for one partition, maximum number of cores it makes sense to use
-        (number of partitions), suggested number of cores to use
+        estimated maximum memory required for one partition,
+        maximum number of cores it makes sense to use (number of partitions),
+        suggested number of cores to use (maximum/4 as a rule of thumb)
     """
 
     partitions = create_partitions(in_file, partition_scheme=partition_scheme)

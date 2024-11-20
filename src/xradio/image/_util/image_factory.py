@@ -4,6 +4,7 @@ import xarray as xr
 from typing import List, Union
 from .common import _c, _compute_world_sph_dims, _l_m_attr_notes
 from xradio._utils.coord_math import _deg_to_rad
+from xradio._utils.dict_helpers import make_quantity
 
 
 def _input_checks(
@@ -46,11 +47,7 @@ def _add_common_attrs(
     xds.time.attrs = {"format": "MJD", "scale": "UTC", "units": "d"}
     freq_vals = np.array(xds.frequency)
     xds.frequency.attrs = {
-        "rest_frequency": {
-            "type": "quantity",
-            "units": "Hz",
-            "value": restfreq,
-        },
+        "rest_frequency": make_quantity(restfreq, "Hz"),
         "frame": spectral_reference.upper(),
         "units": "Hz",
         "wave_unit": "mm",
@@ -69,8 +66,8 @@ def _add_common_attrs(
                 "value": list(phase_center),
                 "units": ["rad", "rad"],
             },
-            "longpole": {"type": "quantity", "value": np.pi, "units": "rad"},
-            "latpole": {"type": "quantity", "value": 0.0, "units": "rad"},
+            "longpole": make_quantity(np.pi, "rad"),
+            "latpole": make_quantity(0.0, "rad"),
             "pc": np.array([[1.0, 0.0], [0.0, 1.0]]),
             "projection": projection,
             "projection_parameters": [0.0, 0.0],
@@ -289,7 +286,6 @@ def _make_empty_lmuv_image(
         "crval": 0.0,
         "cdelt": -abs(sky_image_cell_size[0]),
         "units": "rad",
-        "type": "quantity",
         "note": attr_note["l"],
     }
     xds.m.attrs = {
@@ -297,7 +293,6 @@ def _make_empty_lmuv_image(
         "crval": 0.0,
         "cdelt": abs(sky_image_cell_size[1]),
         "units": "rad",
-        "type": "quantity",
         "note": attr_note["m"],
     }
     xds.u.attrs = {

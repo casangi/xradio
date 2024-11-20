@@ -16,6 +16,7 @@ from ..common import (
     _l_m_attr_notes,
 )
 from xradio._utils.coord_math import _deg_to_rad
+from xradio._utils.dict_helpers import make_quantity
 import copy
 import dask
 import dask.array as da
@@ -77,11 +78,7 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     freq_coord = xds.coords["frequency"]
     meta = {}
     if helpers["has_freq"]:
-        meta["rest_frequency"] = {
-            "type": "quantity",
-            "units": "Hz",
-            "value": helpers["restfreq"],
-        }
+        meta["rest_frequency"] = make_quantity(helpers["restfreq"], "Hz")
         meta["frame"] = helpers["specsys"]
         meta["units"] = "Hz"
         meta["type"] = "frequency"
@@ -184,16 +181,8 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
         direction["reference"]["value"][i] = x.value
         x = helpers["cdelt"][i] * u.Unit(_get_unit(helpers["cunit"][i]))
         x = x.to("rad")
-    direction["latpole"] = {
-        "value": header["LATPOLE"] * _deg_to_rad,
-        "units": "rad",
-        "type": "quantity",
-    }
-    direction["longpole"] = {
-        "value": header["LONPOLE"] * _deg_to_rad,
-        "units": "rad",
-        "type": "quantity",
-    }
+    direction["latpole"] = make_quantity(header["LATPOLE"] * _deg_to_rad, "rad")
+    direction["longpole"] = make_quantity(header["LONPOLE"] * _deg_to_rad, "rad")
     pc = np.zeros([2, 2])
     for i in (0, 1):
         for j in (0, 1):
@@ -325,9 +314,9 @@ def _beam_attr_from_header(helpers: dict, header) -> Union[dict, str, None]:
     if "BMAJ" in header:
         # single global beam
         beam = {
-            "bmaj": {"type": "quantity", "units": "arcsec", "value": header["BMAJ"]},
-            "bmin": {"type": "quantity", "units": "arcsec", "value": header["BMIN"]},
-            "pa": {"type": "quantity", "units": "arcsec", "value": header["BPA"]},
+            "bmaj": make_quantity(header["BMAJ"], "arcsec"),
+            "bmin": make_quantity(header["BMIN"], "arcsec"),
+            "pa": make_quantity(header["BPA"], "arcsec"),
         }
         return _convert_beam_to_rad(beam)
     elif "CASAMBM" in header and header["CASAMBM"]:

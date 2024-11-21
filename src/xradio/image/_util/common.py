@@ -6,6 +6,7 @@ import numpy as np
 from typing import Dict, List
 import xarray as xr
 from xradio._utils.coord_math import _deg_to_rad
+from xradio._utils.dict_helpers import make_quantity
 
 _c = 2.99792458e08 * u.m / u.s
 # OPTICAL = Z
@@ -39,7 +40,7 @@ def _convert_beam_to_rad(beam: dict) -> dict:
             q = u.quantity.Quantity(f"{beam[k]['value']}{beam[k]['units']}")
         q = q.to("rad")
         j = "pa" if k == "positionangle" else k
-        mybeam[j] = {"type": "quantity", "value": q.value, "units": "rad"}
+        mybeam[j] = make_quantity(q.value, "rad")
     return mybeam
 
 
@@ -102,11 +103,7 @@ def _numpy_arrayize_dv(xds: xr.Dataset) -> xr.Dataset:
 
 def _default_freq_info() -> dict:
     return {
-        "rest_frequency": {
-            "value": 1420405751.7860003,
-            "units": "Hz",
-            "type": "quantity",
-        },
+        "rest_frequency": make_quantity(1420405751.7860003, "Hz"),
         "type": "frequency",
         "frame": "LSRK",
         "units": "Hz",

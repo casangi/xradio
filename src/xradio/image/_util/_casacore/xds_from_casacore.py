@@ -31,6 +31,7 @@ from ..common import (
 )
 from ...._utils._casacore.tables import extract_table_attributes, open_table_ro
 from xradio._utils.coord_math import _deg_to_rad
+from xradio._utils.dict_helpers import make_quantity
 
 """
 def _add_coord_attrs(xds: xr.Dataset, icoords: dict, dir_axes: list) -> xr.Dataset:
@@ -62,13 +63,7 @@ def _add_freq_attrs(xds, coord_dict):
     for k in coord_dict:
         if k.startswith("spectral"):
             sd = coord_dict[k]
-            # meta["native_type"] = _native_types[sd["nativeType"]]
-            meta["rest_frequency"] = {
-                "type": "quantity",
-                "units": "Hz",
-                "value": sd["restfreq"],
-            }
-            # meta["restfreqs"] = {'type': 'quantity', 'units': 'Hz', 'value': list(sd["restfreqs"])}
+            meta["rest_frequency"] = make_quantity(sd["restfreq"], "Hz")
             meta["type"] = "frequency"
             meta["units"] = sd["unit"]
             meta["frame"] = sd["system"]
@@ -184,11 +179,7 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
         k = "latpole"
         if k in coord_dir_dict:
             for j in (k, "longpole"):
-                dir_dict[j] = {
-                    "value": coord_dir_dict[j] * _deg_to_rad,
-                    "units": "rad",
-                    "type": "quantity",
-                }
+                dir_dict[j] = make_quantity(coord_dir_dict[j] * _deg_to_rad, "rad")
         for j in ("pc", "projection_parameters", "projection"):
             if j in coord_dir_dict:
                 dir_dict[j] = coord_dir_dict[j]
@@ -518,11 +509,7 @@ def _get_freq_values_attrs(
                     crpix=wcs["crpix"],
                     cdelt=wcs["cdelt"],
                 )
-                attrs["rest_frequency"] = {
-                    "type": "quantity",
-                    "units": "Hz",
-                    "value": sd["restfreq"],
-                }
+                attrs["rest_frequency"] = make_quantity(sd["restfreq"], "Hz")
                 attrs["type"] = "frequency"
                 attrs["units"] = sd["unit"]
                 attrs["frame"] = sd["system"]

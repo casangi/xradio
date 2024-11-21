@@ -5,7 +5,47 @@ from typing import Dict, Union
 import dask
 
 from xradio.measurement_set._utils._msv2.partition_queries import create_partitions
-from xradio.measurement_set._utils._msv2.conversion import convert_and_write_partition
+from xradio.measurement_set._utils._msv2.conversion import (
+    convert_and_write_partition,
+    estimate_memory_and_cores_for_partitions,
+)
+
+
+def estimate_conversion_memory_and_cores(
+    in_file: str,
+    partition_scheme: list = ["FIELD_ID"],
+) -> tuple[float, int, int]:
+    """
+    Given an MSv2 and a partition_scheme to use when converting it to MSv4,
+    estimates:
+    - memory (in the sense of the amount expected to be enough to convert)
+    - cores (in the sense of the recommended/optimal number of cores to use to convert)
+
+    Note: this function does not currently try to estimate the memory required for
+    sub-xdss such as pointing_xds and system_calibration_xds, instead it uses a small
+    percentage of the main_xds to account for them. This can lead to underestimation
+    especially for MSv2s with small partitions but large pointing or syscal tables.
+    This should not typically be a concern for sufficiently large partitions
+    (a few or 10s, 100s of GiBs).
+
+    Parameters
+    ----------
+    in_file: str
+        Input MS name.
+    partition_scheme: list
+        Partition scheme as used in the function convert_msv2_to_processing_set()
+
+    Returns
+    ----------
+    tuple
+        estimated maximum memory required for one partition,
+        maximum number of cores it makes sense to use (number of partitions),
+        suggested number of cores to use (maximum/4 as a rule of thumb)
+    """
+
+    partitions = create_partitions(in_file, partition_scheme=partition_scheme)
+
+    return estimate_memory_and_cores_for_partitions(in_file, partitions)
 
 
 def convert_msv2_to_processing_set(

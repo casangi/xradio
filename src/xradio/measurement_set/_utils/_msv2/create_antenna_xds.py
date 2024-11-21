@@ -15,7 +15,9 @@ from xradio.measurement_set._utils._msv2._tables.read import (
     table_exists,
 )
 from xradio._utils.schema import convert_generic_xds_to_xradio_schema
-from xradio.measurement_set._utils._msv2.msv4_sub_xdss import interpolate_to_time
+from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
+    rename_and_interpolate_to_time,
+)
 
 from xradio._utils.list_and_array import (
     check_if_consistent,
@@ -509,27 +511,8 @@ def create_phase_calibration_xds(
         phase_cal_xds.time_phase_cal.astype("float64").astype("float64") / 10**9
     )
 
-    phase_cal_xds = interpolate_to_time(
-        phase_cal_xds,
-        phase_cal_interp_time,
-        "antenna_xds",
-        time_name="time_phase_cal",
+    phase_cal_xds = rename_and_interpolate_to_time(
+        phase_cal_xds, "time_phase_cal", phase_cal_interp_time, "phase_cal_xds"
     )
-
-    time_coord_attrs = {
-        "type": "time",
-        "units": ["s"],
-        "scale": "utc",
-        "format": "unix",
-    }
-
-    # If we interpolate rename the time_phase_cal axis to time.
-    if phase_cal_interp_time is not None:
-        time_coord = {"time": ("time_phase_cal", phase_cal_interp_time.data)}
-        phase_cal_xds = phase_cal_xds.assign_coords(time_coord)
-        phase_cal_xds.coords["time"].attrs.update(time_coord_attrs)
-        phase_cal_xds = phase_cal_xds.swap_dims({"time_phase_cal": "time"}).drop_vars(
-            "time_phase_cal"
-        )
 
     return phase_cal_xds

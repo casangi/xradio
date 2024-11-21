@@ -11,4 +11,4 @@ def make_quantity(value, units: str) -> dict:
     -------
     dict
     """
-    return {"value": value, "units": units, "type": "quantity"}
+    return {"data": value, "attrs":{"units": units, "type": "quantity"}, "dims": []}

@@ -125,7 +125,7 @@ class QuantityInHertzArray:
 @xarray_dataarray_schema
 class QuantityInMetersArray:
     """
-    Quantity with units of Hertz
+    Quantity with units of meters
     """
 
     data: Data[ZD, float]
@@ -137,7 +137,7 @@ class QuantityInMetersArray:
 @xarray_dataarray_schema
 class QuantityInMetersPerSecondArray:
     """
-    Quantity with units of Hertz
+    Quantity with units of meters per second
     """
 
     data: Data[ZD, float]
@@ -149,7 +149,7 @@ class QuantityInMetersPerSecondArray:
 @xarray_dataarray_schema
 class QuantityInRadiansArray:
     """
-    Quantity with units of Hertz
+    Quantity with units of radians
     """
 
     data: Data[ZD, float]

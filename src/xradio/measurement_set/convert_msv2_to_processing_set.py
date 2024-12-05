@@ -76,8 +76,9 @@ def convert_msv2_to_processing_set(
     partition_scheme : list, optional
         A MS v4 can only contain a single data description (spectral window and polarization setup), and observation mode. Consequently, the MS v2 is partitioned when converting to MS v4.
         In addition to data description and polarization setup a finer partitioning is possible by specifying a list of partitioning keys. Any combination of the following keys are possible:
-        "FIELD_ID", "SCAN_NUMBER", "STATE_ID", "SOURCE_ID", "SUB_SCAN_NUMBER". For mosaics where the phase center is rapidly changing (such as VLA on the fly mosaics)
-        partition_scheme should be set to an empty list []. By default, ["FIELD_ID"].
+        "FIELD_ID", "SCAN_NUMBER", "STATE_ID", "SOURCE_ID", "SUB_SCAN_NUMBER", "ANTENNA1".
+        "ANTENNA1" is intended as a single-dish specific partitioning option.
+        For mosaics where the phase center is rapidly changing (such as VLA on the fly mosaics) partition_scheme should be set to an empty list []. By default, ["FIELD_ID"].
     main_chunksize : Union[Dict, float, None], optional
         Defines the chunk size of the main dataset. If given as a dictionary, defines the sizes of several dimensions, and acceptable keys are "time", "baseline_id", "antenna_id", "frequency", "polarization". If given as a float, gives the size of a chunk in GiB. By default, None.
     with_pointing : bool, optional

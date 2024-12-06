@@ -1399,58 +1399,58 @@ def antenna_ids_to_names(
     return xds
 
 
+def add_group_to_data_groups(
+    data_groups: dict, what_group: str, correlated_data_name: str, uvw: bool = True
+):
+    """
+    Adds one correlated_data variable to the data_groups dict.
+    A utility function to use when creating/updating data_groups from MSv2 data columns
+    / data variables.
+
+    Parameters
+    ----------
+    data_groups: str
+        The data_groups dict of an MSv4 xds. It is updated in-place
+    what_group: str
+        Name of the data group: "base", "corrected", "model", etc.
+    correlated_data_name: str
+        Name of the correlated_data var: "VISIBILITY", "VISIBILITY_CORRECTED", "SPECTRUM", etc.
+    uvw: bool
+        Whether to add a uvw field to the data group (assume True = interferometric data).
+    """
+    data_groups[what_group] = {
+        "correlated_data": correlated_data_name,
+        "flag": "FLAG",
+        "weight": "WEIGHT",
+    }
+    if uvw:
+        data_groups[what_group]["uvw"] = "UVW"
+
+
 def add_data_groups(xds):
     xds.attrs["data_groups"] = {}
+
+    data_groups = xds.attrs["data_groups"]
     if "VISIBILITY" in xds:
-        xds.attrs["data_groups"]["base"] = {
-            "correlated_data": "VISIBILITY",
-            "flag": "FLAG",
-            "weight": "WEIGHT",
-            "uvw": "UVW",
-        }
+        add_group_to_data_groups(data_groups, "base", "VISIBILITY")
 
     if "VISIBILITY_CORRECTED" in xds:
-        xds.attrs["data_groups"]["corrected"] = {
-            "correlated_data": "VISIBILITY_CORRECTED",
-            "flag": "FLAG",
-            "weight": "WEIGHT",
-            "uvw": "UVW",
-        }
+        add_group_to_data_groups(data_groups, "corrected", "VISIBILITY_CORRECTED")
 
     if "VISIBILITY_MODEL" in xds:
-        xds.attrs["data_groups"]["model"] = {
-            "correlated_data": "VISIBILITY_MODEL",
-            "flag": "FLAG",
-            "weight": "WEIGHT",
-            "uvw": "UVW",
-        }
+        add_group_to_data_groups(data_groups, "model", "VISIBILITY_MODEL")
 
     is_single_dish = False
     if "SPECTRUM" in xds:
-        xds.attrs["data_groups"]["base"] = {
-            "correlated_data": "SPECTRUM",
-            "flag": "FLAG",
-            "weight": "WEIGHT",
-            "uvw": "UVW",
-        }
+        add_group_to_data_groups(data_groups, "base", "SPECTRUM", False)
         is_single_dish = True
 
     if "SPECTRUM_MODEL" in xds:
-        xds.attrs["data_groups"]["model"] = {
-            "correlated_data": "SPECTRUM_MODEL",
-            "flag": "FLAG",
-            "weight": "WEIGHT",
-            "uvw": "UVW",
-        }
+        add_group_to_data_groups(data_groups, "model", "SPECTRUM_MODEL", False)
         is_single_dish = True
 
     if "SPECTRUM_CORRECTED" in xds:
-        xds.attrs["data_groups"]["corrected"] = {
-            "correlated_data": "SPECTRUM_CORRECTED",
-            "flag": "FLAG",
-            "weight": "WEIGHT",
-            "uvw": "UVW",
-        }
+        add_group_to_data_groups(data_groups, "corrected", "SPECTRUM_CORRECTED", False)
         is_single_dish = True
 
     return xds, is_single_dish

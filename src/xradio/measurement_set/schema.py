@@ -1640,15 +1640,12 @@ class PointingXds:
     Direction labels.
     """
 
-    n_polynomial: Optional[Coord[nPolynomial, numpy.int64]]
-    """
-    Polynomial index, when using polynomial coefficients to specify POINTING_BEAM
-    """
-
     POINTING_BEAM: Dataof[PointingBeamArray]
     """
     The direction of the peak response of the beam and is equavalent to the MSv2 DIRECTION (M2_direction) with_pointing_correction=True, optionally expressed as polynomial coefficients.
     """
+
+    # Optional coords:
 
     time: Optional[Coordof[TimeInterpolatedCoordArray]] = None
     """
@@ -1656,9 +1653,17 @@ class PointingXds:
     valid. Required to use the same time measure reference as in visibility dataset.
     Labeled 'time' when interpolating to main time axis.
     """
+
     time_pointing: Optional[Coordof[TimePointingCoordArray]] = None
     """ Midpoint of time for which this set of parameters is accurate. Labeled
     'time_pointing' when not interpolating to main time axis """
+
+    n_polynomial: Optional[Coord[nPolynomial, numpy.int64]] = None
+    """
+    Polynomial index, when using polynomial coefficients to specify POINTING_BEAM
+    """
+
+    # Optional data vars:
 
     POINTING_DISH_MEASURED: Optional[
         Data[

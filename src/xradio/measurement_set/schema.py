@@ -1213,7 +1213,10 @@ class PartitionInfoDict:
     """ List of source names. """
     # source_id: mising / remove for good?
     intents: list[str]
-    """ Infromation in obs_mode column of MSv2 State table. """
+    """ An intent string identifies one intention of the scan, such as to calibrate or observe a
+    target. See :ref:`scan intents` for possible values. When converting from MSv2, the list of
+    intents is derived from the OBS_MODE column of MSv2 state table (every comma separated value
+    is taken as an intent). """
     taql: Optional[str]
     """ The taql query used if converted from MSv2. """
     line_name: list[str]
@@ -1599,7 +1602,7 @@ class PointingXds:
     """
     Pointing dataset: antenna pointing information.
 
-    In the past the relationship and definition of the pointing infromation has not been clear. Here we attempt to clarify it by explaining the relationship between the ASDM, MSv2 and MSv4 pointing information.
+    In the past the relationship and definition of the pointing information has not been clear. Here we attempt to clarify it by explaining the relationship between the ASDM, MSv2 and MSv4 pointing information.
 
     The following abreviations are used:
 
@@ -1928,15 +1931,6 @@ class VisibilityXds:
     xradio_version: Optional[Attr[str]] = None
     """ Version of XRADIO used if converted from MSv2. """
 
-    intent: Optional[Attr[str]] = None
-    """Identifies the intention of the scan, such as to calibrate or observe a
-    target. See :ref:`scan intents` for possible values.
-    """
-    data_description_id: Optional[Attr[str]] = None
-    """
-    The id assigned to this combination of spectral window and polarization setup.
-    """
-
 
 @xarray_dataset_schema
 class SpectrumXds:
@@ -2028,12 +2022,3 @@ class SpectrumXds:
 
     xradio_version: Optional[Attr[str]] = None
     """ Version of XRADIO used if converted from MSv2. """
-
-    intent: Optional[Attr[str]] = None
-    """Identifies the intention of the scan, such as to calibrate or observe a
-    target. See :ref:`scan intents` for possible values.
-    """
-    data_description_id: Optional[Attr[str]] = None
-    """
-    The id assigned to this combination of spectral window and polarization setup.
-    """

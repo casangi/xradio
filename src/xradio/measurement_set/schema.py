@@ -305,6 +305,31 @@ class SkyCoordArray:
 
 
 @xarray_dataarray_schema
+class PointingBeamArray:
+    """Pointing beam data array in :py:class:`PointingXds`."""
+
+    data: Data[
+        Union[
+            tuple[Time, AntennaName, LocalSkyDirLabel],
+            tuple[TimePointing, AntennaName, LocalSkyDirLabel],
+            tuple[Time, AntennaName, LocalSkyDirLabel, nPolynomial],
+            tuple[TimePointing, AntennaName, LocalSkyDirLabel, nPolynomial],
+        ],
+        numpy.float64,
+    ]
+
+    type: Attr[SkyCoord] = "sky_coord"
+    units: Attr[UnitsOfSkyCoordInRadians] = ("rad", "rad")
+    frame: Attr[AllowedSkyCoordFrames] = "fk5"
+    """
+    From fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled
+    as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking
+    center. calcuvw does not yet force the UVW column and field centers to use the same reference frame! Blank = use the
+    phase tracking frame of vis.
+    """
+
+
+@xarray_dataarray_schema
 class LocalSkyCoordArray:
     """Measures array for the arrays that have coordinate local_sky_dir_label in :py:class:`PointingXds`"""
 
@@ -1615,18 +1640,12 @@ class PointingXds:
     Direction labels.
     """
 
-    POINTING_BEAM: Data[
-        Union[
-            tuple[Time, AntennaName],
-            tuple[TimePointing, AntennaName],
-            tuple[Time, AntennaName, nPolynomial],
-            tuple[TimePointing, AntennaName, nPolynomial],
-        ],
-        LocalSkyCoordArray,
-    ]
+    POINTING_BEAM: Dataof[PointingBeamArray]
     """
     The direction of the peak response of the beam and is equavalent to the MSv2 DIRECTION (M2_direction) with_pointing_correction=True, optionally expressed as polynomial coefficients.
     """
+
+    # Optional coords:
 
     time: Optional[Coordof[TimeInterpolatedCoordArray]] = None
     """
@@ -1634,9 +1653,17 @@ class PointingXds:
     valid. Required to use the same time measure reference as in visibility dataset.
     Labeled 'time' when interpolating to main time axis.
     """
+
     time_pointing: Optional[Coordof[TimePointingCoordArray]] = None
     """ Midpoint of time for which this set of parameters is accurate. Labeled
     'time_pointing' when not interpolating to main time axis """
+
+    n_polynomial: Optional[Coord[nPolynomial, numpy.int64]] = None
+    """
+    Polynomial index, when using polynomial coefficients to specify POINTING_BEAM
+    """
+
+    # Optional data vars:
 
     POINTING_DISH_MEASURED: Optional[
         Data[

@@ -125,7 +125,7 @@ class QuantityInHertzArray:
 @xarray_dataarray_schema
 class QuantityInMetersArray:
     """
-    Quantity with units of Hertz
+    Quantity with units of meters
     """
 
     data: Data[ZD, float]
@@ -137,7 +137,7 @@ class QuantityInMetersArray:
 @xarray_dataarray_schema
 class QuantityInMetersPerSecondArray:
     """
-    Quantity with units of Hertz
+    Quantity with units of meters per second
     """
 
     data: Data[ZD, float]
@@ -149,7 +149,7 @@ class QuantityInMetersPerSecondArray:
 @xarray_dataarray_schema
 class QuantityInRadiansArray:
     """
-    Quantity with units of Hertz
+    Quantity with units of radians
     """
 
     data: Data[ZD, float]
@@ -660,7 +660,7 @@ class FrequencyArray:
     """Frequency coordinate in the main dataset."""
 
     data: Data[Frequency, float]
-    """ Time, expressed in SI seconds since the epoch. """
+    """ Center frequencies for each channel. """
     spectral_window_name: Attr[str]
     """ Name associated with spectral window. """
     frequency_group_name: Optional[Attr[str]]
@@ -698,7 +698,7 @@ class FrequencyCalArray:
     only measures data, as opposed to the frequency array of the main dataset."""
 
     data: Data[FrequencyCal, float]
-    """ Time, expressed in SI seconds since the epoch. """
+    """ Center frequencies for each channel. """
 
     type: Attr[SpectralCoord] = "spectral_coord"
     units: Attr[UnitsHertz] = ("Hz",)
@@ -1469,7 +1469,7 @@ class WeatherXds:
     time: Optional[Coordof[TimeInterpolatedCoordArray]]
     """ Mid-point of the time interval. Labeled 'time' when interpolated to main time axis """
     time_weather: Optional[Coordof[TimeWeatherCoordArray]]
-    """ Mid-point of the time interval. Labeled 'time_cal' when not interpolated to main time axis """
+    """ Mid-point of the time interval. Labeled 'time_weather' when not interpolated to main time axis """
     antenna_name: Optional[Coordof[AntennaNameArray]]
     """ Antenna identifier """
     ellipsoid_pos_label: Optional[Coord[EllipsoidPosLabel, str]] = (

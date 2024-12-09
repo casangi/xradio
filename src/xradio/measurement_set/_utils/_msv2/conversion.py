@@ -1029,7 +1029,7 @@ def convert_and_write_partition(
                         datetime.timezone.utc
                     ).isoformat(),
                     "xradio_version": importlib.metadata.version("xradio"),
-                    "schema_version": "4.0.-9994",
+                    "schema_version": "4.0.-9991",
                     "type": "visibility",
                 }
             )

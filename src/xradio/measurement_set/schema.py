@@ -125,7 +125,7 @@ class QuantityInHertzArray:
 @xarray_dataarray_schema
 class QuantityInMetersArray:
     """
-    Quantity with units of Hertz
+    Quantity with units of meters
     """
 
     data: Data[ZD, float]
@@ -137,7 +137,7 @@ class QuantityInMetersArray:
 @xarray_dataarray_schema
 class QuantityInMetersPerSecondArray:
     """
-    Quantity with units of Hertz
+    Quantity with units of meters per second
     """
 
     data: Data[ZD, float]
@@ -149,7 +149,7 @@ class QuantityInMetersPerSecondArray:
 @xarray_dataarray_schema
 class QuantityInRadiansArray:
     """
-    Quantity with units of Hertz
+    Quantity with units of radians
     """
 
     data: Data[ZD, float]
@@ -301,6 +301,31 @@ class SkyCoordArray:
     as the phase tracking center. calcuvw does not yet force the UVW column and
     field centers to use the same reference frame! Blank = use the phase
     tracking frame of vis.
+    """
+
+
+@xarray_dataarray_schema
+class PointingBeamArray:
+    """Pointing beam data array in :py:class:`PointingXds`."""
+
+    data: Data[
+        Union[
+            tuple[Time, AntennaName, LocalSkyDirLabel],
+            tuple[TimePointing, AntennaName, LocalSkyDirLabel],
+            tuple[Time, AntennaName, LocalSkyDirLabel, nPolynomial],
+            tuple[TimePointing, AntennaName, LocalSkyDirLabel, nPolynomial],
+        ],
+        numpy.float64,
+    ]
+
+    type: Attr[SkyCoord] = "sky_coord"
+    units: Attr[UnitsOfSkyCoordInRadians] = ("rad", "rad")
+    frame: Attr[AllowedSkyCoordFrames] = "fk5"
+    """
+    From fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled
+    as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking
+    center. calcuvw does not yet force the UVW column and field centers to use the same reference frame! Blank = use the
+    phase tracking frame of vis.
     """
 
 
@@ -660,7 +685,7 @@ class FrequencyArray:
     """Frequency coordinate in the main dataset."""
 
     data: Data[Frequency, float]
-    """ Time, expressed in SI seconds since the epoch. """
+    """ Center frequencies for each channel. """
     spectral_window_name: Attr[str]
     """ Name associated with spectral window. """
     frequency_group_name: Optional[Attr[str]]
@@ -698,7 +723,7 @@ class FrequencyCalArray:
     only measures data, as opposed to the frequency array of the main dataset."""
 
     data: Data[FrequencyCal, float]
-    """ Time, expressed in SI seconds since the epoch. """
+    """ Center frequencies for each channel. """
 
     type: Attr[SpectralCoord] = "spectral_coord"
     units: Attr[UnitsHertz] = ("Hz",)
@@ -1188,7 +1213,10 @@ class PartitionInfoDict:
     """ List of source names. """
     # source_id: mising / remove for good?
     intents: list[str]
-    """ Infromation in obs_mode column of MSv2 State table. """
+    """ An intent string identifies one intention of the scan, such as to calibrate or observe a
+    target. See :ref:`scan intents` for possible values. When converting from MSv2, the list of
+    intents is derived from the OBS_MODE column of MSv2 state table (every comma separated value
+    is taken as an intent). """
     taql: Optional[str]
     """ The taql query used if converted from MSv2. """
     line_name: list[str]
@@ -1469,7 +1497,7 @@ class WeatherXds:
     time: Optional[Coordof[TimeInterpolatedCoordArray]]
     """ Mid-point of the time interval. Labeled 'time' when interpolated to main time axis """
     time_weather: Optional[Coordof[TimeWeatherCoordArray]]
-    """ Mid-point of the time interval. Labeled 'time_cal' when not interpolated to main time axis """
+    """ Mid-point of the time interval. Labeled 'time_weather' when not interpolated to main time axis """
     antenna_name: Optional[Coordof[AntennaNameArray]]
     """ Antenna identifier """
     ellipsoid_pos_label: Optional[Coord[EllipsoidPosLabel, str]] = (
@@ -1574,7 +1602,7 @@ class PointingXds:
     """
     Pointing dataset: antenna pointing information.
 
-    In the past the relationship and definition of the pointing infromation has not been clear. Here we attempt to clarify it by explaining the relationship between the ASDM, MSv2 and MSv4 pointing information.
+    In the past the relationship and definition of the pointing information has not been clear. Here we attempt to clarify it by explaining the relationship between the ASDM, MSv2 and MSv4 pointing information.
 
     The following abreviations are used:
 
@@ -1615,18 +1643,12 @@ class PointingXds:
     Direction labels.
     """
 
-    POINTING_BEAM: Data[
-        Union[
-            tuple[Time, AntennaName],
-            tuple[TimePointing, AntennaName],
-            tuple[Time, AntennaName, nPolynomial],
-            tuple[TimePointing, AntennaName, nPolynomial],
-        ],
-        LocalSkyCoordArray,
-    ]
+    POINTING_BEAM: Dataof[PointingBeamArray]
     """
     The direction of the peak response of the beam and is equavalent to the MSv2 DIRECTION (M2_direction) with_pointing_correction=True, optionally expressed as polynomial coefficients.
     """
+
+    # Optional coords:
 
     time: Optional[Coordof[TimeInterpolatedCoordArray]] = None
     """
@@ -1634,9 +1656,17 @@ class PointingXds:
     valid. Required to use the same time measure reference as in visibility dataset.
     Labeled 'time' when interpolating to main time axis.
     """
+
     time_pointing: Optional[Coordof[TimePointingCoordArray]] = None
     """ Midpoint of time for which this set of parameters is accurate. Labeled
     'time_pointing' when not interpolating to main time axis """
+
+    n_polynomial: Optional[Coord[nPolynomial, numpy.int64]] = None
+    """
+    Polynomial index, when using polynomial coefficients to specify POINTING_BEAM
+    """
+
+    # Optional data vars:
 
     POINTING_DISH_MEASURED: Optional[
         Data[
@@ -1901,15 +1931,6 @@ class VisibilityXds:
     xradio_version: Optional[Attr[str]] = None
     """ Version of XRADIO used if converted from MSv2. """
 
-    intent: Optional[Attr[str]] = None
-    """Identifies the intention of the scan, such as to calibrate or observe a
-    target. See :ref:`scan intents` for possible values.
-    """
-    data_description_id: Optional[Attr[str]] = None
-    """
-    The id assigned to this combination of spectral window and polarization setup.
-    """
-
 
 @xarray_dataset_schema
 class SpectrumXds:
@@ -2001,12 +2022,3 @@ class SpectrumXds:
 
     xradio_version: Optional[Attr[str]] = None
     """ Version of XRADIO used if converted from MSv2. """
-
-    intent: Optional[Attr[str]] = None
-    """Identifies the intention of the scan, such as to calibrate or observe a
-    target. See :ref:`scan intents` for possible values.
-    """
-    data_description_id: Optional[Attr[str]] = None
-    """
-    The id assigned to this combination of spectral window and polarization setup.
-    """

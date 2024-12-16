@@ -9,7 +9,10 @@ import toolviper.utils.logger as logger
 import numpy as np
 import xarray as xr
 from astropy import units as u
-from casacore import tables
+try:
+    from casacore import tables
+except ImportError:
+    from ...._utils._casacore import casatools_to_casacore as tables
 from casacore.images import coordinates
 
 from .common import (

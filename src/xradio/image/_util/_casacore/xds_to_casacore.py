@@ -5,7 +5,10 @@ import dask.array as da
 import numpy as np
 import xarray as xr
 from astropy.coordinates import Angle
-from casacore import tables
+try:
+    from casacore import tables
+except ImportError:
+    from ...._utils._casacore import casatools_to_casacore as tables
 
 from .common import _active_mask, _create_new_image, _object_name, _pointing_center
 from ..common import _aperture_or_sky, _compute_sky_reference_pixel, _doppler_types

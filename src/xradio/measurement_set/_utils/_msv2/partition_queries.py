@@ -6,7 +6,10 @@ from typing import Dict, List, Tuple, Union
 import numpy as np
 import xarray as xr
 
-from casacore import tables
+try:
+    from casacore import tables
+except ImportError:
+    from ...._utils._casacore import casatools_to_casacore as tables
 
 from ._tables.table_query import open_table_ro, open_query
 from ._tables.read import table_exists

@@ -1,8 +1,10 @@
 from typing import Generator
 from contextlib import contextmanager
 
-from casacore import tables
-
+try:
+    from casacore import tables
+except ImportError:
+    from ....._utils._casacore import casatools_to_casacore as tables
 
 @contextmanager
 def open_table_ro(infile: str) -> Generator[tables.table, None, None]:
@@ -17,7 +19,11 @@ def open_table_ro(infile: str) -> Generator[tables.table, None, None]:
 
 @contextmanager
 def open_query(table: tables.table, query: str) -> Generator[tables.table, None, None]:
-    ttq = tables.taql(query)
+
+    if hasattr(tables, 'taql'):
+        ttq=tables.taql(query)
+    else:
+        ttq=table.taql(query)
     try:
         yield ttq
     finally:

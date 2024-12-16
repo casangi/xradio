@@ -9,7 +9,10 @@ import pandas as pd
 import xarray as xr
 
 import astropy.units
-from casacore import tables
+try:
+    from casacore import tables
+except ImportError:
+    from ....._utils._casacore import casatools_to_casacore as tables
 
 from .table_query import open_query, open_table_ro
 from xradio._utils.list_and_array import get_pad_value
@@ -307,6 +310,8 @@ def add_units_measures(
                 ):  # Little fix for Meerkat data where the units are a string.
                     cc_units = [cc_units]
 
+                if isinstance(cc_units, np.ndarray):
+                    cc_units = cc_units.tolist()
                 if not isinstance(cc_units, list) or not cc_units:
                     logger.warning(
                         f"Invalid units found for column/variable {col}: {cc_units}"

@@ -10,7 +10,11 @@ from typing import Union
 
 import xarray as xr
 
-from casacore import tables
+try:
+    from casacore import tables
+except ImportError:
+    from ..._utils._casacore import casatools_to_casacore as tables
+
 from ._casacore.common import _open_image_ro
 from ._casacore.xds_from_casacore import (
     _add_mask,

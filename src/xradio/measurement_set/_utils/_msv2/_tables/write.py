@@ -4,9 +4,11 @@ from typing import Tuple
 import numpy as np
 import xarray as xr
 
-from casacore import tables
-
-
+try:
+    from casacore import tables
+except ImportError:
+    from ....._utils._casacore import casatools_to_casacore as tables
+    
 def revert_time(datetimes: np.ndarray) -> np.ndarray:
     """
     Convert time back from pandas datetime ref to casacore ref

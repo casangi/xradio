@@ -1249,13 +1249,14 @@ def read_col_conversion(
     # Use casacore to get the shape of a row for this column
     #################################################################################
 
-    # Get the total number of rows in the base measurement set
-    nrows_total = tb_tool.nrows()
-
-    # getcolshapestring() only works on columns where a row element is an
-    # array ie. fails for TIME
-    # Assumes the RuntimeError is because the column is a scalar
-    try:
+    # tb.getcolshapestring() only works on columns where a row element is an
+    # array i.e. fails for EXPOSURE, TIME_CENTROID
+    # A RuntimeError will be triggered when calling getcolshapestring() on a column
+    # contain scalars.
+    if tb_tool.isscalarcol(col):
+        # Get the shape of a row for this column
+        extra_dimensions = ()
+    else:
         shape_string = tb_tool.getcolshapestring(col)[0]
         # Convert `shape_string` into a tuple that numpy understands
         extra_dimensions = tuple(
@@ -1264,8 +1265,6 @@ def read_col_conversion(
                 for idx in shape_string.replace("[", "").replace("]", "").split(", ")
             ]
         )
-    except RuntimeError:
-        extra_dimensions = ()
 
     #################################################################################
 

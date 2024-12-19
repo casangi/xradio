@@ -8,7 +8,7 @@ from .msv2_msv3 import ignore_msv2_cols
 from .partition_queries import (
     make_partition_ids_by_ddi_intent,
 )
-from .subtables import subt_rename_ids, add_pointing_to_partition
+from .subtables import subt_rename_ids
 from .descr import describe_ms
 from ._tables.read import load_generic_table, make_freq_attrs
 from ._tables.read_main_table import read_flat_main_table, read_expanded_main_table
@@ -380,13 +380,6 @@ def finalize_partitions(
     Dict[str, xr.Dataset]
         partitions with additions taken from subtables
     """
-    if "pointing" in subts:
-        pointing = subts["pointing"]
-        final = {
-            key: add_pointing_to_partition(xds, pointing)
-            for (key, xds) in parts.items()
-        }
-    else:
-        final = parts
+    final = parts
 
     return final

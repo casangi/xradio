@@ -92,32 +92,3 @@ def read_ms_subtables(
             subtables["ephemerides"] = ephem_xds
 
     return subtables
-
-
-def add_pointing_to_partition(
-    xds_part: xr.Dataset, xds_pointing: xr.Dataset
-) -> xr.Dataset:
-    """
-    Take pointing variables from a (delayed) pointing dataset and
-    transfer them to a main table partition dataset (interpolating into
-    the destination time axis)
-
-    Parameters
-    ----------
-    xds_part : xr.Dataset
-        a partition/sub-xds of the main table
-    xds_pointing : xr.Dataset
-        the xds read from the pointing subtable
-
-    Returns
-    -------
-    xr.Dataset
-        partition xds with pointing variables added/interpolated from the
-        pointing_xds into its time axis
-
-    """
-    interp_xds = xds_pointing.interp(time=xds_part.time, method="nearest")
-    for var in interp_xds.data_vars:
-        xds_part[f"pointing_{var}"] = interp_xds[var]
-
-    return xds_part

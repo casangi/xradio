@@ -3,6 +3,8 @@ import xarray as xr
 
 from xradio.measurement_set._utils._zarr.encoding import add_encoding
 
+single_encoding = numcodecs.Zstd(level=2)
+
 
 def test_add_encoding_wo_chunks():
     xds = xr.Dataset(
@@ -16,11 +18,9 @@ def test_add_encoding_wo_chunks():
         }
     )
 
-    encoding = numcodecs.Zstd(level=2)
-
-    add_encoding(xds, encoding)
+    add_encoding(xds, single_encoding)
     assert xds
-    assert xds.da.encoding == {"compressor": encoding, "chunks": [3]}
+    assert xds.da.encoding == {"compressor": single_encoding, "chunks": [3]}
 
 
 def test_add_encoding_with_wrong_chunks():
@@ -35,12 +35,10 @@ def test_add_encoding_with_wrong_chunks():
         }
     )
 
-    encoding = numcodecs.Zstd(level=2)
-
     chunks_size = 1
-    add_encoding(xds, encoding, chunks={"zz_not_there": chunks_size})
+    add_encoding(xds, single_encoding, chunks={"zz_not_there": chunks_size})
     assert xds
-    assert xds.da.encoding == {"compressor": encoding, "chunks": [3]}
+    assert xds.da.encoding == {"compressor": single_encoding, "chunks": [3]}
 
 
 def test_add_encoding_with_chunks():
@@ -55,9 +53,7 @@ def test_add_encoding_with_chunks():
         }
     )
 
-    encoding = numcodecs.Zstd(level=2)
-
     chunks_size = 1
-    add_encoding(xds, encoding, chunks={"x": chunks_size})
+    add_encoding(xds, single_encoding, chunks={"x": chunks_size})
     assert xds
-    assert xds.da.encoding == {"compressor": encoding, "chunks": [chunks_size]}
+    assert xds.da.encoding == {"compressor": single_encoding, "chunks": [chunks_size]}

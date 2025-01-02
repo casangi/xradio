@@ -5,7 +5,6 @@ from typing import List, Tuple, Union
 from xradio.measurement_set._utils._utils.cds import CASAVisSet
 from xradio.measurement_set._utils._msv2.partitions import (
     finalize_partitions,
-    read_ms_ddi_partitions,
     read_ms_scan_subscan_partitions,
 )
 from xradio.measurement_set._utils._msv2.subtables import read_ms_subtables
@@ -71,7 +70,6 @@ def read_ms(
     # Several alternatives to experiment for now
     part_descr = {
         "intent": "scan/subscan intent + DDI",
-        "ddi": "DDI",
         "scan": "scan + DDI",
         "scan/subscan": "scan + subscan + DDI",
     }
@@ -83,18 +81,9 @@ def read_ms(
         f"Reading {infile} as MSv2 and applying partitioning by {part_descr[partition_scheme]}"
     )
 
-    if partition_scheme == "ddi":
-        logger.info(f"Reading {infile} as MSv2 and applying DDI partitioning")
-        # get the indices of the ms selection (if any)
-        # rowmap = ms_selection(infile, verbose=verbose, **kwargs)
-        rowmap = None
-        parts, subts, done_subts = read_ms_ddi_partitions(
-            infile, expand, rowmap, chunks
-        )
-    else:
-        parts, subts, done_subts = read_ms_scan_subscan_partitions(
-            infile, partition_scheme, expand, chunks
-        )
+    parts, subts, done_subts = read_ms_scan_subscan_partitions(
+        infile, partition_scheme, expand, chunks
+    )
 
     if subtables:
         subts.update(read_ms_subtables(infile, done_subts, asdm_subtables))

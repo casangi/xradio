@@ -104,14 +104,6 @@ def test_read_ms_scan_subscan_partitions(ms_empty_required):
         assert res
 
 
-def test_read_ms_ddi_partitions(ms_empty_required):
-    from xradio.measurement_set._utils._msv2.partitions import read_ms_ddi_partitions
-
-    with pytest.raises(AttributeError, match="Dataset' object has no attribute 'row'"):
-        res = read_ms_ddi_partitions(ms_empty_required.fname)
-        assert res
-
-
 def test_finalize_partitions():
     from xradio.measurement_set._utils._msv2.partitions import finalize_partitions
 

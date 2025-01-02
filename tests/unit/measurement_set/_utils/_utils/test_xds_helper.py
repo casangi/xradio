@@ -67,7 +67,7 @@ def test_make_global_coords_min(ms_minimal_required):
     from xradio.measurement_set._utils.msv2 import read_ms
 
     # TODO: fixture forf an xds (main) + a cds fixture
-    cds = read_ms(ms_minimal_required.fname, partition_scheme="ddi")
+    cds = read_ms(ms_minimal_required.fname, partition_scheme="intent")
     # xds = list(cds.partitions.values())[0]
     mxds = xarray.Dataset(attrs={"metainfo": cds.metainfo, "partitions": {}})
 

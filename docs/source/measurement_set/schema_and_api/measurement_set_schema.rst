@@ -217,6 +217,10 @@ Measure arrays
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.SkyCoordArray
 
+.. autoclass:: xradio.measurement_set.schema.PointingBeamArray()
+
+   .. xradio_array_schema_table:: xradio.measurement_set.schema.PointingBeamArray
+
 .. autoclass:: xradio.measurement_set.schema.LocalSkyCoordArray()
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.LocalSkyCoordArray

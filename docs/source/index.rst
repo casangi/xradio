@@ -23,9 +23,9 @@ Review Timeline
 
 - **October 16, 2024**: Documentation release and community notification.
 - **November 25, 2024**: Deadline for feedback via GitHub issues.
-- **TBD **: Panel input for final agenda.
-- **TBD **: Review meeting (3 half-days).
-- **TBD **: Submission of review panel report.
+- **TBD**: Panel input for final agenda.
+- **TBD**: Review meeting (3 half-days).
+- **TBD**: Submission of review panel report.
 
 The report will be used by the XRADIO team to finalize the Measurement Set v4.0.0 schema and API.
 

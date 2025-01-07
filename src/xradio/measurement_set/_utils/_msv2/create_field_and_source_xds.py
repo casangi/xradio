@@ -42,7 +42,7 @@ def create_field_and_source_xds(
     is_single_dish: bool,
     time_min_max: Tuple[np.float64, np.float64],
     ephemeris_interp_time: Union[xr.DataArray, None] = None,
-) -> tuple[xr.Dataset, int]:
+) -> tuple[xr.Dataset, np.ndarray, int]:
     """
     Create a field and source xarray dataset (xds) from the given input file, field ID, and spectral window ID.
     Data is extracted from the FIELD and SOURCE tables and if there is ephemeris data, it is also extracted.
@@ -69,6 +69,8 @@ def create_field_and_source_xds(
     -------
     field_and_source_xds : xr.Dataset
         The xarray dataset containing the field and source information.
+    source_id : np.ndarray[int]
+        Source ID(s) corresponding to the field(s)
     num_lines : int
         Sum of num_lines for all unique sources.
     """

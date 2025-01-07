@@ -30,7 +30,7 @@ from xradio._utils.list_and_array import (
 def create_antenna_xds(
     in_file: str,
     spectral_window_id: int,
-    antenna_id: list,
+    antenna_id: np.ndarray,
     feed_id: list,
     telescope_name: str,
     partition_polarization: xr.DataArray,
@@ -44,8 +44,8 @@ def create_antenna_xds(
         Path to the input MSv2.
     spectral_window_id : int
         Spectral window ID.
-    antenna_id : list
-        List of antenna IDs.
+    antenna_id : np.ndarray
+        Antenna IDs.
     feed_id : list
         List of feed IDs.
     telescope_name : str
@@ -82,7 +82,7 @@ def create_antenna_xds(
 
 
 def extract_antenna_info(
-    ant_xds: xr.Dataset, in_file: str, antenna_id: list, telescope_name: str
+    ant_xds: xr.Dataset, in_file: str, antenna_id: np.ndarray, telescope_name: str
 ) -> xr.Dataset:
     """Reformats MSv2 Antenna table content to MSv4 schema.
 
@@ -92,8 +92,8 @@ def extract_antenna_info(
         The dataset that will be updated with antenna information.
     in_file : str
         Path to the input MSv2.
-    antenna_id : list
-        A list of antenna IDs to extract information for.
+    antenna_id : np.array
+        Antenna IDs to extract information for.
     telescope_name : str
         The name of the telescope.
 

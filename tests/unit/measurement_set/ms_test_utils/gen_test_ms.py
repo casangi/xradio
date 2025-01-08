@@ -754,7 +754,11 @@ def gen_subt_feed(mspath: str, feed_descr: dict, ant_descr: str, spw_descr: str)
         tbl.putcol("BEAM_ID", np.broadcast_to(-1, (nrows)))
         boff = np.deg2rad([0.1, 0.3])
         tbl.putcol("BEAM_OFFSET", np.broadcast_to(boff, (nrows, 2, nrecep)))
-        tbl.putcol("POLARIZATION_TYPE", np.broadcast_to(["test_X, test_Y"], (nrows, 1)))
+        pol_types = ["test_X, test_Y"]
+        len_pol_types = 2
+        tbl.putcol(
+            "POLARIZATION_TYPE", np.broadcast_to(pol_types, (nrows, len_pol_types))
+        )
         tbl.putcol("POL_RESPONSE", np.broadcast_to(0.0, (nrows, 2, nrecep)))
         tbl.putcol("POSITION", np.broadcast_to([0.0, 0.0, 0.0], (nrows, 3)))
         tbl.putcol("RECEPTOR_ANGLE", np.broadcast_to([1.51, 0.33], (nrows, nrecep)))

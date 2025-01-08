@@ -2,7 +2,18 @@ import xarray as xr
 import pytest
 
 
-def test_rename_and_interpoalte_to_time_bogus(ddi_xds_min, main_xds_min):
+def test_rename_and_interpolate_to_time_with_none_time(ddi_xds_min, main_xds_min):
+    from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
+        rename_and_interpolate_to_time,
+    )
+
+    out_xds = rename_and_interpolate_to_time(
+        ddi_xds_min, "time_bogus", None, message_prefix="test_call"
+    )
+    assert out_xds == ddi_xds_min
+
+
+def test_rename_and_interpolate_to_time_bogus(ddi_xds_min, main_xds_min):
     from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
         rename_and_interpolate_to_time,
     )

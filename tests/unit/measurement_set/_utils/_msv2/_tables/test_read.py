@@ -1,3 +1,4 @@
+from contextlib import nullcontext as does_not_raise
 import pytest
 
 import numpy as np
@@ -21,30 +22,89 @@ def test_table_exists(tab_name, expected_result, request):
 
 
 @pytest.mark.parametrize(
-    "times, expected_result",
+    "tab_name, col_name, expected_result",
+    [
+        ("ms_minimal_required", "TIME", True),
+        ("ms_minimal_required", "WEIGHT_SPECTRUM", False),
+        ("ms_minimal_required", "WEIGHT", True),
+        ("ms_minimal_required", "DATA", True),
+        ("ms_minimal_required", "TIME_CENTROID", True),
+        ("ms_minimal_required", "FOO_INEXISTENT", False),
+    ],
+)
+def test_table_has_column(tab_name, col_name, expected_result, request):
+    from xradio.measurement_set._utils._msv2._tables.read import table_has_column
+
+    fixture = request.getfixturevalue(tab_name)
+    fname = fixture.fname if isinstance(fixture, tuple) else fixture
+    assert table_has_column(fname, col_name) == expected_result
+
+
+@pytest.mark.parametrize(
+    "tab_name, col_name, expected_raises",
+    [
+        ("ms_tab_nonexistent", "DATA", pytest.raises(RuntimeError)),
+        ("ms_tab_nonexistent", "ANY", pytest.raises(RuntimeError)),
+        ("ddi_xds_min", "TIME", pytest.raises(RuntimeError)),
+    ],
+)
+def test_table_has_column_raises(tab_name, col_name, expected_raises, request):
+    from xradio.measurement_set._utils._msv2._tables.read import table_has_column
+
+    fixture = request.getfixturevalue(tab_name)
+    fname = fixture.fname if isinstance(fixture, tuple) else fixture
+
+    with expected_raises:
+        _res = table_has_column(fname, col_name)
+
+
+@pytest.mark.parametrize(
+    "times, to_datetime, expected_result",
     [
         (
             np.array([0, 1_900_000_000.36]),
+            True,
             np.array(
                 ["1858-11-17T00:00:00.0", "1919-02-01T17:46:40.359999895"],
                 dtype="datetime64[ns]",
             ),
         ),
-        (np.array([10]), np.array([], dtype="datetime64[ns]")),
+        (np.array([10]), True, np.array([], dtype="datetime64[ns]")),
         (
             np.array([5_000_000_000.1234]),
+            True,
             np.array(["2017-04-27T08:53:20.123399734"], dtype="datetime64[ns]"),
         ),
         (
             np.array([10_000_000_000]),
+            True,
             np.array(["2175-10-06T17:46:40.000000000"], dtype="datetime64[ns]"),
+        ),
+        (
+            np.array([0, 1_900_000_000.36]),
+            False,
+            np.array(
+                [-3.5067168e09, -1.60671679964e09],
+                dtype="float64",
+            ),
+        ),
+        (np.array([10]), False, np.array([], dtype="float64")),
+        (
+            np.array([5_000_000_000.12345]),
+            False,
+            np.array([1.4932832001234502e09], dtype="float64"),
+        ),
+        (
+            np.array([10_000_000_000]),
+            False,
+            np.array([6.4932832e09], dtype="float64"),
         ),
     ],
 )
-def test_convert_casacore_time(times, expected_result):
+def test_convert_casacore_time(times, to_datetime, expected_result):
     from xradio.measurement_set._utils._msv2._tables.read import convert_casacore_time
 
-    assert all(convert_casacore_time(times) == expected_result)
+    assert all(convert_casacore_time(times, to_datetime) == expected_result)
 
 
 @pytest.mark.parametrize(
@@ -241,6 +301,18 @@ def test_find_projected_min_max_array(in_min_max, in_array, expected_result):
     np.testing.assert_array_almost_equal(res, expected_result)
 
 
+def test_make_taql_where_between_min_max_empty(ms_empty_required):
+    from xradio.measurement_set._utils._msv2._tables.read import (
+        make_taql_where_between_min_max,
+    )
+
+    res = make_taql_where_between_min_max(
+        (0, 10), ms_empty_required.fname, "POINTING", "TIME"
+    )
+
+    assert res is None
+
+
 @pytest.mark.parametrize(
     "in_min_max, expected_result",
     [
@@ -285,6 +357,29 @@ def test_add_units_measures(main_xds_min):
     res = add_units_measures(xds_vars, col_descr)
     assert xds_vars["UVW"].attrs
     assert xds_vars["time"].attrs
+
+
+def test_add_units_measures_dubious_units(main_xds_min):
+    from xradio.measurement_set._utils._msv2._tables.read import add_units_measures
+
+    col_descr = {
+        "column_descriptions": {
+            "UVW": {"keywords": {}},
+            "TIME": {"keywords": {"QuantumUnits": "dubious/units"}},
+            "DATA": {"keywords": {"QuantumUnits": (None, None)}},
+            "TIME_CENTROID": {"keywords": {"QuantumUnits": (3.1,)}},
+        },
+    }
+    xds_vars = {
+        "time": main_xds_min.time,
+        "DATA": main_xds_min.VIS,
+        "TIME_CENTROID": main_xds_min.TIME_CENTROID,
+    }
+    print(f"{xds_vars=}, {main_xds_min=}")
+    res = add_units_measures(xds_vars, col_descr)
+    assert xds_vars["time"].attrs
+    assert xds_vars["DATA"].attrs
+    assert xds_vars["TIME_CENTROID"].attrs
 
 
 def test_make_freq_attrs_uvw(spw_xds_min):

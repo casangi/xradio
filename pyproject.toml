@@ -1,6 +1,6 @@
 [project]
 name = "xradio"
-version = "0.0.46"
+version = "0.0.47"
 description = " Xarray Radio Astronomy Data IO"
 authors = [
     {name = "Jan-Willem Steeb", email="jsteeb@nrao.edu"},

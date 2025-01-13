@@ -1207,8 +1207,8 @@ class PartitionInfoDict:
     """ List of all field names """
     polarization_setup: list[str]
     """ List of polrization bases. """
-    scan_number: list[int]
-    """ List of scan numbers. """
+    scan_name: list[str]
+    """ List of scan names. """
     source_name: list[str]
     """ List of source names. """
     # source_id: mising / remove for good?
@@ -1882,8 +1882,8 @@ class VisibilityXds:
     """
     uvw_label: Optional[Coordof[UvwLabelArray]] = None
     """ u,v,w """
-    scan_number: Optional[Coord[Time, Union[numpy.int64, numpy.int32]]] = None
-    """Arbitary scan number to identify data taken in the same logical scan."""
+    scan_name: Optional[Coord[Time, str]] = None
+    """Arbitary scan name to identify data taken in the same logical scan."""
 
     # --- Optional data variables / arrays ---
 
@@ -1976,8 +1976,8 @@ class SpectrumXds:
     """
     If the polarizations are not constant over baseline
     """
-    scan_number: Optional[Coord[Time, Union[numpy.int64, numpy.int32]]] = None
-    """Arbitary scan number to identify data taken in the same logical scan."""
+    scan_name: Optional[Coord[Time, str]] = None
+    """Arbitary scan name to identify data taken in the same logical scan."""
 
     # SPECTRUM_CORRECTED: Optional[Dataof[SpectrumArray]] = None
 

@@ -1029,7 +1029,7 @@ def convert_and_write_partition(
                         datetime.timezone.utc
                     ).isoformat(),
                     "xradio_version": importlib.metadata.version("xradio"),
-                    "schema_version": "4.0.-9991",
+                    "schema_version": "4.0.-9990",
                     "type": "visibility",
                 }
             )
@@ -1242,6 +1242,10 @@ def convert_and_write_partition(
                 "intents": intents,
                 "taql_where": taql_where,
             }
+            if with_antenna_partitioning:
+                partition_info_misc_fields["antenna_name"] = xds.coords[
+                    "antenna_name"
+                ].data[0]
             info_dicts = create_info_dicts(
                 in_file, xds, field_and_source_xds, partition_info_misc_fields, tb_tool
             )

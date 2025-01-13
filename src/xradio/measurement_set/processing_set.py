@@ -110,7 +110,7 @@ class ProcessingSet(dict):
             "intents": [],
             "shape": [],
             "polarization": [],
-            "scan_number": [],
+            "scan_name": [],
             "spw_name": [],
             "field_name": [],
             "source_name": [],
@@ -129,9 +129,7 @@ class ProcessingSet(dict):
                 value.attrs["partition_info"]["spectral_window_name"]
             )
             summary_data["polarization"].append(value.polarization.values)
-            summary_data["scan_number"].append(
-                value.attrs["partition_info"]["scan_number"]
-            )
+            summary_data["scan_name"].append(value.attrs["partition_info"]["scan_name"])
             data_name = value.attrs["data_groups"][data_group]["correlated_data"]
 
             if "VISIBILITY" in data_name:

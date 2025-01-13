@@ -423,7 +423,7 @@ def create_coordinates(
         "baseline_antenna1_id": ("baseline_id", baseline_ant1_id),
         "baseline_antenna2_id": ("baseline_id", baseline_ant2_id),
         "baseline_id": np.arange(len(baseline_ant1_id)),
-        "scan_number": ("time", scan_id),
+        "scan_name": ("time", scan_id.astype(str)),
         "uvw_label": ["u", "v", "w"],
     }
 
@@ -1029,7 +1029,7 @@ def convert_and_write_partition(
                         datetime.timezone.utc
                     ).isoformat(),
                     "xradio_version": importlib.metadata.version("xradio"),
-                    "schema_version": "4.0.-9991",
+                    "schema_version": "4.0.-9990",
                     "type": "visibility",
                 }
             )
@@ -1238,7 +1238,7 @@ def convert_and_write_partition(
             xds = fix_uvw_frame(xds, field_and_source_xds, is_single_dish)
 
             partition_info_misc_fields = {
-                "scan_id": scan_id,
+                "scan_name": xds.coords["scan_name"].data,
                 "intents": intents,
                 "taql_where": taql_where,
             }

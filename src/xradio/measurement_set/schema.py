@@ -1207,8 +1207,8 @@ class PartitionInfoDict:
     """ List of all field names """
     polarization_setup: list[str]
     """ List of polrization bases. """
-    scan_number: list[int]
-    """ List of scan numbers. """
+    scan_name: list[str]
+    """ List of scan names. """
     source_name: list[str]
     """ List of source names. """
     # source_id: mising / remove for good?
@@ -1368,7 +1368,7 @@ class GainCurveXds:
     """ Useful when data is combined from mutiple arrays for example ACA + ALMA. """
     receptor_label: Coord[ReceptorLabel, str]
     """ Names of receptors """
-    polarization_type: Optional[Coord[tuple[AntennaName, ReceptorLabel], str]]
+    polarization_type: Coord[tuple[AntennaName, ReceptorLabel], str]
     """ Polarization type to which each receptor responds (e.g. ”R”,”L”,”X” or ”Y”).
     This is the receptor polarization type as recorded in the final correlated data (e.g. ”RR”); i.e.
     as measured after all polarization combiners. ['X','Y'], ['R','L'] """
@@ -1425,7 +1425,7 @@ class PhaseCalibrationXds:
     """ Useful when data is combined from mutiple arrays for example ACA + ALMA. """
     receptor_label: Coord[ReceptorLabel, str]
     """ Names of receptors """
-    polarization_type: Optional[Coord[tuple[AntennaName, ReceptorLabel], str]]
+    polarization_type: Coord[tuple[AntennaName, ReceptorLabel], str]
     """ Polarization type to which each receptor responds (e.g. ”R”,”L”,”X” or ”Y”).
     This is the receptor polarization type as recorded in the final correlated data (e.g. ”RR”); i.e.
     as measured after all polarization combiners. ['X','Y'], ['R','L'] """
@@ -1705,7 +1705,12 @@ class SystemCalibrationXds:
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
     """ Antenna identifier """
-    receptor_label: Coord[ReceptorLabel, numpy.int64]
+    receptor_label: Coord[ReceptorLabel, str]
+    """ Names of receptors """
+    polarization_type: Coord[tuple[AntennaName, ReceptorLabel], str]
+    """ Polarization type to which each receptor responds (e.g. ”R”,”L”,”X” or ”Y”).
+    This is the receptor polarization type as recorded in the final correlated data (e.g. ”RR”); i.e.
+    as measured after all polarization combiners. ['X','Y'], ['R','L'] """
     """  """
     time: Optional[Coordof[TimeInterpolatedCoordArray]] = None
     """ Midpoint of time for which this set of parameters is accurate. Labeled 'time' when interpolating to main time axis """
@@ -1882,8 +1887,8 @@ class VisibilityXds:
     """
     uvw_label: Optional[Coordof[UvwLabelArray]] = None
     """ u,v,w """
-    scan_number: Optional[Coord[Time, Union[numpy.int64, numpy.int32]]] = None
-    """Arbitary scan number to identify data taken in the same logical scan."""
+    scan_name: Optional[Coord[Time, str]] = None
+    """Arbitary scan name to identify data taken in the same logical scan."""
 
     # --- Optional data variables / arrays ---
 
@@ -1976,8 +1981,8 @@ class SpectrumXds:
     """
     If the polarizations are not constant over baseline
     """
-    scan_number: Optional[Coord[Time, Union[numpy.int64, numpy.int32]]] = None
-    """Arbitary scan number to identify data taken in the same logical scan."""
+    scan_name: Optional[Coord[Time, str]] = None
+    """Arbitary scan name to identify data taken in the same logical scan."""
 
     # SPECTRUM_CORRECTED: Optional[Dataof[SpectrumArray]] = None
 

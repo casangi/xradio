@@ -12,7 +12,7 @@ import numpy
 # Dimensions
 Time = Literal["time"]
 """ Observation time dimension """
-TimeCal = Literal["time_cal"]
+TimeSystemCal = Literal["time_system_cal"]
 """ time dimension of system calibration (when not interpolated to main time)"""
 TimeEphemeris = Literal["time_ephemeris"]
 """ time dimension of ephemeris data (when not interpolated to main time) """
@@ -379,7 +379,7 @@ class TimeInterpolatedCoordArray:
     Data model of a time axis when it is interpolated to match the time
     axis of the main dataset. This can be used in the system_calibration_xds,
     pointing_xds, weather_xds, field_and_source_info_xds, and phase_cal_xds
-    when their respective time_cal, time_pointing, time_weather,
+    when their respective time_system_cal, time_pointing, time_weather,
     time_ephemeris or time_phase_cal are interpolated to the main dataset
     time. See also :py:class:`TimeArray`.
 
@@ -407,19 +407,19 @@ class TimeInterpolatedCoordArray:
 
 
 @xarray_dataarray_schema
-class TimeCalCoordArray:
-    """Data model of 'time_cal' axis (time axis in system_calibration_xds
+class TimeSystemCalCoordArray:
+    """Data model of 'time_system_cal' axis (time axis in system_calibration_xds
     subdataset when not interpolated to the main time axis. See also
     :py:class:`TimeCoordArray`."""
 
-    data: Data[TimeCal, float]
+    data: Data[TimeSystemCal, float]
     """
     Time, expressed in seconds since the epoch (see ``scale`` &
     ``format``).
     """
 
-    type: Attr[Time] = "time_cal"
-    """ Coordinate type. Should be ``"time_cal"``. """
+    type: Attr[Time] = "time_system_cal"
+    """ Coordinate type. Should be ``"time_system_cal"``. """
 
     units: Attr[UnitsSeconds] = ("s",)
     """ Units to associate with axis"""
@@ -1714,8 +1714,8 @@ class SystemCalibrationXds:
     """  """
     time: Optional[Coordof[TimeInterpolatedCoordArray]] = None
     """ Midpoint of time for which this set of parameters is accurate. Labeled 'time' when interpolating to main time axis """
-    time_cal: Optional[Coordof[TimeCalCoordArray]] = None
-    """ Midpoint of time for which this set of parameters is accurate. Labeled 'time_cal' when not interpolating to main time axis """
+    time_system_cal: Optional[Coordof[TimeSystemCalCoordArray]] = None
+    """ Midpoint of time for which this set of parameters is accurate. Labeled 'time_system_cal' when not interpolating to main time axis """
     frequency: Optional[Coordof[FrequencyCalArray]] = None
     """  """
     frequency_cal: Optional[Coord[FrequencyCal, int]] = None
@@ -1724,7 +1724,7 @@ class SystemCalibrationXds:
     # Data variables (all optional)
     PHASE_DIFFERENCE: Optional[
         Data[
-            Union[tuple[AntennaName, TimeCal], tuple[AntennaName, Time]],
+            Union[tuple[AntennaName, TimeSystemCal], tuple[AntennaName, Time]],
             QuantityInRadiansArray,
         ]
     ] = None
@@ -1732,9 +1732,9 @@ class SystemCalibrationXds:
     TCAL: Optional[
         Data[
             Union[
-                tuple[AntennaName, TimeCal, ReceptorLabel, FrequencyCal],
-                tuple[AntennaName, TimeCal, ReceptorLabel, Frequency],
-                tuple[AntennaName, TimeCal, ReceptorLabel],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, FrequencyCal],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, Frequency],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel],
                 tuple[AntennaName, Time, ReceptorLabel, FrequencyCal],
                 tuple[AntennaName, Time, ReceptorLabel, Frequency],
                 tuple[AntennaName, Time, ReceptorLabel],
@@ -1746,9 +1746,9 @@ class SystemCalibrationXds:
     TRX: Optional[
         Data[
             Union[
-                tuple[AntennaName, TimeCal, ReceptorLabel, FrequencyCal],
-                tuple[AntennaName, TimeCal, ReceptorLabel, Frequency],
-                tuple[AntennaName, TimeCal, ReceptorLabel],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, FrequencyCal],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, Frequency],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel],
                 tuple[AntennaName, Time, ReceptorLabel, FrequencyCal],
                 tuple[AntennaName, Time, ReceptorLabel, Frequency],
                 tuple[AntennaName, Time, ReceptorLabel],
@@ -1760,9 +1760,9 @@ class SystemCalibrationXds:
     TSKY: Optional[
         Data[
             Union[
-                tuple[AntennaName, TimeCal, ReceptorLabel, FrequencyCal],
-                tuple[AntennaName, TimeCal, ReceptorLabel, Frequency],
-                tuple[AntennaName, TimeCal, ReceptorLabel],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, FrequencyCal],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, Frequency],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel],
                 tuple[AntennaName, Time, ReceptorLabel, FrequencyCal],
                 tuple[AntennaName, Time, ReceptorLabel, Frequency],
                 tuple[AntennaName, Time, ReceptorLabel],
@@ -1774,9 +1774,9 @@ class SystemCalibrationXds:
     TSYS: Optional[
         Data[
             Union[
-                tuple[AntennaName, TimeCal, ReceptorLabel, FrequencyCal],
-                tuple[AntennaName, TimeCal, ReceptorLabel, Frequency],
-                tuple[AntennaName, TimeCal, ReceptorLabel],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, FrequencyCal],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, Frequency],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel],
                 tuple[AntennaName, Time, ReceptorLabel, FrequencyCal],
                 tuple[AntennaName, Time, ReceptorLabel, Frequency],
                 tuple[AntennaName, Time, ReceptorLabel],
@@ -1788,9 +1788,9 @@ class SystemCalibrationXds:
     TANT: Optional[
         Data[
             Union[
-                tuple[AntennaName, TimeCal, ReceptorLabel, FrequencyCal],
-                tuple[AntennaName, TimeCal, ReceptorLabel, Frequency],
-                tuple[AntennaName, TimeCal, ReceptorLabel],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, FrequencyCal],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, Frequency],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel],
                 tuple[AntennaName, Time, ReceptorLabel, FrequencyCal],
                 tuple[AntennaName, Time, ReceptorLabel, Frequency],
                 tuple[AntennaName, Time, ReceptorLabel],
@@ -1802,9 +1802,9 @@ class SystemCalibrationXds:
     TANT_SYS: Optional[
         Data[
             Union[
-                tuple[AntennaName, TimeCal, ReceptorLabel, FrequencyCal],
-                tuple[AntennaName, TimeCal, ReceptorLabel, Frequency],
-                tuple[AntennaName, TimeCal, ReceptorLabel],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, FrequencyCal],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, Frequency],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel],
                 tuple[AntennaName, Time, ReceptorLabel, FrequencyCal],
                 tuple[AntennaName, Time, ReceptorLabel, Frequency],
                 tuple[AntennaName, Time, ReceptorLabel],

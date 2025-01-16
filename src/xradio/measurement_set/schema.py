@@ -1516,7 +1516,7 @@ class WeatherXds:
             QuantityInPerSquareMetersArray,
         ]
     ] = None
-    """ Average column density of water """
+    """ Average column density of water, in zenith direction (rather than line of sight) """
     IONOS_ELECTRON: Optional[
         Data[
             Union[
@@ -1526,7 +1526,7 @@ class WeatherXds:
             QuantityInPerSquareMetersArray,
         ]
     ] = None
-    """ Average column density of electrons """
+    """ Average column density of electrons, in zenith direction (rather than line of sight) """
     PRESSURE: Optional[
         Data[
             Union[

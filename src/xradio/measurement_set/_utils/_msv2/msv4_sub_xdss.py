@@ -545,7 +545,7 @@ def create_system_calibration_xds(
     if "frequency" not in generic_sys_cal_xds.sizes:
         dims_all = mandatory_dimensions
     else:
-        dims_all = mandatory_dimensions + ["frequency_cal"]
+        dims_all = mandatory_dimensions + ["frequency_system_cal"]
 
     to_new_data_variables = {
         "PHASE_DIFF": ["PHASE_DIFFERENCE", ["antenna_name", "time_system_cal"]],
@@ -566,7 +566,7 @@ def create_system_calibration_xds(
     to_new_coords = {
         "TIME": ["time_system_cal", ["time_system_cal"]],
         "receptor": ["receptor_label", ["receptor_label"]],
-        "frequency": ["frequency_cal", ["frequency_cal"]],
+        "frequency": ["frequency_system_cal", ["frequency_system_cal"]],
     }
 
     sys_cal_xds = xr.Dataset(attrs={"type": "system_calibration"})
@@ -581,9 +581,9 @@ def create_system_calibration_xds(
     )
 
     # Add frequency coord and its measures data, if present
-    if "frequency_cal" in dims_all:
+    if "frequency_system_cal" in dims_all:
         frequency_coord = {
-            "frequency_cal": generic_sys_cal_xds.coords["frequency"].data
+            "frequency_system_cal": generic_sys_cal_xds.coords["frequency"].data
         }
         sys_cal_xds = sys_cal_xds.assign_coords(frequency_coord)
         frequency_measure = {
@@ -591,7 +591,7 @@ def create_system_calibration_xds(
             "units": main_xds_frequency.attrs["units"],
             "observer": main_xds_frequency.attrs["observer"],
         }
-        sys_cal_xds.coords["frequency_cal"].attrs.update(frequency_measure)
+        sys_cal_xds.coords["frequency_system_cal"].attrs.update(frequency_measure)
 
     sys_cal_xds = rename_and_interpolate_to_time(
         sys_cal_xds, "time_system_cal", sys_cal_interp_time, "system_calibration_xds"

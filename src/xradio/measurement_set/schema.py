@@ -1883,7 +1883,10 @@ class VisibilityXds:
     # --- Optional Coordinates ---
     polarization_mixed: Optional[Coord[tuple[BaselineId, Polarization], str]] = None
     """
-    If the polarizations are not constant over baseline
+    If the polarizations are not constant over baseline. For mixed polarizations one would
+    use ['PP', 'PQ', 'QP', 'QQ'] as the polarization labels and then specify here the
+    actual polarization basis for each baseline using labels from the set of all
+    combinations of 'X', 'Y', 'R' and 'L'.
     """
     uvw_label: Optional[Coordof[UvwLabelArray]] = None
     """ u,v,w """
@@ -1979,7 +1982,10 @@ class SpectrumXds:
     # --- Optional Coordinates ---
     polarization_mixed: Optional[Coord[tuple[AntennaName, Polarization], str]] = None
     """
-    If the polarizations are not constant over baseline
+    If the polarizations are not constant over antennas. For mixed polarizations one would
+    use ['PP', 'PQ', 'QP', 'QQ'] as the polarization labels and then specify here the
+    actual polarization basis for each antenna using labels from the set of
+    combinations of 'X', 'Y', 'R' and 'L'.
     """
     scan_number: Optional[Coord[Time, Union[numpy.int64, numpy.int32]]] = None
     """Arbitary scan number to identify data taken in the same logical scan."""

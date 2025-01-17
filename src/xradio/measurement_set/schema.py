@@ -1370,7 +1370,7 @@ class GainCurveXds:
     """ Useful when data is combined from mutiple arrays for example ACA + ALMA. """
     receptor_label: Coord[ReceptorLabel, str]
     """ Names of receptors """
-    polarization_type: Optional[Coord[tuple[AntennaName, ReceptorLabel], str]]
+    polarization_type: Coord[tuple[AntennaName, ReceptorLabel], str]
     """ Polarization type to which each receptor responds (e.g. ”R”,”L”,”X” or ”Y”).
     This is the receptor polarization type as recorded in the final correlated data (e.g. ”RR”); i.e.
     as measured after all polarization combiners. ['X','Y'], ['R','L'] """
@@ -1427,7 +1427,7 @@ class PhaseCalibrationXds:
     """ Useful when data is combined from mutiple arrays for example ACA + ALMA. """
     receptor_label: Coord[ReceptorLabel, str]
     """ Names of receptors """
-    polarization_type: Optional[Coord[tuple[AntennaName, ReceptorLabel], str]]
+    polarization_type: Coord[tuple[AntennaName, ReceptorLabel], str]
     """ Polarization type to which each receptor responds (e.g. ”R”,”L”,”X” or ”Y”).
     This is the receptor polarization type as recorded in the final correlated data (e.g. ”RR”); i.e.
     as measured after all polarization combiners. ['X','Y'], ['R','L'] """
@@ -1518,7 +1518,7 @@ class WeatherXds:
             QuantityInPerSquareMetersArray,
         ]
     ] = None
-    """ Average column density of water """
+    """ Average column density of water, in zenith direction (rather than line of sight) """
     IONOS_ELECTRON: Optional[
         Data[
             Union[
@@ -1528,7 +1528,7 @@ class WeatherXds:
             QuantityInPerSquareMetersArray,
         ]
     ] = None
-    """ Average column density of electrons """
+    """ Average column density of electrons, in zenith direction (rather than line of sight) """
     PRESSURE: Optional[
         Data[
             Union[
@@ -1707,7 +1707,12 @@ class SystemCalibrationXds:
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
     """ Antenna identifier """
-    receptor_label: Coord[ReceptorLabel, numpy.int64]
+    receptor_label: Coord[ReceptorLabel, str]
+    """ Names of receptors """
+    polarization_type: Coord[tuple[AntennaName, ReceptorLabel], str]
+    """ Polarization type to which each receptor responds (e.g. ”R”,”L”,”X” or ”Y”).
+    This is the receptor polarization type as recorded in the final correlated data (e.g. ”RR”); i.e.
+    as measured after all polarization combiners. ['X','Y'], ['R','L'] """
     """  """
     time: Optional[Coordof[TimeInterpolatedCoordArray]] = None
     """ Midpoint of time for which this set of parameters is accurate. Labeled 'time' when interpolating to main time axis """
@@ -1880,7 +1885,10 @@ class VisibilityXds:
     # --- Optional Coordinates ---
     polarization_mixed: Optional[Coord[tuple[BaselineId, Polarization], str]] = None
     """
-    If the polarizations are not constant over baseline
+    If the polarizations are not constant over baseline. For mixed polarizations one would
+    use ['PP', 'PQ', 'QP', 'QQ'] as the polarization labels and then specify here the
+    actual polarization basis for each baseline using labels from the set of all
+    combinations of 'X', 'Y', 'R' and 'L'.
     """
     uvw_label: Optional[Coordof[UvwLabelArray]] = None
     """ u,v,w """
@@ -1976,7 +1984,10 @@ class SpectrumXds:
     # --- Optional Coordinates ---
     polarization_mixed: Optional[Coord[tuple[AntennaName, Polarization], str]] = None
     """
-    If the polarizations are not constant over baseline
+    If the polarizations are not constant over antennas. For mixed polarizations one would
+    use ['PP', 'PQ', 'QP', 'QQ'] as the polarization labels and then specify here the
+    actual polarization basis for each antenna using labels from the set of
+    combinations of 'X', 'Y', 'R' and 'L'.
     """
     scan_number: Optional[Coord[Time, Union[numpy.int64, numpy.int32]]] = None
     """Arbitary scan number to identify data taken in the same logical scan."""

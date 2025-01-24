@@ -12,7 +12,7 @@ import numpy
 # Dimensions
 Time = Literal["time"]
 """ Observation time dimension """
-TimeCal = Literal["time_cal"]
+TimeSystemCal = Literal["time_system_cal"]
 """ time dimension of system calibration (when not interpolated to main time)"""
 TimeEphemeris = Literal["time_ephemeris"]
 """ time dimension of ephemeris data (when not interpolated to main time) """
@@ -34,7 +34,7 @@ BaselineId = Literal["baseline_id"]
 """ Baseline ID dimension """
 Frequency = Literal["frequency"]
 """ Frequency dimension """
-FrequencyCal = Literal["frequency_cal"]
+FrequencySystemCal = Literal["frequency_system_cal"]
 """ Frequency dimension in the system calibration dataset """
 Polarization = Literal["polarization"]
 """ Polarization dimension """
@@ -379,7 +379,7 @@ class TimeInterpolatedCoordArray:
     Data model of a time axis when it is interpolated to match the time
     axis of the main dataset. This can be used in the system_calibration_xds,
     pointing_xds, weather_xds, field_and_source_info_xds, and phase_cal_xds
-    when their respective time_cal, time_pointing, time_weather,
+    when their respective time_system_cal, time_pointing, time_weather,
     time_ephemeris or time_phase_cal are interpolated to the main dataset
     time. See also :py:class:`TimeArray`.
 
@@ -407,19 +407,19 @@ class TimeInterpolatedCoordArray:
 
 
 @xarray_dataarray_schema
-class TimeCalCoordArray:
-    """Data model of 'time_cal' axis (time axis in system_calibration_xds
+class TimeSystemCalCoordArray:
+    """Data model of 'time_system_cal' axis (time axis in system_calibration_xds
     subdataset when not interpolated to the main time axis. See also
     :py:class:`TimeCoordArray`."""
 
-    data: Data[TimeCal, float]
+    data: Data[TimeSystemCal, float]
     """
     Time, expressed in seconds since the epoch (see ``scale`` &
     ``format``).
     """
 
-    type: Attr[Time] = "time_cal"
-    """ Coordinate type. Should be ``"time_cal"``. """
+    type: Attr[Time] = "time_system_cal"
+    """ Coordinate type. Should be ``"time_system_cal"``. """
 
     units: Attr[UnitsSeconds] = ("s",)
     """ Units to associate with axis"""
@@ -718,11 +718,11 @@ class FrequencyArray:
 
 
 @xarray_dataarray_schema
-class FrequencyCalArray:
-    """The frequency_cal coordinate of the system calibration dataset. It has
+class FrequencySystemCalArray:
+    """The frequency_system_cal coordinate of the system calibration dataset. It has
     only measures data, as opposed to the frequency array of the main dataset."""
 
-    data: Data[FrequencyCal, float]
+    data: Data[FrequencySystemCal, float]
     """ Center frequencies for each channel. """
 
     type: Attr[SpectralCoord] = "spectral_coord"
@@ -1221,6 +1221,8 @@ class PartitionInfoDict:
     """ The taql query used if converted from MSv2. """
     line_name: list[str]
     """ Spectral line names """
+    antenna_name: Optional[str]
+    """ Name of antenna when partitioning also by antenna (single-dish). """
 
 
 @dict_schema
@@ -1368,7 +1370,7 @@ class GainCurveXds:
     """ Useful when data is combined from mutiple arrays for example ACA + ALMA. """
     receptor_label: Coord[ReceptorLabel, str]
     """ Names of receptors """
-    polarization_type: Optional[Coord[tuple[AntennaName, ReceptorLabel], str]]
+    polarization_type: Coord[tuple[AntennaName, ReceptorLabel], str]
     """ Polarization type to which each receptor responds (e.g. ”R”,”L”,”X” or ”Y”).
     This is the receptor polarization type as recorded in the final correlated data (e.g. ”RR”); i.e.
     as measured after all polarization combiners. ['X','Y'], ['R','L'] """
@@ -1425,7 +1427,7 @@ class PhaseCalibrationXds:
     """ Useful when data is combined from mutiple arrays for example ACA + ALMA. """
     receptor_label: Coord[ReceptorLabel, str]
     """ Names of receptors """
-    polarization_type: Optional[Coord[tuple[AntennaName, ReceptorLabel], str]]
+    polarization_type: Coord[tuple[AntennaName, ReceptorLabel], str]
     """ Polarization type to which each receptor responds (e.g. ”R”,”L”,”X” or ”Y”).
     This is the receptor polarization type as recorded in the final correlated data (e.g. ”RR”); i.e.
     as measured after all polarization combiners. ['X','Y'], ['R','L'] """
@@ -1516,7 +1518,7 @@ class WeatherXds:
             QuantityInPerSquareMetersArray,
         ]
     ] = None
-    """ Average column density of water """
+    """ Average column density of water, in zenith direction (rather than line of sight) """
     IONOS_ELECTRON: Optional[
         Data[
             Union[
@@ -1526,7 +1528,7 @@ class WeatherXds:
             QuantityInPerSquareMetersArray,
         ]
     ] = None
-    """ Average column density of electrons """
+    """ Average column density of electrons, in zenith direction (rather than line of sight) """
     PRESSURE: Optional[
         Data[
             Union[
@@ -1705,21 +1707,26 @@ class SystemCalibrationXds:
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
     """ Antenna identifier """
-    receptor_label: Coord[ReceptorLabel, numpy.int64]
+    receptor_label: Coord[ReceptorLabel, str]
+    """ Names of receptors """
+    polarization_type: Coord[tuple[AntennaName, ReceptorLabel], str]
+    """ Polarization type to which each receptor responds (e.g. ”R”,”L”,”X” or ”Y”).
+    This is the receptor polarization type as recorded in the final correlated data (e.g. ”RR”); i.e.
+    as measured after all polarization combiners. ['X','Y'], ['R','L'] """
     """  """
     time: Optional[Coordof[TimeInterpolatedCoordArray]] = None
     """ Midpoint of time for which this set of parameters is accurate. Labeled 'time' when interpolating to main time axis """
-    time_cal: Optional[Coordof[TimeCalCoordArray]] = None
-    """ Midpoint of time for which this set of parameters is accurate. Labeled 'time_cal' when not interpolating to main time axis """
-    frequency: Optional[Coordof[FrequencyCalArray]] = None
+    time_system_cal: Optional[Coordof[TimeSystemCalCoordArray]] = None
+    """ Midpoint of time for which this set of parameters is accurate. Labeled 'time_system_cal' when not interpolating to main time axis """
+    frequency: Optional[Coordof[FrequencySystemCalArray]] = None
     """  """
-    frequency_cal: Optional[Coord[FrequencyCal, int]] = None
+    frequency_system_cal: Optional[Coord[FrequencySystemCal, int]] = None
     """TODO: What is this?"""
 
     # Data variables (all optional)
     PHASE_DIFFERENCE: Optional[
         Data[
-            Union[tuple[AntennaName, TimeCal], tuple[AntennaName, Time]],
+            Union[tuple[AntennaName, TimeSystemCal], tuple[AntennaName, Time]],
             QuantityInRadiansArray,
         ]
     ] = None
@@ -1727,10 +1734,10 @@ class SystemCalibrationXds:
     TCAL: Optional[
         Data[
             Union[
-                tuple[AntennaName, TimeCal, ReceptorLabel, FrequencyCal],
-                tuple[AntennaName, TimeCal, ReceptorLabel, Frequency],
-                tuple[AntennaName, TimeCal, ReceptorLabel],
-                tuple[AntennaName, Time, ReceptorLabel, FrequencyCal],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, FrequencySystemCal],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, Frequency],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel],
+                tuple[AntennaName, Time, ReceptorLabel, FrequencySystemCal],
                 tuple[AntennaName, Time, ReceptorLabel, Frequency],
                 tuple[AntennaName, Time, ReceptorLabel],
             ],
@@ -1741,10 +1748,10 @@ class SystemCalibrationXds:
     TRX: Optional[
         Data[
             Union[
-                tuple[AntennaName, TimeCal, ReceptorLabel, FrequencyCal],
-                tuple[AntennaName, TimeCal, ReceptorLabel, Frequency],
-                tuple[AntennaName, TimeCal, ReceptorLabel],
-                tuple[AntennaName, Time, ReceptorLabel, FrequencyCal],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, FrequencySystemCal],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, Frequency],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel],
+                tuple[AntennaName, Time, ReceptorLabel, FrequencySystemCal],
                 tuple[AntennaName, Time, ReceptorLabel, Frequency],
                 tuple[AntennaName, Time, ReceptorLabel],
             ],
@@ -1755,10 +1762,10 @@ class SystemCalibrationXds:
     TSKY: Optional[
         Data[
             Union[
-                tuple[AntennaName, TimeCal, ReceptorLabel, FrequencyCal],
-                tuple[AntennaName, TimeCal, ReceptorLabel, Frequency],
-                tuple[AntennaName, TimeCal, ReceptorLabel],
-                tuple[AntennaName, Time, ReceptorLabel, FrequencyCal],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, FrequencySystemCal],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, Frequency],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel],
+                tuple[AntennaName, Time, ReceptorLabel, FrequencySystemCal],
                 tuple[AntennaName, Time, ReceptorLabel, Frequency],
                 tuple[AntennaName, Time, ReceptorLabel],
             ],
@@ -1769,10 +1776,10 @@ class SystemCalibrationXds:
     TSYS: Optional[
         Data[
             Union[
-                tuple[AntennaName, TimeCal, ReceptorLabel, FrequencyCal],
-                tuple[AntennaName, TimeCal, ReceptorLabel, Frequency],
-                tuple[AntennaName, TimeCal, ReceptorLabel],
-                tuple[AntennaName, Time, ReceptorLabel, FrequencyCal],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, FrequencySystemCal],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, Frequency],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel],
+                tuple[AntennaName, Time, ReceptorLabel, FrequencySystemCal],
                 tuple[AntennaName, Time, ReceptorLabel, Frequency],
                 tuple[AntennaName, Time, ReceptorLabel],
             ],
@@ -1783,10 +1790,10 @@ class SystemCalibrationXds:
     TANT: Optional[
         Data[
             Union[
-                tuple[AntennaName, TimeCal, ReceptorLabel, FrequencyCal],
-                tuple[AntennaName, TimeCal, ReceptorLabel, Frequency],
-                tuple[AntennaName, TimeCal, ReceptorLabel],
-                tuple[AntennaName, Time, ReceptorLabel, FrequencyCal],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, FrequencySystemCal],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, Frequency],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel],
+                tuple[AntennaName, Time, ReceptorLabel, FrequencySystemCal],
                 tuple[AntennaName, Time, ReceptorLabel, Frequency],
                 tuple[AntennaName, Time, ReceptorLabel],
             ],
@@ -1797,10 +1804,10 @@ class SystemCalibrationXds:
     TANT_SYS: Optional[
         Data[
             Union[
-                tuple[AntennaName, TimeCal, ReceptorLabel, FrequencyCal],
-                tuple[AntennaName, TimeCal, ReceptorLabel, Frequency],
-                tuple[AntennaName, TimeCal, ReceptorLabel],
-                tuple[AntennaName, Time, ReceptorLabel, FrequencyCal],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, FrequencySystemCal],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel, Frequency],
+                tuple[AntennaName, TimeSystemCal, ReceptorLabel],
+                tuple[AntennaName, Time, ReceptorLabel, FrequencySystemCal],
                 tuple[AntennaName, Time, ReceptorLabel, Frequency],
                 tuple[AntennaName, Time, ReceptorLabel],
             ],
@@ -1878,7 +1885,10 @@ class VisibilityXds:
     # --- Optional Coordinates ---
     polarization_mixed: Optional[Coord[tuple[BaselineId, Polarization], str]] = None
     """
-    If the polarizations are not constant over baseline
+    If the polarizations are not constant over baseline. For mixed polarizations one would
+    use ['PP', 'PQ', 'QP', 'QQ'] as the polarization labels and then specify here the
+    actual polarization basis for each baseline using labels from the set of all
+    combinations of 'X', 'Y', 'R' and 'L'.
     """
     uvw_label: Optional[Coordof[UvwLabelArray]] = None
     """ u,v,w """
@@ -1974,7 +1984,10 @@ class SpectrumXds:
     # --- Optional Coordinates ---
     polarization_mixed: Optional[Coord[tuple[AntennaName, Polarization], str]] = None
     """
-    If the polarizations are not constant over baseline
+    If the polarizations are not constant over antennas. For mixed polarizations one would
+    use ['PP', 'PQ', 'QP', 'QQ'] as the polarization labels and then specify here the
+    actual polarization basis for each antenna using labels from the set of
+    combinations of 'X', 'Y', 'R' and 'L'.
     """
     scan_number: Optional[Coord[Time, Union[numpy.int64, numpy.int32]]] = None
     """Arbitary scan number to identify data taken in the same logical scan."""

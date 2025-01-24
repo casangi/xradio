@@ -135,6 +135,13 @@ def base_test(
         combined_antenna = ps.get_combined_antenna_xds()
         assert type(combined_antenna) == xr.Dataset
         ps.get_combined_field_and_source_xds()
+        assert all(
+            [
+                "antenna_name" in ps[xds_name].attrs["partition_info"]
+                for xds_name in ps.keys()
+                if "ANTENNA1" in partition_scheme
+            ]
+        )
 
         sum = 0.0
         sum_lazy = 0.0

@@ -179,13 +179,13 @@ as frequencies or timestamps.
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.TimeInterpolatedCoordArray
 
-.. autoclass:: xradio.measurement_set.schema.TimeCalCoordArray()
+.. autoclass:: xradio.measurement_set.schema.TimeSystemCalCoordArray()
 
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.TimeCalCoordArray
+   .. xradio_array_schema_table:: xradio.measurement_set.schema.TimeSystemCalCoordArray
 
-.. autoclass:: xradio.measurement_set.schema.FrequencyCalArray()
+.. autoclass:: xradio.measurement_set.schema.FrequencySystemCalArray()
 
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.FrequencyCalArray
+   .. xradio_array_schema_table:: xradio.measurement_set.schema.FrequencySystemCalArray
 
 .. autoclass:: xradio.measurement_set.schema.TimeEphemerisCoordArray()
 

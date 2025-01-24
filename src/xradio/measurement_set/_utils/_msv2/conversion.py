@@ -1029,7 +1029,7 @@ def convert_and_write_partition(
                         datetime.timezone.utc
                     ).isoformat(),
                     "xradio_version": importlib.metadata.version("xradio"),
-                    "schema_version": "4.0.-9991",
+                    "schema_version": "4.0.-9988",
                     "type": "visibility",
                 }
             )
@@ -1112,10 +1112,6 @@ def convert_and_write_partition(
                     [xds["baseline_antenna1_id"].data, xds["baseline_antenna2_id"].data]
                 )
             )
-            if phase_cal_interpolate:
-                phase_cal_interp_time = xds.time.values
-            else:
-                phase_cal_interp_time = None
 
             ant_xds = create_antenna_xds(
                 in_file,
@@ -1134,6 +1130,10 @@ def convert_and_write_partition(
             logger.debug("Time gain_curve xds  " + str(time.time() - start))
 
             start = time.time()
+            if phase_cal_interpolate:
+                phase_cal_interp_time = xds.time.values
+            else:
+                phase_cal_interp_time = None
             phase_calibration_xds = create_phase_calibration_xds(
                 in_file,
                 xds.frequency.attrs["spectral_window_id"],
@@ -1142,6 +1142,20 @@ def convert_and_write_partition(
                 phase_cal_interp_time,
             )
             logger.debug("Time phase_calibration xds  " + str(time.time() - start))
+
+            # Create system_calibration_xds
+            start = time.time()
+            if sys_cal_interpolate:
+                sys_cal_interp_time = xds.time.values
+            else:
+                sys_cal_interp_time = None
+            system_calibration_xds = create_system_calibration_xds(
+                in_file,
+                xds.frequency,
+                ant_xds,
+                sys_cal_interp_time,
+            )
+            logger.debug("Time system_calibation " + str(time.time() - start))
 
             # Change antenna_ids to antenna_names
             with_antenna_partitioning = "ANTENNA1" in partition_info
@@ -1153,20 +1167,6 @@ def convert_and_write_partition(
             ant_xds_station_name_ids = ant_xds["station"].set_xindex("antenna_id")
             # No longer needed after converting to name.
             ant_xds = ant_xds.drop_vars("antenna_id")
-
-            # Create system_calibration_xds
-            start = time.time()
-            if sys_cal_interpolate:
-                sys_cal_interp_time = xds.time.values
-            else:
-                sys_cal_interp_time = None
-            system_calibration_xds = create_system_calibration_xds(
-                in_file,
-                xds.frequency,
-                ant_xds_name_ids,
-                sys_cal_interp_time,
-            )
-            logger.debug("Time system_calibation " + str(time.time() - start))
 
             # Create weather_xds
             start = time.time()

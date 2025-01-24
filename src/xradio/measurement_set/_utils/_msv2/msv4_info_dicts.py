@@ -62,6 +62,10 @@ def create_info_dicts(
         "taql": partition_info_misc_fields["taql_where"],
         "line_name": line_name,
     }
+    if "antenna_name" in partition_info_misc_fields:
+        info_dicts["partition_info"]["antenna_name"] = partition_info_misc_fields[
+            "antenna_name"
+        ]
 
     observation_id = check_if_consistent(
         tb_tool.getcol("OBSERVATION_ID"), "OBSERVATION_ID"

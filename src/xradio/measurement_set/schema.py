@@ -1221,6 +1221,8 @@ class PartitionInfoDict:
     """ The taql query used if converted from MSv2. """
     line_name: list[str]
     """ Spectral line names """
+    antenna_name: Optional[str]
+    """ Name of antenna when partitioning also by antenna (single-dish). """
 
 
 @dict_schema

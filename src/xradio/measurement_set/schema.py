@@ -60,6 +60,8 @@ PolyTerm = Literal["poly_term"]
 """ Polynomial term used in VLBI GAIN_CURVE """
 LineLabel = Literal["line_label"]
 """ Line labels (for line names and variables). """
+FieldNameArray = Literal["field_name"]
+""" Field names dimension. """
 
 # Represents "no dimension", i.e. used for coordinates and data variables with
 # zero dimensions.
@@ -959,12 +961,129 @@ class FreqSamplingArray:
     'topo' (telescope centric) velocity frame, rather it assumes if no velocity
     frame is given that this is the default.
     """
-
-
+    
+    
 # Define FieldAndSourceXds dataset already here, as it is needed in the
 # definition of VisibilityArray
 @xarray_dataset_schema
 class FieldSourceXds:
+    """
+    Field positions for each source.
+
+    Defines a field position on the sky. For interferometers, this is the correlated field position.
+    For single dishes, this is the nominal pointing direction.
+    """
+    field_name: Coord[FieldNameArray, str]
+    """Field name."""
+
+    source_name: Optional[Coord[FieldNameArray, str]]
+    """ Source name. """
+
+    line_label: Optional[Coord[LineLabel, str]]
+    """ Line labels (for line names and variables). """
+
+    line_names: Optional[Coord[tuple[FieldNameArray, LineLabel],str]]   
+    """ Line names (e.g. v=1, J=1-0, SiO). """
+
+    FIELD_PHASE_CENTER: Optional[
+        Data[FieldNameArray, SkyCoordArray]
+    ]
+    """
+    Offset from the SOURCE_DIRECTION that gives the direction of phase
+    center for which the fringes have been stopped-that is a point source in
+    this direction will produce a constant measured phase (page 2 of
+    https://articles.adsabs.harvard.edu/pdf/1999ASPC..180...79F). For
+    conversion from MSv2, frame refers column keywords by default. If frame
+    varies with field, it refers DelayDir_Ref column instead.
+    """
+
+    FIELD_REFERENCE_CENTER: Optional[
+        Data[FieldNameArray, SkyCoordArray]
+    ]
+    """
+    Used in single-dish to record the associated reference direction if positionswitching
+    been applied. For conversion from MSv2, frame refers column keywords by default. If
+    frame varies with field, it refers DelayDir_Ref column instead.
+    """
+
+    SOURCE_LOCATION: Optional[
+        Data[
+            Union[
+                ZD,
+                tuple[Time],
+                tuple[TimeEphemeris],
+            ],
+            SkyCoordArray,
+        ]
+    ]
+    """
+    CASA Table Cols: RA,DEC,Rho."Astrometric RA and Dec and Geocentric
+    distance with respect to the observer’s location (Geocentric). "Adjusted
+    for light-time aberration only. With respect to the reference plane and
+    equinox of the chosen system (ICRF or FK4/B1950). If the FK4/B1950 frame
+    output is selected, elliptic aberration terms are added. Astrometric RA/DEC
+    is generally used when comparing or reducing data against a star catalog."
+    https://ssd.jpl.nasa.gov/horizons/manual.html : 1. Astrometric RA & DEC
+    """
+
+    LINE_REST_FREQUENCY: Optional[
+        Data[
+            Union[
+                tuple[LineLabel],
+                tuple[Time, LineLabel],
+                tuple[TimeEphemeris, LineLabel],
+            ],
+            SpectralCoordArray,
+        ]
+    ]
+    """ Rest frequencies for the transitions. """
+
+    LINE_SYSTEMIC_VELOCITY: Optional[
+        Data[
+            Union[
+                tuple[LineLabel],
+                tuple[Time, LineLabel],
+                tuple[TimeEphemeris, LineLabel],
+            ],
+            QuantityInMetersPerSecondArray,
+        ]
+    ]
+    """ Systemic velocity at reference """
+
+    OBSERVER_POSITION: Optional[Data[ZD, LocationArray]]
+    """ Observer location. """
+
+    # --- Attributes ---
+    doppler_shift_velocity: Optional[Attr[UnitsOfDopplerShift]]
+    """ Velocity definition of the Doppler shift, e.g., RADIO or OPTICAL velocity in m/s """
+
+    source_model_url: Optional[Attr[str]]
+    """URL to access source model"""
+
+    is_ephemeris: Attr[bool] = False
+
+    type: Attr[Literal["field_and_source"]] = "field_and_source"
+    """
+    Type of dataset.
+    """
+
+    # --- Optional coordinates ---
+    sky_dir_label: Coord[SkyDirLabel, str] = ("ra", "dec")
+    """ Coordinate labels of sky directions (typically shape 2 and 'ra', 'dec') """
+
+    ellipsoid_pos_label: Optional[Coord[EllipsoidPosLabel, str]] = (
+        "lon",
+        "lat",
+        "height",
+    )
+    """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
+    cartesian_pos_label: Optional[Coord[CartesianPosLabel, str]] = ("x", "y", "z")
+    """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
+
+# Define FieldAndSourceXds dataset already here, as it is needed in the
+# definition of VisibilityArray
+@xarray_dataset_schema
+class FieldSourceEphemerisXds:
     """
     Field positions for each source.
 

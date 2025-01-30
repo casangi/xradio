@@ -156,14 +156,15 @@ class ProcessingSet(dict):
 
             if value[data_name].attrs["field_and_source_xds"].is_ephemeris:
                 summary_data["field_coords"].append("Ephemeris")
-            elif (
-                "time"
-                in value[data_name].attrs["field_and_source_xds"][center_name].coords
-            ):
+            # elif (
+            #     "time"
+            #     in value[data_name].attrs["field_and_source_xds"][center_name].coords
+            # ):
+            elif value[data_name].attrs["field_and_source_xds"][center_name]["field_name"].size > 1:
                 summary_data["field_coords"].append("Multi-Phase-Center")
             else:
                 ra_dec_rad = (
-                    value[data_name].attrs["field_and_source_xds"][center_name].values
+                    value[data_name].attrs["field_and_source_xds"][center_name].values[0,:]
                 )
                 frame = (
                     value[data_name]

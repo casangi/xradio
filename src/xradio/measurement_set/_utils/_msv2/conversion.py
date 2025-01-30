@@ -1211,31 +1211,38 @@ def convert_and_write_partition(
             else:
                 ephemeris_interp_time = None
 
-            if "FIELD_ID" not in partition_scheme:
-                field_id = np.full(time_baseline_shape, -42, dtype=int)
-                field_id[tidxs, bidxs] = tb_tool.getcol("FIELD_ID")
-                field_id = np.max(field_id, axis=1)
-                field_times = utime
-            else:
-                field_id = check_if_consistent(tb_tool.getcol("FIELD_ID"), "FIELD_ID")
-                field_times = None
-
+            # if "FIELD_ID" not in partition_scheme:
+            #     field_id = np.full(time_baseline_shape, -42, dtype=int)
+            #     field_id[tidxs, bidxs] = tb_tool.getcol("FIELD_ID")
+            #     field_id = np.max(field_id, axis=1)
+            #     field_times = utime
+            # else:
+            #     field_id = check_if_consistent(tb_tool.getcol("FIELD_ID"), "FIELD_ID")
+            #     field_times = None
+            
+            field_id = np.full(time_baseline_shape, -42, dtype=int) # -42 used for missing baselines
+            field_id[tidxs, bidxs] = tb_tool.getcol("FIELD_ID")
+            field_id = np.max(field_id, axis=1)
+            field_times = xds.time.values
+            
             # col_unique = unique_1d(col)
             # assert len(col_unique) == 1, col_name + " is not consistent."
             # return col_unique[0]
 
-            field_and_source_xds, source_id, _num_lines = create_field_and_source_xds(
+            field_and_source_xds, source_id, _num_lines, field_names = create_field_and_source_xds(
                 in_file,
                 field_id,
                 xds.frequency.attrs["spectral_window_id"],
                 field_times,
                 is_single_dish,
                 time_min_max,
-                ephemeris_interp_time,
+                ephemeris_interpolate,
             )
+
             logger.debug("Time field_and_source_xds " + str(time.time() - start))
 
             xds = fix_uvw_frame(xds, field_and_source_xds, is_single_dish)
+            xds = xds.assign_coords({"field_name": ("time",field_names)})
 
             partition_info_misc_fields = {
                 "scan_name": xds.coords["scan_name"].data,

@@ -922,7 +922,7 @@ def extract_field_info_and_check_ephemeris(
             ) 
 
     #Some field names are not unqiue. We need to add the field_id to the field_name to make it unique.
-    field_and_source_xds = field_and_source_xds.assign_coords({"field_name": np.char.add(field_and_source_xds["field_name"].data, np.char.add("_", field_and_source_xds["field_id"].astype(str)))})
+    field_and_source_xds = field_and_source_xds.assign_coords({"field_name": np.char.add(field_and_source_xds["field_name"].data, np.char.add("_", field_and_source_xds["field_id"].astype(str))), "sky_dir_label": ["ra", "dec"]})
     
     temp = field_and_source_xds.set_xindex("field_id")
     field_names =  temp.sel(field_id = field_id).field_name.data

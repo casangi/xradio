@@ -961,8 +961,8 @@ class FreqSamplingArray:
     'topo' (telescope centric) velocity frame, rather it assumes if no velocity
     frame is given that this is the default.
     """
-    
-    
+
+
 # Define FieldAndSourceXds dataset already here, as it is needed in the
 # definition of VisibilityArray
 @xarray_dataset_schema
@@ -973,6 +973,7 @@ class FieldSourceXds:
     Defines a field position on the sky. For interferometers, this is the correlated field position.
     For single dishes, this is the nominal pointing direction.
     """
+
     field_name: Coord[FieldNameArray, str]
     """Field name."""
 
@@ -982,12 +983,10 @@ class FieldSourceXds:
     line_label: Optional[Coord[LineLabel, str]]
     """ Line labels (for line names and variables). """
 
-    line_names: Optional[Coord[tuple[FieldNameArray, LineLabel],str]]   
+    line_names: Optional[Coord[tuple[FieldNameArray, LineLabel], str]]
     """ Line names (e.g. v=1, J=1-0, SiO). """
 
-    FIELD_PHASE_CENTER: Optional[
-        Data[FieldNameArray, SkyCoordArray]
-    ]
+    FIELD_PHASE_CENTER: Optional[Data[FieldNameArray, SkyCoordArray]]
     """
     Offset from the SOURCE_DIRECTION that gives the direction of phase
     center for which the fringes have been stopped-that is a point source in
@@ -997,9 +996,7 @@ class FieldSourceXds:
     varies with field, it refers DelayDir_Ref column instead.
     """
 
-    FIELD_REFERENCE_CENTER: Optional[
-        Data[FieldNameArray, SkyCoordArray]
-    ]
+    FIELD_REFERENCE_CENTER: Optional[Data[FieldNameArray, SkyCoordArray]]
     """
     Used in single-dish to record the associated reference direction if positionswitching
     been applied. For conversion from MSv2, frame refers column keywords by default. If
@@ -1079,6 +1076,7 @@ class FieldSourceXds:
     """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
     cartesian_pos_label: Optional[Coord[CartesianPosLabel, str]] = ("x", "y", "z")
     """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
+
 
 # Define FieldAndSourceXds dataset already here, as it is needed in the
 # definition of VisibilityArray

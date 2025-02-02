@@ -8,7 +8,7 @@ def convert_generic_xds_to_xradio_schema(
     msv4_xds: xr.Dataset,
     to_new_data_variables: dict[str, list],
     to_new_coords: dict[str, list],
-    ref_code: Union[int,None] = None,
+    ref_code: Union[int, None] = None,
 ) -> xr.Dataset:
     """Converts a generic xarray Dataset to the xradio schema.
 

@@ -160,11 +160,18 @@ class ProcessingSet(dict):
             #     "time"
             #     in value[data_name].attrs["field_and_source_xds"][center_name].coords
             # ):
-            elif value[data_name].attrs["field_and_source_xds"][center_name]["field_name"].size > 1:
+            elif (
+                value[data_name]
+                .attrs["field_and_source_xds"][center_name]["field_name"]
+                .size
+                > 1
+            ):
                 summary_data["field_coords"].append("Multi-Phase-Center")
             else:
                 ra_dec_rad = (
-                    value[data_name].attrs["field_and_source_xds"][center_name].values[0,:]
+                    value[data_name]
+                    .attrs["field_and_source_xds"][center_name]
+                    .values[0, :]
                 )
                 frame = (
                     value[data_name]
@@ -412,19 +419,18 @@ class ProcessingSet(dict):
                 .copy(deep=True)
             )
 
-            
             if not field_and_source_xds.is_ephemeris:
 
                 if (
                     "line_name" in field_and_source_xds.coords
                 ):  # Not including line info since it is a function of spw.
                     field_and_source_xds = field_and_source_xds.drop_vars(
-                        ["LINE_REST_FREQUENCY", "LINE_SYSTEMIC_VELOCITY"], errors="ignore"
+                        ["LINE_REST_FREQUENCY", "LINE_SYSTEMIC_VELOCITY"],
+                        errors="ignore",
                     )
                     del field_and_source_xds["line_name"]
                     del field_and_source_xds["line_label"]
 
-                
                 if len(combined_field_and_source_xds.data_vars) == 0:
                     combined_field_and_source_xds = field_and_source_xds
                 else:
@@ -477,7 +483,7 @@ class ProcessingSet(dict):
             )
 
         return combined_field_and_source_xds
-    
+
     def get_combined_field_and_source_xds_ephemeris(self, data_group="base"):
         """
         Combine all ephemeris `field_and_source_xds` datasets from a Processing Set for a datagroup into a single dataset.
@@ -497,14 +503,14 @@ class ProcessingSet(dict):
         ValueError
             If the `field_and_source_xds` attribute is missing or improperly formatted in any Measurement Set.
         """
-        
+
         combined_ephemeris_field_and_source_xds = xr.Dataset()
         for ms_name, ms_xds in self.items():
-            
+
             correlated_data_name = ms_xds.attrs["data_groups"][data_group][
                 "correlated_data"
             ]
-            
+
             field_and_source_xds = (
                 ms_xds[correlated_data_name]
                 .attrs["field_and_source_xds"]
@@ -512,23 +518,33 @@ class ProcessingSet(dict):
             )
 
             if field_and_source_xds.is_ephemeris:
-                
+
                 if (
                     "line_name" in field_and_source_xds.coords
                 ):  # Not including line info since it is a function of spw.
                     field_and_source_xds = field_and_source_xds.drop_vars(
-                        ["LINE_REST_FREQUENCY", "LINE_SYSTEMIC_VELOCITY"], errors="ignore"
+                        ["LINE_REST_FREQUENCY", "LINE_SYSTEMIC_VELOCITY"],
+                        errors="ignore",
                     )
                     del field_and_source_xds["line_name"]
                     del field_and_source_xds["line_label"]
-                    
-                from xradio.measurement_set._utils._msv2.msv4_sub_xdss import interpolate_to_time
-                    
+
+                from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
+                    interpolate_to_time,
+                )
+
                 if "time_ephemeris" in field_and_source_xds:
-                    field_and_source_xds = interpolate_to_time(field_and_source_xds, field_and_source_xds.time, "field_and_source_xds", "time_ephemeris")
+                    field_and_source_xds = interpolate_to_time(
+                        field_and_source_xds,
+                        field_and_source_xds.time,
+                        "field_and_source_xds",
+                        "time_ephemeris",
+                    )
                     del field_and_source_xds["time_ephemeris"]
-                    field_and_source_xds = field_and_source_xds.rename({"time_ephemeris":"time"})
-                    
+                    field_and_source_xds = field_and_source_xds.rename(
+                        {"time_ephemeris": "time"}
+                    )
+
                 if "OBSERVER_POSITION" in field_and_source_xds:
                     field_and_source_xds = field_and_source_xds.drop_vars(
                         ["OBSERVER_POSITION"], errors="ignore"
@@ -540,7 +556,7 @@ class ProcessingSet(dict):
 
                     combined_ephemeris_field_and_source_xds = xr.concat(
                         [combined_ephemeris_field_and_source_xds, field_and_source_xds],
-                        dim="time"
+                        dim="time",
                     )
 
         if (len(combined_ephemeris_field_and_source_xds.data_vars) > 0) and (
@@ -614,8 +630,12 @@ class ProcessingSet(dict):
         ValueError
             If the combined datasets are empty or improperly formatted.
         """
-        combined_field_and_source_xds = self.get_combined_field_and_source_xds(data_group)
-        combined_ephemeris_field_and_source_xds = self.get_combined_field_and_source_xds_ephemeris(data_group)
+        combined_field_and_source_xds = self.get_combined_field_and_source_xds(
+            data_group
+        )
+        combined_ephemeris_field_and_source_xds = (
+            self.get_combined_field_and_source_xds_ephemeris(data_group)
+        )
         from matplotlib import pyplot as plt
 
         if (len(combined_field_and_source_xds.data_vars) > 0) and (
@@ -667,9 +687,11 @@ class ProcessingSet(dict):
             center_field_name = combined_ephemeris_field_and_source_xds.attrs[
                 "center_field_name"
             ]
-            
-            combined_ephemeris_field_and_source_xds = combined_ephemeris_field_and_source_xds.set_xindex('field_name')
-            
+
+            combined_ephemeris_field_and_source_xds = (
+                combined_ephemeris_field_and_source_xds.set_xindex("field_name")
+            )
+
             center_field = combined_ephemeris_field_and_source_xds.sel(
                 field_name=center_field_name
             )

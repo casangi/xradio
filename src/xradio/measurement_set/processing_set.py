@@ -154,7 +154,10 @@ class ProcessingSet(dict):
             )
             summary_data["end_frequency"].append(to_list(value["frequency"].values)[-1])
 
-            if value[data_name].attrs["field_and_source_xds"].is_ephemeris:
+            if (
+                value[data_name].attrs["field_and_source_xds"].attrs["type"]
+                == "field_and_source_ephemeris"
+            ):
                 summary_data["field_coords"].append("Ephemeris")
             # elif (
             #     "time"
@@ -419,7 +422,7 @@ class ProcessingSet(dict):
                 .copy(deep=True)
             )
 
-            if not field_and_source_xds.is_ephemeris:
+            if not field_and_source_xds.attrs["type"] == "field_and_source_ephemeris":
 
                 if (
                     "line_name" in field_and_source_xds.coords
@@ -517,7 +520,7 @@ class ProcessingSet(dict):
                 .copy(deep=True)
             )
 
-            if field_and_source_xds.is_ephemeris:
+            if field_and_source_xds.attrs["type"] == "field_and_source_ephemeris":
 
                 if (
                     "line_name" in field_and_source_xds.coords

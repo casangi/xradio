@@ -1037,8 +1037,6 @@ class FieldSourceXds:
     source_model_url: Optional[Attr[str]]
     """URL to access source model"""
 
-    is_ephemeris: Attr[bool] = False
-
     type: Attr[Literal["field_and_source"]] = "field_and_source"
     """
     Type of dataset.
@@ -1173,15 +1171,15 @@ class FieldSourceEphemerisXds:
 
     source_model_url: Optional[Attr[str]]
     """URL to access source model"""
+
     ephemeris_name: Optional[Attr[str]]
     """The name of the ephemeris. For example DE430.
 
     This can be used with Astropy solar_system_ephemeris.set('DE430'), see
     https://docs.astropy.org/en/stable/coordinates/solarsystem.html.
     """
-    is_ephemeris: Attr[bool] = False
 
-    type: Attr[Literal["field_and_source"]] = "field_and_source"
+    type: Attr[Literal["field_and_source_ephemeris"]] = "field_and_source_ephemeris"
     """
     Type of dataset.
     """

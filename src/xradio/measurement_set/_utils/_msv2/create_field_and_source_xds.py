@@ -93,7 +93,7 @@ def create_field_and_source_xds(
         field_and_source_xds, in_file, source_id, spectral_window_id
     )
 
-    if field_and_source_xds.attrs["is_ephemeris"]:
+    if field_and_source_xds.attrs["type"] == "field_and_source_ephemeris":
         field_and_source_xds = extract_ephemeris_info(
             field_and_source_xds,
             ephemeris_path,
@@ -600,9 +600,6 @@ def extract_source_info(
     unknown = to_np_array(["Unknown"] * len(source_id))
 
     coords = {}
-    is_ephemeris = xds.attrs[
-        "is_ephemeris"
-    ]  # If ephemeris data is present we ignore the SOURCE_DIRECTION in the source table.
 
     if all(source_id == -1):
         logger.warning(
@@ -680,7 +677,8 @@ def extract_source_info(
     direction_dims = ["field_name", "sky_dir_label"]
     # coords["source_id"] = ("time", source_id)
 
-    # If ephemeris data is present we ignore the SOURCE_DIRECTION.
+    is_ephemeris = xds.attrs["type"] == "field_and_source_ephemeris"
+    # If ephemeris data is present we ignore the SOURCE_DIRECTION in the source table.
     if not is_ephemeris:
         direction_msv2_col = "DIRECTION"
         msv4_measure = column_description_casacore_to_msv4_measure(
@@ -853,10 +851,6 @@ def extract_field_info_and_check_ephemeris(
 
     ephemeris_table_name = None
     ephemeris_path = None
-    is_ephemeris = False
-    field_and_source_xds.attrs["is_ephemeris"] = (
-        False  # If we find a path to the ephemeris table we will set this to True.
-    )
 
     # Need to check if ephemeris_id is present and if ephemeris table is present.
     if "EPHEMERIS_ID" in field_xds:
@@ -877,11 +871,10 @@ def extract_field_info_and_check_ephemeris(
             )
 
             if len(ephemeris_name_table_index) > 0:  # Are there any ephemeris tables.
-                is_ephemeris = True
                 e_index = ephemeris_name_table_index[0]
                 ephemeris_path = os.path.join(in_file, "FIELD")
                 ephemeris_table_name = files[e_index]
-                field_and_source_xds.attrs["is_ephemeris"] = True
+                field_and_source_xds.attrs["type"] = "field_and_source_ephemeris"
             else:
                 logger.warning(
                     f"Could not find ephemeris table for field_id {field_id}. Ephemeris information will not be included in the field_and_source_xds."

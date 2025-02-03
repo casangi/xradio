@@ -60,7 +60,7 @@ PolyTerm = Literal["poly_term"]
 """ Polynomial term used in VLBI GAIN_CURVE """
 LineLabel = Literal["line_label"]
 """ Line labels (for line names and variables). """
-FieldNameArray = Literal["field_name"]
+FieldName = Literal["field_name"]
 """ Field names dimension. """
 
 # Represents "no dimension", i.e. used for coordinates and data variables with
@@ -963,7 +963,7 @@ class FreqSamplingArray:
     """
 
 
-# Define FieldAndSourceXds dataset already here, as it is needed in the
+# Define FieldAndSourceXds and FieldSourceEphemerisXds already here, as they are needed in the
 # definition of VisibilityArray
 @xarray_dataset_schema
 class FieldSourceXds:
@@ -974,19 +974,16 @@ class FieldSourceXds:
     For single dishes, this is the nominal pointing direction.
     """
 
-    field_name: Coord[FieldNameArray, str]
-    """Field name."""
-
-    source_name: Optional[Coord[FieldNameArray, str]]
+    source_name: Coord[FieldName, str]
     """ Source name. """
 
-    line_label: Optional[Coord[LineLabel, str]]
-    """ Line labels (for line names and variables). """
+    field_name: Coord[FieldName, str]
+    """Field name."""
 
-    line_names: Optional[Coord[tuple[FieldNameArray, LineLabel], str]]
-    """ Line names (e.g. v=1, J=1-0, SiO). """
+    sky_dir_label: Coord[SkyDirLabel, str]
+    """ Coordinate labels of sky directions (typically shape 2 and 'ra', 'dec') """
 
-    FIELD_PHASE_CENTER: Optional[Data[FieldNameArray, SkyCoordArray]]
+    FIELD_PHASE_CENTER: Optional[Data[FieldName, SkyCoordArray]]
     """
     Offset from the SOURCE_DIRECTION that gives the direction of phase
     center for which the fringes have been stopped-that is a point source in
@@ -996,23 +993,14 @@ class FieldSourceXds:
     varies with field, it refers DelayDir_Ref column instead.
     """
 
-    FIELD_REFERENCE_CENTER: Optional[Data[FieldNameArray, SkyCoordArray]]
+    FIELD_REFERENCE_CENTER: Optional[Data[FieldName, SkyCoordArray]]
     """
     Used in single-dish to record the associated reference direction if positionswitching
     been applied. For conversion from MSv2, frame refers column keywords by default. If
     frame varies with field, it refers DelayDir_Ref column instead.
     """
 
-    SOURCE_LOCATION: Optional[
-        Data[
-            Union[
-                ZD,
-                tuple[Time],
-                tuple[TimeEphemeris],
-            ],
-            SkyCoordArray,
-        ]
-    ]
+    SOURCE_LOCATION: Optional[Data[FieldName, SkyCoordArray]]
     """
     CASA Table Cols: RA,DEC,Rho."Astrometric RA and Dec and Geocentric
     distance with respect to the observer’s location (Geocentric). "Adjusted
@@ -1025,11 +1013,7 @@ class FieldSourceXds:
 
     LINE_REST_FREQUENCY: Optional[
         Data[
-            Union[
-                tuple[LineLabel],
-                tuple[Time, LineLabel],
-                tuple[TimeEphemeris, LineLabel],
-            ],
+            tuple[FieldName, LineLabel],
             SpectralCoordArray,
         ]
     ]
@@ -1037,11 +1021,7 @@ class FieldSourceXds:
 
     LINE_SYSTEMIC_VELOCITY: Optional[
         Data[
-            Union[
-                tuple[LineLabel],
-                tuple[Time, LineLabel],
-                tuple[TimeEphemeris, LineLabel],
-            ],
+            tuple[FieldName, LineLabel],
             QuantityInMetersPerSecondArray,
         ]
     ]
@@ -1065,58 +1045,35 @@ class FieldSourceXds:
     """
 
     # --- Optional coordinates ---
-    sky_dir_label: Coord[SkyDirLabel, str] = ("ra", "dec")
-    """ Coordinate labels of sky directions (typically shape 2 and 'ra', 'dec') """
-
-    ellipsoid_pos_label: Optional[Coord[EllipsoidPosLabel, str]] = (
-        "lon",
-        "lat",
-        "height",
-    )
-    """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
     cartesian_pos_label: Optional[Coord[CartesianPosLabel, str]] = ("x", "y", "z")
     """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
 
+    line_label: Optional[Coord[LineLabel, str]] = ()
+    """ Line labels (for line names and variables). """
 
-# Define FieldAndSourceXds dataset already here, as it is needed in the
-# definition of VisibilityArray
+    line_names: Optional[Coord[tuple[FieldName, LineLabel], str]] = ()
+    """ Line names (e.g. v=1, J=1-0, SiO). """
+
+
 @xarray_dataset_schema
 class FieldSourceEphemerisXds:
     """
-    Field positions for each source.
+    Field positions for each source, when the source have ephemeris information.
 
     Defines a field position on the sky. For interferometers, this is the correlated field position.
     For single dishes, this is the nominal pointing direction.
     """
 
-    source_name: Optional[Coord[Union[ZD, Time], str]]
+    source_name: Coord[Time, str]
     """ Source name. """
-    field_name: Optional[Coord[Union[ZD, Time], str]]
+
+    field_name: Coord[Time, str]
     """Field name."""
 
-    time: Optional[Coordof[TimeInterpolatedCoordArray]]
+    time: Coordof[TimeInterpolatedCoordArray]
     """Midpoint of time for which this set of parameters is accurate. Labeled 'time' when interpolated to main time """
-    time_ephemeris: Optional[Coordof[TimeEphemerisCoordArray]]
-    """Midpoint of time for which this set of parameters is accurate. Labeled 'time_ephemeris' when not interpolating to main time """
 
-    line_label: Optional[Coord[LineLabel, str]]
-    """ Line labels (for line names and variables). """
-
-    line_names: Optional[
-        Coord[
-            Union[
-                tuple[LineLabel],
-                tuple[Time, LineLabel],
-                tuple[TimeEphemeris, LineLabel],
-            ],
-            str,
-        ]
-    ]
-    """ Line names (e.g. v=1, J=1-0, SiO). """
-
-    FIELD_PHASE_CENTER: Optional[
-        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], SkyCoordArray]
-    ]
+    FIELD_PHASE_CENTER: Optional[Data[tuple[Time], SkyCoordArray]]
     """
     Offset from the SOURCE_DIRECTION that gives the direction of phase
     center for which the fringes have been stopped-that is a point source in
@@ -1126,19 +1083,24 @@ class FieldSourceEphemerisXds:
     varies with field, it refers DelayDir_Ref column instead.
     """
 
-    FIELD_REFERENCE_CENTER: Optional[
-        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], SkyCoordArray]
-    ]
+    FIELD_REFERENCE_CENTER: Optional[Data[tuple[Time], SkyCoordArray]]
     """
     Used in single-dish to record the associated reference direction if positionswitching
     been applied. For conversion from MSv2, frame refers column keywords by default. If
     frame varies with field, it refers DelayDir_Ref column instead.
     """
 
+    LINE_REST_FREQUENCY: Optional[Data[tuple[Time, LineLabel], SpectralCoordArray]]
+    """ Rest frequencies for the transitions. """
+
+    LINE_SYSTEMIC_VELOCITY: Optional[
+        Data[tuple[Time, LineLabel], QuantityInMetersPerSecondArray]
+    ]
+    """ Systemic velocity at reference """
+
     SOURCE_LOCATION: Optional[
         Data[
             Union[
-                ZD,
                 tuple[Time],
                 tuple[TimeEphemeris],
             ],
@@ -1155,51 +1117,24 @@ class FieldSourceEphemerisXds:
     https://ssd.jpl.nasa.gov/horizons/manual.html : 1. Astrometric RA & DEC
     """
 
-    LINE_REST_FREQUENCY: Optional[
-        Data[
-            Union[
-                tuple[LineLabel],
-                tuple[Time, LineLabel],
-                tuple[TimeEphemeris, LineLabel],
-            ],
-            SpectralCoordArray,
-        ]
-    ]
-    """ Rest frequencies for the transitions. """
-
-    LINE_SYSTEMIC_VELOCITY: Optional[
-        Data[
-            Union[
-                tuple[LineLabel],
-                tuple[Time, LineLabel],
-                tuple[TimeEphemeris, LineLabel],
-            ],
-            QuantityInMetersPerSecondArray,
-        ]
-    ]
-    """ Systemic velocity at reference """
-
     SOURCE_RADIAL_VELOCITY: Optional[
-        Data[
-            Union[ZD, tuple[Time], tuple[TimeEphemeris]], QuantityInMetersPerSecondArray
-        ]
+        Data[Union[tuple[Time], tuple[TimeEphemeris]], QuantityInMetersPerSecondArray]
     ]
     """ CASA Table Cols: RadVel. Geocentric distance rate """
 
     NORTH_POLE_POSITION_ANGLE: Optional[
-        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], QuantityInRadiansArray]
+        Data[Union[tuple[Time], tuple[TimeEphemeris]], QuantityInRadiansArray]
     ]
     """ CASA Table cols: NP_ang, "Targets' apparent north-pole position angle (counter-clockwise with respect to direction of true-of-date reference-frame north pole) and angular distance from the sub-observer point (center of disc) at print time. A negative distance indicates the north-pole is on the hidden hemisphere." https://ssd.jpl.nasa.gov/horizons/manual.html : 17. North pole position angle & distance from disc center. """
 
     NORTH_POLE_ANGULAR_DISTANCE: Optional[
-        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], QuantityInRadiansArray]
+        Data[Union[tuple[Time], tuple[TimeEphemeris]], QuantityInRadiansArray]
     ]
     """ CASA Table cols: NP_dist, "Targets' apparent north-pole position angle (counter-clockwise with respect to direction of true-of date reference-frame north pole) and angular distance from the sub-observer point (center of disc) at print time. A negative distance indicates the north-pole is on the hidden hemisphere."https://ssd.jpl.nasa.gov/horizons/manual.html : 17. North pole position angle & distance from disc center. """
 
     SUB_OBSERVER_DIRECTION: Optional[
         Data[
             Union[
-                ZD,
                 tuple[Time],
                 tuple[TimeEphemeris],
             ],
@@ -1211,7 +1146,6 @@ class FieldSourceEphemerisXds:
     SUB_SOLAR_POSITION: Optional[
         Data[
             Union[
-                ZD,
                 tuple[Time],
                 tuple[TimeEphemeris],
             ],
@@ -1221,14 +1155,12 @@ class FieldSourceEphemerisXds:
     """ CASA Table cols: Sl_lon, Sl_lat, r. "Heliocentric distance along with "Apparent sub-solar longitude and latitude of the Sun on the target. The apparent planetodetic longitude and latitude of the center of the target disc as seen from the Sun, as seen by the observer at print-time.  This is _NOT_ exactly the same as the "sub-solar" (nearest) point for a non-spherical target shape (since the center of the disc seen from the Sun might not be the closest point to the Sun), but is very close if not a highly irregular body shape.  Light travel-time from Sun to target and from target to observer is taken into account.  Latitude is the angle between the equatorial plane and the line perpendicular to the reference ellipsoid of the body. The reference ellipsoid is an oblate spheroid with a single flatness coefficient in which the y-axis body radius is taken to be the same value as the x-axis radius. Uses IAU2009 rotation models except for Earth and Moon, which uses a higher precision models. Values for Jupiter, Saturn, Uranus and Neptune are Set III, referring to rotation of their magnetic fields.  Whether longitude is positive to the east or west for the target will be indicated at the end of the output ephemeris." https://ssd.jpl.nasa.gov/horizons/manual.html : 15. Solar sub-longitude & sub-latitude  """
 
     HELIOCENTRIC_RADIAL_VELOCITY: Optional[
-        Data[
-            Union[ZD, tuple[Time], tuple[TimeEphemeris]], QuantityInMetersPerSecondArray
-        ]
+        Data[Union[tuple[Time], tuple[TimeEphemeris]], QuantityInMetersPerSecondArray]
     ]
     """ CASA Table cols: rdot."The Sun's apparent range-rate relative to the target, as seen by the observer. A positive "rdot" means the target was moving away from the Sun, negative indicates movement toward the Sun." https://ssd.jpl.nasa.gov/horizons/manual.html : 19. Solar range & range-rate (relative to target) """
 
     OBSERVER_PHASE_ANGLE: Optional[
-        Data[Union[ZD, tuple[Time], tuple[TimeEphemeris]], QuantityInRadiansArray]
+        Data[Union[tuple[Time], tuple[TimeEphemeris]], QuantityInRadiansArray]
     ]
     """ CASA Table cols: phang.""phi" is the true PHASE ANGLE at the observers' location at print time. "PAB-LON" and "PAB-LAT" are the FK4/B1950 or ICRF/J2000 ecliptic longitude and latitude of the phase angle bisector direction; the outward directed angle bisecting the arc created by the apparent vector from Sun to target center and the astrometric vector from observer to target center. For an otherwise uniform ellipsoid, the time when its long-axis is perpendicular to the PAB direction approximately corresponds to lightcurve maximum (or maximum brightness) of the body. PAB is discussed in Harris et al., Icarus 57, 251-258 (1984)." https://ssd.jpl.nasa.gov/horizons/manual.html : Phase angle and bisector """
 
@@ -1268,6 +1200,15 @@ class FieldSourceEphemerisXds:
     cartesian_pos_label: Optional[Coord[CartesianPosLabel, str]] = ("x", "y", "z")
     """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
 
+    line_label: Optional[Coord[LineLabel, str]] = ()
+    """ Line labels (for line names and variables). """
+
+    line_names: Optional[Coord[tuple[FieldName, LineLabel], str]] = ()
+    """ Line names (e.g. v=1, J=1-0, SiO). """
+
+    time_ephemeris: Optional[Coordof[TimeEphemerisCoordArray]] = ()
+    """Midpoint of time for which this set of parameters is accurate. Labeled 'time_ephemeris' when not interpolating to main time """
+
 
 @xarray_dataarray_schema
 class SpectrumArray:
@@ -1283,7 +1224,7 @@ class SpectrumArray:
     frequency: Coordof[FrequencyArray]
     polarization: Coordof[PolarizationArray]
 
-    field_and_source_xds: Attr[FieldSourceXds]
+    field_and_source_xds: Attr[Union[FieldSourceXds, FieldSourceEphemerisXds]]
     long_name: Optional[Attr[str]] = "Spectrum values"
     """ Long-form name to use for axis. Should be ``"Spectrum values"``"""
     units: Attr[list[str]] = ("Jy",)
@@ -1303,7 +1244,7 @@ class VisibilityArray:
     polarization: Coordof[PolarizationArray]
     frequency: Coordof[FrequencyArray]
 
-    field_and_source_xds: Attr[FieldSourceXds]
+    field_and_source_xds: Attr[Union[FieldSourceXds, FieldSourceEphemerisXds]]
     long_name: Optional[Attr[str]] = "Visibility values"
     """ Long-form name to use for axis. Should be ``"Visibility values"``"""
     units: Attr[list[str]] = ("Jy",)

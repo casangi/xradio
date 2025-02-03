@@ -131,7 +131,7 @@ def base_test(
             freq_axis = ps.get_ps_freq_axis()
             assert type(freq_axis) == xr.DataArray
         combined_field_xds = ps.get_combined_field_and_source_xds()
-        assert type(combined_field_xds) == tuple
+        assert type(combined_field_xds) == xr.Dataset
         combined_antenna = ps.get_combined_antenna_xds()
         assert type(combined_antenna) == xr.Dataset
         ps.get_combined_field_and_source_xds()

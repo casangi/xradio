@@ -7,8 +7,9 @@ import xarray as xr
 
 import toolviper.utils.logger as logger
 from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
-    rename_and_interpolate_to_time,
     interpolate_to_time,
+    rename_and_interpolate_to_time,
+    standard_time_coord_attrs,
 )
 from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
 from xradio.measurement_set._utils._msv2._tables.read import (
@@ -174,7 +175,7 @@ def extract_ephemeris_info(
     ephemeris_xds = ephemeris_xds.isel(
         ephemeris_id=0
     )  # Collapse the ephemeris_id dimension.
-    # Data varaibles  ['time', 'RA', 'DEC', 'Rho', 'RadVel', 'NP_ang', 'NP_dist', 'DiskLong', 'DiskLat', 'Sl_lon', 'Sl_lat', 'r', 'rdot', 'phang']
+    # Data variables  ['time', 'RA', 'DEC', 'Rho', 'RadVel', 'NP_ang', 'NP_dist', 'DiskLong', 'DiskLat', 'Sl_lon', 'Sl_lat', 'r', 'rdot', 'phang']
 
     # Get meta data.
     ephemeris_meta = ephemeris_xds.attrs["other"]["msv2"]["ctds_attrs"]
@@ -366,13 +367,7 @@ def extract_ephemeris_info(
         "sky_pos_label": ["ra", "dec", "dist"],
     }
     temp_xds = temp_xds.assign_coords(coords)
-    time_coord_attrs = {
-        "type": "time",
-        "units": ["s"],
-        "scale": "utc",
-        "format": "unix",
-    }
-    temp_xds["time_ephemeris"].attrs.update(time_coord_attrs)
+    temp_xds["time_ephemeris"].attrs.update(standard_time_coord_attrs)
 
     # Convert to si units
     temp_xds = convert_to_si_units(temp_xds)
@@ -403,6 +398,7 @@ def extract_ephemeris_info(
 
     xds = xds.sel(field_name=field_names)  # Expand for all times in ms
     xds = xds.assign_coords({"time": ("field_name", interp_time)})
+    xds["time"].attrs.update(standard_time_coord_attrs)
     xds = xds.swap_dims({"field_name": "time"})
 
     source_location_interp
@@ -924,7 +920,7 @@ def extract_field_info_and_check_ephemeris(
         field_xds, field_and_source_xds, to_new_data_variables, to_new_coords, ref_code
     )
 
-    # Some field names are not unqiue. We need to add the field_id to the field_name to make it unique.
+    # Some field names are not unique. We need to add the field_id to the field_name to make it unique.
     field_and_source_xds = field_and_source_xds.assign_coords(
         {
             "field_name": np.char.add(

@@ -926,6 +926,8 @@ def extract_field_info_and_check_ephemeris(
 
     temp = field_and_source_xds.set_xindex("field_id")
     field_names = temp.sel(field_id=field_id).field_name.data
+    # field_id shouldn ot be in final xds, and no longer needed past this point
+    field_and_source_xds = field_and_source_xds.drop_vars("field_id")
 
     # dims, coords = make_field_dims_and_coords(field_xds, field_id, field_times)
 

@@ -4,7 +4,9 @@ import xarray as xr
 from typing import List, Union
 from .common import _c, _compute_world_sph_dims, _l_m_attr_notes
 from xradio._utils.coord_math import _deg_to_rad
-from xradio._utils.dict_helpers import make_quantity, make_time_coord_attrs
+from xradio._utils.dict_helpers import (
+    make_frequency_reference_dict, make_quantity, make_time_coord_attrs
+)
 
 
 def _input_checks(
@@ -47,17 +49,25 @@ def _add_common_attrs(
     xds.time.attrs = make_time_coord_attrs(units=["d"], scale="utc", time_format="mjd")
     # xds.time.attrs = {"format": "MJD", "scale": "UTC", "units": "d"}
     freq_vals = np.array(xds.frequency)
+    print("freq_vals", freq_vals)
     xds.frequency.attrs = {
+        "observer": spectral_reference.lower(),
+        "reference_value": make_frequency_reference_dict(
+            value=freq_vals[len(freq_vals) // 2].item(),
+            units=["Hz"],
+            observer=spectral_reference.lower()
+        ),
+        "rest_frequencies": make_quantity(restfreq, "Hz"),
         "rest_frequency": make_quantity(restfreq, "Hz"),
-        "frame": spectral_reference.upper(),
-        "units": "Hz",
-        "wave_unit": "mm",
-        # "crval": chan_coords[len(chan_coords) // 2],
-        "crval": freq_vals[len(freq_vals) // 2].item(),
-        "cdelt": (freq_vals[1] - freq_vals[0] if len(freq_vals) > 1 else 1000.0),
-        "pc": 1.0,
+        "type": "frequency",
+        "units": ["Hz"],
+        "wave_unit": ["mm"],
     }
-    xds.velocity.attrs = {"doppler_type": "RADIO", "units": "m/s"}
+    xds.velocity.attrs = {
+        "doppler_type": "radio",
+        "type": "doppler",
+        "units": "m/s"
+    }
     xds.attrs = {
         "direction": {
             "reference": {

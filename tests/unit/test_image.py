@@ -50,19 +50,18 @@ class ImageBase(unittest.TestCase):
                         f"{dict1_name}[{k}] != {dict2_name}[{k}]:\n"
                         + f"{one} vs\n{two}",
                     )
-                elif (isinstance(one, list) and isinstance(two, np.ndarray)) or (
-                    isinstance(one, np.ndarray)
-                    and isinstance(two, list)
-                    or (
-                        isinstance(one, list)
-                        and isinstance(two, list)
-                        and isinstance(one[0], numbers.Number)
-                    )
-                ):
-                    self.assertTrue(
-                        np.isclose(np.array(one), np.array(two)).all(),
-                        f"{dict1_name}[{k}] != {dict2_name}[{k}], " f"{one} != {two}",
-                    )
+                elif (
+                        isinstance(one, list) or isinstance(one, np.ndarray)
+                    ) and (
+                        isinstance(two, list) or isinstance(two, np.ndarray)
+                    ):
+                        if len(one) == 0 or len(two) == 0:
+                            assert len(one) == len(two)
+                        elif isinstance(one[0], numbers.Number):
+                            self.assertTrue(
+                                np.isclose(np.array(one), np.array(two)).all(),
+                                f"{dict1_name}[{k}] != {dict2_name}[{k}], " f"{one} != {two}",
+                            )
                 else:
                     self.assertEqual(
                         type(dict1[k]),
@@ -1205,17 +1204,35 @@ class make_empty_image_tests(ImageBase):
 
     def run_frequency_tests(self, skel):
         expec = {
-            "rest_frequency": {
-                "type": "quantity",
-                "value": 1413000000.0,
-                "units": "Hz",
+            "observer": "lsrk",
+            "reference_value": {
+                'attrs': {
+                    'observer': 'lsrk',
+                    'type': 'frequency',
+                    'units': ['Hz'],
+                },
+                'data': 1413000000.0,
+                'dims': [],
             },
-            "frame": "LSRK",
-            "units": "Hz",
-            "wave_unit": "mm",
-            "crval": 1413000000.0,
-            "cdelt": 1000000.0,
-            "pc": 1.0,
+            "rest_frequencies": {
+                "attrs": {
+                    "type": "quantity",
+                    "units": ["Hz"],
+                },
+                "data": 1413000000.0,
+                "dims": [],
+            },
+            "rest_frequency": {
+                "attrs": {
+                    "type": "quantity",
+                    "units": ["Hz"],
+                },
+                "data": 1413000000.0,
+                "dims": [],
+            },
+            "type": "frequency",
+            "units": ["Hz"],
+            "wave_unit": ["mm"],
         }
         self.assertTrue(
             np.isclose(skel.frequency, [1.412e09, 1.413e09]).all(),
@@ -1224,7 +1241,7 @@ class make_empty_image_tests(ImageBase):
         self.dict_equality(skel.frequency.attrs, expec, "got", "expected")
 
     def run_velocity_tests(self, skel):
-        expec = {"doppler_type": "RADIO", "units": "m/s"}
+        expec = {"doppler_type": "radio", "units": "m/s", "type": "doppler"}
         self.assertTrue(
             np.isclose(skel.velocity, [212167.34465675, 0]).all(),
             "Incorrect velocity coordinate values",

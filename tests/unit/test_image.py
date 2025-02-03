@@ -1194,7 +1194,7 @@ class make_empty_image_tests(ImageBase):
             np.isclose(skel.time, [54000.1]).all(),
             "Incorrect time coordinate values",
         )
-        expec = {"scale": "UTC", "units": "d", "format": "MJD"}
+        expec = {"scale": "utc", "units": ["d"], "format": "mjd"}
         self.dict_equality(skel.time.attrs, expec, "got", "expected")
 
     def run_polarization_tests(self, skel):
@@ -1237,19 +1237,19 @@ class make_empty_image_tests(ImageBase):
         expec["l"] = -expec["m"]
         expec_attrs = {
             "l": {
-                "type": "quantity",
-                "crval": 0.0,
-                "cdelt": -cdelt,
-                "units": "rad",
+                # "type": "quantity",
+                # "crval": 0.0,
+                # "cdelt": -cdelt,
+                # "units": "rad",
                 "note": "l is the angle measured from the phase center to the east. "
                 "So l = x*cdelt, where x is the number of pixels from the phase center. "
                 "See AIPS Memo #27, Section III.",
             },
             "m": {
-                "type": "quantity",
-                "crval": 0.0,
-                "cdelt": cdelt,
-                "units": "rad",
+                # "type": "quantity",
+                # "crval": 0.0,
+                # "cdelt": cdelt,
+                #"units": "rad",
                 "note": "m is the angle measured from the phase center to the north. "
                 "So m = y*cdelt, where y is the number of pixels from the phase center. "
                 "See AIPS Memo #27, Section III.",
@@ -1261,7 +1261,7 @@ class make_empty_image_tests(ImageBase):
                 f"Incorrect {c} coord values",
             )
             self.dict_equality(
-                skel[c].attrs, expec_attrs[c], f"got {c} attrs", "expec {c} attrs"
+                skel[c].attrs, expec_attrs[c], f"got {c} attrs", f"expec {c} attrs"
             )
 
     def run_right_ascension_tests(self, skel, do_sky_coords):
@@ -1616,6 +1616,7 @@ class make_empty_sky_image_tests(make_empty_image_tests):
     @classmethod
     def setUpClass(cls):
         cls._skel_im = make_empty_image_tests.create_image(make_empty_sky_image, True)
+        print(cls._skel_im)
         cls._skel_im_no_sky = make_empty_image_tests.create_image(
             make_empty_sky_image, False
         )

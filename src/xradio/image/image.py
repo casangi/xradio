@@ -228,7 +228,7 @@ def make_empty_sky_image(
 ) -> xr.Dataset:
     """
     Create an image xarray.Dataset with only coordinates (no datavariables).
-    The image dimensionality is time, pol, chan, l, m
+    The image dimensionality is time, frequency, polarization, l, m
 
     Parameters
     ----------
@@ -268,7 +268,9 @@ def make_empty_sky_image(
     )
 
 
-def make_empty_aperture_image(
+# TODO it looks like this method should be removed
+def blah(
+# def make_empty_aperture_image(
     phase_center: Union[List[float], np.ndarray],
     image_size: Union[List[int], np.ndarray],
     sky_image_cell_size: Union[List[float], np.ndarray],
@@ -281,7 +283,7 @@ def make_empty_aperture_image(
 ) -> xr.Dataset:
     """
     Create an aperture (uv) mage xarray.Dataset with only coordinates (no datavariables).
-    The image dimensionality is time, pol, chan, u, v
+    The image dimensionality is time, frequency, polarization, u, v
 
     Parameters
     ----------
@@ -330,7 +332,7 @@ def make_empty_aperture_image(
 ) -> xr.Dataset:
     """
     Create an aperture (uv) mage xarray.Dataset with only coordinates (no datavariables).
-    The image dimensionality is time, pol, chan, u, v
+    The image dimensionality is time, frequency, polarization, u, v
 
     Parameters
     ----------
@@ -380,7 +382,7 @@ def make_empty_lmuv_image(
 ) -> xr.Dataset:
     """
     Create an image xarray.Dataset with only coordinates (no datavariables).
-    The image dimensionality is time, pol, chan, l, m, u, v
+    The image dimensionality is time, frequency, polarization, l, m, u, v
 
     Parameters
     ----------

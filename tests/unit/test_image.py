@@ -150,11 +150,14 @@ class xds_from_image_test(ImageBase):
     _exp_attrs = {}
     _exp_attrs["direction"] = {
         "reference": {
-            "type": "sky_coord",
-            "frame": "FK5",
-            "equinox": "J2000.0",
-            "value": [1.832595714594046, -0.6981317007977318],
-            "units": ["rad", "rad"],
+            "data": [1.832595714594046, -0.6981317007977318],
+            "dims": ["l", "m"],
+            "attrs": {
+                "type": "sky_coord",
+                "frame": "fk5",
+                "equinox": "j2000.0",
+                "units": ["rad", "rad"],
+            },
         },
         # "conversion_system": "FK5",
         # "conversion_equinox": "J2000",
@@ -162,8 +165,22 @@ class xds_from_image_test(ImageBase):
         # crval or pointingcenter will also change the latpole when the
         # casacore image is reopened. As long as the xds gets the latpole
         # that the casacore image has is all we care about for testing
-        "latpole": {"value": -40.0 * np.pi / 180, "units": "rad", "type": "quantity"},
-        "longpole": {"value": np.pi, "units": "rad", "type": "quantity"},
+        "latpole": {
+            "attrs": {
+                "type": "quantity",
+                "units": ["rad"],
+            },
+            "data": -40.0 * np.pi / 180,
+            "dims": ["l", "m"],
+        },
+        "lonpole": {
+            "attrs": {
+                "type": "quantity",
+                "units": ["rad"],
+            },
+            "data": np.pi,
+            "dims": ["l", "m"],
+        },
         "pc": np.array([[1.0, 0.0], [0.0, 1.0]]),
         "projection_parameters": np.array([0.0, 0.0]),
         "projection": "SIN",
@@ -527,6 +544,7 @@ class xds_from_image_test(ImageBase):
             my_exp_attrs["user"]["comment"] = (
                 "casacore non-standard usage: 4 LSD, " "5 GEO, 6 SOU, 7 GAL"
             )
+        print("xds attrs", xds.attrs["direction"]["reference"])
         self.dict_equality(
             xds.attrs, my_exp_attrs, "Got attrs", "Expected attrs", ["history"]
         )

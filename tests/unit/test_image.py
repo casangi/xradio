@@ -1581,48 +1581,74 @@ class make_empty_image_tests(ImageBase):
             )
 
     def run_attrs_tests(self, skel):
+        direction = {
+            'latpole': {
+                'data': 0.0,
+                "dims": ["l", "m"],
+                "attrs": {
+                    'type': 'quantity',
+                    'units': 'rad',
+                }
+            },
+            'lonpole': {
+                'value': np.pi,
+                'units': 'rad',
+                'type': 'quantity'
+            },
+            'pc': [[1.0, 0.0], [0.0, 1.0]],
+            # 'primary_beam_center': {
+            #     'attrs': {
+            #         'initial': True,
+            #         'type': 'sky_coord',
+            #         'frame': 'fk5',
+            #         'equinox': 'j2000.0',
+            #         'units': ['rad', 'rad']
+            #     }
+            #     'data': [0.2, -0.5],
+            #     'dims': ["l", "m"],
+            # },
+            'projection': 'SIN',
+            'projection_parameters': [0.0, 0.0],
+            'reference': {
+                'attrs': {
+                    'type': 'sky_coord',
+                    'frame': 'fk5',
+                    'equinox': 'j2000.0',
+                    'units': ['rad', 'rad']
+                },
+                'data': [0.2, -0.5],
+                'dims': ["l", "m"],
+            },
+        }
+        data_groups = { 'base': {} }
         expec = {
-            "direction": {
-                # "conversion_system": "FK5",
-                # "conversion_equinox": "J2000",
-                "longpole": {"type": "quantity", "value": np.pi, "units": "rad"},
-                "latpole": {"type": "quantity", "value": 0.0, "units": "rad"},
-                "pc": np.array([[1.0, 0.0], [0.0, 1.0]]),
-                "projection": "SIN",
-                "projection_parameters": np.array([0.0, 0.0]),
-                "reference": {
-                    "type": "sky_coord",
-                    "frame": "FK5",
-                    "equinox": "J2000",
-                    "value": [0.2, -0.5],
-                    "units": ["rad", "rad"],
-                },
-            },
-            "active_mask": "",
-            "beam": None,
-            "object_name": "",
-            "obsdate": {
-                "type": "time",
-                "scale": "UTC",
-                "format": "MJD",
-                "value": 54000.0,
-                "units": "d",
-            },
-            "observer": "Karl Jansky",
-            "pointing_center": {"value": np.array([0.2, -0.5]), "initial": True},
-            "description": "",
-            "telescope": {
-                "name": "ALMA",
-                "position": {
-                    "type": "position",
-                    "ellipsoid": "GRS80",
-                    "units": ["rad", "rad", "m"],
-                    "value": np.array(
-                        [-1.1825465955049892, -0.3994149869262738, 6379946.01326443]
-                    ),
-                },
-            },
-            "history": None,
+            # "active_mask": "",
+            # "beam": None,
+            "data_groups": data_groups,
+            "direction": direction,
+            # "object_name": "",
+            # "obsdate": {
+            #     "type": "time",
+            #     "scale": "UTC",
+            #     "format": "MJD",
+            #     "value": 54000.0,
+            #     "units": "d",
+            # },
+            # "observer": "Karl Jansky",
+            # "pointing_center": {"value": np.array([0.2, -0.5]), "initial": True},
+            # "description": "",
+            # "telescope": {
+            #     "name": "ALMA",
+            #     "position": {
+            #         "type": "position",
+            #         "ellipsoid": "GRS80",
+            #         "units": ["rad", "rad", "m"],
+            #         "value": np.array(
+            #             [-1.1825465955049892, -0.3994149869262738, 6379946.01326443]
+            #         ),
+            #     },
+            # },
+            # "history": None,
         }
         self.dict_equality(skel.attrs, expec, "got", "expected")
 

@@ -35,6 +35,18 @@ def make_frequency_reference_dict(
         "dims": [],
     }
 
+def make_skycoord_dict(
+    data: list[float], units: list[str], frame: str
+) -> dict:
+    return {
+        "attrs": {
+            "frame": frame,
+            "type": "skycoord"
+        },
+        "data": data,
+        "dims": ["l", "m"],
+    }
+
 def make_time_measure_attrs(units=["s"], scale="utc", time_format="mjd") -> dict:
     u = units if isinstance(units, list) else [units]
     return {"units": u, "scale": scale, "format": time_format, "type": "time"}

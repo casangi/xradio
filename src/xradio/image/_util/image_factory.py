@@ -5,7 +5,10 @@ from typing import List, Union
 from .common import _c, _compute_world_sph_dims, _l_m_attr_notes
 from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import (
-    make_frequency_reference_dict, make_quantity, make_time_coord_attrs
+    make_frequency_reference_dict,
+    make_quantity,
+    make_skycoord_dict,
+    make_time_coord_attrs
 )
 
 
@@ -68,44 +71,57 @@ def _add_common_attrs(
         "type": "doppler",
         "units": "m/s"
     }
+    # debug = make_skycoord_dict(
+    #     data=phase_center, units=["rad", "rad"], frame=direction_reference
+    # ).update({"equinox": "j2000"})
+    # print("debug", debug)
     xds.attrs = {
+        "data_groups": { "base": {}  },
         "direction": {
             "reference": {
-                "type": "sky_coord",
-                "frame": direction_reference,
-                "equinox": "J2000",
-                "value": list(phase_center),
-                "units": ["rad", "rad"],
+                **make_skycoord_dict(
+                    data=phase_center,
+                    units=["rad", "rad"],
+                    frame=direction_reference
+                ),
+                **{"equinox": "j2000"}
             },
-            "longpole": make_quantity(np.pi, "rad"),
+            # "reference": {
+            #     "type": "sky_coord",
+            #     "frame": direction_reference,
+            #     "equinox": "j2000",
+            #     "value": list(phase_center),
+            #     "units": ["rad", "rad"],
+            # },
+            "lonpole": make_quantity(np.pi, "rad"),
             "latpole": make_quantity(0.0, "rad"),
-            "pc": np.array([[1.0, 0.0], [0.0, 1.0]]),
+            "pc": [[1.0, 0.0], [0.0, 1.0]],
             "projection": projection,
             "projection_parameters": [0.0, 0.0],
         },
-        "active_mask": "",
-        "beam": None,
-        "object_name": "",
-        "obsdate": {
-            "type": "time",
-            "scale": "UTC",
-            "format": "MJD",
-            "value": np.array(xds.time)[0],
-            "units": "d",
-        },
-        "observer": "Karl Jansky",
-        "pointing_center": {"value": list(phase_center), "initial": True},
-        "description": "",
-        "telescope": {
-            "name": "ALMA",
-            "position": {
-                "type": "position",
-                "ellipsoid": "GRS80",
-                "units": ["rad", "rad", "m"],
-                "value": [-1.1825465955049892, -0.3994149869262738, 6379946.01326443],
-            },
-        },
-        "history": None,
+        # "active_mask": "",
+        # "beam": None,
+        # "object_name": "",
+        # "obsdate": {
+        #     "type": "time",
+        #     "scale": "UTC",
+        #     "format": "MJD",
+        #     "value": np.array(xds.time)[0],
+        #     "units": "d",
+        # },
+        # "observer": "Karl Jansky",
+        # "pointing_center": {"value": list(phase_center), "initial": True},
+        # "description": "",
+        # "telescope": {
+        #     "name": "ALMA",
+        #     "position": {
+        #         "type": "position",
+        #         "ellipsoid": "GRS80",
+        #         "units": ["rad", "rad", "m"],
+        #         "value": [-1.1825465955049892, -0.3994149869262738, 6379946.01326443],
+        #     },
+        # },
+        # "history": None,
     }
     return xds
 

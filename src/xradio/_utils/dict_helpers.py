@@ -40,8 +40,9 @@ def make_skycoord_dict(
 ) -> dict:
     return {
         "attrs": {
-            "frame": frame,
-            "type": "skycoord"
+            "frame": frame.lower(),
+            "type": "sky_coord",
+            "units": units,
         },
         "data": data,
         "dims": ["l", "m"],

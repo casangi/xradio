@@ -75,17 +75,14 @@ def _add_common_attrs(
     #     data=phase_center, units=["rad", "rad"], frame=direction_reference
     # ).update({"equinox": "j2000"})
     # print("debug", debug)
+    reference = make_skycoord_dict(
+        data=phase_center, units=["rad", "rad"], frame=direction_reference
+    )
+    reference["attrs"].update({"equinox": "j2000.0"})
     xds.attrs = {
         "data_groups": { "base": {}  },
         "direction": {
-            "reference": {
-                **make_skycoord_dict(
-                    data=phase_center,
-                    units=["rad", "rad"],
-                    frame=direction_reference
-                ),
-                **{"equinox": "j2000"}
-            },
+            "reference": reference,
             # "reference": {
             #     "type": "sky_coord",
             #     "frame": direction_reference,
@@ -93,8 +90,8 @@ def _add_common_attrs(
             #     "value": list(phase_center),
             #     "units": ["rad", "rad"],
             # },
-            "lonpole": make_quantity(np.pi, "rad"),
-            "latpole": make_quantity(0.0, "rad"),
+            "lonpole": make_quantity(np.pi, "rad", ["l", "m"]),
+            "latpole": make_quantity(0.0, "rad", ["l", "m"]),
             "pc": [[1.0, 0.0], [0.0, 1.0]],
             "projection": projection,
             "projection_parameters": [0.0, 0.0],
@@ -235,9 +232,21 @@ def _make_empty_sky_image(
     )
     return xds
 
+def _make_uv_coords(
+    xds: xr.Dataset,
+    image_size: Union[list, np.ndarray],
+    sky_image_cell_size: Union[list, np.ndarray],
+) -> dict:
+    uv_values = _make_uv_values(image_size, sky_image_cell_size)
+    xds = xds.assign_coords(uv_values)
+    attr = make_quantity(0.0, "lambda")
+    xds.u.attrs = attr.copy()
+    xds.v.attrs = attr.copy()
+    return xds
+
 def _make_uv_values(
     image_size: Union[list, np.ndarray],
-    image_cell_size: Union[list, np.ndarray],
+    sky_image_cell_size: Union[list, np.ndarray],
 ) -> dict:
     im_size_wave = 1 / np.array(sky_image_cell_size)
     uv_cell_size = im_size_wave / np.array(image_size)
@@ -264,9 +273,10 @@ def _make_empty_aperture_image(
     _input_checks(phase_center, image_size, sky_image_cell_size)
     cc = _make_common_coords(pol_coords, chan_coords, time_coords)
     coords = cc["coords"]
-    uv_values = _make_uv_values(image_size, sky_image_cell_size)
-    coords.update(uv_values)
+    # uv_values = _make_uv_values(image_size, sky_image_cell_size)
+    # coords.update(uv_values)
     xds = xr.Dataset(coords=coords)
+    xds = _make_uv_coords(xds, image_size, sky_image_cell_size)
     _add_common_attrs(
         xds,
         cc["restfreq"],
@@ -303,7 +313,7 @@ def _make_empty_lmuv_image(
         spectral_reference,
         do_sky_coords,
     )
-    uv_vals = _make_uv_values(image_size, sky_image_cell_size)
-    xds = xds.assign_coords(uv_vals)
+    # uv_vals = _make_uv_values(image_size, sky_image_cell_size)
+    xds = _make_uv_coords(xds, image_size, sky_image_cell_size)
     return xds
 

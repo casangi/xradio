@@ -56,7 +56,10 @@ class ImageBase(unittest.TestCase):
                         isinstance(two, list) or isinstance(two, np.ndarray)
                     ):
                         if len(one) == 0 or len(two) == 0:
-                            assert len(one) == len(two)
+                            self.assertEqual(
+                                len(one), len(two),
+                                f"{dict1_name}[{k}] != {dict2_name}[{k}], " f"{one} != {two}",
+                            )
                         elif isinstance(one[0], numbers.Number):
                             self.assertTrue(
                                 np.isclose(np.array(one), np.array(two)).all(),
@@ -1533,11 +1536,14 @@ class make_empty_image_tests(ImageBase):
             ],
         ]
         expec2 = {
-            "type": "sky_coord",
-            "frame": "FK5",
-            "equinox": "J2000",
-            "value": [0.2, -0.5],
-            "units": ["rad", "rad"],
+            "data": [0.2, -0.5],
+            "dims": ["l", "m"],
+            "attrs": {
+                "type": "sky_coord",
+                "frame": "fk5",
+                "equinox": "j2000.0",
+                "units": ["rad", "rad"],
+            },
         }
         if do_sky_coords:
             self.assertTrue(
@@ -1561,15 +1567,17 @@ class make_empty_image_tests(ImageBase):
     def run_u_v_tests(self, skel):
         cdelt = 180 * 60 / np.pi / 10
         expec = np.array([(i - 5) * cdelt for i in range(10)])
+        ref_val = {
+            "data": 0.0,
+            "dims": [],
+            "attrs": {
+                "type": "quantity",
+                "units": ["lambda"],
+            },
+        }
         expec_attrs = {
-            "u": {
-                "crval": 0.0,
-                "cdelt": cdelt,
-            },
-            "v": {
-                "crval": 0.0,
-                "cdelt": cdelt,
-            },
+            "u": ref_val,
+            "v": ref_val,
         }
         for c in ["u", "v"]:
             self.assertTrue(
@@ -1587,13 +1595,16 @@ class make_empty_image_tests(ImageBase):
                 "dims": ["l", "m"],
                 "attrs": {
                     'type': 'quantity',
-                    'units': 'rad',
+                    'units': ['rad'],
                 }
             },
             'lonpole': {
-                'value': np.pi,
-                'units': 'rad',
-                'type': 'quantity'
+                'data': np.pi,
+                "dims": ["l", "m"],
+                "attrs": {
+                    'type': 'quantity',
+                    'units': ['rad'],
+                }
             },
             'pc': [[1.0, 0.0], [0.0, 1.0]],
             # 'primary_beam_center': {

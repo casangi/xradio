@@ -1248,7 +1248,6 @@ class VisibilityArray:
     field_and_source_xds: Attr[Union[FieldSourceXds, FieldSourceEphemerisXds]]
     """ Field and source information. Also alows for variant where ephemeris information is included. """
     
-    field_and_source_xds: Attr[FieldSourceXds]
     long_name: Optional[Attr[str]] = "Visibility values"
     """ Long-form name to use for axis. Should be ``"Visibility values"``"""
     units: Attr[list[str]] = ("Jy",)

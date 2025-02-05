@@ -12,7 +12,7 @@ from .write import create_table, revert_time
 try:
     from casacore import tables
 except ImportError:
-    from ....._utils._casacore import casatools_to_casacore as tables
+    from ....._utils._casacore import casacore_from_casatools as tables
 
 
 # TODO: this should be consolidated with the equivalent in read_main_table,

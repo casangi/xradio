@@ -1,7 +1,7 @@
 try:
     from casacore import tables
 except ImportError:
-    from . import casatools_to_casacore as tables
+    from . import casacore_from_casatools as tables
 
 from contextlib import contextmanager
 from typing import Dict, Generator

@@ -1,4 +1,8 @@
-from casacore import images
+try:
+    from casacore import images
+except ImportError:
+    from ...._utils._casacore import casacore_from_casatools as images
+
 from contextlib import contextmanager
 import numpy as np
 from typing import Dict, Generator, List, Union

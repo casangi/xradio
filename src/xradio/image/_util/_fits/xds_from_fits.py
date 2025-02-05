@@ -1,29 +1,25 @@
-import astropy as ap
-from astropy import units as u
-from astropy.io import fits
-from astropy.time import Time
-from ..common import (
-    _compute_linear_world_values,
-    _compute_velocity_values,
-    _compute_world_sph_dims,
-    _convert_beam_to_rad,
-    _default_freq_info,
-    _doppler_types,
-    _freq_from_vel,
-    _get_unit,
-    _get_xds_dim_order,
-    _image_type,
-    _l_m_attr_notes,
-)
-from xradio._utils.coord_math import _deg_to_rad
-from xradio._utils.dict_helpers import make_quantity
 import copy
+import re
+from typing import Union
+
+import astropy as ap
 import dask
 import dask.array as da
 import numpy as np
-import re
-from typing import Union
 import xarray as xr
+from astropy import units as u
+from astropy.io import fits
+from astropy.time import Time
+
+from xradio._utils.coord_math import _deg_to_rad
+from xradio._utils.dict_helpers import make_quantity
+
+from ....measurement_set._utils._utils.stokes_types import stokes_types
+from ..common import (_compute_linear_world_values, _compute_velocity_values,
+                      _compute_world_sph_dims, _convert_beam_to_rad,
+                      _default_freq_info, _doppler_types, _freq_from_vel,
+                      _get_unit, _get_xds_dim_order, _image_type,
+                      _l_m_attr_notes)
 
 
 def _fits_image_to_xds(
@@ -506,32 +502,7 @@ def _get_time_values(helpers):
 
 
 def _get_pol_values(helpers):
-    # as mapped in casacore Stokes.h
-    stokes_map = [
-        "Undefined",
-        "I",
-        "Q",
-        "U",
-        "V",
-        "RR",
-        "RL",
-        "LR",
-        "LL",
-        "XX",
-        "XY",
-        "YX",
-        "YY",
-        "RX",
-        "RY",
-        "LX",
-        "LY",
-        "XR",
-        "XL",
-        "YR",
-        "YL",
-        "PP",
-        "PQ",
-    ]
+
     idx = helpers["ctype"].index("STOKES")
     if idx >= 0:
         vals = []
@@ -541,7 +512,7 @@ def _get_pol_values(helpers):
         stokes_start_idx = crval - cdelt * crpix
         for i in range(helpers["shape"][idx]):
             stokes_idx = (stokes_start_idx + i) * cdelt
-            vals.append(stokes_map[stokes_idx])
+            vals.append(stokes_types[stokes_idx])
         return vals
     else:
         return ["I"]

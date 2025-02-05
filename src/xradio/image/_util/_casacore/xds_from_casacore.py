@@ -11,9 +11,10 @@ import xarray as xr
 from astropy import units as u
 try:
     from casacore import tables
+    from casacore.images import coordinates
 except ImportError:
-    from ...._utils._casacore import casatools_to_casacore as tables
-from casacore.images import coordinates
+    from ...._utils._casacore import casacore_from_casatools as tables
+    from ...._utils._casacore import casacore_from_casatools as coordinates
 
 from .common import (
     _active_mask,
@@ -312,6 +313,9 @@ def _casa_image_to_xds_coords(
                 "note": attr_note[c],
             }
         if do_sky_coords:
+            #from pprint import pprint
+            #print('--->',coord_dict)
+            #pprint(coord_dict)
             for k in coord_dict.keys():
                 if k.startswith("direction"):
                     dc = coordinates.directioncoordinate(coord_dict[k])

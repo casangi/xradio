@@ -12,7 +12,7 @@ import astropy.units
 try:
     from casacore import tables
 except ImportError:
-    from ....._utils._casacore import casatools_to_casacore as tables
+    from ....._utils._casacore import casacore_from_casatools as tables
 
 from .table_query import open_query, open_table_ro
 from xradio._utils.list_and_array import get_pad_value

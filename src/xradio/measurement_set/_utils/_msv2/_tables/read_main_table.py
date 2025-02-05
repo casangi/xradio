@@ -9,7 +9,7 @@ import pandas as pd
 try:
     from casacore import tables
 except ImportError:
-    from ....._utils._casacore import casatools_to_casacore as tables
+    from ....._utils._casacore import casacore_from_casatools as tables
 
 from .read import (
     read_flat_col_chunk,

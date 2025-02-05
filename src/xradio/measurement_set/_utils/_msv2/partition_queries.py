@@ -9,7 +9,7 @@ import xarray as xr
 try:
     from casacore import tables
 except ImportError:
-    from ...._utils._casacore import casatools_to_casacore as tables
+    from ...._utils._casacore import casacore_from_casatools as tables
 
 from ._tables.table_query import open_table_ro, open_query
 from ._tables.read import table_exists

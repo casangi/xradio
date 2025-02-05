@@ -13,7 +13,7 @@ import xarray as xr
 try:
     from casacore import tables
 except ImportError:
-    from ..._utils._casacore import casatools_to_casacore as tables
+    from ..._utils._casacore import casacore_from_casatools as tables
 
 from ._casacore.common import _open_image_ro
 from ._casacore.xds_from_casacore import (

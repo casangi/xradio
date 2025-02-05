@@ -14,7 +14,7 @@ import toolviper.utils.logger as logger
 try:
     from casacore import tables
 except ImportError:
-    from ...._utils._casacore import casatools_to_casacore as tables
+    from ...._utils._casacore import casacore_from_casatools as tables
 
 from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
     create_pointing_xds,

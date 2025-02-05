@@ -37,6 +37,7 @@ def load_processing_set(
         In memory representation of processing set (data is represented by Dask.arrays).
     """
     from xradio._utils.zarr.common import _open_dataset, _get_file_system_and_items
+    from xradio.measurement_set import MeasurementSetXds
 
     file_system, ms_store_list = _get_file_system_and_items(ps_store)
 
@@ -71,7 +72,7 @@ def load_processing_set(
                     "field_and_source_xds"
                 ] = field_and_source_xds_dict[data_group_name]
 
-        ps[ms_name] = xds
+        ps[ms_name] = MeasurementSetXds(xds)
 
     return ps
 

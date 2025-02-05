@@ -195,7 +195,7 @@ def test_s3(tmp_path):
     # probably is because the schema, the converter or the schema cheker have
     # changed since the dataset was uploaded.
     base_test(
-        "s3://viper-test-data/Antennae_North.cal.lsrk.split.py39.v5.vis.zarr",
+        "s3://viper-test-data/Antennae_North.cal.lsrk.split.py39.v7.vis.zarr",
         tmp_path,
         190.0405216217041,
         is_s3=True,
@@ -411,10 +411,10 @@ if __name__ == "__main__":
     # test_sd_A002_Xae00c5_X2e6b(tmp_path=Path("."))
     # test_sd_A002_Xced5df_Xf9d9(tmp_path=Path("."))
     # test_sd_A002_Xe3a5fd_Xe38e(tmp_path=Path("."))
-    # test_s3(tmp_path=Path("."))
+    test_s3(tmp_path=Path("."))
     # test_vlass(tmp_path=Path("."))
     # test_alma(tmp_path=Path("."))
-    test_preconverted_alma(tmp_path=Path("."))
+    # test_preconverted_alma(tmp_path=Path("."))
     # test_ska_mid(tmp_path=Path("."))
     # test_lofar(tmp_path=Path("."))
     # test_meerkat(tmp_path=Path("."))

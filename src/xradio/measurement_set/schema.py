@@ -629,7 +629,7 @@ class EllipsoidPosLocationArray:
 
 @xarray_dataarray_schema
 class BaselineArray:
-    """Model of the baseline_id coordinate in the main dataset (interferometric data, :py:class:`VisibiiltyXds`)"""
+    """Model of the baseline_id coordinate in the main dataset (interferometric data, :py:class:`VisibilityXds`)"""
 
     data: Data[BaselineId, Union[numpy.int64, numpy.int32]]
     """Unique id for each baseline."""
@@ -1223,6 +1223,8 @@ class SpectrumArray:
     polarization: Coordof[PolarizationArray]
 
     field_and_source_xds: Attr[Union[FieldSourceXds, FieldSourceEphemerisXds]]
+    """ Field and source information. Also alows for variant where ephemeris information is included. """
+
     long_name: Optional[Attr[str]] = "Spectrum values"
     """ Long-form name to use for axis. Should be ``"Spectrum values"``"""
     units: Attr[list[str]] = ("Jy",)
@@ -1242,7 +1244,11 @@ class VisibilityArray:
     polarization: Coordof[PolarizationArray]
     frequency: Coordof[FrequencyArray]
 
+    
     field_and_source_xds: Attr[Union[FieldSourceXds, FieldSourceEphemerisXds]]
+    """ Field and source information. Also alows for variant where ephemeris information is included. """
+    
+    field_and_source_xds: Attr[FieldSourceXds]
     long_name: Optional[Attr[str]] = "Visibility values"
     """ Long-form name to use for axis. Should be ``"Visibility values"``"""
     units: Attr[list[str]] = ("Jy",)

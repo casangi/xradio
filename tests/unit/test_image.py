@@ -120,9 +120,9 @@ class xds_from_image_test(ImageBase):
         "time_refer": "UTC",
         "time_unit": "d",
         "units": "Jy/beam",
-        "vel_type": "RADIO",
-        "vel_unit": "m/s",
         "vel_mea_type": "doppler",
+        "doppler_type": "radio",
+        "vel_units": ["m/s"],
         "frequency": [
             1.414995e09,
             1.414996e09,
@@ -136,15 +136,23 @@ class xds_from_image_test(ImageBase):
             1.415004e09,
         ],
         "rest_frequency": {
-            "type": "quantity",
-            "value": 1420405751.7860003,
-            "units": "Hz",
+            "attrs": {
+                "type": "quantity",
+                "units": ["Hz"],
+            },
+            "data": 1420405751.7860003,
+            "dims": [],
         },
-        "freq_units": "Hz",
-        "freq_frame": "LSRK",
+        "reference_frequency": {
+            "attrs": {
+                "observer": "lsrk",
+                "type": "frequency",
+                "units": ["Hz"],
+            },
+            "data": 1415000000.0,
+            "dims": [],
+        },
         "wave_unit": "mm",
-        "freq_crval": 1415000000.0,
-        "freq_cdelt": 1000.0,
     }
     _rad_to_arcmin = np.pi / 180 / 60
     _exp_attrs = {}
@@ -395,20 +403,27 @@ class xds_from_image_test(ImageBase):
             "got",
             "expected",
         )
-        self.assertTrue(
-            np.isclose(xds.frequency.attrs["crval"], ev["freq_crval"]),
-            "Incorrect frequency crval",
+        self.dict_equality(
+            xds.frequency.attrs["reference_value"],
+            ev["reference_frequency"],
+            "got",
+            "expected",
         )
-        self.assertTrue(
-            np.isclose(xds.frequency.attrs["cdelt"], ev["freq_cdelt"]),
-            "Incorrect frequency cdelt",
-        )
-        self.assertEqual(xds.frequency.attrs["type"], "frequency", "Wrong measure type")
+        print("got attrs", xds.frequency.attrs)
         self.assertEqual(
-            xds.frequency.attrs["units"], ev["freq_units"], "Wrong frequency unit"
+            xds.frequency.attrs["reference_value"]["attrs"]["type"],
+            "frequency",
+            "Wrong measure type"
         )
         self.assertEqual(
-            xds.frequency.attrs["frame"], ev["freq_frame"], "Incorrect frequency frame"
+            xds.frequency.attrs["reference_value"]["attrs"]["units"],
+            ev["reference_frequency"]["attrs"]["units"],
+            "Wrong frequency unit"
+        )
+        self.assertEqual(
+            xds.frequency.attrs["reference_value"]["attrs"]["observer"],
+            ev["reference_frequency"]["attrs"]["observer"],
+            "Incorrect frequency frame"
         )
         self.assertEqual(
             xds.frequency.attrs["wave_unit"],
@@ -448,11 +463,11 @@ class xds_from_image_test(ImageBase):
             )
             self.assertEqual(
                 xds.velocity.attrs["doppler_type"],
-                ev["vel_type"],
+                ev["doppler_type"],
                 "Incoorect velocity type",
             )
         self.assertEqual(
-            xds.velocity.attrs["units"], ev["vel_unit"], "Incoorect velocity unit"
+            xds.velocity.attrs["units"], ev["vel_units"], "Incoorect velocity unit"
         )
         self.assertEqual(
             xds.velocity.attrs["type"],

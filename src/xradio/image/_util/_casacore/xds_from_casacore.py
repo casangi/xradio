@@ -31,7 +31,9 @@ from ..common import (
 )
 from ...._utils._casacore.tables import extract_table_attributes, open_table_ro
 from xradio._utils.coord_math import _deg_to_rad
-from xradio._utils.dict_helpers import make_quantity
+from xradio._utils.dict_helpers import (
+    make_quantity, make_frequency_reference_dict, make_skycoord_dict
+)
 
 """
 def _add_coord_attrs(xds: xr.Dataset, icoords: dict, dir_axes: list) -> xr.Dataset:
@@ -65,11 +67,16 @@ def _add_freq_attrs(xds, coord_dict):
             sd = coord_dict[k]
             meta["rest_frequency"] = make_quantity(sd["restfreq"], "Hz")
             meta["type"] = "frequency"
-            meta["units"] = sd["unit"]
-            meta["frame"] = sd["system"]
+            # meta["units"] = sd["unit"]
+            # meta["frame"] = sd["system"]
             meta["wave_unit"] = sd["waveUnit"]
-            meta["crval"] = sd["wcs"]["crval"]
-            meta["cdelt"] = sd["wcs"]["cdelt"]
+            # meta["crval"] = sd["wcs"]["crval"]
+            # meta["cdelt"] = sd["wcs"]["cdelt"]
+            meta["reference_value"] = make_frequency_reference_dict(
+                value=sd["wcs"]["crval"],
+                units=sd["unit"],
+                observer=sd["system"],
+            )
     if not meta:
         # this is the default frequency information CASA creates
         meta = _default_freq_info()
@@ -128,7 +135,7 @@ def _add_time_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
 
 def _add_vel_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
     vel_coord = xds["velocity"]
-    meta = {"units": "m/s"}
+    meta = {"units": ["m/s"]}
     for k in coord_dict:
         if k.startswith("spectral"):
             sd = coord_dict[k]
@@ -164,22 +171,26 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
         casa_system = coord_dir_dict[system]
         ap_system, ap_equinox = _convert_direction_system(casa_system, "native")
         dir_dict = {}
-        dir_dict["reference"] = {
-            "frame": ap_system,
-            "type": "sky_coord",
-            "equinox": ap_equinox if ap_equinox else None,
-            "value": [0.0, 0.0],
-            "units": ["rad", "rad"],
-        }
+
+        dir_dict["reference"] = make_skycoord_dict(
+            data=[0.0, 0.0], units=["rad", "rad"], frame=ap_system
+        )
+        if ap_equinox:
+            dir_dict["reference"]["attrs"]["equinox"] = ap_equinox
         for i in range(2):
             unit = u.Unit(_get_unit(coord_dir_dict["units"][i]))
             q = coord_dir_dict["crval"][i] * unit
             x = q.to("rad")
-            dir_dict["reference"]["value"][i] = x.value
+            dir_dict["reference"]["data"][i] = x.value
         k = "latpole"
         if k in coord_dir_dict:
-            for j in (k, "longpole"):
-                dir_dict[j] = make_quantity(coord_dir_dict[j] * _deg_to_rad, "rad")
+            for j in (k, "lonpole"):
+                m = "longpole" if j == "lonpole" else j
+                dir_dict[j] = make_quantity(
+                    value=coord_dir_dict[m] * _deg_to_rad,
+                    units="rad",
+                    dims=["l", "m"]
+                )
         for j in ("pc", "projection_parameters", "projection"):
             if j in coord_dir_dict:
                 dir_dict[j] = coord_dir_dict[j]
@@ -348,18 +359,18 @@ def _convert_direction_system(
         if verbose:
             logger.info(
                 f"J2000 found as {which} reference frame in CASA image "
-                'This corresponds to FK5(equinox="J2000") in astropy. '
+                'This corresponds to fk5(equinox="j2000") in astropy. '
                 "Metadata will be written appropriately"
             )
-        return ("FK5", "J2000.0")
+        return ("fk5", "j2000.0")
     elif casa_system == "B1950":
         if verbose:
             logger.info(
                 f"B1950 found as {which} reference frame in CASA image "
-                'This corresponds to FK4(equinox="B1950") in astropy. '
+                'This corresponds to fk4(equinox="b1950") in astropy. '
                 "Metadata will be written appropriately"
             )
-        return ("FK4", "B1950.0")
+        return ("fk4", "b1950.0")
     elif casa_system in ("GALACTIC", "ICRS"):
         return (casa_system.lower(), None)
     else:
@@ -510,12 +521,19 @@ def _get_freq_values_attrs(
                     cdelt=wcs["cdelt"],
                 )
                 attrs["rest_frequency"] = make_quantity(sd["restfreq"], "Hz")
-                attrs["type"] = "frequency"
-                attrs["units"] = sd["unit"]
-                attrs["frame"] = sd["system"]
+                # attrs["type"] = "frequency"
+                # attrs["units"] = sd["unit"]
+                # attrs["frame"] = sd["system"]
                 attrs["wave_unit"] = sd["waveUnit"]
-                attrs["crval"] = sd["wcs"]["crval"]
-                attrs["cdelt"] = sd["wcs"]["cdelt"]
+                # attrs["crval"] = sd["wcs"]["crval"]
+                # attrs["cdelt"] = sd["wcs"]["cdelt"]
+
+                attrs["reference_value"] = make_frequency_reference_dict(
+                    value=sd["wcs"]["crval"],
+                    units=sd["unit"],
+                    observer=sd["system"],
+                )
+
                 attrs = copy.deepcopy(attrs)
                 break
     else:
@@ -773,7 +791,7 @@ def _get_velocity_values(coord_dict: dict, freq_values: list) -> list:
             restfreq = coord_dict[k]["restfreq"]
             break
     return _compute_velocity_values(
-        restfreq=restfreq, freq_values=freq_values, doppler="RADIO"
+        restfreq=restfreq, freq_values=freq_values, doppler="radio"
     )
 
 
@@ -791,11 +809,11 @@ def _get_velocity_values_attrs(
     if not attrs:
         attrs["doppler_type"] = _doppler_types[0]
 
-    attrs["units"] = "m/s"
+    attrs["units"] = ["m/s"]
     attrs["type"] = "doppler"
     return (
         _compute_velocity_values(
-            restfreq=restfreq, freq_values=freq_values, doppler="RADIO"
+            restfreq=restfreq, freq_values=freq_values, doppler="radio"
         ),
         copy.deepcopy(attrs),
     )

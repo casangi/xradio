@@ -28,7 +28,7 @@ def make_frequency_reference_dict(
     return {
         "attrs": {
             "units": u,
-            "observer": observer,
+            "observer": observer.lower(),
             "type": "frequency"
         },
         "data": value,

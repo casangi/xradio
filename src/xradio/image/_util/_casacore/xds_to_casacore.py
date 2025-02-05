@@ -19,19 +19,22 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
     """
     direction = {}
     xds_dir = xds.attrs["direction"]
-    direction["system"] = xds_dir["reference"]["equinox"]
+    direction["system"] = xds_dir["reference"]["attrs"]["equinox"]
     direction["projection"] = xds_dir["projection"]
     direction["projection_parameters"] = xds_dir["projection_parameters"]
-    direction["units"] = np.array(xds_dir["reference"]["units"], dtype="<U16")
-    direction["crval"] = np.array(xds_dir["reference"]["value"])
+    direction["units"] = np.array(xds_dir["reference"]["attrs"]["units"], dtype="<U16")
+    direction["crval"] = np.array(xds_dir["reference"]["data"])
     direction["cdelt"] = np.array((xds.l.cdelt, xds.m.cdelt))
     direction["crpix"] = _compute_sky_reference_pixel(xds)
     direction["pc"] = np.array(xds_dir["pc"])
     direction["axes"] = ["Right Ascension", "Declination"]
     direction["conversionSystem"] = direction["system"]
     for s in ["longpole", "latpole"]:
-        # longpole, latpole are numerical values in degrees in casa images
-        direction[s] = Angle(str(xds_dir[s]["value"]) + xds_dir[s]["units"]).deg
+        m = "lonpole" if s == "longpole" else s
+        # lonpole, latpole are numerical values in degrees in casa images
+        direction[s] = Angle(
+            str(xds_dir[m]["data"]) + xds_dir[m]["attrs"]["units"][0]
+        ).deg
     return direction
 
 
@@ -69,11 +72,11 @@ def _compute_spectral_dict(xds: xr.Dataset) -> dict:
     # spec["nativeType"] = _native_types.index(xds.frequency.attrs["native_type"])
     # FREQ
     spec["nativeType"] = 0
-    spec["restfreq"] = xds.frequency.attrs["rest_frequency"]["value"]
+    spec["restfreq"] = xds.frequency.attrs["rest_frequency"]["data"]
     # spec["restfreqs"] = copy.deepcopy(xds.frequency.attrs["restfreqs"]["value"])
     spec["restfreqs"] = [spec["restfreq"]]
-    spec["system"] = xds.frequency.attrs["frame"]
-    spec["unit"] = xds.frequency.attrs["units"]
+    spec["system"] = xds.frequency.attrs["reference_value"]["attrs"]["observer"]
+    spec["unit"] = xds.frequency.attrs["reference_value"]["attrs"]["units"]
     spec["velType"] = _doppler_types.index(xds.velocity.attrs["doppler_type"])
     spec["velUnit"] = xds.velocity.attrs["units"]
     spec["version"] = 2
@@ -81,8 +84,8 @@ def _compute_spectral_dict(xds: xr.Dataset) -> dict:
     wcs = {}
     wcs["ctype"] = "FREQ"
     wcs["pc"] = 1.0
-    wcs["crval"] = xds.frequency.attrs["crval"]
-    wcs["cdelt"] = xds.frequency.attrs["cdelt"]
+    wcs["crval"] = xds.frequency.attrs["reference_value"]["data"]
+    wcs["cdelt"] = xds.frequency[1] - xds.frequency[0]
     wcs["crpix"] = (wcs["crval"] - xds.frequency.values[0]) / wcs["cdelt"]
     spec["wcs"] = wcs
     return spec
@@ -137,7 +140,7 @@ def _coord_dict_from_xds(xds: xr.Dataset) -> dict:
     # this probbably needs some verification
     coord["worldreplace0"] = [0.0, 0.0]
     coord["worldreplace1"] = np.array(coord["stokes1"]["crval"])
-    coord["worldreplace2"] = np.array([xds.frequency.attrs["crval"]])
+    coord["worldreplace2"] = np.array([xds.frequency[1] - xds.frequency[0]])
     return coord
 
 

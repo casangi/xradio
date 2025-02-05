@@ -10,7 +10,7 @@ from xradio._utils.dict_helpers import make_quantity
 
 _c = 2.99792458e08 * u.m / u.s
 # OPTICAL = Z
-_doppler_types = ["RADIO", "Z", "RATIO", "BETA", "GAMMA"]
+_doppler_types = ["radio", "z", "ratio", "beta", "gamma",]
 _image_type = "image_type"
 
 
@@ -105,7 +105,7 @@ def _default_freq_info() -> dict:
     return {
         "rest_frequency": make_quantity(1420405751.7860003, "Hz"),
         "type": "frequency",
-        "frame": "LSRK",
+        "frame": "lsrk",
         "units": "Hz",
         "waveUnit": "mm",
         "cdelt": 1000.0,

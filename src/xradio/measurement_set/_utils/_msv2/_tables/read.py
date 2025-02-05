@@ -9,7 +9,11 @@ import pandas as pd
 import xarray as xr
 
 import astropy.units
-from casacore import tables
+
+try:
+    from casacore import tables
+except ImportError:
+    from ....._utils._casacore import casacore_from_casatools as tables
 
 from .table_query import open_query, open_table_ro
 from xradio._utils.list_and_array import get_pad_value
@@ -307,6 +311,8 @@ def add_units_measures(
                 ):  # Little fix for Meerkat data where the units are a string.
                     cc_units = [cc_units]
 
+                if isinstance(cc_units, np.ndarray):
+                    cc_units = cc_units.tolist()
                 if not isinstance(cc_units, list) or not cc_units:
                     logger.warning(
                         f"Invalid units found for column/variable {col}: {cc_units}"
@@ -1244,13 +1250,14 @@ def read_col_conversion(
     # Use casacore to get the shape of a row for this column
     #################################################################################
 
-    # Get the total number of rows in the base measurement set
-    nrows_total = tb_tool.nrows()
-
-    # getcolshapestring() only works on columns where a row element is an
-    # array ie. fails for TIME
-    # Assumes the RuntimeError is because the column is a scalar
-    try:
+    # tb.getcolshapestring() only works on columns where a row element is an
+    # array i.e. fails for EXPOSURE, TIME_CENTROID
+    # A RuntimeError will be triggered when calling getcolshapestring() on a column
+    # contain scalars.
+    if tb_tool.isscalarcol(col):
+        # Get the shape of a row for this column
+        extra_dimensions = ()
+    else:
         shape_string = tb_tool.getcolshapestring(col)[0]
         # Convert `shape_string` into a tuple that numpy understands
         extra_dimensions = tuple(
@@ -1259,8 +1266,6 @@ def read_col_conversion(
                 for idx in shape_string.replace("[", "").replace("]", "").split(", ")
             ]
         )
-    except RuntimeError:
-        extra_dimensions = ()
 
     #################################################################################
 

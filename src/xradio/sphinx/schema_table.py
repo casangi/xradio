@@ -155,7 +155,7 @@ class SchemaTableDirective(ObjectDescription):
 
 
 def format_literals(typ):
-    
+
     # a | b | c: Recurse and merge
     if typing.get_origin(typ) == typing.Union:
         type_args = typing.get_args(typ)
@@ -211,14 +211,14 @@ def format_attr_model_text(state, attr) -> StringList:
             with switch_source_input(state, vl):
                 state.nested_parse(vl, 0, line)
             return line
-        
+
         if typing.get_origin(attr.typ) == typing.Union:
             vl = StringList()
             type_args = typing.get_args(attr.typ)
             options = []
-            for i,arg in enumerate(type_args):
+            for i, arg in enumerate(type_args):
                 vl.append(f":py:class:`~{arg.__module__}.{arg.__name__}`", "")
-                if i+1 < len(type_args):
+                if i + 1 < len(type_args):
                     vl.append(" or ", "")
             with switch_source_input(state, vl):
                 state.nested_parse(vl, 0, line)

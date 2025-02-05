@@ -8,7 +8,8 @@ try:
     from casacore import tables
 except ImportError:
     from ....._utils._casacore import casacore_from_casatools as tables
-    
+
+
 def revert_time(datetimes: np.ndarray) -> np.ndarray:
     """
     Convert time back from pandas datetime ref to casacore ref

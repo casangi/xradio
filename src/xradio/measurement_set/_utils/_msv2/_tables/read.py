@@ -9,6 +9,7 @@ import pandas as pd
 import xarray as xr
 
 import astropy.units
+
 try:
     from casacore import tables
 except ImportError:

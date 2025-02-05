@@ -11,6 +11,7 @@ import xarray as xr
 import traceback
 
 import toolviper.utils.logger as logger
+
 try:
     from casacore import tables
 except ImportError:
@@ -610,15 +611,15 @@ def create_data_variables(
                     "Time to read column " + str(col) + " : " + str(time.time() - start)
                 )
             except Exception as exc:
-                logger.debug(f'Could not load column {col}, exception: {exc}')
+                logger.debug(f"Could not load column {col}, exception: {exc}")
                 logger.debug(traceback.format_exc())
 
-                if ('WEIGHT_SPECTRUM' == col) and (
-                    'WEIGHT' in col_names
+                if ("WEIGHT_SPECTRUM" == col) and (
+                    "WEIGHT" in col_names
                 ):  # Bogus WEIGHT_SPECTRUM column, need to use WEIGHT.
                     xds = get_weight(
                         xds,
-                        'WEIGHT',
+                        "WEIGHT",
                         tb_tool,
                         time_baseline_shape,
                         tidxs,

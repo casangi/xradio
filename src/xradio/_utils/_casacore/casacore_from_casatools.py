@@ -141,7 +141,9 @@ class table(casatools.table):
         concatsubtables: List = [],
         **kwargs,
     ):
-        super().__init__(tablename=tablename, lockoptions=lockoptions, nomodify=True, **kwargs)
+        super().__init__(
+            tablename=tablename, lockoptions=lockoptions, nomodify=True, **kwargs
+        )
 
     def row(self, columnnames: List[str] = [], exclude: bool = False) -> "tablerow":
         """Access rows in the table.
@@ -210,7 +212,9 @@ class table(casatools.table):
         else:
             tablename = self.name()
             tb_query_from = self
-        tb_query = taqlcommand.replace("$mtable", tablename).replace("$gtable", tablename)
+        tb_query = taqlcommand.replace("$mtable", tablename).replace(
+            "$gtable", tablename
+        )
         logger.debug(f"tb_query_from: {tb_query_from.name()}")
         logger.debug(f"tb_query_cmd:  {tb_query}")
         tb_query_to = _wrap_table(swig_object=tb_query_from._swigobj.taql(tb_query))
@@ -251,7 +255,7 @@ class table(casatools.table):
     def getcellslice(self, columnname, rownr, blc, trc, incr=1):
         """Retrieve a sliced portion of a cell from a specified column.
 
-        This method extracts a subarray from a cell within a table column, 
+        This method extracts a subarray from a cell within a table column,
         given the bottom-left corner (BLC) and top-right corner (TRC) indices.
         It also supports an optional increment (`incr`) to control step size.
 
@@ -260,15 +264,15 @@ class table(casatools.table):
         columnname : str
             The name of the column from which to extract data.
         rownr : int or Sequence[int]
-            The row number(s) from which to extract data. If a sequence is provided, 
+            The row number(s) from which to extract data. If a sequence is provided,
             it is reversed before processing.
         blc : Sequence[int]
             The bottom-left corner indices of the slice.
         trc : Sequence[int]
             The top-right corner indices of the slice.
         incr : int or Sequence[int], optional
-            Step size for slicing. If a sequence is provided, it is reversed. 
-            If a single integer is given, it is expanded to match `blc` dimensions. 
+            Step size for slicing. If a sequence is provided, it is reversed.
+            If a single integer is given, it is expanded to match `blc` dimensions.
             Defaults to 1.
 
         Returns
@@ -286,7 +290,7 @@ class table(casatools.table):
         if isinstance(rownr, Sequence):
             rownr = rownr[::-1]
         else:
-            rownr = [rownr]*len(blc)
+            rownr = [rownr] * len(blc)
         rownr = 0
         if isinstance(blc, Sequence):
             blc = list(map(int, blc[::-1]))
@@ -295,7 +299,7 @@ class table(casatools.table):
         if isinstance(incr, Sequence):
             incr = incr[::-1]
         else:
-            incr = [incr]*len(blc)
+            incr = [incr] * len(blc)
         ret = super().getcellslice(columnname=columnname, rownr=rownr, blc=blc, trc=trc)
         return ret
 
@@ -400,9 +404,11 @@ class image(casatools.image):
         imageinfo = self._flatten_multibeam(imageinfo)
         # table.getdesc()
 
-        return {'imageinfo': imageinfo,
-                'coordinates': self.coordsys().torecord(),
-                'miscinfo': self.miscinfo()}
+        return {
+            "imageinfo": imageinfo,
+            "coordinates": self.coordsys().torecord(),
+            "miscinfo": self.miscinfo(),
+        }
 
     def datatype(self):
         return self.pixeltype()
@@ -423,18 +429,20 @@ class image(casatools.image):
         dict
             Updated `imageinfo` dictionary with flattened per-plane beam data.
         """
-        if 'perplanebeams' in imageinfo:
-            perplanebeams = imageinfo['perplanebeams']['beams']
+        if "perplanebeams" in imageinfo:
+            perplanebeams = imageinfo["perplanebeams"]["beams"]
             perplanebeams_flat = {}
-            nchan = imageinfo['perplanebeams']['nChannels']
-            npol = imageinfo['perplanebeams']['nStokes']
+            nchan = imageinfo["perplanebeams"]["nChannels"]
+            npol = imageinfo["perplanebeams"]["nStokes"]
 
             for c in range(nchan):
                 for p in range(npol):
                     k = nchan * p + c
-                    perplanebeams_flat["*" + str(k)] = perplanebeams['*'+str(c)]['*'+str(p)]
-            imageinfo['perplanebeams'].pop('beams', None)
-            imageinfo['perplanebeams'].update(perplanebeams_flat)
+                    perplanebeams_flat["*" + str(k)] = perplanebeams["*" + str(c)][
+                        "*" + str(p)
+                    ]
+            imageinfo["perplanebeams"].pop("beams", None)
+            imageinfo["perplanebeams"].update(perplanebeams_flat)
 
         return imageinfo
 
@@ -461,9 +469,9 @@ class coordinatesystem(casatools.coordsys):
         axes = []
         axis_names = self._cs.names()
         for axis_type in self.get_names():
-            axis_inds = self._cs.findcoordinate(axis_type).get('pixel')
+            axis_inds = self._cs.findcoordinate(axis_type).get("pixel")
             axes_list = [axis_names[idx] for idx in axis_inds[::-1]]
-            if axis_type == 'spectral':
+            if axis_type == "spectral":
                 axes_list = axes_list[0]
             axes.append(axes_list)
         return axes
@@ -476,7 +484,7 @@ class coordinatesystem(casatools.coordsys):
         list of float
             The numeric reference pixel values, with axes reversed.
         """
-        return self._cs.referencepixel()['numeric'][::-1]
+        return self._cs.referencepixel()["numeric"][::-1]
 
     def get_referencevalue(self):
         """Get the reference value at the reference pixel.
@@ -486,7 +494,7 @@ class coordinatesystem(casatools.coordsys):
         list of float
             The numeric reference values, with axes reversed.
         """
-        return self._cs.referencevalue()['numeric'][::-1]
+        return self._cs.referencevalue()["numeric"][::-1]
 
     def get_increment(self):
         """Get the coordinate increments per pixel.
@@ -496,7 +504,7 @@ class coordinatesystem(casatools.coordsys):
         list of float
             The coordinate increment values, with axes reversed.
         """
-        return self._cs.increment()['numeric'][::-1]
+        return self._cs.increment()["numeric"][::-1]
 
     def get_unit(self):
         """Get the units of the coordinate axes.
@@ -536,7 +544,7 @@ class directioncoordinate(coordinatesystem):
         self._rec = rec
 
     def get_projection(self):
-        return self._rec['projection']
+        return self._rec["projection"]
 
 
 @wrap_class_methods
@@ -553,7 +561,9 @@ class tablerow(casatools.tablerow):
         Whether to exclude the specified columns.
     """
 
-    def __init__(self, table: table, columnnames: List[str] = [], exclude: bool = False):
+    def __init__(
+        self, table: table, columnnames: List[str] = [], exclude: bool = False
+    ):
         super().__init__(table, columnnames=columnnames, exclude=exclude)
 
     @method_wrapper
@@ -572,7 +582,9 @@ class tablerow(casatools.tablerow):
         """
         return super().get(rownr)
 
-    def __getitem__(self, key: Union[int, slice]) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+    def __getitem__(
+        self, key: Union[int, slice]
+    ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
         """Retrieve rows using indexing or slicing.
 
         Parameters

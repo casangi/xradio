@@ -9,7 +9,7 @@ try:
     from casacore import tables
 except ImportError:
     from ....._utils._casacore import casacore_from_casatools as tables
-    
+
 
 from .load import load_col_chunk
 from .read_main_table import get_partition_ids, redim_id_data_vars, rename_vars

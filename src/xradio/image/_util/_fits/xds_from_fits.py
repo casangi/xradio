@@ -2,7 +2,6 @@ import copy
 import re
 from typing import Union
 
-import astropy as ap
 import dask
 import dask.array as da
 import numpy as np
@@ -15,11 +14,19 @@ from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import make_quantity
 
 from ....measurement_set._utils._utils.stokes_types import stokes_types
-from ..common import (_compute_linear_world_values, _compute_velocity_values,
-                      _compute_world_sph_dims, _convert_beam_to_rad,
-                      _default_freq_info, _doppler_types, _freq_from_vel,
-                      _get_unit, _get_xds_dim_order, _image_type,
-                      _l_m_attr_notes)
+from ..common import (
+    _compute_linear_world_values,
+    _compute_velocity_values,
+    _compute_world_sph_dims,
+    _convert_beam_to_rad,
+    _default_freq_info,
+    _doppler_types,
+    _freq_from_vel,
+    _get_unit,
+    _get_xds_dim_order,
+    _image_type,
+    _l_m_attr_notes,
+)
 
 
 def _fits_image_to_xds(

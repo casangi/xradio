@@ -9,6 +9,7 @@ import toolviper.utils.logger as logger
 import numpy as np
 import xarray as xr
 from astropy import units as u
+
 try:
     from casacore import tables
     from casacore.images import coordinates
@@ -313,9 +314,6 @@ def _casa_image_to_xds_coords(
                 "note": attr_note[c],
             }
         if do_sky_coords:
-            #from pprint import pprint
-            #print('--->',coord_dict)
-            #pprint(coord_dict)
             for k in coord_dict.keys():
                 if k.startswith("direction"):
                     dc = coordinates.directioncoordinate(coord_dict[k])

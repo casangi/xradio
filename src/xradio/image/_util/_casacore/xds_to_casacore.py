@@ -19,7 +19,9 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
     """
     direction = {}
     xds_dir = xds.attrs["direction"]
-    direction["system"] = xds_dir["reference"]["attrs"]["equinox"]
+    direction["system"] = xds_dir["reference"]["attrs"]["equinox"].upper()
+    if direction["system"] == "J2000.0":
+        direction["system"] = "J2000"
     direction["projection"] = xds_dir["projection"]
     direction["projection_parameters"] = xds_dir["projection_parameters"]
     direction["units"] = np.array(xds_dir["reference"]["attrs"]["units"], dtype="<U16")
@@ -75,17 +77,19 @@ def _compute_spectral_dict(xds: xr.Dataset) -> dict:
     spec["restfreq"] = xds.frequency.attrs["rest_frequency"]["data"]
     # spec["restfreqs"] = copy.deepcopy(xds.frequency.attrs["restfreqs"]["value"])
     spec["restfreqs"] = [spec["restfreq"]]
-    spec["system"] = xds.frequency.attrs["reference_value"]["attrs"]["observer"]
-    spec["unit"] = xds.frequency.attrs["reference_value"]["attrs"]["units"]
+    spec["system"] = xds.frequency.attrs["reference_value"]["attrs"]["observer"].upper()
+    u = xds.frequency.attrs["reference_value"]["attrs"]["units"]
+    spec["unit"] = u if isinstance(u, str) else u[0]
     spec["velType"] = _doppler_types.index(xds.velocity.attrs["doppler_type"])
-    spec["velUnit"] = xds.velocity.attrs["units"]
+    u = xds.velocity.attrs["units"]
+    spec["velUnit"] = u if isinstance(u, str) else u[0]
     spec["version"] = 2
     spec["waveUnit"] = xds.frequency.attrs["wave_unit"]
     wcs = {}
     wcs["ctype"] = "FREQ"
     wcs["pc"] = 1.0
     wcs["crval"] = xds.frequency.attrs["reference_value"]["data"]
-    wcs["cdelt"] = xds.frequency[1] - xds.frequency[0]
+    wcs["cdelt"] = xds.frequency.values[1] - xds.frequency.values[0]
     wcs["crpix"] = (wcs["crval"] - xds.frequency.values[0]) / wcs["cdelt"]
     spec["wcs"] = wcs
     return spec
@@ -322,7 +326,6 @@ def _write_initial_image(
             if xds[dv][0, 0, 0, 0, 0].values.dtype == "float32":
                 value = "default"
             break
-    # print(type(value))
     image_full_path = os.path.expanduser(imagename)
     with _create_new_image(
         image_full_path, mask=maskname, shape=image_shape, value=value

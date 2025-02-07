@@ -52,7 +52,6 @@ def _add_common_attrs(
     xds.time.attrs = make_time_coord_attrs(units=["d"], scale="utc", time_format="mjd")
     # xds.time.attrs = {"format": "MJD", "scale": "UTC", "units": "d"}
     freq_vals = np.array(xds.frequency)
-    print("freq_vals", freq_vals)
     xds.frequency.attrs = {
         "observer": spectral_reference.lower(),
         "reference_value": make_frequency_reference_dict(
@@ -74,7 +73,6 @@ def _add_common_attrs(
     # debug = make_skycoord_dict(
     #     data=phase_center, units=["rad", "rad"], frame=direction_reference
     # ).update({"equinox": "j2000"})
-    # print("debug", debug)
     reference = make_skycoord_dict(
         data=phase_center, units=["rad", "rad"], frame=direction_reference
     )

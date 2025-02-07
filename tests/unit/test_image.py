@@ -409,7 +409,6 @@ class xds_from_image_test(ImageBase):
             "got",
             "expected",
         )
-        print("got attrs", xds.frequency.attrs)
         self.assertEqual(
             xds.frequency.attrs["reference_value"]["attrs"]["type"],
             "frequency",
@@ -559,7 +558,6 @@ class xds_from_image_test(ImageBase):
             my_exp_attrs["user"]["comment"] = (
                 "casacore non-standard usage: 4 LSD, " "5 GEO, 6 SOU, 7 GAL"
             )
-        print("xds attrs", xds.attrs["direction"]["reference"])
         self.dict_equality(
             xds.attrs, my_exp_attrs, "Got attrs", "Expected attrs", ["history"]
         )
@@ -582,7 +580,6 @@ class xds_from_image_test(ImageBase):
                 },
                 do_sky_coords=i == 0,
             )
-            print(xds)
             if not zarr:
                 with open_image_ro(imagename) as im:
                     self.assertTrue(
@@ -594,8 +591,6 @@ class xds_from_image_test(ImageBase):
                         f"got wrong data type, got {xds[data_variable_name].dtype}, "
                         + f"expected {im.datatype()}",
                     )
-            print(xds.attrs["direction"])
-
             self.assertEqual(
                 xds[data_variable_name].shape, (1, 1, 4, 8, 12), "Wrong block shape"
             )
@@ -752,12 +747,15 @@ class xds_to_casacore(xds_from_image_test):
 
     @classmethod
     def _clean(cls):
+        pass
+        """
         for f in [cls._outname]:
             if os.path.exists(f):
                 if os.path.isdir(f):
                     shutil.rmtree(f)
                 else:
                     os.remove(f)
+        """
 
     @classmethod
     def setUpClass(cls):
@@ -1703,7 +1701,6 @@ class make_empty_sky_image_tests(make_empty_image_tests):
     @classmethod
     def setUpClass(cls):
         cls._skel_im = make_empty_image_tests.create_image(make_empty_sky_image, True)
-        print(cls._skel_im)
         cls._skel_im_no_sky = make_empty_image_tests.create_image(
             make_empty_sky_image, False
         )

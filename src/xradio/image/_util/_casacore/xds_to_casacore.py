@@ -144,7 +144,8 @@ def _coord_dict_from_xds(xds: xr.Dataset) -> dict:
     # this probbably needs some verification
     coord["worldreplace0"] = [0.0, 0.0]
     coord["worldreplace1"] = np.array(coord["stokes1"]["crval"])
-    coord["worldreplace2"] = np.array([xds.frequency[1] - xds.frequency[0]])
+    # print("spectral", coord["spectral2"])
+    coord["worldreplace2"] = np.array(coord["spectral2"]["wcs"]["crval"])
     return coord
 
 
@@ -207,9 +208,10 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
         # do nothing if xds.attrs['beam'] is None
         ii["restoringbeam"] = copy.deepcopy(xds.attrs["beam"])
         for k in ["major", "minor", "pa"]:
-            del ii["restoringbeam"][k]["type"]
-            ii["restoringbeam"][k]["unit"] = ii["restoringbeam"][k]["units"]
-            del ii["restoringbeam"][k]["units"]
+            # print("*** ", k, ii["restoringbeam"][k])
+            del ii["restoringbeam"][k]["dims"]
+            ii["restoringbeam"][k]["unit"] = ii["restoringbeam"][k]["attrs"]["units"][0]
+            del ii["restoringbeam"][k]["attrs"]
         ii["restoringbeam"]["positionangle"] = copy.deepcopy(ii["restoringbeam"]["pa"])
         del ii["restoringbeam"]["pa"]
     return ii

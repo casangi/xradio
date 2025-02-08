@@ -608,9 +608,9 @@ def _get_multibeam(imageinfo: dict) -> Union[np.ndarray, None]:
             k = nchan * p + c
             b = beam["*" + str(k)]
             beam_dict = _convert_beam_to_rad(b)
-            beam_array[0][p][c][0] = beam_dict["major"]["value"]
-            beam_array[0][p][c][1] = beam_dict["minor"]["value"]
-            beam_array[0][p][c][2] = beam_dict["pa"]["value"]
+            beam_array[0][p][c][0] = beam_dict["major"]["data"]
+            beam_array[0][p][c][1] = beam_dict["minor"]["data"]
+            beam_array[0][p][c][2] = beam_dict["pa"]["data"]
     return beam_array
 
 

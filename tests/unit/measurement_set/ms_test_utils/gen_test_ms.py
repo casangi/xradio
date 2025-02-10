@@ -894,14 +894,19 @@ def gen_subt_syscal(mspath: str):
     This is just to enable minimal coverage of some WEATHER handling code in
     the casacore tables read/write functions.
     """
-    with open_opt_subtable(mspath, "SYSCAL") as wtbl:
-        wtbl.addrows(1)
-        wtbl.putcol("ANTENNA_ID", 0)
-        wtbl.putcol("FEED_ID", 0)
-        wtbl.putcol("SPECTRAL_WINDOW_ID", 0)
-        wtbl.putcol("TIME", 1e10)
-        wtbl.putcol("INTERVAL", 1e12)
-        # all data/flags columns in the WEATHER table are optional!
+    ncal = 1
+    with open_opt_subtable(mspath, "SYSCAL") as sctbl:
+        sctbl.addrows(ncal)
+        sctbl.putcol("ANTENNA_ID", 0)
+        sctbl.putcol("FEED_ID", 0)
+        sctbl.putcol("SPECTRAL_WINDOW_ID", 0)
+        sctbl.putcol("TIME", 1e10)
+        sctbl.putcol("INTERVAL", 1e12)
+        # all data/flags columns in the SYSCAL table are optional!
+        sctbl.putcol("PHASE_DIFF", np.repeat(0.3, ncal))
+        # sctbl.putcol("TCAL", np.broadcast_to(50.3, (ncal, 2)))
+        sctbl.putcol("TCAL_SPECTRUM", np.broadcast_to(50.3, (ncal, 10, 2)))
+        # TRX, etc.
 
 
 def gen_subt_weather(mspath: str):

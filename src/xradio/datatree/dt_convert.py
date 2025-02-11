@@ -8,7 +8,8 @@ PROPOSAL_URL = "https://confluence.skatelescope.org/display/SEC/Datatree+proposa
 def create_parser():
   p = argparse.ArgumentParser()
   p.add_argument("ps", help="Processing Set")
-  p.add_argument("-m", "--move")
+  p.add_argument("-m", "--move",
+                 help="Moves Processing Set Datasets instead of copying them")
   p.add_argument("-o", "--option",
                  help=f"Datatree proposal option as described at {PROPOSAL_URL}",
                  default=1.0,
@@ -30,7 +31,7 @@ def create_parser():
 
 if __name__ == "__main__":
   args = create_parser().parse_args()
-  logging.basicConfig(format="%(levelname)s %(message)s", level=logging.DEBUG)
+  logging.basicConfig(format="%(levelname)s %(message)s", level=logging.INFO)
   builder = DatatreeBuilder()
   builder = builder.with_url(args.ps)
   builder = builder.with_option(args.option)

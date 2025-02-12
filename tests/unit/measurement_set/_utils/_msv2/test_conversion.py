@@ -298,3 +298,25 @@ def test_estimate_memory_and_cores_for_partitions(
 
     assert res[0] == pytest.approx(expected_estimate[0])
     assert res[1:] == expected_estimate[1:]
+
+
+def test_convert_and_write_partition_empty(ms_empty_required):
+
+    conversion.convert_and_write_partition(
+        ms_empty_required.fname,
+        "out_file_test_empty.zarr",
+        "msv4_id",
+        {"DATA_DESC_ID": [0], "OBS_MODE": ["scan_intent#subscan_intent"]},
+        use_table_iter=False,
+    )
+
+
+def test_convert_and_write_partition_min(ms_minimal_required):
+
+    conversion.convert_and_write_partition(
+        ms_minimal_required.fname,
+        "out_file_test_convert_write.zarr",
+        "msv4_id",
+        {"DATA_DESC_ID": [0], "OBS_MODE": ["scan_intent#subscan_intent"]},
+        use_table_iter=False,
+    )

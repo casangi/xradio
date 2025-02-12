@@ -10,6 +10,11 @@ class InvalidAccessorLocation(ValueError):
   pass
 
 
+VISIBILITY_DATASET_TYPES = {"visibility", "spectrum", "wvr"}
+SECONDARY_DATASET_TYPES = {"antenna", "field_and_source", "gain_curve", "system_calibration", "weather"}
+DATASET_TYPES = VISIBILITY_DATASET_TYPES | SECONDARY_DATASET_TYPES
+
+
 @xarray.register_datatree_accessor("msa")
 class MeasurementSetAccessor:
   _dt: DataTree
@@ -104,7 +109,7 @@ class MeasurementSetAccessor:
   @property
   def antenna(self) -> DataTree:
     """ Access the antenna dataset """
-    if self._dt.attrs.get("type") not in {"visibility", "spectrum", "wvr"}:
+    if self._dt.attrs.get("type") not in VISIBILITY_DATASET_TYPES:
       raise InvalidAccessorLocation(
         f"{self._dt.path} is not a visibility node. "
         f"There is no antenna dataset connected with it.")

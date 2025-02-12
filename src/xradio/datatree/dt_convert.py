@@ -4,7 +4,7 @@ import logging
 
 from xradio.datatree.datatree_builder import DatatreeBuilder
 import xradio.datatree.datatree_accessor  # noqa
-from xradio.datatree.datatree_accessor import InvalidAccessorLocation
+from xradio.datatree.datatree_accessor import InvalidAccessorLocation, VISIBILITY_DATASET_TYPES, DATASET_TYPES
 
 from xarray import DataTree
 import pytest
@@ -28,10 +28,6 @@ def assert_raises(expected_exception):
 
 
 PROPOSAL_URL = "https://confluence.skatelescope.org/display/SEC/Datatree+proposal"
-
-VISIBILITY_DATASET_TYPES = {"visibility", "spectrum", "wvr"}
-SECONDARY_DATASET_TYPES = {"antenna", "field_and_source", "gain_curve", "system_calibration", "weather"}
-DATASET_TYPES = VISIBILITY_DATASET_TYPES | SECONDARY_DATASET_TYPES
 
 def create_parser():
   p = argparse.ArgumentParser()

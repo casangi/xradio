@@ -194,6 +194,9 @@ class DatatreeBuilder:
     else:
       root = zarr.open_group(store=destination_root, mode="w-")
 
+    root.attrs["__datatree_proposal_option__"] = self._option
+    root.attrs["__datatree_proposal_remove_suffix__"] = self._remove_suffix
+
     # Create zarr partition groups below the root
     for p, (partition, datasets) in enumerate(partition_datasets.items(), 1):
       # Create root children

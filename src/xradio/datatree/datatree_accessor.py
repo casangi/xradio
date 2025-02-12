@@ -19,6 +19,10 @@ class MeasurementSetAccessor:
   def __init__(self, datatree: DataTree):
     self._dt = datatree
     root = self._dt.root
+
+    # option and remove_suffix would be unnecessary in a complete solution
+    # but are used here to delegate based on the different prototype options
+    # and configurations
     try:
       option = float(root.attrs["__datatree_proposal_option__"])
     except (KeyError, ValueError):

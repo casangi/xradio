@@ -6,10 +6,6 @@ from xradio.datatree.datatree_builder import DatatreeBuilder
 import xradio.datatree.datatree_accessor  # noqa
 from xradio.datatree.datatree_accessor import InvalidAccessorLocation, VISIBILITY_DATASET_TYPES, DATASET_TYPES
 
-from xarray import DataTree
-import pytest
-
-
 
 @contextlib.contextmanager
 def assert_raises(expected_exception):
@@ -74,6 +70,8 @@ if __name__ == "__main__":
 
   if args.test in {"open", "read"}:
     import xarray
+    from xarray import DataTree
+
     dt = xarray.open_datatree(builder.maybe_generate_destination_url())
 
     def pass_filter(node: DataTree) -> bool:

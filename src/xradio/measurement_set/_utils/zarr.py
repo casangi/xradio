@@ -123,11 +123,11 @@ def write_cor(
 
     all_start = time.time()
 
-    write_part_keys(cds.partitions, outpath, compressor)
+    # write_part_keys(cds.partitions, outpath, compressor)
 
-    write_metainfo(outpath, cds.metainfo, chunks_on_disk, compressor)
+    # write_metainfo(outpath, cds.metainfo, chunks_on_disk, compressor)
 
-    write_partitions(outpath, cds.partitions, chunks_on_disk, compressor)
+    # write_partitions(outpath, cds.partitions, chunks_on_disk, compressor)
 
     all_time = time.time() - all_start
     logger.info(f"Time to prepare and save dataset to_zarr {outpath}: {all_time}")

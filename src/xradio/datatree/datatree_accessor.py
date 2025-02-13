@@ -107,7 +107,7 @@ class MeasurementSetAccessor:
     return self._get_optional_dataset("weather_xds")
 
   @property
-  def antenna(self) -> DataTree:
+  def antennas(self) -> DataTree:
     """ Access the antenna dataset """
     if self._dt.attrs.get("type") not in VISIBILITY_DATASET_TYPES:
       raise InvalidAccessorLocation(

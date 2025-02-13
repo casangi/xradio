@@ -84,7 +84,7 @@ if __name__ == "__main__":
     # Perform basic filtering and accessor testing
     for node in dt.filter(pass_filter).subtree:
       if node.attrs.get("type") in VISIBILITY_DATASET_TYPES:
-        assert node.msa.antenna.attrs["type"] == "antenna"
+        assert node.msa.antennas.attrs["type"] == "antenna"
         if weather := node.msa.weather:
            assert weather.attrs["type"] == "weather"
         if gain_curve := node.msa.gain_curve:
@@ -96,7 +96,7 @@ if __name__ == "__main__":
           node.msa.weather
 
         with assert_raises(InvalidAccessorLocation):
-          node.msa.antenna
+          node.msa.antennas
 
     if args.test == "read":
 

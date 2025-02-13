@@ -16,7 +16,11 @@ from ..common import (
     _l_m_attr_notes,
 )
 from xradio._utils.coord_math import _deg_to_rad
-from xradio._utils.dict_helpers import make_quantity
+from xradio._utils.dict_helpers import (
+    make_quantity,
+    make_frequency_reference_dict,
+    make_skycoord_dict
+)
 import copy
 import dask
 import dask.array as da
@@ -79,13 +83,16 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     meta = {}
     if helpers["has_freq"]:
         meta["rest_frequency"] = make_quantity(helpers["restfreq"], "Hz")
-        meta["frame"] = helpers["specsys"]
-        meta["units"] = "Hz"
+        meta["rest_frequencies"] = [meta["rest_frequency"]]
+        # meta["frame"] = helpers["specsys"]
+        # meta["units"] = "Hz"
         meta["type"] = "frequency"
         meta["wave_unit"] = "mm"
         freq_axis = helpers["freq_axis"]
-        meta["crval"] = helpers["crval"][freq_axis]
-        meta["cdelt"] = helpers["cdelt"][freq_axis]
+        meta["reference_value"] = make_frequency_reference_dict(
+            helpers["crval"][freq_axis], ["Hz"], helpers["specsys"]
+        )
+        # meta["cdelt"] = helpers["cdelt"][freq_axis]
     if not meta:
         # this is the default frequency information CASA creates
         meta = _default_freq_info()
@@ -96,7 +103,7 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
 
 def _add_vel_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     vel_coord = xds.coords["velocity"]
-    meta = {"units": "m/s"}
+    meta = {"units": ["m/s"]}
     if helpers["has_freq"]:
         meta["doppler_type"] = helpers.get("doppler", "RADIO")
     else:
@@ -167,6 +174,10 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
     helpers["ref_sys"] = ref_sys
     helpers["ref_eqx"] = ref_eqx
     # fits does not support conversion frames
+    direction["reference"] = make_skycoord_dict(
+        [0.0, 0.0], units=["rad", "rad"], frame=ref_sys
+    )
+    """
     direction["reference"] = {
         "type": "sky_coord",
         "frame": ref_sys,
@@ -174,15 +185,21 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
         "units": ["rad", "rad"],
         "value": [0.0, 0.0],
     }
+    """
     dir_axes = helpers["dir_axes"]
+    ddata = []
+    dunits = []
     for i in dir_axes:
         x = helpers["crval"][i] * u.Unit(_get_unit(helpers["cunit"][i]))
         x = x.to("rad")
-        direction["reference"]["value"][i] = x.value
+        ddata.append(x.value)
+        # direction["reference"]["value"][i] = x.value
         x = helpers["cdelt"][i] * u.Unit(_get_unit(helpers["cunit"][i]))
-        x = x.to("rad")
-    direction["latpole"] = make_quantity(header["LATPOLE"] * _deg_to_rad, "rad")
-    direction["longpole"] = make_quantity(header["LONPOLE"] * _deg_to_rad, "rad")
+        dunits.append(x.to("rad"))
+    direction["reference"] = make_skycoord_dict(ddata, units=dunits, frame=ref_sys)
+    direction["reference"]["attrs"]["equinox"] = ref_eqx.lower()
+    direction["latpole"] = make_quantity(header["LATPOLE"] * _deg_to_rad, "rad", dims=["l", "m"])
+    direction["lonpole"] = make_quantity(header["LONPOLE"] * _deg_to_rad, "rad", dims=["l", "m"])
     pc = np.zeros([2, 2])
     for i in (0, 1):
         for j in (0, 1):

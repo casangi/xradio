@@ -212,6 +212,8 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
             del ii["restoringbeam"][k]["dims"]
             ii["restoringbeam"][k]["unit"] = ii["restoringbeam"][k]["attrs"]["units"][0]
             del ii["restoringbeam"][k]["attrs"]
+            ii["restoringbeam"][k]["value"] = ii["restoringbeam"][k]["data"]
+            del ii["restoringbeam"][k]["data"]
         ii["restoringbeam"]["positionangle"] = copy.deepcopy(ii["restoringbeam"]["pa"])
         del ii["restoringbeam"]["pa"]
     return ii

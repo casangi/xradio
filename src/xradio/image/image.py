@@ -82,7 +82,7 @@ def read_image(
         )
         do_casa = False
     if do_casa:
-        # next statement is for debug
+        # next statement is short circuit for debug, comment out when not debugging
         # return _read_casa_image(infile, chunks, verbose, do_sky_coords)
         try:
             return _read_casa_image(infile, chunks, verbose, do_sky_coords)
@@ -221,7 +221,7 @@ def make_empty_sky_image(
     chan_coords: Union[list, np.ndarray],
     pol_coords: Union[list, np.ndarray],
     time_coords: Union[list, np.ndarray],
-    direction_reference: str = "FK5",
+    direction_reference: str = "fK5",
     projection: str = "SIN",
     spectral_reference: str = "lsrk",
     do_sky_coords: bool = True,
@@ -244,7 +244,7 @@ def make_empty_sky_image(
         The polarization code for each image polarization.
     time_coords : list or np.ndarray
         The time for each temporal plane in MJD.
-    direction_reference : str, default = 'FK5'
+    direction_reference : str, default = 'fk5'
     projection : str, default = 'SIN'
     spectral_reference : str, default = 'lsrk'
     do_sky_coords : bool
@@ -277,7 +277,7 @@ def blah(
     chan_coords: Union[List[float], np.ndarray],
     pol_coords: Union[List[str], np.ndarray],
     time_coords: Union[List[float], np.ndarray],
-    direction_reference: str = "FK5",
+    direction_reference: str = "fk5",
     projection: str = "SIN",
     spectral_reference: str = "lsrk",
 ) -> xr.Dataset:
@@ -299,7 +299,7 @@ def blah(
         The polarization code for each image polarization.
     time_coords : list or np.ndarray
         The time for each temporal plane in MJD.
-    direction_reference : str, default = 'FK5'
+    direction_reference : str, default = 'fk5'
     projection : str, default = 'SIN'
     spectral_reference : str, default = 'lsrk'
     Returns
@@ -326,7 +326,7 @@ def make_empty_aperture_image(
     chan_coords: Union[List[float], np.ndarray],
     pol_coords: Union[List[str], np.ndarray],
     time_coords: Union[List[float], np.ndarray],
-    direction_reference: str = "FK5",
+    direction_reference: str = "fk5",
     projection: str = "SIN",
     spectral_reference: str = "lsrk",
 ) -> xr.Dataset:
@@ -348,7 +348,7 @@ def make_empty_aperture_image(
         The polarization code for each image polarization.
     time_coords : list or np.ndarray
         The time for each temporal plane in MJD.
-    direction_reference : str, default = 'FK5'
+    direction_reference : str, default = 'fk5'
     projection : str, default = 'SIN'
     spectral_reference : str, default = 'lsrk'
     Returns
@@ -375,7 +375,7 @@ def make_empty_lmuv_image(
     chan_coords: Union[List[float], np.ndarray],
     pol_coords: Union[List[float], np.ndarray],
     time_coords: Union[List[float], np.ndarray],
-    direction_reference: str = "FK5",
+    direction_reference: str = "fk5",
     projection: str = "SIN",
     spectral_reference: str = "lsrk",
     do_sky_coords: bool = True,
@@ -399,7 +399,7 @@ def make_empty_lmuv_image(
         The polarization code for each image polarization.
     time_coords : list or np.ndarray
         The time for each temporal plane in MJD.
-    direction_reference : str, default = 'FK5'
+    direction_reference : str, default = 'fk5'
     projection : str, default = 'SIN'
     spectral_reference : str, default = 'lsrk'
     do_sky_coords : bool

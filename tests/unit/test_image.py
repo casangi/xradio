@@ -437,7 +437,7 @@ class xds_from_image_test(ImageBase):
             # even though the doppler type is RADIO in the casacore
             # image
             freqs = xds.coords["frequency"].values
-            rest_freq = xds.coords["frequency"].attrs["rest_frequency"]["value"]
+            rest_freq = xds.coords["frequency"].attrs["rest_frequency"]["data"]
             v_opt = (rest_freq / freqs - 1) * 299792458
             self.assertTrue(
                 np.isclose(xds.velocity, v_opt).all(), "Incorrect velocities"
@@ -1194,12 +1194,13 @@ class fits_to_xds_test(xds_from_image_test):
                         .to("rad")
                         .value,
                     )
-                    got_comp = got.isel(dict(time=0, polarization=p, frequency=c)).sel(
-                        dict(beam_param=b)
-                    )
+                    got_comp = got.isel(
+                        dict(time=0, polarization=p, frequency=c)
+                    ).sel(dict(beam_param=b))
                 self.assertTrue(
                     np.isclose(got_comp, expec_comp),
-                    f"Incorrect {b} value for polarization {p}, channel {c}. {got_comp.item()} rad vs {expec_comp} rad.",
+                    f"Incorrect {b} value for polarization {p}, channel {c}. "
+                    f"{got_comp.item()} rad vs {expec_comp} rad.",
                 )
 
     # TODO

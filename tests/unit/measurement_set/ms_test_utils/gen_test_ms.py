@@ -311,10 +311,6 @@ def gen_main_table(mspath: str, descr: dict, required_only: bool = True):
     # - FEED1, FEED2, assumed 0
     # - Not considered: ANTENNA3, FEED3, PHASE_ID, TIME_EXTRA_PREC
 
-    # TODO: Would need a way to include the optional tables added by hand to the main 'keywords', but
-    # as "Table" type
-    # ms_desc["_keywords_"]["ASDM_EXECBLOCK"] = "foo"
-
     with default_ms(mspath, ms_desc, ms_data_man_info) as msv2:
         desc = msv2.getcoldesc("UVW")
         assert desc["dataManagerType"] == "TiledColumnStMan"
@@ -901,7 +897,8 @@ def gen_subt_syscal(mspath: str):
     the casacore tables read/write functions.
     """
     ncal = 1
-    with open_opt_subtable(mspath, "SYSCAL") as sctbl:
+    subt_name = "SYSCAL"
+    with open_opt_subtable(mspath, subt_name) as sctbl:
         sctbl.addrows(ncal)
         sctbl.putcol("ANTENNA_ID", 0)
         sctbl.putcol("FEED_ID", 0)
@@ -914,6 +911,9 @@ def gen_subt_syscal(mspath: str):
         sctbl.putcol("TCAL_SPECTRUM", np.broadcast_to(50.3, (ncal, 10, 2)))
         # TRX, etc.
 
+    with tables.table(mspath, ack=False, readonly=False) as main:
+        main.putkeyword(subt_name, f"Table: {mspath}/{subt_name}")
+
 
 def gen_subt_weather(mspath: str):
     """
@@ -923,12 +923,16 @@ def gen_subt_weather(mspath: str):
     This is just to enable minimal coverage of some WEATHER handling code in
     the casacore tables read/write functions.
     """
-    with open_opt_subtable(mspath, "WEATHER") as wtbl:
+    subt_name = "WEATHER"
+    with open_opt_subtable(mspath, subt_name) as wtbl:
         wtbl.addrows(1)
         wtbl.putcol("ANTENNA_ID", 0)
         wtbl.putcol("TIME", 1e12)
         wtbl.putcol("INTERVAL", 1e12)
         # all data/flags columns in the WEATHER table are optional!
+
+    with tables.table(mspath, ack=False, readonly=False) as main:
+        main.putkeyword(subt_name, f"Table: {mspath}/{subt_name}")
 
 
 def gen_subt_asdm_receiver(mspath: str):
@@ -937,7 +941,8 @@ def gen_subt_asdm_receiver(mspath: str):
     code.
     Simply creates an empty table and checks no rwos
     """
-    rec_path = Path(mspath) / "ASDM_RECEIVER"
+    subt_name = "ASDM_RECEIVER"
+    rec_path = Path(mspath) / subt_name
     tabdesc = {
         "receiverId": {
             "valueType": "int",
@@ -975,6 +980,9 @@ def gen_subt_asdm_receiver(mspath: str):
         tbl.putcol("spectralWindowId", 0)
         tbl.putcol("timeInterval", 0)
 
+    with tables.table(mspath, ack=False, readonly=False) as main:
+        main.putkeyword(subt_name, f"Table: {mspath}/{subt_name}")
+
 
 def gen_subt_asdm_execblock(mspath: str):
     """
@@ -982,7 +990,8 @@ def gen_subt_asdm_execblock(mspath: str):
     subtables.
     For now it simply creates a table with one row
     """
-    rec_path = Path(mspath) / "ASDM_EXECBLOCK"
+    subt_name = "ASDM_EXECBLOCK"
+    rec_path = Path(mspath) / subt_name
     tabdesc = {
         "execBlockIDId": {
             "valueType": "string",
@@ -1063,3 +1072,6 @@ def gen_subt_asdm_execblock(mspath: str):
         tbl.putcol("observingScriptUID", "uid://A003/X1abtest/X987")
         tbl.putcol("observingLog", np.broadcast_to("test log line 0", (nrows, 1)))
         # tbl.putcol("observingLog", np.broadcast_to(np.array(["test log line 0", "test log line 1"], dtype="str"), (nrows, 2)))
+
+    with tables.table(mspath, ack=False, readonly=False) as main:
+        main.putkeyword(subt_name, f"Table: {mspath}/{subt_name}")

@@ -169,6 +169,8 @@ def gen_test_ms(
 
         # ASDM_* subtables. One simple example
         gen_subt_asdm_receiver(msname)
+        # ASDM_EXECBLOCK is used in create_info_dicts when available
+        gen_subt_asdm_execblock(msname)
 
     return outdescr
 
@@ -308,6 +310,10 @@ def gen_main_table(mspath: str, descr: dict, required_only: bool = True):
     # - DATA_DESC_ID, PROCESSOR_ID: given in descr
     # - FEED1, FEED2, assumed 0
     # - Not considered: ANTENNA3, FEED3, PHASE_ID, TIME_EXTRA_PREC
+
+    # TODO: Would need a way to include the optional tables added by hand to the main 'keywords', but
+    # as "Table" type
+    # ms_desc["_keywords_"]["ASDM_EXECBLOCK"] = "foo"
 
     with default_ms(mspath, ms_desc, ms_data_man_info) as msv2:
         desc = msv2.getcoldesc("UVW")
@@ -927,7 +933,7 @@ def gen_subt_weather(mspath: str):
 
 def gen_subt_asdm_receiver(mspath: str):
     """
-    Produces an empty table, for basic coverage of ASDM_* subtables handling
+    **** Produces an empty table, for basic coverage of ASDM_* subtables handling ****
     code.
     Simply creates an empty table and checks no rwos
     """
@@ -968,3 +974,92 @@ def gen_subt_asdm_receiver(mspath: str):
         tbl.putcol("receiverId", 0)
         tbl.putcol("spectralWindowId", 0)
         tbl.putcol("timeInterval", 0)
+
+
+def gen_subt_asdm_execblock(mspath: str):
+    """
+    Produces a basic ASDM/EXECBLOCK table, for basic coverage of code that handles the ASDM_*
+    subtables.
+    For now it simply creates a table with one row
+    """
+    rec_path = Path(mspath) / "ASDM_EXECBLOCK"
+    tabdesc = {
+        "execBlockIDId": {
+            "valueType": "string",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "execBlockNumId": {
+            "valueType": "string",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "execBlockUID": {
+            "valueType": "string",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "sessionReference": {
+            "valueType": "string",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "observingScript": {
+            "valueType": "string",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "observingScriptUID": {
+            "valueType": "string",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "observingLog": {
+            "valueType": "string",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "ndim": 1,
+            "_c_order": True,
+            "keywords": {},
+        },
+    }
+
+    nrows = 1
+    with tables.table(
+        str(rec_path), tabledesc=tabdesc, nrow=nrows, readonly=False, ack=False
+    ) as tbl:
+        tbl.putcol("execBlockIDId", "1")
+        tbl.putcol("execBlockNumId", "3")
+        tbl.putcol("execBlockUID", "uid://A001/X1abtest/X123")
+        tbl.putcol("sessionReference", "test_session_ref")
+        tbl.putcol("observingScript", "test script")
+        tbl.putcol("observingScriptUID", "uid://A003/X1abtest/X987")
+        tbl.putcol("observingLog", np.broadcast_to("test log line 0", (nrows, 1)))
+        # tbl.putcol("observingLog", np.broadcast_to(np.array(["test log line 0", "test log line 1"], dtype="str"), (nrows, 2)))

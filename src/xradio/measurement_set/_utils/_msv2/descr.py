@@ -160,6 +160,6 @@ def populate_ms_descr(
     elif mode == "flat":
         summary += [(ddi, (sdf["rows"], sdf["chans"], sdf["pols"]))]
     else:
-        summary += [((ddi, sdf["times"], sdf["baselines"], sdf["chans"], sdf["pols"]))]
+        summary += [(ddi, sdf["times"], sdf["baselines"], sdf["chans"], sdf["pols"])]
 
     return sdf

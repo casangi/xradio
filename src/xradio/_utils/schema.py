@@ -1,5 +1,6 @@
 import toolviper.utils.logger as logger
 import xarray as xr
+from typing import Union
 
 
 def convert_generic_xds_to_xradio_schema(
@@ -7,6 +8,7 @@ def convert_generic_xds_to_xradio_schema(
     msv4_xds: xr.Dataset,
     to_new_data_variables: dict[str, list],
     to_new_coords: dict[str, list],
+    ref_code: Union[int, None] = None,
 ) -> xr.Dataset:
     """Converts a generic xarray Dataset to the xradio schema.
 
@@ -63,7 +65,7 @@ def convert_generic_xds_to_xradio_schema(
 
         if key in column_description:
             msv4_measure = column_description_casacore_to_msv4_measure(
-                column_description[key]
+                column_description[key], ref_code
             )
         else:
             msv4_measure = None

@@ -64,12 +64,13 @@ def test_make_global_coords_min(ms_minimal_required):
     from xradio.measurement_set._utils._utils.xds_helper import make_global_coords
     from xradio.measurement_set._utils._utils.xds_helper import vis_xds_packager_mxds
 
-    from xradio.measurement_set._utils.msv2 import read_ms
+    # from xradio.measurement_set._utils.msv2 import read_ms
 
     # TODO: fixture forf an xds (main) + a cds fixture
-    cds = read_ms(ms_minimal_required.fname, partition_scheme="intent")
+    # cds = read_ms(ms_minimal_required.fname, partition_scheme="intent")
     # xds = list(cds.partitions.values())[0]
-    mxds = xarray.Dataset(attrs={"metainfo": cds.metainfo, "partitions": {}})
+    # mxds = xarray.Dataset(attrs={"metainfo": cds.metainfo, "partitions": {}})
+    mxds = xarray.Dataset(attrs={"metainfo": {}, "partitions": {}})
 
     with pytest.raises(
         ValueError, match="different number of dimensions on data and dims"

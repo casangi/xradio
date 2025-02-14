@@ -50,14 +50,14 @@ def test_create_table_pol(pol_xds_min, tmp_path):
     create_table(outfile=outtab, xds=pol_xds_min, max_rows=100, generic=True)
 
 
-def test_create_table_ant_with_col(ant_xds_min, tmp_path):
+def test_create_table_ant_with_col(generic_antenna_xds_min, tmp_path):
     """Writes sub-list of columns"""
     from xradio.measurement_set._utils._msv2._tables.write import create_table
 
     outtab = str(Path(tmp_path, "test_create_table_ant_out.tab"))
     create_table(
         outfile=outtab,
-        xds=ant_xds_min,
+        xds=generic_antenna_xds_min,
         max_rows=100,
         cols={"NAME": "name", "POSITION": "position", "DISH_DIAMETER": "dish_diameter"},
         generic=True,

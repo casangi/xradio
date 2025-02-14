@@ -375,7 +375,7 @@ def test_add_units_measures_dubious_units(main_xds_min):
         "DATA": main_xds_min.VIS,
         "TIME_CENTROID": main_xds_min.TIME_CENTROID,
     }
-    print(f"{xds_vars=}, {main_xds_min=}")
+
     res = add_units_measures(xds_vars, col_descr)
     assert xds_vars["time"].attrs
     assert xds_vars["DATA"].attrs
@@ -414,11 +414,11 @@ def test_get_pad_value_state_id(main_xds_min):
     assert res == get_pad_value(np.int64)
 
 
-def test_redimension_ms_subtable_source(source_xds_min):
+def test_redimension_ms_subtable_source(generic_source_xds_min):
     from xradio.measurement_set._utils._msv2._tables.read import redimension_ms_subtable
     import xarray as xr
 
-    res = redimension_ms_subtable(source_xds_min, "SOURCE")
+    res = redimension_ms_subtable(generic_source_xds_min, "SOURCE")
     assert isinstance(res, xr.Dataset)
     src_coords = ["SOURCE_ID", "TIME", "SPECTRAL_WINDOW_ID", "PULSAR_ID"]
     assert all([coord in res.coords for coord in src_coords])

@@ -154,6 +154,15 @@ def ant_xds_min(cds_minimal_required):
 
 
 @pytest.fixture(scope="session")
+def generic_antenna_xds_min(ms_minimal_required):
+    """A generic antenna xds (loaded form MSv2 mostly as is), loaded from the MS/ANTENNA subtable"""
+    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
+
+    generic_antenna_xds = load_generic_table(ms_minimal_required.fname, "ANTENNA")
+    return generic_antenna_xds
+
+
+@pytest.fixture(scope="session")
 def field_xds_min(cds_minimal_required):
     """A field xds, loaded from the minimal MS/FIELD subtable"""
 
@@ -184,13 +193,29 @@ def observation_xds_min(cds_minimal_required):
 
 
 @pytest.fixture(scope="session")
-def source_xds_min(cds_minimal_required):
-    """A source xds, loaded from the minimal MS/SOURCE subtable"""
+def generic_source_xds_min(ms_minimal_required):
+    """A generic source xds (loaded form MSv2 mostly as is), loaded from the minimal MS/SOURCE subtable"""
+    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
 
-    subt = cds_minimal_required.metainfo["source"]
-    # Or alternatively, from ms_minimal_required read subtable
-    # subt = load_generic_table(ms_minimal_required.fname, "SOURCE")
+    subt = load_generic_table(ms_minimal_required.fname, "SOURCE")
     return subt
+
+
+@pytest.fixture(scope="session")
+def field_and_source_xds_min(ms_minimal_required):
+    """A field_and_source_xds (no ephemeris), loaded from the minimal MS/FIELD+SOURCE subtables"""
+
+    field_and_source_xds, source_id, num_lines = create_field_and_source_xds(
+        ms_minimal_required.fname,
+        np.arange(0, 1),
+        0,
+        np.arange(0, 1),
+        False,
+        (0, 1e10),
+        xr.DataArray(),
+    )
+
+    return field_and_source_xds
 
 
 def quick_fix_ndarray_shape_attrs(part):
@@ -214,13 +239,15 @@ def quick_fix_ndarray_shape_attrs(part):
 @pytest.fixture(scope="session")
 def main_xds_min(ms_minimal_required):
     """A main xds (one partition, when partitioning by intent"""
-    from xradio.measurement_set._utils.msv2 import read_ms
+    # from xradio.measurement_set._utils.msv2 import read_ms
 
-    cds = read_ms(ms_minimal_required.fname, partition_scheme="intent")
-    part_key = (0, 0, "scan_intent#subscan_intent")
-    part = cds.partitions[part_key]
+    # cds = read_ms(ms_minimal_required.fname, partition_scheme="intent")
+    # part_key = (0, 0, "scan_intent#subscan_intent")
+    # part = cds.partitions[part_key]
 
-    quick_fix_ndarray_shape_attrs(part)
+    # quick_fix_ndarray_shape_attrs(part)
+
+    part = xr.Dataset()
 
     yield part
 
@@ -228,9 +255,22 @@ def main_xds_min(ms_minimal_required):
 @pytest.fixture(scope="session")
 def cds_minimal_required(ms_minimal_required):
     """a simple cds data structure read from an MS (also a fixture defined here)"""
-    from xradio.measurement_set._utils.msv2 import read_ms
+    # from xradio.measurement_set._utils.msv2 import read_ms
+    from xradio.measurement_set._utils._utils.cds import CASAVisSet
 
-    cds = read_ms(ms_minimal_required.fname)
+    # cds = read_ms(ms_minimal_required.fname)
+    cds = CASAVisSet(
+        {
+            "spectral_window": xr.Dataset(),
+            "polarization": xr.Dataset(),
+            "antenna": xr.Dataset(),
+            "field": xr.Dataset(),
+            "feed": xr.Dataset(),
+            "source": xr.Dataset(),
+        },
+        {},
+        {},
+    )
 
     for _key, part in cds.partitions.items():
         quick_fix_ndarray_shape_attrs(part)

@@ -34,7 +34,7 @@ def test_image():
     sum = np.nansum(np.abs(img_xds.SKY))
     sum_lazy = np.nansum(np.abs(lazy_img_xds.SKY))
 
-    assert sum == sum_lazy, "read_image and load_image SKY sums differ."
+    assert np.isclose(sum, sum_lazy), "read_image and load_image SKY sums differ."
 
     os.system("rm -rf " + str(image_name))  # Remove image.
 

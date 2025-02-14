@@ -50,21 +50,22 @@ class ImageBase(unittest.TestCase):
                         f"{dict1_name}[{k}] != {dict2_name}[{k}]:\n"
                         + f"{one} vs\n{two}",
                     )
-                elif (
-                        isinstance(one, list) or isinstance(one, np.ndarray)
-                    ) and (
-                        isinstance(two, list) or isinstance(two, np.ndarray)
-                    ):
-                        if len(one) == 0 or len(two) == 0:
-                            self.assertEqual(
-                                len(one), len(two),
-                                f"{dict1_name}[{k}] != {dict2_name}[{k}], " f"{one} != {two}",
-                            )
-                        elif isinstance(one[0], numbers.Number):
-                            self.assertTrue(
-                                np.isclose(np.array(one), np.array(two)).all(),
-                                f"{dict1_name}[{k}] != {dict2_name}[{k}], " f"{one} != {two}",
-                            )
+                elif (isinstance(one, list) or isinstance(one, np.ndarray)) and (
+                    isinstance(two, list) or isinstance(two, np.ndarray)
+                ):
+                    if len(one) == 0 or len(two) == 0:
+                        self.assertEqual(
+                            len(one),
+                            len(two),
+                            f"{dict1_name}[{k}] != {dict2_name}[{k}], "
+                            f"{one} != {two}",
+                        )
+                    elif isinstance(one[0], numbers.Number):
+                        self.assertTrue(
+                            np.isclose(np.array(one), np.array(two)).all(),
+                            f"{dict1_name}[{k}] != {dict2_name}[{k}], "
+                            f"{one} != {two}",
+                        )
                 else:
                     self.assertEqual(
                         type(dict1[k]),
@@ -412,17 +413,17 @@ class xds_from_image_test(ImageBase):
         self.assertEqual(
             xds.frequency.attrs["reference_value"]["attrs"]["type"],
             "frequency",
-            "Wrong measure type"
+            "Wrong measure type",
         )
         self.assertEqual(
             xds.frequency.attrs["reference_value"]["attrs"]["units"],
             ev["reference_frequency"]["attrs"]["units"],
-            "Wrong frequency unit"
+            "Wrong frequency unit",
         )
         self.assertEqual(
             xds.frequency.attrs["reference_value"]["attrs"]["observer"],
             ev["reference_frequency"]["attrs"]["observer"],
-            "Incorrect frequency frame"
+            "Incorrect frequency frame",
         )
         self.assertEqual(
             xds.frequency.attrs["wave_unit"],
@@ -1194,9 +1195,9 @@ class fits_to_xds_test(xds_from_image_test):
                         .to("rad")
                         .value,
                     )
-                    got_comp = got.isel(
-                        dict(time=0, polarization=p, frequency=c)
-                    ).sel(dict(beam_param=b))
+                    got_comp = got.isel(dict(time=0, polarization=p, frequency=c)).sel(
+                        dict(beam_param=b)
+                    )
                 self.assertTrue(
                     np.isclose(got_comp, expec_comp),
                     f"Incorrect {b} value for polarization {p}, channel {c}. "
@@ -1241,13 +1242,13 @@ class make_empty_image_tests(ImageBase):
         expec = {
             "observer": "lsrk",
             "reference_value": {
-                'attrs': {
-                    'observer': 'lsrk',
-                    'type': 'frequency',
-                    'units': ['Hz'],
+                "attrs": {
+                    "observer": "lsrk",
+                    "type": "frequency",
+                    "units": ["Hz"],
                 },
-                'data': 1413000000.0,
-                'dims': [],
+                "data": 1413000000.0,
+                "dims": [],
             },
             "rest_frequencies": {
                 "attrs": {
@@ -1301,7 +1302,7 @@ class make_empty_image_tests(ImageBase):
                 # "type": "quantity",
                 # "crval": 0.0,
                 # "cdelt": cdelt,
-                #"units": "rad",
+                # "units": "rad",
                 "note": "m is the angle measured from the phase center to the north. "
                 "So m = y*cdelt, where y is the number of pixels from the phase center. "
                 "See AIPS Memo #27, Section III.",
@@ -1622,23 +1623,23 @@ class make_empty_image_tests(ImageBase):
 
     def run_attrs_tests(self, skel):
         direction = {
-            'latpole': {
-                'data': 0.0,
+            "latpole": {
+                "data": 0.0,
                 "dims": ["l", "m"],
                 "attrs": {
-                    'type': 'quantity',
-                    'units': ['rad'],
-                }
+                    "type": "quantity",
+                    "units": ["rad"],
+                },
             },
-            'lonpole': {
-                'data': np.pi,
+            "lonpole": {
+                "data": np.pi,
                 "dims": ["l", "m"],
                 "attrs": {
-                    'type': 'quantity',
-                    'units': ['rad'],
-                }
+                    "type": "quantity",
+                    "units": ["rad"],
+                },
             },
-            'pc': [[1.0, 0.0], [0.0, 1.0]],
+            "pc": [[1.0, 0.0], [0.0, 1.0]],
             # 'primary_beam_center': {
             #     'attrs': {
             #         'initial': True,
@@ -1650,20 +1651,20 @@ class make_empty_image_tests(ImageBase):
             #     'data': [0.2, -0.5],
             #     'dims': ["l", "m"],
             # },
-            'projection': 'SIN',
-            'projection_parameters': [0.0, 0.0],
-            'reference': {
-                'attrs': {
-                    'type': 'sky_coord',
-                    'frame': 'fk5',
-                    'equinox': 'j2000.0',
-                    'units': ['rad', 'rad']
+            "projection": "SIN",
+            "projection_parameters": [0.0, 0.0],
+            "reference": {
+                "attrs": {
+                    "type": "sky_coord",
+                    "frame": "fk5",
+                    "equinox": "j2000.0",
+                    "units": ["rad", "rad"],
                 },
-                'data': [0.2, -0.5],
-                'dims': ["l", "m"],
+                "data": [0.2, -0.5],
+                "dims": ["l", "m"],
             },
         }
-        data_groups = { 'base': {} }
+        data_groups = {"base": {}}
         expec = {
             # "active_mask": "",
             # "beam": None,

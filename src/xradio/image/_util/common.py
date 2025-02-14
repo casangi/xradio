@@ -10,7 +10,13 @@ from xradio._utils.dict_helpers import make_quantity
 
 _c = 2.99792458e08 * u.m / u.s
 # OPTICAL = Z
-_doppler_types = ["radio", "z", "ratio", "beta", "gamma",]
+_doppler_types = [
+    "radio",
+    "z",
+    "ratio",
+    "beta",
+    "gamma",
+]
 _image_type = "image_type"
 
 

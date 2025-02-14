@@ -19,7 +19,7 @@ from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import (
     make_quantity,
     make_frequency_reference_dict,
-    make_skycoord_dict
+    make_skycoord_dict,
 )
 import copy
 import dask
@@ -198,8 +198,12 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
         dunits.append(x.to("rad"))
     direction["reference"] = make_skycoord_dict(ddata, units=dunits, frame=ref_sys)
     direction["reference"]["attrs"]["equinox"] = ref_eqx.lower()
-    direction["latpole"] = make_quantity(header["LATPOLE"] * _deg_to_rad, "rad", dims=["l", "m"])
-    direction["lonpole"] = make_quantity(header["LONPOLE"] * _deg_to_rad, "rad", dims=["l", "m"])
+    direction["latpole"] = make_quantity(
+        header["LATPOLE"] * _deg_to_rad, "rad", dims=["l", "m"]
+    )
+    direction["lonpole"] = make_quantity(
+        header["LONPOLE"] * _deg_to_rad, "rad", dims=["l", "m"]
+    )
     pc = np.zeros([2, 2])
     for i in (0, 1):
         for j in (0, 1):

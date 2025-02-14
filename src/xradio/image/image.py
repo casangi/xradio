@@ -267,58 +267,6 @@ def make_empty_sky_image(
         do_sky_coords,
     )
 
-
-# TODO it looks like this method should be removed
-def blah(
-# def make_empty_aperture_image(
-    phase_center: Union[List[float], np.ndarray],
-    image_size: Union[List[int], np.ndarray],
-    sky_image_cell_size: Union[List[float], np.ndarray],
-    chan_coords: Union[List[float], np.ndarray],
-    pol_coords: Union[List[str], np.ndarray],
-    time_coords: Union[List[float], np.ndarray],
-    direction_reference: str = "fk5",
-    projection: str = "SIN",
-    spectral_reference: str = "lsrk",
-) -> xr.Dataset:
-    """
-    Create an aperture (uv) mage xarray.Dataset with only coordinates (no datavariables).
-    The image dimensionality is time, frequency, polarization, u, v
-
-    Parameters
-    ----------
-    phase_center : array of float, length = 2, units = rad
-        Image phase center.
-    image_size : array of int, length = 2
-        Number of x and y axis pixels in image.
-    sky_image_cell_size : array of float, length = 2, units = rad
-        Cell size of x and y axis pixels in sky image, used to get cell size in uv image
-    chan_coords : list or np.ndarray
-        The center frequency in Hz of each image channel.
-    pol_coords : list or np.ndarray
-        The polarization code for each image polarization.
-    time_coords : list or np.ndarray
-        The time for each temporal plane in MJD.
-    direction_reference : str, default = 'fk5'
-    projection : str, default = 'SIN'
-    spectral_reference : str, default = 'lsrk'
-    Returns
-    -------
-    xarray.Dataset
-    """
-    return _make_empty_aperture_image(
-        phase_center,
-        image_size,
-        sky_image_cell_size,
-        chan_coords,
-        pol_coords,
-        time_coords,
-        direction_reference,
-        projection,
-        spectral_reference,
-    )
-
-
 def make_empty_aperture_image(
     phase_center: Union[List[float], np.ndarray],
     image_size: Union[List[int], np.ndarray],

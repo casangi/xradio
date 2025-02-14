@@ -32,7 +32,9 @@ from ..common import (
 from ...._utils._casacore.tables import extract_table_attributes, open_table_ro
 from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import (
-    make_quantity, make_frequency_reference_dict, make_skycoord_dict
+    make_quantity,
+    make_frequency_reference_dict,
+    make_skycoord_dict,
 )
 
 """
@@ -187,9 +189,7 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
             for j in (k, "lonpole"):
                 m = "longpole" if j == "lonpole" else j
                 dir_dict[j] = make_quantity(
-                    value=coord_dir_dict[m] * _deg_to_rad,
-                    units="rad",
-                    dims=["l", "m"]
+                    value=coord_dir_dict[m] * _deg_to_rad, units="rad", dims=["l", "m"]
                 )
         for j in ("pc", "projection_parameters", "projection"):
             if j in coord_dir_dict:

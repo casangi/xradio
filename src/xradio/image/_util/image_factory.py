@@ -8,7 +8,7 @@ from xradio._utils.dict_helpers import (
     make_frequency_reference_dict,
     make_quantity,
     make_skycoord_dict,
-    make_time_coord_attrs
+    make_time_coord_attrs,
 )
 
 
@@ -57,7 +57,7 @@ def _add_common_attrs(
         "reference_value": make_frequency_reference_dict(
             value=freq_vals[len(freq_vals) // 2].item(),
             units=["Hz"],
-            observer=spectral_reference.lower()
+            observer=spectral_reference.lower(),
         ),
         "rest_frequencies": make_quantity(restfreq, "Hz"),
         "rest_frequency": make_quantity(restfreq, "Hz"),
@@ -65,11 +65,7 @@ def _add_common_attrs(
         "units": ["Hz"],
         "wave_unit": ["mm"],
     }
-    xds.velocity.attrs = {
-        "doppler_type": "radio",
-        "type": "doppler",
-        "units": "m/s"
-    }
+    xds.velocity.attrs = {"doppler_type": "radio", "type": "doppler", "units": "m/s"}
     # debug = make_skycoord_dict(
     #     data=phase_center, units=["rad", "rad"], frame=direction_reference
     # ).update({"equinox": "j2000"})
@@ -78,7 +74,7 @@ def _add_common_attrs(
     )
     reference["attrs"].update({"equinox": "j2000.0"})
     xds.attrs = {
-        "data_groups": { "base": {}  },
+        "data_groups": {"base": {}},
         "direction": {
             "reference": reference,
             # "reference": {
@@ -134,8 +130,9 @@ def _make_common_coords(
             "velocity": ("frequency", some_coords["vel"]),
             "polarization": pol_coords,
         },
-        "restfreq": some_coords["restfreq"]
+        "restfreq": some_coords["restfreq"],
     }
+
 
 def _make_lm_values(
     image_size: Union[list, np.ndarray],
@@ -147,10 +144,9 @@ def _make_lm_values(
         (i - image_size[0] // 2) * (-1) * abs(cell_size[0])
         for i in range(image_size[0])
     ]
-    m = [
-        (i - image_size[1] // 2) * abs(cell_size[1]) for i in range(image_size[1])
-    ]
+    m = [(i - image_size[1] // 2) * abs(cell_size[1]) for i in range(image_size[1])]
     return {"l": l, "m": m}
+
 
 def _make_sky_coords(
     projection: str,
@@ -167,9 +163,8 @@ def _make_sky_coords(
         cdelt=[-abs(cell_size[0]), abs(cell_size[1])],
         cunit=["rad", "rad"],
     )["value"]
-    return {
-        "right_ascension": (("l", "m"), long), "declination": (("l", "m"), lat)
-    }
+    return {"right_ascension": (("l", "m"), long), "declination": (("l", "m"), lat)}
+
 
 def _add_lm_coord_attrs(xds: xr.Dataset) -> xr.Dataset:
     attr_note = _l_m_attr_notes()
@@ -195,7 +190,6 @@ def _add_lm_coord_attrs(xds: xr.Dataset) -> xr.Dataset:
         # "type": "quantity",
         "note": attr_note["m"],
     }
-
 
 
 def _make_empty_sky_image(
@@ -230,6 +224,7 @@ def _make_empty_sky_image(
     )
     return xds
 
+
 def _make_uv_coords(
     xds: xr.Dataset,
     image_size: Union[list, np.ndarray],
@@ -241,6 +236,7 @@ def _make_uv_coords(
     xds.u.attrs = attr.copy()
     xds.v.attrs = attr.copy()
     return xds
+
 
 def _make_uv_values(
     image_size: Union[list, np.ndarray],
@@ -314,4 +310,3 @@ def _make_empty_lmuv_image(
     # uv_vals = _make_uv_values(image_size, sky_image_cell_size)
     xds = _make_uv_coords(xds, image_size, sky_image_cell_size)
     return xds
-

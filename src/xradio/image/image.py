@@ -267,6 +267,7 @@ def make_empty_sky_image(
         do_sky_coords,
     )
 
+
 def make_empty_aperture_image(
     phase_center: Union[List[float], np.ndarray],
     image_size: Union[List[int], np.ndarray],

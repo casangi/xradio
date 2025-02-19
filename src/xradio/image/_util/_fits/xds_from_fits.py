@@ -474,8 +474,8 @@ def _create_coords(
     helpers["sphr_dims"] = sphr_dims
     coords = {}
     coords["time"] = _get_time_values(helpers)
-    coords["polarization"] = _get_pol_values(helpers)
     coords["frequency"] = _get_freq_values(helpers)
+    coords["polarization"] = _get_pol_values(helpers)
     coords["velocity"] = (["frequency"], _get_velocity_values(helpers))
     if len(sphr_dims) > 0:
         for i, c in enumerate(["l", "m"]):
@@ -636,16 +636,16 @@ def _do_multibeam(xds: xr.Dataset, imname: str) -> xr.Dataset:
             )
             nchan = header["NCHAN"]
             npol = header["NPOL"]
-            beam_array = np.zeros([1, npol, nchan, 3])
+            beam_array = np.zeros([1, nchan, npol, 3])
             data = hdu.data
             for t in data:
-                beam_array[0, t[4], t[3]] = t[0:3]
+                beam_array[0, t[3], t[4]] = t[0:3]
             for i in (0, 1, 2):
                 beam_array[:, :, :, i] = (
                     (beam_array[:, :, :, i] * units[i]).to("rad").value
                 )
             xdb = xr.DataArray(
-                beam_array, dims=["time", "polarization", "frequency", "beam_param"]
+                beam_array, dims=["time", "frequency", "polarization", "beam_param"]
             )
             xdb = xdb.rename("beam")
             xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
@@ -811,10 +811,10 @@ def _get_transpose_list(helpers: dict) -> tuple:
             or b.startswith("vopt")
             or b.startswith("vrad")
         ):
-            transpose_list[2] = i
+            transpose_list[1] = i
             not_covered.remove("f")
         elif b.startswith("stok"):
-            transpose_list[1] = i
+            transpose_list[2] = i
             not_covered.remove("s")
         else:
             raise RuntimeError(f"Unhandled axis name {c}")

@@ -291,14 +291,14 @@ def _casa_image_to_xds_coords(
     coords = {}
     coord_attrs = {}
     (coords["time"], coord_attrs["time"]) = _get_time_values_attrs(coord_dict)
-    (coords["polarization"], coord_attrs["polarization"]) = _get_pol_values_attrs(
-        coord_dict
-    )
     (coords["frequency"], coord_attrs["frequency"]) = _get_freq_values_attrs(
         csys, shape
     )
     (velocity_vals, coord_attrs["velocity"]) = _get_velocity_values_attrs(
         coord_dict, coords["frequency"]
+    )
+    (coords["polarization"], coord_attrs["polarization"]) = _get_pol_values_attrs(
+        coord_dict
     )
     coords["velocity"] = (["frequency"], velocity_vals)
     if len(sphr_dims) > 0:
@@ -712,15 +712,15 @@ def _get_transpose_list(coords: coordinates.coordinatesystem) -> list:
             not_covered.remove("v")
         elif b.startswith("frequency"):
             # transpose_list[2] = csys['pixelmap1'][0]
-            transpose_list[2] = i
+            transpose_list[1] = i
             not_covered.remove("f")
         elif b.startswith("stok"):
-            transpose_list[1] = i
+            transpose_list[2] = i
             # transpose_list[1] = csys['pixelmap2'][0]
             not_covered.remove("s")
         else:
             raise Exception(f"Unhandled axis name {c}")
-    h = {"l": 3, "m": 4, "u": 3, "v": 4, "f": 2, "s": 1}
+    h = {"l": 3, "m": 4, "u": 3, "v": 4, "f": 1, "s": 2}
     for p in not_covered:
         transpose_list[h[p]] = last_axis
         new_axes.append(last_axis)
@@ -1041,7 +1041,7 @@ def _read_image_array(
     :type blc: a type that is convertable to a list via list(blc)
     :param trc: top right corner, given in the axes ordering of the input image.None=>image shape - 1
     :type trc: a type that is convertable to a list via list(trc)
-    :return: Dask array in time, polarization, frequency, l, m order
+    :return: Dask array in time, frequency, polarization, l, m order
     :rtype: dask.array
 
     """

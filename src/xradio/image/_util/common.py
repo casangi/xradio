@@ -25,7 +25,7 @@ def _aperture_or_sky(xds: xr.Dataset) -> str:
 
 
 def _get_xds_dim_order(has_sph: bool) -> list:
-    dimorder = ["time", "polarization", "frequency"]
+    dimorder = ["time", "frequency", "polarization"]
     dir_lin = ["l", "m"] if has_sph else ["u", "v"]
     dimorder.extend(dir_lin)
     return dimorder
@@ -271,7 +271,7 @@ def _set_multibeam_array(xds, beam_ary, units):
                 "before multiple beams can be added"
             )
     xdb = xr.DataArray(
-        beam_ary, dims=["time", "polarization", "frequency", "beam_param"]
+        beam_ary, dims=["time", "frequency", "polarization", "beam_param"]
     )
     xdb = xdb.rename("beam")
     xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])

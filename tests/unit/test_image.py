@@ -332,8 +332,8 @@ class xds_from_image_test(ImageBase):
         self.assertEqual(
             xds.mask0.chunksizes["frequency"], (5, 5), "Incorrect chunksize"
         )
-        got_data = da.squeeze(da.transpose(xds[data_variable_name], [2, 1, 4, 3, 0]), 4)
-        got_mask = da.squeeze(da.transpose(xds.mask0, [2, 1, 4, 3, 0]), 4)
+        got_data = da.squeeze(da.transpose(xds[data_variable_name], [1, 2, 4, 3, 0]), 4)
+        got_mask = da.squeeze(da.transpose(xds.mask0, [1, 2, 4, 3, 0]), 4)
         if "sky_array" not in ev:
             im = casacore.images.image(self.imname())
             ev[data_variable_name] = im.getdata()
@@ -593,7 +593,7 @@ class xds_from_image_test(ImageBase):
                         + f"expected {im.datatype()}",
                     )
             self.assertEqual(
-                xds[data_variable_name].shape, (1, 1, 4, 8, 12), "Wrong block shape"
+                xds[data_variable_name].shape, (1, 4, 1, 8, 12), "Wrong block shape"
             )
             big_xds = self._xds if i == 0 else self._xds_no_sky
             self.assertTrue(
@@ -777,7 +777,7 @@ class xds_to_casacore(xds_from_image_test):
         write_image(xds, self._outname, "casa")
         with open_image_ro(self._outname) as im:
             p = im.getdata()
-        exp_data = np.squeeze(np.transpose(xds[data_variable_name], [2, 1, 4, 3, 0]), 4)
+        exp_data = np.squeeze(np.transpose(xds[data_variable_name], [1, 2, 4, 3, 0]), 4)
         self.assertTrue((p == exp_data).all(), "Incorrect pixel values")
 
 

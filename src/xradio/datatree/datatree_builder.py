@@ -44,19 +44,14 @@ class DatatreeBuilder:
   the Datatree root or the at the partition level"""
   _consolidate_at: Literal["root", "partition"]
 
-  def __init__(self):
-    self._url = ""
+  def __init__(self, url: str):
+    self._url = url
     self._copy = True
     self._destination_url = ""
     self._overwrite = True
     self._option = 2.0
     self._consolidate_at = "partition"
     self._remove_suffix = False
-
-  def with_url(self, url: str) -> DatatreeBuilder:
-    """ Sets the input url """
-    self._url = url.rstrip(os.path.sep)
-    return self
 
   def with_copy(self) -> DatatreeBuilder:
     """ Configures copying of data from the Processing Set to the DataTree.

@@ -52,8 +52,7 @@ def create_parser():
 if __name__ == "__main__":
   args = create_parser().parse_args()
   logging.basicConfig(format="%(levelname)s %(message)s", level=logging.INFO)
-  builder = DatatreeBuilder()
-  builder = builder.with_url(args.ps)
+  builder = DatatreeBuilder(args.ps)
   builder = builder.with_option(args.option)
   builder = builder.with_consolidate_at(args.consolidate_at)
   builder = builder.with_destination(args.output)

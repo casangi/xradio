@@ -108,18 +108,14 @@ class xds_from_image_test(ImageBase):
     _xds = None
     _exp_vals: dict = {
         "shape": xr.core.utils.Frozen(
-            {"time": 1, "polarization": 4, "frequency": 10, "l": 30, "m": 20}
+            {"time": 1, "frequency": 10, "polarization": 4, "l": 30, "m": 20}
         ),
-        "dec_unit": "rad",
-        "freq_cdelt": 1000,
-        "freq_crpix": 20,
         "freq_waveunit": "mm",
         "image_type": "Intensity",
-        "ra_unit": "rad",
         "stokes": ["I", "Q", "U", "V"],
         "time_format": "MJD",
         "time_refer": "UTC",
-        "time_unit": "d",
+        "time_unit": ["d"],
         "units": "Jy/beam",
         "vel_mea_type": "doppler",
         "doppler_type": "radio",
@@ -200,7 +196,7 @@ class xds_from_image_test(ImageBase):
         "type": "time",
         "scale": "UTC",
         "value": 51544.00000000116,
-        "units": "d",
+        "units": ["d"],
         "format": "MJD",
     }
     _exp_attrs["observer"] = "Karl Jansky"
@@ -495,10 +491,6 @@ class xds_from_image_test(ImageBase):
         l_attrs = xds.coords["l"].attrs
         m_attrs = xds.coords["m"].attrs
         e_l_attrs = {
-            "crval": 0,
-            "cdelt": -cdelt,
-            "units": "rad",
-            "type": "quantity",
             "note": (
                 "l is the angle measured from the phase center to the east. "
                 "So l = x*cdelt, where x is the number of pixels from the phase center. "
@@ -506,10 +498,6 @@ class xds_from_image_test(ImageBase):
             ),
         }
         e_m_attrs = {
-            "crval": 0,
-            "cdelt": cdelt,
-            "units": "rad",
-            "type": "quantity",
             "note": (
                 "m is the angle measured from the phase center to the north. "
                 "So m = y*cdelt, where y is the number of pixels from the phase center. "
@@ -559,6 +547,7 @@ class xds_from_image_test(ImageBase):
             my_exp_attrs["user"]["comment"] = (
                 "casacore non-standard usage: 4 LSD, " "5 GEO, 6 SOU, 7 GAL"
             )
+        # print(xds.attrs)
         self.dict_equality(
             xds.attrs, my_exp_attrs, "Got attrs", "Expected attrs", ["history"]
         )

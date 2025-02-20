@@ -70,6 +70,7 @@ def _add_time_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     time_coord = xds.coords["time"]
     meta = copy.deepcopy(helpers["obsdate"])
     del meta["value"]
+    # meta["units"] = [ meta["units"] ]
     # meta['format'] = 'MJD'
     # meta['time_scale'] = meta['refer']
     # del meta['refer']
@@ -119,10 +120,6 @@ def _add_l_m_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     for c in ["l", "m"]:
         if c in xds.coords:
             xds[c].attrs = {
-                "crval": 0.0,
-                "cdelt": helpers[c]["cdelt"],
-                "units": "rad",
-                "type": "quantity",
                 "note": attr_note[c],
             }
     return xds
@@ -430,7 +427,7 @@ def _fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList) -> dict:
     obsdate = {}
     obsdate["type"] = "time"
     obsdate["value"] = Time(header["DATE-OBS"], format="isot").mjd
-    obsdate["units"] = "d"
+    obsdate["units"] = ["d"]
     obsdate["scale"] = header["TIMESYS"]
     obsdate["format"] = "MJD"
     attrs["obsdate"] = obsdate

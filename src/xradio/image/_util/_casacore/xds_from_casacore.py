@@ -128,7 +128,7 @@ def _add_time_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
     meta = {}
     meta["type"] = "time"
     meta["scale"] = coord_dict["obsdate"]["refer"]
-    meta["units"] = coord_dict["obsdate"]["m0"]["unit"]
+    meta["units"] = [ coord_dict["obsdate"]["m0"]["unit"] ]
     meta["format"] = _get_time_format(xds["time"][0], meta["units"])
     xds["time"].attrs = copy.deepcopy(meta)
     # xds['time'] = time_coord
@@ -313,10 +313,10 @@ def _casa_image_to_xds_coords(
                 naxis=shape[idx], crval=0.0, crpix=crpix[idx], cdelt=delta
             )
             coord_attrs[c] = {
-                "crval": 0.0,
-                "cdelt": delta,
-                "units": "rad",
-                "type": "quantity",
+                # "crval": 0.0,
+                # "cdelt": delta,
+                # "units": "rad",
+                # "type": "quantity",
                 "note": attr_note[c],
             }
         if do_sky_coords:

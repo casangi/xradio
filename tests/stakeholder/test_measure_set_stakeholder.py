@@ -74,6 +74,34 @@ def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_sch
     return ps_name
 
 
+
+def datatree_convert_and_open_test(ps_name: str, folder: pathlib.Path):
+    """ Smoke test datatree conversion and loading """
+    import xarray
+    from xradio.datatree.datatree_builder import DatatreeBuilder, VALID_OPTIONS
+    from xradio.datatree.datatree_accessor import VISIBILITY_DATASET_TYPES
+
+    # Test that the processing set can be written as a datatree
+    # for the various layout options
+    for option in VALID_OPTIONS:
+        destination = str(folder / f"datatree-{option}.zarr")
+        builder = (DatatreeBuilder(str(ps_name))
+                        .with_consolidate_at("root")
+                        .with_destination(destination)
+                        .with_overwrite(True)
+                        .with_option(option))
+
+        builder.build()
+
+        # Open the datatree and check that the accessor
+        # correctly references the antenna dataset on
+        # visibility nodes
+        dt = xarray.open_datatree(destination)
+        dt.load()
+        for node in dt.subtree:
+            if node.attrs.get("type") in VISIBILITY_DATASET_TYPES:
+                assert isinstance(node.msa.antennas, xarray.DataTree)
+
 def base_test(
     file_name: str,
     folder: pathlib.Path,
@@ -103,6 +131,8 @@ def base_test(
             ps_name = download_and_convert_msv2_to_processing_set(
                 file_name, folder, partition_scheme
             )
+
+        datatree_convert_and_open_test(ps_name, folder)
 
         print(f"Opening Processing Set, {ps_name}")
         ps_lazy = open_processing_set(str(ps_name))

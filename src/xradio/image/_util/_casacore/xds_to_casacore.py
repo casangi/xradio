@@ -103,7 +103,7 @@ def _coord_dict_from_xds(xds: xr.Dataset) -> dict:
     obsdate["refer"] = xds.coords["time"].attrs["scale"]
     obsdate["type"] = "epoch"
     obsdate["m0"] = {}
-    obsdate["m0"]["unit"] = xds.coords["time"].attrs["units"]
+    obsdate["m0"]["unit"] = xds.coords["time"].attrs["units"][0]
     obsdate["m0"]["value"] = xds.coords["time"].values[0]
     coord["obsdate"] = obsdate
     coord["pointingcenter"] = xds.attrs[_pointing_center].copy()

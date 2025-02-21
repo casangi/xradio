@@ -117,7 +117,7 @@ def _add_sky_or_aperture(
 
 
 def _get_time_format(value: float, unit: str) -> str:
-    if value >= 40000 and value <= 100000 and unit == "d":
+    if value >= 40000 and value <= 100000 and (unit == "d" or unit == ["d"]):
         return "MJD"
     else:
         return ""
@@ -227,7 +227,8 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
                 )
         elif k == "obsdate":
             obsdate["scale"] = coord_dict[k]["refer"]
-            obsdate["units"] = coord_dict[k]["m0"]["unit"]
+            myu = coord_dict[k]["m0"]["unit"]
+            obsdate["units"] = myu if isinstance(myu, list) else [ myu ]
             obsdate["value"] = coord_dict[k]["m0"]["value"]
             obsdate["format"] = _get_time_format(obsdate["value"], obsdate["units"])
             obsdate["type"] = "time"
@@ -679,7 +680,7 @@ def _get_time_values_attrs(cimage_coord_dict: dict) -> Tuple[List[float], dict]:
     attrs["type"] = "time"
     attrs["scale"] = cimage_coord_dict["obsdate"]["refer"]
     unit = cimage_coord_dict["obsdate"]["m0"]["unit"]
-    attrs["units"] = unit
+    attrs["units"] = unit if isinstance(unit, list) else [ unit ]
     time_val = cimage_coord_dict["obsdate"]["m0"]["value"]
     attrs["format"] = _get_time_format(time_val, unit)
     return ([time_val], copy.deepcopy(attrs))

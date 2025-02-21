@@ -128,7 +128,7 @@ def _add_time_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
     meta = {}
     meta["type"] = "time"
     meta["scale"] = coord_dict["obsdate"]["refer"]
-    meta["units"] = [ coord_dict["obsdate"]["m0"]["unit"] ]
+    meta["units"] = [coord_dict["obsdate"]["m0"]["unit"]]
     meta["format"] = _get_time_format(xds["time"][0], meta["units"])
     xds["time"].attrs = copy.deepcopy(meta)
     # xds['time'] = time_coord
@@ -228,7 +228,7 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
         elif k == "obsdate":
             obsdate["scale"] = coord_dict[k]["refer"]
             myu = coord_dict[k]["m0"]["unit"]
-            obsdate["units"] = myu if isinstance(myu, list) else [ myu ]
+            obsdate["units"] = myu if isinstance(myu, list) else [myu]
             obsdate["value"] = coord_dict[k]["m0"]["value"]
             obsdate["format"] = _get_time_format(obsdate["value"], obsdate["units"])
             obsdate["type"] = "time"
@@ -680,7 +680,7 @@ def _get_time_values_attrs(cimage_coord_dict: dict) -> Tuple[List[float], dict]:
     attrs["type"] = "time"
     attrs["scale"] = cimage_coord_dict["obsdate"]["refer"]
     unit = cimage_coord_dict["obsdate"]["m0"]["unit"]
-    attrs["units"] = unit if isinstance(unit, list) else [ unit ]
+    attrs["units"] = unit if isinstance(unit, list) else [unit]
     time_val = cimage_coord_dict["obsdate"]["m0"]["value"]
     attrs["format"] = _get_time_format(time_val, unit)
     return ([time_val], copy.deepcopy(attrs))

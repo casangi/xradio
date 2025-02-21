@@ -48,7 +48,8 @@ such third party materials.
 to provide support. You may provide support for free, for a fee, or not at all. Unless required by
 applicable law or agreed to in writing, You provide Your Contributions on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied,
-including, without limitation, any warranties or conditions of TITLE, NON-NFRINGEMENT,
+including, without limitation, any warranties or conditions of TITLE, NON-INFRINGEMENT,
+MERCHANTABILITY, or FITNESS FOR A PARTICULAR PURPOSE.
 
 7. You agree to notify the Project of any facts or circumstances of which you become aware that
 would make these representations inaccurate in any respect.

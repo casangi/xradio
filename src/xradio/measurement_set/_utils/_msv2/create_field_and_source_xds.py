@@ -7,7 +7,9 @@ import xarray as xr
 
 import toolviper.utils.logger as logger
 from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
+    interpolate_to_time,
     rename_and_interpolate_to_time,
+    standard_time_coord_attrs,
 )
 from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
 from xradio.measurement_set._utils._msv2._tables.read import (
@@ -41,7 +43,7 @@ def create_field_and_source_xds(
     field_times: list,
     is_single_dish: bool,
     time_min_max: Tuple[np.float64, np.float64],
-    ephemeris_interp_time: Union[xr.DataArray, None] = None,
+    ephemeris_interpolate: bool = True,
 ) -> tuple[xr.Dataset, np.ndarray, int]:
     """
     Create a field and source xarray dataset (xds) from the given input file, field ID, and spectral window ID.
@@ -57,13 +59,13 @@ def create_field_and_source_xds(
     spectral_window_id : int
         The ID of the spectral window.
     field_times: list
-        Time data for field. It is the same as the time axis in the main MSv4 dataset and is used if more than one field is present.
+        Time data for field. It is the same as the time axis in the main MSv4 dataset.
     is_single_dish: bool
         whether the main xds has single-dish (SPECTRUM) data
     time_min_max : Tuple[np.float64, np.float46]
         Min / max times to constrain loading (usually to the time range relevant to an MSv4)
-    ephemeris_interp_time : Union[xr.DataArray, None]
-        Time axis to interpolate the ephemeris data vars to (usually main MSv4 time)
+    ephemeris_interpolate : bool
+        If true ephemeris data is interpolated to the main MSv4 time axis given in field_times.
 
     Returns:
     -------
@@ -79,41 +81,47 @@ def create_field_and_source_xds(
 
     field_and_source_xds = xr.Dataset(attrs={"type": "field_and_source"})
 
-    field_and_source_xds, ephemeris_path, ephemeris_table_name, source_id = (
-        extract_field_info_and_check_ephemeris(
-            field_and_source_xds, in_file, field_id, field_times, is_single_dish
-        )
+    (
+        field_and_source_xds,
+        ephemeris_path,
+        ephemeris_table_name,
+        source_id,
+        field_names,
+    ) = extract_field_info_and_check_ephemeris(
+        field_and_source_xds, in_file, field_id, field_times, is_single_dish
     )
 
-    if field_and_source_xds.attrs["is_ephemeris"]:
+    field_and_source_xds, num_lines = extract_source_info(
+        field_and_source_xds, in_file, source_id, spectral_window_id
+    )
+
+    if field_and_source_xds.attrs["type"] == "field_and_source_ephemeris":
         field_and_source_xds = extract_ephemeris_info(
             field_and_source_xds,
             ephemeris_path,
             ephemeris_table_name,
             is_single_dish,
             time_min_max,
-            ephemeris_interp_time,
+            field_times,
+            field_names,
+            ephemeris_interpolate,
         )
-
-    field_and_source_xds, num_lines = extract_source_info(
-        field_and_source_xds, in_file, source_id, spectral_window_id
-    )
 
     logger.debug(
         f"create_field_and_source_xds() execution time {time.time() - start_time:0.2f} s"
     )
 
-    # Check if we can drop time axis. The phase centers are repeated.
-    if field_times is not None:
-        if is_single_dish:
-            center_dv = "FIELD_REFERENCE_CENTER"
-        else:
-            center_dv = "FIELD_PHASE_CENTER"
+    # # Check if we can drop time axis. The phase centers are repeated.
+    # if field_times is not None:
+    #     if is_single_dish:
+    #         center_dv = "FIELD_REFERENCE_CENTER"
+    #     else:
+    #         center_dv = "FIELD_PHASE_CENTER"
 
-        if np.unique(field_and_source_xds[center_dv], axis=0).shape[0] == 1:
-            field_and_source_xds = field_and_source_xds.isel(time=0).drop_vars("time")
+    #     if np.unique(field_and_source_xds[center_dv], axis=0).shape[0] == 1:
+    #         field_and_source_xds = field_and_source_xds.isel(time=0).drop_vars("time")
 
-    return field_and_source_xds, source_id, num_lines
+    return field_and_source_xds, source_id, num_lines, field_names
 
 
 def extract_ephemeris_info(
@@ -123,6 +131,8 @@ def extract_ephemeris_info(
     is_single_dish,
     time_min_max: Tuple[np.float64, np.float64],
     interp_time: Union[xr.DataArray, None],
+    field_names: list,
+    ephemeris_interpolate: bool = True,
 ):
     """
     Extracts ephemeris information from the given path and table name and adds it to the xarray dataset.
@@ -167,7 +177,7 @@ def extract_ephemeris_info(
     ephemeris_xds = ephemeris_xds.isel(
         ephemeris_id=0
     )  # Collapse the ephemeris_id dimension.
-    # Data varaibles  ['time', 'RA', 'DEC', 'Rho', 'RadVel', 'NP_ang', 'NP_dist', 'DiskLong', 'DiskLat', 'Sl_lon', 'Sl_lat', 'r', 'rdot', 'phang']
+    # Data variables  ['time', 'RA', 'DEC', 'Rho', 'RadVel', 'NP_ang', 'NP_dist', 'DiskLong', 'DiskLat', 'Sl_lon', 'Sl_lat', 'r', 'rdot', 'phang']
 
     # Get meta data.
     ephemeris_meta = ephemeris_xds.attrs["other"]["msv2"]["ctds_attrs"]
@@ -359,21 +369,24 @@ def extract_ephemeris_info(
         "sky_pos_label": ["ra", "dec", "dist"],
     }
     temp_xds = temp_xds.assign_coords(coords)
-    time_coord_attrs = {
-        "type": "time",
-        "units": ["s"],
-        "scale": "utc",
-        "format": "unix",
-    }
-    temp_xds["time_ephemeris"].attrs.update(time_coord_attrs)
+    temp_xds["time_ephemeris"].attrs.update(standard_time_coord_attrs)
 
     # Convert to si units
     temp_xds = convert_to_si_units(temp_xds)
 
     # interpolate if ephemeris_interpolate/interp_time=True, and rename time_ephemeris=>time
-    temp_xds = rename_and_interpolate_to_time(
-        temp_xds, "time_ephemeris", interp_time, "field_and_source_xds"
-    )
+    if ephemeris_interpolate:
+        temp_xds = rename_and_interpolate_to_time(
+            temp_xds, "time_ephemeris", interp_time, "field_and_source_xds"
+        )
+        source_location_interp = temp_xds["SOURCE_LOCATION"]
+    else:
+        source_location_interp = interpolate_to_time(
+            temp_xds["SOURCE_LOCATION"],
+            interp_time,
+            "field_and_source_xds",
+            "time_ephemeris",
+        )
 
     xds = xr.merge([xds, temp_xds])
 
@@ -385,35 +398,58 @@ def extract_ephemeris_info(
     else:
         center_dv = "FIELD_PHASE_CENTER"
 
-    if "time" in xds[center_dv].coords:
-        assert (
-            interp_time is not None
-        ), 'ephemeris_interpolate must be True if there is ephemeris data and multiple fields (this will occur if "FIELD_ID" is not in partition_scheme).'
+    xds = xds.sel(field_name=field_names)  # Expand for all times in ms
+    xds = xds.assign_coords({"time": ("field_name", interp_time)})
+    xds["time"].attrs.update(standard_time_coord_attrs)
+    xds = xds.swap_dims({"field_name": "time"})
 
-        field_phase_center = wrap_to_pi(
-            xds[center_dv].values + xds["SOURCE_LOCATION"][:, 0:2].values
-        )
-        field_phase_center = np.column_stack(
-            (field_phase_center, np.zeros(xds[center_dv].values.shape[0]))
-        )
-        field_phase_center[:, -1] = (
-            field_phase_center[:, -1] + xds["SOURCE_LOCATION"][:, -1].values
-        )
+    source_location_interp
+    field_phase_center = wrap_to_pi(
+        xds[center_dv].values + source_location_interp[:, 0:2].values
+    )
 
-        xds[center_dv] = xr.DataArray(
-            field_phase_center,
-            dims=[xds["SOURCE_LOCATION"].dims[0], "sky_pos_label"],
-        )
-    else:
-        field_phase_center = (
-            np.append(xds[center_dv].values, 0) + xds["SOURCE_LOCATION"].values
-        )
-        field_phase_center[:, 0:2] = wrap_to_pi(field_phase_center[:, 0:2])
+    field_phase_center = np.column_stack(
+        (field_phase_center, np.zeros(xds[center_dv].values.shape[0]))
+    )
 
-        xds[center_dv] = xr.DataArray(
-            field_phase_center,
-            dims=[xds["SOURCE_LOCATION"].dims[0], "sky_pos_label"],
-        )
+    field_phase_center[:, -1] = (
+        field_phase_center[:, -1] + source_location_interp[:, -1].values
+    )
+
+    xds[center_dv] = xr.DataArray(
+        field_phase_center,
+        dims=["time", "sky_pos_label"],
+    )
+
+    # if "time" in xds[center_dv].coords:
+    #     assert (
+    #         interp_time is not None
+    #     ), 'ephemeris_interpolate must be True if there is ephemeris data and multiple fields (this will occur if "FIELD_ID" is not in partition_scheme).'
+
+    #     field_phase_center = wrap_to_pi(
+    #         xds[center_dv].values + xds["SOURCE_LOCATION"][:, 0:2].values
+    #     )
+    #     field_phase_center = np.column_stack(
+    #         (field_phase_center, np.zeros(xds[center_dv].values.shape[0]))
+    #     )
+    #     field_phase_center[:, -1] = (
+    #         field_phase_center[:, -1] + xds["SOURCE_LOCATION"][:, -1].values
+    #     )
+
+    #     xds[center_dv] = xr.DataArray(
+    #         field_phase_center,
+    #         dims=[xds["SOURCE_LOCATION"].dims[0], "sky_pos_label"],
+    #     )
+    # else:
+    #     field_phase_center = (
+    #         np.append(xds[center_dv].values, 0) + xds["SOURCE_LOCATION"].values
+    #     )
+    #     field_phase_center[:, 0:2] = wrap_to_pi(field_phase_center[:, 0:2])
+
+    #     xds[center_dv] = xr.DataArray(
+    #         field_phase_center,
+    #         dims=[xds["SOURCE_LOCATION"].dims[0], "sky_pos_label"],
+    #     )
 
     xds[center_dv].attrs.update(xds["SOURCE_LOCATION"].attrs)
 
@@ -467,18 +503,12 @@ def make_line_dims_and_coords(
         )
 
     line_label_data = np.arange(coords_lines_data.shape[-1]).astype(str)
-    if len(source_id) == 1:
-        line_coords = {
-            "line_name": ("line_label", coords_lines_data),
-            "line_label": line_label_data,
-        }
-        line_dims = ["line_label"]
-    else:
-        line_coords = {
-            "line_name": (("time", "line_label"), coords_lines_data),
-            "line_label": line_label_data,
-        }
-        line_dims = ["time", "line_label"]
+
+    line_coords = {
+        "line_name": (("field_name", "line_label"), coords_lines_data),
+        "line_label": line_label_data,
+    }
+    line_dims = ["field_name", "line_label"]
 
     return line_dims, line_coords
 
@@ -569,17 +599,16 @@ def extract_source_info(
     num_lines : int
         Sum of num_lines for all unique sources extracted.
     """
+    unknown = to_np_array(["Unknown"] * len(source_id))
+
     coords = {}
-    is_ephemeris = xds.attrs[
-        "is_ephemeris"
-    ]  # If ephemeris data is present we ignore the SOURCE_DIRECTION in the source table.
 
     if all(source_id == -1):
         logger.warning(
             f"Source_id is -1. No source information will be included in the field_and_source_xds."
         )
         xds = xds.assign_coords(
-            {"source_name": "Unknown"}
+            {"source_name": ("field_name", unknown)}
         )  # Need to add this for ps.summary() to work.
         return xds, 0
 
@@ -587,7 +616,7 @@ def extract_source_info(
         logger.warning(
             f"Could not find SOURCE table for source_id {source_id}. Source information will not be included in the field_and_source_xds."
         )
-        xds = xds.assign_coords({"source_name": "Unknown"})
+        xds = xds.assign_coords({"source_name": ("field_name", unknown)})
         return xds, 0
 
     unique_source_id = unique_1d(source_id)
@@ -605,7 +634,7 @@ def extract_source_info(
             f"SOURCE table empty for (unique) source_id {unique_source_id} and spectral_window_id {spectral_window_id}."
         )
         xds = xds.assign_coords(
-            {"source_name": "Unknown"}
+            {"source_name": ("field_name", unknown)}
         )  # Need to add this for ps.summary() to work.
         return xds, 0
 
@@ -633,25 +662,25 @@ def extract_source_info(
 
     # Get source name (the time axis is optional and will probably be required if the partition scheme does not include 'FIELD_ID' or 'SOURCE_ID'.).
     # Note again that this optional time axis has nothing to do with the original time axis in the source table that we drop.
-    if len(source_id) == 1:
-        source_xds = source_xds.sel(SOURCE_ID=source_id[0])
-        coords["source_name"] = (
-            source_xds["NAME"].values.item() + "_" + str(source_id[0])
-        )
-        direction_dims = ["sky_dir_label"]
-        # coords["source_id"] = source_id[0]
-    else:
-        source_xds = source_xds.sel(SOURCE_ID=source_id)
-        coords["source_name"] = (
-            "time",
-            np.char.add(
-                source_xds["NAME"].data, np.char.add("_", source_id.astype(str))
-            ),
-        )
-        direction_dims = ["time", "sky_dir_label"]
-        # coords["source_id"] = ("time", source_id)
+    # if len(source_id) == 1:
+    #     source_xds = source_xds.sel(SOURCE_ID=source_id[0])
+    #     coords["source_name"] = (
+    #         source_xds["NAME"].values.item() + "_" + str(source_id[0])
+    #     )
+    #     direction_dims = ["sky_dir_label"]
+    #     # coords["source_id"] = source_id[0]
+    # else:
 
-    # If ephemeris data is present we ignore the SOURCE_DIRECTION.
+    source_xds = source_xds.sel(SOURCE_ID=source_id)
+    coords["source_name"] = (
+        "field_name",
+        np.char.add(source_xds["NAME"].data, np.char.add("_", source_id.astype(str))),
+    )
+    direction_dims = ["field_name", "sky_dir_label"]
+    # coords["source_id"] = ("time", source_id)
+
+    is_ephemeris = xds.attrs["type"] == "field_and_source_ephemeris"
+    # If ephemeris data is present we ignore the SOURCE_DIRECTION in the source table.
     if not is_ephemeris:
         direction_msv2_col = "DIRECTION"
         msv4_measure = column_description_casacore_to_msv4_measure(
@@ -688,6 +717,7 @@ def extract_source_info(
         line_dims, line_coords = make_line_dims_and_coords(
             source_xds, source_id, num_lines
         )
+
         xds = xds.assign_coords(line_coords)
 
         to_new_data_variables = {
@@ -695,7 +725,7 @@ def extract_source_info(
             "SYSVEL": ["LINE_SYSTEMIC_VELOCITY", line_dims],
         }
         to_new_coords = {
-            "TIME": ["time", ["time"]],
+            "TIME": ["field_name", ["field_name"]],
         }
         convert_generic_xds_to_xradio_schema(
             source_xds, xds, to_new_data_variables, to_new_coords
@@ -759,7 +789,7 @@ def make_field_dims_and_coords(
     else:
         coords["field_name"] = field_xds["NAME"].values.item() + "_" + str(field_id)
         # coords["field_id"] = field_id
-        dims = ["sky_dir_label"]
+        dims = ["field_name", "sky_dir_label"]
 
     return dims, coords
 
@@ -811,20 +841,18 @@ def extract_field_info_and_check_ephemeris(
     assert (
         len(field_xds.poly_id) == 1
     ), "Polynomial field positions not supported. Please open an issue on https://github.com/casangi/xradio/issues so that we can add support for this."
+
     field_xds = field_xds.isel(poly_id=0, drop=True)
+
     # field_xds = field_xds.assign_coords({'field_id':field_xds['field_id'].data})
     field_xds = field_xds.assign_coords({"field_id": unique_field_id})
-    field_xds = field_xds.sel(
-        field_id=field_id, drop=False
-    )  # Make sure field_id match up with time axis (duplicate fields are allowed).
+    # field_xds = field_xds.sel(
+    #     field_id=to_np_array(field_id), drop=False
+    # )  # Make sure field_id match up with time axis (duplicate fields are allowed).
     source_id = to_np_array(field_xds.SOURCE_ID.values)
 
     ephemeris_table_name = None
     ephemeris_path = None
-    is_ephemeris = False
-    field_and_source_xds.attrs["is_ephemeris"] = (
-        False  # If we find a path to the ephemeris table we will set this to True.
-    )
 
     # Need to check if ephemeris_id is present and if ephemeris table is present.
     if "EPHEMERIS_ID" in field_xds:
@@ -845,66 +873,121 @@ def extract_field_info_and_check_ephemeris(
             )
 
             if len(ephemeris_name_table_index) > 0:  # Are there any ephemeris tables.
-                is_ephemeris = True
                 e_index = ephemeris_name_table_index[0]
                 ephemeris_path = os.path.join(in_file, "FIELD")
                 ephemeris_table_name = files[e_index]
-                field_and_source_xds.attrs["is_ephemeris"] = True
+                field_and_source_xds.attrs["type"] = "field_and_source_ephemeris"
             else:
                 logger.warning(
                     f"Could not find ephemeris table for field_id {field_id}. Ephemeris information will not be included in the field_and_source_xds."
                 )
-
-    dims, coords = make_field_dims_and_coords(field_xds, field_id, field_times)
+    from xradio._utils.schema import convert_generic_xds_to_xradio_schema
 
     if is_single_dish:
-        field_data_variables = {
-            "REFERENCE_DIR": "FIELD_REFERENCE_CENTER",
+        to_new_data_variables = {
+            "REFERENCE_DIR": [
+                "FIELD_REFERENCE_CENTER",
+                ["field_name", "sky_dir_label"],
+            ],
+            "FIELD_ID": ["FIELD_ID", ["field_name"]],
         }
     else:
-        field_data_variables = {
-            # "DELAY_DIR": "FIELD_DELAY_CENTER",
-            "PHASE_DIR": "FIELD_PHASE_CENTER",
-            # "REFERENCE_DIR": "FIELD_REFERENCE_CENTER",
+        to_new_data_variables = {
+            "PHASE_DIR": ["FIELD_PHASE_CENTER", ["field_name", "sky_dir_label"]],
+            # "DELAY_DIR": ["FIELD_DELAY_CENTER",["field_name", "sky_dir_label"]],
+            # "REFERENCE_DIR": ["FIELD_REFERENCE_CENTER",["field_name", "sky_dir_label"]],
         }
 
-    field_column_description = field_xds.attrs["other"]["msv2"]["ctds_attrs"][
-        "column_descriptions"
-    ]
+    to_new_coords = {
+        "NAME": ["field_name", ["field_name"]],
+        "field_id": ["field_id", ["field_name"]],
+    }
 
-    for generic_name, msv4_name in field_data_variables.items():
-
-        delay_dir_ref_col = "DelayDir_Ref"
-        if field_xds.get(delay_dir_ref_col) is None:
-            delaydir_ref = None
-        else:
-            delaydir_ref = check_if_consistent(
-                field_xds.get(delay_dir_ref_col), delay_dir_ref_col
-            )
-
-        msv4_measure = column_description_casacore_to_msv4_measure(
-            field_column_description[generic_name], ref_code=delaydir_ref
+    delay_dir_ref_col = "DelayDir_Ref"
+    if field_xds.get(delay_dir_ref_col) is None:
+        ref_code = None
+    else:
+        ref_code = check_if_consistent(
+            field_xds.get(delay_dir_ref_col), delay_dir_ref_col
         )
 
-        field_and_source_xds[msv4_name] = xr.DataArray.from_dict(
-            {
-                "dims": dims,
-                "data": list(field_xds[generic_name].data),
-                "attrs": msv4_measure,
-            }
-        )
+    field_and_source_xds = convert_generic_xds_to_xradio_schema(
+        field_xds, field_and_source_xds, to_new_data_variables, to_new_coords, ref_code
+    )
 
-        field_measures_type = "sky_coord"
-        field_and_source_xds[msv4_name].attrs["type"] = field_measures_type
+    # Some field names are not unique. We need to add the field_id to the field_name to make it unique.
+    field_and_source_xds = field_and_source_xds.assign_coords(
+        {
+            "field_name": np.char.add(
+                field_and_source_xds["field_name"].data,
+                np.char.add("_", field_and_source_xds["field_id"].astype(str)),
+            ),
+            "sky_dir_label": ["ra", "dec"],
+        }
+    )
 
-    field_and_source_xds = field_and_source_xds.assign_coords(coords)
-    if "time" in field_and_source_xds:
-        time_column_description = field_xds.attrs["other"]["msv2"]["ctds_attrs"][
-            "column_descriptions"
-        ]["TIME"]
-        time_msv4_measure = column_description_casacore_to_msv4_measure(
-            time_column_description
-        )
-        field_and_source_xds.coords["time"].attrs.update(time_msv4_measure)
+    temp = field_and_source_xds.set_xindex("field_id")
+    field_names = temp.sel(field_id=field_id).field_name.data
+    # field_id shouldn ot be in final xds, and no longer needed past this point
+    field_and_source_xds = field_and_source_xds.drop_vars("field_id")
 
-    return field_and_source_xds, ephemeris_path, ephemeris_table_name, source_id
+    # dims, coords = make_field_dims_and_coords(field_xds, field_id, field_times)
+
+    # if is_single_dish:
+    #     field_data_variables = {
+    #         "REFERENCE_DIR": "FIELD_REFERENCE_CENTER",
+    #     }
+    # else:
+    #     field_data_variables = {
+    #         # "DELAY_DIR": "FIELD_DELAY_CENTER",
+    #         "PHASE_DIR": "FIELD_PHASE_CENTER",
+    #         # "REFERENCE_DIR": "FIELD_REFERENCE_CENTER",
+    #     }
+
+    # field_column_description = field_xds.attrs["other"]["msv2"]["ctds_attrs"][
+    #     "column_descriptions"
+    # ]
+
+    # delay_dir_ref_col = "DelayDir_Ref"
+    # if field_xds.get(delay_dir_ref_col) is None:
+    #     delaydir_ref = None
+    # else:
+    #     delaydir_ref = check_if_consistent(
+    #         field_xds.get(delay_dir_ref_col), delay_dir_ref_col
+    #     )
+
+    # for generic_name, msv4_name in field_data_variables.items():
+    #     msv4_measure = column_description_casacore_to_msv4_measure(
+    #         field_column_description[generic_name], ref_code=delaydir_ref
+    #     )
+
+    #     print(msv4_name,generic_name,field_xds[generic_name].data.shape,field_xds[generic_name].data)
+
+    #     field_and_source_xds[msv4_name] = xr.DataArray.from_dict(
+    #         {
+    #             "dims": dims,
+    #             "data": list(field_xds[generic_name].data),
+    #             "attrs": msv4_measure,
+    #         }
+    #     )
+
+    #     field_measures_type = "sky_coord"
+    #     field_and_source_xds[msv4_name].attrs["type"] = field_measures_type
+
+    # field_and_source_xds = field_and_source_xds.assign_coords(coords)
+    # if "time" in field_and_source_xds:
+    #     time_column_description = field_xds.attrs["other"]["msv2"]["ctds_attrs"][
+    #         "column_descriptions"
+    #     ]["TIME"]
+    #     time_msv4_measure = column_description_casacore_to_msv4_measure(
+    #         time_column_description
+    #     )
+    #     field_and_source_xds.coords["time"].attrs.update(time_msv4_measure)
+
+    return (
+        field_and_source_xds,
+        ephemeris_path,
+        ephemeris_table_name,
+        source_id,
+        field_names,
+    )

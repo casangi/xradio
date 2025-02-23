@@ -127,9 +127,9 @@ def interpolate_to_time(
         xds = xds.interp(
             {time_name: interp_time.data}, method=method, assume_sorted=True
         )
-        # scan_number sneaks in as a coordinate of the main time axis, drop it
-        if "scan_number" in xds.coords:
-            xds = xds.drop_vars("scan_number")
+        # scan_name sneaks in as a coordinate of the main time axis, drop it
+        if "scan_name" in xds.coords:
+            xds = xds.drop_vars("scan_name")
         points_after = xds[time_name].size
         logger.debug(
             f"{message_prefix}: interpolating the time coordinate "
@@ -497,7 +497,7 @@ def prepare_generic_sys_cal_xds(generic_sys_cal_xds: xr.Dataset) -> xr.Dataset:
 def create_system_calibration_xds(
     in_file: str,
     main_xds_frequency: xr.DataArray,
-    ant_xds_name_ids: xr.DataArray,
+    ant_xds: xr.DataArray,
     sys_cal_interp_time: Union[xr.DataArray, None] = None,
 ):
     """
@@ -510,8 +510,8 @@ def create_system_calibration_xds(
     main_xds_frequency: xr.DataArray
         frequency array of the main xds (MSv4), containing among other things
         spectral_window_id and measures metadata
-    ant_xds_name_ids : xr.Dataset
-        antenna_name data array from antenna_xds, with name/id information
+    ant_xds : xr.Dataset
+        The antenna_xds that has information such as names, stations, etc., for coordinates
     sys_cal_interp_time: Union[xr.DataArray, None] = None,
         Time axis to interpolate the data vars to (usually main MSv4 time)
 
@@ -529,7 +529,7 @@ def create_system_calibration_xds(
             rename_ids=subt_rename_ids["SYSCAL"],
             taql_where=(
                 f" where (SPECTRAL_WINDOW_ID = {spectral_window_id})"
-                f" AND (ANTENNA_ID IN [{','.join(map(str, ant_xds_name_ids.antenna_id.values))}])"
+                f" AND (ANTENNA_ID IN [{','.join(map(str, ant_xds.antenna_id.values))}])"
             ),
         )
     except ValueError as _exc:
@@ -541,14 +541,14 @@ def create_system_calibration_xds(
 
     generic_sys_cal_xds = prepare_generic_sys_cal_xds(generic_sys_cal_xds)
 
-    mandatory_dimensions = ["antenna_name", "time_cal", "receptor_label"]
+    mandatory_dimensions = ["antenna_name", "time_system_cal", "receptor_label"]
     if "frequency" not in generic_sys_cal_xds.sizes:
         dims_all = mandatory_dimensions
     else:
-        dims_all = mandatory_dimensions + ["frequency_cal"]
+        dims_all = mandatory_dimensions + ["frequency_system_cal"]
 
     to_new_data_variables = {
-        "PHASE_DIFF": ["PHASE_DIFFERENCE", ["antenna_name", "time_cal"]],
+        "PHASE_DIFF": ["PHASE_DIFFERENCE", ["antenna_name", "time_system_cal"]],
         "TCAL": ["TCAL", dims_all],
         "TCAL_SPECTRUM": ["TCAL", dims_all],
         "TRX": ["TRX", dims_all],
@@ -564,27 +564,26 @@ def create_system_calibration_xds(
     }
 
     to_new_coords = {
-        "TIME": ["time_cal", ["time_cal"]],
+        "TIME": ["time_system_cal", ["time_system_cal"]],
         "receptor": ["receptor_label", ["receptor_label"]],
-        "frequency": ["frequency_cal", ["frequency_cal"]],
+        "frequency": ["frequency_system_cal", ["frequency_system_cal"]],
     }
 
     sys_cal_xds = xr.Dataset(attrs={"type": "system_calibration"})
-    coords = {
-        "antenna_name": ant_xds_name_ids.sel(
-            antenna_id=generic_sys_cal_xds["ANTENNA_ID"]
-        ).data,
-        "receptor_label": generic_sys_cal_xds.coords["receptor"].data,
+    ant_borrowed_coords = {
+        "antenna_name": ant_xds.coords["antenna_name"],
+        "receptor_label": ant_xds.coords["receptor_label"],
+        "polarization_type": ant_xds.coords["polarization_type"],
     }
-    sys_cal_xds = sys_cal_xds.assign_coords(coords)
+    sys_cal_xds = sys_cal_xds.assign_coords(ant_borrowed_coords)
     sys_cal_xds = convert_generic_xds_to_xradio_schema(
         generic_sys_cal_xds, sys_cal_xds, to_new_data_variables, to_new_coords
     )
 
     # Add frequency coord and its measures data, if present
-    if "frequency_cal" in dims_all:
+    if "frequency_system_cal" in dims_all:
         frequency_coord = {
-            "frequency_cal": generic_sys_cal_xds.coords["frequency"].data
+            "frequency_system_cal": generic_sys_cal_xds.coords["frequency"].data
         }
         sys_cal_xds = sys_cal_xds.assign_coords(frequency_coord)
         frequency_measure = {
@@ -592,10 +591,10 @@ def create_system_calibration_xds(
             "units": main_xds_frequency.attrs["units"],
             "observer": main_xds_frequency.attrs["observer"],
         }
-        sys_cal_xds.coords["frequency_cal"].attrs.update(frequency_measure)
+        sys_cal_xds.coords["frequency_system_cal"].attrs.update(frequency_measure)
 
     sys_cal_xds = rename_and_interpolate_to_time(
-        sys_cal_xds, "time_cal", sys_cal_interp_time, "system_calibration_xds"
+        sys_cal_xds, "time_system_cal", sys_cal_interp_time, "system_calibration_xds"
     )
 
     # correct expected types

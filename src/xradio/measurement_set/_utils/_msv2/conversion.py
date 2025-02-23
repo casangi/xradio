@@ -423,7 +423,7 @@ def create_coordinates(
         "baseline_antenna1_id": ("baseline_id", baseline_ant1_id),
         "baseline_antenna2_id": ("baseline_id", baseline_ant2_id),
         "baseline_id": np.arange(len(baseline_ant1_id)),
-        "scan_number": ("time", scan_id),
+        "scan_name": ("time", scan_id.astype(str)),
         "uvw_label": ["u", "v", "w"],
     }
 
@@ -1029,7 +1029,7 @@ def convert_and_write_partition(
                         datetime.timezone.utc
                     ).isoformat(),
                     "xradio_version": importlib.metadata.version("xradio"),
-                    "schema_version": "4.0.-9991",
+                    "schema_version": "4.0.-9989",
                     "type": "visibility",
                 }
             )
@@ -1112,10 +1112,6 @@ def convert_and_write_partition(
                     [xds["baseline_antenna1_id"].data, xds["baseline_antenna2_id"].data]
                 )
             )
-            if phase_cal_interpolate:
-                phase_cal_interp_time = xds.time.values
-            else:
-                phase_cal_interp_time = None
 
             ant_xds = create_antenna_xds(
                 in_file,
@@ -1134,6 +1130,10 @@ def convert_and_write_partition(
             logger.debug("Time gain_curve xds  " + str(time.time() - start))
 
             start = time.time()
+            if phase_cal_interpolate:
+                phase_cal_interp_time = xds.time.values
+            else:
+                phase_cal_interp_time = None
             phase_calibration_xds = create_phase_calibration_xds(
                 in_file,
                 xds.frequency.attrs["spectral_window_id"],
@@ -1142,6 +1142,20 @@ def convert_and_write_partition(
                 phase_cal_interp_time,
             )
             logger.debug("Time phase_calibration xds  " + str(time.time() - start))
+
+            # Create system_calibration_xds
+            start = time.time()
+            if sys_cal_interpolate:
+                sys_cal_interp_time = xds.time.values
+            else:
+                sys_cal_interp_time = None
+            system_calibration_xds = create_system_calibration_xds(
+                in_file,
+                xds.frequency,
+                ant_xds,
+                sys_cal_interp_time,
+            )
+            logger.debug("Time system_calibation " + str(time.time() - start))
 
             # Change antenna_ids to antenna_names
             with_antenna_partitioning = "ANTENNA1" in partition_info
@@ -1153,20 +1167,6 @@ def convert_and_write_partition(
             ant_xds_station_name_ids = ant_xds["station"].set_xindex("antenna_id")
             # No longer needed after converting to name.
             ant_xds = ant_xds.drop_vars("antenna_id")
-
-            # Create system_calibration_xds
-            start = time.time()
-            if sys_cal_interpolate:
-                sys_cal_interp_time = xds.time.values
-            else:
-                sys_cal_interp_time = None
-            system_calibration_xds = create_system_calibration_xds(
-                in_file,
-                xds.frequency,
-                ant_xds_name_ids,
-                sys_cal_interp_time,
-            )
-            logger.debug("Time system_calibation " + str(time.time() - start))
 
             # Create weather_xds
             start = time.time()
@@ -1211,37 +1211,52 @@ def convert_and_write_partition(
             else:
                 ephemeris_interp_time = None
 
-            if "FIELD_ID" not in partition_scheme:
-                field_id = np.full(time_baseline_shape, -42, dtype=int)
-                field_id[tidxs, bidxs] = tb_tool.getcol("FIELD_ID")
-                field_id = np.max(field_id, axis=1)
-                field_times = utime
-            else:
-                field_id = check_if_consistent(tb_tool.getcol("FIELD_ID"), "FIELD_ID")
-                field_times = None
+            # if "FIELD_ID" not in partition_scheme:
+            #     field_id = np.full(time_baseline_shape, -42, dtype=int)
+            #     field_id[tidxs, bidxs] = tb_tool.getcol("FIELD_ID")
+            #     field_id = np.max(field_id, axis=1)
+            #     field_times = utime
+            # else:
+            #     field_id = check_if_consistent(tb_tool.getcol("FIELD_ID"), "FIELD_ID")
+            #     field_times = None
+
+            field_id = np.full(
+                time_baseline_shape, -42, dtype=int
+            )  # -42 used for missing baselines
+            field_id[tidxs, bidxs] = tb_tool.getcol("FIELD_ID")
+            field_id = np.max(field_id, axis=1)
+            field_times = xds.time.values
 
             # col_unique = unique_1d(col)
             # assert len(col_unique) == 1, col_name + " is not consistent."
             # return col_unique[0]
 
-            field_and_source_xds, source_id, _num_lines = create_field_and_source_xds(
-                in_file,
-                field_id,
-                xds.frequency.attrs["spectral_window_id"],
-                field_times,
-                is_single_dish,
-                time_min_max,
-                ephemeris_interp_time,
+            field_and_source_xds, source_id, _num_lines, field_names = (
+                create_field_and_source_xds(
+                    in_file,
+                    field_id,
+                    xds.frequency.attrs["spectral_window_id"],
+                    field_times,
+                    is_single_dish,
+                    time_min_max,
+                    ephemeris_interpolate,
+                )
             )
+
             logger.debug("Time field_and_source_xds " + str(time.time() - start))
 
             xds = fix_uvw_frame(xds, field_and_source_xds, is_single_dish)
+            xds = xds.assign_coords({"field_name": ("time", field_names)})
 
             partition_info_misc_fields = {
-                "scan_id": scan_id,
+                "scan_name": xds.coords["scan_name"].data,
                 "intents": intents,
                 "taql_where": taql_where,
             }
+            if with_antenna_partitioning:
+                partition_info_misc_fields["antenna_name"] = xds.coords[
+                    "antenna_name"
+                ].data[0]
             info_dicts = create_info_dicts(
                 in_file, xds, field_and_source_xds, partition_info_misc_fields, tb_tool
             )

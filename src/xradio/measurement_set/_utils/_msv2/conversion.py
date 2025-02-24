@@ -1300,7 +1300,9 @@ def convert_and_write_partition(
 
             ms_xdt["/antenna_xds"] = ant_xds
             for group_name in xds.attrs["data_groups"]:
-                ms_xdt["/" + f"field_and_source_xds_{group_name}"] = field_and_source_xds
+                ms_xdt["/" + f"field_and_source_xds_{group_name}"] = (
+                    field_and_source_xds
+                )
 
             if with_pointing and len(pointing_xds.data_vars) > 0:
                 pointing_xds.to_zarr(

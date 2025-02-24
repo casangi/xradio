@@ -8,6 +8,7 @@ from typing import Any, Union
 
 MS_DATASET_TYPES = {"visibility", "spectrum", "wvr"}
 
+
 class InvalidAccessorLocation(ValueError):
     pass
 
@@ -50,10 +51,9 @@ class MeasurementSetXdt:
         >>> # Select data group 'corrected' and polarization 'XX' using a dict.
         >>> selected_ms_xdt = ms_xdt.sel({'data_group_name':'corrected', 'polarization':'XX')
         """
-        
+
         if self._xdt.attrs.get("type") not in MS_DATASET_TYPES:
-            raise InvalidAccessorLocation(
-                f"{self._xdt.path} is not a MSv4node. ")
+            raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4node. ")
 
         assert (self._xdt.attrs["type"] == "visibility") or (
             self._xdt.attrs["type"] == "spectrum"
@@ -79,14 +79,14 @@ class MeasurementSetXdt:
                 data_variables_to_drop.extend(list(temp_set))
 
             data_variables_to_drop = list(set(data_variables_to_drop))
-            
+
             sel_ms_xdt = self._xdt
 
             sel_corr_xds = self._xdt.ds.sel(
                 indexers, method, tolerance, drop, **indexers_kwargs
             ).drop_vars(data_variables_to_drop)
-            
-            sel_ms_xdt.ds = sel_corr_xds 
+
+            sel_ms_xdt.ds = sel_corr_xds
 
             sel_ms_xdt.attrs["data_groups"] = {
                 data_group_name: self._xdt.attrs["data_groups"][data_group_name]
@@ -111,9 +111,8 @@ class MeasurementSetXdt:
 
         """
         if self._xdt.attrs.get("type") not in MS_DATASET_TYPES:
-            raise InvalidAccessorLocation(
-                f"{self._xdt.path} is not a MSv4node. ")
-        
+            raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4node. ")
+
         if self._xdt.attrs["type"] not in {"visibility", "spectrum", "wvr"}:
             raise InvalidAccessorLocation(
                 f"{self._xdt.path} is not a MeasurementSetXdt node."

@@ -119,7 +119,7 @@ def base_test(
         ps_xdt = load_processing_set(str(ps_copy_name))
 
         if os.path.isdir(ps_copy_name):
-            os.system("rm -rf " + str(ps_copy_name))  # Remove ps_xdtcopy folder.
+            os.system("rm -rf " + str(ps_copy_name))  # Remove ps_xdt copy folder.
 
         ps_lazy_xdt_df = ps_lazy_xdt.ps.summary()
         assert "name" in ps_lazy_xdt_df
@@ -196,18 +196,17 @@ def base_test(
     return ps_list
 
 
-# def test_s3(tmp_path):
-#     # Similar to 'test_preconverted_alma' if this test fails on its own that
-#     # probably is because the schema, the converter or the schema cheker have
-#     # changed since the dataset was uploaded.
-#     base_test(
-#         "s3://viper-test-data/Antennae_North.cal.lsrk.split.py39.v7.vis.zarr",
-#         tmp_path,
-#         190.0405216217041,
-#         is_s3=True,
-#         partition_schemes=[[]],
-#         do_schema_check=False,
-#     )
+def test_s3(tmp_path):
+    # Similar to 'test_preconverted_alma' if this test fails on its own that
+    # probably is because the schema, the converter or the schema cheker have
+    # changed since the dataset was uploaded.
+    base_test(
+        "s3://viper-test-data/Antennae_North.cal.lsrk.split.v8.ps.zarr",
+        tmp_path,
+        190.0405216217041,
+        is_s3=True,
+        partition_schemes=[[]],
+    )
 
 
 def test_alma(tmp_path):
@@ -225,7 +224,6 @@ def test_alma(tmp_path):
 #         190.0405216217041,
 #         preconverted=True,
 #         partition_schemes=[[]],
-#         do_schema_check=False,
 #     )
 
 
@@ -417,7 +415,7 @@ if __name__ == "__main__":
     # test_sd_A002_Xae00c5_X2e6b(tmp_path=Path("."))
     # test_sd_A002_Xced5df_Xf9d9(tmp_path=Path("."))
     # test_sd_A002_Xe3a5fd_Xe38e(tmp_path=Path("."))
-    # #test_s3(tmp_path=Path("."))
+    test_s3(tmp_path=Path("."))
     # test_vlass(tmp_path=Path("."))
     # test_alma(tmp_path=Path("."))
     # #test_preconverted_alma(tmp_path=Path("."))

@@ -2,6 +2,7 @@ import os
 from typing import Dict, Union
 import dask
 import xarray as xr
+import s3fs
 
 
 def load_processing_set(
@@ -46,7 +47,13 @@ def load_processing_set(
 
         if not sel_parms:
             print(ps_store)
-            ps_xdt = xr.open_datatree(ps_store, engine="zarr")
+
+            if isinstance(file_system, s3fs.core.S3FileSystem):
+                mapping = s3fs.S3Map(root=ps_store, s3=file_system, check=False)
+                ps_xdt = xr.open_datatree(mapping, engine="zarr")
+            else:
+                ps_xdt = xr.open_datatree(ps_store, engine="zarr")
+
             ps_xdt = ps_xdt.load()
 
         return ps_xdt

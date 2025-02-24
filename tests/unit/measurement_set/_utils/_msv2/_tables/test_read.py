@@ -382,14 +382,6 @@ def test_add_units_measures_dubious_units(main_xds_min):
     assert xds_vars["TIME_CENTROID"].attrs
 
 
-def test_make_freq_attrs_uvw(spw_xds_min):
-    from xradio.measurement_set._utils._msv2._tables.read import make_freq_attrs
-
-    res = make_freq_attrs(spw_xds_min, 0)
-    expected = {"measure": {"ref_frame": "REST", "type": "frequency"}, "units": "Hz"}
-    assert res == expected
-
-
 def test_get_pad_value_uvw(main_xds_min):
     from xradio.measurement_set._utils._msv2._tables.read import get_pad_value
 

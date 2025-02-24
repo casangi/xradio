@@ -92,18 +92,6 @@ def test_make_part_key():
         assert res
 
 
-def test_read_ms_scan_subscan_partitions(ms_empty_required):
-    from xradio.measurement_set._utils._msv2.partitions import (
-        read_ms_scan_subscan_partitions,
-    )
-
-    with pytest.raises(
-        AttributeError, match="object has no attribute 'SPECTRAL_WINDOW_ID'"
-    ):
-        res = read_ms_scan_subscan_partitions(ms_empty_required.fname, "intent")
-        assert res
-
-
 def test_finalize_partitions():
     from xradio.measurement_set._utils._msv2.partitions import finalize_partitions
 

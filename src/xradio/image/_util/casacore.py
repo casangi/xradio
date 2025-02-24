@@ -60,7 +60,7 @@ def _load_casa_image_block(infile: str, block_des: dict, do_sky_coords) -> xr.Da
     mb = _multibeam_array(xds, image_full_path, False)
     if mb is not None:
         selectors = {}
-        for k in ("time", "polarization", "frequency"):
+        for k in ("time", "frequency", "polarization"):
             if k in block_des:
                 selectors[k] = block_des[k]
         xds["beam"] = mb.isel(selectors)

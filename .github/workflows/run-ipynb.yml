@@ -29,7 +29,7 @@ jobs:
         pip install ".[interactive]"
     - name: Run Jupyter notebooks
       run: |
-       for dir in docs/source/correlated_data/tutorials docs/source/correlated_data/guides docs/source/image_data/tutorials; do
+       for dir in docs/source/measurement_set/tutorials docs/source/measurement_set/guides docs/source/image_data/tutorials; do
         for notebook in $(find $dir -name '*.ipynb'); do
           jupyter nbconvert --to notebook --execute $notebook --output $(basename $notebook)
         done

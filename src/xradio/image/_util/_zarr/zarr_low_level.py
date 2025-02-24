@@ -12,9 +12,9 @@ from numcodecs.compat import (
     ensure_contiguous_ndarray_like,
 )
 
-full_dims_lm = ["time", "polarization", "frequency", "l", "m"]
-full_dims_uv = ["time", "polarization", "frequency", "l", "m"]
-norm_dims = ["polarization", "frequency"]
+full_dims_lm = ["time", "frequency", "polarization", "l", "m"]
+full_dims_uv = ["time", "frequency", "polarization", "l", "m"]
+norm_dims = ["frequency", "polarization"]
 
 image_data_variables_and_dims_double_precision = {
     "aperture": {"dims": full_dims_uv, "dtype": "<c16", "name": "APERTURE"},

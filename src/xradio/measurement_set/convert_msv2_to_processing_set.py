@@ -61,7 +61,6 @@ def convert_msv2_to_processing_set(
     sys_cal_interpolate: bool = False,
     use_table_iter: bool = False,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
-    storage_backend: str = "zarr",
     parallel: bool = False,
     overwrite: bool = False,
 ):
@@ -97,13 +96,26 @@ def convert_msv2_to_processing_set(
         Whether to use the table iterator to read the main table of the MS v2. This should be set to True when reading datasets with large number of rows and few partitions, by default False.
     compressor : numcodecs.abc.Codec, optional
         The Blosc compressor to use when saving the converted data to disk using Zarr, by default numcodecs.Zstd(level=2).
-    storage_backend : {"zarr", "netcdf"}, optional
-        The on-disk format to use. "netcdf" is not yet implemented.
     parallel : bool, optional
         Makes use of Dask to execute conversion in parallel, by default False.
     overwrite : bool, optional
         Whether to overwrite an existing processing set, by default False.
     """
+
+    # Create empty data tree
+    import xarray as xr
+
+    ps_dt = xr.DataTree()
+
+    if not str(out_file).endswith("ps.zarr"):
+        out_file += ".ps.zarr"
+
+    print("Output file: ", out_file)
+
+    if overwrite:
+        ps_dt.to_zarr(store=out_file, mode="w")
+    else:
+        ps_dt.to_zarr(store=out_file, mode="w-")
 
     partitions = create_partitions(in_file, partition_scheme=partition_scheme)
     logger.info("Number of partitions: " + str(len(partitions)))
@@ -173,3 +185,9 @@ def convert_msv2_to_processing_set(
 
     if parallel:
         dask.compute(delayed_list)
+
+    import zarr
+
+    root_group = zarr.open(out_file, mode="r+")  # Open in read/write mode
+    root_group.attrs["type"] = "processing_set"  # Replace
+    zarr.convenience.consolidate_metadata(root_group.store)

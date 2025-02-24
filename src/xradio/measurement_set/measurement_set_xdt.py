@@ -6,16 +6,7 @@ import os
 from collections.abc import Mapping, Iterable
 from typing import Any, Union
 
-VISIBILITY_DATASET_TYPES = {"visibility", "spectrum", "wvr"}
-SECONDARY_DATASET_TYPES = {
-    "antenna",
-    "field_and_source",
-    "gain_curve",
-    "system_calibration",
-    "weather",
-}
-DATASET_TYPES = VISIBILITY_DATASET_TYPES | SECONDARY_DATASET_TYPES
-
+MS_DATASET_TYPES = {"visibility", "spectrum", "wvr"}
 
 class InvalidAccessorLocation(ValueError):
     pass
@@ -59,6 +50,10 @@ class MeasurementSetXdt:
         >>> # Select data group 'corrected' and polarization 'XX' using a dict.
         >>> selected_ms_xdt = ms_xdt.sel({'data_group_name':'corrected', 'polarization':'XX')
         """
+        
+        if self._xdt.attrs.get("type") not in MS_DATASET_TYPES:
+            raise InvalidAccessorLocation(
+                f"{self._xdt.path} is not a MSv4node. ")
 
         assert (self._xdt.attrs["type"] == "visibility") or (
             self._xdt.attrs["type"] == "spectrum"
@@ -75,34 +70,38 @@ class MeasurementSetXdt:
 
         if data_group_name is not None:
             sel_data_group_set = set(
-                self.attrs["data_groups"][data_group_name].values()
+                self._xdt.attrs["data_groups"][data_group_name].values()
             )
 
             data_variables_to_drop = []
-            for dg in self.attrs["data_groups"].values():
+            for dg in self._xdt.attrs["data_groups"].values():
                 temp_set = set(dg.values()) - sel_data_group_set
                 data_variables_to_drop.extend(list(temp_set))
 
             data_variables_to_drop = list(set(data_variables_to_drop))
+            
+            sel_ms_xdt = self._xdt
 
-            sel_ms_xdt = self._xdt.sel(
+            sel_corr_xds = self._xdt.ds.sel(
                 indexers, method, tolerance, drop, **indexers_kwargs
             ).drop_vars(data_variables_to_drop)
+            
+            sel_ms_xdt.ds = sel_corr_xds 
 
             sel_ms_xdt.attrs["data_groups"] = {
-                data_group_name: self.attrs["data_groups"][data_group_name]
+                data_group_name: self._xdt.attrs["data_groups"][data_group_name]
             }
 
             return sel_ms_xdt
         else:
             return self._xdt.sel(indexers, method, tolerance, drop, **indexers_kwargs)
 
-    def get_field_and_source_xds(self, data_group="base") -> xr.Dataset:
+    def get_field_and_source_xds(self, data_group_name="base") -> xr.Dataset:
         """Get the field_and_source_xds associated with data group `data_group_name`.
 
         Parameters
         ----------
-        data_group : str, optional
+        data_group_name : str, optional
             The data group to process. Default is "base".
 
         Returns
@@ -111,12 +110,16 @@ class MeasurementSetXdt:
             field_and_source_xds associated with the data group.
 
         """
+        if self._xdt.attrs.get("type") not in MS_DATASET_TYPES:
+            raise InvalidAccessorLocation(
+                f"{self._xdt.path} is not a MSv4node. ")
+        
         if self._xdt.attrs["type"] not in {"visibility", "spectrum", "wvr"}:
             raise InvalidAccessorLocation(
                 f"{self._xdt.path} is not a MeasurementSetXdt node."
             )
 
-        return self._xdt[f"field_and_source_xds_{data_group}"].ds
+        return self._xdt[f"field_and_source_xds_{data_group_name}"].ds
 
 
 # class MeasurementSetXdt(xr.Dataset):

@@ -976,7 +976,7 @@ def convert_and_write_partition(
         _description_
     """
 
-    ms_dt = xr.DataTree()  # MSv4 as a Data Tree
+    ms_xdt = xr.DataTree()  # MSv4 as a Data Tree
 
     taql_where = create_taql_query_where(partition_info)
     ddi = partition_info["DATA_DESC_ID"][0]
@@ -1293,19 +1293,14 @@ def convert_and_write_partition(
             import sys
 
             start = time.time()
-            print("Writing to zarr")
             ms_v4_name = (
                 pathlib.Path(in_file).name.replace(".ms", "") + "_" + str(ms_v4_id)
             )
-            ms_dt.ds = xds
+            ms_xdt.ds = xds
 
-            ms_dt["/antenna_xds"] = ant_xds
+            ms_xdt["/antenna_xds"] = ant_xds
             for group_name in xds.attrs["data_groups"]:
-                print(
-                    "field_and_source_xds",
-                    ms_v4_name + "/" + f"field_and_source_xds_{group_name}",
-                )
-                ms_dt["/" + f"field_and_source_xds_{group_name}"] = field_and_source_xds
+                ms_xdt["/" + f"field_and_source_xds_{group_name}"] = field_and_source_xds
 
             if with_pointing and len(pointing_xds.data_vars) > 0:
                 pointing_xds.to_zarr(
@@ -1313,19 +1308,19 @@ def convert_and_write_partition(
                 )
 
             if system_calibration_xds:
-                ms_dt["/system_calibration_xds"] = system_calibration_xds
+                ms_xdt["/system_calibration_xds"] = system_calibration_xds
 
             if gain_curve_xds:
-                ms_dt["/gain_curve_xds"] = gain_curve_xds
+                ms_xdt["/gain_curve_xds"] = gain_curve_xds
 
             if phase_calibration_xds:
-                ms_dt["/phase_calibration_xds"] = phase_calibration_xds
+                ms_xdt["/phase_calibration_xds"] = phase_calibration_xds
 
             if weather_xds:
-                ms_dt["/weather_xds"] = weather_xds
+                ms_xdt["/weather_xds"] = weather_xds
 
             if storage_backend == "zarr":
-                ms_dt.to_zarr(store=os.path.join(out_file, ms_v4_name))
+                ms_xdt.to_zarr(store=os.path.join(out_file, ms_v4_name))
             elif storage_backend == "netcdf":
                 # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
                 raise

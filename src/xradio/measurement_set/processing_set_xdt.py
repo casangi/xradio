@@ -5,6 +5,10 @@ import numpy as np
 import toolviper.utils.logger as logger
 import xarray as xr
 
+PS_DATASET_TYPES = {"processing_set"}
+
+class InvalidAccessorLocation(ValueError):
+    pass
 
 @xr.register_datatree_accessor("ps")
 class ProcessingSetXdt:
@@ -39,6 +43,10 @@ class ProcessingSetXdt:
         pandas.DataFrame
             A DataFrame containing the summary information of the specified data group.
         """
+        
+        if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
+            raise InvalidAccessorLocation(
+                f"{self._xdt.path} is not a processing set node. ")
 
         if data_group in self.meta["summary"]:
             return self.meta["summary"][data_group]
@@ -64,6 +72,11 @@ class ProcessingSetXdt:
             A dictionary containing the maximum dimensions of the Processing Set, with dimension names as keys
             and their maximum sizes as values.
         """
+        
+        if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
+            raise InvalidAccessorLocation(
+                f"{self._xdt.path} is not a processing set node. ")
+        
 
         if "max_dims" in self.meta:
             return self.meta["max_dims"]
@@ -94,6 +107,11 @@ class ProcessingSetXdt:
         xarray.DataArray
             The combined frequency axis of the Processing Set.
         """
+        if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
+            raise InvalidAccessorLocation(
+                f"{self._xdt.path} is not a processing set node. ")
+        
+        
         if "freq_axis" in self.meta:
             return self.meta["freq_axis"]
         else:
@@ -196,12 +214,15 @@ class ProcessingSetXdt:
         This method allows filtering the Processing Set by matching column names and values
         or by applying a Pandas query string. The selection criteria can target various
         attributes of the Measurement Sets such as intents, polarization, spectral window names, etc.
+        
+        A data group can be selected by name by using the `data_group_name` parameter. This is applied to each Measurement Set in the Processing Set.
 
         Note
         ----
         This selection does not modify the actual data within the Measurement Sets. For example, if
         a Measurement Set has `field_name=['field_0','field_10','field_08']` and `ps.sel(field_name='field_0')`
         is invoked, the resulting subset will still contain the original list `['field_0','field_10','field_08']`.
+        The exception is data group selection, using `data_group_name`, that will select data variables only associated with the specified data group in the Measurement Set.
 
         Parameters
         ----------
@@ -227,6 +248,10 @@ class ProcessingSetXdt:
         >>> selected_ps = ps.sel(query='start_frequency > 100e9 AND end_frequency < 200e9')
         """
         import numpy as np
+        
+        if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
+            raise InvalidAccessorLocation(
+                f"{self._xdt.path} is not a processing set node. ")
 
         def select_rows(df, col, sel_vals, string_exact_match):
             def check_selection(row_val):
@@ -247,25 +272,36 @@ class ProcessingSetXdt:
             return df[df[col].apply(check_selection)]
 
         summary_table = self.summary()
+        data_group_name = None
         for key, value in kwargs.items():
-            value = to_list(value)  # make sure value is a list.
-
-            if len(value) == 1 and isinstance(value[0], slice):
-                summary_table = summary_table[
-                    summary_table[key].between(value[0].start, value[0].stop)
-                ]
+            
+            if "data_group_name" == key:
+                data_group_name = value
             else:
-                summary_table = select_rows(
-                    summary_table, key, value, string_exact_match
-                )
+                value = to_list(value)  # make sure value is a list.
+
+                if len(value) == 1 and isinstance(value[0], slice):
+                    summary_table = summary_table[
+                        summary_table[key].between(value[0].start, value[0].stop)
+                    ]
+                else:
+                    summary_table = select_rows(
+                        summary_table, key, value, string_exact_match
+                    )
 
         if query is not None:
             summary_table = summary_table.query(query)
+            
 
         sub_ps_xdt = xr.DataTree()
         for key, val in self._xdt.items():
             if key in summary_table["name"].values:
-                sub_ps_xdt[key] = val
+                if data_group_name is not None:
+                    sub_ps_xdt[key] = val.ms.sel(data_group_name=data_group_name)
+                else:
+                    sub_ps_xdt[key] = val
+
+        sub_ps_xdt.attrs = self._xdt.attrs
 
         return sub_ps_xdt
 
@@ -288,6 +324,10 @@ class ProcessingSetXdt:
         ValueError
             If the `field_and_source_xds` attribute is missing or improperly formatted in any Measurement Set.
         """
+        
+        if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
+            raise InvalidAccessorLocation(
+                f"{self._xdt.path} is not a processing set node. ")
 
         combined_field_and_source_xds = xr.Dataset()
         for ms_name, ms_xdt in self._xdt.items():
@@ -381,6 +421,10 @@ class ProcessingSetXdt:
         ValueError
             If the `field_and_source_xds` attribute is missing or improperly formatted in any Measurement Set.
         """
+        
+        if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
+            raise InvalidAccessorLocation(
+                f"{self._xdt.path} is not a processing set node. ")
 
         combined_ephemeris_field_and_source_xds = xr.Dataset()
         for ms_name, ms_xdt in self._xdt.items():
@@ -506,6 +550,11 @@ class ProcessingSetXdt:
         ValueError
             If the combined datasets are empty or improperly formatted.
         """
+        if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
+            raise InvalidAccessorLocation(
+                f"{self._xdt.path} is not a processing set node. ")
+        
+        
         combined_field_and_source_xds = self.get_combined_field_and_source_xds(
             data_group
         )
@@ -598,6 +647,10 @@ class ProcessingSetXdt:
         ValueError
             If antenna datasets are missing required variables or improperly formatted.
         """
+        if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
+            raise InvalidAccessorLocation(
+                f"{self._xdt.path} is not a processing set node. ")
+        
         combined_antenna_xds = xr.Dataset()
         for cor_name, ms_xdt in self._xdt.items():
             antenna_xds = ms_xdt.antenna_xds.ds
@@ -642,6 +695,10 @@ class ProcessingSetXdt:
         ValueError
             If the combined antenna dataset is empty or missing required coordinates.
         """
+        if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
+            raise InvalidAccessorLocation(
+                f"{self._xdt.path} is not a processing set node. ")
+        
         combined_antenna_xds = self.get_combined_antenna_xds()
         from matplotlib import pyplot as plt
 

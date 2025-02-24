@@ -36,7 +36,11 @@ from ..common import (
 )
 from ...._utils._casacore.tables import extract_table_attributes, open_table_ro
 from xradio._utils.coord_math import _deg_to_rad
-from xradio._utils.dict_helpers import make_quantity
+from xradio._utils.dict_helpers import (
+    make_quantity,
+    make_frequency_reference_dict,
+    make_skycoord_dict,
+)
 
 """
 def _add_coord_attrs(xds: xr.Dataset, icoords: dict, dir_axes: list) -> xr.Dataset:
@@ -70,11 +74,16 @@ def _add_freq_attrs(xds, coord_dict):
             sd = coord_dict[k]
             meta["rest_frequency"] = make_quantity(sd["restfreq"], "Hz")
             meta["type"] = "frequency"
-            meta["units"] = sd["unit"]
-            meta["frame"] = sd["system"]
+            # meta["units"] = sd["unit"]
+            # meta["frame"] = sd["system"]
             meta["wave_unit"] = sd["waveUnit"]
-            meta["crval"] = sd["wcs"]["crval"]
-            meta["cdelt"] = sd["wcs"]["cdelt"]
+            # meta["crval"] = sd["wcs"]["crval"]
+            # meta["cdelt"] = sd["wcs"]["cdelt"]
+            meta["reference_value"] = make_frequency_reference_dict(
+                value=sd["wcs"]["crval"],
+                units=sd["unit"],
+                observer=sd["system"],
+            )
     if not meta:
         # this is the default frequency information CASA creates
         meta = _default_freq_info()
@@ -113,7 +122,7 @@ def _add_sky_or_aperture(
 
 
 def _get_time_format(value: float, unit: str) -> str:
-    if value >= 40000 and value <= 100000 and unit == "d":
+    if value >= 40000 and value <= 100000 and (unit == "d" or unit == ["d"]):
         return "MJD"
     else:
         return ""
@@ -124,7 +133,7 @@ def _add_time_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
     meta = {}
     meta["type"] = "time"
     meta["scale"] = coord_dict["obsdate"]["refer"]
-    meta["units"] = coord_dict["obsdate"]["m0"]["unit"]
+    meta["units"] = [coord_dict["obsdate"]["m0"]["unit"]]
     meta["format"] = _get_time_format(xds["time"][0], meta["units"])
     xds["time"].attrs = copy.deepcopy(meta)
     # xds['time'] = time_coord
@@ -133,7 +142,7 @@ def _add_time_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
 
 def _add_vel_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
     vel_coord = xds["velocity"]
-    meta = {"units": "m/s"}
+    meta = {"units": ["m/s"]}
     for k in coord_dict:
         if k.startswith("spectral"):
             sd = coord_dict[k]
@@ -169,22 +178,24 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
         casa_system = coord_dir_dict[system]
         ap_system, ap_equinox = _convert_direction_system(casa_system, "native")
         dir_dict = {}
-        dir_dict["reference"] = {
-            "frame": ap_system,
-            "type": "sky_coord",
-            "equinox": ap_equinox if ap_equinox else None,
-            "value": [0.0, 0.0],
-            "units": ["rad", "rad"],
-        }
+
+        dir_dict["reference"] = make_skycoord_dict(
+            data=[0.0, 0.0], units=["rad", "rad"], frame=ap_system
+        )
+        if ap_equinox:
+            dir_dict["reference"]["attrs"]["equinox"] = ap_equinox
         for i in range(2):
             unit = u.Unit(_get_unit(coord_dir_dict["units"][i]))
             q = coord_dir_dict["crval"][i] * unit
             x = q.to("rad")
-            dir_dict["reference"]["value"][i] = x.value
+            dir_dict["reference"]["data"][i] = x.value
         k = "latpole"
         if k in coord_dir_dict:
-            for j in (k, "longpole"):
-                dir_dict[j] = make_quantity(coord_dir_dict[j] * _deg_to_rad, "rad")
+            for j in (k, "lonpole"):
+                m = "longpole" if j == "lonpole" else j
+                dir_dict[j] = make_quantity(
+                    value=coord_dir_dict[m] * _deg_to_rad, units="rad", dims=["l", "m"]
+                )
         for j in ("pc", "projection_parameters", "projection"):
             if j in coord_dir_dict:
                 dir_dict[j] = coord_dir_dict[j]
@@ -221,7 +232,8 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
                 )
         elif k == "obsdate":
             obsdate["scale"] = coord_dict[k]["refer"]
-            obsdate["units"] = coord_dict[k]["m0"]["unit"]
+            myu = coord_dict[k]["m0"]["unit"]
+            obsdate["units"] = myu if isinstance(myu, list) else [myu]
             obsdate["value"] = coord_dict[k]["m0"]["value"]
             obsdate["format"] = _get_time_format(obsdate["value"], obsdate["units"])
             obsdate["type"] = "time"
@@ -285,14 +297,14 @@ def _casa_image_to_xds_coords(
     coords = {}
     coord_attrs = {}
     (coords["time"], coord_attrs["time"]) = _get_time_values_attrs(coord_dict)
-    (coords["polarization"], coord_attrs["polarization"]) = _get_pol_values_attrs(
-        coord_dict
-    )
     (coords["frequency"], coord_attrs["frequency"]) = _get_freq_values_attrs(
         csys, shape
     )
     (velocity_vals, coord_attrs["velocity"]) = _get_velocity_values_attrs(
         coord_dict, coords["frequency"]
+    )
+    (coords["polarization"], coord_attrs["polarization"]) = _get_pol_values_attrs(
+        coord_dict
     )
     coords["velocity"] = (["frequency"], velocity_vals)
     if len(sphr_dims) > 0:
@@ -307,10 +319,10 @@ def _casa_image_to_xds_coords(
                 naxis=shape[idx], crval=0.0, crpix=crpix[idx], cdelt=delta
             )
             coord_attrs[c] = {
-                "crval": 0.0,
-                "cdelt": delta,
-                "units": "rad",
-                "type": "quantity",
+                # "crval": 0.0,
+                # "cdelt": delta,
+                # "units": "rad",
+                # "type": "quantity",
                 "note": attr_note[c],
             }
         if do_sky_coords:
@@ -353,18 +365,18 @@ def _convert_direction_system(
         if verbose:
             logger.info(
                 f"J2000 found as {which} reference frame in CASA image "
-                'This corresponds to FK5(equinox="J2000") in astropy. '
+                'This corresponds to fk5(equinox="j2000") in astropy. '
                 "Metadata will be written appropriately"
             )
-        return ("FK5", "J2000.0")
+        return ("fk5", "j2000.0")
     elif casa_system == "B1950":
         if verbose:
             logger.info(
                 f"B1950 found as {which} reference frame in CASA image "
-                'This corresponds to FK4(equinox="B1950") in astropy. '
+                'This corresponds to fk4(equinox="b1950") in astropy. '
                 "Metadata will be written appropriately"
             )
-        return ("FK4", "B1950.0")
+        return ("fk4", "b1950.0")
     elif casa_system in ("GALACTIC", "ICRS"):
         return (casa_system.lower(), None)
     else:
@@ -515,12 +527,19 @@ def _get_freq_values_attrs(
                     cdelt=wcs["cdelt"],
                 )
                 attrs["rest_frequency"] = make_quantity(sd["restfreq"], "Hz")
-                attrs["type"] = "frequency"
-                attrs["units"] = sd["unit"]
-                attrs["frame"] = sd["system"]
+                # attrs["type"] = "frequency"
+                # attrs["units"] = sd["unit"]
+                # attrs["frame"] = sd["system"]
                 attrs["wave_unit"] = sd["waveUnit"]
-                attrs["crval"] = sd["wcs"]["crval"]
-                attrs["cdelt"] = sd["wcs"]["cdelt"]
+                # attrs["crval"] = sd["wcs"]["crval"]
+                # attrs["cdelt"] = sd["wcs"]["cdelt"]
+
+                attrs["reference_value"] = make_frequency_reference_dict(
+                    value=sd["wcs"]["crval"],
+                    units=sd["unit"],
+                    observer=sd["system"],
+                )
+
                 attrs = copy.deepcopy(attrs)
                 break
     else:
@@ -595,9 +614,9 @@ def _get_multibeam(imageinfo: dict) -> Union[np.ndarray, None]:
             k = nchan * p + c
             b = beam["*" + str(k)]
             beam_dict = _convert_beam_to_rad(b)
-            beam_array[0][p][c][0] = beam_dict["major"]["value"]
-            beam_array[0][p][c][1] = beam_dict["minor"]["value"]
-            beam_array[0][p][c][2] = beam_dict["pa"]["value"]
+            beam_array[0][p][c][0] = beam_dict["major"]["data"]
+            beam_array[0][p][c][1] = beam_dict["minor"]["data"]
+            beam_array[0][p][c][2] = beam_dict["pa"]["data"]
     return beam_array
 
 
@@ -666,7 +685,7 @@ def _get_time_values_attrs(cimage_coord_dict: dict) -> Tuple[List[float], dict]:
     attrs["type"] = "time"
     attrs["scale"] = cimage_coord_dict["obsdate"]["refer"]
     unit = cimage_coord_dict["obsdate"]["m0"]["unit"]
-    attrs["units"] = unit
+    attrs["units"] = unit if isinstance(unit, list) else [unit]
     time_val = cimage_coord_dict["obsdate"]["m0"]["value"]
     attrs["format"] = _get_time_format(time_val, unit)
     return ([time_val], copy.deepcopy(attrs))
@@ -699,15 +718,15 @@ def _get_transpose_list(coords: coordinates.coordinatesystem) -> list:
             not_covered.remove("v")
         elif b.startswith("frequency"):
             # transpose_list[2] = csys['pixelmap1'][0]
-            transpose_list[2] = i
+            transpose_list[1] = i
             not_covered.remove("f")
         elif b.startswith("stok"):
-            transpose_list[1] = i
+            transpose_list[2] = i
             # transpose_list[1] = csys['pixelmap2'][0]
             not_covered.remove("s")
         else:
             raise Exception(f"Unhandled axis name {c}")
-    h = {"l": 3, "m": 4, "u": 3, "v": 4, "f": 2, "s": 1}
+    h = {"l": 3, "m": 4, "u": 3, "v": 4, "f": 1, "s": 2}
     for p in not_covered:
         transpose_list[h[p]] = last_axis
         new_axes.append(last_axis)
@@ -778,7 +797,7 @@ def _get_velocity_values(coord_dict: dict, freq_values: list) -> list:
             restfreq = coord_dict[k]["restfreq"]
             break
     return _compute_velocity_values(
-        restfreq=restfreq, freq_values=freq_values, doppler="RADIO"
+        restfreq=restfreq, freq_values=freq_values, doppler="radio"
     )
 
 
@@ -796,11 +815,11 @@ def _get_velocity_values_attrs(
     if not attrs:
         attrs["doppler_type"] = _doppler_types[0]
 
-    attrs["units"] = "m/s"
+    attrs["units"] = ["m/s"]
     attrs["type"] = "doppler"
     return (
         _compute_velocity_values(
-            restfreq=restfreq, freq_values=freq_values, doppler="RADIO"
+            restfreq=restfreq, freq_values=freq_values, doppler="radio"
         ),
         copy.deepcopy(attrs),
     )
@@ -1028,7 +1047,7 @@ def _read_image_array(
     :type blc: a type that is convertable to a list via list(blc)
     :param trc: top right corner, given in the axes ordering of the input image.None=>image shape - 1
     :type trc: a type that is convertable to a list via list(trc)
-    :return: Dask array in time, polarization, frequency, l, m order
+    :return: Dask array in time, frequency, polarization, l, m order
     :rtype: dask.array
 
     """

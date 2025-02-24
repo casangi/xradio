@@ -11,7 +11,11 @@ from astropy.io import fits
 from astropy.time import Time
 
 from xradio._utils.coord_math import _deg_to_rad
-from xradio._utils.dict_helpers import make_quantity
+from xradio._utils.dict_helpers import (
+    make_quantity,
+    make_frequency_reference_dict,
+    make_skycoord_dict,
+)
 
 from ....measurement_set._utils._utils.stokes_types import stokes_types
 from ..common import (
@@ -69,6 +73,7 @@ def _add_time_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     time_coord = xds.coords["time"]
     meta = copy.deepcopy(helpers["obsdate"])
     del meta["value"]
+    # meta["units"] = [ meta["units"] ]
     # meta['format'] = 'MJD'
     # meta['time_scale'] = meta['refer']
     # del meta['refer']
@@ -82,13 +87,16 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     meta = {}
     if helpers["has_freq"]:
         meta["rest_frequency"] = make_quantity(helpers["restfreq"], "Hz")
-        meta["frame"] = helpers["specsys"]
-        meta["units"] = "Hz"
+        meta["rest_frequencies"] = [meta["rest_frequency"]]
+        # meta["frame"] = helpers["specsys"]
+        # meta["units"] = "Hz"
         meta["type"] = "frequency"
         meta["wave_unit"] = "mm"
         freq_axis = helpers["freq_axis"]
-        meta["crval"] = helpers["crval"][freq_axis]
-        meta["cdelt"] = helpers["cdelt"][freq_axis]
+        meta["reference_value"] = make_frequency_reference_dict(
+            helpers["crval"][freq_axis], ["Hz"], helpers["specsys"]
+        )
+        # meta["cdelt"] = helpers["cdelt"][freq_axis]
     if not meta:
         # this is the default frequency information CASA creates
         meta = _default_freq_info()
@@ -99,7 +107,7 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
 
 def _add_vel_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     vel_coord = xds.coords["velocity"]
-    meta = {"units": "m/s"}
+    meta = {"units": ["m/s"]}
     if helpers["has_freq"]:
         meta["doppler_type"] = helpers.get("doppler", "RADIO")
     else:
@@ -115,10 +123,6 @@ def _add_l_m_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     for c in ["l", "m"]:
         if c in xds.coords:
             xds[c].attrs = {
-                "crval": 0.0,
-                "cdelt": helpers[c]["cdelt"],
-                "units": "rad",
-                "type": "quantity",
                 "note": attr_note[c],
             }
     return xds
@@ -170,6 +174,10 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
     helpers["ref_sys"] = ref_sys
     helpers["ref_eqx"] = ref_eqx
     # fits does not support conversion frames
+    direction["reference"] = make_skycoord_dict(
+        [0.0, 0.0], units=["rad", "rad"], frame=ref_sys
+    )
+    """
     direction["reference"] = {
         "type": "sky_coord",
         "frame": ref_sys,
@@ -177,15 +185,25 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
         "units": ["rad", "rad"],
         "value": [0.0, 0.0],
     }
+    """
     dir_axes = helpers["dir_axes"]
+    ddata = []
+    dunits = []
     for i in dir_axes:
         x = helpers["crval"][i] * u.Unit(_get_unit(helpers["cunit"][i]))
         x = x.to("rad")
-        direction["reference"]["value"][i] = x.value
+        ddata.append(x.value)
+        # direction["reference"]["value"][i] = x.value
         x = helpers["cdelt"][i] * u.Unit(_get_unit(helpers["cunit"][i]))
-        x = x.to("rad")
-    direction["latpole"] = make_quantity(header["LATPOLE"] * _deg_to_rad, "rad")
-    direction["longpole"] = make_quantity(header["LONPOLE"] * _deg_to_rad, "rad")
+        dunits.append(x.to("rad"))
+    direction["reference"] = make_skycoord_dict(ddata, units=dunits, frame=ref_sys)
+    direction["reference"]["attrs"]["equinox"] = ref_eqx.lower()
+    direction["latpole"] = make_quantity(
+        header["LATPOLE"] * _deg_to_rad, "rad", dims=["l", "m"]
+    )
+    direction["lonpole"] = make_quantity(
+        header["LONPOLE"] * _deg_to_rad, "rad", dims=["l", "m"]
+    )
     pc = np.zeros([2, 2])
     for i in (0, 1):
         for j in (0, 1):
@@ -412,7 +430,7 @@ def _fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList) -> dict:
     obsdate = {}
     obsdate["type"] = "time"
     obsdate["value"] = Time(header["DATE-OBS"], format="isot").mjd
-    obsdate["units"] = "d"
+    obsdate["units"] = ["d"]
     obsdate["scale"] = header["TIMESYS"]
     obsdate["format"] = "MJD"
     attrs["obsdate"] = obsdate
@@ -456,8 +474,8 @@ def _create_coords(
     helpers["sphr_dims"] = sphr_dims
     coords = {}
     coords["time"] = _get_time_values(helpers)
-    coords["polarization"] = _get_pol_values(helpers)
     coords["frequency"] = _get_freq_values(helpers)
+    coords["polarization"] = _get_pol_values(helpers)
     coords["velocity"] = (["frequency"], _get_velocity_values(helpers))
     if len(sphr_dims) > 0:
         for i, c in enumerate(["l", "m"]):
@@ -593,16 +611,16 @@ def _do_multibeam(xds: xr.Dataset, imname: str) -> xr.Dataset:
             )
             nchan = header["NCHAN"]
             npol = header["NPOL"]
-            beam_array = np.zeros([1, npol, nchan, 3])
+            beam_array = np.zeros([1, nchan, npol, 3])
             data = hdu.data
             for t in data:
-                beam_array[0, t[4], t[3]] = t[0:3]
+                beam_array[0, t[3], t[4]] = t[0:3]
             for i in (0, 1, 2):
                 beam_array[:, :, :, i] = (
                     (beam_array[:, :, :, i] * units[i]).to("rad").value
                 )
             xdb = xr.DataArray(
-                beam_array, dims=["time", "polarization", "frequency", "beam_param"]
+                beam_array, dims=["time", "frequency", "polarization", "beam_param"]
             )
             xdb = xdb.rename("beam")
             xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
@@ -768,10 +786,10 @@ def _get_transpose_list(helpers: dict) -> tuple:
             or b.startswith("vopt")
             or b.startswith("vrad")
         ):
-            transpose_list[2] = i
+            transpose_list[1] = i
             not_covered.remove("f")
         elif b.startswith("stok"):
-            transpose_list[1] = i
+            transpose_list[2] = i
             not_covered.remove("s")
         else:
             raise RuntimeError(f"Unhandled axis name {c}")

@@ -4,40 +4,6 @@ import pytest
 import xarray
 
 
-def test_partitions_make_coords():
-    from xradio.measurement_set._utils._utils.xds_helper import make_coords
-
-    with pytest.raises(AttributeError, match="object has no attribute 'CHAN_FREQ'"):
-        res = make_coords(
-            xarray.Dataset(),
-            0,
-            (xarray.Dataset(), xarray.Dataset, xarray.Dataset(), xarray.Dataset()),
-        )
-        assert res
-
-
-def test_partitions_make_coords_min(ant_xds_min, ddi_xds_min, spw_xds_min, pol_xds_min):
-    from xradio.measurement_set._utils._utils.xds_helper import make_coords
-
-    with pytest.raises(AttributeError, match="object has no attribute 'freq'"):
-        res = make_coords(
-            xarray.Dataset(), 0, (ant_xds_min, ddi_xds_min, spw_xds_min, pol_xds_min)
-        )
-        assert res
-
-
-def test_xds_packager_cds(ant_xds_min):
-    from xradio.measurement_set._utils._utils.xds_helper import vis_xds_packager_cds
-
-    addt = "addition"
-    subts = [("antenna", ant_xds_min)]
-    parts = {9: 0}
-    res = vis_xds_packager_cds(subts, parts, addt)
-    assert res
-    assert res.metainfo == [("antenna", ant_xds_min)]
-    assert res.partitions == parts
-
-
 def test_xds_packager_mxds(ant_xds_min):
     from xradio.measurement_set._utils._utils.xds_helper import vis_xds_packager_mxds
     from xarray.core.utils import Frozen

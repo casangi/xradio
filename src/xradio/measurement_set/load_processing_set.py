@@ -12,7 +12,7 @@ def load_processing_set(
     include_variables: Union[list, None] = None,
     drop_variables: Union[list, None] = None,
     load_sub_datasets: bool = True,
-  )  -> xr.DataTree:
+) -> xr.DataTree:
     """Loads a processing set into memory.
 
     Parameters
@@ -34,7 +34,7 @@ def load_processing_set(
     include_variables : Union[list, None], optional
         The list of data variables to load into memory for example ['VISIBILITY', 'WEIGHT, 'FLAGS']. By default None which will load all data variables into memory.
     drop_variables : Union[list, None], optional
-        The list of data variables to drop from memory for example ['VISIBILITY', 'WEIGHT, 'FLAGS']. By default None which will not drop any data variables from memory.    
+        The list of data variables to drop from memory for example ['VISIBILITY', 'WEIGHT, 'FLAGS']. By default None which will not drop any data variables from memory.
     load_sub_datasets : bool, optional
         If true sub-datasets (for example weather_xds, antenna_xds, pointing_xds, system_calibration_xds ...) will be loaded into memory, by default True.
 
@@ -47,51 +47,62 @@ def load_processing_set(
 
     file_system, ms_store_list = _get_file_system_and_items(ps_store)
 
-    with dask.config.set(scheduler="synchronous"): #serial scheduler, critical so that this can be used within delayed functions.
+    with dask.config.set(
+        scheduler="synchronous"
+    ):  # serial scheduler, critical so that this can be used within delayed functions.
         ps_xdt = xr.DataTree()
-        
+
         if sel_parms:
             for ms_name, ms_xds_isel in sel_parms.items():
                 ms_store = os.path.join(ps_store, ms_name)
-                
+
                 if isinstance(file_system, s3fs.core.S3FileSystem):
                     ms_store = s3fs.S3Map(root=ps_store, s3=file_system, check=False)
-                
+
                 if ms_xds_isel:
-                    ms_xdt = xr.open_datatree(ms_store, engine="zarr", drop_variables=drop_variables).isel(ms_xds_isel).ms.sel(data_group_name=data_group_name)
+                    ms_xdt = (
+                        xr.open_datatree(
+                            ms_store, engine="zarr", drop_variables=drop_variables
+                        )
+                        .isel(ms_xds_isel)
+                        .ms.sel(data_group_name=data_group_name)
+                    )
                 else:
-                    ms_xdt = xr.open_datatree(ms_store, engine="zarr", drop_variables=drop_variables).ms.sel(data_group_name=data_group_name)
-                    
-                                
+                    ms_xdt = xr.open_datatree(
+                        ms_store, engine="zarr", drop_variables=drop_variables
+                    ).ms.sel(data_group_name=data_group_name)
+
                 if include_variables is not None:
                     for data_vars in ms_xdt.ds.data_vars:
                         if data_vars not in include_variables:
                             ms_xdt.ds = ms_xdt.ds.drop_vars(data_vars)
-                        
-                ps_xdt[ms_name] = ms_xdt  
 
-            ps_xdt.attrs['type'] = "processing_set"
+                ps_xdt[ms_name] = ms_xdt
+
+            ps_xdt.attrs["type"] = "processing_set"
         else:
-            ps_xdt = xr.open_datatree(ps_store, engine="zarr", drop_variables=drop_variables)
-            
+            ps_xdt = xr.open_datatree(
+                ps_store, engine="zarr", drop_variables=drop_variables
+            )
+
             if (include_variables is not None) or data_group_name:
                 for ms_name, ms_xdt in ps_xdt.items():
-                    
+
                     ms_xdt = ms_xdt.ms.sel(data_group_name=data_group_name)
-                    
+
                     if include_variables is not None:
                         for data_vars in ms_xdt.ds.data_vars:
                             if data_vars not in include_variables:
                                 ms_xdt.ds = ms_xdt.ds.drop_vars(data_vars)
                     ps_xdt[ms_name] = ms_xdt
-                    
+
         if not load_sub_datasets:
             for ms_xdt in ps_xdt.children.values():
                 ms_xdt_names = list(ms_xdt.keys())
                 for sub_xds_name in ms_xdt_names:
                     if "xds" in sub_xds_name:
                         del ms_xdt[sub_xds_name]
-                    
+
         ps_xdt = ps_xdt.load()
 
     return ps_xdt
@@ -102,8 +113,8 @@ class ProcessingSetIterator:
         self,
         sel_parms: dict,
         input_data_store: str,
-        input_data: Union[Dict, xr.DataTree, None] = None,    
-        data_group_name: str = None,    
+        input_data: Union[Dict, xr.DataTree, None] = None,
+        data_group_name: str = None,
         include_variables: Union[list, None] = None,
         drop_variables: Union[list, None] = None,
         load_sub_datasets: bool = True,
@@ -133,7 +144,7 @@ class ProcessingSetIterator:
         include_variables : Union[list, None], optional
             The list of data variables to load into memory for example ['VISIBILITY', 'WEIGHT, 'FLAGS']. By default None which will load all data variables into memory.
         drop_variables : Union[list, None], optional
-            The list of data variables to drop from memory for example ['VISIBILITY', 'WEIGHT, 'FLAGS']. By default None which will not drop any data variables from memory.    
+            The list of data variables to drop from memory for example ['VISIBILITY', 'WEIGHT, 'FLAGS']. By default None which will not drop any data variables from memory.
         load_sub_datasets : bool, optional
             If true sub-datasets (for example weather_xds, antenna_xds, pointing_xds, system_calibration_xds ...) will be loaded into memory, by default True.
         """

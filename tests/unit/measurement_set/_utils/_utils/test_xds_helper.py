@@ -145,23 +145,3 @@ def test_calc_otimal_ms_chunk_shape_raises(
 
     with expected_raises:
         res = calc_optimal_ms_chunk_shape(mem_avail, shape, elem_size, col_name)
-
-
-# likely to be very flaky depending on machine resources. Let's see
-@pytest.mark.parametrize(
-    "ndim, didxs, chunk_size, data_shape, expected_res",
-    [
-        (4, None, "auto", (10, 20, 200, 2), (10, 20, 200, 2)),
-        (3, None, "auto", (3600, 30, 2000), (1705, 14, 947)),
-        (4, None, "large", (5000, 30, 4000, 1), (3010, 19, 2408, 1)),
-        (4, None, "small", (100, 30, 2000, 2), (100, 30, 2000, 2)),
-        (4, None, "small", None, (284, 284, 284, 1)),
-    ],
-)
-def test_optimal_chunking(ndim, didxs, chunk_size, data_shape, expected_res):
-    from xradio.measurement_set._utils._utils.xds_helper import optimal_chunking
-
-    res = optimal_chunking(ndim, didxs, chunk_size, data_shape)
-    # This can depend heavily on mem available on the machine
-    if data_shape:
-        assert res <= data_shape

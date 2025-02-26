@@ -20,7 +20,7 @@ def test_create_field_and_source_xds_empty(ms_empty_required):
             np.arange(0, 100),
             False,
             (0, 1e10),
-            None,
+            False,
         )
 
 
@@ -34,7 +34,7 @@ def test_create_field_and_source_xds_minimal_wrong_field_ids(ms_empty_required):
             np.arange(0, 100),
             False,
             (0, 1e10),
-            None,
+            False,
         )
 
 
@@ -47,7 +47,7 @@ def test_create_field_and_source_xds_minimal(ms_minimal_required):
         np.arange(0, 1),
         False,
         (0, 1e10),
-        xr.DataArray(),
+        True,
     )
 
     assert num_lines == 0

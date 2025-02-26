@@ -8,7 +8,7 @@ import xarray as xr
 def open_processing_set(
     ps_store: str,
     intents: list = None,
-):  # -> ProcessingSet:
+) -> xr.DataTree:
     """Creates a lazy representation of a Processing Set (only meta-data is loaded into memory).
 
     Parameters
@@ -16,8 +16,8 @@ def open_processing_set(
     ps_store : str
         String of the path and name of the processing set. For example '/users/user_1/uid___A002_Xf07bba_Xbe5c_target.lsrk.vis.zarr'.
     intents : list, optional
-        A list of intents to be open for example ['OBSERVE_TARGET#ON_SOURCE']. The intents in a processing set can be seen by calling processing_set.summary().
-        By default None, which will open all intents.
+        A list of intents to be opened for example ['OBSERVE_TARGET#ON_SOURCE']. The intents in a processing_set_xdt can be seen by calling processing_set_xdt.ps.summary().
+        By default None, which will include all intents.
 
     Returns
     -------

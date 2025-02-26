@@ -658,7 +658,9 @@ class xds_from_image_test(ImageBase):
                 }
                 x["npix"] = shape[3] if z == "u" else shape[2]
             self._expec_uv = copy.deepcopy(uv)
-        expec_coords = set(["time", "polarization", "frequency", "velocity", "u", "v", "beam_param"])
+        expec_coords = set(
+            ["time", "polarization", "frequency", "velocity", "u", "v", "beam_param"]
+        )
         self.assertEqual(xds.coords.keys(), expec_coords, "incorrect coordinates")
         for c in ["u", "v"]:
             attrs = self._expec_uv[c]["attrs"]
@@ -855,9 +857,9 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
 
     def test_beam(self):
         """
-        Verify fix to issue 45
-        https://github.com/casangi/xradio/issues/45
-    irint("*** r", r)
+            Verify fix to issue 45
+            https://github.com/casangi/xradio/issues/45
+        irint("*** r", r)
         """
         download(self._imname2), f"failed to download {self._imname2}"
         shutil.copytree(self._imname2, self._outname6)
@@ -883,20 +885,23 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
         # convert to single beam image
         tb = casacore.tables.table(self._outname6, readonly=False)
         beam3 = {
-            'major': {'unit': 'arcsec', 'value': 4.0},
-            'minor': {'unit': 'arcsec', 'value': 3.0},
-            'positionangle': {'unit': 'deg', 'value': 5.0}
+            "major": {"unit": "arcsec", "value": 4.0},
+            "minor": {"unit": "arcsec", "value": 3.0},
+            "positionangle": {"unit": "deg", "value": 5.0},
         }
         tb.putkeyword(
-            "imageinfo", {
-                'imagetype': 'Intensity',
-                'objectname': '',
-                'restoringbeam': beam3,
-            }
+            "imageinfo",
+            {
+                "imagetype": "Intensity",
+                "objectname": "",
+                "restoringbeam": beam3,
+            },
         )
         xds = read_image(self._outname6)
         self.assertFalse("beam" in xds.attrs, "beam should not be in xds.attrs")
-        expec = np.array([4/180/3600*np.pi, 3/180/3600*np.pi, 5*np.pi/180])
+        expec = np.array(
+            [4 / 180 / 3600 * np.pi, 3 / 180 / 3600 * np.pi, 5 * np.pi / 180]
+        )
         for i, p in enumerate(["major", "minor", "pa"]):
             self.assertTrue(
                 np.allclose(
@@ -905,7 +910,6 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                 ),
                 f"Incorrect {p} axis",
             )
-
 
     def test_masking(self):
         """

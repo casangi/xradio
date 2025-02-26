@@ -259,4 +259,3 @@ def _l_m_attr_notes() -> Dict[str, str]:
         "So m = y*cdelt, where y is the number of pixels from the phase center. "
         "See AIPS Memo #27, Section III.",
     }
-

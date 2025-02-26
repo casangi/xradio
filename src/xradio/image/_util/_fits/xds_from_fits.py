@@ -671,6 +671,7 @@ def _create_beam_data_var(xds: xr.Dataset, beam_array: np.array) -> xr.Dataset:
     xds["BEAM"] = xdb
     return xds
 
+
 def _get_uv_values(helpers: dict) -> tuple:
     shape = helpers["shape"]
     ctype = helpers["ctype"]

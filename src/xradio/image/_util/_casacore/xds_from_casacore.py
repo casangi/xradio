@@ -37,6 +37,7 @@ from xradio._utils.dict_helpers import (
     make_skycoord_dict,
 )
 
+
 def _add_lin_attrs(xds, coord_dict, dir_axes):
     for k in coord_dict:
         if k.startswith("linear"):
@@ -819,9 +820,7 @@ def _multibeam_array(
     if mb is not None:
         if as_dask_array:
             mb = da.array(mb)
-        xdb = xr.DataArray(
-            mb, dims=["time", "frequency", "polarization", "beam_param"]
-        )
+        xdb = xr.DataArray(mb, dims=["time", "frequency", "polarization", "beam_param"])
         xdb = xdb.rename("BEAM")
         xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
         xdb.attrs["units"] = "rad"

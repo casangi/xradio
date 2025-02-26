@@ -78,7 +78,7 @@ def test_create_info_dicts(ms_minimal_required):
         }
     )
     partition_info_misc_fields = {
-        "scan_id": 3,
+        "scan_name": 3,
         "intents": "intent_str#subintent_str",
         "taql_where": "test_TAQL_str",
     }

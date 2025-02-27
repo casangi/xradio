@@ -37,6 +37,24 @@ def test_write_ms_empty():
         write_ms(mxds, outfile="test_out_write_ms_empty.ms")
 
 
+def test_flatten_xds_empty():
+    from xradio.measurement_set._utils._utils.xds_helper import flatten_xds
+
+    empty = xarray.Dataset()
+    res = flatten_xds(empty)
+    assert xarray.Dataset.equals(res, empty)
+
+
+def test_flatten_xds_main_min(main_xds_min):
+    from xradio.measurement_set._utils._utils.xds_helper import flatten_xds
+
+    res = flatten_xds(main_xds_min)
+    assert all(
+        [dim in res.dims for dim in ["row", "uvw_coords", "freq", "pol", "antenna_id"]]
+    )
+    assert all([dim not in res.dims for dim in ["time", "baseline"]])
+
+
 def test_write_ms_serial_empty():
     from xradio.measurement_set._utils._msv2._tables.write_exp_api import (
         write_ms_serial,
@@ -74,3 +92,53 @@ def test_write_ms_serial_cds_min(cds_minimal_required, tmp_path):
     )
     outpath = str(Path(tmp_path, "test_write_cds_min_blah.ms"))
     write_ms_serial(mxds_min, outpath, subtables=True, verbose=True)
+
+
+BYTES_TO_GB = 1024 * 1024 * 1204
+
+
+@pytest.mark.parametrize(
+    "mem_avail, shape, elem_size, col_name, expected_res",
+    [
+        (6 * BYTES_TO_GB, (100, 28, 200, 2), 4, "any name", 100),
+        (4 * BYTES_TO_GB, (1000, 28, 4000, 4), 4, "other name", 1000),
+        (8 * BYTES_TO_GB, (3600, 28, 10000, 4), 8, "name", 901),
+        (8 * BYTES_TO_GB, (10000, 300, 20000, 2), 8, "name", 84),
+        (4 * BYTES_TO_GB, (10000, 946, 20000, 4), 8, "name", 6),
+    ],
+)
+def test_calc_otimal_ms_chunk_shape(
+    mem_avail, shape, elem_size, col_name, expected_res
+):
+    import numbers
+    from xradio.measurement_set._utils._utils.xds_helper import (
+        calc_optimal_ms_chunk_shape,
+    )
+
+    res = calc_optimal_ms_chunk_shape(mem_avail, shape, elem_size, col_name)
+    assert res == expected_res
+
+
+@pytest.mark.parametrize(
+    "mem_avail, shape, elem_size, col_name, expected_raises",
+    [
+        (6 * BYTES_TO_GB, (100, 28, 200, 2), 4, "any name", does_not_raise()),
+        (
+            4 * BYTES_TO_GB,
+            (100, 946, 200000, 4),
+            8,
+            "name",
+            pytest.raises(RuntimeError),
+        ),
+    ],
+)
+def test_calc_otimal_ms_chunk_shape_raises(
+    mem_avail, shape, elem_size, col_name, expected_raises
+):
+    import numbers
+    from xradio.measurement_set._utils._utils.xds_helper import (
+        calc_optimal_ms_chunk_shape,
+    )
+
+    with expected_raises:
+        res = calc_optimal_ms_chunk_shape(mem_avail, shape, elem_size, col_name)

@@ -5,7 +5,6 @@ import dask
 import numpy as np
 import xarray as xr
 
-from ..._utils.xds_helper import flatten_xds, calc_optimal_ms_chunk_shape
 from .write import write_generic_table, write_main_table_slice
 from .write import create_table, revert_time
 
@@ -41,6 +40,55 @@ def cols_from_xds_to_ms(cols: List[str]) -> List[str]:
         for col in cols
         if (col and col not in cols_not_in_msv2 and not col.startswith("pointing_"))
     }
+
+
+def flatten_xds(xds: xr.Dataset) -> xr.Dataset:
+    """
+    flatten (time, baseline) dimensions of xds back to single dimension (row)
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset in flat form (back to 'row' dimension as read by casacore tables)
+    """
+    txds = xds.copy()
+
+    # flatten the time x baseline dimensions of main table
+    if ("time" in xds.sizes) and ("baseline" in xds.sizes):
+        txds = xds.stack({"row": ("time", "baseline")}).transpose("row", ...)
+        # compute for issue https://github.com/hainegroup/oceanspy/issues/332
+        # drop=True silently does compute (or at least used to)
+
+        fill_value_int32 = get_pad_value(np.int32)
+        txds = txds.where(
+            (
+                (txds.STATE_ID != fill_value_int32)
+                & (txds.FIELD_ID != fill_value_int32)
+            ).compute(),
+            drop=True,
+        )  # .unify_chunks()
+
+        # re-assigning (implicitly dropping index coords) one by one produces
+        # DeprecationWarnings: https://github.com/pydata/xarray/issues/6505
+        astyped_data_vars = dict(xds.data_vars)
+        for dv in list(txds.data_vars):
+            if txds[dv].dtype != xds[dv].dtype:
+                astyped_data_vars[dv] = txds[dv].astype(xds[dv].dtype)
+            else:
+                astyped_data_vars[dv] = txds[dv]
+
+        flat_xds = xr.Dataset(astyped_data_vars, coords=txds.coords, attrs=txds.attrs)
+        flat_xds = flat_xds.reset_index(["time", "baseline"])
+
+    else:
+        flat_xds = txds
+
+    return flat_xds
 
 
 def write_ms(
@@ -251,6 +299,52 @@ def write_ms(
         if verbose:
             print("returning delayed task list")
         return delayed_writes
+
+
+def calc_optimal_ms_chunk_shape(
+    memory_available_in_bytes, shape, element_size_in_bytes, column_name
+) -> int:
+    """
+    Calculates the max number of rows (1st dim in shape) of a variable
+    that can be fit in the memory for a thread.
+
+    Parameters
+    ----------
+    memory_available_in_bytes :
+
+    shape :
+
+    element_size_in_bytes :
+
+    column_name :
+
+
+    Returns
+    -------
+    int
+    """
+    factor = 0.8  # Account for memory used by other objects in thread.
+    # total_mem = np.prod(shape)*element_size_in_bytes
+    single_row_mem = np.prod(shape[1:]) * element_size_in_bytes
+
+    if not single_row_mem < factor * memory_available_in_bytes:
+        msg = (
+            "Not engough memory in a thread to contain a row of "
+            f"{column_name}. Need at least {single_row_mem / factor}"
+            " bytes."
+        )
+        raise RuntimeError(msg)
+
+    rows_chunk_size = int((factor * memory_available_in_bytes) / single_row_mem)
+
+    if rows_chunk_size > shape[0]:
+        rows_chunk_size = shape[0]
+
+    logger.debug(
+        "Numbers of rows in chunk for " + column_name + ": " + str(rows_chunk_size)
+    )
+
+    return rows_chunk_size
 
 
 def write_ms_serial(

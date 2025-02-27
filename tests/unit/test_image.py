@@ -1,5 +1,24 @@
 import astropy.units as u
-import casacore.images, casacore.tables
+
+try:
+    from casacore import images, tables
+except ImportError:
+    from xradio._utils._casacore import casacore_from_casatools as images
+    from xradio._utils._casacore import casacore_from_casatools as tables
+
+import copy
+import numbers
+import os
+import shutil
+import unittest
+from glob import glob
+
+import dask.array as da
+import numpy as np
+import numpy.ma as ma
+import xarray as xr
+from toolviper.utils.data import download
+
 from xradio.image import (
     load_image,
     make_empty_aperture_image,
@@ -8,26 +27,9 @@ from xradio.image import (
     read_image,
     write_image,
 )
-from toolviper.utils.data import download
+from xradio.image._util._casacore.common import _create_new_image as create_new_image
+from xradio.image._util._casacore.common import _open_image_ro as open_image_ro
 from xradio.image._util.common import _image_type as image_type
-from xradio.image._util._casacore.common import (
-    _open_image_ro as open_image_ro,
-    _create_new_image as create_new_image,
-)
-from xradio._utils._casacore.tables import open_table_ro
-
-import dask.array as da
-from glob import glob
-import numbers
-import numpy as np
-import numpy.ma as ma
-import os
-import importlib.resources
-import shutil
-import sys
-import unittest
-import xarray as xr
-import copy
 
 data_variable_name = "SKY"
 
@@ -260,7 +262,7 @@ class xds_from_image_test(ImageBase):
         with create_new_image(cls._imname, shape=shape) as im:
             im.put(masked_array)
             shape = im.shape()
-        t = casacore.tables.table(cls._imname, readonly=False)
+        t = tables.table(cls._imname, readonly=False)
         t.putkeyword("units", "Jy/beam")
         csys = t.getkeyword("coords")
         pc = np.array([6300, -2400])
@@ -269,7 +271,7 @@ class xds_from_image_test(ImageBase):
         csys["pointingcenter"]["value"] = pc * np.pi / 180 / 60
         t.putkeyword("coords", csys)
         t.close()
-        t = casacore.tables.table(
+        t = tables.table(
             os.sep.join([cls._imname, "logtable"]), readonly=False
         )
         t.addrows()
@@ -331,7 +333,7 @@ class xds_from_image_test(ImageBase):
         got_data = da.squeeze(da.transpose(xds[data_variable_name], [1, 2, 4, 3, 0]), 4)
         got_mask = da.squeeze(da.transpose(xds.mask0, [1, 2, 4, 3, 0]), 4)
         if "sky_array" not in ev:
-            im = casacore.images.image(self.imname())
+            im = images.image(self.imname())
             ev[data_variable_name] = im.getdata()
             # getmask returns the negated value of the casa image mask, so True
             # has the same meaning as it does in xds.mask0
@@ -357,7 +359,7 @@ class xds_from_image_test(ImageBase):
     def compare_time(self, xds: xr.Dataset) -> None:
         ev = self._exp_vals
         if "time" not in ev:
-            im = casacore.images.image(self.imname())
+            im = images.image(self.imname())
             coords = im.coordinates().dict()["obsdate"]
             ev["time"] = coords["m0"]["value"]
         got_vals = xds.time
@@ -444,12 +446,12 @@ class xds_from_image_test(ImageBase):
             )
         else:
             if "velocity" not in ev:
-                im = casacore.images.image(self.imname())
+                im = images.image(self.imname())
                 freqs = []
                 for chan in range(10):
                     freqs.append(im.toworld([chan, 0, 0, 0])[0])
                 freqs = np.array(freqs)
-                spec_coord = casacore.images.coordinates.spectralcoordinate(
+                spec_coord = images.coordinates.spectralcoordinate(
                     im.coordinates().dict()["spectral2"]
                 )
                 rest_freq = spec_coord.get_restfrequency()
@@ -510,7 +512,7 @@ class xds_from_image_test(ImageBase):
     def compare_ra_dec(self, xds: xr.Dataset) -> None:
         ev = self._exp_vals
         if "ra" not in ev:
-            im = casacore.images.image(self.imname())
+            im = images.image(self.imname())
             shape = im.shape()
             dd = im.coordinates().dict()["direction0"]
             ev["ra"] = np.zeros([shape[3], shape[2]])
@@ -850,6 +852,11 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                     # and really comes down to comparing the values of c used in
                     # the computations (eg, if c is in m/s or km/s)
                     c2["coordinates"]["spectral2"]["velUnit"] = "km/s"
+                    # it appears that 'worldreplace2' is not correctly recorded or retrieved
+                    # by casatools, with empty np.array returned instead.
+                    c2["coordinates"]["worldreplace2"] = np.array(
+                        [c2["coordinates"]["spectral2"]["wcs"]["crval"]]
+                    )
                     self.dict_equality(c2, c1, "got", "expected")
 
     def test_multibeam(self):

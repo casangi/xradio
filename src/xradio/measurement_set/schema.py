@@ -831,7 +831,7 @@ class WeightArray:
         ],
         Union[numpy.float16, numpy.float32, numpy.float64],
     ]
-    
+
     # data: Data[
     #     Union[
     #         tuple[Time, BaselineId, Frequency, Polarization],
@@ -984,7 +984,8 @@ class FrequencyCentroidArray:
     Model of frequency related data variables of the main dataset, such as FREQUENCY_CENTROID.
     """
 
-    data: Data[ tuple[Frequency],
+    data: Data[
+        tuple[Frequency],
         float,
     ]
     """
@@ -1003,14 +1004,18 @@ class FrequencyCentroidArray:
     frame is given that this is the default.
     """
 
+
 @xarray_dataarray_schema
 class EffectiveChannelWidthArray:
     """
     Model of frequency related data variables of the main dataset, such as EFFECTIV_CHANNEL_WIDTH.
     """
 
-    data: Data[ Union[tuple[Time, BaselineId, Frequency, Polarization],
-                      tuple[Time, AntennaName, Frequency, Polarization]],  # SD
+    data: Data[
+        Union[
+            tuple[Time, BaselineId, Frequency, Polarization],
+            tuple[Time, AntennaName, Frequency, Polarization],
+        ],  # SD
         float,
     ]
     """
@@ -1031,8 +1036,7 @@ class EffectiveChannelWidthArray:
     'topo' (telescope centric) velocity frame, rather it assumes if no velocity
     frame is given that this is the default.
     """
-    
-    
+
 
 # Define FieldAndSourceXds and FieldSourceEphemerisXds already here, as they are needed in the
 # definition of VisibilityArray
@@ -1386,6 +1390,7 @@ class ObservationInfoDict:
     target. See :ref:`scan intents` for possible values. When converting from MSv2, the list of
     intents is derived from the OBS_MODE column of MSv2 state table (every comma separated value
     is taken as an intent). """
+
 
 @dict_schema
 class ProcessorInfoDict:
@@ -2042,10 +2047,10 @@ class VisibilityXds:
     UVW: Dataof[UvwArray] = None
     EFFECTIVE_INTEGRATION_TIME: Optional[
         Data[
-                tuple[Time, BaselineId, Frequency, Polarization],
+            tuple[Time, BaselineId, Frequency, Polarization],
             QuantityInSecondsArray,
         ]
-    ] = None 
+    ] = None
     # EFFECTIVE_INTEGRATION_TIME: Optional[
     #     Data[
     #         Union[
@@ -2144,12 +2149,12 @@ class SpectrumXds:
 
     # --- Optional data variables / arrays ---
     EFFECTIVE_INTEGRATION_TIME: Optional[
-        Data[tuple[Time, AntennaName, Frequency, Polarization],
+        Data[
+            tuple[Time, AntennaName, Frequency, Polarization],
             QuantityInSecondsArray,
         ]
     ] = None
-    
-    
+
     # EFFECTIVE_INTEGRATION_TIME: Optional[
     #     Data[
     #         Union[

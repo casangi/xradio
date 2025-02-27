@@ -155,12 +155,10 @@ class ProcessingSetXdt:
 
         for key, value in self._xdt.items():
             partition_info = value.ms.get_partition_info()
-            
+
             summary_data["name"].append(key)
             summary_data["intents"].append(partition_info["intents"])
-            summary_data["spw_name"].append(
-                partition_info["spectral_window_name"]
-            )
+            summary_data["spw_name"].append(partition_info["spectral_window_name"])
             summary_data["polarization"].append(value.polarization.values)
             summary_data["scan_name"].append(partition_info["scan_name"])
             data_name = value.attrs["data_groups"][data_group]["correlated_data"]
@@ -173,12 +171,8 @@ class ProcessingSetXdt:
 
             summary_data["shape"].append(value[data_name].shape)
 
-            summary_data["field_name"].append(
-                partition_info["field_name"]
-            )
-            summary_data["source_name"].append(
-                partition_info["source_name"]
-            )
+            summary_data["field_name"].append(partition_info["field_name"])
+            summary_data["source_name"].append(partition_info["source_name"])
 
             summary_data["line_name"].append(partition_info["line_name"])
 

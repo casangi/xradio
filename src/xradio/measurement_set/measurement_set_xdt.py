@@ -113,7 +113,7 @@ class MeasurementSetXdt:
         """
         if self._xdt.attrs.get("type") not in MS_DATASET_TYPES:
             raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4node. ")
-        
+
         if data_group_name is None:
             if "base" in self._xdt.attrs["data_groups"].keys():
                 data_group_name = "base"
@@ -121,19 +121,21 @@ class MeasurementSetXdt:
                 data_group_name = list(self._xdt.attrs["data_groups"].keys())[0]
 
         return self._xdt[f"field_and_source_xds_{data_group_name}"].ds
-    
+
     def get_partition_info(self) -> dict:
         if self._xdt.attrs.get("type") not in MS_DATASET_TYPES:
             raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4node. ")
-        
+
         field_and_source_xds = self._xdt.ms.get_field_and_source_xds()
-        
+
         if "line_name" in field_and_source_xds.coords:
-            line_name = to_list(np.unique(np.ravel(field_and_source_xds.line_name.values)))
+            line_name = to_list(
+                np.unique(np.ravel(field_and_source_xds.line_name.values))
+            )
         else:
             line_name = []
-        
-        partition_info =  {
+
+        partition_info = {
             "spectral_window_name": self._xdt.frequency.attrs["spectral_window_name"],
             "field_name": to_list(np.unique(field_and_source_xds.field_name.values)),
             "polarization_setup": to_list(self._xdt.polarization.values),
@@ -144,7 +146,6 @@ class MeasurementSetXdt:
         }
 
         return partition_info
-        
 
 
 # class MeasurementSetXdt(xr.Dataset):

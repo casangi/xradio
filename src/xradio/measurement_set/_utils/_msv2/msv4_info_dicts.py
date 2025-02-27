@@ -71,7 +71,9 @@ def create_info_dicts(
         tb_tool.getcol("OBSERVATION_ID"), "OBSERVATION_ID"
     )
     info_dicts["observation_info"] = create_observation_info(in_file, observation_id)
-    info_dicts["observation_info"]["intents"] = partition_info_misc_fields["intents"].split(",")
+    info_dicts["observation_info"]["intents"] = partition_info_misc_fields[
+        "intents"
+    ].split(",")
 
     processor_id = check_if_consistent(tb_tool.getcol("PROCESSOR_ID"), "PROCESSOR_ID")
     info_dicts["processor_info"] = create_processor_info(in_file, processor_id)

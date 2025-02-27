@@ -182,17 +182,17 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
         xds[ap_sky].attrs["image_type"] if "image_type" in xds[ap_sky].attrs else ""
     )
     ii["objectname"] = xds.attrs[_object_name]
-    if "beam" in xds.data_vars:
+    if "BEAM" in xds.data_vars:
         # multi beam
         pp = {}
-        pp["nChannels"] = len(xds.frequency)
-        pp["nStokes"] = len(xds.polarization)
-        bu = xds.beam.attrs["units"]
+        pp["nChannels"] = xds.sizes["frequency"]
+        pp["nStokes"] = xds.sizes["polarization"]
+        bu = xds.BEAM.attrs["units"]
         chan = 0
         polarization = 0
-        bv = xds.beam.values
+        bv = xds.BEAM.values
         for i in range(pp["nChannels"] * pp["nStokes"]):
-            bp = bv[0][polarization][chan][:]
+            bp = bv[0][chan][polarization][:]
             b = {
                 "major": {"unit": bu, "value": bp[0]},
                 "minor": {"unit": bu, "value": bp[1]},
@@ -204,6 +204,7 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
                 chan = 0
                 polarization += 1
         ii["perplanebeams"] = pp
+    """
     elif "beam" in xds.attrs and xds.attrs["beam"]:
         # do nothing if xds.attrs['beam'] is None
         ii["restoringbeam"] = copy.deepcopy(xds.attrs["beam"])
@@ -216,6 +217,7 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
             del ii["restoringbeam"][k]["data"]
         ii["restoringbeam"]["positionangle"] = copy.deepcopy(ii["restoringbeam"]["pa"])
         del ii["restoringbeam"]["pa"]
+    """
     return ii
 
 

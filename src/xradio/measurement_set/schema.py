@@ -788,11 +788,18 @@ class FlagArray:
     flagged bad if the ``FLAG`` array element is ``True``.
     """
 
+    # data: Data[
+    #     Union[
+    #         tuple[Time, BaselineId, Frequency, Polarization],
+    #         tuple[Time, BaselineId, Frequency],
+    #         tuple[Time, BaselineId],
+    #         tuple[Time, AntennaName, Frequency, Polarization],  # SD
+    #     ],
+    #     bool,
+    # ]
     data: Data[
         Union[
             tuple[Time, BaselineId, Frequency, Polarization],
-            tuple[Time, BaselineId, Frequency],
-            tuple[Time, BaselineId],
             tuple[Time, AntennaName, Frequency, Polarization],  # SD
         ],
         bool,
@@ -820,12 +827,20 @@ class WeightArray:
     data: Data[
         Union[
             tuple[Time, BaselineId, Frequency, Polarization],
-            tuple[Time, BaselineId, Frequency],
-            tuple[Time, BaselineId],
             tuple[Time, AntennaName, Frequency, Polarization],  # SD
         ],
         Union[numpy.float16, numpy.float32, numpy.float64],
     ]
+    
+    # data: Data[
+    #     Union[
+    #         tuple[Time, BaselineId, Frequency, Polarization],
+    #         tuple[Time, BaselineId, Frequency],
+    #         tuple[Time, BaselineId],
+    #         tuple[Time, AntennaName, Frequency, Polarization],  # SD
+    #     ],
+    #     Union[numpy.float16, numpy.float32, numpy.float64],
+    # ]
     """Visibility weights"""
     time: Coordof[TimeCoordArray]
     baseline_id: Optional[Coordof[BaselineArray]]  # Only IF
@@ -928,19 +943,74 @@ class TimeSamplingArray:
     units: Attr[UnitsSeconds] = ("s",)
 
 
+# @xarray_dataarray_schema
+# class FreqSamplingArray:
+#     """
+#     Model of frequency related data variables of the main dataset, such as EFFECTIV_CHANNEL_WIDTH and FREQUENCY_CENTROID.
+#     """
+
+#     data: Data[
+#         Union[
+#             tuple[Time, BaselineId, Frequency, Polarization],
+#             tuple[Time, BaselineId, Frequency],
+#             tuple[Time, Frequency],
+#             tuple[Frequency],
+#         ],
+#         float,
+#     ]
+#     """
+#     Data about frequency sampling, such as centroid or integration
+#     time. Concrete function depends on concrete data array within
+#     :py:class:`VisibilityXds` or :py:class:`SpectrumXds`.
+#     """
+#     frequency: Coordof[FrequencyArray]
+#     time: Optional[Coordof[TimeCoordArray]] = None
+#     baseline_id: Optional[Coordof[BaselineArray]] = None
+#     polarization: Optional[Coordof[PolarizationArray]] = None
+#     long_name: Optional[Attr[str]] = "Frequency sampling data"
+#     units: Attr[UnitsHertz] = ("Hz",)
+#     observer: Attr[AllowedSpectralCoordFrames] = "icrs"
+#     """
+#     Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
+#     Note that Astropy does not use the name
+#     'topo' (telescope centric) velocity frame, rather it assumes if no velocity
+#     frame is given that this is the default.
+#     """
+
+
 @xarray_dataarray_schema
-class FreqSamplingArray:
+class FrequencyCentroidArray:
     """
-    Model of frequency related data variables of the main dataset, such as EFFECTIV_CHANNEL_WIDTH and FREQUENCY_CENTROID.
+    Model of frequency related data variables of the main dataset, such as FREQUENCY_CENTROID.
     """
 
-    data: Data[
-        Union[
-            tuple[Time, BaselineId, Frequency, Polarization],
-            tuple[Time, BaselineId, Frequency],
-            tuple[Time, Frequency],
-            tuple[Frequency],
-        ],
+    data: Data[ tuple[Frequency],
+        float,
+    ]
+    """
+    Data about frequency sampling, such as centroid or integration
+    time. Concrete function depends on concrete data array within
+    :py:class:`VisibilityXds` or :py:class:`SpectrumXds`.
+    """
+    frequency: Coordof[FrequencyArray]
+    long_name: Optional[Attr[str]] = "Frequency sampling data"
+    units: Attr[UnitsHertz] = ("Hz",)
+    observer: Attr[AllowedSpectralCoordFrames] = "icrs"
+    """
+    Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
+    Note that Astropy does not use the name
+    'topo' (telescope centric) velocity frame, rather it assumes if no velocity
+    frame is given that this is the default.
+    """
+
+@xarray_dataarray_schema
+class EffectiveChannelWidthArray:
+    """
+    Model of frequency related data variables of the main dataset, such as EFFECTIV_CHANNEL_WIDTH.
+    """
+
+    data: Data[ Union[tuple[Time, BaselineId, Frequency, Polarization],
+                      tuple[Time, AntennaName, Frequency, Polarization]],  # SD
         float,
     ]
     """
@@ -961,7 +1031,8 @@ class FreqSamplingArray:
     'topo' (telescope centric) velocity frame, rather it assumes if no velocity
     frame is given that this is the default.
     """
-
+    
+    
 
 # Define FieldAndSourceXds and FieldSourceEphemerisXds already here, as they are needed in the
 # definition of VisibilityArray
@@ -1257,32 +1328,32 @@ class VisibilityArray:
 # Info dicts
 
 
-@dict_schema
-class PartitionInfoDict:
-    # spectral_window_id: missing / remove for good?
-    spectral_window_name: str
-    """ Spectral window Name """
-    # field_id: missing / probably remove for good?
-    field_name: list[str]
-    """ List of all field names """
-    polarization_setup: list[str]
-    """ List of polrization bases. """
-    scan_name: list[str]
-    """ List of scan names. """
-    source_name: list[str]
-    """ List of source names. """
-    # source_id: mising / remove for good?
-    intents: list[str]
-    """ An intent string identifies one intention of the scan, such as to calibrate or observe a
-    target. See :ref:`scan intents` for possible values. When converting from MSv2, the list of
-    intents is derived from the OBS_MODE column of MSv2 state table (every comma separated value
-    is taken as an intent). """
-    taql: Optional[str]
-    """ The taql query used if converted from MSv2. """
-    line_name: list[str]
-    """ Spectral line names """
-    antenna_name: Optional[str]
-    """ Name of antenna when partitioning also by antenna (single-dish). """
+# @dict_schema
+# class PartitionInfoDict:
+#     # spectral_window_id: missing / remove for good?
+#     spectral_window_name: str
+#     """ Spectral window Name """
+#     # field_id: missing / probably remove for good?
+#     field_name: list[str]
+#     """ List of all field names """
+#     polarization_setup: list[str]
+#     """ List of polrization bases. """
+#     scan_name: list[str]
+#     """ List of scan names. """
+#     source_name: list[str]
+#     """ List of source names. """
+#     # source_id: mising / remove for good?
+#     intents: list[str]
+#     """ An intent string identifies one intention of the scan, such as to calibrate or observe a
+#     target. See :ref:`scan intents` for possible values. When converting from MSv2, the list of
+#     intents is derived from the OBS_MODE column of MSv2 state table (every comma separated value
+#     is taken as an intent). """
+#     taql: Optional[str]
+#     """ The taql query used if converted from MSv2. """
+#     line_name: list[str]
+#     """ Spectral line names """
+#     antenna_name: Optional[str]
+#     """ Name of antenna when partitioning also by antenna (single-dish). """
 
 
 @dict_schema
@@ -1310,7 +1381,11 @@ class ObservationInfoDict:
     """ASDM: A reference to the Entity which contains the observing script."""
     observing_log: Optional[str]
     """ASDM: Logs of the observation during this execu- tion block."""
-
+    intents: list[str]
+    """ An intent string identifies one intention of the scan, such as to calibrate or observe a
+    target. See :ref:`scan intents` for possible values. When converting from MSv2, the list of
+    intents is derived from the OBS_MODE column of MSv2 state table (every comma separated value
+    is taken as an intent). """
 
 @dict_schema
 class ProcessorInfoDict:
@@ -1915,6 +1990,8 @@ class VisibilityXds:
     """
     Labels for polarization types, e.g. ``['XX','XY','YX','YY']``, ``['RR','RL','LR','LL']``.
     """
+    field_name: Coordof[Coord[Time, str]]
+    """Field name."""
 
     # --- Required data variables ---
 
@@ -1927,7 +2004,7 @@ class VisibilityXds:
     """Antenna name for 2nd antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_name``"""
 
     # --- Required Attributes ---
-    partition_info: Attr[PartitionInfoDict]
+    # partition_info: Attr[PartitionInfoDict]
     observation_info: Attr[ObservationInfoDict]
     processor_info: Attr[ProcessorInfoDict]
     antenna_xds: Attr[AntennaXds]
@@ -1953,7 +2030,7 @@ class VisibilityXds:
     uvw_label: Optional[Coordof[UvwLabelArray]] = None
     """ u,v,w """
     scan_name: Optional[Coord[Time, str]] = None
-    """Arbitary scan name to identify data taken in the same logical scan."""
+    """Scan name to identify data taken in the same logical scan."""
 
     # --- Optional data variables / arrays ---
 
@@ -1965,14 +2042,20 @@ class VisibilityXds:
     UVW: Dataof[UvwArray] = None
     EFFECTIVE_INTEGRATION_TIME: Optional[
         Data[
-            Union[
-                tuple[Time, BaselineId],
-                tuple[Time, BaselineId, Frequency],
                 tuple[Time, BaselineId, Frequency, Polarization],
-            ],
             QuantityInSecondsArray,
         ]
-    ] = None
+    ] = None 
+    # EFFECTIVE_INTEGRATION_TIME: Optional[
+    #     Data[
+    #         Union[
+    #             tuple[Time, BaselineId],
+    #             tuple[Time, BaselineId, Frequency],
+    #             tuple[Time, BaselineId, Frequency, Polarization],
+    #         ],
+    #         QuantityInSecondsArray,
+    #     ]
+    # ] = None
     """
     The integration time, including the effects of missing data, in contrast to
     ``integration_time`` attribute of the ``time`` coordinate,
@@ -1985,9 +2068,9 @@ class VisibilityXds:
     """
     TIME_CENTROID_EXTRA_PRECISION: Optional[Dataof[TimeSamplingArray]] = None
     """Additional precision for ``TIME_CENTROID``"""
-    EFFECTIVE_CHANNEL_WIDTH: Optional[Dataof[FreqSamplingArray]] = None
+    EFFECTIVE_CHANNEL_WIDTH: Optional[Dataof[EffectiveChannelWidthArray]] = None
     """The channel bandwidth that includes the effects of missing data."""
-    FREQUENCY_CENTROID: Optional[Dataof[FreqSamplingArray]] = None
+    FREQUENCY_CENTROID: Optional[Dataof[FrequencyCentroidArray]] = None
     """Includes the effects of missing data unlike ``frequency``."""
 
     # --- Optional Attributes ---
@@ -2020,13 +2103,15 @@ class SpectrumXds:
     """
     Labels for polarization types, e.g. ``['XX','XY','YX','YY']``, ``['RR','RL','LR','LL']``.
     """
+    field_name: Coordof[Coord[Time, str]]
+    """Field name."""
 
     # --- Required data variables ---
     SPECTRUM: Dataof[SpectrumArray]
     """Single dish data, either simulated or measured by an antenna."""
 
     # --- Required Attributes ---
-    partition_info: Attr[PartitionInfoDict]
+    # partition_info: Attr[PartitionInfoDict]
     observation_info: Attr[ObservationInfoDict]
     processor_info: Attr[ProcessorInfoDict]
     antenna_xds: Attr[AntennaXds]
@@ -2059,15 +2144,22 @@ class SpectrumXds:
 
     # --- Optional data variables / arrays ---
     EFFECTIVE_INTEGRATION_TIME: Optional[
-        Data[
-            Union[
-                tuple[Time, AntennaName],
-                tuple[Time, AntennaName, Frequency],
-                tuple[Time, AntennaName, Frequency, Polarization],
-            ],
+        Data[tuple[Time, AntennaName, Frequency, Polarization],
             QuantityInSecondsArray,
         ]
     ] = None
+    
+    
+    # EFFECTIVE_INTEGRATION_TIME: Optional[
+    #     Data[
+    #         Union[
+    #             tuple[Time, AntennaName],
+    #             tuple[Time, AntennaName, Frequency],
+    #             tuple[Time, AntennaName, Frequency, Polarization],
+    #         ],
+    #         QuantityInSecondsArray,
+    #     ]
+    # ] = None
     """
     The integration time, including the effects of missing data, in contrast to
     ``integration_time`` attribute of the ``time`` coordinate,
@@ -2080,9 +2172,9 @@ class SpectrumXds:
     """
     TIME_CENTROID_EXTRA_PRECISION: Optional[Dataof[TimeSamplingArray]] = None
     """Additional precision for ``TIME_CENTROID``"""
-    EFFECTIVE_CHANNEL_WIDTH: Optional[Dataof[FreqSamplingArray]] = None
+    EFFECTIVE_CHANNEL_WIDTH: Optional[Dataof[EffectiveChannelWidthArray]] = None
     """The channel bandwidth that includes the effects of missing data."""
-    FREQUENCY_CENTROID: Optional[Dataof[FreqSamplingArray]] = None
+    FREQUENCY_CENTROID: Optional[Dataof[FrequencyCentroidArray]] = None
     """Includes the effects of missing data unlike ``frequency``."""
 
     # --- Optional Attributes ---

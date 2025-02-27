@@ -1,6 +1,7 @@
 import pandas as pd
 from xradio._utils.list_and_array import to_list
 import xarray as xr
+import numpy as np
 import numbers
 import os
 from collections.abc import Mapping, Iterable
@@ -96,13 +97,13 @@ class MeasurementSetXdt:
         else:
             return self._xdt.sel(indexers, method, tolerance, drop, **indexers_kwargs)
 
-    def get_field_and_source_xds(self, data_group_name="base") -> xr.Dataset:
+    def get_field_and_source_xds(self, data_group_name=None) -> xr.Dataset:
         """Get the field_and_source_xds associated with data group `data_group_name`.
 
         Parameters
         ----------
         data_group_name : str, optional
-            The data group to process. Default is "base".
+            The data group to process. Default is "base" or if not found to first data group.
 
         Returns
         -------
@@ -112,13 +113,38 @@ class MeasurementSetXdt:
         """
         if self._xdt.attrs.get("type") not in MS_DATASET_TYPES:
             raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4node. ")
-
-        if self._xdt.attrs["type"] not in {"visibility", "spectrum", "wvr"}:
-            raise InvalidAccessorLocation(
-                f"{self._xdt.path} is not a MeasurementSetXdt node."
-            )
+        
+        if data_group_name is None:
+            if "base" in self._xdt.attrs["data_groups"].keys():
+                data_group_name = "base"
+            else:
+                data_group_name = list(self._xdt.attrs["data_groups"].keys())[0]
 
         return self._xdt[f"field_and_source_xds_{data_group_name}"].ds
+    
+    def get_partition_info(self) -> dict:
+        if self._xdt.attrs.get("type") not in MS_DATASET_TYPES:
+            raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4node. ")
+        
+        field_and_source_xds = self._xdt.ms.get_field_and_source_xds()
+        
+        if "line_name" in field_and_source_xds.coords:
+            line_name = to_list(np.unique(np.ravel(field_and_source_xds.line_name.values)))
+        else:
+            line_name = []
+        
+        partition_info =  {
+            "spectral_window_name": self._xdt.frequency.attrs["spectral_window_name"],
+            "field_name": to_list(np.unique(field_and_source_xds.field_name.values)),
+            "polarization_setup": to_list(self._xdt.polarization.values),
+            "scan_name": to_list(np.unique(self._xdt.scan_name.values)),
+            "source_name": to_list(np.unique(field_and_source_xds.source_name.values)),
+            "intents": self._xdt.observation_info["intents"],
+            "line_name": line_name,
+        }
+
+        return partition_info
+        
 
 
 # class MeasurementSetXdt(xr.Dataset):

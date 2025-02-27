@@ -1297,6 +1297,7 @@ def convert_and_write_partition(
                 pathlib.Path(in_file).name.replace(".ms", "") + "_" + str(ms_v4_id)
             )
             ms_xdt.ds = xds
+            #ms_xdt["/correlated_xds"] = xds
 
             ms_xdt["/antenna_xds"] = ant_xds
             for group_name in xds.attrs["data_groups"]:

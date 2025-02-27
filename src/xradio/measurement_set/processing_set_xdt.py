@@ -154,13 +154,15 @@ class ProcessingSetXdt:
         import astropy.units as u
 
         for key, value in self._xdt.items():
+            partition_info = value.ms.get_partition_info()
+            
             summary_data["name"].append(key)
-            summary_data["intents"].append(value.attrs["partition_info"]["intents"])
+            summary_data["intents"].append(partition_info["intents"])
             summary_data["spw_name"].append(
-                value.attrs["partition_info"]["spectral_window_name"]
+                partition_info["spectral_window_name"]
             )
             summary_data["polarization"].append(value.polarization.values)
-            summary_data["scan_name"].append(value.attrs["partition_info"]["scan_name"])
+            summary_data["scan_name"].append(partition_info["scan_name"])
             data_name = value.attrs["data_groups"][data_group]["correlated_data"]
 
             if "VISIBILITY" in data_name:
@@ -172,13 +174,13 @@ class ProcessingSetXdt:
             summary_data["shape"].append(value[data_name].shape)
 
             summary_data["field_name"].append(
-                value.attrs["partition_info"]["field_name"]
+                partition_info["field_name"]
             )
             summary_data["source_name"].append(
-                value.attrs["partition_info"]["source_name"]
+                partition_info["source_name"]
             )
 
-            summary_data["line_name"].append(value.attrs["partition_info"]["line_name"])
+            summary_data["line_name"].append(partition_info["line_name"])
 
             summary_data["start_frequency"].append(
                 to_list(value["frequency"].values)[0]
@@ -210,7 +212,7 @@ class ProcessingSetXdt:
         summary_df = pd.DataFrame(summary_data)
         return summary_df
 
-    def sel(self, string_exact_match: bool = True, query: str = None, **kwargs):
+    def query(self, string_exact_match: bool = True, query: str = None, **kwargs):
         """
         Select a subset of the Processing Set based on specified criteria.
 
@@ -223,7 +225,7 @@ class ProcessingSetXdt:
         Note
         ----
         This selection does not modify the actual data within the Measurement Sets. For example, if
-        a Measurement Set has `field_name=['field_0','field_10','field_08']` and `ps.sel(field_name='field_0')`
+        a Measurement Set has `field_name=['field_0','field_10','field_08']` and `ps.query(field_name='field_0')`
         is invoked, the resulting subset will still contain the original list `['field_0','field_10','field_08']`.
         The exception is data group selection, using `data_group_name`, that will select data variables only associated with the specified data group in the Measurement Set.
 
@@ -245,10 +247,10 @@ class ProcessingSetXdt:
         Examples
         --------
         >>> # Select all MSs with intents 'OBSERVE_TARGET#ON_SOURCE' and polarization 'RR' or 'LL'
-        >>> selected_ps = ps.sel(intents='OBSERVE_TARGET#ON_SOURCE', polarization=['RR', 'LL'])
+        >>> selected_ps = ps.query(intents='OBSERVE_TARGET#ON_SOURCE', polarization=['RR', 'LL'])
 
         >>> # Select all MSs with start_frequency greater than 100 GHz and less than 200 GHz
-        >>> selected_ps = ps.sel(query='start_frequency > 100e9 AND end_frequency < 200e9')
+        >>> selected_ps = ps.query(query='start_frequency > 100e9 AND end_frequency < 200e9')
         """
         import numpy as np
 
@@ -858,12 +860,12 @@ class ProcessingSetXdt:
 
 #         for key, value in self.items():
 #             summary_data["name"].append(key)
-#             summary_data["intents"].append(value.attrs["partition_info"]["intents"])
+#             summary_data["intents"].append(partition_info["intents"])
 #             summary_data["spw_name"].append(
-#                 value.attrs["partition_info"]["spectral_window_name"]
+#                 partition_info["spectral_window_name"]
 #             )
 #             summary_data["polarization"].append(value.polarization.values)
-#             summary_data["scan_name"].append(value.attrs["partition_info"]["scan_name"])
+#             summary_data["scan_name"].append(partition_info["scan_name"])
 #             data_name = value.attrs["data_groups"][data_group]["correlated_data"]
 
 #             if "VISIBILITY" in data_name:
@@ -875,13 +877,13 @@ class ProcessingSetXdt:
 #             summary_data["shape"].append(value[data_name].shape)
 
 #             summary_data["field_name"].append(
-#                 value.attrs["partition_info"]["field_name"]
+#                 partition_info["field_name"]
 #             )
 #             summary_data["source_name"].append(
-#                 value.attrs["partition_info"]["source_name"]
+#                 partition_info["source_name"]
 #             )
 
-#             summary_data["line_name"].append(value.attrs["partition_info"]["line_name"])
+#             summary_data["line_name"].append(partition_info["line_name"])
 
 #             summary_data["start_frequency"].append(
 #                 to_list(value["frequency"].values)[0]
@@ -976,7 +978,7 @@ class ProcessingSetXdt:
 #         Note
 #         ----
 #         This selection does not modify the actual data within the Measurement Sets. For example, if
-#         a Measurement Set has `field_name=['field_0','field_10','field_08']` and `ps.sel(field_name='field_0')`
+#         a Measurement Set has `field_name=['field_0','field_10','field_08']` and `ps.query(field_name='field_0')`
 #         is invoked, the resulting subset will still contain the original list `['field_0','field_10','field_08']`.
 
 #         Parameters
@@ -997,10 +999,10 @@ class ProcessingSetXdt:
 #         Examples
 #         --------
 #         >>> # Select all MSs with intents 'OBSERVE_TARGET#ON_SOURCE' and polarization 'RR' or 'LL'
-#         >>> selected_ps = ps.sel(intents='OBSERVE_TARGET#ON_SOURCE', polarization=['RR', 'LL'])
+#         >>> selected_ps = ps.query(intents='OBSERVE_TARGET#ON_SOURCE', polarization=['RR', 'LL'])
 
 #         >>> # Select all MSs with start_frequency greater than 100 GHz and less than 200 GHz
-#         >>> selected_ps = ps.sel(query='start_frequency > 100e9 AND end_frequency < 200e9')
+#         >>> selected_ps = ps.query(query='start_frequency > 100e9 AND end_frequency < 200e9')
 #         """
 #         import numpy as np
 

@@ -9,14 +9,72 @@ Note: not fully implemented; not intended to be a full API adapter layer.
 
 import ast
 import inspect
+import logging
+import os
 import shutil
 from functools import wraps
-from typing import Any, Dict, List, Union, Sequence
-import os
+from typing import Any, Dict, List, Sequence, Union
+
+import numpy as np
+
+import toolviper.utils.logger as logger
+
+# Configure casaconfig settings prior to casatools import
+# this ensures optimal initialization and resource allocation for casatools
+# Also see : https://casadocs.readthedocs.io/en/stable/api/casaconfig.html
+import casaconfig.config
+
+casaconfig.config.data_auto_update = False
+casaconfig.config.measures_auto_update = False
+casaconfig.config.nologger = False
+casaconfig.config.nogui = False
+casaconfig.config.agg = True
+
+
+def get_logger_config():
+    """Retrieve logger configuration details.
+
+    This function checks if the logger has a `FileHandler` attached and retrieves
+    the log file name if available. It also checks if a `StreamHandler` is attached
+    to the logger.
+
+    Returns:
+        tuple: A tuple containing:
+            - logfile (str or None): The log file name if a `FileHandler` is found, otherwise `None`.
+            - has_stream_handler (bool): `True` if a `StreamHandler` is attached, otherwise `False`.
+    """
+    logfile = None
+    logger_instance = logging.getLogger()
+
+    # Check for FileHandler and extract log filename
+    for handler in logger_instance.handlers:
+        if isinstance(handler, logging.FileHandler):
+            logfile = handler.baseFilename
+            break
+
+    # Check if a StreamHandler is attached
+    has_stream_handler = any(
+        isinstance(handler, logging.StreamHandler)
+        for handler in logger_instance.handlers
+    )
+
+    return logfile, has_stream_handler
+
+
+# Poropagate existing logger configuration to casatools
+# this ensures consistent logging behavior across both application and casatools components
+
+logfile, log2term = get_logger_config()
+casaconfig.config.log2term = log2term
+if logfile:
+    casaconfig.config.logfile = logfile
+else:
+    casaconfig.config.logfile = "/dev/null"
+    casaconfig.config.nologfile = True
 
 import casatools
-import numpy as np
-import toolviper.utils.logger as logger
+
+casatools.logger.ompSetNumThreads(1)
 
 
 def _wrap_table(swig_object: Any) -> "table":
@@ -141,9 +199,18 @@ class table(casatools.table):
         concatsubtables: List = [],
         **kwargs,
     ):
+        _tablename = tablename.replace("::", "/")
         super().__init__(
-            tablename=tablename, lockoptions=lockoptions, nomodify=True, **kwargs
+            tablename=_tablename, lockoptions=lockoptions, nomodify=readonly, **kwargs
         )
+
+    def __enter__(self):
+        """Function to enter a with block."""
+        return self
+
+    def __exit__(self, type, value, traceback):
+        """Function to exit a with block which closes the table object."""
+        self.close()
 
     def row(self, columnnames: List[str] = [], exclude: bool = False) -> "tablerow":
         """Access rows in the table.
@@ -263,6 +330,59 @@ class table(casatools.table):
         ----------
         columnname : str
             The name of the column from which to extract data.
+        rownr : int
+            The row number(s) from which to extract data. If a sequence is provided,
+            it is reversed before processing.
+        blc : Sequence[int]
+            The bottom-left corner indices of the slice.
+        trc : Sequence[int]
+            The top-right corner indices of the slice.
+        incr : int or Sequence[int], optional
+            Step size for slicing. If a sequence is provided, it is reversed.
+            If a single integer is given, it is expanded to match `blc` dimensions.
+            Defaults to 1.
+
+        Returns
+        -------
+        Any
+            The extracted slice from the specified column and row(s).
+
+        Notes
+        -----
+        - If `rownr` is a sequence, it is reversed before processing.
+        - The `blc`, `trc`, and `incr` parameters are converted to lists of integers.
+        - Calls the superclass method `getcellslice` for actual data retrieval.
+        """
+        if isinstance(blc, Sequence):
+            blc = list(map(int, blc[::-1]))
+        if isinstance(trc, Sequence):
+            trc = list(map(int, trc[::-1]))
+        if isinstance(incr, Sequence):
+            incr = incr[::-1]
+        else:
+            incr = [incr] * len(blc)
+        datatype = self.coldatatype(columnname)
+
+        ret = super().getcellslice(
+            columnname=columnname, rownr=rownr, blc=blc, trc=trc, incr=incr
+        )
+
+        if datatype == "float":
+            return ret.astype(np.float32)
+        else:
+            return ret
+
+    def putcellslice(self, columnname, rownr, value, blc, trc, incr=1):
+        """Retrieve a sliced portion of a cell from a specified column.
+
+        This method extracts a subarray from a cell within a table column,
+        given the bottom-left corner (BLC) and top-right corner (TRC) indices.
+        It also supports an optional increment (`incr`) to control step size.
+
+        Parameters
+        ----------
+        columnname : str
+            The name of the column from which to extract data.
         rownr : int or Sequence[int]
             The row number(s) from which to extract data. If a sequence is provided,
             it is reversed before processing.
@@ -286,7 +406,6 @@ class table(casatools.table):
         - The `blc`, `trc`, and `incr` parameters are converted to lists of integers.
         - Calls the superclass method `getcellslice` for actual data retrieval.
         """
-
         if isinstance(rownr, Sequence):
             rownr = rownr[::-1]
         else:
@@ -300,8 +419,16 @@ class table(casatools.table):
             incr = incr[::-1]
         else:
             incr = [incr] * len(blc)
-        ret = super().getcellslice(columnname=columnname, rownr=rownr, blc=blc, trc=trc)
-        return ret
+
+        super().putcellslice(
+            columnname=columnname,
+            rownr=rownr,
+            value=value.T,
+            blc=blc,
+            trc=trc,
+            incr=incr,
+        )
+        return
 
 
 @wrap_class_methods
@@ -328,10 +455,45 @@ class image(casatools.image):
             # self.open(*arg, **kwargs)
             self.open(imagename)
         else:
-            if value is None:
-                self.newimagefromshape(outfile, shape=shape)
+            if values is None:
+                self.newimagefromshape(
+                    imagename, shape=list(shape[::-1]), overwrite=overwrite
+                )
             else:
-                self.newimagefromarray(outfile, pixels=self.makearray(value, shape))
+                self.newimagefromarray(
+                    imagename, pixels=np.full(shape, values).T, overwrite=overwrite
+                )
+            self.done()
+            self.open(imagename)
+            if maskname:
+                self.calcmask("T", name=maskname)
+                self.maskhandler("set", maskname)
+            self.done()
+            self.open(imagename)
+
+    def toworld(self, pixel):
+        world = super().toworld(pixel[::-1])
+        return world["numeric"][::-1]
+
+    def tofits(
+        self,
+        filename,
+        overwrite=True,
+        velocity=True,
+        optical=True,
+        bitpix=-32,
+        minpix=1,
+        maxpix=-1,
+    ):
+        super().tofits(
+            filename,
+            overwrite=overwrite,
+            velocity=velocity,
+            optical=optical,
+            bitpix=bitpix,
+            minpix=minpix,
+            maxpix=maxpix,
+        )
 
     def getdata(self, blc=None, trc=None, inc=None):
         """Retrieve image data as a chunk.
@@ -350,14 +512,62 @@ class image(casatools.image):
         numpy.ndarray
             The extracted data chunk.
         """
-
         if blc is None:
             blc = [-1]
         if trc is None:
             trc = [-1]
         if inc is None:
             inc = [1]
-        return super().getchunk(blc, trc, inc)
+
+        if self.datatype() == "float":
+            return super().getchunk(blc, trc, inc).astype(np.float32)
+        else:
+            return super().getchunk(blc, trc, inc)
+
+    def getmask(self, blc=None, trc=None, inc=None):
+        """Retrieve image data as a chunk.
+
+        Parameters
+        ----------
+        blc : list of int, optional
+            Bottom-left corner of the region to extract. Defaults to `[-1]` (entire image).
+        trc : list of int, optional
+            Top-right corner of the region to extract. Defaults to `[-1]` (entire image).
+        inc : list of int, optional
+            Step size for slicing. Defaults to `[1]`.
+
+        Returns
+        -------
+        numpy.ndarray
+            The extracted data chunk.
+        """
+        if blc is None:
+            blc = [-1]
+        if trc is None:
+            trc = [-1]
+        if inc is None:
+            inc = [1]
+        # note the fliped sign:
+        # https://casacore.github.io/python-casacore/casacore_images.html#casacore.images.image.getmask
+        return ~super().getchunk(blc, trc, inc, getmask=True)
+
+    def put(self, masked_array):
+        """Put in data/mask into iatools.
+
+        Note: for casa mask table, the mask value defination is flipped:
+            True (not masked) or False (masked) values
+        """
+        self.putregion(masked_array.data.T, ~masked_array.mask.T)
+
+    def __del__(self):
+        """Ensure proper resource cleanup.
+
+        This method is automatically called when the object is deleted.
+        It ensures that any open resources are properly closed by calling
+        `close()` and `done()`.
+        Note that this function is different from the close function because the latter does not destroy the . For example, the user can use the open function straight after the close function on the same .
+        """
+        self.done()
 
     def shape(self):
         """Get the shape of the image.
@@ -404,11 +614,43 @@ class image(casatools.image):
         imageinfo = self._flatten_multibeam(imageinfo)
         # table.getdesc()
 
+        ignore_keys = [
+            "axisnames",
+            "axisunits",
+            "incr",
+            "messages",
+            "refpix",
+            "reval",
+            "shape",
+            "tileshape",
+            "refval",
+        ]
+        for key in ignore_keys:
+            imageinfo.pop(key, None)
+
         return {
             "imageinfo": imageinfo,
             "coordinates": self.coordsys().torecord(),
             "miscinfo": self.miscinfo(),
+            "unit": self.brightnessunit(),
         }
+
+    def imageinfo(self):
+        """Retrieve image metadata including coordinates, misc info, and beam information.
+
+        Returns
+        -------
+        dict
+            Dictionary containing:
+            - 'imageinfo': Flattened image summary.
+            - 'coordinates': Coordinate system as a dictionary.
+            - 'miscinfo': Miscellaneous metadata.
+        """
+        imageinfo = self.summary(list=False)
+        imageinfo = self._flatten_multibeam(imageinfo)
+        # table.getdesc()
+
+        return imageinfo
 
     def datatype(self):
         return self.pixeltype()
@@ -538,13 +780,25 @@ class coordinatesystem(casatools.coordsys):
 
 
 class directioncoordinate(coordinatesystem):
-
     def __init__(self, rec):
         super().__init__()
         self._rec = rec
 
     def get_projection(self):
         return self._rec["projection"]
+
+
+class coordinates:
+    def __init__(self):
+        pass
+
+    class spectralcoordinate(coordinatesystem):
+        def __init__(self, rec):
+            super().__init__()
+            self._rec = rec
+
+        def get_restfrequency(self):
+            return self._rec["restfreq"]
 
 
 @wrap_class_methods

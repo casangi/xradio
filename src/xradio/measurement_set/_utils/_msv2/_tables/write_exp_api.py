@@ -1,10 +1,12 @@
-import os, time
+import os
+import time
 from typing import List, Optional, Union
 
 import dask
 import numpy as np
 import xarray as xr
 
+import toolviper.utils.logger as logger
 from .write import write_generic_table, write_main_table_slice
 from .write import create_table, revert_time
 

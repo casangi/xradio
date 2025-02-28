@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 import xarray as xr
 
+
 @pytest.mark.parametrize(
     "cols, expected_output",
     [
@@ -39,7 +40,7 @@ def test_write_ms_empty():
 
 
 def test_flatten_xds_empty():
-    from xradio.measurement_set._utils._utils.xds_helper import flatten_xds
+    from xradio.measurement_set._utils._msv2._tables.write_exp_api import flatten_xds
 
     empty = xr.Dataset()
     res = flatten_xds(empty)
@@ -47,7 +48,7 @@ def test_flatten_xds_empty():
 
 
 def test_flatten_xds_main_min(main_xds_min):
-    from xradio.measurement_set._utils._utils.xds_helper import flatten_xds
+    from xradio.measurement_set._utils._msv2._tables.write_exp_api import flatten_xds
 
     res = flatten_xds(main_xds_min)
     assert all(
@@ -112,7 +113,7 @@ def test_calc_otimal_ms_chunk_shape(
     mem_avail, shape, elem_size, col_name, expected_res
 ):
     import numbers
-    from xradio.measurement_set._utils._utils.xds_helper import (
+    from xradio.measurement_set._utils._msv2._tables.write_exp_api import (
         calc_optimal_ms_chunk_shape,
     )
 
@@ -137,7 +138,7 @@ def test_calc_otimal_ms_chunk_shape_raises(
     mem_avail, shape, elem_size, col_name, expected_raises
 ):
     import numbers
-    from xradio.measurement_set._utils._utils.xds_helper import (
+    from xradio.measurement_set._utils._msv2._tables.write_exp_api import (
         calc_optimal_ms_chunk_shape,
     )
 

@@ -40,7 +40,7 @@ def test_create_field_and_source_xds_minimal_wrong_field_ids(ms_empty_required):
 
 def test_create_field_and_source_xds_minimal(ms_minimal_required):
 
-    field_and_source_xds, source_id, num_lines = create_field_and_source_xds(
+    field_and_source_xds, source_id, num_lines, field_names = create_field_and_source_xds(
         ms_minimal_required.fname,
         np.arange(0, 1),
         0,
@@ -50,5 +50,7 @@ def test_create_field_and_source_xds_minimal(ms_minimal_required):
         True,
     )
 
+    assert source_id == [0]
     assert num_lines == 0
+    assert field_names == np.array(['NGC3031_0'])
     check_dataset(field_and_source_xds, FieldSourceXds)

@@ -82,7 +82,7 @@ def base_test(
     is_s3: bool = False,
     partition_schemes: list = [[], ["FIELD_ID"]],
     preconverted: bool = False,
-    do_schema_check: bool = False,
+    do_schema_check: bool = False
 ):
     start = time.time()
     from toolviper.dask.client import local_client
@@ -178,9 +178,9 @@ def base_test(
             start_check = time.time()
             for xds_name in ps_xdt.keys():
                 if ps_xdt[xds_name].attrs["type"] == "visibility":
-                    check_dataset(ps_xdt[xds_name], VisibilityXds).expect()
+                    check_dataset(ps_xdt[xds_name].ds, VisibilityXds).expect()
                 elif ps_xdt[xds_name].attrs["type"] == "spectrum":
-                    check_dataset(ps_xdt[xds_name], SpectrumXds).expect()
+                    check_dataset(ps_xdt[xds_name].ds, SpectrumXds).expect()
                 else:
                     raise RuntimeError(
                         "Cannot find visibility or spectrum type data in MSv4 {xds_name}!"

@@ -2047,20 +2047,13 @@ class VisibilityXds:
     UVW: Dataof[UvwArray] = None
     EFFECTIVE_INTEGRATION_TIME: Optional[
         Data[
-            tuple[Time, BaselineId, Frequency, Polarization],
+            Union[
+                tuple[Time, BaselineId],
+                tuple[Time, BaselineId, Frequency, Polarization],
+            ],
             QuantityInSecondsArray,
         ]
     ] = None
-    # EFFECTIVE_INTEGRATION_TIME: Optional[
-    #     Data[
-    #         Union[
-    #             tuple[Time, BaselineId],
-    #             tuple[Time, BaselineId, Frequency],
-    #             tuple[Time, BaselineId, Frequency, Polarization],
-    #         ],
-    #         QuantityInSecondsArray,
-    #     ]
-    # ] = None
     """
     The integration time, including the effects of missing data, in contrast to
     ``integration_time`` attribute of the ``time`` coordinate,
@@ -2150,21 +2143,13 @@ class SpectrumXds:
     # --- Optional data variables / arrays ---
     EFFECTIVE_INTEGRATION_TIME: Optional[
         Data[
-            tuple[Time, AntennaName, Frequency, Polarization],
+            Union[
+                tuple[Time, AntennaName],
+                tuple[Time, AntennaName, Frequency, Polarization],
+            ],
             QuantityInSecondsArray,
         ]
     ] = None
-
-    # EFFECTIVE_INTEGRATION_TIME: Optional[
-    #     Data[
-    #         Union[
-    #             tuple[Time, AntennaName],
-    #             tuple[Time, AntennaName, Frequency],
-    #             tuple[Time, AntennaName, Frequency, Polarization],
-    #         ],
-    #         QuantityInSecondsArray,
-    #     ]
-    # ] = None
     """
     The integration time, including the effects of missing data, in contrast to
     ``integration_time`` attribute of the ``time`` coordinate,

@@ -22,21 +22,45 @@ def test_cols_from_xds_to_ms(cols, expected_output):
     assert cols_from_xds_to_ms(cols) == expected_output
 
 
-def test_write_ms_with_cds():
-    from xradio.measurement_set._utils._msv2._tables.write_exp_api import write_ms
-    from xradio.measurement_set._utils._utils.cds import CASAVisSet
+def test_xds_packager_mxds(ant_xds_min):
+    from xradio.measurement_set._utils._msv2._tables.write_exp_api import vis_xds_packager_mxds
+    from xarray.core.utils import Frozen
 
-    with pytest.raises(IndexError, match="out of range"):
-        write_ms(CASAVisSet({}, {}, "empty"), "test_out_vis.ms")
+    addt = "addition"
+    subts = [("antenna", ant_xds_min)]
+    parts = {9: 0}
+    res = vis_xds_packager_mxds(parts, subts, addt)
+    assert res.data_vars == {}
+    assert res.sizes == Frozen({})
+    assert res.attrs["metainfo"] == [("antenna", ant_xds_min)]
+    assert res.attrs["partitions"] == parts
 
 
-def test_write_ms_empty():
-    from xradio.measurement_set._utils._msv2._tables.write_exp_api import write_ms
-    from xradio.measurement_set._utils._utils.xds_helper import vis_xds_packager_mxds
+def test_make_global_coords_none():
+    from xradio.measurement_set._utils._msv2._tables.write_exp_api import make_global_coords
 
-    mxds = vis_xds_packager_mxds({}, {}, add_global_coords=True)
-    with pytest.raises(IndexError, match="out of range"):
-        write_ms(mxds, outfile="test_out_write_ms_empty.ms")
+    with pytest.raises(KeyError, match="metainfo"):
+        res = make_global_coords(xr.Dataset())
+        assert res
+
+
+def test_make_global_coords_min(ms_minimal_required):
+    from xradio.measurement_set._utils._msv2._tables.write_exp_api import make_global_coords
+    from xradio.measurement_set._utils._msv2._tables.write_exp_api import vis_xds_packager_mxds
+
+    # from xradio.measurement_set._utils.msv2 import read_ms
+
+    # TODO: fixture forf an xds (main) + a cds fixture
+    # cds = read_ms(ms_minimal_required.fname, partition_scheme="intent")
+    # xds = list(cds.partitions.values())[0]
+    # mxds = xr.Dataset(attrs={"metainfo": cds.metainfo, "partitions": {}})
+    mxds = xr.Dataset(attrs={"metainfo": {}, "partitions": {}})
+
+    with pytest.raises(
+        ValueError, match="different number of dimensions on data and dims"
+    ):
+        res = make_global_coords(mxds)
+        assert res
 
 
 def test_flatten_xds_empty():
@@ -55,6 +79,23 @@ def test_flatten_xds_main_min(main_xds_min):
         [dim in res.dims for dim in ["row", "uvw_coords", "freq", "pol", "antenna_id"]]
     )
     assert all([dim not in res.dims for dim in ["time", "baseline"]])
+
+
+def test_write_ms_with_cds():
+    from xradio.measurement_set._utils._msv2._tables.write_exp_api import write_ms
+    from xradio.measurement_set._utils._utils.cds import CASAVisSet
+
+    with pytest.raises(IndexError, match="out of range"):
+        write_ms(CASAVisSet({}, {}, "empty"), "test_out_vis.ms")
+
+
+def test_write_ms_empty():
+    from xradio.measurement_set._utils._msv2._tables.write_exp_api import write_ms
+    from xradio.measurement_set._utils._utils.xds_helper import vis_xds_packager_mxds
+
+    mxds = vis_xds_packager_mxds({}, {}, add_global_coords=True)
+    with pytest.raises(IndexError, match="out of range"):
+        write_ms(mxds, outfile="test_out_write_ms_empty.ms")
 
 
 def test_write_ms_serial_empty():

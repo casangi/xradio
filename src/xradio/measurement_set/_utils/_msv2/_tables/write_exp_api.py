@@ -1,6 +1,6 @@
 import os
 import time
-from typing import List, Optional, Union
+from typing import Any, Optional, Union
 
 import dask
 import numpy as np
@@ -31,7 +31,7 @@ rename_to_msv2_cols = {
 cols_not_in_msv2 = ["baseline_ant1_id", "baseline_ant2_id"]
 
 
-def cols_from_xds_to_ms(cols: List[str]) -> List[str]:
+def cols_from_xds_to_ms(cols: list[str]) -> list[str]:
     """
     Translates between lowercase/uppercase convention
     Rename some MS_colum_names <-> xds_data_var_names
@@ -93,12 +93,79 @@ def flatten_xds(xds: xr.Dataset) -> xr.Dataset:
     return flat_xds
 
 
+def vis_xds_packager_mxds(
+    partitions: dict[Any, xr.Dataset],
+    subtables: list[tuple[str, xr.Dataset]],
+    add_global_coords: bool = True,
+) -> xr.Dataset:
+    """
+    Takes a dictionary of data partition xds datasets and a list of
+    subtable xds datasets and packages them as a dataset of datasets
+    (mxds)
+
+    Parameters
+    ----------
+    partitions : dict[Any, xr.Dataset]
+        data partiions as xds datasets
+    subtables : list[tuple[str, xr.Dataset]]
+        subtables as xds datasets
+        :add_global_coords: whether to add coords to the output mxds
+    add_global_coords: bool (Default value = True)
+
+    Returns
+    -------
+    xr.Dataset
+        A "mxds" - xr.dataset of datasets
+    """
+    mxds = xr.Dataset(attrs={"metainfo": subtables, "partitions": partitions})
+
+    if add_global_coords:
+        mxds = mxds.assign_coords(make_global_coords(mxds))
+
+    return mxds
+
+
+def make_global_coords(mxds: xr.Dataset) -> dict[str, xr.DataArray]:
+    coords = {}
+    metainfo = mxds.attrs["metainfo"]
+    if "antenna" in metainfo:
+        coords["antenna_ids"] = metainfo["antenna"].antenna_id.values
+        coords["antennas"] = xr.DataArray(
+            metainfo["antenna"].NAME.values, dims=["antenna_ids"]
+        )
+    if "field" in metainfo:
+        coords["field_ids"] = metainfo["field"].field_id.values
+        coords["fields"] = xr.DataArray(
+            metainfo["field"].NAME.values, dims=["field_ids"]
+        )
+    if "feed" in mxds.attrs:
+        coords["feed_ids"] = metainfo["feed"].FEED_ID.values
+    if "observation" in metainfo:
+        coords["observation_ids"] = metainfo["observation"].observation_id.values
+        coords["observations"] = xr.DataArray(
+            metainfo["observation"].PROJECT.values, dims=["observation_ids"]
+        )
+    if "polarization" in metainfo:
+        coords["polarization_ids"] = metainfo["polarization"].pol_setup_id.values
+    if "source" in metainfo:
+        coords["source_ids"] = metainfo["source"].SOURCE_ID.values
+        coords["sources"] = xr.DataArray(
+            metainfo["source"].NAME.values, dims=["source_ids"]
+        )
+    if "spectral_window" in metainfo:
+        coords["spw_ids"] = metainfo["spectral_window"].spw_id.values
+    if "state" in metainfo:
+        coords["state_ids"] = metainfo["state"].STATE_ID.values
+
+    return coords
+
+
 def write_ms(
     mxds: xr.Dataset,
     outfile: str,
     infile: str = None,
     subtables: bool = False,
-    modcols: Union[List[str], None] = None,
+    modcols: Union[list[str], None] = None,
     verbose: bool = False,
     execute: bool = True,
 ) -> Optional[list]:
@@ -118,8 +185,8 @@ def write_ms(
         Also write subtables from mxds. Default of False only writes mxds attributes that begin with xdsN to the MS main table.
         Setting to True will write all other mxds attributes to subtables of the main table.  This is probably going to be SLOW!
         Use infile instead whenever possible.
-    modcols : Union[List[str], None] (Default value = None)
-        List of strings indicating what column(s) were modified (aka xds data_vars). Different logic can be applied to speed up processing when
+    modcols : Union[list[str], None] (Default value = None)
+        list of strings indicating what column(s) were modified (aka xds data_vars). Different logic can be applied to speed up processing when
         a data_var has not been modified from the input. Default None assumes everything has been modified (SLOW)
     verbose : bool (Default value = False)
         Whether or not to print output progress. Since writes will typically execute the DAG, if something is

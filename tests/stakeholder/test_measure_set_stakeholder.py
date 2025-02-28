@@ -82,7 +82,7 @@ def base_test(
     is_s3: bool = False,
     partition_schemes: list = [[], ["FIELD_ID"]],
     preconverted: bool = False,
-    do_schema_check: bool = False
+    do_schema_check: bool = False,
 ):
     start = time.time()
     from toolviper.dask.client import local_client

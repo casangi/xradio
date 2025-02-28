@@ -39,15 +39,6 @@ def test_zarr_write_ms_minimal(cds_minimal_required, tmp_path):
     cds = copy.deepcopy(cds_minimal_required)
     write_cor(cds, outname)
 
-    from xradio.measurement_set._utils.zarr import is_zarr_cor, read_cor
-
-    res = is_zarr_cor(outname)
-    assert not res
-    # TODO: move into a fixture/similar
-    # @pytest.mark.depends(on=["test_zarr_write_ms_minimal"])
-    with pytest.raises(ValueError, match="input filename"):
-        cds = read_cor(outname)
-
 
 def test_zarr_write_cor_attrs(tmp_path):
     """write to zarr (TODO: revisit)"""

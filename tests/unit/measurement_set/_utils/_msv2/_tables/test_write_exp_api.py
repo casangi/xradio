@@ -1,6 +1,7 @@
-import pytest
+from contextlib import nullcontext as does_not_raise
 from pathlib import Path
-
+import pytest
+import xarray as xr
 
 @pytest.mark.parametrize(
     "cols, expected_output",
@@ -40,9 +41,9 @@ def test_write_ms_empty():
 def test_flatten_xds_empty():
     from xradio.measurement_set._utils._utils.xds_helper import flatten_xds
 
-    empty = xarray.Dataset()
+    empty = xr.Dataset()
     res = flatten_xds(empty)
-    assert xarray.Dataset.equals(res, empty)
+    assert xr.Dataset.equals(res, empty)
 
 
 def test_flatten_xds_main_min(main_xds_min):

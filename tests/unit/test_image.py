@@ -1039,6 +1039,7 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
 
     _zarr_store: str = "out.zarr"
     _zarr_uv_store: str = "out_uv.zarr"
+    _zarr_beam_test: str = "beam_test.zarr"
 
     @classmethod
     def setUpClass(cls):
@@ -1055,6 +1056,7 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
         for f in [
             cls._zarr_store,
             cls._zarr_uv_store,
+            cls._zarr_beam_test,
         ]:
             if os.path.exists(f):
                 if os.path.isdir(f):
@@ -1113,6 +1115,23 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
         self.assertTrue(
             np.isclose(xds2.APERTURE.values, xds.APERTURE.values).all(),
             "Incorrect aperture pixel values",
+        )
+
+    def test_beam(self):
+        mb = np.zeros(shape=[1, 10, 4, 3], dtype=float)
+        mb[:, :, :, 0] = 0.00001
+        mb[:, :, :, 1] = 0.00002
+        mb[:, :, :, 2] = 0.00003
+        xdb = xr.DataArray(mb, dims=["time", "frequency", "polarization", "beam_param"])
+        xdb = xdb.rename("BEAM")
+        xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
+        xdb.attrs["units"] = "rad"
+        xds = copy.deepcopy(self.xds())
+        xds["BEAM"] = xdb
+        write_image(xds, self._zarr_beam_test, "zarr")
+        xds2 = read_image(self._zarr_beam_test)
+        self.assertTrue(
+            np.allclose(xds2.BEAM.values, xds.BEAM.values), "Incorrect beam values"
         )
 
 

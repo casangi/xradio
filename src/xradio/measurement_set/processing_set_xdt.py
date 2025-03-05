@@ -48,7 +48,7 @@ class ProcessingSetXdt:
 
         if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
             raise InvalidAccessorLocation(
-                f"{self._xdt.path} is not a processing set node. "
+                f"{self._xdt.path} is not a processing set node."
             )
 
         if data_group in self.meta["summary"]:
@@ -78,7 +78,7 @@ class ProcessingSetXdt:
 
         if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
             raise InvalidAccessorLocation(
-                f"{self._xdt.path} is not a processing set node. "
+                f"{self._xdt.path} is not a processing set node."
             )
 
         if "max_dims" in self.meta:
@@ -112,7 +112,7 @@ class ProcessingSetXdt:
         """
         if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
             raise InvalidAccessorLocation(
-                f"{self._xdt.path} is not a processing set node. "
+                f"{self._xdt.path} is not a processing set node."
             )
 
         if "freq_axis" in self.meta:
@@ -246,11 +246,10 @@ class ProcessingSetXdt:
         >>> # Select all MSs with start_frequency greater than 100 GHz and less than 200 GHz
         >>> selected_ps = ps.query(query='start_frequency > 100e9 AND end_frequency < 200e9')
         """
-        import numpy as np
 
         if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
             raise InvalidAccessorLocation(
-                f"{self._xdt.path} is not a processing set node. "
+                f"{self._xdt.path} is not a processing set node."
             )
 
         def select_rows(df, col, sel_vals, string_exact_match):
@@ -304,9 +303,10 @@ class ProcessingSetXdt:
 
         return sub_ps_xdt
 
-    def get_combined_field_and_source_xds(self, data_group="base"):
+    def get_combined_field_and_source_xds(self, data_group: str = "base"):
         """
-        Combine all non-ephemeris `field_and_source_xds` datasets from a Processing Set for a datagroup into a single dataset.
+        Combine all non-ephemeris `field_and_source_xds` datasets from a Processing Set for a data group into a
+        single dataset.
 
         Parameters
         ----------
@@ -326,7 +326,7 @@ class ProcessingSetXdt:
 
         if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
             raise InvalidAccessorLocation(
-                f"{self._xdt.path} is not a processing set node. "
+                f"{self._xdt.path} is not a processing set node."
             )
 
         combined_field_and_source_xds = xr.Dataset()
@@ -424,7 +424,7 @@ class ProcessingSetXdt:
 
         if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
             raise InvalidAccessorLocation(
-                f"{self._xdt.path} is not a processing set node. "
+                f"{self._xdt.path} is not a processing set node."
             )
 
         combined_ephemeris_field_and_source_xds = xr.Dataset()
@@ -553,7 +553,7 @@ class ProcessingSetXdt:
         """
         if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
             raise InvalidAccessorLocation(
-                f"{self._xdt.path} is not a processing set node. "
+                f"{self._xdt.path} is not a processing set node."
             )
 
         combined_field_and_source_xds = self.get_combined_field_and_source_xds(
@@ -650,7 +650,7 @@ class ProcessingSetXdt:
         """
         if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
             raise InvalidAccessorLocation(
-                f"{self._xdt.path} is not a processing set node. "
+                f"{self._xdt.path} is not a processing set node."
             )
 
         combined_antenna_xds = xr.Dataset()
@@ -699,7 +699,7 @@ class ProcessingSetXdt:
         """
         if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
             raise InvalidAccessorLocation(
-                f"{self._xdt.path} is not a processing set node. "
+                f"{self._xdt.path} is not a processing set node."
             )
 
         combined_antenna_xds = self.get_combined_antenna_xds()

@@ -24,6 +24,8 @@ class MeasurementSetXdt:
 
         Parameters
         ----------
+        datatree: xr.DataTree
+            The MSv4 DataTree node to construct a MeasurementSetXdt.
         """
 
         self._xdt = datatree
@@ -42,7 +44,7 @@ class MeasurementSetXdt:
         For more information on data groups see `Data Groups <https://xradio.readthedocs.io/en/latest/measurement_set_overview.html#Data-Groups>`__ section. See `xarray.Dataset.sel <https://xarray.pydata.org/en/stable/generated/xarray.Dataset.sel.html>`__ for parameter descriptions.
 
         Returns:
-            Xdt with MeasurementSetXdt Assessors
+            Xdt with MeasurementSetXdt Accessors
 
         Examples
         --------
@@ -54,7 +56,7 @@ class MeasurementSetXdt:
         """
 
         if self._xdt.attrs.get("type") not in MS_DATASET_TYPES:
-            raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4node. ")
+            raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4 node.")
 
         assert (self._xdt.attrs["type"] == "visibility") or (
             self._xdt.attrs["type"] == "spectrum"
@@ -112,7 +114,7 @@ class MeasurementSetXdt:
 
         """
         if self._xdt.attrs.get("type") not in MS_DATASET_TYPES:
-            raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4node. ")
+            raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4 node.")
 
         if data_group_name is None:
             if "base" in self._xdt.attrs["data_groups"].keys():
@@ -123,8 +125,11 @@ class MeasurementSetXdt:
         return self._xdt[f"field_and_source_xds_{data_group_name}"].ds
 
     def get_partition_info(self) -> dict:
+        """
+        Generate a partition info dict for an MSv4...
+        """
         if self._xdt.attrs.get("type") not in MS_DATASET_TYPES:
-            raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4node. ")
+            raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4 node.")
 
         field_and_source_xds = self._xdt.ms.get_field_and_source_xds()
 

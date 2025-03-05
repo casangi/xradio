@@ -11,19 +11,21 @@ Processing Set and Measurement Set API
 
    .. autofunction:: convert_msv2_to_processing_set
 
-ProcessingSet API
------------------
+   .. autofunction:: estimate_conversion_memory_and_cores
+
+ProcessingSetXdt API
+--------------------
 
 .. automodule:: xradio.measurement_set
 
-   .. autoclass:: ProcessingSet
+   .. autoclass:: ProcessingSetXdt
       :members:
 
 
-MeasurementSetXds API
+MeasurementSetXdt API
 ---------------------
 
 .. automodule:: xradio.measurement_set
 
-   .. autoclass:: MeasurementSetXds
+   .. autoclass:: MeasurementSetXdt
       :members:

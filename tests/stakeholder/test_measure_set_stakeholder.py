@@ -5,6 +5,7 @@ import pathlib
 import pytest
 import time
 
+import pandas as pd
 import xarray as xr
 
 from toolviper.utils.data import download
@@ -15,6 +16,8 @@ from xradio.measurement_set import (
     load_processing_set,
     convert_msv2_to_processing_set,
     estimate_conversion_memory_and_cores,
+    MeasurementSetXdt,
+    ProcessingSetXdt,
     VisibilityXds,
     SpectrumXds,
 )
@@ -121,12 +124,42 @@ def base_test(
         if os.path.isdir(ps_copy_name):
             os.system("rm -rf " + str(ps_copy_name))  # Remove ps_xdt copy folder.
 
-        ps_lazy_xdt_df = ps_lazy_xdt.ps.summary()
-        assert "name" in ps_lazy_xdt_df
-        ps_df = ps_xdt.ps.summary()
-        assert "name" in ps_df
+        # Basic checks on ps accessor of ps_xdt
+        for top_xdt in [ps_lazy_xdt, ps_xdt]:
+            assert hasattr(top_xdt, "ps") and isinstance(top_xdt.ps, ProcessingSetXdt)
+            assert "type" in top_xdt.attrs and top_xdt.attrs["type"] == "processing_set"
 
+        expected_summary_keys = [
+            "name",
+            "intents",
+            "shape",
+            "polarization",
+            "scan_name",
+            "spw_name",
+            "field_name",
+            "source_name",
+            "line_name",
+            "field_coords",
+            "start_frequency",
+            "end_frequency",
+        ]
+        ps_lazy_xdt_df = ps_lazy_xdt.ps.summary()
+        assert all([key in ps_lazy_xdt_df for key in expected_summary_keys])
+        ps_xdt_df = ps_xdt.ps.summary()
+        assert all([key in ps_xdt_df for key in expected_summary_keys])
+        pd.testing.assert_frame_equal(ps_lazy_xdt_df, ps_xdt_df)
+
+        expected_dims = [
+            "time",
+            "baseline_id",
+            "frequency",
+            "polarization",
+            "uvw_label",
+        ]
         max_dims = ps_xdt.ps.get_max_dims()
+
+        empty_query_result = ps_xdt.ps.query()
+        assert isinstance(empty_query_result, xr.DataTree)
 
         assert type(max_dims) == dict
         if not is_s3 and not preconverted:
@@ -148,6 +181,44 @@ def base_test(
 
         sum = 0.0
         sum_lazy = 0.0
+
+        # Basic checks on the ms_xdt trees and their ds, ms accessor
+        for ms_xds_name in ps_xdt.keys():
+            ms_xdt = ps_xdt[ms_xds_name]
+            assert "type" in ms_xdt.attrs and ms_xdt.attrs["type"] in [
+                "visibility",
+                "wvr",
+                "spectrum",
+            ]
+
+            # dt produces a DatasetView
+            assert hasattr(ms_xdt, "ds") and isinstance(ms_xdt.ds, xr.Dataset)
+            assert ms_xdt["antenna_xds"]
+            assert ms_xdt["field_and_source_xds_base"]
+            # Should check depending on availability of metadata in input MSv2:
+            # assert ms_xdt["gain_curve_xds"]
+            # assert ms_xdt["phase_calibration_xds"]
+            # assert ms_xdt["pointing_xds"]
+            # assert ms_xdt["system_calibration_xds"]
+            # assert ms_xdt["weather_xds"]
+            # assert ms_xdt.ds  # DatasetView
+
+            assert hasattr(ms_xdt, "ms") and isinstance(ms_xdt.ms, MeasurementSetXdt)
+            assert (
+                hasattr(ms_xdt.ms, "get_field_and_source_xds")
+                and callable(ms_xdt.ms.get_field_and_source_xds)
+                and isinstance(ms_xdt.ms.get_field_and_source_xds(), xr.Dataset)
+            )
+            assert (
+                hasattr(ms_xdt.ms, "get_partition_info")
+                and callable(ms_xdt.ms.get_partition_info)
+                and isinstance(ms_xdt.ms.get_partition_info(), dict)
+            )
+            assert (
+                hasattr(ms_xdt.ms, "sel")
+                and callable(ms_xdt.ms.sel)
+                and isinstance(ms_xdt.ms.sel(), xr.DataTree)
+            )
 
         for ms_xds_name in ps_xdt.keys():
             if "VISIBILITY" in ps_xdt[ms_xds_name]:
@@ -177,7 +248,7 @@ def base_test(
         if do_schema_check:
             start_check = time.time()
             for xds_name in ps_xdt.keys():
-                if ps_xdt[xds_name].attrs["type"] == "visibility":
+                if ps_xdt[xds_name].attrs["type"] in ["visibility", "wvr"]:
                     check_dataset(ps_xdt[xds_name].ds, VisibilityXds).expect()
                 elif ps_xdt[xds_name].attrs["type"] == "spectrum":
                     check_dataset(ps_xdt[xds_name].ds, SpectrumXds).expect()

@@ -18,7 +18,7 @@ class ProcessingSetXdt:
 
     def __init__(self, datatree: xr.DataTree):
         """
-        Initialize the ProcessingSet instance.
+        Initialize the ProcessingSetXdt instance.
 
         Parameters
         ----------
@@ -206,7 +206,9 @@ class ProcessingSetXdt:
         summary_df = pd.DataFrame(summary_data)
         return summary_df
 
-    def query(self, string_exact_match: bool = True, query: str = None, **kwargs):
+    def query(
+        self, string_exact_match: bool = True, query: str = None, **kwargs
+    ) -> xr.DataTree:
         """
         Select a subset of the Processing Set based on specified criteria.
 
@@ -235,8 +237,8 @@ class ProcessingSetXdt:
 
         Returns
         -------
-        ProcessingSet
-            A new `ProcessingSet` instance containing only the Measurement Sets that match the selection criteria.
+        xr.DataTree
+            A new DataTree instance containing only the Measurement Sets that match the selection criteria.
 
         Examples
         --------

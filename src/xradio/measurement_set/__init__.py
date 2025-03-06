@@ -9,8 +9,8 @@ from .measurement_set_xdt import MeasurementSetXdt
 from .schema import SpectrumXds, VisibilityXds
 
 __all__ = [
-    "ProcessingSet",
-    "MeasurementSetXds",
+    "ProcessingSetXdt",
+    "MeasurementSetXdt",
     "open_processing_set",
     "load_processing_set",
     "ProcessingSetIterator",

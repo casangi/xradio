@@ -18,6 +18,7 @@ def estimate_conversion_memory_and_cores(
     """
     Given an MSv2 and a partition_scheme to use when converting it to MSv4,
     estimates:
+
     - memory (in the sense of the amount expected to be enough to convert)
     - cores (in the sense of the recommended/optimal number of cores to use to convert)
 

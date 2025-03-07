@@ -191,7 +191,6 @@ class xds_from_image_test(ImageBase):
         "projection": "SIN",
     }
     # TODO make a more interesting beam
-    _exp_attrs["beam"] = None
     _exp_attrs["obsdate"] = {
         "type": "time",
         "scale": "UTC",
@@ -201,7 +200,7 @@ class xds_from_image_test(ImageBase):
     }
     _exp_attrs["observer"] = "Karl Jansky"
     _exp_attrs["description"] = None
-    _exp_attrs["active_mask"] = "mask0"
+    _exp_attrs["active_mask"] = "MASK0"
     _exp_attrs["object_name"] = ""
     _exp_attrs["pointing_center"] = {
         "value": np.array([6300, -2400]) * np.pi / 180 / 60,
@@ -326,15 +325,15 @@ class xds_from_image_test(ImageBase):
             "Incorrect chunksize",
         )
         self.assertEqual(
-            xds.mask0.chunksizes["frequency"], (5, 5), "Incorrect chunksize"
+            xds.MASK0.chunksizes["frequency"], (5, 5), "Incorrect chunksize"
         )
         got_data = da.squeeze(da.transpose(xds[data_variable_name], [1, 2, 4, 3, 0]), 4)
-        got_mask = da.squeeze(da.transpose(xds.mask0, [1, 2, 4, 3, 0]), 4)
+        got_mask = da.squeeze(da.transpose(xds.MASK0, [1, 2, 4, 3, 0]), 4)
         if "sky_array" not in ev:
             im = casacore.images.image(self.imname())
             ev[data_variable_name] = im.getdata()
             # getmask returns the negated value of the casa image mask, so True
-            # has the same meaning as it does in xds.mask0
+            # has the same meaning as it does in xds.MASK0
             ev["mask0"] = im.getmask()
             ev["sum"] = im.statistics()["sum"][0]
         if fits:
@@ -347,7 +346,7 @@ class xds_from_image_test(ImageBase):
                 (got_data == ev[data_variable_name]).all(), "pixel values incorrect"
             )
         self.assertTrue((got_mask == ev["mask0"]).all(), "mask values incorrect")
-        got_ma = da.ma.masked_array(xds[data_variable_name], xds.mask0)
+        got_ma = da.ma.masked_array(xds[data_variable_name], xds.MASK0)
         self.assertEqual(da.sum(got_ma), ev["sum"], "Incorrect value for sum")
         self.assertTrue(
             got_data.dtype == ev[data_variable_name].dtype,
@@ -592,7 +591,7 @@ class xds_from_image_test(ImageBase):
                 "Wrong block SKY array",
             )
             self.assertTrue(
-                (xds.mask0 == big_xds.mask0[:, 0:1, 0:4, 2:10, 3:15]).all(),
+                (xds.MASK0 == big_xds.MASK0[:, 0:1, 0:4, 2:10, 3:15]).all(),
                 "Wrong block mask0 array",
             )
             self.dict_equality(
@@ -659,7 +658,9 @@ class xds_from_image_test(ImageBase):
                 }
                 x["npix"] = shape[3] if z == "u" else shape[2]
             self._expec_uv = copy.deepcopy(uv)
-        expec_coords = set(["time", "polarization", "frequency", "velocity", "u", "v"])
+        expec_coords = set(
+            ["time", "polarization", "frequency", "velocity", "u", "v", "beam_param"]
+        )
         self.assertEqual(xds.coords.keys(), expec_coords, "incorrect coordinates")
         for c in ["u", "v"]:
             attrs = self._expec_uv[c]["attrs"]
@@ -786,6 +787,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
     _outname4_no_sky: str = _outname4 + "_no_sky"
     _outname5: str = "xds_2_casa_nans_already_masked.im"
     _outname5_no_sky: str = _outname5 + "_no_sky"
+    _outname6: str = "single_beam.im"
     _output_uv: str = "output_uv.im"
 
     @classmethod
@@ -808,6 +810,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
             cls._outname4_no_sky,
             cls._outname5,
             cls._outname5_no_sky,
+            cls._outname6,
             cls._output_uv,
         ]:
             if os.path.exists(f):
@@ -852,12 +855,15 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                     c2["coordinates"]["spectral2"]["velUnit"] = "km/s"
                     self.dict_equality(c2, c1, "got", "expected")
 
-    def test_multibeam(self):
+    def test_beam(self):
         """
-        Verify fix to issue 45
-        https://github.com/casangi/xradio/issues/45
+            Verify fix to issue 45
+            https://github.com/casangi/xradio/issues/45
+        irint("*** r", r)
         """
         download(self._imname2), f"failed to download {self._imname2}"
+        shutil.copytree(self._imname2, self._outname6)
+        # multibeam image
         with open_image_ro(self._imname2) as im1:
             beams1 = im1.imageinfo()["perplanebeams"]
             for do_sky, outname in zip(
@@ -876,6 +882,34 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                         beam["positionangle"]["value"] *= 180 / np.pi
                         beam["positionangle"]["unit"] = "deg"
                     self.dict_equality(beams1, beams2, "got", "expected")
+        # convert to single beam image
+        tb = casacore.tables.table(self._outname6, readonly=False)
+        beam3 = {
+            "major": {"unit": "arcsec", "value": 4.0},
+            "minor": {"unit": "arcsec", "value": 3.0},
+            "positionangle": {"unit": "deg", "value": 5.0},
+        }
+        tb.putkeyword(
+            "imageinfo",
+            {
+                "imagetype": "Intensity",
+                "objectname": "",
+                "restoringbeam": beam3,
+            },
+        )
+        xds = read_image(self._outname6)
+        self.assertFalse("beam" in xds.attrs, "beam should not be in xds.attrs")
+        expec = np.array(
+            [4 / 180 / 3600 * np.pi, 3 / 180 / 3600 * np.pi, 5 * np.pi / 180]
+        )
+        for i, p in enumerate(["major", "minor", "pa"]):
+            self.assertTrue(
+                np.allclose(
+                    xds.BEAM.sel(beam_param=p).values,
+                    expec[i],
+                ),
+                f"Incorrect {p} axis",
+            )
 
     def test_masking(self):
         """
@@ -1005,6 +1039,7 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
 
     _zarr_store: str = "out.zarr"
     _zarr_uv_store: str = "out_uv.zarr"
+    _zarr_beam_test: str = "beam_test.zarr"
 
     @classmethod
     def setUpClass(cls):
@@ -1021,6 +1056,7 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
         for f in [
             cls._zarr_store,
             cls._zarr_uv_store,
+            cls._zarr_beam_test,
         ]:
             if os.path.exists(f):
                 if os.path.isdir(f):
@@ -1079,6 +1115,23 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
         self.assertTrue(
             np.isclose(xds2.APERTURE.values, xds.APERTURE.values).all(),
             "Incorrect aperture pixel values",
+        )
+
+    def test_beam(self):
+        mb = np.zeros(shape=[1, 10, 4, 3], dtype=float)
+        mb[:, :, :, 0] = 0.00001
+        mb[:, :, :, 1] = 0.00002
+        mb[:, :, :, 2] = 0.00003
+        xdb = xr.DataArray(mb, dims=["time", "frequency", "polarization", "beam_param"])
+        xdb = xdb.rename("BEAM")
+        xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
+        xdb.attrs["units"] = "rad"
+        xds = copy.deepcopy(self.xds())
+        xds["BEAM"] = xdb
+        write_image(xds, self._zarr_beam_test, "zarr")
+        xds2 = read_image(self._zarr_beam_test)
+        self.assertTrue(
+            np.allclose(xds2.BEAM.values, xds.BEAM.values), "Incorrect beam values"
         )
 
 
@@ -1172,7 +1225,7 @@ class fits_to_xds_test(xds_from_image_test):
             casa_image.tofits(self._outname1)
             expec = casa_image.imageinfo()["perplanebeams"]
         xds = read_image(self._outname1)
-        got = xds.data_vars["beam"]
+        got = xds.BEAM
         for p in range(4):
             for c in range(50):
                 for b in ["major", "minor", "pa"]:

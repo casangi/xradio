@@ -54,6 +54,8 @@ def _fits_image_to_xds(
     xds = _add_coord_attrs(xds, helpers)
     if helpers["has_multibeam"]:
         xds = _do_multibeam(xds, img_full_path)
+    elif "beam" in helpers and helpers["beam"] is not None:
+        xds = _add_beam(xds, helpers)
     return xds
 
 
@@ -408,11 +410,11 @@ def _fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList) -> dict:
         attrs["direction"] = _xds_direction_attrs_from_header(helpers, header)
     # FIXME read fits data in chunks in case all data too large to hold in memory
     has_mask = da.any(da.isnan(primary.data)).compute()
-    attrs["active_mask"] = "mask0" if has_mask else None
+    attrs["active_mask"] = "MASK0" if has_mask else None
     helpers["has_mask"] = has_mask
     beam = _beam_attr_from_header(helpers, header)
     if beam != "mb":
-        attrs["beam"] = beam
+        helpers["beam"] = beam
     if "BITPIX" in header:
         v = abs(header["BITPIX"])
         if v == 32:
@@ -635,24 +637,39 @@ def _do_multibeam(xds: xr.Dataset, imname: str) -> xr.Dataset:
             npol = header["NPOL"]
             beam_array = np.zeros([1, nchan, npol, 3])
             data = hdu.data
+            hdulist.close()
             for t in data:
                 beam_array[0, t[3], t[4]] = t[0:3]
             for i in (0, 1, 2):
                 beam_array[:, :, :, i] = (
                     (beam_array[:, :, :, i] * units[i]).to("rad").value
                 )
-            xdb = xr.DataArray(
-                beam_array, dims=["time", "frequency", "polarization", "beam_param"]
-            )
-            xdb = xdb.rename("beam")
-            xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
-            xdb.attrs["units"] = "rad"
-            xds["beam"] = xdb
-            return xds
+            return _create_beam_data_var(xds, beam_array)
     raise RuntimeError(
         "It looks like there should be a BEAMS table but no "
         "such table found in FITS file"
     )
+
+
+def _add_beam(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
+    nchan = xds.sizes["frequency"]
+    npol = xds.sizes["polarization"]
+    beam_array = np.zeros([1, nchan, npol, 3])
+    beam_array[0, :, :, 0] = helpers["beam"]["bmaj"]
+    beam_array[0, :, :, 1] = helpers["beam"]["bmin"]
+    beam_array[0, :, :, 2] = helpers["beam"]["pa"]
+    return _chreate_beam_data_var(xds, beam_array)
+
+
+def _create_beam_data_var(xds: xr.Dataset, beam_array: np.array) -> xr.Dataset:
+    xdb = xr.DataArray(
+        beam_array, dims=["time", "frequency", "polarization", "beam_param"]
+    )
+    xdb = xdb.rename("BEAM")
+    xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
+    xdb.attrs["units"] = "rad"
+    xds["BEAM"] = xdb
+    return xds
 
 
 def _get_uv_values(helpers: dict) -> tuple:
@@ -698,8 +715,8 @@ def _add_sky_or_aperture(
         pp = da if type(xda[0].data) == dask.array.core.Array else np
         mask = pp.isnan(xda)
         mask.attrs = {}
-        mask = mask.rename("mask0")
-        xds["mask0"] = mask
+        mask = mask.rename("MASK0")
+        xds["MASK0"] = mask
     return xds
 
 

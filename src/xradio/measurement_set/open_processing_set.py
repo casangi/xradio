@@ -22,7 +22,8 @@ def open_processing_set(
     Returns
     -------
     xr.DataTree
-        Lazy representation of processing set (data is represented by Dask.arrays).
+        Lazy representation of processing set (the data arrays of the datasets are
+        represented by Dask.arrays).
     """
 
     file_system, ms_store_list = _get_file_system_and_items(ps_store)

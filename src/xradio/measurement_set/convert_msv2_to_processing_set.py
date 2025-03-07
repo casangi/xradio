@@ -37,7 +37,7 @@ def estimate_conversion_memory_and_cores(
         Partition scheme as used in the function convert_msv2_to_processing_set()
 
     Returns
-    ----------
+    -------
     tuple
         estimated maximum memory required for one partition,
         maximum number of cores it makes sense to use (number of partitions),

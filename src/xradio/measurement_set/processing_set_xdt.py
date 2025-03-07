@@ -9,11 +9,21 @@ PS_DATASET_TYPES = {"processing_set"}
 
 
 class InvalidAccessorLocation(ValueError):
+    """
+    Raised by Processing Set accessor functions called on a wrong DataTree node (not processing set).
+    """
+
     pass
 
 
 @xr.register_datatree_accessor("ps")
 class ProcessingSetXdt:
+    """
+    Accessor to Processing Set DataTree nodes. Provides Processing Set specific functionality such
+    as producing a summary of the processing set (with information from all its MSv4s), or retrieving
+    combined antenna or field_and_source datasets.
+    """
+
     _xdt: xr.DataTree
 
     def __init__(self, datatree: xr.DataTree):

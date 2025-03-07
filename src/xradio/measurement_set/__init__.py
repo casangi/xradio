@@ -1,3 +1,9 @@
+"""
+Processing Set and Measurement Set v4 API. Includes functions and classes to open, load,
+convert, and retrieve information from Processing Set and Measurement Sets nodes of the
+Processing Set DataTree
+"""
+
 from .processing_set_xdt import *
 from .open_processing_set import open_processing_set
 from .load_processing_set import load_processing_set  # , ProcessingSetIterator

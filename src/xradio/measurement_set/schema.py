@@ -670,7 +670,7 @@ class DopplerArray:
     data: Data[ZD, numpy.float64]
 
     type: Attr[Doppler] = "doppler"
-    """ Coordinate type. Should be ``"spectral_coord"``. """
+    """ Coordinate type. Should be ``"doppler"``. """
 
     units: Attr[UnitsOfDopplerShift] = ("m/s",)
     """ Units to associate with axis, [ratio]/[m/s]"""

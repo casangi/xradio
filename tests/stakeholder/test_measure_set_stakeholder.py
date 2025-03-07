@@ -139,6 +139,7 @@ def base_check_ps_accessor(ps_lazy_xdt: xr.DataTree, ps_xdt: xr.DataTree):
     base_field_xds = ps_xdt.ps.get_combined_field_and_source_xds("base")
     assert type(base_field_xds) == xr.Dataset
 
+
 def base_check_ms_accessor(ps_xdt: xr.DataTree):
     """
     Basic checks on the children of ps_xdt (ms_xdt trees) and their `.ds` and `.ms` accessor

@@ -78,6 +78,109 @@ def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_sch
     return ps_name
 
 
+def base_check_ps_accessor(ps_lazy_xdt: xr.DataTree, ps_xdt: xr.DataTree):
+    """
+    Basic checks on the `ps` accessor of processing sets ps_xdt/ps_lazy_xdt
+
+    Parameters
+    ----------
+    ps_lazy_xdt: lazy processing set (created with open_processing_set or equivalent)
+    ps_xdt: in memory processing set (created with load_processing_set or equivalent)
+
+    """
+
+    for top_xdt in [ps_lazy_xdt, ps_xdt]:
+        assert hasattr(top_xdt, "ps") and isinstance(top_xdt.ps, ProcessingSetXdt)
+        assert "type" in top_xdt.attrs and top_xdt.attrs["type"] == "processing_set"
+
+    expected_summary_keys = [
+        "name",
+        "intents",
+        "shape",
+        "polarization",
+        "scan_name",
+        "spw_name",
+        "field_name",
+        "source_name",
+        "line_name",
+        "field_coords",
+        "start_frequency",
+        "end_frequency",
+    ]
+    ps_lazy_xdt_df = ps_lazy_xdt.ps.summary()
+    assert all([key in ps_lazy_xdt_df for key in expected_summary_keys])
+    ps_xdt_df = ps_xdt.ps.summary()
+    assert all([key in ps_xdt_df for key in expected_summary_keys])
+    pd.testing.assert_frame_equal(ps_lazy_xdt_df, ps_xdt_df)
+
+    expected_dims = [
+        "time",
+        "baseline_id",
+        "frequency",
+        "polarization",
+        "uvw_label",
+    ]
+    max_dims = ps_xdt.ps.get_max_dims()
+    assert isinstance(max_dims, dict)
+    assert all([dim in max_dims for dim in max_dims])
+
+    empty_query_result = ps_xdt.ps.query()
+    assert isinstance(empty_query_result, xr.DataTree)
+    empty_query_df = empty_query_result.ps.summary()
+    pd.testing.assert_frame_equal(ps_xdt_df, empty_query_df)
+
+    freq_axis = ps_xdt.ps.get_freq_axis()
+    assert isinstance(freq_axis, xr.DataArray)
+
+    combined_field_xds = ps_xdt.ps.get_combined_field_and_source_xds()
+    assert type(combined_field_xds) == xr.Dataset
+    combined_antenna = ps_xdt.ps.get_combined_antenna_xds()
+    assert type(combined_antenna) == xr.Dataset
+    base_field_xds = ps_xdt.ps.get_combined_field_and_source_xds("base")
+    assert type(base_field_xds) == xr.Dataset
+
+def base_check_ms_accessor(ps_xdt: xr.DataTree):
+    """
+    Basic checks on the children of ps_xdt (ms_xdt trees) and their `.ds` and `.ms` accessor
+    """
+    for ms_xds_name in ps_xdt.keys():
+        ms_xdt = ps_xdt[ms_xds_name]
+        assert "type" in ms_xdt.attrs and ms_xdt.attrs["type"] in [
+            "visibility",
+            "wvr",
+            "spectrum",
+        ]
+
+        # dt produces a DatasetView
+        assert hasattr(ms_xdt, "ds") and isinstance(ms_xdt.ds, xr.Dataset)
+        assert ms_xdt["antenna_xds"]
+        assert ms_xdt["field_and_source_xds_base"]
+        # Should check depending on availability of metadata in input MSv2:
+        # assert ms_xdt["gain_curve_xds"]
+        # assert ms_xdt["phase_calibration_xds"]
+        # assert ms_xdt["pointing_xds"]
+        # assert ms_xdt["system_calibration_xds"]
+        # assert ms_xdt["weather_xds"]
+        # assert ms_xdt.ds  # DatasetView
+
+        assert hasattr(ms_xdt, "ms") and isinstance(ms_xdt.ms, MeasurementSetXdt)
+        assert (
+            hasattr(ms_xdt.ms, "get_field_and_source_xds")
+            and callable(ms_xdt.ms.get_field_and_source_xds)
+            and isinstance(ms_xdt.ms.get_field_and_source_xds(), xr.Dataset)
+        )
+        assert (
+            hasattr(ms_xdt.ms, "get_partition_info")
+            and callable(ms_xdt.ms.get_partition_info)
+            and isinstance(ms_xdt.ms.get_partition_info(), dict)
+        )
+        assert (
+            hasattr(ms_xdt.ms, "sel")
+            and callable(ms_xdt.ms.sel)
+            and isinstance(ms_xdt.ms.sel(), xr.DataTree)
+        )
+
+
 def base_test(
     file_name: str,
     folder: pathlib.Path,
@@ -88,7 +191,7 @@ def base_test(
     do_schema_check: bool = False,
 ):
     start = time.time()
-    from toolviper.dask.client import local_client
+    # from toolviper.dask.client import local_client
 
     # Strange bug when running test in paralell (the unrelated image tests fail).
     # viper_client = local_client(cores=4, memory_limit="4GB")
@@ -124,102 +227,12 @@ def base_test(
         if os.path.isdir(ps_copy_name):
             os.system("rm -rf " + str(ps_copy_name))  # Remove ps_xdt copy folder.
 
-        # Basic checks on ps accessor of ps_xdt
-        for top_xdt in [ps_lazy_xdt, ps_xdt]:
-            assert hasattr(top_xdt, "ps") and isinstance(top_xdt.ps, ProcessingSetXdt)
-            assert "type" in top_xdt.attrs and top_xdt.attrs["type"] == "processing_set"
+        base_check_ps_accessor(ps_lazy_xdt, ps_xdt)
 
-        expected_summary_keys = [
-            "name",
-            "intents",
-            "shape",
-            "polarization",
-            "scan_name",
-            "spw_name",
-            "field_name",
-            "source_name",
-            "line_name",
-            "field_coords",
-            "start_frequency",
-            "end_frequency",
-        ]
-        ps_lazy_xdt_df = ps_lazy_xdt.ps.summary()
-        assert all([key in ps_lazy_xdt_df for key in expected_summary_keys])
-        ps_xdt_df = ps_xdt.ps.summary()
-        assert all([key in ps_xdt_df for key in expected_summary_keys])
-        pd.testing.assert_frame_equal(ps_lazy_xdt_df, ps_xdt_df)
-
-        expected_dims = [
-            "time",
-            "baseline_id",
-            "frequency",
-            "polarization",
-            "uvw_label",
-        ]
-        max_dims = ps_xdt.ps.get_max_dims()
-
-        empty_query_result = ps_xdt.ps.query()
-        assert isinstance(empty_query_result, xr.DataTree)
-
-        assert type(max_dims) == dict
-        if not is_s3 and not preconverted:
-            freq_axis = ps_xdt.ps.get_freq_axis()
-            assert type(freq_axis) == xr.DataArray
-
-        combined_field_xds = ps_xdt.ps.get_combined_field_and_source_xds()
-        assert type(combined_field_xds) == xr.Dataset
-        combined_antenna = ps_xdt.ps.get_combined_antenna_xds()
-        assert type(combined_antenna) == xr.Dataset
-        ps_xdt.ps.get_combined_field_and_source_xds()
-        # assert all(
-        #     [
-        #         "antenna_name" in ps_xdt[xds_name].attrs["partition_info"]
-        #         for xds_name in ps_xdt.keys()
-        #         if "ANTENNA1" in partition_scheme
-        #     ]
-        # )
+        base_check_ms_accessor(ps_xdt)
 
         sum = 0.0
         sum_lazy = 0.0
-
-        # Basic checks on the ms_xdt trees and their ds, ms accessor
-        for ms_xds_name in ps_xdt.keys():
-            ms_xdt = ps_xdt[ms_xds_name]
-            assert "type" in ms_xdt.attrs and ms_xdt.attrs["type"] in [
-                "visibility",
-                "wvr",
-                "spectrum",
-            ]
-
-            # dt produces a DatasetView
-            assert hasattr(ms_xdt, "ds") and isinstance(ms_xdt.ds, xr.Dataset)
-            assert ms_xdt["antenna_xds"]
-            assert ms_xdt["field_and_source_xds_base"]
-            # Should check depending on availability of metadata in input MSv2:
-            # assert ms_xdt["gain_curve_xds"]
-            # assert ms_xdt["phase_calibration_xds"]
-            # assert ms_xdt["pointing_xds"]
-            # assert ms_xdt["system_calibration_xds"]
-            # assert ms_xdt["weather_xds"]
-            # assert ms_xdt.ds  # DatasetView
-
-            assert hasattr(ms_xdt, "ms") and isinstance(ms_xdt.ms, MeasurementSetXdt)
-            assert (
-                hasattr(ms_xdt.ms, "get_field_and_source_xds")
-                and callable(ms_xdt.ms.get_field_and_source_xds)
-                and isinstance(ms_xdt.ms.get_field_and_source_xds(), xr.Dataset)
-            )
-            assert (
-                hasattr(ms_xdt.ms, "get_partition_info")
-                and callable(ms_xdt.ms.get_partition_info)
-                and isinstance(ms_xdt.ms.get_partition_info(), dict)
-            )
-            assert (
-                hasattr(ms_xdt.ms, "sel")
-                and callable(ms_xdt.ms.sel)
-                and isinstance(ms_xdt.ms.sel(), xr.DataTree)
-            )
-
         for ms_xds_name in ps_xdt.keys():
             if "VISIBILITY" in ps_xdt[ms_xds_name]:
                 data_name = "VISIBILITY"

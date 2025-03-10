@@ -11,11 +11,26 @@ MS_DATASET_TYPES = {"visibility", "spectrum", "wvr"}
 
 
 class InvalidAccessorLocation(ValueError):
+    """
+    Raised by MeasurementSetXdt accessor functions called on a wrong DataTree node (not MSv4).
+    """
+
     pass
 
 
 @xr.register_datatree_accessor("ms")
 class MeasurementSetXdt:
+    """Accessor to the Measurement Set DataTree node. Provides MSv4 specific functionality
+    such as:
+
+        - get_partition_info(): produce an info dict with a general MSv4 description including
+          intents, SPW name, field and source names, etc.
+        - get_field_and_source_xds() to retrieve the field_and_source_xds for a given data
+          group.
+        - sel(): select data by dimension labels, for example by data group and polaritzation
+
+    """
+
     _xdt: xr.DataTree
 
     def __init__(self, datatree: xr.DataTree):
@@ -24,6 +39,8 @@ class MeasurementSetXdt:
 
         Parameters
         ----------
+        datatree: xarray.DataTree
+            The MSv4 DataTree node to construct a MeasurementSetXdt accessor.
         """
 
         self._xdt = datatree
@@ -36,13 +53,15 @@ class MeasurementSetXdt:
         tolerance: Union[int, float, Iterable[Union[int, float]], None] = None,
         drop: bool = False,
         **indexers_kwargs: Any,
-    ):
+    ) -> xr.DataTree:
         """
         Select data along dimension(s) by label. Alternative to `xarray.Dataset.sel <https://xarray.pydata.org/en/stable/generated/xarray.Dataset.sel.html>`__ so that a data group can be selected by name by using the `data_group_name` parameter.
         For more information on data groups see `Data Groups <https://xradio.readthedocs.io/en/latest/measurement_set_overview.html#Data-Groups>`__ section. See `xarray.Dataset.sel <https://xarray.pydata.org/en/stable/generated/xarray.Dataset.sel.html>`__ for parameter descriptions.
 
-        Returns:
-            Xdt with MeasurementSetXdt Assessors
+        Returns
+        -------
+        xarray.DataTree
+            xarray DataTree with MeasurementSetXdt accessors
 
         Examples
         --------
@@ -54,7 +73,7 @@ class MeasurementSetXdt:
         """
 
         if self._xdt.attrs.get("type") not in MS_DATASET_TYPES:
-            raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4node. ")
+            raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4 node.")
 
         assert (self._xdt.attrs["type"] == "visibility") or (
             self._xdt.attrs["type"] == "spectrum"
@@ -97,7 +116,7 @@ class MeasurementSetXdt:
         else:
             return self._xdt.sel(indexers, method, tolerance, drop, **indexers_kwargs)
 
-    def get_field_and_source_xds(self, data_group_name=None) -> xr.Dataset:
+    def get_field_and_source_xds(self, data_group_name: str = None) -> xr.Dataset:
         """Get the field_and_source_xds associated with data group `data_group_name`.
 
         Parameters
@@ -107,12 +126,11 @@ class MeasurementSetXdt:
 
         Returns
         -------
-        xr.Dataset
+        xarray.Dataset
             field_and_source_xds associated with the data group.
-
         """
         if self._xdt.attrs.get("type") not in MS_DATASET_TYPES:
-            raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4node. ")
+            raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4 node.")
 
         if data_group_name is None:
             if "base" in self._xdt.attrs["data_groups"].keys():
@@ -123,8 +141,23 @@ class MeasurementSetXdt:
         return self._xdt[f"field_and_source_xds_{data_group_name}"].ds
 
     def get_partition_info(self) -> dict:
+        """
+        Generate a partition info dict for an MSv4, with general MSv4 description including
+        information such as field and source names, SPW name, scan name, the intents string,
+        etc.
+
+        The information is gathered from various coordinates, secondary datasets, and info
+        dicts of the MSv4. For example, the SPW name comes from the attributes of the
+        frequency coordinate, whereas field and source related information such as field and
+        source names come from the field_and_source_xds (base) dataset of the MSv4.
+
+        Returns
+        -------
+        dict
+            Partition info dict for the MSv4
+        """
         if self._xdt.attrs.get("type") not in MS_DATASET_TYPES:
-            raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4node. ")
+            raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4 node.")
 
         field_and_source_xds = self._xdt.ms.get_field_and_source_xds()
 

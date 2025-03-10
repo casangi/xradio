@@ -22,12 +22,16 @@ def load_processing_set(
     sel_parms : dict, optional
         A dictionary where the keys are the names of the ms_xdt's (measurement set xarray data trees) and the values are slice_dicts.
         slice_dicts: A dictionary where the keys are the dimension names and the values are slices.
+
         For example::
+
             {
+
                 'ms_v4_name_1': {'frequency': slice(0, 160, None),'time':slice(0,100)},
                 ...
                 'ms_v4_name_n': {'frequency': slice(0, 160, None),'time':slice(0,100)},
             }
+
         By default None, which loads all ms_xdts.
     data_group_name : str, optional
         The name of the data group to select. By default None, which loads all data groups.
@@ -40,7 +44,7 @@ def load_processing_set(
 
     Returns
     -------
-    xr.DataTree
+    xarray.DataTree
         In memory representation of processing set using xr.DataTree.
     """
     from xradio._utils.zarr.common import _get_file_system_and_items

@@ -64,10 +64,12 @@ def to_list(x):
 
 
 def to_np_array(x):
-    if isinstance(x, (list, np.ndarray)):
+    if isinstance(x, np.ndarray):
         if x.ndim == 0:
             return np.array([x.item()])
         return np.array(x)  # needed for json serialization
+    elif isinstance(x, list):
+        return np.array(x)
     return np.array([x])
 
 

@@ -55,13 +55,17 @@ def create_info_dicts(
         # "field_id": to_list(unique_1d(field_id)),
         "field_name": to_list(np.unique(field_and_source_xds.field_name.values)),
         "polarization_setup": to_list(xds.polarization.values),
-        "scan_number": to_list(np.unique(partition_info_misc_fields["scan_id"])),
+        "scan_name": to_list(np.unique(partition_info_misc_fields["scan_name"])),
         "source_name": to_list(np.unique(field_and_source_xds.source_name.values)),
         # "source_id": to_list(unique_1d(source_id)),
         "intents": partition_info_misc_fields["intents"].split(","),
         "taql": partition_info_misc_fields["taql_where"],
         "line_name": line_name,
     }
+    if "antenna_name" in partition_info_misc_fields:
+        info_dicts["partition_info"]["antenna_name"] = partition_info_misc_fields[
+            "antenna_name"
+        ]
 
     observation_id = check_if_consistent(
         tb_tool.getcol("OBSERVATION_ID"), "OBSERVATION_ID"

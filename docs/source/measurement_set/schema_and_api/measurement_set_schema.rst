@@ -34,6 +34,10 @@ field_and_source_xds
 
    .. xradio_dataset_schema_table:: xradio.measurement_set.schema.FieldSourceXds
 
+.. autoclass:: xradio.measurement_set.schema.FieldSourceEphemerisXds()
+
+   .. xradio_dataset_schema_table:: xradio.measurement_set.schema.FieldSourceEphemerisXds
+
 antenna_xds
 ~~~~~~~~~~~
 .. autoclass:: xradio.measurement_set.schema.AntennaXds()

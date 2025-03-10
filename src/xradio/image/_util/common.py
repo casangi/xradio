@@ -10,7 +10,13 @@ from xradio._utils.dict_helpers import make_quantity
 
 _c = 2.99792458e08 * u.m / u.s
 # OPTICAL = Z
-_doppler_types = ["RADIO", "Z", "RATIO", "BETA", "GAMMA"]
+_doppler_types = [
+    "radio",
+    "z",
+    "ratio",
+    "beta",
+    "gamma",
+]
 _image_type = "image_type"
 
 
@@ -19,7 +25,7 @@ def _aperture_or_sky(xds: xr.Dataset) -> str:
 
 
 def _get_xds_dim_order(has_sph: bool) -> list:
-    dimorder = ["time", "polarization", "frequency"]
+    dimorder = ["time", "frequency", "polarization"]
     dir_lin = ["l", "m"] if has_sph else ["u", "v"]
     dimorder.extend(dir_lin)
     return dimorder
@@ -105,7 +111,7 @@ def _default_freq_info() -> dict:
     return {
         "rest_frequency": make_quantity(1420405751.7860003, "Hz"),
         "type": "frequency",
-        "frame": "LSRK",
+        "frame": "lsrk",
         "units": "Hz",
         "waveUnit": "mm",
         "cdelt": 1000.0,
@@ -253,22 +259,3 @@ def _l_m_attr_notes() -> Dict[str, str]:
         "So m = y*cdelt, where y is the number of pixels from the phase center. "
         "See AIPS Memo #27, Section III.",
     }
-
-
-def _set_multibeam_array(xds, beam_ary, units):
-    if "beam" in xds.attrs:
-        if xds.attrs["beam"] is None:
-            del xds.attrs["beam"]
-        else:
-            raise RuntimeError(
-                "Error: xds has beam attr. It must be removed "
-                "before multiple beams can be added"
-            )
-    xdb = xr.DataArray(
-        beam_ary, dims=["time", "polarization", "frequency", "beam_param"]
-    )
-    xdb = xdb.rename("beam")
-    xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
-    xdb.attrs["units"] = units
-    xds["beam"] = xdb
-    return xds

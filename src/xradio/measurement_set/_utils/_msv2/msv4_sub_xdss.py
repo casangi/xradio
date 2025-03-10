@@ -127,9 +127,9 @@ def interpolate_to_time(
         xds = xds.interp(
             {time_name: interp_time.data}, method=method, assume_sorted=True
         )
-        # scan_number sneaks in as a coordinate of the main time axis, drop it
-        if "scan_number" in xds.coords:
-            xds = xds.drop_vars("scan_number")
+        # scan_name sneaks in as a coordinate of the main time axis, drop it
+        if "scan_name" in xds.coords:
+            xds = xds.drop_vars("scan_name")
         points_after = xds[time_name].size
         logger.debug(
             f"{message_prefix}: interpolating the time coordinate "

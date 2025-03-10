@@ -32,12 +32,14 @@ class ProcessingSetXdt:
 
         Parameters
         ----------
+        datatree: xarray.DataTree
+            The Processing Set DataTree node to construct a ProcessingSetXdt accessor.
         """
 
         self._xdt = datatree
         self.meta = {"summary": {}}
 
-    def summary(self, data_group="base"):
+    def summary(self, data_group: str = "base") -> pd.DataFrame:
         """
         Generate and retrieve a summary of the Processing Set.
 
@@ -69,7 +71,7 @@ class ProcessingSetXdt:
             )
             return self.meta["summary"][data_group]
 
-    def get_max_dims(self):
+    def get_max_dims(self) -> dict[str, int]:
         """
         Determine the maximum dimensions across all Measurement Sets in the Processing Set.
 
@@ -108,7 +110,7 @@ class ProcessingSetXdt:
             self.meta["max_dims"] = max_dims
             return self.meta["max_dims"]
 
-    def get_freq_axis(self):
+    def get_freq_axis(self) -> xr.DataArray:
         """
         Combine the frequency axes of all Measurement Sets in the Processing Set.
 
@@ -145,7 +147,7 @@ class ProcessingSetXdt:
             self.meta["freq_axis"] = freq_axis
             return self.meta["freq_axis"]
 
-    def _summary(self, data_group="base"):
+    def _summary(self, data_group: str = "base"):
         summary_data = {
             "name": [],
             "intents": [],
@@ -248,7 +250,7 @@ class ProcessingSetXdt:
         Returns
         -------
         xr.DataTree
-            A new DataTree instance containing only the Measurement Sets that match the selection criteria.
+            A new Processing Set DataTree instance containing only the Measurement Sets that match the selection criteria.
 
         Examples
         --------
@@ -315,7 +317,7 @@ class ProcessingSetXdt:
 
         return sub_ps_xdt
 
-    def get_combined_field_and_source_xds(self, data_group: str = "base"):
+    def get_combined_field_and_source_xds(self, data_group: str = "base") -> xr.Dataset:
         """
         Combine all non-ephemeris `field_and_source_xds` datasets from a Processing Set for a data group into a
         single dataset.
@@ -328,7 +330,7 @@ class ProcessingSetXdt:
         Returns
         -------
         xarray.Dataset
-            combined_field_and_source_xds: Combined dataset for standard fields.
+            combined_field_and_source_xds: Combined dataset for standard (non-ephemeris) fields.
 
         Raises
         ------
@@ -414,7 +416,9 @@ class ProcessingSetXdt:
 
         return combined_field_and_source_xds
 
-    def get_combined_field_and_source_xds_ephemeris(self, data_group="base"):
+    def get_combined_field_and_source_xds_ephemeris(
+        self, data_group: str = "base"
+    ) -> xr.Dataset:
         """
         Combine all ephemeris `field_and_source_xds` datasets from a Processing Set for a datagroup into a single dataset.
 
@@ -426,7 +430,7 @@ class ProcessingSetXdt:
         Returns
         -------
         xarray.Dataset
-            - combined_ephemeris_field_and_source_xds: Combined dataset for ephemeris fields.
+            combined_ephemeris_field_and_source_xds: Combined dataset for ephemeris fields.
 
         Raises
         ------
@@ -539,7 +543,9 @@ class ProcessingSetXdt:
 
         return combined_ephemeris_field_and_source_xds
 
-    def plot_phase_centers(self, label_all_fields=False, data_group="base"):
+    def plot_phase_centers(
+        self, label_all_fields: bool = False, data_group: str = "base"
+    ):
         """
         Plot the phase center locations of all fields in the Processing Set.
 
@@ -644,7 +650,7 @@ class ProcessingSetXdt:
             plt.legend()
             plt.show()
 
-    def get_combined_antenna_xds(self):
+    def get_combined_antenna_xds(self) -> xr.Dataset:
         """
         Combine the `antenna_xds` datasets from all Measurement Sets into a single dataset.
 

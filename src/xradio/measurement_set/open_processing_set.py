@@ -21,7 +21,7 @@ def open_processing_set(
 
     Returns
     -------
-    xr.DataTree
+    xarray.DataTree
         Lazy representation of processing set (the data arrays of the datasets are
         represented by Dask.arrays).
     """

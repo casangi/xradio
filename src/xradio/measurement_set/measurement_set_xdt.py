@@ -39,8 +39,8 @@ class MeasurementSetXdt:
 
         Parameters
         ----------
-        datatree: xr.DataTree
-            The MSv4 DataTree node to construct a MeasurementSetXdt.
+        datatree: xarray.DataTree
+            The MSv4 DataTree node to construct a MeasurementSetXdt accessor.
         """
 
         self._xdt = datatree
@@ -53,13 +53,15 @@ class MeasurementSetXdt:
         tolerance: Union[int, float, Iterable[Union[int, float]], None] = None,
         drop: bool = False,
         **indexers_kwargs: Any,
-    ):
+    ) -> xr.DataTree:
         """
         Select data along dimension(s) by label. Alternative to `xarray.Dataset.sel <https://xarray.pydata.org/en/stable/generated/xarray.Dataset.sel.html>`__ so that a data group can be selected by name by using the `data_group_name` parameter.
         For more information on data groups see `Data Groups <https://xradio.readthedocs.io/en/latest/measurement_set_overview.html#Data-Groups>`__ section. See `xarray.Dataset.sel <https://xarray.pydata.org/en/stable/generated/xarray.Dataset.sel.html>`__ for parameter descriptions.
 
-        Returns:
-            Xdt with MeasurementSetXdt Accessors
+        Returns
+        -------
+        xarray.DataTree
+            xarray DataTree with MeasurementSetXdt accessors
 
         Examples
         --------
@@ -114,7 +116,7 @@ class MeasurementSetXdt:
         else:
             return self._xdt.sel(indexers, method, tolerance, drop, **indexers_kwargs)
 
-    def get_field_and_source_xds(self, data_group_name=None) -> xr.Dataset:
+    def get_field_and_source_xds(self, data_group_name: str = None) -> xr.Dataset:
         """Get the field_and_source_xds associated with data group `data_group_name`.
 
         Parameters
@@ -124,7 +126,7 @@ class MeasurementSetXdt:
 
         Returns
         -------
-        xr.Dataset
+        xarray.Dataset
             field_and_source_xds associated with the data group.
         """
         if self._xdt.attrs.get("type") not in MS_DATASET_TYPES:

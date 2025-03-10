@@ -44,7 +44,7 @@ def load_processing_set(
 
     Returns
     -------
-    xr.DataTree
+    xarray.DataTree
         In memory representation of processing set using xr.DataTree.
     """
     from xradio._utils.zarr.common import _get_file_system_and_items

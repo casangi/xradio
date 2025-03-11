@@ -103,6 +103,18 @@ Processor info
 
    .. xradio_dict_schema_table:: xradio.measurement_set.schema.ProcessorInfoDict
 
+Data Groups dictionary
+~~~~~~~~~~~~~~~~~~~~~~
+.. autoclass:: xradio.measurement_set.schema.DataGroupsDict()
+
+   .. xradio_dict_schema_table:: xradio.measurement_set.schema.DataGroupsDict
+
+Data Group dictionary
+~~~~~~~~~~~~~~~~~~~~~
+.. autoclass:: xradio.measurement_set.schema.DataGroupDict()
+
+   .. xradio_dict_schema_table:: xradio.measurement_set.schema.DataGroupDict
+
 .. _correlated data arrays:
 
 Data Arrays

@@ -1322,6 +1322,29 @@ class ProcessorInfoDict:
     """Processor sub-type, e.g. ”GBT” or ”JIVE”."""
 
 
+@dict_schema
+class DataGroupDict:
+    """Defines a group of correlated data + flag + weight + uvw variables."""
+
+    correlated_data: str
+    """ Name of the correlated data variable, for example 'VISIBILITY' or 'VISIBILITY_MODEL'. """
+    flag: str
+    """ Name of the flag variable, for example 'FLAG'. """
+    weight: str
+    """ Name of the weight variable of the group, for example 'WEIGHT'. """
+    uvw: Optional[str]
+    """ Name of the UVW variable of the group, for example 'UVW'. """
+    description: str
+    """ """
+    date: str
+    """ Creation date-time, in ISO 8601 format: 'YYYY-MM-DDTHH:mm:ss.SSS'."""
+
+
+@dict_schema
+class DataGroupsDict:
+    base: DataGroupDict
+
+
 # Data Sets
 
 
@@ -1932,6 +1955,9 @@ class VisibilityXds:
     processor_info: Attr[ProcessorInfoDict]
     antenna_xds: Attr[AntennaXds]
 
+    data_groups: Attr[DataGroupsDict]
+    """ Defines groups of correlated data + flag + weight + uvw variables. """
+
     schema_version: Attr[str]
     """Semantic version of xradio data format"""
     creation_date: Attr[str]
@@ -2030,6 +2056,9 @@ class SpectrumXds:
     observation_info: Attr[ObservationInfoDict]
     processor_info: Attr[ProcessorInfoDict]
     antenna_xds: Attr[AntennaXds]
+
+    data_groups: Attr[DataGroupsDict]
+    """ Defines groups of correlated data + flag + weight variables. """
 
     schema_version: Attr[str]
     """Semantic version of xradio data format"""

@@ -1949,7 +1949,7 @@ class VisibilityXds:
     creation_date: Attr[str]
     """Date visibility dataset was created. Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
 
-    type: Attr[Literal["visibility"]] = "visibility"
+    type: Attr[Literal["visibility", "wvr"]] = "visibility"
     """
     Dataset type
     """

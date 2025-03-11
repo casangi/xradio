@@ -1025,11 +1025,14 @@ def convert_and_write_partition(
             start = time.time()
             xds = xr.Dataset(
                 attrs={
+                    "creator": {
+                        "software_name": "xradio",
+                        "version": importlib.metadata.version("xradio"),
+                    },
+                    "schema_version": "4.0.-9989",
                     "creation_date": datetime.datetime.now(
                         datetime.timezone.utc
                     ).isoformat(),
-                    "xradio_version": importlib.metadata.version("xradio"),
-                    "schema_version": "4.0.-9989",
                     "type": "visibility",
                 }
             )

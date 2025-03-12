@@ -18,6 +18,7 @@ from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
     create_weather_xds,
 )
 from .msv4_info_dicts import create_info_dicts
+from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
 from xradio.measurement_set._utils._msv2.create_antenna_xds import (
     create_antenna_xds,
     create_gain_curve_xds,
@@ -1030,7 +1031,7 @@ def convert_and_write_partition(
                         "software_name": "xradio",
                         "version": importlib.metadata.version("xradio"),
                     },
-                    "schema_version": measurement_set.schema.MSV4_SCHEMA_VERSION,
+                    "schema_version": MSV4_SCHEMA_VERSION,
                     "creation_date": datetime.datetime.now(
                         datetime.timezone.utc
                     ).isoformat(),

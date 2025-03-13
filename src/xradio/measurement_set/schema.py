@@ -1335,9 +1335,9 @@ class DataGroupDict:
     uvw: Optional[str]
     """ Name of the UVW variable of the group, for example 'UVW'. """
     description: str
-    """ """
+    """ More details about the data group. """
     date: str
-    """ Creation date-time, in ISO 8601 format: 'YYYY-MM-DDTHH:mm:ss.SSS'."""
+    """ Creation date-time, in ISO 8601 format: 'YYYY-MM-DDTHH:mm:ss.SSS'. """
 
 
 @dict_schema

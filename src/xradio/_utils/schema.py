@@ -99,6 +99,15 @@ def column_description_casacore_to_msv4_measure(
 ):
     import numpy as np
 
+    def add_frame_realization(msv4_measure):
+        if (
+            msv4_measure["type"] == "spectral_coord"
+            and msv4_measure["observer"] == "icrs"
+        ):
+            msv4_measure["frame_realization"] = "Unknown"
+        if msv4_measure["type"] == "location" and msv4_measure["frame"] == "ITRF":
+            msv4_measure["frame_realization"] = "Unknown"
+
     msv4_measure = {}
     if "MEASINFO" in casacore_column_description["keywords"]:
         measinfo = casacore_column_description["keywords"]["MEASINFO"]
@@ -149,6 +158,8 @@ def column_description_casacore_to_msv4_measure(
 
             msv4_measure[msv4_measure_conversion["Ref"]] = casa_ref
 
+            add_frame_realization(msv4_measure)
+
         if msv4_measure["type"] == "time":
             msv4_measure["format"] = time_format
     elif "QuantumUnits" in casacore_column_description["keywords"]:
@@ -190,7 +201,7 @@ casacore_to_msv4_measure_type = {
             "LSRK": "lsrk",
             "LSRD": "lsrd",
             "BARY": "BARY",
-            "GEO": "GEO",
+            "GEO": "gcrs",
             "TOPO": "TOPO",
         },  # The frames/observer we are not sure if/how to translate to astropy are uppercase
     },

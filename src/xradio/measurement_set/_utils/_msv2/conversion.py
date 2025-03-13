@@ -1437,7 +1437,7 @@ def add_group_to_data_groups(
         "correlated_data": correlated_data_name,
         "flag": "FLAG",
         "weight": "WEIGHT",
-        "description": "Data group derived from the data column {correlated_data_name} of an MSv2 converted to MSv4",
+        "description": f"Data group derived from the data column '{correlated_data_name}' of an MSv2 converted to MSv4",
         "date": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
     if uvw:

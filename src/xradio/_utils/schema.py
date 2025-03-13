@@ -190,7 +190,7 @@ casacore_to_msv4_measure_type = {
             "LSRK": "lsrk",
             "LSRD": "lsrd",
             "BARY": "BARY",
-            "GEO": "GEO",
+            "GEO": "gcrs",
             "TOPO": "TOPO",
         },  # The frames/observer we are not sure if/how to translate to astropy are uppercase
     },

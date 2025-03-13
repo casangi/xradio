@@ -293,7 +293,7 @@ class SkyCoordArray:
 
     type: Attr[SkyCoord] = "sky_coord"
     units: Attr[UnitsOfSkyCoordInRadians] = ("rad", "rad")
-    frame: Attr[AllowedSkyCoordFrames] = ""
+    frame: Attr[AllowedSkyCoordFrames] = "fk5"
     """
     Possible values are astropy SkyCoord frames.
     Several casacore frames found in MSv2 are translated to astropy frames as follows: AZELGEO=>altaz, J2000=>fk5, ICRS=>icrs.
@@ -516,7 +516,7 @@ AllowedSpectralCoordFrames = Literal[
     # "LSRK" -> "lsrk",
     # "LSRD" -> "lsrd",
     "BARY",
-    "GEO",
+    # "GEO", -> "gcrs"
     "TOPO",
     # astropy frames
     "gcrs",
@@ -538,11 +538,14 @@ class SpectralCoordArray:
 
     units: Attr[UnitsHertz] = ("Hz",)
 
-    observer: Attr[AllowedSpectralCoordFrames] = "gcrs"
+    observer: Attr[AllowedSpectralCoordFrames] = "icrs"
     """
     Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.
     Astropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)
     rather it assumes if no velocity frame is given that this is the default.
+
+    When converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy
+    frame names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd
     """
 
     type: Attr[SpectralCoord] = "spectral_coord"

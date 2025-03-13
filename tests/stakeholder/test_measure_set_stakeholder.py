@@ -18,13 +18,17 @@ from xradio.measurement_set import (
     estimate_conversion_memory_and_cores,
     MeasurementSetXdt,
     ProcessingSetXdt,
-    VisibilityXds,
-    SpectrumXds,
 )
-from xradio.schema.check import check_dataset
+from xradio.schema.check import check_datatree
 
 # relative_tolerance = 10 ** (-12)
 relative_tolerance = 10 ** (-6)
+
+
+# Uncomment to not clean up files between test (i.e. skip downloading them again)
+@pytest.fixture
+def tmp_path():
+    return pathlib.Path("/tmp/test")
 
 
 def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_scheme):
@@ -189,7 +193,7 @@ def base_test(
     is_s3: bool = False,
     partition_schemes: list = [[], ["FIELD_ID"]],
     preconverted: bool = False,
-    do_schema_check: bool = False,
+    do_schema_check: bool = True,
 ):
     start = time.time()
     # from toolviper.dask.client import local_client
@@ -261,15 +265,8 @@ def base_test(
 
         if do_schema_check:
             start_check = time.time()
-            for xds_name in ps_xdt.keys():
-                if ps_xdt[xds_name].attrs["type"] in ["visibility", "wvr"]:
-                    check_dataset(ps_xdt[xds_name].ds, VisibilityXds).expect()
-                elif ps_xdt[xds_name].attrs["type"] == "spectrum":
-                    check_dataset(ps_xdt[xds_name].ds, SpectrumXds).expect()
-                else:
-                    raise RuntimeError(
-                        "Cannot find visibility or spectrum type data in MSv4 {xds_name}!"
-                    )
+
+            check_datatree(ps_xdt).expect()
 
             print(
                 f"Time to check datasets (all MSv4s) against schema: {time.time() - start_check}"

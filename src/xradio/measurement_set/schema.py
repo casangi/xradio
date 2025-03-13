@@ -1038,7 +1038,7 @@ class EffectiveChannelWidthArray:
     """
 
 
-# Define FieldAndSourceXds and FieldSourceEphemerisXds already here, as they are needed in the
+# Define FieldSourceXds and FieldSourceEphemerisXds already here, as they are needed in the
 # definition of VisibilityArray
 @xarray_dataset_schema
 class FieldSourceXds:
@@ -1297,9 +1297,6 @@ class SpectrumArray:
     frequency: Coordof[FrequencyArray]
     polarization: Coordof[PolarizationArray]
 
-    field_and_source_xds: Attr[Union[FieldSourceXds, FieldSourceEphemerisXds]]
-    """ Field and source information. Also alows for variant where ephemeris information is included. """
-
     long_name: Optional[Attr[str]] = "Spectrum values"
     """ Long-form name to use for axis. Should be ``"Spectrum values"``"""
     units: Attr[list[str]] = ("Jy",)
@@ -1318,9 +1315,6 @@ class VisibilityArray:
     baseline_id: Coordof[BaselineArray]
     polarization: Coordof[PolarizationArray]
     frequency: Coordof[FrequencyArray]
-
-    field_and_source_xds: Attr[Union[FieldSourceXds, FieldSourceEphemerisXds]]
-    """ Field and source information. Also alows for variant where ephemeris information is included. """
 
     long_name: Optional[Attr[str]] = "Visibility values"
     """ Long-form name to use for axis. Should be ``"Visibility values"``"""
@@ -1858,7 +1852,7 @@ class SystemCalibrationXds:
     """ Midpoint of time for which this set of parameters is accurate. Labeled 'time' when interpolating to main time axis """
     time_system_cal: Optional[Coordof[TimeSystemCalCoordArray]] = None
     """ Midpoint of time for which this set of parameters is accurate. Labeled 'time_system_cal' when not interpolating to main time axis """
-    frequency: Optional[Coordof[FrequencySystemCalArray]] = None
+    frequency: Optional[Coordof[FrequencyArray]] = None
     """  """
     frequency_system_cal: Optional[Coord[FrequencySystemCal, int]] = None
     """TODO: What is this?"""
@@ -2012,7 +2006,6 @@ class VisibilityXds:
     # partition_info: Attr[PartitionInfoDict]
     observation_info: Attr[ObservationInfoDict]
     processor_info: Attr[ProcessorInfoDict]
-    antenna_xds: Attr[AntennaXds]
 
     schema_version: Attr[str]
     """Semantic version of xradio data format"""
@@ -2072,12 +2065,6 @@ class VisibilityXds:
     """Includes the effects of missing data unlike ``frequency``."""
 
     # --- Optional Attributes ---
-    pointing_xds: Optional[Attr[PointingXds]] = None
-    system_calibration_xds: Optional[Attr[SystemCalibrationXds]] = None
-    gain_curve_xds: Optional[Attr[GainCurveXds]] = None
-    phase_calibration_xds: Optional[Attr[PhaseCalibrationXds]] = None
-    weather_xds: Optional[Attr[WeatherXds]] = None
-    phased_array_xds: Optional[Attr[PhasedArrayXds]] = None
 
     xradio_version: Optional[Attr[str]] = None
     """ Version of XRADIO used if converted from MSv2. """
@@ -2112,7 +2099,6 @@ class SpectrumXds:
     # partition_info: Attr[PartitionInfoDict]
     observation_info: Attr[ObservationInfoDict]
     processor_info: Attr[ProcessorInfoDict]
-    antenna_xds: Attr[AntennaXds]
 
     schema_version: Attr[str]
     """Semantic version of xradio data format"""
@@ -2168,12 +2154,16 @@ class SpectrumXds:
     """Includes the effects of missing data unlike ``frequency``."""
 
     # --- Optional Attributes ---
-    pointing_xds: Optional[Attr[PointingXds]] = None
-    system_calibration_xds: Optional[Attr[SystemCalibrationXds]] = None
-    gain_curve_xds: Optional[Attr[GainCurveXds]] = None
-    phase_calibration_xds: Optional[Attr[PhaseCalibrationXds]] = None
-    weather_xds: Optional[Attr[WeatherXds]] = None
-    phased_array_xds: Optional[Attr[PhasedArrayXds]] = None
 
     xradio_version: Optional[Attr[str]] = None
     """ Version of XRADIO used if converted from MSv2. """
+
+
+@xarray_dataset_schema
+class ProcessingSetXds:
+    """Top-level attributes"""
+
+    type: Attr[Literal["processing_set"]] = "processing_set"
+    """
+    Dataset type
+    """

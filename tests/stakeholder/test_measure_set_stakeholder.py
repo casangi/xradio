@@ -26,9 +26,9 @@ relative_tolerance = 10 ** (-6)
 
 
 # Uncomment to not clean up files between test (i.e. skip downloading them again)
-@pytest.fixture
-def tmp_path():
-    return pathlib.Path("/tmp/test")
+#@pytest.fixture
+#def tmp_path():
+#    return pathlib.Path("/tmp/test")
 
 
 def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_scheme):

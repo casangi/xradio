@@ -547,6 +547,10 @@ class SpectralCoordArray:
     When converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy
     frame names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd
     """
+    frame_realization: Optional[Attr[str]] = "Unknown"
+    """
+    Frame realization for icrs. For example, icrf1, icrf2, icrf3.
+    """
 
     type: Attr[SpectralCoord] = "spectral_coord"
 
@@ -584,6 +588,10 @@ class LocationArray:
     """
     Can be ITRF, GRS80, WGS84, WGS72, Undefined
     """
+    frame_realization: Optional[Attr[str]]
+    """
+    Frame realization for ITRF. Example: ITRF2020.
+    """
 
     coordinate_system: Attr[AllowedLocationCoordinateSystems]
     """ Can be ``geocentric/planetcentric, geodetic/planetodetic, orbital`` """
@@ -607,7 +615,11 @@ class EllipsoidPosLocationArray:
 
     frame: Attr[AllowedLocationFrames]
     """
-    Can be ITRF, GRS80, WGS84, WGS72
+    Can be ITRF, GRS80, WGS84, WGS72, Undefined
+    """
+    frame_realization: Optional[Attr[str]]
+    """
+    Frame realization for ITRF. Example: ITRF2020.
     """
 
     coordinate_system: Attr[AllowedLocationCoordinateSystems]
@@ -720,6 +732,10 @@ class FrequencyArray:
     'topo' (telescope centric) velocity frame, rather it assumes if no velocity
     frame is given that this is the default.
     """
+    frame_realization: Optional[Attr[str]] = "Unknown"
+    """
+    Frame realization for icrs. For example, icrf1, icrf2, icrf3.
+    """
 
 
 @xarray_dataarray_schema
@@ -740,6 +756,10 @@ class FrequencySystemCalArray:
     Note that Astropy does not use the name
     'topo' (telescope centric) velocity frame, rather it assumes if no velocity
     frame is given that this is the default.
+    """
+    frame_realization: Optional[Attr[str]] = "Unknown"
+    """
+    Frame realization for icrs. For example, icrf1, icrf2, icrf3.
     """
 
 
@@ -963,6 +983,10 @@ class FreqSamplingArray:
     Note that Astropy does not use the name
     'topo' (telescope centric) velocity frame, rather it assumes if no velocity
     frame is given that this is the default.
+    """
+    frame_realization: Optional[Attr[str]] = "Unknown"
+    """
+    Frame realization for icrs. For example, icrf1, icrf2, icrf3.
     """
 
 

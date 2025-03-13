@@ -11,12 +11,14 @@ import xarray as xr
 
 import toolviper.utils.logger as logger
 from casacore import tables
+
 from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
     create_pointing_xds,
     create_system_calibration_xds,
     create_weather_xds,
 )
 from .msv4_info_dicts import create_info_dicts
+from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
 from xradio.measurement_set._utils._msv2.create_antenna_xds import (
     create_antenna_xds,
     create_gain_curve_xds,
@@ -1025,11 +1027,14 @@ def convert_and_write_partition(
             start = time.time()
             xds = xr.Dataset(
                 attrs={
+                    "creator": {
+                        "software_name": "xradio",
+                        "version": importlib.metadata.version("xradio"),
+                    },
+                    "schema_version": MSV4_SCHEMA_VERSION,
                     "creation_date": datetime.datetime.now(
                         datetime.timezone.utc
                     ).isoformat(),
-                    "xradio_version": importlib.metadata.version("xradio"),
-                    "schema_version": "4.0.-9989",
                     "type": "visibility",
                 }
             )
@@ -1283,7 +1288,7 @@ def convert_and_write_partition(
                 xds = xds.drop_vars(["UVW"])
                 del xds["uvw_label"]
             else:
-                if any("WVR" in s for s in intents):
+                if "WVR" in intents:
                     xds.attrs["type"] = "wvr"
                 else:
                     xds.attrs["type"] = "visibility"

@@ -1560,8 +1560,6 @@ class WeatherXds:
     """ Mid-point of the time interval. Labeled 'time' when interpolated to main time axis """
     time_weather: Optional[Coordof[TimeWeatherCoordArray]]
     """ Mid-point of the time interval. Labeled 'time_weather' when not interpolated to main time axis """
-    antenna_name: Optional[Coordof[AntennaNameArray]]
-    """ Antenna identifier """
     ellipsoid_pos_label: Optional[Coord[EllipsoidPosLabel, str]] = (
         "lon",
         "lat",
@@ -1570,6 +1568,10 @@ class WeatherXds:
     """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
     cartesian_pos_label: Optional[Coord[CartesianPosLabel, str]] = ("x", "y", "z")
     """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
+
+    # Station position variable - required
+    STATION_POSITION: Data[tuple[StationName], LocationArray] = None
+    """ Position of the weather station """
 
     # Data variables (all optional)
     H2O: Optional[
@@ -1649,8 +1651,6 @@ class WeatherXds:
         ]
     ] = None
     """ Average wind speed """
-    STATION_POSITION: Optional[Data[tuple[StationName], LocationArray]] = None
-    """ Station position """
 
     # Attributes
     type: Attr[Literal["weather"]] = "weather"

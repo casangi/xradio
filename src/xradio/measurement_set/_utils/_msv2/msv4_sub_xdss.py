@@ -172,7 +172,130 @@ def make_taql_where_weather(
     return taql_where
 
 
-def create_weather_xds(in_file: str, ant_xds_station_name_ids: xr.DataArray):
+def prepare_generic_weather_xds_and_station_name(
+    generic_weather_xds: xr.Dataset,
+    in_file: str,
+    ant_position_with_ids: xr.DataArray,
+    has_asdm_station_position: bool,
+) -> tuple[xr.Dataset, np.ndarray]:
+    """
+    A generic_weather_xds loaded with load_generic_table() might still need to be reloaded
+    with an additional WHERE condition to constrain the indices of antennas. But this depends on whether
+    ASDM/importasdm extension columns are present or not.
+
+    This also prepares the station_name values:
+    - if has_asdm_station_ids:
+       - tries to find from ASDM_STATION the station names,
+       - otherwise, takes ids (antenna_ids in generic_weather were actually the ASDM_STATION_IDs
+    - else: get the values from antenna_xds (the stations present)
+
+
+    Parameters
+    ----------
+    generic_weather_xds : xr.Dataset
+        generic dataset read from an MSv2 WEATHER subtable
+    in_file : str
+        Input MS name.
+    ant_position_with_ids : xr.DataArray
+        antenna_position data var from the antenna_xds (expected to still including the initial ANTENNA_ID
+        coordinate as wellas other coordinates from the antenna_xds)
+    has_asdm_station_position : bool
+        wHether this generic weatehr_xds should be treated as including the nonstandard extensions
+        NS_WX_STATION_ID and NS_WX_STATION_POSITION as created by CASA/importasdm (ALMA and VLA).
+
+    Returns
+    -------
+    (generic_weather_xds, station_name): tuple[[xarray.Dataset, numpy.ndarray]
+        Weather Xarray Dataset prepared for generic conversion to MSv4, values for the station_name coordinate
+    """
+
+    if has_asdm_station_position:
+        asdm_station_path = os.path.join(in_file, "ASDM_STATION")
+        if table_exists(asdm_station_path):
+            asdm_station_xds = load_generic_table(in_file, "ASDM_STATION")
+            station_name = asdm_station_xds.name.values[
+                generic_weather_xds["ANTENNA_ID"].values
+            ]
+        else:
+            # if no info from ASDM_STATION, use the indices from antenna_id which was actually the NS_WX_STATION_ID
+            len_antenna_id = generic_weather_xds.sizes["ANTENNA_ID"]
+            station_name = list(
+                map(
+                    lambda x, y: x + "_" + y,
+                    ["Station"] * len_antenna_id,
+                    generic_weather_xds["ANTENNA_ID"].values.astype(str),
+                )
+            )
+
+    else:
+        taql_where = make_taql_where_weather(in_file, ant_position_with_ids)
+        generic_weather_xds = load_generic_table(
+            in_file,
+            "WEATHER",
+            rename_ids=subt_rename_ids["WEATHER"],
+            taql_where=taql_where,
+        )
+
+        if not generic_weather_xds.data_vars:
+            # for example when the weather subtable only has info for antennas/stations
+            # not present in the MSv4 (no overlap between antennas loaded in ant_xds and weather)
+            return None, None
+
+        stations_present = ant_position_with_ids.sel(
+            antenna_id=generic_weather_xds["ANTENNA_ID"]
+        ).station
+        station_name = stations_present.values
+
+    return generic_weather_xds, station_name
+
+
+def finalize_station_position(
+    weather_xds: xr.Dataset, ant_position_with_ids, has_asdm_station_position: bool
+) -> xr.Dataset:
+    """
+    For a STATION_POSITION data var being added to a weather_xds, make sure coordinates and dimensions
+    are conforming to the schema.
+
+    Parameters
+    ----------
+    weather_xds : xr.Dataset
+        weather_xds where we still need to ensure the right coordinates and attributes
+    ant_position_with_ids : xr.DataArray
+        antenna_position data var from the antenna_xds (expected to still including the initial ANTENNA_ID
+        coordinate as wellas other coordinates from the antenna_xds)
+    has_asdm_station_position : bool
+        wHether this generic weatehr_xds should be treated as including the nonstandard extensions
+        NS_WX_STATION_ID and NS_WX_STATION_POSITION as created by CASA/importasdm (ALMA and VLA).
+
+    Returns
+    -------
+    weather_xds: xarray.Dataset
+        Weather Xarray Dataset with all coordinates and attributes in STATION_POSITION
+    """
+    if has_asdm_station_position:
+        # STATION_POSITION has been created but needs prooper dimensions and attrs
+        # Drop the time dim
+        weather_xds["STATION_POSITION"] = weather_xds["STATION_POSITION"].sel(
+            time_weather=0, drop=True, method="nearest"
+        )
+        # borrow location frame attributes from antenna position
+        weather_xds["STATION_POSITION"].attrs = ant_position_with_ids.attrs
+    else:
+        # borrow from ant_posision_with_ids but without carrying over other coords
+        weather_xds = weather_xds.assign(
+            {
+                "STATION_POSITION": (
+                    ["station_name", "cartesian_pos_label"],
+                    ant_position_with_ids.values,
+                    ant_position_with_ids.attrs,
+                )
+            }
+        )
+
+    return weather_xds
+
+
+def create_weather_xds(in_file: str, ant_position_with_ids: xr.DataArray):
     """
     Creates a Weather Xarray Dataset from a MS v2 WEATHER table.
 
@@ -180,8 +303,9 @@ def create_weather_xds(in_file: str, ant_xds_station_name_ids: xr.DataArray):
     ----------
     in_file : str
         Input MS name.
-    ant_xds_station_name_ids : xr.DataArray
-        station name data array from antenna_xds, with name/id information
+    ant_position_with_ids : xr.DataArray
+        antenna_position data var from the antenna_xds (expected to still including the initial ANTENNA_ID coordinate
+        as wellas other coordinates from the antenna_xds)
 
     Returns
     -------
@@ -190,32 +314,32 @@ def create_weather_xds(in_file: str, ant_xds_station_name_ids: xr.DataArray):
     """
 
     try:
-        taql_where = make_taql_where_weather(in_file, ant_xds_station_name_ids)
         generic_weather_xds = load_generic_table(
             in_file,
             "WEATHER",
             rename_ids=subt_rename_ids["WEATHER"],
-            taql_where=taql_where,
         )
     except ValueError as _exc:
         return None
 
-    if not generic_weather_xds.data_vars:
-        # for example when the weather subtable only has info for antennas/stations
-        # not present in the MSv4 (no overlap between antennas loaded in ant_xds and weather)
+    has_asdm_station_position = (
+        "NS_WX_STATION_POSITION" in generic_weather_xds.data_vars
+    )
+    generic_weather_xds, station_name = prepare_generic_weather_xds_and_station_name(
+        generic_weather_xds, in_file, ant_position_with_ids, has_asdm_station_position
+    )
+    if not generic_weather_xds:
         return None
 
     weather_xds = xr.Dataset(attrs={"type": "weather"})
-    stations_present = ant_xds_station_name_ids.sel(
-        antenna_id=generic_weather_xds["ANTENNA_ID"]
-    )
     coords = {
-        "station_name": stations_present.data,
-        "antenna_name": stations_present.coords["antenna_name"].data,
+        "station_name": station_name,
+        "cartesian_pos_label": ["x", "y", "z"],
     }
     weather_xds = weather_xds.assign_coords(coords)
 
     dims_station_time = ["station_name", "time_weather"]
+    dims_station_time_position = dims_station_time + ["cartesian_pos_label"]
     to_new_data_variables = {
         "H20": ["H2O", dims_station_time],
         "IONOS_ELECTRON": ["IONOS_ELECTRON", dims_station_time],
@@ -226,6 +350,15 @@ def create_weather_xds(in_file: str, ant_xds_station_name_ids: xr.DataArray):
         "WIND_DIRECTION": ["WIND_DIRECTION", dims_station_time],
         "WIND_SPEED": ["WIND_SPEED", dims_station_time],
     }
+    if has_asdm_station_position:
+        to_new_data_variables.update(
+            {
+                "NS_WX_STATION_POSITION": [
+                    "STATION_POSITION",
+                    dims_station_time_position,
+                ],
+            }
+        )
 
     to_new_coords = {
         "TIME": ["time_weather", ["time_weather"]],
@@ -233,6 +366,9 @@ def create_weather_xds(in_file: str, ant_xds_station_name_ids: xr.DataArray):
 
     weather_xds = convert_generic_xds_to_xradio_schema(
         generic_weather_xds, weather_xds, to_new_data_variables, to_new_coords
+    )
+    weather_xds = finalize_station_position(
+        weather_xds, ant_position_with_ids, has_asdm_station_position
     )
 
     # TODO: option to interpolate to main time
@@ -256,6 +392,7 @@ def correct_generic_pointing_xds(
     and tries to correct several deviations from the MSv2 specs seen in
     common test data.
     The problems fixed here include wrong dimensions:
+
     - for example transposed dimensions with respect to the MSv2 specs (output
     from CASA simulator),
     - missing/additional unexpected dimensions when some of the columns are
@@ -423,6 +560,7 @@ def prepare_generic_sys_cal_xds(generic_sys_cal_xds: xr.Dataset) -> xr.Dataset:
     sys_cal_xds dataset, as their structure differs in dimensions and order
     of dimensions.
     This function performs various prepareation steps, such as:
+
     - filter out dimensions not neeed for an individual MSv4 (SPW, FEED),
     - drop variables loaded from columns with all items set to empty array,
     - transpose the dimensions frequency,receptor

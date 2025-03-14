@@ -1767,6 +1767,8 @@ class SystemCalibrationXds:
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
     """ Antenna identifier """
+    station: Coord[AntennaName, str]
+    """ Name of the station pad (relevant to arrays with moving antennas). """
     receptor_label: Coord[ReceptorLabel, str]
     """ Names of receptors """
     polarization_type: Coord[tuple[AntennaName, ReceptorLabel], str]

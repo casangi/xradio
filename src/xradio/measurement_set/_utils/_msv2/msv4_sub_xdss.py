@@ -197,8 +197,8 @@ def prepare_generic_weather_xds_and_station_name(
     in_file : str
         Input MS name.
     ant_position_with_ids : xr.DataArray
-        antenna_position data var from the antenna_xds (expected to still including the initial ANTENNA_ID
-        coordinate as wellas other coordinates from the antenna_xds)
+        antenna_position data var from the antenna_xds (expected to still include the initial ANTENNA_ID
+        coordinate as well as other coordinates from the antenna_xds)
     has_asdm_station_position : bool
         wHether this generic weatehr_xds should be treated as including the nonstandard extensions
         NS_WX_STATION_ID and NS_WX_STATION_POSITION as created by CASA/importasdm (ALMA and VLA).
@@ -261,10 +261,10 @@ def finalize_station_position(
     weather_xds : xr.Dataset
         weather_xds where we still need to ensure the right coordinates and attributes
     ant_position_with_ids : xr.DataArray
-        antenna_position data var from the antenna_xds (expected to still including the initial ANTENNA_ID
-        coordinate as wellas other coordinates from the antenna_xds)
+        antenna_position data var from the antenna_xds (expected to still include the initial ANTENNA_ID
+        coordinate as well as other coordinates from the antenna_xds)
     has_asdm_station_position : bool
-        wHether this generic weatehr_xds should be treated as including the nonstandard extensions
+        Whether this generic weatehr_xds should be treated as including the nonstandard extensions
         NS_WX_STATION_ID and NS_WX_STATION_POSITION as created by CASA/importasdm (ALMA and VLA).
 
     Returns

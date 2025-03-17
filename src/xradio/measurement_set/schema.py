@@ -25,7 +25,7 @@ TimeWeather = Literal["time_weather"]
 AntennaName = Literal["antenna_name"]
 """ Antenna name dimension """
 StationName = Literal["station_name"]
-""" Station identifier dimension """
+""" Station name dimension """
 ReceptorLabel = Literal["receptor_label"]
 """ Receptor label dimension """
 ToneLabel = Literal["tone_label"]
@@ -1555,7 +1555,7 @@ class WeatherXds:
 
     # Coordinates
     station_name: Coord[StationName, str]
-    """ Station identifier """
+    """ Station name """
     time: Optional[Coordof[TimeInterpolatedCoordArray]]
     """ Mid-point of the time interval. Labeled 'time' when interpolated to main time axis """
     time_weather: Optional[Coordof[TimeWeatherCoordArray]]

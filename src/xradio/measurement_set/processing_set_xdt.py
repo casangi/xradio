@@ -697,7 +697,9 @@ class ProcessingSetXdt:
         """
         Plot the antenna positions of all antennas in the Processing Set.
 
-        This method generates three scatter plots displaying the antenna positions in different planes:
+        This method generates and displays a figure with three scatter plots, displaying the antenna positions in
+        different planes:
+
         - X vs Y
         - X vs Z
         - Y vs Z
@@ -723,34 +725,34 @@ class ProcessingSetXdt:
         combined_antenna_xds = self.get_combined_antenna_xds()
         from matplotlib import pyplot as plt
 
-        plt.figure()
-        plt.title("Antenna Positions")
-        plt.scatter(
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(12,8))
+        fig.suptitle("Antenna Positions")
+        fig.subplots_adjust(wspace=0.25, hspace=0.25, left=0.1, right=0.95, top=0.9, bottom=0.1)
+
+        ax1.scatter(
             combined_antenna_xds["ANTENNA_POSITION"].sel(cartesian_pos_label="x"),
             combined_antenna_xds["ANTENNA_POSITION"].sel(cartesian_pos_label="y"),
         )
-        plt.xlabel("x (m)")
-        plt.ylabel("y (m)")
-        plt.show()
+        ax1.set_xlabel("x (m)")
+        ax1.set_ylabel("y (m)")
 
-        plt.figure()
-        plt.title("Antenna Positions")
-        plt.scatter(
-            combined_antenna_xds["ANTENNA_POSITION"].sel(cartesian_pos_label="x"),
-            combined_antenna_xds["ANTENNA_POSITION"].sel(cartesian_pos_label="z"),
-        )
-        plt.xlabel("x (m)")
-        plt.ylabel("z (m)")
-        plt.show()
-
-        plt.figure()
-        plt.title("Antenna Positions")
-        plt.scatter(
+        ax2.scatter(
             combined_antenna_xds["ANTENNA_POSITION"].sel(cartesian_pos_label="y"),
             combined_antenna_xds["ANTENNA_POSITION"].sel(cartesian_pos_label="z"),
         )
-        plt.xlabel("y (m)")
-        plt.ylabel("z (m)")
+        ax2.set_xlabel("y (m)")
+        ax2.set_ylabel("z (m)")
+
+        ax3.scatter(
+            combined_antenna_xds["ANTENNA_POSITION"].sel(cartesian_pos_label="x"),
+            combined_antenna_xds["ANTENNA_POSITION"].sel(cartesian_pos_label="z"),
+        )
+        ax3.set_xlabel("x (m)")
+        ax3.set_ylabel("z (m)")
+
+
+        ax4.axis("off")
+
         plt.show()
 
 

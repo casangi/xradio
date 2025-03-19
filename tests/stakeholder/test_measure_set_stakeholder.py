@@ -396,6 +396,10 @@ def test_askap_59755_eq_interleave_15(tmp_path):
     base_test("59755_eq_interleave_15.ms", tmp_path, 2949046016.0)
 
 
+def test_gmrt(tmp_path):
+    base_test("gmrt.ms", tmp_path, 541752852480.0)
+
+
 if __name__ == "__main__":
     a = 42
     from pathlib import Path

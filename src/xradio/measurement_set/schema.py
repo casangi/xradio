@@ -1325,6 +1325,31 @@ class ProcessorInfoDict:
 
 
 @dict_schema
+class DataGroupDict:
+    """Defines a group of correlated data + flag + weight + uvw variables."""
+
+    correlated_data: str
+    """ Name of the correlated data variable, for example 'VISIBILITY' or 'VISIBILITY_MODEL'. """
+    flag: str
+    """ Name of the flag variable, for example 'FLAG'. """
+    weight: str
+    """ Name of the weight variable of the group, for example 'WEIGHT'. """
+    uvw: Optional[str]
+    """ Name of the UVW variable of the group, for example 'UVW'. """
+    description: str
+    """ More details about the data group. """
+    date: str
+    """ Creation date-time, in ISO 8601 format: 'YYYY-MM-DDTHH:mm:ss.SSS'. """
+
+
+@dict_schema
+class DataGroupsDict:
+    """Dictionary of data group dictionaries."""
+
+    base: DataGroupDict
+
+
+@dict_schema
 class CreatorDict:
     software_name: str
     """ Software that created the Measurement Set (XRadio, etc.). """
@@ -1942,10 +1967,13 @@ class VisibilityXds:
     processor_info: Attr[ProcessorInfoDict]
     antenna_xds: Attr[AntennaXds]
 
-    creator: Attr[CreatorDict]
-    """Creator information (software, version)."""
+    data_groups: Attr[DataGroupsDict]
+    """ Defines groups of correlated data + flag + weight + uvw variables. """
+
     schema_version: Attr[str]
     """Semantic version of MSv4 data format."""
+    creator: Attr[CreatorDict]
+    """Creator information (software, version)."""
     creation_date: Attr[str]
     """Date visibility dataset was created. Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
 
@@ -2040,10 +2068,13 @@ class SpectrumXds:
     processor_info: Attr[ProcessorInfoDict]
     antenna_xds: Attr[AntennaXds]
 
-    creator: Attr[CreatorDict]
-    """Creator information (software, version)."""
+    data_groups: Attr[DataGroupsDict]
+    """ Defines groups of correlated data + flag + weight variables. """
+
     schema_version: Attr[str]
     """Semantic version of MSv4 data format."""
+    creator: Attr[CreatorDict]
+    """Creator information (software, version)."""
     creation_date: Attr[str]
     """Date spectrum dataset was created . Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
 

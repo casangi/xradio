@@ -1027,11 +1027,11 @@ def convert_and_write_partition(
             start = time.time()
             xds = xr.Dataset(
                 attrs={
+                    "schema_version": MSV4_SCHEMA_VERSION,
                     "creator": {
                         "software_name": "xradio",
                         "version": importlib.metadata.version("xradio"),
                     },
-                    "schema_version": MSV4_SCHEMA_VERSION,
                     "creation_date": datetime.datetime.now(
                         datetime.timezone.utc
                     ).isoformat(),
@@ -1442,6 +1442,8 @@ def add_group_to_data_groups(
         "correlated_data": correlated_data_name,
         "flag": "FLAG",
         "weight": "WEIGHT",
+        "description": f"Data group derived from the data column '{correlated_data_name}' of an MSv2 converted to MSv4",
+        "date": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
     if uvw:
         data_groups[what_group]["uvw"] = "UVW"

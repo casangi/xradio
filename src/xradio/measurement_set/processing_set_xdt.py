@@ -569,6 +569,17 @@ class ProcessingSetXdt:
         ValueError
             If the combined datasets are empty or improperly formatted.
         """
+
+        def setup_annotations_all(axis, scatter, field_names):
+            """
+            Creates annotations for when label_all_fields=True
+            """
+            coord_x, coord_y = np.array(scatter.get_offsets()).transpose()
+            offset_x = np.abs(np.max(coord_x) - np.min(coord_x)) * 0.01
+            offset_y = np.abs(np.max(coord_y) - np.min(coord_y)) * 0.01
+            for idx, (x, y) in enumerate(zip(coord_x + offset_x, coord_y + offset_y)):
+                axis.annotate(field_names[idx], (x, y), alpha=1)
+
         if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
             raise InvalidAccessorLocation(
                 f"{self._xdt.path} is not a processing set node."
@@ -585,9 +596,9 @@ class ProcessingSetXdt:
         if (len(combined_field_and_source_xds.data_vars) > 0) and (
             "FIELD_PHASE_CENTER" in combined_field_and_source_xds
         ):
-            plt.figure()
+            fig = plt.figure()
             plt.title("Field Phase Center Locations")
-            plt.scatter(
+            scatter = plt.scatter(
                 combined_field_and_source_xds["FIELD_PHASE_CENTER"].sel(
                     sky_dir_label="ra"
                 ),
@@ -595,6 +606,10 @@ class ProcessingSetXdt:
                     sky_dir_label="dec"
                 ),
             )
+            if label_all_fields:
+                field_name = combined_field_and_source_xds.field_name.values
+                setup_annotations_all(fig.axes[0], scatter, field_name)
+                fig.axes[0].margins(0.2, 0.2)
 
             center_field_name = combined_field_and_source_xds.attrs["center_field_name"]
             center_field = combined_field_and_source_xds.sel(
@@ -615,11 +630,11 @@ class ProcessingSetXdt:
             "FIELD_PHASE_CENTER" in combined_ephemeris_field_and_source_xds
         ):
 
-            plt.figure()
+            fig = plt.figure()
             plt.title(
                 "Offset of Field Phase Center from Source Location (Ephemeris Data)"
             )
-            plt.scatter(
+            scatter = plt.scatter(
                 combined_ephemeris_field_and_source_xds["FIELD_OFFSET"].sel(
                     sky_dir_label="ra"
                 ),
@@ -627,6 +642,10 @@ class ProcessingSetXdt:
                     sky_dir_label="dec"
                 ),
             )
+            if label_all_fields:
+                field_name = combined_ephemeris_field_and_source_xds.field_name.values
+                setup_annotations_all(fig.axes[0], scatter, field_name)
+                fig.axes[0].margins(0.2, 0.2)
 
             center_field_name = combined_ephemeris_field_and_source_xds.attrs[
                 "center_field_name"
@@ -645,6 +664,7 @@ class ProcessingSetXdt:
                 color="red",
                 label=center_field_name,
             )
+
             plt.xlabel("RA Offset (rad)")
             plt.ylabel("DEC Offset (rad)")
             plt.legend()

@@ -115,6 +115,12 @@ Data Group dictionary
 
    .. xradio_dict_schema_table:: xradio.measurement_set.schema.DataGroupDict
 
+Creator dictionary
+~~~~~~~~~~~~~~~~~~
+.. autoclass:: xradio.measurement_set.schema.CreatorDict()
+
+   .. xradio_dict_schema_table:: xradio.measurement_set.schema.CreatorDict
+
 .. _correlated data arrays:
 
 Data Arrays

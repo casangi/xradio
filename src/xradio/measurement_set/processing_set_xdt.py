@@ -704,6 +704,8 @@ class ProcessingSetXdt:
         - X vs Z
         - Y vs Z
 
+        The antenna names are shown on hovering their positions.
+
         Parameters
         ----------
         None
@@ -717,6 +719,56 @@ class ProcessingSetXdt:
         ValueError
             If the combined antenna dataset is empty or missing required coordinates.
         """
+
+        def antenna_hover(event):
+            if event.inaxes in antenna_axes:
+                for axis in antenna_axes:
+                    contained, indices = scatter_map[axis].contains(event)
+                    annotation = annotations_map[axis]
+                    if contained:
+                        scatter = scatter_map[axis]
+                        update_antenna_annotation(indices, scatter, annotation)
+                        annotation.set_visible(True)
+                        fig.canvas.draw_idle()
+                    else:
+                        visible = annotation.get_visible()
+                        if visible:
+                            annotation.set_visible(False)
+                            fig.canvas.draw_idle()
+
+        def update_antenna_annotation(indices, scatter, annotation):
+            position = scatter.get_offsets()[indices["ind"][0]]
+            annotation.xy = position
+            text = "{}".format(" ".join([antenna_names[num] for num in indices["ind"]]))
+            annotation.set_text(text)
+            annotation.get_bbox_patch().set_facecolor("#e8d192")
+            annotation.get_bbox_patch().set_alpha(1)
+
+        def setup_annotations_for_hover(figure, antenna_axes):
+            """
+            Creates annotations on all the axes requested.
+
+            Returns
+            -------
+            dict
+                dict from antenna axes -> annotation objects
+            """
+            antenna_annotations = []
+            for axis in antenna_axes:
+                annotation = axis.annotate(
+                    "",
+                    xy=(0, 0),
+                    xytext=(10, 15),
+                    textcoords="offset points",
+                    arrowprops=dict(arrowstyle="-|>"),
+                    bbox=dict(boxstyle="round", fc="w"),
+                )
+                antenna_annotations.append(annotation)
+                annotation.set_visible(False)
+            annotations_map = dict(zip(antenna_axes, antenna_annotations))
+
+            return annotations_map
+
         if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
             raise InvalidAccessorLocation(
                 f"{self._xdt.path} is not a processing set node."
@@ -725,33 +777,40 @@ class ProcessingSetXdt:
         combined_antenna_xds = self.get_combined_antenna_xds()
         from matplotlib import pyplot as plt
 
-        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(12,8))
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(12, 8))
         fig.suptitle("Antenna Positions")
-        fig.subplots_adjust(wspace=0.25, hspace=0.25, left=0.1, right=0.95, top=0.9, bottom=0.1)
+        fig.subplots_adjust(
+            wspace=0.25, hspace=0.25, left=0.1, right=0.95, top=0.9, bottom=0.1
+        )
 
-        ax1.scatter(
+        scatter1 = ax1.scatter(
             combined_antenna_xds["ANTENNA_POSITION"].sel(cartesian_pos_label="x"),
             combined_antenna_xds["ANTENNA_POSITION"].sel(cartesian_pos_label="y"),
         )
         ax1.set_xlabel("x (m)")
         ax1.set_ylabel("y (m)")
+        antenna_names = combined_antenna_xds.antenna_name.values
 
-        ax2.scatter(
+        scatter2 = ax2.scatter(
             combined_antenna_xds["ANTENNA_POSITION"].sel(cartesian_pos_label="y"),
             combined_antenna_xds["ANTENNA_POSITION"].sel(cartesian_pos_label="z"),
         )
         ax2.set_xlabel("y (m)")
         ax2.set_ylabel("z (m)")
 
-        ax3.scatter(
+        scatter3 = ax3.scatter(
             combined_antenna_xds["ANTENNA_POSITION"].sel(cartesian_pos_label="x"),
             combined_antenna_xds["ANTENNA_POSITION"].sel(cartesian_pos_label="z"),
         )
         ax3.set_xlabel("x (m)")
         ax3.set_ylabel("z (m)")
 
-
         ax4.axis("off")
+
+        antenna_axes = [ax1, ax2, ax3]
+        scatter_map = line_dic = dict(zip(antenna_axes, [scatter1, scatter2, scatter3]))
+        annotations_map = setup_annotations_for_hover(fig, antenna_axes)
+        fig.canvas.mpl_connect("motion_notify_event", antenna_hover)
 
         plt.show()
 

@@ -26,8 +26,8 @@ relative_tolerance = 10 ** (-6)
 
 
 # Uncomment to not clean up files between test (i.e. skip downloading them again)
-#@pytest.fixture
-#def tmp_path():
+# @pytest.fixture
+# def tmp_path():
 #    return pathlib.Path("/tmp/test")
 
 

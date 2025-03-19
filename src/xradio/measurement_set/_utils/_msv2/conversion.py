@@ -1288,8 +1288,8 @@ def convert_and_write_partition(
                 xds = xds.drop_vars(["UVW"])
                 del xds["uvw_label"]
             else:
-                if "WVR" in intents:
-                    xds.attrs["type"] = "wvr"
+                if xds.attrs["processor_info"]["type"] == "RADIOMETER":
+                    xds.attrs["type"] = "radiometer"
                 else:
                     xds.attrs["type"] = "visibility"
 

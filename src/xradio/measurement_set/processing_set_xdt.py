@@ -693,22 +693,23 @@ class ProcessingSetXdt:
 
         return combined_antenna_xds
 
-    def plot_antenna_positions(self):
+    def plot_antenna_positions(self, label_all_antennas: bool = False):
         """
         Plot the antenna positions of all antennas in the Processing Set.
 
-        This method generates and displays a figure with three scatter plots, displaying the antenna positions in
-        different planes:
+        This method generates and displays a figure with three scatter plots, displaying the antenna
+        positions in different planes:
 
         - X vs Y
         - X vs Z
         - Y vs Z
 
-        The antenna names are shown on hovering their positions.
+        The antenna names are shown on hovering their positions, unless label_all_antennas is enabled.
 
         Parameters
         ----------
-        None
+        label_all_antennas : bool, optional
+            If 'True', annotations are shown with the names of every antenna next to their positions.
 
         Returns
         -------
@@ -744,7 +745,7 @@ class ProcessingSetXdt:
             annotation.get_bbox_patch().set_facecolor("#e8d192")
             annotation.get_bbox_patch().set_alpha(1)
 
-        def setup_annotations_for_hover(figure, antenna_axes):
+        def setup_annotations_for_hover(antenna_axes, scatter_plots):
             """
             Creates annotations on all the axes requested.
 
@@ -768,6 +769,25 @@ class ProcessingSetXdt:
             annotations_map = dict(zip(antenna_axes, antenna_annotations))
 
             return annotations_map
+
+        def setup_annotations_for_all(antenna_axes, scatter_map):
+            """
+            Creates annotations for when label_all_antennas=True
+            """
+            antenna_annotations = []
+            for axis in antenna_axes:
+                scatter = scatter_map[axis]
+                coord_x, coord_y = np.array(scatter.get_offsets()).transpose()
+                offset_x = np.abs(np.max(coord_x) - np.min(coord_x)) * 0.01
+                offset_y = np.abs(np.max(coord_y) - np.min(coord_y)) * 0.01
+                for idx, (x, y) in enumerate(
+                    zip(coord_x + offset_x, coord_y + offset_y)
+                ):
+                    annotation = axis.annotate(
+                        antenna_names[idx],
+                        (x, y),
+                        alpha=1,
+                    )
 
         if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
             raise InvalidAccessorLocation(
@@ -808,9 +828,12 @@ class ProcessingSetXdt:
         ax4.axis("off")
 
         antenna_axes = [ax1, ax2, ax3]
-        scatter_map = line_dic = dict(zip(antenna_axes, [scatter1, scatter2, scatter3]))
-        annotations_map = setup_annotations_for_hover(fig, antenna_axes)
-        fig.canvas.mpl_connect("motion_notify_event", antenna_hover)
+        scatter_map = dict(zip(antenna_axes, [scatter1, scatter2, scatter3]))
+        if label_all_antennas:
+            annotations_map = setup_annotations_for_all(antenna_axes, scatter_map)
+        else:
+            annotations_map = setup_annotations_for_hover(antenna_axes, scatter_map)
+            fig.canvas.mpl_connect("motion_notify_event", antenna_hover)
 
         plt.show()
 

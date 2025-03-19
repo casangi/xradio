@@ -8,9 +8,15 @@ from typing import Dict, Union
 
 import numpy as np
 import xarray as xr
+import traceback
 
 import toolviper.utils.logger as logger
-from casacore import tables
+
+try:
+    from casacore import tables
+except ImportError:
+    from ...._utils._casacore import casacore_from_casatools as tables
+
 from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
     create_pointing_xds,
     create_system_calibration_xds,
@@ -606,6 +612,7 @@ def create_data_variables(
                 )
             except Exception as exc:
                 logger.debug(f"Could not load column {col}, exception: {exc}")
+                logger.debug(traceback.format_exc())
 
                 if ("WEIGHT_SPECTRUM" == col) and (
                     "WEIGHT" in col_names

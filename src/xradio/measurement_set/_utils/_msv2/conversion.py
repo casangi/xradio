@@ -575,22 +575,27 @@ def create_data_variables(
     bidxs,
     didxs,
     use_table_iter,
-    lofar,
+    parallel_mode,
     main_chunksize,
 ):
 
     # Get time chunks
     time_chunksize = None
-    if lofar:
+    if parallel_mode == "time":
         try:
             time_chunksize = main_chunksize["time"]
         except KeyError:
             # If time isn't chunked then `read_col_conversion_dask` is slower than `read_col_conversion_numpy`
-            lofar = False
+            logger.warning(
+                "'time' isn't specified in `main_chunksize`. Defaulting to `parallel_mode = 'none'`."
+            )
+            parallel_mode = "none"
 
-    # Set read_col_conversion from value of `lofar` argument
+    # Set read_col_conversion from value of `parallel_mode` argument
+    # TODO: To make this compatible with multi-node conversion, `read_col_conversion_dask` and TableManager must be pickled.
+    # Casacore will make this difficult
     global read_col_conversion
-    if lofar:
+    if parallel_mode == "time":
         read_col_conversion = read_col_conversion_dask
     else:
         read_col_conversion = read_col_conversion_numpy
@@ -618,7 +623,6 @@ def create_data_variables(
                         use_table_iter,
                         main_column_descriptions,
                         time_chunksize,
-                        # TODO is read_col_conversion needed here even though it has global scope?
                     )
                 else:
                     xds[col_to_data_variable_names[col]] = xr.DataArray(
@@ -971,8 +975,8 @@ def convert_and_write_partition(
     sys_cal_interpolate: bool = False,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend="zarr",
+    parallel_mode: {"none", "partition", "time"} = "none",
     overwrite: bool = False,
-    lofar: bool = False,
 ):
     """_summary_
 
@@ -1008,9 +1012,9 @@ def convert_and_write_partition(
         _description_, by default numcodecs.Zstd(level=2)
     storage_backend : str, optional
         _description_, by default "zarr"
+    parallel_mode : _type_, optional
+        _description_
     overwrite : bool, optional
-        _description_, by default False
-    lofar : bool, optional
         _description_, by default False
 
     Returns
@@ -1060,20 +1064,20 @@ def convert_and_write_partition(
 
         telescope_name, intents = get_observation_info(in_file, observation_id, intents)
 
-            start = time.time()
-            xds = xr.Dataset(
-                attrs={
-                    "schema_version": MSV4_SCHEMA_VERSION,
-                    "creator": {
-                        "software_name": "xradio",
-                        "version": importlib.metadata.version("xradio"),
-                    },
-                    "creation_date": datetime.datetime.now(
-                        datetime.timezone.utc
-                    ).isoformat(),
-                    "type": "visibility",
-                }
-            )
+        start = time.time()
+        xds = xr.Dataset(
+            attrs={
+                "schema_version": MSV4_SCHEMA_VERSION,
+                "creator": {
+                    "software_name": "xradio",
+                    "version": importlib.metadata.version("xradio"),
+                },
+                "creation_date": datetime.datetime.now(
+                    datetime.timezone.utc
+                ).isoformat(),
+                "type": "visibility",
+            }
+        )
 
         # interval = check_if_consistent(tb_tool.getcol("INTERVAL"), "INTERVAL")
         interval = tb_tool.getcol("INTERVAL")
@@ -1114,7 +1118,7 @@ def convert_and_write_partition(
             bidxs,
             didxs,
             use_table_iter,
-            lofar,
+            parallel_mode,
             main_chunksize,
         )
 

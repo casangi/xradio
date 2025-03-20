@@ -62,8 +62,7 @@ def convert_msv2_to_processing_set(
     use_table_iter: bool = False,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend: str = "zarr",
-    parallel: bool = False,
-    lofar: bool = False,
+    parallel_mode: str = "none",
     overwrite: bool = False,
 ):
     """Convert a Measurement Set v2 into a Processing Set of Measurement Set v4.
@@ -100,23 +99,30 @@ def convert_msv2_to_processing_set(
         The Blosc compressor to use when saving the converted data to disk using Zarr, by default numcodecs.Zstd(level=2).
     storage_backend : {"zarr", "netcdf"}, optional
         The on-disk format to use. "netcdf" is not yet implemented.
-    parallel : bool, optional
-        Makes use of Dask to execute conversion in parallel, by default False.
-    lofar : bool, optional
-        Choose whether to read column in "lofar" mode, False by default.
-        lofar mode allows larger than memory partitions to be converted. Parallelism over chunks in the time dimension. The degree of parallelism is controlled by time chunking in `main_chunksize`.
+    parallel_mode : {"none", "partition", "time"}, optional
+        Choose whether to use Dask to execute conversion in parallel, by default "none" and conversion occurs serially.
+        The option "partition", parallelises the conversion over partitions specified by `partition_scheme`. The option "time" can only be used for phased array interferometers where there are no partitions
+        in the MS v2; instead the MS v2 is parallelised along the time dimension and can be controlled by `main_chunksize`.
     overwrite : bool, optional
         Whether to overwrite an existing processing set, by default False.
     """
 
-    if lofar == True and parallel == True:
-        logger.warn(
-            "Unsupported config. `lofar` and `parallel` both true isn't supported.\nSwitching off `lofar` mode"
+    # Check `parallel_mode` is valid
+    try:
+        assert parallel_mode in ["none", "partition", "time"]
+    except AssertionError:
+        logger.warning(
+            f"`parallel_mode` {parallel_mode} not recognosed. Defauling to 'none'."
         )
-        lofar = False
+        parallel_mode = "none"
 
     partitions = create_partitions(in_file, partition_scheme=partition_scheme)
     logger.info("Number of partitions: " + str(len(partitions)))
+    if parallel_mode == "time":
+        assert (
+            len(partitions) == 1
+        ), "MS v2 contains more than one partition. `parallel_mode = 'time'` not valid."
+
     delayed_list = []
 
     for ms_v4_id, partition_info in enumerate(partitions):
@@ -142,7 +148,7 @@ def convert_msv2_to_processing_set(
 
         # prepend '0' to ms_v4_id as needed
         ms_v4_id = f"{ms_v4_id:0>{len(str(len(partitions) - 1))}}"
-        if parallel:
+        if parallel_mode == "partition":
             delayed_list.append(
                 dask.delayed(convert_and_write_partition)(
                     in_file,
@@ -160,7 +166,7 @@ def convert_msv2_to_processing_set(
                     sys_cal_interpolate=sys_cal_interpolate,
                     compressor=compressor,
                     overwrite=overwrite,
-                    lofar=lofar,
+                    parallel_mode=parallel_mode,
                 )
             )
         else:
@@ -180,8 +186,8 @@ def convert_msv2_to_processing_set(
                 sys_cal_interpolate=sys_cal_interpolate,
                 compressor=compressor,
                 overwrite=overwrite,
-                lofar=lofar,
+                parallel_mode=parallel_mode,
             )
 
-    if parallel:
+    if parallel_mode == "partition":
         dask.compute(delayed_list)

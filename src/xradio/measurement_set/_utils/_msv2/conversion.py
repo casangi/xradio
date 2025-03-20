@@ -11,12 +11,14 @@ import xarray as xr
 
 import toolviper.utils.logger as logger
 from casacore import tables
+
 from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
     create_pointing_xds,
     create_system_calibration_xds,
     create_weather_xds,
 )
 from .msv4_info_dicts import create_info_dicts
+from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
 from xradio.measurement_set._utils._msv2.create_antenna_xds import (
     create_antenna_xds,
     create_gain_curve_xds,
@@ -1058,17 +1060,20 @@ def convert_and_write_partition(
 
         telescope_name, intents = get_observation_info(in_file, observation_id, intents)
 
-        start = time.time()
-        xds = xr.Dataset(
-            attrs={
-                "creation_date": datetime.datetime.now(
-                    datetime.timezone.utc
-                ).isoformat(),
-                "xradio_version": importlib.metadata.version("xradio"),
-                "schema_version": "4.0.-9989",
-                "type": "visibility",
-            }
-        )
+            start = time.time()
+            xds = xr.Dataset(
+                attrs={
+                    "schema_version": MSV4_SCHEMA_VERSION,
+                    "creator": {
+                        "software_name": "xradio",
+                        "version": importlib.metadata.version("xradio"),
+                    },
+                    "creation_date": datetime.datetime.now(
+                        datetime.timezone.utc
+                    ).isoformat(),
+                    "type": "visibility",
+                }
+            )
 
         # interval = check_if_consistent(tb_tool.getcol("INTERVAL"), "INTERVAL")
         interval = tb_tool.getcol("INTERVAL")
@@ -1314,15 +1319,15 @@ def convert_and_write_partition(
         else:
             mode = "w-"
 
-        if is_single_dish:
-            xds.attrs["type"] = "spectrum"
-            xds = xds.drop_vars(["UVW"])
-            del xds["uvw_label"]
-        else:
-            if any("WVR" in s for s in intents):
-                xds.attrs["type"] = "wvr"
+            if is_single_dish:
+                xds.attrs["type"] = "spectrum"
+                xds = xds.drop_vars(["UVW"])
+                del xds["uvw_label"]
             else:
-                xds.attrs["type"] = "visibility"
+                if xds.attrs["processor_info"]["type"] == "RADIOMETER":
+                    xds.attrs["type"] = "radiometer"
+                else:
+                    xds.attrs["type"] = "visibility"
 
         import sys
 
@@ -1471,6 +1476,8 @@ def add_group_to_data_groups(
         "correlated_data": correlated_data_name,
         "flag": "FLAG",
         "weight": "WEIGHT",
+        "description": f"Data group derived from the data column '{correlated_data_name}' of an MSv2 converted to MSv4",
+        "date": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
     if uvw:
         data_groups[what_group]["uvw"] = "UVW"

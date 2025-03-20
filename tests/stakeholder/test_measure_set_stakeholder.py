@@ -171,7 +171,7 @@ def base_test(
         if do_schema_check:
             start_check = time.time()
             for xds_name in ps.keys():
-                if ps[xds_name].attrs["type"] == "visibility":
+                if ps[xds_name].attrs["type"] in ["visibility", "radiometer"]:
                     check_dataset(ps[xds_name], VisibilityXds).expect()
                 elif ps[xds_name].attrs["type"] == "spectrum":
                     check_dataset(ps[xds_name], SpectrumXds).expect()
@@ -394,6 +394,10 @@ def test_askap_59755_eq_interleave_0(tmp_path):
 
 def test_askap_59755_eq_interleave_15(tmp_path):
     base_test("59755_eq_interleave_15.ms", tmp_path, 2949046016.0)
+
+
+def test_gmrt(tmp_path):
+    base_test("gmrt.ms", tmp_path, 541752852480.0)
 
 
 if __name__ == "__main__":

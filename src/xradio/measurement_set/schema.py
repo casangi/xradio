@@ -9,6 +9,8 @@ from xradio.schema.bases import (
 from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof, Name
 import numpy
 
+MSV4_SCHEMA_VERSION = "4.0.-9988"
+
 # Dimensions
 Time = Literal["time"]
 """ Observation time dimension """
@@ -1322,6 +1324,39 @@ class ProcessorInfoDict:
     """Processor sub-type, e.g. ”GBT” or ”JIVE”."""
 
 
+@dict_schema
+class DataGroupDict:
+    """Defines a group of correlated data + flag + weight + uvw variables."""
+
+    correlated_data: str
+    """ Name of the correlated data variable, for example 'VISIBILITY' or 'VISIBILITY_MODEL'. """
+    flag: str
+    """ Name of the flag variable, for example 'FLAG'. """
+    weight: str
+    """ Name of the weight variable of the group, for example 'WEIGHT'. """
+    uvw: Optional[str]
+    """ Name of the UVW variable of the group, for example 'UVW'. """
+    description: str
+    """ More details about the data group. """
+    date: str
+    """ Creation date-time, in ISO 8601 format: 'YYYY-MM-DDTHH:mm:ss.SSS'. """
+
+
+@dict_schema
+class DataGroupsDict:
+    """Dictionary of data group dictionaries."""
+
+    base: DataGroupDict
+
+
+@dict_schema
+class CreatorDict:
+    software_name: str
+    """ Software that created the Measurement Set (XRadio, etc.). """
+    version: str
+    """ Version of the software. """
+
+
 # Data Sets
 
 
@@ -1932,12 +1967,17 @@ class VisibilityXds:
     processor_info: Attr[ProcessorInfoDict]
     antenna_xds: Attr[AntennaXds]
 
-    schema_version: Attr[str]
-    """Semantic version of xradio data format"""
-    creation_date: Attr[str]
-    """Date visibility dataset was created . Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
+    data_groups: Attr[DataGroupsDict]
+    """ Defines groups of correlated data + flag + weight + uvw variables. """
 
-    type: Attr[Literal["visibility"]] = "visibility"
+    schema_version: Attr[str]
+    """Semantic version of MSv4 data format."""
+    creator: Attr[CreatorDict]
+    """Creator information (software, version)."""
+    creation_date: Attr[str]
+    """Date visibility dataset was created. Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
+
+    type: Attr[Literal["visibility", "radiometer"]] = "visibility"
     """
     Dataset type
     """
@@ -1998,9 +2038,6 @@ class VisibilityXds:
     weather_xds: Optional[Attr[WeatherXds]] = None
     phased_array_xds: Optional[Attr[PhasedArrayXds]] = None
 
-    xradio_version: Optional[Attr[str]] = None
-    """ Version of XRADIO used if converted from MSv2. """
-
 
 @xarray_dataset_schema
 class SpectrumXds:
@@ -2031,10 +2068,15 @@ class SpectrumXds:
     processor_info: Attr[ProcessorInfoDict]
     antenna_xds: Attr[AntennaXds]
 
+    data_groups: Attr[DataGroupsDict]
+    """ Defines groups of correlated data + flag + weight variables. """
+
     schema_version: Attr[str]
-    """Semantic version of xradio data format"""
+    """Semantic version of MSv4 data format."""
+    creator: Attr[CreatorDict]
+    """Creator information (software, version)."""
     creation_date: Attr[str]
-    """Date MSv4 was created . Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
+    """Date spectrum dataset was created . Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
 
     type: Attr[Literal["spectrum"]] = "spectrum"
     """
@@ -2092,6 +2134,3 @@ class SpectrumXds:
     phase_calibration_xds: Optional[Attr[PhaseCalibrationXds]] = None
     weather_xds: Optional[Attr[WeatherXds]] = None
     phased_array_xds: Optional[Attr[PhasedArrayXds]] = None
-
-    xradio_version: Optional[Attr[str]] = None
-    """ Version of XRADIO used if converted from MSv2. """

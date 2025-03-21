@@ -975,7 +975,7 @@ def convert_and_write_partition(
     sys_cal_interpolate: bool = False,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend="zarr",
-    parallel_mode: {"none", "partition", "time"} = "none",
+    parallel_mode: str = "none",
     overwrite: bool = False,
 ):
     """_summary_
@@ -1323,15 +1323,15 @@ def convert_and_write_partition(
         else:
             mode = "w-"
 
-            if is_single_dish:
-                xds.attrs["type"] = "spectrum"
-                xds = xds.drop_vars(["UVW"])
-                del xds["uvw_label"]
+        if is_single_dish:
+            xds.attrs["type"] = "spectrum"
+            xds = xds.drop_vars("UVW")
+            xds = xds.drop_dims("uvw_label")
+        else:
+            if xds.attrs["processor_info"]["type"] == "RADIOMETER":
+                xds.attrs["type"] = "radiometer"
             else:
-                if xds.attrs["processor_info"]["type"] == "RADIOMETER":
-                    xds.attrs["type"] = "radiometer"
-                else:
-                    xds.attrs["type"] = "visibility"
+                xds.attrs["type"] = "visibility"
 
         import sys
 

@@ -165,8 +165,8 @@ def convert_msv2_to_processing_set(
                     phase_cal_interpolate=phase_cal_interpolate,
                     sys_cal_interpolate=sys_cal_interpolate,
                     compressor=compressor,
-                    overwrite=overwrite,
                     parallel_mode=parallel_mode,
+                    overwrite=overwrite,
                 )
             )
         else:
@@ -185,8 +185,8 @@ def convert_msv2_to_processing_set(
                 phase_cal_interpolate=phase_cal_interpolate,
                 sys_cal_interpolate=sys_cal_interpolate,
                 compressor=compressor,
-                overwrite=overwrite,
                 parallel_mode=parallel_mode,
+                overwrite=overwrite,
             )
 
     if parallel_mode == "partition":

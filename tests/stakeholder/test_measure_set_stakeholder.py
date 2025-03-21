@@ -69,7 +69,7 @@ def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_sch
         # sys_cal_interpolate=True,
         use_table_iter=False,
         overwrite=True,
-        parallel=False,
+        parallel_mode="none",
     )
     return ps_name
 
@@ -497,7 +497,7 @@ if __name__ == "__main__":
 """
 ALMA_uid___A002_X1003af4_X75a3.split.avg.ms: An ephemeris mosaic observation of the sun.
 
-ALMA archive file downloaded: https://almascience.nrao.edu/dataPortal/2022.A.00001.S_uid___A002_X1003af4_X75a3.asdm.sdm.tar 
+ALMA archive file downloaded: https://almascience.nrao.edu/dataPortal/2022.A.00001.S_uid___A002_X1003af4_X75a3.asdm.sdm.tar
 
 - Project: 2022.A.00001.S
 - Member ous id (MOUS): uid://A001/X3571/X130
@@ -513,7 +513,7 @@ import numpy as np
 
 for subtable in ['FLAG_CMD', 'POINTING', 'CALDEVICE', 'ASDM_CALATMOSPHERE']:
     tb.open('ALMA_uid___A002_X1003af4_X75a3.split.avg.ms::'+subtable,nomodify=False)
-    tb.removerows(np.arange(tb.nrows())) 
+    tb.removerows(np.arange(tb.nrows()))
     tb.flush()
     tb.done()
 ```

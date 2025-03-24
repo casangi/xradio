@@ -14,7 +14,6 @@ from tests.unit.measurement_set.ms_test_utils.gen_test_ms import (
 )
 from tests.unit.measurement_set.ms_test_utils.cds_checks import check_cds
 
-
 """
 A tuple with an MS filename (as str) and a description of its expected structure and contents (as a dict).
 """
@@ -66,7 +65,7 @@ def ms_empty_complete(scope="session"):
 
 @pytest.fixture(scope="session")
 def ms_minimal_required():
-    name = "test_ms_minimal_required.ms"
+    name = "test_msv2_minimal_required.ms"
     spec = gen_test_ms(name, required_only=True)
     yield MSWithSpec(name, spec)
     shutil.rmtree(name)
@@ -78,7 +77,7 @@ def ms_minimal_dims1_required():
     An MS populated minimally, with size one for several relevant dimensions:
     observation, field, scan, spw, etc.
     """
-    name = "test_ms_minimal_dims1_required.ms"
+    name = "test_msv2_minimal_dims1_required.ms"
     spec = gen_test_ms(name)
     yield MSWithSpec(name, spec)
     shutil.rmtree(name)
@@ -93,7 +92,7 @@ def ms_tab_nonexistent():
 @pytest.fixture(scope="session")
 def ms_minimal_for_writes():
     """MS to be used to write subtables inside"""
-    name = "test_ms_minimal_required_for_writes.ms"
+    name = "test_msv2_minimal_required_for_writes.ms"
     spec = gen_test_ms(name, required_only=True)
     yield MSWithSpec(name, spec)
     shutil.rmtree(name)
@@ -250,6 +249,114 @@ def main_xds_min(ms_minimal_required):
     part = xr.Dataset()
 
     yield part
+
+
+@pytest.fixture(scope="session")
+def processing_set_min_path():
+    """path to the 'mininal_required' processing set"""
+    out_name = "test_converted_msv2_to_msv4_minimal_required.zarr"
+    yield out_name
+
+
+@pytest.fixture(scope="session")
+def msv4_min_path(processing_set_min_path, ms_minimal_required):
+    """path to the MSv4 of the 'mininal_required' processing set"""
+    msv4_id = "msv4id"
+    msv4_path = (
+        processing_set_min_path
+        + "/"
+        + ms_minimal_required.fname.rsplit(".")[0]
+        + "_"
+        + msv4_id
+    )
+    yield msv4_path
+
+
+@pytest.fixture(scope="session")
+def msv4_min_correlated_xds(
+    ms_minimal_required, processing_set_min_path, msv4_min_path
+):
+    """An MSv4 main xds (correlated data, one partition) xds"""
+    from xradio.measurement_set._utils._msv2.conversion import (
+        convert_and_write_partition,
+    )
+
+    convert_and_write_partition(
+        ms_minimal_required.fname,
+        processing_set_min_path,
+        "msv4id",
+        {"DATA_DESC_ID": [0], "OBS_MODE": ["CAL_ATMOSPHERE#ON_SOURCE"]},
+        use_table_iter=False,
+        overwrite=True,
+    )
+
+    xds = xr.open_dataset(
+        msv4_min_path + "/correlated_xds",
+        engine="zarr",
+    )
+
+    yield xds
+    # shutil.rmtree(processing_set_min_path)
+
+
+@pytest.fixture(scope="session")
+def antenna_xds_min(msv4_min_correlated_xds, msv4_min_path):
+    """An MSv4 secondary antenna dataset ('antenna_xds')"""
+
+    antenna_xds = xr.open_dataset(
+        msv4_min_path + "/antenna_xds",
+        engine="zarr",
+    )
+
+    yield antenna_xds
+
+
+@pytest.fixture(scope="session")
+def field_and_source_xds_min(msv4_min_correlated_xds, msv4_min_path):
+    """An MSv4 secondary field and source dataset ('field_and_source_xds')"""
+
+    field_and_source_xds = xr.open_dataset(
+        msv4_min_path + "/field_and_source_xds_base",
+        engine="zarr",
+    )
+
+    yield field_and_source_xds
+
+
+@pytest.fixture(scope="session")
+def pointing_xds_min(msv4_min_correlated_xds, msv4_min_path):
+    """An MSv4 secondary pointing dataset ('pointing_xds')"""
+
+    pointing_xds = xr.open_dataset(
+        msv4_min_path + "/pointing_xds",
+        engine="zarr",
+    )
+
+    yield pointing_xds
+
+
+@pytest.fixture(scope="session")
+def sys_cal_xds_min(msv4_min_correlated_xds, msv4_min_path):
+    """An MSv4 secondary sys cal dataset ('system_calibration_xds')"""
+
+    syscal_xds = xr.open_dataset(
+        msv4_min_path + "/system_calibration_xds",
+        engine="zarr",
+    )
+
+    yield syscal_xds
+
+
+@pytest.fixture(scope="session")
+def weather_xds_min(msv4_xds_min, msv4_min_path):
+    """An MSv4 secondary weather dataset ('weather_xds')"""
+
+    weather_xds = xr.open_dataset(
+        msv4_min_path + "/system_calibration_xds",
+        engine="zarr",
+    )
+
+    yield weather_xds
 
 
 @pytest.fixture(scope="session")

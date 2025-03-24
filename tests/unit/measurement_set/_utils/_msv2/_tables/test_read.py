@@ -390,6 +390,7 @@ def test_get_pad_value_uvw(msv4_min_correlated_xds):
     assert np.isnan(res)
     assert np.isnan(get_pad_value(np.float64))
 
+
 def test_get_pad_value_n_polynomial(pointing_xds_min):
     from xradio._utils.list_and_array import get_pad_value
 

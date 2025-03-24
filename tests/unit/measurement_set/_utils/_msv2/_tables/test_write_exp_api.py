@@ -23,7 +23,9 @@ def test_cols_from_xds_to_ms(cols, expected_output):
 
 
 def test_xds_packager_mxds(ant_xds_min):
-    from xradio.measurement_set._utils._msv2._tables.write_exp_api import vis_xds_packager_mxds
+    from xradio.measurement_set._utils._msv2._tables.write_exp_api import (
+        vis_xds_packager_mxds,
+    )
     from xarray.core.utils import Frozen
 
     addt = "addition"
@@ -37,7 +39,9 @@ def test_xds_packager_mxds(ant_xds_min):
 
 
 def test_make_global_coords_none():
-    from xradio.measurement_set._utils._msv2._tables.write_exp_api import make_global_coords
+    from xradio.measurement_set._utils._msv2._tables.write_exp_api import (
+        make_global_coords,
+    )
 
     with pytest.raises(KeyError, match="metainfo"):
         res = make_global_coords(xr.Dataset())
@@ -45,8 +49,12 @@ def test_make_global_coords_none():
 
 
 def test_make_global_coords_min(ms_minimal_required):
-    from xradio.measurement_set._utils._msv2._tables.write_exp_api import make_global_coords
-    from xradio.measurement_set._utils._msv2._tables.write_exp_api import vis_xds_packager_mxds
+    from xradio.measurement_set._utils._msv2._tables.write_exp_api import (
+        make_global_coords,
+    )
+    from xradio.measurement_set._utils._msv2._tables.write_exp_api import (
+        vis_xds_packager_mxds,
+    )
 
     # from xradio.measurement_set._utils.msv2 import read_ms
 

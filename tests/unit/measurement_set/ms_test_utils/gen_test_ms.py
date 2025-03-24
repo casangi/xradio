@@ -162,7 +162,7 @@ def gen_test_ms(
         # SCAN (Only MSv3)
 
         # SYSCAL
-        gen_subt_syscal(msname)
+        gen_subt_syscal(msname, descr["ANTENNA"])
 
         # WEATHER
         gen_subt_weather(msname)
@@ -890,22 +890,23 @@ def gen_subt_history(mspath: str, obs_descr: dict):
         tbl.putcol("APP_PARAMS", np.broadcast_to("", (nobs, 1)))
 
 
-def gen_subt_syscal(mspath: str):
+def gen_subt_syscal(mspath: str, ant_descr: dict):
     """
     Creates a SYSCAL subtable and populates it with a (very incomplete) row
     This is just to enable minimal coverage of some WEATHER handling code in
     the casacore tables read/write functions.
     """
-    ncal = 1
+    ncal = len(ant_descr)
     subt_name = "SYSCAL"
     with open_opt_subtable(mspath, subt_name) as sctbl:
         sctbl.addrows(ncal)
-        sctbl.putcol("ANTENNA_ID", 0)
-        sctbl.putcol("FEED_ID", 0)
-        sctbl.putcol("SPECTRAL_WINDOW_ID", 0)
-        sctbl.putcol("TIME", 1e10)
-        sctbl.putcol("INTERVAL", 1e12)
+        sctbl.putcol("ANTENNA_ID", np.arange(0, ncal))
+        sctbl.putcol("FEED_ID", np.repeat(0, ncal))
+        sctbl.putcol("SPECTRAL_WINDOW_ID", np.repeat(0, ncal))
+        sctbl.putcol("TIME", np.repeat(1e10, ncal))
+        sctbl.putcol("INTERVAL", np.repeat(1e12, ncal))
         # all data/flags columns in the SYSCAL table are optional!
+        # sctbl.putcol("PHASE_DIFF", np.repeat(0.3, ncal))
         sctbl.putcol("PHASE_DIFF", np.repeat(0.3, ncal))
         # sctbl.putcol("TCAL", np.broadcast_to(50.3, (ncal, 2)))
         sctbl.putcol("TCAL_SPECTRUM", np.broadcast_to(50.3, (ncal, 10, 2)))

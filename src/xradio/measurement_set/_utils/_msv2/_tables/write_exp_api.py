@@ -109,8 +109,8 @@ def vis_xds_packager_mxds(
         data partiions as xds datasets
     subtables : list[tuple[str, xr.Dataset]]
         subtables as xds datasets
-        :add_global_coords: whether to add coords to the output mxds
     add_global_coords: bool (Default value = True)
+        whether to add coords to the output mxds
 
     Returns
     -------
@@ -129,14 +129,14 @@ def make_global_coords(mxds: xr.Dataset) -> dict[str, xr.DataArray]:
     coords = {}
     metainfo = mxds.attrs["metainfo"]
     if "antenna" in metainfo:
-        coords["antenna_ids"] = metainfo["antenna"].antenna_id.values
+        coords["antenna_name"] = metainfo["antenna"].antenna_name.values
         coords["antennas"] = xr.DataArray(
-            metainfo["antenna"].NAME.values, dims=["antenna_ids"]
+            metainfo["antenna"].antenna_name.values, dims=["antenna_name"]
         )
     if "field" in metainfo:
-        coords["field_ids"] = metainfo["field"].field_id.values
+        coords["field_name"] = metainfo["field"].field_name.values
         coords["fields"] = xr.DataArray(
-            metainfo["field"].NAME.values, dims=["field_ids"]
+            metainfo["field"].field_name.values, dims=["field_name"]
         )
     if "feed" in mxds.attrs:
         coords["feed_ids"] = metainfo["feed"].FEED_ID.values

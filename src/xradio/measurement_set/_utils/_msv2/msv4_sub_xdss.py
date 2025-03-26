@@ -128,7 +128,10 @@ def interpolate_to_time(
             {time_name: interp_time.data}, method=method, assume_sorted=True
         )
         # scan_name sneaks in as a coordinate of the main time axis, drop it
-        if "scan_name" in xds.coords:
+        if (
+            xds.attrs["type"] not in ["visibility", "spectrum", "wvr"]
+            and "scan_name" in xds.coords
+        ):
             xds = xds.drop_vars("scan_name")
         points_after = xds[time_name].size
         logger.debug(

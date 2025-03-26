@@ -349,17 +349,20 @@ def test_extract_table_attributes_ant(ms_minimal_required):
     assert all(sub in res["info"] for sub in ["type", "subType", "readme"])
 
 
-def test_add_units_measures(main_xds_min):
+def test_add_units_measures(msv4_min_correlated_xds):
     from xradio.measurement_set._utils._msv2._tables.read import add_units_measures
 
     col_descr = {"column_descriptions": {}}
-    xds_vars = {"UVW": main_xds_min.UVW, "time": main_xds_min.time}
+    xds_vars = {
+        "UVW": msv4_min_correlated_xds.UVW,
+        "time": msv4_min_correlated_xds.time,
+    }
     res = add_units_measures(xds_vars, col_descr)
     assert xds_vars["UVW"].attrs
     assert xds_vars["time"].attrs
 
 
-def test_add_units_measures_dubious_units(main_xds_min):
+def test_add_units_measures_dubious_units(msv4_min_correlated_xds):
     from xradio.measurement_set._utils._msv2._tables.read import add_units_measures
 
     col_descr = {
@@ -371,9 +374,9 @@ def test_add_units_measures_dubious_units(main_xds_min):
         },
     }
     xds_vars = {
-        "time": main_xds_min.time,
-        "DATA": main_xds_min.VIS,
-        "TIME_CENTROID": main_xds_min.TIME_CENTROID,
+        "time": msv4_min_correlated_xds.time,
+        "DATA": msv4_min_correlated_xds.VISIBILITY,
+        "TIME_CENTROID": msv4_min_correlated_xds.TIME_CENTROID,
     }
 
     res = add_units_measures(xds_vars, col_descr)

@@ -64,17 +64,25 @@ def test_create_table_ant_with_col(generic_antenna_xds_min, tmp_path):
     )
 
 
-def test_create_table_with_infile(main_xds_min, ms_minimal_required, tmp_path):
+def test_create_table_with_infile(
+    generic_source_xds_min,
+    ms_minimal_required,
+    tmp_path,
+):
     """Uses the 'infile' param to provide a source of subtables to be copied over"""
     from xradio.measurement_set._utils._msv2._tables.write import create_table
 
     outtab = str(Path(tmp_path, "test_create_table_main_with_infile.tab"))
     create_table(
         outfile=outtab,
-        xds=main_xds_min,
+        xds=generic_source_xds_min,
         infile=ms_minimal_required.fname,
         max_rows=10,
-        cols={"TIME": "time", "SCAN_NUMBER": "scan_number"},
+        cols={
+            "TIME": "TIME",
+            "SOURCE_ID": "SOURCE_ID",
+            "DIRECTION": "DIRECTION",
+        },
         generic=False,
     )
 

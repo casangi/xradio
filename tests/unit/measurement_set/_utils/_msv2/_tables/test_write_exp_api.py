@@ -48,7 +48,9 @@ def test_make_global_coords_none():
         assert res
 
 
-def test_make_global_coords_min(ms_minimal_required):
+def test_make_global_coords_min(
+    msv4_min_correlated_xds, antenna_xds_min, field_and_source_xds_min
+):
     from xradio.measurement_set._utils._msv2._tables.write_exp_api import (
         make_global_coords,
     )
@@ -56,19 +58,17 @@ def test_make_global_coords_min(ms_minimal_required):
         vis_xds_packager_mxds,
     )
 
-    # from xradio.measurement_set._utils.msv2 import read_ms
+    mxds = vis_xds_packager_mxds(
+        {"part0": msv4_min_correlated_xds},
+        {"antenna": antenna_xds_min, "field": field_and_source_xds_min},
+        False,
+    )
 
-    # TODO: fixture forf an xds (main) + a cds fixture
-    # cds = read_ms(ms_minimal_required.fname, partition_scheme="intent")
-    # xds = list(cds.partitions.values())[0]
-    # mxds = xr.Dataset(attrs={"metainfo": cds.metainfo, "partitions": {}})
-    mxds = xr.Dataset(attrs={"metainfo": {}, "partitions": {}})
-
-    with pytest.raises(
-        ValueError, match="different number of dimensions on data and dims"
-    ):
-        res = make_global_coords(mxds)
-        assert res
+    res = make_global_coords(mxds)
+    assert res
+    assert all(
+        [key in res for key in ["antenna_name", "antennas", "field_name", "fields"]]
+    )
 
 
 def test_flatten_xds_empty():

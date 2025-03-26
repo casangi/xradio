@@ -12,7 +12,7 @@ from tests.unit.measurement_set.ms_test_utils.gen_test_ms import (
     gen_test_ms,
     make_ms_empty,
 )
-from tests.unit.measurement_set.ms_test_utils.cds_checks import check_cds
+
 
 """
 A tuple with an MS filename (as str) and a description of its expected structure and contents (as a dict).
@@ -194,6 +194,7 @@ def observation_xds_min(cds_minimal_required):
 @pytest.fixture(scope="session")
 def generic_source_xds_min(ms_minimal_required):
     """A generic source xds (loaded form MSv2 mostly as is), loaded from the minimal MS/SOURCE subtable"""
+
     from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
 
     subt = load_generic_table(ms_minimal_required.fname, "SOURCE")
@@ -296,7 +297,7 @@ def msv4_min_correlated_xds(
     )
 
     yield xds
-    # shutil.rmtree(processing_set_min_path)
+    shutil.rmtree(processing_set_min_path)
 
 
 @pytest.fixture(scope="session")

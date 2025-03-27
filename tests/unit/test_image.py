@@ -108,7 +108,14 @@ class xds_from_image_test(ImageBase):
     _xds = None
     _exp_vals: dict = {
         "shape": xr.core.utils.Frozen(
-            {"time": 1, "frequency": 10, "polarization": 4, "l": 30, "m": 20, "beam_param": 3}
+            {
+                "time": 1,
+                "frequency": 10,
+                "polarization": 4,
+                "l": 30,
+                "m": 20,
+                "beam_param": 3,
+            }
         ),
         "freq_waveunit": "mm",
         "image_type": "Intensity",
@@ -605,8 +612,13 @@ class xds_from_image_test(ImageBase):
                 xds.attrs, big_xds.attrs, "block xds", "main xds", ["history"]
             )
             coords = [
-                "time", "polarization", "frequency",
-                "velocity", "l", "m", "beam_param"
+                "time",
+                "polarization",
+                "frequency",
+                "velocity",
+                "l",
+                "m",
+                "beam_param",
             ]
             if i == 0:
                 coords.extend(["right_ascension", "declination"])
@@ -1224,6 +1236,7 @@ class fits_to_xds_test(xds_from_image_test):
                     self.assertTrue(
                         c not in fds.coords, f"{c} in coords but should not be"
                     )
+
     def test_xds_beam_param_axis(self):
         for fds in (self._fds, self._fds_no_sky):
             self.assertTrue(

@@ -108,7 +108,7 @@ class xds_from_image_test(ImageBase):
     _xds = None
     _exp_vals: dict = {
         "shape": xr.core.utils.Frozen(
-            {"time": 1, "frequency": 10, "polarization": 4, "l": 30, "m": 20}
+            {"time": 1, "frequency": 10, "polarization": 4, "l": 30, "m": 20, "beam_param": 3}
         ),
         "freq_waveunit": "mm",
         "image_type": "Intensity",
@@ -150,6 +150,7 @@ class xds_from_image_test(ImageBase):
             "dims": [],
         },
         "wave_unit": "mm",
+        "beam_param": ["major", "minor", "pa"],
     }
     _rad_to_arcmin = np.pi / 180 / 60
     _exp_attrs = {}
@@ -536,6 +537,12 @@ class xds_from_image_test(ImageBase):
             np.allclose(xds.declination, ev["dec"], atol=1e-15), "Incorrect Dec values"
         )
 
+    def compare_beam_param(self, xds: xr.Dataset) -> None:
+        ev = self._exp_vals
+        self.assertTrue(
+            (xds.beam_param == ev["beam_param"]).all(), "Incorrect beam param values"
+        )
+
     def compare_attrs(self, xds: xr.Dataset, fits: bool = False):
         my_exp_attrs = copy.deepcopy(self.exp_attrs())
         if "position" not in xds.attrs["telescope"]:
@@ -597,7 +604,10 @@ class xds_from_image_test(ImageBase):
             self.dict_equality(
                 xds.attrs, big_xds.attrs, "block xds", "main xds", ["history"]
             )
-            coords = ["time", "polarization", "frequency", "velocity", "l", "m"]
+            coords = [
+                "time", "polarization", "frequency",
+                "velocity", "l", "m", "beam_param"
+            ]
             if i == 0:
                 coords.extend(["right_ascension", "declination"])
             elif i == 1:
@@ -704,6 +714,10 @@ class casa_image_to_xds_test(xds_from_image_test):
     def test_xds_l_m_axis(self):
         """Test xds has correct l and m values and attributes"""
         self.compare_l_m(self.xds())
+
+    def test_xds_beam_param_axis(self):
+        """Test xds has correct beam values and attributes"""
+        self.compare_beam_param(self.xds())
 
     def test_xds_no_sky(self):
         """Test xds does not have sky coordinates"""
@@ -1124,7 +1138,7 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
         mb[:, :, :, 2] = 0.00003
         xdb = xr.DataArray(mb, dims=["time", "frequency", "polarization", "beam_param"])
         xdb = xdb.rename("BEAM")
-        xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
+        # xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
         xdb.attrs["units"] = "rad"
         xds = copy.deepcopy(self.xds())
         xds["BEAM"] = xdb
@@ -1210,6 +1224,16 @@ class fits_to_xds_test(xds_from_image_test):
                     self.assertTrue(
                         c not in fds.coords, f"{c} in coords but should not be"
                     )
+    def test_xds_beam_param_axis(self):
+        for fds in (self._fds, self._fds_no_sky):
+            self.assertTrue(
+                "beam_param" in fds.coords,
+                "beam_param not in coords",
+            )
+            self.assertTrue(
+                (fds.beam_param == ["major", "minor", "pa"]).all(),
+                "Incorrect beam_param values",
+            )
 
     def test_xds_attrs(self):
         """Test xds level attributes"""

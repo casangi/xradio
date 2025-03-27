@@ -33,7 +33,7 @@ def _make_coords(
         chan_coords = [chan_coords]
     chan_coords = np.array(chan_coords, dtype=np.float64)
     restfreq = chan_coords[len(chan_coords) // 2]
-    vel_coords = (1 - chan_coords / restfreq) * _c
+    vel_coords = (1 - chan_coords / restfreq) * _c.to("m/s").value
     if not isinstance(time_coords, list) and not isinstance(time_coords, np.ndarray):
         time_coords = [time_coords]
     time_coords = np.array(time_coords, dtype=np.float64)
@@ -129,6 +129,7 @@ def _make_common_coords(
             "frequency": some_coords["chan"],
             "velocity": ("frequency", some_coords["vel"]),
             "polarization": pol_coords,
+            "beam_param": ["major", "minor", "pa"],
         },
         "restfreq": some_coords["restfreq"],
     }

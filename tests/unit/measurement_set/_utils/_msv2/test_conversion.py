@@ -3,9 +3,12 @@ from contextlib import nullcontext as no_raises
 
 import numpy as np
 import pytest
+import shutil
 import xarray as xr
 
 import xradio.measurement_set._utils._msv2.conversion as conversion
+from xradio.measurement_set.schema import VisibilityXds
+from xradio.schema.check import check_dataset
 
 
 minxds = namedtuple("minxds", "data_vars coords sizes")
@@ -313,10 +316,26 @@ def test_convert_and_write_partition_empty(ms_empty_required):
 
 def test_convert_and_write_partition_min(ms_minimal_required):
 
-    conversion.convert_and_write_partition(
-        ms_minimal_required.fname,
-        "out_file_test_convert_write.zarr",
-        "msv4_id",
-        {"DATA_DESC_ID": [0], "OBS_MODE": ["scan_intent#subscan_intent"]},
-        use_table_iter=False,
-    )
+    out_name = "out_file_test_convert_write.zarr"
+    msv4_id = "msv4_id"
+    try:
+        conversion.convert_and_write_partition(
+            ms_minimal_required.fname,
+            out_name,
+            msv4_id,
+            {"DATA_DESC_ID": [0], "OBS_MODE": ["scan_intent#subscan_intent"]},
+            use_table_iter=False,
+        )
+
+        correlated_xds = xr.open_dataset(
+            out_name
+            + "/"
+            + ms_minimal_required.fname.rsplit(".")[0]
+            + "_"
+            + msv4_id
+            + "/correlated_xds",
+            engine="zarr",
+        )
+        check_dataset(correlated_xds, VisibilityXds)
+    finally:
+        shutil.rmtree(out_name)

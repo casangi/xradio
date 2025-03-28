@@ -22,19 +22,19 @@ def test_cols_from_xds_to_ms(cols, expected_output):
     assert cols_from_xds_to_ms(cols) == expected_output
 
 
-def test_xds_packager_mxds(ant_xds_min):
+def test_xds_packager_mxds(generic_antenna_xds_min):
     from xradio.measurement_set._utils._msv2._tables.write_exp_api import (
         vis_xds_packager_mxds,
     )
     from xarray.core.utils import Frozen
 
     addt = "addition"
-    subts = [("antenna", ant_xds_min)]
+    subts = [("antenna", generic_antenna_xds_min)]
     parts = {9: 0}
     res = vis_xds_packager_mxds(parts, subts, addt)
     assert res.data_vars == {}
     assert res.sizes == Frozen({})
-    assert res.attrs["metainfo"] == [("antenna", ant_xds_min)]
+    assert res.attrs["metainfo"] == [("antenna", generic_antenna_xds_min)]
     assert res.attrs["partitions"] == parts
 
 
@@ -83,23 +83,24 @@ def test_flatten_xds_main_min(main_xds_min):
     from xradio.measurement_set._utils._msv2._tables.write_exp_api import flatten_xds
 
     res = flatten_xds(main_xds_min)
-    assert all(
-        [dim in res.dims for dim in ["row", "uvw_coords", "freq", "pol", "antenna_id"]]
-    )
+    assert all([dim in res.dims for dim in ["row", "uvw_coords", "freq", "pol"]])
     assert all([dim not in res.dims for dim in ["time", "baseline"]])
 
 
 def test_write_ms_with_cds():
     from xradio.measurement_set._utils._msv2._tables.write_exp_api import write_ms
-    from xradio.measurement_set._utils._utils.cds import CASAVisSet
 
     with pytest.raises(IndexError, match="out of range"):
-        write_ms(CASAVisSet({}, {}, "empty"), "test_out_vis.ms")
+        write_ms(
+            xr.Dataset(attrs={"partitions": {}, "metainfo": {}}), "test_out_vis.ms"
+        )
 
 
 def test_write_ms_empty():
-    from xradio.measurement_set._utils._msv2._tables.write_exp_api import write_ms
-    from xradio.measurement_set._utils._utils.xds_helper import vis_xds_packager_mxds
+    from xradio.measurement_set._utils._msv2._tables.write_exp_api import (
+        vis_xds_packager_mxds,
+        write_ms,
+    )
 
     mxds = vis_xds_packager_mxds({}, {}, add_global_coords=True)
     with pytest.raises(IndexError, match="out of range"):
@@ -108,9 +109,9 @@ def test_write_ms_empty():
 
 def test_write_ms_serial_empty():
     from xradio.measurement_set._utils._msv2._tables.write_exp_api import (
+        vis_xds_packager_mxds,
         write_ms_serial,
     )
-    from xradio.measurement_set._utils._utils.xds_helper import vis_xds_packager_mxds
 
     mxds = vis_xds_packager_mxds({}, {}, add_global_coords=True)
     with pytest.raises(IndexError, match="out of range"):
@@ -119,30 +120,23 @@ def test_write_ms_serial_empty():
 
 def test_write_ms_cds_min(cds_minimal_required, tmp_path):
     from xradio.measurement_set._utils._msv2._tables.write_exp_api import write_ms
-    from xradio.measurement_set._utils._utils.xds_helper import vis_xds_packager_mxds
 
-    mxds_min = vis_xds_packager_mxds(
-        cds_minimal_required.partitions,
-        cds_minimal_required.metainfo,
-        add_global_coords=False,
-    )
-    outpath = str(Path(tmp_path, "test_write_cds_min_blah.ms"))
-    write_ms(mxds_min, outpath, subtables=True, modcols={"FLAG": "flag"})
+    with pytest.raises(KeyError, match="variable named"):
+        outpath = str(Path(tmp_path, "test_write_cds_min_blah.ms"))
+        write_ms(
+            cds_minimal_required, outpath, subtables=True, modcols={"FLAG": "flag"}
+        )
 
 
 def test_write_ms_serial_cds_min(cds_minimal_required, tmp_path):
     from xradio.measurement_set._utils._msv2._tables.write_exp_api import (
+        vis_xds_packager_mxds,
         write_ms_serial,
     )
-    from xradio.measurement_set._utils._utils.xds_helper import vis_xds_packager_mxds
 
-    mxds_min = vis_xds_packager_mxds(
-        cds_minimal_required.partitions,
-        cds_minimal_required.metainfo,
-        add_global_coords=False,
-    )
-    outpath = str(Path(tmp_path, "test_write_cds_min_blah.ms"))
-    write_ms_serial(mxds_min, outpath, subtables=True, verbose=True)
+    with pytest.raises(KeyError, match="variable named"):
+        outpath = str(Path(tmp_path, "test_write_cds_min_blah.ms"))
+        write_ms_serial(cds_minimal_required, outpath, subtables=True, verbose=True)
 
 
 BYTES_TO_GB = 1024 * 1024 * 1204

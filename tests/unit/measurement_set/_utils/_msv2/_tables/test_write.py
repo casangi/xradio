@@ -43,11 +43,13 @@ def test_type_converter(nptype, expected_result):
     assert type_converter(nptype) == expected_result
 
 
-def test_create_table_pol(pol_xds_min, tmp_path):
+def test_create_table_pol(generic_polarization_xds_min, tmp_path):
     from xradio.measurement_set._utils._msv2._tables.write import create_table
 
     outtab = str(Path(tmp_path, "test_create_table_pol_out.tab"))
-    create_table(outfile=outtab, xds=pol_xds_min, max_rows=100, generic=True)
+    create_table(
+        outfile=outtab, xds=generic_polarization_xds_min, max_rows=100, generic=True
+    )
 
 
 def test_create_table_ant_with_col(generic_antenna_xds_min, tmp_path):
@@ -87,27 +89,34 @@ def test_create_table_with_infile(
     )
 
 
-def test_write_generic_table_ant(ant_xds_min, tmp_path):
+def test_write_generic_table_antenna(generic_antenna_xds_min, tmp_path):
     from xradio.measurement_set._utils._msv2._tables.write import write_generic_table
 
     dirname = Path(tmp_path, "test_write_generic_table.ant")
-    write_generic_table(ant_xds_min, outfile=dirname, subtable="")
+    write_generic_table(generic_antenna_xds_min, outfile=dirname, subtable="")
 
 
-def test_write_generic_table_ant_named(
-    ant_xds_min,
+def test_write_generic_table_antenna_named(
+    generic_antenna_xds_min,
     ms_minimal_for_writes,
 ):
     """giving subtable name which will require the presence of a parent main table"""
     from xradio.measurement_set._utils._msv2._tables.write import write_generic_table
 
     write_generic_table(
-        ant_xds_min, outfile=ms_minimal_for_writes.fname, subtable="antenna"
+        generic_antenna_xds_min, outfile=ms_minimal_for_writes.fname, subtable="antenna"
     )
 
 
-def test_write_generic_table_pol(pol_xds_min, tmp_path):
+def test_write_generic_table_pol(generic_polarization_xds_min, tmp_path):
     from xradio.measurement_set._utils._msv2._tables.write import write_generic_table
 
     dirname = Path(tmp_path, "test_write_generic_table.pol")
-    write_generic_table(pol_xds_min, outfile=dirname, subtable="")
+    write_generic_table(generic_polarization_xds_min, outfile=dirname, subtable="")
+
+
+def test_write_generic_table_observation(generic_observation_xds_min, tmp_path):
+    from xradio.measurement_set._utils._msv2._tables.write import write_generic_table
+
+    dirname = Path(tmp_path, "test_write_generic_table.observation")
+    write_generic_table(generic_observation_xds_min, outfile=dirname, subtable="")

@@ -1,4 +1,5 @@
 from astropy.wcs import WCS
+from collections import OrderedDict
 import numpy as np
 import xarray as xr
 from typing import List, Union
@@ -50,7 +51,6 @@ def _add_common_attrs(
     projection: str,
 ) -> xr.Dataset:
     xds.time.attrs = make_time_coord_attrs(units=["d"], scale="utc", time_format="mjd")
-    # xds.time.attrs = {"format": "MJD", "scale": "UTC", "units": "d"}
     freq_vals = np.array(xds.frequency)
     xds.frequency.attrs = {
         "observer": spectral_reference.lower(),
@@ -66,9 +66,6 @@ def _add_common_attrs(
         "wave_unit": ["mm"],
     }
     xds.velocity.attrs = {"doppler_type": "radio", "type": "doppler", "units": "m/s"}
-    # debug = make_skycoord_dict(
-    #     data=phase_center, units=["rad", "rad"], frame=direction_reference
-    # ).update({"equinox": "j2000"})
     reference = make_skycoord_dict(
         data=phase_center, units=["rad", "rad"], frame=direction_reference
     )
@@ -77,42 +74,12 @@ def _add_common_attrs(
         "data_groups": {"base": {}},
         "direction": {
             "reference": reference,
-            # "reference": {
-            #     "type": "sky_coord",
-            #     "frame": direction_reference,
-            #     "equinox": "j2000",
-            #     "value": list(phase_center),
-            #     "units": ["rad", "rad"],
-            # },
             "lonpole": make_quantity(np.pi, "rad", ["l", "m"]),
             "latpole": make_quantity(0.0, "rad", ["l", "m"]),
             "pc": [[1.0, 0.0], [0.0, 1.0]],
             "projection": projection,
             "projection_parameters": [0.0, 0.0],
         },
-        # "active_mask": "",
-        # "beam": None,
-        # "object_name": "",
-        # "obsdate": {
-        #     "type": "time",
-        #     "scale": "UTC",
-        #     "format": "MJD",
-        #     "value": np.array(xds.time)[0],
-        #     "units": "d",
-        # },
-        # "observer": "Karl Jansky",
-        # "pointing_center": {"value": list(phase_center), "initial": True},
-        # "description": "",
-        # "telescope": {
-        #     "name": "ALMA",
-        #     "position": {
-        #         "type": "position",
-        #         "ellipsoid": "GRS80",
-        #         "units": ["rad", "rad", "m"],
-        #         "value": [-1.1825465955049892, -0.3994149869262738, 6379946.01326443],
-        #     },
-        # },
-        # "history": None,
     }
     return xds
 
@@ -129,7 +96,6 @@ def _make_common_coords(
             "frequency": some_coords["chan"],
             "velocity": ("frequency", some_coords["vel"]),
             "polarization": pol_coords,
-            "beam_param": ["major", "minor", "pa"],
         },
         "restfreq": some_coords["restfreq"],
     }
@@ -170,25 +136,9 @@ def _make_sky_coords(
 def _add_lm_coord_attrs(xds: xr.Dataset) -> xr.Dataset:
     attr_note = _l_m_attr_notes()
     xds.l.attrs = {
-        # "type": "quantity",
-        # crval is always 0.0 for l
-        # "crval": 0.0,
-        # cdelt determined from coordinate value differences
-        # "cdelt": -abs(cell_size[0]),
-        # units come from xds level direction metadata
-        # "units": "rad",
-        # "type": "quantity",
         "note": attr_note["l"],
     }
     xds.m.attrs = {
-        # "type": "quantity",
-        # crval is always 0.0 for m
-        # "crval": 0.0,
-        # cdelt determined from coordinate value differences
-        # "cdelt": abs(cell_size[1]),
-        # units come from xds level direction metadata
-        # "units": "rad",
-        # "type": "quantity",
         "note": attr_note["m"],
     }
 
@@ -213,6 +163,7 @@ def _make_empty_sky_image(
     if do_sky_coords:
         coords.update(_make_sky_coords(projection, image_size, cell_size, phase_center))
     xds = xr.Dataset(coords=coords)
+    xds = _move_beam_param_dim_coord(xds)
     _add_lm_coord_attrs(xds)
     _add_common_attrs(
         xds,
@@ -268,8 +219,6 @@ def _make_empty_aperture_image(
     _input_checks(phase_center, image_size, sky_image_cell_size)
     cc = _make_common_coords(pol_coords, chan_coords, time_coords)
     coords = cc["coords"]
-    # uv_values = _make_uv_values(image_size, sky_image_cell_size)
-    # coords.update(uv_values)
     xds = xr.Dataset(coords=coords)
     xds = _make_uv_coords(xds, image_size, sky_image_cell_size)
     _add_common_attrs(
@@ -281,7 +230,12 @@ def _make_empty_aperture_image(
         sky_image_cell_size,
         projection,
     )
+    xds = _move_beam_param_dim_coord(xds)
     return xds
+
+
+def _move_beam_param_dim_coord(xds: xr.Dataset) -> xr.Dataset:
+    return xds.assign_coords(beam_param=("beam_param", ["major", "minor", "pa"]))
 
 
 def _make_empty_lmuv_image(
@@ -308,6 +262,6 @@ def _make_empty_lmuv_image(
         spectral_reference,
         do_sky_coords,
     )
-    # uv_vals = _make_uv_values(image_size, sky_image_cell_size)
     xds = _make_uv_coords(xds, image_size, sky_image_cell_size)
+    xds = _move_beam_param_dim_coord(xds)
     return xds

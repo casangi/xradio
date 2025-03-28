@@ -517,6 +517,7 @@ def _create_coords(
     else:
         # Fourier image
         coords["u"], coords["v"] = _get_uv_values(helpers)
+    coords["beam_param"] = ["major", "minor", "pa"]
     xds = xr.Dataset(coords=coords)
     return xds
 

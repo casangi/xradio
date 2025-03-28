@@ -332,6 +332,7 @@ def _casa_image_to_xds_coords(
         ret = _get_uv_values_attrs(coord_dict, axis_names, shape)
         for z in ["u", "v"]:
             coords[z], coord_attrs[z] = ret[z]
+    coords["beam_param"] = ["major", "minor", "pa"]
     attrs["shape"] = shape
     xds = xr.Dataset(coords=coords)
     for c in coord_attrs.keys():

@@ -108,7 +108,14 @@ class xds_from_image_test(ImageBase):
     _xds = None
     _exp_vals: dict = {
         "shape": xr.core.utils.Frozen(
-            {"time": 1, "frequency": 10, "polarization": 4, "l": 30, "m": 20}
+            {
+                "time": 1,
+                "frequency": 10,
+                "polarization": 4,
+                "l": 30,
+                "m": 20,
+                "beam_param": 3,
+            }
         ),
         "freq_waveunit": "mm",
         "image_type": "Intensity",
@@ -150,6 +157,7 @@ class xds_from_image_test(ImageBase):
             "dims": [],
         },
         "wave_unit": "mm",
+        "beam_param": ["major", "minor", "pa"],
     }
     _rad_to_arcmin = np.pi / 180 / 60
     _exp_attrs = {}
@@ -536,6 +544,12 @@ class xds_from_image_test(ImageBase):
             np.allclose(xds.declination, ev["dec"], atol=1e-15), "Incorrect Dec values"
         )
 
+    def compare_beam_param(self, xds: xr.Dataset) -> None:
+        ev = self._exp_vals
+        self.assertTrue(
+            (xds.beam_param == ev["beam_param"]).all(), "Incorrect beam param values"
+        )
+
     def compare_attrs(self, xds: xr.Dataset, fits: bool = False):
         my_exp_attrs = copy.deepcopy(self.exp_attrs())
         if "position" not in xds.attrs["telescope"]:
@@ -597,7 +611,15 @@ class xds_from_image_test(ImageBase):
             self.dict_equality(
                 xds.attrs, big_xds.attrs, "block xds", "main xds", ["history"]
             )
-            coords = ["time", "polarization", "frequency", "velocity", "l", "m"]
+            coords = [
+                "time",
+                "polarization",
+                "frequency",
+                "velocity",
+                "l",
+                "m",
+                "beam_param",
+            ]
             if i == 0:
                 coords.extend(["right_ascension", "declination"])
             elif i == 1:
@@ -704,6 +726,10 @@ class casa_image_to_xds_test(xds_from_image_test):
     def test_xds_l_m_axis(self):
         """Test xds has correct l and m values and attributes"""
         self.compare_l_m(self.xds())
+
+    def test_xds_beam_param_axis(self):
+        """Test xds has correct beam values and attributes"""
+        self.compare_beam_param(self.xds())
 
     def test_xds_no_sky(self):
         """Test xds does not have sky coordinates"""
@@ -1124,7 +1150,7 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
         mb[:, :, :, 2] = 0.00003
         xdb = xr.DataArray(mb, dims=["time", "frequency", "polarization", "beam_param"])
         xdb = xdb.rename("BEAM")
-        xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
+        # xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
         xdb.attrs["units"] = "rad"
         xds = copy.deepcopy(self.xds())
         xds["BEAM"] = xdb
@@ -1210,6 +1236,17 @@ class fits_to_xds_test(xds_from_image_test):
                     self.assertTrue(
                         c not in fds.coords, f"{c} in coords but should not be"
                     )
+
+    def test_xds_beam_param_axis(self):
+        for fds in (self._fds, self._fds_no_sky):
+            self.assertTrue(
+                "beam_param" in fds.coords,
+                "beam_param not in coords",
+            )
+            self.assertTrue(
+                (fds.beam_param == ["major", "minor", "pa"]).all(),
+                "Incorrect beam_param values",
+            )
 
     def test_xds_attrs(self):
         """Test xds level attributes"""
@@ -1707,33 +1744,8 @@ class make_empty_image_tests(ImageBase):
         }
         data_groups = {"base": {}}
         expec = {
-            # "active_mask": "",
-            # "beam": None,
             "data_groups": data_groups,
             "direction": direction,
-            # "object_name": "",
-            # "obsdate": {
-            #     "type": "time",
-            #     "scale": "UTC",
-            #     "format": "MJD",
-            #     "value": 54000.0,
-            #     "units": "d",
-            # },
-            # "observer": "Karl Jansky",
-            # "pointing_center": {"value": np.array([0.2, -0.5]), "initial": True},
-            # "description": "",
-            # "telescope": {
-            #     "name": "ALMA",
-            #     "position": {
-            #         "type": "position",
-            #         "ellipsoid": "GRS80",
-            #         "units": ["rad", "rad", "m"],
-            #         "value": np.array(
-            #             [-1.1825465955049892, -0.3994149869262738, 6379946.01326443]
-            #         ),
-            #     },
-            # },
-            # "history": None,
         }
         self.dict_equality(skel.attrs, expec, "got", "expected")
 
@@ -1758,6 +1770,34 @@ class make_empty_sky_image_tests(make_empty_image_tests):
 
     def skel_im_no_sky(self):
         return self._skel_im_no_sky
+
+    def test_dims_and_coords(self):
+        for skel in [self.skel_im(), self.skel_im_no_sky()]:
+            self.assertEqual(
+                list(skel.sizes.keys()),
+                ["time", "frequency", "polarization", "l", "m", "beam_param"],
+                "Incorrect dims",
+            )
+        self.assertEqual(
+            list(self.skel_im().coords.keys()),
+            [
+                "time",
+                "frequency",
+                "velocity",
+                "polarization",
+                "l",
+                "m",
+                "right_ascension",
+                "declination",
+                "beam_param",
+            ],
+            "Incorrect coords",
+        )
+        self.assertEqual(
+            list(self.skel_im_no_sky().coords.keys()),
+            ["time", "frequency", "velocity", "polarization", "l", "m", "beam_param"],
+            "Incorrect coords",
+        )
 
     def test_time_coord(self):
         for skel in [self.skel_im(), self.skel_im_no_sky()]:
@@ -1808,6 +1848,18 @@ class make_empty_aperture_image_tests(make_empty_image_tests):
     def skel_im(self):
         return self._skel_im
 
+    def test_dims_and_coords(self):
+        self.assertEqual(
+            list(self.skel_im().sizes.keys()),
+            ["time", "frequency", "polarization", "u", "v", "beam_param"],
+            "Incorrect dims",
+        )
+        self.assertEqual(
+            list(self.skel_im().coords.keys()),
+            ["time", "frequency", "velocity", "polarization", "u", "v", "beam_param"],
+            "Incorrect coords",
+        )
+
     def test_time_coord(self):
         skel = self.skel_im()
         self.run_time_tests(skel)
@@ -1852,6 +1904,46 @@ class make_empty_lmuv_image_tests(make_empty_image_tests):
 
     def skel_im_no_sky(self):
         return self._skel_im_no_sky
+
+    def test_dims(self):
+        for skel in [self.skel_im(), self.skel_im_no_sky()]:
+            self.assertEqual(
+                tuple(skel.sizes.keys()),
+                ("time", "frequency", "polarization", "l", "m", "u", "v", "beam_param"),
+                "Incorrect sizes",
+            )
+        self.assertEqual(
+            list(self.skel_im().coords.keys()),
+            [
+                "time",
+                "frequency",
+                "velocity",
+                "polarization",
+                "l",
+                "m",
+                "right_ascension",
+                "declination",
+                "u",
+                "v",
+                "beam_param",
+            ],
+            "Incorrect coords",
+        )
+        self.assertEqual(
+            list(self.skel_im_no_sky().coords.keys()),
+            [
+                "time",
+                "frequency",
+                "velocity",
+                "polarization",
+                "l",
+                "m",
+                "u",
+                "v",
+                "beam_param",
+            ],
+            "Incorrect coords",
+        )
 
     def test_time_coord(self):
         skel = self.skel_im()

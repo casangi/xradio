@@ -7,7 +7,7 @@ import os
 from collections.abc import Mapping, Iterable
 from typing import Any, Union
 
-MS_DATASET_TYPES = {"visibility", "spectrum", "wvr"}
+MS_DATASET_TYPES = {"visibility", "spectrum", "radiometer"}
 
 
 class InvalidAccessorLocation(ValueError):
@@ -75,9 +75,11 @@ class MeasurementSetXdt:
         if self._xdt.attrs.get("type") not in MS_DATASET_TYPES:
             raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4 node.")
 
-        assert (self._xdt.attrs["type"] == "visibility") or (
-            self._xdt.attrs["type"] == "spectrum"
-        ), "The type of the xdt must be 'visibility' or 'spectrum'."
+        assert self._xdt.attrs["type"] in [
+            "visibility",
+            "spectrum",
+            "radiometer",
+        ], "The type of the xdt must be 'visibility', 'spectrum' or 'radiometer'."
 
         if "data_group_name" in indexers_kwargs:
             data_group_name = indexers_kwargs["data_group_name"]
@@ -157,7 +159,9 @@ class MeasurementSetXdt:
             Partition info dict for the MSv4
         """
         if self._xdt.attrs.get("type") not in MS_DATASET_TYPES:
-            raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4 node.")
+            raise InvalidAccessorLocation(
+                f"{self._xdt.path} is not a MSv4 node (type {self._xdt.attrs.get('type')}."
+            )
 
         field_and_source_xds = self._xdt.ms.get_field_and_source_xds()
 

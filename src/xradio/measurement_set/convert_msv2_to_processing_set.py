@@ -62,7 +62,8 @@ def convert_msv2_to_processing_set(
     sys_cal_interpolate: bool = False,
     use_table_iter: bool = False,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
-    parallel: bool = False,
+    storage_backend: str = "zarr",
+    parallel_mode: str = "none",
     overwrite: bool = False,
 ):
     """Convert a Measurement Set v2 into a Processing Set of Measurement Set v4.
@@ -97,8 +98,12 @@ def convert_msv2_to_processing_set(
         Whether to use the table iterator to read the main table of the MS v2. This should be set to True when reading datasets with large number of rows and few partitions, by default False.
     compressor : numcodecs.abc.Codec, optional
         The Blosc compressor to use when saving the converted data to disk using Zarr, by default numcodecs.Zstd(level=2).
-    parallel : bool, optional
-        Makes use of Dask to execute conversion in parallel, by default False.
+    storage_backend : {"zarr", "netcdf"}, optional
+        The on-disk format to use. "netcdf" is not yet implemented.
+    parallel_mode : {"none", "partition", "time"}, optional
+        Choose whether to use Dask to execute conversion in parallel, by default "none" and conversion occurs serially.
+        The option "partition", parallelises the conversion over partitions specified by `partition_scheme`. The option "time" can only be used for phased array interferometers where there are no partitions
+        in the MS v2; instead the MS v2 is parallelised along the time dimension and can be controlled by `main_chunksize`.
     overwrite : bool, optional
         Whether to overwrite an existing processing set, by default False.
     """
@@ -118,8 +123,22 @@ def convert_msv2_to_processing_set(
     else:
         ps_dt.to_zarr(store=out_file, mode="w-")
 
+    # Check `parallel_mode` is valid
+    try:
+        assert parallel_mode in ["none", "partition", "time"]
+    except AssertionError:
+        logger.warning(
+            f"`parallel_mode` {parallel_mode} not recognosed. Defauling to 'none'."
+        )
+        parallel_mode = "none"
+
     partitions = create_partitions(in_file, partition_scheme=partition_scheme)
     logger.info("Number of partitions: " + str(len(partitions)))
+    if parallel_mode == "time":
+        assert (
+            len(partitions) == 1
+        ), "MS v2 contains more than one partition. `parallel_mode = 'time'` not valid."
+
     delayed_list = []
 
     for ms_v4_id, partition_info in enumerate(partitions):
@@ -145,7 +164,7 @@ def convert_msv2_to_processing_set(
 
         # prepend '0' to ms_v4_id as needed
         ms_v4_id = f"{ms_v4_id:0>{len(str(len(partitions) - 1))}}"
-        if parallel:
+        if parallel_mode == "partition":
             delayed_list.append(
                 dask.delayed(convert_and_write_partition)(
                     in_file,
@@ -162,6 +181,7 @@ def convert_msv2_to_processing_set(
                     phase_cal_interpolate=phase_cal_interpolate,
                     sys_cal_interpolate=sys_cal_interpolate,
                     compressor=compressor,
+                    parallel_mode=parallel_mode,
                     overwrite=overwrite,
                 )
             )
@@ -181,10 +201,11 @@ def convert_msv2_to_processing_set(
                 phase_cal_interpolate=phase_cal_interpolate,
                 sys_cal_interpolate=sys_cal_interpolate,
                 compressor=compressor,
+                parallel_mode=parallel_mode,
                 overwrite=overwrite,
             )
 
-    if parallel:
+    if parallel_mode == "partition":
         dask.compute(delayed_list)
 
     import zarr

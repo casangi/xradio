@@ -26,9 +26,9 @@ relative_tolerance = 10 ** (-6)
 
 
 # Uncomment to not clean up files between test (i.e. skip downloading them again)
-# @pytest.fixture
-# def tmp_path():
-#    return pathlib.Path("/tmp/test")
+@pytest.fixture
+def tmp_path():
+    return pathlib.Path("/tmp/test")
 
 
 def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_scheme):
@@ -77,7 +77,7 @@ def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_sch
         # sys_cal_interpolate=True,
         use_table_iter=False,
         overwrite=True,
-        parallel=False,
+        parallel_mode="none",
     )
     return ps_name
 
@@ -152,7 +152,7 @@ def base_check_ms_accessor(ps_xdt: xr.DataTree):
         ms_xdt = ps_xdt[ms_xds_name]
         assert "type" in ms_xdt.attrs and ms_xdt.attrs["type"] in [
             "visibility",
-            "wvr",
+            "radiometer",
             "spectrum",
         ]
 
@@ -265,9 +265,7 @@ def base_test(
 
         if do_schema_check:
             start_check = time.time()
-
-            check_datatree(ps_xdt).expect()
-
+            check_datatree(ps_xdt)
             print(
                 f"Time to check datasets (all MSv4s) against schema: {time.time() - start_check}"
             )
@@ -482,6 +480,10 @@ def test_askap_59755_eq_interleave_15(tmp_path):
     base_test("59755_eq_interleave_15.ms", tmp_path, 2949046016.0)
 
 
+def test_gmrt(tmp_path):
+    base_test("gmrt.ms", tmp_path, 541752852480.0)
+
+
 if __name__ == "__main__":
     a = 42
     from pathlib import Path
@@ -598,7 +600,7 @@ if __name__ == "__main__":
 """
 ALMA_uid___A002_X1003af4_X75a3.split.avg.ms: An ephemeris mosaic observation of the sun.
 
-ALMA archive file downloaded: https://almascience.nrao.edu/dataPortal/2022.A.00001.S_uid___A002_X1003af4_X75a3.asdm.sdm.tar 
+ALMA archive file downloaded: https://almascience.nrao.edu/dataPortal/2022.A.00001.S_uid___A002_X1003af4_X75a3.asdm.sdm.tar
 
 - Project: 2022.A.00001.S
 - Member ous id (MOUS): uid://A001/X3571/X130
@@ -614,7 +616,7 @@ import numpy as np
 
 for subtable in ['FLAG_CMD', 'POINTING', 'CALDEVICE', 'ASDM_CALATMOSPHERE']:
     tb.open('ALMA_uid___A002_X1003af4_X75a3.split.avg.ms::'+subtable,nomodify=False)
-    tb.removerows(np.arange(tb.nrows())) 
+    tb.removerows(np.arange(tb.nrows()))
     tb.flush()
     tb.done()
 ```

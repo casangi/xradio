@@ -35,7 +35,7 @@ from xradio._utils.dict_helpers import (
     make_quantity,
     make_frequency_reference_dict,
     make_skycoord_dict,
-    _casacore_q_to_xradio_q
+    _casacore_q_to_xradio_q,
 )
 
 

@@ -152,7 +152,7 @@ class MeasurementSetXdt:
         dicts of the MSv4. For example, the SPW name comes from the attributes of the
         frequency coordinate, whereas field and source related information such as field and
         source names come from the field_and_source_xds (base) dataset of the MSv4.
-        
+
         Parameters
         ----------
         data_group_name : str, optional

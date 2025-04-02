@@ -94,7 +94,7 @@ def base_check_ps_accessor(ps_lazy_xdt: xr.DataTree, ps_xdt: xr.DataTree):
     """
 
     for top_xdt in [ps_lazy_xdt, ps_xdt]:
-        assert hasattr(top_xdt, "ps") and isinstance(top_xdt.ps, ProcessingSetXdt)
+        assert hasattr(top_xdt, "xr_ps") and isinstance(top_xdt.xr_ps, ProcessingSetXdt)
         assert "type" in top_xdt.attrs and top_xdt.attrs["type"] == "processing_set"
 
     expected_summary_keys = [
@@ -111,9 +111,9 @@ def base_check_ps_accessor(ps_lazy_xdt: xr.DataTree, ps_xdt: xr.DataTree):
         "start_frequency",
         "end_frequency",
     ]
-    ps_lazy_xdt_df = ps_lazy_xdt.ps.summary()
+    ps_lazy_xdt_df = ps_lazy_xdt.xr_ps.summary()
     assert all([key in ps_lazy_xdt_df for key in expected_summary_keys])
-    ps_xdt_df = ps_xdt.ps.summary()
+    ps_xdt_df = ps_xdt.xr_ps.summary()
     assert all([key in ps_xdt_df for key in expected_summary_keys])
     pd.testing.assert_frame_equal(ps_lazy_xdt_df, ps_xdt_df)
 
@@ -124,23 +124,23 @@ def base_check_ps_accessor(ps_lazy_xdt: xr.DataTree, ps_xdt: xr.DataTree):
         "polarization",
         "uvw_label",
     ]
-    max_dims = ps_xdt.ps.get_max_dims()
+    max_dims = ps_xdt.xr_ps.get_max_dims()
     assert isinstance(max_dims, dict)
     assert all([dim in max_dims for dim in max_dims])
 
-    empty_query_result = ps_xdt.ps.query()
+    empty_query_result = ps_xdt.xr_ps.query()
     assert isinstance(empty_query_result, xr.DataTree)
-    empty_query_df = empty_query_result.ps.summary()
+    empty_query_df = empty_query_result.xr_ps.summary()
     pd.testing.assert_frame_equal(ps_xdt_df, empty_query_df)
 
-    freq_axis = ps_xdt.ps.get_freq_axis()
+    freq_axis = ps_xdt.xr_ps.get_freq_axis()
     assert isinstance(freq_axis, xr.DataArray)
 
-    combined_field_xds = ps_xdt.ps.get_combined_field_and_source_xds()
+    combined_field_xds = ps_xdt.xr_ps.get_combined_field_and_source_xds()
     assert type(combined_field_xds) == xr.Dataset
-    combined_antenna = ps_xdt.ps.get_combined_antenna_xds()
+    combined_antenna = ps_xdt.xr_ps.get_combined_antenna_xds()
     assert type(combined_antenna) == xr.Dataset
-    base_field_xds = ps_xdt.ps.get_combined_field_and_source_xds("base")
+    base_field_xds = ps_xdt.xr_ps.get_combined_field_and_source_xds("base")
     assert type(base_field_xds) == xr.Dataset
 
 
@@ -168,21 +168,21 @@ def base_check_ms_accessor(ps_xdt: xr.DataTree):
         # assert ms_xdt["weather_xds"]
         # assert ms_xdt.ds  # DatasetView
 
-        assert hasattr(ms_xdt, "ms") and isinstance(ms_xdt.ms, MeasurementSetXdt)
+        assert hasattr(ms_xdt, "xr_ms") and isinstance(ms_xdt.xr_ms, MeasurementSetXdt)
         assert (
-            hasattr(ms_xdt.ms, "get_field_and_source_xds")
-            and callable(ms_xdt.ms.get_field_and_source_xds)
-            and isinstance(ms_xdt.ms.get_field_and_source_xds(), xr.Dataset)
+            hasattr(ms_xdt.xr_ms, "get_field_and_source_xds")
+            and callable(ms_xdt.xr_ms.get_field_and_source_xds)
+            and isinstance(ms_xdt.xr_ms.get_field_and_source_xds(), xr.Dataset)
         )
         assert (
-            hasattr(ms_xdt.ms, "get_partition_info")
-            and callable(ms_xdt.ms.get_partition_info)
-            and isinstance(ms_xdt.ms.get_partition_info(), dict)
+            hasattr(ms_xdt.xr_ms, "get_partition_info")
+            and callable(ms_xdt.xr_ms.get_partition_info)
+            and isinstance(ms_xdt.xr_ms.get_partition_info(), dict)
         )
         assert (
-            hasattr(ms_xdt.ms, "sel")
-            and callable(ms_xdt.ms.sel)
-            and isinstance(ms_xdt.ms.sel(), xr.DataTree)
+            hasattr(ms_xdt.xr_ms, "sel")
+            and callable(ms_xdt.xr_ms.sel)
+            and isinstance(ms_xdt.xr_ms.sel(), xr.DataTree)
         )
 
 
@@ -362,24 +362,24 @@ def test_alma_ephemeris_mosaic(tmp_path):
 
 
 def check_ps_query(ps_xdt):
-    ps_xdt.ps.query(
+    ps_xdt.xr_ps.query(
         query="start_frequency > 2.46e11",
         field_coords="Ephemeris",
         field_name=["Sun_10_10", "Sun_10_11"],
-    ).ps.summary()
-    min_freq = min(ps_xdt.ps.summary()["start_frequency"])
-    ps_xdt.ps.query(start_frequency=min_freq).ps.summary()
-    ps_xdt.ps.query(
+    ).xr_ps.summary()
+    min_freq = min(ps_xdt.xr_ps.summary()["start_frequency"])
+    ps_xdt.xr_ps.query(start_frequency=min_freq).xr_ps.summary()
+    ps_xdt.xr_ps.query(
         name="ALMA_uid___A002_X1003af4_X75a3.split.avg_01", string_exact_match=True
-    ).ps.summary()
-    ps_xdt.ps.query(field_name="Sun_10", string_exact_match=False).ps.summary()
-    ps_xdt.ps.query(
+    ).xr_ps.summary()
+    ps_xdt.xr_ps.query(field_name="Sun_10", string_exact_match=False).xr_ps.summary()
+    ps_xdt.xr_ps.query(
         name="ALMA_uid___A002_X1003af4_X75a3.split.avg", string_exact_match=False
-    ).ps.summary()
+    ).xr_ps.summary()
 
 
 def check_source_and_field_xds(ps_xdt, msv4_name, expected_NP_sum):
-    field_and_source_xds = ps_xdt[msv4_name].ms.get_field_and_source_xds()
+    field_and_source_xds = ps_xdt[msv4_name].xr_ms.get_field_and_source_xds()
     field_and_source_data_variable_names = [
         "FIELD_PHASE_CENTER",
         "HELIOCENTRIC_RADIAL_VELOCITY",

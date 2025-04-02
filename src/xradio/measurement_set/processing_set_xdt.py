@@ -606,24 +606,29 @@ class ProcessingSetXdt:
                     sky_dir_label="dec"
                 ),
             )
-            if label_all_fields:
-                field_name = combined_field_and_source_xds.field_name.values
-                setup_annotations_all(fig.axes[0], scatter, field_name)
-                fig.axes[0].margins(0.2, 0.2)
-
             center_field_name = combined_field_and_source_xds.attrs["center_field_name"]
             center_field = combined_field_and_source_xds.sel(
                 field_name=center_field_name
             )
+
+            if label_all_fields:
+                field_name = combined_field_and_source_xds.field_name.values
+                setup_annotations_all(fig.axes[0], scatter, field_name)
+                fig.axes[0].margins(0.2, 0.2)
+                center_label = None
+            else:
+                center_label = center_field_name
+
             plt.scatter(
                 center_field["FIELD_PHASE_CENTER"].sel(sky_dir_label="ra"),
                 center_field["FIELD_PHASE_CENTER"].sel(sky_dir_label="dec"),
                 color="red",
-                label=center_field_name,
+                label=center_label,
             )
             plt.xlabel("RA (rad)")
             plt.ylabel("DEC (rad)")
-            plt.legend()
+            if not label_all_fields:
+                plt.legend()
             plt.show()
 
         if (len(combined_ephemeris_field_and_source_xds.data_vars) > 0) and (
@@ -642,10 +647,6 @@ class ProcessingSetXdt:
                     sky_dir_label="dec"
                 ),
             )
-            if label_all_fields:
-                field_name = combined_ephemeris_field_and_source_xds.field_name.values
-                setup_annotations_all(fig.axes[0], scatter, field_name)
-                fig.axes[0].margins(0.2, 0.2)
 
             center_field_name = combined_ephemeris_field_and_source_xds.attrs[
                 "center_field_name"
@@ -658,16 +659,26 @@ class ProcessingSetXdt:
             center_field = combined_ephemeris_field_and_source_xds.sel(
                 field_name=center_field_name
             )
+
+            if label_all_fields:
+                field_name = combined_ephemeris_field_and_source_xds.field_name.values
+                setup_annotations_all(fig.axes[0], scatter, field_name)
+                fig.axes[0].margins(0.2, 0.2)
+                center_label = None
+            else:
+                center_label = center_field_name
+
             plt.scatter(
                 center_field["FIELD_OFFSET"].sel(sky_dir_label="ra"),
                 center_field["FIELD_OFFSET"].sel(sky_dir_label="dec"),
                 color="red",
-                label=center_field_name,
+                label=center_label,
             )
 
             plt.xlabel("RA Offset (rad)")
             plt.ylabel("DEC Offset (rad)")
-            plt.legend()
+            if not label_all_fields:
+                plt.legend()
             plt.show()
 
     def get_combined_antenna_xds(self) -> xr.Dataset:

@@ -69,7 +69,7 @@ def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_sch
         # sys_cal_interpolate=True,
         use_table_iter=False,
         overwrite=True,
-        parallel=False,
+        parallel_mode="none",
     )
     return ps_name
 
@@ -171,7 +171,7 @@ def base_test(
         if do_schema_check:
             start_check = time.time()
             for xds_name in ps.keys():
-                if ps[xds_name].attrs["type"] == "visibility":
+                if ps[xds_name].attrs["type"] in ["visibility", "radiometer"]:
                     check_dataset(ps[xds_name], VisibilityXds).expect()
                 elif ps[xds_name].attrs["type"] == "spectrum":
                     check_dataset(ps[xds_name], SpectrumXds).expect()
@@ -396,6 +396,10 @@ def test_askap_59755_eq_interleave_15(tmp_path):
     base_test("59755_eq_interleave_15.ms", tmp_path, 2949046016.0)
 
 
+def test_gmrt(tmp_path):
+    base_test("gmrt.ms", tmp_path, 541752852480.0)
+
+
 if __name__ == "__main__":
     a = 42
     from pathlib import Path
@@ -493,7 +497,7 @@ if __name__ == "__main__":
 """
 ALMA_uid___A002_X1003af4_X75a3.split.avg.ms: An ephemeris mosaic observation of the sun.
 
-ALMA archive file downloaded: https://almascience.nrao.edu/dataPortal/2022.A.00001.S_uid___A002_X1003af4_X75a3.asdm.sdm.tar 
+ALMA archive file downloaded: https://almascience.nrao.edu/dataPortal/2022.A.00001.S_uid___A002_X1003af4_X75a3.asdm.sdm.tar
 
 - Project: 2022.A.00001.S
 - Member ous id (MOUS): uid://A001/X3571/X130
@@ -509,7 +513,7 @@ import numpy as np
 
 for subtable in ['FLAG_CMD', 'POINTING', 'CALDEVICE', 'ASDM_CALATMOSPHERE']:
     tb.open('ALMA_uid___A002_X1003af4_X75a3.split.avg.ms::'+subtable,nomodify=False)
-    tb.removerows(np.arange(tb.nrows())) 
+    tb.removerows(np.arange(tb.nrows()))
     tb.flush()
     tb.done()
 ```

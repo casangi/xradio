@@ -557,7 +557,7 @@ class SpectralCoordArray:
     type: Attr[SpectralCoord] = "spectral_coord"
 
 
-AllowedLocationFrames = Literal["ITRF", "GRS80", "WGS84", "WGS72", "Undefined"]
+AllowedLocationFrames = Literal["ITRS", "Undefined"]
 
 
 AllowedLocationCoordinateSystems = Literal[
@@ -569,11 +569,17 @@ AllowedLocationCoordinateSystems = Literal[
 ]
 
 
+AllowedEllipsoid = Literal["GRS80", "WGS84", "WGS72"]
+
+
 @xarray_dataarray_schema
 class LocationArray:
     """
-    Measure type used for example in antenna_xds/ANTENNA_POSITION, field_and_source_xds/OBSERVER_POSITION
-    Data dimensions can be EllipsoidPosLabel or CartesianPosLabel
+    Measure type used for example in antenna_xds/ANTENNA_POSITION, weather_xds/STATION_POSITION,
+    field_and_source_xds(ephemeris)/OBSERVER_POSITION, field_and_source_xds(ephemeris)/SUB_OBSERVER_DIRECTION,
+    or field_and_source_xds(ephemeris)/SUB_SOLAR_POSITION.
+
+    Data dimensions can be CartesianPosLabel or EllipsoidPosLabel
     """
 
     data: Data[Union[EllipsoidPosLabel, CartesianPosLabel], float]
@@ -588,7 +594,7 @@ class LocationArray:
 
     frame: Attr[AllowedLocationFrames]
     """
-    Can be ITRF, GRS80, WGS84, WGS72, Undefined
+    Reference frame. Can be ITRS (assumed for all Earth locations) or Undefined (used in non-Earth locations).
     """
     frame_realization: Optional[Attr[str]]
     """
@@ -600,7 +606,12 @@ class LocationArray:
 
     origin_object_name: Attr[str]
     """
-    earth/sun/moon/etc
+    earth/sun/moon/etc.
+    """
+
+    ellipsoid: Optional[Attr[AllowedEllipsoid]]
+    """
+    Ellipsoid used in geodetic Earth locations (with EllipsoidPosLabel coordinate)
     """
 
     type: Attr[Location] = "location"

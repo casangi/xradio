@@ -208,7 +208,7 @@ casacore_to_msv4_measure_type = {
     "position": {
         "type": "location",
         "Ref": "frame",
-        "Ref_map": {"ITRF": "GRS80"},
+        "Ref_map": {"ITRF": "ITRS"},
     },
     "uvw": {
         "type": "uvw",

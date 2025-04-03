@@ -80,6 +80,9 @@ def check_expected_datasets_presence(processing_set, expected_secondary_xds: set
     {"antenna", "gain_curve", "system_calibration"}.
     The "_xds" suffix is not needed.
     """
+    if not expected_secondary_xds:
+        return
+
     for _xds_name, msv4_xds in processing_set.items():
         for xds in expected_secondary_xds:
             if not xds.endswith("_xds"):
@@ -542,7 +545,10 @@ def test_askap_59755_eq_interleave_15(tmp_path):
 
 
 def test_gmrt(tmp_path):
-    base_test("gmrt.ms", tmp_path, 541752852480.0)
+    expected_subtables = {"antenna"}
+    base_test(
+        "gmrt.ms", tmp_path, 541752852480.0, expected_secondary_xds=expected_subtables
+    )
 
 
 if __name__ == "__main__":

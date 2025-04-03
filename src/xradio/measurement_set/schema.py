@@ -295,7 +295,7 @@ class SkyCoordArray:
 
     type: Attr[SkyCoord] = "sky_coord"
     units: Attr[UnitsOfSkyCoordInRadians] = ("rad", "rad")
-    frame: Attr[AllowedSkyCoordFrames] = "fk5"
+    frame: Attr[AllowedSkyCoordFrames] = "icrs"
     """
     Possible values are astropy SkyCoord frames.
     Several casacore frames found in MSv2 are translated to astropy frames as follows: AZELGEO=>altaz, J2000=>fk5, ICRS=>icrs.
@@ -324,7 +324,7 @@ class PointingBeamArray:
 
     type: Attr[SkyCoord] = "sky_coord"
     units: Attr[UnitsOfSkyCoordInRadians] = ("rad", "rad")
-    frame: Attr[AllowedSkyCoordFrames] = "fk5"
+    frame: Attr[AllowedSkyCoordFrames] = "icrs"
     """
     From fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled
     as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking
@@ -341,7 +341,7 @@ class LocalSkyCoordArray:
 
     type: Attr[SkyCoord] = "sky_coord"
     units: Attr[UnitsOfSkyCoordInRadians] = ("rad", "rad")
-    frame: Attr[AllowedSkyCoordFrames] = "fk5"
+    frame: Attr[AllowedSkyCoordFrames] = "icrs"
     """
     From fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled
     as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking

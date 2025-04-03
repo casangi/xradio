@@ -572,8 +572,7 @@ AllowedEllipsoid = Literal["GRS80", "WGS84", "WGS72"]
 class LocationArray:
     """
     Measure type used for example in antenna_xds/ANTENNA_POSITION, weather_xds/STATION_POSITION,
-    field_and_source_xds(ephemeris)/OBSERVER_POSITION, field_and_source_xds(ephemeris)/SUB_OBSERVER_DIRECTION,
-    or field_and_source_xds(ephemeris)/SUB_SOLAR_POSITION.
+    field_and_source_xds(ephemeris)/OBSERVER_POSITION.
 
     Data dimensions can be CartesianPosLabel or EllipsoidPosLabel
     """
@@ -584,7 +583,7 @@ class LocationArray:
     """
     If the units are a list of strings then it must be the same length as
     the last dimension of the data array. This allows for having different
-    units in the same data array,for example geodetic coordinates could use
+    units in the same data array, for example geodetic coordinates could use
     ``['rad','rad','m']``.
     """
 
@@ -607,20 +606,20 @@ class LocationArray:
     """
 
     type: Attr[Location] = "location"
-    """ """
+    """ Measure type. Should be ``"location"``."""
 
 
 @xarray_dataarray_schema
 class EllipsoidPosLocationArray:
     """
-    Measure type used for example in field_and_source_xds/SUB_OBSERVER_POSITION, SUB_SOLAR_POSITION
+    Measure type used for example in field_and_source_xds(ephemeris) / SUB_OBSERVER_DIRECTION, SUB_SOLAR_POSITION
     """
 
     data: Data[EllipsoidPosLabel, float]
 
     frame: Attr[AllowedLocationFrames]
     """
-    Can be ITRF, GRS80, WGS84, WGS72
+    Reference frame. Can be ITRS (assumed for all Earth locations) or Undefined (used in non-Earth locations).
     """
 
     coordinate_system: Attr[AllowedLocationCoordinateSystems]
@@ -632,7 +631,7 @@ class EllipsoidPosLocationArray:
     """
 
     type: Attr[Location] = "location"
-    """ """
+    """ Measure type. Should be ``"location"``."""
 
     units: Attr[UnitsOfPositionInRadians] = ("rad", "rad", "m")
     """

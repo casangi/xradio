@@ -11,12 +11,14 @@ import xarray as xr
 
 import toolviper.utils.logger as logger
 from casacore import tables
+
 from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
     create_pointing_xds,
     create_system_calibration_xds,
     create_weather_xds,
 )
 from .msv4_info_dicts import create_info_dicts
+from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
 from xradio.measurement_set._utils._msv2.create_antenna_xds import (
     create_antenna_xds,
     create_gain_curve_xds,
@@ -34,11 +36,12 @@ from .msv2_to_msv4_meta import (
 
 from .._zarr.encoding import add_encoding
 from .subtables import subt_rename_ids
-from ._tables.table_query import open_table_ro, open_query
+from ._tables.table_query import open_table_ro, open_query, TableManager
 from ._tables.read import (
     convert_casacore_time,
     extract_table_attributes,
-    read_col_conversion,
+    read_col_conversion_numpy,
+    read_col_conversion_dask,
     load_generic_table,
 )
 from ._tables.read_main_table import get_baselines, get_baseline_indices, get_utimes_tol
@@ -377,6 +380,10 @@ def calc_used_gb(
 
 # TODO: if the didxs are not used in read_col_conversion, remove didxs from here (and convert_and_write_partition)
 def calc_indx_for_row_split(tb_tool, taql_where):
+    # Allow TableManager object to be used
+    if isinstance(tb_tool, TableManager):
+        tb_tool = tb_tool.get_table()
+
     baselines = get_baselines(tb_tool)
     col_names = tb_tool.colnames()
     cshapes = [
@@ -560,10 +567,42 @@ def find_min_max_times(tb_tool: tables.table, taql_where: str) -> tuple:
 
 
 def create_data_variables(
-    in_file, xds, tb_tool, time_baseline_shape, tidxs, bidxs, didxs, use_table_iter
+    in_file,
+    xds,
+    table_manager,
+    time_baseline_shape,
+    tidxs,
+    bidxs,
+    didxs,
+    use_table_iter,
+    parallel_mode,
+    main_chunksize,
 ):
+
+    # Get time chunks
+    time_chunksize = None
+    if parallel_mode == "time":
+        try:
+            time_chunksize = main_chunksize["time"]
+        except KeyError:
+            # If time isn't chunked then `read_col_conversion_dask` is slower than `read_col_conversion_numpy`
+            logger.warning(
+                "'time' isn't specified in `main_chunksize`. Defaulting to `parallel_mode = 'none'`."
+            )
+            parallel_mode = "none"
+
+    # Set read_col_conversion from value of `parallel_mode` argument
+    # TODO: To make this compatible with multi-node conversion, `read_col_conversion_dask` and TableManager must be pickled.
+    # Casacore will make this difficult
+    global read_col_conversion
+    if parallel_mode == "time":
+        read_col_conversion = read_col_conversion_dask
+    else:
+        read_col_conversion = read_col_conversion_numpy
+
     # Create Data Variables
-    col_names = tb_tool.colnames()
+    with table_manager.get_table() as tb_tool:
+        col_names = tb_tool.colnames()
 
     main_table_attrs = extract_table_attributes(in_file)
     main_column_descriptions = main_table_attrs["column_descriptions"]
@@ -577,22 +616,24 @@ def create_data_variables(
                     xds = get_weight(
                         xds,
                         col,
-                        tb_tool,
+                        table_manager,
                         time_baseline_shape,
                         tidxs,
                         bidxs,
                         use_table_iter,
                         main_column_descriptions,
+                        time_chunksize,
                     )
                 else:
                     xds[col_to_data_variable_names[col]] = xr.DataArray(
                         read_col_conversion(
-                            tb_tool,
+                            table_manager,
                             col,
                             time_baseline_shape,
                             tidxs,
                             bidxs,
                             use_table_iter,
+                            time_chunksize,
                         ),
                         dims=col_dims[col],
                     )
@@ -613,12 +654,13 @@ def create_data_variables(
                     xds = get_weight(
                         xds,
                         "WEIGHT",
-                        tb_tool,
+                        table_manager,
                         time_baseline_shape,
                         tidxs,
                         bidxs,
                         use_table_iter,
                         main_column_descriptions,
+                        time_chunksize,
                     )
 
 
@@ -651,22 +693,24 @@ def add_missing_data_var_attrs(xds):
 def get_weight(
     xds,
     col,
-    tb_tool,
+    table_manager,
     time_baseline_shape,
     tidxs,
     bidxs,
     use_table_iter,
     main_column_descriptions,
+    time_chunksize,
 ):
     xds[col_to_data_variable_names[col]] = xr.DataArray(
         np.tile(
             read_col_conversion(
-                tb_tool,
+                table_manager,
                 col,
                 time_baseline_shape,
                 tidxs,
                 bidxs,
                 use_table_iter,
+                time_chunksize,
             )[:, :, None, :],
             (1, 1, xds.sizes["frequency"], 1),
         ),
@@ -931,6 +975,7 @@ def convert_and_write_partition(
     sys_cal_interpolate: bool = False,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend="zarr",
+    parallel_mode: str = "none",
     overwrite: bool = False,
 ):
     """_summary_
@@ -967,6 +1012,8 @@ def convert_and_write_partition(
         _description_, by default numcodecs.Zstd(level=2)
     storage_backend : str, optional
         _description_, by default "zarr"
+    parallel_mode : _type_, optional
+        _description_
     overwrite : bool, optional
         _description_, by default False
 
@@ -977,364 +1024,358 @@ def convert_and_write_partition(
     """
 
     taql_where = create_taql_query_where(partition_info)
+    table_manager = TableManager(in_file, taql_where)
     ddi = partition_info["DATA_DESC_ID"][0]
     intents = str(partition_info["OBS_MODE"][0])
 
     start = time.time()
-    with open_table_ro(in_file) as mtable:
-        taql_main = f"select * from $mtable {taql_where}"
-        with open_query(mtable, taql_main) as tb_tool:
+    with table_manager.get_table() as tb_tool:
+        if tb_tool.nrows() == 0:
+            tb_tool.close()
+            return xr.Dataset(), {}, {}
 
-            if tb_tool.nrows() == 0:
-                tb_tool.close()
-                mtable.close()
-                return xr.Dataset(), {}, {}
+        logger.debug("Starting a real convert_and_write_partition")
+        (
+            tidxs,
+            bidxs,
+            didxs,
+            baseline_ant1_id,
+            baseline_ant2_id,
+            utime,
+        ) = calc_indx_for_row_split(tb_tool, taql_where)
+        time_baseline_shape = (len(utime), len(baseline_ant1_id))
+        logger.debug("Calc indx for row split " + str(time.time() - start))
 
-            logger.debug("Starting a real convert_and_write_partition")
-            (
-                tidxs,
-                bidxs,
-                didxs,
-                baseline_ant1_id,
-                baseline_ant2_id,
-                utime,
-            ) = calc_indx_for_row_split(tb_tool, taql_where)
-            time_baseline_shape = (len(utime), len(baseline_ant1_id))
-            logger.debug("Calc indx for row split " + str(time.time() - start))
+        observation_id = check_if_consistent(
+            tb_tool.getcol("OBSERVATION_ID"), "OBSERVATION_ID"
+        )
 
-            observation_id = check_if_consistent(
-                tb_tool.getcol("OBSERVATION_ID"), "OBSERVATION_ID"
-            )
-
-            def get_observation_info(in_file, observation_id, intents):
-                generic_observation_xds = load_generic_table(
-                    in_file,
-                    "OBSERVATION",
-                    taql_where=f" where (ROWID() IN [{str(observation_id)}])",
-                )
-
-                if intents == "None":
-                    intents = "obs_" + str(observation_id)
-
-                return generic_observation_xds["TELESCOPE_NAME"].values[0], intents
-
-            telescope_name, intents = get_observation_info(
-                in_file, observation_id, intents
-            )
-
-            start = time.time()
-            xds = xr.Dataset(
-                attrs={
-                    "creation_date": datetime.datetime.now(
-                        datetime.timezone.utc
-                    ).isoformat(),
-                    "xradio_version": importlib.metadata.version("xradio"),
-                    "schema_version": "4.0.-9989",
-                    "type": "visibility",
-                }
-            )
-
-            # interval = check_if_consistent(tb_tool.getcol("INTERVAL"), "INTERVAL")
-            interval = tb_tool.getcol("INTERVAL")
-
-            interval_unique = unique_1d(interval)
-            if len(interval_unique) > 1:
-                logger.debug(
-                    "Integration time (interval) not consitent in partition, using median."
-                )
-                interval = np.median(interval)
-            else:
-                interval = interval_unique[0]
-
-            scan_id = np.full(time_baseline_shape, -42, dtype=int)
-            scan_id[tidxs, bidxs] = tb_tool.getcol("SCAN_NUMBER")
-            scan_id = np.max(scan_id, axis=1)
-
-            xds = create_coordinates(
-                xds,
+        def get_observation_info(in_file, observation_id, intents):
+            generic_observation_xds = load_generic_table(
                 in_file,
-                ddi,
-                utime,
-                interval,
-                baseline_ant1_id,
-                baseline_ant2_id,
-                scan_id,
-            )
-            logger.debug("Time create coordinates " + str(time.time() - start))
-
-            start = time.time()
-            create_data_variables(
-                in_file,
-                xds,
-                tb_tool,
-                time_baseline_shape,
-                tidxs,
-                bidxs,
-                didxs,
-                use_table_iter,
+                "OBSERVATION",
+                taql_where=f" where (ROWID() IN [{str(observation_id)}])",
             )
 
-            # Add data_groups
-            xds, is_single_dish = add_data_groups(xds)
-            xds = add_missing_data_var_attrs(xds)
+            if intents == "None":
+                intents = "obs_" + str(observation_id)
 
-            if (
-                "WEIGHT" not in xds.data_vars
-            ):  # Some single dish datasets don't have WEIGHT.
-                if is_single_dish:
-                    xds["WEIGHT"] = xr.DataArray(
-                        np.ones(xds.SPECTRUM.shape, dtype=np.float64),
-                        dims=xds.SPECTRUM.dims,
-                    )
-                else:
-                    xds["WEIGHT"] = xr.DataArray(
-                        np.ones(xds.VISIBILITY.shape, dtype=np.float64),
-                        dims=xds.VISIBILITY.dims,
-                    )
+            return generic_observation_xds["TELESCOPE_NAME"].values[0], intents
 
-            logger.debug("Time create data variables " + str(time.time() - start))
+        telescope_name, intents = get_observation_info(in_file, observation_id, intents)
 
-            # To constrain the time range to load (in pointing, ephemerides, phase_cal data_vars)
-            time_min_max = find_min_max_times(tb_tool, taql_where)
-
-            # Create ant_xds
-            start = time.time()
-            feed_id = unique_1d(
-                np.concatenate(
-                    [
-                        unique_1d(tb_tool.getcol("FEED1")),
-                        unique_1d(tb_tool.getcol("FEED2")),
-                    ]
-                )
-            )
-            antenna_id = unique_1d(
-                np.concatenate(
-                    [xds["baseline_antenna1_id"].data, xds["baseline_antenna2_id"].data]
-                )
-            )
-
-            ant_xds = create_antenna_xds(
-                in_file,
-                xds.frequency.attrs["spectral_window_id"],
-                antenna_id,
-                feed_id,
-                telescope_name,
-                xds.polarization,
-            )
-            logger.debug("Time antenna xds  " + str(time.time() - start))
-
-            start = time.time()
-            gain_curve_xds = create_gain_curve_xds(
-                in_file, xds.frequency.attrs["spectral_window_id"], ant_xds
-            )
-            logger.debug("Time gain_curve xds  " + str(time.time() - start))
-
-            start = time.time()
-            if phase_cal_interpolate:
-                phase_cal_interp_time = xds.time.values
-            else:
-                phase_cal_interp_time = None
-            phase_calibration_xds = create_phase_calibration_xds(
-                in_file,
-                xds.frequency.attrs["spectral_window_id"],
-                ant_xds,
-                time_min_max,
-                phase_cal_interp_time,
-            )
-            logger.debug("Time phase_calibration xds  " + str(time.time() - start))
-
-            # Create system_calibration_xds
-            start = time.time()
-            if sys_cal_interpolate:
-                sys_cal_interp_time = xds.time.values
-            else:
-                sys_cal_interp_time = None
-            system_calibration_xds = create_system_calibration_xds(
-                in_file,
-                xds.frequency,
-                ant_xds,
-                sys_cal_interp_time,
-            )
-            logger.debug("Time system_calibation " + str(time.time() - start))
-
-            # Change antenna_ids to antenna_names
-            with_antenna_partitioning = "ANTENNA1" in partition_info
-            xds = antenna_ids_to_names(
-                xds, ant_xds, is_single_dish, with_antenna_partitioning
-            )
-            # but before, keep the name-id arrays, we need them for the pointing and weather xds
-            ant_xds_name_ids = ant_xds["antenna_name"].set_xindex("antenna_id")
-            ant_position_xds_with_ids = ant_xds["ANTENNA_POSITION"].set_xindex(
-                "antenna_id"
-            )
-            # No longer needed after converting to name.
-            ant_xds = ant_xds.drop_vars("antenna_id")
-
-            # Create weather_xds
-            start = time.time()
-            weather_xds = create_weather_xds(in_file, ant_position_xds_with_ids)
-            logger.debug("Time weather " + str(time.time() - start))
-
-            # Create pointing_xds
-            pointing_xds = xr.Dataset()
-            if with_pointing:
-                start = time.time()
-                if pointing_interpolate:
-                    pointing_interp_time = xds.time
-                else:
-                    pointing_interp_time = None
-                pointing_xds = create_pointing_xds(
-                    in_file, ant_xds_name_ids, time_min_max, pointing_interp_time
-                )
-                pointing_chunksize = parse_chunksize(
-                    pointing_chunksize, "pointing", pointing_xds
-                )
-                add_encoding(
-                    pointing_xds, compressor=compressor, chunks=pointing_chunksize
-                )
-                logger.debug(
-                    "Time pointing (with add compressor and chunking) "
-                    + str(time.time() - start)
-                )
-
-            start = time.time()
-
-            # Time and frequency should always be increasing
-            if len(xds.frequency) > 1 and xds.frequency[1] - xds.frequency[0] < 0:
-                xds = xds.sel(frequency=slice(None, None, -1))
-
-            if len(xds.time) > 1 and xds.time[1] - xds.time[0] < 0:
-                xds = xds.sel(time=slice(None, None, -1))
-
-            # Create field_and_source_xds (combines field, source and ephemeris data into one super dataset)
-            start = time.time()
-            if ephemeris_interpolate:
-                ephemeris_interp_time = xds.time.values
-            else:
-                ephemeris_interp_time = None
-
-            # if "FIELD_ID" not in partition_scheme:
-            #     field_id = np.full(time_baseline_shape, -42, dtype=int)
-            #     field_id[tidxs, bidxs] = tb_tool.getcol("FIELD_ID")
-            #     field_id = np.max(field_id, axis=1)
-            #     field_times = utime
-            # else:
-            #     field_id = check_if_consistent(tb_tool.getcol("FIELD_ID"), "FIELD_ID")
-            #     field_times = None
-
-            field_id = np.full(
-                time_baseline_shape, -42, dtype=int
-            )  # -42 used for missing baselines
-            field_id[tidxs, bidxs] = tb_tool.getcol("FIELD_ID")
-            field_id = np.max(field_id, axis=1)
-            field_times = xds.time.values
-
-            # col_unique = unique_1d(col)
-            # assert len(col_unique) == 1, col_name + " is not consistent."
-            # return col_unique[0]
-
-            field_and_source_xds, source_id, _num_lines, field_names = (
-                create_field_and_source_xds(
-                    in_file,
-                    field_id,
-                    xds.frequency.attrs["spectral_window_id"],
-                    field_times,
-                    is_single_dish,
-                    time_min_max,
-                    ephemeris_interpolate,
-                )
-            )
-
-            logger.debug("Time field_and_source_xds " + str(time.time() - start))
-
-            xds = fix_uvw_frame(xds, field_and_source_xds, is_single_dish)
-            xds = xds.assign_coords({"field_name": ("time", field_names)})
-
-            partition_info_misc_fields = {
-                "scan_name": xds.coords["scan_name"].data,
-                "intents": intents,
-                "taql_where": taql_where,
+        start = time.time()
+        xds = xr.Dataset(
+            attrs={
+                "schema_version": MSV4_SCHEMA_VERSION,
+                "creator": {
+                    "software_name": "xradio",
+                    "version": importlib.metadata.version("xradio"),
+                },
+                "creation_date": datetime.datetime.now(
+                    datetime.timezone.utc
+                ).isoformat(),
+                "type": "visibility",
             }
-            if with_antenna_partitioning:
-                partition_info_misc_fields["antenna_name"] = xds.coords[
-                    "antenna_name"
-                ].data[0]
-            info_dicts = create_info_dicts(
-                in_file, xds, field_and_source_xds, partition_info_misc_fields, tb_tool
+        )
+
+        # interval = check_if_consistent(tb_tool.getcol("INTERVAL"), "INTERVAL")
+        interval = tb_tool.getcol("INTERVAL")
+
+        interval_unique = unique_1d(interval)
+        if len(interval_unique) > 1:
+            logger.debug(
+                "Integration time (interval) not consitent in partition, using median."
             )
-            xds.attrs.update(info_dicts)
+            interval = np.median(interval)
+        else:
+            interval = interval_unique[0]
 
-            # xds ready, prepare to write
-            start = time.time()
-            main_chunksize = parse_chunksize(main_chunksize, "main", xds)
-            add_encoding(xds, compressor=compressor, chunks=main_chunksize)
-            logger.debug("Time add compressor and chunk " + str(time.time() - start))
+        scan_id = np.full(time_baseline_shape, -42, dtype=int)
+        scan_id[tidxs, bidxs] = tb_tool.getcol("SCAN_NUMBER")
+        scan_id = np.max(scan_id, axis=1)
 
-            file_name = os.path.join(
-                out_file,
-                pathlib.Path(in_file).name.replace(".ms", "") + "_" + str(ms_v4_id),
-            )
+        xds = create_coordinates(
+            xds,
+            in_file,
+            ddi,
+            utime,
+            interval,
+            baseline_ant1_id,
+            baseline_ant2_id,
+            scan_id,
+        )
+        logger.debug("Time create coordinates " + str(time.time() - start))
 
-            if overwrite:
-                mode = "w"
-            else:
-                mode = "w-"
+        start = time.time()
+        main_chunksize = parse_chunksize(main_chunksize, "main", xds)
+        create_data_variables(
+            in_file,
+            xds,
+            table_manager,
+            time_baseline_shape,
+            tidxs,
+            bidxs,
+            didxs,
+            use_table_iter,
+            parallel_mode,
+            main_chunksize,
+        )
 
+        # Add data_groups
+        xds, is_single_dish = add_data_groups(xds)
+        xds = add_missing_data_var_attrs(xds)
+
+        if (
+            "WEIGHT" not in xds.data_vars
+        ):  # Some single dish datasets don't have WEIGHT.
             if is_single_dish:
-                xds.attrs["type"] = "spectrum"
-                xds = xds.drop_vars(["UVW"])
-                del xds["uvw_label"]
+                xds["WEIGHT"] = xr.DataArray(
+                    np.ones(xds.SPECTRUM.shape, dtype=np.float64),
+                    dims=xds.SPECTRUM.dims,
+                )
             else:
-                if any("WVR" in s for s in intents):
-                    xds.attrs["type"] = "wvr"
-                else:
-                    xds.attrs["type"] = "visibility"
+                xds["WEIGHT"] = xr.DataArray(
+                    np.ones(xds.VISIBILITY.shape, dtype=np.float64),
+                    dims=xds.VISIBILITY.dims,
+                )
 
-            import sys
+        logger.debug("Time create data variables " + str(time.time() - start))
 
+        # To constrain the time range to load (in pointing, ephemerides, phase_cal data_vars)
+        time_min_max = find_min_max_times(tb_tool, taql_where)
+
+        # Create ant_xds
+        start = time.time()
+        feed_id = unique_1d(
+            np.concatenate(
+                [
+                    unique_1d(tb_tool.getcol("FEED1")),
+                    unique_1d(tb_tool.getcol("FEED2")),
+                ]
+            )
+        )
+        antenna_id = unique_1d(
+            np.concatenate(
+                [xds["baseline_antenna1_id"].data, xds["baseline_antenna2_id"].data]
+            )
+        )
+
+        ant_xds = create_antenna_xds(
+            in_file,
+            xds.frequency.attrs["spectral_window_id"],
+            antenna_id,
+            feed_id,
+            telescope_name,
+            xds.polarization,
+        )
+        logger.debug("Time antenna xds  " + str(time.time() - start))
+
+        start = time.time()
+        gain_curve_xds = create_gain_curve_xds(
+            in_file, xds.frequency.attrs["spectral_window_id"], ant_xds
+        )
+        logger.debug("Time gain_curve xds  " + str(time.time() - start))
+
+        start = time.time()
+        if phase_cal_interpolate:
+            phase_cal_interp_time = xds.time.values
+        else:
+            phase_cal_interp_time = None
+        phase_calibration_xds = create_phase_calibration_xds(
+            in_file,
+            xds.frequency.attrs["spectral_window_id"],
+            ant_xds,
+            time_min_max,
+            phase_cal_interp_time,
+        )
+        logger.debug("Time phase_calibration xds  " + str(time.time() - start))
+
+        # Create system_calibration_xds
+        start = time.time()
+        if sys_cal_interpolate:
+            sys_cal_interp_time = xds.time.values
+        else:
+            sys_cal_interp_time = None
+        system_calibration_xds = create_system_calibration_xds(
+            in_file,
+            xds.frequency,
+            ant_xds,
+            sys_cal_interp_time,
+        )
+        logger.debug("Time system_calibation " + str(time.time() - start))
+
+        # Change antenna_ids to antenna_names
+        with_antenna_partitioning = "ANTENNA1" in partition_info
+        xds = antenna_ids_to_names(
+            xds, ant_xds, is_single_dish, with_antenna_partitioning
+        )
+        # but before, keep the name-id arrays, we need them for the pointing and weather xds
+        ant_xds_name_ids = ant_xds["antenna_name"].set_xindex("antenna_id")
+        ant_xds_station_name_ids = ant_xds["station"].set_xindex("antenna_id")
+        # No longer needed after converting to name.
+        ant_xds = ant_xds.drop_vars("antenna_id")
+
+        # Create weather_xds
+        start = time.time()
+        weather_xds = create_weather_xds(in_file, ant_xds_station_name_ids)
+        logger.debug("Time weather " + str(time.time() - start))
+
+        # Create pointing_xds
+        pointing_xds = xr.Dataset()
+        if with_pointing:
             start = time.time()
-            if storage_backend == "zarr":
-                xds.to_zarr(store=os.path.join(file_name, "correlated_xds"), mode=mode)
-                ant_xds.to_zarr(store=os.path.join(file_name, "antenna_xds"), mode=mode)
-                for group_name in xds.attrs["data_groups"]:
-                    field_and_source_xds.to_zarr(
-                        store=os.path.join(
-                            file_name, f"field_and_source_xds_{group_name}"
-                        ),
-                        mode=mode,
-                    )
+            if pointing_interpolate:
+                pointing_interp_time = xds.time
+            else:
+                pointing_interp_time = None
+            pointing_xds = create_pointing_xds(
+                in_file, ant_xds_name_ids, time_min_max, pointing_interp_time
+            )
+            pointing_chunksize = parse_chunksize(
+                pointing_chunksize, "pointing", pointing_xds
+            )
+            add_encoding(pointing_xds, compressor=compressor, chunks=pointing_chunksize)
+            logger.debug(
+                "Time pointing (with add compressor and chunking) "
+                + str(time.time() - start)
+            )
 
-                if with_pointing and len(pointing_xds.data_vars) > 0:
-                    pointing_xds.to_zarr(
-                        store=os.path.join(file_name, "pointing_xds"), mode=mode
-                    )
+        start = time.time()
 
-                if system_calibration_xds:
-                    system_calibration_xds.to_zarr(
-                        store=os.path.join(file_name, "system_calibration_xds"),
-                        mode=mode,
-                    )
+        # Time and frequency should always be increasing
+        if len(xds.frequency) > 1 and xds.frequency[1] - xds.frequency[0] < 0:
+            xds = xds.sel(frequency=slice(None, None, -1))
 
-                if gain_curve_xds:
-                    gain_curve_xds.to_zarr(
-                        store=os.path.join(file_name, "gain_curve_xds"), mode=mode
-                    )
+        if len(xds.time) > 1 and xds.time[1] - xds.time[0] < 0:
+            xds = xds.sel(time=slice(None, None, -1))
 
-                if phase_calibration_xds:
-                    phase_calibration_xds.to_zarr(
-                        store=os.path.join(file_name, "phase_calibration_xds"),
-                        mode=mode,
-                    )
+        # Create field_and_source_xds (combines field, source and ephemeris data into one super dataset)
+        start = time.time()
+        if ephemeris_interpolate:
+            ephemeris_interp_time = xds.time.values
+        else:
+            ephemeris_interp_time = None
 
-                if weather_xds:
-                    weather_xds.to_zarr(
-                        store=os.path.join(file_name, "weather_xds"), mode=mode
-                    )
+        # if "FIELD_ID" not in partition_scheme:
+        #     field_id = np.full(time_baseline_shape, -42, dtype=int)
+        #     field_id[tidxs, bidxs] = tb_tool.getcol("FIELD_ID")
+        #     field_id = np.max(field_id, axis=1)
+        #     field_times = utime
+        # else:
+        #     field_id = check_if_consistent(tb_tool.getcol("FIELD_ID"), "FIELD_ID")
+        #     field_times = None
 
-            elif storage_backend == "netcdf":
-                # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
-                raise
-            logger.debug("Write data  " + str(time.time() - start))
+        field_id = np.full(
+            time_baseline_shape, -42, dtype=int
+        )  # -42 used for missing baselines
+        field_id[tidxs, bidxs] = tb_tool.getcol("FIELD_ID")
+        field_id = np.max(field_id, axis=1)
+        field_times = xds.time.values
+
+        # col_unique = unique_1d(col)
+        # assert len(col_unique) == 1, col_name + " is not consistent."
+        # return col_unique[0]
+
+        field_and_source_xds, source_id, _num_lines, field_names = (
+            create_field_and_source_xds(
+                in_file,
+                field_id,
+                xds.frequency.attrs["spectral_window_id"],
+                field_times,
+                is_single_dish,
+                time_min_max,
+                ephemeris_interpolate,
+            )
+        )
+
+        logger.debug("Time field_and_source_xds " + str(time.time() - start))
+
+        xds = fix_uvw_frame(xds, field_and_source_xds, is_single_dish)
+        xds = xds.assign_coords({"field_name": ("time", field_names)})
+
+        partition_info_misc_fields = {
+            "scan_name": xds.coords["scan_name"].data,
+            "intents": intents,
+            "taql_where": taql_where,
+        }
+        if with_antenna_partitioning:
+            partition_info_misc_fields["antenna_name"] = xds.coords[
+                "antenna_name"
+            ].data[0]
+        info_dicts = create_info_dicts(
+            in_file, xds, field_and_source_xds, partition_info_misc_fields, tb_tool
+        )
+        xds.attrs.update(info_dicts)
+
+        # xds ready, prepare to write
+        start = time.time()
+        add_encoding(xds, compressor=compressor, chunks=main_chunksize)
+        logger.debug("Time add compressor and chunk " + str(time.time() - start))
+
+        file_name = os.path.join(
+            out_file,
+            pathlib.Path(in_file).name.replace(".ms", "") + "_" + str(ms_v4_id),
+        )
+
+        if overwrite:
+            mode = "w"
+        else:
+            mode = "w-"
+
+        if is_single_dish:
+            xds.attrs["type"] = "spectrum"
+            xds = xds.drop_vars("UVW")
+            xds = xds.drop_dims("uvw_label")
+        else:
+            if xds.attrs["processor_info"]["type"] == "RADIOMETER":
+                xds.attrs["type"] = "radiometer"
+            else:
+                xds.attrs["type"] = "visibility"
+
+        import sys
+
+        start = time.time()
+        if storage_backend == "zarr":
+            xds.to_zarr(store=os.path.join(file_name, "correlated_xds"), mode=mode)
+            ant_xds.to_zarr(store=os.path.join(file_name, "antenna_xds"), mode=mode)
+            for group_name in xds.attrs["data_groups"]:
+                field_and_source_xds.to_zarr(
+                    store=os.path.join(file_name, f"field_and_source_xds_{group_name}"),
+                    mode=mode,
+                )
+
+            if with_pointing and len(pointing_xds.data_vars) > 0:
+                pointing_xds.to_zarr(
+                    store=os.path.join(file_name, "pointing_xds"), mode=mode
+                )
+
+            if system_calibration_xds:
+                system_calibration_xds.to_zarr(
+                    store=os.path.join(file_name, "system_calibration_xds"),
+                    mode=mode,
+                )
+
+            if gain_curve_xds:
+                gain_curve_xds.to_zarr(
+                    store=os.path.join(file_name, "gain_curve_xds"), mode=mode
+                )
+
+            if phase_calibration_xds:
+                phase_calibration_xds.to_zarr(
+                    store=os.path.join(file_name, "phase_calibration_xds"),
+                    mode=mode,
+                )
+
+            if weather_xds:
+                weather_xds.to_zarr(
+                    store=os.path.join(file_name, "weather_xds"), mode=mode
+                )
+
+        elif storage_backend == "netcdf":
+            # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
+            raise
+        logger.debug("Write data  " + str(time.time() - start))
 
     # logger.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
 
@@ -1439,6 +1480,8 @@ def add_group_to_data_groups(
         "correlated_data": correlated_data_name,
         "flag": "FLAG",
         "weight": "WEIGHT",
+        "description": f"Data group derived from the data column '{correlated_data_name}' of an MSv2 converted to MSv4",
+        "date": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
     if uvw:
         data_groups[what_group]["uvw"] = "UVW"

@@ -207,7 +207,16 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
     for i in (0, 1):
         for j in (0, 1):
             # dir_axes are now 0-based, but fits needs 1-based
-            pc[i][j] = header[f"PC{dir_axes[i]+1}_{dir_axes[j]+1}"]
+            try:
+                pc[i][j] = header[f"PC{dir_axes[i]+1}_{dir_axes[j]+1}"]
+            except KeyError:
+                try:
+                    pc[i][j] = header[f"PC0{dir_axes[i]+1}_0{dir_axes[j]+1}"]
+                except KeyError:
+                    raise RuntimeError(
+                        f"Could not find PC{dir_axes[i]+1}_{dir_axes[j]+1} or "
+                        f"PC0{dir_axes[i]+1}_0{dir_axes[j]+1} in FITS header"
+                    )
     direction["pc"] = pc
     # Is there really no fits header parameter for projection_parameters?
     direction["projection_parameters"] = np.array([0.0, 0.0])
@@ -334,9 +343,9 @@ def _beam_attr_from_header(helpers: dict, header) -> Union[dict, str, None]:
     if "BMAJ" in header:
         # single global beam
         beam = {
-            "bmaj": make_quantity(header["BMAJ"], "arcsec"),
-            "bmin": make_quantity(header["BMIN"], "arcsec"),
-            "pa": make_quantity(header["BPA"], "arcsec"),
+            "bmaj": make_quantity(header["BMAJ"], "deg"),
+            "bmin": make_quantity(header["BMIN"], "deg"),
+            "pa": make_quantity(header["BPA"], "deg"),
         }
         return _convert_beam_to_rad(beam)
     elif "CASAMBM" in header and header["CASAMBM"]:
@@ -656,10 +665,10 @@ def _add_beam(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     nchan = xds.sizes["frequency"]
     npol = xds.sizes["polarization"]
     beam_array = np.zeros([1, nchan, npol, 3])
-    beam_array[0, :, :, 0] = helpers["beam"]["bmaj"]
-    beam_array[0, :, :, 1] = helpers["beam"]["bmin"]
-    beam_array[0, :, :, 2] = helpers["beam"]["pa"]
-    return _chreate_beam_data_var(xds, beam_array)
+    beam_array[0, :, :, 0] = helpers["beam"]["bmaj"]["data"]
+    beam_array[0, :, :, 1] = helpers["beam"]["bmin"]["data"]
+    beam_array[0, :, :, 2] = helpers["beam"]["pa"]["data"]
+    return _create_beam_data_var(xds, beam_array)
 
 
 def _create_beam_data_var(xds: xr.Dataset, beam_array: np.array) -> xr.Dataset:

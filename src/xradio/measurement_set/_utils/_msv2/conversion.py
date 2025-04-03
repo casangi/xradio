@@ -1437,7 +1437,7 @@ def antenna_ids_to_names(
             "antenna_id",
             "antenna_name",
             "mount",
-            "station",
+            "station_name",
         ]
         for unwanted_coord in unwanted_coords_from_ant_xds:
             xds = xds.drop_vars(unwanted_coord)

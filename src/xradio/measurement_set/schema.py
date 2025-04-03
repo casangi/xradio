@@ -1369,7 +1369,7 @@ class AntennaXds:
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
     """ Antenna name """
-    station: Coord[AntennaName, str]
+    station_name: Coord[AntennaName, str]
     """ Name of the station pad (relevant to arrays with moving antennas). """
     mount: Coord[AntennaName, str]
     """ Mount type of the antenna. Reserved keywords include: ”EQUATORIAL” - equatorial mount;
@@ -1453,7 +1453,7 @@ class GainCurveXds:
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
     """ Antenna name """
-    station: Coord[AntennaName, str]
+    station_name: Coord[AntennaName, str]
     """ Name of the station pad (relevant to arrays with moving antennas). """
     mount: Coord[AntennaName, str]
     """ Mount type of the antenna. Reserved keywords include: ”EQUATORIAL” - equatorial mount;
@@ -1512,7 +1512,7 @@ class PhaseCalibrationXds:
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
     """ Antenna name """
-    station: Coord[AntennaName, str]
+    station_name: Coord[AntennaName, str]
     """ Name of the station pad (relevant to arrays with moving antennas). """
     mount: Coord[AntennaName, str]
     """ Mount type of the antenna. Reserved keywords include: ”EQUATORIAL” - equatorial mount;
@@ -1807,8 +1807,8 @@ class SystemCalibrationXds:
 
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
-    """ Antenna identifier """
-    station: Coord[AntennaName, str]
+    """ Antenna name """
+    station_name: Coord[AntennaName, str]
     """ Name of the station pad (relevant to arrays with moving antennas). """
     receptor_label: Coord[ReceptorLabel, str]
     """ Names of receptors """

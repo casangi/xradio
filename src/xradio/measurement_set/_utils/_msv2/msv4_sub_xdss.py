@@ -243,7 +243,7 @@ def prepare_generic_weather_xds_and_station_name(
 
         stations_present = ant_position_with_ids.sel(
             antenna_id=generic_weather_xds["ANTENNA_ID"]
-        ).station
+        ).station_name
         station_name = stations_present.values
 
     return generic_weather_xds, station_name

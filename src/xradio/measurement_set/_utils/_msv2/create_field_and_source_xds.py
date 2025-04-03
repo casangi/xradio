@@ -226,9 +226,10 @@ def extract_ephemeris_info(
             "type": "location",
             "units": ["deg", "deg", "m"],
             "data": observer_position,
-            "frame": "WGS84",
+            "frame": "ITRS",
             "origin_object_name": "Earth",
             "coordinate_system": ephemeris_meta["obsloc"].lower(),
+            "ellipsoid": "WGS84",
         }
     )  # I think the units are ['deg','deg','m'] and 'WGS84'.
 

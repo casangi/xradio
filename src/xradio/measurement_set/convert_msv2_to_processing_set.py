@@ -18,6 +18,7 @@ def estimate_conversion_memory_and_cores(
     """
     Given an MSv2 and a partition_scheme to use when converting it to MSv4,
     estimates:
+
     - memory (in the sense of the amount expected to be enough to convert)
     - cores (in the sense of the recommended/optimal number of cores to use to convert)
 
@@ -36,7 +37,7 @@ def estimate_conversion_memory_and_cores(
         Partition scheme as used in the function convert_msv2_to_processing_set()
 
     Returns
-    ----------
+    -------
     tuple
         estimated maximum memory required for one partition,
         maximum number of cores it makes sense to use (number of partitions),
@@ -106,6 +107,21 @@ def convert_msv2_to_processing_set(
     overwrite : bool, optional
         Whether to overwrite an existing processing set, by default False.
     """
+
+    # Create empty data tree
+    import xarray as xr
+
+    ps_dt = xr.DataTree()
+
+    if not str(out_file).endswith("ps.zarr"):
+        out_file += ".ps.zarr"
+
+    print("Output file: ", out_file)
+
+    if overwrite:
+        ps_dt.to_zarr(store=out_file, mode="w")
+    else:
+        ps_dt.to_zarr(store=out_file, mode="w-")
 
     # Check `parallel_mode` is valid
     try:
@@ -191,3 +207,9 @@ def convert_msv2_to_processing_set(
 
     if parallel_mode == "partition":
         dask.compute(delayed_list)
+
+    import zarr
+
+    root_group = zarr.open(out_file, mode="r+")  # Open in read/write mode
+    root_group.attrs["type"] = "processing_set"  # Replace
+    zarr.convenience.consolidate_metadata(root_group.store)

@@ -85,12 +85,6 @@ phased_array_xds
 Info dictionaries
 -----------------
 
-Partition info
-~~~~~~~~~~~~~~
-.. autoclass:: xradio.measurement_set.schema.PartitionInfoDict()
-
-   .. xradio_dict_schema_table:: xradio.measurement_set.schema.PartitionInfoDict
-
 Observation info
 ~~~~~~~~~~~~~~~~
 .. autoclass:: xradio.measurement_set.schema.ObservationInfoDict()
@@ -152,10 +146,6 @@ Bulk data gathered into :ref:`correlated data datasets`.
 .. autoclass:: xradio.measurement_set.schema.TimeSamplingArray()
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.TimeSamplingArray
-
-.. autoclass:: xradio.measurement_set.schema.FreqSamplingArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.FreqSamplingArray
 
 .. _correlated data coordinates:
 

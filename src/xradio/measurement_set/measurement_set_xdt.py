@@ -191,6 +191,7 @@ class MeasurementSetXdt:
             "source_name": to_list(np.unique(field_and_source_xds.source_name.values)),
             "intents": self._xdt.observation_info["intents"],
             "line_name": line_name,
+            "data_group_name": data_group_name,
         }
 
         return partition_info

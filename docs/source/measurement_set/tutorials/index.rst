@@ -4,4 +4,4 @@ Tutorials
 .. toctree::
    :maxdepth: 1
 
-   ps_xdt
+   measurement_set_tutorial

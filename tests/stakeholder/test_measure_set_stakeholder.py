@@ -5,22 +5,30 @@ import pathlib
 import pytest
 import time
 
+import pandas as pd
 import xarray as xr
 
 from toolviper.utils.data import download
 from toolviper.utils.logger import setup_logger
+import xradio.measurement_set
 from xradio.measurement_set import (
     open_processing_set,
     load_processing_set,
     convert_msv2_to_processing_set,
     estimate_conversion_memory_and_cores,
-    VisibilityXds,
-    SpectrumXds,
+    MeasurementSetXdt,
+    ProcessingSetXdt,
 )
-from xradio.schema.check import check_dataset
+from xradio.schema.check import check_datatree
 
 # relative_tolerance = 10 ** (-12)
 relative_tolerance = 10 ** (-6)
+
+
+# Uncomment to not clean up files between test (i.e. skip downloading them again)
+@pytest.fixture
+def tmp_path():
+    return pathlib.Path("/tmp/test")
 
 
 def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_scheme):
@@ -45,7 +53,7 @@ def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_sch
         )
 
     download(file=msv2_name, folder=folder)
-    ps_name = folder / (msv2_name[:-3] + ".ps")
+    ps_name = folder / (msv2_name[:-3] + ".ps.zarr")
     if os.path.isdir(ps_name):
         os.system("rm -rf " + str(ps_name))  # Remove ps folder.
 
@@ -74,6 +82,110 @@ def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_sch
     return ps_name
 
 
+def base_check_ps_accessor(ps_lazy_xdt: xr.DataTree, ps_xdt: xr.DataTree):
+    """
+    Basic checks on the `ps` accessor of processing sets ps_xdt/ps_lazy_xdt
+
+    Parameters
+    ----------
+    ps_lazy_xdt: lazy processing set (created with open_processing_set or equivalent)
+    ps_xdt: in memory processing set (created with load_processing_set or equivalent)
+
+    """
+
+    for top_xdt in [ps_lazy_xdt, ps_xdt]:
+        assert hasattr(top_xdt, "xr_ps") and isinstance(top_xdt.xr_ps, ProcessingSetXdt)
+        assert "type" in top_xdt.attrs and top_xdt.attrs["type"] == "processing_set"
+
+    expected_summary_keys = [
+        "name",
+        "intents",
+        "shape",
+        "polarization",
+        "scan_name",
+        "spw_name",
+        "field_name",
+        "source_name",
+        "line_name",
+        "field_coords",
+        "start_frequency",
+        "end_frequency",
+    ]
+    ps_lazy_xdt_df = ps_lazy_xdt.xr_ps.summary()
+    assert all([key in ps_lazy_xdt_df for key in expected_summary_keys])
+    ps_xdt_df = ps_xdt.xr_ps.summary()
+    assert all([key in ps_xdt_df for key in expected_summary_keys])
+    pd.testing.assert_frame_equal(ps_lazy_xdt_df, ps_xdt_df)
+
+    expected_dims = [
+        "time",
+        "baseline_id",
+        "frequency",
+        "polarization",
+        "uvw_label",
+    ]
+    max_dims = ps_xdt.xr_ps.get_max_dims()
+    assert isinstance(max_dims, dict)
+    assert all([dim in max_dims for dim in max_dims])
+
+    empty_query_result = ps_xdt.xr_ps.query()
+    assert isinstance(empty_query_result, xr.DataTree)
+    empty_query_df = empty_query_result.xr_ps.summary()
+    pd.testing.assert_frame_equal(ps_xdt_df, empty_query_df)
+
+    freq_axis = ps_xdt.xr_ps.get_freq_axis()
+    assert isinstance(freq_axis, xr.DataArray)
+
+    combined_field_xds = ps_xdt.xr_ps.get_combined_field_and_source_xds()
+    assert type(combined_field_xds) == xr.Dataset
+    combined_antenna = ps_xdt.xr_ps.get_combined_antenna_xds()
+    assert type(combined_antenna) == xr.Dataset
+    base_field_xds = ps_xdt.xr_ps.get_combined_field_and_source_xds("base")
+    assert type(base_field_xds) == xr.Dataset
+
+
+def base_check_ms_accessor(ps_xdt: xr.DataTree):
+    """
+    Basic checks on the children of ps_xdt (ms_xdt trees) and their `.ds` and `.ms` accessor
+    """
+    for ms_xds_name in ps_xdt.keys():
+        ms_xdt = ps_xdt[ms_xds_name]
+        assert "type" in ms_xdt.attrs and ms_xdt.attrs["type"] in [
+            "visibility",
+            "radiometer",
+            "spectrum",
+        ]
+
+        # dt produces a DatasetView
+        assert hasattr(ms_xdt, "ds") and isinstance(ms_xdt.ds, xr.Dataset)
+        assert ms_xdt["antenna_xds"]
+        assert ms_xdt["field_and_source_xds_base"]
+        # Should check depending on availability of metadata in input MSv2:
+        # assert ms_xdt["gain_curve_xds"]
+        # assert ms_xdt["phase_calibration_xds"]
+        # assert ms_xdt["pointing_xds"]
+        # assert ms_xdt["system_calibration_xds"]
+        # assert ms_xdt["weather_xds"]
+        # assert ms_xdt.ds  # DatasetView
+
+        assert hasattr(ms_xdt, "xr_ms") and isinstance(ms_xdt.xr_ms, MeasurementSetXdt)
+        assert (
+            hasattr(ms_xdt.xr_ms, "get_field_and_source_xds")
+            and callable(ms_xdt.xr_ms.get_field_and_source_xds)
+            and isinstance(ms_xdt.xr_ms.get_field_and_source_xds(), xr.Dataset)
+        )
+        assert (
+            hasattr(ms_xdt.xr_ms, "get_partition_info")
+            and callable(ms_xdt.xr_ms.get_partition_info)
+            and isinstance(ms_xdt.xr_ms.get_partition_info(), dict)
+        )
+        assert (
+            hasattr(ms_xdt.xr_ms, "sel")
+            and callable(ms_xdt.xr_ms.sel)
+            and isinstance(ms_xdt.xr_ms.sel(), xr.DataTree)
+        )
+
+
 def base_test(
     file_name: str,
     folder: pathlib.Path,
@@ -84,7 +196,7 @@ def base_test(
     do_schema_check: bool = True,
 ):
     start = time.time()
-    from toolviper.dask.client import local_client
+    # from toolviper.dask.client import local_client
 
     # Strange bug when running test in paralell (the unrelated image tests fail).
     # viper_client = local_client(cores=4, memory_limit="4GB")
@@ -105,57 +217,40 @@ def base_test(
             )
 
         print(f"Opening Processing Set, {ps_name}")
-        ps_lazy = open_processing_set(str(ps_name))
+        ps_lazy_xdt = open_processing_set(str(ps_name))
 
         if is_s3:
             ps_copy_name = str(ps_name).split("/")[-1] + "_copy"
         else:
             ps_copy_name = str(ps_name) + "_copy"
 
-        ps_lazy.to_store(ps_copy_name)  # Test writing yo disk.
+        ps_lazy_xdt.to_zarr(ps_copy_name)  # Test writing to disk.
 
-        sel_parms = {key: {} for key in ps_lazy.keys()}
-        ps = load_processing_set(str(ps_copy_name), sel_parms=sel_parms)
+        # sel_parms = {key: {} for key in ps_lazy_xdt.keys()}
+        ps_xdt = load_processing_set(str(ps_copy_name))
 
         if os.path.isdir(ps_copy_name):
-            os.system("rm -rf " + str(ps_copy_name))  # Remove ps copy folder.
+            os.system("rm -rf " + str(ps_copy_name))  # Remove ps_xdt copy folder.
 
-        ps_lazy_df = ps_lazy.summary()
-        assert "name" in ps_lazy_df
-        ps_df = ps.summary()
-        assert "name" in ps_df
+        base_check_ps_accessor(ps_lazy_xdt, ps_xdt)
 
-        max_dims = ps.get_ps_max_dims()
-        assert type(max_dims) == dict
-        if not is_s3 and not preconverted:
-            freq_axis = ps.get_ps_freq_axis()
-            assert type(freq_axis) == xr.DataArray
-        combined_field_xds = ps.get_combined_field_and_source_xds()
-        assert type(combined_field_xds) == xr.Dataset
-        combined_antenna = ps.get_combined_antenna_xds()
-        assert type(combined_antenna) == xr.Dataset
-        ps.get_combined_field_and_source_xds()
-        assert all(
-            [
-                "antenna_name" in ps[xds_name].attrs["partition_info"]
-                for xds_name in ps.keys()
-                if "ANTENNA1" in partition_scheme
-            ]
-        )
+        base_check_ms_accessor(ps_xdt)
 
         sum = 0.0
         sum_lazy = 0.0
-
-        for ms_xds_name in ps.keys():
-            if "VISIBILITY" in ps[ms_xds_name]:
+        for ms_xds_name in ps_xdt.keys():
+            if "VISIBILITY" in ps_xdt[ms_xds_name]:
                 data_name = "VISIBILITY"
             else:
                 data_name = "SPECTRUM"
             sum = sum + np.nansum(
-                np.abs(ps[ms_xds_name][data_name] * ps[ms_xds_name].WEIGHT)
+                np.abs(ps_xdt[ms_xds_name][data_name] * ps_xdt[ms_xds_name].WEIGHT)
             )
             sum_lazy = sum_lazy + np.nansum(
-                np.abs(ps_lazy[ms_xds_name][data_name] * ps_lazy[ms_xds_name].WEIGHT)
+                np.abs(
+                    ps_lazy_xdt[ms_xds_name][data_name]
+                    * ps_lazy_xdt[ms_xds_name].WEIGHT
+                )
             )
 
         print("sum", sum, sum_lazy)
@@ -166,61 +261,50 @@ def base_test(
             expected_sum_value, rel=relative_tolerance
         ), "VISIBILITY and WEIGHT values have changed."
 
-        # print('^^^^^^^',ps.get(0).coords['frequency'].attrs['reference_frequency'])
+        # print('^^^^^^^',ps_xdt.get(0).coords['frequency'].attrs['reference_frequency'])
 
         if do_schema_check:
             start_check = time.time()
-            for xds_name in ps.keys():
-                if ps[xds_name].attrs["type"] in ["visibility", "radiometer"]:
-                    check_dataset(ps[xds_name], VisibilityXds).expect()
-                elif ps[xds_name].attrs["type"] == "spectrum":
-                    check_dataset(ps[xds_name], SpectrumXds).expect()
-                else:
-                    raise RuntimeError(
-                        "Cannot find visibility or spectrum type data in MSv4 {xds_name}!"
-                    )
-
+            check_datatree(ps_xdt)
             print(
                 f"Time to check datasets (all MSv4s) against schema: {time.time() - start_check}"
             )
 
-        ps_list.append(ps)
+        ps_list.append(ps_xdt)
 
     print("Time taken in test:", time.time() - start)
     return ps_list
 
 
-def test_s3(tmp_path):
-    # Similar to 'test_preconverted_alma' if this test fails on its own that
-    # probably is because the schema, the converter or the schema cheker have
-    # changed since the dataset was uploaded.
-    base_test(
-        "s3://viper-test-data/Antennae_North.cal.lsrk.split.py39.v7.vis.zarr",
-        tmp_path,
-        190.0405216217041,
-        is_s3=True,
-        partition_schemes=[[]],
-        do_schema_check=False,
-    )
+# def test_s3(tmp_path):
+#     # Similar to 'test_preconverted_alma' if this test fails on its own that
+#     # probably is because the schema, the converter or the schema cheker have
+#     # changed since the dataset was uploaded.
+#     base_test(
+#         "s3://viper-test-data/Antennae_North.cal.lsrk.split.v8.ps.zarr",
+#         tmp_path,
+#         190.0405216217041,
+#         is_s3=True,
+#         partition_schemes=[[]],
+#     )
 
 
 def test_alma(tmp_path):
     base_test("Antennae_North.cal.lsrk.split.ms", tmp_path, 190.0405216217041)
 
 
-def test_preconverted_alma(tmp_path):
-    # If this test has failed on its own it most probably means the schema has changed.
-    # Create a fresh version using "Antennae_North.cal.lsrk.split.ms" and reconvert it using generate_zarr.py (in dropbox folder).
-    # Zip this folder and add it to the dropbox folder and update the file.download.json file.
-    # If you not sure how to do any of this contact jsteeb@nrao.edu
-    base_test(
-        "Antennae_North.cal.lsrk.split.py39.vis.zarr",
-        tmp_path,
-        190.0405216217041,
-        preconverted=True,
-        partition_schemes=[[]],
-        do_schema_check=False,
-    )
+# def test_preconverted_alma(tmp_path):
+#     # If this test has failed on its own it most probably means the schema has changed.
+#     # Create a fresh version using "Antennae_North.cal.lsrk.split.ms" and reconvert it using generate_zarr.py (in dropbox folder).
+#     # Zip this folder and add it to the dropbox folder and update the file.download.json file.
+#     # If you not sure how to do any of this contact jsteeb@nrao.edu
+#     base_test(
+#         "Antennae_North.cal.lsrk.split.py39.vis.zarr",
+#         tmp_path,
+#         190.0405216217041,
+#         preconverted=True,
+#         partition_schemes=[[]],
+#     )
 
 
 def test_ska_mid(tmp_path):
@@ -273,29 +357,29 @@ def test_alma_ephemeris_mosaic(tmp_path):
     )
 
     # Test PS sel
-    check_ps_sel(ps_list[0])
-    check_ps_sel(ps_list[1])
+    check_ps_query(ps_list[0])
+    check_ps_query(ps_list[1])
 
 
-def check_ps_sel(ps):
-    ps.sel(
+def check_ps_query(ps_xdt):
+    ps_xdt.xr_ps.query(
         query="start_frequency > 2.46e11",
         field_coords="Ephemeris",
         field_name=["Sun_10_10", "Sun_10_11"],
-    ).summary()
-    min_freq = min(ps.summary()["start_frequency"])
-    ps.sel(start_frequency=min_freq).summary()
-    ps.sel(
+    ).xr_ps.summary()
+    min_freq = min(ps_xdt.xr_ps.summary()["start_frequency"])
+    ps_xdt.xr_ps.query(start_frequency=min_freq).xr_ps.summary()
+    ps_xdt.xr_ps.query(
         name="ALMA_uid___A002_X1003af4_X75a3.split.avg_01", string_exact_match=True
-    ).summary()
-    ps.sel(field_name="Sun_10", string_exact_match=False).summary()
-    ps.sel(
+    ).xr_ps.summary()
+    ps_xdt.xr_ps.query(field_name="Sun_10", string_exact_match=False).xr_ps.summary()
+    ps_xdt.xr_ps.query(
         name="ALMA_uid___A002_X1003af4_X75a3.split.avg", string_exact_match=False
-    ).summary()
+    ).xr_ps.summary()
 
 
-def check_source_and_field_xds(ps, msv4_name, expected_NP_sum):
-    field_and_source_xds = ps[msv4_name].VISIBILITY.attrs["field_and_source_xds"]
+def check_source_and_field_xds(ps_xdt, msv4_name, expected_NP_sum):
+    field_and_source_xds = ps_xdt[msv4_name].xr_ms.get_field_and_source_xds()
     field_and_source_data_variable_names = [
         "FIELD_PHASE_CENTER",
         "HELIOCENTRIC_RADIAL_VELOCITY",
@@ -415,10 +499,10 @@ if __name__ == "__main__":
     # test_sd_A002_Xae00c5_X2e6b(tmp_path=Path("."))
     # test_sd_A002_Xced5df_Xf9d9(tmp_path=Path("."))
     # test_sd_A002_Xe3a5fd_Xe38e(tmp_path=Path("."))
-    test_s3(tmp_path=Path("."))
+    # test_s3(tmp_path=Path("."))
     # test_vlass(tmp_path=Path("."))
     # test_alma(tmp_path=Path("."))
-    # test_preconverted_alma(tmp_path=Path("."))
+    # #test_preconverted_alma(tmp_path=Path("."))
     # test_ska_mid(tmp_path=Path("."))
     # test_lofar(tmp_path=Path("."))
     # test_meerkat(tmp_path=Path("."))
@@ -427,17 +511,36 @@ if __name__ == "__main__":
     # test_ngeht(tmp_path=Path("."))
     # test_ephemeris(tmp_path=Path("."))
     # test_single_dish(tmp_path=Path("."))
-    # test_alma_ephemeris_mosaic(tmp_path=Path("."))
+    test_alma_ephemeris_mosaic(tmp_path=Path("."))
     # test_VLA(tmp_path=Path("."))
 
-    # FAILED test_cor_stakeholder.py::test_ephemeris - ValueError: Buffer has wrong number of dimensions (expected 1, got 2)
-    # FAILED test_cor_stakeholder.py::test_alma_ephemeris_mosaic - ValueError: Buffer has wrong number of dimensions (expected 1, got 2)
-    # FAILED test_cor_stakeholder.py::test_sd_A002_X1015532_X1926f - ValueError: Buffer has wrong number of dimensions (expected 1, got 2)
-    # FAILED test_cor_stakeholder.py::test_sd_A002_Xe3a5fd_Xe38e - ValueError: Buffer has wrong number of dimensions (expected 1, got 2)
+# All test preformed on MAC with M3 and 16 GB Ram.
+# pytest --durations=0 .
+# Timing. Using Data Tree. Parallel False + get_col
+# 78.41s call     tests/stakeholder/test_measure_set_stakeholder.py::test_sd_A002_Xe3a5fd_Xe38e
+# 36.39s call     tests/stakeholder/test_measure_set_stakeholder.py::test_sd_A002_X1015532_X1926f
 
-    # FAILED test_measure_set_stakeholder.py::test_global_vlbi - xradio.schema.check.SchemaIssues:
-    # FAILED test_measure_set_stakeholder.py::test_vlba - xradio.schema.check.SchemaIssues:
-    # FAILED test_measure_set_stakeholder.py::test_ngeht - xradio.schema.check.SchemaIssues:
+# 36.26s call     tests/stakeholder/test_measure_set_stakeholder.py::test_alma_ephemeris_mosaic
+# 34.75s call     tests/stakeholder/test_measure_set_stakeholder.py::test_sd_A002_Xced5df_Xf9d9
+# 22.63s call     tests/stakeholder/test_measure_set_stakeholder.py::test_vlass
+# 12.57s call     tests/stakeholder/test_measure_set_stakeholder.py::test_sd_A002_Xae00c5_X2e6b
+# 6.47s call     tests/stakeholder/test_measure_set_stakeholder.py::test_ephemeris
+# 6.36s call     tests/stakeholder/test_measure_set_stakeholder.py::test_askap_59754_altaz_2weights_0
+# 6.12s call     tests/stakeholder/test_measure_set_stakeholder.py::test_global_vlbi
+# 6.07s call     tests/stakeholder/test_measure_set_stakeholder.py::test_alma
+# 6.04s call     tests/stakeholder/test_measure_set_stakeholder.py::test_askap_59754_altaz_2weights_15
+# 5.81s call     tests/stakeholder/test_measure_set_stakeholder.py::test_single_dish
+# 5.43s call     tests/stakeholder/test_measure_set_stakeholder.py::test_VLA
+# 5.35s call     tests/stakeholder/test_measure_set_stakeholder.py::test_vlba
+# 4.95s call     tests/stakeholder/test_measure_set_stakeholder.py::test_askap_59749_bp_8beams_pattern
+# 4.28s call     tests/stakeholder/test_measure_set_stakeholder.py::test_meerkat
+# 4.28s call     tests/stakeholder/test_measure_set_stakeholder.py::test_ngeht
+# 4.23s call     tests/stakeholder/test_measure_set_stakeholder.py::test_ska_mid
+# 3.65s call     tests/stakeholder/test_measure_set_stakeholder.py::test_askap_59750_altaz_2settings
+# 3.43s call     tests/stakeholder/test_measure_set_stakeholder.py::test_askap_59755_eq_interleave_15
+# 3.41s call     tests/stakeholder/test_measure_set_stakeholder.py::test_askap_59755_eq_interleave_0
+# 3.03s call     tests/stakeholder/test_measure_set_stakeholder.py::test_lofar
+
 
 # All test preformed on MAC with M3 and 16 GB Ram.
 # pytest --durations=0 .

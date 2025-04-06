@@ -1,29 +1,25 @@
-
-
 Processing Set and Measurement Set API
 ======================================
 
 .. automodule:: xradio.measurement_set
 
-   .. autofunction:: open_processing_set
+.. autofunction:: open_processing_set
 
-   .. autofunction:: load_processing_set
+.. autofunction:: load_processing_set
 
-   .. autofunction:: convert_msv2_to_processing_set
+.. autofunction:: convert_msv2_to_processing_set
 
-ProcessingSet API
------------------
+.. autofunction:: estimate_conversion_memory_and_cores
 
-.. automodule:: xradio.measurement_set
+ProcessingSetXdt API
+--------------------
 
-   .. autoclass:: ProcessingSet
+   .. autoclass:: ProcessingSetXdt
       :members:
 
 
-MeasurementSetXds API
+MeasurementSetXdt API
 ---------------------
 
-.. automodule:: xradio.measurement_set
-
-   .. autoclass:: MeasurementSetXds
+   .. autoclass:: MeasurementSetXdt
       :members:

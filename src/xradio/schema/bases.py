@@ -397,10 +397,14 @@ def xarray_dataset_schema(cls):
     cls = dataclasses.dataclass(cls, init=True, repr=False, eq=False, frozen=True)
 
     # Make schema
-    cls.__xradio_dataset_schema = dataclass.xarray_dataclass_to_dataset_schema(cls)
+    schema = dataclass.xarray_dataclass_to_dataset_schema(cls)
+    cls.__xradio_dataset_schema = schema
 
     # Replace __new__
     cls.__new__ = _dataset_new
+
+    # Register type
+    check.register_dataset_type(schema)
 
     return cls
 

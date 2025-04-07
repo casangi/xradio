@@ -167,7 +167,7 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
     direction["projection"] = p0
     helpers["projection"] = p0
     ref_sys = header["RADESYS"]
-    ref_eqx = header["EQUINOX"]
+    ref_eqx = None if ref_sys.upper()  == "ICRS" else header["EQUINOX"]
     if ref_sys == "FK5" and ref_eqx == 2000:
         ref_eqx = "J2000.0"
     helpers["ref_sys"] = ref_sys
@@ -176,15 +176,6 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
     direction["reference"] = make_skycoord_dict(
         [0.0, 0.0], units=["rad", "rad"], frame=ref_sys
     )
-    """
-    direction["reference"] = {
-        "type": "sky_coord",
-        "frame": ref_sys,
-        "equinox": ref_eqx,
-        "units": ["rad", "rad"],
-        "value": [0.0, 0.0],
-    }
-    """
     dir_axes = helpers["dir_axes"]
     ddata = []
     dunits = []
@@ -196,7 +187,8 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
         x = helpers["cdelt"][i] * u.Unit(_get_unit(helpers["cunit"][i]))
         dunits.append(x.to("rad"))
     direction["reference"] = make_skycoord_dict(ddata, units=dunits, frame=ref_sys)
-    direction["reference"]["attrs"]["equinox"] = ref_eqx.lower()
+    if ref_eqx is not None:
+        direction["reference"]["attrs"]["equinox"] = ref_eqx.lower()
     direction["latpole"] = make_quantity(
         header["LATPOLE"] * _deg_to_rad, "rad", dims=["l", "m"]
     )

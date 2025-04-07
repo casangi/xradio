@@ -40,10 +40,10 @@ def _convert_beam_to_rad(beam: dict) -> dict:
     """
     mybeam = {}
     for k in beam:
-        try:
-            q = u.quantity.Quantity(f"{beam[k]['value']}{beam[k]['unit']}")
-        except:
-            q = u.quantity.Quantity(f"{beam[k]['value']}{beam[k]['units']}")
+        myu = beam[k]["attrs"]["units"]
+        myu = myu[0] if isinstance(myu, list) else myu
+        units = _get_unit(myu)
+        q = u.quantity.Quantity(f"{beam[k]['data']}{units}")
         q = q.to("rad")
         j = "pa" if k == "positionangle" else k
         mybeam[j] = make_quantity(q.value, "rad")

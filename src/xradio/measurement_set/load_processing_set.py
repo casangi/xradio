@@ -69,12 +69,12 @@ def load_processing_set(
                             ms_store, engine="zarr", drop_variables=drop_variables
                         )
                         .isel(ms_xds_isel)
-                        .ms.sel(data_group_name=data_group_name)
+                        .xr_ms.sel(data_group_name=data_group_name)
                     )
                 else:
                     ms_xdt = xr.open_datatree(
                         ms_store, engine="zarr", drop_variables=drop_variables
-                    ).ms.sel(data_group_name=data_group_name)
+                    ).xr_ms.sel(data_group_name=data_group_name)
 
                 if include_variables is not None:
                     for data_vars in ms_xdt.ds.data_vars:
@@ -92,7 +92,7 @@ def load_processing_set(
             if (include_variables is not None) or data_group_name:
                 for ms_name, ms_xdt in ps_xdt.items():
 
-                    ms_xdt = ms_xdt.ms.sel(data_group_name=data_group_name)
+                    ms_xdt = ms_xdt.xr_ms.sel(data_group_name=data_group_name)
 
                     if include_variables is not None:
                         for data_vars in ms_xdt.ds.data_vars:

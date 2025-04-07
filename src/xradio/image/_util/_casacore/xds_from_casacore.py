@@ -35,6 +35,7 @@ from xradio._utils.dict_helpers import (
     make_quantity,
     make_frequency_reference_dict,
     make_skycoord_dict,
+    _casacore_q_to_xradio_q,
 )
 
 
@@ -332,6 +333,7 @@ def _casa_image_to_xds_coords(
         ret = _get_uv_values_attrs(coord_dict, axis_names, shape)
         for z in ["u", "v"]:
             coords[z], coord_attrs[z] = ret[z]
+    coords["beam_param"] = ["major", "minor", "pa"]
     attrs["shape"] = shape
     xds = xr.Dataset(coords=coords)
     for c in coord_attrs.keys():
@@ -590,13 +592,14 @@ def _get_beam(imageinfo: dict, nchan: int, npol: int) -> Union[np.ndarray, None]
         for c in range(nchan):
             for p in range(npol):
                 k = nchan * p + c
-                b = beam["*" + str(k)]
+                b = _casacore_q_to_xradio_q(beam["*" + str(k)])
                 beam_dict = _convert_beam_to_rad(b)
                 beam_array[0][c][p][0] = beam_dict["major"]["data"]
                 beam_array[0][c][p][1] = beam_dict["minor"]["data"]
                 beam_array[0][c][p][2] = beam_dict["pa"]["data"]
     elif r == "restoringbeam":
-        beam_dict = _convert_beam_to_rad(beam)
+        b = _casacore_q_to_xradio_q(beam)
+        beam_dict = _convert_beam_to_rad(b)
         beam_array[0, :, :, 0] = beam_dict["major"]["data"]
         beam_array[0, :, :, 1] = beam_dict["minor"]["data"]
         beam_array[0, :, :, 2] = beam_dict["pa"]["data"]

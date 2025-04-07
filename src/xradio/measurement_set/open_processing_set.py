@@ -39,7 +39,7 @@ def open_processing_set(
     if intents is None:
         return ps_xdt
     else:
-        return ps_xdt.ps.sel(intents=intents)
+        return ps_xdt.xr_ps.query(intents=intents)
 
 
 # def open_processing_set(

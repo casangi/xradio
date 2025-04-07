@@ -16,7 +16,7 @@ class InvalidAccessorLocation(ValueError):
     pass
 
 
-@xr.register_datatree_accessor("ps")
+@xr.register_datatree_accessor("xr_ps")
 class ProcessingSetXdt:
     """
     Accessor to Processing Set DataTree nodes. Provides Processing Set specific functionality such
@@ -166,7 +166,7 @@ class ProcessingSetXdt:
         import astropy.units as u
 
         for key, value in self._xdt.items():
-            partition_info = value.ms.get_partition_info()
+            partition_info = value.xr_ms.get_partition_info()
 
             summary_data["name"].append(key)
             summary_data["intents"].append(partition_info["intents"])
@@ -309,7 +309,7 @@ class ProcessingSetXdt:
         for key, val in self._xdt.items():
             if key in summary_table["name"].values:
                 if data_group_name is not None:
-                    sub_ps_xdt[key] = val.ms.sel(data_group_name=data_group_name)
+                    sub_ps_xdt[key] = val.xr_ms.sel(data_group_name=data_group_name)
                 else:
                     sub_ps_xdt[key] = val
 

@@ -82,26 +82,32 @@ def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_sch
     return ps_name
 
 
-def check_expected_datasets_presence(processing_set, expected_secondary_xds: set[str]):
+def check_expected_datasets_presence(ps_xdt, expected_secondary_xds: set[str]):
     """
     expected_secondary_xds should be for example {"antenna", "weather"}, {"antenna", "pointing", "weather"}, or
     {"antenna", "gain_curve", "system_calibration"}.
     The "_xds" suffix is not needed.
     """
+
+    def check_xds_in_datatree(xds, msv4_xdt):
+        assert xds in msv4_xdt
+        assert isinstance(msv4_xdt[xds], xr.DataTree)
+        assert isinstance(msv4_xdt[xds].ds, xr.Dataset)
+
     if not expected_secondary_xds:
         return
 
-    for _xds_name, msv4_xds in processing_set.items():
+    for _msv4_xds_name, msv4_xdt in ps_xdt.items():
         for xds in expected_secondary_xds:
             if not xds.endswith("_xds"):
                 xds = xds + "_xds"
 
             # system_calibration is only present for proper visibility data (not for RADIOMETER, wvr and the like)
             if xds != "system_calibration_xds":
-                assert xds in msv4_xds.attrs
+                check_xds_in_datatree(xds, msv4_xdt)
             else:
-                if msv4_xds.processor_info["type"] == "CORRELATOR":
-                    assert xds in msv4_xds.attrs
+                if msv4_xdt.ds.processor_info["type"] == "CORRELATOR":
+                    check_xds_in_datatree(xds, msv4_xdt)
 
 
 def base_check_ps_accessor(ps_lazy_xdt: xr.DataTree, ps_xdt: xr.DataTree):

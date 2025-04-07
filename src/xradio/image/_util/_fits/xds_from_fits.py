@@ -167,7 +167,7 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
     direction["projection"] = p0
     helpers["projection"] = p0
     ref_sys = header["RADESYS"]
-    ref_eqx = None if ref_sys.upper()  == "ICRS" else header["EQUINOX"]
+    ref_eqx = None if ref_sys.upper() == "ICRS" else header["EQUINOX"]
     if ref_sys == "FK5" and ref_eqx == 2000:
         ref_eqx = "J2000.0"
     helpers["ref_sys"] = ref_sys

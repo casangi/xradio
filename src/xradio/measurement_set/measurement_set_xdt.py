@@ -93,16 +93,33 @@ class MeasurementSetXdt:
         if data_group_name is not None:
             sel_data_group_set = set(
                 self._xdt.attrs["data_groups"][data_group_name].values()
-            )
+            ) - set(["date", "description"])
+
+            sel_field_and_source_xds = self._xdt.attrs["data_groups"][data_group_name][
+                "field_and_source"
+            ]
 
             data_variables_to_drop = []
-            for dg in self._xdt.attrs["data_groups"].values():
-                temp_set = set(dg.values()) - sel_data_group_set
+            field_and_source_to_drop = []
+            for dg_name, dg in self._xdt.attrs["data_groups"].items():
+                print(f"Data group: {dg_name}", dg)
+                f_and_s = dg["field_and_source"]
+                dg_copy = dg.copy()
+                dg_copy.pop("date", None)
+                dg_copy.pop("description", None)
+                dg_copy.pop("field_and_source", None)
+                temp_set = set(dg_copy.values()) - sel_data_group_set
                 data_variables_to_drop.extend(list(temp_set))
+
+                if f_and_s != sel_field_and_source_xds:
+                    field_and_source_to_drop.append(f_and_s)
 
             data_variables_to_drop = list(set(data_variables_to_drop))
 
             sel_ms_xdt = self._xdt
+
+            print("Data variables to drop: ", data_variables_to_drop)
+            print("Field and source to drop: ", field_and_source_to_drop)
 
             sel_corr_xds = self._xdt.ds.sel(
                 indexers, method, tolerance, drop, **indexers_kwargs
@@ -140,7 +157,10 @@ class MeasurementSetXdt:
             else:
                 data_group_name = list(self._xdt.attrs["data_groups"].keys())[0]
 
-        return self._xdt[f"field_and_source_xds_{data_group_name}"].ds
+        field_and_source_xds_name = self._xdt.attrs["data_groups"][data_group_name][
+            "field_and_source"
+        ]
+        return self._xdt[field_and_source_xds_name].ds
 
     def get_partition_info(self, data_group_name: str = None) -> dict:
         """
@@ -195,3 +215,105 @@ class MeasurementSetXdt:
         }
 
         return partition_info
+
+    def add_data_group(
+        self,
+        new_data_group_name: str,
+        correlated_data: str = None,
+        weight: str = None,
+        flag: str = None,
+        uvw: str = None,
+        field_and_source_xds: str = None,
+        date_time: str = None,
+        description: str = None,
+        data_group_dv_shared_with: str = None,
+    ) -> xr.DataTree:
+        """_summary_
+
+        Parameters
+        ----------
+        new_data_group_name : str
+            _description_
+        correlated_data : str, optional
+            _description_, by default None
+        weights : str, optional
+            _description_, by default None
+        flag : str, optional
+            _description_, by default None
+        uvw : str, optional
+            _description_, by default None
+        field_and_source_xds : str, optional
+            _description_, by default None
+        date_time : str, optional
+            _description_, by default None
+        description : str, optional
+            _description_, by default None
+        data_group_dv_shared_with : str, optional
+            _description_, by default "base"
+
+        Returns
+        -------
+        xr.DataTree
+            _description_
+        """
+
+        if data_group_dv_shared_with is None:
+            data_group_dv_shared_with = self._xdt.xr_ms._get_default_data_group_name()
+        default_data_group = self._xdt.attrs["data_groups"][data_group_dv_shared_with]
+
+        new_data_group = {}
+
+        if correlated_data is None:
+            correlated_data = default_data_group["correlated_data"]
+        new_data_group["correlated_data"] = correlated_data
+        assert (
+            correlated_data in self._xdt.ds.data_vars
+        ), f"Data variable {correlated_data} not found in dataset."
+
+        if weight is None:
+            weight = default_data_group["weight"]
+        new_data_group["weight"] = weight
+        assert (
+            weight in self._xdt.ds.data_vars
+        ), f"Data variable {weight} not found in dataset."
+
+        if flag is None:
+            flag = default_data_group["flag"]
+        new_data_group["flag"] = flag
+        assert (
+            flag in self._xdt.ds.data_vars
+        ), f"Data variable {flag} not found in dataset."
+
+        if self._xdt.attrs["type"] == "visibility":
+            if uvw is None:
+                uvw = default_data_group["uvw"]
+            new_data_group["uvw"] = uvw
+            assert (
+                uvw in self._xdt.ds.data_vars
+            ), f"Data variable {uvw} not found in dataset."
+
+        if field_and_source_xds is None:
+            field_and_source_xds = default_data_group["field_and_source_xds"]
+        new_data_group["field_and_source"] = field_and_source_xds
+        assert (
+            field_and_source_xds in self._xdt.children
+        ), f"Data variable {field_and_source_xds} not found in dataset."
+
+        if date_time is None:
+            date_time = datetime.now().isoformat()
+        new_data_group["date"] = date_time
+
+        if description is None:
+            description = ""
+        new_data_group["description"] = description
+
+        self._xdt.attrs["data_groups"][new_data_group_name] = new_data_group
+
+        return self._xdt
+
+    def _get_default_data_group_name(self):
+        if "base" in self._xdt.attrs["data_groups"].keys():
+            data_group_name = "base"
+        else:
+            data_group_name = list(self._xdt.attrs["data_groups"].keys())[0]
+        return data_group_name

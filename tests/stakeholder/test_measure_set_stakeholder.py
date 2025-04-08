@@ -159,7 +159,7 @@ def base_check_ms_accessor(ps_xdt: xr.DataTree):
         # dt produces a DatasetView
         assert hasattr(ms_xdt, "ds") and isinstance(ms_xdt.ds, xr.Dataset)
         assert ms_xdt["antenna_xds"]
-        assert ms_xdt["field_and_source_xds_base"]
+        assert ms_xdt["field_and_source_base_xds"]
         # Should check depending on availability of metadata in input MSv2:
         # assert ms_xdt["gain_curve_xds"]
         # assert ms_xdt["phase_calibration_xds"]

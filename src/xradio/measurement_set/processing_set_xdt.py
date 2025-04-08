@@ -450,7 +450,9 @@ class ProcessingSetXdt:
                 "correlated_data"
             ]
 
-            field_and_source_xds = field_and_source_xds = ms_xdt.xr_ms.get_field_and_source_xds(data_group)
+            field_and_source_xds = field_and_source_xds = (
+                ms_xdt.xr_ms.get_field_and_source_xds(data_group)
+            )
 
             if field_and_source_xds.attrs["type"] == "field_and_source_ephemeris":
 

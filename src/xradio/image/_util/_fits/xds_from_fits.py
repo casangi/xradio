@@ -72,10 +72,6 @@ def _add_time_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     time_coord = xds.coords["time"]
     meta = copy.deepcopy(helpers["obsdate"])
     del meta["value"]
-    # meta["units"] = [ meta["units"] ]
-    # meta['format'] = 'MJD'
-    # meta['time_scale'] = meta['refer']
-    # del meta['refer']
     time_coord.attrs = meta
     xds.assign_coords(time=time_coord)
     return xds
@@ -87,8 +83,6 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     if helpers["has_freq"]:
         meta["rest_frequency"] = make_quantity(helpers["restfreq"], "Hz")
         meta["rest_frequencies"] = [meta["rest_frequency"]]
-        # meta["frame"] = helpers["specsys"]
-        # meta["units"] = "Hz"
         meta["type"] = "frequency"
         meta["wave_unit"] = "mm"
         freq_axis = helpers["freq_axis"]
@@ -128,16 +122,6 @@ def _add_l_m_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
 
 
 def _add_lin_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
-    """
-    if helpers["sphr_dims"]:
-        for i, name in zip(helpers["dir_axes"], helpers["sphr_axis_names"]):
-            meta = {
-                "units": "rad",
-                "crval": helpers["crval"][i],
-                "cdelt": helpers["cdelt"][i],
-            }
-            xds.coords[name].attrs = meta
-    """
     if not helpers["sphr_dims"]:
         for i, j in zip(helpers["dir_axes"], ("u", "v")):
             meta = {
@@ -176,15 +160,6 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
     direction["reference"] = make_skycoord_dict(
         [0.0, 0.0], units=["rad", "rad"], frame=ref_sys
     )
-    """
-    direction["reference"] = {
-        "type": "sky_coord",
-        "frame": ref_sys,
-        "equinox": ref_eqx,
-        "units": ["rad", "rad"],
-        "value": [0.0, 0.0],
-    }
-    """
     dir_axes = helpers["dir_axes"]
     ddata = []
     dunits = []
@@ -194,7 +169,8 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
         ddata.append(x.value)
         # direction["reference"]["value"][i] = x.value
         x = helpers["cdelt"][i] * u.Unit(_get_unit(helpers["cunit"][i]))
-        dunits.append(x.to("rad"))
+        dunits.append("rad")
+    print("ddata", "dunits", ddata, dunits)
     direction["reference"] = make_skycoord_dict(ddata, units=dunits, frame=ref_sys)
     direction["reference"]["attrs"]["equinox"] = ref_eqx.lower()
     direction["latpole"] = make_quantity(
@@ -294,6 +270,9 @@ def _user_attrs_from_header(header) -> dict:
         "ALTRPIX",
         "ALTRVAL",
         "BITPIX",
+        "BMAJ",
+        "BMIN",
+        "BPA",
         "BSCALE",
         "BTYPE",
         "BUNIT",
@@ -319,21 +298,20 @@ def _user_attrs_from_header(header) -> dict:
     ]
     regex = r"|".join(
         [
-            "^NAXIS\\d?$",
-            "^CRVAL\\d$",
-            "^CRPIX\\d$",
-            "^CTYPE\\d$",
-            "^CDELT\\d$",
-            "^CUNIT\\d$",
-            "^OBSGEO-(X|Y|Z)$",
-            "^P(C|V)\\d_\\d$",
+            r"^NAXIS\d?$",
+            r"^CRVAL\d$",
+            r"^CRPIX\d$",
+            r"^CTYPE\d$",
+            r"^CDELT\d$",
+            r"^CUNIT\d$",
+            r"^OBSGEO-(X|Y|Z)$",
+            r"^P(C|V)0?\d_0?\d",
         ]
     )
     user = {}
     for k, v in header.items():
-        if re.search(regex, k) or k in exclude:
-            continue
-        user[k.lower()] = v
+        if not (re.search(regex, k) or k in exclude):
+            user[k.lower()] = v
     return user
 
 

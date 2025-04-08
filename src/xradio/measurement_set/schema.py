@@ -1410,6 +1410,8 @@ class DataGroupDict:
     """ Name of the weight variable of the group, for example 'WEIGHT'. """
     uvw: Optional[str]
     """ Name of the UVW variable of the group, for example 'UVW'. """
+    field_and_source: str
+    """ Name of the field_and_source_xds, for example field_and_source_xds_base. """
     description: str
     """ More details about the data group. """
     date: str

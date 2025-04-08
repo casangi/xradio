@@ -1341,7 +1341,7 @@ def convert_and_write_partition(
 
         ms_xdt["/antenna_xds"] = ant_xds
         for group_name in xds.attrs["data_groups"]:
-            ms_xdt["/" + f"field_and_source_xds_{group_name}"] = field_and_source_xds
+            ms_xdt["/" + f"field_and_source_{group_name}_xds"] = field_and_source_xds
 
         if with_pointing and len(pointing_xds.data_vars) > 0:
             ms_xdt["/pointing_xds"] = pointing_xds
@@ -1468,6 +1468,7 @@ def add_group_to_data_groups(
         "correlated_data": correlated_data_name,
         "flag": "FLAG",
         "weight": "WEIGHT",
+        "field_and_source": f"field_and_source_{what_group}_xds",
         "description": f"Data group derived from the data column '{correlated_data_name}' of an MSv2 converted to MSv4",
         "date": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }

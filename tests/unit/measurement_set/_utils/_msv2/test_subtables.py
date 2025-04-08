@@ -2,15 +2,8 @@ import pytest
 
 
 ## Tests for _utils/_ms/subtables functions. Move to its own file
-def test_subtables_read_ms_subtables_required(ms_empty_required):
-    from xradio.measurement_set._utils._msv2.subtables import read_ms_subtables
+def test_subtables_subt_rename_ids():
+    from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
 
-    res = read_ms_subtables(ms_empty_required.fname, done_subt=[])
-    assert res == {}
-
-
-def test_subtables_read_ms_subtables_complete(ms_empty_complete):
-    from xradio.measurement_set._utils._msv2.subtables import read_ms_subtables
-
-    res = read_ms_subtables(ms_empty_complete.fname, done_subt=[])
-    assert res == {}
+    for key, val in subt_rename_ids.items():
+        assert isinstance(val, dict)

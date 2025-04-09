@@ -842,3 +842,4 @@ def _read_image_chunk(img_full_path, shapes: tuple, starts: tuple) -> np.ndarray
     # delete to avoid having a reference to a mem-mapped hdulist
     del hdulist
     return z
+

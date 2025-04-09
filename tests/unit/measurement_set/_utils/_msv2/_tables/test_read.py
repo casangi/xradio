@@ -385,6 +385,27 @@ def test_add_units_measures_dubious_units(msv4_min_correlated_xds):
     assert xds_vars["TIME_CENTROID"].attrs
 
 
+def test_get_pad_value_in_tablerow_column(ms_minimal_required):
+    from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
+    from xradio.measurement_set._utils._msv2._tables.read import (
+        get_pad_value,
+        get_pad_value_in_tablerow_column,
+    )
+
+    with open_table_ro(ms_minimal_required.fname + "/POLARIZATION") as tb_tool:
+        trows = tb_tool.row([], exclude=True)[0:12]
+        val_corr_type = get_pad_value_in_tablerow_column(trows, "CORR_TYPE")
+        assert val_corr_type == get_pad_value(np.int32)
+
+        val_corr_prod = get_pad_value_in_tablerow_column(trows, "CORR_PRODUCT")
+        assert val_corr_prod == get_pad_value(np.int32)
+
+        with pytest.raises(RuntimeError, match="unexpected type"):
+            val_proc_id = get_pad_value_in_tablerow_column(trows, "NUM_CORR")
+        with pytest.raises(RuntimeError, match="unexpected type"):
+            val_proc_id = get_pad_value_in_tablerow_column(trows, "FLAG_ROW")
+
+
 def test_get_pad_value_uvw(msv4_min_correlated_xds):
     from xradio.measurement_set._utils._msv2._tables.read import get_pad_value
 

@@ -922,7 +922,7 @@ def raw_col_data_to_coords_vars(
 
 def get_pad_value_in_tablerow_column(trows: tables.tablerow, col: str) -> object:
     """
-    Gets the pad value for the type of a column (IMPORTANTLY) as froun in the
+    Gets the pad value for the type of a column (IMPORTANTLY) as found in the
     the type specified in the row / column value dict returned by tablerow.
     This can differ from the type of the column as given in the casacore
     column descriptions. See https://github.com/casangi/xradio/issues/242.

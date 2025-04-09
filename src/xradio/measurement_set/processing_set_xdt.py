@@ -193,7 +193,7 @@ class ProcessingSetXdt:
             )
             summary_data["end_frequency"].append(to_list(value["frequency"].values)[-1])
 
-            field_and_source_xds = value["field_and_source_xds_" + data_group]
+            field_and_source_xds = value.xr_ms.get_field_and_source_xds(data_group)
 
             if field_and_source_xds.attrs["type"] == "field_and_source_ephemeris":
                 summary_data["field_coords"].append("Ephemeris")
@@ -349,7 +349,7 @@ class ProcessingSetXdt:
                 "correlated_data"
             ]
 
-            field_and_source_xds = ms_xdt["field_and_source_xds_" + data_group].ds
+            field_and_source_xds = ms_xdt.xr_ms.get_field_and_source_xds(data_group)
 
             if not field_and_source_xds.attrs["type"] == "field_and_source_ephemeris":
 
@@ -450,9 +450,9 @@ class ProcessingSetXdt:
                 "correlated_data"
             ]
 
-            field_and_source_xds = field_and_source_xds = ms_xdt[
-                "field_and_source_xds_" + data_group
-            ].ds
+            field_and_source_xds = field_and_source_xds = (
+                ms_xdt.xr_ms.get_field_and_source_xds(data_group)
+            )
 
             if field_and_source_xds.attrs["type"] == "field_and_source_ephemeris":
 

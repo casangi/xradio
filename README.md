@@ -1,7 +1,7 @@
 # xradio
 Xarray Radio Astronomy Data IO is still in development.
 
-[![Python 3.9 3.10 3.11 3.12](https://img.shields.io/badge/python-3.9%20%7C%203.10%20%7C%203.11%203.12-blue)](https://www.python.org/downloads/release/python-380/)
+[![Python 3.11 3.12 3.13](https://img.shields.io/badge/python-3.11%203.12%203.13-blue)](https://www.python.org/downloads/release/python-380/)
 
 # Installing
 It is recommended to use the conda environment manager from [miniforge](https://github.com/conda-forge/miniforge) to create a clean, self-contained runtime where XRADIO and all its dependencies can be installed:

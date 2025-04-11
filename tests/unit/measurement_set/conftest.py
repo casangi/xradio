@@ -20,12 +20,12 @@ A tuple with an MS filename (as str) and a description of its expected structure
 MSWithSpec = namedtuple("MSWithSpec", "fname descr")
 
 
-def pytest_configure(config):
-    config.addinivalue_line(
-        "markers",
-        "uses_download: marks tests that use the function to download test MSs (require medium-size downloads and "
-        "tend to be slower than others)",
-    )
+# def pytest_configure(config):
+#     config.addinivalue_line(
+#         "markers",
+#         "uses_download: marks tests that use the function to download test MSs (require medium-size downloads and "
+#         "tend to be slower than others)",
+#     )
 
 
 @pytest.fixture(scope="session")
@@ -367,22 +367,6 @@ def ms_custom(spec):
     gen_test_ms(name, spec)
     yield name
     shutil.rmtree(name)
-
-
-@pytest.fixture(scope="session")
-def ms_alma_antennae_north_split():
-    """
-    An MS that is downloaded (one of the smallest), with multiple fields (3)
-    + with SOURCE and STATE populated
-    """
-    from toolviper.utils.data import download
-
-    name = "Antennae_North.cal.lsrk.split.ms"
-    # name = "small_meerkat.ms"
-    download(file=name)
-    # TODO: extend with more attrs
-    descr = {"nchans": 8, "npols": 2}
-    yield MSWithSpec(name, descr)
 
 
 @pytest.fixture(scope="session")

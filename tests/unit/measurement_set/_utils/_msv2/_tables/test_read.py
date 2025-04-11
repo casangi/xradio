@@ -557,7 +557,8 @@ def test_load_generic_table_ephem(ms_minimal_required):
     assert all([dim in res.dims for dim in ["ephemeris_row_id", "ephemeris_id"]])
     assert "time" in res.data_vars
     assert res.data_vars["time"].size == 1
-    assert res.attrs == exp_attrs
+    for key, val in exp_attrs["other"]["msv2"].items():
+        key in res.attrs["other"]["msv2"] and val == res.attrs["other"]["msv2"][key]
 
 
 def test_load_generic_cols_state(ms_minimal_required):

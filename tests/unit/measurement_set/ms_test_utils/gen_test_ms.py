@@ -658,13 +658,147 @@ def gen_subt_ephem(mspath: str):
                 "UNIT": "deg",
             },
         },
+        "DEC": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "deg",
+            },
+        },
+        "Rho": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "AU",
+            },
+        },
+        "RadVel": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "AU/d",
+            },
+        },
+        "DiskLong": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "deg",
+            },
+        },
+        "DiskLat": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "deg",
+            },
+        },
+        "SI_lon": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "deg",
+            },
+        },
+        "SI_lat": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "deg",
+            },
+        },
+        "r": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "AU",
+            },
+        },
+        "rdot": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "km/s",
+            },
+        },
+        "phang": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "deg",
+            },
+        },
     }
 
+    keywords = {
+        "VS_CREATE": "2021/01/02/12:33",
+        "VS_DATE": "2021/01/02/12:33",
+        "VS_VERSION": "0001.0001",
+        "MJD0": 58941.4,
+        "dMJD": 0.0138889,
+        "NAME": "Test_ephem_object",
+        "obsloc": "GEOCENTRIC",
+        "GeoLong": 0.0,
+        "GeoLat": 0.0,
+        "GeoDist": 0.0,
+        "posrefsys": "ICRF/ICRS",
+    }
     with tables.table(
         str(ephem0_path), tabledesc=tabdesc, nrow=1, readonly=False, ack=False
     ) as tbl:
         tbl.putcol("MJD", 50000)
         tbl.putcol("RA", 230.334)
+        tbl.putcol("DEC", -15.678)
+        tbl.putcol("Rho", 0.55)
+        tbl.putcol("RadVel", 0.004)
+        tbl.putcol("DiskLong", 333.01)
+        tbl.putcol("DiskLat", 4.09)
+        tbl.putcol("SI_lon", 338.81)
+        tbl.putcol("SI_lat", 2.44)
+        tbl.putcol("r", 9.1234)
+        tbl.putcol("rdot", -1.234)
+        tbl.putcol("phang", 5.6789)
+        tbl.putkeywords(keywords)
 
 
 def gen_subt_state(mspath: str, states_descr: dict):

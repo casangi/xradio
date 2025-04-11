@@ -1,5 +1,5 @@
-
-name: ipynb
+# .github/workflows/python-testing-linux.yml
+name: ipynb Tests
 
 on:
   push:
@@ -9,32 +9,10 @@ on:
   pull_request:
     paths-ignore:
       - '**.md'
-      - '**.rst'  
+      - '**.rst'
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-        python-version: ["3.12"]
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python 3
-      uses: actions/setup-python@v4
-      with:
-        python-version: ${{ matrix.python-version }}
-
-    - name: Install dependencies with pip
-      run: |
-        python -m pip install --upgrade pip
-        pip install .
-        pip install ".[interactive]"
-    - name: Run Jupyter notebooks
-      run: |
-       for dir in docs/source/measurement_set/tutorials docs/source/measurement_set/guides docs/source/image_data/tutorials; do
-        for notebook in $(find $dir -name '*.ipynb'); do
-          jupyter nbconvert --to notebook --execute $notebook --output $(basename $notebook)
-        done
-       done 
+ 
+  call-testing-linux:
+    uses: casangi/toolviper/.github/workflows/run-ipynb-template.yml@main
+    secrets: inherit

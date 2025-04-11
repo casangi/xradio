@@ -72,6 +72,14 @@ def ms_minimal_required():
 
 
 @pytest.fixture(scope="session")
+def ms_minimal_misbehaved():
+    name = "test_msv2_minimal_required_misbehaved.ms"
+    spec = gen_test_ms(name, required_only=True, misbehave=True)
+    yield MSWithSpec(name, spec)
+    shutil.rmtree(name)
+
+
+@pytest.fixture(scope="session")
 def ms_minimal_dims1_required():
     """
     An MS populated minimally, with size one for several relevant dimensions:

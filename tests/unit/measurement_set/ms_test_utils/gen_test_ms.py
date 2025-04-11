@@ -67,7 +67,11 @@ default_ms_descr = {
 
 
 def gen_test_ms(
-    msname: str, descr: dict = None, opt_tables: bool = True, required_only: bool = True
+    msname: str,
+    descr: dict = None,
+    opt_tables: bool = True,
+    required_only: bool = True,
+    misbehave: bool = False,
 ):
     """
     Generates an MS for testing purposes, including main table and
@@ -95,6 +99,11 @@ def gen_test_ms(
         whether to produce optional (sub)tables, such as SOURCE, WEATHER
     required_only : bool (Default value = True)
         whether to use the complete or required columns spec
+    misbehave : bool (Default value = False)
+        whether to generate a misbehaving MS. For example, usual or more
+        corner case conformance issues such as absence of STATE subtable,
+        missing FEED subtable, presence of missing SOURCE_IDs in the FIELD
+        subtable, an ASDM_EXECBLOCK table that is empty, etc.
 
     Returns
     -------
@@ -113,8 +122,9 @@ def gen_test_ms(
     gen_subt_antenna(msname, descr["ANTENNA"])
     gen_subt_pol_setup(msname, descr["npols"], descr["POLARIZATION"])
 
+    gen_ephem = not misbehave
     # Also needed for partitioning: FIELD, STATE
-    gen_subt_field(msname, descr["FIELD"])
+    gen_subt_field(msname, descr["FIELD"], gen_ephem=gen_ephem, misbehave=misbehave)
     gen_subt_state(msname, descr["STATE"])
 
     # Required by MSv2/v3 but not strictly required to load and partition:
@@ -122,7 +132,9 @@ def gen_test_ms(
     # BEAM (only MSv3)
 
     # FEED
-    gen_subt_feed(msname, descr["FEED"], descr["ANTENNA"], descr["SPECTRAL_WINDOW"])
+    gen_subt_feed(
+        msname, descr["FEED"], descr["ANTENNA"], descr["SPECTRAL_WINDOW"], misbehave
+    )
 
     # HISTORY
     gen_subt_history(msname, descr["OBSERVATION"])
@@ -157,7 +169,7 @@ def gen_test_ms(
         # QUALITY_TIME_STATISTIC (only MSv3: listend but never defined)
 
         # SOURCE
-        gen_subt_source(msname, descr["SOURCE"])
+        gen_subt_source(msname, descr["SOURCE"], misbehave)
 
         # SCAN (Only MSv3)
 
@@ -170,7 +182,7 @@ def gen_test_ms(
         # ASDM_* subtables. One simple example
         gen_subt_asdm_receiver(msname)
         # ASDM_EXECBLOCK is used in create_info_dicts when available
-        gen_subt_asdm_execblock(msname)
+        gen_subt_asdm_execblock(msname, misbehave)
 
     return outdescr
 
@@ -555,11 +567,28 @@ def gen_subt_antenna(mspath: str, ant_descr: dict):
 
 
 # field and state very relevant for partitions/sub-MSv2
-def gen_subt_field(mspath: str, fields_descr: dict, gen_ephem: bool = True):
+def gen_subt_field(
+    mspath: str, fields_descr: dict, gen_ephem: bool = True, misbehave: bool = False
+):
     """
     creates FIELD
 
     only supports polynomials with 1 coefficient
+
+    Parameters
+    ----------
+    mspath : str
+        path of output MS
+    fields_descr : dict
+        fields description
+    gen_ephem : bool
+        whether to generate ephemeris fields (with EPHEM pseudo-sub tables
+    misbehave : bool
+        if True, some missing SOURCE_IDs will be added
+
+    Returns
+    -------
+
     """
 
     with tables.table(mspath + "::FIELD", ack=False, readonly=False) as fld_tbl:
@@ -573,6 +602,25 @@ def gen_subt_field(mspath: str, fields_descr: dict, gen_ephem: bool = True):
         adir = np.deg2rad([30, 45])
         for dir_col in ["DELAY_DIR", "PHASE_DIR", "REFERENCE_DIR"]:
             fld_tbl.putcol(dir_col, np.broadcast_to(adir, (nfields, npoly + 1, 2)))
+
+        fld_tbl.putcol("SOURCE_ID", np.arange(nfields))
+        if misbehave:
+            fld_tbl.putcell("SOURCE_ID", nfields - 1, nfields + 3)
+
+        if gen_ephem:
+            tabdesc_ephemeris_id = {
+                "EPHEMERIS_ID": {
+                    "valueType": "int",
+                    "dataManagerType": "StandardStMan",
+                    "dataManagerGroup": "StandardStMan",
+                    "option": 0,
+                    "maxlen": 0,
+                    "ndim": 0,
+                    "comment": "comment...",
+                }
+            }
+            fld_tbl.addcols(tabdesc_ephemeris_id)
+            fld_tbl.putcol("EPHEMERIS_ID", np.broadcast_to(0, (nfields, 1)))
 
     if gen_ephem:
         gen_subt_ephem(mspath)
@@ -598,12 +646,25 @@ def gen_subt_ephem(mspath: str):
                 "QuantumUnits": ["s"],
                 "MEASINFO": {"type": "epoch", "Ref": "bogus MJD"},
             },
-        }
+        },
+        "RA": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "deg",
+            },
+        },
     }
+
     with tables.table(
         str(ephem0_path), tabledesc=tabdesc, nrow=1, readonly=False, ack=False
     ) as tbl:
         tbl.putcol("MJD", 50000)
+        tbl.putcol("RA", 230.334)
 
 
 def gen_subt_state(mspath: str, states_descr: dict):
@@ -659,9 +720,20 @@ def open_opt_subtable(
         table.close()
 
 
-def gen_subt_source(mspath: str, src_descr: dict):
+def gen_subt_source(mspath: str, src_descr: dict, misbehave: bool):
     """
     Populate SOURCE subtable, with time dependent source info
+
+    Parameters
+    ----------
+    mspath : str
+        path of output MS
+    src_descr : dict
+        sources description
+
+    Returns
+    -------
+
     """
 
     # SOURCE is not included in default_ms
@@ -712,7 +784,13 @@ def gen_subt_pointing(mspath: str):
 # Other, more secondary subtables
 
 
-def gen_subt_feed(mspath: str, feed_descr: dict, ant_descr: str, spw_descr: str):
+def gen_subt_feed(
+    mspath: str,
+    feed_descr: dict,
+    ant_descr: str,
+    spw_descr: str,
+    misbehave: bool = False,
+):
     """
     Populate FEED subtable, with antenna-based pointing info.
 
@@ -732,11 +810,15 @@ def gen_subt_feed(mspath: str, feed_descr: dict, ant_descr: str, spw_descr: str)
 
     spw_descr : str
 
+    misbehave : bool
+        if misbehave, the FEED table will be empty.
 
     Returns
     -------
 
     """
+    if misbehave:
+        return
 
     with tables.table(mspath + "::FEED", ack=False, readonly=False) as tbl:
         nfeeds = len(feed_descr)
@@ -985,7 +1067,7 @@ def gen_subt_asdm_receiver(mspath: str):
         main.putkeyword(subt_name, f"Table: {mspath}/{subt_name}")
 
 
-def gen_subt_asdm_execblock(mspath: str):
+def gen_subt_asdm_execblock(mspath: str, misbehave: bool = False):
     """
     Produces a basic ASDM/EXECBLOCK table, for basic coverage of code that handles the ASDM_*
     subtables.
@@ -1061,7 +1143,10 @@ def gen_subt_asdm_execblock(mspath: str):
         },
     }
 
-    nrows = 1
+    if misbehave:
+        nrows = 0
+    else:
+        nrows = 1
     with tables.table(
         str(rec_path), tabledesc=tabdesc, nrow=nrows, readonly=False, ack=False
     ) as tbl:

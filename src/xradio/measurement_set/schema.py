@@ -27,7 +27,7 @@ TimeWeather = Literal["time_weather"]
 AntennaName = Literal["antenna_name"]
 """ Antenna name dimension """
 StationName = Literal["station_name"]
-""" Station identifier dimension """
+""" Station name dimension """
 ReceptorLabel = Literal["receptor_label"]
 """ Receptor label dimension """
 ToneLabel = Literal["tone_label"]
@@ -1445,7 +1445,7 @@ class AntennaXds:
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
     """ Antenna name """
-    station: Coord[AntennaName, str]
+    station_name: Coord[AntennaName, str]
     """ Name of the station pad (relevant to arrays with moving antennas). """
     mount: Coord[AntennaName, str]
     """ Mount type of the antenna. Reserved keywords include: ”EQUATORIAL” - equatorial mount;
@@ -1529,7 +1529,7 @@ class GainCurveXds:
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
     """ Antenna name """
-    station: Coord[AntennaName, str]
+    station_name: Coord[AntennaName, str]
     """ Name of the station pad (relevant to arrays with moving antennas). """
     mount: Coord[AntennaName, str]
     """ Mount type of the antenna. Reserved keywords include: ”EQUATORIAL” - equatorial mount;
@@ -1588,7 +1588,7 @@ class PhaseCalibrationXds:
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
     """ Antenna name """
-    station: Coord[AntennaName, str]
+    station_name: Coord[AntennaName, str]
     """ Name of the station pad (relevant to arrays with moving antennas). """
     mount: Coord[AntennaName, str]
     """ Mount type of the antenna. Reserved keywords include: ”EQUATORIAL” - equatorial mount;
@@ -1672,13 +1672,11 @@ class WeatherXds:
 
     # Coordinates
     station_name: Coord[StationName, str]
-    """ Station identifier """
+    """ Station name """
     time: Optional[Coordof[TimeInterpolatedCoordArray]]
     """ Mid-point of the time interval. Labeled 'time' when interpolated to main time axis """
     time_weather: Optional[Coordof[TimeWeatherCoordArray]]
     """ Mid-point of the time interval. Labeled 'time_weather' when not interpolated to main time axis """
-    antenna_name: Optional[Coordof[AntennaNameArray]]
-    """ Antenna identifier """
     ellipsoid_pos_label: Optional[Coord[EllipsoidPosLabel, str]] = (
         "lon",
         "lat",
@@ -1687,6 +1685,10 @@ class WeatherXds:
     """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
     cartesian_pos_label: Optional[Coord[CartesianPosLabel, str]] = ("x", "y", "z")
     """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
+
+    # Station position variable - required
+    STATION_POSITION: Data[tuple[StationName], LocationArray] = None
+    """ Position of the weather station """
 
     # Data variables (all optional)
     H2O: Optional[
@@ -1766,8 +1768,6 @@ class WeatherXds:
         ]
     ] = None
     """ Average wind speed """
-    STATION_POSITION: Optional[Data[tuple[StationName], LocationArray]] = None
-    """ Station position """
 
     # Attributes
     type: Attr[Literal["weather"]] = "weather"
@@ -1883,7 +1883,9 @@ class SystemCalibrationXds:
 
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
-    """ Antenna identifier """
+    """ Antenna name """
+    station_name: Coord[AntennaName, str]
+    """ Name of the station pad (relevant to arrays with moving antennas). """
     receptor_label: Coord[ReceptorLabel, str]
     """ Names of receptors """
     polarization_type: Coord[tuple[AntennaName, ReceptorLabel], str]

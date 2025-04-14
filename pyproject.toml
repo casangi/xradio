@@ -16,7 +16,7 @@ dependencies = [
     'astropy',
     'dask',
     'distributed',
-    'toolviper',
+    'toolviper>=0.0.11',
     'numba>=0.57.0',
     'numpy',
     'pytest',

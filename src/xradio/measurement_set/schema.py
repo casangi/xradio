@@ -9,6 +9,8 @@ from xradio.schema.bases import (
 from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof, Name
 import numpy
 
+MSV4_SCHEMA_VERSION = "4.0.-9988"
+
 # Dimensions
 Time = Literal["time"]
 """ Observation time dimension """
@@ -670,7 +672,7 @@ class DopplerArray:
     data: Data[ZD, numpy.float64]
 
     type: Attr[Doppler] = "doppler"
-    """ Coordinate type. Should be ``"spectral_coord"``. """
+    """ Coordinate type. Should be ``"doppler"``. """
 
     units: Attr[UnitsOfDopplerShift] = ("m/s",)
     """ Units to associate with axis, [ratio]/[m/s]"""
@@ -788,11 +790,18 @@ class FlagArray:
     flagged bad if the ``FLAG`` array element is ``True``.
     """
 
+    # data: Data[
+    #     Union[
+    #         tuple[Time, BaselineId, Frequency, Polarization],
+    #         tuple[Time, BaselineId, Frequency],
+    #         tuple[Time, BaselineId],
+    #         tuple[Time, AntennaName, Frequency, Polarization],  # SD
+    #     ],
+    #     bool,
+    # ]
     data: Data[
         Union[
             tuple[Time, BaselineId, Frequency, Polarization],
-            tuple[Time, BaselineId, Frequency],
-            tuple[Time, BaselineId],
             tuple[Time, AntennaName, Frequency, Polarization],  # SD
         ],
         bool,
@@ -820,12 +829,20 @@ class WeightArray:
     data: Data[
         Union[
             tuple[Time, BaselineId, Frequency, Polarization],
-            tuple[Time, BaselineId, Frequency],
-            tuple[Time, BaselineId],
             tuple[Time, AntennaName, Frequency, Polarization],  # SD
         ],
         Union[numpy.float16, numpy.float32, numpy.float64],
     ]
+
+    # data: Data[
+    #     Union[
+    #         tuple[Time, BaselineId, Frequency, Polarization],
+    #         tuple[Time, BaselineId, Frequency],
+    #         tuple[Time, BaselineId],
+    #         tuple[Time, AntennaName, Frequency, Polarization],  # SD
+    #     ],
+    #     Union[numpy.float16, numpy.float32, numpy.float64],
+    # ]
     """Visibility weights"""
     time: Coordof[TimeCoordArray]
     baseline_id: Optional[Coordof[BaselineArray]]  # Only IF
@@ -928,19 +945,79 @@ class TimeSamplingArray:
     units: Attr[UnitsSeconds] = ("s",)
 
 
+# @xarray_dataarray_schema
+# class FreqSamplingArray:
+#     """
+#     Model of frequency related data variables of the main dataset, such as EFFECTIV_CHANNEL_WIDTH and FREQUENCY_CENTROID.
+#     """
+
+#     data: Data[
+#         Union[
+#             tuple[Time, BaselineId, Frequency, Polarization],
+#             tuple[Time, BaselineId, Frequency],
+#             tuple[Time, Frequency],
+#             tuple[Frequency],
+#         ],
+#         float,
+#     ]
+#     """
+#     Data about frequency sampling, such as centroid or integration
+#     time. Concrete function depends on concrete data array within
+#     :py:class:`VisibilityXds` or :py:class:`SpectrumXds`.
+#     """
+#     frequency: Coordof[FrequencyArray]
+#     time: Optional[Coordof[TimeCoordArray]] = None
+#     baseline_id: Optional[Coordof[BaselineArray]] = None
+#     polarization: Optional[Coordof[PolarizationArray]] = None
+#     long_name: Optional[Attr[str]] = "Frequency sampling data"
+#     units: Attr[UnitsHertz] = ("Hz",)
+#     observer: Attr[AllowedSpectralCoordFrames] = "icrs"
+#     """
+#     Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
+#     Note that Astropy does not use the name
+#     'topo' (telescope centric) velocity frame, rather it assumes if no velocity
+#     frame is given that this is the default.
+#     """
+
+
 @xarray_dataarray_schema
-class FreqSamplingArray:
+class FrequencyCentroidArray:
     """
-    Model of frequency related data variables of the main dataset, such as EFFECTIV_CHANNEL_WIDTH and FREQUENCY_CENTROID.
+    Model of frequency related data variables of the main dataset, such as FREQUENCY_CENTROID.
+    """
+
+    data: Data[
+        tuple[Frequency],
+        float,
+    ]
+    """
+    Data about frequency sampling, such as centroid or integration
+    time. Concrete function depends on concrete data array within
+    :py:class:`VisibilityXds` or :py:class:`SpectrumXds`.
+    """
+    frequency: Coordof[FrequencyArray]
+    long_name: Optional[Attr[str]] = "Frequency sampling data"
+    units: Attr[UnitsHertz] = ("Hz",)
+    observer: Attr[AllowedSpectralCoordFrames] = "icrs"
+    """
+    Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
+    Note that Astropy does not use the name
+    'topo' (telescope centric) velocity frame, rather it assumes if no velocity
+    frame is given that this is the default.
+    """
+
+
+@xarray_dataarray_schema
+class EffectiveChannelWidthArray:
+    """
+    Model of frequency related data variables of the main dataset, such as EFFECTIV_CHANNEL_WIDTH.
     """
 
     data: Data[
         Union[
             tuple[Time, BaselineId, Frequency, Polarization],
-            tuple[Time, BaselineId, Frequency],
-            tuple[Time, Frequency],
-            tuple[Frequency],
-        ],
+            tuple[Time, AntennaName, Frequency, Polarization],
+        ],  # SD
         float,
     ]
     """
@@ -963,7 +1040,7 @@ class FreqSamplingArray:
     """
 
 
-# Define FieldAndSourceXds and FieldSourceEphemerisXds already here, as they are needed in the
+# Define FieldSourceXds and FieldSourceEphemerisXds already here, as they are needed in the
 # definition of VisibilityArray
 @xarray_dataset_schema
 class FieldSourceXds:
@@ -1222,9 +1299,6 @@ class SpectrumArray:
     frequency: Coordof[FrequencyArray]
     polarization: Coordof[PolarizationArray]
 
-    field_and_source_xds: Attr[Union[FieldSourceXds, FieldSourceEphemerisXds]]
-    """ Field and source information. Also alows for variant where ephemeris information is included. """
-
     long_name: Optional[Attr[str]] = "Spectrum values"
     """ Long-form name to use for axis. Should be ``"Spectrum values"``"""
     units: Attr[list[str]] = ("Jy",)
@@ -1244,9 +1318,6 @@ class VisibilityArray:
     polarization: Coordof[PolarizationArray]
     frequency: Coordof[FrequencyArray]
 
-    field_and_source_xds: Attr[Union[FieldSourceXds, FieldSourceEphemerisXds]]
-    """ Field and source information. Also alows for variant where ephemeris information is included. """
-
     long_name: Optional[Attr[str]] = "Visibility values"
     """ Long-form name to use for axis. Should be ``"Visibility values"``"""
     units: Attr[list[str]] = ("Jy",)
@@ -1257,32 +1328,32 @@ class VisibilityArray:
 # Info dicts
 
 
-@dict_schema
-class PartitionInfoDict:
-    # spectral_window_id: missing / remove for good?
-    spectral_window_name: str
-    """ Spectral window Name """
-    # field_id: missing / probably remove for good?
-    field_name: list[str]
-    """ List of all field names """
-    polarization_setup: list[str]
-    """ List of polrization bases. """
-    scan_name: list[str]
-    """ List of scan names. """
-    source_name: list[str]
-    """ List of source names. """
-    # source_id: mising / remove for good?
-    intents: list[str]
-    """ An intent string identifies one intention of the scan, such as to calibrate or observe a
-    target. See :ref:`scan intents` for possible values. When converting from MSv2, the list of
-    intents is derived from the OBS_MODE column of MSv2 state table (every comma separated value
-    is taken as an intent). """
-    taql: Optional[str]
-    """ The taql query used if converted from MSv2. """
-    line_name: list[str]
-    """ Spectral line names """
-    antenna_name: Optional[str]
-    """ Name of antenna when partitioning also by antenna (single-dish). """
+# @dict_schema
+# class PartitionInfoDict:
+#     # spectral_window_id: missing / remove for good?
+#     spectral_window_name: str
+#     """ Spectral window Name """
+#     # field_id: missing / probably remove for good?
+#     field_name: list[str]
+#     """ List of all field names """
+#     polarization_setup: list[str]
+#     """ List of polrization bases. """
+#     scan_name: list[str]
+#     """ List of scan names. """
+#     source_name: list[str]
+#     """ List of source names. """
+#     # source_id: mising / remove for good?
+#     intents: list[str]
+#     """ An intent string identifies one intention of the scan, such as to calibrate or observe a
+#     target. See :ref:`scan intents` for possible values. When converting from MSv2, the list of
+#     intents is derived from the OBS_MODE column of MSv2 state table (every comma separated value
+#     is taken as an intent). """
+#     taql: Optional[str]
+#     """ The taql query used if converted from MSv2. """
+#     line_name: list[str]
+#     """ Spectral line names """
+#     antenna_name: Optional[str]
+#     """ Name of antenna when partitioning also by antenna (single-dish). """
 
 
 @dict_schema
@@ -1310,6 +1381,11 @@ class ObservationInfoDict:
     """ASDM: A reference to the Entity which contains the observing script."""
     observing_log: Optional[str]
     """ASDM: Logs of the observation during this execu- tion block."""
+    intents: list[str]
+    """ An intent string identifies one intention of the scan, such as to calibrate or observe a
+    target. See :ref:`scan intents` for possible values. When converting from MSv2, the list of
+    intents is derived from the OBS_MODE column of MSv2 state table (every comma separated value
+    is taken as an intent). """
 
 
 @dict_schema
@@ -1320,6 +1396,41 @@ class ProcessorInfoDict:
     ”RADIOMETER” - generic detector/integrator)."""
     sub_type: str
     """Processor sub-type, e.g. ”GBT” or ”JIVE”."""
+
+
+@dict_schema
+class DataGroupDict:
+    """Defines a group of correlated data + flag + weight + uvw variables."""
+
+    correlated_data: str
+    """ Name of the correlated data variable, for example 'VISIBILITY' or 'VISIBILITY_MODEL'. """
+    flag: str
+    """ Name of the flag variable, for example 'FLAG'. """
+    weight: str
+    """ Name of the weight variable of the group, for example 'WEIGHT'. """
+    uvw: Optional[str]
+    """ Name of the UVW variable of the group, for example 'UVW'. """
+    field_and_source: str
+    """ Name of the field_and_source_xds, for example field_and_source_xds_base. """
+    description: str
+    """ More details about the data group. """
+    date: str
+    """ Creation date-time, in ISO 8601 format: 'YYYY-MM-DDTHH:mm:ss.SSS'. """
+
+
+@dict_schema
+class DataGroupsDict:
+    """Dictionary of data group dictionaries."""
+
+    base: DataGroupDict
+
+
+@dict_schema
+class CreatorDict:
+    software_name: str
+    """ Software that created the Measurement Set (XRadio, etc.). """
+    version: str
+    """ Version of the software. """
 
 
 # Data Sets
@@ -1338,11 +1449,13 @@ class AntennaXds:
     """ Name of the station pad (relevant to arrays with moving antennas). """
     mount: Coord[AntennaName, str]
     """ Mount type of the antenna. Reserved keywords include: ”EQUATORIAL” - equatorial mount;
-    ”ALT-AZ” - azimuth-elevation mount;
-    "ALT-AZ+ROTATOR"  alt-az mount with feed rotator; introduced for ASKAP dishes;
+    ”ALT-AZ”: azimuth-elevation mount;
+    "ALT-AZ+ROTATOR": alt-az mount with feed rotator; introduced for ASKAP dishes;
     "ALT-AZ+NASMYTH-R": Nasmyth mount with receivers at the right-hand side of the cabin. Many high-frequency antennas used for VLBI have such a mount typel;
-    "ALT-AZ+NASMYTH-L:: Nasmyth mount with receivers at the left-hand side of the cabin.
-    ”X-Y” - x-y mount;
+    "ALT-AZ+NASMYTH-L": Nasmyth mount with receivers at the left-hand side of the cabin.
+    "ALT-AZ+BWG-R": alt-az mount that uses a Beam Wave Guide to bring the focus down to the pedestal. The receivers are at the right-hand side of the cabin (-R). Compared to the Nasmyth mounts there is an extra correction term because there are now two rotating mirrors. See https://arxiv.org/abs/2210.13381 for more details.
+    "ALT-AZ+BWG-L": alt-az mount that uses a Beam Wave Guide, as above, but with receivers at the left-hand side of the cabin.
+    ”X-Y”: x-y mount;
     ”SPACE-HALCA” - specific orientation model."""
     telescope_name: Coord[AntennaName, str]
     """ Useful when data is combined from mutiple arrays for example ACA + ALMA. """
@@ -1420,11 +1533,13 @@ class GainCurveXds:
     """ Name of the station pad (relevant to arrays with moving antennas). """
     mount: Coord[AntennaName, str]
     """ Mount type of the antenna. Reserved keywords include: ”EQUATORIAL” - equatorial mount;
-    ”ALT-AZ” - azimuth-elevation mount;
-    "ALT-AZ+ROTATOR"  alt-az mount with feed rotator; introduced for ASKAP dishes;
+    ”ALT-AZ”: azimuth-elevation mount;
+    "ALT-AZ+ROTATOR": alt-az mount with feed rotator; introduced for ASKAP dishes;
     "ALT-AZ+NASMYTH-R": Nasmyth mount with receivers at the right-hand side of the cabin. Many high-frequency antennas used for VLBI have such a mount typel;
-    "ALT-AZ+NASMYTH-L:: Nasmyth mount with receivers at the left-hand side of the cabin.
-    ”X-Y” - x-y mount;
+    "ALT-AZ+NASMYTH-L": Nasmyth mount with receivers at the left-hand side of the cabin.
+    "ALT-AZ+BWG-R": alt-az mount that uses a Beam Wave Guide to bring the focus down to the pedestal. The receivers are at the right-hand side of the cabin (-R). Compared to the Nasmyth mounts there is an extra correction term because there are now two rotating mirrors. See https://arxiv.org/abs/2210.13381 for more details.
+    "ALT-AZ+BWG-L": alt-az mount that uses a Beam Wave Guide, as above, but with receivers at the left-hand side of the cabin.
+    ”X-Y”: x-y mount;
     ”SPACE-HALCA” - specific orientation model."""
     telescope_name: Coord[AntennaName, str]
     """ Useful when data is combined from mutiple arrays for example ACA + ALMA. """
@@ -1477,12 +1592,14 @@ class PhaseCalibrationXds:
     """ Name of the station pad (relevant to arrays with moving antennas). """
     mount: Coord[AntennaName, str]
     """ Mount type of the antenna. Reserved keywords include: ”EQUATORIAL” - equatorial mount;
-    ”ALT-AZ” - azimuth-elevation mount;
-    "ALT-AZ+ROTATOR"  alt-az mount with feed rotator; introduced for ASKAP dishes;
+    ”ALT-AZ”: azimuth-elevation mount;
+    "ALT-AZ+ROTATOR": alt-az mount with feed rotator; introduced for ASKAP dishes;
     "ALT-AZ+NASMYTH-R": Nasmyth mount with receivers at the right-hand side of the cabin. Many high-frequency antennas used for VLBI have such a mount typel;
-    "ALT-AZ+NASMYTH-L:: Nasmyth mount with receivers at the left-hand side of the cabin.
-    ”X-Y” - x-y mount;
-    ”SPACE-HALCA” - specific orientation model."""
+    "ALT-AZ+NASMYTH-L": Nasmyth mount with receivers at the left-hand side of the cabin.
+    "ALT-AZ+BWG-R": alt-az mount that uses a Beam Wave Guide to bring the focus down to the pedestal. The receivers are at the right-hand side of the cabin (-R). Compared to the Nasmyth mounts there is an extra correction term because there are now two rotating mirrors. See https://arxiv.org/abs/2210.13381 for more details.
+    "ALT-AZ+BWG-L": alt-az mount that uses a Beam Wave Guide, as above, but with receivers at the left-hand side of the cabin.
+    ”X-Y”: x-y mount;
+    ”SPACE-HALCA”: specific orientation model."""
     telescope_name: Coord[AntennaName, str]
     """ Useful when data is combined from mutiple arrays for example ACA + ALMA. """
     receptor_label: Coord[ReceptorLabel, str]
@@ -1778,7 +1895,7 @@ class SystemCalibrationXds:
     """ Midpoint of time for which this set of parameters is accurate. Labeled 'time' when interpolating to main time axis """
     time_system_cal: Optional[Coordof[TimeSystemCalCoordArray]] = None
     """ Midpoint of time for which this set of parameters is accurate. Labeled 'time_system_cal' when not interpolating to main time axis """
-    frequency: Optional[Coordof[FrequencySystemCalArray]] = None
+    frequency: Optional[Coordof[FrequencyArray]] = None
     """  """
     frequency_system_cal: Optional[Coord[FrequencySystemCal, int]] = None
     """TODO: What is this?"""
@@ -1915,6 +2032,8 @@ class VisibilityXds:
     """
     Labels for polarization types, e.g. ``['XX','XY','YX','YY']``, ``['RR','RL','LR','LL']``.
     """
+    field_name: Coordof[Coord[Time, str]]
+    """Field name."""
 
     # --- Required data variables ---
 
@@ -1927,17 +2046,21 @@ class VisibilityXds:
     """Antenna name for 2nd antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_name``"""
 
     # --- Required Attributes ---
-    partition_info: Attr[PartitionInfoDict]
+    # partition_info: Attr[PartitionInfoDict]
     observation_info: Attr[ObservationInfoDict]
     processor_info: Attr[ProcessorInfoDict]
-    antenna_xds: Attr[AntennaXds]
+
+    data_groups: Attr[DataGroupsDict]
+    """ Defines groups of correlated data + flag + weight + uvw variables. """
 
     schema_version: Attr[str]
-    """Semantic version of xradio data format"""
+    """Semantic version of MSv4 data format."""
+    creator: Attr[CreatorDict]
+    """Creator information (software, version)."""
     creation_date: Attr[str]
-    """Date visibility dataset was created . Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
+    """Date visibility dataset was created. Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
 
-    type: Attr[Literal["visibility"]] = "visibility"
+    type: Attr[Literal["visibility", "radiometer"]] = "visibility"
     """
     Dataset type
     """
@@ -1953,7 +2076,7 @@ class VisibilityXds:
     uvw_label: Optional[Coordof[UvwLabelArray]] = None
     """ u,v,w """
     scan_name: Optional[Coord[Time, str]] = None
-    """Arbitary scan name to identify data taken in the same logical scan."""
+    """Scan name to identify data taken in the same logical scan."""
 
     # --- Optional data variables / arrays ---
 
@@ -1967,7 +2090,6 @@ class VisibilityXds:
         Data[
             Union[
                 tuple[Time, BaselineId],
-                tuple[Time, BaselineId, Frequency],
                 tuple[Time, BaselineId, Frequency, Polarization],
             ],
             QuantityInSecondsArray,
@@ -1985,21 +2107,12 @@ class VisibilityXds:
     """
     TIME_CENTROID_EXTRA_PRECISION: Optional[Dataof[TimeSamplingArray]] = None
     """Additional precision for ``TIME_CENTROID``"""
-    EFFECTIVE_CHANNEL_WIDTH: Optional[Dataof[FreqSamplingArray]] = None
+    EFFECTIVE_CHANNEL_WIDTH: Optional[Dataof[EffectiveChannelWidthArray]] = None
     """The channel bandwidth that includes the effects of missing data."""
-    FREQUENCY_CENTROID: Optional[Dataof[FreqSamplingArray]] = None
+    FREQUENCY_CENTROID: Optional[Dataof[FrequencyCentroidArray]] = None
     """Includes the effects of missing data unlike ``frequency``."""
 
     # --- Optional Attributes ---
-    pointing_xds: Optional[Attr[PointingXds]] = None
-    system_calibration_xds: Optional[Attr[SystemCalibrationXds]] = None
-    gain_curve_xds: Optional[Attr[GainCurveXds]] = None
-    phase_calibration_xds: Optional[Attr[PhaseCalibrationXds]] = None
-    weather_xds: Optional[Attr[WeatherXds]] = None
-    phased_array_xds: Optional[Attr[PhasedArrayXds]] = None
-
-    xradio_version: Optional[Attr[str]] = None
-    """ Version of XRADIO used if converted from MSv2. """
 
 
 @xarray_dataset_schema
@@ -2020,21 +2133,27 @@ class SpectrumXds:
     """
     Labels for polarization types, e.g. ``['XX','XY','YX','YY']``, ``['RR','RL','LR','LL']``.
     """
+    field_name: Coordof[Coord[Time, str]]
+    """Field name."""
 
     # --- Required data variables ---
     SPECTRUM: Dataof[SpectrumArray]
     """Single dish data, either simulated or measured by an antenna."""
 
     # --- Required Attributes ---
-    partition_info: Attr[PartitionInfoDict]
+    # partition_info: Attr[PartitionInfoDict]
     observation_info: Attr[ObservationInfoDict]
     processor_info: Attr[ProcessorInfoDict]
-    antenna_xds: Attr[AntennaXds]
+
+    data_groups: Attr[DataGroupsDict]
+    """ Defines groups of correlated data + flag + weight variables. """
 
     schema_version: Attr[str]
-    """Semantic version of xradio data format"""
+    """Semantic version of MSv4 data format."""
+    creator: Attr[CreatorDict]
+    """Creator information (software, version)."""
     creation_date: Attr[str]
-    """Date MSv4 was created . Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
+    """Date spectrum dataset was created . Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
 
     type: Attr[Literal["spectrum"]] = "spectrum"
     """
@@ -2062,7 +2181,6 @@ class SpectrumXds:
         Data[
             Union[
                 tuple[Time, AntennaName],
-                tuple[Time, AntennaName, Frequency],
                 tuple[Time, AntennaName, Frequency, Polarization],
             ],
             QuantityInSecondsArray,
@@ -2080,18 +2198,7 @@ class SpectrumXds:
     """
     TIME_CENTROID_EXTRA_PRECISION: Optional[Dataof[TimeSamplingArray]] = None
     """Additional precision for ``TIME_CENTROID``"""
-    EFFECTIVE_CHANNEL_WIDTH: Optional[Dataof[FreqSamplingArray]] = None
+    EFFECTIVE_CHANNEL_WIDTH: Optional[Dataof[EffectiveChannelWidthArray]] = None
     """The channel bandwidth that includes the effects of missing data."""
-    FREQUENCY_CENTROID: Optional[Dataof[FreqSamplingArray]] = None
+    FREQUENCY_CENTROID: Optional[Dataof[FrequencyCentroidArray]] = None
     """Includes the effects of missing data unlike ``frequency``."""
-
-    # --- Optional Attributes ---
-    pointing_xds: Optional[Attr[PointingXds]] = None
-    system_calibration_xds: Optional[Attr[SystemCalibrationXds]] = None
-    gain_curve_xds: Optional[Attr[GainCurveXds]] = None
-    phase_calibration_xds: Optional[Attr[PhaseCalibrationXds]] = None
-    weather_xds: Optional[Attr[WeatherXds]] = None
-    phased_array_xds: Optional[Attr[PhasedArrayXds]] = None
-
-    xradio_version: Optional[Attr[str]] = None
-    """ Version of XRADIO used if converted from MSv2. """

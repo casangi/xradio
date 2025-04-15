@@ -5,6 +5,7 @@ Guides
    :maxdepth: 1
 
    ALMA_ephemeris
+   ALMA_SD
    LOFAR
    MeerKAT
    ngEHT

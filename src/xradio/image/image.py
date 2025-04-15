@@ -82,7 +82,7 @@ def read_image(
         )
         do_casa = False
     if do_casa:
-        # next statement is for debug
+        # next statement is short circuit for debug, comment out when not debugging
         # return _read_casa_image(infile, chunks, verbose, do_sky_coords)
         try:
             return _read_casa_image(infile, chunks, verbose, do_sky_coords)
@@ -221,14 +221,14 @@ def make_empty_sky_image(
     chan_coords: Union[list, np.ndarray],
     pol_coords: Union[list, np.ndarray],
     time_coords: Union[list, np.ndarray],
-    direction_reference: str = "FK5",
+    direction_reference: str = "fK5",
     projection: str = "SIN",
     spectral_reference: str = "lsrk",
     do_sky_coords: bool = True,
 ) -> xr.Dataset:
     """
     Create an image xarray.Dataset with only coordinates (no datavariables).
-    The image dimensionality is time, pol, chan, l, m
+    The image dimensionality is time, frequency, polarization, l, m
 
     Parameters
     ----------
@@ -244,7 +244,7 @@ def make_empty_sky_image(
         The polarization code for each image polarization.
     time_coords : list or np.ndarray
         The time for each temporal plane in MJD.
-    direction_reference : str, default = 'FK5'
+    direction_reference : str, default = 'fk5'
     projection : str, default = 'SIN'
     spectral_reference : str, default = 'lsrk'
     do_sky_coords : bool
@@ -275,13 +275,13 @@ def make_empty_aperture_image(
     chan_coords: Union[List[float], np.ndarray],
     pol_coords: Union[List[str], np.ndarray],
     time_coords: Union[List[float], np.ndarray],
-    direction_reference: str = "FK5",
+    direction_reference: str = "fk5",
     projection: str = "SIN",
     spectral_reference: str = "lsrk",
 ) -> xr.Dataset:
     """
     Create an aperture (uv) mage xarray.Dataset with only coordinates (no datavariables).
-    The image dimensionality is time, pol, chan, u, v
+    The image dimensionality is time, frequency, polarization, u, v
 
     Parameters
     ----------
@@ -297,56 +297,7 @@ def make_empty_aperture_image(
         The polarization code for each image polarization.
     time_coords : list or np.ndarray
         The time for each temporal plane in MJD.
-    direction_reference : str, default = 'FK5'
-    projection : str, default = 'SIN'
-    spectral_reference : str, default = 'lsrk'
-    Returns
-    -------
-    xarray.Dataset
-    """
-    return _make_empty_aperture_image(
-        phase_center,
-        image_size,
-        sky_image_cell_size,
-        chan_coords,
-        pol_coords,
-        time_coords,
-        direction_reference,
-        projection,
-        spectral_reference,
-    )
-
-
-def make_empty_aperture_image(
-    phase_center: Union[List[float], np.ndarray],
-    image_size: Union[List[int], np.ndarray],
-    sky_image_cell_size: Union[List[float], np.ndarray],
-    chan_coords: Union[List[float], np.ndarray],
-    pol_coords: Union[List[str], np.ndarray],
-    time_coords: Union[List[float], np.ndarray],
-    direction_reference: str = "FK5",
-    projection: str = "SIN",
-    spectral_reference: str = "lsrk",
-) -> xr.Dataset:
-    """
-    Create an aperture (uv) mage xarray.Dataset with only coordinates (no datavariables).
-    The image dimensionality is time, pol, chan, u, v
-
-    Parameters
-    ----------
-    phase_center : array of float, length = 2, units = rad
-        Image phase center.
-    image_size : array of int, length = 2
-        Number of x and y axis pixels in image.
-    sky_image_cell_size : array of float, length = 2, units = rad
-        Cell size of x and y axis pixels in sky image, used to get cell size in uv image
-    chan_coords : list or np.ndarray
-        The center frequency in Hz of each image channel.
-    pol_coords : list or np.ndarray
-        The polarization code for each image polarization.
-    time_coords : list or np.ndarray
-        The time for each temporal plane in MJD.
-    direction_reference : str, default = 'FK5'
+    direction_reference : str, default = 'fk5'
     projection : str, default = 'SIN'
     spectral_reference : str, default = 'lsrk'
     Returns
@@ -373,14 +324,14 @@ def make_empty_lmuv_image(
     chan_coords: Union[List[float], np.ndarray],
     pol_coords: Union[List[float], np.ndarray],
     time_coords: Union[List[float], np.ndarray],
-    direction_reference: str = "FK5",
+    direction_reference: str = "fk5",
     projection: str = "SIN",
     spectral_reference: str = "lsrk",
     do_sky_coords: bool = True,
 ) -> xr.Dataset:
     """
     Create an image xarray.Dataset with only coordinates (no datavariables).
-    The image dimensionality is time, pol, chan, l, m, u, v
+    The image dimensionality is time, frequency, polarization, l, m, u, v
 
     Parameters
     ----------
@@ -397,7 +348,7 @@ def make_empty_lmuv_image(
         The polarization code for each image polarization.
     time_coords : list or np.ndarray
         The time for each temporal plane in MJD.
-    direction_reference : str, default = 'FK5'
+    direction_reference : str, default = 'fk5'
     projection : str, default = 'SIN'
     spectral_reference : str, default = 'lsrk'
     do_sky_coords : bool

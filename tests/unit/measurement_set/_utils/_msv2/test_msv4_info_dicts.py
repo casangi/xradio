@@ -4,7 +4,6 @@ import xarray as xr
 
 from xradio.measurement_set.schema import (
     ObservationInfoDict,
-    PartitionInfoDict,
     ProcessorInfoDict,
 )
 from xradio.schema.check import check_dict

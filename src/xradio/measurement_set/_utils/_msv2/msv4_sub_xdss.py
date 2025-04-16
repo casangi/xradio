@@ -129,7 +129,8 @@ def interpolate_to_time(
         )
         # scan_name sneaks in as a coordinate of the main time axis, drop it
         if (
-            xds.attrs["type"] not in ["visibility", "spectrum", "wvr"]
+            "type" in xds.attrs
+            and xds.attrs["type"] not in ["visibility", "spectrum", "wvr"]
             and "scan_name" in xds.coords
         ):
             xds = xds.drop_vars("scan_name")

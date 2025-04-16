@@ -339,3 +339,30 @@ def test_convert_and_write_partition_min(ms_minimal_required):
         check_dataset(correlated_xds, VisibilityXds)
     finally:
         shutil.rmtree(out_name)
+
+
+def test_convert_and_write_partition_misbehaved(ms_minimal_misbehaved):
+
+    out_name = "out_file_test_convert_write_misbehaving_ms.zarr"
+    msv4_id = "msv4_id"
+    try:
+        conversion.convert_and_write_partition(
+            ms_minimal_misbehaved.fname,
+            out_name,
+            msv4_id,
+            {"DATA_DESC_ID": [0], "OBS_MODE": ["scan_intent#subscan_intent"]},
+            use_table_iter=False,
+        )
+
+        correlated_xds = xr.open_dataset(
+            out_name
+            + "/"
+            + ms_minimal_misbehaved.fname.rsplit(".")[0]
+            + "_"
+            + msv4_id
+            + "/correlated_xds",
+            engine="zarr",
+        )
+        check_dataset(correlated_xds, VisibilityXds)
+    finally:
+        shutil.rmtree(out_name)

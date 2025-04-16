@@ -72,3 +72,17 @@ def test_create_antenna_xds_minimal_other_telescope(ms_minimal_required):
     )
 
     check_dataset(antenna_xds, AntennaXds)
+
+
+def test_create_antenna_xds_misbehaved(ms_minimal_misbehaved):
+
+    antenna_xds = create_antenna_xds(
+        ms_minimal_misbehaved.fname,
+        0,
+        np.arange(0, 5),
+        np.arange(0, 2),
+        "ALMA",
+        partition_polarization=xr.DataArray(["XX", "YY"]),
+    )
+
+    check_dataset(antenna_xds, AntennaXds)

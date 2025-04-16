@@ -17,49 +17,48 @@ def test_rename_and_interpolate_to_time_with_none_time(pointing_xds_min):
     assert out_xds == pointing_xds_min
 
 
-def test_rename_and_interpolate_to_time_bogus(
-    pointing_xds_min, msv4_min_correlated_xds
-):
+def test_rename_and_interpolate_to_time_bogus(pointing_xds_min, msv4_xds_min):
     from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
         rename_and_interpolate_to_time,
     )
 
-    input_time = msv4_min_correlated_xds.time
-    with pytest.raises(KeyError, match="No variable named 'time_bogus'."):
+    input_time = msv4_xds_min.time
+    time_bogus_name = "time_bogus"
+    with pytest.raises(KeyError, match=f"Could not find node at {time_bogus_name}"):
         out_xds = rename_and_interpolate_to_time(
-            pointing_xds_min, "time_bogus", input_time, message_prefix="test_call"
+            pointing_xds_min, time_bogus_name, input_time, message_prefix="test_call"
         )
 
 
-def test_rename_and_interpoalte_to_time_main(msv4_min_correlated_xds):
+def test_rename_and_interpoalte_to_time_main(msv4_xds_min):
     from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
         rename_and_interpolate_to_time,
     )
 
-    input_time = msv4_min_correlated_xds.time
+    input_time = msv4_xds_min.time
     out_xds = rename_and_interpolate_to_time(
-        msv4_min_correlated_xds, "time", input_time, message_prefix="test_call"
+        msv4_xds_min, "time", input_time, message_prefix="test_call"
     )
 
     xr.testing.assert_equal(out_xds.time, input_time)
 
 
-def test_interpolate_to_time_bogus(antenna_xds_min, msv4_min_correlated_xds):
+def test_interpolate_to_time_bogus(antenna_xds_min, msv4_xds_min):
     from xradio.measurement_set._utils._msv2.msv4_sub_xdss import interpolate_to_time
 
-    input_time = msv4_min_correlated_xds.time
-    with pytest.raises(KeyError, match="No variable named 'time'."):
-        out_xds = interpolate_to_time(
-            antenna_xds_min, interp_time=input_time, message_prefix="test_call"
-        )
-
-
-def test_interpolate_to_time_main(msv4_min_correlated_xds):
-    from xradio.measurement_set._utils._msv2.msv4_sub_xdss import interpolate_to_time
-
-    input_time = msv4_min_correlated_xds.time
+    input_time = msv4_xds_min.time
     out_xds = interpolate_to_time(
-        msv4_min_correlated_xds, interp_time=input_time, message_prefix="test_call"
+        antenna_xds_min, interp_time=input_time, message_prefix="test_call"
+    )
+    assert out_xds == input_time
+
+
+def test_interpolate_to_time_main(msv4_xds_min):
+    from xradio.measurement_set._utils._msv2.msv4_sub_xdss import interpolate_to_time
+
+    input_time = msv4_xds_min.time
+    out_xds = interpolate_to_time(
+        msv4_xds_min, interp_time=input_time, message_prefix="test_call"
     )
 
     xr.testing.assert_equal(out_xds.time, input_time)

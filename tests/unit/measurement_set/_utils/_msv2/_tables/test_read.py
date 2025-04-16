@@ -349,20 +349,20 @@ def test_extract_table_attributes_ant(ms_minimal_required):
     assert all(sub in res["info"] for sub in ["type", "subType", "readme"])
 
 
-def test_add_units_measures(msv4_min_correlated_xds):
+def test_add_units_measures(msv4_xds_min):
     from xradio.measurement_set._utils._msv2._tables.read import add_units_measures
 
     col_descr = {"column_descriptions": {}}
     xds_vars = {
-        "UVW": msv4_min_correlated_xds.UVW,
-        "time": msv4_min_correlated_xds.time,
+        "UVW": msv4_xds_min.UVW,
+        "time": msv4_xds_min.time,
     }
     res = add_units_measures(xds_vars, col_descr)
     assert xds_vars["UVW"].attrs
     assert xds_vars["time"].attrs
 
 
-def test_add_units_measures_dubious_units(msv4_min_correlated_xds):
+def test_add_units_measures_dubious_units(msv4_xds_min):
     from xradio.measurement_set._utils._msv2._tables.read import add_units_measures
 
     col_descr = {
@@ -374,9 +374,9 @@ def test_add_units_measures_dubious_units(msv4_min_correlated_xds):
         },
     }
     xds_vars = {
-        "time": msv4_min_correlated_xds.time,
-        "DATA": msv4_min_correlated_xds.VISIBILITY,
-        "TIME_CENTROID": msv4_min_correlated_xds.TIME_CENTROID,
+        "time": msv4_xds_min.time,
+        "DATA": msv4_xds_min.VISIBILITY,
+        "TIME_CENTROID": msv4_xds_min.TIME_CENTROID,
     }
 
     res = add_units_measures(xds_vars, col_descr)
@@ -406,10 +406,10 @@ def test_get_pad_value_in_tablerow_column(ms_minimal_required):
             val_proc_id = get_pad_value_in_tablerow_column(trows, "FLAG_ROW")
 
 
-def test_get_pad_value_uvw(msv4_min_correlated_xds):
+def test_get_pad_value_uvw(msv4_xds_min):
     from xradio.measurement_set._utils._msv2._tables.read import get_pad_value
 
-    res = get_pad_value(msv4_min_correlated_xds.data_vars["UVW"].dtype)
+    res = get_pad_value(msv4_xds_min.data_vars["UVW"].dtype)
 
     assert np.isnan(res)
     assert np.isnan(get_pad_value(np.float64))
@@ -423,10 +423,10 @@ def test_get_pad_value_n_polynomial(pointing_xds_min):
     assert res == get_pad_value(str)
 
 
-def test_get_pad_value_baseline_id(msv4_min_correlated_xds):
+def test_get_pad_value_baseline_id(msv4_xds_min):
     from xradio._utils.list_and_array import get_pad_value
 
-    res = get_pad_value(msv4_min_correlated_xds.coords["baseline_id"].dtype)
+    res = get_pad_value(msv4_xds_min.coords["baseline_id"].dtype)
 
     assert res == get_pad_value(np.int64)
 

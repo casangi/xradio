@@ -8,7 +8,7 @@ import xarray as xr
 
 import xradio.measurement_set._utils._msv2.conversion as conversion
 from xradio.measurement_set.schema import VisibilityXds
-from xradio.schema.check import check_dataset
+from xradio.schema.check import check_dataset, check_datatree
 
 
 minxds = namedtuple("minxds", "data_vars coords sizes")
@@ -327,16 +327,20 @@ def test_convert_and_write_partition_min(ms_minimal_required):
             use_table_iter=False,
         )
 
-        correlated_xds = xr.open_dataset(
-            out_name
-            + "/"
-            + ms_minimal_required.fname.rsplit(".")[0]
-            + "_"
-            + msv4_id
-            + "/correlated_xds",
+        # msv4_xds = xr.open_dataset(
+        #     out_name
+        #     + "/"
+        #     + ms_minimal_required.fname.rsplit(".")[0]
+        #     + "_"
+        #     + msv4_id,
+        #     engine="zarr",
+        # )
+        msv4_xdt = xr.open_datatree(
+            out_name + "/" + ms_minimal_required.fname.rsplit(".")[0] + "_" + msv4_id,
             engine="zarr",
         )
-        check_dataset(correlated_xds, VisibilityXds)
+        check_dataset(msv4_xdt.ds, VisibilityXds)
+        check_datatree(msv4_xdt)
     finally:
         shutil.rmtree(out_name)
 
@@ -354,15 +358,11 @@ def test_convert_and_write_partition_misbehaved(ms_minimal_misbehaved):
             use_table_iter=False,
         )
 
-        correlated_xds = xr.open_dataset(
-            out_name
-            + "/"
-            + ms_minimal_misbehaved.fname.rsplit(".")[0]
-            + "_"
-            + msv4_id
-            + "/correlated_xds",
+        msv4_xdt = xr.open_datatree(
+            out_name + "/" + ms_minimal_misbehaved.fname.rsplit(".")[0] + "_" + msv4_id,
             engine="zarr",
         )
-        check_dataset(correlated_xds, VisibilityXds)
+        check_dataset(msv4_xdt.ds, VisibilityXds)
+        check_datatree(msv4_xdt)
     finally:
         shutil.rmtree(out_name)

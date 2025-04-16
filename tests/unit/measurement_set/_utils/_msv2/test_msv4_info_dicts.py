@@ -96,6 +96,5 @@ def test_create_info_dicts(ms_minimal_required):
         )
 
         assert isinstance(info_dicts, dict)
-        check_dict(info_dicts["partition_info"], PartitionInfoDict)
         check_dict(info_dicts["observation_info"], ObservationInfoDict)
         check_dict(info_dicts["processor_info"], ProcessorInfoDict)

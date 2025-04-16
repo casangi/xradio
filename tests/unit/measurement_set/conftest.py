@@ -267,10 +267,8 @@ def msv4_min_path(processing_set_min_path, ms_minimal_required):
 
 
 @pytest.fixture(scope="session")
-def msv4_min_correlated_xds(
-    ms_minimal_required, processing_set_min_path, msv4_min_path
-):
-    """An MSv4 main xds (correlated data, one partition) xds"""
+def msv4_xdt_min(ms_minimal_required, processing_set_min_path, msv4_min_path):
+    """An MSv4 xdt (one single MSv4)"""
     from xradio.measurement_set._utils._msv2.conversion import (
         convert_and_write_partition,
     )
@@ -284,71 +282,64 @@ def msv4_min_correlated_xds(
         overwrite=True,
     )
 
-    xds = xr.open_dataset(
-        msv4_min_path + "/correlated_xds",
+    msv4_xdt = xr.open_datatree(
+        msv4_min_path,
         engine="zarr",
     )
 
-    yield xds
+    yield msv4_xdt
     shutil.rmtree(processing_set_min_path)
 
 
 @pytest.fixture(scope="session")
-def antenna_xds_min(msv4_min_correlated_xds, msv4_min_path):
+def msv4_xds_min(msv4_xdt_min):
+    """An MSv4 main xds (correlated data, one partition) xds"""
+
+    msv4_xds = msv4_xdt_min.ds
+    yield msv4_xds
+
+
+@pytest.fixture(scope="session")
+def antenna_xds_min(msv4_xdt_min, msv4_min_path):
     """An MSv4 secondary antenna dataset ('antenna_xds')"""
 
-    antenna_xds = xr.open_dataset(
-        msv4_min_path + "/antenna_xds",
-        engine="zarr",
-    )
+    antenna_xds = msv4_xdt_min["antenna_xds"].ds
 
     yield antenna_xds
 
 
 @pytest.fixture(scope="session")
-def field_and_source_xds_min(msv4_min_correlated_xds, msv4_min_path):
+def field_and_source_xds_min(msv4_xdt_min, msv4_min_path):
     """An MSv4 secondary field and source dataset ('field_and_source_xds')"""
 
-    field_and_source_xds = xr.open_dataset(
-        msv4_min_path + "/field_and_source_xds_base",
-        engine="zarr",
-    )
+    field_and_source_xds = msv4_xdt_min["field_and_source_base_xds"]
 
     yield field_and_source_xds
 
 
 @pytest.fixture(scope="session")
-def pointing_xds_min(msv4_min_correlated_xds, msv4_min_path):
+def pointing_xds_min(msv4_xdt_min, msv4_min_path):
     """An MSv4 secondary pointing dataset ('pointing_xds')"""
 
-    pointing_xds = xr.open_dataset(
-        msv4_min_path + "/pointing_xds",
-        engine="zarr",
-    )
+    pointing_xds = msv4_xdt_min["pointing_xds"]
 
     yield pointing_xds
 
 
 @pytest.fixture(scope="session")
-def sys_cal_xds_min(msv4_min_correlated_xds, msv4_min_path):
+def sys_cal_xds_min(msv4_xdt_min, msv4_min_path):
     """An MSv4 secondary sys cal dataset ('system_calibration_xds')"""
 
-    syscal_xds = xr.open_dataset(
-        msv4_min_path + "/system_calibration_xds",
-        engine="zarr",
-    )
+    syscal_xds = msv4_xdt_min["system_calibration_xds"]
 
     yield syscal_xds
 
 
 @pytest.fixture(scope="session")
-def weather_xds_min(msv4_xds_min, msv4_min_path):
+def weather_xds_min(msv4_xdt_min, msv4_min_path):
     """An MSv4 secondary weather dataset ('weather_xds')"""
 
-    weather_xds = xr.open_dataset(
-        msv4_min_path + "/system_calibration_xds",
-        engine="zarr",
-    )
+    weather_xds = msv4_xdt_min["weather"]
 
     yield weather_xds
 

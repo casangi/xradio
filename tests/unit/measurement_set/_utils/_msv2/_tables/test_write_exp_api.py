@@ -49,7 +49,7 @@ def test_make_global_coords_none():
 
 
 def test_make_global_coords_min(
-    msv4_min_correlated_xds, antenna_xds_min, field_and_source_xds_min
+    msv4_xds_min, antenna_xds_min, field_and_source_xds_min
 ):
     from xradio.measurement_set._utils._msv2._tables.write_exp_api import (
         make_global_coords,
@@ -59,7 +59,7 @@ def test_make_global_coords_min(
     )
 
     mxds = vis_xds_packager_mxds(
-        {"part0": msv4_min_correlated_xds},
+        {"part0": msv4_xds_min},
         {"antenna": antenna_xds_min, "field": field_and_source_xds_min},
         False,
     )

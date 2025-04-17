@@ -5,7 +5,11 @@ from casacore import tables
 import toolviper.utils.logger as logger
 
 from .subtables import subt_rename_ids
-from ._tables.read import load_generic_table, convert_casacore_time
+from ._tables.read import (
+    casacore_numpy_to_json_safe_type,
+    convert_casacore_time,
+    load_generic_table,
+)
 from xradio._utils.list_and_array import check_if_consistent, unique_1d, to_list
 
 
@@ -165,10 +169,7 @@ def extract_exec_block_info(exec_block_xds: xr.Dataset) -> dict:
     for field_msv4, row_msv2 in optional_fields.items():
         if row_msv2 in exec_block_xds.data_vars:
             msv2_value = exec_block_xds[row_msv2].values[0]
-            if isinstance(msv2_value, np.ndarray):
-                exec_block_info[field_msv4] = ",".join([log for log in msv2_value])
-            else:
-                exec_block_info[field_msv4] = msv2_value
+            exec_block_info[field_msv4] = casacore_numpy_to_json_safe_type(msv2_value)
 
     return exec_block_info
 

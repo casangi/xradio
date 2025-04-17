@@ -4,7 +4,7 @@ import pytest
 def test_read_part_keys(ms_as_zarr_min):
     from xradio.measurement_set._utils._zarr.read import read_part_keys
 
-    with pytest.raises(FileNotFoundError, match="No such file or directory"):
+    with pytest.raises(FileNotFoundError, match="Unable to find group"):
         keys = read_part_keys(ms_as_zarr_min)
         assert keys
 
@@ -28,7 +28,7 @@ def teest_read_paritions(ms_as_zarr_min):
 def test_read_xds(ms_as_zarr_min):
     from xradio.measurement_set._utils._zarr.read import read_xds
 
-    with pytest.raises(KeyError, match="metadata"):
+    with pytest.raises(FileNotFoundError, match="Unable to find group"):
         cds = read_xds(ms_as_zarr_min)
         assert cds
 

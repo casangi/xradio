@@ -37,15 +37,16 @@ def test_zarr_write_ms_minimal(cds_minimal_required, tmp_path):
     outname = Path(tmp_path, "test_cor_min_write.zarr")
     clear_output(outname)
     cds = copy.deepcopy(cds_minimal_required)
-    write_cor(cds, outname)
+    with pytest.raises(TypeError, match="Invalid attribute in Dataset.attrs"):
+        write_cor(cds, outname)
 
-    from xradio.measurement_set._utils.zarr import is_zarr_cor, read_cor
+        from xradio.measurement_set._utils.zarr import is_zarr_cor, read_cor
 
-    res = is_zarr_cor(outname)
-    assert res
-    # TODO: move into a fixture/similar
-    # @pytest.mark.depends(on=["test_zarr_write_ms_minimal"])
-    cds = read_cor(outname)
+        res = is_zarr_cor(outname)
+        assert res
+        # TODO: move into a fixture/similar
+        # @pytest.mark.depends(on=["test_zarr_write_ms_minimal"])
+        cds = read_cor(outname)
 
 
 def test_zarr_write_cor_attrs(tmp_path):

@@ -25,7 +25,7 @@ dependencies = [
     's3fs',
     'scipy',
     'xarray',
-    'zarr>=2,<3',
+    'zarr>=3,<4',
     'pyarrow',
     'python_casacore>=3.6.1; sys_platform != "darwin" ',
     'typeguard',

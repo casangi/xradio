@@ -6,6 +6,8 @@ from typing import Any, Dict, Union
 import xarray as xr
 import zarr
 
+from xradio.measurement_set._utils._zarr.config import ZARR_FORMAT
+
 
 def write_part_keys(
     partitions: Dict[Any, xr.Dataset], outpath: str, compressor: numcodecs.abc.Codec
@@ -36,7 +38,9 @@ def write_part_keys(
         }
     )
 
-    encoding = dict(zip(list(part_keys.data_vars), cycle([{"compressor": compressor}])))
+    encoding = dict(
+        zip(list(part_keys.data_vars), cycle([{"compressors": (compressor,)}]))
+    )
 
     out_path = Path(outpath, "partition_keys")
     xr.Dataset.to_zarr(
@@ -45,6 +49,7 @@ def write_part_keys(
         mode="w",
         encoding=encoding,
         consolidated=False,
+        zarr_format=ZARR_FORMAT,
     )
     zarr.consolidate_metadata(out_path)
 
@@ -194,7 +199,7 @@ def write_xds_to_zarr(
 
     # Create compression encoding for each datavariable
     encoding = dict(
-        zip(list(xds_for_disk.data_vars), cycle([{"compressor": compressor}]))
+        zip(list(xds_for_disk.data_vars), cycle([{"compressors": (compressor,)}]))
     )
 
     start = time.time()
@@ -206,6 +211,7 @@ def write_xds_to_zarr(
             mode="w",
             encoding=encoding,
             consolidated=consolidated,
+            zarr_format=ZARR_FORMAT,
         )
     time_to_calc_and_store = time.time() - start
     logger.debug(

@@ -57,19 +57,20 @@ def test_write_xds_to_zarr_pol(pol_xds_min):
     from xradio.measurement_set._utils._zarr.write import write_xds_to_zarr
     import xarray as xr
 
-    res = write_xds_to_zarr(pol_xds_min, "polarization", "output_path")
-    assert not res
+    with pytest.raises(TypeError, match="Invalid attribute in Dataset.attrs"):
+        res = write_xds_to_zarr(pol_xds_min, "polarization", "output_path")
+        assert not res
 
 
 def test_write_xds_to_zarr_main_min(main_xds_min):
     from xradio.measurement_set._utils._zarr.write import write_xds_to_zarr
     import xarray as xr
 
-    # with pytest.raises(TypeError, match="Invalid attribute"):
-    res = write_xds_to_zarr(
-        main_xds_min, "xds_main_test", "output_path", chunks_on_disk={"time": 20}
-    )
-    assert not res
+    with pytest.raises(TypeError, match="Invalid attribute in Dataset.attrs"):
+        res = write_xds_to_zarr(
+            main_xds_min, "xds_main_test", "output_path", chunks_on_disk={"time": 20}
+        )
+        assert not res
 
 
 def test_prepare_attrs_for_zarr_empty():

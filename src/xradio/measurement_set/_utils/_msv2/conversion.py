@@ -973,6 +973,7 @@ def convert_and_write_partition(
     ephemeris_interpolate: bool = False,
     phase_cal_interpolate: bool = False,
     sys_cal_interpolate: bool = False,
+    # For zarr-python 3.x, with zarr_format=2
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend="zarr",
     parallel_mode: str = "none",
@@ -1359,7 +1360,11 @@ def convert_and_write_partition(
             ms_xdt["/weather_xds"] = weather_xds
 
         if storage_backend == "zarr":
-            ms_xdt.to_zarr(store=os.path.join(out_file, ms_v4_name))
+            from xradio.measurement_set._utils._zarr.config import ZARR_FORMAT
+
+            ms_xdt.to_zarr(
+                store=os.path.join(out_file, ms_v4_name), zarr_format=ZARR_FORMAT
+            )
         elif storage_backend == "netcdf":
             # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
             raise

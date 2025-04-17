@@ -61,6 +61,7 @@ def convert_msv2_to_processing_set(
     phase_cal_interpolate: bool = False,
     sys_cal_interpolate: bool = False,
     use_table_iter: bool = False,
+    # For zarr-python 3.x, with zarr_format=2
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     storage_backend: str = "zarr",
     parallel_mode: str = "none",
@@ -118,10 +119,12 @@ def convert_msv2_to_processing_set(
 
     print("Output file: ", out_file)
 
+    from xradio.measurement_set._utils._zarr.config import ZARR_FORMAT
+
     if overwrite:
-        ps_dt.to_zarr(store=out_file, mode="w")
+        ps_dt.to_zarr(store=out_file, mode="w", zarr_format=ZARR_FORMAT)
     else:
-        ps_dt.to_zarr(store=out_file, mode="w-")
+        ps_dt.to_zarr(store=out_file, mode="w-", zarr_format=ZARR_FORMAT)
 
     # Check `parallel_mode` is valid
     try:
@@ -210,6 +213,7 @@ def convert_msv2_to_processing_set(
 
     import zarr
 
-    root_group = zarr.open(out_file, mode="r+")  # Open in read/write mode
+    # Open in read/write mode
+    root_group = zarr.open(out_file, mode="r+", zarr_format=ZARR_FORMAT)
     root_group.attrs["type"] = "processing_set"  # Replace
-    zarr.convenience.consolidate_metadata(root_group.store)
+    zarr.consolidate_metadata(root_group.store)

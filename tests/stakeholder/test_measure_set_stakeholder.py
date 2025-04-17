@@ -10,7 +10,6 @@ import xarray as xr
 
 from toolviper.utils.data import download
 from toolviper.utils.logger import setup_logger
-import xradio.measurement_set
 from xradio.measurement_set import (
     open_processing_set,
     load_processing_set,
@@ -20,6 +19,7 @@ from xradio.measurement_set import (
     ProcessingSetXdt,
 )
 from xradio.schema.check import check_datatree
+from xradio.measurement_set._utils._zarr.config import ZARR_FORMAT
 
 # relative_tolerance = 10 ** (-12)
 relative_tolerance = 10 ** (-6)
@@ -253,7 +253,8 @@ def base_test(
         else:
             ps_copy_name = str(ps_name) + "_copy"
 
-        ps_lazy_xdt.to_zarr(ps_copy_name)  # Test writing to disk.
+        # Test writing to disk.
+        ps_lazy_xdt.to_zarr(ps_copy_name, zarr_format=ZARR_FORMAT)
 
         # sel_parms = {key: {} for key in ps_lazy_xdt.keys()}
         ps_xdt = load_processing_set(str(ps_copy_name))

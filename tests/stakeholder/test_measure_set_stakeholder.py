@@ -82,6 +82,34 @@ def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_sch
     return ps_name
 
 
+def check_expected_datasets_presence(ps_xdt, expected_secondary_xds: set[str]):
+    """
+    expected_secondary_xds should be for example {"antenna", "weather"}, {"antenna", "pointing", "weather"}, or
+    {"antenna", "gain_curve", "system_calibration"}.
+    The "_xds" suffix is not needed.
+    """
+
+    def check_xds_in_datatree(xds, msv4_xdt):
+        assert xds in msv4_xdt
+        assert isinstance(msv4_xdt[xds], xr.DataTree)
+        assert isinstance(msv4_xdt[xds].ds, xr.Dataset)
+
+    if not expected_secondary_xds:
+        return
+
+    for _msv4_xds_name, msv4_xdt in ps_xdt.items():
+        for xds in expected_secondary_xds:
+            if not xds.endswith("_xds"):
+                xds = xds + "_xds"
+
+            # system_calibration is only present for proper visibility data (not for RADIOMETER, wvr and the like)
+            if xds != "system_calibration_xds":
+                check_xds_in_datatree(xds, msv4_xdt)
+            else:
+                if msv4_xdt.ds.processor_info["type"] == "CORRELATOR":
+                    check_xds_in_datatree(xds, msv4_xdt)
+
+
 def base_check_ps_accessor(ps_lazy_xdt: xr.DataTree, ps_xdt: xr.DataTree):
     """
     Basic checks on the `ps` accessor of processing sets ps_xdt/ps_lazy_xdt
@@ -194,6 +222,7 @@ def base_test(
     partition_schemes: list = [[], ["FIELD_ID"]],
     preconverted: bool = False,
     do_schema_check: bool = True,
+    expected_secondary_xds: set = None,
 ):
     start = time.time()
     # from toolviper.dask.client import local_client
@@ -270,6 +299,8 @@ def base_test(
                 f"Time to check datasets (all MSv4s) against schema: {time.time() - start_check}"
             )
 
+        check_expected_datasets_presence(ps_xdt, expected_secondary_xds)
+
         ps_list.append(ps_xdt)
 
     print("Time taken in test:", time.time() - start)
@@ -280,17 +311,27 @@ def base_test(
 #     # Similar to 'test_preconverted_alma' if this test fails on its own that
 #     # probably is because the schema, the converter or the schema cheker have
 #     # changed since the dataset was uploaded.
+#     expected_subtables = {
+#         "antenna"
+#     }  # TODO: add "weather" once #365 is fixed and dataset re-converted
 #     base_test(
-#         "s3://viper-test-data/Antennae_North.cal.lsrk.split.v8.ps.zarr",
+#         "s3://viper-test-data/Antennae_North.cal.lsrk.split.py39.v7.vis.zarr",
 #         tmp_path,
 #         190.0405216217041,
 #         is_s3=True,
 #         partition_schemes=[[]],
+#         expected_secondary_xds=expected_subtables,
 #     )
 
 
 def test_alma(tmp_path):
-    base_test("Antennae_North.cal.lsrk.split.ms", tmp_path, 190.0405216217041)
+    expected_subtables = {"antenna", "weather"}
+    base_test(
+        "Antennae_North.cal.lsrk.split.ms",
+        tmp_path,
+        190.0405216217041,
+        expected_secondary_xds=expected_subtables,
+    )
 
 
 # def test_preconverted_alma(tmp_path):
@@ -298,55 +339,117 @@ def test_alma(tmp_path):
 #     # Create a fresh version using "Antennae_North.cal.lsrk.split.ms" and reconvert it using generate_zarr.py (in dropbox folder).
 #     # Zip this folder and add it to the dropbox folder and update the file.download.json file.
 #     # If you not sure how to do any of this contact jsteeb@nrao.edu
+#     expected_subtables = {
+#         "antenna"
+#     }  # TODO: add "weather" once #365 is fixed and dataset re-converted
 #     base_test(
 #         "Antennae_North.cal.lsrk.split.py39.vis.zarr",
 #         tmp_path,
 #         190.0405216217041,
 #         preconverted=True,
 #         partition_schemes=[[]],
+#         do_schema_check=False,
+#         expected_secondary_xds=expected_subtables,
 #     )
 
 
 def test_ska_mid(tmp_path):
-    base_test("AA2-Mid-sim_00000.ms", tmp_path, 551412.3125)
+    expected_subtables = {"antenna"}
+    base_test(
+        "AA2-Mid-sim_00000.ms",
+        tmp_path,
+        551412.3125,
+        expected_secondary_xds=expected_subtables,
+    )
 
 
 def test_lofar(tmp_path):
-    base_test("small_lofar.ms", tmp_path, 10345086189568.0)
+    expected_subtables = {"antenna", "pointing"}
+    base_test(
+        "small_lofar.ms",
+        tmp_path,
+        10345086189568.0,
+        expected_secondary_xds=expected_subtables,
+    )
 
 
 def test_meerkat(tmp_path):
-    base_test("small_meerkat.ms", tmp_path, 333866268.0)
+    expected_subtables = {"antenna"}
+    base_test(
+        "small_meerkat.ms",
+        tmp_path,
+        333866268.0,
+        expected_secondary_xds=expected_subtables,
+    )
 
 
 def test_global_vlbi(tmp_path):
-    base_test("global_vlbi_gg084b_reduced.ms", tmp_path, 161588975616.0)
+    expected_subtables = {"antenna", "gain_curve", "system_calibration"}
+    base_test(
+        "global_vlbi_gg084b_reduced.ms",
+        tmp_path,
+        161588975616.0,
+        expected_secondary_xds=expected_subtables,
+    )
 
 
 def test_vlba(tmp_path):
-    base_test("VLBA_TL016B_split.ms", tmp_path, 94965412864.0)
+    expected_subtables = {
+        "antenna",
+        "gain_curve",
+        "system_calibration",
+        "phase_calibration",
+        "weather_xds",
+    }
+    base_test(
+        "VLBA_TL016B_split.ms",
+        tmp_path,
+        94965412864.0,
+        expected_secondary_xds=expected_subtables,
+    )
 
 
 def test_ngeht(tmp_path):
-    base_test("ngEHT_E17A10.0.bin0000.source0000_split.ms", tmp_path, 64306946048.0)
+    expected_subtables = {"antenna"}
+    base_test(
+        "ngEHT_E17A10.0.bin0000.source0000_split.ms",
+        tmp_path,
+        64306946048.0,
+        expected_secondary_xds=expected_subtables,
+    )
 
 
 def test_ephemeris(tmp_path):
-    base_test("venus_ephem_test.ms", tmp_path, 81741343621120.0)
+    expected_subtables = {"antenna", "weather"}
+    base_test(
+        "venus_ephem_test.ms",
+        tmp_path,
+        81741343621120.0,
+        expected_secondary_xds=expected_subtables,
+    )
 
 
 partition_schemes_sd = [[], ["FIELD_ID"], ["FIELD_ID", "ANTENNA1"]]
 
 
 def test_single_dish(tmp_path):
+    expected_subtables = {"antenna", "pointing", "system_calibration", "weather"}
     base_test(
-        "sdimaging.ms", tmp_path, 5487446.5, partition_schemes=partition_schemes_sd
+        "sdimaging.ms",
+        tmp_path,
+        5487446.5,
+        partition_schemes=partition_schemes_sd,
+        expected_secondary_xds=expected_subtables,
     )
 
 
 def test_alma_ephemeris_mosaic(tmp_path):
+    expected_subtables = {"antenna", "system_calibration", "weather"}
     ps_list = base_test(
-        "ALMA_uid___A002_X1003af4_X75a3.split.avg.ms", tmp_path, 8.11051993222426e17
+        "ALMA_uid___A002_X1003af4_X75a3.split.avg.ms",
+        tmp_path,
+        8.11051993222426e17,
+        expected_secondary_xds=expected_subtables,
     )
     # Here we test if the field_and_source_xds structure is correct.
     check_source_and_field_xds(
@@ -408,80 +511,135 @@ def are_all_variables_in_dataset(dataset, variable_list):
 
 def test_vlass(tmp_path):
     # Don't do partition_scheme ['FIELD_ID'], will try and create >800 partitions.
+    expected_subtables = {"antenna", "pointing", "weather"}
     base_test(
         "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6.ms",
         tmp_path,
         173858574208.0,
         partition_schemes=[[]],
+        expected_secondary_xds=expected_subtables,
     )
 
 
 def test_sd_A002_X1015532_X1926f(tmp_path):
+    expected_subtables = {"antenna", "pointing", "system_calibration_xds", "weather"}
     base_test(
         "uid___A002_X1015532_X1926f.small.ms",
         tmp_path,
         5.964230735563984e21,
         partition_schemes=partition_schemes_sd,
+        expected_secondary_xds=expected_subtables,
     )
 
 
 def test_sd_A002_Xae00c5_X2e6b(tmp_path):
+    expected_subtables = {"antenna", "pointing", "system_calibration_xds", "weather"}
     base_test(
         "uid___A002_Xae00c5_X2e6b.small.ms",
         tmp_path,
         2451894476.0,
         partition_schemes=partition_schemes_sd,
+        expected_secondary_xds=expected_subtables,
     )
 
 
 def test_sd_A002_Xced5df_Xf9d9(tmp_path):
+    expected_subtables = {"antenna", "pointing", "system_calibration_xds", "weather"}
     base_test(
         "uid___A002_Xced5df_Xf9d9.small.ms",
         tmp_path,
         9.892002713707104e21,
         partition_schemes=partition_schemes_sd,
+        expected_secondary_xds=expected_subtables,
     )
 
 
 def test_sd_A002_Xe3a5fd_Xe38e(tmp_path):
+    expected_subtables = {"antenna", "pointing", "system_calibration_xds", "weather"}
     base_test(
         "uid___A002_Xe3a5fd_Xe38e.small.ms",
         tmp_path,
         246949088254189.5,
         partition_schemes=partition_schemes_sd,
+        expected_secondary_xds=expected_subtables,
     )
 
 
 def test_VLA(tmp_path):
-    base_test("SNR_G55_10s.split.ms", tmp_path, 195110762496.0)
+    expected_subtables = {"antenna", "weather"}
+    base_test(
+        "SNR_G55_10s.split.ms",
+        tmp_path,
+        195110762496.0,
+        expected_secondary_xds=expected_subtables,
+    )
 
 
 def test_askap_59749_bp_8beams_pattern(tmp_path):
-    base_test("59749_bp_8beams_pattern.ms", tmp_path, 5652688384.0)
+    expected_subtables = {"antenna", "pointing"}
+    base_test(
+        "59749_bp_8beams_pattern.ms",
+        tmp_path,
+        5652688384.0,
+        expected_secondary_xds=expected_subtables,
+    )
 
 
 def test_askap_59750_altaz_2settings(tmp_path):
-    base_test("59750_altaz_2settings.ms", tmp_path, 1878356864.0)
+    expected_subtables = {"antenna", "pointing"}
+    base_test(
+        "59750_altaz_2settings.ms",
+        tmp_path,
+        1878356864.0,
+        expected_secondary_xds=expected_subtables,
+    )
 
 
 def test_askap_59754_altaz_2weights_0(tmp_path):
-    base_test("59754_altaz_2weights_0.ms", tmp_path, 1504652800.0)
+    expected_subtables = {"antenna", "pointing"}
+    base_test(
+        "59754_altaz_2weights_0.ms",
+        tmp_path,
+        1504652800.0,
+        expected_secondary_xds=expected_subtables,
+    )
 
 
 def test_askap_59754_altaz_2weights_15(tmp_path):
-    base_test("59754_altaz_2weights_15.ms", tmp_path, 1334662656.0)
+    expected_subtables = {"antenna", "pointing"}
+    base_test(
+        "59754_altaz_2weights_15.ms",
+        tmp_path,
+        1334662656.0,
+        expected_secondary_xds=expected_subtables,
+    )
 
 
 def test_askap_59755_eq_interleave_0(tmp_path):
-    base_test("59755_eq_interleave_0.ms", tmp_path, 3052425984.0)
+    expected_subtables = {"antenna", "pointing"}
+    base_test(
+        "59755_eq_interleave_0.ms",
+        tmp_path,
+        3052425984.0,
+        expected_secondary_xds=expected_subtables,
+    )
 
 
 def test_askap_59755_eq_interleave_15(tmp_path):
-    base_test("59755_eq_interleave_15.ms", tmp_path, 2949046016.0)
+    expected_subtables = {"antenna", "pointing"}
+    base_test(
+        "59755_eq_interleave_15.ms",
+        tmp_path,
+        2949046016.0,
+        expected_secondary_xds=expected_subtables,
+    )
 
 
 def test_gmrt(tmp_path):
-    base_test("gmrt.ms", tmp_path, 541752852480.0)
+    expected_subtables = {"antenna"}
+    base_test(
+        "gmrt.ms", tmp_path, 541752852480.0, expected_secondary_xds=expected_subtables
+    )
 
 
 if __name__ == "__main__":

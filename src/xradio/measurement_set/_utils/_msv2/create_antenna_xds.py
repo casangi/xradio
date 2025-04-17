@@ -109,7 +109,7 @@ def extract_antenna_info(
 
     to_new_coords = {
         "NAME": ["antenna_name", ["antenna_name"]],
-        "STATION": ["station", ["antenna_name"]],
+        "STATION": ["station_name", ["antenna_name"]],
         "MOUNT": ["mount", ["antenna_name"]],
         # "PHASED_ARRAY_ID": ["phased_array_id", ["antenna_name"]],
         "antenna_id": ["antenna_id", ["antenna_name"]],
@@ -158,9 +158,9 @@ def extract_antenna_info(
 
         # None of the native numpy functions work on the github test runner.
         antenna_name = ant_xds["antenna_name"].values
-        station = ant_xds["station"].values
+        station_name = ant_xds["station_name"].values
         antenna_name = np.array(
-            list(map(lambda x, y: x + "_" + y, antenna_name, station))
+            list(map(lambda x, y: x + "_" + y, antenna_name, station_name))
         )
 
         ant_xds["antenna_name"] = xr.DataArray(antenna_name, dims=["antenna_name"])
@@ -376,7 +376,7 @@ def create_gain_curve_xds(
 
     ant_borrowed_coords = {
         "antenna_name": ant_xds.coords["antenna_name"],
-        "station": ant_xds.coords["station"],
+        "station_name": ant_xds.coords["station_name"],
         "mount": ant_xds.coords["mount"],
         "telescope_name": ant_xds.coords["telescope_name"],
         "receptor_label": ant_xds.coords["receptor_label"],
@@ -486,7 +486,7 @@ def create_phase_calibration_xds(
 
     ant_borrowed_coords = {
         "antenna_name": ant_xds.coords["antenna_name"],
-        "station": ant_xds.coords["station"],
+        "station_name": ant_xds.coords["station_name"],
         "mount": ant_xds.coords["mount"],
         "telescope_name": ant_xds.coords["telescope_name"],
         "receptor_label": ant_xds.coords["receptor_label"],

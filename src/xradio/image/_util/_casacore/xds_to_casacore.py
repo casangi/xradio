@@ -97,8 +97,25 @@ def _compute_spectral_dict(xds: xr.Dataset) -> dict:
 
 def _coord_dict_from_xds(xds: xr.Dataset) -> dict:
     coord = {}
-    coord["telescope"] = xds.attrs["telescope"]["name"]
-    coord["observer"] = xds.attrs["observer"]
+    if "telescope" in xds.SKY.attrs:
+        tel = xds.SKY.attrs["telescope"]
+        if "name" in tel:
+            coord["telescope"] = xds.attrs["telescope"]["name"]
+        if "location" in tel:
+            xds_telloc = tel["location"]
+            telloc = {}
+            telloc["refer"] = xds_telloc["attrs"]["ellipsoid"]
+            if telloc["refer"] == "GRS80":
+                telloc["refer"] = "ITRF"
+            for i in range(3):
+                telloc[f"m{i}"] = {
+                    "unit": xds_telloc["attrs"]["units"][i],
+                    "value": xds_telloc["data"][i],
+                }
+            telloc["type"] = "position"
+            coord["telescopeposition"] = telloc
+    if "observer" in xds.SKY.attrs:
+        coord["observer"] = xds.IMAGE.attrs["observer"]
     obsdate = {}
     obsdate["refer"] = xds.coords["time"].attrs["scale"]
     obsdate["type"] = "epoch"
@@ -106,19 +123,8 @@ def _coord_dict_from_xds(xds: xr.Dataset) -> dict:
     obsdate["m0"]["unit"] = xds.coords["time"].attrs["units"][0]
     obsdate["m0"]["value"] = xds.coords["time"].values[0]
     coord["obsdate"] = obsdate
-    coord["pointingcenter"] = xds.attrs[_pointing_center].copy()
-    if "position" in xds.attrs["telescope"]:
-        telpos = {}
-        telpos["refer"] = xds.attrs["telescope"]["position"]["ellipsoid"]
-        if xds.attrs["telescope"]["position"]["ellipsoid"] == "GRS80":
-            telpos["refer"] = "ITRF"
-        for i in range(3):
-            telpos[f"m{i}"] = {
-                "unit": xds.attrs["telescope"]["position"]["units"][i],
-                "value": xds.attrs["telescope"]["position"]["value"][i],
-            }
-        telpos["type"] = "position"
-        coord["telescopeposition"] = telpos
+    if _pointing_center in xds.IMAGE.attrs:
+        coord["pointingcenter"] = xds.attrs[_pointing_center].copy()
     if "l" in xds.coords:
         coord["direction0"] = _compute_direction_dict(xds)
     else:

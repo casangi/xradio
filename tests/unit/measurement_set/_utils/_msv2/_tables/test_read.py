@@ -524,6 +524,22 @@ def test_load_generic_table_state(ms_minimal_required):
     )
 
 
+def test_load_generic_table_pointing(ms_minimal_required):
+    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
+    import xarray as xr
+
+    res = load_generic_table(ms_minimal_required.fname, "POINTING")
+    assert res
+    assert type(res) == xr.Dataset
+    assert all([dim in res.dims for dim in ["TIME", "ANTENNA_ID", "dim_1", "dim_2"]])
+    assert all(
+         [
+             xvar in res.data_vars
+             for xvar in ["DIRECTION", "INTERVAL", "NAME", "NUM_POLY", "TARGET", "TIME_ORIGIN", "TRACKING"]
+         ]
+     )
+
+
 def test_load_generic_table_ephem(ms_minimal_required):
     from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
     import xarray as xr

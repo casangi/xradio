@@ -1,19 +1,22 @@
 [project]
 name = "xradio"
-version = "0.0.48"
+version = "0.0.51"
 description = " Xarray Radio Astronomy Data IO"
 authors = [
     {name = "Jan-Willem Steeb", email="jsteeb@nrao.edu"},
+    {name = "Federico Montesino Pouzols", email="pouzols@eso.edu"},
+    {name = "Dave Mehringer", email="dmehring@nrao.edu"},
+    {name = "Peter Wortmann", email="peter.wortmann@skao.int"}
 ]
 license = {file = "LICENSE.txt"}
 readme = "README.md"
-requires-python = ">= 3.9, < 3.14"
+requires-python = ">= 3.11, < 3.14"
 
 dependencies = [
     'astropy',
     'dask',
     'distributed',
-    'toolviper',
+    'toolviper>=0.0.11',
     'numba>=0.57.0',
     'numpy',
     'pytest',
@@ -25,8 +28,8 @@ dependencies = [
     'zarr>=2,<3',
     'pyarrow',
     'python_casacore>=3.6.1; sys_platform != "darwin" ',
-    'typing_extensions; python_version < "3.10"',
-    'typeguard'
+    'typeguard',
+    'numcodecs<0.16'
 ]
 
 [project.optional-dependencies]
@@ -65,5 +68,5 @@ pythonpath = [
 
 [tool.black]
 line-length = 88
-target-version = ['py39']
+target-version = ['py312']
 include = '\.py$'

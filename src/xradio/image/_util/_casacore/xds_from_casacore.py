@@ -40,16 +40,8 @@ from xradio._utils.dict_helpers import (
     make_quantity,
     make_frequency_reference_dict,
     make_skycoord_dict,
+    _casacore_q_to_xradio_q,
 )
-
-"""
-def _add_coord_attrs(xds: xr.Dataset, icoords: dict, dir_axes: list) -> xr.Dataset:
-    _add_time_attrs(xds, icoords)
-    _add_freq_attrs(xds, icoords)
-    xds = _add_vel_attrs(xds, icoords)
-    xds = _add_lin_attrs(xds, icoords, dir_axes)
-    return xds
-"""
 
 
 def _add_lin_attrs(xds, coord_dict, dir_axes):
@@ -242,12 +234,12 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
     imageinfo = meta_dict["imageinfo"]
     obj = "objectname"
     attrs[_object_name] = imageinfo[obj] if obj in imageinfo else ""
-    attrs["beam"] = _get_beam(imageinfo)
     attrs["user"] = meta_dict["miscinfo"]
     defmask = "Image_defaultmask"
     with open_table_ro(img_full_path) as casa_table:
+        # the actual mask is a data var and data var names are all caps by convention
         attrs[_active_mask] = (
-            casa_table.getkeyword(defmask)
+            casa_table.getkeyword(defmask).upper()
             if defmask in casa_table.keywordnames()
             else None
         )
@@ -319,10 +311,6 @@ def _casa_image_to_xds_coords(
                 naxis=shape[idx], crval=0.0, crpix=crpix[idx], cdelt=delta
             )
             coord_attrs[c] = {
-                # "crval": 0.0,
-                # "cdelt": delta,
-                # "units": "rad",
-                # "type": "quantity",
                 "note": attr_note[c],
             }
         if do_sky_coords:
@@ -350,6 +338,7 @@ def _casa_image_to_xds_coords(
         ret = _get_uv_values_attrs(coord_dict, axis_names, shape)
         for z in ["u", "v"]:
             coords[z], coord_attrs[z] = ret[z]
+    coords["beam_param"] = ["major", "minor", "pa"]
     attrs["shape"] = shape
     xds = xr.Dataset(coords=coords)
     for c in coord_attrs.keys():
@@ -397,14 +386,6 @@ def _flatten_list(list_of_lists: list) -> list:
         else:
             flat.append(x)
     return flat
-
-
-def _get_beam(imageinfo: dict):
-    """Returns None if no beam. Multiple beams are handled elsewhere"""
-    k = "restoringbeam"
-    if k in imageinfo and "major" in imageinfo[k]:
-        return _convert_beam_to_rad(imageinfo[k])
-    return None
 
 
 def _get_chunk_list(
@@ -600,23 +581,33 @@ def _get_mask_names(infile: str) -> list:
     return mymasks
 
 
-def _get_multibeam(imageinfo: dict) -> Union[np.ndarray, None]:
-    """Returns None if the image does not have multiple (per-plane) beams"""
-    p = "perplanebeams"
-    if p not in imageinfo:
+def _get_beam(imageinfo: dict, nchan: int, npol: int) -> Union[np.ndarray, None]:
+    """Returns None if the image has no beam(s)"""
+    x = ["perplanebeams", "restoringbeam"]
+    r = None
+    for z in x:
+        if z in imageinfo:
+            r = z
+            break
+    if r is None:
         return None
-    beam = imageinfo[p]
-    nchan = beam["nChannels"]
-    npol = beam["nStokes"]
-    beam_array = np.zeros([1, npol, nchan, 3])
-    for c in range(nchan):
-        for p in range(npol):
-            k = nchan * p + c
-            b = beam["*" + str(k)]
-            beam_dict = _convert_beam_to_rad(b)
-            beam_array[0][p][c][0] = beam_dict["major"]["data"]
-            beam_array[0][p][c][1] = beam_dict["minor"]["data"]
-            beam_array[0][p][c][2] = beam_dict["pa"]["data"]
+    beam = imageinfo[r]
+    beam_array = np.zeros([1, nchan, npol, 3])
+    if r == "perplanebeams":
+        for c in range(nchan):
+            for p in range(npol):
+                k = nchan * p + c
+                b = _casacore_q_to_xradio_q(beam["*" + str(k)])
+                beam_dict = _convert_beam_to_rad(b)
+                beam_array[0][c][p][0] = beam_dict["major"]["data"]
+                beam_array[0][c][p][1] = beam_dict["minor"]["data"]
+                beam_array[0][c][p][2] = beam_dict["pa"]["data"]
+    elif r == "restoringbeam":
+        b = _casacore_q_to_xradio_q(beam)
+        beam_dict = _convert_beam_to_rad(b)
+        beam_array[0, :, :, 0] = beam_dict["major"]["data"]
+        beam_array[0, :, :, 1] = beam_dict["minor"]["data"]
+        beam_array[0, :, :, 2] = beam_dict["pa"]["data"]
     return beam_array
 
 
@@ -828,25 +819,20 @@ def _get_velocity_values_attrs(
 def _multibeam_array(
     xds: xr.Dataset, img_full_path: str, as_dask_array: bool
 ) -> Union[xr.DataArray, None]:
-    """This should only be called after the xds.beam attr has been set"""
-    if xds.attrs["beam"] is None:
-        # the image may have multiple beams
-        with _open_image_ro(img_full_path) as casa_image:
-            imageinfo = casa_image.info()["imageinfo"]
-        mb = _get_multibeam(imageinfo)
-        if mb is not None:
-            # multiple beams are stored as a data varialbe, so remove
-            # the beam xds attr
-            del xds.attrs["beam"]
-            if as_dask_array:
-                mb = da.array(mb)
-            xdb = xr.DataArray(
-                mb, dims=["time", "polarization", "frequency", "beam_param"]
-            )
-            xdb = xdb.rename("beam")
-            xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
-            xdb.attrs["units"] = "rad"
-            return xdb
+    # the image may have multiple beams
+    with _open_image_ro(img_full_path) as casa_image:
+        imageinfo = casa_image.info()["imageinfo"]
+    mb = _get_beam(
+        imageinfo, nchan=xds.sizes["frequency"], npol=xds.sizes["polarization"]
+    )
+    if mb is not None:
+        if as_dask_array:
+            mb = da.array(mb)
+        xdb = xr.DataArray(mb, dims=["time", "frequency", "polarization", "beam_param"])
+        xdb = xdb.rename("BEAM")
+        xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
+        xdb.attrs["units"] = "rad"
+        return xdb
     else:
         return None
 

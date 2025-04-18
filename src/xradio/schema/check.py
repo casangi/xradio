@@ -2,6 +2,7 @@ import dataclasses
 import typing
 import inspect
 import functools
+import warnings
 
 import xarray
 import numpy
@@ -173,7 +174,9 @@ def check_array(
 
 
 def check_dataset(
-    dataset: xarray.Dataset, schema: typing.Union[type, metamodel.DatasetSchema]
+    dataset: xarray.Dataset,
+    schema: typing.Union[type, metamodel.DatasetSchema],
+    allow_superflous_dims: typing.Set[str] = frozenset(),
 ) -> SchemaIssues:
     """
     Check whether an xarray DataArray conforms to a schema
@@ -196,7 +199,12 @@ def check_dataset(
         )
 
     # Check dimensions. Order does not matter on datasets
-    issues = check_dimensions(dataset.dims, schema.dimensions, check_order=False)
+    issues = check_dimensions(
+        dataset.dims,
+        schema.dimensions,
+        check_order=False,
+        allow_superflous=allow_superflous_dims,
+    )
 
     # Check attributes
     issues += check_attributes(dataset.attrs, schema.attributes)
@@ -211,7 +219,10 @@ def check_dataset(
 
 
 def check_dimensions(
-    dims: [str], expected: [[str]], check_order: bool = True
+    dims: [str],
+    expected: [[str]],
+    check_order: bool = True,
+    allow_superflous: typing.Set[str] = frozenset(),
 ) -> SchemaIssues:
     """
     Check whether a dimension list conforms to a schema
@@ -230,7 +241,7 @@ def check_dimensions(
         exp_dims_set = set(exp_dims)
 
         # No match? Continue, but take note of best match
-        if exp_dims_set != dims_set:
+        if exp_dims_set - allow_superflous != dims_set - allow_superflous:
             diff = len(dims_set.symmetric_difference(exp_dims_set))
             if best is None or diff < best_diff:
                 best = exp_dims_set
@@ -253,7 +264,7 @@ def check_dimensions(
         )
 
     # Dimensionality not supported - try to give a helpful suggestion
-    hint_remove = [f"'{hint}'" for hint in dims_set - best]
+    hint_remove = [f"'{hint}'" for hint in (dims_set - best) - allow_superflous]
     hint_add = [f"'{hint}'" for hint in best - dims_set]
     if hint_remove and hint_add:
         message = f"Unexpected coordinates, replace {','.join(hint_remove)} by {','.join(hint_add)}?"
@@ -558,6 +569,87 @@ def _check_value_union(val, ann):
     if not args_issues:
         raise ValueError("Empty union set?")
     return args_issues
+
+
+_DATASET_TYPES = {}
+
+
+def register_dataset_type(schema: metamodel.DatasetSchema):
+    """
+    Registers the given schema for usage with :py:meth:`check_datatree`
+
+    This looks for a ``type`` attribute in the dataset schema, which
+    must have a :py:class:`typing.Literal` type annotation specifying
+    the type name of the dataset
+
+    :param schema: Schema to register
+    """
+
+    # Find type attribute
+    for attr in schema.attributes:
+        if attr.name != "type":
+            continue
+
+        # Type should be a kind of literal
+        if typing.get_origin(attr.typ) is not typing.Literal:
+            warnings.warn(
+                f"In dataset schema {schema.schema_name}:"
+                'Attribute "type" should be a literal!'
+            )
+            continue
+
+        # Register type names
+        for typ in typing.get_args(attr.typ):
+            _DATASET_TYPES[typ] = schema
+
+
+def check_datatree(
+    datatree: xarray.DataTree,
+):
+    """
+    Check datatree for schema conformance
+
+    This is the case if all nodes containing data
+
+    This looks for a ``type`` attribute in the dataset schema, which
+    must have a :py:class:`typing.Literal` type annotation specifying
+    the type name of the dataset
+
+    :param schema: Schema to register
+    """
+
+    # Loop through all groups in datatree
+    issues = SchemaIssues()
+    for xds_name in datatree.groups:
+
+        # Ignore any leaf without data
+        node = datatree[xds_name]
+        if not node.has_data:
+            continue
+
+        # Look up schema
+        schema = _DATASET_TYPES.get(node.attrs.get("type"))
+        if schema is None:
+            issues.add(
+                SchemaIssue(
+                    [("", xds_name)],
+                    message="Unknown dataset type!",
+                    found=typ,
+                    expected=list(schemas.keys()),
+                )
+            )
+            continue
+
+        # Determine dimensions inherited from parent
+        # (they might show up as "superflous" for the child schema)
+        parent_dims = frozenset()
+        if node.parent is not None:
+            parent_dims = set(node.parent.dims)
+
+        # Check schema
+        issues += check_dataset(node.dataset, schema, parent_dims).at_path("", xds_name)
+
+    return issues
 
 
 def schema_checked(fn, check_parameters: bool = True, check_return: bool = True):

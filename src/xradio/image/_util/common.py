@@ -40,10 +40,10 @@ def _convert_beam_to_rad(beam: dict) -> dict:
     """
     mybeam = {}
     for k in beam:
-        try:
-            q = u.quantity.Quantity(f"{beam[k]['value']}{beam[k]['unit']}")
-        except:
-            q = u.quantity.Quantity(f"{beam[k]['value']}{beam[k]['units']}")
+        myu = beam[k]["attrs"]["units"]
+        myu = myu[0] if isinstance(myu, list) else myu
+        units = _get_unit(myu)
+        q = u.quantity.Quantity(f"{beam[k]['data']}{units}")
         q = q.to("rad")
         j = "pa" if k == "positionangle" else k
         mybeam[j] = make_quantity(q.value, "rad")
@@ -259,22 +259,3 @@ def _l_m_attr_notes() -> Dict[str, str]:
         "So m = y*cdelt, where y is the number of pixels from the phase center. "
         "See AIPS Memo #27, Section III.",
     }
-
-
-def _set_multibeam_array(xds, beam_ary, units):
-    if "beam" in xds.attrs:
-        if xds.attrs["beam"] is None:
-            del xds.attrs["beam"]
-        else:
-            raise RuntimeError(
-                "Error: xds has beam attr. It must be removed "
-                "before multiple beams can be added"
-            )
-    xdb = xr.DataArray(
-        beam_ary, dims=["time", "frequency", "polarization", "beam_param"]
-    )
-    xdb = xdb.rename("beam")
-    xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
-    xdb.attrs["units"] = units
-    xds["beam"] = xdb
-    return xds

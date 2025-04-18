@@ -63,3 +63,19 @@ def make_time_coord_attrs(units=["s"], scale="utc", time_format="mjd") -> dict:
     x = make_time_measure_attrs(units, scale, time_format)
     del x["type"]
     return x
+
+
+def _casacore_q_to_xradio_q(q: dict) -> dict:
+    """
+    Convert a casacore quantity to an xradio quantity
+    """
+    if isinstance(q, dict):
+        if "value" in q and "unit" in q:
+            return make_quantity(q["value"], q["unit"])
+        else:
+            p = {}
+            for k in q:
+                p[k] = _casacore_q_to_xradio_q(q[k])
+            return p
+    else:
+        raise ValueError(f"Cannot convert {q} to xradio quantity")

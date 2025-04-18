@@ -85,12 +85,6 @@ phased_array_xds
 Info dictionaries
 -----------------
 
-Partition info
-~~~~~~~~~~~~~~
-.. autoclass:: xradio.measurement_set.schema.PartitionInfoDict()
-
-   .. xradio_dict_schema_table:: xradio.measurement_set.schema.PartitionInfoDict
-
 Observation info
 ~~~~~~~~~~~~~~~~
 .. autoclass:: xradio.measurement_set.schema.ObservationInfoDict()
@@ -102,6 +96,24 @@ Processor info
 .. autoclass:: xradio.measurement_set.schema.ProcessorInfoDict()
 
    .. xradio_dict_schema_table:: xradio.measurement_set.schema.ProcessorInfoDict
+
+Data Groups dictionary
+~~~~~~~~~~~~~~~~~~~~~~
+.. autoclass:: xradio.measurement_set.schema.DataGroupsDict()
+
+   .. xradio_dict_schema_table:: xradio.measurement_set.schema.DataGroupsDict
+
+Data Group dictionary
+~~~~~~~~~~~~~~~~~~~~~
+.. autoclass:: xradio.measurement_set.schema.DataGroupDict()
+
+   .. xradio_dict_schema_table:: xradio.measurement_set.schema.DataGroupDict
+
+Creator dictionary
+~~~~~~~~~~~~~~~~~~
+.. autoclass:: xradio.measurement_set.schema.CreatorDict()
+
+   .. xradio_dict_schema_table:: xradio.measurement_set.schema.CreatorDict
 
 .. _correlated data arrays:
 
@@ -134,10 +146,6 @@ Bulk data gathered into :ref:`correlated data datasets`.
 .. autoclass:: xradio.measurement_set.schema.TimeSamplingArray()
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.TimeSamplingArray
-
-.. autoclass:: xradio.measurement_set.schema.FreqSamplingArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.FreqSamplingArray
 
 .. _correlated data coordinates:
 

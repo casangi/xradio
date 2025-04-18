@@ -19,19 +19,6 @@ def _open_image_ro(infile: str) -> Generator[images.image, None, None]:
         del image
 
 
-"""
-@contextmanager
-def _open_image_rw(
-    infile: str, mask: str, shape: tuple
-) -> Generator[images.image, None, None]:
-    image = images.image(infile, maskname=mask, shape=shape)
-    try:
-        yield image
-    finally:
-        del image
-"""
-
-
 @contextmanager
 def _create_new_image(
     outfile: str, shape: List[int], mask="", value="default"

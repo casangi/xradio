@@ -59,7 +59,8 @@ def _load_casa_image_block(infile: str, block_des: dict, do_sky_coords) -> xr.Da
         block = _get_persistent_block(
             full_path, shapes, starts, dimorder, transpose_list, new_axes
         )
-        xds = _add_mask(xds, m, block, dimorder)
+        # data vars are all caps by convention
+        xds = _add_mask(xds, m.upper(), block, dimorder)
     xds.attrs = _casa_image_to_xds_attrs(image_full_path, True)
     mb = _multibeam_array(xds, image_full_path, False)
     if mb is not None:
@@ -67,7 +68,7 @@ def _load_casa_image_block(infile: str, block_des: dict, do_sky_coords) -> xr.Da
         for k in ("time", "frequency", "polarization"):
             if k in block_des:
                 selectors[k] = block_des[k]
-        xds["beam"] = mb.isel(selectors)
+        xds["BEAM"] = mb.isel(selectors)
     return xds
 
 
@@ -94,11 +95,12 @@ def _read_casa_image(
         mymasks = _get_mask_names(img_full_path)
         for m in mymasks:
             ary = _read_image_array(img_full_path, chunks, mask=m, verbose=verbose)
-            xds = _add_mask(xds, m, ary, dimorder)
+            # data var names are all caps by convention
+            xds = _add_mask(xds, m.upper(), ary, dimorder)
     xds.attrs = _casa_image_to_xds_attrs(img_full_path, history)
     mb = _multibeam_array(xds, img_full_path, True)
     if mb is not None:
-        xds["beam"] = mb
+        xds["BEAM"] = mb
     # xds = _add_coord_attrs(xds, ret["icoords"], ret["dir_axes"])
     xds = _dask_arrayize_dv(xds)
     return xds

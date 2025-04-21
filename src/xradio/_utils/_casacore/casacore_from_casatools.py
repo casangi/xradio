@@ -74,6 +74,7 @@ else:
 
 import casatools
 
+casatools.logger.setglobal(True)
 casatools.logger.ompSetNumThreads(1)
 
 
@@ -453,7 +454,11 @@ class image(casatools.image):
         self._imagename = imagename
         if shape is None:
             # self.open(*arg, **kwargs)
+            # Add a temporary filter to the CASA instance global logger log sink filter
+            # to suppress 'SEVERE' messages when probing images/
+            casatools.logger.filterMsg("Exception Reported: Exception")
             self.open(imagename)
+            casatools.logger.clearFilterMsgList()
         else:
             if values is None:
                 self.newimagefromshape(

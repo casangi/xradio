@@ -624,6 +624,10 @@ class image(casatools.image):
             "shape",
             "tileshape",
             "refval",
+            "defaultmask",
+            "hasmask",
+            "masks",
+            "ndim",
         ]
         for key in ignore_keys:
             imageinfo.pop(key, None)

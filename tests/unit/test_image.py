@@ -278,9 +278,7 @@ class xds_from_image_test(ImageBase):
         csys["pointingcenter"]["value"] = pc * np.pi / 180 / 60
         t.putkeyword("coords", csys)
         t.close()
-        t = tables.table(
-            os.sep.join([cls._imname, "logtable"]), readonly=False
-        )
+        t = tables.table(os.sep.join([cls._imname, "logtable"]), readonly=False)
         t.addrows()
         t.putcell("MESSAGE", 0, "HELLO FROM EARTH again")
         t.flush()
@@ -916,7 +914,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                         beam["positionangle"]["unit"] = "deg"
                     self.dict_equality(beams1, beams2, "got", "expected")
         # convert to single beam image
-        tb = casacore.tables.table(self._outname6, readonly=False)
+        tb = tables.table(self._outname6, readonly=False)
         beam3 = {
             "major": {"unit": "arcsec", "value": 4.0},
             "minor": {"unit": "arcsec", "value": 3.0},

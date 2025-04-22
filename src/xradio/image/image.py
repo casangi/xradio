@@ -182,16 +182,18 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
 
 
 def write_image(
-    xds: xr.Dataset, imagename: str, out_format: str = "casa", overwrite=False
+    xds: xr.Dataset, imagename: str, out_format: str = "casa", overwrite: bool = False
 ) -> None:
     """
     Convert an xds image to CASA or zarr image.
     xds : xarray.Dataset
         XDS to convert
     imagename : str
-        Path to output CASA image
+        Path to output image
     out_format : str
         Format of output image, currently "casa" and "zarr" are supported
+    overwrite : bool
+        If True, overwrite existing image. Default is False.
     Returns
     -------
     None

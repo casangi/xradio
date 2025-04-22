@@ -170,7 +170,6 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
         # direction["reference"]["value"][i] = x.value
         x = helpers["cdelt"][i] * u.Unit(_get_unit(helpers["cunit"][i]))
         dunits.append("rad")
-    print("ddata", "dunits", ddata, dunits)
     direction["reference"] = make_skycoord_dict(ddata, units=dunits, frame=ref_sys)
     direction["reference"]["attrs"]["equinox"] = ref_eqx.lower()
     direction["latpole"] = make_quantity(

@@ -50,4 +50,7 @@ class TableManager:
             self.infile, readonly=True, lockoptions={"option": "usernoread"}, ack=False
         ) as mtable:
             query = f"select * from $mtable {self.taql_where}"
-            return tables.taql(query)
+            if hasattr(tables, "taql"):
+                return tables.taql(query)
+            else:
+                return mtable.taql(query)

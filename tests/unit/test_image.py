@@ -29,7 +29,7 @@ import unittest
 import xarray as xr
 import copy
 
-data_variable_name = "SKY"
+sky = "SKY"
 
 
 class ImageBase(unittest.TestCase):
@@ -106,6 +106,52 @@ class xds_from_image_test(ImageBase):
     _infits: str = "inp.fits"
     _uv_image: str = "complex_valued_uv.im"
     _xds = None
+    _exp_sky_attrs = {
+        "active_mask": "MASK0",
+        "description": None,
+        "image_type": "Intensity",
+        "object_name": "",
+        "obsdate": {
+            "attrs": {
+                "format": "MJD",
+                "scale": "UTC",
+                "type": "time",
+                "units": ["d"],
+            },
+            "data": 51544.00000000116,
+        },
+        "observer": "Karl Jansky",
+        "pointing_center": {
+            "data": [1.832595714594046, -0.6981317007977318],
+            "dims": ["l", "m"],
+            "attrs": {
+                "type": "sky_coord",
+                "frame": "fk5",
+                # "equinox": "j2000.0",
+                "units": ["rad", "rad"],
+            },
+            #"value": np.array([6300, -2400]) * np.pi / 180 / 60,
+            #"initial": True,
+        },
+        "telescope": {
+            "name": "ALMA",
+            "location": {
+                "attrs": {
+                    "coordinate_system": "geocentric",
+                    "frame": "ITRF",
+                    "origin_object_name": "earth",
+                    "type": "location",
+                    "units": ["rad", "rad", "m"],
+                },
+                "data": np.array(
+                    [-1.1825465955049892, -0.3994149869262738, 6379946.01326443]
+                ),
+            },
+        },
+        "units": "Jy/beam",
+        "user": {},
+    }
+
     _exp_vals: dict = {
         "shape": xr.core.utils.Frozen(
             {
@@ -118,12 +164,10 @@ class xds_from_image_test(ImageBase):
             }
         ),
         "freq_waveunit": "mm",
-        "image_type": "Intensity",
         "stokes": ["I", "Q", "U", "V"],
         "time_format": "MJD",
         "time_refer": "UTC",
         "time_unit": ["d"],
-        "units": "Jy/beam",
         "vel_mea_type": "doppler",
         "doppler_type": "radio",
         "vel_units": ["m/s"],
@@ -160,8 +204,8 @@ class xds_from_image_test(ImageBase):
         "beam_param": ["major", "minor", "pa"],
     }
     _rad_to_arcmin = np.pi / 180 / 60
-    _exp_attrs = {}
-    _exp_attrs["direction"] = {
+    _exp_xds_attrs = {}
+    _exp_xds_attrs["direction"] = {
         "reference": {
             "data": [1.832595714594046, -0.6981317007977318],
             "dims": ["l", "m"],
@@ -199,34 +243,7 @@ class xds_from_image_test(ImageBase):
         "projection": "SIN",
     }
     # TODO make a more interesting beam
-    _exp_attrs["obsdate"] = {
-        "type": "time",
-        "scale": "UTC",
-        "value": 51544.00000000116,
-        "units": ["d"],
-        "format": "MJD",
-    }
-    _exp_attrs["observer"] = "Karl Jansky"
-    _exp_attrs["description"] = None
-    _exp_attrs["active_mask"] = "MASK0"
-    _exp_attrs["object_name"] = ""
-    _exp_attrs["pointing_center"] = {
-        "value": np.array([6300, -2400]) * np.pi / 180 / 60,
-        "initial": True,
-    }
-    _exp_attrs["telescope"] = {
-        "name": "ALMA",
-        "position": {
-            "type": "position",
-            "ellipsoid": "GRS80",
-            "units": ["rad", "rad", "m"],
-            "value": np.array(
-                [-1.1825465955049892, -0.3994149869262738, 6379946.01326443]
-            ),
-        },
-    }
-    _exp_attrs["user"] = {}
-    _exp_attrs["history"] = None
+    _exp_xds_attrs["history"] = None
 
     # _ran_measures_code = False
 
@@ -313,52 +330,55 @@ class xds_from_image_test(ImageBase):
     def uv_image(self):
         return self._uv_image
 
-    def exp_attrs(self):
-        return self._exp_attrs
+    def exp_sky_attrs(self):
+        return self._exp_sky_attrs
+
+    def exp_xds_attrs(self):
+        return self._exp_xds_attrs
 
     def compare_sky_mask(self, xds: xr.Dataset, fits=False):
         """Compare got sky and mask values to expected values"""
         ev = self._exp_vals
         self.assertEqual(
-            xds[data_variable_name].attrs["image_type"],
-            ev["image_type"],
+            xds[sky].attrs["image_type"],
+            self.exp_sky_attrs()["image_type"],
             "Wrong image type",
         )
         self.assertEqual(
-            xds[data_variable_name].attrs["units"], ev["units"], "Wrong unit"
+            xds[sky].attrs["units"], self.exp_sky_attrs()["units"] , "Wrong unit"
         )
         self.assertEqual(
-            xds[data_variable_name].chunksizes["frequency"],
+            xds[sky].chunksizes["frequency"],
             (5, 5),
             "Incorrect chunksize",
         )
         self.assertEqual(
             xds.MASK0.chunksizes["frequency"], (5, 5), "Incorrect chunksize"
         )
-        got_data = da.squeeze(da.transpose(xds[data_variable_name], [1, 2, 4, 3, 0]), 4)
+        got_data = da.squeeze(da.transpose(xds[sky], [1, 2, 4, 3, 0]), 4)
         got_mask = da.squeeze(da.transpose(xds.MASK0, [1, 2, 4, 3, 0]), 4)
         if "sky_array" not in ev:
             im = casacore.images.image(self.imname())
-            ev[data_variable_name] = im.getdata()
+            ev[sky] = im.getdata()
             # getmask returns the negated value of the casa image mask, so True
             # has the same meaning as it does in xds.MASK0
             ev["mask0"] = im.getmask()
             ev["sum"] = im.statistics()["sum"][0]
         if fits:
             self.assertTrue(
-                not np.isnan(got_data == ev[data_variable_name]).all(),
+                not np.isnan(got_data == ev[sky]).all(),
                 "pixel values incorrect",
             )
         else:
             self.assertTrue(
-                (got_data == ev[data_variable_name]).all(), "pixel values incorrect"
+                (got_data == ev[sky]).all(), "pixel values incorrect"
             )
         self.assertTrue((got_mask == ev["mask0"]).all(), "mask values incorrect")
-        got_ma = da.ma.masked_array(xds[data_variable_name], xds.MASK0)
+        got_ma = da.ma.masked_array(xds[sky], xds.MASK0)
         self.assertEqual(da.sum(got_ma), ev["sum"], "Incorrect value for sum")
         self.assertTrue(
-            got_data.dtype == ev[data_variable_name].dtype,
-            f"Incoorect data type, got {got_data.dtype}, expected {ev[data_variable_name].dtype}",
+            got_data.dtype == ev[sky].dtype,
+            f"Incoorect data type, got {got_data.dtype}, expected {ev[sky].dtype}",
         )
 
     def compare_time(self, xds: xr.Dataset) -> None:
@@ -550,10 +570,18 @@ class xds_from_image_test(ImageBase):
             (xds.beam_param == ev["beam_param"]).all(), "Incorrect beam param values"
         )
 
-    def compare_attrs(self, xds: xr.Dataset, fits: bool = False):
-        my_exp_attrs = copy.deepcopy(self.exp_attrs())
-        if "position" not in xds.attrs["telescope"]:
-            del my_exp_attrs["telescope"]["position"]
+    def compare_sky_attrs(self, sky: xr.DataArray, fits: bool = False) -> None:
+        my_exp_attrs = copy.deepcopy(self.exp_sky_attrs())
+        if "location" not in sky.attrs["telescope"]:
+            del my_exp_attrs["telescope"]["location"]
+        print("sky attrs", sky.attrs["pointing_center"]["attrs"]["frame"] )
+        print("my exp attrs", my_exp_attrs["pointing_center"]["attrs"]["frame"])
+        self.dict_equality(
+            sky.attrs, my_exp_attrs, "Got sky attrs", "Expected sky attrs"
+        )
+
+    def compare_xds_attrs(self, xds: xr.Dataset, fits: bool = False):
+        my_exp_attrs = copy.deepcopy(self.exp_xds_attrs())
         if fits:
             # xds from fits do not have history yet
             del my_exp_attrs["history"]
@@ -568,6 +596,8 @@ class xds_from_image_test(ImageBase):
                 isinstance(xds.attrs["history"], xr.core.dataset.Dataset),
                 "Incorrect type for history data",
             )
+
+
 
     def compare_image_block(self, imagename, zarr=False):
         x = [0] if zarr else [0, 1]
@@ -585,22 +615,22 @@ class xds_from_image_test(ImageBase):
             if not zarr:
                 with open_image_ro(imagename) as im:
                     self.assertTrue(
-                        xds[data_variable_name].dtype == im.datatype()
+                        xds[sky].dtype == im.datatype()
                         or (
-                            xds[data_variable_name].dtype == np.float32
+                            xds[sky].dtype == np.float32
                             and im.datatype() == "float"
                         ),
-                        f"got wrong data type, got {xds[data_variable_name].dtype}, "
+                        f"got wrong data type, got {xds[sky].dtype}, "
                         + f"expected {im.datatype()}",
                     )
             self.assertEqual(
-                xds[data_variable_name].shape, (1, 4, 1, 8, 12), "Wrong block shape"
+                xds[sky].shape, (1, 4, 1, 8, 12), "Wrong block shape"
             )
             big_xds = self._xds if i == 0 else self._xds_no_sky
             self.assertTrue(
                 (
-                    xds[data_variable_name]
-                    == big_xds[data_variable_name][:, 0:1, 0:4, 2:10, 3:15]
+                    xds[sky]
+                    == big_xds[sky][:, 0:1, 0:4, 2:10, 3:15]
                 ).all(),
                 "Wrong block SKY array",
             )
@@ -745,7 +775,9 @@ class casa_image_to_xds_test(xds_from_image_test):
 
     def test_xds_attrs(self):
         """Test xds level attributes"""
-        self.compare_attrs(self.xds())
+        self.compare_xds_attrs(self.xds())
+        self.compare_sky_attrs(self.xds().SKY)
+
 
     def test_get_img_ds_block(self):
         self.compare_image_block(self.imname())
@@ -792,7 +824,7 @@ class xds_to_casacore(xds_from_image_test):
         write_image(xds, self._outname, "casa")
         with open_image_ro(self._outname) as im:
             p = im.getdata()
-        exp_data = np.squeeze(np.transpose(xds[data_variable_name], [1, 2, 4, 3, 0]), 4)
+        exp_data = np.squeeze(np.transpose(xds[sky], [1, 2, 4, 3, 0]), 4)
         self.assertTrue((p == exp_data).all(), "Incorrect pixel values")
 
 
@@ -868,6 +900,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
         with open_image_ro(self.imname()) as im1:
             c1 = im1.info()
             for imname in [self.outname(), self._outname_no_sky]:
+                print("imname", imname)
                 with open_image_ro(imname) as im2:
                     c2 = im2.info()
                     # some quantities are expected to have different untis and values
@@ -963,7 +996,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                 f"Unexpected directory (mask?) found. subdirs is {subdirs}",
             )
             # case 2a: no mask + nans = nan_mask
-            xds[data_variable_name][0, 1, 1, 1, 1] = float("NaN")
+            xds[sky][0, 1, 1, 1, 1] = float("NaN")
             shutil.rmtree(outname)
             second_attrs = xds.attrs
             second_coords = xds.coords
@@ -987,24 +1020,24 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
             # empty array
             data = da.zeros_like(
                 np.array([]),
-                shape=xds[data_variable_name].shape,
-                chunks=xds[data_variable_name].chunks,
+                shape=xds[sky].shape,
+                chunks=xds[sky].chunks,
                 dtype=bool,
             )
             data[0, 2, 2, 2, 2] = True
             mask0 = xr.DataArray(
                 data=data,
-                dims=xds[data_variable_name].sizes,
-                coords=xds[data_variable_name].coords,
+                dims=xds[sky].sizes,
+                coords=xds[sky].coords,
                 attrs={image_type: "Mask"},
             )
             xds = xds.assign(mask0=mask0)
-            xds.attrs["active_mask"] = "mask0"
+            xds["SKY"].attrs["active_mask"] = "mask0"
             write_image(xds, out_1, out_format="casa")
             self.assertEqual(
-                xds.attrs["active_mask"],
+                xds["SKY"].attrs["active_mask"],
                 "mask0",
-                "xds active mask was incorrectly reset",
+                "SKY active mask was incorrectly reset",
             )
             subdirs = glob(f"{out_1}/*/")
             subdirs = [d[d.index("/") + 1 : -1] for d in subdirs]
@@ -1021,13 +1054,13 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                 self.assertTrue(casa_mask[2, 2, 2, 2], "Wrong pixels are masked")
                 self.assertEqual(casa_mask.sum(), 2, "Wrong pixels are masked")
             # case 2c: all nans are already masked by default mask = no new masks are created
-            xds[data_variable_name][0, 2, 2, 2, 2] = float("NaN")
-            xds[data_variable_name][0, 1, 1, 1, 1] = 0
+            xds[sky][0, 2, 2, 2, 2] = float("NaN")
+            xds[sky][0, 1, 1, 1, 1] = 0
             write_image(xds, out_2, out_format="casa")
             self.assertEqual(
-                xds.attrs["active_mask"],
+                xds["SKY"].attrs["active_mask"],
                 "mask0",
-                "xds active mask was incorrectly reset",
+                "SKY active mask was incorrectly reset",
             )
             subdirs = glob(f"{out_2}/*/")
             subdirs = [d[d.index("/") + 1 : -1] for d in subdirs]
@@ -1126,7 +1159,8 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
 
     def test_xds_attrs(self):
         """Test xds level attributes"""
-        self.compare_attrs(self._zds)
+        self.compare_xds_attrs(self._zds)
+        self.compare_sky_attrs(self._zds.SKY)
 
     def test_get_img_ds_block(self):
         self.compare_image_block(self._zarr_store, zarr=True)
@@ -1251,7 +1285,8 @@ class fits_to_xds_test(xds_from_image_test):
     def test_xds_attrs(self):
         """Test xds level attributes"""
         for fds in (self._fds, self._fds_no_sky):
-            self.compare_attrs(fds, True)
+            self.compare_xds_attrs(fds, True)
+            self.compare_sky_attrs(fds.SKY, True)
 
     def test_multibeam(self):
         download(self._imname1)

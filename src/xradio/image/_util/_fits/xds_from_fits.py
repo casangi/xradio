@@ -176,15 +176,6 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
     direction["reference"] = make_skycoord_dict(
         [0.0, 0.0], units=["rad", "rad"], frame=ref_sys
     )
-    """
-    direction["reference"] = {
-        "type": "sky_coord",
-        "frame": ref_sys,
-        "equinox": ref_eqx,
-        "units": ["rad", "rad"],
-        "value": [0.0, 0.0],
-    }
-    """
     dir_axes = helpers["dir_axes"]
     ddata = []
     dunits = []

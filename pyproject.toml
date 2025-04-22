@@ -1,9 +1,12 @@
 [project]
 name = "xradio"
-version = "0.0.50"
+version = "0.0.51"
 description = " Xarray Radio Astronomy Data IO"
 authors = [
     {name = "Jan-Willem Steeb", email="jsteeb@nrao.edu"},
+    {name = "Federico Montesino Pouzols", email="pouzols@eso.edu"},
+    {name = "Dave Mehringer", email="dmehring@nrao.edu"},
+    {name = "Peter Wortmann", email="peter.wortmann@skao.int"}
 ]
 license = {file = "LICENSE.txt"}
 readme = "README.md"
@@ -13,7 +16,7 @@ dependencies = [
     'astropy',
     'dask',
     'distributed',
-    'toolviper',
+    'toolviper>=0.0.11',
     'numba>=0.57.0',
     'numpy',
     'pytest',

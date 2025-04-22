@@ -17,7 +17,8 @@ from xradio.measurement_set._utils._msv2._tables.read import (
     make_taql_where_between_min_max,
     load_generic_table,
 )
-from xradio._utils.list_and_array import cast_to_str
+from xradio._utils.list_and_array import cast_to_str, get_pad_value
+
 from xradio._utils.coord_math import (
     convert_to_si_units,
     add_position_offsets,
@@ -226,9 +227,10 @@ def extract_ephemeris_info(
             "type": "location",
             "units": ["deg", "deg", "m"],
             "data": observer_position,
-            "frame": "WGS84",
+            "frame": "ITRS",
             "origin_object_name": "Earth",
             "coordinate_system": ephemeris_meta["obsloc"].lower(),
+            "ellipsoid": "WGS84",
         }
     )  # I think the units are ['deg','deg','m'] and 'WGS84'.
 
@@ -546,10 +548,16 @@ def pad_missing_sources(
         for source_id in unique_source_ids
         if source_id not in source_xds.coords["SOURCE_ID"]
     ]
+    if len(missing_source_ids) < 1:
+        return source_xds
 
     # would like to use the new-ish xr.pad, but it creates issues with indices/coords and is
     # also not free of overheads, as it for example changes all numeric types to float64
-    missing_source_xds = xr.full_like(source_xds.isel(SOURCE_ID=0), fill_value=np.nan)
+    fill_value = {
+        var_name: get_pad_value(var.dtype)
+        for var_name, var in source_xds.data_vars.items()
+    }
+    missing_source_xds = xr.full_like(source_xds.isel(SOURCE_ID=0), fill_value)
     pad_str = "Unknown"
     pad_str_type = "<U9"
     for var in missing_source_xds.data_vars:

@@ -1,10 +1,8 @@
-name: Lint
+# Run Black using template in ToolVIPER
+name: Run black
 
 on: [push, pull_request]
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: psf/black@stable
+    call-testing-linux:
+      uses: casangi/toolviper/.github/workflows/black-template.yml@main

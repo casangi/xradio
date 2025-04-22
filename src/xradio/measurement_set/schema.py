@@ -27,7 +27,7 @@ TimeWeather = Literal["time_weather"]
 AntennaName = Literal["antenna_name"]
 """ Antenna name dimension """
 StationName = Literal["station_name"]
-""" Station identifier dimension """
+""" Station name dimension """
 ReceptorLabel = Literal["receptor_label"]
 """ Receptor label dimension """
 ToneLabel = Literal["tone_label"]
@@ -295,7 +295,7 @@ class SkyCoordArray:
 
     type: Attr[SkyCoord] = "sky_coord"
     units: Attr[UnitsOfSkyCoordInRadians] = ("rad", "rad")
-    frame: Attr[AllowedSkyCoordFrames] = ""
+    frame: Attr[AllowedSkyCoordFrames] = "icrs"
     """
     Possible values are astropy SkyCoord frames.
     Several casacore frames found in MSv2 are translated to astropy frames as follows: AZELGEO=>altaz, J2000=>fk5, ICRS=>icrs.
@@ -324,7 +324,7 @@ class PointingBeamArray:
 
     type: Attr[SkyCoord] = "sky_coord"
     units: Attr[UnitsOfSkyCoordInRadians] = ("rad", "rad")
-    frame: Attr[AllowedSkyCoordFrames] = "fk5"
+    frame: Attr[AllowedSkyCoordFrames] = "icrs"
     """
     From fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled
     as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking
@@ -341,7 +341,7 @@ class LocalSkyCoordArray:
 
     type: Attr[SkyCoord] = "sky_coord"
     units: Attr[UnitsOfSkyCoordInRadians] = ("rad", "rad")
-    frame: Attr[AllowedSkyCoordFrames] = "fk5"
+    frame: Attr[AllowedSkyCoordFrames] = "icrs"
     """
     From fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled
     as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking
@@ -518,7 +518,7 @@ AllowedSpectralCoordFrames = Literal[
     # "LSRK" -> "lsrk",
     # "LSRD" -> "lsrd",
     "BARY",
-    "GEO",
+    # "GEO", -> "gcrs"
     "TOPO",
     # astropy frames
     "gcrs",
@@ -540,17 +540,20 @@ class SpectralCoordArray:
 
     units: Attr[UnitsHertz] = ("Hz",)
 
-    observer: Attr[AllowedSpectralCoordFrames] = "gcrs"
+    observer: Attr[AllowedSpectralCoordFrames] = "icrs"
     """
     Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.
     Astropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)
     rather it assumes if no velocity frame is given that this is the default.
+
+    When converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy
+    frame names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd
     """
 
     type: Attr[SpectralCoord] = "spectral_coord"
 
 
-AllowedLocationFrames = Literal["ITRF", "GRS80", "WGS84", "WGS72", "Undefined"]
+AllowedLocationFrames = Literal["ITRS", "Undefined"]
 
 
 AllowedLocationCoordinateSystems = Literal[
@@ -562,11 +565,16 @@ AllowedLocationCoordinateSystems = Literal[
 ]
 
 
+AllowedEllipsoid = Literal["GRS80", "WGS84", "WGS72"]
+
+
 @xarray_dataarray_schema
 class LocationArray:
     """
-    Measure type used for example in antenna_xds/ANTENNA_POSITION, field_and_source_xds/OBSERVER_POSITION
-    Data dimensions can be EllipsoidPosLabel or CartesianPosLabel
+    Measure type used for example in antenna_xds/ANTENNA_POSITION, weather_xds/STATION_POSITION,
+    field_and_source_xds(ephemeris)/OBSERVER_POSITION.
+
+    Data dimensions can be CartesianPosLabel or EllipsoidPosLabel
     """
 
     data: Data[Union[EllipsoidPosLabel, CartesianPosLabel], float]
@@ -575,13 +583,13 @@ class LocationArray:
     """
     If the units are a list of strings then it must be the same length as
     the last dimension of the data array. This allows for having different
-    units in the same data array,for example geodetic coordinates could use
+    units in the same data array, for example geodetic coordinates could use
     ``['rad','rad','m']``.
     """
 
     frame: Attr[AllowedLocationFrames]
     """
-    Can be ITRF, GRS80, WGS84, WGS72, Undefined
+    Reference frame. Can be ITRS (assumed for all Earth locations) or Undefined (used in non-Earth locations).
     """
 
     coordinate_system: Attr[AllowedLocationCoordinateSystems]
@@ -589,24 +597,29 @@ class LocationArray:
 
     origin_object_name: Attr[str]
     """
-    earth/sun/moon/etc
+    earth/sun/moon/etc.
+    """
+
+    ellipsoid: Optional[Attr[AllowedEllipsoid]]
+    """
+    Ellipsoid used in geodetic Earth locations (with EllipsoidPosLabel coordinate)
     """
 
     type: Attr[Location] = "location"
-    """ """
+    """ Measure type. Should be ``"location"``."""
 
 
 @xarray_dataarray_schema
 class EllipsoidPosLocationArray:
     """
-    Measure type used for example in field_and_source_xds/SUB_OBSERVER_POSITION, SUB_SOLAR_POSITION
+    Measure type used for example in field_and_source_xds(ephemeris) / SUB_OBSERVER_DIRECTION, SUB_SOLAR_POSITION
     """
 
     data: Data[EllipsoidPosLabel, float]
 
     frame: Attr[AllowedLocationFrames]
     """
-    Can be ITRF, GRS80, WGS84, WGS72
+    Reference frame. Can be ITRS (assumed for all Earth locations) or Undefined (used in non-Earth locations).
     """
 
     coordinate_system: Attr[AllowedLocationCoordinateSystems]
@@ -618,7 +631,7 @@ class EllipsoidPosLocationArray:
     """
 
     type: Attr[Location] = "location"
-    """ """
+    """ Measure type. Should be ``"location"``."""
 
     units: Attr[UnitsOfPositionInRadians] = ("rad", "rad", "m")
     """
@@ -1445,7 +1458,7 @@ class AntennaXds:
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
     """ Antenna name """
-    station: Coord[AntennaName, str]
+    station_name: Coord[AntennaName, str]
     """ Name of the station pad (relevant to arrays with moving antennas). """
     mount: Coord[AntennaName, str]
     """ Mount type of the antenna. Reserved keywords include: ”EQUATORIAL” - equatorial mount;
@@ -1529,7 +1542,7 @@ class GainCurveXds:
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
     """ Antenna name """
-    station: Coord[AntennaName, str]
+    station_name: Coord[AntennaName, str]
     """ Name of the station pad (relevant to arrays with moving antennas). """
     mount: Coord[AntennaName, str]
     """ Mount type of the antenna. Reserved keywords include: ”EQUATORIAL” - equatorial mount;
@@ -1588,7 +1601,7 @@ class PhaseCalibrationXds:
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
     """ Antenna name """
-    station: Coord[AntennaName, str]
+    station_name: Coord[AntennaName, str]
     """ Name of the station pad (relevant to arrays with moving antennas). """
     mount: Coord[AntennaName, str]
     """ Mount type of the antenna. Reserved keywords include: ”EQUATORIAL” - equatorial mount;
@@ -1672,13 +1685,11 @@ class WeatherXds:
 
     # Coordinates
     station_name: Coord[StationName, str]
-    """ Station identifier """
+    """ Station name """
     time: Optional[Coordof[TimeInterpolatedCoordArray]]
     """ Mid-point of the time interval. Labeled 'time' when interpolated to main time axis """
     time_weather: Optional[Coordof[TimeWeatherCoordArray]]
     """ Mid-point of the time interval. Labeled 'time_weather' when not interpolated to main time axis """
-    antenna_name: Optional[Coordof[AntennaNameArray]]
-    """ Antenna identifier """
     ellipsoid_pos_label: Optional[Coord[EllipsoidPosLabel, str]] = (
         "lon",
         "lat",
@@ -1687,6 +1698,10 @@ class WeatherXds:
     """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
     cartesian_pos_label: Optional[Coord[CartesianPosLabel, str]] = ("x", "y", "z")
     """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
+
+    # Station position variable - required
+    STATION_POSITION: Data[tuple[StationName], LocationArray] = None
+    """ Position of the weather station """
 
     # Data variables (all optional)
     H2O: Optional[
@@ -1766,8 +1781,6 @@ class WeatherXds:
         ]
     ] = None
     """ Average wind speed """
-    STATION_POSITION: Optional[Data[tuple[StationName], LocationArray]] = None
-    """ Station position """
 
     # Attributes
     type: Attr[Literal["weather"]] = "weather"
@@ -1883,7 +1896,9 @@ class SystemCalibrationXds:
 
     # Coordinates
     antenna_name: Coordof[AntennaNameArray]
-    """ Antenna identifier """
+    """ Antenna name """
+    station_name: Coord[AntennaName, str]
+    """ Name of the station pad (relevant to arrays with moving antennas). """
     receptor_label: Coord[ReceptorLabel, str]
     """ Names of receptors """
     polarization_type: Coord[tuple[AntennaName, ReceptorLabel], str]

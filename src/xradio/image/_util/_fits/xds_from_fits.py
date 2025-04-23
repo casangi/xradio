@@ -549,7 +549,13 @@ def _get_pol_values(helpers):
         stokes_start_idx = crval - cdelt * crpix
         for i in range(helpers["shape"][idx]):
             stokes_idx = (stokes_start_idx + i) * cdelt
-            vals.append(stokes_types[stokes_idx])
+            if 0 <= stokes_idx < len(stokes_types):
+                # stokes_types provides the index-label mapping from casacore Stokes.h
+                vals.append(stokes_types[stokes_idx])
+            else:
+                raise RuntimeError(
+                    "Can't find the Stokes type using the FITS header index"
+                )
         return vals
     else:
         return ["I"]

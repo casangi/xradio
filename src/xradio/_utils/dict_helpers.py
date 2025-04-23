@@ -43,6 +43,30 @@ def make_time_measure_attrs(units=["s"], scale="utc", time_format="mjd") -> dict
     return {"units": u, "scale": scale, "format": time_format, "type": "time"}
 
 
+def make_time_measure_dict(data, units=["s"], scale="utc", time_format="mjd") -> dict:
+    """
+    create a time measure dictionary given value and units
+    Parameters
+    ----------
+    value : numeric or array of numerics
+        Time value
+    units: str
+        Time units
+    scale: str
+        Time scale
+    time_format: str
+        Time format
+    Returns
+    -------
+    dict
+    """
+    x = {}
+    x["attrs"] = make_time_measure_attrs(units, scale, time_format)
+    x["data"] = data
+    x["dims"] = []
+    return x
+
+
 def make_time_coord_attrs(units=["s"], scale="utc", time_format="mjd") -> dict:
     """
     create a time measure dictionary given value and units

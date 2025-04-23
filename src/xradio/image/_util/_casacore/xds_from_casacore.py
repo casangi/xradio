@@ -32,10 +32,11 @@ from ..common import (
 from ...._utils._casacore.tables import extract_table_attributes, open_table_ro
 from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import (
-    make_quantity,
-    make_frequency_reference_dict,
-    make_skycoord_dict,
     _casacore_q_to_xradio_q,
+    make_frequency_reference_dict,
+    make_quantity,
+    make_skycoord_dict,
+    make_time_measure_dict,
 )
 
 
@@ -138,16 +139,20 @@ def _casa_image_to_xds_image_attrs(image: casa_image) -> dict:
                 """
         elif k == "obsdate":
             obsdate = coord_dict[k]
+            """
             o_attrs = {"type": "time"}
             o_attrs["scale"] = coord_dict[k]["refer"]
             myu = coord_dict[k]["m0"]["unit"]
             o_attrs["units"] = myu if isinstance(myu, list) else [myu]
-            m0 = obsdate["m0"]
             o_attrs["format"] = _get_time_format(m0["value"], m0["unit"])
             o_date = {}
             o_date["attrs"] = o_attrs
-            o_date["data"] = m0["value"]
-            attrs["obsdate"] = o_date
+            """
+            m0 = obsdate["m0"]
+            attrs["obsdate"] = make_time_measure_dict(data=m0["value"],
+                units=m0["unit"], scale=obsdate["refer"],
+                time_format=_get_time_format(m0["value"], m0["unit"])
+            )
         else:
             attrs[k] = coord_dict[k] if k in coord_dict else ""
     dir_key = next(

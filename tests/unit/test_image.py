@@ -119,6 +119,7 @@ class xds_from_image_test(ImageBase):
                 "units": ["d"],
             },
             "data": 51544.00000000116,
+            "dims": [],
         },
         "observer": "Karl Jansky",
         "pointing_center": {
@@ -243,7 +244,7 @@ class xds_from_image_test(ImageBase):
         "projection": "SIN",
     }
     # TODO make a more interesting beam
-    _exp_xds_attrs["history"] = None
+    # _exp_xds_attrs["history"] = None
 
     # _ran_measures_code = False
 
@@ -574,24 +575,23 @@ class xds_from_image_test(ImageBase):
         my_exp_attrs = copy.deepcopy(self.exp_sky_attrs())
         if "location" not in sky.attrs["telescope"]:
             del my_exp_attrs["telescope"]["location"]
-        print("sky attrs", sky.attrs["pointing_center"]["attrs"]["frame"] )
-        print("my exp attrs", my_exp_attrs["pointing_center"]["attrs"]["frame"])
+        if fits:
+            # xds from fits do not have history yet
+            # del my_exp_attrs["history"]
+            my_exp_attrs["user"]["comment"] = (
+                "casacore non-standard usage: 4 LSD, " "5 GEO, 6 SOU, 7 GAL"
+            )
         self.dict_equality(
             sky.attrs, my_exp_attrs, "Got sky attrs", "Expected sky attrs"
         )
 
     def compare_xds_attrs(self, xds: xr.Dataset, fits: bool = False):
         my_exp_attrs = copy.deepcopy(self.exp_xds_attrs())
-        if fits:
-            # xds from fits do not have history yet
-            del my_exp_attrs["history"]
-            my_exp_attrs["user"]["comment"] = (
-                "casacore non-standard usage: 4 LSD, " "5 GEO, 6 SOU, 7 GAL"
-            )
         self.dict_equality(
             xds.attrs, my_exp_attrs, "Got attrs", "Expected attrs", ["history"]
         )
         if not fits:
+            # fits doesn't have history yet
             self.assertTrue(
                 isinstance(xds.attrs["history"], xr.core.dataset.Dataset),
                 "Incorrect type for history data",

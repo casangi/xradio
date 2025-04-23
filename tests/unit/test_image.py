@@ -1,4 +1,5 @@
 import astropy.units as u
+import pytest
 
 try:
     from casacore import images, tables
@@ -31,9 +32,41 @@ from xradio.image._util._casacore.common import _create_new_image as create_new_
 from xradio.image._util._casacore.common import _open_image_ro as open_image_ro
 from xradio.image._util.common import _image_type as image_type
 
+from toolviper.dask.client import local_client
+
 data_variable_name = "SKY"
 
 
+@pytest.fixture(scope="module")
+def dask_client_module():
+    """Set up and tear down a Dask client for the test module.
+
+    This fixture starts a local Dask cluster with specified resources before
+    any tests in the module are run, and ensures the client and cluster are
+    properly closed after all tests complete.
+
+    Returns
+    -------
+    distributed.Client
+        A Dask client connected to a local cluster, shared across all tests
+        in the module.
+    """
+    print("\nSetting up Dask client for the test module...")
+    client = local_client(cores=4, serial_execution=False)
+
+    try:
+        yield client
+    finally:
+        print("\nTearing down Dask client for the test module...")
+        if client is not None:
+            client.close()
+            # Ensure the associated cluster is also properly closed
+            cluster = getattr(client, "cluster", None)
+            if cluster is not None:
+                cluster.close()
+
+
+@pytest.mark.usefixtures("dask_client_module")
 class ImageBase(unittest.TestCase):
     def dict_equality(self, dict1, dict2, dict1_name, dict2_name, exclude_keys=[]):
         self.assertEqual(

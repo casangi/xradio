@@ -440,7 +440,7 @@ class image(casatools.image):
         self,
         imagename,
         axis=0,
-        maskname="",
+        maskname="mask0",
         images=(),
         values=None,
         coordsys=None,
@@ -452,6 +452,7 @@ class image(casatools.image):
     ):
         super().__init__()
         self._imagename = imagename
+        self._maskname = maskname
         if shape is None:
             # self.open(*arg, **kwargs)
             # Add a temporary filter to the CASA instance global logger log sink filter
@@ -461,20 +462,14 @@ class image(casatools.image):
             casatools.logger.clearFilterMsgList()
         else:
             if values is None:
-                self.newimagefromshape(
-                    imagename, shape=list(shape[::-1]), overwrite=overwrite
-                )
+                self.fromshape(imagename, shape=list(shape[::-1]), overwrite=overwrite)
             else:
-                self.newimagefromarray(
+                self.fromarray(
                     imagename, pixels=np.full(shape, values).T, overwrite=overwrite
                 )
-            self.done()
-            self.open(imagename)
             if maskname:
                 self.calcmask("T", name=maskname)
                 self.maskhandler("set", maskname)
-            self.done()
-            self.open(imagename)
 
     def toworld(self, pixel):
         world = super().toworld(pixel[::-1])
@@ -569,10 +564,16 @@ class image(casatools.image):
 
         This method is automatically called when the object is deleted.
         It ensures that any open resources are properly closed by calling
-        `close()` and `done()`.
-        Note that this function is different from the close function because the latter does not destroy the . For example, the user can use the open function straight after the close function on the same .
+        `unlock()` and `close()`.
         """
-        self.done()
+
+        # flushes any outstabding I/O to disk and close the tool instance.
+        # the explicut unlock() call is important for multiple-process parallel read downstream
+        # as the dask worker process might sometimes consider a freshly written from a different process
+        # not valid disk images (even the image dir has been formed).
+
+        # super().unlock() # taken care from xradio.image._util._casacore.common::_create_new_image
+        super().close()
 
     def shape(self):
         """Get the shape of the image.

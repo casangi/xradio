@@ -64,6 +64,43 @@ def test_interpolate_to_time_main(msv4_xds_min):
     xr.testing.assert_equal(out_xds.time, input_time)
 
 
+@pytest.fixture(scope="session")
+def ant_xds_station_name_ids():
+    """Makes a ant_xds_station_name_ids as the one used in conversion (it still has antenna_id coord)"""
+    attrs = {
+        "type": "location",
+        "units": ["m", "m", "m"],
+        "frame": "ITRS",
+        "coordinate_system": "geocentric",
+        "origin_object_name": "earth",
+    }
+    nants = 5
+    ant_ids_xds = xr.DataArray(
+        np.broadcast_to([0.0, 0.0, 0.0], (nants, 3)),
+        dims=["antenna_name", "cartesian_pos_label"],
+        coords={
+            "antenna_id": ("antenna_name", np.arange(0, nants)),
+            "antenna_name": (
+                "antenna_name",
+                [f"test_ant{idx}" for idx in np.arange(0, nants)],
+            ),
+            "cartesian_pos_label": (
+                "cartesian_pos_label",
+                ["x", "y", "z"],
+            ),
+            "station_name": (
+                "antenna_name",
+                [f"test_station{idx}" for idx in np.arange(0, nants)],
+            ),
+        },
+        attrs=attrs,
+        name="ANTENNA_POSITION",
+    )
+    ant_ids_xds = ant_ids_xds.set_xindex("antenna_id")
+
+    yield ant_ids_xds
+
+
 def test_create_weather_xds_empty_ant_ids(ms_empty_required):
     from xradio.measurement_set._utils._msv2.msv4_sub_xdss import create_weather_xds
 
@@ -71,35 +108,19 @@ def test_create_weather_xds_empty_ant_ids(ms_empty_required):
         weather_xds = create_weather_xds(ms_empty_required.fname, xr.DataSet())
 
 
-def test_create_weather_xds_empty(ms_empty_required):
+def test_create_weather_xds_empty(ms_empty_required, ant_xds_station_name_ids):
     from xradio.measurement_set._utils._msv2.msv4_sub_xdss import create_weather_xds
 
-    ant_ids_xds = xr.DataArray(
-        ["test_station0_ant0", "test_station0_ant1"],
-        dims=["antenna_id"],
-        coords={
-            "antenna_id": [0, 1],
-            "antenna_name": ("antenna_id", ["test_ant0", "test_ant1"]),
-        },
-        name="ant_xds_station_name_ids",
-    )
-    weather_xds = create_weather_xds(ms_empty_required.fname, ant_ids_xds)
+    weather_xds = create_weather_xds(ms_empty_required.fname, ant_xds_station_name_ids)
     assert not weather_xds
 
 
-def test_create_weather_xds_min(ms_minimal_required):
+def test_create_weather_xds_min(ms_minimal_required, ant_xds_station_name_ids):
     from xradio.measurement_set._utils._msv2.msv4_sub_xdss import create_weather_xds
 
-    ant_ids_xds = xr.DataArray(
-        ["test_station0_ant0", "test_station0_ant1"],
-        dims=["antenna_id"],
-        coords={
-            "antenna_id": [0, 1],
-            "antenna_name": ("antenna_id", ["test_ant0", "test_ant1"]),
-        },
-        name="ant_xds_station_name_ids",
+    weather_xds = create_weather_xds(
+        ms_minimal_required.fname, ant_xds_station_name_ids
     )
-    weather_xds = create_weather_xds(ms_minimal_required.fname, ant_ids_xds)
     check_dataset(weather_xds, WeatherXds)
 
 

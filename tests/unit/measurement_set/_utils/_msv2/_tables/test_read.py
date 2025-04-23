@@ -533,11 +533,19 @@ def test_load_generic_table_pointing(ms_minimal_required):
     assert type(res) == xr.Dataset
     assert all([dim in res.dims for dim in ["TIME", "ANTENNA_ID", "dim_1", "dim_2"]])
     assert all(
-         [
-             xvar in res.data_vars
-             for xvar in ["DIRECTION", "INTERVAL", "NAME", "NUM_POLY", "TARGET", "TIME_ORIGIN", "TRACKING"]
-         ]
-     )
+        [
+            xvar in res.data_vars
+            for xvar in [
+                "DIRECTION",
+                "INTERVAL",
+                "NAME",
+                "NUM_POLY",
+                "TARGET",
+                "TIME_ORIGIN",
+                "TRACKING",
+            ]
+        ]
+    )
 
 
 def test_load_generic_table_ephem(ms_minimal_required):

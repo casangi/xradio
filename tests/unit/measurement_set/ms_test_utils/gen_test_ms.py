@@ -1109,7 +1109,7 @@ def gen_subt_history(mspath: str, obs_descr: dict):
 def gen_subt_syscal(mspath: str, ant_descr: dict):
     """
     Creates a SYSCAL subtable and populates it with a (very incomplete) row
-    This is just to enable minimal coverage of some WEATHER handling code in
+    This is just to enable minimal coverage of some SYSCAL handling code in
     the casacore tables read/write functions.
     """
     ncal = len(ant_descr)
@@ -1141,12 +1141,15 @@ def gen_subt_weather(mspath: str):
     the casacore tables read/write functions.
     """
     subt_name = "WEATHER"
+    nrows = 5
     with open_opt_subtable(mspath, subt_name) as wtbl:
-        wtbl.addrows(1)
-        wtbl.putcol("ANTENNA_ID", 0)
-        wtbl.putcol("TIME", 1e12)
-        wtbl.putcol("INTERVAL", 1e12)
+        wtbl.addrows(nrows)
+        wtbl.putcol("ANTENNA_ID", np.arange(0, nrows))
+        wtbl.putcol("TIME", np.arange(0, nrows) * 100 + 1e12)
+        wtbl.putcol("INTERVAL", np.repeat(1e12, nrows))
         # all data/flags columns in the WEATHER table are optional!
+        # But note they are always added in the python-casacore defaults
+        wtbl.putcol("H2O", np.repeat(0.03, nrows))
 
     with tables.table(mspath, ack=False, readonly=False) as main:
         main.putkeyword(subt_name, f"Table: {mspath}/{subt_name}")

@@ -285,11 +285,11 @@ def finalize_station_position(
         # borrow location frame attributes from antenna position
         weather_xds["STATION_POSITION"].attrs = ant_position_with_ids.attrs
     else:
-        # borrow from ant_posision_with_ids but without carrying over other coords
+        # borrow from ant_position_with_ids but without carrying over other coords
         weather_xds = weather_xds.assign(
             {
                 "STATION_POSITION": (
-                    ["station_name", "cartesian_pos_label"],
+                    ["station_name"],
                     ant_position_with_ids.values,
                     ant_position_with_ids.attrs,
                 )
@@ -345,7 +345,7 @@ def create_weather_xds(in_file: str, ant_position_with_ids: xr.DataArray):
     dims_station_time = ["station_name", "time_weather"]
     dims_station_time_position = dims_station_time + ["cartesian_pos_label"]
     to_new_data_variables = {
-        "H20": ["H2O", dims_station_time],
+        "H2O": ["H2O", dims_station_time],
         "IONOS_ELECTRON": ["IONOS_ELECTRON", dims_station_time],
         "PRESSURE": ["PRESSURE", dims_station_time],
         "REL_HUMIDITY": ["REL_HUMIDITY", dims_station_time],

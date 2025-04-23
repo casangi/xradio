@@ -16,6 +16,7 @@ def _open_image_ro(infile: str) -> Generator[images.image, None, None]:
     finally:
         # there is no obvious way to close a python-casacore image, so
         # just delete the object to clear it from the table cache
+        # image.unlock() # not necessary
         del image
 
 
@@ -35,6 +36,10 @@ def _create_new_image(
     try:
         yield image
     finally:
+        # Explicitly calling unlock() is important for downstream parallel reads across multiple processes.
+        # Without it, Dask workers may mistakenly consider a freshly written image from another process
+        # as invalid—even if the image directory appears to be fully written and present.
+        image.unlock()
         del image
 
 

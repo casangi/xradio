@@ -173,3 +173,11 @@ cython_debug/
 
 # WorkingDir
 **/working
+
+# CASA/zarr data
+**/*.zarr
+**/*.ms
+**/*.tar
+**/*.zip
+**/*.fits
+**/*.im

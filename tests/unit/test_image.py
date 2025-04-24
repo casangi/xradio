@@ -763,15 +763,12 @@ class xds_to_casacore(xds_from_image_test):
 
     @classmethod
     def _clean(cls):
-        pass
-        """
         for f in [cls._outname]:
             if os.path.exists(f):
                 if os.path.isdir(f):
                     shutil.rmtree(f)
                 else:
                     os.remove(f)
-        """
 
     @classmethod
     def setUpClass(cls):

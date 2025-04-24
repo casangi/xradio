@@ -48,7 +48,9 @@ def _load_casa_image_block(infile: str, block_des: dict, do_sky_coords) -> xr.Da
     block = _get_persistent_block(
         image_full_path, shapes, starts, dimorder, transpose_list, new_axes
     )
-    xds = _add_sky_or_aperture(xds, block, dimorder, image_full_path, ret["sphr_dims"], True)
+    xds = _add_sky_or_aperture(
+        xds, block, dimorder, image_full_path, ret["sphr_dims"], True
+    )
     mymasks = _get_mask_names(image_full_path)
     for m in mymasks:
         full_path = os.sep.join([image_full_path, m])
@@ -86,7 +88,7 @@ def _read_casa_image(
         dimorder,
         img_full_path,
         ret["sphr_dims"],
-        history
+        history,
     )
     if masks:
         mymasks = _get_mask_names(img_full_path)

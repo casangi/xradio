@@ -149,15 +149,15 @@ def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = True) -> d
             o_date["attrs"] = o_attrs
             """
             m0 = obsdate["m0"]
-            attrs["obsdate"] = make_time_measure_dict(data=m0["value"],
-                units=m0["unit"], scale=obsdate["refer"],
-                time_format=_get_time_format(m0["value"], m0["unit"])
+            attrs["obsdate"] = make_time_measure_dict(
+                data=m0["value"],
+                units=m0["unit"],
+                scale=obsdate["refer"],
+                time_format=_get_time_format(m0["value"], m0["unit"]),
             )
         else:
             attrs[k] = coord_dict[k] if k in coord_dict else ""
-    dir_key = next(
-        (k for k in coord_dict if k.startswith("direction")), None
-    )
+    dir_key = next((k for k in coord_dict if k.startswith("direction")), None)
     if dir_key:
         frame, eqnx = _convert_direction_system(coord_dict[dir_key]["system"], "system")
     else:
@@ -171,8 +171,7 @@ def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = True) -> d
     # associated with it.
     # point_center = coord_dict["pointingcenter"]
     attrs[_pointing_center] = make_skycoord_dict(
-        coord_dict["pointingcenter"]["value"], ["rad", "rad"],
-        frame
+        coord_dict["pointingcenter"]["value"].tolist(), ["rad", "rad"], frame
     )
     imageinfo = meta_dict["imageinfo"]
     obj = "objectname"
@@ -205,7 +204,7 @@ def _add_sky_or_aperture(
     dimorder: list,
     img_full_path: str,
     has_sph_dims: bool,
-    history: bool
+    history: bool,
 ) -> xr.Dataset:
     xda = xr.DataArray(ary, dims=dimorder).astype(ary.dtype)
     with _open_image_ro(img_full_path) as casa_image:

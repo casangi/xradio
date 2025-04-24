@@ -131,8 +131,8 @@ class xds_from_image_test(ImageBase):
                 # "equinox": "j2000.0",
                 "units": ["rad", "rad"],
             },
-            #"value": np.array([6300, -2400]) * np.pi / 180 / 60,
-            #"initial": True,
+            # "value": np.array([6300, -2400]) * np.pi / 180 / 60,
+            # "initial": True,
         },
         "telescope": {
             "name": "ALMA",
@@ -347,7 +347,7 @@ class xds_from_image_test(ImageBase):
             "Wrong image type",
         )
         self.assertEqual(
-            xds[sky].attrs["units"], self.exp_sky_attrs()["units"] , "Wrong unit"
+            xds[sky].attrs["units"], self.exp_sky_attrs()["units"], "Wrong unit"
         )
         self.assertEqual(
             xds[sky].chunksizes["frequency"],
@@ -372,9 +372,7 @@ class xds_from_image_test(ImageBase):
                 "pixel values incorrect",
             )
         else:
-            self.assertTrue(
-                (got_data == ev[sky]).all(), "pixel values incorrect"
-            )
+            self.assertTrue((got_data == ev[sky]).all(), "pixel values incorrect")
         self.assertTrue((got_mask == ev["mask0"]).all(), "mask values incorrect")
         got_ma = da.ma.masked_array(xds[sky], xds.MASK0)
         self.assertEqual(da.sum(got_ma), ev["sum"], "Incorrect value for sum")
@@ -599,8 +597,6 @@ class xds_from_image_test(ImageBase):
             xds.attrs, my_exp_attrs, "Got attrs", "Expected attrs", ["history"]
         )
 
-
-
     def compare_image_block(self, imagename, zarr=False):
         x = [0] if zarr else [0, 1]
         for i in x:
@@ -618,22 +614,14 @@ class xds_from_image_test(ImageBase):
                 with open_image_ro(imagename) as im:
                     self.assertTrue(
                         xds[sky].dtype == im.datatype()
-                        or (
-                            xds[sky].dtype == np.float32
-                            and im.datatype() == "float"
-                        ),
+                        or (xds[sky].dtype == np.float32 and im.datatype() == "float"),
                         f"got wrong data type, got {xds[sky].dtype}, "
                         + f"expected {im.datatype()}",
                     )
-            self.assertEqual(
-                xds[sky].shape, (1, 4, 1, 8, 12), "Wrong block shape"
-            )
+            self.assertEqual(xds[sky].shape, (1, 4, 1, 8, 12), "Wrong block shape")
             big_xds = self._xds if i == 0 else self._xds_no_sky
             self.assertTrue(
-                (
-                    xds[sky]
-                    == big_xds[sky][:, 0:1, 0:4, 2:10, 3:15]
-                ).all(),
+                (xds[sky] == big_xds[sky][:, 0:1, 0:4, 2:10, 3:15]).all(),
                 "Wrong block SKY array",
             )
             self.assertTrue(
@@ -780,7 +768,6 @@ class casa_image_to_xds_test(xds_from_image_test):
         self.compare_xds_attrs(self.xds())
         self.compare_sky_attrs(self.xds().SKY)
 
-
     def test_get_img_ds_block(self):
         self.compare_image_block(self.imname())
 
@@ -902,7 +889,6 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
         with open_image_ro(self.imname()) as im1:
             c1 = im1.info()
             for imname in [self.outname(), self._outname_no_sky]:
-                print("imname", imname)
                 with open_image_ro(imname) as im2:
                     c2 = im2.info()
                     # some quantities are expected to have different untis and values

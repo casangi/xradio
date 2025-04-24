@@ -423,7 +423,9 @@ def _fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList) -> tuple:
             raise RuntimeError(f'Unhandled data type {header["BITPIX"]}')
     helpers["obsdate"] = make_time_measure_dict(
         data=Time(header["DATE-OBS"], format="isot").mjd,
-        units=["d"], scale=header["TIMESYS"], time_format="MJD"
+        units=["d"],
+        scale=header["TIMESYS"],
+        time_format="MJD",
     )
 
     # TODO complete _make_history_xds when spec has been finalized

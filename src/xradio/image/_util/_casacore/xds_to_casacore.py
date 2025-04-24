@@ -19,7 +19,9 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
     """
     direction = {}
     xds_dir = xds.attrs["direction"]
-    direction["_axes_sizes"] = np.array([xds.sizes[dim] for dim in ("l", "m")], dtype=np.int32)
+    direction["_axes_sizes"] = np.array(
+        [xds.sizes[dim] for dim in ("l", "m")], dtype=np.int32
+    )
     direction["_image_axes"] = np.array([2, 3], dtype=np.int32)
     direction["system"] = xds_dir["reference"]["attrs"]["equinox"].upper()
     if direction["system"] == "J2000.0":
@@ -37,9 +39,7 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
         m = "lonpole" if s == "longpole" else s
         # lonpole, latpole are numerical values in degrees in casa images
         direction[s] = float(
-            Angle(
-                str(xds_dir[m]["data"]) + xds_dir[m]["attrs"]["units"][0]
-            ).deg
+            Angle(str(xds_dir[m]["data"]) + xds_dir[m]["attrs"]["units"][0]).deg
         )
     return direction
 
@@ -248,7 +248,9 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
         else ("frequency", "polarization", "v", "u")
     )
     casa_image_shape = xds[sky_ap].isel(time=0).transpose(*trans_coords).shape[::-1]
-    active_mask = xds[sky_ap].attrs["active_mask"] if _active_mask in xds[sky_ap].attrs else ""
+    active_mask = (
+        xds[sky_ap].attrs["active_mask"] if _active_mask in xds[sky_ap].attrs else ""
+    )
     masks = []
     masks_rec = {}
     mask_rec = {

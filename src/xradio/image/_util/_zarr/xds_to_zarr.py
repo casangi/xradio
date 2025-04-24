@@ -33,7 +33,9 @@ def _encode_dict(my_dict: dict, top_path: str, sub_xds_dict) -> tuple:
             my_dict[k]["_value"] = v.tolist()
             my_dict[k]["_dtype"] = str(v.dtype)
         elif isinstance(v, xr.Dataset):
-            sub_xds_dict[os.sep.join([top_path, f"_attr_{k}"])] = v.copy(deep=True)
+            sub_xds_dict[os.sep.join([top_path, f"{_top_level_sub_xds}{k}"])] = v.copy(
+                deep=True
+            )
             del_keys.append(k)
     for k in del_keys:
         del my_dict[k]

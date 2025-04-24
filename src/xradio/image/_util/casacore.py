@@ -48,7 +48,7 @@ def _load_casa_image_block(infile: str, block_des: dict, do_sky_coords) -> xr.Da
     block = _get_persistent_block(
         image_full_path, shapes, starts, dimorder, transpose_list, new_axes
     )
-    xds = _add_sky_or_aperture(xds, block, dimorder, image_full_path, ret["sphr_dims"])
+    xds = _add_sky_or_aperture(xds, block, dimorder, image_full_path, ret["sphr_dims"], True)
     mymasks = _get_mask_names(image_full_path)
     for m in mymasks:
         full_path = os.sep.join([image_full_path, m])
@@ -57,7 +57,7 @@ def _load_casa_image_block(infile: str, block_des: dict, do_sky_coords) -> xr.Da
         )
         # data vars are all caps by convention
         xds = _add_mask(xds, m.upper(), block, dimorder)
-    xds.attrs = _casa_image_to_xds_attrs(image_full_path, True)
+    xds.attrs = _casa_image_to_xds_attrs(image_full_path)
     mb = _multibeam_array(xds, image_full_path, False)
     if mb is not None:
         selectors = {}
@@ -86,6 +86,7 @@ def _read_casa_image(
         dimorder,
         img_full_path,
         ret["sphr_dims"],
+        history
     )
     if masks:
         mymasks = _get_mask_names(img_full_path)
@@ -93,7 +94,7 @@ def _read_casa_image(
             ary = _read_image_array(img_full_path, chunks, mask=m, verbose=verbose)
             # data var names are all caps by convention
             xds = _add_mask(xds, m.upper(), ary, dimorder)
-    xds.attrs = _casa_image_to_xds_attrs(img_full_path, history)
+    xds.attrs = _casa_image_to_xds_attrs(img_full_path)
     mb = _multibeam_array(xds, img_full_path, True)
     if mb is not None:
         xds["BEAM"] = mb

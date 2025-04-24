@@ -90,7 +90,7 @@ def _add_mask(
     return xds
 
 
-def _casa_image_to_xds_image_attrs(image: casa_image) -> dict:
+def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = True) -> dict:
     """
     get the image attributes from the casacoreimage object
     """
@@ -187,7 +187,15 @@ def _casa_image_to_xds_image_attrs(image: casa_image) -> dict:
             else None
         )
     attrs["description"] = None
-
+    # if also loading history, put it as another xds in the image attrs
+    if history:
+        htable = os.sep.join([os.path.abspath(image.name()), "logtable"])
+        if os.path.isdir(htable):
+            attrs["history"] = read_generic_table(htable)
+        else:
+            logger.warning(
+                f"Unable to find history table {htable}. History will not be included"
+            )
     return attrs
 
 
@@ -197,10 +205,11 @@ def _add_sky_or_aperture(
     dimorder: list,
     img_full_path: str,
     has_sph_dims: bool,
+    history: bool
 ) -> xr.Dataset:
     xda = xr.DataArray(ary, dims=dimorder).astype(ary.dtype)
     with _open_image_ro(img_full_path) as casa_image:
-        xda.attrs = _casa_image_to_xds_image_attrs(casa_image)
+        xda.attrs = _casa_image_to_xds_image_attrs(casa_image, history)
     # xds.attrs = attrs
     name = "SKY" if has_sph_dims else "APERTURE"
     xda = xda.rename(name)
@@ -243,7 +252,7 @@ def _add_vel_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
     return xds
 
 
-def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
+def _casa_image_to_xds_attrs(img_full_path: str) -> dict:
     """
     Get the xds level attribut/es as a python dictionary
     """
@@ -287,15 +296,6 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
             if j in coord_dir_dict:
                 dir_dict[j] = coord_dir_dict[j]
         attrs["direction"] = dir_dict
-    # if also loading history, put it as another xds in the attrs
-    if history:
-        htable = os.sep.join([img_full_path, "logtable"])
-        if os.path.isdir(htable):
-            attrs["history"] = read_generic_table(htable)
-        else:
-            logger.warning(
-                f"Unable to find history table {htable}. History will not be included"
-            )
     return copy.deepcopy(attrs)
 
 

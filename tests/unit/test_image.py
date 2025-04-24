@@ -151,6 +151,7 @@ class xds_from_image_test(ImageBase):
         },
         "units": "Jy/beam",
         "user": {},
+        "history": None,
     }
 
     _exp_vals: dict = {
@@ -581,21 +582,22 @@ class xds_from_image_test(ImageBase):
             my_exp_attrs["user"]["comment"] = (
                 "casacore non-standard usage: 4 LSD, " "5 GEO, 6 SOU, 7 GAL"
             )
+            # fits doesn't have history yet
+            del my_exp_attrs["history"]
+        else:
+            self.assertTrue(
+                isinstance(sky.attrs["history"], xr.core.dataset.Dataset),
+                "Incorrect type for history data",
+            )
         self.dict_equality(
-            sky.attrs, my_exp_attrs, "Got sky attrs", "Expected sky attrs"
+            sky.attrs, my_exp_attrs, "Got sky attrs", "Expected sky attrs", ["history"]
         )
 
-    def compare_xds_attrs(self, xds: xr.Dataset, fits: bool = False):
+    def compare_xds_attrs(self, xds: xr.Dataset):
         my_exp_attrs = copy.deepcopy(self.exp_xds_attrs())
         self.dict_equality(
             xds.attrs, my_exp_attrs, "Got attrs", "Expected attrs", ["history"]
         )
-        if not fits:
-            # fits doesn't have history yet
-            self.assertTrue(
-                isinstance(xds.attrs["history"], xr.core.dataset.Dataset),
-                "Incorrect type for history data",
-            )
 
 
 
@@ -1285,7 +1287,7 @@ class fits_to_xds_test(xds_from_image_test):
     def test_xds_attrs(self):
         """Test xds level attributes"""
         for fds in (self._fds, self._fds_no_sky):
-            self.compare_xds_attrs(fds, True)
+            self.compare_xds_attrs(fds)
             self.compare_sky_attrs(fds.SKY, True)
 
     def test_multibeam(self):

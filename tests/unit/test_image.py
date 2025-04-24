@@ -294,24 +294,24 @@ class xds_from_image_test(ImageBase):
         return self._imname
 
     @classmethod
-    def infits(self):
-        return self._infits
+    def infits(cls):
+        return cls._infits
 
     @classmethod
-    def xds(self):
-        return self._xds
+    def xds(cls):
+        return cls._xds
 
     @classmethod
-    def xds_no_sky(self):
-        return self._xds_no_sky
+    def xds_no_sky(cls):
+        return cls._xds_no_sky
 
     @classmethod
-    def outname(self):
-        return self._outname
+    def outname(cls):
+        return cls._outname
 
     @classmethod
-    def uv_image(self):
-        return self._uv_image
+    def uv_image(cls):
+        return cls._uv_image
 
     def exp_attrs(self):
         return self._exp_attrs
@@ -1977,6 +1977,36 @@ class make_empty_lmuv_image_tests(make_empty_image_tests):
     def test_attrs(self):
         skel = self.skel_im()
         self.run_attrs_tests(skel)
+
+
+class write_image_test(xds_from_image_test):
+
+    _myout = "zk.im"
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        write_image(cls.xds(), cls._myout, out_format="casa")
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        for f in [cls._myout]:
+            if os.path.exists(f):
+                if os.path.isdir(f):
+                    shutil.rmtree(f)
+                else:
+                    os.remove(f)
+
+    def test_overwrite(self):
+        # test overwrite=True
+        write_image(self.xds(), self._myout, out_format="casa", overwrite=True)
+        # test overwrite=False
+        with self.assertRaises(FileExistsError):
+            write_image(self.xds(), self._myout, out_format="casa", overwrite=False)
+        with self.assertRaises(FileExistsError):
+            # default overwrite=False
+            write_image(self.xds(), self._myout, out_format="casa")
 
 
 if __name__ == "__main__":

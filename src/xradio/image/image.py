@@ -203,7 +203,9 @@ def write_image(
     """
     if os.path.exists(imagename):
         if overwrite:
-            logger.warning(f"Because overwrite=True, removing existing path {imagename}")
+            logger.warning(
+                f"Because overwrite=True, removing existing path {imagename}"
+            )
             if os.path.isdir(imagename):
                 shutil.rmtree(imagename)
             else:

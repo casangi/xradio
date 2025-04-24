@@ -7,6 +7,9 @@ import warnings
 from typing import List, Union
 import copy
 import numpy as np
+import os
+import shutil
+import toolviper.utils.logger as logger
 import xarray as xr
 
 # from .._utils.zarr.common import _load_no_dask_zarr
@@ -198,13 +201,18 @@ def write_image(
     -------
     None
     """
+    if os.path.exists(imagename):
+        if overwrite:
+            logger.warn(f"Because overwrite=True, removing existing path {imagename}")
+            if os.path.isdir(imagename):
+                shutil.rmtree(imagename)
+            else:
+                os.remove(imagename)
+        else:
+            raise FileExistsError(
+                f"Path {imagename} already exists. Set overwrite=True to remove it."
+            )
     my_format = out_format.lower()
-
-    if overwrite:
-        import os
-
-        os.system("rm -rf " + imagename)
-
     if my_format == "casa":
         _xds_to_casa_image(xds, imagename)
     elif my_format == "zarr":

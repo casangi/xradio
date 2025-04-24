@@ -106,7 +106,7 @@ def gen_test_ms(
         whether to generate a misbehaving MS. For example, usual or more
         corner case conformance issues such as absence of STATE subtable,
         missing FEED subtable, presence of missing SOURCE_IDs in the FIELD
-        subtable, an ASDM_EXECBLOCK table that is empty, etc.
+        subtable, no ASDM_EXECBLOCK table, no PROCESSOR subtable, etc.
 
     Returns
     -------
@@ -149,7 +149,8 @@ def gen_test_ms(
     gen_subt_pointing(msname)
 
     # PROCESSOR
-    gen_subt_processor(msname, descr["PROCESSOR"])
+    if not misbehave:
+        gen_subt_processor(msname, descr["PROCESSOR"])
 
     if opt_tables:
         # DOPPLER: no examples seen in test MSs
@@ -184,8 +185,10 @@ def gen_test_ms(
 
         # ASDM_* subtables. One simple example
         gen_subt_asdm_receiver(msname)
-        # ASDM_EXECBLOCK is used in create_info_dicts when available
-        gen_subt_asdm_execblock(msname, misbehave)
+
+        if not misbehave:
+            # ASDM_EXECBLOCK is used in create_info_dicts when available
+            gen_subt_asdm_execblock(msname)
 
     if vlbi_tables:
         gen_subt_gain_curve(msname, descr["ANTENNA"])
@@ -1210,7 +1213,7 @@ def gen_subt_asdm_receiver(mspath: str):
         main.putkeyword(subt_name, f"Table: {mspath}/{subt_name}")
 
 
-def gen_subt_asdm_execblock(mspath: str, misbehave: bool = False):
+def gen_subt_asdm_execblock(mspath: str):
     """
     Produces a basic ASDM/EXECBLOCK table, for basic coverage of code that handles the ASDM_*
     subtables.
@@ -1287,10 +1290,7 @@ def gen_subt_asdm_execblock(mspath: str, misbehave: bool = False):
         },
     }
 
-    if misbehave:
-        nrows = 0
-    else:
-        nrows = 1
+    nrows = 1
     with tables.table(
         str(rec_path), tabledesc=tabdesc, nrow=nrows, readonly=False, ack=False
     ) as tbl:

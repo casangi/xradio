@@ -1125,7 +1125,7 @@ def read_col_chunk(
     np.ndarray
     """
     # TODO: consider calling load_col_chunk() from inside the withs
-    # for read_delayed_pointing_table and read_expanded_main_table
+    # for read_expanded_main_table
     with open_table_ro(infile) as mtable:
         with open_query(mtable, ts_taql) as query:
             if (len(cshape) == 2) or (col == "UVW"):  # all the scalars and UVW

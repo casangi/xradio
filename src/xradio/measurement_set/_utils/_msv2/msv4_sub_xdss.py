@@ -289,7 +289,7 @@ def finalize_station_position(
         weather_xds = weather_xds.assign(
             {
                 "STATION_POSITION": (
-                    ["station_name"],
+                    ["station_name", "cartesian_pos_label"],
                     ant_position_with_ids.values,
                     ant_position_with_ids.attrs,
                 )

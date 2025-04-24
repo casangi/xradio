@@ -70,6 +70,7 @@ def gen_test_ms(
     msname: str,
     descr: dict = None,
     opt_tables: bool = True,
+    vlbi_tables: bool = True,
     required_only: bool = True,
     misbehave: bool = False,
 ):
@@ -97,6 +98,8 @@ def gen_test_ms(
         structure (one observation, one array, one scan, one field, etc.)
     opt_tables : bool (Default value = True)
         whether to produce optional (sub)tables, such as SOURCE, WEATHER
+    vlbi_tables : bool (Default value = True)
+        whether to add optional (sub)tables GAIN_CURVE and PHASE_CAL
     required_only : bool (Default value = True)
         whether to use the complete or required columns spec
     misbehave : bool (Default value = False)
@@ -183,6 +186,9 @@ def gen_test_ms(
         gen_subt_asdm_receiver(msname)
         # ASDM_EXECBLOCK is used in create_info_dicts when available
         gen_subt_asdm_execblock(msname, misbehave)
+
+    if vlbi_tables:
+        gen_subt_gain_curve(msname, descr["ANTENNA"])
 
     return outdescr
 
@@ -1157,10 +1163,10 @@ def gen_subt_weather(mspath: str):
 
 def gen_subt_asdm_receiver(mspath: str):
     """
-    **** Produces an empty table, for basic coverage of ASDM_* subtables handling ****
+    Produces an over-simple table, with only one row, for basic coverage of ASDM_* subtables handling
     code.
-    Simply creates an empty table and checks no rwos
     """
+
     subt_name = "ASDM_RECEIVER"
     rec_path = Path(mspath) / subt_name
     tabdesc = {
@@ -1210,6 +1216,7 @@ def gen_subt_asdm_execblock(mspath: str, misbehave: bool = False):
     subtables.
     For now it simply creates a table with one row
     """
+
     subt_name = "ASDM_EXECBLOCK"
     rec_path = Path(mspath) / subt_name
     tabdesc = {
@@ -1295,6 +1302,128 @@ def gen_subt_asdm_execblock(mspath: str, misbehave: bool = False):
         tbl.putcol("observingScriptUID", "uid://A003/X1abtest/X987")
         tbl.putcol("observingLog", np.broadcast_to("test log line 0", (nrows, 1)))
         # tbl.putcol("observingLog", np.broadcast_to(np.array(["test log line 0", "test log line 1"], dtype="str"), (nrows, 2)))
+
+    with tables.table(mspath, ack=False, readonly=False) as main:
+        main.putkeyword(subt_name, f"Table: {mspath}/{subt_name}")
+
+
+def gen_subt_gain_curve(mspath: str, ant_descr: dict):
+    """
+    Produces an empty table, for basic coverage of ASDM_* subtables handling ****
+    code.
+    Simply creates an empty table and checks no rwos
+    """
+
+    subt_name = "GAIN_CURVE"
+    rec_path = Path(mspath) / subt_name
+    tabdesc = {
+        "ANTENNA_ID": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "FEED_ID": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "SPECTRAL_WINDOW_ID": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "TIME": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "s",
+            },
+        },
+        "INTERVAL": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "s",
+            },
+        },
+        "TYPE": {
+            "valueType": "string",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "NUM_POLY": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "GAIN": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "ndim": 2,
+            # "shape"
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "SENSITIVITY": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "ndim": 1,
+            # "shape"
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "K/Jy",
+            },
+        },
+    }
+
+    nants = len(ant_descr)
+    nreceptors = 2
+    with tables.table(
+        str(rec_path), tabledesc=tabdesc, nrow=nants, readonly=False, ack=False
+    ) as tbl:
+        tbl.putcol("ANTENNA_ID", np.arange(0, nants))
+        tbl.putcol("FEED_ID", np.repeat(0, nants))
+        tbl.putcol("SPECTRAL_WINDOW_ID", np.repeat(0, nants))
+        tbl.putcol("TIME", np.repeat(1e12, nants))
+        tbl.putcol("INTERVAL", np.repeat(2, nants))
+        tbl.putcol("TYPE", np.repeat("(”POWER(EL)", nants))
+        tbl.putcol("NUM_POLY", np.repeat(2, nants))
+        tbl.putcol("GAIN", np.broadcast_to(0.85, (nants, nreceptors, 2)))
+        tbl.putcol("SENSITIVITY", np.broadcast_to(0.95, (nants, nreceptors)))
 
     with tables.table(mspath, ack=False, readonly=False) as main:
         main.putkeyword(subt_name, f"Table: {mspath}/{subt_name}")

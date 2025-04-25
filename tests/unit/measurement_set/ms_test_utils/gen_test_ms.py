@@ -192,6 +192,7 @@ def gen_test_ms(
 
     if vlbi_tables:
         gen_subt_gain_curve(msname, descr["ANTENNA"])
+        gen_subt_phase_cal(msname, descr["ANTENNA"])
 
     return outdescr
 
@@ -1309,9 +1310,8 @@ def gen_subt_asdm_execblock(mspath: str):
 
 def gen_subt_gain_curve(mspath: str, ant_descr: dict):
     """
-    Produces an empty table, for basic coverage of ASDM_* subtables handling ****
-    code.
-    Simply creates an empty table and checks no rwos
+    Produces a basic GAIN_CURVE (sub)table, following casacore note #265, for basic coverage of
+    VLBI subtables handling.
     """
 
     subt_name = "GAIN_CURVE"
@@ -1412,6 +1412,7 @@ def gen_subt_gain_curve(mspath: str, ant_descr: dict):
 
     nants = len(ant_descr)
     nreceptors = 2
+    num_poly = 2
     with tables.table(
         str(rec_path), tabledesc=tabdesc, nrow=nants, readonly=False, ack=False
     ) as tbl:
@@ -1421,9 +1422,141 @@ def gen_subt_gain_curve(mspath: str, ant_descr: dict):
         tbl.putcol("TIME", np.repeat(1e12, nants))
         tbl.putcol("INTERVAL", np.repeat(2, nants))
         tbl.putcol("TYPE", np.repeat("(”POWER(EL)", nants))
-        tbl.putcol("NUM_POLY", np.repeat(2, nants))
-        tbl.putcol("GAIN", np.broadcast_to(0.85, (nants, nreceptors, 2)))
+        tbl.putcol("NUM_POLY", np.repeat(num_poly, nants))
+        tbl.putcol("GAIN", np.broadcast_to(0.85, (nants, nreceptors, num_poly)))
         tbl.putcol("SENSITIVITY", np.broadcast_to(0.95, (nants, nreceptors)))
+
+    with tables.table(mspath, ack=False, readonly=False) as main:
+        main.putkeyword(subt_name, f"Table: {mspath}/{subt_name}")
+
+
+def gen_subt_phase_cal(mspath: str, ant_descr: dict):
+    """
+    Produces a basic PHASE_CAL (sub)table, following casacore note #265, for basic coverage of
+    VLBI subtables handling.
+    Note some differences in example test datasets like VLBA_TL016B_split.ms dimensions with respect
+    to the casacore note tables.
+    """
+
+    subt_name = "PHASE_CAL"
+    rec_path = Path(mspath) / subt_name
+    tabdesc = {
+        "ANTENNA_ID": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "FEED_ID": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "SPECTRAL_WINDOW_ID": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "TIME": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "s",
+            },
+        },
+        "INTERVAL": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "s",
+            },
+        },
+        "NUM_TONES": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "TONE_FREQUENCY": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "ndim": 2,
+            # "shape":
+            "comment": "comment...",
+            "keywords": {
+                "QuantumUnits": ["Hz"],
+                "MEASINFO": {"type": "frequency", "Ref": "bogus ref frame"},
+            },
+        },
+        "PHASE_CAL": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "ndim": 2,
+            # "shape"
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "CABLE_CAL": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            # "ndim": 1,
+            # "shape"
+            "comment": "comment...",
+            "keywords": {
+                "QuantumUnits": "s",
+            },
+        },
+    }
+
+    nants = len(ant_descr)
+    nreceptors = 2
+    ntones = 3
+    ntimes = 1
+    with tables.table(
+        str(rec_path), tabledesc=tabdesc, nrow=nants, readonly=False, ack=False
+    ) as tbl:
+        tbl.putcol("ANTENNA_ID", np.arange(0, nants))
+        tbl.putcol("FEED_ID", np.repeat(0, nants))
+        tbl.putcol("SPECTRAL_WINDOW_ID", np.repeat(0, nants))
+        tbl.putcol("TIME", np.repeat(1e12, nants))
+        tbl.putcol("INTERVAL", np.repeat(2, nants))
+        tbl.putcol("NUM_TONES", np.repeat(ntones, nants))
+        tbl.putcol(
+            "TONE_FREQUENCY", np.broadcast_to(1.234e9, (nants, ntones, nreceptors))
+        )
+        tbl.putcol("PHASE_CAL", np.broadcast_to(0.92, (nants, ntones, nreceptors)))
+        tbl.putcol("CABLE_CAL", np.repeat(0.93, (nants)))
 
     with tables.table(mspath, ack=False, readonly=False) as main:
         main.putkeyword(subt_name, f"Table: {mspath}/{subt_name}")

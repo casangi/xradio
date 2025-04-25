@@ -29,15 +29,6 @@ MSWithSpec = namedtuple("MSWithSpec", "fname descr")
 
 
 @pytest.fixture(scope="session")
-def essential_subtables():
-    """
-    The set of MS subtables (loaded as sub-xdss) without which we cannot read
-    an MS.
-    """
-    return {"antenna", "spectral_window", "polarization"}
-
-
-@pytest.fixture(scope="session")
 def ms_empty_required():
     """
     An MS that has all the required tables/columns definitions and is empty
@@ -58,7 +49,7 @@ def ms_empty_complete(scope="session"):
 
     """
     name = "test_ms_empty_def_complete.ms"
-    make_ms_empty(name)
+    make_ms_empty(name, complete=True)
     yield MSWithSpec(name, {})
     shutil.rmtree(name)
 
@@ -80,24 +71,6 @@ def ms_minimal_misbehaved():
 
 
 @pytest.fixture(scope="session")
-def ms_minimal_dims1_required():
-    """
-    An MS populated minimally, with size one for several relevant dimensions:
-    observation, field, scan, spw, etc.
-    """
-    name = "test_msv2_minimal_dims1_required.ms"
-    spec = gen_test_ms(name)
-    yield MSWithSpec(name, spec)
-    shutil.rmtree(name)
-
-
-@pytest.fixture(scope="session")
-def ms_tab_nonexistent():
-    name = "test_nonexistent_table_from_test_table_exists.foo.bar.tab"
-    yield MSWithSpec(name, {})
-
-
-@pytest.fixture(scope="session")
 def ms_minimal_for_writes():
     """MS to be used to write subtables inside"""
     name = "test_msv2_minimal_required_for_writes.ms"
@@ -107,15 +80,9 @@ def ms_minimal_for_writes():
 
 
 @pytest.fixture(scope="session")
-def vis_zarr_empty():
-    """
-    An empty zarr dataset
-    """
-    name = "test_cor_zarr_empty.zarr"
-    xds = xr.Dataset()
-    xds.to_zarr(name)
-    yield name
-    shutil.rmtree(name)
+def ms_tab_nonexistent():
+    name = "test_nonexistent_table_from_test_table_exists.foo.bar.tab"
+    yield MSWithSpec(name, {})
 
 
 @pytest.fixture(scope="session")
@@ -225,27 +192,6 @@ def field_and_source_xds_min(ms_minimal_required):
 
 
 @pytest.fixture(scope="session")
-def main_xds_min(ms_minimal_required):
-    """A main xds (one partition, when partitioning by intent"""
-    from xradio.measurement_set._utils._msv2._tables.read_main_table import (
-        read_expanded_main_table,
-    )
-
-    # Alternatively:
-    # cds = read_ms(ms_minimal_required.fname, partition_scheme="intent")
-    # part_key = (0, 0, "scan_intent#subscan_intent")
-    # part = cds.partitions[part_key]
-    part, _part_ids, attrs = read_expanded_main_table(
-        ms_minimal_required.fname, 0, (1, 0)
-    )
-    part.attrs = attrs
-
-    quick_fix_ndarray_shape_attrs(part)
-
-    yield part
-
-
-@pytest.fixture(scope="session")
 def processing_set_min_path():
     """path to the 'mininal_required' processing set"""
     out_name = "test_converted_msv2_to_msv4_minimal_required.zarr"
@@ -344,6 +290,36 @@ def weather_xds_min(msv4_xdt_min, msv4_min_path):
     yield weather_xds
 
 
+# TODO: more differentiated custom MSs, consider @pytest.mark.ms_custom_spec({...})
+@pytest.fixture(scope="session")
+def ms_custom(spec):
+    name = "test_ms_custom.ms"  # + rnd
+    gen_test_ms(name, spec)
+    yield name
+    shutil.rmtree(name)
+
+
+@pytest.fixture(scope="session")
+def main_xds_min(ms_minimal_required):
+    """A main xds (one partition, when partitioning by intent"""
+    from xradio.measurement_set._utils._msv2._tables.read_main_table import (
+        read_expanded_main_table,
+    )
+
+    # Alternatively:
+    # cds = read_ms(ms_minimal_required.fname, partition_scheme="intent")
+    # part_key = (0, 0, "scan_intent#subscan_intent")
+    # part = cds.partitions[part_key]
+    part, _part_ids, attrs = read_expanded_main_table(
+        ms_minimal_required.fname, 0, (1, 0)
+    )
+    part.attrs = attrs
+
+    quick_fix_ndarray_shape_attrs(part)
+
+    yield part
+
+
 @pytest.fixture(scope="session")
 def main_xds_flat_min(ms_minimal_required):
     """A "flat" (row dim) main xds (one partition, when partitioning by ddi)"""
@@ -357,15 +333,6 @@ def main_xds_flat_min(ms_minimal_required):
     )
 
     yield xds
-
-
-# TODO: more differentiated custom MSs, consider @pytest.mark.ms_custom_spec({...})
-@pytest.fixture(scope="session")
-def ms_custom(spec):
-    name = "test_ms_custom.ms"  # + rnd
-    gen_test_ms(name, spec)
-    yield name
-    shutil.rmtree(name)
 
 
 @pytest.fixture(scope="session")

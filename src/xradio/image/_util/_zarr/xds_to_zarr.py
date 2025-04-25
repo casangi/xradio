@@ -6,6 +6,7 @@ from .common import _np_types, _top_level_sub_xds
 
 
 def _write_zarr(xds: xr.Dataset, zarr_store: str):
+    max_chunk_size = 0.95 * 2**30
     for dv in xds.data_vars:
         obj = xds[dv]
         if isinstance(obj, xr.core.dataarray.DataArray) and isinstance(
@@ -14,11 +15,12 @@ def _write_zarr(xds: xr.Dataset, zarr_store: str):
             # get chunk size to make sure it is small enough to be compressed
             ary = obj.data
             chunk_size_bytes = np.prod(ary.chunksize) * np.dtype(ary.dtype).itemsize
-            if chunk_size_bytes > 0.95 * 2**30:
+            if chunk_size_bytes > max_chunk_size:
                 raise ValueError(
                     f"Chunk size of {chunk_size_bytes/1e9} GB for data variable {dv} "
                     "bytes is too large for compression. To fix this, "
-                    "reduce the chunk size of the dask array in data variable."
+                    "reduce the chunk size of the dask array in the data variable "
+                    f"by at least a factor of {chunk_size_bytes/max_chunk_size}."
                 )
     xds_copy = xds.copy(deep=True)
     xds_copy, xds_dict = _encode(xds_copy)

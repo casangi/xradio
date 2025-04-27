@@ -119,7 +119,7 @@ def gen_test_ms(
     #  + SPECTRAL_WINDOW + POLARIZATION
     #  + ANTENNNA (just for the names)
     # All these are required to create the xdss (they define data and dims)
-    outdescr = gen_main_table(msname, descr, required_only)
+    outdescr = gen_main_table(msname, descr, required_only, misbehave)
     gen_subt_ddi(msname, descr["SPECTRAL_WINDOW"], descr["POLARIZATION"])
     gen_subt_spw(msname, descr["SPECTRAL_WINDOW"])
     gen_subt_antenna(msname, descr["ANTENNA"])
@@ -128,7 +128,8 @@ def gen_test_ms(
     gen_ephem = not misbehave
     # Also needed for partitioning: FIELD, STATE
     gen_subt_field(msname, descr["FIELD"], gen_ephem=gen_ephem, misbehave=misbehave)
-    gen_subt_state(msname, descr["STATE"])
+    if not misbehave:
+        gen_subt_state(msname, descr["STATE"])
 
     # Required by MSv2/v3 but not strictly required to load and partition:
 
@@ -246,7 +247,9 @@ def make_ms_empty(name: str, descr: dict = None, complete: bool = False):
     assert vis.nrows() == 0
 
 
-def gen_main_table(mspath: str, descr: dict, required_only: bool = True):
+def gen_main_table(
+    mspath: str, descr: dict, required_only: bool = True, misbehave: bool = False
+):
     """
     Create main MSv2 table.
     Relies on the required/complete_ms_desc descriptions of columns
@@ -269,6 +272,9 @@ def gen_main_table(mspath: str, descr: dict, required_only: bool = True):
 
     required_only: bool :
          (Default value = True)
+
+    misbehave : bool (Default value = False)
+        all STATE_ID values are set to -1 (assuming a "misbehaved" MS with empty STATE subtable)
 
     Returns
     -------
@@ -421,8 +427,7 @@ def gen_main_table(mspath: str, descr: dict, required_only: bool = True):
         msv2.putcol("SCAN_NUMBER", np.broadcast_to(1, (nrows)))
 
         # STATE_ID: if no states/intents => all STATE_ID = -1
-        no_state = False
-        if no_state:
+        if misbehave:
             msv2.putcol("STATE_ID", np.broadcast_to(-1, (nrows)))
         else:
             msv2.putcol("STATE_ID", np.broadcast_to(0, (nrows)))

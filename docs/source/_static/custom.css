@@ -40,3 +40,10 @@
 .rst-content table.docutils td, .rst-content table.docutils th { padding: 4px 8px; }
 .rst-content dl dd { line-height: 20px; }
 .rst-content code { padding: 1px 2px; }
+
+
+/* enable/auto scrollbar to side panel */
+.wy-side-scroll {
+   overflow-y: auto;
+   width: auto;
+}

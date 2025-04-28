@@ -1,7 +1,7 @@
 import pytest
 
 
-mem_estimate_min_ms = 0.0026036426424980164
+mem_estimate_min_ms = 0.012369267642498016
 
 
 @pytest.mark.parametrize(

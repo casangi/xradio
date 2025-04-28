@@ -751,50 +751,6 @@ def extract_source_info(
     return xds, np.sum(num_lines[unique_source_ids_indices])
 
 
-def make_field_dims_and_coords(
-    field_xds: xr.Dataset, field_id: Union[int, np.ndarray], field_times: list
-) -> tuple[list, dict]:
-    """
-    Produces the dimensions and coordinates used in the field data variables
-    extracted from the MSv2 FIELD subtable (FIELD_PHASE_CENTER/
-    FIELD_REFERENCE_CENTER).
-
-    Parameters:
-    ----------
-    field_xds: xr.Dataset
-        generic field xarray dataset
-    field_id: Union[int, np.ndarray]
-        field_id of the dataset
-    field_times:
-        Unique times for the dataset (when not partitioning by FIELD_ID)
-
-    Returns:
-    -------
-    tuple : tuple[list, dict]
-        The dimensions and coordinates to use with field data variables. The
-        dimensions are produced as a list of dimension names, and the
-        coordinates as a dict for xarray coords.
-    """
-
-    coords = {"sky_dir_label": ["ra", "dec"]}
-
-    # field_times is the same as the time axis in the main MSv4 dataset and is used if more than one field is present.
-    if field_times is not None:
-        coords["time"] = field_times
-        dims = ["time", "sky_dir_label"]
-        coords["field_name"] = (
-            "time",
-            np.char.add(field_xds["NAME"].data, np.char.add("_", field_id.astype(str))),
-        )
-        # coords["field_id"] = ("time", field_id)
-    else:
-        coords["field_name"] = field_xds["NAME"].values.item() + "_" + str(field_id)
-        # coords["field_id"] = field_id
-        dims = ["field_name", "sky_dir_label"]
-
-    return dims, coords
-
-
 def extract_field_info_and_check_ephemeris(
     field_and_source_xds: xr.Dataset,
     in_file: str,

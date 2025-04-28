@@ -65,7 +65,9 @@ def ms_minimal_required():
 @pytest.fixture(scope="session")
 def ms_minimal_misbehaved():
     name = "test_msv2_minimal_required_misbehaved.ms"
-    spec = gen_test_ms(name, required_only=True, misbehave=True)
+    spec = gen_test_ms(
+        name, opt_tables=True, vlbi_tables=False, required_only=True, misbehave=True
+    )
     yield MSWithSpec(name, spec)
     shutil.rmtree(name)
 

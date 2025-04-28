@@ -53,7 +53,7 @@ def test_create_field_and_source_xds_minimal(ms_minimal_required):
     )
 
     assert source_id == [0]
-    assert num_lines == 0
+    assert num_lines == 3
     assert field_names == np.array(["NGC3031_0"])
     check_dataset(field_and_source_xds, FieldSourceXds)
 

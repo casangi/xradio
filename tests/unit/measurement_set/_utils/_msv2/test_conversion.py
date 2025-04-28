@@ -89,6 +89,13 @@ xds_pointing_small = minxds(
             no_raises(),
         ),
         (
+            "wrong_input_chunksize",
+            "main",
+            xds_main,
+            None,
+            pytest.raises(ValueError, match="expected as a dict"),
+        ),
+        (
             0.01,
             "main",
             xds_main_sd,
@@ -306,10 +313,13 @@ def test_estimate_memory_and_cores_for_partitions(
 def test_convert_and_write_partition_empty(ms_empty_required):
 
     conversion.convert_and_write_partition(
-        ms_empty_required.fname,
-        "out_file_test_empty.zarr",
-        "msv4_id",
-        {"DATA_DESC_ID": [0], "OBS_MODE": ["scan_intent#subscan_intent"]},
+        in_file=ms_empty_required.fname,
+        out_file="out_file_test_empty.zarr",
+        ms_v4_id="msv4_id",
+        partition_info={
+            "DATA_DESC_ID": [0],
+            "OBS_MODE": ["scan_intent#subscan_intent"],
+        },
         use_table_iter=False,
     )
 
@@ -320,11 +330,18 @@ def test_convert_and_write_partition_min(ms_minimal_required):
     msv4_id = "msv4_id"
     try:
         conversion.convert_and_write_partition(
-            ms_minimal_required.fname,
-            out_name,
-            msv4_id,
-            {"DATA_DESC_ID": [0], "OBS_MODE": ["scan_intent#subscan_intent"]},
+            in_file=ms_minimal_required.fname,
+            out_file=out_name,
+            ms_v4_id=msv4_id,
+            partition_info={
+                "DATA_DESC_ID": [0],
+                "OBS_MODE": ["scan_intent#subscan_intent"],
+            },
             use_table_iter=False,
+            pointing_interpolate=True,
+            ephemeris_interpolate=True,
+            phase_cal_interpolate=True,
+            sys_cal_interpolate=True,
         )
 
         # msv4_xds = xr.open_dataset(
@@ -351,10 +368,14 @@ def test_convert_and_write_partition_misbehaved(ms_minimal_misbehaved):
     msv4_id = "msv4_id"
     try:
         conversion.convert_and_write_partition(
-            ms_minimal_misbehaved.fname,
-            out_name,
-            msv4_id,
-            {"DATA_DESC_ID": [0], "OBS_MODE": ["scan_intent#subscan_intent"]},
+            in_file=ms_minimal_misbehaved.fname,
+            out_file=out_name,
+            ms_v4_id=msv4_id,
+            partition_info={
+                "DATA_DESC_ID": [0],
+                "OBS_MODE": ["scan_intent#subscan_intent"],
+                "OBS_MODE": [None],
+            },
             use_table_iter=False,
         )
 
@@ -366,3 +387,45 @@ def test_convert_and_write_partition_misbehaved(ms_minimal_misbehaved):
         check_datatree(msv4_xdt)
     finally:
         shutil.rmtree(out_name)
+
+
+def test_convert_and_write_partition_with_antenna1(ms_minimal_required):
+
+    out_name = "out_file_test_convert_write_with_antenna1.zarr"
+    msv4_id = "msv4_id"
+    try:
+        conversion.convert_and_write_partition(
+            in_file=ms_minimal_required.fname,
+            out_file=out_name,
+            ms_v4_id=msv4_id,
+            partition_info={
+                "DATA_DESC_ID": [0],
+                "OBS_MODE": ["scan_intent#subscan_intent"],
+                "ANTENNA1": [0],
+            },
+            use_table_iter=False,
+        )
+
+        # Will need a SD-like test ms. Otherwise the partition is empty:
+        with pytest.raises(FileNotFoundError, match="No such file or directory"):
+            msv4_xds = xr.open_dataset(
+                out_name
+                + "/"
+                + ms_minimal_required.fname.rsplit(".")[0]
+                + "_"
+                + msv4_id,
+                engine="zarr",
+            )
+            msv4_xdt = xr.open_datatree(
+                out_name
+                + "/"
+                + ms_minimal_required.fname.rsplit(".")[0]
+                + "_"
+                + msv4_id,
+                engine="zarr",
+            )
+            check_dataset(msv4_xdt.ds, VisibilityXds)
+            check_datatree(msv4_xdt)
+    finally:
+        # shutil.rmtree(out_name)
+        pass

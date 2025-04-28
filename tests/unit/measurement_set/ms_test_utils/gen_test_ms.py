@@ -107,6 +107,10 @@ def gen_test_ms(
         corner case conformance issues such as absence of STATE subtable,
         missing FEED subtable, presence of missing SOURCE_IDs in the FIELD
         subtable, no ASDM_EXECBLOCK table, no PROCESSOR subtable, etc.
+        Additional, more minor misbehaviors:
+        - irregular INTERVAL in main table, empty SPW names.
+        - missing metadata for MAIN/INTERVAL, SPECTRAL_WINDOW/CHAN_WIDTH
+        - missing posrefsys in EPHEM metadata
 
     Returns
     -------
@@ -121,7 +125,7 @@ def gen_test_ms(
     # All these are required to create the xdss (they define data and dims)
     outdescr = gen_main_table(msname, descr, required_only, misbehave)
     gen_subt_ddi(msname, descr["SPECTRAL_WINDOW"], descr["POLARIZATION"])
-    gen_subt_spw(msname, descr["SPECTRAL_WINDOW"])
+    gen_subt_spw(msname, descr["SPECTRAL_WINDOW"], misbehave=misbehave)
     gen_subt_antenna(msname, descr["ANTENNA"])
     gen_subt_pol_setup(msname, descr["npols"], descr["POLARIZATION"])
 
@@ -408,7 +412,6 @@ def gen_main_table(
         # DATA_DESC_ID
         # msv2.putcol("DATA_DESC_ID", np.broadcast_to(0, (nrows)))
         ddi_col = np.repeat(dd_ids, nrows / nddis)
-        # print(f" This is nddis: {nddis} len dd_id: {len(dd_ids)}, with nrows: {nrows}")
         msv2.putcol("DATA_DESC_ID", np.broadcast_to(ddi_col, (nrows)))
 
         msv2.putcol("PROCESSOR_ID", np.broadcast_to(0, (nrows)))
@@ -436,6 +439,9 @@ def gen_main_table(
 
         interval = 1.0
         msv2.putcol("INTERVAL", np.broadcast_to(interval, (nrows)))
+        if misbehave:
+            msv2.putcell("INTERVAL", 0, interval - 0.1)
+            msv2.removecolkeyword("INTERVAL", "QuantumUnits")
 
         exposure = 0.9 * interval
         msv2.putcol("EXPOSURE", np.broadcast_to(exposure, (nrows)))
@@ -478,8 +484,6 @@ def gen_main_table(
 
         msv2.putcol("FLAG_ROW", np.broadcast_to(False, (nrows)))
 
-    # with tables.table(mspath) as main:
-    #     print(f"** after default_ms: {main.getkeywords()}")
     return outdescr
 
 
@@ -507,7 +511,7 @@ def gen_subt_ddi(mspath: str, spws_descr: dict, pol_setup_descr: dict):
         ddi_tbl.putcol("FLAG_ROW", np.broadcast_to(False, nrows))
 
 
-def gen_subt_spw(mspath: str, spw_descr: dict):
+def gen_subt_spw(mspath: str, spw_descr: dict, misbehave=False):
     """
     Populates SPECTRAL_WINDOW
     """
@@ -519,7 +523,10 @@ def gen_subt_spw(mspath: str, spw_descr: dict):
         spw_tbl.addrows(nspws)
         # Not in MSv2
         # spw_tbl.putcol("SPECTRAL_WINDOW_ID", list(spw_descr.keys()))
-        names = [f"unspecified_test#{idx}" for idx in range(nspws)]
+        if misbehave:
+            names = ["" for idx in range(nspws)]
+        else:
+            names = [f"unspecified_test#{idx}" for idx in range(nspws)]
         spw_tbl.putcol("NAME", names)
         # spw_tbl.putcol("REF_FREQUENCY", nspws*[0.9e9])
         # spw_tbl.putcol("TOTAL_BANDWIDTH", nspws*[0.020])
@@ -535,8 +542,13 @@ def gen_subt_spw(mspath: str, spw_descr: dict):
             spw_tbl.putcol("NUM_CHAN", nchan, startrow=spw, nrow=1)
             widths = np.full(nchan, 20000.0)
             spw_tbl.putcell("CHAN_WIDTH", spw, widths)
-            # or alternatively
-            # spw_tbl.putcol("CHAN_WIDTH", np.full((1, nchan), 20000.0), startrow=spw, nrow=1)
+            if misbehave:
+                kws = spw_tbl.getcolkeywords("CHAN_WIDTH")
+                units_kw = "QuantumUnits"
+                if units_kw in kws:
+                    spw_tbl.removecolkeyword("CHAN_WIDTH", "QuantumUnits")
+                # or alternatively
+                # spw_tbl.putcol("CHAN_WIDTH", np.full((1, nchan), 20000.0), startrow=spw, nrow=1)
             spw_tbl.putcell("CHAN_FREQ", spw, np.full(nchan, 10e0))
             spw_tbl.putcell("EFFECTIVE_BW", spw, widths)
             spw_tbl.putcell("TOTAL_BANDWIDTH", spw, sum(widths))
@@ -638,14 +650,26 @@ def gen_subt_field(
             fld_tbl.putcol("EPHEMERIS_ID", np.broadcast_to(0, (nfields, 1)))
 
     if gen_ephem:
-        gen_subt_ephem(mspath)
+        gen_subt_ephem(mspath, misbehave)
 
 
-def gen_subt_ephem(mspath: str):
+def gen_subt_ephem(mspath: str, misbehave=False):
     """
     Creates a phony ephemerides table under the FIELD subtable.
     The usual tables... context or 'default_ms_subtable' not working. Needs
     manual coldesc /not in MSv2/3
+
+    Parameters
+    ----------
+    mspath : str
+        path of output MS
+    misbehave : bool
+        if True, some metadata (keywords) will be missing: posrefsys, and metadata
+        of column 'RA'
+
+    Returns
+    -------
+
     """
     # with open_opt_subtable(mspath, "FIELD/EPHEM0_FIELD.tab") as wtbl:
     ephem0_path = Path(mspath) / "FIELD" / "EPHEM0_FIELDNAME.tab"
@@ -801,6 +825,11 @@ def gen_subt_ephem(mspath: str):
     with tables.table(
         str(ephem0_path), tabledesc=tabdesc, nrow=1, readonly=False, ack=False
     ) as tbl:
+
+        if misbehave:
+            del tabdesc["RA"]["keywords"]
+            del keywords["posrefsys"]
+
         tbl.putcol("MJD", 50000)
         tbl.putcol("RA", 230.334)
         tbl.putcol("DEC", -15.678)
@@ -869,7 +898,7 @@ def open_opt_subtable(
         table.close()
 
 
-def gen_subt_source(mspath: str, src_descr: dict, misbehave: bool):
+def gen_subt_source(mspath: str, src_descr: dict, misbehave: bool = False):
     """
     Populate SOURCE subtable, with time dependent source info
 
@@ -879,6 +908,8 @@ def gen_subt_source(mspath: str, src_descr: dict, misbehave: bool):
         path of output MS
     src_descr : dict
         sources description
+    misbehave : bool
+        if misbehave, the NUM_LINES and related columns will be missing
 
     Returns
     -------
@@ -890,10 +921,16 @@ def gen_subt_source(mspath: str, src_descr: dict, misbehave: bool):
     with open_opt_subtable(mspath, "SOURCE") as src_tbl:
         nsrcs = len(src_descr)
         src_tbl.addrows(nsrcs)
+        # if misbehave:
+        #    src_tbl.putcol("SOURCE_ID", np.repeat(-1, len(src_descr)))
         src_tbl.putcol("SOURCE_ID", list(src_descr.values()))
         src_tbl.putcol("TIME", np.broadcast_to(0, (nsrcs)))
         src_tbl.putcol("INTERVAL", np.broadcast_to(0, (nsrcs)))
         src_tbl.putcol("SPECTRAL_WINDOW_ID", np.broadcast_to(0, (nsrcs)))
+
+        if not misbehave:
+            nlines = 3
+            src_tbl.putcol("NUM_LINES", np.repeat(nlines, nsrcs))
 
         src_tbl.putcol("NAME", np.broadcast_to("test_source_name", (nsrcs)))
         src_tbl.putcol("CALIBRATION_GROUP", np.broadcast_to(0, (nsrcs)))
@@ -901,6 +938,18 @@ def gen_subt_source(mspath: str, src_descr: dict, misbehave: bool):
         adir = np.deg2rad([29, 34])
         src_tbl.putcol("DIRECTION", np.broadcast_to(adir, (nsrcs, 2)))
         src_tbl.putcol("PROPER_MOTION", np.broadcast_to(adir / 100.0, (nsrcs, 2)))
+        # optional cols:
+        if not misbehave:
+            src_tbl.putcol(
+                "TRANSITION",
+                np.broadcast_to(
+                    ["test_line0", "test_line1", "test_line2"], (nsrcs, nlines)
+                ),
+            )
+            src_tbl.putcol(
+                "REST_FREQUENCY", np.broadcast_to([1e9, 2e9, 3e9], (nsrcs, nlines))
+            )
+            src_tbl.putcol("SYSVEL", np.broadcast_to([1e3, 2e3, 3e3], (nsrcs, nlines)))
         # SOURCE_MODEL is optional and its type is TableRecord!
         src_tbl.removecols(["SOURCE_MODEL"])
 

@@ -310,7 +310,21 @@ def test_estimate_memory_and_cores_for_partitions(
     assert res[1:] == expected_estimate[1:]
 
 
-def test_convert_and_write_partition_empty(ms_empty_required):
+def test_convert_and_write_partition_empty_complete(ms_empty_complete):
+
+    conversion.convert_and_write_partition(
+        in_file=ms_empty_complete.fname,
+        out_file="out_file_test_empty_complete.zarr",
+        ms_v4_id="msv4_id",
+        partition_info={
+            "DATA_DESC_ID": [0],
+            "OBS_MODE": ["scan_intent#subscan_intent"],
+        },
+        use_table_iter=False,
+    )
+
+
+def test_convert_and_write_partition_(ms_empty_required):
 
     conversion.convert_and_write_partition(
         in_file=ms_empty_required.fname,

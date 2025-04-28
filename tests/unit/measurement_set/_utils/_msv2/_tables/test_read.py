@@ -10,7 +10,7 @@ from pathlib import Path
     [
         ("ms_minimal_required", True),
         ("ms_tab_nonexistent", False),
-        ("ddi_xds_min", False),
+        ("generic_antenna_xds_min", False),
     ],
 )
 def test_table_exists(tab_name, expected_result, request):
@@ -45,7 +45,7 @@ def test_table_has_column(tab_name, col_name, expected_result, request):
     [
         ("ms_tab_nonexistent", "DATA", pytest.raises(RuntimeError)),
         ("ms_tab_nonexistent", "ANY", pytest.raises(RuntimeError)),
-        ("ddi_xds_min", "TIME", pytest.raises(RuntimeError)),
+        ("generic_antenna_xds_min", "TIME", pytest.raises(RuntimeError)),
     ],
 )
 def test_table_has_column_raises(tab_name, col_name, expected_raises, request):

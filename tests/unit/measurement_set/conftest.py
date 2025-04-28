@@ -28,6 +28,9 @@ MSWithSpec = namedtuple("MSWithSpec", "fname descr")
 #     )
 
 
+# Generated test MS fixtures
+
+
 @pytest.fixture(scope="session")
 def ms_empty_required():
     """
@@ -72,12 +75,14 @@ def ms_minimal_misbehaved():
     shutil.rmtree(name)
 
 
+# Besides these few test MSs one could generate custom MSs passing different descr dicts.
+# That has not been really needed so far. But in such cases consider using
+# @pytest.mark.ms_custom_spec({...})
 @pytest.fixture(scope="session")
-def ms_minimal_for_writes():
-    """MS to be used to write subtables inside"""
-    name = "test_msv2_minimal_required_for_writes.ms"
-    spec = gen_test_ms(name, required_only=True)
-    yield MSWithSpec(name, spec)
+def ms_custom(spec):
+    name = "test_ms_custom.ms"  # + rnd
+    gen_test_ms(name, spec)
+    yield name
     shutil.rmtree(name)
 
 
@@ -87,16 +92,7 @@ def ms_tab_nonexistent():
     yield MSWithSpec(name, {})
 
 
-@pytest.fixture(scope="session")
-def ddi_xds_min(ms_minimal_required):
-    """A DATA_DESCRIPTION/DDI xds, loaded from the minimal MS"""
-    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
-
-    # not available:
-    # subt = cds_minimal_required.metainfo["ddi"]
-
-    subt = load_generic_table(ms_minimal_required.fname, "DATA_DESCRIPTION")
-    return subt
+# Generic xds fixtures (generic: loaded from MSv2 mostly as is, not yet in MSv4 format)
 
 
 @pytest.fixture(scope="session")
@@ -109,42 +105,12 @@ def generic_antenna_xds_min(ms_minimal_required):
 
 
 @pytest.fixture(scope="session")
-def field_xds_min(cds_minimal_required):
-    """A field xds, loaded from the minimal MS/FIELD subtable"""
-
-    subt = cds_minimal_required["metainfo"]["field"]
-    # Or alternatively, from ms_minimal_required read subtable
-    # subt = load_generic_table(ms_minimal_required.fname, "FIELD")
-    return subt
-
-
-@pytest.fixture(scope="session")
-def feed_xds_min(cds_minimal_required):
-    """A feed xds, loaded from the minimal MS/FEED subtable"""
-
-    subt = cds_minimal_required["metainfo"]["feed"]
-    # Or alternatively, from ms_minimal_required read subtable
-    # subt = load_generic_table(ms_minimal_required.fname, "FEED")
-    return subt
-
-
-@pytest.fixture(scope="session")
 def generic_feed_xds_min(ms_minimal_required):
     """A generic feed xds (loaded form MSv2 mostly as is), loaded from the MS/FEED subtable"""
     from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
 
     generic_feed_xds = load_generic_table(ms_minimal_required.fname, "FEED")
     return generic_feed_xds
-
-
-@pytest.fixture(scope="session")
-def observation_xds_min(cds_minimal_required):
-    """An observation xds, loaded from the minimal MS/OBSERVATION subtable"""
-
-    subt = cds_minimal_required["metainfo"]["observation"]
-    # Or alternatively, from ms_minimal_required read subtable
-    # subt = load_generic_table(ms_minimal_required.fname, "OBSERVATION")
-    return subt
 
 
 @pytest.fixture(scope="session")
@@ -174,6 +140,9 @@ def generic_source_xds_min(ms_minimal_required):
 
     subt = load_generic_table(ms_minimal_required.fname, "SOURCE")
     return subt
+
+
+# MSv4 xds and xdt fixtures
 
 
 @pytest.fixture(scope="session")
@@ -292,13 +261,19 @@ def weather_xds_min(msv4_xdt_min, msv4_min_path):
     yield weather_xds
 
 
-# TODO: more differentiated custom MSs, consider @pytest.mark.ms_custom_spec({...})
+# Only used/required by test_write:
+
+
 @pytest.fixture(scope="session")
-def ms_custom(spec):
-    name = "test_ms_custom.ms"  # + rnd
-    gen_test_ms(name, spec)
-    yield name
+def ms_minimal_for_writes():
+    """MS to be used to write subtables inside"""
+    name = "test_msv2_minimal_required_for_writes.ms"
+    spec = gen_test_ms(name, required_only=True)
+    yield MSWithSpec(name, spec)
     shutil.rmtree(name)
+
+
+# Only used/required by test_write_exp_api
 
 
 @pytest.fixture(scope="session")

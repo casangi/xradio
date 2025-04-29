@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import xarray as xr
 import os
@@ -8,7 +9,8 @@ def _write_zarr(xds: xr.Dataset, zarr_store: str):
     xds_copy = xds.copy(deep=True)
     sub_xds_dict = _encode(xds_copy, zarr_store)
     z_obj = xds_copy.to_zarr(store=zarr_store, compute=True)
-    _write_sub_xdses(sub_xds_dict)
+    if sub_xds_dict:
+        _write_sub_xdses(sub_xds_dict)
 
 
 def _encode(xds: xr.Dataset, top_path: str) -> dict:
@@ -17,9 +19,8 @@ def _encode(xds: xr.Dataset, top_path: str) -> dict:
     _encode_dict(xds.attrs, top_path, sub_xds_dict)
     for dv in xds.data_vars:
         _encode_dict(xds[dv].attrs, os.sep.join([top_path, dv]), sub_xds_dict)
-    import logging
-
     logging.debug(f"Encoded sub_xds_dict: {sub_xds_dict}")
+    return sub_xds_dict
 
 
 def _encode_dict(my_dict: dict, top_path: str, sub_xds_dict) -> tuple:

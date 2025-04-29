@@ -10,7 +10,7 @@ import numpy as np
 import xarray as xr
 from astropy import units as u
 from casacore import tables
-from casacore.images import coordinates
+from casacore.images import coordinates, image as casa_image
 
 from .common import (
     _active_mask,
@@ -32,10 +32,11 @@ from ..common import (
 from ...._utils._casacore.tables import extract_table_attributes, open_table_ro
 from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import (
-    make_quantity,
-    make_frequency_reference_dict,
-    make_skycoord_dict,
     _casacore_q_to_xradio_q,
+    make_frequency_reference_dict,
+    make_quantity,
+    make_skycoord_dict,
+    make_time_measure_dict,
 )
 
 
@@ -89,19 +90,126 @@ def _add_mask(
     return xds
 
 
+def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = True) -> dict:
+    """
+    get the image attributes from the casacoreimage object
+    """
+    meta_dict = image.info()
+    coord_dict = copy.deepcopy(meta_dict["coordinates"])
+    attrs = {}
+    attrs[_image_type] = image.info()["imageinfo"]["imagetype"]
+    attrs["units"] = image.unit()
+    attrs["telescope"] = {}
+    telescope = attrs["telescope"]
+    for k in ("observer", "obsdate", "telescope", "telescopeposition"):
+        if k.startswith("telescope"):
+            if k == "telescope":
+                telescope["name"] = coord_dict[k]
+            elif k in coord_dict:
+                casa_pos = coord_dict[k]
+                location = {}
+                loc_attrs = {}
+                loc_attrs["type"] = "location"
+                loc_attrs["frame"] = casa_pos["refer"]
+                """
+                if casa_pos["refer"] == "ITRF":
+                    loc_attrs["ellipsoid"] = "GRS80"
+                """
+                loc_attrs["units"] = [
+                    casa_pos["m0"]["unit"],
+                    casa_pos["m1"]["unit"],
+                    casa_pos["m2"]["unit"],
+                ]
+                loc_attrs["coordinate_system"] = "geocentric"
+                loc_attrs["origin_object_name"] = "earth"
+                location["attrs"] = loc_attrs
+                location["data"] = [
+                    casa_pos["m0"]["value"],
+                    casa_pos["m1"]["value"],
+                    casa_pos["m2"]["value"],
+                ]
+                telescope["location"] = location
+                """
+                del (
+                    telescope["position"]["refer"],
+                    telescope["position"]["m0"],
+                    telescope["position"]["m1"],
+                    telescope["position"]["m2"],
+                )
+                """
+        elif k == "obsdate":
+            obsdate = coord_dict[k]
+            """
+            o_attrs = {"type": "time"}
+            o_attrs["scale"] = coord_dict[k]["refer"]
+            myu = coord_dict[k]["m0"]["unit"]
+            o_attrs["units"] = myu if isinstance(myu, list) else [myu]
+            o_attrs["format"] = _get_time_format(m0["value"], m0["unit"])
+            o_date = {}
+            o_date["attrs"] = o_attrs
+            """
+            m0 = obsdate["m0"]
+            attrs["obsdate"] = make_time_measure_dict(
+                data=m0["value"],
+                units=m0["unit"],
+                scale=obsdate["refer"],
+                time_format=_get_time_format(m0["value"], m0["unit"]),
+            )
+        else:
+            attrs[k] = coord_dict[k] if k in coord_dict else ""
+    dir_key = next((k for k in coord_dict if k.startswith("direction")), None)
+    if dir_key:
+        frame, eqnx = _convert_direction_system(coord_dict[dir_key]["system"], "system")
+    else:
+        frame = "icrs"
+        logger.warning(
+            "No direction coordinate found from which "
+            "to get pointing center frame. Assuming ICRS"
+        )
+    # it looks like the pointing center is always in radians in a casa image coord system dict
+    # note that in a casa image, the pointing center does not explicitly have a reference frame
+    # associated with it.
+    # point_center = coord_dict["pointingcenter"]
+    attrs[_pointing_center] = make_skycoord_dict(
+        coord_dict["pointingcenter"]["value"].tolist(), ["rad", "rad"], frame
+    )
+    imageinfo = meta_dict["imageinfo"]
+    obj = "objectname"
+    attrs[_object_name] = imageinfo[obj] if obj in imageinfo else ""
+    attrs["user"] = meta_dict["miscinfo"]
+    defmask = "Image_defaultmask"
+    with open_table_ro(image.name()) as casa_table:
+        # the actual mask is a data var and data var names are all caps by convention
+        attrs[_active_mask] = (
+            casa_table.getkeyword(defmask).upper()
+            if defmask in casa_table.keywordnames()
+            else None
+        )
+    attrs["description"] = None
+    # if also loading history, put it as another xds in the image attrs
+    if history:
+        htable = os.sep.join([os.path.abspath(image.name()), "logtable"])
+        if os.path.isdir(htable):
+            attrs["history"] = read_generic_table(htable)
+        else:
+            logger.warning(
+                f"Unable to find history table {htable}. History will not be included"
+            )
+    return attrs
+
+
 def _add_sky_or_aperture(
     xds: xr.Dataset,
     ary: Union[np.ndarray, da.array],
     dimorder: list,
     img_full_path: str,
     has_sph_dims: bool,
+    history: bool,
 ) -> xr.Dataset:
     xda = xr.DataArray(ary, dims=dimorder).astype(ary.dtype)
     with _open_image_ro(img_full_path) as casa_image:
-        image_type = casa_image.info()["imageinfo"]["imagetype"]
-        unit = casa_image.unit()
-    xda.attrs[_image_type] = image_type
-    xda.attrs["units"] = unit
+        xda.attrs = _casa_image_to_xds_image_attrs(casa_image, history)
+    # xds.attrs = attrs
     name = "SKY" if has_sph_dims else "APERTURE"
     xda = xda.rename(name)
     xds[xda.name] = xda
@@ -143,7 +251,7 @@ def _add_vel_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
     return xds
 
 
-def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
+def _casa_image_to_xds_attrs(img_full_path: str) -> dict:
     """
     Get the xds level attribut/es as a python dictionary
     """
@@ -187,67 +295,6 @@ def _casa_image_to_xds_attrs(img_full_path: str, history: bool = True) -> dict:
             if j in coord_dir_dict:
                 dir_dict[j] = coord_dir_dict[j]
         attrs["direction"] = dir_dict
-    attrs["telescope"] = {}
-    telescope = attrs["telescope"]
-    attrs["obsdate"] = {"type": "time"}
-    obsdate = attrs["obsdate"]
-    attrs[_pointing_center] = coord_dict["pointingcenter"].copy()
-    for k in ("observer", "obsdate", "telescope", "telescopeposition"):
-        if k.startswith("telescope"):
-            if k == "telescope":
-                telescope["name"] = coord_dict[k]
-            elif k in coord_dict:
-                telescope["position"] = coord_dict[k]
-                telescope["position"]["ellipsoid"] = telescope["position"]["refer"]
-                if telescope["position"]["refer"] == "ITRF":
-                    telescope["position"]["ellipsoid"] = "GRS80"
-                telescope["position"]["units"] = [
-                    telescope["position"]["m0"]["unit"],
-                    telescope["position"]["m1"]["unit"],
-                    telescope["position"]["m2"]["unit"],
-                ]
-                telescope["position"]["value"] = [
-                    telescope["position"]["m0"]["value"],
-                    telescope["position"]["m1"]["value"],
-                    telescope["position"]["m2"]["value"],
-                ]
-                del (
-                    telescope["position"]["refer"],
-                    telescope["position"]["m0"],
-                    telescope["position"]["m1"],
-                    telescope["position"]["m2"],
-                )
-        elif k == "obsdate":
-            obsdate["scale"] = coord_dict[k]["refer"]
-            myu = coord_dict[k]["m0"]["unit"]
-            obsdate["units"] = myu if isinstance(myu, list) else [myu]
-            obsdate["value"] = coord_dict[k]["m0"]["value"]
-            obsdate["format"] = _get_time_format(obsdate["value"], obsdate["units"])
-            obsdate["type"] = "time"
-        else:
-            attrs[k] = coord_dict[k] if k in coord_dict else ""
-    imageinfo = meta_dict["imageinfo"]
-    obj = "objectname"
-    attrs[_object_name] = imageinfo[obj] if obj in imageinfo else ""
-    attrs["user"] = meta_dict["miscinfo"]
-    defmask = "Image_defaultmask"
-    with open_table_ro(img_full_path) as casa_table:
-        # the actual mask is a data var and data var names are all caps by convention
-        attrs[_active_mask] = (
-            casa_table.getkeyword(defmask).upper()
-            if defmask in casa_table.keywordnames()
-            else None
-        )
-    attrs["description"] = None
-    # if also loading history, put it as another xds in the attrs
-    if history:
-        htable = os.sep.join([img_full_path, "logtable"])
-        if os.path.isdir(htable):
-            attrs["history"] = read_generic_table(htable)
-        else:
-            logger.warning(
-                f"Unable to find history table {htable}. History will not be included"
-            )
     return copy.deepcopy(attrs)
 
 

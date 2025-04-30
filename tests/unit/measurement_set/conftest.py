@@ -34,9 +34,8 @@ MSWithSpec = namedtuple("MSWithSpec", "fname descr")
 @pytest.fixture(scope="session")
 def ms_empty_required():
     """
-    An MS that has all the required tables/columns definitions and is empty
+    An MS that has the required tables/columns definitions and is empty
     (0 rows)
-
     """
     name = "test_ms_empty_def_required.ms"
     make_ms_empty(name)
@@ -49,7 +48,6 @@ def ms_empty_complete(scope="session"):
     """
     An MS that has the complete tables/columns definitions and is empty
     (0 rows)
-
     """
     name = "test_ms_empty_def_complete.ms"
     make_ms_empty(name, complete=True)
@@ -59,6 +57,10 @@ def ms_empty_complete(scope="session"):
 
 @pytest.fixture(scope="session")
 def ms_minimal_required():
+    """
+    Small MS with the required set of tables and columns definitions (according to python-casacore
+    standard MS definitions)
+    """
     name = "test_msv2_minimal_required.ms"
     spec = gen_test_ms(name, required_only=True)
     yield MSWithSpec(name, spec)
@@ -67,6 +69,10 @@ def ms_minimal_required():
 
 @pytest.fixture(scope="session")
 def ms_minimal_misbehaved():
+    """
+    Small MS with a number of misbehaviors as observed in different MS from various observatories
+    and projects
+    """
     name = "test_msv2_minimal_required_misbehaved.ms"
     spec = gen_test_ms(
         name, opt_tables=True, vlbi_tables=False, required_only=True, misbehave=True
@@ -75,15 +81,24 @@ def ms_minimal_misbehaved():
     shutil.rmtree(name)
 
 
-# Besides these few test MSs one could generate custom MSs passing different descr dicts.
-# That has not been really needed so far. But in such cases consider using
-# @pytest.mark.ms_custom_spec({...})
+# Besides the few test MSs from above,  one can generate custom MSs passing different descr dicts.
 @pytest.fixture(scope="session")
-def ms_custom(spec):
-    name = "test_ms_custom.ms"  # + rnd
-    gen_test_ms(name, spec)
-    yield name
-    shutil.rmtree(name)
+def ms_custom_spec(request):
+    """
+    Expects in request.param an MS description / description of the visibilities dataset used in
+    gen_test_ms to produce it
+    """
+    name = "test_ms_custom_spec.ms"
+    gen_test_ms(
+        name,
+        request.param,
+        opt_tables=True,
+        vlbi_tables=False,
+        required_only=True,
+        misbehave=False,
+    )
+    yield MSWithSpec(name, request.param)
+    # shutil.rmtree(name)
 
 
 @pytest.fixture(scope="session")

@@ -443,3 +443,49 @@ def test_convert_and_write_partition_with_antenna1(ms_minimal_required):
     finally:
         # shutil.rmtree(out_name)
         pass
+
+
+ms_custom_description = {
+    "nchans": 4,
+    "npols": 1,
+    "data_cols": ["DATA", "MODEL_DATA", "CORRECTED_DATA"],
+    "SPECTRAL_WINDOW": {"0": 0},
+    "POLARIZATION": {"0": 0},
+    "ANTENNA": {"0": 0, "1": 1, "2": 2},
+    "FIELD": {"0": 0},
+    "SCAN": {"1": {"0": {"intent": "intent#subintent"}}},
+    "STATE": {"0": {"id": 0, "intent": None}},
+    "OBSERVATION": {"0": 0},
+    "FEED": {"0": 0},
+    "PROCESSOR": {"0": 0},
+    "SOURCE": {},
+}
+
+
+@pytest.mark.parametrize("ms_custom_spec", [ms_custom_description], indirect=True)
+def test_convert_and_write_partition_custom(ms_custom_spec):
+    out_name = "out_file_test_convert_write.zarr"
+    msv4_id = "msv4_id"
+    try:
+        conversion.convert_and_write_partition(
+            in_file=ms_custom_spec.fname,
+            out_file=out_name,
+            ms_v4_id=msv4_id,
+            partition_info={
+                "DATA_DESC_ID": [0],
+                "OBS_MODE": ["scan_intent#subscan_intent"],
+            },
+            use_table_iter=True,
+            pointing_interpolate=False,
+            ephemeris_interpolate=False,
+            phase_cal_interpolate=False,
+            sys_cal_interpolate=False,
+        )
+        msv4_xdt = xr.open_datatree(
+            out_name + "/" + ms_custom_spec.fname.rsplit(".")[0] + "_" + msv4_id,
+            engine="zarr",
+        )
+        check_dataset(msv4_xdt.ds, VisibilityXds)
+        check_datatree(msv4_xdt)
+    finally:
+        shutil.rmtree(out_name)

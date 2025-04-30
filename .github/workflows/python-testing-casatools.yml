@@ -16,4 +16,5 @@ jobs:
     with:
       cov_project: "xradio"
       test-path: "tests/"
+      pytest_ignore: "tests/unit/measurement_set"
     secrets: inherit

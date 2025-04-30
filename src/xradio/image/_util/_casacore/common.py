@@ -6,6 +6,7 @@ except ImportError:
 from contextlib import contextmanager
 from typing import Generator, List
 
+
 @contextmanager
 def _open_image_ro(infile: str) -> Generator[images.image, None, None]:
     image = images.image(infile)

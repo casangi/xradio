@@ -21,6 +21,7 @@ from xradio.measurement_set._utils._ms._tables.read_main_table import (
 )
 from xradio._utils.list_and_array import unique_1d
 
+
 def load_expanded_main_table_chunk(
     infile: str,
     ddi: int,

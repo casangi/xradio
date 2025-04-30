@@ -15,14 +15,12 @@ import shutil
 from functools import wraps
 from typing import Any, Dict, List, Sequence, Union
 
-import numpy as np
-
-import toolviper.utils.logger as logger
-
 # Configure casaconfig settings prior to casatools import
 # this ensures optimal initialization and resource allocation for casatools
 # Also see : https://casadocs.readthedocs.io/en/stable/api/casaconfig.html
 import casaconfig.config
+import numpy as np
+import toolviper.utils.logger as logger
 
 casaconfig.config.data_auto_update = False
 casaconfig.config.measures_auto_update = False

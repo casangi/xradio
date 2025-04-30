@@ -5,7 +5,7 @@ import numpy as np
 try:
     from casacore import tables
 except ImportError:
-    from ....._utils._casacore.casacore_from_casatools import tables
+    import xradio._utils._casacore.casacore_from_casatools as tables
 from ....._utils.common import get_pad_value
 
 

@@ -4,8 +4,8 @@ import pytest
 try:
     from casacore import images, tables
 except ImportError:
-    from xradio._utils._casacore import casacore_from_casatools as images
-    from xradio._utils._casacore import casacore_from_casatools as tables
+    import xradio._utils._casacore.casacore_from_casatools as images
+    import xradio._utils._casacore.casacore_from_casatools as tables
 
 import copy
 import numbers

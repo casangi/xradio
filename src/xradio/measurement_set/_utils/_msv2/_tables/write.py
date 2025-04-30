@@ -7,7 +7,7 @@ import xarray as xr
 try:
     from casacore import tables
 except ImportError:
-    from ....._utils._casacore import casacore_from_casatools as tables
+    import xradio._utils._casacore.casacore_from_casatools as tables
 
 
 def revert_time(datetimes: np.ndarray) -> np.ndarray:

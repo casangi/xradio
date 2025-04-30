@@ -8,8 +8,7 @@ import xarray as xr
 try:
     from casacore import tables
 except ImportError:
-    from ....._utils._casacore import casacore_from_casatools as tables
-
+    import xradio._utils._casacore.casacore_from_casatools as tables
 
 from .load import load_col_chunk
 from .read_main_table import get_partition_ids, redim_id_data_vars, rename_vars
@@ -21,7 +20,6 @@ from xradio.measurement_set._utils._ms._tables.read_main_table import (
     get_baseline_indices,
 )
 from xradio._utils.list_and_array import unique_1d
-
 
 def load_expanded_main_table_chunk(
     infile: str,

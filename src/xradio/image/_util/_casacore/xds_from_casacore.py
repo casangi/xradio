@@ -14,9 +14,10 @@ try:
     from casacore import tables
     from casacore.images import coordinates, image as casa_image
 except ImportError:
-    from ...._utils._casacore import casacore_from_casatools as tables
-    from ...._utils._casacore import casacore_from_casatools as coordinates
-    from ...._utils._casacore.casacore_from_casatools import image as casa_image
+    import xradio._utils._casacore.casacore_from_casatools as tables
+    import xradio._utils._casacore.casacore_from_casatools as coordinates
+    from xradio._utils._casacore.casacore_from_casatools import image as casa_image
+
 
 from .common import (
     _active_mask,
@@ -24,6 +25,7 @@ from .common import (
     _open_image_ro,
     _pointing_center,
 )
+
 from ..common import (
     _compute_linear_world_values,
     _compute_velocity_values,

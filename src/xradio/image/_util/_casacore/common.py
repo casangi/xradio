@@ -1,12 +1,10 @@
 try:
     from casacore import images
 except ImportError:
-    from ...._utils._casacore import casacore_from_casatools as images
+    import xradio._utils._casacore.casacore_from_casatools as images
 
 from contextlib import contextmanager
-import numpy as np
-from typing import Dict, Generator, List, Union
-
+from typing import Generator, List
 
 @contextmanager
 def _open_image_ro(infile: str) -> Generator[images.image, None, None]:

@@ -18,8 +18,8 @@ from xradio._utils.dict_helpers import (
     make_time_measure_dict,
 )
 
-from ....measurement_set._utils._utils.stokes_types import stokes_types
-from ..common import (
+from xradio.measurement_set._utils._utils.stokes_types import stokes_types
+from xradio.image._util.common import (
     _compute_linear_world_values,
     _compute_velocity_values,
     _compute_world_sph_dims,

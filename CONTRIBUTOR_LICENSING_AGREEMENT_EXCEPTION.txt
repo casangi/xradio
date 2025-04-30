@@ -1,6 +1,0 @@
-By submitting to the XRADIO Project, ESO (European Southern Observatory) does not accept or agree
-to the XRADIO Contributor Licensing Agreement.
-
-Contributions from ESO are made under the current ALMA software agreements (as of May 2024),
-(c) European Southern Observatory, 2024
-Copyright by ESO (in the framework of the ALMA collaboration)

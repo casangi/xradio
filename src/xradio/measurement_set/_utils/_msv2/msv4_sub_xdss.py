@@ -1,7 +1,7 @@
 import toolviper.utils.logger as logger
 import os
 import time
-from typing import Tuple, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import xarray as xr
@@ -749,7 +749,7 @@ def create_phased_array_xds(
     antenna_names: list[str],
     receptor_label: list[str],
     polarization_type: ArrayLike,
-) -> xr.Dataset:
+) -> Optional[xr.Dataset]:
     """
     Create an Xarray Dataset containing phased array information.
 
@@ -769,7 +769,9 @@ def create_phased_array_xds(
 
     Returns
     ----------
-        xr.Dataset: Xarray Dataset containing the phased array information.
+        xr.Dataset or None: If the input MS contains a PHASED_ARRAY table,
+           returns the Xarray Dataset containing the phased array information.
+           Otherwise, return None.
     """
 
     def extract_data(dataarray_or_sequence):
@@ -798,7 +800,7 @@ def create_phased_array_xds(
 
     # Defend against empty PHASED_ARRAY table.
     # The test MS "AA2-Mid-sim_00000.ms" has that problem.
-    required_keys = {"POSITION", "COORDINATE_AXES", "ELEMENT_OFFSET", "ELEMENT_FLAG"}
+    required_keys = {"COORDINATE_AXES", "ELEMENT_OFFSET", "ELEMENT_FLAG"}
     if not all(k in raw_xds for k in required_keys):
         return None
 
@@ -812,12 +814,11 @@ def create_phased_array_xds(
         return da.assign_attrs(msv4_measure(raw_name))
 
     raw_datavar_names_and_dims = [
-        ("POSITION", ("antenna_name", "geocentric_pos_label")),
         (
             "COORDINATE_AXES",
-            ("antenna_name", "local_pos_label", "geocentric_pos_label"),
+            ("antenna_name", "cartesian_pos_label_local", "cartesian_pos_label"),
         ),
-        ("ELEMENT_OFFSET", ("antenna_name", "local_pos_label", "element_id")),
+        ("ELEMENT_OFFSET", ("antenna_name", "cartesian_pos_label_local", "element_id")),
         ("ELEMENT_FLAG", ("antenna_name", "receptor_label", "element_id")),
     ]
 
@@ -825,13 +826,20 @@ def create_phased_array_xds(
         name: make_data_variable(name, dims)
         for name, dims in raw_datavar_names_and_dims
     }
-    data_vars["COORDINATE_AXES"].attrs = {}
-    data_vars["POSITION"].attrs.update(
+    data_vars["COORDINATE_AXES"].attrs = {
+        "type": "rotation_matrix",
+        "units": ["undimensioned", "undimensioned", "undimensioned"],
+    }
+    # Remove the "frame" attribute if it exists, because ELEMENT_OFFSET is
+    # defined in a station-local frame for which no standard name exists
+    data_vars["ELEMENT_OFFSET"].attrs.pop("frame", None)
+    data_vars["ELEMENT_OFFSET"].attrs.update(
         {
-            "coordinate_system": "geocentric",
-            "origin_object_name": "earth",
+            "coordinate_system": "topocentric",
+            "origin": "ANTENNA_POSITION",
         }
     )
+
     num_elements = data_vars["ELEMENT_OFFSET"].sizes["element_id"]
 
     data_vars = {"PHASED_ARRAY_" + key: val for key, val in data_vars.items()}
@@ -843,8 +851,8 @@ def create_phased_array_xds(
             ("antenna_name", "receptor_label"),
             polarization_type,
         ),
-        "geocentric_pos_label": ["x", "y", "z"],
-        "local_pos_label": ["p", "q", "r"],
+        "cartesian_pos_label": ["x", "y", "z"],
+        "cartesian_pos_label_local": ["p", "q", "r"],
     }
     attrs = {"type": "phased_array"}
     return xr.Dataset(data_vars, coords, attrs)

@@ -1,4 +1,4 @@
-name: "Python testing with casatools"
+name: "Python Testing with casatools"
 
 on:
   push:
@@ -9,57 +9,11 @@ on:
     paths-ignore:
       - "**.md"
       - "**.rst"
-  workflow_call:
-    inputs:
-      test-path:
-        required: false
-        type: string
-        default: "tests/"
-      cov_project:
-        required: true
-        type: string
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        os: ["ubuntu-latest", "macos-latest"]
-        python-version: ["3.11", "3.12"]
-    name: ${{ matrix.python-version }}, ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        shell: bash -el {0}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Conda
-        uses: conda-incubator/setup-miniconda@v3
-        with:
-          auto-activate-base: false
-          activate-environment: test
-
-          python-version: ${{ matrix.python-version }}
-          channels: conda-forge
-          use-only-tar-bz2: true
-          show-channel-urls: true
-          miniforge-version: latest
-
-      - name: Install dependencies with pip
-        run: |
-          python -m pip install --upgrade pip
-          pip install .
-          pip uninstall -y python-casacore
-          pip install casatools
-          mkdir -p ~/.casa/data
-          pip install pytest-cov
-          python -c 'import casatools' # trigger `casa-data` fetch
-
-      - name: Test with pytest
-        run: |
-          pytest -v ${{ inputs.test-path }} \
-          --ignore=tests/unit/measurement_set \
-          --html=test-results.html --self-contained-html \
-          --cov=${{ inputs.cov_project }} --no-cov-on-fail \
-          --cov-report=html --cov-report=xml --doctest-modules \
-          --junitxml=junit.xml -o junit_family=legacy
+  call-testing-with-casatools:
+    uses: casangi/toolviper/.github/workflows/python-testing-casatools-template.yml@add_pytest_with_casatools_template
+    with:
+      cov_project: "xradio"
+      test-path: "tests/"
+    secrets: inherit

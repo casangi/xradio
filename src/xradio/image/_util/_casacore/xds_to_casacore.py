@@ -19,12 +19,16 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
     """
     direction = {}
     xds_dir = xds.attrs["direction"]
+    direction["_axes_sizes"] = np.array(
+        [xds.sizes[dim] for dim in ("l", "m")], dtype=np.int32
+    )
+    direction["_image_axes"] = np.array([2, 3], dtype=np.int32)
     direction["system"] = xds_dir["reference"]["attrs"]["equinox"].upper()
     if direction["system"] == "J2000.0":
         direction["system"] = "J2000"
     direction["projection"] = xds_dir["projection"]
     direction["projection_parameters"] = xds_dir["projection_parameters"]
-    direction["units"] = np.array(xds_dir["reference"]["attrs"]["units"], dtype="<U16")
+    direction["units"] = xds_dir["reference"]["attrs"]["units"]
     direction["crval"] = np.array(xds_dir["reference"]["data"])
     direction["cdelt"] = np.array((xds.l[1] - xds.l[0], xds.m[1] - xds.m[0]))
     direction["crpix"] = _compute_sky_reference_pixel(xds)
@@ -34,9 +38,9 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
     for s in ["longpole", "latpole"]:
         m = "lonpole" if s == "longpole" else s
         # lonpole, latpole are numerical values in degrees in casa images
-        direction[s] = Angle(
-            str(xds_dir[m]["data"]) + xds_dir[m]["attrs"]["units"][0]
-        ).deg
+        direction[s] = float(
+            Angle(str(xds_dir[m]["data"]) + xds_dir[m]["attrs"]["units"][0]).deg
+        )
     return direction
 
 
@@ -69,6 +73,8 @@ def _compute_spectral_dict(xds: xr.Dataset) -> dict:
     for a CASA image coordinate system
     """
     spec = {}
+    spec["_axes_sizes"] = np.array([xds.sizes["frequency"]], dtype=np.int32)
+    spec["_image_axes"] = np.array([0], dtype=np.int32)
     spec["formatUnit"] = ""
     spec["name"] = "Frequency"
     # spec["nativeType"] = _native_types.index(xds.frequency.attrs["native_type"])
@@ -76,7 +82,7 @@ def _compute_spectral_dict(xds: xr.Dataset) -> dict:
     spec["nativeType"] = 0
     spec["restfreq"] = xds.frequency.attrs["rest_frequency"]["data"]
     # spec["restfreqs"] = copy.deepcopy(xds.frequency.attrs["restfreqs"]["value"])
-    spec["restfreqs"] = [spec["restfreq"]]
+    spec["restfreqs"] = np.array([spec["restfreq"]])
     spec["system"] = xds.frequency.attrs["reference_value"]["attrs"]["observer"].upper()
     u = xds.frequency.attrs["reference_value"]["attrs"]["units"]
     spec["unit"] = u if isinstance(u, str) else u[0]
@@ -88,53 +94,65 @@ def _compute_spectral_dict(xds: xr.Dataset) -> dict:
     wcs = {}
     wcs["ctype"] = "FREQ"
     wcs["pc"] = 1.0
-    wcs["crval"] = xds.frequency.attrs["reference_value"]["data"]
-    wcs["cdelt"] = xds.frequency.values[1] - xds.frequency.values[0]
-    wcs["crpix"] = (wcs["crval"] - xds.frequency.values[0]) / wcs["cdelt"]
+    wcs["crval"] = float(xds.frequency.attrs["reference_value"]["data"])
+    wcs["cdelt"] = float(xds.frequency.values[1] - xds.frequency.values[0])
+    wcs["crpix"] = float((wcs["crval"] - xds.frequency.values[0]) / wcs["cdelt"])
     spec["wcs"] = wcs
     return spec
 
 
 def _coord_dict_from_xds(xds: xr.Dataset) -> dict:
     coord = {}
-    coord["telescope"] = xds.attrs["telescope"]["name"]
-    coord["observer"] = xds.attrs["observer"]
+    sky_ap = "SKY" if "SKY" in xds.data_vars else "APERTURE"
+    if "telescope" in xds[sky_ap].attrs:
+        tel = xds[sky_ap].attrs["telescope"]
+        if "name" in tel:
+            coord["telescope"] = xds[sky_ap].attrs["telescope"]["name"]
+        if "location" in tel:
+            xds_telloc = tel["location"]
+            telloc = {}
+            telloc["refer"] = xds_telloc["attrs"]["frame"]
+            if telloc["refer"] == "GRS80":
+                telloc["refer"] = "ITRF"
+            for i in range(3):
+                telloc[f"m{i}"] = {
+                    "unit": xds_telloc["attrs"]["units"][i],
+                    "value": xds_telloc["data"][i],
+                }
+            telloc["type"] = "position"
+            coord["telescopeposition"] = telloc
+    if "observer" in xds[sky_ap].attrs:
+        coord["observer"] = xds[sky_ap].attrs["observer"]
     obsdate = {}
     obsdate["refer"] = xds.coords["time"].attrs["scale"]
     obsdate["type"] = "epoch"
     obsdate["m0"] = {}
     obsdate["m0"]["unit"] = xds.coords["time"].attrs["units"][0]
-    obsdate["m0"]["value"] = xds.coords["time"].values[0]
+    obsdate["m0"]["value"] = float(xds.coords["time"].values[0])
     coord["obsdate"] = obsdate
-    coord["pointingcenter"] = xds.attrs[_pointing_center].copy()
-    if "position" in xds.attrs["telescope"]:
-        telpos = {}
-        telpos["refer"] = xds.attrs["telescope"]["position"]["ellipsoid"]
-        if xds.attrs["telescope"]["position"]["ellipsoid"] == "GRS80":
-            telpos["refer"] = "ITRF"
-        for i in range(3):
-            telpos[f"m{i}"] = {
-                "unit": xds.attrs["telescope"]["position"]["units"][i],
-                "value": xds.attrs["telescope"]["position"]["value"][i],
-            }
-        telpos["type"] = "position"
-        coord["telescopeposition"] = telpos
+    if _pointing_center in xds[sky_ap].attrs:
+        coord["pointingcenter"] = {
+            "initial": True,
+            "value": xds[sky_ap].attrs[_pointing_center]["data"],
+        }
     if "l" in xds.coords:
         coord["direction0"] = _compute_direction_dict(xds)
     else:
         coord["linear0"] = _compute_linear_dict(xds)
     coord["stokes1"] = {
-        "axes": np.array(["Stokes"], dtype="<U16"),
+        "_axes_sizes": np.array([xds.sizes["polarization"]], dtype=np.int32),
+        "_image_axes": np.array([1], dtype=np.int32),
+        "axes": ["Stokes"],
         "cdelt": np.array([1.0]),
         "crpix": np.array([0.0]),
         "crval": np.array([1.0]),
         "pc": np.array([[1.0]]),
-        "stokes": np.array(xds.polarization.values, dtype="<U16"),
+        "stokes": xds.polarization.values.tolist(),
     }
     coord["spectral2"] = _compute_spectral_dict(xds)
-    coord["pixelmap0"] = np.array([0, 1])
-    coord["pixelmap1"] = np.array([2])
-    coord["pixelmap2"] = np.array([3])
+    coord["pixelmap0"] = np.array([0, 1], dtype=np.int32)
+    coord["pixelmap1"] = np.array([2], dtype=np.int32)
+    coord["pixelmap2"] = np.array([3], dtype=np.int32)
     coord["pixelreplace0"] = np.array([0.0, 0.0])
     coord["pixelreplace1"] = np.array([0.0])
     coord["pixelreplace2"] = np.array([0.0])
@@ -144,7 +162,6 @@ def _coord_dict_from_xds(xds: xr.Dataset) -> dict:
     # this probbably needs some verification
     coord["worldreplace0"] = [0.0, 0.0]
     coord["worldreplace1"] = np.array(coord["stokes1"]["crval"])
-    # print("spectral", coord["spectral2"])
     coord["worldreplace2"] = np.array(coord["spectral2"]["wcs"]["crval"])
     return coord
 
@@ -181,7 +198,7 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
     ii["image_type"] = (
         xds[ap_sky].attrs["image_type"] if "image_type" in xds[ap_sky].attrs else ""
     )
-    ii["objectname"] = xds.attrs[_object_name]
+    ii["objectname"] = xds[ap_sky].attrs[_object_name]
     if "BEAM" in xds.data_vars:
         # multi beam
         pp = {}
@@ -231,7 +248,9 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
         else ("frequency", "polarization", "v", "u")
     )
     casa_image_shape = xds[sky_ap].isel(time=0).transpose(*trans_coords).shape[::-1]
-    active_mask = xds.attrs["active_mask"] if _active_mask in xds.attrs else ""
+    active_mask = (
+        xds[sky_ap].attrs["active_mask"] if _active_mask in xds[sky_ap].attrs else ""
+    )
     masks = []
     masks_rec = {}
     mask_rec = {

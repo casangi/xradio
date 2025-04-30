@@ -665,7 +665,7 @@ def test_read_flat_col_chunk_flag(ms_minimal_required):
     npols = ms_minimal_required.descr["npols"]
     nchans = ms_minimal_required.descr["nchans"]
     res = read_flat_col_chunk(
-        ms_minimal_required.fname, "FLAG", (10, 32, npols), [0, 1, 2], 0, 0
+        ms_minimal_required.fname, "FLAG", (10, nchans, npols), [0, 1, 2], 0, 0
     )
     assert isinstance(res, np.ndarray)
     assert res.shape == (3, nchans, npols)

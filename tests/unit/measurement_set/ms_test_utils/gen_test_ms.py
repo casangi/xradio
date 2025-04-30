@@ -21,7 +21,7 @@ from casacore.tables.msutil import complete_ms_desc, makearrcoldesc, required_ms
 # 2 observations, 2 fields, 2 states
 # 2 SPWs, 4 polarizations
 default_ms_descr = {
-    "nchans": 32,
+    "nchans": 16,
     "npols": 2,
     "data_cols": ["DATA"],  # ['CORRECTED_DATA'],
     # DATA / CORRECTED, etc.
@@ -125,7 +125,7 @@ def gen_test_ms(
     # All these are required to create the xdss (they define data and dims)
     outdescr = gen_main_table(msname, descr, required_only, misbehave)
     gen_subt_ddi(msname, descr["SPECTRAL_WINDOW"], descr["POLARIZATION"])
-    gen_subt_spw(msname, descr["SPECTRAL_WINDOW"], misbehave=misbehave)
+    gen_subt_spw(msname, descr["SPECTRAL_WINDOW"], descr["nchans"], misbehave=misbehave)
     gen_subt_antenna(msname, descr["ANTENNA"])
     gen_subt_pol_setup(msname, descr["npols"], descr["POLARIZATION"])
 
@@ -325,12 +325,12 @@ def gen_main_table(
         ms_desc.update(maketabdesc(data_col_desc))
 
         dmgroups_spec.update(
-            {"DataColsGroup": {"DEFAULTTILESHAPE": [nchans, npols, 32]}}
+            {"DataColsGroup": {"DEFAULTTILESHAPE": [nchans, npols, nchans]}}
         )
         ms_data_man_info = makedminfo(ms_desc, dmgroups_spec)
 
     if not "STATE" in descr:
-        vis = tables.default_ms(name, tabdesc=tabdesc, dminfo=makedminfo(tabdesc))
+        vis = tables.default_ms(mspath, tabdesc=tabdesc, dminfo=makedminfo(tabdesc))
         assert vis.nrows() == 0
         return
     # else:
@@ -379,7 +379,7 @@ def gen_main_table(
         CASACORE_TO_DATETIME_CORRECTION = 3_506_716_800.0
         start = (
             datetime.datetime(
-                2023, 5, 1, 1, 1, tzinfo=datetime.timezone.utc
+                2025, 5, 1, 1, 1, tzinfo=datetime.timezone.utc
             ).timestamp()
             + CASACORE_TO_DATETIME_CORRECTION
         )
@@ -511,7 +511,7 @@ def gen_subt_ddi(mspath: str, spws_descr: dict, pol_setup_descr: dict):
         ddi_tbl.putcol("FLAG_ROW", np.broadcast_to(False, nrows))
 
 
-def gen_subt_spw(mspath: str, spw_descr: dict, misbehave=False):
+def gen_subt_spw(mspath: str, spw_descr: dict, nchans: int, misbehave=False):
     """
     Populates SPECTRAL_WINDOW
     """
@@ -532,15 +532,14 @@ def gen_subt_spw(mspath: str, spw_descr: dict, misbehave=False):
         # spw_tbl.putcol("TOTAL_BANDWIDTH", nspws*[0.020])
 
         for spw in range(nspws):
-            # nchan = spw_descr[spw]['NUM_CHAN']
+            # nchans = spw_descr[spw]['NUM_CHAN']
             # spw_tbl.addrows(1)  # 1
-            nchan = 32
 
             # spw_tbl.putcell("NAME", spw, "unspecified_test")
             spw_tbl.putcell("REF_FREQUENCY", spw, 0.9e9)
 
-            spw_tbl.putcol("NUM_CHAN", nchan, startrow=spw, nrow=1)
-            widths = np.full(nchan, 20000.0)
+            spw_tbl.putcol("NUM_CHAN", nchans, startrow=spw, nrow=1)
+            widths = np.full(nchans, 20000.0)
             spw_tbl.putcell("CHAN_WIDTH", spw, widths)
             if misbehave:
                 kws = spw_tbl.getcolkeywords("CHAN_WIDTH")
@@ -548,8 +547,8 @@ def gen_subt_spw(mspath: str, spw_descr: dict, misbehave=False):
                 if units_kw in kws:
                     spw_tbl.removecolkeyword("CHAN_WIDTH", "QuantumUnits")
                 # or alternatively
-                # spw_tbl.putcol("CHAN_WIDTH", np.full((1, nchan), 20000.0), startrow=spw, nrow=1)
-            spw_tbl.putcell("CHAN_FREQ", spw, np.full(nchan, 10e0))
+                # spw_tbl.putcol("CHAN_WIDTH", np.full((1, nchans), 20000.0), startrow=spw, nrow=1)
+            spw_tbl.putcell("CHAN_FREQ", spw, np.full(nchans, 10e0))
             spw_tbl.putcell("EFFECTIVE_BW", spw, widths)
             spw_tbl.putcell("TOTAL_BANDWIDTH", spw, sum(widths))
             spw_tbl.putcell("RESOLUTION", spw, widths)
@@ -573,7 +572,8 @@ def gen_subt_pol_setup(mspath: str, npols, pol_setup_descr: dict):
         )
         corr_products = [0, 0, 1, 1]
         pol_tbl.putcol(
-            "CORR_PRODUCT", np.broadcast_to(corr_products[:npols], (nsetups, 2, npols))
+            "CORR_PRODUCT",
+            np.broadcast_to(corr_products[:npols], (nsetups, nsetups, npols)),
         )
 
 

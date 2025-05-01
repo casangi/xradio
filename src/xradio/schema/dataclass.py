@@ -88,6 +88,113 @@ def _check_invalid_dims(
     return valid_dims
 
 
+def _attr_type(
+    ann: typing.Any, klass_name: str, field_name: str
+) -> (str, typing.Optional[typing.List[typing.Any]]):
+    """
+    Take attribute type annotation and convert into type name and
+    - optionally - a list of literal allowed values
+
+    :param ann: Annotation
+    :param klass_name: Name of class where annotation origins from
+    :param field_name: Name of field where annotation origins from
+    :returns: Pair of (type_name, dict_schema, array_schema, literals
+    """
+
+    # Is a type?
+    if isinstance(ann, type):
+        # Array type?
+        if hasattr(ann, "__xradio_array_schema"):
+            return ("dataarray", None, ann.__xradio_array_schema, None)
+
+        # Dictionary type?
+        if hasattr(ann, "__xradio_dict_schema"):
+            return ("dict", ann.__xradio_dict_schema, None, None)
+
+        # Check that it is an allowable type
+        if ann not in [bool, str, int, float, bool]:
+            raise ValueError(
+                f"In '{klass_name}', field '{field_name}' has"
+                f" type {ann} - but only str, int, float or list are allowed!"
+            )
+        return (ann.__name__, None, None, None)
+
+    # Is a list
+    if typing.get_origin(ann) in [typing.List, list]:
+        args = typing.get_args(ann)
+
+        # Must be a string list
+        if args != (str,):
+            raise ValueError(
+                f"In '{klass_name}', field '{field_name}' has"
+                f" annotation {ann}, but only str, int, float, list[str] or Literal allowed!"
+            )
+
+        return ("list[str]", None, None, None)
+
+    # Is a literal?
+    if typing.get_origin(ann) is typing.Literal:
+        args = typing.get_args(ann)
+
+        # Check that it is an allowable type
+        if len(args) == 0:
+            raise ValueError(
+                f"In '{klass_name}', field '{field_name}' has"
+                f" literal annotation, but allows no values!"
+            )
+
+        # String list?
+        typ = type(args[0])
+        if typ is list:
+            elem_type = type(args[0][0])
+            if elem_type is not str:
+                raise ValueError(
+                    f"In '{klass_name}', field '{field_name}' has"
+                    f" literal type list[{elem_type}] - but only list[str] is allowed!"
+                )
+            for lit in args:
+                if not isinstance(lit, typ):
+                    raise ValueError(
+                        f"In '{klass_name}', field '{field_name}' literal"
+                        f" {lit} has inconsistent type ({typ(lit)}) vs ({typ})!"
+                    )
+                for elem in lit:
+                    if not isinstance(elem, elem_type):
+                        raise ValueError(
+                            f"In '{klass_name}', field '{field_name}' literal"
+                            f" {lit} has inconsistent element type "
+                            f"({typ(elem)}) vs ({elem_type})!"
+                        )
+            return (
+                "list[str]",
+                None,
+                None,
+                [[str(elem) for elem in arg] for arg in args],
+            )
+
+        # Check that it is an allowable type
+        if typ not in [bool, str, int, float]:
+            raise ValueError(
+                f"In '{klass_name}', field '{field_name}' has"
+                f" literal type {typ} - but only str, int, float or list[str] are allowed!"
+            )
+
+        # Check that all literals have the same type
+        for lit in args:
+            if not isinstance(lit, typ):
+                raise ValueError(
+                    f"In '{klass_name}', field '{field_name}' literal"
+                    f" {lit} has inconsistent type ({typ(lit)}) vs ({typ})!"
+                )
+
+        return (typ.__name__, None, None, [typ(arg) for arg in args])
+
+    raise ValueError(
+        f"In '{klass_name}', field '{field_name}' has"
+        f" annotation {ann}, but only type or Literal allowed!"
+    )
+
+
 def extract_xarray_dataclass(klass, allow_undefined_coords: bool = False):
     """
     Go through dataclass fields and interpret them according to xarray-dataclass
@@ -132,10 +239,23 @@ def extract_xarray_dataclass(klass, allow_undefined_coords: bool = False):
 
         # Is it an attribute?
         if role == Role.ATTR:
+            try:
+                ann = get_annotated(typ)
+            except TypeError as e:
+                raise ValueError(
+                    f"Could not get annotation in '{klass.__name__}' field '{field.name}': {e}"
+                )
+            type_name, dict_schema, array_schema, literal = _attr_type(
+                get_annotated(typ), klass.__name__, field.name
+            )
+
             attributes.append(
                 AttrSchemaRef(
                     name=field.name,
-                    typ=get_annotated(typ),
+                    type_name=type_name,
+                    dict_schema=dict_schema,
+                    array_schema=array_schema,
+                    literal=literal,
                     optional=is_optional(typ),
                     default=field.default,
                     docstring=field_docstrings.get(field.name),
@@ -378,10 +498,17 @@ def xarray_dataclass_to_dict_schema(klass):
             else:
                 typ = typing.Union.__getitem__[tuple(typs)]
 
+        type_name, dict_schema, array_schema, literal = _attr_type(
+            typ, klass.__name__, field.name
+        )
+
         attributes.append(
             AttrSchemaRef(
                 name=field.name,
-                typ=typ,
+                type_name=type_name,
+                dict_schema=dict_schema,
+                array_schema=array_schema,
+                literal=literal,
                 optional=optional,
                 default=field.default,
                 docstring=field_docstrings.get(field.name),

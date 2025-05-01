@@ -79,24 +79,21 @@ Doppler = Literal["doppler"]
 
 
 # Units of quantities and measures
-UnitsSeconds = list[Literal["s"]]
-UnitsHertz = list[Literal["Hz"]]
-UnitsMeters = list[Literal["m"]]
+UnitsSeconds = Literal[["s"]]
+UnitsHertz = Literal[["Hz"]]
+UnitsMeters = Literal[["m"]]
 
-UnitsOfSkyCoordInRadians = list[Literal["rad"], Literal["rad"]]
-UnitsOfLocationInMetersOrRadians = Union[
-    list[Literal["m"], Literal["m"], Literal["m"]],
-    list[Literal["rad"], Literal["rad"], Literal["m"]],
-]
-UnitsOfPositionInRadians = list[Literal["rad"], Literal["rad"], Literal["m"]]
-UnitsOfDopplerShift = Union[list[Literal["ratio"]], list[Literal["m/s"]]]
+UnitsOfSkyCoordInRadians = Literal[["rad", "rad"]]
+UnitsOfLocationInMetersOrRadians = Literal[["m", "m", "m"], ["rad", "rad", "m"]]
+UnitsOfPositionInRadians = Literal[["rad", "rad", "m"]]
+UnitsOfDopplerShift = Literal[["ratio"], ["m/s"]]
 
-UnitsRadians = list[Literal["rad"]]
-UnitsKelvin = list[Literal["K"]]
-UnitsKelvinPerJansky = list[Literal["K/Jy"]]
-UnitsMetersPerSecond = list[Literal["m/s"]]
-UnitsPascal = list[Literal["Pa"]]  # hPa? (in MSv2)
-UnitsPerSquareMeters = list[Literal["/m^2"]]
+UnitsRadians = Literal[["rad"]]
+UnitsKelvin = Literal[["K"]]
+UnitsKelvinPerJansky = Literal[["K/Jy"]]
+UnitsMetersPerSecond = Literal[["m/s"]]
+UnitsPascal = Literal[["Pa"]]  # hPa? (in MSv2)
+UnitsPerSquareMeters = Literal[["/m^2"]]
 
 
 # Quantities
@@ -497,7 +494,7 @@ class TimeWeatherCoordArray:
     ``format``).
     """
 
-    type: Attr[Time] = "time_weather"
+    type: Attr[TimeWeather] = "time_weather"
     """ Coordinate type. Should be ``"time_weather"``. """
 
     units: Attr[UnitsSeconds] = ("s",)
@@ -1314,7 +1311,7 @@ class SpectrumArray:
 
     long_name: Optional[Attr[str]] = "Spectrum values"
     """ Long-form name to use for axis. Should be ``"Spectrum values"``"""
-    units: Attr[list[str]] = ("Jy",)
+    units: Attr[List[str]] = ("Jy",)
 
 
 @xarray_dataarray_schema
@@ -1333,7 +1330,7 @@ class VisibilityArray:
 
     long_name: Optional[Attr[str]] = "Visibility values"
     """ Long-form name to use for axis. Should be ``"Visibility values"``"""
-    units: Attr[list[str]] = ("Jy",)
+    units: Attr[List[str]] = ("Jy",)
 
     allow_mutiple_versions: Optional[Attr[bool]] = True
 
@@ -1371,7 +1368,7 @@ class VisibilityArray:
 
 @dict_schema
 class ObservationInfoDict:
-    observer: list
+    observer: list[str]
     """List of observer names."""
     project: str
     """Project Code/Project_UID"""

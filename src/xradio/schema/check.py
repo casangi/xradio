@@ -1,3 +1,4 @@
+import builtins
 import dataclasses
 import typing
 import inspect
@@ -334,30 +335,21 @@ def check_attributes(
 
     issues = SchemaIssues()
     for attr_schema in attrs_schema:
-        # Attribute missing? Note that a value of "None" is equivalent for the
-        # purpose of the check
+        # Attribute missing is equivalent to a value of "None" is
+        # equivalent for the purpose of the check
         val = attrs.get(attr_schema.name)
         if val is None:
             if not attr_schema.optional:
-                # Get options
-                if typing.get_origin(attr_schema.typ) is typing.Union:
-                    options = typing.get_args(attr_schema.typ)
-                else:
-                    options = [attr_schema.typ]
-
                 issues.add(
                     SchemaIssue(
                         path=[(attr_kind, attr_schema.name)],
-                        message=f"Required attribute {attr_schema.name} is missing!",
-                        expected=options,
+                        message="Non-optional attribute is missing!",
                     )
                 )
             continue
 
-        # Check attribute value
-        issues += _check_value_union(val, attr_schema.typ).at_path(
-            attr_kind, attr_schema.name
-        )
+        # Check actual value
+        issues += _check_value(val, attr_schema).at_path(attr_kind, attr_schema.name)
 
     # Extra attributes are always okay
 
@@ -385,7 +377,6 @@ def check_data_vars(
 
     issues = SchemaIssues()
     for data_var_schema in data_vars_schema:
-
         allow_mutiple_versions = False
         for attr in data_var_schema.attributes:
             if hasattr(attr, "name"):
@@ -450,7 +441,7 @@ def check_dict(
     return check_attributes(dct, schema.attributes, attr_kind="")
 
 
-def _check_value(val, ann):
+def _check_value(val: typing.Any, ann: metamodel.AttrSchemaRef):
     """
     Check whether value satisfies annotation
 
@@ -462,7 +453,7 @@ def _check_value(val, ann):
     """
 
     # Is supposed to be a data array?
-    if bases.is_dataarray_schema(ann):
+    if ann.type_name == "dataarray":
         # Attempt to convert dictionaries automatically
         if isinstance(val, dict):
             try:
@@ -486,89 +477,34 @@ def _check_value(val, ann):
 
         if not isinstance(val, xarray.DataArray):
             # Fall through to plain type check
-            ann = xarray.DataArray
+            type_to_check = xarray.DataArray
         else:
-            return check_array(val, ann)
-
-    # Is supposed to be a dataset?
-    if bases.is_dataset_schema(ann):
-        # Attempt to convert dictionaries automatically
-        if isinstance(val, dict):
-            try:
-                val = xarray.Dataset.from_dict(val)
-            except ValueError as e:
-                return SchemaIssues(
-                    [
-                        SchemaIssue(
-                            path=[], message=str(t), expected=[ann], found=type(val)
-                        )
-                    ]
-                )
-        if not isinstance(val, xarray.Dataset):
-            # Fall through to plain type check
-            ann = xarray.Dataset
-        else:
-            return check_dataset(val, ann)
+            return check_array(val, ann.array_schema)
 
     # Is supposed to be a dictionary?
-    if bases.is_dict_schema(ann):
+    elif ann.type_name == "dict":
         if not isinstance(val, dict):
             # Fall through to plain type check
-            ann = dict
+            type_to_check = dict
         else:
-            return check_dict(val, ann)
+            return check_dict(val, ann.dict_schema)
+
+    elif ann.type_name == "list[str]":
+        type_to_check = typing.List[str]
+    elif ann.type_name in ["bool", "str", "int", "float"]:
+        type_to_check = getattr(builtins, ann.type_name)
+    else:
+        return ValueError(f"Invalid typ_name in schema: {ann.type_name}")
 
     # Otherwise straight type check using typeguard
     try:
-        check_type(val, ann)
+        check_type(val, type_to_check)
     except TypeCheckError as t:
         return SchemaIssues(
             [SchemaIssue(path=[], message=str(t), expected=[ann], found=type(val))]
         )
 
     return SchemaIssues()
-
-
-def _check_value_union(val, ann):
-    """
-    Check whether value satisfies annotations, including union types
-
-    If the annotation is a data array or dataset schema, it will be checked.
-
-    :param val: Value to check
-    :param ann: Type annotation of value
-    :returns: Schema issues
-    """
-
-    if ann is None or ann is inspect.Signature.empty:
-        return SchemaIssues()
-
-    # Account for union types (this especially catches "Optional")
-    if typing.get_origin(ann) is typing.Union:
-        options = typing.get_args(ann)
-    else:
-        options = [ann]
-
-    # Go through options, try to find one without issues
-    args_issues = None
-    okay = False
-    for option in options:
-        arg_issues = _check_value(val, option)
-        # We can immediately return if we find no issues with
-        # some schema check
-        if not arg_issues:
-            return SchemaIssues()
-        if args_issues is None:
-            args_issues = arg_issues
-
-        # Crude merging of expected options (for "unexpected type")
-        elif len(args_issues) == 1 and len(arg_issues) == 1:
-            args_issues[0].expected += arg_issues[0].expected
-
-    # Return representative issues list
-    if not args_issues:
-        raise ValueError("Empty union set?")
-    return args_issues
 
 
 _DATASET_TYPES = {}
@@ -591,7 +527,7 @@ def register_dataset_type(schema: metamodel.DatasetSchema):
             continue
 
         # Type should be a kind of literal
-        if typing.get_origin(attr.typ) is not typing.Literal:
+        if attr.literal is None:
             warnings.warn(
                 f"In dataset schema {schema.schema_name}:"
                 'Attribute "type" should be a literal!'
@@ -599,7 +535,12 @@ def register_dataset_type(schema: metamodel.DatasetSchema):
             continue
 
         # Register type names
-        for typ in typing.get_args(attr.typ):
+        for typ in attr.literal:
+            assert isinstance(typ, str), (
+                f"In dataset schema {schema.schema_name}:"
+                'Attribute "type" should be a literal giving '
+                "names of schema!"
+            )
             _DATASET_TYPES[typ] = schema
 
 
@@ -621,7 +562,6 @@ def check_datatree(
     # Loop through all groups in datatree
     issues = SchemaIssues()
     for xds_name in datatree.groups:
-
         # Ignore any leaf without data
         node = datatree[xds_name]
         if not node.has_data:

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 import typing
 
@@ -21,11 +23,37 @@ class AttrSchemaRef:
     """
 
     name: str
-    """Name of attribute as given in data array / dataset."""
-    typ: type
     """
-    Python type of attribute. Note that this might again be a data
-    array or dataset, but we don't track that explicitly.
+    Name of attribute as given in data array / dataset.
+
+    * ``bool``: A boolean
+    * ``str``: A UTF-8 string
+    * ``int``: A 64-bit signed integer
+    * ``float``: A double-precision floating point number
+    * ``str_list``: A list of strings
+    * ``dataarray``: An xarray dataarray (encoded using to_dict)
+    """
+    type_name: typing.Literal[
+        "bool", "str", "int", "float", "list[str]", "dict", "dataarray"
+    ]
+    """
+    Dictionary schema, if it is an xarray DataArray
+    """
+    dict_schema: typing.Optional[DictSchema]
+    """
+    Array schema, if it is an xarray DataArray
+    """
+    array_schema: typing.Optional[ArraySchema]
+    """
+    Python name of type.
+
+    * str = Unicode string
+    * int = 64 bit integer
+    * float = 64 bit floating point number (double)
+    """
+    literal: typing.Optional[typing.List[typing.Any]]
+    """
+    Allowed literal values, if specified.
     """
     optional: bool
     """Is the attribute optional?"""

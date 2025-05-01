@@ -198,7 +198,9 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
     ii["image_type"] = (
         xds[ap_sky].attrs["image_type"] if "image_type" in xds[ap_sky].attrs else ""
     )
-    ii["objectname"] = xds[ap_sky].attrs[_object_name]
+    ii["objectname"] = (
+        xds[ap_sky].attrs[_object_name] if _object_name in xds[ap_sky].attrs else ""
+    )
     if "BEAM" in xds.data_vars:
         # multi beam
         pp = {}

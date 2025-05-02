@@ -10,6 +10,8 @@ from xradio.image import (
 )
 from toolviper.utils.data import download
 from xradio.image._util.common import _image_type as image_type
+from xradio.image._util._casacore.common import _object_name
+
 from xradio.image._util._casacore.common import (
     _open_image_ro as open_image_ro,
     _create_new_image as create_new_image,
@@ -781,10 +783,11 @@ class casa_image_to_xds_test(xds_from_image_test):
 
 class xds_to_casacore(xds_from_image_test):
     _outname = "rabbit.im"
+    _outname2 = "rabbit2.im"
 
     @classmethod
     def _clean(cls):
-        for f in [cls._outname]:
+        for f in [cls._outname, cls._outname2]:
             if os.path.exists(f):
                 if os.path.isdir(f):
                     shutil.rmtree(f)
@@ -812,6 +815,20 @@ class xds_to_casacore(xds_from_image_test):
             p = im.getdata()
         exp_data = np.squeeze(np.transpose(xds[sky], [1, 2, 4, 3, 0]), 4)
         self.assertTrue((p == exp_data).all(), "Incorrect pixel values")
+
+    def test_object_name_not_present(self):
+        """
+        Test writing an xds which does not have an object name
+        to a casa image.
+        """
+        xds = self.xds()
+        import pprint
+
+        del xds["SKY"].attrs[_object_name]
+        write_image(xds, self._outname2, "casa", overwrite=True)
+        with open_image_ro(self._outname2) as im:
+            ii = im.imageinfo()
+            self.assertEqual(ii["objectname"], "", "Incorrect object name")
 
 
 class casacore_to_xds_to_casacore(xds_from_image_test):

@@ -64,7 +64,7 @@ def _add_freq_attrs(xds, coord_dict):
             meta["type"] = "frequency"
             # meta["units"] = sd["unit"]
             # meta["frame"] = sd["system"]
-            meta["wave_unit"] = sd["waveUnit"]
+            meta["wave_unit"] = [ sd["waveUnit"] ]
             # meta["crval"] = sd["wcs"]["crval"]
             # meta["cdelt"] = sd["wcs"]["cdelt"]
             meta["reference_value"] = make_frequency_reference_dict(
@@ -553,7 +553,7 @@ def _get_freq_values_attrs(
                 # attrs["type"] = "frequency"
                 # attrs["units"] = sd["unit"]
                 # attrs["frame"] = sd["system"]
-                attrs["wave_unit"] = sd["waveUnit"]
+                attrs["wave_unit"] = [ sd["waveUnit"] ]
                 # attrs["crval"] = sd["wcs"]["crval"]
                 # attrs["cdelt"] = sd["wcs"]["cdelt"]
 

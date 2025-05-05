@@ -83,7 +83,7 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
         meta["rest_frequency"] = make_quantity(helpers["restfreq"], "Hz")
         meta["rest_frequencies"] = [meta["rest_frequency"]]
         meta["type"] = "frequency"
-        meta["wave_unit"] = "mm"
+        meta["wave_unit"] = ["mm"]
         freq_axis = helpers["freq_axis"]
         meta["reference_value"] = make_frequency_reference_dict(
             helpers["crval"][freq_axis], ["Hz"], helpers["specsys"]

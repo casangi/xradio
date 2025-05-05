@@ -167,7 +167,7 @@ class xds_from_image_test(ImageBase):
                 "beam_param": 3,
             }
         ),
-        "freq_waveunit": "mm",
+        "freq_waveunit": ["mm"],
         "stokes": ["I", "Q", "U", "V"],
         "time_format": "MJD",
         "time_refer": "UTC",
@@ -204,7 +204,7 @@ class xds_from_image_test(ImageBase):
             "data": 1415000000.0,
             "dims": [],
         },
-        "wave_unit": "mm",
+        "wave_unit": ["mm"],
         "beam_param": ["major", "minor", "pa"],
     }
     _rad_to_arcmin = np.pi / 180 / 60

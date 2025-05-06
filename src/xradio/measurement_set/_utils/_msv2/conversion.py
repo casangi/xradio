@@ -21,6 +21,7 @@ from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
     create_pointing_xds,
     create_system_calibration_xds,
     create_weather_xds,
+    create_phased_array_xds,
 )
 from .msv4_info_dicts import create_info_dicts
 from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
@@ -1249,6 +1250,14 @@ def convert_and_write_partition(
                 + str(time.time() - start)
             )
 
+        # Create phased array xds
+        phased_array_xds = create_phased_array_xds(
+            in_file,
+            ant_xds.antenna_name,
+            ant_xds.receptor_label,
+            ant_xds.polarization_type,
+        )
+
         start = time.time()
 
         # Time and frequency should always be increasing
@@ -1363,6 +1372,9 @@ def convert_and_write_partition(
 
         if weather_xds:
             ms_xdt["/weather_xds"] = weather_xds
+
+        if phased_array_xds:
+            ms_xdt["/phased_array_xds"] = phased_array_xds
 
         if storage_backend == "zarr":
             ms_xdt.to_zarr(store=os.path.join(out_file, ms_v4_name))

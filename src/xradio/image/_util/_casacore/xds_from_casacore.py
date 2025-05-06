@@ -62,30 +62,6 @@ def _add_lin_attrs(xds, coord_dict, dir_axes):
     return xds
 
 
-def _add_freq_attrs(xds, coord_dict):
-    freq_coord = xds["frequency"]
-    meta = {}
-    for k in coord_dict:
-        if k.startswith("spectral"):
-            sd = coord_dict[k]
-            meta["rest_frequency"] = make_quantity(sd["restfreq"], "Hz")
-            meta["type"] = "frequency"
-            # meta["units"] = sd["unit"]
-            # meta["frame"] = sd["system"]
-            meta["wave_unit"] = sd["waveUnit"]
-            # meta["crval"] = sd["wcs"]["crval"]
-            # meta["cdelt"] = sd["wcs"]["cdelt"]
-            meta["reference_value"] = make_frequency_reference_dict(
-                value=sd["wcs"]["crval"],
-                units=sd["unit"],
-                observer=sd["system"],
-            )
-    if not meta:
-        # this is the default frequency information CASA creates
-        meta = _default_freq_info()
-    freq_coord.attrs = meta
-
-
 def _add_mask(
     xds: xr.Dataset, name: str, ary: Union[np.ndarray, da.array], dimorder: list
 ) -> xr.Dataset:
@@ -561,7 +537,7 @@ def _get_freq_values_attrs(
                 # attrs["type"] = "frequency"
                 # attrs["units"] = sd["unit"]
                 # attrs["frame"] = sd["system"]
-                attrs["wave_unit"] = sd["waveUnit"]
+                attrs["wave_unit"] = [sd["waveUnit"]]
                 # attrs["crval"] = sd["wcs"]["crval"]
                 # attrs["cdelt"] = sd["wcs"]["cdelt"]
 

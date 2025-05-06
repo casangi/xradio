@@ -92,9 +92,11 @@ def _compute_spectral_dict(xds: xr.Dataset) -> dict:
     spec["unit"] = u if isinstance(u, str) else u[0]
     spec["velType"] = _doppler_types.index(xds.velocity.attrs["doppler_type"])
     u = xds.velocity.attrs["units"]
-    spec["velUnit"] = u if isinstance(u, str) else u[0]
     spec["version"] = 2
-    spec["waveUnit"] = xds.frequency.attrs["wave_unit"]
+    # vel unit is a list[str] in the xds but needs to be a str in the casa image
+    spec["velUnit"] = xds.velocity.attrs["units"][0]
+    # wave unit is a list[str] in the xds but needs to be a str in the casa image
+    spec["waveUnit"] = xds.frequency.attrs["wave_unit"][0]
     wcs = {}
     wcs["ctype"] = "FREQ"
     wcs["pc"] = 1.0
@@ -202,7 +204,9 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
     ii["image_type"] = (
         xds[ap_sky].attrs["image_type"] if "image_type" in xds[ap_sky].attrs else ""
     )
-    ii["objectname"] = xds[ap_sky].attrs[_object_name]
+    ii["objectname"] = (
+        xds[ap_sky].attrs[_object_name] if _object_name in xds[ap_sky].attrs else ""
+    )
     if "BEAM" in xds.data_vars:
         # multi beam
         pp = {}

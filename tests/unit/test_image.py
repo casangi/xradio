@@ -31,6 +31,8 @@ from xradio.image import (
 from xradio.image._util._casacore.common import _create_new_image as create_new_image
 from xradio.image._util._casacore.common import _open_image_ro as open_image_ro
 from xradio.image._util.common import _image_type as image_type
+from xradio.image._util._casacore.common import _object_name
+
 from xradio.image._util._casacore.common import (
     _open_image_ro as open_image_ro,
     _create_new_image as create_new_image,
@@ -203,7 +205,7 @@ class xds_from_image_test(ImageBase):
                 "beam_param": 3,
             }
         ),
-        "freq_waveunit": "mm",
+        "freq_waveunit": ["mm"],
         "stokes": ["I", "Q", "U", "V"],
         "time_format": "MJD",
         "time_refer": "UTC",
@@ -240,7 +242,7 @@ class xds_from_image_test(ImageBase):
             "data": 1415000000.0,
             "dims": [],
         },
-        "wave_unit": "mm",
+        "wave_unit": ["mm"],
         "beam_param": ["major", "minor", "pa"],
     }
     _rad_to_arcmin = np.pi / 180 / 60
@@ -349,24 +351,24 @@ class xds_from_image_test(ImageBase):
         return self._imname
 
     @classmethod
-    def infits(self):
-        return self._infits
+    def infits(cls):
+        return cls._infits
 
     @classmethod
-    def xds(self):
-        return self._xds
+    def xds(cls):
+        return cls._xds
 
     @classmethod
-    def xds_no_sky(self):
-        return self._xds_no_sky
+    def xds_no_sky(cls):
+        return cls._xds_no_sky
 
     @classmethod
-    def outname(self):
-        return self._outname
+    def outname(cls):
+        return cls._outname
 
     @classmethod
-    def uv_image(self):
-        return self._uv_image
+    def uv_image(cls):
+        return cls._uv_image
 
     def exp_sky_attrs(self):
         return self._exp_sky_attrs
@@ -817,18 +819,16 @@ class casa_image_to_xds_test(xds_from_image_test):
 
 class xds_to_casacore(xds_from_image_test):
     _outname = "rabbit.im"
+    _outname2 = "rabbit2.im"
 
     @classmethod
     def _clean(cls):
-        pass
-        """
-        for f in [cls._outname]:
+        for f in [cls._outname, cls._outname2]:
             if os.path.exists(f):
                 if os.path.isdir(f):
                     shutil.rmtree(f)
                 else:
                     os.remove(f)
-        """
 
     @classmethod
     def setUpClass(cls):
@@ -851,6 +851,20 @@ class xds_to_casacore(xds_from_image_test):
             p = im.getdata()
         exp_data = np.squeeze(np.transpose(xds[sky], [1, 2, 4, 3, 0]), 4)
         self.assertTrue((p == exp_data).all(), "Incorrect pixel values")
+
+    def test_object_name_not_present(self):
+        """
+        Test writing an xds which does not have an object name
+        to a casa image.
+        """
+        xds = self.xds()
+        import pprint
+
+        del xds["SKY"].attrs[_object_name]
+        write_image(xds, self._outname2, "casa", overwrite=True)
+        with open_image_ro(self._outname2) as im:
+            ii = im.imageinfo()
+            self.assertEqual(ii["objectname"], "", "Incorrect object name")
 
 
 class casacore_to_xds_to_casacore(xds_from_image_test):
@@ -2044,6 +2058,36 @@ class make_empty_lmuv_image_tests(make_empty_image_tests):
     def test_attrs(self):
         skel = self.skel_im()
         self.run_attrs_tests(skel)
+
+
+class write_image_test(xds_from_image_test):
+
+    _myout = "zk.im"
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        write_image(cls.xds(), cls._myout, out_format="casa")
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        for f in [cls._myout]:
+            if os.path.exists(f):
+                if os.path.isdir(f):
+                    shutil.rmtree(f)
+                else:
+                    os.remove(f)
+
+    def test_overwrite(self):
+        # test overwrite=True
+        write_image(self.xds(), self._myout, out_format="casa", overwrite=True)
+        # test overwrite=False
+        with self.assertRaises(FileExistsError):
+            write_image(self.xds(), self._myout, out_format="casa", overwrite=False)
+        with self.assertRaises(FileExistsError):
+            # default overwrite=False
+            write_image(self.xds(), self._myout, out_format="casa")
 
 
 if __name__ == "__main__":

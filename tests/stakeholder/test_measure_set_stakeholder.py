@@ -353,6 +353,16 @@ def test_alma(tmp_path):
 #     )
 
 
+def test_ska_low(tmp_path):
+    expected_subtables = {"antenna", "phased_array"}
+    base_test(
+        "ska_low_sim_18s.ms",
+        tmp_path,
+        119802044416.0,
+        expected_secondary_xds=expected_subtables,
+    )
+
+
 def test_ska_mid(tmp_path):
     expected_subtables = {"antenna"}
     base_test(

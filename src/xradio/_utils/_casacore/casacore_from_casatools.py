@@ -614,51 +614,39 @@ class image(casatools.image):
             - 'coordinates': Coordinate system as a dictionary.
             - 'miscinfo': Miscellaneous metadata.
         """
-        imageinfo = self.summary(list=False)
-        imageinfo = self._flatten_multibeam(imageinfo)
-        # table.getdesc()
-
-        ignore_keys = [
-            "axisnames",
-            "axisunits",
-            "incr",
-            "messages",
-            "refpix",
-            "reval",
-            "shape",
-            "tileshape",
-            "refval",
-            "defaultmask",
-            "hasmask",
-            "masks",
-            "ndim",
-        ]
-        for key in ignore_keys:
-            imageinfo.pop(key, None)
+        # imageinfo = self.summary(list=False)
+        # imageinfo = self._flatten_multibeam(imageinfo)
 
         return {
-            "imageinfo": imageinfo,
+            "imageinfo": self.imageinfo(),
             "coordinates": self.coordsys().torecord(),
             "miscinfo": self.miscinfo(),
             "unit": self.brightnessunit(),
         }
 
-    def imageinfo(self):
-        """Retrieve image metadata including coordinates, misc info, and beam information.
+    def imageinfo(self) -> dict:
+        """Retrieve metadata from the image table.
+
+        This method accesses the image table associated with the image name
+        and attempts to retrieve information stored under the 'imageinfo'
+        keyword. If the 'imageinfo' keyword is not found in the table,
+        a default dictionary containing basic information is returned.
 
         Returns
         -------
         dict
-            Dictionary containing:
-            - 'imageinfo': Flattened image summary.
-            - 'coordinates': Coordinate system as a dictionary.
-            - 'miscinfo': Miscellaneous metadata.
+            A dictionary containing image metadata. This is either the
+            value associated with the 'imageinfo' keyword in the table,
+            or a default dictionary {'imagetype': 'Intensity',
+            'objectname': ''} if the keyword is absent.
         """
-        imageinfo = self.summary(list=False)
-        imageinfo = self._flatten_multibeam(imageinfo)
-        # table.getdesc()
+        with table(self._imagename) as tb:
+            if "imageinfo" in tb.keywordnames():
+                image_metadata = tb.getkeyword("imageinfo")
+            else:
+                image_metadata = {"imagetype": "Intensity", "objectname": ""}
 
-        return imageinfo
+        return image_metadata
 
     def datatype(self):
         return self.pixeltype()

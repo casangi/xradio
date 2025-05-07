@@ -201,7 +201,7 @@ def _history_from_xds(xds: xr.Dataset, image: str) -> None:
 def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
     ii = {}
     ap_sky = _aperture_or_sky(xds)
-    ii["image_type"] = (
+    ii["imagetype"] = (
         xds[ap_sky].attrs["image_type"] if "image_type" in xds[ap_sky].attrs else ""
     )
     ii["objectname"] = (

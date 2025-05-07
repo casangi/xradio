@@ -268,7 +268,13 @@ class xds_from_image_test(ImageBase):
 
     @classmethod
     def tearDownClass(cls):
-        for f in [cls._imname, cls._imname + "_2", cls._outname, cls._infits, cls._uv_image]:
+        for f in [
+            cls._imname,
+            cls._imname + "_2",
+            cls._outname,
+            cls._infits,
+            cls._uv_image,
+        ]:
             if os.path.exists(f):
                 if os.path.isdir(f):
                     shutil.rmtree(f)
@@ -602,7 +608,12 @@ class xds_from_image_test(ImageBase):
     def compare_image_block(self, imagename, zarr=False):
         x = [0] if zarr else [0, 1]
         full_xds = read_image(imagename)
-        shape = (full_xds.sizes["time"], full_xds.sizes["frequency"], full_xds.sizes["polarization"], 3)
+        shape = (
+            full_xds.sizes["time"],
+            full_xds.sizes["frequency"],
+            full_xds.sizes["polarization"],
+            3,
+        )
         ary = np.ones(shape, dtype=np.float32)
         ary[0, 2, 0, :] = 2.0
         xda = xr.DataArray(
@@ -618,7 +629,9 @@ class xds_from_image_test(ImageBase):
         full_xds["BEAM"] = xda
         full_xds["BEAM"].attrs["units"] = "rad"
         imag = imagename + "_2"
-        write_image(full_xds, imag, out_format="zarr" if zarr else "casa", overwrite=True)
+        write_image(
+            full_xds, imag, out_format="zarr" if zarr else "casa", overwrite=True
+        )
         for i in x:
             xds = load_image(
                 imag,
@@ -703,21 +716,15 @@ class xds_from_image_test(ImageBase):
                     f"Wrong type for coord or data value {k}, got {type(v)}, must be a numpy.ndarray",
                 )
             # test beam
-            self.assertTrue(
-                xds["BEAM"].shape == (1, 4, 1, 3), "Wrong beam shape"
-            )
+            self.assertTrue(xds["BEAM"].shape == (1, 4, 1, 3), "Wrong beam shape")
             print("**** dims", tuple(xds["BEAM"].dims))
             self.assertTrue(
-                tuple(xds["BEAM"].dims) == ("time", "frequency", "polarization", "beam_param"),
+                tuple(xds["BEAM"].dims)
+                == ("time", "frequency", "polarization", "beam_param"),
                 f"Wrong beam dims, got {tuple(xds['BEAM'].dims)}",
             )
-            self.assertEqual(
-                xds["BEAM"][0, 2, 0, 0], 2.0, "Wrong beam value"
-            )
-            self.assertEqual(
-                xds["BEAM"][0, 0, 0, 0], 1.0, "Wrong beam value"
-            )
-
+            self.assertEqual(xds["BEAM"][0, 2, 0, 0], 2.0, "Wrong beam value")
+            self.assertEqual(xds["BEAM"][0, 0, 0, 0], 1.0, "Wrong beam value")
 
     def compare_uv(self, xds: xr.Dataset, image: str) -> None:
         if not self._expec_uv:
@@ -1149,7 +1156,8 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
     def tearDownClass(cls):
         super().tearDownClass()
         for f in [
-            cls._zarr_store, cls._zarr_store + "_2",
+            cls._zarr_store,
+            cls._zarr_store + "_2",
             cls._zarr_uv_store,
             cls._zarr_beam_test,
         ]:

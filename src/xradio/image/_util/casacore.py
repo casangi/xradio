@@ -64,7 +64,11 @@ def _load_casa_image_block(infile: str, block_des: dict, do_sky_coords) -> xr.Da
     xds.attrs = _casa_image_to_xds_attrs(image_full_path)
     beam = _get_beam(image_full_path, nchan, npol, False)
     if beam is not None:
-        selectors = {k: block_des[k] for k in ("time", "frequency", "polarization") if k in block_des}
+        selectors = {
+            k: block_des[k]
+            for k in ("time", "frequency", "polarization")
+            if k in block_des
+        }
         xds["BEAM"] = beam.isel(selectors)
     return xds
 
@@ -96,7 +100,9 @@ def _read_casa_image(
             # data var names are all caps by convention
             xds = _add_mask(xds, m.upper(), ary, dimorder)
     xds.attrs = _casa_image_to_xds_attrs(img_full_path)
-    beam = _get_beam(img_full_path, xds.dims["frequency"], xds.dims["polarization"], True)
+    beam = _get_beam(
+        img_full_path, xds.dims["frequency"], xds.dims["polarization"], True
+    )
     if beam is not None:
         xds["BEAM"] = beam
     # xds = _add_coord_attrs(xds, ret["icoords"], ret["dir_axes"])

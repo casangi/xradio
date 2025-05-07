@@ -599,7 +599,6 @@ def _get_mask_names(infile: str) -> list:
     return mymasks
 
 
-
 def _get_persistent_block(
     infile: str,
     shapes: tuple,
@@ -838,7 +837,9 @@ def _get_beam(
         beam_array[0, :, :, 2] = beam_dict["pa"]["data"]
     if as_dask_array:
         beam_array = da.array(beam_array)
-    xdb = xr.DataArray(beam_array, dims=["time", "frequency", "polarization", "beam_param"])
+    xdb = xr.DataArray(
+        beam_array, dims=["time", "frequency", "polarization", "beam_param"]
+    )
     xdb = xdb.rename("BEAM")
     xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
     xdb.attrs["units"] = "rad"

@@ -429,6 +429,71 @@ class table(casatools.table):
         )
         return
 
+    def putkeyword(
+        self, keyword: str, value: str | int | float | bool, makesubrecord: bool = False
+    ) -> None:
+        """Insert a keyword and its associated value into the record.
+
+        This method wraps the `casatools.tables.table`'s `putkeyword` method and handles
+        the insertion of a keyword and its corresponding value into the record, with a
+        specific conversion for NumPy scalar types.
+
+        NumPy scalar types in `value` are automatically converted to native Python
+        types before writing. This conversion is necessary because `casatools`
+        appears to exclude NumPy scalars in the keyword value (e.g., within
+        a nested directory) during serialization.
+
+
+        Parameters
+        ----------
+        keyword : str
+            The name of the keyword to insert.
+        value
+            The value associated with the keyword. NumPy scalars are automatically converted to native types.
+        makesubrecord : bool, optional
+            If True, creates a new subrecord for the keyword (default is False).
+
+        Returns
+        -------
+        None
+        """
+        super().putkeyword(
+            keyword,
+            _convert_numpy_scalars_to_native(value),
+            makesubrecord=makesubrecord,
+        )
+
+
+def _convert_numpy_scalars_to_native(value: Any) -> Any:
+    """Recursively convert NumPy scalar types to their equivalent Python native types.
+
+    This function traverses nested data structures (e.g., dictionaries, lists, tuples) and replaces any NumPy scalar
+    types (e.g., `np.float64`, `np.int32`) with their native Python equivalents (e.g., `float`, `int`). This is
+    particularly useful before serializing data structures to formats like JSON, which do not natively support NumPy
+    scalar types.
+
+    Parameters
+    ----------
+    value
+        A scalar or nested structure (dictionary, list, or tuple) potentially containing NumPy scalar types.
+
+    Returns
+    -------
+    A new structure with NumPy scalars converted to native types. Original container types are preserved.
+    """
+    if isinstance(value, dict):
+        return {k: _convert_numpy_scalars_to_native(v) for k, v in value.items()}
+
+    elif isinstance(value, (list, tuple)):
+        # Preserve list or tuple type
+        return type(value)(_convert_numpy_scalars_to_native(item) for item in value)
+
+    elif isinstance(value, np.generic):
+        # Convert NumPy scalar to native Python type
+        return value.item()
+
+    return value
+
 
 @wrap_class_methods
 class image(casatools.image):

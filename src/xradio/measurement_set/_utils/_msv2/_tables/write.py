@@ -4,7 +4,10 @@ from typing import Tuple
 import numpy as np
 import xarray as xr
 
-from casacore import tables
+try:
+    from casacore import tables
+except ImportError:
+    import xradio._utils._casacore.casacore_from_casatools as tables
 
 
 def revert_time(datetimes: np.ndarray) -> np.ndarray:

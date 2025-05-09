@@ -1,7 +1,11 @@
 import numpy as np
 import xarray as xr
 
-from casacore import tables
+try:
+    from casacore import tables
+except ImportError:
+    import xradio._utils._casacore.casacore_from_casatools as tables
+
 import toolviper.utils.logger as logger
 
 from .subtables import subt_rename_ids

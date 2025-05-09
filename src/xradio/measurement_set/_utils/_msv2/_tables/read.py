@@ -10,7 +10,11 @@ import pandas as pd
 import xarray as xr
 
 import astropy.units
-from casacore import tables
+
+try:
+    from casacore import tables
+except ImportError:
+    import xradio._utils._casacore.casacore_from_casatools as tables
 
 from .table_query import open_query, open_table_ro, TableManager
 from xradio._utils.list_and_array import get_pad_value
@@ -308,6 +312,8 @@ def add_units_measures(
                 ):  # Little fix for Meerkat data where the units are a string.
                     cc_units = [cc_units]
 
+                if isinstance(cc_units, np.ndarray):
+                    cc_units = cc_units.tolist()
                 if not isinstance(cc_units, list) or not cc_units:
                     logger.warning(
                         f"Invalid units found for column/variable {col}: {cc_units}"
@@ -1250,22 +1256,20 @@ def read_col_conversion_numpy(
         # Use casacore to get the shape of a row for this column
         #################################################################################
 
-        # getcolshapestring() only works on columns where a row element is an
-        # array ie. fails for TIME
-        # Assumes the RuntimeError is because the column is a scalar
-        try:
-            shape_string = tb_tool.getcolshapestring(col)[0]
-            # Convert `shape_string` into a tuple that numpy understands
-            extra_dimensions = tuple(
-                [
-                    int(idx)
-                    for idx in shape_string.replace("[", "")
-                    .replace("]", "")
-                    .split(", ")
-                ]
-            )
-        except RuntimeError:
+        # getcolshapestring() only works for array-valued columns.
+        # For scalar columns (e.g., EXPOSURE, TIME_CENTROID), it raises a RuntimeError.
+        # So we first check if the column is scalar to avoid that.
+        if tb_tool.isscalarcol(col):
             extra_dimensions = ()
+        else:
+            # Get the shape string for the first row of the column (e.g., "[4, 2]")
+            shape_string = tb_tool.getcolshapestring(col)[0]
+
+            # Convert the shape string into a tuple of integers (e.g., (4, 2)) that numpy
+            # understands.
+            extra_dimensions = tuple(
+                int(dim) for dim in shape_string.strip("[]").split(", ")
+            )
 
         #################################################################################
 

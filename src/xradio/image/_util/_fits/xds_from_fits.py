@@ -1,8 +1,25 @@
-import astropy as ap
+import copy
+import re
+from typing import Union
+
+import dask
+import dask.array as da
+import numpy as np
+import xarray as xr
 from astropy import units as u
 from astropy.io import fits
 from astropy.time import Time
-from ..common import (
+
+from xradio._utils.coord_math import _deg_to_rad
+from xradio._utils.dict_helpers import (
+    make_quantity,
+    make_frequency_reference_dict,
+    make_skycoord_dict,
+    make_time_measure_dict,
+)
+
+from xradio.measurement_set._utils._utils.stokes_types import stokes_types
+from xradio.image._util.common import (
     _compute_linear_world_values,
     _compute_velocity_values,
     _compute_world_sph_dims,
@@ -15,20 +32,6 @@ from ..common import (
     _image_type,
     _l_m_attr_notes,
 )
-from xradio._utils.coord_math import _deg_to_rad
-from xradio._utils.dict_helpers import (
-    make_frequency_reference_dict,
-    make_quantity,
-    make_skycoord_dict,
-    make_time_measure_dict,
-)
-import copy
-import dask
-import dask.array as da
-import numpy as np
-import re
-from typing import Union
-import xarray as xr
 
 
 def _fits_image_to_xds(
@@ -507,32 +510,7 @@ def _get_time_values(helpers):
 
 
 def _get_pol_values(helpers):
-    # as mapped in casacore Stokes.h
-    stokes_map = [
-        "Undefined",
-        "I",
-        "Q",
-        "U",
-        "V",
-        "RR",
-        "RL",
-        "LR",
-        "LL",
-        "XX",
-        "XY",
-        "YX",
-        "YY",
-        "RX",
-        "RY",
-        "LX",
-        "LY",
-        "XR",
-        "XL",
-        "YR",
-        "YL",
-        "PP",
-        "PQ",
-    ]
+
     idx = helpers["ctype"].index("STOKES")
     if idx >= 0:
         vals = []
@@ -542,7 +520,13 @@ def _get_pol_values(helpers):
         stokes_start_idx = crval - cdelt * crpix
         for i in range(helpers["shape"][idx]):
             stokes_idx = (stokes_start_idx + i) * cdelt
-            vals.append(stokes_map[stokes_idx])
+            if 0 <= stokes_idx < len(stokes_types):
+                # stokes_types provides the index-label mapping from casacore Stokes.h
+                vals.append(stokes_types[stokes_idx])
+            else:
+                raise RuntimeError(
+                    "Can't find the Stokes type using the FITS header index"
+                )
         return vals
     else:
         return ["I"]

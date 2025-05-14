@@ -181,7 +181,7 @@ class ProcessingSetIterator:
                 drop_variables=self.drop_variables,
                 load_sub_datasets=self.load_sub_datasets,
             )
-#            sub_xdt = ps_xdt.get(0)
+            #            sub_xdt = ps_xdt.get(0)
             sub_xdt = ps_xdt[sub_xds_name]
         else:
             sub_xdt = self.input_data[sub_xds_name]  # In memory

@@ -38,7 +38,7 @@ test = [
 ]
 
 python_casacore = [    
-    'python_casacore>=3.6.1; sys_platform != "darwin" '
+    'python_casacore>=3.6.1; sys_platform != "darwin"'
 ]
 
 interactive = [

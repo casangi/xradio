@@ -1,4 +1,8 @@
-from casacore import tables
+try:
+    from casacore import tables
+except ImportError:
+    import xradio._utils._casacore.casacore_from_casatools as tables
+
 from contextlib import contextmanager
 from typing import Dict, Generator
 

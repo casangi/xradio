@@ -83,8 +83,8 @@ Doppler = Literal["doppler"]
 RotationMatrix = Literal["rotation_matrix"]
 
 # Units of quantities and measures
-UnitsUndimensioned = list[
-    Literal["undimensioned"]
+UnitsDimensionless = list[
+    Literal["dimensionless"]
 ]  # name consistent with casacore measures
 UnitsSeconds = list[Literal["s"]]
 UnitsHertz = list[Literal["Hz"]]
@@ -2261,7 +2261,7 @@ class PhasedArrayCoordinateAxesArray:
 
     data: Data[tuple[AntennaName, CartesianPosLabelLocal, CartesianPosLabel], float]
 
-    units: Attr[UnitsUndimensioned]
+    units: Attr[UnitsDimensionless]
 
     type: Attr[RotationMatrix]
     """ Measure type. Should be ``"rotation_matrix"``."""

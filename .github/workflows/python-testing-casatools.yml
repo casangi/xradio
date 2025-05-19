@@ -1,0 +1,20 @@
+name: "Python Testing with casatools"
+
+on:
+  push:
+    paths-ignore:
+      - "**.md"
+      - "**.rst"
+  pull_request:
+    paths-ignore:
+      - "**.md"
+      - "**.rst"
+
+jobs:
+  call-testing-with-casatools:
+    uses: casangi/toolviper/.github/workflows/python-testing-casatools-template.yml@main
+    with:
+      cov_project: "xradio"
+      test-path: "tests/"
+      pytest_ignore: "tests/unit/measurement_set"
+    secrets: inherit

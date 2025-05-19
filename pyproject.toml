@@ -1,6 +1,6 @@
 [project]
 name = "xradio"
-version = "0.0.54"
+version = "v0.0.56"
 description = " Xarray Radio Astronomy Data IO"
 authors = [
     {name = "Jan-Willem Steeb", email="jsteeb@nrao.edu"},
@@ -14,25 +14,33 @@ requires-python = ">= 3.11, < 3.14"
 
 dependencies = [
     'astropy',
-    'dask',
-    'distributed',
-    'toolviper>=0.0.11',
+    'toolviper>=0.0.12',
     'numba>=0.57.0',
-    'numpy',
-    'pytest',
-    'pytest-cov',
-    'pytest-html',
     's3fs',
     'scipy',
     'xarray',
     'zarr>=2,<3',
     'pyarrow',
-    'python_casacore>=3.6.1; sys_platform != "darwin" ',
     'typeguard',
     'numcodecs<0.16'
 ]
 
+# toolviper has the following key dependencies also directly used by XRADIO (https://github.com/casangi/toolviper/blob/main/pyproject.toml):
+#    'numpy',
+#    'dask',
+#    'distributed',
+
 [project.optional-dependencies]
+test = [
+    'pytest',
+    'pytest-cov',
+    'pytest-html',
+]
+
+python_casacore = [    
+    'python_casacore>=3.6.1; sys_platform != "darwin"'
+]
+
 interactive = [
     'matplotlib',
     'prettytable',
@@ -44,6 +52,28 @@ interactive = [
 ]
 
 docs = [
+    'nbsphinx',
+    'recommonmark',
+    'scanpydoc',
+    'sphinx-autoapi',
+    'sphinx-autosummary-accessors',
+    'sphinx_rtd_theme',
+    'twine',
+    'pandoc'
+]
+
+all = [
+    'pytest',
+    'pytest-cov',
+    'pytest-html',
+    'python_casacore>=3.6.1; sys_platform != "darwin" ',
+    'matplotlib',
+    'prettytable',
+    'jupyterlab',
+    'ipykernel',
+    'ipympl',
+    'ipython',
+    'jupyter-client',
     'nbsphinx',
     'recommonmark',
     'scanpydoc',

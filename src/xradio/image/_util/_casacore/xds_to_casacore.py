@@ -5,7 +5,11 @@ import dask.array as da
 import numpy as np
 import xarray as xr
 from astropy.coordinates import Angle
-from casacore import tables
+
+try:
+    from casacore import tables
+except ImportError:
+    import xradio._utils._casacore.casacore_from_casatools as tables
 
 from .common import _active_mask, _create_new_image, _object_name, _pointing_center
 from ..common import _aperture_or_sky, _compute_sky_reference_pixel, _doppler_types
@@ -197,7 +201,7 @@ def _history_from_xds(xds: xr.Dataset, image: str) -> None:
 def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
     ii = {}
     ap_sky = _aperture_or_sky(xds)
-    ii["image_type"] = (
+    ii["imagetype"] = (
         xds[ap_sky].attrs["image_type"] if "image_type" in xds[ap_sky].attrs else ""
     )
     ii["objectname"] = (

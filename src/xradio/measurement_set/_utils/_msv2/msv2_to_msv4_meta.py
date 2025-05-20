@@ -13,6 +13,16 @@ col_to_data_variable_names = {
     "TIME_CENTROID": "TIME_CENTROID",
     "EXPOSURE": "EFFECTIVE_INTEGRATION_TIME",
 }
+# List of columns that read_col_conversion_dask() should be used on.
+# Other columns are processed faster when using read_col_conversion_numpy()
+time_parallel_columns = [
+    "DATA",
+    "CORRECTED_DATA",
+    "MODEL_DATA",
+    "WEIGHT_SPECTRUM",
+    "WEIGHT",
+    "FLAG",
+]
 col_dims = {
     "DATA": ("time", "baseline_id", "frequency", "polarization"),
     "CORRECTED_DATA": ("time", "baseline_id", "frequency", "polarization"),

@@ -1434,9 +1434,8 @@ def load_col_chunk(
     slc = slice(start_row, end_row)
     tidxs_slc = tidxs[slc]
 
-    tidxs_slc = (
-        tidxs_slc - tidxs_slc[0]
-    )  # Indices of reshaped_data along time differ from values in tidxs. Assumes first time is earliest time
+    # Indices of reshaped_data along time differ from values in tidxs. Assumes first time is earliest time
+    tidxs_slc = tidxs_slc - tidxs_slc[0]
     bidxs_slc = bidxs[slc]
 
     # Populate `reshaped_data` with `row_data`

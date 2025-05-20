@@ -6,6 +6,7 @@ import pathlib
 import time
 from typing import Dict, Union
 
+import dask.array as da
 import numpy as np
 import xarray as xr
 import traceback
@@ -38,6 +39,7 @@ from .msv2_to_msv4_meta import (
     create_attribute_metadata,
     col_to_data_variable_names,
     col_dims,
+    time_parallel_columns,
 )
 
 from .._zarr.encoding import add_encoding
@@ -629,33 +631,9 @@ def create_data_variables(
                         use_table_iter,
                         main_column_descriptions,
                         time_chunksize,
+                        main_chunksize,
                     )
-                else:
-                    xds[col_to_data_variable_names[col]] = xr.DataArray(
-                        read_col_conversion(
-                            table_manager,
-                            col,
-                            time_baseline_shape,
-                            tidxs,
-                            bidxs,
-                            use_table_iter,
-                            time_chunksize,
-                        ),
-                        dims=col_dims[col],
-                    )
-
-                xds[col_to_data_variable_names[col]].attrs.update(
-                    create_attribute_metadata(col, main_column_descriptions)
-                )
-
-                logger.debug(
-                    "Time to read column " + str(col) + " : " + str(time.time() - start)
-                )
-            except Exception as exc:
-                logger.debug(f"Could not load column {col}, exception: {exc}")
-                logger.debug(traceback.format_exc())
-
-                if ("WEIGHT_SPECTRUM" == col) and (
+                elif ("WEIGHT_SPECTRUM" == col) and (
                     "WEIGHT" in col_names
                 ):  # Bogus WEIGHT_SPECTRUM column, need to use WEIGHT.
                     xds = get_weight(
@@ -668,7 +646,46 @@ def create_data_variables(
                         use_table_iter,
                         main_column_descriptions,
                         time_chunksize,
+                        main_chunksize,
                     )
+                else:
+                    if col in time_parallel_columns:
+                        xds[col_to_data_variable_names[col]] = xr.DataArray(
+                            read_col_conversion(
+                                table_manager,
+                                col,
+                                time_baseline_shape,
+                                tidxs,
+                                bidxs,
+                                use_table_iter,
+                                time_chunksize,
+                            ),
+                            dims=col_dims[col],
+                        )
+                    else:
+                        xds[col_to_data_variable_names[col]] = xr.DataArray(
+                            read_col_conversion_numpy(
+                                table_manager,
+                                col,
+                                time_baseline_shape,
+                                tidxs,
+                                bidxs,
+                                use_table_iter,
+                                time_chunksize,
+                            ),
+                            dims=col_dims[col],
+                        )
+
+                xds[col_to_data_variable_names[col]].attrs.update(
+                    create_attribute_metadata(col, main_column_descriptions)
+                )
+
+                logger.debug(
+                    "Time to read column " + str(col) + " : " + str(time.time() - start)
+                )
+            except Exception as exc:
+                # This error never raised when using time parallel mode!
+                logger.debug(f"Could not load column {col}, exception: {exc}")
 
 
 def add_missing_data_var_attrs(xds):
@@ -707,9 +724,18 @@ def get_weight(
     use_table_iter,
     main_column_descriptions,
     time_chunksize,
+    main_chunksize,
 ):
+    # da.tile() behaves differently to np.tile() so rechunking is necessary.
+    # By default, da.tile() adds each repeat as a separate chunk.
+    # Add frequency chunks if missing in `main_chunksize` to prevent zarr encoding error
+    try:
+        _ = main_chunksize["frequency"]
+    except KeyError as err:
+        main_chunksize["frequency"] = xds.sizes["frequency"]
+
     xds[col_to_data_variable_names[col]] = xr.DataArray(
-        np.tile(
+        da.tile(
             read_col_conversion(
                 table_manager,
                 col,
@@ -722,7 +748,7 @@ def get_weight(
             (1, 1, xds.sizes["frequency"], 1),
         ),
         dims=col_dims[col],
-    )
+    ).chunk(chunks=main_chunksize)
 
     xds[col_to_data_variable_names[col]].attrs.update(
         create_attribute_metadata(col, main_column_descriptions)
@@ -972,7 +998,7 @@ def convert_and_write_partition(
     ms_v4_id: Union[int, str],
     partition_info: Dict,
     use_table_iter: bool,
-    partition_scheme: str = "ddi_intent_field",
+    partition_scheme: list,
     main_chunksize: Union[Dict, float, None] = None,
     with_pointing: bool = True,
     pointing_chunksize: Union[Dict, float, None] = None,

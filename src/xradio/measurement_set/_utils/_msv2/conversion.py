@@ -633,21 +633,6 @@ def create_data_variables(
                         time_chunksize,
                         main_chunksize,
                     )
-                elif ("WEIGHT_SPECTRUM" == col) and (
-                    "WEIGHT" in col_names
-                ):  # Bogus WEIGHT_SPECTRUM column, need to use WEIGHT.
-                    xds = get_weight(
-                        xds,
-                        "WEIGHT",
-                        table_manager,
-                        time_baseline_shape,
-                        tidxs,
-                        bidxs,
-                        use_table_iter,
-                        main_column_descriptions,
-                        time_chunksize,
-                        main_chunksize,
-                    )
                 else:
                     if col in time_parallel_columns:
                         xds[col_to_data_variable_names[col]] = xr.DataArray(
@@ -686,6 +671,22 @@ def create_data_variables(
             except Exception as exc:
                 # This error never raised when using time parallel mode!
                 logger.debug(f"Could not load column {col}, exception: {exc}")
+                logger.debug(traceback.format_exc())
+
+                if ("WEIGHT_SPECTRUM" == col) and (
+                    "WEIGHT" in col_names
+                ):  # Bogus WEIGHT_SPECTRUM column, need to use WEIGHT.
+                    xds = get_weight(
+                        xds,
+                        "WEIGHT",
+                        table_manager,
+                        time_baseline_shape,
+                        tidxs,
+                        bidxs,
+                        use_table_iter,
+                        main_column_descriptions,
+                        time_chunksize,
+                    )
 
 
 def add_missing_data_var_attrs(xds):
@@ -728,11 +729,6 @@ def get_weight(
 ):
     # da.tile() behaves differently to np.tile() so rechunking is necessary.
     # By default, da.tile() adds each repeat as a separate chunk.
-    # Add frequency chunks if missing in `main_chunksize` to prevent zarr encoding error
-    try:
-        _ = main_chunksize["frequency"]
-    except KeyError as err:
-        main_chunksize["frequency"] = xds.sizes["frequency"]
 
     xds[col_to_data_variable_names[col]] = xr.DataArray(
         da.tile(
@@ -748,7 +744,7 @@ def get_weight(
             (1, 1, xds.sizes["frequency"], 1),
         ),
         dims=col_dims[col],
-    ).chunk(chunks=main_chunksize)
+    ).chunk(chunks={"frequency": -1})
 
     xds[col_to_data_variable_names[col]].attrs.update(
         create_attribute_metadata(col, main_column_descriptions)

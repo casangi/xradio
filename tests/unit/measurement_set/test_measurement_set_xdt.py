@@ -25,9 +25,9 @@ def create_test_ms_datatree(ms_type="visibility", validate=True):
     Returns
     -------
     xarray.DataTree
-        A valid MSv4 DataTree node according to 
+        A valid MSv4 DataTree node according to
         https://xradio.readthedocs.io/en/latest/measurement_set/schema_and_api/measurement_set_schema.html
-        
+
     Raises
     ------
     ValueError
@@ -53,7 +53,7 @@ def create_test_ms_datatree(ms_type="visibility", validate=True):
 
     # Create a scan_name coordinate, which is optional
     scan_name = np.array(["scan1", "scan1", "scan2"])
-    
+
     # Create mock data - properly generating complex data
     # Generate real and imaginary parts separately and combine them
     real_part = np.random.random(
@@ -97,31 +97,38 @@ def create_test_ms_datatree(ms_type="visibility", validate=True):
             "polarization": polarization,
             "frequency": frequency,
             "field_name": ("time", field_name),  # Added field_name coordinate
-            "baseline_antenna1_name": ("baseline_id", baseline_antenna1_name),  # Added baseline_antenna1_name
-            "baseline_antenna2_name": ("baseline_id", baseline_antenna2_name),  # Added baseline_antenna2_name
+            "baseline_antenna1_name": (
+                "baseline_id",
+                baseline_antenna1_name,
+            ),  # Added baseline_antenna1_name
+            "baseline_antenna2_name": (
+                "baseline_id",
+                baseline_antenna2_name,
+            ),  # Added baseline_antenna2_name
         },
     )
-    
+
     # Add UVW for visibility type
     if ms_type == "visibility":
-        ds["UVW"] = xr.DataArray(
-            uvw, dims=("time", "baseline_id", "uvw_label")
-        )
+        ds["UVW"] = xr.DataArray(uvw, dims=("time", "baseline_id", "uvw_label"))
         ds.coords["uvw_label"] = uvw_label  # Added uvw_label coordinate
         ds["UVW"].attrs["units"] = ["m", "m", "m"]
-        ds["UVW"].attrs["type"] = "uvw"  
-        ds["UVW"].attrs["frame"] = "icrs" 
-    ds["VISIBILITY"].attrs["units"] = ["Jy","Jy"]
+        ds["UVW"].attrs["type"] = "uvw"
+        ds["UVW"].attrs["frame"] = "icrs"
+    ds["VISIBILITY"].attrs["units"] = ["Jy", "Jy"]
 
     # Add UVW for visibility type
     if ms_type == "visibility":
         ds["UVW"] = xr.DataArray(  # Changed from uvw to UVW
-            uvw, dims=("time", "baseline_id", "uvw_label")  # Changed uvw_index to uvw_label
+            uvw,
+            dims=("time", "baseline_id", "uvw_label"),  # Changed uvw_index to uvw_label
         )
         ds.coords["uvw_label"] = uvw_label  # Added uvw_label coordinate
         ds["UVW"].attrs["units"] = ["m", "m", "m"]
-        ds["UVW"].attrs["type"] = "uvw"  
-        ds["UVW"].attrs["frame"] = "icrs"  # Fixed frame attribute spelling and added required value
+        ds["UVW"].attrs["type"] = "uvw"
+        ds["UVW"].attrs[
+            "frame"
+        ] = "icrs"  # Fixed frame attribute spelling and added required value
 
     # Add required attributes to coordinates
     # Time attributes
@@ -130,29 +137,18 @@ def create_test_ms_datatree(ms_type="visibility", validate=True):
     ds.time.attrs["scale"] = "utc"
     ds.time.attrs["format"] = "unix"
     ds.time.attrs["integration_time"] = xr.DataArray(
-        float(np.ones_like(time)[0] * 0.1),
-        attrs={"units": ["s"], "type": "quantity"}
+        float(np.ones_like(time)[0] * 0.1), attrs={"units": ["s"], "type": "quantity"}
     )  # 0.1 seconds integration time
-    
-    
+
     # Frequency attributes
     ds.frequency.attrs["type"] = "spectral_coord"
     ds.frequency.attrs["units"] = ["Hz"]
     ds.frequency.attrs["observer"] = "TOPO"
     ds.frequency.attrs["reference_frequency"] = xr.DataArray(
-        1.5e9,
-        attrs={
-            "units": ["Hz"],
-            "type": "spectral_coord",
-            "observer": "TOPO"
-        }
+        1.5e9, attrs={"units": ["Hz"], "type": "spectral_coord", "observer": "TOPO"}
     )  # Reference frequency in Hz
     ds.frequency.attrs["channel_width"] = xr.DataArray(
-        1e6,  # 1 MHz channel width
-        attrs={
-            "units": ["Hz"],
-            "type": "quantity"
-        }
+        1e6, attrs={"units": ["Hz"], "type": "quantity"}  # 1 MHz channel width
     )  # 1 MHz channel width
 
     # Create the field_and_source dataset with proper schema
@@ -163,16 +159,14 @@ def create_test_ms_datatree(ms_type="visibility", validate=True):
             "sky_dir_label": ("sky_dir_label", ["ra", "dec"]),
             "line_name": ("field_name", ["line1", "line2"]),
         },
-        attrs={
-            "type": "field_and_source"
-        }
+        attrs={"type": "field_and_source"},
     )
-    
+
     # Add schema type to field_and_source dataset
 
     # Create the DataTree structure
     xdt = xr.DataTree(ds)
-    
+
     # Add the field_and_source dataset as a child node
     xdt["field_and_source"] = xr.DataTree(field_source_ds)
 
@@ -197,7 +191,7 @@ def create_test_ms_datatree(ms_type="visibility", validate=True):
 
     # Add frequency and polarization attributes needed by some methods
     xdt.frequency.attrs["spectral_window_name"] = "test_spw"
-    
+
     # Add required attributes that were missing
     xdt.attrs["schema_version"] = "1.0.0"
     xdt.attrs["creator"] = {
@@ -205,7 +199,7 @@ def create_test_ms_datatree(ms_type="visibility", validate=True):
         "version": "1.0.0",
     }
     xdt.attrs["creation_date"] = "2023-04-01T00:00:00"
-    
+
     # Add observation_info
     xdt.attrs["observation_info"] = {
         "observer": ["observer1", "observer2"],
@@ -213,7 +207,7 @@ def create_test_ms_datatree(ms_type="visibility", validate=True):
         "release_date": "2023-04-01T00:00:00",
         "intents": ["OBSERVE_TARGET#ON_SOURCE"],
     }
-    
+
     # Add processor_info
     xdt.attrs["processor_info"] = {
         "type": "CORRELATOR",
@@ -228,7 +222,7 @@ def create_test_ms_datatree(ms_type="visibility", validate=True):
             "uvw": "UVW",
             "field_and_source": "field_and_source",
             "description": "Base data group",
-            "date": "2023-04-01T00:00:00",  
+            "date": "2023-04-01T00:00:00",
         }
     }
 
@@ -299,7 +293,9 @@ class TestMeasurementSetXdt:
 
         issues = check_datatree(ms_xdt)
         # The check_datatree function returns a SchemaIssues object, not a string
-        assert str(issues) == "No schema issues found", f"Schema validation failed: {issues}"
+        assert (
+            str(issues) == "No schema issues found"
+        ), f"Schema validation failed: {issues}"
 
     def test_initialization_with_ms(self):
         """Test initialization with a valid MSv4 DataTree."""
@@ -410,11 +406,11 @@ class TestMeasurementSetXdt:
 
         # Get the polarization value and handle both scalar and array cases
         pol_value = selected_xdt.ds.polarization.values
-        
+
         # Convert to list if it's not already a list
         if not isinstance(pol_value, (list, np.ndarray)):
             pol_value = [pol_value]
-        
+
         # Verify the polarization value
 
         assert str(pol_value) == "XX"
@@ -456,67 +452,3 @@ class TestMeasurementSetXdt:
         assert data_group["uvw"] == "UVW"
         assert data_group["field_and_source"] == "field_and_source"
         assert data_group["description"] == "Processed data"
-
-    # To test different MS types, the create_test_ms_datatree function needs to be modified.
-    # def test_different_ms_types(self):
-    #     """Test that different MS types are handled correctly."""
-    #     # Test with all valid MS types
-    #     for ms_type in MS_DATASET_TYPES:
-    #         ms_xdt = create_test_ms_datatree(ms_type=ms_type)
-    #         print(ms_type)
-            
-    #         # Verify basic attributes
-    #         assert ms_xdt.attrs["type"] == ms_type
-    #         assert ms_xdt.attrs["schema_version"] == "1.0.0"
-    #         assert "creator" in ms_xdt.attrs
-    #         assert "observation_info" in ms_xdt.attrs
-    #         assert "processor_info" in ms_xdt.attrs
-            
-    #         # Verify partition info
-    #         info = ms_xdt.xr_ms.get_partition_info()
-    #         assert info["data_group_name"] == "base"
-            
-    #         # Verify data group structure
-    #         data_group = ms_xdt.attrs["data_groups"]["base"]
-    #         assert "correlated_data" in data_group
-    #         assert "weight" in data_group
-    #         assert "flag" in data_group
-    #         assert "field_and_source" in data_group
-    #         assert "description" in data_group
-            
-    #         # Type-specific validations
-    #         if ms_type == "visibility":
-    #             # Verify UVW handling
-    #             assert "UVW" in ms_xdt.ds
-    #             assert "uvw" in data_group
-    #             assert "UVW" in ms_xdt.ds.data_vars
-    #             assert "uvw_label" in ms_xdt.ds.coords
-    #             assert ms_xdt.ds["UVW"].attrs["type"] == "uvw"
-    #             assert ms_xdt.ds["UVW"].attrs["frame"] == "icrs"
-                
-    #         elif ms_type == "spectrum":
-    #             # Verify spectrum-specific variables
-    #             assert "SPECTRUM" in ms_xdt.ds
-    #             assert ms_xdt.ds["SPECTRUM"].attrs["type"] == "spectrum"
-    #             assert ms_xdt.ds["SPECTRUM"].attrs["units"] == ["Jy"]
-                
-    #         elif ms_type == "radiometer":
-    #             # Verify radiometer-specific variables
-    #             assert "RADIOMETER" in ms_xdt.ds
-    #             assert ms_xdt.ds["RADIOMETER"].attrs["type"] == "radiometer"
-                
-    #         # Verify common variables
-    #         assert "VISIBILITY" in ms_xdt.ds
-    #         assert "WEIGHT" in ms_xdt.ds
-    #         assert "FLAG" in ms_xdt.ds
-    #         assert "scan_name" in ms_xdt.ds
-            
-    #         # Verify coordinates
-    #         assert "time" in ms_xdt.ds.coords
-    #         assert "baseline_id" in ms_xdt.ds.coords
-    #         assert "polarization" in ms_xdt.ds.coords
-    #         assert "frequency" in ms_xdt.ds.coords
-    #         assert "field_name" in ms_xdt.ds.coords
-    #         assert "baseline_antenna1_name" in ms_xdt.ds.coords
-    #         assert "baseline_antenna2_name" in ms_xdt.ds.coords
-

@@ -53,7 +53,9 @@ class TestLoadProcessingSet:
         ps_xdt = load_processing_set(str(test_ps_path))
         issues = check_datatree(ps_xdt)
         # The check_datatree function returns a SchemaIssues object, not a string
-        assert str(issues) == "No schema issues found", f"Schema validation failed: {issues}"
+        assert (
+            str(issues) == "No schema issues found"
+        ), f"Schema validation failed: {issues}"
 
     def test_basic_load(self, test_ps_path):
         """Test basic loading of processing set without parameters"""
@@ -192,5 +194,3 @@ class TestProcessingSetIterator:
         item = next(iterator)
         assert isinstance(item, xr.DataTree)
         assert "base" in item.attrs.get("data_groups", {})
-
-

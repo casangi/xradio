@@ -9,6 +9,7 @@ from xradio.measurement_set import (
     convert_msv2_to_processing_set,
     open_processing_set,
 )
+from xradio.schema.check import check_datatree
 
 # Define input and output paths
 input_ms = "Antennae_North.cal.lsrk.split.ms"
@@ -46,6 +47,13 @@ def test_ps_path(test_data_path, tmp_path):
 
 class TestLoadProcessingSet:
     """Tests for load_processing_set using real data"""
+
+    def test_check_datatree(self, test_ps_path):
+        """Test that the converted MS to PS complies with the datatree schema checker"""
+        ps_xdt = load_processing_set(str(test_ps_path))
+        issues = check_datatree(ps_xdt)
+        # The check_datatree function returns a SchemaIssues object, not a string
+        assert str(issues) == "No schema issues found", f"Schema validation failed: {issues}"
 
     def test_basic_load(self, test_ps_path):
         """Test basic loading of processing set without parameters"""
@@ -186,5 +194,3 @@ class TestProcessingSetIterator:
         assert "base" in item.attrs.get("data_groups", {})
 
 
-if __name__ == "__main__":
-    pytest.main([__file__])

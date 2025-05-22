@@ -110,7 +110,9 @@ class TestArraySchema(unittest.TestCase):
     def test_xarray_dataclass_to_array_schema(self):
         """Ensure that extracting the model from the dataclass is consistent"""
 
-        assert xarray_dataclass_to_array_schema(_TestArraySchema) == TEST_ARRAY_SCHEMA
+        self.assertEqual(
+            xarray_dataclass_to_array_schema(_TestArraySchema), TEST_ARRAY_SCHEMA
+        )
 
     def test_check_array(self):
         # Should succeed
@@ -125,12 +127,12 @@ class TestArraySchema(unittest.TestCase):
         issues.expect()
 
         # Check contents
-        assert numpy.allclose(array.coord, numpy.arange(10, dtype=float))
-        assert numpy.allclose(array.data, numpy.zeros(10, dtype=complex))
-        assert set(array.attrs.keys()) == {"attr1", "attr2", "attr3"}
-        assert array.attr1 == "str"
-        assert array.attr2 == 123
-        assert array.attr3 == 345
+        numpy.testing.assert_allclose(array.coord, numpy.arange(10, dtype=float))
+        numpy.testing.assert_allclose(array.data, numpy.zeros(10, dtype=complex))
+        self.assertEqual(set(array.attrs.keys()), {"attr1", "attr2", "attr3"})
+        self.assertEqual(array.attr1, "str")
+        self.assertEqual(array.attr2, 123)
+        self.assertEqual(array.attr3, 345)
 
     def test_check_array_dask(self):
         data = dask.array.zeros(10, dtype=complex)
@@ -138,7 +140,7 @@ class TestArraySchema(unittest.TestCase):
         attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
         array = xarray.DataArray(data, coords, attrs=attrs)
         assert not check_array(array, TEST_ARRAY_SCHEMA)
-        assert isinstance(array.data, dask.array.Array)
+        self.assertIsInstance(array.data, dask.array.Array)
         numpy.testing.assert_equal(array.compute(), numpy.zeros(10, dtype=complex))
 
     def test_check_array_constructor_array_style(self):
@@ -147,16 +149,16 @@ class TestArraySchema(unittest.TestCase):
         coords = [("coord", numpy.arange(10, dtype=float))]
         attrs = {"attr1": "str", "attr2": 1234, "attr3": 345}
         array = _TestArraySchema(data=data, coords=coords, attrs=attrs)
-        assert isinstance(array, xarray.DataArray)
+        self.assertIsInstance(array, xarray.DataArray)
         check_array(array, TEST_ARRAY_SCHEMA).expect()
 
         # Check contents
-        assert numpy.allclose(array.coord, numpy.arange(10, dtype=float))
-        assert numpy.allclose(array.data, numpy.zeros(10, dtype=complex))
-        assert set(array.attrs.keys()) == {"attr1", "attr2", "attr3"}
-        assert array.attr1 == "str"
-        assert array.attr2 == 1234
-        assert array.attr3 == 345
+        numpy.testing.assert_allclose(array.coord, numpy.arange(10, dtype=float))
+        numpy.testing.assert_allclose(array.data, numpy.zeros(10, dtype=complex))
+        self.assertEqual(set(array.attrs.keys()), {"attr1", "attr2", "attr3"})
+        self.assertEqual(array.attr1, "str")
+        self.assertEqual(array.attr2, 1234)
+        self.assertEqual(array.attr3, 345)
 
     def test_check_array_constructor_dataclass_style(self):
         # Check when passing parameter (dataclass-style)
@@ -167,16 +169,16 @@ class TestArraySchema(unittest.TestCase):
             attr2=1234,
             attr3=345,
         )
-        assert isinstance(array, xarray.DataArray)
+        self.assertIsInstance(array, xarray.DataArray)
         check_array(array, TEST_ARRAY_SCHEMA).expect()
 
         # Check contents
-        assert numpy.allclose(array.coord, numpy.arange(10, dtype=float))
-        assert numpy.allclose(array.data, numpy.zeros(10, dtype=complex))
-        assert set(array.attrs.keys()) == {"attr1", "attr2", "attr3"}
-        assert array.attr1 == "str"
-        assert array.attr2 == 1234
-        assert array.attr3 == 345
+        numpy.testing.assert_allclose(array.coord, numpy.arange(10, dtype=float))
+        numpy.testing.assert_allclose(array.data, numpy.zeros(10, dtype=complex))
+        self.assertEqual(set(array.attrs.keys()), {"attr1", "attr2", "attr3"})
+        self.assertEqual(array.attr1, "str")
+        self.assertEqual(array.attr2, 1234)
+        self.assertEqual(array.attr3, 345)
 
     def test_check_array_constructor_from_dataarray(self):
         # Create schema-conformant DataArray
@@ -187,16 +189,16 @@ class TestArraySchema(unittest.TestCase):
 
         # Check that we can create a copy from it using the constructor
         array = _TestArraySchema(array)
-        assert isinstance(array, xarray.DataArray)
+        self.assertIsInstance(array, xarray.DataArray)
         check_array(array, TEST_ARRAY_SCHEMA).expect()
 
         # Check contents
-        assert numpy.allclose(array.coord, numpy.arange(10, dtype=float))
-        assert numpy.allclose(array.data, numpy.zeros(10, dtype=complex))
-        assert set(array.attrs.keys()) == {"attr1", "attr2", "attr3"}
-        assert array.attr1 == "str"
-        assert array.attr2 == 1234
-        assert array.attr3 == 345
+        numpy.testing.assert_allclose(array.coord, numpy.arange(10, dtype=float))
+        numpy.testing.assert_allclose(array.data, numpy.zeros(10, dtype=complex))
+        self.assertEqual(set(array.attrs.keys()), {"attr1", "attr2", "attr3"})
+        self.assertEqual(array.attr1, "str")
+        self.assertEqual(array.attr2, 1234)
+        self.assertEqual(array.attr3, 345)
 
     def test_check_array_constructor_from_dataarray_override(self):
         # Create schema-conformant DataArray
@@ -212,16 +214,16 @@ class TestArraySchema(unittest.TestCase):
             coords=[("coord", 1 + numpy.arange(10, dtype=float))],
             attrs={"attr1": "strstr", "attr2": 12345},
         )
-        assert isinstance(array, xarray.DataArray)
+        self.assertIsInstance(array, xarray.DataArray)
         check_array(array, TEST_ARRAY_SCHEMA).expect()
 
         # Check contents
-        assert numpy.allclose(array.coord, 1 + numpy.arange(10, dtype=float))
-        assert numpy.allclose(array.data, numpy.zeros(10, dtype=complex))
-        assert set(array.attrs.keys()) == {"attr1", "attr2", "attr3"}
-        assert array.attr1 == "strstr"
-        assert array.attr2 == 12345
-        assert array.attr3 == 345
+        numpy.testing.assert_allclose(array.coord, 1 + numpy.arange(10, dtype=float))
+        numpy.testing.assert_allclose(array.data, numpy.zeros(10, dtype=complex))
+        self.assertEqual(set(array.attrs.keys()), {"attr1", "attr2", "attr3"})
+        self.assertEqual(array.attr1, "strstr")
+        self.assertEqual(array.attr2, 12345)
+        self.assertEqual(array.attr3, 345)
 
     def test_check_array_constructor_auto_coords(self):
         # Check that we can omit "coords", which should result in them getting
@@ -229,16 +231,16 @@ class TestArraySchema(unittest.TestCase):
         array = _TestArraySchema(
             data=numpy.zeros(10, dtype=complex), attr1="str", attr2=1234, attr3=345
         )
-        assert isinstance(array, xarray.DataArray)
+        self.assertIsInstance(array, xarray.DataArray)
         check_array(array, TEST_ARRAY_SCHEMA).expect()
 
         # Check contents
-        assert numpy.allclose(array.coord, numpy.arange(10, dtype=float))
-        assert numpy.allclose(array.data, numpy.zeros(10, dtype=complex))
-        assert set(array.attrs.keys()) == {"attr1", "attr2", "attr3"}
-        assert array.attr1 == "str"
-        assert array.attr2 == 1234
-        assert array.attr3 == 345
+        numpy.testing.assert_allclose(array.coord, numpy.arange(10, dtype=float))
+        numpy.testing.assert_allclose(array.data, numpy.zeros(10, dtype=complex))
+        self.assertEqual(set(array.attrs.keys()), {"attr1", "attr2", "attr3"})
+        self.assertEqual(array.attr1, "str")
+        self.assertEqual(array.attr2, 1234)
+        self.assertEqual(array.attr3, 345)
 
     def test_check_array_constructor_list(self):
         # Check that we can use lists instead of numpy arrays, and they get
@@ -250,19 +252,19 @@ class TestArraySchema(unittest.TestCase):
             attr2=1234,
             attr3=345,
         )
-        assert isinstance(array, xarray.DataArray)
+        self.assertIsInstance(array, xarray.DataArray)
         check_array(array, TEST_ARRAY_SCHEMA).expect()
 
         # Check contents
-        assert numpy.allclose(array.coord, numpy.arange(10, dtype=float))
-        assert numpy.allclose(array.data, numpy.zeros(10, dtype=complex))
-        assert set(array.coords.keys()) == {"coord"}
-        assert array.coord.attrs.keys() == {"asd"}
-        assert array.coord.attrs["asd"] == "foo"
-        assert set(array.attrs.keys()) == {"attr1", "attr2", "attr3"}
-        assert array.attr1 == "str"
-        assert array.attr2 == 1234
-        assert array.attr3 == 345
+        numpy.testing.assert_allclose(array.coord, numpy.arange(10, dtype=float))
+        numpy.testing.assert_allclose(array.data, numpy.zeros(10, dtype=complex))
+        self.assertEqual(set(array.coords.keys()), {"coord"})
+        self.assertEqual(array.coord.attrs.keys(), {"asd"})
+        self.assertEqual(array.coord.attrs["asd"], "foo")
+        self.assertEqual(set(array.attrs.keys()), {"attr1", "attr2", "attr3"})
+        self.assertEqual(array.attr1, "str")
+        self.assertEqual(array.attr2, 1234)
+        self.assertEqual(array.attr3, 345)
 
     def test_check_array_constructor_defaults(self):
         # Check when passing parameter (dataclass-style, using positional
@@ -270,15 +272,15 @@ class TestArraySchema(unittest.TestCase):
         array = _TestArraySchema(
             numpy.zeros(10, dtype=complex), numpy.arange(10, dtype=float), "str",
         )
-        assert isinstance(array, xarray.DataArray)
+        self.assertIsInstance(array, xarray.DataArray)
         check_array(array, TEST_ARRAY_SCHEMA).expect()
 
         # Check contents
-        assert numpy.allclose(array.coord, numpy.arange(10, dtype=float))
-        assert numpy.allclose(array.data, numpy.zeros(10, dtype=complex))
-        assert set(array.attrs.keys()) == {"attr1", "attr2"}
-        assert array.attr1 == "str"
-        assert array.attr2 == 123
+        numpy.testing.assert_allclose(array.coord, numpy.arange(10, dtype=float))
+        numpy.testing.assert_allclose(array.data, numpy.zeros(10, dtype=complex))
+        self.assertEqual(set(array.attrs.keys()), {"attr1", "attr2"})
+        self.assertEqual(array.attr1, "str")
+        self.assertEqual(array.attr2, 123)
 
     def test_check_array_constructor_mixed(self):
         # Check when passing parameter (everything)
@@ -288,15 +290,15 @@ class TestArraySchema(unittest.TestCase):
             coords={"coord": numpy.arange(10, dtype=float),},
             attrs={"attr2": 123,},
         )
-        assert isinstance(array, xarray.DataArray)
+        self.assertIsInstance(array, xarray.DataArray)
         check_array(array, TEST_ARRAY_SCHEMA).expect()
 
         # Check contents
-        assert numpy.allclose(array.coord, numpy.arange(10, dtype=float))
-        assert numpy.allclose(array.data, numpy.zeros(10, dtype=complex))
-        assert set(array.attrs.keys()) == {"attr1", "attr2"}
-        assert array.attr1 == "str"
-        assert array.attr2 == 123
+        numpy.testing.assert_allclose(array.coord, numpy.arange(10, dtype=float))
+        numpy.testing.assert_allclose(array.data, numpy.zeros(10, dtype=complex))
+        self.assertEqual(set(array.attrs.keys()), {"attr1", "attr2"})
+        self.assertEqual(array.attr1, "str")
+        self.assertEqual(array.attr2, 123)
 
     def test_check_array_dtype_mismatch(self):
         data_f = numpy.zeros(10, dtype=float)
@@ -305,10 +307,10 @@ class TestArraySchema(unittest.TestCase):
         results = check_array(
             xarray.DataArray(data_f, coords, attrs=attrs), TEST_ARRAY_SCHEMA
         )
-        assert len(results) == 1
-        assert results[0].path == [("dtype", None)]
-        assert results[0].found == numpy.dtype(float)
-        assert results[0].expected == [numpy.dtype(complex)]
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].path, [("dtype", None)])
+        self.assertEqual(results[0].found, numpy.dtype(float))
+        self.assertEqual(results[0].expected, [numpy.dtype(complex)])
 
         with pytest.raises(SchemaIssues):
             results.expect()
@@ -326,10 +328,10 @@ class TestArraySchema(unittest.TestCase):
         results = check_array(
             xarray.DataArray(data_f, coords, attrs=attrs), TEST_ARRAY_SCHEMA
         )
-        assert len(results) == 1
-        assert results[0].path == [("dtype", None)]
-        assert results[0].found == numpy.dtype(float)
-        assert results[0].expected == [numpy.dtype(complex)]
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].path, [("dtype", None)])
+        self.assertEqual(results[0].found, numpy.dtype(float))
+        self.assertEqual(results[0].expected, [numpy.dtype(complex)])
 
     def test_check_array_extra_coord(self):
         coords2 = [
@@ -341,10 +343,10 @@ class TestArraySchema(unittest.TestCase):
         results = check_array(
             xarray.DataArray(data2, coords2, attrs=attrs), TEST_ARRAY_SCHEMA
         )
-        assert len(results) == 1
-        assert results[0].path == [("dims", None)]
-        assert results[0].found == ["coord", "coord2"]
-        assert results[0].expected == [("coord",)]
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].path, [("dims", None)])
+        self.assertEqual(results[0].found, ["coord", "coord2"])
+        self.assertEqual(results[0].expected, [("coord",)])
 
     def test_check_array_missing_coord(self):
         data0 = numpy.array(None, dtype=complex)
@@ -352,11 +354,11 @@ class TestArraySchema(unittest.TestCase):
         results = check_array(
             xarray.DataArray(data0, {}, attrs=attrs), TEST_ARRAY_SCHEMA
         )
-        assert len(results) == 2
-        assert results[0].path == [("dims", None)]
-        assert results[0].found == []
-        assert results[0].expected == [("coord",)]
-        assert results[1].path == [("coords", "coord")]
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0].path, [("dims", None)])
+        self.assertEqual(results[0].found, [])
+        self.assertEqual(results[0].expected, [("coord",)])
+        self.assertEqual(results[1].path, [("coords", "coord")])
 
     def test_check_array_wrong_coord(self):
         data = numpy.zeros(10, dtype=complex)
@@ -365,21 +367,19 @@ class TestArraySchema(unittest.TestCase):
         results = check_array(
             xarray.DataArray(data, coords3, attrs=attrs), TEST_ARRAY_SCHEMA
         )
-        assert len(results) == 2
-        assert results[0].path == [("dims", None)]
-        assert results[0].found == [
-            "coord2",
-        ]
-        assert results[0].expected == [("coord",)]
-        assert results[1].path == [("coords", "coord")]
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0].path, [("dims", None)])
+        self.assertEqual(results[0].found, ["coord2",])
+        self.assertEqual(results[0].expected, [("coord",)])
+        self.assertEqual(results[1].path, [("coords", "coord")])
 
     def test_check_array_missing_attr(self):
         data = numpy.zeros(10, dtype=complex)
         coords = [("coord", numpy.arange(10, dtype=float))]
         results = check_array(xarray.DataArray(data, coords), TEST_ARRAY_SCHEMA)
-        assert len(results) == 2
-        assert results[0].path == [("attrs", "attr1")]
-        assert results[1].path == [("attrs", "attr2")]
+        self.assertEqual(len(results), 2)
+        self.assertEqual(results[0].path, [("attrs", "attr1")])
+        self.assertEqual(results[1].path, [("attrs", "attr2")])
 
     def test_check_array_extra_attr(self):
         data = numpy.zeros(10, dtype=complex)
@@ -402,16 +402,16 @@ class TestArraySchema(unittest.TestCase):
         results = check_array(
             xarray.DataArray(data, coords, attrs=wrong_attrs), TEST_ARRAY_SCHEMA
         )
-        assert len(results) == 3
-        assert results[0].path == [("attrs", "attr1")]
-        assert results[0].found == int
-        assert results[0].expected == [str]
-        assert results[1].path == [("attrs", "attr2")]
-        assert results[1].found == type
-        assert results[1].expected == [int]
-        assert results[2].path == [("attrs", "attr3")]
-        assert results[2].found == float
-        assert results[2].expected == [int]
+        self.assertEqual(len(results), 3)
+        self.assertEqual(results[0].path, [("attrs", "attr1")])
+        self.assertEqual(results[0].found, int)
+        self.assertEqual(results[0].expected, [str])
+        self.assertEqual(results[1].path, [("attrs", "attr2")])
+        self.assertEqual(results[1].found, type)
+        self.assertEqual(results[1].expected, [int])
+        self.assertEqual(results[2].path, [("attrs", "attr3")])
+        self.assertEqual(results[2].found, float)
+        self.assertEqual(results[2].expected, [int])
 
     def test_schema_checked_wrap(self):
         @schema_checked
@@ -420,11 +420,11 @@ class TestArraySchema(unittest.TestCase):
 
         # Make sure docstring and signature survives (mostly for Sphinx'
         # benefit...)
-        assert fn.__doc__ == "Docstring"
+        self.assertEqual(fn.__doc__, "Docstring")
         sig = inspect.signature(fn)
-        assert sig.parameters["a"].annotation == int
-        assert sig.parameters["b"].annotation == _TestArraySchema
-        assert sig.return_annotation == str
+        self.assertEqual(sig.parameters["a"].annotation, int)
+        self.assertEqual(sig.parameters["b"].annotation, _TestArraySchema)
+        self.assertEqual(sig.return_annotation, str)
 
     def test_schema_checked_no_annotation(self):
         @schema_checked
@@ -451,11 +451,13 @@ class TestArraySchema(unittest.TestCase):
         array = xarray.DataArray(data, coords, attrs=attrs)
         with pytest.raises(SchemaIssues) as exc_info:
             fn(array)
-        assert exc_info.value.issues[0].path == [("array", None), ("dtype", None)]
+        self.assertEqual(
+            exc_info.value.issues[0].path, [("array", None), ("dtype", None)]
+        )
 
         with pytest.raises(SchemaIssues) as exc_info:
             fn(None)
-        assert exc_info.value.issues[0].path == [("array", None)]
+        self.assertEqual(exc_info.value.issues[0].path, [("array", None)])
 
     def test_schema_checked_annotation_optional(self):
         @schema_checked
@@ -472,7 +474,9 @@ class TestArraySchema(unittest.TestCase):
         array = xarray.DataArray(data, coords, attrs=attrs)
         with pytest.raises(SchemaIssues) as exc_info:
             fn(array)
-        assert exc_info.value.issues[0].path == [("array", None), ("dtype", None)]
+        self.assertEqual(
+            exc_info.value.issues[0].path, [("array", None), ("dtype", None)]
+        )
 
         # Should succeed
         fn(None)
@@ -480,10 +484,12 @@ class TestArraySchema(unittest.TestCase):
         # Should fail
         with pytest.raises(SchemaIssues) as exc_info:
             fn(1)
-        assert exc_info.value.issues[0].path == [("array", None)]
+        self.assertEqual(exc_info.value.issues[0].path, [("array", None)])
         print(exc_info.value.issues[0].expected)
-        assert exc_info.value.issues[0].expected == [xarray.DataArray, type(None)]
-        assert exc_info.value.issues[0].found == int
+        self.assertEqual(
+            exc_info.value.issues[0].expected, [xarray.DataArray, type(None)]
+        )
+        self.assertEqual(exc_info.value.issues[0].found, int)
 
     def test_schema_checked_annotation_optional(self):
         @schema_checked
@@ -500,7 +506,9 @@ class TestArraySchema(unittest.TestCase):
         array = xarray.DataArray(data, coords, attrs=attrs)
         with pytest.raises(SchemaIssues) as exc_info:
             fn(array)
-        assert exc_info.value.issues[0].path == [("array", None), ("dtype", None)]
+        self.assertEqual(
+            exc_info.value.issues[0].path, [("array", None), ("dtype", None)]
+        )
 
         # Should succeed
         fn(None)
@@ -508,9 +516,11 @@ class TestArraySchema(unittest.TestCase):
         # Should fail
         with pytest.raises(SchemaIssues) as exc_info:
             fn(1)
-        assert exc_info.value.issues[0].path == [("array", None)]
-        assert exc_info.value.issues[0].expected == [xarray.DataArray, type(None)]
-        assert exc_info.value.issues[0].found == int
+        self.assertEqual(exc_info.value.issues[0].path, [("array", None)])
+        self.assertEqual(
+            exc_info.value.issues[0].expected, [xarray.DataArray, type(None)]
+        )
+        self.assertEqual(exc_info.value.issues[0].found, int)
 
 
 @dict_schema
@@ -563,7 +573,9 @@ class TestDictSchema(unittest.TestCase):
     def test_xarray_dataclass_to_dict_schema(self):
         """Ensure that extracting the model from the dataclass is consistent"""
 
-        assert xarray_dataclass_to_dict_schema(_TestDictSchema) == TEST_DICT_SCHEMA
+        self.assertEqual(
+            xarray_dataclass_to_dict_schema(_TestDictSchema), TEST_DICT_SCHEMA
+        )
 
     def test_check_dict(self):
         # Should succeed
@@ -582,31 +594,31 @@ class TestDictSchema(unittest.TestCase):
     def test_check_dict_constructor(self):
         # Should succeed
         data = _TestDictSchema(attr1="asd", attr2=234, attr3=345)
-        assert isinstance(data, dict)
+        self.assertIsInstance(data, dict)
         issues = check_dict(data, TEST_DICT_SCHEMA)
         issues.expect()
 
         # Check that data is correct
-        assert data == {"attr1": "asd", "attr2": 234, "attr3": 345}
+        self.assertEqual(data, {"attr1": "asd", "attr2": 234, "attr3": 345})
 
     def test_check_dict_constructor_defaults(self):
         # Should succeed
         data = _TestDictSchema(attr1="asd")
-        assert isinstance(data, dict)
+        self.assertIsInstance(data, dict)
         issues = check_dict(data, TEST_DICT_SCHEMA)
         issues.expect()
 
         # Check that data is correct
-        assert data == {"attr1": "asd", "attr2": 123, "attr3": None}
+        self.assertEqual(data, {"attr1": "asd", "attr2": 123, "attr3": None})
 
     def test_check_dict_typ(self):
         # Should succeed
         data = {"attr1": "asd", "attr2": "foo"}
         results = check_dict(data, TEST_DICT_SCHEMA)
-        assert len(results) == 1
-        assert results[0].path == [("", "attr2")]
-        assert results[0].found == str
-        assert results[0].expected == [int]
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].path, [("", "attr2")])
+        self.assertEqual(results[0].found, str)
+        self.assertEqual(results[0].expected, [int])
 
         with pytest.raises(SchemaIssues):
             results.expect()
@@ -615,11 +627,10 @@ class TestDictSchema(unittest.TestCase):
         # Should succeed
         data = {"attr1": "asd"}
         results = check_dict(data, TEST_DICT_SCHEMA)
-        assert len(results) == 1
-        assert results[0].path == [("", "attr2")]
-        assert results[0].found == None
-        assert results[0].expected == [int]
-
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].path, [("", "attr2")])
+        self.assertEqual(results[0].found, None)
+        self.assertEqual(results[0].expected, [int])
         with pytest.raises(SchemaIssues):
             results.expect()
 
@@ -753,9 +764,9 @@ class TestDatasetSchema(unittest.TestCase):
     )
 
     def test_xarray_dataclass_to_dataset_schema(self):
-        assert (
-            xarray_dataclass_to_dataset_schema(_TestDatasetSchema)
-            == self.TEST_DATASET_SCHEMA
+        self.assertEqual(
+            xarray_dataclass_to_dataset_schema(_TestDatasetSchema),
+            self.TEST_DATASET_SCHEMA,
         )
 
     def test_check_dataset(self):
@@ -797,15 +808,15 @@ class TestDatasetSchema(unittest.TestCase):
         dataset = _TestDatasetSchema(data_vars=data_vars, coords=coords, attrs=attrs)
         issues = check_dataset(dataset, self.TEST_DATASET_SCHEMA)
         assert not issues
-        assert isinstance(dataset["data_var"].data, dask.array.Array)
-        assert isinstance(dataset["data_var_simple"].data, dask.array.Array)
+        self.assertIsInstance(dataset["data_var"].data, dask.array.Array)
+        self.assertIsInstance(dataset["data_var_simple"].data, dask.array.Array)
         numpy.testing.assert_equal(
             dataset["data_var"].compute(), numpy.zeros(10, dtype=complex)
         )
         numpy.testing.assert_equal(
             dataset["data_var_simple"].compute(), numpy.zeros(5, dtype=numpy.float32)
         )
-        assert dataset.attrs == attrs
+        self.assertEqual(dataset.attrs, attrs)
 
     def test_check_dataset_constructor_dataset_style_variable(self):
         """Same as above, but passing xarray.Variable instead of tuples"""
@@ -832,15 +843,15 @@ class TestDatasetSchema(unittest.TestCase):
         dataset = _TestDatasetSchema(data_vars=data_vars, coords=coords, attrs=attrs)
         issues = check_dataset(dataset, self.TEST_DATASET_SCHEMA)
         assert not issues
-        assert isinstance(dataset["data_var"].data, dask.array.Array)
-        assert isinstance(dataset["data_var_simple"].data, dask.array.Array)
+        self.assertIsInstance(dataset["data_var"].data, dask.array.Array)
+        self.assertIsInstance(dataset["data_var_simple"].data, dask.array.Array)
         numpy.testing.assert_equal(
             dataset["data_var"].compute(), numpy.zeros(10, dtype=complex)
         )
         numpy.testing.assert_equal(
             dataset["data_var_simple"].compute(), numpy.zeros(5, dtype=numpy.float32)
         )
-        assert dataset.attrs == attrs
+        self.assertEqual(dataset.attrs, attrs)
 
     def test_check_dataset_constructor_dataclass_style(self):
         """Test that we can pass named parameters to the constructor"""
@@ -867,8 +878,8 @@ class TestDatasetSchema(unittest.TestCase):
         )
         issues = check_dataset(dataset, self.TEST_DATASET_SCHEMA)
         assert not issues
-        assert isinstance(dataset["data_var"].data, dask.array.Array)
-        assert isinstance(dataset["data_var_simple"].data, dask.array.Array)
+        self.assertIsInstance(dataset["data_var"].data, dask.array.Array)
+        self.assertIsInstance(dataset["data_var_simple"].data, dask.array.Array)
         numpy.testing.assert_equal(
             dataset["data_var"].compute(), numpy.zeros(10, dtype=complex)
         )
@@ -900,8 +911,8 @@ class TestDatasetSchema(unittest.TestCase):
         )
         issues = check_dataset(dataset, self.TEST_DATASET_SCHEMA)
         assert not issues
-        assert isinstance(dataset["data_var"].data, dask.array.Array)
-        assert isinstance(dataset["data_var_simple"].data, dask.array.Array)
+        self.assertIsInstance(dataset["data_var"].data, dask.array.Array)
+        self.assertIsInstance(dataset["data_var_simple"].data, dask.array.Array)
         numpy.testing.assert_equal(dataset["coord2"], numpy.arange(25, dtype=int))
 
     def test_check_dataset(self):
@@ -954,13 +965,15 @@ class TestDatasetSchema(unittest.TestCase):
         }
         dataset = xarray.Dataset(data_vars, coords, attrs)
         issues = check_dataset(dataset, self.TEST_DATASET_SCHEMA)
-        assert len(issues) == 2
-        assert issues[0].path == [("coords", "coord2"), ("dtype", None)]
-        assert issues[0].expected == [numpy.dtype(int)]
-        assert issues[0].found == numpy.dtype(float)
-        assert issues[1].path == [("data_vars", "data_var_simple"), ("dtype", None)]
-        assert issues[1].expected == [numpy.float32]
-        assert issues[1].found == numpy.dtype(float)
+        self.assertEqual(len(issues), 2)
+        self.assertEqual(issues[0].path, [("coords", "coord2"), ("dtype", None)])
+        self.assertEqual(issues[0].expected, [numpy.dtype(int)])
+        self.assertEqual(issues[0].found, numpy.dtype(float))
+        self.assertEqual(
+            issues[1].path, [("data_vars", "data_var_simple"), ("dtype", None)]
+        )
+        self.assertEqual(issues[1].expected, [numpy.float32])
+        self.assertEqual(issues[1].found, numpy.dtype(float))
 
     def test_check_dataset_wrong_dim(self):
         attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
@@ -976,10 +989,12 @@ class TestDatasetSchema(unittest.TestCase):
         }
         dataset = xarray.Dataset(data_vars, coords, attrs)
         issues = check_dataset(dataset, self.TEST_DATASET_SCHEMA)
-        assert len(issues) == 1
-        assert issues[0].path == [("data_vars", "data_var_simple"), ("dims", None)]
-        assert issues[0].expected == [("coord2",)]
-        assert issues[0].found == ["coord"]
+        self.assertEqual(len(issues), 1)
+        self.assertEqual(
+            issues[0].path, [("data_vars", "data_var_simple"), ("dims", None)]
+        )
+        self.assertEqual(issues[0].expected, [("coord2",)])
+        self.assertEqual(issues[0].found, ["coord"])
 
     def test_check_dataset_extra_datavar(self):
         attrs = {"attr1": "str", "attr2": 123, "attr3": 345}

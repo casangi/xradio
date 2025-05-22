@@ -105,12 +105,12 @@ TEST_ARRAY_SCHEMA = ArraySchema(
     ],
 )
 
+
 class TestArraySchema(unittest.TestCase):
     def test_xarray_dataclass_to_array_schema(self):
         """Ensure that extracting the model from the dataclass is consistent"""
 
         assert xarray_dataclass_to_array_schema(_TestArraySchema) == TEST_ARRAY_SCHEMA
-
 
     def test_check_array(self):
         # Should succeed
@@ -132,7 +132,6 @@ class TestArraySchema(unittest.TestCase):
         assert array.attr2 == 123
         assert array.attr3 == 345
 
-
     def test_check_array_dask(self):
         data = dask.array.zeros(10, dtype=complex)
         coords = [("coord", numpy.arange(10, dtype=float))]
@@ -141,7 +140,6 @@ class TestArraySchema(unittest.TestCase):
         assert not check_array(array, TEST_ARRAY_SCHEMA)
         assert isinstance(array.data, dask.array.Array)
         numpy.testing.assert_equal(array.compute(), numpy.zeros(10, dtype=complex))
-
 
     def test_check_array_constructor_array_style(self):
         # Try by using constructor xarray.DataArray-style
@@ -159,7 +157,6 @@ class TestArraySchema(unittest.TestCase):
         assert array.attr1 == "str"
         assert array.attr2 == 1234
         assert array.attr3 == 345
-
 
     def test_check_array_constructor_dataclass_style(self):
         # Check when passing parameter (dataclass-style)
@@ -181,7 +178,6 @@ class TestArraySchema(unittest.TestCase):
         assert array.attr2 == 1234
         assert array.attr3 == 345
 
-
     def test_check_array_constructor_from_dataarray(self):
         # Create schema-conformant DataArray
         data = numpy.zeros(10, dtype=complex)
@@ -201,7 +197,6 @@ class TestArraySchema(unittest.TestCase):
         assert array.attr1 == "str"
         assert array.attr2 == 1234
         assert array.attr3 == 345
-
 
     def test_check_array_constructor_from_dataarray_override(self):
         # Create schema-conformant DataArray
@@ -228,7 +223,6 @@ class TestArraySchema(unittest.TestCase):
         assert array.attr2 == 12345
         assert array.attr3 == 345
 
-
     def test_check_array_constructor_auto_coords(self):
         # Check that we can omit "coords", which should result in them getting
         # filled in by a "numpy.arange" automatically
@@ -245,7 +239,6 @@ class TestArraySchema(unittest.TestCase):
         assert array.attr1 == "str"
         assert array.attr2 == 1234
         assert array.attr3 == 345
-
 
     def test_check_array_constructor_list(self):
         # Check that we can use lists instead of numpy arrays, and they get
@@ -271,14 +264,11 @@ class TestArraySchema(unittest.TestCase):
         assert array.attr2 == 1234
         assert array.attr3 == 345
 
-
     def test_check_array_constructor_defaults(self):
         # Check when passing parameter (dataclass-style, using positional
         # parameters and defaults)
         array = _TestArraySchema(
-            numpy.zeros(10, dtype=complex),
-            numpy.arange(10, dtype=float),
-            "str",
+            numpy.zeros(10, dtype=complex), numpy.arange(10, dtype=float), "str",
         )
         assert isinstance(array, xarray.DataArray)
         check_array(array, TEST_ARRAY_SCHEMA).expect()
@@ -289,19 +279,14 @@ class TestArraySchema(unittest.TestCase):
         assert set(array.attrs.keys()) == {"attr1", "attr2"}
         assert array.attr1 == "str"
         assert array.attr2 == 123
-
 
     def test_check_array_constructor_mixed(self):
         # Check when passing parameter (everything)
         array = _TestArraySchema(
             numpy.zeros(10, dtype=complex),
             attr1="str",
-            coords={
-                "coord": numpy.arange(10, dtype=float),
-            },
-            attrs={
-                "attr2": 123,
-            },
+            coords={"coord": numpy.arange(10, dtype=float),},
+            attrs={"attr2": 123,},
         )
         assert isinstance(array, xarray.DataArray)
         check_array(array, TEST_ARRAY_SCHEMA).expect()
@@ -312,7 +297,6 @@ class TestArraySchema(unittest.TestCase):
         assert set(array.attrs.keys()) == {"attr1", "attr2"}
         assert array.attr1 == "str"
         assert array.attr2 == 123
-
 
     def test_check_array_dtype_mismatch(self):
         data_f = numpy.zeros(10, dtype=float)
@@ -329,13 +313,11 @@ class TestArraySchema(unittest.TestCase):
         with pytest.raises(SchemaIssues):
             results.expect()
 
-
     def test_check_array_dtype_mismatch_constructor(self):
         with pytest.raises(SchemaIssues):
             _TestArraySchema(
                 numpy.zeros(10, dtype=float), numpy.arange(10, dtype=float), attr1="str"
             )
-
 
     def test_check_array_dtype_mismatch_expect(self):
         data_f = numpy.zeros(10, dtype=float)
@@ -348,7 +330,6 @@ class TestArraySchema(unittest.TestCase):
         assert results[0].path == [("dtype", None)]
         assert results[0].found == numpy.dtype(float)
         assert results[0].expected == [numpy.dtype(complex)]
-
 
     def test_check_array_extra_coord(self):
         coords2 = [
@@ -365,17 +346,17 @@ class TestArraySchema(unittest.TestCase):
         assert results[0].found == ["coord", "coord2"]
         assert results[0].expected == [("coord",)]
 
-
     def test_check_array_missing_coord(self):
         data0 = numpy.array(None, dtype=complex)
         attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
-        results = check_array(xarray.DataArray(data0, {}, attrs=attrs), TEST_ARRAY_SCHEMA)
+        results = check_array(
+            xarray.DataArray(data0, {}, attrs=attrs), TEST_ARRAY_SCHEMA
+        )
         assert len(results) == 2
         assert results[0].path == [("dims", None)]
         assert results[0].found == []
         assert results[0].expected == [("coord",)]
         assert results[1].path == [("coords", "coord")]
-
 
     def test_check_array_wrong_coord(self):
         data = numpy.zeros(10, dtype=complex)
@@ -392,7 +373,6 @@ class TestArraySchema(unittest.TestCase):
         assert results[0].expected == [("coord",)]
         assert results[1].path == [("coords", "coord")]
 
-
     def test_check_array_missing_attr(self):
         data = numpy.zeros(10, dtype=complex)
         coords = [("coord", numpy.arange(10, dtype=float))]
@@ -401,7 +381,6 @@ class TestArraySchema(unittest.TestCase):
         assert results[0].path == [("attrs", "attr1")]
         assert results[1].path == [("attrs", "attr2")]
 
-
     def test_check_array_extra_attr(self):
         data = numpy.zeros(10, dtype=complex)
         coords = [("coord", numpy.arange(10, dtype=float))]
@@ -409,14 +388,12 @@ class TestArraySchema(unittest.TestCase):
         array = xarray.DataArray(data, coords, attrs=attrs)
         assert not check_array(array, TEST_ARRAY_SCHEMA)
 
-
     def test_check_array_optional_attr(self):
         data = numpy.zeros(10, dtype=complex)
         coords = [("coord", numpy.arange(10, dtype=float))]
         attrs = {"attr1": "str", "attr2": 123}
         array = xarray.DataArray(data, coords, attrs=attrs)
         assert not check_array(array, TEST_ARRAY_SCHEMA)
-
 
     def test_check_array_wrong_type(self):
         data = numpy.zeros(10, dtype=complex)
@@ -436,7 +413,6 @@ class TestArraySchema(unittest.TestCase):
         assert results[2].found == float
         assert results[2].expected == [int]
 
-
     def test_schema_checked_wrap(self):
         @schema_checked
         def fn(a: int, b: _TestArraySchema) -> str:
@@ -450,7 +426,6 @@ class TestArraySchema(unittest.TestCase):
         assert sig.parameters["b"].annotation == _TestArraySchema
         assert sig.return_annotation == str
 
-
     def test_schema_checked_no_annotation(self):
         @schema_checked
         def fn(array):
@@ -460,7 +435,6 @@ class TestArraySchema(unittest.TestCase):
         fn(0)
         fn(None)
         fn(xarray.DataArray(numpy.zeros(10)))
-
 
     def test_schema_checked_annotation(self):
         @schema_checked
@@ -482,7 +456,6 @@ class TestArraySchema(unittest.TestCase):
         with pytest.raises(SchemaIssues) as exc_info:
             fn(None)
         assert exc_info.value.issues[0].path == [("array", None)]
-
 
     def test_schema_checked_annotation_optional(self):
         @schema_checked
@@ -511,7 +484,6 @@ class TestArraySchema(unittest.TestCase):
         print(exc_info.value.issues[0].expected)
         assert exc_info.value.issues[0].expected == [xarray.DataArray, type(None)]
         assert exc_info.value.issues[0].found == int
-
 
     def test_schema_checked_annotation_optional(self):
         @schema_checked
@@ -586,12 +558,12 @@ TEST_DICT_SCHEMA = DictSchema(
     ],
 )
 
+
 class TestDictSchema(unittest.TestCase):
     def test_xarray_dataclass_to_dict_schema(self):
         """Ensure that extracting the model from the dataclass is consistent"""
 
         assert xarray_dataclass_to_dict_schema(_TestDictSchema) == TEST_DICT_SCHEMA
-
 
     def test_check_dict(self):
         # Should succeed
@@ -600,14 +572,12 @@ class TestDictSchema(unittest.TestCase):
         assert not issues
         issues.expect()
 
-
     def test_check_dict_optional(self):
         # Should succeed
         data = {"attr1": "asd", "attr2": 234}
         issues = check_dict(data, TEST_DICT_SCHEMA)
         assert not issues
         issues.expect()
-
 
     def test_check_dict_constructor(self):
         # Should succeed
@@ -619,7 +589,6 @@ class TestDictSchema(unittest.TestCase):
         # Check that data is correct
         assert data == {"attr1": "asd", "attr2": 234, "attr3": 345}
 
-
     def test_check_dict_constructor_defaults(self):
         # Should succeed
         data = _TestDictSchema(attr1="asd")
@@ -629,7 +598,6 @@ class TestDictSchema(unittest.TestCase):
 
         # Check that data is correct
         assert data == {"attr1": "asd", "attr2": 123, "attr3": None}
-
 
     def test_check_dict_typ(self):
         # Should succeed
@@ -642,7 +610,6 @@ class TestDictSchema(unittest.TestCase):
 
         with pytest.raises(SchemaIssues):
             results.expect()
-
 
     def test_check_dict_missing(self):
         # Should succeed
@@ -696,15 +663,14 @@ class _TestDatasetSchema:
     attr3: Optional[Attr[int]] = None
     """Optional attribute with default"""
 
-class TestDatasetSchema(unittest.TestCase):
 
+class TestDatasetSchema(unittest.TestCase):
     def _dataclass_to_dict(obj, ignore=[]):
         return {
             f.name: getattr(obj, f.name)
             for f in dataclasses.fields(type(obj))
             if f.name not in ignore
         }
-
 
     # The equivalent of the above in the meta-model
     TEST_DATASET_SCHEMA = DatasetSchema(
@@ -786,10 +752,11 @@ class TestDatasetSchema(unittest.TestCase):
         class_docstring="Docstring of dataset schema\n\nAgain multiple lines!",
     )
 
-
     def test_xarray_dataclass_to_dataset_schema(self):
-        assert xarray_dataclass_to_dataset_schema(_TestDatasetSchema) == self.TEST_DATASET_SCHEMA
-
+        assert (
+            xarray_dataclass_to_dataset_schema(_TestDatasetSchema)
+            == self.TEST_DATASET_SCHEMA
+        )
 
     def test_check_dataset(self):
         attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
@@ -810,7 +777,6 @@ class TestDatasetSchema(unittest.TestCase):
         numpy.testing.assert_equal(
             dataset["data_var_simple"], numpy.zeros(5, dtype=numpy.float32)
         )
-
 
     def test_check_dataset_constructor_dataset_style(self):
         """Test typical way to construct xarray.Dataset - using tuples"""
@@ -841,7 +807,6 @@ class TestDatasetSchema(unittest.TestCase):
         )
         assert dataset.attrs == attrs
 
-
     def test_check_dataset_constructor_dataset_style_variable(self):
         """Same as above, but passing xarray.Variable instead of tuples"""
 
@@ -850,7 +815,9 @@ class TestDatasetSchema(unittest.TestCase):
             "coord": xarray.Variable(
                 ("coord",), numpy.arange(10, dtype=float), attrs=attrs
             ),
-            "coord2": xarray.Variable(("coord2",), numpy.arange(5, dtype=int), attrs=attrs),
+            "coord2": xarray.Variable(
+                ("coord2",), numpy.arange(5, dtype=int), attrs=attrs
+            ),
         }
         data_vars = {
             "data_var": xarray.Variable(
@@ -874,7 +841,6 @@ class TestDatasetSchema(unittest.TestCase):
             dataset["data_var_simple"].compute(), numpy.zeros(5, dtype=numpy.float32)
         )
         assert dataset.attrs == attrs
-
 
     def test_check_dataset_constructor_dataclass_style(self):
         """Test that we can pass named parameters to the constructor"""
@@ -910,7 +876,6 @@ class TestDatasetSchema(unittest.TestCase):
             dataset["data_var_simple"].compute(), numpy.zeros(5, dtype=numpy.float32)
         )
 
-
     def test_check_dataset_constructor_auto_coords(self):
         """Test that coordinates get automatically filled"""
 
@@ -939,7 +904,6 @@ class TestDatasetSchema(unittest.TestCase):
         assert isinstance(dataset["data_var_simple"].data, dask.array.Array)
         numpy.testing.assert_equal(dataset["coord2"], numpy.arange(25, dtype=int))
 
-
     def test_check_dataset(self):
         attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
         coords = {
@@ -960,7 +924,6 @@ class TestDatasetSchema(unittest.TestCase):
             dataset["data_var_simple"], numpy.zeros(5, dtype=numpy.float32)
         )
 
-
     def test_check_dataset_wrong_dim_order(self):
         attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
         coords = {
@@ -976,7 +939,6 @@ class TestDatasetSchema(unittest.TestCase):
         dataset = xarray.Dataset(data_vars, coords, attrs)
         issues = check_dataset(dataset, self.TEST_DATASET_SCHEMA)
         assert not issues
-
 
     def test_check_dataset_dtype_mismatch(self):
         attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
@@ -1000,7 +962,6 @@ class TestDatasetSchema(unittest.TestCase):
         assert issues[1].expected == [numpy.float32]
         assert issues[1].found == numpy.dtype(float)
 
-
     def test_check_dataset_wrong_dim(self):
         attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
         coords = {
@@ -1020,7 +981,6 @@ class TestDatasetSchema(unittest.TestCase):
         assert issues[0].expected == [("coord2",)]
         assert issues[0].found == ["coord"]
 
-
     def test_check_dataset_extra_datavar(self):
         attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
         coords = {
@@ -1038,7 +998,6 @@ class TestDatasetSchema(unittest.TestCase):
         issues = check_dataset(dataset, self.TEST_DATASET_SCHEMA)
         assert not issues
 
-
     def test_check_dataset_optional_datavar(self):
         attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
         coords = {
@@ -1054,7 +1013,6 @@ class TestDatasetSchema(unittest.TestCase):
         issues = check_dataset(dataset, self.TEST_DATASET_SCHEMA)
         assert not issues
 
-
     def test_check_dataset_optional_coordinate(self):
         attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
         coords = {
@@ -1068,7 +1026,6 @@ class TestDatasetSchema(unittest.TestCase):
         dataset = xarray.Dataset(data_vars, coords, attrs)
         issues = check_dataset(dataset, self.TEST_DATASET_SCHEMA)
         assert not issues
-
 
     def test_check_dict_dataset_attribute(self):
         # Make dataset
@@ -1088,19 +1045,8 @@ class TestDatasetSchema(unittest.TestCase):
         class _DictSchema:
             ds: _TestDatasetSchema
 
-        assert not check_dict(
-            {
-                "ds": dataset,
-            },
-            _DictSchema,
-        )
-        assert check_dict(
-            {
-                "ds": xarray.Dataset(data_vars, coords),
-            },
-            _DictSchema,
-        )
-
+        assert not check_dict({"ds": dataset,}, _DictSchema,)
+        assert check_dict({"ds": xarray.Dataset(data_vars, coords),}, _DictSchema,)
 
     def test_check_dict_array_attribute(self):
         # Make array
@@ -1118,7 +1064,6 @@ class TestDatasetSchema(unittest.TestCase):
 
         array = xarray.DataArray(data, coords)
         assert check_dict({"da": array}, _DictSchema)
-
 
     def test_check_dict_dict_attribute(self):
         # Check inside dictionary

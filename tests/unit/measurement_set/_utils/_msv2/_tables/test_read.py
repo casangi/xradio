@@ -498,7 +498,7 @@ def test_is_nested_ms_ms_min(ms_minimal_required):
     assert res == True
 
 
-def test_load_generic_table_ant(ms_minimal_required):
+def test_load_generic_table_antenna(ms_minimal_required):
     from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
     import xarray as xr
 
@@ -506,6 +506,63 @@ def test_load_generic_table_ant(ms_minimal_required):
     assert res
     assert type(res) == xr.Dataset
     assert all([dim in res.dims for dim in ["row", "dim_1"]])
+
+
+def test_load_generic_table_feed(ms_minimal_required):
+    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
+    import xarray as xr
+
+    res = load_generic_table(ms_minimal_required.fname, "FEED")
+    assert res
+    assert type(res) == xr.Dataset
+    assert all(
+        [
+            dim in res.dims
+            for dim in ["ANTENNA_ID", "SPECTRAL_WINDOW_ID", "dim_1", "dim_2", "dim_3"]
+        ]
+    )
+
+
+@pytest.mark.parametrize(
+    "input_name, expected_additional_columns",
+    [
+        (
+            "ms_minimal_required",
+            ["NUM_LINES", "TRANSITION", "REST_FREQUENCY", "SYSVEL"],
+        ),
+        ("ms_minimal_misbehaved", []),
+    ],
+)
+def test_load_generic_table_source(input_name, expected_additional_columns, request):
+    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
+    import xarray as xr
+
+    fixture = request.getfixturevalue(input_name)
+    input_path = fixture.fname
+
+    res = load_generic_table(input_path, "SOURCE")
+    assert res
+    assert type(res) == xr.Dataset
+    assert all(
+        [
+            dim in res.dims
+            for dim in [
+                "SOURCE_ID",
+                "TIME",
+                "SPECTRAL_WINDOW_ID",
+                "dim_1",
+                "dim_2",
+                "dim_3",
+            ]
+        ]
+    )
+    assert all(
+        [
+            xvar in res.data_vars
+            for xvar in ["NAME", "CALIBRATION_GROUP", "DIRECTION", "PROPER_MOTION"]
+            + expected_additional_columns
+        ]
+    )
 
 
 def test_load_generic_table_state(ms_minimal_required):
@@ -583,6 +640,17 @@ def test_load_generic_table_ephem(ms_minimal_required):
     assert res.data_vars["time"].size == 1
     for key, val in exp_attrs["other"]["msv2"].items():
         key in res.attrs["other"]["msv2"] and val == res.attrs["other"]["msv2"][key]
+
+
+def test_load_generic_table_weather(ms_minimal_required):
+    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
+    import xarray as xr
+
+    res = load_generic_table(ms_minimal_required.fname, "WEATHER")
+    assert res
+    assert type(res) == xr.Dataset
+    assert all([dim in res.dims for dim in ["ANTENNA_ID", "TIME"]])
+    assert all([var in res.data_vars for var in ["H2O"]])
 
 
 def test_load_generic_cols_state(ms_minimal_required):

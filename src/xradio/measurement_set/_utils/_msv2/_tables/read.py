@@ -46,16 +46,20 @@ def convert_casacore_time(
     rawtimes: np.ndarray, convert_to_datetime: bool = True
 ) -> np.ndarray:
     """
-    Read time columns to datetime format
-    pandas datetimes are referenced against a 0 of 1970-01-01
-    CASA's modified julian day reference time is (of course) 1858-11-17
+    Convert data from casacore time columns to a different format, either:
+    a) pandas style datetime,
+    b) simply seconds from 1970-01-01 00:00:00 UTC (as used in the Unix scale of
+       astropy).
+
+    Pandas datetimes and Unix times are referenced against a 0 of 1970-01-01.
+    CASA's (casacore) modified julian day reference time is (of course) 1858-11-17.
 
     This requires a correction of 3506716800 seconds which is hardcoded to save time
 
     Parameters
     ----------
     rawtimes : np.ndarray
-        times in casacore ref
+        time values wrt casacore reference
     convert_to_datetime : bool (Default value = True)
         whether to produce pandas style datetime
 

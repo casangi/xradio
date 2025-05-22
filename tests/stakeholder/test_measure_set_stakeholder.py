@@ -214,6 +214,23 @@ def base_check_ms_accessor(ps_xdt: xr.DataTree):
         )
 
 
+def base_check_time_centroid(ms_xds: xr.Dataset):
+    """
+    Basic consistency check of TIME_CENTROID values against time. Checks that the TIME_CENTROID
+    values are not too off the time centers (within the integration time).
+
+    Note: the maximum allowed diff between TIME_CENTROID and time ('mid-point of the nominal
+    sampling interval') can/should? be `<= int_time / 2.0`, except for the test_vlass
+    dataset which for some reason has time diffs close to the int_time
+    (~7.64s diff, int_time=~8.1s).
+    """
+    if "TIME_CENTROID" in ms_xds:
+        time_centroid = ms_xds["TIME_CENTROID"]
+        int_time = ms_xds.time.attrs["integration_time"]["data"]
+        time_diff = time_centroid - time_centroid.time
+        assert np.max(time_diff) <= int_time
+
+
 def base_test(
     file_name: str,
     folder: pathlib.Path,
@@ -268,19 +285,20 @@ def base_test(
         sum = 0.0
         sum_lazy = 0.0
         for ms_xds_name in ps_xdt.keys():
-            if "VISIBILITY" in ps_xdt[ms_xds_name]:
+            ms_xds = ps_xdt[ms_xds_name]
+            if "VISIBILITY" in ms_xds:
                 data_name = "VISIBILITY"
             else:
                 data_name = "SPECTRUM"
-            sum = sum + np.nansum(
-                np.abs(ps_xdt[ms_xds_name][data_name] * ps_xdt[ms_xds_name].WEIGHT)
-            )
+            sum = sum + np.nansum(np.abs(ms_xds[data_name] * ms_xds.WEIGHT))
             sum_lazy = sum_lazy + np.nansum(
                 np.abs(
                     ps_lazy_xdt[ms_xds_name][data_name]
                     * ps_lazy_xdt[ms_xds_name].WEIGHT
                 )
             )
+
+            base_check_time_centroid(ms_xds)
 
         print("sum", sum, sum_lazy)
         assert (

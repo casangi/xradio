@@ -270,7 +270,9 @@ class TestArraySchema(unittest.TestCase):
         # Check when passing parameter (dataclass-style, using positional
         # parameters and defaults)
         array = _TestArraySchema(
-            numpy.zeros(10, dtype=complex), numpy.arange(10, dtype=float), "str",
+            numpy.zeros(10, dtype=complex),
+            numpy.arange(10, dtype=float),
+            "str",
         )
         self.assertIsInstance(array, xarray.DataArray)
         check_array(array, TEST_ARRAY_SCHEMA).expect()
@@ -287,8 +289,12 @@ class TestArraySchema(unittest.TestCase):
         array = _TestArraySchema(
             numpy.zeros(10, dtype=complex),
             attr1="str",
-            coords={"coord": numpy.arange(10, dtype=float),},
-            attrs={"attr2": 123,},
+            coords={
+                "coord": numpy.arange(10, dtype=float),
+            },
+            attrs={
+                "attr2": 123,
+            },
         )
         self.assertIsInstance(array, xarray.DataArray)
         check_array(array, TEST_ARRAY_SCHEMA).expect()
@@ -369,7 +375,12 @@ class TestArraySchema(unittest.TestCase):
         )
         self.assertEqual(len(results), 2)
         self.assertEqual(results[0].path, [("dims", None)])
-        self.assertEqual(results[0].found, ["coord2",])
+        self.assertEqual(
+            results[0].found,
+            [
+                "coord2",
+            ],
+        )
         self.assertEqual(results[0].expected, [("coord",)])
         self.assertEqual(results[1].path, [("coords", "coord")])
 
@@ -1060,8 +1071,18 @@ class TestDatasetSchema(unittest.TestCase):
         class _DictSchema:
             ds: _TestDatasetSchema
 
-        assert not check_dict({"ds": dataset,}, _DictSchema,)
-        assert check_dict({"ds": xarray.Dataset(data_vars, coords),}, _DictSchema,)
+        assert not check_dict(
+            {
+                "ds": dataset,
+            },
+            _DictSchema,
+        )
+        assert check_dict(
+            {
+                "ds": xarray.Dataset(data_vars, coords),
+            },
+            _DictSchema,
+        )
 
     def test_check_dict_array_attribute(self):
         # Make array

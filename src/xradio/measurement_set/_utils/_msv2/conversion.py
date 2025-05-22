@@ -631,16 +631,20 @@ def create_data_variables(
                         time_chunksize,
                     )
                 else:
+                    col_data = read_col_conversion(
+                        table_manager,
+                        col,
+                        time_baseline_shape,
+                        tidxs,
+                        bidxs,
+                        use_table_iter,
+                        time_chunksize,
+                    )
+                    if col == "TIME_CENTROID":
+                        col_data = convert_casacore_time(col_data, False)
+
                     xds[col_to_data_variable_names[col]] = xr.DataArray(
-                        read_col_conversion(
-                            table_manager,
-                            col,
-                            time_baseline_shape,
-                            tidxs,
-                            bidxs,
-                            use_table_iter,
-                            time_chunksize,
-                        ),
+                        col_data,
                         dims=col_dims[col],
                     )
 

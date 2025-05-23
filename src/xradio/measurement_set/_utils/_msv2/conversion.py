@@ -634,32 +634,21 @@ def create_data_variables(
                         main_chunksize,
                     )
                 else:
-                    if col in time_parallel_columns:
-                        xds[col_to_data_variable_names[col]] = xr.DataArray(
-                            read_col_conversion(
-                                table_manager,
-                                col,
-                                time_baseline_shape,
-                                tidxs,
-                                bidxs,
-                                use_table_iter,
-                                time_chunksize,
-                            ),
-                            dims=col_dims[col],
-                        )
-                    else:
-                        xds[col_to_data_variable_names[col]] = xr.DataArray(
-                            read_col_conversion_numpy(
-                                table_manager,
-                                col,
-                                time_baseline_shape,
-                                tidxs,
-                                bidxs,
-                                use_table_iter,
-                                time_chunksize,
-                            ),
-                            dims=col_dims[col],
-                        )
+                    col_data = read_col_conversion(
+                        table_manager,
+                        col,
+                        time_baseline_shape,
+                        tidxs,
+                        bidxs,
+                        use_table_iter,
+                        time_chunksize,
+                    )
+                    if col == "TIME_CENTROID":
+                        col_data = convert_casacore_time(col_data, False)
+                    xds[col_to_data_variable_names[col]] = xr.DataArray(
+                        col_data,
+                        dims=col_dims[col],
+                    )
 
                 xds[col_to_data_variable_names[col]].attrs.update(
                     create_attribute_metadata(col, main_column_descriptions)

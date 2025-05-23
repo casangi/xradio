@@ -6,6 +6,7 @@ import pathlib
 import time
 from typing import Dict, Union
 
+import dask.array as da
 import numpy as np
 import xarray as xr
 import traceback
@@ -38,6 +39,7 @@ from .msv2_to_msv4_meta import (
     create_attribute_metadata,
     col_to_data_variable_names,
     col_dims,
+    time_parallel_columns,
 )
 
 from .._zarr.encoding import add_encoding
@@ -629,6 +631,7 @@ def create_data_variables(
                         use_table_iter,
                         main_column_descriptions,
                         time_chunksize,
+                        main_chunksize,
                     )
                 else:
                     col_data = read_col_conversion(
@@ -642,7 +645,6 @@ def create_data_variables(
                     )
                     if col == "TIME_CENTROID":
                         col_data = convert_casacore_time(col_data, False)
-
                     xds[col_to_data_variable_names[col]] = xr.DataArray(
                         col_data,
                         dims=col_dims[col],
@@ -656,6 +658,7 @@ def create_data_variables(
                     "Time to read column " + str(col) + " : " + str(time.time() - start)
                 )
             except Exception as exc:
+                # This error never raised when using time parallel mode!
                 logger.debug(f"Could not load column {col}, exception: {exc}")
                 logger.debug(traceback.format_exc())
 
@@ -711,9 +714,13 @@ def get_weight(
     use_table_iter,
     main_column_descriptions,
     time_chunksize,
+    main_chunksize,
 ):
+    # da.tile() behaves differently to np.tile() so rechunking is necessary.
+    # By default, da.tile() adds each repeat as a separate chunk.
+
     xds[col_to_data_variable_names[col]] = xr.DataArray(
-        np.tile(
+        da.tile(
             read_col_conversion(
                 table_manager,
                 col,
@@ -726,7 +733,7 @@ def get_weight(
             (1, 1, xds.sizes["frequency"], 1),
         ),
         dims=col_dims[col],
-    )
+    ).chunk(chunks={"frequency": -1})
 
     xds[col_to_data_variable_names[col]].attrs.update(
         create_attribute_metadata(col, main_column_descriptions)
@@ -976,7 +983,7 @@ def convert_and_write_partition(
     ms_v4_id: Union[int, str],
     partition_info: Dict,
     use_table_iter: bool,
-    partition_scheme: str = "ddi_intent_field",
+    partition_scheme: list,
     main_chunksize: Union[Dict, float, None] = None,
     with_pointing: bool = True,
     pointing_chunksize: Union[Dict, float, None] = None,

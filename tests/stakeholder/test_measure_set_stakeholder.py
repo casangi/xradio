@@ -231,6 +231,79 @@ def base_check_time_centroid(ms_xds: xr.Dataset):
         assert np.max(time_diff) <= int_time
 
 
+def base_check_time_sub_datasets(ms_xds: xr.Dataset):
+    """
+    Basic consistency check of the time_* coordinates of subdatasets
+    pointing_xds, weather_xds, system_calibration_xds, and phase_calibration_xds.
+
+    Checks that the xds specific time values are not too off the (main) time values of the correlated
+    dataset (+/- a simple buffer).
+    """
+
+    def get_buffer_time(xds_name, ms_xds):
+        """A buffer before/after the range of correlated data times"""
+        # Some datasets need special buffers (example: weather table with entries
+        # a few hours or days before/after the correlated data time range of a particular MSv4).
+        # Trying to use a much more strict buffer elsewhere, keeping these ones confined for now:
+        buffer_exceptions = {
+            "VLBA_TL016B_split": {
+                "phase_calibration_xds": 20200,
+                "weather_xds": 21000,
+            },
+            "Antennae_North.cal.lsrk.split": {
+                "weather_xds": 1305000,
+            },
+            "SNR_G55_10s.split": {
+                "weather_xds": 25000,
+            },
+            "sdimaging": {
+                "weather_xds": 170000,
+            },
+            "venus_ephem_test": {
+                "weather_xds": 1600,
+            },
+            "uid___A002_X1015532_X1926f.small": {
+                "weather_xds": 740,
+            },
+            "uid___A002_Xae00c5_X2e6b.small": {
+                "weather_xds": 5020,
+            },
+            "uid___A002_Xced5df_Xf9d9.small": {
+                "weather_xds": 4600,
+            },
+            "uid___A002_Xe3a5fd_Xe38e.small": {
+                "weather_xds": 3200,
+            },
+        }
+
+        ms_basename = ms_xds.name.rsplit("_", 1)[0]
+        if (
+            ms_basename in buffer_exceptions
+            and xds_name in buffer_exceptions[ms_basename]
+        ):
+            return buffer_exceptions[ms_basename][xds_name]
+        else:
+            return 1
+
+    time_coords = {
+        "phase_calibration_xds": "time_phase_cal",
+        "pointing_xds": "time_pointing",
+        "system_calibration_xds": "time_sys_cal",
+        "weather_xds": "time_weather",
+    }
+
+    correlated_time = ms_xds.coords["time"]
+    # completely arbitrary, sufficient for all sub-datasets and test cases.
+    for xds_name, time_name in time_coords.items():
+        buffer_time = get_buffer_time(xds_name, ms_xds)
+        if xds_name in ms_xds:
+            # if not interpolated
+            if time_name in ms_xds[xds_name]:
+                xds_time = ms_xds[xds_name].coords[time_name]
+                assert np.all(xds_time <= correlated_time.max() + buffer_time)
+                assert np.all(xds_time >= correlated_time.min() - buffer_time)
+
+
 def base_test(
     file_name: str,
     folder: pathlib.Path,
@@ -299,6 +372,7 @@ def base_test(
             )
 
             base_check_time_centroid(ms_xds)
+            base_check_time_sub_datasets(ms_xds)
 
         print("sum", sum, sum_lazy)
         assert (

@@ -1,8 +1,25 @@
-import astropy as ap
+import copy
+import re
+from typing import Union
+
+import dask
+import dask.array as da
+import numpy as np
+import xarray as xr
 from astropy import units as u
 from astropy.io import fits
 from astropy.time import Time
-from ..common import (
+
+from xradio._utils.coord_math import _deg_to_rad
+from xradio._utils.dict_helpers import (
+    make_quantity,
+    make_frequency_reference_dict,
+    make_skycoord_dict,
+    make_time_measure_dict,
+)
+
+from xradio.measurement_set._utils._utils.stokes_types import stokes_types
+from xradio.image._util.common import (
     _compute_linear_world_values,
     _compute_velocity_values,
     _compute_world_sph_dims,
@@ -15,19 +32,6 @@ from ..common import (
     _image_type,
     _l_m_attr_notes,
 )
-from xradio._utils.coord_math import _deg_to_rad
-from xradio._utils.dict_helpers import (
-    make_quantity,
-    make_frequency_reference_dict,
-    make_skycoord_dict,
-)
-import copy
-import dask
-import dask.array as da
-import numpy as np
-import re
-from typing import Union
-import xarray as xr
 
 
 def _fits_image_to_xds(
@@ -49,7 +53,7 @@ def _fits_image_to_xds(
     sphr_dims = helpers["sphr_dims"]
     ary = _read_image_array(img_full_path, chunks, helpers, verbose)
     dim_order = _get_xds_dim_order(sphr_dims)
-    xds = _add_sky_or_aperture(xds, ary, dim_order, helpers, sphr_dims)
+    xds = _add_sky_or_aperture(xds, ary, dim_order, header, helpers, sphr_dims)
     xds.attrs = attrs
     xds = _add_coord_attrs(xds, helpers)
     if helpers["has_multibeam"]:
@@ -70,13 +74,7 @@ def _add_coord_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
 
 def _add_time_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     time_coord = xds.coords["time"]
-    meta = copy.deepcopy(helpers["obsdate"])
-    del meta["value"]
-    # meta["units"] = [ meta["units"] ]
-    # meta['format'] = 'MJD'
-    # meta['time_scale'] = meta['refer']
-    # del meta['refer']
-    time_coord.attrs = meta
+    time_coord.attrs = copy.deepcopy(helpers["obsdate"]["attrs"])
     xds.assign_coords(time=time_coord)
     return xds
 
@@ -87,10 +85,8 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     if helpers["has_freq"]:
         meta["rest_frequency"] = make_quantity(helpers["restfreq"], "Hz")
         meta["rest_frequencies"] = [meta["rest_frequency"]]
-        # meta["frame"] = helpers["specsys"]
-        # meta["units"] = "Hz"
         meta["type"] = "frequency"
-        meta["wave_unit"] = "mm"
+        meta["wave_unit"] = ["mm"]
         freq_axis = helpers["freq_axis"]
         meta["reference_value"] = make_frequency_reference_dict(
             helpers["crval"][freq_axis], ["Hz"], helpers["specsys"]
@@ -128,16 +124,6 @@ def _add_l_m_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
 
 
 def _add_lin_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
-    """
-    if helpers["sphr_dims"]:
-        for i, name in zip(helpers["dir_axes"], helpers["sphr_axis_names"]):
-            meta = {
-                "units": "rad",
-                "crval": helpers["crval"][i],
-                "cdelt": helpers["cdelt"][i],
-            }
-            xds.coords[name].attrs = meta
-    """
     if not helpers["sphr_dims"]:
         for i, j in zip(helpers["dir_axes"], ("u", "v")):
             meta = {
@@ -167,7 +153,7 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
     direction["projection"] = p0
     helpers["projection"] = p0
     ref_sys = header["RADESYS"]
-    ref_eqx = header["EQUINOX"]
+    ref_eqx = None if ref_sys.upper() == "ICRS" else header["EQUINOX"]
     if ref_sys == "FK5" and ref_eqx == 2000:
         ref_eqx = "J2000.0"
     helpers["ref_sys"] = ref_sys
@@ -176,15 +162,6 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
     direction["reference"] = make_skycoord_dict(
         [0.0, 0.0], units=["rad", "rad"], frame=ref_sys
     )
-    """
-    direction["reference"] = {
-        "type": "sky_coord",
-        "frame": ref_sys,
-        "equinox": ref_eqx,
-        "units": ["rad", "rad"],
-        "value": [0.0, 0.0],
-    }
-    """
     dir_axes = helpers["dir_axes"]
     ddata = []
     dunits = []
@@ -194,9 +171,10 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
         ddata.append(x.value)
         # direction["reference"]["value"][i] = x.value
         x = helpers["cdelt"][i] * u.Unit(_get_unit(helpers["cunit"][i]))
-        dunits.append(x.to("rad"))
+        dunits.append("rad")
     direction["reference"] = make_skycoord_dict(ddata, units=dunits, frame=ref_sys)
-    direction["reference"]["attrs"]["equinox"] = ref_eqx.lower()
+    if ref_eqx is not None:
+        direction["reference"]["attrs"]["equinox"] = ref_eqx.lower()
     direction["latpole"] = make_quantity(
         header["LATPOLE"] * _deg_to_rad, "rad", dims=["l", "m"]
     )
@@ -261,18 +239,21 @@ def _get_telescope_metadata(helpers: dict, header) -> dict:
         r = np.sqrt(np.sum(xyz * xyz))
         lat = np.arcsin(z / r)
         long = np.arctan2(y, x)
-        tel["position"] = {
-            "type": "position",
-            # I haven't seen a FITS keyword for reference frame of telescope posiiton
-            "ellipsoid": "GRS80",
-            "units": ["rad", "rad", "m"],
-            "value": np.array([long, lat, r]),
+        tel["location"] = {
+            "attrs": {
+                "coordinate_system": "geocentric",
+                # I haven't seen a FITS keyword for reference frame of telescope posiiton
+                "frame": "ITRF",
+                "origin_object_name": "earth",
+                "type": "location",
+                "units": ["rad", "rad", "m"],
+            },
+            "data": np.array([long, lat, r]),
         }
-        helpers["tel_pos"] = tel["position"]
     return tel
 
 
-def _pointing_center_to_metadata(helpers: dict, header) -> dict:
+def _compute_pointing_center(helpers: dict, header) -> dict:
     # Neither helpers or header is modified
     t_axes = helpers["t_axes"]
     long_unit = header[f"CUNIT{t_axes[0]}"]
@@ -285,7 +266,9 @@ def _pointing_center_to_metadata(helpers: dict, header) -> dict:
     pc_lat = float(header[f"CRVAL{t_axes[1]}"]) * unit[1]
     pc_long = pc_long.to(u.rad).value
     pc_lat = pc_lat.to(u.rad).value
-    return {"value": np.array([pc_long, pc_lat]), "initial": True}
+    return make_skycoord_dict(
+        [pc_long, pc_lat], units=["rad", "rad"], frame=helpers["ref_sys"]
+    )
 
 
 def _user_attrs_from_header(header) -> dict:
@@ -294,6 +277,9 @@ def _user_attrs_from_header(header) -> dict:
         "ALTRPIX",
         "ALTRVAL",
         "BITPIX",
+        "BMAJ",
+        "BMIN",
+        "BPA",
         "BSCALE",
         "BTYPE",
         "BUNIT",
@@ -319,21 +305,20 @@ def _user_attrs_from_header(header) -> dict:
     ]
     regex = r"|".join(
         [
-            "^NAXIS\\d?$",
-            "^CRVAL\\d$",
-            "^CRPIX\\d$",
-            "^CTYPE\\d$",
-            "^CDELT\\d$",
-            "^CUNIT\\d$",
-            "^OBSGEO-(X|Y|Z)$",
-            "^P(C|V)\\d_\\d$",
+            r"^NAXIS\d?$",
+            r"^CRVAL\d$",
+            r"^CRPIX\d$",
+            r"^CTYPE\d$",
+            r"^CDELT\d$",
+            r"^CUNIT\d$",
+            r"^OBSGEO-(X|Y|Z)$",
+            r"^P(C|V)0?\d_0?\d",
         ]
     )
     user = {}
     for k, v in header.items():
-        if re.search(regex, k) or k in exclude:
-            continue
-        user[k.lower()] = v
+        if not (re.search(regex, k) or k in exclude):
+            user[k.lower()] = v
     return user
 
 
@@ -382,7 +367,7 @@ def _create_dim_map(helpers: dict, header) -> dict:
     return dim_map
 
 
-def _fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList) -> dict:
+def _fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList) -> tuple:
     primary = None
     beams = None
     for hdu in hdulist:
@@ -418,9 +403,7 @@ def _fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList) -> dict:
     if dir_axes is not None:
         attrs["direction"] = _xds_direction_attrs_from_header(helpers, header)
     # FIXME read fits data in chunks in case all data too large to hold in memory
-    has_mask = da.any(da.isnan(primary.data)).compute()
-    attrs["active_mask"] = "MASK0" if has_mask else None
-    helpers["has_mask"] = has_mask
+    helpers["has_mask"] = da.any(da.isnan(primary.data)).compute()
     beam = _beam_attr_from_header(helpers, header)
     if beam != "mb":
         helpers["beam"] = beam
@@ -432,24 +415,15 @@ def _fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList) -> dict:
             helpers["dtype"] = "float64"
         else:
             raise RuntimeError(f'Unhandled data type {header["BITPIX"]}')
-    helpers["btype"] = header["BTYPE"] if "BTYPE" in header else None
-    helpers["bunit"] = header["BUNIT"] if "BUNIT" in header else None
-    attrs["object_name"] = header["OBJECT"] if "OBJECT" in header else None
-    obsdate = {}
-    obsdate["type"] = "time"
-    obsdate["value"] = Time(header["DATE-OBS"], format="isot").mjd
-    obsdate["units"] = ["d"]
-    obsdate["scale"] = header["TIMESYS"]
-    obsdate["format"] = "MJD"
-    attrs["obsdate"] = obsdate
-    helpers["obsdate"] = obsdate
-    attrs["observer"] = header["OBSERVER"]
-    attrs["pointing_center"] = _pointing_center_to_metadata(helpers, header)
-    attrs["description"] = None
-    attrs["telescope"] = _get_telescope_metadata(helpers, header)
+    helpers["obsdate"] = make_time_measure_dict(
+        data=Time(header["DATE-OBS"], format="isot").mjd,
+        units=["d"],
+        scale=header["TIMESYS"],
+        time_format="MJD",
+    )
+
     # TODO complete _make_history_xds when spec has been finalized
     # attrs['history'] = _make_history_xds(header)
-    attrs["user"] = _user_attrs_from_header(header)
     return attrs, helpers, header
 
 
@@ -532,36 +506,11 @@ def _create_coords(
 
 
 def _get_time_values(helpers):
-    return [helpers["obsdate"]["value"]]
+    return [helpers["obsdate"]["data"]]
 
 
 def _get_pol_values(helpers):
-    # as mapped in casacore Stokes.h
-    stokes_map = [
-        "Undefined",
-        "I",
-        "Q",
-        "U",
-        "V",
-        "RR",
-        "RL",
-        "LR",
-        "LL",
-        "XX",
-        "XY",
-        "YX",
-        "YY",
-        "RX",
-        "RY",
-        "LX",
-        "LY",
-        "XR",
-        "XL",
-        "YR",
-        "YL",
-        "PP",
-        "PQ",
-    ]
+
     idx = helpers["ctype"].index("STOKES")
     if idx >= 0:
         vals = []
@@ -571,7 +520,13 @@ def _get_pol_values(helpers):
         stokes_start_idx = crval - cdelt * crpix
         for i in range(helpers["shape"][idx]):
             stokes_idx = (stokes_start_idx + i) * cdelt
-            vals.append(stokes_map[stokes_idx])
+            if 0 <= stokes_idx < len(stokes_types):
+                # stokes_types provides the index-label mapping from casacore Stokes.h
+                vals.append(stokes_types[stokes_idx])
+            else:
+                raise RuntimeError(
+                    "Can't find the Stokes type using the FITS header index"
+                )
         return vals
     else:
         return ["I"]
@@ -710,14 +665,22 @@ def _add_sky_or_aperture(
     xds: xr.Dataset,
     ary: Union[np.ndarray, da.array],
     dim_order: list,
+    header,
     helpers: dict,
     has_sph_dims: bool,
 ) -> xr.Dataset:
     xda = xr.DataArray(ary, dims=dim_order)
-    image_type = helpers["btype"]
-    unit = helpers["bunit"]
-    xda.attrs[_image_type] = image_type
-    xda.attrs["units"] = unit
+    for h, a in zip(
+        ["BUNIT", "BTYPE", "OBJECT", "OBSERVER"],
+        ["units", _image_type, "object_name", "observer"],
+    ):
+        if h in header:
+            xda.attrs[a] = header[h]
+    xda.attrs["obsdate"] = helpers["obsdate"].copy()
+    xda.attrs["pointing_center"] = _compute_pointing_center(helpers, header)
+    xda.attrs["telescope"] = _get_telescope_metadata(helpers, header)
+    xda.attrs["description"] = None
+    xda.attrs["user"] = _user_attrs_from_header(header)
     name = "SKY" if has_sph_dims else "APERTURE"
     xda = xda.rename(name)
     xds[xda.name] = xda
@@ -727,6 +690,9 @@ def _add_sky_or_aperture(
         mask.attrs = {}
         mask = mask.rename("MASK0")
         xds["MASK0"] = mask
+        xda.attrs["active_mask"] = "MASK0"
+    xda = xda.rename(name)
+    xds[xda.name] = xda
     return xds
 
 

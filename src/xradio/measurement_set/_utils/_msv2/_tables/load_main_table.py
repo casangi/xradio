@@ -5,7 +5,10 @@ import pandas as pd
 import numpy as np
 import xarray as xr
 
-from casacore import tables
+try:
+    from casacore import tables
+except ImportError:
+    import xradio._utils._casacore.casacore_from_casatools as tables
 
 from .load import load_col_chunk
 from .read_main_table import get_partition_ids, redim_id_data_vars, rename_vars

@@ -11,7 +11,10 @@ from xradio._utils.list_and_array import get_pad_value
 from .write import write_generic_table, write_main_table_slice
 from .write import create_table, revert_time
 
-from casacore import tables
+try:
+    from casacore import tables
+except ImportError:
+    import xradio._utils._casacore.casacore_from_casatools as tables
 
 
 # TODO: this should be consolidated with the equivalent in read_main_table,

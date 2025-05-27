@@ -26,6 +26,8 @@ TimeWeather = Literal["time_weather"]
 """ time dimension of weather dataset (when not interpolated to main time) """
 AntennaName = Literal["antenna_name"]
 """ Antenna name dimension """
+ElementId = Literal["element_id"]
+""" Element Id dimension of phased_array_xds"""
 StationName = Literal["station_name"]
 """ Station name dimension """
 ReceptorLabel = Literal["receptor_label"]
@@ -56,6 +58,8 @@ EllipsoidPosLabel = Literal["ellipsoid_pos_label"]
 """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
 CartesianPosLabel = Literal["cartesian_pos_label"]
 """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
+CartesianPosLabelLocal = Literal["cartesian_pos_label_local"]
+""" Coordinate labels for phased array elements positions relative to their parent station position; defined in a station-local frame (typically shape 3 and 'p', 'q', 'r')"""
 nPolynomial = Literal["n_polynomial"]
 """ For data that is represented as variable in time using Taylor expansion """
 PolyTerm = Literal["poly_term"]
@@ -76,9 +80,12 @@ SkyCoord = Literal["sky_coord"]
 SpectralCoord = Literal["spectral_coord"]
 Location = Literal["location"]
 Doppler = Literal["doppler"]
-
+RotationMatrix = Literal["rotation_matrix"]
 
 # Units of quantities and measures
+UnitsDimensionless = list[
+    Literal["dimensionless"]
+]  # name consistent with casacore measures
 UnitsSeconds = list[Literal["s"]]
 UnitsHertz = list[Literal["Hz"]]
 UnitsMeters = list[Literal["m"]]
@@ -562,6 +569,7 @@ AllowedLocationCoordinateSystems = Literal[
     "geodetic",
     "planetodetic",
     "orbital",
+    "topocentric",
 ]
 
 
@@ -2217,3 +2225,98 @@ class SpectrumXds:
     """The channel bandwidth that includes the effects of missing data."""
     FREQUENCY_CENTROID: Optional[Dataof[FrequencyCentroidArray]] = None
     """Includes the effects of missing data unlike ``frequency``."""
+
+
+@xarray_dataarray_schema
+class PhasedArrayElementOffsetArray:
+    """
+    Schema for PHASED_ARRAY_ELEMENT_OFFSET.
+    """
+
+    data: Data[
+        tuple[AntennaName, CartesianPosLabelLocal, ElementId],
+        float,
+    ]
+
+    units: Attr[list[Literal["m"]]]
+
+    type: Attr[Location]
+    """ Measure type. Should be ``"location"``."""
+
+    coordinate_system: Attr[Literal["topocentric"]]
+    """
+    Coordinate system in which the element offsets are expressed.
+    Should be ``"topocentric"``.
+    """
+
+    origin: Attr[Literal["ANTENNA_POSITION"]]
+    """ Origin of the coordinate system. Should be ``"ANTENNA_POSITION"``."""
+
+
+@xarray_dataarray_schema
+class PhasedArrayCoordinateAxesArray:
+    """
+    Schema for PHASED_ARRAY_COORDINATE_AXES
+    """
+
+    data: Data[tuple[AntennaName, CartesianPosLabelLocal, CartesianPosLabel], float]
+
+    units: Attr[UnitsDimensionless]
+
+    type: Attr[RotationMatrix]
+    """ Measure type. Should be ``"rotation_matrix"``."""
+
+
+@xarray_dataset_schema
+class PhasedArrayXds:
+    """
+    Phased array dataset: define stations made of multiple receiver elements.
+    """
+
+    # Coordinates
+    antenna_name: Coordof[AntennaNameArray]
+    """ Antenna name """
+
+    element_id: Coord[ElementId, Union[numpy.int64, numpy.int32]]
+    """ Element Id within a station/antenna """
+
+    receptor_label: Coord[ReceptorLabel, str]
+    """ Names of receptors, i.e. polarization hands. """
+
+    polarization_type: Coord[tuple[AntennaName, ReceptorLabel], str]
+    """ Polarization type to which each receptor responds (e.g. ”R”,”L”,”X” or ”Y”).
+    This is the receptor polarization type as recorded in the final correlated data (e.g. ”RR”); i.e.
+    as measured after all polarization combiners. ['X','Y'], ['R','L'] """
+
+    cartesian_pos_label: Coord[CartesianPosLabel, str]
+    """ (x,y,z) - either cartesian or ellipsoid """
+
+    cartesian_pos_label_local: Coord[CartesianPosLabelLocal, str]
+    """ (p,q,r) - cartesian station-local frame of reference """
+
+    # Data variables
+    PHASED_ARRAY_COORDINATE_AXES: Dataof[PhasedArrayCoordinateAxesArray]
+    """
+    3x3 Rotation M such that X_geo = M X_local.
+    Used to convert PHASED_ARRAY_ELEMENT_OFFSET coordinates from a station-local
+    frame to a geocentric frame.
+    """
+
+    PHASED_ARRAY_ELEMENT_OFFSET: Dataof[PhasedArrayElementOffsetArray]
+    """
+    Offsets of each array element from its parent station position, expressed
+    in a station-local frame. Station positions are stored in
+    antenna_xds.ANTENNA_POSITION.
+    """
+
+    PHASED_ARRAY_ELEMENT_FLAG: Data[tuple[AntennaName, ReceptorLabel, ElementId], bool]
+    """
+    Boolean flag set to True if the data from a given polarisation receptor of a station element
+    should be ignored.
+    """
+
+    # Attributes
+    type: Attr[Literal["phased_array"]]
+    """
+    Type of dataset. Expected to be ``phased_array``
+    """

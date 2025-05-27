@@ -6,7 +6,10 @@ import numpy as np
 import xarray as xr
 import pandas as pd
 
-from casacore import tables
+try:
+    from casacore import tables
+except ImportError:
+    import xradio._utils._casacore.casacore_from_casatools as tables
 
 from .read import (
     read_flat_col_chunk,

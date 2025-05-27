@@ -8,14 +8,20 @@ from typing import Dict, Union
 
 import numpy as np
 import xarray as xr
+import traceback
 
 import toolviper.utils.logger as logger
-from casacore import tables
+
+try:
+    from casacore import tables
+except ImportError:
+    import xradio._utils._casacore.casacore_from_casatools as tables
 
 from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
     create_pointing_xds,
     create_system_calibration_xds,
     create_weather_xds,
+    create_phased_array_xds,
 )
 from .msv4_info_dicts import create_info_dicts
 from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
@@ -625,16 +631,20 @@ def create_data_variables(
                         time_chunksize,
                     )
                 else:
+                    col_data = read_col_conversion(
+                        table_manager,
+                        col,
+                        time_baseline_shape,
+                        tidxs,
+                        bidxs,
+                        use_table_iter,
+                        time_chunksize,
+                    )
+                    if col == "TIME_CENTROID":
+                        col_data = convert_casacore_time(col_data, False)
+
                     xds[col_to_data_variable_names[col]] = xr.DataArray(
-                        read_col_conversion(
-                            table_manager,
-                            col,
-                            time_baseline_shape,
-                            tidxs,
-                            bidxs,
-                            use_table_iter,
-                            time_chunksize,
-                        ),
+                        col_data,
                         dims=col_dims[col],
                     )
 
@@ -647,6 +657,7 @@ def create_data_variables(
                 )
             except Exception as exc:
                 logger.debug(f"Could not load column {col}, exception: {exc}")
+                logger.debug(traceback.format_exc())
 
                 if ("WEIGHT_SPECTRUM" == col) and (
                     "WEIGHT" in col_names
@@ -1244,6 +1255,14 @@ def convert_and_write_partition(
                 + str(time.time() - start)
             )
 
+        # Create phased array xds
+        phased_array_xds = create_phased_array_xds(
+            in_file,
+            ant_xds.antenna_name,
+            ant_xds.receptor_label,
+            ant_xds.polarization_type,
+        )
+
         start = time.time()
 
         # Time and frequency should always be increasing
@@ -1358,6 +1377,9 @@ def convert_and_write_partition(
 
         if weather_xds:
             ms_xdt["/weather_xds"] = weather_xds
+
+        if phased_array_xds:
+            ms_xdt["/phased_array_xds"] = phased_array_xds
 
         if storage_backend == "zarr":
             from xradio.measurement_set._utils._zarr.config import ZARR_FORMAT

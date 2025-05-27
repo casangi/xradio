@@ -13,4 +13,4 @@ _np_types = {
     "int64": np.int64,
 }
 
-_top_level_sub_xds = "_attrs_xds"
+_top_level_sub_xds = "_attrs_xds_"

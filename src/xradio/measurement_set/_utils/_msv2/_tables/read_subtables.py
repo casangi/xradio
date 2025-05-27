@@ -7,7 +7,10 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from casacore import tables
+try:
+    from casacore import tables
+except ImportError:
+    import xradio._utils._casacore.casacore_from_casatools as tables
 
 from .table_query import open_query, open_table_ro
 from .read import (

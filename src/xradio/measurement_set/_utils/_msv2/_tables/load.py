@@ -2,7 +2,10 @@ from typing import Tuple
 
 import numpy as np
 
-from casacore import tables
+try:
+    from casacore import tables
+except ImportError:
+    import xradio._utils._casacore.casacore_from_casatools as tables
 from ....._utils.common import get_pad_value
 
 

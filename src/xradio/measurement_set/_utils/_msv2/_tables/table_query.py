@@ -1,7 +1,10 @@
 from typing import Generator
 from contextlib import contextmanager
 
-from casacore import tables
+try:
+    from casacore import tables
+except ImportError:
+    import xradio._utils._casacore.casacore_from_casatools as tables
 
 
 @contextmanager
@@ -17,7 +20,11 @@ def open_table_ro(infile: str) -> Generator[tables.table, None, None]:
 
 @contextmanager
 def open_query(table: tables.table, query: str) -> Generator[tables.table, None, None]:
-    ttq = tables.taql(query)
+
+    if hasattr(tables, "taql"):
+        ttq = tables.taql(query)
+    else:
+        ttq = table.taql(query)
     try:
         yield ttq
     finally:
@@ -43,4 +50,7 @@ class TableManager:
             self.infile, readonly=True, lockoptions={"option": "usernoread"}, ack=False
         ) as mtable:
             query = f"select * from $mtable {self.taql_where}"
-            return tables.taql(query)
+            if hasattr(tables, "taql"):
+                return tables.taql(query)
+            else:
+                return mtable.taql(query)

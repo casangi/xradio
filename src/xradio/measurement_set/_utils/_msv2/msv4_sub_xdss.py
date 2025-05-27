@@ -1,10 +1,11 @@
 import toolviper.utils.logger as logger
 import os
 import time
-from typing import Tuple, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import xarray as xr
+from numpy.typing import ArrayLike
 
 from xradio._utils.coord_math import convert_to_si_units
 from xradio._utils.schema import (
@@ -741,3 +742,117 @@ def create_system_calibration_xds(
             sys_cal_xds[data_var] = sys_cal_xds[data_var].astype(np.float64)
 
     return sys_cal_xds
+
+
+def create_phased_array_xds(
+    in_file: str,
+    antenna_names: list[str],
+    receptor_label: list[str],
+    polarization_type: ArrayLike,
+) -> Optional[xr.Dataset]:
+    """
+    Create an Xarray Dataset containing phased array information.
+
+    Parameters
+    ----------
+    in_file : str
+        Path to the input MSv2.
+    antenna_names: DataArray or Sequence[str]
+        Content of the antenna_name coordinate of the antenna_xds.
+    receptor_label: DataArray or Sequence[str]
+        Content of the receptor_label coordinate of the antenna_xds. Used to
+        label the corresponding axis of ELEMENT_FLAG.
+    polarization_type: DataArray or ArrayLike
+        Contents of the polarization_type coordinate of the antenna_xds.
+        Array-like of shape (num_antennas, 2) containing the polarization
+        hands for each antenna.
+
+    Returns
+    ----------
+        xr.Dataset or None: If the input MS contains a PHASED_ARRAY table,
+           returns the Xarray Dataset containing the phased array information.
+           Otherwise, return None.
+    """
+
+    def extract_data(dataarray_or_sequence):
+        if hasattr(dataarray_or_sequence, "data"):
+            return dataarray_or_sequence.data.tolist()
+        return dataarray_or_sequence
+
+    antenna_names = extract_data(antenna_names)
+    receptor_label = extract_data(receptor_label)
+    polarization_type = extract_data(polarization_type)
+
+    # NOTE: We cannot use the dimension renaming option of `load_generic_table`
+    # here, because it leads to a dimension name collision. This is caused by
+    # the presence of two dimensions of size 3 in multiple arrays.
+    # Instead, we do the renaming manually below.
+    try:
+        raw_xds = load_generic_table(
+            in_file,
+            "PHASED_ARRAY",
+            # Some MSes carry COORDINATE_SYSTEM as a copy of COORDINATE_AXES
+            # due to a past ambiguity on the PHASED_ARRAY schema
+            ignore=["COORDINATE_SYSTEM", "ANTENNA_ID"],
+        )
+    except ValueError:
+        return None
+
+    # Defend against empty PHASED_ARRAY table.
+    # The test MS "AA2-Mid-sim_00000.ms" has that problem.
+    required_keys = {"COORDINATE_AXES", "ELEMENT_OFFSET", "ELEMENT_FLAG"}
+    if not all(k in raw_xds for k in required_keys):
+        return None
+
+    def msv4_measure(raw_name: str) -> dict:
+        coldesc = raw_xds.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]
+        return column_description_casacore_to_msv4_measure(coldesc[raw_name])
+
+    def make_data_variable(raw_name: str, dim_names: list[str]) -> xr.DataArray:
+        da = raw_xds[raw_name]
+        da = xr.DataArray(da.data, dims=tuple(dim_names))
+        return da.assign_attrs(msv4_measure(raw_name))
+
+    raw_datavar_names_and_dims = [
+        (
+            "COORDINATE_AXES",
+            ("antenna_name", "cartesian_pos_label_local", "cartesian_pos_label"),
+        ),
+        ("ELEMENT_OFFSET", ("antenna_name", "cartesian_pos_label_local", "element_id")),
+        ("ELEMENT_FLAG", ("antenna_name", "receptor_label", "element_id")),
+    ]
+
+    data_vars = {
+        name: make_data_variable(name, dims)
+        for name, dims in raw_datavar_names_and_dims
+    }
+    data_vars["COORDINATE_AXES"].attrs = {
+        "type": "rotation_matrix",
+        "units": ["dimensionless", "dimensionless", "dimensionless"],
+    }
+    # Remove the "frame" attribute if it exists, because ELEMENT_OFFSET is
+    # defined in a station-local frame for which no standard name exists
+    data_vars["ELEMENT_OFFSET"].attrs.pop("frame", None)
+    data_vars["ELEMENT_OFFSET"].attrs.update(
+        {
+            "coordinate_system": "topocentric",
+            "origin": "ANTENNA_POSITION",
+        }
+    )
+
+    num_elements = data_vars["ELEMENT_OFFSET"].sizes["element_id"]
+
+    data_vars = {"PHASED_ARRAY_" + key: val for key, val in data_vars.items()}
+    coords = {
+        "antenna_name": antenna_names,
+        "element_id": np.arange(num_elements),
+        "receptor_label": receptor_label,
+        "polarization_type": (
+            ("antenna_name", "receptor_label"),
+            polarization_type,
+        ),
+        "cartesian_pos_label": ["x", "y", "z"],
+        "cartesian_pos_label_local": ["p", "q", "r"],
+    }
+    attrs = {"type": "phased_array"}
+    return xr.Dataset(data_vars, coords, attrs)

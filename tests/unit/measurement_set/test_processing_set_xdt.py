@@ -124,83 +124,21 @@ class TestProcessingSetXdtErrors:
             antenna_xds = ps_xdt.get_combined_antenna_xds()
             assert antenna_xds
 
+    def test_get_combined_field_and_source_xds_empty(self):
+        """Test that get_combined_field_and_source_xds raises an exception on empty DataTree"""
+        ps_xdt = ProcessingSetXdt(xr.DataTree())
 
-# Tests with ephemeris data loaded from disk
-class TestProcessingSetXdtWithEphemerisData:
-    """Tests for ProcessingSetXdt using real ephemeris data loaded from disk"""
+        with pytest.raises(InvalidAccessorLocation, match="not a processing set node"):
+            field_and_source_xds = ps_xdt.get_combined_field_and_source_xds()
+            assert field_and_source_xds
 
-    def test_check_ephemeris_datatree(self, test_ephemeris_ps_path):
-        """Test that the converted MS to PS complies with the datatree schema checker"""
-        ps_xdt = load_processing_set(str(test_ephemeris_ps_path))
+    def test_get_combined_field_and_source_xds_ephemeris_empty(self):
+        """Test that get_combined_field_and_source_xds with ephemeris raises an exception on empty DataTree"""
+        ps_xdt = ProcessingSetXdt(xr.DataTree())
 
-        issues = check_datatree(ps_xdt)
-        # The check_datatree function returns a SchemaIssues object, not a string
-        assert (
-            str(issues) == "No schema issues found"
-        ), f"Schema validation failed: {issues}"
-
-    def test_get_combined_field_and_source_xds_ephemeris(self, test_ephemeris_ps_path):
-        """Test getting combined field and source dataset with ephemeris from a processing set"""
-        ps_xdt = load_processing_set(str(test_ephemeris_ps_path))
-
-        # Get combined field and source dataset with ephemeris
-        field_source_xds = ps_xdt.xr_ps.get_combined_field_and_source_xds_ephemeris()
-
-        # Verify it returns an xarray Dataset
-        assert isinstance(field_source_xds, xr.Dataset)
-
-        # Check required fields are present
-        assert field_source_xds.attrs["type"] == "field_and_source_ephemeris"
-        assert "time" in field_source_xds.dims
-        assert "field_name" in field_source_xds.coords
-
-        # Check ephemeris-specific fields
-        assert "SOURCE_LOCATION" in field_source_xds.data_vars
-        assert "FIELD_PHASE_CENTER" in field_source_xds.data_vars
-        assert "FIELD_OFFSET" in field_source_xds.data_vars
-
-        # Check center field calculation
-        assert "center_field_name" in field_source_xds.attrs
-
-        # Center field name could be either a string or a numpy array containing a string
-        center_field = field_source_xds.attrs["center_field_name"]
-        if isinstance(center_field, np.ndarray):
-            # If it's a numpy array, check that it contains a string value
-            assert center_field.dtype.kind in ["U", "S"]  # Unicode or byte string
-            assert center_field.size == 1  # Should be a single value
-        else:
-            # Otherwise it should be a regular string
-            assert isinstance(center_field, (str, np.str_))
-
-    def test_field_offset_calculation(self, test_ephemeris_ps_path):
-        """Test that field offsets are correctly calculated"""
-        ps_xdt = load_processing_set(str(test_ephemeris_ps_path))
-
-        field_source_xds = ps_xdt.xr_ps.get_combined_field_and_source_xds_ephemeris()
-
-        # Verify field offset calculation
-        phase_center = field_source_xds["FIELD_PHASE_CENTER"]
-        source_location = field_source_xds["SOURCE_LOCATION"]
-        field_offset = field_source_xds["FIELD_OFFSET"]
-
-        # The field offset should only include ra and dec components
-        assert "ra" in field_offset.sky_dir_label.values
-        assert "dec" in field_offset.sky_dir_label.values
-
-        # Check that offsets have reasonable values (should be in radians)
-        assert np.all(np.abs(field_offset) < np.pi)  # Should be wrapped to [-π, π]
-
-    def test_time_interpolation(self, test_ephemeris_ps_path):
-        """Test that time interpolation works correctly for ephemeris data"""
-        ps_xdt = load_processing_set(str(test_ephemeris_ps_path))
-
-        field_source_xds = ps_xdt.xr_ps.get_combined_field_and_source_xds_ephemeris()
-
-        # Check that time is a dimension
-        assert "time" in field_source_xds.dims
-
-        # Time should have multiple points for ephemeris data
-        assert field_source_xds.dims["time"] > 1
+        with pytest.raises(InvalidAccessorLocation, match="not a processing set node"):
+            field_and_source_xds = ps_xdt.get_combined_field_and_source_xds_ephemeris()
+            assert field_and_source_xds
 
 
 # Tests with actual data loaded from disk
@@ -278,18 +216,80 @@ class TestProcessingSetXdtWithData:
         for ms_xdt in result_with_dg.children.values():
             assert "base" in ms_xdt.attrs.get("data_groups", {})
 
-    def test_get_combined_field_and_source_xds(self):
-        """Test that get_combined_field_and_source_xds raises an exception on empty DataTree"""
-        ps_xdt = ProcessingSetXdt(xr.DataTree())
 
-        with pytest.raises(InvalidAccessorLocation, match="not a processing set node"):
-            field_and_source_xds = ps_xdt.get_combined_field_and_source_xds()
-            assert field_and_source_xds
+# Tests with ephemeris data loaded from disk
+class TestProcessingSetXdtWithEphemerisData:
+    """Tests for ProcessingSetXdt using real ephemeris data loaded from disk"""
 
-    def test_get_combined_field_and_source_xds_ephemeris(self):
-        """Test that get_combined_field_and_source_xds with ephemeris raises an exception on empty DataTree"""
-        ps_xdt = ProcessingSetXdt(xr.DataTree())
+    def test_check_ephemeris_datatree(self, test_ephemeris_ps_path):
+        """Test that the converted MS to PS complies with the datatree schema checker"""
+        ps_xdt = load_processing_set(str(test_ephemeris_ps_path))
 
-        with pytest.raises(InvalidAccessorLocation, match="not a processing set node"):
-            field_and_source_xds = ps_xdt.get_combined_field_and_source_xds_ephemeris()
-            assert field_and_source_xds
+        issues = check_datatree(ps_xdt)
+        # The check_datatree function returns a SchemaIssues object, not a string
+        assert (
+            str(issues) == "No schema issues found"
+        ), f"Schema validation failed: {issues}"
+
+    def test_get_combined_field_and_source_xds_ephemeris(self, test_ephemeris_ps_path):
+        """Test getting combined field and source dataset with ephemeris from a processing set"""
+        ps_xdt = load_processing_set(str(test_ephemeris_ps_path))
+
+        # Get combined field and source dataset with ephemeris
+        field_source_xds = ps_xdt.xr_ps.get_combined_field_and_source_xds_ephemeris()
+
+        # Verify it returns an xarray Dataset
+        assert isinstance(field_source_xds, xr.Dataset)
+
+        # Check required fields are present
+        assert field_source_xds.attrs["type"] == "field_and_source_ephemeris"
+        assert "time" in field_source_xds.dims
+        assert "field_name" in field_source_xds.coords
+
+        # Check ephemeris-specific fields
+        assert "SOURCE_LOCATION" in field_source_xds.data_vars
+        assert "FIELD_PHASE_CENTER" in field_source_xds.data_vars
+        assert "FIELD_OFFSET" in field_source_xds.data_vars
+
+        # Check center field calculation
+        assert "center_field_name" in field_source_xds.attrs
+
+        # Center field name could be either a string or a numpy array containing a string
+        center_field = field_source_xds.attrs["center_field_name"]
+        if isinstance(center_field, np.ndarray):
+            # If it's a numpy array, check that it contains a string value
+            assert center_field.dtype.kind in ["U", "S"]  # Unicode or byte string
+            assert center_field.size == 1  # Should be a single value
+        else:
+            # Otherwise it should be a regular string
+            assert isinstance(center_field, (str, np.str_))
+
+    def test_field_offset_calculation(self, test_ephemeris_ps_path):
+        """Test that field offsets are correctly calculated"""
+        ps_xdt = load_processing_set(str(test_ephemeris_ps_path))
+
+        field_source_xds = ps_xdt.xr_ps.get_combined_field_and_source_xds_ephemeris()
+
+        # Verify field offset calculation
+        phase_center = field_source_xds["FIELD_PHASE_CENTER"]
+        source_location = field_source_xds["SOURCE_LOCATION"]
+        field_offset = field_source_xds["FIELD_OFFSET"]
+
+        # The field offset should only include ra and dec components
+        assert "ra" in field_offset.sky_dir_label.values
+        assert "dec" in field_offset.sky_dir_label.values
+
+        # Check that offsets have reasonable values (should be in radians)
+        assert np.all(np.abs(field_offset) < np.pi)  # Should be wrapped to [-π, π]
+
+    def test_time_interpolation(self, test_ephemeris_ps_path):
+        """Test that time interpolation works correctly for ephemeris data"""
+        ps_xdt = load_processing_set(str(test_ephemeris_ps_path))
+
+        field_source_xds = ps_xdt.xr_ps.get_combined_field_and_source_xds_ephemeris()
+
+        # Check that time is a dimension
+        assert "time" in field_source_xds.dims
+
+        # Time should have multiple points for ephemeris data
+        assert field_source_xds.dims["time"] > 1

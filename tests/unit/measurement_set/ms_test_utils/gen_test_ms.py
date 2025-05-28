@@ -194,6 +194,8 @@ def gen_test_ms(
         if not misbehave:
             # ASDM_EXECBLOCK is used in create_info_dicts when available
             gen_subt_asdm_execblock(msname)
+            # ASDM_STATION is used in create_weather
+            gen_subt_asdm_station(msname)
 
     if vlbi_tables:
         gen_subt_gain_curve(msname, descr["ANTENNA"])
@@ -590,7 +592,6 @@ def gen_subt_antenna(mspath: str, ant_descr: dict):
         ant_tbl.putcol("DISH_DIAMETER", nants * [12])
         ant_tbl.putcol("FLAG_ROW", nants * [False])
         ant_tbl.putcol("POSITION", np.broadcast_to([0.01, 0.02, 0.03], (nants, 3)))
-        ant_tbl.putcol("POSITION", np.broadcast_to([0.0, 0.0, 0.0], (nants, 3)))
 
 
 # field and state very relevant for partitions/sub-MSv2
@@ -1196,7 +1197,7 @@ def gen_subt_syscal(mspath: str, ant_descr: dict):
         main.putkeyword(subt_name, f"Table: {mspath}/{subt_name}")
 
 
-def gen_subt_weather(mspath: str):
+def gen_subt_weather(mspath: str, misbehave: bool = False):
     """
     Creates a WEATHER subtable and populates it with a (very incomplete) row
     simply with a very high TIME value, as seen in some corner cases of
@@ -1205,6 +1206,27 @@ def gen_subt_weather(mspath: str):
     the casacore tables read/write functions.
     """
     subt_name = "WEATHER"
+    tabdesc_ns_wx_station = {
+        "NS_WX_STATION_ID": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "NS_WX_STATION_POSITION": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "ndim": 1,
+            "comment": "comment...",
+            "keywords": {},
+        },
+    }
     nrows = 5
     with open_opt_subtable(mspath, subt_name) as wtbl:
         wtbl.addrows(nrows)
@@ -1214,6 +1236,13 @@ def gen_subt_weather(mspath: str):
         # all data/flags columns in the WEATHER table are optional!
         # But note they are always added in the python-casacore defaults
         wtbl.putcol("H2O", np.repeat(0.03, nrows))
+        if not misbehave:
+            wtbl.addcols(tabdesc_ns_wx_station)
+            wtbl.putcol("ANTENNA_ID", np.repeat(-1, nrows))
+            wtbl.putcol("NS_WX_STATION_ID", np.arange(0, nrows))
+            wtbl.putcol(
+                "NS_WX_STATION_POSITION", np.broadcast_to([0.1, 0.2, 0.3], (nrows, 3))
+            )
 
     with tables.table(mspath, ack=False, readonly=False) as main:
         main.putkeyword(subt_name, f"Table: {mspath}/{subt_name}")
@@ -1263,6 +1292,79 @@ def gen_subt_asdm_receiver(mspath: str):
         tbl.putcol("receiverId", 0)
         tbl.putcol("spectralWindowId", 0)
         tbl.putcol("timeInterval", 0)
+
+    with tables.table(mspath, ack=False, readonly=False) as main:
+        main.putkeyword(subt_name, f"Table: {mspath}/{subt_name}")
+
+
+def gen_subt_asdm_station(mspath: str):
+    """
+    Produces an over-simple table, with only a few rows, for basic coverage of ASDM_STATION subtable
+    handling (relevant when loading WEATHER)
+    """
+
+    subt_name = "ASDM_STATION"
+    rec_path = Path(mspath) / subt_name
+    tabdesc = {
+        "stationId": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "name": {
+            "valueType": "string",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "position": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "ndim": 1,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "type": {
+            "valueType": "string",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "time": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+    }
+
+    nrows = 5
+    with tables.table(
+        str(rec_path), tabledesc=tabdesc, nrow=nrows, readonly=False, ack=False
+    ) as tbl:
+        tbl.putcol("stationId", np.arange(0, nrows))
+        tbl.putcol("position", np.broadcast_to([10, 20, 30], (nrows, 3)))
+        tbl.putcol("name", [f"test_station{idx}" for idx in np.arange(0, nrows)])
+        tbl.putcol(
+            "type", np.repeat("WEATHER_STATION", nrows)
+        )  # ANTENNA_PAD / MAINTENANCE_PAD
+        tbl.putcol("time", np.repeat(1e9, nrows))
 
     with tables.table(mspath, ack=False, readonly=False) as main:
         main.putkeyword(subt_name, f"Table: {mspath}/{subt_name}")

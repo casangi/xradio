@@ -80,8 +80,9 @@ class ArraySchema:
     """(Class) name of the schema"""
     dimensions: typing.List[typing.List[str]]
     """List of possible dimensions"""
-    dtypes: typing.List[typing.List["numpy.dtype"]]
-    """List of possible (numpy) types"""
+    dtypes: typing.List[typing.List[str]]
+    """List of possible (numpy) types as array interface protocol
+    descriptors (e.g. `">f4"`)"""
 
     coordinates: typing.List["ArraySchemaRef"]
     """Coordinates data arrays giving values to dimensions"""

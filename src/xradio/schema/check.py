@@ -298,7 +298,8 @@ def check_dtype(dtype: numpy.dtype, expected: [numpy.dtype]) -> SchemaIssues:
     :returns: List of :py:class:`SchemaIssue`s found
     """
 
-    for exp_dtype in expected:
+    for exp_dtype_str in expected:
+        exp_dtype = numpy.dtype(exp_dtype_str)
         # If the expected dtype has no size (e.g. "U", a.k.a. a string of
         # arbitrary length), we don't check itemsize, only kind.
         if (
@@ -315,7 +316,7 @@ def check_dtype(dtype: numpy.dtype, expected: [numpy.dtype]) -> SchemaIssues:
             SchemaIssue(
                 path=[("dtype", None)],
                 message="Wrong numpy dtype",
-                found=dtype,
+                found=dtype.str,
                 expected=list(expected),
             )
         ]

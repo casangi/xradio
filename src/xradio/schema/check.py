@@ -16,6 +16,8 @@ from xradio.schema import (
     xarray_dataclass_to_dataset_schema,
     xarray_dataclass_to_dict_schema,
 )
+from xradio.schema.dataclass import value_schema
+from xradio.schema.metamodel import AttrSchemaRef, ValueSchema
 
 
 @dataclasses.dataclass
@@ -344,6 +346,8 @@ def check_attributes(
                     SchemaIssue(
                         path=[(attr_kind, attr_schema.name)],
                         message="Non-optional attribute is missing!",
+                        found=None,
+                        expected=[attr_schema.type_name],
                     )
                 )
             continue
@@ -441,36 +445,50 @@ def check_dict(
     return check_attributes(dct, schema.attributes, attr_kind="")
 
 
-def _check_value(val: typing.Any, ann: metamodel.AttrSchemaRef):
+def _check_value(val: typing.Any, schema: metamodel.ValueSchema):
     """
     Check whether value satisfies annotation
 
     If the annotation is a data array or dataset schema, it will be checked.
 
     :param val: Value to check
-    :param ann: Type annotation of value
+    :param schema: Schema of value
     :returns: Schema issues
     """
 
+    # Unspecified?
+    if schema.type_name is None:
+        return SchemaIssues()
+
+    # Optional?
+    if schema.optional and val is None:
+        return SchemaIssues()
+
     # Is supposed to be a data array?
-    if ann.type_name == "dataarray":
+    if schema.type_name == "dataarray":
         # Attempt to convert dictionaries automatically
         if isinstance(val, dict):
             try:
                 val = xarray.DataArray.from_dict(val)
             except ValueError as e:
+                expected = [DataArray]
+                if schema.optional:
+                    expected.append(type(None))
                 return SchemaIssues(
                     [
                         SchemaIssue(
-                            path=[], message=str(e), expected=[ann], found=type(val)
+                            path=[], message=str(e), expected=expected, found=type(val)
                         )
                     ]
                 )
             except TypeError as e:
+                expected = [DataArray]
+                if schema.optional:
+                    expected.append(type(None))
                 return SchemaIssues(
                     [
                         SchemaIssue(
-                            path=[], message=str(e), expected=[ann], found=type(val)
+                            path=[], message=str(e), expected=expected, found=type(val)
                         )
                     ]
                 )
@@ -479,29 +497,48 @@ def _check_value(val: typing.Any, ann: metamodel.AttrSchemaRef):
             # Fall through to plain type check
             type_to_check = xarray.DataArray
         else:
-            return check_array(val, ann.array_schema)
+            return check_array(val, schema.array_schema)
 
     # Is supposed to be a dictionary?
-    elif ann.type_name == "dict":
+    elif schema.type_name == "dict":
         if not isinstance(val, dict):
             # Fall through to plain type check
             type_to_check = dict
         else:
-            return check_dict(val, ann.dict_schema)
+            return check_dict(val, schema.dict_schema)
 
-    elif ann.type_name == "list[str]":
+    elif schema.type_name == "list[str]":
         type_to_check = typing.List[str]
-    elif ann.type_name in ["bool", "str", "int", "float"]:
-        type_to_check = getattr(builtins, ann.type_name)
+    elif schema.type_name in ["bool", "str", "int", "float"]:
+        type_to_check = getattr(builtins, schema.type_name)
     else:
-        return ValueError(f"Invalid typ_name in schema: {ann.type_name}")
+        raise ValueError(f"Invalid typ_name in schema: {schema.type_name}")
 
     # Otherwise straight type check using typeguard
     try:
         check_type(val, type_to_check)
     except TypeCheckError as t:
+        expected = [type_to_check]
+        if schema.optional:
+            expected.append(type(None))
         return SchemaIssues(
-            [SchemaIssue(path=[], message=str(t), expected=[ann], found=type(val))]
+            [SchemaIssue(path=[], message=str(t), expected=expected, found=type(val))]
+        )
+
+    # List of literals given?
+    if schema.literal is not None:
+        for lit in schema.literal:
+            if val == lit:
+                return SchemaIssues()
+        return SchemaIssues(
+            [
+                SchemaIssue(
+                    path=[],
+                    message=f"Disallowed literal value!",
+                    expected=schema.literal,
+                    found=val,
+                )
+            ]
         )
 
     return SchemaIssues()
@@ -618,7 +655,7 @@ def schema_checked(fn, check_parameters: bool = True, check_return: bool = True)
     @functools.wraps(fn)
     def _check_fn(*args, **kwargs):
         # Hide this function in pytest tracebacks
-        __tracebackhide__ = True
+        # __tracebackhide__ = True
 
         # Bind parameters, collect (potential) issues
         bound = signature.bind(*args, **kwargs)
@@ -628,7 +665,15 @@ def schema_checked(fn, check_parameters: bool = True, check_return: bool = True)
                 continue
 
             # Get annotation
-            issues += _check_value_union(val, anns.get(arg)).at_path(arg)
+            vschema = value_schema(anns.get(arg), "function", arg)
+            pseudo_attr_schema = AttrSchemaRef(
+                name=arg,
+                **{
+                    fld.name: getattr(vschema, fld.name)
+                    for fld in dataclasses.fields(ValueSchema)
+                },
+            )
+            issues += _check_value(val, pseudo_attr_schema).at_path(arg)
 
         # Any issues found? raise
         issues.expect()
@@ -638,7 +683,15 @@ def schema_checked(fn, check_parameters: bool = True, check_return: bool = True)
 
         # Check return
         if check_return:
-            issues = _check_value_union(val, signature.return_annotation)
+            vschema = value_schema(anns.get(arg), "function", "return")
+            pseudo_attr_schema = AttrSchemaRef(
+                name="return",
+                **{
+                    fld.name: getattr(vschema, fld.name)
+                    for fld in dataclasses.fields(ValueSchema)
+                },
+            )
+            issues = _check_value(val, pseudo_attr_schema)
             issues.at_path("return").expect()
 
         # Check return value

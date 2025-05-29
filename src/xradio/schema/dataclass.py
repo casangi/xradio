@@ -76,7 +76,6 @@ def _check_invalid_dims(
 
     # Filter out dimension possibilities with undefined coordinates
     valid_dims = [ds for ds in dims if set(ds).issubset(all_coord_names)]
-    # print(f"{klass_name}.{field_name}", valid_dims, dims, all_coord_names)
 
     # Raise an exception if this makes the dimension set impossible
     if dims and not valid_dims:
@@ -88,9 +87,7 @@ def _check_invalid_dims(
     return valid_dims
 
 
-def _attr_type(
-    ann: typing.Any, klass_name: str, field_name: str
-) -> (str, typing.Optional[typing.List[typing.Any]]):
+def value_schema(ann: typing.Any, klass_name: str, field_name: str) -> "ValueSchema":
     """
     Take attribute type annotation and convert into type name and
     - optionally - a list of literal allowed values
@@ -98,18 +95,41 @@ def _attr_type(
     :param ann: Annotation
     :param klass_name: Name of class where annotation origins from
     :param field_name: Name of field where annotation origins from
-    :returns: Pair of (type_name, dict_schema, array_schema, literals
+    :returns: ValueSchema
     """
+
+    # No annotation?
+    if ann is None:
+        return ValueSchema(None)
+
+    # Optional?
+    if is_optional(ann):
+
+        # Optional is actually represented as a union... Construct
+        # same union type without the "None" type.
+        typs = [typ for typ in get_args(ann) if typ is not None.__class__]
+        if len(typs) == 1:
+            typ = typs[0]
+        else:
+            raise ValueError(
+                f"In '{klass_name}', field '{field_name}' has"
+                f" a union type, which is not allowed!"
+            )
+
+        # Convert to schema recursively
+        vschema = value_schema(typ, klass_name, field_name)
+        vschema.optional = True
+        return vschema
 
     # Is a type?
     if isinstance(ann, type):
         # Array type?
         if hasattr(ann, "__xradio_array_schema"):
-            return ("dataarray", None, ann.__xradio_array_schema, None)
+            return ValueSchema("dataarray", array_schema=ann.__xradio_array_schema)
 
         # Dictionary type?
         if hasattr(ann, "__xradio_dict_schema"):
-            return ("dict", ann.__xradio_dict_schema, None, None)
+            return ValueSchema("dict", dict_schema=ann.__xradio_dict_schema)
 
         # Check that it is an allowable type
         if ann not in [bool, str, int, float, bool]:
@@ -117,7 +137,7 @@ def _attr_type(
                 f"In '{klass_name}', field '{field_name}' has"
                 f" type {ann} - but only str, int, float or list are allowed!"
             )
-        return (ann.__name__, None, None, None)
+        return ValueSchema(ann.__name__)
 
     # Is a list
     if typing.get_origin(ann) in [typing.List, list]:
@@ -130,7 +150,7 @@ def _attr_type(
                 f" annotation {ann}, but only str, int, float, list[str] or Literal allowed!"
             )
 
-        return ("list[str]", None, None, None)
+        return ValueSchema("list[str]")
 
     # Is a literal?
     if typing.get_origin(ann) is typing.Literal:
@@ -165,11 +185,9 @@ def _attr_type(
                             f" {lit} has inconsistent element type "
                             f"({typ(elem)}) vs ({elem_type})!"
                         )
-            return (
+            return ValueSchema(
                 "list[str]",
-                None,
-                None,
-                [[str(elem) for elem in arg] for arg in args],
+                literal=[[str(elem) for elem in arg] for arg in args],
             )
 
         # Check that it is an allowable type
@@ -187,7 +205,7 @@ def _attr_type(
                     f" {lit} has inconsistent type ({typ(lit)}) vs ({typ})!"
                 )
 
-        return (typ.__name__, None, None, [typ(arg) for arg in args])
+        return ValueSchema(typ.__name__, literal=[typ(arg) for arg in args])
 
     raise ValueError(
         f"In '{klass_name}', field '{field_name}' has"
@@ -245,20 +263,19 @@ def extract_xarray_dataclass(klass, allow_undefined_coords: bool = False):
                 raise ValueError(
                     f"Could not get annotation in '{klass.__name__}' field '{field.name}': {e}"
                 )
-            type_name, dict_schema, array_schema, literal = _attr_type(
-                get_annotated(typ), klass.__name__, field.name
-            )
+            vschema = value_schema(get_annotated(typ), klass.__name__, field.name)
+            if is_optional(typ):
+                vschema.optional = True
 
             attributes.append(
                 AttrSchemaRef(
                     name=field.name,
-                    type_name=type_name,
-                    dict_schema=dict_schema,
-                    array_schema=array_schema,
-                    literal=literal,
-                    optional=is_optional(typ),
                     default=field.default,
                     docstring=field_docstrings.get(field.name),
+                    **{
+                        fld.name: getattr(vschema, fld.name)
+                        for fld in dataclasses.fields(ValueSchema)
+                    },
                 )
             )
             continue
@@ -271,7 +288,7 @@ def extract_xarray_dataclass(klass, allow_undefined_coords: bool = False):
         else:
             raise ValueError(
                 f"Expected field '{field.name}' in '{klass.__name__}' "
-                "to be annotated with either Coord, Data or Attr!"
+                f"to be annotated with either Coord, Data or Attr!"
             )
 
         # Defined using a dataclass, i.e. Coordof/Dataof?
@@ -489,29 +506,16 @@ def xarray_dataclass_to_dict_schema(klass):
     for field in dataclasses.fields(klass):
         typ = type_hints[field.name]
 
-        # Handle optional value: Strip "None" from the types
-        optional = is_optional(typ)
-        if optional:
-            typs = [typ for typ in get_args(typ) if typ is not None.__class__]
-            if len(typs) == 1:
-                typ = typs[0]
-            else:
-                typ = typing.Union.__getitem__[tuple(typs)]
-
-        type_name, dict_schema, array_schema, literal = _attr_type(
-            typ, klass.__name__, field.name
-        )
-
+        vschema = value_schema(typ, klass.__name__, field.name)
         attributes.append(
             AttrSchemaRef(
                 name=field.name,
-                type_name=type_name,
-                dict_schema=dict_schema,
-                array_schema=array_schema,
-                literal=literal,
-                optional=optional,
                 default=field.default,
                 docstring=field_docstrings.get(field.name),
+                **{
+                    fld.name: getattr(vschema, fld.name)
+                    for fld in dataclasses.fields(ValueSchema)
+                },
             )
         )
 

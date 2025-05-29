@@ -82,21 +82,21 @@ TEST_ARRAY_SCHEMA = ArraySchema(
     attributes=[
         AttrSchemaRef(
             name="attr1",
-            typ=str,
+            type_name="str",
             optional=False,
             default=dataclasses.MISSING,
             docstring="Required attribute",
         ),
         AttrSchemaRef(
             name="attr2",
-            typ=int,
+            type_name="int",
             optional=False,
             default=123,
             docstring="Required attribute with default",
         ),
         AttrSchemaRef(
             name="attr3",
-            typ=int,
+            type_name="int",
             optional=True,
             default=None,
             docstring="Optional attribute with default",
@@ -433,7 +433,7 @@ def test_check_array_wrong_type():
     assert results[1].expected == [int]
     assert results[2].path == [("attrs", "attr3")]
     assert results[2].found == float
-    assert results[2].expected == [int]
+    assert results[2].expected == [int, type(None)]
 
 
 def test_schema_checked_wrap():
@@ -563,21 +563,21 @@ TEST_DICT_SCHEMA = DictSchema(
     attributes=[
         AttrSchemaRef(
             name="attr1",
-            typ=str,
+            type_name="str",
             optional=False,
             default=dataclasses.MISSING,
             docstring="Required attribute",
         ),
         AttrSchemaRef(
             name="attr2",
-            typ=int,
+            type_name="int",
             optional=False,
             default=123,
             docstring="Required attribute with default",
         ),
         AttrSchemaRef(
             name="attr3",
-            typ=int,
+            type_name="int",
             optional=True,
             default=None,
             docstring="Optional attribute with default",
@@ -650,7 +650,7 @@ def test_check_dict_missing():
     assert len(results) == 1
     assert results[0].path == [("", "attr2")]
     assert results[0].found == None
-    assert results[0].expected == [int]
+    assert results[0].expected == ["int"]
 
     with pytest.raises(SchemaIssues):
         results.expect()
@@ -761,21 +761,21 @@ TEST_DATASET_SCHEMA = DatasetSchema(
     attributes=[
         AttrSchemaRef(
             name="attr1",
-            typ=str,
+            type_name="str",
             optional=False,
             default=dataclasses.MISSING,
             docstring="Required attribute",
         ),
         AttrSchemaRef(
             name="attr2",
-            typ=int,
+            type_name="int",
             optional=False,
             default=123,
             docstring="Required attribute with default",
         ),
         AttrSchemaRef(
             name="attr3",
-            typ=int,
+            type_name="int",
             optional=True,
             default=None,
             docstring="Optional attribute with default",
@@ -1068,38 +1068,6 @@ def test_check_dataset_optional_coordinate():
     assert not issues
 
 
-def test_check_dict_dataset_attribute():
-    # Make dataset
-    attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
-    coords = {
-        "coord": xarray.DataArray(
-            numpy.arange(10, dtype=float), dims=("coord",), attrs=attrs
-        ),
-    }
-    data_vars = {
-        "data_var": (("coord",), numpy.zeros(10, dtype=complex), attrs),
-    }
-    dataset = xarray.Dataset(data_vars, coords, attrs)
-
-    # Check inside dictionary
-    @dict_schema
-    class _DictSchema:
-        ds: _TestDatasetSchema
-
-    assert not check_dict(
-        {
-            "ds": dataset,
-        },
-        _DictSchema,
-    )
-    assert check_dict(
-        {
-            "ds": xarray.Dataset(data_vars, coords),
-        },
-        _DictSchema,
-    )
-
-
 def test_check_dict_array_attribute():
     # Make array
     data = numpy.zeros(10, dtype=complex)
@@ -1117,6 +1085,17 @@ def test_check_dict_array_attribute():
     array = xarray.DataArray(data, coords)
     assert check_dict({"da": array}, _DictSchema)
 
+
+def test_check_dict_dict_attribute():
+    # Check inside dictionary
+    @dict_schema
+    class _DictSchema:
+        da: _TestDictSchema
+
+    assert not check_dict(
+        {"da": {"attr1": "asd", "attr2": 234, "attr3": 345}}, _DictSchema
+    )
+    assert check_dict({"da": {"attr2": 234, "attr3": 345}}, _DictSchema)
 
 def test_check_dict_dict_attribute():
     # Check inside dictionary

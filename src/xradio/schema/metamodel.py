@@ -4,6 +4,7 @@ from dataclasses import dataclass
 import typing
 
 __all__ = [
+    "ValueSchema",
     "AttrSchemaRef",
     "ArraySchema",
     "ArraySchemaRef",
@@ -12,19 +13,17 @@ __all__ = [
 ]
 
 
-@dataclass(frozen=True)
-class AttrSchemaRef:
+@dataclass
+class ValueSchema:
     """
-    Schema information about an attribute as referenced from an array or
-    dataset schema.
-
-    This includes the name and docstring associated with the attribute
-    in the array or dataset schema definition.
+    Schema information about a value in an attribute or dictionary.
     """
 
-    name: str
+    type_name: typing.Literal[
+        "bool", "str", "int", "float", "list[str]", "dict", "dataarray"
+    ]
     """
-    Name of attribute as given in data array / dataset.
+    Type of value
 
     * ``bool``: A boolean
     * ``str``: A UTF-8 string
@@ -33,33 +32,37 @@ class AttrSchemaRef:
     * ``str_list``: A list of strings
     * ``dataarray``: An xarray dataarray (encoded using to_dict)
     """
-    type_name: typing.Literal[
-        "bool", "str", "int", "float", "list[str]", "dict", "dataarray"
-    ]
+    dict_schema: typing.Optional[DictSchema] = None
     """
     Dictionary schema, if it is an xarray DataArray
     """
-    dict_schema: typing.Optional[DictSchema]
+    array_schema: typing.Optional[ArraySchema] = None
     """
     Array schema, if it is an xarray DataArray
     """
-    array_schema: typing.Optional[ArraySchema]
-    """
-    Python name of type.
-
-    * str = Unicode string
-    * int = 64 bit integer
-    * float = 64 bit floating point number (double)
-    """
-    literal: typing.Optional[typing.List[typing.Any]]
+    literal: typing.Optional[typing.List[typing.Any]] = None
     """
     Allowed literal values, if specified.
     """
-    optional: bool
-    """Is the attribute optional?"""
-    default: typing.Optional[typing.Any]
+    optional: bool = False
+    """Is the value optional?"""
+
+
+@dataclass
+class AttrSchemaRef(ValueSchema):
+    """
+    Schema information about an attribute as referenced from an array or
+    dataset schema.
+
+    This includes the name and docstring associated with the attribute
+    in the array or dataset schema definition.
+    """
+
+    name: str = ""
+    """Name of attribute as given in data array / dataset."""
+    default: typing.Optional[typing.Any] = None
     """If optional: What is the default value?"""
-    docstring: str
+    docstring: str = ""
     """Documentation string of attribute reference"""
 
 

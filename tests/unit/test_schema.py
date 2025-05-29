@@ -82,21 +82,21 @@ TEST_ARRAY_SCHEMA = ArraySchema(
     attributes=[
         AttrSchemaRef(
             name="attr1",
-            type_name="str",
+            type="str",
             optional=False,
             default=dataclasses.MISSING,
             docstring="Required attribute",
         ),
         AttrSchemaRef(
             name="attr2",
-            type_name="int",
+            type="int",
             optional=False,
             default=123,
             docstring="Required attribute with default",
         ),
         AttrSchemaRef(
             name="attr3",
-            type_name="int",
+            type="int",
             optional=True,
             default=None,
             docstring="Optional attribute with default",
@@ -563,21 +563,21 @@ TEST_DICT_SCHEMA = DictSchema(
     attributes=[
         AttrSchemaRef(
             name="attr1",
-            type_name="str",
+            type="str",
             optional=False,
             default=dataclasses.MISSING,
             docstring="Required attribute",
         ),
         AttrSchemaRef(
             name="attr2",
-            type_name="int",
+            type="int",
             optional=False,
             default=123,
             docstring="Required attribute with default",
         ),
         AttrSchemaRef(
             name="attr3",
-            type_name="int",
+            type="int",
             optional=True,
             default=None,
             docstring="Optional attribute with default",
@@ -761,21 +761,21 @@ TEST_DATASET_SCHEMA = DatasetSchema(
     attributes=[
         AttrSchemaRef(
             name="attr1",
-            type_name="str",
+            type="str",
             optional=False,
             default=dataclasses.MISSING,
             docstring="Required attribute",
         ),
         AttrSchemaRef(
             name="attr2",
-            type_name="int",
+            type="int",
             optional=False,
             default=123,
             docstring="Required attribute with default",
         ),
         AttrSchemaRef(
             name="attr3",
-            type_name="int",
+            type="int",
             optional=True,
             default=None,
             docstring="Optional attribute with default",
@@ -1096,6 +1096,7 @@ def test_check_dict_dict_attribute():
         {"da": {"attr1": "asd", "attr2": 234, "attr3": 345}}, _DictSchema
     )
     assert check_dict({"da": {"attr2": 234, "attr3": 345}}, _DictSchema)
+
 
 def test_check_dict_dict_attribute():
     # Check inside dictionary

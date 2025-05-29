@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, MISSING
 import typing
 
 __all__ = [
@@ -19,7 +19,7 @@ class ValueSchema:
     Schema information about a value in an attribute or dictionary.
     """
 
-    type_name: typing.Literal[
+    type: typing.Literal[
         "bool", "str", "int", "float", "list[str]", "dict", "dataarray"
     ]
     """

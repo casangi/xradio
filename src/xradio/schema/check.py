@@ -348,7 +348,7 @@ def check_attributes(
                         path=[(attr_kind, attr_schema.name)],
                         message="Non-optional attribute is missing!",
                         found=None,
-                        expected=[attr_schema.type_name],
+                        expected=[attr_schema.type],
                     )
                 )
             continue
@@ -458,7 +458,7 @@ def _check_value(val: typing.Any, schema: metamodel.ValueSchema):
     """
 
     # Unspecified?
-    if schema.type_name is None:
+    if schema.type is None:
         return SchemaIssues()
 
     # Optional?
@@ -466,7 +466,7 @@ def _check_value(val: typing.Any, schema: metamodel.ValueSchema):
         return SchemaIssues()
 
     # Is supposed to be a data array?
-    if schema.type_name == "dataarray":
+    if schema.type == "dataarray":
         # Attempt to convert dictionaries automatically
         if isinstance(val, dict):
             try:
@@ -501,19 +501,19 @@ def _check_value(val: typing.Any, schema: metamodel.ValueSchema):
             return check_array(val, schema.array_schema)
 
     # Is supposed to be a dictionary?
-    elif schema.type_name == "dict":
+    elif schema.type == "dict":
         if not isinstance(val, dict):
             # Fall through to plain type check
             type_to_check = dict
         else:
             return check_dict(val, schema.dict_schema)
 
-    elif schema.type_name == "list[str]":
+    elif schema.type == "list[str]":
         type_to_check = typing.List[str]
-    elif schema.type_name in ["bool", "str", "int", "float"]:
-        type_to_check = getattr(builtins, schema.type_name)
+    elif schema.type in ["bool", "str", "int", "float"]:
+        type_to_check = getattr(builtins, schema.type)
     else:
-        raise ValueError(f"Invalid typ_name in schema: {schema.type_name}")
+        raise ValueError(f"Invalid typ_name in schema: {schema.type}")
 
     # Otherwise straight type check using typeguard
     try:

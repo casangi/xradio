@@ -233,6 +233,7 @@ def prepare_generic_weather_xds_and_station_name(
         generic_weather_xds = load_generic_table(
             in_file,
             "WEATHER",
+            timecols=["TIME"],
             rename_ids=subt_rename_ids["WEATHER"],
             taql_where=taql_where,
         )
@@ -318,6 +319,7 @@ def create_weather_xds(in_file: str, ant_position_with_ids: xr.DataArray):
         generic_weather_xds = load_generic_table(
             in_file,
             "WEATHER",
+            timecols=["TIME"],
             rename_ids=subt_rename_ids["WEATHER"],
         )
     except ValueError as _exc:
@@ -501,6 +503,7 @@ def create_pointing_xds(
     generic_pointing_xds = load_generic_table(
         in_file,
         "POINTING",
+        timecols=["TIME"],
         rename_ids=subt_rename_ids["POINTING"],
         taql_where=taql_where,
     )
@@ -665,6 +668,7 @@ def create_system_calibration_xds(
         generic_sys_cal_xds = load_generic_table(
             in_file,
             "SYSCAL",
+            timecols=["TIME"],
             rename_ids=subt_rename_ids["SYSCAL"],
             taql_where=(
                 f" where (SPECTRAL_WINDOW_ID = {spectral_window_id})"

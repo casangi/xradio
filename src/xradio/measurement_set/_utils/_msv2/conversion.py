@@ -540,7 +540,7 @@ def create_coordinates(
         "data": interval,
         "attrs": msv4_measure,
     }
-    xds.time.attrs["effective_integration_time"] = "EFFECTIVE_INTEGRATION_TIME"
+
     return xds
 
 

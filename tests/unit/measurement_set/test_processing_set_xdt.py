@@ -160,7 +160,14 @@ class TestProcessingSetXdtWithData:
         assert not summary.empty
 
         # Verify expected columns are present
-        expected_columns = ["name", "intents","shape","polarization","scan_name","spw_name"]
+        expected_columns = [
+            "name",
+            "intents",
+            "shape",
+            "polarization",
+            "scan_name",
+            "spw_name",
+        ]
         for col in expected_columns:
             assert col in summary.columns
 
@@ -229,7 +236,7 @@ class TestProcessingSetXdtWithEphemerisData:
     def test_check_ephemeris_datatree(self, test_ephemeris_ps_path):
         """Test that the converted MS to PS complies with the datatree schema checker"""
         ps_xdt = load_processing_set(str(test_ephemeris_ps_path))
-        
+
         issues = check_datatree(ps_xdt)
         # The check_datatree function returns a SchemaIssues object, not a string
         assert (
@@ -241,7 +248,9 @@ class TestProcessingSetXdtWithEphemerisData:
         ps_xdt = load_processing_set(str(test_ephemeris_ps_path))
 
         # Get combined field and source dataset with ephemeris
-        combined_field_source_xds = ps_xdt.xr_ps.get_combined_field_and_source_xds_ephemeris()
+        combined_field_source_xds = (
+            ps_xdt.xr_ps.get_combined_field_and_source_xds_ephemeris()
+        )
 
         # Verify it returns an xarray Dataset
         assert isinstance(combined_field_source_xds, xr.Dataset)

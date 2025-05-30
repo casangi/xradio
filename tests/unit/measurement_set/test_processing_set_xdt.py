@@ -18,7 +18,8 @@ from xradio.schema.check import check_datatree
 
 # Define input MS path for testing
 input_ms = "Antennae_North.cal.lsrk.split.ms"
-input_ephemeris_ms = "venus_ephem_test.ms"
+# input_ephemeris_ms = "venus_ephem_test.ms"
+input_ephemeris_ms = "ALMA_uid___A002_X1003af4_X75a3.split.avg.ms"
 
 
 # Fixtures for test data setup
@@ -228,6 +229,23 @@ class TestProcessingSetXdtWithData:
         for ms_xdt in result_with_dg.children.values():
             assert "base" in ms_xdt.attrs.get("data_groups", {})
 
+    def test_get_combined_field_and_source_xds(self, test_ps_path):
+        """Test getting combined field and source dataset from a processing set"""
+        ps_xdt = load_processing_set(str(test_ps_path))
+
+        # Get combined field and source dataset
+        combined_field_source_xds = ps_xdt.xr_ps.get_combined_field_and_source_xds()
+
+        # Verify it returns an xarray Dataset
+        assert isinstance(combined_field_source_xds, xr.Dataset)
+
+        # Check required fields are present
+        assert "line_name" not in combined_field_source_xds.coords
+        assert "field_name" in combined_field_source_xds.coords
+        assert "time" in combined_field_source_xds.dims
+        assert "FIELD_PHASE_CENTER" in combined_field_source_xds.data_vars
+        assert "SOURCE_LOCATION" in combined_field_source_xds.data_vars
+
 
 # Tests with ephemeris data loaded from disk
 class TestProcessingSetXdtWithEphemerisData:
@@ -248,29 +266,34 @@ class TestProcessingSetXdtWithEphemerisData:
         ps_xdt = load_processing_set(str(test_ephemeris_ps_path))
 
         # Get combined field and source dataset with ephemeris
-        combined_field_source_xds = (
+        combined_ephemeris_field_source_xds = (
             ps_xdt.xr_ps.get_combined_field_and_source_xds_ephemeris()
         )
 
         # Verify it returns an xarray Dataset
-        assert isinstance(combined_field_source_xds, xr.Dataset)
+        assert isinstance(combined_ephemeris_field_source_xds, xr.Dataset)
 
         # Check required fields are present
-        assert combined_field_source_xds.attrs["type"] == "field_and_source_ephemeris"
-        assert "time" in combined_field_source_xds.dims
-        assert "field_name" in combined_field_source_xds.coords
+        assert (
+            combined_ephemeris_field_source_xds.attrs["type"]
+            == "field_and_source_ephemeris"
+        )
+        assert "time" in combined_ephemeris_field_source_xds.dims
+        assert "field_name" in combined_ephemeris_field_source_xds.coords
+        assert "time" in combined_ephemeris_field_source_xds.coords
+        print(combined_ephemeris_field_source_xds.coords)
 
         # Check ephemeris-specific fields
-        assert "SOURCE_LOCATION" in combined_field_source_xds.data_vars
-        assert "FIELD_PHASE_CENTER" in combined_field_source_xds.data_vars
-        assert "FIELD_OFFSET" in combined_field_source_xds.data_vars
-        print(combined_field_source_xds.data_vars)
+        assert "SOURCE_LOCATION" in combined_ephemeris_field_source_xds.data_vars
+        assert "FIELD_PHASE_CENTER" in combined_ephemeris_field_source_xds.data_vars
+        assert "FIELD_OFFSET" in combined_ephemeris_field_source_xds.data_vars
+        assert "SOURCE_RADIAL_VELOCITY" in combined_ephemeris_field_source_xds.data_vars
 
         # Check center field calculation
-        assert "center_field_name" in combined_field_source_xds.attrs
+        assert "center_field_name" in combined_ephemeris_field_source_xds.attrs
 
         # Center field name could be either a string or a numpy array containing a string
-        center_field = combined_field_source_xds.attrs["center_field_name"]
+        center_field = combined_ephemeris_field_source_xds.attrs["center_field_name"]
         if isinstance(center_field, np.ndarray):
             # If it's a numpy array, check that it contains a string value
             assert center_field.dtype.kind in ["U", "S"]  # Unicode or byte string
@@ -286,8 +309,6 @@ class TestProcessingSetXdtWithEphemerisData:
         field_source_xds = ps_xdt.xr_ps.get_combined_field_and_source_xds_ephemeris()
 
         # Verify field offset calculation
-        phase_center = field_source_xds["FIELD_PHASE_CENTER"]
-        source_location = field_source_xds["SOURCE_LOCATION"]
         field_offset = field_source_xds["FIELD_OFFSET"]
 
         # The field offset should only include ra and dec components

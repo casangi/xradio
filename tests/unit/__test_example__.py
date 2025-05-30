@@ -7,9 +7,11 @@ from xradio.schema.check import check_datatree
 def test_simple():
     assert True
 
+
 def test_simple_string(sample_fixture):
     print(f"Sample fixture value: {sample_fixture}")
     assert sample_fixture == "sample_data"
+
 
 class TestLoadProcessingSet:
     """Tests for load_processing_set using real data"""
@@ -23,8 +25,9 @@ class TestLoadProcessingSet:
             str(issues) == "No schema issues found"
         ), f"Schema validation failed: {issues}"
 
+
 if __name__ == "__main__":
-    pytest.main(["-v","-s",__file__])
+    pytest.main(["-v", "-s", __file__])
 # This is a simple test to ensure that pytest is working correctly.
 # It should be run with pytest to verify that the testing framework is set up properly.
 # To run this test, use the command: pytest -v __test_example__.py

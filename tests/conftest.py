@@ -5,9 +5,11 @@ from xradio.measurement_set import convert_msv2_to_processing_set
 
 input_ms = "Antennae_North.cal.lsrk.split.ms"
 
+
 @pytest.fixture(scope="module")
 def sample_fixture():
     return "sample_data"
+
 
 @pytest.fixture
 def test_data_path():

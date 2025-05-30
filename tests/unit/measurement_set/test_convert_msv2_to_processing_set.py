@@ -60,5 +60,6 @@ def test_estimate_conversion_memory_and_cores_with_errors(input_path, expected_e
         res = estimate_conversion_memory_and_cores(input_path, [])
         assert res
 
+
 if __name__ == "__main__":
-    pytest.main(["-v","-s",__file__])
+    pytest.main(["-v", "-s", __file__])

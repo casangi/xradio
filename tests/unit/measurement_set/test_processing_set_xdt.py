@@ -329,5 +329,7 @@ class TestProcessingSetXdtWithEphemerisData:
 
         # Time should have multiple points for ephemeris data
         assert field_source_xds.sizes["time"] > 1
+
+
 if __name__ == "__main__":
-    pytest.main(["-v","-s",__file__])
+    pytest.main(["-v", "-s", __file__])

@@ -6,6 +6,7 @@ from xradio.measurement_set import load_processing_set
 
 from xradio.schema.check import check_datatree
 
+
 class TestLoadProcessingSet:
     """Tests for load_processing_set using real data"""
 
@@ -156,5 +157,6 @@ class TestProcessingSetIterator:
         assert isinstance(item, xr.DataTree)
         assert "base" in item.attrs.get("data_groups", {})
 
+
 if __name__ == "__main__":
-    pytest.main(["-v","-s",__file__])
+    pytest.main(["-v", "-s", __file__])

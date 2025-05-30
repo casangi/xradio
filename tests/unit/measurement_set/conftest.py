@@ -81,6 +81,20 @@ def ms_minimal_misbehaved():
     shutil.rmtree(name)
 
 
+@pytest.fixture(scope="session")
+def ms_minimal_without_opt():
+    """
+    Small MS with a number of misbehaviors as observed in different MS from various observatories
+    and projects
+    """
+    name = "test_msv2_minimal_required_without_opt_subtables.ms"
+    spec = gen_test_ms(
+        name, opt_tables=False, vlbi_tables=False, required_only=True, misbehave=False
+    )
+    yield MSWithSpec(name, spec)
+    shutil.rmtree(name)
+
+
 # Besides the few test MSs from above,  one can generate custom MSs passing different descr dicts.
 @pytest.fixture(scope="session")
 def ms_custom_spec(request):
@@ -98,7 +112,7 @@ def ms_custom_spec(request):
         misbehave=False,
     )
     yield MSWithSpec(name, request.param)
-    # shutil.rmtree(name)
+    shutil.rmtree(name)
 
 
 @pytest.fixture(scope="session")

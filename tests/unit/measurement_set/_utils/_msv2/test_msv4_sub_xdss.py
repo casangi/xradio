@@ -108,10 +108,10 @@ def test_create_weather_xds_empty_ant_ids(ms_empty_required):
         weather_xds = create_weather_xds(ms_empty_required.fname, xr.DataSet())
 
 
-def test_create_weather_xds_empty(ms_empty_required, ant_xds_station_name_ids):
+def test_create_weather_xds_empty(ms_empty_complete, ant_xds_station_name_ids):
     from xradio.measurement_set._utils._msv2.msv4_sub_xdss import create_weather_xds
 
-    weather_xds = create_weather_xds(ms_empty_required.fname, ant_xds_station_name_ids)
+    weather_xds = create_weather_xds(ms_empty_complete.fname, ant_xds_station_name_ids)
     assert not weather_xds
 
 
@@ -122,6 +122,24 @@ def test_create_weather_xds_min(ms_minimal_required, ant_xds_station_name_ids):
         ms_minimal_required.fname, ant_xds_station_name_ids
     )
     check_dataset(weather_xds, WeatherXds)
+
+
+def test_create_weather_xds_misbehaved(ms_minimal_misbehaved, ant_xds_station_name_ids):
+    from xradio.measurement_set._utils._msv2.msv4_sub_xdss import create_weather_xds
+
+    weather_xds = create_weather_xds(
+        ms_minimal_misbehaved.fname, ant_xds_station_name_ids
+    )
+    check_dataset(weather_xds, WeatherXds)
+
+
+def test_create_weather_xds_ms_without_opt_subtables(ms_minimal_without_opt, ant_xds_station_name_ids):
+    from xradio.measurement_set._utils._msv2.msv4_sub_xdss import create_weather_xds
+
+    weather_xds = create_weather_xds(
+        ms_minimal_without_opt.fname, ant_xds_station_name_ids
+    )
+    assert weather_xds is None
 
 
 def test_create_pointing_xds_empty_ant_ids(ms_empty_required):

@@ -1,6 +1,8 @@
 import pytest
-
-from tests.unit.measurement_set.ms_test_utils.cds_checks import check_cds
+import sys
+from pathlib import Path # this needs to be cleaner
+sys.path.append(str(Path(__file__).parent.parent.parent.parent.parent)) # this needs to be cleaner
+from tests._testutils.cds_checks import check_cds # this needs to be cleaner
 
 
 @pytest.mark.uses_download
@@ -67,3 +69,7 @@ def test_read_ms_by_intent_expand_raises(ms_minimal_required):
 
     cds = read_ms(ms_minimal_required.fname, partition_scheme="intent", expand=True)
     assert cds
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", "-s", __file__])

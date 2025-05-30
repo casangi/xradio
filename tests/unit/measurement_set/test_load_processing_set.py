@@ -1,49 +1,10 @@
 import pytest
 import numpy as np
 import xarray as xr
-from pathlib import Path
-from toolviper.utils.data import download
 from xradio.measurement_set.load_processing_set import ProcessingSetIterator
-from xradio.measurement_set import (
-    load_processing_set,
-    convert_msv2_to_processing_set,
-    open_processing_set,
-)
+from xradio.measurement_set import load_processing_set
+
 from xradio.schema.check import check_datatree
-
-# Define input and output paths
-input_ms = "Antennae_North.cal.lsrk.split.ms"
-
-
-# Fixtures for test data setup
-@pytest.fixture
-def test_data_path():
-    """Returns path to test MeasurementSet v2"""
-    # Download MS
-    download(file=input_ms, folder="/tmp")
-    return Path("/tmp/" + input_ms)
-
-
-@pytest.fixture
-def test_ps_path(test_data_path, tmp_path):
-    """Create a processing set from test MS for testing"""
-    ps_path = tmp_path / "test_processing_set.ps.zarr"
-
-    # Convert MS to processing set
-    convert_msv2_to_processing_set(
-        in_file=str(test_data_path),
-        out_file=str(ps_path),
-        partition_scheme=[],
-        main_chunksize=0.01,
-        pointing_chunksize=0.00001,
-        pointing_interpolate=True,
-        ephemeris_interpolate=True,
-        use_table_iter=False,
-        overwrite=True,
-        parallel_mode="none",
-    )
-    return ps_path
-
 
 class TestLoadProcessingSet:
     """Tests for load_processing_set using real data"""
@@ -194,3 +155,6 @@ class TestProcessingSetIterator:
         item = next(iterator)
         assert isinstance(item, xr.DataTree)
         assert "base" in item.attrs.get("data_groups", {})
+
+if __name__ == "__main__":
+    pytest.main(["-v","-s",__file__])

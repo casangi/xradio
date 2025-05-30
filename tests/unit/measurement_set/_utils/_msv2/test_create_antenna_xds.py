@@ -86,3 +86,16 @@ def test_create_antenna_xds_misbehaved(ms_minimal_misbehaved):
     )
 
     check_dataset(antenna_xds, AntennaXds)
+
+
+def test_create_antenna_xds_without_opt(ms_minimal_without_opt):
+    antenna_xds = create_antenna_xds(
+        ms_minimal_without_opt.fname,
+        0,
+        np.arange(0, 5),
+        np.arange(0, 2),
+        "ALMA",
+        partition_polarization=xr.DataArray(["XX", "YY"]),
+    )
+
+    check_dataset(antenna_xds, AntennaXds)

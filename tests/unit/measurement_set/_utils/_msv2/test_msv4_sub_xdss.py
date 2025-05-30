@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from xradio.measurement_set.schema import PointingXds, WeatherXds
+from xradio.measurement_set.schema import PointingXds, SystemCalibrationXds, WeatherXds
 from xradio.schema.check import check_dataset
 
 
@@ -133,7 +133,9 @@ def test_create_weather_xds_misbehaved(ms_minimal_misbehaved, ant_xds_station_na
     check_dataset(weather_xds, WeatherXds)
 
 
-def test_create_weather_xds_ms_without_opt_subtables(ms_minimal_without_opt, ant_xds_station_name_ids):
+def test_create_weather_xds_ms_without_opt_subtables(
+    ms_minimal_without_opt, ant_xds_station_name_ids
+):
     from xradio.measurement_set._utils._msv2.msv4_sub_xdss import create_weather_xds
 
     weather_xds = create_weather_xds(
@@ -152,12 +154,13 @@ def test_create_pointing_xds_empty_ant_ids(ms_empty_required):
 def test_create_pointing_xds_empty(ms_empty_required):
     from xradio.measurement_set._utils._msv2.msv4_sub_xdss import create_pointing_xds
 
-    ant_ids_xds = xr.Dataset(
-        data_vars={"antenna_name": ("antenna_id", ["test_ant"])},
-        coords={"antenna_id": [0]},
+    ant_ids_da = xr.DataArray(
+        [f"test_ant{idx}" for idx in np.arange(0, 5)],
+        name="antenna_name",
+        coords={"antenna_id": np.arange(0, 5)},
     )
     pointing_xds = create_pointing_xds(
-        ms_empty_required.fname, ant_ids_xds, (0, 2e10), None
+        ms_empty_required.fname, ant_ids_da, (0, 2e10), None
     )
     check_dataset(pointing_xds, PointingXds)
 
@@ -165,15 +168,64 @@ def test_create_pointing_xds_empty(ms_empty_required):
 def test_create_pointing_xds_empty_time_interp(ms_empty_required):
     from xradio.measurement_set._utils._msv2.msv4_sub_xdss import create_pointing_xds
 
-    ant_ids_xds = xr.Dataset(
-        data_vars={"antenna_name": ("antenna_id", ["test_ant"])},
-        coords={"antenna_id": [0]},
+    ant_ids_da = xr.DataArray(
+        [f"test_ant{idx}" for idx in np.arange(0, 5)],
+        name="antenna_name",
+        coords={"antenna_id": np.arange(0, 5)},
     )
     time_interp = np.arange(0, 100)
     pointing_xds = create_pointing_xds(
-        ms_empty_required.fname, ant_ids_xds, (0, 2e10), time_interp
+        ms_empty_required.fname, ant_ids_da, (0, 2e10), time_interp
     )
     check_dataset(pointing_xds, PointingXds)
 
 
-# More TODO: several create_xxx_xds being defined / developed
+def test_create_pointing_xds_min_time_interp(ms_minimal_required):
+    from xradio.measurement_set._utils._msv2.msv4_sub_xdss import create_pointing_xds
+
+    ant_ids_da = xr.DataArray(
+        [f"test_ant{idx}" for idx in np.arange(0, 5)],
+        name="antenna_name",
+        coords={"antenna_id": np.arange(0, 5)},
+    )
+    time_interp = np.arange(0, 100)
+    pointing_xds = create_pointing_xds(
+        ms_minimal_required.fname, ant_ids_da, (0, 2e10), time_interp
+    )
+    check_dataset(pointing_xds, PointingXds)
+
+
+def test_create_system_calibration_xds_empty(ms_empty_required, msv4_xdt_min):
+    from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
+        create_system_calibration_xds,
+    )
+
+    # Need to make the antenna_id coord as in the middle of conversion, before it is removed
+    ant_xds = msv4_xdt_min["antenna_xds"].ds.copy()
+    nants = len(ant_xds.antenna_name)
+    ant_xds_with_ids = ant_xds.assign_coords(
+        {"antenna_id": ("antenna_name", np.arange(0, nants))}
+    )
+
+    sys_cal_xds = create_system_calibration_xds(
+        ms_empty_required.fname, msv4_xdt_min.frequency, ant_xds_with_ids, None
+    )
+    assert sys_cal_xds is None
+
+
+def test_create_system_calibration_xds_min(ms_minimal_required, msv4_xdt_min):
+    from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
+        create_system_calibration_xds,
+    )
+
+    # Need to make the antenna_id coord as in the middle of conversion, before it is removed
+    ant_xds = msv4_xdt_min["antenna_xds"].ds.copy()
+    nants = len(ant_xds.antenna_name)
+    ant_xds_with_ids = ant_xds.assign_coords(
+        {"antenna_id": ("antenna_name", np.arange(0, nants))}
+    )
+
+    sys_cal_xds = create_system_calibration_xds(
+        ms_minimal_required.fname, msv4_xdt_min.frequency, ant_xds_with_ids, None
+    )
+    check_dataset(sys_cal_xds, SystemCalibrationXds)

@@ -76,3 +76,26 @@ def test_create_field_and_source_xds_misbehaved(ms_minimal_misbehaved):
     assert num_lines == 0
     assert field_names == np.array(["NGC3031_0"])
     check_dataset(field_and_source_xds, FieldSourceXds)
+
+
+def test_pad_missing_sources():
+    from xradio.measurement_set._utils._msv2.create_field_and_source_xds import (
+        pad_missing_sources,
+    )
+
+    # Prepare minimum needed for padding of source_ids
+    some_string = "some_string"
+    source_xds = xr.Dataset(
+        data_vars={
+            "VAR1": (["SOURCE_ID"], [some_string]),
+        },
+        coords={
+            "SOURCE_ID": ("SOURCE_ID", [0]),
+        },
+        attrs={"other": {"msv2": {}}},
+    )
+    unique_source_ids = np.array([0, 3])
+    res = pad_missing_sources(source_xds, unique_source_ids)
+    assert "SOURCE_ID" in res.dims
+    assert all(res.SOURCE_ID.values == unique_source_ids)
+    assert all(res.VAR1 == [some_string, "Unknown"])

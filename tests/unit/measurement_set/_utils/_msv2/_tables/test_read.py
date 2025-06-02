@@ -738,3 +738,14 @@ def test_read_flat_col_chunk_flag(ms_minimal_required):
     assert isinstance(res, np.ndarray)
     assert res.shape == (3, nchans, npols)
     assert np.all(res == False)
+
+
+def test_read_col_conversion_dask(ms_minimal_required):
+    from xradio.measurement_set._utils._msv2._tables.read import read_col_conversion_dask
+    from xradio.measurement_set._utils._msv2._tables.table_query import TableManager
+
+    taql_where = "WHERE DATA_DESC_ID in [0]"
+    table_manager = TableManager(ms_minimal_required.fname, taql_where)
+    ntimes = 10
+    nbaselines = 5
+    xda = read_col_conversion_dask(table_manager, "DATA", (10, 5), np.arange(0, ntimes), np.arange(0, nbaselines), False, ntimes)

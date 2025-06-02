@@ -1,8 +1,6 @@
 import pytest
-import sys
-from pathlib import Path # this needs to be cleaner
-sys.path.append(str(Path(__file__).parent.parent.parent.parent.parent)) # this needs to be cleaner
-from tests._testutils.cds_checks import check_cds # this needs to be cleaner
+
+from tests.unit.measurement_set.ms_test_utils.cds_checks import check_cds
 
 
 @pytest.mark.uses_download

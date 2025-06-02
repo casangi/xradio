@@ -1,19 +1,18 @@
 import pytest
 
 # Ensure pytest assert introspection in vis data checks
-pytest.register_assert_rewrite("tests._testutils.cds_checks import check_cds")
+pytest.register_assert_rewrite("tests.unit.measurement_set.ms_test_utils.cds_checks")
 
 from collections import namedtuple
 import shutil
 
 import xarray as xr
 
-from tests._testutils.gen_test_ms import (
+from tests.unit.measurement_set.ms_test_utils.gen_test_ms import (
     gen_test_ms,
     make_ms_empty,
 )
-from tests._testutils.cds_checks import check_cds
-
+from tests.unit.measurement_set.ms_test_utils.cds_checks import check_cds
 
 """
 A tuple with an MS filename (as str) and a description of its expected structure and contents (as a dict).

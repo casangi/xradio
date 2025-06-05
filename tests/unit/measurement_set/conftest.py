@@ -1,7 +1,9 @@
 import pytest
 
 # Ensure pytest assert introspection in vis data checks
-pytest.register_assert_rewrite("tests.unit.measurement_set.ms_test_utils.cds_checks")
+pytest.register_assert_rewrite(
+    "tests.unit.measurement_set.ms_test_utils.check_msv4_matches_msv2_description"
+)
 
 from collections import namedtuple
 import shutil

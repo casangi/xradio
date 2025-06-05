@@ -21,6 +21,7 @@ from casacore.tables.msutil import complete_ms_desc, makearrcoldesc, required_ms
 # 2 observations, 2 fields, 2 states
 # 2 SPWs, 4 polarizations
 default_ms_descr = {
+    "nrows_per_ddi": 300,
     "nchans": 16,
     "npols": 2,
     "data_cols": ["DATA"],  # ['CORRECTED_DATA'],
@@ -352,7 +353,7 @@ def gen_main_table(
         assert dminfo["NAME"] == "UVWGroup"
 
         # Figure out amount of rows and related IDs
-        nrows = 300
+        nrows = 300  # descr["nrows_per_ddi"] # 300
         dd_pairs = list(
             itertools.product(
                 list(descr["SPECTRAL_WINDOW"].values()), descr["POLARIZATION"].values()

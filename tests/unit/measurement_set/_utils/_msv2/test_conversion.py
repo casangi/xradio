@@ -10,6 +10,10 @@ import xradio.measurement_set._utils._msv2.conversion as conversion
 from xradio.measurement_set.schema import VisibilityXds
 from xradio.schema.check import check_dataset, check_datatree
 
+from tests.unit.measurement_set.ms_test_utils.check_msv4_matches_msv2_description import (
+    check_msv4_matches_descr,
+)
+
 
 minxds = namedtuple("minxds", "data_vars coords sizes")
 xds_main = minxds(
@@ -372,6 +376,7 @@ def test_convert_and_write_partition_min(ms_minimal_required):
         )
         check_dataset(msv4_xdt.ds, VisibilityXds)
         check_datatree(msv4_xdt)
+        check_msv4_matches_descr(msv4_xdt, ms_minimal_required.descr)
     finally:
         shutil.rmtree(out_name)
 
@@ -399,6 +404,7 @@ def test_convert_and_write_partition_misbehaved(ms_minimal_misbehaved):
         )
         check_dataset(msv4_xdt.ds, VisibilityXds)
         check_datatree(msv4_xdt)
+        check_msv4_matches_descr(msv4_xdt, ms_minimal_misbehaved.descr)
     finally:
         shutil.rmtree(out_name)
 
@@ -440,12 +446,14 @@ def test_convert_and_write_partition_with_antenna1(ms_minimal_required):
             )
             check_dataset(msv4_xdt.ds, VisibilityXds)
             check_datatree(msv4_xdt)
+            check_msv4_matches_descr(msv4_xdt, ms_minimal_required.descr)
     finally:
         # shutil.rmtree(out_name)
         pass
 
 
 ms_custom_description = {
+    "nrows_per_ddi": 300,
     "nchans": 4,
     "npols": 1,
     "data_cols": ["DATA", "MODEL_DATA", "CORRECTED_DATA"],
@@ -464,6 +472,7 @@ ms_custom_description = {
 
 @pytest.mark.parametrize("ms_custom_spec", [ms_custom_description], indirect=True)
 def test_convert_and_write_partition_custom(ms_custom_spec):
+
     out_name = "out_file_test_convert_write.zarr"
     msv4_id = "msv4_id"
     try:
@@ -487,5 +496,7 @@ def test_convert_and_write_partition_custom(ms_custom_spec):
         )
         check_dataset(msv4_xdt.ds, VisibilityXds)
         check_datatree(msv4_xdt)
+        check_msv4_matches_descr(msv4_xdt, ms_custom_spec.descr)
+
     finally:
         shutil.rmtree(out_name)

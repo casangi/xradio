@@ -16,6 +16,15 @@ def test_simple_string(sample_fixture):
 class TestLoadProcessingSet:
     """Tests for load_processing_set using real data"""
 
+    # This is a simple test to ensure that pytest is working correctly.
+    # It should be run with pytest to verify that the testing framework is set up properly.
+    def test_pytest_setup(self):
+        """A simple test to ensure pytest is set up correctly."""
+        assert True, "Pytest setup is working correctly."
+
+    @pytest.mark.parametrize(
+        "test_ps_path", ["Antennae_North.cal.lsrk.split.ms"], indirect=True
+    )
     def test_check_datatree(self, test_ps_path):
         """Test that the converted MS to PS complies with the datatree schema checker"""
         ps_xdt = load_processing_set(str(test_ps_path))

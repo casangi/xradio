@@ -452,6 +452,38 @@ def test_convert_and_write_partition_with_antenna1(ms_minimal_required):
         pass
 
 
+def test_convert_and_write_partition_without_opt(ms_minimal_without_opt):
+
+    out_name = "out_file_test_convert_write_ms_min_without_optional_subtables.zarr"
+    msv4_id = "msv4_id"
+    try:
+        conversion.convert_and_write_partition(
+            in_file=ms_minimal_without_opt.fname,
+            out_file=out_name,
+            ms_v4_id=msv4_id,
+            partition_info={
+                "DATA_DESC_ID": [0],
+                "OBS_MODE": ["scan_intent#subscan_intent"],
+                "OBS_MODE": [None],
+            },
+            use_table_iter=False,
+        )
+
+        msv4_xdt = xr.open_datatree(
+            out_name
+            + "/"
+            + ms_minimal_without_opt.fname.rsplit(".")[0]
+            + "_"
+            + msv4_id,
+            engine="zarr",
+        )
+        check_dataset(msv4_xdt.ds, VisibilityXds)
+        check_datatree(msv4_xdt)
+        check_msv4_matches_descr(msv4_xdt, ms_minimal_without_opt.descr)
+    finally:
+        shutil.rmtree(out_name)
+
+
 ms_custom_description = {
     "nrows_per_ddi": 300,
     "nchans": 4,

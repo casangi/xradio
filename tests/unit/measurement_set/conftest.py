@@ -1,4 +1,5 @@
 import pytest
+import os
 
 # Ensure pytest assert introspection in vis data checks
 pytest.register_assert_rewrite("tests.unit.measurement_set.ms_test_utils.cds_checks")
@@ -13,6 +14,10 @@ from tests.unit.measurement_set.ms_test_utils.gen_test_ms import (
     make_ms_empty,
 )
 from tests.unit.measurement_set.ms_test_utils.cds_checks import check_cds
+
+from toolviper.utils.data import download
+from pathlib import Path
+from xradio.measurement_set import convert_msv2_to_processing_set
 
 """
 A tuple with an MS filename (as str) and a description of its expected structure and contents (as a dict).
@@ -284,29 +289,20 @@ def ms_as_zarr_min():
     yield name
 
 
-# Define input and output paths
-input_ms = "Antennae_North.cal.lsrk.split.ms"
-from toolviper.utils.data import download
-from pathlib import Path
-from xradio.measurement_set import convert_msv2_to_processing_set
-
-
-@pytest.fixture
-def test_data_path():
+def test_data_path(input_ms, folder="/tmp"):
     """Returns path to test MeasurementSet v2"""
     # Download MS
-    download(file=input_ms, folder="/tmp")
-    return Path("/tmp/" + input_ms)
+    download(file=input_ms, folder=folder)
+    return Path(os.path.join(folder, input_ms))
 
 
 @pytest.fixture
-def test_ps_path(test_data_path, tmp_path):
+def test_ps_path(request, tmp_path):
     """Create a processing set from test MS for testing"""
     ps_path = tmp_path / "test_processing_set.ps.zarr"
-
     # Convert MS to processing set
     convert_msv2_to_processing_set(
-        in_file=str(test_data_path),
+        in_file=str(test_data_path(request.param, tmp_path)),
         out_file=str(ps_path),
         partition_scheme=[],
         main_chunksize=0.01,
@@ -319,3 +315,4 @@ def test_ps_path(test_data_path, tmp_path):
     )
     yield ps_path
     shutil.rmtree(ps_path)
+    shutil.rmtree(test_data_path(request.param, tmp_path))

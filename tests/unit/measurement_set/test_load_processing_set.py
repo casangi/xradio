@@ -7,9 +7,13 @@ from xradio.measurement_set import load_processing_set
 from xradio.schema.check import check_datatree
 
 
+@pytest.mark.parametrize(
+    "test_ps_path", ["Antennae_North.cal.lsrk.split.ms"], indirect=True
+)
 class TestLoadProcessingSet:
     """Tests for load_processing_set using real data"""
 
+    # @pytest.mark.parametrize("test_ps_path", ["Antennae_North.cal.lsrk.split.ms"], indirect=True)
     def test_check_datatree(self, test_ps_path):
         """Test that the converted MS to PS complies with the datatree schema checker"""
         ps_xdt = load_processing_set(str(test_ps_path))
@@ -93,6 +97,9 @@ class TestLoadProcessingSet:
             assert not any("xds" in name for name in ms_xdt.keys())
 
 
+@pytest.mark.parametrize(
+    "test_ps_path", ["Antennae_North.cal.lsrk.split.ms"], indirect=True
+)
 class TestProcessingSetIterator:
     """Integration tests for ProcessingSetIterator using real data"""
 

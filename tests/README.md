@@ -1,5 +1,5 @@
-# XRADIO Tests
-Xarray Radio Astronomy Data IO Tests
+# xradio
+Xarray Radio Astronomy Data IO is still in development.
 
 [![Python 3.11 3.12 3.13](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](https://www.python.org/downloads/release/python-3130/)
 [![Linux Tests](https://github.com/casangi/xradio/actions/workflows/python-testing-linux.yml/badge.svg?branch=main)](https://github.com/casangi/xradio/actions/workflows/python-testing-linux.yml?query=branch%3Amain)
@@ -9,35 +9,31 @@ Xarray Radio Astronomy Data IO Tests
 [![Documentation Status](https://readthedocs.org/projects/xradio/badge/?version=latest)](https://xradio.readthedocs.io)
 [![Version Status](https://img.shields.io/pypi/v/xradio.svg)](https://pypi.python.org/pypi/xradio/)
 
-# Test Framework
-XRADIO Tests use pytest and are located in the `tests` directory. There are two types of tests:
-- Unit Tests: located in `tests/unit`
-- Component Tests: located in `tests/component`
-
-Helper functions used in the tests:
-- Helper and utitility functions for tests: located in `tests/_utils`
-- Pytest configuration is located in: `tests/conftest.py`
-
-# Running Tests
-After building XRADIO using the ```pip install "xradio[test]``` command as described in the XRADIO README, tests can be run using:
+# Installing
+It is recommended to use the conda environment manager from [miniforge](https://github.com/conda-forge/miniforge) to create a clean, self-contained runtime where XRADIO and all its dependencies can be installed:
 ```sh
-pytest tests/unit
+conda create --name xradio python=3.12 --no-default-packages
+conda activate xradio
 ```
-
-To run the component tests, use:
+XRADIO can now be installed using:
 ```sh
-pytest tests/component
+pip install xradio
 ```
-
-To run all tests, use:
+This will also install the minimal dependencies for XRADIO. To install the minimal dependencies and the interactive components (JupyterLab) use:
 ```sh
-pytest tests
+pip install "xradio[interactive]"
 ```
-To check the coverage of the tests in a local branch, use:
+To enable conversion from MSv2 to MSv4 use (this only works for Linux):
 ```sh
-pytest --cov=xradio tests
+pip install "xradio[python-casacore]"
 ```
+> 📝 On macOS it is required to pre-install `python-casacore` using `conda install -c conda-forge python-casacore`.
 
-# Test Development
-There is a template for unit tests in `tests/__template__.py` that should be used as an example to write a new test script.
-
+To be able to run tests:
+```sh
+pip install "xradio[test]"
+```
+Multiple-dependencies can be installed using:
+```sh
+pip install "xradio[interactive,python-casacore,test]"
+```

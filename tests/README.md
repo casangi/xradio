@@ -83,7 +83,7 @@ Fixtures can have different **scopes**, controlling how often they are created:
 ### **2. Use the Fixture in a Test**
 
 ```python
-# test_LoadProcessingSet.py
+# test_load_processing_set.py
 
 import pytest
 from pathlib import Path
@@ -113,7 +113,7 @@ class TestLoadProcessingSet:
 As long as the test files are in the same directory or subdirectories of the one containing `conftest.py`, fixtures defined in `conftest.py` are available without import.
 
 ```python
-# test_ProcessingSetXdtWithEphemerisData.py
+# test_processing_set_xdt.py
 
 import pytest
 from pathlib import Path
@@ -149,9 +149,9 @@ After building XRADIO using the ```pip install "xradio[test]``` command as descr
 pytest tests/unit
 ```
 
-To run the component tests, use:
+To run the stakeholder tests, use:
 ```sh
-pytest tests/component
+pytest tests/stakeholder
 ```
 
 To run all tests, use:

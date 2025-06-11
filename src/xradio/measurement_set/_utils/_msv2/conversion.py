@@ -615,8 +615,6 @@ def create_data_variables(
     if target_cols.issuperset({"WEIGHT", "WEIGHT_SPECTRUM"}):
         target_cols.remove("WEIGHT")
 
-    logger.debug(f"The following columns will be converted: {sorted(target_cols)}")
-
     main_table_attrs = extract_table_attributes(in_file)
     main_column_descriptions = main_table_attrs["column_descriptions"]
 

@@ -611,69 +611,70 @@ def create_data_variables(
     with table_manager.get_table() as tb_tool:
         col_names = tb_tool.colnames()
 
+    valid_col_names = set(col_names) & set(col_to_data_variable_names.keys())
+
     main_table_attrs = extract_table_attributes(in_file)
     main_column_descriptions = main_table_attrs["column_descriptions"]
-    for col in col_names:
-        if col in col_to_data_variable_names:
-            if (col == "WEIGHT") and ("WEIGHT_SPECTRUM" in col_names):
-                continue
-            try:
-                start = time.time()
-                if col == "WEIGHT":
-                    xds = get_weight(
-                        xds,
-                        col,
-                        table_manager,
-                        time_baseline_shape,
-                        tidxs,
-                        bidxs,
-                        use_table_iter,
-                        main_column_descriptions,
-                        time_chunksize,
-                    )
-                else:
-                    col_data = read_col_conversion(
-                        table_manager,
-                        col,
-                        time_baseline_shape,
-                        tidxs,
-                        bidxs,
-                        use_table_iter,
-                        time_chunksize,
-                    )
-                    if col == "TIME_CENTROID":
-                        col_data = convert_casacore_time(col_data, False)
+    for col in valid_col_names:
+        if (col == "WEIGHT") and ("WEIGHT_SPECTRUM" in valid_col_names):
+            continue
+        try:
+            start = time.time()
+            if col == "WEIGHT":
+                xds = get_weight(
+                    xds,
+                    col,
+                    table_manager,
+                    time_baseline_shape,
+                    tidxs,
+                    bidxs,
+                    use_table_iter,
+                    main_column_descriptions,
+                    time_chunksize,
+                )
+            else:
+                col_data = read_col_conversion(
+                    table_manager,
+                    col,
+                    time_baseline_shape,
+                    tidxs,
+                    bidxs,
+                    use_table_iter,
+                    time_chunksize,
+                )
+                if col == "TIME_CENTROID":
+                    col_data = convert_casacore_time(col_data, False)
 
-                    xds[col_to_data_variable_names[col]] = xr.DataArray(
-                        col_data,
-                        dims=col_dims[col],
-                    )
-
-                xds[col_to_data_variable_names[col]].attrs.update(
-                    create_attribute_metadata(col, main_column_descriptions)
+                xds[col_to_data_variable_names[col]] = xr.DataArray(
+                    col_data,
+                    dims=col_dims[col],
                 )
 
-                logger.debug(
-                    "Time to read column " + str(col) + " : " + str(time.time() - start)
-                )
-            except Exception as exc:
-                logger.debug(f"Could not load column {col}, exception: {exc}")
-                logger.debug(traceback.format_exc())
+            xds[col_to_data_variable_names[col]].attrs.update(
+                create_attribute_metadata(col, main_column_descriptions)
+            )
 
-                if ("WEIGHT_SPECTRUM" == col) and (
-                    "WEIGHT" in col_names
-                ):  # Bogus WEIGHT_SPECTRUM column, need to use WEIGHT.
-                    xds = get_weight(
-                        xds,
-                        "WEIGHT",
-                        table_manager,
-                        time_baseline_shape,
-                        tidxs,
-                        bidxs,
-                        use_table_iter,
-                        main_column_descriptions,
-                        time_chunksize,
-                    )
+            logger.debug(
+                "Time to read column " + str(col) + " : " + str(time.time() - start)
+            )
+        except Exception as exc:
+            logger.debug(f"Could not load column {col}, exception: {exc}")
+            logger.debug(traceback.format_exc())
+
+            if ("WEIGHT_SPECTRUM" == col) and (
+                "WEIGHT" in valid_col_names
+            ):  # Bogus WEIGHT_SPECTRUM column, need to use WEIGHT.
+                xds = get_weight(
+                    xds,
+                    "WEIGHT",
+                    table_manager,
+                    time_baseline_shape,
+                    tidxs,
+                    bidxs,
+                    use_table_iter,
+                    main_column_descriptions,
+                    time_chunksize,
+                )
 
 
 def add_missing_data_var_attrs(xds):

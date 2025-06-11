@@ -1,3 +1,4 @@
+from collections import deque
 import datetime
 import importlib
 import numcodecs
@@ -611,15 +612,21 @@ def create_data_variables(
     with table_manager.get_table() as tb_tool:
         col_names = tb_tool.colnames()
 
-    col_names = set(col_names) & set(col_to_data_variable_names.keys())
-    if col_names.issuperset({"WEIGHT", "WEIGHT_SPECTRUM"}):
-        col_names.remove("WEIGHT")
+    target_cols = set(col_names) & set(col_to_data_variable_names.keys())
+    if target_cols.issuperset({"WEIGHT", "WEIGHT_SPECTRUM"}):
+        target_cols.remove("WEIGHT")
 
-    logger.debug(f"The following columns will be converted: {sorted(col_names)}")
+    logger.debug(f"The following columns will be converted: {sorted(target_cols)}")
 
     main_table_attrs = extract_table_attributes(in_file)
     main_column_descriptions = main_table_attrs["column_descriptions"]
-    for col in col_names:
+
+    # Use a double-ended queue in case WEIGHT_SPECTRUM conversion fails, and
+    # we need to add WEIGHT to list of columns to convert during iteration
+    target_cols = deque(target_cols)
+
+    while target_cols:
+        col = target_cols.popleft()
         try:
             start = time.time()
             if col == "WEIGHT":
@@ -660,21 +667,10 @@ def create_data_variables(
         except Exception as exc:
             logger.debug(f"Could not load column {col}, exception: {exc}")
             logger.debug(traceback.format_exc())
-
-            if ("WEIGHT_SPECTRUM" == col) and (
-                "WEIGHT" in col_names
-            ):  # Bogus WEIGHT_SPECTRUM column, need to use WEIGHT.
-                xds = get_weight(
-                    xds,
-                    "WEIGHT",
-                    table_manager,
-                    time_baseline_shape,
-                    tidxs,
-                    bidxs,
-                    use_table_iter,
-                    main_column_descriptions,
-                    time_chunksize,
-                )
+            
+            # Bogus WEIGHT_SPECTRUM column, try falling back onto WEIGHT
+            if col == "WEIGHT_SPECTRUM" and "WEIGHT" in col_names:  
+                target_cols.append("WEIGHT")
 
 
 def add_missing_data_var_attrs(xds):
@@ -729,7 +725,7 @@ def get_weight(
             (1, 1, xds.sizes["frequency"], 1),
         ),
         dims=col_dims[col],
-    ).chunk(chunks={"frequency": -1})
+    ).chunk({"frequency": -1})
     return xds
 
 

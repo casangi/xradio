@@ -602,7 +602,6 @@ def create_data_variables(
     # Set read_col_conversion from value of `parallel_mode` argument
     # TODO: To make this compatible with multi-node conversion, `read_col_conversion_dask` and TableManager must be pickled.
     # Casacore will make this difficult
-    global read_col_conversion
     read_col_conversion = (
         read_col_conversion_dask if parallel_mode == "time"
         else read_col_conversion_numpy

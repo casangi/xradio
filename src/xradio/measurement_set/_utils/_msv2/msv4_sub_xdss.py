@@ -8,6 +8,7 @@ import xarray as xr
 from numpy.typing import ArrayLike
 
 from xradio._utils.coord_math import convert_to_si_units
+from xradio._utils.dict_helpers import make_time_measure_attrs
 from xradio._utils.schema import (
     column_description_casacore_to_msv4_measure,
     convert_generic_xds_to_xradio_schema,
@@ -21,12 +22,7 @@ from ._tables.read import (
 )
 
 
-standard_time_coord_attrs = {
-    "type": "time",
-    "units": ["s"],
-    "scale": "utc",
-    "format": "unix",
-}
+standard_time_coord_attrs = make_time_measure_attrs(time_format="unix")
 
 
 def rename_and_interpolate_to_time(

@@ -612,12 +612,14 @@ def create_data_variables(
         col_names = tb_tool.colnames()
 
     valid_col_names = set(col_names) & set(col_to_data_variable_names.keys())
+    if valid_col_names.issuperset({"WEIGHT", "WEIGHT_SPECTRUM"}):
+        valid_col_names.remove("WEIGHT")
+
+    logger.debug(f"The following columns will be converted: {sorted(valid_col_names)}")
 
     main_table_attrs = extract_table_attributes(in_file)
     main_column_descriptions = main_table_attrs["column_descriptions"]
     for col in valid_col_names:
-        if (col == "WEIGHT") and ("WEIGHT_SPECTRUM" in valid_col_names):
-            continue
         try:
             start = time.time()
             if col == "WEIGHT":

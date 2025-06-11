@@ -627,6 +627,7 @@ def create_data_variables(
 
     while target_cols:
         col = target_cols.popleft()
+        datavar_name = col_to_data_variable_names[col]
         try:
             start = time.time()
             if col == "WEIGHT":
@@ -653,12 +654,12 @@ def create_data_variables(
                 if col == "TIME_CENTROID":
                     col_data = convert_casacore_time(col_data, False)
 
-                xds[col_to_data_variable_names[col]] = xr.DataArray(
+                xds[datavar_name] = xr.DataArray(
                     col_data,
                     dims=col_dims[col],
                 )
 
-            xds[col_to_data_variable_names[col]].attrs.update(
+            xds[datavar_name].attrs.update(
                 create_attribute_metadata(col, main_column_descriptions)
             )
             logger.debug(

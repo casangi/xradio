@@ -611,15 +611,15 @@ def create_data_variables(
     with table_manager.get_table() as tb_tool:
         col_names = tb_tool.colnames()
 
-    valid_col_names = set(col_names) & set(col_to_data_variable_names.keys())
-    if valid_col_names.issuperset({"WEIGHT", "WEIGHT_SPECTRUM"}):
-        valid_col_names.remove("WEIGHT")
+    col_names = set(col_names) & set(col_to_data_variable_names.keys())
+    if col_names.issuperset({"WEIGHT", "WEIGHT_SPECTRUM"}):
+        col_names.remove("WEIGHT")
 
-    logger.debug(f"The following columns will be converted: {sorted(valid_col_names)}")
+    logger.debug(f"The following columns will be converted: {sorted(col_names)}")
 
     main_table_attrs = extract_table_attributes(in_file)
     main_column_descriptions = main_table_attrs["column_descriptions"]
-    for col in valid_col_names:
+    for col in col_names:
         try:
             start = time.time()
             if col == "WEIGHT":
@@ -664,7 +664,7 @@ def create_data_variables(
             logger.debug(traceback.format_exc())
 
             if ("WEIGHT_SPECTRUM" == col) and (
-                "WEIGHT" in valid_col_names
+                "WEIGHT" in col_names
             ):  # Bogus WEIGHT_SPECTRUM column, need to use WEIGHT.
                 xds = get_weight(
                     xds,

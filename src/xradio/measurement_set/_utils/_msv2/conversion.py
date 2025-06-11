@@ -631,7 +631,6 @@ def create_data_variables(
                     tidxs,
                     bidxs,
                     use_table_iter,
-                    main_column_descriptions,
                     time_chunksize,
                 )
             else:
@@ -655,7 +654,6 @@ def create_data_variables(
             xds[col_to_data_variable_names[col]].attrs.update(
                 create_attribute_metadata(col, main_column_descriptions)
             )
-
             logger.debug(
                 "Time to read column " + str(col) + " : " + str(time.time() - start)
             )
@@ -713,7 +711,6 @@ def get_weight(
     tidxs,
     bidxs,
     use_table_iter,
-    main_column_descriptions,
     time_chunksize,
 ):
     # da.tile() behaves differently to np.tile() so rechunking is necessary.

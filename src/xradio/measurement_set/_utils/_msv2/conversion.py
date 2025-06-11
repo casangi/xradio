@@ -733,10 +733,6 @@ def get_weight(
         ),
         dims=col_dims[col],
     ).chunk(chunks={"frequency": -1})
-
-    xds[col_to_data_variable_names[col]].attrs.update(
-        create_attribute_metadata(col, main_column_descriptions)
-    )
     return xds
 
 

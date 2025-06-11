@@ -630,34 +630,35 @@ def create_data_variables(
         datavar_name = col_to_data_variable_names[col]
         try:
             start = time.time()
-            if col == "WEIGHT":
-                xds = get_weight(
-                    xds,
-                    col,
-                    table_manager,
-                    time_baseline_shape,
-                    tidxs,
-                    bidxs,
-                    use_table_iter,
-                    time_chunksize,
-                )
-            else:
-                col_data = read_col_conversion(
-                    table_manager,
-                    col,
-                    time_baseline_shape,
-                    tidxs,
-                    bidxs,
-                    use_table_iter,
-                    time_chunksize,
-                )
-                if col == "TIME_CENTROID":
-                    col_data = convert_casacore_time(col_data, False)
+            col_data = read_col_conversion(
+                table_manager,
+                col,
+                time_baseline_shape,
+                tidxs,
+                bidxs,
+                use_table_iter,
+                time_chunksize,
+            )
 
-                xds[datavar_name] = xr.DataArray(
-                    col_data,
-                    dims=col_dims[col],
+            if col == "TIME_CENTROID":
+                col_data = convert_casacore_time(col_data, False)
+
+            elif col == "WEIGHT":
+                col_data = da.tile(
+                    col_data[:, :, None, :],
+                    (1, 1, xds.sizes["frequency"], 1),
                 )
+                # da.tile() adds each repeat as a separate chunk, so rechunking is necessary
+                chunksizes = tuple(
+                    main_chunksize.get(dim, xds.sizes[dim])
+                    for dim in ("time", "baseline_id", "frequency", "polarization")
+                )
+                col_data = col_data.rechunk(chunksizes)
+
+            xds[datavar_name] = xr.DataArray(
+                col_data,
+                dims=col_dims[col],
+            )
 
             xds[datavar_name].attrs.update(
                 create_attribute_metadata(col, main_column_descriptions)
@@ -697,36 +698,6 @@ def add_missing_data_var_attrs(xds):
             else:
                 xds.data_vars[var_name].attrs["units"] = [""]
 
-    return xds
-
-
-def get_weight(
-    xds,
-    col,
-    table_manager,
-    time_baseline_shape,
-    tidxs,
-    bidxs,
-    use_table_iter,
-    time_chunksize,
-):
-    # da.tile() behaves differently to np.tile() so rechunking is necessary.
-    # By default, da.tile() adds each repeat as a separate chunk.
-    xds[col_to_data_variable_names[col]] = xr.DataArray(
-        da.tile(
-            read_col_conversion(
-                table_manager,
-                col,
-                time_baseline_shape,
-                tidxs,
-                bidxs,
-                use_table_iter,
-                time_chunksize,
-            )[:, :, None, :],
-            (1, 1, xds.sizes["frequency"], 1),
-        ),
-        dims=col_dims[col],
-    ).chunk({"frequency": -1})
     return xds
 
 

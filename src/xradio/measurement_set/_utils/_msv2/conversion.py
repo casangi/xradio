@@ -6,6 +6,7 @@ import pathlib
 import time
 from typing import Dict, Union
 
+import dask.array as da
 import numpy as np
 import xarray as xr
 import traceback
@@ -712,8 +713,10 @@ def get_weight(
     main_column_descriptions,
     time_chunksize,
 ):
+    # da.tile() behaves differently to np.tile() so rechunking is necessary.
+    # By default, da.tile() adds each repeat as a separate chunk.
     xds[col_to_data_variable_names[col]] = xr.DataArray(
-        np.tile(
+        da.tile(
             read_col_conversion(
                 table_manager,
                 col,
@@ -726,7 +729,7 @@ def get_weight(
             (1, 1, xds.sizes["frequency"], 1),
         ),
         dims=col_dims[col],
-    )
+    ).chunk(chunks={"frequency": -1})
 
     xds[col_to_data_variable_names[col]].attrs.update(
         create_attribute_metadata(col, main_column_descriptions)

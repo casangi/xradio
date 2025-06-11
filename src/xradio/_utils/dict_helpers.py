@@ -11,8 +11,12 @@ def make_quantity(value, units: str, dims: list = []) -> dict:
     -------
     dict
     """
+    return {"data": value, "dims": dims, "attrs": make_quantity_attrs(units)}
+
+
+def make_quantity_attrs(units: str) -> dict:
     u = units if isinstance(units, list) else [units]
-    return {"data": value, "dims": dims, "attrs": {"units": u, "type": "quantity"}}
+    return {"units": u, "type": "quantity"}
 
 
 def make_frequency_reference_dict(

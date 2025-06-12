@@ -586,17 +586,13 @@ def create_data_variables(
     parallel_mode,
     main_chunksize,
 ):
-    # Get time chunks
-    time_chunksize = None
-    if parallel_mode == "time":
-        try:
-            time_chunksize = main_chunksize["time"]
-        except KeyError:
-            # If time isn't chunked then `read_col_conversion_dask` is slower than `read_col_conversion_numpy`
-            logger.warning(
-                "'time' isn't specified in `main_chunksize`. Defaulting to `parallel_mode = 'none'`."
-            )
-            parallel_mode = "none"
+    if parallel_mode == "time" and "time" not in main_chunksize:
+        logger.warning(
+            "'time' isn't specified in `main_chunksize`. Defaulting to `parallel_mode = 'none'`."
+        )
+        parallel_mode = "none"
+
+    time_chunksize = main_chunksize.get("time", None)
 
     # Create Data Variables
     with table_manager.get_table() as tb_tool:

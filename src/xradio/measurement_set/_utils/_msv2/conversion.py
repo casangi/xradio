@@ -586,13 +586,12 @@ def create_data_variables(
     parallel_mode,
     main_chunksize,
 ):
-    if parallel_mode == "time" and "time" not in main_chunksize:
+    time_chunksize = main_chunksize.get("time", None) if main_chunksize else None
+    if parallel_mode == "time" and time_chunksize is None:
         logger.warning(
             "'time' isn't specified in `main_chunksize`. Defaulting to `parallel_mode = 'none'`."
         )
         parallel_mode = "none"
-
-    time_chunksize = main_chunksize.get("time", None)
 
     # Create Data Variables
     with table_manager.get_table() as tb_tool:

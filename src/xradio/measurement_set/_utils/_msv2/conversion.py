@@ -641,22 +641,9 @@ def create_data_variables(
                 col_data = convert_casacore_time(col_data, False)
 
             elif col == "WEIGHT":
-                if parallel_mode == "time":
-                    col_data = da.tile(
-                        col_data[:, :, None, :],
-                        (1, 1, xds.sizes["frequency"], 1),
-                    )
-                    # da.tile() adds each repeat as a separate chunk, so rechunking is necessary
-                    chunksizes = tuple(
-                        main_chunksize.get(dim, xds.sizes[dim])
-                        for dim in ("time", "baseline_id", "frequency", "polarization")
-                    )
-                    col_data = col_data.rechunk(chunksizes)
-                else:
-                    col_data = np.tile(
-                        col_data[:, :, None, :],
-                        (1, 1, xds.sizes["frequency"], 1),
-                    ) 
+                col_data = repeat_weight_array(
+                    col_data, parallel_mode, xds.sizes, main_chunksize
+                )
 
             xds[datavar_name] = xr.DataArray(
                 col_data,
@@ -676,6 +663,32 @@ def create_data_variables(
             # Bogus WEIGHT_SPECTRUM column, try falling back onto WEIGHT
             if col == "WEIGHT_SPECTRUM" and "WEIGHT" in col_names:  
                 target_cols.append("WEIGHT")
+
+
+def repeat_weight_array(
+    weight_arr,
+    parallel_mode: str,
+    main_sizes: dict[str, int],
+    main_chunksize: dict[str, int]
+):
+    """
+    Repeat the weights read from the WEIGHT column along the frequency dimension.
+    Returns a dask array if parallel_mode="time", or a numpy array otherwise.
+    """
+    reshaped_arr = weight_arr[:, :, None, :]
+    repeats = (1, 1, main_sizes["frequency"], 1)
+
+    if parallel_mode == "time":
+        result = da.tile(reshaped_arr, repeats)
+        # da.tile() adds each repeat as a separate chunk, so rechunking is necessary
+        chunksizes = tuple(
+            main_chunksize.get(dim, main_sizes[dim])
+            for dim in ("time", "baseline_id", "frequency", "polarization")
+        )
+        return result.rechunk(chunksizes)
+
+    return np.tile(reshaped_arr, repeats)
+
 
 
 def add_missing_data_var_attrs(xds):

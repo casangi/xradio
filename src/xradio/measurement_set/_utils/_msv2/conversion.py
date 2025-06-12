@@ -637,7 +637,7 @@ def create_data_variables(
             xds[datavar_name] = xr.DataArray(
                 col_data,
                 dims=col_dims[col],
-                attrs=create_attribute_metadata(col, main_column_descriptions)
+                attrs=create_attribute_metadata(col, main_column_descriptions),
             )
             logger.debug(f"Time to read column {col} : {time.time() - start}")
 
@@ -667,7 +667,8 @@ def get_read_col_conversion_function(col_name: str, parallel_mode: str) -> Calla
         "FLAG",
     }
     return (
-        read_col_conversion_dask if parallel_mode == "time" and col_name in large_columns
+        read_col_conversion_dask
+        if parallel_mode == "time" and col_name in large_columns
         else read_col_conversion_numpy
     )
 
@@ -676,7 +677,7 @@ def repeat_weight_array(
     weight_arr,
     parallel_mode: str,
     main_sizes: dict[str, int],
-    main_chunksize: dict[str, int]
+    main_chunksize: dict[str, int],
 ):
     """
     Repeat the weights read from the WEIGHT column along the frequency dimension.
@@ -695,7 +696,6 @@ def repeat_weight_array(
         return result.rechunk(chunksizes)
 
     return np.tile(reshaped_arr, repeats)
-
 
 
 def add_missing_data_var_attrs(xds):

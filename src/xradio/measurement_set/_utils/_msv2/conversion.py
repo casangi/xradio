@@ -652,16 +652,19 @@ def create_data_variables(
         except Exception as exc:
             logger.debug(f"Could not load column {col}, exception: {exc}")
             logger.debug(traceback.format_exc())
-            
-            # Bogus WEIGHT_SPECTRUM column, try falling back onto WEIGHT
-            if col == "WEIGHT_SPECTRUM" and "WEIGHT" in col_names:  
+
+            if col == "WEIGHT_SPECTRUM" and "WEIGHT" in col_names:
+                logger.debug(
+                    "Failed to convert WEIGHT_SPECTRUM column: "
+                    "will attempt to use WEIGHT instead"
+                )
                 target_cols.append("WEIGHT")
 
 
 def get_read_col_conversion_function(col_name: str, parallel_mode: str) -> Callable:
     """
-    Select the read_col_conversion function: use the dask version for large
-    columns and parallel_mode="time", or the numpy version otherwise.
+    Returns the appropriate read_col_conversion function: use the dask version
+    for large columns and parallel_mode="time", or the numpy version otherwise.
     """
     large_columns = {
         "DATA",

@@ -53,6 +53,7 @@ from ._tables.read import (
 from ._tables.read_main_table import get_baselines, get_baseline_indices, get_utimes_tol
 from .._utils.stokes_types import stokes_types
 from xradio._utils.list_and_array import check_if_consistent, unique_1d, to_list
+from xradio._utils.dict_helpers import make_quantity
 
 
 def parse_chunksize(
@@ -512,14 +513,9 @@ def create_coordinates(
         freq_column_description["CHAN_WIDTH"],
         ref_code=spectral_window_xds["MEAS_FREQ_REF"].data,
     )
-    if not msv4_measure:
-        msv4_measure["type"] = "quantity"
-        msv4_measure["units"] = ["Hz"]
-    xds.frequency.attrs["channel_width"] = {
-        "dims": [],
-        "data": np.abs(unique_chan_width[0]),
-        "attrs": msv4_measure,
-    }
+    xds.frequency.attrs["channel_width"] = make_quantity(
+        np.abs(unique_chan_width[0]), msv4_measure["units"] if msv4_measure else ["Hz"]
+    )
 
     ###### Create Time Coordinate ######
     main_table_attrs = extract_table_attributes(in_file)
@@ -532,14 +528,9 @@ def create_coordinates(
     msv4_measure = column_description_casacore_to_msv4_measure(
         main_column_descriptions["INTERVAL"]
     )
-    if not msv4_measure:
-        msv4_measure["type"] = "quantity"
-        msv4_measure["units"] = ["s"]
-    xds.time.attrs["integration_time"] = {
-        "dims": [],
-        "data": interval,
-        "attrs": msv4_measure,
-    }
+    xds.time.attrs["integration_time"] = make_quantity(
+        interval, msv4_measure["units"] if msv4_measure else ["s"]
+    )
 
     return xds
 

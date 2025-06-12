@@ -18,7 +18,7 @@ from xradio.measurement_set._utils._msv2._tables.read import (
     load_generic_table,
 )
 from xradio._utils.list_and_array import cast_to_str, get_pad_value
-
+from xradio._utils.dict_helpers import make_quantity_attrs
 from xradio._utils.coord_math import (
     convert_to_si_units,
     add_position_offsets,
@@ -281,16 +281,13 @@ def extract_ephemeris_info(
         msv4_var_name = msv4_variable_def[0]
         if msv4_var_name in temp_xds:
             temp_xds[msv4_var_name].attrs.update(
-                {
-                    "type": "quantity",
-                    "units": [
-                        cast_to_str(
-                            ephemeris_column_description[generic_var_name]["keywords"][
-                                unit_keyword
-                            ]
-                        )
-                    ],
-                }
+                make_quantity_attrs(
+                    cast_to_str(
+                        ephemeris_column_description[generic_var_name]["keywords"][
+                            unit_keyword
+                        ]
+                    )
+                )
             )
 
     # Add optional data: SUB_OBSERVER_DIRECTION and SUB_SOLAR_POSITION

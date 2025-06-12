@@ -641,16 +641,22 @@ def create_data_variables(
                 col_data = convert_casacore_time(col_data, False)
 
             elif col == "WEIGHT":
-                col_data = da.tile(
-                    col_data[:, :, None, :],
-                    (1, 1, xds.sizes["frequency"], 1),
-                )
-                # da.tile() adds each repeat as a separate chunk, so rechunking is necessary
-                chunksizes = tuple(
-                    main_chunksize.get(dim, xds.sizes[dim])
-                    for dim in ("time", "baseline_id", "frequency", "polarization")
-                )
-                col_data = col_data.rechunk(chunksizes)
+                if parallel_mode == "time":
+                    col_data = da.tile(
+                        col_data[:, :, None, :],
+                        (1, 1, xds.sizes["frequency"], 1),
+                    )
+                    # da.tile() adds each repeat as a separate chunk, so rechunking is necessary
+                    chunksizes = tuple(
+                        main_chunksize.get(dim, xds.sizes[dim])
+                        for dim in ("time", "baseline_id", "frequency", "polarization")
+                    )
+                    col_data = col_data.rechunk(chunksizes)
+                else:
+                    col_data = np.tile(
+                        col_data[:, :, None, :],
+                        (1, 1, xds.sizes["frequency"], 1),
+                    ) 
 
             xds[datavar_name] = xr.DataArray(
                 col_data,

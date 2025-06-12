@@ -641,11 +641,9 @@ def create_data_variables(
             xds[datavar_name] = xr.DataArray(
                 col_data,
                 dims=col_dims[col],
+                attrs=create_attribute_metadata(col, main_column_descriptions)
             )
 
-            xds[datavar_name].attrs.update(
-                create_attribute_metadata(col, main_column_descriptions)
-            )
             logger.debug(
                 "Time to read column " + str(col) + " : " + str(time.time() - start)
             )

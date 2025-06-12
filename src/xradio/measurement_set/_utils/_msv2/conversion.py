@@ -639,10 +639,8 @@ def create_data_variables(
                 dims=col_dims[col],
                 attrs=create_attribute_metadata(col, main_column_descriptions)
             )
+            logger.debug(f"Time to read column {col} : {time.time() - start}")
 
-            logger.debug(
-                "Time to read column " + str(col) + " : " + str(time.time() - start)
-            )
         except Exception as exc:
             logger.debug(f"Could not load column {col}, exception: {exc}")
             logger.debug(traceback.format_exc())

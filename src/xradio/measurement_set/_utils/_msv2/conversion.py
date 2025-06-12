@@ -5,7 +5,7 @@ import numcodecs
 import os
 import pathlib
 import time
-from typing import Dict, Union
+from typing import Callable, Dict, Union
 
 import dask.array as da
 import numpy as np
@@ -586,7 +586,6 @@ def create_data_variables(
     parallel_mode,
     main_chunksize,
 ):
-
     # Get time chunks
     time_chunksize = None
     if parallel_mode == "time":
@@ -598,14 +597,6 @@ def create_data_variables(
                 "'time' isn't specified in `main_chunksize`. Defaulting to `parallel_mode = 'none'`."
             )
             parallel_mode = "none"
-
-    # Set read_col_conversion from value of `parallel_mode` argument
-    # TODO: To make this compatible with multi-node conversion, `read_col_conversion_dask` and TableManager must be pickled.
-    # Casacore will make this difficult
-    read_col_conversion = (
-        read_col_conversion_dask if parallel_mode == "time"
-        else read_col_conversion_numpy
-    )
 
     # Create Data Variables
     with table_manager.get_table() as tb_tool:
@@ -625,6 +616,8 @@ def create_data_variables(
     while target_cols:
         col = target_cols.popleft()
         datavar_name = col_to_data_variable_names[col]
+        read_col_conversion = get_read_col_conversion_function(col, parallel_mode)
+
         try:
             start = time.time()
             col_data = read_col_conversion(
@@ -663,6 +656,25 @@ def create_data_variables(
             # Bogus WEIGHT_SPECTRUM column, try falling back onto WEIGHT
             if col == "WEIGHT_SPECTRUM" and "WEIGHT" in col_names:  
                 target_cols.append("WEIGHT")
+
+
+def get_read_col_conversion_function(col_name: str, parallel_mode: str) -> Callable:
+    """
+    Select the read_col_conversion function: use the dask version for large
+    columns and parallel_mode="time", or the numpy version otherwise.
+    """
+    large_columns = {
+        "DATA",
+        "CORRECTED_DATA",
+        "MODEL_DATA",
+        "WEIGHT_SPECTRUM",
+        "WEIGHT",
+        "FLAG",
+    }
+    return (
+        read_col_conversion_dask if parallel_mode == "time" and col_name in large_columns
+        else read_col_conversion_numpy
+    )
 
 
 def repeat_weight_array(

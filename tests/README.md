@@ -12,7 +12,7 @@ Xarray Radio Astronomy Data IO Tests
 # Test Framework
 XRADIO Tests use pytest and are located in the `tests` directory. There are two types of tests:
 - Unit Tests: located in `tests/unit`
-- Component Tests: located in `tests/component`
+- stakeholder Tests: located in `tests/stakeholder`
 
 Helper functions used in the tests:
 - Helper and utitility functions for tests: located in `tests/_utils`

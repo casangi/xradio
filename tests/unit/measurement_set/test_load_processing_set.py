@@ -8,24 +8,26 @@ from xradio.schema.check import check_datatree
 
 
 @pytest.mark.parametrize(
-    "test_ps_path", ["Antennae_North.cal.lsrk.split.ms"], indirect=True
+    "convert_measurement_set_to_processing_set",
+    ["Antennae_North.cal.lsrk.split.ms"],
+    indirect=True,
 )
 class TestLoadProcessingSet:
     """Tests for load_processing_set using real data"""
 
-    # @pytest.mark.parametrize("test_ps_path", ["Antennae_North.cal.lsrk.split.ms"], indirect=True)
-    def test_check_datatree(self, test_ps_path):
+    # @pytest.mark.parametrize("convert_measurement_set_to_processing_set", ["Antennae_North.cal.lsrk.split.ms"], indirect=True)
+    def test_check_datatree(self, convert_measurement_set_to_processing_set):
         """Test that the converted MS to PS complies with the datatree schema checker"""
-        ps_xdt = load_processing_set(str(test_ps_path))
+        ps_xdt = load_processing_set(str(convert_measurement_set_to_processing_set))
         issues = check_datatree(ps_xdt)
         # The check_datatree function returns a SchemaIssues object, not a string
         assert (
             str(issues) == "No schema issues found"
         ), f"Schema validation failed: {issues}"
 
-    def test_basic_load(self, test_ps_path):
+    def test_basic_load(self, convert_measurement_set_to_processing_set):
         """Test basic loading of processing set without parameters"""
-        ps_xdt = load_processing_set(str(test_ps_path))
+        ps_xdt = load_processing_set(str(convert_measurement_set_to_processing_set))
 
         # Verify basic structure
         assert isinstance(ps_xdt, xr.DataTree)
@@ -33,10 +35,10 @@ class TestLoadProcessingSet:
         # Should have at least one measurement set. Partitioning gives the number of children
         assert len(ps_xdt.children) > 0
 
-    def test_selective_loading(self, test_ps_path):
+    def test_selective_loading(self, convert_measurement_set_to_processing_set):
         """Test loading with selection parameters"""
         # First load normally to get MS names
-        full_ps = load_processing_set(str(test_ps_path))
+        full_ps = load_processing_set(str(convert_measurement_set_to_processing_set))
 
         # Check MS names are the expected ones
         ms_basename = "Antennae_North.cal.lsrk.split"
@@ -52,25 +54,32 @@ class TestLoadProcessingSet:
 
         # Test loading with selection parameters
         sel_parms = {ms_name: {"time": slice(0, 10)}}
-        ps_xdt = load_processing_set(str(test_ps_path), sel_parms=sel_parms)
+        ps_xdt = load_processing_set(
+            str(convert_measurement_set_to_processing_set), sel_parms=sel_parms
+        )
 
         assert isinstance(ps_xdt, xr.DataTree)
         assert ms_name in ps_xdt.children
         assert ps_xdt[ms_name].dims["time"] <= 10
 
-    def test_data_group_selection(self, test_ps_path):
+    def test_data_group_selection(self, convert_measurement_set_to_processing_set):
         """Test loading with specific data group"""
-        ps_xdt = load_processing_set(str(test_ps_path), data_group_name="base")
+        ps_xdt = load_processing_set(
+            str(convert_measurement_set_to_processing_set), data_group_name="base"
+        )
 
         assert isinstance(ps_xdt, xr.DataTree)
         for ms_xdt in ps_xdt.children.values():
             assert "base" in ms_xdt.attrs.get("data_groups", {})
 
-    def test_variable_selection(self, test_ps_path):
+    def test_variable_selection(self, convert_measurement_set_to_processing_set):
         """Test loading with specific variables included/excluded"""
         # Test including specific variables
         include_vars = ["VISIBILITY"]
-        ps_xdt = load_processing_set(str(test_ps_path), include_variables=include_vars)
+        ps_xdt = load_processing_set(
+            str(convert_measurement_set_to_processing_set),
+            include_variables=include_vars,
+        )
 
         for ms_xdt in ps_xdt.children.values():
             assert "VISIBILITY" in ms_xdt.data_vars
@@ -78,19 +87,23 @@ class TestLoadProcessingSet:
 
         # Test dropping specific variables
         drop_vars = ["WEIGHT"]
-        ps_xdt = load_processing_set(str(test_ps_path), drop_variables=drop_vars)
+        ps_xdt = load_processing_set(
+            str(convert_measurement_set_to_processing_set), drop_variables=drop_vars
+        )
 
         for ms_xdt in ps_xdt.children.values():
             assert "WEIGHT" not in ms_xdt.data_vars
 
-    def test_sub_datasets(self, test_ps_path):
+    def test_sub_datasets(self, convert_measurement_set_to_processing_set):
         """Test loading with and without sub-datasets"""
         # Test with sub-datasets
-        ps_with_subs = load_processing_set(str(test_ps_path), load_sub_datasets=True)
+        ps_with_subs = load_processing_set(
+            str(convert_measurement_set_to_processing_set), load_sub_datasets=True
+        )
 
         # Test without sub-datasets
         ps_without_subs = load_processing_set(
-            str(test_ps_path), load_sub_datasets=False
+            str(convert_measurement_set_to_processing_set), load_sub_datasets=False
         )
 
         for ms_xdt in ps_without_subs.children.values():
@@ -98,21 +111,24 @@ class TestLoadProcessingSet:
 
 
 @pytest.mark.parametrize(
-    "test_ps_path", ["Antennae_North.cal.lsrk.split.ms"], indirect=True
+    "convert_measurement_set_to_processing_set",
+    ["Antennae_North.cal.lsrk.split.ms"],
+    indirect=True,
 )
 class TestProcessingSetIterator:
     """Integration tests for ProcessingSetIterator using real data"""
 
-    def test_iterator_with_store(self, test_ps_path):
+    def test_iterator_with_store(self, convert_measurement_set_to_processing_set):
         """Test iterator loading from store"""
         # First load normally to get MS names
-        full_ps = load_processing_set(str(test_ps_path))
+        full_ps = load_processing_set(str(convert_measurement_set_to_processing_set))
         ms_name = list(full_ps.children.keys())[0]
 
         sel_parms = {ms_name: {"time": slice(0, 10)}}
 
         iterator = ProcessingSetIterator(
-            sel_parms=sel_parms, input_data_store=str(test_ps_path)
+            sel_parms=sel_parms,
+            input_data_store=str(convert_measurement_set_to_processing_set),
         )
 
         # Test iteration
@@ -126,16 +142,18 @@ class TestProcessingSetIterator:
         with pytest.raises(StopIteration):
             next(iterator)
 
-    def test_iterator_with_memory(self, test_ps_path):
+    def test_iterator_with_memory(self, convert_measurement_set_to_processing_set):
         """Test iterator with in-memory data"""
         # Load data into memory
-        full_ps = load_processing_set(str(test_ps_path))
+        full_ps = load_processing_set(str(convert_measurement_set_to_processing_set))
         ms_name = list(full_ps.children.keys())[0]
 
         sel_parms = {ms_name: {"time": slice(0, 10)}}
 
         iterator = ProcessingSetIterator(
-            sel_parms=sel_parms, input_data_store=str(test_ps_path), input_data=full_ps
+            sel_parms=sel_parms,
+            input_data_store=str(convert_measurement_set_to_processing_set),
+            input_data=full_ps,
         )
 
         # Test iteration
@@ -146,17 +164,17 @@ class TestProcessingSetIterator:
         with pytest.raises(StopIteration):
             next(iterator)
 
-    def test_iterator_with_data_groups(self, test_ps_path):
+    def test_iterator_with_data_groups(self, convert_measurement_set_to_processing_set):
         """Test iterator with data group selection"""
         # First load normally to get MS names
-        full_ps = load_processing_set(str(test_ps_path))
+        full_ps = load_processing_set(str(convert_measurement_set_to_processing_set))
         ms_name = list(full_ps.children.keys())[0]
 
         sel_parms = {ms_name: {"time": slice(0, 10)}}
 
         iterator = ProcessingSetIterator(
             sel_parms=sel_parms,
-            input_data_store=str(test_ps_path),
+            input_data_store=str(convert_measurement_set_to_processing_set),
             data_group_name="base",
         )
 

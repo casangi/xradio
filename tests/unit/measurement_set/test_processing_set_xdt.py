@@ -81,11 +81,13 @@ class TestProcessingSetXdtWithData:
     """Tests for ProcessingSetXdt using real data loaded from disk"""
 
     @pytest.mark.parametrize(
-        "test_ps_path", ["Antennae_North.cal.lsrk.split.ms"], indirect=True
+        "convert_measurement_set_to_processing_set",
+        ["Antennae_North.cal.lsrk.split.ms"],
+        indirect=True,
     )
-    def test_summary(self, test_ps_path):
+    def test_summary(self, convert_measurement_set_to_processing_set):
         """Test the summary method on a real processing set"""
-        ps_xdt = load_processing_set(str(test_ps_path))
+        ps_xdt = load_processing_set(str(convert_measurement_set_to_processing_set))
 
         # Get summary
         summary = ps_xdt.xr_ps.summary()
@@ -110,11 +112,13 @@ class TestProcessingSetXdtWithData:
             assert col in summary.columns
 
     @pytest.mark.parametrize(
-        "test_ps_path", ["Antennae_North.cal.lsrk.split.ms"], indirect=True
+        "convert_measurement_set_to_processing_set",
+        ["Antennae_North.cal.lsrk.split.ms"],
+        indirect=True,
     )
-    def test_get_max_dims(self, test_ps_path):
+    def test_get_max_dims(self, convert_measurement_set_to_processing_set):
         """Test getting maximum dimensions from a processing set"""
-        ps_xdt = load_processing_set(str(test_ps_path))
+        ps_xdt = load_processing_set(str(convert_measurement_set_to_processing_set))
 
         # Get max dimensions
         max_dims = ps_xdt.xr_ps.get_max_dims()
@@ -131,11 +135,13 @@ class TestProcessingSetXdtWithData:
         assert max_dims["polarization"] == 2
 
     @pytest.mark.parametrize(
-        "test_ps_path", ["Antennae_North.cal.lsrk.split.ms"], indirect=True
+        "convert_measurement_set_to_processing_set",
+        ["Antennae_North.cal.lsrk.split.ms"],
+        indirect=True,
     )
-    def test_get_freq_axis(self, test_ps_path):
+    def test_get_freq_axis(self, convert_measurement_set_to_processing_set):
         """Test getting frequency axis from a processing set"""
-        ps_xdt = load_processing_set(str(test_ps_path))
+        ps_xdt = load_processing_set(str(convert_measurement_set_to_processing_set))
 
         # Get frequency axis
         freq_axis = ps_xdt.xr_ps.get_freq_axis()
@@ -149,11 +155,13 @@ class TestProcessingSetXdtWithData:
         assert np.all(freq_axis.values > 0)  # Frequencies should be positive
 
     @pytest.mark.parametrize(
-        "test_ps_path", ["Antennae_North.cal.lsrk.split.ms"], indirect=True
+        "convert_measurement_set_to_processing_set",
+        ["Antennae_North.cal.lsrk.split.ms"],
+        indirect=True,
     )
-    def test_query(self, test_ps_path):
+    def test_query(self, convert_measurement_set_to_processing_set):
         """Test querying a processing set"""
-        ps_xdt = load_processing_set(str(test_ps_path))
+        ps_xdt = load_processing_set(str(convert_measurement_set_to_processing_set))
 
         # Get list of MS names
         ms_names = list(ps_xdt.children.keys())
@@ -176,11 +184,15 @@ class TestProcessingSetXdtWithData:
             assert "base" in ms_xdt.attrs.get("data_groups", {})
 
     @pytest.mark.parametrize(
-        "test_ps_path", ["Antennae_North.cal.lsrk.split.ms"], indirect=True
+        "convert_measurement_set_to_processing_set",
+        ["Antennae_North.cal.lsrk.split.ms"],
+        indirect=True,
     )
-    def test_get_combined_field_and_source_xds(self, test_ps_path):
+    def test_get_combined_field_and_source_xds(
+        self, convert_measurement_set_to_processing_set
+    ):
         """Test getting combined field and source dataset from a processing set"""
-        ps_xdt = load_processing_set(str(test_ps_path))
+        ps_xdt = load_processing_set(str(convert_measurement_set_to_processing_set))
 
         # Get combined field and source dataset
         combined_field_source_xds = ps_xdt.xr_ps.get_combined_field_and_source_xds()
@@ -201,11 +213,13 @@ class TestProcessingSetXdtWithEphemerisData:
     """Tests for ProcessingSetXdt using real ephemeris data loaded from disk"""
 
     @pytest.mark.parametrize(
-        "test_ps_path", ["ALMA_uid___A002_X1003af4_X75a3.split.avg.ms"], indirect=True
+        "convert_measurement_set_to_processing_set",
+        ["ALMA_uid___A002_X1003af4_X75a3.split.avg.ms"],
+        indirect=True,
     )
-    def test_check_ephemeris_datatree(self, test_ps_path):
+    def test_check_ephemeris_datatree(self, convert_measurement_set_to_processing_set):
         """Test that the converted MS to PS complies with the datatree schema checker"""
-        ps_xdt = load_processing_set(str(test_ps_path))
+        ps_xdt = load_processing_set(str(convert_measurement_set_to_processing_set))
 
         issues = check_datatree(ps_xdt)
         # The check_datatree function returns a SchemaIssues object, not a string
@@ -214,11 +228,15 @@ class TestProcessingSetXdtWithEphemerisData:
         ), f"Schema validation failed: {issues}"
 
     @pytest.mark.parametrize(
-        "test_ps_path", ["ALMA_uid___A002_X1003af4_X75a3.split.avg.ms"], indirect=True
+        "convert_measurement_set_to_processing_set",
+        ["ALMA_uid___A002_X1003af4_X75a3.split.avg.ms"],
+        indirect=True,
     )
-    def test_get_combined_field_and_source_xds_ephemeris(self, test_ps_path):
+    def test_get_combined_field_and_source_xds_ephemeris(
+        self, convert_measurement_set_to_processing_set
+    ):
         """Test getting combined field and source dataset with ephemeris from a processing set"""
-        ps_xdt = load_processing_set(str(test_ps_path))
+        ps_xdt = load_processing_set(str(convert_measurement_set_to_processing_set))
 
         # Get combined field and source dataset with ephemeris
         combined_ephemeris_field_source_xds = (
@@ -258,11 +276,13 @@ class TestProcessingSetXdtWithEphemerisData:
             assert isinstance(center_field, (str, np.str_))
 
     @pytest.mark.parametrize(
-        "test_ps_path", ["ALMA_uid___A002_X1003af4_X75a3.split.avg.ms"], indirect=True
+        "convert_measurement_set_to_processing_set",
+        ["ALMA_uid___A002_X1003af4_X75a3.split.avg.ms"],
+        indirect=True,
     )
-    def test_field_offset_calculation(self, test_ps_path):
+    def test_field_offset_calculation(self, convert_measurement_set_to_processing_set):
         """Test that field offsets are correctly calculated"""
-        ps_xdt = load_processing_set(str(test_ps_path))
+        ps_xdt = load_processing_set(str(convert_measurement_set_to_processing_set))
 
         field_source_xds = ps_xdt.xr_ps.get_combined_field_and_source_xds_ephemeris()
 
@@ -277,11 +297,13 @@ class TestProcessingSetXdtWithEphemerisData:
         assert np.all(np.abs(field_offset) < np.pi)  # Should be wrapped to [-π, π]
 
     @pytest.mark.parametrize(
-        "test_ps_path", ["ALMA_uid___A002_X1003af4_X75a3.split.avg.ms"], indirect=True
+        "convert_measurement_set_to_processing_set",
+        ["ALMA_uid___A002_X1003af4_X75a3.split.avg.ms"],
+        indirect=True,
     )
-    def test_time_interpolation(self, test_ps_path):
+    def test_time_interpolation(self, convert_measurement_set_to_processing_set):
         """Test that time interpolation works correctly for ephemeris data"""
-        ps_xdt = load_processing_set(str(test_ps_path))
+        ps_xdt = load_processing_set(str(convert_measurement_set_to_processing_set))
 
         field_source_xds = ps_xdt.xr_ps.get_combined_field_and_source_xds_ephemeris()
 

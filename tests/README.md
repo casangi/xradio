@@ -40,21 +40,20 @@ from pathlib import Path
 from xradio.measurement_set import load_processing_set
 from xradio.schema.check import check_datatree
 
-def test_data_path(input_ms, folder="/tmp"):
+def download_measurement_set(input_ms, directory="/tmp"):
     """Returns path to test MeasurementSet v2"""
     # Download MS
-    download(file=input_ms, folder=folder)
-    return Path(os.path.join(folder, input_ms))
+    download(file=input_ms, folder=directory)
+    return Path(os.path.join(directory, input_ms))
 
 
 @pytest.fixture
-def test_ps_path(request, tmp_path):
+def convert_measurement_set_to_processing_set(request, tmp_path):
     """Create a processing set from test MS for testing"""
-    # SetUp
     ps_path = tmp_path / "test_processing_set.ps.zarr"
-    ## Convert MS to processing set
+    # Convert MS to processing set
     convert_msv2_to_processing_set(
-        in_file=str(test_data_path(request.param, tmp_path)),
+        in_file=str(download_measurement_set(request.param, tmp_path)),
         out_file=str(ps_path),
         partition_scheme=[],
         main_chunksize=0.01,
@@ -65,13 +64,11 @@ def test_ps_path(request, tmp_path):
         overwrite=True,
         parallel_mode="none",
     )
-    yield ps_path # Pause and Run Test(s)
-
-    # TearDown
+    yield ps_path
     shutil.rmtree(ps_path)
-    shutil.rmtree(test_data_path(request.param, tmp_path))
+    shutil.rmtree(download_measurement_set(request.param, tmp_path))
 ```
-> Because `test_data_path` is a function that is used within `test_ps_path` it does not need to be decorated as a fixture in `conftest.py` In pytest, yield is used in fixtures to define setup and teardown. When the fixture is first called, it runs until it hits the first yield. It pauses and returns the value to the test. After the test executes, the fixture resumes from where it left off.
+> Because `download_measurement_set` is a function that is used within `convert_measurement_set_to_processing_set` it does not need to be decorated as a fixture in `conftest.py` In pytest, yield is used in fixtures to define setup and teardown. When the fixture is first called, it runs until it hits the first yield. It pauses and returns the value to the test. After the test executes, the fixture resumes from where it left off.
 
 Fixtures can have different **scopes**, controlling how often they are created:
 
@@ -94,11 +91,11 @@ class TestLoadProcessingSet:
     """Tests for load_processing_set using real data"""
 
     @pytest.mark.parametrize(
-        "test_ps_path", ["Antennae_North.cal.lsrk.split.ms"], indirect=True
+        "convert_measurement_set_to_processing_set", ["Antennae_North.cal.lsrk.split.ms"], indirect=True
     )
-    def test_check_datatree(self, test_ps_path):
+    def test_check_datatree(self, convert_measurement_set_to_processing_set):
         """Test that the converted MS to PS complies with the datatree schema checker"""
-        ps_xdt = load_processing_set(str(test_ps_path))
+        ps_xdt = load_processing_set(str(convert_measurement_set_to_processing_set))
         issues = check_datatree(ps_xdt)
         # The check_datatree function returns a SchemaIssues object, not a string
         assert (
@@ -106,7 +103,7 @@ class TestLoadProcessingSet:
         ), f"Schema validation failed: {issues}"
 ```
 
-> Because `test_ps_path` is defined in `conftest.py`, you can use it in your test function without any import. Additionally, `@pytest.mark.parametrize` is a pytest decorator used to run a test multiple times with different values for a given input. `indirect=True` tells pytest not to pass the value directly to the test function. Instead, pytest will look for a fixture named test_ps_path. The value "Antennae_North.cal.lsrk.split.ms" will be passed to that fixture (not to the test itself). The return value of the test_ps_path fixture will be passed to the test function.
+> Because `convert_measurement_set_to_processing_set` is defined in `conftest.py`, you can use it in your test function without any import. Additionally, `@pytest.mark.parametrize` is a pytest decorator used to run a test multiple times with different values for a given input. `indirect=True` tells pytest not to pass the value directly to the test function. Instead, pytest will look for a fixture named convert_measurement_set_to_processing_set. The value "Antennae_North.cal.lsrk.split.ms" will be passed to that fixture (not to the test itself). The return value of the convert_measurement_set_to_processing_set fixture will be passed to the test function.
 
 ### **3. Use an existing Fixture in another Test**
 
@@ -124,11 +121,11 @@ class TestProcessingSetXdtWithEphemerisData:
     """Tests for ProcessingSetXdt using real ephemeris data loaded from disk"""
 
     @pytest.mark.parametrize(
-        "test_ps_path", ["ALMA_uid___A002_X1003af4_X75a3.split.avg.ms"], indirect=True
+        "convert_measurement_set_to_processing_set", ["ALMA_uid___A002_X1003af4_X75a3.split.avg.ms"], indirect=True
     )
-    def test_check_ephemeris_datatree(self, test_ps_path):
+    def test_check_ephemeris_datatree(self, convert_measurement_set_to_processing_set):
         """Test that the converted MS to PS complies with the datatree schema checker"""
-        ps_xdt = load_processing_set(str(test_ps_path))
+        ps_xdt = load_processing_set(str(convert_measurement_set_to_processing_set))
 
         issues = check_datatree(ps_xdt)
         # The check_datatree function returns a SchemaIssues object, not a string

@@ -1382,7 +1382,7 @@ def convert_and_write_partition(
             ms_xdt["/phased_array_xds"] = phased_array_xds
 
         if storage_backend == "zarr":
-            from xradio.measurement_set._utils._zarr.config import ZARR_FORMAT
+            from xradio._utils.zarr.config import ZARR_FORMAT
 
             ms_xdt.to_zarr(
                 store=os.path.join(out_file, ms_v4_name), zarr_format=ZARR_FORMAT

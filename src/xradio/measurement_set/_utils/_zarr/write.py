@@ -6,7 +6,7 @@ from typing import Any, Dict, Union
 import xarray as xr
 import zarr
 
-from xradio.measurement_set._utils._zarr.config import ZARR_FORMAT
+from xradio._utils.zarr.config import ZARR_FORMAT
 
 
 def write_part_keys(

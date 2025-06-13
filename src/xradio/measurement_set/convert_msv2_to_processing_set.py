@@ -119,7 +119,7 @@ def convert_msv2_to_processing_set(
 
     print("Output file: ", out_file)
 
-    from xradio.measurement_set._utils._zarr.config import ZARR_FORMAT
+    from xradio._utils.zarr.config import ZARR_FORMAT
 
     if overwrite:
         ps_dt.to_zarr(store=out_file, mode="w", zarr_format=ZARR_FORMAT)

@@ -19,7 +19,7 @@ from xradio.measurement_set import (
     ProcessingSetXdt,
 )
 from xradio.schema.check import check_datatree
-from xradio.measurement_set._utils._zarr.config import ZARR_FORMAT
+from xradio._utils.zarr.config import ZARR_FORMAT
 
 # relative_tolerance = 10 ** (-12)
 relative_tolerance = 10 ** (-6)

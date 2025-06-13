@@ -1,11 +1,13 @@
-import os, time
-from typing import List, Optional, Union
+import os
+import time
+from typing import Any, Optional, Union
 
 import dask
 import numpy as np
 import xarray as xr
 
-from ..._utils.xds_helper import flatten_xds, calc_optimal_ms_chunk_shape
+import toolviper.utils.logger as logger
+from xradio._utils.list_and_array import get_pad_value
 from .write import write_generic_table, write_main_table_slice
 from .write import create_table, revert_time
 
@@ -33,7 +35,7 @@ rename_to_msv2_cols = {
 cols_not_in_msv2 = ["baseline_ant1_id", "baseline_ant2_id"]
 
 
-def cols_from_xds_to_ms(cols: List[str]) -> List[str]:
+def cols_from_xds_to_ms(cols: list[str]) -> list[str]:
     """
     Translates between lowercase/uppercase convention
     Rename some MS_colum_names <-> xds_data_var_names
@@ -46,12 +48,128 @@ def cols_from_xds_to_ms(cols: List[str]) -> List[str]:
     }
 
 
+def flatten_xds(xds: xr.Dataset) -> xr.Dataset:
+    """
+    flatten (time, baseline) dimensions of xds back to single dimension (row)
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset in flat form (back to 'row' dimension as read by casacore tables)
+    """
+    txds = xds.copy()
+
+    # flatten the time x baseline dimensions of main table
+    if ("time" in xds.sizes) and ("baseline" in xds.sizes):
+        txds = xds.stack({"row": ("time", "baseline")}).transpose("row", ...)
+        # compute for issue https://github.com/hainegroup/oceanspy/issues/332
+        # drop=True silently does compute (or at least used to)
+
+        fill_value_int32 = get_pad_value(np.int32)
+        txds = txds.where(
+            (
+                (txds.STATE_ID != fill_value_int32)
+                & (txds.FIELD_ID != fill_value_int32)
+            ).compute(),
+            drop=True,
+        )  # .unify_chunks()
+
+        # re-assigning (implicitly dropping index coords) one by one produces
+        # DeprecationWarnings: https://github.com/pydata/xarray/issues/6505
+        astyped_data_vars = dict(xds.data_vars)
+        for dv in list(txds.data_vars):
+            if txds[dv].dtype != xds[dv].dtype:
+                astyped_data_vars[dv] = txds[dv].astype(xds[dv].dtype)
+            else:
+                astyped_data_vars[dv] = txds[dv]
+
+        flat_xds = xr.Dataset(astyped_data_vars, coords=txds.coords, attrs=txds.attrs)
+        flat_xds = flat_xds.reset_index(["time", "baseline"])
+
+    else:
+        flat_xds = txds
+
+    return flat_xds
+
+
+def vis_xds_packager_mxds(
+    partitions: dict[Any, xr.Dataset],
+    subtables: list[tuple[str, xr.Dataset]],
+    add_global_coords: bool = True,
+) -> xr.Dataset:
+    """
+    Takes a dictionary of data partition xds datasets and a list of
+    subtable xds datasets and packages them as a dataset of datasets
+    (mxds)
+
+    Parameters
+    ----------
+    partitions : dict[Any, xr.Dataset]
+        data partiions as xds datasets
+    subtables : list[tuple[str, xr.Dataset]]
+        subtables as xds datasets
+    add_global_coords: bool (Default value = True)
+        whether to add coords to the output mxds
+
+    Returns
+    -------
+    xr.Dataset
+        A "mxds" - xr.dataset of datasets
+    """
+    mxds = xr.Dataset(attrs={"metainfo": subtables, "partitions": partitions})
+
+    if add_global_coords:
+        mxds = mxds.assign_coords(make_global_coords(mxds))
+
+    return mxds
+
+
+def make_global_coords(mxds: xr.Dataset) -> dict[str, xr.DataArray]:
+    coords = {}
+    metainfo = mxds.attrs["metainfo"]
+    if "antenna" in metainfo:
+        coords["antenna_name"] = metainfo["antenna"].antenna_name.values
+        coords["antennas"] = xr.DataArray(
+            metainfo["antenna"].antenna_name.values, dims=["antenna_name"]
+        )
+    if "field" in metainfo:
+        coords["field_name"] = metainfo["field"].field_name.values
+        coords["fields"] = xr.DataArray(
+            metainfo["field"].field_name.values, dims=["field_name"]
+        )
+    if "feed" in mxds.attrs:
+        coords["feed_ids"] = metainfo["feed"].FEED_ID.values
+    if "observation" in metainfo:
+        coords["observation_ids"] = metainfo["observation"].observation_id.values
+        coords["observations"] = xr.DataArray(
+            metainfo["observation"].PROJECT.values, dims=["observation_ids"]
+        )
+    if "polarization" in metainfo:
+        coords["polarization_ids"] = metainfo["polarization"].pol_setup_id.values
+    if "source" in metainfo:
+        coords["source_ids"] = metainfo["source"].SOURCE_ID.values
+        coords["sources"] = xr.DataArray(
+            metainfo["source"].NAME.values, dims=["source_ids"]
+        )
+    if "spectral_window" in metainfo:
+        coords["spw_ids"] = metainfo["spectral_window"].spw_id.values
+    if "state" in metainfo:
+        coords["state_ids"] = metainfo["state"].STATE_ID.values
+
+    return coords
+
+
 def write_ms(
     mxds: xr.Dataset,
     outfile: str,
     infile: str = None,
     subtables: bool = False,
-    modcols: Union[List[str], None] = None,
+    modcols: Union[list[str], None] = None,
     verbose: bool = False,
     execute: bool = True,
 ) -> Optional[list]:
@@ -71,8 +189,8 @@ def write_ms(
         Also write subtables from mxds. Default of False only writes mxds attributes that begin with xdsN to the MS main table.
         Setting to True will write all other mxds attributes to subtables of the main table.  This is probably going to be SLOW!
         Use infile instead whenever possible.
-    modcols : Union[List[str], None] (Default value = None)
-        List of strings indicating what column(s) were modified (aka xds data_vars). Different logic can be applied to speed up processing when
+    modcols : Union[list[str], None] (Default value = None)
+        list of strings indicating what column(s) were modified (aka xds data_vars). Different logic can be applied to speed up processing when
         a data_var has not been modified from the input. Default None assumes everything has been modified (SLOW)
     verbose : bool (Default value = False)
         Whether or not to print output progress. Since writes will typically execute the DAG, if something is
@@ -90,7 +208,7 @@ def write_ms(
         print("initializing output...")
     start = time.time()
 
-    xds_list = [flatten_xds(xds) for _key, xds in mxds.partitions.items()]
+    xds_list = [flatten_xds(xds) for _key, xds in mxds.attrs["partitions"].items()]
 
     cols = cols_from_xds_to_ms(
         list(set([dv for dx in xds_list for dv in dx.data_vars]))
@@ -110,12 +228,15 @@ def write_ms(
     # the SPECTRAL_WINDOW, POLARIZATION, and DATA_DESCRIPTION tables must always be present and will always be written
     delayed_writes = [
         dask.delayed(write_generic_table)(
-            mxds.metainfo["spectral_window"], outfile, "SPECTRAL_WINDOW", cols=None
+            mxds.attrs["metainfo"]["spectral_window"],
+            outfile,
+            "SPECTRAL_WINDOW",
+            cols=None,
         )
     ]
     delayed_writes += [
         dask.delayed(write_generic_table)(
-            mxds.metainfo["polarization"], outfile, "POLARIZATION", cols=None
+            mxds.attrs["metainfo"]["polarization"], outfile, "POLARIZATION", cols=None
         )
     ]
     # should data_description be kept somewhere (in attrs?) or rebuilt?
@@ -125,7 +246,7 @@ def write_ms(
     #     )
     # ]
     if subtables:  # also write the rest of the subtables
-        for subtable in list(mxds.attrs.keys()):
+        for subtable in list(mxds.attrs["metainfo"].keys()):
             if (
                 subtable.startswith("xds")
                 or (subtable in ["spectral_window", "polarization", "data_description"])
@@ -137,7 +258,7 @@ def write_ms(
                 print("writing subtable %s..." % subtable)
             delayed_writes += [
                 dask.delayed(write_generic_table)(
-                    mxds.attrs[subtable], outfile, subtable, cols=None
+                    mxds.attrs["metainfo"][subtable], outfile, subtable, cols=None
                 )
             ]
 
@@ -256,6 +377,52 @@ def write_ms(
         return delayed_writes
 
 
+def calc_optimal_ms_chunk_shape(
+    memory_available_in_bytes, shape, element_size_in_bytes, column_name
+) -> int:
+    """
+    Calculates the max number of rows (1st dim in shape) of a variable
+    that can be fit in the memory for a thread.
+
+    Parameters
+    ----------
+    memory_available_in_bytes :
+
+    shape :
+
+    element_size_in_bytes :
+
+    column_name :
+
+
+    Returns
+    -------
+    int
+    """
+    factor = 0.8  # Account for memory used by other objects in thread.
+    # total_mem = np.prod(shape)*element_size_in_bytes
+    single_row_mem = np.prod(shape[1:]) * element_size_in_bytes
+
+    if not single_row_mem < factor * memory_available_in_bytes:
+        msg = (
+            "Not engough memory in a thread to contain a row of "
+            f"{column_name}. Need at least {single_row_mem / factor}"
+            " bytes."
+        )
+        raise RuntimeError(msg)
+
+    rows_chunk_size = int((factor * memory_available_in_bytes) / single_row_mem)
+
+    if rows_chunk_size > shape[0]:
+        rows_chunk_size = shape[0]
+
+    logger.debug(
+        "Numbers of rows in chunk for " + column_name + ": " + str(rows_chunk_size)
+    )
+
+    return rows_chunk_size
+
+
 def write_ms_serial(
     mxds: xr.Dataset,
     outfile: str,
@@ -300,7 +467,7 @@ def write_ms_serial(
         print("initializing output...")
     # start = time.time()
 
-    xds_list = [flatten_xds(xds) for _key, xds in mxds.partitions.items()]
+    xds_list = [flatten_xds(xds) for _key, xds in mxds.attrs["partitions"].items()]
     cols = list(set([dv for dx in xds_list for dv in dx.data_vars]))
     cols = cols_from_xds_to_ms(list(np.atleast_1d(cols)))
 
@@ -315,10 +482,10 @@ def write_ms_serial(
     # start a list of dask delayed writes to disk (to be executed later)
     # the SPECTRAL_WINDOW, POLARIZATION, and DATA_DESCRIPTION tables must always be present and will always be written
     write_generic_table(
-        mxds.metainfo["spectral_window"], outfile, "SPECTRAL_WINDOW", cols=None
+        mxds.attrs["metainfo"]["spectral_window"], outfile, "SPECTRAL_WINDOW", cols=None
     )
     write_generic_table(
-        mxds.metainfo["polarization"], outfile, "POLARIZATION", cols=None
+        mxds.attrs["metainfo"]["polarization"], outfile, "POLARIZATION", cols=None
     )
     # should data_description be kept somewhere (in attrs?) or rebuilt?
     # write_generic_table(mxds.metainfo.data_description, outfile, "DATA_DESCRIPTION", cols=None)
@@ -330,7 +497,7 @@ def write_ms_serial(
         # ['FEED','FIELD','ANTENNA','HISTORY']
         # ,'FIELD','ANTENNA'
         # for subtable in ['OBSERVATION']:
-        for subtable in list(mxds.metainfo.keys()):
+        for subtable in list(mxds.attrs["metainfo"].keys()):
             if subtable.startswith("xds") or (
                 subtable in ["spectral_window", "polarization", "data_description"]
             ):
@@ -341,13 +508,16 @@ def write_ms_serial(
             # print(mxds.attrs[subtable])
             try:
                 write_generic_table(
-                    mxds.metainfo[subtable], outfile, subtable.upper(), cols=None
+                    mxds.attrs["metainfo"][subtable],
+                    outfile,
+                    subtable.upper(),
+                    cols=None,
                 )
             except (RuntimeError, KeyError) as exc:
                 print(f"Exception writing subtable {subtable}: {exc}")
 
-    part_key0 = next(iter(mxds.partitions))
-    vis_data_shape = mxds.partitions[part_key0].VIS.shape
+    part_key0 = next(iter(mxds.attrs["partitions"]))
+    vis_data_shape = mxds.attrs["partitions"][part_key0].VIS.shape
     rows_chunk_size = calc_optimal_ms_chunk_shape(
         memory_available_in_bytes, vis_data_shape, 16, "DATA"
     )
@@ -361,7 +531,7 @@ def write_ms_serial(
 
     start_main = time.time()
     for col, var_name in cols.items():
-        xda = mxds.partitions[part_key0][var_name]
+        xda = mxds.attrs["partitions"][part_key0][var_name]
         # print(col,xda.dtype)
 
         for start_row in np.arange(0, vis_data_shape[0], rows_chunk_size):

@@ -3,9 +3,16 @@ from contextlib import nullcontext as no_raises
 
 import numpy as np
 import pytest
+import shutil
 import xarray as xr
 
 import xradio.measurement_set._utils._msv2.conversion as conversion
+from xradio.measurement_set.schema import VisibilityXds
+from xradio.schema.check import check_dataset, check_datatree
+
+from tests.unit.measurement_set.ms_test_utils.check_msv4_matches_msv2_description import (
+    check_msv4_matches_descr,
+)
 
 
 minxds = namedtuple("minxds", "data_vars coords sizes")
@@ -84,6 +91,13 @@ xds_pointing_small = minxds(
             xds_main,
             {"time": 70, "baseline_id": 16, "frequency": 1198, "polarization": 2},
             no_raises(),
+        ),
+        (
+            "wrong_input_chunksize",
+            "main",
+            xds_main,
+            None,
+            pytest.raises(ValueError, match="expected as a dict"),
         ),
         (
             0.01,
@@ -298,3 +312,223 @@ def test_estimate_memory_and_cores_for_partitions(
 
     assert res[0] == pytest.approx(expected_estimate[0])
     assert res[1:] == expected_estimate[1:]
+
+
+def test_convert_and_write_partition_empty_complete(ms_empty_complete):
+
+    conversion.convert_and_write_partition(
+        in_file=ms_empty_complete.fname,
+        out_file="out_file_test_empty_complete.zarr",
+        ms_v4_id="msv4_id",
+        partition_info={
+            "DATA_DESC_ID": [0],
+            "OBS_MODE": ["scan_intent#subscan_intent"],
+        },
+        use_table_iter=False,
+    )
+
+
+def test_convert_and_write_partition_(ms_empty_required):
+
+    conversion.convert_and_write_partition(
+        in_file=ms_empty_required.fname,
+        out_file="out_file_test_empty.zarr",
+        ms_v4_id="msv4_id",
+        partition_info={
+            "DATA_DESC_ID": [0],
+            "OBS_MODE": ["scan_intent#subscan_intent"],
+        },
+        use_table_iter=False,
+    )
+
+
+def test_convert_and_write_partition_min(ms_minimal_required):
+
+    out_name = "out_file_test_convert_write.zarr"
+    msv4_id = "msv4_id"
+    try:
+        conversion.convert_and_write_partition(
+            in_file=ms_minimal_required.fname,
+            out_file=out_name,
+            ms_v4_id=msv4_id,
+            partition_info={
+                "DATA_DESC_ID": [0],
+                "OBS_MODE": ["scan_intent#subscan_intent"],
+            },
+            use_table_iter=False,
+            pointing_interpolate=True,
+            ephemeris_interpolate=True,
+            phase_cal_interpolate=True,
+            sys_cal_interpolate=True,
+        )
+
+        # msv4_xds = xr.open_dataset(
+        #     out_name
+        #     + "/"
+        #     + ms_minimal_required.fname.rsplit(".")[0]
+        #     + "_"
+        #     + msv4_id,
+        #     engine="zarr",
+        # )
+        msv4_xdt = xr.open_datatree(
+            out_name + "/" + ms_minimal_required.fname.rsplit(".")[0] + "_" + msv4_id,
+            engine="zarr",
+        )
+        check_dataset(msv4_xdt.ds, VisibilityXds)
+        check_datatree(msv4_xdt)
+        check_msv4_matches_descr(msv4_xdt, ms_minimal_required.descr)
+    finally:
+        shutil.rmtree(out_name)
+
+
+def test_convert_and_write_partition_misbehaved(ms_minimal_misbehaved):
+
+    out_name = "out_file_test_convert_write_misbehaving_ms.zarr"
+    msv4_id = "msv4_id"
+    try:
+        conversion.convert_and_write_partition(
+            in_file=ms_minimal_misbehaved.fname,
+            out_file=out_name,
+            ms_v4_id=msv4_id,
+            partition_info={
+                "DATA_DESC_ID": [0],
+                "OBS_MODE": ["scan_intent#subscan_intent"],
+                "OBS_MODE": [None],
+            },
+            use_table_iter=False,
+        )
+
+        msv4_xdt = xr.open_datatree(
+            out_name + "/" + ms_minimal_misbehaved.fname.rsplit(".")[0] + "_" + msv4_id,
+            engine="zarr",
+        )
+        check_dataset(msv4_xdt.ds, VisibilityXds)
+        check_datatree(msv4_xdt)
+        check_msv4_matches_descr(msv4_xdt, ms_minimal_misbehaved.descr)
+    finally:
+        shutil.rmtree(out_name)
+
+
+def test_convert_and_write_partition_with_antenna1(ms_minimal_required):
+
+    out_name = "out_file_test_convert_write_with_antenna1.zarr"
+    msv4_id = "msv4_id"
+    try:
+        conversion.convert_and_write_partition(
+            in_file=ms_minimal_required.fname,
+            out_file=out_name,
+            ms_v4_id=msv4_id,
+            partition_info={
+                "DATA_DESC_ID": [0],
+                "OBS_MODE": ["scan_intent#subscan_intent"],
+                "ANTENNA1": [0],
+            },
+            use_table_iter=False,
+        )
+
+        # Will need a SD-like test ms. Otherwise the partition is empty:
+        with pytest.raises(FileNotFoundError, match="No such file or directory"):
+            msv4_xds = xr.open_dataset(
+                out_name
+                + "/"
+                + ms_minimal_required.fname.rsplit(".")[0]
+                + "_"
+                + msv4_id,
+                engine="zarr",
+            )
+            msv4_xdt = xr.open_datatree(
+                out_name
+                + "/"
+                + ms_minimal_required.fname.rsplit(".")[0]
+                + "_"
+                + msv4_id,
+                engine="zarr",
+            )
+            check_dataset(msv4_xdt.ds, VisibilityXds)
+            check_datatree(msv4_xdt)
+            check_msv4_matches_descr(msv4_xdt, ms_minimal_required.descr)
+    finally:
+        # shutil.rmtree(out_name)
+        pass
+
+
+def test_convert_and_write_partition_without_opt(ms_minimal_without_opt):
+
+    out_name = "out_file_test_convert_write_ms_min_without_optional_subtables.zarr"
+    msv4_id = "msv4_id"
+    try:
+        conversion.convert_and_write_partition(
+            in_file=ms_minimal_without_opt.fname,
+            out_file=out_name,
+            ms_v4_id=msv4_id,
+            partition_info={
+                "DATA_DESC_ID": [0],
+                "OBS_MODE": ["scan_intent#subscan_intent"],
+                "OBS_MODE": [None],
+            },
+            use_table_iter=False,
+        )
+
+        msv4_xdt = xr.open_datatree(
+            out_name
+            + "/"
+            + ms_minimal_without_opt.fname.rsplit(".")[0]
+            + "_"
+            + msv4_id,
+            engine="zarr",
+        )
+        check_dataset(msv4_xdt.ds, VisibilityXds)
+        check_datatree(msv4_xdt)
+        check_msv4_matches_descr(msv4_xdt, ms_minimal_without_opt.descr)
+    finally:
+        shutil.rmtree(out_name)
+
+
+ms_custom_description = {
+    "nrows_per_ddi": 300,
+    "nchans": 4,
+    "npols": 1,
+    "data_cols": ["DATA", "MODEL_DATA", "CORRECTED_DATA"],
+    "SPECTRAL_WINDOW": {"0": 0},
+    "POLARIZATION": {"0": 0},
+    "ANTENNA": {"0": 0, "1": 1, "2": 2},
+    "FIELD": {"0": 0},
+    "SCAN": {"1": {"0": {"intent": "intent#subintent"}}},
+    "STATE": {"0": {"id": 0, "intent": None}},
+    "OBSERVATION": {"0": 0},
+    "FEED": {"0": 0},
+    "PROCESSOR": {"0": 0},
+    "SOURCE": {},
+}
+
+
+@pytest.mark.parametrize("ms_custom_spec", [ms_custom_description], indirect=True)
+def test_convert_and_write_partition_custom(ms_custom_spec):
+
+    out_name = "out_file_test_convert_write.zarr"
+    msv4_id = "msv4_id"
+    try:
+        conversion.convert_and_write_partition(
+            in_file=ms_custom_spec.fname,
+            out_file=out_name,
+            ms_v4_id=msv4_id,
+            partition_info={
+                "DATA_DESC_ID": [0],
+                "OBS_MODE": ["scan_intent#subscan_intent"],
+            },
+            use_table_iter=True,
+            pointing_interpolate=False,
+            ephemeris_interpolate=False,
+            phase_cal_interpolate=False,
+            sys_cal_interpolate=False,
+        )
+        msv4_xdt = xr.open_datatree(
+            out_name + "/" + ms_custom_spec.fname.rsplit(".")[0] + "_" + msv4_id,
+            engine="zarr",
+        )
+        check_dataset(msv4_xdt.ds, VisibilityXds)
+        check_datatree(msv4_xdt)
+        check_msv4_matches_descr(msv4_xdt, ms_custom_spec.descr)
+
+    finally:
+        shutil.rmtree(out_name)

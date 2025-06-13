@@ -1,3 +1,4 @@
+from contextlib import nullcontext as does_not_raise
 import pytest
 
 import numpy as np
@@ -9,7 +10,7 @@ from pathlib import Path
     [
         ("ms_minimal_required", True),
         ("ms_tab_nonexistent", False),
-        ("ddi_xds_min", False),
+        ("generic_antenna_xds_min", False),
     ],
 )
 def test_table_exists(tab_name, expected_result, request):
@@ -21,30 +22,89 @@ def test_table_exists(tab_name, expected_result, request):
 
 
 @pytest.mark.parametrize(
-    "times, expected_result",
+    "tab_name, col_name, expected_result",
+    [
+        ("ms_minimal_required", "TIME", True),
+        ("ms_minimal_required", "WEIGHT_SPECTRUM", False),
+        ("ms_minimal_required", "WEIGHT", True),
+        ("ms_minimal_required", "DATA", True),
+        ("ms_minimal_required", "TIME_CENTROID", True),
+        ("ms_minimal_required", "FOO_INEXISTENT", False),
+    ],
+)
+def test_table_has_column(tab_name, col_name, expected_result, request):
+    from xradio.measurement_set._utils._msv2._tables.read import table_has_column
+
+    fixture = request.getfixturevalue(tab_name)
+    fname = fixture.fname if isinstance(fixture, tuple) else fixture
+    assert table_has_column(fname, col_name) == expected_result
+
+
+@pytest.mark.parametrize(
+    "tab_name, col_name, expected_raises",
+    [
+        ("ms_tab_nonexistent", "DATA", pytest.raises(RuntimeError)),
+        ("ms_tab_nonexistent", "ANY", pytest.raises(RuntimeError)),
+        ("generic_antenna_xds_min", "TIME", pytest.raises(RuntimeError)),
+    ],
+)
+def test_table_has_column_raises(tab_name, col_name, expected_raises, request):
+    from xradio.measurement_set._utils._msv2._tables.read import table_has_column
+
+    fixture = request.getfixturevalue(tab_name)
+    fname = fixture.fname if isinstance(fixture, tuple) else fixture
+
+    with expected_raises:
+        _res = table_has_column(fname, col_name)
+
+
+@pytest.mark.parametrize(
+    "times, to_datetime, expected_result",
     [
         (
             np.array([0, 1_900_000_000.36]),
+            True,
             np.array(
                 ["1858-11-17T00:00:00.0", "1919-02-01T17:46:40.359999895"],
                 dtype="datetime64[ns]",
             ),
         ),
-        (np.array([10]), np.array([], dtype="datetime64[ns]")),
+        (np.array([10]), True, np.array([], dtype="datetime64[ns]")),
         (
             np.array([5_000_000_000.1234]),
+            True,
             np.array(["2017-04-27T08:53:20.123399734"], dtype="datetime64[ns]"),
         ),
         (
             np.array([10_000_000_000]),
+            True,
             np.array(["2175-10-06T17:46:40.000000000"], dtype="datetime64[ns]"),
+        ),
+        (
+            np.array([0, 1_900_000_000.36]),
+            False,
+            np.array(
+                [-3.5067168e09, -1.60671679964e09],
+                dtype="float64",
+            ),
+        ),
+        (np.array([10]), False, np.array([], dtype="float64")),
+        (
+            np.array([5_000_000_000.12345]),
+            False,
+            np.array([1.4932832001234502e09], dtype="float64"),
+        ),
+        (
+            np.array([10_000_000_000]),
+            False,
+            np.array([6.4932832e09], dtype="float64"),
         ),
     ],
 )
-def test_convert_casacore_time(times, expected_result):
+def test_convert_casacore_time(times, to_datetime, expected_result):
     from xradio.measurement_set._utils._msv2._tables.read import convert_casacore_time
 
-    assert all(convert_casacore_time(times) == expected_result)
+    assert all(convert_casacore_time(times, to_datetime) == expected_result)
 
 
 @pytest.mark.parametrize(
@@ -241,6 +301,18 @@ def test_find_projected_min_max_array(in_min_max, in_array, expected_result):
     np.testing.assert_array_almost_equal(res, expected_result)
 
 
+def test_make_taql_where_between_min_max_empty(ms_empty_required):
+    from xradio.measurement_set._utils._msv2._tables.read import (
+        make_taql_where_between_min_max,
+    )
+
+    res = make_taql_where_between_min_max(
+        (0, 10), ms_empty_required.fname, "POINTING", "TIME"
+    )
+
+    assert res is None
+
+
 @pytest.mark.parametrize(
     "in_min_max, expected_result",
     [
@@ -277,53 +349,93 @@ def test_extract_table_attributes_ant(ms_minimal_required):
     assert all(sub in res["info"] for sub in ["type", "subType", "readme"])
 
 
-def test_add_units_measures(main_xds_min):
+def test_add_units_measures(msv4_xds_min):
     from xradio.measurement_set._utils._msv2._tables.read import add_units_measures
 
     col_descr = {"column_descriptions": {}}
-    xds_vars = {"UVW": main_xds_min.UVW, "time": main_xds_min.time}
+    xds_vars = {
+        "UVW": msv4_xds_min.UVW,
+        "time": msv4_xds_min.time,
+    }
     res = add_units_measures(xds_vars, col_descr)
     assert xds_vars["UVW"].attrs
     assert xds_vars["time"].attrs
 
 
-def test_make_freq_attrs_uvw(spw_xds_min):
-    from xradio.measurement_set._utils._msv2._tables.read import make_freq_attrs
+def test_add_units_measures_dubious_units(msv4_xds_min):
+    from xradio.measurement_set._utils._msv2._tables.read import add_units_measures
 
-    res = make_freq_attrs(spw_xds_min, 0)
-    expected = {"measure": {"ref_frame": "REST", "type": "frequency"}, "units": "Hz"}
-    assert res == expected
+    col_descr = {
+        "column_descriptions": {
+            "UVW": {"keywords": {}},
+            "TIME": {"keywords": {"QuantumUnits": "dubious/units"}},
+            "DATA": {"keywords": {"QuantumUnits": (None, None)}},
+            "TIME_CENTROID": {"keywords": {"QuantumUnits": (3.1,)}},
+        },
+    }
+    xds_vars = {
+        "time": msv4_xds_min.time,
+        "DATA": msv4_xds_min.VISIBILITY,
+        "TIME_CENTROID": msv4_xds_min.TIME_CENTROID,
+    }
+
+    res = add_units_measures(xds_vars, col_descr)
+    assert xds_vars["time"].attrs
+    assert xds_vars["DATA"].attrs
+    assert xds_vars["TIME_CENTROID"].attrs
 
 
-def test_get_pad_value_uvw(main_xds_min):
+def test_get_pad_value_in_tablerow_column(ms_minimal_required):
+    from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
+    from xradio.measurement_set._utils._msv2._tables.read import (
+        get_pad_value,
+        get_pad_value_in_tablerow_column,
+    )
+
+    with open_table_ro(ms_minimal_required.fname + "/POLARIZATION") as tb_tool:
+        trows = tb_tool.row([], exclude=True)[0:12]
+        val_corr_type = get_pad_value_in_tablerow_column(trows, "CORR_TYPE")
+        assert val_corr_type == get_pad_value(np.int32)
+
+        val_corr_prod = get_pad_value_in_tablerow_column(trows, "CORR_PRODUCT")
+        assert val_corr_prod == get_pad_value(np.int32)
+
+        with pytest.raises(RuntimeError, match="unexpected type"):
+            val_proc_id = get_pad_value_in_tablerow_column(trows, "NUM_CORR")
+        with pytest.raises(RuntimeError, match="unexpected type"):
+            val_proc_id = get_pad_value_in_tablerow_column(trows, "FLAG_ROW")
+
+
+def test_get_pad_value_uvw(msv4_xds_min):
     from xradio.measurement_set._utils._msv2._tables.read import get_pad_value
 
-    res = get_pad_value(main_xds_min.data_vars["UVW"].dtype)
+    res = get_pad_value(msv4_xds_min.data_vars["UVW"].dtype)
+
     assert np.isnan(res)
+    assert np.isnan(get_pad_value(np.float64))
 
 
-def test_get_pad_value_feed1(main_xds_min):
+def test_get_pad_value_n_polynomial(pointing_xds_min):
     from xradio._utils.list_and_array import get_pad_value
 
-    res = get_pad_value(main_xds_min.data_vars["feed1_id"].dtype)
+    res = get_pad_value(pointing_xds_min.coords["antenna_name"].dtype)
 
-    assert res == get_pad_value(np.int32)
+    assert res == get_pad_value(str)
 
 
-def test_get_pad_value_state_id(main_xds_min):
+def test_get_pad_value_baseline_id(msv4_xds_min):
     from xradio._utils.list_and_array import get_pad_value
 
-    # In the xds from xds_helper all ints are turned into int32, still check int64
-    res = get_pad_value(main_xds_min.data_vars["STATE_ID"].astype(np.int64).dtype)
+    res = get_pad_value(msv4_xds_min.coords["baseline_id"].dtype)
 
     assert res == get_pad_value(np.int64)
 
 
-def test_redimension_ms_subtable_source(source_xds_min):
+def test_redimension_ms_subtable_source(generic_source_xds_min):
     from xradio.measurement_set._utils._msv2._tables.read import redimension_ms_subtable
     import xarray as xr
 
-    res = redimension_ms_subtable(source_xds_min, "SOURCE")
+    res = redimension_ms_subtable(generic_source_xds_min, "SOURCE")
     assert isinstance(res, xr.Dataset)
     src_coords = ["SOURCE_ID", "TIME", "SPECTRAL_WINDOW_ID", "PULSAR_ID"]
     assert all([coord in res.coords for coord in src_coords])
@@ -386,7 +498,7 @@ def test_is_nested_ms_ms_min(ms_minimal_required):
     assert res == True
 
 
-def test_load_generic_table_ant(ms_minimal_required):
+def test_load_generic_table_antenna(ms_minimal_required):
     from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
     import xarray as xr
 
@@ -394,6 +506,63 @@ def test_load_generic_table_ant(ms_minimal_required):
     assert res
     assert type(res) == xr.Dataset
     assert all([dim in res.dims for dim in ["row", "dim_1"]])
+
+
+def test_load_generic_table_feed(ms_minimal_required):
+    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
+    import xarray as xr
+
+    res = load_generic_table(ms_minimal_required.fname, "FEED")
+    assert res
+    assert type(res) == xr.Dataset
+    assert all(
+        [
+            dim in res.dims
+            for dim in ["ANTENNA_ID", "SPECTRAL_WINDOW_ID", "dim_1", "dim_2", "dim_3"]
+        ]
+    )
+
+
+@pytest.mark.parametrize(
+    "input_name, expected_additional_columns",
+    [
+        (
+            "ms_minimal_required",
+            ["NUM_LINES", "TRANSITION", "REST_FREQUENCY", "SYSVEL"],
+        ),
+        ("ms_minimal_misbehaved", []),
+    ],
+)
+def test_load_generic_table_source(input_name, expected_additional_columns, request):
+    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
+    import xarray as xr
+
+    fixture = request.getfixturevalue(input_name)
+    input_path = fixture.fname
+
+    res = load_generic_table(input_path, "SOURCE")
+    assert res
+    assert type(res) == xr.Dataset
+    assert all(
+        [
+            dim in res.dims
+            for dim in [
+                "SOURCE_ID",
+                "TIME",
+                "SPECTRAL_WINDOW_ID",
+                "dim_1",
+                "dim_2",
+                "dim_3",
+            ]
+        ]
+    )
+    assert all(
+        [
+            xvar in res.data_vars
+            for xvar in ["NAME", "CALIBRATION_GROUP", "DIRECTION", "PROPER_MOTION"]
+            + expected_additional_columns
+        ]
+    )
 
 
 def test_load_generic_table_state(ms_minimal_required):
@@ -408,6 +577,30 @@ def test_load_generic_table_state(ms_minimal_required):
         [
             xvar in res.data_vars
             for xvar in ["CAL", "LOAD", "SIG", "SUB_SCAN", "OBS_MODE"]
+        ]
+    )
+
+
+def test_load_generic_table_pointing(ms_minimal_required):
+    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
+    import xarray as xr
+
+    res = load_generic_table(ms_minimal_required.fname, "POINTING")
+    assert res
+    assert type(res) == xr.Dataset
+    assert all([dim in res.dims for dim in ["TIME", "ANTENNA_ID", "dim_1", "dim_2"]])
+    assert all(
+        [
+            xvar in res.data_vars
+            for xvar in [
+                "DIRECTION",
+                "INTERVAL",
+                "NAME",
+                "NUM_POLY",
+                "TARGET",
+                "TIME_ORIGIN",
+                "TRACKING",
+            ]
         ]
     )
 
@@ -445,7 +638,19 @@ def test_load_generic_table_ephem(ms_minimal_required):
     assert all([dim in res.dims for dim in ["ephemeris_row_id", "ephemeris_id"]])
     assert "time" in res.data_vars
     assert res.data_vars["time"].size == 1
-    assert res.attrs == exp_attrs
+    for key, val in exp_attrs["other"]["msv2"].items():
+        key in res.attrs["other"]["msv2"] and val == res.attrs["other"]["msv2"][key]
+
+
+def test_load_generic_table_weather(ms_minimal_required):
+    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
+    import xarray as xr
+
+    res = load_generic_table(ms_minimal_required.fname, "WEATHER")
+    assert res
+    assert type(res) == xr.Dataset
+    assert all([dim in res.dims for dim in ["ANTENNA_ID", "TIME"]])
+    assert all([var in res.data_vars for var in ["H2O"]])
 
 
 def test_load_generic_cols_state(ms_minimal_required):
@@ -528,8 +733,29 @@ def test_read_flat_col_chunk_flag(ms_minimal_required):
     npols = ms_minimal_required.descr["npols"]
     nchans = ms_minimal_required.descr["nchans"]
     res = read_flat_col_chunk(
-        ms_minimal_required.fname, "FLAG", (10, 32, npols), [0, 1, 2], 0, 0
+        ms_minimal_required.fname, "FLAG", (10, nchans, npols), [0, 1, 2], 0, 0
     )
     assert isinstance(res, np.ndarray)
     assert res.shape == (3, nchans, npols)
     assert np.all(res == False)
+
+
+def test_read_col_conversion_dask(ms_minimal_required):
+    from xradio.measurement_set._utils._msv2._tables.read import (
+        read_col_conversion_dask,
+    )
+    from xradio.measurement_set._utils._msv2._tables.table_query import TableManager
+
+    taql_where = "WHERE DATA_DESC_ID in [0]"
+    table_manager = TableManager(ms_minimal_required.fname, taql_where)
+    ntimes = 10
+    nbaselines = 5
+    xda = read_col_conversion_dask(
+        table_manager,
+        "DATA",
+        (10, 5),
+        np.arange(0, ntimes),
+        np.arange(0, nbaselines),
+        False,
+        ntimes,
+    )

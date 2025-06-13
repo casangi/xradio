@@ -1,15 +1,17 @@
 import importlib.resources
+import itertools
 import numpy as np
 import os
 import pathlib
 import pytest
 import time
+import warnings
 
 import pandas as pd
 import xarray as xr
 
 from toolviper.utils.data import download
-from toolviper.utils.logger import setup_logger
+import toolviper.utils.logger as logger
 import xradio.measurement_set
 from xradio.measurement_set import (
     open_processing_set,
@@ -43,7 +45,7 @@ def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_sch
     _logger_name = "xradio"
     if os.getenv("VIPER_LOGGER_NAME") != _logger_name:
         os.environ["VIPER_LOGGER_NAME"] = _logger_name
-        setup_logger(
+        logger.setup_logger(
             logger_name="xradio",
             log_to_term=True,
             log_to_file=False,  # True
@@ -161,6 +163,11 @@ def base_check_ps_accessor(ps_lazy_xdt: xr.DataTree, ps_xdt: xr.DataTree):
     empty_query_df = empty_query_result.xr_ps.summary()
     pd.testing.assert_frame_equal(ps_xdt_df, empty_query_df)
 
+    field_query_result = ps_xdt.xr_ps.query(field_name=ps_xdt_df.field_name.values[0])
+    data_group_query_result = ps_xdt.xr_ps.query(data_group_name="base")
+    data_group_query_df = data_group_query_result.xr_ps.summary()
+    pd.testing.assert_frame_equal(ps_xdt_df, data_group_query_df)
+
     freq_axis = ps_xdt.xr_ps.get_freq_axis()
     assert isinstance(freq_axis, xr.DataArray)
 
@@ -170,6 +177,25 @@ def base_check_ps_accessor(ps_lazy_xdt: xr.DataTree, ps_xdt: xr.DataTree):
     assert type(combined_antenna) == xr.Dataset
     base_field_xds = ps_xdt.xr_ps.get_combined_field_and_source_xds("base")
     assert type(base_field_xds) == xr.Dataset
+
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                action="ignore",
+                category="UserWarning",
+                message="FigureCanvasAgg is non-interactive",
+            )
+
+            label_all_fields = label_all_antennas = len(ps_xdt_df) > 1
+            ps_xdt.xr_ps.plot_phase_centers(label_all_fields=label_all_fields)
+            ps_xdt.xr_ps.plot_antenna_positions(label_all_antennas=label_all_antennas)
+    except Exception as exc:
+        logger.warning(
+            f"Could not run processing set plot functions, exception details: {exc}"
+        )
 
 
 def base_check_ms_accessor(ps_xdt: xr.DataTree):

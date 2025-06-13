@@ -507,9 +507,7 @@ def create_phase_calibration_xds(
     phase_cal_xds = phase_cal_xds.assign_coords(ant_borrowed_coords | tone_label_coord)
 
     # Adjust expected types
-    phase_cal_xds["time_phase_cal"] = (
-        phase_cal_xds.time_phase_cal.astype("float64").astype("float64") / 10**9
-    )
+    phase_cal_xds["time_phase_cal"] = phase_cal_xds.time_phase_cal
 
     phase_cal_xds = rename_and_interpolate_to_time(
         phase_cal_xds, "time_phase_cal", phase_cal_interp_time, "phase_cal_xds"

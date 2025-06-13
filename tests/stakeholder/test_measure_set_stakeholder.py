@@ -231,6 +231,53 @@ def base_check_time_centroid(ms_xds: xr.Dataset):
         assert np.max(time_diff) <= int_time
 
 
+def base_check_time_secondary_datasets(ps_xdt: xr.DataTree):
+    """
+    Assert basic consistency checks of the time_* coordinates of subdatasets:
+    - pointing_xds, weather_xds, system_calibration_xds, and phase_calibration_xds.
+
+    Ensures that the secondary xds specific time values are not too off the (main)
+    time values of the correlated dataset (+/- a simple buffer).
+    """
+
+    def get_ps_time_min_max(ps_xdt: xr.DataTree) -> tuple[np.float64, np.float64]:
+        """Finds min/max of the time coord across all the MSv4 of the PS"""
+        ps_time_min, ps_time_max = 1.5e308, -1.5e308
+        for ms_name, ms_xdt in ps_xdt.items():
+            ms_time_min, ms_time_max = ms_xdt.time.min(), ms_xdt.time.max()
+            if ms_time_min < ps_time_min:
+                ps_time_min = ms_time_min
+            if ms_time_max > ps_time_max:
+                ps_time_max = ms_time_max
+
+        return ps_time_min, ps_time_max
+
+    time_coords = {
+        "phase_calibration_xds": "time_phase_cal",
+        "pointing_xds": "time_pointing",
+        "system_calibration_xds": "time_sys_cal",
+        "weather_xds": "time_weather",
+    }
+
+    # Some datasets need bigger buffers (example: weather table with entries a
+    # few hours or even days before/after the correlated data time range of a particular MSv4).
+    time_buffer = {
+        "time_phase_cal": 45,
+        "time_pointing_xds": 1,
+        "time_system_cal": 1,
+        # For test_vlba (VLBA_TL016B_split) for example:
+        "time_weather": 169000,
+    }
+    ps_time_min, ps_time_max = get_ps_time_min_max(ps_xdt)
+    for _ms_name, ms_xdt in ps_xdt.items():
+        for xds_name, time_name in time_coords.items():
+            if xds_name in ms_xdt:
+                if time_name in ms_xdt[xds_name].coords:
+                    xds_time = ms_xdt[xds_name].coords[time_name]
+                    assert xds_time.min() >= ps_time_min - time_buffer[time_name]
+                    assert xds_time.max() <= ps_time_max + time_buffer[time_name]
+
+
 def base_test(
     file_name: str,
     folder: pathlib.Path,
@@ -282,6 +329,8 @@ def base_test(
         base_check_ps_accessor(ps_lazy_xdt, ps_xdt)
 
         base_check_ms_accessor(ps_xdt)
+
+        base_check_time_secondary_datasets(ps_xdt)
 
         sum = 0.0
         sum_lazy = 0.0

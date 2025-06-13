@@ -583,8 +583,8 @@ def load_generic_table(
     tname : str
         (sub)table name, for example 'SOURCE' for myms.ms/SOURCE
     timecols : Union[List[str], None] (Default value = None)
-        column names to convert to numpy datetime format.
-        leaves times as their original casacore format.
+        Names of time column(s), to convert from casacore times to 1970-01-01 scale
+        An empty list leaves times as their original casacore format.
     ignore : Union[List[str], None] (Default value = None)
         list of column names to ignore and not try to read.
     rename_ids : Dict[str, str] (Default value = None)
@@ -780,7 +780,7 @@ def load_generic_cols(
     tb_tool : tables.table
         table to load the columns
     timecols : Union[List[str], None]
-        columns names to convert to datetime format
+        column names to convert from casacore time format
     ignore : Union[List[str], None]
         list of column names to skip and not try to load.
 
@@ -860,7 +860,7 @@ def load_fixed_size_cols(
     tb_tool : tables.table
         table to red the columns
     timecols : Union[List[str], None]
-        columns names to convert to datetime format
+        column names to convert from casacore time format
     ignore : Union[List[str], None]
         list of column names to skip and not try to load.
 
@@ -955,7 +955,8 @@ def raw_col_data_to_coords_vars(
     data: np.ndarray :
         column data
     timecols: Union[List[str], None]
-        columns to be treated as TIME-related
+        columns to be treated as TIME-related (they are coordinate, need conversion from
+        casacore time format.
 
     Returns
     -------
@@ -985,7 +986,7 @@ def raw_col_data_to_coords_vars(
             data = convert_mjd_time(data).astype("float64") / 1e9
         else:
             try:
-                data = convert_casacore_time(data)
+                data = convert_casacore_time(data, False)
             except pd.errors.OutOfBoundsDatetime as exc:
                 if inpath.endswith("WEATHER"):
                     # intentionally not callling logging.exception

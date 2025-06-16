@@ -347,3 +347,13 @@ Sub-scan intents to be used with :py:class:`VisibilityXds` and :py:class:`Spectr
 * IMAGE : Image sideband measurement.
 * TEST : reserved for development.
 * UNSPECIFIED : Unspecified
+
+.. _spw intents:
+
+SPW Intents
+~~~~~~~~~~~
+
+Scan intents to be used in the `frequency` coordinate of measurement sets (:py:class:`VisibilityXds` and :py:class:`SpectrumXds`):
+
+* TEST : reserved for development.
+* UNSPECIFIED : Unspecified SPW intent

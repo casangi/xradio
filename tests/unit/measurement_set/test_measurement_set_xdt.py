@@ -43,3 +43,7 @@ def test_get_partition_info():
                 ]
             ]
         )
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", "-s", __file__])

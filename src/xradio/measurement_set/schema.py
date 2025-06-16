@@ -713,6 +713,9 @@ class FrequencyArray:
     """ Center frequencies for each channel. """
     spectral_window_name: Attr[str]
     """ Name associated with spectral window. """
+    spectral_window_intent: Attr[str]
+    """ An intent string that identifies the intention of the spectral window. See :ref:`spw intents`
+    for possible values. """
     frequency_group_name: Optional[Attr[str]]
     """ Name associated with frequency group - needed for multi-band VLBI fringe-fitting."""
     reference_frequency: Attr[SpectralCoordArray]

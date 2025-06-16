@@ -488,6 +488,7 @@ def create_coordinates(
         freq_column_description["REF_FREQUENCY"],
         ref_code=spectral_window_xds["MEAS_FREQ_REF"].data,
     )
+    xds.frequency.attrs["spectral_window_intent"] = "UNSPECIFIED"
     xds.frequency.attrs["reference_frequency"] = {
         "dims": [],
         "data": float(spectral_window_xds.REF_FREQUENCY.values),

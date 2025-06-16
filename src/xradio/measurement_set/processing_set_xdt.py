@@ -155,6 +155,7 @@ class ProcessingSetXdt:
             "polarization": [],
             "scan_name": [],
             "spw_name": [],
+            "spw_intent": [],
             "field_name": [],
             "source_name": [],
             "line_name": [],
@@ -171,6 +172,7 @@ class ProcessingSetXdt:
             summary_data["name"].append(key)
             summary_data["intents"].append(partition_info["intents"])
             summary_data["spw_name"].append(partition_info["spectral_window_name"])
+            summary_data["spw_intent"].append(partition_info["spectral_window_intent"])
             summary_data["polarization"].append(value.polarization.values)
             summary_data["scan_name"].append(partition_info["scan_name"])
             data_name = value.attrs["data_groups"][data_group]["correlated_data"]

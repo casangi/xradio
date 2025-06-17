@@ -2134,4 +2134,4 @@ class write_image_test(xds_from_image_test):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    pytest.main(["-v", "-s", __file__])

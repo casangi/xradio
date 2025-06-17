@@ -53,7 +53,7 @@ from ._tables.read import (
 from ._tables.read_main_table import get_baselines, get_baseline_indices, get_utimes_tol
 from .._utils.stokes_types import stokes_types
 from xradio._utils.list_and_array import check_if_consistent, unique_1d, to_list
-from xradio._utils.dict_helpers import make_quantity
+from xradio._utils.dict_helpers import make_frequency_reference_dict, make_quantity
 
 
 def parse_chunksize(
@@ -489,11 +489,11 @@ def create_coordinates(
         freq_column_description["REF_FREQUENCY"],
         ref_code=spectral_window_xds["MEAS_FREQ_REF"].data,
     )
-    xds.frequency.attrs["reference_frequency"] = {
-        "dims": [],
-        "data": float(spectral_window_xds.REF_FREQUENCY.values),
-        "attrs": msv4_measure,
-    }
+    xds.frequency.attrs["reference_frequency"] = make_frequency_reference_dict(
+        float(spectral_window_xds.REF_FREQUENCY.values),
+        msv4_measure["units"],
+        msv4_measure["observer"],
+    )
     xds.frequency.attrs["spectral_window_id"] = spectral_window_id
 
     # Add if doppler table is present

@@ -61,7 +61,7 @@ def _add_common_attrs(
         ),
         "rest_frequencies": make_quantity(restfreq, "Hz"),
         "rest_frequency": make_quantity(restfreq, "Hz"),
-        "type": "frequency",
+        "type": "spectral_coord",
         "units": ["Hz"],
         "wave_unit": ["mm"],
     }

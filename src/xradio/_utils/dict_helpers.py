@@ -24,10 +24,15 @@ def make_frequency_reference_dict(
 ) -> dict:
     u = units if isinstance(units, list) else [units]
     return {
-        "attrs": {"units": u, "observer": observer.lower(), "type": "frequency"},
+        "attrs": make_frequency_measure_attrs(units, observer.lower()),
         "data": value,
         "dims": [],
     }
+
+
+def make_frequency_measure_attrs(units: str, observer: str = "lsrk") -> dict:
+    u = units if isinstance(units, list) else [units]
+    return {"units": u, "observer": observer, "type": "spectral_coord"}
 
 
 def make_skycoord_dict(data: list[float], units: list[str], frame: str) -> dict:

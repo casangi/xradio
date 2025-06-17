@@ -8,7 +8,10 @@ import xarray as xr
 from numpy.typing import ArrayLike
 
 from xradio._utils.coord_math import convert_to_si_units
-from xradio._utils.dict_helpers import make_time_measure_attrs
+from xradio._utils.dict_helpers import (
+    make_time_measure_attrs,
+    make_frequency_measure_attrs,
+)
 from xradio._utils.schema import (
     column_description_casacore_to_msv4_measure,
     convert_generic_xds_to_xradio_schema,
@@ -725,11 +728,9 @@ def create_system_calibration_xds(
             "frequency_system_cal": generic_sys_cal_xds.coords["frequency"].data
         }
         sys_cal_xds = sys_cal_xds.assign_coords(frequency_coord)
-        frequency_measure = {
-            "type": main_xds_frequency.attrs["type"],
-            "units": main_xds_frequency.attrs["units"],
-            "observer": main_xds_frequency.attrs["observer"],
-        }
+        frequency_measure = make_frequency_measure_attrs(
+            main_xds_frequency.attrs["units"], main_xds_frequency.attrs["observer"]
+        )
         sys_cal_xds.coords["frequency_system_cal"].attrs.update(frequency_measure)
 
     sys_cal_xds = rename_and_interpolate_to_time(

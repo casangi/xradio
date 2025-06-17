@@ -24,7 +24,10 @@ def make_frequency_reference_dict(
 ) -> dict:
     u = units if isinstance(units, list) else [units]
     return {
-        "attrs": make_frequency_measure_attrs(units, observer.lower()),
+        "attrs": make_frequency_measure_attrs(
+            units,
+            observer.lower() if observer not in ["TOPO", "BARY", "REST"] else observer,
+        ),
         "data": value,
         "dims": [],
     }

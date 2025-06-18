@@ -136,15 +136,6 @@ def generic_antenna_xds_min(ms_minimal_required):
 
 
 @pytest.fixture(scope="session")
-def generic_feed_xds_min(ms_minimal_required):
-    """A generic feed xds (loaded form MSv2 mostly as is), loaded from the MS/FEED subtable"""
-    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
-
-    generic_feed_xds = load_generic_table(ms_minimal_required.fname, "FEED")
-    return generic_feed_xds
-
-
-@pytest.fixture(scope="session")
 def generic_observation_xds_min(ms_minimal_required):
     """A generic observation xds (loaded form MSv2 mostly as is), loaded from the minimal MS/OBSERVATION subtable"""
 
@@ -174,23 +165,6 @@ def generic_source_xds_min(ms_minimal_required):
 
 
 # MSv4 xds and xdt fixtures
-
-
-@pytest.fixture(scope="session")
-def field_and_source_xds_min(ms_minimal_required):
-    """A field_and_source_xds (no ephemeris), loaded from the minimal MS/FIELD+SOURCE subtables"""
-
-    field_and_source_xds, source_id, num_lines = create_field_and_source_xds(
-        ms_minimal_required.fname,
-        np.arange(0, 1),
-        0,
-        np.arange(0, 1),
-        False,
-        (0, 1e10),
-        xr.DataArray(),
-    )
-
-    return field_and_source_xds
 
 
 @pytest.fixture(scope="session")

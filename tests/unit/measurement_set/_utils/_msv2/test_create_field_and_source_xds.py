@@ -78,6 +78,26 @@ def test_create_field_and_source_xds_misbehaved(ms_minimal_misbehaved):
     check_dataset(field_and_source_xds, FieldSourceXds)
 
 
+def test_create_field_and_source_xds_without_opt(ms_minimal_without_opt):
+
+    field_and_source_xds, source_id, num_lines, field_names = (
+        create_field_and_source_xds(
+            ms_minimal_without_opt.fname,
+            np.arange(0, 1),
+            0,
+            np.arange(0, 1),
+            False,
+            (0, 1e10),
+            True,
+        )
+    )
+
+    assert source_id == [0]
+    assert num_lines == 0
+    assert field_names == np.array(["NGC3031_0"])
+    check_dataset(field_and_source_xds, FieldSourceXds)
+
+
 def test_pad_missing_sources():
     from xradio.measurement_set._utils._msv2.create_field_and_source_xds import (
         pad_missing_sources,

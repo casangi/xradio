@@ -195,6 +195,21 @@ def test_create_pointing_xds_min_time_interp(ms_minimal_required):
     check_dataset(pointing_xds, PointingXds)
 
 
+def test_create_pointing_xds_without_opt(ms_minimal_without_opt):
+    from xradio.measurement_set._utils._msv2.msv4_sub_xdss import create_pointing_xds
+
+    ant_ids_da = xr.DataArray(
+        [f"test_ant{idx}" for idx in np.arange(0, 5)],
+        name="antenna_name",
+        coords={"antenna_id": np.arange(0, 5)},
+    )
+    time_interp = np.arange(0, 100)
+    pointing_xds = create_pointing_xds(
+        ms_minimal_without_opt.fname, ant_ids_da, (0, 2e10), time_interp
+    )
+    check_dataset(pointing_xds, PointingXds)
+
+
 def test_create_system_calibration_xds_empty(ms_empty_required, msv4_xdt_min):
     from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
         create_system_calibration_xds,
@@ -229,3 +244,23 @@ def test_create_system_calibration_xds_min(ms_minimal_required, msv4_xdt_min):
         ms_minimal_required.fname, msv4_xdt_min.frequency, ant_xds_with_ids, None
     )
     check_dataset(sys_cal_xds, SystemCalibrationXds)
+
+
+def test_create_system_calibration_xds_without_opt(
+    ms_minimal_without_opt, msv4_xdt_min
+):
+    from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
+        create_system_calibration_xds,
+    )
+
+    # Need to make the antenna_id coord as in the middle of conversion, before it is removed
+    ant_xds = msv4_xdt_min["antenna_xds"].ds.copy()
+    nants = len(ant_xds.antenna_name)
+    ant_xds_with_ids = ant_xds.assign_coords(
+        {"antenna_id": ("antenna_name", np.arange(0, nants))}
+    )
+
+    sys_cal_xds = create_system_calibration_xds(
+        ms_minimal_without_opt.fname, msv4_xdt_min.frequency, ant_xds_with_ids, None
+    )
+    assert sys_cal_xds is None

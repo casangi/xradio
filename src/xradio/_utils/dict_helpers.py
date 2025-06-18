@@ -19,12 +19,12 @@ def make_quantity_attrs(units: str) -> dict:
     return {"units": u, "type": "quantity"}
 
 
-def make_frequency_reference_dict(
+def make_spectral_coord_reference_dict(
     value: float, units: str, observer: str = "lsrk"
 ) -> dict:
     u = units if isinstance(units, list) else [units]
     return {
-        "attrs": make_frequency_measure_attrs(
+        "attrs": make_spectral_coord_measure_attrs(
             units,
             observer.lower() if observer not in ["TOPO", "BARY", "REST"] else observer,
         ),
@@ -33,7 +33,21 @@ def make_frequency_reference_dict(
     }
 
 
-def make_frequency_measure_attrs(units: str, observer: str = "lsrk") -> dict:
+def make_spectral_coord_measure_attrs(units: str, observer: str = "lsrk") -> dict:
+    """
+    Creates a spectral_coord measure attrs dict given units and observer
+
+    Parameters
+    ----------
+    units: str or list of str
+        Spectral coordinate units
+    observer: str
+        Spectral reference frame
+    Returns
+    -------
+    dict
+        Attrs dict for a spectral_coord measure
+    """
     u = units if isinstance(units, list) else [units]
     return {"units": u, "observer": observer, "type": "spectral_coord"}
 

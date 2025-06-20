@@ -57,18 +57,18 @@ def dask_client_module():
         in the module.
     """
     print("\nSetting up Dask client for the test module...")
-    client = local_client(cores=4, serial_execution=False)
+    # client = local_client(cores=4, serial_execution=False)
 
-    try:
-        yield client
-    finally:
-        print("\nTearing down Dask client for the test module...")
-        if client is not None:
-            client.close()
-            # Ensure the associated cluster is also properly closed
-            cluster = getattr(client, "cluster", None)
-            if cluster is not None:
-                cluster.close()
+    # try:
+    #     yield client
+    # finally:
+    #     print("\nTearing down Dask client for the test module...")
+    #     if client is not None:
+    #         client.close()
+    #         # Ensure the associated cluster is also properly closed
+    #         cluster = getattr(client, "cluster", None)
+    #         if cluster is not None:
+    #             cluster.close()
 
 
 @pytest.mark.usefixtures("dask_client_module")

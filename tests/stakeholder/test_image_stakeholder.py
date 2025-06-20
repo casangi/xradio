@@ -34,6 +34,8 @@ def test_image():
     sum = np.nansum(np.abs(img_xds.SKY))
     sum_lazy = np.nansum(np.abs(lazy_img_xds.SKY))
 
+    write_image(img_xds, "test_image.zarr", out_format = "zarr", overwrite=True )
+    
     assert np.isclose(
         sum, sum_lazy, rtol=relative_tolerance
     ), "read_image and load_image SKY sums differ."

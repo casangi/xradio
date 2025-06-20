@@ -110,7 +110,7 @@ def _numpy_arrayize_dv(xds: xr.Dataset) -> xr.Dataset:
 def _default_freq_info() -> dict:
     return {
         "rest_frequency": make_quantity(1420405751.7860003, "Hz"),
-        "type": "frequency",
+        "type": "spectral_coord",
         "frame": "lsrk",
         "units": "Hz",
         "waveUnit": "mm",

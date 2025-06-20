@@ -60,7 +60,9 @@ def dask_client_module():
     import sys
 
     print("\nSetting up Dask client for the test module...")
-    client = local_client(cores=2, memory_limit="3GB") #Do not increase size otherwise GitHub MacOS runner will hang. 
+    client = local_client(
+        cores=2, memory_limit="3GB"
+    )  # Do not increase size otherwise GitHub MacOS runner will hang.
     try:
         yield client
     finally:

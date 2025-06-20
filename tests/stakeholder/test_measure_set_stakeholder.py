@@ -287,10 +287,11 @@ def base_test(
 ):
     start = time.time()
 
-
     from toolviper.dask.client import local_client
 
-    viper_client = local_client(cores=2, memory_limit="3GB") ##Do not increase size otherwise GitHub MacOS runner will hang. 
+    viper_client = local_client(
+        cores=2, memory_limit="3GB"
+    )  ##Do not increase size otherwise GitHub MacOS runner will hang.
     viper_client
 
     ps_list = (

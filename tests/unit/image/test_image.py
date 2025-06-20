@@ -56,19 +56,25 @@ def dask_client_module():
         A Dask client connected to a local cluster, shared across all tests
         in the module.
     """
-    print("\nSetting up Dask client for the test module...")
-    # client = local_client(cores=4, serial_execution=False)
 
-    # try:
-    #     yield client
-    # finally:
-    #     print("\nTearing down Dask client for the test module...")
-    #     if client is not None:
-    #         client.close()
-    #         # Ensure the associated cluster is also properly closed
-    #         cluster = getattr(client, "cluster", None)
-    #         if cluster is not None:
-    #             cluster.close()
+    import sys
+
+    # if sys.platform != 'darwin' or os.getenv("GITHUB_ACTIONS") != "true":
+    #     # After GitHub runner version incremented from 2.324.0 to 2.325.0 the MacOS test workflow that usually took 14 minutes now hangs and then times out after 6 hours.
+    #     # Consequently we skip the dask client setup on MacOS in GitHub Actions.
+
+    print("\nSetting up Dask client for the test module...")
+    client = local_client(cores=2, memory_limit="3GB")
+    try:
+        yield client
+    finally:
+        print("\nTearing down Dask client for the test module...")
+        if client is not None:
+            client.close()
+            # Ensure the associated cluster is also properly closed
+            cluster = getattr(client, "cluster", None)
+            if cluster is not None:
+                cluster.close()
 
 
 @pytest.mark.usefixtures("dask_client_module")

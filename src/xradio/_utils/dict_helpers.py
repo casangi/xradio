@@ -1,12 +1,14 @@
 def make_quantity(value, units: str, dims: list = []) -> dict:
     """
     create a quantity dictionary given value and units
+
     Parameters
     ----------
     value : numeric or array of numerics
         Quantity value
     units: str
         Quantity units
+
     Returns
     -------
     dict
@@ -15,6 +17,18 @@ def make_quantity(value, units: str, dims: list = []) -> dict:
 
 
 def make_quantity_attrs(units: str) -> dict:
+    """
+    Creates the dict of attributes of a quantity
+
+    Parameters
+    ----------
+    units: str
+        Quantity units
+
+    Returns
+    -------
+    dict
+    """
     u = units if isinstance(units, list) else [units]
     return {"units": u, "type": "quantity"}
 
@@ -22,6 +36,22 @@ def make_quantity_attrs(units: str) -> dict:
 def make_spectral_coord_reference_dict(
     value: float, units: str, observer: str = "lsrk"
 ) -> dict:
+    """
+    creates a spectral_coord measure dict given the value, units, and observer
+
+    Parameters
+    ----------
+    value : numeric or array of numerics
+        measure value
+    units : str
+        measure units
+    observer :
+        observer reference frame
+
+    Returns
+    -------
+    dict
+    """
     u = units if isinstance(units, list) else [units]
     return {
         "attrs": make_spectral_coord_measure_attrs(

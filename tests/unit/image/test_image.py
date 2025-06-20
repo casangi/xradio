@@ -465,7 +465,6 @@ class xds_from_image_test(ImageBase):
         self.assertTrue(
             np.isclose(xds.frequency, ev["frequency"]).all(), "Incorrect frequencies"
         )
-        print(f" ***************** got {xds.frequency.attrs}=")
         self.dict_equality(
             xds.frequency.attrs["rest_frequency"],
             ev["rest_frequency"],

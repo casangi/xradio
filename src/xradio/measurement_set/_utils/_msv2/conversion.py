@@ -1,11 +1,13 @@
+from collections import deque
 import datetime
 import importlib
 import numcodecs
 import os
 import pathlib
 import time
-from typing import Dict, Union
+from typing import Callable, Dict, Union
 
+import dask.array as da
 import numpy as np
 import xarray as xr
 import traceback
@@ -584,95 +586,115 @@ def create_data_variables(
     parallel_mode,
     main_chunksize,
 ):
-
-    # Get time chunks
-    time_chunksize = None
-    if parallel_mode == "time":
-        try:
-            time_chunksize = main_chunksize["time"]
-        except KeyError:
-            # If time isn't chunked then `read_col_conversion_dask` is slower than `read_col_conversion_numpy`
-            logger.warning(
-                "'time' isn't specified in `main_chunksize`. Defaulting to `parallel_mode = 'none'`."
-            )
-            parallel_mode = "none"
-
-    # Set read_col_conversion from value of `parallel_mode` argument
-    # TODO: To make this compatible with multi-node conversion, `read_col_conversion_dask` and TableManager must be pickled.
-    # Casacore will make this difficult
-    global read_col_conversion
-    if parallel_mode == "time":
-        read_col_conversion = read_col_conversion_dask
-    else:
-        read_col_conversion = read_col_conversion_numpy
+    time_chunksize = main_chunksize.get("time", None) if main_chunksize else None
+    if parallel_mode == "time" and time_chunksize is None:
+        logger.warning(
+            "'time' isn't specified in `main_chunksize`. Defaulting to `parallel_mode = 'none'`."
+        )
+        parallel_mode = "none"
 
     # Create Data Variables
     with table_manager.get_table() as tb_tool:
         col_names = tb_tool.colnames()
 
+    target_cols = set(col_names) & set(col_to_data_variable_names.keys())
+    if target_cols.issuperset({"WEIGHT", "WEIGHT_SPECTRUM"}):
+        target_cols.remove("WEIGHT")
+
     main_table_attrs = extract_table_attributes(in_file)
     main_column_descriptions = main_table_attrs["column_descriptions"]
-    for col in col_names:
-        if col in col_to_data_variable_names:
-            if (col == "WEIGHT") and ("WEIGHT_SPECTRUM" in col_names):
-                continue
-            try:
-                start = time.time()
-                if col == "WEIGHT":
-                    xds = get_weight(
-                        xds,
-                        col,
-                        table_manager,
-                        time_baseline_shape,
-                        tidxs,
-                        bidxs,
-                        use_table_iter,
-                        main_column_descriptions,
-                        time_chunksize,
-                    )
-                else:
-                    col_data = read_col_conversion(
-                        table_manager,
-                        col,
-                        time_baseline_shape,
-                        tidxs,
-                        bidxs,
-                        use_table_iter,
-                        time_chunksize,
-                    )
-                    if col == "TIME_CENTROID":
-                        col_data = convert_casacore_time(col_data, False)
 
-                    xds[col_to_data_variable_names[col]] = xr.DataArray(
-                        col_data,
-                        dims=col_dims[col],
-                    )
+    # Use a double-ended queue in case WEIGHT_SPECTRUM conversion fails, and
+    # we need to add WEIGHT to list of columns to convert during iteration
+    target_cols = deque(target_cols)
 
-                xds[col_to_data_variable_names[col]].attrs.update(
-                    create_attribute_metadata(col, main_column_descriptions)
+    while target_cols:
+        col = target_cols.popleft()
+        datavar_name = col_to_data_variable_names[col]
+        read_col_conversion = get_read_col_conversion_function(col, parallel_mode)
+
+        try:
+            start = time.time()
+            col_data = read_col_conversion(
+                table_manager,
+                col,
+                time_baseline_shape,
+                tidxs,
+                bidxs,
+                use_table_iter,
+                time_chunksize,
+            )
+
+            if col == "TIME_CENTROID":
+                col_data = convert_casacore_time(col_data, False)
+
+            elif col == "WEIGHT":
+                col_data = repeat_weight_array(
+                    col_data, parallel_mode, xds.sizes, main_chunksize
                 )
 
+            xds[datavar_name] = xr.DataArray(
+                col_data,
+                dims=col_dims[col],
+                attrs=create_attribute_metadata(col, main_column_descriptions),
+            )
+            logger.debug(f"Time to read column {col} : {time.time() - start}")
+
+        except Exception as exc:
+            logger.debug(f"Could not load column {col}, exception: {exc}")
+            logger.debug(traceback.format_exc())
+
+            if col == "WEIGHT_SPECTRUM" and "WEIGHT" in col_names:
                 logger.debug(
-                    "Time to read column " + str(col) + " : " + str(time.time() - start)
+                    "Failed to convert WEIGHT_SPECTRUM column: "
+                    "will attempt to use WEIGHT instead"
                 )
-            except Exception as exc:
-                logger.debug(f"Could not load column {col}, exception: {exc}")
-                logger.debug(traceback.format_exc())
+                target_cols.append("WEIGHT")
 
-                if ("WEIGHT_SPECTRUM" == col) and (
-                    "WEIGHT" in col_names
-                ):  # Bogus WEIGHT_SPECTRUM column, need to use WEIGHT.
-                    xds = get_weight(
-                        xds,
-                        "WEIGHT",
-                        table_manager,
-                        time_baseline_shape,
-                        tidxs,
-                        bidxs,
-                        use_table_iter,
-                        main_column_descriptions,
-                        time_chunksize,
-                    )
+
+def get_read_col_conversion_function(col_name: str, parallel_mode: str) -> Callable:
+    """
+    Returns the appropriate read_col_conversion function: use the dask version
+    for large columns and parallel_mode="time", or the numpy version otherwise.
+    """
+    large_columns = {
+        "DATA",
+        "CORRECTED_DATA",
+        "MODEL_DATA",
+        "WEIGHT_SPECTRUM",
+        "WEIGHT",
+        "FLAG",
+    }
+    return (
+        read_col_conversion_dask
+        if parallel_mode == "time" and col_name in large_columns
+        else read_col_conversion_numpy
+    )
+
+
+def repeat_weight_array(
+    weight_arr,
+    parallel_mode: str,
+    main_sizes: dict[str, int],
+    main_chunksize: dict[str, int],
+):
+    """
+    Repeat the weights read from the WEIGHT column along the frequency dimension.
+    Returns a dask array if parallel_mode="time", or a numpy array otherwise.
+    """
+    reshaped_arr = weight_arr[:, :, None, :]
+    repeats = (1, 1, main_sizes["frequency"], 1)
+
+    if parallel_mode == "time":
+        result = da.tile(reshaped_arr, repeats)
+        # da.tile() adds each repeat as a separate chunk, so rechunking is necessary
+        chunksizes = tuple(
+            main_chunksize.get(dim, main_sizes[dim])
+            for dim in ("time", "baseline_id", "frequency", "polarization")
+        )
+        return result.rechunk(chunksizes)
+
+    return np.tile(reshaped_arr, repeats)
 
 
 def add_missing_data_var_attrs(xds):
@@ -698,39 +720,6 @@ def add_missing_data_var_attrs(xds):
             else:
                 xds.data_vars[var_name].attrs["units"] = [""]
 
-    return xds
-
-
-def get_weight(
-    xds,
-    col,
-    table_manager,
-    time_baseline_shape,
-    tidxs,
-    bidxs,
-    use_table_iter,
-    main_column_descriptions,
-    time_chunksize,
-):
-    xds[col_to_data_variable_names[col]] = xr.DataArray(
-        np.tile(
-            read_col_conversion(
-                table_manager,
-                col,
-                time_baseline_shape,
-                tidxs,
-                bidxs,
-                use_table_iter,
-                time_chunksize,
-            )[:, :, None, :],
-            (1, 1, xds.sizes["frequency"], 1),
-        ),
-        dims=col_dims[col],
-    )
-
-    xds[col_to_data_variable_names[col]].attrs.update(
-        create_attribute_metadata(col, main_column_descriptions)
-    )
     return xds
 
 

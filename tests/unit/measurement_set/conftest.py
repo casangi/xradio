@@ -1,4 +1,5 @@
 import pytest
+import os
 
 # Ensure pytest assert introspection in vis data checks
 pytest.register_assert_rewrite(
@@ -15,6 +16,9 @@ from tests.unit.measurement_set.ms_test_utils.gen_test_ms import (
     make_ms_empty,
 )
 
+from toolviper.utils.data import download
+from pathlib import Path
+from xradio.measurement_set import convert_msv2_to_processing_set
 
 """
 A tuple with an MS filename (as str) and a description of its expected structure and contents (as a dict).
@@ -350,6 +354,7 @@ def quick_fix_ndarray_shape_attrs(part):
     "fix" for the experimental write MS , "UVW"]: (but UVW was expected, from CASA
     tests MSs)
     """
+
     for col in ["DATA", "CORRECTED_DATA", "MODEL_DATA"]:
         if (
             "other" in part.attrs
@@ -360,3 +365,32 @@ def quick_fix_ndarray_shape_attrs(part):
             part.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"][col].pop(
                 "shape"
             )
+
+
+def download_measurement_set(input_ms, directory="/tmp"):
+    """Returns path to test MeasurementSet v2"""
+    # Download MS
+    download(file=input_ms, folder=directory)
+    return Path(os.path.join(directory, input_ms))
+
+
+@pytest.fixture
+def convert_measurement_set_to_processing_set(request, tmp_path):
+    """Create a processing set from test MS for testing"""
+    ps_path = tmp_path / "test_processing_set.ps.zarr"
+    # Convert MS to processing set
+    convert_msv2_to_processing_set(
+        in_file=str(download_measurement_set(request.param, tmp_path)),
+        out_file=str(ps_path),
+        partition_scheme=[],
+        main_chunksize=0.01,
+        pointing_chunksize=0.00001,
+        pointing_interpolate=True,
+        ephemeris_interpolate=True,
+        use_table_iter=False,
+        overwrite=True,
+        parallel_mode="none",
+    )
+    yield ps_path
+    shutil.rmtree(ps_path)
+    shutil.rmtree(download_measurement_set(request.param, tmp_path))

@@ -33,7 +33,9 @@ def tmp_path():
     return pathlib.Path("/tmp/test")
 
 
-def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_scheme):
+def download_and_convert_msv2_to_processing_set(
+    msv2_name, folder, partition_scheme, parallel_mode: str = "none"
+):
 
     # We can remove this once there is a new release of casacore
     # if os.environ["USER"] == "runner":
@@ -79,7 +81,7 @@ def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_sch
         # sys_cal_interpolate=True,
         use_table_iter=False,
         overwrite=True,
-        parallel_mode="none",
+        parallel_mode=parallel_mode,
     )
     return ps_name
 
@@ -310,6 +312,7 @@ def base_test(
     expected_sum_value: float,
     is_s3: bool = False,
     partition_schemes: list = [[], ["FIELD_ID"]],
+    parallel_mode: str = "none",
     preconverted: bool = False,
     do_schema_check: bool = True,
     expected_secondary_xds: set = None,
@@ -332,7 +335,7 @@ def base_test(
             ps_name = file_name
         else:
             ps_name = download_and_convert_msv2_to_processing_set(
-                file_name, folder, partition_scheme
+                file_name, folder, partition_scheme, parallel_mode=parallel_mode
             )
 
         print(f"Opening Processing Set, {ps_name}")
@@ -453,6 +456,7 @@ def test_ska_low(tmp_path):
         tmp_path,
         119802044416.0,
         expected_secondary_xds=expected_subtables,
+        parallel_mode="time",
     )
 
 
@@ -463,6 +467,7 @@ def test_ska_mid(tmp_path):
         tmp_path,
         551412.3125,
         expected_secondary_xds=expected_subtables,
+        parallel_mode="time",
     )
 
 

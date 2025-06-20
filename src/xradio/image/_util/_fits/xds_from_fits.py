@@ -5,6 +5,7 @@ from typing import Union
 import dask
 import dask.array as da
 import numpy as np
+import psutil
 import xarray as xr
 from astropy import units as u
 from astropy.io import fits
@@ -35,9 +36,15 @@ from xradio.image._util.common import (
 
 
 def _fits_image_to_xds(
-    img_full_path: str, chunks: dict, verbose: bool, do_sky_coords: bool
+    img_full_path: str, chunks: dict, verbose: bool, do_sky_coords: bool, compute_mask: bool
 ) -> dict:
     """
+    compute_mask : bool, optional
+        If True (default), compute and attach valid data masks to the xds.
+        If False, skip mask generation for performance. It is solely the responsibility
+        of the user to ensure downstream apps can handle NaN values; do not
+        ask package developers to add this non-standard behavior.
+
     TODO: complete documentation
     Create an xds without any pixel data from metadata from the specified FITS image
     """
@@ -367,12 +374,40 @@ def _create_dim_map(helpers: dict, header) -> dict:
     return dim_map
 
 
-def _fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList) -> tuple:
+def _fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList, compute_mask: bool ) -> tuple:
     primary = None
+    # FIXME beams is set but never actually used in this function. What's up with that?
     beams = None
     for hdu in hdulist:
         if hdu.name == "PRIMARY":
             primary = hdu
+            # TODO
+            # ChatGPT
+            # hdu.header has been eagerly read, so we can access it
+            # hdu.data is read lazily, so has not been read yet
+            # astropy.io.fits module does not support reading data in chunks,
+            # so we have to read the whole data into memory. If it looks like
+            # that will exhaust sthe system memory, we raise an error and exit
+            # more gracefully than crashing. The astropy.io.fits limitation of
+            # not yet supporting reading data in chunks is a known issue, and
+            # so is a limitation of that package not this code. If and when that
+            # feature is added, we should remove this check and read the data
+            # in chunks, maybe always
+            bitpix = primary.header["BITPIX"]
+            naxis = primary.header["NAXIS"]
+            shape = tuple(primary.header[f"NAXIS{i+1}"] for i in range(naxis))
+            estimated_bytes = np.prod(shape) * abs(bitpix) // 8
+            avail_bytes = psutil.virtual_memory().available
+            if estimated_bytes > 0.9 * avail_bytes:
+                raise RuntimeError(
+                    f"Estimated FITS image size {estimated_bytes} exceeds 90% "
+                    f"of available system memory {avail_bytes}. Aborting before "
+                    "attempting to read data in bulk to avoid crash."
+                )
+            if not isinstance(primary.data, np.ndarray):
+                raise TypeError(
+                    "FITS primary data must be a NumPy ndarray. Likely corrupt FITS file."
+                )
         elif hdu.name == "BEAMS":
             beams = hdu
         else:
@@ -402,8 +437,13 @@ def _fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList) -> tuple:
         raise RuntimeError("Could not find both direction axes")
     if dir_axes is not None:
         attrs["direction"] = _xds_direction_attrs_from_header(helpers, header)
-    # FIXME read fits data in chunks in case all data too large to hold in memory
-    helpers["has_mask"] = da.any(da.isnan(primary.data)).compute()
+    helpers["has_mask"] = False
+    if compute_mask:
+        def chunk_has_nan(block):
+            return np.isnan(block).any()
+        data_dask = da.from_array(primary.data, chunks="auto")
+        # This compute will normally be done in parallel
+        helpers["has_mask"] = data_dask.map_blocks(chunk_has_nan, dtype=bool).any().compute()
     beam = _beam_attr_from_header(helpers, header)
     if beam != "mb":
         helpers["beam"] = beam

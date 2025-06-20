@@ -32,6 +32,7 @@ def read_image(
     verbose: bool = False,
     do_sky_coords: bool = True,
     selection: dict = {},
+    compute_mask: bool = True
 ) -> xr.Dataset:
     """
     Convert CASA, FITS, or zarr image to xradio image xds format
@@ -69,7 +70,13 @@ def read_image(
         the selection, and the end pixel is not. An empty dictionary (the
         default) indicates that the entire image should be returned. Currently
         only supported for images stored in zarr format.
-
+     compute_mask : bool, optional
+        If True (default), compute and attach valid data masks when converting from FITS to xds.
+        If False, skip mask computation entirely. This may improve performance if the mask
+        is not required for subsequent processing. It may however result in unprecdictable behavior
+        for applications that are not designed to handle missing data. It is the user's responsibility,
+        not the software's, to ensure that the mask is computed if it is needed. Currently only
+        implemented for FITS images.
     Returns
     -------
     xarray.Dataset
@@ -94,7 +101,9 @@ def read_image(
     # next statement is for debug, comment when done debugging
     # return _read_fits_image(infile, chunks, verbose, do_sky_coords)
     try:
-        return _read_fits_image(infile, chunks, verbose, do_sky_coords)
+        return _read_fits_image(
+            infile, chunks, verbose, do_sky_coords, compute_mask=compute_mask
+        )
     except Exception as e:
         emsgs.append(f"image format appears not to be fits {e.args}")
     # when done debuggin comment out next line

@@ -59,12 +59,8 @@ def dask_client_module():
 
     import sys
 
-    # if sys.platform != 'darwin' or os.getenv("GITHUB_ACTIONS") != "true":
-    #     # After GitHub runner version incremented from 2.324.0 to 2.325.0 the MacOS test workflow that usually took 14 minutes now hangs and then times out after 6 hours.
-    #     # Consequently we skip the dask client setup on MacOS in GitHub Actions.
-
     print("\nSetting up Dask client for the test module...")
-    client = local_client(cores=2, memory_limit="3GB")
+    client = local_client(cores=2, memory_limit="3GB") #Do not increase size otherwise GitHub MacOS runner will hang. 
     try:
         yield client
     finally:

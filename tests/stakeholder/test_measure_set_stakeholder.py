@@ -287,13 +287,11 @@ def base_test(
 ):
     start = time.time()
 
-    if sys.platform != "darwin" or os.getenv("GITHUB_ACTIONS") != "true":
-        # After GitHub runner version incremented from 2.324.0 to 2.325.0 the MacOS test workflow that usually took 14 minutes now hangs and then times out after 6 hours.
-        # Consequently we skip the dask client setup on MacOS in GitHub Actions.
-        from toolviper.dask.client import local_client
 
-        viper_client = local_client(cores=2, memory_limit="3GB")
-        viper_client
+    from toolviper.dask.client import local_client
+
+    viper_client = local_client(cores=2, memory_limit="3GB") ##Do not increase size otherwise GitHub MacOS runner will hang. 
+    viper_client
 
     ps_list = (
         []

@@ -15,14 +15,14 @@ import xarray as xr
 # from .._utils.zarr.common import _load_no_dask_zarr
 
 from ._util.casacore import _load_casa_image_block, _xds_to_casa_image
-from ._util.fits import _read_fits_image
+# from ._util.fits import _read_fits_image
 from ._util.image_factory import (
     _make_empty_aperture_image,
     _make_empty_lmuv_image,
     _make_empty_sky_image,
 )
 from ._util.zarr import _load_image_from_zarr_no_dask, _xds_from_zarr, _xds_to_zarr
-
+from ._util._fits.xds_from_fits.py import _fits_image_to_xds
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 
@@ -38,6 +38,24 @@ def read_image(
     Convert CASA, FITS, or zarr image to xradio image xds format
     ngCASA image spec is located at
     https://docs.google.com/spreadsheets/d/1WW0Gl6z85cJVPgtdgW4dxucurHFa06OKGjgoK8OREFA/edit#gid=1719181934
+
+    Notes on FITS compatibility and memory mapping:
+
+    This function relies on Astropy's `memmap=True` to avoid loading full image data into memory.
+    However, not all FITS files support memory-mapped reads.
+
+    ⚠️ The following FITS types are incompatible with memory mapping:
+
+    1. Compressed images (`CompImageHDU`)
+        = Workaround: decompress the FITS using tools like `funpack`, `cfitsio`,
+          or Astropy's `.scale()`/`.copy()` workflows
+    2. Scaled images (using BSCALE/BZERO headers)
+        - Workaround: remove scaling with Astropy's
+          `HDU.data = HDU.data * BSCALE + BZERO` and save a new file
+
+    These cases will raise `RuntimeError` to prevent silent eager loads that can exhaust memory.
+
+    If you encounter such an error, consider preprocessing the file to make it memory-mappable.
 
     Parameters
     ----------
@@ -101,9 +119,12 @@ def read_image(
     # next statement is for debug, comment when done debugging
     # return _read_fits_image(infile, chunks, verbose, do_sky_coords)
     try:
-        return _read_fits_image(
-            infile, chunks, verbose, do_sky_coords, compute_mask=compute_mask
-        )
+        img_full_path = os.path.expanduser(infile)
+        return _fits_image_to_xds(img_full_path, chunks, verbose, do_sky_coords, compute_mask)
+
+        # return _read_fits_image(
+        #    infile, chunks, verbose, do_sky_coords, compute_mask=compute_mask
+        # )
     except Exception as e:
         emsgs.append(f"image format appears not to be fits {e.args}")
     # when done debuggin comment out next line

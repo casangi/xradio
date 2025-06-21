@@ -381,33 +381,10 @@ def _fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList, compute_mask: b
     for hdu in hdulist:
         if hdu.name == "PRIMARY":
             primary = hdu
-            # TODO
-            # ChatGPT
-            # hdu.header has been eagerly read, so we can access it
-            # hdu.data is read lazily, so has not been read yet
-            # astropy.io.fits module does not support reading data in chunks,
-            # so we have to read the whole data into memory. If it looks like
-            # that will exhaust sthe system memory, we raise an error and exit
-            # more gracefully than crashing. The astropy.io.fits limitation of
-            # not yet supporting reading data in chunks is a known issue, and
-            # so is a limitation of that package not this code. If and when that
-            # feature is added, we should remove this check and read the data
-            # in chunks, maybe always
-            bitpix = primary.header["BITPIX"]
-            naxis = primary.header["NAXIS"]
-            shape = tuple(primary.header[f"NAXIS{i+1}"] for i in range(naxis))
-            estimated_bytes = np.prod(shape) * abs(bitpix) // 8
-            avail_bytes = psutil.virtual_memory().available
-            if estimated_bytes > 0.9 * avail_bytes:
-                raise RuntimeError(
-                    f"Estimated FITS image size {estimated_bytes} exceeds 90% "
-                    f"of available system memory {avail_bytes}. Aborting before "
-                    "attempting to read data in bulk to avoid crash."
-                )
-            if not isinstance(primary.data, np.ndarray):
-                raise TypeError(
-                    "FITS primary data must be a NumPy ndarray. Likely corrupt FITS file."
-                )
+            # NOTE: check for primary.data size being too large removed, since
+            # data is read in chunks, so no danger of exhausting memory
+            # NOTE: sanity-check for ndarray type has been removed to avoid
+            # forcing eager memory load of possibly very large data array.
         elif hdu.name == "BEAMS":
             beams = hdu
         else:
@@ -441,6 +418,19 @@ def _fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList, compute_mask: b
     if compute_mask:
         def chunk_has_nan(block):
             return np.isnan(block).any()
+
+        # 🧠 Why the primary.data reference here is Safe (does not cause
+        # an eager read of entire data array)
+        # primary.data is a memory-mapped array (because fits.open(..., memmap=True)
+        # is used upstream)
+        # da.from_array(...) wraps this without reading it immediately
+        # The actual read occurs inside:
+        # .map_blocks(...).any().compute()
+        # ...and that triggers blockwise loading via Dask → safe and parallel
+        # 💡 Gotcha
+        # What would be dangerous:
+        # arr = np.isnan(primary.data).any()
+        # That would pull the whole array into memory. But we're not doing that.
         data_dask = da.from_array(primary.data, chunks="auto")
         # This compute will normally be done in parallel
         helpers["has_mask"] = data_dask.map_blocks(chunk_has_nan, dtype=bool).any().compute()
@@ -626,7 +616,9 @@ def _get_velocity_values(helpers: dict) -> list:
         helpers["velocity"] = v * (u.m / u.s)
         return v
 
-
+# FIXME change namee, even if there is only a single beam, we make a
+# multi beam array using it. If we have a beam, it will always be
+# "mutltibeam" is name is redundant and confusing
 def _do_multibeam(xds: xr.Dataset, imname: str) -> xr.Dataset:
     """Only run if we are sure there are multiple beams"""
     hdulist = fits.open(imname)
@@ -861,12 +853,23 @@ def _get_transpose_list(helpers: dict) -> tuple:
 
 def _read_image_chunk(img_full_path, shapes: tuple, starts: tuple) -> np.ndarray:
     hdulist = fits.open(img_full_path, memmap=True)
-    s = []
-    for start, length in zip(starts, shapes):
-        s.append(slice(start, start + length))
-    t = tuple(s)
-    z = hdulist[0].data[t]
+    hdu = hdulist[0]
+
+    # Memory map support check
+    if isinstance(hdu, fits.CompImageHDU):
+        hdulist.close()
+        raise RuntimeError("Cannot memory-map compressed FITS image (CompImageHDU).")
+
+    if hdu.scale:
+        hdulist.close()
+        raise RuntimeError("Cannot memory-map scaled FITS data (BSCALE/BZERO set).")
+
+    # Chunk slice
+    slices = tuple(slice(start, start + length) for start, length in zip(starts, shapes))
+    chunk = hdu.data[slices]
+
     hdulist.close()
-    # delete to avoid having a reference to a mem-mapped hdulist
     del hdulist
-    return z
+    return chunk
+
+

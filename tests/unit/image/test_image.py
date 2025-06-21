@@ -1403,6 +1403,23 @@ class fits_to_xds_test(xds_from_image_test):
                     f"{got_comp.item()} rad vs {expec_comp} rad.",
                 )
 
+    def test_compute_mask(self):
+        """
+        Test compute_mask parameter
+        """
+        for compute_mask in [True, False]:
+            fds = read_image(self.infits(), {"frequency": 5}, compute_mask=compute_mask)
+            if compute_mask:
+                self.assertTrue(
+                    "MASK0" in fds.data_vars,
+                    "MASK0 should be in data_vars, but is not",
+                )
+            else:
+                self.assertTrue(
+                    "MASK0" not in fds.data_vars,
+                    "MASK0 should not be in data_vars, but is",
+                )
+
     # TODO
     # def test_get_img_ds_block(self):
     #    # self.compare_image_block(self.imname())

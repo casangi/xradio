@@ -48,28 +48,10 @@ def _fits_image_to_xds(
     TODO: complete documentation
     Create an xds without any pixel data from metadata from the specified FITS image
     """
-    # memmap = True allows only part of data to be loaded into memory
     # may also need to pass mode='denywrite'
     # https://stackoverflow.com/questions/35759713/astropy-io-fits-read-row-from-large-fits-file-with-mutliple-hdus
-    hdulist = fits.open(img_full_path, memmap=True)
     try:
-        # Memory map support check
-        if isinstance(hdu, fits.CompImageHDU):
-            raise RuntimeError(
-                "Cannot memory-map compressed FITS image (CompImageHDU)."
-                "Workaround: decompress the FITS using tools like `funpack`, `cfitsio`, "
-                "or Astropy's `.scale()`/`.copy()` workflows"
-            )
-        # avoid possibly non-existent hdu.scale_type attribute check and check header instead
-        header = hdu.header
-        scale = hdu.header.get("BSCALE", 1.0)
-        zero = hdu.header.get("BZERO", 0.0)
-        if scale != 1.0 or zero != 0.0:
-            raise RuntimeError(
-                "Cannot memory-map scaled FITS data (BSCALE/BZERO set)."
-                "Workaround: remove scaling with Astropy's"
-                "  `HDU.data = HDU.data * BSCALE + BZERO` and save a new file"
-            )
+        hdulist = fits.open(img_full_path, memmap=True)
         attrs, helpers, header = _fits_header_to_xds_attrs(hdulist, compute_mask)
     finally:
         hdulist.close()
@@ -400,10 +382,27 @@ def _fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList, compute_mask: b
     for hdu in hdulist:
         if hdu.name == "PRIMARY":
             primary = hdu
-            # NOTE: check for primary.data size being too large removed, since
-            # data is read in chunks, so no danger of exhausting memory
-            # NOTE: sanity-check for ndarray type has been removed to avoid
-            # forcing eager memory load of possibly very large data array.
+            # Memory map support check
+            if isinstance(hdu, fits.CompImageHDU):
+                raise RuntimeError(
+                    "Cannot memory-map compressed FITS image (CompImageHDU)."
+                    "Workaround: decompress the FITS using tools like `funpack`, `cfitsio`, "
+                    "or Astropy's `.scale()`/`.copy()` workflows"
+                )
+            # avoid possibly non-existent hdu.scale_type attribute check and check header instead
+            header = hdu.header
+            scale = hdu.header.get("BSCALE", 1.0)
+            zero = hdu.header.get("BZERO", 0.0)
+            if scale != 1.0 or zero != 0.0:
+                raise RuntimeError(
+                    "Cannot memory-map scaled FITS data (BSCALE/BZERO set)."
+                    "Workaround: remove scaling with Astropy's"
+                    "  `HDU.data = HDU.data * BSCALE + BZERO` and save a new file"
+                )
+                # NOTE: check for primary.data size being too large removed, since
+                # data is read in chunks, so no danger of exhausting memory
+                # NOTE: sanity-check for ndarray type has been removed to avoid
+                # forcing eager memory load of possibly very large data array.
         elif hdu.name == "BEAMS":
             beams = hdu
         else:

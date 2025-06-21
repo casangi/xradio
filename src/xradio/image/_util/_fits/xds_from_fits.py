@@ -36,7 +36,11 @@ from xradio.image._util.common import (
 
 
 def _fits_image_to_xds(
-    img_full_path: str, chunks: dict, verbose: bool, do_sky_coords: bool, compute_mask: bool
+    img_full_path: str,
+    chunks: dict,
+    verbose: bool,
+    do_sky_coords: bool,
+    compute_mask: bool,
 ) -> dict:
     """
     compute_mask : bool, optional
@@ -375,7 +379,9 @@ def _create_dim_map(helpers: dict, header) -> dict:
     return dim_map
 
 
-def _fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList, compute_mask: bool ) -> tuple:
+def _fits_header_to_xds_attrs(
+    hdulist: fits.hdu.hdulist.HDUList, compute_mask: bool
+) -> tuple:
     primary = None
     # FIXME beams is set but never actually used in this function. What's up with that?
     beams = None
@@ -658,6 +664,7 @@ def _get_velocity_values(helpers: dict) -> list:
         helpers["velocity"] = v * (u.m / u.s)
         return v
 
+
 # FIXME change namee, even if there is only a single beam, we make a
 # multi beam array using it. If we have a beam, it will always be
 # "mutltibeam" is name is redundant and confusing
@@ -897,7 +904,9 @@ def _read_image_chunk(img_full_path, shapes: tuple, starts: tuple) -> np.ndarray
     hdulist = fits.open(img_full_path, memmap=True)
     hdu = hdulist[0]
     # Chunk slice
-    slices = tuple(slice(start, start + length) for start, length in zip(starts, shapes))
+    slices = tuple(
+        slice(start, start + length) for start, length in zip(starts, shapes)
+    )
     chunk = hdu.data[slices]
     hdulist.close()
     del hdulist

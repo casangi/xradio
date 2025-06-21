@@ -15,6 +15,7 @@ import xarray as xr
 # from .._utils.zarr.common import _load_no_dask_zarr
 
 from ._util.casacore import _load_casa_image_block, _xds_to_casa_image
+
 # from ._util.fits import _read_fits_image
 from ._util.image_factory import (
     _make_empty_aperture_image,
@@ -23,6 +24,7 @@ from ._util.image_factory import (
 )
 from ._util.zarr import _load_image_from_zarr_no_dask, _xds_from_zarr, _xds_to_zarr
 from ._util._fits.xds_from_fits import _fits_image_to_xds
+
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 
@@ -32,7 +34,7 @@ def read_image(
     verbose: bool = False,
     do_sky_coords: bool = True,
     selection: dict = {},
-    compute_mask: bool = True
+    compute_mask: bool = True,
 ) -> xr.Dataset:
     """
     Convert CASA, FITS, or zarr image to xradio image xds format

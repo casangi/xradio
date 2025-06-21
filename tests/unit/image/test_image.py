@@ -348,10 +348,11 @@ class xds_from_image_test(ImageBase):
         t.close()
         with open_image_ro(cls._imname) as im:
             im.tofits(cls._infits)
+            assert(os.path.exists(cls._infits)), f"Could not create {cls._infits}"
         cls._xds = read_image(cls._imname, {"frequency": 5})
         cls._xds_no_sky = read_image(cls._imname, {"frequency": 5}, False, False)
         cls.assertTrue(cls._xds.sizes == cls._exp_vals["shape"], "Incorrect shape")
-        write_image(cls._xds, cls._outname, out_format="casa")
+        write_image(cls._xds, cls._outname, out_format="casa", overwrite=True)
 
     def imname(self):
         return self._imname
@@ -753,7 +754,6 @@ class xds_from_image_test(ImageBase):
                 )
             # test beam
             self.assertTrue(xds["BEAM"].shape == (1, 4, 1, 3), "Wrong beam shape")
-            print("**** dims", tuple(xds["BEAM"].dims))
             self.assertTrue(
                 tuple(xds["BEAM"].dims)
                 == ("time", "frequency", "polarization", "beam_param"),
@@ -1294,6 +1294,7 @@ class fits_to_xds_test(xds_from_image_test):
         # so we must explicitly call the super class' method here to create the
         # xds which is located in the super class
         super().setUpClass()
+        assert(os.path.exists(cls.infits())), f"{cls.infits()} does not exist"
         cls._fds = read_image(cls.infits(), {"frequency": 5}, do_sky_coords=True)
         cls._fds_no_sky = read_image(
             cls.infits(), {"frequency": 5}, do_sky_coords=False
@@ -1403,9 +1404,9 @@ class fits_to_xds_test(xds_from_image_test):
                 )
 
     # TODO
-    def test_get_img_ds_block(self):
-        # self.compare_image_block(self.imname())
-        pass
+    # def test_get_img_ds_block(self):
+    #    # self.compare_image_block(self.imname())
+    #    pass
 
 
 class make_empty_image_tests(ImageBase):

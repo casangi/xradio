@@ -22,7 +22,7 @@ from ._util.image_factory import (
     _make_empty_sky_image,
 )
 from ._util.zarr import _load_image_from_zarr_no_dask, _xds_from_zarr, _xds_to_zarr
-from ._util._fits.xds_from_fits.py import _fits_image_to_xds
+from ._util._fits.xds_from_fits import _fits_image_to_xds
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 
@@ -49,9 +49,15 @@ def read_image(
     1. Compressed images (`CompImageHDU`)
         = Workaround: decompress the FITS using tools like `funpack`, `cfitsio`,
           or Astropy's `.scale()`/`.copy()` workflows
-    2. Scaled images (using BSCALE/BZERO headers)
-        - Workaround: remove scaling with Astropy's
-          `HDU.data = HDU.data * BSCALE + BZERO` and save a new file
+    2. Some scaled images (using BSCALE/BZERO headers)
+        ✅ Supported:
+            - Files with no BSCALE/BZERO headers (or BSCALE=1.0 and BZERO=0.0)
+            - Uncompressed, unscaled primary HDUs
+        ⚠️ Unsupported: Files with BSCALE ≠ 1.0 or BZERO ≠ 0.0
+            - These require data rescaling in memory, which disables lazy access
+            - Attempting to slice such arrays forces eager read of the full dataset
+            - Workaround: remove scaling with Astropy's
+                `HDU.data = HDU.data * BSCALE + BZERO` and save a new file
 
     These cases will raise `RuntimeError` to prevent silent eager loads that can exhaust memory.
 
@@ -117,14 +123,10 @@ def read_image(
         except Exception as e:
             emsgs.append(f"image format appears not to be casacore: {e.args}")
     # next statement is for debug, comment when done debugging
-    # return _read_fits_image(infile, chunks, verbose, do_sky_coords)
+    # return _fits_image_to_xds(infile, chunks, verbose, do_sky_coords, compute_mask)
     try:
         img_full_path = os.path.expanduser(infile)
-        return _fits_image_to_xds(img_full_path, chunks, verbose, do_sky_coords, compute_mask)
-
-        # return _read_fits_image(
-        #    infile, chunks, verbose, do_sky_coords, compute_mask=compute_mask
-        # )
+        return _fits_image_to_xds(infile, chunks, verbose, do_sky_coords, compute_mask)
     except Exception as e:
         emsgs.append(f"image format appears not to be fits {e.args}")
     # when done debuggin comment out next line

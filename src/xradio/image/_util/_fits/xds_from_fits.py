@@ -52,10 +52,29 @@ def _fits_image_to_xds(
     # may also need to pass mode='denywrite'
     # https://stackoverflow.com/questions/35759713/astropy-io-fits-read-row-from-large-fits-file-with-mutliple-hdus
     hdulist = fits.open(img_full_path, memmap=True)
-    attrs, helpers, header = _fits_header_to_xds_attrs(hdulist)
-    hdulist.close()
-    # avoid keeping reference to mem-mapped fits file
-    del hdulist
+    try:
+        # Memory map support check
+        if isinstance(hdu, fits.CompImageHDU):
+            raise RuntimeError(
+                "Cannot memory-map compressed FITS image (CompImageHDU)."
+                "Workaround: decompress the FITS using tools like `funpack`, `cfitsio`, "
+                "or Astropy's `.scale()`/`.copy()` workflows"
+            )
+        # avoid possibly non-existent hdu.scale_type attribute check and check header instead
+        header = hdu.header
+        scale = hdu.header.get("BSCALE", 1.0)
+        zero = hdu.header.get("BZERO", 0.0)
+        if scale != 1.0 or zero != 0.0:
+            raise RuntimeError(
+                "Cannot memory-map scaled FITS data (BSCALE/BZERO set)."
+                "Workaround: remove scaling with Astropy's"
+                "  `HDU.data = HDU.data * BSCALE + BZERO` and save a new file"
+            )
+        attrs, helpers, header = _fits_header_to_xds_attrs(hdulist, compute_mask)
+    finally:
+        hdulist.close()
+        # avoid keeping reference to mem-mapped fits file
+        del hdulist
     xds = _create_coords(helpers, header, do_sky_coords)
     sphr_dims = helpers["sphr_dims"]
     ary = _read_image_array(img_full_path, chunks, helpers, verbose)
@@ -416,9 +435,6 @@ def _fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList, compute_mask: b
         attrs["direction"] = _xds_direction_attrs_from_header(helpers, header)
     helpers["has_mask"] = False
     if compute_mask:
-        def chunk_has_nan(block):
-            return np.isnan(block).any()
-
         # 🧠 Why the primary.data reference here is Safe (does not cause
         # an eager read of entire data array)
         # primary.data is a memory-mapped array (because fits.open(..., memmap=True)
@@ -432,8 +448,35 @@ def _fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList, compute_mask: b
         # arr = np.isnan(primary.data).any()
         # That would pull the whole array into memory. But we're not doing that.
         data_dask = da.from_array(primary.data, chunks="auto")
+        # The following code black has corner case exposure, although the guard should
+        # eliminate it. But there is a cleaner, dask-y way that should work that we implement
+        # next, with cautions
+        # def chunk_has_nan(block):
+        #     if not isinstance(block, np.ndarray) or block.size == 0:
+        #         return False
+        #    return np.isnan(block).any()
+        # helpers["has_mask"] = data_dask.map_blocks(chunk_has_nan, dtype=bool).any().compute()
+        # ✅ Option: np.isnan(data_dask).any().compute()
+        # 🔒 Pros:
+        # Cleaner and shorter (no custom function)
+        # Handles all chunk shapes robustly — no risk of empty inputs
+        # Uses Dask’s own optimized blockwise operations under the hood
+        # ⚠️ Cons:
+        # Might trigger more eager computation if Dask can't optimize well:
+        # If chunks are misaligned or small, Dask might combine many or materialize more blocks than needed
+        # Especially on large images, it could bump memory pressure slightly
+        # But since we already call .compute(), we will load some block data no matter
+        # what — this just changes how much and how smartly.
+        # ✅ Verdict for compute_mask
+        # Because this is explicitly for computing a global has-NaN flag (not building the
+        # dataset), recommend:
+        # helpers["has_mask"] = np.isnan(data_dask).any().compute()
+        # It's concise, robust to shape edge cases, and still parallelized.
+        # We can always revisit it later if perf becomes a concern — and even then,
+        # it's likely a matter of tuning chunks= manually rather than the expression itself.
+        #
         # This compute will normally be done in parallel
-        helpers["has_mask"] = data_dask.map_blocks(chunk_has_nan, dtype=bool).any().compute()
+        helpers["has_mask"] = np.isnan(data_dask).any().compute()
     beam = _beam_attr_from_header(helpers, header)
     if beam != "mb":
         helpers["beam"] = beam
@@ -854,22 +897,9 @@ def _get_transpose_list(helpers: dict) -> tuple:
 def _read_image_chunk(img_full_path, shapes: tuple, starts: tuple) -> np.ndarray:
     hdulist = fits.open(img_full_path, memmap=True)
     hdu = hdulist[0]
-
-    # Memory map support check
-    if isinstance(hdu, fits.CompImageHDU):
-        hdulist.close()
-        raise RuntimeError("Cannot memory-map compressed FITS image (CompImageHDU).")
-
-    if hdu.scale:
-        hdulist.close()
-        raise RuntimeError("Cannot memory-map scaled FITS data (BSCALE/BZERO set).")
-
     # Chunk slice
     slices = tuple(slice(start, start + length) for start, length in zip(starts, shapes))
     chunk = hdu.data[slices]
-
     hdulist.close()
     del hdulist
     return chunk
-
-

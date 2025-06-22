@@ -38,6 +38,13 @@ def test_create_field_and_source_xds_minimal_wrong_field_ids(ms_empty_required):
         )
 
 
+def get_expected_field_xds_type(descr):
+    if descr["params"]["misbehave"]:
+        return "field_and_source"
+    else:
+        return "field_and_source_ephemeris"
+
+
 def test_create_field_and_source_xds_minimal(ms_minimal_required):
 
     field_and_source_xds, source_id, num_lines, field_names = (
@@ -56,6 +63,9 @@ def test_create_field_and_source_xds_minimal(ms_minimal_required):
     assert num_lines == 3
     assert field_names == np.array(["NGC3031_0"])
     check_dataset(field_and_source_xds, FieldSourceXds)
+    assert field_and_source_xds.attrs["type"] == get_expected_field_xds_type(
+        ms_minimal_required.descr
+    )
 
 
 def test_create_field_and_source_xds_misbehaved(ms_minimal_misbehaved):
@@ -76,6 +86,9 @@ def test_create_field_and_source_xds_misbehaved(ms_minimal_misbehaved):
     assert num_lines == 0
     assert field_names == np.array(["NGC3031_0"])
     check_dataset(field_and_source_xds, FieldSourceXds)
+    assert field_and_source_xds.attrs["type"] == get_expected_field_xds_type(
+        ms_minimal_misbehaved.descr
+    )
 
 
 def test_create_field_and_source_xds_without_opt(ms_minimal_without_opt):
@@ -96,6 +109,9 @@ def test_create_field_and_source_xds_without_opt(ms_minimal_without_opt):
     assert num_lines == 0
     assert field_names == np.array(["NGC3031_0"])
     check_dataset(field_and_source_xds, FieldSourceXds)
+    assert field_and_source_xds.attrs["type"] == get_expected_field_xds_type(
+        ms_minimal_without_opt.descr
+    )
 
 
 def test_pad_missing_sources():

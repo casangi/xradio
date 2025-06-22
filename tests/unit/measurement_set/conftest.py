@@ -109,7 +109,7 @@ def ms_custom_spec(request):
     gen_test_ms to produce it
     """
     name = "test_ms_custom_spec.ms"
-    gen_test_ms(
+    msv2_custom_description = gen_test_ms(
         name,
         request.param,
         opt_tables=True,
@@ -117,7 +117,7 @@ def ms_custom_spec(request):
         required_only=True,
         misbehave=False,
     )
-    yield MSWithSpec(name, request.param)
+    yield MSWithSpec(name, msv2_custom_description)
     shutil.rmtree(name)
 
 

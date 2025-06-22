@@ -9,7 +9,7 @@ from xradio.schema.check import check_dataset
 
 def test_create_antenna_xds_empty(ms_empty_required):
 
-    with pytest.raises(KeyError, match=""):
+    with pytest.raises(KeyError, match="No variable named"):
         antenna_xds = create_antenna_xds(
             ms_empty_required.fname,
             0,
@@ -58,6 +58,9 @@ def test_create_antenna_xds_minimal(ms_minimal_required):
     )
 
     check_dataset(antenna_xds, AntennaXds)
+    assert len(antenna_xds.coords["antenna_name"]) == len(
+        ms_minimal_required.descr["ANTENNA"]
+    )
 
 
 def test_create_antenna_xds_minimal_other_telescope(ms_minimal_required):
@@ -72,6 +75,9 @@ def test_create_antenna_xds_minimal_other_telescope(ms_minimal_required):
     )
 
     check_dataset(antenna_xds, AntennaXds)
+    assert len(antenna_xds.coords["antenna_name"]) == len(
+        ms_minimal_required.descr["ANTENNA"]
+    )
 
 
 def test_create_antenna_xds_misbehaved(ms_minimal_misbehaved):
@@ -86,6 +92,9 @@ def test_create_antenna_xds_misbehaved(ms_minimal_misbehaved):
     )
 
     check_dataset(antenna_xds, AntennaXds)
+    assert len(antenna_xds.coords["antenna_name"]) == len(
+        ms_minimal_misbehaved.descr["ANTENNA"]
+    )
 
 
 def test_create_antenna_xds_without_opt(ms_minimal_without_opt):
@@ -99,3 +108,6 @@ def test_create_antenna_xds_without_opt(ms_minimal_without_opt):
     )
 
     check_dataset(antenna_xds, AntennaXds)
+    assert len(antenna_xds.coords["antenna_name"]) == len(
+        ms_minimal_without_opt.descr["ANTENNA"]
+    )

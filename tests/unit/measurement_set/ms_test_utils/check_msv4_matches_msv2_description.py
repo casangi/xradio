@@ -72,3 +72,47 @@ def check_msv4_matches_descr(msv4_xdt, msv2_descr):
     ant_xds = msv4_xdt["antenna_xds"].ds
     assert "antenna_name" in ant_xds
     assert len(ant_xds.coords["antenna_name"]) == nantennas
+
+    if msv2_descr["params"]["misbehave"]:
+        expected_type = "field_and_source"
+    else:
+        expected_type = "field_and_source_ephemeris"
+
+    field_and_source_name = "field_and_source_base_xds"
+    assert (
+        field_and_source_name
+        == msv4_xdt.ds.attrs["data_groups"]["base"]["field_and_source"]
+    )
+    assert field_and_source_name in msv4_xdt
+    assert msv4_xdt[field_and_source_name].ds.attrs["type"] == expected_type
+
+    if msv2_descr["params"]["opt_tables"]:
+        assert "system_calibration_xds" in msv4_xdt
+        assert "weather_xds" in msv4_xdt
+        if not msv2_descr["params"]["misbehave"]:
+            assert "SOURCE_LOCATION" in msv4_xdt["field_and_source_base_xds"].ds
+            assert (
+                msv4_xdt["field_and_source_base_xds"].attrs["type"]
+                == "field_and_source_ephemeris"
+            )
+
+    if msv2_descr["params"]["vlbi_tables"]:
+        assert "gain_curve_xds" in msv4_xdt
+        assert "phase_calibration_xds" in msv4_xdt
+
+    partition_info = msv4_xdt.xr_ms.get_partition_info()
+    processor_info = msv4_xdt.ds.attrs["processor_info"]
+    if msv2_descr["params"]["misbehave"]:
+        # SPW names should be empty string in MSv2
+        assert partition_info["spectral_window_name"] == "spw_0"
+        assert not processor_info["type"]
+        assert not processor_info["sub_type"]
+    else:
+        assert partition_info["spectral_window_name"]
+        assert processor_info["type"]
+        assert processor_info["sub_type"]
+
+    if msv2_descr["params"]["opt_tables"] and not msv2_descr["params"]["misbehave"]:
+        assert "execution_block_UID" in msv4_xdt.ds.attrs["observation_info"]
+    else:
+        assert not "execution_block_UID" in msv4_xdt.ds.attrs["observation_info"]

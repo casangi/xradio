@@ -202,6 +202,12 @@ def gen_test_ms(
         gen_subt_gain_curve(msname, descr["ANTENNA"])
         gen_subt_phase_cal(msname, descr["ANTENNA"])
 
+    outdescr["params"] = {
+        "opt_tables": opt_tables,
+        "vlbi_tables": vlbi_tables,
+        "misbehave": misbehave,
+    }
+
     return outdescr
 
 

@@ -1290,6 +1290,8 @@ class fits_to_xds_test(xds_from_image_test):
     _imname1: str = "demo_simulated.im"
     _outname1: str = "demo_simulated.fits"
     _compressed_fits: str = "compressed.fits"
+    _bzero: str = "bzero.fits"
+    _bscale: str = "bscale.fits"
 
     @classmethod
     def setUpClass(cls):
@@ -1306,7 +1308,13 @@ class fits_to_xds_test(xds_from_image_test):
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
-        for f in [cls._imname1, cls._outname1, cls._compressed_fits]:
+        for f in [
+            cls._imname1,
+            cls._outname1,
+            cls._compressed_fits,
+            cls._bzero,
+            cls._bscale,
+        ]:
             if os.path.exists(f):
                 if os.path.isdir(f):
                     shutil.rmtree(f)
@@ -1439,7 +1447,6 @@ class fits_to_xds_test(xds_from_image_test):
             self._compressed_fits, overwrite=True
         )
         # Ensure the file was saved as a CompImageHDU (not auto-promoted to PrimaryHDU)
-        print("self._compressed_fits", self._compressed_fits)
         with fits.open(self._compressed_fits, do_not_scale_image_data=True) as hdulist:
             assert isinstance(
                 hdulist[1], fits.CompImageHDU
@@ -1451,6 +1458,59 @@ class fits_to_xds_test(xds_from_image_test):
         self.assertTrue(
             re.search(r"name=COMPRESSED_IMAGE", str(exc_info.value)),
             f"Expected error about COMPRESSED_IMAGE HDU, but got {str(exc_info.value)}",
+        )
+
+    def _create_bzero_bscale_image(
+        self, data, outname: str, bzero: float, bscale: float
+    ) -> None:
+        hdu = fits.PrimaryHDU(data=data)
+        # Apply scaling explicitly. This enables BSCALE/BZERO generation
+        hdu.header["BSCALE"] = bscale
+        hdu.header["BZERO"] = bzero
+        hdu.writeto(outname, overwrite=True)
+
+    def _clean_data(self, data: np.ndarray) -> None:
+        """
+        Clean data to the range of int16 to avoid issues with BSCALE/BZERO.
+        """
+        # force astropy.io.fits to scale data so BZERO and BSCALE are set,
+        # will be omitted from new header otherwise on write
+        data = np.nan_to_num(data, nan=0.0)  # replace NaNs with 0
+        data = np.clip(data, -32768, 32767)  # clip to int16 range
+        data = data.astype(np.int16)
+
+    def test_bzero_guard(self):
+        """
+        Test reading FITS files with bzero != 0 fails
+        """
+        with fits.open(self._infits) as hdulist:
+            data = hdulist[0].data
+            self._clean_data(data)
+
+        self._create_bzero_bscale_image(data, self._bzero, bzero=5.0, bscale=1.0)
+        self.assertTrue(os.path.exists(self._bzero), f"{self._bzero} was not written")
+        with pytest.raises(RuntimeError) as exc_info:
+            fds = read_image(self._bzero)
+        self.assertTrue(
+            re.search(r"BSCALE/BZERO set", str(exc_info.value)),
+            f"Expected error about BSCALE/BZERO, but got {str(exc_info.value)}",
+        )
+
+    def test_bscale_guard(self):
+        """
+        Test reading FITS files with bscale != 1 fails
+        """
+        with fits.open(self._infits) as hdulist:
+            data = hdulist[0].data
+            self._clean_data(data)
+
+        self._create_bzero_bscale_image(data, self._bscale, bzero=0.0, bscale=2.0)
+        self.assertTrue(os.path.exists(self._bscale), f"{self._bzero} was not written")
+        with pytest.raises(RuntimeError) as exc_info:
+            fds = read_image(self._bscale)
+        self.assertTrue(
+            re.search(r"BSCALE/BZERO set", str(exc_info.value)),
+            f"Expected error about BSCALE/BZERO, but got {str(exc_info.value)}",
         )
 
     # TODO

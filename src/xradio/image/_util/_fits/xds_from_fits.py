@@ -399,26 +399,21 @@ def _fits_header_to_xds_attrs(
         if hdu.name == "PRIMARY":
             primary = hdu
             # Memory map support check
-            if isinstance(hdu, fits.CompImageHDU):
-                raise RuntimeError(
-                    "Cannot memory-map compressed FITS image (CompImageHDU)."
-                    "Workaround: decompress the FITS using tools like `funpack`, `cfitsio`, "
-                    "or Astropy's `.scale()`/`.copy()` workflows"
-                )
             # avoid possibly non-existent hdu.scale_type attribute check and check header instead
             header = hdu.header
             scale = hdu.header.get("BSCALE", 1.0)
             zero = hdu.header.get("BZERO", 0.0)
-            if scale != 1.0 or zero != 0.0:
+            if not (scale == 1.0 and zero == 0.0):
                 raise RuntimeError(
-                    "Cannot memory-map scaled FITS data (BSCALE/BZERO set)."
+                    "Cannot memory-map scaled FITS data (BSCALE/BZERO set). "
+                    f"BZERO={zero}, BSCALE={scale}. "
                     "Workaround: remove scaling with Astropy's"
                     "  `HDU.data = HDU.data * BSCALE + BZERO` and save a new file"
                 )
-                # NOTE: check for primary.data size being too large removed, since
-                # data is read in chunks, so no danger of exhausting memory
-                # NOTE: sanity-check for ndarray type has been removed to avoid
-                # forcing eager memory load of possibly very large data array.
+            # NOTE: check for primary.data size being too large removed, since
+            # data is read in chunks, so no danger of exhausting memory
+            # NOTE: sanity-check for ndarray type has been removed to avoid
+            # forcing eager memory load of possibly very large data array.
         elif hdu.name == "BEAMS":
             beams = hdu
         else:
@@ -497,6 +492,8 @@ def _fits_header_to_xds_attrs(
         helpers["beam"] = beam
     if "BITPIX" in header:
         v = abs(header["BITPIX"])
+        if v == 16:
+            helpers["dtype"] = "int16"
         if v == 32:
             helpers["dtype"] = "float32"
         elif v == 64:

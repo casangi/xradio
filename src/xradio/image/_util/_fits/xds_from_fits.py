@@ -382,6 +382,16 @@ def _create_dim_map(helpers: dict, header) -> dict:
 def _fits_header_to_xds_attrs(
     hdulist: fits.hdu.hdulist.HDUList, compute_mask: bool
 ) -> tuple:
+    # First: Guard for unsupported compressed images
+    for i, hdu in enumerate(hdulist):
+        if isinstance(hdu, fits.CompImageHDU):
+            raise RuntimeError(
+                f"HDU {i}, name={hdu.name} is a CompImageHDU, which is not supported "
+                "for memory-mapping. "
+                "Cannot memory-map compressed FITS image (CompImageHDU). "
+                "Workaround: decompress the FITS using tools like `funpack`, `cfitsio`, "
+                "or Astropy's `.scale()`/`.copy()` workflows"
+            )
     primary = None
     # FIXME beams is set but never actually used in this function. What's up with that?
     beams = None

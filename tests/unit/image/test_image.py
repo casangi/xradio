@@ -1,4 +1,5 @@
 import astropy.units as u
+from astropy.io import fits
 import pytest
 
 try:
@@ -13,6 +14,7 @@ import os
 import shutil
 import unittest
 from glob import glob
+import re
 
 import dask.array as da
 import numpy as np
@@ -1287,6 +1289,7 @@ class fits_to_xds_test(xds_from_image_test):
 
     _imname1: str = "demo_simulated.im"
     _outname1: str = "demo_simulated.fits"
+    _compressed_fits: str = "compressed.fits"
 
     @classmethod
     def setUpClass(cls):
@@ -1303,7 +1306,7 @@ class fits_to_xds_test(xds_from_image_test):
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
-        for f in [cls._imname1, cls._outname1]:
+        for f in [cls._imname1, cls._outname1, cls._compressed_fits]:
             if os.path.exists(f):
                 if os.path.isdir(f):
                     shutil.rmtree(f)
@@ -1419,6 +1422,36 @@ class fits_to_xds_test(xds_from_image_test):
                     "MASK0" not in fds.data_vars,
                     "MASK0 should not be in data_vars, but is",
                 )
+
+    def test_compressed_fits_guard(self):
+        """
+        Test reading compressed FITS files fails because not supported by memmapping
+        """
+        # make a compressed fits file from what we already have access to
+        with fits.open(self._infits) as hdulist:
+            data = hdulist[0].data
+            header = hdulist[0].header
+
+        # Wrap in compressed HDU
+        primary_hdu = fits.PrimaryHDU()
+        comp_hdu = fits.CompImageHDU(data=data, header=header)
+        fits.HDUList([primary_hdu, comp_hdu]).writeto(
+            self._compressed_fits, overwrite=True
+        )
+        # Ensure the file was saved as a CompImageHDU (not auto-promoted to PrimaryHDU)
+        print("self._compressed_fits", self._compressed_fits)
+        with fits.open(self._compressed_fits, do_not_scale_image_data=True) as hdulist:
+            assert isinstance(
+                hdulist[1], fits.CompImageHDU
+            ), "Expected CompImageHDU in HDU[1]"
+
+        with pytest.raises(RuntimeError) as exc_info:
+            read_image(self._compressed_fits, {"frequency": 5})
+
+        self.assertTrue(
+            re.search(r"name=COMPRESSED_IMAGE", str(exc_info.value)),
+            f"Expected error about COMPRESSED_IMAGE HDU, but got {str(exc_info.value)}",
+        )
 
     # TODO
     # def test_get_img_ds_block(self):

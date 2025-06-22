@@ -182,18 +182,30 @@ def base_check_ps_accessor(ps_lazy_xdt: xr.DataTree, ps_xdt: xr.DataTree):
 
     try:
         import matplotlib
+        from matplotlib import pyplot as plt
 
         matplotlib.use("Agg")
         with warnings.catch_warnings():
             warnings.filterwarnings(
                 action="ignore",
-                category="UserWarning",
+                category=UserWarning,
                 message="FigureCanvasAgg is non-interactive",
             )
+            warnings.filterwarnings(
+                action="ignore",
+                category=UserWarning,
+                message="No artists",
+            )
 
-            label_all_fields = label_all_antennas = len(ps_xdt_df) > 1
-            ps_xdt.xr_ps.plot_phase_centers(label_all_fields=label_all_fields)
-            ps_xdt.xr_ps.plot_antenna_positions(label_all_antennas=label_all_antennas)
+            with plt.ioff():
+                label_all_fields = label_all_antennas = len(ps_xdt_df) > 1
+                ps_xdt.xr_ps.plot_phase_centers(label_all_fields=label_all_fields)
+                plt.close()
+                ps_xdt.xr_ps.plot_antenna_positions(
+                    label_all_antennas=label_all_antennas
+                )
+                plt.close()
+
     except Exception as exc:
         logger.warning(
             f"Could not run processing set plot functions, exception details: {exc}"

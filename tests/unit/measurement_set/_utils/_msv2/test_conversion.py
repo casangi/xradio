@@ -284,7 +284,7 @@ def test_itemsize_spec():
     assert conversion.itemsize_spec(xds_main) == 8
 
 
-def itemsize_pointing_spec():
+def test_itemsize_pointing_spec():
     assert conversion.itemsize_spec(xds_pointing) == 8
 
 
@@ -328,7 +328,7 @@ def test_convert_and_write_partition_empty_complete(ms_empty_complete):
     )
 
 
-def test_convert_and_write_partition_(ms_empty_required):
+def test_convert_and_write_partition_empty_required(ms_empty_required):
 
     conversion.convert_and_write_partition(
         in_file=ms_empty_required.fname,

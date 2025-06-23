@@ -11,26 +11,9 @@ import numpy as np
 import xarray as xr
 
 
-def check_msv4_matches_msv2_descr(proc_set_xdt: xr.DataTree, msv2_descr: dict):
-    """
-    Parameters
-    ----------
-    proc_set_xdt : xr.DataTree
-        A processing set DataTree containing MSv4s to be checked
-
-    msv2_descr : dict
-        MSv2 description that was used to generate a test input MSv2 in gen_test_ms
-
-    Returns
-    -------
-
-    """
-    for _msv4_name, msv4_xdt in proc_set_xdt.items():
-        check_msv4_matches_descr(msv4_xdt, msv2_descr)
-
-
 def check_msv4_matches_descr(msv4_xdt, msv2_descr):
-    """Checks a single partition / MSv4
+    """
+    Checks a single partition / MSv4
 
     Parameters
     ----------
@@ -116,3 +99,23 @@ def check_msv4_matches_descr(msv4_xdt, msv2_descr):
         assert "execution_block_UID" in msv4_xdt.ds.attrs["observation_info"]
     else:
         assert not "execution_block_UID" in msv4_xdt.ds.attrs["observation_info"]
+
+
+def check_processing_set_matches_msv2_descr(
+    proc_set_xdt: xr.DataTree, msv2_descr: dict
+):
+    """
+    Parameters
+    ----------
+    proc_set_xdt : xr.DataTree
+        A processing set DataTree containing MSv4s to be checked
+
+    msv2_descr : dict
+        MSv2 description that was used to generate a test input MSv2 in gen_test_ms
+
+    Returns
+    -------
+
+    """
+    for _msv4_name, msv4_xdt in proc_set_xdt.items():
+        check_msv4_matches_descr(msv4_xdt, msv2_descr)

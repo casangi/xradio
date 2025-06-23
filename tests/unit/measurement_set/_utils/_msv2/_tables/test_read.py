@@ -46,6 +46,7 @@ def test_table_has_column(tab_name, col_name, expected_result, request):
         ("ms_tab_nonexistent", "DATA", pytest.raises(RuntimeError)),
         ("ms_tab_nonexistent", "ANY", pytest.raises(RuntimeError)),
         ("generic_antenna_xds_min", "TIME", pytest.raises(RuntimeError)),
+        ("generic_source_xds_min", "ANTENNA1", pytest.raises(RuntimeError)),
     ],
 )
 def test_table_has_column_raises(tab_name, col_name, expected_raises, request):
@@ -441,6 +442,16 @@ def test_redimension_ms_subtable_source(generic_source_xds_min):
     assert all([coord in res.coords for coord in src_coords])
 
 
+def test_redimension_ms_subtable_phase_cal(generic_phase_cal_xds_min):
+    from xradio.measurement_set._utils._msv2._tables.read import redimension_ms_subtable
+    import xarray as xr
+
+    res = redimension_ms_subtable(generic_phase_cal_xds_min, "PHASE_CAL")
+    assert isinstance(res, xr.Dataset)
+    src_coords = ["ANTENNA_ID", "TIME", "SPECTRAL_WINDOW_ID"]
+    assert all([coord in res.coords for coord in src_coords])
+
+
 def test_is_ephem_subtable_ms(ms_minimal_required):
     from xradio.measurement_set._utils._msv2._tables.read import is_ephem_subtable
 
@@ -521,6 +532,16 @@ def test_load_generic_table_feed(ms_minimal_required):
             for dim in ["ANTENNA_ID", "SPECTRAL_WINDOW_ID", "dim_1", "dim_2", "dim_3"]
         ]
     )
+
+
+def test_load_generic_table_polarization(ms_minimal_required):
+    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
+    import xarray as xr
+
+    res = load_generic_table(ms_minimal_required.fname, "POLARIZATION")
+    assert res
+    assert type(res) == xr.Dataset
+    assert all([dim in res.dims for dim in ["row", "dim_1", "dim_2"]])
 
 
 @pytest.mark.parametrize(

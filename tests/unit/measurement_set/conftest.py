@@ -140,21 +140,12 @@ def generic_antenna_xds_min(ms_minimal_required):
 
 
 @pytest.fixture(scope="session")
-def generic_observation_xds_min(ms_minimal_required):
-    """A generic observation xds (loaded form MSv2 mostly as is), loaded from the minimal MS/OBSERVATION subtable"""
+def generic_phase_cal_xds_min(ms_minimal_required):
+    """A generic phase_cal xds (loaded form MSv2 mostly as is), loaded from the minimal MS/PHASE_CAL subtable"""
 
     from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
 
-    subt = load_generic_table(ms_minimal_required.fname, "OBSERVATION")
-    return subt
-
-
-@pytest.fixture(scope="session")
-def generic_polarization_xds_min(ms_minimal_required):
-    """A pol xds, loaded from the minimal MS/POLAIZATION subtable"""
-    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
-
-    subt = load_generic_table(ms_minimal_required.fname, "POLARIZATION")
+    subt = load_generic_table(ms_minimal_required.fname, "PHASE_CAL")
     return subt
 
 
@@ -235,15 +226,6 @@ def antenna_xds_min(msv4_xdt_min, msv4_min_path):
 
 
 @pytest.fixture(scope="session")
-def field_and_source_xds_min(msv4_xdt_min, msv4_min_path):
-    """An MSv4 secondary field and source dataset ('field_and_source_xds')"""
-
-    field_and_source_xds = msv4_xdt_min["field_and_source_base_xds"]
-
-    yield field_and_source_xds
-
-
-@pytest.fixture(scope="session")
 def pointing_xds_min(msv4_xdt_min, msv4_min_path):
     """An MSv4 secondary pointing dataset ('pointing_xds')"""
 
@@ -261,110 +243,7 @@ def sys_cal_xds_min(msv4_xdt_min, msv4_min_path):
     yield syscal_xds
 
 
-@pytest.fixture(scope="session")
-def weather_xds_min(msv4_xdt_min, msv4_min_path):
-    """An MSv4 secondary weather dataset ('weather_xds')"""
-
-    weather_xds = msv4_xdt_min["weather"]
-
-    yield weather_xds
-
-
-# Only used/required by test_write:
-
-
-@pytest.fixture(scope="session")
-def ms_minimal_for_writes():
-    """MS to be used to write subtables inside"""
-    name = "test_msv2_minimal_required_for_writes.ms"
-    spec = gen_test_ms(name, required_only=True)
-    yield MSWithSpec(name, spec)
-    shutil.rmtree(name)
-
-
-# Only used/required by test_write_exp_api
-
-
-@pytest.fixture(scope="session")
-def main_xds_min(ms_minimal_required):
-    """A main xds (one partition, when partitioning by intent"""
-    from xradio.measurement_set._utils._msv2._tables.read_main_table import (
-        read_expanded_main_table,
-    )
-
-    # Alternatively:
-    # cds = read_ms(ms_minimal_required.fname, partition_scheme="intent")
-    # part_key = (0, 0, "scan_intent#subscan_intent")
-    # part = cds.partitions[part_key]
-    part, _part_ids, attrs = read_expanded_main_table(
-        ms_minimal_required.fname, 0, (1, 0)
-    )
-    part.attrs = attrs
-
-    quick_fix_ndarray_shape_attrs(part)
-
-    yield part
-
-
-@pytest.fixture(scope="session")
-def main_xds_flat_min(ms_minimal_required):
-    """A "flat" (row dim) main xds (one partition, when partitioning by ddi)"""
-    from xradio.measurement_set._utils._msv2._tables.read_main_table import (
-        read_flat_main_table,
-    )
-    from xradio.measurement_set._utils._msv2.msv2_msv3 import ignore_msv2_cols
-
-    xds, _part_ids, _attrs = read_flat_main_table(
-        ms_minimal_required.fname, 0, ignore_msv2_cols=ignore_msv2_cols
-    )
-
-    yield xds
-
-
-@pytest.fixture(scope="session")
-def cds_minimal_required(
-    ms_minimal_required, main_xds_flat_min, generic_antenna_xds_min
-):
-    """a simple cds data structure (should be read from an MS)"""
-    from xradio.measurement_set._utils._msv2._tables.write_exp_api import (
-        vis_xds_packager_mxds,
-    )
-
-    subts = [
-        ("antenna", generic_antenna_xds_min),
-        ("field", xr.Dataset()),
-        ("spectral_window", xr.Dataset()),
-        ("polarization", xr.Dataset()),
-        ("feed", xr.Dataset()),
-        ("source", xr.Dataset()),
-    ]
-    parts = {"0": main_xds_flat_min}
-    cds = vis_xds_packager_mxds(parts, subts, True)
-
-    for _key, part in cds.attrs["partitions"].items():
-        quick_fix_ndarray_shape_attrs(part)
-
-    yield cds
-
-
-def quick_fix_ndarray_shape_attrs(part):
-    """
-    Crude fix for unsupported attrs => update/extend attrs dict filters.
-    Shape attributes which take ndarray type values, added through python-casacore,
-    "fix" for the experimental write MS , "UVW"]: (but UVW was expected, from CASA
-    tests MSs)
-    """
-
-    for col in ["DATA", "CORRECTED_DATA", "MODEL_DATA"]:
-        if (
-            "other" in part.attrs
-            and col in part.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]
-            and "shape"
-            in part.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"][col]
-        ):
-            part.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"][col].pop(
-                "shape"
-            )
+# Used in test_processing_set_xdt / test_load_processing_set
 
 
 def download_measurement_set(input_ms, directory="/tmp"):

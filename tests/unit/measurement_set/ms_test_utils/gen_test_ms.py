@@ -359,7 +359,7 @@ def gen_main_table(
         assert dminfo["NAME"] == "UVWGroup"
 
         # Figure out amount of rows and related IDs
-        nrows = 300  # descr["nrows_per_ddi"] # 300
+        nrows = descr["nrows_per_ddi"]
         dd_pairs = list(
             itertools.product(
                 list(descr["SPECTRAL_WINDOW"].values()), descr["POLARIZATION"].values()

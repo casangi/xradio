@@ -419,6 +419,7 @@ def test_alma(tmp_path):
 #     )
 
 
+@pytest.mark.skipif(os.getenv("SKIP_TESTS_CASATOOLS") == "1", reason="Skip tests that require casatasks. getcolnp not available in casatools.")
 def test_ska_low(tmp_path):
     expected_subtables = {"antenna", "phased_array"}
     base_test(
@@ -430,6 +431,7 @@ def test_ska_low(tmp_path):
     )
 
 
+@pytest.mark.skipif(os.getenv("SKIP_TESTS_CASATOOLS") == "1", reason=" Skip tests that require casatasks. getcolnp not available in casatools.")
 def test_ska_mid(tmp_path):
     expected_subtables = {"antenna"}
     base_test(

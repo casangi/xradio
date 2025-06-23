@@ -2,6 +2,7 @@ import importlib.resources
 import itertools
 import numpy as np
 import os
+import sys
 import pathlib
 import pytest
 import time
@@ -36,13 +37,6 @@ def tmp_path():
 def download_and_convert_msv2_to_processing_set(
     msv2_name, folder, partition_scheme, parallel_mode: str = "none"
 ):
-
-    # We can remove this once there is a new release of casacore
-    # if os.environ["USER"] == "runner":
-    #     casa_data_dir = (importlib.resources.files("casadata") / "__data__").as_posix()
-    #     rc_file = open(os.path.expanduser("~/.casarc"), "a+")  # append mode
-    #     rc_file.write("\nmeasures.directory: " + casa_data_dir)
-    #     rc_file.close()
 
     _logger_name = "xradio"
     if os.getenv("VIPER_LOGGER_NAME") != _logger_name:
@@ -330,11 +324,13 @@ def base_test(
     expected_secondary_xds: set = None,
 ):
     start = time.time()
-    # from toolviper.dask.client import local_client
 
-    # Strange bug when running test in paralell (the unrelated image tests fail).
-    # viper_client = local_client(cores=4, memory_limit="4GB")
-    # viper_client
+    from toolviper.dask.client import local_client
+
+    viper_client = local_client(
+        cores=2, memory_limit="3GB"
+    )  ##Do not increase size otherwise GitHub MacOS runner will hang.
+    viper_client
 
     ps_list = (
         []
@@ -461,6 +457,10 @@ def test_alma(tmp_path):
 #     )
 
 
+@pytest.mark.skipif(
+    os.getenv("SKIP_TESTS_CASATOOLS") == "1",
+    reason="Skip tests that require casatasks. getcolnp not available in casatools.",
+)
 def test_ska_low(tmp_path):
     expected_subtables = {"antenna", "phased_array"}
     base_test(
@@ -472,6 +472,10 @@ def test_ska_low(tmp_path):
     )
 
 
+@pytest.mark.skipif(
+    os.getenv("SKIP_TESTS_CASATOOLS") == "1",
+    reason=" Skip tests that require casatasks. getcolnp not available in casatools.",
+)
 def test_ska_mid(tmp_path):
     expected_subtables = {"antenna"}
     base_test(
@@ -779,7 +783,7 @@ if __name__ == "__main__":
     # test_sd_A002_Xe3a5fd_Xe38e(tmp_path=Path("."))
     # test_s3(tmp_path=Path("."))
     # test_vlass(tmp_path=Path("."))
-    # test_alma(tmp_path=Path("."))
+    test_alma(tmp_path=Path("."))
     # #test_preconverted_alma(tmp_path=Path("."))
     # test_ska_mid(tmp_path=Path("."))
     # test_lofar(tmp_path=Path("."))
@@ -789,7 +793,7 @@ if __name__ == "__main__":
     # test_ngeht(tmp_path=Path("."))
     # test_ephemeris(tmp_path=Path("."))
     # test_single_dish(tmp_path=Path("."))
-    test_alma_ephemeris_mosaic(tmp_path=Path("."))
+    # test_alma_ephemeris_mosaic(tmp_path=Path("."))
     # test_VLA(tmp_path=Path("."))
 
 # All test preformed on MAC with M3 and 16 GB Ram.

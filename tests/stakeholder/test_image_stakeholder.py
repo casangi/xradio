@@ -14,12 +14,6 @@ relative_tolerance = 10 ** (-6)
 
 
 def test_image():
-    # if os.environ["USER"] == "runner":
-    #     casa_data_dir = (importlib.resources.files("casadata") / "__data__").as_posix()
-    #     rc_file = open(os.path.expanduser("~/.casarc"), "a+")  # append mode
-    #     rc_file.write("\nmeasures.directory: " + casa_data_dir)
-    #     rc_file.close()
-
     image_name = "demo_simulated.im"
     download(image_name)
     from xradio.image import load_image, read_image, write_image
@@ -33,6 +27,8 @@ def test_image():
 
     sum = np.nansum(np.abs(img_xds.SKY))
     sum_lazy = np.nansum(np.abs(lazy_img_xds.SKY))
+
+    write_image(img_xds, "test_image.zarr", out_format="zarr", overwrite=True)
 
     assert np.isclose(
         sum, sum_lazy, rtol=relative_tolerance

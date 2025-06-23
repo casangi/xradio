@@ -58,9 +58,13 @@ def dask_client_module():
         A Dask client connected to a local cluster, shared across all tests
         in the module.
     """
-    print("\nSetting up Dask client for the test module...")
-    client = local_client(cores=4, serial_execution=False)
 
+    import sys
+
+    print("\nSetting up Dask client for the test module...")
+    client = local_client(
+        cores=2, memory_limit="3GB"
+    )  # Do not increase size otherwise GitHub MacOS runner will hang.
     try:
         yield client
     finally:

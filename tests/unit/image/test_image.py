@@ -1465,8 +1465,12 @@ class fits_to_xds_test(xds_from_image_test):
         )
 
     def _create_bzero_bscale_image(
-        self, data, outname: str, bzero: float, bscale: float
+        self, outname: str, bzero: float, bscale: float
     ) -> None:
+        with fits.open(self._infits) as hdulist:
+            data = hdulist[0].data
+            self._clean_data(data)
+
         hdu = fits.PrimaryHDU(data=data)
         # Apply scaling explicitly. This enables BSCALE/BZERO generation
         hdu.header["BSCALE"] = bscale
@@ -1487,11 +1491,7 @@ class fits_to_xds_test(xds_from_image_test):
         """
         Test reading FITS files with bzero != 0 fails
         """
-        with fits.open(self._infits) as hdulist:
-            data = hdulist[0].data
-            self._clean_data(data)
-
-        self._create_bzero_bscale_image(data, self._bzero, bzero=5.0, bscale=1.0)
+        self._create_bzero_bscale_image(self._bzero, bzero=5.0, bscale=1.0)
         self.assertTrue(os.path.exists(self._bzero), f"{self._bzero} was not written")
         with pytest.raises(RuntimeError) as exc_info:
             fds = read_image(self._bzero)
@@ -1504,11 +1504,7 @@ class fits_to_xds_test(xds_from_image_test):
         """
         Test reading FITS files with bscale != 1 fails
         """
-        with fits.open(self._infits) as hdulist:
-            data = hdulist[0].data
-            self._clean_data(data)
-
-        self._create_bzero_bscale_image(data, self._bscale, bzero=0.0, bscale=2.0)
+        self._create_bzero_bscale_image(self._bscale, bzero=0.0, bscale=2.0)
         self.assertTrue(os.path.exists(self._bscale), f"{self._bzero} was not written")
         with pytest.raises(RuntimeError) as exc_info:
             fds = read_image(self._bscale)

@@ -5,6 +5,7 @@ from typing import Union
 import dask
 import dask.array as da
 import numpy as np
+import psutil
 import xarray as xr
 from astropy import units as u
 from astropy.io import fits
@@ -35,20 +36,31 @@ from xradio.image._util.common import (
 
 
 def _fits_image_to_xds(
-    img_full_path: str, chunks: dict, verbose: bool, do_sky_coords: bool
+    img_full_path: str,
+    chunks: dict,
+    verbose: bool,
+    do_sky_coords: bool,
+    compute_mask: bool,
 ) -> dict:
     """
+    compute_mask : bool, optional
+        If True (default), compute and attach valid data masks to the xds.
+        If False, skip mask generation for performance. It is solely the responsibility
+        of the user to ensure downstream apps can handle NaN values; do not
+        ask package developers to add this non-standard behavior.
+
     TODO: complete documentation
     Create an xds without any pixel data from metadata from the specified FITS image
     """
-    # memmap = True allows only part of data to be loaded into memory
     # may also need to pass mode='denywrite'
     # https://stackoverflow.com/questions/35759713/astropy-io-fits-read-row-from-large-fits-file-with-mutliple-hdus
-    hdulist = fits.open(img_full_path, memmap=True)
-    attrs, helpers, header = _fits_header_to_xds_attrs(hdulist)
-    hdulist.close()
-    # avoid keeping reference to mem-mapped fits file
-    del hdulist
+    try:
+        hdulist = fits.open(img_full_path, memmap=True)
+        attrs, helpers, header = _fits_header_to_xds_attrs(hdulist, compute_mask)
+    finally:
+        hdulist.close()
+        # avoid keeping reference to mem-mapped fits file
+        del hdulist
     xds = _create_coords(helpers, header, do_sky_coords)
     sphr_dims = helpers["sphr_dims"]
     ary = _read_image_array(img_full_path, chunks, helpers, verbose)
@@ -367,12 +379,41 @@ def _create_dim_map(helpers: dict, header) -> dict:
     return dim_map
 
 
-def _fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList) -> tuple:
+def _fits_header_to_xds_attrs(
+    hdulist: fits.hdu.hdulist.HDUList, compute_mask: bool
+) -> tuple:
+    # First: Guard for unsupported compressed images
+    for i, hdu in enumerate(hdulist):
+        if isinstance(hdu, fits.CompImageHDU):
+            raise RuntimeError(
+                f"HDU {i}, name={hdu.name} is a CompImageHDU, which is not supported "
+                "for memory-mapping. "
+                "Cannot memory-map compressed FITS image (CompImageHDU). "
+                "Workaround: decompress the FITS using tools like `funpack`, `cfitsio`, "
+                "or Astropy's `.scale()`/`.copy()` workflows"
+            )
     primary = None
+    # FIXME beams is set but never actually used in this function. What's up with that?
     beams = None
     for hdu in hdulist:
         if hdu.name == "PRIMARY":
             primary = hdu
+            # Memory map support check
+            # avoid possibly non-existent hdu.scale_type attribute check and check header instead
+            header = hdu.header
+            scale = hdu.header.get("BSCALE", 1.0)
+            zero = hdu.header.get("BZERO", 0.0)
+            if not (scale == 1.0 and zero == 0.0):
+                raise RuntimeError(
+                    "Cannot memory-map scaled FITS data (BSCALE/BZERO set). "
+                    f"BZERO={zero}, BSCALE={scale}. "
+                    "Workaround: remove scaling with Astropy's"
+                    "  `HDU.data = HDU.data * BSCALE + BZERO` and save a new file"
+                )
+            # NOTE: check for primary.data size being too large removed, since
+            # data is read in chunks, so no danger of exhausting memory
+            # NOTE: sanity-check for ndarray type has been removed to avoid
+            # forcing eager memory load of possibly very large data array.
         elif hdu.name == "BEAMS":
             beams = hdu
         else:
@@ -402,13 +443,57 @@ def _fits_header_to_xds_attrs(hdulist: fits.hdu.hdulist.HDUList) -> tuple:
         raise RuntimeError("Could not find both direction axes")
     if dir_axes is not None:
         attrs["direction"] = _xds_direction_attrs_from_header(helpers, header)
-    # FIXME read fits data in chunks in case all data too large to hold in memory
-    helpers["has_mask"] = da.any(da.isnan(primary.data)).compute()
+    helpers["has_mask"] = False
+    if compute_mask:
+        # 🧠 Why the primary.data reference here is Safe (does not cause
+        # an eager read of entire data array)
+        # primary.data is a memory-mapped array (because fits.open(..., memmap=True)
+        # is used upstream)
+        # da.from_array(...) wraps this without reading it immediately
+        # The actual read occurs inside:
+        # .map_blocks(...).any().compute()
+        # ...and that triggers blockwise loading via Dask → safe and parallel
+        # 💡 Gotcha
+        # What would be dangerous:
+        # arr = np.isnan(primary.data).any()
+        # That would pull the whole array into memory. But we're not doing that.
+        data_dask = da.from_array(primary.data, chunks="auto")
+        # The following code black has corner case exposure, although the guard should
+        # eliminate it. But there is a cleaner, dask-y way that should work that we implement
+        # next, with cautions
+        # def chunk_has_nan(block):
+        #     if not isinstance(block, np.ndarray) or block.size == 0:
+        #         return False
+        #    return np.isnan(block).any()
+        # helpers["has_mask"] = data_dask.map_blocks(chunk_has_nan, dtype=bool).any().compute()
+        # ✅ Option: np.isnan(data_dask).any().compute()
+        # 🔒 Pros:
+        # Cleaner and shorter (no custom function)
+        # Handles all chunk shapes robustly — no risk of empty inputs
+        # Uses Dask’s own optimized blockwise operations under the hood
+        # ⚠️ Cons:
+        # Might trigger more eager computation if Dask can't optimize well:
+        # If chunks are misaligned or small, Dask might combine many or materialize more blocks than needed
+        # Especially on large images, it could bump memory pressure slightly
+        # But since we already call .compute(), we will load some block data no matter
+        # what — this just changes how much and how smartly.
+        # ✅ Verdict for compute_mask
+        # Because this is explicitly for computing a global has-NaN flag (not building the
+        # dataset), recommend:
+        # helpers["has_mask"] = np.isnan(data_dask).any().compute()
+        # It's concise, robust to shape edge cases, and still parallelized.
+        # We can always revisit it later if perf becomes a concern — and even then,
+        # it's likely a matter of tuning chunks= manually rather than the expression itself.
+        #
+        # This compute will normally be done in parallel
+        helpers["has_mask"] = np.isnan(data_dask).any().compute()
     beam = _beam_attr_from_header(helpers, header)
     if beam != "mb":
         helpers["beam"] = beam
     if "BITPIX" in header:
         v = abs(header["BITPIX"])
+        if v == 16:
+            helpers["dtype"] = "int16"
         if v == 32:
             helpers["dtype"] = "float32"
         elif v == 64:
@@ -587,6 +672,9 @@ def _get_velocity_values(helpers: dict) -> list:
         return v
 
 
+# FIXME change namee, even if there is only a single beam, we make a
+# multi beam array using it. If we have a beam, it will always be
+# "mutltibeam" is name is redundant and confusing
 def _do_multibeam(xds: xr.Dataset, imname: str) -> xr.Dataset:
     """Only run if we are sure there are multiple beams"""
     hdulist = fits.open(imname)
@@ -821,12 +909,12 @@ def _get_transpose_list(helpers: dict) -> tuple:
 
 def _read_image_chunk(img_full_path, shapes: tuple, starts: tuple) -> np.ndarray:
     hdulist = fits.open(img_full_path, memmap=True)
-    s = []
-    for start, length in zip(starts, shapes):
-        s.append(slice(start, start + length))
-    t = tuple(s)
-    z = hdulist[0].data[t]
+    hdu = hdulist[0]
+    # Chunk slice
+    slices = tuple(
+        slice(start, start + length) for start, length in zip(starts, shapes)
+    )
+    chunk = hdu.data[slices]
     hdulist.close()
-    # delete to avoid having a reference to a mem-mapped hdulist
     del hdulist
-    return z
+    return chunk

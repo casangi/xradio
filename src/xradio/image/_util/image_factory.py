@@ -6,7 +6,7 @@ from typing import List, Union
 from .common import _c, _compute_world_sph_dims, _l_m_attr_notes
 from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import (
-    make_frequency_reference_dict,
+    make_spectral_coord_reference_dict,
     make_quantity,
     make_skycoord_dict,
     make_time_coord_attrs,
@@ -54,14 +54,14 @@ def _add_common_attrs(
     freq_vals = np.array(xds.frequency)
     xds.frequency.attrs = {
         "observer": spectral_reference.lower(),
-        "reference_value": make_frequency_reference_dict(
+        "reference_value": make_spectral_coord_reference_dict(
             value=freq_vals[len(freq_vals) // 2].item(),
             units=["Hz"],
             observer=spectral_reference.lower(),
         ),
         "rest_frequencies": make_quantity(restfreq, "Hz"),
         "rest_frequency": make_quantity(restfreq, "Hz"),
-        "type": "frequency",
+        "type": "spectral_coord",
         "units": ["Hz"],
         "wave_unit": ["mm"],
     }

@@ -13,7 +13,7 @@ from astropy.time import Time
 from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import (
     make_quantity,
-    make_frequency_reference_dict,
+    make_spectral_coord_reference_dict,
     make_skycoord_dict,
     make_time_measure_dict,
 )
@@ -88,7 +88,7 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
         meta["type"] = "frequency"
         meta["wave_unit"] = ["mm"]
         freq_axis = helpers["freq_axis"]
-        meta["reference_value"] = make_frequency_reference_dict(
+        meta["reference_value"] = make_spectral_coord_reference_dict(
             helpers["crval"][freq_axis], ["Hz"], helpers["specsys"]
         )
         # meta["cdelt"] = helpers["cdelt"][freq_axis]

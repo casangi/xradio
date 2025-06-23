@@ -240,7 +240,7 @@ class xds_from_image_test(ImageBase):
         "reference_frequency": {
             "attrs": {
                 "observer": "lsrk",
-                "type": "frequency",
+                "type": "spectral_coord",
                 "units": ["Hz"],
             },
             "data": 1415000000.0,
@@ -483,7 +483,7 @@ class xds_from_image_test(ImageBase):
         )
         self.assertEqual(
             xds.frequency.attrs["reference_value"]["attrs"]["type"],
-            "frequency",
+            "spectral_coord",
             "Wrong measure type",
         )
         self.assertEqual(
@@ -1446,7 +1446,7 @@ class make_empty_image_tests(ImageBase):
             "reference_value": {
                 "attrs": {
                     "observer": "lsrk",
-                    "type": "frequency",
+                    "type": "spectral_coord",
                     "units": ["Hz"],
                 },
                 "data": 1413000000.0,
@@ -1468,7 +1468,7 @@ class make_empty_image_tests(ImageBase):
                 "data": 1413000000.0,
                 "dims": [],
             },
-            "type": "frequency",
+            "type": "spectral_coord",
             "units": ["Hz"],
             "wave_unit": ["mm"],
         }

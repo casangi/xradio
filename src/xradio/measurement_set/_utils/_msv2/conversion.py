@@ -924,6 +924,7 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
         + calculate_term_other_msv2_indices(msv2_nrows)
         + calculate_term_sub_xds(estimate_main_xds)
         + calculate_term_to_zarr(estimate_main_xds)
+        + calculate_term_attrs(estimate_main_xds)
     )
     estimate /= GiBYTES_TO_BYTES
 

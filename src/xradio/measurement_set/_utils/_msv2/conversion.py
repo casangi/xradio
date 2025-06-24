@@ -432,8 +432,49 @@ def calc_indx_for_row_split(tb_tool, taql_where):
 
 
 def create_coordinates(
-    xds, in_file, ddi, utime, interval, baseline_ant1_id, baseline_ant2_id, scan_id
-):
+    xds: xr.Dataset,
+    in_file: str,
+    ddi: int,
+    utime: np.ndarray,
+    interval: np.ndarray,
+    baseline_ant1_id: np.ndarray,
+    baseline_ant2_id: np.ndarray,
+    scan_id: np.ndarray,
+) -> tuple[xr.Dataset, int]:
+    """
+    Creates coordinates of a VisibilityXds/SpectrumXds and assigns them to the input
+    correlated dataset.
+
+    Parameters
+    ----------
+    xds :
+        dataset to add the coords to
+    in_file :
+        path to input MSv2
+    ddi :
+        DDI index (row) for this MSv4
+    utime :
+        unique times, for the time coordinate
+    interval :
+        interval col values from the MSv2, for the integration_time attribute
+        of the time coord
+    baseline_ant1_id :
+        ANTENNA1 ids to be used as coord
+    baseline_ant2_id :
+        ANTENNA2 ids to be used as coord
+    scan_id :
+        SCAN_ID values from MSv2, for the scan_name coord
+
+    Returns
+    -------
+    tuple[xr.Dataset, int]
+        A tuple of:
+        - The input dataset with coordinates added and populated with all MSv4 schema
+          attributes.
+        - The MSv2 spectral_window_id of this DDI/MSv4, which is no longer added to
+          the frequency coord but is required to create other secondary xdss (antenna,
+          gain_curve, phase_calibration, system_calibration, field_and_source).
+    """
     coords = {
         "time": utime,
         "baseline_antenna1_id": ("baseline_id", baseline_ant1_id),
@@ -534,7 +575,7 @@ def create_coordinates(
         interval, msv4_measure["units"] if msv4_measure else ["s"]
     )
 
-    return xds
+    return xds, spectral_window_id
 
 
 def find_min_max_times(tb_tool: tables.table, taql_where: str) -> tuple:
@@ -1088,7 +1129,7 @@ def convert_and_write_partition(
         scan_id[tidxs, bidxs] = tb_tool.getcol("SCAN_NUMBER")
         scan_id = np.max(scan_id, axis=1)
 
-        xds = create_coordinates(
+        xds, spectral_window_id = create_coordinates(
             xds,
             in_file,
             ddi,
@@ -1156,7 +1197,7 @@ def convert_and_write_partition(
 
         ant_xds = create_antenna_xds(
             in_file,
-            xds.frequency.attrs["spectral_window_id"],
+            spectral_window_id,
             antenna_id,
             feed_id,
             telescope_name,
@@ -1165,9 +1206,7 @@ def convert_and_write_partition(
         logger.debug("Time antenna xds  " + str(time.time() - start))
 
         start = time.time()
-        gain_curve_xds = create_gain_curve_xds(
-            in_file, xds.frequency.attrs["spectral_window_id"], ant_xds
-        )
+        gain_curve_xds = create_gain_curve_xds(in_file, spectral_window_id, ant_xds)
         logger.debug("Time gain_curve xds  " + str(time.time() - start))
 
         start = time.time()
@@ -1177,7 +1216,7 @@ def convert_and_write_partition(
             phase_cal_interp_time = None
         phase_calibration_xds = create_phase_calibration_xds(
             in_file,
-            xds.frequency.attrs["spectral_window_id"],
+            spectral_window_id,
             ant_xds,
             time_min_max,
             phase_cal_interp_time,
@@ -1192,6 +1231,7 @@ def convert_and_write_partition(
             sys_cal_interp_time = None
         system_calibration_xds = create_system_calibration_xds(
             in_file,
+            spectral_window_id,
             xds.frequency,
             ant_xds,
             sys_cal_interp_time,
@@ -1282,7 +1322,7 @@ def convert_and_write_partition(
             create_field_and_source_xds(
                 in_file,
                 field_id,
-                xds.frequency.attrs["spectral_window_id"],
+                spectral_window_id,
                 field_times,
                 is_single_dish,
                 time_min_max,

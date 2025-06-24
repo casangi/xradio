@@ -130,7 +130,7 @@ class ProcessingSetXdt:
         if "freq_axis" in self.meta:
             return self.meta["freq_axis"]
         else:
-            spw_ids = []
+            spw_names = []
             freq_axis_list = []
             frame = self._xdt[next(iter(self._xdt.children))].frequency.attrs[
                 "observer"
@@ -139,8 +139,8 @@ class ProcessingSetXdt:
                 assert (
                     frame == ms_xdt.frequency.attrs["observer"]
                 ), "Frequency reference frame not consistent in Processing Set."
-                if ms_xdt.frequency.attrs["spectral_window_id"] not in spw_ids:
-                    spw_ids.append(ms_xdt.frequency.attrs["spectral_window_id"])
+                if ms_xdt.frequency.attrs["spectral_window_name"] not in spw_names:
+                    spw_names.append(ms_xdt.frequency.attrs["spectral_window_name"])
                     freq_axis_list.append(ms_xdt.frequency)
 
             freq_axis = xr.concat(freq_axis_list, dim="frequency").sortby("frequency")

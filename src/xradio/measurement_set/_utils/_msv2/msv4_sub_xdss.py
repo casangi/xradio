@@ -637,6 +637,7 @@ def prepare_generic_sys_cal_xds(generic_sys_cal_xds: xr.Dataset) -> xr.Dataset:
 
 def create_system_calibration_xds(
     in_file: str,
+    spectral_window_id: int,
     main_xds_frequency: xr.DataArray,
     ant_xds: xr.DataArray,
     sys_cal_interp_time: Union[xr.DataArray, None] = None,
@@ -648,9 +649,11 @@ def create_system_calibration_xds(
     ----------
     in_file: str
         Input MS name.
+    spectral_window_id: int
+        SPW ID from MSv2
     main_xds_frequency: xr.DataArray
         frequency array of the main xds (MSv4), containing among other things
-        spectral_window_id and measures metadata
+        the measures metadata
     ant_xds : xr.Dataset
         The antenna_xds that has information such as names, stations, etc., for coordinates
     sys_cal_interp_time: Union[xr.DataArray, None] = None,
@@ -662,7 +665,6 @@ def create_system_calibration_xds(
         System calibration Xarray Dataset.
     """
 
-    spectral_window_id = main_xds_frequency.attrs["spectral_window_id"]
     try:
         generic_sys_cal_xds = load_generic_table(
             in_file,

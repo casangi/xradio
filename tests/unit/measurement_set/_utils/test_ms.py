@@ -67,3 +67,7 @@ def test_read_ms_by_intent_expand_raises(ms_minimal_required):
 
     cds = read_ms(ms_minimal_required.fname, partition_scheme="intent", expand=True)
     assert cds
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", "-s", __file__])

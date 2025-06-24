@@ -41,7 +41,7 @@ from ...._utils._casacore.tables import extract_table_attributes, open_table_ro
 from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import (
     _casacore_q_to_xradio_q,
-    make_frequency_reference_dict,
+    make_spectral_coord_reference_dict,
     make_quantity,
     make_skycoord_dict,
     make_time_measure_dict,
@@ -541,7 +541,7 @@ def _get_freq_values_attrs(
                 # attrs["crval"] = sd["wcs"]["crval"]
                 # attrs["cdelt"] = sd["wcs"]["cdelt"]
 
-                attrs["reference_value"] = make_frequency_reference_dict(
+                attrs["reference_value"] = make_spectral_coord_reference_dict(
                     value=sd["wcs"]["crval"],
                     units=sd["unit"],
                     observer=sd["system"],

@@ -1,29 +1,85 @@
 def make_quantity(value, units: str, dims: list = []) -> dict:
     """
     create a quantity dictionary given value and units
+
     Parameters
     ----------
     value : numeric or array of numerics
         Quantity value
     units: str
         Quantity units
+
+    Returns
+    -------
+    dict
+    """
+    return {"data": value, "dims": dims, "attrs": make_quantity_attrs(units)}
+
+
+def make_quantity_attrs(units: str) -> dict:
+    """
+    Creates the dict of attributes of a quantity
+
+    Parameters
+    ----------
+    units: str
+        Quantity units
+
     Returns
     -------
     dict
     """
     u = units if isinstance(units, list) else [units]
-    return {"data": value, "dims": dims, "attrs": {"units": u, "type": "quantity"}}
+    return {"units": u, "type": "quantity"}
 
 
-def make_frequency_reference_dict(
+def make_spectral_coord_reference_dict(
     value: float, units: str, observer: str = "lsrk"
 ) -> dict:
+    """
+    creates a spectral_coord measure dict given the value, units, and observer
+
+    Parameters
+    ----------
+    value : numeric or array of numerics
+        measure value
+    units : str
+        measure units
+    observer :
+        observer reference frame
+
+    Returns
+    -------
+    dict
+    """
     u = units if isinstance(units, list) else [units]
     return {
-        "attrs": {"units": u, "observer": observer.lower(), "type": "frequency"},
+        "attrs": make_spectral_coord_measure_attrs(
+            units,
+            observer.lower() if observer not in ["TOPO", "BARY", "REST"] else observer,
+        ),
         "data": value,
         "dims": [],
     }
+
+
+def make_spectral_coord_measure_attrs(units: str, observer: str = "lsrk") -> dict:
+    """
+    Creates a spectral_coord measure attrs dict given units and observer
+
+    Parameters
+    ----------
+    units: str or list of str
+        Spectral coordinate units
+    observer: str
+        Spectral reference frame
+    Returns
+    -------
+    dict
+        Attrs dict for a spectral_coord measure
+    """
+    u = units if isinstance(units, list) else [units]
+    return {"units": u, "observer": observer, "type": "spectral_coord"}
 
 
 def make_skycoord_dict(data: list[float], units: list[str], frame: str) -> dict:

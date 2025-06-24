@@ -25,6 +25,7 @@ from xradio._utils.list_and_array import (
     to_list,
     to_np_array,
 )
+from xradio._utils.dict_helpers import make_quantity_attrs
 
 
 def create_antenna_xds(
@@ -138,7 +139,7 @@ def extract_antenna_info(
         generic_ant_xds, ant_xds, to_new_data_variables, to_new_coords
     )
 
-    ant_xds["ANTENNA_DISH_DIAMETER"].attrs.update({"units": ["m"], "type": "quantity"})
+    ant_xds["ANTENNA_DISH_DIAMETER"].attrs.update(make_quantity_attrs(["m"]))
 
     ant_xds["ANTENNA_POSITION"].attrs["coordinate_system"] = "geocentric"
     ant_xds["ANTENNA_POSITION"].attrs["origin_object_name"] = "earth"

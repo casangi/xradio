@@ -488,7 +488,6 @@ def create_coordinates(
 
     xds.frequency.attrs["spectral_window_name"] = spw_name
     xds.frequency.attrs["spectral_window_intent"] = "UNSPECIFIED"
-    xds.frequency.attrs["spectral_window_id"] = spectral_window_id
     msv4_measure = column_description_casacore_to_msv4_measure(
         freq_column_description["REF_FREQUENCY"],
         ref_code=spectral_window_xds["MEAS_FREQ_REF"].data,

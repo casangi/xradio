@@ -353,7 +353,8 @@ Sub-scan intents to be used with :py:class:`VisibilityXds` and :py:class:`Spectr
 SPW Intents
 ~~~~~~~~~~~
 
+Note: the list is to be defined.
 Scan intents to be used in the `frequency` coordinate of measurement sets (:py:class:`VisibilityXds` and :py:class:`SpectrumXds`):
 
 * TEST : reserved for development.
-* UNSPECIFIED : Unspecified SPW intent
+* UNSPECIFIED : Unspecified SPW intent.

@@ -1,9 +1,6 @@
-import pandas as pd
 from xradio._utils.list_and_array import to_list
 import xarray as xr
 import numpy as np
-import numbers
-import os
 from collections.abc import Mapping, Iterable
 from typing import Any, Union
 

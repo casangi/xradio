@@ -1,6 +1,4 @@
-import copy
 import xarray as xr
-import zarr
 import s3fs
 import os
 from botocore.exceptions import NoCredentialsError

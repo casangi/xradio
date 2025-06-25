@@ -21,7 +21,6 @@ from xradio._utils.list_and_array import cast_to_str, get_pad_value
 from xradio._utils.dict_helpers import make_quantity_attrs
 from xradio._utils.coord_math import (
     convert_to_si_units,
-    add_position_offsets,
     wrap_to_pi,
 )
 

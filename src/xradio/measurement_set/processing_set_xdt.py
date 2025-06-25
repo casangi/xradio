@@ -1,8 +1,6 @@
 import pandas as pd
 from xradio._utils.list_and_array import to_list
-import numbers
 import numpy as np
-import toolviper.utils.logger as logger
 import xarray as xr
 
 PS_DATASET_TYPES = {"processing_set"}

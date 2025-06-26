@@ -219,15 +219,14 @@ def extract_ephemeris_info(
     observer_position = [
         ephemeris_meta["GeoLong"],
         ephemeris_meta["GeoLat"],
-        ephemeris_meta["GeoDist"],
     ]
-    temp_xds["OBSERVER_POSITION"] = xr.DataArray(
-        observer_position, dims=["ellipsoid_pos_label"]
+    temp_xds["OBSERVER_DIRECTION"] = xr.DataArray(
+        observer_position, dims=["ellipsoid_dir_label"]
     )
-    temp_xds["OBSERVER_POSITION"].attrs.update(
+    temp_xds["OBSERVER_DIRECTION"].attrs.update(
         {
             "type": "location",
-            "units": ["deg", "deg", "m"],
+            "units": "deg",
             "data": observer_position,
             "frame": "ITRS",
             "origin_object_name": "Earth",
@@ -235,25 +234,52 @@ def extract_ephemeris_info(
             "ellipsoid": "WGS84",
         }
     )  # I think the units are ['deg','deg','m'] and 'WGS84'.
-
-    # Add (optional) data: SOURCE_LOCATION (POSITION / sky_pos_label)
-    temp_xds["SOURCE_LOCATION"] = xr.DataArray(
+    
+    
+    temp_xds["OBSERVER_DISTANCE"] = xr.DataArray(
+        [ephemeris_meta["GeoDist"]], dims=["ellipsoid_dis_label"]
+    )
+    temp_xds["OBSERVER_DISTANCE"].attrs.update(
+        {
+            "type": "location",
+            "units":  "m",
+            "data": observer_position,
+            "frame": "ITRS",
+            "origin_object_name": "Earth",
+            "coordinate_system": ephemeris_meta["obsloc"].lower(),
+            "ellipsoid": "WGS84",
+        }
+    )  # I think the units are ['deg','deg','m'] and 'WGS84'.
+    
+    # Add (optional) data: SOURCE_DIRECTION (POSITION / sky_pos_label)
+    temp_xds["SOURCE_DIRECTION"] = xr.DataArray(
         np.column_stack(
             (
                 ephemeris_xds["RA"].data,
                 ephemeris_xds["DEC"].data,
+            )
+        ),
+        dims=["time_ephemeris", "sky_dir_label"],
+    )
+    
+    temp_xds["SOURCE_DISTANCE"] = xr.DataArray(
+        np.column_stack(
+            (
                 ephemeris_xds["Rho"].data,
             )
         ),
-        dims=["time_ephemeris", "sky_pos_label"],
+        dims=["time_ephemeris", "sky_dis_label"],
     )
+    
     # Have to use cast_to_str because the ephemeris table units are not consistently in a list or a string.
-    sky_coord_units = [
-        cast_to_str(ephemeris_column_description["RA"]["keywords"][unit_keyword]),
-        cast_to_str(ephemeris_column_description["DEC"]["keywords"][unit_keyword]),
-        cast_to_str(ephemeris_column_description["Rho"]["keywords"][unit_keyword]),
-    ]
-    temp_xds["SOURCE_LOCATION"].attrs.update(
+    sky_coord_units = cast_to_str(ephemeris_column_description["RA"]["keywords"][unit_keyword])
+    
+    temp_xds["SOURCE_DIRECTION"].attrs.update(
+        {"type": "sky_coord", "frame": sky_coord_frame, "units": sky_coord_units}
+    )
+    
+    sky_coord_units = cast_to_str(ephemeris_column_description["Rho"]["keywords"][unit_keyword])
+    temp_xds["SOURCE_DISTANCE"].attrs.update(
         {"type": "sky_coord", "frame": sky_coord_frame, "units": sky_coord_units}
     )
 
@@ -306,10 +332,9 @@ def extract_ephemeris_info(
                 (
                     ephemeris_xds[key_lon].data,
                     ephemeris_xds[key_lat].data,
-                    np.zeros(ephemeris_xds[key_lon].shape),
                 )
             ),
-            dims=["time_ephemeris", "ellipsoid_pos_label"],
+            dims=["time_ephemeris", "ellipsoid_dir_label"],
         )
 
         temp_xds["SUB_OBSERVER_DIRECTION"].attrs.update(
@@ -318,28 +343,38 @@ def extract_ephemeris_info(
                 "frame": "Undefined",
                 "origin_object_name": ephemeris_meta["NAME"],
                 "coordinate_system": "planetodetic",
-                "units": [
-                    cast_to_str(
+                "units": cast_to_str(
                         ephemeris_column_description[key_lon]["keywords"][unit_keyword]
-                    ),
-                    cast_to_str(
-                        ephemeris_column_description[key_lat]["keywords"][unit_keyword]
-                    ),
-                    "m",
-                ],
+                    )
             }
         )
 
     if "SI_lon" in ephemeris_xds.data_vars:
-        temp_xds["SUB_SOLAR_POSITION"] = xr.DataArray(
+        temp_xds["SUB_SOLAR_DIRECTION"] = xr.DataArray(
             np.column_stack(
                 (
                     ephemeris_xds["SI_lon"].data,
                     ephemeris_xds["SI_lat"].data,
-                    ephemeris_xds["r"].data,
                 )
             ),
-            dims=["time_ephemeris", "ellipsoid_pos_label"],
+            dims=["time_ephemeris", "ellipsoid_dir_label"],
+        )
+        temp_xds["SUB_SOLAR_DIRECTION"].attrs.update(
+            {
+                "type": "location",
+                "frame": "Undefined",
+                "origin_object_name": "Sun",
+                "coordinate_system": "planetodetic",
+                "units": cast_to_str(
+                        ephemeris_column_description["SI_lon"]["keywords"][unit_keyword]
+                    )
+                ,
+            }
+        )
+        
+        temp_xds["SUB_SOLAR_POSITION"] = xr.DataArray(
+                    ephemeris_xds["r"].data,
+            dims=["time_ephemeris", "ellipsoid_dis_label"],
         )
         temp_xds["SUB_SOLAR_POSITION"].attrs.update(
             {
@@ -347,25 +382,21 @@ def extract_ephemeris_info(
                 "frame": "Undefined",
                 "origin_object_name": "Sun",
                 "coordinate_system": "planetodetic",
-                "units": [
-                    cast_to_str(
-                        ephemeris_column_description["SI_lon"]["keywords"][unit_keyword]
-                    ),
-                    cast_to_str(
-                        ephemeris_column_description["SI_lat"]["keywords"][unit_keyword]
-                    ),
-                    cast_to_str(
+                "units": cast_to_str(
                         ephemeris_column_description["r"]["keywords"][unit_keyword]
                     ),
-                ],
             }
         )
+        
+        
+        
+        
 
     # We are using the "time_ephemeris" label because it might not match the optional time axis of the source and field info. If ephemeris_interpolate=True then rename it to time.
     coords = {
-        "ellipsoid_pos_label": ["lon", "lat", "dist"],
+        "ellipsoid_dir_label": ["lon", "lat"],
+        "ellipsoid_dis_label": [ "dist"],
         "time_ephemeris": ephemeris_xds["time"].data,
-        "sky_pos_label": ["ra", "dec", "dist"],
     }
     temp_xds = temp_xds.assign_coords(coords)
     temp_xds["time_ephemeris"].attrs.update(standard_time_coord_attrs)
@@ -378,79 +409,58 @@ def extract_ephemeris_info(
         temp_xds = rename_and_interpolate_to_time(
             temp_xds, "time_ephemeris", interp_time, "field_and_source_xds"
         )
-        source_location_interp = temp_xds["SOURCE_LOCATION"]
+        source_direction_interp = temp_xds["SOURCE_DIRECTION"]
+        source_distance_interp = temp_xds["SOURCE_DISTANCE"]
+        
     else:
-        source_location_interp = interpolate_to_time(
-            temp_xds["SOURCE_LOCATION"],
+        source_direction_interp = interpolate_to_time(
+            temp_xds["SOURCE_DIRECTION"],
             interp_time,
             "field_and_source_xds",
             "time_ephemeris",
         )
+        source_distance_interp = interpolate_to_time(
+            temp_xds["SOURCE_DISTANCE"],
+            interp_time,
+            "field_and_source_xds",
+            "time_ephemeris",
+        )
+        
 
     xds = xr.merge([xds, temp_xds])
 
-    # Add the SOURCE_LOCATION to the FIELD_PHASE_CENTER or FIELD_REFERENCE_CENTER. Ephemeris obs: When loaded from the MSv2 field table the FIELD_REFERENCE_CENTER or FIELD_PHASE_CENTER only contain an offset from the SOURCE_LOCATION.
-    # We also need to add a distance dimension to the FIELD_PHASE_CENTER or FIELD_REFERENCE_CENTER to match the SOURCE_LOCATION.
-    # FIELD_PHASE_CENTER is used for interferometer data and FIELD_REFERENCE_CENTER is used for single dish data.
+    # Add the SOURCE_DIRECTION to the FIELD_PHASE_CENTER or FIELD_REFERENCE_CENTER. Ephemeris obs: When loaded from the MSv2 field table the FIELD_REFERENCE_CENTER or FIELD_PHASE_CENTER only contain an offset from the SOURCE_DIRECTION.
+    # We also need to add a distance dimension to the FIELD_PHASE_CENTER or FIELD_REFERENCE_CENTER to match the SOURCE_DIRECTION.
+    # FIELD_PHASE_CENTER_DIRECTION is used for interferometer data and FIELD_REFERENCE_CENTER_DIRECTION is used for single dish data.
     if is_single_dish:
-        center_dv = "FIELD_REFERENCE_CENTER"
+        center_dir_dv = "FIELD_REFERENCE_CENTER_DIRECTION"
+        center_dis_dv = "FIELD_REFERENCE_CENTER_DISTANCE"
     else:
-        center_dv = "FIELD_PHASE_CENTER"
+        center_dir_dv = "FIELD_PHASE_CENTER_DIRECTION"
+        center_dis_dv = "FIELD_PHASE_CENTER_DISTANCE"
 
     xds = xds.sel(field_name=field_names)  # Expand for all times in ms
     xds = xds.assign_coords({"time": ("field_name", interp_time)})
     xds["time"].attrs.update(standard_time_coord_attrs)
     xds = xds.swap_dims({"field_name": "time"})
 
-    source_location_interp
-    field_phase_center = wrap_to_pi(
-        xds[center_dv].values + source_location_interp[:, 0:2].values
+    field_phase_center_direction = wrap_to_pi(
+        xds[center_dir_dv].values + source_direction_interp.values
     )
 
-    field_phase_center = np.column_stack(
-        (field_phase_center, np.zeros(xds[center_dv].values.shape[0]))
+    xds[center_dir_dv] = xr.DataArray(
+        field_phase_center_direction,
+        dims=["time", "sky_dir_label"],
     )
-
-    field_phase_center[:, -1] = (
-        field_phase_center[:, -1] + source_location_interp[:, -1].values
+    
+    xds[center_dis_dv] = xr.DataArray(
+        source_distance_interp.values,
+        dims=["time", "sky_dis_label"],
     )
+    
+    xds[center_dir_dv].attrs.update(xds["SOURCE_DIRECTION"].attrs)
 
-    xds[center_dv] = xr.DataArray(
-        field_phase_center,
-        dims=["time", "sky_pos_label"],
-    )
-
-    # if "time" in xds[center_dv].coords:
-    #     assert (
-    #         interp_time is not None
-    #     ), 'ephemeris_interpolate must be True if there is ephemeris data and multiple fields (this will occur if "FIELD_ID" is not in partition_scheme).'
-
-    #     field_phase_center = wrap_to_pi(
-    #         xds[center_dv].values + xds["SOURCE_LOCATION"][:, 0:2].values
-    #     )
-    #     field_phase_center = np.column_stack(
-    #         (field_phase_center, np.zeros(xds[center_dv].values.shape[0]))
-    #     )
-    #     field_phase_center[:, -1] = (
-    #         field_phase_center[:, -1] + xds["SOURCE_LOCATION"][:, -1].values
-    #     )
-
-    #     xds[center_dv] = xr.DataArray(
-    #         field_phase_center,
-    #         dims=[xds["SOURCE_LOCATION"].dims[0], "sky_pos_label"],
-    #     )
-    # else:
-    #     field_phase_center = (
-    #         np.append(xds[center_dv].values, 0) + xds["SOURCE_LOCATION"].values
-    #     )
-    #     field_phase_center[:, 0:2] = wrap_to_pi(field_phase_center[:, 0:2])
-
-    #     xds[center_dv] = xr.DataArray(
-    #         field_phase_center,
-    #         dims=[xds["SOURCE_LOCATION"].dims[0], "sky_pos_label"],
-    #     )
-
-    xds[center_dv].attrs.update(xds["SOURCE_LOCATION"].attrs)
+    xds[center_dis_dv].attrs.update(xds["SOURCE_DISTANCE"].attrs)
 
     return xds
 
@@ -708,7 +718,7 @@ def extract_source_info(
         location_msv4_measure = column_description_casacore_to_msv4_measure(
             source_column_description[direction_msv2_col]
         )
-        xds["SOURCE_LOCATION"] = xr.DataArray(
+        xds["SOURCE_DIRECTION"] = xr.DataArray(
             direction_var.data, dims=direction_dims, attrs=location_msv4_measure
         )
 
@@ -847,14 +857,14 @@ def extract_field_info_and_check_ephemeris(
     if is_single_dish:
         to_new_data_variables = {
             "REFERENCE_DIR": [
-                "FIELD_REFERENCE_CENTER",
+                "FIELD_REFERENCE_CENTER_DIRECTION",
                 ["field_name", "sky_dir_label"],
             ],
             "FIELD_ID": ["FIELD_ID", ["field_name"]],
         }
     else:
         to_new_data_variables = {
-            "PHASE_DIR": ["FIELD_PHASE_CENTER", ["field_name", "sky_dir_label"]],
+            "PHASE_DIR": ["FIELD_PHASE_CENTER_DIRECTION", ["field_name", "sky_dir_label"]],
             # "DELAY_DIR": ["FIELD_DELAY_CENTER",["field_name", "sky_dir_label"]],
             # "REFERENCE_DIR": ["FIELD_REFERENCE_CENTER",["field_name", "sky_dir_label"]],
         }
@@ -884,6 +894,7 @@ def extract_field_info_and_check_ephemeris(
                 np.char.add("_", field_and_source_xds["field_id"].astype(str)),
             ),
             "sky_dir_label": ["ra", "dec"],
+            "sky_dis_label": ["dist"],
         }
     )
 
@@ -891,59 +902,6 @@ def extract_field_info_and_check_ephemeris(
     field_names = temp.sel(field_id=field_id).field_name.data
     # field_id shouldn ot be in final xds, and no longer needed past this point
     field_and_source_xds = field_and_source_xds.drop_vars("field_id")
-
-    # dims, coords = make_field_dims_and_coords(field_xds, field_id, field_times)
-
-    # if is_single_dish:
-    #     field_data_variables = {
-    #         "REFERENCE_DIR": "FIELD_REFERENCE_CENTER",
-    #     }
-    # else:
-    #     field_data_variables = {
-    #         # "DELAY_DIR": "FIELD_DELAY_CENTER",
-    #         "PHASE_DIR": "FIELD_PHASE_CENTER",
-    #         # "REFERENCE_DIR": "FIELD_REFERENCE_CENTER",
-    #     }
-
-    # field_column_description = field_xds.attrs["other"]["msv2"]["ctds_attrs"][
-    #     "column_descriptions"
-    # ]
-
-    # delay_dir_ref_col = "DelayDir_Ref"
-    # if field_xds.get(delay_dir_ref_col) is None:
-    #     delaydir_ref = None
-    # else:
-    #     delaydir_ref = check_if_consistent(
-    #         field_xds.get(delay_dir_ref_col), delay_dir_ref_col
-    #     )
-
-    # for generic_name, msv4_name in field_data_variables.items():
-    #     msv4_measure = column_description_casacore_to_msv4_measure(
-    #         field_column_description[generic_name], ref_code=delaydir_ref
-    #     )
-
-    #     print(msv4_name,generic_name,field_xds[generic_name].data.shape,field_xds[generic_name].data)
-
-    #     field_and_source_xds[msv4_name] = xr.DataArray.from_dict(
-    #         {
-    #             "dims": dims,
-    #             "data": list(field_xds[generic_name].data),
-    #             "attrs": msv4_measure,
-    #         }
-    #     )
-
-    #     field_measures_type = "sky_coord"
-    #     field_and_source_xds[msv4_name].attrs["type"] = field_measures_type
-
-    # field_and_source_xds = field_and_source_xds.assign_coords(coords)
-    # if "time" in field_and_source_xds:
-    #     time_column_description = field_xds.attrs["other"]["msv2"]["ctds_attrs"][
-    #         "column_descriptions"
-    #     ]["TIME"]
-    #     time_msv4_measure = column_description_casacore_to_msv4_measure(
-    #         time_column_description
-    #     )
-    #     field_and_source_xds.coords["time"].attrs.update(time_msv4_measure)
 
     return (
         field_and_source_xds,

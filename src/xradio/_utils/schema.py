@@ -1,6 +1,7 @@
 import toolviper.utils.logger as logger
 import xarray as xr
 from typing import Union
+from xradio._utils.dict_helpers import ensure_units_are_consistent
 
 
 def convert_generic_xds_to_xradio_schema(
@@ -98,7 +99,7 @@ def column_description_casacore_to_msv4_measure(
     casacore_column_description, ref_code=None, time_format="unix"
 ):
     import numpy as np
-
+    
     msv4_measure = {}
     if "MEASINFO" in casacore_column_description["keywords"]:
         measinfo = casacore_column_description["keywords"]["MEASINFO"]
@@ -108,9 +109,8 @@ def column_description_casacore_to_msv4_measure(
 
         # Convert type, copy unit
         msv4_measure["type"] = msv4_measure_conversion["type"]
-        msv4_measure["units"] = list(
-            casacore_column_description["keywords"]["QuantumUnits"]
-        )
+        msv4_measure["units"] = ensure_units_are_consistent(casacore_column_description["keywords"]["QuantumUnits"])
+
 
         # Beware: casa_ref won't be found in cases such as the custom
         # 'NRAO_GBT_USER/NRAO_GBT_USER_DIR_REF' in POINTING
@@ -154,7 +154,7 @@ def column_description_casacore_to_msv4_measure(
     elif "QuantumUnits" in casacore_column_description["keywords"]:
         msv4_measure = {
             "type": "quantity",
-            "units": list(casacore_column_description["keywords"]["QuantumUnits"]),
+            "units": ensure_units_are_consistent(casacore_column_description["keywords"]["QuantumUnits"])
         }
 
     return msv4_measure

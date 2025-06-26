@@ -86,24 +86,24 @@ RotationMatrix = Literal["rotation_matrix"]
 UnitsDimensionless = list[
     Literal["dimensionless"]
 ]  # name consistent with casacore measures
-UnitsSeconds = list[Literal["s"]]
-UnitsHertz = list[Literal["Hz"]]
-UnitsMeters = list[Literal["m"]]
+UnitsSeconds = Literal["s"]
+UnitsHertz = Literal["Hz"]
+UnitsMeters = Literal["m"]
 
-UnitsOfSkyCoordInRadians = list[Literal["rad"], Literal["rad"]]
+UnitsOfSkyCoordInRadians = Literal["rad"]
 UnitsOfLocationInMetersOrRadians = Union[
-    list[Literal["m"], Literal["m"], Literal["m"]],
-    list[Literal["rad"], Literal["rad"], Literal["m"]],
+    Literal["m"],
+    Literal["rad"],
 ]
-UnitsOfPositionInRadians = list[Literal["rad"], Literal["rad"], Literal["m"]]
-UnitsOfDopplerShift = Union[list[Literal["ratio"]], list[Literal["m/s"]]]
+UnitsOfPositionInRadians = Literal["rad"]
+UnitsOfDopplerShift = Union[Literal["ratio"], Literal["m/s"]]
 
-UnitsRadians = list[Literal["rad"]]
-UnitsKelvin = list[Literal["K"]]
-UnitsKelvinPerJansky = list[Literal["K/Jy"]]
-UnitsMetersPerSecond = list[Literal["m/s"]]
-UnitsPascal = list[Literal["Pa"]]  # hPa? (in MSv2)
-UnitsPerSquareMeters = list[Literal["/m^2"]]
+UnitsRadians = Literal["rad"]
+UnitsKelvin = Literal["K"]
+UnitsKelvinPerJansky = Literal["K/Jy"]
+UnitsMetersPerSecond = Literal["m/s"]
+UnitsPascal = Literal["Pa"]  # hPa? (in MSv2)
+UnitsPerSquareMeters = Literal["/m^2"]
 
 
 # Quantities
@@ -250,7 +250,7 @@ class TimeArray:
 
     type: Attr[Time] = "time"
     """ Array type. Should be ``"time"``. """
-    units: Attr[UnitsSeconds] = ("s",)
+    units: Attr[UnitsSeconds] = "s"
     """ Units to associate with axis"""
     scale: Attr[AllowedTimeScales] = "utc"
     """
@@ -301,7 +301,7 @@ class SkyCoordArray:
     data: Data[Union[SkyDirLabel, SkyPosLabel], float]
 
     type: Attr[SkyCoord] = "sky_coord"
-    units: Attr[UnitsOfSkyCoordInRadians] = ("rad", "rad")
+    units: Attr[UnitsOfSkyCoordInRadians] = "rad"
     frame: Attr[AllowedSkyCoordFrames] = "icrs"
     """
     Possible values are astropy SkyCoord frames.
@@ -330,7 +330,7 @@ class PointingBeamArray:
     ]
 
     type: Attr[SkyCoord] = "sky_coord"
-    units: Attr[UnitsOfSkyCoordInRadians] = ("rad", "rad")
+    units: Attr[UnitsOfSkyCoordInRadians] = "rad"
     frame: Attr[AllowedSkyCoordFrames] = "icrs"
     """
     From fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled
@@ -347,7 +347,7 @@ class LocalSkyCoordArray:
     data: Data[LocalSkyDirLabel, float]
 
     type: Attr[SkyCoord] = "sky_coord"
-    units: Attr[UnitsOfSkyCoordInRadians] = ("rad", "rad")
+    units: Attr[UnitsOfSkyCoordInRadians] = "rad"
     frame: Attr[AllowedSkyCoordFrames] = "icrs"
     """
     From fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled
@@ -371,7 +371,7 @@ class TimeCoordArray:
     type: Attr[Time] = "time"
     """ Coordinate type. Should be ``"time"``. """
 
-    units: Attr[UnitsSeconds] = ("s",)
+    units: Attr[UnitsSeconds] = "s"
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
@@ -407,7 +407,7 @@ class TimeInterpolatedCoordArray:
     type: Attr[Time] = "time"
     """ Coordinate type. Should be ``"time"``. """
 
-    units: Attr[UnitsSeconds] = ("s",)
+    units: Attr[UnitsSeconds] = "s"
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
@@ -432,7 +432,7 @@ class TimeSystemCalCoordArray:
     type: Attr[Time] = "time_system_cal"
     """ Coordinate type. Should be ``"time_system_cal"``. """
 
-    units: Attr[UnitsSeconds] = ("s",)
+    units: Attr[UnitsSeconds] = "s"
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
@@ -457,7 +457,7 @@ class TimePointingCoordArray:
     type: Attr[TimePointing] = "time_pointing"
     """ Coordinate type. Should be ``"time_pointing"``. """
 
-    units: Attr[UnitsSeconds] = ("s",)
+    units: Attr[UnitsSeconds] = "s"
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
@@ -482,7 +482,7 @@ class TimeEphemerisCoordArray:
     type: Attr[TimeEphemeris] = "time_ephemeris"
     """ Coordinate type. Should be ``"time_ephemeris"``. """
 
-    units: Attr[UnitsSeconds] = ("s",)
+    units: Attr[UnitsSeconds] = "s"
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
@@ -507,7 +507,7 @@ class TimeWeatherCoordArray:
     type: Attr[Time] = "time_weather"
     """ Coordinate type. Should be ``"time_weather"``. """
 
-    units: Attr[UnitsSeconds] = ("s",)
+    units: Attr[UnitsSeconds] = "s"
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
@@ -545,7 +545,7 @@ class SpectralCoordArray:
 
     data: Data[ZD, float]
 
-    units: Attr[UnitsHertz] = ("Hz",)
+    units: Attr[UnitsHertz] = "Hz"
 
     observer: Attr[AllowedSpectralCoordFrames] = "icrs"
     """
@@ -641,7 +641,7 @@ class EllipsoidPosLocationArray:
     type: Attr[Location] = "location"
     """ Measure type. Should be ``"location"``."""
 
-    units: Attr[UnitsOfPositionInRadians] = ("rad", "rad", "m")
+    units: Attr[UnitsOfPositionInRadians] = "rad"
     """
     If the units are a list of strings then it must be the same length as
     the last dimension of the data array. This allows for having different
@@ -695,7 +695,7 @@ class DopplerArray:
     type: Attr[Doppler] = "doppler"
     """ Coordinate type. Should be ``"doppler"``. """
 
-    units: Attr[UnitsOfDopplerShift] = ("m/s",)
+    units: Attr[UnitsOfDopplerShift] = "m/s"
     """ Units to associate with axis, [ratio]/[m/s]"""
 
     doppler_type: Attr[AllowedDopplerTypes] = "radio"
@@ -731,7 +731,7 @@ class FrequencyArray:
     """ Coordinate type. Should be ``"spectral_coord"``. """
     long_name: Optional[Attr[str]] = "Frequency"
     """ Long-form name to use for axis"""
-    units: Attr[UnitsHertz] = ("Hz",)
+    units: Attr[UnitsHertz] = "Hz"
     """ Units to associate with axis"""
     observer: Attr[AllowedSpectralCoordFrames] = "icrs"
     """
@@ -751,7 +751,7 @@ class FrequencySystemCalArray:
     """ Center frequencies for each channel. """
 
     type: Attr[SpectralCoord] = "spectral_coord"
-    units: Attr[UnitsHertz] = ("Hz",)
+    units: Attr[UnitsHertz] = "Hz"
     """ Units to associate with axis"""
 
     observer: Attr[AllowedSpectralCoordFrames] = "icrs"
@@ -933,7 +933,7 @@ class UvwArray:
     type: Attr[Literal["uvw"]] = "uvw"
     frame: Attr[AllowedUvwFrames] = "icrs"
     """ To be defined in astropy (see for example https://github.com/astropy/astropy/issues/7766) """
-    units: Attr[UnitsMeters] = ("m",)
+    units: Attr[UnitsMeters] = "m"
 
     allow_mutiple_versions: Optional[Attr[bool]] = True
 
@@ -963,7 +963,7 @@ class TimeSamplingArray:
     """ Astropy format, see :py:class:`astropy.time.Time`. Default seconds from 1970-01-01 00:00:00 UTC """
 
     long_name: Optional[Attr[str]] = "Time sampling data"
-    units: Attr[UnitsSeconds] = ("s",)
+    units: Attr[UnitsSeconds] = "s"
 
 
 # @xarray_dataarray_schema
@@ -991,7 +991,7 @@ class TimeSamplingArray:
 #     baseline_id: Optional[Coordof[BaselineArray]] = None
 #     polarization: Optional[Coordof[PolarizationArray]] = None
 #     long_name: Optional[Attr[str]] = "Frequency sampling data"
-#     units: Attr[UnitsHertz] = ("Hz",)
+#     units: Attr[UnitsHertz] = "Hz"
 #     observer: Attr[AllowedSpectralCoordFrames] = "icrs"
 #     """
 #     Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
@@ -1018,7 +1018,7 @@ class FrequencyCentroidArray:
     """
     frequency: Coordof[FrequencyArray]
     long_name: Optional[Attr[str]] = "Frequency sampling data"
-    units: Attr[UnitsHertz] = ("Hz",)
+    units: Attr[UnitsHertz] = "Hz"
     observer: Attr[AllowedSpectralCoordFrames] = "icrs"
     """
     Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
@@ -1051,7 +1051,7 @@ class EffectiveChannelWidthArray:
     baseline_id: Optional[Coordof[BaselineArray]] = None
     polarization: Optional[Coordof[PolarizationArray]] = None
     long_name: Optional[Attr[str]] = "Frequency sampling data"
-    units: Attr[UnitsHertz] = ("Hz",)
+    units: Attr[UnitsHertz] = "Hz"
     observer: Attr[AllowedSpectralCoordFrames] = "icrs"
     """
     Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
@@ -1081,7 +1081,7 @@ class FieldSourceXds:
     sky_dir_label: Coord[SkyDirLabel, str]
     """ Coordinate labels of sky directions (typically shape 2 and 'ra', 'dec') """
 
-    FIELD_PHASE_CENTER: Optional[Data[FieldName, SkyCoordArray]]
+    FIELD_PHASE_CENTER_DIRECTION: Optional[Data[FieldName, SkyCoordArray]]
     """
     Offset from the SOURCE_DIRECTION that gives the direction of phase
     center for which the fringes have been stopped-that is a point source in
@@ -1091,14 +1091,14 @@ class FieldSourceXds:
     varies with field, it refers DelayDir_Ref column instead.
     """
 
-    FIELD_REFERENCE_CENTER: Optional[Data[FieldName, SkyCoordArray]]
+    FIELD_REFERENCE_CENTER_DIRECTION: Optional[Data[FieldName, SkyCoordArray]]
     """
     Used in single-dish to record the associated reference direction if positionswitching
     been applied. For conversion from MSv2, frame refers column keywords by default. If
     frame varies with field, it refers DelayDir_Ref column instead.
     """
 
-    SOURCE_LOCATION: Optional[Data[FieldName, SkyCoordArray]]
+    SOURCE_DIRECTION: Optional[Data[FieldName, SkyCoordArray]]
     """
     CASA Table Cols: RA,DEC,Rho."Astrometric RA and Dec and Geocentric
     distance with respect to the observer’s location (Geocentric). "Adjusted
@@ -1169,7 +1169,7 @@ class FieldSourceEphemerisXds:
     time: Coordof[TimeInterpolatedCoordArray]
     """Midpoint of time for which this set of parameters is accurate. Labeled 'time' when interpolated to main time """
 
-    FIELD_PHASE_CENTER: Optional[Data[tuple[Time], SkyCoordArray]]
+    FIELD_PHASE_CENTER_DIRECTION: Optional[Data[tuple[Time], SkyCoordArray]]
     """
     Offset from the SOURCE_DIRECTION that gives the direction of phase
     center for which the fringes have been stopped-that is a point source in
@@ -1179,7 +1179,7 @@ class FieldSourceEphemerisXds:
     varies with field, it refers DelayDir_Ref column instead.
     """
 
-    FIELD_REFERENCE_CENTER: Optional[Data[tuple[Time], SkyCoordArray]]
+    FIELD_REFERENCE_CENTER_DIRECTION: Optional[Data[tuple[Time], SkyCoordArray]]
     """
     Used in single-dish to record the associated reference direction if positionswitching
     been applied. For conversion from MSv2, frame refers column keywords by default. If
@@ -1322,7 +1322,7 @@ class SpectrumArray:
 
     long_name: Optional[Attr[str]] = "Spectrum values"
     """ Long-form name to use for axis. Should be ``"Spectrum values"``"""
-    units: Attr[list[str]] = ("Jy",)
+    units: Attr[str] = "Jy"
 
 
 @xarray_dataarray_schema
@@ -1341,7 +1341,7 @@ class VisibilityArray:
 
     long_name: Optional[Attr[str]] = "Visibility values"
     """ Long-form name to use for axis. Should be ``"Visibility values"``"""
-    units: Attr[list[str]] = ("Jy",)
+    units: Attr[str] = "Jy"
 
     allow_mutiple_versions: Optional[Attr[bool]] = True
 
@@ -2238,7 +2238,7 @@ class PhasedArrayElementOffsetArray:
         float,
     ]
 
-    units: Attr[list[Literal["m"]]]
+    units: Attr[Literal["m"]]
 
     type: Attr[Location]
     """ Measure type. Should be ``"location"``."""

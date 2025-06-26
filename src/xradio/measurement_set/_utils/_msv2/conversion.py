@@ -55,7 +55,7 @@ from ._tables.read import (
 from ._tables.read_main_table import get_baselines, get_baseline_indices, get_utimes_tol
 from .._utils.stokes_types import stokes_types
 from xradio._utils.list_and_array import check_if_consistent, unique_1d, to_list
-from xradio._utils.dict_helpers import make_spectral_coord_reference_dict, make_quantity
+from xradio._utils.dict_helpers import make_spectral_coord_reference_dict, make_quantity, ensure_units_are_consistent
 
 
 def parse_chunksize(
@@ -755,9 +755,9 @@ def fix_uvw_frame(
     """
     if xds.UVW.attrs["frame"] == "ITRF":
         if is_single_dish:
-            center_var = "FIELD_REFERENCE_CENTER"
+            center_var = "FIELD_REFERENCE_CENTER_DIRECTION"
         else:
-            center_var = "FIELD_PHASE_CENTER"
+            center_var = "FIELD_PHASE_CENTER_DIRECTION"
 
         xds.UVW.attrs["frame"] = field_and_source_xds[center_var].attrs["frame"]
 

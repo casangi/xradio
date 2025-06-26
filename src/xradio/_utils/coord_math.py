@@ -68,33 +68,37 @@ def wrap_to_pi(angles):
 
 
 def convert_to_si_units(xds):
-    for data_var in xds.data_vars:
-        if "units" in xds[data_var].attrs:
-            for u_i, u in enumerate(xds[data_var].attrs["units"]):
+    import xarray as xr
+    with xr.set_options(keep_attrs=True):
+        for data_var in xds.data_vars:
+            if "units" in xds[data_var].attrs:
+                u = xds[data_var].attrs["units"]
+                
                 if u == "km":
-                    xds[data_var][..., u_i] = xds[data_var][..., u_i] * 1e3
-                    xds[data_var].attrs["units"][u_i] = "m"
+                    xds[data_var] = xds[data_var]* 1e3
+                    xds[data_var].attrs["units"] = "m"
                 if u == "km/s":
-                    xds[data_var][..., u_i] = xds[data_var][..., u_i] * 1e3
-                    xds[data_var].attrs["units"][u_i] = "m/s"
+                    xds[data_var] = xds[data_var] * 1e3
+                    xds[data_var].attrs["units"] = "m/s"
                 if u == "deg":
-                    xds[data_var][..., u_i] = xds[data_var][..., u_i] * np.pi / 180
-                    xds[data_var].attrs["units"][u_i] = "rad"
+                    xds[data_var] = xds[data_var] * np.pi / 180
+                    xds[data_var].attrs["units"] = "rad"
                 if u == "Au" or u == "AU":
-                    xds[data_var][..., u_i] = xds[data_var][..., u_i] * 149597870700
-                    xds[data_var].attrs["units"][u_i] = "m"
+                    xds[data_var] = xds[data_var] * 149597870700
+                    xds[data_var].attrs["units"] = "m"
                 if u == "Au/d" or u == "AU/d":
-                    xds[data_var][..., u_i] = (
-                        xds[data_var][..., u_i] * 149597870700 / 86400
+                    xds[data_var] = (
+                        xds[data_var] * 149597870700 / 86400
                     )
-                    xds[data_var].attrs["units"][u_i] = "m/s"
+                    xds[data_var].attrs["units"] = "m/s"
                 if u == "arcsec":
-                    xds[data_var][..., u_i] = xds[data_var][..., u_i] * np.pi / 648000
-                    xds[data_var].attrs["units"][u_i] = "rad"
+                    xds[data_var] = xds[data_var] * np.pi / 648000
+                    xds[data_var].attrs["units"] = "rad"
                 if u == "hPa":
-                    xds[data_var][..., u_i] = xds[data_var][..., u_i] * 100.0
-                    xds[data_var].attrs["units"][u_i] = "Pa"
+                    xds[data_var] = xds[data_var] * 100.0
+                    xds[data_var].attrs["units"] = "Pa"
                 if u == "m-2":
                     # IONOS_ELECTRON sometimes has "m-2" instead of "/m^2"
-                    xds[data_var].attrs["units"][u_i] = "/m^2"
+                    xds[data_var].attrs["units"] = "/m^2"
+                 
     return xds

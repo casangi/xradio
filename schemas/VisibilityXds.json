@@ -1,0 +1,3848 @@
+{
+  "$class": "DatasetSchema",
+  "schema_name": "xradio.measurement_set.schema.VisibilityXds",
+  "dimensions": [
+    [
+      "time",
+      "baseline_id",
+      "frequency",
+      "polarization",
+      "uvw_label"
+    ]
+  ],
+  "coordinates": [
+    {
+      "$class": "ArraySchemaRef",
+      "schema_name": "xradio.measurement_set.schema.TimeCoordArray",
+      "dimensions": [
+        [
+          "time"
+        ]
+      ],
+      "dtypes": [
+        "<f8"
+      ],
+      "coordinates": [],
+      "attributes": [
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "literal": [
+            "time"
+          ],
+          "name": "type",
+          "default": "time",
+          "docstring": "Coordinate type. Should be ``\"time\"``. "
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "list[str]",
+          "literal": [
+            [
+              "s"
+            ]
+          ],
+          "name": "units",
+          "default": [
+            "s"
+          ],
+          "docstring": "Units to associate with axis"
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "literal": [
+            "tai",
+            "tcb",
+            "tcg",
+            "tdb",
+            "tt",
+            "ut1",
+            "utc"
+          ],
+          "name": "scale",
+          "default": "utc",
+          "docstring": "Astropy time scales, see :py:class:`TimeArray` "
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "literal": [
+            "unix",
+            "mjd",
+            "cxcsec",
+            "gps"
+          ],
+          "name": "format",
+          "default": "unix",
+          "docstring": "Astropy format, see :py:class:`TimeArray`"
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "dataarray",
+          "array_schema": {
+            "$class": "ArraySchema",
+            "schema_name": "xradio.measurement_set.schema.QuantityInSecondsArray",
+            "dimensions": [
+              []
+            ],
+            "dtypes": [
+              "<f8"
+            ],
+            "coordinates": [],
+            "attributes": [
+              {
+                "$class": "AttrSchemaRef",
+                "type": "list[str]",
+                "literal": [
+                  [
+                    "s"
+                  ]
+                ],
+                "name": "units",
+                "docstring": null
+              },
+              {
+                "$class": "AttrSchemaRef",
+                "type": "str",
+                "literal": [
+                  "quantity"
+                ],
+                "name": "type",
+                "default": "quantity",
+                "docstring": null
+              }
+            ],
+            "class_docstring": "Quantity with units of seconds",
+            "data_docstring": null
+          },
+          "name": "integration_time",
+          "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
+        }
+      ],
+      "class_docstring": "Data model of the main dataset time axis. See also :py:class:`TimeArray`.",
+      "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`TimeArray`.",
+      "name": "time",
+      "optional": false,
+      "docstring": "The time coordinate is the mid-point of the nominal sampling interval, as\nspeciﬁed in the ``ms_v4.time.attrs['integration_time']`` (ms v2 interval)."
+    },
+    {
+      "$class": "ArraySchemaRef",
+      "schema_name": "xradio.measurement_set.schema.BaselineArray",
+      "dimensions": [
+        [
+          "baseline_id"
+        ]
+      ],
+      "dtypes": [
+        "<i8",
+        "<i4"
+      ],
+      "coordinates": [],
+      "attributes": [
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "long_name",
+          "default": "Baseline ID",
+          "docstring": null
+        }
+      ],
+      "class_docstring": "Model of the baseline_id coordinate in the main dataset (interferometric data, :py:class:`VisibilityXds`)",
+      "data_docstring": "Unique id for each baseline.",
+      "name": "baseline_id",
+      "optional": false,
+      "docstring": "Baseline ID "
+    },
+    {
+      "$class": "ArraySchemaRef",
+      "schema_name": "xradio.measurement_set.schema.FrequencyArray",
+      "dimensions": [
+        [
+          "frequency"
+        ]
+      ],
+      "dtypes": [
+        "<f8"
+      ],
+      "coordinates": [],
+      "attributes": [
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "name": "spectral_window_name",
+          "docstring": "Name associated with spectral window. "
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "frequency_group_name",
+          "docstring": "Name associated with frequency group - needed for multi-band VLBI fringe-fitting."
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "dataarray",
+          "array_schema": {
+            "$class": "ArraySchema",
+            "schema_name": "xradio.measurement_set.schema.SpectralCoordArray",
+            "dimensions": [
+              []
+            ],
+            "dtypes": [
+              "<f8"
+            ],
+            "coordinates": [],
+            "attributes": [
+              {
+                "$class": "AttrSchemaRef",
+                "type": "list[str]",
+                "literal": [
+                  [
+                    "Hz"
+                  ]
+                ],
+                "name": "units",
+                "default": [
+                  "Hz"
+                ],
+                "docstring": null
+              },
+              {
+                "$class": "AttrSchemaRef",
+                "type": "str",
+                "literal": [
+                  "REST",
+                  "BARY",
+                  "TOPO",
+                  "gcrs",
+                  "icrs",
+                  "hcrs",
+                  "lsrk",
+                  "lsrd",
+                  "lsr"
+                ],
+                "name": "observer",
+                "default": "icrs",
+                "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+              },
+              {
+                "$class": "AttrSchemaRef",
+                "type": "str",
+                "literal": [
+                  "spectral_coord"
+                ],
+                "name": "type",
+                "default": "spectral_coord",
+                "docstring": null
+              }
+            ],
+            "class_docstring": "Measures array for data variables and attributes that are spectral coordinates.",
+            "data_docstring": null
+          },
+          "name": "reference_frequency",
+          "docstring": "A frequency representative of the spectral window, usually the sky\nfrequency corresponding to the DC edge of the baseband. Used by the calibration\nsystem if a ﬁxed scaling frequency is required or in algorithms to identify the\nobserving band. "
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "dataarray",
+          "array_schema": {
+            "$class": "ArraySchema",
+            "schema_name": "xradio.measurement_set.schema.QuantityInHertzArray",
+            "dimensions": [
+              []
+            ],
+            "dtypes": [
+              "<f8"
+            ],
+            "coordinates": [],
+            "attributes": [
+              {
+                "$class": "AttrSchemaRef",
+                "type": "list[str]",
+                "literal": [
+                  [
+                    "Hz"
+                  ]
+                ],
+                "name": "units",
+                "docstring": null
+              },
+              {
+                "$class": "AttrSchemaRef",
+                "type": "str",
+                "literal": [
+                  "quantity"
+                ],
+                "name": "type",
+                "default": "quantity",
+                "docstring": null
+              }
+            ],
+            "class_docstring": "Quantity with units of Hertz",
+            "data_docstring": null
+          },
+          "name": "channel_width",
+          "docstring": "The nominal channel bandwidth. Same units as data array (see units key). "
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "dataarray",
+          "array_schema": {
+            "$class": "ArraySchema",
+            "schema_name": "xradio.measurement_set.schema.DopplerArray",
+            "dimensions": [
+              []
+            ],
+            "dtypes": [
+              "<f8"
+            ],
+            "coordinates": [],
+            "attributes": [
+              {
+                "$class": "AttrSchemaRef",
+                "type": "str",
+                "literal": [
+                  "doppler"
+                ],
+                "name": "type",
+                "default": "doppler",
+                "docstring": "Coordinate type. Should be ``\"doppler\"``. "
+              },
+              {
+                "$class": "AttrSchemaRef",
+                "type": "list[str]",
+                "literal": [
+                  [
+                    "ratio"
+                  ],
+                  [
+                    "m/s"
+                  ]
+                ],
+                "name": "units",
+                "default": [
+                  "m/s"
+                ],
+                "docstring": "Units to associate with axis, [ratio]/[m/s]"
+              },
+              {
+                "$class": "AttrSchemaRef",
+                "type": "str",
+                "literal": [
+                  "radio",
+                  "optical",
+                  "z",
+                  "ratio",
+                  "true",
+                  "relativistic",
+                  "beta",
+                  "gamma"
+                ],
+                "name": "doppler_type",
+                "default": "radio",
+                "docstring": "Allowable values: radio, optical, z, ratio, true, relativistic, beta, gamma.\nAstropy only has radio and optical. Using casacore types: https://casadocs.readthedocs.io/en/stable/notebooks/memo-series.html?highlight=Spectral%20Frames#Spectral-Frames"
+              }
+            ],
+            "class_docstring": "Doppler measure information for the frequency coordinate",
+            "data_docstring": null
+          },
+          "optional": true,
+          "name": "doppler",
+          "docstring": "Doppler tracking information "
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "literal": [
+            "spectral_coord"
+          ],
+          "name": "type",
+          "default": "spectral_coord",
+          "docstring": "Coordinate type. Should be ``\"spectral_coord\"``. "
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "long_name",
+          "default": "Frequency",
+          "docstring": "Long-form name to use for axis"
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "list[str]",
+          "literal": [
+            [
+              "Hz"
+            ]
+          ],
+          "name": "units",
+          "default": [
+            "Hz"
+          ],
+          "docstring": "Units to associate with axis"
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "literal": [
+            "REST",
+            "BARY",
+            "TOPO",
+            "gcrs",
+            "icrs",
+            "hcrs",
+            "lsrk",
+            "lsrd",
+            "lsr"
+          ],
+          "name": "observer",
+          "default": "icrs",
+          "docstring": "Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).\nNote that Astropy does not use the name\n'topo' (telescope centric) velocity frame, rather it assumes if no velocity\nframe is given that this is the default."
+        }
+      ],
+      "class_docstring": "Frequency coordinate in the main dataset.",
+      "data_docstring": "Center frequencies for each channel. ",
+      "name": "frequency",
+      "optional": false,
+      "docstring": "Center frequencies for each channel."
+    },
+    {
+      "$class": "ArraySchemaRef",
+      "schema_name": "xradio.measurement_set.schema.PolarizationArray",
+      "dimensions": [
+        [
+          "polarization"
+        ]
+      ],
+      "dtypes": [
+        "<U0"
+      ],
+      "coordinates": [],
+      "attributes": [
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "long_name",
+          "default": "Polarization",
+          "docstring": "Long-form name to use for axis. Should be ``\"Polarization\"``"
+        }
+      ],
+      "class_docstring": "Possible correlations that can be formed from polarised receptors. Possible\nvalues, taken from `Measures/Stokes.h\n<https://github.com/casacore/casacore/blob/5a8df94738bdc36be27e695d7b14fe949a1cc2df/measures/Measures/Stokes.h>`_:\n\n* ``I``, ``Q``, ``U``, ``V`` (standard stokes parameters)\n* ``RR``, ``RL``, ``LR``, ``LL`` (circular correlation products)\n* ``XX``, ``XY``, ``YX``, ``YY`` (linear correlation products)\n* ``RX``, ``RY``, ``LX``, ``LY``, ``XR``, ``XL``, ``YR``, ``YL`` (mixed correlation products)\n* ``PP``, ``PQ``, ``QP``, ``QQ`` (general quasi-orthogonal correlation products)\n* ``RCircular``, ``LCircular``, ``Linear`` (single dish polarization types)\n* ``Ptotal`` (polarized intensity: ``sqrt(Q²+U²+V²)``)\n* ``Plinear`` (linearly polarized intensity: ``sqrt(Q²+U²)``)\n* ``PFtotal`` (polarization fraction: ``Ptotal/I``)\n* ``PFlinear`` (linear polarization fraction: ``Plinear/I``)\n* ``Pangle`` (linear polarization angle: ``0.5 arctan(U/Q)`` in radians)",
+      "data_docstring": "Polarization names. ",
+      "name": "polarization",
+      "optional": false,
+      "docstring": "Labels for polarization types, e.g. ``['XX','XY','YX','YY']``, ``['RR','RL','LR','LL']``."
+    },
+    {
+      "$class": "ArraySchemaRef",
+      "schema_name": null,
+      "dimensions": [
+        [
+          "time"
+        ]
+      ],
+      "dtypes": [
+        "<U0"
+      ],
+      "coordinates": [],
+      "attributes": [],
+      "class_docstring": null,
+      "data_docstring": null,
+      "name": "field_name",
+      "optional": false,
+      "docstring": "Field name."
+    },
+    {
+      "$class": "ArraySchemaRef",
+      "schema_name": "xradio.measurement_set.schema.BaselineAntennaNameArray",
+      "dimensions": [
+        [
+          "baseline_id"
+        ]
+      ],
+      "dtypes": [
+        "<U0"
+      ],
+      "coordinates": [],
+      "attributes": [
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "long_name",
+          "default": "Antenna name by baseline_id",
+          "docstring": null
+        }
+      ],
+      "class_docstring": "Array of antenna_name by baseline_id, as used in main_xds and main_sd_xds\n(antenna_name by baseline_id dim",
+      "data_docstring": "Unique id for each baseline.",
+      "name": "baseline_antenna1_name",
+      "optional": false,
+      "docstring": "Antenna name for 1st antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_name``"
+    },
+    {
+      "$class": "ArraySchemaRef",
+      "schema_name": "xradio.measurement_set.schema.BaselineAntennaNameArray",
+      "dimensions": [
+        [
+          "baseline_id"
+        ]
+      ],
+      "dtypes": [
+        "<U0"
+      ],
+      "coordinates": [],
+      "attributes": [
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "long_name",
+          "default": "Antenna name by baseline_id",
+          "docstring": null
+        }
+      ],
+      "class_docstring": "Array of antenna_name by baseline_id, as used in main_xds and main_sd_xds\n(antenna_name by baseline_id dim",
+      "data_docstring": "Unique id for each baseline.",
+      "name": "baseline_antenna2_name",
+      "optional": false,
+      "docstring": "Antenna name for 2nd antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_name``"
+    },
+    {
+      "$class": "ArraySchemaRef",
+      "schema_name": null,
+      "dimensions": [
+        [
+          "baseline_id",
+          "polarization"
+        ]
+      ],
+      "dtypes": [
+        "<U0"
+      ],
+      "coordinates": [],
+      "attributes": [],
+      "class_docstring": null,
+      "data_docstring": null,
+      "name": "polarization_mixed",
+      "optional": true,
+      "docstring": "If the polarizations are not constant over baseline. For mixed polarizations one would\nuse ['PP', 'PQ', 'QP', 'QQ'] as the polarization labels and then specify here the\nactual polarization basis for each baseline using labels from the set of all\ncombinations of 'X', 'Y', 'R' and 'L'."
+    },
+    {
+      "$class": "ArraySchemaRef",
+      "schema_name": "xradio.measurement_set.schema.UvwLabelArray",
+      "dimensions": [
+        [
+          "uvw_label"
+        ]
+      ],
+      "dtypes": [
+        "<U0"
+      ],
+      "coordinates": [],
+      "attributes": [
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "long_name",
+          "default": "U/V/W label",
+          "docstring": "Long-form name to use for axis. Should be ``\"U/V/W label\"``"
+        }
+      ],
+      "class_docstring": "Coordinate axis to make up ``(\"u\", \"v\", \"w\")`` tuple, see :py:class:`UvwArray`.",
+      "data_docstring": "Should be ``('u','v','w')``, used by :py:class:`UvwArray`",
+      "name": "uvw_label",
+      "optional": true,
+      "docstring": "u,v,w "
+    },
+    {
+      "$class": "ArraySchemaRef",
+      "schema_name": null,
+      "dimensions": [
+        [
+          "time"
+        ]
+      ],
+      "dtypes": [
+        "<U0"
+      ],
+      "coordinates": [],
+      "attributes": [],
+      "class_docstring": null,
+      "data_docstring": null,
+      "name": "scan_name",
+      "optional": true,
+      "docstring": "Scan name to identify data taken in the same logical scan."
+    }
+  ],
+  "data_vars": [
+    {
+      "$class": "ArraySchemaRef",
+      "schema_name": "xradio.measurement_set.schema.VisibilityArray",
+      "dimensions": [
+        [
+          "time",
+          "baseline_id",
+          "frequency",
+          "polarization"
+        ]
+      ],
+      "dtypes": [
+        "<c8",
+        "<c16"
+      ],
+      "coordinates": [
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.TimeCoordArray",
+          "dimensions": [
+            [
+              "time"
+            ]
+          ],
+          "dtypes": [
+            "<f8"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "time"
+              ],
+              "name": "type",
+              "default": "time",
+              "docstring": "Coordinate type. Should be ``\"time\"``. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "list[str]",
+              "literal": [
+                [
+                  "s"
+                ]
+              ],
+              "name": "units",
+              "default": [
+                "s"
+              ],
+              "docstring": "Units to associate with axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "tai",
+                "tcb",
+                "tcg",
+                "tdb",
+                "tt",
+                "ut1",
+                "utc"
+              ],
+              "name": "scale",
+              "default": "utc",
+              "docstring": "Astropy time scales, see :py:class:`TimeArray` "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "unix",
+                "mjd",
+                "cxcsec",
+                "gps"
+              ],
+              "name": "format",
+              "default": "unix",
+              "docstring": "Astropy format, see :py:class:`TimeArray`"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.measurement_set.schema.QuantityInSecondsArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "list[str]",
+                    "literal": [
+                      [
+                        "s"
+                      ]
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of seconds",
+                "data_docstring": null
+              },
+              "name": "integration_time",
+              "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
+            }
+          ],
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`TimeArray`.",
+          "name": "time",
+          "optional": false
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.BaselineArray",
+          "dimensions": [
+            [
+              "baseline_id"
+            ]
+          ],
+          "dtypes": [
+            "<i8",
+            "<i4"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Baseline ID",
+              "docstring": null
+            }
+          ],
+          "class_docstring": "Model of the baseline_id coordinate in the main dataset (interferometric data, :py:class:`VisibilityXds`)",
+          "data_docstring": "Unique id for each baseline.",
+          "name": "baseline_id",
+          "optional": false
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.PolarizationArray",
+          "dimensions": [
+            [
+              "polarization"
+            ]
+          ],
+          "dtypes": [
+            "<U0"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Polarization",
+              "docstring": "Long-form name to use for axis. Should be ``\"Polarization\"``"
+            }
+          ],
+          "class_docstring": "Possible correlations that can be formed from polarised receptors. Possible\nvalues, taken from `Measures/Stokes.h\n<https://github.com/casacore/casacore/blob/5a8df94738bdc36be27e695d7b14fe949a1cc2df/measures/Measures/Stokes.h>`_:\n\n* ``I``, ``Q``, ``U``, ``V`` (standard stokes parameters)\n* ``RR``, ``RL``, ``LR``, ``LL`` (circular correlation products)\n* ``XX``, ``XY``, ``YX``, ``YY`` (linear correlation products)\n* ``RX``, ``RY``, ``LX``, ``LY``, ``XR``, ``XL``, ``YR``, ``YL`` (mixed correlation products)\n* ``PP``, ``PQ``, ``QP``, ``QQ`` (general quasi-orthogonal correlation products)\n* ``RCircular``, ``LCircular``, ``Linear`` (single dish polarization types)\n* ``Ptotal`` (polarized intensity: ``sqrt(Q²+U²+V²)``)\n* ``Plinear`` (linearly polarized intensity: ``sqrt(Q²+U²)``)\n* ``PFtotal`` (polarization fraction: ``Ptotal/I``)\n* ``PFlinear`` (linear polarization fraction: ``Plinear/I``)\n* ``Pangle`` (linear polarization angle: ``0.5 arctan(U/Q)`` in radians)",
+          "data_docstring": "Polarization names. ",
+          "name": "polarization",
+          "optional": false
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.FrequencyArray",
+          "dimensions": [
+            [
+              "frequency"
+            ]
+          ],
+          "dtypes": [
+            "<f8"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "name": "spectral_window_name",
+              "docstring": "Name associated with spectral window. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "frequency_group_name",
+              "docstring": "Name associated with frequency group - needed for multi-band VLBI fringe-fitting."
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.measurement_set.schema.SpectralCoordArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "list[str]",
+                    "literal": [
+                      [
+                        "Hz"
+                      ]
+                    ],
+                    "name": "units",
+                    "default": [
+                      "Hz"
+                    ],
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "REST",
+                      "BARY",
+                      "TOPO",
+                      "gcrs",
+                      "icrs",
+                      "hcrs",
+                      "lsrk",
+                      "lsrd",
+                      "lsr"
+                    ],
+                    "name": "observer",
+                    "default": "icrs",
+                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "spectral_coord"
+                    ],
+                    "name": "type",
+                    "default": "spectral_coord",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Measures array for data variables and attributes that are spectral coordinates.",
+                "data_docstring": null
+              },
+              "name": "reference_frequency",
+              "docstring": "A frequency representative of the spectral window, usually the sky\nfrequency corresponding to the DC edge of the baseband. Used by the calibration\nsystem if a ﬁxed scaling frequency is required or in algorithms to identify the\nobserving band. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.measurement_set.schema.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "list[str]",
+                    "literal": [
+                      [
+                        "Hz"
+                      ]
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "name": "channel_width",
+              "docstring": "The nominal channel bandwidth. Same units as data array (see units key). "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.measurement_set.schema.DopplerArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "doppler"
+                    ],
+                    "name": "type",
+                    "default": "doppler",
+                    "docstring": "Coordinate type. Should be ``\"doppler\"``. "
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "list[str]",
+                    "literal": [
+                      [
+                        "ratio"
+                      ],
+                      [
+                        "m/s"
+                      ]
+                    ],
+                    "name": "units",
+                    "default": [
+                      "m/s"
+                    ],
+                    "docstring": "Units to associate with axis, [ratio]/[m/s]"
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "radio",
+                      "optical",
+                      "z",
+                      "ratio",
+                      "true",
+                      "relativistic",
+                      "beta",
+                      "gamma"
+                    ],
+                    "name": "doppler_type",
+                    "default": "radio",
+                    "docstring": "Allowable values: radio, optical, z, ratio, true, relativistic, beta, gamma.\nAstropy only has radio and optical. Using casacore types: https://casadocs.readthedocs.io/en/stable/notebooks/memo-series.html?highlight=Spectral%20Frames#Spectral-Frames"
+                  }
+                ],
+                "class_docstring": "Doppler measure information for the frequency coordinate",
+                "data_docstring": null
+              },
+              "optional": true,
+              "name": "doppler",
+              "docstring": "Doppler tracking information "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "spectral_coord"
+              ],
+              "name": "type",
+              "default": "spectral_coord",
+              "docstring": "Coordinate type. Should be ``\"spectral_coord\"``. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Frequency",
+              "docstring": "Long-form name to use for axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "list[str]",
+              "literal": [
+                [
+                  "Hz"
+                ]
+              ],
+              "name": "units",
+              "default": [
+                "Hz"
+              ],
+              "docstring": "Units to associate with axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "REST",
+                "BARY",
+                "TOPO",
+                "gcrs",
+                "icrs",
+                "hcrs",
+                "lsrk",
+                "lsrd",
+                "lsr"
+              ],
+              "name": "observer",
+              "default": "icrs",
+              "docstring": "Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).\nNote that Astropy does not use the name\n'topo' (telescope centric) velocity frame, rather it assumes if no velocity\nframe is given that this is the default."
+            }
+          ],
+          "class_docstring": "Frequency coordinate in the main dataset.",
+          "data_docstring": "Center frequencies for each channel. ",
+          "name": "frequency",
+          "optional": false
+        }
+      ],
+      "attributes": [
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "long_name",
+          "default": "Visibility values",
+          "docstring": "Long-form name to use for axis. Should be ``\"Visibility values\"``"
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "list[str]",
+          "name": "units",
+          "default": [
+            "Jy"
+          ],
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "bool",
+          "optional": true,
+          "name": "allow_mutiple_versions",
+          "default": true,
+          "docstring": null
+        }
+      ],
+      "class_docstring": "Visibility data array in main dataset (interferometric data, :py:class:`VisibiiltyXds`)",
+      "data_docstring": null,
+      "name": "VISIBILITY",
+      "optional": false,
+      "docstring": "Complex visibilities, either simulated or measured by interferometer."
+    },
+    {
+      "$class": "ArraySchemaRef",
+      "schema_name": "xradio.measurement_set.schema.FlagArray",
+      "dimensions": [
+        [
+          "time",
+          "baseline_id",
+          "frequency",
+          "polarization"
+        ]
+      ],
+      "dtypes": [
+        "|b1"
+      ],
+      "coordinates": [
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.TimeCoordArray",
+          "dimensions": [
+            [
+              "time"
+            ]
+          ],
+          "dtypes": [
+            "<f8"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "time"
+              ],
+              "name": "type",
+              "default": "time",
+              "docstring": "Coordinate type. Should be ``\"time\"``. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "list[str]",
+              "literal": [
+                [
+                  "s"
+                ]
+              ],
+              "name": "units",
+              "default": [
+                "s"
+              ],
+              "docstring": "Units to associate with axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "tai",
+                "tcb",
+                "tcg",
+                "tdb",
+                "tt",
+                "ut1",
+                "utc"
+              ],
+              "name": "scale",
+              "default": "utc",
+              "docstring": "Astropy time scales, see :py:class:`TimeArray` "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "unix",
+                "mjd",
+                "cxcsec",
+                "gps"
+              ],
+              "name": "format",
+              "default": "unix",
+              "docstring": "Astropy format, see :py:class:`TimeArray`"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.measurement_set.schema.QuantityInSecondsArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "list[str]",
+                    "literal": [
+                      [
+                        "s"
+                      ]
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of seconds",
+                "data_docstring": null
+              },
+              "name": "integration_time",
+              "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
+            }
+          ],
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`TimeArray`.",
+          "name": "time",
+          "optional": false
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.BaselineArray",
+          "dimensions": [
+            [
+              "baseline_id"
+            ]
+          ],
+          "dtypes": [
+            "<i8",
+            "<i4"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Baseline ID",
+              "docstring": null
+            }
+          ],
+          "class_docstring": "Model of the baseline_id coordinate in the main dataset (interferometric data, :py:class:`VisibilityXds`)",
+          "data_docstring": "Unique id for each baseline.",
+          "name": "baseline_id",
+          "optional": true
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.AntennaNameArray",
+          "dimensions": [
+            [
+              "antenna_name"
+            ]
+          ],
+          "dtypes": [
+            "<U0"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Antenna name",
+              "docstring": null
+            }
+          ],
+          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibiiltyXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
+          "data_docstring": "Unique name for each antenna(_station).",
+          "name": "antenna_name",
+          "optional": true
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.FrequencyArray",
+          "dimensions": [
+            [
+              "frequency"
+            ]
+          ],
+          "dtypes": [
+            "<f8"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "name": "spectral_window_name",
+              "docstring": "Name associated with spectral window. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "frequency_group_name",
+              "docstring": "Name associated with frequency group - needed for multi-band VLBI fringe-fitting."
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.measurement_set.schema.SpectralCoordArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "list[str]",
+                    "literal": [
+                      [
+                        "Hz"
+                      ]
+                    ],
+                    "name": "units",
+                    "default": [
+                      "Hz"
+                    ],
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "REST",
+                      "BARY",
+                      "TOPO",
+                      "gcrs",
+                      "icrs",
+                      "hcrs",
+                      "lsrk",
+                      "lsrd",
+                      "lsr"
+                    ],
+                    "name": "observer",
+                    "default": "icrs",
+                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "spectral_coord"
+                    ],
+                    "name": "type",
+                    "default": "spectral_coord",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Measures array for data variables and attributes that are spectral coordinates.",
+                "data_docstring": null
+              },
+              "name": "reference_frequency",
+              "docstring": "A frequency representative of the spectral window, usually the sky\nfrequency corresponding to the DC edge of the baseband. Used by the calibration\nsystem if a ﬁxed scaling frequency is required or in algorithms to identify the\nobserving band. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.measurement_set.schema.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "list[str]",
+                    "literal": [
+                      [
+                        "Hz"
+                      ]
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "name": "channel_width",
+              "docstring": "The nominal channel bandwidth. Same units as data array (see units key). "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.measurement_set.schema.DopplerArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "doppler"
+                    ],
+                    "name": "type",
+                    "default": "doppler",
+                    "docstring": "Coordinate type. Should be ``\"doppler\"``. "
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "list[str]",
+                    "literal": [
+                      [
+                        "ratio"
+                      ],
+                      [
+                        "m/s"
+                      ]
+                    ],
+                    "name": "units",
+                    "default": [
+                      "m/s"
+                    ],
+                    "docstring": "Units to associate with axis, [ratio]/[m/s]"
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "radio",
+                      "optical",
+                      "z",
+                      "ratio",
+                      "true",
+                      "relativistic",
+                      "beta",
+                      "gamma"
+                    ],
+                    "name": "doppler_type",
+                    "default": "radio",
+                    "docstring": "Allowable values: radio, optical, z, ratio, true, relativistic, beta, gamma.\nAstropy only has radio and optical. Using casacore types: https://casadocs.readthedocs.io/en/stable/notebooks/memo-series.html?highlight=Spectral%20Frames#Spectral-Frames"
+                  }
+                ],
+                "class_docstring": "Doppler measure information for the frequency coordinate",
+                "data_docstring": null
+              },
+              "optional": true,
+              "name": "doppler",
+              "docstring": "Doppler tracking information "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "spectral_coord"
+              ],
+              "name": "type",
+              "default": "spectral_coord",
+              "docstring": "Coordinate type. Should be ``\"spectral_coord\"``. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Frequency",
+              "docstring": "Long-form name to use for axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "list[str]",
+              "literal": [
+                [
+                  "Hz"
+                ]
+              ],
+              "name": "units",
+              "default": [
+                "Hz"
+              ],
+              "docstring": "Units to associate with axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "REST",
+                "BARY",
+                "TOPO",
+                "gcrs",
+                "icrs",
+                "hcrs",
+                "lsrk",
+                "lsrd",
+                "lsr"
+              ],
+              "name": "observer",
+              "default": "icrs",
+              "docstring": "Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).\nNote that Astropy does not use the name\n'topo' (telescope centric) velocity frame, rather it assumes if no velocity\nframe is given that this is the default."
+            }
+          ],
+          "class_docstring": "Frequency coordinate in the main dataset.",
+          "data_docstring": "Center frequencies for each channel. ",
+          "name": "frequency",
+          "optional": false
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.PolarizationArray",
+          "dimensions": [
+            [
+              "polarization"
+            ]
+          ],
+          "dtypes": [
+            "<U0"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Polarization",
+              "docstring": "Long-form name to use for axis. Should be ``\"Polarization\"``"
+            }
+          ],
+          "class_docstring": "Possible correlations that can be formed from polarised receptors. Possible\nvalues, taken from `Measures/Stokes.h\n<https://github.com/casacore/casacore/blob/5a8df94738bdc36be27e695d7b14fe949a1cc2df/measures/Measures/Stokes.h>`_:\n\n* ``I``, ``Q``, ``U``, ``V`` (standard stokes parameters)\n* ``RR``, ``RL``, ``LR``, ``LL`` (circular correlation products)\n* ``XX``, ``XY``, ``YX``, ``YY`` (linear correlation products)\n* ``RX``, ``RY``, ``LX``, ``LY``, ``XR``, ``XL``, ``YR``, ``YL`` (mixed correlation products)\n* ``PP``, ``PQ``, ``QP``, ``QQ`` (general quasi-orthogonal correlation products)\n* ``RCircular``, ``LCircular``, ``Linear`` (single dish polarization types)\n* ``Ptotal`` (polarized intensity: ``sqrt(Q²+U²+V²)``)\n* ``Plinear`` (linearly polarized intensity: ``sqrt(Q²+U²)``)\n* ``PFtotal`` (polarization fraction: ``Ptotal/I``)\n* ``PFlinear`` (linear polarization fraction: ``Plinear/I``)\n* ``Pangle`` (linear polarization angle: ``0.5 arctan(U/Q)`` in radians)",
+          "data_docstring": "Polarization names. ",
+          "name": "polarization",
+          "optional": true
+        }
+      ],
+      "attributes": [
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "long_name",
+          "default": "Visibility flags",
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "bool",
+          "optional": true,
+          "name": "allow_mutiple_versions",
+          "default": true,
+          "docstring": null
+        }
+      ],
+      "class_docstring": "An array of Boolean values with the same shape as `VISIBILITY`,\nrepresenting the cumulative flags applying to this data matrix. Data are\nflagged bad if the ``FLAG`` array element is ``True``.",
+      "data_docstring": null,
+      "name": "FLAG",
+      "optional": false
+    },
+    {
+      "$class": "ArraySchemaRef",
+      "schema_name": "xradio.measurement_set.schema.WeightArray",
+      "dimensions": [
+        [
+          "time",
+          "baseline_id",
+          "frequency",
+          "polarization"
+        ]
+      ],
+      "dtypes": [
+        "<f2",
+        "<f4",
+        "<f8"
+      ],
+      "coordinates": [
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.TimeCoordArray",
+          "dimensions": [
+            [
+              "time"
+            ]
+          ],
+          "dtypes": [
+            "<f8"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "time"
+              ],
+              "name": "type",
+              "default": "time",
+              "docstring": "Coordinate type. Should be ``\"time\"``. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "list[str]",
+              "literal": [
+                [
+                  "s"
+                ]
+              ],
+              "name": "units",
+              "default": [
+                "s"
+              ],
+              "docstring": "Units to associate with axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "tai",
+                "tcb",
+                "tcg",
+                "tdb",
+                "tt",
+                "ut1",
+                "utc"
+              ],
+              "name": "scale",
+              "default": "utc",
+              "docstring": "Astropy time scales, see :py:class:`TimeArray` "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "unix",
+                "mjd",
+                "cxcsec",
+                "gps"
+              ],
+              "name": "format",
+              "default": "unix",
+              "docstring": "Astropy format, see :py:class:`TimeArray`"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.measurement_set.schema.QuantityInSecondsArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "list[str]",
+                    "literal": [
+                      [
+                        "s"
+                      ]
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of seconds",
+                "data_docstring": null
+              },
+              "name": "integration_time",
+              "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
+            }
+          ],
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`TimeArray`.",
+          "name": "time",
+          "optional": false
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.BaselineArray",
+          "dimensions": [
+            [
+              "baseline_id"
+            ]
+          ],
+          "dtypes": [
+            "<i8",
+            "<i4"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Baseline ID",
+              "docstring": null
+            }
+          ],
+          "class_docstring": "Model of the baseline_id coordinate in the main dataset (interferometric data, :py:class:`VisibilityXds`)",
+          "data_docstring": "Unique id for each baseline.",
+          "name": "baseline_id",
+          "optional": true
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.AntennaNameArray",
+          "dimensions": [
+            [
+              "antenna_name"
+            ]
+          ],
+          "dtypes": [
+            "<U0"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Antenna name",
+              "docstring": null
+            }
+          ],
+          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibiiltyXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
+          "data_docstring": "Unique name for each antenna(_station).",
+          "name": "antenna_name",
+          "optional": true
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.FrequencyArray",
+          "dimensions": [
+            [
+              "frequency"
+            ]
+          ],
+          "dtypes": [
+            "<f8"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "name": "spectral_window_name",
+              "docstring": "Name associated with spectral window. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "frequency_group_name",
+              "docstring": "Name associated with frequency group - needed for multi-band VLBI fringe-fitting."
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.measurement_set.schema.SpectralCoordArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "list[str]",
+                    "literal": [
+                      [
+                        "Hz"
+                      ]
+                    ],
+                    "name": "units",
+                    "default": [
+                      "Hz"
+                    ],
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "REST",
+                      "BARY",
+                      "TOPO",
+                      "gcrs",
+                      "icrs",
+                      "hcrs",
+                      "lsrk",
+                      "lsrd",
+                      "lsr"
+                    ],
+                    "name": "observer",
+                    "default": "icrs",
+                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "spectral_coord"
+                    ],
+                    "name": "type",
+                    "default": "spectral_coord",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Measures array for data variables and attributes that are spectral coordinates.",
+                "data_docstring": null
+              },
+              "name": "reference_frequency",
+              "docstring": "A frequency representative of the spectral window, usually the sky\nfrequency corresponding to the DC edge of the baseband. Used by the calibration\nsystem if a ﬁxed scaling frequency is required or in algorithms to identify the\nobserving band. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.measurement_set.schema.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "list[str]",
+                    "literal": [
+                      [
+                        "Hz"
+                      ]
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "name": "channel_width",
+              "docstring": "The nominal channel bandwidth. Same units as data array (see units key). "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.measurement_set.schema.DopplerArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "doppler"
+                    ],
+                    "name": "type",
+                    "default": "doppler",
+                    "docstring": "Coordinate type. Should be ``\"doppler\"``. "
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "list[str]",
+                    "literal": [
+                      [
+                        "ratio"
+                      ],
+                      [
+                        "m/s"
+                      ]
+                    ],
+                    "name": "units",
+                    "default": [
+                      "m/s"
+                    ],
+                    "docstring": "Units to associate with axis, [ratio]/[m/s]"
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "radio",
+                      "optical",
+                      "z",
+                      "ratio",
+                      "true",
+                      "relativistic",
+                      "beta",
+                      "gamma"
+                    ],
+                    "name": "doppler_type",
+                    "default": "radio",
+                    "docstring": "Allowable values: radio, optical, z, ratio, true, relativistic, beta, gamma.\nAstropy only has radio and optical. Using casacore types: https://casadocs.readthedocs.io/en/stable/notebooks/memo-series.html?highlight=Spectral%20Frames#Spectral-Frames"
+                  }
+                ],
+                "class_docstring": "Doppler measure information for the frequency coordinate",
+                "data_docstring": null
+              },
+              "optional": true,
+              "name": "doppler",
+              "docstring": "Doppler tracking information "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "spectral_coord"
+              ],
+              "name": "type",
+              "default": "spectral_coord",
+              "docstring": "Coordinate type. Should be ``\"spectral_coord\"``. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Frequency",
+              "docstring": "Long-form name to use for axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "list[str]",
+              "literal": [
+                [
+                  "Hz"
+                ]
+              ],
+              "name": "units",
+              "default": [
+                "Hz"
+              ],
+              "docstring": "Units to associate with axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "REST",
+                "BARY",
+                "TOPO",
+                "gcrs",
+                "icrs",
+                "hcrs",
+                "lsrk",
+                "lsrd",
+                "lsr"
+              ],
+              "name": "observer",
+              "default": "icrs",
+              "docstring": "Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).\nNote that Astropy does not use the name\n'topo' (telescope centric) velocity frame, rather it assumes if no velocity\nframe is given that this is the default."
+            }
+          ],
+          "class_docstring": "Frequency coordinate in the main dataset.",
+          "data_docstring": "Center frequencies for each channel. ",
+          "name": "frequency",
+          "optional": false
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.PolarizationArray",
+          "dimensions": [
+            [
+              "polarization"
+            ]
+          ],
+          "dtypes": [
+            "<U0"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Polarization",
+              "docstring": "Long-form name to use for axis. Should be ``\"Polarization\"``"
+            }
+          ],
+          "class_docstring": "Possible correlations that can be formed from polarised receptors. Possible\nvalues, taken from `Measures/Stokes.h\n<https://github.com/casacore/casacore/blob/5a8df94738bdc36be27e695d7b14fe949a1cc2df/measures/Measures/Stokes.h>`_:\n\n* ``I``, ``Q``, ``U``, ``V`` (standard stokes parameters)\n* ``RR``, ``RL``, ``LR``, ``LL`` (circular correlation products)\n* ``XX``, ``XY``, ``YX``, ``YY`` (linear correlation products)\n* ``RX``, ``RY``, ``LX``, ``LY``, ``XR``, ``XL``, ``YR``, ``YL`` (mixed correlation products)\n* ``PP``, ``PQ``, ``QP``, ``QQ`` (general quasi-orthogonal correlation products)\n* ``RCircular``, ``LCircular``, ``Linear`` (single dish polarization types)\n* ``Ptotal`` (polarized intensity: ``sqrt(Q²+U²+V²)``)\n* ``Plinear`` (linearly polarized intensity: ``sqrt(Q²+U²)``)\n* ``PFtotal`` (polarization fraction: ``Ptotal/I``)\n* ``PFlinear`` (linear polarization fraction: ``Plinear/I``)\n* ``Pangle`` (linear polarization angle: ``0.5 arctan(U/Q)`` in radians)",
+          "data_docstring": "Polarization names. ",
+          "name": "polarization",
+          "optional": true
+        }
+      ],
+      "attributes": [
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "long_name",
+          "default": "Visibility weights",
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "bool",
+          "optional": true,
+          "name": "allow_mutiple_versions",
+          "default": true,
+          "docstring": null
+        }
+      ],
+      "class_docstring": "The weight for each channel, with the same shape as the associated\n:py:class:`VisibilityArray`, as assigned by the correlator or processor.\n\nWeight spectrum in ms v2 is renamed weight. Should be calculated as\n1/sigma^2 (sigma rms noise).",
+      "data_docstring": "Visibility weights",
+      "name": "WEIGHT",
+      "optional": false
+    },
+    {
+      "$class": "ArraySchemaRef",
+      "schema_name": "xradio.measurement_set.schema.UvwArray",
+      "dimensions": [
+        [
+          "time",
+          "baseline_id",
+          "uvw_label"
+        ]
+      ],
+      "dtypes": [
+        "<f2",
+        "<f4",
+        "<f8"
+      ],
+      "coordinates": [
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.TimeCoordArray",
+          "dimensions": [
+            [
+              "time"
+            ]
+          ],
+          "dtypes": [
+            "<f8"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "time"
+              ],
+              "name": "type",
+              "default": "time",
+              "docstring": "Coordinate type. Should be ``\"time\"``. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "list[str]",
+              "literal": [
+                [
+                  "s"
+                ]
+              ],
+              "name": "units",
+              "default": [
+                "s"
+              ],
+              "docstring": "Units to associate with axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "tai",
+                "tcb",
+                "tcg",
+                "tdb",
+                "tt",
+                "ut1",
+                "utc"
+              ],
+              "name": "scale",
+              "default": "utc",
+              "docstring": "Astropy time scales, see :py:class:`TimeArray` "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "unix",
+                "mjd",
+                "cxcsec",
+                "gps"
+              ],
+              "name": "format",
+              "default": "unix",
+              "docstring": "Astropy format, see :py:class:`TimeArray`"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.measurement_set.schema.QuantityInSecondsArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "list[str]",
+                    "literal": [
+                      [
+                        "s"
+                      ]
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of seconds",
+                "data_docstring": null
+              },
+              "name": "integration_time",
+              "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
+            }
+          ],
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`TimeArray`.",
+          "name": "time",
+          "optional": false
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.BaselineArray",
+          "dimensions": [
+            [
+              "baseline_id"
+            ]
+          ],
+          "dtypes": [
+            "<i8",
+            "<i4"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Baseline ID",
+              "docstring": null
+            }
+          ],
+          "class_docstring": "Model of the baseline_id coordinate in the main dataset (interferometric data, :py:class:`VisibilityXds`)",
+          "data_docstring": "Unique id for each baseline.",
+          "name": "baseline_id",
+          "optional": true
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.UvwLabelArray",
+          "dimensions": [
+            [
+              "uvw_label"
+            ]
+          ],
+          "dtypes": [
+            "<U0"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "U/V/W label",
+              "docstring": "Long-form name to use for axis. Should be ``\"U/V/W label\"``"
+            }
+          ],
+          "class_docstring": "Coordinate axis to make up ``(\"u\", \"v\", \"w\")`` tuple, see :py:class:`UvwArray`.",
+          "data_docstring": "Should be ``('u','v','w')``, used by :py:class:`UvwArray`",
+          "name": "uvw_label",
+          "optional": false,
+          "default": [
+            "u",
+            "v",
+            "w"
+          ]
+        }
+      ],
+      "attributes": [
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "long_name",
+          "default": "Baseline coordinates",
+          "docstring": "Long-form name to use for axis. Should be ``\"Baseline coordinates``"
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "literal": [
+            "uvw"
+          ],
+          "name": "type",
+          "default": "uvw",
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "literal": [
+            "fk5",
+            "icrs",
+            "APP"
+          ],
+          "name": "frame",
+          "default": "icrs",
+          "docstring": "To be defined in astropy (see for example https://github.com/astropy/astropy/issues/7766) "
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "list[str]",
+          "literal": [
+            [
+              "m"
+            ]
+          ],
+          "name": "units",
+          "default": [
+            "m"
+          ],
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "bool",
+          "optional": true,
+          "name": "allow_mutiple_versions",
+          "default": true,
+          "docstring": null
+        }
+      ],
+      "class_docstring": "Coordinates for the baseline from ``baseline_antenna2_id`` to\n``baseline_antenna1_id``, i.e. the baseline is equal to the difference\n``POSITION2 - POSITION1``. The UVW given are for the ``TIME_CENTROID``, and\ncorrespond in general to the reference type for the\n``field_info.phase_dir``.\n\nThe baseline direction should be: ``W`` towards source direction; ``V`` in\nplane through source and system's pole; ``U`` in direction of increasing\nlongitude coordinate.  So citing\nhttp://casa.nrao.edu/Memos/CoordConvention.pdf: Consider an XYZ Celestial\ncoordinate system centered at the location of the interferometer, with\n:math:`X` towards the East, :math:`Z` towards the NCP and :math:`Y` to\ncomplete a right-handed system. The UVW coordinate system is then defined\nby the hour-angle and declination of the phase-reference direction such\nthat\n\n#. when the direction of observation is the NCP (`ha=0,dec=90`),\n   the UVW coordinates are aligned with XYZ,\n#. V, W and the NCP are always on a Great circle,\n#. when W is on the local meridian, U points East\n#. when the direction of observation is at zero declination, an\n   hour-angle of -6 hours makes W point due East.\n\nThis definition also determines the sign of the phase of ``VISIBILITY``.",
+      "data_docstring": "Baseline coordinates from ``baseline_antenna2_id`` to ``baseline_antenna1_id``",
+      "name": "UVW",
+      "optional": false
+    },
+    {
+      "$class": "ArraySchemaRef",
+      "schema_name": "xradio.measurement_set.schema.QuantityInSecondsArray",
+      "dimensions": [
+        [
+          "time",
+          "baseline_id"
+        ],
+        [
+          "time",
+          "baseline_id",
+          "frequency",
+          "polarization"
+        ]
+      ],
+      "dtypes": [
+        "<f8"
+      ],
+      "coordinates": [],
+      "attributes": [
+        {
+          "$class": "AttrSchemaRef",
+          "type": "list[str]",
+          "literal": [
+            [
+              "s"
+            ]
+          ],
+          "name": "units",
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "literal": [
+            "quantity"
+          ],
+          "name": "type",
+          "default": "quantity",
+          "docstring": null
+        }
+      ],
+      "class_docstring": "Quantity with units of seconds",
+      "data_docstring": null,
+      "name": "EFFECTIVE_INTEGRATION_TIME",
+      "optional": true,
+      "docstring": "The integration time, including the effects of missing data, in contrast to\n``integration_time`` attribute of the ``time`` coordinate,\nsee :py:class:`TimeArray`. (MS v2: ``exposure``)."
+    },
+    {
+      "$class": "ArraySchemaRef",
+      "schema_name": "xradio.measurement_set.schema.TimeSamplingArray",
+      "dimensions": [
+        [
+          "time",
+          "baseline_id"
+        ]
+      ],
+      "dtypes": [
+        "<f8"
+      ],
+      "coordinates": [
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.TimeCoordArray",
+          "dimensions": [
+            [
+              "time"
+            ]
+          ],
+          "dtypes": [
+            "<f8"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "time"
+              ],
+              "name": "type",
+              "default": "time",
+              "docstring": "Coordinate type. Should be ``\"time\"``. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "list[str]",
+              "literal": [
+                [
+                  "s"
+                ]
+              ],
+              "name": "units",
+              "default": [
+                "s"
+              ],
+              "docstring": "Units to associate with axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "tai",
+                "tcb",
+                "tcg",
+                "tdb",
+                "tt",
+                "ut1",
+                "utc"
+              ],
+              "name": "scale",
+              "default": "utc",
+              "docstring": "Astropy time scales, see :py:class:`TimeArray` "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "unix",
+                "mjd",
+                "cxcsec",
+                "gps"
+              ],
+              "name": "format",
+              "default": "unix",
+              "docstring": "Astropy format, see :py:class:`TimeArray`"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.measurement_set.schema.QuantityInSecondsArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "list[str]",
+                    "literal": [
+                      [
+                        "s"
+                      ]
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of seconds",
+                "data_docstring": null
+              },
+              "name": "integration_time",
+              "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
+            }
+          ],
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`TimeArray`.",
+          "name": "time",
+          "optional": false
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.BaselineArray",
+          "dimensions": [
+            [
+              "baseline_id"
+            ]
+          ],
+          "dtypes": [
+            "<i8",
+            "<i4"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Baseline ID",
+              "docstring": null
+            }
+          ],
+          "class_docstring": "Model of the baseline_id coordinate in the main dataset (interferometric data, :py:class:`VisibilityXds`)",
+          "data_docstring": "Unique id for each baseline.",
+          "name": "baseline_id",
+          "optional": true
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.AntennaNameArray",
+          "dimensions": [
+            [
+              "antenna_name"
+            ]
+          ],
+          "dtypes": [
+            "<U0"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Antenna name",
+              "docstring": null
+            }
+          ],
+          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibiiltyXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
+          "data_docstring": "Unique name for each antenna(_station).",
+          "name": "antenna_name",
+          "optional": true
+        }
+      ],
+      "attributes": [
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "literal": [
+            "tai",
+            "tcb",
+            "tcg",
+            "tdb",
+            "tt",
+            "ut1",
+            "utc"
+          ],
+          "name": "scale",
+          "default": "utc",
+          "docstring": "Astropy time scales, see :py:class:`astropy.time.Time` "
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "literal": [
+            "unix",
+            "mjd",
+            "cxcsec",
+            "gps"
+          ],
+          "name": "format",
+          "default": "unix",
+          "docstring": "Astropy format, see :py:class:`astropy.time.Time`. Default seconds from 1970-01-01 00:00:00 UTC "
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "long_name",
+          "default": "Time sampling data",
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "list[str]",
+          "literal": [
+            [
+              "s"
+            ]
+          ],
+          "name": "units",
+          "default": [
+            "s"
+          ],
+          "docstring": null
+        }
+      ],
+      "class_docstring": "Model of arrays of measures used in the main dataset for data variables such as TIME_CENTROID and\nTIME_CENTROID_EXTRA_PRECISION.",
+      "data_docstring": null,
+      "name": "TIME_CENTROID",
+      "optional": true,
+      "docstring": "The time centroid of the visibility, includes the effects of missing data\nunlike the ``time`` coordinate, see :py:class:`TimeArray`."
+    },
+    {
+      "$class": "ArraySchemaRef",
+      "schema_name": "xradio.measurement_set.schema.TimeSamplingArray",
+      "dimensions": [
+        [
+          "time",
+          "baseline_id"
+        ]
+      ],
+      "dtypes": [
+        "<f8"
+      ],
+      "coordinates": [
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.TimeCoordArray",
+          "dimensions": [
+            [
+              "time"
+            ]
+          ],
+          "dtypes": [
+            "<f8"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "time"
+              ],
+              "name": "type",
+              "default": "time",
+              "docstring": "Coordinate type. Should be ``\"time\"``. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "list[str]",
+              "literal": [
+                [
+                  "s"
+                ]
+              ],
+              "name": "units",
+              "default": [
+                "s"
+              ],
+              "docstring": "Units to associate with axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "tai",
+                "tcb",
+                "tcg",
+                "tdb",
+                "tt",
+                "ut1",
+                "utc"
+              ],
+              "name": "scale",
+              "default": "utc",
+              "docstring": "Astropy time scales, see :py:class:`TimeArray` "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "unix",
+                "mjd",
+                "cxcsec",
+                "gps"
+              ],
+              "name": "format",
+              "default": "unix",
+              "docstring": "Astropy format, see :py:class:`TimeArray`"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.measurement_set.schema.QuantityInSecondsArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "list[str]",
+                    "literal": [
+                      [
+                        "s"
+                      ]
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of seconds",
+                "data_docstring": null
+              },
+              "name": "integration_time",
+              "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
+            }
+          ],
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`TimeArray`.",
+          "name": "time",
+          "optional": false
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.BaselineArray",
+          "dimensions": [
+            [
+              "baseline_id"
+            ]
+          ],
+          "dtypes": [
+            "<i8",
+            "<i4"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Baseline ID",
+              "docstring": null
+            }
+          ],
+          "class_docstring": "Model of the baseline_id coordinate in the main dataset (interferometric data, :py:class:`VisibilityXds`)",
+          "data_docstring": "Unique id for each baseline.",
+          "name": "baseline_id",
+          "optional": true
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.AntennaNameArray",
+          "dimensions": [
+            [
+              "antenna_name"
+            ]
+          ],
+          "dtypes": [
+            "<U0"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Antenna name",
+              "docstring": null
+            }
+          ],
+          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibiiltyXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
+          "data_docstring": "Unique name for each antenna(_station).",
+          "name": "antenna_name",
+          "optional": true
+        }
+      ],
+      "attributes": [
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "literal": [
+            "tai",
+            "tcb",
+            "tcg",
+            "tdb",
+            "tt",
+            "ut1",
+            "utc"
+          ],
+          "name": "scale",
+          "default": "utc",
+          "docstring": "Astropy time scales, see :py:class:`astropy.time.Time` "
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "literal": [
+            "unix",
+            "mjd",
+            "cxcsec",
+            "gps"
+          ],
+          "name": "format",
+          "default": "unix",
+          "docstring": "Astropy format, see :py:class:`astropy.time.Time`. Default seconds from 1970-01-01 00:00:00 UTC "
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "long_name",
+          "default": "Time sampling data",
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "list[str]",
+          "literal": [
+            [
+              "s"
+            ]
+          ],
+          "name": "units",
+          "default": [
+            "s"
+          ],
+          "docstring": null
+        }
+      ],
+      "class_docstring": "Model of arrays of measures used in the main dataset for data variables such as TIME_CENTROID and\nTIME_CENTROID_EXTRA_PRECISION.",
+      "data_docstring": null,
+      "name": "TIME_CENTROID_EXTRA_PRECISION",
+      "optional": true,
+      "docstring": "Additional precision for ``TIME_CENTROID``"
+    },
+    {
+      "$class": "ArraySchemaRef",
+      "schema_name": "xradio.measurement_set.schema.EffectiveChannelWidthArray",
+      "dimensions": [
+        [
+          "time",
+          "baseline_id",
+          "frequency",
+          "polarization"
+        ]
+      ],
+      "dtypes": [
+        "<f8"
+      ],
+      "coordinates": [
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.FrequencyArray",
+          "dimensions": [
+            [
+              "frequency"
+            ]
+          ],
+          "dtypes": [
+            "<f8"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "name": "spectral_window_name",
+              "docstring": "Name associated with spectral window. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "frequency_group_name",
+              "docstring": "Name associated with frequency group - needed for multi-band VLBI fringe-fitting."
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.measurement_set.schema.SpectralCoordArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "list[str]",
+                    "literal": [
+                      [
+                        "Hz"
+                      ]
+                    ],
+                    "name": "units",
+                    "default": [
+                      "Hz"
+                    ],
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "REST",
+                      "BARY",
+                      "TOPO",
+                      "gcrs",
+                      "icrs",
+                      "hcrs",
+                      "lsrk",
+                      "lsrd",
+                      "lsr"
+                    ],
+                    "name": "observer",
+                    "default": "icrs",
+                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "spectral_coord"
+                    ],
+                    "name": "type",
+                    "default": "spectral_coord",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Measures array for data variables and attributes that are spectral coordinates.",
+                "data_docstring": null
+              },
+              "name": "reference_frequency",
+              "docstring": "A frequency representative of the spectral window, usually the sky\nfrequency corresponding to the DC edge of the baseband. Used by the calibration\nsystem if a ﬁxed scaling frequency is required or in algorithms to identify the\nobserving band. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.measurement_set.schema.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "list[str]",
+                    "literal": [
+                      [
+                        "Hz"
+                      ]
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "name": "channel_width",
+              "docstring": "The nominal channel bandwidth. Same units as data array (see units key). "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.measurement_set.schema.DopplerArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "doppler"
+                    ],
+                    "name": "type",
+                    "default": "doppler",
+                    "docstring": "Coordinate type. Should be ``\"doppler\"``. "
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "list[str]",
+                    "literal": [
+                      [
+                        "ratio"
+                      ],
+                      [
+                        "m/s"
+                      ]
+                    ],
+                    "name": "units",
+                    "default": [
+                      "m/s"
+                    ],
+                    "docstring": "Units to associate with axis, [ratio]/[m/s]"
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "radio",
+                      "optical",
+                      "z",
+                      "ratio",
+                      "true",
+                      "relativistic",
+                      "beta",
+                      "gamma"
+                    ],
+                    "name": "doppler_type",
+                    "default": "radio",
+                    "docstring": "Allowable values: radio, optical, z, ratio, true, relativistic, beta, gamma.\nAstropy only has radio and optical. Using casacore types: https://casadocs.readthedocs.io/en/stable/notebooks/memo-series.html?highlight=Spectral%20Frames#Spectral-Frames"
+                  }
+                ],
+                "class_docstring": "Doppler measure information for the frequency coordinate",
+                "data_docstring": null
+              },
+              "optional": true,
+              "name": "doppler",
+              "docstring": "Doppler tracking information "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "spectral_coord"
+              ],
+              "name": "type",
+              "default": "spectral_coord",
+              "docstring": "Coordinate type. Should be ``\"spectral_coord\"``. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Frequency",
+              "docstring": "Long-form name to use for axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "list[str]",
+              "literal": [
+                [
+                  "Hz"
+                ]
+              ],
+              "name": "units",
+              "default": [
+                "Hz"
+              ],
+              "docstring": "Units to associate with axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "REST",
+                "BARY",
+                "TOPO",
+                "gcrs",
+                "icrs",
+                "hcrs",
+                "lsrk",
+                "lsrd",
+                "lsr"
+              ],
+              "name": "observer",
+              "default": "icrs",
+              "docstring": "Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).\nNote that Astropy does not use the name\n'topo' (telescope centric) velocity frame, rather it assumes if no velocity\nframe is given that this is the default."
+            }
+          ],
+          "class_docstring": "Frequency coordinate in the main dataset.",
+          "data_docstring": "Center frequencies for each channel. ",
+          "name": "frequency",
+          "optional": false
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.TimeCoordArray",
+          "dimensions": [
+            [
+              "time"
+            ]
+          ],
+          "dtypes": [
+            "<f8"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "time"
+              ],
+              "name": "type",
+              "default": "time",
+              "docstring": "Coordinate type. Should be ``\"time\"``. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "list[str]",
+              "literal": [
+                [
+                  "s"
+                ]
+              ],
+              "name": "units",
+              "default": [
+                "s"
+              ],
+              "docstring": "Units to associate with axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "tai",
+                "tcb",
+                "tcg",
+                "tdb",
+                "tt",
+                "ut1",
+                "utc"
+              ],
+              "name": "scale",
+              "default": "utc",
+              "docstring": "Astropy time scales, see :py:class:`TimeArray` "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "unix",
+                "mjd",
+                "cxcsec",
+                "gps"
+              ],
+              "name": "format",
+              "default": "unix",
+              "docstring": "Astropy format, see :py:class:`TimeArray`"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.measurement_set.schema.QuantityInSecondsArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "list[str]",
+                    "literal": [
+                      [
+                        "s"
+                      ]
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of seconds",
+                "data_docstring": null
+              },
+              "name": "integration_time",
+              "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
+            }
+          ],
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`TimeArray`.",
+          "name": "time",
+          "optional": true
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.BaselineArray",
+          "dimensions": [
+            [
+              "baseline_id"
+            ]
+          ],
+          "dtypes": [
+            "<i8",
+            "<i4"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Baseline ID",
+              "docstring": null
+            }
+          ],
+          "class_docstring": "Model of the baseline_id coordinate in the main dataset (interferometric data, :py:class:`VisibilityXds`)",
+          "data_docstring": "Unique id for each baseline.",
+          "name": "baseline_id",
+          "optional": true
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.PolarizationArray",
+          "dimensions": [
+            [
+              "polarization"
+            ]
+          ],
+          "dtypes": [
+            "<U0"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Polarization",
+              "docstring": "Long-form name to use for axis. Should be ``\"Polarization\"``"
+            }
+          ],
+          "class_docstring": "Possible correlations that can be formed from polarised receptors. Possible\nvalues, taken from `Measures/Stokes.h\n<https://github.com/casacore/casacore/blob/5a8df94738bdc36be27e695d7b14fe949a1cc2df/measures/Measures/Stokes.h>`_:\n\n* ``I``, ``Q``, ``U``, ``V`` (standard stokes parameters)\n* ``RR``, ``RL``, ``LR``, ``LL`` (circular correlation products)\n* ``XX``, ``XY``, ``YX``, ``YY`` (linear correlation products)\n* ``RX``, ``RY``, ``LX``, ``LY``, ``XR``, ``XL``, ``YR``, ``YL`` (mixed correlation products)\n* ``PP``, ``PQ``, ``QP``, ``QQ`` (general quasi-orthogonal correlation products)\n* ``RCircular``, ``LCircular``, ``Linear`` (single dish polarization types)\n* ``Ptotal`` (polarized intensity: ``sqrt(Q²+U²+V²)``)\n* ``Plinear`` (linearly polarized intensity: ``sqrt(Q²+U²)``)\n* ``PFtotal`` (polarization fraction: ``Ptotal/I``)\n* ``PFlinear`` (linear polarization fraction: ``Plinear/I``)\n* ``Pangle`` (linear polarization angle: ``0.5 arctan(U/Q)`` in radians)",
+          "data_docstring": "Polarization names. ",
+          "name": "polarization",
+          "optional": true
+        }
+      ],
+      "attributes": [
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "long_name",
+          "default": "Frequency sampling data",
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "list[str]",
+          "literal": [
+            [
+              "Hz"
+            ]
+          ],
+          "name": "units",
+          "default": [
+            "Hz"
+          ],
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "literal": [
+            "REST",
+            "BARY",
+            "TOPO",
+            "gcrs",
+            "icrs",
+            "hcrs",
+            "lsrk",
+            "lsrd",
+            "lsr"
+          ],
+          "name": "observer",
+          "default": "icrs",
+          "docstring": "Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).\nNote that Astropy does not use the name\n'topo' (telescope centric) velocity frame, rather it assumes if no velocity\nframe is given that this is the default."
+        }
+      ],
+      "class_docstring": "Model of frequency related data variables of the main dataset, such as EFFECTIV_CHANNEL_WIDTH.",
+      "data_docstring": "Data about frequency sampling, such as centroid or integration\ntime. Concrete function depends on concrete data array within\n:py:class:`VisibilityXds` or :py:class:`SpectrumXds`.",
+      "name": "EFFECTIVE_CHANNEL_WIDTH",
+      "optional": true,
+      "docstring": "The channel bandwidth that includes the effects of missing data."
+    },
+    {
+      "$class": "ArraySchemaRef",
+      "schema_name": "xradio.measurement_set.schema.FrequencyCentroidArray",
+      "dimensions": [
+        [
+          "frequency"
+        ]
+      ],
+      "dtypes": [
+        "<f8"
+      ],
+      "coordinates": [
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.measurement_set.schema.FrequencyArray",
+          "dimensions": [
+            [
+              "frequency"
+            ]
+          ],
+          "dtypes": [
+            "<f8"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "name": "spectral_window_name",
+              "docstring": "Name associated with spectral window. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "frequency_group_name",
+              "docstring": "Name associated with frequency group - needed for multi-band VLBI fringe-fitting."
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.measurement_set.schema.SpectralCoordArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "list[str]",
+                    "literal": [
+                      [
+                        "Hz"
+                      ]
+                    ],
+                    "name": "units",
+                    "default": [
+                      "Hz"
+                    ],
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "REST",
+                      "BARY",
+                      "TOPO",
+                      "gcrs",
+                      "icrs",
+                      "hcrs",
+                      "lsrk",
+                      "lsrd",
+                      "lsr"
+                    ],
+                    "name": "observer",
+                    "default": "icrs",
+                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "spectral_coord"
+                    ],
+                    "name": "type",
+                    "default": "spectral_coord",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Measures array for data variables and attributes that are spectral coordinates.",
+                "data_docstring": null
+              },
+              "name": "reference_frequency",
+              "docstring": "A frequency representative of the spectral window, usually the sky\nfrequency corresponding to the DC edge of the baseband. Used by the calibration\nsystem if a ﬁxed scaling frequency is required or in algorithms to identify the\nobserving band. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.measurement_set.schema.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "list[str]",
+                    "literal": [
+                      [
+                        "Hz"
+                      ]
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "name": "channel_width",
+              "docstring": "The nominal channel bandwidth. Same units as data array (see units key). "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.measurement_set.schema.DopplerArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "doppler"
+                    ],
+                    "name": "type",
+                    "default": "doppler",
+                    "docstring": "Coordinate type. Should be ``\"doppler\"``. "
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "list[str]",
+                    "literal": [
+                      [
+                        "ratio"
+                      ],
+                      [
+                        "m/s"
+                      ]
+                    ],
+                    "name": "units",
+                    "default": [
+                      "m/s"
+                    ],
+                    "docstring": "Units to associate with axis, [ratio]/[m/s]"
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "radio",
+                      "optical",
+                      "z",
+                      "ratio",
+                      "true",
+                      "relativistic",
+                      "beta",
+                      "gamma"
+                    ],
+                    "name": "doppler_type",
+                    "default": "radio",
+                    "docstring": "Allowable values: radio, optical, z, ratio, true, relativistic, beta, gamma.\nAstropy only has radio and optical. Using casacore types: https://casadocs.readthedocs.io/en/stable/notebooks/memo-series.html?highlight=Spectral%20Frames#Spectral-Frames"
+                  }
+                ],
+                "class_docstring": "Doppler measure information for the frequency coordinate",
+                "data_docstring": null
+              },
+              "optional": true,
+              "name": "doppler",
+              "docstring": "Doppler tracking information "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "spectral_coord"
+              ],
+              "name": "type",
+              "default": "spectral_coord",
+              "docstring": "Coordinate type. Should be ``\"spectral_coord\"``. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Frequency",
+              "docstring": "Long-form name to use for axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "list[str]",
+              "literal": [
+                [
+                  "Hz"
+                ]
+              ],
+              "name": "units",
+              "default": [
+                "Hz"
+              ],
+              "docstring": "Units to associate with axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "REST",
+                "BARY",
+                "TOPO",
+                "gcrs",
+                "icrs",
+                "hcrs",
+                "lsrk",
+                "lsrd",
+                "lsr"
+              ],
+              "name": "observer",
+              "default": "icrs",
+              "docstring": "Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).\nNote that Astropy does not use the name\n'topo' (telescope centric) velocity frame, rather it assumes if no velocity\nframe is given that this is the default."
+            }
+          ],
+          "class_docstring": "Frequency coordinate in the main dataset.",
+          "data_docstring": "Center frequencies for each channel. ",
+          "name": "frequency",
+          "optional": false
+        }
+      ],
+      "attributes": [
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "long_name",
+          "default": "Frequency sampling data",
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "list[str]",
+          "literal": [
+            [
+              "Hz"
+            ]
+          ],
+          "name": "units",
+          "default": [
+            "Hz"
+          ],
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "literal": [
+            "REST",
+            "BARY",
+            "TOPO",
+            "gcrs",
+            "icrs",
+            "hcrs",
+            "lsrk",
+            "lsrd",
+            "lsr"
+          ],
+          "name": "observer",
+          "default": "icrs",
+          "docstring": "Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).\nNote that Astropy does not use the name\n'topo' (telescope centric) velocity frame, rather it assumes if no velocity\nframe is given that this is the default."
+        }
+      ],
+      "class_docstring": "Model of frequency related data variables of the main dataset, such as FREQUENCY_CENTROID.",
+      "data_docstring": "Data about frequency sampling, such as centroid or integration\ntime. Concrete function depends on concrete data array within\n:py:class:`VisibilityXds` or :py:class:`SpectrumXds`.",
+      "name": "FREQUENCY_CENTROID",
+      "optional": true,
+      "docstring": "Includes the effects of missing data unlike ``frequency``."
+    }
+  ],
+  "attributes": [
+    {
+      "$class": "AttrSchemaRef",
+      "type": "dict",
+      "dict_schema": {
+        "$class": "DictSchema",
+        "schema_name": "xradio.measurement_set.schema.ObservationInfoDict",
+        "attributes": [
+          {
+            "$class": "AttrSchemaRef",
+            "type": "list[str]",
+            "name": "observer",
+            "docstring": "List of observer names."
+          },
+          {
+            "$class": "AttrSchemaRef",
+            "type": "str",
+            "name": "project",
+            "docstring": "Project Code/Project_UID"
+          },
+          {
+            "$class": "AttrSchemaRef",
+            "type": "str",
+            "name": "release_date",
+            "docstring": "Project release date. This is the date on which the data may become\npublic. Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"
+          },
+          {
+            "$class": "AttrSchemaRef",
+            "type": "str",
+            "optional": true,
+            "name": "execution_block_id",
+            "docstring": "ASDM: Indicates the position of the execution block in the project\n(sequential numbering starting at 1).  "
+          },
+          {
+            "$class": "AttrSchemaRef",
+            "type": "int",
+            "optional": true,
+            "name": "execution_block_number",
+            "docstring": "ASDM: Indicates the position of the execution block in the project\n(sequential numbering starting at 1)."
+          },
+          {
+            "$class": "AttrSchemaRef",
+            "type": "str",
+            "optional": true,
+            "name": "execution_block_UID",
+            "docstring": "ASDM: The archive’s UID of the execution block."
+          },
+          {
+            "$class": "AttrSchemaRef",
+            "type": "str",
+            "optional": true,
+            "name": "session_reference",
+            "docstring": "ASDM: The observing session reference."
+          },
+          {
+            "$class": "AttrSchemaRef",
+            "type": "str",
+            "optional": true,
+            "name": "observing_script",
+            "docstring": "ASDM: The text of the observation script."
+          },
+          {
+            "$class": "AttrSchemaRef",
+            "type": "str",
+            "optional": true,
+            "name": "observing_script_UID",
+            "docstring": "ASDM: A reference to the Entity which contains the observing script."
+          },
+          {
+            "$class": "AttrSchemaRef",
+            "type": "str",
+            "optional": true,
+            "name": "observing_log",
+            "docstring": "ASDM: Logs of the observation during this execu- tion block."
+          },
+          {
+            "$class": "AttrSchemaRef",
+            "type": "list[str]",
+            "name": "intents",
+            "docstring": "An intent string identifies one intention of the scan, such as to calibrate or observe a\ntarget. See :ref:`scan intents` for possible values. When converting from MSv2, the list of\nintents is derived from the OBS_MODE column of MSv2 state table (every comma separated value\nis taken as an intent). "
+          }
+        ],
+        "class_docstring": "ObservationInfoDict(observer: 'list[str]', project: 'str', release_date: 'str', execution_block_id: 'Optional[str]', execution_block_number: 'Optional[int]', execution_block_UID: 'Optional[str]', session_reference: 'Optional[str]', observing_script: 'Optional[str]', observing_script_UID: 'Optional[str]', observing_log: 'Optional[str]', intents: 'list[str]')"
+      },
+      "name": "observation_info",
+      "docstring": null
+    },
+    {
+      "$class": "AttrSchemaRef",
+      "type": "dict",
+      "dict_schema": {
+        "$class": "DictSchema",
+        "schema_name": "xradio.measurement_set.schema.ProcessorInfoDict",
+        "attributes": [
+          {
+            "$class": "AttrSchemaRef",
+            "type": "str",
+            "name": "type",
+            "docstring": "Processor type; reserved keywords include (”CORRELATOR” -\ninterferometric correlator; ”SPECTROMETER” - single-dish correlator;\n”RADIOMETER” - generic detector/integrator)."
+          },
+          {
+            "$class": "AttrSchemaRef",
+            "type": "str",
+            "name": "sub_type",
+            "docstring": "Processor sub-type, e.g. ”GBT” or ”JIVE”."
+          }
+        ],
+        "class_docstring": "ProcessorInfoDict(type: 'str', sub_type: 'str')"
+      },
+      "name": "processor_info",
+      "docstring": null
+    },
+    {
+      "$class": "AttrSchemaRef",
+      "type": "dict",
+      "dict_schema": {
+        "$class": "DictSchema",
+        "schema_name": "xradio.measurement_set.schema.DataGroupsDict",
+        "attributes": [
+          {
+            "$class": "AttrSchemaRef",
+            "type": "dict",
+            "dict_schema": {
+              "$class": "DictSchema",
+              "schema_name": "xradio.measurement_set.schema.DataGroupDict",
+              "attributes": [
+                {
+                  "$class": "AttrSchemaRef",
+                  "type": "str",
+                  "name": "correlated_data",
+                  "docstring": "Name of the correlated data variable, for example 'VISIBILITY' or 'VISIBILITY_MODEL'. "
+                },
+                {
+                  "$class": "AttrSchemaRef",
+                  "type": "str",
+                  "name": "flag",
+                  "docstring": "Name of the flag variable, for example 'FLAG'. "
+                },
+                {
+                  "$class": "AttrSchemaRef",
+                  "type": "str",
+                  "name": "weight",
+                  "docstring": "Name of the weight variable of the group, for example 'WEIGHT'. "
+                },
+                {
+                  "$class": "AttrSchemaRef",
+                  "type": "str",
+                  "optional": true,
+                  "name": "uvw",
+                  "docstring": "Name of the UVW variable of the group, for example 'UVW'. "
+                },
+                {
+                  "$class": "AttrSchemaRef",
+                  "type": "str",
+                  "name": "field_and_source",
+                  "docstring": "Name of the field_and_source_xds, for example field_and_source_xds_base. "
+                },
+                {
+                  "$class": "AttrSchemaRef",
+                  "type": "str",
+                  "name": "description",
+                  "docstring": "More details about the data group. "
+                },
+                {
+                  "$class": "AttrSchemaRef",
+                  "type": "str",
+                  "name": "date",
+                  "docstring": "Creation date-time, in ISO 8601 format: 'YYYY-MM-DDTHH:mm:ss.SSS'. "
+                }
+              ],
+              "class_docstring": "Defines a group of correlated data + flag + weight + uvw variables."
+            },
+            "name": "base",
+            "docstring": null
+          }
+        ],
+        "class_docstring": "Dictionary of data group dictionaries."
+      },
+      "name": "data_groups",
+      "docstring": "Defines groups of correlated data + flag + weight + uvw variables. "
+    },
+    {
+      "$class": "AttrSchemaRef",
+      "type": "str",
+      "name": "schema_version",
+      "docstring": "Semantic version of MSv4 data format."
+    },
+    {
+      "$class": "AttrSchemaRef",
+      "type": "dict",
+      "dict_schema": {
+        "$class": "DictSchema",
+        "schema_name": "xradio.measurement_set.schema.CreatorDict",
+        "attributes": [
+          {
+            "$class": "AttrSchemaRef",
+            "type": "str",
+            "name": "software_name",
+            "docstring": "Software that created the Measurement Set (XRadio, etc.). "
+          },
+          {
+            "$class": "AttrSchemaRef",
+            "type": "str",
+            "name": "version",
+            "docstring": "Version of the software. "
+          }
+        ],
+        "class_docstring": "CreatorDict(software_name: 'str', version: 'str')"
+      },
+      "name": "creator",
+      "docstring": "Creator information (software, version)."
+    },
+    {
+      "$class": "AttrSchemaRef",
+      "type": "str",
+      "name": "creation_date",
+      "docstring": "Date visibility dataset was created. Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"
+    },
+    {
+      "$class": "AttrSchemaRef",
+      "type": "str",
+      "literal": [
+        "visibility",
+        "radiometer"
+      ],
+      "name": "type",
+      "default": "visibility",
+      "docstring": "Dataset type"
+    }
+  ],
+  "class_docstring": "Main dataset for interferometric data"
+}

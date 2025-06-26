@@ -69,7 +69,7 @@ class DataclassDecoder(json.JSONDecoder):
                 )
 
             # Instantiate
-            del obj["$dataclass"]
+            del obj[CLASS_ATTR]
             obj = cls(**obj)
 
         return obj

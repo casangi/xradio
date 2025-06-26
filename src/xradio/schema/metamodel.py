@@ -29,8 +29,9 @@ class ValueSchema:
     * ``str``: A UTF-8 string
     * ``int``: A 64-bit signed integer
     * ``float``: A double-precision floating point number
-    * ``str_list``: A list of strings
-    * ``dataarray``: An xarray dataarray (encoded using to_dict)
+    * ``list[str]``: A list of strings
+    * ``dict``: Dictionary
+    * ``dataarray``: An xarray dataarray (encoded using ``to_dict``)
     """
     dict_schema: typing.Optional[DictSchema] = None
     """

@@ -270,7 +270,9 @@ def extract_xarray_dataclass(klass, allow_undefined_coords: bool = False):
             attributes.append(
                 AttrSchemaRef(
                     name=field.name,
-                    default=field.default,
+                    default=(
+                        None if field.default is dataclasses.MISSING else field.default
+                    ),
                     docstring=field_docstrings.get(field.name),
                     **{
                         fld.name: getattr(vschema, fld.name)
@@ -310,7 +312,7 @@ def extract_xarray_dataclass(klass, allow_undefined_coords: bool = False):
             schema_ref = ArraySchemaRef(
                 name=field.name,
                 optional=is_optional(typ),
-                default=field.default,
+                default=None if field.default is dataclasses.MISSING else field.default,
                 docstring=field_docstrings.get(field.name),
                 **arr_schema_fields,
             )
@@ -343,7 +345,9 @@ def extract_xarray_dataclass(klass, allow_undefined_coords: bool = False):
                 schema_ref = ArraySchemaRef(
                     name=field.name,
                     optional=is_optional(typ),
-                    default=field.default,
+                    default=(
+                        None if field.default is dataclasses.MISSING else field.default
+                    ),
                     docstring=field_docstrings.get(field.name),
                     **arr_schema_fields,
                 )
@@ -352,7 +356,9 @@ def extract_xarray_dataclass(klass, allow_undefined_coords: bool = False):
                 schema_ref = ArraySchemaRef(
                     name=field.name,
                     optional=is_optional(typ),
-                    default=field.default,
+                    default=(
+                        None if field.default is dataclasses.MISSING else field.default
+                    ),
                     docstring=field_docstrings.get(field.name),
                     schema_name=None,
                     dimensions=check_invalid_dims(dims, field.name),
@@ -418,7 +424,7 @@ def xarray_dataclass_to_array_schema(klass):
     schema = ArraySchema(
         schema_name=f"{klass.__module__}.{klass.__qualname__}",
         dimensions=data_vars[0].dimensions,
-        dtypes=data_vars[0].dtypes,
+        dtypes=[numpy.dtype(dt).str for dt in data_vars[0].dtypes],
         coordinates=coordinates,
         attributes=attributes,
         class_docstring=inspect.cleandoc(klass.__doc__),
@@ -510,7 +516,7 @@ def xarray_dataclass_to_dict_schema(klass):
         attributes.append(
             AttrSchemaRef(
                 name=field.name,
-                default=field.default,
+                default=None if field.default is dataclasses.MISSING else field.default,
                 docstring=field_docstrings.get(field.name),
                 **{
                     fld.name: getattr(vschema, fld.name)

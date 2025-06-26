@@ -5,6 +5,7 @@ import xarray
 import dask.array
 import pytest
 import inspect
+import json
 
 from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof, Name
 from xradio.schema.metamodel import (
@@ -31,6 +32,7 @@ from xradio.schema.bases import (
     xarray_dataset_schema,
     dict_schema,
 )
+from xradio.schema.export import export_schema_json_file, import_schema_json_file
 
 Dim1 = Literal["coord"]
 Dim2 = Literal["coord2"]
@@ -60,23 +62,23 @@ class _TestArraySchema:
 # The equivalent of the above in the meta-model
 TEST_ARRAY_SCHEMA = ArraySchema(
     schema_name=__name__ + "._TestArraySchema",
-    dimensions=[("coord",)],
+    dimensions=[["coord"]],
     coordinates=[
         ArraySchemaRef(
             schema_name=None,
             name="coord",
-            dtypes=[numpy.dtype(float)],
-            dimensions=[("coord",)],
+            dtypes=[numpy.dtype(float).str],
+            dimensions=[["coord"]],
             coordinates=[],
             attributes=[],
             class_docstring=None,
             data_docstring=None,
             optional=False,
-            default=dataclasses.MISSING,
+            default=None,
             docstring="Docstring of coordinate",
         ),
     ],
-    dtypes=[numpy.dtype(complex)],
+    dtypes=[numpy.dtype(complex).str],
     class_docstring="Docstring of array schema\n\nMultiple lines!",
     data_docstring="Docstring of data",
     attributes=[
@@ -84,7 +86,7 @@ TEST_ARRAY_SCHEMA = ArraySchema(
             name="attr1",
             type="str",
             optional=False,
-            default=dataclasses.MISSING,
+            default=None,
             docstring="Required attribute",
         ),
         AttrSchemaRef(
@@ -362,7 +364,7 @@ def test_check_array_extra_coord():
     assert len(results) == 1
     assert results[0].path == [("dims", None)]
     assert results[0].found == ["coord", "coord2"]
-    assert results[0].expected == [("coord",)]
+    assert results[0].expected == [["coord"]]
 
 
 def test_check_array_missing_coord():
@@ -372,7 +374,7 @@ def test_check_array_missing_coord():
     assert len(results) == 2
     assert results[0].path == [("dims", None)]
     assert results[0].found == []
-    assert results[0].expected == [("coord",)]
+    assert results[0].expected == [["coord"]]
     assert results[1].path == [("coords", "coord")]
 
 
@@ -388,7 +390,7 @@ def test_check_array_wrong_coord():
     assert results[0].found == [
         "coord2",
     ]
-    assert results[0].expected == [("coord",)]
+    assert results[0].expected == [["coord"]]
     assert results[1].path == [("coords", "coord")]
 
 
@@ -565,7 +567,7 @@ TEST_DICT_SCHEMA = DictSchema(
             name="attr1",
             type="str",
             optional=False,
-            default=dataclasses.MISSING,
+            default=None,
             docstring="Required attribute",
         ),
         AttrSchemaRef(
@@ -712,10 +714,10 @@ TEST_DATASET_SCHEMA = DatasetSchema(
         ArraySchemaRef(
             schema_name=__name__ + "._TestDatasetSchemaCoord",
             name="coord",
-            dtypes=[numpy.dtype(float)],
-            dimensions=[("coord",)],
+            dtypes=[numpy.dtype(float).str],
+            dimensions=[["coord"]],
             optional=False,
-            default=dataclasses.MISSING,
+            default=None,
             docstring="Docstring of coordinate",
             coordinates=[],
             attributes=_dataclass_to_dict(TEST_ARRAY_SCHEMA)["attributes"],
@@ -725,14 +727,14 @@ TEST_DATASET_SCHEMA = DatasetSchema(
         ArraySchemaRef(
             schema_name=None,
             name="coord2",
-            dtypes=[numpy.dtype(int)],
-            dimensions=[("coord2",)],
+            dtypes=[numpy.dtype(int).str],
+            dimensions=[["coord2"]],
             coordinates=[],
             attributes=[],
             class_docstring=None,
             data_docstring=None,
             optional=True,
-            default=dataclasses.MISSING,
+            default=None,
             docstring="Docstring of second coordinate",
         ),
     ],
@@ -740,21 +742,21 @@ TEST_DATASET_SCHEMA = DatasetSchema(
         ArraySchemaRef(
             name="data_var",
             optional=False,
-            default=dataclasses.MISSING,
+            default=None,
             docstring="Docstring of external data variable",
             **_dataclass_to_dict(TEST_ARRAY_SCHEMA),
         ),
         ArraySchemaRef(
             schema_name=None,
             name="data_var_simple",
-            dtypes=[numpy.dtype(numpy.float32)],
-            dimensions=[("coord2",)],
+            dtypes=[numpy.dtype(numpy.float32).str],
+            dimensions=[["coord2"]],
             coordinates=[],
             attributes=[],
             class_docstring=None,
             data_docstring=None,
             optional=True,
-            default=dataclasses.MISSING,
+            default=None,
             docstring="Docstring of simple optional data variable",
         ),
     ],
@@ -763,7 +765,7 @@ TEST_DATASET_SCHEMA = DatasetSchema(
             name="attr1",
             type="str",
             optional=False,
-            default=dataclasses.MISSING,
+            default=None,
             docstring="Required attribute",
         ),
         AttrSchemaRef(
@@ -995,7 +997,7 @@ def test_check_dataset_dtype_mismatch():
     assert issues[0].expected == [numpy.dtype(int)]
     assert issues[0].found == numpy.dtype(float)
     assert issues[1].path == [("data_vars", "data_var_simple"), ("dtype", None)]
-    assert issues[1].expected == [numpy.float32]
+    assert issues[1].expected == [numpy.dtype(numpy.float32).str]
     assert issues[1].found == numpy.dtype(float)
 
 
@@ -1015,7 +1017,11 @@ def test_check_dataset_wrong_dim():
     issues = check_dataset(dataset, TEST_DATASET_SCHEMA)
     assert len(issues) == 1
     assert issues[0].path == [("data_vars", "data_var_simple"), ("dims", None)]
-    assert issues[0].expected == [("coord2",)]
+    assert issues[0].expected == [
+        [
+            "coord2",
+        ]
+    ]
     assert issues[0].found == ["coord"]
 
 
@@ -1108,3 +1114,160 @@ def test_check_dict_dict_attribute():
         {"da": {"attr1": "asd", "attr2": 234, "attr3": 345}}, _DictSchema
     )
     assert check_dict({"da": {"attr2": 234, "attr3": 345}}, _DictSchema)
+
+
+TEST_DATASET_SCHEMA_JSON = {
+    "$class": "DatasetSchema",
+    "schema_name": "tests.unit.test_schema._TestDatasetSchema",
+    "dimensions": [["coord"], ["coord", "coord2"]],
+    "coordinates": [
+        {
+            "$class": "ArraySchemaRef",
+            "schema_name": "tests.unit.test_schema._TestDatasetSchemaCoord",
+            "dimensions": [["coord"]],
+            "dtypes": ["<f8"],
+            "coordinates": [],
+            "attributes": [
+                {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "name": "attr1",
+                    "docstring": "Required attribute",
+                },
+                {
+                    "$class": "AttrSchemaRef",
+                    "type": "int",
+                    "name": "attr2",
+                    "default": 123,
+                    "docstring": "Required attribute with default",
+                },
+                {
+                    "$class": "AttrSchemaRef",
+                    "type": "int",
+                    "optional": True,
+                    "name": "attr3",
+                    "docstring": "Optional attribute with default",
+                },
+            ],
+            "class_docstring": "Docstring of array schema for coordinate",
+            "data_docstring": "Docstring of coordinate data",
+            "name": "coord",
+            "optional": False,
+            "docstring": "Docstring of coordinate",
+        },
+        {
+            "$class": "ArraySchemaRef",
+            "schema_name": None,
+            "dimensions": [["coord2"]],
+            "dtypes": ["<i8"],
+            "coordinates": [],
+            "attributes": [],
+            "class_docstring": None,
+            "data_docstring": None,
+            "name": "coord2",
+            "optional": True,
+            "docstring": "Docstring of second coordinate",
+        },
+    ],
+    "data_vars": [
+        {
+            "$class": "ArraySchemaRef",
+            "schema_name": "tests.unit.test_schema._TestArraySchema",
+            "dimensions": [["coord"]],
+            "dtypes": ["<c16"],
+            "coordinates": [
+                {
+                    "$class": "ArraySchemaRef",
+                    "schema_name": None,
+                    "dimensions": [["coord"]],
+                    "dtypes": ["<f8"],
+                    "coordinates": [],
+                    "attributes": [],
+                    "class_docstring": None,
+                    "data_docstring": None,
+                    "name": "coord",
+                    "optional": False,
+                    "docstring": "Docstring of coordinate",
+                }
+            ],
+            "attributes": [
+                {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "name": "attr1",
+                    "docstring": "Required attribute",
+                },
+                {
+                    "$class": "AttrSchemaRef",
+                    "type": "int",
+                    "name": "attr2",
+                    "default": 123,
+                    "docstring": "Required attribute with default",
+                },
+                {
+                    "$class": "AttrSchemaRef",
+                    "type": "int",
+                    "optional": True,
+                    "name": "attr3",
+                    "docstring": "Optional attribute with default",
+                },
+            ],
+            "class_docstring": "Docstring of array schema\n\nMultiple lines!",
+            "data_docstring": "Docstring of data",
+            "name": "data_var",
+            "optional": False,
+            "docstring": "Docstring of external data variable",
+        },
+        {
+            "$class": "ArraySchemaRef",
+            "schema_name": None,
+            "dimensions": [["coord2"]],
+            "dtypes": ["<f4"],
+            "coordinates": [],
+            "attributes": [],
+            "class_docstring": None,
+            "data_docstring": None,
+            "name": "data_var_simple",
+            "optional": True,
+            "docstring": "Docstring of simple optional data variable",
+        },
+    ],
+    "attributes": [
+        {
+            "$class": "AttrSchemaRef",
+            "type": "str",
+            "name": "attr1",
+            "docstring": "Required attribute",
+        },
+        {
+            "$class": "AttrSchemaRef",
+            "type": "int",
+            "name": "attr2",
+            "default": 123,
+            "docstring": "Required attribute with default",
+        },
+        {
+            "$class": "AttrSchemaRef",
+            "type": "int",
+            "optional": True,
+            "name": "attr3",
+            "docstring": "Optional attribute with default",
+        },
+    ],
+    "class_docstring": "Docstring of dataset schema\n\nAgain multiple lines!",
+}
+
+
+def test_schema_export(tmp_path):
+
+    # Export schema
+    tmp_fname = tmp_path / "test_dataset_schema.json"
+    export_schema_json_file(_TestDatasetSchema, tmp_fname)
+
+    # Check against reference
+    with open(tmp_fname, "r", encoding="utf8") as f:
+        assert json.load(f) == TEST_DATASET_SCHEMA_JSON
+
+    # Check import round-trip
+    schema = import_schema_json_file(tmp_fname)
+    assert schema == TEST_DATASET_SCHEMA

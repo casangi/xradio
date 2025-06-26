@@ -129,7 +129,7 @@ class ArraySchemaRef(ArraySchema):
     """Name of array schema as given in dataset."""
     optional: bool
     """Is the data array optional?"""
-    default: typing.Optional[typing.Any]
+    default: typing.Optional[typing.Any] = None
     """If optional: What is the default value?"""
     docstring: typing.Optional[str] = None
     """Documentation string of array reference"""

@@ -32,7 +32,7 @@ def _get_file_system_and_items(ps_store: str):
                 for bd in file_system.listdir(ps_store, detail=False)
             ]
 
-        except (NoCredentialsError, PermissionError) as e:
+        except (NoCredentialsError, PermissionError):
             # only public, read-only buckets will be accessible
             # we will want to add messaging and error handling here
             file_system = s3fs.S3FileSystem(anon=True)

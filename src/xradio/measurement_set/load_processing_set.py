@@ -168,7 +168,7 @@ class ProcessingSetIterator:
     def __next__(self):
         try:
             sub_xds_name = next(self.xds_name_iter)
-        except Exception as e:
+        except Exception:
             raise StopIteration
 
         if self.input_data is None:

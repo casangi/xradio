@@ -687,9 +687,6 @@ def extract_source_info(
     # If ephemeris data is present we ignore the SOURCE_DIRECTION in the source table.
     if not is_ephemeris:
         direction_msv2_col = "DIRECTION"
-        msv4_measure = column_description_casacore_to_msv4_measure(
-            source_column_description[direction_msv2_col]
-        )
 
         msv2_direction_dims = source_xds[direction_msv2_col].dims
         if (
@@ -737,7 +734,7 @@ def extract_source_info(
 
     # Need to add doppler info if present. Add check.
     try:
-        doppler_xds = load_generic_table(
+        load_generic_table(
             path,
             "DOPPLER",
         )

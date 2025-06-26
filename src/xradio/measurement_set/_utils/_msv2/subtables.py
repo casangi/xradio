@@ -1,7 +1,3 @@
-
-
-
-
 subt_rename_ids = {
     "ANTENNA": {"row": "antenna_id", "dim_1": "xyz"},
     "FEED": {"dim_1": "xyz", "dim_2": "receptor", "dim_3": "receptor2"},

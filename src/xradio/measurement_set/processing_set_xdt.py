@@ -343,10 +343,6 @@ class ProcessingSetXdt:
 
         combined_field_and_source_xds = xr.Dataset()
         for ms_name, ms_xdt in self._xdt.items():
-            correlated_data_name = ms_xdt.attrs["data_groups"][data_group][
-                "correlated_data"
-            ]
-
             field_and_source_xds = ms_xdt.xr_ms.get_field_and_source_xds(data_group)
 
             if not field_and_source_xds.attrs["type"] == "field_and_source_ephemeris":
@@ -443,11 +439,6 @@ class ProcessingSetXdt:
 
         combined_ephemeris_field_and_source_xds = xr.Dataset()
         for ms_name, ms_xdt in self._xdt.items():
-
-            correlated_data_name = ms_xdt.attrs["data_groups"][data_group][
-                "correlated_data"
-            ]
-
             field_and_source_xds = field_and_source_xds = (
                 ms_xdt.xr_ms.get_field_and_source_xds(data_group)
             )
@@ -803,7 +794,6 @@ class ProcessingSetXdt:
             """
             Creates annotations for when label_all_antennas=True
             """
-            antenna_annotations = []
             for axis in antenna_axes:
                 scatter = scatter_map[axis]
                 coord_x, coord_y = np.array(scatter.get_offsets()).transpose()
@@ -812,7 +802,7 @@ class ProcessingSetXdt:
                 for idx, (x, y) in enumerate(
                     zip(coord_x + offset_x, coord_y + offset_y)
                 ):
-                    annotation = axis.annotate(
+                    axis.annotate(
                         antenna_names[idx],
                         (x, y),
                         alpha=1,

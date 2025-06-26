@@ -45,7 +45,7 @@ def create_field_and_source_xds(
     is_single_dish: bool,
     time_min_max: Tuple[np.float64, np.float64],
     ephemeris_interpolate: bool = True,
-) -> tuple[xr.Dataset, int]:
+) -> tuple[xr.Dataset, np.ndarray, int]:
     """
     Create a field and source xarray dataset (xds) from the given input file, field ID, and spectral window ID.
     Data is extracted from the FIELD and SOURCE tables and if there is ephemeris data, it is also extracted.
@@ -72,6 +72,8 @@ def create_field_and_source_xds(
     -------
     field_and_source_xds : xr.Dataset
         The xarray dataset containing the field and source information.
+    source_id : np.ndarray[int]
+        Source ID(s) corresponding to the field(s)
     num_lines : int
         Sum of num_lines for all unique sources.
     """
@@ -751,50 +753,6 @@ def extract_source_info(
     _, unique_source_ids_indices = np.unique(source_xds.SOURCE_ID, return_index=True)
 
     return xds, np.sum(num_lines[unique_source_ids_indices])
-
-
-def make_field_dims_and_coords(
-    field_xds: xr.Dataset, field_id: Union[int, np.ndarray], field_times: list
-) -> tuple[list, dict]:
-    """
-    Produces the dimensions and coordinates used in the field data variables
-    extracted from the MSv2 FIELD subtable (FIELD_PHASE_CENTER/
-    FIELD_REFERENCE_CENTER).
-
-    Parameters:
-    ----------
-    field_xds: xr.Dataset
-        generic field xarray dataset
-    field_id: Union[int, np.ndarray]
-        field_id of the dataset
-    field_times:
-        Unique times for the dataset (when not partitioning by FIELD_ID)
-
-    Returns:
-    -------
-    tuple : tuple[list, dict]
-        The dimensions and coordinates to use with field data variables. The
-        dimensions are produced as a list of dimension names, and the
-        coordinates as a dict for xarray coords.
-    """
-
-    coords = {"sky_dir_label": ["ra", "dec"]}
-
-    # field_times is the same as the time axis in the main MSv4 dataset and is used if more than one field is present.
-    if field_times is not None:
-        coords["time"] = field_times
-        dims = ["time", "sky_dir_label"]
-        coords["field_name"] = (
-            "time",
-            np.char.add(field_xds["NAME"].data, np.char.add("_", field_id.astype(str))),
-        )
-        # coords["field_id"] = ("time", field_id)
-    else:
-        coords["field_name"] = field_xds["NAME"].values.item() + "_" + str(field_id)
-        # coords["field_id"] = field_id
-        dims = ["field_name", "sky_dir_label"]
-
-    return dims, coords
 
 
 def extract_field_info_and_check_ephemeris(

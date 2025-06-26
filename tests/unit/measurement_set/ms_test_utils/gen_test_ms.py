@@ -21,7 +21,8 @@ from casacore.tables.msutil import complete_ms_desc, makearrcoldesc, required_ms
 # 2 observations, 2 fields, 2 states
 # 2 SPWs, 4 polarizations
 default_ms_descr = {
-    "nchans": 32,
+    "nrows_per_ddi": 300,
+    "nchans": 16,
     "npols": 2,
     "data_cols": ["DATA"],  # ['CORRECTED_DATA'],
     # DATA / CORRECTED, etc.
@@ -67,7 +68,12 @@ default_ms_descr = {
 
 
 def gen_test_ms(
-    msname: str, descr: dict = None, opt_tables: bool = True, required_only: bool = True
+    msname: str,
+    descr: dict = None,
+    opt_tables: bool = True,
+    vlbi_tables: bool = True,
+    required_only: bool = True,
+    misbehave: bool = False,
 ):
     """
     Generates an MS for testing purposes, including main table and
@@ -93,8 +99,19 @@ def gen_test_ms(
         structure (one observation, one array, one scan, one field, etc.)
     opt_tables : bool (Default value = True)
         whether to produce optional (sub)tables, such as SOURCE, WEATHER
+    vlbi_tables : bool (Default value = True)
+        whether to add optional (sub)tables GAIN_CURVE and PHASE_CAL
     required_only : bool (Default value = True)
         whether to use the complete or required columns spec
+    misbehave : bool (Default value = False)
+        whether to generate a misbehaving MS. For example, usual or more
+        corner case conformance issues such as absence of STATE subtable,
+        missing FEED subtable, presence of missing SOURCE_IDs in the FIELD
+        subtable, no ASDM_EXECBLOCK table, no PROCESSOR subtable, etc.
+        Additional, more minor misbehaviors:
+        - irregular INTERVAL in main table, empty SPW names.
+        - missing metadata for MAIN/INTERVAL, SPECTRAL_WINDOW/CHAN_WIDTH
+        - missing posrefsys in EPHEM metadata
 
     Returns
     -------
@@ -107,22 +124,26 @@ def gen_test_ms(
     #  + SPECTRAL_WINDOW + POLARIZATION
     #  + ANTENNNA (just for the names)
     # All these are required to create the xdss (they define data and dims)
-    outdescr = gen_main_table(msname, descr, required_only)
+    outdescr = gen_main_table(msname, descr, required_only, misbehave)
     gen_subt_ddi(msname, descr["SPECTRAL_WINDOW"], descr["POLARIZATION"])
-    gen_subt_spw(msname, descr["SPECTRAL_WINDOW"])
+    gen_subt_spw(msname, descr["SPECTRAL_WINDOW"], descr["nchans"], misbehave=misbehave)
     gen_subt_antenna(msname, descr["ANTENNA"])
     gen_subt_pol_setup(msname, descr["npols"], descr["POLARIZATION"])
 
+    gen_ephem = not misbehave
     # Also needed for partitioning: FIELD, STATE
-    gen_subt_field(msname, descr["FIELD"])
-    gen_subt_state(msname, descr["STATE"])
+    gen_subt_field(msname, descr["FIELD"], gen_ephem=gen_ephem, misbehave=misbehave)
+    if not misbehave:
+        gen_subt_state(msname, descr["STATE"])
 
     # Required by MSv2/v3 but not strictly required to load and partition:
 
     # BEAM (only MSv3)
 
     # FEED
-    gen_subt_feed(msname, descr["FEED"], descr["ANTENNA"], descr["SPECTRAL_WINDOW"])
+    gen_subt_feed(
+        msname, descr["FEED"], descr["ANTENNA"], descr["SPECTRAL_WINDOW"], misbehave
+    )
 
     # HISTORY
     gen_subt_history(msname, descr["OBSERVATION"])
@@ -134,7 +155,8 @@ def gen_test_ms(
     gen_subt_pointing(msname)
 
     # PROCESSOR
-    gen_subt_processor(msname, descr["PROCESSOR"])
+    if not misbehave:
+        gen_subt_processor(msname, descr["PROCESSOR"])
 
     if opt_tables:
         # DOPPLER: no examples seen in test MSs
@@ -157,18 +179,34 @@ def gen_test_ms(
         # QUALITY_TIME_STATISTIC (only MSv3: listend but never defined)
 
         # SOURCE
-        gen_subt_source(msname, descr["SOURCE"])
+        gen_subt_source(msname, descr["SOURCE"], misbehave)
 
         # SCAN (Only MSv3)
 
         # SYSCAL
-        gen_subt_syscal(msname)
+        gen_subt_syscal(msname, descr["ANTENNA"])
 
         # WEATHER
         gen_subt_weather(msname)
 
         # ASDM_* subtables. One simple example
         gen_subt_asdm_receiver(msname)
+
+        if not misbehave:
+            # ASDM_EXECBLOCK is used in create_info_dicts when available
+            gen_subt_asdm_execblock(msname)
+            # ASDM_STATION is used in create_weather
+            gen_subt_asdm_station(msname)
+
+    if vlbi_tables:
+        gen_subt_gain_curve(msname, descr["ANTENNA"])
+        gen_subt_phase_cal(msname, descr["ANTENNA"])
+
+    outdescr["params"] = {
+        "opt_tables": opt_tables,
+        "vlbi_tables": vlbi_tables,
+        "misbehave": misbehave,
+    }
 
     return outdescr
 
@@ -222,7 +260,9 @@ def make_ms_empty(name: str, descr: dict = None, complete: bool = False):
     assert vis.nrows() == 0
 
 
-def gen_main_table(mspath: str, descr: dict, required_only: bool = True):
+def gen_main_table(
+    mspath: str, descr: dict, required_only: bool = True, misbehave: bool = False
+):
     """
     Create main MSv2 table.
     Relies on the required/complete_ms_desc descriptions of columns
@@ -245,6 +285,9 @@ def gen_main_table(mspath: str, descr: dict, required_only: bool = True):
 
     required_only: bool :
          (Default value = True)
+
+    misbehave : bool (Default value = False)
+        all STATE_ID values are set to -1 (assuming a "misbehaved" MS with empty STATE subtable)
 
     Returns
     -------
@@ -291,12 +334,12 @@ def gen_main_table(mspath: str, descr: dict, required_only: bool = True):
         ms_desc.update(maketabdesc(data_col_desc))
 
         dmgroups_spec.update(
-            {"DataColsGroup": {"DEFAULTTILESHAPE": [nchans, npols, 32]}}
+            {"DataColsGroup": {"DEFAULTTILESHAPE": [nchans, npols, nchans]}}
         )
         ms_data_man_info = makedminfo(ms_desc, dmgroups_spec)
 
     if not "STATE" in descr:
-        vis = tables.default_ms(name, tabdesc=tabdesc, dminfo=makedminfo(tabdesc))
+        vis = tables.default_ms(mspath, tabdesc=tabdesc, dminfo=makedminfo(tabdesc))
         assert vis.nrows() == 0
         return
     # else:
@@ -316,7 +359,7 @@ def gen_main_table(mspath: str, descr: dict, required_only: bool = True):
         assert dminfo["NAME"] == "UVWGroup"
 
         # Figure out amount of rows and related IDs
-        nrows = 300
+        nrows = descr["nrows_per_ddi"]
         dd_pairs = list(
             itertools.product(
                 list(descr["SPECTRAL_WINDOW"].values()), descr["POLARIZATION"].values()
@@ -345,7 +388,7 @@ def gen_main_table(mspath: str, descr: dict, required_only: bool = True):
         CASACORE_TO_DATETIME_CORRECTION = 3_506_716_800.0
         start = (
             datetime.datetime(
-                2023, 5, 1, 1, 1, tzinfo=datetime.timezone.utc
+                2025, 5, 1, 1, 1, tzinfo=datetime.timezone.utc
             ).timestamp()
             + CASACORE_TO_DATETIME_CORRECTION
         )
@@ -378,7 +421,6 @@ def gen_main_table(mspath: str, descr: dict, required_only: bool = True):
         # DATA_DESC_ID
         # msv2.putcol("DATA_DESC_ID", np.broadcast_to(0, (nrows)))
         ddi_col = np.repeat(dd_ids, nrows / nddis)
-        # print(f" This is nddis: {nddis} len dd_id: {len(dd_ids)}, with nrows: {nrows}")
         msv2.putcol("DATA_DESC_ID", np.broadcast_to(ddi_col, (nrows)))
 
         msv2.putcol("PROCESSOR_ID", np.broadcast_to(0, (nrows)))
@@ -397,8 +439,7 @@ def gen_main_table(mspath: str, descr: dict, required_only: bool = True):
         msv2.putcol("SCAN_NUMBER", np.broadcast_to(1, (nrows)))
 
         # STATE_ID: if no states/intents => all STATE_ID = -1
-        no_state = False
-        if no_state:
+        if misbehave:
             msv2.putcol("STATE_ID", np.broadcast_to(-1, (nrows)))
         else:
             msv2.putcol("STATE_ID", np.broadcast_to(0, (nrows)))
@@ -407,6 +448,9 @@ def gen_main_table(mspath: str, descr: dict, required_only: bool = True):
 
         interval = 1.0
         msv2.putcol("INTERVAL", np.broadcast_to(interval, (nrows)))
+        if misbehave:
+            msv2.putcell("INTERVAL", 0, interval - 0.1)
+            msv2.removecolkeyword("INTERVAL", "QuantumUnits")
 
         exposure = 0.9 * interval
         msv2.putcol("EXPOSURE", np.broadcast_to(exposure, (nrows)))
@@ -449,8 +493,6 @@ def gen_main_table(mspath: str, descr: dict, required_only: bool = True):
 
         msv2.putcol("FLAG_ROW", np.broadcast_to(False, (nrows)))
 
-    # with tables.table(mspath) as main:
-    #     print(f"** after default_ms: {main.getkeywords()}")
     return outdescr
 
 
@@ -478,7 +520,7 @@ def gen_subt_ddi(mspath: str, spws_descr: dict, pol_setup_descr: dict):
         ddi_tbl.putcol("FLAG_ROW", np.broadcast_to(False, nrows))
 
 
-def gen_subt_spw(mspath: str, spw_descr: dict):
+def gen_subt_spw(mspath: str, spw_descr: dict, nchans: int, misbehave=False):
     """
     Populates SPECTRAL_WINDOW
     """
@@ -490,25 +532,32 @@ def gen_subt_spw(mspath: str, spw_descr: dict):
         spw_tbl.addrows(nspws)
         # Not in MSv2
         # spw_tbl.putcol("SPECTRAL_WINDOW_ID", list(spw_descr.keys()))
-        names = [f"unspecified_test#{idx}" for idx in range(nspws)]
+        if misbehave:
+            names = ["" for idx in range(nspws)]
+        else:
+            names = [f"unspecified_test#{idx}" for idx in range(nspws)]
         spw_tbl.putcol("NAME", names)
         # spw_tbl.putcol("REF_FREQUENCY", nspws*[0.9e9])
         # spw_tbl.putcol("TOTAL_BANDWIDTH", nspws*[0.020])
 
         for spw in range(nspws):
-            # nchan = spw_descr[spw]['NUM_CHAN']
+            # nchans = spw_descr[spw]['NUM_CHAN']
             # spw_tbl.addrows(1)  # 1
-            nchan = 32
 
             # spw_tbl.putcell("NAME", spw, "unspecified_test")
             spw_tbl.putcell("REF_FREQUENCY", spw, 0.9e9)
 
-            spw_tbl.putcol("NUM_CHAN", nchan, startrow=spw, nrow=1)
-            widths = np.full(nchan, 20000.0)
+            spw_tbl.putcol("NUM_CHAN", nchans, startrow=spw, nrow=1)
+            widths = np.full(nchans, 20000.0)
             spw_tbl.putcell("CHAN_WIDTH", spw, widths)
-            # or alternatively
-            # spw_tbl.putcol("CHAN_WIDTH", np.full((1, nchan), 20000.0), startrow=spw, nrow=1)
-            spw_tbl.putcell("CHAN_FREQ", spw, np.full(nchan, 10e0))
+            if misbehave:
+                kws = spw_tbl.getcolkeywords("CHAN_WIDTH")
+                units_kw = "QuantumUnits"
+                if units_kw in kws:
+                    spw_tbl.removecolkeyword("CHAN_WIDTH", "QuantumUnits")
+                # or alternatively
+                # spw_tbl.putcol("CHAN_WIDTH", np.full((1, nchans), 20000.0), startrow=spw, nrow=1)
+            spw_tbl.putcell("CHAN_FREQ", spw, np.full(nchans, 10e0))
             spw_tbl.putcell("EFFECTIVE_BW", spw, widths)
             spw_tbl.putcell("TOTAL_BANDWIDTH", spw, sum(widths))
             spw_tbl.putcell("RESOLUTION", spw, widths)
@@ -532,7 +581,8 @@ def gen_subt_pol_setup(mspath: str, npols, pol_setup_descr: dict):
         )
         corr_products = [0, 0, 1, 1]
         pol_tbl.putcol(
-            "CORR_PRODUCT", np.broadcast_to(corr_products[:npols], (nsetups, 2, npols))
+            "CORR_PRODUCT",
+            np.broadcast_to(corr_products[:npols], (nsetups, nsetups, npols)),
         )
 
 
@@ -549,15 +599,31 @@ def gen_subt_antenna(mspath: str, ant_descr: dict):
         ant_tbl.putcol("DISH_DIAMETER", nants * [12])
         ant_tbl.putcol("FLAG_ROW", nants * [False])
         ant_tbl.putcol("POSITION", np.broadcast_to([0.01, 0.02, 0.03], (nants, 3)))
-        ant_tbl.putcol("POSITION", np.broadcast_to([0.0, 0.0, 0.0], (nants, 3)))
 
 
 # field and state very relevant for partitions/sub-MSv2
-def gen_subt_field(mspath: str, fields_descr: dict, gen_ephem: bool = True):
+def gen_subt_field(
+    mspath: str, fields_descr: dict, gen_ephem: bool = True, misbehave: bool = False
+):
     """
     creates FIELD
 
     only supports polynomials with 1 coefficient
+
+    Parameters
+    ----------
+    mspath : str
+        path of output MS
+    fields_descr : dict
+        fields description
+    gen_ephem : bool
+        whether to generate ephemeris fields (with EPHEM pseudo-sub tables
+    misbehave : bool
+        if True, some missing SOURCE_IDs will be added
+
+    Returns
+    -------
+
     """
 
     with tables.table(mspath + "::FIELD", ack=False, readonly=False) as fld_tbl:
@@ -572,15 +638,46 @@ def gen_subt_field(mspath: str, fields_descr: dict, gen_ephem: bool = True):
         for dir_col in ["DELAY_DIR", "PHASE_DIR", "REFERENCE_DIR"]:
             fld_tbl.putcol(dir_col, np.broadcast_to(adir, (nfields, npoly + 1, 2)))
 
+        fld_tbl.putcol("SOURCE_ID", np.arange(nfields))
+        if misbehave:
+            fld_tbl.putcell("SOURCE_ID", nfields - 1, nfields + 3)
+
+        if gen_ephem:
+            tabdesc_ephemeris_id = {
+                "EPHEMERIS_ID": {
+                    "valueType": "int",
+                    "dataManagerType": "StandardStMan",
+                    "dataManagerGroup": "StandardStMan",
+                    "option": 0,
+                    "maxlen": 0,
+                    "ndim": 0,
+                    "comment": "comment...",
+                }
+            }
+            fld_tbl.addcols(tabdesc_ephemeris_id)
+            fld_tbl.putcol("EPHEMERIS_ID", np.broadcast_to(0, (nfields, 1)))
+
     if gen_ephem:
-        gen_subt_ephem(mspath)
+        gen_subt_ephem(mspath, misbehave)
 
 
-def gen_subt_ephem(mspath: str):
+def gen_subt_ephem(mspath: str, misbehave=False):
     """
     Creates a phony ephemerides table under the FIELD subtable.
     The usual tables... context or 'default_ms_subtable' not working. Needs
     manual coldesc /not in MSv2/3
+
+    Parameters
+    ----------
+    mspath : str
+        path of output MS
+    misbehave : bool
+        if True, some metadata (keywords) will be missing: posrefsys, and metadata
+        of column 'RA'
+
+    Returns
+    -------
+
     """
     # with open_opt_subtable(mspath, "FIELD/EPHEM0_FIELD.tab") as wtbl:
     ephem0_path = Path(mspath) / "FIELD" / "EPHEM0_FIELDNAME.tab"
@@ -596,12 +693,164 @@ def gen_subt_ephem(mspath: str):
                 "QuantumUnits": ["s"],
                 "MEASINFO": {"type": "epoch", "Ref": "bogus MJD"},
             },
-        }
+        },
+        "RA": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "deg",
+            },
+        },
+        "DEC": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "deg",
+            },
+        },
+        "Rho": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "AU",
+            },
+        },
+        "RadVel": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "AU/d",
+            },
+        },
+        "DiskLong": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "deg",
+            },
+        },
+        "DiskLat": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "deg",
+            },
+        },
+        "SI_lon": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "deg",
+            },
+        },
+        "SI_lat": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "deg",
+            },
+        },
+        "r": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "AU",
+            },
+        },
+        "rdot": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "km/s",
+            },
+        },
+        "phang": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "deg",
+            },
+        },
+    }
+
+    keywords = {
+        "VS_CREATE": "2021/01/02/12:33",
+        "VS_DATE": "2021/01/02/12:33",
+        "VS_VERSION": "0001.0001",
+        "MJD0": 58941.4,
+        "dMJD": 0.0138889,
+        "NAME": "Test_ephem_object",
+        "obsloc": "GEOCENTRIC",
+        "GeoLong": 0.0,
+        "GeoLat": 0.0,
+        "GeoDist": 0.0,
+        "posrefsys": "ICRF/ICRS",
     }
     with tables.table(
         str(ephem0_path), tabledesc=tabdesc, nrow=1, readonly=False, ack=False
     ) as tbl:
+
+        if misbehave:
+            del tabdesc["RA"]["keywords"]
+            del keywords["posrefsys"]
+
         tbl.putcol("MJD", 50000)
+        tbl.putcol("RA", 230.334)
+        tbl.putcol("DEC", -15.678)
+        tbl.putcol("Rho", 0.55)
+        tbl.putcol("RadVel", 0.004)
+        tbl.putcol("DiskLong", 333.01)
+        tbl.putcol("DiskLat", 4.09)
+        tbl.putcol("SI_lon", 338.81)
+        tbl.putcol("SI_lat", 2.44)
+        tbl.putcol("r", 9.1234)
+        tbl.putcol("rdot", -1.234)
+        tbl.putcol("phang", 5.6789)
+        tbl.putkeywords(keywords)
 
 
 def gen_subt_state(mspath: str, states_descr: dict):
@@ -657,9 +906,22 @@ def open_opt_subtable(
         table.close()
 
 
-def gen_subt_source(mspath: str, src_descr: dict):
+def gen_subt_source(mspath: str, src_descr: dict, misbehave: bool = False):
     """
     Populate SOURCE subtable, with time dependent source info
+
+    Parameters
+    ----------
+    mspath : str
+        path of output MS
+    src_descr : dict
+        sources description
+    misbehave : bool
+        if misbehave, the NUM_LINES and related columns will be missing
+
+    Returns
+    -------
+
     """
 
     # SOURCE is not included in default_ms
@@ -667,10 +929,16 @@ def gen_subt_source(mspath: str, src_descr: dict):
     with open_opt_subtable(mspath, "SOURCE") as src_tbl:
         nsrcs = len(src_descr)
         src_tbl.addrows(nsrcs)
+        # if misbehave:
+        #    src_tbl.putcol("SOURCE_ID", np.repeat(-1, len(src_descr)))
         src_tbl.putcol("SOURCE_ID", list(src_descr.values()))
         src_tbl.putcol("TIME", np.broadcast_to(0, (nsrcs)))
         src_tbl.putcol("INTERVAL", np.broadcast_to(0, (nsrcs)))
         src_tbl.putcol("SPECTRAL_WINDOW_ID", np.broadcast_to(0, (nsrcs)))
+
+        if not misbehave:
+            nlines = 3
+            src_tbl.putcol("NUM_LINES", np.repeat(nlines, nsrcs))
 
         src_tbl.putcol("NAME", np.broadcast_to("test_source_name", (nsrcs)))
         src_tbl.putcol("CALIBRATION_GROUP", np.broadcast_to(0, (nsrcs)))
@@ -678,6 +946,18 @@ def gen_subt_source(mspath: str, src_descr: dict):
         adir = np.deg2rad([29, 34])
         src_tbl.putcol("DIRECTION", np.broadcast_to(adir, (nsrcs, 2)))
         src_tbl.putcol("PROPER_MOTION", np.broadcast_to(adir / 100.0, (nsrcs, 2)))
+        # optional cols:
+        if not misbehave:
+            src_tbl.putcol(
+                "TRANSITION",
+                np.broadcast_to(
+                    ["test_line0", "test_line1", "test_line2"], (nsrcs, nlines)
+                ),
+            )
+            src_tbl.putcol(
+                "REST_FREQUENCY", np.broadcast_to([1e9, 2e9, 3e9], (nsrcs, nlines))
+            )
+            src_tbl.putcol("SYSVEL", np.broadcast_to([1e3, 2e3, 3e3], (nsrcs, nlines)))
         # SOURCE_MODEL is optional and its type is TableRecord!
         src_tbl.removecols(["SOURCE_MODEL"])
 
@@ -710,7 +990,13 @@ def gen_subt_pointing(mspath: str):
 # Other, more secondary subtables
 
 
-def gen_subt_feed(mspath: str, feed_descr: dict, ant_descr: str, spw_descr: str):
+def gen_subt_feed(
+    mspath: str,
+    feed_descr: dict,
+    ant_descr: str,
+    spw_descr: str,
+    misbehave: bool = False,
+):
     """
     Populate FEED subtable, with antenna-based pointing info.
 
@@ -730,11 +1016,15 @@ def gen_subt_feed(mspath: str, feed_descr: dict, ant_descr: str, spw_descr: str)
 
     spw_descr : str
 
+    misbehave : bool
+        if misbehave, the FEED table will be empty.
 
     Returns
     -------
 
     """
+    if misbehave:
+        return
 
     with tables.table(mspath + "::FEED", ack=False, readonly=False) as tbl:
         nfeeds = len(feed_descr)
@@ -754,7 +1044,11 @@ def gen_subt_feed(mspath: str, feed_descr: dict, ant_descr: str, spw_descr: str)
         tbl.putcol("BEAM_ID", np.broadcast_to(-1, (nrows)))
         boff = np.deg2rad([0.1, 0.3])
         tbl.putcol("BEAM_OFFSET", np.broadcast_to(boff, (nrows, 2, nrecep)))
-        tbl.putcol("POLARIZATION_TYPE", np.broadcast_to(["test_X, test_Y"], (nrows, 1)))
+        pol_types = ["test_X, test_Y"]
+        len_pol_types = 2
+        tbl.putcol(
+            "POLARIZATION_TYPE", np.broadcast_to(pol_types, (nrows, len_pol_types))
+        )
         tbl.putcol("POL_RESPONSE", np.broadcast_to(0.0, (nrows, 2, nrecep)))
         tbl.putcol("POSITION", np.broadcast_to([0.0, 0.0, 0.0], (nrows, 3)))
         tbl.putcol("RECEPTOR_ANGLE", np.broadcast_to([1.51, 0.33], (nrows, nrecep)))
@@ -884,23 +1178,33 @@ def gen_subt_history(mspath: str, obs_descr: dict):
         tbl.putcol("APP_PARAMS", np.broadcast_to("", (nobs, 1)))
 
 
-def gen_subt_syscal(mspath: str):
+def gen_subt_syscal(mspath: str, ant_descr: dict):
     """
     Creates a SYSCAL subtable and populates it with a (very incomplete) row
-    This is just to enable minimal coverage of some WEATHER handling code in
+    This is just to enable minimal coverage of some SYSCAL handling code in
     the casacore tables read/write functions.
     """
-    with open_opt_subtable(mspath, "SYSCAL") as wtbl:
-        wtbl.addrows(1)
-        wtbl.putcol("ANTENNA_ID", 0)
-        wtbl.putcol("FEED_ID", 0)
-        wtbl.putcol("SPECTRAL_WINDOW_ID", 0)
-        wtbl.putcol("TIME", 1e10)
-        wtbl.putcol("INTERVAL", 1e12)
-        # all data/flags columns in the WEATHER table are optional!
+    ncal = len(ant_descr)
+    subt_name = "SYSCAL"
+    with open_opt_subtable(mspath, subt_name) as sctbl:
+        sctbl.addrows(ncal)
+        sctbl.putcol("ANTENNA_ID", np.arange(0, ncal))
+        sctbl.putcol("FEED_ID", np.repeat(0, ncal))
+        sctbl.putcol("SPECTRAL_WINDOW_ID", np.repeat(0, ncal))
+        sctbl.putcol("TIME", np.repeat(1e10, ncal))
+        sctbl.putcol("INTERVAL", np.repeat(1e12, ncal))
+        # all data/flags columns in the SYSCAL table are optional!
+        # sctbl.putcol("PHASE_DIFF", np.repeat(0.3, ncal))
+        sctbl.putcol("PHASE_DIFF", np.repeat(0.3, ncal))
+        # sctbl.putcol("TCAL", np.broadcast_to(50.3, (ncal, 2)))
+        sctbl.putcol("TCAL_SPECTRUM", np.broadcast_to(50.3, (ncal, 10, 2)))
+        # TRX, etc.
+
+    with tables.table(mspath, ack=False, readonly=False) as main:
+        main.putkeyword(subt_name, f"Table: {mspath}/{subt_name}")
 
 
-def gen_subt_weather(mspath: str):
+def gen_subt_weather(mspath: str, misbehave: bool = False):
     """
     Creates a WEATHER subtable and populates it with a (very incomplete) row
     simply with a very high TIME value, as seen in some corner cases of
@@ -908,21 +1212,57 @@ def gen_subt_weather(mspath: str):
     This is just to enable minimal coverage of some WEATHER handling code in
     the casacore tables read/write functions.
     """
-    with open_opt_subtable(mspath, "WEATHER") as wtbl:
-        wtbl.addrows(1)
-        wtbl.putcol("ANTENNA_ID", 0)
-        wtbl.putcol("TIME", 1e12)
-        wtbl.putcol("INTERVAL", 1e12)
+    subt_name = "WEATHER"
+    tabdesc_ns_wx_station = {
+        "NS_WX_STATION_ID": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "NS_WX_STATION_POSITION": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "ndim": 1,
+            "comment": "comment...",
+            "keywords": {},
+        },
+    }
+    nrows = 5
+    with open_opt_subtable(mspath, subt_name) as wtbl:
+        wtbl.addrows(nrows)
+        wtbl.putcol("ANTENNA_ID", np.arange(0, nrows))
+        wtbl.putcol("TIME", np.arange(0, nrows) * 100 + 1e12)
+        wtbl.putcol("INTERVAL", np.repeat(1e12, nrows))
         # all data/flags columns in the WEATHER table are optional!
+        # But note they are always added in the python-casacore defaults
+        wtbl.putcol("H2O", np.repeat(0.03, nrows))
+        if not misbehave:
+            wtbl.addcols(tabdesc_ns_wx_station)
+            wtbl.putcol("ANTENNA_ID", np.repeat(-1, nrows))
+            wtbl.putcol("NS_WX_STATION_ID", np.arange(0, nrows))
+            wtbl.putcol(
+                "NS_WX_STATION_POSITION", np.broadcast_to([0.1, 0.2, 0.3], (nrows, 3))
+            )
+
+    with tables.table(mspath, ack=False, readonly=False) as main:
+        main.putkeyword(subt_name, f"Table: {mspath}/{subt_name}")
 
 
 def gen_subt_asdm_receiver(mspath: str):
     """
-    Produces an empty table, for basic coverage of ASDM_* subtables handling
+    Produces an over-simple table, with only one row, for basic coverage of ASDM_* subtables handling
     code.
-    Simply creates an empty table and checks no rwos
     """
-    rec_path = Path(mspath) / "ASDM_RECEIVER"
+
+    subt_name = "ASDM_RECEIVER"
+    rec_path = Path(mspath) / subt_name
     tabdesc = {
         "receiverId": {
             "valueType": "int",
@@ -959,3 +1299,427 @@ def gen_subt_asdm_receiver(mspath: str):
         tbl.putcol("receiverId", 0)
         tbl.putcol("spectralWindowId", 0)
         tbl.putcol("timeInterval", 0)
+
+    with tables.table(mspath, ack=False, readonly=False) as main:
+        main.putkeyword(subt_name, f"Table: {mspath}/{subt_name}")
+
+
+def gen_subt_asdm_station(mspath: str):
+    """
+    Produces an over-simple table, with only a few rows, for basic coverage of ASDM_STATION subtable
+    handling (relevant when loading WEATHER)
+    """
+
+    subt_name = "ASDM_STATION"
+    rec_path = Path(mspath) / subt_name
+    tabdesc = {
+        "stationId": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "name": {
+            "valueType": "string",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "position": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "ndim": 1,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "type": {
+            "valueType": "string",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "time": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+    }
+
+    nrows = 5
+    with tables.table(
+        str(rec_path), tabledesc=tabdesc, nrow=nrows, readonly=False, ack=False
+    ) as tbl:
+        tbl.putcol("stationId", np.arange(0, nrows))
+        tbl.putcol("position", np.broadcast_to([10, 20, 30], (nrows, 3)))
+        tbl.putcol("name", [f"test_station{idx}" for idx in np.arange(0, nrows)])
+        tbl.putcol(
+            "type", np.repeat("WEATHER_STATION", nrows)
+        )  # ANTENNA_PAD / MAINTENANCE_PAD
+        tbl.putcol("time", np.repeat(1e9, nrows))
+
+    with tables.table(mspath, ack=False, readonly=False) as main:
+        main.putkeyword(subt_name, f"Table: {mspath}/{subt_name}")
+
+
+def gen_subt_asdm_execblock(mspath: str):
+    """
+    Produces a basic ASDM/EXECBLOCK table, for basic coverage of code that handles the ASDM_*
+    subtables.
+    For now it simply creates a table with one row
+    """
+
+    subt_name = "ASDM_EXECBLOCK"
+    rec_path = Path(mspath) / subt_name
+    tabdesc = {
+        "execBlockIDId": {
+            "valueType": "string",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "execBlockNumId": {
+            "valueType": "string",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "execBlockUID": {
+            "valueType": "string",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "sessionReference": {
+            "valueType": "string",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "observingScript": {
+            "valueType": "string",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "observingScriptUID": {
+            "valueType": "string",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "observingLog": {
+            "valueType": "string",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "ndim": 1,
+            "_c_order": True,
+            "keywords": {},
+        },
+    }
+
+    nrows = 1
+    with tables.table(
+        str(rec_path), tabledesc=tabdesc, nrow=nrows, readonly=False, ack=False
+    ) as tbl:
+        tbl.putcol("execBlockIDId", "1")
+        tbl.putcol("execBlockNumId", "3")
+        tbl.putcol("execBlockUID", "uid://A001/X1abtest/X123")
+        tbl.putcol("sessionReference", "test_session_ref")
+        tbl.putcol("observingScript", "test script")
+        tbl.putcol("observingScriptUID", "uid://A003/X1abtest/X987")
+        tbl.putcol("observingLog", np.broadcast_to("test log line 0", (nrows, 1)))
+        # tbl.putcol("observingLog", np.broadcast_to(np.array(["test log line 0", "test log line 1"], dtype="str"), (nrows, 2)))
+
+    with tables.table(mspath, ack=False, readonly=False) as main:
+        main.putkeyword(subt_name, f"Table: {mspath}/{subt_name}")
+
+
+def gen_subt_gain_curve(mspath: str, ant_descr: dict):
+    """
+    Produces a basic GAIN_CURVE (sub)table, following casacore note #265, for basic coverage of
+    VLBI subtables handling.
+    """
+
+    subt_name = "GAIN_CURVE"
+    rec_path = Path(mspath) / subt_name
+    tabdesc = {
+        "ANTENNA_ID": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "FEED_ID": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "SPECTRAL_WINDOW_ID": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "TIME": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "s",
+            },
+        },
+        "INTERVAL": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "s",
+            },
+        },
+        "TYPE": {
+            "valueType": "string",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "NUM_POLY": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "GAIN": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "ndim": 2,
+            # "shape"
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "SENSITIVITY": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "ndim": 1,
+            # "shape"
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "K/Jy",
+            },
+        },
+    }
+
+    nants = len(ant_descr)
+    nreceptors = 2
+    num_poly = 2
+    with tables.table(
+        str(rec_path), tabledesc=tabdesc, nrow=nants, readonly=False, ack=False
+    ) as tbl:
+        tbl.putcol("ANTENNA_ID", np.arange(0, nants))
+        tbl.putcol("FEED_ID", np.repeat(0, nants))
+        tbl.putcol("SPECTRAL_WINDOW_ID", np.repeat(0, nants))
+        tbl.putcol("TIME", np.repeat(1e12, nants))
+        tbl.putcol("INTERVAL", np.repeat(2, nants))
+        tbl.putcol("TYPE", np.repeat("(”POWER(EL)", nants))
+        tbl.putcol("NUM_POLY", np.repeat(num_poly, nants))
+        tbl.putcol("GAIN", np.broadcast_to(0.85, (nants, nreceptors, num_poly)))
+        tbl.putcol("SENSITIVITY", np.broadcast_to(0.95, (nants, nreceptors)))
+
+    with tables.table(mspath, ack=False, readonly=False) as main:
+        main.putkeyword(subt_name, f"Table: {mspath}/{subt_name}")
+
+
+def gen_subt_phase_cal(mspath: str, ant_descr: dict):
+    """
+    Produces a basic PHASE_CAL (sub)table, following casacore note #265, for basic coverage of
+    VLBI subtables handling.
+    Note some differences in example test datasets like VLBA_TL016B_split.ms dimensions with respect
+    to the casacore note tables.
+    """
+
+    subt_name = "PHASE_CAL"
+    rec_path = Path(mspath) / subt_name
+    tabdesc = {
+        "ANTENNA_ID": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "FEED_ID": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "SPECTRAL_WINDOW_ID": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "TIME": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "s",
+            },
+        },
+        "INTERVAL": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {
+                "UNIT": "s",
+            },
+        },
+        "NUM_TONES": {
+            "valueType": "int",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "TONE_FREQUENCY": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "ndim": 2,
+            # "shape":
+            "comment": "comment...",
+            "keywords": {
+                "QuantumUnits": ["Hz"],
+                "MEASINFO": {"type": "frequency", "Ref": "bogus ref frame"},
+            },
+        },
+        "PHASE_CAL": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            "ndim": 2,
+            # "shape"
+            "comment": "comment...",
+            "keywords": {},
+        },
+        "CABLE_CAL": {
+            "valueType": "double",
+            "dataManagerType": "StandardStMan",
+            "dataManagerGroup": "StandardStMan",
+            "option": 0,
+            "maxlen": 0,
+            # "ndim": 1,
+            # "shape"
+            "comment": "comment...",
+            "keywords": {
+                "QuantumUnits": "s",
+            },
+        },
+    }
+
+    nants = len(ant_descr)
+    nreceptors = 2
+    ntones = 3
+    ntimes = 1
+    with tables.table(
+        str(rec_path), tabledesc=tabdesc, nrow=nants, readonly=False, ack=False
+    ) as tbl:
+        tbl.putcol("ANTENNA_ID", np.arange(0, nants))
+        tbl.putcol("FEED_ID", np.repeat(0, nants))
+        tbl.putcol("SPECTRAL_WINDOW_ID", np.repeat(0, nants))
+        tbl.putcol("TIME", np.repeat(1e12, nants))
+        tbl.putcol("INTERVAL", np.repeat(2, nants))
+        tbl.putcol("NUM_TONES", np.repeat(ntones, nants))
+        tbl.putcol(
+            "TONE_FREQUENCY", np.broadcast_to(1.234e9, (nants, ntones, nreceptors))
+        )
+        tbl.putcol("PHASE_CAL", np.broadcast_to(0.92, (nants, ntones, nreceptors)))
+        tbl.putcol("CABLE_CAL", np.repeat(0.93, (nants)))
+
+    with tables.table(mspath, ack=False, readonly=False) as main:
+        main.putkeyword(subt_name, f"Table: {mspath}/{subt_name}")

@@ -102,7 +102,7 @@ class MeasurementSetXdt:
             data_variables_to_drop = []
             field_and_source_to_drop = []
             for dg_name, dg in self._xdt.attrs["data_groups"].items():
-                print(f"Data group: {dg_name}", dg)
+                # print(f"Data group: {dg_name}", dg)
                 f_and_s = dg["field_and_source"]
                 dg_copy = dg.copy()
                 dg_copy.pop("date", None)
@@ -118,8 +118,8 @@ class MeasurementSetXdt:
 
             sel_ms_xdt = self._xdt
 
-            print("Data variables to drop: ", data_variables_to_drop)
-            print("Field and source to drop: ", field_and_source_to_drop)
+            # print("Data variables to drop: ", data_variables_to_drop)
+            # print("Field and source to drop: ", field_and_source_to_drop)
 
             sel_corr_xds = self._xdt.ds.sel(
                 indexers, method, tolerance, drop, **indexers_kwargs

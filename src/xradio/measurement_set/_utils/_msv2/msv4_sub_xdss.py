@@ -442,10 +442,10 @@ def correct_generic_pointing_xds(
                 and generic_pointing_xds.sizes["dir"] == 0
             ):
                 # When some direction variables are "empty" but some are populated properly
-                if "dim_2" in generic_pointing_xds[key].sizes:
+                if "dim_2" in generic_pointing_xds[data_var_name].sizes:
                     data_var_data = xr.DataArray(
-                        generic_pointing_xds[key].values,
-                        dims=generic_pointing_xds[key].dims,
+                        generic_pointing_xds[data_var_name].values,
+                        dims=generic_pointing_xds[data_var_name].dims,
                     )
                 else:
                     shape = tuple(
@@ -454,7 +454,7 @@ def correct_generic_pointing_xds(
                     ) + (2,)
                     data_var_data = xr.DataArray(
                         np.full(shape, np.nan),
-                        dims=generic_pointing_xds[key].dims,
+                        dims=generic_pointing_xds[data_var_name].dims,
                     )
                 correct_pointing_xds[data_var_name].data = data_var_data
 

@@ -10,7 +10,7 @@ import toolviper.utils.logger as logger
 
 from .subtables import subt_rename_ids
 from ._tables.read import load_generic_table, convert_casacore_time
-from xradio._utils.list_and_array import check_if_consistent, unique_1d, to_list
+from xradio._utils.list_and_array import check_if_consistent
 
 
 def create_info_dicts(

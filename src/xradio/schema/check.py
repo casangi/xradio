@@ -606,14 +606,15 @@ def check_datatree(
             continue
 
         # Look up schema
-        schema = _DATASET_TYPES.get(node.attrs.get("type"))
+        typ = node.attrs.get("type")
+        schema = _DATASET_TYPES.get(typ)
         if schema is None:
             issues.add(
                 SchemaIssue(
                     [("", xds_name)],
                     message="Unknown dataset type!",
                     found=typ,
-                    expected=list(schemas.keys()),
+                    expected=None,
                 )
             )
             continue

@@ -1118,12 +1118,12 @@ def test_check_dict_dict_attribute():
 
 TEST_DATASET_SCHEMA_JSON = {
     "$class": "DatasetSchema",
-    "schema_name": "tests.unit.test_schema._TestDatasetSchema",
+    "schema_name": "tests.unit.schema.test_schema._TestDatasetSchema",
     "dimensions": [["coord"], ["coord", "coord2"]],
     "coordinates": [
         {
             "$class": "ArraySchemaRef",
-            "schema_name": "tests.unit.test_schema._TestDatasetSchemaCoord",
+            "schema_name": "tests.unit.schema.test_schema._TestDatasetSchemaCoord",
             "dimensions": [["coord"]],
             "dtypes": ["<f8"],
             "coordinates": [],
@@ -1172,7 +1172,7 @@ TEST_DATASET_SCHEMA_JSON = {
     "data_vars": [
         {
             "$class": "ArraySchemaRef",
-            "schema_name": "tests.unit.test_schema._TestArraySchema",
+            "schema_name": "tests.unit.schema.test_schema._TestArraySchema",
             "dimensions": [["coord"]],
             "dtypes": ["<c16"],
             "coordinates": [

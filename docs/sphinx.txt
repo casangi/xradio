@@ -21,8 +21,8 @@ ipympl==0.9.3
 ipython==8.16.1
 jupyter-client==8.4.0
 nbsphinx==0.9.3
-recommonmark==0.7.1
 scanpydoc==0.9.5
 twine==4.0.2
 pandoc==2.3
+myst-parser==4.0.1
 xradio

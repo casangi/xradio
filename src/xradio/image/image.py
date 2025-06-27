@@ -15,13 +15,15 @@ import xarray as xr
 # from .._utils.zarr.common import _load_no_dask_zarr
 
 from ._util.casacore import _load_casa_image_block, _xds_to_casa_image
-from ._util.fits import _read_fits_image
+
+# from ._util.fits import _read_fits_image
 from ._util.image_factory import (
     _make_empty_aperture_image,
     _make_empty_lmuv_image,
     _make_empty_sky_image,
 )
 from ._util.zarr import _load_image_from_zarr_no_dask, _xds_from_zarr, _xds_to_zarr
+from ._util._fits.xds_from_fits import _fits_image_to_xds
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -32,11 +34,36 @@ def read_image(
     verbose: bool = False,
     do_sky_coords: bool = True,
     selection: dict = {},
+    compute_mask: bool = True,
 ) -> xr.Dataset:
     """
     Convert CASA, FITS, or zarr image to xradio image xds format
     ngCASA image spec is located at
     https://docs.google.com/spreadsheets/d/1WW0Gl6z85cJVPgtdgW4dxucurHFa06OKGjgoK8OREFA/edit#gid=1719181934
+
+    Notes on FITS compatibility and memory mapping:
+
+    This function relies on Astropy's `memmap=True` to avoid loading full image data into memory.
+    However, not all FITS files support memory-mapped reads.
+
+    ⚠️ The following FITS types are incompatible with memory mapping:
+
+    1. Compressed images (`CompImageHDU`)
+        = Workaround: decompress the FITS using tools like `funpack`, `cfitsio`,
+          or Astropy's `.scale()`/`.copy()` workflows
+    2. Some scaled images (using BSCALE/BZERO headers)
+        ✅ Supported:
+            - Files with no BSCALE/BZERO headers (or BSCALE=1.0 and BZERO=0.0)
+            - Uncompressed, unscaled primary HDUs
+        ⚠️ Unsupported: Files with BSCALE ≠ 1.0 or BZERO ≠ 0.0
+            - These require data rescaling in memory, which disables lazy access
+            - Attempting to slice such arrays forces eager read of the full dataset
+            - Workaround: remove scaling with Astropy's
+                `HDU.data = HDU.data * BSCALE + BZERO` and save a new file
+
+    These cases will raise `RuntimeError` to prevent silent eager loads that can exhaust memory.
+
+    If you encounter such an error, consider preprocessing the file to make it memory-mappable.
 
     Parameters
     ----------
@@ -69,7 +96,13 @@ def read_image(
         the selection, and the end pixel is not. An empty dictionary (the
         default) indicates that the entire image should be returned. Currently
         only supported for images stored in zarr format.
-
+     compute_mask : bool, optional
+        If True (default), compute and attach valid data masks when converting from FITS to xds.
+        If False, skip mask computation entirely. This may improve performance if the mask
+        is not required for subsequent processing. It may however result in unprecdictable behavior
+        for applications that are not designed to handle missing data. It is the user's responsibility,
+        not the software's, to ensure that the mask is computed if it is needed. Currently only
+        implemented for FITS images.
     Returns
     -------
     xarray.Dataset
@@ -92,9 +125,10 @@ def read_image(
         except Exception as e:
             emsgs.append(f"image format appears not to be casacore: {e.args}")
     # next statement is for debug, comment when done debugging
-    # return _read_fits_image(infile, chunks, verbose, do_sky_coords)
+    # return _fits_image_to_xds(infile, chunks, verbose, do_sky_coords, compute_mask)
     try:
-        return _read_fits_image(infile, chunks, verbose, do_sky_coords)
+        img_full_path = os.path.expanduser(infile)
+        return _fits_image_to_xds(infile, chunks, verbose, do_sky_coords, compute_mask)
     except Exception as e:
         emsgs.append(f"image format appears not to be fits {e.args}")
     # when done debuggin comment out next line
@@ -159,7 +193,7 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
         do_casa = False
     if do_casa:
         # comment next line when done debugging
-        # return _load_casa_image_block(infile, bd, do_sky_coords)
+        # return _load_casa_image_block(infile, selection, do_sky_coords)
         try:
             return _load_casa_image_block(infile, selection, do_sky_coords)
         except Exception as e:

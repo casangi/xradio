@@ -1,7 +1,7 @@
 import pytest
 
 
-mem_estimate_min_ms = 0.0026036426424980164
+mem_estimate_min_ms = 0.011131428182125092
 
 
 @pytest.mark.parametrize(
@@ -59,3 +59,7 @@ def test_estimate_conversion_memory_and_cores_with_errors(input_path, expected_e
     with expected_error:
         res = estimate_conversion_memory_and_cores(input_path, [])
         assert res
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", "-s", __file__])

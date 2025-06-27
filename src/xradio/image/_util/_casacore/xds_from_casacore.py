@@ -9,8 +9,15 @@ import toolviper.utils.logger as logger
 import numpy as np
 import xarray as xr
 from astropy import units as u
-from casacore import tables
-from casacore.images import coordinates, image as casa_image
+
+try:
+    from casacore import tables
+    from casacore.images import coordinates, image as casa_image
+except ImportError:
+    import xradio._utils._casacore.casacore_from_casatools as tables
+    import xradio._utils._casacore.casacore_from_casatools as coordinates
+    from xradio._utils._casacore.casacore_from_casatools import image as casa_image
+
 
 from .common import (
     _active_mask,
@@ -18,6 +25,7 @@ from .common import (
     _open_image_ro,
     _pointing_center,
 )
+
 from ..common import (
     _compute_linear_world_values,
     _compute_velocity_values,
@@ -33,7 +41,7 @@ from ...._utils._casacore.tables import extract_table_attributes, open_table_ro
 from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import (
     _casacore_q_to_xradio_q,
-    make_frequency_reference_dict,
+    make_spectral_coord_reference_dict,
     make_quantity,
     make_skycoord_dict,
     make_time_measure_dict,
@@ -52,30 +60,6 @@ def _add_lin_attrs(xds, coord_dict, dir_axes):
                 xds[dir_axes[i]].attrs = copy.deepcopy(meta)
             break
     return xds
-
-
-def _add_freq_attrs(xds, coord_dict):
-    freq_coord = xds["frequency"]
-    meta = {}
-    for k in coord_dict:
-        if k.startswith("spectral"):
-            sd = coord_dict[k]
-            meta["rest_frequency"] = make_quantity(sd["restfreq"], "Hz")
-            meta["type"] = "frequency"
-            # meta["units"] = sd["unit"]
-            # meta["frame"] = sd["system"]
-            meta["wave_unit"] = sd["waveUnit"]
-            # meta["crval"] = sd["wcs"]["crval"]
-            # meta["cdelt"] = sd["wcs"]["cdelt"]
-            meta["reference_value"] = make_frequency_reference_dict(
-                value=sd["wcs"]["crval"],
-                units=sd["unit"],
-                observer=sd["system"],
-            )
-    if not meta:
-        # this is the default frequency information CASA creates
-        meta = _default_freq_info()
-    freq_coord.attrs = meta
 
 
 def _add_mask(
@@ -553,11 +537,11 @@ def _get_freq_values_attrs(
                 # attrs["type"] = "frequency"
                 # attrs["units"] = sd["unit"]
                 # attrs["frame"] = sd["system"]
-                attrs["wave_unit"] = sd["waveUnit"]
+                attrs["wave_unit"] = [sd["waveUnit"]]
                 # attrs["crval"] = sd["wcs"]["crval"]
                 # attrs["cdelt"] = sd["wcs"]["cdelt"]
 
-                attrs["reference_value"] = make_frequency_reference_dict(
+                attrs["reference_value"] = make_spectral_coord_reference_dict(
                     value=sd["wcs"]["crval"],
                     units=sd["unit"],
                     observer=sd["system"],
@@ -621,36 +605,6 @@ def _get_mask_names(infile: str) -> list:
     mymasks = t.getkeyword("masks") if "masks" in t.keywordnames() else []
     t.close()
     return mymasks
-
-
-def _get_beam(imageinfo: dict, nchan: int, npol: int) -> Union[np.ndarray, None]:
-    """Returns None if the image has no beam(s)"""
-    x = ["perplanebeams", "restoringbeam"]
-    r = None
-    for z in x:
-        if z in imageinfo:
-            r = z
-            break
-    if r is None:
-        return None
-    beam = imageinfo[r]
-    beam_array = np.zeros([1, nchan, npol, 3])
-    if r == "perplanebeams":
-        for c in range(nchan):
-            for p in range(npol):
-                k = nchan * p + c
-                b = _casacore_q_to_xradio_q(beam["*" + str(k)])
-                beam_dict = _convert_beam_to_rad(b)
-                beam_array[0][c][p][0] = beam_dict["major"]["data"]
-                beam_array[0][c][p][1] = beam_dict["minor"]["data"]
-                beam_array[0][c][p][2] = beam_dict["pa"]["data"]
-    elif r == "restoringbeam":
-        b = _casacore_q_to_xradio_q(beam)
-        beam_dict = _convert_beam_to_rad(b)
-        beam_array[0, :, :, 0] = beam_dict["major"]["data"]
-        beam_array[0, :, :, 1] = beam_dict["minor"]["data"]
-        beam_array[0, :, :, 2] = beam_dict["pa"]["data"]
-    return beam_array
 
 
 def _get_persistent_block(
@@ -858,25 +812,46 @@ def _get_velocity_values_attrs(
     )
 
 
-def _multibeam_array(
-    xds: xr.Dataset, img_full_path: str, as_dask_array: bool
+def _get_beam(
+    img_full_path: str, nchan: int, npol: int, as_dask_array: bool
 ) -> Union[xr.DataArray, None]:
     # the image may have multiple beams
     with _open_image_ro(img_full_path) as casa_image:
         imageinfo = casa_image.info()["imageinfo"]
-    mb = _get_beam(
-        imageinfo, nchan=xds.sizes["frequency"], npol=xds.sizes["polarization"]
-    )
-    if mb is not None:
-        if as_dask_array:
-            mb = da.array(mb)
-        xdb = xr.DataArray(mb, dims=["time", "frequency", "polarization", "beam_param"])
-        xdb = xdb.rename("BEAM")
-        xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
-        xdb.attrs["units"] = "rad"
-        return xdb
-    else:
+    x = ["perplanebeams", "restoringbeam"]
+    r = None
+    for z in x:
+        if z in imageinfo:
+            r = z
+            break
+    if r is None:
         return None
+    beam = imageinfo[r]
+    beam_array = np.zeros([1, nchan, npol, 3])
+    if r == "perplanebeams":
+        for c in range(nchan):
+            for p in range(npol):
+                k = nchan * p + c
+                b = _casacore_q_to_xradio_q(beam["*" + str(k)])
+                beam_dict = _convert_beam_to_rad(b)
+                beam_array[0][c][p][0] = beam_dict["major"]["data"]
+                beam_array[0][c][p][1] = beam_dict["minor"]["data"]
+                beam_array[0][c][p][2] = beam_dict["pa"]["data"]
+    elif r == "restoringbeam":
+        b = _casacore_q_to_xradio_q(beam)
+        beam_dict = _convert_beam_to_rad(b)
+        beam_array[0, :, :, 0] = beam_dict["major"]["data"]
+        beam_array[0, :, :, 1] = beam_dict["minor"]["data"]
+        beam_array[0, :, :, 2] = beam_dict["pa"]["data"]
+    if as_dask_array:
+        beam_array = da.array(beam_array)
+    xdb = xr.DataArray(
+        beam_array, dims=["time", "frequency", "polarization", "beam_param"]
+    )
+    xdb = xdb.rename("BEAM")
+    xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
+    xdb.attrs["units"] = "rad"
+    return xdb
 
 
 ###########################################################################

@@ -25,12 +25,13 @@ from xradio._utils.list_and_array import (
     to_list,
     to_np_array,
 )
+from xradio._utils.dict_helpers import make_quantity_attrs
 
 
 def create_antenna_xds(
     in_file: str,
     spectral_window_id: int,
-    antenna_id: list,
+    antenna_id: np.ndarray,
     feed_id: list,
     telescope_name: str,
     partition_polarization: xr.DataArray,
@@ -44,8 +45,8 @@ def create_antenna_xds(
         Path to the input MSv2.
     spectral_window_id : int
         Spectral window ID.
-    antenna_id : list
-        List of antenna IDs.
+    antenna_id : np.ndarray
+        Antenna IDs.
     feed_id : list
         List of feed IDs.
     telescope_name : str
@@ -82,7 +83,7 @@ def create_antenna_xds(
 
 
 def extract_antenna_info(
-    ant_xds: xr.Dataset, in_file: str, antenna_id: list, telescope_name: str
+    ant_xds: xr.Dataset, in_file: str, antenna_id: np.ndarray, telescope_name: str
 ) -> xr.Dataset:
     """Reformats MSv2 Antenna table content to MSv4 schema.
 
@@ -92,8 +93,8 @@ def extract_antenna_info(
         The dataset that will be updated with antenna information.
     in_file : str
         Path to the input MSv2.
-    antenna_id : list
-        A list of antenna IDs to extract information for.
+    antenna_id : np.array
+        Antenna IDs to extract information for.
     telescope_name : str
         The name of the telescope.
 
@@ -138,7 +139,7 @@ def extract_antenna_info(
         generic_ant_xds, ant_xds, to_new_data_variables, to_new_coords
     )
 
-    ant_xds["ANTENNA_DISH_DIAMETER"].attrs.update({"units": ["m"], "type": "quantity"})
+    ant_xds["ANTENNA_DISH_DIAMETER"].attrs.update(make_quantity_attrs(["m"]))
 
     ant_xds["ANTENNA_POSITION"].attrs["coordinate_system"] = "geocentric"
     ant_xds["ANTENNA_POSITION"].attrs["origin_object_name"] = "earth"
@@ -507,9 +508,7 @@ def create_phase_calibration_xds(
     phase_cal_xds = phase_cal_xds.assign_coords(ant_borrowed_coords | tone_label_coord)
 
     # Adjust expected types
-    phase_cal_xds["time_phase_cal"] = (
-        phase_cal_xds.time_phase_cal.astype("float64").astype("float64") / 10**9
-    )
+    phase_cal_xds["time_phase_cal"] = phase_cal_xds.time_phase_cal
 
     phase_cal_xds = rename_and_interpolate_to_time(
         phase_cal_xds, "time_phase_cal", phase_cal_interp_time, "phase_cal_xds"

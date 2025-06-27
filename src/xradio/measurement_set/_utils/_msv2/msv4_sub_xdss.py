@@ -1,12 +1,17 @@
 import toolviper.utils.logger as logger
 import os
 import time
-from typing import Tuple, Union
+from typing import Optional, Tuple, Union
 
 import numpy as np
 import xarray as xr
+from numpy.typing import ArrayLike
 
 from xradio._utils.coord_math import convert_to_si_units
+from xradio._utils.dict_helpers import (
+    make_time_measure_attrs,
+    make_spectral_coord_measure_attrs,
+)
 from xradio._utils.schema import (
     column_description_casacore_to_msv4_measure,
     convert_generic_xds_to_xradio_schema,
@@ -20,12 +25,7 @@ from ._tables.read import (
 )
 
 
-standard_time_coord_attrs = {
-    "type": "time",
-    "units": ["s"],
-    "scale": "utc",
-    "format": "unix",
-}
+standard_time_coord_attrs = make_time_measure_attrs(time_format="unix")
 
 
 def rename_and_interpolate_to_time(
@@ -128,7 +128,11 @@ def interpolate_to_time(
             {time_name: interp_time.data}, method=method, assume_sorted=True
         )
         # scan_name sneaks in as a coordinate of the main time axis, drop it
-        if "scan_name" in xds.coords:
+        if (
+            "type" in xds.attrs
+            and xds.attrs["type"] not in ["visibility", "spectrum", "wvr"]
+            and "scan_name" in xds.coords
+        ):
             xds = xds.drop_vars("scan_name")
         points_after = xds[time_name].size
         logger.debug(
@@ -232,6 +236,7 @@ def prepare_generic_weather_xds_and_station_name(
         generic_weather_xds = load_generic_table(
             in_file,
             "WEATHER",
+            timecols=["TIME"],
             rename_ids=subt_rename_ids["WEATHER"],
             taql_where=taql_where,
         )
@@ -281,7 +286,7 @@ def finalize_station_position(
         # borrow location frame attributes from antenna position
         weather_xds["STATION_POSITION"].attrs = ant_position_with_ids.attrs
     else:
-        # borrow from ant_posision_with_ids but without carrying over other coords
+        # borrow from ant_position_with_ids but without carrying over other coords
         weather_xds = weather_xds.assign(
             {
                 "STATION_POSITION": (
@@ -317,6 +322,7 @@ def create_weather_xds(in_file: str, ant_position_with_ids: xr.DataArray):
         generic_weather_xds = load_generic_table(
             in_file,
             "WEATHER",
+            timecols=["TIME"],
             rename_ids=subt_rename_ids["WEATHER"],
         )
     except ValueError as _exc:
@@ -341,7 +347,7 @@ def create_weather_xds(in_file: str, ant_position_with_ids: xr.DataArray):
     dims_station_time = ["station_name", "time_weather"]
     dims_station_time_position = dims_station_time + ["cartesian_pos_label"]
     to_new_data_variables = {
-        "H20": ["H2O", dims_station_time],
+        "H2O": ["H2O", dims_station_time],
         "IONOS_ELECTRON": ["IONOS_ELECTRON", dims_station_time],
         "PRESSURE": ["PRESSURE", dims_station_time],
         "REL_HUMIDITY": ["REL_HUMIDITY", dims_station_time],
@@ -500,6 +506,7 @@ def create_pointing_xds(
     generic_pointing_xds = load_generic_table(
         in_file,
         "POINTING",
+        timecols=["TIME"],
         rename_ids=subt_rename_ids["POINTING"],
         taql_where=taql_where,
     )
@@ -664,6 +671,7 @@ def create_system_calibration_xds(
         generic_sys_cal_xds = load_generic_table(
             in_file,
             "SYSCAL",
+            timecols=["TIME"],
             rename_ids=subt_rename_ids["SYSCAL"],
             taql_where=(
                 f" where (SPECTRAL_WINDOW_ID = {spectral_window_id})"
@@ -724,11 +732,9 @@ def create_system_calibration_xds(
             "frequency_system_cal": generic_sys_cal_xds.coords["frequency"].data
         }
         sys_cal_xds = sys_cal_xds.assign_coords(frequency_coord)
-        frequency_measure = {
-            "type": main_xds_frequency.attrs["type"],
-            "units": main_xds_frequency.attrs["units"],
-            "observer": main_xds_frequency.attrs["observer"],
-        }
+        frequency_measure = make_spectral_coord_measure_attrs(
+            main_xds_frequency.attrs["units"], main_xds_frequency.attrs["observer"]
+        )
         sys_cal_xds.coords["frequency_system_cal"].attrs.update(frequency_measure)
 
     sys_cal_xds = rename_and_interpolate_to_time(
@@ -741,3 +747,117 @@ def create_system_calibration_xds(
             sys_cal_xds[data_var] = sys_cal_xds[data_var].astype(np.float64)
 
     return sys_cal_xds
+
+
+def create_phased_array_xds(
+    in_file: str,
+    antenna_names: list[str],
+    receptor_label: list[str],
+    polarization_type: ArrayLike,
+) -> Optional[xr.Dataset]:
+    """
+    Create an Xarray Dataset containing phased array information.
+
+    Parameters
+    ----------
+    in_file : str
+        Path to the input MSv2.
+    antenna_names: DataArray or Sequence[str]
+        Content of the antenna_name coordinate of the antenna_xds.
+    receptor_label: DataArray or Sequence[str]
+        Content of the receptor_label coordinate of the antenna_xds. Used to
+        label the corresponding axis of ELEMENT_FLAG.
+    polarization_type: DataArray or ArrayLike
+        Contents of the polarization_type coordinate of the antenna_xds.
+        Array-like of shape (num_antennas, 2) containing the polarization
+        hands for each antenna.
+
+    Returns
+    ----------
+        xr.Dataset or None: If the input MS contains a PHASED_ARRAY table,
+           returns the Xarray Dataset containing the phased array information.
+           Otherwise, return None.
+    """
+
+    def extract_data(dataarray_or_sequence):
+        if hasattr(dataarray_or_sequence, "data"):
+            return dataarray_or_sequence.data.tolist()
+        return dataarray_or_sequence
+
+    antenna_names = extract_data(antenna_names)
+    receptor_label = extract_data(receptor_label)
+    polarization_type = extract_data(polarization_type)
+
+    # NOTE: We cannot use the dimension renaming option of `load_generic_table`
+    # here, because it leads to a dimension name collision. This is caused by
+    # the presence of two dimensions of size 3 in multiple arrays.
+    # Instead, we do the renaming manually below.
+    try:
+        raw_xds = load_generic_table(
+            in_file,
+            "PHASED_ARRAY",
+            # Some MSes carry COORDINATE_SYSTEM as a copy of COORDINATE_AXES
+            # due to a past ambiguity on the PHASED_ARRAY schema
+            ignore=["COORDINATE_SYSTEM", "ANTENNA_ID"],
+        )
+    except ValueError:
+        return None
+
+    # Defend against empty PHASED_ARRAY table.
+    # The test MS "AA2-Mid-sim_00000.ms" has that problem.
+    required_keys = {"COORDINATE_AXES", "ELEMENT_OFFSET", "ELEMENT_FLAG"}
+    if not all(k in raw_xds for k in required_keys):
+        return None
+
+    def msv4_measure(raw_name: str) -> dict:
+        coldesc = raw_xds.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]
+        return column_description_casacore_to_msv4_measure(coldesc[raw_name])
+
+    def make_data_variable(raw_name: str, dim_names: list[str]) -> xr.DataArray:
+        da = raw_xds[raw_name]
+        da = xr.DataArray(da.data, dims=tuple(dim_names))
+        return da.assign_attrs(msv4_measure(raw_name))
+
+    raw_datavar_names_and_dims = [
+        (
+            "COORDINATE_AXES",
+            ("antenna_name", "cartesian_pos_label_local", "cartesian_pos_label"),
+        ),
+        ("ELEMENT_OFFSET", ("antenna_name", "cartesian_pos_label_local", "element_id")),
+        ("ELEMENT_FLAG", ("antenna_name", "receptor_label", "element_id")),
+    ]
+
+    data_vars = {
+        name: make_data_variable(name, dims)
+        for name, dims in raw_datavar_names_and_dims
+    }
+    data_vars["COORDINATE_AXES"].attrs = {
+        "type": "rotation_matrix",
+        "units": ["dimensionless", "dimensionless", "dimensionless"],
+    }
+    # Remove the "frame" attribute if it exists, because ELEMENT_OFFSET is
+    # defined in a station-local frame for which no standard name exists
+    data_vars["ELEMENT_OFFSET"].attrs.pop("frame", None)
+    data_vars["ELEMENT_OFFSET"].attrs.update(
+        {
+            "coordinate_system": "topocentric",
+            "origin": "ANTENNA_POSITION",
+        }
+    )
+
+    num_elements = data_vars["ELEMENT_OFFSET"].sizes["element_id"]
+
+    data_vars = {"PHASED_ARRAY_" + key: val for key, val in data_vars.items()}
+    coords = {
+        "antenna_name": antenna_names,
+        "element_id": np.arange(num_elements),
+        "receptor_label": receptor_label,
+        "polarization_type": (
+            ("antenna_name", "receptor_label"),
+            polarization_type,
+        ),
+        "cartesian_pos_label": ["x", "y", "z"],
+        "cartesian_pos_label_local": ["p", "q", "r"],
+    }
+    attrs = {"type": "phased_array"}
+    return xr.Dataset(data_vars, coords, attrs)

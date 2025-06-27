@@ -1,7 +1,10 @@
 import pytest
+import os
 
 # Ensure pytest assert introspection in vis data checks
-pytest.register_assert_rewrite("tests.unit.measurement_set.ms_test_utils.cds_checks")
+pytest.register_assert_rewrite(
+    "tests.unit.measurement_set.ms_test_utils.check_msv4_matches_msv2_description"
+)
 
 from collections import namedtuple
 import shutil
@@ -12,8 +15,10 @@ from tests.unit.measurement_set.ms_test_utils.gen_test_ms import (
     gen_test_ms,
     make_ms_empty,
 )
-from tests.unit.measurement_set.ms_test_utils.cds_checks import check_cds
 
+from toolviper.utils.data import download
+from pathlib import Path
+from xradio.measurement_set import convert_msv2_to_processing_set
 
 """
 A tuple with an MS filename (as str) and a description of its expected structure and contents (as a dict).
@@ -21,29 +26,22 @@ A tuple with an MS filename (as str) and a description of its expected structure
 MSWithSpec = namedtuple("MSWithSpec", "fname descr")
 
 
-def pytest_configure(config):
-    config.addinivalue_line(
-        "markers",
-        "uses_download: marks tests that use the function to download test MSs (require medium-size downloads and "
-        "tend to be slower than others)",
-    )
+# def pytest_configure(config):
+#     config.addinivalue_line(
+#         "markers",
+#         "uses_download: marks tests that use the function to download test MSs (require medium-size downloads and "
+#         "tend to be slower than others)",
+#     )
 
 
-@pytest.fixture(scope="session")
-def essential_subtables():
-    """
-    The set of MS subtables (loaded as sub-xdss) without which we cannot read
-    an MS.
-    """
-    return {"antenna", "spectral_window", "polarization"}
+# Generated test MS fixtures
 
 
 @pytest.fixture(scope="session")
 def ms_empty_required():
     """
-    An MS that has all the required tables/columns definitions and is empty
+    An MS that has the required tables/columns definitions and is empty
     (0 rows)
-
     """
     name = "test_ms_empty_def_required.ms"
     make_ms_empty(name)
@@ -56,31 +54,70 @@ def ms_empty_complete(scope="session"):
     """
     An MS that has the complete tables/columns definitions and is empty
     (0 rows)
-
     """
     name = "test_ms_empty_def_complete.ms"
-    make_ms_empty(name)
+    make_ms_empty(name, complete=True)
     yield MSWithSpec(name, {})
     shutil.rmtree(name)
 
 
 @pytest.fixture(scope="session")
 def ms_minimal_required():
-    name = "test_ms_minimal_required.ms"
+    """
+    Small MS with the required set of tables and columns definitions (according to python-casacore
+    standard MS definitions)
+    """
+    name = "test_msv2_minimal_required.ms"
     spec = gen_test_ms(name, required_only=True)
     yield MSWithSpec(name, spec)
     shutil.rmtree(name)
 
 
 @pytest.fixture(scope="session")
-def ms_minimal_dims1_required():
+def ms_minimal_misbehaved():
     """
-    An MS populated minimally, with size one for several relevant dimensions:
-    observation, field, scan, spw, etc.
+    Small MS with a number of misbehaviors as observed in different MS from various observatories
+    and projects
     """
-    name = "test_ms_minimal_dims1_required.ms"
-    spec = gen_test_ms(name)
+    name = "test_msv2_minimal_required_misbehaved.ms"
+    spec = gen_test_ms(
+        name, opt_tables=True, vlbi_tables=False, required_only=True, misbehave=True
+    )
     yield MSWithSpec(name, spec)
+    shutil.rmtree(name)
+
+
+@pytest.fixture(scope="session")
+def ms_minimal_without_opt():
+    """
+    Small MS with a number of misbehaviors as observed in different MS from various observatories
+    and projects
+    """
+    name = "test_msv2_minimal_required_without_opt_subtables.ms"
+    spec = gen_test_ms(
+        name, opt_tables=False, vlbi_tables=False, required_only=True, misbehave=False
+    )
+    yield MSWithSpec(name, spec)
+    shutil.rmtree(name)
+
+
+# Besides the few test MSs from above,  one can generate custom MSs passing different descr dicts.
+@pytest.fixture(scope="session")
+def ms_custom_spec(request):
+    """
+    Expects in request.param an MS description / description of the visibilities dataset used in
+    gen_test_ms to produce it
+    """
+    name = "test_ms_custom_spec.ms"
+    msv2_custom_description = gen_test_ms(
+        name,
+        request.param,
+        opt_tables=True,
+        vlbi_tables=False,
+        required_only=True,
+        misbehave=False,
+    )
+    yield MSWithSpec(name, msv2_custom_description)
     shutil.rmtree(name)
 
 
@@ -90,196 +127,149 @@ def ms_tab_nonexistent():
     yield MSWithSpec(name, {})
 
 
-@pytest.fixture(scope="session")
-def ms_minimal_for_writes():
-    """MS to be used to write subtables inside"""
-    name = "test_ms_minimal_required_for_writes.ms"
-    spec = gen_test_ms(name, required_only=True)
-    yield MSWithSpec(name, spec)
-    shutil.rmtree(name)
+# Generic xds fixtures (generic: loaded from MSv2 mostly as is, not yet in MSv4 format)
 
 
 @pytest.fixture(scope="session")
-def vis_zarr_empty():
-    """
-    An empty zarr dataset
-    """
-    name = "test_cor_zarr_empty.zarr"
-    xds = xr.Dataset()
-    xds.to_zarr(name)
-    yield name
-    shutil.rmtree(name)
-
-
-@pytest.fixture(scope="session")
-def ddi_xds_min(ms_minimal_required):
-    """A DATA_DESCRIPTION/DDI xds, loaded from the minimal MS"""
+def generic_antenna_xds_min(ms_minimal_required):
+    """A generic antenna xds (loaded form MSv2 mostly as is), loaded from the MS/ANTENNA subtable"""
     from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
 
-    # not available:
-    # subt = cds_minimal_required.metainfo["ddi"]
+    generic_antenna_xds = load_generic_table(ms_minimal_required.fname, "ANTENNA")
+    return generic_antenna_xds
 
-    subt = load_generic_table(ms_minimal_required.fname, "DATA_DESCRIPTION")
+
+@pytest.fixture(scope="session")
+def generic_phase_cal_xds_min(ms_minimal_required):
+    """A generic phase_cal xds (loaded form MSv2 mostly as is), loaded from the minimal MS/PHASE_CAL subtable"""
+
+    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
+
+    subt = load_generic_table(ms_minimal_required.fname, "PHASE_CAL")
     return subt
 
 
 @pytest.fixture(scope="session")
-def spw_xds_min(cds_minimal_required):  # ms_minimal_required):
-    """An SPW xds, loaded from the minimal MS/SPECTRAL_WINDOW subtable"""
+def generic_source_xds_min(ms_minimal_required):
+    """A generic source xds (loaded form MSv2 mostly as is), loaded from the minimal MS/SOURCE subtable"""
 
-    subt = cds_minimal_required.metainfo["spectral_window"]
-    # Or alternatively, from ms_minimal_required read subtable
-    # subt = load_generic_table(ms_minimal_required.fname, "SPECTRAL_WINDOW")
+    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
+
+    subt = load_generic_table(ms_minimal_required.fname, "SOURCE")
     return subt
 
 
-@pytest.fixture(scope="session")
-def pol_xds_min(cds_minimal_required):
-    """A pol xds, loaded from the minimal MS/POLAIZATION subtable"""
-
-    subt = cds_minimal_required.metainfo["polarization"]
-    # Or alternatively, from ms_minimal_required read subtable
-    # subt = load_generic_table(ms_minimal_required.fname, "POLARIZATION")
-    return subt
+# MSv4 xds and xdt fixtures
 
 
 @pytest.fixture(scope="session")
-def ant_xds_min(cds_minimal_required):
-    """An antenna xds, loaded from the minimal MS/ANTENNA subtable"""
-
-    subt = cds_minimal_required.metainfo["antenna"]
-    # Or alternatively, from ms_minimal_required read subtable
-    # subt = load_generic_table(ms_minimal_required.fname, "ANTENNA")
-    return subt
+def processing_set_min_path():
+    """path to the 'mininal_required' processing set"""
+    out_name = "test_converted_msv2_to_msv4_minimal_required.zarr"
+    yield out_name
 
 
 @pytest.fixture(scope="session")
-def field_xds_min(cds_minimal_required):
-    """A field xds, loaded from the minimal MS/FIELD subtable"""
-
-    subt = cds_minimal_required.metainfo["field"]
-    # Or alternatively, from ms_minimal_required read subtable
-    # subt = load_generic_table(ms_minimal_required.fname, "FIELD")
-    return subt
-
-
-@pytest.fixture(scope="session")
-def feed_xds_min(cds_minimal_required):
-    """A feed xds, loaded from the minimal MS/FEED subtable"""
-
-    subt = cds_minimal_required.metainfo["feed"]
-    # Or alternatively, from ms_minimal_required read subtable
-    # subt = load_generic_table(ms_minimal_required.fname, "FEED")
-    return subt
-
-
-@pytest.fixture(scope="session")
-def observation_xds_min(cds_minimal_required):
-    """An observation xds, loaded from the minimal MS/OBSERVATION subtable"""
-
-    subt = cds_minimal_required.metainfo["observation"]
-    # Or alternatively, from ms_minimal_required read subtable
-    # subt = load_generic_table(ms_minimal_required.fname, "OBSERVATION")
-    return subt
-
-
-@pytest.fixture(scope="session")
-def source_xds_min(cds_minimal_required):
-    """A source xds, loaded from the minimal MS/SOURCE subtable"""
-
-    subt = cds_minimal_required.metainfo["source"]
-    # Or alternatively, from ms_minimal_required read subtable
-    # subt = load_generic_table(ms_minimal_required.fname, "SOURCE")
-    return subt
-
-
-def quick_fix_ndarray_shape_attrs(part):
-    """
-    Crude fix for unsupported attrs => update/extend attrs dict filters.
-    Shape attributes which take ndarray type values, added through python-casacore,
-    "fix" for the experimental write MS , "UVW"]: (but UVW was expected, from CASA
-    tests MSs)
-    """
-    for col in ["DATA", "CORRECTED_DATA", "MODEL_DATA"]:
-        if (
-            col in part.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]
-            and "shape"
-            in part.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"][col]
-        ):
-            part.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"][col].pop(
-                "shape"
-            )
-
-
-@pytest.fixture(scope="session")
-def main_xds_min(ms_minimal_required):
-    """A main xds (one partition, when partitioning by intent"""
-    from xradio.measurement_set._utils.msv2 import read_ms
-
-    cds = read_ms(ms_minimal_required.fname, partition_scheme="intent")
-    part_key = (0, 0, "scan_intent#subscan_intent")
-    part = cds.partitions[part_key]
-
-    quick_fix_ndarray_shape_attrs(part)
-
-    yield part
-
-
-@pytest.fixture(scope="session")
-def cds_minimal_required(ms_minimal_required):
-    """a simple cds data structure read from an MS (also a fixture defined here)"""
-    from xradio.measurement_set._utils.msv2 import read_ms
-
-    cds = read_ms(ms_minimal_required.fname)
-
-    for _key, part in cds.partitions.items():
-        quick_fix_ndarray_shape_attrs(part)
-
-    yield cds
-
-
-@pytest.fixture(scope="session")
-def main_xds_flat_min(ms_minimal_required):
-    """A "flat" (row dim) main xds (one partition, when partitioning by ddi)"""
-    from xradio.measurement_set._utils._msv2._tables.read_main_table import (
-        read_flat_main_table,
+def msv4_min_path(processing_set_min_path, ms_minimal_required):
+    """path to the MSv4 of the 'mininal_required' processing set"""
+    msv4_id = "msv4id"
+    msv4_path = (
+        processing_set_min_path
+        + "/"
+        + ms_minimal_required.fname.rsplit(".")[0]
+        + "_"
+        + msv4_id
     )
-    from xradio.measurement_set._utils._msv2.msv2_msv3 import ignore_msv2_cols
+    yield msv4_path
 
-    xds, _part_ids, _attrs = read_flat_main_table(
-        ms_minimal_required.fname, 0, ignore_msv2_cols=ignore_msv2_cols
+
+@pytest.fixture(scope="session")
+def msv4_xdt_min(ms_minimal_required, processing_set_min_path, msv4_min_path):
+    """An MSv4 xdt (one single MSv4)"""
+    from xradio.measurement_set._utils._msv2.conversion import (
+        convert_and_write_partition,
     )
 
-    yield xds
+    convert_and_write_partition(
+        ms_minimal_required.fname,
+        processing_set_min_path,
+        "msv4id",
+        {"DATA_DESC_ID": [0], "OBS_MODE": ["CAL_ATMOSPHERE#ON_SOURCE"]},
+        use_table_iter=False,
+        overwrite=True,
+    )
 
+    msv4_xdt = xr.open_datatree(
+        msv4_min_path,
+        engine="zarr",
+    )
 
-# TODO: more differentiated custom MSs, consider @pytest.mark.ms_custom_spec({...})
-@pytest.fixture(scope="session")
-def ms_custom(spec):
-    name = "test_ms_custom.ms"  # + rnd
-    gen_test_ms(name, spec)
-    yield name
-    shutil.rmtree(name)
-
-
-@pytest.fixture(scope="session")
-def ms_alma_antennae_north_split():
-    """
-    An MS that is downloaded (one of the smallest), with multiple fields (3)
-    + with SOURCE and STATE populated
-    """
-    from toolviper.utils.data import download
-
-    name = "Antennae_North.cal.lsrk.split.ms"
-    # name = "small_meerkat.ms"
-    download(file=name)
-    # TODO: extend with more attrs
-    descr = {"nchans": 8, "npols": 2}
-    yield MSWithSpec(name, descr)
+    yield msv4_xdt
+    shutil.rmtree(processing_set_min_path)
 
 
 @pytest.fixture(scope="session")
-def ms_as_zarr_min():
-    """An MS loaded and then saved to zarr format"""
-    name = "xds_saved_as_zarr_bogus_for_now.zarr"
-    yield name
+def msv4_xds_min(msv4_xdt_min):
+    """An MSv4 main xds (correlated data, one partition) xds"""
+
+    msv4_xds = msv4_xdt_min.ds
+    yield msv4_xds
+
+
+@pytest.fixture(scope="session")
+def antenna_xds_min(msv4_xdt_min, msv4_min_path):
+    """An MSv4 secondary antenna dataset ('antenna_xds')"""
+
+    antenna_xds = msv4_xdt_min["antenna_xds"].ds
+
+    yield antenna_xds
+
+
+@pytest.fixture(scope="session")
+def pointing_xds_min(msv4_xdt_min, msv4_min_path):
+    """An MSv4 secondary pointing dataset ('pointing_xds')"""
+
+    pointing_xds = msv4_xdt_min["pointing_xds"]
+
+    yield pointing_xds
+
+
+@pytest.fixture(scope="session")
+def sys_cal_xds_min(msv4_xdt_min, msv4_min_path):
+    """An MSv4 secondary sys cal dataset ('system_calibration_xds')"""
+
+    syscal_xds = msv4_xdt_min["system_calibration_xds"]
+
+    yield syscal_xds
+
+
+# Used in test_processing_set_xdt / test_load_processing_set
+
+
+def download_measurement_set(input_ms, directory="/tmp"):
+    """Returns path to test MeasurementSet v2"""
+    # Download MS
+    download(file=input_ms, folder=directory)
+    return Path(os.path.join(directory, input_ms))
+
+
+@pytest.fixture
+def convert_measurement_set_to_processing_set(request, tmp_path):
+    """Create a processing set from test MS for testing"""
+    ps_path = tmp_path / "test_processing_set.ps.zarr"
+    # Convert MS to processing set
+    convert_msv2_to_processing_set(
+        in_file=str(download_measurement_set(request.param, tmp_path)),
+        out_file=str(ps_path),
+        partition_scheme=[],
+        main_chunksize=0.01,
+        pointing_chunksize=0.00001,
+        pointing_interpolate=True,
+        ephemeris_interpolate=True,
+        use_table_iter=False,
+        overwrite=True,
+        parallel_mode="none",
+    )
+    yield ps_path
+    shutil.rmtree(ps_path)
+    shutil.rmtree(download_measurement_set(request.param, tmp_path))

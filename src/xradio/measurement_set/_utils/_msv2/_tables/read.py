@@ -10,7 +10,11 @@ import pandas as pd
 import xarray as xr
 
 import astropy.units
-from casacore import tables
+
+try:
+    from casacore import tables
+except ImportError:
+    import xradio._utils._casacore.casacore_from_casatools as tables
 
 from .table_query import open_query, open_table_ro, TableManager
 from xradio._utils.list_and_array import get_pad_value
@@ -42,16 +46,20 @@ def convert_casacore_time(
     rawtimes: np.ndarray, convert_to_datetime: bool = True
 ) -> np.ndarray:
     """
-    Read time columns to datetime format
-    pandas datetimes are referenced against a 0 of 1970-01-01
-    CASA's modified julian day reference time is (of course) 1858-11-17
+    Convert data from casacore time columns to a different format, either:
+    a) pandas style datetime,
+    b) simply seconds from 1970-01-01 00:00:00 UTC (as used in the Unix scale of
+       astropy).
+
+    Pandas datetimes and Unix times are referenced against a 0 of 1970-01-01.
+    CASA's (casacore) modified julian day reference time is (of course) 1858-11-17.
 
     This requires a correction of 3506716800 seconds which is hardcoded to save time
 
     Parameters
     ----------
     rawtimes : np.ndarray
-        times in casacore ref
+        time values wrt casacore reference
     convert_to_datetime : bool (Default value = True)
         whether to produce pandas style datetime
 
@@ -308,6 +316,8 @@ def add_units_measures(
                 ):  # Little fix for Meerkat data where the units are a string.
                     cc_units = [cc_units]
 
+                if isinstance(cc_units, np.ndarray):
+                    cc_units = cc_units.tolist()
                 if not isinstance(cc_units, list) or not cc_units:
                     logger.warning(
                         f"Invalid units found for column/variable {col}: {cc_units}"
@@ -343,70 +353,6 @@ def add_units_measures(
                         )
 
     return mvars
-
-
-def make_freq_attrs(spw_xds: xr.Dataset, spw_id: int) -> Dict[str, Any]:
-    """
-    Grab the units/measure metainfo for the xds.freq dimension of a
-    parttion from the SPECTRAL_WINDOW subtable CTDS attributes.
-
-    Has to read xds_spw.meas_freq_ref and use it as index in the CTDS
-    'VarRefCol' attrs of CHAN_FREQ and REF_FREQUENCY to give a
-    reference frame to xds_spw.ref_frequency and xds_spw.chan_freq
-    (then the ref frame from the second will be pulled to
-    xds.freq.attrs)
-
-    Parameters
-    ----------
-    spw_xds : xr.Dataset
-        (metainfo) SPECTRAL_WINDOW xds
-    spw_id : int
-        SPW id of a partition
-
-    Returns
-    -------
-    Dict[str, Any]
-        attributes (units/measure) for the freq dim of a partition
-    """
-    fallback_TabRefTypes = [
-        "REST",
-        "LSRK",
-        "LSRD",
-        "BARY",
-        "GEO",
-        "TOPO",
-        "GALACTO",
-        "LGROUP",
-        "CMB",
-    ]
-
-    ctds_cols = spw_xds.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]
-    cfreq = ctds_cols["CHAN_FREQ"]
-
-    cf_attrs = spw_xds.data_vars["CHAN_FREQ"].attrs
-    if "MEASINFO" in cfreq["keywords"] and "VarRefCol" in cfreq["keywords"]["MEASINFO"]:
-        fattrs = cfreq["keywords"]["MEASINFO"]
-        var_ref_col = fattrs["VarRefCol"]
-        # This should point to the SPW/MEAS_FREQ_REF col
-        meas_freq_ref_idx = spw_xds.data_vars[var_ref_col].values[spw_id]
-
-        if "TabRefCodes" not in fattrs or "TabRefTypes" not in fattrs:
-            # Datasets like vla/ic2233_1.ms say "VarRefCol" but "TabRefTypes" is missing
-            ref_frame = fallback_TabRefTypes[meas_freq_ref_idx]
-        else:
-            ref_type_code = fattrs["TabRefCodes"][meas_freq_ref_idx]
-            ref_frame = fattrs["TabRefTypes"][ref_type_code]
-
-        cf_attrs["measure"] = {
-            "type": fattrs["type"],
-            "ref_frame": ref_frame,
-        }
-
-        # Also set the 'VarRefCol' for CHAN_FREQ and REF_FREQUENCEY
-        spw_xds.data_vars["CHAN_FREQ"].attrs.update(cf_attrs)
-        spw_xds.data_vars["REF_FREQUENCY"].attrs.update(cf_attrs)
-
-    return cf_attrs
 
 
 def redimension_ms_subtable(xds: xr.Dataset, subt_name: str) -> xr.Dataset:
@@ -545,8 +491,8 @@ def load_generic_table(
     tname : str
         (sub)table name, for example 'SOURCE' for myms.ms/SOURCE
     timecols : Union[List[str], None] (Default value = None)
-        column names to convert to numpy datetime format.
-        leaves times as their original casacore format.
+        Names of time column(s), to convert from casacore times to 1970-01-01 scale
+        An empty list leaves times as their original casacore format.
     ignore : Union[List[str], None] (Default value = None)
         list of column names to ignore and not try to read.
     rename_ids : Dict[str, str] (Default value = None)
@@ -742,7 +688,7 @@ def load_generic_cols(
     tb_tool : tables.table
         table to load the columns
     timecols : Union[List[str], None]
-        columns names to convert to datetime format
+        column names to convert from casacore time format
     ignore : Union[List[str], None]
         list of column names to skip and not try to load.
 
@@ -822,7 +768,7 @@ def load_fixed_size_cols(
     tb_tool : tables.table
         table to red the columns
     timecols : Union[List[str], None]
-        columns names to convert to datetime format
+        column names to convert from casacore time format
     ignore : Union[List[str], None]
         list of column names to skip and not try to load.
 
@@ -917,7 +863,8 @@ def raw_col_data_to_coords_vars(
     data: np.ndarray :
         column data
     timecols: Union[List[str], None]
-        columns to be treated as TIME-related
+        columns to be treated as TIME-related (they are coordinate, need conversion from
+        casacore time format.
 
     Returns
     -------
@@ -947,7 +894,7 @@ def raw_col_data_to_coords_vars(
             data = convert_mjd_time(data).astype("float64") / 1e9
         else:
             try:
-                data = convert_casacore_time(data)
+                data = convert_casacore_time(data, False)
             except pd.errors.OutOfBoundsDatetime as exc:
                 if inpath.endswith("WEATHER"):
                     # intentionally not callling logging.exception
@@ -987,7 +934,7 @@ def raw_col_data_to_coords_vars(
 
 def get_pad_value_in_tablerow_column(trows: tables.tablerow, col: str) -> object:
     """
-    Gets the pad value for the type of a column (IMPORTANTLY) as froun in the
+    Gets the pad value for the type of a column (IMPORTANTLY) as found in the
     the type specified in the row / column value dict returned by tablerow.
     This can differ from the type of the column as given in the casacore
     column descriptions. See https://github.com/casangi/xradio/issues/242.
@@ -1189,7 +1136,7 @@ def read_col_chunk(
     np.ndarray
     """
     # TODO: consider calling load_col_chunk() from inside the withs
-    # for read_delayed_pointing_table and read_expanded_main_table
+    # for read_expanded_main_table
     with open_table_ro(infile) as mtable:
         with open_query(mtable, ts_taql) as query:
             if (len(cshape) == 2) or (col == "UVW"):  # all the scalars and UVW
@@ -1250,22 +1197,20 @@ def read_col_conversion_numpy(
         # Use casacore to get the shape of a row for this column
         #################################################################################
 
-        # getcolshapestring() only works on columns where a row element is an
-        # array ie. fails for TIME
-        # Assumes the RuntimeError is because the column is a scalar
-        try:
-            shape_string = tb_tool.getcolshapestring(col)[0]
-            # Convert `shape_string` into a tuple that numpy understands
-            extra_dimensions = tuple(
-                [
-                    int(idx)
-                    for idx in shape_string.replace("[", "")
-                    .replace("]", "")
-                    .split(", ")
-                ]
-            )
-        except RuntimeError:
+        # getcolshapestring() only works for array-valued columns.
+        # For scalar columns (e.g., EXPOSURE, TIME_CENTROID), it raises a RuntimeError.
+        # So we first check if the column is scalar to avoid that.
+        if tb_tool.isscalarcol(col):
             extra_dimensions = ()
+        else:
+            # Get the shape string for the first row of the column (e.g., "[4, 2]")
+            shape_string = tb_tool.getcolshapestring(col)[0]
+
+            # Convert the shape string into a tuple of integers (e.g., (4, 2)) that numpy
+            # understands.
+            extra_dimensions = tuple(
+                int(dim) for dim in shape_string.strip("[]").split(", ")
+            )
 
         #################################################################################
 

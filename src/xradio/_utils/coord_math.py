@@ -63,10 +63,6 @@ def wrap_to_pi(angles):
     return (angles + np.pi) % (2 * np.pi) - np.pi
 
 
-def wrap_to_pi(angles):
-    return (angles + np.pi) % (2 * np.pi) - np.pi
-
-
 def convert_to_si_units(xds):
     for data_var in xds.data_vars:
         if "units" in xds[data_var].attrs:

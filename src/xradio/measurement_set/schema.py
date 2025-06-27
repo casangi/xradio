@@ -2024,13 +2024,6 @@ class SystemCalibrationXds:
 
 
 @xarray_dataset_schema
-class PhasedArrayXds:
-    """Not specified. Not implemented."""
-
-    pass
-
-
-@xarray_dataset_schema
 class DopplerXds:
     """Not specified. Not implemented."""
 

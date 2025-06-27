@@ -614,7 +614,7 @@ def prepare_generic_sys_cal_xds(generic_sys_cal_xds: xr.Dataset) -> xr.Dataset:
         )
     elif (
         "frequency" in generic_sys_cal_xds.sizes
-        and not "dim_3" in generic_sys_cal_xds.sizes
+        and "dim_3" not in generic_sys_cal_xds.sizes
     ):
         # because order is (...,frequency,receptor), when frequency is missing
         # receptor can get wrongly labeled as frequency

@@ -88,9 +88,9 @@ UnitsDimensionless = Literal[
 ]  # name consistent with casacore measures
 UnitsSeconds = Literal[["s"]]
 UnitsHertz = Literal[["Hz"]]
-UnitsMeters = Literal[["m"]]
+UnitsMeters = Literal[["m"], ["m", "m", "m"]]
 
-UnitsOfSkyCoordInRadians = Literal[["rad", "rad"]]
+UnitsOfSkyCoordInRadians = Literal[["rad", "rad"], ["rad", "rad", "m"]]
 UnitsOfLocationInMetersOrRadians = Literal[["m", "m", "m"], ["rad", "rad", "m"]]
 UnitsOfPositionInRadians = Literal[["rad", "rad", "m"]]
 UnitsOfDopplerShift = Literal[["ratio"], ["m/s"]]

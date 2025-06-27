@@ -609,7 +609,7 @@ def extract_source_info(
 
     if all(source_id == -1):
         logger.warning(
-            f"Source_id is -1. No source information will be included in the field_and_source_xds."
+            "Source_id is -1. No source information will be included in the field_and_source_xds."
         )
         xds = xds.assign_coords(
             {"source_name": ("field_name", unknown)}
@@ -653,7 +653,7 @@ def extract_source_info(
     # ), "Can only process source table with a single time entry for a source_id and spectral_window_id."
     if len(source_xds.TIME) > len(unique_source_id):
         logger.warning(
-            f"Source table has more than one time entry for a source_id and spectral_window_id. This is not currently supported. Only the first time entry will be used."
+            "Source table has more than one time entry for a source_id and spectral_window_id. This is not currently supported. Only the first time entry will be used."
         )
         source_xds = source_xds.drop_duplicates("SOURCE_ID", keep="first")
 

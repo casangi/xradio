@@ -126,7 +126,7 @@ def create_observation_info(in_file: str, observation_id: int):
         exec_block_xds = load_generic_table(in_file, "ASDM_EXECBLOCK")
     except ValueError as exc:
         logger.debug(
-            "Did not find the ASDM_EXECBLOCK subtable, not loading optional fields in observation_info. Exception: {exc}"
+            f"Did not find the ASDM_EXECBLOCK subtable, not loading optional fields in observation_info. Exception: {exc}"
         )
     if exec_block_xds:
         exec_block_info = extract_exec_block_info(exec_block_xds)

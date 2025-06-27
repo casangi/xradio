@@ -741,7 +741,7 @@ def extract_source_info(
         assert (
             False
         ), "Doppler table present. Please open an issue on https://github.com/casangi/xradio/issues so that we can add support for this."
-    except:
+    except ValueError:
         pass
 
     xds = xds.assign_coords(coords)

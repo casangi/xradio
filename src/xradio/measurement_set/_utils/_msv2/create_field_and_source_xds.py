@@ -738,9 +738,10 @@ def extract_source_info(
             path,
             "DOPPLER",
         )
-        assert (
-            False
-        ), "Doppler table present. Please open an issue on https://github.com/casangi/xradio/issues so that we can add support for this."
+        logger.warning(
+            "Doppler table present. Please open an issue on "
+            "https://github.com/casangi/xradio/issues so that we can add support for this."
+        )
     except ValueError:
         pass
 

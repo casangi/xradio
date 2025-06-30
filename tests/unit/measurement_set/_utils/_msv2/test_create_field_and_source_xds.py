@@ -13,7 +13,7 @@ from xradio.schema.check import check_dataset
 def test_create_field_and_source_xds_empty(ms_empty_required):
 
     with pytest.raises(AttributeError, match="no attribute"):
-        field_and_source_xds = create_field_and_source_xds(
+        _field_and_source_xds = create_field_and_source_xds(
             ms_empty_required.fname,
             np.array(0),
             0,
@@ -27,7 +27,7 @@ def test_create_field_and_source_xds_empty(ms_empty_required):
 def test_create_field_and_source_xds_minimal_wrong_field_ids(ms_empty_required):
 
     with pytest.raises(AttributeError, match="no attribute"):
-        field_and_source_xds = create_field_and_source_xds(
+        _field_and_source_xds = create_field_and_source_xds(
             ms_empty_required.fname,
             np.arange(0, 100),
             0,

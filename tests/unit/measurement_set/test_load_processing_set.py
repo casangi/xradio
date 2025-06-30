@@ -1,5 +1,4 @@
 import pytest
-import numpy as np
 import xarray as xr
 from xradio.measurement_set.load_processing_set import ProcessingSetIterator
 from xradio.measurement_set import load_processing_set
@@ -97,7 +96,7 @@ class TestLoadProcessingSet:
     def test_sub_datasets(self, convert_measurement_set_to_processing_set):
         """Test loading with and without sub-datasets"""
         # Test with sub-datasets
-        ps_with_subs = load_processing_set(
+        _ps_with_subs = load_processing_set(
             str(convert_measurement_set_to_processing_set), load_sub_datasets=True
         )
 

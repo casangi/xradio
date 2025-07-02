@@ -234,15 +234,14 @@ def extract_ephemeris_info(
             "ellipsoid": "WGS84",
         }
     )  # I think the units are ['deg','deg','m'] and 'WGS84'.
-    
-    
+
     temp_xds["OBSERVER_DISTANCE"] = xr.DataArray(
         [ephemeris_meta["GeoDist"]], dims=["ellipsoid_dis_label"]
     )
     temp_xds["OBSERVER_DISTANCE"].attrs.update(
         {
             "type": "location",
-            "units":  "m",
+            "units": "m",
             "data": observer_position,
             "frame": "ITRS",
             "origin_object_name": "Earth",
@@ -250,7 +249,7 @@ def extract_ephemeris_info(
             "ellipsoid": "WGS84",
         }
     )  # I think the units are ['deg','deg','m'] and 'WGS84'.
-    
+
     # Add (optional) data: SOURCE_DIRECTION (POSITION / sky_pos_label)
     temp_xds["SOURCE_DIRECTION"] = xr.DataArray(
         np.column_stack(
@@ -261,24 +260,24 @@ def extract_ephemeris_info(
         ),
         dims=["time_ephemeris", "sky_dir_label"],
     )
-    
+
     temp_xds["SOURCE_DISTANCE"] = xr.DataArray(
-        np.column_stack(
-            (
-                ephemeris_xds["Rho"].data,
-            )
-        ),
+        np.column_stack((ephemeris_xds["Rho"].data,)),
         dims=["time_ephemeris", "sky_dis_label"],
     )
-    
+
     # Have to use cast_to_str because the ephemeris table units are not consistently in a list or a string.
-    sky_coord_units = cast_to_str(ephemeris_column_description["RA"]["keywords"][unit_keyword])
-    
+    sky_coord_units = cast_to_str(
+        ephemeris_column_description["RA"]["keywords"][unit_keyword]
+    )
+
     temp_xds["SOURCE_DIRECTION"].attrs.update(
         {"type": "sky_coord", "frame": sky_coord_frame, "units": sky_coord_units}
     )
-    
-    sky_coord_units = cast_to_str(ephemeris_column_description["Rho"]["keywords"][unit_keyword])
+
+    sky_coord_units = cast_to_str(
+        ephemeris_column_description["Rho"]["keywords"][unit_keyword]
+    )
     temp_xds["SOURCE_DISTANCE"].attrs.update(
         {"type": "sky_coord", "frame": sky_coord_frame, "units": sky_coord_units}
     )
@@ -344,8 +343,8 @@ def extract_ephemeris_info(
                 "origin_object_name": ephemeris_meta["NAME"],
                 "coordinate_system": "planetodetic",
                 "units": cast_to_str(
-                        ephemeris_column_description[key_lon]["keywords"][unit_keyword]
-                    )
+                    ephemeris_column_description[key_lon]["keywords"][unit_keyword]
+                ),
             }
         )
 
@@ -366,14 +365,13 @@ def extract_ephemeris_info(
                 "origin_object_name": "Sun",
                 "coordinate_system": "planetodetic",
                 "units": cast_to_str(
-                        ephemeris_column_description["SI_lon"]["keywords"][unit_keyword]
-                    )
-                ,
+                    ephemeris_column_description["SI_lon"]["keywords"][unit_keyword]
+                ),
             }
         )
-        
+
         temp_xds["SUB_SOLAR_POSITION"] = xr.DataArray(
-                    ephemeris_xds["r"].data,
+            ephemeris_xds["r"].data,
             dims=["time_ephemeris", "ellipsoid_dis_label"],
         )
         temp_xds["SUB_SOLAR_POSITION"].attrs.update(
@@ -383,19 +381,15 @@ def extract_ephemeris_info(
                 "origin_object_name": "Sun",
                 "coordinate_system": "planetodetic",
                 "units": cast_to_str(
-                        ephemeris_column_description["r"]["keywords"][unit_keyword]
-                    ),
+                    ephemeris_column_description["r"]["keywords"][unit_keyword]
+                ),
             }
         )
-        
-        
-        
-        
 
     # We are using the "time_ephemeris" label because it might not match the optional time axis of the source and field info. If ephemeris_interpolate=True then rename it to time.
     coords = {
         "ellipsoid_dir_label": ["lon", "lat"],
-        "ellipsoid_dis_label": [ "dist"],
+        "ellipsoid_dis_label": ["dist"],
         "time_ephemeris": ephemeris_xds["time"].data,
     }
     temp_xds = temp_xds.assign_coords(coords)
@@ -411,7 +405,7 @@ def extract_ephemeris_info(
         )
         source_direction_interp = temp_xds["SOURCE_DIRECTION"]
         source_distance_interp = temp_xds["SOURCE_DISTANCE"]
-        
+
     else:
         source_direction_interp = interpolate_to_time(
             temp_xds["SOURCE_DIRECTION"],
@@ -425,7 +419,6 @@ def extract_ephemeris_info(
             "field_and_source_xds",
             "time_ephemeris",
         )
-        
 
     xds = xr.merge([xds, temp_xds])
 
@@ -452,12 +445,12 @@ def extract_ephemeris_info(
         field_phase_center_direction,
         dims=["time", "sky_dir_label"],
     )
-    
+
     xds[center_dis_dv] = xr.DataArray(
         source_distance_interp.values,
         dims=["time", "sky_dis_label"],
     )
-    
+
     xds[center_dir_dv].attrs.update(xds["SOURCE_DIRECTION"].attrs)
 
     xds[center_dis_dv].attrs.update(xds["SOURCE_DISTANCE"].attrs)
@@ -864,7 +857,10 @@ def extract_field_info_and_check_ephemeris(
         }
     else:
         to_new_data_variables = {
-            "PHASE_DIR": ["FIELD_PHASE_CENTER_DIRECTION", ["field_name", "sky_dir_label"]],
+            "PHASE_DIR": [
+                "FIELD_PHASE_CENTER_DIRECTION",
+                ["field_name", "sky_dir_label"],
+            ],
             # "DELAY_DIR": ["FIELD_DELAY_CENTER",["field_name", "sky_dir_label"]],
             # "REFERENCE_DIR": ["FIELD_REFERENCE_CENTER",["field_name", "sky_dir_label"]],
         }

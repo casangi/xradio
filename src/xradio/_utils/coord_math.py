@@ -69,13 +69,14 @@ def wrap_to_pi(angles):
 
 def convert_to_si_units(xds):
     import xarray as xr
+
     with xr.set_options(keep_attrs=True):
         for data_var in xds.data_vars:
             if "units" in xds[data_var].attrs:
                 u = xds[data_var].attrs["units"]
-                
+
                 if u == "km":
-                    xds[data_var] = xds[data_var]* 1e3
+                    xds[data_var] = xds[data_var] * 1e3
                     xds[data_var].attrs["units"] = "m"
                 if u == "km/s":
                     xds[data_var] = xds[data_var] * 1e3
@@ -87,9 +88,7 @@ def convert_to_si_units(xds):
                     xds[data_var] = xds[data_var] * 149597870700
                     xds[data_var].attrs["units"] = "m"
                 if u == "Au/d" or u == "AU/d":
-                    xds[data_var] = (
-                        xds[data_var] * 149597870700 / 86400
-                    )
+                    xds[data_var] = xds[data_var] * 149597870700 / 86400
                     xds[data_var].attrs["units"] = "m/s"
                 if u == "arcsec":
                     xds[data_var] = xds[data_var] * np.pi / 648000
@@ -100,5 +99,5 @@ def convert_to_si_units(xds):
                 if u == "m-2":
                     # IONOS_ELECTRON sometimes has "m-2" instead of "/m^2"
                     xds[data_var].attrs["units"] = "/m^2"
-                 
+
     return xds

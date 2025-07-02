@@ -15,16 +15,16 @@ def make_quantity(value, units: str, dims: list = []) -> dict:
     """
     return {"data": value, "dims": dims, "attrs": make_quantity_attrs(units)}
 
+
 def ensure_units_are_consistent(units):
     if isinstance(units, str):
         return units
     else:
         u0 = units[0]
         for u in units:
-            assert u0 == u, (
-                f"Units are not consistent: {u0} != {u}. "
-            )
+            assert u0 == u, f"Units are not consistent: {u0} != {u}. "
         return u0
+
 
 def make_quantity_attrs(units: str) -> dict:
     """
@@ -96,7 +96,7 @@ def make_skycoord_dict(data: list[float], units: str, frame: str) -> dict:
         "attrs": {
             "frame": frame.lower(),
             "type": "sky_coord",
-            "units": units,
+            "units": ensure_units_are_consistent(units),
         },
         "data": data,
         "dims": ["l", "m"],

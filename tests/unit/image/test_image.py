@@ -190,9 +190,7 @@ class xds_from_image_test(ImageBase):
                     "type": "location",
                     "units": "rad",
                 },
-                "data": np.array(
-                    [-1.1825465955049892, -0.3994149869262738]
-                ),
+                "data": np.array([-1.1825465955049892, -0.3994149869262738]),
             },
             "distance": {
                 "attrs": {
@@ -222,7 +220,7 @@ class xds_from_image_test(ImageBase):
                 "beam_param": 3,
             }
         ),
-        "freq_waveunit": ["mm"],
+        "freq_waveunit": "mm",
         "stokes": ["I", "Q", "U", "V"],
         "time_format": "MJD",
         "time_refer": "UTC",
@@ -366,8 +364,7 @@ class xds_from_image_test(ImageBase):
         with open_image_ro(cls._imname) as im:
             im.tofits(cls._infits)
             assert os.path.exists(cls._infits), f"Could not create {cls._infits}"
-            
-        print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$", cls._imname)
+
         cls._xds = read_image(cls._imname, {"frequency": 5})
         cls._xds_no_sky = read_image(cls._imname, {"frequency": 5}, False, False)
         cls.assertTrue(cls._xds.sizes == cls._exp_vals["shape"], "Incorrect shape")
@@ -636,8 +633,9 @@ class xds_from_image_test(ImageBase):
 
     def compare_sky_attrs(self, sky: xr.DataArray, fits: bool = False) -> None:
         my_exp_attrs = copy.deepcopy(self.exp_sky_attrs())
-        if "location" not in sky.attrs["telescope"]:
-            del my_exp_attrs["telescope"]["location"]
+        if "direction" not in sky.attrs["telescope"]:
+            del my_exp_attrs["telescope"]["direction"]
+            del my_exp_attrs["telescope"]["distance"]
         if fits:
             # xds from fits do not have history yet
             # del my_exp_attrs["history"]
@@ -657,6 +655,7 @@ class xds_from_image_test(ImageBase):
 
     def compare_xds_attrs(self, xds: xr.Dataset):
         my_exp_attrs = copy.deepcopy(self.exp_xds_attrs())
+
         self.dict_equality(
             xds.attrs, my_exp_attrs, "Got attrs", "Expected attrs", ["history"]
         )
@@ -684,21 +683,17 @@ class xds_from_image_test(ImageBase):
         )
         full_xds["BEAM"] = xda
         full_xds["BEAM"].attrs["units"] = "rad"
-        imag = imagename + "_2"
-        
-        print("%%%% the if zarr is", zarr)  
-        test_area = "my_zarr42.im"
-        write_image(
-            full_xds, test_area, out_format="zarr" if zarr else "casa", overwrite=True
-        )
-        
-        print(full_xds)
+        # imag = imagename + "_2"
+        imag = "test42"
 
-        print("&&&&&"*20)
-        os.system("ls -l")
+        write_image(
+            full_xds, imag, out_format="zarr" if zarr else "casa", overwrite=True
+        )
+
+        print("*" * 100, "Comparing image block", imag, zarr)
         for i in x:
             xds = load_image(
-                test_area,
+                imag,
                 {
                     "l": slice(2, 10),
                     "m": slice(3, 15),
@@ -707,8 +702,7 @@ class xds_from_image_test(ImageBase):
                 },
                 do_sky_coords=i == 0,
             )
-            
-            raise
+
             if not zarr:
                 with open_image_ro(imagename) as im:
                     self.assertTrue(
@@ -1048,18 +1042,19 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                     for i in range(200):
                         beam = beams2[f"*{i}"]
                         beam["major"]["value"] *= 180 * 60 / np.pi
-                        beam["major"]["units"] = "arcmin"
+                        beam["major"]["unit"] = "arcmin"
                         beam["minor"]["value"] *= 180 * 60 / np.pi
-                        beam["minor"]["units"] = "arcmin"
+                        beam["minor"]["unit"] = "arcmin"
                         beam["positionangle"]["value"] *= 180 / np.pi
-                        beam["positionangle"]["units"] = "deg"
+                        beam["positionangle"]["unit"] = "deg"
+
                     self.dict_equality(beams1, beams2, "got", "expected")
         # convert to single beam image
         tb = tables.table(self._outname6, readonly=False)
         beam3 = {
-            "major": {"units": "arcsec", "value": 4.0},
-            "minor": {"units": "arcsec", "value": 3.0},
-            "positionangle": {"units": "deg", "value": 5.0},
+            "major": {"unit": "arcsec", "value": 4.0},
+            "minor": {"unit": "arcsec", "value": 3.0},
+            "positionangle": {"unit": "deg", "value": 5.0},
         }
         tb.putkeyword(
             "imageinfo",

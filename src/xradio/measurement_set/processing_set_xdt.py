@@ -511,7 +511,9 @@ class ProcessingSetXdt:
                 dims=["time", "sky_dir_label"],
             )
             combined_ephemeris_field_and_source_xds["FIELD_OFFSET"].attrs = (
-                combined_ephemeris_field_and_source_xds["FIELD_PHASE_CENTER_DIRECTION"].attrs
+                combined_ephemeris_field_and_source_xds[
+                    "FIELD_PHASE_CENTER_DIRECTION"
+                ].attrs
             )
             combined_ephemeris_field_and_source_xds["FIELD_OFFSET"].attrs["units"] = (
                 combined_ephemeris_field_and_source_xds["FIELD_OFFSET"].attrs["units"][

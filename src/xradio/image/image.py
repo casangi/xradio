@@ -196,12 +196,10 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
     if do_casa:
         # comment next line when done debugging
         # return _load_casa_image_block(infile, selection, do_sky_coords)
-        return _load_casa_image_block(infile, selection, do_sky_coords)
-        
-        # try:
-        #     return _load_casa_image_block(infile, selection, do_sky_coords)
-        # except Exception as e:
-        #     emsgs.append(f"image format appears not to be casacore: {e.args}")
+        try:
+            return _load_casa_image_block(infile, selection, do_sky_coords)
+        except Exception as e:
+            emsgs.append(f"image format appears not to be casacore: {e.args}")
     """
     try:
         return __read_fits_image(infile, chunks, masks, history, verbose)

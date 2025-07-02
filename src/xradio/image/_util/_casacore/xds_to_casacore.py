@@ -32,7 +32,10 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
         direction["system"] = "J2000"
     direction["projection"] = xds_dir["projection"]
     direction["projection_parameters"] = xds_dir["projection_parameters"]
-    direction["units"] = [xds_dir["reference"]["attrs"]["units"],xds_dir["reference"]["attrs"]["units"]]
+    direction["units"] = [
+        xds_dir["reference"]["attrs"]["units"],
+        xds_dir["reference"]["attrs"]["units"],
+    ]
     direction["crval"] = np.array(xds_dir["reference"]["data"])
     direction["cdelt"] = np.array((xds.l[1] - xds.l[0], xds.m[1] - xds.m[0]))
     direction["crpix"] = _compute_sky_reference_pixel(xds)
@@ -87,7 +90,9 @@ def _compute_spectral_dict(xds: xr.Dataset) -> dict:
     spec["restfreq"] = xds.frequency.attrs["rest_frequency"]["data"]
     # spec["restfreqs"] = copy.deepcopy(xds.frequency.attrs["restfreqs"]["value"])
     spec["restfreqs"] = np.array([spec["restfreq"]])
-    spec["system"] = xds.frequency.attrs["reference_frequency"]["attrs"]["observer"].upper()
+    spec["system"] = xds.frequency.attrs["reference_frequency"]["attrs"][
+        "observer"
+    ].upper()
     u = xds.frequency.attrs["reference_frequency"]["attrs"]["units"]
     spec["unit"] = u
     spec["velType"] = _doppler_types.index(xds.velocity.attrs["doppler_type"])
@@ -127,13 +132,13 @@ def _coord_dict_from_xds(xds: xr.Dataset) -> dict:
                     "value": xds_telloc["data"][i],
                 }
             telloc[f"m{2}"] = {
-                    "unit": tel["distance"]["attrs"]["units"],
-                    "value": tel["distance"]["data"][0],
-                }
-            
+                "unit": tel["distance"]["attrs"]["units"],
+                "value": tel["distance"]["data"][0],
+            }
+
             telloc["type"] = "position"
             coord["telescopeposition"] = telloc
-        
+
         # if "location" in tel:
         #     xds_telloc = tel["location"]
         #     telloc = {}
@@ -232,6 +237,7 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
         pp = {}
         pp["nChannels"] = xds.sizes["frequency"]
         pp["nStokes"] = xds.sizes["polarization"]
+
         bu = xds.BEAM.attrs["units"]
         chan = 0
         polarization = 0
@@ -249,6 +255,7 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
                 chan = 0
                 polarization += 1
         ii["perplanebeams"] = pp
+
     """
     elif "beam" in xds.attrs and xds.attrs["beam"]:
         # do nothing if xds.attrs['beam'] is None

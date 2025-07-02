@@ -50,7 +50,7 @@ def _add_common_attrs(
     cell_size: Union[List[float], np.ndarray],
     projection: str,
 ) -> xr.Dataset:
-    xds.time.attrs = make_time_coord_attrs(units=["d"], scale="utc", time_format="mjd")
+    xds.time.attrs = make_time_coord_attrs(units="d", scale="utc", time_format="mjd")
     freq_vals = np.array(xds.frequency)
     xds.frequency.attrs = {
         "observer": spectral_reference.lower(),

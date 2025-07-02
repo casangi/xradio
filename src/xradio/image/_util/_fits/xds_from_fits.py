@@ -100,8 +100,8 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
         meta["type"] = "frequency"
         meta["wave_units"] = "mm"
         freq_axis = helpers["freq_axis"]
-        meta["reference_value"] = make_spectral_coord_reference_dict(
-            helpers["crval"][freq_axis], ["Hz"], helpers["specsys"]
+        meta["reference_frequency"] = make_spectral_coord_reference_dict(
+            helpers["crval"][freq_axis], "Hz", helpers["specsys"]
         )
         # meta["cdelt"] = helpers["cdelt"][freq_axis]
     if not meta:
@@ -171,9 +171,7 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
     helpers["ref_sys"] = ref_sys
     helpers["ref_eqx"] = ref_eqx
     # fits does not support conversion frames
-    direction["reference"] = make_skycoord_dict(
-        [0.0, 0.0], units="rad", frame=ref_sys
-    )
+    direction["reference"] = make_skycoord_dict([0.0, 0.0], units="rad", frame=ref_sys)
     dir_axes = helpers["dir_axes"]
     ddata = []
     dunits = []
@@ -259,19 +257,19 @@ def _get_telescope_metadata(helpers: dict, header) -> dict:
                 "origin_object_name": "earth",
                 "type": "location",
                 "units": "rad",
-                "dims": ["ellipsoid_dir_label"]
+                "dims": ["ellipsoid_dir_label"],
             },
             "data": np.array([long, lat]),
         }
         tel["distance"] = {
-                "attrs": {
+            "attrs": {
                 "coordinate_system": "geocentric",
                 # I haven't seen a FITS keyword for reference frame of telescope posiiton
                 "frame": "ITRF",
                 "origin_object_name": "earth",
                 "type": "location",
                 "units": "m",
-                "dims": ["ellipsoid_dis_label"]
+                "dims": ["ellipsoid_dis_label"],
             },
             "data": np.array([r]),
         }
@@ -291,9 +289,7 @@ def _compute_pointing_center(helpers: dict, header) -> dict:
     pc_lat = float(header[f"CRVAL{t_axes[1]}"]) * unit[1]
     pc_long = pc_long.to(u.rad).value
     pc_lat = pc_lat.to(u.rad).value
-    return make_skycoord_dict(
-        [pc_long, pc_lat], units="rad", frame=helpers["ref_sys"]
-    )
+    return make_skycoord_dict([pc_long, pc_lat], units="rad", frame=helpers["ref_sys"])
 
 
 def _user_attrs_from_header(header) -> dict:

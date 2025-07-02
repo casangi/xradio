@@ -90,7 +90,7 @@ def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = True) -> d
             if k == "telescope":
                 telescope["name"] = coord_dict[k]
             elif k in coord_dict:
-                casa_pos = coord_dict[k]                
+                casa_pos = coord_dict[k]
                 telescope["direction"] = {
                     "attrs": {
                         "coordinate_system": "geocentric",
@@ -98,22 +98,24 @@ def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = True) -> d
                         "origin_object_name": "earth",
                         "type": "location",
                         "units": casa_pos["m0"]["unit"],
-                        "dims": ["ellipsoid_dir_label"]
+                        "dims": ["ellipsoid_dir_label"],
                     },
-                    "data": np.array([casa_pos["m0"]["value"], casa_pos["m1"]["value"]]),
+                    "data": np.array(
+                        [casa_pos["m0"]["value"], casa_pos["m1"]["value"]]
+                    ),
                 }
                 telescope["distance"] = {
-                        "attrs": {
+                    "attrs": {
                         "coordinate_system": "geocentric",
                         "frame": casa_pos["refer"],
                         "origin_object_name": "earth",
                         "type": "location",
                         "units": casa_pos["m2"]["unit"],
-                        "dims": ["ellipsoid_dis_label"]
+                        "dims": ["ellipsoid_dis_label"],
                     },
                     "data": np.array([casa_pos["m2"]["value"]]),
                 }
-                        
+
                 """
                 del (
                     telescope["position"]["refer"],

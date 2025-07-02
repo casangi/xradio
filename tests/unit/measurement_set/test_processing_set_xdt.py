@@ -204,8 +204,8 @@ class TestProcessingSetXdtWithData:
         assert "line_name" not in combined_field_source_xds.coords
         assert "field_name" in combined_field_source_xds.coords
         assert "time" in combined_field_source_xds.dims
-        assert "FIELD_PHASE_CENTER" in combined_field_source_xds.data_vars
-        assert "SOURCE_LOCATION" in combined_field_source_xds.data_vars
+        assert "FIELD_PHASE_CENTER_DIRECTION" in combined_field_source_xds.data_vars
+        assert "SOURCE_DIRECTION" in combined_field_source_xds.data_vars
 
 
 # Tests with ephemeris data loaded from disk
@@ -257,8 +257,11 @@ class TestProcessingSetXdtWithEphemerisData:
         print(combined_ephemeris_field_source_xds.coords)
 
         # Check ephemeris-specific fields
-        assert "SOURCE_LOCATION" in combined_ephemeris_field_source_xds.data_vars
-        assert "FIELD_PHASE_CENTER" in combined_ephemeris_field_source_xds.data_vars
+        assert "SOURCE_DIRECTION" in combined_ephemeris_field_source_xds.data_vars
+        assert (
+            "FIELD_PHASE_CENTER_DIRECTION"
+            in combined_ephemeris_field_source_xds.data_vars
+        )
         assert "FIELD_OFFSET" in combined_ephemeris_field_source_xds.data_vars
         assert "SOURCE_RADIAL_VELOCITY" in combined_ephemeris_field_source_xds.data_vars
 

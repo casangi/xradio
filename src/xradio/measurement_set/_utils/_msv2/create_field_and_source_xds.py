@@ -369,11 +369,11 @@ def extract_ephemeris_info(
             }
         )
 
-        temp_xds["SUB_SOLAR_POSITION"] = xr.DataArray(
-            ephemeris_xds["r"].data,
+        temp_xds["SUB_SOLAR_DISTANCE"] = xr.DataArray(
+            [ephemeris_xds["r"].data],
             dims=["time_ephemeris", "ellipsoid_dis_label"],
         )
-        temp_xds["SUB_SOLAR_POSITION"].attrs.update(
+        temp_xds["SUB_SOLAR_DISTANCE"].attrs.update(
             {
                 "type": "location",
                 "frame": "Undefined",

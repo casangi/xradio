@@ -92,12 +92,12 @@ UnitsHertz = Literal["Hz"]
 UnitsMeters = Literal["m"]
 
 UnitsOfSkyCoordInRadians = Literal["rad"]
-UnitsOfLocationInMetersOrRadians = Union[
-    Literal["m"],
-    Literal["rad"],
+UnitsOfLocationInMetersOrRadians = Literal[
+    "m",
+    "rad",
 ]
 UnitsOfPositionInRadians = Literal["rad"]
-UnitsOfDopplerShift = Union[Literal["ratio"], Literal["m/s"]]
+UnitsOfDopplerShift = Literal["ratio", "m/s"]
 
 UnitsRadians = Literal["rad"]
 UnitsKelvin = Literal["K"]
@@ -1322,6 +1322,7 @@ class SpectrumArray:
     long_name: Optional[Attr[str]] = "Spectrum values"
     """ Long-form name to use for axis. Should be ``"Spectrum values"``"""
     units: Attr[str] = "Jy"
+
 
 @xarray_dataarray_schema
 class VisibilityArray:

@@ -73,7 +73,7 @@ def check_msv4_matches_descr(msv4_xdt, msv2_descr):
         assert "system_calibration_xds" in msv4_xdt
         assert "weather_xds" in msv4_xdt
         if not msv2_descr["params"]["misbehave"]:
-            assert "SOURCE_LOCATION" in msv4_xdt["field_and_source_base_xds"].ds
+            assert "SOURCE_DIRECTION" in msv4_xdt["field_and_source_base_xds"].ds
             assert (
                 msv4_xdt["field_and_source_base_xds"].attrs["type"]
                 == "field_and_source_ephemeris"

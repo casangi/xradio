@@ -685,8 +685,7 @@ class xds_from_image_test(ImageBase):
         )
         full_xds["BEAM"] = xda
         full_xds["BEAM"].attrs["units"] = "rad"
-        # imag = imagename + "_2"
-        imag = "test42"
+        imag = imagename + "_2"
 
         write_image(
             full_xds, imag, out_format="zarr" if zarr else "casa", overwrite=True

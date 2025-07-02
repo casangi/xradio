@@ -98,7 +98,7 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
         meta["rest_frequency"] = make_quantity(helpers["restfreq"], "Hz")
         meta["rest_frequencies"] = [meta["rest_frequency"]]
         meta["type"] = "frequency"
-        meta["wave_unit"] = ["mm"]
+        meta["wave_units"] = "mm"
         freq_axis = helpers["freq_axis"]
         meta["reference_value"] = make_spectral_coord_reference_dict(
             helpers["crval"][freq_axis], ["Hz"], helpers["specsys"]
@@ -114,7 +114,7 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
 
 def _add_vel_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     vel_coord = xds.coords["velocity"]
-    meta = {"units": ["m/s"]}
+    meta = {"units": "m/s"}
     if helpers["has_freq"]:
         meta["doppler_type"] = helpers.get("doppler", "RADIO")
     else:
@@ -172,7 +172,7 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
     helpers["ref_eqx"] = ref_eqx
     # fits does not support conversion frames
     direction["reference"] = make_skycoord_dict(
-        [0.0, 0.0], units=["rad", "rad"], frame=ref_sys
+        [0.0, 0.0], units="rad", frame=ref_sys
     )
     dir_axes = helpers["dir_axes"]
     ddata = []
@@ -251,16 +251,29 @@ def _get_telescope_metadata(helpers: dict, header) -> dict:
         r = np.sqrt(np.sum(xyz * xyz))
         lat = np.arcsin(z / r)
         long = np.arctan2(y, x)
-        tel["location"] = {
+        tel["direction"] = {
             "attrs": {
                 "coordinate_system": "geocentric",
                 # I haven't seen a FITS keyword for reference frame of telescope posiiton
                 "frame": "ITRF",
                 "origin_object_name": "earth",
                 "type": "location",
-                "units": ["rad", "rad", "m"],
+                "units": "rad",
+                "dims": ["ellipsoid_dir_label"]
             },
-            "data": np.array([long, lat, r]),
+            "data": np.array([long, lat]),
+        }
+        tel["distance"] = {
+                "attrs": {
+                "coordinate_system": "geocentric",
+                # I haven't seen a FITS keyword for reference frame of telescope posiiton
+                "frame": "ITRF",
+                "origin_object_name": "earth",
+                "type": "location",
+                "units": "m",
+                "dims": ["ellipsoid_dis_label"]
+            },
+            "data": np.array([r]),
         }
     return tel
 
@@ -279,7 +292,7 @@ def _compute_pointing_center(helpers: dict, header) -> dict:
     pc_long = pc_long.to(u.rad).value
     pc_lat = pc_lat.to(u.rad).value
     return make_skycoord_dict(
-        [pc_long, pc_lat], units=["rad", "rad"], frame=helpers["ref_sys"]
+        [pc_long, pc_lat], units="rad", frame=helpers["ref_sys"]
     )
 
 
@@ -575,8 +588,8 @@ def _create_coords(
                 cdelt=pick(helpers["cdelt"]),
                 cunit=pick(helpers["cunit"]),
             )
+            helpers["cunit"] = my_ret["units"]
             for j, i in enumerate(dir_axes):
-                helpers["cunit"][i] = my_ret["unit"][j]
                 helpers["crval"][i] = my_ret["ref_val"][j]
                 helpers["cdelt"][i] = my_ret["inc"][j]
             coords[my_ret["axis_name"][0]] = (["l", "m"], my_ret["value"][0])
@@ -651,9 +664,9 @@ def _get_freq_values(helpers: dict) -> list:
         freq, vel = _freq_from_vel(
             crval, cdelt, crpix, cunit, "Z", helpers["shape"][v_idx], restfreq
         )
-        helpers["velocity"] = vel["value"] * u.Unit(vel["unit"])
-        helpers["crval"][v_idx] = (freq["crval"] * u.Unit(freq["unit"])).to(u.Hz).value
-        helpers["cdelt"][v_idx] = (freq["cdelt"] * u.Unit(freq["unit"])).to(u.Hz).value
+        helpers["velocity"] = vel["value"] * u.Unit(vel["units"])
+        helpers["crval"][v_idx] = (freq["crval"] * u.Unit(freq["units"])).to(u.Hz).value
+        helpers["cdelt"][v_idx] = (freq["cdelt"] * u.Unit(freq["units"])).to(u.Hz).value
         return list(freq["value"])
     else:
         return [1420e6]

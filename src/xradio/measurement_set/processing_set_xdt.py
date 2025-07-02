@@ -507,7 +507,7 @@ class ProcessingSetXdt:
                 - combined_ephemeris_field_and_source_xds["SOURCE_DIRECTION"]
             )
             combined_ephemeris_field_and_source_xds["FIELD_OFFSET"] = xr.DataArray(
-                wrap_to_pi(offset.sel(sky_pos_label=["ra", "dec"])).values,
+                wrap_to_pi(offset.sel(sky_dir_label=["ra", "dec"])).values,
                 dims=["time", "sky_dir_label"],
             )
             combined_ephemeris_field_and_source_xds["FIELD_OFFSET"].attrs = (

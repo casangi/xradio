@@ -40,7 +40,7 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 def _load_casa_image_block(infile: str, block_des: dict, do_sky_coords) -> xr.Dataset:
-    image_full_path = os.path.expanduser(infile)
+    image_full_path = os.path.expanduser(infile)    
     with _open_image_ro(image_full_path) as casa_image:
         coords = casa_image.coordinates()
         cshape = casa_image.shape()
@@ -105,7 +105,7 @@ def _read_casa_image(
             xds = _add_mask(xds, m.upper(), ary, dimorder)
     xds.attrs = _casa_image_to_xds_attrs(img_full_path)
     beam = _get_beam(
-        img_full_path, xds.dims["frequency"], xds.dims["polarization"], True
+        img_full_path, xds.sizes["frequency"], xds.sizes["polarization"], True
     )
     if beam is not None:
         xds["BEAM"] = beam
@@ -133,6 +133,7 @@ def _xds_to_casa_image(xds: xr.Dataset, imagename: str) -> None:
         lockoptions={"option": "permanentwait"},
         ack=False,
     )
+    
     tb.putkeyword("coords", coord)
     tb.putkeyword("imageinfo", ii)
     if units:

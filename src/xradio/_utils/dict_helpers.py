@@ -91,7 +91,7 @@ def make_spectral_coord_measure_attrs(units: str, observer: str = "lsrk") -> dic
     return {"units": u, "observer": observer, "type": "spectral_coord"}
 
 
-def make_skycoord_dict(data: list[float], units: list[str], frame: str) -> dict:
+def make_skycoord_dict(data: list[float], units: str, frame: str) -> dict:
     return {
         "attrs": {
             "frame": frame.lower(),
@@ -103,12 +103,12 @@ def make_skycoord_dict(data: list[float], units: list[str], frame: str) -> dict:
     }
 
 
-def make_time_measure_attrs(units=["s"], scale="utc", time_format="mjd") -> dict:
+def make_time_measure_attrs(units="s", scale="utc", time_format="mjd") -> dict:
     u = ensure_units_are_consistent(units)
     return {"units": u, "scale": scale, "format": time_format, "type": "time"}
 
 
-def make_time_measure_dict(data, units=["s"], scale="utc", time_format="mjd") -> dict:
+def make_time_measure_dict(data, units="s", scale="utc", time_format="mjd") -> dict:
     """
     create a time measure dictionary given value and units
     Parameters
@@ -132,7 +132,7 @@ def make_time_measure_dict(data, units=["s"], scale="utc", time_format="mjd") ->
     return x
 
 
-def make_time_coord_attrs(units=["s"], scale="utc", time_format="mjd") -> dict:
+def make_time_coord_attrs(units="s", scale="utc", time_format="mjd") -> dict:
     """
     create a time measure dictionary given value and units
     Parameters

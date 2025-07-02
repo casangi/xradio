@@ -70,7 +70,7 @@ else:
     casaconfig.config.logfile = "/dev/null"
     casaconfig.config.nologfile = True
 
-import casatools
+import casatools  # noqa: E402 (because of previous config initialization)
 
 casatools.logger.setglobal(True)
 casatools.logger.ompSetNumThreads(1)

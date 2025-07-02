@@ -1,9 +1,6 @@
-import toolviper.utils.logger as logger
-from typing import Any, Dict, List, Tuple, Union
+from typing import Tuple
 
-import dask, dask.array
 import numpy as np
-import xarray as xr
 import pandas as pd
 
 try:
@@ -11,15 +8,8 @@ try:
 except ImportError:
     import xradio._utils._casacore.casacore_from_casatools as tables
 
-from .read import (
-    read_flat_col_chunk,
-    read_col_chunk,
-    convert_casacore_time,
-    extract_table_attributes,
-    add_units_measures,
-)
 
-from .table_query import open_table_ro, open_query
+from .table_query import open_query
 from xradio._utils.list_and_array import (
     unique_1d,
     pairing_function,

@@ -1,5 +1,3 @@
-import toolviper.utils.logger as logger
-import time
 from typing import Tuple, Union
 
 import numpy as np
@@ -10,7 +8,6 @@ from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
 from xradio.measurement_set._utils._msv2._tables.read import (
     load_generic_table,
     convert_casacore_time,
-    convert_casacore_time_to_mjd,
     make_taql_where_between_min_max,
     table_exists,
 )
@@ -20,10 +17,7 @@ from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
 )
 
 from xradio._utils.list_and_array import (
-    check_if_consistent,
     unique_1d,
-    to_list,
-    to_np_array,
 )
 from xradio._utils.dict_helpers import make_quantity_attrs
 

@@ -4,6 +4,7 @@ except ImportError:
     import xradio._utils._casacore.casacore_from_casatools as tables
 
 from contextlib import contextmanager
+import os
 from typing import Dict, Generator
 
 # common casacore table handling code

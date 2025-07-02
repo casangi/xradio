@@ -54,7 +54,7 @@ from ._tables.read import (
 )
 from ._tables.read_main_table import get_baselines, get_baseline_indices, get_utimes_tol
 from .._utils.stokes_types import stokes_types
-from xradio._utils.list_and_array import check_if_consistent, unique_1d, to_list
+from xradio._utils.list_and_array import check_if_consistent, unique_1d
 from xradio._utils.dict_helpers import make_spectral_coord_reference_dict, make_quantity
 
 
@@ -221,7 +221,6 @@ def mem_chunksize_to_dict_main_balanced(
         dictionary of chunk sizes (as dim->size)
     """
 
-    dim_names = [name for name in xds_dim_sizes.keys()]
     dim_sizes = [size for size in xds_dim_sizes.values()]
     # Fix fourth dim (polarization) to all (not free to auto-calculate)
     free_dims_mask = np.array([True, True, True, False])
@@ -784,11 +783,9 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
                 if "shape" in col_descr and isinstance(col_descr["shape"], np.ndarray):
                     # example: "shape": array([15,  4]) => gives pols x channels
                     cells_in_row = col_descr["shape"].prod()
-                    npols = col_descr["shape"][-1]
                 else:
                     first_row = np.array(tb_tool.col(data_col)[0])
                     cells_in_row = np.prod(first_row.shape)
-                    npols = first_row.shape[-1]
 
                 if col_descr["valueType"] == "complex":
                     # Assume. Otherwise, read first column and get the itemsize:
@@ -895,7 +892,6 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
     taql_partition = create_taql_query_where(partition)
     taql_main = f"select * from $mtable {taql_partition}"
     with open_table_ro(in_file) as mtable:
-        col_names = mtable.colnames()
         with open_query(mtable, taql_main) as tb_tool:
             # Do not feel tempted to rely on nrows. nrows tends to underestimate memory when baselines are missing.
             # For some EVN datasets that can easily underestimate by a 50%
@@ -1254,10 +1250,6 @@ def convert_and_write_partition(
 
         # Create field_and_source_xds (combines field, source and ephemeris data into one super dataset)
         start = time.time()
-        if ephemeris_interpolate:
-            ephemeris_interp_time = xds.time.values
-        else:
-            ephemeris_interp_time = None
 
         # if "FIELD_ID" not in partition_scheme:
         #     field_id = np.full(time_baseline_shape, -42, dtype=int)
@@ -1315,7 +1307,7 @@ def convert_and_write_partition(
         add_encoding(xds, compressor=compressor, chunks=main_chunksize)
         logger.debug("Time add compressor and chunk " + str(time.time() - start))
 
-        file_name = os.path.join(
+        os.path.join(
             out_file,
             pathlib.Path(in_file).name.replace(".ms", "") + "_" + str(ms_v4_id),
         )
@@ -1362,7 +1354,7 @@ def convert_and_write_partition(
             ms_xdt["/phased_array_xds"] = phased_array_xds
 
         if storage_backend == "zarr":
-            ms_xdt.to_zarr(store=os.path.join(out_file, ms_v4_name))
+            ms_xdt.to_zarr(store=os.path.join(out_file, ms_v4_name), mode=mode)
         elif storage_backend == "netcdf":
             # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
             raise

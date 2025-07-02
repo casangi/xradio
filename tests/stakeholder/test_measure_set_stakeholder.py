@@ -1,8 +1,5 @@
-import importlib.resources
-import itertools
 import numpy as np
 import os
-import sys
 import pathlib
 import pytest
 import time
@@ -13,7 +10,6 @@ import xarray as xr
 
 from toolviper.utils.data import download
 import toolviper.utils.logger as logger
-import xradio.measurement_set
 from xradio.measurement_set import (
     open_processing_set,
     load_processing_set,
@@ -145,14 +141,19 @@ def base_check_ps_accessor(ps_lazy_xdt: xr.DataTree, ps_xdt: xr.DataTree):
 
     expected_dims = [
         "time",
-        "baseline_id",
         "frequency",
         "polarization",
-        "uvw_label",
     ]
+    is_single_dish = "spectrum" in [
+        ps_lazy_xdt[name].attrs["type"] for name in ps_lazy_xdt
+    ]
+    if not is_single_dish:
+        expected_dims += {"baseline_id", "uvw_label"}
+    else:
+        expected_dims += {"antenna_name"}
     max_dims = ps_xdt.xr_ps.get_max_dims()
     assert isinstance(max_dims, dict)
-    assert all([dim in max_dims for dim in max_dims])
+    assert all([dim in max_dims for dim in expected_dims])
 
     empty_query_result = ps_xdt.xr_ps.query()
     assert isinstance(empty_query_result, xr.DataTree)
@@ -160,6 +161,7 @@ def base_check_ps_accessor(ps_lazy_xdt: xr.DataTree, ps_xdt: xr.DataTree):
     pd.testing.assert_frame_equal(ps_xdt_df, empty_query_df)
 
     field_query_result = ps_xdt.xr_ps.query(field_name=ps_xdt_df.field_name.values[0])
+    assert isinstance(field_query_result, xr.DataTree)
     data_group_query_result = ps_xdt.xr_ps.query(data_group_name="base")
     data_group_query_df = data_group_query_result.xr_ps.summary()
     pd.testing.assert_frame_equal(ps_xdt_df, data_group_query_df)

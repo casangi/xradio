@@ -1,4 +1,3 @@
-from contextlib import nullcontext as does_not_raise
 import pytest
 
 import numpy as np
@@ -359,8 +358,8 @@ def test_add_units_measures(msv4_xds_min):
         "time": msv4_xds_min.time,
     }
     res = add_units_measures(xds_vars, col_descr)
-    assert xds_vars["UVW"].attrs
-    assert xds_vars["time"].attrs
+    assert res["UVW"].attrs == xds_vars["UVW"].attrs
+    assert res["time"].attrs == xds_vars["time"].attrs
 
 
 def test_add_units_measures_dubious_units(msv4_xds_min):
@@ -381,9 +380,9 @@ def test_add_units_measures_dubious_units(msv4_xds_min):
     }
 
     res = add_units_measures(xds_vars, col_descr)
-    assert xds_vars["time"].attrs
-    assert xds_vars["DATA"].attrs
-    assert xds_vars["TIME_CENTROID"].attrs
+    assert res["time"].attrs == xds_vars["time"].attrs
+    assert res["DATA"].attrs == xds_vars["DATA"].attrs
+    assert res["TIME_CENTROID"].attrs == xds_vars["TIME_CENTROID"].attrs
 
 
 def test_get_pad_value_in_tablerow_column(ms_minimal_required):
@@ -402,9 +401,11 @@ def test_get_pad_value_in_tablerow_column(ms_minimal_required):
         assert val_corr_prod == get_pad_value(np.int32)
 
         with pytest.raises(RuntimeError, match="unexpected type"):
-            val_proc_id = get_pad_value_in_tablerow_column(trows, "NUM_CORR")
+            val_num_corr = get_pad_value_in_tablerow_column(trows, "NUM_CORR")
+            assert val_num_corr == get_pad_value(np.int32)
         with pytest.raises(RuntimeError, match="unexpected type"):
-            val_proc_id = get_pad_value_in_tablerow_column(trows, "FLAG_ROW")
+            val_flag_row = get_pad_value_in_tablerow_column(trows, "FLAG_ROW")
+            assert val_flag_row == get_pad_value(np.int32)
 
 
 def test_get_pad_value_uvw(msv4_xds_min):
@@ -456,7 +457,7 @@ def test_is_ephem_subtable_ms(ms_minimal_required):
     from xradio.measurement_set._utils._msv2._tables.read import is_ephem_subtable
 
     res = is_ephem_subtable(ms_minimal_required.fname)
-    assert res == False
+    assert res is False
 
 
 def test_add_ephemeris_vars(ms_minimal_required):
@@ -479,7 +480,7 @@ def test_is_nested_ms_empty():
 
     with pytest.raises(KeyError, match="other"):
         res = is_nested_ms({})
-        assert res == False
+        assert res is False
 
 
 def test_is_nested_ms_ant(ms_minimal_required):
@@ -488,12 +489,11 @@ def test_is_nested_ms_ant(ms_minimal_required):
         extract_table_attributes,
     )
 
-    ant_subt = str(Path(ms_minimal_required.fname) / "ANTENNA")
     ctds_attrs = extract_table_attributes(ms_minimal_required.fname)
     attrs = {"other": {"msv2": {"ctds_attrs": ctds_attrs}}}
 
     res = is_nested_ms(attrs)
-    assert res == True
+    assert res is True
 
 
 def test_is_nested_ms_ms_min(ms_minimal_required):
@@ -506,7 +506,7 @@ def test_is_nested_ms_ms_min(ms_minimal_required):
     attrs = {"other": {"msv2": {"ctds_attrs": ctds_attrs}}}
 
     res = is_nested_ms(attrs)
-    assert res == True
+    assert res is True
 
 
 def test_load_generic_table_antenna(ms_minimal_required):
@@ -758,7 +758,7 @@ def test_read_flat_col_chunk_flag(ms_minimal_required):
     )
     assert isinstance(res, np.ndarray)
     assert res.shape == (3, nchans, npols)
-    assert np.all(res == False)
+    assert np.all(~res)
 
 
 def test_read_col_conversion_dask(ms_minimal_required):
@@ -779,4 +779,10 @@ def test_read_col_conversion_dask(ms_minimal_required):
         np.arange(0, nbaselines),
         False,
         ntimes,
+    )
+    assert xda.shape == (
+        10,
+        5,
+        ms_minimal_required.descr["nchans"],
+        ms_minimal_required.descr["npols"],
     )

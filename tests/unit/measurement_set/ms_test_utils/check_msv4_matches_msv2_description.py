@@ -98,7 +98,7 @@ def check_msv4_matches_descr(msv4_xdt, msv2_descr):
     if msv2_descr["params"]["opt_tables"] and not msv2_descr["params"]["misbehave"]:
         assert "execution_block_UID" in msv4_xdt.ds.attrs["observation_info"]
     else:
-        assert not "execution_block_UID" in msv4_xdt.ds.attrs["observation_info"]
+        assert "execution_block_UID" not in msv4_xdt.ds.attrs["observation_info"]
 
 
 def check_processing_set_matches_msv2_descr(

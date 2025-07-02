@@ -39,7 +39,10 @@ def test_create_info_dicts_empty(ms_empty_required):
     }
 
     ms_main = ms_empty_required.fname
-    taql_main = f"select * from $ms_main WHERE (OBSERVATION_ID = 0) and (DATA_DESC_ID = 0) and (FIELD_ID = 0)"
+    observation_id = 0
+    ddi = 0
+    field_id = 0
+    taql_main = f"select * from $ms_main WHERE (OBSERVATION_ID = {observation_id}) and (DATA_DESC_ID = {ddi}) and (FIELD_ID = {field_id})"
     with pytest.raises(AssertionError, match="is not consistent"):
         with open_query(ms_main, taql_main) as tb_tool:
 
@@ -50,7 +53,7 @@ def test_create_info_dicts_empty(ms_empty_required):
                 partition_info_misc_fields,
                 tb_tool,
             )
-        # assert info_dicts
+            assert info_dicts
 
 
 def test_create_info_dicts(ms_minimal_required):
@@ -83,7 +86,10 @@ def test_create_info_dicts(ms_minimal_required):
     }
 
     ms_main = ms_minimal_required.fname
-    taql_main = f"select * from $ms_main WHERE (OBSERVATION_ID = 0) and (DATA_DESC_ID = 0) and (FIELD_ID = 0)"
+    observation_id = 0
+    ddi = 0
+    field_id = 0
+    taql_main = f"select * from $ms_main WHERE (OBSERVATION_ID = {observation_id}) and (DATA_DESC_ID = {ddi}) and (FIELD_ID = {field_id})"
 
     with open_query(ms_main, taql_main) as tb_tool:
 

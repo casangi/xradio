@@ -338,8 +338,8 @@ def gen_main_table(
         )
         ms_data_man_info = makedminfo(ms_desc, dmgroups_spec)
 
-    if not "STATE" in descr:
-        vis = tables.default_ms(mspath, tabdesc=tabdesc, dminfo=makedminfo(tabdesc))
+    if "STATE" not in descr:
+        vis = tables.default_ms(mspath, tabdesc=ms_desc, dminfo=makedminfo(ms_desc))
         assert vis.nrows() == 0
         return
     # else:
@@ -406,7 +406,7 @@ def gen_main_table(
         ant1_ant2 = list(zip(*baselines))
 
         # TODO: needs fixes for rounding
-        reps = np.tile(ant1_ant2[0], int(nrows / len(baselines)))
+        _reps = np.tile(ant1_ant2[0], int(nrows / len(baselines)))
         msv2.putcol("ANTENNA1", np.tile(ant1_ant2[0], int(nrows / len(baselines))))
         msv2.putcol("ANTENNA2", np.tile(ant1_ant2[1], int(nrows / len(baselines))))
 
@@ -1705,7 +1705,7 @@ def gen_subt_phase_cal(mspath: str, ant_descr: dict):
     nants = len(ant_descr)
     nreceptors = 2
     ntones = 3
-    ntimes = 1
+    _ntimes = 1
     with tables.table(
         str(rec_path), tabledesc=tabdesc, nrow=nants, readonly=False, ack=False
     ) as tbl:

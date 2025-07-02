@@ -1,6 +1,4 @@
-import os
-import toolviper.utils.logger as logger
-from xradio._utils.zarr.common import _open_dataset, _get_file_system_and_items
+from xradio._utils.zarr.common import _get_file_system_and_items
 import s3fs
 import xarray as xr
 

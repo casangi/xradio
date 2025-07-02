@@ -1,4 +1,3 @@
-import toolviper.utils.logger as logger
 from xradio._utils.schema import column_description_casacore_to_msv4_measure
 
 col_to_data_variable_names = {

@@ -1,8 +1,5 @@
-import numpy as np
 import pytest
-import shutil
 
-import xarray as xr
 
 from xradio.measurement_set._utils._msv2.partition_queries import create_partitions
 
@@ -84,3 +81,4 @@ def test_create_partitions_ms_min_with_other(ms_minimal_required):
                 "DATA_DESC_ID",
             ],
         )
+        assert parts

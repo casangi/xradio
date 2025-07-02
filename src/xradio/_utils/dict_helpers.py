@@ -64,7 +64,7 @@ def make_spectral_coord_reference_dict(
     u = ensure_units_are_consistent(units)
     return {
         "attrs": make_spectral_coord_measure_attrs(
-            units,
+            u,
             observer.lower() if observer not in ["TOPO", "BARY", "REST"] else observer,
         ),
         "data": value,

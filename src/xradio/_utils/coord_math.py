@@ -63,10 +63,6 @@ def wrap_to_pi(angles):
     return (angles + np.pi) % (2 * np.pi) - np.pi
 
 
-def wrap_to_pi(angles):
-    return (angles + np.pi) % (2 * np.pi) - np.pi
-
-
 def convert_to_si_units(xds):
     import xarray as xr
 

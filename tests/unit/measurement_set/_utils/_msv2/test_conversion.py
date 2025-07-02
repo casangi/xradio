@@ -393,7 +393,7 @@ def test_convert_and_write_partition_misbehaved(ms_minimal_misbehaved):
             partition_info={
                 "DATA_DESC_ID": [0],
                 "OBS_MODE": ["scan_intent#subscan_intent"],
-                "OBS_MODE": [None],
+                "__OBS_MODE": [0],
             },
             use_table_iter=False,
         )
@@ -444,6 +444,7 @@ def test_convert_and_write_partition_with_antenna1(ms_minimal_required):
                 + msv4_id,
                 engine="zarr",
             )
+            check_dataset(msv4_xds, VisibilityXds)
             check_dataset(msv4_xdt.ds, VisibilityXds)
             check_datatree(msv4_xdt)
             check_msv4_matches_descr(msv4_xdt, ms_minimal_required.descr)
@@ -464,7 +465,7 @@ def test_convert_and_write_partition_without_opt(ms_minimal_without_opt):
             partition_info={
                 "DATA_DESC_ID": [0],
                 "OBS_MODE": ["scan_intent#subscan_intent"],
-                "OBS_MODE": [None],
+                "STATE_ID": [0],
             },
             use_table_iter=False,
         )

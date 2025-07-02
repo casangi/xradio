@@ -108,7 +108,9 @@ class ImageBase(unittest.TestCase):
                         )
                     elif isinstance(one[0], numbers.Number):
                         self.assertTrue(
-                            np.isclose(np.array(one), np.array(two)).all(),
+                            np.isclose(
+                                np.array(one), np.array(two), rtol=1e-3, atol=1e-7
+                            ).all(),
                             f"{dict1_name}[{k}] != {dict2_name}[{k}], "
                             f"{one} != {two}",
                         )

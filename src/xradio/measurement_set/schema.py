@@ -83,9 +83,10 @@ Doppler = Literal["doppler"]
 RotationMatrix = Literal["rotation_matrix"]
 
 # Units of quantities and measures
-UnitsDimensionless = list[
-    Literal["dimensionless"]
+UnitsDimensionless = Literal[
+    ["dimensionless"]
 ]  # name consistent with casacore measures
+
 UnitsSeconds = Literal["s"]
 UnitsHertz = Literal["Hz"]
 UnitsMeters = Literal["m"]
@@ -104,8 +105,6 @@ UnitsKelvinPerJansky = Literal["K/Jy"]
 UnitsMetersPerSecond = Literal["m/s"]
 UnitsPascal = Literal["Pa"]  # hPa? (in MSv2)
 UnitsPerSquareMeters = Literal["/m^2"]
-
-
 # Quantities
 
 
@@ -504,7 +503,7 @@ class TimeWeatherCoordArray:
     ``format``).
     """
 
-    type: Attr[Time] = "time_weather"
+    type: Attr[TimeWeather] = "time_weather"
     """ Coordinate type. Should be ``"time_weather"``. """
 
     units: Attr[UnitsSeconds] = "s"
@@ -1324,7 +1323,6 @@ class SpectrumArray:
     """ Long-form name to use for axis. Should be ``"Spectrum values"``"""
     units: Attr[str] = "Jy"
 
-
 @xarray_dataarray_schema
 class VisibilityArray:
     """Visibility data array in main dataset (interferometric data, :py:class:`VisibiiltyXds`)"""
@@ -1342,7 +1340,6 @@ class VisibilityArray:
     long_name: Optional[Attr[str]] = "Visibility values"
     """ Long-form name to use for axis. Should be ``"Visibility values"``"""
     units: Attr[str] = "Jy"
-
     allow_mutiple_versions: Optional[Attr[bool]] = True
 
 
@@ -1379,7 +1376,7 @@ class VisibilityArray:
 
 @dict_schema
 class ObservationInfoDict:
-    observer: list
+    observer: list[str]
     """List of observer names."""
     project: str
     """Project Code/Project_UID"""
@@ -2230,7 +2227,6 @@ class PhasedArrayElementOffsetArray:
         tuple[AntennaName, CartesianPosLabelLocal, ElementId],
         float,
     ]
-
     units: Attr[Literal["m"]]
 
     type: Attr[Location]

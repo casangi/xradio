@@ -10,7 +10,7 @@ from xradio.schema.check import check_dataset
 def test_create_antenna_xds_empty(ms_empty_required):
 
     with pytest.raises(KeyError, match="No variable named"):
-        antenna_xds = create_antenna_xds(
+        _antenna_xds = create_antenna_xds(
             ms_empty_required.fname,
             0,
             np.arange(0, 11),
@@ -23,7 +23,7 @@ def test_create_antenna_xds_empty(ms_empty_required):
 def test_create_antenna_xds_minimal_wrong_antenna_ids(ms_minimal_required):
 
     with pytest.raises(ValueError, match="conflicting sizes for dimension"):
-        antenna_xds = create_antenna_xds(
+        _antenna_xds = create_antenna_xds(
             ms_minimal_required.fname,
             0,
             np.arange(0, 10),
@@ -36,7 +36,7 @@ def test_create_antenna_xds_minimal_wrong_antenna_ids(ms_minimal_required):
 def test_create_antenna_xds_minimal_wrong_feed_ids(ms_minimal_required):
 
     with pytest.raises(RuntimeError, match="FEED_ID"):
-        antenna_xds = create_antenna_xds(
+        _antenna_xds = create_antenna_xds(
             ms_minimal_required.fname,
             0,
             np.arange(0, 5),

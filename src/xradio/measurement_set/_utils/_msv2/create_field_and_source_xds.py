@@ -21,7 +21,6 @@ from xradio._utils.list_and_array import cast_to_str, get_pad_value
 from xradio._utils.dict_helpers import make_quantity_attrs
 from xradio._utils.coord_math import (
     convert_to_si_units,
-    add_position_offsets,
     wrap_to_pi,
 )
 
@@ -610,7 +609,7 @@ def extract_source_info(
 
     if all(source_id == -1):
         logger.warning(
-            f"Source_id is -1. No source information will be included in the field_and_source_xds."
+            "Source_id is -1. No source information will be included in the field_and_source_xds."
         )
         xds = xds.assign_coords(
             {"source_name": ("field_name", unknown)}
@@ -654,7 +653,7 @@ def extract_source_info(
     # ), "Can only process source table with a single time entry for a source_id and spectral_window_id."
     if len(source_xds.TIME) > len(unique_source_id):
         logger.warning(
-            f"Source table has more than one time entry for a source_id and spectral_window_id. This is not currently supported. Only the first time entry will be used."
+            "Source table has more than one time entry for a source_id and spectral_window_id. This is not currently supported. Only the first time entry will be used."
         )
         source_xds = source_xds.drop_duplicates("SOURCE_ID", keep="first")
 
@@ -688,9 +687,6 @@ def extract_source_info(
     # If ephemeris data is present we ignore the SOURCE_DIRECTION in the source table.
     if not is_ephemeris:
         direction_msv2_col = "DIRECTION"
-        msv4_measure = column_description_casacore_to_msv4_measure(
-            source_column_description[direction_msv2_col]
-        )
 
         msv2_direction_dims = source_xds[direction_msv2_col].dims
         if (
@@ -738,14 +734,15 @@ def extract_source_info(
 
     # Need to add doppler info if present. Add check.
     try:
-        doppler_xds = load_generic_table(
+        load_generic_table(
             path,
             "DOPPLER",
         )
-        assert (
-            False
-        ), "Doppler table present. Please open an issue on https://github.com/casangi/xradio/issues so that we can add support for this."
-    except:
+        logger.warning(
+            "Doppler table present. Please open an issue on "
+            "https://github.com/casangi/xradio/issues so that we can add support for this."
+        )
+    except ValueError:
         pass
 
     xds = xds.assign_coords(coords)

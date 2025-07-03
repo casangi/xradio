@@ -1,24 +1,27 @@
-import pytest
-import os
-
-# Ensure pytest assert introspection in vis data checks
-pytest.register_assert_rewrite(
-    "tests.unit.measurement_set.ms_test_utils.check_msv4_matches_msv2_description"
-)
-
 from collections import namedtuple
+import os
+from pathlib import Path
+import pytest
 import shutil
 
+
 import xarray as xr
+
+
+from toolviper.utils.data import download
+from xradio.measurement_set import convert_msv2_to_processing_set
+
 
 from tests.unit.measurement_set.ms_test_utils.gen_test_ms import (
     gen_test_ms,
     make_ms_empty,
 )
 
-from toolviper.utils.data import download
-from pathlib import Path
-from xradio.measurement_set import convert_msv2_to_processing_set
+# Ensure pytest assert introspection in vis data checks
+pytest.register_assert_rewrite(
+    "tests.unit.measurement_set.ms_test_utils.check_msv4_matches_msv2_description"
+)
+
 
 """
 A tuple with an MS filename (as str) and a description of its expected structure and contents (as a dict).

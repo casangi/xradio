@@ -1,11 +1,11 @@
-import pandas as pd
-from xradio._utils.list_and_array import to_list
-import xarray as xr
-import numpy as np
-import numbers
-import os
 from collections.abc import Mapping, Iterable
+import datetime
 from typing import Any, Union
+
+import numpy as np
+import xarray as xr
+
+from xradio._utils.list_and_array import to_list
 
 MS_DATASET_TYPES = {"visibility", "spectrum", "radiometer"}
 
@@ -304,7 +304,7 @@ class MeasurementSetXdt:
         ), f"Data variable {field_and_source_xds} not found in dataset."
 
         if date_time is None:
-            date_time = datetime.now().isoformat()
+            date_time = datetime.now(datetime.timezone.utc).isoformat()
         new_data_group["date"] = date_time
 
         if description is None:

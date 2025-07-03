@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from typing import Literal, Optional, Union, List
+from typing import Literal, Optional, Union
 from xradio.schema.bases import (
     xarray_dataset_schema,
     xarray_dataarray_schema,
     dict_schema,
 )
-from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof, Name
+from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof
 import numpy
 
 MSV4_SCHEMA_VERSION = "4.0.-9988"
@@ -2024,13 +2024,6 @@ class SystemCalibrationXds:
     """
     Type of dataset.
     """
-
-
-@xarray_dataset_schema
-class PhasedArrayXds:
-    """Not specified. Not implemented."""
-
-    pass
 
 
 @xarray_dataset_schema

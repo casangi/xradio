@@ -4,9 +4,9 @@ convert, and retrieve information from Processing Set and Measurement Sets nodes
 Processing Set DataTree
 """
 
-from .processing_set_xdt import *
+from .processing_set_xdt import ProcessingSetXdt
 from .open_processing_set import open_processing_set
-from .load_processing_set import load_processing_set  # , ProcessingSetIterator
+from .load_processing_set import load_processing_set
 from .convert_msv2_to_processing_set import (
     convert_msv2_to_processing_set,
     estimate_conversion_memory_and_cores,
@@ -19,7 +19,6 @@ __all__ = [
     "MeasurementSetXdt",
     "open_processing_set",
     "load_processing_set",
-    "ProcessingSetIterator",
     "convert_msv2_to_processing_set",
     "estimate_conversion_memory_and_cores",
     "SpectrumXds",

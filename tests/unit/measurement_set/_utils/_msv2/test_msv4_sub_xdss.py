@@ -39,6 +39,7 @@ def test_rename_and_interpolate_to_time_bogus(pointing_xds_min, msv4_xds_min):
         out_xds = rename_and_interpolate_to_time(
             pointing_xds_min, time_bogus_name, input_time, message_prefix="test_call"
         )
+        assert out_xds
 
 
 def test_rename_and_interpoalte_to_time_main(msv4_xds_min):
@@ -117,6 +118,7 @@ def test_create_weather_xds_empty_ant_ids(ms_empty_required):
 
     with pytest.raises(AttributeError, match="has no attribute"):
         weather_xds = create_weather_xds(ms_empty_required.fname, xr.DataSet())
+        assert weather_xds
 
 
 def test_create_weather_xds_empty(ms_empty_complete, ant_xds_station_name_ids):
@@ -160,6 +162,7 @@ def test_create_pointing_xds_empty_ant_ids(ms_empty_required):
 
     with pytest.raises(AttributeError, match="has no attribute"):
         pointing_xds = create_pointing_xds(ms_empty_required.fname, xr.DataSet())
+        assert pointing_xds
 
 
 def test_create_pointing_xds_empty(ms_empty_required):

@@ -13,14 +13,14 @@ from xradio.schema.check import check_dataset, check_datatree
 # coverage gaps, but several more still missing for better systematic coverage w/o relying on stk tests
 
 
-def test_sel():
+def test_sel_invalid():
     ms_xdt = MeasurementSetXdt(xr.DataTree())
 
     with pytest.raises(InvalidAccessorLocation, match="not a MSv4 node"):
         assert ms_xdt.sel()
 
 
-def test_get_field_and_source_xds():
+def test_get_field_and_source_xds_invalid():
     ms_xdt = MeasurementSetXdt(xr.DataTree())
 
     with pytest.raises(InvalidAccessorLocation, match="not a MSv4 node"):
@@ -111,7 +111,7 @@ def test_get_partition_info_with_group_wrong(msv4_xdt_min):
 
     wrong_group_name = "missing"
     with pytest.raises(KeyError, match=wrong_group_name):
-        partition_info = msv4_xdt_min.xr_ms.get_partition_info(
+        _partition_info = msv4_xdt_min.xr_ms.get_partition_info(
             data_group_name=wrong_group_name
         )
 
@@ -127,7 +127,7 @@ def test_get_partition_info_with_group(msv4_xdt_min):
 def test_sel_with_data_group_missing(msv4_xdt_min):
     wrong_group_name = "corrected"
     with pytest.raises(KeyError, match=wrong_group_name):
-        result_xds = msv4_xdt_min.xr_ms.sel(data_group_name=wrong_group_name)
+        _result_xds = msv4_xdt_min.xr_ms.sel(data_group_name=wrong_group_name)
 
 
 def test_sel_with_data_group(msv4_xdt_min):

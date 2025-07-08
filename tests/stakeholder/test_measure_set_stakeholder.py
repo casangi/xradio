@@ -398,14 +398,19 @@ def base_test(
         ), "VISIBILITY and WEIGHT values have changed."
 
         if do_schema_check:
+            # print("*******************")
+            # print(ps_xdt.xr_ps.summary())
+            # #print(ps_xdt["ALMA_uid___A002_X1003af4_X75a3.split.avg_00"].field_and_source_base_xds)
+            # print("*******************")
+
             start_check = time.time()
             issues = check_datatree(ps_xdt)
 
-            # assert len(issues) == 0, (
-            #     "Schema check failed, issues found: " + str(issues) )
-            # print(
-            #     f"Time to check datasets (all MSv4s) against schema: {time.time() - start_check}"
-            # )
+            print("***** Number of issues found:", len(issues))
+            assert len(issues) == 0, "Schema check failed, issues found: " + str(issues)
+            print(
+                f"Time to check datasets (all MSv4s) against schema: {time.time() - start_check}"
+            )
 
         check_expected_datasets_presence(ps_xdt, expected_secondary_xds)
 
@@ -793,7 +798,7 @@ if __name__ == "__main__":
     # test_sd_A002_Xe3a5fd_Xe38e(tmp_path=Path("."))
     # test_s3(tmp_path=Path("."))
     # test_vlass(tmp_path=Path("."))
-    test_alma(tmp_path=Path("."))
+    # test_alma(tmp_path=Path("."))
     # #test_preconverted_alma(tmp_path=Path("."))
     # test_ska_mid(tmp_path=Path("."))
     # test_lofar(tmp_path=Path("."))

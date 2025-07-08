@@ -36,16 +36,12 @@
         },
         {
           "$class": "AttrSchemaRef",
-          "type": "list[str]",
+          "type": "str",
           "literal": [
-            [
-              "s"
-            ]
-          ],
-          "name": "units",
-          "default": [
             "s"
           ],
+          "name": "units",
+          "default": "s",
           "docstring": "Units to associate with axis"
         },
         {
@@ -93,11 +89,9 @@
             "attributes": [
               {
                 "$class": "AttrSchemaRef",
-                "type": "list[str]",
+                "type": "str",
                 "literal": [
-                  [
-                    "s"
-                  ]
+                  "s"
                 ],
                 "name": "units",
                 "docstring": null
@@ -197,16 +191,12 @@
             "attributes": [
               {
                 "$class": "AttrSchemaRef",
-                "type": "list[str]",
+                "type": "str",
                 "literal": [
-                  [
-                    "Hz"
-                  ]
-                ],
-                "name": "units",
-                "default": [
                   "Hz"
                 ],
+                "name": "units",
+                "default": "Hz",
                 "docstring": null
               },
               {
@@ -260,11 +250,9 @@
             "attributes": [
               {
                 "$class": "AttrSchemaRef",
-                "type": "list[str]",
+                "type": "str",
                 "literal": [
-                  [
-                    "Hz"
-                  ]
+                  "Hz"
                 ],
                 "name": "units",
                 "docstring": null
@@ -312,19 +300,13 @@
               },
               {
                 "$class": "AttrSchemaRef",
-                "type": "list[str]",
+                "type": "str",
                 "literal": [
-                  [
-                    "ratio"
-                  ],
-                  [
-                    "m/s"
-                  ]
-                ],
-                "name": "units",
-                "default": [
+                  "ratio",
                   "m/s"
                 ],
+                "name": "units",
+                "default": "m/s",
                 "docstring": "Units to associate with axis, [ratio]/[m/s]"
               },
               {
@@ -372,16 +354,12 @@
         },
         {
           "$class": "AttrSchemaRef",
-          "type": "list[str]",
+          "type": "str",
           "literal": [
-            [
-              "Hz"
-            ]
-          ],
-          "name": "units",
-          "default": [
             "Hz"
           ],
+          "name": "units",
+          "default": "Hz",
           "docstring": "Units to associate with axis"
         },
         {
@@ -622,16 +600,12 @@
             },
             {
               "$class": "AttrSchemaRef",
-              "type": "list[str]",
+              "type": "str",
               "literal": [
-                [
-                  "s"
-                ]
-              ],
-              "name": "units",
-              "default": [
                 "s"
               ],
+              "name": "units",
+              "default": "s",
               "docstring": "Units to associate with axis"
             },
             {
@@ -679,11 +653,9 @@
                 "attributes": [
                   {
                     "$class": "AttrSchemaRef",
-                    "type": "list[str]",
+                    "type": "str",
                     "literal": [
-                      [
-                        "s"
-                      ]
+                      "s"
                     ],
                     "name": "units",
                     "docstring": null
@@ -808,16 +780,12 @@
                 "attributes": [
                   {
                     "$class": "AttrSchemaRef",
-                    "type": "list[str]",
+                    "type": "str",
                     "literal": [
-                      [
-                        "Hz"
-                      ]
-                    ],
-                    "name": "units",
-                    "default": [
                       "Hz"
                     ],
+                    "name": "units",
+                    "default": "Hz",
                     "docstring": null
                   },
                   {
@@ -871,11 +839,9 @@
                 "attributes": [
                   {
                     "$class": "AttrSchemaRef",
-                    "type": "list[str]",
+                    "type": "str",
                     "literal": [
-                      [
-                        "Hz"
-                      ]
+                      "Hz"
                     ],
                     "name": "units",
                     "docstring": null
@@ -923,19 +889,13 @@
                   },
                   {
                     "$class": "AttrSchemaRef",
-                    "type": "list[str]",
+                    "type": "str",
                     "literal": [
-                      [
-                        "ratio"
-                      ],
-                      [
-                        "m/s"
-                      ]
-                    ],
-                    "name": "units",
-                    "default": [
+                      "ratio",
                       "m/s"
                     ],
+                    "name": "units",
+                    "default": "m/s",
                     "docstring": "Units to associate with axis, [ratio]/[m/s]"
                   },
                   {
@@ -983,16 +943,12 @@
             },
             {
               "$class": "AttrSchemaRef",
-              "type": "list[str]",
+              "type": "str",
               "literal": [
-                [
-                  "Hz"
-                ]
-              ],
-              "name": "units",
-              "default": [
                 "Hz"
               ],
+              "name": "units",
+              "default": "Hz",
               "docstring": "Units to associate with axis"
             },
             {
@@ -1031,11 +987,9 @@
         },
         {
           "$class": "AttrSchemaRef",
-          "type": "list[str]",
+          "type": "str",
           "name": "units",
-          "default": [
-            "Jy"
-          ],
+          "default": "Jy",
           "docstring": null
         },
         {
@@ -1093,16 +1047,12 @@
             },
             {
               "$class": "AttrSchemaRef",
-              "type": "list[str]",
+              "type": "str",
               "literal": [
-                [
-                  "s"
-                ]
-              ],
-              "name": "units",
-              "default": [
                 "s"
               ],
+              "name": "units",
+              "default": "s",
               "docstring": "Units to associate with axis"
             },
             {
@@ -1150,11 +1100,9 @@
                 "attributes": [
                   {
                     "$class": "AttrSchemaRef",
-                    "type": "list[str]",
+                    "type": "str",
                     "literal": [
-                      [
-                        "s"
-                      ]
+                      "s"
                     ],
                     "name": "units",
                     "docstring": null
@@ -1279,16 +1227,12 @@
                 "attributes": [
                   {
                     "$class": "AttrSchemaRef",
-                    "type": "list[str]",
+                    "type": "str",
                     "literal": [
-                      [
-                        "Hz"
-                      ]
-                    ],
-                    "name": "units",
-                    "default": [
                       "Hz"
                     ],
+                    "name": "units",
+                    "default": "Hz",
                     "docstring": null
                   },
                   {
@@ -1342,11 +1286,9 @@
                 "attributes": [
                   {
                     "$class": "AttrSchemaRef",
-                    "type": "list[str]",
+                    "type": "str",
                     "literal": [
-                      [
-                        "Hz"
-                      ]
+                      "Hz"
                     ],
                     "name": "units",
                     "docstring": null
@@ -1394,19 +1336,13 @@
                   },
                   {
                     "$class": "AttrSchemaRef",
-                    "type": "list[str]",
+                    "type": "str",
                     "literal": [
-                      [
-                        "ratio"
-                      ],
-                      [
-                        "m/s"
-                      ]
-                    ],
-                    "name": "units",
-                    "default": [
+                      "ratio",
                       "m/s"
                     ],
+                    "name": "units",
+                    "default": "m/s",
                     "docstring": "Units to associate with axis, [ratio]/[m/s]"
                   },
                   {
@@ -1454,16 +1390,12 @@
             },
             {
               "$class": "AttrSchemaRef",
-              "type": "list[str]",
+              "type": "str",
               "literal": [
-                [
-                  "Hz"
-                ]
-              ],
-              "name": "units",
-              "default": [
                 "Hz"
               ],
+              "name": "units",
+              "default": "Hz",
               "docstring": "Units to associate with axis"
             },
             {
@@ -1583,16 +1515,12 @@
             },
             {
               "$class": "AttrSchemaRef",
-              "type": "list[str]",
+              "type": "str",
               "literal": [
-                [
-                  "s"
-                ]
-              ],
-              "name": "units",
-              "default": [
                 "s"
               ],
+              "name": "units",
+              "default": "s",
               "docstring": "Units to associate with axis"
             },
             {
@@ -1640,11 +1568,9 @@
                 "attributes": [
                   {
                     "$class": "AttrSchemaRef",
-                    "type": "list[str]",
+                    "type": "str",
                     "literal": [
-                      [
-                        "s"
-                      ]
+                      "s"
                     ],
                     "name": "units",
                     "docstring": null
@@ -1769,16 +1695,12 @@
                 "attributes": [
                   {
                     "$class": "AttrSchemaRef",
-                    "type": "list[str]",
+                    "type": "str",
                     "literal": [
-                      [
-                        "Hz"
-                      ]
-                    ],
-                    "name": "units",
-                    "default": [
                       "Hz"
                     ],
+                    "name": "units",
+                    "default": "Hz",
                     "docstring": null
                   },
                   {
@@ -1832,11 +1754,9 @@
                 "attributes": [
                   {
                     "$class": "AttrSchemaRef",
-                    "type": "list[str]",
+                    "type": "str",
                     "literal": [
-                      [
-                        "Hz"
-                      ]
+                      "Hz"
                     ],
                     "name": "units",
                     "docstring": null
@@ -1884,19 +1804,13 @@
                   },
                   {
                     "$class": "AttrSchemaRef",
-                    "type": "list[str]",
+                    "type": "str",
                     "literal": [
-                      [
-                        "ratio"
-                      ],
-                      [
-                        "m/s"
-                      ]
-                    ],
-                    "name": "units",
-                    "default": [
+                      "ratio",
                       "m/s"
                     ],
+                    "name": "units",
+                    "default": "m/s",
                     "docstring": "Units to associate with axis, [ratio]/[m/s]"
                   },
                   {
@@ -1944,16 +1858,12 @@
             },
             {
               "$class": "AttrSchemaRef",
-              "type": "list[str]",
+              "type": "str",
               "literal": [
-                [
-                  "Hz"
-                ]
-              ],
-              "name": "units",
-              "default": [
                 "Hz"
               ],
+              "name": "units",
+              "default": "Hz",
               "docstring": "Units to associate with axis"
             },
             {
@@ -2072,16 +1982,12 @@
             },
             {
               "$class": "AttrSchemaRef",
-              "type": "list[str]",
+              "type": "str",
               "literal": [
-                [
-                  "s"
-                ]
-              ],
-              "name": "units",
-              "default": [
                 "s"
               ],
+              "name": "units",
+              "default": "s",
               "docstring": "Units to associate with axis"
             },
             {
@@ -2129,11 +2035,9 @@
                 "attributes": [
                   {
                     "$class": "AttrSchemaRef",
-                    "type": "list[str]",
+                    "type": "str",
                     "literal": [
-                      [
-                        "s"
-                      ]
+                      "s"
                     ],
                     "name": "units",
                     "docstring": null
@@ -2255,21 +2159,12 @@
         },
         {
           "$class": "AttrSchemaRef",
-          "type": "list[str]",
+          "type": "str",
           "literal": [
-            [
-              "m"
-            ],
-            [
-              "m",
-              "m",
-              "m"
-            ]
-          ],
-          "name": "units",
-          "default": [
             "m"
           ],
+          "name": "units",
+          "default": "m",
           "docstring": null
         },
         {
@@ -2308,11 +2203,9 @@
       "attributes": [
         {
           "$class": "AttrSchemaRef",
-          "type": "list[str]",
+          "type": "str",
           "literal": [
-            [
-              "s"
-            ]
+            "s"
           ],
           "name": "units",
           "docstring": null
@@ -2372,16 +2265,12 @@
             },
             {
               "$class": "AttrSchemaRef",
-              "type": "list[str]",
+              "type": "str",
               "literal": [
-                [
-                  "s"
-                ]
-              ],
-              "name": "units",
-              "default": [
                 "s"
               ],
+              "name": "units",
+              "default": "s",
               "docstring": "Units to associate with axis"
             },
             {
@@ -2429,11 +2318,9 @@
                 "attributes": [
                   {
                     "$class": "AttrSchemaRef",
-                    "type": "list[str]",
+                    "type": "str",
                     "literal": [
-                      [
-                        "s"
-                      ]
+                      "s"
                     ],
                     "name": "units",
                     "docstring": null
@@ -2557,16 +2444,12 @@
         },
         {
           "$class": "AttrSchemaRef",
-          "type": "list[str]",
+          "type": "str",
           "literal": [
-            [
-              "s"
-            ]
-          ],
-          "name": "units",
-          "default": [
             "s"
           ],
+          "name": "units",
+          "default": "s",
           "docstring": null
         }
       ],
@@ -2614,16 +2497,12 @@
             },
             {
               "$class": "AttrSchemaRef",
-              "type": "list[str]",
+              "type": "str",
               "literal": [
-                [
-                  "s"
-                ]
-              ],
-              "name": "units",
-              "default": [
                 "s"
               ],
+              "name": "units",
+              "default": "s",
               "docstring": "Units to associate with axis"
             },
             {
@@ -2671,11 +2550,9 @@
                 "attributes": [
                   {
                     "$class": "AttrSchemaRef",
-                    "type": "list[str]",
+                    "type": "str",
                     "literal": [
-                      [
-                        "s"
-                      ]
+                      "s"
                     ],
                     "name": "units",
                     "docstring": null
@@ -2799,16 +2676,12 @@
         },
         {
           "$class": "AttrSchemaRef",
-          "type": "list[str]",
+          "type": "str",
           "literal": [
-            [
-              "s"
-            ]
-          ],
-          "name": "units",
-          "default": [
             "s"
           ],
+          "name": "units",
+          "default": "s",
           "docstring": null
         }
       ],
@@ -2875,16 +2748,12 @@
                 "attributes": [
                   {
                     "$class": "AttrSchemaRef",
-                    "type": "list[str]",
+                    "type": "str",
                     "literal": [
-                      [
-                        "Hz"
-                      ]
-                    ],
-                    "name": "units",
-                    "default": [
                       "Hz"
                     ],
+                    "name": "units",
+                    "default": "Hz",
                     "docstring": null
                   },
                   {
@@ -2938,11 +2807,9 @@
                 "attributes": [
                   {
                     "$class": "AttrSchemaRef",
-                    "type": "list[str]",
+                    "type": "str",
                     "literal": [
-                      [
-                        "Hz"
-                      ]
+                      "Hz"
                     ],
                     "name": "units",
                     "docstring": null
@@ -2990,19 +2857,13 @@
                   },
                   {
                     "$class": "AttrSchemaRef",
-                    "type": "list[str]",
+                    "type": "str",
                     "literal": [
-                      [
-                        "ratio"
-                      ],
-                      [
-                        "m/s"
-                      ]
-                    ],
-                    "name": "units",
-                    "default": [
+                      "ratio",
                       "m/s"
                     ],
+                    "name": "units",
+                    "default": "m/s",
                     "docstring": "Units to associate with axis, [ratio]/[m/s]"
                   },
                   {
@@ -3050,16 +2911,12 @@
             },
             {
               "$class": "AttrSchemaRef",
-              "type": "list[str]",
+              "type": "str",
               "literal": [
-                [
-                  "Hz"
-                ]
-              ],
-              "name": "units",
-              "default": [
                 "Hz"
               ],
+              "name": "units",
+              "default": "Hz",
               "docstring": "Units to associate with axis"
             },
             {
@@ -3111,16 +2968,12 @@
             },
             {
               "$class": "AttrSchemaRef",
-              "type": "list[str]",
+              "type": "str",
               "literal": [
-                [
-                  "s"
-                ]
-              ],
-              "name": "units",
-              "default": [
                 "s"
               ],
+              "name": "units",
+              "default": "s",
               "docstring": "Units to associate with axis"
             },
             {
@@ -3168,11 +3021,9 @@
                 "attributes": [
                   {
                     "$class": "AttrSchemaRef",
-                    "type": "list[str]",
+                    "type": "str",
                     "literal": [
-                      [
-                        "s"
-                      ]
+                      "s"
                     ],
                     "name": "units",
                     "docstring": null
@@ -3267,16 +3118,12 @@
         },
         {
           "$class": "AttrSchemaRef",
-          "type": "list[str]",
+          "type": "str",
           "literal": [
-            [
-              "Hz"
-            ]
-          ],
-          "name": "units",
-          "default": [
             "Hz"
           ],
+          "name": "units",
+          "default": "Hz",
           "docstring": null
         },
         {
@@ -3358,16 +3205,12 @@
                 "attributes": [
                   {
                     "$class": "AttrSchemaRef",
-                    "type": "list[str]",
+                    "type": "str",
                     "literal": [
-                      [
-                        "Hz"
-                      ]
-                    ],
-                    "name": "units",
-                    "default": [
                       "Hz"
                     ],
+                    "name": "units",
+                    "default": "Hz",
                     "docstring": null
                   },
                   {
@@ -3421,11 +3264,9 @@
                 "attributes": [
                   {
                     "$class": "AttrSchemaRef",
-                    "type": "list[str]",
+                    "type": "str",
                     "literal": [
-                      [
-                        "Hz"
-                      ]
+                      "Hz"
                     ],
                     "name": "units",
                     "docstring": null
@@ -3473,19 +3314,13 @@
                   },
                   {
                     "$class": "AttrSchemaRef",
-                    "type": "list[str]",
+                    "type": "str",
                     "literal": [
-                      [
-                        "ratio"
-                      ],
-                      [
-                        "m/s"
-                      ]
-                    ],
-                    "name": "units",
-                    "default": [
+                      "ratio",
                       "m/s"
                     ],
+                    "name": "units",
+                    "default": "m/s",
                     "docstring": "Units to associate with axis, [ratio]/[m/s]"
                   },
                   {
@@ -3533,16 +3368,12 @@
             },
             {
               "$class": "AttrSchemaRef",
-              "type": "list[str]",
+              "type": "str",
               "literal": [
-                [
-                  "Hz"
-                ]
-              ],
-              "name": "units",
-              "default": [
                 "Hz"
               ],
+              "name": "units",
+              "default": "Hz",
               "docstring": "Units to associate with axis"
             },
             {
@@ -3581,16 +3412,12 @@
         },
         {
           "$class": "AttrSchemaRef",
-          "type": "list[str]",
+          "type": "str",
           "literal": [
-            [
-              "Hz"
-            ]
-          ],
-          "name": "units",
-          "default": [
             "Hz"
           ],
+          "name": "units",
+          "default": "Hz",
           "docstring": null
         },
         {
@@ -3774,7 +3601,7 @@
                   "$class": "AttrSchemaRef",
                   "type": "str",
                   "name": "field_and_source",
-                  "docstring": "Name of the field_and_source_xds, for example field_and_source_xds_base. "
+                  "docstring": "Name of the field_and_source_xds, for example field_and_source_base_xds. "
                 },
                 {
                   "$class": "AttrSchemaRef",

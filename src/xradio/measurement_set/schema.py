@@ -46,16 +46,22 @@ UvwLabel = Literal["uvw_label"]
 """ Coordinate dimension of UVW data (typically shape 3 for 'u', 'v', 'w') """
 SkyDirLabel = Literal["sky_dir_label"]
 """ Coordinate labels of sky directions (typically shape 2 and 'ra', 'dec') """
+SkyDisLabel = Literal["sky_dis_label"]
+""" Coordinate labels of sky distance (typically shape 1 and 'dist') """
 LocalSkyDirLabel = Literal["local_sky_dir_label"]
 """ Coordinate labels of local sky directions (typically shape 2 and 'az', 'alt') """
-SphericalDirLabel = Literal["spherical_dir_label"]
-""" Coordinate labels of spherical directions (shape 2 and 'lon', 'lat1' """
-SkyPosLabel = Literal["sky_pos_label"]
-""" Coordinate labels of sky positions (typically shape 3 and 'ra', 'dec', 'dist') """
-SphericalPosLabel = Literal["spherical_pos_label"]
-""" Coordinate labels of spherical positions (shape shape 3 and 'lon', 'lat1', 'dist2') """
-EllipsoidPosLabel = Literal["ellipsoid_pos_label"]
+LocalSkyDisLabel = Literal["local_sky_dis_label"]
+""" Coordinate labels of local sky distance (typically shape 1 and 'dist') """
+EllipsoidDirLabel = Literal["ellipsoid_dir_label"]
 """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
+EllipsoidDisLabel = Literal["ellipsoid_dis_label"]
+""" Coordinate label of geodetic earth height (typically shape 1 and 'dist')"""
+# SphericalDirLabel = Literal["spherical_dir_label"]
+# """ Coordinate labels of spherical directions (shape 2 and 'lon', 'lat1' """
+# SphericalPosLabel = Literal["spherical_pos_label"]
+# """ Coordinate labels of spherical positions (shape shape 3 and 'lon', 'lat1', 'dist2') """
+# EllipsoidPosLabel = Literal["ellipsoid_pos_label"]
+# """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
 CartesianPosLabel = Literal["cartesian_pos_label"]
 """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
 CartesianPosLabelLocal = Literal["cartesian_pos_label_local"]
@@ -297,7 +303,7 @@ AllowedSkyCoordFrames = Literal[
 class SkyCoordArray:
     """Measures array for data variables that are sky coordinates, used in :py:class:`FieldSourceXds`"""
 
-    data: Data[Union[SkyDirLabel, SkyPosLabel], float]
+    data: Data[Union[SkyDirLabel, SkyDisLabel], float]
 
     type: Attr[SkyCoord] = "sky_coord"
     units: Attr[UnitsOfSkyCoordInRadians] = "rad"
@@ -581,10 +587,10 @@ class LocationArray:
     Measure type used for example in antenna_xds/ANTENNA_POSITION, weather_xds/STATION_POSITION,
     field_and_source_xds(ephemeris)/OBSERVER_POSITION.
 
-    Data dimensions can be CartesianPosLabel or EllipsoidPosLabel
+    Data dimensions can be CartesianPosLabel or EllipsoidDirLabel or EllipsoidDisLabel
     """
 
-    data: Data[Union[EllipsoidPosLabel, CartesianPosLabel], float]
+    data: Data[Union[EllipsoidDirLabel, EllipsoidDisLabel, CartesianPosLabel], float]
 
     units: Attr[UnitsOfLocationInMetersOrRadians]
     """
@@ -609,7 +615,7 @@ class LocationArray:
 
     ellipsoid: Optional[Attr[AllowedEllipsoid]]
     """
-    Ellipsoid used in geodetic Earth locations (with EllipsoidPosLabel coordinate)
+    Ellipsoid used in geodetic Earth locations (with EllipsoidDirLabel and EllipsoidDirLabel coordinate)
     """
 
     type: Attr[Location] = "location"
@@ -622,7 +628,7 @@ class EllipsoidPosLocationArray:
     Measure type used for example in field_and_source_xds(ephemeris) / SUB_OBSERVER_DIRECTION, SUB_SOLAR_POSITION
     """
 
-    data: Data[EllipsoidPosLabel, float]
+    data: Data[EllipsoidDirLabel, float]
 
     frame: Attr[AllowedLocationFrames]
     """
@@ -1080,6 +1086,9 @@ class FieldSourceXds:
     sky_dir_label: Coord[SkyDirLabel, str]
     """ Coordinate labels of sky directions (typically shape 2 and 'ra', 'dec') """
 
+    sky_dis_label: Optional[Coord[SkyDisLabel, str]]
+    """ Coordinate labels of sky distance (typically shape 1 and 'dist') """
+
     FIELD_PHASE_CENTER_DIRECTION: Optional[Data[FieldName, SkyCoordArray]]
     """
     Offset from the SOURCE_DIRECTION that gives the direction of phase
@@ -1090,6 +1099,11 @@ class FieldSourceXds:
     varies with field, it refers DelayDir_Ref column instead.
     """
 
+    FIELD_PHASE_CENTER_DISTANCE: Optional[Data[FieldName, SkyCoordArray]]
+    """
+    Add
+    """
+
     FIELD_REFERENCE_CENTER_DIRECTION: Optional[Data[FieldName, SkyCoordArray]]
     """
     Used in single-dish to record the associated reference direction if positionswitching
@@ -1097,7 +1111,23 @@ class FieldSourceXds:
     frame varies with field, it refers DelayDir_Ref column instead.
     """
 
+    FIELD_REFERENCE_CENTER_DISTANCE: Optional[Data[FieldName, SkyCoordArray]]
+    """
+    Add
+    """
+
     SOURCE_DIRECTION: Optional[Data[FieldName, SkyCoordArray]]
+    """
+    CASA Table Cols: RA,DEC,Rho."Astrometric RA and Dec and Geocentric
+    distance with respect to the observer’s location (Geocentric). "Adjusted
+    for light-time aberration only. With respect to the reference plane and
+    equinox of the chosen system (ICRF or FK4/B1950). If the FK4/B1950 frame
+    output is selected, elliptic aberration terms are added. Astrometric RA/DEC
+    is generally used when comparing or reducing data against a star catalog."
+    https://ssd.jpl.nasa.gov/horizons/manual.html : 1. Astrometric RA & DEC
+    """
+
+    SOURCE_DISTANCE: Optional[Data[FieldName, SkyCoordArray]]
     """
     CASA Table Cols: RA,DEC,Rho."Astrometric RA and Dec and Geocentric
     distance with respect to the observer’s location (Geocentric). "Adjusted
@@ -1125,6 +1155,12 @@ class FieldSourceXds:
     """ Systemic velocity at reference """
 
     OBSERVER_POSITION: Optional[Data[ZD, LocationArray]]
+    """ Observer location. """
+
+    OBSERVER_DIRECTION: Optional[Data[ZD, LocationArray]]
+    """ Observer location. """
+
+    OBSERVER_DISTANCE: Optional[Data[ZD, LocationArray]]
     """ Observer location. """
 
     # --- Attributes ---
@@ -1284,13 +1320,14 @@ class FieldSourceEphemerisXds:
     # --- Optional coordinates ---
     sky_dir_label: Optional[Coord[SkyDirLabel, str]] = ("ra", "dec")
     """ Coordinate labels of sky directions (typically shape 2 and 'ra', 'dec') """
-    sky_pos_label: Optional[Coord[SkyPosLabel, str]] = ("ra", "dec", "dist")
-    """ Coordinate lables of sky positions (typically shape 3 and 'ra', 'dec', 'dist') """
-    ellipsoid_pos_label: Optional[Coord[EllipsoidPosLabel, str]] = (
+    sky_dis_label: Optional[Coord[SkyDisLabel, str]] = "dist"
+    """ Coordinate lables of sky distance (typically shape 1 and 'dist') """
+    ellipsoid_dir_label: Optional[Coord[EllipsoidDirLabel, str]] = (
         "lon",
         "lat",
-        "height",
     )
+    ellipsoid_dis_label: Optional[Coord[EllipsoidDisLabel, str]] = "height"
+
     """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
     cartesian_pos_label: Optional[Coord[CartesianPosLabel, str]] = ("x", "y", "z")
     """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
@@ -1486,7 +1523,9 @@ class AntennaXds:
     as measured after all polarization combiners. ['X','Y'], ['R','L'] """
     cartesian_pos_label: Optional[Coord[CartesianPosLabel, str]]
     """ (x,y,z) - either cartesian or ellipsoid """
-    ellipsoid_pos_label: Optional[Coord[EllipsoidPosLabel, str]]
+    ellipsoid_dir_label: Optional[Coord[EllipsoidDirLabel, str]]
+    """ (lon, lat, dist) - either cartesian or ellipsoid"""
+    ellipsoid_dis_label: Optional[Coord[EllipsoidDisLabel, str]]
     """ (lon, lat, dist) - either cartesian or ellipsoid"""
 
     # Data variables
@@ -1696,12 +1735,13 @@ class WeatherXds:
     """ Mid-point of the time interval. Labeled 'time' when interpolated to main time axis """
     time_weather: Optional[Coordof[TimeWeatherCoordArray]]
     """ Mid-point of the time interval. Labeled 'time_weather' when not interpolated to main time axis """
-    ellipsoid_pos_label: Optional[Coord[EllipsoidPosLabel, str]] = (
+    ellipsoid_dir_label: Optional[Coord[EllipsoidDirLabel, str]] = (
         "lon",
         "lat",
-        "height",
     )
-    """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
+    """ Coordinate labels of geodetic earth location data (typically shape 2 and 'lon', 'lat')"""
+    ellipsoid_dis_label: Optional[Coord[EllipsoidDisLabel, str]] = ("height",)
+    """ Coordinate labels of geodetic earth height data (typically shape 1 and 'height')"""
     cartesian_pos_label: Optional[Coord[CartesianPosLabel, str]] = ("x", "y", "z")
     """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
 

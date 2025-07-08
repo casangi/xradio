@@ -293,14 +293,14 @@ class MeasurementSetXdt:
             ), f"Data variable {uvw} not found in dataset."
 
         if field_and_source_xds is None:
-            field_and_source_xds = default_data_group["field_and_source_xds"]
+            field_and_source_xds = default_data_group["field_and_source"]
         new_data_group["field_and_source"] = field_and_source_xds
         assert (
             field_and_source_xds in self._xdt.children
         ), f"Data variable {field_and_source_xds} not found in dataset."
 
         if date_time is None:
-            date_time = datetime.now(datetime.timezone.utc).isoformat()
+            date_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
         new_data_group["date"] = date_time
 
         if description is None:

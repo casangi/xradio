@@ -75,6 +75,18 @@ class TestProcessingSetXdtErrors:
             field_and_source_xds = ps_xdt.get_combined_field_and_source_xds_ephemeris()
             assert field_and_source_xds
 
+    def test_plot_phase_centers_empty(self):
+        ps_xdt = ProcessingSetXdt(xr.DataTree())
+
+        with pytest.raises(InvalidAccessorLocation, match="not a processing set node"):
+            ps_xdt.plot_phase_centers(label_all_fields=True, data_group="missing")
+
+    def test_plot_antenna_positions(self):
+        ps_xdt = ProcessingSetXdt(xr.DataTree())
+
+        with pytest.raises(InvalidAccessorLocation, match="not a processing set node"):
+            ps_xdt.plot_antenna_positions(label_all_antennas=True)
+
 
 # Tests with actual data loaded from disk
 class TestProcessingSetXdtWithData:

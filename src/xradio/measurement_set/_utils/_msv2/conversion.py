@@ -516,7 +516,7 @@ def create_coordinates(
         ref_code=spectral_window_xds["MEAS_FREQ_REF"].data,
     )
     xds.frequency.attrs["channel_width"] = make_quantity(
-        np.abs(unique_chan_width[0]), msv4_measure["units"] if msv4_measure else ["Hz"]
+        np.abs(unique_chan_width[0]), msv4_measure["units"] if msv4_measure else "Hz"
     )
 
     ###### Create Time Coordinate ######
@@ -531,7 +531,7 @@ def create_coordinates(
         main_column_descriptions["INTERVAL"]
     )
     xds.time.attrs["integration_time"] = make_quantity(
-        interval, msv4_measure["units"] if msv4_measure else ["s"]
+        interval, msv4_measure["units"] if msv4_measure else "s"
     )
 
     return xds
@@ -698,7 +698,7 @@ def add_missing_data_var_attrs(xds):
     data_var_names = ["SPECTRUM", "SPECTRUM_CORRECTED"]
     for var_name in data_var_names:
         if var_name in xds.data_vars:
-            xds.data_vars[var_name].attrs["units"] = [""]
+            xds.data_vars[var_name].attrs["units"] = ""
 
     vis_var_names = ["VISIBILITY_MODEL"]
     for var_name in vis_var_names:
@@ -709,7 +709,7 @@ def add_missing_data_var_attrs(xds):
                     "VISIBILITY"
                 ].attrs["units"]
             else:
-                xds.data_vars[var_name].attrs["units"] = [""]
+                xds.data_vars[var_name].attrs["units"] = ""
 
     return xds
 

@@ -835,7 +835,7 @@ def create_phased_array_xds(
     }
     data_vars["COORDINATE_AXES"].attrs = {
         "type": "rotation_matrix",
-        "units": ["dimensionless", "dimensionless", "dimensionless"],
+        "units": "dimensionless",
     }
     # Remove the "frame" attribute if it exists, because ELEMENT_OFFSET is
     # defined in a station-local frame for which no standard name exists

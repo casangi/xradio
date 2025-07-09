@@ -89,9 +89,7 @@ Doppler = Literal["doppler"]
 RotationMatrix = Literal["rotation_matrix"]
 
 # Units of quantities and measures
-UnitsDimensionless = Literal[
-    ["dimensionless"]
-]  # name consistent with casacore measures
+UnitsDimensionless = Literal["dimensionless"]  # name consistent with casacore measures
 
 UnitsSeconds = Literal["s"]
 UnitsHertz = Literal["Hz"]

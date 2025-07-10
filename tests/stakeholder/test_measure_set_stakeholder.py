@@ -627,8 +627,7 @@ def check_source_and_field_xds(ps_xdt, msv4_name, expected_NP_sum):
         "LINE_SYSTEMIC_VELOCITY",
         "NORTH_POLE_ANGULAR_DISTANCE",
         "NORTH_POLE_POSITION_ANGLE",
-        "OBSERVER_DIRECTION",
-        "OBSERVER_DISTANCE",
+        "OBSERVER_POSITION",
         "OBSERVER_PHASE_ANGLE",
         "SOURCE_DIRECTION",
         "SOURCE_DISTANCE",
@@ -795,7 +794,7 @@ if __name__ == "__main__":
     # test_sd_A002_X1015532_X1926f(tmp_path=Path("."))
     # test_sd_A002_Xae00c5_X2e6b(tmp_path=Path("."))
     # test_sd_A002_Xced5df_Xf9d9(tmp_path=Path("."))
-    test_sd_A002_Xe3a5fd_Xe38e(tmp_path=Path("."))
+    # test_sd_A002_Xe3a5fd_Xe38e(tmp_path=Path("."))
     # test_s3(tmp_path=Path("."))
     # test_vlass(tmp_path=Path("."))
     # test_alma(tmp_path=Path("."))
@@ -809,7 +808,7 @@ if __name__ == "__main__":
     # test_ngeht(tmp_path=Path("."))
     # test_ephemeris(tmp_path=Path("."))
     # test_single_dish(tmp_path=Path("."))
-    # test_alma_ephemeris_mosaic(tmp_path=Path("."))
+    test_alma_ephemeris_mosaic(tmp_path=Path("."))
     # test_VLA(tmp_path=Path("."))
 
 # All test preformed on MAC with M3 and 16 GB Ram.

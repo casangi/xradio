@@ -56,12 +56,6 @@ EllipsoidDirLabel = Literal["ellipsoid_dir_label"]
 """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
 EllipsoidDisLabel = Literal["ellipsoid_dis_label"]
 """ Coordinate label of geodetic earth height (typically shape 1 and 'dist')"""
-# SphericalDirLabel = Literal["spherical_dir_label"]
-# """ Coordinate labels of spherical directions (shape 2 and 'lon', 'lat1' """
-# SphericalPosLabel = Literal["spherical_pos_label"]
-# """ Coordinate labels of spherical positions (shape shape 3 and 'lon', 'lat1', 'dist2') """
-# EllipsoidPosLabel = Literal["ellipsoid_pos_label"]
-# """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
 CartesianPosLabel = Literal["cartesian_pos_label"]
 """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
 CartesianPosLabelLocal = Literal["cartesian_pos_label_local"]
@@ -95,7 +89,8 @@ UnitsSeconds = Literal["s"]
 UnitsHertz = Literal["Hz"]
 UnitsMeters = Literal["m"]
 
-UnitsOfSkyCoordInRadians = Literal["rad"]
+#UnitsOfSkyCoordInRadians = Literal["rad"]
+UnitsOfSkyCoordInMetersOrRadians = Literal["m", "rad"]
 UnitsOfLocationInMetersOrRadians = Literal[
     "m",
     "rad",
@@ -302,9 +297,8 @@ class SkyCoordArray:
     """Measures array for data variables that are sky coordinates, used in :py:class:`FieldSourceXds`"""
 
     data: Data[Union[SkyDirLabel, SkyDisLabel], float]
-
+    units: Attr[UnitsOfSkyCoordInMetersOrRadians]
     type: Attr[SkyCoord] = "sky_coord"
-    units: Attr[UnitsOfSkyCoordInRadians] = "rad"
     frame: Attr[AllowedSkyCoordFrames] = "icrs"
     """
     Possible values are astropy SkyCoord frames.
@@ -333,7 +327,7 @@ class PointingBeamArray:
     ]
 
     type: Attr[SkyCoord] = "sky_coord"
-    units: Attr[UnitsOfSkyCoordInRadians] = "rad"
+    units: Attr[UnitsOfSkyCoordInMetersOrRadians] = "rad"
     frame: Attr[AllowedSkyCoordFrames] = "icrs"
     """
     From fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled
@@ -350,7 +344,7 @@ class LocalSkyCoordArray:
     data: Data[LocalSkyDirLabel, float]
 
     type: Attr[SkyCoord] = "sky_coord"
-    units: Attr[UnitsOfSkyCoordInRadians] = "rad"
+    units: Attr[UnitsOfSkyCoordInMetersOrRadians] = "rad"
     frame: Attr[AllowedSkyCoordFrames] = "icrs"
     """
     From fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled
@@ -592,10 +586,7 @@ class LocationArray:
 
     units: Attr[UnitsOfLocationInMetersOrRadians]
     """
-    If the units are a list of strings then it must be the same length as
-    the last dimension of the data array. This allows for having different
-    units in the same data array, for example geodetic coordinates could use
-    ``['rad','rad','m']``.
+    Units of the location coordinates (typically 'm' or 'rad').
     """
 
     frame: Attr[AllowedLocationFrames]
@@ -618,39 +609,6 @@ class LocationArray:
 
     type: Attr[Location] = "location"
     """ Measure type. Should be ``"location"``."""
-
-
-@xarray_dataarray_schema
-class EllipsoidPosLocationArray:
-    """
-    Measure type used for example in field_and_source_xds(ephemeris) / SUB_OBSERVER_DIRECTION, SUB_SOLAR_POSITION
-    """
-
-    data: Data[EllipsoidDirLabel, float]
-
-    frame: Attr[AllowedLocationFrames]
-    """
-    Reference frame. Can be ITRS (assumed for all Earth locations) or Undefined (used in non-Earth locations).
-    """
-
-    coordinate_system: Attr[AllowedLocationCoordinateSystems]
-    """ Can be ``geocentric/planetcentric, geodetic/planetodetic, orbital`` """
-
-    origin_object_name: Attr[str]
-    """
-    earth/sun/moon/etc
-    """
-
-    type: Attr[Location] = "location"
-    """ Measure type. Should be ``"location"``."""
-
-    units: Attr[UnitsOfPositionInRadians] = "rad"
-    """
-    If the units are a list of strings then it must be the same length as
-    the last dimension of the data array. This allows for having different
-    units in the same data array,for example geodetic coordinates could use
-    ``['rad','rad','m']``.
-    """
 
 
 @xarray_dataarray_schema
@@ -1084,9 +1042,6 @@ class FieldSourceXds:
     sky_dir_label: Coord[SkyDirLabel, str]
     """ Coordinate labels of sky directions (typically shape 2 and 'ra', 'dec') """
 
-    sky_dis_label: Optional[Coord[SkyDisLabel, str]]
-    """ Coordinate labels of sky distance (typically shape 1 and 'dist') """
-
     FIELD_PHASE_CENTER_DIRECTION: Optional[Data[FieldName, SkyCoordArray]]
     """
     Offset from the SOURCE_DIRECTION that gives the direction of phase
@@ -1097,11 +1052,6 @@ class FieldSourceXds:
     varies with field, it refers DelayDir_Ref column instead.
     """
 
-    FIELD_PHASE_CENTER_DISTANCE: Optional[Data[FieldName, SkyCoordArray]]
-    """
-    Add
-    """
-
     FIELD_REFERENCE_CENTER_DIRECTION: Optional[Data[FieldName, SkyCoordArray]]
     """
     Used in single-dish to record the associated reference direction if positionswitching
@@ -1109,23 +1059,7 @@ class FieldSourceXds:
     frame varies with field, it refers DelayDir_Ref column instead.
     """
 
-    FIELD_REFERENCE_CENTER_DISTANCE: Optional[Data[FieldName, SkyCoordArray]]
-    """
-    Add
-    """
-
     SOURCE_DIRECTION: Optional[Data[FieldName, SkyCoordArray]]
-    """
-    CASA Table Cols: RA,DEC,Rho."Astrometric RA and Dec and Geocentric
-    distance with respect to the observer’s location (Geocentric). "Adjusted
-    for light-time aberration only. With respect to the reference plane and
-    equinox of the chosen system (ICRF or FK4/B1950). If the FK4/B1950 frame
-    output is selected, elliptic aberration terms are added. Astrometric RA/DEC
-    is generally used when comparing or reducing data against a star catalog."
-    https://ssd.jpl.nasa.gov/horizons/manual.html : 1. Astrometric RA & DEC
-    """
-
-    SOURCE_DISTANCE: Optional[Data[FieldName, SkyCoordArray]]
     """
     CASA Table Cols: RA,DEC,Rho."Astrometric RA and Dec and Geocentric
     distance with respect to the observer’s location (Geocentric). "Adjusted
@@ -1153,12 +1087,6 @@ class FieldSourceXds:
     """ Systemic velocity at reference """
 
     OBSERVER_POSITION: Optional[Data[ZD, LocationArray]]
-    """ Observer location. """
-
-    OBSERVER_DIRECTION: Optional[Data[ZD, LocationArray]]
-    """ Observer location. """
-
-    OBSERVER_DISTANCE: Optional[Data[ZD, LocationArray]]
     """ Observer location. """
 
     # --- Attributes ---
@@ -1211,8 +1139,25 @@ class FieldSourceEphemerisXds:
     conversion from MSv2, frame refers column keywords by default. If frame
     varies with field, it refers DelayDir_Ref column instead.
     """
+    
+    FIELD_PHASE_CENTER_DISTANCE: Optional[Data[tuple[Time], SkyCoordArray]]
+    """
+    Offset from the SOURCE_DIRECTION that gives the direction of phase
+    center for which the fringes have been stopped-that is a point source in
+    this direction will produce a constant measured phase (page 2 of
+    https://articles.adsabs.harvard.edu/pdf/1999ASPC..180...79F). For
+    conversion from MSv2, frame refers column keywords by default. If frame
+    varies with field, it refers DelayDir_Ref column instead.
+    """
 
     FIELD_REFERENCE_CENTER_DIRECTION: Optional[Data[tuple[Time], SkyCoordArray]]
+    """
+    Used in single-dish to record the associated reference direction if positionswitching
+    been applied. For conversion from MSv2, frame refers column keywords by default. If
+    frame varies with field, it refers DelayDir_Ref column instead.
+    """
+    
+    FIELD_REFERENCE_CENTER_DISTANCE: Optional[Data[tuple[Time], SkyCoordArray]]
     """
     Used in single-dish to record the associated reference direction if positionswitching
     been applied. For conversion from MSv2, frame refers column keywords by default. If
@@ -1267,7 +1212,7 @@ class FieldSourceEphemerisXds:
                 tuple[Time],
                 tuple[TimeEphemeris],
             ],
-            EllipsoidPosLocationArray,
+            LocationArray,
         ]
     ]
     """ CASA Table cols: DiskLong, DiskLat. "Apparent planetodetic longitude and latitude of the center of the target disc seen by the OBSERVER at print-time. This is not exactly the same as the "nearest point" for a non-spherical target shape (since the center of the disc might not be the point closest to the observer), but is generally very close if not a very irregular body shape. The IAU2009 rotation models are used except for Earth and MOON, which use higher-precision models. For the gas giants Jupiter, Saturn, Uranus and Neptune, IAU2009 longitude is based on the "System III" prime meridian rotation angle of the magnetic field. By contrast, pole direction (thus latitude) is relative to the body dynamical equator. There can be an offset between the magnetic pole and the dynamical pole of rotation. Down-leg light travel-time from target to observer is taken into account. Latitude is the angle between the equatorial plane and perpendicular to the reference ellipsoid of the body and body oblateness thereby included. The reference ellipsoid is an oblate spheroid with a single flatness coefficient in which the y-axis body radius is taken to be the same value as the x-axis radius. Whether longitude is positive to the east or west for the target will be indicated at the end of the output ephemeris." https://ssd.jpl.nasa.gov/horizons/manual.html : 14. Observer sub-longitude & sub-latitude """
@@ -1278,7 +1223,7 @@ class FieldSourceEphemerisXds:
                 tuple[Time],
                 tuple[TimeEphemeris],
             ],
-            EllipsoidPosLocationArray,
+            LocationArray,
         ]
     ]
     """ CASA Table cols: Sl_lon, Sl_lat, r. "Heliocentric distance along with "Apparent sub-solar longitude and latitude of the Sun on the target. The apparent planetodetic longitude and latitude of the center of the target disc as seen from the Sun, as seen by the observer at print-time.  This is _NOT_ exactly the same as the "sub-solar" (nearest) point for a non-spherical target shape (since the center of the disc seen from the Sun might not be the closest point to the Sun), but is very close if not a highly irregular body shape.  Light travel-time from Sun to target and from target to observer is taken into account.  Latitude is the angle between the equatorial plane and the line perpendicular to the reference ellipsoid of the body. The reference ellipsoid is an oblate spheroid with a single flatness coefficient in which the y-axis body radius is taken to be the same value as the x-axis radius. Uses IAU2009 rotation models except for Earth and Moon, which uses a higher precision models. Values for Jupiter, Saturn, Uranus and Neptune are Set III, referring to rotation of their magnetic fields.  Whether longitude is positive to the east or west for the target will be indicated at the end of the output ephemeris." https://ssd.jpl.nasa.gov/horizons/manual.html : 15. Solar sub-longitude & sub-latitude  """

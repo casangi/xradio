@@ -159,6 +159,8 @@ def extract_ephemeris_info(
     # Consequently a lot of hardcoding is needed to extract the information.
     # https://casadocs.readthedocs.io/en/latest/notebooks/external-data.html
 
+    xds = xds.assign_coords({"sky_dis_label": ["dist"],"cartesian_pos_label": ["x", "y", "z"]})
+
     # Only read data between the min and max times of the visibility data in the MSv4.
     min_max_mjd = (
         convert_casacore_time_to_mjd(time_min_max[0]),
@@ -215,41 +217,37 @@ def extract_ephemeris_info(
     temp_xds = xr.Dataset()
 
     # Add mandatory data: OBSERVER_POSITION
-    observer_position = [
-        ephemeris_meta["GeoLong"],
-        ephemeris_meta["GeoLat"],
-    ]
-    temp_xds["OBSERVER_DIRECTION"] = xr.DataArray(
-        observer_position, dims=["ellipsoid_dir_label"]
-    )
-    temp_xds["OBSERVER_DIRECTION"].attrs.update(
-        {
-            "type": "location",
-            "units": "deg",
-            "data": observer_position,
-            "frame": "ITRS",
-            "origin_object_name": "Earth",
-            "coordinate_system": ephemeris_meta["obsloc"].lower(),
-            "ellipsoid": "WGS84",
-        }
-    )  # I think the units are ['deg','deg','m'] and 'WGS84'.
+    #Convert Observer position to geodetic coordinates
+    from astropy import units as u
+    from astropy.coordinates import EarthLocation
+    from astropy.time import Time
 
-    temp_xds["OBSERVER_DISTANCE"] = xr.DataArray(
-        [ephemeris_meta["GeoDist"]], dims=["ellipsoid_dis_label"]
+
+    # Create an EarthLocation object for the geodetic coordinates
+    # Assume that geodetic coordinates are given in degrees and meters
+    location = EarthLocation.from_geodetic(
+        lon=ephemeris_meta["GeoLong"]*u.deg,
+        lat=ephemeris_meta["GeoLat"]*u.deg,
+        height=ephemeris_meta["GeoDist"]*u.m,
+        ellipsoid='WGS84'  # Explicitly specify WGS84 
     )
-    temp_xds["OBSERVER_DISTANCE"].attrs.update(
+
+    # Get the ITRS Cartesian coordinates (x, y, z)
+    observer_position = location.itrs.cartesian.xyz
+    
+    temp_xds["OBSERVER_POSITION"] = xr.DataArray(
+        observer_position, dims=["cartesian_pos_label"]
+    )
+    temp_xds["OBSERVER_POSITION"].attrs.update(
         {
             "type": "location",
             "units": "m",
-            "data": observer_position,
             "frame": "ITRS",
             "origin_object_name": "Earth",
             "coordinate_system": ephemeris_meta["obsloc"].lower(),
-            "ellipsoid": "WGS84",
         }
-    )  # I think the units are ['deg','deg','m'] and 'WGS84'.
-
-    # Add (optional) data: SOURCE_DIRECTION (POSITION / sky_pos_label)
+    ) 
+    
     temp_xds["SOURCE_DIRECTION"] = xr.DataArray(
         np.column_stack(
             (
@@ -887,7 +885,6 @@ def extract_field_info_and_check_ephemeris(
                 np.char.add("_", field_and_source_xds["field_id"].astype(str)),
             ),
             "sky_dir_label": ["ra", "dec"],
-            "sky_dis_label": ["dist"],
         }
     )
 

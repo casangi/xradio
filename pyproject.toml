@@ -42,6 +42,10 @@ python_casacore = [
     'python_casacore>=3.6.1; sys_platform != "darwin"'
 ]
 
+pyasdm = [
+    'pyasdm'
+]
+
 interactive = [
     'matplotlib',
     'prettytable',

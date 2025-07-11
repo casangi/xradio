@@ -89,7 +89,7 @@ UnitsSeconds = Literal["s"]
 UnitsHertz = Literal["Hz"]
 UnitsMeters = Literal["m"]
 
-#UnitsOfSkyCoordInRadians = Literal["rad"]
+# UnitsOfSkyCoordInRadians = Literal["rad"]
 UnitsOfSkyCoordInMetersOrRadians = Literal["m", "rad"]
 UnitsOfLocationInMetersOrRadians = Literal[
     "m",
@@ -1139,7 +1139,7 @@ class FieldSourceEphemerisXds:
     conversion from MSv2, frame refers column keywords by default. If frame
     varies with field, it refers DelayDir_Ref column instead.
     """
-    
+
     FIELD_PHASE_CENTER_DISTANCE: Optional[Data[tuple[Time], SkyCoordArray]]
     """
     Offset from the SOURCE_DIRECTION that gives the direction of phase
@@ -1156,7 +1156,7 @@ class FieldSourceEphemerisXds:
     been applied. For conversion from MSv2, frame refers column keywords by default. If
     frame varies with field, it refers DelayDir_Ref column instead.
     """
-    
+
     FIELD_REFERENCE_CENTER_DISTANCE: Optional[Data[tuple[Time], SkyCoordArray]]
     """
     Used in single-dish to record the associated reference direction if positionswitching

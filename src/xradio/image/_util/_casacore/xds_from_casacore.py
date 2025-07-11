@@ -98,11 +98,17 @@ def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = True) -> d
                         "origin_object_name": "earth",
                         "type": "location",
                         "units": casa_pos["m0"]["unit"],
-                        "dims": ["ellipsoid_dir_label"],
                     },
                     "data": np.array(
                         [casa_pos["m0"]["value"], casa_pos["m1"]["value"]]
                     ),
+                    "dims": ("ellipsoid_dir_label",),
+                    "coords": {
+                        "ellipsoid_dir_label": {
+                            "dims": ("ellipsoid_dir_label",),
+                            "data": ["lon", "lat"],
+                        }
+                    },
                 }
                 telescope["distance"] = {
                     "attrs": {
@@ -111,9 +117,15 @@ def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = True) -> d
                         "origin_object_name": "earth",
                         "type": "location",
                         "units": casa_pos["m2"]["unit"],
-                        "dims": ["ellipsoid_dis_label"],
                     },
                     "data": np.array([casa_pos["m2"]["value"]]),
+                    "dims": ("ellipsoid_dis_label",),
+                    "coords": {
+                        "ellipsoid_dis_label": {
+                            "dims": ("ellipsoid_dis_label",),
+                            "data": ["dist"],
+                        }
+                    },
                 }
 
                 """

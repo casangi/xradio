@@ -200,9 +200,12 @@ class xds_from_image_test(ImageBase):
                     "units": "rad",
                 },
                 "data": np.array([-1.1825465955049892, -0.3994149869262738]),
-                "dims": ("sky_dir_label",),
+                "dims": ("ellipsoid_dir_label",),
                 "coords": {
-                    "sky_dir_label": {"dims": ("sky_dir_label",), "data": ["ra", "dec"]}
+                    "ellipsoid_dir_label": {
+                        "dims": ("ellipsoid_dir_label",),
+                        "data": ["lon", "lat"],
+                    }
                 },
             },
             "distance": {
@@ -214,9 +217,12 @@ class xds_from_image_test(ImageBase):
                     "units": "m",
                 },
                 "data": [6379946.01326443],
-                "dims": ("sky_dis_label",),
+                "dims": ("ellipsoid_dis_label",),
                 "coords": {
-                    "sky_dis_label": {"dims": ("sky_dis_label",), "data": ["m"]}
+                    "ellipsoid_dis_label": {
+                        "dims": ("ellipsoid_dis_label",),
+                        "data": ["dist"],
+                    }
                 },
             },
         },
@@ -649,6 +655,11 @@ class xds_from_image_test(ImageBase):
 
     def compare_sky_attrs(self, sky: xr.DataArray, fits: bool = False) -> None:
         my_exp_attrs = copy.deepcopy(self.exp_sky_attrs())
+
+        print("Comparing sky attrs")
+        print("Got attrs:", sky.attrs)
+        print("******************")
+
         if "direction" not in sky.attrs["telescope"]:
             del my_exp_attrs["telescope"]["direction"]
             del my_exp_attrs["telescope"]["distance"]
@@ -882,13 +893,13 @@ class casa_image_to_xds_test(xds_from_image_test):
 
     def test_xds_attrs(self):
         """Test xds level attributes"""
-        # print("########## Comparing xds attrs")
-        # print("Expected attrs:", self.exp_xds_attrs(), "###")
-        # print("Got attrs:", self.xds().attrs, "###")
-        # print("##########")
+        print("########## Comparing xds attrs")
+        print("Expected attrs:", self.exp_xds_attrs(), "###")
+        print("Got attrs:", self.xds().attrs, "###")
+        print("##########")
         self.compare_xds_attrs(self.xds())
         self.compare_sky_attrs(self.xds().SKY)
-        
+
     def test_get_img_ds_block(self):
         self.compare_image_block(self.imname())
 

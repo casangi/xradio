@@ -257,9 +257,15 @@ def _get_telescope_metadata(helpers: dict, header) -> dict:
                 "origin_object_name": "earth",
                 "type": "location",
                 "units": "rad",
-                "dims": ["ellipsoid_dir_label"],
             },
             "data": np.array([long, lat]),
+            "dims": ("ellipsoid_dir_label",),
+            "coords": {
+                "ellipsoid_dir_label": {
+                    "dims": ("ellipsoid_dir_label",),
+                    "data": ["lon", "lat"],
+                }
+            },
         }
         tel["distance"] = {
             "attrs": {
@@ -269,9 +275,15 @@ def _get_telescope_metadata(helpers: dict, header) -> dict:
                 "origin_object_name": "earth",
                 "type": "location",
                 "units": "m",
-                "dims": ["ellipsoid_dis_label"],
             },
             "data": np.array([r]),
+            "dims": ("ellipsoid_dis_label",),
+            "coords": {
+                "ellipsoid_dis_label": {
+                    "dims": ("ellipsoid_dis_label",),
+                    "data": ["dist"],
+                }
+            },
         }
     return tel
 

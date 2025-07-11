@@ -159,7 +159,9 @@ def extract_ephemeris_info(
     # Consequently a lot of hardcoding is needed to extract the information.
     # https://casadocs.readthedocs.io/en/latest/notebooks/external-data.html
 
-    xds = xds.assign_coords({"sky_dis_label": ["dist"],"cartesian_pos_label": ["x", "y", "z"]})
+    xds = xds.assign_coords(
+        {"sky_dis_label": ["dist"], "cartesian_pos_label": ["x", "y", "z"]}
+    )
 
     # Only read data between the min and max times of the visibility data in the MSv4.
     min_max_mjd = (
@@ -217,24 +219,23 @@ def extract_ephemeris_info(
     temp_xds = xr.Dataset()
 
     # Add mandatory data: OBSERVER_POSITION
-    #Convert Observer position to geodetic coordinates
+    # Convert Observer position to geodetic coordinates
     from astropy import units as u
     from astropy.coordinates import EarthLocation
     from astropy.time import Time
 
-
     # Create an EarthLocation object for the geodetic coordinates
     # Assume that geodetic coordinates are given in degrees and meters
     location = EarthLocation.from_geodetic(
-        lon=ephemeris_meta["GeoLong"]*u.deg,
-        lat=ephemeris_meta["GeoLat"]*u.deg,
-        height=ephemeris_meta["GeoDist"]*u.m,
-        ellipsoid='WGS84'  # Explicitly specify WGS84 
+        lon=ephemeris_meta["GeoLong"] * u.deg,
+        lat=ephemeris_meta["GeoLat"] * u.deg,
+        height=ephemeris_meta["GeoDist"] * u.m,
+        ellipsoid="WGS84",  # Explicitly specify WGS84
     )
 
     # Get the ITRS Cartesian coordinates (x, y, z)
     observer_position = location.itrs.cartesian.xyz
-    
+
     temp_xds["OBSERVER_POSITION"] = xr.DataArray(
         observer_position, dims=["cartesian_pos_label"]
     )
@@ -246,8 +247,8 @@ def extract_ephemeris_info(
             "origin_object_name": "Earth",
             "coordinate_system": ephemeris_meta["obsloc"].lower(),
         }
-    ) 
-    
+    )
+
     temp_xds["SOURCE_DIRECTION"] = xr.DataArray(
         np.column_stack(
             (

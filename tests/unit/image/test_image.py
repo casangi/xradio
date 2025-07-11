@@ -204,7 +204,7 @@ class xds_from_image_test(ImageBase):
                 "coords": {
                     "ellipsoid_dir_label": {
                         "dims": ("ellipsoid_dir_label",),
-                        "data": ["lon", "lat"],
+                        "data": ("lon", "lat"),
                     }
                 },
             },
@@ -221,7 +221,7 @@ class xds_from_image_test(ImageBase):
                 "coords": {
                     "ellipsoid_dis_label": {
                         "dims": ("ellipsoid_dis_label",),
-                        "data": ["dist"],
+                        "data": ("dist",),
                     }
                 },
             },

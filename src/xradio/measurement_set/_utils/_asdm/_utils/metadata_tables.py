@@ -4,7 +4,7 @@ import pandas as pd
 import pyasdm
 
 
-def load_asdm_col(sdm_table, col_name):
+def load_asdm_col(sdm_table: pyasdm.ASDM, col_name: str) -> list:
     def upper_first(col_string):
         return col_string[0].upper() + col_string[1:]
 

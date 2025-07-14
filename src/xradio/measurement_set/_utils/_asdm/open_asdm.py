@@ -11,20 +11,27 @@ from xradio.measurement_set._utils._asdm.open_partition import open_partition
 
 def open_asdm(asdm_path: str, partition_scheme: list = ["fieldId"]):
     """
-    TODO
+    Opens an ASDM (ALMA Science Data Model) file and converts it into an xarray DataTree
+    structure. The ASDM is partitioned according to the specified scheme and each
+    partition is converted into a separate MSv4 (Measurement Set version 4).
 
     Parameters
     ----------
     asdm_path:
         Input ASDM path
     partition_scheme:
-        partition axes: ["execBlockId", "dataDescriptionId", "scanIntent"]
-        + optional ones
+        List of axes to partition the data on. Default is ["fieldId"].
+        The following partition axes are always used, in addition to the ones
+        given: ["execBlockId", "dataDescriptionId", "scanIntent"]
+        The optional axes are: ["fieldId", "scanNumber", "subscanNumber", "antennaId"]
 
     Returns
     -------
     xr.DataTree
-        Datatree with processing set of MSv4s populated from the input ASDM
+        Datatree with processing set of MSv4s populated from the input ASDM.
+        Each node of the tree represents a partition of the original ASDM data.
+        The DataTree has a 'type' attribute set to 'processing_set'. Node names are
+        formatted as '{asdm_name}_{index}'
     """
 
     ps_xdt = xr.DataTree()

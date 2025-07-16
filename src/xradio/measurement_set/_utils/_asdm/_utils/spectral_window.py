@@ -32,7 +32,7 @@ def ensure_spw_name_conforms(spw_name, spw_id) -> str:
     else:
         spw_name = f"{spw_name}_{spw_id}"
 
-    spw_name
+    return spw_name
 
 
 def get_spw_frequency_centers(

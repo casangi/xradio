@@ -17,7 +17,13 @@ from xradio.measurement_set._utils._asdm._utils.spectral_window import (
     get_reference_frame,
     get_spw_frequency_centers,
 )
-from xradio._utils.dict_helpers import make_spectral_coord_reference_dict, make_quantity
+from xradio.measurement_set._utils._asdm._utils.time import convert_time_asdm_to_unix
+from xradio._utils.dict_helpers import (
+    make_quantity,
+    make_spectral_coord_measure_attrs,
+    make_spectral_coord_reference_dict,
+    make_time_measure_attrs,
+)
 
 
 def open_partition(
@@ -71,6 +77,7 @@ def open_partition(
 def open_correlated_xds(
     asdm: pyasdm.ASDM, partition_descr: dict[str, np.ndarray]
 ) -> xr.DataTree:
+    datetime_now = datetime.datetime.now(datetime.timezone.utc).isoformat()
     xds = xr.Dataset(
         attrs={
             "schema_version": MSV4_SCHEMA_VERSION,
@@ -78,25 +85,103 @@ def open_correlated_xds(
                 "software_name": "xradio",
                 "version": importlib.metadata.version("xradio"),
             },
-            "creation_date": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "creation_date": datetime_now,
             "type": "visibility",
         }
     )
 
-    coords, attrs = create_coordinates(asdm, partition_descr)
+    is_single_dish = False
+    coords, coord_attrs = create_coordinates(asdm, partition_descr, is_single_dish)
     xds = xds.assign_coords(coords)
     for coord_name in coords:
-        if coord_name in attrs:
-            xds.coords[coord_name].attrs = attrs[coord_name]
+        if coord_name in coord_attrs:
+            xds.coords[coord_name].attrs = coord_attrs[coord_name]
+
+    xds = xds.assign(create_data_vars(xds))
+
+    data_group_base = {
+        "correlated_data": "VISIBILITY",
+        "flag": "FLAG",
+        "weight": "WEIGHT",
+        "field_and_source": "field_and_source_base_xds",
+        "description": "Base data group derived from data in ASDM BDFs",
+        "date": datetime_now,
+    }
+
+    xds.attrs["data_groups"] = {}
+    xds.attrs["data_groups"]["base"] = data_group_base
 
     return xds
+
+
+def create_data_vars(xds: xr.Dataset) -> dict[str, tuple]:
+    data_vars = {}
+
+    data_vars["VISIBILITY"] = (
+        ["time", "baseline_id", "frequency", "polarization"],
+        np.ones(
+            (
+                xds.sizes["time"],
+                xds.sizes["baseline_id"],
+                xds.sizes["frequency"],
+                xds.sizes["polarization"],
+            ),
+            dtype="complex128",
+        ),
+        {
+            "type": "quantity",
+            "units": [""],  # Do the ASDM/BDFs give anything?
+            "field_and_source_xds": None,
+        },
+    )
+
+    data_vars["WEIGHT"] = (
+        ["time", "baseline_id", "frequency", "polarization"],
+        np.ones(
+            (
+                xds.sizes["time"],
+                xds.sizes["baseline_id"],
+                xds.sizes["frequency"],
+                xds.sizes["polarization"],
+            ),
+            dtype="float64",
+        ),
+    )
+
+    data_vars["FLAG"] = (
+        ["time", "baseline_id", "frequency", "polarization"],
+        np.ones(
+            (
+                xds.sizes["time"],
+                xds.sizes["baseline_id"],
+                xds.sizes["frequency"],
+                xds.sizes["polarization"],
+            ),
+            dtype="bool",
+        ),
+    )
+
+    data_vars["UVW"] = (
+        ["time", "baseline_id", "uvw_label"],
+        np.ones(
+            (
+                xds.sizes["time"],
+                xds.sizes["baseline_id"],
+                xds.sizes["uvw_label"],
+            ),
+            dtype="float64",
+        ),
+        {"type": "uvw", "frame": "icrs", "units": ["m"]},
+    )
+
+    return data_vars
 
 
 def create_coordinates(
     asdm: pyasdm.ASDM,
     partition_descr: dict[str, np.ndarray],
-    is_single_dish: bool = True,
-) -> dict[str, np.ndarray]:
+    is_single_dish: bool = False,
+) -> tuple[dict, dict]:
     """
     TODO
 
@@ -123,10 +208,13 @@ def create_coordinates(
     scans_metadata = scan_df.loc[
         scan_df["scanNumber"].isin(partition_descr["scanNumber"])
     ]
-    time_centers = scans_metadata["startTime"].values
+    time_centers = convert_time_asdm_to_unix(scans_metadata["startTime"].values)
     coords["time"] = (["time"], time_centers)
-    attrs["time"] = make_quantity(time_centers, "s", ["time"])
-    scan_numbers = scans_metadata["scanNumber"]
+    attrs["time"] = make_time_measure_attrs("s", "tai", time_format="unix")
+    attrs["time"].update(
+        {"dims": ["time"], "integration_time": make_quantity(0.0, "s")}
+    )
+    scan_numbers = np.array(scans_metadata["scanNumber"]).astype(str)
     coords["scan_name"] = (["time"], scan_numbers)
 
     # baselines...
@@ -143,8 +231,15 @@ def create_coordinates(
     baseline_antenna1_id, baseline_antenna2_id = zip(
         *itertools.combinations_with_replacement(np.arange(num_antenna), 2)
     )
-    coords["baseline_antenna1_id"] = (["baseline_id"], list(baseline_antenna1_id))
-    coords["baseline_antenna2_id"] = (["baseline_id"], list(baseline_antenna2_id))
+    # TODO: get proper names
+    coords["baseline_antenna1_name"] = (
+        ["baseline_id"],
+        list([str(idx) for idx in baseline_antenna1_id]),
+    )
+    coords["baseline_antenna2_name"] = (
+        ["baseline_id"],
+        list([str(idx) for idx in baseline_antenna2_id]),
+    )
     coords["baseline_id"] = np.arange(len(baseline_antenna1_id))
 
     # From dataDescriptionId get SPW and polarization IDs
@@ -183,14 +278,16 @@ def create_coordinates(
     num_chan = spectral_window["numChan"].values[0]
     frequency_centers = get_spw_frequency_centers(asdm, spw_id, num_chan)
 
-    coords["frequency"] = frequency_centers
-    attrs["frequency"] = make_quantity(frequency_centers, "Hz", ["frequency"])
+    coords["frequency"] = (["frequency"], [freq for freq in frequency_centers])
+    attrs["frequency"] = make_spectral_coord_measure_attrs("Hz", observer="TOPO")
     # Other keys of the frequency coord
     frequency_other_attrs = {
         "frame": get_reference_frame(asdm, spw_id),
         "spectral_window_name": ensure_spw_name_conforms(spw_name, spw_id),
-        "reference_frequency": spectral_window["refFreq"].values[0],
-        "channel_width": get_chan_width(asdm, spw_id),
+        "reference_frequency": make_spectral_coord_reference_dict(
+            spectral_window["refFreq"].values[0], "Hz", "TOPO"
+        ),
+        "channel_width": make_quantity(get_chan_width(asdm, spw_id), "Hz"),
     }
     attrs["frequency"].update(frequency_other_attrs)
 
@@ -200,7 +297,7 @@ def create_coordinates(
     fields = field_df.loc[field_df["fieldId"].isin(partition_descr["fieldId"])][
         "fieldName"
     ].values
-    coords["field_name"] = (["time"], np.repeat(fields, len(time_centers)))
+    coords["field_name"] = (["time"], np.repeat(fields, len(time_centers)).astype(str))
 
     if not is_single_dish:
         coords["uvw_label"] = np.array(["u", "v", "w"])

@@ -1,8 +1,8 @@
 import toolviper.utils.logger as logger
-import numcodecs
 from typing import Dict, Union
 
 import dask
+import zarr.codecs
 
 from xradio.measurement_set._utils._msv2.partition_queries import create_partitions
 from xradio.measurement_set._utils._msv2.conversion import (
@@ -61,8 +61,7 @@ def convert_msv2_to_processing_set(
     phase_cal_interpolate: bool = False,
     sys_cal_interpolate: bool = False,
     use_table_iter: bool = False,
-    # For zarr-python 3.x, with zarr_format=2
-    compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
+    compressor: zarr.abc.codec.BytesBytesCodec = zarr.codecs.ZstdCodec(level=2),
     storage_backend: str = "zarr",
     parallel_mode: str = "none",
     overwrite: bool = False,

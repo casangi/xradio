@@ -1,16 +1,16 @@
 from collections import deque
 import datetime
 import importlib
-import numcodecs
 import os
 import pathlib
 import time
+import traceback
 from typing import Callable, Dict, Union
 
 import dask.array as da
 import numpy as np
 import xarray as xr
-import traceback
+import zarr.codecs
 
 import toolviper.utils.logger as logger
 
@@ -961,8 +961,7 @@ def convert_and_write_partition(
     ephemeris_interpolate: bool = False,
     phase_cal_interpolate: bool = False,
     sys_cal_interpolate: bool = False,
-    # For zarr-python 3.x, with zarr_format=2
-    compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
+    compressor: zarr.abc.codec.BytesBytesCodec = zarr.codecs.ZstdCodec(level=2),
     storage_backend="zarr",
     parallel_mode: str = "none",
     overwrite: bool = False,

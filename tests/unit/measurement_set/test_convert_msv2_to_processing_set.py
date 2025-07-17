@@ -1,7 +1,10 @@
+import shutil
+
+import xarray as xr
+
 import pytest
 
-
-mem_estimate_min_ms = 0.0026036426424980164
+mem_estimate_min_ms = 0.011131428182125092
 
 
 @pytest.mark.parametrize(
@@ -59,3 +62,36 @@ def test_estimate_conversion_memory_and_cores_with_errors(input_path, expected_e
     with expected_error:
         res = estimate_conversion_memory_and_cores(input_path, [])
         assert res
+
+
+def test_convert_msv2_to_processing_set_with_other_opts(ms_minimal_misbehaved):
+    """Uses a few options that are not exercised in other tests"""
+    from xradio.measurement_set import (
+        convert_msv2_to_processing_set,
+        open_processing_set,
+    )
+    from xradio.schema.check import check_datatree
+
+    out_path = "test_convert_msv2_to_proc_set_without_ps_zarr_ending"
+    out_path_with_ending = out_path + ".ps.zarr"
+    try:
+        convert_msv2_to_processing_set(
+            ms_minimal_misbehaved.fname,
+            out_file=out_path,
+            partition_scheme=["FIELD_ID"],
+            overwrite=False,
+            parallel_mode="bogus_mode",
+        )
+        ps_xdt = xr.open_datatree(out_path_with_ending)
+        check_datatree(ps_xdt)
+
+        # TODO: break this out to a proper test_open_processing_set:
+        open_xdt = open_processing_set(out_path_with_ending, intents="faulty")
+        check_datatree(open_xdt)
+
+    finally:
+        shutil.rmtree(out_path_with_ending)
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", "-s", __file__])

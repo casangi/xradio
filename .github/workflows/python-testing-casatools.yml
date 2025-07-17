@@ -1,10 +1,6 @@
 name: "Python Testing with casatools"
 
 on:
-  push:
-    paths-ignore:
-      - "**.md"
-      - "**.rst"
   pull_request:
     paths-ignore:
       - "**.md"

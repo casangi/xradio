@@ -1,5 +1,3 @@
-import toolviper.utils.logger as logger
-import time
 from typing import Tuple, Union
 
 import numpy as np
@@ -10,7 +8,6 @@ from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
 from xradio.measurement_set._utils._msv2._tables.read import (
     load_generic_table,
     convert_casacore_time,
-    convert_casacore_time_to_mjd,
     make_taql_where_between_min_max,
     table_exists,
 )
@@ -20,17 +17,15 @@ from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
 )
 
 from xradio._utils.list_and_array import (
-    check_if_consistent,
     unique_1d,
-    to_list,
-    to_np_array,
 )
+from xradio._utils.dict_helpers import make_quantity_attrs
 
 
 def create_antenna_xds(
     in_file: str,
     spectral_window_id: int,
-    antenna_id: list,
+    antenna_id: np.ndarray,
     feed_id: list,
     telescope_name: str,
     partition_polarization: xr.DataArray,
@@ -44,8 +39,8 @@ def create_antenna_xds(
         Path to the input MSv2.
     spectral_window_id : int
         Spectral window ID.
-    antenna_id : list
-        List of antenna IDs.
+    antenna_id : np.ndarray
+        Antenna IDs.
     feed_id : list
         List of feed IDs.
     telescope_name : str
@@ -82,7 +77,7 @@ def create_antenna_xds(
 
 
 def extract_antenna_info(
-    ant_xds: xr.Dataset, in_file: str, antenna_id: list, telescope_name: str
+    ant_xds: xr.Dataset, in_file: str, antenna_id: np.ndarray, telescope_name: str
 ) -> xr.Dataset:
     """Reformats MSv2 Antenna table content to MSv4 schema.
 
@@ -92,8 +87,8 @@ def extract_antenna_info(
         The dataset that will be updated with antenna information.
     in_file : str
         Path to the input MSv2.
-    antenna_id : list
-        A list of antenna IDs to extract information for.
+    antenna_id : np.array
+        Antenna IDs to extract information for.
     telescope_name : str
         The name of the telescope.
 
@@ -138,7 +133,7 @@ def extract_antenna_info(
         generic_ant_xds, ant_xds, to_new_data_variables, to_new_coords
     )
 
-    ant_xds["ANTENNA_DISH_DIAMETER"].attrs.update({"units": ["m"], "type": "quantity"})
+    ant_xds["ANTENNA_DISH_DIAMETER"].attrs.update(make_quantity_attrs(["m"]))
 
     ant_xds["ANTENNA_POSITION"].attrs["coordinate_system"] = "geocentric"
     ant_xds["ANTENNA_POSITION"].attrs["origin_object_name"] = "earth"

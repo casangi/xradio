@@ -18,10 +18,9 @@ from xradio.measurement_set._utils._msv2._tables.read import (
     load_generic_table,
 )
 from xradio._utils.list_and_array import cast_to_str, get_pad_value
-
+from xradio._utils.dict_helpers import make_quantity_attrs
 from xradio._utils.coord_math import (
     convert_to_si_units,
-    add_position_offsets,
     wrap_to_pi,
 )
 
@@ -45,7 +44,7 @@ def create_field_and_source_xds(
     is_single_dish: bool,
     time_min_max: Tuple[np.float64, np.float64],
     ephemeris_interpolate: bool = True,
-) -> tuple[xr.Dataset, int]:
+) -> tuple[xr.Dataset, np.ndarray, int]:
     """
     Create a field and source xarray dataset (xds) from the given input file, field ID, and spectral window ID.
     Data is extracted from the FIELD and SOURCE tables and if there is ephemeris data, it is also extracted.
@@ -72,6 +71,8 @@ def create_field_and_source_xds(
     -------
     field_and_source_xds : xr.Dataset
         The xarray dataset containing the field and source information.
+    source_id : np.ndarray[int]
+        Source ID(s) corresponding to the field(s)
     num_lines : int
         Sum of num_lines for all unique sources.
     """
@@ -281,16 +282,13 @@ def extract_ephemeris_info(
         msv4_var_name = msv4_variable_def[0]
         if msv4_var_name in temp_xds:
             temp_xds[msv4_var_name].attrs.update(
-                {
-                    "type": "quantity",
-                    "units": [
-                        cast_to_str(
-                            ephemeris_column_description[generic_var_name]["keywords"][
-                                unit_keyword
-                            ]
-                        )
-                    ],
-                }
+                make_quantity_attrs(
+                    cast_to_str(
+                        ephemeris_column_description[generic_var_name]["keywords"][
+                            unit_keyword
+                        ]
+                    )
+                )
             )
 
     # Add optional data: SUB_OBSERVER_DIRECTION and SUB_SOLAR_POSITION
@@ -611,7 +609,7 @@ def extract_source_info(
 
     if all(source_id == -1):
         logger.warning(
-            f"Source_id is -1. No source information will be included in the field_and_source_xds."
+            "Source_id is -1. No source information will be included in the field_and_source_xds."
         )
         xds = xds.assign_coords(
             {"source_name": ("field_name", unknown)}
@@ -655,7 +653,7 @@ def extract_source_info(
     # ), "Can only process source table with a single time entry for a source_id and spectral_window_id."
     if len(source_xds.TIME) > len(unique_source_id):
         logger.warning(
-            f"Source table has more than one time entry for a source_id and spectral_window_id. This is not currently supported. Only the first time entry will be used."
+            "Source table has more than one time entry for a source_id and spectral_window_id. This is not currently supported. Only the first time entry will be used."
         )
         source_xds = source_xds.drop_duplicates("SOURCE_ID", keep="first")
 
@@ -689,9 +687,6 @@ def extract_source_info(
     # If ephemeris data is present we ignore the SOURCE_DIRECTION in the source table.
     if not is_ephemeris:
         direction_msv2_col = "DIRECTION"
-        msv4_measure = column_description_casacore_to_msv4_measure(
-            source_column_description[direction_msv2_col]
-        )
 
         msv2_direction_dims = source_xds[direction_msv2_col].dims
         if (
@@ -739,14 +734,15 @@ def extract_source_info(
 
     # Need to add doppler info if present. Add check.
     try:
-        doppler_xds = load_generic_table(
+        load_generic_table(
             path,
             "DOPPLER",
         )
-        assert (
-            False
-        ), "Doppler table present. Please open an issue on https://github.com/casangi/xradio/issues so that we can add support for this."
-    except:
+        logger.warning(
+            "Doppler table present. Please open an issue on "
+            "https://github.com/casangi/xradio/issues so that we can add support for this."
+        )
+    except ValueError:
         pass
 
     xds = xds.assign_coords(coords)
@@ -754,50 +750,6 @@ def extract_source_info(
     _, unique_source_ids_indices = np.unique(source_xds.SOURCE_ID, return_index=True)
 
     return xds, np.sum(num_lines[unique_source_ids_indices])
-
-
-def make_field_dims_and_coords(
-    field_xds: xr.Dataset, field_id: Union[int, np.ndarray], field_times: list
-) -> tuple[list, dict]:
-    """
-    Produces the dimensions and coordinates used in the field data variables
-    extracted from the MSv2 FIELD subtable (FIELD_PHASE_CENTER/
-    FIELD_REFERENCE_CENTER).
-
-    Parameters:
-    ----------
-    field_xds: xr.Dataset
-        generic field xarray dataset
-    field_id: Union[int, np.ndarray]
-        field_id of the dataset
-    field_times:
-        Unique times for the dataset (when not partitioning by FIELD_ID)
-
-    Returns:
-    -------
-    tuple : tuple[list, dict]
-        The dimensions and coordinates to use with field data variables. The
-        dimensions are produced as a list of dimension names, and the
-        coordinates as a dict for xarray coords.
-    """
-
-    coords = {"sky_dir_label": ["ra", "dec"]}
-
-    # field_times is the same as the time axis in the main MSv4 dataset and is used if more than one field is present.
-    if field_times is not None:
-        coords["time"] = field_times
-        dims = ["time", "sky_dir_label"]
-        coords["field_name"] = (
-            "time",
-            np.char.add(field_xds["NAME"].data, np.char.add("_", field_id.astype(str))),
-        )
-        # coords["field_id"] = ("time", field_id)
-    else:
-        coords["field_name"] = field_xds["NAME"].values.item() + "_" + str(field_id)
-        # coords["field_id"] = field_id
-        dims = ["field_name", "sky_dir_label"]
-
-    return dims, coords
 
 
 def extract_field_info_and_check_ephemeris(

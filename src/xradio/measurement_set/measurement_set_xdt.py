@@ -1,11 +1,11 @@
-import pandas as pd
-from xradio._utils.list_and_array import to_list
-import xarray as xr
-import numpy as np
-import numbers
-import os
 from collections.abc import Mapping, Iterable
+import datetime
 from typing import Any, Union
+
+import numpy as np
+import xarray as xr
+
+from xradio._utils.list_and_array import to_list
 
 MS_DATASET_TYPES = {"visibility", "spectrum", "radiometer"}
 
@@ -102,7 +102,7 @@ class MeasurementSetXdt:
             data_variables_to_drop = []
             field_and_source_to_drop = []
             for dg_name, dg in self._xdt.attrs["data_groups"].items():
-                print(f"Data group: {dg_name}", dg)
+                # print(f"Data group: {dg_name}", dg)
                 f_and_s = dg["field_and_source"]
                 dg_copy = dg.copy()
                 dg_copy.pop("date", None)
@@ -118,8 +118,8 @@ class MeasurementSetXdt:
 
             sel_ms_xdt = self._xdt
 
-            print("Data variables to drop: ", data_variables_to_drop)
-            print("Field and source to drop: ", field_and_source_to_drop)
+            # print("Data variables to drop: ", data_variables_to_drop)
+            # print("Field and source to drop: ", field_and_source_to_drop)
 
             sel_corr_xds = self._xdt.ds.sel(
                 indexers, method, tolerance, drop, **indexers_kwargs
@@ -293,14 +293,14 @@ class MeasurementSetXdt:
             ), f"Data variable {uvw} not found in dataset."
 
         if field_and_source_xds is None:
-            field_and_source_xds = default_data_group["field_and_source_xds"]
+            field_and_source_xds = default_data_group["field_and_source"]
         new_data_group["field_and_source"] = field_and_source_xds
         assert (
             field_and_source_xds in self._xdt.children
         ), f"Data variable {field_and_source_xds} not found in dataset."
 
         if date_time is None:
-            date_time = datetime.now().isoformat()
+            date_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
         new_data_group["date"] = date_time
 
         if description is None:

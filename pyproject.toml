@@ -22,7 +22,8 @@ dependencies = [
     'zarr>=3,<4',
     'pyarrow',
     'typeguard',
-    'numcodecs<0.16'
+    'numcodecs<0.16',
+    'psutil' # psutil is needed so large FITS images are not loaded into memory
 ]
 
 # toolviper has the following key dependencies also directly used by XRADIO (https://github.com/casangi/toolviper/blob/main/pyproject.toml):

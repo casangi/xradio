@@ -8,6 +8,10 @@ import xarray as xr
 from numpy.typing import ArrayLike
 
 from xradio._utils.coord_math import convert_to_si_units
+from xradio._utils.dict_helpers import (
+    make_time_measure_attrs,
+    make_spectral_coord_measure_attrs,
+)
 from xradio._utils.schema import (
     column_description_casacore_to_msv4_measure,
     convert_generic_xds_to_xradio_schema,
@@ -21,12 +25,7 @@ from ._tables.read import (
 )
 
 
-standard_time_coord_attrs = {
-    "type": "time",
-    "units": ["s"],
-    "scale": "utc",
-    "format": "unix",
-}
+standard_time_coord_attrs = make_time_measure_attrs(time_format="unix")
 
 
 def rename_and_interpolate_to_time(
@@ -129,7 +128,11 @@ def interpolate_to_time(
             {time_name: interp_time.data}, method=method, assume_sorted=True
         )
         # scan_name sneaks in as a coordinate of the main time axis, drop it
-        if "scan_name" in xds.coords:
+        if (
+            "type" in xds.attrs
+            and xds.attrs["type"] not in ["visibility", "spectrum", "wvr"]
+            and "scan_name" in xds.coords
+        ):
             xds = xds.drop_vars("scan_name")
         points_after = xds[time_name].size
         logger.debug(
@@ -283,7 +286,7 @@ def finalize_station_position(
         # borrow location frame attributes from antenna position
         weather_xds["STATION_POSITION"].attrs = ant_position_with_ids.attrs
     else:
-        # borrow from ant_posision_with_ids but without carrying over other coords
+        # borrow from ant_position_with_ids but without carrying over other coords
         weather_xds = weather_xds.assign(
             {
                 "STATION_POSITION": (
@@ -344,7 +347,7 @@ def create_weather_xds(in_file: str, ant_position_with_ids: xr.DataArray):
     dims_station_time = ["station_name", "time_weather"]
     dims_station_time_position = dims_station_time + ["cartesian_pos_label"]
     to_new_data_variables = {
-        "H20": ["H2O", dims_station_time],
+        "H2O": ["H2O", dims_station_time],
         "IONOS_ELECTRON": ["IONOS_ELECTRON", dims_station_time],
         "PRESSURE": ["PRESSURE", dims_station_time],
         "REL_HUMIDITY": ["REL_HUMIDITY", dims_station_time],
@@ -439,10 +442,10 @@ def correct_generic_pointing_xds(
                 and generic_pointing_xds.sizes["dir"] == 0
             ):
                 # When some direction variables are "empty" but some are populated properly
-                if "dim_2" in generic_pointing_xds[key].sizes:
+                if "dim_2" in generic_pointing_xds[data_var_name].sizes:
                     data_var_data = xr.DataArray(
-                        generic_pointing_xds[key].values,
-                        dims=generic_pointing_xds[key].dims,
+                        generic_pointing_xds[data_var_name].values,
+                        dims=generic_pointing_xds[data_var_name].dims,
                     )
                 else:
                     shape = tuple(
@@ -451,7 +454,7 @@ def correct_generic_pointing_xds(
                     ) + (2,)
                     data_var_data = xr.DataArray(
                         np.full(shape, np.nan),
-                        dims=generic_pointing_xds[key].dims,
+                        dims=generic_pointing_xds[data_var_name].dims,
                     )
                 correct_pointing_xds[data_var_name].data = data_var_data
 
@@ -611,7 +614,7 @@ def prepare_generic_sys_cal_xds(generic_sys_cal_xds: xr.Dataset) -> xr.Dataset:
         )
     elif (
         "frequency" in generic_sys_cal_xds.sizes
-        and not "dim_3" in generic_sys_cal_xds.sizes
+        and "dim_3" not in generic_sys_cal_xds.sizes
     ):
         # because order is (...,frequency,receptor), when frequency is missing
         # receptor can get wrongly labeled as frequency
@@ -729,11 +732,9 @@ def create_system_calibration_xds(
             "frequency_system_cal": generic_sys_cal_xds.coords["frequency"].data
         }
         sys_cal_xds = sys_cal_xds.assign_coords(frequency_coord)
-        frequency_measure = {
-            "type": main_xds_frequency.attrs["type"],
-            "units": main_xds_frequency.attrs["units"],
-            "observer": main_xds_frequency.attrs["observer"],
-        }
+        frequency_measure = make_spectral_coord_measure_attrs(
+            main_xds_frequency.attrs["units"], main_xds_frequency.attrs["observer"]
+        )
         sys_cal_xds.coords["frequency_system_cal"].attrs.update(frequency_measure)
 
     sys_cal_xds = rename_and_interpolate_to_time(

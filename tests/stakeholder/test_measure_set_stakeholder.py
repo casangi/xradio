@@ -1,15 +1,15 @@
-import importlib.resources
 import numpy as np
 import os
 import pathlib
 import pytest
 import time
+import warnings
 
 import pandas as pd
 import xarray as xr
 
 from toolviper.utils.data import download
-from toolviper.utils.logger import setup_logger
+import toolviper.utils.logger as logger
 from xradio.measurement_set import (
     open_processing_set,
     load_processing_set,
@@ -31,19 +31,14 @@ def tmp_path():
     return pathlib.Path("/tmp/test")
 
 
-def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_scheme):
-
-    # We can remove this once there is a new release of casacore
-    # if os.environ["USER"] == "runner":
-    #     casa_data_dir = (importlib.resources.files("casadata") / "__data__").as_posix()
-    #     rc_file = open(os.path.expanduser("~/.casarc"), "a+")  # append mode
-    #     rc_file.write("\nmeasures.directory: " + casa_data_dir)
-    #     rc_file.close()
+def download_and_convert_msv2_to_processing_set(
+    msv2_name, folder, partition_scheme, parallel_mode: str = "none"
+):
 
     _logger_name = "xradio"
     if os.getenv("VIPER_LOGGER_NAME") != _logger_name:
         os.environ["VIPER_LOGGER_NAME"] = _logger_name
-        setup_logger(
+        logger.setup_logger(
             logger_name="xradio",
             log_to_term=True,
             log_to_file=False,  # True
@@ -77,7 +72,7 @@ def download_and_convert_msv2_to_processing_set(msv2_name, folder, partition_sch
         # sys_cal_interpolate=True,
         use_table_iter=False,
         overwrite=True,
-        parallel_mode="none",
+        parallel_mode=parallel_mode,
     )
     return ps_name
 
@@ -147,19 +142,30 @@ def base_check_ps_accessor(ps_lazy_xdt: xr.DataTree, ps_xdt: xr.DataTree):
 
     expected_dims = [
         "time",
-        "baseline_id",
         "frequency",
         "polarization",
-        "uvw_label",
     ]
+    is_single_dish = "spectrum" in [
+        ps_lazy_xdt[name].attrs["type"] for name in ps_lazy_xdt
+    ]
+    if not is_single_dish:
+        expected_dims += {"baseline_id", "uvw_label"}
+    else:
+        expected_dims += {"antenna_name"}
     max_dims = ps_xdt.xr_ps.get_max_dims()
     assert isinstance(max_dims, dict)
-    assert all([dim in max_dims for dim in max_dims])
+    assert all([dim in max_dims for dim in expected_dims])
 
     empty_query_result = ps_xdt.xr_ps.query()
     assert isinstance(empty_query_result, xr.DataTree)
     empty_query_df = empty_query_result.xr_ps.summary()
     pd.testing.assert_frame_equal(ps_xdt_df, empty_query_df)
+
+    field_query_result = ps_xdt.xr_ps.query(field_name=ps_xdt_df.field_name.values[0])
+    assert isinstance(field_query_result, xr.DataTree)
+    data_group_query_result = ps_xdt.xr_ps.query(data_group_name="base")
+    data_group_query_df = data_group_query_result.xr_ps.summary()
+    pd.testing.assert_frame_equal(ps_xdt_df, data_group_query_df)
 
     freq_axis = ps_xdt.xr_ps.get_freq_axis()
     assert isinstance(freq_axis, xr.DataArray)
@@ -170,6 +176,37 @@ def base_check_ps_accessor(ps_lazy_xdt: xr.DataTree, ps_xdt: xr.DataTree):
     assert type(combined_antenna) == xr.Dataset
     base_field_xds = ps_xdt.xr_ps.get_combined_field_and_source_xds("base")
     assert type(base_field_xds) == xr.Dataset
+
+    try:
+        import matplotlib
+        from matplotlib import pyplot as plt
+
+        matplotlib.use("Agg")
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                action="ignore",
+                category=UserWarning,
+                message="FigureCanvasAgg is non-interactive",
+            )
+            warnings.filterwarnings(
+                action="ignore",
+                category=UserWarning,
+                message="No artists",
+            )
+
+            with plt.ioff():
+                label_all_fields = label_all_antennas = len(ps_xdt_df) > 1
+                ps_xdt.xr_ps.plot_phase_centers(label_all_fields=label_all_fields)
+                plt.close()
+                ps_xdt.xr_ps.plot_antenna_positions(
+                    label_all_antennas=label_all_antennas
+                )
+                plt.close()
+
+    except Exception as exc:
+        logger.warning(
+            f"Could not run processing set plot functions, exception details: {exc}"
+        )
 
 
 def base_check_ms_accessor(ps_xdt: xr.DataTree):
@@ -284,16 +321,19 @@ def base_test(
     expected_sum_value: float,
     is_s3: bool = False,
     partition_schemes: list = [[], ["FIELD_ID"]],
+    parallel_mode: str = "none",
     preconverted: bool = False,
     do_schema_check: bool = True,
     expected_secondary_xds: set = None,
 ):
     start = time.time()
-    # from toolviper.dask.client import local_client
 
-    # Strange bug when running test in paralell (the unrelated image tests fail).
-    # viper_client = local_client(cores=4, memory_limit="4GB")
-    # viper_client
+    from toolviper.dask.client import local_client
+
+    viper_client = local_client(
+        cores=2, memory_limit="3GB"
+    )  ##Do not increase size otherwise GitHub MacOS runner will hang.
+    viper_client
 
     ps_list = (
         []
@@ -306,7 +346,7 @@ def base_test(
             ps_name = file_name
         else:
             ps_name = download_and_convert_msv2_to_processing_set(
-                file_name, folder, partition_scheme
+                file_name, folder, partition_scheme, parallel_mode=parallel_mode
             )
 
         print(f"Opening Processing Set, {ps_name}")
@@ -421,6 +461,10 @@ def test_alma(tmp_path):
 #     )
 
 
+@pytest.mark.skipif(
+    os.getenv("SKIP_TESTS_CASATOOLS") == "1",
+    reason="Skip tests that require casatasks. getcolnp not available in casatools.",
+)
 def test_ska_low(tmp_path):
     expected_subtables = {"antenna", "phased_array"}
     base_test(
@@ -428,9 +472,14 @@ def test_ska_low(tmp_path):
         tmp_path,
         119802044416.0,
         expected_secondary_xds=expected_subtables,
+        parallel_mode="time",
     )
 
 
+@pytest.mark.skipif(
+    os.getenv("SKIP_TESTS_CASATOOLS") == "1",
+    reason=" Skip tests that require casatasks. getcolnp not available in casatools.",
+)
 def test_ska_mid(tmp_path):
     expected_subtables = {"antenna"}
     base_test(
@@ -438,6 +487,7 @@ def test_ska_mid(tmp_path):
         tmp_path,
         551412.3125,
         expected_secondary_xds=expected_subtables,
+        parallel_mode="time",
     )
 
 
@@ -737,7 +787,7 @@ if __name__ == "__main__":
     # test_sd_A002_Xe3a5fd_Xe38e(tmp_path=Path("."))
     # test_s3(tmp_path=Path("."))
     # test_vlass(tmp_path=Path("."))
-    # test_alma(tmp_path=Path("."))
+    test_alma(tmp_path=Path("."))
     # #test_preconverted_alma(tmp_path=Path("."))
     # test_ska_mid(tmp_path=Path("."))
     # test_lofar(tmp_path=Path("."))
@@ -747,7 +797,7 @@ if __name__ == "__main__":
     # test_ngeht(tmp_path=Path("."))
     # test_ephemeris(tmp_path=Path("."))
     # test_single_dish(tmp_path=Path("."))
-    test_alma_ephemeris_mosaic(tmp_path=Path("."))
+    # test_alma_ephemeris_mosaic(tmp_path=Path("."))
     # test_VLA(tmp_path=Path("."))
 
 # All test preformed on MAC with M3 and 16 GB Ram.

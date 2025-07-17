@@ -14,7 +14,7 @@ from ._tables.read import (
     convert_casacore_time,
     load_generic_table,
 )
-from xradio._utils.list_and_array import check_if_consistent, unique_1d, to_list
+from xradio._utils.list_and_array import check_if_consistent
 
 
 def create_info_dicts(
@@ -51,12 +51,13 @@ def create_info_dicts(
        info dicts ready to be used to update the attrs of the MSv4
     """
 
-    if "line_name" in field_and_source_xds.coords:
-        line_name = to_list(unique_1d(np.ravel(field_and_source_xds.line_name.values)))
-    else:
-        line_name = []
-
     info_dicts = {}
+
+    # if "line_name" in field_and_source_xds.coords:
+    #     line_name = to_list(unique_1d(np.ravel(field_and_source_xds.line_name.values)))
+    # else:
+    #     line_name = []
+
     # info_dicts["partition_info"] = {
     #     # "spectral_window_id": xds.frequency.attrs["spectral_window_id"],
     #     "spectral_window_name": xds.frequency.attrs["spectral_window_name"],
@@ -129,7 +130,7 @@ def create_observation_info(in_file: str, observation_id: int):
         exec_block_xds = load_generic_table(in_file, "ASDM_EXECBLOCK")
     except ValueError as exc:
         logger.debug(
-            "Did not find the ASDM_EXECBLOCK subtable, not loading optional fields in observation_info"
+            f"Did not find the ASDM_EXECBLOCK subtable, not loading optional fields in observation_info. Exception: {exc}"
         )
     if exec_block_xds:
         exec_block_info = extract_exec_block_info(exec_block_xds)

@@ -1,4 +1,5 @@
 import astropy.units as u
+from astropy.io import fits
 import pytest
 
 try:
@@ -13,6 +14,7 @@ import os
 import shutil
 import unittest
 from glob import glob
+import re
 
 import dask.array as da
 import numpy as np
@@ -56,9 +58,13 @@ def dask_client_module():
         A Dask client connected to a local cluster, shared across all tests
         in the module.
     """
-    print("\nSetting up Dask client for the test module...")
-    client = local_client(cores=4, serial_execution=False)
 
+    import sys
+
+    print("\nSetting up Dask client for the test module...")
+    client = local_client(
+        cores=2, memory_limit="3GB"
+    )  # Do not increase size otherwise GitHub MacOS runner will hang.
     try:
         yield client
     finally:
@@ -236,7 +242,7 @@ class xds_from_image_test(ImageBase):
         "reference_frequency": {
             "attrs": {
                 "observer": "lsrk",
-                "type": "frequency",
+                "type": "spectral_coord",
                 "units": ["Hz"],
             },
             "data": 1415000000.0,
@@ -348,10 +354,11 @@ class xds_from_image_test(ImageBase):
         t.close()
         with open_image_ro(cls._imname) as im:
             im.tofits(cls._infits)
+            assert os.path.exists(cls._infits), f"Could not create {cls._infits}"
         cls._xds = read_image(cls._imname, {"frequency": 5})
         cls._xds_no_sky = read_image(cls._imname, {"frequency": 5}, False, False)
         cls.assertTrue(cls._xds.sizes == cls._exp_vals["shape"], "Incorrect shape")
-        write_image(cls._xds, cls._outname, out_format="casa")
+        write_image(cls._xds, cls._outname, out_format="casa", overwrite=True)
 
     def imname(self):
         return self._imname
@@ -479,7 +486,7 @@ class xds_from_image_test(ImageBase):
         )
         self.assertEqual(
             xds.frequency.attrs["reference_value"]["attrs"]["type"],
-            "frequency",
+            "spectral_coord",
             "Wrong measure type",
         )
         self.assertEqual(
@@ -753,7 +760,6 @@ class xds_from_image_test(ImageBase):
                 )
             # test beam
             self.assertTrue(xds["BEAM"].shape == (1, 4, 1, 3), "Wrong beam shape")
-            print("**** dims", tuple(xds["BEAM"].dims))
             self.assertTrue(
                 tuple(xds["BEAM"].dims)
                 == ("time", "frequency", "polarization", "beam_param"),
@@ -1287,6 +1293,9 @@ class fits_to_xds_test(xds_from_image_test):
 
     _imname1: str = "demo_simulated.im"
     _outname1: str = "demo_simulated.fits"
+    _compressed_fits: str = "compressed.fits"
+    _bzero: str = "bzero.fits"
+    _bscale: str = "bscale.fits"
 
     @classmethod
     def setUpClass(cls):
@@ -1294,6 +1303,7 @@ class fits_to_xds_test(xds_from_image_test):
         # so we must explicitly call the super class' method here to create the
         # xds which is located in the super class
         super().setUpClass()
+        assert os.path.exists(cls.infits()), f"{cls.infits()} does not exist"
         cls._fds = read_image(cls.infits(), {"frequency": 5}, do_sky_coords=True)
         cls._fds_no_sky = read_image(
             cls.infits(), {"frequency": 5}, do_sky_coords=False
@@ -1302,7 +1312,13 @@ class fits_to_xds_test(xds_from_image_test):
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
-        for f in [cls._imname1, cls._outname1]:
+        for f in [
+            cls._imname1,
+            cls._outname1,
+            cls._compressed_fits,
+            cls._bzero,
+            cls._bscale,
+        ]:
             if os.path.exists(f):
                 if os.path.isdir(f):
                     shutil.rmtree(f)
@@ -1402,10 +1418,105 @@ class fits_to_xds_test(xds_from_image_test):
                     f"{got_comp.item()} rad vs {expec_comp} rad.",
                 )
 
+    def test_compute_mask(self):
+        """
+        Test compute_mask parameter
+        """
+        for compute_mask in [True, False]:
+            fds = read_image(self.infits(), {"frequency": 5}, compute_mask=compute_mask)
+            if compute_mask:
+                self.assertTrue(
+                    "MASK0" in fds.data_vars,
+                    "MASK0 should be in data_vars, but is not",
+                )
+            else:
+                self.assertTrue(
+                    "MASK0" not in fds.data_vars,
+                    "MASK0 should not be in data_vars, but is",
+                )
+
+    def test_compressed_fits_guard(self):
+        """
+        Test reading compressed FITS files fails because not supported by memmapping
+        """
+        # make a compressed fits file from what we already have access to
+        with fits.open(self._infits) as hdulist:
+            data = hdulist[0].data
+            header = hdulist[0].header
+
+        # Wrap in compressed HDU
+        primary_hdu = fits.PrimaryHDU()
+        comp_hdu = fits.CompImageHDU(data=data, header=header)
+        fits.HDUList([primary_hdu, comp_hdu]).writeto(
+            self._compressed_fits, overwrite=True
+        )
+        # Ensure the file was saved as a CompImageHDU (not auto-promoted to PrimaryHDU)
+        with fits.open(self._compressed_fits, do_not_scale_image_data=True) as hdulist:
+            assert isinstance(
+                hdulist[1], fits.CompImageHDU
+            ), "Expected CompImageHDU in HDU[1]"
+
+        with pytest.raises(RuntimeError) as exc_info:
+            read_image(self._compressed_fits, {"frequency": 5})
+
+        self.assertTrue(
+            re.search(r"name=COMPRESSED_IMAGE", str(exc_info.value)),
+            f"Expected error about COMPRESSED_IMAGE HDU, but got {str(exc_info.value)}",
+        )
+
+    def _create_bzero_bscale_image(
+        self, outname: str, bzero: float, bscale: float
+    ) -> None:
+        with fits.open(self._infits) as hdulist:
+            data = hdulist[0].data
+            self._clean_data(data)
+
+        hdu = fits.PrimaryHDU(data=data)
+        # Apply scaling explicitly. This enables BSCALE/BZERO generation
+        hdu.header["BSCALE"] = bscale
+        hdu.header["BZERO"] = bzero
+        hdu.writeto(outname, overwrite=True)
+
+    def _clean_data(self, data: np.ndarray) -> None:
+        """
+        Clean data to the range of int16 to avoid issues with BSCALE/BZERO.
+        """
+        # force astropy.io.fits to scale data so BZERO and BSCALE are set,
+        # will be omitted from new header otherwise on write
+        data = np.nan_to_num(data, nan=0.0)  # replace NaNs with 0
+        data = np.clip(data, -32768, 32767)  # clip to int16 range
+        data = data.astype(np.int16)
+
+    def test_bzero_guard(self):
+        """
+        Test reading FITS files with bzero != 0 fails
+        """
+        self._create_bzero_bscale_image(self._bzero, bzero=5.0, bscale=1.0)
+        self.assertTrue(os.path.exists(self._bzero), f"{self._bzero} was not written")
+        with pytest.raises(RuntimeError) as exc_info:
+            fds = read_image(self._bzero)
+        self.assertTrue(
+            re.search(r"BSCALE/BZERO set", str(exc_info.value)),
+            f"Expected error about BSCALE/BZERO, but got {str(exc_info.value)}",
+        )
+
+    def test_bscale_guard(self):
+        """
+        Test reading FITS files with bscale != 1 fails
+        """
+        self._create_bzero_bscale_image(self._bscale, bzero=0.0, bscale=2.0)
+        self.assertTrue(os.path.exists(self._bscale), f"{self._bzero} was not written")
+        with pytest.raises(RuntimeError) as exc_info:
+            fds = read_image(self._bscale)
+        self.assertTrue(
+            re.search(r"BSCALE/BZERO set", str(exc_info.value)),
+            f"Expected error about BSCALE/BZERO, but got {str(exc_info.value)}",
+        )
+
     # TODO
-    def test_get_img_ds_block(self):
-        # self.compare_image_block(self.imname())
-        pass
+    # def test_get_img_ds_block(self):
+    #    # self.compare_image_block(self.imname())
+    #    pass
 
 
 class make_empty_image_tests(ImageBase):
@@ -1442,7 +1553,7 @@ class make_empty_image_tests(ImageBase):
             "reference_value": {
                 "attrs": {
                     "observer": "lsrk",
-                    "type": "frequency",
+                    "type": "spectral_coord",
                     "units": ["Hz"],
                 },
                 "data": 1413000000.0,
@@ -1464,7 +1575,7 @@ class make_empty_image_tests(ImageBase):
                 "data": 1413000000.0,
                 "dims": [],
             },
-            "type": "frequency",
+            "type": "spectral_coord",
             "units": ["Hz"],
             "wave_unit": ["mm"],
         }
@@ -2133,4 +2244,4 @@ class write_image_test(xds_from_image_test):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    pytest.main(["-v", "-s", __file__])

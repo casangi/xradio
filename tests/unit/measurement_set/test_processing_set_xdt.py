@@ -379,6 +379,38 @@ class TestFunctionsAfterPreviousCalls:
             assert len(msv4.attrs["data_groups"]) == 1
             assert "corrected" in msv4.attrs["data_groups"]
 
+    @pytest.mark.parametrize(
+        "processing_set_from_custom_ms",
+        [ms_custom_with_corrected],
+        scope="class",
+        indirect=True,
+    )
+    def test_repeated_get_max_dims(self, processing_set_from_custom_ms):
+        """
+        get_max_dims() caches its results for subsequent calls. Check that.
+        """
+
+        ps_xdt = xr.open_datatree(processing_set_from_custom_ms)
+        max_dims = ps_xdt.xr_ps.get_max_dims()
+        max_dims_again = ps_xdt.xr_ps.get_max_dims()
+        assert max_dims == max_dims_again
+
+    @pytest.mark.parametrize(
+        "processing_set_from_custom_ms",
+        [ms_custom_with_corrected],
+        scope="class",
+        indirect=True,
+    )
+    def test_repeated_get_freq_axis(self, processing_set_from_custom_ms):
+        """
+        get_freq_axis() caches its results for subsequent calls. Check that.
+        """
+
+        ps_xdt = xr.open_datatree(processing_set_from_custom_ms)
+        freq_axis = ps_xdt.xr_ps.get_freq_axis()
+        freq_axis_again = ps_xdt.xr_ps.get_freq_axis()
+        assert all(freq_axis == freq_axis_again)
+
 
 if __name__ == "__main__":
     pytest.main(["-v", "-s", __file__])

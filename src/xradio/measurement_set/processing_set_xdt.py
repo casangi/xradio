@@ -37,7 +37,7 @@ class ProcessingSetXdt:
         self._xdt = datatree
         self.meta = {"summary": {}}
 
-    def summary(self, data_group: str = "base") -> pd.DataFrame:
+    def summary(self, data_group: str = None) -> pd.DataFrame:
         """
         Generate and retrieve a summary of the Processing Set.
 
@@ -48,7 +48,8 @@ class ProcessingSetXdt:
         Parameters
         ----------
         data_group : str, optional
-            The data group to summarize. Default is "base".
+            The data group to summarize. By default the "base" group
+            is used (if found), or otherwise the first group found.
 
         Returns
         -------
@@ -56,10 +57,23 @@ class ProcessingSetXdt:
             A DataFrame containing the summary information of the specified data group.
         """
 
+        def find_data_group_base_or_first(data_group: str, xdt: xr.DataTree) -> str:
+            first_msv4 = next(iter(xdt.values()))
+            first_data_groups = first_msv4.attrs["data_groups"]
+            if data_group is None:
+                data_group = (
+                    "base"
+                    if "base" in first_data_groups.keys()
+                    else next(iter(first_data_groups))
+                )
+            return data_group
+
         if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
             raise InvalidAccessorLocation(
                 f"{self._xdt.path} is not a processing set node."
             )
+
+        data_group = find_data_group_base_or_first(data_group, self._xdt)
 
         if data_group in self.meta["summary"]:
             return self.meta["summary"][data_group]
@@ -145,7 +159,7 @@ class ProcessingSetXdt:
             self.meta["freq_axis"] = freq_axis
             return self.meta["freq_axis"]
 
-    def _summary(self, data_group: str = "base"):
+    def _summary(self, data_group: str = None):
         summary_data = {
             "name": [],
             "intents": [],

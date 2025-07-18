@@ -396,6 +396,7 @@ def test_convert_and_write_partition_misbehaved(ms_minimal_misbehaved):
                 "__OBS_MODE": [0],
             },
             use_table_iter=False,
+            pointing_interpolate=True,
         )
 
         msv4_xdt = xr.open_datatree(
@@ -403,7 +404,7 @@ def test_convert_and_write_partition_misbehaved(ms_minimal_misbehaved):
             engine="zarr",
         )
         check_dataset(msv4_xdt.ds, VisibilityXds)
-        check_datatree(msv4_xdt)
+        check_datatree(msv4_xdt).expect()
         check_msv4_matches_descr(msv4_xdt, ms_minimal_misbehaved.descr)
     finally:
         shutil.rmtree(out_name)
@@ -424,6 +425,7 @@ def test_convert_and_write_partition_with_antenna1(ms_minimal_required):
                 "ANTENNA1": [0],
             },
             use_table_iter=False,
+            pointing_interpolate=True,
         )
 
         # Will need a SD-like test ms. Otherwise the partition is empty:
@@ -446,7 +448,7 @@ def test_convert_and_write_partition_with_antenna1(ms_minimal_required):
             )
             check_dataset(msv4_xds, VisibilityXds)
             check_dataset(msv4_xdt.ds, VisibilityXds)
-            check_datatree(msv4_xdt)
+            check_datatree(msv4_xdt).expect()
             check_msv4_matches_descr(msv4_xdt, ms_minimal_required.descr)
     finally:
         # shutil.rmtree(out_name)
@@ -468,6 +470,8 @@ def test_convert_and_write_partition_without_opt(ms_minimal_without_opt):
                 "STATE_ID": [0],
             },
             use_table_iter=False,
+            ephemeris_interpolate=True,
+            pointing_interpolate=True,
         )
 
         msv4_xdt = xr.open_datatree(
@@ -479,7 +483,7 @@ def test_convert_and_write_partition_without_opt(ms_minimal_without_opt):
             engine="zarr",
         )
         check_dataset(msv4_xdt.ds, VisibilityXds)
-        check_datatree(msv4_xdt)
+        check_datatree(msv4_xdt).expect()
         check_msv4_matches_descr(msv4_xdt, ms_minimal_without_opt.descr)
     finally:
         shutil.rmtree(out_name)
@@ -518,8 +522,8 @@ def test_convert_and_write_partition_custom(ms_custom_spec):
                 "OBS_MODE": ["scan_intent#subscan_intent"],
             },
             use_table_iter=True,
-            pointing_interpolate=False,
-            ephemeris_interpolate=False,
+            pointing_interpolate=True,
+            ephemeris_interpolate=True,
             phase_cal_interpolate=False,
             sys_cal_interpolate=False,
         )
@@ -528,7 +532,7 @@ def test_convert_and_write_partition_custom(ms_custom_spec):
             engine="zarr",
         )
         check_dataset(msv4_xdt.ds, VisibilityXds)
-        check_datatree(msv4_xdt)
+        check_datatree(msv4_xdt).expect()
         check_msv4_matches_descr(msv4_xdt, ms_custom_spec.descr)
 
     finally:

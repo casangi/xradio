@@ -326,5 +326,91 @@ class TestProcessingSetXdtWithEphemerisData:
         assert field_source_xds.sizes["time"] > 1
 
 
+class TestFunctionsAfterPreviousCalls:
+    """
+    Tests functions after a selection is applied. The selection
+    can change state or MS properties on which the behavior
+    of the functions depends.
+    """
+
+    ms_custom_with_corrected = {
+        "nrows_per_ddi": 240,
+        "nchans": 4,
+        "npols": 1,
+        "data_cols": ["DATA", "MODEL_DATA", "CORRECTED_DATA"],
+        "SPECTRAL_WINDOW": {"0": 0},
+        "POLARIZATION": {"0": 0},
+        "ANTENNA": {"0": 0, "1": 1, "2": 2},
+        "FIELD": {"0": 0},
+        "SCAN": {"1": {"0": {"intent": "intent#subintent"}}},
+        "STATE": {"0": {"id": 0, "intent": None}},
+        "OBSERVATION": {"0": 0},
+        "FEED": {"0": 0},
+        "PROCESSOR": {"0": 0},
+        "SOURCE": {},
+    }
+
+    @pytest.mark.parametrize(
+        "processing_set_from_custom_ms",
+        [ms_custom_with_corrected],
+        scope="class",
+        indirect=True,
+    )
+    def test_query_after_query_corrected(self, processing_set_from_custom_ms):
+        """
+        If the first query selects out the 'base' data_group, that can confuse functions
+        like summary. See also issue #450.
+
+        The stakeholder tests are probably a better place for a test like this, which uses
+        open(), query(), summary(), query() again, etc. (not really a unit test). But at
+        the moment we don't have stakeholder datasets with "corrected" or anything else than
+        "base".
+        """
+
+        ps_xdt = xr.open_datatree(processing_set_from_custom_ms)
+        corrected_ps = ps_xdt.xr_ps.query(data_group_name="corrected")
+        # Note, after the "base" group is dropped, the schema_checker will fail
+        assert isinstance(corrected_ps, xr.DataTree)
+        first_spw = corrected_ps.xr_ps.summary(data_group="corrected")["spw_name"][0]
+        sel_corrected_ps = corrected_ps.xr_ps.query(spw_name=first_spw)
+        assert first_spw == "unspecified_test#0_0"
+        assert isinstance(sel_corrected_ps, xr.DataTree)
+        for _msv4_name, msv4 in sel_corrected_ps.items():
+            assert len(msv4.attrs["data_groups"]) == 1
+            assert "corrected" in msv4.attrs["data_groups"]
+
+    @pytest.mark.parametrize(
+        "processing_set_from_custom_ms",
+        [ms_custom_with_corrected],
+        scope="class",
+        indirect=True,
+    )
+    def test_repeated_get_max_dims(self, processing_set_from_custom_ms):
+        """
+        get_max_dims() caches its results for subsequent calls. Check that.
+        """
+
+        ps_xdt = xr.open_datatree(processing_set_from_custom_ms)
+        max_dims = ps_xdt.xr_ps.get_max_dims()
+        max_dims_again = ps_xdt.xr_ps.get_max_dims()
+        assert max_dims == max_dims_again
+
+    @pytest.mark.parametrize(
+        "processing_set_from_custom_ms",
+        [ms_custom_with_corrected],
+        scope="class",
+        indirect=True,
+    )
+    def test_repeated_get_freq_axis(self, processing_set_from_custom_ms):
+        """
+        get_freq_axis() caches its results for subsequent calls. Check that.
+        """
+
+        ps_xdt = xr.open_datatree(processing_set_from_custom_ms)
+        freq_axis = ps_xdt.xr_ps.get_freq_axis()
+        freq_axis_again = ps_xdt.xr_ps.get_freq_axis()
+        assert all(freq_axis == freq_axis_again)
+
+
 if __name__ == "__main__":
     pytest.main(["-v", "-s", __file__])

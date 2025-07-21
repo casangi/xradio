@@ -13,7 +13,6 @@ from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
 def create_antenna_xds(
     asdm: pyasdm.ASDM,
     num_antenna: int,
-    partition_descr: dict,
     polarization: xr.DataArray,
 ) -> xr.Dataset:
     """
@@ -28,8 +27,6 @@ def create_antenna_xds(
         The ASDM object containing the source data
     num_antenna : int
         Number of antennas in the array
-    partition_descr : dict
-        Dictionary containing partition description (not used in current implementation)
     polarization : xr.DataArray
         DataArray containing polarization information (not used in current implementation)
 
@@ -82,13 +79,13 @@ def create_antenna_xds(
 
     antenna_name = ("antenna_name", antenna_df["name_antenna"].values.astype("str"))
     cartesian_pos_label = ("cartesian_pos_label", ["x", "y", "z"])
-    station = ("antenna_name", antenna_df["name_station"].values)
-    mount = ("antenna_name", np.repeat(["ALT-AZ"], len(station[1])))
+    station_name = ("antenna_name", antenna_df["name_station"].values.astype("str"))
+    mount = ("antenna_name", np.repeat(["ALT-AZ"], len(station_name[1])))
     xds = xds.assign_coords(
         {
             "antenna_name": antenna_name,
-            "cartesian_pos_src/xradio/measurement_set/_utils/_asdm/open_partition.pylabel": cartesian_pos_label,
-            "station": station,
+            "cartesian_pos_label": cartesian_pos_label,
+            "station_name": station_name,
             "mount": mount,
             # TODO: Feed info
             # From Feed table, numReceptor, polarizationTypes, receptorAngle
@@ -158,7 +155,7 @@ def get_telescope_name(asdm: pyasdm.ASDM) -> str:
     The function assumes that the ExecBlock table contains a 'telescopeName' column
     and that all entries in this column should refer to the same telescope.
     """
-    
+
     sdm_execblock_attrs = ["execBlockId", "telescopeName"]
     execblock_df = exp_asdm_table_to_df(asdm, "ExecBlock", sdm_execblock_attrs)
 

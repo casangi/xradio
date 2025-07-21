@@ -265,7 +265,7 @@ def processing_set_from_custom_ms(request):
     if hasattr(request, "cls") and request.cls:
         name_appendix = request.cls.__name__
     msv2_name = f"test_ms_custom_spec_for_{name_appendix}.ms"
-    msv2_custom_description = gen_test_ms(
+    _msv2_custom_description = gen_test_ms(
         msv2_name,
         request.param,
         opt_tables=True,

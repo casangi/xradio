@@ -63,7 +63,7 @@ class ProcessingSetXdt:
             if data_group is None:
                 data_group = (
                     "base"
-                    if "base" in first_data_groups.keys()
+                    if "base" in first_data_groups
                     else next(iter(first_data_groups))
                 )
             return data_group

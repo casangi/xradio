@@ -18,6 +18,8 @@ from xradio.measurement_set._utils._asdm._utils.spectral_window import (
     get_spw_frequency_centers,
 )
 from xradio.measurement_set._utils._asdm._utils.time import convert_time_asdm_to_unix
+from xradio.measurement_set._utils._asdm.create_antenna_xds import create_antenna_xds
+from xradio.measurement_set._utils._asdm.create_info_dicts import create_info_dicts
 from xradio._utils.dict_helpers import (
     make_quantity,
     make_spectral_coord_measure_attrs,
@@ -46,9 +48,12 @@ def open_partition(
     """
     msv4_xdt = xr.DataTree()
 
-    msv4_xdt.ds = open_correlated_xds(asdm, partition_descr)
+    correlated_xds, num_antenna = open_correlated_xds(asdm, partition_descr)
+    msv4_xdt.ds = correlated_xds
 
-    msv4_xdt["/antenna_xds"] = xr.Dataset(attrs={"type": "antenna"})
+    msv4_xdt["/antenna_xds"] = create_antenna_xds(
+        asdm, num_antenna, partition_descr, correlated_xds.polarization
+    )
 
     # TODO:
 
@@ -76,7 +81,7 @@ def open_partition(
 
 def open_correlated_xds(
     asdm: pyasdm.ASDM, partition_descr: dict[str, np.ndarray]
-) -> xr.DataTree:
+) -> tuple[xr.DataTree, int]:
     datetime_now = datetime.datetime.now(datetime.timezone.utc).isoformat()
     xds = xr.Dataset(
         attrs={
@@ -91,8 +96,11 @@ def open_correlated_xds(
     )
 
     is_single_dish = False
-    coords, coord_attrs = create_coordinates(asdm, partition_descr, is_single_dish)
+    coords, coord_attrs, num_antenna = create_coordinates(
+        asdm, partition_descr, is_single_dish
+    )
     xds = xds.assign_coords(coords)
+    # print(f" =================== {xds.coords=}")
     for coord_name in coords:
         if coord_name in coord_attrs:
             xds.coords[coord_name].attrs = coord_attrs[coord_name]
@@ -108,10 +116,12 @@ def open_correlated_xds(
         "date": datetime_now,
     }
 
-    xds.attrs["data_groups"] = {}
-    xds.attrs["data_groups"]["base"] = data_group_base
+    info_dicts = create_info_dicts(asdm, xds)
+    xds.attrs.update(info_dicts)
 
-    return xds
+    xds.attrs.update({"data_groups": {"base": data_group_base}})
+
+    return xds, num_antenna
 
 
 def create_data_vars(xds: xr.Dataset) -> dict[str, tuple]:
@@ -302,4 +312,4 @@ def create_coordinates(
     if not is_single_dish:
         coords["uvw_label"] = np.array(["u", "v", "w"])
 
-    return coords, attrs
+    return coords, attrs, num_antenna

@@ -1,3 +1,4 @@
+import itertools
 import time
 
 import numpy as np
@@ -209,5 +210,11 @@ def finalize_partitions_groupby(
             group.apply(lambda col: col.unique(), axis=0).to_dict()
             for _name, group in partition_groups
         ]
+
+    # replace back indices with their list of intent strs
+    for part in partitions_list:
+        part["scanIntent"] = list(
+            itertools.chain.from_iterable(unique_scan_intents[part["scanIntent"]])
+        )
 
     return partitions_list

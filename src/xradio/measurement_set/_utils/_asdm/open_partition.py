@@ -120,7 +120,7 @@ def open_correlated_xds(
         "date": datetime_now,
     }
 
-    info_dicts = create_info_dicts(asdm, xds)
+    info_dicts = create_info_dicts(asdm, xds, partition_descr)
     xds.attrs.update(info_dicts)
 
     xds.attrs.update({"data_groups": {"base": data_group_base}})

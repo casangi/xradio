@@ -19,8 +19,8 @@ def create_field_and_source_xds(
 ) -> xr.Dataset:
     """
     Create an xarray Dataset containing field and source information from an ASDM.
-    This function extracts field and source information from an ASDM and creates an xarray 
-    Dataset with coordinates and variables describing the field position, source direction, 
+    This function extracts field and source information from an ASDM and creates an xarray
+    Dataset with coordinates and variables describing the field position, source direction,
     and spectral line information if available.
 
     Parameters
@@ -32,7 +32,7 @@ def create_field_and_source_xds(
     spectral_window_id : int
         ID of the spectral window to filter source information
     is_single_dish : bool
-        Flag indicating if data is from single dish observations. Affects which center 
+        Flag indicating if data is from single dish observations. Affects which center
         direction variable name is used.
 
     Returns
@@ -194,7 +194,6 @@ def make_sky_coord_measure_attrs(units: str, frame: str) -> dict:
     {'units': ['rad'], 'frame': 'ICRS', 'type': 'sky_coord'}
     """
 
-    """
     unt = units if isinstance(units, list) else [units]
     sky_coord_measure_attrs = {"units": unt, "frame": frame, "type": "sky_coord"}
     return sky_coord_measure_attrs

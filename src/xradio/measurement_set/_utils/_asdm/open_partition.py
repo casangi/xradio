@@ -19,6 +19,9 @@ from xradio.measurement_set._utils._asdm._utils.spectral_window import (
 )
 from xradio.measurement_set._utils._asdm._utils.time import convert_time_asdm_to_unix
 from xradio.measurement_set._utils._asdm.create_antenna_xds import create_antenna_xds
+from xradio.measurement_set._utils._asdm.create_field_and_source_xds import (
+    create_field_and_source_xds,
+)
 from xradio.measurement_set._utils._asdm.create_info_dicts import create_info_dicts
 from xradio._utils.dict_helpers import (
     make_quantity,
@@ -48,11 +51,11 @@ def open_partition(
     """
     msv4_xdt = xr.DataTree()
 
-    correlated_xds, num_antenna = open_correlated_xds(asdm, partition_descr)
+    correlated_xds, num_antenna, spw_id = open_correlated_xds(asdm, partition_descr)
     msv4_xdt.ds = correlated_xds
 
     msv4_xdt["/antenna_xds"] = create_antenna_xds(
-        asdm, num_antenna, partition_descr, correlated_xds.polarization
+        asdm, num_antenna, correlated_xds.polarization
     )
 
     # TODO:
@@ -70,8 +73,9 @@ def open_partition(
     # phased_array_xds
 
     # field_and_source_xds
-    msv4_xdt["/field_and_source_base_xds"] = xr.Dataset(
-        attrs={"type": "field_and_source"}
+    is_single_dish = False
+    msv4_xdt["/field_and_source_base_xds"] = create_field_and_source_xds(
+        asdm, partition_descr, spw_id, is_single_dish
     )
 
     # info_dicts
@@ -96,7 +100,7 @@ def open_correlated_xds(
     )
 
     is_single_dish = False
-    coords, coord_attrs, num_antenna = create_coordinates(
+    coords, coord_attrs, num_antenna, spw_id = create_coordinates(
         asdm, partition_descr, is_single_dish
     )
     xds = xds.assign_coords(coords)
@@ -121,7 +125,7 @@ def open_correlated_xds(
 
     xds.attrs.update({"data_groups": {"base": data_group_base}})
 
-    return xds, num_antenna
+    return xds, num_antenna, spw_id
 
 
 def create_data_vars(xds: xr.Dataset) -> dict[str, tuple]:
@@ -312,4 +316,4 @@ def create_coordinates(
     if not is_single_dish:
         coords["uvw_label"] = np.array(["u", "v", "w"])
 
-    return coords, attrs, num_antenna
+    return coords, attrs, num_antenna, spw_id

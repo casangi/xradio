@@ -14,14 +14,16 @@ relative_tolerance = 10 ** (-6)
 
 
 def test_image():
-    image_name = "demo_simulated.im"
-    download(image_name)
     from xradio.image import load_image, read_image, write_image
 
+    image_name = "demo_simulated.im"
+    download(file=image_name, folder="data")
+
+    image_name = pathlib.Path.cwd().joinpath("data").joinpath("demo_simulated.im")
     lazy_img_xds = read_image(image_name)
 
     img_xds = load_image(
-        image_name,
+        infile= image_name,
         do_sky_coords=True,
     )
 

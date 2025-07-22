@@ -5,6 +5,7 @@ import xarray as xr
 
 import pyasdm
 
+from xradio._utils.dict_helpers import make_quantity_attrs
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,
 )
@@ -13,6 +14,7 @@ from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
 def create_antenna_xds(
     asdm: pyasdm.ASDM,
     num_antenna: int,
+    spectral_window_id: int,
     polarization: xr.DataArray,
 ) -> xr.Dataset:
     """
@@ -80,15 +82,17 @@ def create_antenna_xds(
     antenna_name = ("antenna_name", antenna_df["name_antenna"].values.astype("str"))
     cartesian_pos_label = ("cartesian_pos_label", ["x", "y", "z"])
     station_name = ("antenna_name", antenna_df["name_station"].values.astype("str"))
-    mount = ("antenna_name", np.repeat(["ALT-AZ"], len(station_name[1])))
+    mount = ("antenna_name", np.repeat(["ALT-AZ"], len(antenna_name[1])))
+    telescope_name = get_telescope_name(asdm)
+    telescope_name_by_antenna = [telescope_name] * len(antenna_name[1])
     xds = xds.assign_coords(
         {
             "antenna_name": antenna_name,
             "cartesian_pos_label": cartesian_pos_label,
             "station_name": station_name,
             "mount": mount,
-            # TODO: Feed info
-            # From Feed table, numReceptor, polarizationTypes, receptorAngle
+            "telescope_name": (["antenna_name"], telescope_name_by_antenna),
+            # Later, from Feed table/(polarizationTypes:
             # "receptor_label"
             # "polarization_type"
         }
@@ -121,13 +125,94 @@ def create_antenna_xds(
         position_attrs,
     )
 
-    # TODO: xds["ANTENNA_RECEPTOR_ANGLE"] - from feed_df
-    # xds["ANTENNA_FOCUS_LENGTH"] - some calculation needed?
-
-    telescope_name = get_telescope_name(asdm)
     xds.attrs.update({"overall_telescope_name": telescope_name})
 
+    feed_xds = create_feed_xds(asdm, antenna_df, spectral_window_id)
+    xds = xr.merge([xds, feed_xds])
+
     return xds
+
+
+def create_feed_xds(
+    asdm: pyasdm.ASDM,
+    antenna_df: pd.DataFrame,
+    spectral_window_id: int,
+) -> xr.Dataset:
+    """
+    Create an xarray Dataset with feed data from an ASDM table.
+    This function extracts feed-related information from an ASDM Feed table and creates
+    an xarray Dataset containing polarization types, receptor angles and focus length
+    for each antenna.
+    Parameters
+    ----------
+    asdm : pyasdm.ASDM
+        The ASDM object containing the feed table
+    antenna_df : pd.DataFrame
+        DataFrame containing antenna information
+    spectral_window_id : int
+        ID of the spectral window to filter feed data
+    Returns
+    -------
+    xr.Dataset
+        Dataset with the following data variables:
+        - ANTENNA_RECEPTOR_ANGLE (antenna_name, receptor_label) [rad]: Receptor angles
+        - ANTENNA_FOCUS_LENGTH (antenna_name) [m]: Focus length
+        And coordinates:
+        - receptor_label: Labels for each receptor
+        - polarization_type (antenna_name, receptor_label): Polarization types
+    """
+
+    sdm_feed_attrs = [
+        "antennaId",
+        "spectralWindowId",
+        "timeInterval",
+        "feedId",
+        "focusReference",
+        "polarizationTypes",
+        "receptorAngle",
+    ]
+    feed_df = exp_asdm_table_to_df(asdm, "Feed", sdm_feed_attrs)
+    feed_df = feed_df.loc[feed_df["spectralWindowId"] == spectral_window_id]
+    antenna_feed_df = pd.merge(
+        antenna_df, feed_df, on="antennaId", suffixes=("_antenna", "_feed")
+    )
+
+    polarization_types = antenna_feed_df["polarizationTypes"].values[0]
+    receptor_label = [f"pol_{idx}" for idx in np.arange(len(polarization_types))]
+    polarization_type_df = pd.DataFrame(
+        antenna_feed_df["polarizationTypes"].to_list(),
+        columns=receptor_label,
+        index=antenna_feed_df["name_antenna"],
+    ).astype(str)
+
+    feed_coords = {
+        "receptor_label": (["receptor_label"], receptor_label),
+        "polarization_type": (["antenna_name", "receptor_label"], polarization_type_df),
+    }
+    feed_xds = xr.Dataset(coords=feed_coords)
+    feed_xds["polarization_type"] = feed_xds["polarization_type"].astype(str)
+
+    receptor_angle_values = [
+        [angle[0].get(), angle[1].get()] for angle in antenna_feed_df["receptorAngle"]
+    ]
+    feed_xds["ANTENNA_RECEPTOR_ANGLE"] = (
+        ["antenna_name", "receptor_label"],
+        receptor_angle_values,
+        make_quantity_attrs("rad"),
+    )
+
+    # first dim is receptor, which we don't have in MSv4
+    focus_reference_values = [
+        ref[0][2].get() for ref in antenna_feed_df["focusReference"]
+    ]
+    # TODO: double-check what is the "focus length" in ASDM/MSv2/MSv4
+    feed_xds["ANTENNA_FOCUS_LENGTH"] = (
+        ["antenna_name"],
+        focus_reference_values,
+        make_quantity_attrs("m"),
+    )
+
+    return feed_xds
 
 
 def get_telescope_name(asdm: pyasdm.ASDM) -> str:

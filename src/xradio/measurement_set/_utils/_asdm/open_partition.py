@@ -55,7 +55,7 @@ def open_partition(
     msv4_xdt.ds = correlated_xds
 
     msv4_xdt["/antenna_xds"] = create_antenna_xds(
-        asdm, num_antenna, correlated_xds.polarization
+        asdm, num_antenna, spw_id, correlated_xds.polarization
     )
 
     # TODO:

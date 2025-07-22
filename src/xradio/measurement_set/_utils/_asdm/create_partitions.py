@@ -35,6 +35,7 @@ def create_partitions(sdm: pyasdm.ASDM, partition_scheme: list[str]) -> list[dic
         "subscanNumber",
         "stateId",
         "dataUID",  # Here to see it, not partition idx
+        "BDFPath",  # Here to see it, not partition idx
         "execBlockId",  # Here to see it, not partition idx
     ]
     main_df = exp_asdm_table_to_df(sdm, "Main", sdm_main_attrs)
@@ -213,8 +214,10 @@ def finalize_partitions_groupby(
 
     # replace back indices with their list of intent strs
     for part in partitions_list:
-        part["scanIntent"] = list(
-            itertools.chain.from_iterable(unique_scan_intents[part["scanIntent"]])
-        )
+        intent_strings = unique_scan_intents[part["scanIntent"]]
+        if isinstance(intent_strings, list) and isinstance(intent_strings[0], str):
+            part["scanIntent"] = intent_strings
+        else:
+            part["scanIntent"] = list(itertools.chain.from_iterable(intent_strings))
 
     return partitions_list

@@ -23,7 +23,7 @@ def test_image():
     lazy_img_xds = read_image(image_name)
 
     img_xds = load_image(
-        infile= image_name,
+        infile=image_name,
         do_sky_coords=True,
     )
 

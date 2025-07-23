@@ -13,20 +13,26 @@ from xradio.schema.check import check_dataset
 # relative_tolerance = 10 ** (-12)
 relative_tolerance = 10 ** (-6)
 
+# Uncomment to not clean up files between test (i.e. skip downloading them again)
+@pytest.fixture
+def tmp_path():
+    return pathlib.Path("/tmp/test")
 
-def test_image():
+
+def test_image(tmp_path):
     from xradio.image import load_image, read_image, write_image
 
     image_name = "demo_simulated.im"
-    toolviper.utils.data.download(file=image_name, folder="data")
+    toolviper.utils.data.download(file=image_name, folder=tmp_path)
 
-    image_name = pathlib.Path.cwd().joinpath("data").joinpath("demo_simulated.im")
+    image_name = pathlib.Path.cwd().joinpath("tmp_path").joinpath("demo_simulated.im")
 
     print("*"*30)
     import os
     print(os.system("pwd"))
     print(os.system("ls"))
     print(image_name)
+    print(os.system("ls image_name"))
     print("*"*30)
     
     lazy_img_xds = read_image(str(image_name))
@@ -52,4 +58,4 @@ if __name__ == "__main__":
     a = 42
     from pathlib import Path
 
-    test_image()
+    test_image(tmp_path=Path("."))

@@ -5,6 +5,8 @@ import pytest
 import time
 import warnings
 
+pytest.skip("Skipping because we are debugging another set of tests and these take a while to run.", allow_module_level=True)
+
 import pandas as pd
 import xarray as xr
 

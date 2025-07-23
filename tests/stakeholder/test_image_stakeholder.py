@@ -26,15 +26,6 @@ def test_image(tmp_path):
     toolviper.utils.data.download(file=image_name, folder=tmp_path)
 
     image_name = pathlib.Path.cwd().joinpath(tmp_path).joinpath("demo_simulated.im")
-
-    print("*"*30)
-    import os
-    print(os.system("pwd"))
-    print(os.system("ls"))
-    print(image_name)
-    print(os.system("ls image_name"))
-    print(os.listdir(image_name.parent))
-    print("*"*30)
     
     lazy_img_xds = read_image(str(image_name))
 

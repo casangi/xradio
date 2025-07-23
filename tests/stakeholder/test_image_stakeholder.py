@@ -25,7 +25,7 @@ def test_image(tmp_path):
     image_name = "demo_simulated.im"
     toolviper.utils.data.download(file=image_name, folder=tmp_path)
 
-    image_name = pathlib.Path.cwd().joinpath("tmp_path").joinpath("demo_simulated.im")
+    image_name = pathlib.Path.cwd().joinpath(tmp_path).joinpath("demo_simulated.im")
 
     print("*"*30)
     import os

@@ -179,7 +179,8 @@ def load_image(infile: str, block_des: dict = None, do_sky_coords=True) -> xr.Da
     do_casa = True
     emsgs = []
 
-    block_des = {}
+    if block_des is None:
+        block_des = {}
 
     selection = copy.deepcopy(block_des) if block_des else block_des
     if selection:

@@ -99,9 +99,9 @@ def read_image(
      compute_mask : bool, optional
         If True (default), compute and attach valid data masks when converting from FITS to xds.
         If False, skip mask computation entirely. This may improve performance if the mask
-        is not required for subsequent processing. It may however result in unprecdictable behavior
+        is not required for subsequent processing. It may, however, result in unpredictable behavior
         for applications that are not designed to handle missing data. It is the user's responsibility,
-        not the software's, to ensure that the mask is computed if it is needed. Currently only
+        not the software's, to ensure that the mask is computed if it is necessary. Currently only
         implemented for FITS images.
     Returns
     -------

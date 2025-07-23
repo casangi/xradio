@@ -33,6 +33,7 @@ def test_image(tmp_path):
     print(os.system("ls"))
     print(image_name)
     print(os.system("ls image_name"))
+    print(os.listdir(image_name.parent))
     print("*"*30)
     
     lazy_img_xds = read_image(str(image_name))

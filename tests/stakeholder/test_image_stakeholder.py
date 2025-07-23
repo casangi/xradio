@@ -4,6 +4,7 @@ import os
 import pathlib
 import pytest
 import time
+import toolviper
 
 from toolviper.utils.data import download
 from toolviper.utils.logger import setup_logger
@@ -17,10 +18,10 @@ def test_image():
     from xradio.image import load_image, read_image, write_image
 
     image_name = "demo_simulated.im"
-    download(file=image_name, folder="data")
+    toolviper.utils.data.download(file=image_name, folder="data")
 
     image_name = pathlib.Path.cwd().joinpath("data").joinpath("demo_simulated.im")
-    lazy_img_xds = read_image(image_name)
+    lazy_img_xds = read_image(str(image_name))
 
     img_xds = load_image(
         infile=image_name,

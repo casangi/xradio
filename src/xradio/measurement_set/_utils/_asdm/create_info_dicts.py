@@ -68,7 +68,8 @@ def create_processor_info(asdm: pyasdm.ASDM, partition: dict) -> dict:
         - type: The processor type name
         - sub_type: The processor subtype name
     """
-    config_description_id = int(partition["configDescriptionId"])
+
+    config_description_id = partition["configDescriptionId"][0]
     config_tbl = asdm.getConfigDescription()
     table_name = config_tbl.getName()
     config_description_tag = pyasdm.types.Tag(f"{table_name}_{config_description_id}")

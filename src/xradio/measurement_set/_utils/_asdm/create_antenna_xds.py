@@ -5,6 +5,8 @@ import xarray as xr
 
 import pyasdm
 
+import toolviper.utils.logger as logger
+
 from xradio._utils.dict_helpers import make_quantity_attrs
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,
@@ -30,7 +32,8 @@ def create_antenna_xds(
     num_antenna : int
         Number of antennas in the array
     polarization : xr.DataArray
-        DataArray containing polarization information (not used in current implementation)
+        DataArray containing polarization information (needed if
+        that info is not present in the Feed table)
 
     Returns
     -------
@@ -127,7 +130,7 @@ def create_antenna_xds(
 
     xds.attrs.update({"overall_telescope_name": telescope_name})
 
-    feed_xds = create_feed_xds(asdm, antenna_df, spectral_window_id)
+    feed_xds = create_feed_xds(asdm, antenna_df, spectral_window_id, polarization)
     xds = xr.merge([xds, feed_xds])
 
     return xds
@@ -137,6 +140,7 @@ def create_feed_xds(
     asdm: pyasdm.ASDM,
     antenna_df: pd.DataFrame,
     spectral_window_id: int,
+    polarization: xr.DataArray,
 ) -> xr.Dataset:
     """
     Create an xarray Dataset with feed data from an ASDM table.
@@ -151,6 +155,10 @@ def create_feed_xds(
         DataFrame containing antenna information
     spectral_window_id : int
         ID of the spectral window to filter feed data
+    polarization : xr.DataArray
+        DataArray containing polarization information (needed if
+        that info is not present in the Feed table)
+
     Returns
     -------
     xr.Dataset
@@ -173,17 +181,29 @@ def create_feed_xds(
     ]
     feed_df = exp_asdm_table_to_df(asdm, "Feed", sdm_feed_attrs)
     feed_df = feed_df.loc[feed_df["spectralWindowId"] == spectral_window_id]
-    antenna_feed_df = pd.merge(
-        antenna_df, feed_df, on="antennaId", suffixes=("_antenna", "_feed")
-    )
 
-    polarization_types = antenna_feed_df["polarizationTypes"].values[0]
-    receptor_label = [f"pol_{idx}" for idx in np.arange(len(polarization_types))]
-    polarization_type_df = pd.DataFrame(
-        antenna_feed_df["polarizationTypes"].to_list(),
-        columns=receptor_label,
-        index=antenna_feed_df["name_antenna"],
-    ).astype(str)
+    feed_info_available = not feed_df.empty
+    if not feed_info_available:
+        # This happens typically for ALMA WVR SPWs - no feed info
+        logger.warning("No feed info found for spectral window ID {spectral_window_id}")
+        # TODO: this should be shared with MSv2, same logic
+        polarization_types = list(polarization.values[0])
+        receptor_label = [f"pol_{idx}" for idx in np.arange(0, len(polarization_types))]
+        pol_type_values = [polarization_types] * antenna_df.shape[0]
+        polarization_type_df = pd.DataFrame(
+            pol_type_values, columns=receptor_label, index=antenna_df["name_antenna"]
+        )
+    else:
+        antenna_feed_df = pd.merge(
+            antenna_df, feed_df, on="antennaId", suffixes=("_antenna", "_feed")
+        )
+        polarization_types_len = len(antenna_feed_df["polarizationTypes"][0])
+        receptor_label = [f"pol_{idx}" for idx in np.arange(polarization_types_len)]
+        polarization_type_df = pd.DataFrame(
+            antenna_feed_df["polarizationTypes"].to_list(),
+            columns=receptor_label,
+            index=antenna_feed_df["name_antenna"],
+        ).astype(str)
 
     feed_coords = {
         "receptor_label": (["receptor_label"], receptor_label),
@@ -191,6 +211,9 @@ def create_feed_xds(
     }
     feed_xds = xr.Dataset(coords=feed_coords)
     feed_xds["polarization_type"] = feed_xds["polarization_type"].astype(str)
+
+    if not feed_info_available:
+        return feed_xds
 
     receptor_angle_values = [
         [angle[0].get(), angle[1].get()] for angle in antenna_feed_df["receptorAngle"]

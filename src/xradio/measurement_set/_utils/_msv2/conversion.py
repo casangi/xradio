@@ -54,6 +54,7 @@ from ._tables.read import (
 )
 from ._tables.read_main_table import get_baselines, get_baseline_indices, get_utimes_tol
 from .._utils.stokes_types import stokes_types
+
 from xradio._utils.list_and_array import check_if_consistent, unique_1d
 from xradio._utils.dict_helpers import make_spectral_coord_reference_dict, make_quantity
 
@@ -515,7 +516,7 @@ def create_coordinates(
         ref_code=spectral_window_xds["MEAS_FREQ_REF"].data,
     )
     xds.frequency.attrs["channel_width"] = make_quantity(
-        np.abs(unique_chan_width[0]), msv4_measure["units"] if msv4_measure else ["Hz"]
+        np.abs(unique_chan_width[0]), msv4_measure["units"] if msv4_measure else "Hz"
     )
 
     ###### Create Time Coordinate ######
@@ -530,7 +531,7 @@ def create_coordinates(
         main_column_descriptions["INTERVAL"]
     )
     xds.time.attrs["integration_time"] = make_quantity(
-        interval, msv4_measure["units"] if msv4_measure else ["s"]
+        interval, msv4_measure["units"] if msv4_measure else "s"
     )
 
     return xds
@@ -697,7 +698,7 @@ def add_missing_data_var_attrs(xds):
     data_var_names = ["SPECTRUM", "SPECTRUM_CORRECTED"]
     for var_name in data_var_names:
         if var_name in xds.data_vars:
-            xds.data_vars[var_name].attrs["units"] = [""]
+            xds.data_vars[var_name].attrs["units"] = ""
 
     vis_var_names = ["VISIBILITY_MODEL"]
     for var_name in vis_var_names:
@@ -708,7 +709,7 @@ def add_missing_data_var_attrs(xds):
                     "VISIBILITY"
                 ].attrs["units"]
             else:
-                xds.data_vars[var_name].attrs["units"] = [""]
+                xds.data_vars[var_name].attrs["units"] = ""
 
     return xds
 
@@ -754,9 +755,9 @@ def fix_uvw_frame(
     """
     if xds.UVW.attrs["frame"] == "ITRF":
         if is_single_dish:
-            center_var = "FIELD_REFERENCE_CENTER"
+            center_var = "FIELD_REFERENCE_CENTER_DIRECTION"
         else:
-            center_var = "FIELD_PHASE_CENTER"
+            center_var = "FIELD_PHASE_CENTER_DIRECTION"
 
         xds.UVW.attrs["frame"] = field_and_source_xds[center_var].attrs["frame"]
 

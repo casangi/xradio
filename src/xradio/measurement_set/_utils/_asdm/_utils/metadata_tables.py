@@ -5,6 +5,7 @@ import pyasdm
 
 
 # TODO: do the get() also for Angle, Length, etc. quantities
+#  Also types: PolarizationType
 def load_asdm_col(sdm_table: pyasdm.ASDM, col_name: str) -> list:
     def upper_first(col_string):
         return col_string[0].upper() + col_string[1:]

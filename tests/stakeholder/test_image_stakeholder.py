@@ -4,6 +4,7 @@ import os
 import pathlib
 import pytest
 import time
+import toolviper
 
 from toolviper.utils.data import download
 from toolviper.utils.logger import setup_logger
@@ -13,15 +14,24 @@ from xradio.schema.check import check_dataset
 relative_tolerance = 10 ** (-6)
 
 
-def test_image():
-    image_name = "demo_simulated.im"
-    download(image_name)
+# Uncomment to not clean up files between test (i.e. skip downloading them again)
+@pytest.fixture
+def tmp_path():
+    return pathlib.Path("/tmp/test")
+
+
+def test_image(tmp_path):
     from xradio.image import load_image, read_image, write_image
 
-    lazy_img_xds = read_image(image_name)
+    image_name = "demo_simulated.im"
+    toolviper.utils.data.download(file=image_name, folder=tmp_path)
+
+    image_name = pathlib.Path.cwd().joinpath(tmp_path).joinpath("demo_simulated.im")
+
+    lazy_img_xds = read_image(str(image_name))
 
     img_xds = load_image(
-        image_name,
+        infile=image_name,
         do_sky_coords=True,
     )
 
@@ -41,4 +51,4 @@ if __name__ == "__main__":
     a = 42
     from pathlib import Path
 
-    test_image()
+    test_image(tmp_path=Path("."))

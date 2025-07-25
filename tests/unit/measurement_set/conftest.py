@@ -111,7 +111,12 @@ def ms_custom_spec(request):
     Expects in request.param an MS description / description of the visibilities dataset used in
     gen_test_ms to produce it
     """
-    name = "test_ms_custom_spec.ms"
+
+    name_appendix = "session"
+    if hasattr(request, "cls") and request.cls:
+        name_appendix = request.cls.__name__
+
+    name = f"test_ms_custom_spec_for_{name_appendix}.ms"
     msv2_custom_description = gen_test_ms(
         name,
         request.param,
@@ -247,6 +252,40 @@ def sys_cal_xds_min(msv4_xdt_min, msv4_min_path):
 
 
 # Used in test_processing_set_xdt / test_load_processing_set
+
+
+@pytest.fixture(scope="session")
+def processing_set_from_custom_ms(request):
+    """
+    Expects in request.param an MS description / description of the visibilities dataset used in
+    gen_test_ms to produce it. After that, it is converted to a processing set.
+    """
+
+    name_appendix = "session"
+    if hasattr(request, "cls") and request.cls:
+        name_appendix = request.cls.__name__
+    msv2_name = f"test_ms_custom_spec_for_{name_appendix}.ms"
+    _msv2_custom_description = gen_test_ms(
+        msv2_name,
+        request.param,
+        opt_tables=True,
+        vlbi_tables=False,
+        required_only=True,
+        misbehave=False,
+    )
+
+    ps_name = f"test_proc_set_from_custom_ms_for_{name_appendix}.ps.zarr"
+    convert_msv2_to_processing_set(
+        in_file=msv2_name,
+        out_file=ps_name,
+        partition_scheme=[],
+        overwrite=False,
+        parallel_mode="partition",
+    )
+    shutil.rmtree(msv2_name)
+
+    yield ps_name
+    shutil.rmtree(ps_name)
 
 
 def download_measurement_set(input_ms, directory="/tmp"):

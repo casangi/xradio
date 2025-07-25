@@ -152,7 +152,7 @@ class MeasurementSetXdt:
             raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4 node.")
 
         if data_group_name is None:
-            if "base" in self._xdt.attrs["data_groups"].keys():
+            if "base" in self._xdt.attrs["data_groups"]:
                 data_group_name = "base"
             else:
                 data_group_name = list(self._xdt.attrs["data_groups"].keys())[0]
@@ -189,7 +189,7 @@ class MeasurementSetXdt:
             )
 
         if data_group_name is None:
-            if "base" in self._xdt.attrs["data_groups"].keys():
+            if "base" in self._xdt.attrs["data_groups"]:
                 data_group_name = "base"
             else:
                 data_group_name = list(self._xdt.attrs["data_groups"].keys())[0]
@@ -312,7 +312,7 @@ class MeasurementSetXdt:
         return self._xdt
 
     def _get_default_data_group_name(self):
-        if "base" in self._xdt.attrs["data_groups"].keys():
+        if "base" in self._xdt.attrs["data_groups"]:
             data_group_name = "base"
         else:
             data_group_name = list(self._xdt.attrs["data_groups"].keys())[0]

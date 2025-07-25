@@ -8,6 +8,7 @@ import xarray as xr
 import pyasdm
 
 from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
+from xradio._utils.list_and_array import check_if_consistent
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,
 )
@@ -17,7 +18,10 @@ from xradio.measurement_set._utils._asdm._utils.spectral_window import (
     get_reference_frame,
     get_spw_frequency_centers,
 )
-from xradio.measurement_set._utils._asdm._utils.time import convert_time_asdm_to_unix
+from xradio.measurement_set._utils._asdm._utils.time import (
+    convert_time_asdm_to_unix,
+    get_times_from_bdfs,
+)
 from xradio.measurement_set._utils._asdm.create_antenna_xds import create_antenna_xds
 from xradio.measurement_set._utils._asdm.create_field_and_source_xds import (
     create_field_and_source_xds,
@@ -25,6 +29,7 @@ from xradio.measurement_set._utils._asdm.create_field_and_source_xds import (
 from xradio.measurement_set._utils._asdm.create_info_dicts import create_info_dicts
 from xradio._utils.dict_helpers import (
     make_quantity,
+    make_quantity_attrs,
     make_spectral_coord_measure_attrs,
     make_spectral_coord_reference_dict,
     make_time_measure_attrs,
@@ -51,7 +56,7 @@ def open_partition(
     """
     msv4_xdt = xr.DataTree()
 
-    correlated_xds, num_antenna, spw_id = open_correlated_xds(asdm, partition_descr)
+    correlated_xds, num_antenna, spw_id = create_correlated_xds(asdm, partition_descr)
     msv4_xdt.ds = correlated_xds
 
     msv4_xdt["/antenna_xds"] = create_antenna_xds(
@@ -83,9 +88,42 @@ def open_partition(
     return msv4_xdt
 
 
-def open_correlated_xds(
+def create_correlated_xds(
     asdm: pyasdm.ASDM, partition_descr: dict[str, np.ndarray]
 ) -> tuple[xr.DataTree, int]:
+    """Create a correlated data xarray Dataset from ASDM data.
+    This function creates an xarray Dataset containing correlated visibility data
+    from an ASDM (ALMA Science Data Model) object. It sets up the necessary coordinates,
+    data variables, and metadata attributes according to the MSv4 schema.
+    Parameters
+    ----------
+    asdm : pyasdm.ASDM
+        The ASDM object containing the raw data.
+    partition_descr : dict[str, np.ndarray]
+        Dictionary containing partition descriptions for the ASDM data.
+    Returns
+    -------
+    tuple[xr.DataTree, int]
+        A tuple containing:
+        - xds : xr.Dataset
+            The xarray Dataset containing the correlated visibility data with
+            appropriate coordinates, variables, and metadata.
+        - num_antenna : int
+            The number of antennas in the dataset.
+        - spw_id : int
+            The spectral window ID.
+    Notes
+    -----
+    The created Dataset follows the MSv4 schema and includes:
+        - Basic metadata (schema version, creator info, creation date)
+        - Coordinate systems
+        - Time variables
+        - Data variables for visibility data
+        - Data group definitions
+        - Additional metadata from the ASDM
+    The function sets up a non-single-dish observation structure.
+    """
+
     datetime_now = datetime.datetime.now(datetime.timezone.utc).isoformat()
     xds = xr.Dataset(
         attrs={
@@ -100,15 +138,15 @@ def open_correlated_xds(
     )
 
     is_single_dish = False
-    coords, coord_attrs, num_antenna, spw_id = create_coordinates(
+    coords, coord_attrs, num_antenna, spw_id, time_vars = create_coordinates(
         asdm, partition_descr, is_single_dish
     )
     xds = xds.assign_coords(coords)
-    # print(f" =================== {xds.coords=}")
     for coord_name in coords:
         if coord_name in coord_attrs:
             xds.coords[coord_name].attrs = coord_attrs[coord_name]
 
+    xds = xds.assign(time_vars)
     xds = xds.assign(create_data_vars(xds))
 
     data_group_base = {
@@ -129,6 +167,31 @@ def open_correlated_xds(
 
 
 def create_data_vars(xds: xr.Dataset) -> dict[str, tuple]:
+    """
+    Create a dictionary of data variables for a radio astronomy dataset.
+    This function initializes the fundamental data structures needed for radio interferometry
+    data, including visibilities, weights, flags, and UVW coordinates.
+    Parameters
+    ----------
+    xds : xr.Dataset
+        Input xarray Dataset containing the dimension sizes for 'time', 'baseline_id',
+        'frequency', 'polarization', and 'uvw_label'.
+    Returns
+    -------
+    dict[str, tuple]
+        A dictionary containing the following data variables:
+        - VISIBILITY : Complex visibility data with shape (time, baseline_id, frequency, polarization)
+        - WEIGHT : Visibility weights with shape (time, baseline_id, frequency, polarization)
+        - FLAG : Boolean flags with shape (time, baseline_id, frequency, polarization)
+        - UVW : UVW coordinates with shape (time, baseline_id, uvw_label)
+
+    Notes
+    -----
+    All arrays are initialized with ones. The actual data should be filled in later.
+    VISIBILITY includes metadata for units and field/source information.
+    UVW includes metadata specifying the coordinate frame (ICRS) and units (meters).
+    """
+
     data_vars = {}
 
     data_vars["VISIBILITY"] = (
@@ -195,24 +258,49 @@ def create_coordinates(
     asdm: pyasdm.ASDM,
     partition_descr: dict[str, np.ndarray],
     is_single_dish: bool = False,
-) -> tuple[dict, dict]:
+) -> tuple[dict, dict, int, int, dict]:
     """
-    TODO
+    Create coordinate systems and associated metadata from ASDM data.
+
+    This function extracts and processes coordinate information from an ALMA Science Data Model
+    (ASDM) dataset, including time, frequency, polarization, baseline, and field coordinates.
+    It handles both interferometric and single-dish observations.
 
     Parameters
     ----------
-    asdm:
-        Input ASDM object
-    partition_descr:
-        description of partition IDs in a dictionary of "ID ASDM key/attribute" -> numeric IDs
+    asdm : pyasdm.ASDM
+        Input ASDM object containing the observation data
+    partition_descr : dict[str, np.ndarray]
+        Dictionary mapping ASDM keys/attributes to their corresponding numeric IDs.
+        Expected keys include 'scanNumber', 'BDFPath', 'configDescriptionId',
+        'fieldId', and 'dataDescriptionId'
+    is_single_dish : bool, optional
+        Flag indicating if the data is from single-dish observations. If False,
+        UVW coordinates will be included. Default is False.
 
     Returns
     -------
-    dict
-        coordinates dict ready to be added with 'assign_coords'
+    coords : dict
+        Dictionary of coordinate arrays and their dimensions, ready for xarray
+        dataset creation. Includes coordinates for time, scan, baseline,
+        polarization, frequency, and field name.
+    attrs : dict
+        Dictionary of coordinate attributes including units, reference frames,
+        and other metadata.
+    num_antenna : int
+        Number of antennas in the observation.
+    spw_id : int
+        Spectral window ID.
+    time_vars : dict
+        Dictionary containing time-related variables including effective
+        integration time and time centroid information.
+
+    Notes
+    -----
+    The function processes various ASDM tables including Scan, Main, DataDescription,
+    Polarization, SpectralWindow, and Field to create a complete coordinate system
+    suitable for radio astronomy data analysis.
     """
-    coords = {}
-    attrs = {}
 
     # Closest to time is the Scan/startTime,endTime,etc. but time values will probably will be
     # read from the subscans BDFs?
@@ -222,13 +310,22 @@ def create_coordinates(
     scans_metadata = scan_df.loc[
         scan_df["scanNumber"].isin(partition_descr["scanNumber"])
     ]
-    time_centers = convert_time_asdm_to_unix(scans_metadata["startTime"].values)
+
+    time_centers, durations, actual_times, actual_durations = get_times_from_bdfs(
+        partition_descr["BDFPath"], scans_metadata
+    )
+    integration_time = check_if_consistent(np.array(durations), "durations")
+    coords = {}
+    attrs = {}
     coords["time"] = (["time"], time_centers)
     attrs["time"] = make_time_measure_attrs("s", "tai", time_format="unix")
     attrs["time"].update(
-        {"dims": ["time"], "integration_time": make_quantity(0.0, "s")}
+        {"dims": ["time"], "integration_time": make_quantity(integration_time, "s")}
     )
     scan_numbers = np.array(scans_metadata["scanNumber"]).astype(str)
+    # TODO: proper mapping begin/end scans, subscans -> BDFs
+    if len(scan_numbers) != len(time_centers):
+        scan_numbers = np.resize(scan_numbers, len(time_centers))
     coords["scan_name"] = (["time"], scan_numbers)
 
     # baselines...
@@ -310,10 +407,31 @@ def create_coordinates(
     field_df = exp_asdm_table_to_df(asdm, "Field", sdm_field_attrs)
     fields = field_df.loc[field_df["fieldId"].isin(partition_descr["fieldId"])][
         "fieldName"
-    ].values
-    coords["field_name"] = (["time"], np.repeat(fields, len(time_centers)).astype(str))
+    ].values.astype(str)
+    coords["field_name"] = (["time"], np.resize(fields, len(time_centers)))
+
+    # We need (time, baseline_id) dims but times and durations form ASDM/BDFs are independent of baseline
+    redim_actual_durations = np.resize(
+        actual_durations, (len(actual_durations), len(baseline_antenna1_id))
+    )
+    redim_actual_times = np.resize(
+        actual_times, (len(actual_times), len(baseline_antenna1_id))
+    )
+    time_vars = {
+        "EFFECTIVE_INTEGRATION_TIME": (
+            ["time", "baseline_id"],
+            redim_actual_durations,
+            make_quantity_attrs("s"),
+        ),
+        "TIME_CENTROID": (
+            ["time", "baseline_id"],
+            redim_actual_times,
+            make_time_measure_attrs("s", "tai", time_format="unix"),
+        ),
+    }
 
     if not is_single_dish:
         coords["uvw_label"] = np.array(["u", "v", "w"])
 
-    return coords, attrs, num_antenna, spw_id
+    # TODO: this needs clean-up!
+    return coords, attrs, num_antenna, spw_id, time_vars

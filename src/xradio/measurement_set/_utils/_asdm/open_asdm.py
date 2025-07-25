@@ -46,7 +46,7 @@ def open_asdm(asdm_path: str, partition_scheme: list = ["fieldId"]):
         logger.info(
             "execBlock "
             + str(partition_descr["execBlockId"])
-            + ", dataDesciption: "
+            + ", dataDescription: "
             + str(partition_descr["dataDescriptionId"])
             + ", scanIntent: "
             + str(partition_descr["scanIntent"])
@@ -56,6 +56,8 @@ def open_asdm(asdm_path: str, partition_scheme: list = ["fieldId"]):
             + str(partition_descr["scanNumber"])
             + ", subscan: "
             + str(partition_descr["subscanNumber"])
+            + ", state: "
+            + str(partition_descr["stateId"])
             + (
                 ", antenna: " + str(partition_descr["antennaId"])
                 if "antennaId" in partition_descr

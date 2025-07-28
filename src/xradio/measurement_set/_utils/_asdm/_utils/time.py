@@ -45,10 +45,16 @@ def convert_time_asdm_to_unix(times_asdm: np.ndarray):
     # [((asdm_interval.toFITS()) for asdm_interval in main_df["time"].values]
 
     MJD_TO_UNIX_TIME_DELTA = 3_506_716_800
-    times_unix = [
-        (asdm_interval.get() - MJD_TO_UNIX_TIME_DELTA * 1e9) / 1e9
-        for asdm_interval in times_asdm
-    ]
+    MJD_TO_UNIX_TIME_DELTA_NS = 3_506_716_800 * 1e9
+
+    if isinstance(times_asdm[0], pyasdm.types.ArrayTime):
+        asdm_times_float = np.array(
+            [asdm_interval.get() for asdm_interval in times_asdm]
+        )
+    else:
+        asdm_times_float = times_asdm
+
+    times_unix = (asdm_times_float - MJD_TO_UNIX_TIME_DELTA_NS) / 1e9
 
     # alternatively convert via pd:
     # return pd.to_datetime(time_values, unit="s")
@@ -98,7 +104,7 @@ def get_times_from_bdfs(
 
     except AttributeError as exc:
         logger.warning(
-            "Could not read nominal and actual times and durations from BDFs"
+            f"Could not read nominal and actual times and durations from BDFs. {exc=}"
         )
         time_centers = convert_time_asdm_to_unix(
             scans_metadata["startTime"].values
@@ -141,36 +147,74 @@ def read_times_from_bdfs(
     WVR data is currently not supported and will return arrays of zeros.
     """
 
-    bdf_reader = pyasdm.bdf.BDFReader()
-
-    time_centers, durations, actual_times, actual_durations = [], [], [], []
+    all_time_centers, all_durations, all_actual_times, all_actual_durations = (
+        [],
+        [],
+        [],
+        [],
+    )
     for bdf_path in bdf_paths:
-        bdf_reader.open(bdf_path)
-        bdf_header = bdf_reader.getHeader()
+        midpoint, interval, actual_times, actual_durations = read_times_bdf(bdf_path)
+        all_time_centers.append(midpoint)
+        all_durations.append(interval)
+        all_actual_times.append(actual_times)
+        all_actual_durations.append(actual_durations)
 
-        wvr_title = bdf_header.isWVR()
-        # TODO: I'd hope this is not a general problem but for some test datasets WVR SPWs produce
-        # failures related to the BDF dims
-        if wvr_title:
-            return np.zeros(1), np.zeros(1), np.zeros(1)
+    return (
+        np.concatenate(all_time_centers),
+        np.concatenate(all_durations),
+        np.concatenate(all_actual_times),
+        np.concatenate(all_actual_durations),
+    )
 
-        while bdf_reader.hasSubset():
+
+def read_times_bdf(
+    bdf_path: str,
+) -> tuple[list, list, list, list]:
+    bdf_reader = pyasdm.bdf.BDFReader()
+    bdf_reader.open(bdf_path)
+    bdf_header = bdf_reader.getHeader()
+    wvr_title = bdf_header.isWVR()
+
+    # TODO: I'd hope this is not a general problem but for some test datasets WVR SPWs produce
+    # failures related to the BDF dims:
+    # if wvr_title:
+    #    return np.zeros(1), np.zeros(1), np.zeros(1), np.zeros(1)
+    # This anyway seems to happen for other BDFs, so handling it in the except ValueError below...
+
+    all_midpoints, all_actual_times, all_intervals, all_actual_durations = (
+        [],
+        [],
+        [],
+        [],
+    )
+    while bdf_reader.hasSubset():
+        try:
             subset = bdf_reader.getSubset()
+        except ValueError:
+            # Example: (cycle 3, 2015.1.00665.S/uid___A002_Xae4720_X57fe):
+            # File... BDFReader.py", line 805, in _requireSDMDataSubsetMIMEPart
+            #    intNum = int(projectPathParts[3])
+            # ValueError: invalid literal for int() with base 10: ''
+            bdf_reader.close()
+            return np.zeros(1), np.zeros(1), np.zeros(1), np.zeros(1)
 
-            midpoint = subset["midpointInNanoSeconds"] / 1e9
-            time_centers.append(midpoint)
-            if subset["actualTimes"]["present"]:
-                actual_times.append(subset["actualTimes"]["arr"] / 1e9)
-            else:
-                actual_times.append(subset["midpointInNanoSeconds"] / 1e9)
+        midpoint = subset["midpointInNanoSeconds"] / 1e9
+        all_midpoints.append(midpoint)
+        if subset["actualTimes"]["present"]:
+            # note, for now ignoring the unclear/values-dont-add-up baseline? dim, just first
+            all_actual_times.append(subset["actualTimes"]["arr"][0] / 1e9)
+        else:
+            all_actual_times.append(midpoint)
 
-            interval = subset["intervalInNanoSeconds"] / 1e9
-            durations.append(interval)
-            if subset["actualDurations"]["present"]:
-                actual_durations.append(subset["actualDurations"]["arr"] / 1e9)
-            else:
-                actual_durations.append(interval)
+        interval = subset["intervalInNanoSeconds"] / 1e9
+        all_intervals.append(interval)
+        if subset["actualDurations"]["present"]:
+            # note, for now ignoring the unclear baseline? dim, just first
+            all_actual_durations.append(subset["actualDurations"]["arr"][0] / 1e9)
+        else:
+            all_actual_durations.append(interval)
 
-        bdf_reader.close()
+    bdf_reader.close()
 
-    return time_centers, durations, actual_times, actual_durations
+    return all_midpoints, all_intervals, all_actual_times, all_actual_durations

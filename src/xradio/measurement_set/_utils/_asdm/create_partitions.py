@@ -193,11 +193,47 @@ def finalize_partitions_groupby(
        every row defines one partition base on those columns.
     """
 
+    def replace_back_intent_strings(
+        partitions_list: list, unique_scan_intents: np.ndarray
+    ) -> list:
+        """
+        Replace back indices of scan intent strings with their original list of intent strings
+
+        Indices in the unique_scan_intents array of intent strings are sed before this point for the
+        sake of unique, sorting, etc. functions which do not accept lists of strings.
+        """
+        for part in partitions_list:
+            intent_strings = unique_scan_intents[part["scanIntent"]]
+            if isinstance(intent_strings, list) and isinstance(intent_strings[0], str):
+                part["scanIntent"] = intent_strings
+            else:
+                part["scanIntent"] = list(itertools.chain.from_iterable(intent_strings))
+
+        return partitions_list
+
+    def fix_types_for_anomalous_partitions(partitions_list: list) -> list:
+        """
+        Still trying to clarify these cases and how to best handle them.
+        See for example 2015.1.00665.S/uid___A002_Xae4720_X57fe.
+        """
+        for idx, part in enumerate(partitions_list):
+            if isinstance(part["scanIntent"], np.ndarray):
+                pass
+            elif isinstance(part["scanIntent"], dict):
+                # Single df row group, from for example subscans/BDFs with no or 1 time
+                partitions_list[idx] = {
+                    key: np.array([next(iter(val.values()))])
+                    for key, val in part.items()
+                }
+            else:
+                raise RuntimeError("Partition produced: {part=}")
+
+        return partitions_list
+
     partition_groups = partitioning_df.groupby(partition_columns)
 
+    # if these two lens match, the partitions are a 1-row df => series
     print(f"{len(partition_groups)=}, while {partitioning_df.shape[0]=}")
-    # if these two lens above, the partitions are a 1-row df => series
-
     if len(partition_groups) == partitioning_df.shape[0]:
         # Special case when partitioning all rows (scanNumber and subscanNumber
         # included).
@@ -206,18 +242,14 @@ def finalize_partitions_groupby(
         # So when we are left with a 1-row frame (which will be seen by
         # apply as a Series, use this DataFrame global to_dict:
         partitions_list = partitioning_df.to_dict(orient="records")
+
     else:
         partitions_list = [
             group.apply(lambda col: col.unique(), axis=0).to_dict()
             for _name, group in partition_groups
         ]
+        partitions_list = fix_types_for_anomalous_partitions(partitions_list)
 
-    # replace back indices with their list of intent strs
-    for part in partitions_list:
-        intent_strings = unique_scan_intents[part["scanIntent"]]
-        if isinstance(intent_strings, list) and isinstance(intent_strings[0], str):
-            part["scanIntent"] = intent_strings
-        else:
-            part["scanIntent"] = list(itertools.chain.from_iterable(intent_strings))
+    partitions_list = replace_back_intent_strings(partitions_list, unique_scan_intents)
 
     return partitions_list

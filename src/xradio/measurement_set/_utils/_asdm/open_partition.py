@@ -2,6 +2,7 @@ import datetime
 import importlib
 import itertools
 
+import dask
 import numpy as np
 import xarray as xr
 
@@ -21,6 +22,10 @@ from xradio.measurement_set._utils._asdm._utils.spectral_window import (
 from xradio.measurement_set._utils._asdm._utils.time import (
     convert_time_asdm_to_unix,
     get_times_from_bdfs,
+)
+from xradio.measurement_set._utils._asdm._utils.bdf_load_data_flags import (
+    load_visibilities_from_bdfs,
+    load_flags_from_bdfs,
 )
 from xradio.measurement_set._utils._asdm.create_antenna_xds import create_antenna_xds
 from xradio.measurement_set._utils._asdm.create_field_and_source_xds import (
@@ -147,7 +152,7 @@ def create_correlated_xds(
             xds.coords[coord_name].attrs = coord_attrs[coord_name]
 
     xds = xds.assign(time_vars)
-    xds = xds.assign(create_data_vars(xds))
+    xds = xds.assign(create_data_vars(xds, partition_descr["BDFPath"], spw_id))
 
     data_group_base = {
         "correlated_data": "VISIBILITY",
@@ -166,7 +171,9 @@ def create_correlated_xds(
     return xds, num_antenna, spw_id
 
 
-def create_data_vars(xds: xr.Dataset) -> dict[str, tuple]:
+def create_data_vars(
+    xds: xr.Dataset, bdf_paths: list[str], spw_id: int
+) -> dict[str, tuple]:
     """
     Create a dictionary of data variables for a radio astronomy dataset.
     This function initializes the fundamental data structures needed for radio interferometry
@@ -176,6 +183,9 @@ def create_data_vars(xds: xr.Dataset) -> dict[str, tuple]:
     xds : xr.Dataset
         Input xarray Dataset containing the dimension sizes for 'time', 'baseline_id',
         'frequency', 'polarization', and 'uvw_label'.
+    bdf_paths : list[str]
+        Paths to BDFs with data/flags for the partition
+
     Returns
     -------
     dict[str, tuple]
@@ -194,15 +204,18 @@ def create_data_vars(xds: xr.Dataset) -> dict[str, tuple]:
 
     data_vars = {}
 
+    dims_vis_weight_flag = ["time", "baseline_id", "frequency", "polarization"]
+    shape_vis_weight_flag = (
+        xds.sizes["time"],
+        xds.sizes["baseline_id"],
+        xds.sizes["frequency"],
+        xds.sizes["polarization"],
+    )
     data_vars["VISIBILITY"] = (
-        ["time", "baseline_id", "frequency", "polarization"],
-        np.ones(
-            (
-                xds.sizes["time"],
-                xds.sizes["baseline_id"],
-                xds.sizes["frequency"],
-                xds.sizes["polarization"],
-            ),
+        dims_vis_weight_flag,
+        dask.array.from_delayed(
+            dask.delayed(load_visibilities_from_bdfs)(bdf_paths, spw_id, {}),
+            shape=shape_vis_weight_flag,
             dtype="complex128",
         ),
         {
@@ -213,40 +226,33 @@ def create_data_vars(xds: xr.Dataset) -> dict[str, tuple]:
     )
 
     data_vars["WEIGHT"] = (
-        ["time", "baseline_id", "frequency", "polarization"],
-        np.ones(
-            (
-                xds.sizes["time"],
-                xds.sizes["baseline_id"],
-                xds.sizes["frequency"],
-                xds.sizes["polarization"],
-            ),
+        dims_vis_weight_flag,
+        dask.array.from_delayed(
+            dask.delayed(produce_weight_data_var)(xds),
+            shape=shape_vis_weight_flag,
             dtype="float64",
         ),
     )
 
     data_vars["FLAG"] = (
-        ["time", "baseline_id", "frequency", "polarization"],
-        np.ones(
-            (
-                xds.sizes["time"],
-                xds.sizes["baseline_id"],
-                xds.sizes["frequency"],
-                xds.sizes["polarization"],
-            ),
+        dims_vis_weight_flag,
+        dask.array.from_delayed(
+            dask.delayed(load_flags_from_bdfs)(bdf_paths, spw_id, {}),
+            shape=shape_vis_weight_flag,
             dtype="bool",
         ),
     )
 
+    dims_uvw = ["time", "baseline_id", "uvw_label"]
+    shape_uvw = (
+        xds.sizes["time"],
+        xds.sizes["baseline_id"],
+        xds.sizes["uvw_label"],
+    )
     data_vars["UVW"] = (
-        ["time", "baseline_id", "uvw_label"],
-        np.ones(
-            (
-                xds.sizes["time"],
-                xds.sizes["baseline_id"],
-                xds.sizes["uvw_label"],
-            ),
-            dtype="float64",
+        dims_uvw,
+        dask.array.from_delayed(
+            dask.delayed(produce_uvw_data_var)(xds), shape=shape_uvw, dtype="float64"
         ),
         {"type": "uvw", "frame": "icrs", "units": ["m"]},
     )
@@ -435,3 +441,27 @@ def create_coordinates(
 
     # TODO: this needs clean-up!
     return coords, attrs, num_antenna, spw_id, time_vars
+
+
+def produce_uvw_data_var(xds: xr.Dataset) -> xr.DataArray:
+    # TODO: best guess is to try to reproduce sdm tool behavior?
+    return np.ones(
+        (
+            xds.sizes["time"],
+            xds.sizes["baseline_id"],
+            xds.sizes["uvw_label"],
+        ),
+        dtype="float64",
+    )
+
+
+def produce_weight_data_var(xds: xr.Dataset) -> xr.DataArray:
+    return np.ones(
+        (
+            xds.sizes["time"],
+            xds.sizes["baseline_id"],
+            xds.sizes["frequency"],
+            xds.sizes["polarization"],
+        ),
+        dtype="float64",
+    )

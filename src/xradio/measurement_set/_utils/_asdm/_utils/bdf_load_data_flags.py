@@ -45,9 +45,22 @@ def ensure_presence_data_arrays(
             )
 
 
+def exclude_unsupported_axis_names(dims):
+
+    unsupported = ["APC", "STO", "HOL", "SPW"]
+
+    for bad_dim in unsupported:
+        if bad_dim in dims:
+            raise RuntimeError(f"Unsupported dimension {bad_dim=} in {dims=}")
+
+
 def check_cross_and_auto_data_dims(bdf_header: pyasdm.bdf.BDFHeader) -> bool:
     cross_data_dims = bdf_header.getAxesNames("crossData")
     auto_data_dims = bdf_header.getAxesNames("autoData")
+
+    exclude_unsupported_axis_names(cross_data_dims)
+    exclude_unsupported_axis_names(auto_data_dims)
+
     appears_single_dish = False
     # flags: ['BAL', 'ANT', 'BAB', 'POL'] / ['ANT', 'BAB', 'BIN', 'POL']
     # autodata: ['ANT', 'BAB', 'SPP', 'POL'] / ['ANT', 'BAB', 'BIN', 'POL']
@@ -127,19 +140,7 @@ def load_visibilities(bdf_path: str, spw_id: int, array_slice: dict) -> np.ndarr
             logger.warning(f"Error in getSubset for {bdf_path=} {exc=}")
             return np.zeros(shape)
 
-        if "crossData" in subset and subset["crossData"]["present"]:
-            # assuming dims ['BAL', 'BAB', 'SPP', 'POL']
-            cross_floats = (subset["crossData"]["arr"] / scale_factor).reshape(shape)
-            vis_subset = (
-                cross_floats[:, :, spw_baseband_num, :, :, 0]
-                + 1j * cross_floats[:, :, spw_baseband_num, :, :, 1]
-            )
-        elif "autoData" in subset and subset["autoData"]["present"]:
-            # Support SD a bit for now...
-            auto_floats = (subset["autoData"]["arr"] / scale_factor).reshape(shape)
-            vis_subset = auto_floats[:, :, spw_baseband_num, :, :]
-        else:
-            vis_subset = np.zeros(shape)
+        vis_subset = load_vis_subset(subset, shape, scale_factor, spw_baseband_num)
 
         cumulative_vis.append(vis_subset)
 
@@ -147,10 +148,30 @@ def load_visibilities(bdf_path: str, spw_id: int, array_slice: dict) -> np.ndarr
     return bdf_vis
 
 
+def load_vis_subset(
+    subset: dict, shape: tuple, scale_factor: float, spw_baseband_num: int
+) -> np.ndarray:
+
+    if "crossData" in subset and subset["crossData"]["present"]:
+        # assuming dims ['BAL', 'BAB', 'SPP', 'POL']
+        cross_floats = (subset["crossData"]["arr"] / scale_factor).reshape(shape)
+        vis_subset = (
+            cross_floats[:, :, spw_baseband_num, :, :, 0]
+            + 1j * cross_floats[:, :, spw_baseband_num, :, :, 1]
+        )
+    elif "autoData" in subset and subset["autoData"]["present"]:
+        # Support SD a bit for now...
+        auto_floats = (subset["autoData"]["arr"] / scale_factor).reshape(shape)
+        vis_subset = auto_floats[:, :, spw_baseband_num, :, :]
+    else:
+        vis_subset = np.zeros(shape)
+
+    return vis_subset
+
+
 def define_flag_shape(
     bdf_header: pyasdm.bdf.BDFHeader,
     baseband_description: dict,
-    appears_single_dish: bool,
 ) -> tuple:
 
     baseband_len = len(bdf_header.getBasebandsList())
@@ -160,12 +181,25 @@ def define_flag_shape(
     polarization_len = len(baseband_description["crossPolProducts"]) or len(
         baseband_description["sdPolProducts"]
     )
-    flags_dims = bdf_header.getAxesNames("flags")
+    flag_dims = bdf_header.getAxesNames("flags")
 
-    if flags_dims in [["BAL", "BAB", "POL"], ["BAL", "ANT", "BAB", "POL"]]:
-        shape = (1, baseline_len, antenna_len, baseband_len, polarization_len)
-    elif flags_dims in [["ANT", "BAB", "BIN", "POL"]]:
+    exclude_unsupported_axis_names(flag_dims)
+
+    # TOADD: TIM ANT BAB BIN POL (SD only?)
+    if flag_dims in [["BAL", "BAB", "POL"]]:
+        shape = (1, baseline_len, baseband_len, polarization_len)
+    elif flag_dims in [["BAL", "ANT", "BAB", "POL"]]:
+        shape = (1, baseline_len + antenna_len, baseband_len, polarization_len)
+    elif flag_dims in [["ANT", "BAB", "BIN", "POL"]]:
         shape = (1, antenna_len, baseband_len, frequency_len, polarization_len)
+    else:
+        # flag_dims == [], etc.
+        # Typically for radiometer / total power data. No flags. Just fill it.
+        # This should also imply 'not subset["flags"]["present"]'
+        appears_single_dish = check_cross_and_auto_data_dims(bdf_header)
+        shape = define_visibility_shape(
+            bdf_header, baseband_description, appears_single_dish
+        )
 
     return shape
 
@@ -184,13 +218,19 @@ def load_flags_from_bdfs(
     return np.concatenate(all_flag)
 
 
+def check_flags_dims(bdf_header: pyasdm.bdf.BDFHeader) -> bool:
+
+    flags_dims = bdf_header.getAxesNames("flags")
+    exclude_unsupported_axis_names(flags_dims)
+
+
 def load_flags(bdf_path: list[str], spw_id: int, array_slice: dict) -> np.ndarray:
 
     bdf_reader = pyasdm.bdf.BDFReader()
     bdf_reader.open(bdf_path)
     bdf_header = bdf_reader.getHeader()
 
-    appears_single_dish = check_cross_and_auto_data_dims(bdf_header)
+    check_flags_dims(bdf_header)
     basebands = bdf_header.getBasebandsList()
     spw_baseband_num, baseband_description = find_spw_in_basebands_list(
         bdf_path, spw_id, basebands
@@ -198,26 +238,73 @@ def load_flags(bdf_path: list[str], spw_id: int, array_slice: dict) -> np.ndarra
 
     ensure_presence_data_arrays(["flags"], bdf_header, bdf_path)
 
-    shape = define_flag_shape(bdf_header, baseband_description, appears_single_dish)
+    shape = define_flag_shape(bdf_header, baseband_description)
     flag_dims = bdf_header.getAxesNames("flags")
+    # leave out the BAB dim
+    baseband_dim_is_3rd_last = "BIN" in flag_dims and "BAB" not in flag_dims
+    if baseband_dim_is_3rd_last:
+        shape_when_not_present = shape[0:-3] + shape[-2:]
+    else:
+        shape_when_not_present = shape[0:-2] + (shape[-1],)
     cumulative_flag = []
     while bdf_reader.hasSubset():
         try:
             subset = bdf_reader.getSubset()
         except ValueError as exc:
-            logger.warning(f"Error in getSubset for {bdf_path=} {exc=}")
-            return np.zeros(shape)
+            logger.warning(
+                f"Error in getSubset for {bdf_path=} when trying to load "
+                f"flags. Will use all-False. {exc=}"
+            )
+            # Trying to go to a next subset after this failue will also
+            # produce a BDFReaderException.BDFReaderException: BDFReaderException
+            # Did not find expected field 'CONTENT-TYPE' in 'MIME-Version: 1.0'
+            flag_subset = np.full(
+                shape_when_not_present,
+                False,
+                dtype="bool",
+            )
+            cumulative_flag.append(flag_subset)
+            break
 
-        if "flags" in subset and subset["flags"]["present"]:
-            flag_array = subset["flags"]["arr"].reshape(shape)
-            if "BIN" in flag_dims:
-                flag_subset = flag_array[:, :, spw_baseband_num, :, :]
-            else:
-                flag_subset = flag_array[:, :, :, spw_baseband_num, :]
-        else:
-            flag_subset = np.zeros(shape, dtype="bool")[:, :, spw_baseband_num, :, :]
+        flag_subset = load_flag_subset(
+            subset,
+            shape,
+            spw_baseband_num,
+            baseband_dim_is_3rd_last,
+            shape_when_not_present,
+        )
 
         cumulative_flag.append(flag_subset)
 
     bdf_flag = np.concatenate(cumulative_flag)
     return bdf_flag
+
+
+def load_flag_subset(
+    subset: dict,
+    shape: tuple,
+    spw_baseband_num: int,
+    baseband_dim_is_3rd_last: bool,
+    shape_when_not_present: tuple,
+) -> np.ndarray:
+    """
+    Loads the flags array from one subset in a BDF.
+    """
+
+    if "flags" in subset and subset["flags"]["present"]:
+        flag_array = subset["flags"]["arr"].reshape(shape)
+
+        if baseband_dim_is_3rd_last:
+            flag_subset = flag_array[:, :, spw_baseband_num, :, :]
+        else:
+            if len(shape) == 4:
+                flag_subset = flag_array[:, :, spw_baseband_num, :]
+            elif len(shape) == 5:
+                flag_subset = flag_array[:, :, :, spw_baseband_num, :]
+            else:
+                raise RuntimeError(f"Found {shape=}, {len(shape)=}, with {flag_array=}")
+
+    else:
+        flag_subset = np.full(shape_when_not_present, False, dtype="bool")
+
+    return flag_subset

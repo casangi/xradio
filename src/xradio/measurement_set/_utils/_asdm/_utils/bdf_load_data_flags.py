@@ -85,7 +85,7 @@ def define_visibility_shape(
     bdf_header: pyasdm.bdf.BDFHeader,
     baseband_description: dict,
     appears_single_dish: bool,
-) -> tuple:
+) -> tuple[tuple, bool]:
 
     baseband_len = len(bdf_header.getBasebandsList())
     antenna_len = bdf_header.getNumAntenna()
@@ -95,14 +95,31 @@ def define_visibility_shape(
         baseband_description["sdPolProducts"]
     )
 
+    cross_data_dims = bdf_header.getAxesNames("crossData")
+    auto_data_dims = bdf_header.getAxesNames("autoData")
     if not appears_single_dish:
         shape = (1, baseline_len, baseband_len, frequency_len, polarization_len, 2)
-    else:
-        # With "TIM" dimension - expected for single dish, all times in one subset
-        num_time = bdf_header.getNumTime()
-        shape = (num_time, antenna_len, baseband_len, frequency_len, polarization_len)
 
-    return shape
+    else:
+        # Next ones, with "TIM" dimension, expected for single dish and radiometer,
+        # all times in one subset
+        num_time = bdf_header.getNumTime()
+        if not cross_data_dims and auto_data_dims in [["TIM", "ANT", "SPP"]]:
+            shape = (num_time, antenna_len, frequency_len, polarization_len)
+        elif not cross_data_dims and auto_data_dims in [["ANT", "BAB", "BIN", "POL"]]:
+            shape = (1, antenna_len, baseband_len, frequency_len, polarization_len)
+        else:
+            shape = (
+                num_time,
+                antenna_len,
+                baseband_len,
+                frequency_len,
+                polarization_len,
+            )
+
+    no_baseband_dim = "BAB" not in cross_data_dims and "BAB" not in auto_data_dims
+
+    return shape, no_baseband_dim
 
 
 def load_visibilities_from_bdfs(
@@ -139,7 +156,7 @@ def load_visibilities(bdf_path: str, spw_id: int, array_slice: dict) -> np.ndarr
     ensure_presence_data_arrays(["crossData", "autoData"], bdf_header, bdf_path)
 
     scale_factor = baseband_description["scaleFactor"] or 1
-    shape = define_visibility_shape(
+    shape, no_baseband_dim = define_visibility_shape(
         bdf_header, baseband_description, appears_single_dish
     )
     cumulative_vis = []
@@ -150,7 +167,9 @@ def load_visibilities(bdf_path: str, spw_id: int, array_slice: dict) -> np.ndarr
             logger.warning(f"Error in getSubset for {bdf_path=} {exc=}")
             return np.zeros(shape)
 
-        vis_subset = load_vis_subset(subset, shape, scale_factor, spw_baseband_num)
+        vis_subset = load_vis_subset(
+            subset, shape, scale_factor, spw_baseband_num, no_baseband_dim
+        )
 
         cumulative_vis.append(vis_subset)
 
@@ -159,20 +178,33 @@ def load_visibilities(bdf_path: str, spw_id: int, array_slice: dict) -> np.ndarr
 
 
 def load_vis_subset(
-    subset: dict, shape: tuple, scale_factor: float, spw_baseband_num: int
+    subset: dict,
+    shape: tuple,
+    scale_factor: float,
+    spw_baseband_num: int,
+    no_baseband_dim: bool,
 ) -> np.ndarray:
 
     if "crossData" in subset and subset["crossData"]["present"]:
         # assuming dims ['BAL', 'BAB', 'SPP', 'POL']
         cross_floats = (subset["crossData"]["arr"] / scale_factor).reshape(shape)
-        vis_subset = (
-            cross_floats[:, :, spw_baseband_num, :, :, 0]
-            + 1j * cross_floats[:, :, spw_baseband_num, :, :, 1]
-        )
+        if no_baseband_dim:
+            if len(cross_floats.shape[-1]) == 2:
+                vis_subset = cross_floats[..., 0] + 1j * cross_floats[..., 1]
+            else:
+                # radiometer
+                vis_subset = cross_floats
+        else:
+            vis_subset = (
+                cross_floats[:, :, spw_baseband_num, :, :, 0]
+                + 1j * cross_floats[:, :, spw_baseband_num, :, :, 1]
+            )
     elif "autoData" in subset and subset["autoData"]["present"]:
-        # Support SD a bit for now...
         auto_floats = (subset["autoData"]["arr"] / scale_factor).reshape(shape)
-        vis_subset = auto_floats[:, :, spw_baseband_num, :, :]
+        if no_baseband_dim:
+            vis_subset = auto_floats
+        else:
+            vis_subset = auto_floats[:, :, spw_baseband_num, :, :]
     else:
         vis_subset = np.zeros(shape)
 
@@ -195,7 +227,6 @@ def define_flag_shape(
 
     exclude_unsupported_axis_names(flag_dims)
 
-    # TOADD: TIM ANT BAB BIN POL (SD only?)
     if flag_dims in [["BAL", "BAB", "POL"]]:
         shape = (1, baseline_len, baseband_len, polarization_len)
     elif flag_dims in [["BAL", "ANT", "BAB", "POL"]]:
@@ -210,7 +241,7 @@ def define_flag_shape(
         # Typically for radiometer / total power data. No flags. Just fill it.
         # This should also imply 'not subset["flags"]["present"]'
         appears_single_dish = check_cross_and_auto_data_dims(bdf_header)
-        shape = define_visibility_shape(
+        shape, _no_baseband_dim = define_visibility_shape(
             bdf_header, baseband_description, appears_single_dish
         )
 
@@ -239,7 +270,7 @@ def check_flags_dims(bdf_header: pyasdm.bdf.BDFHeader) -> bool:
 
 def define_flag_shape_when_not_present(
     bdf_header: pyasdm.bdf.BDFHeader, shape: tuple
-) -> tuple:
+) -> tuple[tuple, bool]:
 
     flag_dims = bdf_header.getAxesNames("flags")
     cross_data_dims = bdf_header.getAxesNames("crossData")

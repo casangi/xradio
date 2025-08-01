@@ -69,6 +69,14 @@ def check_cross_and_auto_data_dims(bdf_header: pyasdm.bdf.BDFHeader) -> bool:
             f"crossData dims: {cross_data_dims}, autoData dims: {auto_data_dims}"
         )
         appears_single_dish = True
+        if bdf_header.getCorrelationMode() != pyasdm.enumerations.CorrelationMode(
+            "AUTO_ONLY"
+        ):
+            raise RuntimeError(
+                "I'm confused. There is not crossData in this BDF but the "
+                "correlator mode is not AUTO_ONLY, as expected for single-dish "
+                f"data. {bdf_heder.getCorrelationMode()=}"
+            )
 
     return appears_single_dish
 
@@ -90,7 +98,9 @@ def define_visibility_shape(
     if not appears_single_dish:
         shape = (1, baseline_len, baseband_len, frequency_len, polarization_len, 2)
     else:
-        shape = (1, antenna_len, baseband_len, frequency_len, polarization_len)
+        # With "TIM" dimension - expected for single dish, all times in one subset
+        num_time = bdf_header.getNumTime()
+        shape = (num_time, antenna_len, baseband_len, frequency_len, polarization_len)
 
     return shape
 
@@ -192,6 +202,9 @@ def define_flag_shape(
         shape = (1, baseline_len + antenna_len, baseband_len, polarization_len)
     elif flag_dims in [["ANT", "BAB", "BIN", "POL"]]:
         shape = (1, antenna_len, baseband_len, frequency_len, polarization_len)
+    elif flag_dims in [["TIM", "ANT", "BAB", "BIN", "POL"]]:
+        num_time = bdf_header.getNumTime()
+        shape = (num_time, antenna_len, baseband_len, frequency_len, polarization_len)
     else:
         # flag_dims == [], etc.
         # Typically for radiometer / total power data. No flags. Just fill it.
@@ -224,6 +237,32 @@ def check_flags_dims(bdf_header: pyasdm.bdf.BDFHeader) -> bool:
     exclude_unsupported_axis_names(flags_dims)
 
 
+def define_flag_shape_when_not_present(
+    bdf_header: pyasdm.bdf.BDFHeader, shape: tuple
+) -> tuple:
+
+    flag_dims = bdf_header.getAxesNames("flags")
+    cross_data_dims = bdf_header.getAxesNames("crossData")
+    auto_data_dims = bdf_header.getAxesNames("autoData")
+
+    # This happens for example for dims: ['TIM', 'ANT', 'BAB', 'BIN', 'POL']
+    baseband_dim_is_3rd_last = (len(flag_dims) >= 3 and flag_dims[-3] == "BAB") or (
+        not flag_dims
+        and (
+            (len(cross_data_dims) >= 3 and cross_data_dims[-3] == "BAB")
+            or (len(auto_data_dims) >= 3 and auto_data_dims[-3] == "BAB")
+        )
+    )
+
+    # leave out the BAB dim
+    if baseband_dim_is_3rd_last:
+        shape_when_not_present = shape[0:-3] + shape[-2:]
+    else:
+        shape_when_not_present = shape[0:-2] + (shape[-1],)
+
+    return shape_when_not_present, baseband_dim_is_3rd_last
+
+
 def load_flags(bdf_path: list[str], spw_id: int, array_slice: dict) -> np.ndarray:
 
     bdf_reader = pyasdm.bdf.BDFReader()
@@ -239,13 +278,9 @@ def load_flags(bdf_path: list[str], spw_id: int, array_slice: dict) -> np.ndarra
     ensure_presence_data_arrays(["flags"], bdf_header, bdf_path)
 
     shape = define_flag_shape(bdf_header, baseband_description)
-    flag_dims = bdf_header.getAxesNames("flags")
-    # leave out the BAB dim
-    baseband_dim_is_3rd_last = "BIN" in flag_dims and "BAB" not in flag_dims
-    if baseband_dim_is_3rd_last:
-        shape_when_not_present = shape[0:-3] + shape[-2:]
-    else:
-        shape_when_not_present = shape[0:-2] + (shape[-1],)
+    shape_when_not_present, baseband_dim_is_3rd_last = (
+        define_flag_shape_when_not_present(bdf_header, shape)
+    )
     cumulative_flag = []
     while bdf_reader.hasSubset():
         try:

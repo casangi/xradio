@@ -342,20 +342,19 @@ def create_coordinates(
         & main_df["fieldId"].isin(partition_descr["fieldId"])
     ]
     num_antenna = configurations["numAntenna"].max()
-    num_baselines = num_antenna * (num_antenna - 1) / 2
-    # This might turn out too simplistic. We'll have to check how the baselines (auto-corrs and
-    # cross-corrs) are read from the BDFs, and other factors.
-    baseline_antenna1_id, baseline_antenna2_id = zip(
-        *itertools.combinations_with_replacement(np.arange(num_antenna), 2)
+
+    baseline_antenna1_id, baseline_antenna2_id = (
+        generate_baseline_antennax_id_as_in_bdf(num_antenna)
     )
+
     # TODO: get proper names
     coords["baseline_antenna1_name"] = (
         ["baseline_id"],
-        list([str(idx) for idx in baseline_antenna1_id]),
+        list(["antenna_" + str(idx) for idx in baseline_antenna1_id]),
     )
     coords["baseline_antenna2_name"] = (
         ["baseline_id"],
-        list([str(idx) for idx in baseline_antenna2_id]),
+        list(["antenna_" + str(idx) for idx in baseline_antenna2_id]),
     )
     coords["baseline_id"] = np.arange(len(baseline_antenna1_id))
 
@@ -465,3 +464,100 @@ def produce_weight_data_var(xds: xr.Dataset) -> xr.DataArray:
         ),
         dtype="float64",
     )
+
+
+def generate_baseline_antennax_id_as_in_bdf(
+    num_antenna,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Generate antenna IDs for baselines following ASDM BDF ordering.
+
+    This function generates pairs of antenna IDs that match the baseline ordering used in
+    ALMA Science Data Model (ASDM) Binary Data Format (BDF) files. It creates pairs for all
+    possible baseline combinations, including autocorrelations.
+
+    The baseline ordering follows a lower triangular matrix pattern in row-major order,
+    which effectively emulates the upper triangular matrix in column-major order used in BDFs.
+    Autocorrelation pairs (antenna paired with itself) are appended at the end.
+
+    Parameters
+    ----------
+    num_antenna : int
+        Number of antennas in the array
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]
+        Two 1D arrays containing the antenna IDs for each baseline:
+        - First array contains the first antenna IDs of each baseline
+        - Second array contains the second antenna IDs of each baseline
+        The length of each array is num_baselines = (num_antenna * (num_antenna - 1))/2 + num_antenna,
+        where the last term accounts for autocorrelations
+
+    Notes
+    -----
+    The baseline pairs are ordered as follows:
+    1. Cross-correlations in lower triangular order: (1,0), (2,0), (2,1), (3,0), ...
+    2. Autocorrelations: (0,0), (1,1), (2,2), ...
+    """
+
+    antenna_ids = np.arange(num_antenna)
+
+    antenna1_id_in_baselines, antenna2_id_in_baselines = np.meshgrid(
+        antenna_ids, antenna_ids
+    )
+
+    # Trying lower matrix + row-major indexing to emulate the BDF upper matrix + column-major
+    upper_matrix_indices = np.tril_indices(num_antenna, k=-1)
+    antenna2_id_in_baselines = antenna2_id_in_baselines[upper_matrix_indices]
+    antenna1_id_in_baselines = antenna1_id_in_baselines[upper_matrix_indices]
+
+    auto_corr_indices = np.arange(num_antenna)
+    baseline_antenna1_id = np.append(antenna1_id_in_baselines, auto_corr_indices)
+    baseline_antenna2_id = np.append(antenna2_id_in_baselines, auto_corr_indices)
+
+    return baseline_antenna1_id, baseline_antenna2_id
+
+
+def generate_baseline_antennax_id_as_in_msv2(
+    num_antenna,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Generate antenna ID pairs for all baselines in a measurement set.
+
+    This function creates pairs of antenna IDs that form baselines in a radio
+    interferometer array, including both auto-correlations and cross-correlations,
+    following the MS v2 convention.
+
+    Parameters
+    ----------
+    num_antenna : int
+        Total number of antennas in the array.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]
+        A tuple containing two arrays:
+        - baseline_antenna1_id: Array of first antenna IDs for each baseline
+        - baseline_antenna2_id: Array of second antenna IDs for each baseline
+        Both arrays have the same length and correspond to baseline pairs.
+
+    Notes
+    -----
+    The function uses combinations_with_replacement to generate all possible antenna
+    pairs, including auto-correlations (when both antennas are the same).
+    The order follows the MS v2 convention for baseline organization.
+
+    Examples
+    --------
+    >>> generate_baseline_antennax_id_as_in_msv2(3)
+    (array([0, 0, 0, 1, 1, 2]), array([0, 1, 2, 1, 2, 2]))
+    """
+
+    num_baselines = num_antenna * (num_antenna - 1) / 2
+    # This might turn out too simplistic. We'll have to check how the baselines (auto-corrs and
+    # cross-corrs) are read from the BDFs, and other factors.
+    baseline_antenna1_id, baseline_antenna2_id = zip(
+        *itertools.combinations_with_replacement(np.arange(num_antenna), 2)
+    )
+
+    return baseline_antenna1_id, baseline_antenna2_id

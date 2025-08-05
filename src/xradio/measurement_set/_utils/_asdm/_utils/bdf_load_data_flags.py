@@ -47,7 +47,7 @@ def ensure_presence_data_arrays(
 
 def exclude_unsupported_axis_names(dims):
 
-    unsupported = ["APC", "STO", "HOL", "SPW"]
+    unsupported = ["APC", "STO", "HOL"]
 
     for bad_dim in unsupported:
         if bad_dim in dims:
@@ -61,33 +61,69 @@ def check_cross_and_auto_data_dims(bdf_header: pyasdm.bdf.BDFHeader) -> bool:
     exclude_unsupported_axis_names(cross_data_dims)
     exclude_unsupported_axis_names(auto_data_dims)
 
-    appears_single_dish = False
+    # could be single dish, radiometer, or even average flows
+    appears_not_interferometric = False
     # flags: ['BAL', 'ANT', 'BAB', 'POL'] / ['ANT', 'BAB', 'BIN', 'POL']
     # autodata: ['ANT', 'BAB', 'SPP', 'POL'] / ['ANT', 'BAB', 'BIN', 'POL']
-    if cross_data_dims not in [["BAL", "BAB", "SPP", "POL"], ["BAL", "BAB", "POL"]]:
+    if cross_data_dims not in [
+        ["BAL", "BAB", "SPP", "POL"],
+        ["BAL", "BAB", "POL"],
+        ["BAL", "BAB", "SPW", "SPP", "POL"],
+    ]:
         logger.warning(
             f"crossData dims: {cross_data_dims}, autoData dims: {auto_data_dims}"
         )
-        appears_single_dish = True
+        appears_not_interferometric = True
         if bdf_header.getCorrelationMode() != pyasdm.enumerations.CorrelationMode(
             "AUTO_ONLY"
         ):
             raise RuntimeError(
                 "I'm confused. There is not crossData in this BDF but the "
                 "correlator mode is not AUTO_ONLY, as expected for single-dish "
-                f"data. {bdf_heder.getCorrelationMode()=}"
+                f"data. {bdf_header.getCorrelationMode()=}"
             )
 
-    return appears_single_dish
+    return appears_not_interferometric
 
 
 def define_visibility_shape(
     bdf_header: pyasdm.bdf.BDFHeader,
     baseband_description: dict,
-    appears_single_dish: bool,
+    appears_not_interferometric: bool,
 ) -> tuple[tuple, bool]:
 
-    baseband_len = len(bdf_header.getBasebandsList())
+    def awful_workaround(basebands: dict) -> int:
+        """
+        Awful workaround to keep us going when the SPWs in a
+        same BDF have different number of channels.
+
+        This is wrong but keeps us moving. The data arrays
+        will be very scrambled but having the proper shapes. It
+        wouldn't be worth re-arranging the arrays properly here
+        now.
+
+        Can be:
+        - different number of channels in the SPWs, with the same
+          number of SPWs per baseband (typically 1)
+        - Different number of SPWs in the basebands
+        """
+
+        baseband_spws_frequency_len = [
+            spw["numSpectralPoint"]
+            for baseband in basebands
+            for spw in baseband["spectralWindows"]
+        ]
+        frequency_len = 0
+        if baseband_spws_frequency_len.count(baseband_spws_frequency_len[0]) != len(
+            baseband_spws_frequency_len
+        ):
+            logger.warning("awful workaround for now!")
+            frequency_len = int(np.mean(baseband_spws_frequency_len))
+
+        return frequency_len
+
+    basebands = bdf_header.getBasebandsList()
+    baseband_len = len(basebands)
     antenna_len = bdf_header.getNumAntenna()
     baseline_len = int(antenna_len * (antenna_len - 1) / 2)
     frequency_len = baseband_description["numSpectralPoint"]
@@ -95,9 +131,11 @@ def define_visibility_shape(
         baseband_description["sdPolProducts"]
     )
 
+    frequency_len = awful_workaround(basebands) or frequency_len
+
     cross_data_dims = bdf_header.getAxesNames("crossData")
     auto_data_dims = bdf_header.getAxesNames("autoData")
-    if not appears_single_dish:
+    if not appears_not_interferometric:
         shape = (1, baseline_len, baseband_len, frequency_len, polarization_len, 2)
 
     else:
@@ -108,6 +146,20 @@ def define_visibility_shape(
             shape = (num_time, antenna_len, frequency_len, polarization_len)
         elif not cross_data_dims and auto_data_dims in [["ANT", "BAB", "BIN", "POL"]]:
             shape = (1, antenna_len, baseband_len, frequency_len, polarization_len)
+        elif not cross_data_dims and auto_data_dims in [
+            ["ANT", "BAB", "SPW", "SPP", "POL"]
+        ]:
+            # TODO: basebands can have different number of SPWs
+            # Example: E2E5.1.00026.S/rawdata/uid___A002_Xc3412f_X2a7d
+            spw_len = 1
+            shape = (
+                1,
+                antenna_len,
+                baseband_len,
+                spw_len,
+                frequency_len,
+                polarization_len,
+            )
         else:
             shape = (
                 num_time,
@@ -147,8 +199,11 @@ def load_visibilities(bdf_path: str, spw_id: int, array_slice: dict) -> np.ndarr
     bdf_reader.open(bdf_path)
     bdf_header = bdf_reader.getHeader()
 
-    appears_single_dish = check_cross_and_auto_data_dims(bdf_header)
+    appears_not_interferometric = check_cross_and_auto_data_dims(bdf_header)
     basebands = bdf_header.getBasebandsList()
+    # TODO: working check for what's out there...
+    if len(basebands) not in [1, 3, 4]:
+        raise RuntimeError(f"*** {len(basebands)=}, {basebands=}")
     spw_baseband_num, baseband_description = find_spw_in_basebands_list(
         bdf_path, spw_id, basebands
     )
@@ -157,7 +212,7 @@ def load_visibilities(bdf_path: str, spw_id: int, array_slice: dict) -> np.ndarr
 
     scale_factor = baseband_description["scaleFactor"] or 1
     shape, no_baseband_dim = define_visibility_shape(
-        bdf_header, baseband_description, appears_single_dish
+        bdf_header, baseband_description, appears_not_interferometric
     )
     cumulative_vis = []
     while bdf_reader.hasSubset():
@@ -187,7 +242,11 @@ def load_vis_subset(
 
     if "crossData" in subset and subset["crossData"]["present"]:
         # assuming dims ['BAL', 'BAB', 'SPP', 'POL']
-        cross_floats = (subset["crossData"]["arr"] / scale_factor).reshape(shape)
+        # MUSTREMOVE (but to handle the uneven cases of the 'awful_workaround')
+        # cross_floats = (subset["crossData"]["arr"] / scale_factor).reshape(shape)
+        cross_floats = (
+            subset["crossData"]["arr"][: np.prod(shape)] / scale_factor
+        ).reshape(shape)
         if no_baseband_dim:
             if len(cross_floats.shape[-1]) == 2:
                 vis_subset = cross_floats[..., 0] + 1j * cross_floats[..., 1]
@@ -200,7 +259,11 @@ def load_vis_subset(
                 + 1j * cross_floats[:, :, spw_baseband_num, :, :, 1]
             )
     elif "autoData" in subset and subset["autoData"]["present"]:
-        auto_floats = (subset["autoData"]["arr"] / scale_factor).reshape(shape)
+        # MUSTREMOVE (but to handle the uneven cases of the 'awful_workaround')
+        # auto_floats = (subset["autoData"]["arr"] / scale_factor).reshape(shape)
+        auto_floats = (
+            subset["autoData"]["arr"][: np.prod(shape)] / scale_factor
+        ).reshape(shape)
         if no_baseband_dim:
             vis_subset = auto_floats
         else:
@@ -240,9 +303,9 @@ def define_flag_shape(
         # flag_dims == [], etc.
         # Typically for radiometer / total power data. No flags. Just fill it.
         # This should also imply 'not subset["flags"]["present"]'
-        appears_single_dish = check_cross_and_auto_data_dims(bdf_header)
+        appears_not_interferometric = check_cross_and_auto_data_dims(bdf_header)
         shape, _no_baseband_dim = define_visibility_shape(
-            bdf_header, baseband_description, appears_single_dish
+            bdf_header, baseband_description, appears_not_interferometric
         )
 
     return shape
@@ -265,6 +328,7 @@ def load_flags_from_bdfs(
 def check_flags_dims(bdf_header: pyasdm.bdf.BDFHeader) -> bool:
 
     flags_dims = bdf_header.getAxesNames("flags")
+
     exclude_unsupported_axis_names(flags_dims)
 
 

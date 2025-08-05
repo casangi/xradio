@@ -19,11 +19,8 @@ from xradio.measurement_set._utils._asdm._utils.spectral_window import (
     get_reference_frame,
     get_spw_frequency_centers,
 )
-from xradio.measurement_set._utils._asdm._utils.time import (
-    convert_time_asdm_to_unix,
-    get_times_from_bdfs,
-)
-from xradio.measurement_set._utils._asdm._utils.bdf_load_data_flags import (
+from xradio.measurement_set._utils._asdm._utils._bdf.time import get_times_from_bdfs
+from xradio.measurement_set._utils._asdm._utils._bdf.load_data_flags import (
     load_visibilities_from_bdfs,
     load_flags_from_bdfs,
 )

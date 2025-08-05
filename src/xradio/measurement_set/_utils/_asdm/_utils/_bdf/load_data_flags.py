@@ -219,7 +219,9 @@ def load_visibilities_from_bdfs(
     start = time.perf_counter()
     visibility = np.concatenate(cumulative_vis)
     end = time.perf_counter()
-    logger.info(f"Loaded visibiilty from {len(bdf_paths)=} blobs, time: {end-start}")
+    logger.info(
+        f"Loaded visibiilty, with shape {visibility.shape=} from {len(bdf_paths)=} blobs, time: {end-start:.6}"
+    )
 
     return visibility
 

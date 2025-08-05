@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 
 import pyasdm
@@ -69,6 +71,12 @@ def check_cross_and_auto_data_dims(bdf_header: pyasdm.bdf.BDFHeader) -> bool:
         ["BAL", "BAB", "SPP", "POL"],
         ["BAL", "BAB", "POL"],
         ["BAL", "BAB", "SPW", "SPP", "POL"],
+        [
+            "BAL",
+            "BAB",
+            "SPW",
+            "POL",
+        ],  # no explicit SPP, for example: ALMA ACA Correlator Channel Average Data
     ]:
         logger.warning(
             f"crossData dims: {cross_data_dims}, autoData dims: {auto_data_dims}"
@@ -174,6 +182,23 @@ def define_visibility_shape(
     return shape, no_baseband_dim
 
 
+def array_slice_to_indices(array_slice: dict) -> tuple[range, range, range, range]:
+
+    time_slice = slice(None)
+    baseline_slice = slice(None)
+    frequency_slice = slice(None)
+    polarization_slice = slice(None)
+
+    if "time" in array_slice:
+        time_slice = array_slice["time"]
+    if "baseline" in array_slice:
+        baseline_slice = array_slice["baseline"]
+    if "frequency" in array_slice:
+        frequency_slice = array_slice["frequency"]
+    if "polarization" in array_slice:
+        frequency_slice = array_slice["polarization"]
+
+
 def load_visibilities_from_bdfs(
     bdf_paths: list[str], spw_id: int, array_slice: dict
 ) -> np.ndarray:
@@ -183,13 +208,19 @@ def load_visibilities_from_bdfs(
 
     cumulative_vis = []
     for bdf_path in bdf_paths:
-        cumulative_vis.append(load_visibilities(bdf_path, spw_id, array_slice))
+        visibility_blob = load_visibilities(bdf_path, spw_id, array_slice)
 
-    import time
+        if array_slice:
+            indices = array_slice_to_indices(array_slice)
+            visibility_blob = visibility_blob[*indices]
+
+        cumulative_vis.append(visibility_blob)
 
     start = time.perf_counter()
     visibility = np.concatenate(cumulative_vis)
     end = time.perf_counter()
+    logger.info(f"Loaded visibiilty from {len(bdf_paths)=} blobs, time: {end-start}")
+
     return visibility
 
 
@@ -241,7 +272,9 @@ def load_vis_subset(
 ) -> np.ndarray:
 
     if "crossData" in subset and subset["crossData"]["present"]:
-        # assuming dims ['BAL', 'BAB', 'SPP', 'POL']
+        # assuming dims ['BAL', 'BAB', 'SPP', 'POL'] / when ['BAL', 'BAB', 'SPW', 'SPP', 'POL'],
+        # truncating if needed
+
         # MUSTREMOVE (but to handle the uneven cases of the 'awful_workaround')
         # cross_floats = (subset["crossData"]["arr"] / scale_factor).reshape(shape)
         cross_floats = (
@@ -318,11 +351,17 @@ def load_flags_from_bdfs(
     if not array_slice:
         array_slice = None
 
-    all_flag = []
+    cumulative_flag = []
     for bdf_path in bdf_paths:
-        all_flag.append(load_flags(bdf_path, spw_id, array_slice))
+        flag_blob = load_flags(bdf_path, spw_id, array_slice)
 
-    return np.concatenate(all_flag)
+        if array_slice:
+            indices = array_slice_to_indices(array_slice)
+            flag_blob = flag_blob[*indices]
+
+        cumulative_flag.append(flag_blob)
+
+    return np.concatenate(cumulative_flag)
 
 
 def check_flags_dims(bdf_header: pyasdm.bdf.BDFHeader) -> bool:

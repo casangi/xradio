@@ -239,7 +239,7 @@ def xarray_dataarray_schema(cls):
     """
 
     # Make into a dataclass (might not even be needed at some point?)
-    cls = dataclasses.dataclass(cls, init=True, repr=False, eq=False, frozen=True)
+    cls = dataclasses.dataclass(cls, init=True, repr=False, eq=False, frozen=True, kw_only=True)
 
     # Make schema
     cls.__xradio_array_schema = dataclass.xarray_dataclass_to_array_schema(cls)
@@ -394,7 +394,7 @@ def xarray_dataset_schema(cls):
     """
 
     # Make into a dataclass (might not even be needed at some point?)
-    cls = dataclasses.dataclass(cls, init=True, repr=False, eq=False, frozen=True)
+    cls = dataclasses.dataclass(cls, init=True, repr=False, eq=False, frozen=True, kw_only=True)
 
     # Make schema
     schema = dataclass.xarray_dataclass_to_dataset_schema(cls)
@@ -453,7 +453,7 @@ def dict_schema(cls):
     """
 
     # Make into a dataclass (might not even be needed at some point?)
-    cls = dataclasses.dataclass(cls, init=True, repr=False, eq=False, frozen=True)
+    cls = dataclasses.dataclass(cls, init=True, repr=False, eq=False, frozen=True, kw_only=True)
 
     # Make schema
     cls.__xradio_dict_schema = dataclass.xarray_dataclass_to_dict_schema(cls)

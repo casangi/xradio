@@ -34,12 +34,15 @@ from xradio.image._util._casacore.common import _create_new_image as create_new_
 from xradio.image._util._casacore.common import _open_image_ro as open_image_ro
 from xradio.image._util.common import _image_type as image_type
 from xradio.image._util._casacore.common import _object_name
+from xradio.image.schema import AstroImageXds, ApertureImageXds
 
 from xradio.image._util._casacore.common import (
     _open_image_ro as open_image_ro,
     _create_new_image as create_new_image,
 )
 from toolviper.dask.client import local_client
+
+from xradio.schema.check import check_dataset
 
 sky = "SKY"
 
@@ -2064,6 +2067,10 @@ class make_empty_sky_image_tests(make_empty_image_tests):
         for skel in [self.skel_im(), self.skel_im_no_sky()]:
             self.run_attrs_tests(skel)
 
+    def test_schema(self):
+        for skel in [self.skel_im(), self.skel_im_no_sky()]:
+            check_dataset(skel, AstroImageXds).expect()
+
 
 class make_empty_aperture_image_tests(make_empty_image_tests):
     """Test making skeleton image"""
@@ -2116,6 +2123,10 @@ class make_empty_aperture_image_tests(make_empty_image_tests):
     def test_attrs(self):
         skel = self.skel_im()
         self.run_attrs_tests(skel)
+
+    def test_schema(self):
+        for skel in [self.skel_im()]:
+            check_dataset(skel, ApertureImageXds).expect()
 
 
 class make_empty_lmuv_image_tests(make_empty_image_tests):
@@ -2213,6 +2224,10 @@ class make_empty_lmuv_image_tests(make_empty_image_tests):
     def test_attrs(self):
         skel = self.skel_im()
         self.run_attrs_tests(skel)
+
+    def test_schema(self):
+        for skel in [self.skel_im()]:
+            check_dataset(skel, ApertureImageXds).expect()
 
 
 class write_image_test(xds_from_image_test):

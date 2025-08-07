@@ -143,14 +143,17 @@ def value_schema(ann: typing.Any, klass_name: str, field_name: str) -> "ValueSch
     if typing.get_origin(ann) in [typing.List, list]:
         args = typing.get_args(ann)
 
-        # Must be a string list
-        if args != (str,):
+        # Must be a string or flota list
+        if args != (str,) and args != (float,):
             raise ValueError(
                 f"In '{klass_name}', field '{field_name}' has"
                 f" annotation {ann}, but only str, int, float, list[str] or Literal allowed!"
             )
 
-        return ValueSchema("list[str]")
+        if args[0] == str:
+            return ValueSchema("list[str]")
+        else:
+            return ValueSchema("list[float]")
 
     # Is a literal?
     if typing.get_origin(ann) is typing.Literal:
@@ -238,6 +241,7 @@ def extract_xarray_dataclass(klass, allow_undefined_coords: bool = False):
             for field in dataclasses.fields(klass)
             if get_role(type_hints[field.name]) == Role.COORD
         }
+        print(klass, all_coord_names)
 
         def check_invalid_dims(dims, field_name):
             return _check_invalid_dims(

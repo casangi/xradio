@@ -84,8 +84,8 @@ RotationMatrix = Literal["rotation_matrix"]
 
 # Units of quantities and measures
 UnitsDimensionless = Literal[
-    ["dimensionless"]
-]  # name consistent with casacore measures
+    [""]
+]  # name consistent astropy
 UnitsSeconds = Literal[["s"]]
 UnitsHertz = Literal[["Hz"]]
 UnitsMeters = Literal[["m"], ["m", "m", "m"]]
@@ -1319,7 +1319,7 @@ class SpectrumArray:
 
     long_name: Optional[Attr[str]] = "Spectrum values"
     """ Long-form name to use for axis. Should be ``"Spectrum values"``"""
-    units: Attr[List[str]] = ("Jy",)
+    units: Attr[list[str]] = ("Jy",)
 
 
 @xarray_dataarray_schema
@@ -1338,7 +1338,7 @@ class VisibilityArray:
 
     long_name: Optional[Attr[str]] = "Visibility values"
     """ Long-form name to use for axis. Should be ``"Visibility values"``"""
-    units: Attr[List[str]] = ("Jy",)
+    units: Attr[list[str]] = ("Jy",)
 
     allow_mutiple_versions: Optional[Attr[bool]] = True
 

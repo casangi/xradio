@@ -43,6 +43,11 @@ from toolviper.dask.client import local_client
 
 sky = "SKY"
 
+def safe_convert(obj):
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()  # convert to list
+    raise TypeError(f"Type {type(obj)} not serializable")
+
 
 @pytest.fixture(scope="module")
 def dask_client_module():
@@ -204,7 +209,7 @@ class xds_from_image_test(ImageBase):
                 "coords": {
                     "ellipsoid_dir_label": {
                         "dims": ("ellipsoid_dir_label",),
-                        "data": ("lon", "lat"),
+                        "data": ["lon", "lat"],
                     }
                 },
             },
@@ -221,7 +226,7 @@ class xds_from_image_test(ImageBase):
                 "coords": {
                     "ellipsoid_dis_label": {
                         "dims": ("ellipsoid_dis_label",),
-                        "data": ("dist",),
+                        "data": ["dist",],
                     }
                 },
             },
@@ -656,9 +661,9 @@ class xds_from_image_test(ImageBase):
     def compare_sky_attrs(self, sky: xr.DataArray, fits: bool = False) -> None:
         my_exp_attrs = copy.deepcopy(self.exp_sky_attrs())
 
-        print("Comparing sky attrs")
-        print("Got attrs:", sky.attrs)
-        print("******************")
+        # print("Comparing sky attrs")
+        # print("Got attrs:", sky.attrs)
+        # print("******************")
 
         if "direction" not in sky.attrs["telescope"]:
             del my_exp_attrs["telescope"]["direction"]
@@ -893,10 +898,12 @@ class casa_image_to_xds_test(xds_from_image_test):
 
     def test_xds_attrs(self):
         """Test xds level attributes"""
-        print("########## Comparing xds attrs")
-        print("Expected attrs:", self.exp_xds_attrs(), "###")
-        print("Got attrs:", self.xds().attrs, "###")
-        print("##########")
+        # import logging
+        # logger = logging.getLogger(__name__)
+        # logger.info("########## Comparing xds attrs")
+        # logger.info("Expected attrs: %s", self.exp_xds_attrs())
+        # logger.info("Got attrs: %s", self.xds().attrs)
+        # logger.info("##########")
         self.compare_xds_attrs(self.xds())
         self.compare_sky_attrs(self.xds().SKY)
 
@@ -1298,8 +1305,17 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
 
     def test_xds_attrs(self):
         """Test xds level attributes"""
+        print("$$########## Comparing xds attrs")
+        import json
+        print("Expected attrs: %s", json.dumps(self.exp_xds_attrs(),  indent=4, sort_keys=True, default=safe_convert))
+        print("Got attrs: %s", json.dumps(self._zds.attrs, indent=4, sort_keys=True, default=safe_convert))
+        print("******************")
+        print("Expected attrs: %s", json.dumps(self.exp_xds_attrs(), indent=4, sort_keys=True, default=safe_convert))
+        print("Got attrs: %s", json.dumps(self.exp_sky_attrs(), indent=4, sort_keys=True, default=safe_convert))
+        print("$$##########")
         self.compare_xds_attrs(self._zds)
         self.compare_sky_attrs(self._zds.SKY)
+        #raise Exception("stop here")
 
     def test_get_img_ds_block(self):
         self.compare_image_block(self._zarr_store, zarr=True)

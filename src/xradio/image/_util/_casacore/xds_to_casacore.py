@@ -32,7 +32,10 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
         direction["system"] = "J2000"
     direction["projection"] = xds_dir["projection"]
     direction["projection_parameters"] = xds_dir["projection_parameters"]
-    direction["units"] = xds_dir["reference"]["attrs"]["units"]
+    direction["units"] = [
+        xds_dir["reference"]["attrs"]["units"],
+        xds_dir["reference"]["attrs"]["units"],
+    ]
     direction["crval"] = np.array(xds_dir["reference"]["data"])
     direction["cdelt"] = np.array((xds.l[1] - xds.l[0], xds.m[1] - xds.m[0]))
     direction["crpix"] = _compute_sky_reference_pixel(xds)
@@ -43,7 +46,7 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
         m = "lonpole" if s == "longpole" else s
         # lonpole, latpole are numerical values in degrees in casa images
         direction[s] = float(
-            Angle(str(xds_dir[m]["data"]) + xds_dir[m]["attrs"]["units"][0]).deg
+            Angle(str(xds_dir[m]["data"]) + xds_dir[m]["attrs"]["units"]).deg
         )
     return direction
 
@@ -87,20 +90,22 @@ def _compute_spectral_dict(xds: xr.Dataset) -> dict:
     spec["restfreq"] = xds.frequency.attrs["rest_frequency"]["data"]
     # spec["restfreqs"] = copy.deepcopy(xds.frequency.attrs["restfreqs"]["value"])
     spec["restfreqs"] = np.array([spec["restfreq"]])
-    spec["system"] = xds.frequency.attrs["reference_value"]["attrs"]["observer"].upper()
-    u = xds.frequency.attrs["reference_value"]["attrs"]["units"]
-    spec["unit"] = u if isinstance(u, str) else u[0]
+    spec["system"] = xds.frequency.attrs["reference_frequency"]["attrs"][
+        "observer"
+    ].upper()
+    u = xds.frequency.attrs["reference_frequency"]["attrs"]["units"]
+    spec["unit"] = u
     spec["velType"] = _doppler_types.index(xds.velocity.attrs["doppler_type"])
     u = xds.velocity.attrs["units"]
     spec["version"] = 2
     # vel unit is a list[str] in the xds but needs to be a str in the casa image
-    spec["velUnit"] = xds.velocity.attrs["units"][0]
+    spec["velUnit"] = xds.velocity.attrs["units"]
     # wave unit is a list[str] in the xds but needs to be a str in the casa image
-    spec["waveUnit"] = xds.frequency.attrs["wave_unit"][0]
+    spec["waveUnit"] = xds.frequency.attrs["wave_units"]
     wcs = {}
     wcs["ctype"] = "FREQ"
     wcs["pc"] = 1.0
-    wcs["crval"] = float(xds.frequency.attrs["reference_value"]["data"])
+    wcs["crval"] = float(xds.frequency.attrs["reference_frequency"]["data"])
     wcs["cdelt"] = float(xds.frequency.values[1] - xds.frequency.values[0])
     wcs["crpix"] = float((wcs["crval"] - xds.frequency.values[0]) / wcs["cdelt"])
     spec["wcs"] = wcs
@@ -114,26 +119,46 @@ def _coord_dict_from_xds(xds: xr.Dataset) -> dict:
         tel = xds[sky_ap].attrs["telescope"]
         if "name" in tel:
             coord["telescope"] = xds[sky_ap].attrs["telescope"]["name"]
-        if "location" in tel:
-            xds_telloc = tel["location"]
+
+        if "direction" in tel:
+            xds_telloc = tel["direction"]
             telloc = {}
             telloc["refer"] = xds_telloc["attrs"]["frame"]
             if telloc["refer"] == "GRS80":
                 telloc["refer"] = "ITRF"
-            for i in range(3):
+            for i in range(2):
                 telloc[f"m{i}"] = {
-                    "unit": xds_telloc["attrs"]["units"][i],
+                    "unit": xds_telloc["attrs"]["units"],
                     "value": xds_telloc["data"][i],
                 }
+            telloc[f"m{2}"] = {
+                "unit": tel["distance"]["attrs"]["units"],
+                "value": tel["distance"]["data"][0],
+            }
+
             telloc["type"] = "position"
             coord["telescopeposition"] = telloc
+
+        # if "location" in tel:
+        #     xds_telloc = tel["location"]
+        #     telloc = {}
+        #     telloc["refer"] = xds_telloc["attrs"]["frame"]
+        #     if telloc["refer"] == "GRS80":
+        #         telloc["refer"] = "ITRF"
+        #     for i in range(3):
+        #         telloc[f"m{i}"] = {
+        #             "unit": xds_telloc["attrs"]["units"],
+        #             "value": xds_telloc["data"][i],
+        #         }
+        #     telloc["type"] = "position"
+        #     coord["telescopeposition"] = telloc
     if "observer" in xds[sky_ap].attrs:
         coord["observer"] = xds[sky_ap].attrs["observer"]
     obsdate = {}
     obsdate["refer"] = xds.coords["time"].attrs["scale"]
     obsdate["type"] = "epoch"
     obsdate["m0"] = {}
-    obsdate["m0"]["unit"] = xds.coords["time"].attrs["units"][0]
+    obsdate["m0"]["unit"] = xds.coords["time"].attrs["units"]
     obsdate["m0"]["value"] = float(xds.coords["time"].values[0])
     coord["obsdate"] = obsdate
     if _pointing_center in xds[sky_ap].attrs:
@@ -212,6 +237,7 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
         pp = {}
         pp["nChannels"] = xds.sizes["frequency"]
         pp["nStokes"] = xds.sizes["polarization"]
+
         bu = xds.BEAM.attrs["units"]
         chan = 0
         polarization = 0
@@ -229,6 +255,7 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
                 chan = 0
                 polarization += 1
         ii["perplanebeams"] = pp
+
     """
     elif "beam" in xds.attrs and xds.attrs["beam"]:
         # do nothing if xds.attrs['beam'] is None
@@ -236,7 +263,7 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
         for k in ["major", "minor", "pa"]:
             # print("*** ", k, ii["restoringbeam"][k])
             del ii["restoringbeam"][k]["dims"]
-            ii["restoringbeam"][k]["unit"] = ii["restoringbeam"][k]["attrs"]["units"][0]
+            ii["restoringbeam"][k]["units"] = ii["restoringbeam"][k]["attrs"]["units"]
             del ii["restoringbeam"][k]["attrs"]
             ii["restoringbeam"][k]["value"] = ii["restoringbeam"][k]["data"]
             del ii["restoringbeam"][k]["data"]

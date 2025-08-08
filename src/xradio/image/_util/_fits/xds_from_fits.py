@@ -281,7 +281,9 @@ def _get_telescope_metadata(helpers: dict, header) -> dict:
             "coords": {
                 "ellipsoid_dis_label": {
                     "dims": ("ellipsoid_dis_label",),
-                    "data": ("dist",),
+                    "data": [
+                        "dist",
+                    ],
                 }
             },
         }

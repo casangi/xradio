@@ -123,7 +123,9 @@ def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = True) -> d
                     "coords": {
                         "ellipsoid_dis_label": {
                             "dims": ("ellipsoid_dis_label",),
-                            "data": ("dist",),
+                            "data": [
+                                "dist",
+                            ],
                         }
                     },
                 }

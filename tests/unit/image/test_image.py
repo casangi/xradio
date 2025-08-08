@@ -43,6 +43,7 @@ from toolviper.dask.client import local_client
 
 sky = "SKY"
 
+
 def safe_convert(obj):
     if isinstance(obj, np.ndarray):
         return obj.tolist()  # convert to list
@@ -226,7 +227,9 @@ class xds_from_image_test(ImageBase):
                 "coords": {
                     "ellipsoid_dis_label": {
                         "dims": ("ellipsoid_dis_label",),
-                        "data": ["dist",],
+                        "data": [
+                            "dist",
+                        ],
                     }
                 },
             },
@@ -1307,15 +1310,34 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
         """Test xds level attributes"""
         print("$$########## Comparing xds attrs")
         import json
-        print("Expected attrs: %s", json.dumps(self.exp_xds_attrs(),  indent=4, sort_keys=True, default=safe_convert))
-        print("Got attrs: %s", json.dumps(self._zds.attrs, indent=4, sort_keys=True, default=safe_convert))
+
+        print(
+            "Expected attrs: %s",
+            json.dumps(
+                self.exp_xds_attrs(), indent=4, sort_keys=True, default=safe_convert
+            ),
+        )
+        print(
+            "Got attrs: %s",
+            json.dumps(self._zds.attrs, indent=4, sort_keys=True, default=safe_convert),
+        )
         print("******************")
-        print("Expected attrs: %s", json.dumps(self.exp_xds_attrs(), indent=4, sort_keys=True, default=safe_convert))
-        print("Got attrs: %s", json.dumps(self.exp_sky_attrs(), indent=4, sort_keys=True, default=safe_convert))
+        print(
+            "Expected attrs: %s",
+            json.dumps(
+                self.exp_xds_attrs(), indent=4, sort_keys=True, default=safe_convert
+            ),
+        )
+        print(
+            "Got attrs: %s",
+            json.dumps(
+                self.exp_sky_attrs(), indent=4, sort_keys=True, default=safe_convert
+            ),
+        )
         print("$$##########")
         self.compare_xds_attrs(self._zds)
         self.compare_sky_attrs(self._zds.SKY)
-        #raise Exception("stop here")
+        # raise Exception("stop here")
 
     def test_get_img_ds_block(self):
         self.compare_image_block(self._zarr_store, zarr=True)

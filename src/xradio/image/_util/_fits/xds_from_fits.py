@@ -259,10 +259,10 @@ def _get_telescope_metadata(helpers: dict, header) -> dict:
                 "units": "rad",
             },
             "data": np.array([long, lat]),
-            "dims": ("ellipsoid_dir_label",),
+            "dims": ["ellipsoid_dir_label"],
             "coords": {
                 "ellipsoid_dir_label": {
-                    "dims": ("ellipsoid_dir_label",),
+                    "dims": ["ellipsoid_dir_label"],
                     "data": ["lon", "lat"],
                 }
             },
@@ -277,10 +277,10 @@ def _get_telescope_metadata(helpers: dict, header) -> dict:
                 "units": "m",
             },
             "data": np.array([r]),
-            "dims": ("ellipsoid_dis_label",),
+            "dims": ["ellipsoid_dis_label"],
             "coords": {
                 "ellipsoid_dis_label": {
-                    "dims": ("ellipsoid_dis_label",),
+                    "dims": ["ellipsoid_dis_label"],
                     "data": [
                         "dist",
                     ],

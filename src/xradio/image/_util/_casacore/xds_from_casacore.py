@@ -102,10 +102,10 @@ def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = True) -> d
                     "data": np.array(
                         [casa_pos["m0"]["value"], casa_pos["m1"]["value"]]
                     ),
-                    "dims": ("ellipsoid_dir_label",),
+                    "dims": ["ellipsoid_dir_label"],
                     "coords": {
                         "ellipsoid_dir_label": {
-                            "dims": ("ellipsoid_dir_label",),
+                            "dims": ["ellipsoid_dir_label"],
                             "data": ["lon", "lat"],
                         }
                     },
@@ -119,10 +119,10 @@ def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = True) -> d
                         "units": casa_pos["m2"]["unit"],
                     },
                     "data": np.array([casa_pos["m2"]["value"]]),
-                    "dims": ("ellipsoid_dis_label",),
+                    "dims": ["ellipsoid_dis_label"],
                     "coords": {
                         "ellipsoid_dis_label": {
-                            "dims": ("ellipsoid_dis_label",),
+                            "dims": ["ellipsoid_dis_label"],
                             "data": [
                                 "dist",
                             ],

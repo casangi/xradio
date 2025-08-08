@@ -206,10 +206,10 @@ class xds_from_image_test(ImageBase):
                     "units": "rad",
                 },
                 "data": np.array([-1.1825465955049892, -0.3994149869262738]),
-                "dims": ("ellipsoid_dir_label",),
+                "dims": ["ellipsoid_dir_label"],
                 "coords": {
                     "ellipsoid_dir_label": {
-                        "dims": ("ellipsoid_dir_label",),
+                        "dims": ["ellipsoid_dir_label"],
                         "data": ["lon", "lat"],
                     }
                 },
@@ -223,10 +223,10 @@ class xds_from_image_test(ImageBase):
                     "units": "m",
                 },
                 "data": np.array([6379946.01326443]),
-                "dims": ("ellipsoid_dis_label",),
+                "dims": ["ellipsoid_dis_label"],
                 "coords": {
                     "ellipsoid_dis_label": {
-                        "dims": ("ellipsoid_dis_label",),
+                        "dims": ["ellipsoid_dis_label"],
                         "data": [
                             "dist",
                         ],

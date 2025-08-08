@@ -216,7 +216,7 @@ class xds_from_image_test(ImageBase):
                     "type": "location",
                     "units": "m",
                 },
-                "data": [6379946.01326443],
+                "data": np.array([6379946.01326443]),
                 "dims": ("ellipsoid_dis_label",),
                 "coords": {
                     "ellipsoid_dis_label": {

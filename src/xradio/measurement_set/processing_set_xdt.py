@@ -469,7 +469,7 @@ class ProcessingSetXdt:
                     del field_and_source_xds["line_name"]
                     del field_and_source_xds["line_label"]
 
-                from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
+                from xradio.measurement_set._utils._utils.interpolate import (
                     interpolate_to_time,
                 )
 

@@ -182,5 +182,77 @@ class TestProcessingSetIterator:
         assert "base" in item.attrs.get("data_groups", {})
 
 
+# ---------------------------------------------------------------------------
+# Benchmarks (pytest-benchmark). These tests will be collected as normal
+# tests, but will be skipped if pytest-benchmark is not installed. They can be
+# executed selectively with markers or -k patterns, or with --benchmark-* flags.
+# ---------------------------------------------------------------------------
+
+@pytest.mark.benchmark
+@pytest.mark.parametrize(
+    "convert_measurement_set_to_processing_set",
+    ["Antennae_North.cal.lsrk.split.ms"],
+    indirect=True,
+)
+class TestBenchmarksLoadProcessingSet:
+    """Benchmarks for load_processing_set using real data"""
+
+    def test_benchmark_basic_load(
+        self, benchmark, convert_measurement_set_to_processing_set
+    ):
+        pytest.importorskip("pytest_benchmark")
+
+        def load_basic():
+            return load_processing_set(str(convert_measurement_set_to_processing_set))
+
+        ps_xdt = benchmark(load_basic)
+        assert isinstance(ps_xdt, xr.DataTree)
+
+    def test_benchmark_selective_loading(
+        self, benchmark, convert_measurement_set_to_processing_set
+    ):
+        pytest.importorskip("pytest_benchmark")
+        full_ps = load_processing_set(str(convert_measurement_set_to_processing_set))
+        ms_name = list(full_ps.children.keys())[0]
+        sel_parms = {ms_name: {"time": slice(0, 10)}}
+
+        def load_selective():
+            return load_processing_set(
+                str(convert_measurement_set_to_processing_set), sel_parms=sel_parms
+            )
+
+        ps_xdt = benchmark(load_selective)
+        assert isinstance(ps_xdt, xr.DataTree)
+
+
+@pytest.mark.benchmark
+@pytest.mark.parametrize(
+    "convert_measurement_set_to_processing_set",
+    ["Antennae_North.cal.lsrk.split.ms"],
+    indirect=True,
+)
+class TestBenchmarksProcessingSetIterator:
+    """Benchmarks for ProcessingSetIterator using real data"""
+
+    def test_benchmark_iterator_first_item(
+        self, benchmark, convert_measurement_set_to_processing_set
+    ):
+        pytest.importorskip("pytest_benchmark")
+        full_ps = load_processing_set(str(convert_measurement_set_to_processing_set))
+        ms_name = list(full_ps.children.keys())[0]
+        sel_parms = {ms_name: {"time": slice(0, 10)}}
+
+        def iter_once():
+            iterator = ProcessingSetIterator(
+                sel_parms=sel_parms,
+                input_data_store=str(convert_measurement_set_to_processing_set),
+                input_data=full_ps,
+            )
+            return next(iterator)
+
+        first = benchmark(iter_once)
+        assert isinstance(first, xr.DataTree)
+
+
 if __name__ == "__main__":
     pytest.main(["-v", "-s", __file__])

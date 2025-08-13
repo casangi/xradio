@@ -36,6 +36,8 @@ test = [
     'pytest',
     'pytest-cov',
     'pytest-html',
+    'pytest-benchmark',
+    'pygal',
 ]
 
 python_casacore = [    
@@ -67,6 +69,8 @@ all = [
     'pytest',
     'pytest-cov',
     'pytest-html',
+    'pytest-benchmark',
+    'pygal',
     'python_casacore>=3.6.1; sys_platform != "darwin" ',
     'matplotlib',
     'prettytable',
@@ -88,13 +92,18 @@ all = [
 [tool.pytest.ini_options]
 addopts = [
     "--import-mode=importlib",
-    "--strict-markers"
+    "--strict-markers",
+    "-m",
+    "not benchmark"
 ]
 testpaths = [
     "tests"
 ]
 pythonpath = [
     "."
+]
+markers = [
+    "benchmark: marks performance benchmark tests (opt-in)"
 ]
 
 [tool.black]

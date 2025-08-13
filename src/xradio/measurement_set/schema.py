@@ -1624,7 +1624,7 @@ class PhaseCalibrationXds:
             tuple[AntennaName, Time, ReceptorLabel, ToneLabel],
             tuple[AntennaName, TimePhaseCal, ReceptorLabel, ToneLabel],
         ],
-        numpy.complex64,
+        Union[numpy.complex64, numpy.complex128],
     ]
     """
     Phase calibration measurements. These are provided as complex values that represent both the phase

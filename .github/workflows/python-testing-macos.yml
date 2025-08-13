@@ -6,6 +6,9 @@ on:
     paths-ignore:
       - '**.md'
       - '**.rst'
+  push:
+    branches:
+      - main
 
 jobs:
   call-testing-linux:

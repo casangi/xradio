@@ -39,7 +39,8 @@ from xradio._utils.dict_helpers import (
 
 
 def open_partition(
-    asdm: pyasdm.ASDM, partition_descr: dict[str, np.ndarray]
+    asdm: pyasdm.ASDM,
+    partition_descr: dict[str, np.ndarray],
 ) -> xr.DataTree:
     """
     TODO: opens a partition as an MSv4 DataTre

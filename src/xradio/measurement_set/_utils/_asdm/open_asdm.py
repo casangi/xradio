@@ -9,7 +9,11 @@ from xradio.measurement_set._utils._asdm.create_partitions import create_partiti
 from xradio.measurement_set._utils._asdm.open_partition import open_partition
 
 
-def open_asdm(asdm_path: str, partition_scheme: list = ["fieldId"]):
+def open_asdm(
+    asdm_path: str,
+    partition_scheme: list[str] = None,
+    include_processor_types: list[str] = None,
+):
     """
     Opens an ASDM (ALMA Science Data Model) file and converts it into an xarray DataTree
     structure. The ASDM is partitioned according to the specified scheme and each
@@ -24,6 +28,11 @@ def open_asdm(asdm_path: str, partition_scheme: list = ["fieldId"]):
         The following partition axes are always used, in addition to the ones
         given: ["execBlockId", "dataDescriptionId", "scanIntent"]
         The optional axes are: ["fieldId", "scanNumber", "subscanNumber", "antennaId"]
+    include_processor_types:
+        when opening the ASDM, produce MSv4s only for partitions with these processor types.
+        Possible values are "CORRELATOR", "SPECTROMETER", "RADIOMETER".
+        Default is (subject to change) ["CORRELATOR", "SPECTROMETER"], which implyes radiometer
+        data (WVR and the like) are excluded.
 
     Returns
     -------
@@ -34,13 +43,19 @@ def open_asdm(asdm_path: str, partition_scheme: list = ["fieldId"]):
         formatted as '{asdm_name}_{index}'
     """
 
+    if not partition_scheme:
+        partition_scheme = ["fieldId"]
+
+    if not include_processor_types:
+        include_processor_types = ["CORRELATOR", "SPECTROMETER"]
+
     ps_xdt = xr.DataTree()
     ps_xdt.attrs["type"] = "processing_set"
 
     asdm = pyasdm.ASDM()
     asdm.setFromFile(asdm_path)
 
-    partitions = create_partitions(asdm, partition_scheme)
+    partitions = create_partitions(asdm, partition_scheme, include_processor_types)
 
     for msv4_idx, partition_descr in enumerate(partitions):
         logger.info(

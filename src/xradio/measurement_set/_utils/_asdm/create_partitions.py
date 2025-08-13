@@ -4,15 +4,40 @@ import time
 import numpy as np
 import pandas as pd
 
+import toolviper.utils.logger as logger
 import pyasdm
+
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,
 )
 
 
-def create_partitions(sdm: pyasdm.ASDM, partition_scheme: list[str]) -> list[dict]:
+def create_partitions(
+    sdm: pyasdm.ASDM,
+    partition_scheme: list[str],
+    include_processor_types: list[str] = None,
+) -> list[dict]:
+    """
+    TODO
+
+    Parameters
+    ----------
+    sdm:
+        Input ASDM object
+    partition_scheme:
+        List of axes to partition the data on. Default is ["fieldId"].
+        The following partition axes are always used, in addition to the ones
+        given: ["execBlockId", "dataDescriptionId", "scanIntent"]
+        The optional axes are: ["fieldId", "scanNumber", "subscanNumber", "antennaId"]
+    include_processor_types:
+        when opening the ASDM, produce MSv4s only for partitions with these processor types.
+        Possible values are "CORRELATOR", "SPECTROMETER", "RADIOMETER".
+        Default is None, which is interpreted as include all possible types.
+
+    """
 
     def time_asdm_to_unix(times):
+        # TODO: replace with the convert function from _utils/time
         # beware: ArrayTime sues TAI, not UTC scale -> look for UTCTime class
         # This should be fine, as the first leap second was in 1972.30.06?
         #
@@ -59,9 +84,23 @@ def create_partitions(sdm: pyasdm.ASDM, partition_scheme: list[str]) -> list[dic
         "configDescriptionId",
         "dataDescriptionId",
     ]  # , "processorId"]
+    if include_processor_types:
+        sdm_config_description_attrs.append("processorType")
     config_description_df = exp_asdm_table_to_df(
         sdm, "ConfigDescription", sdm_config_description_attrs
     )
+    if include_processor_types:
+        config_description_before_df = config_description_df
+        config_description_df = config_description_df.loc[
+            config_description_df["processorType"].isin(include_processor_types)
+        ]
+        logger.info(
+            f"Keeping only partitions for requested processor types. From the ConfigDescription "
+            f"table, with {config_description_before_df.shape[0]} rows, "
+            f"{config_description_df.shape[0]} rows are kept for processor types "
+            f"{include_processor_types}"
+        )
+
     # Explode the list in ConfigDescription/dataDescriptionId
     config_description_df = config_description_df.explode(
         "dataDescriptionId", ignore_index=True

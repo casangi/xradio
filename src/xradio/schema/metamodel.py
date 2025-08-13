@@ -83,7 +83,10 @@ class ArraySchema:
     """List of possible dimensions"""
     dtypes: typing.List[typing.List[str]]
     """List of possible (numpy) types as array interface protocol
-    descriptors (e.g. `">f4"`)"""
+    """List of possible dtype options, where each inner list contains
+    (numpy) types as array interface protocol descriptors (e.g. `">f4"`).
+    Each inner list corresponds to a possible configuration of dtypes
+    for the data array."""
 
     coordinates: typing.List["ArraySchemaRef"]
     """Coordinates data arrays giving values to dimensions"""

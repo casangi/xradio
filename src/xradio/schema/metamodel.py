@@ -82,7 +82,6 @@ class ArraySchema:
     dimensions: typing.List[typing.List[str]]
     """List of possible dimensions"""
     dtypes: typing.List[typing.List[str]]
-    """List of possible (numpy) types as array interface protocol
     """List of possible dtype options, where each inner list contains
     (numpy) types as array interface protocol descriptors (e.g. `">f4"`).
     Each inner list corresponds to a possible configuration of dtypes

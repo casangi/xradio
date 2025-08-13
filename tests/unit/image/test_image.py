@@ -664,13 +664,17 @@ class xds_from_image_test(ImageBase):
     def compare_sky_attrs(self, sky: xr.DataArray, fits: bool = False) -> None:
         my_exp_attrs = copy.deepcopy(self.exp_sky_attrs())
 
-        # print("Comparing sky attrs")
-        # print("Got attrs:", sky.attrs)
-        # print("******************")
-
         if "direction" not in sky.attrs["telescope"]:
             del my_exp_attrs["telescope"]["direction"]
             del my_exp_attrs["telescope"]["distance"]
+
+        print("******************")
+        print("direction" not in sky.attrs["telescope"])
+        print("Comparing sky attrs")
+        print("Got attrs:", sky.attrs["telescope"])
+        print("Expected attrs:", my_exp_attrs["telescope"])
+        print("******************")
+
         if fits:
             # xds from fits do not have history yet
             # del my_exp_attrs["history"]
@@ -1256,6 +1260,13 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
         super().setUpClass()
         write_image(cls.xds(), cls._zarr_store, out_format="zarr", overwrite=True)
         cls._zds = read_image(cls._zarr_store)
+        # print("$$$$$$$$$$$$$$$$$$$ Loaded zarr image")
+        # print(cls._zarr_store)
+        # print(cls.xds().SKY)
+        # print("&&&&&&&&&&&&&&&&")
+        # print(cls._zds.SKY)
+        # print("&&&&&&&&&&&&&&&&")
+        # raise Exception("stop here")
 
     @classmethod
     def tearDownClass(cls):
@@ -1308,33 +1319,40 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
 
     def test_xds_attrs(self):
         """Test xds level attributes"""
-        print("$$########## Comparing xds attrs")
+        # print("$$########## Comparing xds attrs")
         import json
 
-        print(
-            "Expected attrs: %s",
-            json.dumps(
-                self.exp_xds_attrs(), indent=4, sort_keys=True, default=safe_convert
-            ),
-        )
-        print(
-            "Got attrs: %s",
-            json.dumps(self._zds.attrs, indent=4, sort_keys=True, default=safe_convert),
-        )
-        print("******************")
-        print(
-            "Expected attrs: %s",
-            json.dumps(
-                self.exp_xds_attrs(), indent=4, sort_keys=True, default=safe_convert
-            ),
-        )
-        print(
-            "Got attrs: %s",
-            json.dumps(
-                self.exp_sky_attrs(), indent=4, sort_keys=True, default=safe_convert
-            ),
-        )
-        print("$$##########")
+        # print(
+        #     "Expected attrs: %s",
+        #     json.dumps(
+        #         self.exp_xds_attrs(), indent=4, sort_keys=True, default=safe_convert
+        #     ),
+        # )
+        # print(
+        #     "Got attrs: %s",
+        #     json.dumps(self._zds.attrs, indent=4, sort_keys=True, default=safe_convert),
+        # )
+        # print("******************")
+        # print(
+        #     "Expected attrs: %s",
+        #     json.dumps(
+        #         self._zds.SKY.attrs, indent=4, sort_keys=True, default=safe_convert
+        #     ),
+        # )
+        # print(
+        #     "Got attrs: %s",
+        #     json.dumps(
+        #         self.exp_sky_attrs(), indent=4, sort_keys=True, default=safe_convert
+        #     ),
+        # )
+        # print(type(self._zds.SKY.attrs), type(self._zds.SKY))
+        # print(self._zds.SKY.attrs())
+
+        # print("************")
+        # print(self.exp_sky_attrs())
+
+        # print("$$##########")
+
         self.compare_xds_attrs(self._zds)
         self.compare_sky_attrs(self._zds.SKY)
         # raise Exception("stop here")

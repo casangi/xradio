@@ -68,8 +68,9 @@ def check_cross_and_auto_data_dims(bdf_header: pyasdm.bdf.BDFHeader) -> bool:
     # flags: ['BAL', 'ANT', 'BAB', 'POL'] / ['ANT', 'BAB', 'BIN', 'POL']
     # autodata: ['ANT', 'BAB', 'SPP', 'POL'] / ['ANT', 'BAB', 'BIN', 'POL']
     if cross_data_dims not in [
-        ["BAL", "BAB", "SPP", "POL"],
+        ["BAL", "BAB", "SPP"],
         ["BAL", "BAB", "POL"],
+        ["BAL", "BAB", "SPP", "POL"],
         ["BAL", "BAB", "SPW", "SPP", "POL"],
         [
             "BAL",
@@ -77,16 +78,20 @@ def check_cross_and_auto_data_dims(bdf_header: pyasdm.bdf.BDFHeader) -> bool:
             "SPW",
             "POL",
         ],  # no explicit SPP, for example: ALMA ACA Correlator Channel Average Data
+        ["BAL", "BAB", "APC", "SPP", "POL"],
+        ["BAL", "BAB", "SPW", "APC", "SPP", "POL"],
     ]:
         logger.warning(
             f"crossData dims: {cross_data_dims}, autoData dims: {auto_data_dims}"
         )
+        if "APC" in cross_data_dims:
+            log.warning(f"APC dim with {bdf_header.getAPCList()=}")
         appears_not_interferometric = True
         if bdf_header.getCorrelationMode() != pyasdm.enumerations.CorrelationMode(
             "AUTO_ONLY"
         ):
             raise RuntimeError(
-                "I'm confused. There is not crossData in this BDF but the "
+                "I'm confused. There is no crossData in this BDF but the "
                 "correlator mode is not AUTO_ONLY, as expected for single-dish "
                 f"data. {bdf_header.getCorrelationMode()=}"
             )
@@ -169,6 +174,7 @@ def define_visibility_shape(
                 polarization_len,
             )
         else:
+            # [ANT, BAB, SPP, POL] and others
             shape = (
                 num_time,
                 antenna_len,
@@ -220,7 +226,7 @@ def load_visibilities_from_bdfs(
     visibility = np.concatenate(cumulative_vis)
     end = time.perf_counter()
     logger.info(
-        f"Loaded visibiilty, with shape {visibility.shape=} from {len(bdf_paths)=} blobs, time: {end-start:.6}"
+        f"Loaded visibiilty, with {visibility.shape=} from {len(bdf_paths)=} blobs, time: {end-start:.6}"
     )
 
     return visibility

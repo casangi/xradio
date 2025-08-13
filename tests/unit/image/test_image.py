@@ -1260,13 +1260,6 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
         super().setUpClass()
         write_image(cls.xds(), cls._zarr_store, out_format="zarr", overwrite=True)
         cls._zds = read_image(cls._zarr_store)
-        # print("$$$$$$$$$$$$$$$$$$$ Loaded zarr image")
-        # print(cls._zarr_store)
-        # print(cls.xds().SKY)
-        # print("&&&&&&&&&&&&&&&&")
-        # print(cls._zds.SKY)
-        # print("&&&&&&&&&&&&&&&&")
-        # raise Exception("stop here")
 
     @classmethod
     def tearDownClass(cls):
@@ -1353,9 +1346,14 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
 
         # print("$$##########")
 
+        print("self._zarr_store", self._zarr_store)
+        print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+        print(self._zds.SKY)
+        print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+
         self.compare_xds_attrs(self._zds)
         self.compare_sky_attrs(self._zds.SKY)
-        # raise Exception("stop here")
+        raise Exception("stop here")
 
     def test_get_img_ds_block(self):
         self.compare_image_block(self._zarr_store, zarr=True)

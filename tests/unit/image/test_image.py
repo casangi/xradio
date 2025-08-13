@@ -87,12 +87,6 @@ def dask_client_module():
 class ImageBase(unittest.TestCase):
     def dict_equality(self, dict1, dict2, dict1_name, dict2_name, exclude_keys=[]):
 
-        # if dict1_name == "Got attrs[direction]":
-        #     print("************* Comparing dictionaries:")
-        #     print("dict1_name:", dict1_name, dict1)
-        #     print("dict2_name:", dict2_name, dict2)
-        #     print("*************")
-
         self.assertEqual(
             dict1.keys(),
             dict2.keys(),
@@ -667,13 +661,6 @@ class xds_from_image_test(ImageBase):
         if "direction" not in sky.attrs["telescope"]:
             del my_exp_attrs["telescope"]["direction"]
             del my_exp_attrs["telescope"]["distance"]
-
-        print("******************")
-        print("direction" not in sky.attrs["telescope"])
-        print("Comparing sky attrs")
-        print("Got attrs:", sky.attrs["telescope"])
-        print("Expected attrs:", my_exp_attrs["telescope"])
-        print("******************")
 
         if fits:
             # xds from fits do not have history yet
@@ -1312,48 +1299,10 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
 
     def test_xds_attrs(self):
         """Test xds level attributes"""
-        # print("$$########## Comparing xds attrs")
         import json
-
-        # print(
-        #     "Expected attrs: %s",
-        #     json.dumps(
-        #         self.exp_xds_attrs(), indent=4, sort_keys=True, default=safe_convert
-        #     ),
-        # )
-        # print(
-        #     "Got attrs: %s",
-        #     json.dumps(self._zds.attrs, indent=4, sort_keys=True, default=safe_convert),
-        # )
-        # print("******************")
-        # print(
-        #     "Expected attrs: %s",
-        #     json.dumps(
-        #         self._zds.SKY.attrs, indent=4, sort_keys=True, default=safe_convert
-        #     ),
-        # )
-        # print(
-        #     "Got attrs: %s",
-        #     json.dumps(
-        #         self.exp_sky_attrs(), indent=4, sort_keys=True, default=safe_convert
-        #     ),
-        # )
-        # print(type(self._zds.SKY.attrs), type(self._zds.SKY))
-        # print(self._zds.SKY.attrs())
-
-        # print("************")
-        # print(self.exp_sky_attrs())
-
-        # print("$$##########")
-
-        print("self._zarr_store", self._zarr_store)
-        print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
-        print(self._zds.SKY)
-        print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
 
         self.compare_xds_attrs(self._zds)
         self.compare_sky_attrs(self._zds.SKY)
-        raise Exception("stop here")
 
     def test_get_img_ds_block(self):
         self.compare_image_block(self._zarr_store, zarr=True)

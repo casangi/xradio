@@ -85,6 +85,7 @@ def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = True) -> d
     attrs["units"] = image.unit()
     attrs["telescope"] = {}
     telescope = attrs["telescope"]
+
     for k in ("observer", "obsdate", "telescope", "telescopeposition"):
         if k.startswith("telescope"):
             if k == "telescope":
@@ -99,9 +100,7 @@ def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = True) -> d
                         "type": "location",
                         "units": casa_pos["m0"]["unit"],
                     },
-                    "data": np.array(
-                        [casa_pos["m0"]["value"], casa_pos["m1"]["value"]]
-                    ),
+                    "data": [casa_pos["m0"]["value"], casa_pos["m1"]["value"]],
                     "dims": ["ellipsoid_dir_label"],
                     "coords": {
                         "ellipsoid_dir_label": {
@@ -118,7 +117,7 @@ def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = True) -> d
                         "type": "location",
                         "units": casa_pos["m2"]["unit"],
                     },
-                    "data": np.array([casa_pos["m2"]["value"]]),
+                    "data": [casa_pos["m2"]["value"]],
                     "dims": ["ellipsoid_dis_label"],
                     "coords": {
                         "ellipsoid_dis_label": {

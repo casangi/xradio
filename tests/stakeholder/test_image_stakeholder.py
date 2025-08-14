@@ -45,6 +45,7 @@ def test_image(tmp_path):
     ), "read_image and load_image SKY sums differ."
 
     os.system("rm -rf " + str(image_name))  # Remove image.
+    os.system("rm -rf test_image.zarr")  # Remove image.
 
 
 if __name__ == "__main__":

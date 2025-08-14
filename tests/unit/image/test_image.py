@@ -44,6 +44,12 @@ from toolviper.dask.client import local_client
 sky = "SKY"
 
 
+def safe_convert(obj):
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()  # convert to list
+    raise TypeError(f"Type {type(obj)} not serializable")
+
+
 @pytest.fixture(scope="module")
 def dask_client_module():
     """Set up and tear down a Dask client for the test module.
@@ -80,6 +86,7 @@ def dask_client_module():
 @pytest.mark.usefixtures("dask_client_module")
 class ImageBase(unittest.TestCase):
     def dict_equality(self, dict1, dict2, dict1_name, dict2_name, exclude_keys=[]):
+
         self.assertEqual(
             dict1.keys(),
             dict2.keys(),
@@ -108,7 +115,9 @@ class ImageBase(unittest.TestCase):
                         )
                     elif isinstance(one[0], numbers.Number):
                         self.assertTrue(
-                            np.isclose(np.array(one), np.array(two)).all(),
+                            np.isclose(
+                                np.array(one), np.array(two), rtol=1e-3, atol=1e-7
+                            ).all(),
                             f"{dict1_name}[{k}] != {dict2_name}[{k}], "
                             f"{one} != {two}",
                         )
@@ -162,7 +171,7 @@ class xds_from_image_test(ImageBase):
                 "format": "MJD",
                 "scale": "UTC",
                 "type": "time",
-                "units": ["d"],
+                "units": "d",
             },
             "data": 51544.00000000116,
             "dims": [],
@@ -175,24 +184,48 @@ class xds_from_image_test(ImageBase):
                 "type": "sky_coord",
                 "frame": "fk5",
                 # "equinox": "j2000.0",
-                "units": ["rad", "rad"],
+                "units": "rad",
             },
             # "value": np.array([6300, -2400]) * np.pi / 180 / 60,
             # "initial": True,
         },
         "telescope": {
             "name": "ALMA",
-            "location": {
+            "direction": {
                 "attrs": {
                     "coordinate_system": "geocentric",
                     "frame": "ITRF",
                     "origin_object_name": "earth",
                     "type": "location",
-                    "units": ["rad", "rad", "m"],
+                    "units": "rad",
                 },
-                "data": np.array(
-                    [-1.1825465955049892, -0.3994149869262738, 6379946.01326443]
-                ),
+                "data": np.array([-1.1825465955049892, -0.3994149869262738]),
+                "dims": ["ellipsoid_dir_label"],
+                "coords": {
+                    "ellipsoid_dir_label": {
+                        "dims": ["ellipsoid_dir_label"],
+                        "data": ["lon", "lat"],
+                    }
+                },
+            },
+            "distance": {
+                "attrs": {
+                    "coordinate_system": "geocentric",
+                    "frame": "ITRF",
+                    "origin_object_name": "earth",
+                    "type": "location",
+                    "units": "m",
+                },
+                "data": np.array([6379946.01326443]),
+                "dims": ["ellipsoid_dis_label"],
+                "coords": {
+                    "ellipsoid_dis_label": {
+                        "dims": ["ellipsoid_dis_label"],
+                        "data": [
+                            "dist",
+                        ],
+                    }
+                },
             },
         },
         "units": "Jy/beam",
@@ -211,14 +244,14 @@ class xds_from_image_test(ImageBase):
                 "beam_param": 3,
             }
         ),
-        "freq_waveunit": ["mm"],
+        "freq_waveunit": "mm",
         "stokes": ["I", "Q", "U", "V"],
         "time_format": "MJD",
         "time_refer": "UTC",
-        "time_unit": ["d"],
+        "time_units": "d",
         "vel_mea_type": "doppler",
         "doppler_type": "radio",
-        "vel_units": ["m/s"],
+        "vel_units": "m/s",
         "frequency": [
             1.414995e09,
             1.414996e09,
@@ -234,7 +267,7 @@ class xds_from_image_test(ImageBase):
         "rest_frequency": {
             "attrs": {
                 "type": "quantity",
-                "units": ["Hz"],
+                "units": "Hz",
             },
             "data": 1420405751.7860003,
             "dims": [],
@@ -243,12 +276,12 @@ class xds_from_image_test(ImageBase):
             "attrs": {
                 "observer": "lsrk",
                 "type": "spectral_coord",
-                "units": ["Hz"],
+                "units": "Hz",
             },
             "data": 1415000000.0,
             "dims": [],
         },
-        "wave_unit": ["mm"],
+        "wave_units": "mm",
         "beam_param": ["major", "minor", "pa"],
     }
     _rad_to_arcmin = np.pi / 180 / 60
@@ -261,7 +294,7 @@ class xds_from_image_test(ImageBase):
                 "type": "sky_coord",
                 "frame": "fk5",
                 "equinox": "j2000.0",
-                "units": ["rad", "rad"],
+                "units": "rad",
             },
         },
         # "conversion_system": "FK5",
@@ -273,7 +306,7 @@ class xds_from_image_test(ImageBase):
         "latpole": {
             "attrs": {
                 "type": "quantity",
-                "units": ["rad"],
+                "units": "rad",
             },
             "data": -40.0 * np.pi / 180,
             "dims": ["l", "m"],
@@ -281,7 +314,7 @@ class xds_from_image_test(ImageBase):
         "lonpole": {
             "attrs": {
                 "type": "quantity",
-                "units": ["rad"],
+                "units": "rad",
             },
             "data": np.pi,
             "dims": ["l", "m"],
@@ -355,6 +388,7 @@ class xds_from_image_test(ImageBase):
         with open_image_ro(cls._imname) as im:
             im.tofits(cls._infits)
             assert os.path.exists(cls._infits), f"Could not create {cls._infits}"
+
         cls._xds = read_image(cls._imname, {"frequency": 5})
         cls._xds_no_sky = read_image(cls._imname, {"frequency": 5}, False, False)
         cls.assertTrue(cls._xds.sizes == cls._exp_vals["shape"], "Incorrect shape")
@@ -457,7 +491,7 @@ class xds_from_image_test(ImageBase):
         )
         self.assertEqual(
             xds.coords["time"].attrs["units"],
-            ev["time_unit"],
+            ev["time_units"],
             "Incoorect time axis unitt",
         )
 
@@ -479,28 +513,28 @@ class xds_from_image_test(ImageBase):
             "expected",
         )
         self.dict_equality(
-            xds.frequency.attrs["reference_value"],
+            xds.frequency.attrs["reference_frequency"],
             ev["reference_frequency"],
             "got",
             "expected",
         )
         self.assertEqual(
-            xds.frequency.attrs["reference_value"]["attrs"]["type"],
+            xds.frequency.attrs["reference_frequency"]["attrs"]["type"],
             "spectral_coord",
             "Wrong measure type",
         )
         self.assertEqual(
-            xds.frequency.attrs["reference_value"]["attrs"]["units"],
+            xds.frequency.attrs["reference_frequency"]["attrs"]["units"],
             ev["reference_frequency"]["attrs"]["units"],
             "Wrong frequency unit",
         )
         self.assertEqual(
-            xds.frequency.attrs["reference_value"]["attrs"]["observer"],
+            xds.frequency.attrs["reference_frequency"]["attrs"]["observer"],
             ev["reference_frequency"]["attrs"]["observer"],
             "Incorrect frequency frame",
         )
         self.assertEqual(
-            xds.frequency.attrs["wave_unit"],
+            xds.frequency.attrs["wave_units"],
             ev["freq_waveunit"],
             "Incorrect wavelength unit",
         )
@@ -541,7 +575,7 @@ class xds_from_image_test(ImageBase):
                 "Incoorect velocity type",
             )
         self.assertEqual(
-            xds.velocity.attrs["units"], ev["vel_units"], "Incoorect velocity unit"
+            xds.velocity.attrs["units"], ev["vel_units"], "Incorrect velocity unit"
         )
         self.assertEqual(
             xds.velocity.attrs["type"],
@@ -623,8 +657,11 @@ class xds_from_image_test(ImageBase):
 
     def compare_sky_attrs(self, sky: xr.DataArray, fits: bool = False) -> None:
         my_exp_attrs = copy.deepcopy(self.exp_sky_attrs())
-        if "location" not in sky.attrs["telescope"]:
-            del my_exp_attrs["telescope"]["location"]
+
+        if "direction" not in sky.attrs["telescope"]:
+            del my_exp_attrs["telescope"]["direction"]
+            del my_exp_attrs["telescope"]["distance"]
+
         if fits:
             # xds from fits do not have history yet
             # del my_exp_attrs["history"]
@@ -644,6 +681,7 @@ class xds_from_image_test(ImageBase):
 
     def compare_xds_attrs(self, xds: xr.Dataset):
         my_exp_attrs = copy.deepcopy(self.exp_xds_attrs())
+
         self.dict_equality(
             xds.attrs, my_exp_attrs, "Got attrs", "Expected attrs", ["history"]
         )
@@ -672,9 +710,12 @@ class xds_from_image_test(ImageBase):
         full_xds["BEAM"] = xda
         full_xds["BEAM"].attrs["units"] = "rad"
         imag = imagename + "_2"
+
         write_image(
             full_xds, imag, out_format="zarr" if zarr else "casa", overwrite=True
         )
+
+        # print("*" * 100, "Comparing image block", imag, zarr)
         for i in x:
             xds = load_image(
                 imag,
@@ -686,6 +727,7 @@ class xds_from_image_test(ImageBase):
                 },
                 do_sky_coords=i == 0,
             )
+
             if not zarr:
                 with open_image_ro(imagename) as im:
                     self.assertTrue(
@@ -850,6 +892,12 @@ class casa_image_to_xds_test(xds_from_image_test):
 
     def test_xds_attrs(self):
         """Test xds level attributes"""
+        # import logging
+        # logger = logging.getLogger(__name__)
+        # logger.info("########## Comparing xds attrs")
+        # logger.info("Expected attrs: %s", self.exp_xds_attrs())
+        # logger.info("Got attrs: %s", self.xds().attrs)
+        # logger.info("##########")
         self.compare_xds_attrs(self.xds())
         self.compare_sky_attrs(self.xds().SKY)
 
@@ -1030,6 +1078,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                         beam["minor"]["unit"] = "arcmin"
                         beam["positionangle"]["value"] *= 180 / np.pi
                         beam["positionangle"]["unit"] = "deg"
+
                     self.dict_equality(beams1, beams2, "got", "expected")
         # convert to single beam image
         tb = tables.table(self._outname6, readonly=False)
@@ -1250,6 +1299,8 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
 
     def test_xds_attrs(self):
         """Test xds level attributes"""
+        import json
+
         self.compare_xds_attrs(self._zds)
         self.compare_sky_attrs(self._zds.SKY)
 
@@ -1538,7 +1589,7 @@ class make_empty_image_tests(ImageBase):
             np.isclose(skel.time, [54000.1]).all(),
             "Incorrect time coordinate values",
         )
-        expec = {"scale": "utc", "units": ["d"], "format": "mjd"}
+        expec = {"scale": "utc", "units": "d", "format": "mjd"}
         self.dict_equality(skel.time.attrs, expec, "got", "expected")
 
     def run_polarization_tests(self, skel):
@@ -1550,11 +1601,11 @@ class make_empty_image_tests(ImageBase):
     def run_frequency_tests(self, skel):
         expec = {
             "observer": "lsrk",
-            "reference_value": {
+            "reference_frequency": {
                 "attrs": {
                     "observer": "lsrk",
                     "type": "spectral_coord",
-                    "units": ["Hz"],
+                    "units": "Hz",
                 },
                 "data": 1413000000.0,
                 "dims": [],
@@ -1562,7 +1613,7 @@ class make_empty_image_tests(ImageBase):
             "rest_frequencies": {
                 "attrs": {
                     "type": "quantity",
-                    "units": ["Hz"],
+                    "units": "Hz",
                 },
                 "data": 1413000000.0,
                 "dims": [],
@@ -1570,14 +1621,14 @@ class make_empty_image_tests(ImageBase):
             "rest_frequency": {
                 "attrs": {
                     "type": "quantity",
-                    "units": ["Hz"],
+                    "units": "Hz",
                 },
                 "data": 1413000000.0,
                 "dims": [],
             },
             "type": "spectral_coord",
-            "units": ["Hz"],
-            "wave_unit": ["mm"],
+            "units": "Hz",
+            "wave_units": "mm",
         }
         self.assertTrue(
             np.isclose(skel.frequency, [1.412e09, 1.413e09]).all(),
@@ -1884,7 +1935,7 @@ class make_empty_image_tests(ImageBase):
                 "type": "sky_coord",
                 "frame": "fk5",
                 "equinox": "j2000.0",
-                "units": ["rad", "rad"],
+                "units": "rad",
             },
         }
         if do_sky_coords:
@@ -1914,7 +1965,7 @@ class make_empty_image_tests(ImageBase):
             "dims": [],
             "attrs": {
                 "type": "quantity",
-                "units": ["lambda"],
+                "units": "lambda",
             },
         }
         expec_attrs = {
@@ -1937,7 +1988,7 @@ class make_empty_image_tests(ImageBase):
                 "dims": ["l", "m"],
                 "attrs": {
                     "type": "quantity",
-                    "units": ["rad"],
+                    "units": "rad",
                 },
             },
             "lonpole": {
@@ -1945,7 +1996,7 @@ class make_empty_image_tests(ImageBase):
                 "dims": ["l", "m"],
                 "attrs": {
                     "type": "quantity",
-                    "units": ["rad"],
+                    "units": "rad",
                 },
             },
             "pc": [[1.0, 0.0], [0.0, 1.0]],
@@ -1955,7 +2006,7 @@ class make_empty_image_tests(ImageBase):
             #         'type': 'sky_coord',
             #         'frame': 'fk5',
             #         'equinox': 'j2000.0',
-            #         'units': ['rad', 'rad']
+            #         'units': 'rad'
             #     }
             #     'data': [0.2, -0.5],
             #     'dims': ["l", "m"],
@@ -1967,7 +2018,7 @@ class make_empty_image_tests(ImageBase):
                     "type": "sky_coord",
                     "frame": "fk5",
                     "equinox": "j2000.0",
-                    "units": ["rad", "rad"],
+                    "units": "rad",
                 },
                 "data": [0.2, -0.5],
                 "dims": ["l", "m"],

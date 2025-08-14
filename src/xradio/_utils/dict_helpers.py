@@ -16,6 +16,16 @@ def make_quantity(value, units: str, dims: list = []) -> dict:
     return {"data": value, "dims": dims, "attrs": make_quantity_attrs(units)}
 
 
+def ensure_units_are_consistent(units):
+    if isinstance(units, str):
+        return units
+    else:
+        u0 = units[0]
+        for u in units:
+            assert u0 == u, f"Units are not consistent: {u0} != {u}. "
+        return u0
+
+
 def make_quantity_attrs(units: str) -> dict:
     """
     Creates the dict of attributes of a quantity
@@ -29,8 +39,7 @@ def make_quantity_attrs(units: str) -> dict:
     -------
     dict
     """
-    u = units if isinstance(units, list) else [units]
-    return {"units": u, "type": "quantity"}
+    return {"units": ensure_units_are_consistent(units), "type": "quantity"}
 
 
 def make_spectral_coord_reference_dict(
@@ -52,7 +61,7 @@ def make_spectral_coord_reference_dict(
     -------
     dict
     """
-    u = units if isinstance(units, list) else [units]
+    u = ensure_units_are_consistent(units)
     return {
         "attrs": make_spectral_coord_measure_attrs(
             u,
@@ -78,28 +87,28 @@ def make_spectral_coord_measure_attrs(units: str, observer: str = "lsrk") -> dic
     dict
         Attrs dict for a spectral_coord measure
     """
-    u = units if isinstance(units, list) else [units]
+    u = ensure_units_are_consistent(units)
     return {"units": u, "observer": observer, "type": "spectral_coord"}
 
 
-def make_skycoord_dict(data: list[float], units: list[str], frame: str) -> dict:
+def make_skycoord_dict(data: list[float], units: str, frame: str) -> dict:
     return {
         "attrs": {
             "frame": frame.lower(),
             "type": "sky_coord",
-            "units": units,
+            "units": ensure_units_are_consistent(units),
         },
         "data": data,
         "dims": ["l", "m"],
     }
 
 
-def make_time_measure_attrs(units=["s"], scale="utc", time_format="mjd") -> dict:
-    u = units if isinstance(units, list) else [units]
+def make_time_measure_attrs(units="s", scale="utc", time_format="mjd") -> dict:
+    u = ensure_units_are_consistent(units)
     return {"units": u, "scale": scale, "format": time_format, "type": "time"}
 
 
-def make_time_measure_dict(data, units=["s"], scale="utc", time_format="mjd") -> dict:
+def make_time_measure_dict(data, units="s", scale="utc", time_format="mjd") -> dict:
     """
     create a time measure dictionary given value and units
     Parameters
@@ -123,7 +132,7 @@ def make_time_measure_dict(data, units=["s"], scale="utc", time_format="mjd") ->
     return x
 
 
-def make_time_coord_attrs(units=["s"], scale="utc", time_format="mjd") -> dict:
+def make_time_coord_attrs(units="s", scale="utc", time_format="mjd") -> dict:
     """
     create a time measure dictionary given value and units
     Parameters

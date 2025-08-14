@@ -1,7 +1,10 @@
-from dataclasses import dataclass
+from __future__ import annotations
+
+from dataclasses import dataclass, MISSING
 import typing
 
 __all__ = [
+    "ValueSchema",
     "AttrSchemaRef",
     "ArraySchema",
     "ArraySchemaRef",
@@ -10,8 +13,44 @@ __all__ = [
 ]
 
 
-@dataclass(frozen=True)
-class AttrSchemaRef:
+@dataclass
+class ValueSchema:
+    """
+    Schema information about a value in an attribute or dictionary.
+    """
+
+    type: typing.Literal[
+        "bool", "str", "int", "float", "list[str]", "dict", "dataarray"
+    ]
+    """
+    Type of value
+
+    * ``bool``: A boolean
+    * ``str``: A UTF-8 string
+    * ``int``: A 64-bit signed integer
+    * ``float``: A double-precision floating point number
+    * ``list[str]``: A list of strings
+    * ``dict``: Dictionary
+    * ``dataarray``: An xarray dataarray (encoded using ``to_dict``)
+    """
+    dict_schema: typing.Optional[DictSchema] = None
+    """
+    Dictionary schema, if it is an xarray DataArray
+    """
+    array_schema: typing.Optional[ArraySchema] = None
+    """
+    Array schema, if it is an xarray DataArray
+    """
+    literal: typing.Optional[typing.List[typing.Any]] = None
+    """
+    Allowed literal values, if specified.
+    """
+    optional: bool = False
+    """Is the value optional?"""
+
+
+@dataclass
+class AttrSchemaRef(ValueSchema):
     """
     Schema information about an attribute as referenced from an array or
     dataset schema.
@@ -20,18 +59,11 @@ class AttrSchemaRef:
     in the array or dataset schema definition.
     """
 
-    name: str
+    name: str = ""
     """Name of attribute as given in data array / dataset."""
-    typ: type
-    """
-    Python type of attribute. Note that this might again be a data
-    array or dataset, but we don't track that explicitly.
-    """
-    optional: bool
-    """Is the attribute optional?"""
-    default: typing.Optional[typing.Any]
+    default: typing.Optional[typing.Any] = None
     """If optional: What is the default value?"""
-    docstring: str
+    docstring: str = ""
     """Documentation string of attribute reference"""
 
 
@@ -49,8 +81,11 @@ class ArraySchema:
     """(Class) name of the schema"""
     dimensions: typing.List[typing.List[str]]
     """List of possible dimensions"""
-    dtypes: typing.List[typing.List["numpy.dtype"]]
-    """List of possible (numpy) types"""
+    dtypes: typing.List[typing.List[str]]
+    """List of possible dtype options, where each inner list contains
+    (numpy) types as array interface protocol descriptors (e.g. `">f4"`).
+    Each inner list corresponds to a possible configuration of dtypes
+    for the data array."""
 
     coordinates: typing.List["ArraySchemaRef"]
     """Coordinates data arrays giving values to dimensions"""
@@ -97,7 +132,7 @@ class ArraySchemaRef(ArraySchema):
     """Name of array schema as given in dataset."""
     optional: bool
     """Is the data array optional?"""
-    default: typing.Optional[typing.Any]
+    default: typing.Optional[typing.Any] = None
     """If optional: What is the default value?"""
     docstring: typing.Optional[str] = None
     """Documentation string of array reference"""

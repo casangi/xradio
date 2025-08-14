@@ -46,16 +46,16 @@ UvwLabel = Literal["uvw_label"]
 """ Coordinate dimension of UVW data (typically shape 3 for 'u', 'v', 'w') """
 SkyDirLabel = Literal["sky_dir_label"]
 """ Coordinate labels of sky directions (typically shape 2 and 'ra', 'dec') """
+SkyDisLabel = Literal["sky_dis_label"]
+""" Coordinate labels of sky distance (typically shape 1 and 'dist') """
 LocalSkyDirLabel = Literal["local_sky_dir_label"]
 """ Coordinate labels of local sky directions (typically shape 2 and 'az', 'alt') """
-SphericalDirLabel = Literal["spherical_dir_label"]
-""" Coordinate labels of spherical directions (shape 2 and 'lon', 'lat1' """
-SkyPosLabel = Literal["sky_pos_label"]
-""" Coordinate labels of sky positions (typically shape 3 and 'ra', 'dec', 'dist') """
-SphericalPosLabel = Literal["spherical_pos_label"]
-""" Coordinate labels of spherical positions (shape shape 3 and 'lon', 'lat1', 'dist2') """
-EllipsoidPosLabel = Literal["ellipsoid_pos_label"]
+LocalSkyDisLabel = Literal["local_sky_dis_label"]
+""" Coordinate labels of local sky distance (typically shape 1 and 'dist') """
+EllipsoidDirLabel = Literal["ellipsoid_dir_label"]
 """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
+EllipsoidDisLabel = Literal["ellipsoid_dis_label"]
+""" Coordinate label of geodetic earth height (typically shape 1 and 'dist')"""
 CartesianPosLabel = Literal["cartesian_pos_label"]
 """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
 CartesianPosLabelLocal = Literal["cartesian_pos_label_local"]
@@ -83,29 +83,27 @@ Doppler = Literal["doppler"]
 RotationMatrix = Literal["rotation_matrix"]
 
 # Units of quantities and measures
-UnitsDimensionless = list[
-    Literal["dimensionless"]
-]  # name consistent with casacore measures
-UnitsSeconds = list[Literal["s"]]
-UnitsHertz = list[Literal["Hz"]]
-UnitsMeters = list[Literal["m"]]
+UnitsDimensionless = Literal["dimensionless"]  # name consistent with casacore measures
 
-UnitsOfSkyCoordInRadians = list[Literal["rad"], Literal["rad"]]
-UnitsOfLocationInMetersOrRadians = Union[
-    list[Literal["m"], Literal["m"], Literal["m"]],
-    list[Literal["rad"], Literal["rad"], Literal["m"]],
+UnitsSeconds = Literal["s"]
+UnitsHertz = Literal["Hz"]
+UnitsMeters = Literal["m"]
+
+# UnitsOfSkyCoordInRadians = Literal["rad"]
+UnitsOfSkyCoordInMetersOrRadians = Literal["m", "rad"]
+UnitsOfLocationInMetersOrRadians = Literal[
+    "m",
+    "rad",
 ]
-UnitsOfPositionInRadians = list[Literal["rad"], Literal["rad"], Literal["m"]]
-UnitsOfDopplerShift = Union[list[Literal["ratio"]], list[Literal["m/s"]]]
+UnitsOfPositionInRadians = Literal["rad"]
+UnitsOfDopplerShift = Literal["ratio", "m/s"]
 
-UnitsRadians = list[Literal["rad"]]
-UnitsKelvin = list[Literal["K"]]
-UnitsKelvinPerJansky = list[Literal["K/Jy"]]
-UnitsMetersPerSecond = list[Literal["m/s"]]
-UnitsPascal = list[Literal["Pa"]]  # hPa? (in MSv2)
-UnitsPerSquareMeters = list[Literal["/m^2"]]
-
-
+UnitsRadians = Literal["rad"]
+UnitsKelvin = Literal["K"]
+UnitsKelvinPerJansky = Literal["K/Jy"]
+UnitsMetersPerSecond = Literal["m/s"]
+UnitsPascal = Literal["Pa"]  # hPa? (in MSv2)
+UnitsPerSquareMeters = Literal["/m^2"]
 # Quantities
 
 
@@ -250,7 +248,7 @@ class TimeArray:
 
     type: Attr[Time] = "time"
     """ Array type. Should be ``"time"``. """
-    units: Attr[UnitsSeconds] = ("s",)
+    units: Attr[UnitsSeconds] = "s"
     """ Units to associate with axis"""
     scale: Attr[AllowedTimeScales] = "utc"
     """
@@ -298,10 +296,9 @@ AllowedSkyCoordFrames = Literal[
 class SkyCoordArray:
     """Measures array for data variables that are sky coordinates, used in :py:class:`FieldSourceXds`"""
 
-    data: Data[Union[SkyDirLabel, SkyPosLabel], float]
-
+    data: Data[Union[SkyDirLabel, SkyDisLabel], float]
+    units: Attr[UnitsOfSkyCoordInMetersOrRadians]
     type: Attr[SkyCoord] = "sky_coord"
-    units: Attr[UnitsOfSkyCoordInRadians] = ("rad", "rad")
     frame: Attr[AllowedSkyCoordFrames] = "icrs"
     """
     Possible values are astropy SkyCoord frames.
@@ -330,7 +327,7 @@ class PointingBeamArray:
     ]
 
     type: Attr[SkyCoord] = "sky_coord"
-    units: Attr[UnitsOfSkyCoordInRadians] = ("rad", "rad")
+    units: Attr[UnitsOfSkyCoordInMetersOrRadians] = "rad"
     frame: Attr[AllowedSkyCoordFrames] = "icrs"
     """
     From fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled
@@ -347,7 +344,7 @@ class LocalSkyCoordArray:
     data: Data[LocalSkyDirLabel, float]
 
     type: Attr[SkyCoord] = "sky_coord"
-    units: Attr[UnitsOfSkyCoordInRadians] = ("rad", "rad")
+    units: Attr[UnitsOfSkyCoordInMetersOrRadians] = "rad"
     frame: Attr[AllowedSkyCoordFrames] = "icrs"
     """
     From fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled
@@ -371,7 +368,7 @@ class TimeCoordArray:
     type: Attr[Time] = "time"
     """ Coordinate type. Should be ``"time"``. """
 
-    units: Attr[UnitsSeconds] = ("s",)
+    units: Attr[UnitsSeconds] = "s"
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
@@ -407,7 +404,7 @@ class TimeInterpolatedCoordArray:
     type: Attr[Time] = "time"
     """ Coordinate type. Should be ``"time"``. """
 
-    units: Attr[UnitsSeconds] = ("s",)
+    units: Attr[UnitsSeconds] = "s"
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
@@ -432,7 +429,7 @@ class TimeSystemCalCoordArray:
     type: Attr[Time] = "time_system_cal"
     """ Coordinate type. Should be ``"time_system_cal"``. """
 
-    units: Attr[UnitsSeconds] = ("s",)
+    units: Attr[UnitsSeconds] = "s"
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
@@ -457,7 +454,7 @@ class TimePointingCoordArray:
     type: Attr[TimePointing] = "time_pointing"
     """ Coordinate type. Should be ``"time_pointing"``. """
 
-    units: Attr[UnitsSeconds] = ("s",)
+    units: Attr[UnitsSeconds] = "s"
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
@@ -482,7 +479,7 @@ class TimeEphemerisCoordArray:
     type: Attr[TimeEphemeris] = "time_ephemeris"
     """ Coordinate type. Should be ``"time_ephemeris"``. """
 
-    units: Attr[UnitsSeconds] = ("s",)
+    units: Attr[UnitsSeconds] = "s"
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
@@ -504,10 +501,10 @@ class TimeWeatherCoordArray:
     ``format``).
     """
 
-    type: Attr[Time] = "time_weather"
+    type: Attr[TimeWeather] = "time_weather"
     """ Coordinate type. Should be ``"time_weather"``. """
 
-    units: Attr[UnitsSeconds] = ("s",)
+    units: Attr[UnitsSeconds] = "s"
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
@@ -545,7 +542,7 @@ class SpectralCoordArray:
 
     data: Data[ZD, float]
 
-    units: Attr[UnitsHertz] = ("Hz",)
+    units: Attr[UnitsHertz] = "Hz"
 
     observer: Attr[AllowedSpectralCoordFrames] = "icrs"
     """
@@ -582,17 +579,14 @@ class LocationArray:
     Measure type used for example in antenna_xds/ANTENNA_POSITION, weather_xds/STATION_POSITION,
     field_and_source_xds(ephemeris)/OBSERVER_POSITION.
 
-    Data dimensions can be CartesianPosLabel or EllipsoidPosLabel
+    Data dimensions can be CartesianPosLabel or EllipsoidDirLabel or EllipsoidDisLabel
     """
 
-    data: Data[Union[EllipsoidPosLabel, CartesianPosLabel], float]
+    data: Data[Union[EllipsoidDirLabel, EllipsoidDisLabel, CartesianPosLabel], float]
 
     units: Attr[UnitsOfLocationInMetersOrRadians]
     """
-    If the units are a list of strings then it must be the same length as
-    the last dimension of the data array. This allows for having different
-    units in the same data array, for example geodetic coordinates could use
-    ``['rad','rad','m']``.
+    Units of the location coordinates (typically 'm' or 'rad').
     """
 
     frame: Attr[AllowedLocationFrames]
@@ -610,44 +604,11 @@ class LocationArray:
 
     ellipsoid: Optional[Attr[AllowedEllipsoid]]
     """
-    Ellipsoid used in geodetic Earth locations (with EllipsoidPosLabel coordinate)
+    Ellipsoid used in geodetic Earth locations (with EllipsoidDirLabel and EllipsoidDirLabel coordinate)
     """
 
     type: Attr[Location] = "location"
     """ Measure type. Should be ``"location"``."""
-
-
-@xarray_dataarray_schema
-class EllipsoidPosLocationArray:
-    """
-    Measure type used for example in field_and_source_xds(ephemeris) / SUB_OBSERVER_DIRECTION, SUB_SOLAR_POSITION
-    """
-
-    data: Data[EllipsoidPosLabel, float]
-
-    frame: Attr[AllowedLocationFrames]
-    """
-    Reference frame. Can be ITRS (assumed for all Earth locations) or Undefined (used in non-Earth locations).
-    """
-
-    coordinate_system: Attr[AllowedLocationCoordinateSystems]
-    """ Can be ``geocentric/planetcentric, geodetic/planetodetic, orbital`` """
-
-    origin_object_name: Attr[str]
-    """
-    earth/sun/moon/etc
-    """
-
-    type: Attr[Location] = "location"
-    """ Measure type. Should be ``"location"``."""
-
-    units: Attr[UnitsOfPositionInRadians] = ("rad", "rad", "m")
-    """
-    If the units are a list of strings then it must be the same length as
-    the last dimension of the data array. This allows for having different
-    units in the same data array,for example geodetic coordinates could use
-    ``['rad','rad','m']``.
-    """
 
 
 @xarray_dataarray_schema
@@ -695,7 +656,7 @@ class DopplerArray:
     type: Attr[Doppler] = "doppler"
     """ Coordinate type. Should be ``"doppler"``. """
 
-    units: Attr[UnitsOfDopplerShift] = ("m/s",)
+    units: Attr[UnitsOfDopplerShift] = "m/s"
     """ Units to associate with axis, [ratio]/[m/s]"""
 
     doppler_type: Attr[AllowedDopplerTypes] = "radio"
@@ -731,7 +692,7 @@ class FrequencyArray:
     """ Coordinate type. Should be ``"spectral_coord"``. """
     long_name: Optional[Attr[str]] = "Frequency"
     """ Long-form name to use for axis"""
-    units: Attr[UnitsHertz] = ("Hz",)
+    units: Attr[UnitsHertz] = "Hz"
     """ Units to associate with axis"""
     observer: Attr[AllowedSpectralCoordFrames] = "icrs"
     """
@@ -751,7 +712,7 @@ class FrequencySystemCalArray:
     """ Center frequencies for each channel. """
 
     type: Attr[SpectralCoord] = "spectral_coord"
-    units: Attr[UnitsHertz] = ("Hz",)
+    units: Attr[UnitsHertz] = "Hz"
     """ Units to associate with axis"""
 
     observer: Attr[AllowedSpectralCoordFrames] = "icrs"
@@ -933,7 +894,7 @@ class UvwArray:
     type: Attr[Literal["uvw"]] = "uvw"
     frame: Attr[AllowedUvwFrames] = "icrs"
     """ To be defined in astropy (see for example https://github.com/astropy/astropy/issues/7766) """
-    units: Attr[UnitsMeters] = ("m",)
+    units: Attr[UnitsMeters] = "m"
 
     allow_mutiple_versions: Optional[Attr[bool]] = True
 
@@ -963,7 +924,7 @@ class TimeSamplingArray:
     """ Astropy format, see :py:class:`astropy.time.Time`. Default seconds from 1970-01-01 00:00:00 UTC """
 
     long_name: Optional[Attr[str]] = "Time sampling data"
-    units: Attr[UnitsSeconds] = ("s",)
+    units: Attr[UnitsSeconds] = "s"
 
 
 # @xarray_dataarray_schema
@@ -991,7 +952,7 @@ class TimeSamplingArray:
 #     baseline_id: Optional[Coordof[BaselineArray]] = None
 #     polarization: Optional[Coordof[PolarizationArray]] = None
 #     long_name: Optional[Attr[str]] = "Frequency sampling data"
-#     units: Attr[UnitsHertz] = ("Hz",)
+#     units: Attr[UnitsHertz] = "Hz"
 #     observer: Attr[AllowedSpectralCoordFrames] = "icrs"
 #     """
 #     Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
@@ -1018,7 +979,7 @@ class FrequencyCentroidArray:
     """
     frequency: Coordof[FrequencyArray]
     long_name: Optional[Attr[str]] = "Frequency sampling data"
-    units: Attr[UnitsHertz] = ("Hz",)
+    units: Attr[UnitsHertz] = "Hz"
     observer: Attr[AllowedSpectralCoordFrames] = "icrs"
     """
     Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
@@ -1051,7 +1012,7 @@ class EffectiveChannelWidthArray:
     baseline_id: Optional[Coordof[BaselineArray]] = None
     polarization: Optional[Coordof[PolarizationArray]] = None
     long_name: Optional[Attr[str]] = "Frequency sampling data"
-    units: Attr[UnitsHertz] = ("Hz",)
+    units: Attr[UnitsHertz] = "Hz"
     observer: Attr[AllowedSpectralCoordFrames] = "icrs"
     """
     Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
@@ -1081,7 +1042,7 @@ class FieldSourceXds:
     sky_dir_label: Coord[SkyDirLabel, str]
     """ Coordinate labels of sky directions (typically shape 2 and 'ra', 'dec') """
 
-    FIELD_PHASE_CENTER: Optional[Data[FieldName, SkyCoordArray]]
+    FIELD_PHASE_CENTER_DIRECTION: Optional[Data[FieldName, SkyCoordArray]]
     """
     Offset from the SOURCE_DIRECTION that gives the direction of phase
     center for which the fringes have been stopped-that is a point source in
@@ -1091,14 +1052,14 @@ class FieldSourceXds:
     varies with field, it refers DelayDir_Ref column instead.
     """
 
-    FIELD_REFERENCE_CENTER: Optional[Data[FieldName, SkyCoordArray]]
+    FIELD_REFERENCE_CENTER_DIRECTION: Optional[Data[FieldName, SkyCoordArray]]
     """
     Used in single-dish to record the associated reference direction if positionswitching
     been applied. For conversion from MSv2, frame refers column keywords by default. If
     frame varies with field, it refers DelayDir_Ref column instead.
     """
 
-    SOURCE_LOCATION: Optional[Data[FieldName, SkyCoordArray]]
+    SOURCE_DIRECTION: Optional[Data[FieldName, SkyCoordArray]]
     """
     CASA Table Cols: RA,DEC,Rho."Astrometric RA and Dec and Geocentric
     distance with respect to the observer’s location (Geocentric). "Adjusted
@@ -1169,7 +1130,7 @@ class FieldSourceEphemerisXds:
     time: Coordof[TimeInterpolatedCoordArray]
     """Midpoint of time for which this set of parameters is accurate. Labeled 'time' when interpolated to main time """
 
-    FIELD_PHASE_CENTER: Optional[Data[tuple[Time], SkyCoordArray]]
+    FIELD_PHASE_CENTER_DIRECTION: Optional[Data[tuple[Time], SkyCoordArray]]
     """
     Offset from the SOURCE_DIRECTION that gives the direction of phase
     center for which the fringes have been stopped-that is a point source in
@@ -1179,7 +1140,24 @@ class FieldSourceEphemerisXds:
     varies with field, it refers DelayDir_Ref column instead.
     """
 
-    FIELD_REFERENCE_CENTER: Optional[Data[tuple[Time], SkyCoordArray]]
+    FIELD_PHASE_CENTER_DISTANCE: Optional[Data[tuple[Time], SkyCoordArray]]
+    """
+    Offset from the SOURCE_DIRECTION that gives the direction of phase
+    center for which the fringes have been stopped-that is a point source in
+    this direction will produce a constant measured phase (page 2 of
+    https://articles.adsabs.harvard.edu/pdf/1999ASPC..180...79F). For
+    conversion from MSv2, frame refers column keywords by default. If frame
+    varies with field, it refers DelayDir_Ref column instead.
+    """
+
+    FIELD_REFERENCE_CENTER_DIRECTION: Optional[Data[tuple[Time], SkyCoordArray]]
+    """
+    Used in single-dish to record the associated reference direction if positionswitching
+    been applied. For conversion from MSv2, frame refers column keywords by default. If
+    frame varies with field, it refers DelayDir_Ref column instead.
+    """
+
+    FIELD_REFERENCE_CENTER_DISTANCE: Optional[Data[tuple[Time], SkyCoordArray]]
     """
     Used in single-dish to record the associated reference direction if positionswitching
     been applied. For conversion from MSv2, frame refers column keywords by default. If
@@ -1234,7 +1212,7 @@ class FieldSourceEphemerisXds:
                 tuple[Time],
                 tuple[TimeEphemeris],
             ],
-            EllipsoidPosLocationArray,
+            LocationArray,
         ]
     ]
     """ CASA Table cols: DiskLong, DiskLat. "Apparent planetodetic longitude and latitude of the center of the target disc seen by the OBSERVER at print-time. This is not exactly the same as the "nearest point" for a non-spherical target shape (since the center of the disc might not be the point closest to the observer), but is generally very close if not a very irregular body shape. The IAU2009 rotation models are used except for Earth and MOON, which use higher-precision models. For the gas giants Jupiter, Saturn, Uranus and Neptune, IAU2009 longitude is based on the "System III" prime meridian rotation angle of the magnetic field. By contrast, pole direction (thus latitude) is relative to the body dynamical equator. There can be an offset between the magnetic pole and the dynamical pole of rotation. Down-leg light travel-time from target to observer is taken into account. Latitude is the angle between the equatorial plane and perpendicular to the reference ellipsoid of the body and body oblateness thereby included. The reference ellipsoid is an oblate spheroid with a single flatness coefficient in which the y-axis body radius is taken to be the same value as the x-axis radius. Whether longitude is positive to the east or west for the target will be indicated at the end of the output ephemeris." https://ssd.jpl.nasa.gov/horizons/manual.html : 14. Observer sub-longitude & sub-latitude """
@@ -1245,7 +1223,7 @@ class FieldSourceEphemerisXds:
                 tuple[Time],
                 tuple[TimeEphemeris],
             ],
-            EllipsoidPosLocationArray,
+            LocationArray,
         ]
     ]
     """ CASA Table cols: Sl_lon, Sl_lat, r. "Heliocentric distance along with "Apparent sub-solar longitude and latitude of the Sun on the target. The apparent planetodetic longitude and latitude of the center of the target disc as seen from the Sun, as seen by the observer at print-time.  This is _NOT_ exactly the same as the "sub-solar" (nearest) point for a non-spherical target shape (since the center of the disc seen from the Sun might not be the closest point to the Sun), but is very close if not a highly irregular body shape.  Light travel-time from Sun to target and from target to observer is taken into account.  Latitude is the angle between the equatorial plane and the line perpendicular to the reference ellipsoid of the body. The reference ellipsoid is an oblate spheroid with a single flatness coefficient in which the y-axis body radius is taken to be the same value as the x-axis radius. Uses IAU2009 rotation models except for Earth and Moon, which uses a higher precision models. Values for Jupiter, Saturn, Uranus and Neptune are Set III, referring to rotation of their magnetic fields.  Whether longitude is positive to the east or west for the target will be indicated at the end of the output ephemeris." https://ssd.jpl.nasa.gov/horizons/manual.html : 15. Solar sub-longitude & sub-latitude  """
@@ -1285,13 +1263,14 @@ class FieldSourceEphemerisXds:
     # --- Optional coordinates ---
     sky_dir_label: Optional[Coord[SkyDirLabel, str]] = ("ra", "dec")
     """ Coordinate labels of sky directions (typically shape 2 and 'ra', 'dec') """
-    sky_pos_label: Optional[Coord[SkyPosLabel, str]] = ("ra", "dec", "dist")
-    """ Coordinate lables of sky positions (typically shape 3 and 'ra', 'dec', 'dist') """
-    ellipsoid_pos_label: Optional[Coord[EllipsoidPosLabel, str]] = (
+    sky_dis_label: Optional[Coord[SkyDisLabel, str]] = "dist"
+    """ Coordinate lables of sky distance (typically shape 1 and 'dist') """
+    ellipsoid_dir_label: Optional[Coord[EllipsoidDirLabel, str]] = (
         "lon",
         "lat",
-        "height",
     )
+    ellipsoid_dis_label: Optional[Coord[EllipsoidDisLabel, str]] = "height"
+
     """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
     cartesian_pos_label: Optional[Coord[CartesianPosLabel, str]] = ("x", "y", "z")
     """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
@@ -1322,7 +1301,7 @@ class SpectrumArray:
 
     long_name: Optional[Attr[str]] = "Spectrum values"
     """ Long-form name to use for axis. Should be ``"Spectrum values"``"""
-    units: Attr[list[str]] = ("Jy",)
+    units: Attr[str] = "Jy"
 
 
 @xarray_dataarray_schema
@@ -1341,8 +1320,7 @@ class VisibilityArray:
 
     long_name: Optional[Attr[str]] = "Visibility values"
     """ Long-form name to use for axis. Should be ``"Visibility values"``"""
-    units: Attr[list[str]] = ("Jy",)
-
+    units: Attr[str] = "Jy"
     allow_mutiple_versions: Optional[Attr[bool]] = True
 
 
@@ -1379,7 +1357,7 @@ class VisibilityArray:
 
 @dict_schema
 class ObservationInfoDict:
-    observer: list
+    observer: list[str]
     """List of observer names."""
     project: str
     """Project Code/Project_UID"""
@@ -1488,7 +1466,9 @@ class AntennaXds:
     as measured after all polarization combiners. ['X','Y'], ['R','L'] """
     cartesian_pos_label: Optional[Coord[CartesianPosLabel, str]]
     """ (x,y,z) - either cartesian or ellipsoid """
-    ellipsoid_pos_label: Optional[Coord[EllipsoidPosLabel, str]]
+    ellipsoid_dir_label: Optional[Coord[EllipsoidDirLabel, str]]
+    """ (lon, lat, dist) - either cartesian or ellipsoid"""
+    ellipsoid_dis_label: Optional[Coord[EllipsoidDisLabel, str]]
     """ (lon, lat, dist) - either cartesian or ellipsoid"""
 
     # Data variables
@@ -1644,7 +1624,7 @@ class PhaseCalibrationXds:
             tuple[AntennaName, Time, ReceptorLabel, ToneLabel],
             tuple[AntennaName, TimePhaseCal, ReceptorLabel, ToneLabel],
         ],
-        numpy.complex64,
+        Union[numpy.complex64, numpy.complex128],
     ]
     """
     Phase calibration measurements. These are provided as complex values that represent both the phase
@@ -1698,12 +1678,13 @@ class WeatherXds:
     """ Mid-point of the time interval. Labeled 'time' when interpolated to main time axis """
     time_weather: Optional[Coordof[TimeWeatherCoordArray]]
     """ Mid-point of the time interval. Labeled 'time_weather' when not interpolated to main time axis """
-    ellipsoid_pos_label: Optional[Coord[EllipsoidPosLabel, str]] = (
+    ellipsoid_dir_label: Optional[Coord[EllipsoidDirLabel, str]] = (
         "lon",
         "lat",
-        "height",
     )
-    """ Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
+    """ Coordinate labels of geodetic earth location data (typically shape 2 and 'lon', 'lat')"""
+    ellipsoid_dis_label: Optional[Coord[EllipsoidDisLabel, str]] = ("height",)
+    """ Coordinate labels of geodetic earth height data (typically shape 1 and 'height')"""
     cartesian_pos_label: Optional[Coord[CartesianPosLabel, str]] = ("x", "y", "z")
     """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
 
@@ -2230,8 +2211,7 @@ class PhasedArrayElementOffsetArray:
         tuple[AntennaName, CartesianPosLabelLocal, ElementId],
         float,
     ]
-
-    units: Attr[list[Literal["m"]]]
+    units: Attr[Literal["m"]]
 
     type: Attr[Location]
     """ Measure type. Should be ``"location"``."""

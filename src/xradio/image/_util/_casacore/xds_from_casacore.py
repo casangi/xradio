@@ -85,34 +85,50 @@ def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = True) -> d
     attrs["units"] = image.unit()
     attrs["telescope"] = {}
     telescope = attrs["telescope"]
+
     for k in ("observer", "obsdate", "telescope", "telescopeposition"):
         if k.startswith("telescope"):
             if k == "telescope":
                 telescope["name"] = coord_dict[k]
             elif k in coord_dict:
                 casa_pos = coord_dict[k]
-                location = {}
-                loc_attrs = {}
-                loc_attrs["type"] = "location"
-                loc_attrs["frame"] = casa_pos["refer"]
-                """
-                if casa_pos["refer"] == "ITRF":
-                    loc_attrs["ellipsoid"] = "GRS80"
-                """
-                loc_attrs["units"] = [
-                    casa_pos["m0"]["unit"],
-                    casa_pos["m1"]["unit"],
-                    casa_pos["m2"]["unit"],
-                ]
-                loc_attrs["coordinate_system"] = "geocentric"
-                loc_attrs["origin_object_name"] = "earth"
-                location["attrs"] = loc_attrs
-                location["data"] = [
-                    casa_pos["m0"]["value"],
-                    casa_pos["m1"]["value"],
-                    casa_pos["m2"]["value"],
-                ]
-                telescope["location"] = location
+                telescope["direction"] = {
+                    "attrs": {
+                        "coordinate_system": "geocentric",
+                        "frame": casa_pos["refer"],
+                        "origin_object_name": "earth",
+                        "type": "location",
+                        "units": casa_pos["m0"]["unit"],
+                    },
+                    "data": [casa_pos["m0"]["value"], casa_pos["m1"]["value"]],
+                    "dims": ["ellipsoid_dir_label"],
+                    "coords": {
+                        "ellipsoid_dir_label": {
+                            "dims": ["ellipsoid_dir_label"],
+                            "data": ["lon", "lat"],
+                        }
+                    },
+                }
+                telescope["distance"] = {
+                    "attrs": {
+                        "coordinate_system": "geocentric",
+                        "frame": casa_pos["refer"],
+                        "origin_object_name": "earth",
+                        "type": "location",
+                        "units": casa_pos["m2"]["unit"],
+                    },
+                    "data": [casa_pos["m2"]["value"]],
+                    "dims": ["ellipsoid_dis_label"],
+                    "coords": {
+                        "ellipsoid_dis_label": {
+                            "dims": ["ellipsoid_dis_label"],
+                            "data": [
+                                "dist",
+                            ],
+                        }
+                    },
+                }
+
                 """
                 del (
                     telescope["position"]["refer"],
@@ -155,7 +171,7 @@ def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = True) -> d
     # associated with it.
     # point_center = coord_dict["pointingcenter"]
     attrs[_pointing_center] = make_skycoord_dict(
-        coord_dict["pointingcenter"]["value"].tolist(), ["rad", "rad"], frame
+        coord_dict["pointingcenter"]["value"].tolist(), "rad", frame
     )
     imageinfo = meta_dict["imageinfo"]
     obj = "objectname"
@@ -221,7 +237,7 @@ def _add_time_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
 
 def _add_vel_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
     vel_coord = xds["velocity"]
-    meta = {"units": ["m/s"]}
+    meta = {"units": "m/s"}
     for k in coord_dict:
         if k.startswith("spectral"):
             sd = coord_dict[k]
@@ -259,7 +275,7 @@ def _casa_image_to_xds_attrs(img_full_path: str) -> dict:
         dir_dict = {}
 
         dir_dict["reference"] = make_skycoord_dict(
-            data=[0.0, 0.0], units=["rad", "rad"], frame=ap_system
+            data=[0.0, 0.0], units="rad", frame=ap_system
         )
         if ap_equinox:
             dir_dict["reference"]["attrs"]["equinox"] = ap_equinox
@@ -534,14 +550,14 @@ def _get_freq_values_attrs(
                     cdelt=wcs["cdelt"],
                 )
                 attrs["rest_frequency"] = make_quantity(sd["restfreq"], "Hz")
-                # attrs["type"] = "frequency"
-                # attrs["units"] = sd["unit"]
-                # attrs["frame"] = sd["system"]
-                attrs["wave_unit"] = [sd["waveUnit"]]
+                attrs["type"] = "spectral_coord"
+                attrs["units"] = sd["unit"]
+                attrs["frame"] = sd["system"]
+                attrs["wave_units"] = sd["waveUnit"]
                 # attrs["crval"] = sd["wcs"]["crval"]
                 # attrs["cdelt"] = sd["wcs"]["cdelt"]
 
-                attrs["reference_value"] = make_spectral_coord_reference_dict(
+                attrs["reference_frequency"] = make_spectral_coord_reference_dict(
                     value=sd["wcs"]["crval"],
                     units=sd["unit"],
                     observer=sd["system"],
@@ -672,7 +688,7 @@ def _get_time_values_attrs(cimage_coord_dict: dict) -> Tuple[List[float], dict]:
     attrs["type"] = "time"
     attrs["scale"] = cimage_coord_dict["obsdate"]["refer"]
     unit = cimage_coord_dict["obsdate"]["m0"]["unit"]
-    attrs["units"] = unit if isinstance(unit, list) else [unit]
+    attrs["units"] = unit
     time_val = cimage_coord_dict["obsdate"]["m0"]["value"]
     attrs["format"] = _get_time_format(time_val, unit)
     return ([time_val], copy.deepcopy(attrs))
@@ -802,7 +818,7 @@ def _get_velocity_values_attrs(
     if not attrs:
         attrs["doppler_type"] = _doppler_types[0]
 
-    attrs["units"] = ["m/s"]
+    attrs["units"] = "m/s"
     attrs["type"] = "doppler"
     return (
         _compute_velocity_values(

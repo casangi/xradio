@@ -334,6 +334,8 @@ def create_weather_xds(in_file: str, ant_position_with_ids: xr.DataArray):
     for data_var in weather_xds:
         if weather_xds.data_vars[data_var].dtype != np.float64:
             weather_xds[data_var] = weather_xds[data_var].astype(np.float64)
+    if "time_weather" in weather_xds.coords:
+        weather_xds.coords["time_weather"].attrs["type"] = "time_weather"
 
     return weather_xds
 
@@ -781,7 +783,7 @@ def create_phased_array_xds(
     }
     data_vars["COORDINATE_AXES"].attrs = {
         "type": "rotation_matrix",
-        "units": ["dimensionless", "dimensionless", "dimensionless"],
+        "units": "dimensionless",
     }
     # Remove the "frame" attribute if it exists, because ELEMENT_OFFSET is
     # defined in a station-local frame for which no standard name exists

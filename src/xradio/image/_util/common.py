@@ -141,7 +141,7 @@ def _freq_from_vel(
     vel = vel * u.Unit(cunit)
     v_dict = {
         "value": vel.value,
-        "unit": cunit,
+        "units": cunit,
         "crval": crval,
         "cdelt": cdelt,
         "crpix": crpix,
@@ -154,7 +154,7 @@ def _freq_from_vel(
         fcdelt = -restfreq / _c / (crval * vel.unit / _c + 1) ** 2 * cdelt * vel.unit
         f_dict = {
             "value": freq.value,
-            "unit": "Hz",
+            "units": "Hz",
             "crval": fcrval.to(u.Hz).value,
             "cdelt": fcdelt.to(u.Hz).value,
             "crpix": crpix,
@@ -180,7 +180,7 @@ def _compute_world_sph_dims(
         "axis_name": [None, None],
         "ref_val": [None, None],
         "inc": [None, None],
-        "unit": ["rad", "rad"],
+        "units": "rad",
         "value": [None, None],
     }
     for i in range(2):

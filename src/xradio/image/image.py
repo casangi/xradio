@@ -107,6 +107,8 @@ def read_image(
     -------
     xarray.Dataset
     """
+    # from ._util.casacore import _read_casa_image
+    # return _read_casa_image(infile, chunks, verbose, do_sky_coords)
     emsgs = []
     do_casa = True
     try:

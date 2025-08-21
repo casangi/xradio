@@ -46,8 +46,8 @@ def _load_casa_image_block(infile: str, block_des: dict, do_sky_coords) -> xr.Da
         cshape = casa_image.shape()
     ret = _casa_image_to_xds_coords(image_full_path, False, do_sky_coords)
     xds = ret["xds"].isel(block_des)
-    nchan = ret["xds"].dims["frequency"]
-    npol = ret["xds"].dims["polarization"]
+    nchan = ret["xds"].sizes["frequency"]
+    npol = ret["xds"].sizes["polarization"]
     starts, shapes, slices = _get_starts_shapes_slices(block_des, coords, cshape)
     dimorder = _get_xds_dim_order(ret["sphr_dims"])
     transpose_list, new_axes = _get_transpose_list(coords)
@@ -105,7 +105,7 @@ def _read_casa_image(
             xds = _add_mask(xds, m.upper(), ary, dimorder)
     xds.attrs = _casa_image_to_xds_attrs(img_full_path)
     beam = _get_beam(
-        img_full_path, xds.dims["frequency"], xds.dims["polarization"], True
+        img_full_path, xds.sizes["frequency"], xds.sizes["polarization"], True
     )
     if beam is not None:
         xds["BEAM"] = beam
@@ -133,6 +133,7 @@ def _xds_to_casa_image(xds: xr.Dataset, imagename: str) -> None:
         lockoptions={"option": "permanentwait"},
         ack=False,
     )
+
     tb.putkeyword("coords", coord)
     tb.putkeyword("imageinfo", ii)
     if units:

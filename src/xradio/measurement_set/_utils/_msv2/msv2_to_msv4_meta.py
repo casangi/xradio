@@ -38,6 +38,6 @@ def create_attribute_metadata(col, main_column_descriptions):
     if col in ["DATA", "CORRECTED_DATA", "WEIGHT"]:
         if not attrs_metadata:
             attrs_metadata["type"] = "quanta"
-            attrs_metadata["units"] = ["unkown"]
+            attrs_metadata["units"] = "unkown"
 
     return attrs_metadata

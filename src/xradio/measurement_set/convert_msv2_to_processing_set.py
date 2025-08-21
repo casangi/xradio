@@ -116,8 +116,6 @@ def convert_msv2_to_processing_set(
     if not str(out_file).endswith("ps.zarr"):
         out_file += ".ps.zarr"
 
-    print("Output file: ", out_file)
-
     if overwrite:
         ps_dt.to_zarr(store=out_file, mode="w")
     else:

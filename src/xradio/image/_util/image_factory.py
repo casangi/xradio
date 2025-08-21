@@ -50,24 +50,24 @@ def _add_common_attrs(
     cell_size: Union[List[float], np.ndarray],
     projection: str,
 ) -> xr.Dataset:
-    xds.time.attrs = make_time_coord_attrs(units=["d"], scale="utc", time_format="mjd")
+    xds.time.attrs = make_time_coord_attrs(units="d", scale="utc", time_format="mjd")
     freq_vals = np.array(xds.frequency)
     xds.frequency.attrs = {
         "observer": spectral_reference.lower(),
-        "reference_value": make_spectral_coord_reference_dict(
+        "reference_frequency": make_spectral_coord_reference_dict(
             value=freq_vals[len(freq_vals) // 2].item(),
-            units=["Hz"],
+            units="Hz",
             observer=spectral_reference.lower(),
         ),
         "rest_frequencies": make_quantity(restfreq, "Hz"),
         "rest_frequency": make_quantity(restfreq, "Hz"),
         "type": "spectral_coord",
-        "units": ["Hz"],
-        "wave_unit": ["mm"],
+        "units": "Hz",
+        "wave_units": "mm",
     }
     xds.velocity.attrs = {"doppler_type": "radio", "type": "doppler", "units": "m/s"}
     reference = make_skycoord_dict(
-        data=phase_center, units=["rad", "rad"], frame=direction_reference
+        data=phase_center, units="rad", frame=direction_reference
     )
     reference["attrs"].update({"equinox": "j2000.0"})
     xds.attrs = {

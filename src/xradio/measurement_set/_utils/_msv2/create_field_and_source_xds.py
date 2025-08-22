@@ -573,7 +573,9 @@ def pad_missing_sources(
     for missing_id in missing_source_ids:
         missing_source_xds[concat_dim] = missing_id
         xdss_to_concat.append(missing_source_xds)
-    filled_source_xds = xr.concat(xdss_to_concat, concat_dim).sortby(concat_dim)
+    filled_source_xds = xr.concat(xdss_to_concat, concat_dim, join="outer").sortby(
+        concat_dim
+    )
 
     return filled_source_xds
 

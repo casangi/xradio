@@ -218,7 +218,7 @@ def create_data_vars(
         ),
         {
             "type": "quantity",
-            "units": [""],  # Do the ASDM/BDFs give anything?
+            "units": "",  # Do the ASDM/BDFs give anything?
             "field_and_source_xds": None,
         },
     )
@@ -252,7 +252,7 @@ def create_data_vars(
         dask.array.from_delayed(
             dask.delayed(produce_uvw_data_var)(xds), shape=shape_uvw, dtype="float64"
         ),
-        {"type": "uvw", "frame": "icrs", "units": ["m"]},
+        {"type": "uvw", "frame": "icrs", "units": "m"},
     )
 
     return data_vars

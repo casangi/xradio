@@ -103,7 +103,7 @@ def create_antenna_xds(
 
     diameter_attrs = {
         "type": "quantity",
-        "units": ["m"],
+        "units": "m",
     }
     xds["ANTENNA_DISH_DIAMETER"] = (
         "antenna_name",
@@ -116,7 +116,7 @@ def create_antenna_xds(
     ]  # + antenna_df["offset"]
     position_attrs = {
         "type": "location",
-        "units": ["m"],
+        "units": "m",
         "frame": "ITRS",
         "coordinate_system": "geocentric",
         "origin_object_name": "earth",

@@ -140,10 +140,11 @@ def create_field_and_source_xds(
         source_df["spectralWindowId"].values[0],
     )
     dir_code = get_direction_codes(asdm, source_key)
+
     xds["SOURCE_DIRECTION"] = (
         ["field_name", "sky_dir_label"],
         [[source_direction[0].get(), source_direction[1].get()]],
-        make_sky_coord_measure_attrs(["rad", "rad"], dir_code),
+        make_sky_coord_measure_attrs("rad", dir_code),
     )
 
     if line_info_available:
@@ -191,9 +192,8 @@ def make_sky_coord_measure_attrs(units: str, frame: str) -> dict:
     Examples
     --------
     >>> make_sky_coord_measure_attrs("rad", "ICRS")
-    {'units': ['rad'], 'frame': 'ICRS', 'type': 'sky_coord'}
+    {'units': 'rad', 'frame': 'ICRS', 'type': 'sky_coord'}
     """
 
-    unt = units if isinstance(units, list) else [units]
-    sky_coord_measure_attrs = {"units": unt, "frame": frame, "type": "sky_coord"}
+    sky_coord_measure_attrs = {"units": units, "frame": frame, "type": "sky_coord"}
     return sky_coord_measure_attrs

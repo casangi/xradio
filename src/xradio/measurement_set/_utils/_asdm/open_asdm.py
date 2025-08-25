@@ -13,6 +13,7 @@ def open_asdm(
     asdm_path: str,
     partition_scheme: list[str] = None,
     include_processor_types: list[str] = None,
+    include_spectral_resolution_types: list[str] = None,
 ):
     """
     Opens an ASDM (ALMA Science Data Model) file and converts it into an xarray DataTree
@@ -30,9 +31,16 @@ def open_asdm(
         The optional axes are: ["fieldId", "scanNumber", "subscanNumber", "antennaId"]
     include_processor_types:
         when opening the ASDM, produce MSv4s only for partitions with these processor types.
-        Possible values are "CORRELATOR", "SPECTROMETER", "RADIOMETER".
-        Default is (subject to change) ["CORRELATOR", "SPECTROMETER"], which implyes radiometer
-        data (WVR and the like) are excluded.
+        Possible values are (from the ASDM ProcessorType enumeration):
+        "CORRELATOR", "SPECTROMETER", "RADIOMETER".
+        Default is (subject to change) ["CORRELATOR", "SPECTROMETER"], which implies
+        radiometer data (WVR and the like) are excluded.
+    include_spectral_resolution_types:
+        when opening the ASDM, produce MSv4s only for partitions with these spectral resolution
+        types. Possible values are (from the ASDM SpectralResolutionType enumeration):
+        "CHANNEL_AVERAGE", "BASEBAND_WIDE", "FULL_RESOLUTION".
+        Default is (subject to change) ["FULL_RESOLUTION", "BASEBAND_WIDE"], which implied
+        channel average data are excluded.
 
     Returns
     -------
@@ -49,13 +57,21 @@ def open_asdm(
     if not include_processor_types:
         include_processor_types = ["CORRELATOR", "SPECTROMETER"]
 
+    if not include_spectral_resolution_types:
+        include_spectral_resolution_types = ["FULL_RESOLUTION", "BASEBAND_WIDE"]
+
     ps_xdt = xr.DataTree()
     ps_xdt.attrs["type"] = "processing_set"
 
     asdm = pyasdm.ASDM()
     asdm.setFromFile(asdm_path)
 
-    partitions = create_partitions(asdm, partition_scheme, include_processor_types)
+    partitions = create_partitions(
+        asdm,
+        partition_scheme,
+        include_processor_types,
+        include_spectral_resolution_types,
+    )
 
     for msv4_idx, partition_descr in enumerate(partitions):
         logger.info(

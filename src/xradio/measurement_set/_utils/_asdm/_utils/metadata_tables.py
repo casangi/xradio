@@ -59,6 +59,7 @@ def load_asdm_col(sdm_table: pyasdm.ASDM, col_name: str) -> list:
                 pyasdm.enumerations.BasebandName,
                 pyasdm.enumerations.ProcessorType,
                 pyasdm.enumerations.ProcessorSubType,
+                pyasdm.enumerations.SpectralResolutionType,
             ]
             or ()
         ):

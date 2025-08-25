@@ -16,6 +16,7 @@ def create_partitions(
     sdm: pyasdm.ASDM,
     partition_scheme: list[str],
     include_processor_types: list[str] = None,
+    include_spectral_resolution_types: list[str] = None,
 ) -> list[dict]:
     """
     TODO
@@ -86,9 +87,13 @@ def create_partitions(
     ]  # , "processorId"]
     if include_processor_types:
         sdm_config_description_attrs.append("processorType")
+    if include_spectral_resolution_types:
+        sdm_config_description_attrs.append("spectralType")
+
     config_description_df = exp_asdm_table_to_df(
         sdm, "ConfigDescription", sdm_config_description_attrs
     )
+
     if include_processor_types:
         config_description_before_df = config_description_df
         config_description_df = config_description_df.loc[
@@ -100,6 +105,26 @@ def create_partitions(
             f"{config_description_df.shape[0]} rows are kept for processor types "
             f"{include_processor_types}"
         )
+        if config_description_df.empty:
+            raise RuntimeError("No partitions left after filtering processor types")
+
+    if include_spectral_resolution_types:
+        config_description_before_df = config_description_df
+        config_description_df = config_description_df.loc[
+            config_description_df["spectralType"].isin(
+                include_spectral_resolution_types
+            )
+        ]
+        logger.info(
+            f"Keeping only partitions for requested spectral resolution types. From the "
+            f"ConfigDescription table, with {config_description_before_df.shape[0]} rows, "
+            f"{config_description_df.shape[0]} rows are kept for processor types "
+            f"{include_spectral_resolution_types}"
+        )
+        if config_description_df.empty:
+            raise RuntimeError(
+                "No partitions left after filtering spectral resolution types"
+            )
 
     # Explode the list in ConfigDescription/dataDescriptionId
     config_description_df = config_description_df.explode(

@@ -51,7 +51,7 @@ def download_and_convert_msv2_to_processing_set(
             # log_level="INFO",
         )
 
-    download(file=msv2_name, folder=folder)
+    download(file=msv2_name, folder=str(folder))
     ps_name = folder / (msv2_name[:-3] + ".ps.zarr")
 
     if os.path.isdir(ps_name):
@@ -338,6 +338,7 @@ def base_test(
     viper_client = local_client(
         cores=2, memory_limit="3GB"
     )  ##Do not increase size otherwise GitHub MacOS runner will hang.
+
     viper_client
 
     ps_list = (

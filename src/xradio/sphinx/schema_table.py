@@ -1,5 +1,6 @@
 import importlib
 import dataclasses
+from pydoc import locate
 import typing
 
 from docutils import nodes, utils
@@ -156,6 +157,8 @@ class SchemaTableDirective(ObjectDescription):
 
 def format_literals(typ):
 
+    typ = locate(typ)
+
     # a | b | c: Recurse and merge
     if typing.get_origin(typ) == typing.Union:
         type_args = typing.get_args(typ)
@@ -196,58 +199,11 @@ def format_attr_model_text(state, attr) -> StringList:
     type name.
     """
 
-    type_args = typing.get_args(attr.typ)
-    is_list_of_literals = typing.get_origin(attr.typ) is list and all(
-        [typing.get_origin(arg) is typing.Literal for arg in type_args]
-    )
-
     line = nodes.line()
-
-    if not is_list_of_literals:
-        # A type?
-        if isinstance(attr.typ, type):
-            vl = StringList()
-            vl.append(f":py:class:`~{attr.typ.__module__}.{attr.typ.__name__}`", "")
-            with switch_source_input(state, vl):
-                state.nested_parse(vl, 0, line)
-            return line
-
-        if typing.get_origin(attr.typ) == typing.Union:
-            vl = StringList()
-            type_args = typing.get_args(attr.typ)
-            options = []
-            for i, arg in enumerate(type_args):
-                vl.append(f":py:class:`~{arg.__module__}.{arg.__name__}`", "")
-                if i + 1 < len(type_args):
-                    vl.append(" or ", "")
-            with switch_source_input(state, vl):
-                state.nested_parse(vl, 0, line)
-            return line
-
-        # Derived type, e.g. list of types?
-        if typing.get_origin(attr.typ) == list and all(
-            [isinstance(arg, type) for arg in type_args]
-        ):
-            vl = StringList()
-            vl.append("[", "")
-            for i, arg in enumerate(typing.get_args(attr.typ)):
-                if i > 0:
-                    vl.append(", ", "")
-                vl.append(f":py:class:`~{arg.__module__}.{arg.__name__}`", "")
-            vl.append("]", "")
-            with switch_source_input(state, vl):
-                state.nested_parse(vl, 0, line)
-            return line
-
-    # Assume it's a literal of some kind - collect options
-    literals = format_literals(attr.typ)
-    for i, lit in enumerate(literals):
-        if i > 0:
-            if i + 1 >= len(literals):
-                line += nodes.Text(" or\xa0")
-            else:
-                line += nodes.Text(", ")
-        line += lit
+    vl = StringList()
+    vl.append(f":py:class:`~{attr.type}`", "")
+    with switch_source_input(state, vl):
+        state.nested_parse(vl, 0, line)
 
     return line
 
@@ -356,7 +312,7 @@ class DictSchemaTableDirective(SchemaTableDirective):
             for attr in schema.attributes:
                 self._add_row(
                     attr.name,
-                    types=[f"{attr.typ.__name__}"],
+                    types=[attr.type],
                     optional=attr.optional,
                     descr=attr.docstring,
                     default=attr.default,

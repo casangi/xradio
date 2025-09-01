@@ -18,7 +18,17 @@ from typing import Any, Dict, List, Sequence, Union
 # Configure casaconfig settings prior to casatools import
 # this ensures optimal initialization and resource allocation for casatools
 # Also see : https://casadocs.readthedocs.io/en/stable/api/casaconfig.html
-import casaconfig.config
+try:
+    import casaconfig.config
+except ModuleNotFoundError as exc:
+    raise ModuleNotFoundError(
+        f"casaconfig.config cannot be found, probably because the package "
+        "casatools is not available. If you are here that is probably because "
+        "python-casacore is not available either. MSv2 related functionality "
+        "requires either python-casacore or casatools. Import failure details: "
+        f"{exc}"
+    )
+
 import numpy as np
 import toolviper.utils.logger as logger
 

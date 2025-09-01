@@ -99,14 +99,16 @@ def read_image(
      compute_mask : bool, optional
         If True (default), compute and attach valid data masks when converting from FITS to xds.
         If False, skip mask computation entirely. This may improve performance if the mask
-        is not required for subsequent processing. It may however result in unprecdictable behavior
+        is not required for subsequent processing. It may, however, result in unpredictable behavior
         for applications that are not designed to handle missing data. It is the user's responsibility,
-        not the software's, to ensure that the mask is computed if it is needed. Currently only
+        not the software's, to ensure that the mask is computed if it is necessary. Currently only
         implemented for FITS images.
     Returns
     -------
     xarray.Dataset
     """
+    # from ._util.casacore import _read_casa_image
+    # return _read_casa_image(infile, chunks, verbose, do_sky_coords)
     emsgs = []
     do_casa = True
     try:
@@ -145,7 +147,7 @@ def read_image(
     raise RuntimeError("\n".join(emsgs))
 
 
-def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Dataset:
+def load_image(infile: str, block_des: dict = None, do_sky_coords=True) -> xr.Dataset:
     """
     Load an image or portion of an image (subimage) into memory with data variables
     being converted from dask to numpy arrays and coordinate arrays being converted
@@ -178,6 +180,10 @@ def load_image(infile: str, block_des: dict = {}, do_sky_coords=True) -> xr.Data
     """
     do_casa = True
     emsgs = []
+
+    if block_des is None:
+        block_des = {}
+
     selection = copy.deepcopy(block_des) if block_des else block_des
     if selection:
         for k, v in selection.items():

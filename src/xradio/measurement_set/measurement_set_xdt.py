@@ -152,7 +152,7 @@ class MeasurementSetXdt:
             raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4 node.")
 
         if data_group_name is None:
-            if "base" in self._xdt.attrs["data_groups"].keys():
+            if "base" in self._xdt.attrs["data_groups"]:
                 data_group_name = "base"
             else:
                 data_group_name = list(self._xdt.attrs["data_groups"].keys())[0]
@@ -189,7 +189,7 @@ class MeasurementSetXdt:
             )
 
         if data_group_name is None:
-            if "base" in self._xdt.attrs["data_groups"].keys():
+            if "base" in self._xdt.attrs["data_groups"]:
                 data_group_name = "base"
             else:
                 data_group_name = list(self._xdt.attrs["data_groups"].keys())[0]
@@ -297,14 +297,14 @@ class MeasurementSetXdt:
             ), f"Data variable {uvw} not found in dataset."
 
         if field_and_source_xds is None:
-            field_and_source_xds = default_data_group["field_and_source_xds"]
+            field_and_source_xds = default_data_group["field_and_source"]
         new_data_group["field_and_source"] = field_and_source_xds
         assert (
             field_and_source_xds in self._xdt.children
         ), f"Data variable {field_and_source_xds} not found in dataset."
 
         if date_time is None:
-            date_time = datetime.now(datetime.timezone.utc).isoformat()
+            date_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
         new_data_group["date"] = date_time
 
         if description is None:
@@ -316,7 +316,7 @@ class MeasurementSetXdt:
         return self._xdt
 
     def _get_default_data_group_name(self):
-        if "base" in self._xdt.attrs["data_groups"].keys():
+        if "base" in self._xdt.attrs["data_groups"]:
             data_group_name = "base"
         else:
             data_group_name = list(self._xdt.attrs["data_groups"].keys())[0]

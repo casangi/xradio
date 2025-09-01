@@ -1,27 +1,34 @@
-import importlib.resources
-import numpy as np
 import os
 import pathlib
 import pytest
-import time
+import toolviper
+
+import numpy as np
 
 from toolviper.utils.data import download
-from toolviper.utils.logger import setup_logger
-from xradio.schema.check import check_dataset
 
 # relative_tolerance = 10 ** (-12)
 relative_tolerance = 10 ** (-6)
 
 
-def test_image():
-    image_name = "demo_simulated.im"
-    download(image_name)
+# Uncomment to not clean up files between test (i.e. skip downloading them again)
+@pytest.fixture
+def tmp_path():
+    return pathlib.Path("/tmp/test")
+
+
+def test_image(tmp_path: pathlib.Path):
     from xradio.image import load_image, read_image, write_image
 
-    lazy_img_xds = read_image(image_name)
+    image_name = "demo_simulated.im"
+    toolviper.utils.data.download(file=image_name, folder=str(tmp_path))
+
+    image_name = pathlib.Path.cwd().joinpath(tmp_path).joinpath("demo_simulated.im")
+
+    lazy_img_xds = read_image(str(image_name))
 
     img_xds = load_image(
-        image_name,
+        infile=str(image_name),
         do_sky_coords=True,
     )
 
@@ -35,10 +42,11 @@ def test_image():
     ), "read_image and load_image SKY sums differ."
 
     os.system("rm -rf " + str(image_name))  # Remove image.
+    os.system("rm -rf test_image.zarr")  # Remove image.
 
 
 if __name__ == "__main__":
     a = 42
     from pathlib import Path
 
-    test_image()
+    test_image(tmp_path=Path("."))

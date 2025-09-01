@@ -241,10 +241,6 @@ Measure arrays
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.LocationArray
 
-.. autoclass:: xradio.measurement_set.schema.EllipsoidPosLocationArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.EllipsoidPosLocationArray
-
 .. autoclass:: xradio.measurement_set.schema.DopplerArray()
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.DopplerArray

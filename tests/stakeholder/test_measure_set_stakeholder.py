@@ -5,6 +5,11 @@ import pytest
 import time
 import warnings
 
+# pytest.skip(
+#     "Skipping because we are debugging another set of tests and these take a while to run.",
+#     allow_module_level=True,
+# )
+
 import pandas as pd
 import xarray as xr
 
@@ -43,12 +48,13 @@ def download_and_convert_msv2_to_processing_set(
             log_to_term=True,
             log_to_file=False,  # True
             log_file="xradio-logfile",
-            # log_level="DEBUG",
-            log_level="INFO",
+            log_level="DEBUG",
+            # log_level="INFO",
         )
 
-    download(file=msv2_name, folder=folder)
+    download(file=msv2_name, folder=str(folder))
     ps_name = folder / (msv2_name[:-3] + ".ps.zarr")
+
     if os.path.isdir(ps_name):
         os.system("rm -rf " + str(ps_name))  # Remove ps folder.
 
@@ -333,6 +339,7 @@ def base_test(
     viper_client = local_client(
         cores=2, memory_limit="3GB"
     )  ##Do not increase size otherwise GitHub MacOS runner will hang.
+
     viper_client
 
     ps_list = (
@@ -398,11 +405,17 @@ def base_test(
             expected_sum_value, rel=relative_tolerance
         ), "VISIBILITY and WEIGHT values have changed."
 
-        # print('^^^^^^^',ps_xdt.get(0).coords['frequency'].attrs['reference_frequency'])
-
         if do_schema_check:
+            # print("*******************")
+            # print(ps_xdt.xr_ps.summary())
+            # #print(ps_xdt["ALMA_uid___A002_X1003af4_X75a3.split.avg_00"].field_and_source_base_xds)
+            # print("*******************")
+
             start_check = time.time()
-            check_datatree(ps_xdt)
+            issues = check_datatree(ps_xdt)
+
+            print("***** Number of issues found:", len(issues))
+            assert len(issues) == 0, "Schema check failed, issues found: " + str(issues)
             print(
                 f"Time to check datasets (all MSv4s) against schema: {time.time() - start_check}"
             )
@@ -434,6 +447,8 @@ def base_test(
 
 def test_alma(tmp_path):
     expected_subtables = {"antenna", "weather"}
+
+    print("the temp path is", tmp_path)
     base_test(
         "Antennae_North.cal.lsrk.split.ms",
         tmp_path,
@@ -581,10 +596,10 @@ def test_alma_ephemeris_mosaic(tmp_path):
     )
     # Here we test if the field_and_source_xds structure is correct.
     check_source_and_field_xds(
-        ps_list[0], "ALMA_uid___A002_X1003af4_X75a3.split.avg_17", 127796.84837227
+        ps_list[0], "ALMA_uid___A002_X1003af4_X75a3.split.avg_17", 1.09056423
     )
     check_source_and_field_xds(
-        ps_list[1], "ALMA_uid___A002_X1003af4_X75a3.split.avg_81", 4915.66000546
+        ps_list[1], "ALMA_uid___A002_X1003af4_X75a3.split.avg_81", 0.04194478
     )
 
     # Test PS sel
@@ -611,8 +626,10 @@ def check_ps_query(ps_xdt):
 
 def check_source_and_field_xds(ps_xdt, msv4_name, expected_NP_sum):
     field_and_source_xds = ps_xdt[msv4_name].xr_ms.get_field_and_source_xds()
+
     field_and_source_data_variable_names = [
-        "FIELD_PHASE_CENTER",
+        "FIELD_PHASE_CENTER_DIRECTION",
+        "FIELD_PHASE_CENTER_DISTANCE",
         "HELIOCENTRIC_RADIAL_VELOCITY",
         "LINE_REST_FREQUENCY",
         "LINE_SYSTEMIC_VELOCITY",
@@ -620,7 +637,8 @@ def check_source_and_field_xds(ps_xdt, msv4_name, expected_NP_sum):
         "NORTH_POLE_POSITION_ANGLE",
         "OBSERVER_POSITION",
         "OBSERVER_PHASE_ANGLE",
-        "SOURCE_LOCATION",
+        "SOURCE_DIRECTION",
+        "SOURCE_DISTANCE",
         "SOURCE_RADIAL_VELOCITY",
         "SUB_OBSERVER_DIRECTION",
     ]
@@ -784,12 +802,13 @@ if __name__ == "__main__":
     # test_sd_A002_X1015532_X1926f(tmp_path=Path("."))
     # test_sd_A002_Xae00c5_X2e6b(tmp_path=Path("."))
     # test_sd_A002_Xced5df_Xf9d9(tmp_path=Path("."))
-    # test_sd_A002_Xe3a5fd_Xe38e(tmp_path=Path("."))
+    test_sd_A002_Xe3a5fd_Xe38e(tmp_path=Path("."))
     # test_s3(tmp_path=Path("."))
     # test_vlass(tmp_path=Path("."))
-    test_alma(tmp_path=Path("."))
+    # test_alma(tmp_path=Path("."))
     # #test_preconverted_alma(tmp_path=Path("."))
     # test_ska_mid(tmp_path=Path("."))
+    # test_ska_low(tmp_path=Path("."))
     # test_lofar(tmp_path=Path("."))
     # test_meerkat(tmp_path=Path("."))
     # test_global_vlbi(tmp_path=Path("."))

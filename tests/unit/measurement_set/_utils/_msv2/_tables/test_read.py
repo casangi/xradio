@@ -358,6 +358,7 @@ def test_add_units_measures(msv4_xds_min):
         "time": msv4_xds_min.time,
     }
     res = add_units_measures(xds_vars, col_descr)
+
     assert res["UVW"].attrs == xds_vars["UVW"].attrs
     assert res["time"].attrs == xds_vars["time"].attrs
 

@@ -116,8 +116,6 @@ def convert_msv2_to_processing_set(
     if not str(out_file).endswith("ps.zarr"):
         out_file += ".ps.zarr"
 
-    print("Output file: ", out_file)
-
     from xradio._utils.zarr.config import ZARR_FORMAT
 
     if overwrite:

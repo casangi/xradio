@@ -312,26 +312,26 @@ def get_dims(tp: Any) -> List[Dims]:
 
     dims_out = []
     for dim in dims_in:
-        args = get_args(dim)
+        args = list(get_args(dim))
         origin = get_origin(dim)
 
         # One-dimensional dimension
         if origin is Literal:
-            dims_out.append((str(args[0]),))
+            dims_out.append([str(args[0])])
             continue
 
         if not (origin is tuple or origin is Tuple):
             raise TypeError(f"Could not find any dims in {tp!r}.")
 
         # Zero-dimensions
-        if args == () or args == ((),):
-            dims_out.append(())
+        if args == [] or args == [()]:
+            dims_out.append([])
             continue
 
         if not all(get_origin(arg) is Literal for arg in args):
             raise TypeError(f"Could not find any dims in {tp!r}.")
 
-        dims_out.append(tuple(str(get_args(arg)[0]) for arg in args))
+        dims_out.append([str(get_args(arg)[0]) for arg in args])
 
     return dims_out
 

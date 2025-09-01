@@ -9,6 +9,7 @@ from xradio.measurement_set._utils._msv2.conversion import (
     convert_and_write_partition,
     estimate_memory_and_cores_for_partitions,
 )
+from xradio._utils.zarr.config import ZARR_FORMAT
 
 
 def estimate_conversion_memory_and_cores(
@@ -115,8 +116,6 @@ def convert_msv2_to_processing_set(
 
     if not str(out_file).endswith("ps.zarr"):
         out_file += ".ps.zarr"
-
-    from xradio._utils.zarr.config import ZARR_FORMAT
 
     if overwrite:
         ps_dt.to_zarr(store=out_file, mode="w", zarr_format=ZARR_FORMAT)

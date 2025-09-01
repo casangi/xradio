@@ -429,7 +429,7 @@ def test_convert_and_write_partition_with_antenna1(ms_minimal_required):
         )
 
         # Will need a SD-like test ms. Otherwise the partition is empty:
-        with pytest.raises(FileNotFoundError, match="No group found in store"):
+        with pytest.raises(FileNotFoundError, match="does not exist"):
             msv4_xds = xr.open_dataset(
                 out_name
                 + "/"

@@ -161,6 +161,7 @@ def format_literals(literal) -> nodes.line:
     else:
         raise ValueError(f"Must be a list of literal string values: {literal}")
 
+    # Join the literals with ... , .. , .. , or ...
     line = nodes.line()
     for i, lit in enumerate(formatted_literal):
         if i > 0:
@@ -190,9 +191,9 @@ def format_attr_model_text(state, attr) -> nodes.line:
     Doesn't aim at supporting any literal types or combinations of types in general,
     but the following three ones specifically:
 
-    - String literals
-    - Other classes (for example usual built-in types such str or ints, or schema
-      classes)
+    - String literals (units, frames, measure types, etc.)
+    - Other classes (for example usual built-in types such str, bool or ints,
+      or schema classes: schema dicts and schema arrays)
 
     This is meant to produce readable text listing literals as quoted text and
     their combinations, in schema attributes (particularly quantities and measures).
@@ -204,7 +205,13 @@ def format_attr_model_text(state, attr) -> nodes.line:
     if getattr(attr, "literal"):
         line = format_literals(attr.literal)
     else:
-        line = format_class_types(state, attr.type)
+        if getattr(attr, "dict_schema"):
+            attr_type = attr.dict_schema.schema_name
+        elif getattr(attr, "array_schema"):
+            attr_type = attr.array_schema.schema_name
+        else:
+            attr_type = attr.type
+        line = format_class_types(state, attr_type)
 
     return line
 

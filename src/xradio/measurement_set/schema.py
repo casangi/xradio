@@ -992,7 +992,7 @@ class FrequencyCentroidArray:
 @xarray_dataarray_schema
 class EffectiveChannelWidthArray:
     """
-    Model of frequency related data variables of the main dataset, such as EFFECTIV_CHANNEL_WIDTH.
+    Model of frequency related data variables of the main dataset, such as EFFECTIVE_CHANNEL_WIDTH.
     """
 
     data: Data[

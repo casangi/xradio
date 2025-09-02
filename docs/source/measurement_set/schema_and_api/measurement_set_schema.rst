@@ -147,6 +147,14 @@ Bulk data gathered into :ref:`correlated data datasets`.
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.TimeSamplingArray
 
+.. autoclass:: xradio.measurement_set.schema.EffectiveChannelWidthArray()
+
+   .. xradio_array_schema_table:: xradio.measurement_set.schema.EffectiveChannelWidthArray
+
+.. autoclass:: xradio.measurement_set.schema.FrequencyCentroidArray()
+
+   .. xradio_array_schema_table:: xradio.measurement_set.schema.FrequencyCentroidArray
+
 .. _correlated data coordinates:
 
 Coordinates

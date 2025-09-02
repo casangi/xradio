@@ -382,14 +382,14 @@ def check_data_vars(
 
     issues = SchemaIssues()
     for data_var_schema in data_vars_schema:
-        allow_mutiple_versions = False
+        allow_multiple_versions = False
         for attr in data_var_schema.attributes:
             if hasattr(attr, "name"):
-                if attr.name == "allow_mutiple_versions":
-                    allow_mutiple_versions = attr.default
+                if attr.name == "allow_multiple_versions":
+                    allow_multiple_versions = attr.default
 
         data_vars_names = []
-        if allow_mutiple_versions:
+        if allow_multiple_versions:
             for data_var_name in data_vars:
                 if data_var_schema.name in data_var_name:
                     data_vars_names.append(data_var_name)

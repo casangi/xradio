@@ -795,7 +795,7 @@ class FlagArray:
     polarization: Optional[Coordof[PolarizationArray]] = None
     long_name: Optional[Attr[str]] = "Visibility flags"
 
-    allow_mutiple_versions: Optional[Attr[bool]] = True
+    allow_multiple_versions: Optional[Attr[bool]] = True
 
 
 @xarray_dataarray_schema
@@ -833,7 +833,7 @@ class WeightArray:
     polarization: Optional[Coordof[PolarizationArray]] = None
     long_name: Optional[Attr[str]] = "Visibility weights"
 
-    allow_mutiple_versions: Optional[Attr[bool]] = True
+    allow_multiple_versions: Optional[Attr[bool]] = True
 
 
 # J2000=>fk5 is used most often. icrs is used less often. Both fk5 and icrs are also borrowed from the field center (to fix
@@ -896,7 +896,7 @@ class UvwArray:
     """ To be defined in astropy (see for example https://github.com/astropy/astropy/issues/7766) """
     units: Attr[UnitsMeters] = "m"
 
-    allow_mutiple_versions: Optional[Attr[bool]] = True
+    allow_multiple_versions: Optional[Attr[bool]] = True
 
 
 @xarray_dataarray_schema
@@ -1321,7 +1321,7 @@ class VisibilityArray:
     long_name: Optional[Attr[str]] = "Visibility values"
     """ Long-form name to use for axis. Should be ``"Visibility values"``"""
     units: Attr[str] = "Jy"
-    allow_mutiple_versions: Optional[Attr[bool]] = True
+    allow_multiple_versions: Optional[Attr[bool]] = True
 
 
 # Info dicts

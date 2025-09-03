@@ -142,7 +142,7 @@ class ProcessingSetXdt:
         if "freq_axis" in self.meta:
             return self.meta["freq_axis"]
         else:
-            spw_ids = []
+            spw_names = []
             freq_axis_list = []
             frame = self._xdt[next(iter(self._xdt.children))].frequency.attrs[
                 "observer"
@@ -151,8 +151,8 @@ class ProcessingSetXdt:
                 assert (
                     frame == ms_xdt.frequency.attrs["observer"]
                 ), "Frequency reference frame not consistent in Processing Set."
-                if ms_xdt.frequency.attrs["spectral_window_id"] not in spw_ids:
-                    spw_ids.append(ms_xdt.frequency.attrs["spectral_window_id"])
+                if ms_xdt.frequency.attrs["spectral_window_name"] not in spw_names:
+                    spw_names.append(ms_xdt.frequency.attrs["spectral_window_name"])
                     freq_axis_list.append(ms_xdt.frequency)
 
             freq_axis = xr.concat(freq_axis_list, dim="frequency", join="outer").sortby(
@@ -169,6 +169,7 @@ class ProcessingSetXdt:
             "polarization": [],
             "scan_name": [],
             "spw_name": [],
+            "spw_intent": [],
             "field_name": [],
             "source_name": [],
             "line_name": [],
@@ -185,6 +186,7 @@ class ProcessingSetXdt:
             summary_data["name"].append(key)
             summary_data["intents"].append(partition_info["intents"])
             summary_data["spw_name"].append(partition_info["spectral_window_name"])
+            summary_data["spw_intent"].append(partition_info["spectral_window_intent"])
             summary_data["polarization"].append(value.polarization.values)
             summary_data["scan_name"].append(partition_info["scan_name"])
             data_name = value.attrs["data_groups"][data_group]["correlated_data"]

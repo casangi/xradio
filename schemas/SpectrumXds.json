@@ -169,6 +169,12 @@
         {
           "$class": "AttrSchemaRef",
           "type": "str",
+          "name": "spectral_window_intent",
+          "docstring": "An intent string that identifies the intention of the spectral window, for example\ncontinuum, spectral line, etc. See :ref:`spw intents` for possible values. "
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
           "optional": true,
           "name": "frequency_group_name",
           "docstring": "Name associated with frequency group - needed for multi-band VLBI fringe-fitting."
@@ -647,6 +653,12 @@
             {
               "$class": "AttrSchemaRef",
               "type": "str",
+              "name": "spectral_window_intent",
+              "docstring": "An intent string that identifies the intention of the spectral window, for example\ncontinuum, spectral line, etc. See :ref:`spw intents` for possible values. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
               "optional": true,
               "name": "frequency_group_name",
               "docstring": "Name associated with frequency group - needed for multi-band VLBI fringe-fitting."
@@ -1109,6 +1121,12 @@
               "type": "str",
               "name": "spectral_window_name",
               "docstring": "Name associated with spectral window. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "name": "spectral_window_intent",
+              "docstring": "An intent string that identifies the intention of the spectral window, for example\ncontinuum, spectral line, etc. See :ref:`spw intents` for possible values. "
             },
             {
               "$class": "AttrSchemaRef",
@@ -1577,6 +1595,12 @@
               "type": "str",
               "name": "spectral_window_name",
               "docstring": "Name associated with spectral window. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "name": "spectral_window_intent",
+              "docstring": "An intent string that identifies the intention of the spectral window, for example\ncontinuum, spectral line, etc. See :ref:`spw intents` for possible values. "
             },
             {
               "$class": "AttrSchemaRef",
@@ -2394,6 +2418,12 @@
             {
               "$class": "AttrSchemaRef",
               "type": "str",
+              "name": "spectral_window_intent",
+              "docstring": "An intent string that identifies the intention of the spectral window, for example\ncontinuum, spectral line, etc. See :ref:`spw intents` for possible values. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
               "optional": true,
               "name": "frequency_group_name",
               "docstring": "Name associated with frequency group - needed for multi-band VLBI fringe-fitting."
@@ -2847,6 +2877,12 @@
               "type": "str",
               "name": "spectral_window_name",
               "docstring": "Name associated with spectral window. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "name": "spectral_window_intent",
+              "docstring": "An intent string that identifies the intention of the spectral window, for example\ncontinuum, spectral line, etc. See :ref:`spw intents` for possible values. "
             },
             {
               "$class": "AttrSchemaRef",

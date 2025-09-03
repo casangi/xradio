@@ -1,6 +1,5 @@
 import importlib
 import dataclasses
-from pydoc import locate
 import typing
 
 from docutils import nodes, utils

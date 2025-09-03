@@ -786,7 +786,7 @@ class FlagArray:
             tuple[Time, BaselineId, Frequency, Polarization],
             tuple[Time, AntennaName, Frequency, Polarization],  # SD
         ],
-        bool,
+        Union[bool, numpy.uint8, numpy.uint16, numpy.uint32, numpy.uint64]
     ]
     time: Coordof[TimeCoordArray]
     baseline_id: Optional[Coordof[BaselineArray]]  # Only IF

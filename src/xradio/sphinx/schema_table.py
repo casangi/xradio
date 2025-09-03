@@ -155,42 +155,46 @@ class SchemaTableDirective(ObjectDescription):
                 self.state.nested_parse(vl, 0, entry)
 
 
-def format_literals(typ):
+def format_literals(literal) -> nodes.line:
 
-    typ = locate(typ)
+    if isinstance(literal, list) and all([isinstance(item, str) for item in literal]):
+        formatted_literal = [nodes.literal(text=f"'{val}'") for val in literal]
+    else:
+        raise ValueError(f"Must be a list of literal string values: {literal}")
 
-    # a | b | c: Recurse and merge
-    if typing.get_origin(typ) == typing.Union:
-        type_args = typing.get_args(typ)
-        options = []
-        for arg in type_args:
-            options += format_literals(arg)
-        return options
+    # Join the literals with ... , .. , .. , or ...
+    line = nodes.line()
+    for i, lit in enumerate(formatted_literal):
+        if i > 0:
+            if i + 1 >= len(formatted_literal):
+                line += nodes.Text(" or\xa0")
+            else:
+                line += nodes.Text(", ")
+        line += lit
 
-    # Literal['a', 'b', ...]: Wrap into individual "literal" nodes
-    if typing.get_origin(typ) == typing.Literal:
-        return list(map(lambda t: nodes.literal(text=repr(t)), typing.get_args(typ)))
-
-    # list[Literal['a'], Literal['b'], ...]: Format as one literal (compound) value
-    if typing.get_origin(typ) == list:
-        type_args = typing.get_args(typ)
-        if any([typing.get_origin(arg) != typing.Literal for arg in type_args]):
-            raise ValueError(f"List must contain only literals: {typ}")
-        values = [repr(typing.get_args(val)[0]) for val in typing.get_args(typ)]
-        return [nodes.literal(text=f"[{', '.join(values)}]")]
-
-    raise ValueError(f"Must be either a type or a literal: {typ}")
+    return line
 
 
-def format_attr_model_text(state, attr) -> StringList:
+def format_class_types(state, attr_type) -> nodes.line:
+    line = nodes.line()
+    vl = StringList()
+    vl.append(f":py:class:`~{attr_type}`", "")
+    with switch_source_input(state, vl):
+        state.nested_parse(vl, 0, line)
+
+    return line
+
+
+def format_attr_model_text(state, attr) -> nodes.line:
     """
-    Formats the text for the 'model' column in schema tables (arrays and datasets).
+    For an attribute, formats the text for the 'model' column in schema tables
+    (arrays and datasets).
     Doesn't aim at supporting any literal types or combinations of types in general,
     but the following three ones specifically:
 
-    - Literals (with multiple options (implicit Union of literals))
-    - List of literals (e.g. ["rad","rad"]
-    - Union of list of literals (e.g. ["m","m","m"]/["rad","rad","m"]
+    - String literals (units, frames, measure types, etc.)
+    - Other classes (for example usual built-in types such str, bool or ints,
+      or schema classes: schema dicts and schema arrays)
 
     This is meant to produce readable text listing literals as quoted text and
     their combinations, in schema attributes (particularly quantities and measures).
@@ -199,11 +203,16 @@ def format_attr_model_text(state, attr) -> StringList:
     type name.
     """
 
-    line = nodes.line()
-    vl = StringList()
-    vl.append(f":py:class:`~{attr.type}`", "")
-    with switch_source_input(state, vl):
-        state.nested_parse(vl, 0, line)
+    if getattr(attr, "literal"):
+        line = format_literals(attr.literal)
+    else:
+        if getattr(attr, "dict_schema"):
+            attr_type = attr.dict_schema.schema_name
+        elif getattr(attr, "array_schema"):
+            attr_type = attr.array_schema.schema_name
+        else:
+            attr_type = attr.type
+        line = format_class_types(state, attr_type)
 
     return line
 

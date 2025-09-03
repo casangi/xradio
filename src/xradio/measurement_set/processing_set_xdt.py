@@ -155,7 +155,9 @@ class ProcessingSetXdt:
                     spw_ids.append(ms_xdt.frequency.attrs["spectral_window_id"])
                     freq_axis_list.append(ms_xdt.frequency)
 
-            freq_axis = xr.concat(freq_axis_list, dim="frequency").sortby("frequency")
+            freq_axis = xr.concat(freq_axis_list, dim="frequency", join="outer").sortby(
+                "frequency"
+            )
             self.meta["freq_axis"] = freq_axis
             return self.meta["freq_axis"]
 
@@ -377,6 +379,7 @@ class ProcessingSetXdt:
                     combined_field_and_source_xds = xr.concat(
                         [combined_field_and_source_xds, field_and_source_xds],
                         dim="field_name",
+                        join="outer",
                     )
 
         if (len(combined_field_and_source_xds.data_vars) > 0) and (
@@ -497,6 +500,7 @@ class ProcessingSetXdt:
                     combined_ephemeris_field_and_source_xds = xr.concat(
                         [combined_ephemeris_field_and_source_xds, field_and_source_xds],
                         dim="time",
+                        join="outer",
                     )
 
         if (len(combined_ephemeris_field_and_source_xds.data_vars) > 0) and (
@@ -719,6 +723,7 @@ class ProcessingSetXdt:
                     dim="antenna_name",
                     data_vars="minimal",
                     coords="minimal",
+                    join="outer",
                 )
 
         # ALMA WVR antenna_xds data has a NaN value for the antenna receptor angle.

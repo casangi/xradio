@@ -305,7 +305,8 @@ Value Keys
 Scan Intents
 ~~~~~~~~~~~~
 
-Scan intents to be used with :py:class:`VisibilityXds` and :py:class:`SpectrumXds` ``.intent``:
+Scan intents to be used with :py:class:`VisibilityXds` and :py:class:`SpectrumXds`,
+in the ``intents`` field of the :py:class:`ObservationInfoDict`:
 
 * CALIBRATE AMPLI : Amplitude calibration scan
 * CALIBRATE ANTENNA PHASE : Requested by EVLA.
@@ -338,7 +339,8 @@ Scan intents to be used with :py:class:`VisibilityXds` and :py:class:`SpectrumXd
 * TEST : used for development.
 * UNSPECIFIED : Unspecified scan intent
 
-Sub-scan intents to be used with :py:class:`VisibilityXds` and :py:class:`SpectrumXds` ``.sub_intent``:
+Sub-scan intents to be used with :py:class:`VisibilityXds` and :py:class:`SpectrumXds`,
+in the ``intents`` field of the :py:class:`ObservationInfoDict`:
 
 * ON SOURCE : on-source measurement
 * OFF SOURCE : off-source measurement
@@ -358,7 +360,8 @@ SPW Intents
 ~~~~~~~~~~~
 
 Note: the list is to be defined.
-Scan intents to be used in the `frequency` coordinate of measurement sets (:py:class:`VisibilityXds` and :py:class:`SpectrumXds`):
+SPW intents to be used in the attribute `spectral_window_intent` of the `frequency` coordinate of measurement sets
+(:py:class:`VisibilityXds` and :py:class:`SpectrumXds`):
 
 * TEST : reserved for development.
 * UNSPECIFIED : Unspecified SPW intent.

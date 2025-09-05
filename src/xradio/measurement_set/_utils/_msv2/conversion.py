@@ -1327,6 +1327,10 @@ def convert_and_write_partition(
                 xds.attrs["type"] = "radiometer"
             else:
                 xds.attrs["type"] = "visibility"
+                
+        # Add tidxs and bidxs for testing
+        # xds["tidxs"] = tidxs
+        # xds["bidxs"] = bidxs
 
         start = time.time()
         ms_v4_name = pathlib.Path(in_file).name.replace(".ms", "") + "_" + str(ms_v4_id)

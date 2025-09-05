@@ -2151,6 +2151,7 @@
           "literal": [
             "fk5",
             "icrs",
+            "itrs",
             "APP"
           ],
           "name": "frame",

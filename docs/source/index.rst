@@ -20,12 +20,12 @@ To delve further into the Measurement Set v4,
    - This Jupyter notebook (.ipynb) :doc:`tutorial <measurement_set/tutorials/index>` can be run interactively via the Google Colab link at the top.
    - You can also download and run notebooks locally after installing XRADIO via pip or conda.
 
-2. There are multiple `guides <measurement_set/guides/index>`:
+2. There are multiple :doc:`guides <measurement_set/guides/index>`:
 
    - Examples show how different telescopes' data can be represented.
    - If your telescope isn't represented, open an issue and attach a Measurement Set v2 (10MB or smaller).
 
-3. Examine the MSv4 `schema <measurement_set/schema_and_api/measurement_set_schema>` and `API documentation <https://xradio.readthedocs.io/en/latest/measurement_set/schema_and_api/measurement_set_api.html>`_ in the Measurement Set v4.0.0 section.
+3. Examine the MSv4 :doc:`schema <measurement_set/schema_and_api/measurement_set_schema>` and :doc:`API documentation <measurement_set/schema_and_api/measurement_set_api.html>` in the Measurement Set v4.0.0 section.
 
    - The schema is included in ReadTheDocs for versioning and accessibility.
 

@@ -12,7 +12,7 @@ Guides
    MeerKAT
    ngEHT
    SKA_mid
-   ska_low
+   SKA_low
    VLBA
    VLBI
    backends

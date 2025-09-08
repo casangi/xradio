@@ -33,7 +33,6 @@ The Measurement Set v4 is described in the section :doc:`Measurement Set v4.0.0 
    measurement_set_overview
    measurement_set/tutorials/index
    measurement_set/guides/index
-
    measurement_set/schema_and_api/index
 
 .. toctree::

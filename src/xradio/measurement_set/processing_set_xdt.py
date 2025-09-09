@@ -271,10 +271,10 @@ class ProcessingSetXdt:
         Examples
         --------
         >>> # Select all MSs with intents 'OBSERVE_TARGET#ON_SOURCE' and polarization 'RR' or 'LL'
-        >>> selected_ps = ps.query(intents='OBSERVE_TARGET#ON_SOURCE', polarization=['RR', 'LL'])
+        >>> selected_ps_xdt = ps_xdt.xr_ps.query(intents='OBSERVE_TARGET#ON_SOURCE', polarization=['RR', 'LL'])
 
         >>> # Select all MSs with start_frequency greater than 100 GHz and less than 200 GHz
-        >>> selected_ps = ps.query(query='start_frequency > 100e9 AND end_frequency < 200e9')
+        >>> selected_ps_xdt = ps_xdt.xr_ps.query(query='start_frequency > 100e9 AND end_frequency < 200e9')
         """
 
         if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:

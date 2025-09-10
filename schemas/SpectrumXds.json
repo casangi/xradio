@@ -3324,7 +3324,7 @@
             "docstring": null
           }
         ],
-        "class_docstring": "Dictionary of data group dictionaries."
+        "class_docstring": "Dictionary of data group dictionaries. A 'base' data group is mandatory.\nAdditional data groups can be added with different names."
       },
       "name": "data_groups",
       "docstring": "Defines groups of correlated data + flag + weight variables. "

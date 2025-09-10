@@ -9,7 +9,7 @@ from xradio.schema.bases import (
 from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof
 import numpy
 
-MSV4_SCHEMA_VERSION = "4.0.-9988"
+MSV4_SCHEMA_VERSION = "4.0.-9987"
 
 # Dimensions
 Time = Literal["time"]
@@ -1435,7 +1435,8 @@ class DataGroupDict:
 
 @dict_schema
 class DataGroupsDict:
-    """Dictionary of data group dictionaries."""
+    """Dictionary of data group dictionaries. A 'base' data group is mandatory.
+    Additional data groups can be added with different names."""
 
     base: DataGroupDict
 

@@ -216,7 +216,7 @@ def test_create_system_calibration_xds_empty(ms_empty_required, msv4_xdt_min):
     )
 
     sys_cal_xds = create_system_calibration_xds(
-        ms_empty_required.fname, msv4_xdt_min.frequency, ant_xds_with_ids, None
+        ms_empty_required.fname, 0, msv4_xdt_min.frequency, ant_xds_with_ids, None
     )
     assert sys_cal_xds is None
 
@@ -234,7 +234,7 @@ def test_create_system_calibration_xds_min(ms_minimal_required, msv4_xdt_min):
     )
 
     sys_cal_xds = create_system_calibration_xds(
-        ms_minimal_required.fname, msv4_xdt_min.frequency, ant_xds_with_ids, None
+        ms_minimal_required.fname, 0, msv4_xdt_min.frequency, ant_xds_with_ids, None
     )
     check_dataset(sys_cal_xds, SystemCalibrationXds)
 
@@ -254,6 +254,6 @@ def test_create_system_calibration_xds_without_opt(
     )
 
     sys_cal_xds = create_system_calibration_xds(
-        ms_minimal_without_opt.fname, msv4_xdt_min.frequency, ant_xds_with_ids, None
+        ms_minimal_without_opt.fname, 0, msv4_xdt_min.frequency, ant_xds_with_ids, None
     )
     assert sys_cal_xds is None

@@ -320,7 +320,7 @@ class DictSchemaTableDirective(SchemaTableDirective):
             for attr in schema.attributes:
                 self._add_row(
                     attr.name,
-                    types=[f"{attr.type}"],
+                    types=[attr.type],
                     optional=attr.optional,
                     descr=attr.docstring,
                     default=attr.default,

@@ -133,6 +133,7 @@ def base_check_ps_accessor(ps_lazy_xdt: xr.DataTree, ps_xdt: xr.DataTree):
         "polarization",
         "scan_name",
         "spw_name",
+        "spw_intent",
         "field_name",
         "source_name",
         "line_name",

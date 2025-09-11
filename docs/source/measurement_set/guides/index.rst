@@ -6,11 +6,13 @@ Guides
 
    ALMA_ephemeris
    ALMA_SD
+   GBT_single_dish
+   GMRT
    LOFAR
    MeerKAT
    ngEHT
-   GBT_single_dish
    SKA_mid
+   SKA_low
    VLBA
    VLBI
    backends

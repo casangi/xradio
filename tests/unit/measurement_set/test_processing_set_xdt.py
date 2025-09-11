@@ -119,6 +119,13 @@ class TestProcessingSetXdtWithData:
             "polarization",
             "scan_name",
             "spw_name",
+            "spw_intent",
+            "field_name",
+            "source_name",
+            "line_name",
+            "field_coords",
+            "start_frequency",
+            "end_frequency",
         ]
         for col in expected_columns:
             assert col in summary.columns

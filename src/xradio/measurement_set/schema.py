@@ -9,7 +9,7 @@ from xradio.schema.bases import (
 from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof
 import numpy
 
-MSV4_SCHEMA_VERSION = "4.0.-9988"
+MSV4_SCHEMA_VERSION = "4.0.-9987"
 
 # Dimensions
 Time = Literal["time"]
@@ -674,6 +674,9 @@ class FrequencyArray:
     """ Center frequencies for each channel. """
     spectral_window_name: Attr[str]
     """ Name associated with spectral window. """
+    spectral_window_intent: Attr[str]
+    """ An intent string that identifies the intention of the spectral window, for example
+    continuum, spectral line, etc. See :ref:`spw intents` for possible values. """
     frequency_group_name: Optional[Attr[str]]
     """ Name associated with frequency group - needed for multi-band VLBI fringe-fitting."""
     reference_frequency: Attr[SpectralCoordArray]
@@ -795,7 +798,7 @@ class FlagArray:
     polarization: Optional[Coordof[PolarizationArray]] = None
     long_name: Optional[Attr[str]] = "Visibility flags"
 
-    allow_mutiple_versions: Optional[Attr[bool]] = True
+    allow_multiple_versions: Optional[Attr[bool]] = True
 
 
 @xarray_dataarray_schema
@@ -833,7 +836,7 @@ class WeightArray:
     polarization: Optional[Coordof[PolarizationArray]] = None
     long_name: Optional[Attr[str]] = "Visibility weights"
 
-    allow_mutiple_versions: Optional[Attr[bool]] = True
+    allow_multiple_versions: Optional[Attr[bool]] = True
 
 
 # J2000=>fk5 is used most often. icrs is used less often. Both fk5 and icrs are also borrowed from the field center (to fix
@@ -896,7 +899,7 @@ class UvwArray:
     """ To be defined in astropy (see for example https://github.com/astropy/astropy/issues/7766) """
     units: Attr[UnitsMeters] = "m"
 
-    allow_mutiple_versions: Optional[Attr[bool]] = True
+    allow_multiple_versions: Optional[Attr[bool]] = True
 
 
 @xarray_dataarray_schema
@@ -992,7 +995,7 @@ class FrequencyCentroidArray:
 @xarray_dataarray_schema
 class EffectiveChannelWidthArray:
     """
-    Model of frequency related data variables of the main dataset, such as EFFECTIV_CHANNEL_WIDTH.
+    Model of frequency related data variables of the main dataset, such as EFFECTIVE_CHANNEL_WIDTH.
     """
 
     data: Data[
@@ -1321,7 +1324,7 @@ class VisibilityArray:
     long_name: Optional[Attr[str]] = "Visibility values"
     """ Long-form name to use for axis. Should be ``"Visibility values"``"""
     units: Attr[str] = "Jy"
-    allow_mutiple_versions: Optional[Attr[bool]] = True
+    allow_multiple_versions: Optional[Attr[bool]] = True
 
 
 # Info dicts
@@ -1382,9 +1385,22 @@ class ObservationInfoDict:
     """ASDM: Logs of the observation during this execu- tion block."""
     intents: list[str]
     """ An intent string identifies one intention of the scan, such as to calibrate or observe a
-    target. See :ref:`scan intents` for possible values. When converting from MSv2, the list of
-    intents is derived from the OBS_MODE column of MSv2 state table (every comma separated value
-    is taken as an intent). """
+    target. See :ref:`scan intents` for possible intent/subintent values. When converting from MSv2,
+    the list of intents is derived from the OBS_MODE column of MSv2 state table (every comma
+    separated value is taken as an intent).
+    A common convention used in the MSv2 OBS_MODE column is to specify multiple intents separated
+    by commas, each of them giving a main intent and a subintent separated by a '#' character. This
+    is represented in this attribute as a list of "intent#subintent" strings. These are a few
+    example lists:
+    ["CALIBRATE_DELAY#ON_SOURCE" , "CALIBRATE_PHASE#ON_SOURCE", "CALIBRATE_WVR#ON_SOURCE"],
+    ["CALIBRATE_FLUX#ON_SOURCE" , "CALIBRATE_WVR#ON_SOURCE"],
+    ["CALIBRATE_POINTING#ON_SOURCE", "CALIBRATE_WVR#ON_SOURCE", "CALIBRATE_DELAY#ON_SOURCE"],
+    ["CALIBRATE_ATMOSPHERE#AMBIENT", "CALIBRATE_WVR#AMBIENT"],
+    ["CALIBRATE_FOCUS#ON_SOURCE" , "CALIBRATE_WVR#ON_SOURCE"],
+    ["OBSERVE_TARGET#ON_SOURCE"], or ["OBSERVE_TARGE#UNSPECIFIED"].
+    The list of possible intent and subintent names (see :ref:`scan intents`) is derived from the
+    respective ASDM enumerations.
+    """
 
 
 @dict_schema
@@ -1419,7 +1435,8 @@ class DataGroupDict:
 
 @dict_schema
 class DataGroupsDict:
-    """Dictionary of data group dictionaries."""
+    """Dictionary of data group dictionaries. A 'base' data group is mandatory.
+    Additional data groups can be added with different names."""
 
     base: DataGroupDict
 

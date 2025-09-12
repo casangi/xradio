@@ -13,7 +13,10 @@ build:
 python:
   install:
     - requirements: docs/sphinx.txt
-    - pip install python-casacore
+    - method: pip
+      path: .
+      extra_requirements:
+        - python-casacore
 
 # Configuration for Sphinx documentation
 sphinx:

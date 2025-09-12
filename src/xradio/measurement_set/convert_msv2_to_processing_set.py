@@ -62,6 +62,7 @@ def convert_msv2_to_processing_set(
     sys_cal_interpolate: bool = False,
     use_table_iter: bool = False,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
+    add_reshaping_indices: bool = False,
     storage_backend: str = "zarr",
     parallel_mode: str = "none",
     overwrite: bool = False,
@@ -98,6 +99,8 @@ def convert_msv2_to_processing_set(
         Whether to use the table iterator to read the main table of the MS v2. This should be set to True when reading datasets with large number of rows and few partitions, by default False.
     compressor : numcodecs.abc.Codec, optional
         The Blosc compressor to use when saving the converted data to disk using Zarr, by default numcodecs.Zstd(level=2).
+    add_reshaping_indices : bool, optional
+        Whether to add the tidxs, bidxs and row_id variables to each partition of the main dataset. These can be used to reshape the data back to the original ordering in the MS v2. This is mainly intended for testing and debugging, by default False.
     storage_backend : {"zarr", "netcdf"}, optional
         The on-disk format to use. "netcdf" is not yet implemented.
     parallel_mode : {"none", "partition", "time"}, optional
@@ -178,6 +181,7 @@ def convert_msv2_to_processing_set(
                     ephemeris_interpolate=ephemeris_interpolate,
                     phase_cal_interpolate=phase_cal_interpolate,
                     sys_cal_interpolate=sys_cal_interpolate,
+                    add_reshaping_indices=add_reshaping_indices,
                     compressor=compressor,
                     parallel_mode=parallel_mode,
                     overwrite=overwrite,
@@ -198,6 +202,7 @@ def convert_msv2_to_processing_set(
                 ephemeris_interpolate=ephemeris_interpolate,
                 phase_cal_interpolate=phase_cal_interpolate,
                 sys_cal_interpolate=sys_cal_interpolate,
+                add_reshaping_indices=add_reshaping_indices,
                 compressor=compressor,
                 parallel_mode=parallel_mode,
                 overwrite=overwrite,

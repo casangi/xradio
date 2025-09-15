@@ -12,7 +12,7 @@ Xarray Radio Astronomy Data IO is still in development.
 # Installing
 XRADIO can be installed in virtual environments via pip. It is recommended to use the conda environment manager from [miniforge](https://github.com/conda-forge/miniforge) to create a clean, self-contained runtime where XRADIO and all its dependencies can be installed, for example:
 ```sh
-conda create --name xradio python=3.12 --no-default-packages
+conda create --name xradio python=3.13 --no-default-packages
 conda activate xradio
 ```
 > 📝 On macOS, if one wants to use the functions to convert MSv2=>MSv4, it is required to pre-install `python-casacore`. That can be done using `conda install -c conda-forge python-casacore`. See more alternatives below.

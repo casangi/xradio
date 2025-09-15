@@ -203,8 +203,14 @@ class MeasurementSetXdt:
         else:
             line_name = []
 
+        if "spectral_window_intent" not in self._xdt.frequency.attrs:
+            spw_intent = "UNSPECIFIED"
+        else:
+            spw_intent = self._xdt.frequency.attrs["spectral_window_intent"]
+
         partition_info = {
             "spectral_window_name": self._xdt.frequency.attrs["spectral_window_name"],
+            "spectral_window_intent": spw_intent,
             "field_name": to_list(np.unique(field_and_source_xds.field_name.values)),
             "polarization_setup": to_list(self._xdt.polarization.values),
             "scan_name": to_list(np.unique(self._xdt.scan_name.values)),
@@ -228,7 +234,8 @@ class MeasurementSetXdt:
         description: str = None,
         data_group_dv_shared_with: str = None,
     ) -> xr.DataTree:
-        """_summary_
+        """Adds a data group to the MSv4 DataTree, grouping the given data, weight, flag, etc. variables
+        and field_and_source_xds.
 
         Parameters
         ----------
@@ -254,7 +261,7 @@ class MeasurementSetXdt:
         Returns
         -------
         xr.DataTree
-            _description_
+            MSv4 DataTree with the new group added
         """
 
         if data_group_dv_shared_with is None:

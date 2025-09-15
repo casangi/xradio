@@ -171,6 +171,12 @@
         {
           "$class": "AttrSchemaRef",
           "type": "str",
+          "name": "spectral_window_intent",
+          "docstring": "An intent string that identifies the intention of the spectral window, for example\ncontinuum, spectral line, etc. See :ref:`spw intents` for possible values. "
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
           "optional": true,
           "name": "frequency_group_name",
           "docstring": "Name associated with frequency group - needed for multi-band VLBI fringe-fitting."
@@ -760,6 +766,12 @@
             {
               "$class": "AttrSchemaRef",
               "type": "str",
+              "name": "spectral_window_intent",
+              "docstring": "An intent string that identifies the intention of the spectral window, for example\ncontinuum, spectral line, etc. See :ref:`spw intents` for possible values. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
               "optional": true,
               "name": "frequency_group_name",
               "docstring": "Name associated with frequency group - needed for multi-band VLBI fringe-fitting."
@@ -996,7 +1008,7 @@
           "$class": "AttrSchemaRef",
           "type": "bool",
           "optional": true,
-          "name": "allow_mutiple_versions",
+          "name": "allow_multiple_versions",
           "default": true,
           "docstring": null
         }
@@ -1019,7 +1031,11 @@
         ]
       ],
       "dtypes": [
-        "|b1"
+        "|b1",
+        "|u1",
+        "<u2",
+        "<u4",
+        "<u8"
       ],
       "coordinates": [
         {
@@ -1203,6 +1219,12 @@
               "type": "str",
               "name": "spectral_window_name",
               "docstring": "Name associated with spectral window. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "name": "spectral_window_intent",
+              "docstring": "An intent string that identifies the intention of the spectral window, for example\ncontinuum, spectral line, etc. See :ref:`spw intents` for possible values. "
             },
             {
               "$class": "AttrSchemaRef",
@@ -1463,7 +1485,7 @@
           "$class": "AttrSchemaRef",
           "type": "bool",
           "optional": true,
-          "name": "allow_mutiple_versions",
+          "name": "allow_multiple_versions",
           "default": true,
           "docstring": null
         }
@@ -1671,6 +1693,12 @@
               "type": "str",
               "name": "spectral_window_name",
               "docstring": "Name associated with spectral window. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "name": "spectral_window_intent",
+              "docstring": "An intent string that identifies the intention of the spectral window, for example\ncontinuum, spectral line, etc. See :ref:`spw intents` for possible values. "
             },
             {
               "$class": "AttrSchemaRef",
@@ -1931,7 +1959,7 @@
           "$class": "AttrSchemaRef",
           "type": "bool",
           "optional": true,
-          "name": "allow_mutiple_versions",
+          "name": "allow_multiple_versions",
           "default": true,
           "docstring": null
         }
@@ -2171,7 +2199,7 @@
           "$class": "AttrSchemaRef",
           "type": "bool",
           "optional": true,
-          "name": "allow_mutiple_versions",
+          "name": "allow_multiple_versions",
           "default": true,
           "docstring": null
         }
@@ -2728,6 +2756,12 @@
             {
               "$class": "AttrSchemaRef",
               "type": "str",
+              "name": "spectral_window_intent",
+              "docstring": "An intent string that identifies the intention of the spectral window, for example\ncontinuum, spectral line, etc. See :ref:`spw intents` for possible values. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
               "optional": true,
               "name": "frequency_group_name",
               "docstring": "Name associated with frequency group - needed for multi-band VLBI fringe-fitting."
@@ -3145,7 +3179,7 @@
           "docstring": "Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).\nNote that Astropy does not use the name\n'topo' (telescope centric) velocity frame, rather it assumes if no velocity\nframe is given that this is the default."
         }
       ],
-      "class_docstring": "Model of frequency related data variables of the main dataset, such as EFFECTIV_CHANNEL_WIDTH.",
+      "class_docstring": "Model of frequency related data variables of the main dataset, such as EFFECTIVE_CHANNEL_WIDTH.",
       "data_docstring": "Data about frequency sampling, such as centroid or integration\ntime. Concrete function depends on concrete data array within\n:py:class:`VisibilityXds` or :py:class:`SpectrumXds`.",
       "name": "EFFECTIVE_CHANNEL_WIDTH",
       "optional": true,
@@ -3181,6 +3215,12 @@
               "type": "str",
               "name": "spectral_window_name",
               "docstring": "Name associated with spectral window. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "name": "spectral_window_intent",
+              "docstring": "An intent string that identifies the intention of the spectral window, for example\ncontinuum, spectral line, etc. See :ref:`spw intents` for possible values. "
             },
             {
               "$class": "AttrSchemaRef",
@@ -3525,7 +3565,7 @@
             "$class": "AttrSchemaRef",
             "type": "list[str]",
             "name": "intents",
-            "docstring": "An intent string identifies one intention of the scan, such as to calibrate or observe a\ntarget. See :ref:`scan intents` for possible values. When converting from MSv2, the list of\nintents is derived from the OBS_MODE column of MSv2 state table (every comma separated value\nis taken as an intent). "
+            "docstring": "An intent string identifies one intention of the scan, such as to calibrate or observe a\ntarget. See :ref:`scan intents` for possible intent/subintent values. When converting from MSv2,\nthe list of intents is derived from the OBS_MODE column of MSv2 state table (every comma\nseparated value is taken as an intent).\nA common convention used in the MSv2 OBS_MODE column is to specify multiple intents separated\nby commas, each of them giving a main intent and a subintent separated by a '#' character. This\nis represented in this attribute as a list of \"intent#subintent\" strings. These are a few\nexample lists:\n[\"CALIBRATE_DELAY#ON_SOURCE\" , \"CALIBRATE_PHASE#ON_SOURCE\", \"CALIBRATE_WVR#ON_SOURCE\"],\n[\"CALIBRATE_FLUX#ON_SOURCE\" , \"CALIBRATE_WVR#ON_SOURCE\"],\n[\"CALIBRATE_POINTING#ON_SOURCE\", \"CALIBRATE_WVR#ON_SOURCE\", \"CALIBRATE_DELAY#ON_SOURCE\"],\n[\"CALIBRATE_ATMOSPHERE#AMBIENT\", \"CALIBRATE_WVR#AMBIENT\"],\n[\"CALIBRATE_FOCUS#ON_SOURCE\" , \"CALIBRATE_WVR#ON_SOURCE\"],\n[\"OBSERVE_TARGET#ON_SOURCE\"], or [\"OBSERVE_TARGE#UNSPECIFIED\"].\nThe list of possible intent and subintent names (see :ref:`scan intents`) is derived from the\nrespective ASDM enumerations."
           }
         ],
         "class_docstring": "ObservationInfoDict(observer: 'list[str]', project: 'str', release_date: 'str', execution_block_id: 'Optional[str]', execution_block_number: 'Optional[int]', execution_block_UID: 'Optional[str]', session_reference: 'Optional[str]', observing_script: 'Optional[str]', observing_script_UID: 'Optional[str]', observing_log: 'Optional[str]', intents: 'list[str]')"
@@ -3622,7 +3662,7 @@
             "docstring": null
           }
         ],
-        "class_docstring": "Dictionary of data group dictionaries."
+        "class_docstring": "Dictionary of data group dictionaries. A 'base' data group is mandatory.\nAdditional data groups can be added with different names."
       },
       "name": "data_groups",
       "docstring": "Defines groups of correlated data + flag + weight + uvw variables. "

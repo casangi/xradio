@@ -301,7 +301,7 @@ def convert_measurement_set_to_processing_set(request, tmp_path):
     ps_path = tmp_path / "test_processing_set.ps.zarr"
     # Convert MS to processing set
     convert_msv2_to_processing_set(
-        in_file=str(download_measurement_set(request.param, tmp_path)),
+        in_file=str(download_measurement_set(request.param, str(tmp_path))),
         out_file=str(ps_path),
         partition_scheme=[],
         main_chunksize=0.01,
@@ -314,4 +314,4 @@ def convert_measurement_set_to_processing_set(request, tmp_path):
     )
     yield ps_path
     shutil.rmtree(ps_path)
-    shutil.rmtree(download_measurement_set(request.param, tmp_path))
+    shutil.rmtree(download_measurement_set(request.param, str(tmp_path)))

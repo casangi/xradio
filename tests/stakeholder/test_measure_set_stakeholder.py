@@ -36,7 +36,7 @@ def tmp_path():
 
 
 def download_and_convert_msv2_to_processing_set(
-    msv2_name, folder, partition_scheme, parallel_mode: str = "none"
+    msv2_name, folder, partition_scheme, parallel_mode: str = "partition"
 ):
 
     _logger_name = "xradio"
@@ -51,7 +51,7 @@ def download_and_convert_msv2_to_processing_set(
             # log_level="INFO",
         )
 
-    download(file=msv2_name, folder=folder)
+    download(file=msv2_name, folder=str(folder))
     ps_name = folder / (msv2_name[:-3] + ".ps.zarr")
 
     if os.path.isdir(ps_name):
@@ -132,6 +132,7 @@ def base_check_ps_accessor(ps_lazy_xdt: xr.DataTree, ps_xdt: xr.DataTree):
         "polarization",
         "scan_name",
         "spw_name",
+        "spw_intent",
         "field_name",
         "source_name",
         "line_name",
@@ -338,6 +339,7 @@ def base_test(
     viper_client = local_client(
         cores=2, memory_limit="3GB"
     )  ##Do not increase size otherwise GitHub MacOS runner will hang.
+
     viper_client
 
     ps_list = (

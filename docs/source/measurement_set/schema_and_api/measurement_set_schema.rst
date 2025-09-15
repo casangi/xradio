@@ -7,15 +7,28 @@ Measurement Set Schema v4.0.0
 Correlated Dataset
 ------------------
 
-Model of correlated data (visibility or spectrum) :py:class:`xarray.Dataset`: a
-collection of :ref:`Correlated data arrays` and :ref:`correlated data coordinates`
-sharing the same dimensions, forming a comprehensive view of correlated data. The
-main dataset contains several :ref:`sub-datasets` and :ref:`info dictionaries`.
-The visibility or spectrum arrays have a :ref:`field_and_source_xds` sub-dataset.
+The Measurement Set v4 schema defines a model of correlated data which can be of visibility
+(:ref:`visibility-xds`) or spectrum (:ref:`spectrum-xds`) type. These are
+:py:class:`xarray.Dataset` s: collections of :ref:`correlated data arrays` and
+:ref:`correlated data coordinates` sharing the same dimensions, forming a comprehensive
+view of correlated data. Additional metadata is defined in several :ref:`sub-datasets`
+and :ref:`info dictionaries`. The visibility or spectrum datasets can have one or more
+visibility, flag, weight, etc. arrays as well as :ref:`field_and_source_xds` sub-datasets,
+as defined in the :ref:`data groups dictionary`.
+
+.. _visibility-xds:
+
+Correlated dataset: Visibility
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: xradio.measurement_set.schema.VisibilityXds()
 
    .. xradio_dataset_schema_table:: xradio.measurement_set.schema.VisibilityXds
+
+.. _spectrum-xds:
+
+Correlated dataset: Spectrum
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. autoclass:: xradio.measurement_set.schema.SpectrumXds()
 
@@ -25,6 +38,12 @@ The visibility or spectrum arrays have a :ref:`field_and_source_xds` sub-dataset
 
 Sub-datasets
 ------------
+
+antenna_xds
+~~~~~~~~~~~
+.. autoclass:: xradio.measurement_set.schema.AntennaXds()
+
+   .. xradio_dataset_schema_table:: xradio.measurement_set.schema.AntennaXds
 
 .. _field_and_source_xds:
 
@@ -37,12 +56,6 @@ field_and_source_xds
 .. autoclass:: xradio.measurement_set.schema.FieldSourceEphemerisXds()
 
    .. xradio_dataset_schema_table:: xradio.measurement_set.schema.FieldSourceEphemerisXds
-
-antenna_xds
-~~~~~~~~~~~
-.. autoclass:: xradio.measurement_set.schema.AntennaXds()
-
-   .. xradio_dataset_schema_table:: xradio.measurement_set.schema.AntennaXds
 
 pointing_xds
 ~~~~~~~~~~~~
@@ -97,6 +110,8 @@ Processor info
 
    .. xradio_dict_schema_table:: xradio.measurement_set.schema.ProcessorInfoDict
 
+.. _data groups dictionary:
+
 Data Groups dictionary
 ~~~~~~~~~~~~~~~~~~~~~~
 .. autoclass:: xradio.measurement_set.schema.DataGroupsDict()
@@ -146,6 +161,14 @@ Bulk data gathered into :ref:`correlated data datasets`.
 .. autoclass:: xradio.measurement_set.schema.TimeSamplingArray()
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.TimeSamplingArray
+
+.. autoclass:: xradio.measurement_set.schema.EffectiveChannelWidthArray()
+
+   .. xradio_array_schema_table:: xradio.measurement_set.schema.EffectiveChannelWidthArray
+
+.. autoclass:: xradio.measurement_set.schema.FrequencyCentroidArray()
+
+   .. xradio_array_schema_table:: xradio.measurement_set.schema.FrequencyCentroidArray
 
 .. _correlated data coordinates:
 
@@ -218,34 +241,37 @@ Measure arrays
 --------------
 
 .. autoclass:: xradio.measurement_set.schema.TimeArray()
+   :no-index:
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.TimeArray
 
 .. autoclass:: xradio.measurement_set.schema.SpectralCoordArray()
+   :no-index:
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.SpectralCoordArray
 
 .. autoclass:: xradio.measurement_set.schema.SkyCoordArray()
+   :no-index:
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.SkyCoordArray
 
 .. autoclass:: xradio.measurement_set.schema.PointingBeamArray()
+   :no-index:
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.PointingBeamArray
 
 .. autoclass:: xradio.measurement_set.schema.LocalSkyCoordArray()
+   :no-index:
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.LocalSkyCoordArray
 
 .. autoclass:: xradio.measurement_set.schema.LocationArray()
+   :no-index:
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.LocationArray
 
-.. autoclass:: xradio.measurement_set.schema.EllipsoidPosLocationArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.EllipsoidPosLocationArray
-
 .. autoclass:: xradio.measurement_set.schema.DopplerArray()
+   :no-index:
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.DopplerArray
 
@@ -301,7 +327,8 @@ Value Keys
 Scan Intents
 ~~~~~~~~~~~~
 
-Scan intents to be used with :py:class:`VisibilityXds` and :py:class:`SpectrumXds` ``.intent``:
+Scan intents to be used with :py:class:`VisibilityXds` and :py:class:`SpectrumXds`,
+in the ``intents`` field of the :py:class:`ObservationInfoDict`:
 
 * CALIBRATE AMPLI : Amplitude calibration scan
 * CALIBRATE ANTENNA PHASE : Requested by EVLA.
@@ -334,7 +361,8 @@ Scan intents to be used with :py:class:`VisibilityXds` and :py:class:`SpectrumXd
 * TEST : used for development.
 * UNSPECIFIED : Unspecified scan intent
 
-Sub-scan intents to be used with :py:class:`VisibilityXds` and :py:class:`SpectrumXds` ``.sub_intent``:
+Sub-scan intents to be used with :py:class:`VisibilityXds` and :py:class:`SpectrumXds`,
+in the ``intents`` field of the :py:class:`ObservationInfoDict`:
 
 * ON SOURCE : on-source measurement
 * OFF SOURCE : off-source measurement
@@ -347,3 +375,15 @@ Sub-scan intents to be used with :py:class:`VisibilityXds` and :py:class:`Spectr
 * IMAGE : Image sideband measurement.
 * TEST : reserved for development.
 * UNSPECIFIED : Unspecified
+
+.. _spw intents:
+
+SPW Intents
+~~~~~~~~~~~
+
+Note: the list is to be defined.
+SPW intents to be used in the attribute `spectral_window_intent` of the `frequency` coordinate of measurement sets
+(:py:class:`VisibilityXds` and :py:class:`SpectrumXds`):
+
+* TEST : reserved for development.
+* UNSPECIFIED : Unspecified SPW intent.

@@ -35,7 +35,7 @@ class ValueSchema:
     """
     dict_schema: typing.Optional[DictSchema] = None
     """
-    Dictionary schema, if it is an xarray DataArray
+    Dictionary schema, if it is a dict
     """
     array_schema: typing.Optional[ArraySchema] = None
     """

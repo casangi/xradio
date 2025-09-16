@@ -1004,6 +1004,7 @@ def convert_and_write_partition(
     phase_cal_interpolate: bool = False,
     sys_cal_interpolate: bool = False,
     compressor: zarr.abc.codec.BytesBytesCodec = zarr.codecs.ZstdCodec(level=2),
+    add_reshaping_indices: bool = False,
     storage_backend="zarr",
     parallel_mode: str = "none",
     overwrite: bool = False,
@@ -1040,6 +1041,8 @@ def convert_and_write_partition(
         _description_, by default None
     compressor : numcodecs.abc.Codec, optional
         _description_, by default numcodecs.Zstd(level=2)
+    add_reshaping_indices : bool, optional
+        _description_, by default False
     storage_backend : str, optional
         _description_, by default "zarr"
     parallel_mode : _type_, optional
@@ -1367,6 +1370,12 @@ def convert_and_write_partition(
                 xds.attrs["type"] = "radiometer"
             else:
                 xds.attrs["type"] = "visibility"
+
+        # Add tidxs and bidxs for testing
+        if add_reshaping_indices:
+            xds["tidxs"] = tidxs
+            xds["bidxs"] = bidxs
+            xds["row_id"] = tb_tool.rownumbers()  # tb_tool.getcol("row_id")
 
         start = time.time()
         ms_v4_name = pathlib.Path(in_file).name.replace(".ms", "") + "_" + str(ms_v4_id)

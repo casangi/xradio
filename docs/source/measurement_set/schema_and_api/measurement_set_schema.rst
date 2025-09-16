@@ -241,30 +241,37 @@ Measure arrays
 --------------
 
 .. autoclass:: xradio.measurement_set.schema.TimeArray()
+   :no-index:
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.TimeArray
 
 .. autoclass:: xradio.measurement_set.schema.SpectralCoordArray()
+   :no-index:
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.SpectralCoordArray
 
 .. autoclass:: xradio.measurement_set.schema.SkyCoordArray()
+   :no-index:
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.SkyCoordArray
 
 .. autoclass:: xradio.measurement_set.schema.PointingBeamArray()
+   :no-index:
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.PointingBeamArray
 
 .. autoclass:: xradio.measurement_set.schema.LocalSkyCoordArray()
+   :no-index:
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.LocalSkyCoordArray
 
 .. autoclass:: xradio.measurement_set.schema.LocationArray()
+   :no-index:
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.LocationArray
 
 .. autoclass:: xradio.measurement_set.schema.DopplerArray()
+   :no-index:
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.DopplerArray
 

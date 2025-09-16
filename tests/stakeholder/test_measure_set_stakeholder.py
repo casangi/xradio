@@ -37,7 +37,7 @@ def tmp_path():
 
 
 def download_and_convert_msv2_to_processing_set(
-    msv2_name, folder, partition_scheme, parallel_mode: str = "none"
+    msv2_name, folder, partition_scheme, parallel_mode: str = "partition"
 ):
 
     _logger_name = "xradio"

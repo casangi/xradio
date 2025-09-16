@@ -1,3 +1,5 @@
+import re
+
 import numpy as np
 import xarray as xr
 
@@ -89,6 +91,8 @@ def create_info_dicts(
 def create_observation_info(in_file: str, observation_id: int):
     """
     Makes a dict with the observation info extracted from the PROCESSOR subtable.
+    When available, it also takes metadata from the ASDM tables (imported 'asis')
+    ASDM_EXECBLOCK and ASDM_SBSUMMARY
 
     Parameters
     ----------
@@ -111,15 +115,16 @@ def create_observation_info(in_file: str, observation_id: int):
     )
 
     observation_info = {
-        "observer": [generic_observation_xds["OBSERVER"].values[0]],
+        "observer": [str(generic_observation_xds["OBSERVER"].values[0])],
+        "observing_log": str(generic_observation_xds["LOG"].values[0]),
         "release_date": str(
             convert_casacore_time(generic_observation_xds["RELEASE_DATE"].values)[0]
         ),
     }
     # could just assume lower:upper case but keeping explicit dict for now
-    mandatory_fields = {"project": "PROJECT"}
+    mandatory_fields = {"project_UID": "PROJECT"}
     for field_msv4, row_msv2 in mandatory_fields.items():
-        observation_info[field_msv4] = generic_observation_xds[row_msv2].values[0]
+        observation_info[field_msv4] = str(generic_observation_xds[row_msv2].values[0])
 
     exec_block_xds = None
     try:
@@ -132,7 +137,62 @@ def create_observation_info(in_file: str, observation_id: int):
         exec_block_info = extract_exec_block_info(exec_block_xds)
         observation_info.update(exec_block_info)
 
+    sbsummary_xds = None
+    try:
+        sbsummary_xds = load_generic_table(in_file, "ASDM_SBSUMMARY")
+    except ValueError as exc:
+        logger.debug(
+            f"Did not find the ASDM_SBSUMMARY subtable, not loading optional fields in observation_info. Exception: {exc}"
+        )
+    if sbsummary_xds:
+        sbsummary_info = extract_sbsummary_info(sbsummary_xds)
+        observation_info.update(sbsummary_info)
+
+    # Takes an entityId from an EntityRef, for example
+    # takes 'uid://A001/X133d/X169f' from
+    # '<EntityRef entityId="uid://A001/X133d/X169f" partId="X00000000" entityTypeName="OUSStatus"'
+    entity_refs = [
+        "execution_block_UID",
+        "session_reference_UID",
+        "observing_script_UID",
+        "scheduling_block_UID",
+    ]
+    for ref_name in entity_refs:
+        if ref_name in observation_info:
+            observation_info[ref_name] = search_entity_id(observation_info[ref_name])
+
     return observation_info
+
+
+def search_entity_id(entity_ref_xml: str) -> str:
+    """
+    Given an EntityRef XML string from an ASDM, like the following
+    examples:
+
+    - example sbSummaryID:
+    '<EntityRef entityId="uid://A001/X133d/X169a" partId="X00000000" entityTypeName="SchedBlock" documentVersion="1"/>'
+
+    - example sessionReferenceUID:
+    '<EntityRef entityId="uid://A001/X133d/X169f" partId="X00000000" entityTypeName="OUSStatus"'
+
+    this funcion takes the "uid://..." value of the entityId.
+
+    Parameters
+    ----------
+    entity_ref_xml: str
+        An EntityRef from an ASDM table (usually ExecBlock or
+        SBSUMMARY) as found in columns like or execBlockUID,
+        sessionReference or sbSummaryUID.
+
+    Returns:
+    --------
+    str
+        the entityId string value of the EntityRef received, or
+        the smae string as received if no entityId could be found.
+    """
+    uid_match = re.search('entityId="([\\w/:]+)"', entity_ref_xml)
+    entity_id = uid_match.group(1) if uid_match else entity_ref_xml
+    return entity_id
 
 
 def extract_exec_block_info(exec_block_xds: xr.Dataset) -> dict:
@@ -141,9 +201,8 @@ def extract_exec_block_info(exec_block_xds: xr.Dataset) -> dict:
     ASDM_EXECBLOCK subtable.
 
     Note this does not parse strings like 'session_reference':
-    '<EntityRef entityId="uid://A001/X133d/X169f" partId="X00000000" entityTypeName="OUSStatus"'
-    We might want to simplify that to 'uid://A001/X133d/X169f', but keeping the
-    full string for now, as it has additional information such as the type.
+    '<EntityRef entityId="uid://A001/X133d/X169f" partId="X00000000" entityTypeName="OUSStatus"'. If the only UID is required that
+    needs to be filtered afterwards.
 
     Parameters
     ----------
@@ -160,7 +219,7 @@ def extract_exec_block_info(exec_block_xds: xr.Dataset) -> dict:
         "execution_block_id": "execBlockId",
         "execution_block_number": "execBlockNum",
         "execution_block_UID": "execBlockUID",
-        "session_reference": "sessionReference",
+        "session_reference_UID": "sessionReference",
         "observing_script": "observingScript",
         "observing_script_UID": "observingScriptUID",
         "observing_log": "observingLog",
@@ -176,6 +235,38 @@ def extract_exec_block_info(exec_block_xds: xr.Dataset) -> dict:
                 exec_block_info[field_msv4] = msv2_value
 
     return exec_block_info
+
+
+def extract_sbsummary_info(sbsummary_xds: xr.Dataset) -> dict:
+    """
+    Get the (optional) fields of the observation_info that come from the
+    SBSUMMARY subtable.
+
+    Parameters
+    ----------
+    sbsummary_xds: xr.Dataset
+        raw xds read from subtable SBSUMMARY
+
+    Returns:
+    --------
+    sbsummary_info: dict
+        Scheduling block description ready for the MSv4 observation_info dict
+    """
+
+    optional_fields = {
+        "scheduling_block_UID": "sbSummaryUID",
+    }
+
+    sbsummary_info = {}
+    for field_msv4, row_msv2 in optional_fields.items():
+        if row_msv2 in sbsummary_xds.data_vars:
+            msv2_value = sbsummary_xds[row_msv2].values[0]
+            if isinstance(msv2_value, np.ndarray):
+                sbsummary_info[field_msv4] = ",".join([log for log in msv2_value])
+            else:
+                sbsummary_info[field_msv4] = msv2_value
+
+    return sbsummary_info
 
 
 def create_processor_info(in_file: str, processor_id: int):

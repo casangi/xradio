@@ -37,19 +37,35 @@ class ProcessingSetXdt:
         self._xdt = datatree
         self.meta = {"summary": {}}
 
-    def summary(self, data_group: str = None) -> pd.DataFrame:
+    def summary(
+        self, data_group: str = None, first_columns: list[str] = None
+    ) -> pd.DataFrame:
         """
-        Generate and retrieve a summary of the Processing Set.
+        Generate and retrieve a summary of the Processing Set as a data frame.
 
         The summary includes information such as the names of the Measurement Sets,
         their intents, polarizations, spectral window names, field names, source names,
         field coordinates, start frequencies, and end frequencies.
+
+        To prioritize certain columns depending on the context, the order in which the
+        columns of the data frame are sorted can be modified from the default
+        (first_columns parameter).
 
         Parameters
         ----------
         data_group : str, optional
             The data group to summarize. By default the "base" group
             is used (if found), or otherwise the first group found.
+        first_columns : list[str], optional
+            List of columns to be sorted first. Currently, the columns included in the
+            summary frame are, in this order: "name", "intents", "shape",
+            "execution_block_UID", "polarization", "scan_name", "spw_name",
+            "spw_intent", "field_name", "source_name", "line_name", "field_coords",
+            "session_reference_UID", "scheduling_block_UID", "project_UID",
+            "start_frequency", "end_frequency".
+            For example, with first_columns=["spw_name", "scan_name"] one can print
+            these two columns first, followed by all the other columns in their usual
+            order.
 
         Returns
         -------
@@ -76,12 +92,18 @@ class ProcessingSetXdt:
         data_group = find_data_group_base_or_first(data_group, self._xdt)
 
         if data_group in self.meta["summary"]:
-            return self.meta["summary"][data_group]
+            summary = self.meta["summary"][data_group]
         else:
             self.meta["summary"][data_group] = self._summary(data_group).sort_values(
                 by=["name"], ascending=True
             )
-            return self.meta["summary"][data_group]
+            summary = self.meta["summary"][data_group]
+
+        if first_columns:
+            all_columns = first_columns + summary.columns.drop(first_columns).tolist()
+            summary = summary[all_columns]
+
+        return summary
 
     def get_max_dims(self) -> dict[str, int]:
         """
@@ -166,6 +188,7 @@ class ProcessingSetXdt:
             "name": [],
             "intents": [],
             "shape": [],
+            "execution_block_UID": [],
             "polarization": [],
             "scan_name": [],
             "spw_name": [],
@@ -174,6 +197,9 @@ class ProcessingSetXdt:
             "source_name": [],
             "line_name": [],
             "field_coords": [],
+            "session_reference_UID": [],
+            "scheduling_block_UID": [],
+            "project_UID": [],
             "start_frequency": [],
             "end_frequency": [],
         }
@@ -182,9 +208,13 @@ class ProcessingSetXdt:
 
         for key, value in self._xdt.items():
             partition_info = value.xr_ms.get_partition_info()
+            observation_info = value.observation_info
 
             summary_data["name"].append(key)
             summary_data["intents"].append(partition_info["intents"])
+            summary_data["execution_block_UID"].append(
+                observation_info.get("execution_block_UID", "---")
+            )
             summary_data["spw_name"].append(partition_info["spectral_window_name"])
             summary_data["spw_intent"].append(partition_info["spectral_window_intent"])
             summary_data["polarization"].append(value.polarization.values)
@@ -201,8 +231,17 @@ class ProcessingSetXdt:
 
             summary_data["field_name"].append(partition_info["field_name"])
             summary_data["source_name"].append(partition_info["source_name"])
-
             summary_data["line_name"].append(partition_info["line_name"])
+
+            summary_data["session_reference_UID"].append(
+                observation_info.get("session_reference_UID", "---")
+            )
+            summary_data["scheduling_block_UID"].append(
+                observation_info.get("scheduling_block_UID", "---")
+            )
+            summary_data["project_UID"].append(
+                observation_info.get("project_UID", "---")
+            )
 
             summary_data["start_frequency"].append(
                 to_list(value["frequency"].values)[0]

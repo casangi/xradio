@@ -149,6 +149,10 @@ def create_observation_info(in_file: str, observation_id: int):
 
     observation_info = replace_entity_ids(observation_info)
 
+    observation_info = try_find_uids_from_observation_schedule(
+        generic_observation_xds, observation_info
+    )
+
     return observation_info
 
 
@@ -227,6 +231,53 @@ def extract_optional_fields_asdm_asis_table(
                 table_info[field_msv4] = msv2_value
 
     return table_info
+
+
+def try_find_uids_from_observation_schedule(
+    generic_observation_xds: xr.Dataset, observation_info: dict
+) -> dict:
+    """
+    This function tries to parse the execution_block_UID and scheduling_block_UID
+    from the SCHEDULE column of the OBSERVATION subtable. If found, and they
+    could not alreadly be loaded from the ASDM_* subtables, adds them to the
+    output observation_info dict.
+
+    Sometimes, even if the ASDM_EXECBLOCK and ASDM_SBSUMMARY are not available to
+    load various ASDM UIDs, we can still find a couple of them in the
+    OBSERVATION/SCHEDULE column (when the MS is imported from an ASDM, by
+    importasdm). The SCHEDULE column can have values like:
+
+    '[SchedulingBlock uid://A001/X3571/X122, ExecBlock uid://A002/X1003af4/X75a3]'
+
+    Parameters
+    ----------
+    generic_observation_xds: xr.Dataset
+        generic observation dataset from the OBSERVATION subtable
+    observation_info: dict
+        an observation_info being populated
+
+    Returns:
+    --------
+    info: dict
+        info dict with possibly additional UIDs found in the OBSERVATION
+        subtable
+    """
+
+    out_info = dict(observation_info)
+
+    if "SCHEDULE" in generic_observation_xds.data_vars:
+        schedule = generic_observation_xds["SCHEDULE"].values[0]
+        if isinstance(schedule, np.ndarray) and 2 == len(schedule):
+            if "scheduling_block_UID" not in observation_info:
+                scheduling_uid_match = re.search(
+                    "SchedulingBlock ([\\w/:]+)", schedule[0]
+                )
+                out_info["scheduling_block_UID"] = scheduling_uid_match.group(1)
+            if "execution_block_UID" not in observation_info:
+                execution_uid_match = re.search("ExecBlock ([\\w/:]+)", schedule[1])
+                out_info["execution_block_UID"] = execution_uid_match.group(1)
+
+    return out_info
 
 
 def replace_entity_ids(observation_info: dict) -> dict:

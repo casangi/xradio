@@ -21,7 +21,7 @@ def create_info_dicts(
     field_and_source_xds: xr.Dataset,
     partition_info_misc_fields: dict,
     tb_tool: tables.table,
-) -> dict:
+) -> dict[str, dict]:
     """
     For an MSv4, produces several info dicts (partition_info, processor_info,
     observation_info). The info dicts are returned in a dictionary that
@@ -88,7 +88,9 @@ def create_info_dicts(
     return info_dicts
 
 
-def create_observation_info(in_file: str, observation_id: int):
+def create_observation_info(
+    in_file: str, observation_id: int
+) -> dict[str, list[str] | str]:
     """
     Makes a dict with the observation info extracted from the PROCESSOR subtable.
     When available, it also takes metadata from the ASDM tables (imported 'asis')
@@ -158,7 +160,7 @@ def create_observation_info(in_file: str, observation_id: int):
 
 def try_optional_asdm_asis_table_info(
     in_file: str, asdm_table_name: str, optional_fields: dict[str, str]
-) -> dict:
+) -> dict[str, str]:
     """
     Tries to find an optional ASDM_* subtable (ASDM_EXECBLOCK, ASDM_SBSUMMARY, etc.),
     and if available, gets the optional fields requested into a metadata dict. That
@@ -200,7 +202,7 @@ def try_optional_asdm_asis_table_info(
 
 def extract_optional_fields_asdm_asis_table(
     asdm_asis_xds: xr.Dataset, optional_fields: dict[str, str]
-) -> dict:
+) -> dict[str, str]:
     """
     Get the (optional) fields of the observation_info that come from "asis" ASDM
     tables like the ASDM_EXECBLOCK and ASDM_SBSUMMARY subtables.
@@ -235,7 +237,7 @@ def extract_optional_fields_asdm_asis_table(
 
 def try_find_uids_from_observation_schedule(
     generic_observation_xds: xr.Dataset, observation_info: dict
-) -> dict:
+) -> dict[str, str]:
     """
     This function tries to parse the execution_block_UID and scheduling_block_UID
     from the SCHEDULE column of the OBSERVATION subtable. If found, and they
@@ -280,7 +282,7 @@ def try_find_uids_from_observation_schedule(
     return out_info
 
 
-def replace_entity_ids(observation_info: dict) -> dict:
+def replace_entity_ids(observation_info: dict) -> dict[str, list[str] | str]:
     """
     For several fields of the input dictionary, which are known to be of "UID" type,
     replace their lengthy XML string with the UID value contained in it. For example, from
@@ -349,7 +351,7 @@ def search_entity_id(entity_ref_xml: str) -> str:
     return entity_id
 
 
-def create_processor_info(in_file: str, processor_id: int):
+def create_processor_info(in_file: str, processor_id: int) -> dict[str, str]:
     """
     Makes a dict with the processor info extracted from the PROCESSOR subtable.
 

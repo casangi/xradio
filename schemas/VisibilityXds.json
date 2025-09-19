@@ -3517,7 +3517,7 @@
             "type": "str",
             "optional": true,
             "name": "execution_block_id",
-            "docstring": "From ASDM: identifies a unique row in ExecBlock Table. Intended ot be populated with\nthe value of the execBlockId attribute of the ExecBlock table"
+            "docstring": "From ASDM: identifies a unique row in the ExecBlock Table. Intended to be populated with\nthe value of the execBlockId attribute of the ExecBlock table"
           },
           {
             "$class": "AttrSchemaRef",

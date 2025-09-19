@@ -1369,7 +1369,7 @@ class ObservationInfoDict:
     """Project UID/code. When populated from an ASDM, the entityId string of the projectUID
     attribute of the ExecBlock table."""
     execution_block_id: Optional[str]
-    """From ASDM: identifies a unique row in ExecBlock Table. Intended ot be populated with
+    """From ASDM: identifies a unique row in the ExecBlock Table. Intended to be populated with
     the value of the execBlockId attribute of the ExecBlock table"""
     execution_block_number: Optional[int]
     """From ASDM: Indicates the position of the execution block in the project (sequential

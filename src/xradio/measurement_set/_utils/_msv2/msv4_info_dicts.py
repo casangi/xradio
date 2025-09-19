@@ -274,10 +274,12 @@ def try_find_uids_from_observation_schedule(
                 scheduling_uid_match = re.search(
                     "SchedulingBlock ([\\w/:]+)", schedule[0]
                 )
-                out_info["scheduling_block_UID"] = scheduling_uid_match.group(1)
+                if scheduling_uid_match:
+                    out_info["scheduling_block_UID"] = scheduling_uid_match.group(1)
             if "execution_block_UID" not in observation_info:
                 execution_uid_match = re.search("ExecBlock ([\\w/:]+)", schedule[1])
-                out_info["execution_block_UID"] = execution_uid_match.group(1)
+                if execution_uid_match:
+                    out_info["execution_block_UID"] = execution_uid_match.group(1)
 
     return out_info
 

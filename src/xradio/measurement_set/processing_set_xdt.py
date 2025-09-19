@@ -38,7 +38,7 @@ class ProcessingSetXdt:
         self.meta = {"summary": {}}
 
     def summary(
-        self, data_group: str = None, first_columns: list[str] = None
+        self, data_group: str | None = None, first_columns: list[str] = None
     ) -> pd.DataFrame:
         """
         Generate and retrieve a summary of the Processing Set as a data frame.
@@ -100,8 +100,12 @@ class ProcessingSetXdt:
             summary = self.meta["summary"][data_group]
 
         if first_columns:
-            all_columns = first_columns + summary.columns.drop(first_columns).tolist()
-            summary = summary[all_columns]
+            found_columns = [col for col in first_columns if col in summary.columns]
+            if found_columns:
+                all_columns = (
+                    found_columns + summary.columns.drop(found_columns).tolist()
+                )
+                summary = summary[all_columns]
 
         return summary
 
@@ -239,9 +243,7 @@ class ProcessingSetXdt:
             summary_data["scheduling_block_UID"].append(
                 observation_info.get("scheduling_block_UID", "---")
             )
-            summary_data["project_UID"].append(
-                observation_info.get("project_UID", "---")
-            )
+            summary_data["project_UID"].append(observation_info["project_UID"])
 
             summary_data["start_frequency"].append(
                 to_list(value["frequency"].values)[0]

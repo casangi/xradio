@@ -844,6 +844,7 @@ class WeightArray:
 AllowedUvwFrames = Literal[
     "fk5",
     "icrs",
+    "itrs",
     "APP",  # "apparent geocentric position", used in WSRT datasets
 ]
 

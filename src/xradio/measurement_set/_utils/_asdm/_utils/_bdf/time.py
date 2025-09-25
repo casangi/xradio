@@ -102,6 +102,15 @@ def load_times_from_bdfs(
     )
 
     for bdf_path in bdf_paths:
+        bdf_reader = pyasdm.bdf.BDFReader()
+        try:
+            bdf_reader.open(bdf_path)
+            bdf_header = bdf_reader.getHeader()
+            logger.debug(" * In load_times_from_bdf, {bdf_path=} *")
+            logger.debug(bdf_header)
+        finally:
+            bdf_reader.close()
+
         midpoint, interval, actual_times, actual_durations = read_times_bdf(bdf_path)
         all_time_centers.append(midpoint)
         all_durations.append(interval)
@@ -125,7 +134,6 @@ def read_times_bdf(
     # TODO: I'd hope this is not a general problem but for some test datasets WVR SPWs produce
     # failures related to the BDF dims:
     #
-    # bdf_header = bdf_reader.getHeader()
     # wvr_title = bdf_header.isWVR()
     # if wvr_title:
     #    return np.zeros(1), np.zeros(1), np.zeros(1), np.zeros(1)
@@ -148,6 +156,13 @@ def read_times_bdf(
             logger.warning(f"Error in getSubset for {bdf_path=} {exc=}")
             bdf_reader.close()
             return np.zeros(1), np.zeros(1), np.zeros(1), np.zeros(1)
+
+        # dims:
+        # BAL ANT BAB POL / channel avg data
+        # ANT BAB BIN POL / radiometer total power /
+        # BAL ANT BAB SPW POL
+        # BAL ANT BAB?
+        # actual_times_dims = bdf_header.getAxesNames("actualTimes")
 
         midpoint = subset["midpointInNanoSeconds"] / 1e9
         all_midpoints.append(midpoint)

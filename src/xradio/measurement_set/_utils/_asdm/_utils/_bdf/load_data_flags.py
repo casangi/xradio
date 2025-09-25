@@ -238,6 +238,10 @@ def load_visibilities(bdf_path: str, spw_id: int, array_slice: dict) -> np.ndarr
     bdf_reader.open(bdf_path)
     bdf_header = bdf_reader.getHeader()
 
+    correlation_mode = bdf_header.getCorrelationMode()
+    if correlation_mode == pyasdm.enumerations.CorrelationMode.CROSS_ONLY:
+        raise RuntimeError(f" {correlation_mode=} {bdf_header=}")
+
     appears_not_interferometric = check_cross_and_auto_data_dims(bdf_header)
     basebands = bdf_header.getBasebandsList()
     # TODO: working check for what's out there...

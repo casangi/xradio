@@ -185,7 +185,9 @@ def create_feed_xds(
     feed_info_available = not feed_df.empty
     if not feed_info_available:
         # This happens typically for ALMA WVR SPWs - no feed info
-        logger.warning("No feed info found for spectral window ID {spectral_window_id}")
+        logger.warning(
+            f"No feed info found for spectral window ID {spectral_window_id}"
+        )
         # TODO: this should be shared with MSv2, same logic
         polarization_types = list(polarization.values[0])
         receptor_label = [f"pol_{idx}" for idx in np.arange(0, len(polarization_types))]

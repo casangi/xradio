@@ -1,10 +1,11 @@
 import toolviper.utils.logger as logger
 import numcodecs
 from typing import Dict, Union
+import time
 
 import dask
 
-from xradio.measurement_set._utils._msv2.partition_queries import create_partitions
+from xradio.measurement_set._utils._msv2.partition_queries import create_partitions, create_partitions_new
 from xradio.measurement_set._utils._msv2.conversion import (
     convert_and_write_partition,
     estimate_memory_and_cores_for_partitions,
@@ -44,7 +45,7 @@ def estimate_conversion_memory_and_cores(
         suggested number of cores to use (maximum/4 as a rule of thumb)
     """
 
-    partitions = create_partitions(in_file, partition_scheme=partition_scheme)
+    partitions = create_partitions_new(in_file, partition_scheme=partition_scheme)
 
     return estimate_memory_and_cores_for_partitions(in_file, partitions)
 
@@ -112,6 +113,7 @@ def convert_msv2_to_processing_set(
     """
 
     # Create empty data tree
+    print("hallo")
     import xarray as xr
 
     ps_dt = xr.DataTree()
@@ -133,7 +135,16 @@ def convert_msv2_to_processing_set(
         )
         parallel_mode = "none"
 
-    partitions = create_partitions(in_file, partition_scheme=partition_scheme)
+    partitions = create_partitions_new(in_file, partition_scheme=partition_scheme)
+    
+    #partitions = create_partitions(in_file, partition_scheme=partition_scheme)
+
+    # for i, part in enumerate(partitions_new):
+    #     print(f"New Partition {part}")
+    #     print(f"Old Partition {partitions[i]}")
+    #     print("******************")
+    
+    
     logger.info("Number of partitions: " + str(len(partitions)))
     if parallel_mode == "time":
         assert (
@@ -188,6 +199,7 @@ def convert_msv2_to_processing_set(
                 )
             )
         else:
+            start_time = time.time()
             convert_and_write_partition(
                 in_file,
                 out_file,
@@ -207,6 +219,10 @@ def convert_msv2_to_processing_set(
                 parallel_mode=parallel_mode,
                 overwrite=overwrite,
             )
+            end_time = time.time()
+            logger.debug(
+                f"Time to convert partition {ms_v4_id}: {end_time - start_time:.2f} seconds"
+            )
 
     if parallel_mode == "partition":
         dask.compute(delayed_list)
@@ -216,3 +232,15 @@ def convert_msv2_to_processing_set(
     root_group = zarr.open(out_file, mode="r+")  # Open in read/write mode
     root_group.attrs["type"] = "processing_set"  # Replace
     zarr.convenience.consolidate_metadata(root_group.store)
+
+
+#New Partition  {'DATA_DESC_ID': [0], 'OBSERVATION_ID': [0], 'FIELD_ID': [0], 'SCAN_NUMBER': [0], 'STATE_ID': [None], 'SOURCE_ID': [None], 'OBS_MODE': [None], 'SUB_SCAN_NUMBER': [None]}
+#Old Partition  {'DATA_DESC_ID': [0], 'OBSERVATION_ID': [0], 'FIELD_ID': [0], 'SCAN_NUMBER': [0], 'STATE_ID': [0],    'SOURCE_ID': [None], 'OBS_MODE': [None], 'SUB_SCAN_NUMBER': [None]}
+
+
+#New Partition {'DATA_DESC_ID': [0], 'OBSERVATION_ID': [0], 'FIELD_ID': [0], 'SCAN_NUMBER': [0], 'STATE_ID': [None], 'SOURCE_ID': [None], 'OBS_MODE': [None], 'SUB_SCAN_NUMBER': [None]}
+#Old Partition {'DATA_DESC_ID': array([0], dtype=int32), 'OBSERVATION_ID': array([0], dtype=int32), 'FIELD_ID': array([0], dtype=int32), 'SCAN_NUMBER': array([0], dtype=int32), 'STATE_ID': array([0], dtype=int32), 'SOURCE_ID': [None], 'OBS_MODE': [None], 'SUB_SCAN_NUMBER': [None]}
+
+
+#new          taql_main: select * from $mtable WHERE (DATA_DESC_ID IN [0]) AND(OBSERVATION_ID IN [0]) AND(STATE_ID IN [None]) AND(FIELD_ID IN [0]) AND(SCAN_NUMBER IN [0]) AND(STATE_ID IN [None]) 
+#old @@@@@@@@ taql_main: select * from $mtable WHERE (DATA_DESC_ID IN [0]) AND(OBSERVATION_ID IN [0]) AND(STATE_ID IN [0]) AND(FIELD_ID IN [0]) AND(SCAN_NUMBER IN [0]) AND(STATE_ID IN [0]) 

@@ -47,8 +47,8 @@ def download_and_convert_msv2_to_processing_set(
             log_to_term=True,
             log_to_file=False,  # True
             log_file="xradio-logfile",
-            log_level="DEBUG",
-            # log_level="INFO",
+            #log_level="DEBUG",
+            log_level="INFO",
         )
 
     download(file=msv2_name, folder=str(folder))
@@ -593,12 +593,26 @@ def test_alma_ephemeris_mosaic(tmp_path):
         8.11051993222426e17,
         expected_secondary_xds=expected_subtables,
     )
-    # Here we test if the field_and_source_xds structure is correct.
+    
+    # import pandas as pd
+    # pd.set_option("display.max_rows", None)
+    # pd.set_option("display.max_columns", None)
+    
+    ps_xdt = ps_list[0].xr_ps.query(line_name="Single_Continuum(ID=0)", spw_name="X767114449#ALMA_RB_06#BB_1#SW-01#FULL_RES_2", intents="OBSERVE_TARGET#ON_SOURCE")
+    ps_names = list(ps_xdt.keys())
+    assert len(ps_names) == 1
+    ms_xdt = ps_xdt[ps_names[0]]
+
     check_source_and_field_xds(
-        ps_list[0], "ALMA_uid___A002_X1003af4_X75a3.split.avg_17", 1.09056423
+        ms_xdt, 1.09056423
     )
+
+    ps_xdt = ps_list[1].xr_ps.query(field_name="Sun_10_15", spw_name="X767114449#ALMA_RB_06#BB_1#SW-01#FULL_RES_2", intents="OBSERVE_TARGET#ON_SOURCE")
+    ps_names = list(ps_xdt.keys())
+    assert len(ps_names) == 1
+    ms_xdt = ps_xdt[ps_names[0]]
     check_source_and_field_xds(
-        ps_list[1], "ALMA_uid___A002_X1003af4_X75a3.split.avg_81", 0.04194478
+        ms_xdt, 0.04194478
     )
 
     # Test PS sel
@@ -623,8 +637,8 @@ def check_ps_query(ps_xdt):
     ).xr_ps.summary()
 
 
-def check_source_and_field_xds(ps_xdt, msv4_name, expected_NP_sum):
-    field_and_source_xds = ps_xdt[msv4_name].xr_ms.get_field_and_source_xds()
+def check_source_and_field_xds(ms_xdt, expected_NP_sum):
+    field_and_source_xds = ms_xdt.xr_ms.get_field_and_source_xds()
 
     field_and_source_data_variable_names = [
         "FIELD_PHASE_CENTER_DIRECTION",
@@ -641,13 +655,14 @@ def check_source_and_field_xds(ps_xdt, msv4_name, expected_NP_sum):
         "SOURCE_RADIAL_VELOCITY",
         "SUB_OBSERVER_DIRECTION",
     ]
-    assert are_all_variables_in_dataset(
-        field_and_source_xds, field_and_source_data_variable_names
-    ), "field_and_source_xds is missing data variables."
-
+    
     assert np.sum(field_and_source_xds.NORTH_POLE_ANGULAR_DISTANCE) == pytest.approx(
         expected_NP_sum, rel=relative_tolerance
     ), "The sum of the NORTH_POLE_ANGULAR_DISTANCE has changed."
+    
+    assert are_all_variables_in_dataset(
+        field_and_source_xds, field_and_source_data_variable_names
+    ), "field_and_source_xds is missing data variables."
 
 
 def are_all_variables_in_dataset(dataset, variable_list):
@@ -801,7 +816,7 @@ if __name__ == "__main__":
     # test_sd_A002_X1015532_X1926f(tmp_path=Path("."))
     # test_sd_A002_Xae00c5_X2e6b(tmp_path=Path("."))
     # test_sd_A002_Xced5df_Xf9d9(tmp_path=Path("."))
-    test_sd_A002_Xe3a5fd_Xe38e(tmp_path=Path("."))
+    # test_sd_A002_Xe3a5fd_Xe38e(tmp_path=Path("."))
     # test_s3(tmp_path=Path("."))
     # test_vlass(tmp_path=Path("."))
     # test_alma(tmp_path=Path("."))
@@ -815,7 +830,7 @@ if __name__ == "__main__":
     # test_ngeht(tmp_path=Path("."))
     # test_ephemeris(tmp_path=Path("."))
     # test_single_dish(tmp_path=Path("."))
-    # test_alma_ephemeris_mosaic(tmp_path=Path("."))
+    test_alma_ephemeris_mosaic(tmp_path=Path("."))
     # test_VLA(tmp_path=Path("."))
 
 # All test preformed on MAC with M3 and 16 GB Ram.

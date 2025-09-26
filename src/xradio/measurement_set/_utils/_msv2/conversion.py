@@ -769,15 +769,17 @@ def create_taql_query_where(partition_info: dict):
     taql_where = "WHERE "
     for col_name in main_par_table_cols:
         if col_name in partition_info:
-            taql_where = (
-                taql_where
-                + f"({col_name} IN [{','.join(map(str, partition_info[col_name]))}]) AND"
-            )
-            if col_name == "ANTENNA1":
+
+            if partition_info[col_name][0] is not None:
                 taql_where = (
                     taql_where
-                    + f"(ANTENNA2 IN [{','.join(map(str, partition_info[col_name]))}]) AND"
+                    + f"({col_name} IN [{','.join(map(str, partition_info[col_name]))}]) AND"
                 )
+                if col_name == "ANTENNA1":
+                    taql_where = (
+                        taql_where
+                        + f"(ANTENNA2 IN [{','.join(map(str, partition_info[col_name]))}]) AND"
+                    )
     taql_where = taql_where[:-3]
 
     return taql_where
@@ -933,6 +935,7 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
 
     taql_partition = create_taql_query_where(partition)
     taql_main = f"select * from $mtable {taql_partition}"
+    
     with open_table_ro(in_file) as mtable:
         with open_query(mtable, taql_main) as tb_tool:
             # Do not feel tempted to rely on nrows. nrows tends to underestimate memory when baselines are missing.

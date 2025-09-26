@@ -1,4 +1,5 @@
 from pathlib import Path
+import traceback
 
 import xarray as xr
 
@@ -96,7 +97,16 @@ def open_asdm(
             )
         )
 
-        msv4_xdt = open_partition(asdm, partition_descr)
+        try:
+            msv4_xdt = open_partition(asdm, partition_descr)
+        except RuntimeError as exc:
+            trace = traceback.format_exc()
+            logger.error(
+                f"Continuing despite failure to open partition, with {partition_descr=}.\n"
+                f"Error: {exc}\n"
+                f"\nTraceback: {trace}\n"
+            )
+            msv4_xdt = xr.DataTree()
 
         msv4_idx = f"{msv4_idx:0>{len(str(len(partitions) - 1))}}"
         msv4_name = f"{Path(asdm_path).name}_{msv4_idx}"

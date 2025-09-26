@@ -4,6 +4,7 @@ import itertools
 
 import dask
 import numpy as np
+import pandas as pd
 import xarray as xr
 
 import pyasdm
@@ -141,8 +142,8 @@ def create_correlated_xds(
     )
 
     is_single_dish = False
-    coords, coord_attrs, num_antenna, spw_id, time_vars = create_coordinates(
-        asdm, partition_descr, is_single_dish
+    coords, coord_attrs, num_antenna, spw_id, bdf_spw_id, time_vars = (
+        create_coordinates(asdm, partition_descr, is_single_dish)
     )
     xds = xds.assign_coords(coords)
     for coord_name in coords:
@@ -150,7 +151,7 @@ def create_correlated_xds(
             xds.coords[coord_name].attrs = coord_attrs[coord_name]
 
     xds = xds.assign(time_vars)
-    xds = xds.assign(create_data_vars(xds, partition_descr["BDFPath"], spw_id))
+    xds = xds.assign(create_data_vars(xds, partition_descr["BDFPath"], bdf_spw_id))
 
     data_group_base = {
         "correlated_data": "VISIBILITY",
@@ -170,7 +171,7 @@ def create_correlated_xds(
 
 
 def create_data_vars(
-    xds: xr.Dataset, bdf_paths: list[str], spw_id: int
+    xds: xr.Dataset, bdf_paths: list[str], bdf_spw_id: int
 ) -> dict[str, tuple]:
     """
     Create a dictionary of data variables for a radio astronomy dataset.
@@ -212,7 +213,7 @@ def create_data_vars(
     data_vars["VISIBILITY"] = (
         dims_vis_weight_flag,
         dask.array.from_delayed(
-            dask.delayed(load_visibilities_from_bdfs)(bdf_paths, spw_id, {}),
+            dask.delayed(load_visibilities_from_bdfs)(bdf_paths, bdf_spw_id, {}),
             shape=shape_vis_weight_flag,
             dtype="complex128",
         ),
@@ -235,7 +236,7 @@ def create_data_vars(
     data_vars["FLAG"] = (
         dims_vis_weight_flag,
         dask.array.from_delayed(
-            dask.delayed(load_flags_from_bdfs)(bdf_paths, spw_id, {}),
+            dask.delayed(load_flags_from_bdfs)(bdf_paths, bdf_spw_id, {}),
             shape=shape_vis_weight_flag,
             dtype="bool",
         ),
@@ -398,6 +399,7 @@ def create_coordinates(
     frequency_other_attrs = {
         "frame": get_reference_frame(asdm, spw_id),
         "spectral_window_name": ensure_spw_name_conforms(spw_name, spw_id),
+        "spectral_window_intent": "UNSPECIFIED",
         "reference_frequency": make_spectral_coord_reference_dict(
             spectral_window["refFreq"].values[0], "Hz", "TOPO"
         ),
@@ -436,8 +438,24 @@ def create_coordinates(
     if not is_single_dish:
         coords["uvw_label"] = np.array(["u", "v", "w"])
 
+    sdm_config_description_attrs = [
+        "configDescriptionId",
+        "dataDescriptionId",
+    ]
+    config_description_df = exp_asdm_table_to_df(
+        asdm,
+        "ConfigDescription",
+        ["configDescriptionId", "dataDescriptionId"],
+    )
+    bdf_spw_id = translate_asdm_tables_spw_id_to_bdf_index(
+        spw_id,  # config_description_df,
+        data_description_df,
+        spw_df,
+        partition_descr["configDescriptionId"],
+    )
+
     # TODO: this needs clean-up!
-    return coords, attrs, num_antenna, spw_id, time_vars
+    return coords, attrs, num_antenna, spw_id, bdf_spw_id, time_vars
 
 
 def produce_uvw_data_var(xds: xr.Dataset) -> xr.DataArray:
@@ -462,6 +480,17 @@ def produce_weight_data_var(xds: xr.Dataset) -> xr.DataArray:
         ),
         dtype="float64",
     )
+
+
+def translate_asdm_tables_spw_id_to_bdf_index(
+    spw_id: int,
+    data_description_df: pd.DataFrame,
+    spw_df: pd.DataFrame,
+    # asdm: pyasdm.ASDM,
+    config_description_id: int,
+    # partition_descr: dict[str, np.ndarray]
+) -> int:
+    return spw_id
 
 
 def generate_baseline_antennax_id_as_in_bdf(

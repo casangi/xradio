@@ -92,7 +92,11 @@ def check_if_consistent(array: np.ndarray, array_name: str) -> np.ndarray:
         return array.item()
 
     array_unique = unique_1d(array)
-    assert len(array_unique) == 1, array_name + " is not consistent."
+    if len(array_unique) != 1:
+        raise RuntimeError(
+            f"{array_name} is not consistent, {len(array)=}, {len(array_unique)=}, {array_unique=}"
+        )
+
     return array_unique[0]
 
 

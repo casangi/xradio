@@ -73,7 +73,7 @@ def _load_casa_image_block(infile: str, block_des: dict, do_sky_coords) -> xr.Da
             for k in ("time", "frequency", "polarization")
             if k in block_des
         }
-        xds["BEAM"] = beam.isel(selectors)
+        xds["BEAM_FIT_PARAMS"] = beam.isel(selectors)
     return xds
 
 
@@ -108,7 +108,7 @@ def _read_casa_image(
         img_full_path, xds.sizes["frequency"], xds.sizes["polarization"], True
     )
     if beam is not None:
-        xds["BEAM"] = beam
+        xds["BEAM_FIT_PARAMS"] = beam
     # xds = _add_coord_attrs(xds, ret["icoords"], ret["dir_axes"])
     xds = _dask_arrayize_dv(xds)
     return xds

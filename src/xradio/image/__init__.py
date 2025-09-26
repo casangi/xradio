@@ -5,7 +5,7 @@ from .image import (
     make_empty_aperture_image,
     make_empty_lmuv_image,
     make_empty_sky_image,
-    read_image,
+    open_image,
     write_image,
 )
 
@@ -14,6 +14,6 @@ __all__ = [
     "make_empty_aperture_image",
     "make_empty_lmuv_image",
     "make_empty_sky_image",
-    "read_image",
+    "open_image",
     "write_image",
 ]

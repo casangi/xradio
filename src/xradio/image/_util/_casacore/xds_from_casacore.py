@@ -390,7 +390,7 @@ def _casa_image_to_xds_coords(
 
 
 def _convert_direction_system(
-    casa_system: str, which: str, verbose: bool = True
+    casa_system: str, which: str, verbose: bool = False
 ) -> tuple:
     if casa_system == "J2000":
         if verbose:
@@ -864,7 +864,7 @@ def _get_beam(
     xdb = xr.DataArray(
         beam_array, dims=["time", "frequency", "polarization", "beam_param"]
     )
-    xdb = xdb.rename("BEAM")
+    xdb = xdb.rename("BEAM_FIT_PARAMS")
     xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
     xdb.attrs["units"] = "rad"
     return xdb

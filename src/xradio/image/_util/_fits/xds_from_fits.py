@@ -741,10 +741,10 @@ def _create_beam_data_var(xds: xr.Dataset, beam_array: np.array) -> xr.Dataset:
     xdb = xr.DataArray(
         beam_array, dims=["time", "frequency", "polarization", "beam_param"]
     )
-    xdb = xdb.rename("BEAM")
+    xdb = xdb.rename("BEAM_FIT_PARAMS")
     xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
     xdb.attrs["units"] = "rad"
-    xds["BEAM"] = xdb
+    xds["BEAM_FIT_PARAMS"] = xdb
     return xds
 
 

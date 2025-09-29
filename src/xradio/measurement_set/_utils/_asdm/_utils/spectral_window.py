@@ -35,6 +35,38 @@ def ensure_spw_name_conforms(spw_name, spw_id) -> str:
     return spw_name
 
 
+def get_spw_name(asdm: pyasdm.ASDM, spw_id: int) -> str | None:
+    """Get the name of a spectral window from an ASDM.
+
+    Parameters
+    ----------
+    asdm : pyasdm.ASDM
+        The ASDM object containing the spectral window information
+    spw_id : int
+        The ID of the spectral window to get the name for
+
+    Returns
+    -------
+    str or None
+        The name of the spectral window if it exists, None otherwise
+
+    Notes
+    -----
+    Retrieves the name of a spectral window from an ALMA Science Data Model (ASDM)
+    by looking up the spectral window ID in the SpectralWindow table. Returns None
+    if the spectral window exists but has no name defined.
+    """
+
+    spw_tbl = asdm.getSpectralWindow()
+    spw_row = spw_tbl.getRowByKey(pyasdm.types.Tag(f"SpectralWindow_{spw_id}"))
+    if spw_row.isNameExists():
+        name = spw_row.getName()
+    else:
+        name = None
+
+    return name
+
+
 def get_spw_frequency_centers(
     asdm: pyasdm.ASDM, spw_id: int, num_chan: int
 ) -> np.ndarray:

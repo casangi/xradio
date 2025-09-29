@@ -19,6 +19,7 @@ from xradio.measurement_set._utils._asdm._utils.spectral_window import (
     get_chan_width,
     get_reference_frame,
     get_spw_frequency_centers,
+    get_spw_name,
 )
 from xradio.measurement_set._utils._asdm._utils._bdf.time import get_times_from_bdfs
 from xradio.measurement_set._utils._asdm._utils._bdf.load_data_flags import (
@@ -380,7 +381,6 @@ def create_coordinates(
     # frequency coord
     sdm_spw_attrs = [
         "spectralWindowId",
-        "name",
         "numChan",
         "refFreq",
     ]
@@ -389,7 +389,7 @@ def create_coordinates(
     # "chanWidthArray", "effectiveBwArray", "measFreqRef".
     spw_df = exp_asdm_table_to_df(asdm, "SpectralWindow", sdm_spw_attrs)
     spectral_window = spw_df.loc[spw_df["spectralWindowId"] == spw_id]
-    spw_name = spectral_window["name"].values
+    spw_name = get_spw_name(asdm, spw_id)
     num_chan = spectral_window["numChan"].values[0]
     frequency_centers = get_spw_frequency_centers(asdm, spw_id, num_chan)
 

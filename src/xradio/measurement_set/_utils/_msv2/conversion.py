@@ -935,7 +935,7 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
 
     taql_partition = create_taql_query_where(partition)
     taql_main = f"select * from $mtable {taql_partition}"
-    
+
     with open_table_ro(in_file) as mtable:
         with open_query(mtable, taql_main) as tb_tool:
             # Do not feel tempted to rely on nrows. nrows tends to underestimate memory when baselines are missing.

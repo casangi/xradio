@@ -5,7 +5,10 @@ import time
 
 import dask
 
-from xradio.measurement_set._utils._msv2.partition_queries import create_partitions, create_partitions_new
+from xradio.measurement_set._utils._msv2.partition_queries import (
+    create_partitions,
+    create_partitions_new,
+)
 from xradio.measurement_set._utils._msv2.conversion import (
     convert_and_write_partition,
     estimate_memory_and_cores_for_partitions,
@@ -136,15 +139,14 @@ def convert_msv2_to_processing_set(
         parallel_mode = "none"
 
     partitions = create_partitions_new(in_file, partition_scheme=partition_scheme)
-    
-    #partitions = create_partitions(in_file, partition_scheme=partition_scheme)
+
+    # partitions = create_partitions(in_file, partition_scheme=partition_scheme)
 
     # for i, part in enumerate(partitions_new):
     #     print(f"New Partition {part}")
     #     print(f"Old Partition {partitions[i]}")
     #     print("******************")
-    
-    
+
     logger.info("Number of partitions: " + str(len(partitions)))
     if parallel_mode == "time":
         assert (
@@ -234,13 +236,13 @@ def convert_msv2_to_processing_set(
     zarr.convenience.consolidate_metadata(root_group.store)
 
 
-#New Partition  {'DATA_DESC_ID': [0], 'OBSERVATION_ID': [0], 'FIELD_ID': [0], 'SCAN_NUMBER': [0], 'STATE_ID': [None], 'SOURCE_ID': [None], 'OBS_MODE': [None], 'SUB_SCAN_NUMBER': [None]}
-#Old Partition  {'DATA_DESC_ID': [0], 'OBSERVATION_ID': [0], 'FIELD_ID': [0], 'SCAN_NUMBER': [0], 'STATE_ID': [0],    'SOURCE_ID': [None], 'OBS_MODE': [None], 'SUB_SCAN_NUMBER': [None]}
+# New Partition  {'DATA_DESC_ID': [0], 'OBSERVATION_ID': [0], 'FIELD_ID': [0], 'SCAN_NUMBER': [0], 'STATE_ID': [None], 'SOURCE_ID': [None], 'OBS_MODE': [None], 'SUB_SCAN_NUMBER': [None]}
+# Old Partition  {'DATA_DESC_ID': [0], 'OBSERVATION_ID': [0], 'FIELD_ID': [0], 'SCAN_NUMBER': [0], 'STATE_ID': [0],    'SOURCE_ID': [None], 'OBS_MODE': [None], 'SUB_SCAN_NUMBER': [None]}
 
 
-#New Partition {'DATA_DESC_ID': [0], 'OBSERVATION_ID': [0], 'FIELD_ID': [0], 'SCAN_NUMBER': [0], 'STATE_ID': [None], 'SOURCE_ID': [None], 'OBS_MODE': [None], 'SUB_SCAN_NUMBER': [None]}
-#Old Partition {'DATA_DESC_ID': array([0], dtype=int32), 'OBSERVATION_ID': array([0], dtype=int32), 'FIELD_ID': array([0], dtype=int32), 'SCAN_NUMBER': array([0], dtype=int32), 'STATE_ID': array([0], dtype=int32), 'SOURCE_ID': [None], 'OBS_MODE': [None], 'SUB_SCAN_NUMBER': [None]}
+# New Partition {'DATA_DESC_ID': [0], 'OBSERVATION_ID': [0], 'FIELD_ID': [0], 'SCAN_NUMBER': [0], 'STATE_ID': [None], 'SOURCE_ID': [None], 'OBS_MODE': [None], 'SUB_SCAN_NUMBER': [None]}
+# Old Partition {'DATA_DESC_ID': array([0], dtype=int32), 'OBSERVATION_ID': array([0], dtype=int32), 'FIELD_ID': array([0], dtype=int32), 'SCAN_NUMBER': array([0], dtype=int32), 'STATE_ID': array([0], dtype=int32), 'SOURCE_ID': [None], 'OBS_MODE': [None], 'SUB_SCAN_NUMBER': [None]}
 
 
-#new          taql_main: select * from $mtable WHERE (DATA_DESC_ID IN [0]) AND(OBSERVATION_ID IN [0]) AND(STATE_ID IN [None]) AND(FIELD_ID IN [0]) AND(SCAN_NUMBER IN [0]) AND(STATE_ID IN [None]) 
-#old @@@@@@@@ taql_main: select * from $mtable WHERE (DATA_DESC_ID IN [0]) AND(OBSERVATION_ID IN [0]) AND(STATE_ID IN [0]) AND(FIELD_ID IN [0]) AND(SCAN_NUMBER IN [0]) AND(STATE_ID IN [0]) 
+# new          taql_main: select * from $mtable WHERE (DATA_DESC_ID IN [0]) AND(OBSERVATION_ID IN [0]) AND(STATE_ID IN [None]) AND(FIELD_ID IN [0]) AND(SCAN_NUMBER IN [0]) AND(STATE_ID IN [None])
+# old @@@@@@@@ taql_main: select * from $mtable WHERE (DATA_DESC_ID IN [0]) AND(OBSERVATION_ID IN [0]) AND(STATE_ID IN [0]) AND(FIELD_ID IN [0]) AND(SCAN_NUMBER IN [0]) AND(STATE_ID IN [0])

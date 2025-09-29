@@ -47,7 +47,7 @@ def download_and_convert_msv2_to_processing_set(
             log_to_term=True,
             log_to_file=False,  # True
             log_file="xradio-logfile",
-            #log_level="DEBUG",
+            # log_level="DEBUG",
             log_level="INFO",
         )
 
@@ -593,27 +593,31 @@ def test_alma_ephemeris_mosaic(tmp_path):
         8.11051993222426e17,
         expected_secondary_xds=expected_subtables,
     )
-    
+
     # import pandas as pd
     # pd.set_option("display.max_rows", None)
     # pd.set_option("display.max_columns", None)
-    
-    ps_xdt = ps_list[0].xr_ps.query(line_name="Single_Continuum(ID=0)", spw_name="X767114449#ALMA_RB_06#BB_1#SW-01#FULL_RES_2", intents="OBSERVE_TARGET#ON_SOURCE")
+
+    ps_xdt = ps_list[0].xr_ps.query(
+        line_name="Single_Continuum(ID=0)",
+        spw_name="X767114449#ALMA_RB_06#BB_1#SW-01#FULL_RES_2",
+        intents="OBSERVE_TARGET#ON_SOURCE",
+    )
     ps_names = list(ps_xdt.keys())
     assert len(ps_names) == 1
     ms_xdt = ps_xdt[ps_names[0]]
 
-    check_source_and_field_xds(
-        ms_xdt, 1.09056423
-    )
+    check_source_and_field_xds(ms_xdt, 1.09056423)
 
-    ps_xdt = ps_list[1].xr_ps.query(field_name="Sun_10_15", spw_name="X767114449#ALMA_RB_06#BB_1#SW-01#FULL_RES_2", intents="OBSERVE_TARGET#ON_SOURCE")
+    ps_xdt = ps_list[1].xr_ps.query(
+        field_name="Sun_10_15",
+        spw_name="X767114449#ALMA_RB_06#BB_1#SW-01#FULL_RES_2",
+        intents="OBSERVE_TARGET#ON_SOURCE",
+    )
     ps_names = list(ps_xdt.keys())
     assert len(ps_names) == 1
     ms_xdt = ps_xdt[ps_names[0]]
-    check_source_and_field_xds(
-        ms_xdt, 0.04194478
-    )
+    check_source_and_field_xds(ms_xdt, 0.04194478)
 
     # Test PS sel
     check_ps_query(ps_list[0])
@@ -655,11 +659,11 @@ def check_source_and_field_xds(ms_xdt, expected_NP_sum):
         "SOURCE_RADIAL_VELOCITY",
         "SUB_OBSERVER_DIRECTION",
     ]
-    
+
     assert np.sum(field_and_source_xds.NORTH_POLE_ANGULAR_DISTANCE) == pytest.approx(
         expected_NP_sum, rel=relative_tolerance
     ), "The sum of the NORTH_POLE_ANGULAR_DISTANCE has changed."
-    
+
     assert are_all_variables_in_dataset(
         field_and_source_xds, field_and_source_data_variable_names
     ), "field_and_source_xds is missing data variables."

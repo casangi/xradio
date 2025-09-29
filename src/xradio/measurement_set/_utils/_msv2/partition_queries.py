@@ -70,9 +70,11 @@ def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
     )
     # if vla_otf:
     #     par_df["FIELD_NAME"] = np.array(field_tb.getcol("NAME"))[par_df["FIELD_ID"]]
-    
+
     time_open_tables = time.time() - start
-    logger.debug(f"Time to load columsn from main table: {time_open_tables:.2f} seconds")
+    logger.debug(
+        f"Time to load columsn from main table: {time_open_tables:.2f} seconds"
+    )
 
     # Get source ids if available from source table.
     start = time.time()
@@ -91,7 +93,6 @@ def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
             #     ]
     time_source_table = time.time() - start
     logger.debug(f"Time to load source table: {time_source_table:.2f} seconds")
-   
 
     # Get intents and subscan numbers if available from state table.
     start = time.time()
@@ -125,9 +126,13 @@ def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
 
     # Make all possible combinations of the partition criteria.
     enumerated_partitions = enumerated_product(*list(partition_criteria.values()))
-    
-    logger.debug(f"Time to update partition scheme: {time_update_partition_scheme:.2f} seconds")
-    logger.info(f"Updated partition scheme that will be used: {partition_scheme_updated}")
+
+    logger.debug(
+        f"Time to update partition scheme: {time_update_partition_scheme:.2f} seconds"
+    )
+    logger.info(
+        f"Updated partition scheme that will be used: {partition_scheme_updated}"
+    )
 
     # print('par_df',par_df)
 
@@ -190,10 +195,12 @@ def create_partitions_new(in_file: str, partition_scheme: list) -> list[dict]:
     list
         list of dictionaries with the partition information.
     """
-   
-    ### Test new implementation without 
+
+    ### Test new implementation without
     # Always start with these (if available); then extend with user scheme.
-    partition_scheme = ["DATA_DESC_ID", "OBS_MODE", "OBSERVATION_ID"] + list(partition_scheme)
+    partition_scheme = ["DATA_DESC_ID", "OBS_MODE", "OBSERVATION_ID"] + list(
+        partition_scheme
+    )
 
     t0 = time.time()
     # --------- Load base columns from MAIN table ----------
@@ -205,15 +212,17 @@ def create_partitions_new(in_file: str, partition_scheme: list) -> list[dict]:
     # Add columns here if you expect to aggregate them per-partition.
     base_cols = {
         "DATA_DESC_ID": main_tb.getcol("DATA_DESC_ID"),
-        "FIELD_ID":     main_tb.getcol("FIELD_ID"),
-        "SCAN_NUMBER":  main_tb.getcol("SCAN_NUMBER"),
-        "STATE_ID":     main_tb.getcol("STATE_ID"),
+        "FIELD_ID": main_tb.getcol("FIELD_ID"),
+        "SCAN_NUMBER": main_tb.getcol("SCAN_NUMBER"),
+        "STATE_ID": main_tb.getcol("STATE_ID"),
         "OBSERVATION_ID": main_tb.getcol("OBSERVATION_ID"),
-        "ANTENNA1":     main_tb.getcol("ANTENNA1"),
+        "ANTENNA1": main_tb.getcol("ANTENNA1"),
     }
     par_df = pd.DataFrame(base_cols).drop_duplicates()
-    logger.debug(f"Loaded MAIN columns in {time.time() - t0:.2f}s "
-                 f"({len(par_df):,} unique MAIN rows)")
+    logger.debug(
+        f"Loaded MAIN columns in {time.time() - t0:.2f}s "
+        f"({len(par_df):,} unique MAIN rows)"
+    )
 
     # --------- Optional SOURCE/STATE derived columns ----------
     # SOURCE_ID (via FIELD table)
@@ -221,20 +230,26 @@ def create_partitions_new(in_file: str, partition_scheme: list) -> list[dict]:
     source_id_added = False
     field_tb = tables.table(
         os.path.join(in_file, "FIELD"),
-        readonly=True, lockoptions={"option": "usernoread"}, ack=False
+        readonly=True,
+        lockoptions={"option": "usernoread"},
+        ack=False,
     )
     if table_exists(os.path.join(in_file, "SOURCE")):
         source_tb = tables.table(
             os.path.join(in_file, "SOURCE"),
-            readonly=True, lockoptions={"option": "usernoread"}, ack=False
+            readonly=True,
+            lockoptions={"option": "usernoread"},
+            ack=False,
         )
         if source_tb.nrows() != 0:
             # Map SOURCE_ID via FIELD_ID
             field_source = np.asarray(field_tb.getcol("SOURCE_ID"))
             par_df["SOURCE_ID"] = field_source[par_df["FIELD_ID"]]
             source_id_added = True
-    logger.debug(f"SOURCE processing in {time.time() - t1:.2f}s "
-                 f"(added SOURCE_ID={source_id_added})")
+    logger.debug(
+        f"SOURCE processing in {time.time() - t1:.2f}s "
+        f"(added SOURCE_ID={source_id_added})"
+    )
 
     # OBS_MODE & SUB_SCAN_NUMBER (via STATE table)
     t2 = time.time()
@@ -243,7 +258,9 @@ def create_partitions_new(in_file: str, partition_scheme: list) -> list[dict]:
     if table_exists(os.path.join(in_file, "STATE")):
         state_tb = tables.table(
             os.path.join(in_file, "STATE"),
-            readonly=True, lockoptions={"option": "usernoread"}, ack=False
+            readonly=True,
+            lockoptions={"option": "usernoread"},
+            ack=False,
         )
         if state_tb.nrows() != 0:
             state_obs_mode = np.asarray(state_tb.getcol("OBS_MODE"))
@@ -257,12 +274,14 @@ def create_partitions_new(in_file: str, partition_scheme: list) -> list[dict]:
             # If STATE empty, drop STATE_ID (it cannot partition anything)
             if "STATE_ID" in par_df.columns:
                 par_df.drop(columns=["STATE_ID"], inplace=True)
-                
+
             if "SUB_SCAN_NUMBER" in par_df.columns:
                 par_df.drop(columns=["SUB_SCAN_NUMBER"], inplace=True)
 
-    logger.debug(f"STATE processing in {time.time() - t2:.2f}s "
-                 f"(OBS_MODE={obs_mode_added}, SUB_SCAN_NUMBER={sub_scan_added})")
+    logger.debug(
+        f"STATE processing in {time.time() - t2:.2f}s "
+        f"(OBS_MODE={obs_mode_added}, SUB_SCAN_NUMBER={sub_scan_added})"
+    )
 
     # --------- Decide which partition keys are actually available ----------
     t3 = time.time()
@@ -309,35 +328,38 @@ def create_partitions_new(in_file: str, partition_scheme: list) -> list[dict]:
                 part[name] = [None]
         partitions.append(part)
 
-    logger.debug(f"Partition build in {time.time() - t3:.2f}s; total {len(partitions):,} partitions")
+    logger.debug(
+        f"Partition build in {time.time() - t3:.2f}s; total {len(partitions):,} partitions"
+    )
     logger.debug(f"Total create_partitions time: {time.time() - t0:.2f}s")
-
 
     # #print(partitions)
     # # with gzip.open("partition_original_small.pkl.gz", "wb") as f:
     # #     pickle.dump(partitions, f, protocol=pickle.HIGHEST_PROTOCOL)
-    
+
     # #partitions[1]["DATA_DESC_ID"] = [999]  # make a change to test comparison
     # #org_partitions = load_dict_list("partition_original_small.pkl.gz")
     # org_partitions = load_dict_list("partition_original.pkl.gz")
-    
+
     # # for i, part in enumerate(partitions):
     # #     print(f"Partition {part}:")
     # #     print(f'Original: {org_partitions[i]}')
     # #     print("************")
-    
+
     # print(len(partitions), "partitions created")
     # print(len(org_partitions), "original partitions loaded")
     # print("partitions equal:", compare_partitions_subset(partitions, org_partitions))
     # print("******"*30)
     # raise NotImplementedError("remove this")
-    
-    #print("partitions created:", partitions)
+
+    # print("partitions created:", partitions)
 
     return partitions
 
 
 from typing import Any, List, Dict
+
+
 def save_dict_list(filename: str, data: List[Dict[str, Any]]) -> None:
     """
     Save a list of dictionaries containing NumPy arrays (or other objects)
@@ -346,6 +368,7 @@ def save_dict_list(filename: str, data: List[Dict[str, Any]]) -> None:
     with gzip.open(filename, "wb") as f:
         pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
 
+
 def load_dict_list(filename: str) -> List[Dict[str, Any]]:
     """
     Load a list of dictionaries containing NumPy arrays (or other objects)
@@ -353,8 +376,8 @@ def load_dict_list(filename: str) -> List[Dict[str, Any]]:
     """
     with gzip.open(filename, "rb") as f:
         return pickle.load(f)
-    
-    
+
+
 def dict_list_equal(a: List[Dict[str, Any]], b: List[Dict[str, Any]]) -> bool:
     """
     Compare two lists of dictionaries to ensure they are exactly the same.
@@ -380,11 +403,13 @@ def dict_list_equal(a: List[Dict[str, Any]], b: List[Dict[str, Any]]) -> bool:
 from typing import Iterable, Mapping, Tuple, List, Dict, Any, Set
 import numpy as np
 
+
 def _to_python_scalar(x: Any) -> Any:
     """Convert NumPy scalars to Python scalars; leave others unchanged."""
     if isinstance(x, np.generic):
         return x.item()
     return x
+
 
 def _to_hashable_value_list(v: Any) -> Tuple[Any, ...]:
     """
@@ -405,7 +430,10 @@ def _to_hashable_value_list(v: Any) -> Tuple[Any, ...]:
     # Sort by (type name, repr) to keep mixed types stable if present
     return tuple(sorted(py_vals, key=lambda x: (type(x).__name__, repr(x))))
 
-def _canon_partition(d: Mapping[str, Any], ignore_keys: Iterable[str]=()) -> Tuple[Tuple[str, Tuple[Any, ...]], ...]:
+
+def _canon_partition(
+    d: Mapping[str, Any], ignore_keys: Iterable[str] = ()
+) -> Tuple[Tuple[str, Tuple[Any, ...]], ...]:
     """
     Canonicalize a partition dict into a hashable, order-insensitive representation.
     - Drops keys in ignore_keys.
@@ -421,10 +449,11 @@ def _canon_partition(d: Mapping[str, Any], ignore_keys: Iterable[str]=()) -> Tup
     items.sort(key=lambda kv: kv[0])
     return tuple(items)
 
+
 def compare_partitions_subset(
     new_partitions: List[Dict[str, Any]],
     original_partitions: List[Dict[str, Any]],
-    ignore_keys: Iterable[str] = ()
+    ignore_keys: Iterable[str] = (),
 ) -> Tuple[bool, List[Dict[str, Any]]]:
     """
     Check that every partition in `new_partitions` also appears in `original_partitions`,

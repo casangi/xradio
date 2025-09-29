@@ -878,3 +878,17 @@ class ProcessingSetXdt:
             fig.canvas.mpl_connect("motion_notify_event", antenna_hover)
 
         plt.show()
+
+    def get_ms_xdt(self):
+        """Returns the Measurement Set associated with this Processing Set if there is only a single Measurement Set.
+
+        Returns
+        -------
+        xr.DataTree
+            The Measurement Set Data Tree object.
+        """
+
+        assert (
+            len(self._xdt.children) == 1
+        ), "Processing Set contains multiple Measurement Sets and cannot determine which to return."
+        return list(self._xdt.children.values())[0]

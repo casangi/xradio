@@ -49,7 +49,7 @@ def ensure_presence_data_arrays(
 
 def exclude_unsupported_axis_names(dims):
 
-    unsupported = ["APC", "STO", "HOL"]
+    unsupported = ["STO", "HOL"]
 
     for bad_dim in unsupported:
         if bad_dim in dims:
@@ -85,7 +85,7 @@ def check_cross_and_auto_data_dims(bdf_header: pyasdm.bdf.BDFHeader) -> bool:
             f"crossData dims: {cross_data_dims}, autoData dims: {auto_data_dims}"
         )
         if "APC" in cross_data_dims:
-            log.warning(f"APC dim with {bdf_header.getAPCList()=}")
+            log.warning(f"Found APC dim with {bdf_header.getAPCList()=}")
         appears_not_interferometric = True
         if bdf_header.getCorrelationMode() != pyasdm.enumerations.CorrelationMode(
             "AUTO_ONLY"

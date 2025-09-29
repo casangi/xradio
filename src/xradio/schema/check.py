@@ -77,7 +77,7 @@ class SchemaIssues(Exception):
     in one go.
     """
 
-    issues: [SchemaIssue]
+    issues: list[SchemaIssue]
     """List of issues found"""
 
     def __init__(self, issues=None):
@@ -147,8 +147,8 @@ def check_array(
     Check whether an xarray DataArray conforms to a schema
 
     :param array: DataArray to check
-    :param schema: Schema to check against (possibly as :py:class:`AsDataset`)
-    :returns: List of :py:class:`SchemaIssue`s found
+    :param schema: Schema to check against
+    :returns: :py:class:`SchemaIssues` found
     """
 
     # Check that this is actually a DataArray
@@ -185,8 +185,8 @@ def check_dataset(
     Check whether an xarray DataArray conforms to a schema
 
     :param array: DataArray to check
-    :param schema: Schema to check against (possibly as :py:class:`AsDataArray` dataclass)
-    :returns: List of :py:class:`SchemaIssue`s found
+    :param schema: Schema to check against
+    :returns: :py:class:`SchemaIssues` found
     """
 
     # Check that this is actually a Dataset
@@ -233,7 +233,7 @@ def check_dimensions(
     :param array: Dimension list to check
     :param schema: Expected possibilities for dimension list
     :param check_order: Whether to check order of dimensions
-    :returns: List of :py:class:`SchemaIssue`s found
+    :returns: :py:class:`SchemaIssues` found
     """
 
     # Find a dimension list that matches
@@ -295,7 +295,7 @@ def check_dtype(dtype: numpy.dtype, expected: [numpy.dtype]) -> SchemaIssues:
 
     :param dtype: Numeric type to check
     :param schema: Expected possibilities for dtype
-    :returns: List of :py:class:`SchemaIssue`s found
+    :returns: :py:class:`SchemaIssues` found
     """
 
     for exp_dtype_str in expected:
@@ -333,7 +333,7 @@ def check_attributes(
 
     :param attrs: Dictionary of attributes
     :param attrs_schema: Expected schemas
-    :returns: List of :py:class:`SchemaIssue`s found
+    :returns: :py:class:`SchemaIssues` found
     """
 
     issues = SchemaIssues()
@@ -367,7 +367,7 @@ def check_data_vars(
     data_var_kind: str,
 ) -> SchemaIssues:
     """
-    Check whether an data variable set conforms to a schema
+    Check whether a data variable set conforms to a schema
 
     As data variables are data arrays, this will recurse into checking the
     array schemas
@@ -375,7 +375,7 @@ def check_data_vars(
     :param data_vars: Dictionary(-like) of data_varinates
     :param data_vars_schema: Expected schemas
     :param datavar_kind: Either 'coords' or 'data_vars'
-    :returns: List of :py:class:`SchemaIssue`s found
+    :returns: :py:class:`SchemaIssues` found
     """
 
     assert data_var_kind in ["coords", "data_vars"]
@@ -434,6 +434,14 @@ def check_data_vars(
 def check_dict(
     dct: dict, schema: typing.Union[type, metamodel.DictSchema]
 ) -> SchemaIssues:
+    """
+    Check whether a dictionary conforms to a schema
+
+    :param dct: Dictionary to check
+    :param schema: Dictionary schema to check against
+    :returns: :py:class:`SchemaIssues` found
+    """
+
     # Check that this is actually a dictionary
     if not isinstance(dct, dict):
         raise TypeError(f"check_dict: Expected dictionary, but got {type(dct)}!")
@@ -588,13 +596,13 @@ def check_datatree(
     """
     Check datatree for schema conformance
 
-    This is the case if all nodes containing data
-
-    This looks for a ``type`` attribute in the dataset schema, which
+    This is the case if each contained :py:class:`~xarray.Dataset` conforms to a schema
+    registed with Xradio. 
+    This works by looking for a ``type`` attribute in the :py:class:`~xarray.Dataset`, which
     must have a :py:class:`typing.Literal` type annotation specifying
-    the type name of the dataset
+    the name of the dataset schema.
 
-    :param schema: Schema to register
+    :param datatree: Data to check for schema conformance
     """
 
     # Loop through all groups in datatree

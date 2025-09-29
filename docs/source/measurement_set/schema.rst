@@ -1,6 +1,6 @@
 
-Measurement Set Schema v4.0.0
-=============================
+Schemas
+=======
 
 .. _correlated data datasets:
 
@@ -234,88 +234,6 @@ as frequencies or timestamps.
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.TimeWeatherCoordArray
 
-
-.. _correlated data measures:
-
-Measure arrays
---------------
-
-.. autoclass:: xradio.measurement_set.schema.TimeArray()
-   :no-index:
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.TimeArray
-
-.. autoclass:: xradio.measurement_set.schema.SpectralCoordArray()
-   :no-index:
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.SpectralCoordArray
-
-.. autoclass:: xradio.measurement_set.schema.SkyCoordArray()
-   :no-index:
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.SkyCoordArray
-
-.. autoclass:: xradio.measurement_set.schema.PointingBeamArray()
-   :no-index:
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.PointingBeamArray
-
-.. autoclass:: xradio.measurement_set.schema.LocalSkyCoordArray()
-   :no-index:
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.LocalSkyCoordArray
-
-.. autoclass:: xradio.measurement_set.schema.LocationArray()
-   :no-index:
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.LocationArray
-
-.. autoclass:: xradio.measurement_set.schema.DopplerArray()
-   :no-index:
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.DopplerArray
-
-
-.. _correlated data quantities:
-
-Quantity arrays
----------------
-
-.. autoclass:: xradio.measurement_set.schema.QuantityInSecondsArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInSecondsArray
-
-.. autoclass:: xradio.measurement_set.schema.QuantityInHertzArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInHertzArray
-
-.. autoclass:: xradio.measurement_set.schema.QuantityInMetersArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInMetersArray
-
-.. autoclass:: xradio.measurement_set.schema.QuantityInMetersPerSecondArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInMetersPerSecondArray
-
-.. autoclass:: xradio.measurement_set.schema.QuantityInRadiansArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInRadiansArray
-
-.. autoclass:: xradio.measurement_set.schema.QuantityInKelvinArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInKelvinArray
-
-.. autoclass:: xradio.measurement_set.schema.QuantityInKelvinPerJanskyArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInKelvinPerJanskyArray
-
-.. autoclass:: xradio.measurement_set.schema.QuantityInPascalArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInPascalArray
-
-.. autoclass:: xradio.measurement_set.schema.QuantityInPerSquareMetersArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInPerSquareMetersArray
 
 .. _correlated data attributes:
 

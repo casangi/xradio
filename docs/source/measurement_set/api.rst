@@ -1,5 +1,5 @@
-Processing Set and Measurement Set API
-======================================
+API documentation
+=================
 
 .. automodule:: xradio.measurement_set
 

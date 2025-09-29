@@ -1,3 +1,9 @@
+"""
+Functions to import and export :py:class:`xradio.schema.metamodel.DatasetSchema`
+as JSON representation. This can be used to externalise schema checks, or
+generate documentation from schemas in JSON representation.
+"""
+
 import dataclasses
 import json
 
@@ -8,6 +14,11 @@ from xradio.schema import (
     xarray_dataclass_to_dataset_schema,
     xarray_dataclass_to_dict_schema,
 )
+
+__all__ = [
+    "export_schema_json_file",
+    "import_schema_json_file"
+]
 
 CLASS_ATTR = "$class"
 
@@ -75,7 +86,7 @@ class DataclassDecoder(json.JSONDecoder):
         return obj
 
 
-def export_schema_json_file(schema, fname):
+def export_schema_json_file(schema: "DatasetSchema", fname: str):
     """
     Exports given schema as a JSON file
     """
@@ -94,6 +105,9 @@ def export_schema_json_file(schema, fname):
 
 
 def import_schema_json_file(fname):
+    """
+    Exports given schema as a JSON file
+    """
 
     with open(fname, "r", encoding="utf8") as f:
         return json.load(f, cls=DataclassDecoder, dataclass_map=DATACLASS_MAP)

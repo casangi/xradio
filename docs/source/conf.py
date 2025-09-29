@@ -77,7 +77,7 @@ autodoc_type_aliases = {
     "Attrof": "Attrof",
 }
 
-# nitpicky = True
+nitpicky = True
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
@@ -85,6 +85,8 @@ intersphinx_mapping = {
     "xarray": ("https://docs.xarray.dev/en/stable", None),
     "dask": ("https://docs.dask.org/en/stable", None),
     "numpy": ("https://numpy.org/doc/stable", None),
+    "numcodecs": ("https://numcodecs.readthedocs.io/en/stable", None),
+    "pandas": ("https://pandas.pydata.org/docs", None),
 }
 
 add_module_names = False

@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import pandas as pd
 
@@ -64,6 +66,45 @@ def get_times_from_bdfs(
     return time_centers, durations, actual_times, actual_durations
 
 
+def make_blob_info(bdf_header: pyasdm.bdf.BDFHeader) -> dict:
+    bdf_info = {
+        "execblock_uid": bdf_header.getExecBlockUID(),
+        "dataOID": bdf_header.getDataOID(),
+        "title": bdf_header.getTitle(),
+        "correlation_mode": bdf_header.getCorrelationMode(),
+        "processor_type": bdf_header.getProcessorType(),
+        "spectral_resolution_type": bdf_header.getSpectralResolutionType(),
+        "apc_list": " ".join(map(str, bdf_header.getAPClist())),
+        "dimensionality": bdf_header.getDimensionality(),
+        "num_time": bdf_header.getNumTime(),
+        "num_antenna": bdf_header.getNumAntenna(),
+        "actual_times_size": bdf_header.getSize("actualTimes"),
+        "actual_times_axes": " ".join(map(str, bdf_header.getAxes("actualTimes"))),
+        "actual_durations_size": bdf_header.getSize("actualDurations"),
+        "actual_durations_axes": " ".join(
+            map(str, bdf_header.getAxes("actualDurations"))
+        ),
+        "flags_size": bdf_header.getSize("flags"),
+        "flags_axes": " ".join(map(str, bdf_header.getAxes("flags"))),
+        "auto_data_size": bdf_header.getSize("autoData"),
+        "auto_data_axes": " ".join(map(str, bdf_header.getAxes("autoData"))),
+        "cross_data_size": bdf_header.getSize("crossData"),
+        "cross_data_axes": " ".join(map(str, bdf_header.getAxes("crossData"))),
+        "zero_lags_size": bdf_header.getSize("zeroLags"),
+        "zero_lags_data_axes": " ".join(map(str, bdf_header.getAxes("zeroLags"))),
+    }
+    blob_info = pd.DataFrame([bdf_info]).set_index(["execblock_uid", "dataOID"])
+
+    return blob_info
+
+
+def save_blob_info(csv_path: str, blob_info: pd.DataFrame) -> None:
+    do_header = (
+        False if os.path.isfile(csv_path) and os.path.getsize(csv_path) > 0 else True
+    )
+    blob_info.to_csv(csv_path, mode="a", header=do_header)
+
+
 def load_times_from_bdfs(
     bdf_paths: list[str],
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -108,6 +149,8 @@ def load_times_from_bdfs(
             bdf_header = bdf_reader.getHeader()
             logger.debug(" * In load_times_from_bdf, {bdf_path=} *")
             logger.debug(bdf_header)
+            blob_info = make_blob_info(bdf_header)
+            save_blob_info("xradio_asdm_blob_time_etc_info.csv", blob_info)
         finally:
             bdf_reader.close()
 

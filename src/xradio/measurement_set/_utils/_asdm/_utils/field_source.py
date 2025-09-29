@@ -39,6 +39,8 @@ def get_direction_codes(asdm: pyasdm.ASDM, source_key: tuple) -> "str":
     source_row = source_tbl.getRowByKey(*key)
     if source_row.isDirectionCodeExists():
         direction_code = source_row.getDirectionCode().getName().lower()
+        if direction_code == "j2000":
+            direction_code = "fk5"
     else:
         direction_code = "fk5"
 

@@ -67,6 +67,17 @@ def get_times_from_bdfs(
 
 
 def make_blob_info(bdf_header: pyasdm.bdf.BDFHeader) -> dict:
+    basebands_info = ""
+    baseband_idx = 1
+    for baseband in bdf_header.getBasebandsList():
+        basebands_info += f"{baseband['name']} "
+        for spw in baseband["spectralWindows"]:
+            spw_idx = f"spw_{spw['sw']}"
+            spectral_points = spw["numSpectralPoint"]
+            num_bin = spw["numBin"]
+            cross_products = len(spw["crossPolProducts"])
+            basebands_info += f"{spw_idx} {spectral_points} {num_bin} {cross_products} "
+
     bdf_info = {
         "execblock_uid": bdf_header.getExecBlockUID(),
         "dataOID": bdf_header.getDataOID(),
@@ -92,6 +103,7 @@ def make_blob_info(bdf_header: pyasdm.bdf.BDFHeader) -> dict:
         "cross_data_axes": " ".join(map(str, bdf_header.getAxes("crossData"))),
         "zero_lags_size": bdf_header.getSize("zeroLags"),
         "zero_lags_data_axes": " ".join(map(str, bdf_header.getAxes("zeroLags"))),
+        "basebands_spws_points_bins_crossx": basebands_info,
     }
     blob_info = pd.DataFrame([bdf_info]).set_index(["execblock_uid", "dataOID"])
 

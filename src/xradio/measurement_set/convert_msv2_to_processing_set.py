@@ -55,7 +55,7 @@ def estimate_conversion_memory_and_cores(
 def convert_msv2_to_processing_set(
     in_file: str,
     out_file: str,
-    partition_scheme: list = [""],
+    partition_scheme: list = ["FIELD_ID"],
     main_chunksize: Union[Dict, float, None] = None,
     with_pointing: bool = True,
     pointing_chunksize: Union[Dict, float, None] = None,

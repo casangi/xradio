@@ -15,10 +15,7 @@ from xradio.schema import (
     xarray_dataclass_to_dict_schema,
 )
 
-__all__ = [
-    "export_schema_json_file",
-    "import_schema_json_file"
-]
+__all__ = ["export_schema_json_file", "import_schema_json_file"]
 
 CLASS_ATTR = "$class"
 

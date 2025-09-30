@@ -426,7 +426,6 @@ def is_dataset_schema(val: typing.Any):
     return type(val) == type and hasattr(val, "__xradio_dataset_schema")
 
 
-
 def _dict_new(cls, *args, **kwargs):
     # Get signature of __init__, map parameters and apply defaults. This
     # will raise an exception if there are any extra parameters.
@@ -471,4 +470,3 @@ def dict_schema(cls):
 
 def is_dict_schema(val: typing.Any):
     return type(val) == type and hasattr(val, "__xradio_dict_schema")
-

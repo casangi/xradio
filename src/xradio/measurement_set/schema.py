@@ -788,7 +788,7 @@ class FlagArray:
     An array of Boolean or integer values with the same shape as ``VISIBILITY``
     or ``SPECTRUM``,
     representing the cumulative flags applying to this data matrix.
-    
+
     """
 
     data: Data[
@@ -1301,6 +1301,7 @@ class VisibilityArray:
 
 
 # Info dicts
+
 
 @dict_schema
 class ObservationInfoDict:

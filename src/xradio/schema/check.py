@@ -597,7 +597,7 @@ def check_datatree(
     Check datatree for schema conformance
 
     This is the case if each contained :py:class:`~xarray.Dataset` conforms to a schema
-    registed with Xradio. 
+    registed with Xradio.
     This works by looking for a ``type`` attribute in the :py:class:`~xarray.Dataset`, which
     must have a :py:class:`typing.Literal` type annotation specifying
     the name of the dataset schema.

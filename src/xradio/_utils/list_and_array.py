@@ -73,7 +73,7 @@ def to_np_array(x):
     return np.array([x])
 
 
-def check_if_consistent(array: np.ndarray, array_name: str) -> np.ndarray:
+def check_if_consistent(array: np.ndarray, array_name: str, err_msg: str="") -> np.ndarray:
     """_summary_
 
     Parameters
@@ -92,7 +92,7 @@ def check_if_consistent(array: np.ndarray, array_name: str) -> np.ndarray:
         return array.item()
 
     array_unique = unique_1d(array)
-    assert len(array_unique) == 1, array_name + " is not consistent."
+    assert len(array_unique) == 1, array_name + " is not consistent." + err_msg
     return array_unique[0]
 
 

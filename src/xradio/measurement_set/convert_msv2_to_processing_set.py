@@ -7,7 +7,6 @@ import dask
 
 from xradio.measurement_set._utils._msv2.partition_queries import (
     create_partitions,
-    create_partitions_new,
 )
 from xradio.measurement_set._utils._msv2.conversion import (
     convert_and_write_partition,
@@ -48,7 +47,7 @@ def estimate_conversion_memory_and_cores(
         suggested number of cores to use (maximum/4 as a rule of thumb)
     """
 
-    partitions = create_partitions_new(in_file, partition_scheme=partition_scheme)
+    partitions = create_partitions(in_file, partition_scheme=partition_scheme)
 
     return estimate_memory_and_cores_for_partitions(in_file, partitions)
 
@@ -56,7 +55,7 @@ def estimate_conversion_memory_and_cores(
 def convert_msv2_to_processing_set(
     in_file: str,
     out_file: str,
-    partition_scheme: list = ["FIELD_ID"],
+    partition_scheme: list = [""],
     main_chunksize: Union[Dict, float, None] = None,
     with_pointing: bool = True,
     pointing_chunksize: Union[Dict, float, None] = None,
@@ -84,7 +83,7 @@ def convert_msv2_to_processing_set(
         In addition to data description and polarization setup a finer partitioning is possible by specifying a list of partitioning keys. Any combination of the following keys are possible:
         "FIELD_ID", "SCAN_NUMBER", "STATE_ID", "SOURCE_ID", "SUB_SCAN_NUMBER", "ANTENNA1".
         "ANTENNA1" is intended as a single-dish specific partitioning option.
-        For mosaics where the phase center is rapidly changing (such as VLA on the fly mosaics) partition_scheme should be set to an empty list []. By default, ["FIELD_ID"].
+        For mosaics where the phase center is rapidly changing (such as VLA on the fly mosaics) partition_scheme should be set to an empty list []. By default, [""].
     main_chunksize : Union[Dict, float, None], optional
         Defines the chunk size of the main dataset. If given as a dictionary, defines the sizes of several dimensions, and acceptable keys are "time", "baseline_id", "antenna_id", "frequency", "polarization". If given as a float, gives the size of a chunk in GiB. By default, None.
     with_pointing : bool, optional
@@ -116,7 +115,6 @@ def convert_msv2_to_processing_set(
     """
 
     # Create empty data tree
-    print("hallo")
     import xarray as xr
 
     ps_dt = xr.DataTree()
@@ -138,7 +136,7 @@ def convert_msv2_to_processing_set(
         )
         parallel_mode = "none"
 
-    partitions = create_partitions_new(in_file, partition_scheme=partition_scheme)
+    partitions = create_partitions(in_file, partition_scheme=partition_scheme)
 
     # partitions = create_partitions(in_file, partition_scheme=partition_scheme)
 
@@ -154,7 +152,7 @@ def convert_msv2_to_processing_set(
         ), "MS v2 contains more than one partition. `parallel_mode = 'time'` not valid."
 
     delayed_list = []
-
+    
     for ms_v4_id, partition_info in enumerate(partitions):
         # print(ms_v4_id,len(partition_info['FIELD_ID']))
 
@@ -169,6 +167,11 @@ def convert_msv2_to_processing_set(
             + str(partition_info["FIELD_ID"])
             + ", SCAN "
             + str(partition_info["SCAN_NUMBER"])
+            + (
+                ", EPHEMERIS " + str(partition_info["EPHEMERIS_ID"])
+                if "EPHEMERIS_ID" in partition_info
+                else ""
+            )
             + (
                 ", ANTENNA " + str(partition_info["ANTENNA1"])
                 if "ANTENNA1" in partition_info

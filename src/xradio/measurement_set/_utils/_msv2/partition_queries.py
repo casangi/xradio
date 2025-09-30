@@ -19,7 +19,9 @@ def enumerated_product(*args):
         itertools.product(*(range(len(x)) for x in args)), itertools.product(*args)
     )
 
+
 import pickle, gzip
+
 
 def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
     """Create a list of dictionaries with the partition information.
@@ -41,10 +43,13 @@ def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
 
     ### Test new implementation without
     # Always start with these (if available); then extend with user scheme.
-    partition_scheme = ["DATA_DESC_ID", "OBS_MODE", "OBSERVATION_ID", "EPHEMERIS_ID"] + list(
-        partition_scheme
-    )
-    
+    partition_scheme = [
+        "DATA_DESC_ID",
+        "OBS_MODE",
+        "OBSERVATION_ID",
+        "EPHEMERIS_ID",
+    ] + list(partition_scheme)
+
     # partition_scheme = ["DATA_DESC_ID", "OBS_MODE"] + list(
     #     partition_scheme
     # )
@@ -97,7 +102,7 @@ def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
         f"SOURCE processing in {time.time() - t1:.2f}s "
         f"(added SOURCE_ID={source_id_added})"
     )
-    
+
     if "EPHEMERIS_ID" in field_tb.colnames():
         ephemeris_id_added = False
         if field_tb.nrows() != 0:

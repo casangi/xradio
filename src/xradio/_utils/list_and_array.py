@@ -73,7 +73,9 @@ def to_np_array(x):
     return np.array([x])
 
 
-def check_if_consistent(array: np.ndarray, array_name: str, err_msg: str="") -> np.ndarray:
+def check_if_consistent(
+    array: np.ndarray, array_name: str, err_msg: str = ""
+) -> np.ndarray:
     """_summary_
 
     Parameters

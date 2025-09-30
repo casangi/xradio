@@ -152,7 +152,7 @@ def convert_msv2_to_processing_set(
         ), "MS v2 contains more than one partition. `parallel_mode = 'time'` not valid."
 
     delayed_list = []
-    
+
     for ms_v4_id, partition_info in enumerate(partitions):
         # print(ms_v4_id,len(partition_info['FIELD_ID']))
 

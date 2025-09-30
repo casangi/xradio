@@ -81,4 +81,5 @@ def test_create_partitions_ms_min_with_other(ms_minimal_required):
                 "DATA_DESC_ID",
             ],
         )
+
         assert parts

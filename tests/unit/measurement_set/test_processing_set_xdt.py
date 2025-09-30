@@ -377,7 +377,7 @@ class TestFunctionsAfterPreviousCalls:
         "base".
         """
 
-        ps_xdt = xr.open_datatree(processing_set_from_custom_ms)
+        ps_xdt = xr.open_datatree(processing_set_from_custom_ms,engine="zarr")
         corrected_ps = ps_xdt.xr_ps.query(data_group_name="corrected")
         # Note, after the "base" group is dropped, the schema_checker will fail
         assert isinstance(corrected_ps, xr.DataTree)
@@ -400,7 +400,7 @@ class TestFunctionsAfterPreviousCalls:
         get_max_dims() caches its results for subsequent calls. Check that.
         """
 
-        ps_xdt = xr.open_datatree(processing_set_from_custom_ms)
+        ps_xdt = xr.open_datatree(processing_set_from_custom_ms,engine="zarr")
         max_dims = ps_xdt.xr_ps.get_max_dims()
         max_dims_again = ps_xdt.xr_ps.get_max_dims()
         assert max_dims == max_dims_again
@@ -416,7 +416,7 @@ class TestFunctionsAfterPreviousCalls:
         get_freq_axis() caches its results for subsequent calls. Check that.
         """
 
-        ps_xdt = xr.open_datatree(processing_set_from_custom_ms)
+        ps_xdt = xr.open_datatree(processing_set_from_custom_ms,engine="zarr")
         freq_axis = ps_xdt.xr_ps.get_freq_axis()
         freq_axis_again = ps_xdt.xr_ps.get_freq_axis()
         assert all(freq_axis == freq_axis_again)

@@ -98,10 +98,8 @@ def check_msv4_matches_descr(msv4_xdt, msv2_descr):
     observation_info = msv4_xdt.ds.attrs["observation_info"]
     if msv2_descr["params"]["opt_tables"] and not msv2_descr["params"]["misbehave"]:
         assert "session_reference_UID" in observation_info
-        assert "observing_script" in observation_info
     else:
         assert "session_reference_UID" not in observation_info
-        assert "observing_script" not in observation_info
 
     if (
         (msv2_descr["params"]["opt_tables"] and not msv2_descr["params"]["misbehave"])

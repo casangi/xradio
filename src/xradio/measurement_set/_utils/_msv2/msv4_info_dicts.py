@@ -128,12 +128,8 @@ def create_observation_info(
         observation_info[field_msv4] = str(generic_observation_xds[col_msv2].values[0])
 
     execblock_optional_fields = {
-        "execution_block_id": "execBlockId",
-        "execution_block_number": "execBlockNum",
         "execution_block_UID": "execBlockUID",
         "session_reference_UID": "sessionReference",
-        "observing_script": "observingScript",
-        "observing_script_UID": "observingScriptUID",
         "observing_log": "observingLog",
     }
     execblock_info = try_optional_asdm_asis_table_info(
@@ -312,7 +308,6 @@ def replace_entity_ids(observation_info: dict) -> dict[str, list[str] | str]:
     entity_refs = [
         "execution_block_UID",
         "session_reference_UID",
-        "observing_script_UID",
         "scheduling_block_UID",
     ]
     for ref_name in entity_refs:

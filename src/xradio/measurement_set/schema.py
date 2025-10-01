@@ -1368,25 +1368,12 @@ class ObservationInfoDict:
     project_UID: str
     """Project UID/code. When populated from an ASDM, the entityId string of the projectUID
     attribute of the ExecBlock table."""
-    execution_block_id: Optional[str]
-    """From ASDM: identifies a unique row in the ExecBlock Table. Intended to be populated with
-    the value of the execBlockId attribute of the ExecBlock table"""
-    execution_block_number: Optional[int]
-    """From ASDM: Indicates the position of the execution block in the project (sequential
-    numbering starting at 1). Intended to be populated with the execBlockNum attribute of the
-    ExecBlock table"""
     execution_block_UID: Optional[str]
     """From ASDM: The archive’s UID of the execution block. Intended to be populated with the
     entityId string of the execBlockUID attribute of the ExecBlock table."""
     session_reference_UID: Optional[str]
     """From ASDM: The observing session reference. Intended to be populated with the entityId
     string of the sessionReference attribute of the ExecBlock table"""
-    observing_script: Optional[str]
-    """From ASDM: The text of the observation script. Intended to be populated with the
-    observingScript string value of the observingScript attribute of the ExecBlock table."""
-    observing_script_UID: Optional[str]
-    """From ASDM: A reference to the Entity which contains the observing script. Intended to be
-    populated with the entityId string of the observingScriptUID attribute of the ExecBlock table."""
     observing_log: Optional[str]
     """The observing log, as supplied by the telescope or instrument. Or also from ASDM: Logs of
     the observation during this execution block. When taken from an ASDM, it is intended to be

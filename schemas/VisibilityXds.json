@@ -3516,20 +3516,6 @@
             "$class": "AttrSchemaRef",
             "type": "str",
             "optional": true,
-            "name": "execution_block_id",
-            "docstring": "From ASDM: identifies a unique row in the ExecBlock Table. Intended to be populated with\nthe value of the execBlockId attribute of the ExecBlock table"
-          },
-          {
-            "$class": "AttrSchemaRef",
-            "type": "int",
-            "optional": true,
-            "name": "execution_block_number",
-            "docstring": "From ASDM: Indicates the position of the execution block in the project (sequential\nnumbering starting at 1). Intended to be populated with the execBlockNum attribute of the\nExecBlock table"
-          },
-          {
-            "$class": "AttrSchemaRef",
-            "type": "str",
-            "optional": true,
             "name": "execution_block_UID",
             "docstring": "From ASDM: The archive’s UID of the execution block. Intended to be populated with the\nentityId string of the execBlockUID attribute of the ExecBlock table."
           },
@@ -3539,20 +3525,6 @@
             "optional": true,
             "name": "session_reference_UID",
             "docstring": "From ASDM: The observing session reference. Intended to be populated with the entityId\nstring of the sessionReference attribute of the ExecBlock table"
-          },
-          {
-            "$class": "AttrSchemaRef",
-            "type": "str",
-            "optional": true,
-            "name": "observing_script",
-            "docstring": "From ASDM: The text of the observation script. Intended to be populated with the\nobservingScript string value of the observingScript attribute of the ExecBlock table."
-          },
-          {
-            "$class": "AttrSchemaRef",
-            "type": "str",
-            "optional": true,
-            "name": "observing_script_UID",
-            "docstring": "From ASDM: A reference to the Entity which contains the observing script. Intended to be\npopulated with the entityId string of the observingScriptUID attribute of the ExecBlock table."
           },
           {
             "$class": "AttrSchemaRef",
@@ -3575,7 +3547,7 @@
             "docstring": "An intent string identifies one intention of the scan, such as to calibrate or observe a\ntarget. See :ref:`scan intents` for possible intent/subintent values. When converting from MSv2,\nthe list of intents is derived from the OBS_MODE column of MSv2 state table (every comma\nseparated value is taken as an intent).\nA common convention used in the MSv2 OBS_MODE column is to specify multiple intents separated\nby commas, each of them giving a main intent and a subintent separated by a '#' character. This\nis represented in this attribute as a list of \"intent#subintent\" strings. These are a few\nexample lists:\n[\"CALIBRATE_DELAY#ON_SOURCE\" , \"CALIBRATE_PHASE#ON_SOURCE\", \"CALIBRATE_WVR#ON_SOURCE\"],\n[\"CALIBRATE_FLUX#ON_SOURCE\" , \"CALIBRATE_WVR#ON_SOURCE\"],\n[\"CALIBRATE_POINTING#ON_SOURCE\", \"CALIBRATE_WVR#ON_SOURCE\", \"CALIBRATE_DELAY#ON_SOURCE\"],\n[\"CALIBRATE_ATMOSPHERE#AMBIENT\", \"CALIBRATE_WVR#AMBIENT\"],\n[\"CALIBRATE_FOCUS#ON_SOURCE\" , \"CALIBRATE_WVR#ON_SOURCE\"],\n[\"OBSERVE_TARGET#ON_SOURCE\"], or [\"OBSERVE_TARGE#UNSPECIFIED\"].\nThe list of possible intent and subintent names (see :ref:`scan intents`) is derived from the\nrespective ASDM enumerations."
           }
         ],
-        "class_docstring": "ObservationInfoDict(observer: 'list[str]', release_date: 'str', project_UID: 'str', execution_block_id: 'Optional[str]', execution_block_number: 'Optional[int]', execution_block_UID: 'Optional[str]', session_reference_UID: 'Optional[str]', observing_script: 'Optional[str]', observing_script_UID: 'Optional[str]', observing_log: 'Optional[str]', scheduling_block_UID: 'Optional[str]', intents: 'list[str]')"
+        "class_docstring": "ObservationInfoDict(observer: 'list[str]', release_date: 'str', project_UID: 'str', execution_block_UID: 'Optional[str]', session_reference_UID: 'Optional[str]', observing_log: 'Optional[str]', scheduling_block_UID: 'Optional[str]', intents: 'list[str]')"
       },
       "name": "observation_info",
       "docstring": null

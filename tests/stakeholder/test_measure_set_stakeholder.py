@@ -127,12 +127,12 @@ def base_check_ps_accessor(ps_lazy_xdt: xr.DataTree, ps_xdt: xr.DataTree):
 
     expected_summary_keys = [
         "name",
-        "intents",
+        "scan_intents",
         "shape",
         "polarization",
         "scan_name",
         "spw_name",
-        "spw_intent",
+        "spw_intents",
         "field_name",
         "source_name",
         "line_name",
@@ -601,7 +601,7 @@ def test_alma_ephemeris_mosaic(tmp_path):
     ps_xdt = ps_list[0].xr_ps.query(
         line_name="Single_Continuum(ID=0)",
         spw_name="X767114449#ALMA_RB_06#BB_1#SW-01#FULL_RES_2",
-        intents="OBSERVE_TARGET#ON_SOURCE",
+        scan_intents="OBSERVE_TARGET#ON_SOURCE",
     )
     ps_names = list(ps_xdt.keys())
     assert len(ps_names) == 1
@@ -612,7 +612,7 @@ def test_alma_ephemeris_mosaic(tmp_path):
     ps_xdt = ps_list[1].xr_ps.query(
         field_name="Sun_10_15",
         spw_name="X767114449#ALMA_RB_06#BB_1#SW-01#FULL_RES_2",
-        intents="OBSERVE_TARGET#ON_SOURCE",
+        scan_intents="OBSERVE_TARGET#ON_SOURCE",
     )
     ps_names = list(ps_xdt.keys())
     assert len(ps_names) == 1

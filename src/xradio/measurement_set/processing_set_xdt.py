@@ -58,9 +58,9 @@ class ProcessingSetXdt:
             is used (if found), or otherwise the first group found.
         first_columns : list[str], optional
             List of columns to be sorted first. Currently, the columns included in the
-            summary frame are, in this order: "name", "intents", "shape",
+            summary frame are, in this order: "name", "scan_intents", "shape",
             "execution_block_UID", "polarization", "scan_name", "spw_name",
-            "spw_intent", "field_name", "source_name", "line_name", "field_coords",
+            "spw_intents", "field_name", "source_name", "line_name", "field_coords",
             "session_reference_UID", "scheduling_block_UID", "project_UID",
             "start_frequency", "end_frequency".
             For example, with first_columns=["spw_name", "scan_name"] one can print
@@ -190,13 +190,13 @@ class ProcessingSetXdt:
     def _summary(self, data_group: str = None):
         summary_data = {
             "name": [],
-            "intents": [],
+            "scan_intents": [],
             "shape": [],
             "execution_block_UID": [],
             "polarization": [],
             "scan_name": [],
             "spw_name": [],
-            "spw_intent": [],
+            "spw_intents": [],
             "field_name": [],
             "source_name": [],
             "line_name": [],
@@ -215,12 +215,14 @@ class ProcessingSetXdt:
             observation_info = value.observation_info
 
             summary_data["name"].append(key)
-            summary_data["intents"].append(partition_info["intents"])
+            summary_data["scan_intents"].append(partition_info["scan_intents"])
             summary_data["execution_block_UID"].append(
                 observation_info.get("execution_block_UID", "---")
             )
             summary_data["spw_name"].append(partition_info["spectral_window_name"])
-            summary_data["spw_intent"].append(partition_info["spectral_window_intent"])
+            summary_data["spw_intents"].append(
+                partition_info["spectral_window_intents"]
+            )
             summary_data["polarization"].append(value.polarization.values)
             summary_data["scan_name"].append(partition_info["scan_name"])
             data_name = value.attrs["data_groups"][data_group]["correlated_data"]
@@ -283,7 +285,7 @@ class ProcessingSetXdt:
 
         This method allows filtering the Processing Set by matching column names and values
         or by applying a Pandas query string. The selection criteria can target various
-        attributes of the Measurement Sets such as intents, polarization, spectral window names, etc.
+        attributes of the Measurement Sets such as scan_intents, polarization, spectral window names, etc.
 
         A data group can be selected by name by using the `data_group_name` parameter. This is applied to each Measurement Set in the Processing Set.
 
@@ -311,8 +313,8 @@ class ProcessingSetXdt:
 
         Examples
         --------
-        >>> # Select all MSs with intents 'OBSERVE_TARGET#ON_SOURCE' and polarization 'RR' or 'LL'
-        >>> selected_ps_xdt = ps_xdt.xr_ps.query(intents='OBSERVE_TARGET#ON_SOURCE', polarization=['RR', 'LL'])
+        >>> # Select all MSs with scan_intents 'OBSERVE_TARGET#ON_SOURCE' and polarization 'RR' or 'LL'
+        >>> selected_ps_xdt = ps_xdt.xr_ps.query(scan_intents='OBSERVE_TARGET#ON_SOURCE', polarization=['RR', 'LL'])
 
         >>> # Select all MSs with start_frequency greater than 100 GHz and less than 200 GHz
         >>> selected_ps_xdt = ps_xdt.xr_ps.query(query='start_frequency > 100e9 AND end_frequency < 200e9')

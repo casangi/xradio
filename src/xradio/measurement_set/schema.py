@@ -674,7 +674,7 @@ class FrequencyArray:
     """ Center frequencies for each channel. """
     spectral_window_name: Attr[str]
     """ Name associated with spectral window. """
-    spectral_window_intent: Attr[str]
+    spectral_window_intents: Attr[list[str]]
     """ An intent string that identifies the intention of the spectral window, for example
     continuum, spectral line, etc. See :ref:`spw intents` for possible values. """
     frequency_group_name: Optional[Attr[str]]
@@ -764,6 +764,35 @@ class UvwLabelArray:
     """Should be ``('u','v','w')``, used by :py:class:`UvwArray`"""
     long_name: Optional[Attr[str]] = "U/V/W label"
     """ Long-form name to use for axis. Should be ``"U/V/W label"``"""
+
+
+@xarray_dataarray_schema
+class ScanArray:
+    """Scan number coordinate in the main dataset."""
+
+    data: Data[Time, str]
+    """Scan name for each time sample."""
+    scan_intents: Attr[list[str]]
+    """ An intent string identifies one intention of the scan, such as to calibrate or observe a
+    target. See :ref:`scan intents` for possible intent/subintent values. When converting from MSv2,
+    the list of intents is derived from the OBS_MODE column of MSv2 state table (every comma
+    separated value is taken as an intent).
+    A common convention used in the MSv2 OBS_MODE column is to specify multiple intents separated
+    by commas, each of them giving a main intent and a subintent separated by a '#' character. This
+    is represented in this attribute as a list of "intent#subintent" strings. These are a few
+    example lists:
+    ["CALIBRATE_DELAY#ON_SOURCE" , "CALIBRATE_PHASE#ON_SOURCE", "CALIBRATE_WVR#ON_SOURCE"],
+    ["CALIBRATE_FLUX#ON_SOURCE" , "CALIBRATE_WVR#ON_SOURCE"],
+    ["CALIBRATE_POINTING#ON_SOURCE", "CALIBRATE_WVR#ON_SOURCE", "CALIBRATE_DELAY#ON_SOURCE"],
+    ["CALIBRATE_ATMOSPHERE#AMBIENT", "CALIBRATE_WVR#AMBIENT"],
+    ["CALIBRATE_FOCUS#ON_SOURCE" , "CALIBRATE_WVR#ON_SOURCE"],
+    ["OBSERVE_TARGET#ON_SOURCE"], or ["OBSERVE_TARGE#UNSPECIFIED"].
+    The list of possible intent and subintent names (see :ref:`scan intents`) is derived from the
+    respective ASDM enumerations.
+    """
+
+    long_name: Optional[Attr[str]] = "Scan name"
+    """ Long-form name to use for axis. Should be ``"Scan name"``."""
 
 
 # Data variables
@@ -1381,24 +1410,6 @@ class ObservationInfoDict:
     scheduling_block_UID: Optional[str]
     """From ASDM: The scheduling block archive’s UID. Intended to be populated with the entityId
     string of the sbSummaryUID attribute of the SBSummary table. """
-    intents: list[str]
-    """ An intent string identifies one intention of the scan, such as to calibrate or observe a
-    target. See :ref:`scan intents` for possible intent/subintent values. When converting from MSv2,
-    the list of intents is derived from the OBS_MODE column of MSv2 state table (every comma
-    separated value is taken as an intent).
-    A common convention used in the MSv2 OBS_MODE column is to specify multiple intents separated
-    by commas, each of them giving a main intent and a subintent separated by a '#' character. This
-    is represented in this attribute as a list of "intent#subintent" strings. These are a few
-    example lists:
-    ["CALIBRATE_DELAY#ON_SOURCE" , "CALIBRATE_PHASE#ON_SOURCE", "CALIBRATE_WVR#ON_SOURCE"],
-    ["CALIBRATE_FLUX#ON_SOURCE" , "CALIBRATE_WVR#ON_SOURCE"],
-    ["CALIBRATE_POINTING#ON_SOURCE", "CALIBRATE_WVR#ON_SOURCE", "CALIBRATE_DELAY#ON_SOURCE"],
-    ["CALIBRATE_ATMOSPHERE#AMBIENT", "CALIBRATE_WVR#AMBIENT"],
-    ["CALIBRATE_FOCUS#ON_SOURCE" , "CALIBRATE_WVR#ON_SOURCE"],
-    ["OBSERVE_TARGET#ON_SOURCE"], or ["OBSERVE_TARGE#UNSPECIFIED"].
-    The list of possible intent and subintent names (see :ref:`scan intents`) is derived from the
-    respective ASDM enumerations.
-    """
 
 
 @dict_schema
@@ -2087,7 +2098,7 @@ class VisibilityXds:
     """
     uvw_label: Optional[Coordof[UvwLabelArray]] = None
     """ u,v,w """
-    scan_name: Optional[Coord[Time, str]] = None
+    scan_name: Optional[Coordof[ScanArray]] = None
     """Scan name to identify data taken in the same logical scan."""
 
     # --- Optional data variables / arrays ---
@@ -2180,7 +2191,7 @@ class SpectrumXds:
     actual polarization basis for each antenna using labels from the set of
     combinations of 'X', 'Y', 'R' and 'L'.
     """
-    scan_name: Optional[Coord[Time, str]] = None
+    scan_name: Optional[Coordof[ScanArray]] = None
     """Arbitary scan name to identify data taken in the same logical scan."""
 
     # SPECTRUM_CORRECTED: Optional[Dataof[SpectrumArray]] = None

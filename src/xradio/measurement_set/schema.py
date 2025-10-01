@@ -9,7 +9,7 @@ from xradio.schema.bases import (
 from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof
 import numpy
 
-MSV4_SCHEMA_VERSION = "4.0.-9987"
+MSV4_SCHEMA_VERSION = "4.0.-9986"
 
 # Dimensions
 Time = Literal["time"]
@@ -1362,27 +1362,25 @@ class VisibilityArray:
 class ObservationInfoDict:
     observer: list[str]
     """List of observer names."""
-    project: str
-    """Project Code/Project_UID"""
     release_date: str
     """Project release date. This is the date on which the data may become
     public. Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
-    execution_block_id: Optional[str]
-    """ ASDM: Indicates the position of the execution block in the project
-    (sequential numbering starting at 1).  """
-    execution_block_number: Optional[int]
-    """ASDM: Indicates the position of the execution block in the project
-    (sequential numbering starting at 1)."""
+    project_UID: str
+    """Project UID/code. When populated from an ASDM, the entityId string of the projectUID
+    attribute of the ExecBlock table."""
     execution_block_UID: Optional[str]
-    """ASDM: The archive’s UID of the execution block."""
-    session_reference: Optional[str]
-    """ASDM: The observing session reference."""
-    observing_script: Optional[str]
-    """ASDM: The text of the observation script."""
-    observing_script_UID: Optional[str]
-    """ASDM: A reference to the Entity which contains the observing script."""
+    """From ASDM: The archive’s UID of the execution block. Intended to be populated with the
+    entityId string of the execBlockUID attribute of the ExecBlock table."""
+    session_reference_UID: Optional[str]
+    """From ASDM: The observing session reference. Intended to be populated with the entityId
+    string of the sessionReference attribute of the ExecBlock table"""
     observing_log: Optional[str]
-    """ASDM: Logs of the observation during this execu- tion block."""
+    """The observing log, as supplied by the telescope or instrument. Or also from ASDM: Logs of
+    the observation during this execution block. When taken from an ASDM, it is intended to be
+    populated with the values of the observingLog attribute of the ExecBlock table."""
+    scheduling_block_UID: Optional[str]
+    """From ASDM: The scheduling block archive’s UID. Intended to be populated with the entityId
+    string of the sbSummaryUID attribute of the SBSummary table. """
     intents: list[str]
     """ An intent string identifies one intention of the scan, such as to calibrate or observe a
     target. See :ref:`scan intents` for possible intent/subintent values. When converting from MSv2,

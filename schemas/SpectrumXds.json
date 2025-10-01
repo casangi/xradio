@@ -3169,63 +3169,42 @@
           {
             "$class": "AttrSchemaRef",
             "type": "str",
-            "name": "project",
-            "docstring": "Project Code/Project_UID"
-          },
-          {
-            "$class": "AttrSchemaRef",
-            "type": "str",
             "name": "release_date",
             "docstring": "Project release date. This is the date on which the data may become\npublic. Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"
           },
           {
             "$class": "AttrSchemaRef",
             "type": "str",
-            "optional": true,
-            "name": "execution_block_id",
-            "docstring": "ASDM: Indicates the position of the execution block in the project\n(sequential numbering starting at 1).  "
-          },
-          {
-            "$class": "AttrSchemaRef",
-            "type": "int",
-            "optional": true,
-            "name": "execution_block_number",
-            "docstring": "ASDM: Indicates the position of the execution block in the project\n(sequential numbering starting at 1)."
+            "name": "project_UID",
+            "docstring": "Project UID/code. When populated from an ASDM, the entityId string of the projectUID\nattribute of the ExecBlock table."
           },
           {
             "$class": "AttrSchemaRef",
             "type": "str",
             "optional": true,
             "name": "execution_block_UID",
-            "docstring": "ASDM: The archive’s UID of the execution block."
+            "docstring": "From ASDM: The archive’s UID of the execution block. Intended to be populated with the\nentityId string of the execBlockUID attribute of the ExecBlock table."
           },
           {
             "$class": "AttrSchemaRef",
             "type": "str",
             "optional": true,
-            "name": "session_reference",
-            "docstring": "ASDM: The observing session reference."
-          },
-          {
-            "$class": "AttrSchemaRef",
-            "type": "str",
-            "optional": true,
-            "name": "observing_script",
-            "docstring": "ASDM: The text of the observation script."
-          },
-          {
-            "$class": "AttrSchemaRef",
-            "type": "str",
-            "optional": true,
-            "name": "observing_script_UID",
-            "docstring": "ASDM: A reference to the Entity which contains the observing script."
+            "name": "session_reference_UID",
+            "docstring": "From ASDM: The observing session reference. Intended to be populated with the entityId\nstring of the sessionReference attribute of the ExecBlock table"
           },
           {
             "$class": "AttrSchemaRef",
             "type": "str",
             "optional": true,
             "name": "observing_log",
-            "docstring": "ASDM: Logs of the observation during this execu- tion block."
+            "docstring": "The observing log, as supplied by the telescope or instrument. Or also from ASDM: Logs of\nthe observation during this execution block. When taken from an ASDM, it is intended to be\npopulated with the values of the observingLog attribute of the ExecBlock table."
+          },
+          {
+            "$class": "AttrSchemaRef",
+            "type": "str",
+            "optional": true,
+            "name": "scheduling_block_UID",
+            "docstring": "From ASDM: The scheduling block archive’s UID. Intended to be populated with the entityId\nstring of the sbSummaryUID attribute of the SBSummary table. "
           },
           {
             "$class": "AttrSchemaRef",
@@ -3234,7 +3213,7 @@
             "docstring": "An intent string identifies one intention of the scan, such as to calibrate or observe a\ntarget. See :ref:`scan intents` for possible intent/subintent values. When converting from MSv2,\nthe list of intents is derived from the OBS_MODE column of MSv2 state table (every comma\nseparated value is taken as an intent).\nA common convention used in the MSv2 OBS_MODE column is to specify multiple intents separated\nby commas, each of them giving a main intent and a subintent separated by a '#' character. This\nis represented in this attribute as a list of \"intent#subintent\" strings. These are a few\nexample lists:\n[\"CALIBRATE_DELAY#ON_SOURCE\" , \"CALIBRATE_PHASE#ON_SOURCE\", \"CALIBRATE_WVR#ON_SOURCE\"],\n[\"CALIBRATE_FLUX#ON_SOURCE\" , \"CALIBRATE_WVR#ON_SOURCE\"],\n[\"CALIBRATE_POINTING#ON_SOURCE\", \"CALIBRATE_WVR#ON_SOURCE\", \"CALIBRATE_DELAY#ON_SOURCE\"],\n[\"CALIBRATE_ATMOSPHERE#AMBIENT\", \"CALIBRATE_WVR#AMBIENT\"],\n[\"CALIBRATE_FOCUS#ON_SOURCE\" , \"CALIBRATE_WVR#ON_SOURCE\"],\n[\"OBSERVE_TARGET#ON_SOURCE\"], or [\"OBSERVE_TARGE#UNSPECIFIED\"].\nThe list of possible intent and subintent names (see :ref:`scan intents`) is derived from the\nrespective ASDM enumerations."
           }
         ],
-        "class_docstring": "ObservationInfoDict(observer: 'list[str]', project: 'str', release_date: 'str', execution_block_id: 'Optional[str]', execution_block_number: 'Optional[int]', execution_block_UID: 'Optional[str]', session_reference: 'Optional[str]', observing_script: 'Optional[str]', observing_script_UID: 'Optional[str]', observing_log: 'Optional[str]', intents: 'list[str]')"
+        "class_docstring": "ObservationInfoDict(observer: 'list[str]', release_date: 'str', project_UID: 'str', execution_block_UID: 'Optional[str]', session_reference_UID: 'Optional[str]', observing_log: 'Optional[str]', scheduling_block_UID: 'Optional[str]', intents: 'list[str]')"
       },
       "name": "observation_info",
       "docstring": null

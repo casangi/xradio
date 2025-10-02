@@ -592,6 +592,7 @@ def test_alma_ephemeris_mosaic(tmp_path):
         tmp_path,
         8.11051993222426e17,
         expected_secondary_xds=expected_subtables,
+        # partition_schemes=[[]],
     )
 
     # import pandas as pd

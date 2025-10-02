@@ -119,13 +119,13 @@ class TestProcessingSetXdtWithData:
         # Verify expected columns are present
         expected_columns = [
             "name",
-            "intents",
+            "scan_intents",
             "shape",
             "execution_block_UID",
             "polarization",
             "scan_name",
             "spw_name",
-            "spw_intent",
+            "spw_intents",
             "field_name",
             "source_name",
             "line_name",

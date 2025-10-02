@@ -16,7 +16,7 @@ from xradio.measurement_set._utils._msv2.conversion import (
 
 def estimate_conversion_memory_and_cores(
     in_file: str,
-    partition_scheme: list = ["FIELD_ID"],
+    partition_scheme: list = [],
 ) -> tuple[float, int, int]:
     """
     Given an MSv2 and a partition_scheme to use when converting it to MSv4,
@@ -55,7 +55,7 @@ def estimate_conversion_memory_and_cores(
 def convert_msv2_to_processing_set(
     in_file: str,
     out_file: str,
-    partition_scheme: list = ["FIELD_ID"],
+    partition_scheme: list = [],
     main_chunksize: Union[Dict, float, None] = None,
     with_pointing: bool = True,
     pointing_chunksize: Union[Dict, float, None] = None,
@@ -83,7 +83,7 @@ def convert_msv2_to_processing_set(
         In addition to data description and polarization setup a finer partitioning is possible by specifying a list of partitioning keys. Any combination of the following keys are possible:
         "FIELD_ID", "SCAN_NUMBER", "STATE_ID", "SOURCE_ID", "SUB_SCAN_NUMBER", "ANTENNA1".
         "ANTENNA1" is intended as a single-dish specific partitioning option.
-        For mosaics where the phase center is rapidly changing (such as VLA on the fly mosaics) partition_scheme should be set to an empty list []. By default, ["FIELD_ID"].
+        For mosaics where the phase center is rapidly changing (such as VLA on the fly mosaics) partition_scheme should be set to an empty list []. By default, [].
     main_chunksize : Union[Dict, float, None], optional
         Defines the chunk size of the main dataset. If given as a dictionary, defines the sizes of several dimensions, and acceptable keys are "time", "baseline_id", "antenna_id", "frequency", "polarization". If given as a float, gives the size of a chunk in GiB. By default, None.
     with_pointing : bool, optional
@@ -138,13 +138,6 @@ def convert_msv2_to_processing_set(
 
     partitions = create_partitions(in_file, partition_scheme=partition_scheme)
 
-    # partitions = create_partitions(in_file, partition_scheme=partition_scheme)
-
-    # for i, part in enumerate(partitions_new):
-    #     print(f"New Partition {part}")
-    #     print(f"Old Partition {partitions[i]}")
-    #     print("******************")
-
     logger.info("Number of partitions: " + str(len(partitions)))
     if parallel_mode == "time":
         assert (
@@ -154,7 +147,6 @@ def convert_msv2_to_processing_set(
     delayed_list = []
 
     for ms_v4_id, partition_info in enumerate(partitions):
-        # print(ms_v4_id,len(partition_info['FIELD_ID']))
 
         logger.info(
             "OBSERVATION_ID "

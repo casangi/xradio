@@ -2057,6 +2057,8 @@ class VisibilityXds:
     """
     field_name: Coordof[Coord[Time, str]]
     """Field name."""
+    scan_name: Coordof[ScanArray]
+    """Scan name to identify data taken in the same logical scan."""
 
     # --- Required data variables ---
 
@@ -2098,8 +2100,6 @@ class VisibilityXds:
     """
     uvw_label: Optional[Coordof[UvwLabelArray]] = None
     """ u,v,w """
-    scan_name: Optional[Coordof[ScanArray]] = None
-    """Scan name to identify data taken in the same logical scan."""
 
     # --- Optional data variables / arrays ---
 
@@ -2158,6 +2158,8 @@ class SpectrumXds:
     """
     field_name: Coordof[Coord[Time, str]]
     """Field name."""
+    scan_name: Coordof[ScanArray]
+    """Arbitary scan name to identify data taken in the same logical scan."""
 
     # --- Required data variables ---
     SPECTRUM: Dataof[SpectrumArray]
@@ -2191,8 +2193,6 @@ class SpectrumXds:
     actual polarization basis for each antenna using labels from the set of
     combinations of 'X', 'Y', 'R' and 'L'.
     """
-    scan_name: Optional[Coordof[ScanArray]] = None
-    """Arbitary scan name to identify data taken in the same logical scan."""
 
     # SPECTRUM_CORRECTED: Optional[Dataof[SpectrumArray]] = None
 

@@ -442,6 +442,40 @@
     },
     {
       "$class": "ArraySchemaRef",
+      "schema_name": "xradio.measurement_set.schema.ScanArray",
+      "dimensions": [
+        [
+          "time"
+        ]
+      ],
+      "dtypes": [
+        "<U0"
+      ],
+      "coordinates": [],
+      "attributes": [
+        {
+          "$class": "AttrSchemaRef",
+          "type": "list[str]",
+          "name": "scan_intents",
+          "docstring": "An intent string identifies one intention of the scan, such as to calibrate or observe a\ntarget. See :ref:`scan intents` for possible intent/subintent values. When converting from MSv2,\nthe list of intents is derived from the OBS_MODE column of MSv2 state table (every comma\nseparated value is taken as an intent).\nA common convention used in the MSv2 OBS_MODE column is to specify multiple intents separated\nby commas, each of them giving a main intent and a subintent separated by a '#' character. This\nis represented in this attribute as a list of \"intent#subintent\" strings. These are a few\nexample lists:\n[\"CALIBRATE_DELAY#ON_SOURCE\" , \"CALIBRATE_PHASE#ON_SOURCE\", \"CALIBRATE_WVR#ON_SOURCE\"],\n[\"CALIBRATE_FLUX#ON_SOURCE\" , \"CALIBRATE_WVR#ON_SOURCE\"],\n[\"CALIBRATE_POINTING#ON_SOURCE\", \"CALIBRATE_WVR#ON_SOURCE\", \"CALIBRATE_DELAY#ON_SOURCE\"],\n[\"CALIBRATE_ATMOSPHERE#AMBIENT\", \"CALIBRATE_WVR#AMBIENT\"],\n[\"CALIBRATE_FOCUS#ON_SOURCE\" , \"CALIBRATE_WVR#ON_SOURCE\"],\n[\"OBSERVE_TARGET#ON_SOURCE\"], or [\"OBSERVE_TARGE#UNSPECIFIED\"].\nThe list of possible intent and subintent names (see :ref:`scan intents`) is derived from the\nrespective ASDM enumerations."
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "long_name",
+          "default": "Scan name",
+          "docstring": "Long-form name to use for axis. Should be ``\"Scan name\"``."
+        }
+      ],
+      "class_docstring": "Scan number coordinate in the main dataset.",
+      "data_docstring": "Scan name for each time sample.",
+      "name": "scan_name",
+      "optional": false,
+      "docstring": "Scan name to identify data taken in the same logical scan."
+    },
+    {
+      "$class": "ArraySchemaRef",
       "schema_name": "xradio.measurement_set.schema.BaselineAntennaNameArray",
       "dimensions": [
         [
@@ -543,40 +577,6 @@
       "name": "uvw_label",
       "optional": true,
       "docstring": "u,v,w "
-    },
-    {
-      "$class": "ArraySchemaRef",
-      "schema_name": "xradio.measurement_set.schema.ScanArray",
-      "dimensions": [
-        [
-          "time"
-        ]
-      ],
-      "dtypes": [
-        "<U0"
-      ],
-      "coordinates": [],
-      "attributes": [
-        {
-          "$class": "AttrSchemaRef",
-          "type": "list[str]",
-          "name": "scan_intents",
-          "docstring": "An intent string identifies one intention of the scan, such as to calibrate or observe a\ntarget. See :ref:`scan intents` for possible intent/subintent values. When converting from MSv2,\nthe list of intents is derived from the OBS_MODE column of MSv2 state table (every comma\nseparated value is taken as an intent).\nA common convention used in the MSv2 OBS_MODE column is to specify multiple intents separated\nby commas, each of them giving a main intent and a subintent separated by a '#' character. This\nis represented in this attribute as a list of \"intent#subintent\" strings. These are a few\nexample lists:\n[\"CALIBRATE_DELAY#ON_SOURCE\" , \"CALIBRATE_PHASE#ON_SOURCE\", \"CALIBRATE_WVR#ON_SOURCE\"],\n[\"CALIBRATE_FLUX#ON_SOURCE\" , \"CALIBRATE_WVR#ON_SOURCE\"],\n[\"CALIBRATE_POINTING#ON_SOURCE\", \"CALIBRATE_WVR#ON_SOURCE\", \"CALIBRATE_DELAY#ON_SOURCE\"],\n[\"CALIBRATE_ATMOSPHERE#AMBIENT\", \"CALIBRATE_WVR#AMBIENT\"],\n[\"CALIBRATE_FOCUS#ON_SOURCE\" , \"CALIBRATE_WVR#ON_SOURCE\"],\n[\"OBSERVE_TARGET#ON_SOURCE\"], or [\"OBSERVE_TARGE#UNSPECIFIED\"].\nThe list of possible intent and subintent names (see :ref:`scan intents`) is derived from the\nrespective ASDM enumerations."
-        },
-        {
-          "$class": "AttrSchemaRef",
-          "type": "str",
-          "optional": true,
-          "name": "long_name",
-          "default": "Scan name",
-          "docstring": "Long-form name to use for axis. Should be ``\"Scan name\"``."
-        }
-      ],
-      "class_docstring": "Scan number coordinate in the main dataset.",
-      "data_docstring": "Scan name for each time sample.",
-      "name": "scan_name",
-      "optional": true,
-      "docstring": "Scan name to identify data taken in the same logical scan."
     }
   ],
   "data_vars": [

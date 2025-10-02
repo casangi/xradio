@@ -440,26 +440,6 @@
     },
     {
       "$class": "ArraySchemaRef",
-      "schema_name": null,
-      "dimensions": [
-        [
-          "antenna_name",
-          "polarization"
-        ]
-      ],
-      "dtypes": [
-        "<U0"
-      ],
-      "coordinates": [],
-      "attributes": [],
-      "class_docstring": null,
-      "data_docstring": null,
-      "name": "polarization_mixed",
-      "optional": true,
-      "docstring": "If the polarizations are not constant over antennas. For mixed polarizations one would\nuse ['PP', 'PQ', 'QP', 'QQ'] as the polarization labels and then specify here the\nactual polarization basis for each antenna using labels from the set of\ncombinations of 'X', 'Y', 'R' and 'L'."
-    },
-    {
-      "$class": "ArraySchemaRef",
       "schema_name": "xradio.measurement_set.schema.ScanArray",
       "dimensions": [
         [
@@ -489,8 +469,28 @@
       "class_docstring": "Scan number coordinate in the main dataset.",
       "data_docstring": "Scan name for each time sample.",
       "name": "scan_name",
-      "optional": true,
+      "optional": false,
       "docstring": "Arbitary scan name to identify data taken in the same logical scan."
+    },
+    {
+      "$class": "ArraySchemaRef",
+      "schema_name": null,
+      "dimensions": [
+        [
+          "antenna_name",
+          "polarization"
+        ]
+      ],
+      "dtypes": [
+        "<U0"
+      ],
+      "coordinates": [],
+      "attributes": [],
+      "class_docstring": null,
+      "data_docstring": null,
+      "name": "polarization_mixed",
+      "optional": true,
+      "docstring": "If the polarizations are not constant over antennas. For mixed polarizations one would\nuse ['PP', 'PQ', 'QP', 'QQ'] as the polarization labels and then specify here the\nactual polarization basis for each antenna using labels from the set of\ncombinations of 'X', 'Y', 'R' and 'L'."
     }
   ],
   "data_vars": [

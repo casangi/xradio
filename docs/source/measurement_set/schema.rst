@@ -1,6 +1,6 @@
 
-Measurement Set Schema v4.0.0
-=============================
+Schemas
+=======
 
 .. _correlated data datasets:
 
@@ -235,88 +235,6 @@ as frequencies or timestamps.
    .. xradio_array_schema_table:: xradio.measurement_set.schema.TimeWeatherCoordArray
 
 
-.. _correlated data measures:
-
-Measure arrays
---------------
-
-.. autoclass:: xradio.measurement_set.schema.TimeArray()
-   :no-index:
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.TimeArray
-
-.. autoclass:: xradio.measurement_set.schema.SpectralCoordArray()
-   :no-index:
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.SpectralCoordArray
-
-.. autoclass:: xradio.measurement_set.schema.SkyCoordArray()
-   :no-index:
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.SkyCoordArray
-
-.. autoclass:: xradio.measurement_set.schema.PointingBeamArray()
-   :no-index:
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.PointingBeamArray
-
-.. autoclass:: xradio.measurement_set.schema.LocalSkyCoordArray()
-   :no-index:
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.LocalSkyCoordArray
-
-.. autoclass:: xradio.measurement_set.schema.LocationArray()
-   :no-index:
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.LocationArray
-
-.. autoclass:: xradio.measurement_set.schema.DopplerArray()
-   :no-index:
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.DopplerArray
-
-
-.. _correlated data quantities:
-
-Quantity arrays
----------------
-
-.. autoclass:: xradio.measurement_set.schema.QuantityInSecondsArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInSecondsArray
-
-.. autoclass:: xradio.measurement_set.schema.QuantityInHertzArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInHertzArray
-
-.. autoclass:: xradio.measurement_set.schema.QuantityInMetersArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInMetersArray
-
-.. autoclass:: xradio.measurement_set.schema.QuantityInMetersPerSecondArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInMetersPerSecondArray
-
-.. autoclass:: xradio.measurement_set.schema.QuantityInRadiansArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInRadiansArray
-
-.. autoclass:: xradio.measurement_set.schema.QuantityInKelvinArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInKelvinArray
-
-.. autoclass:: xradio.measurement_set.schema.QuantityInKelvinPerJanskyArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInKelvinPerJanskyArray
-
-.. autoclass:: xradio.measurement_set.schema.QuantityInPascalArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInPascalArray
-
-.. autoclass:: xradio.measurement_set.schema.QuantityInPerSquareMetersArray()
-
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInPerSquareMetersArray
-
 .. _correlated data attributes:
 
 Value Keys
@@ -327,63 +245,93 @@ Value Keys
 Scan Intents
 ~~~~~~~~~~~~
 
-Scan intents to be used with :py:class:`VisibilityXds` and :py:class:`SpectrumXds`,
-in the ``intents`` field of the :py:class:`ObservationInfoDict`:
+Scan intents to be used with :py:class:`~xradio.measurement_set.schema.VisibilityXds` and
+:py:class:`~xradio.measurement_set.schema.SpectrumXds`,
+in the ``intents`` field of the
+:py:class:`~xradio.measurement_set.schema.ObservationInfoDict`:
 
-* CALIBRATE AMPLI : Amplitude calibration scan
-* CALIBRATE ANTENNA PHASE : Requested by EVLA.
-* CALIBRATE ANTENNA POINTING MODEL : Requested by EVLA.
-* CALIBRATE ANTENNA POSITION : Requested by EVLA.
-* CALIBRATE APPPHASE ACTIVE : Calculate and apply phasing solutions. Applicable at ALMA.
-* CALIBRATE APPPHASE PASSIVE : Apply previously obtained phasing solutions. Applicable at ALMA.
-* CALIBRATE ATMOSPHERE : Atmosphere calibration scan
-* CALIBRATE BANDPASS : Bandpass calibration scan
-* CALIBRATE DELAY : Delay calibration scan
-* CALIBRATE DIFFGAIN : Enable a gain differential target type
-* CALIBRATE FLUX : flux measurement scan.
-* CALIBRATE FOCUS : Focus calibration scan. Z coordinate to be derived
-* CALIBRATE FOCUS X : Focus calibration scan; X focus coordinate to be derived
-* CALIBRATE FOCUS Y : Focus calibration scan; Y focus coordinate to be derived
-* CALIBRATE PHASE : Phase calibration scan
-* CALIBRATE POINTING : Pointing calibration scan
-* CALIBRATE POL ANGLE :
-* CALIBRATE POL LEAKAGE :
-* CALIBRATE POLARIZATION : Polarization calibration scan
-* CALIBRATE SIDEBAND RATIO : measure relative gains of sidebands.
-* CALIBRATE WVR : Data from the water vapor radiometers (and correlation data) are used to derive their calibration parameters.
-* DO SKYDIP : Skydip calibration scan
-* MAP ANTENNA SURFACE : Holography calibration scan
-* MAP PRIMARY BEAM : Data on a celestial calibration source are used to derive a map of the primary beam.
-* MEASURE RFI : Requested by EVLA.
-* OBSERVE CHECK SOURCE :
-* OBSERVE TARGET : Target source scan
-* SYSTEM CONFIGURATION : Requested by EVLA.
-* TEST : used for development.
-* UNSPECIFIED : Unspecified scan intent
+* ``CALIBRATE AMPLI`` : Amplitude calibration scan
+* ``CALIBRATE ANTENNA PHASE`` : Requested by EVLA.
+* ``CALIBRATE ANTENNA POINTING MODEL`` : Requested by EVLA.
+* ``CALIBRATE ANTENNA POSITION`` : Requested by EVLA.
+* ``CALIBRATE APPPHASE ACTIVE`` : Calculate and apply phasing solutions. Applicable at ALMA.
+* ``CALIBRATE APPPHASE PASSIVE`` : Apply previously obtained phasing solutions. Applicable at ALMA.
+* ``CALIBRATE ATMOSPHERE`` : Atmosphere calibration scan
+* ``CALIBRATE BANDPASS`` : Bandpass calibration scan
+* ``CALIBRATE DELAY`` : Delay calibration scan
+* ``CALIBRATE DIFFGAIN`` : Enable a gain differential target type
+* ``CALIBRATE FLUX`` : flux measurement scan.
+* ``CALIBRATE FOCUS`` : Focus calibration scan. Z coordinate to be derived
+* ``CALIBRATE FOCUS X`` : Focus calibration scan; X focus coordinate to be derived
+* ``CALIBRATE FOCUS Y`` : Focus calibration scan; Y focus coordinate to be derived
+* ``CALIBRATE PHASE`` : Phase calibration scan
+* ``CALIBRATE POINTING`` : Pointing calibration scan
+* ``CALIBRATE POL ANGLE`` :
+* ``CALIBRATE POL LEAKAGE`` :
+* ``CALIBRATE POLARIZATION`` : Polarization calibration scan
+* ``CALIBRATE SIDEBAND RATIO`` : measure relative gains of sidebands.
+* ``CALIBRATE WVR`` : Data from the water vapor radiometers (and correlation data) are used to derive their calibration parameters.
+* ``DO SKYDIP`` : Skydip calibration scan
+* ``MAP ANTENNA SURFACE`` : Holography calibration scan
+* ``MAP PRIMARY BEAM`` : Data on a celestial calibration source are used to derive a map of the primary beam.
+* ``MEASURE RFI`` : Requested by EVLA.
+* ``OBSERVE CHECK SOURCE`` :
+* ``OBSERVE TARGET`` : Target source scan
+* ``SYSTEM CONFIGURATION`` : Requested by EVLA.
+* ``TEST`` : used for development.
+* ``UNSPECIFIED`` : Unspecified scan intent
 
-Sub-scan intents to be used with :py:class:`VisibilityXds` and :py:class:`SpectrumXds`,
-in the ``intents`` field of the :py:class:`ObservationInfoDict`:
+Sub-scan intents to be used with :py:class:`~xradio.measurement_set.schema.VisibilityXds` and
+:py:class:`~xradio.measurement_set.schema.SpectrumXds`,
+in the ``intents`` field of the
+:py:class:`~xradio.measurement_set.schema.ObservationInfoDict`:
 
-* ON SOURCE : on-source measurement
-* OFF SOURCE : off-source measurement
-* MIXED : Pointing measurement, some antennas are on -ource, some off-source
-* REFERENCE : reference measurement (used for boresight in holography).
-* SCANNING : antennas are scanning.
-* HOT : hot load measurement.
-* AMBIENT : ambient load measurement.
-* SIGNAL : Signal sideband measurement.
-* IMAGE : Image sideband measurement.
-* TEST : reserved for development.
-* UNSPECIFIED : Unspecified
+* ``ON SOURCE`` : on-source measurement
+* ``OFF SOURCE`` : off-source measurement
+* ``MIXED`` : Pointing measurement, some antennas are on -ource, some off-source
+* ``REFERENCE`` : reference measurement (used for boresight in holography).
+* ``SCANNING`` : antennas are scanning.
+* ``HOT`` : hot load measurement.
+* ``AMBIENT`` : ambient load measurement.
+* ``SIGNAL`` : Signal sideband measurement.
+* ``IMAGE`` : Image sideband measurement.
+* ``TEST`` : reserved for development.
+* ``UNSPECIFIED`` : Unspecified
 
 .. _spw intents:
 
-SPW Intents
-~~~~~~~~~~~
+Spectral Window Intents
+~~~~~~~~~~~~~~~~~~~~~~~
 
-Note: the list is to be defined.
-SPW intents to be used in the attribute `spectral_window_intent` of the `frequency` coordinate of measurement sets
-(:py:class:`VisibilityXds` and :py:class:`SpectrumXds`):
+Spectral window intents to be used in the attribute ``spectral_window_intent``
+of the ``frequency`` coordinate of measurement sets
+(:py:class:`~xradio.measurement_set.schema.VisibilityXds` and
+:py:class:`~xradio.measurement_set.schema.SpectrumXds`):
 
-* TEST : reserved for development.
-* UNSPECIFIED : Unspecified SPW intent.
+* ``TEST`` : reserved for development.
+* ``UNSPECIFIED`` : Unspecified SPW intent.
+
+Note: the list is to be extended.
+
+.. _flag bits:
+
+Flag Bits
+~~~~~~~~~
+
+When :py:class:`~xradio.measurement_set.schema.FlagArray` is integer data type,
+bits indicate flagging reason
+(see ``FLAG`` data variable and ``flag_bits`` attribute in
+:py:class:`~xradio.measurement_set.schema.VisibilityXds` and
+:py:class:`~xradio.measurement_set.schema.SpectrumXds`). 
+
+* ``UNSPECIFIED_BIT`` (default bit 0): reserved for unspecified flag reason
+* ``STATIC_BIT`` (default bit 1): predefined static flag list
+* ``CAM_BIT`` (default bit 2): flag based on live CAM information
+* ``DATA_LOST_BIT`` (default bit 3): no data was received
+* ``INGEST_RFI_BIT`` (default bit 4): RFI detected in ingest
+* ``PREDICTED_RFI_BIT`` (default bit 5): RFI predicted from space based pollutants
+* ``CAL_RFI_BIT`` (default bit 6): RFI detected in calibration
+* ``POSTPROC_BIT`` (default bit 7): some correction/postprocessing step could not be applied
+
+These bits are derived from usage in MeerKat (see
+`flags.py <https://github.com/ska-sa/katdal/blob/0840fd86ca4954168cacf4cb785eb00afef121b4/katdal/flags.py>`_).

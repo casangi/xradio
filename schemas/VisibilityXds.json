@@ -1484,10 +1484,28 @@
           "class_docstring": "Possible correlations that can be formed from polarised receptors. Possible\nvalues, taken from `Measures/Stokes.h\n<https://github.com/casacore/casacore/blob/5a8df94738bdc36be27e695d7b14fe949a1cc2df/measures/Measures/Stokes.h>`_:\n\n* ``I``, ``Q``, ``U``, ``V`` (standard stokes parameters)\n* ``RR``, ``RL``, ``LR``, ``LL`` (circular correlation products)\n* ``XX``, ``XY``, ``YX``, ``YY`` (linear correlation products)\n* ``RX``, ``RY``, ``LX``, ``LY``, ``XR``, ``XL``, ``YR``, ``YL`` (mixed correlation products)\n* ``PP``, ``PQ``, ``QP``, ``QQ`` (general quasi-orthogonal correlation products)\n* ``RCircular``, ``LCircular``, ``Linear`` (single dish polarization types)\n* ``Ptotal`` (polarized intensity: ``sqrt(Q²+U²+V²)``)\n* ``Plinear`` (linearly polarized intensity: ``sqrt(Q²+U²)``)\n* ``PFtotal`` (polarization fraction: ``Ptotal/I``)\n* ``PFlinear`` (linear polarization fraction: ``Plinear/I``)\n* ``Pangle`` (linear polarization angle: ``0.5 arctan(U/Q)`` in radians)",
           "data_docstring": "Polarization names. ",
           "name": "polarization",
-          "optional": true
+          "optional": true,
+          "docstring": "Labels associated with bits used in ``FlagArray`` data. See\n:ref:`flag bits`_ for suggested semantics. The flag value is\ncalculated as ``(1 << X_BIT1) | (1 << X_BIT2) | ...`` for all\napplying flag reasons."
         }
       ],
       "attributes": [
+        {
+          "$class": "AttrSchemaRef",
+          "type": "list[str]",
+          "optional": true,
+          "name": "flag_bits",
+          "default": [
+            "UNSPECIFIED_BIT",
+            "STATIC_BIT",
+            "CAM_BIT",
+            "DATA_LOST_BIT",
+            "INGEST_RFI_BIT",
+            "PREDICTED_RFI_BIT",
+            "CAL_RFI_BIT",
+            "POSTPROC_BIT"
+          ],
+          "docstring": null
+        },
         {
           "$class": "AttrSchemaRef",
           "type": "str",
@@ -1505,8 +1523,8 @@
           "docstring": null
         }
       ],
-      "class_docstring": "An array of Boolean values with the same shape as `VISIBILITY`,\nrepresenting the cumulative flags applying to this data matrix. Data are\nflagged bad if the ``FLAG`` array element is ``True``.",
-      "data_docstring": null,
+      "class_docstring": "An array of Boolean or integer values with the same shape as ``VISIBILITY``\nor ``SPECTRUM``,\nrepresenting the cumulative flags applying to this data matrix.",
+      "data_docstring": "Flag value.\nWhen the type is boolean, data is flagged as bad if the array element is\n``True``. When the type is integer, data is flagged if the array element is\nnonzero, and the bits can be used to represented different flag categories\n(see ``flag_bits`` attribute). ",
       "name": "FLAG",
       "optional": false
     },
@@ -1979,7 +1997,7 @@
           "docstring": null
         }
       ],
-      "class_docstring": "The weight for each channel, with the same shape as the associated\n:py:class:`VisibilityArray`, as assigned by the correlator or processor.\n\nWeight spectrum in ms v2 is renamed weight. Should be calculated as\n1/sigma^2 (sigma rms noise).",
+      "class_docstring": "The weight for each channel, with the same shape as the associated\n:py:class:`VisibilityArray` or :py:class:`SpectrumArray`, as assigned\nby the correlator or processor.\n\nWeights are channel-dependent in MSv4, and therefore equivalent to the\n``WEIGHT_SPECTRUM`` column from MSv2. Should be calculated as\n``1/sigma^2`` (sigma root mean square noise).",
       "data_docstring": "Visibility weights",
       "name": "WEIGHT",
       "optional": false

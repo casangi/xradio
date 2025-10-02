@@ -7,41 +7,40 @@ XRADIO implements the **Measurement Set v4.0.0** schema, designed for storing ra
 
 For a general overview of XRADIO and the schemas included in it, see the section :doc:`Overview <overview>` (it is recommended to pay special attention to the Foundational Reading subsection).
 More information on XRADIO development can be found in the section :doc:`Development <development>`.
-The Measurement Set v4 is described in the section :doc:`Measurement Set v4.0.0 <measurement_set_overview>`.
+The Measurement Set v4 is described in the section :doc:`Measurement Set v4 <measurement_set/overview>`.
 
 
 .. toctree::
    :hidden:
    :maxdepth: 2
-   :caption: Overview
 
    overview
-
-.. toctree::
-   :hidden:
-   :maxdepth: 5
-   :caption: Development
-
    development
-   schema
 
 .. toctree::
    :hidden:
    :maxdepth: 5
-   :caption: Measurement Set v4.0.0
+   :caption: Measurement Set v4
 
-   measurement_set_overview
-   measurement_set/tutorials/index
-   measurement_set/guides/index
-   measurement_set/schema_and_api/index
+   measurement_set/overview
+   measurement_set/tutorials_guides
+   measurement_set/schema
+   measurement_set/api
+
+.. toctree::
+   :hidden:
+   :maxdepth: 5
+   :caption: Image (under development)
+
+   image_data/tutorials/index
 
 .. toctree::
    :hidden:
    :maxdepth: 2
-   :caption: Design
+   :caption: Common
 
-   decisions
-
+   measures
+   schema
 
 Indices and tables
 ==================

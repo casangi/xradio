@@ -320,20 +320,18 @@ Flag Bits
 
 When :py:class:`~xradio.measurement_set.schema.FlagArray` is integer data type,
 bits indicate flagging reason
-(see ``FLAG`` data variable in
+(see ``FLAG`` data variable and ``flag_bits`` attribute in
 :py:class:`~xradio.measurement_set.schema.VisibilityXds` and
-:py:class:`~xradio.measurement_set.schema.SpectrumXds`):
+:py:class:`~xradio.measurement_set.schema.SpectrumXds`). 
 
-* ``UNSPECIFIED_BIT`` = 0 (reserved for unspecified flag reason)
-* ``STATIC_BIT`` = 1
-* ``CAM_BIT`` = 2
-* ``DATA_LOST_BIT`` = 3
-* ``INGEST_RFI_BIT`` = 4
-* ``PREDICTED_RFI_BIT`` = 5
-* ``CAL_RFI_BIT`` = 6
-* ``POSTPROC_BIT`` = 7
+* ``UNSPECIFIED_BIT`` (default bit 0): reserved for unspecified flag reason
+* ``STATIC_BIT`` (default bit 1): predefined static flag list
+* ``CAM_BIT`` (default bit 2): flag based on live CAM information
+* ``DATA_LOST_BIT`` (default bit 3): no data was received
+* ``INGEST_RFI_BIT`` (default bit 4): RFI detected in ingest
+* ``PREDICTED_RFI_BIT`` (default bit 5): RFI predicted from space based pollutants
+* ``CAL_RFI_BIT`` (default bit 6): RFI detected in calibration
+* ``POSTPROC_BIT`` (default bit 7): some correction/postprocessing step could not be applied
 
 These bits are derived from usage in MeerKat (see
 `flags.py <https://github.com/ska-sa/katdal/blob/0840fd86ca4954168cacf4cb785eb00afef121b4/katdal/flags.py>`_).
-The flag value is calculated as
-``(1 << X_BIT1) | (1 << X_BIT2) | ...`` for all applying flag reasons.

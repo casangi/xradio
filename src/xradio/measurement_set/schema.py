@@ -803,13 +803,29 @@ class FlagArray:
     When the type is boolean, data is flagged as bad if the array element is
     ``True``. When the type is integer, data is flagged if the array element is
     nonzero, and the bits can be used to represented different flag categories
-    (see :ref:`flag bits`). 
+    (see ``flag_bits`` attribute). 
     """
     time: Coordof[TimeCoordArray]
     baseline_id: Optional[Coordof[BaselineArray]]  # Only IF
     antenna_name: Optional[Coordof[AntennaNameArray]]  # Only SD
     frequency: Coordof[FrequencyArray]
     polarization: Optional[Coordof[PolarizationArray]] = None
+    """
+    Labels associated with bits used in ``FlagArray`` data. See
+    :ref:`flag bits`_ for suggested semantics. The flag value is
+    calculated as ``(1 << X_BIT1) | (1 << X_BIT2) | ...`` for all
+    applying flag reasons.
+    """
+    flag_bits: Optional[Attr[list[str]]] = (
+        "UNSPECIFIED_BIT",
+        "STATIC_BIT",
+        "CAM_BIT",
+        "DATA_LOST_BIT",
+        "INGEST_RFI_BIT",
+        "PREDICTED_RFI_BIT",
+        "CAL_RFI_BIT",
+        "POSTPROC_BIT",
+    )
     long_name: Optional[Attr[str]] = "Visibility flags"
 
     allow_multiple_versions: Optional[Attr[bool]] = True

@@ -257,7 +257,7 @@ class TimeArray:
     see :py:class:`astropy.time.Time`
     """
     format: Attr[AllowedTimeFormats] = "unix"
-    """Time representation and epoch, see :py:class:`TimeArray`."""
+    """Time representation and epoch, see :py:class:`~xradio.measurement_set.schema.TimeArray`."""
 
 
 # Taken from the list of astropy built-in frame classes:
@@ -303,18 +303,18 @@ class SkyCoordArray:
     type: Attr[SkyCoord] = "sky_coord"
     frame: Attr[AllowedSkyCoordFrames] = "icrs"
     """
-    Possible values are :py:class:`astropy.SkyCoord` frames.
+    Possible values are :py:class:`astropy.coordinates.SkyCoord` frames.
 
-    Several casacore frames found in MSv2 are translated to `astropy` frames as follows:
+    Several casacore frames found in MSv2 are translated to ``astropy`` frames as follows:
     
-    * `AZELGEO` => `altaz`
-    * `J2000` => `fk5`
-    * `ICRS` => `icrs`
+    * ``AZELGEO`` => ``altaz``
+    * ``J2000`` => ``fk5``
+    * ``ICRS`` => ``icrs``
 
-    From fixvis docs: clean and the `im` tool ignore the reference frame claimed
+    From ``fixvis`` docs: ``clean`` and the ``im`` tool ignore the reference frame claimed
     by the UVW column (it is often mislabelled as ITRF when it is really FK5
     or J2000) and instead assume the (u, v, w)s are in the same frame as the phase
-    tracking center. `calcuvw` does not yet force the UVW column and field centers
+    tracking center. ``calcuvw`` does not yet force the UVW column and field centers
     to use the same reference frame!
     """
 
@@ -337,12 +337,6 @@ class PointingBeamArray:
     units: Attr[UnitsOfSkyCoordInMetersOrRadians] = "rad"
     frame: Attr[AllowedSkyCoordFrames] = "icrs"
     """
-    From fixvis docs: clean and the `im` tool ignore the reference frame claimed
-    by the UVW column (it is often mislabelled as ITRF when it is really FK5
-    or J2000) and instead assume the (u, v, w)s are in the same frame as the phase
-    tracking center. `calcuvw` does not yet force the UVW column and field centers
-    to use the same reference frame!
-    
     Blank = use the phase tracking frame of vis.
     """
 
@@ -358,10 +352,10 @@ class LocalSkyCoordArray:
     units: Attr[UnitsOfSkyCoordInMetersOrRadians] = "rad"
     frame: Attr[AllowedSkyCoordFrames] = "icrs"
     """
-    From fixvis docs: clean and the `im` tool ignore the reference frame claimed
+    From ``fixvis`` docs: ``clean`` and the ``im`` tool ignore the reference frame claimed
     by the UVW column (it is often mislabelled as ITRF when it is really FK5
     or J2000) and instead assume the (u, v, w)s are in the same frame as the phase
-    tracking center. `calcuvw` does not yet force the UVW column and field centers
+    tracking center. ``calcuvw`` does not yet force the UVW column and field centers
     to use the same reference frame!
     
     Blank = use the phase tracking frame of vis.
@@ -371,12 +365,12 @@ class LocalSkyCoordArray:
 # Coordinates / Axes
 @xarray_dataarray_schema
 class TimeCoordArray:
-    """Data model of the main dataset time axis. See also :py:class:`TimeArray`."""
+    """Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`."""
 
     data: Data[Time, float]
     """
     Time, expressed in seconds since the epoch (see ``scale`` &
-    ``format``), see also see :py:class:`TimeArray`.
+    ``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.
     """
 
     type: Attr[Time] = "time"
@@ -386,10 +380,10 @@ class TimeCoordArray:
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
-    """ Astropy time scales, see :py:class:`TimeArray` """
+    """ Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` """
 
     format: Attr[AllowedTimeFormats] = "unix"
-    """ Astropy format, see :py:class:`TimeArray`"""
+    """ Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"""
 
     integration_time: Attr[QuantityInSecondsArray] = None
     """ The nominal sampling interval (ms v2). Units of seconds. """
@@ -403,7 +397,7 @@ class TimeInterpolatedCoordArray:
     pointing_xds, weather_xds, field_and_source_info_xds, and phase_cal_xds
     when their respective time_system_cal, time_pointing, time_weather,
     time_ephemeris or time_phase_cal are interpolated to the main dataset
-    time. See also :py:class:`TimeArray`.
+    time. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.
 
     The only difference with respect to the main TimeCoordArray is the
     absence of the attribute integration_time
@@ -412,7 +406,7 @@ class TimeInterpolatedCoordArray:
     data: Data[Time, float]
     """
     Time, expressed in seconds since the epoch (see ``scale`` &
-    ``format``), see also see :py:class:`TimeArray`.
+    ``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.
     """
 
     type: Attr[Time] = "time"
@@ -422,10 +416,10 @@ class TimeInterpolatedCoordArray:
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
-    """ Astropy time scales, see :py:class:`TimeArray` """
+    """ Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` """
 
     format: Attr[AllowedTimeFormats] = "unix"
-    """ Astropy format, see :py:class:`TimeArray`"""
+    """ Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"""
 
 
 @xarray_dataarray_schema
@@ -447,10 +441,10 @@ class TimeSystemCalCoordArray:
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
-    """ Astropy time scales, see :py:class:`TimeArray` """
+    """ Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` """
 
     format: Attr[AllowedTimeFormats] = "unix"
-    """ Astropy format, see :py:class:`TimeArray`"""
+    """ Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"""
 
 
 @xarray_dataarray_schema
@@ -472,10 +466,10 @@ class TimePointingCoordArray:
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
-    """ Astropy time scales, see :py:class:`TimeArray` """
+    """ Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` """
 
     format: Attr[AllowedTimeFormats] = "unix"
-    """ Astropy format, see :py:class:`TimeArray`"""
+    """ Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"""
 
 
 @xarray_dataarray_schema
@@ -497,10 +491,10 @@ class TimeEphemerisCoordArray:
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
-    """ Astropy time scales, see :py:class:`TimeArray` """
+    """ Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` """
 
     format: Attr[AllowedTimeFormats] = "unix"
-    """ Astropy format, see :py:class:`TimeArray`"""
+    """ Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"""
 
 
 @xarray_dataarray_schema
@@ -522,10 +516,10 @@ class TimeWeatherCoordArray:
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
-    """ Astropy time scales, see :py:class:`TimeArray` """
+    """ Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` """
 
     format: Attr[AllowedTimeFormats] = "unix"
-    """ Astropy format, see :py:class:`TimeArray`"""
+    """ Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"""
 
 
 # For now allowing both some of the casacore frames (from "REST" to "TOPO" -
@@ -648,7 +642,7 @@ class BaselineAntennaNameArray:
 @xarray_dataarray_schema
 class AntennaNameArray:
     """
-    Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibiiltyXds`)
+    Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibilityXds`)
     and several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.
     """
 
@@ -798,24 +792,16 @@ class FlagArray:
         ],
         Union[bool, numpy.uint8, numpy.uint16, numpy.uint32, numpy.uint64],
     ]
-    """
-    Flag value.
-    When the type is boolean, data is flagged as bad if the array element is
-    ``True``. When the type is integer, data is flagged if the array element is
-    nonzero, and the bits can be used to represented different flag categories
-    (see ``flag_bits`` attribute). 
-    """
+    """ Flag value.  Data is flagged as bad if the array element is
+    ``True`` or nonzero. If integer, the value should be calculated as
+    ``(1 << X_BIT1) | (1 << X_BIT2) | ...`` for all applying flag
+    reasons as indicated by the ``flag_bits`` attribute (see also
+    :ref:`flag bits`).  """
     time: Coordof[TimeCoordArray]
     baseline_id: Optional[Coordof[BaselineArray]]  # Only IF
     antenna_name: Optional[Coordof[AntennaNameArray]]  # Only SD
     frequency: Coordof[FrequencyArray]
     polarization: Optional[Coordof[PolarizationArray]] = None
-    """
-    Labels associated with bits used in ``FlagArray`` data. See
-    :ref:`flag bits`_ for suggested semantics. The flag value is
-    calculated as ``(1 << X_BIT1) | (1 << X_BIT2) | ...`` for all
-    applying flag reasons.
-    """
     flag_bits: Optional[Attr[list[str]]] = (
         "UNSPECIFIED_BIT",
         "STATIC_BIT",
@@ -826,6 +812,10 @@ class FlagArray:
         "CAL_RFI_BIT",
         "POSTPROC_BIT",
     )
+    """
+    Labels associated with bits used in ``FlagArray`` data. See
+    :ref:`flag bits` for suggested semantics.
+    """
     long_name: Optional[Attr[str]] = "Visibility flags"
 
     allow_multiple_versions: Optional[Attr[bool]] = True
@@ -1298,7 +1288,7 @@ class SpectrumArray:
 
 @xarray_dataarray_schema
 class VisibilityArray:
-    """Visibility data array in main dataset (interferometric data, :py:class:`VisibiiltyXds`)"""
+    """Visibility data array in main dataset (interferometric data, :py:class:`VisibilityXds`)"""
 
     data: Data[
         tuple[Time, BaselineId, Frequency, Polarization],
@@ -2070,12 +2060,12 @@ class VisibilityXds:
     """
     The integration time, including the effects of missing data, in contrast to
     ``integration_time`` attribute of the ``time`` coordinate,
-    see :py:class:`TimeArray`. (MS v2: ``exposure``).
+    see :py:class:`~xradio.measurement_set.schema.TimeArray`. (MS v2: ``exposure``).
     """
     TIME_CENTROID: Optional[Dataof[TimeSamplingArray]] = None
     """
     The time centroid of the visibility, includes the effects of missing data
-    unlike the ``time`` coordinate, see :py:class:`TimeArray`.
+    unlike the ``time`` coordinate, see :py:class:`~xradio.measurement_set.schema.TimeArray`.
     """
     TIME_CENTROID_EXTRA_PRECISION: Optional[Dataof[TimeSamplingArray]] = None
     """Additional precision for ``TIME_CENTROID``"""
@@ -2161,12 +2151,12 @@ class SpectrumXds:
     """
     The integration time, including the effects of missing data, in contrast to
     ``integration_time`` attribute of the ``time`` coordinate,
-    see :py:class:`TimeArray`. (MS v2: ``exposure``).
+    see :py:class:`~xradio.measurement_set.schema.TimeArray`. (MS v2: ``exposure``).
     """
     TIME_CENTROID: Optional[Dataof[TimeSamplingArray]] = None
     """
     The time centroid of the visibility, includes the effects of missing data
-    unlike the ``time`` coordinate, see :py:class:`TimeArray`.
+    unlike the ``time`` coordinate, see :py:class:`~xradio.measurement_set.schema.TimeArray`.
     """
     TIME_CENTROID_EXTRA_PRECISION: Optional[Dataof[TimeSamplingArray]] = None
     """Additional precision for ``TIME_CENTROID``"""

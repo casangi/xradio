@@ -1,4 +1,3 @@
-
 Schemas
 =======
 
@@ -170,6 +169,22 @@ Bulk data gathered into :ref:`correlated data datasets`.
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.FrequencyCentroidArray
 
+.. autoclass:: xradio.measurement_set.schema.PointingBeamArray()
+
+   .. xradio_array_schema_table:: xradio.measurement_set.schema.PointingBeamArray
+
+.. autoclass:: xradio.measurement_set.schema.LocalSkyCoordArray()
+
+   .. xradio_array_schema_table:: xradio.measurement_set.schema.LocalSkyCoordArray
+
+.. autoclass:: xradio.measurement_set.schema.PhasedArrayCoordinateAxesArray()
+
+   .. xradio_array_schema_table:: xradio.measurement_set.schema.PhasedArrayCoordinateAxesArray
+
+.. autoclass:: xradio.measurement_set.schema.PhasedArrayElementOffsetArray()
+
+   .. xradio_array_schema_table:: xradio.measurement_set.schema.PhasedArrayElementOffsetArray
+
 .. _correlated data coordinates:
 
 Coordinates
@@ -318,11 +333,12 @@ Note: the list is to be extended.
 Flag Bits
 ~~~~~~~~~
 
-When :py:class:`~xradio.measurement_set.schema.FlagArray` is integer data type,
-bits indicate flagging reason
-(see ``FLAG`` data variable and ``flag_bits`` attribute in
+When :py:class:`~xradio.measurement_set.schema.FlagArray` is integer
+data type, bits indicate flagging reason (see ``FLAG`` data variable
+and ``flag_bits`` attribute in
 :py:class:`~xradio.measurement_set.schema.VisibilityXds` and
-:py:class:`~xradio.measurement_set.schema.SpectrumXds`). 
+:py:class:`~xradio.measurement_set.schema.SpectrumXds`). Suggested
+flag bits:
 
 * ``UNSPECIFIED_BIT`` (default bit 0): reserved for unspecified flag reason
 * ``STATIC_BIT`` (default bit 1): predefined static flag list

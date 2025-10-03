@@ -57,7 +57,7 @@
           ],
           "name": "scale",
           "default": "utc",
-          "docstring": "Astropy time scales, see :py:class:`TimeArray` "
+          "docstring": "Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` "
         },
         {
           "$class": "AttrSchemaRef",
@@ -70,7 +70,7 @@
           ],
           "name": "format",
           "default": "unix",
-          "docstring": "Astropy format, see :py:class:`TimeArray`"
+          "docstring": "Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"
         },
         {
           "$class": "AttrSchemaRef",
@@ -113,8 +113,8 @@
           "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
         }
       ],
-      "class_docstring": "Data model of the main dataset time axis. See also :py:class:`TimeArray`.",
-      "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`TimeArray`.",
+      "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.",
+      "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.",
       "name": "time",
       "optional": false,
       "docstring": "The time coordinate is the mid-point of the nominal sampling interval, as\nspeciﬁed in the ``ms_v4.time.attrs['integration_time']`` (ms v2 interval)."
@@ -141,7 +141,7 @@
           "docstring": null
         }
       ],
-      "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibiiltyXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
+      "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibilityXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
       "data_docstring": "Unique name for each antenna(_station).",
       "name": "antenna_name",
       "optional": false,
@@ -558,7 +558,7 @@
               ],
               "name": "scale",
               "default": "utc",
-              "docstring": "Astropy time scales, see :py:class:`TimeArray` "
+              "docstring": "Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` "
             },
             {
               "$class": "AttrSchemaRef",
@@ -571,7 +571,7 @@
               ],
               "name": "format",
               "default": "unix",
-              "docstring": "Astropy format, see :py:class:`TimeArray`"
+              "docstring": "Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"
             },
             {
               "$class": "AttrSchemaRef",
@@ -614,8 +614,8 @@
               "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
             }
           ],
-          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`TimeArray`.",
-          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`TimeArray`.",
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.",
           "name": "time",
           "optional": false
         },
@@ -641,7 +641,7 @@
               "docstring": null
             }
           ],
-          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibiiltyXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
+          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibilityXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
           "data_docstring": "Unique name for each antenna(_station).",
           "name": "antenna_name",
           "optional": false
@@ -1006,7 +1006,7 @@
               ],
               "name": "scale",
               "default": "utc",
-              "docstring": "Astropy time scales, see :py:class:`TimeArray` "
+              "docstring": "Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` "
             },
             {
               "$class": "AttrSchemaRef",
@@ -1019,7 +1019,7 @@
               ],
               "name": "format",
               "default": "unix",
-              "docstring": "Astropy format, see :py:class:`TimeArray`"
+              "docstring": "Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"
             },
             {
               "$class": "AttrSchemaRef",
@@ -1062,8 +1062,8 @@
               "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
             }
           ],
-          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`TimeArray`.",
-          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`TimeArray`.",
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.",
           "name": "time",
           "optional": false
         },
@@ -1117,7 +1117,7 @@
               "docstring": null
             }
           ],
-          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibiiltyXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
+          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibilityXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
           "data_docstring": "Unique name for each antenna(_station).",
           "name": "antenna_name",
           "optional": true
@@ -1390,8 +1390,7 @@
           "class_docstring": "Possible correlations that can be formed from polarised receptors. Possible\nvalues, taken from `Measures/Stokes.h\n<https://github.com/casacore/casacore/blob/5a8df94738bdc36be27e695d7b14fe949a1cc2df/measures/Measures/Stokes.h>`_:\n\n* ``I``, ``Q``, ``U``, ``V`` (standard stokes parameters)\n* ``RR``, ``RL``, ``LR``, ``LL`` (circular correlation products)\n* ``XX``, ``XY``, ``YX``, ``YY`` (linear correlation products)\n* ``RX``, ``RY``, ``LX``, ``LY``, ``XR``, ``XL``, ``YR``, ``YL`` (mixed correlation products)\n* ``PP``, ``PQ``, ``QP``, ``QQ`` (general quasi-orthogonal correlation products)\n* ``RCircular``, ``LCircular``, ``Linear`` (single dish polarization types)\n* ``Ptotal`` (polarized intensity: ``sqrt(Q²+U²+V²)``)\n* ``Plinear`` (linearly polarized intensity: ``sqrt(Q²+U²)``)\n* ``PFtotal`` (polarization fraction: ``Ptotal/I``)\n* ``PFlinear`` (linear polarization fraction: ``Plinear/I``)\n* ``Pangle`` (linear polarization angle: ``0.5 arctan(U/Q)`` in radians)",
           "data_docstring": "Polarization names. ",
           "name": "polarization",
-          "optional": true,
-          "docstring": "Labels associated with bits used in ``FlagArray`` data. See\n:ref:`flag bits`_ for suggested semantics. The flag value is\ncalculated as ``(1 << X_BIT1) | (1 << X_BIT2) | ...`` for all\napplying flag reasons."
+          "optional": true
         }
       ],
       "attributes": [
@@ -1410,7 +1409,7 @@
             "CAL_RFI_BIT",
             "POSTPROC_BIT"
           ],
-          "docstring": null
+          "docstring": "Labels associated with bits used in ``FlagArray`` data. See\n:ref:`flag bits` for suggested semantics."
         },
         {
           "$class": "AttrSchemaRef",
@@ -1430,7 +1429,7 @@
         }
       ],
       "class_docstring": "An array of Boolean or integer values with the same shape as ``VISIBILITY``\nor ``SPECTRUM``,\nrepresenting the cumulative flags applying to this data matrix.",
-      "data_docstring": "Flag value.\nWhen the type is boolean, data is flagged as bad if the array element is\n``True``. When the type is integer, data is flagged if the array element is\nnonzero, and the bits can be used to represented different flag categories\n(see ``flag_bits`` attribute). ",
+      "data_docstring": "Flag value.  Data is flagged as bad if the array element is\n``True`` or nonzero. If integer, the value should be calculated as\n``(1 << X_BIT1) | (1 << X_BIT2) | ...`` for all applying flag\nreasons as indicated by the ``flag_bits`` attribute (see also\n:ref:`flag bits`).  ",
       "name": "FLAG",
       "optional": false
     },
@@ -1498,7 +1497,7 @@
               ],
               "name": "scale",
               "default": "utc",
-              "docstring": "Astropy time scales, see :py:class:`TimeArray` "
+              "docstring": "Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` "
             },
             {
               "$class": "AttrSchemaRef",
@@ -1511,7 +1510,7 @@
               ],
               "name": "format",
               "default": "unix",
-              "docstring": "Astropy format, see :py:class:`TimeArray`"
+              "docstring": "Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"
             },
             {
               "$class": "AttrSchemaRef",
@@ -1554,8 +1553,8 @@
               "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
             }
           ],
-          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`TimeArray`.",
-          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`TimeArray`.",
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.",
           "name": "time",
           "optional": false
         },
@@ -1609,7 +1608,7 @@
               "docstring": null
             }
           ],
-          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibiiltyXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
+          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibilityXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
           "data_docstring": "Unique name for each antenna(_station).",
           "name": "antenna_name",
           "optional": true
@@ -1952,7 +1951,7 @@
       "data_docstring": null,
       "name": "EFFECTIVE_INTEGRATION_TIME",
       "optional": true,
-      "docstring": "The integration time, including the effects of missing data, in contrast to\n``integration_time`` attribute of the ``time`` coordinate,\nsee :py:class:`TimeArray`. (MS v2: ``exposure``)."
+      "docstring": "The integration time, including the effects of missing data, in contrast to\n``integration_time`` attribute of the ``time`` coordinate,\nsee :py:class:`~xradio.measurement_set.schema.TimeArray`. (MS v2: ``exposure``)."
     },
     {
       "$class": "ArraySchemaRef",
@@ -2014,7 +2013,7 @@
               ],
               "name": "scale",
               "default": "utc",
-              "docstring": "Astropy time scales, see :py:class:`TimeArray` "
+              "docstring": "Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` "
             },
             {
               "$class": "AttrSchemaRef",
@@ -2027,7 +2026,7 @@
               ],
               "name": "format",
               "default": "unix",
-              "docstring": "Astropy format, see :py:class:`TimeArray`"
+              "docstring": "Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"
             },
             {
               "$class": "AttrSchemaRef",
@@ -2070,8 +2069,8 @@
               "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
             }
           ],
-          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`TimeArray`.",
-          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`TimeArray`.",
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.",
           "name": "time",
           "optional": false
         },
@@ -2125,7 +2124,7 @@
               "docstring": null
             }
           ],
-          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibiiltyXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
+          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibilityXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
           "data_docstring": "Unique name for each antenna(_station).",
           "name": "antenna_name",
           "optional": true
@@ -2184,7 +2183,7 @@
       "data_docstring": null,
       "name": "TIME_CENTROID",
       "optional": true,
-      "docstring": "The time centroid of the visibility, includes the effects of missing data\nunlike the ``time`` coordinate, see :py:class:`TimeArray`."
+      "docstring": "The time centroid of the visibility, includes the effects of missing data\nunlike the ``time`` coordinate, see :py:class:`~xradio.measurement_set.schema.TimeArray`."
     },
     {
       "$class": "ArraySchemaRef",
@@ -2246,7 +2245,7 @@
               ],
               "name": "scale",
               "default": "utc",
-              "docstring": "Astropy time scales, see :py:class:`TimeArray` "
+              "docstring": "Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` "
             },
             {
               "$class": "AttrSchemaRef",
@@ -2259,7 +2258,7 @@
               ],
               "name": "format",
               "default": "unix",
-              "docstring": "Astropy format, see :py:class:`TimeArray`"
+              "docstring": "Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"
             },
             {
               "$class": "AttrSchemaRef",
@@ -2302,8 +2301,8 @@
               "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
             }
           ],
-          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`TimeArray`.",
-          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`TimeArray`.",
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.",
           "name": "time",
           "optional": false
         },
@@ -2357,7 +2356,7 @@
               "docstring": null
             }
           ],
-          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibiiltyXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
+          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibilityXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
           "data_docstring": "Unique name for each antenna(_station).",
           "name": "antenna_name",
           "optional": true
@@ -2723,7 +2722,7 @@
               ],
               "name": "scale",
               "default": "utc",
-              "docstring": "Astropy time scales, see :py:class:`TimeArray` "
+              "docstring": "Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` "
             },
             {
               "$class": "AttrSchemaRef",
@@ -2736,7 +2735,7 @@
               ],
               "name": "format",
               "default": "unix",
-              "docstring": "Astropy format, see :py:class:`TimeArray`"
+              "docstring": "Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"
             },
             {
               "$class": "AttrSchemaRef",
@@ -2779,8 +2778,8 @@
               "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
             }
           ],
-          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`TimeArray`.",
-          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`TimeArray`.",
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.",
           "name": "time",
           "optional": true
         },

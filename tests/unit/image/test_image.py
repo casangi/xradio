@@ -1119,7 +1119,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
         """
         download(self._imname3)
         self.assertTrue(
-            os.path.isdir(self._imname3), f"Cound not download {self._imname3}"
+            os.path.isdir(self._imname3), f"Could not download {self._imname3}"
         )
         for do_sky, outname, out_1, out_2 in zip(
             [True, False],

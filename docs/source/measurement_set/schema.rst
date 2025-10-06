@@ -303,7 +303,7 @@ in the ``intents`` field of the
 
 * ``ON SOURCE`` : on-source measurement
 * ``OFF SOURCE`` : off-source measurement
-* ``MIXED`` : Pointing measurement, some antennas are on -ource, some off-source
+* ``MIXED`` : Pointing measurement, some antennas are on-source, some off-source
 * ``REFERENCE`` : reference measurement (used for boresight in holography).
 * ``SCANNING`` : antennas are scanning.
 * ``HOT`` : hot load measurement.

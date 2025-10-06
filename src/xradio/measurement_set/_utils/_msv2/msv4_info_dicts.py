@@ -318,7 +318,7 @@ def search_entity_id(entity_ref_xml: str) -> str:
     --------
     str
         the entityId string value of the EntityRef received, or
-        the smae string as received if no entityId could be found.
+        the same string as received if no entityId could be found.
     """
     uid_match = re.search('entityId="([\\w/:]+)"', entity_ref_xml)
     entity_id = uid_match.group(1) if uid_match else entity_ref_xml

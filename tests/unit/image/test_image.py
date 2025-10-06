@@ -1060,7 +1060,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
         """
         download(self._imname2), f"failed to download {self._imname2}"
         self.assertTrue(
-            os.path.isdir(self._imname2), f"Cound not download {self._imname2}"
+            os.path.isdir(self._imname2), f"Could not download {self._imname2}"
         )
         shutil.copytree(self._imname2, self._outname6)
         # multibeam image

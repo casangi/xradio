@@ -66,7 +66,7 @@ class AttrSchemaRef(ValueSchema):
     name: str = ""
     """Name of attribute as given in data array / dataset."""
     default: typing.Optional[typing.Any] = None
-    """If optional - what is the default value?"""
+    """If optional: what is the default value?"""
     docstring: str = ""
     """Documentation string of attribute reference"""
 

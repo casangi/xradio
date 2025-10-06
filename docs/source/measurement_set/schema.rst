@@ -225,6 +225,10 @@ as frequencies or timestamps.
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.UvwLabelArray
 
+.. autoclass:: xradio.measurement_set.schema.ScanArray()
+
+   .. xradio_array_schema_table:: xradio.measurement_set.schema.ScanArray
+
 .. autoclass:: xradio.measurement_set.schema.TimeInterpolatedCoordArray()
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.TimeInterpolatedCoordArray

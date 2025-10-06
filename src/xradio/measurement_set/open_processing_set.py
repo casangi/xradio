@@ -5,7 +5,7 @@ import xarray as xr
 
 def open_processing_set(
     ps_store: str,
-    scan_intents: list = None,
+    scan_intents: list | None = None,
 ) -> xr.DataTree:
     """Creates a lazy representation of a Processing Set (only meta-data is loaded into memory).
 
@@ -13,7 +13,7 @@ def open_processing_set(
     ----------
     ps_store : str
         String of the path and name of the processing set. For example '/users/user_1/uid___A002_Xf07bba_Xbe5c_target.lsrk.vis.zarr'.
-    scan_intents : list, optional
+    scan_intents : str | None, optional
         A list of scan_intents to be opened for example ['OBSERVE_TARGET#ON_SOURCE']. The scan_intents in a processing_set_xdt can be seen by calling processing_set_xdt.ps.summary().
         By default None, which will include all scan_intents.
 

@@ -1,6 +1,6 @@
 import toolviper.utils.logger as logger
 import numcodecs
-from typing import Dict, Union
+from typing import Dict, Union, Literal
 import time
 
 import dask
@@ -66,8 +66,8 @@ def convert_msv2_to_processing_set(
     use_table_iter: bool = False,
     compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
     add_reshaping_indices: bool = False,
-    storage_backend: str = "zarr",
-    parallel_mode: str = "none",
+    storage_backend: Literal["zarr", "netcdf"] = "zarr",
+    parallel_mode: Literal["none", "partition", "time"] = "none",
     overwrite: bool = False,
 ):
     """Convert a Measurement Set v2 into a Processing Set of Measurement Set v4.
@@ -104,9 +104,9 @@ def convert_msv2_to_processing_set(
         The Blosc compressor to use when saving the converted data to disk using Zarr, by default numcodecs.Zstd(level=2).
     add_reshaping_indices : bool, optional
         Whether to add the tidxs, bidxs and row_id variables to each partition of the main dataset. These can be used to reshape the data back to the original ordering in the MS v2. This is mainly intended for testing and debugging, by default False.
-    storage_backend : {"zarr", "netcdf"}, optional
+    storage_backend : Literal["zarr", "netcdf"], optional
         The on-disk format to use. "netcdf" is not yet implemented.
-    parallel_mode : {"none", "partition", "time"}, optional
+    parallel_mode : Literal["none", "partition", "time"], optional
         Choose whether to use Dask to execute conversion in parallel, by default "none" and conversion occurs serially.
         The option "partition", parallelises the conversion over partitions specified by `partition_scheme`. The option "time" can only be used for phased array interferometers where there are no partitions
         in the MS v2; instead the MS v2 is parallelised along the time dimension and can be controlled by `main_chunksize`.

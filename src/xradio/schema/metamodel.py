@@ -137,7 +137,7 @@ class ArraySchemaRef(ArraySchema):
     optional: bool
     """Is the data array optional?"""
     default: typing.Optional[typing.Any] = None
-    """If optional - what is the default value?"""
+    """If optional: what is the default value?"""
     docstring: typing.Optional[str] = None
     """Documentation string of array reference"""
 

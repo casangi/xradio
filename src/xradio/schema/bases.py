@@ -1,3 +1,20 @@
+"""
+Class decorators to generate schemas from suitably annotated Python
+class definition. This approach was essentially
+copied from https://pypi.org/project/xarray-dataclasses/, though our
+implementation differs in a number of critical ways:
+
+* We use custom decorators on the classes instead of base classes. This
+  especially overrides the existing constructor, which makes it easier to
+  directly construct instances and allows for extra data variables
+  and attributes.
+
+* We support multiple options for types and dimensions
+
+* We convert the schema definition into our own meta-model, which facilitates
+  generating documentation generation using Sphinx
+"""
+
 import xarray
 import inspect
 from . import dataclass, check, metamodel, typing
@@ -166,12 +183,12 @@ def xarray_dataarray_schema(cls):
     """Decorator for classes representing :py:class:`xarray.DataArray` schemas.
     The annotated class should exactly contain:
 
-    * one field called "``data``" annotated with :py:data:`~typing.Data`
+    * one field called "``data``" annotated with :py:data:`~xradio.schema.typing.Data`
       to indicate the array type
-    * fields annotated with :py:data:`~typing.Coord` to indicate mappings of
+    * fields annotated with :py:data:`~xradio.schema.typing.Coord` to indicate mappings of
       dimensions to coordinates (coordinates directly associated with dimensions
       should have the same name as the dimension)
-    * fields annotated with :py:data:`~typing.Attr` to declare attributes
+    * fields annotated with :py:data:`~xradio.schema.typing.Attr` to declare attributes
 
     Decorated schema classes can be used with
     :py:func:`~xradio.schema.check.check_array` for checking
@@ -252,10 +269,6 @@ def xarray_dataarray_schema(cls):
 
 def is_dataarray_schema(val: typing.Any):
     return type(val) == type and hasattr(val, "__xradio_array_schema")
-
-
-class AsDataArray:
-    __new__ = _dataarray_new
 
 
 def _dataset_new(cls, *args, data_vars=None, coords=None, attrs=None, **kwargs):
@@ -379,12 +392,12 @@ def xarray_dataset_schema(cls):
     """Decorator for classes representing :py:class:`xarray.Dataset` schemas.
     The annotated class should exactly contain:
 
-    * fields annotated with :py:data:`~typing.Coord` to indicate mappings of
+    * fields annotated with :py:data:`~xradio.schema.typing.Coord` to indicate mappings of
       dimensions to coordinates (coordinates directly associated with dimensions
       should have the same name as the dimension)
-    * fields annotated with :py:data:`~typing.Data`
+    * fields annotated with :py:data:`~xradio.schema.typing.Data`
       to indicate data variables
-    * fields annotated with :py:data:`~typing.Attr` to declare attributes
+    * fields annotated with :py:data:`~xradio.schema.typing.Attr` to declare attributes
 
     Decorated schema classes can be used with
     :py:func:`~xradio.schema.check.check_dataset` for checking
@@ -411,15 +424,6 @@ def xarray_dataset_schema(cls):
 
 def is_dataset_schema(val: typing.Any):
     return type(val) == type and hasattr(val, "__xradio_dataset_schema")
-
-
-class AsDataset:
-    """Mix-in class to indicate dataset data classes
-
-    Deprecated - use decorator :py:func:`xarray_dataset_schema` instead
-    """
-
-    __new__ = _dataset_new
 
 
 def _dict_new(cls, *args, **kwargs):
@@ -466,12 +470,3 @@ def dict_schema(cls):
 
 def is_dict_schema(val: typing.Any):
     return type(val) == type and hasattr(val, "__xradio_dict_schema")
-
-
-class AsDict:
-    """Mix-in class to indicate dictionary data classes
-
-    Deprecated - use decorator :py:func:`dict_schema` instead
-    """
-
-    __new__ = _dict_new

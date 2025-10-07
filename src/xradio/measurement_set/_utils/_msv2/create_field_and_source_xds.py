@@ -819,7 +819,9 @@ def extract_field_info_and_check_ephemeris(
     # Need to check if ephemeris_id is present and if ephemeris table is present.
     if "EPHEMERIS_ID" in field_xds:
         # Note: this assumes partition_scheme includes "FIELD_ID"
-        ephemeris_id = check_if_consistent(field_xds.EPHEMERIS_ID, "EPHEMERIS_ID")
+        ephemeris_id = check_if_consistent(
+            field_xds.EPHEMERIS_ID, "EPHEMERIS_ID", taql_where
+        )
 
         if ephemeris_id > -1:
             files = os.listdir(os.path.join(in_file, "FIELD"))

@@ -57,7 +57,7 @@
           ],
           "name": "scale",
           "default": "utc",
-          "docstring": "Astropy time scales, see :py:class:`TimeArray` "
+          "docstring": "Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` "
         },
         {
           "$class": "AttrSchemaRef",
@@ -70,7 +70,7 @@
           ],
           "name": "format",
           "default": "unix",
-          "docstring": "Astropy format, see :py:class:`TimeArray`"
+          "docstring": "Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"
         },
         {
           "$class": "AttrSchemaRef",
@@ -113,8 +113,8 @@
           "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
         }
       ],
-      "class_docstring": "Data model of the main dataset time axis. See also :py:class:`TimeArray`.",
-      "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`TimeArray`.",
+      "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.",
+      "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.",
       "name": "time",
       "optional": false,
       "docstring": "The time coordinate is the mid-point of the nominal sampling interval, as\nspeciﬁed in the ``ms_v4.time.attrs['integration_time']`` (ms v2 interval)."
@@ -141,7 +141,7 @@
           "docstring": null
         }
       ],
-      "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibiiltyXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
+      "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibilityXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
       "data_docstring": "Unique name for each antenna(_station).",
       "name": "antenna_name",
       "optional": false,
@@ -168,8 +168,8 @@
         },
         {
           "$class": "AttrSchemaRef",
-          "type": "str",
-          "name": "spectral_window_intent",
+          "type": "list[str]",
+          "name": "spectral_window_intents",
           "docstring": "An intent string that identifies the intention of the spectral window, for example\ncontinuum, spectral line, etc. See :ref:`spw intents` for possible values. "
         },
         {
@@ -440,6 +440,40 @@
     },
     {
       "$class": "ArraySchemaRef",
+      "schema_name": "xradio.measurement_set.schema.ScanArray",
+      "dimensions": [
+        [
+          "time"
+        ]
+      ],
+      "dtypes": [
+        "<U0"
+      ],
+      "coordinates": [],
+      "attributes": [
+        {
+          "$class": "AttrSchemaRef",
+          "type": "list[str]",
+          "name": "scan_intents",
+          "docstring": "An intent string identifies one intention of the scan, such as to calibrate or observe a\ntarget. See :ref:`scan intents` for possible intent/subintent values. When converting from MSv2,\nthe list of intents is derived from the OBS_MODE column of MSv2 state table (every comma\nseparated value is taken as an intent).\nA common convention used in the MSv2 OBS_MODE column is to specify multiple intents separated\nby commas, each of them giving a main intent and a subintent separated by a '#' character. This\nis represented in this attribute as a list of \"intent#subintent\" strings. These are a few\nexample lists:\n[\"CALIBRATE_DELAY#ON_SOURCE\" , \"CALIBRATE_PHASE#ON_SOURCE\", \"CALIBRATE_WVR#ON_SOURCE\"],\n[\"CALIBRATE_FLUX#ON_SOURCE\" , \"CALIBRATE_WVR#ON_SOURCE\"],\n[\"CALIBRATE_POINTING#ON_SOURCE\", \"CALIBRATE_WVR#ON_SOURCE\", \"CALIBRATE_DELAY#ON_SOURCE\"],\n[\"CALIBRATE_ATMOSPHERE#AMBIENT\", \"CALIBRATE_WVR#AMBIENT\"],\n[\"CALIBRATE_FOCUS#ON_SOURCE\" , \"CALIBRATE_WVR#ON_SOURCE\"],\n[\"OBSERVE_TARGET#ON_SOURCE\"], or [\"OBSERVE_TARGE#UNSPECIFIED\"].\nThe list of possible intent and subintent names (see :ref:`scan intents`) is derived from the\nrespective ASDM enumerations."
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "long_name",
+          "default": "Scan name",
+          "docstring": "Long-form name to use for axis. Should be ``\"Scan name\"``."
+        }
+      ],
+      "class_docstring": "Scan number coordinate in the main dataset.",
+      "data_docstring": "Scan name for each time sample.",
+      "name": "scan_name",
+      "optional": false,
+      "docstring": "Arbitary scan name to identify data taken in the same logical scan."
+    },
+    {
+      "$class": "ArraySchemaRef",
       "schema_name": null,
       "dimensions": [
         [
@@ -457,25 +491,6 @@
       "name": "polarization_mixed",
       "optional": true,
       "docstring": "If the polarizations are not constant over antennas. For mixed polarizations one would\nuse ['PP', 'PQ', 'QP', 'QQ'] as the polarization labels and then specify here the\nactual polarization basis for each antenna using labels from the set of\ncombinations of 'X', 'Y', 'R' and 'L'."
-    },
-    {
-      "$class": "ArraySchemaRef",
-      "schema_name": null,
-      "dimensions": [
-        [
-          "time"
-        ]
-      ],
-      "dtypes": [
-        "<U0"
-      ],
-      "coordinates": [],
-      "attributes": [],
-      "class_docstring": null,
-      "data_docstring": null,
-      "name": "scan_name",
-      "optional": true,
-      "docstring": "Arbitary scan name to identify data taken in the same logical scan."
     }
   ],
   "data_vars": [
@@ -543,7 +558,7 @@
               ],
               "name": "scale",
               "default": "utc",
-              "docstring": "Astropy time scales, see :py:class:`TimeArray` "
+              "docstring": "Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` "
             },
             {
               "$class": "AttrSchemaRef",
@@ -556,7 +571,7 @@
               ],
               "name": "format",
               "default": "unix",
-              "docstring": "Astropy format, see :py:class:`TimeArray`"
+              "docstring": "Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"
             },
             {
               "$class": "AttrSchemaRef",
@@ -599,8 +614,8 @@
               "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
             }
           ],
-          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`TimeArray`.",
-          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`TimeArray`.",
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.",
           "name": "time",
           "optional": false
         },
@@ -626,7 +641,7 @@
               "docstring": null
             }
           ],
-          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibiiltyXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
+          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibilityXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
           "data_docstring": "Unique name for each antenna(_station).",
           "name": "antenna_name",
           "optional": false
@@ -652,8 +667,8 @@
             },
             {
               "$class": "AttrSchemaRef",
-              "type": "str",
-              "name": "spectral_window_intent",
+              "type": "list[str]",
+              "name": "spectral_window_intents",
               "docstring": "An intent string that identifies the intention of the spectral window, for example\ncontinuum, spectral line, etc. See :ref:`spw intents` for possible values. "
             },
             {
@@ -991,7 +1006,7 @@
               ],
               "name": "scale",
               "default": "utc",
-              "docstring": "Astropy time scales, see :py:class:`TimeArray` "
+              "docstring": "Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` "
             },
             {
               "$class": "AttrSchemaRef",
@@ -1004,7 +1019,7 @@
               ],
               "name": "format",
               "default": "unix",
-              "docstring": "Astropy format, see :py:class:`TimeArray`"
+              "docstring": "Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"
             },
             {
               "$class": "AttrSchemaRef",
@@ -1047,8 +1062,8 @@
               "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
             }
           ],
-          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`TimeArray`.",
-          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`TimeArray`.",
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.",
           "name": "time",
           "optional": false
         },
@@ -1102,7 +1117,7 @@
               "docstring": null
             }
           ],
-          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibiiltyXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
+          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibilityXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
           "data_docstring": "Unique name for each antenna(_station).",
           "name": "antenna_name",
           "optional": true
@@ -1128,8 +1143,8 @@
             },
             {
               "$class": "AttrSchemaRef",
-              "type": "str",
-              "name": "spectral_window_intent",
+              "type": "list[str]",
+              "name": "spectral_window_intents",
               "docstring": "An intent string that identifies the intention of the spectral window, for example\ncontinuum, spectral line, etc. See :ref:`spw intents` for possible values. "
             },
             {
@@ -1381,6 +1396,23 @@
       "attributes": [
         {
           "$class": "AttrSchemaRef",
+          "type": "list[str]",
+          "optional": true,
+          "name": "flag_bits",
+          "default": [
+            "UNSPECIFIED_BIT",
+            "STATIC_BIT",
+            "CAM_BIT",
+            "DATA_LOST_BIT",
+            "INGEST_RFI_BIT",
+            "PREDICTED_RFI_BIT",
+            "CAL_RFI_BIT",
+            "POSTPROC_BIT"
+          ],
+          "docstring": "Labels associated with bits used in ``FlagArray`` data. See\n:ref:`flag bits` for suggested semantics."
+        },
+        {
+          "$class": "AttrSchemaRef",
           "type": "str",
           "optional": true,
           "name": "long_name",
@@ -1396,8 +1428,8 @@
           "docstring": null
         }
       ],
-      "class_docstring": "An array of Boolean values with the same shape as `VISIBILITY`,\nrepresenting the cumulative flags applying to this data matrix. Data are\nflagged bad if the ``FLAG`` array element is ``True``.",
-      "data_docstring": null,
+      "class_docstring": "An array of Boolean or integer values with the same shape as ``VISIBILITY``\nor ``SPECTRUM``,\nrepresenting the cumulative flags applying to this data matrix.",
+      "data_docstring": "Flag value.  Data is flagged as bad if the array element is\n``True`` or nonzero. If integer, the value should be calculated as\n``(1 << X_BIT1) | (1 << X_BIT2) | ...`` for all applying flag\nreasons as indicated by the ``flag_bits`` attribute (see also\n:ref:`flag bits`).  ",
       "name": "FLAG",
       "optional": false
     },
@@ -1465,7 +1497,7 @@
               ],
               "name": "scale",
               "default": "utc",
-              "docstring": "Astropy time scales, see :py:class:`TimeArray` "
+              "docstring": "Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` "
             },
             {
               "$class": "AttrSchemaRef",
@@ -1478,7 +1510,7 @@
               ],
               "name": "format",
               "default": "unix",
-              "docstring": "Astropy format, see :py:class:`TimeArray`"
+              "docstring": "Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"
             },
             {
               "$class": "AttrSchemaRef",
@@ -1521,8 +1553,8 @@
               "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
             }
           ],
-          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`TimeArray`.",
-          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`TimeArray`.",
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.",
           "name": "time",
           "optional": false
         },
@@ -1576,7 +1608,7 @@
               "docstring": null
             }
           ],
-          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibiiltyXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
+          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibilityXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
           "data_docstring": "Unique name for each antenna(_station).",
           "name": "antenna_name",
           "optional": true
@@ -1602,8 +1634,8 @@
             },
             {
               "$class": "AttrSchemaRef",
-              "type": "str",
-              "name": "spectral_window_intent",
+              "type": "list[str]",
+              "name": "spectral_window_intents",
               "docstring": "An intent string that identifies the intention of the spectral window, for example\ncontinuum, spectral line, etc. See :ref:`spw intents` for possible values. "
             },
             {
@@ -1870,7 +1902,7 @@
           "docstring": null
         }
       ],
-      "class_docstring": "The weight for each channel, with the same shape as the associated\n:py:class:`VisibilityArray`, as assigned by the correlator or processor.\n\nWeight spectrum in ms v2 is renamed weight. Should be calculated as\n1/sigma^2 (sigma rms noise).",
+      "class_docstring": "The weight for each channel, with the same shape as the associated\n:py:class:`VisibilityArray` or :py:class:`SpectrumArray`, as assigned\nby the correlator or processor.\n\nWeights are channel-dependent in MSv4, and therefore equivalent to the\n``WEIGHT_SPECTRUM`` column from MSv2. Should be calculated as\n``1/sigma^2`` (sigma root mean square noise).",
       "data_docstring": "Visibility weights",
       "name": "WEIGHT",
       "optional": false
@@ -1919,7 +1951,7 @@
       "data_docstring": null,
       "name": "EFFECTIVE_INTEGRATION_TIME",
       "optional": true,
-      "docstring": "The integration time, including the effects of missing data, in contrast to\n``integration_time`` attribute of the ``time`` coordinate,\nsee :py:class:`TimeArray`. (MS v2: ``exposure``)."
+      "docstring": "The integration time, including the effects of missing data, in contrast to\n``integration_time`` attribute of the ``time`` coordinate,\nsee :py:class:`~xradio.measurement_set.schema.TimeArray`. (MS v2: ``exposure``)."
     },
     {
       "$class": "ArraySchemaRef",
@@ -1981,7 +2013,7 @@
               ],
               "name": "scale",
               "default": "utc",
-              "docstring": "Astropy time scales, see :py:class:`TimeArray` "
+              "docstring": "Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` "
             },
             {
               "$class": "AttrSchemaRef",
@@ -1994,7 +2026,7 @@
               ],
               "name": "format",
               "default": "unix",
-              "docstring": "Astropy format, see :py:class:`TimeArray`"
+              "docstring": "Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"
             },
             {
               "$class": "AttrSchemaRef",
@@ -2037,8 +2069,8 @@
               "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
             }
           ],
-          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`TimeArray`.",
-          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`TimeArray`.",
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.",
           "name": "time",
           "optional": false
         },
@@ -2092,7 +2124,7 @@
               "docstring": null
             }
           ],
-          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibiiltyXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
+          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibilityXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
           "data_docstring": "Unique name for each antenna(_station).",
           "name": "antenna_name",
           "optional": true
@@ -2151,7 +2183,7 @@
       "data_docstring": null,
       "name": "TIME_CENTROID",
       "optional": true,
-      "docstring": "The time centroid of the visibility, includes the effects of missing data\nunlike the ``time`` coordinate, see :py:class:`TimeArray`."
+      "docstring": "The time centroid of the visibility, includes the effects of missing data\nunlike the ``time`` coordinate, see :py:class:`~xradio.measurement_set.schema.TimeArray`."
     },
     {
       "$class": "ArraySchemaRef",
@@ -2213,7 +2245,7 @@
               ],
               "name": "scale",
               "default": "utc",
-              "docstring": "Astropy time scales, see :py:class:`TimeArray` "
+              "docstring": "Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` "
             },
             {
               "$class": "AttrSchemaRef",
@@ -2226,7 +2258,7 @@
               ],
               "name": "format",
               "default": "unix",
-              "docstring": "Astropy format, see :py:class:`TimeArray`"
+              "docstring": "Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"
             },
             {
               "$class": "AttrSchemaRef",
@@ -2269,8 +2301,8 @@
               "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
             }
           ],
-          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`TimeArray`.",
-          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`TimeArray`.",
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.",
           "name": "time",
           "optional": false
         },
@@ -2324,7 +2356,7 @@
               "docstring": null
             }
           ],
-          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibiiltyXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
+          "class_docstring": "Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibilityXds`)\nand several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.",
           "data_docstring": "Unique name for each antenna(_station).",
           "name": "antenna_name",
           "optional": true
@@ -2421,8 +2453,8 @@
             },
             {
               "$class": "AttrSchemaRef",
-              "type": "str",
-              "name": "spectral_window_intent",
+              "type": "list[str]",
+              "name": "spectral_window_intents",
               "docstring": "An intent string that identifies the intention of the spectral window, for example\ncontinuum, spectral line, etc. See :ref:`spw intents` for possible values. "
             },
             {
@@ -2690,7 +2722,7 @@
               ],
               "name": "scale",
               "default": "utc",
-              "docstring": "Astropy time scales, see :py:class:`TimeArray` "
+              "docstring": "Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` "
             },
             {
               "$class": "AttrSchemaRef",
@@ -2703,7 +2735,7 @@
               ],
               "name": "format",
               "default": "unix",
-              "docstring": "Astropy format, see :py:class:`TimeArray`"
+              "docstring": "Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"
             },
             {
               "$class": "AttrSchemaRef",
@@ -2746,8 +2778,8 @@
               "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
             }
           ],
-          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`TimeArray`.",
-          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`TimeArray`.",
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.",
           "name": "time",
           "optional": true
         },
@@ -2884,8 +2916,8 @@
             },
             {
               "$class": "AttrSchemaRef",
-              "type": "str",
-              "name": "spectral_window_intent",
+              "type": "list[str]",
+              "name": "spectral_window_intents",
               "docstring": "An intent string that identifies the intention of the spectral window, for example\ncontinuum, spectral line, etc. See :ref:`spw intents` for possible values. "
             },
             {
@@ -3169,72 +3201,45 @@
           {
             "$class": "AttrSchemaRef",
             "type": "str",
-            "name": "project",
-            "docstring": "Project Code/Project_UID"
-          },
-          {
-            "$class": "AttrSchemaRef",
-            "type": "str",
             "name": "release_date",
             "docstring": "Project release date. This is the date on which the data may become\npublic. Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"
           },
           {
             "$class": "AttrSchemaRef",
             "type": "str",
-            "optional": true,
-            "name": "execution_block_id",
-            "docstring": "ASDM: Indicates the position of the execution block in the project\n(sequential numbering starting at 1).  "
-          },
-          {
-            "$class": "AttrSchemaRef",
-            "type": "int",
-            "optional": true,
-            "name": "execution_block_number",
-            "docstring": "ASDM: Indicates the position of the execution block in the project\n(sequential numbering starting at 1)."
+            "name": "project_UID",
+            "docstring": "Project UID/code. When populated from an ASDM, the entityId string of the projectUID\nattribute of the ExecBlock table."
           },
           {
             "$class": "AttrSchemaRef",
             "type": "str",
             "optional": true,
             "name": "execution_block_UID",
-            "docstring": "ASDM: The archive’s UID of the execution block."
+            "docstring": "From ASDM: The archive’s UID of the execution block. Intended to be populated with the\nentityId string of the execBlockUID attribute of the ExecBlock table."
           },
           {
             "$class": "AttrSchemaRef",
             "type": "str",
             "optional": true,
-            "name": "session_reference",
-            "docstring": "ASDM: The observing session reference."
-          },
-          {
-            "$class": "AttrSchemaRef",
-            "type": "str",
-            "optional": true,
-            "name": "observing_script",
-            "docstring": "ASDM: The text of the observation script."
-          },
-          {
-            "$class": "AttrSchemaRef",
-            "type": "str",
-            "optional": true,
-            "name": "observing_script_UID",
-            "docstring": "ASDM: A reference to the Entity which contains the observing script."
+            "name": "session_reference_UID",
+            "docstring": "From ASDM: The observing session reference. Intended to be populated with the entityId\nstring of the sessionReference attribute of the ExecBlock table"
           },
           {
             "$class": "AttrSchemaRef",
             "type": "str",
             "optional": true,
             "name": "observing_log",
-            "docstring": "ASDM: Logs of the observation during this execu- tion block."
+            "docstring": "The observing log, as supplied by the telescope or instrument. Or also from ASDM: Logs of\nthe observation during this execution block. When taken from an ASDM, it is intended to be\npopulated with the values of the observingLog attribute of the ExecBlock table."
           },
           {
             "$class": "AttrSchemaRef",
-            "type": "list[str]",
-            "name": "intents",
-            "docstring": "An intent string identifies one intention of the scan, such as to calibrate or observe a\ntarget. See :ref:`scan intents` for possible intent/subintent values. When converting from MSv2,\nthe list of intents is derived from the OBS_MODE column of MSv2 state table (every comma\nseparated value is taken as an intent).\nA common convention used in the MSv2 OBS_MODE column is to specify multiple intents separated\nby commas, each of them giving a main intent and a subintent separated by a '#' character. This\nis represented in this attribute as a list of \"intent#subintent\" strings. These are a few\nexample lists:\n[\"CALIBRATE_DELAY#ON_SOURCE\" , \"CALIBRATE_PHASE#ON_SOURCE\", \"CALIBRATE_WVR#ON_SOURCE\"],\n[\"CALIBRATE_FLUX#ON_SOURCE\" , \"CALIBRATE_WVR#ON_SOURCE\"],\n[\"CALIBRATE_POINTING#ON_SOURCE\", \"CALIBRATE_WVR#ON_SOURCE\", \"CALIBRATE_DELAY#ON_SOURCE\"],\n[\"CALIBRATE_ATMOSPHERE#AMBIENT\", \"CALIBRATE_WVR#AMBIENT\"],\n[\"CALIBRATE_FOCUS#ON_SOURCE\" , \"CALIBRATE_WVR#ON_SOURCE\"],\n[\"OBSERVE_TARGET#ON_SOURCE\"], or [\"OBSERVE_TARGE#UNSPECIFIED\"].\nThe list of possible intent and subintent names (see :ref:`scan intents`) is derived from the\nrespective ASDM enumerations."
+            "type": "str",
+            "optional": true,
+            "name": "scheduling_block_UID",
+            "docstring": "From ASDM: The scheduling block archive’s UID. Intended to be populated with the entityId\nstring of the sbSummaryUID attribute of the SBSummary table. "
           }
         ],
-        "class_docstring": "ObservationInfoDict(observer: 'list[str]', project: 'str', release_date: 'str', execution_block_id: 'Optional[str]', execution_block_number: 'Optional[int]', execution_block_UID: 'Optional[str]', session_reference: 'Optional[str]', observing_script: 'Optional[str]', observing_script_UID: 'Optional[str]', observing_log: 'Optional[str]', intents: 'list[str]')"
+        "class_docstring": "ObservationInfoDict(observer: 'list[str]', release_date: 'str', project_UID: 'str', execution_block_UID: 'Optional[str]', session_reference_UID: 'Optional[str]', observing_log: 'Optional[str]', scheduling_block_UID: 'Optional[str]')"
       },
       "name": "observation_info",
       "docstring": null

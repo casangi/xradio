@@ -1059,6 +1059,9 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
         irint("*** r", r)
         """
         download(self._imname2), f"failed to download {self._imname2}"
+        self.assertTrue(
+            os.path.isdir(self._imname2), f"Could not download {self._imname2}"
+        )
         shutil.copytree(self._imname2, self._outname6)
         # multibeam image
         with open_image_ro(self._imname2) as im1:
@@ -1115,6 +1118,9 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
         https://github.com/casangi/xradio/issues/48
         """
         download(self._imname3)
+        self.assertTrue(
+            os.path.isdir(self._imname3), f"Could not download {self._imname3}"
+        )
         for do_sky, outname, out_1, out_2 in zip(
             [True, False],
             [self._outname3, self._outname3_no_sky],

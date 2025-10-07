@@ -206,16 +206,23 @@ class MeasurementSetXdt:
         if "spectral_window_intent" not in self._xdt.frequency.attrs:
             spw_intent = "UNSPECIFIED"
         else:
-            spw_intent = self._xdt.frequency.attrs["spectral_window_intent"]
+            spw_intent = self._xdt.frequency.attrs["spectral_window_intents"]
+
+        if "intents" in self._xdt.observation_info:
+            scan_intents = self._xdt.observation_info["intents"]
+        else:
+            scan_intents = self._xdt.scan_name.attrs.get(
+                "scan_intents", ["UNSPECIFIED"]
+            )
 
         partition_info = {
             "spectral_window_name": self._xdt.frequency.attrs["spectral_window_name"],
-            "spectral_window_intent": spw_intent,
+            "spectral_window_intents": spw_intent,
             "field_name": to_list(np.unique(field_and_source_xds.field_name.values)),
             "polarization_setup": to_list(self._xdt.polarization.values),
             "scan_name": to_list(np.unique(self._xdt.scan_name.values)),
             "source_name": to_list(np.unique(field_and_source_xds.source_name.values)),
-            "intents": self._xdt.observation_info["intents"],
+            "scan_intents": scan_intents,
             "line_name": line_name,
             "data_group_name": data_group_name,
         }

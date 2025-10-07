@@ -117,7 +117,7 @@ Example:
     ::
 
         @dataclass
-        class Image(AsDataArray):
+        class Image():
             data: Data[tuple[X, Y], float]
             long_name: Attr[str] = "luminance"
             units: Attr[str] = "cd / m^2"
@@ -140,7 +140,7 @@ Example:
     ::
 
         @dataclass
-        class Image(AsDataArray):
+        class Image():
             data: Data[tuple[X, Y], float]
             mask: Coord[tuple[X, Y], bool]
             x: Coord[X, int] = 0
@@ -174,13 +174,10 @@ Example:
 
 
         @dataclass
-        class Image(AsDataArray):
+        class Image():
             data: Data[tuple[X, Y], float]
             x: Coordof[XAxis] = 0
             y: Coordof[YAxis] = 0
-
-Hint:
-    A class used in ``Coordof`` does not need to inherit ``AsDataArray``.
 
 """
 
@@ -192,13 +189,13 @@ Example:
     (the second and subsequent data fields are just ignored)::
 
         @dataclass
-        class Image(AsDataArray):
+        class Image():
             data: Data[tuple[X, Y], float]
 
     Multiple data fields are allowed in a Dataset class::
 
         @dataclass
-        class ColorImage(AsDataset):
+        class ColorImage():
             red: Data[tuple[X, Y], float]
             green: Data[tuple[X, Y], float]
             blue: Data[tuple[X, Y], float]
@@ -222,13 +219,10 @@ Example:
 
 
         @dataclass
-        class ColorImage(AsDataset):
+        class ColorImage():
             red: Dataof[Image]
             green: Dataof[Image]
             blue: Dataof[Image]
-
-Hint:
-    A class used in ``Dataof`` does not need to inherit ``AsDataArray``.
 
 """
 
@@ -239,7 +233,7 @@ Example:
     ::
 
         @dataclass
-        class Image(AsDataArray):
+        class Image():
             data: Data[tuple[X, Y], float]
             name: Name[str] = "image"
 

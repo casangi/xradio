@@ -67,7 +67,7 @@ They are typically associated with an SI unit.
 
 .. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInPerSquareMetersArray
 
-.. \_measures:
+.. _measures:
 
 Measures
 --------

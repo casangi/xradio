@@ -5,8 +5,8 @@ Definitions not specific to a particular dataset schema.
 
 .. \_quantities:
 
-Quantites
----------
+Quantities
+----------
 
 Quantity
 `DataArrays <https://docs.xarray.dev/en/stable/generated/xarray.DataArray.html>`__

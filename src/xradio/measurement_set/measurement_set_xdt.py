@@ -203,7 +203,7 @@ class MeasurementSetXdt:
         else:
             line_name = []
 
-        if "spectral_window_intent" not in self._xdt.frequency.attrs:
+        if "spectral_window_intents" not in self._xdt.frequency.attrs:
             spw_intent = "UNSPECIFIED"
         else:
             spw_intent = self._xdt.frequency.attrs["spectral_window_intents"]

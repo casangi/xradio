@@ -245,8 +245,7 @@ class ProcessingSetXdt:
             summary_data["scheduling_block_UID"].append(
                 observation_info.get("scheduling_block_UID", "---")
             )
-            summary_data["project_UID"].append(observation_info["project_UID"])
-
+            summary_data["project_UID"].append(observation_info.get("project_UID", "---"))
             summary_data["start_frequency"].append(
                 to_list(value["frequency"].values)[0]
             )

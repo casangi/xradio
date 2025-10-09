@@ -329,6 +329,9 @@ of the ``frequency`` coordinate of measurement sets
 
 * ``TEST`` : reserved for development.
 * ``UNSPECIFIED`` : Unspecified SPW intent.
+* ``CONTINUUM`` : Continuum observation.
+* ``CUBE`` : Spectral cube observation.
+* ``CUBE_HANNING`` : Spectral cube observation with Hanning smoothing.
 
 Note: the list is to be extended.
 

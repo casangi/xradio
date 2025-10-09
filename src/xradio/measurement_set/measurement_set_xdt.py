@@ -214,8 +214,6 @@ class MeasurementSetXdt:
             scan_intents = self._xdt.scan_name.attrs.get(
                 "scan_intents", ["UNSPECIFIED"]
             )
-            
-        
 
         partition_info = {
             "spectral_window_name": self._xdt.frequency.attrs["spectral_window_name"],

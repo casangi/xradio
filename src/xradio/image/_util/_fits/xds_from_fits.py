@@ -799,9 +799,9 @@ def _add_sky_or_aperture(
         pp = da if type(xda[0].data) == dask.array.core.Array else np
         mask = pp.isnan(xda)
         mask.attrs = {}
-        mask = mask.rename("MASK0")
-        xds["MASK0"] = mask
-        xda.attrs["active_mask"] = "MASK0"
+        mask = mask.rename("MASK_0")
+        xds["MASK_0"] = mask
+        xda.attrs["active_mask"] = "MASK_0"
     xda = xda.rename(name)
     xds[xda.name] = xda
     return xds

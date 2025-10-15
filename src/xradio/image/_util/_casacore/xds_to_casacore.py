@@ -5,6 +5,7 @@ import dask.array as da
 import numpy as np
 import xarray as xr
 from astropy.coordinates import Angle
+from astropy import units as apu
 
 try:
     from casacore import tables
@@ -22,6 +23,7 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
     for a CASA image coordinate system
     """
     direction = {}
+
     xds_dir = xds.attrs["direction"]
     direction["_axes_sizes"] = np.array(
         [xds.sizes[dim] for dim in ("l", "m")], dtype=np.int32
@@ -93,10 +95,9 @@ def _compute_spectral_dict(xds: xr.Dataset) -> dict:
     spec["system"] = xds.frequency.attrs["reference_frequency"]["attrs"][
         "observer"
     ].upper()
-    u = xds.frequency.attrs["reference_frequency"]["attrs"]["units"]
-    spec["unit"] = u
+    spec["unit"] = xds.frequency.attrs["reference_frequency"]["attrs"]["units"]
     spec["velType"] = _doppler_types.index(xds.velocity.attrs["doppler_type"])
-    u = xds.velocity.attrs["units"]
+    # u = xds.velocity.attrs["units"]
     spec["version"] = 2
     # vel unit is a list[str] in the xds but needs to be a str in the casa image
     spec["velUnit"] = xds.velocity.attrs["units"]
@@ -106,7 +107,14 @@ def _compute_spectral_dict(xds: xr.Dataset) -> dict:
     wcs["ctype"] = "FREQ"
     wcs["pc"] = 1.0
     wcs["crval"] = float(xds.frequency.attrs["reference_frequency"]["data"])
-    wcs["cdelt"] = float(xds.frequency.values[1] - xds.frequency.values[0])
+    if len(xds.frequency.values) > 1:
+        wcs["cdelt"] = float(xds.frequency.values[1] - xds.frequency.values[0])
+    else:
+        # TODO this is just a temporary fix, likely schema will be updated to include chan widths
+        myu = apu.Unit(spec["unit"])
+        mydel = 1.8 * apu.GHz
+        my_del_converted = mydel.to(spec["unit"])
+        wcs["cdelt"] = my_del_converted.value
     wcs["crpix"] = float((wcs["crval"] - xds.frequency.values[0]) / wcs["cdelt"])
     spec["wcs"] = wcs
     return spec
@@ -238,10 +246,10 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
         pp["nChannels"] = xds.sizes["frequency"]
         pp["nStokes"] = xds.sizes["polarization"]
 
-        bu = xds.BEAM.attrs["units"]
+        bu = xds.BEAM_FIT_PARAMS.attrs["units"]
         chan = 0
         polarization = 0
-        bv = xds.BEAM.values
+        bv = xds.BEAM_FIT_PARAMS.values
         for i in range(pp["nChannels"] * pp["nStokes"]):
             bp = bv[0][chan][polarization][:]
             b = {

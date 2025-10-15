@@ -38,12 +38,12 @@ def test_get_partition_info():
                 key in partition_info
                 for key in [
                     "spectral_window_name",
-                    "spectral_window_intent",
+                    "spectral_window_intents",
                     "field_name",
                     "polarization_setup",
                     "scan_name",
                     "source_name",
-                    "intents",
+                    "scan_intents",
                     "line_name",
                 ]
             ]
@@ -95,7 +95,7 @@ expected_partition_info_fields = [
     "polarization_setup",
     "scan_name",
     "source_name",
-    "intents",
+    "scan_intents",
     "line_name",
     "data_group_name",
 ]

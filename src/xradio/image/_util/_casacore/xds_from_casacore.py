@@ -180,11 +180,14 @@ def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = True) -> d
     defmask = "Image_defaultmask"
     with open_table_ro(image.name()) as casa_table:
         # the actual mask is a data var and data var names are all caps by convention
-        attrs[_active_mask] = (
-            casa_table.getkeyword(defmask).upper()
-            if defmask in casa_table.keywordnames()
-            else None
-        )
+        import re
+
+        if defmask in casa_table.keywordnames():
+            am = casa_table.getkeyword(defmask).upper()
+            am = re.sub(r"\bMASK(\d+)\b", r"MASK_\1", am)
+        else:
+            am = None
+        attrs[_active_mask] = am
     attrs["description"] = None
     # if also loading history, put it as another xds in the image attrs
     if history:

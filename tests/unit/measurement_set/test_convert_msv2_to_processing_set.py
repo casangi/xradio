@@ -82,11 +82,11 @@ def test_convert_msv2_to_processing_set_with_other_opts(ms_minimal_misbehaved):
             overwrite=False,
             parallel_mode="bogus_mode",
         )
-        ps_xdt = xr.open_datatree(out_path_with_ending)
+        ps_xdt = xr.open_datatree(out_path_with_ending, engine="zarr")
         check_datatree(ps_xdt)
 
         # TODO: break this out to a proper test_open_processing_set:
-        open_xdt = open_processing_set(out_path_with_ending, intents="faulty")
+        open_xdt = open_processing_set(out_path_with_ending, scan_intents="faulty")
         check_datatree(open_xdt)
 
     finally:

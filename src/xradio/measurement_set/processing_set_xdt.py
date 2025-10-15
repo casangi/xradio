@@ -37,19 +37,35 @@ class ProcessingSetXdt:
         self._xdt = datatree
         self.meta = {"summary": {}}
 
-    def summary(self, data_group: str = None) -> pd.DataFrame:
+    def summary(
+        self, data_group: str | None = None, first_columns: list[str] = None
+    ) -> pd.DataFrame:
         """
-        Generate and retrieve a summary of the Processing Set.
+        Generate and retrieve a summary of the Processing Set as a data frame.
 
         The summary includes information such as the names of the Measurement Sets,
         their intents, polarizations, spectral window names, field names, source names,
         field coordinates, start frequencies, and end frequencies.
+
+        To prioritize certain columns depending on the context, the order in which the
+        columns of the data frame are sorted can be modified from the default
+        (first_columns parameter).
 
         Parameters
         ----------
         data_group : str, optional
             The data group to summarize. By default the "base" group
             is used (if found), or otherwise the first group found.
+        first_columns : list[str], optional
+            List of columns to be sorted first. Currently, the columns included in the
+            summary frame are, in this order: "name", "scan_intents", "shape",
+            "execution_block_UID", "polarization", "scan_name", "spw_name",
+            "spw_intents", "field_name", "source_name", "line_name", "field_coords",
+            "session_reference_UID", "scheduling_block_UID", "project_UID",
+            "start_frequency", "end_frequency".
+            For example, with first_columns=["spw_name", "scan_name"] one can print
+            these two columns first, followed by all the other columns in their usual
+            order.
 
         Returns
         -------
@@ -76,12 +92,22 @@ class ProcessingSetXdt:
         data_group = find_data_group_base_or_first(data_group, self._xdt)
 
         if data_group in self.meta["summary"]:
-            return self.meta["summary"][data_group]
+            summary = self.meta["summary"][data_group]
         else:
             self.meta["summary"][data_group] = self._summary(data_group).sort_values(
                 by=["name"], ascending=True
             )
-            return self.meta["summary"][data_group]
+            summary = self.meta["summary"][data_group]
+
+        if first_columns:
+            found_columns = [col for col in first_columns if col in summary.columns]
+            if found_columns:
+                all_columns = (
+                    found_columns + summary.columns.drop(found_columns).tolist()
+                )
+                summary = summary[all_columns]
+
+        return summary
 
     def get_max_dims(self) -> dict[str, int]:
         """
@@ -164,16 +190,20 @@ class ProcessingSetXdt:
     def _summary(self, data_group: str = None):
         summary_data = {
             "name": [],
-            "intents": [],
+            "scan_intents": [],
             "shape": [],
+            "execution_block_UID": [],
             "polarization": [],
             "scan_name": [],
             "spw_name": [],
-            "spw_intent": [],
+            "spw_intents": [],
             "field_name": [],
             "source_name": [],
             "line_name": [],
             "field_coords": [],
+            "session_reference_UID": [],
+            "scheduling_block_UID": [],
+            "project_UID": [],
             "start_frequency": [],
             "end_frequency": [],
         }
@@ -182,11 +212,17 @@ class ProcessingSetXdt:
 
         for key, value in self._xdt.items():
             partition_info = value.xr_ms.get_partition_info()
+            observation_info = value.observation_info
 
             summary_data["name"].append(key)
-            summary_data["intents"].append(partition_info["intents"])
+            summary_data["scan_intents"].append(partition_info["scan_intents"])
+            summary_data["execution_block_UID"].append(
+                observation_info.get("execution_block_UID", "---")
+            )
             summary_data["spw_name"].append(partition_info["spectral_window_name"])
-            summary_data["spw_intent"].append(partition_info["spectral_window_intent"])
+            summary_data["spw_intents"].append(
+                partition_info["spectral_window_intents"]
+            )
             summary_data["polarization"].append(value.polarization.values)
             summary_data["scan_name"].append(partition_info["scan_name"])
             data_name = value.attrs["data_groups"][data_group]["correlated_data"]
@@ -201,9 +237,17 @@ class ProcessingSetXdt:
 
             summary_data["field_name"].append(partition_info["field_name"])
             summary_data["source_name"].append(partition_info["source_name"])
-
             summary_data["line_name"].append(partition_info["line_name"])
 
+            summary_data["session_reference_UID"].append(
+                observation_info.get("session_reference_UID", "---")
+            )
+            summary_data["scheduling_block_UID"].append(
+                observation_info.get("scheduling_block_UID", "---")
+            )
+            summary_data["project_UID"].append(
+                observation_info.get("project_UID", "---")
+            )
             summary_data["start_frequency"].append(
                 to_list(value["frequency"].values)[0]
             )
@@ -242,7 +286,7 @@ class ProcessingSetXdt:
 
         This method allows filtering the Processing Set by matching column names and values
         or by applying a Pandas query string. The selection criteria can target various
-        attributes of the Measurement Sets such as intents, polarization, spectral window names, etc.
+        attributes of the Measurement Sets such as scan_intents, polarization, spectral window names, etc.
 
         A data group can be selected by name by using the `data_group_name` parameter. This is applied to each Measurement Set in the Processing Set.
 
@@ -270,8 +314,8 @@ class ProcessingSetXdt:
 
         Examples
         --------
-        >>> # Select all MSs with intents 'OBSERVE_TARGET#ON_SOURCE' and polarization 'RR' or 'LL'
-        >>> selected_ps_xdt = ps_xdt.xr_ps.query(intents='OBSERVE_TARGET#ON_SOURCE', polarization=['RR', 'LL'])
+        >>> # Select all MSs with scan_intents 'OBSERVE_TARGET#ON_SOURCE' and polarization 'RR' or 'LL'
+        >>> selected_ps_xdt = ps_xdt.xr_ps.query(scan_intents='OBSERVE_TARGET#ON_SOURCE', polarization=['RR', 'LL'])
 
         >>> # Select all MSs with start_frequency greater than 100 GHz and less than 200 GHz
         >>> selected_ps_xdt = ps_xdt.xr_ps.query(query='start_frequency > 100e9 AND end_frequency < 200e9')
@@ -878,3 +922,17 @@ class ProcessingSetXdt:
             fig.canvas.mpl_connect("motion_notify_event", antenna_hover)
 
         plt.show()
+
+    def get_ms_xdt(self):
+        """Returns the Measurement Set associated with this Processing Set if there is only a single Measurement Set.
+
+        Returns
+        -------
+        xr.DataTree
+            The Measurement Set Data Tree object.
+        """
+
+        assert (
+            len(self._xdt.children) == 1
+        ), "Processing Set contains multiple Measurement Sets and cannot determine which to return."
+        return list(self._xdt.children.values())[0]

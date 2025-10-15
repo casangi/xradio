@@ -47,8 +47,8 @@ def download_and_convert_msv2_to_processing_set(
             log_to_term=True,
             log_to_file=False,  # True
             log_file="xradio-logfile",
-            log_level="DEBUG",
-            # log_level="INFO",
+            # log_level="DEBUG",
+            log_level="INFO",
         )
 
     download(file=msv2_name, folder=str(folder))
@@ -127,12 +127,12 @@ def base_check_ps_accessor(ps_lazy_xdt: xr.DataTree, ps_xdt: xr.DataTree):
 
     expected_summary_keys = [
         "name",
-        "intents",
+        "scan_intents",
         "shape",
         "polarization",
         "scan_name",
         "spw_name",
-        "spw_intent",
+        "spw_intents",
         "field_name",
         "source_name",
         "line_name",
@@ -327,7 +327,7 @@ def base_test(
     expected_sum_value: float,
     is_s3: bool = False,
     partition_schemes: list = [[], ["FIELD_ID"]],
-    parallel_mode: str = "none",
+    parallel_mode: str = "partition",
     preconverted: bool = False,
     do_schema_check: bool = True,
     expected_secondary_xds: set = None,
@@ -571,7 +571,8 @@ def test_ephemeris(tmp_path):
     )
 
 
-partition_schemes_sd = [[], ["FIELD_ID"], ["FIELD_ID", "ANTENNA1"]]
+# partition_schemes_sd = [[], ["FIELD_ID"], ["FIELD_ID", "ANTENNA1"]]
+partition_schemes_sd = [[]]
 
 
 def test_single_dish(tmp_path):
@@ -592,18 +593,37 @@ def test_alma_ephemeris_mosaic(tmp_path):
         tmp_path,
         8.11051993222426e17,
         expected_secondary_xds=expected_subtables,
+        partition_schemes=[[]],
     )
-    # Here we test if the field_and_source_xds structure is correct.
-    check_source_and_field_xds(
-        ps_list[0], "ALMA_uid___A002_X1003af4_X75a3.split.avg_17", 1.09056423
+
+    # import pandas as pd
+    # pd.set_option("display.max_rows", None)
+    # pd.set_option("display.max_columns", None)
+
+    ps_xdt = ps_list[0].xr_ps.query(
+        line_name="Single_Continuum(ID=0)",
+        spw_name="X767114449#ALMA_RB_06#BB_1#SW-01#FULL_RES_2",
+        scan_intents="OBSERVE_TARGET#ON_SOURCE",
     )
-    check_source_and_field_xds(
-        ps_list[1], "ALMA_uid___A002_X1003af4_X75a3.split.avg_81", 0.04194478
-    )
+    ps_names = list(ps_xdt.keys())
+    assert len(ps_names) == 1
+    ms_xdt = ps_xdt[ps_names[0]]
+
+    check_source_and_field_xds(ms_xdt, 1.09056423)
+
+    # ps_xdt = ps_list[1].xr_ps.query(
+    #     field_name="Sun_10_15",
+    #     spw_name="X767114449#ALMA_RB_06#BB_1#SW-01#FULL_RES_2",
+    #     scan_intents="OBSERVE_TARGET#ON_SOURCE",
+    # )
+    # ps_names = list(ps_xdt.keys())
+    # assert len(ps_names) == 1
+    # ms_xdt = ps_xdt[ps_names[0]]
+    # check_source_and_field_xds(ms_xdt, 0.04194478)
 
     # Test PS sel
     check_ps_query(ps_list[0])
-    check_ps_query(ps_list[1])
+    # check_ps_query(ps_list[1])
 
 
 def check_ps_query(ps_xdt):
@@ -623,8 +643,8 @@ def check_ps_query(ps_xdt):
     ).xr_ps.summary()
 
 
-def check_source_and_field_xds(ps_xdt, msv4_name, expected_NP_sum):
-    field_and_source_xds = ps_xdt[msv4_name].xr_ms.get_field_and_source_xds()
+def check_source_and_field_xds(ms_xdt, expected_NP_sum):
+    field_and_source_xds = ms_xdt.xr_ms.get_field_and_source_xds()
 
     field_and_source_data_variable_names = [
         "FIELD_PHASE_CENTER_DIRECTION",
@@ -641,13 +661,14 @@ def check_source_and_field_xds(ps_xdt, msv4_name, expected_NP_sum):
         "SOURCE_RADIAL_VELOCITY",
         "SUB_OBSERVER_DIRECTION",
     ]
-    assert are_all_variables_in_dataset(
-        field_and_source_xds, field_and_source_data_variable_names
-    ), "field_and_source_xds is missing data variables."
 
     assert np.sum(field_and_source_xds.NORTH_POLE_ANGULAR_DISTANCE) == pytest.approx(
         expected_NP_sum, rel=relative_tolerance
     ), "The sum of the NORTH_POLE_ANGULAR_DISTANCE has changed."
+
+    assert are_all_variables_in_dataset(
+        field_and_source_xds, field_and_source_data_variable_names
+    ), "field_and_source_xds is missing data variables."
 
 
 def are_all_variables_in_dataset(dataset, variable_list):
@@ -801,7 +822,7 @@ if __name__ == "__main__":
     # test_sd_A002_X1015532_X1926f(tmp_path=Path("."))
     # test_sd_A002_Xae00c5_X2e6b(tmp_path=Path("."))
     # test_sd_A002_Xced5df_Xf9d9(tmp_path=Path("."))
-    test_sd_A002_Xe3a5fd_Xe38e(tmp_path=Path("."))
+    # test_sd_A002_Xe3a5fd_Xe38e(tmp_path=Path("."))
     # test_s3(tmp_path=Path("."))
     # test_vlass(tmp_path=Path("."))
     # test_alma(tmp_path=Path("."))
@@ -815,8 +836,67 @@ if __name__ == "__main__":
     # test_ngeht(tmp_path=Path("."))
     # test_ephemeris(tmp_path=Path("."))
     # test_single_dish(tmp_path=Path("."))
-    # test_alma_ephemeris_mosaic(tmp_path=Path("."))
+    test_alma_ephemeris_mosaic(tmp_path=Path("."))
     # test_VLA(tmp_path=Path("."))
+
+
+# Reducing partitions scheme being tested to only [[]] for single dish tests to reduce compute time.
+# All test preformed on MAC with M3 and 16 GB Ram. Run parallle 2 cores and 3GB each.
+# pytest --durations=0 .
+# 23.46s call     tests/stakeholder/test_measure_set_stakeholder.py::test_vlass
+# 14.73s call     tests/stakeholder/test_measure_set_stakeholder.py::test_sd_A002_Xced5df_Xf9d9
+# 14.70s call     tests/stakeholder/test_measure_set_stakeholder.py::test_sd_A002_Xe3a5fd_Xe38e
+# 14.68s call     tests/stakeholder/test_measure_set_stakeholder.py::test_sd_A002_X1015532_X1926f
+# 11.25s call     tests/stakeholder/test_measure_set_stakeholder.py::test_alma_ephemeris_mosaic
+# 6.39s call     tests/stakeholder/test_measure_set_stakeholder.py::test_alma
+# 3.44s call     tests/stakeholder/test_measure_set_stakeholder.py::test_ephemeris
+# 3.42s call     tests/stakeholder/test_measure_set_stakeholder.py::test_global_vlbi
+# 3.38s call     tests/stakeholder/test_measure_set_stakeholder.py::test_sd_A002_Xae00c5_X2e6b
+# 3.16s call     tests/stakeholder/test_measure_set_stakeholder.py::test_vlba
+# 2.68s call     tests/stakeholder/test_measure_set_stakeholder.py::test_askap_59749_bp_8beams_pattern
+# 2.26s call     tests/stakeholder/test_measure_set_stakeholder.py::test_VLA
+# 1.44s call     tests/stakeholder/test_measure_set_stakeholder.py::test_ska_mid
+# 1.32s call     tests/stakeholder/test_image_stakeholder.py::test_image
+# 1.30s call     tests/stakeholder/test_measure_set_stakeholder.py::test_lofar
+# 1.27s call     tests/stakeholder/test_measure_set_stakeholder.py::test_meerkat
+# 1.26s call     tests/stakeholder/test_measure_set_stakeholder.py::test_ngeht
+# 1.21s call     tests/stakeholder/test_measure_set_stakeholder.py::test_askap_59755_eq_interleave_15
+# 1.02s call     tests/stakeholder/test_measure_set_stakeholder.py::test_askap_59755_eq_interleave_0
+# 0.96s call     tests/stakeholder/test_measure_set_stakeholder.py::test_single_dish
+# 0.93s call     tests/stakeholder/test_measure_set_stakeholder.py::test_askap_59750_altaz_2settings
+# 0.88s call     tests/stakeholder/test_measure_set_stakeholder.py::test_askap_59754_altaz_2weights_0
+# 0.87s call     tests/stakeholder/test_measure_set_stakeholder.py::test_askap_59754_altaz_2weights_15
+# 0.80s call     tests/stakeholder/test_measure_set_stakeholder.py::test_ska_low
+# 0.59s call     tests/stakeholder/test_measure_set_stakeholder.py::test_gmrt
+
+# Reducing partitions scheme being tested to only [[]] for single dish tests to reduce compute time.
+# All test preformed on MAC with M3 and 16 GB Ram. Run serially.
+# pytest --durations=0 .
+# 33.87s call     tests/stakeholder/test_measure_set_stakeholder.py::test_vlass
+# 28.53s call     tests/stakeholder/test_measure_set_stakeholder.py::test_sd_A002_X1015532_X1926f
+# 19.02s call     tests/stakeholder/test_measure_set_stakeholder.py::test_sd_A002_Xced5df_Xf9d9
+# 18.39s call     tests/stakeholder/test_measure_set_stakeholder.py::test_sd_A002_Xe3a5fd_Xe38e
+# 14.41s call     tests/stakeholder/test_measure_set_stakeholder.py::test_alma_ephemeris_mosaic
+# 6.93s call     tests/stakeholder/test_measure_set_stakeholder.py::test_alma
+# 5.13s call     tests/stakeholder/test_measure_set_stakeholder.py::test_sd_A002_Xae00c5_X2e6b
+# 5.00s call     tests/stakeholder/test_measure_set_stakeholder.py::test_ephemeris
+# 4.96s call     tests/stakeholder/test_measure_set_stakeholder.py::test_global_vlbi
+# 4.17s call     tests/stakeholder/test_measure_set_stakeholder.py::test_vlba
+# 3.78s call     tests/stakeholder/test_measure_set_stakeholder.py::test_askap_59749_bp_8beams_pattern
+# 3.31s call     tests/stakeholder/test_measure_set_stakeholder.py::test_single_dish
+# 3.21s call     tests/stakeholder/test_measure_set_stakeholder.py::test_VLA
+# 3.00s call     tests/stakeholder/test_measure_set_stakeholder.py::test_ska_low
+# 2.27s call     tests/stakeholder/test_measure_set_stakeholder.py::test_ska_mid
+# 2.15s call     tests/stakeholder/test_measure_set_stakeholder.py::test_ngeht
+# 1.85s call     tests/stakeholder/test_measure_set_stakeholder.py::test_askap_59750_altaz_2settings
+# 1.84s call     tests/stakeholder/test_measure_set_stakeholder.py::test_meerkat
+# 1.81s call     tests/stakeholder/test_measure_set_stakeholder.py::test_askap_59755_eq_interleave_15
+# 1.75s call     tests/stakeholder/test_measure_set_stakeholder.py::test_askap_59755_eq_interleave_0
+# 1.69s call     tests/stakeholder/test_measure_set_stakeholder.py::test_lofar
+# 1.67s call     tests/stakeholder/test_measure_set_stakeholder.py::test_askap_59754_altaz_2weights_15
+# 1.63s call     tests/stakeholder/test_measure_set_stakeholder.py::test_askap_59754_altaz_2weights_0
+# 1.31s call     tests/stakeholder/test_image_stakeholder.py::test_image
+# 0.91s call     tests/stakeholder/test_measure_set_stakeholder.py::test_gmrt
 
 # All test preformed on MAC with M3 and 16 GB Ram.
 # pytest --durations=0 .

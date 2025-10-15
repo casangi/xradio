@@ -27,7 +27,7 @@ from xradio.image import (
     make_empty_aperture_image,
     make_empty_lmuv_image,
     make_empty_sky_image,
-    read_image,
+    open_image,
     write_image,
 )
 from xradio.image._util._casacore.common import _create_new_image as create_new_image
@@ -158,11 +158,11 @@ class ImageBase(unittest.TestCase):
 class xds_from_image_test(ImageBase):
     _imname: str = "inp.im"
     _outname: str = "out.im"
-    _infits: str = "inp.fits"
+    _infits: str = "inp.im.fits"
     _uv_image: str = "complex_valued_uv.im"
     _xds = None
     _exp_sky_attrs = {
-        "active_mask": "MASK0",
+        "active_mask": "MASK_0",
         "description": None,
         "image_type": "Intensity",
         "object_name": "",
@@ -323,6 +323,7 @@ class xds_from_image_test(ImageBase):
         "projection_parameters": np.array([0.0, 0.0]),
         "projection": "SIN",
     }
+    _exp_xds_attrs["type"] = "image"
     # TODO make a more interesting beam
     # _exp_xds_attrs["history"] = None
 
@@ -389,9 +390,13 @@ class xds_from_image_test(ImageBase):
             im.tofits(cls._infits)
             assert os.path.exists(cls._infits), f"Could not create {cls._infits}"
 
-        cls._xds = read_image(cls._imname, {"frequency": 5})
-        cls._xds_no_sky = read_image(cls._imname, {"frequency": 5}, False, False)
+        cls._xds = open_image(cls._imname, {"frequency": 5})
+
+        print("########## Created xds", cls._xds.attrs)
+
+        cls._xds_no_sky = open_image(cls._imname, {"frequency": 5}, False, False)
         cls.assertTrue(cls._xds.sizes == cls._exp_vals["shape"], "Incorrect shape")
+
         write_image(cls._xds, cls._outname, out_format="casa", overwrite=True)
 
     def imname(self):
@@ -425,45 +430,51 @@ class xds_from_image_test(ImageBase):
 
     def compare_sky_mask(self, xds: xr.Dataset, fits=False):
         """Compare got sky and mask values to expected values"""
+        if "IMAGE_0" not in xds:
+            temp_sky = "SKY"
+        else:
+            temp_sky = "IMAGE_0"
+
         ev = self._exp_vals
         self.assertEqual(
-            xds[sky].attrs["image_type"],
+            xds[temp_sky].attrs["image_type"],
             self.exp_sky_attrs()["image_type"],
             "Wrong image type",
         )
         self.assertEqual(
-            xds[sky].attrs["units"], self.exp_sky_attrs()["units"], "Wrong unit"
+            xds[temp_sky].attrs["units"], self.exp_sky_attrs()["units"], "Wrong unit"
         )
+
         self.assertEqual(
-            xds[sky].chunksizes["frequency"],
+            xds[temp_sky].chunksizes["frequency"],
             (5, 5),
             "Incorrect chunksize",
         )
         self.assertEqual(
-            xds.MASK0.chunksizes["frequency"], (5, 5), "Incorrect chunksize"
+            xds.MASK_0.chunksizes["frequency"], (5, 5), "Incorrect chunksize"
         )
-        got_data = da.squeeze(da.transpose(xds[sky], [1, 2, 4, 3, 0]), 4)
-        got_mask = da.squeeze(da.transpose(xds.MASK0, [1, 2, 4, 3, 0]), 4)
+        got_data = da.squeeze(da.transpose(xds[temp_sky], [1, 2, 4, 3, 0]), 4)
+        got_mask = da.squeeze(da.transpose(xds.MASK_0, [1, 2, 4, 3, 0]), 4)
         if "sky_array" not in ev:
             im = images.image(self.imname())
-            ev[sky] = im.getdata()
+            ev[temp_sky] = im.getdata()
             # getmask returns the negated value of the casa image mask, so True
-            # has the same meaning as it does in xds.MASK0
-            ev["mask0"] = im.getmask()
+            # has the same meaning as it does in xds.MASK_0
+            ev["MASK_0"] = im.getmask()
             ev["sum"] = im.statistics()["sum"][0]
         if fits:
             self.assertTrue(
-                not np.isnan(got_data == ev[sky]).all(),
+                not np.isnan(got_data == ev[temp_sky]).all(),
                 "pixel values incorrect",
             )
         else:
-            self.assertTrue((got_data == ev[sky]).all(), "pixel values incorrect")
-        self.assertTrue((got_mask == ev["mask0"]).all(), "mask values incorrect")
-        got_ma = da.ma.masked_array(xds[sky], xds.MASK0)
+            self.assertTrue((got_data == ev[temp_sky]).all(), "pixel values incorrect")
+        self.assertTrue((got_mask == ev["MASK_0"]).all(), "mask values incorrect")
+        got_ma = da.ma.masked_array(xds[temp_sky], xds.MASK_0)
         self.assertEqual(da.sum(got_ma), ev["sum"], "Incorrect value for sum")
         self.assertTrue(
-            got_data.dtype == ev[sky].dtype,
-            f"Incoorect data type, got {got_data.dtype}, expected {ev[sky].dtype}",
+            got_data.dtype == ev[temp_sky].dtype,
+            f"Incoorect data type, got {got_data.dtype}, expected {ev[temp_sky].dtype}",
         )
 
     def compare_time(self, xds: xr.Dataset) -> None:
@@ -688,7 +699,7 @@ class xds_from_image_test(ImageBase):
 
     def compare_image_block(self, imagename, zarr=False):
         x = [0] if zarr else [0, 1]
-        full_xds = read_image(imagename)
+        full_xds = open_image(imagename)
         shape = (
             full_xds.sizes["time"],
             full_xds.sizes["frequency"],
@@ -707,8 +718,8 @@ class xds_from_image_test(ImageBase):
                 "beam_param": ["major", "minor", "pa"],
             },
         )
-        full_xds["BEAM"] = xda
-        full_xds["BEAM"].attrs["units"] = "rad"
+        full_xds["BEAM_FIT_PARAMS"] = xda
+        full_xds["BEAM_FIT_PARAMS"].attrs["units"] = "rad"
         imag = imagename + "_2"
 
         write_image(
@@ -727,6 +738,8 @@ class xds_from_image_test(ImageBase):
                 },
                 do_sky_coords=i == 0,
             )
+            print("42 $$$$$$$$$ load", imag, xds.attrs)
+            print("$*******$" * 10)
 
             if not zarr:
                 with open_image_ro(imagename) as im:
@@ -738,14 +751,22 @@ class xds_from_image_test(ImageBase):
                     )
             self.assertEqual(xds[sky].shape, (1, 4, 1, 8, 12), "Wrong block shape")
             big_xds = self._xds if i == 0 else self._xds_no_sky
+
             self.assertTrue(
                 (xds[sky] == big_xds[sky][:, 0:1, 0:4, 2:10, 3:15]).all(),
                 "Wrong block SKY array",
             )
+
             self.assertTrue(
-                (xds.MASK0 == big_xds.MASK0[:, 0:1, 0:4, 2:10, 3:15]).all(),
-                "Wrong block mask0 array",
+                (xds.MASK_0 == big_xds.MASK_0[:, 0:1, 0:4, 2:10, 3:15]).all(),
+                "Wrong block MASK_0 array",
             )
+
+            print("42 $$$$$$$$$i", i)
+            print("42 $$$$$$$$$ load", imag, xds.attrs["type"])
+            print("42 $$$$$$$$$ pregenerated", big_xds.attrs["type"])
+            print("*******" * 10)
+
             self.dict_equality(
                 xds.attrs, big_xds.attrs, "block xds", "main xds", ["history"]
             )
@@ -801,14 +822,20 @@ class xds_from_image_test(ImageBase):
                     f"Wrong type for coord or data value {k}, got {type(v)}, must be a numpy.ndarray",
                 )
             # test beam
-            self.assertTrue(xds["BEAM"].shape == (1, 4, 1, 3), "Wrong beam shape")
             self.assertTrue(
-                tuple(xds["BEAM"].dims)
-                == ("time", "frequency", "polarization", "beam_param"),
-                f"Wrong beam dims, got {tuple(xds['BEAM'].dims)}",
+                xds["BEAM_FIT_PARAMS"].shape == (1, 4, 1, 3), "Wrong beam shape"
             )
-            self.assertEqual(xds["BEAM"][0, 2, 0, 0], 2.0, "Wrong beam value")
-            self.assertEqual(xds["BEAM"][0, 0, 0, 0], 1.0, "Wrong beam value")
+            self.assertTrue(
+                tuple(xds["BEAM_FIT_PARAMS"].dims)
+                == ("time", "frequency", "polarization", "beam_param"),
+                f"Wrong beam dims, got {tuple(xds['BEAM_FIT_PARAMS'].dims)}",
+            )
+            self.assertEqual(
+                xds["BEAM_FIT_PARAMS"][0, 2, 0, 0], 2.0, "Wrong beam value"
+            )
+            self.assertEqual(
+                xds["BEAM_FIT_PARAMS"][0, 0, 0, 0], 1.0, "Wrong beam value"
+            )
 
     def compare_uv(self, xds: xr.Dataset, image: str) -> None:
         if not self._expec_uv:
@@ -830,6 +857,7 @@ class xds_from_image_test(ImageBase):
         expec_coords = set(
             ["time", "polarization", "frequency", "velocity", "u", "v", "beam_param"]
         )
+
         self.assertEqual(xds.coords.keys(), expec_coords, "incorrect coordinates")
         for c in ["u", "v"]:
             attrs = self._expec_uv[c]["attrs"]
@@ -898,6 +926,7 @@ class casa_image_to_xds_test(xds_from_image_test):
         # logger.info("Expected attrs: %s", self.exp_xds_attrs())
         # logger.info("Got attrs: %s", self.xds().attrs)
         # logger.info("##########")
+
         self.compare_xds_attrs(self.xds())
         self.compare_sky_attrs(self.xds().SKY)
 
@@ -908,7 +937,7 @@ class casa_image_to_xds_test(xds_from_image_test):
         image = self.uv_image()
         download(image)
         self.assertTrue(os.path.isdir(image), f"Cound not download {image}")
-        xds = read_image(image)
+        xds = open_image(image)
         self.compare_uv(xds, image)
 
 
@@ -1059,6 +1088,9 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
         irint("*** r", r)
         """
         download(self._imname2), f"failed to download {self._imname2}"
+        self.assertTrue(
+            os.path.isdir(self._imname2), f"Could not download {self._imname2}"
+        )
         shutil.copytree(self._imname2, self._outname6)
         # multibeam image
         with open_image_ro(self._imname2) as im1:
@@ -1066,7 +1098,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
             for do_sky, outname in zip(
                 [True, False], [self._outname2, self._outname2_no_sky]
             ):
-                xds = read_image(self._imname2, do_sky_coords=do_sky)
+                xds = open_image(self._imname2, do_sky_coords=do_sky)
                 write_image(xds, outname, out_format="casa")
                 with open_image_ro(outname) as im2:
                     beams2 = im2.imageinfo()["perplanebeams"]
@@ -1095,7 +1127,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                 "restoringbeam": beam3,
             },
         )
-        xds = read_image(self._outname6)
+        xds = open_image(self._outname6)
         self.assertFalse("beam" in xds.attrs, "beam should not be in xds.attrs")
         expec = np.array(
             [4 / 180 / 3600 * np.pi, 3 / 180 / 3600 * np.pi, 5 * np.pi / 180]
@@ -1103,7 +1135,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
         for i, p in enumerate(["major", "minor", "pa"]):
             self.assertTrue(
                 np.allclose(
-                    xds.BEAM.sel(beam_param=p).values,
+                    xds.BEAM_FIT_PARAMS.sel(beam_param=p).values,
                     expec[i],
                 ),
                 f"Incorrect {p} axis",
@@ -1115,6 +1147,9 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
         https://github.com/casangi/xradio/issues/48
         """
         download(self._imname3)
+        self.assertTrue(
+            os.path.isdir(self._imname3), f"Could not download {self._imname3}"
+        )
         for do_sky, outname, out_1, out_2 in zip(
             [True, False],
             [self._outname3, self._outname3_no_sky],
@@ -1122,7 +1157,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
             [self._outname5, self._outname5_no_sky],
         ):
             # case 1: no mask + no nans = no mask
-            xds = read_image(self._imname3, do_sky_coords=do_sky)
+            xds = open_image(self._imname3, do_sky_coords=do_sky)
             first_attrs = xds.attrs
             t = copy.deepcopy(xds.attrs)
             c = copy.deepcopy(xds.coords)
@@ -1170,12 +1205,12 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                 coords=xds[sky].coords,
                 attrs={image_type: "Mask"},
             )
-            xds = xds.assign(mask0=mask0)
-            xds["SKY"].attrs["active_mask"] = "mask0"
+            xds = xds.assign(MASK_0=mask0)
+            xds["SKY"].attrs["active_mask"] = "MASK_0"
             write_image(xds, out_1, out_format="casa")
             self.assertEqual(
                 xds["SKY"].attrs["active_mask"],
-                "mask0",
+                "MASK_0",
                 "SKY active mask was incorrectly reset",
             )
             subdirs = glob(f"{out_1}/*/")
@@ -1183,7 +1218,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
             subdirs.sort()
             self.assertEqual(
                 subdirs,
-                ["logtable", "mask0", "mask_xds_nans", "mask_xds_nans_or_mask0"],
+                ["MASK_0", "logtable", "mask_xds_nans", "mask_xds_nans_or_MASK_0"],
                 f"Unexpected subdirectory list found. subdirs is {subdirs}",
             )
             with open_image_ro(out_1) as im1:
@@ -1198,7 +1233,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
             write_image(xds, out_2, out_format="casa")
             self.assertEqual(
                 xds["SKY"].attrs["active_mask"],
-                "mask0",
+                "MASK_0",
                 "SKY active mask was incorrectly reset",
             )
             subdirs = glob(f"{out_2}/*/")
@@ -1206,7 +1241,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
             subdirs.sort()
             self.assertEqual(
                 subdirs,
-                ["logtable", "mask0"],
+                ["MASK_0", "logtable"],
                 f"Unexpected subdirectory list found. subdirs is {subdirs}",
             )
             with open_image_ro(out_2) as im1:
@@ -1218,7 +1253,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
         image = self.uv_image()
         download(image)
         self.assertTrue(os.path.isdir(image), f"Cound not download {image}")
-        xds = read_image(image)
+        xds = open_image(image)
         write_image(xds, self._output_uv, "casa")
         with open_image_ro(self._output_uv) as test_im:
             with open_image_ro(image) as expec_im:
@@ -1246,7 +1281,7 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
         # xds which is located in the super class
         super().setUpClass()
         write_image(cls.xds(), cls._zarr_store, out_format="zarr", overwrite=True)
-        cls._zds = read_image(cls._zarr_store)
+        cls._zds = open_image(cls._zarr_store)
 
     @classmethod
     def tearDownClass(cls):
@@ -1311,9 +1346,9 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
         image = self.uv_image()
         download(image)
         self.assertTrue(os.path.isdir(image), f"Cound not download {image}")
-        xds = read_image(image)
+        xds = open_image(image)
         write_image(xds, self._zarr_uv_store, "zarr")
-        xds2 = read_image(self._zarr_uv_store)
+        xds2 = open_image(self._zarr_uv_store)
         self.assertTrue(
             np.isclose(xds2.APERTURE.values, xds.APERTURE.values).all(),
             "Incorrect aperture pixel values",
@@ -1325,15 +1360,16 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
         mb[:, :, :, 1] = 0.00002
         mb[:, :, :, 2] = 0.00003
         xdb = xr.DataArray(mb, dims=["time", "frequency", "polarization", "beam_param"])
-        xdb = xdb.rename("BEAM")
+        xdb = xdb.rename("BEAM_FIT_PARAMS")
         # xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
         xdb.attrs["units"] = "rad"
         xds = copy.deepcopy(self.xds())
-        xds["BEAM"] = xdb
+        xds["BEAM_FIT_PARAMS"] = xdb
         write_image(xds, self._zarr_beam_test, "zarr")
-        xds2 = read_image(self._zarr_beam_test)
+        xds2 = open_image(self._zarr_beam_test)
         self.assertTrue(
-            np.allclose(xds2.BEAM.values, xds.BEAM.values), "Incorrect beam values"
+            np.allclose(xds2.BEAM_FIT_PARAMS.values, xds.BEAM_FIT_PARAMS.values),
+            "Incorrect beam values",
         )
 
 
@@ -1355,10 +1391,12 @@ class fits_to_xds_test(xds_from_image_test):
         # xds which is located in the super class
         super().setUpClass()
         assert os.path.exists(cls.infits()), f"{cls.infits()} does not exist"
-        cls._fds = read_image(cls.infits(), {"frequency": 5}, do_sky_coords=True)
-        cls._fds_no_sky = read_image(
+        cls._fds = open_image(cls.infits(), {"frequency": 5}, do_sky_coords=True)
+        cls._fds_no_sky = open_image(
             cls.infits(), {"frequency": 5}, do_sky_coords=False
         )
+
+        print("$$$$ Opened fits file", cls.infits())
 
     @classmethod
     def tearDownClass(cls):
@@ -1448,8 +1486,8 @@ class fits_to_xds_test(xds_from_image_test):
         with open_image_ro(self._imname1) as casa_image:
             casa_image.tofits(self._outname1)
             expec = casa_image.imageinfo()["perplanebeams"]
-        xds = read_image(self._outname1)
-        got = xds.BEAM
+        xds = open_image(self._outname1)
+        got = xds.BEAM_FIT_PARAMS
         for p in range(4):
             for c in range(50):
                 for b in ["major", "minor", "pa"]:
@@ -1474,16 +1512,16 @@ class fits_to_xds_test(xds_from_image_test):
         Test compute_mask parameter
         """
         for compute_mask in [True, False]:
-            fds = read_image(self.infits(), {"frequency": 5}, compute_mask=compute_mask)
+            fds = open_image(self.infits(), {"frequency": 5}, compute_mask=compute_mask)
             if compute_mask:
                 self.assertTrue(
-                    "MASK0" in fds.data_vars,
-                    "MASK0 should be in data_vars, but is not",
+                    "MASK_0" in fds.data_vars,
+                    "MASK_0 should be in data_vars, but is not",
                 )
             else:
                 self.assertTrue(
-                    "MASK0" not in fds.data_vars,
-                    "MASK0 should not be in data_vars, but is",
+                    "MASK_0" not in fds.data_vars,
+                    "MASK_0 should not be in data_vars, but is",
                 )
 
     def test_compressed_fits_guard(self):
@@ -1508,7 +1546,7 @@ class fits_to_xds_test(xds_from_image_test):
             ), "Expected CompImageHDU in HDU[1]"
 
         with pytest.raises(RuntimeError) as exc_info:
-            read_image(self._compressed_fits, {"frequency": 5})
+            open_image(self._compressed_fits, {"frequency": 5})
 
         self.assertTrue(
             re.search(r"name=COMPRESSED_IMAGE", str(exc_info.value)),
@@ -1545,7 +1583,7 @@ class fits_to_xds_test(xds_from_image_test):
         self._create_bzero_bscale_image(self._bzero, bzero=5.0, bscale=1.0)
         self.assertTrue(os.path.exists(self._bzero), f"{self._bzero} was not written")
         with pytest.raises(RuntimeError) as exc_info:
-            fds = read_image(self._bzero)
+            fds = open_image(self._bzero)
         self.assertTrue(
             re.search(r"BSCALE/BZERO set", str(exc_info.value)),
             f"Expected error about BSCALE/BZERO, but got {str(exc_info.value)}",
@@ -1558,7 +1596,7 @@ class fits_to_xds_test(xds_from_image_test):
         self._create_bzero_bscale_image(self._bscale, bzero=0.0, bscale=2.0)
         self.assertTrue(os.path.exists(self._bscale), f"{self._bzero} was not written")
         with pytest.raises(RuntimeError) as exc_info:
-            fds = read_image(self._bscale)
+            fds = open_image(self._bscale)
         self.assertTrue(
             re.search(r"BSCALE/BZERO set", str(exc_info.value)),
             f"Expected error about BSCALE/BZERO, but got {str(exc_info.value)}",

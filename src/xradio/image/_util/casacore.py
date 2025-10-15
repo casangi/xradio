@@ -9,6 +9,7 @@ import warnings
 from typing import Union
 
 import xarray as xr
+import re
 
 try:
     from casacore import tables
@@ -67,6 +68,7 @@ def _load_casa_image_block(infile: str, block_des: dict, do_sky_coords) -> xr.Da
         xds = _add_mask(xds, m.upper(), block, dimorder)
     xds.attrs = _casa_image_to_xds_attrs(image_full_path)
     beam = _get_beam(image_full_path, nchan, npol, False)
+
     if beam is not None:
         selectors = {
             k: block_des[k]
@@ -77,7 +79,7 @@ def _load_casa_image_block(infile: str, block_des: dict, do_sky_coords) -> xr.Da
     return xds
 
 
-def _read_casa_image(
+def _open_casa_image(
     infile: str,
     chunks: Union[list, dict],
     verbose: bool,
@@ -102,7 +104,8 @@ def _read_casa_image(
         for m in mymasks:
             ary = _read_image_array(img_full_path, chunks, mask=m, verbose=verbose)
             # data var names are all caps by convention
-            xds = _add_mask(xds, m.upper(), ary, dimorder)
+            mask_name = re.sub(r"\bMASK(\d+)\b", r"MASK_\1", m.upper())
+            xds = _add_mask(xds, mask_name, ary, dimorder)
     xds.attrs = _casa_image_to_xds_attrs(img_full_path)
     beam = _get_beam(
         img_full_path, xds.sizes["frequency"], xds.sizes["polarization"], True

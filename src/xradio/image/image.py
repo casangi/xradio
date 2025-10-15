@@ -12,23 +12,24 @@ import shutil
 import toolviper.utils.logger as logger
 import xarray as xr
 
-# from .._utils.zarr.common import _load_no_dask_zarr
-
-from ._util.casacore import _load_casa_image_block, _xds_to_casa_image
-
-# from ._util.fits import _read_fits_image
-from ._util.image_factory import (
+from xradio.image._util.image_factory import (
     _make_empty_aperture_image,
     _make_empty_lmuv_image,
     _make_empty_sky_image,
 )
-from ._util.zarr import _load_image_from_zarr_no_dask, _xds_from_zarr, _xds_to_zarr
-from ._util._fits.xds_from_fits import _fits_image_to_xds
+from xradio.image._util.zarr import (
+    _load_image_from_zarr_no_dask,
+    _xds_from_zarr,
+    _xds_to_zarr,
+)
+from xradio.image._util._fits.xds_from_fits import _fits_image_to_xds
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
+
 def detect_image_type(store):
     import os
+
     if isinstance(store, str):
         if os.path.isfile(store):
             store_type = "fits"
@@ -43,12 +44,14 @@ def detect_image_type(store):
             logger.error("Path does not exist.")
     else:
         store_type = "zarr"
-        
+
     if store_type == "fits" or store_type == "casa":
         if "image" in store.lower():
             image_type = "SKY"
-        if "psf" in store.lower():
-            image_type = "POINT_SPREAD_FUNCTION"   
+        elif "im" in store.lower():
+            image_type = "SKY"
+        elif "psf" in store.lower():
+            image_type = "POINT_SPREAD_FUNCTION"
         elif "model" in store.lower():
             image_type = "MODEL"
         elif "residual" in store.lower():
@@ -68,7 +71,9 @@ def detect_image_type(store):
             logger.warning("Could not determine image type from filename.")
     elif store_type == "zarr":
         image_type = "ALL"
+
     return store_type, image_type
+
 
 def open_image(
     store: Union[str, dict],
@@ -149,85 +154,70 @@ def open_image(
     -------
     xarray.Dataset
     """
-    
+
     if isinstance(store, str):
-        store_list = [store] #So can iterate over it.
+        store_list = [store]  # So can iterate over it.
     else:
         store_list = store
-        
-    
-    img_xds = xr.Dataset()    
+
+    img_xds = xr.Dataset()
     generic_image_counter = 0
-    for store in store_list:        
+    for store in store_list:
         store_type, image_type = detect_image_type(store)
         if store_type == "casa":
-            xds = _load_casa_image_block(store, selection, do_sky_coords)
-            xds["type"] = image_type
+            from ._util.casacore import _open_casa_image
+
+            xds = _open_casa_image(store, chunks, verbose, do_sky_coords)
+            xds.attrs["type"] = image_type.lower()
         elif store_type == "fits":
-            xds = _fits_image_to_xds(store, chunks, verbose, do_sky_coords, compute_mask)
-            xds["type"] = image_type
+            xds = _fits_image_to_xds(
+                store, chunks, verbose, do_sky_coords, compute_mask
+            )
+            xds.attrs["type"] = image_type.lower()
         elif store_type == "zarr":
-            xds = _load_image_from_zarr_no_dask(store, selection)
+            xds = _xds_from_zarr(store, {"dv": "dask", "coords": "numpy"}, selection)
         else:
-            raise RuntimeError(f"Unrecognized image format for path {store}. Supported types are CASA, FITS, and zarr.\n")
-        
-        print(store, image_type,store_type)
-        
+            raise RuntimeError(
+                f"Unrecognized image format for path {store}. Supported types are CASA, FITS, and zarr.\n"
+            )
+
         if image_type == "ALL":
-            img_xds = img_xds.merge(xds, compat="override")
+            img_xds = img_xds.merge(
+                xds, compat="override", combine_attrs="no_conflicts"
+            )
         elif image_type == "IMAGE":
+            img_xds.attrs = img_xds.attrs | xds.attrs
             img_xds["IMAGE_" + str(generic_image_counter)] = xds["SKY"]
             generic_image_counter += 1
+
+            # Need to figure out how to handle fits
+            if "BEAM_FIT_PARAMS" in xds:
+                img_xds["BEAM_FIT_PARAMS"] = xds["BEAM_FIT_PARAMS"]
+
+            if "MASK_0" in xds:
+                img_xds["MASK_0"] = xds["MASK_0"]
+
+            if "beam_param" in xds:
+                img_xds = img_xds.assign_coords(beam_param=xds["beam_param"])
+
         else:
-            xds["SKY"].attrs = xds.attrs
-            img_xds[image_type] = xds["SKY"]
+            img_xds.attrs = img_xds.attrs | xds.attrs
+            if "SKY" in xds:
+                img_xds[image_type] = xds["SKY"]
 
+            if "APERTURE" in xds:
+                img_xds["APERTURE"] = xds["APERTURE"]
+
+            if "BEAM_FIT_PARAMS" in xds:
+                img_xds["BEAM_FIT_PARAMS"] = xds["BEAM_FIT_PARAMS"]
+
+            if "MASK_0" in xds:
+                img_xds["MASK_0"] = xds["MASK_0"]
+
+            if "beam_param" in xds:
+                img_xds = img_xds.assign_coords(beam_param=xds["beam_param"])
+    img_xds.attrs["type"] = "image"
     return img_xds
-        
-        
-
- 
-    
-    
-    
-    # # from ._util.casacore import _read_casa_image
-    # # return _read_casa_image(store, chunks, verbose, do_sky_coords)
-    # emsgs = []
-    # do_casa = True
-    # try:
-    #     from ._util.casacore import _read_casa_image
-    # except Exception as e:
-    #     emsgs.append(
-    #         "python-casacore could not be imported, will not try to "
-    #         f"read as casacore image: {e.args}"
-    #     )
-    #     do_casa = False
-    # if do_casa:
-    #     # next statement is short circuit for debug, comment out when not debugging
-    #     # return _read_casa_image(store, chunks, verbose, do_sky_coords)
-    #     try:
-    #         return _read_casa_image(store, chunks, verbose, do_sky_coords)
-    #     except Exception as e:
-    #         emsgs.append(f"image format appears not to be casacore: {e.args}")
-    # # next statement is for debug, comment when done debugging
-    # # return _fits_image_to_xds(store, chunks, verbose, do_sky_coords, compute_mask)
-    # try:
-    #     img_full_path = os.path.expanduser(store)
-    #     return _fits_image_to_xds(store, chunks, verbose, do_sky_coords, compute_mask)
-    # except Exception as e:
-    #     emsgs.append(f"image format appears not to be fits {e.args}")
-    # # when done debuggin comment out next line
-    # # return _xds_from_zarr(store, {"dv": "dask", "coords": "numpy"}, selection=selection)
-    # try:
-    #     return _xds_from_zarr(
-    #         store, {"dv": "dask", "coords": "numpy"}, selection=selection
-    #     )
-    # except Exception as e:
-    #     emsgs.append(f"image format appears not to be zarr {e.args}")
-    # emsgs.insert(
-    #     0, f"Unrecognized image format. Supported types are CASA, FITS, and zarr.\n"
-    # )
-    # raise RuntimeError("\n".join(emsgs))
 
 
 def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dataset:
@@ -261,8 +251,11 @@ def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dat
     -------
     xarray.Dataset
     """
-    do_casa = True
-    emsgs = []
+
+    if isinstance(store, str):
+        store_list = [store]  # So can iterate over it.
+    else:
+        store_list = store
 
     if block_des is None:
         block_des = {}
@@ -272,39 +265,63 @@ def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dat
         for k, v in selection.items():
             if type(v) == int:
                 selection[k] = slice(v, v + 1)
-    try:
-        from ._util.casacore import _read_casa_image
-    except Exception as e:
-        emsgs.append(
-            "python-casacore could not be imported, will not try to "
-            f"read as casacore image: {e.args}"
-        )
-        do_casa = False
-    if do_casa:
-        # comment next line when done debugging
-        # return _load_casa_image_block(store, selection, do_sky_coords)
-        try:
-            return _load_casa_image_block(store, selection, do_sky_coords)
-        except Exception as e:
-            emsgs.append(f"image format appears not to be casacore: {e.args}")
-    """
-    try:
-        return __read_fits_image(store, chunks, masks, history, verbose)
-    except Exception as e:
-        emsgs.append(f'image format appears not to be fits {e.args}')
-    """
-    # when done debugging, comment out next line
-    # return _load_image_from_zarr_no_dask(store, block_des)
-    # return _xds_from_zarr(store, {"dv": "numpy"}, selection)
-    try:
-        return _load_image_from_zarr_no_dask(store, block_des)
-        # return _xds_from_zarr(store, {"dv": "numpy", "coords": "numpy"}, selection)
-    except Exception as e:
-        emsgs.append(f"image format appears not to be zarr {e.args}")
-    emsgs.insert(
-        0, f"Unrecognized image format. Supported formats are casacore and zarr.\n"
-    )
-    raise RuntimeError("\n".join(emsgs))
+
+    img_xds = xr.Dataset()
+    generic_image_counter = 0
+    for store in store_list:
+        store_type, image_type = detect_image_type(store)
+
+        if store_type == "casa":
+            from ._util.casacore import _load_casa_image_block
+
+            xds = _load_casa_image_block(store, selection, do_sky_coords)
+            xds.attrs["type"] = image_type.lower()
+        elif store_type == "zarr":
+            xds = _load_image_from_zarr_no_dask(store, block_des)
+            xds.attrs["type"] = image_type.lower()
+        else:
+            raise RuntimeError(
+                f"Unrecognized image format for path {store}. Supported types are CASA, and zarr.\n"
+            )
+
+        if image_type == "ALL":
+            img_xds = img_xds.merge(
+                xds, compat="override", combine_attrs="no_conflicts"
+            )
+        elif image_type == "IMAGE":
+            img_xds.attrs = img_xds.attrs | xds.attrs
+            img_xds["IMAGE_" + str(generic_image_counter)] = xds["SKY"]
+            generic_image_counter += 1
+
+            # Need to figure out how to handle fits
+            if "BEAM_FIT_PARAMS" in xds:
+                img_xds["BEAM_FIT_PARAMS"] = xds["BEAM_FIT_PARAMS"]
+
+            if "MASK_0" in xds:
+                img_xds["MASK_0"] = xds["MASK_0"]
+
+            if "beam_param" in xds:
+                img_xds = img_xds.assign_coords(beam_param=xds["beam_param"])
+
+        else:
+            img_xds.attrs = img_xds.attrs | xds.attrs
+            if "SKY" in xds:
+                img_xds[image_type] = xds["SKY"]
+
+            if "APERTURE" in xds:
+                img_xds["APERTURE"] = xds["APERTURE"]
+
+            if "BEAM_FIT_PARAMS" in xds:
+                img_xds["BEAM_FIT_PARAMS"] = xds["BEAM_FIT_PARAMS"]
+
+            if "MASK_0" in xds:
+                img_xds["MASK_0"] = xds["MASK_0"]
+
+            if "beam_param" in xds:
+                img_xds = img_xds.assign_coords(beam_param=xds["beam_param"])
+
+    img_xds.attrs["type"] = "image"
+    return img_xds
 
 
 def write_image(
@@ -339,6 +356,8 @@ def write_image(
             )
     my_format = out_format.lower()
     if my_format == "casa":
+        from ._util.casacore import _xds_to_casa_image
+
         _xds_to_casa_image(xds, imagename)
     elif my_format == "zarr":
         _xds_to_zarr(xds, imagename)

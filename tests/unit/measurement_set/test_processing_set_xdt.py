@@ -105,30 +105,44 @@ class TestProcessingSetXdtWithData:
         summary = ps_xdt.xr_ps.summary()
         print(summary)
 
+        summary_ordered = ps_xdt.xr_ps.summary(first_columns=["spw_name", "scan_name"])
+        print(summary_ordered)
+
         # Verify it returns a pandas DataFrame
         assert isinstance(summary, pd.DataFrame)
+        assert isinstance(summary_ordered, pd.DataFrame)
 
         # Verify the DataFrame is not empty
         assert not summary.empty
+        assert not summary_ordered.empty
 
         # Verify expected columns are present
         expected_columns = [
             "name",
-            "intents",
+            "scan_intents",
             "shape",
+            "execution_block_UID",
             "polarization",
             "scan_name",
             "spw_name",
-            "spw_intent",
+            "spw_intents",
             "field_name",
             "source_name",
             "line_name",
             "field_coords",
+            "session_reference_UID",
+            "scheduling_block_UID",
+            "project_UID",
             "start_frequency",
             "end_frequency",
         ]
         for col in expected_columns:
             assert col in summary.columns
+            assert col in summary_ordered.columns
+
+        # 4 partiions, expected_columns
+        assert summary.shape == (4, len(expected_columns))
+        assert summary.shape == summary_ordered.shape
 
     @pytest.mark.parametrize(
         "convert_measurement_set_to_processing_set",
@@ -377,7 +391,7 @@ class TestFunctionsAfterPreviousCalls:
         "base".
         """
 
-        ps_xdt = xr.open_datatree(processing_set_from_custom_ms)
+        ps_xdt = xr.open_datatree(processing_set_from_custom_ms, engine="zarr")
         corrected_ps = ps_xdt.xr_ps.query(data_group_name="corrected")
         # Note, after the "base" group is dropped, the schema_checker will fail
         assert isinstance(corrected_ps, xr.DataTree)
@@ -400,7 +414,7 @@ class TestFunctionsAfterPreviousCalls:
         get_max_dims() caches its results for subsequent calls. Check that.
         """
 
-        ps_xdt = xr.open_datatree(processing_set_from_custom_ms)
+        ps_xdt = xr.open_datatree(processing_set_from_custom_ms, engine="zarr")
         max_dims = ps_xdt.xr_ps.get_max_dims()
         max_dims_again = ps_xdt.xr_ps.get_max_dims()
         assert max_dims == max_dims_again
@@ -416,7 +430,7 @@ class TestFunctionsAfterPreviousCalls:
         get_freq_axis() caches its results for subsequent calls. Check that.
         """
 
-        ps_xdt = xr.open_datatree(processing_set_from_custom_ms)
+        ps_xdt = xr.open_datatree(processing_set_from_custom_ms, engine="zarr")
         freq_axis = ps_xdt.xr_ps.get_freq_axis()
         freq_axis_again = ps_xdt.xr_ps.get_freq_axis()
         assert all(freq_axis == freq_axis_again)

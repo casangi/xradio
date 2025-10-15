@@ -440,6 +440,7 @@ def create_coordinates(
     baseline_ant1_id: np.ndarray,
     baseline_ant2_id: np.ndarray,
     scan_id: np.ndarray,
+    scan_intents: list[str],
 ) -> tuple[xr.Dataset, int]:
     """
     Creates coordinates of a VisibilityXds/SpectrumXds and assigns them to the input
@@ -464,6 +465,9 @@ def create_coordinates(
         ANTENNA2 ids to be used as coord
     scan_id :
         SCAN_ID values from MSv2, for the scan_name coord
+    scan_intents :
+        list of SCAN_INTENT values from MSv2, for the scan_intents attribute of the
+        scan_name coord
 
     Returns
     -------
@@ -509,6 +513,9 @@ def create_coordinates(
 
     xds = xds.assign_coords(coords)
 
+    ##### Add scan intents attribute to scan_name coord #####
+    xds.scan_name.attrs["scan_intents"] = scan_intents
+
     ###### Create Frequency Coordinate ######
     freq_column_description = spectral_window_xds.attrs["other"]["msv2"]["ctds_attrs"][
         "column_descriptions"
@@ -528,7 +535,7 @@ def create_coordinates(
         spw_name = spw_name + "_" + str(spectral_window_id)
 
     xds.frequency.attrs["spectral_window_name"] = spw_name
-    xds.frequency.attrs["spectral_window_intent"] = "UNSPECIFIED"
+    xds.frequency.attrs["spectral_window_intents"] = ["UNSPECIFIED"]
     msv4_measure = column_description_casacore_to_msv4_measure(
         freq_column_description["REF_FREQUENCY"],
         ref_code=spectral_window_xds["MEAS_FREQ_REF"].data,
@@ -769,15 +776,17 @@ def create_taql_query_where(partition_info: dict):
     taql_where = "WHERE "
     for col_name in main_par_table_cols:
         if col_name in partition_info:
-            taql_where = (
-                taql_where
-                + f"({col_name} IN [{','.join(map(str, partition_info[col_name]))}]) AND"
-            )
-            if col_name == "ANTENNA1":
+
+            if partition_info[col_name][0] is not None:
                 taql_where = (
                     taql_where
-                    + f"(ANTENNA2 IN [{','.join(map(str, partition_info[col_name]))}]) AND"
+                    + f"({col_name} IN [{','.join(map(str, partition_info[col_name]))}]) AND"
                 )
+                if col_name == "ANTENNA1":
+                    taql_where = (
+                        taql_where
+                        + f"(ANTENNA2 IN [{','.join(map(str, partition_info[col_name]))}]) AND"
+                    )
     taql_where = taql_where[:-3]
 
     return taql_where
@@ -933,6 +942,7 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
 
     taql_partition = create_taql_query_where(partition)
     taql_main = f"select * from $mtable {taql_partition}"
+
     with open_table_ro(in_file) as mtable:
         with open_query(mtable, taql_main) as tb_tool:
             # Do not feel tempted to rely on nrows. nrows tends to underestimate memory when baselines are missing.
@@ -1017,7 +1027,7 @@ def convert_and_write_partition(
         _description_
     out_file : str
         _description_
-    intents : str
+    scan_intents : str
         _description_
     ddi : int, optional
         _description_, by default 0
@@ -1061,7 +1071,7 @@ def convert_and_write_partition(
     taql_where = create_taql_query_where(partition_info)
     table_manager = TableManager(in_file, taql_where)
     ddi = partition_info["DATA_DESC_ID"][0]
-    intents = str(partition_info["OBS_MODE"][0])
+    scan_intents = str(partition_info["OBS_MODE"][0]).split(",")
 
     start = time.time()
     with table_manager.get_table() as tb_tool:
@@ -1085,19 +1095,21 @@ def convert_and_write_partition(
             tb_tool.getcol("OBSERVATION_ID"), "OBSERVATION_ID"
         )
 
-        def get_observation_info(in_file, observation_id, intents):
+        def get_observation_info(in_file, observation_id, scan_intents):
             generic_observation_xds = load_generic_table(
                 in_file,
                 "OBSERVATION",
                 taql_where=f" where (ROWID() IN [{str(observation_id)}])",
             )
 
-            if intents == "None":
-                intents = "obs_" + str(observation_id)
+            if scan_intents == "None":
+                scan_intents = "obs_" + str(observation_id)
 
-            return generic_observation_xds["TELESCOPE_NAME"].values[0], intents
+            return generic_observation_xds["TELESCOPE_NAME"].values[0], scan_intents
 
-        telescope_name, intents = get_observation_info(in_file, observation_id, intents)
+        telescope_name, scan_intents = get_observation_info(
+            in_file, observation_id, scan_intents
+        )
 
         start = time.time()
         xds = xr.Dataset(
@@ -1139,6 +1151,7 @@ def convert_and_write_partition(
             baseline_ant1_id,
             baseline_ant2_id,
             scan_id,
+            scan_intents,
         )
         logger.debug("Time create coordinates " + str(time.time() - start))
 
@@ -1334,7 +1347,6 @@ def convert_and_write_partition(
 
         partition_info_misc_fields = {
             "scan_name": xds.coords["scan_name"].data,
-            "intents": intents,
             "taql_where": taql_where,
         }
         if with_antenna_partitioning:

@@ -65,7 +65,8 @@ def _load_casa_image_block(infile: str, block_des: dict, do_sky_coords) -> xr.Da
             full_path, shapes, starts, dimorder, transpose_list, new_axes
         )
         # data vars are all caps by convention
-        xds = _add_mask(xds, m.upper(), block, dimorder)
+        mask_name = re.sub(r"\bMASK(\d+)\b", r"MASK_\1", m.upper())
+        xds = _add_mask(xds, mask_name, block, dimorder)
     xds.attrs = _casa_image_to_xds_attrs(image_full_path)
     beam = _get_beam(image_full_path, nchan, npol, False)
 

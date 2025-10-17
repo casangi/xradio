@@ -183,7 +183,9 @@ def open_image(
 
         if image_type == "ALL":
             img_xds = img_xds.merge(
-                xds, compat="override", combine_attrs="no_conflicts"
+                xds, compat="override", 
+                combine_attrs="no_conflicts",
+                #combine_attrs="override"
             )
         elif image_type == "IMAGE":
             img_xds.attrs = img_xds.attrs | xds.attrs

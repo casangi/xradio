@@ -366,6 +366,12 @@ def base_test(
 
         ps_lazy_xdt.to_zarr(ps_copy_name)  # Test writing to disk.
 
+        ms_xdt_name = list(ps_lazy_xdt.keys())[0]
+        ms_xds = ps_lazy_xdt[ms_xdt_name].ds
+        assert (
+            type(ms_xds.WEIGHT) is xr.DataArray
+        ), "open_processing_set did not create Dask array."
+
         # sel_parms = {key: {} for key in ps_lazy_xdt.keys()}
         ps_xdt = load_processing_set(str(ps_copy_name))
 

@@ -49,6 +49,9 @@ def ensure_presence_data_arrays(
 
 def exclude_unsupported_axis_names(dims):
 
+    # This effectively assumes, from BDF doc: "The final three axes, STO, POL and HOL,
+    # also appear at the same level in the axis hierarchy; however, only one of these
+    # axes will normally appear for a given binary component type.
     unsupported = ["STO", "HOL"]
 
     for bad_dim in unsupported:

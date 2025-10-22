@@ -102,7 +102,7 @@ def make_blob_info(bdf_header: pyasdm.bdf.BDFHeader) -> dict:
         "cross_data_size": bdf_header.getSize("crossData"),
         "cross_data_axes": " ".join(map(str, bdf_header.getAxes("crossData"))),
         "zero_lags_size": bdf_header.getSize("zeroLags"),
-        "zero_lags_data_axes": " ".join(map(str, bdf_header.getAxes("zeroLags"))),
+        "zero_lags_axes": " ".join(map(str, bdf_header.getAxes("zeroLags"))),
         "basebands_spws_points_bins_crossx": basebands_info,
     }
     blob_info = pd.DataFrame([bdf_info]).set_index(["execblock_uid", "dataOID"])

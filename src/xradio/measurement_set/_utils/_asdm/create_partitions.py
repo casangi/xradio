@@ -216,7 +216,7 @@ def create_partitions(
         f" {len(partition_df)} out of {potential_partitions} potential partitions are found in dataset"
     )
 
-    example_idx = min(90, partition_df.shape[0] - 1)
+    example_idx = min(90, partition_df.shape[0] - 2)
     all_cols_example_idx = partitioning_df.loc[partition_df.iloc[example_idx]]
     # print(f" Example {example_idx}-th partition (only explicit cols): {partition_df.iloc[example_idx].to_dict()=}, \n    all cols: {all_cols_example_idx=}")
     print(
@@ -294,6 +294,46 @@ def finalize_partitions_groupby(
 
         return partitions_list
 
+    def retype_lists_etc_to_ndarray(partitions_list: list[dict]) -> list[dict]:
+        """
+        Added for uid___A002_X997a62_X8c-short and the like
+        This should go away.
+        """
+        print(f" = applying lists->ndarray fix, {partitions_list=}")
+        new_list = []
+        for partition_descr in partitions_list:
+            new_dict = {}
+            for key, val in partition_descr.items():
+                if isinstance(val, list):
+                    new_dict[key] = np.array(val)
+                elif isinstance(val, np.ndarray):
+                    new_dict[key] = val
+                else:
+                    new_dict[key] = np.array([val])
+
+            new_list.append(new_dict)
+        partitions_list = new_list
+
+        # for val, key in partition_descr.items():
+        #     if not isinstance(val, list):
+        #         partition_descr[key] = val
+        # partitions_list = partitions_list_d2
+        # partitions_list_d2 = []
+        # for partition_descr in partitions_list:
+        #     if not isinstance(partition_descr["fieldId"], list):
+        #         partition_d2 = {}
+        #         for key, val in partition_descr.items():
+        #             if isinstance(val, list):
+        #                 partition_d2[key] = val
+        #             else:
+        #                 partition_d2[key] = [val]
+        #         print(f" ===> {partition_d2=}")
+        #         partition_descr = partition_d2
+        #     partitions_list_d2.append(partition_descr)
+        # partitions_list = partitions_list_d2
+
+        print(f" => After lists->ndarray fix, {partitions_list=}")
+
     partition_groups = partitioning_df.groupby(partition_columns)
 
     # if these two lens match, the partitions are a 1-row df => series
@@ -306,6 +346,8 @@ def finalize_partitions_groupby(
         # So when we are left with a 1-row frame (which will be seen by
         # apply as a Series, use this DataFrame global to_dict:
         partitions_list = partitioning_df.to_dict(orient="records")
+
+        partitions_list = retype_lists_etc_to_ndarray(partitions_list)
 
     else:
         partitions_list = [

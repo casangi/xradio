@@ -142,6 +142,9 @@ def create_correlated_xds(
         }
     )
 
+    info_dicts = create_info_dicts(asdm, xds, partition_descr)
+    xds.attrs.update(info_dicts)
+
     is_single_dish = False
     coords, coord_attrs, num_antenna, spw_id, bdf_spw_id, time_vars = (
         create_coordinates(asdm, partition_descr, is_single_dish)
@@ -162,10 +165,6 @@ def create_correlated_xds(
         "description": "Base data group derived from data in ASDM BDFs",
         "date": datetime_now,
     }
-
-    info_dicts = create_info_dicts(asdm, xds, partition_descr)
-    xds.attrs.update(info_dicts)
-
     xds.attrs.update({"data_groups": {"base": data_group_base}})
 
     return xds, num_antenna, spw_id
@@ -333,6 +332,7 @@ def create_coordinates(
     if len(scan_numbers) != len(time_centers):
         scan_numbers = np.resize(scan_numbers, len(time_centers))
     coords["scan_name"] = (["time"], scan_numbers)
+    attrs["scan_name"] = {"scan_intents": partition_descr["scanIntent"]}
 
     # baselines...
     sdm_main_attrs = ["time", "configDescriptionId", "fieldId", "numAntenna"]
@@ -399,7 +399,7 @@ def create_coordinates(
     frequency_other_attrs = {
         "frame": get_reference_frame(asdm, spw_id),
         "spectral_window_name": ensure_spw_name_conforms(spw_name, spw_id),
-        "spectral_window_intent": "UNSPECIFIED",
+        "spectral_window_intents": ["UNSPECIFIED"],
         "reference_frequency": make_spectral_coord_reference_dict(
             spectral_window["refFreq"].values[0], "Hz", "TOPO"
         ),

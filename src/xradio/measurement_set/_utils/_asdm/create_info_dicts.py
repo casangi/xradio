@@ -144,25 +144,15 @@ def create_observation_info(asdm: pyasdm.ASDM, partition_descr: dict) -> dict:
     execblock_rows = [asdm_execblock.getRowByKey(tag) for tag in execblock_tags]
 
     # Reorganize the loop? / table iteration => use many-cols data frames
-    execblock_id = [row.getExecBlockId().getTagValue() for row in execblock_rows]
     observer = [row.getObserverName() for row in execblock_rows]
-    project = [row.getProjectUID().getEntityId() for row in execblock_rows]
     release_date = [
         row.getReleaseDate() if row.isReleaseDateExists() else ""
         for row in execblock_rows
     ]
+    project_uid = [row.getProjectUID().getEntityId() for row in execblock_rows]
     execblock_uid = [row.getExecBlockUID().getEntityId() for row in execblock_rows]
-    execblock_number = [row.getExecBlockNum() for row in execblock_rows]
-    session_reference = [
+    session_reference_uid = [
         row.getSessionReference().getEntityId() for row in execblock_rows
-    ]
-    observing_script = [
-        row.getObservingScript() if row.isObservingScriptExists() else ""
-        for row in execblock_rows
-    ]
-    observing_script_UID = [
-        row.getObservingScriptUID() if row.isObservingScriptUIDExists() else ""
-        for row in execblock_rows
     ]
     observing_log = [row.getObservingLog() for row in execblock_rows]
     sb_summary_id = [row.getSBSummaryId().getTagValue() for row in execblock_rows]
@@ -181,17 +171,12 @@ def create_observation_info(asdm: pyasdm.ASDM, partition_descr: dict) -> dict:
 
     observation_info = {
         "observer": observer,
-        "project": list_to_first(project),
         "release_date": list_to_first(release_date),
-        "execution_block_id": str(list_to_first(execblock_id)),
-        "execution_block_number": int(list_to_first(execblock_number)),
+        "project_UID": list_to_first(project_uid),
         "execution_block_UID": list_to_first(execblock_uid),
-        "session_reference": list_to_first(session_reference),
-        "observing_script": list_to_first(observing_script),
-        "observing_script_UID": list_to_first(observing_script_UID),
+        "session_reference_UID": list_to_first(session_reference_uid),
         "observing_log": str(list_to_first(observing_log)),
         "scheduling_block_UID": list_to_first(scheduling_block_UID),
-        "intents": partition_descr["scanIntent"],
     }
 
     return observation_info

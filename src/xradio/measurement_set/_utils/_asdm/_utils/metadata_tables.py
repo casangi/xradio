@@ -6,7 +6,44 @@ import pyasdm
 
 # TODO: do the get() also for Angle, Length, etc. quantities
 #  Also types: PolarizationType
+
+
 def load_asdm_col(sdm_table: pyasdm.ASDM, col_name: str) -> list:
+    """Load a column from an ASDM table into a list.
+    This function extracts values from a specified column in an ASDM (ALMA Science Data Model) table,
+    handling various ASDM-specific data types and converting them to Python native types.
+
+    Parameters
+    ----------
+    sdm_table : pyasdm.ASDM
+        An ASDM table object loaded using pyasdm
+    col_name : str
+        Name of the column to extract from the table
+
+    Returns
+    -------
+    list
+        List containing the column values converted to appropriate Python types
+
+    Notes
+    -----
+    Handles special ASDM types including:
+    - Tags: converted to integer values
+    - EntityRefs: converted to entity IDs
+    - Arrays of Tags: converted to numpy arrays
+    - Enumerations (StokesParameter, ScanIntent, etc): converted to string names
+    - PolarizationType arrays: converted to nested lists of string names
+    - Frequency objects: converted to numeric values
+
+    Examples
+    --------
+    >>> from pyasdm import ASDM
+    >>> main_table = ASDM("uid___X02_X1/Main.xml")
+    >>> scan_numbers = load_asdm_col(main_table, "scanNumber")
+    >>> print(scan_numbers)
+    [1, 2, 3, 4]
+    """
+
     def upper_first(col_string):
         return col_string[0].upper() + col_string[1:]
 
@@ -73,6 +110,30 @@ def load_asdm_col(sdm_table: pyasdm.ASDM, col_name: str) -> list:
 def exp_asdm_table_to_df(
     sdm: pyasdm.ASDM, table_name: str, col_names: list[str]
 ) -> pd.DataFrame:
+    """Convert an ASDM table to a pandas DataFrame.
+
+    This function extracts specified columns from an ASDM table and converts them into
+    a pandas DataFrame format.
+
+    Parameters
+    ----------
+    sdm : pyasdm.ASDM
+        The ASDM object containing the table to be converted
+    table_name : str
+        Name of the table to extract from the ASDM (without 'Table' suffix)
+    col_names : list[str]
+        List of column names to extract from the table
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame containing the specified columns from the ASDM table
+
+    Examples
+    --------
+    >>> df = exp_asdm_table_to_df(sdm, "ExecBlock", ["startTime", "endTime"])
+    """
+
     get_table_name = f"get{table_name}"
     get_table_function = getattr(sdm, get_table_name)
     table = get_table_function()

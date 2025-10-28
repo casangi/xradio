@@ -88,6 +88,7 @@ def make_blob_info(bdf_header: pyasdm.bdf.BDFHeader) -> dict:
         "apc_list": " ".join(map(str, bdf_header.getAPClist())),
         "dimensionality": bdf_header.getDimensionality(),
         "num_time": bdf_header.getNumTime(),
+        "binary_types": bdf_header.getBinaryTypes(),
         "num_antenna": bdf_header.getNumAntenna(),
         "actual_times_size": bdf_header.getSize("actualTimes"),
         "actual_times_axes": " ".join(map(str, bdf_header.getAxes("actualTimes"))),

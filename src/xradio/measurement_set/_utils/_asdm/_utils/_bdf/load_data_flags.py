@@ -205,7 +205,9 @@ def array_slice_to_indices(array_slice: dict) -> tuple[range, range, range, rang
     if "frequency" in array_slice:
         frequency_slice = array_slice["frequency"]
     if "polarization" in array_slice:
-        frequency_slice = array_slice["polarization"]
+        polarization_slice = array_slice["polarization"]
+
+    return (time_slice, baseline_slice, frequency_slice, polarization_slice)
 
 
 def load_visibilities_from_bdfs(

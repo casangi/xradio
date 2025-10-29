@@ -161,7 +161,7 @@ def load_times_from_bdfs(
             bdf_reader.open(bdf_path)
             bdf_header = bdf_reader.getHeader()
             logger.debug(" * In load_times_from_bdf, {bdf_path=} *")
-            logger.debug(bdf_header)
+            # logger.debug(bdf_header)
             blob_info = make_blob_info(bdf_header)
             save_blob_info("xradio_asdm_blob_time_etc_info.csv", blob_info)
         finally:

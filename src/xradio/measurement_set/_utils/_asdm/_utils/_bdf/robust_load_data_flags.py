@@ -1,3 +1,5 @@
+import traceback
+
 import numpy as np
 
 import pyasdm
@@ -54,17 +56,20 @@ def find_spw_in_basebands_list(
 ) -> tuple[int, int]:
 
     baseband_description = {}
-    baseband_index = 0
+    bb_index_cnt = 0
     for bband in basebands:
         for spw in bband["spectralWindows"]:
             if spw_id == int(spw["sw"]) - 1:
                 # Not sure if the lists are guaranteed to be sorted by id, so taking the id from name
                 if "NOBB" == bband["name"]:
                     spw_index = 0
+                    baseband_index = bb_index_cnt
                 else:
-                    spw_index = int(bband["name"].split("_")[1]) - 1
+                    spw_index = spw_id
+                    baseband_index = int(bband["name"].split("_")[1]) - 1
                 baseband_description = bband["spectralWindows"][0]
-        baseband_index += 1
+
+        bb_index_cnt += 1
 
     if not baseband_description:
         # TODO: This is a highly dubious fallback for now...
@@ -85,7 +90,7 @@ def load_visibilities_from_partition_bdfs(
 
     cumulative_vis = []
     for bdf_path in bdf_paths:
-        visibility_blob = load_visibilities(bdf_path, spw_id, array_slice)
+        visibility_blob = load_visibilities_from_bdf(bdf_path, spw_id, array_slice)
 
         if array_slice:
             indices = array_slice_to_msv4_indices(array_slice)
@@ -110,41 +115,64 @@ def check_correlation_mode(correlation_mode: pyasdm.enumerations.CorrelationMode
         raise RuntimeError(f" Unexpected {correlation_mode=} {bdf_header=}")
 
 
-def load_visibilities(bdf_path: str, spw_id: int, array_slice: dict) -> np.ndarray:
+def load_visibilities_from_bdf(
+    bdf_path: str, spw_id: int, array_slice: dict
+) -> np.ndarray:
 
     bdf_reader = pyasdm.bdf.BDFReader()
     bdf_reader.open(bdf_path)
     bdf_header = bdf_reader.getHeader()
 
-    check_correlation_mode(bdf_header.getCorrelationMode())
-
     bdf_descr = {
         # packed/TIM: dimensionality == 0
         "dimensionality": bdf_header.getDimensionality(),
-        "num_times": bdf_header.getNumTime(),
+        "num_time": bdf_header.getNumTime(),
         "processor_type": bdf_header.getProcessorType(),
         "binary_types": bdf_header.getBinaryTypes(),
+        "correlation_mode": bdf_header.getCorrelationMode(),
         "apc": bdf_header.getAPClist(),
         "num_antenna": bdf_header.getNumAntenna(),
         "basebands": bdf_header.getBasebandsList(),
     }
 
-    # TODO: working check for what's out there...
-    if len(bdf_descr["basebands"]) not in [1, 3, 4]:
-        raise RuntimeError(f"*** {len(basebands)=}, {basebands=}")
-
-    baseband_spw_idxs = find_spw_in_basebands_list(
-        bdf_path, spw_id, bdf_descr["basebands"]
-    )
-
+    check_correlation_mode(bdf_descr["correlation_mode"])
+    check_basebands(bdf_descr["basebands"])
     ensure_presence_data_arrays(
         ["crossData", "autoData"], bdf_descr["binary_types"], bdf_path
     )
 
+    baseband_spw_idxs = find_spw_in_basebands_list(
+        bdf_path, spw_id, bdf_descr["basebands"]
+    )
+    guessed_shape = define_visibility_shape(bdf_descr, baseband_spw_idxs)
+    try:
+        bdf_vis = load_visibilities_all_subsets(
+            bdf_reader, guessed_shape, baseband_spw_idxs, bdf_descr
+        )
+    except RuntimeError as exc:
+        trace = traceback.format_exc()
+        raise RuntimeError(
+            f"Error while loading data/visibilities from a BDF. Details: {exc}."
+            + trace
+            + "{bdf_descr=}"
+            + str(bdf_header)
+        )
+
+    return bdf_vis
+
+
+def load_visibilities_all_subsets(
+    bdf_reader: pyasdm.bdf.BDFReader,
+    guessed_shape: tuple[int, ...],
+    baseband_spw_idxs: tuple[int, int],
+    bdf_descr: dict,
+) -> np.ndarray:
+
     baseband_description = bdf_descr["basebands"][baseband_spw_idxs[0]]
     spw_descr = baseband_description["spectralWindows"][baseband_spw_idxs[1]]
     scale_factor = spw_descr["scaleFactor"] or 1
-    guessed_shape = define_visibility_shape(bdf_descr, baseband_spw_idxs)
+    processor_type = bdf_descr["processor_type"]
+
     vis_per_subset = []
     while bdf_reader.hasSubset():
         try:
@@ -156,9 +184,9 @@ def load_visibilities(bdf_path: str, spw_id: int, array_slice: dict) -> np.ndarr
         vis_subset = load_vis_subset(
             subset,
             guessed_shape,
-            scale_factor,
             baseband_spw_idxs,
-            bdf_descr["processor_type"],
+            scale_factor,
+            processor_type,
         )
 
         vis_per_subset.append(vis_subset)
@@ -170,6 +198,7 @@ def load_visibilities(bdf_path: str, spw_id: int, array_slice: dict) -> np.ndarr
 def define_visibility_shape(
     bdf_descr: dict, baseband_spw_idxs: tuple[int, int]
 ) -> tuple:
+    # shape of the full crossData/autoData binary component
     baseband_len = len(bdf_descr["basebands"])
     antenna_len = bdf_descr["num_antenna"]
     baseline_len = int(antenna_len * (antenna_len - 1) / 2)
@@ -200,8 +229,8 @@ def define_visibility_shape(
 def load_vis_subset(
     subset: dict,
     guessed_shape: tuple,
-    scale_factor: float,
     spw_baseband_num: tuple[int, int],
+    scale_factor: float,
     processor_type: pyasdm.enumerations.ProcessorType,
 ) -> np.ndarray:
 
@@ -221,7 +250,7 @@ def load_vis_subset(
             # radiometer / spectrometer
             vis_subset = cross_floats
     elif "autoData" in subset and subset["autoData"]["present"]:
-        shape = (guessed_shape[0:1],) + guessed_shape[2:-2]
+        shape = guessed_shape[:1] + guessed_shape[2:-2]
         # MUSTREMOVE (but to handle the uneven cases of the 'awful_workaround')
         # => auto_floats = (subset["autoData"]["arr"] / scale_factor).reshape(shape)
         auto_floats = (
@@ -234,17 +263,13 @@ def load_vis_subset(
     return vis_subset
 
 
-# ==> dims
-# BAL ANT [:, :, spw_baseband_num, :, :]
-
-
 def load_flags_from_partition_bdfs(
     bdf_paths: list[str], spw_id: int, array_slice: dict | None = None
 ) -> np.ndarray:
 
     cumulative_flag = []
     for bdf_path in bdf_paths:
-        flag_blob = load_flags(bdf_path, spw_id, array_slice)
+        flag_blob = load_flags_from_bdf(bdf_path, spw_id, array_slice)
 
         if array_slice:
             indices = array_slice_to_indices(array_slice)
@@ -255,42 +280,65 @@ def load_flags_from_partition_bdfs(
     return np.concatenate(cumulative_flag)
 
 
-def check_flags_dims(flags_dims: list[str]) -> bool:
+def check_flags_dims(flags_dims: list[str]):
     exclude_unsupported_axis_names(flags_dims)
 
 
-def load_flags(bdf_path: list[str], spw_id: int, array_slice: dict) -> np.ndarray:
+def check_basebands(basebands: list[dict]):
+    # TODO: working check for what's out there...
+    if len(basebands) not in [1, 3, 4]:
+        raise RuntimeError(f" {len(basebands)=}, {basebands=}")
+
+
+def load_flags_from_bdf(
+    bdf_path: list[str], spw_id: int, array_slice: dict
+) -> np.ndarray:
 
     bdf_reader = pyasdm.bdf.BDFReader()
     bdf_reader.open(bdf_path)
     bdf_header = bdf_reader.getHeader()
-
-    check_correlation_mode(bdf_header.getCorrelationMode())
 
     check_flags_dims(bdf_header.getAxesNames("flags"))
 
     bdf_descr = {
         # packed/TIM: dimensionality == 0
         "dimensionality": bdf_header.getDimensionality(),
-        "num_times": bdf_header.getNumTime(),
+        "num_time": bdf_header.getNumTime(),
         "processor_type": bdf_header.getProcessorType(),
+        "correlation_mode": bdf_header.getCorrelationMode(),
         "binary_types": bdf_header.getBinaryTypes(),
         "apc": bdf_header.getAPClist(),
         "num_antenna": bdf_header.getNumAntenna(),
         "basebands": bdf_header.getBasebandsList(),
     }
 
-    # TODO: working check for what's out there...
-    if len(bdf_descr["basebands"]) not in [1, 3, 4]:
-        raise RuntimeError(f"*** {len(basebands)=}, {basebands=}")
+    check_correlation_mode(bdf_descr["correlation_mode"])
+    check_basebands(bdf_descr["basebands"])
+    ensure_presence_data_arrays(["flags"], bdf_descr["binary_types"], bdf_path)
 
     baseband_spw_idxs = find_spw_in_basebands_list(
         bdf_path, spw_id, bdf_descr["basebands"]
     )
-
-    ensure_presence_data_arrays(["flags"], bdf_descr["binary_types"], bdf_path)
-
     guessed_shape = define_flag_shape(bdf_descr, baseband_spw_idxs)
+    try:
+        bdf_flag = load_flags_all_subsets(bdf_reader, guessed_shape, baseband_spw_idxs)
+    except (RuntimeError, ValueError) as exc:
+        trace = traceback.format_exc()
+        raise RuntimeError(
+            f"Error while loading flags from a BDF. Details: {exc}."
+            + trace
+            + "{bdf_descr=}"
+            + str(bdf_header)
+        )
+
+    return bdf_flag
+
+
+def load_flags_all_subsets(
+    bdf_reader: pyasdm.bdf.BDFReader,
+    guessed_shape: tuple[int, ...],
+    baseband_spw_idxs: tuple[int, int],
+) -> np.ndarray:
 
     flag_per_subset = []
     while bdf_reader.hasSubset():
@@ -298,20 +346,24 @@ def load_flags(bdf_path: list[str], spw_id: int, array_slice: dict) -> np.ndarra
             subset = bdf_reader.getSubset()
         except ValueError as exc:
             logger.warning(
-                f"Error in getSubset for {bdf_path=} when trying to load "
+                f"Error in getSubset for {bdf_reader.getPath()=} when trying to load "
                 f"flags. Will use all-False. {exc=}"
             )
             return None
 
-        flag_subset = load_flag_subset(subset, guessed_shape, baseband_spw_idxs)
+        flag_subset = load_flags_subset(subset, guessed_shape, baseband_spw_idxs)
 
         flag_per_subset.append(flag_subset)
 
     bdf_flag = np.concatenate(flag_per_subset)
+
     return bdf_flag
 
 
-def define_flag_shape(bdf_descr: dict, baseband_spw_idxs: tuple[int, int]) -> tuple:
+def define_flag_shape(
+    bdf_descr: dict, baseband_spw_idxs: tuple[int, int]
+) -> tuple[int, ...]:
+    # shape of the full flag binary component
     baseband_len = len(bdf_descr["basebands"])
     antenna_len = bdf_descr["num_antenna"]
     baseline_len = int(antenna_len * (antenna_len - 1) / 2)
@@ -325,9 +377,15 @@ def define_flag_shape(bdf_descr: dict, baseband_spw_idxs: tuple[int, int]) -> tu
 
     # if dimensionality==0, we have TIM dimension / packed format
     time_len = bdf_descr["num_time"] if bdf_descr["dimensionality"] == 0 else 1
+    if bdf_descr["correlation_mode"] == pyasdm.enumerations.CorrelationMode.AUTO_ONLY:
+        # The axes of flags would be for example "TIM ANT"
+        baseline_ant_len = antenna_len
+    else:
+        baseline_ant_len = baseline_len + antenna_len
+
     shape = (
         time_len,
-        baseline_len + antenna_len,
+        baseline_ant_len,
         baseband_len,
         spw_len,
         polarization_len,
@@ -336,7 +394,36 @@ def define_flag_shape(bdf_descr: dict, baseband_spw_idxs: tuple[int, int]) -> tu
     return shape
 
 
-def load_flag_subset(
+def try_alternatives_guessed_shape(
+    guessed_shape: tuple[int, ...],
+    flags_actual_size: int,
+    baseband_spw_idxs: tuple[int, int],
+) -> tuple[int, ...]:
+
+    guessed_size = np.prod(guessed_shape)
+    if guessed_size > flags_actual_size:
+        # try no per-BB flags
+        shape = (
+            guessed_shape[0:2]
+            + (
+                1,
+                1,
+            )
+            + guessed_shape[-1:]
+        )
+        new_baseband_spw_idxs = (0, 0)
+    elif guessed_size < flags_actual_size:
+        raise RuntimeErrorx(
+            f"Unexpected large flags array in a subset. {guessed_size=}, {flags_actual_size=}"
+        )
+    else:
+        shape = guessed_shape
+        new_baseband_spw_idxs = baseband_spw_idxs
+
+    return shape, new_baseband_spw_idxs
+
+
+def load_flags_subset(
     subset: dict,
     guessed_shape: tuple,
     baseband_spw_idxs: tuple[int, int],
@@ -346,13 +433,17 @@ def load_flag_subset(
     """
 
     if "flags" in subset and subset["flags"]["present"]:
-        flag_array = subset["flags"]["arr"].reshape(guessed_shape)
-        if len(guessed_shape) > 6:
+        if len(guessed_shape) > 5:
             raise RuntimeError(
                 f"Unexpected. Found {guessed_shape=}, {len(guessed_shape)=}, with {flag_array=}"
             )
+        shape, baseband_spw_idxs = try_alternatives_guessed_shape(
+            guessed_shape, subset["flags"]["arr"].size, baseband_spw_idxs
+        )
+        flag_array = subset["flags"]["arr"].reshape(shape)
         flag_subset = flag_array[..., baseband_spw_idxs[0], baseband_spw_idxs[1], :]
     else:
-        flag_subset = np.full(guessed_shape, False, dtype="bool")
+        shape = guessed_shape[0:2] + (guessed_shape[-1],)
+        flag_subset = np.full(shape, False, dtype="bool")
 
     return flag_subset

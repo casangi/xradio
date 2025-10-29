@@ -332,7 +332,8 @@ def finalize_partitions_groupby(
         #     partitions_list_d2.append(partition_descr)
         # partitions_list = partitions_list_d2
 
-        print(f" => After lists->ndarray fix, {partitions_list=}")
+        print(f" ===> After lists->ndarray fix, {partitions_list=}")
+        return partitions_list
 
     partition_groups = partitioning_df.groupby(partition_columns)
 

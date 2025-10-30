@@ -235,7 +235,7 @@ def _make_empty_aperture_image(
 
 
 def _move_beam_param_dim_coord(xds: xr.Dataset) -> xr.Dataset:
-    return xds.assign_coords(beam_param=("beam_param", ["major", "minor", "pa"]))
+    return xds.assign_coords(beam_params_label=("beam_params_label", ["major", "minor", "pa"]))
 
 
 def _make_empty_lmuv_image(

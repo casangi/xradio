@@ -199,8 +199,8 @@ def open_image(
             if "MASK_0" in xds:
                 img_xds["MASK_0"] = xds["MASK_0"]
 
-            if "beam_param" in xds:
-                img_xds = img_xds.assign_coords(beam_param=xds["beam_param"])
+            if "beam_params_label" in xds:
+                img_xds = img_xds.assign_coords(beam_params_label=xds["beam_params_label"])
 
         else:
             img_xds.attrs = img_xds.attrs | xds.attrs
@@ -216,8 +216,8 @@ def open_image(
             if "MASK_0" in xds:
                 img_xds["MASK_0"] = xds["MASK_0"]
 
-            if "beam_param" in xds:
-                img_xds = img_xds.assign_coords(beam_param=xds["beam_param"])
+            if "beam_params_label" in xds:
+                img_xds = img_xds.assign_coords(beam_params_label=xds["beam_params_label"])
     img_xds.attrs["type"] = "image"
     return img_xds
 
@@ -302,8 +302,8 @@ def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dat
             if "MASK_0" in xds:
                 img_xds["MASK_0"] = xds["MASK_0"]
 
-            if "beam_param" in xds:
-                img_xds = img_xds.assign_coords(beam_param=xds["beam_param"])
+            if "beam_params_label" in xds:
+                img_xds = img_xds.assign_coords(beam_params_label=xds["beam_params_label"])
 
         else:
             img_xds.attrs = img_xds.attrs | xds.attrs
@@ -319,8 +319,8 @@ def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dat
             if "MASK_0" in xds:
                 img_xds["MASK_0"] = xds["MASK_0"]
 
-            if "beam_param" in xds:
-                img_xds = img_xds.assign_coords(beam_param=xds["beam_param"])
+            if "beam_params_label" in xds:
+                img_xds = img_xds.assign_coords(beam_params_label=xds["beam_params_label"])
 
     img_xds.attrs["type"] = "image"
     return img_xds

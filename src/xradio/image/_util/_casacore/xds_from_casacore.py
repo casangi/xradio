@@ -383,7 +383,7 @@ def _casa_image_to_xds_coords(
         ret = _get_uv_values_attrs(coord_dict, axis_names, shape)
         for z in ["u", "v"]:
             coords[z], coord_attrs[z] = ret[z]
-    coords["beam_param"] = ["major", "minor", "pa"]
+    coords["beam_params_label"] = ["major", "minor", "pa"]
     attrs["shape"] = shape
     xds = xr.Dataset(coords=coords)
     for c in coord_attrs.keys():
@@ -865,10 +865,10 @@ def _get_beam(
     if as_dask_array:
         beam_array = da.array(beam_array)
     xdb = xr.DataArray(
-        beam_array, dims=["time", "frequency", "polarization", "beam_param"]
+        beam_array, dims=["time", "frequency", "polarization", "beam_params_label"]
     )
     xdb = xdb.rename("BEAM_FIT_PARAMS")
-    xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
+    xdb = xdb.assign_coords(beam_params_label=["major", "minor", "pa"])
     xdb.attrs["units"] = "rad"
     return xdb
 

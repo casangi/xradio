@@ -608,7 +608,7 @@ def _create_coords(
     else:
         # Fourier image
         coords["u"], coords["v"] = _get_uv_values(helpers)
-    coords["beam_param"] = ["major", "minor", "pa"]
+    coords["beam_params_label"] = ["major", "minor", "pa"]
     xds = xr.Dataset(coords=coords)
     return xds
 
@@ -739,10 +739,10 @@ def _add_beam(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
 
 def _create_beam_data_var(xds: xr.Dataset, beam_array: np.array) -> xr.Dataset:
     xdb = xr.DataArray(
-        beam_array, dims=["time", "frequency", "polarization", "beam_param"]
+        beam_array, dims=["time", "frequency", "polarization", "beam_params_label"]
     )
     xdb = xdb.rename("BEAM_FIT_PARAMS")
-    xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
+    xdb = xdb.assign_coords(beam_params_label=["major", "minor", "pa"])
     xdb.attrs["units"] = "rad"
     xds["BEAM_FIT_PARAMS"] = xdb
     return xds

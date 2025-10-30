@@ -28,9 +28,13 @@ def open_processing_set(
 
     if isinstance(file_system, s3fs.core.S3FileSystem):
         mapping = s3fs.S3Map(root=ps_store, s3=file_system, check=False)
-        ps_xdt = xr.open_datatree(mapping, engine="zarr")
+        ps_xdt = xr.open_datatree(
+            mapping, engine="zarr", chunks={}, chunked_array_type="dask"
+        )
     else:
-        ps_xdt = xr.open_datatree(ps_store, engine="zarr")
+        ps_xdt = xr.open_datatree(
+            ps_store, engine="zarr", chunks={}, chunked_array_type="dask"
+        )
 
     # Future work is to add ASDM backend
 

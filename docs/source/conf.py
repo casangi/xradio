@@ -35,6 +35,12 @@ exclude_patterns = []
 sys.path.insert(0, os.path.abspath(os.path.join("..", "..", "src")))
 sys.path.insert(0, os.path.abspath("."))
 
+from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
+
+rst_epilog = f"""
+.. |MSV4_SCHEMA_VERSION| replace:: {MSV4_SCHEMA_VERSION}
+"""
+
 # -- Options for HTML output -------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
@@ -75,9 +81,15 @@ autodoc_type_aliases = {
     "Attr": "Attr",
     "Dataof": "Dataof",
     "Attrof": "Attrof",
+    "xr.DataTree": "xarray.DataTree",
 }
 
-# nitpicky = True
+napoleon_type_aliases = {
+    "xr.DataTree": "xarray.DataTree",
+    "DataTree": "xarray.DataTree",
+}
+
+nitpicky = True
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
@@ -85,6 +97,8 @@ intersphinx_mapping = {
     "xarray": ("https://docs.xarray.dev/en/stable", None),
     "dask": ("https://docs.dask.org/en/stable", None),
     "numpy": ("https://numpy.org/doc/stable", None),
+    "numcodecs": ("https://numcodecs.readthedocs.io/en/stable", None),
+    "pandas": ("https://pandas.pydata.org/docs", None),
 }
 
 add_module_names = False

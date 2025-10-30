@@ -5,7 +5,7 @@ import xarray as xr
 
 def open_processing_set(
     ps_store: str,
-    intents: list = None,
+    scan_intents: list | None = None,
 ) -> xr.DataTree:
     """Creates a lazy representation of a Processing Set (only meta-data is loaded into memory).
 
@@ -13,9 +13,9 @@ def open_processing_set(
     ----------
     ps_store : str
         String of the path and name of the processing set. For example '/users/user_1/uid___A002_Xf07bba_Xbe5c_target.lsrk.vis.zarr'.
-    intents : list, optional
-        A list of intents to be opened for example ['OBSERVE_TARGET#ON_SOURCE']. The intents in a processing_set_xdt can be seen by calling processing_set_xdt.ps.summary().
-        By default None, which will include all intents.
+    scan_intents : str | None, optional
+        A list of scan_intents to be opened for example ['OBSERVE_TARGET#ON_SOURCE']. The scan_intents in a processing_set_xdt can be seen by calling processing_set_xdt.ps.summary().
+        By default None, which will include all scan_intents.
 
     Returns
     -------
@@ -28,16 +28,20 @@ def open_processing_set(
 
     if isinstance(file_system, s3fs.core.S3FileSystem):
         mapping = s3fs.S3Map(root=ps_store, s3=file_system, check=False)
-        ps_xdt = xr.open_datatree(mapping, engine="zarr")
+        ps_xdt = xr.open_datatree(
+            mapping, engine="zarr", chunks={}, chunked_array_type="dask"
+        )
     else:
-        ps_xdt = xr.open_datatree(ps_store, engine="zarr")
+        ps_xdt = xr.open_datatree(
+            ps_store, engine="zarr", chunks={}, chunked_array_type="dask"
+        )
 
     # Future work is to add ASDM backend
 
-    if intents is None:
+    if scan_intents is None:
         return ps_xdt
     else:
-        return ps_xdt.xr_ps.query(intents=intents)
+        return ps_xdt.xr_ps.query(scan_intents=scan_intents)
 
 
 # def open_processing_set(

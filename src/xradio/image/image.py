@@ -14,8 +14,6 @@ import xarray as xr
 
 # from .._utils.zarr.common import _load_no_dask_zarr
 
-from ._util.casacore import _load_casa_image_block, _xds_to_casa_image
-
 # from ._util.fits import _read_fits_image
 from ._util.image_factory import (
     _make_empty_aperture_image,
@@ -201,6 +199,8 @@ def load_image(infile: str, block_des: dict = None, do_sky_coords=True) -> xr.Da
         # comment next line when done debugging
         # return _load_casa_image_block(infile, selection, do_sky_coords)
         try:
+            from ._util.casacore import _load_casa_image_block
+
             return _load_casa_image_block(infile, selection, do_sky_coords)
         except Exception as e:
             emsgs.append(f"image format appears not to be casacore: {e.args}")
@@ -256,6 +256,8 @@ def write_image(
             )
     my_format = out_format.lower()
     if my_format == "casa":
+        from ._util.casacore import _xds_to_casa_image
+
         _xds_to_casa_image(xds, imagename)
     elif my_format == "zarr":
         _xds_to_zarr(xds, imagename)

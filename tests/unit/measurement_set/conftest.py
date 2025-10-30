@@ -9,7 +9,7 @@ import xarray as xr
 
 
 from toolviper.utils.data import download
-from xradio.measurement_set import convert_msv2_to_processing_set
+from xradio.measurement_set import convert_msv2_to_processing_set, open_processing_set
 
 
 from tests.unit.measurement_set.ms_test_utils.gen_test_ms import (
@@ -282,6 +282,7 @@ def processing_set_from_custom_ms(request):
         overwrite=False,
         parallel_mode="partition",
     )
+    open_processing_set(ps_name)  # check it opens
     shutil.rmtree(msv2_name)
 
     yield ps_name
@@ -312,6 +313,7 @@ def convert_measurement_set_to_processing_set(request, tmp_path):
         overwrite=True,
         parallel_mode="none",
     )
+    open_processing_set(str(ps_path))  # check it opens
     yield ps_path
     shutil.rmtree(ps_path)
     shutil.rmtree(download_measurement_set(request.param, str(tmp_path)))

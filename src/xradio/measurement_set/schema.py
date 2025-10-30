@@ -9,7 +9,7 @@ from xradio.schema.bases import (
 from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof
 import numpy
 
-MSV4_SCHEMA_VERSION = "4.0.-9987"
+MSV4_SCHEMA_VERSION = "4.0.0"
 
 # Dimensions
 Time = Literal["time"]
@@ -59,7 +59,8 @@ EllipsoidDisLabel = Literal["ellipsoid_dis_label"]
 CartesianPosLabel = Literal["cartesian_pos_label"]
 """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
 CartesianPosLabelLocal = Literal["cartesian_pos_label_local"]
-""" Coordinate labels for phased array elements positions relative to their parent station position; defined in a station-local frame (typically shape 3 and 'p', 'q', 'r')"""
+""" Coordinate labels for phased array elements positions relative to their
+parent station position; defined in a station-local frame (typically shape 3 and 'p', `'q', 'r')"""
 nPolynomial = Literal["n_polynomial"]
 """ For data that is represented as variable in time using Taylor expansion """
 PolyTerm = Literal["poly_term"]
@@ -252,14 +253,15 @@ class TimeArray:
     """ Units to associate with axis"""
     scale: Attr[AllowedTimeScales] = "utc"
     """
-    Time scale of data. Must be one of ``(‘tai’, ‘tcb’, ‘tcg’, ‘tdb’, ‘tt’, ‘ut1’, ‘utc’)``,
+    Time scale of data. Must be one of ``('tai', 'tcb', 'tcg', 'tdb', 'tt', 'ut1', 'utc')``,
     see :py:class:`astropy.time.Time`
     """
     format: Attr[AllowedTimeFormats] = "unix"
-    """Time representation and epoch, see :py:class:`TimeArray`."""
+    """Time representation and epoch, see :py:class:`~xradio.measurement_set.schema.TimeArray`."""
 
 
-# Taken from the list of astropy built-in frame classes: https://docs.astropy.org/en/stable/coordinates/index.html
+# Taken from the list of astropy built-in frame classes:
+# https://docs.astropy.org/en/stable/coordinates/index.html
 AllowedSkyCoordFrames = Literal[
     "icrs",
     "fk5",
@@ -301,14 +303,19 @@ class SkyCoordArray:
     type: Attr[SkyCoord] = "sky_coord"
     frame: Attr[AllowedSkyCoordFrames] = "icrs"
     """
-    Possible values are astropy SkyCoord frames.
-    Several casacore frames found in MSv2 are translated to astropy frames as follows: AZELGEO=>altaz, J2000=>fk5, ICRS=>icrs.
-    From fixvis docs: clean and the im tool ignore the reference frame
-    claimed by the UVW column (it is often mislabelled as ITRF when it is
-    really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame
-    as the phase tracking center. calcuvw does not yet force the UVW column and
-    field centers to use the same reference frame! Blank = use the phase
-    tracking frame of vis.
+    Possible values are :py:class:`astropy.coordinates.SkyCoord` frames.
+
+    Several casacore frames found in MSv2 are translated to ``astropy`` frames as follows:
+    
+    * ``AZELGEO`` => ``altaz``
+    * ``J2000`` => ``fk5``
+    * ``ICRS`` => ``icrs``
+
+    From ``fixvis`` docs: ``clean`` and the ``im`` tool ignore the reference frame claimed
+    by the UVW column (it is often mislabelled as ITRF when it is really FK5
+    or J2000) and instead assume the (u, v, w)s are in the same frame as the phase
+    tracking center. ``calcuvw`` does not yet force the UVW column and field centers
+    to use the same reference frame!
     """
 
 
@@ -330,16 +337,14 @@ class PointingBeamArray:
     units: Attr[UnitsOfSkyCoordInMetersOrRadians] = "rad"
     frame: Attr[AllowedSkyCoordFrames] = "icrs"
     """
-    From fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled
-    as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking
-    center. calcuvw does not yet force the UVW column and field centers to use the same reference frame! Blank = use the
-    phase tracking frame of vis.
+    Blank = use the phase tracking frame of vis.
     """
 
 
 @xarray_dataarray_schema
 class LocalSkyCoordArray:
-    """Measures array for the arrays that have coordinate local_sky_dir_label in :py:class:`PointingXds`"""
+    """Measures array for the arrays that have coordinate local_sky_dir_label in
+    :py:class:`PointingXds`"""
 
     data: Data[LocalSkyDirLabel, float]
 
@@ -347,22 +352,25 @@ class LocalSkyCoordArray:
     units: Attr[UnitsOfSkyCoordInMetersOrRadians] = "rad"
     frame: Attr[AllowedSkyCoordFrames] = "icrs"
     """
-    From fixvis docs: clean and the im tool ignore the reference frame claimed by the UVW column (it is often mislabelled
-    as ITRF when it is really FK5 (J2000)) and instead assume the (u, v, w)s are in the same frame as the phase tracking
-    center. calcuvw does not yet force the UVW column and field centers to use the same reference frame! Blank = use the
-    phase tracking frame of vis.
+    From ``fixvis`` docs: ``clean`` and the ``im`` tool ignore the reference frame claimed
+    by the UVW column (it is often mislabelled as ITRF when it is really FK5
+    or J2000) and instead assume the (u, v, w)s are in the same frame as the phase
+    tracking center. ``calcuvw`` does not yet force the UVW column and field centers
+    to use the same reference frame!
+    
+    Blank = use the phase tracking frame of vis.
     """
 
 
 # Coordinates / Axes
 @xarray_dataarray_schema
 class TimeCoordArray:
-    """Data model of the main dataset time axis. See also :py:class:`TimeArray`."""
+    """Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`."""
 
     data: Data[Time, float]
     """
     Time, expressed in seconds since the epoch (see ``scale`` &
-    ``format``), see also see :py:class:`TimeArray`.
+    ``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.
     """
 
     type: Attr[Time] = "time"
@@ -372,10 +380,10 @@ class TimeCoordArray:
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
-    """ Astropy time scales, see :py:class:`TimeArray` """
+    """ Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` """
 
     format: Attr[AllowedTimeFormats] = "unix"
-    """ Astropy format, see :py:class:`TimeArray`"""
+    """ Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"""
 
     integration_time: Attr[QuantityInSecondsArray] = None
     """ The nominal sampling interval (ms v2). Units of seconds. """
@@ -389,7 +397,7 @@ class TimeInterpolatedCoordArray:
     pointing_xds, weather_xds, field_and_source_info_xds, and phase_cal_xds
     when their respective time_system_cal, time_pointing, time_weather,
     time_ephemeris or time_phase_cal are interpolated to the main dataset
-    time. See also :py:class:`TimeArray`.
+    time. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.
 
     The only difference with respect to the main TimeCoordArray is the
     absence of the attribute integration_time
@@ -398,7 +406,7 @@ class TimeInterpolatedCoordArray:
     data: Data[Time, float]
     """
     Time, expressed in seconds since the epoch (see ``scale`` &
-    ``format``), see also see :py:class:`TimeArray`.
+    ``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.
     """
 
     type: Attr[Time] = "time"
@@ -408,10 +416,10 @@ class TimeInterpolatedCoordArray:
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
-    """ Astropy time scales, see :py:class:`TimeArray` """
+    """ Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` """
 
     format: Attr[AllowedTimeFormats] = "unix"
-    """ Astropy format, see :py:class:`TimeArray`"""
+    """ Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"""
 
 
 @xarray_dataarray_schema
@@ -433,10 +441,10 @@ class TimeSystemCalCoordArray:
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
-    """ Astropy time scales, see :py:class:`TimeArray` """
+    """ Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` """
 
     format: Attr[AllowedTimeFormats] = "unix"
-    """ Astropy format, see :py:class:`TimeArray`"""
+    """ Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"""
 
 
 @xarray_dataarray_schema
@@ -458,10 +466,10 @@ class TimePointingCoordArray:
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
-    """ Astropy time scales, see :py:class:`TimeArray` """
+    """ Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` """
 
     format: Attr[AllowedTimeFormats] = "unix"
-    """ Astropy format, see :py:class:`TimeArray`"""
+    """ Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"""
 
 
 @xarray_dataarray_schema
@@ -483,10 +491,10 @@ class TimeEphemerisCoordArray:
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
-    """ Astropy time scales, see :py:class:`TimeArray` """
+    """ Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` """
 
     format: Attr[AllowedTimeFormats] = "unix"
-    """ Astropy format, see :py:class:`TimeArray`"""
+    """ Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"""
 
 
 @xarray_dataarray_schema
@@ -508,14 +516,15 @@ class TimeWeatherCoordArray:
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
-    """ Astropy time scales, see :py:class:`TimeArray` """
+    """ Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` """
 
     format: Attr[AllowedTimeFormats] = "unix"
-    """ Astropy format, see :py:class:`TimeArray`"""
+    """ Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"""
 
 
-# For now allowing both some of the casacore frames (from "REST" to "TOPO" - all in uppercase) as well as
-# the astropy frames (all in lowercase, taken from the list of SpectralCoord:
+# For now allowing both some of the casacore frames (from "REST" to "TOPO" -
+# all in uppercase) as well as the astropy frames (all in lowercase, taken
+# from the list of SpectralCoord:
 # https://docs.astropy.org/en/stable/coordinates/spectralcoord.html)
 AllowedSpectralCoordFrames = Literal[
     "REST",
@@ -633,7 +642,7 @@ class BaselineAntennaNameArray:
 @xarray_dataarray_schema
 class AntennaNameArray:
     """
-    Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibiiltyXds`)
+    Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibilityXds`)
     and several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.
     """
 
@@ -674,7 +683,7 @@ class FrequencyArray:
     """ Center frequencies for each channel. """
     spectral_window_name: Attr[str]
     """ Name associated with spectral window. """
-    spectral_window_intent: Attr[str]
+    spectral_window_intents: Attr[list[str]]
     """ An intent string that identifies the intention of the spectral window, for example
     continuum, spectral line, etc. See :ref:`spw intents` for possible values. """
     frequency_group_name: Optional[Attr[str]]
@@ -766,24 +775,45 @@ class UvwLabelArray:
     """ Long-form name to use for axis. Should be ``"U/V/W label"``"""
 
 
+@xarray_dataarray_schema
+class ScanArray:
+    """Scan number coordinate in the main dataset."""
+
+    data: Data[Time, str]
+    """Scan name for each time sample."""
+    scan_intents: Attr[list[str]]
+    """ An intent string identifies one intention of the scan, such as to calibrate or observe a
+    target. See :ref:`scan intents` for possible intent/subintent values. When converting from MSv2,
+    the list of intents is derived from the OBS_MODE column of MSv2 state table (every comma
+    separated value is taken as an intent).
+    A common convention used in the MSv2 OBS_MODE column is to specify multiple intents separated
+    by commas, each of them giving a main intent and a subintent separated by a '#' character. This
+    is represented in this attribute as a list of "intent#subintent" strings. These are a few
+    example lists:
+    ["CALIBRATE_DELAY#ON_SOURCE" , "CALIBRATE_PHASE#ON_SOURCE", "CALIBRATE_WVR#ON_SOURCE"],
+    ["CALIBRATE_FLUX#ON_SOURCE" , "CALIBRATE_WVR#ON_SOURCE"],
+    ["CALIBRATE_POINTING#ON_SOURCE", "CALIBRATE_WVR#ON_SOURCE", "CALIBRATE_DELAY#ON_SOURCE"],
+    ["CALIBRATE_ATMOSPHERE#AMBIENT", "CALIBRATE_WVR#AMBIENT"],
+    ["CALIBRATE_FOCUS#ON_SOURCE" , "CALIBRATE_WVR#ON_SOURCE"],
+    ["OBSERVE_TARGET#ON_SOURCE"], or ["OBSERVE_TARGE#UNSPECIFIED"].
+    The list of possible intent and subintent names (see :ref:`scan intents`) is derived from the
+    respective ASDM enumerations.
+    """
+
+    long_name: Optional[Attr[str]] = "Scan name"
+    """ Long-form name to use for axis. Should be ``"Scan name"``."""
+
+
 # Data variables
 @xarray_dataarray_schema
 class FlagArray:
     """
-    An array of Boolean values with the same shape as `VISIBILITY`,
-    representing the cumulative flags applying to this data matrix. Data are
-    flagged bad if the ``FLAG`` array element is ``True``.
+    An array of Boolean or integer values with the same shape as ``VISIBILITY``
+    or ``SPECTRUM``,
+    representing the cumulative flags applying to this data matrix.
+
     """
 
-    # data: Data[
-    #     Union[
-    #         tuple[Time, BaselineId, Frequency, Polarization],
-    #         tuple[Time, BaselineId, Frequency],
-    #         tuple[Time, BaselineId],
-    #         tuple[Time, AntennaName, Frequency, Polarization],  # SD
-    #     ],
-    #     bool,
-    # ]
     data: Data[
         Union[
             tuple[Time, BaselineId, Frequency, Polarization],
@@ -791,11 +821,30 @@ class FlagArray:
         ],
         Union[bool, numpy.uint8, numpy.uint16, numpy.uint32, numpy.uint64],
     ]
+    """ Flag value.  Data is flagged as bad if the array element is
+    ``True`` or nonzero. If integer, the value should be calculated as
+    ``(1 << X_BIT1) | (1 << X_BIT2) | ...`` for all applying flag
+    reasons as indicated by the ``flag_bits`` attribute (see also
+    :ref:`flag bits`).  """
     time: Coordof[TimeCoordArray]
     baseline_id: Optional[Coordof[BaselineArray]]  # Only IF
     antenna_name: Optional[Coordof[AntennaNameArray]]  # Only SD
     frequency: Coordof[FrequencyArray]
     polarization: Optional[Coordof[PolarizationArray]] = None
+    flag_bits: Optional[Attr[list[str]]] = (
+        "UNSPECIFIED_BIT",
+        "STATIC_BIT",
+        "CAM_BIT",
+        "DATA_LOST_BIT",
+        "INGEST_RFI_BIT",
+        "PREDICTED_RFI_BIT",
+        "CAL_RFI_BIT",
+        "POSTPROC_BIT",
+    )
+    """
+    Labels associated with bits used in ``FlagArray`` data. See
+    :ref:`flag bits` for suggested semantics.
+    """
     long_name: Optional[Attr[str]] = "Visibility flags"
 
     allow_multiple_versions: Optional[Attr[bool]] = True
@@ -805,10 +854,12 @@ class FlagArray:
 class WeightArray:
     """
     The weight for each channel, with the same shape as the associated
-    :py:class:`VisibilityArray`, as assigned by the correlator or processor.
+    :py:class:`VisibilityArray` or :py:class:`SpectrumArray`, as assigned
+    by the correlator or processor.
 
-    Weight spectrum in ms v2 is renamed weight. Should be calculated as
-    1/sigma^2 (sigma rms noise).
+    Weights are channel-dependent in MSv4, and therefore equivalent to the
+    ``WEIGHT_SPECTRUM`` column from MSv2. Should be calculated as
+    ``1/sigma^2`` (sigma root mean square noise).
     """
 
     data: Data[
@@ -819,15 +870,6 @@ class WeightArray:
         Union[numpy.float16, numpy.float32, numpy.float64],
     ]
 
-    # data: Data[
-    #     Union[
-    #         tuple[Time, BaselineId, Frequency, Polarization],
-    #         tuple[Time, BaselineId, Frequency],
-    #         tuple[Time, BaselineId],
-    #         tuple[Time, AntennaName, Frequency, Polarization],  # SD
-    #     ],
-    #     Union[numpy.float16, numpy.float32, numpy.float64],
-    # ]
     """Visibility weights"""
     time: Coordof[TimeCoordArray]
     baseline_id: Optional[Coordof[BaselineArray]]  # Only IF
@@ -839,8 +881,9 @@ class WeightArray:
     allow_multiple_versions: Optional[Attr[bool]] = True
 
 
-# J2000=>fk5 is used most often. icrs is used less often. Both fk5 and icrs are also borrowed from the field center (to fix
-# ITRF=>J2000). APP has only been seen in WSRT datasets.
+# J2000=>fk5 is used most often. icrs is used less often. Both fk5 and
+# icrs are also borrowed from the field center (to fix ITRF=>J2000).
+# APP has only been seen in WSRT datasets.
 AllowedUvwFrames = Literal[
     "fk5",
     "icrs",
@@ -928,41 +971,6 @@ class TimeSamplingArray:
 
     long_name: Optional[Attr[str]] = "Time sampling data"
     units: Attr[UnitsSeconds] = "s"
-
-
-# @xarray_dataarray_schema
-# class FreqSamplingArray:
-#     """
-#     Model of frequency related data variables of the main dataset, such as EFFECTIV_CHANNEL_WIDTH and FREQUENCY_CENTROID.
-#     """
-
-#     data: Data[
-#         Union[
-#             tuple[Time, BaselineId, Frequency, Polarization],
-#             tuple[Time, BaselineId, Frequency],
-#             tuple[Time, Frequency],
-#             tuple[Frequency],
-#         ],
-#         float,
-#     ]
-#     """
-#     Data about frequency sampling, such as centroid or integration
-#     time. Concrete function depends on concrete data array within
-#     :py:class:`VisibilityXds` or :py:class:`SpectrumXds`.
-#     """
-#     frequency: Coordof[FrequencyArray]
-#     time: Optional[Coordof[TimeCoordArray]] = None
-#     baseline_id: Optional[Coordof[BaselineArray]] = None
-#     polarization: Optional[Coordof[PolarizationArray]] = None
-#     long_name: Optional[Attr[str]] = "Frequency sampling data"
-#     units: Attr[UnitsHertz] = "Hz"
-#     observer: Attr[AllowedSpectralCoordFrames] = "icrs"
-#     """
-#     Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
-#     Note that Astropy does not use the name
-#     'topo' (telescope centric) velocity frame, rather it assumes if no velocity
-#     frame is given that this is the default.
-#     """
 
 
 @xarray_dataarray_schema
@@ -1065,7 +1073,7 @@ class FieldSourceXds:
     SOURCE_DIRECTION: Optional[Data[FieldName, SkyCoordArray]]
     """
     CASA Table Cols: RA,DEC,Rho."Astrometric RA and Dec and Geocentric
-    distance with respect to the observer’s location (Geocentric). "Adjusted
+    distance with respect to the observer's location (Geocentric). "Adjusted
     for light-time aberration only. With respect to the reference plane and
     equinox of the chosen system (ICRF or FK4/B1950). If the FK4/B1950 frame
     output is selected, elliptic aberration terms are added. Astrometric RA/DEC
@@ -1186,7 +1194,7 @@ class FieldSourceEphemerisXds:
     ]
     """
     CASA Table Cols: RA,DEC,Rho."Astrometric RA and Dec and Geocentric
-    distance with respect to the observer’s location (Geocentric). "Adjusted
+    distance with respect to the observer's location (Geocentric). "Adjusted
     for light-time aberration only. With respect to the reference plane and
     equinox of the chosen system (ICRF or FK4/B1950). If the FK4/B1950 frame
     output is selected, elliptic aberration terms are added. Astrometric RA/DEC
@@ -1309,7 +1317,7 @@ class SpectrumArray:
 
 @xarray_dataarray_schema
 class VisibilityArray:
-    """Visibility data array in main dataset (interferometric data, :py:class:`VisibiiltyXds`)"""
+    """Visibility data array in main dataset (interferometric data, :py:class:`VisibilityXds`)"""
 
     data: Data[
         tuple[Time, BaselineId, Frequency, Polarization],
@@ -1330,77 +1338,29 @@ class VisibilityArray:
 # Info dicts
 
 
-# @dict_schema
-# class PartitionInfoDict:
-#     # spectral_window_id: missing / remove for good?
-#     spectral_window_name: str
-#     """ Spectral window Name """
-#     # field_id: missing / probably remove for good?
-#     field_name: list[str]
-#     """ List of all field names """
-#     polarization_setup: list[str]
-#     """ List of polrization bases. """
-#     scan_name: list[str]
-#     """ List of scan names. """
-#     source_name: list[str]
-#     """ List of source names. """
-#     # source_id: mising / remove for good?
-#     intents: list[str]
-#     """ An intent string identifies one intention of the scan, such as to calibrate or observe a
-#     target. See :ref:`scan intents` for possible values. When converting from MSv2, the list of
-#     intents is derived from the OBS_MODE column of MSv2 state table (every comma separated value
-#     is taken as an intent). """
-#     taql: Optional[str]
-#     """ The taql query used if converted from MSv2. """
-#     line_name: list[str]
-#     """ Spectral line names """
-#     antenna_name: Optional[str]
-#     """ Name of antenna when partitioning also by antenna (single-dish). """
-
-
 @dict_schema
 class ObservationInfoDict:
     observer: list[str]
     """List of observer names."""
-    project: str
-    """Project Code/Project_UID"""
     release_date: str
     """Project release date. This is the date on which the data may become
     public. Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
-    execution_block_id: Optional[str]
-    """ ASDM: Indicates the position of the execution block in the project
-    (sequential numbering starting at 1).  """
-    execution_block_number: Optional[int]
-    """ASDM: Indicates the position of the execution block in the project
-    (sequential numbering starting at 1)."""
+    project_UID: str
+    """Project UID/code. When populated from an ASDM, the entityId string of the projectUID
+    attribute of the ExecBlock table."""
     execution_block_UID: Optional[str]
-    """ASDM: The archive’s UID of the execution block."""
-    session_reference: Optional[str]
-    """ASDM: The observing session reference."""
-    observing_script: Optional[str]
-    """ASDM: The text of the observation script."""
-    observing_script_UID: Optional[str]
-    """ASDM: A reference to the Entity which contains the observing script."""
+    """From ASDM: The archive’s UID of the execution block. Intended to be populated with the
+    entityId string of the execBlockUID attribute of the ExecBlock table."""
+    session_reference_UID: Optional[str]
+    """From ASDM: The observing session reference. Intended to be populated with the entityId
+    string of the sessionReference attribute of the ExecBlock table"""
     observing_log: Optional[str]
-    """ASDM: Logs of the observation during this execu- tion block."""
-    intents: list[str]
-    """ An intent string identifies one intention of the scan, such as to calibrate or observe a
-    target. See :ref:`scan intents` for possible intent/subintent values. When converting from MSv2,
-    the list of intents is derived from the OBS_MODE column of MSv2 state table (every comma
-    separated value is taken as an intent).
-    A common convention used in the MSv2 OBS_MODE column is to specify multiple intents separated
-    by commas, each of them giving a main intent and a subintent separated by a '#' character. This
-    is represented in this attribute as a list of "intent#subintent" strings. These are a few
-    example lists:
-    ["CALIBRATE_DELAY#ON_SOURCE" , "CALIBRATE_PHASE#ON_SOURCE", "CALIBRATE_WVR#ON_SOURCE"],
-    ["CALIBRATE_FLUX#ON_SOURCE" , "CALIBRATE_WVR#ON_SOURCE"],
-    ["CALIBRATE_POINTING#ON_SOURCE", "CALIBRATE_WVR#ON_SOURCE", "CALIBRATE_DELAY#ON_SOURCE"],
-    ["CALIBRATE_ATMOSPHERE#AMBIENT", "CALIBRATE_WVR#AMBIENT"],
-    ["CALIBRATE_FOCUS#ON_SOURCE" , "CALIBRATE_WVR#ON_SOURCE"],
-    ["OBSERVE_TARGET#ON_SOURCE"], or ["OBSERVE_TARGE#UNSPECIFIED"].
-    The list of possible intent and subintent names (see :ref:`scan intents`) is derived from the
-    respective ASDM enumerations.
-    """
+    """The observing log, as supplied by the telescope or instrument. Or also from ASDM: Logs of
+    the observation during this execution block. When taken from an ASDM, it is intended to be
+    populated with the values of the observingLog attribute of the ExecBlock table."""
+    scheduling_block_UID: Optional[str]
+    """From ASDM: The scheduling block archive’s UID. Intended to be populated with the entityId
+    string of the sbSummaryUID attribute of the SBSummary table. """
 
 
 @dict_schema
@@ -2048,6 +2008,8 @@ class VisibilityXds:
     """
     field_name: Coordof[Coord[Time, str]]
     """Field name."""
+    scan_name: Coordof[ScanArray]
+    """Scan name to identify data taken in the same logical scan."""
 
     # --- Required data variables ---
 
@@ -2089,13 +2051,8 @@ class VisibilityXds:
     """
     uvw_label: Optional[Coordof[UvwLabelArray]] = None
     """ u,v,w """
-    scan_name: Optional[Coord[Time, str]] = None
-    """Scan name to identify data taken in the same logical scan."""
 
     # --- Optional data variables / arrays ---
-
-    # VISIBILITY_CORRECTED: Optional[Dataof[VisibilityArray]] = None
-    # VISIBILITY_MODEL: Optional[Dataof[VisibilityArray]] = None
 
     FLAG: Dataof[FlagArray] = None
     WEIGHT: Dataof[WeightArray] = None
@@ -2112,12 +2069,12 @@ class VisibilityXds:
     """
     The integration time, including the effects of missing data, in contrast to
     ``integration_time`` attribute of the ``time`` coordinate,
-    see :py:class:`TimeArray`. (MS v2: ``exposure``).
+    see :py:class:`~xradio.measurement_set.schema.TimeArray`. (MS v2: ``exposure``).
     """
     TIME_CENTROID: Optional[Dataof[TimeSamplingArray]] = None
     """
     The time centroid of the visibility, includes the effects of missing data
-    unlike the ``time`` coordinate, see :py:class:`TimeArray`.
+    unlike the ``time`` coordinate, see :py:class:`~xradio.measurement_set.schema.TimeArray`.
     """
     TIME_CENTROID_EXTRA_PRECISION: Optional[Dataof[TimeSamplingArray]] = None
     """Additional precision for ``TIME_CENTROID``"""
@@ -2149,6 +2106,8 @@ class SpectrumXds:
     """
     field_name: Coordof[Coord[Time, str]]
     """Field name."""
+    scan_name: Coordof[ScanArray]
+    """Arbitary scan name to identify data taken in the same logical scan."""
 
     # --- Required data variables ---
     SPECTRUM: Dataof[SpectrumArray]
@@ -2182,8 +2141,6 @@ class SpectrumXds:
     actual polarization basis for each antenna using labels from the set of
     combinations of 'X', 'Y', 'R' and 'L'.
     """
-    scan_name: Optional[Coord[Time, str]] = None
-    """Arbitary scan name to identify data taken in the same logical scan."""
 
     # SPECTRUM_CORRECTED: Optional[Dataof[SpectrumArray]] = None
 
@@ -2203,12 +2160,12 @@ class SpectrumXds:
     """
     The integration time, including the effects of missing data, in contrast to
     ``integration_time`` attribute of the ``time`` coordinate,
-    see :py:class:`TimeArray`. (MS v2: ``exposure``).
+    see :py:class:`~xradio.measurement_set.schema.TimeArray`. (MS v2: ``exposure``).
     """
     TIME_CENTROID: Optional[Dataof[TimeSamplingArray]] = None
     """
     The time centroid of the visibility, includes the effects of missing data
-    unlike the ``time`` coordinate, see :py:class:`TimeArray`.
+    unlike the ``time`` coordinate, see :py:class:`~xradio.measurement_set.schema.TimeArray`.
     """
     TIME_CENTROID_EXTRA_PRECISION: Optional[Dataof[TimeSamplingArray]] = None
     """Additional precision for ``TIME_CENTROID``"""

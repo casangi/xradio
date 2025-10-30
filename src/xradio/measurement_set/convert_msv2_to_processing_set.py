@@ -1,10 +1,13 @@
 import toolviper.utils.logger as logger
-from typing import Dict, Union
+from typing import Dict, Union, Literal
+import time
 
 import dask
 import zarr.codecs
 
-from xradio.measurement_set._utils._msv2.partition_queries import create_partitions
+from xradio.measurement_set._utils._msv2.partition_queries import (
+    create_partitions,
+)
 from xradio.measurement_set._utils._msv2.conversion import (
     convert_and_write_partition,
     estimate_memory_and_cores_for_partitions,
@@ -14,7 +17,7 @@ from xradio._utils.zarr.config import ZARR_FORMAT
 
 def estimate_conversion_memory_and_cores(
     in_file: str,
-    partition_scheme: list = ["FIELD_ID"],
+    partition_scheme: list = [],
 ) -> tuple[float, int, int]:
     """
     Given an MSv2 and a partition_scheme to use when converting it to MSv4,
@@ -53,7 +56,7 @@ def estimate_conversion_memory_and_cores(
 def convert_msv2_to_processing_set(
     in_file: str,
     out_file: str,
-    partition_scheme: list = ["FIELD_ID"],
+    partition_scheme: list = [],
     main_chunksize: Union[Dict, float, None] = None,
     with_pointing: bool = True,
     pointing_chunksize: Union[Dict, float, None] = None,
@@ -64,8 +67,8 @@ def convert_msv2_to_processing_set(
     use_table_iter: bool = False,
     compressor: zarr.abc.codec.BytesBytesCodec = zarr.codecs.ZstdCodec(level=2),
     add_reshaping_indices: bool = False,
-    storage_backend: str = "zarr",
-    parallel_mode: str = "none",
+    storage_backend: Literal["zarr", "netcdf"] = "zarr",
+    parallel_mode: Literal["none", "partition", "time"] = "none",
     overwrite: bool = False,
 ):
     """Convert a Measurement Set v2 into a Processing Set of Measurement Set v4.
@@ -81,7 +84,7 @@ def convert_msv2_to_processing_set(
         In addition to data description and polarization setup a finer partitioning is possible by specifying a list of partitioning keys. Any combination of the following keys are possible:
         "FIELD_ID", "SCAN_NUMBER", "STATE_ID", "SOURCE_ID", "SUB_SCAN_NUMBER", "ANTENNA1".
         "ANTENNA1" is intended as a single-dish specific partitioning option.
-        For mosaics where the phase center is rapidly changing (such as VLA on the fly mosaics) partition_scheme should be set to an empty list []. By default, ["FIELD_ID"].
+        For mosaics where the phase center is rapidly changing (such as VLA on the fly mosaics) partition_scheme should be set to an empty list []. By default, [].
     main_chunksize : Union[Dict, float, None], optional
         Defines the chunk size of the main dataset. If given as a dictionary, defines the sizes of several dimensions, and acceptable keys are "time", "baseline_id", "antenna_id", "frequency", "polarization". If given as a float, gives the size of a chunk in GiB. By default, None.
     with_pointing : bool, optional
@@ -102,9 +105,9 @@ def convert_msv2_to_processing_set(
         The Blosc compressor to use when saving the converted data to disk using Zarr, by default numcodecs.Zstd(level=2).
     add_reshaping_indices : bool, optional
         Whether to add the tidxs, bidxs and row_id variables to each partition of the main dataset. These can be used to reshape the data back to the original ordering in the MS v2. This is mainly intended for testing and debugging, by default False.
-    storage_backend : {"zarr", "netcdf"}, optional
+    storage_backend : Literal["zarr", "netcdf"], optional
         The on-disk format to use. "netcdf" is not yet implemented.
-    parallel_mode : {"none", "partition", "time"}, optional
+    parallel_mode : Literal["none", "partition", "time"], optional
         Choose whether to use Dask to execute conversion in parallel, by default "none" and conversion occurs serially.
         The option "partition", parallelises the conversion over partitions specified by `partition_scheme`. The option "time" can only be used for phased array interferometers where there are no partitions
         in the MS v2; instead the MS v2 is parallelised along the time dimension and can be controlled by `main_chunksize`.
@@ -135,6 +138,7 @@ def convert_msv2_to_processing_set(
         parallel_mode = "none"
 
     partitions = create_partitions(in_file, partition_scheme=partition_scheme)
+
     logger.info("Number of partitions: " + str(len(partitions)))
     if parallel_mode == "time":
         assert (
@@ -144,7 +148,6 @@ def convert_msv2_to_processing_set(
     delayed_list = []
 
     for ms_v4_id, partition_info in enumerate(partitions):
-        # print(ms_v4_id,len(partition_info['FIELD_ID']))
 
         logger.info(
             "OBSERVATION_ID "
@@ -157,6 +160,11 @@ def convert_msv2_to_processing_set(
             + str(partition_info["FIELD_ID"])
             + ", SCAN "
             + str(partition_info["SCAN_NUMBER"])
+            + (
+                ", EPHEMERIS " + str(partition_info["EPHEMERIS_ID"])
+                if "EPHEMERIS_ID" in partition_info
+                else ""
+            )
             + (
                 ", ANTENNA " + str(partition_info["ANTENNA1"])
                 if "ANTENNA1" in partition_info
@@ -189,6 +197,7 @@ def convert_msv2_to_processing_set(
                 )
             )
         else:
+            start_time = time.time()
             convert_and_write_partition(
                 in_file,
                 out_file,
@@ -207,6 +216,10 @@ def convert_msv2_to_processing_set(
                 compressor=compressor,
                 parallel_mode=parallel_mode,
                 overwrite=overwrite,
+            )
+            end_time = time.time()
+            logger.debug(
+                f"Time to convert partition {ms_v4_id}: {end_time - start_time:.2f} seconds"
             )
 
     if parallel_mode == "partition":

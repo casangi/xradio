@@ -95,10 +95,20 @@ def check_msv4_matches_descr(msv4_xdt, msv2_descr):
         assert processor_info["type"]
         assert processor_info["sub_type"]
 
+    observation_info = msv4_xdt.ds.attrs["observation_info"]
     if msv2_descr["params"]["opt_tables"] and not msv2_descr["params"]["misbehave"]:
-        assert "execution_block_UID" in msv4_xdt.ds.attrs["observation_info"]
+        assert "session_reference_UID" in observation_info
     else:
-        assert "execution_block_UID" not in msv4_xdt.ds.attrs["observation_info"]
+        assert "session_reference_UID" not in observation_info
+
+    if (
+        (msv2_descr["params"]["opt_tables"] and not msv2_descr["params"]["misbehave"])
+    ) or "OBSERVATION" in msv2_descr:
+        assert "execution_block_UID" in observation_info
+        assert "scheduling_block_UID" in observation_info
+    else:
+        assert "execution_block_UID" not in observation_info
+        assert "scheduling_block_UID" not in observation_info
 
 
 def check_processing_set_matches_msv2_descr(

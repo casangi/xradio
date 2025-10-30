@@ -1,3 +1,7 @@
+"""
+Data classes used by Xradio routines to represent dataset schemas.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, MISSING
@@ -62,7 +66,7 @@ class AttrSchemaRef(ValueSchema):
     name: str = ""
     """Name of attribute as given in data array / dataset."""
     default: typing.Optional[typing.Any] = None
-    """If optional: What is the default value?"""
+    """If optional: what is the default value?"""
     docstring: str = ""
     """Documentation string of attribute reference"""
 
@@ -108,7 +112,7 @@ class ArraySchema:
         """
         return not self.coordinates
 
-    def required_dimensions(self) -> [str]:
+    def required_dimensions(self) -> list[str]:
         """
         Returns set of dimensions that is always required
         """
@@ -133,7 +137,7 @@ class ArraySchemaRef(ArraySchema):
     optional: bool
     """Is the data array optional?"""
     default: typing.Optional[typing.Any] = None
-    """If optional: What is the default value?"""
+    """If optional: what is the default value?"""
     docstring: typing.Optional[str] = None
     """Documentation string of array reference"""
 
@@ -147,13 +151,13 @@ class DatasetSchema:
     schema_name: str
     """(Class) name of the schema"""
 
-    dimensions: [[str]]
+    dimensions: list[list[str]]
     """List of possible dimensions (derived from data arrays)"""
-    coordinates: [ArraySchemaRef]
+    coordinates: list[ArraySchemaRef]
     """List of coordinate data arrays"""
-    data_vars: [ArraySchemaRef]
+    data_vars: list[ArraySchemaRef]
     """List of data arrays"""
-    attributes: [AttrSchemaRef]
+    attributes: list[AttrSchemaRef]
     """List of attributes"""
 
     class_docstring: typing.Optional[str]
@@ -169,7 +173,7 @@ class DictSchema:
     schema_name: str
     """(Class) name of the schema"""
 
-    attributes: [AttrSchemaRef]
+    attributes: list[AttrSchemaRef]
     """List of attributes"""
 
     class_docstring: typing.Optional[str]

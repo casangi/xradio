@@ -1,43 +1,38 @@
 
-Data Model Schema
-=================
+Schema Support
+==============
 
-Data model schemas allow us to check whether :py:class:`xarray.DataArray` and
+Data model schemas not only allow us to generate documentation,
+but also check automatically whether :py:class:`xarray.DataArray` and
 :py:class:`xarray.Dataset` objects conform to the :py:mod:`xradio` schemas (see
-e.g. :py:class:`xradio.vis.schema.VisibilityXds`). The approach was essentially
-copied from https://pypi.org/project/xarray-dataclasses/, though our
-implementation differs in a number of critical ways:
+e.g. :py:class:`xradio.measurement_set.schema.VisibilityXds`). 
 
-* We use custom decorators on the classes instead of base classes. This
-  especially overrides the existing constructor, which makes it easier to
-  directly construct instances and allows for extra data variables
-  and attributes.
+Checking
+--------
 
-* We support multiple options for types and dimensions
-
-* We convert the schema definition into our own meta-model, which facilitates
-  generating documentation generation using Sphinx
+.. automodule:: xradio.schema.check
+  :members:
 
 Decorators
 ----------
 
-.. automodule:: xradio.schema
+.. automodule:: xradio.schema.bases
+  :members:
 
-   .. autoclass:: xarray_dataarray_schema
-
-   .. autoclass:: xarray_dataset_schema
-
-   .. autoclass:: dict_schema
+Annotations
+-----------
 
 .. automodule:: xradio.schema.typing
+  :members:
 
-   .. autoclass:: Data
+Data Model
+----------
 
-   .. autoclass:: Dataof
+.. automodule:: xradio.schema.metamodel
+  :members:
 
-   .. autoclass:: Coord
+Import and Export
+-----------------
 
-   .. autoclass:: Coordof
-                  
-   .. autoclass:: Attr
-                  
+.. automodule:: xradio.schema.export
+  :members:

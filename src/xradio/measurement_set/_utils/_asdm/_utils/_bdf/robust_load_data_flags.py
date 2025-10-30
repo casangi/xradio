@@ -7,7 +7,7 @@ import pyasdm
 import toolviper.utils.logger as logger
 
 
-def ensure_presence_data_arrays(
+def ensure_presence_binary_components(
     data_array_names: list[str], binary_types: list[str], bdf_path
 ):
 
@@ -201,7 +201,7 @@ def load_visibilities_from_bdf(
 
     check_correlation_mode(bdf_descr["correlation_mode"])
     check_basebands(bdf_descr["basebands"])
-    ensure_presence_data_arrays(
+    ensure_presence_binary_components(
         ["crossData", "autoData"], bdf_descr["binary_types"], bdf_path
     )
 
@@ -508,7 +508,7 @@ def load_flags_from_bdf(
 
     check_correlation_mode(bdf_descr["correlation_mode"])
     check_basebands(bdf_descr["basebands"])
-    ensure_presence_data_arrays(["flags"], bdf_descr["binary_types"], bdf_path)
+    ensure_presence_binary_components(["flags"], bdf_descr["binary_types"], bdf_path)
 
     baseband_spw_idxs = find_spw_in_basebands_list(
         bdf_path, spw_id, bdf_descr["basebands"]

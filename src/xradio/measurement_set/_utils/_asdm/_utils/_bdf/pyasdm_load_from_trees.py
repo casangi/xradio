@@ -117,6 +117,8 @@ def load_vis_subset_from_tree(
                 spw_floats = spw_floats.reshape((spw_channel_len, polarization_len))
                 vis_strides.append(spw_floats)
                 offset += np.sum(spw_chan_lens[overall_spw_idx:]) * polarization_len
+    else:
+        RuntimeError("autoData not present!")
 
     vis_subset = np.concatenate(vis_strides)
 

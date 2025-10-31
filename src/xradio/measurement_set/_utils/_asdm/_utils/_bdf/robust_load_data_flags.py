@@ -282,6 +282,8 @@ def load_vis_subset(
     processor_type: pyasdm.enumerations.ProcessorType,
 ) -> np.ndarray:
 
+    vis_subset = None
+
     if "crossData" in subset and subset["crossData"]["present"]:
         shape = guessed_shape[0:2] + guessed_shape[3:]
         cross_floats = (
@@ -298,14 +300,20 @@ def load_vis_subset(
         else:
             # radiometer / spectrometer
             vis_subset = cross_floats
-    elif "autoData" in subset and subset["autoData"]["present"]:
+
+    if "autoData" in subset and subset["autoData"]["present"]:
         shape = guessed_shape[:1] + guessed_shape[2:-1]
         auto_floats = (
             subset["autoData"]["arr"][: np.prod(shape)] / scale_factor
         ).reshape(shape)
-        vis_subset = auto_floats[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, :]
+        vis_auto = auto_floats[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, :]
+        if vis_subset is None:
+            vis_subset = vis_auto
+        else:
+            vis_subset = np.concatenate([vis_subset, vis_auto], axis=1)
     else:
-        vis_subset = np.zeros(guessed_shape)
+        # Never allowed for ALMA (BDF doc) and seems so in real life
+        RuntimeError("autoData not present!")
 
     return vis_subset
 

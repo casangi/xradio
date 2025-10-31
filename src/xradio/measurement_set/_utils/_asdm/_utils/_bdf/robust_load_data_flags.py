@@ -6,7 +6,11 @@ import pyasdm
 
 import toolviper.utils.logger as logger
 
-from .pyasdm_load_from_trees import load_flags_all_subsets_from_trees, load_visibilities_all_subsets_from_trees
+from .pyasdm_load_from_trees import (
+    load_flags_all_subsets_from_trees,
+    load_visibilities_all_subsets_from_trees,
+)
+
 
 def ensure_presence_binary_components(
     data_array_names: list[str], binary_types: list[str], bdf_path
@@ -273,40 +277,37 @@ def load_visibilities_all_subsets(
 def load_vis_subset(
     subset: dict,
     guessed_shape: tuple,
-    spw_baseband_num: tuple[int, int],
+    baseband_spw_idxs: tuple[int, int],
     scale_factor: float,
     processor_type: pyasdm.enumerations.ProcessorType,
 ) -> np.ndarray:
 
     if "crossData" in subset and subset["crossData"]["present"]:
         shape = guessed_shape[0:2] + guessed_shape[3:]
-        # MUSTREMOVE (but to handle the uneven cases of the 'awful_workaround')
-        # => cross_floats = (subset["crossData"]["arr"] / scale_factor).reshape(shape)
         cross_floats = (
             subset["crossData"]["arr"][: np.prod(shape)] / scale_factor
         ).reshape(shape)
         if processor_type == pyasdm.enumerations.ProcessorType.CORRELATOR:
             vis_subset = (
-                cross_floats[:, :, spw_baseband_num, :, :, 0]
-                + 1j * cross_floats[:, :, spw_baseband_num, :, :, 1]
+                cross_floats[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, :, 0]
+                + 1j
+                * cross_floats[
+                    :, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, :, 1
+                ]
             )
         else:
             # radiometer / spectrometer
             vis_subset = cross_floats
     elif "autoData" in subset and subset["autoData"]["present"]:
         shape = guessed_shape[:1] + guessed_shape[2:-1]
-        # MUSTREMOVE (but to handle the uneven cases of the 'awful_workaround')
-        # => auto_floats = (subset["autoData"]["arr"] / scale_factor).reshape(shape)
         auto_floats = (
             subset["autoData"]["arr"][: np.prod(shape)] / scale_factor
         ).reshape(shape)
-        vis_subset = auto_floats[:, :, spw_baseband_num, :, :]
+        vis_subset = auto_floats[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, :]
     else:
         vis_subset = np.zeros(guessed_shape)
 
     return vis_subset
-
-
 
 
 def define_visibility_shape(

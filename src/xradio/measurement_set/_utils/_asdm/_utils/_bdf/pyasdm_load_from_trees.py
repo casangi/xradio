@@ -3,6 +3,20 @@ import numpy as np
 import pyasdm
 
 
+def calculate_overall_spw_idx(
+    basebands_descr: list[dict], baseband_idx: int, spw_idx: int
+) -> int:
+    overall_spw_idx = sum(
+        [
+            len(basebands_descr[bb_idx]["spectralWindows"])
+            for bb_idx in range(0, baseband_idx + 1)
+        ]
+    )
+    +spw_idx
+
+    return overall_spw_idx
+
+
 def load_visibilities_all_subsets_from_trees(
     bdf_reader: pyasdm.bdf.BDFReader,
     guessed_shape: tuple[int, ...],
@@ -52,14 +66,8 @@ def load_vis_subset_from_tree(
     )
     antenna_len = bdf_descr["num_antenna"]
     baseband_idx, spw_idx = baseband_spw_idxs
-    overall_spw_idx = (
-        sum(
-            [
-                len(bdf_descr["basebands"][bb_idx]["spectralWindows"])
-                for bb_idx in range(0, baseband_idx + 1)
-            ]
-        )
-        + spw_idx
+    overall_spw_idx = calculate_overall_spw_idx(
+        bdf_descr["basebands"], baseband_idx, spw_idx
     )
     spw_channel_len = spw_chan_lens[overall_spw_idx]
     vis_strides = []
@@ -118,6 +126,7 @@ def load_vis_subset_from_tree(
                 vis_strides.append(spw_floats)
                 offset += np.sum(spw_chan_lens[overall_spw_idx:]) * polarization_len
     else:
+        # Never allowed for ALMA (BDF doc) and seems so in real life
         RuntimeError("autoData not present!")
 
     vis_subset = np.concatenate(vis_strides)
@@ -189,14 +198,8 @@ def load_flags_subset_from_tree(
             spw_descr["sdPolProducts"]
         )
         baseband_idx, spw_idx = baseband_spw_idxs
-        overall_spw_idx = (
-            sum(
-                [
-                    len(bdf_descr["basebands"][bb_idx]["spectralWindows"])
-                    for bb_idx in range(0, baseband_idx + 1)
-                ]
-            )
-            + spw_idx
+        overall_spw_idx = calculate_overall_spw_idx(
+            bdf_descr["basebands"], baseband_idx, spw_idx
         )
         flag_strides = []
         flag_array = subset["flags"]["arr"]  # .reshape(shape)

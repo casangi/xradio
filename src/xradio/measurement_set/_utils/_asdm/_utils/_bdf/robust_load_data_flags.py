@@ -382,7 +382,8 @@ def check_flags_dims(flags_dims: list[str]):
 
 def check_basebands(basebands: list[dict]):
     # TODO: working check for what's out there...
-    if len(basebands) not in [1, 3, 4]:
+    # An example of 2 basebands: uid___A002_X9bb85e_Xcb (I think they are rare)
+    if len(basebands) not in [1, 2, 3, 4]:
         raise RuntimeError(f" {len(basebands)=}, {basebands=}")
 
 

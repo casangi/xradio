@@ -24,7 +24,9 @@ def ensure_presence_binary_components(
             )
 
 
-def exclude_unsupported_axis_names(dims: list[str]):
+def exclude_unsupported_axis_names(
+    dims: list[str], exclude_also_for_flags: bool = False
+):
 
     # This effectively assumes we'll always get "POL" from the last 3 possible axes,
     # from BDF doc: "The final three axes, STO, POL and HOL, also appear at the same
@@ -32,9 +34,17 @@ def exclude_unsupported_axis_names(dims: list[str]):
     # appear for a given binary component type.
     unsupported = ["STO", "HOL"]
 
+    if exclude_also_for_flags:
+        # TODO: Consider also "BIN"
+        unsupported.extend(["APC", "SPP"])
+
+    bad_found = []
     for bad_dim in unsupported:
         if bad_dim in dims:
-            raise RuntimeError(f"Unsupported dimension {bad_dim=} in {dims=}")
+            bad_found.append(bad_dim)
+
+    if bad_found:
+        raise RuntimeError(f"Unsupported dimension(s) {bad_found=} in {dims=}")
 
 
 def array_slice_to_msv4_indices(array_slice: dict) -> tuple[range, range, range, range]:
@@ -367,7 +377,7 @@ def load_flags_from_partition_bdfs(
 
 
 def check_flags_dims(flags_dims: list[str]):
-    exclude_unsupported_axis_names(flags_dims)
+    exclude_unsupported_axis_names(flags_dims, True)
 
 
 def check_basebands(basebands: list[dict]):

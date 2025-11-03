@@ -30,7 +30,7 @@ except ModuleNotFoundError as exc:
     warnings.warn(
         f"Could not import the function to convert from MSv2 to MSv4. "
         f"That functionality will not be available. Details: {exc}",
-        UserWarning
+        UserWarning,
     )
 else:
     __all__.extend(

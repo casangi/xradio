@@ -519,6 +519,8 @@ def add_cross_and_auto_flag_shapes(
             *guessed_shape_cross[2:],
         )
     else:
+        # The axes of flags would be for example "TIM ANT"
+        # or something with ANT but not BAL
         shape = guessed_shape_auto
 
     return shape
@@ -562,6 +564,10 @@ def try_alternatives_guessed_shape(
     return new_shape, new_baseband_spw_idxs
 
 
+def full_shape_to_output_filled_flags_shape(shape: tuple[int, ...]) -> tuple[int, ...]:
+    return shape[0:2] + shape[-1:]
+
+
 def load_flags_subset(
     subset: dict,
     guessed_shape: tuple,
@@ -576,17 +582,15 @@ def load_flags_subset(
             guessed_shape, subset["flags"]["arr"].size, baseband_spw_idxs
         )
 
-        if not guessed_shape["cross"]:
-            # The axes of flags would be for example "TIM ANT"
-            shape = guessed_shape["auto"]
-        else:
-            shape = add_cross_and_auto_flag_shapes(guessed_shape)
+        shape = add_cross_and_auto_flag_shapes(guessed_shape)
 
+        # could also check the last dim of guessed_shape["auto"]
+        # and guessed_shape["cross"]
         if guessed_shape["auto"][-1] != 3:
             flag_array = subset["flags"]["arr"].reshape(shape)
             flag_subset = flag_array[..., baseband_spw_idxs[0], baseband_spw_idxs[1], :]
         else:
-
+            flag_array = subset["flags"]["arr"]
             if guessed_shape["cross"]:
                 # first (bl) block => use directly as is
                 # second (ant) block => 3pol, so expand XY to YX
@@ -596,17 +600,21 @@ def load_flags_subset(
                     ..., baseband_spw_idxs[0], baseband_spw_idxs[1], :
                 ]
 
-            auto_flags = flag_array[cross_len:]
+            auto_flags = flag_array[cross_len:].reshape(guessed_shape["auto"])
+
             # expand XX XY YY => XX XY YX YY (where XY=YX)
             auto_subset = np.concatenate(
                 [
-                    auto_flags[..., 0],
-                    auto_flags[..., 1],
-                    auto_flags[..., 1],
-                    auto_flags[..., 2],
+                    auto_flags[..., [0]],
+                    auto_flags[..., [1]],
+                    auto_flags[..., [1]],
+                    auto_flags[..., [2]],
                 ],
                 axis=4,
             )
+            auto_subset = auto_subset[
+                ..., baseband_spw_idxs[0], baseband_spw_idxs[1], :
+            ]
 
             if guessed_shape["cross"]:
                 flag_subset = np.concatenate([cross_subset, auto_subset], axis=1)
@@ -615,6 +623,8 @@ def load_flags_subset(
 
     else:
         shape = add_cross_and_auto_flag_shapes(guessed_shape)
-        flag_subset = np.full(shape, False, dtype="bool")
+        flag_subset = np.full(
+            full_shape_to_output_filled_flags_shape(shape), False, dtype="bool"
+        )
 
     return flag_subset

@@ -4,7 +4,7 @@ convert, and retrieve information from Processing Set and Measurement Sets nodes
 Processing Set DataTree
 """
 
-import toolviper.utils.logger as _logger
+import warnings
 
 from .processing_set_xdt import ProcessingSetXdt
 from .open_processing_set import open_processing_set
@@ -27,9 +27,10 @@ try:
         estimate_conversion_memory_and_cores,
     )
 except ModuleNotFoundError as exc:
-    _logger.warning(
-        "Could not import the function to convert from MSv2 to MSv4. "
-        f"That functionality will not be available. Details: {exc}"
+    warnings.warn(
+        f"Could not import the function to convert from MSv2 to MSv4. "
+        f"That functionality will not be available. Details: {exc}",
+        UserWarning
     )
 else:
     __all__.extend(

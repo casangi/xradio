@@ -191,6 +191,22 @@ def load_visibilities_from_partition_bdfs(
     return visibility
 
 
+def make_bdf_description(bdf_header: pyasdm.bdf.BDFHeader) -> dict:
+    bdf_descr = {
+        # packed/TIM: dimensionality == 0
+        "dimensionality": bdf_header.getDimensionality(),
+        "num_time": bdf_header.getNumTime(),
+        "processor_type": bdf_header.getProcessorType(),
+        "binary_types": bdf_header.getBinaryTypes(),
+        "correlation_mode": bdf_header.getCorrelationMode(),
+        "apc": bdf_header.getAPClist(),
+        "num_antenna": bdf_header.getNumAntenna(),
+        "basebands": bdf_header.getBasebandsList(),
+    }
+
+    return bdf_descr
+
+
 def check_correlation_mode(correlation_mode: pyasdm.enumerations.CorrelationMode):
     if correlation_mode == pyasdm.enumerations.CorrelationMode.CROSS_ONLY:
         raise RuntimeError(f" Unexpected {correlation_mode=} {bdf_header=}")
@@ -204,17 +220,7 @@ def load_visibilities_from_bdf(
     bdf_reader.open(bdf_path)
     bdf_header = bdf_reader.getHeader()
 
-    bdf_descr = {
-        # packed/TIM: dimensionality == 0
-        "dimensionality": bdf_header.getDimensionality(),
-        "num_time": bdf_header.getNumTime(),
-        "processor_type": bdf_header.getProcessorType(),
-        "binary_types": bdf_header.getBinaryTypes(),
-        "correlation_mode": bdf_header.getCorrelationMode(),
-        "apc": bdf_header.getAPClist(),
-        "num_antenna": bdf_header.getNumAntenna(),
-        "basebands": bdf_header.getBasebandsList(),
-    }
+    bdf_descr = make_bdf_description(bdf_header)
 
     check_correlation_mode(bdf_descr["correlation_mode"])
     check_basebands(bdf_descr["basebands"])
@@ -399,17 +405,7 @@ def load_flags_from_bdf(
 
     check_flags_dims(bdf_header.getAxesNames("flags"))
 
-    bdf_descr = {
-        # packed/TIM: dimensionality == 0
-        "dimensionality": bdf_header.getDimensionality(),
-        "num_time": bdf_header.getNumTime(),
-        "processor_type": bdf_header.getProcessorType(),
-        "correlation_mode": bdf_header.getCorrelationMode(),
-        "binary_types": bdf_header.getBinaryTypes(),
-        "apc": bdf_header.getAPClist(),
-        "num_antenna": bdf_header.getNumAntenna(),
-        "basebands": bdf_header.getBasebandsList(),
-    }
+    bdf_descr = make_bdf_description(bdf_header)
 
     check_correlation_mode(bdf_descr["correlation_mode"])
     check_basebands(bdf_descr["basebands"])

@@ -3,6 +3,32 @@ import numpy as np
 import pyasdm
 
 
+def add_cross_and_auto_flag_shapes(
+    guessed_shape: dict[str, tuple[int, ...]],
+) -> tuple[int, ...]:
+    guessed_shape_cross = guessed_shape["cross"]
+    guessed_shape_auto = guessed_shape["auto"]
+    if guessed_shape_cross:
+        # second dim is the "BAL ANT"
+        shape = (
+            guessed_shape_cross[0],
+            guessed_shape_cross[1] + guessed_shape_auto[1],
+            *guessed_shape_cross[2:],
+        )
+    else:
+        # The axes of flags would be for example "TIM ANT"
+        # or something with ANT but not BAL
+        shape = guessed_shape_auto
+
+    return shape
+
+
+def full_shape_to_output_filled_flags_shape(shape: tuple[int, ...]) -> tuple[int, ...]:
+    # equivalent to the squeezing that would happen when selecting
+    # one baseband / one SPW with int indices.
+    return shape[0:2] + shape[-1:]
+
+
 def calculate_overall_spw_idx(
     basebands_descr: list[dict], baseband_idx: int, spw_idx: int
 ) -> int:
@@ -176,11 +202,6 @@ def load_flags_subset_from_tree(
     """
 
     if "flags" in subset and subset["flags"]["present"]:
-        if len(guessed_shape) > 5:
-            raise RuntimeError(
-                f"Unexpected. Found {guessed_shape=}, {len(guessed_shape)=}, with {flag_array=}"
-            )
-
         antenna_len = bdf_descr["num_antenna"]
         baseline_len = int(antenna_len * (antenna_len - 1) / 2)
         spw_pol_lens = [
@@ -203,7 +224,7 @@ def load_flags_subset_from_tree(
         )
         flag_strides = []
         flag_array = subset["flags"]["arr"]  # .reshape(shape)
-        for time_idx in np.arange(0, guessed_shape[0]):
+        for time_idx in np.arange(0, guessed_shape["auto"][0]):
             if (
                 bdf_descr["correlation_mode"]
                 != pyasdm.enumerations.CorrelationMode.AUTO_ONLY
@@ -221,7 +242,9 @@ def load_flags_subset_from_tree(
 
         flag_subset = np.concatenate(flag_strides)
     else:
-        shape = guessed_shape[0:2] + (guessed_shape[-1],)
-        flag_subset = np.full(shape, False, dtype="bool")
+        shape = add_cross_and_auto_flag_shapes(guessed_shape)
+        flag_subset = np.full(
+            full_shape_to_output_filled_flags_shape(shape), False, dtype="bool"
+        )
 
     return flag_subset

@@ -7,6 +7,8 @@ import pyasdm
 import toolviper.utils.logger as logger
 
 from .pyasdm_load_from_trees import (
+    add_cross_and_auto_flag_shapes,
+    full_shape_to_output_filled_flags_shape,
     load_flags_all_subsets_from_trees,
     load_visibilities_all_subsets_from_trees,
 )
@@ -506,26 +508,6 @@ def define_flag_shape(
     }
 
 
-def add_cross_and_auto_flag_shapes(
-    guessed_shape: dict[str, tuple[int, ...]],
-) -> tuple[int, ...]:
-    guessed_shape_cross = guessed_shape["cross"]
-    guessed_shape_auto = guessed_shape["auto"]
-    if guessed_shape_cross:
-        # second dim is the "BAL ANT"
-        shape = (
-            guessed_shape_cross[0],
-            guessed_shape_cross[1] + guessed_shape_auto[1],
-            *guessed_shape_cross[2:],
-        )
-    else:
-        # The axes of flags would be for example "TIM ANT"
-        # or something with ANT but not BAL
-        shape = guessed_shape_auto
-
-    return shape
-
-
 def try_alternatives_guessed_shape(
     guessed_shape: dict[str, tuple[int, ...]],
     flags_actual_size: int,
@@ -562,10 +544,6 @@ def try_alternatives_guessed_shape(
         new_baseband_spw_idxs = baseband_spw_idxs
 
     return new_shape, new_baseband_spw_idxs
-
-
-def full_shape_to_output_filled_flags_shape(shape: tuple[int, ...]) -> tuple[int, ...]:
-    return shape[0:2] + shape[-1:]
 
 
 def load_flags_subset(

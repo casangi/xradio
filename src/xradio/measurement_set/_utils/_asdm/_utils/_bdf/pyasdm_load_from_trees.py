@@ -205,15 +205,25 @@ def load_flags_subset_from_tree(
         antenna_len = bdf_descr["num_antenna"]
         baseline_len = int(antenna_len * (antenna_len - 1) / 2)
         spw_pol_lens = [
-            # bdf_descr["basebands"][bb_idx]["spectralWindows"][spw_idx]["numSpectralPoint"]
             bdf_descr["basebands"][bb_idx]["spectralWindows"][spw_idx][
                 "crossPolProducts"
             ]
             or bdf_descr["basebands"][bb_idx]["spectralWindows"][spw_idx][
                 "sdPolProducts"
             ]
-            for spw_idx in range(0, spw_len)
             for bb_idx in range(0, len(bdf_descr["basebands"]))
+            for spw_idx in range(
+                0, len(bdf_descr["basebands"][bb_idx]["spectralWindows"])
+            )
+        ]
+        spw_auto_pol_lens = [
+            bdf_descr["basebands"][bb_idx]["spectralWindows"][spw_idx][
+                "crossPolProducts"
+            ]
+            for bb_idx in range(0, len(bdf_descr["basebands"]))
+            for spw_idx in range(
+                0, len(bdf_descr["basebands"][bb_idx]["spectralWindows"])
+            )
         ]
         polarization_len = len(spw_descr["crossPolProducts"]) or len(
             spw_descr["sdPolProducts"]
@@ -224,6 +234,7 @@ def load_flags_subset_from_tree(
         )
         flag_strides = []
         flag_array = subset["flags"]["arr"]  # .reshape(shape)
+        offset = 0
         for time_idx in np.arange(0, guessed_shape["auto"][0]):
             if (
                 bdf_descr["correlation_mode"]
@@ -235,10 +246,9 @@ def load_flags_subset_from_tree(
                     offset += np.sum(spw_pol_lens[overall_spw_idx:])
 
             for antenna_idx in np.arange(antenna_len):
-                offset += np.sum(spw_pol_lens[0:overall_spw_idx])
+                offset += np.sum(spw_auto_pol_lens[0:overall_spw_idx])
                 flag_strides.append(flag_array[offset : offset + polarization_len])
-
-            offset += np.sum(spw_pol_lens[overall_spw_idx:])
+                offset += np.sum(spw_auto_pol_lens[overall_spw_idx:])
 
         flag_subset = np.concatenate(flag_strides)
     else:

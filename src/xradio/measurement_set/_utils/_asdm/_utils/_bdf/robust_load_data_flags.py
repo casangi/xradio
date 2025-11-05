@@ -129,7 +129,7 @@ def find_different_basebands_spws(basebands: list[dict]) -> tuple[int, int]:
     return not all_same
 
 
-def find_different_basebands_spws_pols(basebands: list[dict]) -> tuple[int, int]:
+def find_different_basebands_pols(basebands: list[dict]) -> tuple[int, int]:
 
     all_same = True
     spws_per_baseband = -1
@@ -231,9 +231,7 @@ def load_visibilities_from_bdf(
     baseband_spw_idxs = find_spw_in_basebands_list(
         bdf_path, spw_id, bdf_descr["basebands"]
     )
-    different_channels_per_spw = find_different_basebands_spws_pols(
-        bdf_descr["basebands"]
-    )
+    different_channels_per_spw = find_different_basebands_spws(bdf_descr["basebands"])
     guessed_shape = define_visibility_shape(bdf_descr, baseband_spw_idxs)
     try:
         if different_channels_per_spw:
@@ -416,7 +414,7 @@ def load_flags_from_bdf(
     baseband_spw_idxs = find_spw_in_basebands_list(
         bdf_path, spw_id, bdf_descr["basebands"]
     )
-    different_pols_per_spw = find_different_basebands_spws_pols(bdf_descr["basebands"])
+    different_pols_per_spw = find_different_basebands_pols(bdf_descr["basebands"])
     guessed_shape = define_flag_shape(bdf_descr, baseband_spw_idxs)
     try:
         if different_pols_per_spw:

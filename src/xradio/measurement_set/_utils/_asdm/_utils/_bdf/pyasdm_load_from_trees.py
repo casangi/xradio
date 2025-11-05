@@ -204,6 +204,11 @@ def load_flags_subset_from_tree(
     if "flags" in subset and subset["flags"]["present"]:
         antenna_len = bdf_descr["num_antenna"]
         baseline_len = int(antenna_len * (antenna_len - 1) / 2)
+        baseband_description = bdf_descr["basebands"][baseband_spw_idxs[0]]
+        spw_descr = baseband_description["spectralWindows"][baseband_spw_idxs[1]]
+        polarization_len = len(spw_descr["crossPolProducts"]) or len(
+            spw_descr["sdPolProducts"]
+        )
         spw_pol_lens = [
             bdf_descr["basebands"][bb_idx]["spectralWindows"][spw_idx][
                 "crossPolProducts"
@@ -225,13 +230,11 @@ def load_flags_subset_from_tree(
                 0, len(bdf_descr["basebands"][bb_idx]["spectralWindows"])
             )
         ]
-        polarization_len = len(spw_descr["crossPolProducts"]) or len(
-            spw_descr["sdPolProducts"]
-        )
         baseband_idx, spw_idx = baseband_spw_idxs
         overall_spw_idx = calculate_overall_spw_idx(
             bdf_descr["basebands"], baseband_idx, spw_idx
         )
+
         flag_strides = []
         flag_array = subset["flags"]["arr"]  # .reshape(shape)
         offset = 0

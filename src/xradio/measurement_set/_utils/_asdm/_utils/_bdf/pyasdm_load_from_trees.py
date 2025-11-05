@@ -210,21 +210,27 @@ def load_flags_subset_from_tree(
             spw_descr["sdPolProducts"]
         )
         spw_pol_lens = [
-            bdf_descr["basebands"][bb_idx]["spectralWindows"][spw_idx][
-                "crossPolProducts"
-            ]
-            or bdf_descr["basebands"][bb_idx]["spectralWindows"][spw_idx][
-                "sdPolProducts"
-            ]
+            len(
+                bdf_descr["basebands"][bb_idx]["spectralWindows"][spw_idx][
+                    "crossPolProducts"
+                ]
+            )
+            or len(
+                bdf_descr["basebands"][bb_idx]["spectralWindows"][spw_idx][
+                    "sdPolProducts"
+                ]
+            )
             for bb_idx in range(0, len(bdf_descr["basebands"]))
             for spw_idx in range(
                 0, len(bdf_descr["basebands"][bb_idx]["spectralWindows"])
             )
         ]
         spw_auto_pol_lens = [
-            bdf_descr["basebands"][bb_idx]["spectralWindows"][spw_idx][
-                "crossPolProducts"
-            ]
+            len(
+                bdf_descr["basebands"][bb_idx]["spectralWindows"][spw_idx][
+                    "crossPolProducts"
+                ]
+            )
             for bb_idx in range(0, len(bdf_descr["basebands"]))
             for spw_idx in range(
                 0, len(bdf_descr["basebands"][bb_idx]["spectralWindows"])

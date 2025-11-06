@@ -227,7 +227,7 @@ def load_flags_subset_from_tree(
         spw_auto_pol_lens = [
             len(
                 bdf_descr["basebands"][bb_idx]["spectralWindows"][spw_idx][
-                    "crossPolProducts"
+                    "sdPolProducts"
                 ]
             )
             for bb_idx in range(0, len(bdf_descr["basebands"]))
@@ -241,7 +241,7 @@ def load_flags_subset_from_tree(
         )
 
         flag_strides = []
-        flag_array = subset["flags"]["arr"]  # .reshape(shape)
+        flag_array = subset["flags"]["arr"]
         offset = 0
         for time_idx in np.arange(0, guessed_shape["auto"][0]):
             if (
@@ -250,15 +250,22 @@ def load_flags_subset_from_tree(
             ):
                 for baseline_idx in np.arange(baseline_len):
                     offset += np.sum(spw_pol_lens[0:overall_spw_idx])
-                    flag_strides.append(flag_array[offset : offset + polarization_len])
+                    stride = flag_array[offset : offset + polarization_len].astype(
+                        "bool"
+                    )  # forgetting the int details
+                    flag_strides.append(stride)
                     offset += np.sum(spw_pol_lens[overall_spw_idx:])
 
             for antenna_idx in np.arange(antenna_len):
                 offset += np.sum(spw_auto_pol_lens[0:overall_spw_idx])
-                flag_strides.append(flag_array[offset : offset + polarization_len])
+                stride = flag_array[offset : offset + polarization_len].astype(
+                    "bool"
+                )  # forgetting the int details
+                flag_strides.append(stride)
                 offset += np.sum(spw_auto_pol_lens[overall_spw_idx:])
 
-        flag_subset = np.concatenate(flag_strides)
+        flag_subset = np.stack(flag_strides)
+        flag_subset = flag_subset.reshape((1, *flag_subset.shape))
     else:
         shape = add_cross_and_auto_flag_shapes(guessed_shape)
         flag_subset = np.full(

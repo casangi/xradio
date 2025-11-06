@@ -303,27 +303,23 @@ def load_vis_subset(
     if "crossData" in subset and subset["crossData"]["present"]:
         cross_shape = guessed_shape[0:2] + guessed_shape[3:]
         cross_len = np.prod(cross_shape)
-        cross_floats = (subset["crossData"]["arr"][:cross_len] / scale_factor).reshape(
-            cross_shape
-        )
+        cross_values = subset["crossData"]["arr"][:cross_len].reshape(cross_shape)
         if processor_type == pyasdm.enumerations.ProcessorType.CORRELATOR:
             vis_subset = (
-                cross_floats[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, :, 0]
+                cross_values[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, :, 0]
                 + 1j
-                * cross_floats[
+                * cross_values[
                     :, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, :, 1
                 ]
-            )
+            ) / scale_factor
         else:
             # radiometer / spectrometer
-            vis_subset = cross_floats
+            vis_subset = cross_values / scale_factor
 
     if "autoData" in subset and subset["autoData"]["present"]:
         auto_shape = guessed_shape[:1] + guessed_shape[2:-1]
         auto_len = np.prod(auto_shape)
-        auto_floats = (subset["autoData"]["arr"][:auto_len] / scale_factor).reshape(
-            auto_shape
-        )
+        auto_floats = (subset["autoData"]["arr"][:auto_len]).reshape(auto_shape)
         vis_auto = auto_floats[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, :]
         if vis_subset is None:
             vis_subset = vis_auto

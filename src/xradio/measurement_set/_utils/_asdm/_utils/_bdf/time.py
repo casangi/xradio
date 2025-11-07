@@ -203,7 +203,9 @@ def read_times_bdf(
     )
     while bdf_reader.hasSubset():
         try:
-            subset = bdf_reader.getSubset()
+            subset = bdf_reader.getSubset(
+                loadOnlyComponents={"actualTimes", "actualDurations"}
+            )
         except ValueError as exc:
             # Example: (cycle 3, 2015.1.00665.S/uid___A002_Xae4720_X57fe):
             # File... BDFReader.py", line 805, in _requireSDMDataSubsetMIMEPart

@@ -53,7 +53,7 @@ def load_visibilities_all_subsets_from_trees(
     vis_per_subset = []
     while bdf_reader.hasSubset():
         try:
-            subset = bdf_reader.getSubset()
+            subset = bdf_reader.getSubset(loadOnlyComponents={"autoData", "crossData"})
         except ValueError as exc:
             logger.warning(f"Error in getSubset for {bdf_path=} {exc=}")
             return None
@@ -171,7 +171,7 @@ def load_flags_all_subsets_from_trees(
     flag_per_subset = []
     while bdf_reader.hasSubset():
         try:
-            subset = bdf_reader.getSubset()
+            subset = bdf_reader.getSubset(loadOnlyComponents={"flags"})
         except ValueError as exc:
             logger.warning(
                 f"Error in getSubset for {bdf_reader.getPath()=} when trying to load "

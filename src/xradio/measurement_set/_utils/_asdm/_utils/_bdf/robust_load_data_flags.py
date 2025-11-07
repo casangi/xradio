@@ -271,9 +271,12 @@ def load_visibilities_all_subsets(
     vis_per_subset = []
     while bdf_reader.hasSubset():
         try:
-            subset = bdf_reader.getSubset()
+            subset = bdf_reader.getSubset(loadOnlyComponents={"autoData", "crossData"})
         except ValueError as exc:
-            logger.warning(f"Error in getSubset for {bdf_path=} {exc=}")
+            logger.warning(
+                f"Error in getSubset for {bdf_reader.getPath()=}  when trying to load "
+                f"visibilities. Will use all-False. {exc=}"
+            )
             return None
 
         vis_subset = load_vis_subset(
@@ -447,7 +450,7 @@ def load_flags_all_subsets(
     flag_per_subset = []
     while bdf_reader.hasSubset():
         try:
-            subset = bdf_reader.getSubset()
+            subset = bdf_reader.getSubset(loadOnlyComponents={"flags"})
         except ValueError as exc:
             logger.warning(
                 f"Error in getSubset for {bdf_reader.getPath()=} when trying to load "

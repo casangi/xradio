@@ -74,6 +74,7 @@ def find_spw_in_basebands_list(
 
     baseband_description = {}
     bb_index_cnt = 0
+    found = False
     for bband in basebands:
         for spw in bband["spectralWindows"]:
             if spw_id == int(spw["sw"]) - 1:
@@ -85,10 +86,11 @@ def find_spw_in_basebands_list(
                     spw_index = spw_id
                     baseband_index = int(bband["name"].split("_")[1]) - 1
                 baseband_description = bband["spectralWindows"][0]
+                found = True
 
         bb_index_cnt += 1
 
-    if not baseband_description:
+    if not found:
         # TODO: This is a highly dubious fallback for now...
         # Trying to figure out if there is some mapping from spw_ids
         err_msg = f"SPW {spw_id} not found in this BDF: {bdf_path}"

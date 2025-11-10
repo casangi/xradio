@@ -417,6 +417,7 @@ def create_coordinates(
     ].values.astype(str)
     coords["field_name"] = (["time"], np.resize(fields, len(time_centers)))
 
+    # TODO This redim should be done inside ._bdf/time
     # We need (time, baseline_id) dims but times and durations form ASDM/BDFs are independent of baseline
     redim_actual_durations = np.resize(
         actual_durations, (len(actual_durations), len(baseline_antenna1_id))

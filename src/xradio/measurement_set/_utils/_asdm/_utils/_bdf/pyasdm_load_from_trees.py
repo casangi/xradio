@@ -35,7 +35,7 @@ def calculate_overall_spw_idx(
     overall_spw_idx = sum(
         [
             len(basebands_descr[bb_idx]["spectralWindows"])
-            for bb_idx in range(0, baseband_idx + 1)
+            for bb_idx in range(0, baseband_idx)
         ]
     )
     +spw_idx
@@ -96,17 +96,20 @@ def load_vis_subset_from_tree(
         bdf_descr["basebands"], baseband_idx, spw_idx
     )
     spw_channel_len = spw_chan_lens[overall_spw_idx]
-    vis_strides = []
 
+    vis_subset = None
     if "crossData" in subset and subset["crossData"]["present"]:
         baseline_len = int(antenna_len * (antenna_len - 1) / 2)
         cross_values = subset["crossData"]["arr"]
         offset = 0
         for time_idx in np.arange(0, guessed_shape[0]):
+            vis_strides = []
             for baseline_idx in np.arange(baseline_len):
                 if processor_type == pyasdm.enumerations.ProcessorType.CORRELATOR:
                     offset += (
-                        np.sum(spw_chan_lens[0:overall_spw_idx]) * polarization_len * 2
+                        np.sum(spw_chan_lens[0:overall_spw_idx], dtype=int)
+                        * polarization_len
+                        * 2
                     )
                     spw_vis = cross_values[
                         offset : offset + spw_channel_len * polarization_len * 2
@@ -119,13 +122,16 @@ def load_vis_subset_from_tree(
                         spw_vis.reshape((spw_channel_len, polarization_len))
                     )
                     offset += (
-                        np.sum(spw_chan_lens[overall_spw_idx:]) * polarization_len * 2
+                        np.sum(spw_chan_lens[overall_spw_idx:], dtype=int)
+                        * polarization_len
+                        * 2
                     )
 
                 else:
                     # radiometer / spectrometer
                     offset += (
-                        np.sum(spw_chan_lens[0:overall_spw_idx]) * polarization_len
+                        np.sum(spw_chan_lens[0:overall_spw_idx], dtype=int)
+                        * polarization_len
                     )
                     spw_values = cross_values[
                         offset : offset + spw_channel_len * polarization_len
@@ -136,25 +142,45 @@ def load_vis_subset_from_tree(
                     )
 
                     vis_strides.append(spw_values)
-                    offset += np.sum(spw_chan_lens[overall_spw_idx:]) * polarization_len
+                    offset += (
+                        np.sum(spw_chan_lens[overall_spw_idx:], dtype=int)
+                        * polarization_len
+                    )
+
+        vis_subset = np.stack(vis_strides)
+        vis_subset = vis_subset.reshape((1, *vis_subset.shape))
 
     if "autoData" in subset and subset["autoData"]["present"]:
         offset = 0
+        vis_auto_strides = []
         for time_idx in np.arange(0, guessed_shape[0]):
             for antenna_idx in np.arange(antenna_len):
-                offset += np.sum(spw_chan_lens[0:overall_spw_idx]) * polarization_len
+                offset += (
+                    np.sum(spw_chan_lens[0:overall_spw_idx], dtype=int)
+                    * polarization_len
+                )
                 auto_floats = subset["autoData"]["arr"]
                 spw_floats = auto_floats[
                     offset : offset + spw_channel_len * polarization_len
                 ]
                 spw_floats = spw_floats.reshape((spw_channel_len, polarization_len))
-                vis_strides.append(spw_floats)
-                offset += np.sum(spw_chan_lens[overall_spw_idx:]) * polarization_len
+                vis_auto_strides.append(spw_floats)
+                offset += (
+                    np.sum(spw_chan_lens[overall_spw_idx:], dtype=int)
+                    * polarization_len
+                )
+
+        vis_auto = np.stack(vis_auto_strides)
+        vis_auto = vis_auto.reshape((1, *vis_auto.shape))
+
+        if vis_subset is None:
+            vis_subset = vis_auto
+        else:
+            vis_subset = np.concatenate([vis_subset, vis_auto], axis=1)
+
     else:
         # Never allowed for ALMA (BDF doc) and seems so in real life
         RuntimeError("autoData not present!")
-
-    vis_subset = np.concatenate(vis_strides)
 
     return vis_subset
 
@@ -249,20 +275,20 @@ def load_flags_subset_from_tree(
                 != pyasdm.enumerations.CorrelationMode.AUTO_ONLY
             ):
                 for baseline_idx in np.arange(baseline_len):
-                    offset += np.sum(spw_pol_lens[0:overall_spw_idx])
+                    offset += np.sum(spw_pol_lens[0:overall_spw_idx], dtype=int)
                     stride = flag_array[offset : offset + polarization_len].astype(
                         "bool"
                     )  # forgetting the int details
                     flag_strides.append(stride)
-                    offset += np.sum(spw_pol_lens[overall_spw_idx:])
+                    offset += np.sum(spw_pol_lens[overall_spw_idx:], dtype=int)
 
             for antenna_idx in np.arange(antenna_len):
-                offset += np.sum(spw_auto_pol_lens[0:overall_spw_idx])
+                offset += np.sum(spw_auto_pol_lens[0:overall_spw_idx], dtype=int)
                 stride = flag_array[offset : offset + polarization_len].astype(
                     "bool"
                 )  # forgetting the int details
                 flag_strides.append(stride)
-                offset += np.sum(spw_auto_pol_lens[overall_spw_idx:])
+                offset += np.sum(spw_auto_pol_lens[overall_spw_idx:], dtype=int)
 
         flag_subset = np.stack(flag_strides)
         flag_subset = flag_subset.reshape((1, *flag_subset.shape))

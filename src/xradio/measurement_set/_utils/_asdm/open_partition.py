@@ -184,6 +184,8 @@ def create_data_vars(
         'frequency', 'polarization', and 'uvw_label'.
     bdf_paths : list[str]
         Paths to BDFs with data/flags for the partition
+    bdf_spw_id : int
+        Index of the SPW to load (index in the BDF, derived from the metadata SPW index)
 
     Returns
     -------
@@ -450,11 +452,12 @@ def create_coordinates(
         "ConfigDescription",
         ["configDescriptionId", "dataDescriptionId"],
     )
-    bdf_spw_id = translate_asdm_tables_spw_id_to_bdf_index(
-        spw_id,  # config_description_df,
+    bdf_spw_id = translate_asdm_tables_spw_id_to_bdf_spw_id(
+        spw_id,
         data_description_df,
         spw_df,
         partition_descr["configDescriptionId"],
+        config_description_df,
     )
 
     # TODO: this needs clean-up!
@@ -485,15 +488,27 @@ def produce_weight_data_var(xds: xr.Dataset) -> xr.DataArray:
     )
 
 
-def translate_asdm_tables_spw_id_to_bdf_index(
+def translate_asdm_tables_spw_id_to_bdf_spw_id(
     spw_id: int,
     data_description_df: pd.DataFrame,
     spw_df: pd.DataFrame,
     # asdm: pyasdm.ASDM,
     config_description_id: int,
-    # partition_descr: dict[str, np.ndarray]
+    config_description_df: pd.DataFrame,
 ) -> int:
-    return spw_id
+
+    this_config_df = config_description_df.loc[
+        config_description_df["configDescriptionId"].isin(config_description_id)
+    ]
+    data_description_ids = this_config_df["dataDescriptionId"].values[0]
+
+    this_data_description_df = data_description_df.loc[
+        data_description_df["dataDescriptionId"].isin(data_description_ids)
+    ]
+    spw_ids_in_data_descriptions = this_data_description_df["spectralWindowId"].values
+
+    bdf_spw_id = int(np.argmax(spw_ids_in_data_descriptions == spw_id))
+    return bdf_spw_id
 
 
 def generate_baseline_antennax_id_as_in_bdf(

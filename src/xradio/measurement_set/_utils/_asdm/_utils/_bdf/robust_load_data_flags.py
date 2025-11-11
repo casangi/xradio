@@ -72,33 +72,28 @@ def find_spw_in_basebands_list(
     bdf_path: str, spw_id: int, basebands: list[dict]
 ) -> tuple[int, int]:
 
-    baseband_description = {}
     bb_index_cnt = 0
+    basebands_len_cumsum = 0
     found = False
     for bband in basebands:
-        for spw in bband["spectralWindows"]:
-            if spw_id == int(spw["sw"]) - 1:
-                # Not sure if the lists are guaranteed to be sorted by id, so taking the id from name
-                if "NOBB" == bband["name"]:
-                    spw_index = 0
-                    baseband_index = bb_index_cnt
-                else:
-                    spw_index = spw_id
-                    baseband_index = int(bband["name"].split("_")[1]) - 1
-                baseband_description = bband["spectralWindows"][0]
-                found = True
+        bb_spw_len = len(bband["spectralWindows"])
+        if spw_id < basebands_len_cumsum + bb_spw_len:
+            spw_index = spw_id - basebands_len_cumsum
+            baseband_index = bb_index_cnt
+            found = True
+            break
+        else:
+            basebands_len_cumsum += bb_spw_len
 
         bb_index_cnt += 1
 
     if not found:
         # TODO: This is a highly dubious fallback for now...
-        # Trying to figure out if there is some mapping from spw_ids
-        err_msg = f"SPW {spw_id} not found in this BDF: {bdf_path}"
         # raise RuntimeError(err_msg)
+        err_msg = f"SPW {spw_id} not found in this BDF: {bdf_path}, defaulting to BB 0, SPW 0."
         logger.warning(err_msg)
         spw_index = 1 - 1
         baseband_index = 0
-        baseband_description = basebands[0]["spectralWindows"][0]
 
     return (baseband_index, spw_index)
 

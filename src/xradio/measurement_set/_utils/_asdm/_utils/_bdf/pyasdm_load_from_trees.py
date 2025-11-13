@@ -292,7 +292,9 @@ def load_flags_subset_from_tree(
             spw_descr["sdPolProducts"]
         )
         baseband_idx, spw_idx = baseband_spw_idxs
-        overall_spw_idx = calculate_overall_spw_idx(bdf_descr, baseband_idx, spw_idx)
+        overall_spw_idx = calculate_overall_spw_idx(
+            bdf_descr["basebands"], baseband_idx, spw_idx
+        )
 
         flag_strides = []
         flag_array = subset["flags"]["arr"]

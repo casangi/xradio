@@ -182,7 +182,7 @@ def load_visibilities_from_partition_bdfs(
     visibility = np.concatenate(cumulative_vis)
     end = time.perf_counter()
     logger.info(
-        f"Loaded visibiilty, with {visibility.shape=} from {len(bdf_paths)=} blobs, time: {end-start:.6}"
+        f"Loaded visibility, with {visibility.shape=} from {len(bdf_paths)=} blobs, time: {end-start:.6}"
     )
 
     return visibility
@@ -244,7 +244,7 @@ def load_visibilities_from_bdf(
     except (RuntimeError, ValueError) as exc:
         trace = traceback.format_exc()
         raise RuntimeError(
-            f"Error while loading data/visibilities from a BDF. Details: {exc}."
+            f"Error while loading data/visibilities from a BDF ({bdf_path=}). Details: {exc}."
             + trace
             + "BDF header:\n"
             + str(bdf_header)

@@ -76,7 +76,7 @@ def open_asdm(
 
     for msv4_idx, partition_descr in enumerate(partitions):
         logger.info(
-            "execBlock "
+            "Opening partition for: execBlock "
             + str(partition_descr["execBlockId"])
             + ", dataDescription: "
             + str(partition_descr["dataDescriptionId"])

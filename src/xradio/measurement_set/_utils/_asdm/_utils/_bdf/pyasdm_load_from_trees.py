@@ -216,6 +216,26 @@ def load_flags_all_subsets_from_trees(
     return bdf_flag
 
 
+def calculate_offset_additions_cross(
+    basebands_descr: list[dict],
+    baseband_idx: int,
+    overall_spw_idx: int,
+    flag_array_len: int,
+) -> tuple[int, int]:
+
+    per_spw_pol_lens = [
+        len(basebands_descr[bb_idx]["spectralWindows"][spw_idx]["crossPolProducts"])
+        or len(basebands_descr[bb_idx]["spectralWindows"][spw_idx]["sdPolProducts"])
+        for bb_idx in range(0, len(basebands_descr))
+        for spw_idx in range(0, len(basebands_descr[bb_idx]["spectralWindows"]))
+    ]
+
+    offset_addition_before = np.sum(per_spw_pol_lens[0:overall_spw_idx], dtype=int)
+    offset_addition_after = np.sum(per_spw_pol_lens[overall_spw_idx:], dtype=int)
+
+    return offset_addition_before, offset_addition_after
+
+
 def calculate_offset_additions_sd(
     bdf_descr: list[list],
     baseband_idx: int,
@@ -233,8 +253,12 @@ def calculate_offset_additions_sd(
     antenna_len = bdf_descr["num_antenna"]
     guessed_len = antenna_len * np.sum(per_spw_auto_pol_lens, dtype=int)
     if guessed_len == flag_array_len - offset:
-        offset_addition_before = np.sum(spw_auto_pol_lens[0:overall_spw_idx], dtype=int)
-        offset_addition_after = np.sum(spw_auto_pol_lens[overall_spw_idx:], dtype=int)
+        offset_addition_before = np.sum(
+            per_spw_auto_pol_lens[0:overall_spw_idx], dtype=int
+        )
+        offset_addition_after = np.sum(
+            per_spw_auto_pol_lens[overall_spw_idx:], dtype=int
+        )
     else:
         # Try per-BB flags
         per_baseband_auto_pol_lens = [
@@ -275,22 +299,6 @@ def load_flags_subset_from_tree(
         polarization_len = len(spw_descr["crossPolProducts"]) or len(
             spw_descr["sdPolProducts"]
         )
-        spw_pol_lens = [
-            len(
-                bdf_descr["basebands"][bb_idx]["spectralWindows"][spw_idx][
-                    "crossPolProducts"
-                ]
-            )
-            or len(
-                bdf_descr["basebands"][bb_idx]["spectralWindows"][spw_idx][
-                    "sdPolProducts"
-                ]
-            )
-            for bb_idx in range(0, len(bdf_descr["basebands"]))
-            for spw_idx in range(
-                0, len(bdf_descr["basebands"][bb_idx]["spectralWindows"])
-            )
-        ]
         baseband_idx, spw_idx = baseband_spw_idxs
         overall_spw_idx = calculate_overall_spw_idx(bdf_descr, baseband_idx, spw_idx)
 
@@ -302,14 +310,16 @@ def load_flags_subset_from_tree(
                 bdf_descr["correlation_mode"]
                 != pyasdm.enumerations.CorrelationMode.AUTO_ONLY
             ):
-                cross_offset_addition_before = np.sum(
-                    spw_pol_lens[0:overall_spw_idx], dtype=int
-                )
-                cross_offset_addition_after = np.sum(
-                    spw_pol_lens[overall_spw_idx:], dtype=int
+                cross_offset_addition_before, cross_offset_addition_after = (
+                    calculate_offset_additions_cross(
+                        bdf_descr["basebands"],
+                        baseband_idx,
+                        overall_spw_idx,
+                        len(flag_array),
+                    )
                 )
                 for baseline_idx in np.arange(baseline_len):
-                    offset += offset_addition_before
+                    offset += cross_offset_addition_before
                     stride = flag_array[offset : offset + polarization_len].astype(
                         "bool"
                     )  # forgetting the int details

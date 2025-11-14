@@ -265,23 +265,24 @@ def make_flag_tree_offsets_per_spw(
 
 
 def make_flag_tree_offsets_per_baseband(
-    per_baseband_cross_pol_lens, per_baseband_auto_pol_lens, overall_spw_idx
+    per_baseband_cross_pol_lens, per_baseband_auto_pol_lens, baseband_idx
 ) -> dict[str, dict]:
 
     offset = {"cross": {}, "auto": {}}
     offset["cross"]["before"] = np.sum(
-        per_baseband_cross_pol_lens[0:overall_spw_idx], dtype=int
+        per_baseband_cross_pol_lens[0:baseband_idx], dtype=int
     )
     offset["cross"]["after"] = np.sum(
-        per_baseband_cross_pol_lens[overall_spw_idx:], dtype=int
+        per_baseband_cross_pol_lens[baseband_idx:], dtype=int
     )
 
     offset["auto"]["before"] = np.sum(
-        per_baseband_auto_pol_lens[0:overall_spw_idx], dtype=int
+        per_baseband_auto_pol_lens[0:baseband_idx], dtype=int
     )
     offset["auto"]["after"] = np.sum(
-        per_baseband_auto_pol_lens[overall_spw_idx:], dtype=int
+        per_baseband_auto_pol_lens[baseband_idx:], dtype=int
     )
+
     return offset
 
 
@@ -331,7 +332,7 @@ def calculate_offset_additions_cross_sd(
 
         if second_guessed_cross_len + second_guessed_auto_len == flag_array_len:
             offset = make_flag_tree_offsets_per_baseband(
-                per_baseband_cross_pol_lens, per_baseband_auto_pol_lens, overall_spw_idx
+                per_baseband_cross_pol_lens, per_baseband_auto_pol_lens, baseband_idx
             )
         else:
             raise RuntimeError(

@@ -1,4 +1,5 @@
 import os
+import traceback
 
 import numpy as np
 import pandas as pd
@@ -208,6 +209,8 @@ def read_times_bdf(
                 loadOnlyComponents={"actualTimes", "actualDurations"}
             )
         except ValueError as exc:
+            # TODO: this doesn't seem to happen any longer after pyasdm 0.0.3
+            # Remove if not seen.
             # Example: (cycle 3, 2015.1.00665.S/uid___A002_Xae4720_X57fe):
             # File... BDFReader.py", line 805, in _requireSDMDataSubsetMIMEPart
             #    intNum = int(projectPathParts[3])
@@ -215,6 +218,13 @@ def read_times_bdf(
             logger.warning(f"Error in getSubset for {bdf_path=} {exc=}")
             bdf_reader.close()
             return np.zeros(1), np.zeros(1), np.zeros(1), np.zeros(1)
+        except BDFReader.BDFReaderException as exc:
+            trace = traceback.format_exc()
+            raise RuntimeError(
+                f"BDFReaderException while trying to load actualTimes and "
+                f"actualDurations for BDF: {bdf_path=}. Details: {exc}."
+                f"{trace=}\n === BDF header:\n" + str(bdf_reader.getHeader())
+            )
 
         # dims:
         # BAL ANT BAB POL / channel avg data

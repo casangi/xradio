@@ -183,9 +183,9 @@ def load_flags_all_subsets_from_trees(
     bdf_descr: dict,
     baseband_spw_idxs: tuple[int, int],
 ) -> np.ndarray:
+
     # Load taking pieces from the data trees of the binary components. Needed when the number
     # of SPWs per baseband, or number of channels per SPW are not uniform.
-
     flag_per_subset = []
     while bdf_reader.hasSubset():
         try:
@@ -200,7 +200,6 @@ def load_flags_all_subsets_from_trees(
         flag_subset = load_flags_subset_from_tree(
             subset, guessed_shape, bdf_descr, baseband_spw_idxs
         )
-
         flag_per_subset.append(flag_subset)
 
     bdf_flag = np.concatenate(flag_per_subset)
@@ -353,19 +352,11 @@ def load_flags_subset_from_tree(
     """
 
     if "flags" in subset and subset["flags"]["present"]:
-        antenna_len = bdf_descr["num_antenna"]
-        baseline_len = int(antenna_len * (antenna_len - 1) / 2)
-        baseband_description = bdf_descr["basebands"][baseband_spw_idxs[0]]
-        spw_descr = baseband_description["spectralWindows"][baseband_spw_idxs[1]]
-        polarization_len = len(spw_descr["crossPolProducts"]) or len(
-            spw_descr["sdPolProducts"]
-        )
         baseband_idx, spw_idx = baseband_spw_idxs
         overall_spw_idx = calculate_overall_spw_idx(
             bdf_descr["basebands"], baseband_idx, spw_idx
         )
 
-        flag_strides = []
         flag_array = subset["flags"]["arr"]
         offset_additions = calculate_offset_additions_cross_sd(
             bdf_descr,
@@ -373,38 +364,74 @@ def load_flags_subset_from_tree(
             overall_spw_idx,
             len(flag_array),
         )
-        offset = 0
-        for time_idx in np.arange(0, guessed_shape["auto"][0]):
-            if (
-                bdf_descr["correlation_mode"]
-                != pyasdm.enumerations.CorrelationMode.AUTO_ONLY
-            ):
-                cross_offset_addition_before = offset_additions["cross"]["before"]
-                cross_offset_addition_after = offset_additions["cross"]["after"]
-                for baseline_idx in np.arange(baseline_len):
-                    offset += cross_offset_addition_before
-                    stride = flag_array[offset : offset + polarization_len].astype(
-                        "bool"
-                    )  # forgetting the int details (BinaryDataFlags enum)
-                    flag_strides.append(stride)
-                    offset += cross_offset_addition_after
+        flag_subset = load_flags_subset_cross_and_auto_blocks_from_tree(
+            flag_array, bdf_descr, offset_additions, guessed_shape, baseband_spw_idxs
+        )
 
-            auto_offset_addition_before = offset_additions["cross"]["before"]
-            auto_offset_addition_after = offset_additions["cross"]["after"]
-            for antenna_idx in np.arange(antenna_len):
-                offset += auto_offset_addition_before
-                stride = flag_array[offset : offset + polarization_len].astype(
-                    "bool"
-                )  # forgetting the int details
-                flag_strides.append(stride)
-                offset += auto_offset_addition_after
-
-        flag_subset = np.stack(flag_strides)
-        flag_subset = flag_subset.reshape((1, *flag_subset.shape))
     else:
         shape = add_cross_and_auto_flag_shapes(guessed_shape)
         flag_subset = np.full(
             full_shape_to_output_filled_flags_shape(shape), False, dtype="bool"
         )
+
+    return flag_subset
+
+
+def load_flags_subset_cross_and_auto_blocks_from_tree(
+    flag_array: np.ndarray,
+    bdf_descr: dict,
+    offset_additions: dict,
+    guessed_shape: tuple[int, ...],
+    baseband_spw_idxs: tuple[int, int],
+) -> np.ndarray[bool]:
+
+    antenna_len = bdf_descr["num_antenna"]
+    baseline_len = int(antenna_len * (antenna_len - 1) / 2)
+    baseband_description = bdf_descr["basebands"][baseband_spw_idxs[0]]
+    spw_descr = baseband_description["spectralWindows"][baseband_spw_idxs[1]]
+    polarization_cross_len = len(spw_descr["crossPolProducts"])
+    polarization_auto_len = len(spw_descr["sdPolProducts"])
+
+    flag_strides = []
+    offset = 0
+    for time_idx in np.arange(0, guessed_shape["auto"][0]):
+        if (
+            bdf_descr["correlation_mode"]
+            != pyasdm.enumerations.CorrelationMode.AUTO_ONLY
+        ):
+            cross_offset_addition_before = offset_additions["cross"]["before"]
+            cross_offset_addition_after = offset_additions["cross"]["after"]
+            for baseline_idx in np.arange(baseline_len):
+                offset += cross_offset_addition_before
+                stride = flag_array[offset : offset + polarization_cross_len].astype(
+                    "bool"
+                )  # forgetting the int details (BinaryDataFlags enum)
+                flag_strides.append(stride)
+                offset += cross_offset_addition_after
+
+        auto_offset_addition_before = offset_additions["auto"]["before"]
+        auto_offset_addition_after = offset_additions["auto"]["after"]
+        for antenna_idx in np.arange(antenna_len):
+            offset += auto_offset_addition_before
+            if polarization_auto_len != 3:
+                stride = flag_array[offset : offset + polarization_auto_len].astype(
+                    "bool"
+                )  # forgetting the int details
+            else:
+                stride = np.array(
+                    [
+                        flag_array[offset],
+                        flag_array[offset + 1],
+                        flag_array[offset + 1],
+                        flag_array[offset + 2],
+                    ],
+                    dtype="bool",
+                )
+
+            flag_strides.append(stride)
+            offset += auto_offset_addition_after
+
+    flag_subset = np.stack(flag_strides)
+    flag_subset = flag_subset.reshape((1, *flag_subset.shape))
 
     return flag_subset

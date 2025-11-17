@@ -218,7 +218,7 @@ def read_times_bdf(
             logger.warning(f"Error in getSubset for {bdf_path=} {exc=}")
             bdf_reader.close()
             return np.zeros(1), np.zeros(1), np.zeros(1), np.zeros(1)
-        except BDFReader.BDFReaderException as exc:
+        except pyasdm.bdf.BDFReader.BDFReaderException as exc:
             trace = traceback.format_exc()
             raise RuntimeError(
                 f"BDFReaderException while trying to load actualTimes and "

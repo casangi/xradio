@@ -429,7 +429,7 @@ def load_flags_from_bdf(
     except (RuntimeError, ValueError) as exc:
         trace = traceback.format_exc()
         raise RuntimeError(
-            f"Error while loading flags from a BDF. Details: {exc}."
+            f"Error while loading flags from a BDF ({bdf_path=}). Details: {exc}."
             + trace
             + "BDF header:"
             + str(bdf_header)

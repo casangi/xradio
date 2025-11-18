@@ -299,57 +299,19 @@ def load_vis_subset(
 ) -> np.ndarray:
 
     vis_subset = None
-
     if "crossData" in subset and subset["crossData"]["present"]:
-        cross_shape = guessed_shape[0:2] + guessed_shape[3:]
-        cross_len = np.prod(cross_shape)
-        cross_values = subset["crossData"]["arr"][:cross_len].reshape(cross_shape)
-        if processor_type == pyasdm.enumerations.ProcessorType.CORRELATOR:
-            vis_subset = (
-                cross_values[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, :, 0]
-                + 1j
-                * cross_values[
-                    :, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, :, 1
-                ]
-            ) / scale_factor
-        else:
-            # radiometer / spectrometer
-            vis_subset = cross_values / scale_factor
+        vis_subset = load_vis_subset_cross_data(
+            subset["crossData"]["arr"],
+            guessed_shape,
+            baseband_spw_idxs,
+            scale_factor,
+            processor_type,
+        )
 
     if "autoData" in subset and subset["autoData"]["present"]:
-        polarization_len = guessed_shape[-2]
-        if polarization_len == 3:
-            # autoData: "The choice of a real- vs. complex-valued datum is dependent upon the
-            # polarization product...parallel-hand polarizations are real-valued, while cross-hand
-            # polarizations are complex-valued".
-            auto_shape = guessed_shape[:1] + guessed_shape[2:-2] + (4,)
-            auto_len = np.prod(auto_shape)
-            auto_floats = (subset["autoData"]["arr"][:auto_len]).reshape(auto_shape)
-            vis_cross_hands = (
-                auto_floats[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, [1]]
-                + 1j
-                * auto_floats[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, [2]],
-            )
-            vis_auto = np.concatenate(
-                [
-                    auto_floats[
-                        :, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, [0]
-                    ],
-                    vis_cross_hands,
-                    vis_cross_hands,
-                    auto_floats[
-                        :, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, [3]
-                    ],
-                ],
-                axis=3,
-            )
-        else:
-            auto_shape = guessed_shape[:1] + guessed_shape[2:-1]
-            auto_len = np.prod(auto_shape)
-            auto_floats = (subset["autoData"]["arr"][:auto_len]).reshape(auto_shape)
-            vis_auto = auto_floats[
-                :, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, :
-            ]
+        vis_auto = load_vis_subset_auto_data(
+            subset["autoData"]["arr"], guessed_shape, baseband_spw_idxs
+        )
 
         if vis_subset is None:
             vis_subset = vis_auto
@@ -360,6 +322,66 @@ def load_vis_subset(
         RuntimeError("autoData not present!")
 
     return vis_subset
+
+
+def load_vis_subset_cross_data(
+    cross_data_arr: np.ndarray,
+    guessed_shape: tuple,
+    baseband_spw_idxs: tuple[int, int],
+    scale_factor: float,
+    processor_type: pyasdm.enumerations.ProcessorType,
+) -> np.ndarray:
+
+    cross_shape = guessed_shape[0:2] + guessed_shape[3:]
+    cross_len = np.prod(cross_shape)
+    cross_values = cross_data_arr[:cross_len].reshape(cross_shape)
+    if processor_type == pyasdm.enumerations.ProcessorType.CORRELATOR:
+        vis_subset = (
+            cross_values[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, :, 0]
+            + 1j
+            * cross_values[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, :, 1]
+        ) / scale_factor
+    else:
+        # radiometer / spectrometer
+        vis_subset = cross_values / scale_factor
+
+    return vis_subset
+
+
+def load_vis_subset_auto_data(
+    auto_data_arr: np.ndarray,
+    guessed_shape: tuple,
+    baseband_spw_idxs: tuple[int, int],
+) -> np.ndarray:
+
+    polarization_len = guessed_shape[-2]
+    if polarization_len == 3:
+        # autoData: "The choice of a real- vs. complex-valued datum is dependent upon the
+        # polarization product...parallel-hand polarizations are real-valued, while cross-hand
+        # polarizations are complex-valued".
+        auto_shape = guessed_shape[:1] + guessed_shape[2:-2] + (4,)
+        auto_len = np.prod(auto_shape)
+        auto_floats = (auto_data_arr[:auto_len]).reshape(auto_shape)
+        vis_cross_hands = (
+            auto_floats[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, [1]]
+            + 1j * auto_floats[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, [2]]
+        )
+        vis_auto = np.concatenate(
+            [
+                auto_floats[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, [0]],
+                vis_cross_hands,
+                vis_cross_hands,
+                auto_floats[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, [3]],
+            ],
+            axis=3,
+        )
+    else:
+        auto_shape = guessed_shape[:1] + guessed_shape[2:-1]
+        auto_len = np.prod(auto_shape)
+        auto_floats = (auto_data_arr[:auto_len]).reshape(auto_shape)
+        vis_auto = auto_floats[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, :]
+
+    return vis_auto
 
 
 def define_visibility_shape(

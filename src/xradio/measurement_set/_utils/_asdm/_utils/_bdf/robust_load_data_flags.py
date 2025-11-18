@@ -317,10 +317,40 @@ def load_vis_subset(
             vis_subset = cross_values / scale_factor
 
     if "autoData" in subset and subset["autoData"]["present"]:
-        auto_shape = guessed_shape[:1] + guessed_shape[2:-1]
-        auto_len = np.prod(auto_shape)
-        auto_floats = (subset["autoData"]["arr"][:auto_len]).reshape(auto_shape)
-        vis_auto = auto_floats[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, :]
+        polarization_len = guessed_shape[-2]
+        if polarization_len == 3:
+            # autoData: "The choice of a real- vs. complex-valued datum is dependent upon the
+            # polarization product...parallel-hand polarizations are real-valued, while cross-hand
+            # polarizations are complex-valued".
+            auto_shape = guessed_shape[:1] + guessed_shape[2:-2] + (4,)
+            auto_len = np.prod(auto_shape)
+            auto_floats = (subset["autoData"]["arr"][:auto_len]).reshape(auto_shape)
+            vis_cross_hands = (
+                auto_floats[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, [1]]
+                + 1j
+                * auto_floats[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, [2]],
+            )
+            vis_auto = np.concatenate(
+                [
+                    auto_floats[
+                        :, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, [0]
+                    ],
+                    vis_cross_hands,
+                    vis_cross_hands,
+                    auto_floats[
+                        :, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, [3]
+                    ],
+                ],
+                axis=3,
+            )
+        else:
+            auto_shape = guessed_shape[:1] + guessed_shape[2:-1]
+            auto_len = np.prod(auto_shape)
+            auto_floats = (subset["autoData"]["arr"][:auto_len]).reshape(auto_shape)
+            vis_auto = auto_floats[
+                :, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, :
+            ]
+
         if vis_subset is None:
             vis_subset = vis_auto
         else:

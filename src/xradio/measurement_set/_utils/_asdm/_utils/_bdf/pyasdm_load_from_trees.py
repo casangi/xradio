@@ -78,86 +78,103 @@ def load_vis_subset_from_tree(
     bdf_descr: dict,
 ) -> np.ndarray:
 
-    baseband_description = bdf_descr["basebands"][baseband_spw_idxs[0]]
-    spw_descr = baseband_description["spectralWindows"][baseband_spw_idxs[1]]
-    scale_factor = spw_descr["scaleFactor"] or 1
-    processor_type = bdf_descr["processor_type"]
     spw_chan_lens = [
         bdf_descr["basebands"][bb_idx]["spectralWindows"][spw_idx]["numSpectralPoint"]
         for bb_idx in range(0, len(bdf_descr["basebands"]))
         for spw_idx in range(0, len(bdf_descr["basebands"][bb_idx]["spectralWindows"]))
     ]
-    polarization_len = len(spw_descr["crossPolProducts"]) or len(
-        spw_descr["sdPolProducts"]
-    )
-    antenna_len = bdf_descr["num_antenna"]
     baseband_idx, spw_idx = baseband_spw_idxs
     overall_spw_idx = calculate_overall_spw_idx(
         bdf_descr["basebands"], baseband_idx, spw_idx
     )
 
-    vis_subset = None
-    if "crossData" in subset and subset["crossData"]["present"]:
-        baseline_len = int(antenna_len * (antenna_len - 1) / 2)
-        cross_values = subset["crossData"]["arr"]
-        offset = 0
-        cross_offset_addition_before = (
-            np.sum(spw_chan_lens[0:overall_spw_idx], dtype=int) * polarization_len * 2
-        )
-        cross_offset_addition_after = (
-            np.sum(spw_chan_lens[overall_spw_idx:], dtype=int) * polarization_len * 2
-        )
-        spw_channel_len = spw_chan_lens[overall_spw_idx]
-        for time_idx in np.arange(0, guessed_shape[0]):
-            vis_strides = []
-            for baseline_idx in np.arange(baseline_len):
-                if processor_type == pyasdm.enumerations.ProcessorType.CORRELATOR:
-                    offset += cross_offset_addition_before
-                    spw_vis = cross_values[
-                        offset : offset + spw_channel_len * polarization_len * 2
-                    ]
-
-                    spw_vis = spw_vis.reshape((int(spw_vis.size / 2), 2))
-                    spw_vis = spw_vis[:, 0] + 1j * spw_vis[:, 1]
-                    spw_vis /= scale_factor
-                    vis_strides.append(
-                        spw_vis.reshape((spw_channel_len, polarization_len))
-                    )
-                    offset += cross_offset_addition_after
-
-                else:
-                    # radiometer / spectrometer
-                    offset += cross_offset_addition_before / 2
-                    spw_values = cross_values[
-                        offset : offset + spw_channel_len * polarization_len
-                    ]
-                    spw_values = (
-                        spw_values.reshape((spw_channel_len, polarization_len))
-                        / scale_factor
-                    )
-
-                    vis_strides.append(spw_values)
-                    offset += cross_offset_addition_after / 2
-
-        vis_subset = np.stack(vis_strides)
-        vis_subset = vis_subset.reshape((1, *vis_subset.shape))
-
     if "autoData" in subset and subset["autoData"]["present"]:
-        vis_auto = load_vis_subset_auto_data(
+        vis_subset_auto = load_vis_subset_auto_data_from_tree(
             subset["autoData"]["arr"],
             guessed_shape,
             spw_chan_lens,
             overall_spw_idx,
         )
 
-        if vis_subset is None:
-            vis_subset = vis_auto
-        else:
-            vis_subset = np.concatenate([vis_subset, vis_auto], axis=1)
-
     else:
         # Never allowed for ALMA (BDF doc) and seems so in real life
         RuntimeError("autoData not present!")
+
+    vis_subset_cross = None
+    if "crossData" in subset and subset["crossData"]["present"]:
+        baseband_description = bdf_descr["basebands"][baseband_spw_idxs[0]]
+        spw_descr = baseband_description["spectralWindows"][baseband_spw_idxs[1]]
+        scale_factor = spw_descr["scaleFactor"] or 1
+        processor_type = bdf_descr["processor_type"]
+
+        vis_subset_cross = load_vis_subset_cross_data_from_tree(
+            subset["crossData"]["arr"],
+            guessed_shape,
+            spw_chan_lens,
+            overall_spw_idx,
+            scale_factor,
+            processor_type,
+        )
+
+    if vis_subset_cross is None:
+        vis_subset = vis_subset_auto
+    else:
+        vis_subset = np.concatenate([vis_subset_cross, vis_subset_auto], axis=1)
+
+    return vis_subset
+
+
+def load_vis_subset_cross_data_from_tree(
+    cross_data_arr: np.ndarray,
+    guessed_shape: tuple[int, ...],
+    spw_chan_lens: list[int],
+    overall_spw_idx: int,
+    scale_factor: float,
+    processor_type: pyasdm.enumerations.ProcessorType,
+) -> np.ndarray:
+
+    polarization_len = guessed_shape[-2]
+    cross_offset_addition_before = (
+        np.sum(spw_chan_lens[0:overall_spw_idx], dtype=int) * polarization_len * 2
+    )
+    cross_offset_addition_after = (
+        np.sum(spw_chan_lens[overall_spw_idx:], dtype=int) * polarization_len * 2
+    )
+    spw_channel_len = spw_chan_lens[overall_spw_idx]
+    time_len = guessed_shape[0]
+    baseline_len = guessed_shape[1]
+    offset = 0
+    for time_idx in np.arange(0, time_len):
+        vis_strides = []
+        for baseline_idx in np.arange(baseline_len):
+            if processor_type == pyasdm.enumerations.ProcessorType.CORRELATOR:
+                offset += cross_offset_addition_before
+                spw_vis = cross_data_arr[
+                    offset : offset + spw_channel_len * polarization_len * 2
+                ]
+
+                spw_vis = spw_vis.reshape((int(spw_vis.size / 2), 2))
+                spw_vis = spw_vis[:, 0] + 1j * spw_vis[:, 1]
+                spw_vis /= scale_factor
+                vis_strides.append(spw_vis.reshape((spw_channel_len, polarization_len)))
+                offset += cross_offset_addition_after
+
+            else:
+                # radiometer / spectrometer
+                offset += cross_offset_addition_before / 2
+                spw_values = cross_data_arr[
+                    offset : offset + spw_channel_len * polarization_len
+                ]
+                spw_values = (
+                    spw_values.reshape((spw_channel_len, polarization_len))
+                    / scale_factor
+                )
+
+                vis_strides.append(spw_values)
+                offset += cross_offset_addition_after / 2
+
+    vis_subset = np.stack(vis_strides)
+    vis_subset = vis_subset.reshape((1, *vis_subset.shape))
 
     return vis_subset
 

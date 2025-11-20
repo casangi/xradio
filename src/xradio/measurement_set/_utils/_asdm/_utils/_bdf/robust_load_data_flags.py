@@ -298,9 +298,18 @@ def load_vis_subset(
     processor_type: pyasdm.enumerations.ProcessorType,
 ) -> np.ndarray:
 
-    vis_subset = None
+    if "autoData" in subset and subset["autoData"]["present"]:
+        vis_subset_auto = load_vis_subset_auto_data(
+            subset["autoData"]["arr"], guessed_shape, baseband_spw_idxs
+        )
+
+    else:
+        # Never allowed for ALMA (BDF doc) and seems so in real life
+        RuntimeError("autoData not present!")
+
+    vis_subset_cross = None
     if "crossData" in subset and subset["crossData"]["present"]:
-        vis_subset = load_vis_subset_cross_data(
+        vis_subset_cross = load_vis_subset_cross_data(
             subset["crossData"]["arr"],
             guessed_shape,
             baseband_spw_idxs,
@@ -308,18 +317,10 @@ def load_vis_subset(
             processor_type,
         )
 
-    if "autoData" in subset and subset["autoData"]["present"]:
-        vis_auto = load_vis_subset_auto_data(
-            subset["autoData"]["arr"], guessed_shape, baseband_spw_idxs
-        )
-
-        if vis_subset is None:
-            vis_subset = vis_auto
-        else:
-            vis_subset = np.concatenate([vis_subset, vis_auto], axis=1)
+    if vis_subset_cross is None:
+        vis_subset = vis_subset_auto
     else:
-        # Never allowed for ALMA (BDF doc) and seems so in real life
-        RuntimeError("autoData not present!")
+        vis_subset = np.concatenate([vis_subset_cross, vis_subset_auto], axis=1)
 
     return vis_subset
 

@@ -95,7 +95,6 @@ def load_vis_subset_from_tree(
     overall_spw_idx = calculate_overall_spw_idx(
         bdf_descr["basebands"], baseband_idx, spw_idx
     )
-    spw_channel_len = spw_chan_lens[overall_spw_idx]
 
     vis_subset = None
     if "crossData" in subset and subset["crossData"]["present"]:
@@ -108,6 +107,7 @@ def load_vis_subset_from_tree(
         cross_offset_addition_after = (
             np.sum(spw_chan_lens[overall_spw_idx:], dtype=int) * polarization_len * 2
         )
+        spw_channel_len = spw_chan_lens[overall_spw_idx]
         for time_idx in np.arange(0, guessed_shape[0]):
             vis_strides = []
             for baseline_idx in np.arange(baseline_len):
@@ -143,54 +143,12 @@ def load_vis_subset_from_tree(
         vis_subset = vis_subset.reshape((1, *vis_subset.shape))
 
     if "autoData" in subset and subset["autoData"]["present"]:
-        offset = 0
-        vis_auto_strides = []
-        if polarization_len == 3:
-            sd_polarization_len = 4
-        else:
-            sd_polarization_len = polarization_len
-        auto_offset_addition_before = (
-            np.sum(spw_chan_lens[0:overall_spw_idx], dtype=int) * sd_polarization_len
+        vis_auto = load_vis_subset_auto_data(
+            subset["autoData"]["arr"],
+            guessed_shape,
+            spw_chan_lens,
+            overall_spw_idx,
         )
-        auto_offset_addition_after = (
-            np.sum(spw_chan_lens[overall_spw_idx:], dtype=int) * sd_polarization_len
-        )
-        for time_idx in np.arange(0, guessed_shape[0]):
-            for antenna_idx in np.arange(antenna_len):
-                offset += auto_offset_addition_before
-                auto_floats = subset["autoData"]["arr"]
-                if polarization_len == 3:
-                    # autoData: "The choice of a real- vs. complex-valued datum is dependent upon the
-                    # polarization product...parallel-hand polarizations are real-valued, while cross-hand
-                    # polarizations are complex-valued".
-                    spw_floats = auto_floats[
-                        offset : offset + spw_channel_len * sd_polarization_len
-                    ]
-                    spw_floats = spw_floats.reshape(
-                        (spw_channel_len, sd_polarization_len)
-                    )
-                    spw_vis = np.concatenate(
-                        [
-                            spw_floats[:, [0]],
-                            spw_floats[:, [1]] + 1j * spw_floats[:, [2]],
-                            spw_floats[:, [3]],
-                        ],
-                        axis=1,
-                    )
-                    vis_auto_strides.append(spw_vis)
-                else:
-                    spw_floats = auto_floats[
-                        offset : offset + spw_channel_len * sd_polarization_len
-                    ]
-                    spw_floats = spw_floats.reshape(
-                        (spw_channel_len, sd_polarization_len)
-                    )
-                    vis_auto_strides.append(spw_floats)
-
-                offset += auto_offset_addition_after
-
-        vis_auto = np.stack(vis_auto_strides)
-        vis_auto = vis_auto.reshape((1, *vis_auto.shape))
 
         if vis_subset is None:
             vis_subset = vis_auto
@@ -202,6 +160,65 @@ def load_vis_subset_from_tree(
         RuntimeError("autoData not present!")
 
     return vis_subset
+
+
+def load_vis_subset_auto_data_from_tree(
+    auto_data_arr: np.ndarray,
+    guessed_shape: tuple[int, ...],
+    spw_chan_lens: list[int],
+    overall_spw_idx: int,
+) -> np.ndarray:
+
+    polarization_len = guessed_shape[-2]
+    if polarization_len == 3:
+        sd_polarization_len = 4
+    else:
+        sd_polarization_len = polarization_len
+    auto_offset_addition_before = (
+        np.sum(spw_chan_lens[0:overall_spw_idx], dtype=int) * sd_polarization_len
+    )
+    auto_offset_addition_after = (
+        np.sum(spw_chan_lens[overall_spw_idx:], dtype=int) * sd_polarization_len
+    )
+    antenna_len = guessed_shape[2]
+    spw_channel_len = spw_chan_lens[overall_spw_idx]
+
+    vis_auto_strides = []
+    offset = 0
+    for time_idx in np.arange(0, guessed_shape[0]):
+        for antenna_idx in np.arange(antenna_len):
+            offset += auto_offset_addition_before
+            auto_floats = auto_data_arr
+            if polarization_len == 3:
+                # autoData: "The choice of a real- vs. complex-valued datum is dependent upon the
+                # polarization product...parallel-hand polarizations are real-valued, while cross-hand
+                # polarizations are complex-valued".
+                spw_floats = auto_floats[
+                    offset : offset + spw_channel_len * sd_polarization_len
+                ]
+                spw_floats = spw_floats.reshape((spw_channel_len, sd_polarization_len))
+                spw_vis = np.concatenate(
+                    [
+                        spw_floats[:, [0]],
+                        spw_floats[:, [1]] + 1j * spw_floats[:, [2]],
+                        spw_floats[:, [3]],
+                    ],
+                    axis=1,
+                )
+                vis_auto_strides.append(spw_vis)
+            else:
+                spw_floats = auto_floats[
+                    offset : offset + spw_channel_len * sd_polarization_len
+                ]
+                spw_floats = spw_floats.reshape((spw_channel_len, sd_polarization_len))
+                vis_auto_strides.append(spw_floats)
+
+            offset += auto_offset_addition_after
+
+    vis_auto = np.stack(vis_auto_strides)
+    vis_auto = vis_auto.reshape((1, *vis_auto.shape))
+
+    return vis_auto
 
 
 def load_flags_all_subsets_from_trees(

@@ -235,7 +235,7 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
     ii = {}
     ap_sky = _aperture_or_sky(xds)
     ii["imagetype"] = (
-        xds[ap_sky].attrs["image_type"] if "image_type" in xds[ap_sky].attrs else ""
+        xds[ap_sky].attrs["type"] if "type" in xds[ap_sky].attrs else ""
     )
     ii["objectname"] = (
         xds[ap_sky].attrs[_object_name] if _object_name in xds[ap_sky].attrs else ""
@@ -312,7 +312,7 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
     }
     for m in xds.data_vars:
         attrs = xds[m].attrs
-        if "image_type" in attrs and attrs["image_type"] == "Mask":
+        if "type" in attrs and attrs["type"] == "mask":
             masks_rec[m] = mask_rec
             masks_rec[m]["mask"] = f"Table: {os.sep.join([image_full_path, m])}"
             masks.append(m)

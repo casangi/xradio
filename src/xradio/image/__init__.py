@@ -9,6 +9,8 @@ from .image import (
     write_image,
 )
 
+from .image_xds import ImageXds
+
 __all__ = [
     "load_image",
     "make_empty_aperture_image",

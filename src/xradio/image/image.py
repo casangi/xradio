@@ -24,55 +24,10 @@ from xradio.image._util.zarr import (
 )
 from xradio.image._util._fits.xds_from_fits import _fits_image_to_xds
 
-warnings.filterwarnings("ignore", category=FutureWarning)
+from xradio.image._util.image_factory import create_image_xds_from_store
 
+#warnings.filterwarnings("ignore", category=FutureWarning)
 
-def detect_image_type(store):
-    import os
-
-    if isinstance(store, str):
-        if os.path.isfile(store):
-            store_type = "fits"
-        elif os.path.isdir(store):
-            if "table.info" in os.listdir(store):
-                store_type = "casa"
-            elif ".zattrs" in os.listdir(store):
-                store_type = "zarr"
-            else:
-                logger.error("Unknown directory structure.")
-        else:
-            logger.error("Path does not exist.")
-    else:
-        store_type = "zarr"
-
-    if store_type == "fits" or store_type == "casa":
-        if "image" in store.lower():
-            image_type = "SKY"
-        elif "im" in store.lower():
-            image_type = "SKY"
-        elif "psf" in store.lower():
-            image_type = "POINT_SPREAD_FUNCTION"
-        elif "model" in store.lower():
-            image_type = "MODEL"
-        elif "residual" in store.lower():
-            image_type = "RESIDUAL"
-        elif "mask" in store.lower():
-            image_type = "MASK"
-        elif "pb" in store.lower():
-            image_type = "PRIMARY_BEAM"
-        elif "aperture" in store.lower():
-            image_type = "APERTURE"
-        elif "visibility" in store.lower():
-            image_type = "VISIBILITY"
-        elif "sumwt" in store.lower():
-            image_type = "VISIBILITY_NORMALIZATION"
-        else:
-            image_type = "IMAGE"
-            logger.warning("Could not determine image type from filename.")
-    elif store_type == "zarr":
-        image_type = "ALL"
-
-    return store_type, image_type
 
 
 def open_image(
@@ -154,72 +109,28 @@ def open_image(
     -------
     xarray.Dataset
     """
-
-    if isinstance(store, str):
-        store_list = [store]  # So can iterate over it.
-    else:
-        store_list = store
-
-    img_xds = xr.Dataset()
-    generic_image_counter = 0
-    for store in store_list:
-        store_type, image_type = detect_image_type(store)
-        if store_type == "casa":
-            from ._util.casacore import _open_casa_image
-
-            xds = _open_casa_image(store, chunks, verbose, do_sky_coords)
-            xds.attrs["type"] = image_type.lower()
-        elif store_type == "fits":
-            xds = _fits_image_to_xds(
-                store, chunks, verbose, do_sky_coords, compute_mask
-            )
-            xds.attrs["type"] = image_type.lower()
-        elif store_type == "zarr":
-            xds = _xds_from_zarr(store, {"dv": "dask", "coords": "numpy"}, selection)
-        else:
-            raise RuntimeError(
-                f"Unrecognized image format for path {store}. Supported types are CASA, FITS, and zarr.\n"
-            )
-
-        if image_type == "ALL":
-            img_xds = img_xds.merge(
-                xds, compat="override", 
-                combine_attrs="no_conflicts",
-                #combine_attrs="override"
-            )
-        elif image_type == "IMAGE":
-            img_xds.attrs = img_xds.attrs | xds.attrs
-            img_xds["IMAGE_" + str(generic_image_counter)] = xds["SKY"]
-            generic_image_counter += 1
-
-            # Need to figure out how to handle fits
-            if "BEAM_FIT_PARAMS" in xds:
-                img_xds["BEAM_FIT_PARAMS"] = xds["BEAM_FIT_PARAMS"]
-
-            if "MASK_0" in xds:
-                img_xds["MASK_0"] = xds["MASK_0"]
-
-            if "beam_params_label" in xds:
-                img_xds = img_xds.assign_coords(beam_params_label=xds["beam_params_label"])
-
-        else:
-            img_xds.attrs = img_xds.attrs | xds.attrs
-            if "SKY" in xds:
-                img_xds[image_type] = xds["SKY"]
-
-            if "APERTURE" in xds:
-                img_xds["APERTURE"] = xds["APERTURE"]
-
-            if "BEAM_FIT_PARAMS" in xds:
-                img_xds["BEAM_FIT_PARAMS"] = xds["BEAM_FIT_PARAMS"]
-
-            if "MASK_0" in xds:
-                img_xds["MASK_0"] = xds["MASK_0"]
-
-            if "beam_params_label" in xds:
-                img_xds = img_xds.assign_coords(beam_params_label=xds["beam_params_label"])
-    img_xds.attrs["type"] = "image"
+    # try:
+    #       from ._util.casacore import _open_casa_image
+    # except ModuleNotFoundError as exc:
+    #     logger.warning(
+    #         "Could not import the function to convert from MSv2 to MSv4. "
+    #         f"That functionality will not be available. Details: {exc}"
+    #     )
+    #     _open_casa_image = None
+    
+    from ._util.casacore import _open_casa_image
+    img_xds = create_image_xds_from_store(
+        store,
+        _open_casa_image,
+        {"chunks": chunks, "verbose": verbose, "do_sky_coords": do_sky_coords},
+        _fits_image_to_xds,
+        { "chunks": chunks, "verbose": verbose, "do_sky_coords": do_sky_coords, "compute_mask": compute_mask},
+        _xds_from_zarr,
+        {"output": {"dv": "dask", "coords": "numpy"}, "selection": selection},
+    )
+    
     return img_xds
+    
 
 
 def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dataset:
@@ -253,12 +164,6 @@ def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dat
     -------
     xarray.Dataset
     """
-
-    if isinstance(store, str):
-        store_list = [store]  # So can iterate over it.
-    else:
-        store_list = store
-
     if block_des is None:
         block_des = {}
 
@@ -267,64 +172,19 @@ def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dat
         for k, v in selection.items():
             if type(v) == int:
                 selection[k] = slice(v, v + 1)
-
-    img_xds = xr.Dataset()
-    generic_image_counter = 0
-    for store in store_list:
-        store_type, image_type = detect_image_type(store)
-
-        if store_type == "casa":
-            from ._util.casacore import _load_casa_image_block
-
-            xds = _load_casa_image_block(store, selection, do_sky_coords)
-            xds.attrs["type"] = image_type.lower()
-        elif store_type == "zarr":
-            xds = _load_image_from_zarr_no_dask(store, block_des)
-            xds.attrs["type"] = image_type.lower()
-        else:
-            raise RuntimeError(
-                f"Unrecognized image format for path {store}. Supported types are CASA, and zarr.\n"
-            )
-
-        if image_type == "ALL":
-            img_xds = img_xds.merge(
-                xds, compat="override", combine_attrs="no_conflicts"
-            )
-        elif image_type == "IMAGE":
-            img_xds.attrs = img_xds.attrs | xds.attrs
-            img_xds["IMAGE_" + str(generic_image_counter)] = xds["SKY"]
-            generic_image_counter += 1
-
-            # Need to figure out how to handle fits
-            if "BEAM_FIT_PARAMS" in xds:
-                img_xds["BEAM_FIT_PARAMS"] = xds["BEAM_FIT_PARAMS"]
-
-            if "MASK_0" in xds:
-                img_xds["MASK_0"] = xds["MASK_0"]
-
-            if "beam_params_label" in xds:
-                img_xds = img_xds.assign_coords(beam_params_label=xds["beam_params_label"])
-
-        else:
-            img_xds.attrs = img_xds.attrs | xds.attrs
-            if "SKY" in xds:
-                img_xds[image_type] = xds["SKY"]
-
-            if "APERTURE" in xds:
-                img_xds["APERTURE"] = xds["APERTURE"]
-
-            if "BEAM_FIT_PARAMS" in xds:
-                img_xds["BEAM_FIT_PARAMS"] = xds["BEAM_FIT_PARAMS"]
-
-            if "MASK_0" in xds:
-                img_xds["MASK_0"] = xds["MASK_0"]
-
-            if "beam_params_label" in xds:
-                img_xds = img_xds.assign_coords(beam_params_label=xds["beam_params_label"])
-
-    img_xds.attrs["type"] = "image"
+                
+    from ._util.casacore import _load_casa_image_block
+    img_xds = create_image_xds_from_store(
+        store,
+        _load_casa_image_block,
+        {"block_des": selection, "do_sky_coords": do_sky_coords},
+        None,
+        {},
+        _xds_from_zarr,
+        {"output": {"dv": "dask", "coords": "numpy"}, "selection": selection},
+    )
     return img_xds
-
+    
 
 def write_image(
     xds: xr.Dataset, imagename: str, out_format: str = "casa", overwrite: bool = False

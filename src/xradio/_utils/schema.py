@@ -224,3 +224,32 @@ casa_frequency_frames = [
 ]
 
 casa_frequency_frames_codes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 64]
+
+
+def get_data_group_keys(schema_name: str) -> list[str]:
+    """Returns the list of data group keys for the given schema.
+
+    Parameters
+    ----------
+    schema_name : str
+        The name of the schema to retrieve data group keys for. Supported values are "msv4" and "image".
+
+    Returns
+    -------
+    list[str]
+        A list of data group keys for the specified schema.
+
+    Raises
+    ------
+    ValueError
+        If the schema name is unknown.
+    """
+    
+    if schema_name == "msv4":
+        from xradio.measurement_set.schema import DataGroupDict
+        return list(DataGroupDict.__annotations__.keys())
+    elif schema_name == "image":
+        from xradio.image.schema import DataGroupDict
+        return list(DataGroupDict.__annotations__.keys())
+    else:
+        raise ValueError(f"Unknown schema name: {schema_name}")

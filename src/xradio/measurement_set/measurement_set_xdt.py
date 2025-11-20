@@ -6,6 +6,7 @@ import numpy as np
 import xarray as xr
 
 from xradio._utils.list_and_array import to_list
+from xradio._utils.xarray_helpers import get_data_group_name
 
 MS_DATASET_TYPES = {"visibility", "spectrum", "radiometer"}
 
@@ -151,11 +152,7 @@ class MeasurementSetXdt:
         if self._xdt.attrs.get("type") not in MS_DATASET_TYPES:
             raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4 node.")
 
-        if data_group_name is None:
-            if "base" in self._xdt.attrs["data_groups"]:
-                data_group_name = "base"
-            else:
-                data_group_name = list(self._xdt.attrs["data_groups"].keys())[0]
+        data_group_name = get_data_group_name(self._xdt, data_group_name)
 
         field_and_source_xds_name = self._xdt.attrs["data_groups"][data_group_name][
             "field_and_source"
@@ -188,11 +185,7 @@ class MeasurementSetXdt:
                 f"{self._xdt.path} is not a MSv4 node (type {self._xdt.attrs.get('type')}."
             )
 
-        if data_group_name is None:
-            if "base" in self._xdt.attrs["data_groups"]:
-                data_group_name = "base"
-            else:
-                data_group_name = list(self._xdt.attrs["data_groups"].keys())[0]
+        data_group_name = get_data_group_name(self._xdt, data_group_name)
 
         field_and_source_xds = self._xdt.xr_ms.get_field_and_source_xds(data_group_name)
 
@@ -270,9 +263,9 @@ class MeasurementSetXdt:
         xr.DataTree
             MSv4 DataTree with the new group added
         """
-
-        if data_group_dv_shared_with is None:
-            data_group_dv_shared_with = self._xdt.xr_ms._get_default_data_group_name()
+            
+        data_group_dv_shared_with = get_data_group_name(self._xdt, data_group_dv_shared_with)
+            
         default_data_group = self._xdt.attrs["data_groups"][data_group_dv_shared_with]
 
         new_data_group = {}
@@ -324,10 +317,3 @@ class MeasurementSetXdt:
         self._xdt.attrs["data_groups"][new_data_group_name] = new_data_group
 
         return self._xdt
-
-    def _get_default_data_group_name(self):
-        if "base" in self._xdt.attrs["data_groups"]:
-            data_group_name = "base"
-        else:
-            data_group_name = list(self._xdt.attrs["data_groups"].keys())[0]
-        return data_group_name

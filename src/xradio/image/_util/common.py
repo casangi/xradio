@@ -7,6 +7,7 @@ from typing import Dict, List
 import xarray as xr
 from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import make_quantity
+import toolviper.utils.logger as logger
 
 _c = 2.99792458e08 * u.m / u.s
 # OPTICAL = Z
@@ -17,7 +18,7 @@ _doppler_types = [
     "beta",
     "gamma",
 ]
-_image_type = "image_type"
+_image_type = "type"
 
 
 def _aperture_or_sky(xds: xr.Dataset) -> str:

@@ -40,7 +40,7 @@ from .common import _aperture_or_sky, _get_xds_dim_order, _dask_arrayize_dv
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 
-def _load_casa_image_block(infile: str, block_des: dict, do_sky_coords) -> xr.Dataset:
+def _load_casa_image_block(infile: str, block_des: dict, do_sky_coords, image_type: str) -> xr.Dataset:
     image_full_path = os.path.expanduser(infile)
     with _open_image_ro(image_full_path) as casa_image:
         coords = casa_image.coordinates()
@@ -56,7 +56,7 @@ def _load_casa_image_block(infile: str, block_des: dict, do_sky_coords) -> xr.Da
         image_full_path, shapes, starts, dimorder, transpose_list, new_axes
     )
     xds = _add_sky_or_aperture(
-        xds, block, dimorder, image_full_path, ret["sphr_dims"], True
+        xds, block, dimorder, image_full_path, ret["sphr_dims"], False, image_type
     )
     mymasks = _get_mask_names(image_full_path)
     for m in mymasks:
@@ -86,7 +86,8 @@ def _open_casa_image(
     verbose: bool,
     do_sky_coords: bool,
     masks: bool = True,
-    history: bool = True,
+    history: bool = False,
+    image_type: str = "SKY"
 ) -> xr.Dataset:
     img_full_path = os.path.expanduser(infile)
     ret = _casa_image_to_xds_coords(img_full_path, verbose, do_sky_coords)
@@ -99,6 +100,7 @@ def _open_casa_image(
         img_full_path,
         ret["sphr_dims"],
         history,
+        image_type=image_type
     )
     if masks:
         mymasks = _get_mask_names(img_full_path)

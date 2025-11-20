@@ -9,6 +9,7 @@ import toolviper.utils.logger as logger
 import numpy as np
 import xarray as xr
 from astropy import units as u
+from xradio._utils.list_and_array import to_python_type
 
 try:
     from casacore import tables
@@ -41,6 +42,7 @@ from ...._utils._casacore.tables import extract_table_attributes, open_table_ro
 from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import (
     _casacore_q_to_xradio_q,
+    make_direction_location_dict,
     make_spectral_coord_reference_dict,
     make_quantity,
     make_skycoord_dict,
@@ -68,13 +70,13 @@ def _add_mask(
     xda = xr.DataArray(ary, dims=dimorder)
     # True pixels are good in numpy masked arrays
     xda = da.logical_not(xda)
-    xda.attrs["image_type"] = "Mask"
+    xda.attrs["image"] = "mask"
     xda = xda.rename(name)
     xds[xda.name] = xda
     return xds
 
 
-def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = True) -> dict:
+def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = False) -> dict:
     """
     get the image attributes from the casacoreimage object
     """
@@ -208,13 +210,14 @@ def _add_sky_or_aperture(
     img_full_path: str,
     has_sph_dims: bool,
     history: bool,
+    image_type: str = "SKY"
 ) -> xr.Dataset:
     xda = xr.DataArray(ary, dims=dimorder).astype(ary.dtype)
     with _open_image_ro(img_full_path) as casa_image:
         xda.attrs = _casa_image_to_xds_image_attrs(casa_image, history)
     # xds.attrs = attrs
-    name = "SKY" if has_sph_dims else "APERTURE"
-    xda = xda.rename(name)
+    #name = "SKY" if has_sph_dims else "APERTURE"
+    xda = xda.rename(image_type)
     xds[xda.name] = xda
     return xds
 
@@ -275,30 +278,59 @@ def _casa_image_to_xds_attrs(img_full_path: str) -> dict:
             raise RuntimeError("No direction reference frame found")
         casa_system = coord_dir_dict[system]
         ap_system, ap_equinox = _convert_direction_system(casa_system, "native")
-        dir_dict = {}
+        
+        coordinate_system_info = {}
 
-        dir_dict["reference"] = make_skycoord_dict(
-            data=[0.0, 0.0], units="rad", frame=ap_system
+        unit0 = u.Unit(_get_unit(coord_dir_dict["units"][0]))
+        unit1 = u.Unit(_get_unit(coord_dir_dict["units"][1]))
+        ra = float((coord_dir_dict["crval"][0] * unit0).to("rad").value)
+        dec = float((coord_dir_dict["crval"][1] * unit1).to("rad").value)
+        coordinate_system_info["reference_direction"] = make_skycoord_dict(
+            data=[ra, dec], units="rad", frame=ap_system
         )
         if ap_equinox:
-            dir_dict["reference"]["attrs"]["equinox"] = ap_equinox
-        for i in range(2):
-            unit = u.Unit(_get_unit(coord_dir_dict["units"][i]))
-            q = coord_dir_dict["crval"][i] * unit
-            x = q.to("rad")
-            dir_dict["reference"]["data"][i] = x.value
-        k = "latpole"
-        if k in coord_dir_dict:
-            for j in (k, "lonpole"):
-                m = "longpole" if j == "lonpole" else j
-                dir_dict[j] = make_quantity(
-                    value=coord_dir_dict[m] * _deg_to_rad, units="rad", dims=["l", "m"]
-                )
-        for j in ("pc", "projection_parameters", "projection"):
-            if j in coord_dir_dict:
-                dir_dict[j] = coord_dir_dict[j]
-        attrs["direction"] = dir_dict
+            coordinate_system_info["reference_direction"]["attrs"]["equinox"] = ap_equinox
+
+        pol_dir = [-1, coord_dir_dict["latpole"] * _deg_to_rad]
+        if "lonpole" in coord_dir_dict:
+            pol_dir[0] = coord_dir_dict["lonpole"] * _deg_to_rad
+        else:
+            pol_dir[0] = coord_dir_dict["longpole"] * _deg_to_rad
+    
+        coordinate_system_info["native_pole_direction"] = make_direction_location_dict(pol_dir, "rad", "native_projection")
+        
+        coordinate_system_info["projection"] = coord_dir_dict["projection"]
+        coordinate_system_info["projection_parameters"] = to_python_type(coord_dir_dict["projection_parameters"])
+        coordinate_system_info["pixel_coordinate_transformation_matrix"] = to_python_type(coord_dir_dict["pc"])
+                
+        attrs["coordinate_system_info"] = coordinate_system_info 
     return copy.deepcopy(attrs)
+        
+        
+    #     dir_dict = {}
+
+    #     dir_dict["reference"] = make_skycoord_dict(
+    #         data=[0.0, 0.0], units="rad", frame=ap_system
+    #     )
+    #     if ap_equinox:
+    #         dir_dict["reference"]["attrs"]["equinox"] = ap_equinox
+    #     for i in range(2):
+    #         unit = u.Unit(_get_unit(coord_dir_dict["units"][i]))
+    #         q = coord_dir_dict["crval"][i] * unit
+    #         x = q.to("rad")
+    #         dir_dict["reference"]["data"][i] = float(x.value)
+    #     k = "latpole"
+    #     if k in coord_dir_dict:
+    #         for j in (k, "lonpole"):
+    #             m = "longpole" if j == "lonpole" else j
+    #             dir_dict[j] = make_quantity(
+    #                 value=coord_dir_dict[m] * _deg_to_rad, units="rad", dims=["l", "m"]
+    #             )
+    #     for j in ("pc", "projection_parameters", "projection"):
+    #         if j in coord_dir_dict:
+    #             dir_dict[j] = coord_dir_dict[j]
+    #     attrs["direction"] = dir_dict
+    # return copy.deepcopy(attrs)
 
 
 def _casa_image_to_xds_coords(
@@ -689,11 +721,11 @@ def _get_starts_shapes_slices(
 def _get_time_values_attrs(cimage_coord_dict: dict) -> Tuple[List[float], dict]:
     attrs = {}
     attrs["type"] = "time"
-    attrs["scale"] = cimage_coord_dict["obsdate"]["refer"]
+    attrs["scale"] = cimage_coord_dict["obsdate"]["refer"].lower()
     unit = cimage_coord_dict["obsdate"]["m0"]["unit"]
     attrs["units"] = unit
     time_val = cimage_coord_dict["obsdate"]["m0"]["value"]
-    attrs["format"] = _get_time_format(time_val, unit)
+    attrs["format"] = _get_time_format(time_val, unit).lower()
     return ([time_val], copy.deepcopy(attrs))
 
 

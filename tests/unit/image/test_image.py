@@ -683,9 +683,10 @@ class xds_from_image_test(ImageBase):
             # fits doesn't have history yet
             del my_exp_attrs["history"]
         else:
+            # History should be a dict (not xr.Dataset) for Xarray compatibility
             self.assertTrue(
-                isinstance(sky.attrs["history"], xr.core.dataset.Dataset),
-                "Incorrect type for history data",
+                isinstance(sky.attrs["history"], dict),
+                "Incorrect type for history data - should be dict for Xarray compatibility",
             )
         self.dict_equality(
             sky.attrs, my_exp_attrs, "Got sky attrs", "Expected sky attrs", ["history"]

@@ -191,11 +191,13 @@ def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = False) -> 
             am = None
         attrs[_active_mask] = am
     attrs["description"] = None
-    # if also loading history, put it as another xds in the image attrs
+    # Store history as a dict (not xr.Dataset) for Xarray compatibility
     if history:
         htable = os.sep.join([os.path.abspath(image.name()), "logtable"])
         if os.path.isdir(htable):
-            attrs["history"] = read_generic_table(htable)
+            history_xds = read_generic_table(htable)
+            # Convert xr.Dataset to dict for serialization compatibility
+            attrs["history"] = history_xds.to_dict()
         else:
             logger.warning(
                 f"Unable to find history table {htable}. History will not be included"

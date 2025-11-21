@@ -1,5 +1,6 @@
 import copy
 import os
+import time
 
 import dask.array as da
 import numpy as np
@@ -209,29 +210,53 @@ def _coord_dict_from_xds(xds: xr.Dataset) -> dict:
 
 
 def _history_from_xds(xds: xr.Dataset, image: str) -> None:
-    nrows = len(xds.history.row) if "row" in xds.data_vars else 0
+    """
+    Write history from xds attributes to CASA image logtable.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        Dataset with potential history attribute (stored as dict).
+    image : str
+        Path to the CASA image.
+    """
+    # Check if history exists in any of the data variables' attributes
+    history_dict = None
+    for var_name in xds.data_vars:
+        if "history" in xds[var_name].attrs:
+            history_dict = xds[var_name].attrs["history"]
+            break
+    
+    if history_dict is None:
+        return
+    
+    # Convert dict back to xr.Dataset to access data
+    history_xds = xr.Dataset.from_dict(history_dict)
+    
+    nrows = len(history_xds.row) if "row" in history_xds.dims else 0
     if nrows > 0:
         # TODO need to implement nrows == 0 case
         with open_table_rw(os.sep.join([image, "logtable"])) as tb:
             tb.addrows(nrows + 1)
             for c in ["TIME", "PRIORITY", "MESSAGE", "LOCATION", "OBJECT_ID"]:
-                vals = xds.history[c].values
-                if c == "TIME":
-                    k = time.time() + 40587 * 86400
-                elif c == "PRIORITY":
-                    k = "INFO"
-                elif c == "MESSAGE":
-                    k = (
-                        "Wrote xds to "
-                        + os.path.basename(image)
-                        + " using cngi_io.xds_to_casa_image_2()"
-                    )
-                elif c == "LOCATION":
-                    k = "cngi_io.xds_to_casa_image_2"
-                elif c == "OBJECT_ID":
-                    k = ""
-                vals = np.append(vals, k)
-                tb.putcol(c, vals)
+                if c in history_xds.data_vars or c in history_xds.coords:
+                    vals = history_xds[c].values
+                    if c == "TIME":
+                        k = time.time() + 40587 * 86400
+                    elif c == "PRIORITY":
+                        k = "INFO"
+                    elif c == "MESSAGE":
+                        k = (
+                            "Wrote xds to "
+                            + os.path.basename(image)
+                            + " using cngi_io.xds_to_casa_image_2()"
+                        )
+                    elif c == "LOCATION":
+                        k = "cngi_io.xds_to_casa_image_2"
+                    elif c == "OBJECT_ID":
+                        k = ""
+                    vals = np.append(vals, k)
+                    tb.putcol(c, vals)
 
 
 def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:

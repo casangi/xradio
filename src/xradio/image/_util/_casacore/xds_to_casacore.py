@@ -220,7 +220,7 @@ def _history_from_xds(xds: xr.Dataset, image: str) -> None:
     image : str
         Path to the CASA image.
     """
-    # Check if history exists in any of the data variables' attributes
+    # Check if history exists in data variable attributes (SKY, APERTURE, etc.)
     history_dict = None
     for var_name in xds.data_vars:
         if "history" in xds[var_name].attrs:
@@ -233,7 +233,13 @@ def _history_from_xds(xds: xr.Dataset, image: str) -> None:
     # Convert dict back to xr.Dataset to access data
     history_xds = xr.Dataset.from_dict(history_dict)
     
-    nrows = len(history_xds.row) if "row" in history_xds.dims else 0
+    # Check for row in both dims and coords (it could be either depending on the xarray version)
+    nrows = 0
+    if "row" in history_xds.dims:
+        nrows = history_xds.sizes["row"]
+    elif "row" in history_xds.coords:
+        nrows = len(history_xds.row)
+    
     if nrows > 0:
         # TODO need to implement nrows == 0 case
         with open_table_rw(os.sep.join([image, "logtable"])) as tb:

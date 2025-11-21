@@ -265,6 +265,8 @@ def _casa_image_to_xds_attrs(img_full_path: str) -> dict:
     """
     with _open_image_ro(img_full_path) as casa_image:
         meta_dict = casa_image.info()
+    # print("meta_dict:", meta_dict)
+    # print("***********")
     coord_dict = copy.deepcopy(meta_dict["coordinates"])
     attrs = {}
     dir_key = None

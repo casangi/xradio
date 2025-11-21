@@ -46,18 +46,22 @@ def _input_checks(
 
 
 def _make_coords(
-    chan_coords: Union[list, np.ndarray],
+    frequency_coords: Union[list, np.ndarray],
     time_coords: Union[list, np.ndarray],
 ) -> dict:
-    if not isinstance(chan_coords, list) and not isinstance(chan_coords, np.ndarray):
-        chan_coords = [chan_coords]
-    chan_coords = np.array(chan_coords, dtype=np.float64)
-    restfreq = chan_coords[len(chan_coords) // 2]
-    vel_coords = (1 - chan_coords / restfreq) * _c.to("m/s").value
+    if not isinstance(frequency_coords, list) and not isinstance(
+        frequency_coords, np.ndarray
+    ):
+        frequency_coords = [frequency_coords]
+    frequency_coords = np.array(frequency_coords, dtype=np.float64)
+    restfreq = frequency_coords[len(frequency_coords) // 2]
+    vel_coords = (1 - frequency_coords / restfreq) * _c.to("m/s").value
     if not isinstance(time_coords, list) and not isinstance(time_coords, np.ndarray):
         time_coords = [time_coords]
     time_coords = np.array(time_coords, dtype=np.float64)
-    return dict(chan=chan_coords, vel=vel_coords, time=time_coords, restfreq=restfreq)
+    return dict(
+        chan=frequency_coords, vel=vel_coords, time=time_coords, restfreq=restfreq
+    )
 
 
 def _add_common_attrs(
@@ -107,10 +111,10 @@ def _add_common_attrs(
 
 def _make_common_coords(
     pol_coords: Union[list, np.ndarray],
-    chan_coords: Union[list, np.ndarray],
+    frequency_coords: Union[list, np.ndarray],
     time_coords: Union[list, np.ndarray],
 ) -> dict:
-    some_coords = _make_coords(chan_coords, time_coords)
+    some_coords = _make_coords(frequency_coords, time_coords)
     return {
         "coords": {
             "time": some_coords["time"],
@@ -168,7 +172,7 @@ def _make_empty_sky_image(
     phase_center: Union[list, np.ndarray],
     image_size: Union[list, np.ndarray],
     cell_size: Union[list, np.ndarray],
-    chan_coords: Union[list, np.ndarray],
+    frequency_coords: Union[list, np.ndarray],
     pol_coords: Union[list, np.ndarray],
     time_coords: Union[list, np.ndarray],
     direction_reference: str,
@@ -177,7 +181,7 @@ def _make_empty_sky_image(
     do_sky_coords: bool,
 ) -> xr.Dataset:
     _input_checks(phase_center, image_size, cell_size)
-    cc = _make_common_coords(pol_coords, chan_coords, time_coords)
+    cc = _make_common_coords(pol_coords, frequency_coords, time_coords)
     coords = cc["coords"]
     lm_values = _make_lm_values(image_size, cell_size)
     coords.update(lm_values)
@@ -230,7 +234,7 @@ def _make_empty_aperture_image(
     phase_center: Union[list, np.ndarray],
     image_size: Union[list, np.ndarray],
     sky_image_cell_size: Union[list, np.ndarray],
-    chan_coords: Union[list, np.ndarray],
+    frequency_coords: Union[list, np.ndarray],
     pol_coords: Union[list, np.ndarray],
     time_coords: Union[list, np.ndarray],
     direction_reference: str,
@@ -238,7 +242,7 @@ def _make_empty_aperture_image(
     spectral_reference: str,
 ) -> xr.Dataset:
     _input_checks(phase_center, image_size, sky_image_cell_size)
-    cc = _make_common_coords(pol_coords, chan_coords, time_coords)
+    cc = _make_common_coords(pol_coords, frequency_coords, time_coords)
     coords = cc["coords"]
     xds = xr.Dataset(coords=coords)
     xds = _make_uv_coords(xds, image_size, sky_image_cell_size)
@@ -278,7 +282,7 @@ def _make_empty_lmuv_image(
     phase_center: Union[list, np.ndarray],
     image_size: Union[list, np.ndarray],
     sky_image_cell_size: Union[list, np.ndarray],
-    chan_coords: Union[list, np.ndarray],
+    frequency_coords: Union[list, np.ndarray],
     pol_coords: Union[list, np.ndarray],
     time_coords: Union[list, np.ndarray],
     direction_reference: str,
@@ -290,7 +294,7 @@ def _make_empty_lmuv_image(
         phase_center,
         image_size,
         sky_image_cell_size,
-        chan_coords,
+        frequency_coords,
         pol_coords,
         time_coords,
         direction_reference,

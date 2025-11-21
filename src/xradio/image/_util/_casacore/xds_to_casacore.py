@@ -219,7 +219,7 @@ def _history_from_xds(xds: xr.Dataset, image: str) -> None:
         Dataset with potential history attribute (stored as dict).
     image : str
         Path to the CASA image.
-    
+
     Notes
     -----
     History is stored in data variable attributes (e.g., SKY.attrs['history']),
@@ -231,21 +231,21 @@ def _history_from_xds(xds: xr.Dataset, image: str) -> None:
         if "history" in xds[var_name].attrs:
             history_dict = xds[var_name].attrs["history"]
             break
-    
+
     # Also check dataset-level attributes as a fallback
     if history_dict is None and "history" in xds.attrs:
         history_dict = xds.attrs["history"]
-    
+
     if history_dict is None or not isinstance(history_dict, dict):
         return
-    
+
     # Convert dict back to xr.Dataset to access data
     try:
         history_xds = xr.Dataset.from_dict(history_dict)
     except Exception:
         # If conversion fails, history dict may be malformed, skip writing
         return
-    
+
     # Check for row in both dims and coords (it could be either depending on the xarray version)
     nrows = 0
     if "row" in history_xds.dims:
@@ -255,7 +255,7 @@ def _history_from_xds(xds: xr.Dataset, image: str) -> None:
     elif "row" in history_xds.data_vars:
         # row might also be a data variable
         nrows = len(history_xds.row)
-    
+
     if nrows > 0:
         # TODO need to implement nrows == 0 case
         with open_table_rw(os.sep.join([image, "logtable"])) as tb:

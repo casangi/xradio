@@ -239,7 +239,7 @@ def make_empty_sky_image(
     phase_center: Union[list, np.ndarray],
     image_size: Union[list, np.ndarray],
     cell_size: Union[list, np.ndarray],
-    chan_coords: Union[list, np.ndarray],
+    frequency_coords: Union[list, np.ndarray],
     pol_coords: Union[list, np.ndarray],
     time_coords: Union[list, np.ndarray],
     direction_reference: str = "fK5",
@@ -259,7 +259,7 @@ def make_empty_sky_image(
         Number of x and y axis pixels in image.
     cell_size : array of float, length = 2, units = rad
         Cell size of x and y axis pixels in image.
-    chan_coords : list or np.ndarray
+    frequency_coords : list or np.ndarray
         The center frequency in Hz of each image channel.
     pol_coords : list or np.ndarray
         The polarization code for each image polarization.
@@ -279,7 +279,7 @@ def make_empty_sky_image(
         phase_center,
         image_size,
         cell_size,
-        chan_coords,
+        frequency_coords,
         pol_coords,
         time_coords,
         direction_reference,
@@ -293,7 +293,7 @@ def make_empty_aperture_image(
     phase_center: Union[List[float], np.ndarray],
     image_size: Union[List[int], np.ndarray],
     sky_image_cell_size: Union[List[float], np.ndarray],
-    chan_coords: Union[List[float], np.ndarray],
+    frequency_coords: Union[List[float], np.ndarray],
     pol_coords: Union[List[str], np.ndarray],
     time_coords: Union[List[float], np.ndarray],
     direction_reference: str = "fk5",
@@ -312,7 +312,7 @@ def make_empty_aperture_image(
         Number of x and y axis pixels in image.
     sky_image_cell_size : array of float, length = 2, units = rad
         Cell size of x and y axis pixels in sky image, used to get cell size in uv image
-    chan_coords : list or np.ndarray
+    frequency_coords : list or np.ndarray
         The center frequency in Hz of each image channel.
     pol_coords : list or np.ndarray
         The polarization code for each image polarization.
@@ -329,7 +329,7 @@ def make_empty_aperture_image(
         phase_center,
         image_size,
         sky_image_cell_size,
-        chan_coords,
+        frequency_coords,
         pol_coords,
         time_coords,
         direction_reference,
@@ -342,7 +342,7 @@ def make_empty_lmuv_image(
     phase_center: Union[List[float], np.ndarray],
     image_size: Union[List[int], np.ndarray],
     sky_image_cell_size: Union[List[float], np.ndarray],
-    chan_coords: Union[List[float], np.ndarray],
+    frequency_coords: Union[List[float], np.ndarray],
     pol_coords: Union[List[float], np.ndarray],
     time_coords: Union[List[float], np.ndarray],
     direction_reference: str = "fk5",
@@ -363,7 +363,7 @@ def make_empty_lmuv_image(
     sky_image_cell_size : array of float, length = 2, units = rad
         Cell size of sky image. The cell size of the u,v image will be computed from
         1/(image_size * sky_image_cell_size)
-    chan_coords : list or np.ndarray
+    frequency_coords : list or np.ndarray
         The center frequency in Hz of each image channel.
     pol_coords : list or np.ndarray
         The polarization code for each image polarization.
@@ -383,7 +383,7 @@ def make_empty_lmuv_image(
         phase_center,
         image_size,
         sky_image_cell_size,
-        chan_coords,
+        frequency_coords,
         pol_coords,
         time_coords,
         direction_reference,

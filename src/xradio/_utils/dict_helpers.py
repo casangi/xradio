@@ -1,5 +1,6 @@
 from xradio._utils.list_and_array import to_python_type
 
+
 def make_quantity(value, units: str, dims: list = []) -> dict:
     """
     create a quantity dictionary given value and units
@@ -15,7 +16,11 @@ def make_quantity(value, units: str, dims: list = []) -> dict:
     -------
     dict
     """
-    return {"data": to_python_type(value), "dims": dims, "attrs": make_quantity_attrs(units)}
+    return {
+        "data": to_python_type(value),
+        "dims": dims,
+        "attrs": make_quantity_attrs(units),
+    }
 
 
 def ensure_units_are_consistent(units):
@@ -102,13 +107,10 @@ def make_skycoord_dict(data: list[float], units: str, frame: str) -> dict:
         },
         "data": to_python_type(data),
         "dims": "sky_dir_label",
-        'coords': {"sky_dir_label":
-                    {"data":["ra","dec"],
-                                        "dims":"sky_dir_label"  
-                                }
-        }
+        "coords": {"sky_dir_label": {"data": ["ra", "dec"], "dims": "sky_dir_label"}},
     }
-    
+
+
 def make_direction_location_dict(data: list[float], units: str, frame: str) -> dict:
     return {
         "attrs": {
@@ -118,17 +120,23 @@ def make_direction_location_dict(data: list[float], units: str, frame: str) -> d
         },
         "data": to_python_type(data),
         "dims": "ellipsoid_dir_label",
-        'coords': {"ellipsoid_dir_label":
-                    {"data":["lon","lat"],
-                                        "dims":"ellipsoid_dir_label"  
-                                }
-        }
+        "coords": {
+            "ellipsoid_dir_label": {
+                "data": ["lon", "lat"],
+                "dims": "ellipsoid_dir_label",
+            }
+        },
     }
 
 
 def make_time_measure_attrs(units="s", scale="utc", time_format="mjd") -> dict:
     u = ensure_units_are_consistent(units)
-    return {"units": u, "scale": scale.lower(), "format": time_format.lower(), "type": "time"}
+    return {
+        "units": u,
+        "scale": scale.lower(),
+        "format": time_format.lower(),
+        "type": "time",
+    }
 
 
 def make_time_measure_dict(data, units="s", scale="utc", time_format="mjd") -> dict:

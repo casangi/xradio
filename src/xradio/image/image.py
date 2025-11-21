@@ -26,8 +26,7 @@ from xradio.image._util._fits.xds_from_fits import _fits_image_to_xds
 
 from xradio.image._util.image_factory import create_image_xds_from_store
 
-#warnings.filterwarnings("ignore", category=FutureWarning)
-
+# warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 def open_image(
@@ -117,20 +116,25 @@ def open_image(
     #         f"That functionality will not be available. Details: {exc}"
     #     )
     #     _open_casa_image = None
-    
+
     from ._util.casacore import _open_casa_image
+
     img_xds = create_image_xds_from_store(
         store,
         _open_casa_image,
         {"chunks": chunks, "verbose": verbose, "do_sky_coords": do_sky_coords},
         _fits_image_to_xds,
-        { "chunks": chunks, "verbose": verbose, "do_sky_coords": do_sky_coords, "compute_mask": compute_mask},
+        {
+            "chunks": chunks,
+            "verbose": verbose,
+            "do_sky_coords": do_sky_coords,
+            "compute_mask": compute_mask,
+        },
         _xds_from_zarr,
         {"output": {"dv": "dask", "coords": "numpy"}, "selection": selection},
     )
-    
+
     return img_xds
-    
 
 
 def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dataset:
@@ -172,8 +176,9 @@ def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dat
         for k, v in selection.items():
             if type(v) == int:
                 selection[k] = slice(v, v + 1)
-                
+
     from ._util.casacore import _load_casa_image_block
+
     img_xds = create_image_xds_from_store(
         store,
         _load_casa_image_block,
@@ -184,7 +189,7 @@ def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dat
         {"output": {"dv": "dask", "coords": "numpy"}, "selection": selection},
     )
     return img_xds
-    
+
 
 def write_image(
     xds: xr.Dataset, imagename: str, out_format: str = "casa", overwrite: bool = False
@@ -219,8 +224,7 @@ def write_image(
     my_format = out_format.lower()
     if my_format == "casa":
         from ._util.casacore import _xds_to_multiple_casa_images, _xds_to_casa_image
-        print("In CASA")
-        #_xds_to_casa_image(xds, imagename)
+
         _xds_to_multiple_casa_images(xds, imagename)
     elif my_format == "zarr":
         _xds_to_zarr(xds, imagename)

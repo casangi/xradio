@@ -76,7 +76,9 @@ def _add_common_attrs(
         "data_groups": {"base": {}},
         "coordinate_system_info": {
             "reference_direction": reference,
-            "native_pole_direction": make_direction_location_dict([np.pi, 0.0], "rad", "native_projection"),
+            "native_pole_direction": make_direction_location_dict(
+                [np.pi, 0.0], "rad", "native_projection"
+            ),
             "pixel_coordinate_transformation_matrix": [[1.0, 0.0], [0.0, 1.0]],
             "projection": projection,
             "projection_parameters": [0.0, 0.0],
@@ -237,7 +239,9 @@ def _make_empty_aperture_image(
 
 
 def _move_beam_param_dim_coord(xds: xr.Dataset) -> xr.Dataset:
-    return xds.assign_coords(beam_params_label=("beam_params_label", ["major", "minor", "pa"]))
+    return xds.assign_coords(
+        beam_params_label=("beam_params_label", ["major", "minor", "pa"])
+    )
 
 
 def _make_empty_lmuv_image(
@@ -268,7 +272,8 @@ def _make_empty_lmuv_image(
     xds = _move_beam_param_dim_coord(xds)
     return xds
 
-def  detect_store_type(store):
+
+def detect_store_type(store):
     import os
 
     if isinstance(store, str):
@@ -287,9 +292,10 @@ def  detect_store_type(store):
             raise ValueError("Path does not exist." + str(store))
     else:
         store_type = "zarr"
-        
+
     return store_type
-        
+
+
 def detect_image_type(store):
     import os
 
@@ -328,37 +334,42 @@ def create_store_dict(store_to_label):
         store_list = [store_to_label]  # So can iterate over it.
     elif isinstance(store_to_label, list):
         store_list = store_to_label
-        
+
     if (store_list is not None) and isinstance(store_list, list):
         store_dict_to_label = {i: v for i, v in enumerate(store_list)}
     else:
         store_dict_to_label = store_to_label
-        
+
     store_dict = {}
-    
+
     for image_type, store in store_dict_to_label.items():
-        
+
         if isinstance(image_type, int):
             image_type = detect_image_type(store)
-            
+
         image_type = image_type.upper()
-            
+
         store_type = detect_store_type(store)
-        
+
         if image_type == "UNKNOWN":
             logger.error(f"Could not detect image type for store {store}. ")
             example = "store={'sky': 'path/to/image.fits'}"
-            raise ValueError(f"Could not detect image type for store {store}. Please label the store with the image type explicitly. For example: {example}")
+            raise ValueError(
+                f"Could not detect image type for store {store}. Please label the store with the image type explicitly. For example: {example}"
+            )
 
         if image_type in store_dict:
             logger.error(f"Duplicate image type {image_type} detected in store list.")
-            raise ValueError(f"Duplicate image type {image_type} detected in store list. Please ensure each image type is unique. The store dict" + str(store_dict))
-        
+            raise ValueError(
+                f"Duplicate image type {image_type} detected in store list. Please ensure each image type is unique. The store dict"
+                + str(store_dict)
+            )
+
         if store_type == "zarr":
             image_type = "ALL"  # Zarr can have multiple data variables.
 
         store_dict[image_type] = {"store_type": store_type, "store": store}
-    
+
     return store_dict
 
 
@@ -372,37 +383,39 @@ def create_image_xds_from_store(
     zarr_kwargs: dict,
 ) -> xr.Dataset:
     store_dict = create_store_dict(store)
-    
+
     if "ALL" in store_dict and len(store_dict) > 1:
-        logger.error("When using a zarr store with multiple data variables, no other stores can be specified.")
-        raise ValueError("When using a zarr store with multiple data variables, no other stores can be specified.")
-    
+        logger.error(
+            "When using a zarr store with multiple data variables, no other stores can be specified."
+        )
+        raise ValueError(
+            "When using a zarr store with multiple data variables, no other stores can be specified."
+        )
+
     if "ALL" in store_dict:
         img_xds = access_store_zarr(store[0], **zarr_kwargs)
         return img_xds
-    
-    img_xds = xr.Dataset()    
+
+    img_xds = xr.Dataset()
     data_group = {}
     data_group_name = "base"
-    
+
     generic_image_counter = 0
     for image_type, store_description in store_dict.items():
-    
+
         store_type = store_description["store_type"]
         store = store_description["store"]
-        
+
         fits_kwargs["image_type"] = image_type
         casa_kwargs["image_type"] = image_type
-    
+
         if store_type == "casa":
             xds = access_store_casa(store, **casa_kwargs)
         elif store_type == "fits":
             if access_store_fits is None:
-                logger.error("FITS not currently supported.")   
+                logger.error("FITS not currently supported.")
                 raise RuntimeError("FITS not currently supported.")
-            xds = access_store_fits(
-                store, **fits_kwargs
-            )
+            xds = access_store_fits(store, **fits_kwargs)
         else:
             logger.error(
                 f"Unrecognized image format for path {store}. Supported types are CASA, FITS, and zarr.\n"
@@ -410,13 +423,13 @@ def create_image_xds_from_store(
             raise RuntimeError(
                 f"Unrecognized image format for path {store}. Supported types are CASA, FITS, and zarr.\n"
             )
-    
+
         img_xds.attrs = img_xds.attrs | xds.attrs
-        #print("image type:", image_type)
+        # print("image type:", image_type)
         img_xds[image_type] = xds[image_type]
         img_xds[image_type].attrs["type"] = image_type.lower()
-        
-        #SKY get precedence over POINT_SPREAD_FUNCTION for BEAM_FIT_PARAMS
+
+        # SKY get precedence over POINT_SPREAD_FUNCTION for BEAM_FIT_PARAMS
         if "SKY" in store_dict.keys():
             if image_type == "SKY":
                 img_xds["BEAM_FIT_PARAMS"] = xds["BEAM_FIT_PARAMS"]
@@ -427,24 +440,24 @@ def create_image_xds_from_store(
                 img_xds["BEAM_FIT_PARAMS"] = xds["BEAM_FIT_PARAMS"]
                 data_group["beam_fit_params"] = "BEAM_FIT_PARAMS"
                 img_xds["BEAM_FIT_PARAMS"].attrs["type"] = "beam_fit_params"
-                
+
         if image_type == "MASK":
             img_xds["MASK"] = xds["MASK"]
             img_xds["MASK"].attrs["type"] = "mask"
             data_group["mask"] = "MASK"
         else:
             if "MASK_0" in xds:
-                img_xds["MASK_"+image_type] = xds["MASK_0"]
-                data_group["mask_"+image_type.lower()] = "MASK_"+image_type
-                img_xds["MASK_"+image_type].attrs["type"] = "mask"
-                
+                img_xds["MASK_" + image_type] = xds["MASK_0"]
+                data_group["mask_" + image_type.lower()] = "MASK_" + image_type
+                img_xds["MASK_" + image_type].attrs["type"] = "mask"
+
             if "MASK" in xds:
-                img_xds["MASK_"+image_type] = xds["MASK"]
-                data_group["mask_"+image_type.lower()] = "MASK_"+image_type
-                img_xds["MASK_"+image_type].attrs["type"] = "mask"
-                
+                img_xds["MASK_" + image_type] = xds["MASK"]
+                data_group["mask_" + image_type.lower()] = "MASK_" + image_type
+                img_xds["MASK_" + image_type].attrs["type"] = "mask"
+
         data_group[image_type.lower()] = image_type
-                    
+
     img_xds.attrs["type"] = "image"
     img_xds.attrs["data_groups"] = {data_group_name: data_group}
     return img_xds

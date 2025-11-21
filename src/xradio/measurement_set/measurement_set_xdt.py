@@ -263,9 +263,11 @@ class MeasurementSetXdt:
         xr.DataTree
             MSv4 DataTree with the new group added
         """
-            
-        data_group_dv_shared_with = get_data_group_name(self._xdt, data_group_dv_shared_with)
-            
+
+        data_group_dv_shared_with = get_data_group_name(
+            self._xdt, data_group_dv_shared_with
+        )
+
         default_data_group = self._xdt.attrs["data_groups"][data_group_dv_shared_with]
 
         new_data_group = {}

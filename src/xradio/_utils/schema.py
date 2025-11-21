@@ -244,12 +244,14 @@ def get_data_group_keys(schema_name: str) -> list[str]:
     ValueError
         If the schema name is unknown.
     """
-    
+
     if schema_name == "msv4":
         from xradio.measurement_set.schema import DataGroupDict
+
         return list(DataGroupDict.__annotations__.keys())
     elif schema_name == "image":
         from xradio.image.schema import DataGroupDict
+
         return list(DataGroupDict.__annotations__.keys())
     else:
         raise ValueError(f"Unknown schema name: {schema_name}")

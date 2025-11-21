@@ -43,7 +43,7 @@ def _fits_image_to_xds(
     verbose: bool,
     do_sky_coords: bool,
     compute_mask: bool,
-    image_type: str = "SKY"
+    image_type: str = "SKY",
 ) -> dict:
     """
     compute_mask : bool, optional
@@ -68,7 +68,9 @@ def _fits_image_to_xds(
     sphr_dims = helpers["sphr_dims"]
     ary = _read_image_array(img_full_path, chunks, helpers, verbose)
     dim_order = _get_xds_dim_order(sphr_dims)
-    xds = _add_sky_or_aperture(xds, ary, dim_order, header, helpers,sphr_dims,image_type)
+    xds = _add_sky_or_aperture(
+        xds, ary, dim_order, header, helpers, sphr_dims, image_type
+    )
     xds.attrs = attrs
     xds = _add_coord_attrs(xds, helpers)
     if helpers["has_multibeam"]:
@@ -174,7 +176,9 @@ def _xds_coordinate_system_info_attrs_from_header(helpers: dict, header) -> dict
     helpers["ref_sys"] = ref_sys
     helpers["ref_eqx"] = ref_eqx
     # fits does not support conversion frames
-    coordinate_system_info["reference_direction"] = make_skycoord_dict([0.0, 0.0], units="rad", frame=ref_sys)
+    coordinate_system_info["reference_direction"] = make_skycoord_dict(
+        [0.0, 0.0], units="rad", frame=ref_sys
+    )
     dir_axes = helpers["dir_axes"]
     ddata = []
     dunits = []
@@ -185,12 +189,20 @@ def _xds_coordinate_system_info_attrs_from_header(helpers: dict, header) -> dict
         # direction["reference"]["value"][i] = x.value
         x = helpers["cdelt"][i] * u.Unit(_get_unit(helpers["cunit"][i]))
         dunits.append("rad")
-    coordinate_system_info["reference_direction"] = make_skycoord_dict(ddata, units=dunits, frame=ref_sys)
+    coordinate_system_info["reference_direction"] = make_skycoord_dict(
+        ddata, units=dunits, frame=ref_sys
+    )
     if ref_eqx is not None:
-        coordinate_system_info["reference_direction"]["attrs"]["equinox"] = ref_eqx.lower()
-    
-    coordinate_system_info["native_pole_direction"] = make_direction_location_dict([header["LONPOLE"] * _deg_to_rad, header["LATPOLE"] * _deg_to_rad], units="rad", frame="native_projection")
-        
+        coordinate_system_info["reference_direction"]["attrs"][
+            "equinox"
+        ] = ref_eqx.lower()
+
+    coordinate_system_info["native_pole_direction"] = make_direction_location_dict(
+        [header["LONPOLE"] * _deg_to_rad, header["LATPOLE"] * _deg_to_rad],
+        units="rad",
+        frame="native_projection",
+    )
+
     pc = np.zeros([2, 2])
     for i in (0, 1):
         for j in (0, 1):
@@ -205,13 +217,13 @@ def _xds_coordinate_system_info_attrs_from_header(helpers: dict, header) -> dict
                         f"Could not find PC{dir_axes[i]+1}_{dir_axes[j]+1} or "
                         f"PC0{dir_axes[i]+1}_0{dir_axes[j]+1} in FITS header"
                     )
-    coordinate_system_info["pixel_coordinate_transformation_matrix"] = to_python_type(pc)
+    coordinate_system_info["pixel_coordinate_transformation_matrix"] = to_python_type(
+        pc
+    )
     # Is there really no fits header parameter for projection_parameters?
     coordinate_system_info["projection_parameters"] = [0.0, 0.0]
     return coordinate_system_info
-        
-        
-        
+
     # direction = {}
     # direction["projection"] = p0
     # helpers["projection"] = p0
@@ -516,7 +528,9 @@ def _fits_header_to_xds_attrs(
     else:
         raise RuntimeError("Could not find both direction axes")
     if dir_axes is not None:
-        attrs["coordinate_system_info"] = _xds_coordinate_system_info_attrs_from_header(helpers, header)
+        attrs["coordinate_system_info"] = _xds_coordinate_system_info_attrs_from_header(
+            helpers, header
+        )
     helpers["has_mask"] = False
     if compute_mask:
         # 🧠 Why the primary.data reference here is Safe (does not cause
@@ -660,7 +674,7 @@ def _create_coords(
         # Fourier image
         coords["u"], coords["v"] = _get_uv_values(helpers)
     coords["beam_params_label"] = ["major", "minor", "pa"]
-    
+
     xds = xr.Dataset(coords=coords)
     return xds
 
@@ -845,7 +859,7 @@ def _add_sky_or_aperture(
     xda.attrs["telescope"] = _get_telescope_metadata(helpers, header)
     xda.attrs["description"] = None
     xda.attrs["user"] = _user_attrs_from_header(header)
-    #name = "SKY" if has_sph_dims else "APERTURE"
+    # name = "SKY" if has_sph_dims else "APERTURE"
     name = image_type
     xda = xda.rename(name)
     xds[xda.name] = xda

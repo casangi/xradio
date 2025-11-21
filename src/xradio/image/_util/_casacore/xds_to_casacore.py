@@ -48,7 +48,10 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
         m = "lonpole" if s == "longpole" else s
         # lonpole, latpole are numerical values in degrees in casa images
         direction[s] = float(
-            Angle(str(xds_dir["native_pole_direction"]["data"][i]) + xds_dir["native_pole_direction"]["attrs"]["units"]).deg
+            Angle(
+                str(xds_dir["native_pole_direction"]["data"][i])
+                + xds_dir["native_pole_direction"]["attrs"]["units"]
+            ).deg
         )
     return direction
 
@@ -234,9 +237,7 @@ def _history_from_xds(xds: xr.Dataset, image: str) -> None:
 def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
     ii = {}
     ap_sky = _aperture_or_sky(xds)
-    ii["imagetype"] = (
-        xds[ap_sky].attrs["type"] if "type" in xds[ap_sky].attrs else ""
-    )
+    ii["imagetype"] = xds[ap_sky].attrs["type"] if "type" in xds[ap_sky].attrs else ""
     ii["objectname"] = (
         xds[ap_sky].attrs[_object_name] if _object_name in xds[ap_sky].attrs else ""
     )

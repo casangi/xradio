@@ -52,6 +52,7 @@ def get_pad_value(col_dtype: np.dtype) -> object:
             f"{col_dtype} (of type: {type(col_dtype)})"
         )
 
+
 def to_python_type(x):
     """
     Convert any NumPy scalar, array, or nested structure to native Python types.
@@ -73,6 +74,7 @@ def to_python_type(x):
     else:
         return x
 
+
 def to_list(x):
     if isinstance(x, np.ndarray):
         z = x.astype(float)
@@ -82,6 +84,7 @@ def to_list(x):
     elif isinstance(x, list):
         return x
     return [x]
+
 
 def to_np_array(x):
     if isinstance(x, np.ndarray):

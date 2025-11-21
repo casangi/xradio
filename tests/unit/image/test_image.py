@@ -663,7 +663,8 @@ class xds_from_image_test(ImageBase):
     def compare_beam_params_label(self, xds: xr.Dataset) -> None:
         ev = self._exp_vals
         self.assertTrue(
-            (xds.beam_params_label == ev["beam_params_label"]).all(), "Incorrect beam param values"
+            (xds.beam_params_label == ev["beam_params_label"]).all(),
+            "Incorrect beam param values",
         )
 
     def compare_sky_attrs(self, sky: xr.DataArray, fits: bool = False) -> None:
@@ -855,7 +856,15 @@ class xds_from_image_test(ImageBase):
                 x["npix"] = shape[3] if z == "u" else shape[2]
             self._expec_uv = copy.deepcopy(uv)
         expec_coords = set(
-            ["time", "polarization", "frequency", "velocity", "u", "v", "beam_params_label"]
+            [
+                "time",
+                "polarization",
+                "frequency",
+                "velocity",
+                "u",
+                "v",
+                "beam_params_label",
+            ]
         )
 
         self.assertEqual(xds.coords.keys(), expec_coords, "incorrect coordinates")
@@ -1359,7 +1368,9 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
         mb[:, :, :, 0] = 0.00001
         mb[:, :, :, 1] = 0.00002
         mb[:, :, :, 2] = 0.00003
-        xdb = xr.DataArray(mb, dims=["time", "frequency", "polarization", "beam_params_label"])
+        xdb = xr.DataArray(
+            mb, dims=["time", "frequency", "polarization", "beam_params_label"]
+        )
         xdb = xdb.rename("BEAM_FIT_PARAMS")
         # xdb = xdb.assign_coords(beam_params_label=["major", "minor", "pa"])
         xdb.attrs["units"] = "rad"
@@ -2093,11 +2104,11 @@ class make_empty_sky_image_tests(make_empty_image_tests):
 
     def test_dims_and_coords(self):
         for skel in [self.skel_im(), self.skel_im_no_sky()]:
-            
+
             print("************")
             print(skel.coords)
             print("************")
-            
+
             self.assertEqual(
                 list(skel.sizes.keys()),
                 ["time", "frequency", "polarization", "l", "m", "beam_params_label"],
@@ -2120,7 +2131,15 @@ class make_empty_sky_image_tests(make_empty_image_tests):
         )
         self.assertEqual(
             list(self.skel_im_no_sky().coords.keys()),
-            ["time", "frequency", "velocity", "polarization", "l", "m", "beam_params_label"],
+            [
+                "time",
+                "frequency",
+                "velocity",
+                "polarization",
+                "l",
+                "m",
+                "beam_params_label",
+            ],
             "Incorrect coords",
         )
 
@@ -2181,7 +2200,15 @@ class make_empty_aperture_image_tests(make_empty_image_tests):
         )
         self.assertEqual(
             list(self.skel_im().coords.keys()),
-            ["time", "frequency", "velocity", "polarization", "u", "v", "beam_params_label"],
+            [
+                "time",
+                "frequency",
+                "velocity",
+                "polarization",
+                "u",
+                "v",
+                "beam_params_label",
+            ],
             "Incorrect coords",
         )
 
@@ -2234,7 +2261,16 @@ class make_empty_lmuv_image_tests(make_empty_image_tests):
         for skel in [self.skel_im(), self.skel_im_no_sky()]:
             self.assertEqual(
                 tuple(skel.sizes.keys()),
-                ("time", "frequency", "polarization", "l", "m", "u", "v", "beam_params_label"),
+                (
+                    "time",
+                    "frequency",
+                    "polarization",
+                    "l",
+                    "m",
+                    "u",
+                    "v",
+                    "beam_params_label",
+                ),
                 "Incorrect sizes",
             )
         self.assertEqual(

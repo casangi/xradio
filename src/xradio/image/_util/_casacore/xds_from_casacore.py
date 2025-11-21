@@ -210,13 +210,13 @@ def _add_sky_or_aperture(
     img_full_path: str,
     has_sph_dims: bool,
     history: bool,
-    image_type: str = "SKY"
+    image_type: str = "SKY",
 ) -> xr.Dataset:
     xda = xr.DataArray(ary, dims=dimorder).astype(ary.dtype)
     with _open_image_ro(img_full_path) as casa_image:
         xda.attrs = _casa_image_to_xds_image_attrs(casa_image, history)
     # xds.attrs = attrs
-    #name = "SKY" if has_sph_dims else "APERTURE"
+    # name = "SKY" if has_sph_dims else "APERTURE"
     xda = xda.rename(image_type)
     xds[xda.name] = xda
     return xds
@@ -278,7 +278,7 @@ def _casa_image_to_xds_attrs(img_full_path: str) -> dict:
             raise RuntimeError("No direction reference frame found")
         casa_system = coord_dir_dict[system]
         ap_system, ap_equinox = _convert_direction_system(casa_system, "native")
-        
+
         coordinate_system_info = {}
 
         unit0 = u.Unit(_get_unit(coord_dir_dict["units"][0]))
@@ -289,24 +289,31 @@ def _casa_image_to_xds_attrs(img_full_path: str) -> dict:
             data=[ra, dec], units="rad", frame=ap_system
         )
         if ap_equinox:
-            coordinate_system_info["reference_direction"]["attrs"]["equinox"] = ap_equinox
+            coordinate_system_info["reference_direction"]["attrs"][
+                "equinox"
+            ] = ap_equinox
 
         pol_dir = [-1, coord_dir_dict["latpole"] * _deg_to_rad]
         if "lonpole" in coord_dir_dict:
             pol_dir[0] = coord_dir_dict["lonpole"] * _deg_to_rad
         else:
             pol_dir[0] = coord_dir_dict["longpole"] * _deg_to_rad
-    
-        coordinate_system_info["native_pole_direction"] = make_direction_location_dict(pol_dir, "rad", "native_projection")
-        
+
+        coordinate_system_info["native_pole_direction"] = make_direction_location_dict(
+            pol_dir, "rad", "native_projection"
+        )
+
         coordinate_system_info["projection"] = coord_dir_dict["projection"]
-        coordinate_system_info["projection_parameters"] = to_python_type(coord_dir_dict["projection_parameters"])
-        coordinate_system_info["pixel_coordinate_transformation_matrix"] = to_python_type(coord_dir_dict["pc"])
-                
-        attrs["coordinate_system_info"] = coordinate_system_info 
+        coordinate_system_info["projection_parameters"] = to_python_type(
+            coord_dir_dict["projection_parameters"]
+        )
+        coordinate_system_info["pixel_coordinate_transformation_matrix"] = (
+            to_python_type(coord_dir_dict["pc"])
+        )
+
+        attrs["coordinate_system_info"] = coordinate_system_info
     return copy.deepcopy(attrs)
-        
-        
+
     #     dir_dict = {}
 
     #     dir_dict["reference"] = make_skycoord_dict(

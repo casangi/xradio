@@ -14,10 +14,14 @@ class DataGroupDict:
 
     sky: Optional[str]
     """ Name of the sky variable, for example 'SKY'. Derived from the gridded visibilities. On plane tangential to celestial sphere. """
+    mask_sky: Optional[str]
+    """ Name of the sky mask variable, for example 'MASK_SKY'. For CASA images this is an internal mask. """
     model: Optional[str]
     """ Name of the model variable, for example 'MODEL'. On plane tangential to celestial sphere. """
     residual: Optional[str]
     """ Name of the residual variable of the group, for example 'RESIDUAL'. residual = sky - model. On plane tangential to celestial sphere. """
+    mask_residual: Optional[str]
+    """ Name of the residual mask variable, for example 'MASK_RESIDUAL'. For CASA images this is an internal mask. """
     point_spread_function: Optional[str]
     """ Name of the point spread function variable of the group, for example 'POINT_SPREAD_FUNCTION'. On plane tangential to celestial sphere. """
     primary_beam: Optional[str]

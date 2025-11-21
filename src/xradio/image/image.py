@@ -218,9 +218,10 @@ def write_image(
             )
     my_format = out_format.lower()
     if my_format == "casa":
-        from ._util.casacore import _xds_to_casa_image
-
-        _xds_to_casa_image(xds, imagename)
+        from ._util.casacore import _xds_to_multiple_casa_images, _xds_to_casa_image
+        print("In CASA")
+        #_xds_to_casa_image(xds, imagename)
+        _xds_to_multiple_casa_images(xds, imagename)
     elif my_format == "zarr":
         _xds_to_zarr(xds, imagename)
     else:

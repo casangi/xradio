@@ -24,31 +24,31 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
     """
     direction = {}
 
-    xds_dir = xds.attrs["direction"]
+    xds_dir = xds.attrs["coordinate_system_info"]
     direction["_axes_sizes"] = np.array(
         [xds.sizes[dim] for dim in ("l", "m")], dtype=np.int32
     )
     direction["_image_axes"] = np.array([2, 3], dtype=np.int32)
-    direction["system"] = xds_dir["reference"]["attrs"]["equinox"].upper()
+    direction["system"] = xds_dir["reference_direction"]["attrs"]["equinox"].upper()
     if direction["system"] == "J2000.0":
         direction["system"] = "J2000"
     direction["projection"] = xds_dir["projection"]
     direction["projection_parameters"] = xds_dir["projection_parameters"]
     direction["units"] = [
-        xds_dir["reference"]["attrs"]["units"],
-        xds_dir["reference"]["attrs"]["units"],
+        xds_dir["reference_direction"]["attrs"]["units"],
+        xds_dir["reference_direction"]["attrs"]["units"],
     ]
-    direction["crval"] = np.array(xds_dir["reference"]["data"])
+    direction["crval"] = np.array(xds_dir["reference_direction"]["data"])
     direction["cdelt"] = np.array((xds.l[1] - xds.l[0], xds.m[1] - xds.m[0]))
     direction["crpix"] = _compute_sky_reference_pixel(xds)
-    direction["pc"] = np.array(xds_dir["pc"])
+    direction["pc"] = np.array(xds_dir["pixel_coordinate_transformation_matrix"])
     direction["axes"] = ["Right Ascension", "Declination"]
     direction["conversionSystem"] = direction["system"]
-    for s in ["longpole", "latpole"]:
+    for i, s in enumerate(["longpole", "latpole"]):
         m = "lonpole" if s == "longpole" else s
         # lonpole, latpole are numerical values in degrees in casa images
         direction[s] = float(
-            Angle(str(xds_dir[m]["data"]) + xds_dir[m]["attrs"]["units"]).deg
+            Angle(str(xds_dir["native_pole_direction"]["data"][i]) + xds_dir["native_pole_direction"]["attrs"]["units"]).deg
         )
     return direction
 

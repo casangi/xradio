@@ -11,6 +11,8 @@ from typing import Union
 import xarray as xr
 import re
 
+from xradio._utils.schema import get_data_group_keys
+
 try:
     from casacore import tables
 except ImportError:
@@ -120,8 +122,62 @@ def _open_casa_image(
     return xds
 
 
-def _xds_to_casa_image(xds: xr.Dataset, imagename: str) -> None:
-    image_full_path = os.path.expanduser(imagename)
+def _xds_to_multiple_casa_images(xds: xr.Dataset, image_store_name: str) -> None:
+    """ Function disentagles xradio xr.Dataset into multiple casa images based on data_groups attribute.
+    An xr.Dataset may contain multiple images (sky, residual, psf, etc) stored under different data variables sharing common coordinates.
+    An addtional complication is that CASA images allow for internal masks and beam fit parameters to be stored alongside the main image data so these also need to be handled.
+    This function creates separate casa images for each image type found in the data_groups attribute of the xr.Dataset.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        The xradio xr.Dataset containing multiple images and associated data.
+    image_store_name : str
+        The base name or path for storing the output CASA images.
+    """
+    
+    data_group_keys = get_data_group_keys(schema_name="image")
+    internal_image_types_to_exclude = ["mask_sky", "mask_residual", "beam_fit_params"]
+
+    for data_group in xds.attrs["data_groups"].keys():
+        for image_type in data_group_keys:
+            if (image_type in xds.attrs["data_groups"][data_group]) and (image_type not in internal_image_types_to_exclude):
+                image_name = xds.attrs["data_groups"][data_group][image_type]
+                if image_name in xds.data_vars:
+                    image_to_write_xds = xr.Dataset()
+                    image_to_write_xds.attrs = xds.attrs.copy()
+                    
+                    #This code handles adding internal masks and beam fit params if they exist. 
+                    if image_type == "sky":
+                        if "beam_fit_params" in xds.attrs["data_groups"][data_group]:
+                            beam_fit_params_name = xds.attrs["data_groups"][data_group]["beam_fit_params"]
+                            image_to_write_xds["BEAM_FIT_PARAMS"] = xds[beam_fit_params_name]
+                        
+                        if "mask_sky" in xds.attrs["data_groups"][data_group]:
+                            mask_sky_name = xds.attrs["data_groups"][data_group]["mask_sky"]
+                            image_to_write_xds["MASK_0"] = xds[mask_sky_name]
+                        
+                    if image_type == "residual":
+                        if "beam_fit_params" in xds.attrs["data_groups"][data_group]:
+                            beam_fit_params_name = xds.attrs["data_groups"][data_group]["beam_fit_params"]
+                            image_to_write_xds["BEAM_FIT_PARAMS"] = xds[beam_fit_params_name]
+                            
+                        if "mask_residual" in xds.attrs["data_groups"][data_group]:
+                            mask_sky_name = xds.attrs["data_groups"][data_group]["mask_sky"]
+                            image_to_write_xds["MASK_0"] = xds[mask_sky_name]
+                            
+                    if image_type == "point_spread_function":
+                        if "beam_fit_params" in xds.attrs["data_groups"][data_group]:
+                            beam_fit_params_name = xds.attrs["data_groups"][data_group]["beam_fit_params"]
+                            image_to_write_xds["BEAM_FIT_PARAMS"] = xds[beam_fit_params_name]
+                            
+                    image_to_write_xds["SKY"] = xds[image_name] #Setting everying to sky for writing purposes.
+                    
+                    _xds_to_casa_image(image_to_write_xds, image_store_name + "." + image_type)
+
+
+def _xds_to_casa_image(xds: xr.Dataset, image_store_name: str) -> None:
+    image_full_path = os.path.expanduser(image_store_name)
     _write_casa_data(xds, image_full_path)
     # create coordinates
     ap_sky = _aperture_or_sky(xds)

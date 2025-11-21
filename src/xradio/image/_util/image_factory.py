@@ -20,6 +20,23 @@ def _input_checks(
     image_size: Union[list, np.ndarray],
     cell_size: Union[list, np.ndarray],
 ) -> None:
+    """
+    Validate input parameters for image creation functions.
+
+    Parameters
+    ----------
+    phase_center : list or np.ndarray
+        Image phase center coordinates. Must have exactly 2 elements.
+    image_size : list or np.ndarray
+        Number of pixels along each axis. Must have exactly 2 elements.
+    cell_size : list or np.ndarray
+        Size of pixels along each axis. Must have exactly 2 elements.
+
+    Raises
+    ------
+    ValueError
+        If any parameter does not have exactly 2 elements.
+    """
     if len(image_size) != 2:
         raise ValueError("image_size must have exactly two elements")
     if len(phase_center) != 2:
@@ -239,6 +256,19 @@ def _make_empty_aperture_image(
 
 
 def _move_beam_param_dim_coord(xds: xr.Dataset) -> xr.Dataset:
+    """
+    Add beam_params_label coordinate to an xarray Dataset.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        Input Dataset to which beam parameters will be added.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with beam_params_label coordinate containing ['major', 'minor', 'pa'].
+    """
     return xds.assign_coords(
         beam_params_label=("beam_params_label", ["major", "minor", "pa"])
     )
@@ -274,6 +304,24 @@ def _make_empty_lmuv_image(
 
 
 def detect_store_type(store):
+    """
+    Detect the storage format type of an image store.
+
+    Parameters
+    ----------
+    store : str or dict
+        Path to the image store or a dictionary representation.
+
+    Returns
+    -------
+    str
+        The detected store type: 'fits', 'casa', or 'zarr'.
+
+    Raises
+    ------
+    ValueError
+        If the directory structure is unknown or the path does not exist.
+    """
     import os
 
     if isinstance(store, str):
@@ -297,6 +345,32 @@ def detect_store_type(store):
 
 
 def detect_image_type(store):
+    """
+    Detect the image type from the store name or path.
+
+    Infers the image type based on common naming patterns in the store path.
+
+    Parameters
+    ----------
+    store : str or other
+        Path to the image store. If not a string, returns 'ALL'.
+
+    Returns
+    -------
+    str
+        The detected image type. Possible values include:
+        - 'SKY': Sky image (contains 'image' or 'im')
+        - 'POINT_SPREAD_FUNCTION': PSF image (contains 'psf')
+        - 'MODEL': Model image (contains 'model')
+        - 'RESIDUAL': Residual image (contains 'residual')
+        - 'MASK': Mask image (contains 'mask')
+        - 'PRIMARY_BEAM': Primary beam image (contains 'pb')
+        - 'APERTURE': Aperture image (contains 'aperture')
+        - 'VISIBILITY': Visibility image (contains 'visibility')
+        - 'VISIBILITY_NORMALIZATION': Visibility normalization (contains 'sumwt')
+        - 'UNKNOWN': Could not detect type from name
+        - 'ALL': Non-string store type
+    """
     import os
 
     if isinstance(store, str):
@@ -329,6 +403,32 @@ def detect_image_type(store):
 
 
 def create_store_dict(store_to_label):
+    """
+    Create a standardized dictionary mapping image types to their store information.
+
+    Converts various input formats (string, list, or dict) into a consistent
+    dictionary format where keys are image types and values contain store metadata.
+
+    Parameters
+    ----------
+    store_to_label : str, list, or dict
+        Input store specification. Can be:
+        - str: Single store path
+        - list: List of store paths (image types will be auto-detected)
+        - dict: Mapping of image types to store paths
+
+    Returns
+    -------
+    dict
+        Dictionary with image types as keys. Each value is a dict with:
+        - 'store_type': str, the format ('casa', 'fits', or 'zarr')
+        - 'store': str, the path to the store
+
+    Raises
+    ------
+    ValueError
+        If image type cannot be detected or duplicate image types are found.
+    """
     store_list = None
     if isinstance(store_to_label, str):
         store_list = [store_to_label]  # So can iterate over it.
@@ -382,6 +482,61 @@ def create_image_xds_from_store(
     access_store_zarr: callable,
     zarr_kwargs: dict,
 ) -> xr.Dataset:
+    """
+    Create an xarray Dataset from one or more image stores.
+
+    This function reads image data from CASA, FITS, or zarr format stores and
+    combines them into a single xarray Dataset with appropriate metadata and
+    data variables.
+
+    Parameters
+    ----------
+    store : str, list, or dict
+        Image store specification:
+        - str: Single store path
+        - list: List of store paths
+        - dict: Mapping of image types to store paths
+    access_store_casa : callable
+        Function to read CASA format images. Should accept a store path and
+        keyword arguments, returning an xr.Dataset.
+    casa_kwargs : dict
+        Keyword arguments to pass to access_store_casa.
+    access_store_fits : callable or None
+        Function to read FITS format images. Should accept a store path and
+        keyword arguments, returning an xr.Dataset. Can be None if FITS support
+        is not needed.
+    fits_kwargs : dict
+        Keyword arguments to pass to access_store_fits.
+    access_store_zarr : callable
+        Function to read zarr format images. Should accept a store path and
+        keyword arguments, returning an xr.Dataset.
+    zarr_kwargs : dict
+        Keyword arguments to pass to access_store_zarr.
+
+    Returns
+    -------
+    xr.Dataset
+        An xarray Dataset containing the image data and metadata. The Dataset
+        includes:
+        - Data variables for each image type (e.g., 'SKY', 'MODEL', 'RESIDUAL')
+        - Coordinates shared across all images
+        - Attributes including 'type' and 'data_groups'
+
+    Raises
+    ------
+    ValueError
+        If zarr store with multiple data variables is combined with other stores.
+    RuntimeError
+        If FITS format is requested but access_store_fits is None, or if an
+        unrecognized image format is encountered.
+
+    Notes
+    -----
+    - Zarr stores can contain multiple data variables and will be returned as-is.
+    - For other formats, data from multiple stores is combined into one Dataset.
+    - BEAM_FIT_PARAMS from SKY images take precedence over POINT_SPREAD_FUNCTION.
+    - Masks are renamed to MASK_<IMAGE_TYPE> for internal masks.
+    """
     store_dict = create_store_dict(store)
 
     if "ALL" in store_dict and len(store_dict) > 1:

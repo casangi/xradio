@@ -200,9 +200,10 @@ def load_vis_subset_auto_data_from_tree(
     antenna_len = guessed_shape[2]
     spw_channel_len = spw_chan_lens[overall_spw_idx]
 
-    vis_auto_strides = []
     offset = 0
+    vis_subset_integrations = []
     for time_idx in np.arange(0, guessed_shape[0]):
+        vis_auto_strides = []
         for antenna_idx in np.arange(antenna_len):
             offset += auto_offset_addition_before
             auto_floats = auto_data_arr
@@ -232,8 +233,12 @@ def load_vis_subset_auto_data_from_tree(
 
             offset += auto_offset_addition_after
 
-    vis_auto = np.stack(vis_auto_strides)
-    vis_auto = vis_auto.reshape((1, *vis_auto.shape))
+        vis_subset_integrations.append(np.stack(vis_auto_strides))
+
+    if len(vis_subset_integrations) == 1:
+        vis_auto = vis_subset_integrations[0][np.newaxis, :]
+    else:
+        vis_auto = np.stack(vis_subset_integrations)
 
     return vis_auto
 
@@ -369,9 +374,10 @@ def calculate_offset_additions_cross_sd(
 
     per_spw_auto_pol_lens = make_per_spw_auto_pol_lens(basebands_descr)
     guessed_auto_len = antenna_len * np.sum(per_spw_auto_pol_lens, dtype=int)
+    time_len = bdf_descr["num_time"] if bdf_descr["dimensionality"] == 0 else 1
 
     offset = {"cross": {}, "auto": {}}
-    if guessed_cross_len + guessed_auto_len == flag_array_len:
+    if (guessed_cross_len + guessed_auto_len) * time_len == flag_array_len:
         offset = make_flag_tree_offsets_per_spw(
             per_spw_cross_pol_lens, per_spw_auto_pol_lens, overall_spw_idx
         )
@@ -390,13 +396,17 @@ def calculate_offset_additions_cross_sd(
             per_baseband_auto_pol_lens, dtype=int
         )
 
-        if second_guessed_cross_len + second_guessed_auto_len == flag_array_len:
+        if (
+            second_guessed_cross_len + second_guessed_auto_len
+        ) * time_len == flag_array_len:
             offset = make_flag_tree_offsets_per_baseband(
                 per_baseband_cross_pol_lens, per_baseband_auto_pol_lens, baseband_idx
             )
         else:
             raise RuntimeError(
-                f"Unexpected flags array in a subset. {guessed_len=} {second_guessed_len=}, {flag_array_len=} {offset=}, {bdf_descr=}"
+                f"Unexpected flags array in a subset. {guessed_cross_len=}, {guessed_auto_len=}, "
+                f"{second_guessed_cross_len=}, {second_guessed_auto_len=}, {flag_array_len=} "
+                "f{offset=}, {bdf_descr=}"
             )
 
     return offset
@@ -412,8 +422,8 @@ def load_flags_subset_from_tree(
     Loads the flags array from one subset in a BDF.
     """
 
+    baseband_idx, spw_idx = baseband_spw_idxs
     if "flags" in subset and subset["flags"]["present"]:
-        baseband_idx, spw_idx = baseband_spw_idxs
         overall_spw_idx = calculate_overall_spw_idx(
             bdf_descr["basebands"], baseband_idx, spw_idx
         )
@@ -425,15 +435,30 @@ def load_flags_subset_from_tree(
             overall_spw_idx,
             len(flag_array),
         )
+
         flag_subset = load_flags_subset_cross_and_auto_blocks_from_tree(
             flag_array, bdf_descr, offset_additions, guessed_shape, baseband_spw_idxs
         )
-
     else:
         shape = add_cross_and_auto_flag_shapes(guessed_shape)
         flag_subset = np.full(
             full_shape_to_output_filled_flags_shape(shape), False, dtype="bool"
         )
+
+    flag_subset = expand_frequency_in_flags_subset(
+        flag_subset, bdf_descr, baseband_idx, spw_idx
+    )
+
+    return flag_subset
+
+
+def expand_frequency_in_flags_subset(
+    flag_subset: np.ndarray, bdf_descr: dict, baseband_idx: int, spw_idx: int
+) -> np.ndarray:
+    frequency_len = bdf_descr["basebands"][baseband_idx]["spectralWindows"][spw_idx][
+        "numSpectralPoint"
+    ]
+    flag_subset = np.tile(flag_subset[:, :, np.newaxis, :], (1, 1, frequency_len, 1))
 
     return flag_subset
 
@@ -453,9 +478,10 @@ def load_flags_subset_cross_and_auto_blocks_from_tree(
     polarization_cross_len = len(spw_descr["crossPolProducts"])
     polarization_auto_len = len(spw_descr["sdPolProducts"])
 
-    flag_strides = []
     offset = 0
+    flag_subset_integrations = []
     for time_idx in np.arange(0, guessed_shape["auto"][0]):
+        flag_strides = []
         if (
             bdf_descr["correlation_mode"]
             != pyasdm.enumerations.CorrelationMode.AUTO_ONLY
@@ -492,7 +518,11 @@ def load_flags_subset_cross_and_auto_blocks_from_tree(
             flag_strides.append(stride)
             offset += auto_offset_addition_after
 
-    flag_subset = np.stack(flag_strides)
-    flag_subset = flag_subset.reshape((1, *flag_subset.shape))
+        flag_subset_integrations.append(np.stack(flag_strides))
+
+    if len(flag_subset_integrations) == 1:
+        flag_subset = flag_subset_integrations[0][np.newaxis, :]
+    else:
+        flag_subset = np.stack(flag_subset_integrations)
 
     return flag_subset

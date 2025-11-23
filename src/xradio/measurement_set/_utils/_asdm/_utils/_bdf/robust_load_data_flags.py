@@ -210,7 +210,10 @@ def check_correlation_mode(correlation_mode: pyasdm.enumerations.CorrelationMode
 
 
 def load_visibilities_from_bdf(
-    bdf_path: str, spw_id: int, array_slice: dict
+    bdf_path: str,
+    spw_id: int,
+    array_slice: dict,
+    never_reshape_from_all_spws: bool = True,
 ) -> np.ndarray:
 
     bdf_reader = pyasdm.bdf.BDFReader()
@@ -231,7 +234,7 @@ def load_visibilities_from_bdf(
     different_channels_per_spw = find_different_basebands_spws(bdf_descr["basebands"])
     guessed_shape = define_visibility_shape(bdf_descr, baseband_spw_idxs)
     try:
-        if different_channels_per_spw:
+        if never_reshape_from_all_spws or different_channels_per_spw:
             # TODO: this is assumed to be slower than the simpler version (simply reshape-based)
             # TO: integrate/replace with pyasdm.
             bdf_vis = load_visibilities_all_subsets_from_trees(
@@ -445,7 +448,10 @@ def check_basebands(basebands: list[dict]):
 
 
 def load_flags_from_bdf(
-    bdf_path: list[str], spw_id: int, array_slice: dict
+    bdf_path: list[str],
+    spw_id: int,
+    array_slice: dict,
+    never_reshape_from_all_spws: bool = True,
 ) -> np.ndarray:
 
     bdf_reader = pyasdm.bdf.BDFReader()
@@ -466,7 +472,7 @@ def load_flags_from_bdf(
     different_pols_per_spw = find_different_basebands_pols(bdf_descr["basebands"])
     guessed_shape = define_flag_shape(bdf_descr, baseband_spw_idxs)
     try:
-        if different_pols_per_spw:
+        if never_reshape_from_all_spws or different_pols_per_spw:
             # TODO: this is assumed to be slower than the simpler version (simply reshape-based)
             # TO: integrate/replace with in pyasdm.
             bdf_flag = load_flags_all_subsets_from_trees(

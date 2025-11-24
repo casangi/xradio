@@ -138,7 +138,7 @@ def _xds_to_multiple_casa_images(xds: xr.Dataset, image_store_name: str) -> None
         The base name or path for storing the output CASA images.
     """
 
-    data_group_keys = get_data_group_keys(schema_name="image")
+    data_group_keys = list(get_data_group_keys(schema_name="image").keys())
     internal_image_types_to_exclude = ["mask_sky", "mask_residual", "beam_fit_params"]
 
     for data_group in xds.attrs["data_groups"].keys():

@@ -382,6 +382,8 @@ def detect_image_type(store):
             image_type = "SKY"
         elif "im" in store.lower():
             image_type = "SKY"
+        elif "sky" in store.lower():
+            image_type = "SKY"
         elif "psf" in store.lower():
             image_type = "POINT_SPREAD_FUNCTION"
         elif "model" in store.lower():

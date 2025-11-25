@@ -189,7 +189,10 @@ def msv4_xdt_min(ms_minimal_required, tmp_path_factory):
         ms_minimal_required.fname,
         out_root=processing_set_root,
         msv4_id="msv4id",
-        partition_kwargs={"DATA_DESC_ID": [0], "OBS_MODE": ["CAL_ATMOSPHERE#ON_SOURCE"]},
+        partition_kwargs={
+            "DATA_DESC_ID": [0],
+            "OBS_MODE": ["CAL_ATMOSPHERE#ON_SOURCE"],
+        },
     )
 
     msv4_xdt = xr.open_datatree(msv4_path, engine="zarr")

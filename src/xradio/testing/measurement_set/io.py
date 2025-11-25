@@ -26,7 +26,6 @@ def download_measurement_set(input_ms: str, directory: str | Path = "/tmp") -> P
 
 
 def build_processing_set_from_msv2(
-    
     in_file: str | Path,
     out_file: str | Path,
     *,
@@ -98,4 +97,3 @@ def build_minimal_msv4_xdt(
         use_table_iter=use_table_iter,
         overwrite=overwrite,
     )
-

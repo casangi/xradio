@@ -1,5 +1,3 @@
-import numpy as np
-
 import pyasdm
 
 
@@ -27,7 +25,8 @@ def get_direction_codes(asdm: pyasdm.ASDM, source_key: tuple) -> "str":
     """
 
     source_id = int(source_key[0])
-    time_interval = source_key[1]
+    # ignoring interval:
+    # time_interval = source_key[1]
     spectral_window_id = int(source_key[2])
     key = (
         source_id,

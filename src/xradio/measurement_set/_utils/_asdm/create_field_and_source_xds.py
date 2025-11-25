@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 import xarray as xr
 
 import pyasdm
@@ -61,13 +60,12 @@ def create_field_and_source_xds(
 
     xds = xr.Dataset(attrs={"type": "field_and_source"})
 
-    field_id = partition_descr["fieldId"]
-
     # TODO: sourceId is an opt attr
     sdm_field_attrs = ["fieldId", "fieldName", "referenceDir", "sourceId"]
     field_df = exp_asdm_table_to_df(asdm, "Field", sdm_field_attrs)
 
-    field_df = field_df.loc[field_df["fieldId"].isin(partition_descr["fieldId"])]
+    field_id = partition_descr["fieldId"]
+    field_df = field_df.loc[field_df["fieldId"].isin(field_id)]
 
     field_name = field_df["fieldName"].unique().astype("str")
     field_coords = {
@@ -118,7 +116,7 @@ def create_field_and_source_xds(
     source_id = field_df["sourceId"].unique()
     if len(source_id) != 1:
         raise RuntimeError(f"{source_id=} not unique!")
-    source_id_int = source_id[0]
+
     source_df = source_df.loc[
         (source_df["spectralWindowId"] == spectral_window_id)
         & (source_df["sourceId"].isin(np.array(source_id)))

@@ -448,9 +448,7 @@ def create_coordinates(
         "dataDescriptionId",
     ]
     config_description_df = exp_asdm_table_to_df(
-        asdm,
-        "ConfigDescription",
-        ["configDescriptionId", "dataDescriptionId"],
+        asdm, "ConfigDescription", sdm_config_description_attrs
     )
     bdf_spw_id = translate_asdm_tables_spw_id_to_bdf_spw_id(
         spw_id,
@@ -598,7 +596,7 @@ def generate_baseline_antennax_id_as_in_msv2(
     (array([0, 0, 0, 1, 1, 2]), array([0, 1, 2, 1, 2, 2]))
     """
 
-    num_baselines = num_antenna * (num_antenna - 1) / 2
+    # num_baselines = num_antenna * (num_antenna - 1) / 2
     # This might turn out too simplistic. We'll have to check how the baselines (auto-corrs and
     # cross-corrs) are read from the BDFs, and other factors.
     baseline_antenna1_id, baseline_antenna2_id = zip(

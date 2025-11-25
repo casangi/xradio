@@ -206,7 +206,7 @@ def make_bdf_description(bdf_header: pyasdm.bdf.BDFHeader) -> dict:
 
 def check_correlation_mode(correlation_mode: pyasdm.enumerations.CorrelationMode):
     if correlation_mode == pyasdm.enumerations.CorrelationMode.CROSS_ONLY:
-        raise RuntimeError(f" Unexpected {correlation_mode=} {bdf_header=}")
+        raise RuntimeError(f" Unexpected {correlation_mode=}")
 
 
 def load_visibilities_from_bdf(

@@ -2,6 +2,8 @@ import numpy as np
 
 import pyasdm
 
+import toolviper.utils.logger as logger
+
 
 def add_cross_and_auto_flag_shapes(
     guessed_shape: dict[str, tuple[int, ...]],
@@ -55,7 +57,7 @@ def load_visibilities_all_subsets_from_trees(
         try:
             subset = bdf_reader.getSubset(loadOnlyComponents={"autoData", "crossData"})
         except ValueError as exc:
-            logger.warning(f"Error in getSubset for {bdf_path=} {exc=}")
+            logger.warning(f"Error in getSubset for {bdf_reader.getPath()=} {exc=}")
             return None
 
         vis_subset = load_vis_subset_from_tree(

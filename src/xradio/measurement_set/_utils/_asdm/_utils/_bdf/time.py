@@ -69,7 +69,6 @@ def get_times_from_bdfs(
 
 def make_blob_info(bdf_header: pyasdm.bdf.BDFHeader) -> dict:
     basebands_info = ""
-    baseband_idx = 1
     for baseband in bdf_header.getBasebandsList():
         basebands_info += f"{baseband['name']} "
         for spw in baseband["spectralWindows"]:

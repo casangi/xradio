@@ -224,7 +224,7 @@ def create_partitions(
     )
 
     start = time.perf_counter()
-    do_groups = True  # False
+    do_groups = True
     if do_groups:
         partitions = finalize_partitions_groupby(
             partitioning_df, partition_df.columns.to_list(), unique_scan_intents

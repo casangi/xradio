@@ -129,7 +129,6 @@ def create_observation_info(asdm: pyasdm.ASDM, partition_descr: dict) -> dict:
     """
 
     # TODO: needs clean-up, this comes from an early version
-    sdm_main = asdm.getMain()
     sdm_main_attrs = [
         "execBlockId",
     ]

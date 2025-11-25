@@ -458,7 +458,8 @@ def expand_frequency_in_flags_subset(
     frequency_len = bdf_descr["basebands"][baseband_idx]["spectralWindows"][spw_idx][
         "numSpectralPoint"
     ]
-    flag_subset = np.tile(flag_subset[:, :, np.newaxis, :], (1, 1, frequency_len, 1))
+    expanded_shape = flag_subset.shape[0:2] + (frequency_len,) + flag_subset.shape[-1:]
+    flag_subset = np.broadcast_to(flag_subset[:, :, np.newaxis, :], expanded_shape)
 
     return flag_subset
 

@@ -74,24 +74,25 @@ class ProcessingSetXdt:
             A DataFrame containing the summary information of the specified data group.
         """
 
-        # def find_data_group_base_or_first(data_group: str, xdt: xr.DataTree) -> str:
-        #     first_msv4 = next(iter(xdt.values()))
-        #     first_data_groups = first_msv4.attrs["data_groups"]
-        #     if data_group is None:
-        #         data_group = (
-        #             "base"
-        #             if "base" in first_data_groups
-        #             else next(iter(first_data_groups))
-        #         )
-        #     return data_group
+        def find_data_group_base_or_first(
+            data_group_name: str, xdt: xr.DataTree
+        ) -> str:
+            first_msv4 = next(iter(xdt.values()))
+            first_data_groups = first_msv4.attrs["data_groups"]
+            if data_group_name is None:
+                data_group_name = (
+                    "base"
+                    if "base" in first_data_groups
+                    else next(iter(first_data_groups))
+                )
+            return data_group_name
 
         if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
             raise InvalidAccessorLocation(
                 f"{self._xdt.path} is not a processing set node."
             )
 
-        # data_group = find_data_group_base_or_first(data_group, self._xdt)
-        data_group = get_data_group_name(self._xdt, data_group_name=data_group_name)
+        data_group_name = find_data_group_base_or_first(data_group_name, self._xdt)
 
         if data_group_name in self.meta["summary"]:
             summary = self.meta["summary"][data_group_name]

@@ -5,7 +5,7 @@ from typing import Any, Union
 import numpy as np
 import xarray as xr
 
-from xradio._utils.list_and_array import to_list
+from xradio._utils.list_and_array import to_python_type
 from xradio._utils.xarray_helpers import get_data_group_name, create_new_data_group
 
 MS_DATASET_TYPES = {"visibility", "spectrum", "radiometer"}
@@ -190,7 +190,7 @@ class MeasurementSetXdt:
         field_and_source_xds = self._xdt.xr_ms.get_field_and_source_xds(data_group_name)
 
         if "line_name" in field_and_source_xds.coords:
-            line_name = to_list(
+            line_name = to_python_type(
                 np.unique(np.ravel(field_and_source_xds.line_name.values))
             )
         else:
@@ -211,10 +211,14 @@ class MeasurementSetXdt:
         partition_info = {
             "spectral_window_name": self._xdt.frequency.attrs["spectral_window_name"],
             "spectral_window_intents": spw_intent,
-            "field_name": to_list(np.unique(field_and_source_xds.field_name.values)),
-            "polarization_setup": to_list(self._xdt.polarization.values),
-            "scan_name": to_list(np.unique(self._xdt.scan_name.values)),
-            "source_name": to_list(np.unique(field_and_source_xds.source_name.values)),
+            "field_name": to_python_type(
+                np.unique(field_and_source_xds.field_name.values)
+            ),
+            "polarization_setup": to_python_type(self._xdt.polarization.values),
+            "scan_name": to_python_type(np.unique(self._xdt.scan_name.values)),
+            "source_name": to_python_type(
+                np.unique(field_and_source_xds.source_name.values)
+            ),
             "scan_intents": scan_intents,
             "line_name": line_name,
             "data_group_name": data_group_name,
@@ -225,7 +229,7 @@ class MeasurementSetXdt:
     def add_data_group(
         self,
         new_data_group_name: str,
-        new_data_group: dict,
+        new_data_group: dict = {},
         data_group_dv_shared_with: str = None,
     ) -> xr.DataTree:
         """Adds a data group to the MSv4 DataTree, grouping the given data, weight, flag, etc. variables
@@ -253,7 +257,7 @@ class MeasurementSetXdt:
 
         new_data_group_name, new_data_group = create_new_data_group(
             self._xdt,
-            "measurement_set",
+            "msv4",
             new_data_group_name,
             new_data_group,
             data_group_dv_shared_with=data_group_dv_shared_with,

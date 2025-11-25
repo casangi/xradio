@@ -79,7 +79,7 @@ class TestProcessingSetXdtErrors:
         ps_xdt = ProcessingSetXdt(xr.DataTree())
 
         with pytest.raises(InvalidAccessorLocation, match="not a processing set node"):
-            ps_xdt.plot_phase_centers(label_all_fields=True, data_group="missing")
+            ps_xdt.plot_phase_centers(label_all_fields=True, data_group_name="missing")
 
     def test_plot_antenna_positions(self):
         ps_xdt = ProcessingSetXdt(xr.DataTree())
@@ -395,7 +395,9 @@ class TestFunctionsAfterPreviousCalls:
         corrected_ps = ps_xdt.xr_ps.query(data_group_name="corrected")
         # Note, after the "base" group is dropped, the schema_checker will fail
         assert isinstance(corrected_ps, xr.DataTree)
-        first_spw = corrected_ps.xr_ps.summary(data_group="corrected")["spw_name"][0]
+        first_spw = corrected_ps.xr_ps.summary(data_group_name="corrected")["spw_name"][
+            0
+        ]
         sel_corrected_ps = corrected_ps.xr_ps.query(spw_name=first_spw)
         assert first_spw == "unspecified_test#0_0"
         assert isinstance(sel_corrected_ps, xr.DataTree)

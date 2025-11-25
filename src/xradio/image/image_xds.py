@@ -48,7 +48,7 @@ class ImageXds:
     def add_data_group(
         self,
         new_data_group_name: str,
-        new_data_group: dict,
+        new_data_group: dict = {},
         data_group_dv_shared_with: str = None,
     ) -> xr.Dataset:
         """Adds a data group to the image Dataset, grouping the given data, weight, flag, etc. variables

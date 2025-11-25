@@ -63,13 +63,15 @@ def test_add_data_group_with_values(msv4_xdt_min):
     ms_xdt = msv4_xdt_min.xr_ms
     result_xdt = ms_xdt.add_data_group(
         "test_added_data_group_with_param_values",
-        correlated_data="VISIBILITY",
-        weight="EFFECTIVE_INTEGRATION_TIME",  # no check for this (coords mismatch, etc.)
-        flag="FLAG",
-        uvw="UVW",
-        field_and_source_xds="field_and_source_base_xds",
-        date_time="today, now",
-        description="a test data group",
+        {
+            "correlated_data": "VISIBILITY",
+            "weight": "EFFECTIVE_INTEGRATION_TIME",  # no check for this (coords mismatch, etc.)
+            "flag": "FLAG",
+            "uvw": "UVW",
+            "field_and_source_xds": "field_and_source_base_xds",
+            "date_time": "today, now",
+            "description": "a test data group",
+        },
         data_group_dv_shared_with="base",
     )
 

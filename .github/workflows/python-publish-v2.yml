@@ -1,0 +1,25 @@
+# .github/workflows/python-publish.yml
+name: Publish Python 🐍 distribution 📦 to PyPI and TestPyPI
+
+on:
+  release:
+    types: [created]
+
+jobs:
+  publish-to-testpypi:
+    uses: casangi/xradio/.github/workflows/python-publish-template-v2.yml@470-changes-needed-for-astroviper
+    if: ${{ github.event.release.prerelease == true }}
+    with:
+       # Change for package
+      upload_url: "https://test.pypi.org/project/xradio"
+      environment_name: "testpypi" 
+    secrets: inherit
+
+  publish-to-pypi:
+    uses: casangi/xradio/.github/workflows/python-publish-template-v2.yml@470-changes-needed-for-astroviper
+    if: ${{ github.event.release.prerelease == false }}
+    with:
+      # Change for package
+      upload_url: "https://pypi.org/project/xradio"
+      environment_name: "pypi"
+    secrets: inherit

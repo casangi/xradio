@@ -136,11 +136,11 @@ class ImageXds:
 
             sel_img_xds = self._xds
 
-            sel_corr_xds = self._xds.ds.sel(
+            sel_corr_xds = self._xds.sel(
                 indexers, method, tolerance, drop, **indexers_kwargs
             ).drop_vars(data_variables_to_drop)
 
-            sel_img_xds.ds = sel_corr_xds
+            sel_img_xds = sel_corr_xds
 
             sel_img_xds.attrs["data_groups"] = {
                 data_group_name: self._xds.attrs["data_groups"][data_group_name]

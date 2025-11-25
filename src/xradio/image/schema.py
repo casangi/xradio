@@ -40,7 +40,7 @@ class DataGroupDict:
     """ Name of the aperture variable of the group, for example 'APERTURE'. On aperture plane. The aperture is the Fourier transform of the primary beam."""
     aperture_normalization: Optional[str]
     """ Normalization factor for the aperture data.  """
-    beam_fit_parameters: Optional[str]
+    beam_fit_params: Optional[str]
     """ Name of the beam fit parameters variable of the group, for example 'BEAM_FIT_PARAMETERS'. """
     description: str
     """ More details about the data group. """

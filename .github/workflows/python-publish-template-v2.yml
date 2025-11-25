@@ -1,6 +1,5 @@
 # This workflows will upload a Python Package for tagged commits
 # For more information see: https://packaging.python.org/en/latest/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
-
 name: Publish Python 🐍 distribution 📦 to PyPI and TestPyPI
 
 on:
@@ -9,11 +8,9 @@ on:
       upload_url:
         required: true
         type: string
-        description: "The API endpoint for the upload (TestPyPI vs PyPI)"
       environment_name:
         required: true
         type: string
-        description: "The GitHub Environment to load secrets from"
 
 jobs:
   build:
@@ -46,11 +43,8 @@ jobs:
     - build
     runs-on: ubuntu-latest
     
-    # DYNAMIC ENVIRONMENT: This allows grabbing different secrets
     environment:
       name: ${{ inputs.environment_name }}
-      # This is just for the clickable button in GitHub Actions UI
-      url: ${{ inputs.environment_name == 'pypi' && 'https://pypi.org/project/xradio' || 'https://test.pypi.org/project/xradio' }}
 
     steps:
     - name: Download all the dists
@@ -63,6 +57,6 @@ jobs:
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         user: "__token__"
-        password: ${{ secrets.PYPI_TOKEN }} 
-        # CRITICAL: This tells the action to use TestPyPI when requested
+        # LOGIC: If environment is 'pypi', use PYPI_TOKEN, else use PYPI_TEST_TOKEN
+        password: ${{ inputs.environment_name == 'pypi' && secrets.PYPI_TOKEN || secrets.PYPI_TEST_TOKEN }}
         repository-url: ${{ inputs.upload_url }}

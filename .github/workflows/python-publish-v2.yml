@@ -7,19 +7,20 @@ on:
 
 jobs:
   publish-to-testpypi:
+    # Assuming this is the repo where your template lives
     uses: casangi/xradio/.github/workflows/python-publish-template-v2.yml@470-changes-needed-for-astroviper
     if: ${{ github.event.release.prerelease == true }}
     with:
-       # Change for package
       upload_url: "https://test.pypi.org/project/xradio"
-      environment_name: "testpypi" 
+      environment_name: "testpypi"
+    # CRITICAL: This allows the template to see your Org secrets
     secrets: inherit
 
   publish-to-pypi:
     uses: casangi/xradio/.github/workflows/python-publish-template-v2.yml@470-changes-needed-for-astroviper
     if: ${{ github.event.release.prerelease == false }}
     with:
-      # Change for package
       upload_url: "https://pypi.org/project/xradio"
       environment_name: "pypi"
+    # CRITICAL: This allows the template to see your Org secrets
     secrets: inherit

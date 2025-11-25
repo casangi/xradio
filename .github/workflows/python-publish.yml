@@ -1,19 +1,19 @@
 # .github/workflows/python-publish.yml
 name: Publish Python 🐍 distribution 📦 to PyPI and TestPyPI
 
-on:
-  release:
-    types: [created]
+# on:
+#   release:
+#     types: [created]
 
-jobs:
-  # check-codecov-token:
-  #   runs-on: ubuntu-latestpwd
-  #   steps:
-  #     - name: Check PYPI_TOKEN
-  #       run: echo "2 PYPI_TOKEN=${{ secrets.PYPI_TOKEN }}"
+# jobs:
+#   # check-codecov-token:
+#   #   runs-on: ubuntu-latestpwd
+#   #   steps:
+#   #     - name: Check PYPI_TOKEN
+#   #       run: echo "2 PYPI_TOKEN=${{ secrets.PYPI_TOKEN }}"
 
-  call-publish:
-    uses: casangi/toolviper/.github/workflows/python-publish-template.yml@main
-    with:
-      pypi-url: "https://pypi.org/project/xradio"
-    secrets: inherit
+#   call-publish:
+#     uses: casangi/toolviper/.github/workflows/python-publish-template.yml@main
+#     with:
+#       pypi-url: "https://pypi.org/project/xradio"
+#     secrets: inherit

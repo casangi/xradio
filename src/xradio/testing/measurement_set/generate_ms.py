@@ -8,7 +8,7 @@ from contextlib import contextmanager
 import datetime
 import itertools
 from pathlib import Path
-from typing import Generator
+from typing import Generator, Tuple, Dict, Any, Optional
 
 import numpy as np
 
@@ -67,7 +67,7 @@ default_ms_descr = {
 }
 
 
-def gen_test_ms(
+def _gen_test_ms_impl(
     msname: str,
     descr: dict = None,
     opt_tables: bool = True,
@@ -209,6 +209,53 @@ def gen_test_ms(
     }
 
     return outdescr
+
+
+def gen_test_ms(
+    msname: str,
+    *,
+    descr: Optional[Dict[str, Any]] = None,
+    opt_tables: bool = True,
+    vlbi_tables: bool = True,
+    required_only: bool = True,
+    misbehave: bool = False,
+) -> Tuple[str, Dict[str, Any]]:
+    """
+    Generate an MS on disk and return both the path and the generated description.
+
+    This is the high-level helper used by tests and benchmarks. The lower-level
+    implementation is `_gen_test_ms_impl`.
+    """
+
+    ms_descr = _gen_test_ms_impl(
+        msname,
+        descr,
+        opt_tables=opt_tables,
+        vlbi_tables=vlbi_tables,
+        required_only=required_only,
+        misbehave=misbehave,
+    )
+    return msname, ms_descr
+
+
+def build_minimal_ms(
+    msname: str = "test_msv2_minimal_required.ms",
+    *,
+    misbehave: bool = False,
+    include_optional_tables: bool = True,
+    include_vlbi_tables: bool = True,
+) -> Tuple[str, Dict[str, Any]]:
+    """
+    Generate a minimal MSv2 dataset with sensible defaults used across tests/benchmarks.
+    """
+
+    return gen_test_ms(
+        msname,
+        opt_tables=include_optional_tables,
+        vlbi_tables=include_vlbi_tables,
+        required_only=True,
+        misbehave=misbehave,
+    )
 
 
 def make_ms_empty(name: str, descr: dict = None, complete: bool = False):

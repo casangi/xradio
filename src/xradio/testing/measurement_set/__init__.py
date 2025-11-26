@@ -9,7 +9,7 @@ __all__ = [
     # Generators
     "gen_test_ms",
     "make_ms_empty",
-    "build_minimal_ms",
+    "gen_minimal_ms",
     # Validators
     "check_msv4_matches_descr",
     "check_processing_set_matches_msv2_descr",
@@ -21,14 +21,14 @@ __all__ = [
 ]
 
 # Export generators
-from xradio.testing.measurement_set.generate_ms import (
+from xradio.testing.measurement_set.generator import (
     gen_test_ms,
     make_ms_empty,
-    build_minimal_ms,
+    gen_minimal_ms,
 )
 
 # Export validators
-from xradio.testing.measurement_set.check_ms import (
+from xradio.testing.measurement_set.checker import (
     check_msv4_matches_descr,
     check_processing_set_matches_msv2_descr,
 )
@@ -36,7 +36,7 @@ from xradio.testing.measurement_set.check_ms import (
 # Export IO helpers
 from xradio.testing.measurement_set.io import (
     download_measurement_set,
-    convert_msv2_to_processing_set,
+    build_processing_set_from_msv2,
     build_msv4_partition,
     build_minimal_msv4_xdt,
 )

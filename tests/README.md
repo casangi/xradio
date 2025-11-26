@@ -9,13 +9,23 @@ Xarray Radio Astronomy Data IO Tests
 [![Documentation Status](https://readthedocs.org/projects/xradio/badge/?version=latest)](https://xradio.readthedocs.io)
 [![Version Status](https://img.shields.io/pypi/v/xradio.svg)](https://pypi.python.org/pypi/xradio/)
 
+# XRADIO Testing Module
+XRADIO provides a testing module (`xradio.testing`) as part of its public API. This module contains utilities for testing that are designed to be  used also in external projects, including ASV benchmark tests stored in [benchviper](https://github.com/casangi/benchviper). 
+
+The testing module includes submodules for:
+- `assertions`: Functions for validating data structures and schemas
+- `fixtures`: Reusable test fixtures
+- `measurement_set`: Utilities for generating, checking, and manipulating measurement set test data
+- `utils`: General testing utilities
+
 # Test Framework
 XRADIO Tests use pytest and are located in the `tests` directory. There are two types of tests:
 - Unit Tests: located in `tests/unit`
 - stakeholder Tests: located in `tests/stakeholder`
 
 Helper functions used in the tests:
-- Helper and utitility functions for tests: located in `tests/_utils`
+- Helper and utility functions for tests: located in `src/xradio/testing` (part of the public API). New helper functions should be added to this module only.
+- conftest.py files should import helper functions from `xradio.testing`.
 - Pytest configuration is located in: `tests/*/conftest.py`
 
 # Test Development
@@ -37,24 +47,24 @@ Here's documentation on how to use `pytest` fixtures with `conftest.py`, includi
 # conftest.py
 import pytest
 from pathlib import Path
+import shutil
 from xradio.measurement_set import load_processing_set
 from xradio.schema.check import check_datatree
-
-def download_measurement_set(input_ms, directory="/tmp"):
-    """Returns path to test MeasurementSet v2"""
-    # Download MS
-    download(file=input_ms, folder=directory)
-    return Path(os.path.join(directory, input_ms))
+from xradio.testing.measurement_set.io import (
+    convert_msv2_to_processing_set,
+    download_measurement_set,
+)
 
 
 @pytest.fixture
 def convert_measurement_set_to_processing_set(request, tmp_path):
     """Create a processing set from test MS for testing"""
     ps_path = tmp_path / "test_processing_set.ps.zarr"
+    ms_path = download_measurement_set(request.param, tmp_path)
     # Convert MS to processing set
     convert_msv2_to_processing_set(
-        in_file=str(download_measurement_set(request.param, tmp_path)),
-        out_file=str(ps_path),
+        ms_path,
+        ps_path,
         partition_scheme=[],
         main_chunksize=0.01,
         pointing_chunksize=0.00001,
@@ -66,7 +76,7 @@ def convert_measurement_set_to_processing_set(request, tmp_path):
     )
     yield ps_path
     shutil.rmtree(ps_path)
-    shutil.rmtree(download_measurement_set(request.param, tmp_path))
+    shutil.rmtree(ms_path)
 ```
 > Because `download_measurement_set` is a function that is used within `convert_measurement_set_to_processing_set` it does not need to be decorated as a fixture in `conftest.py` In pytest, yield is used in fixtures to define setup and teardown. When the fixture is first called, it runs until it hits the first yield. It pauses and returns the value to the test. After the test executes, the fixture resumes from where it left off.
 

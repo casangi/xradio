@@ -9,9 +9,9 @@ import xarray as xr
 
 
 from xradio.measurement_set import open_processing_set
-from xradio.testing.measurement_set.generate_ms import (
+from xradio.testing.measurement_set.generator import (
     gen_test_ms,
-    build_minimal_ms,
+    gen_minimal_ms,
     make_ms_empty,
 )
 from xradio.testing.measurement_set.io import (
@@ -21,7 +21,7 @@ from xradio.testing.measurement_set.io import (
 )
 
 # Ensure pytest assert introspection in vis data checks
-pytest.register_assert_rewrite("xradio.testing.measurement_set.check_ms")
+pytest.register_assert_rewrite("xradio.testing.measurement_set.checker")
 
 
 """
@@ -72,7 +72,7 @@ def ms_minimal_required():
     standard MS definitions)
     """
     name = "test_msv2_minimal_required.ms"
-    fname, spec = build_minimal_ms(name)
+    fname, spec = gen_minimal_ms(name)
     yield MSWithSpec(fname, spec)
     shutil.rmtree(fname)
 

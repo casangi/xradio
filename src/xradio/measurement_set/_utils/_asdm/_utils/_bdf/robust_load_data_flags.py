@@ -15,7 +15,7 @@ from .pyasdm_load_from_trees import (
 
 
 def ensure_presence_binary_components(
-    data_array_names: list[str], binary_types: list[str], bdf_path
+    data_array_names: list[str], binary_types: list[str], bdf_path: str
 ):
 
     for array_name in data_array_names:

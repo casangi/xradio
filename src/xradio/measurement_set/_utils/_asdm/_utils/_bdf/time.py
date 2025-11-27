@@ -168,7 +168,7 @@ def load_times_from_bdfs(
         finally:
             bdf_reader.close()
 
-        midpoint, interval, actual_times, actual_durations = read_times_bdf(bdf_path)
+        midpoint, interval, actual_times, actual_durations = load_times_bdf(bdf_path)
         all_time_centers.append(midpoint)
         all_durations.append(interval)
         all_actual_times.append(actual_times)
@@ -182,7 +182,7 @@ def load_times_from_bdfs(
     )
 
 
-def read_times_bdf(
+def load_times_bdf(
     bdf_path: str,
 ) -> tuple[list, list, list, list]:
     bdf_reader = pyasdm.bdf.BDFReader()

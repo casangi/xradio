@@ -9,14 +9,16 @@ Xarray Radio Astronomy Data IO Tests
 [![Documentation Status](https://readthedocs.org/projects/xradio/badge/?version=latest)](https://xradio.readthedocs.io)
 [![Version Status](https://img.shields.io/pypi/v/xradio.svg)](https://pypi.python.org/pypi/xradio/)
 
+
 # XRADIO Testing Module
 XRADIO provides a testing module (`xradio.testing`) as part of its public API. This module contains utilities for testing that are designed to be  used also in external projects, including ASV benchmark tests stored in [benchviper](https://github.com/casangi/benchviper). 
 
 The testing module includes submodules for:
-- `assertions`: Functions for validating data structures and schemas
-- `fixtures`: Reusable test fixtures
+- `assertions (TBD)`: Functions for validating data structures and schemas
+- `fixtures (TBD)`: Reusable test fixtures
 - `measurement_set`: Utilities for generating, checking, and manipulating measurement set test data
-- `utils`: General testing utilities
+- `utils (TBD)`: General testing utilities
+
 
 # Test Framework
 XRADIO Tests use pytest and are located in the `tests` directory. There are two types of tests:

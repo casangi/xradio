@@ -11,10 +11,10 @@ See the main [README.md](https://github.com/casangi/xradio/blob/main/README.md) 
 
 The testing module includes the following submodules:
 
-- **`assertions`**: Functions for validating data structures and schemas
-- **`fixtures`**: Reusable test fixtures for setting up test data
+- **`assertions (TBD)`**: Functions for validating data structures and schemas
+- **`fixtures (TBD)`**: Reusable test fixtures for setting up test data
 - **`measurement_set`**: Utilities for generating, checking, and manipulating measurement set test data
-- **`utils`**: General testing utilities
+- **`utils (TBD)`**: General testing utilities
 
 ## Usage
 
@@ -25,7 +25,32 @@ from xradio.testing.measurement_set.io import download_measurement_set, convert_
 from xradio.testing.measurement_set.generator import gen_test_ms
 ```
 
-### Example: Using in ASV Benchmarks
+### Example: Using conftest.py for fixtures in unit tests
+
+```python
+from xradio.testing.measurement_set.io import (
+    build_minimal_msv4_xdt,
+    ...
+)
+
+@pytest.fixture(scope="session")
+def msv4_xdt_min(ms_minimal_required, tmp_path_factory):
+    """An MSv4 xdt (one single MSv4)"""
+    processing_set_root = tmp_path_factory.mktemp(
+        "test_converted_msv2_to_msv4_minimal_required"
+    )
+    msv4_path = build_minimal_msv4_xdt(
+        ms_minimal_required.fname,
+        out_root=processing_set_root,
+        msv4_id="msv4id",
+        partition_kwargs={
+            "DATA_DESC_ID": [0],
+            "OBS_MODE": ["CAL_ATMOSPHERE#ON_SOURCE"],
+        },
+    )
+```
+
+### Example: Using in ASV benchmark tests
 
 For ASV (airspeed velocity) benchmarks, you can use the testing utilities to set up benchmark tests:
 
@@ -82,6 +107,31 @@ msname, description = gen_minimal_ms.msname()
 check_msv4_matches_descr(msv4_xdt, ms_minimal_required.descr)
 if issues:
     print(f"Validation issues: {issues}")
+```
+
+### Example: Generator Functions
+
+Use generator functions to create test measurement sets with different options for the sub-tables.
+
+```python
+from xradio.testing.measurement_set.generator import gen_test_ms
+
+@pytest.fixture(scope="session")
+def ms_minimal_without_opt():
+    """
+    Small MS with a number of misbehaviors as observed in different MS from various observatories
+    and projects
+    """
+    name = "test_msv2_minimal_required_without_opt_subtables.ms"
+    fname, spec = gen_test_ms(
+        name,
+        opt_tables=False,
+        vlbi_tables=False,
+        required_only=True,
+        misbehave=False,
+    )
+    yield MSWithSpec(fname, spec)
+    shutil.rmtree(fname)
 ```
 
 ## Contributing

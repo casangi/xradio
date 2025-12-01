@@ -11,7 +11,7 @@ Xarray Radio Astronomy Data IO Tests
 
 
 # XRADIO Testing Module
-XRADIO provides a testing module (`xradio.testing`) as part of its public API. This module contains utilities for testing that are designed to be  used also in external projects, including ASV benchmark tests stored in [benchviper](https://github.com/casangi/benchviper). 
+XRADIO provides a testing module (`xradio.testing`) as part of its public API. This module contains utilities for testing that are designed to be  used also in external projects, including ASV benchmark tests stored in [benchviper](https://github.com/casangi/benchviper). See more information in [xradio.testing](https://github.com/casangi/xradio/src/xradio/testing/README.md).
 
 The testing module includes submodules for:
 - `assertions (TBD)`: Functions for validating data structures and schemas

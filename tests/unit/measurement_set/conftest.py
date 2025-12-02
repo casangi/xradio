@@ -7,18 +7,15 @@ import shutil
 
 import xarray as xr
 
-
 from xradio.measurement_set import open_processing_set
-from xradio.testing.measurement_set.generator import (
+from xradio.testing.measurement_set.msv2_io import (
     gen_test_ms,
     gen_minimal_ms,
     make_ms_empty,
-)
-from xradio.testing.measurement_set.io import (
     build_minimal_msv4_xdt,
     build_processing_set_from_msv2,
-    download_measurement_set,
 )
+from xradio.testing.measurement_set.io import download_measurement_set
 
 # Ensure pytest assert introspection in vis data checks
 pytest.register_assert_rewrite("xradio.testing.measurement_set.checker")

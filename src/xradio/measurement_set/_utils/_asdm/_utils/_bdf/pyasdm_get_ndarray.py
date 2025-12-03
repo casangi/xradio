@@ -122,21 +122,15 @@ def load_vis_one_spw_auto_data_from_tree(
         vis_auto_strides = []
         for antenna_idx in np.arange(antenna_len):
             offset += auto_offset_addition_before
-            # auto_floats = auto_data_arr
-            if polarization_len == 3:
+            one_antenna_count = spw_channel_len * sd_polarization_len
+            bdf_file.seek(component_offset + offset, os.SEEK_SET)
+            spw_floats = np.fromfile(bdf_file, dtype=data_type, count=one_antenna_count)
+            if polarization_len != 3:
+                spw_floats = spw_floats.reshape((spw_channel_len, sd_polarization_len))
+            else:
                 # autoData: "The choice of a real- vs. complex-valued datum is dependent upon the
                 # polarization product...parallel-hand polarizations are real-valued, while cross-hand
                 # polarizations are complex-valued".
-                one_antenna_count = spw_channel_len * sd_polarization_len
-                bdf_file.seek(component_offset + offset, os.SEEK_SET)
-                spw_floats = np.fromfile(
-                    bdf_file,
-                    dtype=data_type,
-                    count=one_antenna_count,
-                )
-                # spw_floats = auto_floats[
-                #     offset : offset + spw_channel_len * sd_polarization_len
-                # ]
                 spw_floats = spw_floats.reshape((spw_channel_len, sd_polarization_len))
                 spw_vis = np.concatenate(
                     [
@@ -146,16 +140,8 @@ def load_vis_one_spw_auto_data_from_tree(
                     ],
                     axis=1,
                 )
-                vis_auto_strides.append(spw_vis)
-            else:
-                one_antenna_count = spw_channel_len * sd_polarization_len
-                bdf_file.seek(component_offset + offset, os.SEEK_SET)
-                spw_floats = np.fromfile(
-                    bdf_file, dtype=data_type, count=one_antenna_count
-                )
-                spw_floats = spw_floats.reshape((spw_channel_len, sd_polarization_len))
-                vis_auto_strides.append(spw_floats)
 
+            vis_auto_strides.append(spw_floats)
             offset += auto_offset_addition_after
 
         vis_subset_integrations.append(np.stack(vis_auto_strides))

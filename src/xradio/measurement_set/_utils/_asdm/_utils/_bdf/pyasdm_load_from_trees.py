@@ -4,6 +4,8 @@ import pyasdm
 
 import toolviper.utils.logger as logger
 
+from .pyasdm_get_ndarray import load_visibilities_one_spw_to_ndarray
+
 
 def add_cross_and_auto_flag_shapes(
     guessed_shape: dict[str, tuple[int, ...]],
@@ -45,27 +47,63 @@ def calculate_overall_spw_idx(
     return overall_spw_idx
 
 
+def baseband_spw_to_overall_spw_idx(baseband_spw_idxs, bdf_descr):
+    spw_chan_lens = [
+        bdf_descr["basebands"][bb_idx]["spectralWindows"][spw_idx]["numSpectralPoint"]
+        for bb_idx in range(0, len(bdf_descr["basebands"]))
+        for spw_idx in range(0, len(bdf_descr["basebands"][bb_idx]["spectralWindows"]))
+    ]
+    baseband_idx, spw_idx = baseband_spw_idxs
+    overall_spw_idx = calculate_overall_spw_idx(
+        bdf_descr["basebands"], baseband_idx, spw_idx
+    )
+
+    return overall_spw_idx
+
+
 def load_visibilities_all_subsets_from_trees(
     bdf_reader: pyasdm.bdf.BDFReader,
     guessed_shape: tuple[int, ...],
     baseband_spw_idxs: tuple[int, int],
     bdf_descr: dict,
+    load_one_spw_from_file: bool = True,
 ) -> np.ndarray:
+
+    num_channels = guessed_shape[-3]
+    if load_one_spw_from_file and num_channels > 1:
+        overall_spw_idx = baseband_spw_to_overall_spw_idx(baseband_spw_idxs, bdf_descr)
+        spw_idx = overall_spw_idx
+        load_spw_function = load_visibilities_one_spw_to_ndarray
+        load_spw_function_params = (bdf_descr, guessed_shape)
+    else:
+        spw_idx = None
+        load_spw_function = None
+        load_spw_function_params = None
 
     vis_per_subset = []
     while bdf_reader.hasSubset():
         try:
-            subset = bdf_reader.getSubset(loadOnlyComponents={"autoData", "crossData"})
+            subset = bdf_reader.getSubset(
+                loadOnlyComponents={"autoData", "crossData"},
+                spwId=spw_idx,
+                loadOneSPWFunction=load_spw_function,
+                loadOneSPWFunctionParams=load_spw_function_params,
+            )
         except ValueError as exc:
             logger.warning(f"Error in getSubset for {bdf_reader.getPath()=} {exc=}")
             return None
 
-        vis_subset = load_vis_subset_from_tree(
-            subset,
-            guessed_shape,
-            baseband_spw_idxs,
-            bdf_descr,
-        )
+        if spw_idx is None:
+            vis_subset = load_vis_subset_from_tree(
+                subset,
+                guessed_shape,
+                baseband_spw_idxs,
+                bdf_descr,
+            )
+        else:
+            # odd interface, to-be-seen, perhaps we should have
+            # a getNDArray in pyasdm separate from getSubset
+            vis_subset = subset["visibilities"]
 
         vis_per_subset.append(vis_subset)
 

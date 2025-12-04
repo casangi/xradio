@@ -594,12 +594,12 @@ def create_image_xds_from_store(
 
         # SKY get precedence over POINT_SPREAD_FUNCTION for BEAM_FIT_PARAMS
         if "SKY" in store_dict.keys():
-            if image_type == "SKY":
+            if image_type == "SKY" and "BEAM_FIT_PARAMS" in xds:
                 img_xds["BEAM_FIT_PARAMS"] = xds["BEAM_FIT_PARAMS"]
                 data_group["beam_fit_params"] = "BEAM_FIT_PARAMS"
                 img_xds["BEAM_FIT_PARAMS"].attrs["type"] = "beam_fit_params"
         elif "POINT_SPREAD_FUNCTION" in store_dict.keys():
-            if image_type == "POINT_SPREAD_FUNCTION":
+            if image_type == "POINT_SPREAD_FUNCTION" and "BEAM_FIT_PARAMS" in xds:
                 img_xds["BEAM_FIT_PARAMS"] = xds["BEAM_FIT_PARAMS"]
                 data_group["beam_fit_params"] = "BEAM_FIT_PARAMS"
                 img_xds["BEAM_FIT_PARAMS"].attrs["type"] = "beam_fit_params"

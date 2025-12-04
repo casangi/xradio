@@ -400,6 +400,8 @@ def detect_image_type(store):
             image_type = "VISIBILITY"
         elif "sumwt" in store.lower():
             image_type = "VISIBILITY_NORMALIZATION"
+        elif "zarr" in store.lower():
+            image_type = "ALL"
         else:
             image_type = "UNKNOWN"
     else:
@@ -554,7 +556,7 @@ def create_image_xds_from_store(
         )
 
     if "ALL" in store_dict:
-        img_xds = access_store_zarr(store[0], **zarr_kwargs)
+        img_xds = access_store_zarr(store, **zarr_kwargs)
         return img_xds
 
     img_xds = xr.Dataset()

@@ -118,7 +118,7 @@ def create_partitions(
         logger.info(
             f"Keeping only partitions for requested spectral resolution types. From the "
             f"ConfigDescription table, with {config_description_before_df.shape[0]} rows, "
-            f"{config_description_df.shape[0]} rows are kept for processor types "
+            f"{config_description_df.shape[0]} rows are kept for spectral resolution types "
             f"{include_spectral_resolution_types}"
         )
         if config_description_df.empty:

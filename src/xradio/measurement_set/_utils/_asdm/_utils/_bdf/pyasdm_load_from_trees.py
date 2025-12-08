@@ -5,6 +5,7 @@ import pyasdm
 import toolviper.utils.logger as logger
 
 from .pyasdm_get_ndarray import load_visibilities_one_spw_to_ndarray
+from . import config
 
 
 def add_cross_and_auto_flag_shapes(
@@ -66,7 +67,7 @@ def load_visibilities_all_subsets_from_trees(
     guessed_shape: tuple[int, ...],
     baseband_spw_idxs: tuple[int, int],
     bdf_descr: dict,
-    load_one_spw_from_file: bool = True,
+    load_one_spw_from_file: bool = config.use_load_one_spw_at_a_time,
 ) -> np.ndarray:
 
     num_channels = guessed_shape[-3]

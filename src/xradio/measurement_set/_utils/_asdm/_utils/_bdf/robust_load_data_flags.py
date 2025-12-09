@@ -273,9 +273,10 @@ def load_visibilities_all_subsets(
         try:
             subset = bdf_reader.getSubset(loadOnlyComponents={"autoData", "crossData"})
         except ValueError as exc:
+            trace = traceback.format_exc()
             logger.warning(
                 f"Error in getSubset for {bdf_reader.getPath()=}  when trying to load "
-                f"visibilities. Will use all-False. {exc=}"
+                f"visibilities. {exc=}" + trace
             )
             return None
 

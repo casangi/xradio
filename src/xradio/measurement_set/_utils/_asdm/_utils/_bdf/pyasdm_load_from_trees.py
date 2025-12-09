@@ -1,3 +1,5 @@
+import traceback
+
 import numpy as np
 
 import pyasdm
@@ -91,7 +93,11 @@ def load_visibilities_all_subsets_from_trees(
                 loadOneSPWFunctionParams=load_spw_function_params,
             )
         except ValueError as exc:
-            logger.warning(f"Error in getSubset for {bdf_reader.getPath()=} {exc=}")
+            trace = traceback.format_exc()
+            logger.warning(
+                f"Error in getSubset for {bdf_reader.getPath()=} when "
+                f"trying to load visibilities. {exc=}" + trace
+            )
             return None
 
         if spw_idx is None:

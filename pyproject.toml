@@ -85,6 +85,10 @@ all = [
     'pandoc'
 ]
 
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [tool.pytest.ini_options]
 addopts = [
     "--import-mode=importlib",
@@ -96,6 +100,9 @@ testpaths = [
 pythonpath = [
     "."
 ]
+
+[tool.setuptools]
+packages = { find = { where = ["src"] } }
 
 [tool.black]
 line-length = 88

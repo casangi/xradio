@@ -10,9 +10,7 @@ import xradio.measurement_set._utils._msv2.conversion as conversion
 from xradio.measurement_set.schema import VisibilityXds
 from xradio.schema.check import check_dataset, check_datatree
 
-from tests.unit.measurement_set.ms_test_utils.check_msv4_matches_msv2_description import (
-    check_msv4_matches_descr,
-)
+from xradio.testing.measurement_set.checker import check_msv4_matches_descr
 
 
 minxds = namedtuple("minxds", "data_vars coords sizes")

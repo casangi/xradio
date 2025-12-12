@@ -20,14 +20,15 @@ except ImportError:
     from xradio._utils._casacore.casacore_from_casatools import image as casa_image
 
 
-from .common import (
-    _active_mask,
+from xradio.image._util._casacore.common import (
+    _image_flag,
+    _beam_fit_params,
     _object_name,
     _open_image_ro,
     _pointing_center,
 )
 
-from ..common import (
+from xradio.image._util.common import (
     _compute_linear_world_values,
     _compute_velocity_values,
     _compute_world_sph_dims,
@@ -38,7 +39,7 @@ from ..common import (
     _image_type,
     _l_m_attr_notes,
 )
-from ...._utils._casacore.tables import extract_table_attributes, open_table_ro
+from xradio._utils._casacore.tables import extract_table_attributes, open_table_ro
 from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import (
     _casacore_q_to_xradio_q,
@@ -70,13 +71,13 @@ def _add_mask(
     xda = xr.DataArray(ary, dims=dimorder)
     # True pixels are good in numpy masked arrays
     xda = da.logical_not(xda)
-    xda.attrs["image"] = "mask"
+    xda.attrs["type"] = "flag"
     xda = xda.rename(name)
     xds[xda.name] = xda
     return xds
 
 
-def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = False) -> dict:
+def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = False, image_type: str = "SKY") -> dict:
     """
     get the image attributes from the casacoreimage object
     """
@@ -189,7 +190,7 @@ def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = False) -> 
             am = re.sub(r"\bMASK(\d+)\b", r"MASK_\1", am)
         else:
             am = None
-        attrs[_active_mask] = am
+        attrs[_image_flag] = "FLAG_" + image_type.upper()
     attrs["description"] = None
     # Store history as a dict (not xr.Dataset) for Xarray compatibility
     if history:
@@ -216,7 +217,7 @@ def _add_sky_or_aperture(
 ) -> xr.Dataset:
     xda = xr.DataArray(ary, dims=dimorder).astype(ary.dtype)
     with _open_image_ro(img_full_path) as casa_image:
-        xda.attrs = _casa_image_to_xds_image_attrs(casa_image, history)
+        xda.attrs = _casa_image_to_xds_image_attrs(casa_image, history, image_type)
     # xds.attrs = attrs
     # name = "SKY" if has_sph_dims else "APERTURE"
     xda = xda.rename(image_type)
@@ -875,7 +876,7 @@ def _get_velocity_values_attrs(
 
 
 def _get_beam(
-    img_full_path: str, nchan: int, npol: int, as_dask_array: bool
+    img_full_path: str, nchan: int, npol: int, as_dask_array: bool, image_type: str = "SKY"
 ) -> Union[xr.DataArray, None]:
     # the image may have multiple beams
     with _open_image_ro(img_full_path) as casa_image:
@@ -910,7 +911,7 @@ def _get_beam(
     xdb = xr.DataArray(
         beam_array, dims=["time", "frequency", "polarization", "beam_params_label"]
     )
-    xdb = xdb.rename("BEAM_FIT_PARAMS")
+    xdb = xdb.rename("BEAM_FIT_PARAMS_" + image_type.upper())
     xdb = xdb.assign_coords(beam_params_label=["major", "minor", "pa"])
     xdb.attrs["units"] = "rad"
     return xdb

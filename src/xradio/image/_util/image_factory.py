@@ -367,7 +367,7 @@ def detect_image_type(store):
         - 'POINT_SPREAD_FUNCTION': PSF image (contains 'psf')
         - 'MODEL': Model image (contains 'model')
         - 'RESIDUAL': Residual image (contains 'residual')
-        - 'MASK': Mask image (contains 'mask')
+        - 'MASK_DECONVOLVE': Mask image (contains 'mask')
         - 'PRIMARY_BEAM': Primary beam image (contains 'pb')
         - 'APERTURE': Aperture image (contains 'aperture')
         - 'VISIBILITY': Visibility image (contains 'visibility')
@@ -391,7 +391,7 @@ def detect_image_type(store):
         elif "residual" in store.lower():
             image_type = "RESIDUAL"
         elif "mask" in store.lower():
-            image_type = "MASK"
+            image_type = "MASK_DECONVOLVE"
         elif "pb" in store.lower():
             image_type = "PRIMARY_BEAM"
         elif "aperture" in store.lower():
@@ -592,32 +592,19 @@ def create_image_xds_from_store(
         img_xds[image_type] = xds[image_type]
         img_xds[image_type].attrs["type"] = image_type.lower()
 
-        # SKY get precedence over POINT_SPREAD_FUNCTION for BEAM_FIT_PARAMS
-        if "SKY" in store_dict.keys():
-            if image_type == "SKY" and "BEAM_FIT_PARAMS" in xds:
-                img_xds["BEAM_FIT_PARAMS"] = xds["BEAM_FIT_PARAMS"]
-                data_group["beam_fit_params"] = "BEAM_FIT_PARAMS"
-                img_xds["BEAM_FIT_PARAMS"].attrs["type"] = "beam_fit_params"
-        elif "POINT_SPREAD_FUNCTION" in store_dict.keys():
-            if image_type == "POINT_SPREAD_FUNCTION" and "BEAM_FIT_PARAMS" in xds:
-                img_xds["BEAM_FIT_PARAMS"] = xds["BEAM_FIT_PARAMS"]
-                data_group["beam_fit_params"] = "BEAM_FIT_PARAMS"
-                img_xds["BEAM_FIT_PARAMS"].attrs["type"] = "beam_fit_params"
+        if "BEAM_FIT_PARAMS_" + image_type.upper() in xds:
+            img_xds["BEAM_FIT_PARAMS_"+image_type.upper()] = xds["BEAM_FIT_PARAMS_" + image_type.upper()]
+            data_group["beam_fit_params_"+image_type.lower()] = "BEAM_FIT_PARAMS_" + image_type.upper()
 
-        if image_type == "MASK":
-            img_xds["MASK"] = xds["MASK"]
-            img_xds["MASK"].attrs["type"] = "mask"
-            data_group["mask"] = "MASK"
-        else:
-            if "MASK_0" in xds:
-                img_xds["MASK_" + image_type] = xds["MASK_0"]
-                data_group["mask_" + image_type.lower()] = "MASK_" + image_type
-                img_xds["MASK_" + image_type].attrs["type"] = "mask"
+        if "MASK_0" in xds:
+            img_xds["FLAG_" + image_type] = xds["MASK_0"]
+            data_group["flag_" + image_type.lower()] = "FLAG_" + image_type
+            img_xds["FLAG_" + image_type].attrs["type"] = "flag_" + image_type.lower()
 
-            if "MASK" in xds:
-                img_xds["MASK_" + image_type] = xds["MASK"]
-                data_group["mask_" + image_type.lower()] = "MASK_" + image_type
-                img_xds["MASK_" + image_type].attrs["type"] = "mask"
+        if "MASK" in xds:
+            img_xds["FLAG_" + image_type] = xds["MASK"]
+            data_group["flag_" + image_type.lower()] = "FLAG_" + image_type
+            img_xds["FLAG_" + image_type].attrs["type"] = "flag_" + image_type.lower()
 
         data_group[image_type.lower()] = image_type
 

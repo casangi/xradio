@@ -36,6 +36,11 @@ from xradio.image._util.common import (
     _l_m_attr_notes,
 )
 
+from xradio.image._util._casacore.common import (
+    _image_flag,
+    _beam_fit_params,
+)
+
 
 def _fits_image_to_xds(
     img_full_path: str,
@@ -74,11 +79,14 @@ def _fits_image_to_xds(
     xds.attrs = attrs
     xds = _add_coord_attrs(xds, helpers)
     if helpers["has_multibeam"]:
-        xds = _do_multibeam(xds, img_full_path)
+        xds = _do_multibeam(xds, img_full_path, image_type=image_type)
+        xds[image_type.upper()].attrs[_beam_fit_params] = "BEAM_FIT_PARAMS_" + image_type.upper()
+        xds["BEAM_FIT_PARAMS_" + image_type.upper()].attrs["type"] = "beam_fit_params_" + image_type.lower()
     elif "beam" in helpers and helpers["beam"] is not None:
-        xds = _add_beam(xds, helpers)
+        xds = _add_beam(xds, helpers, image_type)
+        xds[image_type.upper()].attrs[_beam_fit_params] = "BEAM_FIT_PARAMS_" + image_type.upper()
+        xds["BEAM_FIT_PARAMS_" + image_type.upper()].attrs["type"] = "beam_fit_params_" + image_type.lower()
     return xds
-
 
 def _add_coord_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     xds = _add_time_attrs(xds, helpers)
@@ -764,7 +772,7 @@ def _get_velocity_values(helpers: dict) -> list:
 # FIXME change namee, even if there is only a single beam, we make a
 # multi beam array using it. If we have a beam, it will always be
 # "mutltibeam" is name is redundant and confusing
-def _do_multibeam(xds: xr.Dataset, imname: str) -> xr.Dataset:
+def _do_multibeam(xds: xr.Dataset, imname: str, image_type: str = "SKY") -> xr.Dataset:
     """Only run if we are sure there are multiple beams"""
     hdulist = fits.open(imname)
     for hdu in hdulist:
@@ -786,31 +794,31 @@ def _do_multibeam(xds: xr.Dataset, imname: str) -> xr.Dataset:
                 beam_array[:, :, :, i] = (
                     (beam_array[:, :, :, i] * units[i]).to("rad").value
                 )
-            return _create_beam_data_var(xds, beam_array)
+            return _create_beam_data_var(xds, beam_array, image_type)
     raise RuntimeError(
         "It looks like there should be a BEAMS table but no "
         "such table found in FITS file"
     )
 
 
-def _add_beam(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
+def _add_beam(xds: xr.Dataset, helpers: dict, image_type: str = "SKY") -> xr.Dataset:
     nchan = xds.sizes["frequency"]
     npol = xds.sizes["polarization"]
     beam_array = np.zeros([1, nchan, npol, 3])
     beam_array[0, :, :, 0] = helpers["beam"]["bmaj"]["data"]
     beam_array[0, :, :, 1] = helpers["beam"]["bmin"]["data"]
     beam_array[0, :, :, 2] = helpers["beam"]["pa"]["data"]
-    return _create_beam_data_var(xds, beam_array)
+    return _create_beam_data_var(xds, beam_array, image_type)
 
 
-def _create_beam_data_var(xds: xr.Dataset, beam_array: np.array) -> xr.Dataset:
+def _create_beam_data_var(xds: xr.Dataset, beam_array: np.array, image_type: str = "SKY") -> xr.Dataset:
     xdb = xr.DataArray(
         beam_array, dims=["time", "frequency", "polarization", "beam_params_label"]
     )
-    xdb = xdb.rename("BEAM_FIT_PARAMS")
+    xdb = xdb.rename("BEAM_FIT_PARAMS_" + image_type.upper())
     xdb = xdb.assign_coords(beam_params_label=["major", "minor", "pa"])
     xdb.attrs["units"] = "rad"
-    xds["BEAM_FIT_PARAMS"] = xdb
+    xds["BEAM_FIT_PARAMS_" + image_type.upper()] = xdb
     return xds
 
 
@@ -867,9 +875,9 @@ def _add_sky_or_aperture(
         pp = da if type(xda[0].data) == dask.array.core.Array else np
         mask = pp.isnan(xda)
         mask.attrs = {}
-        mask = mask.rename("MASK_0")
-        xds["MASK_0"] = mask
-        xda.attrs["active_mask"] = "MASK_0"
+        mask = mask.rename("FLAG_" + name.upper())
+        xds["FLAG_" + name.upper()] = mask
+        xds[name.upper()].attrs[_image_flag] = "FLAG_" + name.upper()
     xda = xda.rename(name)
     xds[xda.name] = xda
     return xds

@@ -13,9 +13,9 @@ try:
 except ImportError:
     import xradio._utils._casacore.casacore_from_casatools as tables
 
-from .common import _active_mask, _create_new_image, _object_name, _pointing_center
-from ..common import _aperture_or_sky, _compute_sky_reference_pixel, _doppler_types
-from ...._utils._casacore.tables import open_table_rw
+from xradio.image._util._casacore.common import  _image_flag, _beam_fit_params, _create_new_image, _object_name, _pointing_center
+from xradio.image._util.common import _aperture_or_sky, _compute_sky_reference_pixel, _doppler_types
+from xradio._utils._casacore.tables import open_table_rw
 
 
 def _compute_direction_dict(xds: xr.Dataset) -> dict:
@@ -339,8 +339,8 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
         else ("frequency", "polarization", "v", "u")
     )
     casa_image_shape = xds[sky_ap].isel(time=0).transpose(*trans_coords).shape[::-1]
-    active_mask = (
-        xds[sky_ap].attrs["active_mask"] if _active_mask in xds[sky_ap].attrs else ""
+    flag = (
+        xds[sky_ap].attrs[_image_flag] if _image_flag in xds[sky_ap].attrs else ""
     )
     masks = []
     masks_rec = {}
@@ -376,15 +376,15 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
     do_mask_nans = False
     there_are_nans = nan_mask.any()
     if there_are_nans:
-        has_active_mask = bool(active_mask)
-        if not has_active_mask:
+        has_flag = bool(flag)
+        if not has_flag:
             do_mask_nans = True
         else:
-            notted_active_mask = xr.apply_ufunc(
-                da.logical_not, xds[active_mask].copy(deep=True), dask="allowed"
+            notted_flag = xr.apply_ufunc(
+                da.logical_not, xds[flag].copy(deep=True), dask="allowed"
             )
             some_nans_are_not_already_masked = xr.apply_ufunc(
-                da.logical_and, nan_mask, notted_active_mask, dask="allowed"
+                da.logical_and, nan_mask, notted_flag, dask="allowed"
             )
             do_mask_nans = some_nans_are_not_already_masked.any()
     if do_mask_nans:

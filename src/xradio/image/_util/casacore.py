@@ -18,8 +18,8 @@ try:
 except ImportError:
     import xradio._utils._casacore.casacore_from_casatools as tables
 
-from ._casacore.common import _open_image_ro
-from ._casacore.xds_from_casacore import (
+
+from xradio.image._util._casacore.xds_from_casacore import (
     _add_mask,
     _add_sky_or_aperture,
     _casa_image_to_xds_attrs,
@@ -31,13 +31,14 @@ from ._casacore.xds_from_casacore import (
     _get_beam,
     _read_image_array,
 )
-from ._casacore.xds_to_casacore import (
+from xradio.image._util._casacore.xds_to_casacore import (
     _coord_dict_from_xds,
     _history_from_xds,
     _imageinfo_dict_from_xds,
     _write_casa_data,
 )
-from .common import _aperture_or_sky, _get_xds_dim_order, _dask_arrayize_dv
+from xradio.image._util.common import _aperture_or_sky, _get_xds_dim_order, _dask_arrayize_dv
+from xradio.image._util._casacore.common import _beam_fit_params, _open_image_ro
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -72,7 +73,7 @@ def _load_casa_image_block(
         mask_name = re.sub(r"\bMASK(\d+)\b", r"MASK_\1", m.upper())
         xds = _add_mask(xds, mask_name, block, dimorder)
     xds.attrs = _casa_image_to_xds_attrs(image_full_path)
-    beam = _get_beam(image_full_path, nchan, npol, False)
+    beam = _get_beam(image_full_path, nchan, npol, False, image_type)
 
     if beam is not None:
         selectors = {
@@ -80,7 +81,9 @@ def _load_casa_image_block(
             for k in ("time", "frequency", "polarization")
             if k in block_des
         }
-        xds["BEAM_FIT_PARAMS"] = beam.isel(selectors)
+        xds["BEAM_FIT_PARAMS_"+image_type.upper()] = beam.isel(selectors)
+        xds["BEAM_FIT_PARAMS_" + image_type.upper()].attrs["type"] = "beam_fit_params_" + image_type.lower()
+        xds[image_type.upper()].attrs[_beam_fit_params] = "BEAM_FIT_PARAMS_" + image_type.upper()
     return xds
 
 
@@ -115,12 +118,17 @@ def _open_casa_image(
             xds = _add_mask(xds, mask_name, ary, dimorder)
     xds.attrs = _casa_image_to_xds_attrs(img_full_path)
     beam = _get_beam(
-        img_full_path, xds.sizes["frequency"], xds.sizes["polarization"], True
+        img_full_path, xds.sizes["frequency"], xds.sizes["polarization"], True, image_type
     )
     if beam is not None:
-        xds["BEAM_FIT_PARAMS"] = beam
+        xds["BEAM_FIT_PARAMS_" + image_type.upper()] = beam
+        xds["BEAM_FIT_PARAMS_" + image_type.upper()].attrs["type"] = "beam_fit_params_" + image_type.lower()
+        xds[image_type.upper()].attrs[_beam_fit_params] = "BEAM_FIT_PARAMS_" + image_type.upper()
+        
+        
     # xds = _add_coord_attrs(xds, ret["icoords"], ret["dir_axes"])
     xds = _dask_arrayize_dv(xds)
+    
     return xds
 
 

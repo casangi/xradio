@@ -131,6 +131,11 @@ def load_vis_one_spw_auto_data_from_tree(
         offset=component_offset,
         shape=mmap_shape,
     )
+    madvise_auto_opt = 0
+    if madvise_auto_opt > 0:
+        # 1: AMDV_RANDOM, 2: MADV_SEQUENTIAL, 3: MADV_WILLNEED
+        # 4: MADV_DONTNEED
+        auto_data_mmap._mmap.madvise(madvise_auto_opt)
     for time_idx in np.arange(0, guessed_shape[0]):
         vis_auto_strides = []
         for antenna_idx in np.arange(antenna_len):
@@ -203,6 +208,11 @@ def load_vis_one_spw_cross_data_from_tree(
         offset=component_offset,
         shape=mmap_shape,
     )
+    madvise_cross_opt = 0
+    if madvise_cross_opt > 0:
+        # 1: AMDV_RANDOM, 2: MADV_SEQUENTIAL, 3: MADV_WILLNEED
+        # 4: MADV_DONTNEED
+        cross_data_mmap._mmap.madvise(madvise_auto_opt)
     for time_idx in np.arange(0, time_len):
         vis_strides = []
         for baseline_idx in np.arange(baseline_len):

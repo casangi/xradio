@@ -7,7 +7,7 @@ import xarray as xr
 
 from xradio._utils.list_and_array import to_list
 
-IMAGE_DATASET_TYPES = {"image"}
+IMAGE_DATASET_TYPES = {"image_dataset"}
 
 from xradio._utils.xarray_helpers import get_data_group_name, create_new_data_group
 

@@ -390,6 +390,8 @@ def detect_image_type(store):
             image_type = "MODEL"
         elif "residual" in store.lower():
             image_type = "RESIDUAL"
+        elif "dirty" in store.lower():
+            image_type = "DIRTY"
         elif "mask" in store.lower():
             image_type = "MASK_DECONVOLVE"
         elif "pb" in store.lower():
@@ -477,8 +479,19 @@ def create_store_dict(store_to_label):
             image_type = "ALL"  # Zarr can have multiple data variables.
 
         store_dict[image_type] = {"store_type": store_type, "store": store}
+        
+    data_groups = {}
+    
+    for image_type in store_dict.keys():
+        if "sky" in image_type.lower():
+            if "sky" == image_type.lower():
+                data_groups["base"] = {'sky': image_type}
+            else:
+                data_group_name = image_type.lower().replace("sky_", "")
+                data_groups[data_group_name] = {'sky': image_type}
+            
 
-    return store_dict
+    return store_dict, data_groups
 
 
 def create_image_xds_from_store(
@@ -545,7 +558,7 @@ def create_image_xds_from_store(
     - BEAM_FIT_PARAMS from SKY images take precedence over POINT_SPREAD_FUNCTION.
     - Masks are renamed to MASK_<IMAGE_TYPE> for internal masks.
     """
-    store_dict = create_store_dict(store)
+    store_dict, data_groups = create_store_dict(store)
 
     if "ALL" in store_dict and len(store_dict) > 1:
         logger.error(
@@ -560,10 +573,8 @@ def create_image_xds_from_store(
         return img_xds
 
     img_xds = xr.Dataset()
-    data_group = {}
-    data_group_name = "base"
 
-    generic_image_counter = 0
+    #Loop over all the input CASA and Fits images.
     for image_type, store_description in store_dict.items():
 
         store_type = store_description["store_type"]
@@ -591,23 +602,48 @@ def create_image_xds_from_store(
         # print("image type:", image_type)
         img_xds[image_type] = xds[image_type]
         img_xds[image_type].attrs["type"] = image_type.lower()
+        
+        active_data_group_name = None
+        #If sky image, handle internal masks and beam fit params.
+        if "sky" in image_type.lower():
+            for data_group_name, data_group in data_groups.items():
+                if data_group["sky"] == image_type:
+                    active_data_group_name = data_group_name
 
-        if "BEAM_FIT_PARAMS_" + image_type.upper() in xds:
-            img_xds["BEAM_FIT_PARAMS_"+image_type.upper()] = xds["BEAM_FIT_PARAMS_" + image_type.upper()]
-            data_group["beam_fit_params_"+image_type.lower()] = "BEAM_FIT_PARAMS_" + image_type.upper()
+            if "BEAM_FIT_PARAMS_" + image_type.upper() in xds:
+                img_xds["BEAM_FIT_PARAMS_"+image_type.upper()] = xds["BEAM_FIT_PARAMS_" + image_type.upper()]
+                data_groups[active_data_group_name]["beam_fit_params_sky"] = "BEAM_FIT_PARAMS_" + image_type.upper()
 
-        if "MASK_0" in xds:
-            img_xds["FLAG_" + image_type] = xds["MASK_0"]
-            data_group["flag_" + image_type.lower()] = "FLAG_" + image_type
-            img_xds["FLAG_" + image_type].attrs["type"] = "flag_" + image_type.lower()
+            if "MASK_0" in xds:
+                img_xds["FLAG_" + image_type] = xds["MASK_0"]
+                data_groups[active_data_group_name]["flag"] = "FLAG_" + image_type
+                img_xds["FLAG_" + image_type].attrs["type"] = "flag"
 
-        if "MASK" in xds:
-            img_xds["FLAG_" + image_type] = xds["MASK"]
-            data_group["flag_" + image_type.lower()] = "FLAG_" + image_type
-            img_xds["FLAG_" + image_type].attrs["type"] = "flag_" + image_type.lower()
+            if "MASK" in xds:
+                img_xds["FLAG_" + image_type] = xds["MASK"]
+                data_groups[active_data_group_name]["flag"] = "FLAG_" + image_type
+                img_xds["FLAG_" + image_type].attrs["type"] = "flag"
+                
+            img_xds[image_type].attrs["type"] = "sky"
 
-        data_group[image_type.lower()] = image_type
+        #If point spread function, handle beam fit params.
+        if "point_spread_function" in image_type.lower():
+            if "BEAM_FIT_PARAMS_" + image_type.upper() in xds:                
+                img_xds["BEAM_FIT_PARAMS_"+image_type.upper()] = xds["BEAM_FIT_PARAMS_" + image_type.upper()]  
 
-    img_xds.attrs["type"] = "image"
-    img_xds.attrs["data_groups"] = {data_group_name: data_group}
+                
+
+        #Figure out data groups.
+        #Each sky image gets its own data group and shares all other images between them.
+        if "sky" not in image_type.lower():
+            for data_group_name, data_group in data_groups.items():
+                data_group[image_type.lower()] = image_type
+                
+                if "point_spread_function" in image_type.lower():
+                    if "BEAM_FIT_PARAMS_" + image_type.upper() in xds:    
+                        data_group["beam_fit_params_point_spread_function"] = "BEAM_FIT_PARAMS_" + image_type.upper()
+            
+
+    img_xds.attrs["type"] = "image_dataset"
+    img_xds.attrs["data_groups"] = data_groups
     return img_xds

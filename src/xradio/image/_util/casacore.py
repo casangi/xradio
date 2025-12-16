@@ -145,9 +145,11 @@ def _xds_to_multiple_casa_images(xds: xr.Dataset, image_store_name: str) -> None
     image_store_name : str
         The base name or path for storing the output CASA images.
     """
+    
+    data_vars_name_set = set(xds.data_vars.keys())
 
     data_group_keys = list(get_data_group_keys(schema_name="image").keys())
-    internal_image_types_to_exclude = ["mask_sky", "mask_residual", "beam_fit_params"]
+    internal_image_types_to_exclude = ["flag", "beam_fit_params_sky", "beam_fit_params_point_spread_function"]
 
     for data_group in xds.attrs["data_groups"].keys():
         for image_type in data_group_keys:
@@ -155,57 +157,45 @@ def _xds_to_multiple_casa_images(xds: xr.Dataset, image_store_name: str) -> None
                 image_type not in internal_image_types_to_exclude
             ):
                 image_name = xds.attrs["data_groups"][data_group][image_type]
-                if image_name in xds.data_vars:
+                if image_name in data_vars_name_set:
                     image_to_write_xds = xr.Dataset()
                     image_to_write_xds.attrs = xds.attrs.copy()
-
-                    # This code handles adding internal masks and beam fit params if they exist.
-                    if image_type == "sky":
-                        if "beam_fit_params" in xds.attrs["data_groups"][data_group]:
-                            beam_fit_params_name = xds.attrs["data_groups"][data_group][
-                                "beam_fit_params"
-                            ]
-                            image_to_write_xds["BEAM_FIT_PARAMS"] = xds[
-                                beam_fit_params_name
-                            ]
-
-                        if "mask_sky" in xds.attrs["data_groups"][data_group]:
-                            mask_sky_name = xds.attrs["data_groups"][data_group][
-                                "mask_sky"
-                            ]
-                            image_to_write_xds["MASK_0"] = xds[mask_sky_name]
-
-                    if image_type == "residual":
-                        if "beam_fit_params" in xds.attrs["data_groups"][data_group]:
-                            beam_fit_params_name = xds.attrs["data_groups"][data_group][
-                                "beam_fit_params"
-                            ]
-                            image_to_write_xds["BEAM_FIT_PARAMS"] = xds[
-                                beam_fit_params_name
-                            ]
-
-                        if "mask_residual" in xds.attrs["data_groups"][data_group]:
-                            mask_sky_name = xds.attrs["data_groups"][data_group][
-                                "mask_sky"
-                            ]
-                            image_to_write_xds["MASK_0"] = xds[mask_sky_name]
-
-                    if image_type == "point_spread_function":
-                        if "beam_fit_params" in xds.attrs["data_groups"][data_group]:
-                            beam_fit_params_name = xds.attrs["data_groups"][data_group][
-                                "beam_fit_params"
-                            ]
-                            image_to_write_xds["BEAM_FIT_PARAMS"] = xds[
-                                beam_fit_params_name
-                            ]
-
+                    
                     image_to_write_xds["SKY"] = xds[
                         image_name
                     ]  # Setting everying to sky for writing purposes.
 
+                    # This code handles adding internal masks and beam fit params if they exist.
+                    if image_type == "sky":
+                        if "beam_fit_params_sky" in xds.attrs["data_groups"][data_group]:
+                            beam_fit_params_name = xds.attrs["data_groups"][data_group][
+                                "beam_fit_params_sky"
+                            ]
+                            image_to_write_xds["BEAM_FIT_PARAMS"] = xds[
+                                beam_fit_params_name
+                            ]
+
+                        if "flag" in xds.attrs["data_groups"][data_group]:
+                            mask_sky_name = xds.attrs["data_groups"][data_group][
+                                "flag"
+                            ]
+                            image_to_write_xds["MASK_0"] = xds[mask_sky_name]
+                            image_to_write_xds["SKY"].attrs["flag"] = "MASK_0"
+
+                    if image_type == "point_spread_function":
+                        if "beam_fit_params_point_spread_function" in xds.attrs["data_groups"][data_group]:
+                            beam_fit_params_name = xds.attrs["data_groups"][data_group][
+                                "beam_fit_params_point_spread_function"
+                            ]
+                            image_to_write_xds["BEAM_FIT_PARAMS"] = xds[
+                                beam_fit_params_name
+                            ]
+                    
                     _xds_to_casa_image(
                         image_to_write_xds, image_store_name + "." + image_type
                     )
+                    
+                    data_vars_name_set.remove(image_name)
 
 
 def _xds_to_casa_image(xds: xr.Dataset, image_store_name: str) -> None:

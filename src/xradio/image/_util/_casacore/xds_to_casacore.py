@@ -330,7 +330,9 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
 
 
 def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
+    
     sky_ap = _aperture_or_sky(xds)
+   
     if xds[sky_ap].shape[0] != 1:
         raise RuntimeError("XDS can only be converted if it has exactly one time plane")
     trans_coords = (
@@ -342,6 +344,7 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
     flag = (
         xds[sky_ap].attrs[_image_flag] if _image_flag in xds[sky_ap].attrs else ""
     )
+
     masks = []
     masks_rec = {}
     mask_rec = {
@@ -399,8 +402,8 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
         ] = f"Table: {os.sep.join([image_full_path, mask_name])}"
         masks.append(mask_name)
         arr_masks[mask_name] = nan_mask
-        if active_mask:
-            mask_name = f"mask_xds_nans_or_{active_mask}"
+        if flag:
+            mask_name = f"mask_xds_nans_or_{flag}"
             i = 0
             while mask_name in masks:
                 mask_name = f"mask_xds_nans{i}"
@@ -414,22 +417,22 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
             # apparent reason, so make a copy of the xds to run it on
             arr_masks[mask_name] = xr.apply_ufunc(
                 da.logical_or,
-                xds[active_mask].copy(deep=True),
+                xds[flag].copy(deep=True),
                 nan_mask,
                 dask="allowed",
             )
-        active_mask = mask_name
+        flag = mask_name
     data_type = "complex" if "u" in xds.coords else "float"
-    _write_initial_image(xds, image_full_path, active_mask, casa_image_shape[::-1])
+    
+    _write_initial_image(xds, image_full_path, flag, casa_image_shape[::-1])
     for v in myvars:
-        _write_pixels(v, active_mask, image_full_path, xds)
+        _write_pixels(v, flag, image_full_path, xds)
     for name, v in arr_masks.items():
-        _write_pixels(name, active_mask, image_full_path, xds, v)
+        _write_pixels(name, flag, image_full_path, xds, v)
     if masks:
         with open_table_rw(image_full_path) as tb:
             tb.putkeyword("masks", masks_rec)
-            tb.putkeyword("Image_defaultmask", active_mask)
-
+            tb.putkeyword("Image_defaultmask", flag)
 
 def _write_initial_image(
     xds: xr.Dataset, imagename: str, maskname: str, image_shape: tuple

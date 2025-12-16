@@ -222,10 +222,10 @@ def _make_uv_values(
     im_size_wave = 1 / np.array(sky_image_cell_size)
     uv_cell_size = im_size_wave / np.array(image_size)
     u_vals = [
-        (i - image_size[0] // 2) * abs(uv_cell_size[0]) for i in range(image_size[0])
+        (i - image_size[0] // 2) * uv_cell_size[0] for i in range(image_size[0])
     ]
     v_vals = [
-        (i - image_size[1] // 2) * abs(uv_cell_size[1]) for i in range(image_size[1])
+        (i - image_size[1] // 2) * uv_cell_size[1] for i in range(image_size[1])
     ]
     return {"u": u_vals, "v": v_vals}
 

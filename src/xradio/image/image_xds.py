@@ -82,6 +82,121 @@ class ImageXds:
 
         self._xds.attrs["data_groups"][new_data_group_name] = new_data_group
         return self._xds
+    
+    def get_lm_cell_size(self):
+        """Get the lm cell size in radians from the image Dataset.
+
+        Returns
+        -------
+        float
+            The lm cell size in radians.
+        """
+
+        if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
+            raise InvalidAccessorLocation(f"{self._xds.path} is not a image node.")
+
+        l_cell_size = self._xds.coords["l"][1].values - self._xds.coords["l"][0].values
+        m_cell_size = self._xds.coords["m"][1].values - self._xds.coords["m"][0].values
+        
+        return np.array([l_cell_size, m_cell_size]) 
+    
+    def add_uv_coordinates(self) -> xr.Dataset:
+        """Adds the uv coordinates in wavelengths to the image Dataset.
+
+        Parameters
+        ----------
+ 
+        Returns
+        -------
+        xr.Dataset
+            Image Dataset with the uv coordinates added.
+        """
+
+        if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
+            raise InvalidAccessorLocation(f"{self._xds.path} is not a image node.")
+        
+        from xradio.image._util.image_factory import _make_uv_coords
+        
+  
+        #self._xds = _make_uv_coords(self._xds,image_size=image_size, sky_image_cell_size=self.get_lm_cell_size())
+        
+        #Calculate uv coordinates in meters based on l and m. _make_uv_coords assumes reference pixel at center (not necessary the case).
+        delta = self.get_lm_cell_size()
+        image_size = [self._xds.sizes["l"], self._xds.sizes["m"]]
+     
+        u = self._xds.coords["l"].values/((delta[0]**2) * image_size[0])
+        v = self._xds.coords["m"].values/((delta[1]**2) * image_size[1])
+
+        self._xds = self._xds.assign_coords({"u": u, "v": v})
+        return self._xds
+    
+    def get_uv_in_lambda(self, frequency: float):
+        """Get the uv coordinates in wavelengths for a specific frequency from the image Dataset.
+
+        Parameters
+        ----------
+        frequency : float
+            The frequency in Hz to calculate the uv coordinates in wavelengths.
+
+        Returns
+        -------
+        np.ndarray
+            The uv coordinates in wavelengths.
+        """
+
+        if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
+            raise InvalidAccessorLocation(f"{self._xds.path} is not a image node.")
+
+        c = 299792458.0  # Speed of light in m/s
+        wavelength = c / frequency  # Wavelength in meters
+
+        u_in_lambda = self._xds.coords["u"] / wavelength
+        v_in_lambda = self._xds.coords["v"] / wavelength
+        
+        return u_in_lambda, v_in_lambda
+
+
+
+    def get_reference_pixel_indices(self):
+        """Get the reference pixel indices from the image Dataset. The reference pixel is defined as the pixel where l=0 and m=0 or u=0 and v=0.
+
+        Returns
+        -------
+        dict
+            A dictionary with the reference pixel indices for each dimension.
+        """
+
+        if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
+            raise InvalidAccessorLocation(f"{self._xds.path} is not a image node.")
+
+        image_center_index = None
+        
+        if "l" in self._xds.coords:
+            l_index = np.where(self._xds.coords["l"].values == 0)[0][0]
+            m_index = np.where(self._xds.coords["m"].values == 0)[0][0]
+            
+            lm_indexes = np.array([l_index, m_index])
+            image_center_index = lm_indexes
+        else:
+            lm_indexes = None
+        
+        if "u" in self._xds.coords:
+            u_index = np.where(self._xds.coords["u"].values == 0)[0][0]
+            v_index = np.where(self._xds.coords["v"].values == 0)[0][0] 
+            uv_indexes = np.array([u_index, v_index])
+            
+            assert np.array_equal(lm_indexes, uv_indexes), "lm and uv reference pixel indices do not match."
+            image_center_index = uv_indexes
+        else:
+            uv_indexes = None
+            
+        if image_center_index is None:
+            raise ValueError("No lm or uv coordinates found in the image Dataset.") 
+            
+        return image_center_index
+
+
+
 
     def sel(
         self,

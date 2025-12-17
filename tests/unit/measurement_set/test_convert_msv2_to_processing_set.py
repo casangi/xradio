@@ -79,7 +79,7 @@ def test_convert_msv2_to_processing_set_with_other_opts(ms_minimal_misbehaved):
             ms_minimal_misbehaved.fname,
             out_file=out_path,
             partition_scheme=["FIELD_ID"],
-            overwrite=False,
+            persistence_mode="w",
             parallel_mode="bogus_mode",
         )
         ps_xdt = xr.open_datatree(out_path_with_ending, engine="zarr")

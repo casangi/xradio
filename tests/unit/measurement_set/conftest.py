@@ -204,7 +204,7 @@ def msv4_xdt_min(ms_minimal_required, processing_set_min_path, msv4_min_path):
         "msv4id",
         {"DATA_DESC_ID": [0], "OBS_MODE": ["CAL_ATMOSPHERE#ON_SOURCE"]},
         use_table_iter=False,
-        overwrite=True,
+        persistence_mode="w",
     )
 
     msv4_xdt = xr.open_datatree(
@@ -279,7 +279,7 @@ def processing_set_from_custom_ms(request):
         in_file=msv2_name,
         out_file=ps_name,
         partition_scheme=[],
-        overwrite=False,
+        persistence_mode="w",
         parallel_mode="partition",
     )
     open_processing_set(ps_name)  # check it opens
@@ -310,7 +310,7 @@ def convert_measurement_set_to_processing_set(request, tmp_path):
         pointing_interpolate=True,
         ephemeris_interpolate=True,
         use_table_iter=False,
-        overwrite=True,
+        persistence_mode="w",
         parallel_mode="none",
     )
     open_processing_set(str(ps_path))  # check it opens

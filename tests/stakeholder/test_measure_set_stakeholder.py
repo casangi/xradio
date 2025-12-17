@@ -76,7 +76,7 @@ def download_and_convert_msv2_to_processing_set(
         # phase_cal_interpolate=True,
         # sys_cal_interpolate=True,
         use_table_iter=False,
-        overwrite=True,
+        persistence_mode="w",
         parallel_mode=parallel_mode,
     )
     return ps_name

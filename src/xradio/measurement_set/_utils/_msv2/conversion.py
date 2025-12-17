@@ -1411,7 +1411,9 @@ def convert_and_write_partition(
             ms_xdt["/phased_array_xds"] = phased_array_xds
 
         if storage_backend == "zarr":
-            ms_xdt.to_zarr(store=os.path.join(out_file, ms_v4_name), mode=persistence_mode)
+            ms_xdt.to_zarr(
+                store=os.path.join(out_file, ms_v4_name), mode=persistence_mode
+            )
         elif storage_backend == "netcdf":
             # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
             raise

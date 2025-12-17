@@ -13,8 +13,18 @@ try:
 except ImportError:
     import xradio._utils._casacore.casacore_from_casatools as tables
 
-from xradio.image._util._casacore.common import  _image_flag, _beam_fit_params, _create_new_image, _object_name, _pointing_center
-from xradio.image._util.common import _aperture_or_sky, _compute_sky_reference_pixel, _doppler_types
+from xradio.image._util._casacore.common import (
+    _image_flag,
+    _beam_fit_params,
+    _create_new_image,
+    _object_name,
+    _pointing_center,
+)
+from xradio.image._util.common import (
+    _aperture_or_sky,
+    _compute_sky_reference_pixel,
+    _doppler_types,
+)
 from xradio._utils._casacore.tables import open_table_rw
 
 
@@ -330,9 +340,9 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
 
 
 def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
-    
+
     sky_ap = _aperture_or_sky(xds)
-   
+
     if xds[sky_ap].shape[0] != 1:
         raise RuntimeError("XDS can only be converted if it has exactly one time plane")
     trans_coords = (
@@ -341,9 +351,7 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
         else ("frequency", "polarization", "v", "u")
     )
     casa_image_shape = xds[sky_ap].isel(time=0).transpose(*trans_coords).shape[::-1]
-    flag = (
-        xds[sky_ap].attrs[_image_flag] if _image_flag in xds[sky_ap].attrs else ""
-    )
+    flag = xds[sky_ap].attrs[_image_flag] if _image_flag in xds[sky_ap].attrs else ""
 
     masks = []
     masks_rec = {}
@@ -423,7 +431,7 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
             )
         flag = mask_name
     data_type = "complex" if "u" in xds.coords else "float"
-    
+
     _write_initial_image(xds, image_full_path, flag, casa_image_shape[::-1])
     for v in myvars:
         _write_pixels(v, flag, image_full_path, xds)
@@ -433,6 +441,7 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
         with open_table_rw(image_full_path) as tb:
             tb.putkeyword("masks", masks_rec)
             tb.putkeyword("Image_defaultmask", flag)
+
 
 def _write_initial_image(
     xds: xr.Dataset, imagename: str, maskname: str, image_shape: tuple

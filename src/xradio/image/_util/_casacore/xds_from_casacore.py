@@ -77,7 +77,9 @@ def _add_mask(
     return xds
 
 
-def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = False, image_type: str = "SKY") -> dict:
+def _casa_image_to_xds_image_attrs(
+    image: casa_image, history: bool = False, image_type: str = "SKY"
+) -> dict:
     """
     get the image attributes from the casacoreimage object
     """
@@ -876,7 +878,11 @@ def _get_velocity_values_attrs(
 
 
 def _get_beam(
-    img_full_path: str, nchan: int, npol: int, as_dask_array: bool, image_type: str = "SKY"
+    img_full_path: str,
+    nchan: int,
+    npol: int,
+    as_dask_array: bool,
+    image_type: str = "SKY",
 ) -> Union[xr.DataArray, None]:
     # the image may have multiple beams
     with _open_image_ro(img_full_path) as casa_image:

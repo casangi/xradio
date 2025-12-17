@@ -80,13 +80,22 @@ def _fits_image_to_xds(
     xds = _add_coord_attrs(xds, helpers)
     if helpers["has_multibeam"]:
         xds = _do_multibeam(xds, img_full_path, image_type=image_type)
-        xds[image_type.upper()].attrs[_beam_fit_params] = "BEAM_FIT_PARAMS_" + image_type.upper()
-        xds["BEAM_FIT_PARAMS_" + image_type.upper()].attrs["type"] = "beam_fit_params_" + image_type.lower()
+        xds[image_type.upper()].attrs[_beam_fit_params] = (
+            "BEAM_FIT_PARAMS_" + image_type.upper()
+        )
+        xds["BEAM_FIT_PARAMS_" + image_type.upper()].attrs["type"] = (
+            "beam_fit_params_" + image_type.lower()
+        )
     elif "beam" in helpers and helpers["beam"] is not None:
         xds = _add_beam(xds, helpers, image_type)
-        xds[image_type.upper()].attrs[_beam_fit_params] = "BEAM_FIT_PARAMS_" + image_type.upper()
-        xds["BEAM_FIT_PARAMS_" + image_type.upper()].attrs["type"] = "beam_fit_params_" + image_type.lower()
+        xds[image_type.upper()].attrs[_beam_fit_params] = (
+            "BEAM_FIT_PARAMS_" + image_type.upper()
+        )
+        xds["BEAM_FIT_PARAMS_" + image_type.upper()].attrs["type"] = (
+            "beam_fit_params_" + image_type.lower()
+        )
     return xds
+
 
 def _add_coord_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     xds = _add_time_attrs(xds, helpers)
@@ -811,7 +820,9 @@ def _add_beam(xds: xr.Dataset, helpers: dict, image_type: str = "SKY") -> xr.Dat
     return _create_beam_data_var(xds, beam_array, image_type)
 
 
-def _create_beam_data_var(xds: xr.Dataset, beam_array: np.array, image_type: str = "SKY") -> xr.Dataset:
+def _create_beam_data_var(
+    xds: xr.Dataset, beam_array: np.array, image_type: str = "SKY"
+) -> xr.Dataset:
     xdb = xr.DataArray(
         beam_array, dims=["time", "frequency", "polarization", "beam_params_label"]
     )

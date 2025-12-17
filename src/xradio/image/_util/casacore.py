@@ -37,7 +37,11 @@ from xradio.image._util._casacore.xds_to_casacore import (
     _imageinfo_dict_from_xds,
     _write_casa_data,
 )
-from xradio.image._util.common import _aperture_or_sky, _get_xds_dim_order, _dask_arrayize_dv
+from xradio.image._util.common import (
+    _aperture_or_sky,
+    _get_xds_dim_order,
+    _dask_arrayize_dv,
+)
 from xradio.image._util._casacore.common import _beam_fit_params, _open_image_ro
 
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -81,9 +85,13 @@ def _load_casa_image_block(
             for k in ("time", "frequency", "polarization")
             if k in block_des
         }
-        xds["BEAM_FIT_PARAMS_"+image_type.upper()] = beam.isel(selectors)
-        xds["BEAM_FIT_PARAMS_" + image_type.upper()].attrs["type"] = "beam_fit_params_" + image_type.lower()
-        xds[image_type.upper()].attrs[_beam_fit_params] = "BEAM_FIT_PARAMS_" + image_type.upper()
+        xds["BEAM_FIT_PARAMS_" + image_type.upper()] = beam.isel(selectors)
+        xds["BEAM_FIT_PARAMS_" + image_type.upper()].attrs["type"] = (
+            "beam_fit_params_" + image_type.lower()
+        )
+        xds[image_type.upper()].attrs[_beam_fit_params] = (
+            "BEAM_FIT_PARAMS_" + image_type.upper()
+        )
     return xds
 
 
@@ -118,17 +126,24 @@ def _open_casa_image(
             xds = _add_mask(xds, mask_name, ary, dimorder)
     xds.attrs = _casa_image_to_xds_attrs(img_full_path)
     beam = _get_beam(
-        img_full_path, xds.sizes["frequency"], xds.sizes["polarization"], True, image_type
+        img_full_path,
+        xds.sizes["frequency"],
+        xds.sizes["polarization"],
+        True,
+        image_type,
     )
     if beam is not None:
         xds["BEAM_FIT_PARAMS_" + image_type.upper()] = beam
-        xds["BEAM_FIT_PARAMS_" + image_type.upper()].attrs["type"] = "beam_fit_params_" + image_type.lower()
-        xds[image_type.upper()].attrs[_beam_fit_params] = "BEAM_FIT_PARAMS_" + image_type.upper()
-        
-        
+        xds["BEAM_FIT_PARAMS_" + image_type.upper()].attrs["type"] = (
+            "beam_fit_params_" + image_type.lower()
+        )
+        xds[image_type.upper()].attrs[_beam_fit_params] = (
+            "BEAM_FIT_PARAMS_" + image_type.upper()
+        )
+
     # xds = _add_coord_attrs(xds, ret["icoords"], ret["dir_axes"])
     xds = _dask_arrayize_dv(xds)
-    
+
     return xds
 
 
@@ -145,11 +160,15 @@ def _xds_to_multiple_casa_images(xds: xr.Dataset, image_store_name: str) -> None
     image_store_name : str
         The base name or path for storing the output CASA images.
     """
-    
+
     data_vars_name_set = set(xds.data_vars.keys())
 
     data_group_keys = list(get_data_group_keys(schema_name="image").keys())
-    internal_image_types_to_exclude = ["flag", "beam_fit_params_sky", "beam_fit_params_point_spread_function"]
+    internal_image_types_to_exclude = [
+        "flag",
+        "beam_fit_params_sky",
+        "beam_fit_params_point_spread_function",
+    ]
 
     for data_group in xds.attrs["data_groups"].keys():
         for image_type in data_group_keys:
@@ -160,14 +179,17 @@ def _xds_to_multiple_casa_images(xds: xr.Dataset, image_store_name: str) -> None
                 if image_name in data_vars_name_set:
                     image_to_write_xds = xr.Dataset()
                     image_to_write_xds.attrs = xds.attrs.copy()
-                    
+
                     image_to_write_xds["SKY"] = xds[
                         image_name
                     ]  # Setting everying to sky for writing purposes.
 
                     # This code handles adding internal masks and beam fit params if they exist.
                     if image_type == "sky":
-                        if "beam_fit_params_sky" in xds.attrs["data_groups"][data_group]:
+                        if (
+                            "beam_fit_params_sky"
+                            in xds.attrs["data_groups"][data_group]
+                        ):
                             beam_fit_params_name = xds.attrs["data_groups"][data_group][
                                 "beam_fit_params_sky"
                             ]
@@ -176,25 +198,26 @@ def _xds_to_multiple_casa_images(xds: xr.Dataset, image_store_name: str) -> None
                             ]
 
                         if "flag" in xds.attrs["data_groups"][data_group]:
-                            mask_sky_name = xds.attrs["data_groups"][data_group][
-                                "flag"
-                            ]
+                            mask_sky_name = xds.attrs["data_groups"][data_group]["flag"]
                             image_to_write_xds["MASK_0"] = xds[mask_sky_name]
                             image_to_write_xds["SKY"].attrs["flag"] = "MASK_0"
 
                     if image_type == "point_spread_function":
-                        if "beam_fit_params_point_spread_function" in xds.attrs["data_groups"][data_group]:
+                        if (
+                            "beam_fit_params_point_spread_function"
+                            in xds.attrs["data_groups"][data_group]
+                        ):
                             beam_fit_params_name = xds.attrs["data_groups"][data_group][
                                 "beam_fit_params_point_spread_function"
                             ]
                             image_to_write_xds["BEAM_FIT_PARAMS"] = xds[
                                 beam_fit_params_name
                             ]
-                    
+
                     _xds_to_casa_image(
                         image_to_write_xds, image_store_name + "." + image_type
                     )
-                    
+
                     data_vars_name_set.remove(image_name)
 
 

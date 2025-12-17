@@ -11,7 +11,7 @@ from xradio.schema.bases import (
 @dict_schema
 class DataGroupDict:
     """Defines a group of images."""
-    
+
     sky: Optional[str]
     """ Name of the sky variable, for example 'SKY'. Derived from the gridded visibilities. On plane tangential to celestial sphere. """
     flag: Optional[str]
@@ -41,10 +41,7 @@ class DataGroupDict:
     description: str
     """ More details about the data group. """
     date: str
-    """ Creation date-time, in ISO 8601 format: 'YYYY-MM-DDTHH:mm:ss.SSS'. """    
- 
-    
-    
+    """ Creation date-time, in ISO 8601 format: 'YYYY-MM-DDTHH:mm:ss.SSS'. """
 
     # sky: Optional[str]
     # """ Name of the sky variable, for example 'SKY'. Derived from the gridded visibilities. On plane tangential to celestial sphere. """

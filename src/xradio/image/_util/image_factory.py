@@ -221,12 +221,8 @@ def _make_uv_values(
 ) -> dict:
     im_size_wave = 1 / np.array(sky_image_cell_size)
     uv_cell_size = im_size_wave / np.array(image_size)
-    u_vals = [
-        (i - image_size[0] // 2) * uv_cell_size[0] for i in range(image_size[0])
-    ]
-    v_vals = [
-        (i - image_size[1] // 2) * uv_cell_size[1] for i in range(image_size[1])
-    ]
+    u_vals = [(i - image_size[0] // 2) * uv_cell_size[0] for i in range(image_size[0])]
+    v_vals = [(i - image_size[1] // 2) * uv_cell_size[1] for i in range(image_size[1])]
     return {"u": u_vals, "v": v_vals}
 
 
@@ -479,17 +475,16 @@ def create_store_dict(store_to_label):
             image_type = "ALL"  # Zarr can have multiple data variables.
 
         store_dict[image_type] = {"store_type": store_type, "store": store}
-        
+
     data_groups = {}
-    
+
     for image_type in store_dict.keys():
         if "sky" in image_type.lower():
             if "sky" == image_type.lower():
-                data_groups["base"] = {'sky': image_type}
+                data_groups["base"] = {"sky": image_type}
             else:
                 data_group_name = image_type.lower().replace("sky_", "")
-                data_groups[data_group_name] = {'sky': image_type}
-            
+                data_groups[data_group_name] = {"sky": image_type}
 
     return store_dict, data_groups
 
@@ -574,7 +569,7 @@ def create_image_xds_from_store(
 
     img_xds = xr.Dataset()
 
-    #Loop over all the input CASA and Fits images.
+    # Loop over all the input CASA and Fits images.
     for image_type, store_description in store_dict.items():
 
         store_type = store_description["store_type"]
@@ -602,17 +597,21 @@ def create_image_xds_from_store(
         # print("image type:", image_type)
         img_xds[image_type] = xds[image_type]
         img_xds[image_type].attrs["type"] = image_type.lower()
-        
+
         active_data_group_name = None
-        #If sky image, handle internal masks and beam fit params.
+        # If sky image, handle internal masks and beam fit params.
         if "sky" in image_type.lower():
             for data_group_name, data_group in data_groups.items():
                 if data_group["sky"] == image_type:
                     active_data_group_name = data_group_name
 
             if "BEAM_FIT_PARAMS_" + image_type.upper() in xds:
-                img_xds["BEAM_FIT_PARAMS_"+image_type.upper()] = xds["BEAM_FIT_PARAMS_" + image_type.upper()]
-                data_groups[active_data_group_name]["beam_fit_params_sky"] = "BEAM_FIT_PARAMS_" + image_type.upper()
+                img_xds["BEAM_FIT_PARAMS_" + image_type.upper()] = xds[
+                    "BEAM_FIT_PARAMS_" + image_type.upper()
+                ]
+                data_groups[active_data_group_name]["beam_fit_params_sky"] = (
+                    "BEAM_FIT_PARAMS_" + image_type.upper()
+                )
 
             if "MASK_0" in xds:
                 img_xds["FLAG_" + image_type] = xds["MASK_0"]
@@ -623,26 +622,27 @@ def create_image_xds_from_store(
                 img_xds["FLAG_" + image_type] = xds["MASK"]
                 data_groups[active_data_group_name]["flag"] = "FLAG_" + image_type
                 img_xds["FLAG_" + image_type].attrs["type"] = "flag"
-                
+
             img_xds[image_type].attrs["type"] = "sky"
 
-        #If point spread function, handle beam fit params.
+        # If point spread function, handle beam fit params.
         if "point_spread_function" in image_type.lower():
-            if "BEAM_FIT_PARAMS_" + image_type.upper() in xds:                
-                img_xds["BEAM_FIT_PARAMS_"+image_type.upper()] = xds["BEAM_FIT_PARAMS_" + image_type.upper()]  
+            if "BEAM_FIT_PARAMS_" + image_type.upper() in xds:
+                img_xds["BEAM_FIT_PARAMS_" + image_type.upper()] = xds[
+                    "BEAM_FIT_PARAMS_" + image_type.upper()
+                ]
 
-                
-
-        #Figure out data groups.
-        #Each sky image gets its own data group and shares all other images between them.
+        # Figure out data groups.
+        # Each sky image gets its own data group and shares all other images between them.
         if "sky" not in image_type.lower():
             for data_group_name, data_group in data_groups.items():
                 data_group[image_type.lower()] = image_type
-                
+
                 if "point_spread_function" in image_type.lower():
-                    if "BEAM_FIT_PARAMS_" + image_type.upper() in xds:    
-                        data_group["beam_fit_params_point_spread_function"] = "BEAM_FIT_PARAMS_" + image_type.upper()
-            
+                    if "BEAM_FIT_PARAMS_" + image_type.upper() in xds:
+                        data_group["beam_fit_params_point_spread_function"] = (
+                            "BEAM_FIT_PARAMS_" + image_type.upper()
+                        )
 
     img_xds.attrs["type"] = "image_dataset"
     img_xds.attrs["data_groups"] = data_groups

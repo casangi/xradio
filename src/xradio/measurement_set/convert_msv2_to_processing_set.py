@@ -126,7 +126,7 @@ def convert_msv2_to_processing_set(
         out_file += ".ps.zarr"
 
     ps_dt.to_zarr(store=out_file, mode=persistence_mode)
-  
+
     # Check `parallel_mode` is valid
     try:
         assert parallel_mode in ["none", "partition", "time"]

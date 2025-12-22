@@ -195,11 +195,16 @@ def write_image(
     xds: xr.Dataset, imagename: str, out_format: str = "casa", overwrite: bool = False
 ) -> None:
     """
+    TODO: I think the user should be permitted to specify data groups to write.
     Convert an xds image to CASA or zarr image.
     xds : xarray.Dataset
         XDS to convert
     imagename : str
         Path to output image
+        For writing to CASA, it is possible multiple images will be created, based
+        on what are in the data groups. If multiple images are created, the imagenames
+        will have identifying extensions added to the provided imagename. If only one
+        image is created, the provided imagename will be used as is.
     out_format : str
         Format of output image, currently "casa" and "zarr" are supported
     overwrite : bool

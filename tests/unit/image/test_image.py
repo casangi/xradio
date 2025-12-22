@@ -392,12 +392,15 @@ class xds_from_image_test(ImageBase):
 
         cls._xds = open_image(cls._imname, {"frequency": 5})
 
-        print("########## Created xds", cls._xds.attrs)
+        # print("########## Created xds", cls._xds.attrs)
 
         cls._xds_no_sky = open_image(cls._imname, {"frequency": 5}, False, False)
         cls.assertTrue(cls._xds.sizes == cls._exp_vals["shape"], "Incorrect shape")
 
+        # print("*** begin write_image")
         write_image(cls._xds, cls._outname, out_format="casa", overwrite=True)
+        # print("*** end write_image")
+        assert os.path.exists(cls._outname), f"Could not create {cls._outname}"
 
     def imname(self):
         return self._imname
@@ -740,8 +743,8 @@ class xds_from_image_test(ImageBase):
                 },
                 do_sky_coords=i == 0,
             )
-            print("42 $$$$$$$$$ load", imag, xds.attrs)
-            print("$*******$" * 10)
+            # print("42 $$$$$$$$$ load", imag, xds.attrs)
+            # print("$*******$" * 10)
 
             if not zarr:
                 with open_image_ro(imagename) as im:
@@ -764,10 +767,10 @@ class xds_from_image_test(ImageBase):
                 "Wrong block MASK_0 array",
             )
 
-            print("42 $$$$$$$$$i", i)
-            print("42 $$$$$$$$$ load", imag, xds.attrs["type"])
-            print("42 $$$$$$$$$ pregenerated", big_xds.attrs["type"])
-            print("*******" * 10)
+            # print("42 $$$$$$$$$i", i)
+            # print("42 $$$$$$$$$ load", imag, xds.attrs["type"])
+            # print("42 $$$$$$$$$ pregenerated", big_xds.attrs["type"])
+            # print("*******" * 10)
 
             self.dict_equality(
                 xds.attrs, big_xds.attrs, "block xds", "main xds", ["history"]
@@ -1408,7 +1411,7 @@ class fits_to_xds_test(xds_from_image_test):
             cls.infits(), {"frequency": 5}, do_sky_coords=False
         )
 
-        print("$$$$ Opened fits file", cls.infits())
+        # print("$$$$ Opened fits file", cls.infits())
 
     @classmethod
     def tearDownClass(cls):
@@ -2106,9 +2109,9 @@ class make_empty_sky_image_tests(make_empty_image_tests):
     def test_dims_and_coords(self):
         for skel in [self.skel_im(), self.skel_im_no_sky()]:
 
-            print("************")
-            print(skel.coords)
-            print("************")
+            # print("************")
+            # print(skel.coords)
+            # print("************")
 
             self.assertEqual(
                 list(skel.sizes.keys()),
@@ -2366,6 +2369,7 @@ class write_image_test(xds_from_image_test):
     def test_overwrite(self):
         # test overwrite=True
         write_image(self.xds(), self._myout, out_format="casa", overwrite=True)
+        self.assertTrue(os.path.exists(self._myout), f"{self._myout} was not written")
         # test overwrite=False
         with self.assertRaises(FileExistsError):
             write_image(self.xds(), self._myout, out_format="casa", overwrite=False)

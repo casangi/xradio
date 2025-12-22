@@ -159,6 +159,8 @@ def _xds_to_multiple_casa_images(xds: xr.Dataset, image_store_name: str) -> None
         The xradio xr.Dataset containing multiple images and associated data.
     image_store_name : str
         The base name or path for storing the output CASA images.
+        If only one image is written, it will be named image_store_name, esle the images
+        will be named image_store_name.<image_type> where <image_type> is sky, residual, point_spread_function, etc.
     """
 
     data_vars_name_set = set(xds.data_vars.keys())
@@ -169,7 +171,8 @@ def _xds_to_multiple_casa_images(xds: xr.Dataset, image_store_name: str) -> None
         "beam_fit_params_sky",
         "beam_fit_params_point_spread_function",
     ]
-
+    n_image_written = 0
+    last_image_written = ""
     for data_group in xds.attrs["data_groups"].keys():
         for image_type in data_group_keys:
             if (image_type in xds.attrs["data_groups"][data_group]) and (
@@ -198,6 +201,7 @@ def _xds_to_multiple_casa_images(xds: xr.Dataset, image_store_name: str) -> None
                             ]
 
                         if "flag" in xds.attrs["data_groups"][data_group]:
+                            print("******* found flag")
                             mask_sky_name = xds.attrs["data_groups"][data_group]["flag"]
                             image_to_write_xds["MASK_0"] = xds[mask_sky_name]
                             image_to_write_xds["SKY"].attrs["flag"] = "MASK_0"
@@ -213,12 +217,18 @@ def _xds_to_multiple_casa_images(xds: xr.Dataset, image_store_name: str) -> None
                             image_to_write_xds["BEAM_FIT_PARAMS"] = xds[
                                 beam_fit_params_name
                             ]
-
-                    _xds_to_casa_image(
-                        image_to_write_xds, image_store_name + "." + image_type
-                    )
-
+                    outname = image_store_name + "." + image_type
+                    _xds_to_casa_image(image_to_write_xds, outname)
+                    if not os.path.exists(outname):
+                        raise IOError(f"Failed to write CASA image {outname}")
+                    n_image_written += 1
+                    last_image_written = outname
                     data_vars_name_set.remove(image_name)
+    if n_image_written == 0:
+        raise ValueError("No valid image types found in xds to write to CASA images.")
+    if n_image_written == 1:
+        # rename the single written image to what the user requested
+        os.rename(last_image_written, image_store_name)
 
 
 def _xds_to_casa_image(xds: xr.Dataset, image_store_name: str) -> None:

@@ -162,7 +162,7 @@ class xds_from_image_test(ImageBase):
     _uv_image: str = "complex_valued_uv.im"
     _xds = None
     _exp_sky_attrs = {
-        "active_mask": "MASK_0",
+        "flag": "FLAG_SKY",
         "description": None,
         image_type: "sky",
         "object_name": "",
@@ -453,11 +453,12 @@ class xds_from_image_test(ImageBase):
             (5, 5),
             "Incorrect chunksize",
         )
+        mask_name = f"FLAG_{temp_sky.upper()}"
         self.assertEqual(
-            xds.MASK_0.chunksizes["frequency"], (5, 5), "Incorrect chunksize"
+            xds[mask_name].chunksizes["frequency"], (5, 5), "Incorrect chunksize"
         )
         got_data = da.squeeze(da.transpose(xds[temp_sky], [1, 2, 4, 3, 0]), 4)
-        got_mask = da.squeeze(da.transpose(xds.MASK_0, [1, 2, 4, 3, 0]), 4)
+        got_mask = da.squeeze(da.transpose(xds[mask_name], [1, 2, 4, 3, 0]), 4)
         if "sky_array" not in ev:
             im = images.image(self.imname())
             ev[temp_sky] = im.getdata()
@@ -473,7 +474,7 @@ class xds_from_image_test(ImageBase):
         else:
             self.assertTrue((got_data == ev[temp_sky]).all(), "pixel values incorrect")
         self.assertTrue((got_mask == ev["MASK_0"]).all(), "mask values incorrect")
-        got_ma = da.ma.masked_array(xds[temp_sky], xds.MASK_0)
+        got_ma = da.ma.masked_array(xds[temp_sky], xds.FLAG_SKY)
         self.assertEqual(da.sum(got_ma), ev["sum"], "Incorrect value for sum")
         self.assertTrue(
             got_data.dtype == ev[temp_sky].dtype,

@@ -164,7 +164,7 @@ class xds_from_image_test(ImageBase):
     _exp_sky_attrs = {
         "active_mask": "MASK_0",
         "description": None,
-        "image_type": "Intensity",
+        image_type: "sky",
         "object_name": "",
         "obsdate": {
             "attrs": {
@@ -246,8 +246,8 @@ class xds_from_image_test(ImageBase):
         ),
         "freq_waveunit": "mm",
         "stokes": ["I", "Q", "U", "V"],
-        "time_format": "MJD",
-        "time_refer": "UTC",
+        "time_format": "mjd",
+        "time_refer": "utc",
         "time_units": "d",
         "vel_mea_type": "doppler",
         "doppler_type": "radio",
@@ -440,8 +440,8 @@ class xds_from_image_test(ImageBase):
 
         ev = self._exp_vals
         self.assertEqual(
-            xds[temp_sky].attrs["image_type"],
-            self.exp_sky_attrs()["image_type"],
+            xds[temp_sky].attrs[image_type],
+            self.exp_sky_attrs()[image_type],
             "Wrong image type",
         )
         self.assertEqual(

@@ -554,7 +554,6 @@ def create_image_xds_from_store(
     - Masks are renamed to MASK_<IMAGE_TYPE> for internal masks.
     """
     store_dict, data_groups = create_store_dict(store)
-
     if "ALL" in store_dict and len(store_dict) > 1:
         logger.error(
             "When using a zarr store with multiple data variables, no other stores can be specified."
@@ -612,17 +611,53 @@ def create_image_xds_from_store(
                 data_groups[active_data_group_name]["beam_fit_params_sky"] = (
                     "BEAM_FIT_PARAMS_" + image_type.upper()
                 )
+            expected_flag_name = "FLAG_" + image_type
+            # TODO remove this mask logic and everything that still makes it necessary
+            def _add_flag_to_group(
+                img_xds: xr.Dataset,
+                flag_array: xr.DataArray,
+                expected_flag_name: str,
+                active_group: dict,
+
+            ):
+                img_xds[expected_flag_name] = flag_array
+                img_xds[expected_flag_name].attrs["type"] = "flag"
+                active_group["flag"] = expected_flag_name
+
+            if expected_flag_name in xds:
+                _add_flag_to_group(
+                    img_xds,
+                    xds[expected_flag_name],
+                    expected_flag_name,
+                    data_groups[active_data_group_name],
+                )
 
             if "MASK_0" in xds:
-                img_xds["FLAG_" + image_type] = xds["MASK_0"]
-                data_groups[active_data_group_name]["flag"] = "FLAG_" + image_type
-                img_xds["FLAG_" + image_type].attrs["type"] = "flag"
-
+                _add_flag_to_group(
+                    img_xds,
+                    xds["MASK_0"],
+                    expected_flag_name,
+                    data_groups[active_data_group_name],
+                )
+                """
+                TODO delete old code when certain new function works
+                img_xds[expected_flag_name] = xds["MASK_0"]
+                data_groups[active_data_group_name]["flag"] = expected_flag_name
+                img_xds[expected_flag_name].attrs["type"] = "flag"
+                """
             if "MASK" in xds:
-                img_xds["FLAG_" + image_type] = xds["MASK"]
-                data_groups[active_data_group_name]["flag"] = "FLAG_" + image_type
-                img_xds["FLAG_" + image_type].attrs["type"] = "flag"
-
+                _add_flag_to_group(
+                    img_xds,
+                    xds["MASK"],
+                    expected_flag_name,
+                    data_groups[active_data_group_name],
+                )
+                """
+                TODO delete old code when certain new function works
+                img_xds[expected_flag_name] = xds["MASK"]
+                data_groups[active_data_group_name]["flag"] = expected_flag_name
+                img_xds[expected_flag_name].attrs["type"] = "flag"
+                """
             img_xds[image_type].attrs["type"] = "sky"
 
         # If point spread function, handle beam fit params.

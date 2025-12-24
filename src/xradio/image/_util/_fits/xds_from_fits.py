@@ -866,6 +866,7 @@ def _add_sky_or_aperture(
     has_sph_dims: bool,
     image_type: str = "SKY",
 ) -> xr.Dataset:
+    # TODO add code to recognize aperture images and set image_type accordingly
     xda = xr.DataArray(ary, dims=dim_order)
     for h, a in zip(
         ["BUNIT", "BTYPE", "OBJECT", "OBSERVER"],

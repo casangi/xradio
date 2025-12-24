@@ -618,15 +618,15 @@ class xds_from_image_test(ImageBase):
         m_attrs = xds.coords["m"].attrs
         e_l_attrs = {
             "note": (
-                "l is the angle measured from the phase center to the east. "
-                "So l = x*cdelt, where x is the number of pixels from the phase center. "
+                "l is the angle measured from the reference direction to the east. "
+                "So l = x*cdelt, where x is the number of pixels from the reference direction. "
                 "See AIPS Memo #27, Section III."
             ),
         }
         e_m_attrs = {
             "note": (
-                "m is the angle measured from the phase center to the north. "
-                "So m = y*cdelt, where y is the number of pixels from the phase center. "
+                "m is the angle measured from the reference direction to the north. "
+                "So m = y*cdelt, where y is the number of pixels from the reference direction. "
                 "See AIPS Memo #27, Section III."
             ),
         }
@@ -1707,8 +1707,8 @@ class make_empty_image_tests(ImageBase):
                 # "crval": 0.0,
                 # "cdelt": -cdelt,
                 # "units": "rad",
-                "note": "l is the angle measured from the phase center to the east. "
-                "So l = x*cdelt, where x is the number of pixels from the phase center. "
+                "note": "l is the angle measured from the reference direction to the east. "
+                "So l = x*cdelt, where x is the number of pixels from the reference direction. "
                 "See AIPS Memo #27, Section III.",
             },
             "m": {
@@ -1716,8 +1716,8 @@ class make_empty_image_tests(ImageBase):
                 # "crval": 0.0,
                 # "cdelt": cdelt,
                 # "units": "rad",
-                "note": "m is the angle measured from the phase center to the north. "
-                "So m = y*cdelt, where y is the number of pixels from the phase center. "
+                "note": "m is the angle measured from the reference direction to the north. "
+                "So m = y*cdelt, where y is the number of pixels from the reference direction. "
                 "See AIPS Memo #27, Section III.",
             },
         }

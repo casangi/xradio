@@ -1982,13 +1982,16 @@ class make_empty_image_tests(ImageBase):
             ],
         ]
         expec2 = {
-            "data": [0.2, -0.5],
-            "dims": ["l", "m"],
             "attrs": {
                 "type": "sky_coord",
                 "frame": "fk5",
                 "equinox": "j2000.0",
                 "units": "rad",
+            },
+            "data": [0.2, -0.5],
+            "dims": "sky_dir_label",
+            "coords": {
+                "sky_dir_label": {"data": ["ra", "dec"], "dims": "sky_dir_label"}
             },
         }
         if do_sky_coords:
@@ -2007,7 +2010,10 @@ class make_empty_image_tests(ImageBase):
                 "declination incorrectly in coords",
             )
         self.dict_equality(
-            skel.attrs["direction"]["reference"], expec2, "got", "expected"
+            skel.attrs["coordinate_system_info"]["reference_direction"],
+            expec2,
+            "got",
+            "expected",
         )
 
     def run_u_v_tests(self, skel):
@@ -2035,38 +2041,8 @@ class make_empty_image_tests(ImageBase):
             )
 
     def run_attrs_tests(self, skel):
-        direction = {
-            "latpole": {
-                "data": 0.0,
-                "dims": ["l", "m"],
-                "attrs": {
-                    "type": "quantity",
-                    "units": "rad",
-                },
-            },
-            "lonpole": {
-                "data": np.pi,
-                "dims": ["l", "m"],
-                "attrs": {
-                    "type": "quantity",
-                    "units": "rad",
-                },
-            },
-            "pc": [[1.0, 0.0], [0.0, 1.0]],
-            # 'primary_beam_center': {
-            #     'attrs': {
-            #         'initial': True,
-            #         'type': 'sky_coord',
-            #         'frame': 'fk5',
-            #         'equinox': 'j2000.0',
-            #         'units': 'rad'
-            #     }
-            #     'data': [0.2, -0.5],
-            #     'dims': ["l", "m"],
-            # },
-            "projection": "SIN",
-            "projection_parameters": [0.0, 0.0],
-            "reference": {
+        coordinate_system_info = {
+            "reference_direction": {
                 "attrs": {
                     "type": "sky_coord",
                     "frame": "fk5",
@@ -2074,13 +2050,35 @@ class make_empty_image_tests(ImageBase):
                     "units": "rad",
                 },
                 "data": [0.2, -0.5],
-                "dims": ["l", "m"],
+                "dims": "sky_dir_label",
+                "coords": {
+                    "sky_dir_label": {"data": ["ra", "dec"], "dims": "sky_dir_label"}
+                },
             },
+            "native_pole_direction": {
+                "attrs": {
+                    "type": "location",
+                    "frame": "NATIVE_PROJECTION",
+                    "units": "rad",
+                },
+                "data": [np.pi, 0.0],
+                "dims": "ellipsoid_dir_label",
+                "coords": {
+                    "ellipsoid_dir_label": {
+                        "data": ["lon", "lat"],
+                        "dims": "ellipsoid_dir_label",
+                    }
+                },
+            },
+            "pixel_coordinate_transformation_matrix": [[1.0, 0.0], [0.0, 1.0]],
+            "projection": "SIN",
+            "projection_parameters": [0.0, 0.0],
         }
         data_groups = {"base": {}}
         expec = {
             "data_groups": data_groups,
-            "direction": direction,
+            "coordinate_system_info": coordinate_system_info,
+            "type": "image",
         }
         self.dict_equality(skel.attrs, expec, "got", "expected")
 

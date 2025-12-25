@@ -567,7 +567,6 @@ def create_image_xds_from_store(
         return img_xds
 
     img_xds = xr.Dataset()
-
     # Loop over all the input CASA and Fits images.
     for image_type, store_description in store_dict.items():
 
@@ -593,9 +592,9 @@ def create_image_xds_from_store(
             )
 
         img_xds.attrs = img_xds.attrs | xds.attrs
-        # print("image type:", image_type)
         img_xds[image_type] = xds[image_type]
         img_xds[image_type].attrs["type"] = image_type.lower()
+
 
         active_data_group_name = None
         # If sky image, handle internal masks and beam fit params.
@@ -679,6 +678,13 @@ def create_image_xds_from_store(
                             "BEAM_FIT_PARAMS_" + image_type.upper()
                         )
 
+    # if beam_param coord not in image type it is not auto assigned to img_xds
+    # but it must be present even if unused
+    if "beam_params_label" not in img_xds.dims:
+        img_xds.expand_dims(beam_params_label=3)
+
+    if "beam_params_label" not in img_xds.coords:
+        img_xds = _move_beam_param_dim_coord(img_xds)
     img_xds.attrs["type"] = "image_dataset"
     img_xds.attrs["data_groups"] = data_groups
     return img_xds

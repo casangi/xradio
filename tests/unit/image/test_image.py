@@ -86,7 +86,6 @@ def dask_client_module():
 @pytest.mark.usefixtures("dask_client_module")
 class ImageBase(unittest.TestCase):
     def dict_equality(self, dict1, dict2, dict1_name, dict2_name, exclude_keys=[]):
-
         self.assertEqual(
             dict1.keys(),
             dict2.keys(),
@@ -162,14 +161,14 @@ class xds_from_image_test(ImageBase):
     _uv_image: str = "complex_valued_uv.im"
     _xds = None
     _exp_sky_attrs = {
-        "flag": "FLAG_SKY",
+        # "flag": "FLAG_SKY",
         "description": None,
         image_type: "sky",
         "object_name": "",
         "obsdate": {
             "attrs": {
-                "format": "MJD",
-                "scale": "UTC",
+                "format": "mjd",
+                "scale": "utc",
                 "type": "time",
                 "units": "d",
             },
@@ -178,16 +177,19 @@ class xds_from_image_test(ImageBase):
         },
         "observer": "Karl Jansky",
         "pointing_center": {
-            "data": [1.832595714594046, -0.6981317007977318],
-            "dims": ["l", "m"],
-            "attrs": {
-                "type": "sky_coord",
-                "frame": "fk5",
-                # "equinox": "j2000.0",
-                "units": "rad",
+            'attrs': {
+                'frame': 'fk5',
+                'type': 'sky_coord',
+                'units': 'rad'
             },
-            # "value": np.array([6300, -2400]) * np.pi / 180 / 60,
-            # "initial": True,
+            'data': [1.8325957145940461, -0.6981317007977318],
+            'dims': 'sky_dir_label',
+            'coords': {
+                'sky_dir_label': {
+                    'data': ['ra', 'dec'],
+                    'dims': 'sky_dir_label'
+                }
+            }
         },
         "telescope": {
             "name": "ALMA",
@@ -286,44 +288,41 @@ class xds_from_image_test(ImageBase):
     }
     _rad_to_arcmin = np.pi / 180 / 60
     _exp_xds_attrs = {}
-    _exp_xds_attrs["direction"] = {
-        "reference": {
-            "data": [1.832595714594046, -0.6981317007977318],
-            "dims": ["l", "m"],
+    _exp_xds_attrs["coordinate_system_info"] = {
+        "reference_direction": {
             "attrs": {
                 "type": "sky_coord",
                 "frame": "fk5",
                 "equinox": "j2000.0",
                 "units": "rad",
             },
+            "data": [1.832595714594046, -0.6981317007977318],
+            "dims": "sky_dir_label",
+            "coords": {
+                "sky_dir_label": {"data": ["ra", "dec"], "dims": "sky_dir_label"}
+            },
         },
-        # "conversion_system": "FK5",
-        # "conversion_equinox": "J2000",
-        # there seems to be a casacore bug here that changing either the
-        # crval or pointingcenter will also change the latpole when the
-        # casacore image is reopened. As long as the xds gets the latpole
-        # that the casacore image has is all we care about for testing
-        "latpole": {
+        "native_pole_direction": {
             "attrs": {
-                "type": "quantity",
+                "type": "location",
+                "frame": "NATIVE_PROJECTION",
                 "units": "rad",
             },
-            "data": -40.0 * np.pi / 180,
-            "dims": ["l", "m"],
-        },
-        "lonpole": {
-            "attrs": {
-                "type": "quantity",
-                "units": "rad",
+            "data": [np.pi, -40.0 * np.pi / 180],
+            "dims": "ellipsoid_dir_label",
+            "coords": {
+                "ellipsoid_dir_label": {
+                    "data": ["lon", "lat"],
+                    "dims": "ellipsoid_dir_label",
+                }
             },
-            "data": np.pi,
-            "dims": ["l", "m"],
         },
-        "pc": np.array([[1.0, 0.0], [0.0, 1.0]]),
-        "projection_parameters": np.array([0.0, 0.0]),
+        "pixel_coordinate_transformation_matrix": [[1.0, 0.0], [0.0, 1.0]],
+        "projection_parameters": [0.0, 0.0],
         "projection": "SIN",
     }
-    _exp_xds_attrs["type"] = "image"
+    _exp_xds_attrs["type"] = "image_dataset"
+    _exp_xds_attrs["data_groups"] = {"base": {"sky": "SKY", "flag": "FLAG_SKY"}}
     # TODO make a more interesting beam
     # _exp_xds_attrs["history"] = None
 
@@ -1503,7 +1502,7 @@ class fits_to_xds_test(xds_from_image_test):
             casa_image.tofits(self._outname1)
             expec = casa_image.imageinfo()["perplanebeams"]
         xds = open_image(self._outname1)
-        got = xds.BEAM_FIT_PARAMS
+        got = xds.BEAM_FIT_PARAMS_SKY
         for p in range(4):
             for c in range(50):
                 for b in ["major", "minor", "pa"]:

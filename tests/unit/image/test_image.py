@@ -1528,15 +1528,16 @@ class fits_to_xds_test(xds_from_image_test):
         """
         for compute_mask in [True, False]:
             fds = open_image(self.infits(), {"frequency": 5}, compute_mask=compute_mask)
+            flag = "FLAG_SKY"
             if compute_mask:
                 self.assertTrue(
-                    "MASK_0" in fds.data_vars,
-                    "MASK_0 should be in data_vars, but is not",
+                    flag in fds.data_vars,
+                    f"{flag} should be in data_vars, but is not",
                 )
             else:
                 self.assertTrue(
-                    "MASK_0" not in fds.data_vars,
-                    "MASK_0 should not be in data_vars, but is",
+                    flag not in fds.data_vars,
+                    f"{flag} should not be in data_vars, but is",
                 )
 
     def test_compressed_fits_guard(self):

@@ -33,6 +33,7 @@ def read_image(
     do_sky_coords: bool = True,
     selection: dict = {},
     compute_mask: bool = True,
+    image_type: str = None,
 ) -> xr.Dataset:
     """
     Convert CASA, FITS, or zarr image to xradio image xds format
@@ -94,13 +95,18 @@ def read_image(
         the selection, and the end pixel is not. An empty dictionary (the
         default) indicates that the entire image should be returned. Currently
         only supported for images stored in zarr format.
-     compute_mask : bool, optional
+    compute_mask : bool, optional
         If True (default), compute and attach valid data masks when converting from FITS to xds.
         If False, skip mask computation entirely. This may improve performance if the mask
         is not required for subsequent processing. It may, however, result in unpredictable behavior
         for applications that are not designed to handle missing data. It is the user's responsibility,
         not the software's, to ensure that the mask is computed if it is necessary. Currently only
         implemented for FITS images.
+    image_type : str, optional
+        If None (default), the infile will attempt to be processed as a CASA, FITS, or zarr image. This is equivalent to image_type = 'casa fits zarr'.
+        If image_type contains the string 'CASA' (case independant), the infile will only attempt to be processed as a CASA image.
+        if image_type contains the string 'FITS' (case independant), the infile will only attempt to be processed as a FITS image.
+        if image_type contains the string 'zarr' (case independant), the infile will only attempt to be processed as a zarr image.
     Returns
     -------
     xarray.Dataset
@@ -108,40 +114,48 @@ def read_image(
     # from ._util.casacore import _read_casa_image
     # return _read_casa_image(infile, chunks, verbose, do_sky_coords)
     emsgs = []
-    do_casa = True
-    try:
-        from ._util.casacore import _read_casa_image
-    except Exception as e:
-        emsgs.append(
-            "python-casacore could not be imported, will not try to "
-            f"read as casacore image: {e.args}"
-        )
-        do_casa = False
-    if do_casa:
-        # next statement is short circuit for debug, comment out when not debugging
-        # return _read_casa_image(infile, chunks, verbose, do_sky_coords)
+    if image_type is None or 'casa' in image_type.lower():
+        do_casa = True
         try:
-            return _read_casa_image(infile, chunks, verbose, do_sky_coords)
+            from ._util.casacore import _read_casa_image
         except Exception as e:
-            emsgs.append(f"image format appears not to be casacore: {e.args}")
-    # next statement is for debug, comment when done debugging
-    # return _fits_image_to_xds(infile, chunks, verbose, do_sky_coords, compute_mask)
-    try:
-        img_full_path = os.path.expanduser(infile)
-        return _fits_image_to_xds(infile, chunks, verbose, do_sky_coords, compute_mask)
-    except Exception as e:
-        emsgs.append(f"image format appears not to be fits {e.args}")
-    # when done debuggin comment out next line
-    # return _xds_from_zarr(infile, {"dv": "dask", "coords": "numpy"}, selection=selection)
-    try:
-        return _xds_from_zarr(
-            infile, {"dv": "dask", "coords": "numpy"}, selection=selection
+            emsgs.append(
+                "python-casacore could not be imported, will not try to "
+                f"read as casacore image: {e.args}"
+            )
+            do_casa = False
+        if do_casa:
+            # next statement is short circuit for debug, comment out when not debugging
+            # return _read_casa_image(infile, chunks, verbose, do_sky_coords)
+            try:
+                return _read_casa_image(infile, chunks, verbose, do_sky_coords)
+            except Exception as e:
+                emsgs.append(f"image format appears not to be casacore: {e.args}")
+    if image_type is None or 'fits' in image_type.lower():
+        # next statement is for debug, comment when done debugging
+        # return _fits_image_to_xds(infile, chunks, verbose, do_sky_coords, compute_mask)
+        try:
+            img_full_path = os.path.expanduser(infile)
+            return _fits_image_to_xds(infile, chunks, verbose, do_sky_coords, compute_mask)
+        except Exception as e:
+            emsgs.append(f"image format appears not to be fits {e.args}")
+    if image_type is None or 'fits' in image_type.lower():
+        # when done debuggin comment out next line
+        # return _xds_from_zarr(infile, {"dv": "dask", "coords": "numpy"}, selection=selection)
+        try:
+            return _xds_from_zarr(
+                infile, {"dv": "dask", "coords": "numpy"}, selection=selection
+            )
+        except Exception as e:
+            emsgs.append(f"image format appears not to be zarr {e.args}")
+    if image_type is None:
+        emsgs.insert(
+            0, f"Unrecognized image format. Supported types are CASA, FITS, and zarr.\n"
         )
-    except Exception as e:
-        emsgs.append(f"image format appears not to be zarr {e.args}")
-    emsgs.insert(
-        0, f"Unrecognized image format. Supported types are CASA, FITS, and zarr.\n"
-    )
+    else:
+        emsgs.insert(
+            0, f"image_type argument did not match infile type. Supported types are CASA, FITS, and zarr.\n"
+            )
     raise RuntimeError("\n".join(emsgs))
 
 

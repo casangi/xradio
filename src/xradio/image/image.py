@@ -144,7 +144,7 @@ def read_image(
             return _fits_image_to_xds(infile, chunks, verbose, do_sky_coords, compute_mask)
         except Exception as e:
             emsgs.append(f"image format appears not to be fits {e.args}")
-    if image_type is None or 'fits' in image_type.lower():
+    if image_type is None or 'zarr' in image_type.lower():
         # when done debuggin comment out next line
         # return _xds_from_zarr(infile, {"dv": "dask", "coords": "numpy"}, selection=selection)
         try:

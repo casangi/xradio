@@ -103,10 +103,15 @@ def read_image(
         not the software's, to ensure that the mask is computed if it is necessary. Currently only
         implemented for FITS images.
     image_type : str, optional
-        If None (default), the infile will attempt to be processed as a CASA, FITS, or zarr image. This is equivalent to image_type = 'casa fits zarr'.
-        If image_type contains the string 'CASA' (case independant), the infile will only attempt to be processed as a CASA image.
-        if image_type contains the string 'FITS' (case independant), the infile will only attempt to be processed as a FITS image.
-        if image_type contains the string 'zarr' (case independant), the infile will only attempt to be processed as a zarr image.
+        If None (default),
+            the infile will attempt to be processed as a CASA, FITS, or zarr image.
+            This is equivalent to image_type = 'casa fits zarr'.
+        If image_type contains the string 'CASA' (case independant),
+            the infile will only attempt to be processed as a CASA image.
+        if image_type contains the string 'FITS' (case independant),
+            the infile will only attempt to be processed as a FITS image.
+        if image_type contains the string 'zarr' (case independant),
+            the infile will only attempt to be processed as a zarr image.
     Returns
     -------
     xarray.Dataset

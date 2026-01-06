@@ -177,19 +177,12 @@ class xds_from_image_test(ImageBase):
         },
         "observer": "Karl Jansky",
         "pointing_center": {
-            'attrs': {
-                'frame': 'fk5',
-                'type': 'sky_coord',
-                'units': 'rad'
+            "attrs": {"frame": "fk5", "type": "sky_coord", "units": "rad"},
+            "data": [1.8325957145940461, -0.6981317007977318],
+            "dims": "sky_dir_label",
+            "coords": {
+                "sky_dir_label": {"data": ["ra", "dec"], "dims": "sky_dir_label"}
             },
-            'data': [1.8325957145940461, -0.6981317007977318],
-            'dims': 'sky_dir_label',
-            'coords': {
-                'sky_dir_label': {
-                    'data': ['ra', 'dec'],
-                    'dims': 'sky_dir_label'
-                }
-            }
         },
         "telescope": {
             "name": "ALMA",

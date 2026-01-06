@@ -372,6 +372,7 @@ def detect_image_type(store):
         - 'ALL': Non-string store type
     """
     import os
+
     if isinstance(store, str):
         if "fits" in store.lower():
             image_type = "SKY"
@@ -595,7 +596,6 @@ def create_image_xds_from_store(
         img_xds[image_type] = xds[image_type]
         img_xds[image_type].attrs["type"] = image_type.lower()
 
-
         active_data_group_name = None
         # If sky image, handle internal masks and beam fit params.
         if "sky" in image_type.lower():
@@ -611,13 +611,13 @@ def create_image_xds_from_store(
                     "BEAM_FIT_PARAMS_" + image_type.upper()
                 )
             expected_flag_name = "FLAG_" + image_type
+
             # TODO remove this mask logic and everything that still makes it necessary
             def _add_flag_to_group(
                 img_xds: xr.Dataset,
                 flag_array: xr.DataArray,
                 expected_flag_name: str,
                 active_group: dict,
-
             ):
                 img_xds[expected_flag_name] = flag_array
                 img_xds[expected_flag_name].attrs["type"] = "flag"

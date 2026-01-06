@@ -372,9 +372,10 @@ def detect_image_type(store):
         - 'ALL': Non-string store type
     """
     import os
-
     if isinstance(store, str):
-        if "image" in store.lower():
+        if "fits" in store.lower():
+            image_type = "SKY"
+        elif "image" in store.lower():
             image_type = "SKY"
         elif "im" in store.lower():
             image_type = "SKY"
@@ -447,7 +448,6 @@ def create_store_dict(store_to_label):
         store_dict_to_label = store_to_label
 
     store_dict = {}
-
     for image_type, store in store_dict_to_label.items():
 
         if isinstance(image_type, int):

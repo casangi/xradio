@@ -759,7 +759,7 @@ class xds_from_image_test(ImageBase):
             )
 
             self.assertTrue(
-                (xds.MASK_0 == big_xds.MASK_0[:, 0:1, 0:4, 2:10, 3:15]).all(),
+                (xds.FLAG_SKY == big_xds.FLAG_SKY[:, 0:1, 0:4, 2:10, 3:15]).all(),
                 "Wrong block MASK_0 array",
             )
 
@@ -814,13 +814,20 @@ class xds_from_image_test(ImageBase):
                     (xds.declination == big_xds.declination[2:10, 3:15]).all(),
                     "Incorrect declination coordinate values",
                 )
-            # all coordinates and data variables should be numpy arrays when loading an
+            # all coordinates should be numpy arrays when loading an
             # image section
-            merged_dict = {**xds.coords, **xds.data_vars}
-            for k, v in merged_dict.items():
+            # merged_dict = {**xds.coords, **xds.data_vars}
+            for k, v in xds.coords.items():
                 self.assertTrue(
                     isinstance(v.data, np.ndarray),
-                    f"Wrong type for coord or data value {k}, got {type(v)}, must be a numpy.ndarray",
+                    f"Wrong type for coord {k}, got {type(v)}, must be a numpy.ndarray",
+                )
+            # all data vars should be wrapped dask arrays
+            import dask
+            for k, v in xds.data_vars.items():
+                self.assertTrue(
+                    isinstance(v.data, dask.array.core.Array),
+                    f"Wrong type for data variable {k}, got {type(v)}, must be a dask.array.core.Array",
                 )
             # test beam
             self.assertTrue(
@@ -1052,11 +1059,15 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
     def test_pixels_and_mask(self):
         """Test pixel values are consistent"""
         with open_image_ro(self.imname()) as im1:
+            print("im1 ", im1.name())
             for imname in [self.outname(), self._outname_no_sky]:
                 with open_image_ro(imname) as im2:
+                    print("im2 ", im2.name())
                     self.assertTrue(
                         (im1.getdata() == im2.getdata()).all(), "Incorrect pixel values"
                     )
+                    print("got ", im1.getmask())
+                    print("exp ", im2.getmask())
                     self.assertTrue(
                         (im1.getmask() == im2.getmask()).all(), "Incorrect mask values"
                     )

@@ -665,7 +665,6 @@ class xds_from_image_test(ImageBase):
         )
 
     def compare_sky_attrs(self, sky: xr.DataArray, fits: bool = False) -> None:
-        print("sky attrs:", sky.attrs)
         my_exp_attrs = copy.deepcopy(self.exp_sky_attrs())
 
         if "direction" not in sky.attrs["telescope"]:
@@ -824,6 +823,7 @@ class xds_from_image_test(ImageBase):
                 )
             # all data vars should be wrapped dask arrays
             import dask
+
             for k, v in xds.data_vars.items():
                 self.assertTrue(
                     isinstance(v.data, dask.array.core.Array),
@@ -1059,15 +1059,11 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
     def test_pixels_and_mask(self):
         """Test pixel values are consistent"""
         with open_image_ro(self.imname()) as im1:
-            print("im1 ", im1.name())
             for imname in [self.outname(), self._outname_no_sky]:
                 with open_image_ro(imname) as im2:
-                    print("im2 ", im2.name())
                     self.assertTrue(
                         (im1.getdata() == im2.getdata()).all(), "Incorrect pixel values"
                     )
-                    print("got ", im1.getmask())
-                    print("exp ", im2.getmask())
                     self.assertTrue(
                         (im1.getmask() == im2.getmask()).all(), "Incorrect mask values"
                     )
@@ -1355,6 +1351,7 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
     def test_xds_attrs(self):
         """Test xds level attributes"""
         import json
+
         self.compare_xds_attrs(self._zds)
         self.compare_sky_attrs(self._zds.SKY)
 

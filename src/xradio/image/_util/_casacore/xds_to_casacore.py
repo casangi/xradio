@@ -352,7 +352,7 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
     )
     casa_image_shape = xds[sky_ap].isel(time=0).transpose(*trans_coords).shape[::-1]
     flag = xds[sky_ap].attrs[_image_flag] if _image_flag in xds[sky_ap].attrs else ""
-
+    # TODO this all needs to be refactored to use flag rather than mask
     masks = []
     masks_rec = {}
     mask_rec = {
@@ -371,10 +371,14 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
     }
     for m in xds.data_vars:
         attrs = xds[m].attrs
-        if "type" in attrs and attrs["type"] == "mask":
+        if "type" in attrs and attrs["type"] in ("mask", "flag"):
             masks_rec[m] = mask_rec
             masks_rec[m]["mask"] = f"Table: {os.sep.join([image_full_path, m])}"
             masks.append(m)
+    if flag and flag in xds.data_vars and flag not in masks:
+        masks_rec[flag] = mask_rec
+        masks_rec[flag]["mask"] = f"Table: {os.sep.join([image_full_path, flag])}"
+        masks.append(flag)
     myvars = [sky_ap]
     myvars.extend(masks)
     # xr.apply_ufunc seems to like stripping attributes from xds and its coordinates,

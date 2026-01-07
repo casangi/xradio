@@ -564,7 +564,8 @@ def create_image_xds_from_store(
         )
 
     if "ALL" in store_dict:
-        img_xds = access_store_zarr(store, **zarr_kwargs)
+        zarr_store = store if isinstance(store, str) else list(store.values())[0]
+        img_xds = access_store_zarr(zarr_store, **zarr_kwargs)
         return img_xds
 
     img_xds = xr.Dataset()

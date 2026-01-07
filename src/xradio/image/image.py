@@ -69,8 +69,8 @@ def open_image(
     Parameters
     ----------
     store : str
-        Path to the input CASA image
-    :chunks : dict
+        Path to the input image
+    chunks : dict
         The desired dask chunk size. Only applicable for casacore and fits images.
         Supported optional keys are 'l', 'm', 'frequency', 'polarization', and 'time'.
         The supported values are positive integers, indicating the length of a chunk

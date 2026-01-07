@@ -182,6 +182,7 @@ def _casa_image_to_xds_image_attrs(
     obj = "objectname"
     attrs[_object_name] = imageinfo[obj] if obj in imageinfo else ""
     attrs["user"] = meta_dict["miscinfo"]
+    """
     defmask = "Image_defaultmask"
     with open_table_ro(image.name()) as casa_table:
         # the actual mask is a data var and data var names are all caps by convention
@@ -193,6 +194,7 @@ def _casa_image_to_xds_image_attrs(
         else:
             am = None
         attrs[_image_flag] = "FLAG_" + image_type.upper()
+    """
     attrs["description"] = None
     # Store history as a dict (not xr.Dataset) for Xarray compatibility
     if history:

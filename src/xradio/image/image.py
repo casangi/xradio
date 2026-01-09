@@ -78,7 +78,7 @@ def open_image(
         along that axis is equal to the number of pixels along that axis. For zarr
         images, this parameter is ignored and the chunk size used to store the arrays
         in the zarr image is used. 'l' represents the longitude like dimension, and 'm'
-        represents the latitude like dimension. For apeature images, 'u' may be used in
+        represents the latitude like dimension. For aperture images, 'u' may be used in
         place of 'l', and 'v' in place of 'm'.
     verbose : bool
         emit debugging messages? Default is False.

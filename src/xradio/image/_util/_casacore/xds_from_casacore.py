@@ -1109,7 +1109,7 @@ def _read_image_array(
                    indicating the length of a chunk on that particular axis. If
                    a key is missing, the associated chunk length along that axis
                    is 1. 'l' represents the longitude like dimension, and 'm'
-                   represents the latitude like dimension. For apeature images,
+                   represents the latitude like dimension. For aperture images,
                    'u' may be used in place of 'l', and 'v' in place of 'm'.
     :type chunks: list | dict, required
     :param mask: If specified, this is the associated image mask to read, rather than the actual

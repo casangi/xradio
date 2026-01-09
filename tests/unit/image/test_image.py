@@ -1177,6 +1177,9 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
             first_attrs = xds.attrs
             t = copy.deepcopy(xds.attrs)
             c = copy.deepcopy(xds.coords)
+            print("casa image", self._imname3)
+            print('\n'.join(sorted(os.listdir(self._imname3))))
+            print("data vars", xds.data_vars)
             write_image(xds, outname, out_format="casa")
             subdirs = glob(f"{outname}/*/")
             subdirs = [d[d.index("/") + 1 : -1] for d in subdirs]
@@ -1190,6 +1193,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
             shutil.rmtree(outname)
             second_attrs = xds.attrs
             second_coords = xds.coords
+            print("xds attrs ", xds.attrs)
             self.dict_equality(t, second_attrs, "xds before", "xds after", ["history"])
             write_image(xds, outname, out_format="casa")
             subdirs = glob(f"{outname}/*/")
@@ -1219,19 +1223,18 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                 data=data,
                 dims=xds[sky].sizes,
                 coords=xds[sky].coords,
-                attrs={image_type: "Mask"},
+                attrs={image_type: "Flag"},
             )
-            xds = xds.assign(MASK_0=mask0)
-            xds["SKY"].attrs["active_mask"] = "MASK_0"
+            xds = xds.assign(FLAG_SKY=mask0)
+            xds.attrs["data_groups"]["flag_group"] = {"sky": "SKY", "flag": "FLAG_SKY"}
             write_image(xds, out_1, out_format="casa")
-            self.assertEqual(
-                xds["SKY"].attrs["active_mask"],
-                "MASK_0",
-                "SKY active mask was incorrectly reset",
-            )
+            print("xds data var names:", xds.data_vars)
+            print("out_1", out_1)
             subdirs = glob(f"{out_1}/*/")
             subdirs = [d[d.index("/") + 1 : -1] for d in subdirs]
             subdirs.sort()
+            print("subdirs:", subdirs)
+            # fails here
             self.assertEqual(
                 subdirs,
                 ["MASK_0", "logtable", "mask_xds_nans", "mask_xds_nans_or_MASK_0"],
@@ -1362,11 +1365,11 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
         image = self.uv_image()
         download(image)
         self.assertTrue(os.path.isdir(image), f"Cound not download {image}")
-        xds = open_image({"APETURE": image})
+        xds = open_image({"APERTURE": image})
         write_image(xds, self._zarr_uv_store, "zarr")
-        xds2 = open_image({"APETURE": self._zarr_uv_store})
+        xds2 = open_image({"APERTURE": self._zarr_uv_store})
         self.assertTrue(
-            np.isclose(xds2.APETURE.values, xds.APETURE.values).all(),
+            np.isclose(xds2.APERTURE.values, xds.APERTURE.values).all(),
             "Incorrect aperture pixel values",
         )
 

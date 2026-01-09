@@ -183,9 +183,10 @@ def _xds_to_multiple_casa_images(xds: xr.Dataset, image_store_name: str) -> None
                     image_to_write_xds = xr.Dataset()
                     image_to_write_xds.attrs = xds.attrs.copy()
 
-                    image_to_write_xds["SKY"] = xds[
-                        image_name
-                    ]  # Setting everying to sky for writing purposes.
+                    if image_type == "aperture":
+                        image_to_write_xds["APERTURE"] = xds[image_name]
+                    else:
+                        image_to_write_xds["SKY"] = xds[image_name]
 
                     # This code handles adding internal masks and beam fit params if they exist.
                     if image_type == "sky":

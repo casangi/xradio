@@ -378,8 +378,6 @@ def detect_image_type(store):
             image_type = "SKY"
         elif "image" in store.lower():
             image_type = "SKY"
-        elif "im" in store.lower():
-            image_type = "SKY"
         elif "sky" in store.lower():
             image_type = "SKY"
         elif "psf" in store.lower():
@@ -390,11 +388,12 @@ def detect_image_type(store):
             image_type = "RESIDUAL"
         elif "dirty" in store.lower():
             image_type = "DIRTY"
-        elif "mask" in store.lower():
-            image_type = "MASK_DECONVOLVE"
         elif "pb" in store.lower():
             image_type = "PRIMARY_BEAM"
         elif "aperture" in store.lower():
+            image_type = "APERTURE"
+        elif "uv" in store.lower():
+            # Must precede the "im" check so uv images aren't misclassified as SKY.
             image_type = "APERTURE"
         elif "visibility" in store.lower():
             image_type = "VISIBILITY"
@@ -402,6 +401,11 @@ def detect_image_type(store):
             image_type = "VISIBILITY_NORMALIZATION"
         elif "zarr" in store.lower():
             image_type = "ALL"
+        elif "im" in store.lower():
+            # Must precede the "mask" check so *mask*.im images aren't misclassified.
+            image_type = "SKY"
+        elif "mask" in store.lower():
+            image_type = "MASK_DECONVOLVE"
         else:
             image_type = "UNKNOWN"
     else:
@@ -486,6 +490,8 @@ def create_store_dict(store_to_label):
             else:
                 data_group_name = image_type.lower().replace("sky_", "")
                 data_groups[data_group_name] = {"sky": image_type}
+        if "aperture" == image_type.lower():
+            data_groups["base"] = {"aperture": image_type}
 
     return store_dict, data_groups
 

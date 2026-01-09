@@ -13,8 +13,7 @@ readme = "README.md"
 requires-python = ">= 3.11, < 3.14"
 
 dependencies = [
-    'xarray',
-    'typeguard'
+    'xarray'
 ]
 
 [project.optional-dependencies]

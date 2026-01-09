@@ -25,6 +25,7 @@ def open_processing_set(
 
     file_system, ms_store_list = _get_file_system_and_items(ps_store)
     import s3fs
+
     if isinstance(file_system, s3fs.core.S3FileSystem):
         mapping = s3fs.S3Map(root=ps_store, s3=file_system, check=False)
         ps_xdt = xr.open_datatree(

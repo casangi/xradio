@@ -6,8 +6,9 @@ import os
 #     column_description_casacore_to_msv4_measure,
 # )
 
+
 def _get_file_system_and_items(ps_store: str):
-    
+
     import s3fs
     from botocore.exceptions import NoCredentialsError
 

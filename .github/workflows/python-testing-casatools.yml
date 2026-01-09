@@ -8,7 +8,7 @@ on:
 
 jobs:
   call-testing-with-casatools:
-    uses: casangi/toolviper/.github/workflows/python-testing-casatools-template.yml@main
+    uses: nrao/gh-actions-templates-public/.github/workflows/python-testing-casatools-template.yml@main
     with:
       cov_project: "xradio"
       test-path: "tests/"

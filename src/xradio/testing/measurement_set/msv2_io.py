@@ -1782,7 +1782,7 @@ def build_processing_set_from_msv2(
     out_file: str | Path,
     *,
     partition_scheme: Optional[Iterable[dict]] = None,
-    overwrite: bool = False,
+    persistence_mode: str = "w",
     parallel_mode: str = "partition",
     **convert_kwargs: Any,
 ) -> Path:
@@ -1795,7 +1795,7 @@ def build_processing_set_from_msv2(
         in_file=str(in_file),
         out_file=str(out_file),
         partition_scheme=list(partition_scheme or []),
-        overwrite=overwrite,
+        persistence_mode=persistence_mode,
         parallel_mode=parallel_mode,
         **convert_kwargs,
     )
@@ -1809,7 +1809,7 @@ def build_msv4_partition(
     msv4_id: str = "msv4id",
     partition_kwargs: Optional[Dict[str, Any]] = None,
     use_table_iter: bool = False,
-    overwrite: bool = True,
+    persistence_mode: str = "w",
 ) -> Path:
     """
     Convert a MeasurementSet v2 partition into an MSv4 Zarr tree.
@@ -1825,7 +1825,7 @@ def build_msv4_partition(
         msv4_id,
         partition_kwargs,
         use_table_iter=use_table_iter,
-        overwrite=overwrite,
+        persistence_mode=persistence_mode,
     )
     return Path(out_root) / f"{Path(ms_path).stem}_{msv4_id}"
 
@@ -1837,7 +1837,7 @@ def build_minimal_msv4_xdt(
     msv4_id: str = "msv4id",
     partition_kwargs: Optional[Dict[str, Any]] = None,
     use_table_iter: bool = False,
-    overwrite: bool = True,
+    persistence_mode: str = "w",
 ) -> Path:
     """
     Convenience wrapper that selects reasonable defaults for the minimal MSv4 conversion.
@@ -1851,5 +1851,5 @@ def build_minimal_msv4_xdt(
         msv4_id=msv4_id,
         partition_kwargs=partition_kwargs,
         use_table_iter=use_table_iter,
-        overwrite=overwrite,
+        persistence_mode=persistence_mode,
     )

@@ -1178,7 +1178,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
             t = copy.deepcopy(xds.attrs)
             c = copy.deepcopy(xds.coords)
             print("casa image", self._imname3)
-            print('\n'.join(sorted(os.listdir(self._imname3))))
+            print("\n".join(sorted(os.listdir(self._imname3))))
             print("data vars", xds.data_vars)
             write_image(xds, outname, out_format="casa")
             subdirs = glob(f"{outname}/*/")

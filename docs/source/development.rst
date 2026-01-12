@@ -93,7 +93,7 @@ to the GitHub issue).
 - If tests pass and you are satisfied open a pull request in GitHub.
   This will be reviewed by a member of the XRADIO team.
 
-Code Organisation
+Code Organization
 -----------------
 
 Each data schema supported by XRADIO is organized into its own
@@ -247,5 +247,3 @@ Coding Conventions
 - **Error Handling & Logging**: Use the
   `toolviper <https://github.com/casangi/toolviper/blob/main/docs/graphviper-logger-formatting-example.ipynb>`__
   logger for consistent logging.
-
-

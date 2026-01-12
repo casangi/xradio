@@ -15,7 +15,9 @@ XRADIO can be installed in virtual environments via pip. It is recommended to us
 conda create --name xradio python=3.13 --no-default-packages
 conda activate xradio
 ```
-> 📝 On macOS, if one wants to use the functions to convert MSv2=>MSv4, it is required to pre-install `python-casacore`. That can be done using `conda install -c conda-forge python-casacore`. See more alternatives below.
+> 📝 On MacOS:
+> - if one wants to use the functions to convert MSv2=>MSv4, it is required to pre-install `python-casacore`. That can be done using `conda install -c conda-forge python-casacore`. See more alternatives below.
+> - if using an Intel (x86_64) Mac `"llvmlite==0.45.1"` must be appended to the installation command. For example `pip install "xradio[all] "llvmlite==0.45.1"`.
 
 XRADIO can now be installed using:
 ```sh

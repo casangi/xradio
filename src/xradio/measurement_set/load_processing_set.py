@@ -1,8 +1,6 @@
 import os
 from typing import Dict, Union
-import dask
 import xarray as xr
-import s3fs
 
 
 def load_processing_set(
@@ -48,6 +46,8 @@ def load_processing_set(
         In memory representation of processing set using xr.DataTree.
     """
     from xradio._utils.zarr.common import _get_file_system_and_items
+    import dask
+    import s3fs
 
     file_system, ms_store_list = _get_file_system_and_items(ps_store)
 

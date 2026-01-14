@@ -1,14 +1,16 @@
 """
-Generates MeasurementSets. The motivation is to generate on-the-fly MSs in
-unit tests (normally as pytest fixtures).
-It has been growing driven by iterative increase of coverage in unit tests.
+Functions to generate MeasurementSets. The motivation is to generate on-the-fly MSs in
+unit tests that can be used in pytest fixtures or external projects that import
+xradio.testing.
+
+All functions that depend on casacore have been moved to this module.
 """
 
 from contextlib import contextmanager
 import datetime
 import itertools
 from pathlib import Path
-from typing import Generator
+from typing import Generator, Tuple, Dict, Any, Optional, Iterable
 
 import numpy as np
 
@@ -67,7 +69,7 @@ default_ms_descr = {
 }
 
 
-def gen_test_ms(
+def _gen_test_ms_impl(
     msname: str,
     descr: dict = None,
     opt_tables: bool = True,
@@ -209,6 +211,53 @@ def gen_test_ms(
     }
 
     return outdescr
+
+
+def gen_test_ms(
+    msname: str,
+    *,
+    descr: Optional[Dict[str, Any]] = None,
+    opt_tables: bool = True,
+    vlbi_tables: bool = True,
+    required_only: bool = True,
+    misbehave: bool = False,
+) -> Tuple[str, Dict[str, Any]]:
+    """
+    Generate an MS on disk and return both the path and the generated description.
+
+    This is the high-level helper used by tests and benchmarks. The lower-level
+    implementation is `_gen_test_ms_impl`.
+    """
+
+    ms_descr = _gen_test_ms_impl(
+        msname,
+        descr,
+        opt_tables=opt_tables,
+        vlbi_tables=vlbi_tables,
+        required_only=required_only,
+        misbehave=misbehave,
+    )
+    return msname, ms_descr
+
+
+def gen_minimal_ms(
+    msname: str = "test_msv2_minimal_required.ms",
+    *,
+    misbehave: bool = False,
+    include_optional_tables: bool = True,
+    include_vlbi_tables: bool = True,
+) -> Tuple[str, Dict[str, Any]]:
+    """
+    Generate a minimal MSv2 dataset with sensible defaults used across tests/benchmarks.
+    """
+
+    return gen_test_ms(
+        msname,
+        opt_tables=include_optional_tables,
+        vlbi_tables=include_vlbi_tables,
+        required_only=True,
+        misbehave=misbehave,
+    )
 
 
 def make_ms_empty(name: str, descr: dict = None, complete: bool = False):
@@ -1723,3 +1772,84 @@ def gen_subt_phase_cal(mspath: str, ant_descr: dict):
 
     with tables.table(mspath, ack=False, readonly=False) as main:
         main.putkeyword(subt_name, f"Table: {mspath}/{subt_name}")
+
+
+# Functions from io.py that depend on casacore
+
+
+def build_processing_set_from_msv2(
+    in_file: str | Path,
+    out_file: str | Path,
+    *,
+    partition_scheme: Optional[Iterable[dict]] = None,
+    persistence_mode: str = "w",
+    parallel_mode: str = "partition",
+    **convert_kwargs: Any,
+) -> Path:
+    """
+    Convert an MSv2 dataset into a processing set using the production converter.
+    """
+    from xradio.measurement_set import convert_msv2_to_processing_set
+
+    convert_msv2_to_processing_set(
+        in_file=str(in_file),
+        out_file=str(out_file),
+        partition_scheme=list(partition_scheme or []),
+        persistence_mode=persistence_mode,
+        parallel_mode=parallel_mode,
+        **convert_kwargs,
+    )
+    return Path(out_file)
+
+
+def build_msv4_partition(
+    ms_path: str | Path,
+    out_root: str | Path,
+    *,
+    msv4_id: str = "msv4id",
+    partition_kwargs: Optional[Dict[str, Any]] = None,
+    use_table_iter: bool = False,
+    persistence_mode: str = "w",
+) -> Path:
+    """
+    Convert a MeasurementSet v2 partition into an MSv4 Zarr tree.
+    """
+    from xradio.measurement_set._utils._msv2.conversion import (
+        convert_and_write_partition,
+    )
+
+    partition_kwargs = partition_kwargs or {"DATA_DESC_ID": [0]}
+    convert_and_write_partition(
+        str(ms_path),
+        str(out_root),
+        msv4_id,
+        partition_kwargs,
+        use_table_iter=use_table_iter,
+        persistence_mode=persistence_mode,
+    )
+    return Path(out_root) / f"{Path(ms_path).stem}_{msv4_id}"
+
+
+def build_minimal_msv4_xdt(
+    ms_path: str | Path,
+    *,
+    out_root: str | Path | None = None,
+    msv4_id: str = "msv4id",
+    partition_kwargs: Optional[Dict[str, Any]] = None,
+    use_table_iter: bool = False,
+    persistence_mode: str = "w",
+) -> Path:
+    """
+    Convenience wrapper that selects reasonable defaults for the minimal MSv4 conversion.
+    """
+
+    if out_root is None:
+        out_root = Path(f"{Path(ms_path).stem}_processing_set.zarr")
+    return build_msv4_partition(
+        ms_path,
+        out_root,
+        msv4_id=msv4_id,
+        partition_kwargs=partition_kwargs,
+        use_table_iter=use_table_iter,
+        persistence_mode=persistence_mode,
+    )

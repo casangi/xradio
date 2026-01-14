@@ -7,7 +7,6 @@ import warnings
 
 import xarray
 import numpy
-from typeguard import check_type, TypeCheckError
 
 from xradio.schema import (
     metamodel,
@@ -502,37 +501,89 @@ def _check_value(val: typing.Any, schema: metamodel.ValueSchema):
                     ]
                 )
 
-        if not isinstance(val, xarray.DataArray):
-            # Fall through to plain type check
-            type_to_check = xarray.DataArray
-        else:
+        if isinstance(val, xarray.DataArray):
             return check_array(val, schema.array_schema)
+
+        expected = [xarray.DataArray]
+        if schema.optional:
+            expected.append(type(None))
+        return SchemaIssues(
+            [
+                SchemaIssue(
+                    path=[],
+                    message=f"{type(val).__name__} is not an xarray.DataArray!",
+                    expected=expected,
+                    found=type(val),
+                )
+            ]
+        )
 
     # Is supposed to be a dictionary?
     elif schema.type == "dict":
         if not isinstance(val, dict):
-            # Fall through to plain type check
-            type_to_check = dict
+            expected = [dict]
+            if schema.optional:
+                expected.append(type(None))
+            return SchemaIssues(
+                [
+                    SchemaIssue(
+                        path=[],
+                        message=f"{type(val).__name__} is not a dictionary!",
+                        expected=expected,
+                        found=type(val),
+                    )
+                ]
+            )
         else:
             return check_dict(val, schema.dict_schema)
 
     elif schema.type == "list[str]":
-        type_to_check = typing.List[str]
+        if not isinstance(val, list):
+            expected = [list[str]]
+            if schema.optional:
+                expected.append(type(None))
+            return SchemaIssues(
+                [
+                    SchemaIssue(
+                        path=[],
+                        message=f"{type(val).__name__} is not a list!",
+                        expected=expected,
+                        found=type(val),
+                    )
+                ]
+            )
+        if any(type(v) is not str for v in val):
+            expected = [list[str]]
+            if schema.optional:
+                expected.append(type(None))
+            return SchemaIssues(
+                [
+                    SchemaIssue(
+                        path=[],
+                        message=f"{type(val).__name__} is not a list of strings!",
+                        expected=expected,
+                        found=type(val),
+                    )
+                ]
+            )
     elif schema.type in ["bool", "str", "int", "float"]:
         type_to_check = getattr(builtins, schema.type)
+        if not isinstance(val, type_to_check):
+            expected = [type_to_check]
+            if schema.optional:
+                expected.append(type(None))
+            return SchemaIssues(
+                [
+                    SchemaIssue(
+                        path=[],
+                        message=f"{type(val).__name__} is not a {schema.type}!",
+                        expected=expected,
+                        found=type(val),
+                    )
+                ]
+            )
     else:
         raise ValueError(f"Invalid typ_name in schema: {schema.type}")
-
-    # Otherwise straight type check using typeguard
-    try:
-        check_type(val, type_to_check)
-    except TypeCheckError as t:
-        expected = [type_to_check]
-        if schema.optional:
-            expected.append(type(None))
-        return SchemaIssues(
-            [SchemaIssue(path=[], message=str(t), expected=expected, found=type(val))]
-        )
 
     # List of literals given?
     if schema.literal is not None:

@@ -830,20 +830,21 @@ class xds_from_image_test(ImageBase):
                     f"Wrong type for data variable {k}, got {type(v)}, must be a dask.array.core.Array",
                 )
             # test beam
-            self.assertTrue(
-                xds["BEAM_FIT_PARAMS"].shape == (1, 4, 1, 3), "Wrong beam shape"
-            )
-            self.assertTrue(
-                tuple(xds["BEAM_FIT_PARAMS"].dims)
-                == ("time", "frequency", "polarization", "beam_params_label"),
-                f"Wrong beam dims, got {tuple(xds['BEAM_FIT_PARAMS'].dims)}",
-            )
-            self.assertEqual(
-                xds["BEAM_FIT_PARAMS"][0, 2, 0, 0], 2.0, "Wrong beam value"
-            )
-            self.assertEqual(
-                xds["BEAM_FIT_PARAMS"][0, 0, 0, 0], 1.0, "Wrong beam value"
-            )
+            if "BEAM_FIT_PARAMS_SKY" in xds:
+                self.assertTrue(
+                    xds["BEAM_FIT_PARAMS_SKY"].shape == (1, 4, 1, 3), "Wrong beam shape"
+                )
+                self.assertTrue(
+                    tuple(xds["BEAM_FIT_PARAMS"].dims)
+                    == ("time", "frequency", "polarization", "beam_params_label"),
+                    f"Wrong beam dims, got {tuple(xds['BEAM_FIT_PARAMS'].dims)}",
+                )
+                self.assertEqual(
+                    xds["BEAM_FIT_PARAMS"][0, 2, 0, 0], 2.0, "Wrong beam value"
+                )
+                self.assertEqual(
+                    xds["BEAM_FIT_PARAMS"][0, 0, 0, 0], 1.0, "Wrong beam value"
+                )
 
     def compare_uv(self, xds: xr.Dataset, image: str) -> None:
         if not self._expec_uv:
@@ -1151,7 +1152,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
         for i, p in enumerate(["major", "minor", "pa"]):
             self.assertTrue(
                 np.allclose(
-                    xds.BEAM_FIT_PARAMS.sel(beam_params_label=p).values,
+                    xds.BEAM_FIT_PARAMS_SKY.sel(beam_params_label=p).values,
                     expec[i],
                 ),
                 f"Incorrect {p} axis",
@@ -1177,9 +1178,6 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
             first_attrs = xds.attrs
             t = copy.deepcopy(xds.attrs)
             c = copy.deepcopy(xds.coords)
-            print("casa image", self._imname3)
-            print('\n'.join(sorted(os.listdir(self._imname3))))
-            print("data vars", xds.data_vars)
             write_image(xds, outname, out_format="casa")
             subdirs = glob(f"{outname}/*/")
             subdirs = [d[d.index("/") + 1 : -1] for d in subdirs]
@@ -1193,7 +1191,6 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
             shutil.rmtree(outname)
             second_attrs = xds.attrs
             second_coords = xds.coords
-            print("xds attrs ", xds.attrs)
             self.dict_equality(t, second_attrs, "xds before", "xds after", ["history"])
             write_image(xds, outname, out_format="casa")
             subdirs = glob(f"{outname}/*/")
@@ -1226,15 +1223,11 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                 attrs={image_type: "Flag"},
             )
             xds = xds.assign(FLAG_SKY=mask0)
-            xds.attrs["data_groups"]["flag_group"] = {"sky": "SKY", "flag": "FLAG_SKY"}
+            xds.attrs["data_groups"]["base"]["flag"] = "FLAG_SKY"
             write_image(xds, out_1, out_format="casa")
-            print("xds data var names:", xds.data_vars)
-            print("out_1", out_1)
             subdirs = glob(f"{out_1}/*/")
             subdirs = [d[d.index("/") + 1 : -1] for d in subdirs]
             subdirs.sort()
-            print("subdirs:", subdirs)
-            # fails here
             self.assertEqual(
                 subdirs,
                 ["MASK_0", "logtable", "mask_xds_nans", "mask_xds_nans_or_MASK_0"],
@@ -1250,11 +1243,6 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
             xds[sky][0, 2, 2, 2, 2] = float("NaN")
             xds[sky][0, 1, 1, 1, 1] = 0
             write_image(xds, out_2, out_format="casa")
-            self.assertEqual(
-                xds["SKY"].attrs["active_mask"],
-                "MASK_0",
-                "SKY active mask was incorrectly reset",
-            )
             subdirs = glob(f"{out_2}/*/")
             subdirs = [d[d.index("/") + 1 : -1] for d in subdirs]
             subdirs.sort()

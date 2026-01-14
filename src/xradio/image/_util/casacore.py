@@ -202,7 +202,6 @@ def _xds_to_multiple_casa_images(xds: xr.Dataset, image_store_name: str) -> None
                             ]
 
                         if "flag" in xds.attrs["data_groups"][data_group]:
-                            print("******* found flag")
                             mask_sky_name = xds.attrs["data_groups"][data_group]["flag"]
                             image_to_write_xds["MASK_0"] = xds[mask_sky_name]
                             image_to_write_xds["SKY"].attrs["flag"] = "MASK_0"

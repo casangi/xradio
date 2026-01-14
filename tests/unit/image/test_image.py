@@ -471,7 +471,7 @@ class xds_from_image_test(ImageBase):
         self.assertEqual(da.sum(got_ma), ev["sum"], "Incorrect value for sum")
         self.assertTrue(
             got_data.dtype == ev[temp_sky].dtype,
-            f"Incoorect data type, got {got_data.dtype}, expected {ev[temp_sky].dtype}",
+            f"Incorrect data type, got {got_data.dtype}, expected {ev[temp_sky].dtype}",
         )
 
     def compare_time(self, xds: xr.Dataset) -> None:

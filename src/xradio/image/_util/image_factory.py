@@ -337,7 +337,7 @@ def detect_store_type(store):
                 raise ValueError("Unknown directory structure." + str(store))
         else:
             logger.error("Path does not exist.")
-            raise ValueError("Path does not exist." + str(store))
+            raise ValueError("Path does not exist. The current path: " + str(os.system("pwd")) + " .The current directory: " + str(os.system("ls")) + " The given store " + str(store))
     else:
         store_type = "zarr"
 

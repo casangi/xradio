@@ -340,8 +340,10 @@ def detect_store_type(store):
             raise ValueError(
                 "Path does not exist. The current path: "
                 + str(os.system("pwd"))
-                + " .The current directory: "
-                + str(os.system("ls"))
+                + " .The current casa directory: "
+                + str(os.system("ls 3c286_Band6_5chans_lsrk_robust_0.5_niter_99_casa"))
+                + ". The current fits directory: "
+                + str(os.system("ls 3c286_Band6_5chans_lsrk_robust_0.5_niter_99_fits"))
                 + " The given store "
                 + str(store)
             )

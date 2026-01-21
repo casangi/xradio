@@ -2,7 +2,6 @@ from typing import Dict, TypedDict, Union
 
 import xarray as xr
 
-
 PartitionIds = TypedDict(
     "PartitionIds",
     {

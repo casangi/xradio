@@ -27,7 +27,6 @@ from xradio.measurement_set._utils._msv2._tables.read import (
     table_has_column,
 )
 
-
 standard_time_coord_attrs = make_time_measure_attrs(time_format="unix")
 
 

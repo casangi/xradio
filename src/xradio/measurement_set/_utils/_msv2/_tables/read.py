@@ -93,9 +93,12 @@ def convert_mjd_time(rawtimes: np.ndarray) -> np.ndarray:
     np.ndarray
         times converted to pandas reference and datetime type
     """
+
+    print("^^^^^^^", rawtimes, MJD_DIF_UNIX, SECS_IN_DAY)
     times_reref = pd.to_datetime(
         (rawtimes - MJD_DIF_UNIX) * SECS_IN_DAY, unit="s"
     ).values
+    print("^^^^^^^", times_reref)
 
     return times_reref
 
@@ -891,7 +894,8 @@ def raw_col_data_to_coords_vars(
 
     if col in timecols:
         if col == "MJD":
-            data = convert_mjd_time(data).astype("float64") / 1e9
+            # data = convert_mjd_time(data).astype("float64") / 1e9
+            data = convert_mjd_time(data).astype("datetime64[ns]").view("int64") / 1e9
         else:
             try:
                 data = convert_casacore_time(data, False)

@@ -93,12 +93,9 @@ def convert_mjd_time(rawtimes: np.ndarray) -> np.ndarray:
     np.ndarray
         times converted to pandas reference and datetime type
     """
-
-    print("^^^^^^^", rawtimes, MJD_DIF_UNIX, SECS_IN_DAY)
     times_reref = pd.to_datetime(
         (rawtimes - MJD_DIF_UNIX) * SECS_IN_DAY, unit="s"
     ).values
-    print("^^^^^^^", times_reref)
 
     return times_reref
 

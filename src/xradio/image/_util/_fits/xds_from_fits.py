@@ -13,12 +13,14 @@ from astropy.time import Time
 
 from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import (
+    make_direction_location_dict,
     make_quantity,
     make_spectral_coord_reference_dict,
     make_skycoord_dict,
     make_time_measure_dict,
 )
 
+from xradio._utils.list_and_array import to_python_type
 from xradio.measurement_set._utils._utils.stokes_types import stokes_types
 from xradio.image._util.common import (
     _compute_linear_world_values,
@@ -34,6 +36,11 @@ from xradio.image._util.common import (
     _l_m_attr_notes,
 )
 
+from xradio.image._util._casacore.common import (
+    _image_flag,
+    _beam_fit_params,
+)
+
 
 def _fits_image_to_xds(
     img_full_path: str,
@@ -41,6 +48,7 @@ def _fits_image_to_xds(
     verbose: bool,
     do_sky_coords: bool,
     compute_mask: bool,
+    image_type: str = "SKY",
 ) -> dict:
     """
     compute_mask : bool, optional
@@ -65,13 +73,27 @@ def _fits_image_to_xds(
     sphr_dims = helpers["sphr_dims"]
     ary = _read_image_array(img_full_path, chunks, helpers, verbose)
     dim_order = _get_xds_dim_order(sphr_dims)
-    xds = _add_sky_or_aperture(xds, ary, dim_order, header, helpers, sphr_dims)
+    xds = _add_sky_or_aperture(
+        xds, ary, dim_order, header, helpers, sphr_dims, image_type
+    )
     xds.attrs = attrs
     xds = _add_coord_attrs(xds, helpers)
     if helpers["has_multibeam"]:
-        xds = _do_multibeam(xds, img_full_path)
+        xds = _do_multibeam(xds, img_full_path, image_type=image_type)
+        xds[image_type.upper()].attrs[_beam_fit_params] = (
+            "BEAM_FIT_PARAMS_" + image_type.upper()
+        )
+        xds["BEAM_FIT_PARAMS_" + image_type.upper()].attrs["type"] = (
+            "beam_fit_params_" + image_type.lower()
+        )
     elif "beam" in helpers and helpers["beam"] is not None:
-        xds = _add_beam(xds, helpers)
+        xds = _add_beam(xds, helpers, image_type)
+        xds[image_type.upper()].attrs[_beam_fit_params] = (
+            "BEAM_FIT_PARAMS_" + image_type.upper()
+        )
+        xds["BEAM_FIT_PARAMS_" + image_type.upper()].attrs["type"] = (
+            "beam_fit_params_" + image_type.lower()
+        )
     return xds
 
 
@@ -116,7 +138,7 @@ def _add_vel_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     vel_coord = xds.coords["velocity"]
     meta = {"units": "m/s"}
     if helpers["has_freq"]:
-        meta["doppler_type"] = helpers.get("doppler", "RADIO")
+        meta["doppler_type"] = helpers.get("doppler", "radio")
     else:
         meta["doppler_type"] = _doppler_types[0]
     meta["type"] = "doppler"
@@ -151,7 +173,7 @@ def _is_freq_like(v: str) -> bool:
     return v.startswith("FREQ") or v == "VOPT" or v == "VRAD"
 
 
-def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
+def _xds_coordinate_system_info_attrs_from_header(helpers: dict, header) -> dict:
     # helpers is modified in place, headers is not modified
     t_axes = helpers["t_axes"]
     p0 = header[f"CTYPE{t_axes[0]}"][-3:]
@@ -161,8 +183,8 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
             f"Projections for direction axes ({p0}, {p1}) differ, but they "
             "must be the same"
         )
-    direction = {}
-    direction["projection"] = p0
+    coordinate_system_info = {}
+    coordinate_system_info["projection"] = p0
     helpers["projection"] = p0
     ref_sys = header["RADESYS"]
     ref_eqx = None if ref_sys.upper() == "ICRS" else header["EQUINOX"]
@@ -171,7 +193,9 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
     helpers["ref_sys"] = ref_sys
     helpers["ref_eqx"] = ref_eqx
     # fits does not support conversion frames
-    direction["reference"] = make_skycoord_dict([0.0, 0.0], units="rad", frame=ref_sys)
+    coordinate_system_info["reference_direction"] = make_skycoord_dict(
+        [0.0, 0.0], units="rad", frame=ref_sys
+    )
     dir_axes = helpers["dir_axes"]
     ddata = []
     dunits = []
@@ -182,15 +206,20 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
         # direction["reference"]["value"][i] = x.value
         x = helpers["cdelt"][i] * u.Unit(_get_unit(helpers["cunit"][i]))
         dunits.append("rad")
-    direction["reference"] = make_skycoord_dict(ddata, units=dunits, frame=ref_sys)
+    coordinate_system_info["reference_direction"] = make_skycoord_dict(
+        ddata, units=dunits, frame=ref_sys
+    )
     if ref_eqx is not None:
-        direction["reference"]["attrs"]["equinox"] = ref_eqx.lower()
-    direction["latpole"] = make_quantity(
-        header["LATPOLE"] * _deg_to_rad, "rad", dims=["l", "m"]
+        coordinate_system_info["reference_direction"]["attrs"][
+            "equinox"
+        ] = ref_eqx.lower()
+
+    coordinate_system_info["native_pole_direction"] = make_direction_location_dict(
+        [header["LONPOLE"] * _deg_to_rad, header["LATPOLE"] * _deg_to_rad],
+        units="rad",
+        frame="native_projection",
     )
-    direction["lonpole"] = make_quantity(
-        header["LONPOLE"] * _deg_to_rad, "rad", dims=["l", "m"]
-    )
+
     pc = np.zeros([2, 2])
     for i in (0, 1):
         for j in (0, 1):
@@ -205,10 +234,61 @@ def _xds_direction_attrs_from_header(helpers: dict, header) -> dict:
                         f"Could not find PC{dir_axes[i]+1}_{dir_axes[j]+1} or "
                         f"PC0{dir_axes[i]+1}_0{dir_axes[j]+1} in FITS header"
                     )
-    direction["pc"] = pc
+    coordinate_system_info["pixel_coordinate_transformation_matrix"] = to_python_type(
+        pc
+    )
     # Is there really no fits header parameter for projection_parameters?
-    direction["projection_parameters"] = np.array([0.0, 0.0])
-    return direction
+    coordinate_system_info["projection_parameters"] = [0.0, 0.0]
+    return coordinate_system_info
+
+    # direction = {}
+    # direction["projection"] = p0
+    # helpers["projection"] = p0
+    # ref_sys = header["RADESYS"]
+    # ref_eqx = None if ref_sys.upper() == "ICRS" else header["EQUINOX"]
+    # if ref_sys == "FK5" and ref_eqx == 2000:
+    #     ref_eqx = "J2000.0"
+    # helpers["ref_sys"] = ref_sys
+    # helpers["ref_eqx"] = ref_eqx
+    # # fits does not support conversion frames
+    # direction["reference"] = make_skycoord_dict([0.0, 0.0], units="rad", frame=ref_sys)
+    # dir_axes = helpers["dir_axes"]
+    # ddata = []
+    # dunits = []
+    # for i in dir_axes:
+    #     x = helpers["crval"][i] * u.Unit(_get_unit(helpers["cunit"][i]))
+    #     x = x.to("rad")
+    #     ddata.append(x.value)
+    #     # direction["reference"]["value"][i] = x.value
+    #     x = helpers["cdelt"][i] * u.Unit(_get_unit(helpers["cunit"][i]))
+    #     dunits.append("rad")
+    # direction["reference"] = make_skycoord_dict(ddata, units=dunits, frame=ref_sys)
+    # if ref_eqx is not None:
+    #     direction["reference"]["attrs"]["equinox"] = ref_eqx.lower()
+    # direction["latpole"] = make_quantity(
+    #     header["LATPOLE"] * _deg_to_rad, "rad", dims=["l", "m"]
+    # )
+    # direction["lonpole"] = make_quantity(
+    #     header["LONPOLE"] * _deg_to_rad, "rad", dims=["l", "m"]
+    # )
+    # pc = np.zeros([2, 2])
+    # for i in (0, 1):
+    #     for j in (0, 1):
+    #         # dir_axes are now 0-based, but fits needs 1-based
+    #         try:
+    #             pc[i][j] = header[f"PC{dir_axes[i]+1}_{dir_axes[j]+1}"]
+    #         except KeyError:
+    #             try:
+    #                 pc[i][j] = header[f"PC0{dir_axes[i]+1}_0{dir_axes[j]+1}"]
+    #             except KeyError:
+    #                 raise RuntimeError(
+    #                     f"Could not find PC{dir_axes[i]+1}_{dir_axes[j]+1} or "
+    #                     f"PC0{dir_axes[i]+1}_0{dir_axes[j]+1} in FITS header"
+    #                 )
+    # direction["pc"] = pc
+    # # Is there really no fits header parameter for projection_parameters?
+    # direction["projection_parameters"] = np.array([0.0, 0.0])
+    # return direction
 
 
 def _fits_header_c_values_to_metadata(helpers: dict, header) -> None:
@@ -258,7 +338,7 @@ def _get_telescope_metadata(helpers: dict, header) -> dict:
                 "type": "location",
                 "units": "rad",
             },
-            "data": np.array([long, lat]),
+            "data": [long, lat],
             "dims": ["ellipsoid_dir_label"],
             "coords": {
                 "ellipsoid_dir_label": {
@@ -276,7 +356,7 @@ def _get_telescope_metadata(helpers: dict, header) -> dict:
                 "type": "location",
                 "units": "m",
             },
-            "data": np.array([r]),
+            "data": [r],
             "dims": ["ellipsoid_dis_label"],
             "coords": {
                 "ellipsoid_dis_label": {
@@ -465,7 +545,9 @@ def _fits_header_to_xds_attrs(
     else:
         raise RuntimeError("Could not find both direction axes")
     if dir_axes is not None:
-        attrs["direction"] = _xds_direction_attrs_from_header(helpers, header)
+        attrs["coordinate_system_info"] = _xds_coordinate_system_info_attrs_from_header(
+            helpers, header
+        )
     helpers["has_mask"] = False
     if compute_mask:
         # 🧠 Why the primary.data reference here is Safe (does not cause
@@ -527,7 +609,7 @@ def _fits_header_to_xds_attrs(
         data=Time(header["DATE-OBS"], format="isot").mjd,
         units=["d"],
         scale=header["TIMESYS"],
-        time_format="MJD",
+        time_format="mjd",
     )
 
     # TODO complete _make_history_xds when spec has been finalized
@@ -608,7 +690,8 @@ def _create_coords(
     else:
         # Fourier image
         coords["u"], coords["v"] = _get_uv_values(helpers)
-    coords["beam_param"] = ["major", "minor", "pa"]
+    coords["beam_params_label"] = ["major", "minor", "pa"]
+
     xds = xr.Dataset(coords=coords)
     return xds
 
@@ -698,7 +781,7 @@ def _get_velocity_values(helpers: dict) -> list:
 # FIXME change namee, even if there is only a single beam, we make a
 # multi beam array using it. If we have a beam, it will always be
 # "mutltibeam" is name is redundant and confusing
-def _do_multibeam(xds: xr.Dataset, imname: str) -> xr.Dataset:
+def _do_multibeam(xds: xr.Dataset, imname: str, image_type: str = "SKY") -> xr.Dataset:
     """Only run if we are sure there are multiple beams"""
     hdulist = fits.open(imname)
     for hdu in hdulist:
@@ -720,31 +803,33 @@ def _do_multibeam(xds: xr.Dataset, imname: str) -> xr.Dataset:
                 beam_array[:, :, :, i] = (
                     (beam_array[:, :, :, i] * units[i]).to("rad").value
                 )
-            return _create_beam_data_var(xds, beam_array)
+            return _create_beam_data_var(xds, beam_array, image_type)
     raise RuntimeError(
         "It looks like there should be a BEAMS table but no "
         "such table found in FITS file"
     )
 
 
-def _add_beam(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
+def _add_beam(xds: xr.Dataset, helpers: dict, image_type: str = "SKY") -> xr.Dataset:
     nchan = xds.sizes["frequency"]
     npol = xds.sizes["polarization"]
     beam_array = np.zeros([1, nchan, npol, 3])
     beam_array[0, :, :, 0] = helpers["beam"]["bmaj"]["data"]
     beam_array[0, :, :, 1] = helpers["beam"]["bmin"]["data"]
     beam_array[0, :, :, 2] = helpers["beam"]["pa"]["data"]
-    return _create_beam_data_var(xds, beam_array)
+    return _create_beam_data_var(xds, beam_array, image_type)
 
 
-def _create_beam_data_var(xds: xr.Dataset, beam_array: np.array) -> xr.Dataset:
+def _create_beam_data_var(
+    xds: xr.Dataset, beam_array: np.array, image_type: str = "SKY"
+) -> xr.Dataset:
     xdb = xr.DataArray(
-        beam_array, dims=["time", "frequency", "polarization", "beam_param"]
+        beam_array, dims=["time", "frequency", "polarization", "beam_params_label"]
     )
-    xdb = xdb.rename("BEAM")
-    xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
+    xdb = xdb.rename("BEAM_FIT_PARAMS_" + image_type.upper())
+    xdb = xdb.assign_coords(beam_params_label=["major", "minor", "pa"])
     xdb.attrs["units"] = "rad"
-    xds["BEAM"] = xdb
+    xds["BEAM_FIT_PARAMS_" + image_type.upper()] = xdb
     return xds
 
 
@@ -779,7 +864,9 @@ def _add_sky_or_aperture(
     header,
     helpers: dict,
     has_sph_dims: bool,
+    image_type: str = "SKY",
 ) -> xr.Dataset:
+    # TODO add code to recognize aperture images and set image_type accordingly
     xda = xr.DataArray(ary, dims=dim_order)
     for h, a in zip(
         ["BUNIT", "BTYPE", "OBJECT", "OBSERVER"],
@@ -792,16 +879,17 @@ def _add_sky_or_aperture(
     xda.attrs["telescope"] = _get_telescope_metadata(helpers, header)
     xda.attrs["description"] = None
     xda.attrs["user"] = _user_attrs_from_header(header)
-    name = "SKY" if has_sph_dims else "APERTURE"
+    # name = "SKY" if has_sph_dims else "APERTURE"
+    name = image_type
     xda = xda.rename(name)
     xds[xda.name] = xda
     if helpers["has_mask"]:
         pp = da if type(xda[0].data) == dask.array.core.Array else np
         mask = pp.isnan(xda)
         mask.attrs = {}
-        mask = mask.rename("MASK0")
-        xds["MASK0"] = mask
-        xda.attrs["active_mask"] = "MASK0"
+        mask = mask.rename("FLAG_" + name.upper())
+        xds["FLAG_" + name.upper()] = mask
+        xds[name.upper()].attrs[_image_flag] = "FLAG_" + name.upper()
     xda = xda.rename(name)
     xds[xda.name] = xda
     return xds

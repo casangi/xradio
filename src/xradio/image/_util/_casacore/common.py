@@ -42,7 +42,8 @@ def _create_new_image(
         del image
 
 
-_active_mask = "active_mask"
+_image_flag = "flag"
+_beam_fit_params = "beam_fit_params"
 # _native_types = ["FREQ", "VRAD", "VOPT", "BETA", "WAVE", "AWAV"]
 _object_name = "object_name"
 _pointing_center = "pointing_center"

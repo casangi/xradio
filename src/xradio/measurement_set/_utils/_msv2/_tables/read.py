@@ -93,9 +93,12 @@ def convert_mjd_time(rawtimes: np.ndarray) -> np.ndarray:
     np.ndarray
         times converted to pandas reference and datetime type
     """
+
+    print("^^^^^^^", rawtimes, MJD_DIF_UNIX, SECS_IN_DAY)
     times_reref = pd.to_datetime(
         (rawtimes - MJD_DIF_UNIX) * SECS_IN_DAY, unit="s"
     ).values
+    print("^^^^^^^", times_reref)
 
     return times_reref
 
@@ -160,7 +163,7 @@ def make_taql_where_between_min_max(
     if min_max_range is None:
         taql = None
     else:
-        (min_val, max_val) = min_max_range
+        min_val, max_val = min_max_range
         taql = f"where {colname} >= {min_val} AND {colname} <= {max_val}"
 
     return taql
@@ -226,7 +229,7 @@ def find_projected_min_max_array(
     """Does the min/max checks and search for find_projected_min_max_table()"""
 
     sorted_array = np.sort(array)
-    (range_min, range_max) = min_max
+    range_min, range_max = min_max
     if len(sorted_array) < 2:
         tol = np.finfo(sorted_array.dtype).eps * 4
     else:
@@ -891,7 +894,8 @@ def raw_col_data_to_coords_vars(
 
     if col in timecols:
         if col == "MJD":
-            data = convert_mjd_time(data).astype("float64") / 1e9
+            # data = convert_mjd_time(data).astype("float64") / 1e9
+            data = convert_mjd_time(data).astype("datetime64[ns]").view("int64") / 1e9
         else:
             try:
                 data = convert_casacore_time(data, False)

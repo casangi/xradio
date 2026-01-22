@@ -41,6 +41,10 @@ def interpolate_to_time(
             method = "linear"
         else:
             method = "nearest"
+
+        # print("xds before interp:",xds.NORTH_POLE_ANGULAR_DISTANCE.values, xds[time_name].values)
+        # print("interp_time data:",interp_time,interp_time.data)
+        # print("method:",method)
         xds = xds.interp(
             {time_name: interp_time.data}, method=method, assume_sorted=True
         )
@@ -56,5 +60,6 @@ def interpolate_to_time(
             f"{message_prefix}: interpolating the time coordinate "
             f"from {points_before} to {points_after} points"
         )
+        # print("xds after interp:",xds.NORTH_POLE_ANGULAR_DISTANCE.values, xds[time_name].values)
 
     return xds

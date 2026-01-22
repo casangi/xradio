@@ -261,7 +261,7 @@ def processing_set_from_custom_ms(request):
         msv2_name,
         ps_name,
         partition_scheme=[],
-        overwrite=False,
+        persistence_mode="w",
         parallel_mode="partition",
     )
     open_processing_set(str(ps_name))  # check it opens
@@ -286,7 +286,7 @@ def convert_measurement_set_to_processing_set(request, tmp_path):
         pointing_interpolate=True,
         ephemeris_interpolate=True,
         use_table_iter=False,
-        overwrite=True,
+        persistence_mode="w",
         parallel_mode="none",
     )
     open_processing_set(str(ps_path))  # check it opens

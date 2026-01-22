@@ -12,22 +12,25 @@ import shutil
 import toolviper.utils.logger as logger
 import xarray as xr
 
-# from .._utils.zarr.common import _load_no_dask_zarr
-
-# from ._util.fits import _read_fits_image
-from ._util.image_factory import (
+from xradio.image._util.image_factory import (
     _make_empty_aperture_image,
     _make_empty_lmuv_image,
     _make_empty_sky_image,
 )
-from ._util.zarr import _load_image_from_zarr_no_dask, _xds_from_zarr, _xds_to_zarr
-from ._util._fits.xds_from_fits import _fits_image_to_xds
+from xradio.image._util.zarr import (
+    _load_image_from_zarr_no_dask,
+    _xds_from_zarr,
+    _xds_to_zarr,
+)
+from xradio.image._util._fits.xds_from_fits import _fits_image_to_xds
 
-warnings.filterwarnings("ignore", category=FutureWarning)
+from xradio.image._util.image_factory import create_image_xds_from_store
+
+# warnings.filterwarnings("ignore", category=FutureWarning)
 
 
-def read_image(
-    infile: str,
+def open_image(
+    store: Union[str, dict],
     chunks: dict = {},
     verbose: bool = False,
     do_sky_coords: bool = True,
@@ -65,9 +68,9 @@ def read_image(
 
     Parameters
     ----------
-    infile : str
-        Path to the input CASA image
-    :chunks : dict
+    store : str
+        Path to the input image
+    chunks : dict
         The desired dask chunk size. Only applicable for casacore and fits images.
         Supported optional keys are 'l', 'm', 'frequency', 'polarization', and 'time'.
         The supported values are positive integers, indicating the length of a chunk
@@ -75,7 +78,7 @@ def read_image(
         along that axis is equal to the number of pixels along that axis. For zarr
         images, this parameter is ignored and the chunk size used to store the arrays
         in the zarr image is used. 'l' represents the longitude like dimension, and 'm'
-        represents the latitude like dimension. For apeature images, 'u' may be used in
+        represents the latitude like dimension. For aperture images, 'u' may be used in
         place of 'l', and 'v' in place of 'm'.
     verbose : bool
         emit debugging messages? Default is False.
@@ -105,47 +108,36 @@ def read_image(
     -------
     xarray.Dataset
     """
-    # from ._util.casacore import _read_casa_image
-    # return _read_casa_image(infile, chunks, verbose, do_sky_coords)
-    emsgs = []
-    do_casa = True
-    try:
-        from ._util.casacore import _read_casa_image
-    except Exception as e:
-        emsgs.append(
-            "python-casacore could not be imported, will not try to "
-            f"read as casacore image: {e.args}"
-        )
-        do_casa = False
-    if do_casa:
-        # next statement is short circuit for debug, comment out when not debugging
-        # return _read_casa_image(infile, chunks, verbose, do_sky_coords)
-        try:
-            return _read_casa_image(infile, chunks, verbose, do_sky_coords)
-        except Exception as e:
-            emsgs.append(f"image format appears not to be casacore: {e.args}")
-    # next statement is for debug, comment when done debugging
-    # return _fits_image_to_xds(infile, chunks, verbose, do_sky_coords, compute_mask)
-    try:
-        img_full_path = os.path.expanduser(infile)
-        return _fits_image_to_xds(infile, chunks, verbose, do_sky_coords, compute_mask)
-    except Exception as e:
-        emsgs.append(f"image format appears not to be fits {e.args}")
-    # when done debuggin comment out next line
-    # return _xds_from_zarr(infile, {"dv": "dask", "coords": "numpy"}, selection=selection)
-    try:
-        return _xds_from_zarr(
-            infile, {"dv": "dask", "coords": "numpy"}, selection=selection
-        )
-    except Exception as e:
-        emsgs.append(f"image format appears not to be zarr {e.args}")
-    emsgs.insert(
-        0, f"Unrecognized image format. Supported types are CASA, FITS, and zarr.\n"
+    # try:
+    #       from ._util.casacore import _open_casa_image
+    # except ModuleNotFoundError as exc:
+    #     logger.warning(
+    #         "Could not import the function to convert from MSv2 to MSv4. "
+    #         f"That functionality will not be available. Details: {exc}"
+    #     )
+    #     _open_casa_image = None
+
+    from ._util.casacore import _open_casa_image
+
+    img_xds = create_image_xds_from_store(
+        store,
+        _open_casa_image,
+        {"chunks": chunks, "verbose": verbose, "do_sky_coords": do_sky_coords},
+        _fits_image_to_xds,
+        {
+            "chunks": chunks,
+            "verbose": verbose,
+            "do_sky_coords": do_sky_coords,
+            "compute_mask": compute_mask,
+        },
+        _xds_from_zarr,
+        {"output": {"dv": "dask", "coords": "numpy"}, "selection": selection},
     )
-    raise RuntimeError("\n".join(emsgs))
+
+    return img_xds
 
 
-def load_image(infile: str, block_des: dict = None, do_sky_coords=True) -> xr.Dataset:
+def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dataset:
     """
     Load an image or portion of an image (subimage) into memory with data variables
     being converted from dask to numpy arrays and coordinate arrays being converted
@@ -154,7 +146,7 @@ def load_image(infile: str, block_des: dict = None, do_sky_coords=True) -> xr.Da
 
     Parameters
     ----------
-    infile : str
+    store : str
         Path to the input image, currently CASA and zarr images are supported
     block_des : dict
         The description of data to return, supported keys are time,
@@ -176,9 +168,6 @@ def load_image(infile: str, block_des: dict = None, do_sky_coords=True) -> xr.Da
     -------
     xarray.Dataset
     """
-    do_casa = True
-    emsgs = []
-
     if block_des is None:
         block_des = {}
 
@@ -187,52 +176,35 @@ def load_image(infile: str, block_des: dict = None, do_sky_coords=True) -> xr.Da
         for k, v in selection.items():
             if type(v) == int:
                 selection[k] = slice(v, v + 1)
-    try:
-        from ._util.casacore import _read_casa_image
-    except Exception as e:
-        emsgs.append(
-            "python-casacore could not be imported, will not try to "
-            f"read as casacore image: {e.args}"
-        )
-        do_casa = False
-    if do_casa:
-        # comment next line when done debugging
-        # return _load_casa_image_block(infile, selection, do_sky_coords)
-        try:
-            from ._util.casacore import _load_casa_image_block
 
-            return _load_casa_image_block(infile, selection, do_sky_coords)
-        except Exception as e:
-            emsgs.append(f"image format appears not to be casacore: {e.args}")
-    """
-    try:
-        return __read_fits_image(infile, chunks, masks, history, verbose)
-    except Exception as e:
-        emsgs.append(f'image format appears not to be fits {e.args}')
-    """
-    # when done debugging, comment out next line
-    # return _load_image_from_zarr_no_dask(infile, block_des)
-    # return _xds_from_zarr(infile, {"dv": "numpy"}, selection)
-    try:
-        return _load_image_from_zarr_no_dask(infile, block_des)
-        # return _xds_from_zarr(infile, {"dv": "numpy", "coords": "numpy"}, selection)
-    except Exception as e:
-        emsgs.append(f"image format appears not to be zarr {e.args}")
-    emsgs.insert(
-        0, f"Unrecognized image format. Supported formats are casacore and zarr.\n"
+    from ._util.casacore import _load_casa_image_block
+
+    img_xds = create_image_xds_from_store(
+        store,
+        _load_casa_image_block,
+        {"block_des": selection, "do_sky_coords": do_sky_coords},
+        None,
+        {},
+        _xds_from_zarr,
+        {"output": {"dv": "dask", "coords": "numpy"}, "selection": selection},
     )
-    raise RuntimeError("\n".join(emsgs))
+    return img_xds
 
 
 def write_image(
     xds: xr.Dataset, imagename: str, out_format: str = "casa", overwrite: bool = False
 ) -> None:
     """
+    TODO: I think the user should be permitted to specify data groups to write.
     Convert an xds image to CASA or zarr image.
     xds : xarray.Dataset
         XDS to convert
     imagename : str
         Path to output image
+        For writing to CASA, it is possible multiple images will be created, based
+        on what are in the data groups. If multiple images are created, the imagenames
+        will have identifying extensions added to the provided imagename. If only one
+        image is created, the provided imagename will be used as is.
     out_format : str
         Format of output image, currently "casa" and "zarr" are supported
     overwrite : bool
@@ -256,9 +228,9 @@ def write_image(
             )
     my_format = out_format.lower()
     if my_format == "casa":
-        from ._util.casacore import _xds_to_casa_image
+        from ._util.casacore import _xds_to_multiple_casa_images, _xds_to_casa_image
 
-        _xds_to_casa_image(xds, imagename)
+        _xds_to_multiple_casa_images(xds, imagename)
     elif my_format == "zarr":
         _xds_to_zarr(xds, imagename)
     else:
@@ -272,7 +244,7 @@ def make_empty_sky_image(
     phase_center: Union[list, np.ndarray],
     image_size: Union[list, np.ndarray],
     cell_size: Union[list, np.ndarray],
-    chan_coords: Union[list, np.ndarray],
+    frequency_coords: Union[list, np.ndarray],
     pol_coords: Union[list, np.ndarray],
     time_coords: Union[list, np.ndarray],
     direction_reference: str = "fK5",
@@ -292,7 +264,7 @@ def make_empty_sky_image(
         Number of x and y axis pixels in image.
     cell_size : array of float, length = 2, units = rad
         Cell size of x and y axis pixels in image.
-    chan_coords : list or np.ndarray
+    frequency_coords : list or np.ndarray
         The center frequency in Hz of each image channel.
     pol_coords : list or np.ndarray
         The polarization code for each image polarization.
@@ -312,7 +284,7 @@ def make_empty_sky_image(
         phase_center,
         image_size,
         cell_size,
-        chan_coords,
+        frequency_coords,
         pol_coords,
         time_coords,
         direction_reference,
@@ -326,7 +298,7 @@ def make_empty_aperture_image(
     phase_center: Union[List[float], np.ndarray],
     image_size: Union[List[int], np.ndarray],
     sky_image_cell_size: Union[List[float], np.ndarray],
-    chan_coords: Union[List[float], np.ndarray],
+    frequency_coords: Union[List[float], np.ndarray],
     pol_coords: Union[List[str], np.ndarray],
     time_coords: Union[List[float], np.ndarray],
     direction_reference: str = "fk5",
@@ -345,7 +317,7 @@ def make_empty_aperture_image(
         Number of x and y axis pixels in image.
     sky_image_cell_size : array of float, length = 2, units = rad
         Cell size of x and y axis pixels in sky image, used to get cell size in uv image
-    chan_coords : list or np.ndarray
+    frequency_coords : list or np.ndarray
         The center frequency in Hz of each image channel.
     pol_coords : list or np.ndarray
         The polarization code for each image polarization.
@@ -362,7 +334,7 @@ def make_empty_aperture_image(
         phase_center,
         image_size,
         sky_image_cell_size,
-        chan_coords,
+        frequency_coords,
         pol_coords,
         time_coords,
         direction_reference,
@@ -375,7 +347,7 @@ def make_empty_lmuv_image(
     phase_center: Union[List[float], np.ndarray],
     image_size: Union[List[int], np.ndarray],
     sky_image_cell_size: Union[List[float], np.ndarray],
-    chan_coords: Union[List[float], np.ndarray],
+    frequency_coords: Union[List[float], np.ndarray],
     pol_coords: Union[List[float], np.ndarray],
     time_coords: Union[List[float], np.ndarray],
     direction_reference: str = "fk5",
@@ -396,7 +368,7 @@ def make_empty_lmuv_image(
     sky_image_cell_size : array of float, length = 2, units = rad
         Cell size of sky image. The cell size of the u,v image will be computed from
         1/(image_size * sky_image_cell_size)
-    chan_coords : list or np.ndarray
+    frequency_coords : list or np.ndarray
         The center frequency in Hz of each image channel.
     pol_coords : list or np.ndarray
         The polarization code for each image polarization.
@@ -416,7 +388,7 @@ def make_empty_lmuv_image(
         phase_center,
         image_size,
         sky_image_cell_size,
-        chan_coords,
+        frequency_coords,
         pol_coords,
         time_coords,
         direction_reference,

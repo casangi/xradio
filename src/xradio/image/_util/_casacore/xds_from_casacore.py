@@ -9,6 +9,7 @@ import toolviper.utils.logger as logger
 import numpy as np
 import xarray as xr
 from astropy import units as u
+from xradio._utils.list_and_array import to_python_type
 
 try:
     from casacore import tables
@@ -19,14 +20,15 @@ except ImportError:
     from xradio._utils._casacore.casacore_from_casatools import image as casa_image
 
 
-from .common import (
-    _active_mask,
+from xradio.image._util._casacore.common import (
+    _image_flag,
+    _beam_fit_params,
     _object_name,
     _open_image_ro,
     _pointing_center,
 )
 
-from ..common import (
+from xradio.image._util.common import (
     _compute_linear_world_values,
     _compute_velocity_values,
     _compute_world_sph_dims,
@@ -37,10 +39,11 @@ from ..common import (
     _image_type,
     _l_m_attr_notes,
 )
-from ...._utils._casacore.tables import extract_table_attributes, open_table_ro
+from xradio._utils._casacore.tables import extract_table_attributes, open_table_ro
 from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import (
     _casacore_q_to_xradio_q,
+    make_direction_location_dict,
     make_spectral_coord_reference_dict,
     make_quantity,
     make_skycoord_dict,
@@ -68,13 +71,15 @@ def _add_mask(
     xda = xr.DataArray(ary, dims=dimorder)
     # True pixels are good in numpy masked arrays
     xda = da.logical_not(xda)
-    xda.attrs["image_type"] = "Mask"
+    xda.attrs["type"] = "flag"
     xda = xda.rename(name)
     xds[xda.name] = xda
     return xds
 
 
-def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = True) -> dict:
+def _casa_image_to_xds_image_attrs(
+    image: casa_image, history: bool = False, image_type: str = "SKY"
+) -> dict:
     """
     get the image attributes from the casacoreimage object
     """
@@ -177,20 +182,27 @@ def _casa_image_to_xds_image_attrs(image: casa_image, history: bool = True) -> d
     obj = "objectname"
     attrs[_object_name] = imageinfo[obj] if obj in imageinfo else ""
     attrs["user"] = meta_dict["miscinfo"]
+    """
     defmask = "Image_defaultmask"
     with open_table_ro(image.name()) as casa_table:
         # the actual mask is a data var and data var names are all caps by convention
-        attrs[_active_mask] = (
-            casa_table.getkeyword(defmask).upper()
-            if defmask in casa_table.keywordnames()
-            else None
-        )
+        import re
+
+        if defmask in casa_table.keywordnames():
+            am = casa_table.getkeyword(defmask).upper()
+            am = re.sub(r"\bMASK(\d+)\b", r"MASK_\1", am)
+        else:
+            am = None
+        attrs[_image_flag] = "FLAG_" + image_type.upper()
+    """
     attrs["description"] = None
-    # if also loading history, put it as another xds in the image attrs
+    # Store history as a dict (not xr.Dataset) for Xarray compatibility
     if history:
         htable = os.sep.join([os.path.abspath(image.name()), "logtable"])
         if os.path.isdir(htable):
-            attrs["history"] = read_generic_table(htable)
+            history_xds = read_generic_table(htable)
+            # Convert xr.Dataset to dict for serialization compatibility
+            attrs["history"] = history_xds.to_dict()
         else:
             logger.warning(
                 f"Unable to find history table {htable}. History will not be included"
@@ -205,13 +217,14 @@ def _add_sky_or_aperture(
     img_full_path: str,
     has_sph_dims: bool,
     history: bool,
+    image_type: str = "SKY",
 ) -> xr.Dataset:
     xda = xr.DataArray(ary, dims=dimorder).astype(ary.dtype)
     with _open_image_ro(img_full_path) as casa_image:
-        xda.attrs = _casa_image_to_xds_image_attrs(casa_image, history)
+        xda.attrs = _casa_image_to_xds_image_attrs(casa_image, history, image_type)
     # xds.attrs = attrs
-    name = "SKY" if has_sph_dims else "APERTURE"
-    xda = xda.rename(name)
+    # name = "SKY" if has_sph_dims else "APERTURE"
+    xda = xda.rename(image_type)
     xds[xda.name] = xda
     return xds
 
@@ -257,6 +270,8 @@ def _casa_image_to_xds_attrs(img_full_path: str) -> dict:
     """
     with _open_image_ro(img_full_path) as casa_image:
         meta_dict = casa_image.info()
+    # print("meta_dict:", meta_dict)
+    # print("***********")
     coord_dict = copy.deepcopy(meta_dict["coordinates"])
     attrs = {}
     dir_key = None
@@ -272,30 +287,66 @@ def _casa_image_to_xds_attrs(img_full_path: str) -> dict:
             raise RuntimeError("No direction reference frame found")
         casa_system = coord_dir_dict[system]
         ap_system, ap_equinox = _convert_direction_system(casa_system, "native")
-        dir_dict = {}
 
-        dir_dict["reference"] = make_skycoord_dict(
-            data=[0.0, 0.0], units="rad", frame=ap_system
+        coordinate_system_info = {}
+
+        unit0 = u.Unit(_get_unit(coord_dir_dict["units"][0]))
+        unit1 = u.Unit(_get_unit(coord_dir_dict["units"][1]))
+        ra = float((coord_dir_dict["crval"][0] * unit0).to("rad").value)
+        dec = float((coord_dir_dict["crval"][1] * unit1).to("rad").value)
+        coordinate_system_info["reference_direction"] = make_skycoord_dict(
+            data=[ra, dec], units="rad", frame=ap_system
         )
         if ap_equinox:
-            dir_dict["reference"]["attrs"]["equinox"] = ap_equinox
-        for i in range(2):
-            unit = u.Unit(_get_unit(coord_dir_dict["units"][i]))
-            q = coord_dir_dict["crval"][i] * unit
-            x = q.to("rad")
-            dir_dict["reference"]["data"][i] = x.value
-        k = "latpole"
-        if k in coord_dir_dict:
-            for j in (k, "lonpole"):
-                m = "longpole" if j == "lonpole" else j
-                dir_dict[j] = make_quantity(
-                    value=coord_dir_dict[m] * _deg_to_rad, units="rad", dims=["l", "m"]
-                )
-        for j in ("pc", "projection_parameters", "projection"):
-            if j in coord_dir_dict:
-                dir_dict[j] = coord_dir_dict[j]
-        attrs["direction"] = dir_dict
+            coordinate_system_info["reference_direction"]["attrs"][
+                "equinox"
+            ] = ap_equinox
+
+        pol_dir = [-1, coord_dir_dict["latpole"] * _deg_to_rad]
+        if "lonpole" in coord_dir_dict:
+            pol_dir[0] = coord_dir_dict["lonpole"] * _deg_to_rad
+        else:
+            pol_dir[0] = coord_dir_dict["longpole"] * _deg_to_rad
+
+        coordinate_system_info["native_pole_direction"] = make_direction_location_dict(
+            pol_dir, "rad", "native_projection"
+        )
+
+        coordinate_system_info["projection"] = coord_dir_dict["projection"]
+        coordinate_system_info["projection_parameters"] = to_python_type(
+            coord_dir_dict["projection_parameters"]
+        )
+        coordinate_system_info["pixel_coordinate_transformation_matrix"] = (
+            to_python_type(coord_dir_dict["pc"])
+        )
+
+        attrs["coordinate_system_info"] = coordinate_system_info
     return copy.deepcopy(attrs)
+
+    #     dir_dict = {}
+
+    #     dir_dict["reference"] = make_skycoord_dict(
+    #         data=[0.0, 0.0], units="rad", frame=ap_system
+    #     )
+    #     if ap_equinox:
+    #         dir_dict["reference"]["attrs"]["equinox"] = ap_equinox
+    #     for i in range(2):
+    #         unit = u.Unit(_get_unit(coord_dir_dict["units"][i]))
+    #         q = coord_dir_dict["crval"][i] * unit
+    #         x = q.to("rad")
+    #         dir_dict["reference"]["data"][i] = float(x.value)
+    #     k = "latpole"
+    #     if k in coord_dir_dict:
+    #         for j in (k, "lonpole"):
+    #             m = "longpole" if j == "lonpole" else j
+    #             dir_dict[j] = make_quantity(
+    #                 value=coord_dir_dict[m] * _deg_to_rad, units="rad", dims=["l", "m"]
+    #             )
+    #     for j in ("pc", "projection_parameters", "projection"):
+    #         if j in coord_dir_dict:
+    #             dir_dict[j] = coord_dir_dict[j]
+    #     attrs["direction"] = dir_dict
+    # return copy.deepcopy(attrs)
 
 
 def _casa_image_to_xds_coords(
@@ -330,14 +381,12 @@ def _casa_image_to_xds_coords(
     attrs["sphr_dims"] = sphr_dims
     coords = {}
     coord_attrs = {}
-    (coords["time"], coord_attrs["time"]) = _get_time_values_attrs(coord_dict)
-    (coords["frequency"], coord_attrs["frequency"]) = _get_freq_values_attrs(
-        csys, shape
-    )
-    (velocity_vals, coord_attrs["velocity"]) = _get_velocity_values_attrs(
+    coords["time"], coord_attrs["time"] = _get_time_values_attrs(coord_dict)
+    coords["frequency"], coord_attrs["frequency"] = _get_freq_values_attrs(csys, shape)
+    velocity_vals, coord_attrs["velocity"] = _get_velocity_values_attrs(
         coord_dict, coords["frequency"]
     )
-    (coords["polarization"], coord_attrs["polarization"]) = _get_pol_values_attrs(
+    coords["polarization"], coord_attrs["polarization"] = _get_pol_values_attrs(
         coord_dict
     )
     coords["velocity"] = (["frequency"], velocity_vals)
@@ -380,7 +429,7 @@ def _casa_image_to_xds_coords(
         ret = _get_uv_values_attrs(coord_dict, axis_names, shape)
         for z in ["u", "v"]:
             coords[z], coord_attrs[z] = ret[z]
-    coords["beam_param"] = ["major", "minor", "pa"]
+    coords["beam_params_label"] = ["major", "minor", "pa"]
     attrs["shape"] = shape
     xds = xr.Dataset(coords=coords)
     for c in coord_attrs.keys():
@@ -390,7 +439,7 @@ def _casa_image_to_xds_coords(
 
 
 def _convert_direction_system(
-    casa_system: str, which: str, verbose: bool = True
+    casa_system: str, which: str, verbose: bool = False
 ) -> tuple:
     if casa_system == "J2000":
         if verbose:
@@ -634,6 +683,7 @@ def _get_persistent_block(
     block = _read_image_chunk(infile, shapes, starts)
     block = np.expand_dims(block, new_axes)
     block = block.transpose(transpose_list)
+    block = da.from_array(block, chunks=block.shape)
     block = xr.DataArray(block, dims=dimorder)
     return block
 
@@ -686,11 +736,11 @@ def _get_starts_shapes_slices(
 def _get_time_values_attrs(cimage_coord_dict: dict) -> Tuple[List[float], dict]:
     attrs = {}
     attrs["type"] = "time"
-    attrs["scale"] = cimage_coord_dict["obsdate"]["refer"]
+    attrs["scale"] = cimage_coord_dict["obsdate"]["refer"].lower()
     unit = cimage_coord_dict["obsdate"]["m0"]["unit"]
     attrs["units"] = unit
     time_val = cimage_coord_dict["obsdate"]["m0"]["value"]
-    attrs["format"] = _get_time_format(time_val, unit)
+    attrs["format"] = _get_time_format(time_val, unit).lower()
     return ([time_val], copy.deepcopy(attrs))
 
 
@@ -829,7 +879,11 @@ def _get_velocity_values_attrs(
 
 
 def _get_beam(
-    img_full_path: str, nchan: int, npol: int, as_dask_array: bool
+    img_full_path: str,
+    nchan: int,
+    npol: int,
+    as_dask_array: bool,
+    image_type: str = "SKY",
 ) -> Union[xr.DataArray, None]:
     # the image may have multiple beams
     with _open_image_ro(img_full_path) as casa_image:
@@ -862,10 +916,10 @@ def _get_beam(
     if as_dask_array:
         beam_array = da.array(beam_array)
     xdb = xr.DataArray(
-        beam_array, dims=["time", "frequency", "polarization", "beam_param"]
+        beam_array, dims=["time", "frequency", "polarization", "beam_params_label"]
     )
-    xdb = xdb.rename("BEAM")
-    xdb = xdb.assign_coords(beam_param=["major", "minor", "pa"])
+    xdb = xdb.rename("BEAM_FIT_PARAMS_" + image_type.upper())
+    xdb = xdb.assign_coords(beam_params_label=["major", "minor", "pa"])
     xdb.attrs["units"] = "rad"
     return xdb
 
@@ -1054,7 +1108,7 @@ def _read_image_array(
                    indicating the length of a chunk on that particular axis. If
                    a key is missing, the associated chunk length along that axis
                    is 1. 'l' represents the longitude like dimension, and 'm'
-                   represents the latitude like dimension. For apeature images,
+                   represents the latitude like dimension. For aperture images,
                    'u' may be used in place of 'l', and 'v' in place of 'm'.
     :type chunks: list | dict, required
     :param mask: If specified, this is the associated image mask to read, rather than the actual

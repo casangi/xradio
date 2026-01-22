@@ -1,6 +1,5 @@
 import numpy as np
 
-
 _np_types = {
     "complex128": np.complex128,
     "complex64": np.complex64,

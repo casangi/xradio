@@ -5,15 +5,17 @@ from .image import (
     make_empty_aperture_image,
     make_empty_lmuv_image,
     make_empty_sky_image,
-    read_image,
+    open_image,
     write_image,
 )
+
+from .image_xds import ImageXds
 
 __all__ = [
     "load_image",
     "make_empty_aperture_image",
     "make_empty_lmuv_image",
     "make_empty_sky_image",
-    "read_image",
+    "open_image",
     "write_image",
 ]

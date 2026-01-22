@@ -513,7 +513,7 @@ class image(casatools.image):
         self,
         imagename,
         axis=0,
-        maskname="mask0",
+        maskname="mask_0",
         images=(),
         values=None,
         coordsys=None,

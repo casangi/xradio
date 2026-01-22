@@ -21,28 +21,33 @@ XRADIO can now be installed using:
 ```sh
 pip install xradio
 ```
-This will also install the minimal dependencies for XRADIO.
+This installs only the minimal dependencies for XRADIO, which allow you to use the schema checker and export schemas to JSON. **Note that if only the minimal dependencies are installed, the functionality to open data stored using zarr and to convert MSv2 to MSv4 will not be available.**
 
-Note that if only the minimal dependencies are installed, the functionality to convert MSv2 to MSv4 will not be available.
-This requires installing `python-casacore` (also included in the `all` group, see below), or alternatively the
-`casatools` backend, as explained in the [casatools I/O backend guide](docs/source/measurement_set/guides/backends.md).
+To install the zarr backend use:
+```sh
+pip install "xradio[zarr]"
+```
+This allows for opening data stored using zarr. 
 
-To install the minimal dependencies and the interactive components (JupyterLab) use:
+To install the zarr backend and the interactive components (JupyterLab) use:
 ```sh
 pip install "xradio[interactive]"
 ```
 
-To enable conversion from MSv2 to MSv4 use (this only works for Linux):
+To install the casacore backend along with the zarr backend which enables conversion from MSv2 to MSv4 use (this only works for Linux):
 ```sh
-pip install "xradio[python-casacore]"
+pip install "xradio[casacore]"
 ```
-To be able to run tests:
+
+To installs all the needed packages to run the unit tests:
 ```sh
 pip install "xradio[test]"
 ```
+This also installs the zarr backend and the casacore backend on Linux. Note the tests will fail on MacOS if python-casacore is not installed separately using conda.
+
 Multiple-dependencies can be installed using:
 ```sh
-pip install "xradio[interactive,python-casacore,test]"
+pip install "xradio[interactive,casacore,test]"
 ```
 
 To install a more complete set of dependencies:
@@ -50,4 +55,8 @@ To install a more complete set of dependencies:
 pip install "xradio[all]"
 ```
 This will include the dependencies required to run the interactive Jupyter notebooks, run tests, build documentation,
-and python-casacore to enable MSv2=>MSv4 functionality.
+and python-casacore to enable MSv2=>MSv4 functionality on Linux.
+
+Instruction of how to setup a developer environment can be found at [Development](https://xradio.readthedocs.io/en/latest/development.html).
+
+Instruction of how to setup a developer environment using casatools instead of python-casacore can be found at [casatools I/O backend guide](docs/source/measurement_set/guides/backends.md).

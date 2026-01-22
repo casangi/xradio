@@ -5,7 +5,8 @@ from typing import Any, Union
 import numpy as np
 import xarray as xr
 
-from xradio._utils.list_and_array import to_list
+from xradio._utils.list_and_array import to_python_type
+from xradio._utils.xarray_helpers import get_data_group_name, create_new_data_group
 
 MS_DATASET_TYPES = {"visibility", "spectrum", "radiometer"}
 
@@ -151,11 +152,7 @@ class MeasurementSetXdt:
         if self._xdt.attrs.get("type") not in MS_DATASET_TYPES:
             raise InvalidAccessorLocation(f"{self._xdt.path} is not a MSv4 node.")
 
-        if data_group_name is None:
-            if "base" in self._xdt.attrs["data_groups"]:
-                data_group_name = "base"
-            else:
-                data_group_name = list(self._xdt.attrs["data_groups"].keys())[0]
+        data_group_name = get_data_group_name(self._xdt, data_group_name)
 
         field_and_source_xds_name = self._xdt.attrs["data_groups"][data_group_name][
             "field_and_source"
@@ -188,16 +185,12 @@ class MeasurementSetXdt:
                 f"{self._xdt.path} is not a MSv4 node (type {self._xdt.attrs.get('type')}."
             )
 
-        if data_group_name is None:
-            if "base" in self._xdt.attrs["data_groups"]:
-                data_group_name = "base"
-            else:
-                data_group_name = list(self._xdt.attrs["data_groups"].keys())[0]
+        data_group_name = get_data_group_name(self._xdt, data_group_name)
 
         field_and_source_xds = self._xdt.xr_ms.get_field_and_source_xds(data_group_name)
 
         if "line_name" in field_and_source_xds.coords:
-            line_name = to_list(
+            line_name = to_python_type(
                 np.unique(np.ravel(field_and_source_xds.line_name.values))
             )
         else:
@@ -218,10 +211,14 @@ class MeasurementSetXdt:
         partition_info = {
             "spectral_window_name": self._xdt.frequency.attrs["spectral_window_name"],
             "spectral_window_intents": spw_intent,
-            "field_name": to_list(np.unique(field_and_source_xds.field_name.values)),
-            "polarization_setup": to_list(self._xdt.polarization.values),
-            "scan_name": to_list(np.unique(self._xdt.scan_name.values)),
-            "source_name": to_list(np.unique(field_and_source_xds.source_name.values)),
+            "field_name": to_python_type(
+                np.unique(field_and_source_xds.field_name.values)
+            ),
+            "polarization_setup": to_python_type(self._xdt.polarization.values),
+            "scan_name": to_python_type(np.unique(self._xdt.scan_name.values)),
+            "source_name": to_python_type(
+                np.unique(field_and_source_xds.source_name.values)
+            ),
             "scan_intents": scan_intents,
             "line_name": line_name,
             "data_group_name": data_group_name,
@@ -232,13 +229,7 @@ class MeasurementSetXdt:
     def add_data_group(
         self,
         new_data_group_name: str,
-        correlated_data: str = None,
-        weight: str = None,
-        flag: str = None,
-        uvw: str = None,
-        field_and_source_xds: str = None,
-        date_time: str = None,
-        description: str = None,
+        new_data_group: dict = {},
         data_group_dv_shared_with: str = None,
     ) -> xr.DataTree:
         """Adds a data group to the MSv4 DataTree, grouping the given data, weight, flag, etc. variables
@@ -248,20 +239,8 @@ class MeasurementSetXdt:
         ----------
         new_data_group_name : str
             _description_
-        correlated_data : str, optional
-            _description_, by default None
-        weights : str, optional
-            _description_, by default None
-        flag : str, optional
-            _description_, by default None
-        uvw : str, optional
-            _description_, by default None
-        field_and_source_xds : str, optional
-            _description_, by default None
-        date_time : str, optional
-            _description_, by default None
-        description : str, optional
-            _description_, by default None
+        new_data_group : dict
+            _description_
         data_group_dv_shared_with : str, optional
             _description_, by default "base"
 
@@ -271,63 +250,74 @@ class MeasurementSetXdt:
             MSv4 DataTree with the new group added
         """
 
-        if data_group_dv_shared_with is None:
-            data_group_dv_shared_with = self._xdt.xr_ms._get_default_data_group_name()
-        default_data_group = self._xdt.attrs["data_groups"][data_group_dv_shared_with]
+        if self._xdt.attrs.get("type") not in MS_DATASET_TYPES:
+            raise InvalidAccessorLocation(
+                f"{self._xdt.path} is not a MSv4 node (type {self._xdt.attrs.get('type')}."
+            )
 
-        new_data_group = {}
-
-        if correlated_data is None:
-            correlated_data = default_data_group["correlated_data"]
-        new_data_group["correlated_data"] = correlated_data
-        assert (
-            correlated_data in self._xdt.ds.data_vars
-        ), f"Data variable {correlated_data} not found in dataset."
-
-        if weight is None:
-            weight = default_data_group["weight"]
-        new_data_group["weight"] = weight
-        assert (
-            weight in self._xdt.ds.data_vars
-        ), f"Data variable {weight} not found in dataset."
-
-        if flag is None:
-            flag = default_data_group["flag"]
-        new_data_group["flag"] = flag
-        assert (
-            flag in self._xdt.ds.data_vars
-        ), f"Data variable {flag} not found in dataset."
-
-        if self._xdt.attrs["type"] == "visibility":
-            if uvw is None:
-                uvw = default_data_group["uvw"]
-            new_data_group["uvw"] = uvw
-            assert (
-                uvw in self._xdt.ds.data_vars
-            ), f"Data variable {uvw} not found in dataset."
-
-        if field_and_source_xds is None:
-            field_and_source_xds = default_data_group["field_and_source"]
-        new_data_group["field_and_source"] = field_and_source_xds
-        assert (
-            field_and_source_xds in self._xdt.children
-        ), f"Data variable {field_and_source_xds} not found in dataset."
-
-        if date_time is None:
-            date_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
-        new_data_group["date"] = date_time
-
-        if description is None:
-            description = ""
-        new_data_group["description"] = description
+        new_data_group_name, new_data_group = create_new_data_group(
+            self._xdt,
+            "msv4",
+            new_data_group_name,
+            new_data_group,
+            data_group_dv_shared_with=data_group_dv_shared_with,
+        )
 
         self._xdt.attrs["data_groups"][new_data_group_name] = new_data_group
-
         return self._xdt
 
-    def _get_default_data_group_name(self):
-        if "base" in self._xdt.attrs["data_groups"]:
-            data_group_name = "base"
-        else:
-            data_group_name = list(self._xdt.attrs["data_groups"].keys())[0]
-        return data_group_name
+        # data_group_dv_shared_with = get_data_group_name(
+        #     self._xdt, data_group_dv_shared_with
+        # )
+
+        # default_data_group = self._xdt.attrs["data_groups"][data_group_dv_shared_with]
+
+        # new_data_group = {}
+
+        # if correlated_data is None:
+        #     correlated_data = default_data_group["correlated_data"]
+        # new_data_group["correlated_data"] = correlated_data
+        # assert (
+        #     correlated_data in self._xdt.ds.data_vars
+        # ), f"Data variable {correlated_data} not found in dataset."
+
+        # if weight is None:
+        #     weight = default_data_group["weight"]
+        # new_data_group["weight"] = weight
+        # assert (
+        #     weight in self._xdt.ds.data_vars
+        # ), f"Data variable {weight} not found in dataset."
+
+        # if flag is None:
+        #     flag = default_data_group["flag"]
+        # new_data_group["flag"] = flag
+        # assert (
+        #     flag in self._xdt.ds.data_vars
+        # ), f"Data variable {flag} not found in dataset."
+
+        # if self._xdt.attrs["type"] == "visibility":
+        #     if uvw is None:
+        #         uvw = default_data_group["uvw"]
+        #     new_data_group["uvw"] = uvw
+        #     assert (
+        #         uvw in self._xdt.ds.data_vars
+        #     ), f"Data variable {uvw} not found in dataset."
+
+        # if field_and_source_xds is None:
+        #     field_and_source_xds = default_data_group["field_and_source"]
+        # new_data_group["field_and_source"] = field_and_source_xds
+        # assert (
+        #     field_and_source_xds in self._xdt.children
+        # ), f"Data variable {field_and_source_xds} not found in dataset."
+
+        # if date_time is None:
+        #     date_time = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        # new_data_group["date"] = date_time
+
+        # if description is None:
+        #     description = ""
+        # new_data_group["description"] = description
+
+        # self._xdt.attrs["data_groups"][new_data_group_name] = new_data_group
+
+        # return self._xdt

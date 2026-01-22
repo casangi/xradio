@@ -12,7 +12,6 @@ from xradio.schema.check import check_dataset, check_datatree
 
 from xradio.testing.measurement_set.checker import check_msv4_matches_descr
 
-
 minxds = namedtuple("minxds", "data_vars coords sizes")
 xds_main = minxds(
     {"VISIBILITY": np.empty((1), dtype=np.complex64)},

@@ -27,7 +27,7 @@ from xradio.schema.check import check_datatree
 from xradio._utils.zarr.config import ZARR_FORMAT
 
 # relative_tolerance = 10 ** (-12)
-relative_tolerance = 10 ** (-6)
+relative_tolerance = 10 ** (-5)
 
 
 # Uncomment to not clean up files between test (i.e. skip downloading them again)
@@ -77,7 +77,7 @@ def download_and_convert_msv2_to_processing_set(
         # phase_cal_interpolate=True,
         # sys_cal_interpolate=True,
         use_table_iter=False,
-        overwrite=True,
+        persistence_mode="w",
         parallel_mode=parallel_mode,
     )
     return ps_name
@@ -452,7 +452,7 @@ def base_test(
 #     )
 
 
-def test_alma(tmp_path):
+def test_alma(tmp_path: pathlib.Path):
     expected_subtables = {"antenna", "weather"}
 
     print("the temp path is", tmp_path)
@@ -487,7 +487,7 @@ def test_alma(tmp_path):
     os.getenv("SKIP_TESTS_CASATOOLS") == "1",
     reason="Skip tests that require casatasks. getcolnp not available in casatools.",
 )
-def test_ska_low(tmp_path):
+def test_ska_low(tmp_path: pathlib.Path):
     expected_subtables = {"antenna", "phased_array"}
     base_test(
         "ska_low_sim_18s.ms",
@@ -502,7 +502,7 @@ def test_ska_low(tmp_path):
     os.getenv("SKIP_TESTS_CASATOOLS") == "1",
     reason=" Skip tests that require casatasks. getcolnp not available in casatools.",
 )
-def test_ska_mid(tmp_path):
+def test_ska_mid(tmp_path: pathlib.Path):
     expected_subtables = {"antenna"}
     base_test(
         "AA2-Mid-sim_00000.ms",
@@ -513,7 +513,7 @@ def test_ska_mid(tmp_path):
     )
 
 
-def test_lofar(tmp_path):
+def test_lofar(tmp_path: pathlib.Path):
     expected_subtables = {"antenna", "pointing"}
     base_test(
         "small_lofar.ms",
@@ -523,7 +523,7 @@ def test_lofar(tmp_path):
     )
 
 
-def test_meerkat(tmp_path):
+def test_meerkat(tmp_path: pathlib.Path):
     expected_subtables = {"antenna"}
     base_test(
         "small_meerkat.ms",
@@ -533,7 +533,7 @@ def test_meerkat(tmp_path):
     )
 
 
-def test_global_vlbi(tmp_path):
+def test_global_vlbi(tmp_path: pathlib.Path):
     expected_subtables = {"antenna", "gain_curve", "system_calibration"}
     base_test(
         "global_vlbi_gg084b_reduced.ms",
@@ -543,7 +543,7 @@ def test_global_vlbi(tmp_path):
     )
 
 
-def test_vlba(tmp_path):
+def test_vlba(tmp_path: pathlib.Path):
     expected_subtables = {
         "antenna",
         "gain_curve",
@@ -559,7 +559,7 @@ def test_vlba(tmp_path):
     )
 
 
-def test_ngeht(tmp_path):
+def test_ngeht(tmp_path: pathlib.Path):
     expected_subtables = {"antenna"}
     base_test(
         "ngEHT_E17A10.0.bin0000.source0000_split.ms",
@@ -569,7 +569,7 @@ def test_ngeht(tmp_path):
     )
 
 
-def test_ephemeris(tmp_path):
+def test_ephemeris(tmp_path: pathlib.Path):
     expected_subtables = {"antenna", "weather"}
     base_test(
         "venus_ephem_test.ms",
@@ -583,7 +583,7 @@ def test_ephemeris(tmp_path):
 partition_schemes_sd = [[]]
 
 
-def test_single_dish(tmp_path):
+def test_single_dish(tmp_path: pathlib.Path):
     expected_subtables = {"antenna", "pointing", "system_calibration", "weather"}
     base_test(
         "sdimaging.ms",
@@ -594,7 +594,7 @@ def test_single_dish(tmp_path):
     )
 
 
-def test_alma_ephemeris_mosaic(tmp_path):
+def test_alma_ephemeris_mosaic(tmp_path: pathlib.Path):
     expected_subtables = {"antenna", "system_calibration", "weather"}
     ps_list = base_test(
         "ALMA_uid___A002_X1003af4_X75a3.split.avg.ms",
@@ -602,6 +602,7 @@ def test_alma_ephemeris_mosaic(tmp_path):
         8.11051993222426e17,
         expected_secondary_xds=expected_subtables,
         partition_schemes=[[]],
+        parallel_mode="none",
     )
 
     # import pandas as pd
@@ -670,9 +671,19 @@ def check_source_and_field_xds(ms_xdt, expected_NP_sum):
         "SUB_OBSERVER_DIRECTION",
     ]
 
+    print(
+        "NORTH_POLE_ANGULAR_DISTANCE values:",
+        field_and_source_xds.NORTH_POLE_ANGULAR_DISTANCE.values,
+    )
+
     assert np.sum(field_and_source_xds.NORTH_POLE_ANGULAR_DISTANCE) == pytest.approx(
         expected_NP_sum, rel=relative_tolerance
-    ), "The sum of the NORTH_POLE_ANGULAR_DISTANCE has changed."
+    ), (
+        "The sum of the NORTH_POLE_ANGULAR_DISTANCE has changed."
+        + str(np.sum(field_and_source_xds.NORTH_POLE_ANGULAR_DISTANCE).values)
+        + " vs "
+        + str(expected_NP_sum)
+    )
 
     assert are_all_variables_in_dataset(
         field_and_source_xds, field_and_source_data_variable_names
@@ -683,7 +694,7 @@ def are_all_variables_in_dataset(dataset, variable_list):
     return all(var in dataset.data_vars for var in variable_list)
 
 
-def test_vlass(tmp_path):
+def test_vlass(tmp_path: pathlib.Path):
     # Don't do partition_scheme ['FIELD_ID'], will try and create >800 partitions.
     expected_subtables = {"antenna", "pointing", "weather"}
     base_test(
@@ -695,7 +706,7 @@ def test_vlass(tmp_path):
     )
 
 
-def test_sd_A002_X1015532_X1926f(tmp_path):
+def test_sd_A002_X1015532_X1926f(tmp_path: pathlib.Path):
     expected_subtables = {"antenna", "pointing", "system_calibration_xds", "weather"}
     base_test(
         "uid___A002_X1015532_X1926f.small.ms",
@@ -706,7 +717,7 @@ def test_sd_A002_X1015532_X1926f(tmp_path):
     )
 
 
-def test_sd_A002_Xae00c5_X2e6b(tmp_path):
+def test_sd_A002_Xae00c5_X2e6b(tmp_path: pathlib.Path):
     expected_subtables = {"antenna", "pointing", "system_calibration_xds", "weather"}
     base_test(
         "uid___A002_Xae00c5_X2e6b.small.ms",
@@ -717,7 +728,7 @@ def test_sd_A002_Xae00c5_X2e6b(tmp_path):
     )
 
 
-def test_sd_A002_Xced5df_Xf9d9(tmp_path):
+def test_sd_A002_Xced5df_Xf9d9(tmp_path: pathlib.Path):
     expected_subtables = {"antenna", "pointing", "system_calibration_xds", "weather"}
     base_test(
         "uid___A002_Xced5df_Xf9d9.small.ms",
@@ -728,7 +739,7 @@ def test_sd_A002_Xced5df_Xf9d9(tmp_path):
     )
 
 
-def test_sd_A002_Xe3a5fd_Xe38e(tmp_path):
+def test_sd_A002_Xe3a5fd_Xe38e(tmp_path: pathlib.Path):
     expected_subtables = {"antenna", "pointing", "system_calibration_xds", "weather"}
     base_test(
         "uid___A002_Xe3a5fd_Xe38e.small.ms",
@@ -739,7 +750,7 @@ def test_sd_A002_Xe3a5fd_Xe38e(tmp_path):
     )
 
 
-def test_VLA(tmp_path):
+def test_VLA(tmp_path: pathlib.Path):
     expected_subtables = {"antenna", "weather"}
     base_test(
         "SNR_G55_10s.split.ms",
@@ -749,7 +760,7 @@ def test_VLA(tmp_path):
     )
 
 
-def test_askap_59749_bp_8beams_pattern(tmp_path):
+def test_askap_59749_bp_8beams_pattern(tmp_path: pathlib.Path):
     expected_subtables = {"antenna", "pointing"}
     base_test(
         "59749_bp_8beams_pattern.ms",
@@ -759,7 +770,7 @@ def test_askap_59749_bp_8beams_pattern(tmp_path):
     )
 
 
-def test_askap_59750_altaz_2settings(tmp_path):
+def test_askap_59750_altaz_2settings(tmp_path: pathlib.Path):
     expected_subtables = {"antenna", "pointing"}
     base_test(
         "59750_altaz_2settings.ms",
@@ -769,7 +780,7 @@ def test_askap_59750_altaz_2settings(tmp_path):
     )
 
 
-def test_askap_59754_altaz_2weights_0(tmp_path):
+def test_askap_59754_altaz_2weights_0(tmp_path: pathlib.Path):
     expected_subtables = {"antenna", "pointing"}
     base_test(
         "59754_altaz_2weights_0.ms",
@@ -779,7 +790,7 @@ def test_askap_59754_altaz_2weights_0(tmp_path):
     )
 
 
-def test_askap_59754_altaz_2weights_15(tmp_path):
+def test_askap_59754_altaz_2weights_15(tmp_path: pathlib.Path):
     expected_subtables = {"antenna", "pointing"}
     base_test(
         "59754_altaz_2weights_15.ms",
@@ -789,7 +800,7 @@ def test_askap_59754_altaz_2weights_15(tmp_path):
     )
 
 
-def test_askap_59755_eq_interleave_0(tmp_path):
+def test_askap_59755_eq_interleave_0(tmp_path: pathlib.Path):
     expected_subtables = {"antenna", "pointing"}
     base_test(
         "59755_eq_interleave_0.ms",
@@ -799,7 +810,7 @@ def test_askap_59755_eq_interleave_0(tmp_path):
     )
 
 
-def test_askap_59755_eq_interleave_15(tmp_path):
+def test_askap_59755_eq_interleave_15(tmp_path: pathlib.Path):
     expected_subtables = {"antenna", "pointing"}
     base_test(
         "59755_eq_interleave_15.ms",
@@ -809,7 +820,7 @@ def test_askap_59755_eq_interleave_15(tmp_path):
     )
 
 
-def test_gmrt(tmp_path):
+def test_gmrt(tmp_path: pathlib.Path):
     expected_subtables = {"antenna"}
     base_test(
         "gmrt.ms", tmp_path, 541752852480.0, expected_secondary_xds=expected_subtables

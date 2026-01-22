@@ -224,3 +224,47 @@ casa_frequency_frames = [
 ]
 
 casa_frequency_frames_codes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 64]
+
+
+def get_data_group_keys(schema_name: str) -> list[tuple[str, bool]]:
+    """Return (name, is_optional) pairs for data group keys for the given schema.
+
+    Parameters
+    ----------
+    schema_name : str
+        The name of the schema to retrieve data group keys for. Supported values are "msv4" and "image".
+
+    Returns
+    -------
+    list[tuple[str, bool]]
+        A list of tuples (key_name, is_optional) for the specified schema.
+
+    Raises
+    ------
+    ValueError
+        If the schema name is unknown.
+    """
+    from typing import get_type_hints, get_origin, get_args, Union
+
+    if schema_name == "msv4":
+        from xradio.measurement_set.schema import DataGroupDict
+
+        cls = DataGroupDict
+    elif schema_name == "image":
+        from xradio.image.schema import DataGroupDict
+
+        cls = DataGroupDict
+    else:
+        raise ValueError(f"Unknown schema name: {schema_name}")
+
+    annotations = get_type_hints(cls)
+    keys_with_optional = {}
+    for name, anno in annotations.items():
+        origin = get_origin(anno)
+        is_optional = False
+        if origin is Union:
+            args = get_args(anno)
+            is_optional = type(None) in args
+        keys_with_optional[name] = is_optional
+
+    return keys_with_optional

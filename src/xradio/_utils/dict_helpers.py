@@ -1,3 +1,6 @@
+from xradio._utils.list_and_array import to_python_type
+
+
 def make_quantity(value, units: str, dims: list = []) -> dict:
     """
     create a quantity dictionary given value and units
@@ -13,7 +16,11 @@ def make_quantity(value, units: str, dims: list = []) -> dict:
     -------
     dict
     """
-    return {"data": value, "dims": dims, "attrs": make_quantity_attrs(units)}
+    return {
+        "data": to_python_type(value),
+        "dims": dims,
+        "attrs": make_quantity_attrs(units),
+    }
 
 
 def ensure_units_are_consistent(units):
@@ -67,7 +74,7 @@ def make_spectral_coord_reference_dict(
             u,
             observer.lower() if observer not in ["TOPO", "BARY", "REST"] else observer,
         ),
-        "data": value,
+        "data": to_python_type(value),
         "dims": [],
     }
 
@@ -98,14 +105,38 @@ def make_skycoord_dict(data: list[float], units: str, frame: str) -> dict:
             "type": "sky_coord",
             "units": ensure_units_are_consistent(units),
         },
-        "data": data,
-        "dims": ["l", "m"],
+        "data": to_python_type(data),
+        "dims": "sky_dir_label",
+        "coords": {"sky_dir_label": {"data": ["ra", "dec"], "dims": "sky_dir_label"}},
+    }
+
+
+def make_direction_location_dict(data: list[float], units: str, frame: str) -> dict:
+    return {
+        "attrs": {
+            "frame": frame.upper(),
+            "type": "location",
+            "units": ensure_units_are_consistent(units),
+        },
+        "data": to_python_type(data),
+        "dims": "ellipsoid_dir_label",
+        "coords": {
+            "ellipsoid_dir_label": {
+                "data": ["lon", "lat"],
+                "dims": "ellipsoid_dir_label",
+            }
+        },
     }
 
 
 def make_time_measure_attrs(units="s", scale="utc", time_format="mjd") -> dict:
     u = ensure_units_are_consistent(units)
-    return {"units": u, "scale": scale, "format": time_format, "type": "time"}
+    return {
+        "units": u,
+        "scale": scale.lower(),
+        "format": time_format.lower(),
+        "type": "time",
+    }
 
 
 def make_time_measure_dict(data, units="s", scale="utc", time_format="mjd") -> dict:
@@ -127,7 +158,7 @@ def make_time_measure_dict(data, units="s", scale="utc", time_format="mjd") -> d
     """
     x = {}
     x["attrs"] = make_time_measure_attrs(units, scale, time_format)
-    x["data"] = data
+    x["data"] = to_python_type(data)
     x["dims"] = []
     return x
 
@@ -149,7 +180,7 @@ def make_time_coord_attrs(units="s", scale="utc", time_format="mjd") -> dict:
     -------
     dict
     """
-    x = make_time_measure_attrs(units, scale, time_format)
+    x = make_time_measure_attrs(units, scale.lower(), time_format.lower())
     del x["type"]
     return x
 

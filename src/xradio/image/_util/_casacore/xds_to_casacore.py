@@ -1,5 +1,6 @@
 import copy
 import os
+import time
 
 import dask.array as da
 import numpy as np
@@ -12,9 +13,19 @@ try:
 except ImportError:
     import xradio._utils._casacore.casacore_from_casatools as tables
 
-from .common import _active_mask, _create_new_image, _object_name, _pointing_center
-from ..common import _aperture_or_sky, _compute_sky_reference_pixel, _doppler_types
-from ...._utils._casacore.tables import open_table_rw
+from xradio.image._util._casacore.common import (
+    _image_flag,
+    _beam_fit_params,
+    _create_new_image,
+    _object_name,
+    _pointing_center,
+)
+from xradio.image._util.common import (
+    _aperture_or_sky,
+    _compute_sky_reference_pixel,
+    _doppler_types,
+)
+from xradio._utils._casacore.tables import open_table_rw
 
 
 def _compute_direction_dict(xds: xr.Dataset) -> dict:
@@ -23,31 +34,35 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
     for a CASA image coordinate system
     """
     direction = {}
-    xds_dir = xds.attrs["direction"]
+
+    xds_dir = xds.attrs["coordinate_system_info"]
     direction["_axes_sizes"] = np.array(
         [xds.sizes[dim] for dim in ("l", "m")], dtype=np.int32
     )
     direction["_image_axes"] = np.array([2, 3], dtype=np.int32)
-    direction["system"] = xds_dir["reference"]["attrs"]["equinox"].upper()
+    direction["system"] = xds_dir["reference_direction"]["attrs"]["equinox"].upper()
     if direction["system"] == "J2000.0":
         direction["system"] = "J2000"
     direction["projection"] = xds_dir["projection"]
     direction["projection_parameters"] = xds_dir["projection_parameters"]
     direction["units"] = [
-        xds_dir["reference"]["attrs"]["units"],
-        xds_dir["reference"]["attrs"]["units"],
+        xds_dir["reference_direction"]["attrs"]["units"],
+        xds_dir["reference_direction"]["attrs"]["units"],
     ]
-    direction["crval"] = np.array(xds_dir["reference"]["data"])
+    direction["crval"] = np.array(xds_dir["reference_direction"]["data"])
     direction["cdelt"] = np.array((xds.l[1] - xds.l[0], xds.m[1] - xds.m[0]))
     direction["crpix"] = _compute_sky_reference_pixel(xds)
-    direction["pc"] = np.array(xds_dir["pc"])
+    direction["pc"] = np.array(xds_dir["pixel_coordinate_transformation_matrix"])
     direction["axes"] = ["Right Ascension", "Declination"]
     direction["conversionSystem"] = direction["system"]
-    for s in ["longpole", "latpole"]:
+    for i, s in enumerate(["longpole", "latpole"]):
         m = "lonpole" if s == "longpole" else s
         # lonpole, latpole are numerical values in degrees in casa images
         direction[s] = float(
-            Angle(str(xds_dir[m]["data"]) + xds_dir[m]["attrs"]["units"]).deg
+            Angle(
+                str(xds_dir["native_pole_direction"]["data"][i])
+                + xds_dir["native_pole_direction"]["attrs"]["units"]
+            ).deg
         )
     return direction
 
@@ -205,50 +220,94 @@ def _coord_dict_from_xds(xds: xr.Dataset) -> dict:
 
 
 def _history_from_xds(xds: xr.Dataset, image: str) -> None:
-    nrows = len(xds.history.row) if "row" in xds.data_vars else 0
+    """
+    Write history from xds attributes to CASA image logtable.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        Dataset with potential history attribute (stored as dict).
+    image : str
+        Path to the CASA image.
+
+    Notes
+    -----
+    History is stored in data variable attributes (e.g., SKY.attrs['history']),
+    not in the main dataset attributes.
+    """
+    # Check if history exists in data variable attributes (SKY, APERTURE, etc.)
+    history_dict = None
+    for var_name in xds.data_vars:
+        if "history" in xds[var_name].attrs:
+            history_dict = xds[var_name].attrs["history"]
+            break
+
+    # Also check dataset-level attributes as a fallback
+    if history_dict is None and "history" in xds.attrs:
+        history_dict = xds.attrs["history"]
+
+    if history_dict is None or not isinstance(history_dict, dict):
+        return
+
+    # Convert dict back to xr.Dataset to access data
+    try:
+        history_xds = xr.Dataset.from_dict(history_dict)
+    except Exception:
+        # If conversion fails, history dict may be malformed, skip writing
+        return
+
+    # Check for row in both dims and coords (it could be either depending on the xarray version)
+    nrows = 0
+    if "row" in history_xds.dims:
+        nrows = history_xds.sizes["row"]
+    elif "row" in history_xds.coords:
+        nrows = len(history_xds.row)
+    elif "row" in history_xds.data_vars:
+        # row might also be a data variable
+        nrows = len(history_xds.row)
+
     if nrows > 0:
         # TODO need to implement nrows == 0 case
         with open_table_rw(os.sep.join([image, "logtable"])) as tb:
             tb.addrows(nrows + 1)
             for c in ["TIME", "PRIORITY", "MESSAGE", "LOCATION", "OBJECT_ID"]:
-                vals = xds.history[c].values
-                if c == "TIME":
-                    k = time.time() + 40587 * 86400
-                elif c == "PRIORITY":
-                    k = "INFO"
-                elif c == "MESSAGE":
-                    k = (
-                        "Wrote xds to "
-                        + os.path.basename(image)
-                        + " using cngi_io.xds_to_casa_image_2()"
-                    )
-                elif c == "LOCATION":
-                    k = "cngi_io.xds_to_casa_image_2"
-                elif c == "OBJECT_ID":
-                    k = ""
-                vals = np.append(vals, k)
-                tb.putcol(c, vals)
+                if c in history_xds.data_vars or c in history_xds.coords:
+                    vals = history_xds[c].values
+                    if c == "TIME":
+                        k = time.time() + 40587 * 86400
+                    elif c == "PRIORITY":
+                        k = "INFO"
+                    elif c == "MESSAGE":
+                        k = (
+                            "Wrote xds to "
+                            + os.path.basename(image)
+                            + " using cngi_io.xds_to_casa_image_2()"
+                        )
+                    elif c == "LOCATION":
+                        k = "cngi_io.xds_to_casa_image_2"
+                    elif c == "OBJECT_ID":
+                        k = ""
+                    vals = np.append(vals, k)
+                    tb.putcol(c, vals)
 
 
 def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
     ii = {}
     ap_sky = _aperture_or_sky(xds)
-    ii["imagetype"] = (
-        xds[ap_sky].attrs["image_type"] if "image_type" in xds[ap_sky].attrs else ""
-    )
+    ii["imagetype"] = xds[ap_sky].attrs["type"] if "type" in xds[ap_sky].attrs else ""
     ii["objectname"] = (
         xds[ap_sky].attrs[_object_name] if _object_name in xds[ap_sky].attrs else ""
     )
-    if "BEAM" in xds.data_vars:
+    if "BEAM_FIT_PARAMS" in xds.data_vars:
         # multi beam
         pp = {}
         pp["nChannels"] = xds.sizes["frequency"]
         pp["nStokes"] = xds.sizes["polarization"]
 
-        bu = xds.BEAM.attrs["units"]
+        bu = xds.BEAM_FIT_PARAMS.attrs["units"]
         chan = 0
         polarization = 0
-        bv = xds.BEAM.values
+        bv = xds.BEAM_FIT_PARAMS.values
         for i in range(pp["nChannels"] * pp["nStokes"]):
             bp = bv[0][chan][polarization][:]
             b = {
@@ -281,7 +340,9 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
 
 
 def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
+
     sky_ap = _aperture_or_sky(xds)
+
     if xds[sky_ap].shape[0] != 1:
         raise RuntimeError("XDS can only be converted if it has exactly one time plane")
     trans_coords = (
@@ -290,9 +351,8 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
         else ("frequency", "polarization", "v", "u")
     )
     casa_image_shape = xds[sky_ap].isel(time=0).transpose(*trans_coords).shape[::-1]
-    active_mask = (
-        xds[sky_ap].attrs["active_mask"] if _active_mask in xds[sky_ap].attrs else ""
-    )
+    flag = xds[sky_ap].attrs[_image_flag] if _image_flag in xds[sky_ap].attrs else ""
+    # TODO this all needs to be refactored to use flag rather than mask
     masks = []
     masks_rec = {}
     mask_rec = {
@@ -311,10 +371,14 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
     }
     for m in xds.data_vars:
         attrs = xds[m].attrs
-        if "image_type" in attrs and attrs["image_type"] == "Mask":
+        if "type" in attrs and attrs["type"] in ("mask", "flag"):
             masks_rec[m] = mask_rec
             masks_rec[m]["mask"] = f"Table: {os.sep.join([image_full_path, m])}"
             masks.append(m)
+    if flag and flag in xds.data_vars and flag not in masks:
+        masks_rec[flag] = mask_rec
+        masks_rec[flag]["mask"] = f"Table: {os.sep.join([image_full_path, flag])}"
+        masks.append(flag)
     myvars = [sky_ap]
     myvars.extend(masks)
     # xr.apply_ufunc seems to like stripping attributes from xds and its coordinates,
@@ -327,15 +391,15 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
     do_mask_nans = False
     there_are_nans = nan_mask.any()
     if there_are_nans:
-        has_active_mask = bool(active_mask)
-        if not has_active_mask:
+        has_flag = bool(flag)
+        if not has_flag:
             do_mask_nans = True
         else:
-            notted_active_mask = xr.apply_ufunc(
-                da.logical_not, xds[active_mask].copy(deep=True), dask="allowed"
+            notted_flag = xr.apply_ufunc(
+                da.logical_not, xds[flag].copy(deep=True), dask="allowed"
             )
             some_nans_are_not_already_masked = xr.apply_ufunc(
-                da.logical_and, nan_mask, notted_active_mask, dask="allowed"
+                da.logical_and, nan_mask, notted_flag, dask="allowed"
             )
             do_mask_nans = some_nans_are_not_already_masked.any()
     if do_mask_nans:
@@ -350,8 +414,8 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
         ] = f"Table: {os.sep.join([image_full_path, mask_name])}"
         masks.append(mask_name)
         arr_masks[mask_name] = nan_mask
-        if active_mask:
-            mask_name = f"mask_xds_nans_or_{active_mask}"
+        if flag:
+            mask_name = f"mask_xds_nans_or_{flag}"
             i = 0
             while mask_name in masks:
                 mask_name = f"mask_xds_nans{i}"
@@ -365,21 +429,22 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
             # apparent reason, so make a copy of the xds to run it on
             arr_masks[mask_name] = xr.apply_ufunc(
                 da.logical_or,
-                xds[active_mask].copy(deep=True),
+                xds[flag].copy(deep=True),
                 nan_mask,
                 dask="allowed",
             )
-        active_mask = mask_name
+        flag = mask_name
     data_type = "complex" if "u" in xds.coords else "float"
-    _write_initial_image(xds, image_full_path, active_mask, casa_image_shape[::-1])
+
+    _write_initial_image(xds, image_full_path, flag, casa_image_shape[::-1])
     for v in myvars:
-        _write_pixels(v, active_mask, image_full_path, xds)
+        _write_pixels(v, flag, image_full_path, xds)
     for name, v in arr_masks.items():
-        _write_pixels(name, active_mask, image_full_path, xds, v)
+        _write_pixels(name, flag, image_full_path, xds, v)
     if masks:
         with open_table_rw(image_full_path) as tb:
             tb.putkeyword("masks", masks_rec)
-            tb.putkeyword("Image_defaultmask", active_mask)
+            tb.putkeyword("Image_defaultmask", flag)
 
 
 def _write_initial_image(

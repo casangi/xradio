@@ -7,13 +7,15 @@ on:
 
 jobs:
   # check-codecov-token:
-  #   runs-on: ubuntu-latestpwd
+  #   runs-on: ubuntu-latest
   #   steps:
   #     - name: Check PYPI_TOKEN
   #       run: echo "2 PYPI_TOKEN=${{ secrets.PYPI_TOKEN }}"
 
   call-publish:
-    uses: casangi/toolviper/.github/workflows/python-publish-template.yml@main
+    uses: nrao/gh-actions-templates-public/.github/workflows/python-publish-cngi-template.yml@main
     with:
       pypi-url: "https://pypi.org/project/xradio"
-    secrets: inherit
+    #secrets: inherit
+    secrets:
+      PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }} # Explicit pass instead of inherit

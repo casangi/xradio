@@ -68,7 +68,7 @@ def convert_msv2_to_processing_set(
     add_reshaping_indices: bool = False,
     storage_backend: Literal["zarr", "netcdf"] = "zarr",
     parallel_mode: Literal["none", "partition", "time"] = "none",
-    overwrite: bool = False,
+    persistence_mode: str = "w-",
 ):
     """Convert a Measurement Set v2 into a Processing Set of Measurement Set v4.
 
@@ -110,8 +110,11 @@ def convert_msv2_to_processing_set(
         Choose whether to use Dask to execute conversion in parallel, by default "none" and conversion occurs serially.
         The option "partition", parallelises the conversion over partitions specified by `partition_scheme`. The option "time" can only be used for phased array interferometers where there are no partitions
         in the MS v2; instead the MS v2 is parallelised along the time dimension and can be controlled by `main_chunksize`.
-    overwrite : bool, optional
-        Whether to overwrite an existing processing set, by default False.
+    persistence_mode : str, optional
+        “w” means create (overwrite if exists);
+        “w-” means create (fail if exists);
+        “a” means override all existing variables including dimension coordinates (create if does not exist); Use this mode if you want to add to an existing Processing Set.
+        The default is "w-".
     """
 
     # Create empty data tree
@@ -122,10 +125,7 @@ def convert_msv2_to_processing_set(
     if not str(out_file).endswith("ps.zarr"):
         out_file += ".ps.zarr"
 
-    if overwrite:
-        ps_dt.to_zarr(store=out_file, mode="w")
-    else:
-        ps_dt.to_zarr(store=out_file, mode="w-")
+    ps_dt.to_zarr(store=out_file, mode=persistence_mode)
 
     # Check `parallel_mode` is valid
     try:
@@ -192,7 +192,7 @@ def convert_msv2_to_processing_set(
                     add_reshaping_indices=add_reshaping_indices,
                     compressor=compressor,
                     parallel_mode=parallel_mode,
-                    overwrite=overwrite,
+                    persistence_mode=persistence_mode,
                 )
             )
         else:
@@ -214,7 +214,7 @@ def convert_msv2_to_processing_set(
                 add_reshaping_indices=add_reshaping_indices,
                 compressor=compressor,
                 parallel_mode=parallel_mode,
-                overwrite=overwrite,
+                persistence_mode=persistence_mode,
             )
             end_time = time.time()
             logger.debug(

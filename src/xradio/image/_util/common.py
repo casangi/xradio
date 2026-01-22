@@ -7,6 +7,7 @@ from typing import Dict, List
 import xarray as xr
 from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import make_quantity
+import toolviper.utils.logger as logger
 
 _c = 2.99792458e08 * u.m / u.s
 # OPTICAL = Z
@@ -17,7 +18,7 @@ _doppler_types = [
     "beta",
     "gamma",
 ]
-_image_type = "image_type"
+_image_type = "type"
 
 
 def _aperture_or_sky(xds: xr.Dataset) -> str:
@@ -252,10 +253,10 @@ def _compute_sky_reference_pixel(xds: xr.Dataset) -> np.ndarray:
 
 def _l_m_attr_notes() -> Dict[str, str]:
     return {
-        "l": "l is the angle measured from the phase center to the east. "
-        "So l = x*cdelt, where x is the number of pixels from the phase center. "
+        "l": "l is the angle measured from the reference direction to the east. "
+        "So l = x*cdelt, where x is the number of pixels from the reference direction. "
         "See AIPS Memo #27, Section III.",
-        "m": "m is the angle measured from the phase center to the north. "
-        "So m = y*cdelt, where y is the number of pixels from the phase center. "
+        "m": "m is the angle measured from the reference direction to the north. "
+        "So m = y*cdelt, where y is the number of pixels from the reference direction. "
         "See AIPS Memo #27, Section III.",
     }

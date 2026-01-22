@@ -2,6 +2,7 @@ import pandas as pd
 from xradio._utils.list_and_array import to_list
 import numpy as np
 import xarray as xr
+from xradio.measurement_set.measurement_set_xdt import get_data_group_name
 
 PS_DATASET_TYPES = {"processing_set"}
 
@@ -38,7 +39,7 @@ class ProcessingSetXdt:
         self.meta = {"summary": {}}
 
     def summary(
-        self, data_group: str | None = None, first_columns: list[str] = None
+        self, data_group_name: str | None = None, first_columns: list[str] = None
     ) -> pd.DataFrame:
         """
         Generate and retrieve a summary of the Processing Set as a data frame.
@@ -53,7 +54,7 @@ class ProcessingSetXdt:
 
         Parameters
         ----------
-        data_group : str, optional
+        data_group_name : str, optional
             The data group to summarize. By default the "base" group
             is used (if found), or otherwise the first group found.
         first_columns : list[str], optional
@@ -73,31 +74,33 @@ class ProcessingSetXdt:
             A DataFrame containing the summary information of the specified data group.
         """
 
-        def find_data_group_base_or_first(data_group: str, xdt: xr.DataTree) -> str:
+        def find_data_group_base_or_first(
+            data_group_name: str, xdt: xr.DataTree
+        ) -> str:
             first_msv4 = next(iter(xdt.values()))
             first_data_groups = first_msv4.attrs["data_groups"]
-            if data_group is None:
-                data_group = (
+            if data_group_name is None:
+                data_group_name = (
                     "base"
                     if "base" in first_data_groups
                     else next(iter(first_data_groups))
                 )
-            return data_group
+            return data_group_name
 
         if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
             raise InvalidAccessorLocation(
                 f"{self._xdt.path} is not a processing set node."
             )
 
-        data_group = find_data_group_base_or_first(data_group, self._xdt)
+        data_group_name = find_data_group_base_or_first(data_group_name, self._xdt)
 
-        if data_group in self.meta["summary"]:
-            summary = self.meta["summary"][data_group]
+        if data_group_name in self.meta["summary"]:
+            summary = self.meta["summary"][data_group_name]
         else:
-            self.meta["summary"][data_group] = self._summary(data_group).sort_values(
-                by=["name"], ascending=True
-            )
-            summary = self.meta["summary"][data_group]
+            self.meta["summary"][data_group_name] = self._summary(
+                data_group_name
+            ).sort_values(by=["name"], ascending=True)
+            summary = self.meta["summary"][data_group_name]
 
         if first_columns:
             found_columns = [col for col in first_columns if col in summary.columns]
@@ -187,7 +190,7 @@ class ProcessingSetXdt:
             self.meta["freq_axis"] = freq_axis
             return self.meta["freq_axis"]
 
-    def _summary(self, data_group: str = None):
+    def _summary(self, data_group_name: str = None):
         summary_data = {
             "name": [],
             "scan_intents": [],
@@ -225,7 +228,7 @@ class ProcessingSetXdt:
             )
             summary_data["polarization"].append(value.polarization.values)
             summary_data["scan_name"].append(partition_info["scan_name"])
-            data_name = value.attrs["data_groups"][data_group]["correlated_data"]
+            data_name = value.attrs["data_groups"][data_group_name]["correlated_data"]
 
             if "VISIBILITY" in data_name:
                 center_name = "FIELD_PHASE_CENTER_DIRECTION"
@@ -253,7 +256,7 @@ class ProcessingSetXdt:
             )
             summary_data["end_frequency"].append(to_list(value["frequency"].values)[-1])
 
-            field_and_source_xds = value.xr_ms.get_field_and_source_xds(data_group)
+            field_and_source_xds = value.xr_ms.get_field_and_source_xds(data_group_name)
 
             if field_and_source_xds.attrs["type"] == "field_and_source_ephemeris":
                 summary_data["field_coords"].append("Ephemeris")
@@ -377,14 +380,16 @@ class ProcessingSetXdt:
 
         return sub_ps_xdt
 
-    def get_combined_field_and_source_xds(self, data_group: str = "base") -> xr.Dataset:
+    def get_combined_field_and_source_xds(
+        self, data_group_name: str = "base"
+    ) -> xr.Dataset:
         """
         Combine all non-ephemeris `field_and_source_xds` datasets from a Processing Set for a data group into a
         single dataset.
 
         Parameters
         ----------
-        data_group : str, optional
+        data_group_name : str, optional
             The data group to process. Default is "base".
 
         Returns
@@ -405,7 +410,9 @@ class ProcessingSetXdt:
 
         combined_field_and_source_xds = xr.Dataset()
         for ms_name, ms_xdt in self._xdt.items():
-            field_and_source_xds = ms_xdt.xr_ms.get_field_and_source_xds(data_group)
+            field_and_source_xds = ms_xdt.xr_ms.get_field_and_source_xds(
+                data_group_name
+            )
 
             if not field_and_source_xds.attrs["type"] == "field_and_source_ephemeris":
 
@@ -474,14 +481,14 @@ class ProcessingSetXdt:
         return combined_field_and_source_xds
 
     def get_combined_field_and_source_xds_ephemeris(
-        self, data_group: str = "base"
+        self, data_group_name: str = "base"
     ) -> xr.Dataset:
         """
         Combine all ephemeris `field_and_source_xds` datasets from a Processing Set for a datagroup into a single dataset.
 
         Parameters
         ----------
-        data_group : str, optional
+        data_group_name : str, optional
             The data group to process. Default is "base".
 
         Returns
@@ -503,7 +510,7 @@ class ProcessingSetXdt:
         combined_ephemeris_field_and_source_xds = xr.Dataset()
         for ms_name, ms_xdt in self._xdt.items():
             field_and_source_xds = field_and_source_xds = (
-                ms_xdt.xr_ms.get_field_and_source_xds(data_group)
+                ms_xdt.xr_ms.get_field_and_source_xds(data_group_name)
             )
 
             if field_and_source_xds.attrs["type"] == "field_and_source_ephemeris":
@@ -599,7 +606,7 @@ class ProcessingSetXdt:
         return combined_ephemeris_field_and_source_xds
 
     def plot_phase_centers(
-        self, label_all_fields: bool = False, data_group: str = "base"
+        self, label_all_fields: bool = False, data_group_name: str = "base"
     ):
         """
         Plot the phase center locations of all fields in the Processing Set.
@@ -612,7 +619,7 @@ class ProcessingSetXdt:
         ----------
         label_all_fields : bool, optional
             If `True`, all fields will be labeled on the plot. Default is `False`.
-        data_group : str, optional
+        data_group_name : str, optional
             The data group to use for processing. Default is "base".
 
         Returns
@@ -641,10 +648,10 @@ class ProcessingSetXdt:
             )
 
         combined_field_and_source_xds = self.get_combined_field_and_source_xds(
-            data_group
+            data_group_name
         )
         combined_ephemeris_field_and_source_xds = (
-            self.get_combined_field_and_source_xds_ephemeris(data_group)
+            self.get_combined_field_and_source_xds_ephemeris(data_group_name)
         )
         from matplotlib import pyplot as plt
 

@@ -1,7 +1,5 @@
 import xarray as xr
-import s3fs
 import os
-from botocore.exceptions import NoCredentialsError
 
 # from xradio.vis._vis_utils._ms.msv2_to_msv4_meta import (
 #     column_description_casacore_to_msv4_measure,
@@ -9,6 +7,9 @@ from botocore.exceptions import NoCredentialsError
 
 
 def _get_file_system_and_items(ps_store: str):
+
+    import s3fs
+    from botocore.exceptions import NoCredentialsError
 
     # default to assuming the data are accessible on local file system
     if os.path.isdir(ps_store):
@@ -74,6 +75,7 @@ def _open_dataset(
     """
 
     import dask
+    import s3fs
 
     if isinstance(file_system, s3fs.core.S3FileSystem):
         mapping = s3fs.S3Map(root=store, s3=file_system, check=False)

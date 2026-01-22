@@ -53,11 +53,34 @@ def get_pad_value(col_dtype: np.dtype) -> object:
         )
 
 
+def to_python_type(x):
+    """
+    Convert any NumPy scalar, array, or nested structure to native Python types.
+
+    - np.float32, np.float64 → float
+    - np.int32, np.int64 → int
+    - np.bool_ → bool
+    - np.ndarray → list of Python-native types
+    - nested containers (list/tuple/dict) are handled recursively
+    """
+    if isinstance(x, np.generic):  # covers all numpy scalar types
+        return x.item()
+    elif isinstance(x, np.ndarray):
+        return x.tolist()
+    elif isinstance(x, (list, tuple)):
+        return type(x)(to_python_type(v) for v in x)
+    elif isinstance(x, dict):
+        return {k: to_python_type(v) for k, v in x.items()}
+    else:
+        return x
+
+
 def to_list(x):
     if isinstance(x, np.ndarray):
-        if x.ndim == 0:
-            return [x.item()]
-        return list(x)  # needed for json serialization
+        z = x.astype(float)
+        if z.ndim == 0:
+            return [z.item()]
+        return list(z)  # needed for json serialization
     elif isinstance(x, list):
         return x
     return [x]

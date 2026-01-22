@@ -1017,7 +1017,7 @@ def convert_and_write_partition(
     add_reshaping_indices: bool = False,
     storage_backend="zarr",
     parallel_mode: str = "none",
-    overwrite: bool = False,
+    persistence_mode: str = "w-",
 ):
     """_summary_
 
@@ -1057,8 +1057,8 @@ def convert_and_write_partition(
         _description_, by default "zarr"
     parallel_mode : _type_, optional
         _description_
-    overwrite : bool, optional
-        _description_, by default False
+    persistence_mode: str = "w-",
+        _description_, by default "w-"
 
     Returns
     -------
@@ -1368,11 +1368,6 @@ def convert_and_write_partition(
             pathlib.Path(in_file).name.replace(".ms", "") + "_" + str(ms_v4_id),
         )
 
-        if overwrite:
-            mode = "w"
-        else:
-            mode = "w-"
-
         if is_single_dish:
             xds.attrs["type"] = "spectrum"
             xds = xds.drop_vars("UVW")
@@ -1416,7 +1411,9 @@ def convert_and_write_partition(
             ms_xdt["/phased_array_xds"] = phased_array_xds
 
         if storage_backend == "zarr":
-            ms_xdt.to_zarr(store=os.path.join(out_file, ms_v4_name), mode=mode)
+            ms_xdt.to_zarr(
+                store=os.path.join(out_file, ms_v4_name), mode=persistence_mode
+            )
         elif storage_backend == "netcdf":
             # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
             raise

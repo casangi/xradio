@@ -217,7 +217,7 @@ def _add_sky_or_aperture(
     img_full_path: str,
     has_sph_dims: bool,
     history: bool,
-    image_type: str = "SKY",
+    image_type: str,
 ) -> xr.Dataset:
     xda = xr.DataArray(ary, dims=dimorder).astype(ary.dtype)
     with _open_image_ro(img_full_path) as casa_image:
@@ -270,8 +270,6 @@ def _casa_image_to_xds_attrs(img_full_path: str) -> dict:
     """
     with _open_image_ro(img_full_path) as casa_image:
         meta_dict = casa_image.info()
-    # print("meta_dict:", meta_dict)
-    # print("***********")
     coord_dict = copy.deepcopy(meta_dict["coordinates"])
     attrs = {}
     dir_key = None
@@ -350,14 +348,13 @@ def _casa_image_to_xds_attrs(img_full_path: str) -> dict:
 
 
 def _casa_image_to_xds_coords(
-    img_full_path: str, verbose: bool, do_sky_coords: bool
+    img_full_path: str, verbose: bool, do_sky_coords: bool, image_type: str
 ) -> dict:
     """
     TODO: complete documentation
     Create an xds without any pixel data from metadata from the specified CASA image
     """
     attrs = {}
-    # casa_image = images.image(img_full_path)
     with _open_image_ro(img_full_path) as casa_image:
         # shape list is the reverse of the actual image shape
         shape = casa_image.shape()[::-1]
@@ -392,46 +389,47 @@ def _casa_image_to_xds_coords(
         coord_dict
     )
     coords["velocity"] = (["frequency"], velocity_vals)
-    if len(sphr_dims) > 0:
-        crpix = _flatten_list(csys.get_referencepixel())[::-1]
-        inc = _flatten_list(csys.get_increment())[::-1]
-        unit = _flatten_list(csys.get_unit())[::-1]
-        attr_note = _l_m_attr_notes()
-        for c in ["l", "m"]:
-            idx = dimmap[c]
-            delta = ((inc[idx]) * u.Unit(_get_unit(unit[idx]))).to("rad").value
-            coords[c] = _compute_linear_world_values(
-                naxis=shape[idx], crval=0.0, crpix=crpix[idx], cdelt=delta
-            )
-            coord_attrs[c] = {
-                "note": attr_note[c],
-            }
-        if do_sky_coords:
-            for k in coord_dict.keys():
-                if k.startswith("direction"):
-                    dc = coordinates.directioncoordinate(coord_dict[k])
-                    break
-            crval = _flatten_list(csys.get_referencevalue())[::-1]
-            pick = lambda my_list: [my_list[i] for i in sphr_dims]
-            my_ret = _compute_world_sph_dims(
-                projection=dc.get_projection(),
-                shape=pick(shape),
-                ctype=diraxes,
-                crval=pick(crval),
-                crpix=pick(crpix),
-                cdelt=pick(inc),
-                cunit=pick(unit),
-            )
-            for i in [0, 1]:
-                axis_name = my_ret["axis_name"][i]
-                coords[axis_name] = (["l", "m"], my_ret["value"][i])
-                coord_attrs[axis_name] = {}
-    else:
-        # Fourier image
-        ret = _get_uv_values_attrs(coord_dict, axis_names, shape)
-        for z in ["u", "v"]:
-            coords[z], coord_attrs[z] = ret[z]
-    coords["beam_params_label"] = ["major", "minor", "pa"]
+    if image_type.upper() != "VISIBILITY_NORMALIZATION":
+        if len(sphr_dims) > 0:
+            crpix = _flatten_list(csys.get_referencepixel())[::-1]
+            inc = _flatten_list(csys.get_increment())[::-1]
+            unit = _flatten_list(csys.get_unit())[::-1]
+            attr_note = _l_m_attr_notes()
+            for c in ["l", "m"]:
+                idx = dimmap[c]
+                delta = ((inc[idx]) * u.Unit(_get_unit(unit[idx]))).to("rad").value
+                coords[c] = _compute_linear_world_values(
+                    naxis=shape[idx], crval=0.0, crpix=crpix[idx], cdelt=delta
+                )
+                coord_attrs[c] = {
+                    "note": attr_note[c],
+                }
+            if do_sky_coords:
+                for k in coord_dict.keys():
+                    if k.startswith("direction"):
+                        dc = coordinates.directioncoordinate(coord_dict[k])
+                        break
+                crval = _flatten_list(csys.get_referencevalue())[::-1]
+                pick = lambda my_list: [my_list[i] for i in sphr_dims]
+                my_ret = _compute_world_sph_dims(
+                    projection=dc.get_projection(),
+                    shape=pick(shape),
+                    ctype=diraxes,
+                    crval=pick(crval),
+                    crpix=pick(crpix),
+                    cdelt=pick(inc),
+                    cunit=pick(unit),
+                )
+                for i in [0, 1]:
+                    axis_name = my_ret["axis_name"][i]
+                    coords[axis_name] = (["l", "m"], my_ret["value"][i])
+                    coord_attrs[axis_name] = {}
+        else:
+            # Fourier image
+            ret = _get_uv_values_attrs(coord_dict, axis_names, shape)
+            for z in ["u", "v"]:
+                coords[z], coord_attrs[z] = ret[z]
+        coords["beam_params_label"] = ["major", "minor", "pa"]
     attrs["shape"] = shape
     xds = xr.Dataset(coords=coords)
     for c in coord_attrs.keys():

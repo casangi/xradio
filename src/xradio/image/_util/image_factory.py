@@ -684,14 +684,17 @@ def create_image_xds_from_store(
                         data_group["beam_fit_params_point_spread_function"] = (
                             "BEAM_FIT_PARAMS_" + image_type.upper()
                         )
+    if (
+        "visibility_normalization" not in image_type.lower()
+        or len(img_xds.data_vars) > 1
+    ):
+        # if beam_param coord not in image type it is not auto assigned to img_xds
+        # but it must be present even if unused
+        if "beam_params_label" not in img_xds.dims:
+            img_xds.expand_dims(beam_params_label=3)
 
-    # if beam_param coord not in image type it is not auto assigned to img_xds
-    # but it must be present even if unused
-    if "beam_params_label" not in img_xds.dims:
-        img_xds.expand_dims(beam_params_label=3)
-
-    if "beam_params_label" not in img_xds.coords:
-        img_xds = _move_beam_param_dim_coord(img_xds)
+        if "beam_params_label" not in img_xds.coords:
+            img_xds = _move_beam_param_dim_coord(img_xds)
     img_xds.attrs["type"] = "image_dataset"
     img_xds.attrs["data_groups"] = data_groups
     return img_xds

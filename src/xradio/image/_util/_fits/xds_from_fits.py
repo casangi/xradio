@@ -72,7 +72,7 @@ def _fits_image_to_xds(
     xds = _create_coords(helpers, header, do_sky_coords)
     sphr_dims = helpers["sphr_dims"]
     ary = _read_image_array(img_full_path, chunks, helpers, verbose)
-    dim_order = _get_xds_dim_order(sphr_dims)
+    dim_order = _get_xds_dim_order(sphr_dims, image_type)
     xds = _add_sky_or_aperture(
         xds, ary, dim_order, header, helpers, sphr_dims, image_type
     )

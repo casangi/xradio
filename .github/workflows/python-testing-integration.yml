@@ -16,4 +16,4 @@ jobs:
   test:
     uses: nrao/gh-actions-templates-public/.github/workflows/python-testing-integration-template.yml@main
     secrets:
-      DISPATCH_TOKEN: ${{ secrets.DISPATCH_TOKEN }}
+      DISPATCH_TOKEN: ${{ secrets.TESTVIPER_DISPATCH_TOKEN }}

@@ -378,14 +378,12 @@ def _casa_image_to_xds_coords(
     attrs["sphr_dims"] = sphr_dims
     coords = {}
     coord_attrs = {}
-    (coords["time"], coord_attrs["time"]) = _get_time_values_attrs(coord_dict)
-    (coords["frequency"], coord_attrs["frequency"]) = _get_freq_values_attrs(
-        csys, shape
-    )
-    (velocity_vals, coord_attrs["velocity"]) = _get_velocity_values_attrs(
+    coords["time"], coord_attrs["time"] = _get_time_values_attrs(coord_dict)
+    coords["frequency"], coord_attrs["frequency"] = _get_freq_values_attrs(csys, shape)
+    velocity_vals, coord_attrs["velocity"] = _get_velocity_values_attrs(
         coord_dict, coords["frequency"]
     )
-    (coords["polarization"], coord_attrs["polarization"]) = _get_pol_values_attrs(
+    coords["polarization"], coord_attrs["polarization"] = _get_pol_values_attrs(
         coord_dict
     )
     coords["velocity"] = (["frequency"], velocity_vals)

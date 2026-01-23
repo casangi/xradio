@@ -19,7 +19,6 @@ from casacore.tables import default_ms, default_ms_subtable
 from casacore.tables.tableutil import makedminfo, maketabdesc
 from casacore.tables.msutil import complete_ms_desc, makearrcoldesc, required_ms_desc
 
-
 # 2 observations, 2 fields, 2 states
 # 2 SPWs, 4 polarizations
 default_ms_descr = {

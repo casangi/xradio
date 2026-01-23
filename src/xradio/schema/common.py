@@ -9,7 +9,6 @@ from xradio.schema.bases import (
 from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof, Name
 import numpy
 
-
 # Dimensions
 Time = Literal["time"]
 """ Observation time dimension """

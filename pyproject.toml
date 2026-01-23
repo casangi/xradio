@@ -1,6 +1,6 @@
 [project]
 name = "xradio"
-version = "v1.1.12-alpha"
+version = "v1.1.0"
 description = " Xarray Radio Astronomy Data IO"
 authors = [
     {name = "Jan-Willem Steeb", email="jsteeb@nrao.edu"},
@@ -85,7 +85,8 @@ docs = [
     'sphinx-autosummary-accessors',
     'sphinx_rtd_theme',
     'twine',
-    'pandoc'
+    'pandoc',
+    'toolviper',
 ]
 
 all = [

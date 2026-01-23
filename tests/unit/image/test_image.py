@@ -726,7 +726,6 @@ class xds_from_image_test(ImageBase):
             full_xds, imag, out_format="zarr" if zarr else "casa", overwrite=True
         )
 
-        # print("*" * 100, "Comparing image block", imag, zarr)
         for i in x:
             xds = load_image(
                 imag,
@@ -738,8 +737,6 @@ class xds_from_image_test(ImageBase):
                 },
                 do_sky_coords=i == 0,
             )
-            # print("42 $$$$$$$$$ load", imag, xds.attrs)
-            # print("$*******$" * 10)
 
             if not zarr:
                 with open_image_ro(imagename) as im:

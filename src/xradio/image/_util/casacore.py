@@ -10,7 +10,7 @@ from typing import Union
 
 import xarray as xr
 import re
-
+import dask.array as da
 from xradio._utils.schema import get_data_group_keys
 
 try:
@@ -47,25 +47,63 @@ from xradio.image._util._casacore.common import _beam_fit_params, _open_image_ro
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 
-def _load_casa_image_block(
-    infile: str, block_des: dict, do_sky_coords, image_type: str
-) -> xr.Dataset:
+def _squeeze_if_needed(ary: da, image_type: str) -> da:
+    if image_type.upper() == "VISIBILITY_NORMALIZATION":
+        shape = ary.shape
+        if shape[3] != 1 or shape[4] != 1:
+            raise ValueError(
+                "VISIBILITY_NORMALIZATION casa image must have l and m of length 1. Found "
+                + [shape[3], shape[4]]
+            )
+        ary = ary.squeeze(axis=(3, 4))
+    return ary
+
+
+def _get_casa_image_metadata(infile: str, do_sky_coords: bool, image_type: str) -> dict:
     image_full_path = os.path.expanduser(infile)
     with _open_image_ro(image_full_path) as casa_image:
         coords = casa_image.coordinates()
         cshape = casa_image.shape()
-    ret = _casa_image_to_xds_coords(image_full_path, False, do_sky_coords)
-    xds = ret["xds"].isel(block_des)
+    ret = _casa_image_to_xds_coords(image_full_path, False, do_sky_coords, image_type)
+    xds = ret["xds"]
+    sphr_dims = ret["sphr_dims"]
     nchan = ret["xds"].sizes["frequency"]
     npol = ret["xds"].sizes["polarization"]
+    dimorder = _get_xds_dim_order(ret["sphr_dims"], image_type)
+    metadata = {
+        "coords": coords,
+        "cshape": cshape,
+        "image_full_path": image_full_path,
+        "nchan": nchan,
+        "npol": npol,
+        "dimorder": dimorder,
+        # "xds_attrs": _casa_image_to_xds_attrs(image_full_path),
+        "sphr_dims": sphr_dims,
+        "xds": xds,
+    }
+    return metadata
+
+
+def _load_casa_image_block(
+    infile: str, block_des: dict, do_sky_coords: bool, image_type: str
+) -> xr.Dataset:
+    md = _get_casa_image_metadata(infile, do_sky_coords, image_type)
+    coords = md["coords"]
+    cshape = md["cshape"]
+    dimorder = md["dimorder"]
+    sphr_dims = md["sphr_dims"]
+    nchan = md["nchan"]
+    npol = md["npol"]
+    xds = md["xds"].isel(block_des)
+    image_full_path = md["image_full_path"]
     starts, shapes, slices = _get_starts_shapes_slices(block_des, coords, cshape)
-    dimorder = _get_xds_dim_order(ret["sphr_dims"])
     transpose_list, new_axes = _get_transpose_list(coords)
     block = _get_persistent_block(
         image_full_path, shapes, starts, dimorder, transpose_list, new_axes
     )
+    block = _squeeze_if_needed(block, image_type)
     xds = _add_sky_or_aperture(
-        xds, block, dimorder, image_full_path, ret["sphr_dims"], False, image_type
+        xds, block, dimorder, image_full_path, sphr_dims, False, image_type
     )
     mymasks = _get_mask_names(image_full_path)
     for m in mymasks:
@@ -104,18 +142,21 @@ def _open_casa_image(
     history: bool = False,
     image_type: str = "SKY",
 ) -> xr.Dataset:
-    img_full_path = os.path.expanduser(infile)
-    ret = _casa_image_to_xds_coords(img_full_path, verbose, do_sky_coords)
-    xds = ret["xds"]
-    dimorder = _get_xds_dim_order(ret["sphr_dims"])
+    md = _get_casa_image_metadata(infile, do_sky_coords, image_type)
+    xds = md["xds"]
+    dimorder = md["dimorder"]
+    sphr_dims = md["sphr_dims"]
+    img_full_path = md["image_full_path"]
+    ary = _read_image_array(img_full_path, chunks, verbose=verbose)
+    ary = _squeeze_if_needed(ary, image_type)
     xds = _add_sky_or_aperture(
         xds,
-        _read_image_array(img_full_path, chunks, verbose=verbose),
+        ary,
         dimorder,
         img_full_path,
-        ret["sphr_dims"],
+        sphr_dims,
         history,
-        image_type=image_type,
+        image_type,
     )
     if masks:
         mymasks = _get_mask_names(img_full_path)

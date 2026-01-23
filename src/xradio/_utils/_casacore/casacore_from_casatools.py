@@ -712,14 +712,14 @@ class image(casatools.image):
         dict
             A dictionary containing image metadata. This is either the
             value associated with the 'imageinfo' keyword in the table,
-            or a default dictionary {'imagetype': 'Intensity',
+            or a default dictionary {'imagetype': 'sky',
             'objectname': ''} if the keyword is absent.
         """
         with table(self._imagename) as tb:
             if "imageinfo" in tb.keywordnames():
                 image_metadata = tb.getkeyword("imageinfo")
             else:
-                image_metadata = {"imagetype": "Intensity", "objectname": ""}
+                image_metadata = {"imagetype": "sky", "objectname": ""}
 
         return image_metadata
 

@@ -48,6 +48,7 @@ try:
     )
 except ModuleNotFoundError as exc:
     import toolviper.utils.logger as _logger
+
     _logger.warning(
         "Could not import casacore tables to handle MSv2. "
         "Could not import the functions to convert from MSv2 to MSv4. "

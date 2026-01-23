@@ -93,7 +93,7 @@ def load_visibilities_one_spw_to_ndarray(
 
 
 def load_vis_one_spw_auto_data_from_tree(
-    bdf_file: typing.BinaryIO,
+    bdf_file: np.ndarray,
     guessed_shape: tuple[int, ...],
     spw_chan_lens: list[int],
     overall_spw_idx: int,
@@ -118,25 +118,13 @@ def load_vis_one_spw_auto_data_from_tree(
     offset = 0
     vis_subset_integrations = []
     component_offset = bdf_file.tell()
-
-    mmap_shape = (
-        guessed_shape[0]
-        * antenna_len
-        * (auto_offset_addition_before + auto_offset_addition_after),
-    )
-    auto_data_mmap = np.memmap(
-        bdf_file.name,
-        dtype=data_type,
-        mode="r",
-        offset=component_offset,
-        shape=mmap_shape,
-    )
     for time_idx in np.arange(0, guessed_shape[0]):
         vis_auto_strides = []
         for antenna_idx in np.arange(antenna_len):
             offset += auto_offset_addition_before
             one_antenna_count = spw_channel_len * sd_polarization_len
-            spw_floats = auto_data_mmap[offset : offset + one_antenna_count]
+            bdf_file.seek(component_offset + offset, os.SEEK_SET)
+            spw_floats = np.fromfile(bdf_file, dtype=data_type, count=one_antenna_count)
             if polarization_len != 3:
                 spw_floats = spw_floats.reshape((spw_channel_len, sd_polarization_len))
             else:
@@ -157,8 +145,6 @@ def load_vis_one_spw_auto_data_from_tree(
             offset += auto_offset_addition_after
 
         vis_subset_integrations.append(np.stack(vis_auto_strides))
-
-    bdf_file.seek(component_offset + offset, os.SEEK_SET)
 
     if len(vis_subset_integrations) == 1:
         vis_auto = vis_subset_integrations[0][np.newaxis, :]
@@ -190,26 +176,16 @@ def load_vis_one_spw_cross_data_from_tree(
     baseline_len = guessed_shape[1]
     offset = 0
     component_offset = bdf_file.tell()
-
-    mmap_shape = (
-        time_len
-        * baseline_len
-        * (cross_offset_addition_before + cross_offset_addition_after),
-    )
-    cross_data_mmap = np.memmap(
-        bdf_file.name,
-        dtype=data_type,
-        mode="r",
-        offset=component_offset,
-        shape=mmap_shape,
-    )
     for time_idx in np.arange(0, time_len):
         vis_strides = []
         for baseline_idx in np.arange(baseline_len):
             if processor_type == pyasdm.enumerations.ProcessorType.CORRELATOR:
                 offset += cross_offset_addition_before
                 one_baseline_count = spw_channel_len * polarization_len * 2
-                spw_vis = cross_data_mmap[offset : offset + one_baseline_count]
+                bdf_file.seek(component_offset + offset, os.SEEK_SET)
+                spw_vis = np.fromfile(
+                    bdf_file, dtype=data_type, count=one_baseline_count
+                )
                 spw_vis = spw_vis.reshape((int(spw_vis.size / 2), 2))
                 spw_vis = spw_vis[:, 0] + 1j * spw_vis[:, 1]
                 spw_vis /= scale_factor
@@ -229,8 +205,6 @@ def load_vis_one_spw_cross_data_from_tree(
 
                 vis_strides.append(spw_values)
                 offset += cross_offset_addition_after / 2
-
-    bdf_file.seek(component_offset + offset, os.SEEK_SET)
 
     vis_cross = np.stack(vis_strides)
     vis_cross = vis_cross.reshape((1, *vis_cross.shape))

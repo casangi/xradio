@@ -22,6 +22,7 @@ import numpy.ma as ma
 import xarray as xr
 from toolviper.utils.data import download
 
+from xradio._utils._casacore.tables import open_table_ro
 from xradio.image import (
     load_image,
     make_empty_aperture_image,
@@ -35,10 +36,6 @@ from xradio.image._util._casacore.common import _open_image_ro as open_image_ro
 from xradio.image._util.common import _image_type as image_type
 from xradio.image._util._casacore.common import _object_name
 
-from xradio.image._util._casacore.common import (
-    _open_image_ro as open_image_ro,
-    _create_new_image as create_new_image,
-)
 from toolviper.dask.client import local_client
 
 sky = "SKY"
@@ -48,6 +45,16 @@ def safe_convert(obj):
     if isinstance(obj, np.ndarray):
         return obj.tolist()  # convert to list
     raise TypeError(f"Type {type(obj)} not serializable")
+
+
+def clean_path_logic(text: str) -> str:
+    """Cleans the subtable path logic string by isolating the basename."""
+    prefix = "Table: "
+    if text.startswith(prefix):
+        raw_path = text.removeprefix(prefix).strip()
+        base_name = os.path.basename(raw_path.rstrip("/"))
+        return f"Table: {base_name}"
+    return text
 
 
 @pytest.fixture(scope="module")
@@ -145,6 +152,15 @@ class ImageBase(unittest.TestCase):
                                 np.allclose(one, two),
                                 f"{dict1_name}[{k}] != {dict2_name}[{k}], {one} vs {two}",
                             )
+                    elif isinstance(one, str) and isinstance(two, str):
+                        one_cleaned = clean_path_logic(one)
+                        two_cleaned = clean_path_logic(two)
+                        self.assertEqual(
+                            one_cleaned,
+                            two_cleaned,
+                            f"{dict1_name}[{k}] != {dict2_name}[{k}]:\n"
+                            + f"{one_cleaned} vs\n{two_cleaned}",
+                        )
                     else:
                         self.assertEqual(
                             dict1[k],
@@ -1072,7 +1088,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                     )
 
     def test_metadata(self):
-        """Test to verify metadata in two casacore images is the same"""
+        """Test to verify metadata in two casacore images is the same."""
         f = 180 * 60 / np.pi
         with open_image_ro(self.imname()) as im1:
             c1 = im1.info()
@@ -1093,7 +1109,24 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                     c2["coordinates"]["worldreplace2"] = np.array(
                         [c2["coordinates"]["spectral2"]["wcs"]["crval"]]
                     )
+                    # python-casacore/image.info() always returns "imagetype" as a
+                    # predefined enum value. When the "imageinfo" keyword is missing
+                    # from the image table, or a non-standard value of "imagetype" was
+                    # written into that keyword, image.info() will return "Intensity" as
+                    # the imagetype.
+                    c2["imageinfo"]["imagetype"] = "Intensity"
                     self.dict_equality(c2, c1, "got", "expected")
+        with open_table_ro(self.outname()) as tb1:
+            for imname in [self.outname(), self._outname_no_sky]:
+                with open_table_ro(imname) as tb2:
+                    kw1 = tb1.getkeywords()
+                    kw2 = tb2.getkeywords()
+                    self.dict_equality(
+                        kw2,
+                        kw1,
+                        "got",
+                        "expected",
+                    )
 
     def test_beam(self):
         """

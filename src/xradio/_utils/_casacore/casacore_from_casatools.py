@@ -557,7 +557,7 @@ class image(casatools.image):
         self,
         imagename,
         axis=0,
-        maskname="mask_0",
+        maskname="MASK_0",
         images=(),
         values=None,
         coordsys=None,
@@ -763,7 +763,7 @@ class image(casatools.image):
                 Name of the observed object.
 
         Notes
-        --------
+        -----
         image.info()['imageinfo'] and image.imageinfo() from python-casacore
         always returns "imagetype" in a predefined enum value. When the "imageinfo"
         keyword is missing from the image table, or a non-standard value of "imagetype"

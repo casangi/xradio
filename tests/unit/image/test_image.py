@@ -1109,13 +1109,9 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                     c2["coordinates"]["worldreplace2"] = np.array(
                         [c2["coordinates"]["spectral2"]["wcs"]["crval"]]
                     )
-                    # python-casacore/image.info() always returns "imagetype" as a
-                    # predefined enum value. When the "imageinfo" keyword is missing
-                    # from the image table, or a non-standard value of "imagetype" was
-                    # written into that keyword, image.info() will return "Intensity" as
-                    # the imagetype.
-                    c2["imageinfo"]["imagetype"] = "Intensity"
                     self.dict_equality(c2, c1, "got", "expected")
+
+        # Also check the table keywords
         with open_table_ro(self.outname()) as tb1:
             for imname in [self.outname(), self._outname_no_sky]:
                 with open_table_ro(imname) as tb2:

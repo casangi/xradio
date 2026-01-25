@@ -86,16 +86,7 @@ def _casa_image_to_xds_image_attrs(
     meta_dict = image.info()
     coord_dict = copy.deepcopy(meta_dict["coordinates"])
     attrs = {}
-
-    if image_type is None:
-        with open_table_ro(image.name()) as tb_tool:
-            if "imageinfo" in tb_tool.keywordnames():
-                attrs[_image_type] = tb_tool.getkeyword("imageinfo").get(
-                    "imagetype", "sky"
-                )
-    else:
-        attrs[_image_type] = image_type.lower()
-
+    attrs[_image_type] = image.info()["imageinfo"]["imagetype"]
     attrs["units"] = image.unit()
     attrs["telescope"] = {}
     telescope = attrs["telescope"]

@@ -762,9 +762,13 @@ class image(casatools.image):
             - **objectname** : str
                 Name of the observed object.
 
-        See Also
+        Notes
         --------
-        casacore.ImageInfo : https://casacore.github.io/casacore/classcasacore_1_1ImageInfo.html
+        image.info()['imageinfo'] and image.imageinfo() from python-casacore
+        always returns "imagetype" in a predefined enum value. When the "imageinfo"
+        keyword is missing from the image table, or a non-standard value of "imagetype"
+        (e.g. 'sky') was written into that keyword, image.info() will just return
+        "Intensity" as the imagetype.
 
         Examples
         --------

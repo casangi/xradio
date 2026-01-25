@@ -29,6 +29,24 @@ except ModuleNotFoundError as exc:
         f"{exc}"
     )
 
+# Valid casacore ImageInfo enum values
+# Reference: https://casacore.github.io/casacore/classcasacore_1_1ImageInfo.html
+_VALID_IMAGE_TYPES = (
+    "Undefined",
+    "Intensity",
+    "Beam",
+    "ColumnDensity",
+    "DepolarizationRatio",
+    "KineticTemperature",
+    "MagneticField",
+    "OpticalDepth",
+    "RotationMeasure",
+    "RotationalTemperature",
+    "SpectralIndex",
+    "Velocity",
+    "VelocityDispersion",
+)
+
 import numpy as np
 import toolviper.utils.logger as logger
 
@@ -164,6 +182,32 @@ def wrap_class_methods(cls: type) -> type:
         if callable(method):
             setattr(cls, name, method_wrapper(method))
     return cls
+
+
+def _validate_image_type(value: str) -> str:
+    """Validate and normalize an image type string.
+
+    Parameters
+    ----------
+    value
+        The image type string to validate.
+
+    Returns
+    -------
+    str
+        A valid casacore ImageInfo enum value with proper capitalization.
+        Returns 'Intensity' if the input is not a valid type.
+
+    Notes
+    -----
+    Validation is case-insensitive. The returned string uses the
+    canonical capitalization from the casacore ImageInfo enum.
+    """
+    value_lower = value.lower()
+    for valid_type in _VALID_IMAGE_TYPES:
+        if valid_type.lower() == value_lower:
+            return valid_type
+    return "Intensity"
 
 
 @wrap_class_methods
@@ -702,24 +746,42 @@ class image(casatools.image):
     def imageinfo(self) -> dict:
         """Retrieve metadata from the image table.
 
-        This method accesses the image table associated with the image name
-        and attempts to retrieve information stored under the 'imageinfo'
-        keyword. If the 'imageinfo' keyword is not found in the table,
-        a default dictionary containing basic information is returned.
+        Accesses the image table and retrieves information stored under the
+        'imageinfo' keyword. The 'imagetype' value is validated against
+        casacore's ImageInfo enumeration values to mimic python-casacore
+        `image.imageinfo()` behavior.
 
         Returns
         -------
         dict
-            A dictionary containing image metadata. This is either the
-            value associated with the 'imageinfo' keyword in the table,
-            or a default dictionary {'imagetype': 'Intensity',
-            'objectname': ''} if the keyword is absent.
+            Image metadata dictionary containing:
+
+            - **imagetype** : str
+                Type of the image, validated against casacore ImageInfo enum.
+                Defaults to 'Intensity' if invalid or missing.
+            - **objectname** : str
+                Name of the observed object.
+
+        See Also
+        --------
+        casacore.ImageInfo : https://casacore.github.io/casacore/classcasacore_1_1ImageInfo.html
+
+        Examples
+        --------
+        >>> img = image('my_image.im')
+        >>> info = img.imageinfo()
+        >>> info['imagetype']
+        'Intensity'
         """
         with table(self._imagename) as tb:
             if "imageinfo" in tb.keywordnames():
                 image_metadata = tb.getkeyword("imageinfo")
             else:
                 image_metadata = {"imagetype": "Intensity", "objectname": ""}
+
+        image_metadata["imagetype"] = _validate_image_type(
+            image_metadata.get("imagetype", "Intensity")
+        )
 
         return image_metadata
 

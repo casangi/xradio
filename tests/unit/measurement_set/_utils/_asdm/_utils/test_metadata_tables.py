@@ -11,6 +11,6 @@ def test_load_asdm_col_empty():
         load_asdm_col(None, "fieldId")
 
 
-def test_exp_asdm_col_empty():
+def test_exp_asdm_table_to_df_empty():
     with pytest.raises(AttributeError, match="no attribute"):
         exp_asdm_table_to_df(None, "Main", "fieldId")

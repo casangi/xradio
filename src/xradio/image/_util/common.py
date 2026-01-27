@@ -25,10 +25,11 @@ def _aperture_or_sky(xds: xr.Dataset) -> str:
     return "SKY" if "SKY" in xds.data_vars or "l" in xds.coords else "APERTURE"
 
 
-def _get_xds_dim_order(has_sph: bool) -> list:
+def _get_xds_dim_order(has_sph: bool, image_type: str) -> list:
     dimorder = ["time", "frequency", "polarization"]
-    dir_lin = ["l", "m"] if has_sph else ["u", "v"]
-    dimorder.extend(dir_lin)
+    if image_type.upper() != "VISIBILITY_NORMALIZATION":
+        dir_lin = ["l", "m"] if has_sph else ["u", "v"]
+        dimorder.extend(dir_lin)
     return dimorder
 
 

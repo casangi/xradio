@@ -177,7 +177,7 @@ def _coord_dict_from_xds(xds: xr.Dataset) -> dict:
     if "observer" in xds[sky_ap].attrs:
         coord["observer"] = xds[sky_ap].attrs["observer"]
     obsdate = {}
-    obsdate["refer"] = xds.coords["time"].attrs["scale"]
+    obsdate["refer"] = xds.coords["time"].attrs["scale"].upper()
     obsdate["type"] = "epoch"
     obsdate["m0"] = {}
     obsdate["m0"]["unit"] = xds.coords["time"].attrs["units"]

@@ -22,6 +22,7 @@ import numpy.ma as ma
 import xarray as xr
 from toolviper.utils.data import download
 
+from xradio._utils._casacore.tables import open_table_ro
 from xradio.image import (
     load_image,
     make_empty_aperture_image,
@@ -35,10 +36,6 @@ from xradio.image._util._casacore.common import _open_image_ro as open_image_ro
 from xradio.image._util.common import _image_type as image_type
 from xradio.image._util._casacore.common import _object_name
 
-from xradio.image._util._casacore.common import (
-    _open_image_ro as open_image_ro,
-    _create_new_image as create_new_image,
-)
 from toolviper.dask.client import local_client
 
 sky = "SKY"
@@ -48,6 +45,16 @@ def safe_convert(obj):
     if isinstance(obj, np.ndarray):
         return obj.tolist()  # convert to list
     raise TypeError(f"Type {type(obj)} not serializable")
+
+
+def clean_path_logic(text: str) -> str:
+    """Cleans the subtable path logic string by isolating the basename."""
+    prefix = "Table: "
+    if text.startswith(prefix):
+        raw_path = text.removeprefix(prefix).strip()
+        base_name = os.path.basename(raw_path.rstrip("/"))
+        return f"Table: {base_name}"
+    return text
 
 
 @pytest.fixture(scope="module")
@@ -85,73 +92,92 @@ def dask_client_module():
 
 @pytest.mark.usefixtures("dask_client_module")
 class ImageBase(unittest.TestCase):
-    def dict_equality(self, dict1, dict2, dict1_name, dict2_name, exclude_keys=[]):
-        self.assertEqual(
-            dict1.keys(),
-            dict2.keys(),
-            f"{dict1_name} has different keys than {dict2_name}:"
-            f"\n{dict1.keys()} vs\n {dict2.keys()}",
-        )
+    def dict_equality(
+        self,
+        dict1,
+        dict2,
+        dict1_name,
+        dict2_name,
+        exclude_keys=None,
+        common_keys_only=False,
+    ):
+        exclude_keys = exclude_keys or []
+        if not common_keys_only:
+            self.assertEqual(
+                dict1.keys(),
+                dict2.keys(),
+                f"{dict1_name} has different keys than {dict2_name}:"
+                f"\n{dict1.keys()} vs\n {dict2.keys()}",
+            )
         for k in dict1.keys():
-            if k not in exclude_keys:
-                one = dict1[k]
-                two = dict2[k]
-                if isinstance(one, numbers.Number) and isinstance(two, numbers.Number):
-                    self.assertTrue(
-                        np.isclose(one, two),
-                        f"{dict1_name}[{k}] != {dict2_name}[{k}]:\n"
-                        + f"{one} vs\n{two}",
+            if k in exclude_keys or (common_keys_only and k not in dict2):
+                continue
+            one = dict1[k]
+            two = dict2[k]
+            if isinstance(one, numbers.Number) and isinstance(two, numbers.Number):
+                self.assertTrue(
+                    np.isclose(one, two),
+                    f"{dict1_name}[{k}] != {dict2_name}[{k}]:\n" + f"{one} vs\n{two}",
+                )
+            elif (isinstance(one, list) or isinstance(one, np.ndarray)) and (
+                isinstance(two, list) or isinstance(two, np.ndarray)
+            ):
+                if len(one) == 0 or len(two) == 0:
+                    self.assertEqual(
+                        len(one),
+                        len(two),
+                        f"{dict1_name}[{k}] != {dict2_name}[{k}], " f"{one} != {two}",
                     )
-                elif (isinstance(one, list) or isinstance(one, np.ndarray)) and (
-                    isinstance(two, list) or isinstance(two, np.ndarray)
-                ):
-                    if len(one) == 0 or len(two) == 0:
-                        self.assertEqual(
-                            len(one),
-                            len(two),
-                            f"{dict1_name}[{k}] != {dict2_name}[{k}], "
-                            f"{one} != {two}",
-                        )
-                    elif isinstance(one[0], numbers.Number):
+                elif isinstance(one[0], numbers.Number):
+                    self.assertTrue(
+                        np.isclose(
+                            np.array(one), np.array(two), rtol=1e-3, atol=1e-7
+                        ).all(),
+                        f"{dict1_name}[{k}] != {dict2_name}[{k}], " f"{one} != {two}",
+                    )
+            else:
+                self.assertEqual(
+                    type(dict1[k]),
+                    type(dict2[k]),
+                    f"Types are different {dict1_name}[{k}] {type(dict1[k])} "
+                    + f"vs {dict2_name}[{k}] {type(dict2[k])}",
+                )
+                if isinstance(dict1[k], dict) and isinstance(dict2[k], dict):
+                    self.dict_equality(
+                        dict1[k],
+                        dict2[k],
+                        f"{dict1_name}[{k}]",
+                        f"{dict2_name}[{k}]",
+                        common_keys_only=common_keys_only,
+                        exclude_keys=exclude_keys,
+                    )
+                elif isinstance(one, np.ndarray):
+                    if k == "crpix":
                         self.assertTrue(
-                            np.isclose(
-                                np.array(one), np.array(two), rtol=1e-3, atol=1e-7
-                            ).all(),
-                            f"{dict1_name}[{k}] != {dict2_name}[{k}], "
-                            f"{one} != {two}",
+                            np.allclose(one, two, rtol=3e-5),
+                            f"{dict1_name}[{k}] != {dict2_name}[{k}], {one} vs {two}",
                         )
+                    else:
+                        self.assertTrue(
+                            np.allclose(one, two),
+                            f"{dict1_name}[{k}] != {dict2_name}[{k}], {one} vs {two}",
+                        )
+                elif isinstance(one, str) and isinstance(two, str):
+                    one_cleaned = clean_path_logic(one)
+                    two_cleaned = clean_path_logic(two)
+                    self.assertEqual(
+                        one_cleaned,
+                        two_cleaned,
+                        f"{dict1_name}[{k}] != {dict2_name}[{k}]:\n"
+                        + f"{one_cleaned} vs\n{two_cleaned}",
+                    )
                 else:
                     self.assertEqual(
-                        type(dict1[k]),
-                        type(dict2[k]),
-                        f"Types are different {dict1_name}[{k}] {type(dict1[k])} "
-                        + f"vs {dict2_name}[{k}] {type(dict2[k])}",
+                        dict1[k],
+                        dict2[k],
+                        f"{dict1_name}[{k}] != {dict2_name}[{k}]:\n"
+                        + f"{dict1[k]} vs\n{dict2[k]}",
                     )
-                    if isinstance(dict1[k], dict) and isinstance(dict2[k], dict):
-                        self.dict_equality(
-                            dict1[k],
-                            dict2[k],
-                            f"{dict1_name}[{k}]",
-                            f"{dict2_name}[{k}]",
-                        )
-                    elif isinstance(one, np.ndarray):
-                        if k == "crpix":
-                            self.assertTrue(
-                                np.allclose(one, two, rtol=3e-5),
-                                f"{dict1_name}[{k}] != {dict2_name}[{k}], {one} vs {two}",
-                            )
-                        else:
-                            self.assertTrue(
-                                np.allclose(one, two),
-                                f"{dict1_name}[{k}] != {dict2_name}[{k}], {one} vs {two}",
-                            )
-                    else:
-                        self.assertEqual(
-                            dict1[k],
-                            dict2[k],
-                            f"{dict1_name}[{k}] != {dict2_name}[{k}]:\n"
-                            + f"{dict1[k]} vs\n{dict2[k]}",
-                        )
 
 
 class xds_from_image_test(ImageBase):
@@ -362,7 +388,7 @@ class xds_from_image_test(ImageBase):
             shape
         )
         masked_array = ma.masked_array(pix, mask)
-        with create_new_image(cls._imname, shape=shape) as im:
+        with create_new_image(cls._imname, shape=shape, mask="MASK_0") as im:
             im.put(masked_array)
             shape = im.shape()
         t = tables.table(cls._imname, readonly=False)
@@ -1072,7 +1098,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                     )
 
     def test_metadata(self):
-        """Test to verify metadata in two casacore images is the same"""
+        """Test to verify metadata in two casacore images is the same."""
         f = 180 * 60 / np.pi
         with open_image_ro(self.imname()) as im1:
             c1 = im1.info()
@@ -1094,6 +1120,27 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                         [c2["coordinates"]["spectral2"]["wcs"]["crval"]]
                     )
                     self.dict_equality(c2, c1, "got", "expected")
+
+        # Also check the table keywords
+        with open_table_ro(self.imname()) as tb1:
+            for imname in [self.outname(), self._outname_no_sky]:
+                with open_table_ro(imname) as tb2:
+                    kw1 = tb1.getkeywords()
+                    kw2 = tb2.getkeywords()
+                    self.dict_equality(
+                        kw2,
+                        kw1,
+                        "got",
+                        "expected",
+                        common_keys_only=True,
+                        exclude_keys=[
+                            "cdelt",
+                            "crval",
+                            "latpole",
+                            "velUnit",
+                            "worldreplace2",
+                        ],
+                    )
 
     def test_beam(self):
         """

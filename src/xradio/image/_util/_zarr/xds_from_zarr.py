@@ -94,8 +94,8 @@ def _decode_sub_xdses(xarrayObj, top_dir: str, id_dict: dict) -> None:
                 ky = d.name[len(_top_level_sub_xds) :]
                 xarrayObj.attrs[ky] = _read_zarr(path, id_dict)
                 # TODO if attrs that are xdses have attrs that are xdses ...
-            else:
-                # descend into the directory
+            elif d.name != "c":
+                # descend into the directory (except for the Zarr v3 "c" dirs)
                 _decode_sub_xdses(xarrayObj[d.name], path, id_dict)
 
 

@@ -39,26 +39,42 @@ def test_ensure_presence_binary_components(
 
 
 @pytest.mark.parametrize(
-    "input_names, expected_error",
+    "input_names, exclude_also_for_flags, expected_error",
     [
-        ([], no_raises()),
+        ([], False, no_raises()),
         (
             ["TIM", "BAL", "ANT", "BAB", "SPW", "BIN", "APC", "SPP", "POL", "ANY"],
+            False,
             no_raises(),
         ),
-        (["DIM", "STT"], no_raises()),
-        (["STO"], pytest.raises(RuntimeError, match="STO")),
-        (["HOL"], pytest.raises(RuntimeError, match="HOL")),
-        (["STO", "DIM", "HOL"], pytest.raises(RuntimeError, match="STO")),
+        (
+            ["TIM", "BAL", "ANT", "BAB", "SPW", "BIN", "APC", "SPP", "POL", "ANY"],
+            True,
+            pytest.raises(RuntimeError, match="Unsupported dimension"),
+        ),
+        (["DIM", "STT"], False, no_raises()),
+        (["DIM", "STT"], True, no_raises()),
+        (["STO"], False, pytest.raises(RuntimeError, match="STO")),
+        (["STO"], True, pytest.raises(RuntimeError, match="STO")),
+        (["HOL"], False, pytest.raises(RuntimeError, match="HOL")),
+        (["HOL"], True, pytest.raises(RuntimeError, match="HOL")),
+        (["STO", "DIM", "HOL"], False, pytest.raises(RuntimeError, match="STO")),
+        (["STO", "APC", "SPP"], True, pytest.raises(RuntimeError, match="STO")),
+        (["APC", "DIM"], False, no_raises()),
+        (["APC", "DIM"], True, pytest.raises(RuntimeError, match="APC")),
+        (["DIM", "SPP"], False, no_raises()),
+        (["DIM", "SPP"], True, pytest.raises(RuntimeError, match="SPP")),
     ],
 )
-def test_exclude_unsupported_axis_names(input_names, expected_error):
+def test_exclude_unsupported_axis_names(
+    input_names, exclude_also_for_flags, expected_error
+):
     from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
         exclude_unsupported_axis_names,
     )
 
     with expected_error:
-        exclude_unsupported_axis_names(input_names)
+        exclude_unsupported_axis_names(input_names, exclude_also_for_flags)
 
 
 def test_find_spw_in_basebands_list_empty():

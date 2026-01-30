@@ -1,26 +1,40 @@
-import pandas as pd
+from contextlib import nullcontext as no_raises
+import numpy as np
+
+import pyasdm
+
 import pytest
 
 
-def test_get_times_from_bdfs_empty():
-    from xradio.measurement_set._utils._asdm._utils._bdf.time import get_times_from_bdfs
+@pytest.mark.parametrize(
+    "times_asdm, expected_output, expected_error",
+    [
+        (np.array([0, 1, 2]), [-3.5067168e09] * 3, no_raises()),
+        (np.array([0, 1, 2]), [-3.5067168e09] * 3, no_raises()),
+        (np.array([pyasdm.types.ArrayTime(0)]), [-3.5067168e09] * 3, no_raises()),
+        (
+            np.array([pyasdm.types.ArrayTime(0), pyasdm.types.ArrayTime(1e9)]),
+            np.array([-3506716800, 86396493283200]),
+            no_raises(),
+        ),
+        (
+            np.array(
+                [
+                    pyasdm.types.ArrayTime(1e9),
+                    pyasdm.types.ArrayTime(2e9),
+                    pyasdm.types.ArrayTime(3e9),
+                ]
+            ),
+            np.array([86396493283200, 172796493283200, 259196493283200]),
+            no_raises(),
+        ),
+    ],
+)
+def test_convert_time_asdm_to_unix(times_asdm, expected_output, expected_error):
+    from xradio.measurement_set._utils._asdm._utils.time import (
+        convert_time_asdm_to_unix,
+    )
 
-    with pytest.raises(ValueError, match="at least one"):
-        get_times_from_bdfs([], pd.DataFrame())
-
-
-def test_get_times_from_bdfs_non_existent():
-    from xradio.measurement_set._utils._asdm._utils._bdf.time import get_times_from_bdfs
-    from pyasdm.exceptions import BDFReaderException
-
-    with pytest.raises(BDFReaderException, match="No such file or directory"):
-        get_times_from_bdfs(["empty-non-existent"], pd.DataFrame())
-
-
-def test_make_blob_info_empty():
-    from xradio.measurement_set._utils._asdm._utils._bdf.time import make_blob_info
-    from pyasdm.bdf import BDFHeader
-
-    info = make_blob_info(BDFHeader())
-    assert isinstance(info, pd.DataFrame)
-    assert info.shape == (1, 22)
+    with expected_error:
+        converted = convert_time_asdm_to_unix(times_asdm)
+        assert (converted == expected_output).all()

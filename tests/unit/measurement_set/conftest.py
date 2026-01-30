@@ -4,8 +4,10 @@ from pathlib import Path
 import pytest
 import shutil
 
-
 import xarray as xr
+
+# Ensure pytest assert introspection in vis data checks
+pytest.register_assert_rewrite("xradio.testing.measurement_set.checker")
 
 from xradio.measurement_set import open_processing_set
 from xradio.testing.measurement_set.msv2_io import (
@@ -16,10 +18,6 @@ from xradio.testing.measurement_set.msv2_io import (
     build_processing_set_from_msv2,
 )
 from xradio.testing.measurement_set.io import download_measurement_set
-
-# Ensure pytest assert introspection in vis data checks
-pytest.register_assert_rewrite("xradio.testing.measurement_set.checker")
-
 
 """
 A tuple with an MS filename (as str) and a description of its expected structure and contents (as a dict).

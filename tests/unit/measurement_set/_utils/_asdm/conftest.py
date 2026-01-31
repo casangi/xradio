@@ -1,18 +1,17 @@
 import pytest
 
 import pyasdm
-#from pyasdm import ASDM
-#from pyasdm import SpectralWindowTable
-#from pyasdm import SpectralWindowRow
 
 
 def make_asdm_empty():
     test_asdm = pyasdm.ASDM()
     return test_asdm
 
+
 @pytest.fixture(scope="session")
 def asdm_empty():
     return make_asdm_empty()
+
 
 def make_asdm_with_spw_default():
     test_asdm = pyasdm.ASDM()
@@ -22,9 +21,11 @@ def make_asdm_with_spw_default():
     assert test_spw_table.size() == 1
     return test_asdm
 
+
 @pytest.fixture(scope="session")
 def asdm_with_spw_default():
     return make_asdm_with_spw_default()
+
 
 def make_asdm_with_spw_simple():
     spw_row_spec_0 = """
@@ -81,7 +82,8 @@ def make_asdm_with_spw_simple():
     test_spw_table.add(spw_row_8)
     assert test_spw_table.size() == 2
     return test_asdm
-    
+
+
 @pytest.fixture(scope="session")
 def asdm_with_spw_simple():
     return make_asdm_with_spw_simple()

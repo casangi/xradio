@@ -82,7 +82,7 @@ def test_find_spw_in_basebands_list_empty():
         find_spw_in_basebands_list,
     )
 
-    (baseband_idx, spw_idx) = find_spw_in_basebands_list(
+    baseband_idx, spw_idx = find_spw_in_basebands_list(
         "bogus_path_non_existant.nope", 0, []
     )
     assert baseband_idx == 0

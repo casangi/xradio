@@ -167,7 +167,7 @@ def get_reference_frame(asdm: pyasdm.ASDM, spw_id: int) -> str:
     spw_tbl = asdm.getSpectralWindow()
     spw_row = spw_tbl.getRowByKey(pyasdm.types.Tag(f"SpectralWindow_{spw_id}"))
     if spw_row.isMeasFreqRefExists():
-        ref_frame = spw_row.getMeasFreqRef().get()
+        ref_frame = spw_row.getMeasFreqRef().getName()
     else:
         ref_frame = "TOPO"
 

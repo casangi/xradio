@@ -99,6 +99,8 @@ def load_asdm_col(sdm_table: pyasdm.ASDM, col_name: str) -> list:
             ]
             or ()
         ):
+            # this branch could/would also include
+            # pyasdm.enumerations.FrequencyReferenceCode, etc. enumerations
             value = value.getName()
 
         col_values.append(value)

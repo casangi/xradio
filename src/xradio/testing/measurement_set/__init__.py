@@ -5,8 +5,6 @@ This module provides reusable test utilities for generating test data,
 custom assertions, and helper functions for testing xradio functionality.
 """
 
-import toolviper.utils.logger as _logger
-
 __all__ = [
     # Generators
     "gen_test_ms",
@@ -49,6 +47,8 @@ try:
         build_minimal_msv4_xdt,
     )
 except ModuleNotFoundError as exc:
+    import toolviper.utils.logger as _logger
+
     _logger.warning(
         "Could not import casacore tables to handle MSv2. "
         "Could not import the functions to convert from MSv2 to MSv4. "

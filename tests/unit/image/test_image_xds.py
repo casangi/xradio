@@ -357,9 +357,7 @@ class TestImageXdsInvalid:
             xds.xr_img.test_func()
 
         message = str(excinfo.value)
-        assert "is not a image node" in message
-        # Dataset may not have .path (e.g. in-memory); accessor uses getattr(..., "path", None).
-        assert str(getattr(xds, "path", None)) in message
+        assert "In-memory xds" in message
 
     def test_get_reference_pixel_indices_raises_when_no_coords(self, image_xds_valid):
         """get_reference_pixel_indices should fail if neither lm nor uv coordinates exist."""

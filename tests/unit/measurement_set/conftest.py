@@ -4,6 +4,9 @@ from pathlib import Path
 import pytest
 import shutil
 
+# Ensure pytest assert introspection in vis data checks
+# Must be imported before any other imports
+pytest.register_assert_rewrite("xradio.testing.measurement_set.checker")
 
 import xarray as xr
 
@@ -16,10 +19,6 @@ from xradio.testing.measurement_set.msv2_io import (
     build_processing_set_from_msv2,
 )
 from xradio.testing.measurement_set.io import download_measurement_set
-
-# Ensure pytest assert introspection in vis data checks
-pytest.register_assert_rewrite("xradio.testing.measurement_set.checker")
-
 
 """
 A tuple with an MS filename (as str) and a description of its expected structure and contents (as a dict).

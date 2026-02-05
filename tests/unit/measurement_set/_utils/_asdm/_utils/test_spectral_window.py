@@ -10,6 +10,10 @@ def test_ensure_spw_name_conforms(asdm_empty):
     spw_name = ensure_spw_name_conforms("", spw_id)
     assert spw_name == f"spw_{spw_id}"
 
+    name_prefix = "Test_SPW_Name"
+    spw_name = ensure_spw_name_conforms(name_prefix, spw_id)
+    assert spw_name == f"{name_prefix}_{spw_id}"
+
 
 def test_get_spw_name_empty(asdm_empty):
     from xradio.measurement_set._utils._asdm._utils.spectral_window import get_spw_name
@@ -57,6 +61,9 @@ def test_get_spw_frequency_centers_simple(asdm_with_spw_simple):
 
     centers_0 = get_spw_frequency_centers(asdm_with_spw_simple, 0, 1)
     assert centers_0 == [85021000000.0]
+    with pytest.raises(RuntimeError, match="channels"):
+        get_spw_frequency_centers(asdm_with_spw_simple, 0, 64)
+
     centers_1 = get_spw_frequency_centers(asdm_with_spw_simple, 1, 128)
     assert len(centers_1) == 128
     assert centers_1.max() == 97013189407.34863
@@ -117,3 +124,5 @@ def test_get_reference_frame_simple(asdm_with_spw_simple):
 
     ref_frame = get_reference_frame(asdm_with_spw_simple, 0)
     assert ref_frame == "TOPO"
+    ref_frame = get_reference_frame(asdm_with_spw_simple, 1)
+    assert ref_frame == "GALACTO"

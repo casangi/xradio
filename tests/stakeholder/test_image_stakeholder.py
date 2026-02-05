@@ -45,5 +45,6 @@ def test_image(tmp_path: pathlib.Path):
 
     # Cleanup happens automatically with pytest's tmp_path fixture
 
+
 if __name__ == "__main__":
     pytest.main(["-v", "-s", __file__])

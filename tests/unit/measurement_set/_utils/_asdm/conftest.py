@@ -56,6 +56,7 @@ def make_asdm_with_spw_simple():
     <numChan> 128 </numChan>
     <numBin> 1 </numBin>
     <refFreq> 9.702100190734863E10 </refFreq>
+    <measFreqRef> GALACTO </measFreqRef>
     <sidebandProcessingMode>NONE</sidebandProcessingMode>
     <totBandwidth> 2.0E9 </totBandwidth>
     <windowFunction>HANNING</windowFunction>

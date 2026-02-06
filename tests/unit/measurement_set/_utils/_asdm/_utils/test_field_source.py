@@ -1,3 +1,5 @@
+import copy
+
 import pytest
 
 import pyasdm
@@ -19,6 +21,8 @@ def test_get_direction_codes_asdm_with_spw_default(asdm_with_spw_default):
 
 def test_get_direction_codes_asdm_with_spw_simple(asdm_with_spw_simple):
 
+    asdm_with_source = copy.deepcopy(asdm_with_spw_simple)
+
     # directionCode was ICRS - chanced for testing purposes
     source_row_0_xml = """
   <row>
@@ -38,13 +42,13 @@ def test_get_direction_codes_asdm_with_spw_simple(asdm_with_spw_simple):
     <spectralWindowId> SpectralWindow_0 </spectralWindowId>
   </row>
 """
-    source_table = asdm_with_spw_simple.getSource()
+    source_table = asdm_with_source.getSource()
     source_row_0 = pyasdm.SourceRow(source_table)
     source_row_0.setFromXML(source_row_0_xml)
     source_table.add(source_row_0)
 
     get_direction_codes(
-        asdm_with_spw_simple,
+        asdm_with_source,
         (
             0,
             pyasdm.types.ArrayTimeInterval(
@@ -70,7 +74,7 @@ def test_get_direction_codes_asdm_with_spw_simple(asdm_with_spw_simple):
     source_table.add(source_row_1)
 
     get_direction_codes(
-        asdm_with_spw_simple,
+        asdm_with_source,
         (
             1,
             pyasdm.types.ArrayTimeInterval(

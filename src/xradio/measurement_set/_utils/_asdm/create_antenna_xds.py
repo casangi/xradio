@@ -272,7 +272,7 @@ def get_telescope_name(asdm: pyasdm.ASDM) -> str:
     telescope_name = execblock_df["telescopeName"].unique()
     if len(telescope_name) != 1:
         raise RuntimeError(
-            f"Issue with telescopeName. It should be one: {telescope_name}"
+            f"Issue with telescopeName. It should be one string from: {telescope_name}"
         )
 
     return telescope_name[0]

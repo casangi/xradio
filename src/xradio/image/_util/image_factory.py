@@ -330,7 +330,7 @@ def detect_store_type(store):
         elif os.path.isdir(store):
             if "table.info" in os.listdir(store):
                 store_type = "casa"
-            elif ".zattrs" in os.listdir(store):
+            elif ".zattrs" in os.listdir(store) or "zarr.json" in os.listdir(store):
                 store_type = "zarr"
             else:
                 logger.error("Unknown directory structure.")

@@ -119,6 +119,34 @@ def convert_casacore_time_to_mjd(rawtimes: np.ndarray) -> np.ndarray:
     return rawtimes / SECS_IN_DAY
 
 
+def casacore_numpy_to_json_safe_type(value: object) -> object:
+    """
+    This funciton converts values with numpy types (commonly found in "raw" xds loaded with load_generic_table()) to
+    native types that can be safely written to JSON.
+
+    This is handy when loading values from table columns that one wants to put in attributes. Starting
+    with Zarr 3, numpy types are not converted/encoded before writing to JSON, and an exception is raised.
+
+    Parameters
+    ----------
+    value : object
+        A value or numpy array of values, of presumably numpy type
+
+    Returns
+    -------
+    object
+        The same value converted to a JSON safe type (for example int(a_numpy_int32_value))
+    """
+    if isinstance(value, np.ndarray):
+        return ",".join([scalar for scalar in value])
+    elif isinstance(value, np.integer):
+        return int(value)
+    elif isinstance(value, np.floating):
+        return float(value)
+    else:
+        return value
+
+
 def make_taql_where_between_min_max(
     min_max: Tuple[np.float64, np.float64],
     path: str,

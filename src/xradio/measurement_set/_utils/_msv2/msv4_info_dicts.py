@@ -1,6 +1,7 @@
 import re
 
 import numpy as np
+
 import xarray as xr
 
 try:
@@ -11,7 +12,11 @@ except ImportError:
 import toolviper.utils.logger as logger
 
 from .subtables import subt_rename_ids
-from ._tables.read import load_generic_table, convert_casacore_time
+from ._tables.read import (
+    casacore_numpy_to_json_safe_type,
+    convert_casacore_time,
+    load_generic_table,
+)
 from xradio._utils.list_and_array import check_if_consistent
 
 
@@ -191,7 +196,7 @@ def extract_optional_fields_asdm_asis_table(
 
     Returns:
     --------
-    info: dict
+    table_info: dict
         info dict with description from an ASDM_* subtable, ready
         for the MSv4 observation_info dict
     """
@@ -200,10 +205,7 @@ def extract_optional_fields_asdm_asis_table(
     for field_msv4, col_msv2 in optional_fields.items():
         if col_msv2 in asdm_asis_xds.data_vars:
             msv2_value = asdm_asis_xds[col_msv2].values[0]
-            if isinstance(msv2_value, np.ndarray):
-                table_info[field_msv4] = ",".join([log for log in msv2_value])
-            else:
-                table_info[field_msv4] = msv2_value
+            table_info[field_msv4] = casacore_numpy_to_json_safe_type(msv2_value)
 
     return table_info
 

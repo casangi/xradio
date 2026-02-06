@@ -213,7 +213,7 @@ class ProcessingSetXdt:
         from astropy.coordinates import SkyCoord
         import astropy.units as u
 
-        for key, value in self._xdt.items():
+        for key, value in sorted(self._xdt.items()):
             partition_info = value.xr_ms.get_partition_info()
             observation_info = value.observation_info
 

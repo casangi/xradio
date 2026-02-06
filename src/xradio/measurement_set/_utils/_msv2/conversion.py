@@ -1,16 +1,16 @@
 from collections import deque
 import datetime
 import importlib
-import numcodecs
 import os
 import pathlib
 import time
+import traceback
 from typing import Callable, Dict, Union
 
 import dask.array as da
 import numpy as np
 import xarray as xr
-import traceback
+import zarr.codecs
 
 import toolviper.utils.logger as logger
 
@@ -1013,7 +1013,7 @@ def convert_and_write_partition(
     ephemeris_interpolate: bool = False,
     phase_cal_interpolate: bool = False,
     sys_cal_interpolate: bool = False,
-    compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
+    compressor: zarr.abc.codec.BytesBytesCodec = zarr.codecs.ZstdCodec(level=2),
     add_reshaping_indices: bool = False,
     storage_backend="zarr",
     parallel_mode: str = "none",
@@ -1411,8 +1411,12 @@ def convert_and_write_partition(
             ms_xdt["/phased_array_xds"] = phased_array_xds
 
         if storage_backend == "zarr":
+            from xradio._utils.zarr.config import ZARR_FORMAT
+
             ms_xdt.to_zarr(
-                store=os.path.join(out_file, ms_v4_name), mode=persistence_mode
+                store=os.path.join(out_file, ms_v4_name),
+                mode=persistence_mode,
+                zarr_format=ZARR_FORMAT,
             )
         elif storage_backend == "netcdf":
             # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work

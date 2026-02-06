@@ -1,9 +1,9 @@
 import toolviper.utils.logger as logger
-import numcodecs
 from typing import Dict, Union, Literal
 import time
 
 import dask
+import zarr.codecs
 
 from xradio.measurement_set._utils._msv2.partition_queries import (
     create_partitions,
@@ -12,6 +12,7 @@ from xradio.measurement_set._utils._msv2.conversion import (
     convert_and_write_partition,
     estimate_memory_and_cores_for_partitions,
 )
+from xradio._utils.zarr.config import ZARR_FORMAT
 
 
 def estimate_conversion_memory_and_cores(
@@ -64,7 +65,7 @@ def convert_msv2_to_processing_set(
     phase_cal_interpolate: bool = False,
     sys_cal_interpolate: bool = False,
     use_table_iter: bool = False,
-    compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
+    compressor: zarr.abc.codec.BytesBytesCodec = zarr.codecs.ZstdCodec(level=2),
     add_reshaping_indices: bool = False,
     storage_backend: Literal["zarr", "netcdf"] = "zarr",
     parallel_mode: Literal["none", "partition", "time"] = "none",
@@ -125,7 +126,7 @@ def convert_msv2_to_processing_set(
     if not str(out_file).endswith("ps.zarr"):
         out_file += ".ps.zarr"
 
-    ps_dt.to_zarr(store=out_file, mode=persistence_mode)
+    ps_dt.to_zarr(store=out_file, mode=persistence_mode, zarr_format=ZARR_FORMAT)
 
     # Check `parallel_mode` is valid
     try:
@@ -226,6 +227,7 @@ def convert_msv2_to_processing_set(
 
     import zarr
 
-    root_group = zarr.open(out_file, mode="r+")  # Open in read/write mode
+    # Open in read/write mode
+    root_group = zarr.open(out_file, mode="r+", zarr_format=ZARR_FORMAT)
     root_group.attrs["type"] = "processing_set"  # Replace
-    zarr.convenience.consolidate_metadata(root_group.store)
+    zarr.consolidate_metadata(root_group.store)

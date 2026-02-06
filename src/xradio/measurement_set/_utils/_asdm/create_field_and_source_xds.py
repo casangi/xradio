@@ -109,22 +109,17 @@ def create_field_and_source_xds(
         source_df = exp_asdm_table_to_df(
             asdm, "Source", sdm_source_required_attrs + sdm_source_optional_attrs
         )
-    except NameError:
+    except NameError as _exc:
         source_df = exp_asdm_table_to_df(asdm, "Source", sdm_source_required_attrs)
         line_info_available = False
 
     source_id = field_df["sourceId"].unique()
-    if len(source_id) != 1:
-        raise RuntimeError(f"{source_id=} not unique!")
-
     source_df = source_df.loc[
         (source_df["spectralWindowId"] == spectral_window_id)
         & (source_df["sourceId"].isin(np.array(source_id)))
     ]
 
     source_name = source_df["sourceName"].unique().astype("str")
-    if len(source_name) != 1:
-        raise RuntimeError(f"{source_name=} not unique!")
     source_coords = {
         "source_name": ("field_name", source_name),
     }
@@ -147,16 +142,22 @@ def create_field_and_source_xds(
 
     if line_info_available:
         # TODO: fix this when some sources have it and some others don't
+        # - if that ever happens
         rest_freq = source_df["restFrequency"].values
         xds["LINE_REST_FREQUENCY"] = (
             "field_name",
             rest_freq,
             make_spectral_coord_measure_attrs("Hz", observer="TOPO"),
         )
-        xds["LINE_SYSTEMIC_VELOCITY"] = ("field_name", make_quantity("m/s"))
+        sys_vel = source_df["sysVel"].values[0]
+        xds["LINE_SYSTEMIC_VELOCITY"] = (
+            "field_name",
+            sys_vel,
+            make_quantity(sys_vel, "m/s"),
+        )
 
         line_name = source_df["transition"].values
-        line_label = [f"line_{idx}" for idx in np.arange(line_name)]
+        line_label = [f"line_{idx}" for idx in np.arange(len(line_name))]
         line_coords = {
             "line_label": line_label,
             "line_name": ("line_label", line_name),

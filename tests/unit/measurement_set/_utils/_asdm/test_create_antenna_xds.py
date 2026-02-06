@@ -1,3 +1,5 @@
+import copy
+
 import pandas as pd
 import xarray as xr
 
@@ -10,6 +12,7 @@ from xradio.measurement_set._utils._asdm.create_antenna_xds import (
     create_feed_xds,
     get_telescope_name,
 )
+
 
 def add_execblock_table(asdm: pyasdm.ASDM):
     execblock_row_0_xml = """
@@ -51,6 +54,46 @@ def add_execblock_table(asdm: pyasdm.ASDM):
     execblock_row_0 = pyasdm.ExecBlockRow(execblock_table)
     execblock_row_0.setFromXML(execblock_row_0_xml)
     execblock_table.add(execblock_row_0)
+
+
+def add_feed_table(asdm: pyasdm.ASDM):
+    feed_row_0_xml = """
+  <row>
+    <feedId> 0 </feedId>
+    <timeInterval> 7226686294548387903 3993371484612775807 </timeInterval>
+    <numReceptor> 2 </numReceptor>
+    <beamOffset> 2 2 2 0.0 0.0 0.0 0.0  </beamOffset>
+    <focusReference> 2 2 3 -99999.0 -99999.0 -99999.0 -99999.0 -99999.0 -99999.0  </focusReference>
+    <polarizationTypes> 1 2 X Y</polarizationTypes>
+    <polResponse> 2 2 2 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0  </polResponse>
+    <receptorAngle> 1 2 -0.9346238144 0.6361725124  </receptorAngle>
+    <antennaId> Antenna_0 </antennaId>
+    <receiverId> 1 2 0 0  </receiverId>
+    <spectralWindowId> SpectralWindow_0 </spectralWindowId>
+  </row>
+    """
+    feed_row_1_xml = """
+  <row>
+    <feedId> 0 </feedId>
+    <timeInterval> 7226686294548387903 3993371484612775807 </timeInterval>
+    <numReceptor> 2 </numReceptor>
+    <beamOffset> 2 2 2 0.0 0.0 0.0 0.0  </beamOffset>
+    <focusReference> 2 2 3 -99999.0 -99999.0 -99999.0 -99999.0 -99999.0 -99999.0  </focusReference>
+    <polarizationTypes> 1 2 X Y</polarizationTypes>
+    <polResponse> 2 2 2 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0  </polResponse>
+    <receptorAngle> 1 2 -0.9346238144 0.6361725124  </receptorAngle>
+    <antennaId> Antenna_1 </antennaId>
+    <receiverId> 1 2 0 0  </receiverId>
+    <spectralWindowId> SpectralWindow_0 </spectralWindowId>
+  </row>
+    """
+    feed_table = asdm.getFeed()
+    feed_row_0 = pyasdm.FeedRow(feed_table)
+    feed_row_0.setFromXML(feed_row_0_xml)
+    feed_table.add(feed_row_0)
+    feed_row_1 = pyasdm.FeedRow(feed_table)
+    feed_row_1.setFromXML(feed_row_1_xml)
+    feed_table.add(feed_row_1)
 
 
 def test_create_antenna_xds_empty():
@@ -136,7 +179,13 @@ def test_create_antenna_xds_with_asdm_simple_7m_antennas(asdm_with_spw_simple):
     station_row_1.setFromXML(station_row_1_xml)
     station_table.add(station_row_1)
 
+    # w/o Feed table
     create_antenna_xds(asdm_with_spw_simple, 2, 0, xr.DataArray([[0]]))
+
+    # w/ Feed table (no need for polarization xarray)
+    asdm_with_feed = copy.deepcopy(asdm_with_spw_simple)
+    add_feed_table(asdm_with_feed)
+    create_antenna_xds(asdm_with_feed, 2, 0, None)
 
 
 def test_create_feed_xds_empty():

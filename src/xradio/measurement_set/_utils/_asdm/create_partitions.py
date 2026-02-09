@@ -61,7 +61,8 @@ def create_partitions(
         "subscanNumber",
         "stateId",
         "dataUID",  # Here to see it, not partition idx
-        "BDFPath",  # Here to see it, not partition idx
+        # BDFPath will trigger a call to MainRow.getBDFPath, which uses getContainer().getDirectory()
+        # "BDFPath",  # Here to see it, not partition idx
         "execBlockId",  # Here to see it, not partition idx
     ]
     main_df = exp_asdm_table_to_df(sdm, "Main", sdm_main_attrs)
@@ -216,27 +217,22 @@ def create_partitions(
         f" {len(partition_df)} out of {potential_partitions} potential partitions are found in dataset"
     )
 
-    example_idx = min(90, partition_df.shape[0] - 2)
-    all_cols_example_idx = partitioning_df.loc[partition_df.iloc[example_idx]]
-    # print(f" Example {example_idx}-th partition (only explicit cols): {partition_df.iloc[example_idx].to_dict()=}, \n    all cols: {all_cols_example_idx=}")
-    print(
-        f" Example {example_idx}-th partition (only explicit cols): {partition_df.iloc[example_idx].to_dict()=}, \n    all cols: {all_cols_example_idx=}"
-    )
+    example_idx = min(90, partition_df.shape[0] - min(2, partition_df.shape[0]))
+    if not partitioning_df.empty:
+        all_cols_example_idx = partitioning_df.loc[partition_df.iloc[example_idx]]
+        # print(f" Example {example_idx}-th partition (only explicit cols): {partition_df.iloc[example_idx].to_dict()=}, \n    all cols: {all_cols_example_idx=}")
+        print(
+            f" Example {example_idx}-th partition (only explicit cols): {partition_df.iloc[example_idx].to_dict()=}, \n    all cols: {all_cols_example_idx=}"
+        )
 
     start = time.perf_counter()
-    do_groups = True
-    if do_groups:
-        partitions = finalize_partitions_groupby(
-            partitioning_df, partition_df.columns.to_list(), unique_scan_intents
-        )
-    else:
-        partitions = finalize_partitions(
-            partitioning_df, partition_df, unique_scan_intents
-        )
-
+    partitions = finalize_partitions_groupby(
+        partitioning_df, partition_df.columns.to_list(), unique_scan_intents
+    )
     end = time.perf_counter()
     elapsed = end - start
     print(f"Time taken: {elapsed:.6f} seconds")
+
     return partitions
 
 

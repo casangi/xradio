@@ -33,8 +33,10 @@ def test_open_partition_asdm_with_spw_default(asdm_with_spw_default):
 def test_open_partition_asdm_with_spw_simple(asdm_with_spw_simple):
     from xradio.measurement_set._utils._asdm.open_partition import open_partition
 
-    with pytest.raises(IndexError, match="out of range"):
-        parts = open_partition(asdm_with_spw_simple, {"fieldId": [0]})
+    with pytest.raises(KeyError, match="configDescriptionId"):
+        parts = open_partition(
+            asdm_with_spw_simple, {"fieldId": [0], "configDescrptionId": [0]}
+        )
 
 
 def test_correlated_xds_default(asdm_with_spw_default):

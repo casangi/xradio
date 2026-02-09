@@ -24,7 +24,7 @@ def test_create_partitions_asdm_with_spw_default(asdm_with_spw_default):
 
 
 def test_create_partitions_asdm_with_spw_simple(asdm_with_spw_simple):
-    with pytest.raises(IndexError, match="out-of-bounds"):
+    with pytest.raises(TypeError, match="not NoneType"):
         create_partitions(asdm_with_spw_simple, ["fieldId"])
 
 

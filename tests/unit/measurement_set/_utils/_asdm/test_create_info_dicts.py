@@ -183,4 +183,17 @@ def test_create_info_dicts_with_asdm_simple(asdm_with_spw_simple):
     )
     assert isinstance(info_dicts, dict)
     assert "observation_info" in info_dicts
+    assert info_dicts["observation_info"] == {
+        "observer": ["riechers"],
+        "release_date": "",
+        "project_UID": "uid://A001/X35fd/X21f",
+        "execution_block_UID": "uid://A002/X11b94a6/X119b",
+        "session_reference_UID": "uid://A002/X11b94a6/X119a",
+        "observing_log": "[]",
+        "scheduling_block_UID": "u",
+    }
     assert "processor_info" in info_dicts
+    assert info_dicts["processor_info"] == {
+        "type": "RADIOMETER",
+        "sub_type": "SQUARE_LAW_DETECTOR",
+    }

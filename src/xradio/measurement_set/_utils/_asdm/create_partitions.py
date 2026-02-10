@@ -62,7 +62,7 @@ def create_partitions(
         "stateId",
         "dataUID",  # Here to see it, not partition idx
         # BDFPath will trigger a call to MainRow.getBDFPath, which uses getContainer().getDirectory()
-        # "BDFPath",  # Here to see it, not partition idx
+        "BDFPath",  # Here to see it (and for time/data loading later), not partition idx
         "execBlockId",  # Here to see it, not partition idx
     ]
     main_df = exp_asdm_table_to_df(sdm, "Main", sdm_main_attrs)

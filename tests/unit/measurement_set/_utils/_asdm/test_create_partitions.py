@@ -70,20 +70,30 @@ def test_create_partitions_asdm_empty(asdm_empty):
     partitions = create_partitions(asdm_empty, ["fieldId"])
     assert len(partitions) == 0
 
+
 def test_create_partitions_asdm_with_spw_default(asdm_with_spw_default):
     partitions = create_partitions(asdm_with_spw_default, ["fieldId"])
     assert len(partitions) == 0
 
 
-def test_create_partitions_asdm_with_spw_simple(asdm_with_spw_simple):
+def test_create_partitions_asdm_with_spw_simple(asdm_with_spw_simple, monkeypatch):
+    monkeypatch.setattr(
+        "pyasdm.MainRow.getBDFPath", lambda bdf_paths: "/monkypatched_path/foo"
+    )
     partitions = create_partitions(asdm_with_spw_simple, ["fieldId"])
     assert len(partitions) == 0
 
 
-def test_create_partitions_with_includes_asdm_with_spw_simple(asdm_with_spw_simple):
+def test_create_partitions_with_includes_asdm_with_spw_simple(
+    asdm_with_spw_simple, monkeypatch
+):
 
     add_main_table(asdm_with_spw_simple)
     add_config_description_table(asdm_with_spw_simple)
+
+    monkeypatch.setattr(
+        "pyasdm.MainRow.getBDFPath", lambda bdf_paths: "/monkypatched_path/foo"
+    )
     create_partitions(
         asdm_with_spw_simple,
         ["ExecBlockId"],
@@ -97,10 +107,13 @@ def test_create_partitions_with_includes_asdm_with_spw_simple(asdm_with_spw_simp
 
 
 def test_create_partitions_with_filter_on_processor_type_asdm_with_spw_simple(
-    asdm_with_spw_simple,
+    asdm_with_spw_simple, monkeypatch
 ):
 
     add_main_table(asdm_with_spw_simple)
+    monkeypatch.setattr(
+        "pyasdm.MainRow.getBDFPath", lambda bdf_paths: "/monkypatched_path/foo"
+    )
     with pytest.raises(RuntimeError, match="left after filtering processor types"):
         create_partitions(
             asdm_with_spw_simple,
@@ -110,11 +123,16 @@ def test_create_partitions_with_filter_on_processor_type_asdm_with_spw_simple(
 
 
 def test_create_partitions_with_filter_on_spectral_resolution_type_asdm_with_spw_simple(
-    asdm_with_spw_simple,
+    asdm_with_spw_simple, monkeypatch
 ):
 
     add_main_table(asdm_with_spw_simple)
-    with pytest.raises(RuntimeError, match="left after filtering spectral resolution types"):
+    monkeypatch.setattr(
+        "pyasdm.MainRow.getBDFPath", lambda bdf_paths: "/monkypatched_path/foo"
+    )
+    with pytest.raises(
+        RuntimeError, match="left after filtering spectral resolution types"
+    ):
         create_partitions(
             asdm_with_spw_simple,
             ["fieldId"],

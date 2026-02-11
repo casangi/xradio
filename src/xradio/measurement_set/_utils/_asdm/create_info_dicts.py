@@ -50,7 +50,7 @@ def create_info_dicts(
     return info_dicts
 
 
-def create_processor_info(asdm: pyasdm.ASDM, partition: dict) -> dict:
+def create_processor_info(asdm: pyasdm.ASDM, partition_descr: dict) -> dict:
     """
     Creates a dictionary containing processor information from ASDM data.
 
@@ -58,7 +58,7 @@ def create_processor_info(asdm: pyasdm.ASDM, partition: dict) -> dict:
     ----------
     asdm : pyasdm.ASDM
         The ASDM object containing the observation data
-    partition : dict
+    partition_descr : dict
         Dictionary containing partition information including the configDescriptionId
 
     Returns
@@ -69,7 +69,7 @@ def create_processor_info(asdm: pyasdm.ASDM, partition: dict) -> dict:
         - sub_type: The processor subtype name
     """
 
-    config_description_id = partition["configDescriptionId"][0]
+    config_description_id = partition_descr["configDescriptionId"][0]
     config_tbl = asdm.getConfigDescription()
     table_name = config_tbl.getName()
     config_description_tag = pyasdm.types.Tag(f"{table_name}_{config_description_id}")

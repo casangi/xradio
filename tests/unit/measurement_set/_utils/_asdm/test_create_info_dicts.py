@@ -38,7 +38,7 @@ def add_execblock_table(asdm: pyasdm.ASDM):
     <baseRmsMajor> 0.0 </baseRmsMajor>
     <basePa> 0.0 </basePa>
     <aborted> false </aborted>
-    <numAntenna> 12 </numAntenna>
+    <numAntenna> 2 </numAntenna>
     <siteAltitude> 0.0 </siteAltitude>
     <siteLongitude> 0.0 </siteLongitude>
     <siteLatitude> 0.0 </siteLatitude>
@@ -56,7 +56,7 @@ def add_execblock_table(asdm: pyasdm.ASDM):
 def add_config_description_table(asdm: pyasdm.ASDM):
     config_description_row_0_xml = """
   <row>
-    <numAntenna> 12 </numAntenna>
+    <numAntenna> 2 </numAntenna>
     <numDataDescription> 4 </numDataDescription>
     <numFeed> 1 </numFeed>
     <correlationMode>AUTO_ONLY</correlationMode>
@@ -132,7 +132,7 @@ def add_main_table(asdm: pyasdm.ASDM):
     main_row_0_xml = """
   <row>
     <time> 5230000651200000000 </time>
-    <numAntenna> 12 </numAntenna>
+    <numAntenna> 2 </numAntenna>
     <timeSampling>INTEGRATION</timeSampling>
     <interval> 24192000000 </interval>
     <numIntegration> 1512 </numIntegration>

@@ -41,7 +41,7 @@ def add_execblock_table(asdm: pyasdm.ASDM):
     <baseRmsMajor> 0.0 </baseRmsMajor>
     <basePa> 0.0 </basePa>
     <aborted> false </aborted>
-    <numAntenna> 12 </numAntenna>
+    <numAntenna> 2 </numAntenna>
     <siteAltitude> 0.0 </siteAltitude>
     <siteLongitude> 0.0 </siteLongitude>
     <siteLatitude> 0.0 </siteLatitude>

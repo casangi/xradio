@@ -13,7 +13,7 @@ def add_main_table(asdm: pyasdm.ASDM):
     main_row_0_xml = """
   <row>
     <time> 5230000651200000000 </time>
-    <numAntenna> 12 </numAntenna>
+    <numAntenna> 2 </numAntenna>
     <timeSampling>INTEGRATION</timeSampling>
     <interval> 24192000000 </interval>
     <numIntegration> 1512 </numIntegration>
@@ -38,7 +38,7 @@ def add_main_table(asdm: pyasdm.ASDM):
 def add_config_description_table(asdm: pyasdm.ASDM):
     config_description_row_0_xml = """
   <row>
-    <numAntenna> 12 </numAntenna>
+    <numAntenna> 2 </numAntenna>
     <numDataDescription> 4 </numDataDescription>
     <numFeed> 1 </numFeed>
     <correlationMode>AUTO_ONLY</correlationMode>
@@ -190,7 +190,7 @@ def add_execblock_table(asdm: pyasdm.ASDM):
     <baseRmsMajor> 0.0 </baseRmsMajor>
     <basePa> 0.0 </basePa>
     <aborted> false </aborted>
-    <numAntenna> 12 </numAntenna>
+    <numAntenna> 2 </numAntenna>
     <siteAltitude> 0.0 </siteAltitude>
     <siteLongitude> 0.0 </siteLongitude>
     <siteLatitude> 0.0 </siteLatitude>
@@ -319,9 +319,9 @@ def test_open_asdm_with_spw_simple(asdm_with_spw_simple, monkeypatch):
 
     partition_scheme = {
         "fieldId": [0],
+        "configDescriptionId": [0],
         "scanNumber": [0],
         "scanIntent": 0,
-        "configDescriptionId": [0],
         "dataDescriptionId": [0],
         "BDFPath": ["/nonexistent/bar"],
     }
@@ -331,3 +331,6 @@ def test_open_asdm_with_spw_simple(asdm_with_spw_simple, monkeypatch):
         include_processor_types=["CORRELATOR", "SPECTROMETER", "RADIOMETER"],
     )
     assert isinstance(ps_xdt, xr.DataTree)
+    assert ps_xdt.type == "processing_set"
+    for _msv4_name, msv4_xdt in enumerate(ps_xdt):
+        assert isinstance(msv4_xdt, str)

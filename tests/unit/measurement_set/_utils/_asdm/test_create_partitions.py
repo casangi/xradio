@@ -14,7 +14,7 @@ def add_main_table(asdm: pyasdm.ASDM):
     main_row_0_xml = """
   <row>
     <time> 5230000651200000000 </time>
-    <numAntenna> 12 </numAntenna>
+    <numAntenna> 2 </numAntenna>
     <timeSampling>INTEGRATION</timeSampling>
     <interval> 24192000000 </interval>
     <numIntegration> 1512 </numIntegration>
@@ -39,11 +39,11 @@ def add_main_table(asdm: pyasdm.ASDM):
 def add_config_description_table(asdm: pyasdm.ASDM):
     config_description_row_0_xml = """
   <row>
-    <numAntenna> 12 </numAntenna>
+    <configDescriptionId> ConfigDescription_0 </configDescriptionId>
+    <numAntenna> 2 </numAntenna>
     <numDataDescription> 4 </numDataDescription>
     <numFeed> 1 </numFeed>
     <correlationMode>AUTO_ONLY</correlationMode>
-    <configDescriptionId> ConfigDescription_0 </configDescriptionId>
     <numAtmPhaseCorrection> 1 </numAtmPhaseCorrection>
     <atmPhaseCorrection> 1 1 AP_UNCORRECTED</atmPhaseCorrection>
     <processorType>RADIOMETER</processorType>

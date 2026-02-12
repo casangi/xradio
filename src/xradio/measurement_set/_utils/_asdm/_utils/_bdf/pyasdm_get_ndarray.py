@@ -12,35 +12,7 @@ import pyasdm
 
 import toolviper.utils.logger as logger
 
-
-def find_spw_in_basebands_list(
-    bdf_path: str, spw_id: int, basebands: list[dict]
-) -> tuple[int, int]:
-
-    bb_index_cnt = 0
-    basebands_len_cumsum = 0
-    found = False
-    for bband in basebands:
-        bb_spw_len = len(bband["spectralWindows"])
-        if spw_id < basebands_len_cumsum + bb_spw_len:
-            spw_index = spw_id - basebands_len_cumsum
-            baseband_index = bb_index_cnt
-            found = True
-            break
-        else:
-            basebands_len_cumsum += bb_spw_len
-
-        bb_index_cnt += 1
-
-    if not found:
-        # TODO: This is a highly dubious fallback for now...
-        # raise RuntimeError(err_msg)
-        err_msg = f"SPW {spw_id} not found in this BDF: {bdf_path}, defaulting to BB 0, SPW 0."
-        logger.warning(err_msg)
-        spw_index = 1 - 1
-        baseband_index = 0
-
-    return (baseband_index, spw_index)
+from .basebands import find_spw_in_basebands_list
 
 
 def load_visibilities_one_spw_to_ndarray(
@@ -71,7 +43,7 @@ def load_visibilities_one_spw_to_ndarray(
 
     elif component_name == "crossData":
         baseband_spw_idxs = find_spw_in_basebands_list(
-            bdf_file.name, overall_spw_idx, bdf_descr["basebands"]
+            overall_spw_idx, bdf_descr["basebands"], bdf_file.name
         )
 
         baseband_description = bdf_descr["basebands"][baseband_spw_idxs[0]]

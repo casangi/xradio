@@ -100,7 +100,8 @@ def load_visibilities_all_subsets_from_trees(
             )
             return None
 
-        if spw_idx is None:
+        # tidy-up this if together with the try above
+        if load_spw_function is None and spw_idx is None:
             vis_subset = load_vis_subset_from_tree(
                 subset,
                 guessed_shape,
@@ -124,6 +125,10 @@ def load_vis_subset_from_tree(
     baseband_spw_idxs: tuple[int, int],
     bdf_descr: dict,
 ) -> np.ndarray:
+    """
+    Assumes all SPWs are consistent in number of channels => the data can be loaded all-SPWs at once,
+    reshaped, and then one SPW sliced.
+    """
 
     spw_chan_lens = [
         bdf_descr["basebands"][bb_idx]["spectralWindows"][spw_idx]["numSpectralPoint"]
@@ -145,7 +150,7 @@ def load_vis_subset_from_tree(
 
     else:
         # Never allowed for ALMA (BDF doc) and seems so in real life
-        RuntimeError("autoData not present!")
+        raise RuntimeError("autoData not present!")
 
     vis_subset_cross = None
     if "crossData" in subset and subset["crossData"]["present"]:

@@ -6,6 +6,7 @@ import pyasdm
 
 import toolviper.utils.logger as logger
 
+from .basebands import find_spw_in_basebands_list
 from .pyasdm_load_from_trees import (
     add_cross_and_auto_flag_shapes,
     full_shape_to_output_filled_flags_shape,
@@ -66,36 +67,6 @@ def array_slice_to_msv4_indices(array_slice: dict) -> tuple[range, range, range,
         polarization_slice = array_slice["polarization"]
 
     return (time_slice, baseline_slice, frequency_slice, polarization_slice)
-
-
-def find_spw_in_basebands_list(
-    bdf_path: str, spw_id: int, basebands: list[dict]
-) -> tuple[int, int]:
-
-    bb_index_cnt = 0
-    basebands_len_cumsum = 0
-    found = False
-    for bband in basebands:
-        bb_spw_len = len(bband["spectralWindows"])
-        if spw_id < basebands_len_cumsum + bb_spw_len:
-            spw_index = spw_id - basebands_len_cumsum
-            baseband_index = bb_index_cnt
-            found = True
-            break
-        else:
-            basebands_len_cumsum += bb_spw_len
-
-        bb_index_cnt += 1
-
-    if not found:
-        # TODO: This is a highly dubious fallback for now...
-        # raise RuntimeError(err_msg)
-        err_msg = f"SPW {spw_id} not found in this BDF: {bdf_path}, defaulting to BB 0, SPW 0."
-        logger.warning(err_msg)
-        spw_index = 1 - 1
-        baseband_index = 0
-
-    return (baseband_index, spw_index)
 
 
 def find_different_basebands_spws(basebands: list[dict]) -> tuple[int, int]:
@@ -229,7 +200,7 @@ def load_visibilities_from_bdf(
     )
 
     baseband_spw_idxs = find_spw_in_basebands_list(
-        bdf_path, spw_id, bdf_descr["basebands"]
+        spw_id, bdf_descr["basebands"], bdf_path
     )
     different_channels_per_spw = find_different_basebands_spws(bdf_descr["basebands"])
     guessed_shape = define_visibility_shape(bdf_descr, baseband_spw_idxs)
@@ -468,7 +439,7 @@ def load_flags_from_bdf(
     ensure_presence_binary_components(["flags"], bdf_descr["binary_types"], bdf_path)
 
     baseband_spw_idxs = find_spw_in_basebands_list(
-        bdf_path, spw_id, bdf_descr["basebands"]
+        spw_id, bdf_descr["basebands"], bdf_path
     )
     different_pols_per_spw = find_different_basebands_pols(bdf_descr["basebands"])
     guessed_shape = define_flag_shape(bdf_descr, baseband_spw_idxs)

@@ -286,7 +286,7 @@ def finalize_partitions_groupby(
                     for key, val in part.items()
                 }
             else:
-                raise RuntimeError("Partition produced: {part=}")
+                raise RuntimeError("Unexpected. Partition produced: {part=}")
 
         return partitions_list
 

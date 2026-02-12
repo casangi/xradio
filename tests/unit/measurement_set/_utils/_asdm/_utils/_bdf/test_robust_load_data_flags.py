@@ -1,5 +1,8 @@
 from contextlib import nullcontext as no_raises
+from unittest import mock
+
 import pandas as pd
+
 import pytest
 
 
@@ -77,16 +80,155 @@ def test_exclude_unsupported_axis_names(
         exclude_unsupported_axis_names(input_names, exclude_also_for_flags)
 
 
+def test_array_slice_to_msv4_indices():
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        array_slice_to_msv4_indices,
+    )
+
+    slice_def = {
+        "time": slice(0, 1),
+        "baseline": slice(0, 9),
+        "frequency": slice(0, 0.1),
+        "polarization": slice(0, 1),
+    }
+    indices = array_slice_to_msv4_indices(slice_def)
+    assert indices == (
+        slice_def["time"],
+        slice_def["baseline"],
+        slice_def["frequency"],
+        slice_def["polarization"],
+    )
+
+
 def test_find_spw_in_basebands_list_empty():
     from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
         find_spw_in_basebands_list,
     )
 
     baseband_idx, spw_idx = find_spw_in_basebands_list(
-        "bogus_path_non_existant.nope", 0, []
+        0, [], "bogus_path_non_existant.nope"
     )
     assert baseband_idx == 0
     assert spw_idx == 0
+
+
+@pytest.mark.parametrize(
+    "input_spw_idx, expected_baseband_idx, expected_spw_idx",
+    [
+        (0, 0, 0),
+        (1, 1, 0),
+        (2, 2, 0),
+        (3, 2, 1),
+        (4, 3, 0),
+        (5, 0, 0),
+    ],
+)
+def test_find_spw_in_basebands_list_empty(
+    input_spw_idx, expected_baseband_idx, expected_spw_idx
+):
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        find_spw_in_basebands_list,
+    )
+
+    # From uid___A002_Xfd764e_X2197
+    basebands = [
+        {
+            "name": "BB_1",
+            "spectralWindows": [
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [],
+                    "scaleFactor": 103107.95,
+                    "numSpectralPoint": 960,
+                    "numBin": 1,
+                    "sideband": None,
+                    "sw": "1",
+                }
+            ],
+        },
+        {
+            "name": "BB_2",
+            "spectralWindows": [
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [],
+                    "scaleFactor": 103107.95,
+                    "numSpectralPoint": 960,
+                    "numBin": 1,
+                    "sideband": None,
+                    "sw": "2",
+                }
+            ],
+        },
+        {
+            "name": "BB_3",
+            "spectralWindows": [
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [],
+                    "scaleFactor": 36454.168,
+                    "numSpectralPoint": 480,
+                    "numBin": 1,
+                    "sideband": None,
+                    "sw": "3",
+                },
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [],
+                    "scaleFactor": 36454.168,
+                    "numSpectralPoint": 480,
+                    "numBin": 1,
+                    "sideband": None,
+                    "sw": "4",
+                },
+            ],
+        },
+        {
+            "name": "BB_4",
+            "spectralWindows": [
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [],
+                    "scaleFactor": 103107.95,
+                    "numSpectralPoint": 960,
+                    "numBin": 1,
+                    "sideband": None,
+                    "sw": "5",
+                }
+            ],
+        },
+    ]
+
+    baseband_idx, spw_idx = find_spw_in_basebands_list(
+        input_spw_idx, basebands, "bogus_path_non_existant.nope"
+    )
+    assert baseband_idx == expected_baseband_idx
+    assert spw_idx == expected_spw_idx
+
+
+def test_find_different_basebands_spws():
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        find_different_basebands_spws,
+    )
+
+    basebands = [
+        {
+            "name": "BB_1",
+            "spectralWindows": [
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [],
+                    "scaleFactor": 103107.95,
+                    "numSpectralPoint": 960,
+                    "numBin": 1,
+                    "sideband": None,
+                    "sw": "1",
+                }
+            ],
+        },
+    ]
+    result = find_different_basebands_spws(basebands)
+    assert result == False
 
 
 def test_find_different_basebands_spws_empty():
@@ -105,3 +247,111 @@ def test_find_different_basebands_pols_empty():
 
     result = find_different_basebands_pols([])
     assert result is False
+
+
+def test_load_visibilities_from_bdf():
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        load_visibilities_from_bdf,
+    )
+
+    with (
+        mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
+        mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
+    ):
+        # mock_bdf_reader.
+        mock_bdf_header.getBasebandsList.side_effects = ["foo", "bar"]
+        with pytest.raises(RuntimeError, match="basebands"):
+            visibilities = load_visibilities_from_bdf(
+                "/inexistent/foo/path/", 0, {}, never_reshape_from_all_spws=True
+            )
+        mock_bdf_header.getBasebandsList()
+        mock_bdf_header.getBasebandsList.assert_called()
+
+
+def test_load_visibilities_all_subsets():
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        load_visibilities_all_subsets,
+    )
+
+    basebands = [
+        {
+            "name": "BB_1",
+            "spectralWindows": [
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [],
+                    "scaleFactor": 103107.95,
+                    "numSpectralPoint": 960,
+                    "numBin": 1,
+                    "sideband": None,
+                    "sw": "1",
+                }
+            ],
+        },
+        {
+            "name": "BB_2",
+            "spectralWindows": [
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [],
+                    "scaleFactor": 103107.95,
+                    "numSpectralPoint": 960,
+                    "numBin": 1,
+                    "sideband": None,
+                    "sw": "2",
+                }
+            ],
+        },
+        {
+            "name": "BB_3",
+            "spectralWindows": [
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [],
+                    "scaleFactor": 36454.168,
+                    "numSpectralPoint": 480,
+                    "numBin": 1,
+                    "sideband": None,
+                    "sw": "3",
+                },
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [],
+                    "scaleFactor": 36454.168,
+                    "numSpectralPoint": 480,
+                    "numBin": 1,
+                    "sideband": None,
+                    "sw": "4",
+                },
+            ],
+        },
+        {
+            "name": "BB_4",
+            "spectralWindows": [
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [],
+                    "scaleFactor": 103107.95,
+                    "numSpectralPoint": 960,
+                    "numBin": 1,
+                    "sideband": None,
+                    "sw": "5",
+                }
+            ],
+        },
+    ]
+
+    bdf_descr = {
+        "basebands": basebands,
+        "processor_type": "CORRELATOR",
+    }
+    with (
+        mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
+        mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
+    ):
+        with pytest.raises(UnboundLocalError, match="vis_subset_auto"):
+            visibilities = load_visibilities_all_subsets(
+                mock_bdf_reader, (1, 1, 1, 1, 1, 1), (0, 0), bdf_descr
+            )
+        mock_bdf_header.getBasebandsList()
+        mock_bdf_header.getBasebandsList.assert_called()

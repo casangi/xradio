@@ -51,11 +51,6 @@ def calculate_overall_spw_idx(
 
 
 def baseband_spw_to_overall_spw_idx(baseband_spw_idxs, bdf_descr):
-    spw_chan_lens = [
-        bdf_descr["basebands"][bb_idx]["spectralWindows"][spw_idx]["numSpectralPoint"]
-        for bb_idx in range(0, len(bdf_descr["basebands"]))
-        for spw_idx in range(0, len(bdf_descr["basebands"][bb_idx]["spectralWindows"]))
-    ]
     baseband_idx, spw_idx = baseband_spw_idxs
     overall_spw_idx = calculate_overall_spw_idx(
         bdf_descr["basebands"], baseband_idx, spw_idx

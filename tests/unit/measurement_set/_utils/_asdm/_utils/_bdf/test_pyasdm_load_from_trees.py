@@ -160,9 +160,7 @@ def test_load_vis_subset_from_tree():
     ):
         mock_bdf_reader.hasSubset.side_effect = [True, False]
         with pytest.raises(RuntimeError, match="not present"):
-            vis = load_vis_subset_from_tree(
-                pyasdm_subset, guessed_shape, (0, 0), bdf_descr
-            )
+            load_vis_subset_from_tree(pyasdm_subset, guessed_shape, (0, 0), bdf_descr)
         mock_bdf_header.getBasebandsList.assert_not_called()
         mock_bdf_header.getSubset.assert_not_called()
         mock_bdf_header.hasSubset.assert_not_called()

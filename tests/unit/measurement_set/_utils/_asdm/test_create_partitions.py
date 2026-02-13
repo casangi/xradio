@@ -141,7 +141,7 @@ def test_create_partitions_with_filter_on_spectral_resolution_type_asdm_with_spw
         )
 
 
-def test_finalize_partitions_groupby():
+def test_finalize_partitions_groupby_empty():
     with pytest.raises(TypeError, match="scalar index"):
         finalize_partitions_groupby(
             pd.DataFrame([[0, 0]], columns=["fieldId", "scanIntent"]),
@@ -225,11 +225,11 @@ def test_finalize_partitions_groupby():
                 },
                 "execBlockId": {0: 0, 1: 0, 2: 0},
                 "dataDescriptionId": {0: 0, 1: 0, 2: 0},
-                "processorType": {0: "RADIOMETER", 1: "RADIOMETER", 1: "CORRELATOR"},
+                "processorType": {0: "RADIOMETER", 1: "RADIOMETER", 2: "CORRELATOR"},
                 "spectralType": {
                     0: "BASEBAND_WIDE",
                     1: "BASEBAND_WIDE",
-                    1: "FULL_RESOLUTION",
+                    2: "FULL_RESOLUTION",
                 },
                 "spectralWindowId": {0: 0, 1: 1, 2: 2},
                 "polOrHoloId": {0: 0, 1: 0, 2: 1},

@@ -127,14 +127,14 @@ def test_open_partition_asdm_empty(asdm_empty):
     from xradio.measurement_set._utils._asdm.open_partition import open_partition
 
     with pytest.raises(IndexError, match="out of range"):
-        parts = open_partition(asdm_empty, {"fieldId": [0]})
+        open_partition(asdm_empty, {"fieldId": [0]})
 
 
 def test_open_partition_asdm_with_spw_default(asdm_with_spw_default):
     from xradio.measurement_set._utils._asdm.open_partition import open_partition
 
     with pytest.raises(IndexError, match="out of range"):
-        parts = open_partition(
+        open_partition(
             asdm_with_spw_default,
             {"fieldId": [0], "configDescriptionId": [0], "scanNumber": [0]},
         )
@@ -144,7 +144,7 @@ def test_open_partition_asdm_with_spw_simple(asdm_with_spw_simple):
     from xradio.measurement_set._utils._asdm.open_partition import open_partition
 
     with pytest.raises(KeyError, match="BDFPath"):
-        parts = open_partition(
+        open_partition(
             asdm_with_spw_simple,
             {"fieldId": [0], "configDescriptionId": [0], "scanNumber": [0]},
         )
@@ -183,14 +183,14 @@ def test_correlated_xds_default(asdm_with_spw_default):
 
     partition_descr = {"fieldId": [0], "scanNumber": [0], "BDFPath": []}
     with pytest.raises(IndexError, match="out of range"):
-        coords = create_correlated_xds(asdm_with_spw_default, partition_descr)
+        create_correlated_xds(asdm_with_spw_default, partition_descr)
 
 
 def test_create_data_vars_no_bdf_path(asdm_with_spw_default):
     from xradio.measurement_set._utils._asdm.open_partition import create_data_vars
 
     with pytest.raises(KeyError, match="time"):
-        coords = create_data_vars(xr.Dataset(), [""], 0)
+        create_data_vars(xr.Dataset(), [""], 0)
 
 
 def test_create_coordinates_no_bdf_path(asdm_with_spw_default):
@@ -198,7 +198,7 @@ def test_create_coordinates_no_bdf_path(asdm_with_spw_default):
 
     partition_descr = {"fieldId": [0], "scanNumber": [0], "BDFPath": []}
     with pytest.raises(ValueError, match="at least one array"):
-        coords = create_coordinates(asdm_with_spw_default, partition_descr, False)
+        create_coordinates(asdm_with_spw_default, partition_descr, False)
 
 
 def test_create_coordinates_with_spw_default(asdm_with_spw_default):
@@ -212,7 +212,7 @@ def test_create_coordinates_with_spw_default(asdm_with_spw_default):
     with pytest.raises(
         pyasdm.exceptions.BDFReaderException, match="No such file or directory"
     ):
-        coords = create_coordinates(asdm_with_spw_default, partition_descr, False)
+        create_coordinates(asdm_with_spw_default, partition_descr, False)
 
 
 def test_create_coordinates_with_spw_simple(asdm_with_spw_simple):
@@ -226,7 +226,7 @@ def test_create_coordinates_with_spw_simple(asdm_with_spw_simple):
     with pytest.raises(
         pyasdm.exceptions.BDFReaderException, match="No such file or directory"
     ):
-        coords = create_coordinates(asdm_with_spw_simple, partition_descr, False)
+        create_coordinates(asdm_with_spw_simple, partition_descr, False)
 
 
 def test_create_coordinates_monkeypatched_bdf_with_spw_simple(
@@ -279,7 +279,7 @@ def test_produce_uvw_data_var():
     from xradio.measurement_set._utils._asdm.open_partition import produce_uvw_data_var
 
     with pytest.raises(KeyError, match="time"):
-        weight = produce_uvw_data_var(xr.Dataset())
+        produce_uvw_data_var(xr.Dataset())
 
 
 def test_produce_weight_data_var():
@@ -288,7 +288,7 @@ def test_produce_weight_data_var():
     )
 
     with pytest.raises(KeyError, match="time"):
-        weight = produce_weight_data_var(xr.Dataset())
+        produce_weight_data_var(xr.Dataset())
 
 
 def test_translate_asdm_tables_spw_id_to_bdf_spw_id(asdm_empty):

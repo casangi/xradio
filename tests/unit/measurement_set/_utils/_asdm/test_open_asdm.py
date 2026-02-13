@@ -317,17 +317,9 @@ def test_open_asdm_with_spw_simple(asdm_with_spw_simple, monkeypatch):
         mock_get_times_from_bdfs,
     )
 
-    partition_scheme = {
-        "fieldId": [0],
-        "configDescriptionId": [0],
-        "scanNumber": [0],
-        "scanIntent": 0,
-        "dataDescriptionId": [0],
-        "BDFPath": ["/nonexistent/bar"],
-    }
     ps_xdt = open_asdm(
         "/unused_path/foo",
-        ["fieldId"],
+        ["dataDescriptionId", "execBlockId", "fieldId", "scanIntent"],
         include_processor_types=["CORRELATOR", "SPECTROMETER", "RADIOMETER"],
     )
     assert isinstance(ps_xdt, xr.DataTree)

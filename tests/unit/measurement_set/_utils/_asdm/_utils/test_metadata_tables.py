@@ -51,6 +51,7 @@ def test_load_asdm_col_asdm_spw_simple(asdm_with_spw_simple):
     spw_id = load_asdm_col(asdm_with_spw_simple.getSpectralWindow(), "spectralWindowId")
     assert spw_id == [0, 1]
     num_chan = load_asdm_col(asdm_with_spw_simple.getSpectralWindow(), "numChan")
+    assert num_chan == [1, 128]
     ref_freq = load_asdm_col(asdm_with_spw_simple.getSpectralWindow(), "refFreq")
     assert ref_freq == [8.6021e10, 9.702100190734863e10]
     bb_name = load_asdm_col(asdm_with_spw_simple.getSpectralWindow(), "basebandName")

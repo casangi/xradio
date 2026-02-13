@@ -42,7 +42,7 @@ def test_get_spw_frequency_centers_empty(asdm_empty):
     )
 
     with pytest.raises(AttributeError, match="has no attribute"):
-        centers = get_spw_frequency_centers(asdm_empty, 0, 64)
+        get_spw_frequency_centers(asdm_empty, 0, 64)
 
 
 def test_get_spw_frequency_centers_default(asdm_with_spw_default):
@@ -51,7 +51,7 @@ def test_get_spw_frequency_centers_default(asdm_with_spw_default):
     )
 
     with pytest.raises(NameError, match="chanFreqArray"):
-        centers = get_spw_frequency_centers(asdm_with_spw_default, 0, 1)
+        get_spw_frequency_centers(asdm_with_spw_default, 0, 1)
 
 
 def test_get_spw_frequency_centers_simple(asdm_with_spw_simple):
@@ -78,7 +78,7 @@ def test_get_chan_width_empty(asdm_empty):
     )
 
     with pytest.raises(AttributeError, match="has no attribute"):
-        chan_width = get_chan_width(asdm_empty, 0)
+        get_chan_width(asdm_empty, 0)
 
 
 def test_get_chan_width_default(asdm_with_spw_default):
@@ -87,7 +87,7 @@ def test_get_chan_width_default(asdm_with_spw_default):
     )
 
     with pytest.raises(NameError, match="chanWidthArray"):
-        chan_width = get_chan_width(asdm_with_spw_default, 0)
+        get_chan_width(asdm_with_spw_default, 0)
 
 
 def test_get_chan_width_simple(asdm_with_spw_simple):
@@ -105,7 +105,7 @@ def test_get_reference_frame_empty(asdm_empty):
     )
 
     with pytest.raises(AttributeError, match="has no attribute"):
-        ref_frame = get_reference_frame(asdm_empty, 0)
+        get_reference_frame(asdm_empty, 0)
 
 
 def test_get_reference_frame_default(asdm_with_spw_default):

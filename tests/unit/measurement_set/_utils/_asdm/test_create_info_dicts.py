@@ -169,7 +169,7 @@ def test_create_info_dicts_with_asdm_simple(asdm_with_spw_simple):
         create_info_dicts(asdm_with_spw_simple, xr.Dataset(), {"fieldId": [0]})
 
 
-def test_create_info_dicts_with_asdm_simple(asdm_with_spw_simple):
+def test_create_info_dicts_with_asdm_simple_extended(asdm_with_spw_simple):
 
     add_main_table(asdm_with_spw_simple)
     add_execblock_table(asdm_with_spw_simple)
@@ -194,6 +194,49 @@ def test_create_info_dicts_with_asdm_simple(asdm_with_spw_simple):
     }
     assert "processor_info" in info_dicts
     assert info_dicts["processor_info"] == {
+        "type": "RADIOMETER",
+        "sub_type": "SQUARE_LAW_DETECTOR",
+    }
+
+
+def test_create_observation_info_with_asdm_simple_extended(asdm_with_spw_simple):
+
+    add_main_table(asdm_with_spw_simple)
+    add_execblock_table(asdm_with_spw_simple)
+    add_config_description_table(asdm_with_spw_simple)
+    add_processor_table(asdm_with_spw_simple)
+    add_sbsummary_table(asdm_with_spw_simple)
+
+    # Only field from the partition dict needed here is configDescriptionId
+    observation_info = create_observation_info(
+        asdm_with_spw_simple, {"configDescriptionId": [0]}
+    )
+    assert isinstance(observation_info, dict)
+    assert observation_info == {
+        "observer": ["riechers"],
+        "release_date": "",
+        "project_UID": "uid://A001/X35fd/X21f",
+        "execution_block_UID": "uid://A002/X11b94a6/X119b",
+        "session_reference_UID": "uid://A002/X11b94a6/X119a",
+        "observing_log": "[]",
+        "scheduling_block_UID": "u",
+    }
+
+
+def test_create_processor_info_with_asdm_simple_extended(asdm_with_spw_simple):
+
+    add_main_table(asdm_with_spw_simple)
+    add_execblock_table(asdm_with_spw_simple)
+    add_config_description_table(asdm_with_spw_simple)
+    add_processor_table(asdm_with_spw_simple)
+    add_sbsummary_table(asdm_with_spw_simple)
+
+    # Only field from the partition dict needed here is configDescriptionId
+    processor_info = create_processor_info(
+        asdm_with_spw_simple, {"configDescriptionId": [0]}
+    )
+    assert isinstance(processor_info, dict)
+    assert processor_info == {
         "type": "RADIOMETER",
         "sub_type": "SQUARE_LAW_DETECTOR",
     }

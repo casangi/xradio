@@ -400,7 +400,7 @@ def load_flags_from_partition_bdfs(
         flag_blob = load_flags_from_bdf(bdf_path, spw_id, array_slice)
 
         if array_slice:
-            indices = array_slice_to_indices(array_slice)
+            indices = array_slice_to_msv4_indices(array_slice)
             flag_blob = flag_blob[*indices]
 
         cumulative_flag.append(flag_blob)

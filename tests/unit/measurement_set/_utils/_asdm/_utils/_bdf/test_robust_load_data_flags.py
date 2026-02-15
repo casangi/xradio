@@ -340,7 +340,7 @@ def test_load_visibilities_all_subsets():
         mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
         mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
     ):
-        with pytest.raises(UnboundLocalError, match="vis_subset_auto"):
+        with pytest.raises(RuntimeError, match="autoData not present"):
             load_visibilities_all_subsets(
                 mock_bdf_reader, (1, 1, 1, 1, 1, 1), (0, 0), bdf_descr
             )

@@ -280,7 +280,7 @@ def load_vis_subset(
 
     else:
         # Never allowed for ALMA (BDF doc) and seems so in real life
-        RuntimeError("autoData not present!")
+        raise RuntimeError("autoData not present!")
 
     vis_subset_cross = None
     if "crossData" in subset and subset["crossData"]["present"]:

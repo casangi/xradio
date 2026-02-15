@@ -248,9 +248,9 @@ def test_load_visibilities_from_bdf():
         mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
     ):
         # mock_bdf_reader.
-        mock_bdf_reader.hasSubset.side_effects = [True, False]
-        mock_bdf_reader.getSubset.side_effects = {}
-        mock_bdf_header.getBasebandsList.side_effects = ["foo", "bar"]
+        mock_bdf_reader.hasSubset.side_effect = [True, False]
+        mock_bdf_reader.getSubset.side_effect = {}
+        mock_bdf_header.getBasebandsList.side_effect = ["foo", "bar"]
         with pytest.raises(RuntimeError, match="basebands"):
             load_visibilities_from_bdf(
                 "/inexistent/foo/path/", 0, {}, never_reshape_from_all_spws=True

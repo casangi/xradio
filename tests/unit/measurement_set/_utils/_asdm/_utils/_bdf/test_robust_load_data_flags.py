@@ -347,7 +347,7 @@ def test_load_visibilities_all_subsets():
     ):
         with pytest.raises(RuntimeError, match="autoData not present"):
             load_visibilities_all_subsets(
-                mock_bdf_reader, (1, 1, 1, 1, 1, 1), (0, 0), bdf_descr
+                mock_bdf_reader, (1, 36, 9, 4, 2, 512, 2, 2), (0, 0), bdf_descr
             )
         mock_bdf_header.getBasebandsList()
         mock_bdf_header.getBasebandsList.assert_called()
@@ -479,13 +479,18 @@ def test_load_visibilities_all_subsets_X136e():
         # For load_vis_subset, etc.
         mock_bdf_reader.hasSubset.side_effect = [True, False]
         mock_bdf_reader.getSubset.side_effect = [
-            {"autoData": {"present": True, "arr": np.zeros((1024))}}
+            {"autoData": {"present": True, "arr": np.zeros((73728))}}
         ]
-        with pytest.raises(IndexError, match="too many indices"):
-            load_visibilities_all_subsets(
-                mock_bdf_reader, (1, 1, 1, 1, 1, 1), (0, 0), bdf_descr_X136e
-            )
+        visibilities = load_visibilities_all_subsets(
+            mock_bdf_reader, (1, 36, 9, 4, 2, 512, 2, 2), (0, 1), bdf_descr_X136e
+        )
+
+        assert isinstance(visibilities, np.ndarray)
+        assert visibilities.size == 9216
+        assert visibilities.shape == (1, 9, 512, 2)
+        assert visibilities.dtype == np.dtype("float64")
+
         mock_bdf_reader.hasSubset.assert_called()
-        assert mock_bdf_reader.hasSubset.call_count == 1
+        assert mock_bdf_reader.hasSubset.call_count == 2
         mock_bdf_reader.getSubset.assert_called()
         assert mock_bdf_reader.getSubset.call_count == 1

@@ -494,3 +494,64 @@ def test_load_visibilities_all_subsets_X136e():
         assert mock_bdf_reader.hasSubset.call_count == 2
         mock_bdf_reader.getSubset.assert_called()
         assert mock_bdf_reader.getSubset.call_count == 1
+
+
+def test_load_flags_all_subsets_X136e():
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        load_flags_all_subsets,
+    )
+
+    with (
+        mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
+        mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
+    ):
+        # For load_vis_subset, etc.
+        mock_bdf_reader.hasSubset.side_effect = [True, False]
+        mock_bdf_reader.getSubset.side_effect = [
+            {"autoData": {"present": True, "arr": np.zeros((73728))}}
+        ]
+        guessed_shape = {
+            "cross": (1, 36, 4, 2, 512, 2, 2),
+            "auto": (1, 9, 4, 2, 512, 2),
+        }
+        flags = load_flags_all_subsets(
+            mock_bdf_reader,
+            guessed_shape,
+            (0, 1),
+        )
+        assert isinstance(flags, np.ndarray)
+        assert flags.size == 90
+        assert flags.shape == (1, 45, 2)
+        assert flags.dtype == np.dtype("bool")
+
+        mock_bdf_reader.hasSubset.assert_called()
+        assert mock_bdf_reader.hasSubset.call_count == 2
+        mock_bdf_reader.getSubset.assert_called()
+        assert mock_bdf_reader.getSubset.call_count == 1
+
+
+def test_define_flag_shape_X136e():
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        define_flag_shape,
+    )
+
+    shape = define_flag_shape(bdf_descr_X136e, (0, 0))
+    assert shape == {"cross": (), "auto": (1, 10, 4, 2, 2)}
+
+
+def test_try_alternatives_guessed_shape():
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        try_alternatives_guessed_shape,
+    )
+
+    guessed_shape = {
+        "cross": (1, 36, 4, 512, 2, 2),
+        "auto": (1, 9, 4, 512, 2),
+    }
+    flags_actual_size = 1024
+    baseband_spw_idxs = (0, 0)
+    new_shape, new_baseband_spw_idxs = try_alternatives_guessed_shape(
+        guessed_shape, flags_actual_size, baseband_spw_idxs
+    )
+    assert new_baseband_spw_idxs == baseband_spw_idxs
+    assert new_shape == {"cross": (1, 36, 1, 1, 2), "auto": (1, 9, 1, 1, 2)}

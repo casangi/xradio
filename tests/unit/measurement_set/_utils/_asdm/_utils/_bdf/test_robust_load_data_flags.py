@@ -3,6 +3,10 @@ from unittest import mock
 
 import pytest
 
+import numpy as np
+
+import pyasdm
+
 
 @pytest.mark.parametrize(
     "data_array_names, binary_types, bdf_path, expected_error",
@@ -336,6 +340,7 @@ def test_load_visibilities_all_subsets():
         "basebands": basebands,
         "processor_type": "CORRELATOR",
     }
+
     with (
         mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
         mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
@@ -346,3 +351,141 @@ def test_load_visibilities_all_subsets():
             )
         mock_bdf_header.getBasebandsList()
         mock_bdf_header.getBasebandsList.assert_called()
+
+
+# Will likely also need a ProcessorType.RADIOMETER/SPECTROMETER
+# From uid___A002_Xc33ac1_X136e (AUTO_ONLY)
+bdf_descr_X136e = {
+    "dimensionality": 1,
+    "num_time": 0,
+    "processor_type": pyasdm.enumerations.ProcessorType.CORRELATOR,
+    "binary_types": [
+        "flags",
+        "actualTimes",
+        "actualDurations",
+        "zeroLags",
+        "crossData",
+        "autoData",
+    ],
+    "correlation_mode": pyasdm.enumerations.CorrelationMode.AUTO_ONLY,
+    "apc": [],
+    "num_antenna": 10,
+    "basebands": [
+        {
+            "name": "BB_1",
+            "spectralWindows": [
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [
+                        pyasdm.enumerations.StokesParameter.XX,
+                        pyasdm.enumerations.StokesParameter.YY,
+                    ],
+                    "scaleFactor": None,
+                    "numSpectralPoint": 1024,
+                    "numBin": 1,
+                    "sideband": pyasdm.enumerations.NetSideband.LSB,
+                    "sw": "1",
+                },
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [
+                        pyasdm.enumerations.StokesParameter.XX,
+                        pyasdm.enumerations.StokesParameter.YY,
+                    ],
+                    "scaleFactor": None,
+                    "numSpectralPoint": 512,
+                    "numBin": 1,
+                    "sideband": pyasdm.enumerations.NetSideband.USB,
+                    "sw": "2",
+                },
+            ],
+        },
+        {
+            "name": "BB_2",
+            "spectralWindows": [
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [
+                        pyasdm.enumerations.StokesParameter.XX,
+                        pyasdm.enumerations.StokesParameter.YY,
+                    ],
+                    "scaleFactor": None,
+                    "numSpectralPoint": 1024,
+                    "numBin": 1,
+                    "sideband": pyasdm.enumerations.NetSideband.LSB,
+                    "sw": "1",
+                },
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [
+                        pyasdm.enumerations.StokesParameter.XX,
+                        pyasdm.enumerations.StokesParameter.YY,
+                    ],
+                    "scaleFactor": None,
+                    "numSpectralPoint": 1024,
+                    "numBin": 1,
+                    "sideband": pyasdm.enumerations.NetSideband.USB,
+                    "sw": "2",
+                },
+            ],
+        },
+        {
+            "name": "BB_3",
+            "spectralWindows": [
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [
+                        pyasdm.enumerations.StokesParameter.XX,
+                        pyasdm.enumerations.StokesParameter.YY,
+                    ],
+                    "scaleFactor": None,
+                    "numSpectralPoint": 2048,
+                    "numBin": 1,
+                    "sideband": pyasdm.enumerations.NetSideband.LSB,
+                    "sw": "1",
+                }
+            ],
+        },
+        {
+            "name": "BB_4",
+            "spectralWindows": [
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [
+                        pyasdm.enumerations.StokesParameter.XX,
+                        pyasdm.enumerations.StokesParameter.YY,
+                    ],
+                    "scaleFactor": None,
+                    "numSpectralPoint": 1024,
+                    "numBin": 1,
+                    "sideband": pyasdm.enumerations.NetSideband.USB,
+                    "sw": "1",
+                }
+            ],
+        },
+    ],
+}
+
+
+def test_load_visibilities_all_subsets_X136e():
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        load_visibilities_all_subsets,
+    )
+
+    with (
+        mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
+        mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
+    ):
+        # For load_vis_subset, etc.
+        mock_bdf_reader.hasSubset.side_effect = [True, False]
+        mock_bdf_reader.getSubset.side_effect = [
+            {"autoData": {"present": True, "arr": np.zeros((1024))}}
+        ]
+        with pytest.raises(IndexError, match="too many indices"):
+            load_visibilities_all_subsets(
+                mock_bdf_reader, (1, 1, 1, 1, 1, 1), (0, 0), bdf_descr_X136e
+            )
+        mock_bdf_reader.hasSubset.assert_called()
+        assert mock_bdf_reader.hasSubset.call_count == 1
+        mock_bdf_reader.getSubset.assert_called()
+        assert mock_bdf_reader.getSubset.call_count == 1

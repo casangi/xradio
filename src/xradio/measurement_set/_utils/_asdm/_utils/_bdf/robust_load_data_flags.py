@@ -471,7 +471,7 @@ def load_flags_from_bdf(
 
 def load_flags_all_subsets(
     bdf_reader: pyasdm.bdf.BDFReader,
-    guessed_shape: tuple[int, ...],
+    guessed_shape: dict[str, tuple[int, ...]],
     baseband_spw_idxs: tuple[int, int],
 ) -> np.ndarray:
 
@@ -571,7 +571,7 @@ def try_alternatives_guessed_shape(
 
 def load_flags_subset(
     subset: dict,
-    guessed_shape: tuple,
+    guessed_shape: dict[str, tuple[int, ...]],
     baseband_spw_idxs: tuple[int, int],
 ) -> np.ndarray:
     """

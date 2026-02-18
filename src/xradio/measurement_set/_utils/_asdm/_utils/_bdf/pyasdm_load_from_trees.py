@@ -292,7 +292,7 @@ def load_vis_subset_auto_data_from_tree(
 
 def load_flags_all_subsets_from_trees(
     bdf_reader: pyasdm.bdf.BDFReader,
-    guessed_shape: tuple[int, ...],
+    guessed_shape: dict[str, tuple[int, ...]],
     bdf_descr: dict,
     baseband_spw_idxs: tuple[int, int],
 ) -> np.ndarray:
@@ -453,7 +453,7 @@ def calculate_offset_additions_cross_sd(
             raise RuntimeError(
                 f"Unexpected flags array in a subset. {guessed_cross_len=}, {guessed_auto_len=}, "
                 f"{second_guessed_cross_len=}, {second_guessed_auto_len=}, {flag_array_len=} "
-                "f{offset=}, {bdf_descr=}"
+                f"{offset=}, {bdf_descr=}"
             )
 
     return offset
@@ -461,7 +461,7 @@ def calculate_offset_additions_cross_sd(
 
 def load_flags_subset_from_tree(
     subset: dict,
-    guessed_shape: tuple,
+    guessed_shape: dict[str, tuple[int, ...]],
     bdf_descr: dict,
     baseband_spw_idxs: tuple[int, int],
 ) -> np.ndarray:
@@ -515,7 +515,7 @@ def load_flags_subset_cross_and_auto_blocks_from_tree(
     flag_array: np.ndarray,
     bdf_descr: dict,
     offset_additions: dict,
-    guessed_shape: tuple[int, ...],
+    guessed_shape: dict[str, tuple[int, ...]],
     baseband_spw_idxs: tuple[int, int],
 ) -> np.ndarray[bool]:
 

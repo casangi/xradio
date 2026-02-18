@@ -248,7 +248,7 @@ guessed_shape_2times = (2, 1, 1, 4, 2, 64, 2, 2)
             64,
             guessed_shape_3pol,
             64 * 2 * 2,
-            no_raises(),#pytest.raises(StopIteration),
+            no_raises(),
         ),
     ],
 )
@@ -288,5 +288,4 @@ def test_load_visibilities_one_spw_to_ndarray(
                 assert visibilities.size == input_elements_count * 2
             else:
                 assert visibilities.size >= input_elements_count * 2
-            assert (visibilities == 0+0j).all()
-    
+            assert (visibilities == 0 + 0j).all()

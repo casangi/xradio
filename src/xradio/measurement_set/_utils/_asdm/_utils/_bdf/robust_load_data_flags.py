@@ -69,7 +69,7 @@ def array_slice_to_msv4_indices(array_slice: dict) -> tuple[range, range, range,
     return (time_slice, baseline_slice, frequency_slice, polarization_slice)
 
 
-def find_different_basebands_spws(basebands: list[dict]) -> tuple[int, int]:
+def find_different_basebands_spws(basebands: list[dict]) -> bool:
 
     all_same = True
     spws_per_baseband = -1

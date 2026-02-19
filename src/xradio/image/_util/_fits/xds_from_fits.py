@@ -118,8 +118,9 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     meta = {}
     if helpers["has_freq"]:
         meta["rest_frequency"] = make_quantity(helpers["restfreq"], "Hz")
-        meta["rest_frequencies"] = [meta["rest_frequency"]]
-        meta["type"] = "frequency"
+        # it appears this was purged from the schema, not sure why
+        # meta["rest_frequencies"] = [meta["rest_frequency"]]
+        meta["type"] = "spectral_coord"
         meta["wave_units"] = "mm"
         freq_axis = helpers["freq_axis"]
         meta["reference_frequency"] = make_spectral_coord_reference_dict(

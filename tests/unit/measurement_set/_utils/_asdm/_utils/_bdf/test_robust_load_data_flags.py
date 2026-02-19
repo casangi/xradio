@@ -483,15 +483,12 @@ def test_load_visibilities_from_bdf():
                 "/inexistent/foo/path/", 0, {}, never_reshape_from_all_spws=True
             )
         mock_bdf_header.getBasebandsList()
-        mock_bdf_header.getBasebandsList.assert_called()
+        mock_bdf_header.getBasebandsList.assert_called_once()
+        mock_bdf_reader.hasSubset.assert_not_called()
+        mock_bdf_reader.getSubset.assert_not_called()
 
 
-def test_load_visibilities_all_subsets():
-    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
-        load_visibilities_all_subsets,
-    )
-
-    basebands = [
+basebands_simple = [
         {
             "name": "BB_1",
             "spectralWindows": [
@@ -499,7 +496,7 @@ def test_load_visibilities_all_subsets():
                     "crossPolProducts": [],
                     "sdPolProducts": [],
                     "scaleFactor": 103107.95,
-                    "numSpectralPoint": 960,
+                    "numSpectralPoint": 128,
                     "numBin": 1,
                     "sideband": None,
                     "sw": "1",
@@ -513,7 +510,7 @@ def test_load_visibilities_all_subsets():
                     "crossPolProducts": [],
                     "sdPolProducts": [],
                     "scaleFactor": 103107.95,
-                    "numSpectralPoint": 960,
+                    "numSpectralPoint": 128,
                     "numBin": 1,
                     "sideband": None,
                     "sw": "2",
@@ -527,7 +524,7 @@ def test_load_visibilities_all_subsets():
                     "crossPolProducts": [],
                     "sdPolProducts": [],
                     "scaleFactor": 36454.168,
-                    "numSpectralPoint": 480,
+                    "numSpectralPoint": 64,
                     "numBin": 1,
                     "sideband": None,
                     "sw": "3",
@@ -536,7 +533,7 @@ def test_load_visibilities_all_subsets():
                     "crossPolProducts": [],
                     "sdPolProducts": [],
                     "scaleFactor": 36454.168,
-                    "numSpectralPoint": 480,
+                    "numSpectralPoint": 64,
                     "numBin": 1,
                     "sideband": None,
                     "sw": "4",
@@ -550,7 +547,7 @@ def test_load_visibilities_all_subsets():
                     "crossPolProducts": [],
                     "sdPolProducts": [],
                     "scaleFactor": 103107.95,
-                    "numSpectralPoint": 960,
+                    "numSpectralPoint": 128,
                     "numBin": 1,
                     "sideband": None,
                     "sw": "5",
@@ -559,8 +556,14 @@ def test_load_visibilities_all_subsets():
         },
     ]
 
+
+def test_load_visibilities_all_subsets():
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        load_visibilities_all_subsets,
+    )
+
     bdf_descr = {
-        "basebands": basebands,
+        "basebands": basebands_simple,
         "processor_type": "CORRELATOR",
     }
 
@@ -574,6 +577,30 @@ def test_load_visibilities_all_subsets():
             )
         mock_bdf_header.getBasebandsList()
         mock_bdf_header.getBasebandsList.assert_called()
+
+def test_load_visibilities_all_subsets_error():
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        load_visibilities_all_subsets,
+    )
+
+    bdf_descr = {
+        "basebands": basebands_simple,
+        "processor_type": "CORRELATOR",
+    }
+
+    with (
+        mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
+        mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
+    ):
+        mock_bdf_reader.hasSubset.side_effect = [True, False]
+        mock_bdf_reader.getSubset.side_effect = {ValueError}
+        visibilities = load_visibilities_all_subsets(
+            mock_bdf_reader, (1, 36, 9, 4, 2, 512, 2, 2), (0, 0), bdf_descr
+            )
+        assert visibilities is None
+        mock_bdf_header.getBasebandsList.assert_not_called()
+        mock_bdf_reader.hasSubset.assert_called_once()
+        mock_bdf_reader.getSubset.assert_called_once()
 
 
 def test_load_visibilities_all_subsets_X136e():

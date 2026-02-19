@@ -560,7 +560,7 @@ def _get_dimmap(coords: list, verbose: bool = False) -> dict:
         print(f"dimmap: {dimmap}")
     return dimmap
 
-
+"""
 def _get_freq_values(coords: coordinates.coordinatesystem, shape: tuple) -> list:
     idx = _get_image_axis_order(coords)[::-1].index("Frequency")
     if idx >= 0:
@@ -576,7 +576,7 @@ def _get_freq_values(coords: coordinates.coordinatesystem, shape: tuple) -> list
                 )
     else:
         return [1420e6]
-
+"""
 
 def _get_freq_values_attrs(
     casa_coords: coordinates.coordinatesystem, shape: tuple
@@ -598,8 +598,8 @@ def _get_freq_values_attrs(
                 )
                 attrs["rest_frequency"] = make_quantity(sd["restfreq"], "Hz")
                 attrs["type"] = "spectral_coord"
-                attrs["units"] = sd["unit"]
-                attrs["frame"] = sd["system"]
+                # attrs["units"] = sd["unit"]
+                # attrs["frame"] = sd["system"]
                 attrs["wave_units"] = sd["waveUnit"]
                 # attrs["crval"] = sd["wcs"]["crval"]
                 # attrs["cdelt"] = sd["wcs"]["cdelt"]

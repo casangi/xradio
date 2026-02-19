@@ -296,11 +296,21 @@ bdf_descr_X136e = {
         (bdf_descr_X136e["basebands"], 0, 1, 0, no_raises()),
         (bdf_descr_X136e["basebands"], 0, 2, 0, no_raises()),
         (bdf_descr_X136e["basebands"], 2, 0, 4, no_raises()),
-        (bdf_descr_X136e["basebands"], 5, 0, 4, pytest.raises(IndexError, match="out of range")),
+        (
+            bdf_descr_X136e["basebands"],
+            5,
+            0,
+            4,
+            pytest.raises(IndexError, match="out of range"),
+        ),
     ],
 )
 def test_calculate_overall_spw_idx(
-        input_basebands, input_baseband_idx, input_spw_idx, expected_overall_spw_idx, expected_error
+    input_basebands,
+    input_baseband_idx,
+    input_spw_idx,
+    expected_overall_spw_idx,
+    expected_error,
 ):
     from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
         calculate_overall_spw_idx,
@@ -324,14 +334,16 @@ def test_calculate_overall_spw_idx(
     ],
 )
 def test_baseband_spw_to_overall_spw_idx(
-        input_baseband_spw_idxs, input_bdf_descr, expected_overall_spw_idx, expected_error
+    input_baseband_spw_idxs, input_bdf_descr, expected_overall_spw_idx, expected_error
 ):
     from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
-        baseband_spw_to_overall_spw_idx
+        baseband_spw_to_overall_spw_idx,
     )
 
     with expected_error:
-        spw_idx = baseband_spw_to_overall_spw_idx(input_baseband_spw_idxs, input_bdf_descr)
+        spw_idx = baseband_spw_to_overall_spw_idx(
+            input_baseband_spw_idxs, input_bdf_descr
+        )
         assert spw_idx == expected_overall_spw_idx
 
 

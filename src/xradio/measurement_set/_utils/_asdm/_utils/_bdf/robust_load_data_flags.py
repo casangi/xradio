@@ -267,7 +267,7 @@ def load_visibilities_all_subsets(
 
 def load_vis_subset(
     subset: dict,
-    guessed_shape: tuple,
+    guessed_shape: tuple[int, ...],
     baseband_spw_idxs: tuple[int, int],
     scale_factor: float,
     processor_type: pyasdm.enumerations.ProcessorType,
@@ -302,7 +302,7 @@ def load_vis_subset(
 
 def load_vis_subset_cross_data(
     cross_data_arr: np.ndarray,
-    guessed_shape: tuple,
+    guessed_shape: tuple[int, ...],
     baseband_spw_idxs: tuple[int, int],
     scale_factor: float,
     processor_type: pyasdm.enumerations.ProcessorType,
@@ -326,7 +326,7 @@ def load_vis_subset_cross_data(
 
 def load_vis_subset_auto_data(
     auto_data_arr: np.ndarray,
-    guessed_shape: tuple,
+    guessed_shape: tuple[int, ...],
     baseband_spw_idxs: tuple[int, int],
 ) -> np.ndarray:
 

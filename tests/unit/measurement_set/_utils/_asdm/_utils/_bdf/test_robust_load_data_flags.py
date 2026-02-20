@@ -221,7 +221,10 @@ bdf_descr_X136e = {
             "name": "BB_1",
             "spectralWindows": [
                 {
-                    "crossPolProducts": [],
+                    "crossPolProducts": [
+                        pyasdm.enumerations.StokesParameter.XX,
+                        pyasdm.enumerations.StokesParameter.YY,
+                    ],
                     "sdPolProducts": [
                         pyasdm.enumerations.StokesParameter.XX,
                         pyasdm.enumerations.StokesParameter.YY,
@@ -379,7 +382,7 @@ basebands_diff_cross_pols = [
                 ],
                 "sdPolProducts": [],
                 "scaleFactor": 103107.95,
-                "numSpectralPoint": 960,
+                "numSpectralPoint": 1024,
                 "numBin": 1,
                 "sideband": None,
                 "sw": "1",
@@ -397,7 +400,7 @@ basebands_diff_cross_pols = [
                 ],
                 "sdPolProducts": [],
                 "scaleFactor": 103107.95,
-                "numSpectralPoint": 960,
+                "numSpectralPoint": 2048,
                 "numBin": 1,
                 "sideband": None,
                 "sw": "1",
@@ -415,7 +418,8 @@ basebands_diff_cross_pols = [
         (bdf_descr_X136e["basebands"], True),
         ([bdf_descr_X136e["basebands"][1], bdf_descr_X136e["basebands"][3]], True),
         (basebands_diff_sd_pols, False),
-        (basebands_diff_cross_pols, False),
+        (basebands_diff_cross_pols, True),
+        (basebands_diff_cross_pols[0:2], True),
     ],
 )
 def test_find_different_basebands_spws(input_basebands, expected_output):
@@ -475,16 +479,38 @@ def test_load_visibilities_from_partition_bdfs_empty():
         load_visibilities_from_partition_bdfs(bdf_paths, 0, {})
 
 
-def test_load_visibilities_from_partition_bdfs():
+def test_load_visibilities_from_partition_bdfs_inexistent():
     from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
         load_visibilities_from_partition_bdfs,
     )
 
-    bdf_paths = ["/inexistent_path/foo/"]
-    with pytest.raises(
-        pyasdm.exceptions.BDFReaderException, match="Error while opening"
+    with (
+        mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
+        mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
     ):
-        load_visibilities_from_partition_bdfs(bdf_paths, 0, {})
+        mock_bdf_reader.return_value.hasSubset.side_effect = [True, True, False]
+        subset_shape = (1, 9, 64, 2)
+        mock_bdf_reader.return_value.getSubset.side_effect = [
+            {
+                "flags": {"present": True, "arr": np.zeros((71680), dtype="bool")},
+                "visibilities": np.zeros(subset_shape, dtype="complex128"),
+                # Will be needed when not using loadOneSPWFunction, etc.
+                # "autoData": {"present": True, "arr": np.zeros((71680), dtype="complex128")},
+            },
+        ] * 2
+
+        make_sufficient_bdf_header_mock(mock_bdf_header)
+        mock_bdf_reader.return_value.getHeader.return_value = mock_bdf_header
+
+        bdf_paths = ["/inexistent_path/foo/"]
+        visibilities = load_visibilities_from_partition_bdfs(bdf_paths, 0, {})
+        assert isinstance(visibilities, np.ndarray)
+        assert visibilities.dtype == "complex128"
+        assert visibilities.shape == (2, *subset_shape[1:])
+
+        mock_bdf_header.getBasebandsList.assert_called_once()
+        assert mock_bdf_reader.hasSubset.call_count == 0
+        assert mock_bdf_reader.getSubset.call_count == 0
 
 
 @pytest.mark.parametrize(
@@ -507,7 +533,8 @@ def test_check_correlation_mode(input_correlation_mode, expected_error):
         check_correlation_mode(input_correlation_mode)
 
 
-def test_load_visibilities_from_bdf():
+@pytest.mark.parametrize("input_never_reshape", [(True), (False)])
+def test_load_visibilities_from_bdf_incomplete_descr(input_never_reshape):
     from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
         load_visibilities_from_bdf,
     )
@@ -522,12 +549,51 @@ def test_load_visibilities_from_bdf():
         mock_bdf_header.getBasebandsList.side_effect = ["foo", "bar"]
         with pytest.raises(RuntimeError, match="basebands"):
             load_visibilities_from_bdf(
-                "/inexistent/foo/path/", 0, {}, never_reshape_from_all_spws=True
+                "/inexistent/foo/path/",
+                0,
+                {},
+                never_reshape_from_all_spws=input_never_reshape,
             )
-        mock_bdf_header.getBasebandsList()
-        mock_bdf_header.getBasebandsList.assert_called_once()
+        mock_bdf_header.getBasebandsList.assert_not_called()
         mock_bdf_reader.hasSubset.assert_not_called()
         mock_bdf_reader.getSubset.assert_not_called()
+
+
+@pytest.mark.parametrize("input_never_reshape", [(True), (False)])
+def test_load_visibilities_from_bdf_error_loading(input_never_reshape):
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        load_visibilities_from_bdf,
+    )
+
+    with (
+        mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
+        mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
+    ):
+        mock_bdf_reader.return_value.hasSubset.side_effect = [True, True, False]
+        # Force some error loading
+        subset_shape = (1, 3, 64, 2)
+        mock_bdf_reader.return_value.getSubset.side_effect = [
+            {
+                "visibilities": np.zeros(subset_shape, dtype="complex128"),
+                # Will be needed when not using loadOneSPWFunction, etc.
+                # "autoData": {"present": True, "arr": np.zeros((71680), dtype="complex128")},
+            },
+            RuntimeError,
+        ]
+
+        make_sufficient_bdf_header_mock(mock_bdf_header)
+        mock_bdf_reader.return_value.getHeader.return_value = mock_bdf_header
+        with pytest.raises(RuntimeError, match="Error while loading data/visibilities"):
+            visibilities = load_visibilities_from_bdf(
+                "/inexistent/foo/path/",
+                0,
+                {},
+                never_reshape_from_all_spws=input_never_reshape,
+            )
+
+        mock_bdf_header.getBasebandsList.assert_called_once()
+        assert mock_bdf_reader.hasSubset.call_count == 0
+        assert mock_bdf_reader.getSubset.call_count == 0
 
 
 basebands_simple = [
@@ -617,8 +683,7 @@ def test_load_visibilities_all_subsets():
             load_visibilities_all_subsets(
                 mock_bdf_reader, (1, 36, 9, 4, 2, 512, 2, 2), (0, 0), bdf_descr
             )
-        mock_bdf_header.getBasebandsList()
-        mock_bdf_header.getBasebandsList.assert_called()
+        mock_bdf_header.getBasebandsList.assert_not_called()
 
 
 def test_load_visibilities_all_subsets_error():
@@ -837,7 +902,7 @@ def test_load_flags_from_partition_bdfs_empty():
         load_flags_from_partition_bdfs(bdf_paths, 0, {})
 
 
-def test_load_flags_from_partition_bdfs():
+def test_load_flags_from_partition_bdfs_inexistent():
     from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
         load_flags_from_partition_bdfs,
     )
@@ -847,6 +912,50 @@ def test_load_flags_from_partition_bdfs():
         pyasdm.exceptions.BDFReaderException, match="Error while opening"
     ):
         load_flags_from_partition_bdfs(bdf_paths, 0, {})
+
+
+def make_sufficient_bdf_header_mock(mock_bdf_header):
+    mock_bdf_header.getDimensionality.return_value = 1
+    mock_bdf_header.getNumTime.return_value = 1
+    mock_bdf_header.getProcessorType.return_value = (
+        pyasdm.enumerations.ProcessorType.CORRELATOR
+    )
+    mock_bdf_header.getBinaryTypes.return_value = [
+        "flags",
+        "actualTimes",
+        "actualDurations",
+        "zeroLags",
+        "crossData",
+        "autoData",
+    ] * 2
+    mock_bdf_header.getCorrelationMode.return_value = (
+        pyasdm.enumerations.CorrelationMode.CROSS_AND_AUTO
+    )
+    mock_bdf_header.getAPClist.return_value = []
+    mock_bdf_header.getNumAntenna.return_value = 9
+    mock_bdf_header.getBasebandsList.return_value = bdf_descr_X136e["basebands"]
+
+
+def test_load_flags_from_partition_bdfs():
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        load_flags_from_partition_bdfs,
+    )
+
+    with (
+        mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
+        mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
+    ):
+        mock_bdf_reader.return_value.hasSubset.side_effect = [True, False]
+        mock_bdf_reader.return_value.getSubset.side_effect = [{}, {}]
+
+        make_sufficient_bdf_header_mock(mock_bdf_header)
+        mock_bdf_reader.return_value.getHeader.return_value = mock_bdf_header
+
+        bdf_paths = ["/inexistent_path_to_flags/foo/"]
+        flags = load_flags_from_partition_bdfs(bdf_paths, 0, {})
+        assert isinstance(flags, np.ndarray)
+        assert flags.dtype == "bool"
+        assert flags.shape == (1, 45, 1024, 2)
 
 
 @pytest.mark.parametrize(
@@ -880,6 +989,54 @@ def test_check_flags_dims(input_dims, expected_error):
         check_flags_dims(input_dims)
 
 
+@pytest.mark.parametrize("input_never_reshape", [(True), (False)])
+def test_load_flags_from_bdf(input_never_reshape):
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        load_flags_from_bdf,
+        make_bdf_description,
+    )
+
+    bdf_path = "/inexistent_path_to_bdf/foo/"
+    with (
+        mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
+        mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
+    ):
+        mock_bdf_reader.return_value.hasSubset.side_effect = [True, False]
+        mock_bdf_reader.return_value.getSubset.side_effect = [{}, {}]
+
+        make_sufficient_bdf_header_mock(mock_bdf_header)
+        mock_bdf_reader.return_value.getHeader.return_value = mock_bdf_header
+
+        flags = load_flags_from_bdf(bdf_path, 0, {}, input_never_reshape)
+        assert isinstance(flags, np.ndarray)
+        assert flags.dtype == "bool"
+        assert flags.shape == (1, 45, 1024, 2)
+
+
+@pytest.mark.parametrize("input_never_reshape", [(True), (False)])
+def test_load_flags_from_bdf(input_never_reshape):
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        load_flags_from_bdf,
+        make_bdf_description,
+    )
+
+    bdf_path = "/inexistent_path_to_bdf/foo/"
+    with (
+        mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
+        mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
+    ):
+        mock_bdf_reader.return_value.hasSubset.side_effect = [True, False]
+        mock_bdf_reader.return_value.getSubset.side_effect = [{}, {}]
+
+        make_sufficient_bdf_header_mock(mock_bdf_header)
+        mock_bdf_reader.return_value.getHeader.return_value = mock_bdf_header
+
+        flags = load_flags_from_bdf(bdf_path, 0, {}, input_never_reshape)
+        assert isinstance(flags, np.ndarray)
+        assert flags.dtype == "bool"
+        assert flags.shape == (1, 45, 1024, 2)
+
+
 def test_load_flags_all_subsets():
     from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
         load_flags_all_subsets,
@@ -891,7 +1048,7 @@ def test_load_flags_all_subsets():
     ):
         mock_bdf_reader.hasSubset.side_effect = [True, False]
         mock_bdf_reader.getSubset.side_effect = [
-            {"flags": {"present": True, "arr": np.zeros((71680))}}
+            {"flags": {"present": True, "arr": np.zeros((71680), dtype="bool")}}
         ]
         guessed_shape = {
             "auto": (1, 7, 4, 2, 64, 2),

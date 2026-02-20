@@ -1,4 +1,3 @@
-import toolviper.utils.logger as logger
 import os
 import time
 from typing import Optional, Tuple, Union
@@ -12,6 +11,7 @@ from xradio._utils.dict_helpers import (
     make_time_measure_attrs,
     make_spectral_coord_measure_attrs,
 )
+from xradio._utils.logging import xradio_logger
 from xradio._utils.schema import (
     column_description_casacore_to_msv4_measure,
     convert_generic_xds_to_xradio_schema,
@@ -505,7 +505,9 @@ def create_pointing_xds(
         pointing_xds, "time_pointing", interp_time, "pointing_xds"
     )
 
-    logger.debug(f"create_pointing_xds() execution time {time.time() - start:0.2f} s")
+    xradio_logger().debug(
+        f"create_pointing_xds() execution time {time.time() - start:0.2f} s"
+    )
 
     return pointing_xds
 

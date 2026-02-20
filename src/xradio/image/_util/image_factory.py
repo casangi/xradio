@@ -4,7 +4,6 @@ import numpy as np
 import xarray as xr
 from typing import List, Union
 from .common import _c, _compute_world_sph_dims, _l_m_attr_notes
-import toolviper.utils.logger as logger
 from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import (
     make_direction_location_dict,
@@ -13,6 +12,7 @@ from xradio._utils.dict_helpers import (
     make_skycoord_dict,
     make_time_coord_attrs,
 )
+from xradio._utils.logging import xradio_logger
 
 
 def _input_checks(
@@ -333,10 +333,10 @@ def detect_store_type(store):
             elif ".zattrs" in os.listdir(store):
                 store_type = "zarr"
             else:
-                logger.error("Unknown directory structure.")
+                xradio_logger().error("Unknown directory structure.")
                 raise ValueError("Unknown directory structure." + str(store))
         else:
-            logger.error("Path does not exist.")
+            xradio_logger().error("Path does not exist.")
             raise ValueError(
                 "Path does not exist. The current path: "
                 + str(os.system("pwd"))
@@ -472,14 +472,16 @@ def create_store_dict(store_to_label):
         store_type = detect_store_type(store)
 
         if image_type == "UNKNOWN":
-            logger.error(f"Could not detect image type for store {store}. ")
+            xradio_logger().error(f"Could not detect image type for store {store}. ")
             example = "store={'sky': 'path/to/image.fits'}"
             raise ValueError(
                 f"Could not detect image type for store {store}. Please label the store with the image type explicitly. For example: {example}"
             )
 
         if image_type in store_dict:
-            logger.error(f"Duplicate image type {image_type} detected in store list.")
+            xradio_logger().error(
+                f"Duplicate image type {image_type} detected in store list."
+            )
             raise ValueError(
                 f"Duplicate image type {image_type} detected in store list. Please ensure each image type is unique. The store dict"
                 + str(store_dict)
@@ -571,7 +573,7 @@ def create_image_xds_from_store(
     """
     store_dict, data_groups = create_store_dict(store)
     if "ALL" in store_dict and len(store_dict) > 1:
-        logger.error(
+        xradio_logger().error(
             "When using a zarr store with multiple data variables, no other stores can be specified."
         )
         raise ValueError(
@@ -597,11 +599,11 @@ def create_image_xds_from_store(
             xds = access_store_casa(store, **casa_kwargs)
         elif store_type == "fits":
             if access_store_fits is None:
-                logger.error("FITS not currently supported.")
+                xradio_logger().error("FITS not currently supported.")
                 raise RuntimeError("FITS not currently supported.")
             xds = access_store_fits(store, **fits_kwargs)
         else:
-            logger.error(
+            xradio_logger().error(
                 f"Unrecognized image format for path {store}. Supported types are CASA, FITS, and zarr.\n"
             )
             raise RuntimeError(

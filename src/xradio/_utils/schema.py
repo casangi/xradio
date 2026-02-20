@@ -1,7 +1,7 @@
-import toolviper.utils.logger as logger
 import xarray as xr
 from typing import Union
 from xradio._utils.dict_helpers import ensure_units_are_consistent
+from xradio._utils.logging import xradio_logger
 
 
 def convert_generic_xds_to_xradio_schema(
@@ -129,7 +129,7 @@ def column_description_casacore_to_msv4_measure(
                 ref_index = np.where(casa_frequency_frames_codes == ref_code)[0][0]
                 casa_ref = casa_frequency_frames[ref_index]
             else:
-                logger.debug(
+                xradio_logger().debug(
                     f"Could not determine {measinfo['type']} measure "
                     "reference frame!"
                 )
@@ -138,7 +138,7 @@ def column_description_casacore_to_msv4_measure(
             if casa_ref in msv4_measure_conversion.get("Ref_map", {}):
                 casa_ref = msv4_measure_conversion["Ref_map"][casa_ref]
             else:
-                logger.debug(
+                xradio_logger().debug(
                     f"No translation defined for casacore reference frame ({measinfo['type']} "
                     f"measure), using verbatim: {casa_ref}"
                 )

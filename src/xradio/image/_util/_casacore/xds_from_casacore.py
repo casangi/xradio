@@ -5,11 +5,11 @@ from typing import List, Tuple, Union
 
 import dask
 import dask.array as da
-import toolviper.utils.logger as logger
 import numpy as np
 import xarray as xr
 from astropy import units as u
 from xradio._utils.list_and_array import to_python_type
+from xradio._utils.logging import xradio_logger
 
 try:
     from casacore import tables
@@ -167,7 +167,7 @@ def _casa_image_to_xds_image_attrs(
         frame, eqnx = _convert_direction_system(coord_dict[dir_key]["system"], "system")
     else:
         frame = "icrs"
-        logger.warning(
+        xradio_logger().warning(
             "No direction coordinate found from which "
             "to get pointing center frame. Assuming ICRS"
         )
@@ -204,7 +204,7 @@ def _casa_image_to_xds_image_attrs(
             # Convert xr.Dataset to dict for serialization compatibility
             attrs["history"] = history_xds.to_dict()
         else:
-            logger.warning(
+            xradio_logger().warning(
                 f"Unable to find history table {htable}. History will not be included"
             )
     return attrs
@@ -441,7 +441,7 @@ def _convert_direction_system(
 ) -> tuple:
     if casa_system == "J2000":
         if verbose:
-            logger.info(
+            xradio_logger().info(
                 f"J2000 found as {which} reference frame in CASA image "
                 'This corresponds to fk5(equinox="j2000") in astropy. '
                 "Metadata will be written appropriately"
@@ -449,7 +449,7 @@ def _convert_direction_system(
         return ("fk5", "j2000.0")
     elif casa_system == "B1950":
         if verbose:
-            logger.info(
+            xradio_logger().info(
                 f"B1950 found as {which} reference frame in CASA image "
                 'This corresponds to fk4(equinox="b1950") in astropy. '
                 "Metadata will be written appropriately"

@@ -3,6 +3,7 @@ import numpy as np
 import json
 import zarr
 import s3fs
+from xradio._utils.logging import xradio_logger
 from xradio._utils.zarr.common import _get_file_system_and_items
 
 from numcodecs.compat import (
@@ -112,23 +113,21 @@ def write_binary_blob_to_disk(arr, file_path, compressor):
     Returns:
     - None
     """
-    import toolviper.utils.logger as logger
-
     # Encode the NumPy array using the codec
-    logger.debug("1. Before compressor " + file_path)
+    xradio_logger().debug("1. Before compressor " + file_path)
     compressed_arr = compressor.encode(np.ascontiguousarray(arr))
 
-    logger.debug("2. Before makedir")
+    xradio_logger().debug("2. Before makedir")
     # Ensure the directory exists before saving the file
     os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
     arr_len = len(compressed_arr)
-    logger.debug("3. Before write the len is: " + str(arr_len))
+    xradio_logger().debug("3. Before write the len is: " + str(arr_len))
     # Save the compressed array to disk
     # with open(file_path, "wb") as file:
     #     file.write(compressed_arr)
 
-    logger.debug("4. Using new writer: " + str(arr_len))
+    xradio_logger().debug("4. Using new writer: " + str(arr_len))
     write_to_lustre_chunked(file_path, compressed_arr)
 
     # /.lustre/aoc/sciops/pford/CHILES/cube_image/uid___A002_Xee7674_X2844_Cube_3.img.zarr/SKY/0.0.110.0.0
@@ -142,7 +141,7 @@ def write_binary_blob_to_disk(arr, file_path, compressor):
     #     f.write(compressed_arr)
     #     f.flush()  # Ensure data gets written to disk
 
-    logger.debug("4. Write completed")
+    xradio_logger().debug("4. Write completed")
 
     # print(f"Compressed array saved to {file_path}")
 

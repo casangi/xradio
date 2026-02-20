@@ -533,8 +533,178 @@ bdf_descr_X64c6 = {
 }
 
 
-# load_vis_subset_cross_data_from_tree
-# load_vis_subset_auto_data_from_tree
+@pytest.mark.parametrize(
+    "input_cross_data_arr, input_guessed_shape, input_spw_chan_lens, input_overall_spw_idx, input_processor_type, expected_size, expected_shape",
+    [
+        (
+            np.zeros((15360), dtype="float64"),
+            (1, 10, 5, 4, 2, 32, 2, 2),
+            [32, 64, 16, 8],
+            0,
+            pyasdm.enumerations.ProcessorType.CORRELATOR,
+            640,
+            (1, 10, 32, 2),
+        ),
+        (
+            np.zeros((15360), dtype="float64"),
+            (1, 10, 5, 4, 2, 32, 2, 2),
+            [32, 64, 16, 8],
+            3,
+            pyasdm.enumerations.ProcessorType.RADIOMETER,
+            160,
+            (1, 10, 8, 2),
+        ),
+        (
+            np.zeros((15360), dtype="float64"),
+            (1, 10, 5, 4, 2, 32, 2, 2),
+            [32, 64, 16, 8],
+            1,
+            pyasdm.enumerations.ProcessorType.CORRELATOR,
+            1280,
+            (1, 10, 64, 2),
+        ),
+        (
+            np.zeros((15360), dtype="float64"),
+            (1, 10, 5, 4, 2, 32, 2, 2),
+            [32, 64, 16, 8],
+            2,
+            pyasdm.enumerations.ProcessorType.CORRELATOR,
+            320,
+            (1, 10, 16, 2),
+        ),
+        (
+            np.zeros((15360), dtype="float64"),
+            (1, 10, 5, 4, 2, 32, 2, 2),
+            [32, 64, 16, 8],
+            3,
+            pyasdm.enumerations.ProcessorType.CORRELATOR,
+            160,
+            (1, 10, 8, 2),
+        ),
+        (
+            np.zeros((15360), dtype="float64"),
+            (3, 10, 5, 4, 2, 32, 2, 2),
+            [32, 64, 16, 8],
+            3,
+            pyasdm.enumerations.ProcessorType.CORRELATOR,
+            160,
+            (1, 10, 8, 2),
+        ),
+    ],
+)
+def test_load_vis_subset_cross_data_from_tree(
+    input_cross_data_arr,
+    input_guessed_shape,
+    input_spw_chan_lens,
+    input_overall_spw_idx,
+    input_processor_type,
+    expected_size,
+    expected_shape,
+):
+    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
+        load_vis_subset_cross_data_from_tree,
+    )
+
+    visibilities = load_vis_subset_cross_data_from_tree(
+        input_cross_data_arr,
+        input_guessed_shape,
+        input_spw_chan_lens,
+        input_overall_spw_idx,
+        123456.789,
+        input_processor_type,
+    )
+
+    assert isinstance(visibilities, np.ndarray)
+    assert visibilities.size == expected_size
+    assert visibilities.shape == expected_shape
+    if input_processor_type == pyasdm.enumerations.ProcessorType.CORRELATOR:
+        assert visibilities.dtype == np.dtype("complex128")
+    else:
+        assert visibilities.dtype == np.dtype("float64")
+
+
+@pytest.mark.parametrize(
+    "input_auto_data_arr, input_guessed_shape, input_spw_chan_lens, input_overall_spw_idx, expected_size, expected_shape",
+    [
+        (
+            np.zeros((15360), dtype="float64"),
+            (1, 10, 5, 4, 2, 32, 2, 2),
+            [32, 64, 16, 8],
+            0,
+            320,
+            (1, 5, 32, 2),
+        ),
+        (
+            np.zeros((15360), dtype="float64"),
+            (1, 10, 5, 4, 2, 32, 2, 2),
+            [32, 64, 16, 8],
+            1,
+            640,
+            (1, 5, 64, 2),
+        ),
+        (
+            np.zeros((15360), dtype="float64"),
+            (1, 10, 5, 4, 2, 32, 2, 2),
+            [32, 64, 16, 8],
+            2,
+            160,
+            (1, 5, 16, 2),
+        ),
+        (
+            np.zeros((15360), dtype="float64"),
+            (1, 10, 5, 4, 2, 32, 2, 2),
+            [32, 64, 16, 8],
+            3,
+            80,
+            (1, 5, 8, 2),
+        ),
+        (
+            np.zeros((15360), dtype="float64"),
+            (1, 10, 5, 4, 2, 32, 3, 2),
+            [32, 5, 16, 8],
+            2,
+            240,
+            (1, 5, 16, 3),
+        ),
+        (
+            np.zeros((15360), dtype="float64"),
+            (2, 10, 5, 4, 2, 32, 2, 2),
+            [32, 5, 16, 8],
+            2,
+            320,
+            (2, 5, 16, 2),
+        ),
+    ],
+)
+def test_load_vis_subset_auto_data_from_tree(
+    input_auto_data_arr,
+    input_guessed_shape,
+    input_spw_chan_lens,
+    input_overall_spw_idx,
+    expected_size,
+    expected_shape,
+):
+    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
+        load_vis_subset_auto_data_from_tree,
+    )
+
+    visibilities = load_vis_subset_auto_data_from_tree(
+        input_auto_data_arr,
+        input_guessed_shape,
+        input_spw_chan_lens,
+        input_overall_spw_idx,
+    )
+
+    assert isinstance(visibilities, np.ndarray)
+    assert visibilities.size == expected_size
+    assert visibilities.shape == expected_shape
+    npol = input_guessed_shape[-2]
+    if npol == 3:
+        assert visibilities.dtype == np.dtype("complex128")
+    else:
+        assert visibilities.dtype == np.dtype("float64")
+
+
 @pytest.mark.parametrize(
     "input_bdf_descr, input_baseband_idx, input_overall_spw_idx, input_flag_array_len, expected_additions",
     [

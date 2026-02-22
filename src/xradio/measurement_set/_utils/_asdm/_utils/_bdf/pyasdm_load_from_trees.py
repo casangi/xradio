@@ -208,7 +208,7 @@ def load_vis_subset_cross_data_from_tree(
 
             else:
                 # radiometer / spectrometer
-                offset += cross_offset_addition_before / 2
+                offset += int(cross_offset_addition_before / 2)
                 spw_values = cross_data_arr[
                     offset : offset + spw_channel_len * polarization_len
                 ]
@@ -218,7 +218,7 @@ def load_vis_subset_cross_data_from_tree(
                 )
 
                 vis_strides.append(spw_values)
-                offset += cross_offset_addition_after / 2
+                offset += int(cross_offset_addition_after / 2)
 
     vis_subset = np.stack(vis_strides)
     vis_subset = vis_subset.reshape((1, *vis_subset.shape))

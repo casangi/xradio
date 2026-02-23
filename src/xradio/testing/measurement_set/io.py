@@ -8,13 +8,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from toolviper.utils.data import download
-
 
 def download_measurement_set(input_ms: str, directory: str | Path = "/tmp") -> Path:
     """
     Download a MeasurementSet v2 archive into the given directory.
     """
+    from toolviper.utils.data import download
 
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)

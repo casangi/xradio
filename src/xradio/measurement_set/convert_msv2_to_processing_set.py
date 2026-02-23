@@ -1,4 +1,3 @@
-import toolviper.utils.logger as logger
 import numcodecs
 from typing import Dict, Union, Literal
 import time
@@ -12,6 +11,7 @@ from xradio.measurement_set._utils._msv2.conversion import (
     convert_and_write_partition,
     estimate_memory_and_cores_for_partitions,
 )
+from xradio._utils.logging import xradio_logger
 
 
 def estimate_conversion_memory_and_cores(
@@ -131,14 +131,14 @@ def convert_msv2_to_processing_set(
     try:
         assert parallel_mode in ["none", "partition", "time"]
     except AssertionError:
-        logger.warning(
+        xradio_logger().warning(
             f"`parallel_mode` {parallel_mode} not recognosed. Defauling to 'none'."
         )
         parallel_mode = "none"
 
     partitions = create_partitions(in_file, partition_scheme=partition_scheme)
 
-    logger.info("Number of partitions: " + str(len(partitions)))
+    xradio_logger().info("Number of partitions: " + str(len(partitions)))
     if parallel_mode == "time":
         assert (
             len(partitions) == 1
@@ -148,7 +148,7 @@ def convert_msv2_to_processing_set(
 
     for ms_v4_id, partition_info in enumerate(partitions):
 
-        logger.info(
+        xradio_logger().info(
             "OBSERVATION_ID "
             + str(partition_info["OBSERVATION_ID"])
             + ", DDI "
@@ -217,7 +217,7 @@ def convert_msv2_to_processing_set(
                 persistence_mode=persistence_mode,
             )
             end_time = time.time()
-            logger.debug(
+            xradio_logger().debug(
                 f"Time to convert partition {ms_v4_id}: {end_time - start_time:.2f} seconds"
             )
 

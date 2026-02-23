@@ -12,8 +12,6 @@ import numpy as np
 import xarray as xr
 import traceback
 
-import toolviper.utils.logger as logger
-
 try:
     from casacore import tables
 except ImportError:
@@ -36,6 +34,7 @@ from xradio.measurement_set._utils._msv2.create_field_and_source_xds import (
     create_field_and_source_xds,
 )
 from xradio._utils.schema import column_description_casacore_to_msv4_measure
+from xradio._utils.logging import xradio_logger
 from .msv2_to_msv4_meta import (
     create_attribute_metadata,
     col_to_data_variable_names,
@@ -177,7 +176,7 @@ def mem_chunksize_to_dict_main(chunksize: float, xds: xr.Dataset) -> Dict[str, i
     chunked_dims = ["time", baseline_or_antenna_name, "frequency", "polarization"]
     if ratio >= 1:
         result = {dim: xds.sizes[dim] for dim in chunked_dims}
-        logger.debug(
+        xradio_logger().debug(
             f"{chunksize=} GiB is enough to fully hold {total_size=} GiB (for {xds.sizes=}) in memory in one chunk"
         )
     else:
@@ -236,7 +235,7 @@ def mem_chunksize_to_dict_main_balanced(
     )
     used = np.prod(dim_chunksizes) * sizeof_vis / GiBYTES_TO_BYTES
 
-    logger.debug(
+    xradio_logger().debug(
         f"Auto-calculating main chunk sizes. First order approximation {dim_chunksizes=}, used total: {used} GiB (with {chunksize=} GiB)"
     )
 
@@ -263,7 +262,7 @@ def mem_chunksize_to_dict_main_balanced(
     dim_chunksizes_int = [int(v) for v in dim_chunksizes]
     result = dict(zip(chunked_dim_names, dim_chunksizes_int))
 
-    logger.debug(
+    xradio_logger().debug(
         f"Auto-calculated main chunk sizes with {chunksize=}, {total_size=} GiB (for {dim_sizes=}): {result=} which uses {used} GiB."
     )
 
@@ -289,7 +288,7 @@ def mem_chunksize_to_dict_pointing(chunksize: float, xds: xr.Dataset) -> Dict[st
 
     ratio = chunksize / total_size
     if ratio >= 1:
-        logger.debug(
+        xradio_logger().debug(
             f"Pointing chunsize: {chunksize=} GiB is enough to fully hold {total_size=} GiB (for {xds.sizes=}) in memory in one chunk"
         )
         dim_chunksizes = dim_sizes
@@ -302,7 +301,7 @@ def mem_chunksize_to_dict_pointing(chunksize: float, xds: xr.Dataset) -> Dict[st
         )
         used = np.prod(dim_chunksizes) * sizeof_pointing / GiBYTES_TO_BYTES
 
-        logger.debug(
+        xradio_logger().debug(
             f"Auto-calculating pointing chunk sizes. First order approximation: {dim_chunksizes=}, used total: {used=} GiB (with {chunksize=} GiB"
         )
 
@@ -328,7 +327,7 @@ def mem_chunksize_to_dict_pointing(chunksize: float, xds: xr.Dataset) -> Dict[st
     result = dict(zip(chunked_dim_names, dim_chunksizes_int))
 
     if ratio < 1:
-        logger.debug(
+        xradio_logger().debug(
             f"Auto-calculated pointing chunk sizes with {chunksize=}, {total_size=} GiB (for {xds.sizes=}): {result=} which uses {used} GiB."
         )
 
@@ -627,7 +626,7 @@ def create_data_variables(
 ):
     time_chunksize = main_chunksize.get("time", None) if main_chunksize else None
     if parallel_mode == "time" and time_chunksize is None:
-        logger.warning(
+        xradio_logger().warning(
             "'time' isn't specified in `main_chunksize`. Defaulting to `parallel_mode = 'none'`."
         )
         parallel_mode = "none"
@@ -677,14 +676,14 @@ def create_data_variables(
                 dims=col_dims[col],
                 attrs=create_attribute_metadata(col, main_column_descriptions),
             )
-            logger.debug(f"Time to read column {col} : {time.time() - start}")
+            xradio_logger().debug(f"Time to read column {col} : {time.time() - start}")
 
         except Exception as exc:
-            logger.debug(f"Could not load column {col}, exception: {exc}")
-            logger.debug(traceback.format_exc())
+            xradio_logger().debug(f"Could not load column {col}, exception: {exc}")
+            xradio_logger().debug(traceback.format_exc())
 
             if col == "WEIGHT_SPECTRUM" and "WEIGHT" in col_names:
-                logger.debug(
+                xradio_logger().debug(
                     "Failed to convert WEIGHT_SPECTRUM column: "
                     "will attempt to use WEIGHT instead"
                 )
@@ -1079,7 +1078,7 @@ def convert_and_write_partition(
             tb_tool.close()
             return xr.Dataset(), {}, {}
 
-        logger.debug("Starting a real convert_and_write_partition")
+        xradio_logger().debug("Starting a real convert_and_write_partition")
         (
             tidxs,
             bidxs,
@@ -1089,7 +1088,7 @@ def convert_and_write_partition(
             utime,
         ) = calc_indx_for_row_split(tb_tool, taql_where)
         time_baseline_shape = (len(utime), len(baseline_ant1_id))
-        logger.debug("Calc indx for row split " + str(time.time() - start))
+        xradio_logger().debug("Calc indx for row split " + str(time.time() - start))
 
         observation_id = check_if_consistent(
             tb_tool.getcol("OBSERVATION_ID"), "OBSERVATION_ID"
@@ -1131,7 +1130,7 @@ def convert_and_write_partition(
 
         interval_unique = unique_1d(interval)
         if len(interval_unique) > 1:
-            logger.debug(
+            xradio_logger().debug(
                 "Integration time (interval) not consitent in partition, using median."
             )
             interval = np.median(interval)
@@ -1153,7 +1152,7 @@ def convert_and_write_partition(
             scan_id,
             scan_intents,
         )
-        logger.debug("Time create coordinates " + str(time.time() - start))
+        xradio_logger().debug("Time create coordinates " + str(time.time() - start))
 
         start = time.time()
         main_chunksize = parse_chunksize(main_chunksize, "main", xds)
@@ -1188,7 +1187,7 @@ def convert_and_write_partition(
                     dims=xds.VISIBILITY.dims,
                 )
 
-        logger.debug("Time create data variables " + str(time.time() - start))
+        xradio_logger().debug("Time create data variables " + str(time.time() - start))
 
         # To constrain the time range to load (in pointing, ephemerides, phase_cal data_vars)
         time_min_max = find_min_max_times(tb_tool, taql_where)
@@ -1217,11 +1216,11 @@ def convert_and_write_partition(
             telescope_name,
             xds.polarization,
         )
-        logger.debug("Time antenna xds  " + str(time.time() - start))
+        xradio_logger().debug("Time antenna xds  " + str(time.time() - start))
 
         start = time.time()
         gain_curve_xds = create_gain_curve_xds(in_file, spectral_window_id, ant_xds)
-        logger.debug("Time gain_curve xds  " + str(time.time() - start))
+        xradio_logger().debug("Time gain_curve xds  " + str(time.time() - start))
 
         start = time.time()
         if phase_cal_interpolate:
@@ -1235,7 +1234,7 @@ def convert_and_write_partition(
             time_min_max,
             phase_cal_interp_time,
         )
-        logger.debug("Time phase_calibration xds  " + str(time.time() - start))
+        xradio_logger().debug("Time phase_calibration xds  " + str(time.time() - start))
 
         # Create system_calibration_xds
         start = time.time()
@@ -1250,7 +1249,7 @@ def convert_and_write_partition(
             ant_xds,
             sys_cal_interp_time,
         )
-        logger.debug("Time system_calibation " + str(time.time() - start))
+        xradio_logger().debug("Time system_calibation " + str(time.time() - start))
 
         # Change antenna_ids to antenna_names
         with_antenna_partitioning = "ANTENNA1" in partition_info
@@ -1266,7 +1265,7 @@ def convert_and_write_partition(
         # Create weather_xds
         start = time.time()
         weather_xds = create_weather_xds(in_file, ant_position_xds_with_ids)
-        logger.debug("Time weather " + str(time.time() - start))
+        xradio_logger().debug("Time weather " + str(time.time() - start))
 
         # Create pointing_xds
         pointing_xds = xr.Dataset()
@@ -1283,7 +1282,7 @@ def convert_and_write_partition(
                 pointing_chunksize, "pointing", pointing_xds
             )
             add_encoding(pointing_xds, compressor=compressor, chunks=pointing_chunksize)
-            logger.debug(
+            xradio_logger().debug(
                 "Time pointing (with add compressor and chunking) "
                 + str(time.time() - start)
             )
@@ -1340,7 +1339,7 @@ def convert_and_write_partition(
             )
         )
 
-        logger.debug("Time field_and_source_xds " + str(time.time() - start))
+        xradio_logger().debug("Time field_and_source_xds " + str(time.time() - start))
 
         xds = fix_uvw_frame(xds, field_and_source_xds, is_single_dish)
         xds = xds.assign_coords({"field_name": ("time", field_names)})
@@ -1361,7 +1360,9 @@ def convert_and_write_partition(
         # xds ready, prepare to write
         start = time.time()
         add_encoding(xds, compressor=compressor, chunks=main_chunksize)
-        logger.debug("Time add compressor and chunk " + str(time.time() - start))
+        xradio_logger().debug(
+            "Time add compressor and chunk " + str(time.time() - start)
+        )
 
         os.path.join(
             out_file,
@@ -1417,9 +1418,9 @@ def convert_and_write_partition(
         elif storage_backend == "netcdf":
             # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
             raise
-        logger.debug("Write data  " + str(time.time() - start))
+        xradio_logger().debug("Write data  " + str(time.time() - start))
 
-    # logger.info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
+    # get_logger().info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
 
 
 def antenna_ids_to_names(

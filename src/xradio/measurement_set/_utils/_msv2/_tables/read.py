@@ -1,4 +1,3 @@
-import toolviper.utils.logger as logger
 import os
 from pathlib import Path
 import re
@@ -16,8 +15,13 @@ try:
 except ImportError:
     import xradio._utils._casacore.casacore_from_casatools as tables
 
-from .table_query import open_query, open_table_ro, TableManager
+from xradio.measurement_set._utils._msv2._tables.table_query import (
+    open_query,
+    open_table_ro,
+    TableManager,
+)
 from xradio._utils.list_and_array import get_pad_value
+from xradio._utils.logging import xradio_logger
 
 CASACORE_TO_PD_TIME_CORRECTION = 3_506_716_800.0
 SECS_IN_DAY = 86400
@@ -319,14 +323,14 @@ def add_units_measures(
                 if isinstance(cc_units, np.ndarray):
                     cc_units = cc_units.tolist()
                 if not isinstance(cc_units, list) or not cc_units:
-                    logger.warning(
+                    xradio_logger().warning(
                         f"Invalid units found for column/variable {col}: {cc_units}"
                     )
                 mvars[var_name].attrs["units"] = cc_units[0]
                 try:
                     astropy.units.Unit(cc_units[0])
                 except Exception as exc:
-                    logger.warning(
+                    xradio_logger().warning(
                         f"Unsupported units found for column/variable {col}: "
                         f"{cc_units}. Cannot create an astropy.units.Units object from it: {exc}"
                     )
@@ -418,7 +422,7 @@ def redimension_ms_subtable(xds: xr.Dataset, subt_name: str) -> xr.Dataset:
                 with np.errstate(invalid="ignore"):
                     rxds[var] = rxds[var].astype(xds[var].dtype)
     except Exception as exc:
-        logger.warning(
+        xradio_logger().warning(
             f"Cannot expand rows in table {subt_name} to {key_dims}, possibly duplicate values in those coordinates. "
             f"Exception: {exc}"
         )
@@ -521,14 +525,14 @@ def load_generic_table(
     cc_attrs = extract_table_attributes(infile)
     attrs: Dict[str, Any] = {"other": {"msv2": {"ctds_attrs": cc_attrs}}}
     if is_nested_ms(attrs):
-        logger.warning(
+        xradio_logger().warning(
             f"Skipping subtable that looks like a MeasurementSet main table: {inpath} {tname}"
         )
         return xr.Dataset()
 
     with open_table_ro(infile) as gtable:
         if gtable.nrows() == 0:
-            logger.debug(f"table is empty: {inpath} {tname}")
+            xradio_logger().debug(f"table is empty: {inpath} {tname}")
             return xr.Dataset(attrs=attrs)
 
         # if len(ignore) > 0: #This is needed because some SOURCE tables have a SOURCE_MODEL column that is corrupted and this causes the open_query to fail.
@@ -544,7 +548,7 @@ def load_generic_table(
 
         with open_query(gtable, taql_gtable) as tb_tool:
             if tb_tool.nrows() == 0:
-                logger.debug(
+                xradio_logger().debug(
                     f"table query is empty: {inpath} {tname}, with where {taql_where}"
                 )
                 return xr.Dataset(attrs=attrs)
@@ -788,7 +792,7 @@ def load_fixed_size_cols(
             if isinstance(data, dict):
                 data = data["array"].reshape(data["shape"])
         except Exception as exc:
-            logger.warning(
+            xradio_logger().warning(
                 f"{inpath}: failed to load data with getcol for column {col}: {exc}"
             )
             data = []
@@ -899,7 +903,7 @@ def raw_col_data_to_coords_vars(
             except pd.errors.OutOfBoundsDatetime as exc:
                 if inpath.endswith("WEATHER"):
                     # intentionally not callling logging.exception
-                    logger.warning(
+                    xradio_logger().warning(
                         f"Exception when converting WEATHER/TIME: {exc}. TIME data: {data}"
                     )
                 else:
@@ -1021,9 +1025,9 @@ def handle_variable_col_issues(
     except Exception as exc:
         msg = f"{inpath}: failed to load data for column {col}, with {pad_val=}: {exc}"
         if col in known_misbehaving_cols:
-            logger.debug(msg)
+            xradio_logger().debug(msg)
         else:
-            logger.warning(msg)
+            xradio_logger().warning(msg)
         data = np.empty(0)
 
     return data

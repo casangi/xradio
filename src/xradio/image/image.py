@@ -9,7 +9,6 @@ import copy
 import numpy as np
 import os
 import shutil
-import toolviper.utils.logger as logger
 import xarray as xr
 
 from xradio.image._util.image_factory import (
@@ -25,6 +24,7 @@ from xradio.image._util.zarr import (
 from xradio.image._util._fits.xds_from_fits import _fits_image_to_xds
 
 from xradio.image._util.image_factory import create_image_xds_from_store
+from xradio._utils.logging import xradio_logger
 
 # warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -111,7 +111,7 @@ def open_image(
     # try:
     #       from ._util.casacore import _open_casa_image
     # except ModuleNotFoundError as exc:
-    #     logger.warning(
+    #     get_logger().warning(
     #         "Could not import the function to convert from MSv2 to MSv4. "
     #         f"That functionality will not be available. Details: {exc}"
     #     )
@@ -215,7 +215,7 @@ def write_image(
     """
     if os.path.exists(imagename):
         if overwrite:
-            logger.warning(
+            xradio_logger().warning(
                 f"Because overwrite=True, removing existing path {imagename}"
             )
             if os.path.isdir(imagename):

@@ -533,8 +533,10 @@ def test_check_correlation_mode(input_correlation_mode, expected_error):
         check_correlation_mode(input_correlation_mode)
 
 
-@pytest.mark.parametrize("input_never_reshape", [(True), (False)])
-def test_load_visibilities_from_bdf_incomplete_descr(input_never_reshape):
+@pytest.mark.parametrize(
+    "input_never_reshape, input_spw", [(True, 0), (True, 1), (False, 0), (False, 1)]
+)
+def test_load_visibilities_from_bdf_incomplete_descr(input_never_reshape, input_spw):
     from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
         load_visibilities_from_bdf,
     )
@@ -550,7 +552,7 @@ def test_load_visibilities_from_bdf_incomplete_descr(input_never_reshape):
         with pytest.raises(RuntimeError, match="basebands"):
             load_visibilities_from_bdf(
                 "/inexistent/foo/path/",
-                0,
+                input_spw,
                 {},
                 never_reshape_from_all_spws=input_never_reshape,
             )
@@ -559,8 +561,10 @@ def test_load_visibilities_from_bdf_incomplete_descr(input_never_reshape):
         mock_bdf_reader.getSubset.assert_not_called()
 
 
-@pytest.mark.parametrize("input_never_reshape", [(True), (False)])
-def test_load_visibilities_from_bdf_error_loading(input_never_reshape):
+@pytest.mark.parametrize(
+    "input_never_reshape, input_spw", [(True, 0), (True, 2), (False, 1), (False, 4)]
+)
+def test_load_visibilities_from_bdf_error_loading(input_never_reshape, input_spw):
     from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
         load_visibilities_from_bdf,
     )
@@ -586,7 +590,7 @@ def test_load_visibilities_from_bdf_error_loading(input_never_reshape):
         with pytest.raises(RuntimeError, match="Error while loading data/visibilities"):
             visibilities = load_visibilities_from_bdf(
                 "/inexistent/foo/path/",
-                0,
+                input_spw,
                 {},
                 never_reshape_from_all_spws=input_never_reshape,
             )
@@ -989,11 +993,18 @@ def test_check_flags_dims(input_dims, expected_error):
         check_flags_dims(input_dims)
 
 
-@pytest.mark.parametrize("input_never_reshape", [(True), (False)])
-def test_load_flags_from_bdf(input_never_reshape):
+@pytest.mark.parametrize(
+    "input_never_reshape, input_spw, expected_shape",
+    [
+        (True, 2, (1, 45, 1024, 0)),
+        (True, 4, (1, 45, 2048, 0)),
+        (False, 0, (1, 45, 1024, 2)),
+        (False, 1, (1, 45, 512, 0)),
+    ],
+)
+def test_load_flags_from_bdf(input_never_reshape, input_spw, expected_shape):
     from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
         load_flags_from_bdf,
-        make_bdf_description,
     )
 
     bdf_path = "/inexistent_path_to_bdf/foo/"
@@ -1007,34 +1018,10 @@ def test_load_flags_from_bdf(input_never_reshape):
         make_sufficient_bdf_header_mock(mock_bdf_header)
         mock_bdf_reader.return_value.getHeader.return_value = mock_bdf_header
 
-        flags = load_flags_from_bdf(bdf_path, 0, {}, input_never_reshape)
+        flags = load_flags_from_bdf(bdf_path, input_spw, {}, input_never_reshape)
         assert isinstance(flags, np.ndarray)
         assert flags.dtype == "bool"
-        assert flags.shape == (1, 45, 1024, 2)
-
-
-@pytest.mark.parametrize("input_never_reshape", [(True), (False)])
-def test_load_flags_from_bdf(input_never_reshape):
-    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
-        load_flags_from_bdf,
-        make_bdf_description,
-    )
-
-    bdf_path = "/inexistent_path_to_bdf/foo/"
-    with (
-        mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
-        mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
-    ):
-        mock_bdf_reader.return_value.hasSubset.side_effect = [True, False]
-        mock_bdf_reader.return_value.getSubset.side_effect = [{}, {}]
-
-        make_sufficient_bdf_header_mock(mock_bdf_header)
-        mock_bdf_reader.return_value.getHeader.return_value = mock_bdf_header
-
-        flags = load_flags_from_bdf(bdf_path, 0, {}, input_never_reshape)
-        assert isinstance(flags, np.ndarray)
-        assert flags.dtype == "bool"
-        assert flags.shape == (1, 45, 1024, 2)
+        assert flags.shape == expected_shape
 
 
 def test_load_flags_all_subsets():

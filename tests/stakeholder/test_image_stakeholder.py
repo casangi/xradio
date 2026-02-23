@@ -1,4 +1,3 @@
-import os
 import pathlib
 import pytest
 import toolviper
@@ -11,44 +10,41 @@ from toolviper.utils.data import download
 relative_tolerance = 10 ** (-6)
 
 
-# Uncomment to not clean up files between test (i.e. skip downloading them again)
-@pytest.fixture
-def tmp_path():
-    return pathlib.Path("/tmp/test")
-
-
 def test_image(tmp_path: pathlib.Path):
+    """Test image loading and writing with proper cleanup."""
     from xradio.image import load_image, open_image, write_image
 
+    # Download test data
     image_name = "demo_simulated.im"
     toolviper.utils.data.download(file=image_name, folder=str(tmp_path))
 
-    image_name = pathlib.Path.cwd().joinpath(tmp_path).joinpath("demo_simulated.im")
+    image_path = tmp_path / image_name
+    zarr_output = tmp_path / "test_image.zarr"
 
-    lazy_img_xds = open_image(str(image_name))
+    # Load images
+    lazy_img_xds = open_image(str(image_path))
 
     img_xds = load_image(
-        store=str(image_name),
+        store=str(image_path),
         do_sky_coords=True,
     )
 
     print(img_xds)
 
-    sum = np.nansum(np.abs(img_xds.SKY))
+    # Compute sums
+    sum_result = np.nansum(np.abs(img_xds.SKY))
     sum_lazy = np.nansum(np.abs(lazy_img_xds.SKY))
 
-    write_image(img_xds, "test_image.zarr", out_format="zarr", overwrite=True)
+    # Write output
+    write_image(img_xds, str(zarr_output), out_format="zarr", overwrite=True)
 
+    # Assertion
     assert np.isclose(
-        sum, sum_lazy, rtol=relative_tolerance
+        sum_result, sum_lazy, rtol=relative_tolerance
     ), "read_image and load_image SKY sums differ."
 
-    os.system("rm -rf " + str(image_name))  # Remove image.
-    os.system("rm -rf test_image.zarr")  # Remove image.
+    # Cleanup happens automatically with pytest's tmp_path fixture
 
 
 if __name__ == "__main__":
-    a = 42
-    from pathlib import Path
-
-    test_image(tmp_path=Path("."))
+    pytest.main(["-v", "-s", __file__])

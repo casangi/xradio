@@ -22,7 +22,10 @@ import xarray as xr
 from toolviper.dask.client import local_client
 from toolviper.utils.data import download
 
-from xradio.image import load_image, make_empty_sky_image, open_image, write_image
+from xradio.image import (
+    load_image, make_empty_aperture_image, make_empty_sky_image, open_image,
+    write_image
+)
 from xradio.image._util._casacore.common import _create_new_image as create_new_image
 from xradio.image._util._casacore.common import _open_image_ro as open_image_ro
 from xradio.image._util._casacore.common import _object_name
@@ -1492,4 +1495,34 @@ class make_empty_sky_image_tests(make_empty_image_tests):
             self._skel_im_no_sky, self.empty_image_no_coords_true_xds()
         )
 
+class make_empty_aperture_image_tests(make_empty_image_tests):
+    """Test making skeleton image"""
+    _empty_aperture_image_true: str = "empty_aperture_image_true.zarr"
+    _aperture_true = None
+
+    @classmethod
+    def setUpClass(cls):
+        cls._skel_im = make_empty_image_tests.create_image(
+            make_empty_aperture_image, None
+        )
+        # write_image(cls._skel_im, cls._empty_aperture_image_true, "zarr")
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+
+    def empty_image_true_xds(self):
+        if not self._aperture_true:
+            if not os.path.exists(self._empty_aperture_image_true):
+                download(self._empty_aperture_image_true)
+            self._sky_true = open_image(self._empty_aperture_image_true)
+        return self._sky_true
+
+    def skel_im(self):
+        return self._skel_im
+
+    def test_empty_sky_image(self):
+        assert_xarray_datasets_equal(
+            self._skel_im, self.empty_image_true_xds()
+        )
 

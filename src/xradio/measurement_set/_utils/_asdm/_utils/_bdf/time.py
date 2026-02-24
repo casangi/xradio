@@ -51,7 +51,7 @@ def get_times_from_bdfs(
         for time_var in time_centers, durations, actual_times, actual_durations:
             time_var = convert_time_asdm_to_unix(time_var)
 
-    except AttributeError as exc:
+    except RuntimeError as exc:
         logger.warning(
             f"Could not read nominal and actual times and durations from BDFs. {exc=}"
         )
@@ -217,7 +217,7 @@ def load_times_bdf(
             logger.warning(f"Error in getSubset for {bdf_path=} {exc=}")
             bdf_reader.close()
             return np.zeros(1), np.zeros(1), np.zeros(1), np.zeros(1)
-        except pyasdm.bdf.BDFReader.BDFReaderException as exc:
+        except pyasdm.exceptions.BDFReaderException as exc:
             trace = traceback.format_exc()
             raise RuntimeError(
                 f"BDFReaderException while trying to load actualTimes and "

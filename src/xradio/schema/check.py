@@ -479,7 +479,7 @@ def _check_value(val: typing.Any, schema: metamodel.ValueSchema):
             try:
                 val = xarray.DataArray.from_dict(val)
             except ValueError as e:
-                expected = [DataArray]
+                expected = [xarray.DataArray]
                 if schema.optional:
                     expected.append(type(None))
                 return SchemaIssues(
@@ -490,7 +490,7 @@ def _check_value(val: typing.Any, schema: metamodel.ValueSchema):
                     ]
                 )
             except TypeError as e:
-                expected = [DataArray]
+                expected = [xarray.DataArray]
                 if schema.optional:
                     expected.append(type(None))
                 return SchemaIssues(
@@ -744,7 +744,7 @@ def schema_checked(fn, check_parameters: bool = True, check_return: bool = True)
 
         # Check return
         if check_return:
-            vschema = value_schema(anns.get(arg), "function", "return")
+            vschema = value_schema(anns.get("return"), "function", "return")
             pseudo_attr_schema = AttrSchemaRef(
                 name="return",
                 **{
@@ -752,10 +752,9 @@ def schema_checked(fn, check_parameters: bool = True, check_return: bool = True)
                     for fld in dataclasses.fields(ValueSchema)
                 },
             )
-            issues = _check_value(val, pseudo_attr_schema)
+            issues = _check_value(result, pseudo_attr_schema)
             issues.at_path("return").expect()
 
-        # Check return value
         return result
 
     return _check_fn

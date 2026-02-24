@@ -18,9 +18,14 @@ from xradio.schema.metamodel import (
 from xradio.schema.check import (
     check_array,
     check_dataset,
+    check_dimensions,
     check_dict,
     schema_checked,
+    register_dataset_type,
+    check_datatree,
+    SchemaIssue,
     SchemaIssues,
+    _check_value,
 )
 from xradio.schema.dataclass import (
     xarray_dataclass_to_dict_schema,
@@ -1271,3 +1276,686 @@ def test_schema_export(tmp_path):
     # Check import round-trip
     schema = import_schema_json_file(tmp_fname)
     assert schema == TEST_DATASET_SCHEMA
+
+
+# ---------------------------------------------------------------------------
+# Module-level fixtures for check.py tests
+# ---------------------------------------------------------------------------
+
+
+@xarray_dataarray_schema
+class _TestArray2DSchema:
+    """2D test array schema for dimension order testing"""
+
+    data: Data[tuple[Dim1, Dim2], float]
+    """2D data"""
+
+
+@xarray_dataarray_schema
+class _TestMultiVersionArray:
+    """Array schema for allow_multiple_versions testing"""
+
+    data: Data[Dim1, float]
+    """Data"""
+    allow_multiple_versions: Optional[Attr[bool]] = True
+
+
+@xarray_dataset_schema
+class _TestDatasetSchemaMultiVersion:
+    """Dataset schema with allow_multiple_versions data variable"""
+
+    coord: Coord[Dim1, float]
+    """Coordinate"""
+    data_var: Dataof[_TestMultiVersionArray]
+    """Multi-version data variable"""
+    attr1: Attr[str]
+    """Required attribute"""
+
+
+@xarray_dataset_schema
+class _TestRegisteredDatasetSchema:
+    """Schema for datatree registration testing"""
+
+    coord: Coord[Dim1, float]
+    """Coordinate"""
+    type: Attr[Literal["test_registered_type"]]
+    """Type identifier"""
+
+
+@dict_schema
+class _DictWithDataArrayAttr:
+    da: _TestArraySchema
+
+
+@dict_schema
+class _DictWithOptionalDataArrayAttr:
+    da: Optional[_TestArraySchema]
+
+
+@dict_schema
+class _DictWithNestedDictAttr:
+    nested: _TestDictSchema
+
+
+@dict_schema
+class _DictWithOptionalNestedDictAttr:
+    nested: Optional[_TestDictSchema]
+
+
+@dict_schema
+class _DictWithListStrAttr:
+    tags: list[str]
+
+
+@dict_schema
+class _DictWithOptionalListStrAttr:
+    tags: Optional[list[str]]
+
+
+@dict_schema
+class _DictWithLiteralAttr:
+    mode: Literal["fast", "slow"]
+
+
+# ---------------------------------------------------------------------------
+# SchemaIssue.path_str()
+# ---------------------------------------------------------------------------
+
+
+def test_path_str_with_names():
+    issue = SchemaIssue(
+        path=[("data_vars", "foo"), ("coords", "bar"), ("attrs", "asd")],
+        message="test",
+    )
+    assert issue.path_str() == "data_vars['foo'].coords['bar'].attrs['asd']"
+
+
+def test_path_str_with_none_ix():
+    issue = SchemaIssue(
+        path=[("dims", None), ("dtype", None)],
+        message="test",
+    )
+    assert issue.path_str() == "dims.dtype"
+
+
+def test_path_str_with_empty_string_ix():
+    issue = SchemaIssue(
+        path=[("", "some_node"), ("attrs", "type")],
+        message="test",
+    )
+    assert issue.path_str() == "['some_node'].attrs['type']"
+
+
+def test_path_str_mixed():
+    issue = SchemaIssue(
+        path=[("data_vars", "VISIBILITY"), ("dims", None)],
+        message="test",
+    )
+    assert issue.path_str() == "data_vars['VISIBILITY'].dims"
+
+
+# ---------------------------------------------------------------------------
+# SchemaIssue.__repr__()
+# ---------------------------------------------------------------------------
+
+
+def test_schema_issue_repr_no_expected():
+    issue = SchemaIssue(
+        path=[("attrs", "attr1")],
+        message="Non-optional attribute is missing!",
+    )
+    result = repr(issue)
+    assert "Schema issue with" in result
+    assert "Non-optional attribute is missing!" in result
+    assert "expected" not in result
+
+
+def test_schema_issue_repr_with_expected():
+    issue = SchemaIssue(
+        path=[("dtype", None)],
+        message="Wrong numpy dtype",
+        found=numpy.dtype(float),
+        expected=[numpy.dtype(complex)],
+    )
+    result = repr(issue)
+    assert "expected:" in result
+    assert "found:" in result
+
+
+def test_schema_issue_repr_no_found():
+    issue = SchemaIssue(
+        path=[("attrs", "attr1")],
+        message="Non-optional attribute is missing!",
+        expected=["str"],
+    )
+    result = repr(issue)
+    assert "expected:" in result
+    assert "found:" not in result
+
+
+def test_schema_issue_repr_multiple_expected():
+    issue = SchemaIssue(
+        path=[("attrs", "attr1")],
+        message="Wrong type",
+        found=int,
+        expected=[str, type(None)],
+    )
+    result = repr(issue)
+    assert " or " in result
+
+
+# ---------------------------------------------------------------------------
+# SchemaIssues.__init__ / __add__ / __str__ / __repr__
+# ---------------------------------------------------------------------------
+
+
+def test_schema_issues_init_copy():
+    issue = SchemaIssue(path=[("attrs", "x")], message="missing")
+    original = SchemaIssues([issue])
+    copy = SchemaIssues(original)
+    assert len(copy) == 1
+    assert copy.issues is original.issues
+
+
+def test_schema_issues_add_operator():
+    issue1 = SchemaIssue(path=[("attrs", "a")], message="first")
+    issue2 = SchemaIssue(path=[("attrs", "b")], message="second")
+    combined = SchemaIssues([issue1]) + SchemaIssues([issue2])
+    assert len(combined) == 2
+    assert combined[0].message == "first"
+    assert combined[1].message == "second"
+
+
+def test_schema_issues_add_shares_list():
+    # NOTE: SchemaIssues.__init__(SchemaIssues) shares the inner list by reference
+    # (self.issues = issues.issues), so __add__ mutates the left operand as a
+    # side-effect. This test documents the actual behavior.
+    issue1 = SchemaIssue(path=[("attrs", "a")], message="first")
+    issue2 = SchemaIssue(path=[("attrs", "b")], message="second")
+    issues_b = SchemaIssues([issue2])
+    combined = SchemaIssues([issue1]) + issues_b
+    assert len(combined) == 2
+    assert len(issues_b) == 1  # right operand is unaffected
+
+
+def test_schema_issues_str_no_issues():
+    assert str(SchemaIssues()) == "No schema issues found"
+
+
+def test_schema_issues_str_with_issues():
+    issues = SchemaIssues(
+        [SchemaIssue(path=[("attrs", "attr1")], message="missing attribute")]
+    )
+    result = str(issues)
+    assert "missing attribute" in result
+    assert result.startswith("\n * ")
+
+
+def test_schema_issues_repr_empty():
+    assert repr(SchemaIssues()).startswith("SchemaIssues(")
+
+
+def test_schema_issues_repr_with_issues():
+    issues = SchemaIssues([SchemaIssue(path=[("attrs", "attr1")], message="missing")])
+    result = repr(issues)
+    assert result.startswith("SchemaIssues(")
+    assert "missing" in result
+
+
+# ---------------------------------------------------------------------------
+# SchemaIssues.expect() with path argument
+# ---------------------------------------------------------------------------
+
+
+def test_schema_issues_expect_prepends_path():
+    issue = SchemaIssue(path=[("dtype", None)], message="wrong type")
+    issues = SchemaIssues([issue])
+    with pytest.raises(SchemaIssues) as exc_info:
+        issues.expect(elem="data_vars", ix="VISIBILITY")
+    raised = exc_info.value
+    assert raised.issues[0].path[0] == ("data_vars", "VISIBILITY")
+    assert raised.issues[0].path[1] == ("dtype", None)
+
+
+def test_schema_issues_expect_empty_no_raise():
+    SchemaIssues().expect(elem="data_vars", ix="foo")
+
+
+# ---------------------------------------------------------------------------
+# check_array() type guards
+# ---------------------------------------------------------------------------
+
+
+def test_check_array_non_dataarray():
+    with pytest.raises(TypeError, match="check_array: Expected xarray.DataArray"):
+        check_array({"not": "a dataarray"}, TEST_ARRAY_SCHEMA)
+
+
+def test_check_array_dataclass_schema():
+    data = numpy.zeros(10, dtype=complex)
+    coords = [("coord", numpy.arange(10, dtype=float))]
+    attrs = {"attr1": "str", "attr2": 123}
+    array = xarray.DataArray(data, coords, attrs=attrs)
+    assert not check_array(array, _TestArraySchema)
+
+
+def test_check_array_invalid_schema():
+    array = xarray.DataArray(
+        numpy.zeros(10, dtype=complex), [("coord", numpy.arange(10, dtype=float))]
+    )
+    with pytest.raises(TypeError, match="check_array: Expected ArraySchema"):
+        check_array(array, "not_a_schema")
+
+
+def test_check_array_wrong_dim_order():
+    data = numpy.zeros((10, 5), dtype=float)
+    coords = [
+        ("coord2", numpy.arange(5, dtype=float)),
+        ("coord", numpy.arange(10, dtype=float)),
+    ]
+    array = xarray.DataArray(data.T, dims=("coord2", "coord"), coords=dict(coords))
+    issues = check_array(array, _TestArray2DSchema)
+    assert len(issues) == 1
+    assert issues[0].path == [("dims", None)]
+    assert "wrong order" in issues[0].message
+
+
+# ---------------------------------------------------------------------------
+# check_dataset() type guards
+# ---------------------------------------------------------------------------
+
+
+def _make_valid_dataset():
+    attrs = {"attr1": "str", "attr2": 123}
+    coords = {
+        "coord": xarray.DataArray(
+            numpy.arange(10, dtype=float), dims=("coord",), attrs=attrs
+        ),
+    }
+    data_vars = {
+        "data_var": ("coord", numpy.zeros(10, dtype=complex), attrs),
+    }
+    return xarray.Dataset(data_vars, coords, attrs)
+
+
+def test_check_dataset_non_dataset():
+    with pytest.raises(TypeError, match="check_dataset: Expected xarray.Dataset"):
+        check_dataset({"not": "a dataset"}, TEST_DATASET_SCHEMA)
+
+
+def test_check_dataset_dataclass_schema():
+    assert not check_dataset(_make_valid_dataset(), _TestDatasetSchema)
+
+
+def test_check_dataset_invalid_schema():
+    with pytest.raises(TypeError, match="check_dataset: Expected DatasetSchema"):
+        check_dataset(_make_valid_dataset(), "not_a_schema")
+
+
+# ---------------------------------------------------------------------------
+# check_dataset() missing data_var message
+# ---------------------------------------------------------------------------
+
+
+def test_check_dataset_missing_datavar_msg():
+    attrs = {"attr1": "str", "attr2": 123}
+    coords = {
+        "coord": xarray.DataArray(
+            numpy.arange(10, dtype=float), dims=("coord",), attrs=attrs
+        ),
+    }
+    issues = check_dataset(xarray.Dataset({}, coords, attrs), TEST_DATASET_SCHEMA)
+    assert any(
+        "data_var" in issue.message and "have" in issue.message
+        for issue in issues.issues
+    )
+
+
+# ---------------------------------------------------------------------------
+# check_data_vars() allow_multiple_versions
+# ---------------------------------------------------------------------------
+
+
+def test_check_dataset_multi_version_match():
+    attrs = {"attr1": "str"}
+    coords = {"coord": numpy.arange(10, dtype=float)}
+    data_vars = {
+        "data_var_v1": ("coord", numpy.zeros(10, dtype=float)),
+        "data_var_v2": ("coord", numpy.ones(10, dtype=float)),
+    }
+    assert not check_dataset(
+        xarray.Dataset(data_vars, coords, attrs), _TestDatasetSchemaMultiVersion
+    )
+
+
+def test_check_dataset_multi_version_no_match():
+    attrs = {"attr1": "str"}
+    coords = {"coord": numpy.arange(10, dtype=float)}
+    data_vars = {"other_var": ("coord", numpy.zeros(10, dtype=float))}
+    assert check_dataset(
+        xarray.Dataset(data_vars, coords, attrs), _TestDatasetSchemaMultiVersion
+    )
+
+
+# ---------------------------------------------------------------------------
+# check_dict() type guards
+# ---------------------------------------------------------------------------
+
+
+def test_check_dict_non_dict():
+    with pytest.raises(TypeError, match="check_dict: Expected dictionary"):
+        check_dict(["not", "a", "dict"], TEST_DICT_SCHEMA)
+
+
+def test_check_dict_invalid_schema():
+    with pytest.raises(TypeError, match="check_dict: Expected DictSchema"):
+        check_dict({"attr1": "val"}, "not_a_schema")
+
+
+# ---------------------------------------------------------------------------
+# check_dimensions() edge cases
+# ---------------------------------------------------------------------------
+
+
+def test_check_dimensions_wrong_order():
+    issues = check_dimensions(
+        dims=("coord2", "coord"),
+        expected=[["coord", "coord2"]],
+        check_order=True,
+    )
+    assert len(issues) == 1
+    assert issues[0].path == [("dims", None)]
+    assert "wrong order" in issues[0].message
+    assert issues[0].found == ["coord2", "coord"]
+    assert issues[0].expected == [["coord", "coord2"]]
+
+
+def test_check_dimensions_correct_order():
+    assert not check_dimensions(
+        dims=("coord", "coord2"),
+        expected=[["coord", "coord2"]],
+        check_order=True,
+    )
+
+
+def test_check_dimensions_missing_hint():
+    issues = check_dimensions(dims=("coord",), expected=[["coord", "coord2"]])
+    assert len(issues) == 1
+    assert "Missing dimension" in issues[0].message
+
+
+def test_check_dimensions_superfluous_hint():
+    issues = check_dimensions(
+        dims=("coord", "coord2", "extra"), expected=[["coord", "coord2"]]
+    )
+    assert len(issues) == 1
+    assert "Superfluous" in issues[0].message
+
+
+def test_check_dimensions_replace_hint():
+    issues = check_dimensions(
+        dims=("coord", "wrong_dim"), expected=[["coord", "coord2"]]
+    )
+    assert len(issues) == 1
+    assert "replace" in issues[0].message
+
+
+# ---------------------------------------------------------------------------
+# _check_value() — dict → DataArray conversion
+# ---------------------------------------------------------------------------
+
+
+def test_check_value_da_from_dict_valid():
+    valid_da_dict = {
+        "dims": ["coord"],
+        "data": list(numpy.zeros(10, dtype=complex)),
+        "coords": {"coord": {"dims": ["coord"], "data": list(numpy.arange(10.0))}},
+        "attrs": {"attr1": "str", "attr2": 123},
+    }
+    assert not check_dict({"da": valid_da_dict}, _DictWithDataArrayAttr)
+
+
+def test_check_value_da_from_dict_value_error():
+    assert check_dict({"da": {"dims": ["x"], "data": None}}, _DictWithDataArrayAttr)
+
+
+def test_check_value_da_from_dict_type_error():
+    # Non-string coordinate key triggers TypeError in DataArray.from_dict
+    assert check_dict(
+        {"da": {"dims": ["x"], "data": [1, 2, 3], "coords": {42: [1, 2, 3]}}},
+        _DictWithDataArrayAttr,
+    )
+
+
+def test_check_value_da_non_dataarray():
+    issues = check_dict({"da": 42}, _DictWithDataArrayAttr)
+    assert issues
+    assert any("not an xarray.DataArray" in repr(i) for i in issues.issues)
+
+
+def test_check_value_optional_da_value_error():
+    assert check_dict({"da": {"not_dims": [1, 2, 3]}}, _DictWithOptionalDataArrayAttr)
+
+
+def test_check_value_optional_da_type_error():
+    assert check_dict(
+        {"da": {"dims": ["x"], "data": [1, 2, 3], "coords": {42: [1, 2, 3]}}},
+        _DictWithOptionalDataArrayAttr,
+    )
+
+
+# ---------------------------------------------------------------------------
+# _check_value() — wrong type for dict attribute
+# ---------------------------------------------------------------------------
+
+
+def test_check_value_wrong_type_for_dict():
+    issues = check_dict({"nested": "not_a_dict"}, _DictWithNestedDictAttr)
+    assert issues
+    assert any("not a dictionary" in repr(i) for i in issues.issues)
+
+
+def test_check_value_optional_wrong_type_dict():
+    assert check_dict({"nested": 42}, _DictWithOptionalNestedDictAttr)
+
+
+# ---------------------------------------------------------------------------
+# _check_value() — list[str] type
+# ---------------------------------------------------------------------------
+
+
+def test_check_value_list_str_valid():
+    assert not check_dict({"tags": ["alpha", "beta"]}, _DictWithListStrAttr)
+
+
+def test_check_value_list_str_not_list():
+    issues = check_dict({"tags": "not_a_list"}, _DictWithListStrAttr)
+    assert issues
+    assert any("not a list" in repr(i) for i in issues.issues)
+
+
+def test_check_value_list_str_not_all_strings():
+    issues = check_dict({"tags": ["alpha", 42, "gamma"]}, _DictWithListStrAttr)
+    assert issues
+    assert any("not a list of strings" in repr(i) for i in issues.issues)
+
+
+def test_check_value_optional_list_not_list():
+    assert check_dict({"tags": 999}, _DictWithOptionalListStrAttr)
+
+
+def test_check_value_optional_list_not_strings():
+    assert check_dict({"tags": ["ok", 123]}, _DictWithOptionalListStrAttr)
+
+
+# ---------------------------------------------------------------------------
+# _check_value() — invalid type name / literal values
+# ---------------------------------------------------------------------------
+
+
+def test_check_value_invalid_type():
+    bad_schema = AttrSchemaRef(
+        name="x", type="unsupported_type", optional=False, default=None, docstring=None
+    )
+    with pytest.raises(ValueError, match="Invalid typ_name in schema"):
+        _check_value("some_value", bad_schema)
+
+
+def test_check_value_literal_valid():
+    assert not check_dict({"mode": "fast"}, _DictWithLiteralAttr)
+
+
+def test_check_value_literal_valid_second():
+    assert not check_dict({"mode": "slow"}, _DictWithLiteralAttr)
+
+
+def test_check_value_literal_invalid():
+    issues = check_dict({"mode": "medium"}, _DictWithLiteralAttr)
+    assert issues
+    assert any("Disallowed literal value" in repr(i) for i in issues.issues)
+    assert any(
+        i.found == "medium" for i in issues.issues if hasattr(i, "found") and i.found
+    )
+
+
+# ---------------------------------------------------------------------------
+# register_dataset_type()
+# ---------------------------------------------------------------------------
+
+
+def test_register_dataset_type():
+    from xradio.schema.check import _DATASET_TYPES
+    from xradio.schema import xarray_dataclass_to_dataset_schema
+
+    schema = xarray_dataclass_to_dataset_schema(_TestRegisteredDatasetSchema)
+    register_dataset_type(schema)
+    assert "test_registered_type" in _DATASET_TYPES
+    assert _DATASET_TYPES["test_registered_type"] is schema
+
+
+def test_register_dataset_type_no_literal():
+    from xradio.schema.metamodel import DatasetSchema, AttrSchemaRef
+
+    schema_no_literal = DatasetSchema(
+        schema_name="test_no_literal",
+        dimensions=[[]],
+        coordinates=[],
+        data_vars=[],
+        attributes=[
+            AttrSchemaRef(
+                name="type",
+                type="str",
+                optional=False,
+                default=None,
+                docstring=None,
+                literal=None,
+            )
+        ],
+        class_docstring=None,
+    )
+    with pytest.warns(UserWarning, match='Attribute "type" should be a literal'):
+        register_dataset_type(schema_no_literal)
+
+
+# ---------------------------------------------------------------------------
+# check_datatree()
+# ---------------------------------------------------------------------------
+
+
+def test_check_datatree_no_data_nodes():
+    assert not check_datatree(xarray.DataTree())
+
+
+def test_check_datatree_unknown_type():
+    dataset = xarray.Dataset(
+        {"x": ("coord", numpy.arange(5))},
+        attrs={"type": "nonexistent_schema_type_xyz"},
+    )
+    issues = check_datatree(xarray.DataTree(dataset=dataset))
+    assert issues
+    assert any("Unknown dataset type" in repr(i) for i in issues.issues)
+
+
+def test_check_datatree_valid_schema():
+    from xradio.schema import xarray_dataclass_to_dataset_schema
+
+    schema = xarray_dataclass_to_dataset_schema(_TestRegisteredDatasetSchema)
+    register_dataset_type(schema)
+    dataset = xarray.Dataset(
+        attrs={"type": "test_registered_type"},
+        coords={"coord": numpy.arange(5, dtype=float)},
+    )
+    assert not check_datatree(xarray.DataTree(dataset=dataset))
+
+
+def test_check_datatree_missing_type_attr():
+    dataset = xarray.Dataset({"x": ("coord", numpy.arange(5))})
+    issues = check_datatree(xarray.DataTree(dataset=dataset))
+    assert issues
+    assert any("Unknown dataset type" in repr(i) for i in issues.issues)
+
+
+def test_check_datatree_with_parent_dims():
+    # Child node has has_data=True, parent is root with coords only.
+    # The child's parent reference triggers line 685: parent_dims = set(node.parent.dims).
+    # Root node has no 'type' attr → 1 unknown-type issue; child passes schema check.
+    from xradio.schema import xarray_dataclass_to_dataset_schema
+
+    schema = xarray_dataclass_to_dataset_schema(_TestRegisteredDatasetSchema)
+    register_dataset_type(schema)
+
+    parent_ds = xarray.Dataset(coords={"coord": numpy.arange(5, dtype=float)})
+    child_ds = xarray.Dataset(
+        data_vars={"values": ("coord", numpy.arange(5, dtype=float))},
+        attrs={"type": "test_registered_type"},
+        coords={"coord": numpy.arange(5, dtype=float)},
+    )
+    dt = xarray.DataTree.from_dict({"/": parent_ds, "/child": child_ds})
+    issues = check_datatree(dt)
+    root_issues = [i for i in issues.issues if i.path == [("", "/")]]
+    child_issues = [i for i in issues.issues if i.path != [("", "/")]]
+    assert len(root_issues) == 1
+    assert "Unknown dataset type" in root_issues[0].message
+    assert not child_issues
+
+
+# ---------------------------------------------------------------------------
+# schema_checked() — check_parameters forms
+# ---------------------------------------------------------------------------
+
+
+def test_schema_checked_params_false():
+    def fn(array: _TestArraySchema) -> None:
+        pass
+
+    fn_checked = schema_checked(fn, check_parameters=False)
+    fn_checked("not_a_dataarray")
+    fn_checked(None)
+    fn_checked(42)
+
+
+def test_schema_checked_params_iterable():
+    def fn(a: int, b: _TestArraySchema) -> None:
+        pass
+
+    fn_checked = schema_checked(fn, check_parameters=["b"])
+
+    data = numpy.zeros(10, dtype=complex)
+    coords = [("coord", numpy.arange(10, dtype=float))]
+    attrs = {"attr1": "str", "attr2": 123}
+    array = xarray.DataArray(data, coords, attrs=attrs)
+
+    fn_checked(a="not_int", b=array)  # a unchecked, b valid → passes
+
+    with pytest.raises(SchemaIssues):
+        fn_checked(a=1, b="not_an_array")  # b invalid → raises
+
+
+def test_schema_checked_params_skips_unchecked():
+    # When check_parameters=['b'], 'a' is not checked — covers the
+    # 'arg not in parameters_to_check → continue' branch (line 726)
+    def fn(a: int, b: str) -> None:
+        pass
+
+    fn_checked = schema_checked(fn, check_parameters=["b"])
+    fn_checked(a="wrong_type_but_not_checked", b="correct_str")

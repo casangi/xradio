@@ -181,7 +181,9 @@ class TestProcessingSetIterator:
         assert isinstance(item, xr.DataTree)
         assert "base" in item.attrs.get("data_groups", {})
 
-    def test_in_memory_false_does_not_cache(self, convert_measurement_set_to_processing_set):
+    def test_in_memory_false_does_not_cache(
+        self, convert_measurement_set_to_processing_set
+    ):
         """Test that in_memory=False (default) does not populate the cache"""
         full_ps = load_processing_set(str(convert_measurement_set_to_processing_set))
         ms_names = list(full_ps.children.keys())
@@ -198,7 +200,9 @@ class TestProcessingSetIterator:
 
         assert len(iterator._cache) == 0
 
-    def test_in_memory_true_populates_cache(self, convert_measurement_set_to_processing_set):
+    def test_in_memory_true_populates_cache(
+        self, convert_measurement_set_to_processing_set
+    ):
         """Test that in_memory=True caches each ms_xdt as it is loaded"""
         full_ps = load_processing_set(str(convert_measurement_set_to_processing_set))
         ms_names = list(full_ps.children.keys())

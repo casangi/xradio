@@ -550,48 +550,12 @@ def _fits_header_to_xds_attrs(
         )
     helpers["has_mask"] = False
     if compute_mask:
-        # 🧠 Why the primary.data reference here is Safe (does not cause
-        # an eager read of entire data array)
-        # primary.data is a memory-mapped array (because fits.open(..., memmap=True)
-        # is used upstream)
-        # da.from_array(...) wraps this without reading it immediately
-        # The actual read occurs inside:
-        # .map_blocks(...).any().compute()
-        # ...and that triggers blockwise loading via Dask → safe and parallel
-        # 💡 Gotcha
-        # What would be dangerous:
-        # arr = np.isnan(primary.data).any()
-        # That would pull the whole array into memory. But we're not doing that.
-        data_dask = da.from_array(primary.data, chunks="auto")
-        # The following code black has corner case exposure, although the guard should
-        # eliminate it. But there is a cleaner, dask-y way that should work that we implement
-        # next, with cautions
-        # def chunk_has_nan(block):
-        #     if not isinstance(block, np.ndarray) or block.size == 0:
-        #         return False
-        #    return np.isnan(block).any()
-        # helpers["has_mask"] = data_dask.map_blocks(chunk_has_nan, dtype=bool).any().compute()
-        # ✅ Option: np.isnan(data_dask).any().compute()
-        # 🔒 Pros:
-        # Cleaner and shorter (no custom function)
-        # Handles all chunk shapes robustly — no risk of empty inputs
-        # Uses Dask’s own optimized blockwise operations under the hood
-        # ⚠️ Cons:
-        # Might trigger more eager computation if Dask can't optimize well:
-        # If chunks are misaligned or small, Dask might combine many or materialize more blocks than needed
-        # Especially on large images, it could bump memory pressure slightly
-        # But since we already call .compute(), we will load some block data no matter
-        # what — this just changes how much and how smartly.
-        # ✅ Verdict for compute_mask
-        # Because this is explicitly for computing a global has-NaN flag (not building the
-        # dataset), recommend:
-        # helpers["has_mask"] = np.isnan(data_dask).any().compute()
-        # It's concise, robust to shape edge cases, and still parallelized.
-        # We can always revisit it later if perf becomes a concern — and even then,
-        # it's likely a matter of tuning chunks= manually rather than the expression itself.
-        #
-        # This compute will normally be done in parallel
-        helpers["has_mask"] = np.isnan(data_dask).any().compute()
+        # primary.data is a memory-mapped numpy array (fits.open uses memmap=True upstream).
+        # numpy scans it block-by-block without loading the full array into RAM.
+        # Using dask here caused a "large graph" warning when a distributed client was
+        # active, because da.from_array(memmap) embeds array slices as task arguments
+        # which get serialised and shipped to the scheduler.
+        helpers["has_mask"] = bool(np.any(np.isnan(primary.data)))
     beam = _beam_attr_from_header(helpers, header)
     if beam != "mb":
         helpers["beam"] = beam

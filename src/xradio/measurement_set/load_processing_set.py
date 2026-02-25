@@ -76,9 +76,11 @@ def load_processing_set(
                     ms_xdt = xr.open_datatree(
                         ms_store, engine="zarr", drop_variables=drop_variables
                     ).xr_ms.sel(data_group_name=data_group_name)
-                            
+
                 if include_variables is not None:
-                    vars_to_drop = [v for v in ms_xdt.ds.data_vars if v not in include_variables]
+                    vars_to_drop = [
+                        v for v in ms_xdt.ds.data_vars if v not in include_variables
+                    ]
                     ms_xdt.ds = ms_xdt.ds.drop_vars(vars_to_drop)
 
                 ps_xdt[ms_name] = ms_xdt

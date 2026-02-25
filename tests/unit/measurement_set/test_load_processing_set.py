@@ -181,6 +181,114 @@ class TestProcessingSetIterator:
         assert isinstance(item, xr.DataTree)
         assert "base" in item.attrs.get("data_groups", {})
 
+    def test_in_memory_false_does_not_cache(self, convert_measurement_set_to_processing_set):
+        """Test that in_memory=False (default) does not populate the cache"""
+        full_ps = load_processing_set(str(convert_measurement_set_to_processing_set))
+        ms_names = list(full_ps.children.keys())
+        sel_parms = {name: {"time": slice(0, 5)} for name in ms_names}
+
+        iterator = ProcessingSetIterator(
+            sel_parms=sel_parms,
+            input_data_store=str(convert_measurement_set_to_processing_set),
+            in_memory=False,
+        )
+
+        for ms_xdt in iterator:
+            assert isinstance(ms_xdt, xr.DataTree)
+
+        assert len(iterator._cache) == 0
+
+    def test_in_memory_true_populates_cache(self, convert_measurement_set_to_processing_set):
+        """Test that in_memory=True caches each ms_xdt as it is loaded"""
+        full_ps = load_processing_set(str(convert_measurement_set_to_processing_set))
+        ms_names = list(full_ps.children.keys())
+        sel_parms = {name: {"time": slice(0, 5)} for name in ms_names}
+
+        iterator = ProcessingSetIterator(
+            sel_parms=sel_parms,
+            input_data_store=str(convert_measurement_set_to_processing_set),
+            in_memory=True,
+        )
+
+        for ms_xdt in iterator:
+            assert isinstance(ms_xdt, xr.DataTree)
+
+        assert set(iterator._cache.keys()) == set(ms_names)
+        for cached_xdt in iterator._cache.values():
+            assert isinstance(cached_xdt, xr.DataTree)
+
+    def test_reset_restarts_iteration(self, convert_measurement_set_to_processing_set):
+        """Test that reset() restarts iteration from the beginning"""
+        full_ps = load_processing_set(str(convert_measurement_set_to_processing_set))
+        ms_name = list(full_ps.children.keys())[0]
+        sel_parms = {ms_name: {"time": slice(0, 5)}}
+
+        iterator = ProcessingSetIterator(
+            sel_parms=sel_parms,
+            input_data_store=str(convert_measurement_set_to_processing_set),
+        )
+
+        first_item = next(iterator)
+        assert isinstance(first_item, xr.DataTree)
+
+        with pytest.raises(StopIteration):
+            next(iterator)
+
+        iterator.reset()
+
+        second_item = next(iterator)
+        assert isinstance(second_item, xr.DataTree)
+        assert set(first_item.ds.data_vars) == set(second_item.ds.data_vars)
+        assert first_item.dims == second_item.dims
+
+    def test_in_memory_true_reset_serves_from_cache(
+        self, convert_measurement_set_to_processing_set
+    ):
+        """Test that after reset(), in_memory=True returns cached objects without reloading"""
+        full_ps = load_processing_set(str(convert_measurement_set_to_processing_set))
+        ms_names = list(full_ps.children.keys())
+        sel_parms = {name: {"time": slice(0, 5)} for name in ms_names}
+
+        iterator = ProcessingSetIterator(
+            sel_parms=sel_parms,
+            input_data_store=str(convert_measurement_set_to_processing_set),
+            in_memory=True,
+        )
+
+        # First pass: populate the cache
+        list(iterator)
+        cached_ids = {name: id(xdt) for name, xdt in iterator._cache.items()}
+
+        iterator.reset()
+
+        # Second pass: objects should be the exact same instances from the cache
+        for ms_name, ms_xdt in zip(ms_names, iterator):
+            assert id(ms_xdt) == cached_ids[ms_name]
+
+    def test_in_memory_false_reset_reloads_from_disk(
+        self, convert_measurement_set_to_processing_set
+    ):
+        """Test that after reset(), in_memory=False reloads each ms_xdt from disk"""
+        full_ps = load_processing_set(str(convert_measurement_set_to_processing_set))
+        ms_name = list(full_ps.children.keys())[0]
+        sel_parms = {ms_name: {"time": slice(0, 5)}}
+
+        iterator = ProcessingSetIterator(
+            sel_parms=sel_parms,
+            input_data_store=str(convert_measurement_set_to_processing_set),
+            in_memory=False,
+        )
+
+        first_item = next(iterator)
+        iterator.reset()
+        second_item = next(iterator)
+
+        # Different object instances since each call loads fresh from disk
+        assert id(first_item) != id(second_item)
+        # But the data should be equivalent
+        assert first_item.dims == second_item.dims
+        assert set(first_item.ds.data_vars) == set(second_item.ds.data_vars)
+
 
 if __name__ == "__main__":
     pytest.main(["-v", "-s", __file__])

@@ -32,8 +32,7 @@ from xradio.image._util._casacore.common import _object_name
 from xradio.image._util.common import _image_type as image_type
 from xradio._utils._casacore.tables import open_table_ro
 
-from xradio.testing.assertions import assert_xarray_datasets_equal
-
+from xradio.testing.assertions import assert_xarray_datasets_equal, _compare_attrs_dict
 sky = "SKY"
 
 @pytest.fixture(scope="module")
@@ -86,92 +85,7 @@ def clean_path_logic(text: str) -> str:
 
 @pytest.mark.usefixtures("dask_client_module")
 class ImageBase(unittest.TestCase):
-    def dict_equality(
-        self,
-        dict1,
-        dict2,
-        dict1_name,
-        dict2_name,
-        exclude_keys=None,
-        common_keys_only=False,
-    ):
-        exclude_keys = exclude_keys or []
-        if not common_keys_only:
-            self.assertEqual(
-                dict1.keys(),
-                dict2.keys(),
-                f"{dict1_name} has different keys than {dict2_name}:"
-                f"\n{dict1.keys()} vs\n {dict2.keys()}",
-            )
-        for k in dict1.keys():
-            if k in exclude_keys or (common_keys_only and k not in dict2):
-                continue
-            one = dict1[k]
-            two = dict2[k]
-            if isinstance(one, numbers.Number) and isinstance(two, numbers.Number):
-                self.assertTrue(
-                    np.isclose(one, two),
-                    f"{dict1_name}[{k}] != {dict2_name}[{k}]:\n" + f"{one} vs\n{two}",
-                )
-            elif (isinstance(one, list) or isinstance(one, np.ndarray)) and (
-                isinstance(two, list) or isinstance(two, np.ndarray)
-            ):
-                if len(one) == 0 or len(two) == 0:
-                    self.assertEqual(
-                        len(one),
-                        len(two),
-                        f"{dict1_name}[{k}] != {dict2_name}[{k}], " f"{one} != {two}",
-                    )
-                elif isinstance(one[0], numbers.Number):
-                    self.assertTrue(
-                        np.isclose(
-                            np.array(one), np.array(two), rtol=1e-3, atol=1e-7
-                        ).all(),
-                        f"{dict1_name}[{k}] != {dict2_name}[{k}], " f"{one} != {two}",
-                    )
-            else:
-                self.assertEqual(
-                    type(dict1[k]),
-                    type(dict2[k]),
-                    f"Types are different {dict1_name}[{k}] {type(dict1[k])} "
-                    + f"vs {dict2_name}[{k}] {type(dict2[k])}",
-                )
-                if isinstance(dict1[k], dict) and isinstance(dict2[k], dict):
-                    self.dict_equality(
-                        dict1[k],
-                        dict2[k],
-                        f"{dict1_name}[{k}]",
-                        f"{dict2_name}[{k}]",
-                        common_keys_only=common_keys_only,
-                        exclude_keys=exclude_keys,
-                    )
-                elif isinstance(one, np.ndarray):
-                    if k == "crpix":
-                        self.assertTrue(
-                            np.allclose(one, two, rtol=3e-5),
-                            f"{dict1_name}[{k}] != {dict2_name}[{k}], {one} vs {two}",
-                        )
-                    else:
-                        self.assertTrue(
-                            np.allclose(one, two),
-                            f"{dict1_name}[{k}] != {dict2_name}[{k}], {one} vs {two}",
-                        )
-                elif isinstance(one, str) and isinstance(two, str):
-                    one_cleaned = clean_path_logic(one)
-                    two_cleaned = clean_path_logic(two)
-                    self.assertEqual(
-                        one_cleaned,
-                        two_cleaned,
-                        f"{dict1_name}[{k}] != {dict2_name}[{k}]:\n"
-                        + f"{one_cleaned} vs\n{two_cleaned}",
-                    )
-                else:
-                    self.assertEqual(
-                        dict1[k],
-                        dict2[k],
-                        f"{dict1_name}[{k}] != {dict2_name}[{k}]:\n"
-                        + f"{dict1[k]} vs\n{dict2[k]}",
-                    )
+    pass
 
 class xds_from_image_test(ImageBase):
     _imname: str = "inp.im"
@@ -466,10 +380,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
             cls._output_uv,
         ]:
             if os.path.exists(f):
-                if os.path.isdir(f):
-                    shutil.rmtree(f)
-                else:
-                    os.remove(f)
+                _remove(f)
 
     def test_pixels_and_mask(self):
         """Test pixel values are consistent"""
@@ -511,7 +422,13 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                     c2["coordinates"]["worldreplace2"] = np.array(
                         [c2["coordinates"]["spectral2"]["wcs"]["crval"]]
                     )
-                    self.dict_equality(c2, c1, "got", "expected")
+                    _compare_attrs_dict(
+                        c1,
+                        c2,
+                        context=f"casa image metadata test, imnmae={imname}",
+                        rtol=1e-7,
+                        atol=1e-7,
+                    )
 
         # Also check the table keywords
         with open_table_ro(self.imname()) as tb1:
@@ -519,26 +436,47 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                 with open_table_ro(imname) as tb2:
                     kw1 = tb1.getkeywords()
                     kw2 = tb2.getkeywords()
-                    self.dict_equality(
-                        kw2,
+                    exclude_keys=[
+                        "worldreplace2",
+                    ]
+                    union_keys = set(kw1.keys()) | set(kw2.keys())
+                    for k in union_keys:
+                        if k in exclude_keys or k not in kw1 or k not in kw2:
+                            for kw in [kw1, kw2]:
+                                if k in kw:
+                                    del kw[k]
+                    d2 = kw2["coords"]["direction0"]
+                    s2 = kw2["coords"]["spectral2"]
+                    t2 = kw2["coords"]["stokes1"]
+                    for k in ["_image_axes", "_axes_sizes"]:
+                        for d in [d2, s2, t2]:
+                            del d[k]
+                    d2["cdelt"] *= f
+                    d2["crval"] *= f
+                    d2["latpole"] = 0
+                    d2["units"] = ["'", "'"]
+                    s1 = kw1["coords"]["spectral2"]
+                    del s1["conversion"]
+                    s2["velUnit"] = "km/s"
+                    # names are different because image names are different
+                    del kw1["logtable"]
+                    del kw2["logtable"]
+                    del kw1['masks']['MASK_0']['mask']
+                    del kw2['masks']['MASK_0']['mask']
+                    _compare_attrs_dict(
                         kw1,
-                        "got",
-                        "expected",
-                        common_keys_only=True,
-                        exclude_keys=[
-                            "cdelt",
-                            "crval",
-                            "latpole",
-                            "velUnit",
-                            "worldreplace2",
-                        ],
+                        kw2,
+                        context=f"casa image table keyword test, imnmae={imname}",
+                        rtol=1e-7,
+                        atol=1e-7,
                     )
+
 
     def test_beam(self):
         """
             Verify fix to issue 45
             https://github.com/casangi/xradio/issues/45
-        irint("*** r", r)
+        irint("***  r)
         """
         download(self._imname2), f"failed to download {self._imname2}"
         self.assertTrue(
@@ -563,8 +501,14 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                         beam["minor"]["unit"] = "arcmin"
                         beam["positionangle"]["value"] *= 180 / np.pi
                         beam["positionangle"]["unit"] = "deg"
+                    _compare_attrs_dict(
+                        beams1,
+                        beams2,
+                        context=f"casa image beam test, do_sky={do_sky}",
+                        rtol=1e-7,
+                        atol=1e-7,
+                    )
 
-                    self.dict_equality(beams1, beams2, "got", "expected")
         # convert to single beam image
         tb = tables.table(self._outname6, readonly=False)
         beam3 = {
@@ -627,7 +571,13 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
             shutil.rmtree(outname)
             second_attrs = xds.attrs
             second_coords = xds.coords
-            self.dict_equality(t, second_attrs, "xds before", "xds after", ["history"])
+            _compare_attrs_dict(
+                t,
+                second_attrs,
+                context=f"masking test, cas 2a",
+                rtol=1e-7,
+                atol=1e-7,
+            )
             write_image(xds, outname, out_format="casa")
             subdirs = glob(f"{outname}/*/")
             subdirs = [d[d.index("/") + 1 : -1] for d in subdirs]
@@ -703,7 +653,17 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
             with open_image_ro(image) as expec_im:
                 got = test_im.coordinates().dict()["linear0"]
                 expec = expec_im.coordinates().dict()["linear0"]
-                self.dict_equality(got, expec, "got uv", "expec uv")
+                _compare_attrs_dict(
+                    got,
+                    expec,
+                    context=f"written casa uv image coordinate dict",
+                    rtol=1e-7,
+                    atol=1e-7,
+                )
+
+
+
+
                 got = test_im.getdata()
                 expec = test_im.getdata()
                 self.assertTrue(np.isclose(got, expec).all(), "Incorrect pixel data")
@@ -735,11 +695,7 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
             cls._zarr_uv_store,
             cls._zarr_beam_test,
         ]:
-            if os.path.exists(f):
-                if os.path.isdir(f):
-                    shutil.rmtree(f)
-                else:
-                    os.remove(f)
+            _remove(f)
 
     def setUp(self):
         pass
@@ -820,10 +776,7 @@ class fits_to_xds_test(xds_from_image_test):
             cls._bscale,
         ]:
             if os.path.exists(f):
-                if os.path.isdir(f):
-                    shutil.rmtree(f)
-                else:
-                    os.remove(f)
+                _remove(f)
 
     def setUp(self):
         pass
@@ -1006,452 +959,6 @@ class make_empty_image_tests(ImageBase):
         kwargs = {} if do_sky_coords is None else {"do_sky_coords": do_sky_coords}
         return code(*args, **kwargs)
 
-    def run_time_tests(self, skel):
-        self.assertTrue(
-            np.isclose(skel.time, [54000.1]).all(),
-            "Incorrect time coordinate values",
-        )
-        expec = {"scale": "utc", "units": "d", "format": "mjd"}
-        self.dict_equality(skel.time.attrs, expec, "got", "expected")
-
-    def run_polarization_tests(self, skel):
-        self.assertTrue(
-            (skel.polarization == ["I", "Q", "U"]).all(),
-            "Incorrect polarization coordinate values",
-        )
-
-    def run_frequency_tests(self, skel):
-        expec = {
-            "observer": "lsrk",
-            "reference_frequency": {
-                "attrs": {
-                    "observer": "lsrk",
-                    "type": "spectral_coord",
-                    "units": "Hz",
-                },
-                "data": 1413000000.0,
-                "dims": [],
-            },
-            "rest_frequencies": {
-                "attrs": {
-                    "type": "quantity",
-                    "units": "Hz",
-                },
-                "data": 1413000000.0,
-                "dims": [],
-            },
-            "rest_frequency": {
-                "attrs": {
-                    "type": "quantity",
-                    "units": "Hz",
-                },
-                "data": 1413000000.0,
-                "dims": [],
-            },
-            "type": "spectral_coord",
-            "units": "Hz",
-            "wave_units": "mm",
-        }
-        self.assertTrue(
-            np.isclose(skel.frequency, [1.412e09, 1.413e09]).all(),
-            "Incorrect frequency coordinate values",
-        )
-        self.dict_equality(skel.frequency.attrs, expec, "got", "expected")
-
-    def run_velocity_tests(self, skel):
-        expec = {"doppler_type": "radio", "units": "m/s", "type": "doppler"}
-        self.assertTrue(
-            np.isclose(skel.velocity, [212167.34465675, 0]).all(),
-            "Incorrect velocity coordinate values",
-        )
-        self.dict_equality(skel.velocity.attrs, expec, "got", "expected")
-
-    def run_l_m_tests(self, skel):
-        cdelt = np.pi / 180 / 60
-        expec = {"m": np.array([(i - 5) * cdelt for i in range(10)])}
-        expec["l"] = -expec["m"]
-        expec_attrs = {
-            "l": {
-                # "type": "quantity",
-                # "crval": 0.0,
-                # "cdelt": -cdelt,
-                # "units": "rad",
-                "note": "l is the angle measured from the reference direction to the east. "
-                "So l = x*cdelt, where x is the number of pixels from the reference direction. "
-                "See AIPS Memo #27, Section III.",
-            },
-            "m": {
-                # "type": "quantity",
-                # "crval": 0.0,
-                # "cdelt": cdelt,
-                # "units": "rad",
-                "note": "m is the angle measured from the reference direction to the north. "
-                "So m = y*cdelt, where y is the number of pixels from the reference direction. "
-                "See AIPS Memo #27, Section III.",
-            },
-        }
-        for c in ["l", "m"]:
-            self.assertTrue(
-                np.isclose(skel[c].values, expec[c]).all(),
-                f"Incorrect {c} coord values",
-            )
-            self.dict_equality(
-                skel[c].attrs, expec_attrs[c], f"got {c} attrs", f"expec {c} attrs"
-            )
-
-    def run_right_ascension_tests(self, skel, do_sky_coords):
-        expec = [
-            [
-                0.20165865,
-                0.20165838,
-                0.20165812,
-                0.20165785,
-                0.20165759,
-                0.20165733,
-                0.20165706,
-                0.2016568,
-                0.20165654,
-                0.20165628,
-            ],
-            [
-                0.20132692,
-                0.20132671,
-                0.20132649,
-                0.20132628,
-                0.20132607,
-                0.20132586,
-                0.20132565,
-                0.20132544,
-                0.20132523,
-                0.20132502,
-            ],
-            [
-                0.20099519,
-                0.20099503,
-                0.20099487,
-                0.20099471,
-                0.20099455,
-                0.2009944,
-                0.20099424,
-                0.20099408,
-                0.20099392,
-                0.20099377,
-            ],
-            [
-                0.20066346,
-                0.20066335,
-                0.20066325,
-                0.20066314,
-                0.20066304,
-                0.20066293,
-                0.20066283,
-                0.20066272,
-                0.20066262,
-                0.20066251,
-            ],
-            [
-                0.20033173,
-                0.20033168,
-                0.20033162,
-                0.20033157,
-                0.20033152,
-                0.20033147,
-                0.20033141,
-                0.20033136,
-                0.20033131,
-                0.20033126,
-            ],
-            [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2],
-            [
-                0.19966827,
-                0.19966832,
-                0.19966838,
-                0.19966843,
-                0.19966848,
-                0.19966853,
-                0.19966859,
-                0.19966864,
-                0.19966869,
-                0.19966874,
-            ],
-            [
-                0.19933654,
-                0.19933665,
-                0.19933675,
-                0.19933686,
-                0.19933696,
-                0.19933707,
-                0.19933717,
-                0.19933728,
-                0.19933738,
-                0.19933749,
-            ],
-            [
-                0.19900481,
-                0.19900497,
-                0.19900513,
-                0.19900529,
-                0.19900545,
-                0.1990056,
-                0.19900576,
-                0.19900592,
-                0.19900608,
-                0.19900623,
-            ],
-            [
-                0.19867308,
-                0.19867329,
-                0.19867351,
-                0.19867372,
-                0.19867393,
-                0.19867414,
-                0.19867435,
-                0.19867456,
-                0.19867477,
-                0.19867498,
-            ],
-        ]
-        if do_sky_coords:
-            self.assertTrue(
-                np.isclose(skel.right_ascension, expec).all(),
-                "Incorrect right_ascension coordinate values",
-            )
-            self.assertEqual(
-                skel.right_ascension.attrs,
-                {},
-                "right ascension has non-empty attrs dict but it should be empty",
-            )
-        else:
-            self.assertTrue(
-                "right_ascension" not in skel.coords,
-                "right_ascension is incorrectly in coords",
-            )
-
-    def run_declination_tests(self, skel, do_sky_coords):
-        expec = [
-            [
-                -0.50145386,
-                -0.50116297,
-                -0.50087209,
-                -0.5005812,
-                -0.50029031,
-                -0.49999942,
-                -0.49970853,
-                -0.49941765,
-                -0.49912676,
-                -0.49883587,
-            ],
-            [
-                -0.50145407,
-                -0.50116318,
-                -0.50087229,
-                -0.50058141,
-                -0.50029052,
-                -0.49999963,
-                -0.49970874,
-                -0.49941785,
-                -0.49912697,
-                -0.49883608,
-            ],
-            [
-                -0.50145423,
-                -0.50116334,
-                -0.50087246,
-                -0.50058157,
-                -0.50029068,
-                -0.49999979,
-                -0.4997089,
-                -0.49941802,
-                -0.49912713,
-                -0.49883624,
-            ],
-            [
-                -0.50145435,
-                -0.50116346,
-                -0.50087257,
-                -0.50058168,
-                -0.5002908,
-                -0.49999991,
-                -0.49970902,
-                -0.49941813,
-                -0.49912724,
-                -0.49883635,
-            ],
-            [
-                -0.50145442,
-                -0.50116353,
-                -0.50087264,
-                -0.50058175,
-                -0.50029087,
-                -0.49999998,
-                -0.49970909,
-                -0.4994182,
-                -0.49912731,
-                -0.49883642,
-            ],
-            [
-                -0.50145444,
-                -0.50116355,
-                -0.50087266,
-                -0.50058178,
-                -0.50029089,
-                -0.5,
-                -0.49970911,
-                -0.49941822,
-                -0.49912734,
-                -0.49883645,
-            ],
-            [
-                -0.50145442,
-                -0.50116353,
-                -0.50087264,
-                -0.50058175,
-                -0.50029087,
-                -0.49999998,
-                -0.49970909,
-                -0.4994182,
-                -0.49912731,
-                -0.49883642,
-            ],
-            [
-                -0.50145435,
-                -0.50116346,
-                -0.50087257,
-                -0.50058168,
-                -0.5002908,
-                -0.49999991,
-                -0.49970902,
-                -0.49941813,
-                -0.49912724,
-                -0.49883635,
-            ],
-            [
-                -0.50145423,
-                -0.50116334,
-                -0.50087246,
-                -0.50058157,
-                -0.50029068,
-                -0.49999979,
-                -0.4997089,
-                -0.49941802,
-                -0.49912713,
-                -0.49883624,
-            ],
-            [
-                -0.50145407,
-                -0.50116318,
-                -0.50087229,
-                -0.50058141,
-                -0.50029052,
-                -0.49999963,
-                -0.49970874,
-                -0.49941785,
-                -0.49912697,
-                -0.49883608,
-            ],
-        ]
-        expec2 = {
-            "attrs": {
-                "type": "sky_coord",
-                "frame": "fk5",
-                "equinox": "j2000.0",
-                "units": "rad",
-            },
-            "data": [0.2, -0.5],
-            "dims": "sky_dir_label",
-            "coords": {
-                "sky_dir_label": {"data": ["ra", "dec"], "dims": "sky_dir_label"}
-            },
-        }
-        if do_sky_coords:
-            self.assertTrue(
-                np.isclose(skel.declination, expec).all(),
-                "Incorrect declinationion coordinate values",
-            )
-            self.assertEqual(
-                skel.declination.attrs,
-                {},
-                "declination attrs dict is not empty but it should be empty",
-            )
-        else:
-            self.assertTrue(
-                "declination" not in skel.coords,
-                "declination incorrectly in coords",
-            )
-        self.dict_equality(
-            skel.attrs["coordinate_system_info"]["reference_direction"],
-            expec2,
-            "got",
-            "expected",
-        )
-
-    def run_u_v_tests(self, skel):
-        cdelt = 180 * 60 / np.pi / 10
-        expec = np.array([(i - 5) * cdelt for i in range(10)])
-        ref_val = {
-            "data": 0.0,
-            "dims": [],
-            "attrs": {
-                "type": "quantity",
-                "units": "lambda",
-            },
-        }
-        expec_attrs = {
-            "u": ref_val,
-            "v": ref_val,
-        }
-        for c in ["u", "v"]:
-            self.assertTrue(
-                np.isclose(skel[c].values, expec).all(),
-                f"Incorrect {c} coord values, {skel[c].values} vs {expec}.",
-            )
-            self.dict_equality(
-                skel[c].attrs, expec_attrs[c], f"got {c} attrs", "expec {c} attrs"
-            )
-
-    def run_attrs_tests(self, skel):
-        coordinate_system_info = {
-            "reference_direction": {
-                "attrs": {
-                    "type": "sky_coord",
-                    "frame": "fk5",
-                    "equinox": "j2000.0",
-                    "units": "rad",
-                },
-                "data": [0.2, -0.5],
-                "dims": "sky_dir_label",
-                "coords": {
-                    "sky_dir_label": {"data": ["ra", "dec"], "dims": "sky_dir_label"}
-                },
-            },
-            "native_pole_direction": {
-                "attrs": {
-                    "type": "location",
-                    "frame": "NATIVE_PROJECTION",
-                    "units": "rad",
-                },
-                "data": [np.pi, 0.0],
-                "dims": "ellipsoid_dir_label",
-                "coords": {
-                    "ellipsoid_dir_label": {
-                        "data": ["lon", "lat"],
-                        "dims": "ellipsoid_dir_label",
-                    }
-                },
-            },
-            "pixel_coordinate_transformation_matrix": [[1.0, 0.0], [0.0, 1.0]],
-            "projection": "SIN",
-            "projection_parameters": [0.0, 0.0],
-        }
-        data_groups = {"base": {}}
-        expec = {
-            "data_groups": data_groups,
-            "coordinate_system_info": coordinate_system_info,
-            "type": "image",
-        }
-        self.dict_equality(skel.attrs, expec, "got", "expected")
-
-
 class make_empty_sky_image_tests(make_empty_image_tests):
     """Test making skeleton image"""
     _empty_sky_image_true: str = "empty_sky_image_true.zarr"
@@ -1537,11 +1044,9 @@ class make_empty_lmuv_image_tests(make_empty_image_tests):
     @classmethod
     def setUpClass(cls):
         cls._skel_im = make_empty_image_tests.create_image(make_empty_lmuv_image, True)
-        # write_image(cls._skel_im, cls._empty_lmuv_image_true, "zarr")
         cls._skel_im_no_sky = make_empty_image_tests.create_image(
             make_empty_lmuv_image, False
         )
-        # write_image(cls._skel_im_no_sky, cls._empty_lmuv_image_no_sky_coords_true, "zarr")
 
     @classmethod
     def tearDownClass(cls):
@@ -1561,7 +1066,6 @@ class make_empty_lmuv_image_tests(make_empty_image_tests):
             self._lmuv_no_coords_true = open_image(self._empty_lmuv_image_no_sky_coords_true)
         return self._lmuv_no_coords_true
 
-
     def test_empty_sky_image(self):
         assert_xarray_datasets_equal(
             self._skel_im, self.empty_image_true_xds()
@@ -1570,3 +1074,32 @@ class make_empty_lmuv_image_tests(make_empty_image_tests):
         assert_xarray_datasets_equal(
             self._skel_im_no_sky, self.empty_image_no_coords_true_xds()
         )
+
+class write_image_test(xds_from_image_test):
+
+    _myout = "zk.im"
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        for f in [cls._myout]:
+            _remove(f)
+
+    def test_overwrite(self):
+        # test overwrite=True
+        write_image(self.xds(), self._myout, out_format="casa", overwrite=True)
+        self.assertTrue(os.path.exists(self._myout), f"{self._myout} was not written")
+        # test overwrite=False
+        with self.assertRaises(FileExistsError):
+            write_image(self.xds(), self._myout, out_format="casa", overwrite=False)
+        with self.assertRaises(FileExistsError):
+            # default overwrite=False
+            write_image(self.xds(), self._myout, out_format="casa")
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", "-s", __file__])

@@ -21,7 +21,7 @@ from xradio.measurement_set._utils._asdm._utils.spectral_window import (
     get_spw_frequency_centers,
     get_spw_name,
 )
-from xradio.measurement_set._utils._asdm._utils._bdf.time import get_times_from_bdfs
+from xradio.measurement_set._utils._asdm._utils._bdf.load_time import get_times_from_bdfs
 from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
     load_visibilities_from_partition_bdfs,
     load_flags_from_partition_bdfs,
@@ -419,7 +419,7 @@ def create_coordinates(
     ].values.astype(str)
     coords["field_name"] = (["time"], np.resize(fields, len(time_centers)))
 
-    # TODO This redim should be done inside ._bdf/time
+    # TODO This redim should be done inside ._bdf/load_time
     # We need (time, baseline_id) dims but times and durations form ASDM/BDFs are independent of baseline
     redim_actual_durations = np.resize(
         actual_durations, (len(actual_durations), len(baseline_antenna1_id))

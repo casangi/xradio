@@ -9,14 +9,14 @@ import pyasdm
 
 
 def test_get_times_from_bdfs_empty():
-    from xradio.measurement_set._utils._asdm._utils._bdf.time import get_times_from_bdfs
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import get_times_from_bdfs
 
     with pytest.raises(ValueError, match="at least one"):
         get_times_from_bdfs([], pd.DataFrame())
 
 
 def test_get_times_from_bdfs_non_existent():
-    from xradio.measurement_set._utils._asdm._utils._bdf.time import get_times_from_bdfs
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import get_times_from_bdfs
 
     with pytest.raises(
         pyasdm.exceptions.BDFReaderException, match="No such file or directory"
@@ -25,7 +25,7 @@ def test_get_times_from_bdfs_non_existent():
 
 
 def test_get_times_from_bdfs():
-    from xradio.measurement_set._utils._asdm._utils._bdf.time import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
         get_times_from_bdfs,
     )
 
@@ -52,7 +52,7 @@ def test_get_times_from_bdfs():
 
 
 def test_get_times_from_bdfs_error():
-    from xradio.measurement_set._utils._asdm._utils._bdf.time import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
         get_times_from_bdfs,
     )
 
@@ -123,7 +123,7 @@ def make_sufficient_bdf_header_mock(mock_bdf_header):
 
 
 def test_make_blob_info_empty():
-    from xradio.measurement_set._utils._asdm._utils._bdf.time import make_blob_info
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import make_blob_info
 
     info = make_blob_info(pyasdm.bdf.BDFHeader())
     assert isinstance(info, pd.DataFrame)
@@ -131,7 +131,7 @@ def test_make_blob_info_empty():
 
 
 def test_make_blob_info():
-    from xradio.measurement_set._utils._asdm._utils._bdf.time import make_blob_info
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import make_blob_info
 
     with mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header:
         make_sufficient_bdf_header_mock(mock_bdf_header)
@@ -143,7 +143,7 @@ def test_make_blob_info():
 
 
 def test_load_times_from_bdfs_empty():
-    from xradio.measurement_set._utils._asdm._utils._bdf.time import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
         load_times_from_bdfs,
     )
 
@@ -154,7 +154,7 @@ def test_load_times_from_bdfs_empty():
 
 
 def test_load_times_from_bdfs():
-    from xradio.measurement_set._utils._asdm._utils._bdf.time import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
         load_times_from_bdfs,
     )
 
@@ -181,7 +181,7 @@ def test_load_times_from_bdfs():
 
 
 def test_load_times_bdf_empty():
-    from xradio.measurement_set._utils._asdm._utils._bdf.time import load_times_bdf
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import load_times_bdf
 
     with pytest.raises(
         pyasdm.exceptions.BDFReaderException, match="No such file or directory"
@@ -190,7 +190,7 @@ def test_load_times_bdf_empty():
 
 
 def test_load_times_bdf_without_actual_times():
-    from xradio.measurement_set._utils._asdm._utils._bdf.time import load_times_bdf
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import load_times_bdf
 
     with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
         mock_bdf_reader.return_value.hasSubset.side_effect = [True, False]
@@ -215,7 +215,7 @@ def test_load_times_bdf_without_actual_times():
 
 
 def test_load_times_bdf():
-    from xradio.measurement_set._utils._asdm._utils._bdf.time import load_times_bdf
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import load_times_bdf
 
     with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
         mock_bdf_reader.return_value.hasSubset.side_effect = [True, False]
@@ -240,7 +240,7 @@ def test_load_times_bdf():
 
 
 def test_load_times_bdf_error_old_to_be_removed():
-    from xradio.measurement_set._utils._asdm._utils._bdf.time import load_times_bdf
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import load_times_bdf
 
     with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
         mock_bdf_reader.return_value.hasSubset.side_effect = [True, False]
@@ -253,7 +253,7 @@ def test_load_times_bdf_error_old_to_be_removed():
 
 
 def test_load_times_bdf_pybdfreader_exception():
-    from xradio.measurement_set._utils._asdm._utils._bdf.time import load_times_bdf
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import load_times_bdf
 
     with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
         mock_bdf_reader.return_value.hasSubset.side_effect = [True, False]

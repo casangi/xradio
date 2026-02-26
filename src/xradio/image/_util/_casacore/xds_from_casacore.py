@@ -222,8 +222,6 @@ def _add_sky_or_aperture(
     xda = xr.DataArray(ary, dims=dimorder).astype(ary.dtype)
     with _open_image_ro(img_full_path) as casa_image:
         xda.attrs = _casa_image_to_xds_image_attrs(casa_image, history, image_type)
-    # xds.attrs = attrs
-    # name = "SKY" if has_sph_dims else "APERTURE"
     xda = xda.rename(image_type)
     xds[xda.name] = xda
     return xds
@@ -237,14 +235,12 @@ def _get_time_format(value: float, unit: str) -> str:
 
 
 def _add_time_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
-    # time_coord = xds['time']
     meta = {}
     meta["type"] = "time"
     meta["scale"] = coord_dict["obsdate"]["refer"]
     meta["units"] = [coord_dict["obsdate"]["m0"]["unit"]]
     meta["format"] = _get_time_format(xds["time"][0], meta["units"])
     xds["time"].attrs = copy.deepcopy(meta)
-    # xds['time'] = time_coord
     return xds
 
 
@@ -320,31 +316,6 @@ def _casa_image_to_xds_attrs(img_full_path: str) -> dict:
 
         attrs["coordinate_system_info"] = coordinate_system_info
     return copy.deepcopy(attrs)
-
-    #     dir_dict = {}
-
-    #     dir_dict["reference"] = make_skycoord_dict(
-    #         data=[0.0, 0.0], units="rad", frame=ap_system
-    #     )
-    #     if ap_equinox:
-    #         dir_dict["reference"]["attrs"]["equinox"] = ap_equinox
-    #     for i in range(2):
-    #         unit = u.Unit(_get_unit(coord_dir_dict["units"][i]))
-    #         q = coord_dir_dict["crval"][i] * unit
-    #         x = q.to("rad")
-    #         dir_dict["reference"]["data"][i] = float(x.value)
-    #     k = "latpole"
-    #     if k in coord_dir_dict:
-    #         for j in (k, "lonpole"):
-    #             m = "longpole" if j == "lonpole" else j
-    #             dir_dict[j] = make_quantity(
-    #                 value=coord_dir_dict[m] * _deg_to_rad, units="rad", dims=["l", "m"]
-    #             )
-    #     for j in ("pc", "projection_parameters", "projection"):
-    #         if j in coord_dir_dict:
-    #             dir_dict[j] = coord_dir_dict[j]
-    #     attrs["direction"] = dir_dict
-    # return copy.deepcopy(attrs)
 
 
 def _casa_image_to_xds_coords(
@@ -560,23 +531,6 @@ def _get_dimmap(coords: list, verbose: bool = False) -> dict:
         print(f"dimmap: {dimmap}")
     return dimmap
 
-"""
-def _get_freq_values(coords: coordinates.coordinatesystem, shape: tuple) -> list:
-    idx = _get_image_axis_order(coords)[::-1].index("Frequency")
-    if idx >= 0:
-        coord_dict = coords.dict()
-        for k in coord_dict:
-            if k.startswith("spectral"):
-                wcs = coord_dict[k]["wcs"]
-                return _compute_linear_world_values(
-                    naxis=shape[idx],
-                    crval=wcs["crval"],
-                    crpix=wcs["crpix"],
-                    cdelt=wcs["cdelt"],
-                )
-    else:
-        return [1420e6]
-"""
 
 def _get_freq_values_attrs(
     casa_coords: coordinates.coordinatesystem, shape: tuple
@@ -598,11 +552,7 @@ def _get_freq_values_attrs(
                 )
                 attrs["rest_frequency"] = make_quantity(sd["restfreq"], "Hz")
                 attrs["type"] = "spectral_coord"
-                # attrs["units"] = sd["unit"]
-                # attrs["frame"] = sd["system"]
                 attrs["wave_units"] = sd["waveUnit"]
-                # attrs["crval"] = sd["wcs"]["crval"]
-                # attrs["cdelt"] = sd["wcs"]["cdelt"]
 
                 attrs["reference_frequency"] = make_spectral_coord_reference_dict(
                     value=sd["wcs"]["crval"],
@@ -1124,11 +1074,6 @@ def _read_image_array(
     """
     img_full_path = os.path.expanduser(infile)
     with _open_image_ro(img_full_path) as casa_image:
-        """
-        if isinstance(chunks, list):
-            mychunks = tuple(chunks)
-        elif isinstance(chunks, dict):
-        """
         if isinstance(chunks, dict):
             mychunks = _get_chunk_list(
                 chunks,
@@ -1188,8 +1133,6 @@ def _read_image_array(
     rtrc = rtrc + [1 for rr in range(5) if rr >= len(mychunks)]
 
     # expand the actual data shape to the full 5 possible dims
-    # full_shape = cshape + [1 for rr in range(5) if rr >= len(cshape)]
-    # full_shape = list(rtrc - rblc)
     full_chunks = mychunks[::-1] + tuple([1 for rr in range(5) if rr >= len(mychunks)])
     d0slices = []
     for d0 in range(rblc[0], rtrc[0], full_chunks[0]):

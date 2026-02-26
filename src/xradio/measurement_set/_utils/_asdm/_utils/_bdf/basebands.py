@@ -1,4 +1,31 @@
+"""
+Functions to do various calculations related to the basebands/spw list(s).
+"""
+
 import toolviper.utils.logger as logger
+
+
+def calculate_overall_spw_idx(
+    basebands_descr: list[dict], baseband_idx: int, spw_idx: int
+) -> int:
+    overall_spw_idx = sum(
+        [
+            len(basebands_descr[bb_idx]["spectralWindows"])
+            for bb_idx in range(0, baseband_idx)
+        ]
+    )
+    +spw_idx
+
+    return overall_spw_idx
+
+
+def baseband_spw_to_overall_spw_idx(baseband_spw_idxs, bdf_descr):
+    baseband_idx, spw_idx = baseband_spw_idxs
+    overall_spw_idx = calculate_overall_spw_idx(
+        bdf_descr["basebands"], baseband_idx, spw_idx
+    )
+
+    return overall_spw_idx
 
 
 def find_spw_in_basebands_list(
@@ -6,8 +33,6 @@ def find_spw_in_basebands_list(
     basebands: list[dict],
     bdf_path: str,
 ) -> tuple[int, int]:
-
-    print(f" ***** \n\n\n\n\n ******* {basebands=}")
 
     bb_index_cnt = 0
     basebands_len_cumsum = 0

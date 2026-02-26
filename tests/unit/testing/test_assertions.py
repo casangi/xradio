@@ -56,7 +56,9 @@ def test_assert_xarray_datasets_equal_attr_mismatch():
     test = _make_dataset()
     true = _make_dataset()
     true.attrs["meta"]["version"] = 2
-    with pytest.raises(AssertionError, match="dataset attrs\\['meta'\\]\\['version'\\]"):
+    with pytest.raises(
+        AssertionError, match="dataset attrs\\['meta'\\]\\['version'\\]"
+    ):
         assert_xarray_datasets_equal(test, true)
 
 
@@ -151,7 +153,9 @@ def test_assert_xarray_datasets_equal_attr_type_mismatch():
     true = _make_dataset()
     test.attrs["meta"]["version"] = 1
     true.attrs["meta"]["version"] = "1"
-    with pytest.raises(AssertionError, match="dataset attrs\\['meta'\\]\\['version'\\]"):
+    with pytest.raises(
+        AssertionError, match="dataset attrs\\['meta'\\]\\['version'\\]"
+    ):
         assert_xarray_datasets_equal(test, true)
 
 

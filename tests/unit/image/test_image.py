@@ -22,8 +22,12 @@ from toolviper.dask.client import local_client
 from toolviper.utils.data import download
 
 from xradio.image import (
-    load_image, make_empty_aperture_image, make_empty_lmuv_image,
-    make_empty_sky_image, open_image, write_image
+    load_image,
+    make_empty_aperture_image,
+    make_empty_lmuv_image,
+    make_empty_sky_image,
+    open_image,
+    write_image,
 )
 from xradio.image._util._casacore.common import _create_new_image as create_new_image
 from xradio.image._util._casacore.common import _open_image_ro as open_image_ro
@@ -32,7 +36,9 @@ from xradio.image._util.common import _image_type as image_type
 from xradio._utils._casacore.tables import open_table_ro
 
 from xradio.testing.assertions import assert_xarray_datasets_equal, _compare_attrs_dict
+
 sky = "SKY"
+
 
 @pytest.fixture(scope="module")
 def dask_client_module():
@@ -66,7 +72,9 @@ def dask_client_module():
             if cluster is not None:
                 cluster.close()
 
+
 pytestmark = pytest.mark.usefixtures("dask_client_module")
+
 
 def _remove(filename):
     if os.path.exists(filename):
@@ -74,6 +82,7 @@ def _remove(filename):
             shutil.rmtree(filename)
         else:
             os.remove(filename)
+
 
 class xds_from_image_test(unittest.TestCase):
     _imname: str = "inp.im"
@@ -133,9 +142,9 @@ class xds_from_image_test(unittest.TestCase):
             mask: np.ndarray = np.array(
                 [i % 3 == 0 for i in range(np.prod(shape))], dtype=bool
             ).reshape(shape)
-            pix: np.ndarray = np.array([range(np.prod(shape))], dtype=np.float64).reshape(
-                shape
-            )
+            pix: np.ndarray = np.array(
+                [range(np.prod(shape))], dtype=np.float64
+            ).reshape(shape)
             masked_array = ma.masked_array(pix, mask)
             with create_new_image(cls._imname, shape=shape, mask="MASK_0") as im:
                 im.put(masked_array)
@@ -195,8 +204,10 @@ class xds_from_image_test(unittest.TestCase):
             do_sky_coords=True,
         )
         true_xds = full_xds.isel(
-            polarization=slice(0, 1), frequency=slice(0, 4), l=slice(2, 10),
-            m=slice(3, 15)
+            polarization=slice(0, 1),
+            frequency=slice(0, 4),
+            l=slice(2, 10),
+            m=slice(3, 15),
         )
         assert_xarray_datasets_equal(xds, true_xds)
 
@@ -218,7 +229,9 @@ class xds_from_image_test(unittest.TestCase):
     def xds_uv(cls):
         if not cls._xds_uv:
             download(cls.uv_image())
-            assert os.path.exists(cls.uv_image()), f"Cound not download {cls.uv_image()}"
+            assert os.path.exists(
+                cls.uv_image()
+            ), f"Cound not download {cls.uv_image()}"
             cls._xds_uv = open_image(cls.uv_image())
         return cls._xds_uv
 
@@ -251,25 +264,21 @@ class xds_from_image_test(unittest.TestCase):
             cls._xds_uv_true = xr.open_zarr(cls._xds_from_casa_uv_true)
         return cls._xds_uv_true
 
+
 class casa_image_to_xds_test(xds_from_image_test):
     """
     test casa_image_to_xds
     """
 
     def test_got_xds(self):
-        assert_xarray_datasets_equal(
-            self.xds(), self.true_xds()
-        )
+        assert_xarray_datasets_equal(self.xds(), self.true_xds())
 
     def test_got_xds_no_sky(self):
-        assert_xarray_datasets_equal(
-            self.xds_no_sky(), self.true_no_sky_xds()
-        )
+        assert_xarray_datasets_equal(self.xds_no_sky(), self.true_no_sky_xds())
 
     def test_uv_image(self):
-        assert_xarray_datasets_equal(
-            self.xds_uv(), self.true_uv_xds()
-        )
+        assert_xarray_datasets_equal(self.xds_uv(), self.true_uv_xds())
+
 
 class xds_to_casacore(xds_from_image_test):
     _outname = "rabbit.im"
@@ -315,7 +324,6 @@ class xds_to_casacore(xds_from_image_test):
         with open_image_ro(self._outname2) as im:
             ii = im.imageinfo()
             self.assertEqual(ii["objectname"], "", "Incorrect object name")
-
 
 
 class casacore_to_xds_to_casacore(xds_from_image_test):
@@ -396,7 +404,9 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
         with open_image_ro(self.imname()) as im1:
             c1 = im1.info()
             for imname in [self.outname(), self._outname_no_sky]:
-                self.assertTrue(os.path.exists(imname), f"Output image {imname} does not exist")
+                self.assertTrue(
+                    os.path.exists(imname), f"Output image {imname} does not exist"
+                )
                 with open_image_ro(imname) as im2:
                     c2 = im2.info()
                     # some quantities are expected to have different untis and values
@@ -424,7 +434,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                 with open_table_ro(imname) as tb2:
                     kw1 = tb1.getkeywords()
                     kw2 = tb2.getkeywords()
-                    exclude_keys=[
+                    exclude_keys = [
                         "worldreplace2",
                     ]
                     union_keys = set(kw1.keys()) | set(kw2.keys())
@@ -446,8 +456,8 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                     # names are different because image names are different
                     del kw1["logtable"]
                     del kw2["logtable"]
-                    del kw1['masks']['MASK_0']['mask']
-                    del kw2['masks']['MASK_0']['mask']
+                    del kw1["masks"]["MASK_0"]["mask"]
+                    del kw2["masks"]["MASK_0"]["mask"]
                     _compare_attrs_dict(
                         kw1,
                         kw2,
@@ -648,6 +658,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                 expec = test_im.getdata()
                 self.assertTrue(np.isclose(got, expec).all(), "Incorrect pixel data")
 
+
 class xds_to_zarr_to_xds_test(xds_from_image_test):
     """
     test xds -> zarr -> xds round trip
@@ -678,9 +689,7 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
             _remove(f)
 
     def test_got_xds(self):
-        assert_xarray_datasets_equal(
-            self._zds, self.true_xds()
-        )
+        assert_xarray_datasets_equal(self._zds, self.true_xds())
 
     def test_get_img_ds_block(self):
         self.compare_image_block(self._zarr_store, zarr=True)
@@ -713,6 +722,7 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
             np.allclose(xds2.BEAM_FIT_PARAMS.values, xds.BEAM_FIT_PARAMS.values),
             "Incorrect beam values",
         )
+
 
 class fits_to_xds_test(xds_from_image_test):
     """
@@ -758,7 +768,9 @@ class fits_to_xds_test(xds_from_image_test):
         # velocities of the fits xds to RADIO
         c = 299792458  # speed of light in m/s
         radio_velocity = c * (
-            1 - self._fds["frequency"].values / self._fds["frequency"].attrs["rest_frequency"]["data"]
+            1
+            - self._fds["frequency"].values
+            / self._fds["frequency"].attrs["rest_frequency"]["data"]
         )
         self._fds.coords["velocity"].values = radio_velocity
         self._fds_no_sky.coords["velocity"].values = radio_velocity
@@ -768,7 +780,9 @@ class fits_to_xds_test(xds_from_image_test):
         true_xds = deepcopy(self.true_xds())
         true_xds_no_sky = deepcopy(self.true_no_sky_xds())
         if "FLAG_SKY" in true_xds:
-            true_xds["SKY"].values = xr.where(true_xds["FLAG_SKY"].values, np.nan, true_xds["SKY"])
+            true_xds["SKY"].values = xr.where(
+                true_xds["FLAG_SKY"].values, np.nan, true_xds["SKY"]
+            )
         if "FLAG_SKY" in true_xds_no_sky:
             true_xds_no_sky["SKY"].values = xr.where(
                 true_xds_no_sky["FLAG_SKY"].values, np.nan, true_xds_no_sky["SKY"]
@@ -776,12 +790,8 @@ class fits_to_xds_test(xds_from_image_test):
         # FITS gets a FITS specific user attr member added that isn't in the true data set
         self._fds["SKY"].attrs["user"] = {}
         self._fds_no_sky["SKY"].attrs["user"] = {}
-        assert_xarray_datasets_equal(
-            self._fds, true_xds
-        )
-        assert_xarray_datasets_equal(
-            self._fds_no_sky, true_xds_no_sky
-        )
+        assert_xarray_datasets_equal(self._fds, true_xds)
+        assert_xarray_datasets_equal(self._fds_no_sky, true_xds_no_sky)
 
     def test_multibeam(self):
         download(self._imname1)
@@ -913,6 +923,7 @@ class fits_to_xds_test(xds_from_image_test):
     #    # self.compare_image_block(self.imname())
     #    pass
 
+
 class make_empty_image_tests(unittest.TestCase):
     @classmethod
     def create_image(cls, code, do_sky_coords=None):
@@ -988,6 +999,7 @@ class make_empty_image_param_tests(make_empty_image_tests):
                     self._generated_xds[case["name"]],
                     truth_xds,
                 )
+
 
 class write_image_test(xds_from_image_test):
 

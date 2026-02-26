@@ -113,7 +113,9 @@ def _check_data_vars(
         )
 
 
-def _check_indexes(test: xr.Dataset, true: xr.Dataset, *, rtol: float, atol: float) -> None:
+def _check_indexes(
+    test: xr.Dataset, true: xr.Dataset, *, rtol: float, atol: float
+) -> None:
     test_indexes = set(test.indexes)
     true_indexes = set(true.indexes)
 
@@ -148,7 +150,9 @@ def _check_indexes(test: xr.Dataset, true: xr.Dataset, *, rtol: float, atol: flo
 def _check_attrs(
     test: xr.Dataset, true: xr.Dataset, *, rtol: float, atol: float
 ) -> None:
-    _compare_attrs_dict(test.attrs, true.attrs, context="dataset attrs", rtol=rtol, atol=atol)
+    _compare_attrs_dict(
+        test.attrs, true.attrs, context="dataset attrs", rtol=rtol, atol=atol
+    )
 
     for name in sorted(set(test.coords) & set(true.coords)):
         _compare_attrs_dict(
@@ -207,9 +211,7 @@ def _compare_arrays(
 ) -> None:
     try:
         if _is_numeric_dtype(test.dtype):
-            np.testing.assert_allclose(
-                test, true, rtol=rtol, atol=atol, equal_nan=True
-            )
+            np.testing.assert_allclose(test, true, rtol=rtol, atol=atol, equal_nan=True)
         else:
             np.testing.assert_array_equal(test, true)
     except AssertionError as exc:

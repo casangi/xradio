@@ -11,7 +11,6 @@ import dask.array as da
 from glob import glob
 import numpy as np
 import numpy.ma as ma
-import numbers
 import os
 import pytest
 import re
@@ -75,15 +74,6 @@ def _remove(filename):
             shutil.rmtree(filename)
         else:
             os.remove(filename)
-
-def clean_path_logic(text: str) -> str:
-    """Cleans the subtable path logic string by isolating the basename."""
-    prefix = "Table: "
-    if text.startswith(prefix):
-        raw_path = text.removeprefix(prefix).strip()
-        base_name = os.path.basename(raw_path.rstrip("/"))
-        return f"Table: {base_name}"
-    return text
 
 class xds_from_image_test(unittest.TestCase):
     _imname: str = "inp.im"
@@ -687,12 +677,6 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
         ]:
             _remove(f)
 
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
     def test_got_xds(self):
         assert_xarray_datasets_equal(
             self._zds, self.true_xds()
@@ -767,12 +751,6 @@ class fits_to_xds_test(xds_from_image_test):
         ]:
             if os.path.exists(f):
                 _remove(f)
-
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
 
     def test_got_xds(self):
         # casacore writes the fits image with doppler type Z even though the casacore image
@@ -972,10 +950,6 @@ class make_empty_sky_image_tests(make_empty_image_tests):
             make_empty_sky_image, False
         )
 
-    @classmethod
-    def tearDownClass(cls):
-        super().tearDownClass()
-
     def test_empty_sky_image(self):
         assert_xarray_datasets_equal(
             self._skel_im, self.get_truth_xds(self._empty_sky_image_true, self._sky_true)
@@ -1000,10 +974,6 @@ class make_empty_aperture_image_tests(make_empty_image_tests):
             make_empty_aperture_image, None
         )
 
-    @classmethod
-    def tearDownClass(cls):
-        super().tearDownClass()
-
     def test_empty_sky_image(self):
         assert_xarray_datasets_equal(
             self._skel_im,
@@ -1024,10 +994,6 @@ class make_empty_lmuv_image_tests(make_empty_image_tests):
         cls._skel_im_no_sky = make_empty_image_tests.create_image(
             make_empty_lmuv_image, False
         )
-
-    @classmethod
-    def tearDownClass(cls):
-        super().tearDownClass()
 
     def test_empty_sky_image(self):
         assert_xarray_datasets_equal(

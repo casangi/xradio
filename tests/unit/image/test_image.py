@@ -935,79 +935,59 @@ class make_empty_image_tests(unittest.TestCase):
         return truth_xds
 
 
-class make_empty_sky_image_tests(make_empty_image_tests):
-    """Test making skeleton image"""
-    _empty_sky_image_true: str = "empty_sky_image_true.zarr"
-    _empty_sky_image_no_sky_coords_true: str = "empty_sky_image_no_sky_coords_true.zarr"
-    _sky_true = None
-    _sky_no_coords_true = None
-
+class make_empty_image_param_tests(make_empty_image_tests):
+    CASES = [
+        {
+            "name": "sky",
+            "factory": make_empty_sky_image,
+            "do_sky_coords": True,
+            "truth_xds": "empty_sky_image_true.zarr",
+        },
+        {
+            "name": "sky_no_coords",
+            "factory": make_empty_sky_image,
+            "do_sky_coords": False,
+            "truth_xds": "empty_sky_image_no_sky_coords_true.zarr",
+        },
+        {
+            "name": "aperture",
+            "factory": make_empty_aperture_image,
+            "do_sky_coords": None,
+            "truth_xds": "empty_aperture_image_true.zarr",
+        },
+        {
+            "name": "lmuv",
+            "factory": make_empty_lmuv_image,
+            "do_sky_coords": True,
+            "truth_xds": "empty_lmuv_image_true.zarr",
+        },
+        {
+            "name": "lmuv_no_coords",
+            "factory": make_empty_lmuv_image,
+            "do_sky_coords": False,
+            "truth_xds": "empty_lmuv_image_no_sky_coords_true.zarr",
+        },
+    ]
 
     @classmethod
     def setUpClass(cls):
-        cls._skel_im = make_empty_image_tests.create_image(make_empty_sky_image, True)
-        cls._skel_im_no_sky = make_empty_image_tests.create_image(
-            make_empty_sky_image, False
-        )
-
-    def test_empty_sky_image(self):
-        assert_xarray_datasets_equal(
-            self._skel_im, self.get_truth_xds(self._empty_sky_image_true, self._sky_true)
-        )
-
-    def test_empty_sky_image_no_coords(self):
-        assert_xarray_datasets_equal(
-            self._skel_im_no_sky,
-            self.get_truth_xds(
-                self._empty_sky_image_no_sky_coords_true, self._sky_no_coords_true
+        cls._generated_xds = {}
+        cls._truth_xds = {}
+        for case in cls.CASES:
+            cls._generated_xds[case["name"]] = cls.create_image(
+                case["factory"], case["do_sky_coords"]
             )
-        )
 
-class make_empty_aperture_image_tests(make_empty_image_tests):
-    """Test making skeleton image"""
-    _empty_aperture_image_true: str = "empty_aperture_image_true.zarr"
-    _aperture_true = None
-
-    @classmethod
-    def setUpClass(cls):
-        cls._skel_im = make_empty_image_tests.create_image(
-            make_empty_aperture_image, None
-        )
-
-    def test_empty_sky_image(self):
-        assert_xarray_datasets_equal(
-            self._skel_im,
-            self.get_truth_xds(self._empty_aperture_image_true, self._aperture_true),
-        )
-
-class make_empty_lmuv_image_tests(make_empty_image_tests):
-    """Tests making image with l, m, u, v coordinates"""
-
-    _empty_lmuv_image_true: str = "empty_lmuv_image_true.zarr"
-    _empty_lmuv_image_no_sky_coords_true: str = "empty_lmuv_image_no_sky_coords_true.zarr"
-    _lmuv_true = None
-    _lmuv_no_coords_true = None
-
-    @classmethod
-    def setUpClass(cls):
-        cls._skel_im = make_empty_image_tests.create_image(make_empty_lmuv_image, True)
-        cls._skel_im_no_sky = make_empty_image_tests.create_image(
-            make_empty_lmuv_image, False
-        )
-
-    def test_empty_sky_image(self):
-        assert_xarray_datasets_equal(
-            self._skel_im,
-            self.get_truth_xds(self._empty_lmuv_image_true, self._lmuv_true),
-        )
-
-    def test_empty_sky_image_no_coords(self):
-        assert_xarray_datasets_equal(
-            self._skel_im_no_sky,
-            self.get_truth_xds(
-                self._empty_lmuv_image_no_sky_coords_true, self._lmuv_no_coords_true
-            ),
-        )
+    def test_make_empty_images(self):
+        for case in self.CASES:
+            with self.subTest(case=case["name"]):
+                truth_xds = self._truth_xds.get(case["name"])
+                truth_xds = self.get_truth_xds(case["truth_xds"], truth_xds)
+                self._truth_xds[case["name"]] = truth_xds
+                assert_xarray_datasets_equal(
+                    self._generated_xds[case["name"]],
+                    truth_xds,
+                )
 
 class write_image_test(xds_from_image_test):
 

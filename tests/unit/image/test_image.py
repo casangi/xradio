@@ -67,6 +67,8 @@ def dask_client_module():
             if cluster is not None:
                 cluster.close()
 
+pytestmark = pytest.mark.usefixtures("dask_client_module")
+
 def _remove(filename):
     if os.path.exists(filename):
         if os.path.isdir(filename):
@@ -83,11 +85,7 @@ def clean_path_logic(text: str) -> str:
         return f"Table: {base_name}"
     return text
 
-@pytest.mark.usefixtures("dask_client_module")
-class ImageBase(unittest.TestCase):
-    pass
-
-class xds_from_image_test(ImageBase):
+class xds_from_image_test(unittest.TestCase):
     _imname: str = "inp.im"
     _outname: str = "out.im"
     _infits: str = "inp.im.fits"
@@ -166,11 +164,6 @@ class xds_from_image_test(ImageBase):
             t.putcell("MESSAGE", 0, "HELLO FROM EARTH again")
             t.flush()
             t.close()
-            # with open_image_ro(cls._imname) as im:
-            #    im.tofits(cls._infits)
-            #    assert os.path.exists(cls._infits), f"Could not create {cls._infits}"
-
-            # cls._xds_no_sky = open_image(cls._imname, {"frequency": 5}, False, False)
 
     def compare_image_block(self, imagename, zarr=False):
         x = [0] if zarr else [0, 1]
@@ -355,6 +348,14 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
     _outname6: str = "single_beam.im"
     _output_uv: str = "output_uv.im"
 
+    @staticmethod
+    def _normalize_coords_for_compare(coords, factor):
+        direction = coords["direction0"]
+        direction["cdelt"] *= factor
+        direction["crval"] *= factor
+        direction["units"] = ["'", "'"]
+        coords["spectral2"]["velUnit"] = "km/s"
+
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
@@ -409,14 +410,11 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                 with open_image_ro(imname) as im2:
                     c2 = im2.info()
                     # some quantities are expected to have different untis and values
-                    c2["coordinates"]["direction0"]["cdelt"] *= f
-                    c2["coordinates"]["direction0"]["crval"] *= f
-                    c2["coordinates"]["direction0"]["units"] = ["'", "'"]
+                    self._normalize_coords_for_compare(c2["coordinates"], f)
                     # the actual velocity values aren't stored but rather computed
                     # by casacore on the fly, so we cannot easily compare them,
                     # and really comes down to comparing the values of c used in
                     # the computations (eg, if c is in m/s or km/s)
-                    c2["coordinates"]["spectral2"]["velUnit"] = "km/s"
                     # it appears that 'worldreplace2' is not correctly recorded or retrieved
                     # by casatools, with empty np.array returned instead.
                     c2["coordinates"]["worldreplace2"] = np.array(
@@ -451,13 +449,10 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                     for k in ["_image_axes", "_axes_sizes"]:
                         for d in [d2, s2, t2]:
                             del d[k]
-                    d2["cdelt"] *= f
-                    d2["crval"] *= f
+                    self._normalize_coords_for_compare(kw2["coords"], f)
                     d2["latpole"] = 0
-                    d2["units"] = ["'", "'"]
                     s1 = kw1["coords"]["spectral2"]
                     del s1["conversion"]
-                    s2["velUnit"] = "km/s"
                     # names are different because image names are different
                     del kw1["logtable"]
                     del kw2["logtable"]
@@ -470,7 +465,6 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                         rtol=1e-7,
                         atol=1e-7,
                     )
-
 
     def test_beam(self):
         """
@@ -660,10 +654,6 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                     rtol=1e-7,
                     atol=1e-7,
                 )
-
-
-
-
                 got = test_im.getdata()
                 expec = test_im.getdata()
                 self.assertTrue(np.isclose(got, expec).all(), "Incorrect pixel data")
@@ -945,7 +935,7 @@ class fits_to_xds_test(xds_from_image_test):
     #    # self.compare_image_block(self.imname())
     #    pass
 
-class make_empty_image_tests(ImageBase):
+class make_empty_image_tests(unittest.TestCase):
     @classmethod
     def create_image(cls, code, do_sky_coords=None):
         args = [
@@ -958,6 +948,14 @@ class make_empty_image_tests(ImageBase):
         ]
         kwargs = {} if do_sky_coords is None else {"do_sky_coords": do_sky_coords}
         return code(*args, **kwargs)
+
+    def get_truth_xds(self, zarr_store, truth_xds):
+        if not truth_xds:
+            if not os.path.exists(zarr_store):
+                download(zarr_store)
+            truth_xds = open_image(zarr_store)
+        return truth_xds
+
 
 class make_empty_sky_image_tests(make_empty_image_tests):
     """Test making skeleton image"""
@@ -978,28 +976,17 @@ class make_empty_sky_image_tests(make_empty_image_tests):
     def tearDownClass(cls):
         super().tearDownClass()
 
-    def empty_image_true_xds(self):
-        if not self._sky_true:
-            if not os.path.exists(self._empty_sky_image_true):
-                download(self._empty_sky_image_true)
-            self._sky_true = open_image(self._empty_sky_image_true)
-        return self._sky_true
-
-    def empty_image_no_coords_true_xds(self):
-        if not self._sky_no_coords_true:
-            if not os.path.exists(self._empty_sky_image_no_sky_coords_true):
-                download(self._empty_sky_image_no_sky_coords_true)
-            self._sky_no_coords_true = open_image(self._empty_sky_image_no_sky_coords_true)
-        return self._sky_no_coords_true
-
-
     def test_empty_sky_image(self):
         assert_xarray_datasets_equal(
-            self._skel_im, self.empty_image_true_xds()
+            self._skel_im, self.get_truth_xds(self._empty_sky_image_true, self._sky_true)
         )
+
     def test_empty_sky_image_no_coords(self):
         assert_xarray_datasets_equal(
-            self._skel_im_no_sky, self.empty_image_no_coords_true_xds()
+            self._skel_im_no_sky,
+            self.get_truth_xds(
+                self._empty_sky_image_no_sky_coords_true, self._sky_no_coords_true
+            )
         )
 
 class make_empty_aperture_image_tests(make_empty_image_tests):
@@ -1012,25 +999,15 @@ class make_empty_aperture_image_tests(make_empty_image_tests):
         cls._skel_im = make_empty_image_tests.create_image(
             make_empty_aperture_image, None
         )
-        # write_image(cls._skel_im, cls._empty_aperture_image_true, "zarr")
 
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
 
-    def empty_image_true_xds(self):
-        if not self._aperture_true:
-            if not os.path.exists(self._empty_aperture_image_true):
-                download(self._empty_aperture_image_true)
-            self._sky_true = open_image(self._empty_aperture_image_true)
-        return self._sky_true
-
-    def skel_im(self):
-        return self._skel_im
-
     def test_empty_sky_image(self):
         assert_xarray_datasets_equal(
-            self._skel_im, self.empty_image_true_xds()
+            self._skel_im,
+            self.get_truth_xds(self._empty_aperture_image_true, self._aperture_true),
         )
 
 class make_empty_lmuv_image_tests(make_empty_image_tests):
@@ -1052,27 +1029,18 @@ class make_empty_lmuv_image_tests(make_empty_image_tests):
     def tearDownClass(cls):
         super().tearDownClass()
 
-    def empty_image_true_xds(self):
-        if not self._lmuv_true:
-            if not os.path.exists(self._empty_lmuv_image_true):
-                download(self._empty_lmuv_image_true)
-            self._lmuv_true = open_image(self._empty_lmuv_image_true)
-        return self._lmuv_true
-
-    def empty_image_no_coords_true_xds(self):
-        if not self._lmuv_no_coords_true:
-            if not os.path.exists(self._empty_lmuv_image_no_sky_coords_true):
-                download(self._empty_lmuv_image_no_sky_coords_true)
-            self._lmuv_no_coords_true = open_image(self._empty_lmuv_image_no_sky_coords_true)
-        return self._lmuv_no_coords_true
-
     def test_empty_sky_image(self):
         assert_xarray_datasets_equal(
-            self._skel_im, self.empty_image_true_xds()
+            self._skel_im,
+            self.get_truth_xds(self._empty_lmuv_image_true, self._lmuv_true),
         )
+
     def test_empty_sky_image_no_coords(self):
         assert_xarray_datasets_equal(
-            self._skel_im_no_sky, self.empty_image_no_coords_true_xds()
+            self._skel_im_no_sky,
+            self.get_truth_xds(
+                self._empty_lmuv_image_no_sky_coords_true, self._lmuv_no_coords_true
+            ),
         )
 
 class write_image_test(xds_from_image_test):

@@ -9,14 +9,18 @@ import pyasdm
 
 
 def test_get_times_from_bdfs_empty():
-    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import get_times_from_bdfs
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
+        get_times_from_bdfs,
+    )
 
     with pytest.raises(ValueError, match="at least one"):
         get_times_from_bdfs([], pd.DataFrame())
 
 
 def test_get_times_from_bdfs_non_existent():
-    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import get_times_from_bdfs
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
+        get_times_from_bdfs,
+    )
 
     with pytest.raises(
         pyasdm.exceptions.BDFReaderException, match="No such file or directory"
@@ -77,6 +81,29 @@ def test_get_times_from_bdfs_error():
             pyasdm.exceptions.BDFReaderException,
             match="message from BDFReaderException",
         ):
+            _centers, _durations, _actual_times, _actual_durations = (
+                get_times_from_bdfs(bdf_paths, pd.DataFrame())
+            )
+
+
+def test_get_times_from_bdfs_error_runtime():
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
+        get_times_from_bdfs,
+    )
+
+    with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
+        bdf_reader_exception_msg = "message from BDFReaderException"
+        mock_bdf_reader.return_value.hasSubset.side_effect = [
+            True,
+            False,
+        ]
+        mock_bdf_reader.return_value.getSubset.side_effect = [
+            RuntimeError("getSubset"),
+            None,
+        ]
+
+        bdf_paths = ["/no_path/nonexistant/foo", "/no_path/nonexistant/bar"]
+        with pytest.raises(RuntimeError, match="getSubset"):
             _centers, _durations, _actual_times, _actual_durations = (
                 get_times_from_bdfs(bdf_paths, pd.DataFrame())
             )
@@ -257,7 +284,6 @@ def test_load_times_bdf_pybdfreader_exception():
 
     with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
         mock_bdf_reader.return_value.hasSubset.side_effect = [True, False]
-        #mock_bdf_reader.exceptions.BDFReaderException = pyasdm.exceptions.BDFReaderException
         bdf_reader_exception_msg = "msg from BDFReader"
         mock_bdf_reader.return_value.getSubset.side_effect = [
             pyasdm.exceptions.BDFReaderException(bdf_reader_exception_msg)

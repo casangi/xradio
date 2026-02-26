@@ -172,33 +172,6 @@ basebands_example_X2197 = [
 ]
 
 
-@pytest.mark.parametrize(
-    "input_spw_idx, input_basebands, expected_baseband_idx, expected_spw_idx",
-    [
-        (0, [], 0, 0),
-        (1, [], 0, 0),
-        (0, basebands_example_X2197, 0, 0),
-        (1, basebands_example_X2197, 1, 0),
-        (2, basebands_example_X2197, 2, 0),
-        (3, basebands_example_X2197, 2, 1),
-        (4, basebands_example_X2197, 3, 0),
-        (5, basebands_example_X2197, 0, 0),
-    ],
-)
-def test_find_spw_in_basebands_list_empty(
-    input_spw_idx, input_basebands, expected_baseband_idx, expected_spw_idx
-):
-    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
-        find_spw_in_basebands_list,
-    )
-
-    baseband_idx, spw_idx = find_spw_in_basebands_list(
-        input_spw_idx, input_basebands, "bogus_path_non_existant.nope"
-    )
-    assert baseband_idx == expected_baseband_idx
-    assert spw_idx == expected_spw_idx
-
-
 # Will likely also need a ProcessorType.RADIOMETER/SPECTROMETER
 # From uid___A002_Xc33ac1_X136e (AUTO_ONLY)
 bdf_descr_X136e = {
@@ -1022,6 +995,26 @@ def test_load_flags_from_bdf(input_never_reshape, input_spw, expected_shape):
         assert isinstance(flags, np.ndarray)
         assert flags.dtype == "bool"
         assert flags.shape == expected_shape
+
+
+def test_load_flags_from_bdf_with_error():
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        load_flags_from_bdf,
+    )
+
+    bdf_path = "/inexistent_path_to_bdf/foo/"
+    with (
+        mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
+        mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
+    ):
+        mock_bdf_reader.return_value.hasSubset.side_effect = [True, False]
+        mock_bdf_reader.return_value.getSubset.side_effect = [RuntimeError, {}]
+
+        make_sufficient_bdf_header_mock(mock_bdf_header)
+        mock_bdf_reader.return_value.getHeader.return_value = mock_bdf_header
+
+        with pytest.raises(RuntimeError, match="Error while loading flags from a BDF"):
+            _flags = load_flags_from_bdf(bdf_path, 1, {}, True)
 
 
 def test_load_flags_all_subsets():

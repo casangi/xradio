@@ -48,6 +48,7 @@ def load_processing_set(
     from xradio._utils.zarr.common import _get_file_system_and_items
     import dask
     import s3fs
+    import posixpath
 
     file_system, ms_store_list = _get_file_system_and_items(ps_store)
 
@@ -58,10 +59,10 @@ def load_processing_set(
 
         if sel_parms:
             for ms_name, ms_xds_isel in sel_parms.items():
-                ms_store = os.path.join(ps_store, ms_name)
+                ms_store = posixpath.join(ps_store, ms_name)
 
                 if isinstance(file_system, s3fs.core.S3FileSystem):
-                    ms_store = s3fs.S3Map(root=ps_store, s3=file_system, check=False)
+                    ms_store = s3fs.S3Map(root=ms_store, s3=file_system, check=False)
 
                 if ms_xds_isel:
                     ms_xdt = (
@@ -77,9 +78,10 @@ def load_processing_set(
                     ).xr_ms.sel(data_group_name=data_group_name)
 
                 if include_variables is not None:
-                    for data_vars in ms_xdt.ds.data_vars:
-                        if data_vars not in include_variables:
-                            ms_xdt.ds = ms_xdt.ds.drop_vars(data_vars)
+                    vars_to_drop = [
+                        v for v in ms_xdt.ds.data_vars if v not in include_variables
+                    ]
+                    ms_xdt.ds = ms_xdt.ds.drop_vars(vars_to_drop)
 
                 ps_xdt[ms_name] = ms_xdt
 
@@ -122,6 +124,7 @@ class ProcessingSetIterator:
         include_variables: Union[list, None] = None,
         drop_variables: Union[list, None] = None,
         load_sub_datasets: bool = True,
+        in_memory: bool = False,
     ):
         """An iterator that will go through a processing set one MS v4 at a time.
 
@@ -143,35 +146,59 @@ class ProcessingSetIterator:
             If the processing set is in memory already it can be supplied here. By default None which will make the iterator load data using the supplied input_data_store.
         data_group_name : str, optional
             The name of the data group to select. By default None, which loads all data groups.
-        data_group_name : str, optional
-            The name of the data group to select. By default None, which loads all data groups.
         include_variables : Union[list, None], optional
             The list of data variables to load into memory for example ['VISIBILITY', 'WEIGHT, 'FLAGS']. By default None which will load all data variables into memory.
         drop_variables : Union[list, None], optional
             The list of data variables to drop from memory for example ['VISIBILITY', 'WEIGHT, 'FLAGS']. By default None which will not drop any data variables from memory.
         load_sub_datasets : bool, optional
             If true sub-datasets (for example weather_xds, antenna_xds, pointing_xds, system_calibration_xds ...) will be loaded into memory, by default True.
+        in_memory : bool, optional
+            If True, ms_xdt's are cached as they are loaded so that resetting the iterator
+            does not require reloading from disk. If False, only a single ms_xdt is held in
+            memory at a time. By default False.
         """
 
         self.input_data = input_data
         self.input_data_store = input_data_store
         self.sel_parms = sel_parms
-        self.xds_name_iter = iter(sel_parms.keys())
         self.data_group_name = data_group_name
         self.include_variables = include_variables
         self.drop_variables = drop_variables
         self.load_sub_datasets = load_sub_datasets
+        self.in_memory = in_memory
+
+        self._ms_name_list = list(sel_parms.keys())
+        self._index = 0
+        self._current_ms_name: Union[str, None] = None
+        self._current_ms_xdt: Union[xr.DataTree, None] = None
+        self._cache: Dict[str, xr.DataTree] = {}
 
     def __iter__(self):
         return self
 
+    def reset(self):
+        """Reset the iterator to the beginning.
+
+        If ``in_memory=True``, previously loaded ms_xdt's are served from the
+        cache on the next pass without reloading from disk.
+        """
+        self._index = 0
+        self._current_ms_name = None
+        self._current_ms_xdt = None
+
     def __next__(self):
-        try:
-            sub_xds_name = next(self.xds_name_iter)
-        except Exception:
+        if self._index >= len(self._ms_name_list):
             raise StopIteration
 
-        if self.input_data is None:
+        sub_xds_name = self._ms_name_list[self._index]
+        self._index += 1
+        self._current_ms_name = sub_xds_name
+
+        if self.input_data is not None:
+            sub_xdt = self.input_data[sub_xds_name]
+        elif self.in_memory and sub_xds_name in self._cache:
+            sub_xdt = self._cache[sub_xds_name]
+        else:
             slice_description = self.sel_parms[sub_xds_name]
             ps_xdt = load_processing_set(
                 ps_store=self.input_data_store,
@@ -181,8 +208,9 @@ class ProcessingSetIterator:
                 drop_variables=self.drop_variables,
                 load_sub_datasets=self.load_sub_datasets,
             )
-            sub_xdt = ps_xdt[sub_xds_name]  # Access by name instead of index
-        else:
-            sub_xdt = self.input_data[sub_xds_name]  # In memory
+            sub_xdt = ps_xdt[sub_xds_name]
+            if self.in_memory:
+                self._cache[sub_xds_name] = sub_xdt
 
+        self._current_ms_xdt = sub_xdt
         return sub_xdt

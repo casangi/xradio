@@ -7,9 +7,11 @@ import pyasdm
 import toolviper.utils.logger as logger
 
 from .basebands import find_spw_in_basebands_list
-from .pyasdm_load_from_trees import (
+from .shapes import (
     add_cross_and_auto_flag_shapes,
     full_shape_to_output_filled_flags_shape,
+)
+from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
     load_flags_all_subsets_from_trees,
     load_visibilities_all_subsets_from_trees,
 )

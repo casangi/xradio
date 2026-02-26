@@ -7,50 +7,6 @@ import pytest
 
 import pyasdm
 
-example_guessed_shape_auto_only = {
-    "auto": (5, 9, 1, 64, 2),
-    "cross": None,
-}
-example_guessed_shape = {
-    "cross": (3, 36, 1, 64, 2, 2),
-    "auto": (5, 9, 1, 64, 2),
-}
-
-
-@pytest.mark.parametrize(
-    "input_guessed_shape, expected_out_shape",
-    [
-        (example_guessed_shape, (3, 45, 1, 64, 2, 2)),
-        (example_guessed_shape_auto_only, (5, 9, 1, 64, 2)),
-    ],
-)
-def test_add_cross_and_auto_flag_shapes_with_cross(
-    input_guessed_shape, expected_out_shape
-):
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
-        add_cross_and_auto_flag_shapes,
-    )
-
-    added = add_cross_and_auto_flag_shapes(input_guessed_shape)
-    assert added == expected_out_shape
-
-
-@pytest.mark.parametrize(
-    "input_shape, expected_out_shape",
-    [
-        (example_guessed_shape["auto"], (5, 9, 2)),
-        (example_guessed_shape["cross"], (3, 36, 2)),
-    ],
-)
-def test_full_shape_to_output_filled_flags_shape(input_shape, expected_out_shape):
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
-        full_shape_to_output_filled_flags_shape,
-    )
-
-    out_shape = full_shape_to_output_filled_flags_shape(input_shape)
-    assert out_shape == expected_out_shape
-
-
 basebands_example = [
     {
         "name": "BB_1",
@@ -281,70 +237,6 @@ bdf_descr_X136e = {
         },
     ],
 }
-
-
-@pytest.mark.parametrize(
-    "input_basebands, input_baseband_idx, input_spw_idx, expected_overall_spw_idx, expected_error",
-    [
-        (basebands_example, 0, 0, 0, no_raises()),
-        (basebands_example, 0, 1, 0, no_raises()),
-        (basebands_example, 1, 0, 1, no_raises()),
-        (basebands_example, 3, 0, 4, no_raises()),
-        (basebands_example, 4, 1, 5, no_raises()),
-        (basebands_example, 6, 1, 5, pytest.raises(IndexError, match="out of range")),
-        (bdf_descr_X136e["basebands"], 0, 0, 0, no_raises()),
-        (bdf_descr_X136e["basebands"], 0, 1, 0, no_raises()),
-        (bdf_descr_X136e["basebands"], 0, 2, 0, no_raises()),
-        (bdf_descr_X136e["basebands"], 2, 0, 4, no_raises()),
-        (
-            bdf_descr_X136e["basebands"],
-            5,
-            0,
-            4,
-            pytest.raises(IndexError, match="out of range"),
-        ),
-    ],
-)
-def test_calculate_overall_spw_idx(
-    input_basebands,
-    input_baseband_idx,
-    input_spw_idx,
-    expected_overall_spw_idx,
-    expected_error,
-):
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
-        calculate_overall_spw_idx,
-    )
-
-    with expected_error:
-        spw_idx = calculate_overall_spw_idx(
-            input_basebands, input_baseband_idx, input_spw_idx
-        )
-        assert spw_idx == expected_overall_spw_idx
-
-
-@pytest.mark.parametrize(
-    "input_baseband_spw_idxs, input_bdf_descr, expected_overall_spw_idx, expected_error",
-    [
-        ((0, 0), bdf_descr_X136e, 0, no_raises()),
-        ((0, 1), bdf_descr_X136e, 0, no_raises()),
-        ((0, 2), bdf_descr_X136e, 0, no_raises()),
-        ((2, 0), bdf_descr_X136e, 4, no_raises()),
-        ((5, 0), bdf_descr_X136e, 4, pytest.raises(IndexError, match="out of range")),
-    ],
-)
-def test_baseband_spw_to_overall_spw_idx(
-    input_baseband_spw_idxs, input_bdf_descr, expected_overall_spw_idx, expected_error
-):
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
-        baseband_spw_to_overall_spw_idx,
-    )
-
-    with expected_error:
-        spw_idx = baseband_spw_to_overall_spw_idx(
-            input_baseband_spw_idxs, input_bdf_descr
-        )
-        assert spw_idx == expected_overall_spw_idx
 
 
 def test_load_visibilities_all_subsets_from_trees_X136e():

@@ -6,57 +6,13 @@ import pyasdm
 
 import toolviper.utils.logger as logger
 
+from .basebands import baseband_spw_to_overall_spw_idx, calculate_overall_spw_idx
 from .pyasdm_get_ndarray import load_visibilities_one_spw_to_ndarray
+from .shapes import (
+    add_cross_and_auto_flag_shapes,
+    full_shape_to_output_filled_flags_shape,
+)
 from . import config
-
-
-def add_cross_and_auto_flag_shapes(
-    guessed_shape: dict[str, tuple[int, ...]],
-) -> tuple[int, ...]:
-    guessed_shape_cross = guessed_shape["cross"]
-    guessed_shape_auto = guessed_shape["auto"]
-    if guessed_shape_cross:
-        # second dim is the "BAL ANT"
-        shape = (
-            guessed_shape_cross[0],
-            guessed_shape_cross[1] + guessed_shape_auto[1],
-            *guessed_shape_cross[2:],
-        )
-    else:
-        # The axes of flags would be for example "TIM ANT"
-        # or something with ANT but not BAL
-        shape = guessed_shape_auto
-
-    return shape
-
-
-def full_shape_to_output_filled_flags_shape(shape: tuple[int, ...]) -> tuple[int, ...]:
-    # equivalent to the squeezing that would happen when selecting
-    # one baseband / one SPW with int indices.
-    return shape[0:2] + shape[-1:]
-
-
-def calculate_overall_spw_idx(
-    basebands_descr: list[dict], baseband_idx: int, spw_idx: int
-) -> int:
-    overall_spw_idx = sum(
-        [
-            len(basebands_descr[bb_idx]["spectralWindows"])
-            for bb_idx in range(0, baseband_idx)
-        ]
-    )
-    +spw_idx
-
-    return overall_spw_idx
-
-
-def baseband_spw_to_overall_spw_idx(baseband_spw_idxs, bdf_descr):
-    baseband_idx, spw_idx = baseband_spw_idxs
-    overall_spw_idx = calculate_overall_spw_idx(
-        bdf_descr["basebands"], baseband_idx, spw_idx
-    )
-
-    return overall_spw_idx
 
 
 def load_visibilities_all_subsets_from_trees(

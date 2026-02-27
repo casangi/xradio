@@ -41,7 +41,10 @@ class ImageXds:
 
     def test_func(self):
         if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
-            raise InvalidAccessorLocation(f"{self._xds.path} is not a image node.")
+            location = (
+                self._xds.path if getattr(self._xds, "path", None) else "In-memory xds"
+            )
+            raise InvalidAccessorLocation(f"{location} is not of type image.")
 
         return "Hallo"
 
@@ -69,8 +72,10 @@ class ImageXds:
           Image Dataset with the new group added
         """
 
-        if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
-            raise InvalidAccessorLocation(f"{self._xds.path} is not a image node.")
+        #    if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
+        #        raise InvalidAccessorLocation(f"{self._xds.path} is not a image node.")
+
+        self.test_func()
 
         new_data_group_name, new_data_group = create_new_data_group(
             self._xds,
@@ -92,8 +97,9 @@ class ImageXds:
             The lm cell size in radians.
         """
 
-        if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
-            raise InvalidAccessorLocation(f"{self._xds.path} is not a image node.")
+        #    if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
+        #        raise InvalidAccessorLocation(f"{self._xds.path} is not a image node.")
+        self.test_func()
 
         l_cell_size = self._xds.coords["l"][1].values - self._xds.coords["l"][0].values
         m_cell_size = self._xds.coords["m"][1].values - self._xds.coords["m"][0].values
@@ -112,8 +118,9 @@ class ImageXds:
             Image Dataset with the uv coordinates added.
         """
 
-        if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
-            raise InvalidAccessorLocation(f"{self._xds.path} is not a image node.")
+        #    if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
+        #        raise InvalidAccessorLocation(f"{self._xds.path} is not a image node.")
+        self.test_func()
 
         from xradio.image._util.image_factory import _make_uv_coords
 
@@ -143,8 +150,9 @@ class ImageXds:
             The uv coordinates in wavelengths.
         """
 
-        if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
-            raise InvalidAccessorLocation(f"{self._xds.path} is not a image node.")
+        #    if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
+        #        raise InvalidAccessorLocation(f"{self._xds.path} is not a image node.")
+        self.test_func()
 
         c = 299792458.0  # Speed of light in m/s
         wavelength = c / frequency  # Wavelength in meters
@@ -163,8 +171,9 @@ class ImageXds:
             A dictionary with the reference pixel indices for each dimension.
         """
 
-        if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
-            raise InvalidAccessorLocation(f"{self._xds.path} is not a image node.")
+        #        if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
+        #            raise InvalidAccessorLocation(f"{self._xds.path} is not a image node.")
+        self.test_func()
 
         image_center_index = None
 
@@ -217,8 +226,9 @@ class ImageXds:
         >>> selected_img_xds = img_xds.xr_img.sel(data_group_name='robust0.5', polarization='XX')
         """
 
-        if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
-            raise InvalidAccessorLocation(f"{self._xds.path} is not a image node.")
+        #        if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
+        #            raise InvalidAccessorLocation(f"{self._xds.path} is not a image node.")
+        self.test_func()
 
         if "data_group_name" in indexers_kwargs:
             data_group_name = indexers_kwargs["data_group_name"]

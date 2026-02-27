@@ -4,13 +4,10 @@ from pathlib import Path
 import pytest
 import shutil
 
-# Ensure pytest assert introspection in vis data checks
-# Must be imported before any other imports
-pytest.register_assert_rewrite("xradio.testing.measurement_set.checker")
-
 import xarray as xr
 
 # Ensure pytest assert introspection in vis data checks
+# Must be imported before any other xradio imports
 pytest.register_assert_rewrite("xradio.testing.measurement_set.checker")
 
 from xradio.measurement_set import open_processing_set

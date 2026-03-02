@@ -463,9 +463,8 @@ def test_load_visibilities_from_partition_bdfs_inexistent():
     ):
         mock_bdf_reader.return_value.hasSubset.side_effect = [True, True, False]
         subset_shape = (1, 9, 64, 2)
-        mock_bdf_reader.return_value.getSubset.side_effect = [
+        mock_bdf_reader.return_value.getNDArrays.side_effect = [
             {
-                "flags": {"present": True, "arr": np.zeros((71680), dtype="bool")},
                 "visibilities": np.zeros(subset_shape, dtype="complex128"),
                 # Will be needed when not using loadOneSPWFunction, etc.
                 # "autoData": {"present": True, "arr": np.zeros((71680), dtype="complex128")},
@@ -482,8 +481,8 @@ def test_load_visibilities_from_partition_bdfs_inexistent():
         assert visibilities.shape == (2, *subset_shape[1:])
 
         mock_bdf_header.getBasebandsList.assert_called_once()
-        assert mock_bdf_reader.hasSubset.call_count == 0
-        assert mock_bdf_reader.getSubset.call_count == 0
+        assert mock_bdf_reader.return_value.hasSubset.call_count == 3
+        assert mock_bdf_reader.return_value.getNDArrays.call_count == 2
 
 
 @pytest.mark.parametrize(
@@ -521,6 +520,7 @@ def test_load_visibilities_from_bdf_incomplete_descr(input_never_reshape, input_
         # mock_bdf_reader.
         mock_bdf_reader.hasSubset.side_effect = [True, False]
         mock_bdf_reader.getSubset.side_effect = {}
+        mock_bdf_reader.getNDArrays.side_effect = {}
         mock_bdf_header.getBasebandsList.side_effect = ["foo", "bar"]
         with pytest.raises(RuntimeError, match="basebands"):
             load_visibilities_from_bdf(
@@ -532,6 +532,7 @@ def test_load_visibilities_from_bdf_incomplete_descr(input_never_reshape, input_
         mock_bdf_header.getBasebandsList.assert_not_called()
         mock_bdf_reader.hasSubset.assert_not_called()
         mock_bdf_reader.getSubset.assert_not_called()
+        mock_bdf_reader.getNDArrays.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -549,11 +550,9 @@ def test_load_visibilities_from_bdf_error_loading(input_never_reshape, input_spw
         mock_bdf_reader.return_value.hasSubset.side_effect = [True, True, False]
         # Force some error loading
         subset_shape = (1, 3, 64, 2)
-        mock_bdf_reader.return_value.getSubset.side_effect = [
+        mock_bdf_reader.return_value.getNDArrays.side_effect = [
             {
                 "visibilities": np.zeros(subset_shape, dtype="complex128"),
-                # Will be needed when not using loadOneSPWFunction, etc.
-                # "autoData": {"present": True, "arr": np.zeros((71680), dtype="complex128")},
             },
             RuntimeError,
         ]
@@ -569,8 +568,9 @@ def test_load_visibilities_from_bdf_error_loading(input_never_reshape, input_spw
             )
 
         mock_bdf_header.getBasebandsList.assert_called_once()
-        assert mock_bdf_reader.hasSubset.call_count == 0
-        assert mock_bdf_reader.getSubset.call_count == 0
+        assert mock_bdf_reader.return_value.hasSubset.call_count == 2
+        assert mock_bdf_reader.return_value.getNDArrays.call_count == 2
+        assert mock_bdf_reader.return_value.getSubset.call_count == 0
 
 
 basebands_simple = [

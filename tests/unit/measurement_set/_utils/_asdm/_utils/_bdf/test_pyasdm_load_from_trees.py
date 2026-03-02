@@ -239,7 +239,8 @@ bdf_descr_X136e = {
 }
 
 
-def test_load_visibilities_all_subsets_from_trees_X136e():
+@pytest.mark.parametrize("input_load_one_spw_from_file", [(True), (False)])
+def test_load_visibilities_all_subsets_from_trees_X136e(input_load_one_spw_from_file):
     from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
         load_visibilities_all_subsets_from_trees,
     )
@@ -250,25 +251,30 @@ def test_load_visibilities_all_subsets_from_trees_X136e():
     ):
         # For load_vis_subset, etc.
         mock_bdf_reader.hasSubset.side_effect = [True, False]
-        mock_bdf_reader.getSubset.side_effect = [
-            {
-                "autoData": {
-                    "present": True,
-                    "arr": np.zeros((1000000), dtype="float64"),
+        if input_load_one_spw_from_file:
+            mock_bdf_reader.getNDArrays.side_effect = [
+                {"visibilities": np.ones(shape=(1, 45, 1024, 2), dtype="complex128")}
+            ]
+        else:
+            mock_bdf_reader.getSubset.side_effect = [
+                {
+                    "autoData": {
+                        "present": True,
+                        "arr": np.zeros((1000000), dtype="float64"),
+                    },
+                    "crossData": {
+                        "present": True,
+                        "arr": np.zeros((1000000), dtype="float64"),
+                    },
                 },
-                "crossData": {
-                    "present": True,
-                    "arr": np.zeros((1000000), dtype="float64"),
-                },
-            },
-            None,
-        ]
+                None,
+            ]
         visibilities = load_visibilities_all_subsets_from_trees(
             mock_bdf_reader,
             (1, 36, 9, 4, 2, 512, 2, 2),
             (0, 1),
             bdf_descr_X136e,
-            load_one_spw_from_file=False,
+            load_one_spw_from_file=input_load_one_spw_from_file,
         )
 
         assert isinstance(visibilities, np.ndarray)
@@ -276,13 +282,18 @@ def test_load_visibilities_all_subsets_from_trees_X136e():
         assert visibilities.shape == (1, 45, 1024, 2)
         assert visibilities.dtype == np.dtype("complex128")
 
-        mock_bdf_reader.hasSubset.assert_called()
         assert mock_bdf_reader.hasSubset.call_count == 2
-        mock_bdf_reader.getSubset.assert_called()
-        assert mock_bdf_reader.getSubset.call_count == 1
+        if input_load_one_spw_from_file:
+            assert mock_bdf_reader.hasSubset.call_count == 2
+            mock_bdf_reader.getNDArrays.assert_called_once()
+            mock_bdf_reader.getSubset.assert_not_called()
+        else:
+            mock_bdf_reader.getSubset.assert_called_once()
+            mock_bdf_reader.getNDArrays.assert_not_called()
 
 
-def test_load_visibilities_all_subsets_from_trees_X136e_error():
+@pytest.mark.parametrize("input_load_one_spw_from_file", [(True), (False)])
+def test_load_visibilities_all_subsets_from_trees_X136e_error(input_load_one_spw_from_file):
     from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
         load_visibilities_all_subsets_from_trees,
     )
@@ -293,20 +304,28 @@ def test_load_visibilities_all_subsets_from_trees_X136e_error():
     ):
         # For load_vis_subset, etc.
         mock_bdf_reader.hasSubset.side_effect = [True, False]
-        mock_bdf_reader.getSubset.side_effect = [ValueError, None]
+        if input_load_one_spw_from_file:
+            mock_bdf_reader.getNDArrays.side_effect = [ValueError, None]
+        else:
+            mock_bdf_reader.getSubset.side_effect = [ValueError, None]
+
         visibilities = load_visibilities_all_subsets_from_trees(
             mock_bdf_reader,
             (1, 36, 9, 4, 2, 512, 2, 2),
             (0, 1),
             bdf_descr_X136e,
-            load_one_spw_from_file=False,
+            load_one_spw_from_file=input_load_one_spw_from_file,
         )
         assert visibilities == None
 
-        mock_bdf_reader.hasSubset.assert_called()
-        assert mock_bdf_reader.hasSubset.call_count == 1
-        mock_bdf_reader.getSubset.assert_called()
-        assert mock_bdf_reader.getSubset.call_count == 1
+        mock_bdf_reader.hasSubset.assert_called_once()
+        if input_load_one_spw_from_file:
+            mock_bdf_reader.getNDArrays.assert_called_once()
+            mock_bdf_reader.getSubset.assert_not_called()
+        else:
+            mock_bdf_reader.getSubset.assert_called_once()
+            mock_bdf_reader.getNDArrays.assert_not_called()
+
 
 
 # BDF uid___A002_Xb08ef9_X64c6

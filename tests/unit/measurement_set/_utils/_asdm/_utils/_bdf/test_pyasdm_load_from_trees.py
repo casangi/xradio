@@ -293,7 +293,9 @@ def test_load_visibilities_all_subsets_from_trees_X136e(input_load_one_spw_from_
 
 
 @pytest.mark.parametrize("input_load_one_spw_from_file", [(True), (False)])
-def test_load_visibilities_all_subsets_from_trees_X136e_error(input_load_one_spw_from_file):
+def test_load_visibilities_all_subsets_from_trees_X136e_error(
+    input_load_one_spw_from_file,
+):
     from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
         load_visibilities_all_subsets_from_trees,
     )
@@ -325,7 +327,6 @@ def test_load_visibilities_all_subsets_from_trees_X136e_error(input_load_one_spw
         else:
             mock_bdf_reader.getSubset.assert_called_once()
             mock_bdf_reader.getNDArrays.assert_not_called()
-
 
 
 # BDF uid___A002_Xb08ef9_X64c6

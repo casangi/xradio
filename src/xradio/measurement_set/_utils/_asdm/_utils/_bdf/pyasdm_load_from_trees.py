@@ -1,4 +1,5 @@
 import traceback
+from typing import Callable
 
 import numpy as np
 
@@ -37,35 +38,9 @@ def load_visibilities_all_subsets_from_trees(
     vis_per_subset = []
     while bdf_reader.hasSubset():
         if load_spw_function is None and spw_idx is None:
-            try:
-                subset = bdf_reader.getSubset(
-                    loadOnlyComponents={"autoData", "crossData"}
-                )
-            except ValueError as exc:
-                trace = traceback.format_exc()
-                logger.warning(
-                    f"Error in BDFReader.getSubset() for {bdf_reader.getPath()=} when "
-                    f"trying to load visibilities. {exc=}" + trace
-                )
-                return None
-        else:
-            try:
-                ndarrays = bdf_reader.getNDArrays(
-                    arrayNames=["visibilities"],
-                    spwId=spw_idx,
-                    loadOneSPWFunction=load_spw_function,
-                    loadOneSPWFunctionParams=load_spw_function_params,
-                )
-            except ValueError as exc:
-                trace = traceback.format_exc()
-                logger.warning(
-                    f"Error in BDFReader().getNDArrays() for {bdf_reader.getPath()=} when "
-                    f"trying to load visibilities. {exc=}" + trace
-                )
-                return None
-
-        # tidy-up this if together with the try above
-        if load_spw_function is None and spw_idx is None:
+            subset = load_subset_with_get_subset(bdf_reader)
+            if subset is None:
+                return subset
             vis_subset = load_vis_subset_from_tree(
                 subset,
                 guessed_shape,
@@ -73,12 +48,55 @@ def load_visibilities_all_subsets_from_trees(
                 bdf_descr,
             )
         else:
+            ndarrays = load_subset_with_get_ndarrays(
+                bdf_reader, spw_idx, load_spw_function, load_spw_function_params
+            )
+            if ndarrays is None:
+                return ndarrays
             vis_subset = ndarrays["visibilities"]
 
         vis_per_subset.append(vis_subset)
 
     bdf_vis = np.concatenate(vis_per_subset)
     return bdf_vis
+
+
+def load_subset_with_get_subset(bdf_reader: pyasdm.bdf.BDFReader) -> dict | None:
+    try:
+        subset = bdf_reader.getSubset(loadOnlyComponents={"autoData", "crossData"})
+    except ValueError as exc:
+        trace = traceback.format_exc()
+        logger.warning(
+            f"Error in BDFReader.getSubset() for {bdf_reader.getPath()=} when "
+            f"trying to load visibilities. {exc=}" + trace
+        )
+        subset = None
+
+    return subset
+
+
+def load_subset_with_get_ndarrays(
+    bdf_reader: pyasdm.bdf.BDFReader,
+    spw_idx: int,
+    load_spw_function: Callable,
+    load_spw_function_params: tuple,
+) -> dict | None:
+    try:
+        ndarrays = bdf_reader.getNDArrays(
+            arrayNames=["visibilities"],
+            spwId=spw_idx,
+            loadOneSPWFunction=load_spw_function,
+            loadOneSPWFunctionParams=load_spw_function_params,
+        )
+    except ValueError as exc:
+        trace = traceback.format_exc()
+        logger.warning(
+            f"Error in BDFReader().getNDArrays() for {bdf_reader.getPath()=} when "
+            f"trying to load visibilities. {exc=}" + trace
+        )
+        ndarrays = None
+
+    return ndarrays
 
 
 def load_vis_subset_from_tree(

@@ -36,20 +36,33 @@ def load_visibilities_all_subsets_from_trees(
 
     vis_per_subset = []
     while bdf_reader.hasSubset():
-        try:
-            subset = bdf_reader.getSubset(
-                loadOnlyComponents={"autoData", "crossData"},
-                spwId=spw_idx,
-                loadOneSPWFunction=load_spw_function,
-                loadOneSPWFunctionParams=load_spw_function_params,
-            )
-        except ValueError as exc:
-            trace = traceback.format_exc()
-            logger.warning(
-                f"Error in getSubset for {bdf_reader.getPath()=} when "
-                f"trying to load visibilities. {exc=}" + trace
-            )
-            return None
+        if load_spw_function is None and spw_idx is None:
+            try:
+                subset = bdf_reader.getSubset(
+                    loadOnlyComponents={"autoData", "crossData"}
+                )
+            except ValueError as exc:
+                trace = traceback.format_exc()
+                logger.warning(
+                    f"Error in BDFReader.getSubset() for {bdf_reader.getPath()=} when "
+                    f"trying to load visibilities. {exc=}" + trace
+                )
+                return None
+        else:
+            try:
+                ndarrays = bdf_reader.getNDArrays(
+                    arrayNames=["visibilities"],
+                    spwId=spw_idx,
+                    loadOneSPWFunction=load_spw_function,
+                    loadOneSPWFunctionParams=load_spw_function_params,
+                )
+            except ValueError as exc:
+                trace = traceback.format_exc()
+                logger.warning(
+                    f"Error in BDFReader().getNDArrays() for {bdf_reader.getPath()=} when "
+                    f"trying to load visibilities. {exc=}" + trace
+                )
+                return None
 
         # tidy-up this if together with the try above
         if load_spw_function is None and spw_idx is None:
@@ -60,9 +73,7 @@ def load_visibilities_all_subsets_from_trees(
                 bdf_descr,
             )
         else:
-            # odd interface, to-be-seen, perhaps we should have
-            # a getNDArray in pyasdm separate from getSubset
-            vis_subset = subset["visibilities"]
+            vis_subset = ndarrays["visibilities"]
 
         vis_per_subset.append(vis_subset)
 
@@ -101,7 +112,9 @@ def load_vis_subset_from_tree(
 
     else:
         # Never allowed for ALMA (BDF doc) and seems so in real life
-        raise RuntimeError("autoData not present!")
+        raise RuntimeError(
+            f"Binary component 'autoData' not present! This is never allowed in ALMA. Subset is: {subset}"
+        )
 
     vis_subset_cross = None
     if "crossData" in subset and subset["crossData"]["present"]:

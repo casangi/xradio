@@ -1,7 +1,7 @@
 """
 Module that could be moved to a BDFReader.getNDArray() method in
 pyasdm or could stay here, as a function injected to either
-BDFReader.getSubset() or the possible new getNDArrays().
+BDFReader.getNDArrays() (the "loadOneSPWFunction").
 """
 
 import numpy as np

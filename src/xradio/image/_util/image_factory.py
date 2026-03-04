@@ -336,9 +336,9 @@ def _make_sky_coords(
     return {lon_name: (("l", "m"), long), lat_name: (("l", "m"), lat)}
 
 
-def _add_lm_coord_attrs(xds: xr.Dataset) -> xr.Dataset:
+def _add_lm_coord_attrs(xds: xr.Dataset) -> None:
     """
-    Attach explanatory notes to ``l`` and ``m`` coordinates.
+    Attach explanatory notes to ``l`` and ``m`` coordinates. The input Dataset is modified in-place.
 
     Parameters
     ----------
@@ -347,8 +347,7 @@ def _add_lm_coord_attrs(xds: xr.Dataset) -> xr.Dataset:
 
     Returns
     -------
-    xr.Dataset
-        The same dataset, modified in place with coordinate attrs.
+    None
     """
     attr_note = _l_m_attr_notes()
     xds.l.attrs = {
@@ -432,7 +431,7 @@ def _make_uv_coords(
     xds: xr.Dataset,
     image_size: Union[list, np.ndarray],
     sky_image_cell_size: Union[list, np.ndarray],
-) -> dict:
+) -> xr.Dataset:
     """
     Attach ``u`` and ``v`` coordinates to a dataset.
 
@@ -447,7 +446,7 @@ def _make_uv_coords(
 
     Returns
     -------
-    dict
+    xr.Dataset
         Dataset with ``u`` and ``v`` coordinates and attrs.
     """
     uv_values = _make_uv_values(image_size, sky_image_cell_size)

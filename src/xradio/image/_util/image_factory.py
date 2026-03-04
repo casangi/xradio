@@ -32,25 +32,6 @@ def _is_galactic_frame(direction_reference: str) -> bool:
     return direction_reference.lower() == "galactic"
 
 
-def _sky_axis_labels_for_frame(direction_reference: str) -> tuple[str, str]:
-    """
-    Get sky-axis labels used in serialized direction metadata.
-
-    Parameters
-    ----------
-    direction_reference : str
-        Direction frame name.
-
-    Returns
-    -------
-    tuple[str, str]
-        Axis labels for longitude/latitude in the selected frame.
-    """
-    if _is_galactic_frame(direction_reference):
-        return ("lon", "lat")
-    return ("ra", "dec")
-
-
 def _spherical_ctype_for_frame(direction_reference: str) -> list[str]:
     """
     Get WCS CTYPE axis tokens for a direction reference frame.
@@ -212,7 +193,6 @@ def _add_common_attrs(
         data=phase_center,
         units="rad",
         frame=direction_reference,
-        axis_labels=_sky_axis_labels_for_frame(direction_reference),
     )
     if not _is_galactic_frame(direction_reference):
         reference["attrs"].update({"equinox": "j2000.0"})

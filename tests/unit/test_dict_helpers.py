@@ -1,3 +1,5 @@
+import pytest
+
 from xradio._utils.dict_helpers import make_skycoord_dict
 
 
@@ -38,3 +40,25 @@ def test_make_skycoord_dict_preserves_explicit_axis_labels():
         axis_labels=("x", "y"),
     )
     assert got["coords"]["sky_dir_label"]["data"] == ["x", "y"]
+
+
+def test_make_skycoord_dict_raises_for_invalid_axis_label_count():
+    """
+    Verify invalid axis-label lengths raise a clear ValueError.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    None
+        This test validates axis-label input validation.
+    """
+    with pytest.raises(ValueError, match="axis_labels must contain exactly two values"):
+        make_skycoord_dict(
+            data=[1.5, 0.2],
+            units="rad",
+            frame="galactic",
+            axis_labels=("lon",),
+        )

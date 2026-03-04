@@ -168,6 +168,10 @@ def make_skycoord_dict(
         representing a sky-coordinate measure.
     """
     labels = _default_sky_axis_labels(frame) if axis_labels is None else axis_labels
+    if len(labels) != 2:
+        raise ValueError(
+            f"axis_labels must contain exactly two values, got {len(labels)}."
+        )
     return {
         "attrs": {
             "frame": frame.lower(),

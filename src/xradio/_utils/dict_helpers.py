@@ -123,11 +123,28 @@ def make_spectral_coord_measure_attrs(units: str, observer: str = "lsrk") -> dic
     return {"units": u, "observer": observer, "type": "spectral_coord"}
 
 
+def _default_sky_axis_labels(frame: str) -> tuple[str, str]:
+    """
+    Choose default sky-axis labels for a direction frame.
+
+    Parameters
+    ----------
+    frame : str
+        Direction frame name.
+
+    Returns
+    -------
+    tuple[str, str]
+        Default axis labels for the provided frame.
+    """
+    return ("lon", "lat") if frame.lower() == "galactic" else ("ra", "dec")
+
+
 def make_skycoord_dict(
     data: list[float],
     units: str,
     frame: str,
-    axis_labels: tuple[str, str] = ("ra", "dec"),
+    axis_labels: tuple[str, str] | None = None,
 ) -> dict:
     """
     Build a serialized sky-coordinate measure dictionary.
@@ -140,8 +157,9 @@ def make_skycoord_dict(
         Units for both coordinate values.
     frame : str
         Direction reference frame name.
-    axis_labels : tuple[str, str], default=("ra", "dec")
-        Axis labels stored in the ``sky_dir_label`` coordinate.
+    axis_labels : tuple[str, str] or None, default=None
+        Axis labels stored in the ``sky_dir_label`` coordinate. If not given,
+        labels are derived from ``frame`` (for example, Galactic uses ``lon/lat``).
 
     Returns
     -------
@@ -149,6 +167,7 @@ def make_skycoord_dict(
         Dictionary with ``attrs``, ``data``, ``dims``, and ``coords`` fields
         representing a sky-coordinate measure.
     """
+    labels = _default_sky_axis_labels(frame) if axis_labels is None else axis_labels
     return {
         "attrs": {
             "frame": frame.lower(),
@@ -159,7 +178,7 @@ def make_skycoord_dict(
         "dims": "sky_dir_label",
         "coords": {
             "sky_dir_label": {
-                "data": list(axis_labels),
+                "data": list(labels),
                 "dims": "sky_dir_label",
             }
         },

@@ -1,7 +1,7 @@
 from xradio._utils.list_and_array import to_python_type
 
 
-def make_quantity(value, units: str, dims: list = []) -> dict:
+def make_quantity(value, units: str, dims: list | None = None) -> dict:
     """
     Create a serialized quantity dictionary.
 
@@ -11,7 +11,7 @@ def make_quantity(value, units: str, dims: list = []) -> dict:
         Quantity value.
     units : str
         Quantity units.
-    dims : list, default=[]
+    dims : list or None, default=None
         Dimension labels associated with the quantity data.
 
     Returns
@@ -19,9 +19,10 @@ def make_quantity(value, units: str, dims: list = []) -> dict:
     dict
         Quantity dictionary containing ``data``, ``dims``, and ``attrs``.
     """
+    normalized_dims = [] if dims is None else list(dims)
     return {
         "data": to_python_type(value),
-        "dims": dims,
+        "dims": normalized_dims,
         "attrs": make_quantity_attrs(units),
     }
 
@@ -43,11 +44,15 @@ def ensure_units_are_consistent(units):
     """
     if isinstance(units, str):
         return units
-    else:
-        u0 = units[0]
-        for u in units:
-            assert u0 == u, f"Units are not consistent: {u0} != {u}. "
-        return u0
+
+    if len(units) == 0:
+        raise ValueError("Units are empty; expected at least one unit value.")
+
+    u0 = units[0]
+    for u in units:
+        if u0 != u:
+            raise ValueError(f"Units are not consistent: {u0} != {u}.")
+    return u0
 
 
 def make_quantity_attrs(units: str) -> dict:

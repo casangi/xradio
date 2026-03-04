@@ -424,26 +424,9 @@ def create_coordinates(
     ].values.astype(str)
     coords["field_name"] = (["time"], np.resize(fields, len(time_centers)))
 
-    # TODO This redim should be done inside ._bdf/load_time
-    # We need (time, baseline_id) dims but times and durations form ASDM/BDFs are independent of baseline
-    redim_actual_durations = np.resize(
-        actual_durations, (len(actual_durations), len(baseline_antenna1_id))
+    time_vars = make_time_vars(
+        actual_durations, actual_times, len(baseline_antenna1_id)
     )
-    redim_actual_times = np.resize(
-        actual_times, (len(actual_times), len(baseline_antenna1_id))
-    )
-    time_vars = {
-        "EFFECTIVE_INTEGRATION_TIME": (
-            ["time", "baseline_id"],
-            redim_actual_durations,
-            make_quantity_attrs("s"),
-        ),
-        "TIME_CENTROID": (
-            ["time", "baseline_id"],
-            redim_actual_times,
-            make_time_measure_attrs("s", "tai", time_format="unix"),
-        ),
-    }
 
     if not is_single_dish:
         coords["uvw_label"] = np.array(["u", "v", "w"])
@@ -465,6 +448,33 @@ def create_coordinates(
 
     # TODO: this needs clean-up!
     return coords, attrs, num_antenna, spw_id, bdf_spw_id, time_vars
+
+
+def make_time_vars(
+    actual_durations: np.ndarray, actual_times: np.ndarray, len_baseline_antenna1_id
+) -> dict:
+    # TODO This redim should be done inside ._bdf/load_time
+    # We need (time, baseline_id) dims but times and durations form ASDM/BDFs are independent of baseline
+    redim_actual_durations = np.resize(
+        actual_durations, (len(actual_durations), len_baseline_antenna1_id)
+    )
+    redim_actual_times = np.resize(
+        actual_times, (len(actual_times), len_baseline_antenna1_id)
+    )
+    time_vars = {
+        "EFFECTIVE_INTEGRATION_TIME": (
+            ["time", "baseline_id"],
+            redim_actual_durations,
+            make_quantity_attrs("s"),
+        ),
+        "TIME_CENTROID": (
+            ["time", "baseline_id"],
+            redim_actual_times,
+            make_time_measure_attrs("s", "tai", time_format="unix"),
+        ),
+    }
+
+    return time_vars
 
 
 def produce_uvw_data_var(xds: xr.Dataset) -> xr.DataArray:

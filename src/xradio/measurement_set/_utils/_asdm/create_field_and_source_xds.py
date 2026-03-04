@@ -109,7 +109,7 @@ def create_field_and_source_xds(
         source_df = exp_asdm_table_to_df(
             asdm, "Source", sdm_source_required_attrs + sdm_source_optional_attrs
         )
-    except NameError as _exc:
+    except ValueError as _exc:
         source_df = exp_asdm_table_to_df(asdm, "Source", sdm_source_required_attrs)
         line_info_available = False
 

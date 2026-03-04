@@ -33,9 +33,9 @@ def test_load_asdm_col_asdm_spw_default(asdm_with_spw_default):
     assert ref_freq == [0]
     bb_name = load_asdm_col(asdm_with_spw_default.getSpectralWindow(), "basebandName")
     assert bb_name == ["NOBB"]
-    with pytest.raises(NameError, match="is not defined"):
+    with pytest.raises(ValueError, match="assocNature"):
         spw_id = load_asdm_col(asdm_with_spw_default.getSpectralWindow(), "assocNature")
-    with pytest.raises(NameError, match="is not defined"):
+    with pytest.raises(ValueError, match="assocSpectralWindowId"):
         spw_id = load_asdm_col(
             asdm_with_spw_default.getSpectralWindow(), "assocSpectralWindowId"
         )

@@ -50,7 +50,7 @@ def test_get_spw_frequency_centers_default(asdm_with_spw_default):
         get_spw_frequency_centers,
     )
 
-    with pytest.raises(NameError, match="chanFreqArray"):
+    with pytest.raises(ValueError, match="chanFreqArray"):
         get_spw_frequency_centers(asdm_with_spw_default, 0, 1)
 
 
@@ -86,7 +86,7 @@ def test_get_chan_width_default(asdm_with_spw_default):
         get_chan_width,
     )
 
-    with pytest.raises(NameError, match="chanWidthArray"):
+    with pytest.raises(ValueError, match="chanWidthArray"):
         get_chan_width(asdm_with_spw_default, 0)
 
 

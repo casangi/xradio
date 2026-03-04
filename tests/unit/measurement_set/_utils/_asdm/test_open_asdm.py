@@ -7,6 +7,7 @@ import xarray as xr
 import pyasdm
 
 from xradio.measurement_set._utils._asdm.open_asdm import open_asdm
+from xradio.schema.check import check_datatree
 
 
 def add_main_table(asdm: pyasdm.ASDM):
@@ -326,3 +327,4 @@ def test_open_asdm_with_spw_simple(asdm_with_spw_simple, monkeypatch):
     assert ps_xdt.type == "processing_set"
     for _msv4_name, msv4_xdt in enumerate(ps_xdt):
         assert isinstance(msv4_xdt, str)
+    check_datatree(ps_xdt)

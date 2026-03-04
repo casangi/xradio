@@ -12,6 +12,8 @@ from xradio.measurement_set._utils._asdm.create_antenna_xds import (
     create_feed_xds,
     get_telescope_name,
 )
+from xradio.measurement_set.schema import AntennaXds
+from xradio.schema.check import check_dataset
 
 
 def add_execblock_table(asdm: pyasdm.ASDM):
@@ -185,7 +187,8 @@ def test_create_antenna_xds_with_asdm_simple_7m_antennas(asdm_with_spw_simple):
     # w/ Feed table (no need for polarization xarray)
     asdm_with_feed = copy.deepcopy(asdm_with_spw_simple)
     add_feed_table(asdm_with_feed)
-    create_antenna_xds(asdm_with_feed, 2, 0, None)
+    antenna_xds = create_antenna_xds(asdm_with_feed, 2, 0, None)
+    check_dataset(antenna_xds, AntennaXds)
 
 
 def test_create_feed_xds_empty():

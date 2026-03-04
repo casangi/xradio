@@ -8,6 +8,8 @@ import pytest
 
 import pyasdm
 
+from xradio.schema.check import check_datatree
+
 
 def add_main_table(asdm: pyasdm.ASDM):
     main_row_0_xml = """
@@ -176,6 +178,7 @@ def test_open_partition_monkeypatched_bdf_asdm_with_spw_simple(
         },
     )
     assert isinstance(partition, xr.DataTree)
+    check_datatree(partition)
 
 
 def test_correlated_xds_default(asdm_with_spw_default):

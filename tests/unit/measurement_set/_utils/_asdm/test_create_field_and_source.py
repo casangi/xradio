@@ -8,6 +8,8 @@ from xradio.measurement_set._utils._asdm.create_field_and_source_xds import (
     create_field_and_source_xds,
     make_sky_coord_measure_attrs,
 )
+from xradio.measurement_set.schema import FieldSourceXds
+from xradio.schema.check import check_dataset
 
 
 def test_create_field_and_source_xds_empty():
@@ -110,9 +112,11 @@ def test_create_field_and_source_xds_with_field_source(asdm_with_spw_simple):
     field_row_0 = pyasdm.FieldRow(field_table)
     field_row_0.setFromXML(field_row_0_xml)
     field_table.add(field_row_0)
-    create_field_and_source_xds(
+
+    field_and_source_xds = create_field_and_source_xds(
         asdm_with_source_field_with_lineinfo, {"fieldId": [0]}, 0, False
     )
+    check_dataset(field_and_source_xds, FieldSourceXds)
 
 
 @pytest.mark.parametrize(

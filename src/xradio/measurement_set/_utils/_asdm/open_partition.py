@@ -344,6 +344,45 @@ def create_coordinates(
     attrs["scan_name"] = {"scan_intents": partition_descr["scanIntent"]}
 
     # baselines...
+    baseline_coords, num_antenna, len_baseline_coords = create_baseline_coords(
+        asdm, partition_descr
+    )
+    coords.update(baseline_coords)
+
+    coords["polarization"], spw_id, data_description_df = create_polarizations_coord(
+        asdm, partition_descr
+    )
+
+    coords["frequency"], attrs["frequency"], spw_df = create_frequency_coord_attrs(
+        asdm, spw_id
+    )
+
+    # field_name will be created from field_and_source_xds?
+    sdm_field_attrs = ["fieldId", "fieldName"]
+    field_df = exp_asdm_table_to_df(asdm, "Field", sdm_field_attrs)
+    fields = field_df.loc[field_df["fieldId"].isin(partition_descr["fieldId"])][
+        "fieldName"
+    ].values.astype(str)
+    coords["field_name"] = (["time"], np.resize(fields, len(time_centers)))
+
+    time_vars = create_time_vars(actual_durations, actual_times, len_baseline_coords)
+
+    if not is_single_dish:
+        coords["uvw_label"] = np.array(["u", "v", "w"])
+
+    bdf_spw_id = find_bdf_spw_id(
+        asdm, spw_id, data_description_df, spw_df, partition_descr
+    )
+
+    # TODO: this needs clean-up!
+    return coords, attrs, num_antenna, spw_id, bdf_spw_id, time_vars
+
+
+def create_baseline_coords(
+    asdm: pyasdm.ASDM, partition_descr: dict[str, np.ndarray]
+) -> tuple[dict, int]:
+
+    coords_baselines = {}
     sdm_main_attrs = ["time", "configDescriptionId", "fieldId", "numAntenna"]
     main_df = exp_asdm_table_to_df(asdm, "Main", sdm_main_attrs)
     configurations = main_df.loc[
@@ -357,15 +396,23 @@ def create_coordinates(
     )
 
     # TODO: get proper names
-    coords["baseline_antenna1_name"] = (
+    coords_baselines["baseline_antenna1_name"] = (
         ["baseline_id"],
         list(["antenna_" + str(idx) for idx in baseline_antenna1_id]),
     )
-    coords["baseline_antenna2_name"] = (
+    coords_baselines["baseline_antenna2_name"] = (
         ["baseline_id"],
         list(["antenna_" + str(idx) for idx in baseline_antenna2_id]),
     )
-    coords["baseline_id"] = np.arange(len(baseline_antenna1_id))
+    coords_baselines["baseline_id"] = np.arange(len(baseline_antenna1_id))
+    len_baseline_coords = len(baseline_antenna1_id)
+
+    return coords_baselines, num_antenna, len_baseline_coords
+
+
+def create_polarizations_coord(
+    asdm: pyasdm.ASDM, partition_descr: dict[str, np.ndarray]
+) -> tuple[dict, int, pd.DataFrame]:
 
     # From dataDescriptionId get SPW and polarization IDs
     dd_id = partition_descr["dataDescriptionId"][0]
@@ -385,72 +432,11 @@ def create_coordinates(
     ]
     num_corr = polarization_metadata["numCorr"].values[0]
     polarization_setup = polarization_metadata["corrType"].values[0][:num_corr]
-    coords["polarization"] = polarization_setup
 
-    # frequency coord
-    sdm_spw_attrs = [
-        "spectralWindowId",
-        "numChan",
-        "refFreq",
-    ]
-    # These are optional attrs of the ASDM table, better dealt with via util functions that
-    # check for their presence and alternatives: "chanFreqStart", "chanFreqStep", "chanFreqArray",
-    # "chanWidthArray", "effectiveBwArray", "measFreqRef".
-    spw_df = exp_asdm_table_to_df(asdm, "SpectralWindow", sdm_spw_attrs)
-    spectral_window = spw_df.loc[spw_df["spectralWindowId"] == spw_id]
-    spw_name = get_spw_name(asdm, spw_id)
-    num_chan = spectral_window["numChan"].values[0]
-    frequency_centers = get_spw_frequency_centers(asdm, spw_id, num_chan)
-
-    coords["frequency"] = (["frequency"], [freq for freq in frequency_centers])
-    attrs["frequency"] = make_spectral_coord_measure_attrs("Hz", observer="TOPO")
-    # Other keys of the frequency coord
-    frequency_other_attrs = {
-        "frame": get_reference_frame(asdm, spw_id),
-        "spectral_window_name": ensure_spw_name_conforms(spw_name, spw_id),
-        "spectral_window_intents": ["UNSPECIFIED"],
-        "reference_frequency": make_spectral_coord_reference_dict(
-            spectral_window["refFreq"].values[0], "Hz", "TOPO"
-        ),
-        "channel_width": make_quantity(get_chan_width(asdm, spw_id), "Hz"),
-    }
-    attrs["frequency"].update(frequency_other_attrs)
-
-    # field_name will be created from field_and_source_xds?
-    sdm_field_attrs = ["fieldId", "fieldName"]
-    field_df = exp_asdm_table_to_df(asdm, "Field", sdm_field_attrs)
-    fields = field_df.loc[field_df["fieldId"].isin(partition_descr["fieldId"])][
-        "fieldName"
-    ].values.astype(str)
-    coords["field_name"] = (["time"], np.resize(fields, len(time_centers)))
-
-    time_vars = make_time_vars(
-        actual_durations, actual_times, len(baseline_antenna1_id)
-    )
-
-    if not is_single_dish:
-        coords["uvw_label"] = np.array(["u", "v", "w"])
-
-    sdm_config_description_attrs = [
-        "configDescriptionId",
-        "dataDescriptionId",
-    ]
-    config_description_df = exp_asdm_table_to_df(
-        asdm, "ConfigDescription", sdm_config_description_attrs
-    )
-    bdf_spw_id = translate_asdm_tables_spw_id_to_bdf_spw_id(
-        spw_id,
-        data_description_df,
-        spw_df,
-        partition_descr["configDescriptionId"],
-        config_description_df,
-    )
-
-    # TODO: this needs clean-up!
-    return coords, attrs, num_antenna, spw_id, bdf_spw_id, time_vars
+    return polarization_setup, spw_id, data_description_df
 
 
-def make_time_vars(
+def create_time_vars(
     actual_durations: np.ndarray, actual_times: np.ndarray, len_baseline_antenna1_id
 ) -> dict:
     # TODO This redim should be done inside ._bdf/load_time
@@ -475,6 +461,69 @@ def make_time_vars(
     }
 
     return time_vars
+
+
+def create_frequency_coord_attrs(
+    asdm: pyasdm.ASDM, spw_id: int
+) -> tuple[dict, dict, pd.DataFrame]:
+
+    frequency_coord = {}
+    frequency_attrs = {}
+    # frequency coord
+    sdm_spw_attrs = [
+        "spectralWindowId",
+        "numChan",
+        "refFreq",
+    ]
+    # These are optional attrs of the ASDM table, better dealt with via util functions that
+    # check for their presence and alternatives: "chanFreqStart", "chanFreqStep", "chanFreqArray",
+    # "chanWidthArray", "effectiveBwArray", "measFreqRef".
+    spw_df = exp_asdm_table_to_df(asdm, "SpectralWindow", sdm_spw_attrs)
+    spectral_window = spw_df.loc[spw_df["spectralWindowId"] == spw_id]
+    spw_name = get_spw_name(asdm, spw_id)
+    num_chan = spectral_window["numChan"].values[0]
+    frequency_centers = get_spw_frequency_centers(asdm, spw_id, num_chan)
+
+    frequency_coord = (["frequency"], [freq for freq in frequency_centers])
+    frequency_attrs = make_spectral_coord_measure_attrs("Hz", observer="TOPO")
+    # Other keys of the frequency coord
+    frequency_additional_attrs = {
+        "frame": get_reference_frame(asdm, spw_id),
+        "spectral_window_name": ensure_spw_name_conforms(spw_name, spw_id),
+        "spectral_window_intents": ["UNSPECIFIED"],
+        "reference_frequency": make_spectral_coord_reference_dict(
+            spectral_window["refFreq"].values[0], "Hz", "TOPO"
+        ),
+        "channel_width": make_quantity(get_chan_width(asdm, spw_id), "Hz"),
+    }
+    frequency_attrs.update(frequency_additional_attrs)
+
+    return frequency_coord, frequency_attrs, spw_df
+
+
+def find_bdf_spw_id(
+    asdm: pyasdm.ASDM,
+    spw_id: int,
+    data_description_df: pd.DataFrame,
+    spw_df: pd.DataFrame,
+    partition_descr: dict[str, np.ndarray],
+) -> int:
+
+    sdm_config_description_attrs = [
+        "configDescriptionId",
+        "dataDescriptionId",
+    ]
+    config_description_df = exp_asdm_table_to_df(
+        asdm, "ConfigDescription", sdm_config_description_attrs
+    )
+    bdf_spw_id = translate_asdm_tables_spw_id_to_bdf_spw_id(
+        spw_id,
+        data_description_df,
+        spw_df,
+        partition_descr["configDescriptionId"],
+        config_description_df,
+    )
+    return bdf_spw_id
 
 
 def produce_uvw_data_var(xds: xr.Dataset) -> xr.DataArray:

@@ -325,11 +325,14 @@ def create_coordinates(
     time_centers, durations, actual_times, actual_durations = get_times_from_bdfs(
         partition_descr["BDFPath"], scans_metadata
     )
-    integration_time = check_if_consistent(np.array(durations), "durations")
+
     coords = {}
     attrs = {}
+
     coords["time"] = (["time"], time_centers)
     attrs["time"] = make_time_measure_attrs("s", "tai", time_format="unix")
+
+    integration_time = durations
     attrs["time"].update(
         {"dims": ["time"], "integration_time": make_quantity(integration_time, "s")}
     )

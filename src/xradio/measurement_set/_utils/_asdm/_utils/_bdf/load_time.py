@@ -4,10 +4,9 @@ import traceback
 import numpy as np
 import pandas as pd
 
-import toolviper.utils.logger as logger
-
 import pyasdm
 
+from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._asdm._utils.time import convert_time_asdm_to_unix
 
 
@@ -52,7 +51,7 @@ def get_times_from_bdfs(
             time_var = convert_time_asdm_to_unix(time_var)
 
     except RuntimeError as exc:
-        logger.warning(
+        xradio_logger().warning(
             f"Could not read nominal and actual times and durations from BDFs. {exc=}"
         )
         raise exc
@@ -161,8 +160,8 @@ def load_times_from_bdfs(
         try:
             bdf_reader.open(bdf_path)
             bdf_header = bdf_reader.getHeader()
-            # logger.debug(" * In load_times_from_bdf, {bdf_path=}, BDF header: *")
-            # logger.debug(bdf_header)
+            # xradio_logger().debug(" * In load_times_from_bdf, {bdf_path=}, BDF header: *")
+            # xradio_logger().debug(bdf_header)
             blob_info = make_blob_info(bdf_header)
             save_blob_info("xradio_asdm_blob_header_info_etc.csv", blob_info)
         finally:
@@ -214,7 +213,7 @@ def load_times_bdf(
             # File... BDFReader.py", line 805, in _requireSDMDataSubsetMIMEPart
             #    intNum = int(projectPathParts[3])
             # ValueError: invalid literal for int() with base 10: ''
-            logger.warning(f"Error in getSubset for {bdf_path=} {exc=}")
+            xradio_logger().warning(f"Error in getSubset for {bdf_path=} {exc=}")
             bdf_reader.close()
             return np.zeros(1), np.zeros(1), np.zeros(1), np.zeros(1)
         except pyasdm.exceptions.BDFReaderException as exc:

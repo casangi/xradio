@@ -2,7 +2,7 @@
 Functions to do various calculations related to the basebands/spw list(s).
 """
 
-import toolviper.utils.logger as logger
+from xradio._utils.logging import xradio_logger
 
 
 def calculate_overall_spw_idx(
@@ -53,7 +53,7 @@ def find_spw_in_basebands_list(
         # TODO: This is a highly dubious fallback for now...
         # raise RuntimeError(err_msg)
         err_msg = f"SPW {spw_id} not found in this BDF: {bdf_path}, defaulting to BB 0, SPW 0."
-        logger.warning(err_msg)
+        xradio_logger().warning(err_msg)
         spw_index = 1 - 1
         baseband_index = 0
 

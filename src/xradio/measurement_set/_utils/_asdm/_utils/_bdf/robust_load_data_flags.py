@@ -4,13 +4,13 @@ import numpy as np
 
 import pyasdm
 
-import toolviper.utils.logger as logger
-
 from .basebands import find_spw_in_basebands_list
 from .shapes import (
     add_cross_and_auto_flag_shapes,
     full_shape_to_output_filled_flags_shape,
 )
+
+from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
     load_flags_all_subsets_from_trees,
     load_visibilities_all_subsets_from_trees,
@@ -154,7 +154,7 @@ def load_visibilities_from_partition_bdfs(
     start = time.perf_counter()
     visibility = np.concatenate(cumulative_vis)
     end = time.perf_counter()
-    logger.info(
+    xradio_logger().info(
         f"Loaded visibility, with {visibility.shape=} from {len(bdf_paths)=} blobs, time: {end-start:.6}"
     )
 
@@ -247,7 +247,7 @@ def load_visibilities_all_subsets(
             subset = bdf_reader.getSubset(loadOnlyComponents={"autoData", "crossData"})
         except ValueError as exc:
             trace = traceback.format_exc()
-            logger.warning(
+            xradio_logger().warning(
                 f"Error in getSubset for {bdf_reader.getPath()=}  when trying to load "
                 f"visibilities. {exc=}" + trace
             )
@@ -482,7 +482,7 @@ def load_flags_all_subsets(
         try:
             subset = bdf_reader.getSubset(loadOnlyComponents={"flags"})
         except ValueError as exc:
-            logger.warning(
+            xradio_logger().warning(
                 f"Error in getSubset for {bdf_reader.getPath()=} when trying to load "
                 f"flags. Will use all-False. {exc=}"
             )

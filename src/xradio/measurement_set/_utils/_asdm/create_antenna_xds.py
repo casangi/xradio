@@ -5,9 +5,8 @@ import xarray as xr
 
 import pyasdm
 
-import toolviper.utils.logger as logger
-
 from xradio._utils.dict_helpers import make_quantity_attrs
+from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,
 )
@@ -185,7 +184,7 @@ def create_feed_xds(
     feed_info_available = not feed_df.empty
     if not feed_info_available:
         # This happens typically for ALMA WVR SPWs - no feed info
-        logger.warning(
+        xradio_logger().warning(
             f"No feed info found for spectral window ID {spectral_window_id}"
         )
         # TODO: this should be shared with MSv2, same logic

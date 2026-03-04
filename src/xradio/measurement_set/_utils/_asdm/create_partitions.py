@@ -4,9 +4,9 @@ import time
 import numpy as np
 import pandas as pd
 
-import toolviper.utils.logger as logger
 import pyasdm
 
+from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,
 )
@@ -100,7 +100,7 @@ def create_partitions(
         config_description_df = config_description_df.loc[
             config_description_df["processorType"].isin(include_processor_types)
         ]
-        logger.info(
+        xradio_logger().info(
             f"Keeping only partitions for requested processor types. From the ConfigDescription "
             f"table, with {config_description_before_df.shape[0]} rows, "
             f"{config_description_df.shape[0]} rows are kept for processor types "
@@ -116,7 +116,7 @@ def create_partitions(
                 include_spectral_resolution_types
             )
         ]
-        logger.info(
+        xradio_logger().info(
             f"Keeping only partitions for requested spectral resolution types. From the "
             f"ConfigDescription table, with {config_description_before_df.shape[0]} rows, "
             f"{config_description_df.shape[0]} rows are kept for spectral resolution types "

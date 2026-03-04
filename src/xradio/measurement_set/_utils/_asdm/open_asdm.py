@@ -3,9 +3,9 @@ import traceback
 
 import xarray as xr
 
-import toolviper.utils.logger as logger
 import pyasdm
 
+from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._asdm.create_partitions import create_partitions
 from xradio.measurement_set._utils._asdm.open_partition import open_partition
 
@@ -75,7 +75,7 @@ def open_asdm(
     )
 
     for msv4_idx, partition_descr in enumerate(partitions):
-        logger.info(
+        xradio_logger().info(
             "Opening partition for: execBlock "
             + str(partition_descr["execBlockId"])
             + ", dataDescription: "
@@ -101,7 +101,7 @@ def open_asdm(
             msv4_xdt = open_partition(asdm, partition_descr)
         except RuntimeError as exc:
             trace = traceback.format_exc()
-            logger.error(
+            xradio_logger().error(
                 f"Continuing despite failure to open partition, with {partition_descr=}.\n"
                 f"Error: {exc}\n"
                 f"\nTraceback: {trace}\n"

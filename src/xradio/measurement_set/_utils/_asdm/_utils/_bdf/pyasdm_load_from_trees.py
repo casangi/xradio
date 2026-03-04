@@ -5,7 +5,6 @@ import numpy as np
 
 import pyasdm
 
-import toolviper.utils.logger as logger
 
 from .basebands import baseband_spw_to_overall_spw_idx, calculate_overall_spw_idx
 from .pyasdm_get_ndarray import load_visibilities_one_spw_to_ndarray
@@ -14,6 +13,8 @@ from .shapes import (
     full_shape_to_output_filled_flags_shape,
 )
 from . import config
+
+from xradio._utils.logging import xradio_logger
 
 
 def load_visibilities_all_subsets_from_trees(
@@ -66,7 +67,7 @@ def load_subset_with_get_subset(bdf_reader: pyasdm.bdf.BDFReader) -> dict | None
         subset = bdf_reader.getSubset(loadOnlyComponents={"autoData", "crossData"})
     except ValueError as exc:
         trace = traceback.format_exc()
-        logger.warning(
+        xradio_logger().warning(
             f"Error in BDFReader.getSubset() for {bdf_reader.getPath()=} when "
             f"trying to load visibilities. {exc=}" + trace
         )
@@ -90,7 +91,7 @@ def load_subset_with_get_ndarrays(
         )
     except ValueError as exc:
         trace = traceback.format_exc()
-        logger.warning(
+        xradio_logger().warning(
             f"Error in BDFReader().getNDArrays() for {bdf_reader.getPath()=} when "
             f"trying to load visibilities. {exc=}" + trace
         )
@@ -291,7 +292,7 @@ def load_flags_all_subsets_from_trees(
         try:
             subset = bdf_reader.getSubset(loadOnlyComponents={"flags"})
         except ValueError as exc:
-            logger.warning(
+            xradio_logger().warning(
                 f"Error in getSubset for {bdf_reader.getPath()=} when trying to load "
                 f"flags. Will use all-False. {exc=}"
             )

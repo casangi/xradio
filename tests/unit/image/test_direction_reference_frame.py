@@ -1,6 +1,8 @@
 import numpy as np
+import pytest
 
 from xradio.image import make_empty_sky_image
+from xradio.image._util.common import _compute_world_sph_dims
 
 
 def _base_args():
@@ -84,3 +86,28 @@ def test_make_empty_sky_image_equatorial_keeps_radec_and_equinox():
     assert ref_dir["attrs"]["frame"] == "fk5"
     assert ref_dir["coords"]["sky_dir_label"]["data"] == ["ra", "dec"]
     assert ref_dir["attrs"]["equinox"] == "j2000.0"
+
+
+def test_compute_world_sph_dims_raises_for_unhandled_axis_name():
+    """
+    Verify unknown spherical axis names raise a clear runtime error.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    None
+        This test asserts error handling for unsupported axis-name inputs.
+    """
+    with pytest.raises(RuntimeError, match="Unhandled sky axis name"):
+        _compute_world_sph_dims(
+            projection="SIN",
+            shape=[8, 8],
+            ctype=["INVALID_AXIS", "DEC"],
+            crpix=[4, 4],
+            crval=[1.5, 0.2],
+            cdelt=[-np.radians(1 / 3600), np.radians(1 / 3600)],
+            cunit=["rad", "rad"],
+        )

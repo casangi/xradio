@@ -92,18 +92,18 @@ def test_get_times_from_bdfs_error_runtime():
     )
 
     with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
-        bdf_reader_exception_msg = "message from BDFReaderException"
         mock_bdf_reader.return_value.hasSubset.side_effect = [
             True,
             False,
         ]
+        bdf_reader_exception_msg = "message from BDFReader/RuntimeError"
         mock_bdf_reader.return_value.getSubset.side_effect = [
-            RuntimeError("getSubset"),
+            RuntimeError(bdf_reader_exception_msg),
             None,
         ]
 
         bdf_paths = ["/no_path/nonexistant/foo", "/no_path/nonexistant/bar"]
-        with pytest.raises(RuntimeError, match="getSubset"):
+        with pytest.raises(RuntimeError, match=bdf_reader_exception_msg):
             _centers, _durations, _actual_times, _actual_durations = (
                 get_times_from_bdfs(bdf_paths, pd.DataFrame())
             )

@@ -560,7 +560,7 @@ def test_load_visibilities_from_bdf_error_loading(input_never_reshape, input_spw
         make_sufficient_bdf_header_mock(mock_bdf_header)
         mock_bdf_reader.return_value.getHeader.return_value = mock_bdf_header
         with pytest.raises(RuntimeError, match="Error while loading data/visibilities"):
-            visibilities = load_visibilities_from_bdf(
+            load_visibilities_from_bdf(
                 "/inexistent/foo/path/",
                 input_spw,
                 {},
@@ -693,10 +693,7 @@ def test_load_visibilities_all_subsets_X136e():
         load_visibilities_all_subsets,
     )
 
-    with (
-        mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
-        mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
-    ):
+    with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
         # For load_vis_subset, etc.
         mock_bdf_reader.hasSubset.side_effect = [True, False]
         mock_bdf_reader.getSubset.side_effect = [
@@ -1093,10 +1090,7 @@ def test_load_flags_all_subsets_X136e():
         load_flags_all_subsets,
     )
 
-    with (
-        mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
-        mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
-    ):
+    with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
         # For load_vis_subset, etc.
         mock_bdf_reader.hasSubset.side_effect = [True, False]
         mock_bdf_reader.getSubset.side_effect = [

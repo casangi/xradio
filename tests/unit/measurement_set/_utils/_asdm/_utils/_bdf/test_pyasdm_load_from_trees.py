@@ -245,10 +245,7 @@ def test_load_visibilities_all_subsets_from_trees_X136e(input_load_one_spw_from_
         load_visibilities_all_subsets_from_trees,
     )
 
-    with (
-        mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
-        mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
-    ):
+    with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
         # For load_vis_subset, etc.
         mock_bdf_reader.hasSubset.side_effect = [True, False]
         if input_load_one_spw_from_file:
@@ -300,10 +297,7 @@ def test_load_visibilities_all_subsets_from_trees_X136e_error(
         load_visibilities_all_subsets_from_trees,
     )
 
-    with (
-        mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
-        mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
-    ):
+    with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
         # For load_vis_subset, etc.
         mock_bdf_reader.hasSubset.side_effect = [True, False]
         if input_load_one_spw_from_file:
@@ -318,7 +312,7 @@ def test_load_visibilities_all_subsets_from_trees_X136e_error(
             bdf_descr_X136e,
             load_one_spw_from_file=input_load_one_spw_from_file,
         )
-        assert visibilities == None
+        assert visibilities is None
 
         mock_bdf_reader.hasSubset.assert_called_once()
         if input_load_one_spw_from_file:
@@ -732,10 +726,7 @@ def test_load_flags_all_subsets_from_trees_X136e():
         load_flags_all_subsets_from_trees,
     )
 
-    with (
-        mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
-        mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
-    ):
+    with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
         # For load_vis_subset, etc.
         mock_bdf_reader.hasSubset.side_effect = [True, False]
         mock_bdf_reader.getSubset.side_effect = [

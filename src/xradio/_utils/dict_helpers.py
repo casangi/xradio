@@ -1,50 +1,73 @@
 from xradio._utils.list_and_array import to_python_type
 
 
-def make_quantity(value, units: str, dims: list = []) -> dict:
+def make_quantity(value, units: str, dims: list | None = None) -> dict:
     """
-    create a quantity dictionary given value and units
+    Create a serialized quantity dictionary.
 
     Parameters
     ----------
     value : numeric or array of numerics
-        Quantity value
-    units: str
-        Quantity units
+        Quantity value.
+    units : str
+        Quantity units.
+    dims : list or None, default=None
+        Dimension labels associated with the quantity data.
 
     Returns
     -------
     dict
+        Quantity dictionary containing ``data``, ``dims``, and ``attrs``.
     """
+    normalized_dims = [] if dims is None else list(dims)
     return {
         "data": to_python_type(value),
-        "dims": dims,
+        "dims": normalized_dims,
         "attrs": make_quantity_attrs(units),
     }
 
 
 def ensure_units_are_consistent(units):
+    """
+    Normalize unit input to a single unit string.
+
+    Parameters
+    ----------
+    units : str or Sequence[str]
+        Either a single unit string or a sequence of unit strings that must all
+        be identical.
+
+    Returns
+    -------
+    str
+        The normalized unit string.
+    """
     if isinstance(units, str):
         return units
-    else:
-        u0 = units[0]
-        for u in units:
-            assert u0 == u, f"Units are not consistent: {u0} != {u}. "
-        return u0
+
+    if len(units) == 0:
+        raise ValueError("Units are empty; expected at least one unit value.")
+
+    u0 = units[0]
+    for u in units:
+        if u0 != u:
+            raise ValueError(f"Units are not consistent: {u0} != {u}.")
+    return u0
 
 
 def make_quantity_attrs(units: str) -> dict:
     """
-    Creates the dict of attributes of a quantity
+    Create attrs for a serialized quantity.
 
     Parameters
     ----------
-    units: str
-        Quantity units
+    units : str
+        Quantity units.
 
     Returns
     -------
     dict
+        Quantity attrs dictionary with ``units`` and ``type`` keys.
     """
     return {"units": ensure_units_are_consistent(units), "type": "quantity"}
 
@@ -53,20 +76,21 @@ def make_spectral_coord_reference_dict(
     value: float, units: str, observer: str = "lsrk"
 ) -> dict:
     """
-    creates a spectral_coord measure dict given the value, units, and observer
+    Create a serialized spectral-coordinate measure dictionary.
 
     Parameters
     ----------
     value : numeric or array of numerics
-        measure value
+        Spectral coordinate value.
     units : str
-        measure units
-    observer :
-        observer reference frame
+        Spectral coordinate units.
+    observer : str, default="lsrk"
+        Spectral reference frame.
 
     Returns
     -------
     dict
+        Spectral-coordinate measure dictionary with attrs and scalar data.
     """
     u = ensure_units_are_consistent(units)
     return {
@@ -81,24 +105,73 @@ def make_spectral_coord_reference_dict(
 
 def make_spectral_coord_measure_attrs(units: str, observer: str = "lsrk") -> dict:
     """
-    Creates a spectral_coord measure attrs dict given units and observer
+    Create attrs for a serialized spectral-coordinate measure.
 
     Parameters
     ----------
-    units: str or list of str
-        Spectral coordinate units
-    observer: str
-        Spectral reference frame
+    units : str or list[str]
+        Spectral coordinate units.
+    observer : str, default="lsrk"
+        Spectral reference frame.
+
     Returns
     -------
     dict
-        Attrs dict for a spectral_coord measure
+        Attrs dictionary for a spectral-coordinate measure.
     """
     u = ensure_units_are_consistent(units)
     return {"units": u, "observer": observer, "type": "spectral_coord"}
 
 
-def make_skycoord_dict(data: list[float], units: str, frame: str) -> dict:
+def _default_sky_axis_labels(frame: str) -> tuple[str, str]:
+    """
+    Choose default sky-axis labels for a direction frame.
+
+    Parameters
+    ----------
+    frame : str
+        Direction frame name.
+
+    Returns
+    -------
+    tuple[str, str]
+        Default axis labels for the provided frame.
+    """
+    return ("lon", "lat") if frame.lower() == "galactic" else ("ra", "dec")
+
+
+def make_skycoord_dict(
+    data: list[float],
+    units: str,
+    frame: str,
+    axis_labels: tuple[str, str] | None = None,
+) -> dict:
+    """
+    Build a serialized sky-coordinate measure dictionary.
+
+    Parameters
+    ----------
+    data : list[float]
+        Two-element direction coordinate value in the requested frame.
+    units : str
+        Units for both coordinate values.
+    frame : str
+        Direction reference frame name.
+    axis_labels : tuple[str, str] or None, default=None
+        Axis labels stored in the ``sky_dir_label`` coordinate. If not given,
+        labels are derived from ``frame`` (for example, Galactic uses ``lon/lat``).
+
+    Returns
+    -------
+    dict
+        Dictionary with ``attrs``, ``data``, ``dims``, and ``coords`` fields
+        representing a sky-coordinate measure.
+    """
+    labels = _default_sky_axis_labels(frame) if axis_labels is None else axis_labels
+    if len(labels) != 2:
+        raise ValueError(
+            f"axis_labels must contain exactly two values, got {len(labels)}."
+        )
     return {
         "attrs": {
             "frame": frame.lower(),
@@ -107,11 +180,34 @@ def make_skycoord_dict(data: list[float], units: str, frame: str) -> dict:
         },
         "data": to_python_type(data),
         "dims": "sky_dir_label",
-        "coords": {"sky_dir_label": {"data": ["ra", "dec"], "dims": "sky_dir_label"}},
+        "coords": {
+            "sky_dir_label": {
+                "data": list(labels),
+                "dims": "sky_dir_label",
+            }
+        },
     }
 
 
 def make_direction_location_dict(data: list[float], units: str, frame: str) -> dict:
+    """
+    Build a serialized two-axis location dictionary.
+
+    Parameters
+    ----------
+    data : list[float]
+        Two-element longitude/latitude value.
+    units : str
+        Units for both values.
+    frame : str
+        Location frame name.
+
+    Returns
+    -------
+    dict
+        Dictionary with ``attrs``, ``data``, ``dims``, and ``coords`` fields
+        representing a location.
+    """
     return {
         "attrs": {
             "frame": frame.upper(),
@@ -130,6 +226,23 @@ def make_direction_location_dict(data: list[float], units: str, frame: str) -> d
 
 
 def make_time_measure_attrs(units="s", scale="utc", time_format="mjd") -> dict:
+    """
+    Create attrs for a serialized time measure.
+
+    Parameters
+    ----------
+    units : str, default="s"
+        Time units.
+    scale : str, default="utc"
+        Time scale name.
+    time_format : str, default="mjd"
+        Time format name.
+
+    Returns
+    -------
+    dict
+        Time measure attrs containing units, scale, format, and type.
+    """
     u = ensure_units_are_consistent(units)
     return {
         "units": u,
@@ -141,20 +254,23 @@ def make_time_measure_attrs(units="s", scale="utc", time_format="mjd") -> dict:
 
 def make_time_measure_dict(data, units="s", scale="utc", time_format="mjd") -> dict:
     """
-    create a time measure dictionary given value and units
+    Create a serialized time measure dictionary.
+
     Parameters
     ----------
-    value : numeric or array of numerics
-        Time value
-    units: str
-        Time units
-    scale: str
-        Time scale
-    time_format: str
-        Time format
+    data : numeric or array-like
+        Time value.
+    units : str, default="s"
+        Time units.
+    scale : str, default="utc"
+        Time scale.
+    time_format : str, default="mjd"
+        Time format.
+
     Returns
     -------
     dict
+        Time measure dictionary containing attrs and scalar data.
     """
     x = {}
     x["attrs"] = make_time_measure_attrs(units, scale, time_format)
@@ -165,20 +281,21 @@ def make_time_measure_dict(data, units="s", scale="utc", time_format="mjd") -> d
 
 def make_time_coord_attrs(units="s", scale="utc", time_format="mjd") -> dict:
     """
-    create a time measure dictionary given value and units
+    Create coordinate attrs for time coordinates.
+
     Parameters
     ----------
-    value : numeric or array of numerics
-        Time value
-    units: str
-        Time units
-    scale: str
-        Time scale
-    time_format: str
-        Time format
+    units : str, default="s"
+        Time units.
+    scale : str, default="utc"
+        Time scale.
+    time_format : str, default="mjd"
+        Time format.
+
     Returns
     -------
     dict
+        Time attrs dictionary without the ``type`` key, suitable for coords.
     """
     x = make_time_measure_attrs(units, scale.lower(), time_format.lower())
     del x["type"]
@@ -187,7 +304,17 @@ def make_time_coord_attrs(units="s", scale="utc", time_format="mjd") -> dict:
 
 def _casacore_q_to_xradio_q(q: dict) -> dict:
     """
-    Convert a casacore quantity to an xradio quantity
+    Recursively convert casacore quantity dictionaries to xradio quantities.
+
+    Parameters
+    ----------
+    q : dict
+        Casacore-style quantity dictionary, potentially nested.
+
+    Returns
+    -------
+    dict
+        Converted xradio quantity dictionary.
     """
     if isinstance(q, dict):
         if "value" in q and "unit" in q:

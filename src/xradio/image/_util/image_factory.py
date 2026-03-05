@@ -15,6 +15,61 @@ from xradio._utils.dict_helpers import (
 from xradio._utils.logging import xradio_logger
 
 
+def _is_galactic_frame(direction_reference: str) -> bool:
+    """
+    Check whether a direction reference frame is Galactic.
+
+    Parameters
+    ----------
+    direction_reference : str
+        Direction frame name.
+
+    Returns
+    -------
+    bool
+        True when the frame is Galactic, otherwise False.
+    """
+    return direction_reference.lower() == "galactic"
+
+
+def _spherical_ctype_for_frame(direction_reference: str) -> list[str]:
+    """
+    Get WCS CTYPE axis tokens for a direction reference frame.
+
+    Parameters
+    ----------
+    direction_reference : str
+        Direction frame name.
+
+    Returns
+    -------
+    list[str]
+        Two-element CTYPE list for longitude/latitude axes.
+    """
+    if _is_galactic_frame(direction_reference):
+        return ["GLON", "GLAT"]
+    return ["RA", "Dec"]
+
+
+def _spherical_coord_names_for_frame(direction_reference: str) -> tuple[str, str]:
+    """
+    Get coordinate variable names for spherical sky coordinates.
+
+    Parameters
+    ----------
+    direction_reference : str
+        Direction frame name.
+
+    Returns
+    -------
+    tuple[str, str]
+        Coordinate names for longitude and latitude.
+    """
+    if _is_galactic_frame(direction_reference):
+        return ("galactic_longitude", "galactic_latitude")
+    return ("right_ascension", "declination")
+
+
 def _input_checks(
     phase_center: Union[list, np.ndarray],
     image_size: Union[list, np.ndarray],
@@ -36,6 +91,11 @@ def _input_checks(
     ------
     ValueError
         If any parameter does not have exactly 2 elements.
+
+    Returns
+    -------
+    None
+        This function validates inputs and raises on invalid shapes.
     """
     if len(image_size) != 2:
         raise ValueError("image_size must have exactly two elements")
@@ -49,6 +109,21 @@ def _make_coords(
     frequency_coords: Union[list, np.ndarray],
     time_coords: Union[list, np.ndarray],
 ) -> dict:
+    """
+    Build common time/frequency/velocity coordinate arrays.
+
+    Parameters
+    ----------
+    frequency_coords : list or np.ndarray
+        Frequency coordinate values in Hz.
+    time_coords : list or np.ndarray
+        Time coordinate values in MJD days.
+
+    Returns
+    -------
+    dict
+        Dictionary containing normalized coordinate arrays and a rest frequency.
+    """
     if not isinstance(frequency_coords, list) and not isinstance(
         frequency_coords, np.ndarray
     ):
@@ -73,6 +148,31 @@ def _add_common_attrs(
     cell_size: Union[List[float], np.ndarray],
     projection: str,
 ) -> xr.Dataset:
+    """
+    Attach common image-level coordinate attributes and metadata.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        Dataset to enrich with metadata.
+    restfreq : float
+        Rest frequency in Hz.
+    spectral_reference : str
+        Spectral frame identifier.
+    direction_reference : str
+        Direction frame identifier.
+    phase_center : list[float] or np.ndarray
+        Two-element phase center in radians.
+    cell_size : list[float] or np.ndarray
+        Pixel cell size in radians.
+    projection : str
+        Projection code.
+
+    Returns
+    -------
+    xr.Dataset
+        Input dataset with updated coordinate attrs and dataset attrs.
+    """
     xds.time.attrs = make_time_coord_attrs(units="d", scale="utc", time_format="mjd")
     freq_vals = np.array(xds.frequency)
     xds.frequency.attrs = {
@@ -90,9 +190,12 @@ def _add_common_attrs(
     }
     xds.velocity.attrs = {"doppler_type": "radio", "type": "doppler", "units": "m/s"}
     reference = make_skycoord_dict(
-        data=phase_center, units="rad", frame=direction_reference
+        data=phase_center,
+        units="rad",
+        frame=direction_reference,
     )
-    reference["attrs"].update({"equinox": "j2000.0"})
+    if not _is_galactic_frame(direction_reference):
+        reference["attrs"].update({"equinox": "j2000.0"})
     xds.attrs = {
         "data_groups": {"base": {}},
         "coordinate_system_info": {
@@ -114,6 +217,23 @@ def _make_common_coords(
     frequency_coords: Union[list, np.ndarray],
     time_coords: Union[list, np.ndarray],
 ) -> dict:
+    """
+    Build shared non-direction coordinates used by image constructors.
+
+    Parameters
+    ----------
+    pol_coords : list or np.ndarray
+        Polarization labels.
+    frequency_coords : list or np.ndarray
+        Frequency coordinate values in Hz.
+    time_coords : list or np.ndarray
+        Time coordinate values in MJD days.
+
+    Returns
+    -------
+    dict
+        Dictionary with assembled coordinate mapping and rest frequency.
+    """
     some_coords = _make_coords(frequency_coords, time_coords)
     return {
         "coords": {
@@ -130,6 +250,21 @@ def _make_lm_values(
     image_size: Union[list, np.ndarray],
     cell_size: Union[list, np.ndarray],
 ) -> dict:
+    """
+    Build linear ``l`` and ``m`` coordinate arrays from image geometry.
+
+    Parameters
+    ----------
+    image_size : list or np.ndarray
+        Two-element image size in pixels.
+    cell_size : list or np.ndarray
+        Two-element cell size in radians.
+
+    Returns
+    -------
+    dict
+        Dictionary containing ``l`` and ``m`` coordinate arrays.
+    """
     # l follows RA as far as increasing/decreasing, see AIPS Meme 27, change in alpha
     # definition three lines below Figure 2 and the first of the pair of equations 10.
     l = [
@@ -145,20 +280,55 @@ def _make_sky_coords(
     image_size: Union[list, np.ndarray],
     cell_size: Union[list, np.ndarray],
     phase_center: Union[list, np.ndarray],
+    direction_reference: str,
 ) -> dict:
+    """
+    Compute spherical sky-coordinate grids for the requested direction frame.
+
+    Parameters
+    ----------
+    projection : str
+        Spherical projection code.
+    image_size : list or np.ndarray
+        Two-element image size in pixels.
+    cell_size : list or np.ndarray
+        Two-element cell size in radians.
+    phase_center : list or np.ndarray
+        Two-element phase center in radians.
+    direction_reference : str
+        Direction frame identifier.
+
+    Returns
+    -------
+    dict
+        Mapping from spherical coordinate names to ``(dims, values)`` tuples.
+    """
     long, lat = _compute_world_sph_dims(
         projection=projection,
         shape=image_size,
-        ctype=["RA", "Dec"],
+        ctype=_spherical_ctype_for_frame(direction_reference),
         crpix=[image_size[0] // 2, image_size[1] // 2],
         crval=phase_center,
         cdelt=[-abs(cell_size[0]), abs(cell_size[1])],
         cunit=["rad", "rad"],
     )["value"]
-    return {"right_ascension": (("l", "m"), long), "declination": (("l", "m"), lat)}
+    lon_name, lat_name = _spherical_coord_names_for_frame(direction_reference)
+    return {lon_name: (("l", "m"), long), lat_name: (("l", "m"), lat)}
 
 
-def _add_lm_coord_attrs(xds: xr.Dataset) -> xr.Dataset:
+def _add_lm_coord_attrs(xds: xr.Dataset) -> None:
+    """
+    Attach explanatory notes to ``l`` and ``m`` coordinates. The input Dataset is modified in-place.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        Dataset containing ``l`` and ``m`` coordinates.
+
+    Returns
+    -------
+    None
+    """
     attr_note = _l_m_attr_notes()
     xds.l.attrs = {
         "note": attr_note["l"],
@@ -180,13 +350,48 @@ def _make_empty_sky_image(
     spectral_reference: str,
     do_sky_coords: bool,
 ) -> xr.Dataset:
+    """
+    Create an empty sky image dataset containing only coordinates.
+
+    Parameters
+    ----------
+    phase_center : list or np.ndarray
+        Two-element phase center in radians.
+    image_size : list or np.ndarray
+        Two-element image size in pixels.
+    cell_size : list or np.ndarray
+        Two-element cell size in radians.
+    frequency_coords : list or np.ndarray
+        Frequency coordinates in Hz.
+    pol_coords : list or np.ndarray
+        Polarization labels.
+    time_coords : list or np.ndarray
+        Time coordinates in MJD days.
+    direction_reference : str
+        Direction frame identifier.
+    projection : str
+        Projection code.
+    spectral_reference : str
+        Spectral frame identifier.
+    do_sky_coords : bool
+        Whether to add spherical sky-coordinate grids.
+
+    Returns
+    -------
+    xr.Dataset
+        Empty image dataset with coordinates and metadata.
+    """
     _input_checks(phase_center, image_size, cell_size)
     cc = _make_common_coords(pol_coords, frequency_coords, time_coords)
     coords = cc["coords"]
     lm_values = _make_lm_values(image_size, cell_size)
     coords.update(lm_values)
     if do_sky_coords:
-        coords.update(_make_sky_coords(projection, image_size, cell_size, phase_center))
+        coords.update(
+            _make_sky_coords(
+                projection, image_size, cell_size, phase_center, direction_reference
+            )
+        )
     xds = xr.Dataset(coords=coords)
     xds = _move_beam_param_dim_coord(xds)
     _add_lm_coord_attrs(xds)
@@ -206,7 +411,24 @@ def _make_uv_coords(
     xds: xr.Dataset,
     image_size: Union[list, np.ndarray],
     sky_image_cell_size: Union[list, np.ndarray],
-) -> dict:
+) -> xr.Dataset:
+    """
+    Attach ``u`` and ``v`` coordinates to a dataset.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        Dataset to augment with uv coordinates.
+    image_size : list or np.ndarray
+        Two-element image size in pixels.
+    sky_image_cell_size : list or np.ndarray
+        Two-element sky image cell size in radians.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with ``u`` and ``v`` coordinates and attrs.
+    """
     uv_values = _make_uv_values(image_size, sky_image_cell_size)
     xds = xds.assign_coords(uv_values)
     attr = make_quantity(0.0, "lambda")
@@ -219,6 +441,21 @@ def _make_uv_values(
     image_size: Union[list, np.ndarray],
     sky_image_cell_size: Union[list, np.ndarray],
 ) -> dict:
+    """
+    Compute linear ``u`` and ``v`` coordinate arrays.
+
+    Parameters
+    ----------
+    image_size : list or np.ndarray
+        Two-element image size in pixels.
+    sky_image_cell_size : list or np.ndarray
+        Two-element sky image cell size in radians.
+
+    Returns
+    -------
+    dict
+        Dictionary containing ``u`` and ``v`` coordinate arrays.
+    """
     im_size_wave = 1 / np.array(sky_image_cell_size)
     uv_cell_size = im_size_wave / np.array(image_size)
     u_vals = [(i - image_size[0] // 2) * uv_cell_size[0] for i in range(image_size[0])]
@@ -237,6 +474,35 @@ def _make_empty_aperture_image(
     projection: str,
     spectral_reference: str,
 ) -> xr.Dataset:
+    """
+    Create an empty aperture image dataset containing only coordinates.
+
+    Parameters
+    ----------
+    phase_center : list or np.ndarray
+        Two-element phase center in radians.
+    image_size : list or np.ndarray
+        Two-element image size in pixels.
+    sky_image_cell_size : list or np.ndarray
+        Two-element sky image cell size in radians.
+    frequency_coords : list or np.ndarray
+        Frequency coordinates in Hz.
+    pol_coords : list or np.ndarray
+        Polarization labels.
+    time_coords : list or np.ndarray
+        Time coordinates in MJD days.
+    direction_reference : str
+        Direction frame identifier.
+    projection : str
+        Projection code.
+    spectral_reference : str
+        Spectral frame identifier.
+
+    Returns
+    -------
+    xr.Dataset
+        Empty aperture-image dataset with coordinates and metadata.
+    """
     _input_checks(phase_center, image_size, sky_image_cell_size)
     cc = _make_common_coords(pol_coords, frequency_coords, time_coords)
     coords = cc["coords"]
@@ -286,6 +552,37 @@ def _make_empty_lmuv_image(
     spectral_reference: str,
     do_sky_coords: bool,
 ) -> xr.Dataset:
+    """
+    Create an empty image dataset with both lm and uv coordinates.
+
+    Parameters
+    ----------
+    phase_center : list or np.ndarray
+        Two-element phase center in radians.
+    image_size : list or np.ndarray
+        Two-element image size in pixels.
+    sky_image_cell_size : list or np.ndarray
+        Two-element sky image cell size in radians.
+    frequency_coords : list or np.ndarray
+        Frequency coordinates in Hz.
+    pol_coords : list or np.ndarray
+        Polarization labels.
+    time_coords : list or np.ndarray
+        Time coordinates in MJD days.
+    direction_reference : str
+        Direction frame identifier.
+    projection : str
+        Projection code.
+    spectral_reference : str
+        Spectral frame identifier.
+    do_sky_coords : bool
+        Whether to include spherical sky-coordinate grids.
+
+    Returns
+    -------
+    xr.Dataset
+        Empty image dataset with lm and uv coordinate systems.
+    """
     xds = _make_empty_sky_image(
         phase_center,
         image_size,

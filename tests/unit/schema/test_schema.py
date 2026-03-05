@@ -1454,7 +1454,7 @@ def test_schema_issues_init_copy():
     original = SchemaIssues([issue])
     copy = SchemaIssues(original)
     assert len(copy) == 1
-    assert copy.issues is original.issues
+    assert copy.issues == original.issues
 
 
 def test_schema_issues_add_operator():
@@ -1466,17 +1466,15 @@ def test_schema_issues_add_operator():
     assert combined[1].message == "second"
 
 
-def test_schema_issues_add_shares_list():
-    # NOTE: SchemaIssues.__init__(SchemaIssues) shares the inner list by reference
-    # (self.issues = issues.issues), so __add__ mutates the left operand as a
-    # side-effect. This test documents the actual behavior.
+def test_schema_issues_add_no_mutation():
+    # __add__ must not mutate either operand
     issue1 = SchemaIssue(path=[("attrs", "a")], message="first")
     issue2 = SchemaIssue(path=[("attrs", "b")], message="second")
     issues_b = SchemaIssues([issue2])
     combined = SchemaIssues([issue1]) + issues_b
     assert len(combined) == 2
-    assert len(issues_b) == 1  # right operand is unaffected
-
+    assert len(issues_b) == 1  # right operand unaffected
+    
 
 def test_schema_issues_str_no_issues():
     assert str(SchemaIssues()) == "No schema issues found"
@@ -1823,7 +1821,21 @@ def test_check_value_literal_invalid():
 # ---------------------------------------------------------------------------
 
 
-def test_register_dataset_type():
+@pytest.fixture()
+def isolated_dataset_types(monkeypatch):
+    """Replace _DATASET_TYPES with a shallow copy for the duration of the test.
+
+    monkeypatch automatically restores the original dict after each test,
+    preventing leakage of test-only registrations into later tests.
+    """
+    from xradio.schema import check as check_module
+
+    monkeypatch.setattr(
+        check_module, "_DATASET_TYPES", dict(check_module._DATASET_TYPES)
+    )
+
+
+def test_register_dataset_type(isolated_dataset_types):
     from xradio.schema.check import _DATASET_TYPES
     from xradio.schema import xarray_dataclass_to_dataset_schema
 

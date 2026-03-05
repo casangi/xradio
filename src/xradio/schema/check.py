@@ -83,7 +83,7 @@ class SchemaIssues(Exception):
         if issues is None:
             self.issues = []
         elif isinstance(issues, SchemaIssues):
-            self.issues = issues.issues
+            self.issues = list(issues.issues)
         else:
             self.issues = list(issues)
 

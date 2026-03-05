@@ -1474,7 +1474,7 @@ def test_schema_issues_add_no_mutation():
     combined = SchemaIssues([issue1]) + issues_b
     assert len(combined) == 2
     assert len(issues_b) == 1  # right operand unaffected
-    
+
 
 def test_schema_issues_str_no_issues():
     assert str(SchemaIssues()) == "No schema issues found"

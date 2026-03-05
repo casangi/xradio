@@ -318,12 +318,12 @@ def create_coordinates(
     # This is for now very incomplete. Subscan/startTime,numIntegrations,etc.
     sdm_scan_attrs = ["execBlockId", "scanNumber", "startTime", "endTime", "numSubscan"]
     scan_df = exp_asdm_table_to_df(asdm, "Scan", sdm_scan_attrs)
-    scans_metadata = scan_df.loc[
+    scans_metadata_df = scan_df.loc[
         scan_df["scanNumber"].isin(partition_descr["scanNumber"])
     ]
 
     time_centers, durations, actual_times, actual_durations = get_times_from_bdfs(
-        partition_descr["BDFPath"], scans_metadata
+        partition_descr["BDFPath"], scans_metadata_df
     )
 
     coords = {}
@@ -336,14 +336,11 @@ def create_coordinates(
     attrs["time"].update(
         {"dims": ["time"], "integration_time": make_quantity(integration_time, "s")}
     )
-    scan_numbers = np.array(scans_metadata["scanNumber"]).astype(str)
-    # TODO: proper mapping begin/end scans, subscans -> BDFs
-    if len(scan_numbers) != len(time_centers):
-        scan_numbers = np.resize(scan_numbers, len(time_centers))
-    coords["scan_name"] = (["time"], scan_numbers)
-    attrs["scan_name"] = {"scan_intents": partition_descr["scanIntent"]}
 
-    # baselines...
+    coords["scan_name"], attrs["scan_name"] = create_scan_name_coord_attrs(
+        scans_metadata_df
+    )
+
     baseline_coords, num_antenna, len_baseline_coords = create_baseline_coords(
         asdm, partition_descr
     )
@@ -357,13 +354,7 @@ def create_coordinates(
         asdm, spw_id
     )
 
-    # field_name will be created from field_and_source_xds?
-    sdm_field_attrs = ["fieldId", "fieldName"]
-    field_df = exp_asdm_table_to_df(asdm, "Field", sdm_field_attrs)
-    fields = field_df.loc[field_df["fieldId"].isin(partition_descr["fieldId"])][
-        "fieldName"
-    ].values.astype(str)
-    coords["field_name"] = (["time"], np.resize(fields, len(time_centers)))
+    coords["field_name"] = create_field_name_coord(asdm, time_centers, partition_descr)
 
     time_vars = create_time_vars(actual_durations, actual_times, len_baseline_coords)
 
@@ -376,6 +367,18 @@ def create_coordinates(
 
     # TODO: this needs clean-up!
     return coords, attrs, num_antenna, spw_id, bdf_spw_id, time_vars
+
+
+def create_scan_name_coord_attrs(scans_metadata_df: pd.DataFrame) -> tuple[tuple, dict]:
+
+    scan_numbers = np.array(scans_metadata_df["scanNumber"]).astype(str)
+    # TODO: proper mapping begin/end scans, subscans -> BDFs
+    if len(scan_numbers) != len(time_centers):
+        scan_numbers = np.resize(scan_numbers, len(time_centers))
+    coord_scan_name = (["time"], scan_numbers)
+    attrs_scan_name = {"scan_intents": partition_descr["scanIntent"]}
+
+    return coord_scan_name, attrs_scan_name
 
 
 def create_baseline_coords(
@@ -465,10 +468,8 @@ def create_time_vars(
 
 def create_frequency_coord_attrs(
     asdm: pyasdm.ASDM, spw_id: int
-) -> tuple[dict, dict, pd.DataFrame]:
+) -> tuple[tuple, dict, pd.DataFrame]:
 
-    frequency_coord = {}
-    frequency_attrs = {}
     # frequency coord
     sdm_spw_attrs = [
         "spectralWindowId",
@@ -499,6 +500,22 @@ def create_frequency_coord_attrs(
     frequency_attrs.update(frequency_additional_attrs)
 
     return frequency_coord, frequency_attrs, spw_df
+
+
+def create_field_name_coord(
+    asdm: pyasdm.ASDM, time_centers: np.ndarray, partition_descr: dict
+) -> tuple:
+
+    # field_name will be created from field_and_source_xds?
+    sdm_field_attrs = ["fieldId", "fieldName"]
+    field_df = exp_asdm_table_to_df(asdm, "Field", sdm_field_attrs)
+
+    fields = field_df.loc[field_df["fieldId"].isin(partition_descr["fieldId"])][
+        "fieldName"
+    ].values.astype(str)
+
+    field_name_coord = (["time"], np.resize(fields, len(time_centers)))
+    return field_name_coord
 
 
 def find_bdf_spw_id(

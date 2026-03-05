@@ -338,7 +338,7 @@ def create_coordinates(
     )
 
     coords["scan_name"], attrs["scan_name"] = create_scan_name_coord_attrs(
-        scans_metadata_df
+        time_centers, scans_metadata_df, partition_descr
     )
 
     baseline_coords, num_antenna, len_baseline_coords = create_baseline_coords(
@@ -369,7 +369,9 @@ def create_coordinates(
     return coords, attrs, num_antenna, spw_id, bdf_spw_id, time_vars
 
 
-def create_scan_name_coord_attrs(scans_metadata_df: pd.DataFrame) -> tuple[tuple, dict]:
+def create_scan_name_coord_attrs(
+    time_centers: np.ndarray, scans_metadata_df: pd.DataFrame, partition_descr: dict
+) -> tuple[tuple, dict]:
 
     scan_numbers = np.array(scans_metadata_df["scanNumber"]).astype(str)
     # TODO: proper mapping begin/end scans, subscans -> BDFs

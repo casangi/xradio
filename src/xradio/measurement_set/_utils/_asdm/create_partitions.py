@@ -42,7 +42,7 @@ def create_partitions(
         # beware: ArrayTime sues TAI, not UTC scale -> look for UTCTime class
         # This should be fine, as the first leap second was in 1972.30.06?
         #
-        # Also, these functions produce tai-referenced values:
+        # Note that also these functions produce tai-referenced values:
         # time_values = [((asdm_interval.toFITS()) for asdm_interval in main_df["time"].values]
 
         MJD_TO_UNIX_TIME_DELTA = 3_506_716_800
@@ -52,6 +52,8 @@ def create_partitions(
         ]
 
         return pd.to_datetime(time_values, unit="s")
+
+    start = time.perf_counter()
 
     sdm_main_attrs = [
         "time",  # here for now to keep an eye on it
@@ -75,12 +77,9 @@ def create_partitions(
         main_df["stateId"] = main_df["stateId"].apply(lambda val: val[0])
 
     do_prints = True
-
     if do_prints:
-        with pd.option_context(
-            "display.max_rows", 400
-        ):  # , 'display.max_columns', None):
-            print(f"* {main_df=}")
+        with pd.option_context("display.max_rows", 400):
+            xradio_logger().debug(f"* {main_df=}")
 
     sdm_config_description_attrs = [
         "configDescriptionId",
@@ -136,22 +135,22 @@ def create_partitions(
         "dataDescriptionId"
     ].astype(int)
     if do_prints:
-        print(f"* {config_description_df=}")
+        xradio_logger().debug(f"* {config_description_df=}")
 
     sdm_dd_attrs = ["dataDescriptionId", "spectralWindowId", "polOrHoloId"]
     data_description_df = exp_asdm_table_to_df(sdm, "DataDescription", sdm_dd_attrs)
     if do_prints:
-        print(f"* {data_description_df=}")
+        xradio_logger().debug(f"* {data_description_df=}")
 
     sdm_field_attrs = ["fieldId", "sourceId"]
     field_df = exp_asdm_table_to_df(sdm, "Field", sdm_field_attrs)
     if do_prints:
-        print(f"* {field_df=}")
+        xradio_logger().debug(f"* {field_df=}")
 
     sdm_scan_attrs = ["execBlockId", "scanNumber", "scanIntent"]
     scan_df = exp_asdm_table_to_df(sdm, "Scan", sdm_scan_attrs)
     if do_prints:
-        print(f"* {scan_df=}")
+        xradio_logger().debug(f"* {scan_df=}")
 
     # replace scan_intents (list of str) by an id
     unique_scan_intents, unique_intents_inverse = np.unique(
@@ -165,12 +164,14 @@ def create_partitions(
     # lots of SPWs/Pol-Setups.
     partitioning_df = pd.merge(main_df, config_description_df, on="configDescriptionId")
     if do_prints:
-        print(f" * Initial merge, Main+CD: {partitioning_df=}")
+        xradio_logger().debug(
+            f" * Initial merge, Main+ConfigurationDescription: {partitioning_df=}"
+        )
     partitioning_df = pd.merge(
         partitioning_df, data_description_df, on="dataDescriptionId"
     )
     if do_prints:
-        print(f" * AFTER DD merge: {partitioning_df=}")
+        xradio_logger().debug(f" * After DataDescription merge: {partitioning_df=}")
 
     # Starting from DataDescription+ConfigDescription, then main
     # partitioning_df = pd.merge(
@@ -180,20 +181,17 @@ def create_partitions(
 
     partitioning_df = pd.merge(partitioning_df, field_df, on="fieldId")
     if do_prints:
-        print(f" * AFTER Field merge: {partitioning_df=}")
+        xradio_logger().debug(f" * AFTER Field merge: {partitioning_df=}")
     partitioning_df = pd.merge(
         partitioning_df, scan_df, on=["scanNumber", "execBlockId"], suffixes=("", "_y")
     )
     if do_prints:
-        with pd.option_context(
-            "display.max_rows", 400
-        ):  # , 'display.max_columns', None):
-            print(f" * AFTER Scan (all) merges: {partitioning_df=}")
+        with pd.option_context("display.max_rows", 400):
+            xradio_logger().debug(f" * AFter Scan (all) merges: {partitioning_df=}")
 
     potential_partitions = len(partitioning_df)
-    print(f" **** {partitioning_df.columns=}")
+    xradio_logger().debug(f" * {partitioning_df.columns=}")
     scheme_cols = ["execBlockId", "dataDescriptionId", "scanIntent"] + partition_scheme
-    print(f"{scheme_cols=}")
 
     # possible check: would a full drop_duplicates() drop anything? It shouldn't
     # partition_df = partitioning_df.drop_duplicates()
@@ -202,26 +200,25 @@ def create_partitions(
     partition_df = partitioning_df.drop_duplicates(subset=scheme_cols).reset_index(
         drop=True
     )
-    print(f" \n\n\n***** AFTER drop_duplicates with subset: {partition_df=}")
+    xradio_logger().debug(f" * After drop_duplicates with subset: {partition_df=}")
     partition_df = partition_df.drop(
         columns=set(partition_df.columns.to_list()) - set(scheme_cols)
     )
 
     with pd.option_context("display.max_rows", 150):  # , 'display.max_columns', None):
-        print(f" * FINAL: {partition_df=}")
-    print(
-        f" {len(partition_df)} out of {potential_partitions} potential partitions are found in dataset"
+        xradio_logger().debug(f" * FINAL: {partition_df=}")
+    xradio_logger().debug(
+        f" => {len(partition_df)} out of {potential_partitions} potential partitions are found in dataset"
     )
 
     show_example_partition(partition_df, partitioning_df, scheme_cols)
 
-    start = time.perf_counter()
     partitions = finalize_partitions_groupby(
         partitioning_df, partition_df.columns.to_list(), unique_scan_intents
     )
     end = time.perf_counter()
     elapsed = end - start
-    print(f"Time taken: {elapsed:.6f} seconds")
+    xradio_logger().info(f" Time taken in create_partitions(): {elapsed:.6f} seconds")
 
     return partitions
 

@@ -84,6 +84,29 @@ def _remove(filename):
             os.remove(filename)
 
 
+def _download(fname: str, obj="obj_not_used", wantreturn=True) -> xr.Dataset | None:
+    # If obj is the detault, check for the existance of the file, if not exists(),
+    # download it, open it, and return the xds.
+    # obj: if not default, check that the object is None. If it is None, download
+    # the file, open it with open_image, setting obj equal to the returned xds.
+    # if obj is not None, this indicates the file has been downlaoded already and openend,
+    # so do nothing.
+    # if obj is default and wantreturn is False, just download the file if it doesn't exist, but don't open it or return anything.
+
+    if not os.path.exists(fname):
+        download(fname)
+        assert os.path.exists(fname), f"Cound not download {fname}"
+
+    if obj == "obj_not_used" and not wantreturn:
+        # just download the file if it doesn't exist, but don't open it or return anything
+        return None
+    elif obj == "obj_not_used" or obj is None:
+        obj1 = open_image(fname)
+        return obj1
+    else:
+        return obj
+
+
 class xds_from_image_test(unittest.TestCase):
     _imname: str = "inp.im"
     _outname: str = "out.im"
@@ -110,11 +133,14 @@ class xds_from_image_test(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         for f in [
-            # cls._imname,
+            cls._imname,
             cls._imname + "_2",
             cls._outname,
-            # cls._infits,
+            cls._infits,
             cls._uv_image,
+            cls._xds_from_casa_true,
+            cls._xds_from_no_sky_casa_true,
+            cls._xds_from_casa_uv_true,
         ]:
             _remove(f)
 
@@ -227,13 +253,7 @@ class xds_from_image_test(unittest.TestCase):
 
     @classmethod
     def xds_uv(cls):
-        if not cls._xds_uv:
-            download(cls.uv_image())
-            assert os.path.exists(
-                cls.uv_image()
-            ), f"Cound not download {cls.uv_image()}"
-            cls._xds_uv = open_image(cls.uv_image())
-        return cls._xds_uv
+        return _download(cls.uv_image(), cls._xds_uv)
 
     @classmethod
     def infits(cls):
@@ -245,24 +265,15 @@ class xds_from_image_test(unittest.TestCase):
 
     @classmethod
     def true_xds(cls):
-        if not cls._xds_true:
-            # download
-            cls._xds_true = xr.open_zarr(cls._xds_from_casa_true)
-        return cls._xds_true
+        return _download(cls._xds_from_casa_true, cls._xds_true)
 
     @classmethod
     def true_no_sky_xds(cls):
-        if not cls._xds_no_sky_true:
-            # download
-            cls._xds_no_sky_true = xr.open_zarr(cls._xds_from_no_sky_casa_true)
-        return cls._xds_no_sky_true
+        return _download(cls._xds_from_no_sky_casa_true, cls._xds_no_sky_true)
 
     @classmethod
     def true_uv_xds(cls):
-        if not cls._xds_uv_true:
-            # download
-            cls._xds_uv_true = xr.open_zarr(cls._xds_from_casa_uv_true)
-        return cls._xds_uv_true
+        return _download(cls._xds_from_casa_uv_true, cls._xds_uv_true)
 
 
 class casa_image_to_xds_test(xds_from_image_test):
@@ -472,10 +483,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
             https://github.com/casangi/xradio/issues/45
         irint("***  r)
         """
-        download(self._imname2), f"failed to download {self._imname2}"
-        self.assertTrue(
-            os.path.isdir(self._imname2), f"Could not download {self._imname2}"
-        )
+        _download(self._imname2, wantreturn=False)
         shutil.copytree(self._imname2, self._outname6)
         # multibeam image
         with open_image_ro(self._imname2) as im1:
@@ -537,10 +545,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
         issue 48, proper nan masking when writing CASA images
         https://github.com/casangi/xradio/issues/48
         """
-        download(self._imname3)
-        self.assertTrue(
-            os.path.isdir(self._imname3), f"Could not download {self._imname3}"
-        )
+        _download(self._imname3, wantreturn=False)
         for do_sky, outname, out_1, out_2 in zip(
             [True, False],
             [self._outname3, self._outname3_no_sky],
@@ -638,10 +643,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
 
     def test_output_uv_casa_image(self):
         image = self.uv_image()
-        if not os.path.exists(image):
-            download(image)
-        self.assertTrue(os.path.isdir(image), f"Cound not download {image}")
-        xds = open_image(image)
+        xds = _download(image)
         write_image(xds, self._output_uv, "casa")
         with open_image_ro(self._output_uv) as test_im:
             with open_image_ro(image) as expec_im:
@@ -655,7 +657,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                     atol=1e-7,
                 )
                 got = test_im.getdata()
-                expec = test_im.getdata()
+                expec = expec_im.getdata()
                 self.assertTrue(np.isclose(got, expec).all(), "Incorrect pixel data")
 
 
@@ -696,8 +698,7 @@ class xds_to_zarr_to_xds_test(xds_from_image_test):
 
     def test_output_uv_zarr_image(self):
         image = self.uv_image()
-        download(image)
-        self.assertTrue(os.path.isdir(image), f"Cound not download {image}")
+        _download(image, wantreturn=False)
         xds_true = open_image({"APERTURE": image})
         write_image(xds_true, self._zarr_uv_store, "zarr")
         xds = open_image({"APERTURE": self._zarr_uv_store})
@@ -794,14 +795,12 @@ class fits_to_xds_test(xds_from_image_test):
         assert_xarray_datasets_equal(self._fds_no_sky, true_xds_no_sky)
 
     def test_multibeam(self):
-        download(self._imname1)
-        self.assertTrue(
-            os.path.exists(self._imname1), f"{self._imname1} not downloaded"
-        )
+        _download(self._imname1, wantreturn=False)
         with open_image_ro(self._imname1) as casa_image:
             casa_image.tofits(self._outname1)
             expec = casa_image.imageinfo()["perplanebeams"]
         xds = open_image(self._outname1)
+
         got = xds.BEAM_FIT_PARAMS_SKY
         for p in range(4):
             for c in range(50):
@@ -939,11 +938,7 @@ class make_empty_image_tests(unittest.TestCase):
         return code(*args, **kwargs)
 
     def get_truth_xds(self, zarr_store, truth_xds):
-        if not truth_xds:
-            if not os.path.exists(zarr_store):
-                download(zarr_store)
-            truth_xds = open_image(zarr_store)
-        return truth_xds
+        return _download(zarr_store, truth_xds)
 
 
 class make_empty_image_param_tests(make_empty_image_tests):
@@ -988,6 +983,15 @@ class make_empty_image_param_tests(make_empty_image_tests):
             cls._generated_xds[case["name"]] = cls.create_image(
                 case["factory"], case["do_sky_coords"]
             )
+
+    def tearDown(self):
+        for truth_xds in self._truth_xds.values():
+            if truth_xds is not None and hasattr(truth_xds, "close"):
+                truth_xds.close()
+        self._truth_xds.clear()
+
+        for case in self.CASES:
+            _remove(case["truth_xds"])
 
     def test_make_empty_images(self):
         for case in self.CASES:

@@ -429,8 +429,8 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                         [c2["coordinates"]["spectral2"]["wcs"]["crval"]]
                     )
                     assert_attrs_dicts_equal(
-                        c1,
                         c2,
+                        c1,
                         context=f"casa image metadata test, imname={imname}",
                         rtol=1e-7,
                         atol=1e-7,
@@ -467,8 +467,8 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                     del kw1["masks"]["MASK_0"]["mask"]
                     del kw2["masks"]["MASK_0"]["mask"]
                     assert_attrs_dicts_equal(
-                        kw1,
                         kw2,
+                        kw1,
                         context=f"casa image table keyword test, imname={imname}",
                         rtol=1e-7,
                         atol=1e-7,
@@ -500,8 +500,8 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                         beam["positionangle"]["value"] *= 180 / np.pi
                         beam["positionangle"]["unit"] = "deg"
                     assert_attrs_dicts_equal(
-                        beams1,
                         beams2,
+                        beams1,
                         context=f"casa image beam test, do_sky={do_sky}",
                         rtol=1e-7,
                         atol=1e-7,
@@ -761,7 +761,7 @@ class fits_to_xds_test(xds_from_image_test):
 
     def test_got_xds(self):
         # casacore writes the fits image with doppler type Z even though the casacore image
-        # uses doppler type RADIO. So that may be a casacore bug, so we need to conver the
+        # uses doppler type RADIO. So that may be a casacore bug, so we need to convert the
         # velocities of the fits xds to RADIO
         fds = deepcopy(self._fds)
         fds_no_sky = deepcopy(self._fds_no_sky)

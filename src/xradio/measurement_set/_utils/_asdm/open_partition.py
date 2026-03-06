@@ -97,17 +97,20 @@ def open_partition(
 
 def create_correlated_xds(
     asdm: pyasdm.ASDM, partition_descr: dict[str, np.ndarray]
-) -> tuple[xr.DataTree, int]:
-    """Create a correlated data xarray Dataset from ASDM data.
+) -> tuple[xr.DataTree, int, int]:
+    """
+    Create a correlated data xarray Dataset from ASDM data.
     This function creates an xarray Dataset containing correlated visibility data
     from an ASDM (ALMA Science Data Model) object. It sets up the necessary coordinates,
     data variables, and metadata attributes according to the MSv4 schema.
+
     Parameters
     ----------
     asdm : pyasdm.ASDM
         The ASDM object containing the raw data.
     partition_descr : dict[str, np.ndarray]
         Dictionary containing partition descriptions for the ASDM data.
+
     Returns
     -------
     tuple[xr.DataTree, int]
@@ -332,10 +335,9 @@ def create_coordinates(
     coords["time"] = (["time"], time_centers)
     attrs["time"] = make_time_measure_attrs("s", "tai", time_format="unix")
 
-    integration_time = durations
-    attrs["time"].update(
-        {"dims": ["time"], "integration_time": make_quantity(integration_time, "s")}
-    )
+    # durations is not always unique in ASDM partitions / check_if_consistent would fail
+    integration_time = durations[0]
+    attrs["time"].update({"integration_time": make_quantity(integration_time, "s")})
 
     coords["scan_name"], attrs["scan_name"] = create_scan_name_coord_attrs(
         time_centers, scans_metadata_df, partition_descr
@@ -547,25 +549,31 @@ def find_bdf_spw_id(
 
 def produce_uvw_data_var(xds: xr.Dataset) -> xr.DataArray:
     # TODO: best guess is to try to reproduce sdm tool behavior?
-    return np.ones(
-        (
-            xds.sizes["time"],
-            xds.sizes["baseline_id"],
-            xds.sizes["uvw_label"],
+    return xr.DataArray(
+        dims=["time", "baseline_id", "frequency", "polarization"],
+        data=np.ones(
+            (
+                xds.sizes["time"],
+                xds.sizes["baseline_id"],
+                xds.sizes["uvw_label"],
+            ),
+            dtype="float64",
         ),
-        dtype="float64",
     )
 
 
 def produce_weight_data_var(xds: xr.Dataset) -> xr.DataArray:
-    return np.ones(
-        (
-            xds.sizes["time"],
-            xds.sizes["baseline_id"],
-            xds.sizes["frequency"],
-            xds.sizes["polarization"],
+    return xr.DataArray(
+        dims=["time", "baseline_id", "frequency", "polarization"],
+        data=np.ones(
+            (
+                xds.sizes["time"],
+                xds.sizes["baseline_id"],
+                xds.sizes["frequency"],
+                xds.sizes["polarization"],
+            ),
+            dtype="float64",
         ),
-        dtype="float64",
     )
 
 

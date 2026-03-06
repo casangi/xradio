@@ -84,27 +84,17 @@ def _remove(filename):
             os.remove(filename)
 
 
-def _download(fname: str, obj="obj_not_used", wantreturn=True) -> xr.Dataset | None:
-    # If obj is the default, check for the existence of the file, if not exists(),
-    # download it, open it, and return the xds.
-    # obj: if not default, check that the object is None. If it is None, download
-    # the file, open it with open_image, setting obj equal to the returned xds.
-    # if obj is not None, this indicates the file has been downloaded already and opened,
-    # so do nothing.
-    # if obj is default and wantreturn is False, just download the file if it doesn't exist, but don't open it or return anything.
-
+def _download(fname: str, wantreturn=True) -> xr.Dataset | None:
+    # Ensure the file exists locally, downloading it if needed.
+    # If wantreturn is False, only ensure availability and do not open the file.
     if not os.path.exists(fname):
         download(fname)
         assert os.path.exists(fname), f"Could not download {fname}"
 
-    if obj == "obj_not_used" and not wantreturn:
+    if not wantreturn:
         # just download the file if it doesn't exist, but don't open it or return anything
         return None
-    elif obj == "obj_not_used" or obj is None:
-        obj1 = open_image(fname)
-        return obj1
-    else:
-        return obj
+    return open_image(fname)
 
 
 class xds_from_image_test(unittest.TestCase):
@@ -253,7 +243,9 @@ class xds_from_image_test(unittest.TestCase):
 
     @classmethod
     def xds_uv(cls):
-        return _download(cls.uv_image(), cls._xds_uv)
+        if not cls._xds_uv:
+            cls._xds_uv = _download(cls.uv_image())
+        return cls._xds_uv
 
     @classmethod
     def infits(cls):
@@ -265,15 +257,21 @@ class xds_from_image_test(unittest.TestCase):
 
     @classmethod
     def true_xds(cls):
-        return _download(cls._xds_from_casa_true, cls._xds_true)
+        if not cls._xds_true:
+            cls._xds_true = _download(cls._xds_from_casa_true)
+        return cls._xds_true
 
     @classmethod
     def true_no_sky_xds(cls):
-        return _download(cls._xds_from_no_sky_casa_true, cls._xds_no_sky_true)
+        if not cls._xds_no_sky_true:
+            cls._xds_no_sky_true = _download(cls._xds_from_no_sky_casa_true)
+        return cls._xds_no_sky_true
 
     @classmethod
     def true_uv_xds(cls):
-        return _download(cls._xds_from_casa_uv_true, cls._xds_uv_true)
+        if not cls._xds_uv_true:
+            cls._xds_uv_true = _download(cls._xds_from_casa_uv_true)
+        return cls._xds_uv_true
 
 
 class casa_image_to_xds_test(xds_from_image_test):
@@ -939,7 +937,9 @@ class make_empty_image_tests(unittest.TestCase):
         return code(*args, **kwargs)
 
     def get_truth_xds(self, zarr_store, truth_xds):
-        return _download(zarr_store, truth_xds)
+        if truth_xds is None:
+            return _download(zarr_store)
+        return truth_xds
 
 
 class make_empty_image_param_tests(make_empty_image_tests):

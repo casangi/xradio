@@ -35,6 +35,18 @@ def assert_xarray_datasets_equal(
         _check_encoding(test, true, rtol=rtol, atol=atol)
 
 
+def assert_attrs_dicts_equal(
+    test_attrs: Mapping[str, Any],
+    true_attrs: Mapping[str, Any],
+    *,
+    context: str = "attrs",
+    rtol: float = 1e-7,
+    atol: float = 0.0,
+) -> None:
+    """Assert two nested metadata dictionaries are equal within numeric tolerance."""
+    _compare_attrs_dict(test_attrs, true_attrs, context=context, rtol=rtol, atol=atol)
+
+
 def _check_dims(test: xr.Dataset, true: xr.Dataset) -> None:
     test_dims = dict(test.sizes)
     true_dims = dict(true.sizes)
@@ -238,7 +250,6 @@ def _compare_attrs_dict(
             details.append(f"extra={extra}")
         raise AssertionError(f"{context} keys mismatch: {'; '.join(details)}")
 
-    # for key in sorted(test_keys & true_keys):
     for key in sorted(test_keys):
         _compare_attr_value(
             test_attrs[key],
@@ -313,6 +324,9 @@ def _compare_attr_value(
         return
 
     if _is_numeric_scalar(test) and _is_numeric_scalar(true):
+        # Keep scalar behavior aligned with array comparisons (equal_nan=True).
+        if _is_nan_scalar(test) and _is_nan_scalar(true):
+            return
         if not math.isclose(test, true, rel_tol=rtol, abs_tol=atol):
             raise AssertionError(f"{context} mismatch: test={test} true={true}")
         return
@@ -329,6 +343,15 @@ def _is_numeric_scalar(value: Any) -> bool:
     return isinstance(value, (int, float, complex, np.number)) and not isinstance(
         value, bool
     )
+
+
+def _is_nan_scalar(value: Any) -> bool:
+    if not _is_numeric_scalar(value):
+        return False
+    try:
+        return bool(np.isnan(value))
+    except TypeError:
+        return False
 
 
 def _is_sequence(value: Any) -> bool:

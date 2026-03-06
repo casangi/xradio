@@ -178,6 +178,23 @@ def test_assert_xarray_datasets_equal_attr_numeric_tolerance():
         assert_xarray_datasets_equal(test, true, rtol=1e-9, atol=0.0)
 
 
+def test_assert_xarray_datasets_equal_attr_scalar_nan_equal():
+    test = _make_dataset()
+    true = _make_dataset()
+    test.attrs["meta"]["offset"] = np.nan
+    true.attrs["meta"]["offset"] = np.nan
+    assert_xarray_datasets_equal(test, true)
+
+
+def test_assert_xarray_datasets_equal_attr_scalar_nan_mismatch():
+    test = _make_dataset()
+    true = _make_dataset()
+    test.attrs["meta"]["offset"] = np.nan
+    true.attrs["meta"]["offset"] = 1.0
+    with pytest.raises(AssertionError, match="dataset attrs\\['meta'\\]\\['offset'\\]"):
+        assert_xarray_datasets_equal(test, true)
+
+
 def test_assert_xarray_datasets_equal_check_attrs_false():
     test = _make_dataset()
     true = _make_dataset()

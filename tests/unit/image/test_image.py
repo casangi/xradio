@@ -35,7 +35,7 @@ from xradio.image._util._casacore.common import _object_name
 from xradio.image._util.common import _image_type as image_type
 from xradio._utils._casacore.tables import open_table_ro
 
-from xradio.testing.assertions import assert_xarray_datasets_equal, _compare_attrs_dict
+from xradio.testing import assert_attrs_dicts_equal, assert_xarray_datasets_equal
 
 sky = "SKY"
 
@@ -85,17 +85,17 @@ def _remove(filename):
 
 
 def _download(fname: str, obj="obj_not_used", wantreturn=True) -> xr.Dataset | None:
-    # If obj is the detault, check for the existance of the file, if not exists(),
+    # If obj is the default, check for the existence of the file, if not exists(),
     # download it, open it, and return the xds.
     # obj: if not default, check that the object is None. If it is None, download
     # the file, open it with open_image, setting obj equal to the returned xds.
-    # if obj is not None, this indicates the file has been downlaoded already and openend,
+    # if obj is not None, this indicates the file has been downloaded already and opened,
     # so do nothing.
     # if obj is default and wantreturn is False, just download the file if it doesn't exist, but don't open it or return anything.
 
     if not os.path.exists(fname):
         download(fname)
-        assert os.path.exists(fname), f"Cound not download {fname}"
+        assert os.path.exists(fname), f"Could not download {fname}"
 
     if obj == "obj_not_used" and not wantreturn:
         # just download the file if it doesn't exist, but don't open it or return anything
@@ -431,10 +431,10 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                     c2["coordinates"]["worldreplace2"] = np.array(
                         [c2["coordinates"]["spectral2"]["wcs"]["crval"]]
                     )
-                    _compare_attrs_dict(
+                    assert_attrs_dicts_equal(
                         c1,
                         c2,
-                        context=f"casa image metadata test, imnmae={imname}",
+                        context=f"casa image metadata test, imname={imname}",
                         rtol=1e-7,
                         atol=1e-7,
                     )
@@ -469,19 +469,18 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                     del kw2["logtable"]
                     del kw1["masks"]["MASK_0"]["mask"]
                     del kw2["masks"]["MASK_0"]["mask"]
-                    _compare_attrs_dict(
+                    assert_attrs_dicts_equal(
                         kw1,
                         kw2,
-                        context=f"casa image table keyword test, imnmae={imname}",
+                        context=f"casa image table keyword test, imname={imname}",
                         rtol=1e-7,
                         atol=1e-7,
                     )
 
     def test_beam(self):
         """
-            Verify fix to issue 45
-            https://github.com/casangi/xradio/issues/45
-        irint("***  r)
+        Verify fix to issue 45
+        https://github.com/casangi/xradio/issues/45
         """
         _download(self._imname2, wantreturn=False)
         shutil.copytree(self._imname2, self._outname6)
@@ -503,7 +502,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                         beam["minor"]["unit"] = "arcmin"
                         beam["positionangle"]["value"] *= 180 / np.pi
                         beam["positionangle"]["unit"] = "deg"
-                    _compare_attrs_dict(
+                    assert_attrs_dicts_equal(
                         beams1,
                         beams2,
                         context=f"casa image beam test, do_sky={do_sky}",
@@ -570,10 +569,10 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
             shutil.rmtree(outname)
             second_attrs = xds.attrs
             second_coords = xds.coords
-            _compare_attrs_dict(
+            assert_attrs_dicts_equal(
                 t,
                 second_attrs,
-                context=f"masking test, cas 2a",
+                context=f"masking test, case 2a",
                 rtol=1e-7,
                 atol=1e-7,
             )
@@ -649,7 +648,7 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
             with open_image_ro(image) as expec_im:
                 got = test_im.coordinates().dict()["linear0"]
                 expec = expec_im.coordinates().dict()["linear0"]
-                _compare_attrs_dict(
+                assert_attrs_dicts_equal(
                     got,
                     expec,
                     context=f"written casa uv image coordinate dict",
@@ -767,16 +766,18 @@ class fits_to_xds_test(xds_from_image_test):
         # casacore writes the fits image with doppler type Z even though the casacore image
         # uses doppler type RADIO. So that may be a casacore bug, so we need to conver the
         # velocities of the fits xds to RADIO
+        fds = deepcopy(self._fds)
+        fds_no_sky = deepcopy(self._fds_no_sky)
+
         c = 299792458  # speed of light in m/s
         radio_velocity = c * (
             1
-            - self._fds["frequency"].values
-            / self._fds["frequency"].attrs["rest_frequency"]["data"]
+            - fds["frequency"].values / fds["frequency"].attrs["rest_frequency"]["data"]
         )
-        self._fds.coords["velocity"].values = radio_velocity
-        self._fds_no_sky.coords["velocity"].values = radio_velocity
-        self._fds.coords["velocity"].attrs["doppler_type"] = "radio"
-        self._fds_no_sky.coords["velocity"].attrs["doppler_type"] = "radio"
+        fds.coords["velocity"].values = radio_velocity
+        fds_no_sky.coords["velocity"].values = radio_velocity
+        fds.coords["velocity"].attrs["doppler_type"] = "radio"
+        fds_no_sky.coords["velocity"].attrs["doppler_type"] = "radio"
         # FITS SKY values are nan where the FLAG_SKY values are True, so set SKY to nan in the true xds for comparison
         true_xds = deepcopy(self.true_xds())
         true_xds_no_sky = deepcopy(self.true_no_sky_xds())
@@ -789,10 +790,10 @@ class fits_to_xds_test(xds_from_image_test):
                 true_xds_no_sky["FLAG_SKY"].values, np.nan, true_xds_no_sky["SKY"]
             )
         # FITS gets a FITS specific user attr member added that isn't in the true data set
-        self._fds["SKY"].attrs["user"] = {}
-        self._fds_no_sky["SKY"].attrs["user"] = {}
-        assert_xarray_datasets_equal(self._fds, true_xds)
-        assert_xarray_datasets_equal(self._fds_no_sky, true_xds_no_sky)
+        fds["SKY"].attrs["user"] = {}
+        fds_no_sky["SKY"].attrs["user"] = {}
+        assert_xarray_datasets_equal(fds, true_xds)
+        assert_xarray_datasets_equal(fds_no_sky, true_xds_no_sky)
 
     def test_multibeam(self):
         _download(self._imname1, wantreturn=False)

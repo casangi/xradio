@@ -10,6 +10,7 @@ from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,
 )
+from xradio.measurement_set._utils._asdm._utils.time import convert_time_asdm_to_unix
 
 
 def create_partitions(
@@ -37,21 +38,15 @@ def create_partitions(
 
     """
 
-    def time_asdm_to_unix(times):
-        # TODO: replace with the convert function from _utils/time
-        # beware: ArrayTime sues TAI, not UTC scale -> look for UTCTime class
+    def time_asdm_to_pd(times):
+        # Beware: ArrayTime uses TAI, not UTC scale -> look for UTCTime class
         # This should be fine, as the first leap second was in 1972.30.06?
         #
         # Note that also these functions produce tai-referenced values:
         # time_values = [((asdm_interval.toFITS()) for asdm_interval in main_df["time"].values]
 
-        MJD_TO_UNIX_TIME_DELTA = 3_506_716_800
-        time_values = [
-            (asdm_interval.get() - MJD_TO_UNIX_TIME_DELTA * 1e9) / 1e9
-            for asdm_interval in main_df["time"].values
-        ]
-
-        return pd.to_datetime(time_values, unit="s")
+        time_unix = convert_time_asdm_to_unix(times)
+        return pd.to_datetime(time_unix, unit="s")
 
     start = time.perf_counter()
 
@@ -69,7 +64,7 @@ def create_partitions(
     ]
     main_df = exp_asdm_table_to_df(sdm, "Main", sdm_main_attrs)
     # It is a key, but in principle not a partition axis. Adding time for convenience.
-    main_df["time"] = time_asdm_to_unix(main_df["time"].values)
+    main_df["time"] = time_asdm_to_pd(main_df["time"].values)
 
     # assume one stateId / regardless of antenna
     do_single_state_id = True

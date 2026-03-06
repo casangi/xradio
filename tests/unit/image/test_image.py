@@ -181,7 +181,6 @@ class xds_from_image_test(unittest.TestCase):
             t.close()
 
     def compare_image_block(self, imagename, zarr=False):
-        x = [0] if zarr else [0, 1]
         full_xds = open_image(imagename)
         shape = (
             full_xds.sizes["time"],

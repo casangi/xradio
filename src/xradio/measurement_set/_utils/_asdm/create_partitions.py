@@ -176,11 +176,7 @@ def create_partitions(
     # partitioning_df = pd.merge(
     #     config_description_df, data_description_df, on="dataDescriptionId"
     # )
-    # if do_prints:
-    #     print(f" * Initial merge, CD+DD: {partitioning_df=}")
     # partitioning_df = pd.merge(main_df, partitioning_df, on="configDescriptionId")
-    # if do_prints:
-    #     print(f" * AFTER Main merge: {partitioning_df=}")
 
     partitioning_df = pd.merge(partitioning_df, field_df, on="fieldId")
     if do_prints:
@@ -217,13 +213,7 @@ def create_partitions(
         f" {len(partition_df)} out of {potential_partitions} potential partitions are found in dataset"
     )
 
-    example_idx = min(90, partition_df.shape[0] - min(2, partition_df.shape[0]))
-    if not partitioning_df.empty:
-        all_cols_example_idx = partitioning_df.loc[partition_df.iloc[example_idx]]
-        # print(f" Example {example_idx}-th partition (only explicit cols): {partition_df.iloc[example_idx].to_dict()=}, \n    all cols: {all_cols_example_idx=}")
-        print(
-            f" Example {example_idx}-th partition (only explicit cols): {partition_df.iloc[example_idx].to_dict()=}, \n    all cols: {all_cols_example_idx=}"
-        )
+    show_example_partition(partition_df, partitioning_df, scheme_cols)
 
     start = time.perf_counter()
     partitions = finalize_partitions_groupby(
@@ -234,6 +224,27 @@ def create_partitions(
     print(f"Time taken: {elapsed:.6f} seconds")
 
     return partitions
+
+
+def show_example_partition(
+    partition_df: pd.DataFrame, partitioning_df: pd.DataFrame, scheme_cols: list[str]
+) -> None:
+    if partitioning_df.empty:
+        return
+
+    example_idx = min(90, partition_df.shape[0] - min(2, partition_df.shape[0]))
+    selector_part = partition_df.iloc[example_idx]
+    query = ""
+    for col in scheme_cols:
+        col_value = selector_part[col]
+        preffix_addition = " & " if query else ""
+        query += preffix_addition + f"{col} == {col_value}"
+
+    all_cols_example_idx = partitioning_df.query(query)
+    xradio_logger().debug(
+        f" Example {example_idx}-th partition (only explicit cols): {partition_df.iloc[example_idx]=},\n"
+        f" All cols from partitioning_df: {all_cols_example_idx=}"
+    )
 
 
 def finalize_partitions_groupby(

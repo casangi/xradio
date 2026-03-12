@@ -250,7 +250,7 @@ def make_empty_sky_image(
     direction_reference: str = "fK5",
     projection: str = "SIN",
     spectral_reference: str = "lsrk",
-    do_sky_coords: bool = True,
+    do_sky_coords: bool = False,
 ) -> xr.Dataset:
     """
     Create an image xarray.Dataset with only coordinates (no datavariables).

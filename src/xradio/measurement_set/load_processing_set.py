@@ -52,64 +52,61 @@ def load_processing_set(
 
     file_system, ms_store_list = _get_file_system_and_items(ps_store)
 
-    with dask.config.set(
-        scheduler="synchronous"
-    ):  # serial scheduler, critical so that this can be used within delayed functions.
-        ps_xdt = xr.DataTree()
+    ps_xdt = xr.DataTree()
 
-        if sel_parms:
-            for ms_name, ms_xds_isel in sel_parms.items():
-                ms_store = posixpath.join(ps_store, ms_name)
+    if sel_parms:
+        for ms_name, ms_xds_isel in sel_parms.items():
+            ms_store = posixpath.join(ps_store, ms_name)
 
-                if isinstance(file_system, s3fs.core.S3FileSystem):
-                    ms_store = s3fs.S3Map(root=ms_store, s3=file_system, check=False)
+            if isinstance(file_system, s3fs.core.S3FileSystem):
+                ms_store = s3fs.S3Map(root=ms_store, s3=file_system, check=False)
 
-                if ms_xds_isel:
-                    ms_xdt = (
-                        xr.open_datatree(
-                            ms_store, engine="zarr", drop_variables=drop_variables
-                        )
-                        .isel(ms_xds_isel)
-                        .xr_ms.sel(data_group_name=data_group_name)
+            if ms_xds_isel:
+                ms_xdt = (
+                    xr.open_datatree(
+                        ms_store, engine="zarr", drop_variables=drop_variables, cache=False, chunks=None
                     )
-                else:
-                    ms_xdt = xr.open_datatree(
-                        ms_store, engine="zarr", drop_variables=drop_variables
-                    ).xr_ms.sel(data_group_name=data_group_name)
+                    .isel(ms_xds_isel)
+                    .xr_ms.sel(data_group_name=data_group_name)
+                )
+            else:
+                ms_xdt = xr.open_datatree(
+                    ms_store, engine="zarr", drop_variables=drop_variables, cache=False, chunks=None
+                ).xr_ms.sel(data_group_name=data_group_name)
+
+            if include_variables is not None:
+                vars_to_drop = [
+                    v for v in ms_xdt.ds.data_vars if v not in include_variables
+                ]
+                ms_xdt.ds = ms_xdt.ds.drop_vars(vars_to_drop)
+
+            ps_xdt[ms_name] = ms_xdt
+
+        ps_xdt.attrs["type"] = "processing_set"
+    else:
+        ps_xdt = xr.open_datatree(
+            ps_store, engine="zarr", drop_variables=drop_variables, cache=False, chunks=None
+        )
+
+        if (include_variables is not None) or data_group_name:
+            for ms_name, ms_xdt in ps_xdt.items():
+
+                ms_xdt = ms_xdt.xr_ms.sel(data_group_name=data_group_name)
 
                 if include_variables is not None:
-                    vars_to_drop = [
-                        v for v in ms_xdt.ds.data_vars if v not in include_variables
-                    ]
-                    ms_xdt.ds = ms_xdt.ds.drop_vars(vars_to_drop)
-
+                    for data_vars in ms_xdt.ds.data_vars:
+                        if data_vars not in include_variables:
+                            ms_xdt.ds = ms_xdt.ds.drop_vars(data_vars)
                 ps_xdt[ms_name] = ms_xdt
 
-            ps_xdt.attrs["type"] = "processing_set"
-        else:
-            ps_xdt = xr.open_datatree(
-                ps_store, engine="zarr", drop_variables=drop_variables
-            )
+    if not load_sub_datasets:
+        for ms_xdt in ps_xdt.children.values():
+            ms_xdt_names = list(ms_xdt.keys())
+            for sub_xds_name in ms_xdt_names:
+                if "xds" in sub_xds_name:
+                    del ms_xdt[sub_xds_name]
 
-            if (include_variables is not None) or data_group_name:
-                for ms_name, ms_xdt in ps_xdt.items():
-
-                    ms_xdt = ms_xdt.xr_ms.sel(data_group_name=data_group_name)
-
-                    if include_variables is not None:
-                        for data_vars in ms_xdt.ds.data_vars:
-                            if data_vars not in include_variables:
-                                ms_xdt.ds = ms_xdt.ds.drop_vars(data_vars)
-                    ps_xdt[ms_name] = ms_xdt
-
-        if not load_sub_datasets:
-            for ms_xdt in ps_xdt.children.values():
-                ms_xdt_names = list(ms_xdt.keys())
-                for sub_xds_name in ms_xdt_names:
-                    if "xds" in sub_xds_name:
-                        del ms_xdt[sub_xds_name]
-
-        ps_xdt = ps_xdt.load()
+    ps_xdt = ps_xdt.load()
 
     return ps_xdt
 
@@ -157,7 +154,9 @@ class ProcessingSetIterator:
             does not require reloading from disk. If False, only a single ms_xdt is held in
             memory at a time. By default False.
         """
-
+        import toolviper.utils.logger as logger
+        
+        #logger.debug("Memory usage at start of ProcessingSetIterator initialization: " + str(get_rss_gb()) + " GB")
         self.input_data = input_data
         self.input_data_store = input_data_store
         self.sel_parms = sel_parms
@@ -166,12 +165,13 @@ class ProcessingSetIterator:
         self.drop_variables = drop_variables
         self.load_sub_datasets = load_sub_datasets
         self.in_memory = in_memory
-
         self._ms_name_list = list(sel_parms.keys())
         self._index = 0
         self._current_ms_name: Union[str, None] = None
         self._current_ms_xdt: Union[xr.DataTree, None] = None
         self._cache: Dict[str, xr.DataTree] = {}
+        #logger.debug("ProcessingSetIterator initialized with " + str(len(self._ms_name_list)) + " ms_xdts to iterate over.")
+        #logger.debug("Memory usage after ProcessingSetIterator initialization: " + str(get_rss_gb()) + " GB")
 
     def __iter__(self):
         return self
@@ -187,6 +187,9 @@ class ProcessingSetIterator:
         self._current_ms_xdt = None
 
     def __next__(self):
+        import toolviper.utils.logger as logger
+        #logger.debug("ProcessingSetIterator __next__ called. Current index: " + str(self._index))
+        #logger.debug("Memory usage at start of __next__: " + str(get_rss_gb()) + " GB")
         if self._index >= len(self._ms_name_list):
             raise StopIteration
 
@@ -213,4 +216,9 @@ class ProcessingSetIterator:
                 self._cache[sub_xds_name] = sub_xdt
 
         self._current_ms_xdt = sub_xdt
+        #logger.debug("Memory usage at end of __next__: " + str(get_rss_gb()) + " GB")
         return sub_xdt
+
+def get_rss_gb():
+    import psutil, os
+    return psutil.Process(os.getpid()).memory_info().rss / 1e9

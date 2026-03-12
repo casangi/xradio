@@ -9,7 +9,7 @@ import pyasdm
 @pytest.mark.parametrize(
     "times_asdm, expected_output, expected_error",
     [
-        (0, None, pytest.raises(TypeError, match="object is not subscriptable")),
+        (0, None, pytest.raises(TypeError, match="has no len")),
         (np.array([0, 1, 2]), [-3.5067168e09] * 3, no_raises()),
         (np.array([0, 1, 2]), [-3.5067168e09] * 3, no_raises()),
         (np.array([pyasdm.types.ArrayTime(0)]), [-3.5067168e09] * 3, no_raises()),

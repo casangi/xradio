@@ -1141,3 +1141,20 @@ def test_try_alternatives_guessed_shape():
     )
     assert new_baseband_spw_idxs == baseband_spw_idxs
     assert new_shape == {"cross": (1, 36, 1, 1, 2), "auto": (1, 9, 1, 1, 2)}
+
+
+def test_try_alternatives_guessed_shape_oversized():
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        try_alternatives_guessed_shape,
+    )
+
+    guessed_shape = {
+        "cross": (1, 10, 4, 64, 2, 2),
+        "auto": (1, 5, 4, 64, 2),
+    }
+    flags_actual_size = 16000
+    baseband_spw_idxs = (0, 0)
+    with pytest.raises(RuntimeError, match="Unexpected large flags array"):
+        _new_shape, _new_baseband_spw_idxs = try_alternatives_guessed_shape(
+            guessed_shape, flags_actual_size, baseband_spw_idxs
+        )

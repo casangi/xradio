@@ -289,6 +289,128 @@ def test_load_visibilities_all_subsets_from_trees_X136e(input_load_one_spw_from_
             mock_bdf_reader.getNDArrays.assert_not_called()
 
 
+# All SPWs have same #chan => uses load_subset_with_get_subset() / load_vis_subset_from_tree()
+bdf_descr_X136e_simplified = {
+    "dimensionality": 1,
+    "num_time": 0,
+    "processor_type": pyasdm.enumerations.ProcessorType.CORRELATOR,
+    "binary_types": [
+        "flags",
+        "actualTimes",
+        "actualDurations",
+        "zeroLags",
+        "crossData",
+        "autoData",
+    ],
+    "correlation_mode": pyasdm.enumerations.CorrelationMode.AUTO_ONLY,
+    "apc": [],
+    "num_antenna": 10,
+    "basebands": [
+        {
+            "name": "BB_1",
+            "spectralWindows": [
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [
+                        pyasdm.enumerations.StokesParameter.XX,
+                        pyasdm.enumerations.StokesParameter.YY,
+                    ],
+                    "scaleFactor": None,
+                    "numSpectralPoint": 512,
+                    "numBin": 1,
+                    "sideband": pyasdm.enumerations.NetSideband.LSB,
+                    "sw": "1",
+                },
+            ],
+        },
+        {
+            "name": "BB_2",
+            "spectralWindows": [
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [
+                        pyasdm.enumerations.StokesParameter.XX,
+                        pyasdm.enumerations.StokesParameter.YY,
+                    ],
+                    "scaleFactor": None,
+                    "numSpectralPoint": 512,
+                    "numBin": 1,
+                    "sideband": pyasdm.enumerations.NetSideband.LSB,
+                    "sw": "1",
+                },
+            ],
+        },
+        {
+            "name": "BB_3",
+            "spectralWindows": [
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [
+                        pyasdm.enumerations.StokesParameter.XX,
+                        pyasdm.enumerations.StokesParameter.YY,
+                    ],
+                    "scaleFactor": None,
+                    "numSpectralPoint": 512,
+                    "numBin": 1,
+                    "sideband": pyasdm.enumerations.NetSideband.LSB,
+                    "sw": "1",
+                }
+            ],
+        },
+    ],
+}
+
+
+@pytest.mark.parametrize("input_load_one_spw_from_file", [(True), (False)])
+def test_load_visibilities_all_subsets_from_trees_X136e_simplified(
+    input_load_one_spw_from_file,
+):
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        load_visibilities_all_subsets_from_trees,
+    )
+
+    with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
+        # For load_vis_subset, etc.
+        mock_bdf_reader.hasSubset.side_effect = [True, False]
+        # Only autoDAta values in this test
+        if input_load_one_spw_from_file:
+            mock_bdf_reader.getNDArrays.side_effect = [
+                {"visibilities": np.ones(shape=(1, 9, 512, 2), dtype="float64")}
+            ]
+        else:
+            mock_bdf_reader.getSubset.side_effect = [
+                {
+                    "autoData": {
+                        "present": True,
+                        "arr": np.zeros((500000), dtype="float64"),
+                    },
+                    "crossData": {"present": False, "arr": None},
+                },
+                None,
+            ]
+        visibilities = load_visibilities_all_subsets_from_trees(
+            mock_bdf_reader,
+            (1, 36, 9, 4, 2, 512, 2, 2),
+            (1, 0),
+            bdf_descr_X136e_simplified,
+            load_one_spw_from_file=input_load_one_spw_from_file,
+        )
+
+        assert isinstance(visibilities, np.ndarray)
+        assert visibilities.size == 9216
+        assert visibilities.shape == (1, 9, 512, 2)
+        assert visibilities.dtype == np.dtype("float64")
+
+        assert mock_bdf_reader.hasSubset.call_count == 2
+        if input_load_one_spw_from_file:
+            assert mock_bdf_reader.hasSubset.call_count == 2
+            mock_bdf_reader.getNDArrays.assert_called_once()
+            mock_bdf_reader.getSubset.assert_not_called()
+        else:
+            mock_bdf_reader.getSubset.assert_called_once()
+            mock_bdf_reader.getNDArrays.assert_not_called()
+
+
 @pytest.mark.parametrize("input_load_one_spw_from_file", [(True), (False)])
 def test_load_visibilities_all_subsets_from_trees_X136e_error(
     input_load_one_spw_from_file,

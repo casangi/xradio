@@ -64,14 +64,22 @@ def load_processing_set(
             if ms_xds_isel:
                 ms_xdt = (
                     xr.open_datatree(
-                        ms_store, engine="zarr", drop_variables=drop_variables, cache=False, chunks=None
+                        ms_store,
+                        engine="zarr",
+                        drop_variables=drop_variables,
+                        cache=False,
+                        chunks=None,
                     )
                     .isel(ms_xds_isel)
                     .xr_ms.sel(data_group_name=data_group_name)
                 )
             else:
                 ms_xdt = xr.open_datatree(
-                    ms_store, engine="zarr", drop_variables=drop_variables, cache=False, chunks=None
+                    ms_store,
+                    engine="zarr",
+                    drop_variables=drop_variables,
+                    cache=False,
+                    chunks=None,
                 ).xr_ms.sel(data_group_name=data_group_name)
 
             if include_variables is not None:
@@ -85,7 +93,11 @@ def load_processing_set(
         ps_xdt.attrs["type"] = "processing_set"
     else:
         ps_xdt = xr.open_datatree(
-            ps_store, engine="zarr", drop_variables=drop_variables, cache=False, chunks=None
+            ps_store,
+            engine="zarr",
+            drop_variables=drop_variables,
+            cache=False,
+            chunks=None,
         )
 
         if (include_variables is not None) or data_group_name:
@@ -155,8 +167,8 @@ class ProcessingSetIterator:
             memory at a time. By default False.
         """
         import toolviper.utils.logger as logger
-        
-        #logger.debug("Memory usage at start of ProcessingSetIterator initialization: " + str(get_rss_gb()) + " GB")
+
+        # logger.debug("Memory usage at start of ProcessingSetIterator initialization: " + str(get_rss_gb()) + " GB")
         self.input_data = input_data
         self.input_data_store = input_data_store
         self.sel_parms = sel_parms
@@ -170,8 +182,8 @@ class ProcessingSetIterator:
         self._current_ms_name: Union[str, None] = None
         self._current_ms_xdt: Union[xr.DataTree, None] = None
         self._cache: Dict[str, xr.DataTree] = {}
-        #logger.debug("ProcessingSetIterator initialized with " + str(len(self._ms_name_list)) + " ms_xdts to iterate over.")
-        #logger.debug("Memory usage after ProcessingSetIterator initialization: " + str(get_rss_gb()) + " GB")
+        # logger.debug("ProcessingSetIterator initialized with " + str(len(self._ms_name_list)) + " ms_xdts to iterate over.")
+        # logger.debug("Memory usage after ProcessingSetIterator initialization: " + str(get_rss_gb()) + " GB")
 
     def __iter__(self):
         return self
@@ -188,8 +200,9 @@ class ProcessingSetIterator:
 
     def __next__(self):
         import toolviper.utils.logger as logger
-        #logger.debug("ProcessingSetIterator __next__ called. Current index: " + str(self._index))
-        #logger.debug("Memory usage at start of __next__: " + str(get_rss_gb()) + " GB")
+
+        # logger.debug("ProcessingSetIterator __next__ called. Current index: " + str(self._index))
+        # logger.debug("Memory usage at start of __next__: " + str(get_rss_gb()) + " GB")
         if self._index >= len(self._ms_name_list):
             raise StopIteration
 
@@ -216,9 +229,11 @@ class ProcessingSetIterator:
                 self._cache[sub_xds_name] = sub_xdt
 
         self._current_ms_xdt = sub_xdt
-        #logger.debug("Memory usage at end of __next__: " + str(get_rss_gb()) + " GB")
+        # logger.debug("Memory usage at end of __next__: " + str(get_rss_gb()) + " GB")
         return sub_xdt
+
 
 def get_rss_gb():
     import psutil, os
+
     return psutil.Process(os.getpid()).memory_info().rss / 1e9

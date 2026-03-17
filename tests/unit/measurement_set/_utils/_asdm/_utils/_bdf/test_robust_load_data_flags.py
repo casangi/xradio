@@ -1039,6 +1039,31 @@ def test_load_flags_all_subsets():
         mock_bdf_header.getBasebandsList.assert_not_called()
 
 
+def test_load_flags_all_subsets_3pols_only_autodata():
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        load_flags_all_subsets,
+    )
+
+    with (
+        mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
+        mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
+    ):
+        mock_bdf_reader.hasSubset.side_effect = [True, False]
+        mock_bdf_reader.getSubset.side_effect = [
+            {"flags": {"present": True, "arr": np.zeros((10752), dtype="bool")}}
+        ]
+        guessed_shape = {
+            "auto": (1, 7, 4, 2, 64, 3),
+            "cross": None,
+        }
+        flags = load_flags_all_subsets(mock_bdf_reader, guessed_shape, (0, 0))
+        assert flags.size == 28
+        assert flags.shape == (1, 7, 4, 1)
+        assert mock_bdf_reader.hasSubset.call_count == 2
+        mock_bdf_reader.getSubset.assert_called_once()
+        mock_bdf_header.getBasebandsList.assert_not_called()
+
+
 def test_load_flags_all_subsets_auto_3pol():
     from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
         load_flags_all_subsets,

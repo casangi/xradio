@@ -602,6 +602,8 @@ def load_flags_subset(
                 cross_subset = cross_flags[
                     ..., baseband_spw_idxs[0], baseband_spw_idxs[1], :
                 ]
+            else:
+                cross_len = 0
 
             auto_flags = flag_array[cross_len:].reshape(guessed_shape["auto"])
 

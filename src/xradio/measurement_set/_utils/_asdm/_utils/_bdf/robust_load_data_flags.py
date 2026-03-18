@@ -4,7 +4,11 @@ import numpy as np
 
 import pyasdm
 
-from .basebands_spws import find_spw_in_basebands_list
+from .basebands_spws import (
+    find_if_different_basebands_pols,
+    find_if_different_basebands_spws,
+    find_spw_in_basebands_list,
+)
 from .shapes import (
     add_cross_and_auto_flag_shapes,
     full_shape_to_output_filled_flags_shape,
@@ -69,70 +73,6 @@ def array_slice_to_msv4_indices(array_slice: dict) -> tuple[range, range, range,
         polarization_slice = array_slice["polarization"]
 
     return (time_slice, baseline_slice, frequency_slice, polarization_slice)
-
-
-def find_different_basebands_spws(basebands: list[dict]) -> bool:
-
-    all_same = True
-    spws_per_baseband = -1
-    chans_per_spw = -1
-    for bband in basebands:
-        if not all_same:
-            break
-        num_spws = len(bband["spectralWindows"])
-        if spws_per_baseband > 0:
-            if num_spws != spws_per_baseband:
-                all_same = False
-                break
-        else:
-            spws_per_baseband = num_spws
-
-        for spw in bband["spectralWindows"]:
-            num_chans = spw["numSpectralPoint"]
-            if chans_per_spw > 0:
-                if num_chans != chans_per_spw:
-                    all_same = False
-                    break
-            else:
-                chans_per_spw = num_chans
-
-    return not all_same
-
-
-def find_different_basebands_pols(basebands: list[dict]) -> tuple[int, int]:
-
-    all_same = True
-    spws_per_baseband = -1
-    cross_pols_per_spw = -1
-    sd_pols_per_spw = -1
-    for bband in basebands:
-        if not all_same:
-            break
-        num_spws = len(bband["spectralWindows"])
-        if spws_per_baseband > 0:
-            if num_spws != spws_per_baseband:
-                all_same = False
-                break
-        else:
-            spws_per_baseband = num_spws
-
-        for spw in bband["spectralWindows"]:
-            num_pols_cross = len(spw["crossPolProducts"])
-            num_pols_sd = len(spw["sdPolProducts"])
-            if cross_pols_per_spw > 0:
-                if num_pols_cross != cross_pols_per_spw:
-                    all_same = False
-                    break
-            else:
-                cross_pols_per_spw = num_pols_cross
-            if sd_pols_per_spw > 0:
-                if num_pols_sd != sd_pols_per_spw:
-                    all_same = False
-                    break
-            else:
-                sd_pols_per_spw = num_pols_sd
-
-    return not all_same
 
 
 def load_visibilities_from_partition_bdfs(
@@ -204,7 +144,9 @@ def load_visibilities_from_bdf(
     baseband_spw_idxs = find_spw_in_basebands_list(
         spw_id, bdf_descr["basebands"], bdf_path
     )
-    different_channels_per_spw = find_different_basebands_spws(bdf_descr["basebands"])
+    different_channels_per_spw = find_if_different_basebands_spws(
+        bdf_descr["basebands"]
+    )
     guessed_shape = define_visibility_shape(bdf_descr, baseband_spw_idxs)
     try:
         if never_reshape_from_all_spws or different_channels_per_spw:
@@ -443,7 +385,7 @@ def load_flags_from_bdf(
     baseband_spw_idxs = find_spw_in_basebands_list(
         spw_id, bdf_descr["basebands"], bdf_path
     )
-    different_pols_per_spw = find_different_basebands_pols(bdf_descr["basebands"])
+    different_pols_per_spw = find_if_different_basebands_pols(bdf_descr["basebands"])
     guessed_shape = define_flag_shape(bdf_descr, baseband_spw_idxs)
     try:
         if never_reshape_from_all_spws or different_pols_per_spw:

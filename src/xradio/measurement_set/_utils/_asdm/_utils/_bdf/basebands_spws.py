@@ -59,3 +59,69 @@ def find_spw_in_basebands_list(
         baseband_index = 0
 
     return (baseband_index, spw_index)
+
+
+def find_if_different_basebands_spws(basebands: list[dict]) -> bool:
+    """whether there are differnt numbers of SPWs in some basebands"""
+
+    all_same = True
+    spws_per_baseband = -1
+    chans_per_spw = -1
+    for bband in basebands:
+        if not all_same:
+            break
+        num_spws = len(bband["spectralWindows"])
+        if spws_per_baseband > 0:
+            if num_spws != spws_per_baseband:
+                all_same = False
+                break
+        else:
+            spws_per_baseband = num_spws
+
+        for spw in bband["spectralWindows"]:
+            num_chans = spw["numSpectralPoint"]
+            if chans_per_spw > 0:
+                if num_chans != chans_per_spw:
+                    all_same = False
+                    break
+            else:
+                chans_per_spw = num_chans
+
+    return not all_same
+
+
+def find_if_different_basebands_pols(basebands: list[dict]) -> tuple[int, int]:
+    """whether the number of polarizations is different for some of the basebands"""
+
+    all_same = True
+    spws_per_baseband = -1
+    cross_pols_per_spw = -1
+    sd_pols_per_spw = -1
+    for bband in basebands:
+        if not all_same:
+            break
+        num_spws = len(bband["spectralWindows"])
+        if spws_per_baseband > 0:
+            if num_spws != spws_per_baseband:
+                all_same = False
+                break
+        else:
+            spws_per_baseband = num_spws
+
+        for spw in bband["spectralWindows"]:
+            num_pols_cross = len(spw["crossPolProducts"])
+            num_pols_sd = len(spw["sdPolProducts"])
+            if cross_pols_per_spw > 0:
+                if num_pols_cross != cross_pols_per_spw:
+                    all_same = False
+                    break
+            else:
+                cross_pols_per_spw = num_pols_cross
+            if sd_pols_per_spw > 0:
+                if num_pols_sd != sd_pols_per_spw:
+                    all_same = False
+                    break
+            else:
+                sd_pols_per_spw = num_pols_sd
+
+    return not all_same

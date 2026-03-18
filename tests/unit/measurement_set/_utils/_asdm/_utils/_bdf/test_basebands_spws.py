@@ -345,3 +345,273 @@ def test_find_spw_in_basebands_list_empty(
     )
     assert baseband_idx == expected_baseband_idx
     assert spw_idx == expected_spw_idx
+
+
+# Will likely also need a ProcessorType.RADIOMETER/SPECTROMETER
+# From uid___A002_Xc33ac1_X136e (AUTO_ONLY)
+bdf_descr_X136e = {
+    "dimensionality": 1,
+    "num_time": 0,
+    "processor_type": pyasdm.enumerations.ProcessorType.CORRELATOR,
+    "binary_types": [
+        "flags",
+        "actualTimes",
+        "actualDurations",
+        "zeroLags",
+        "crossData",
+        "autoData",
+    ],
+    "correlation_mode": pyasdm.enumerations.CorrelationMode.AUTO_ONLY,
+    "apc": [],
+    "num_antenna": 10,
+    "basebands": [
+        {
+            "name": "BB_1",
+            "spectralWindows": [
+                {
+                    "crossPolProducts": [
+                        pyasdm.enumerations.StokesParameter.XX,
+                        pyasdm.enumerations.StokesParameter.YY,
+                    ],
+                    "sdPolProducts": [
+                        pyasdm.enumerations.StokesParameter.XX,
+                        pyasdm.enumerations.StokesParameter.YY,
+                    ],
+                    "scaleFactor": None,
+                    "numSpectralPoint": 1024,
+                    "numBin": 1,
+                    "sideband": pyasdm.enumerations.NetSideband.LSB,
+                    "sw": "1",
+                },
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [
+                        pyasdm.enumerations.StokesParameter.XX,
+                        pyasdm.enumerations.StokesParameter.YY,
+                    ],
+                    "scaleFactor": None,
+                    "numSpectralPoint": 512,
+                    "numBin": 1,
+                    "sideband": pyasdm.enumerations.NetSideband.USB,
+                    "sw": "2",
+                },
+            ],
+        },
+        {
+            "name": "BB_2",
+            "spectralWindows": [
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [
+                        pyasdm.enumerations.StokesParameter.XX,
+                        pyasdm.enumerations.StokesParameter.YY,
+                    ],
+                    "scaleFactor": None,
+                    "numSpectralPoint": 1024,
+                    "numBin": 1,
+                    "sideband": pyasdm.enumerations.NetSideband.LSB,
+                    "sw": "1",
+                },
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [
+                        pyasdm.enumerations.StokesParameter.XX,
+                        pyasdm.enumerations.StokesParameter.YY,
+                    ],
+                    "scaleFactor": None,
+                    "numSpectralPoint": 1024,
+                    "numBin": 1,
+                    "sideband": pyasdm.enumerations.NetSideband.USB,
+                    "sw": "2",
+                },
+            ],
+        },
+        {
+            "name": "BB_3",
+            "spectralWindows": [
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [
+                        pyasdm.enumerations.StokesParameter.XX,
+                        pyasdm.enumerations.StokesParameter.YY,
+                    ],
+                    "scaleFactor": None,
+                    "numSpectralPoint": 2048,
+                    "numBin": 1,
+                    "sideband": pyasdm.enumerations.NetSideband.LSB,
+                    "sw": "1",
+                }
+            ],
+        },
+        {
+            "name": "BB_4",
+            "spectralWindows": [
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [
+                        pyasdm.enumerations.StokesParameter.XX,
+                        pyasdm.enumerations.StokesParameter.YY,
+                    ],
+                    "scaleFactor": None,
+                    "numSpectralPoint": 1024,
+                    "numBin": 1,
+                    "sideband": pyasdm.enumerations.NetSideband.USB,
+                    "sw": "1",
+                }
+            ],
+        },
+    ],
+}
+
+basebands_one_only = [
+    {
+        "name": "BB_1",
+        "spectralWindows": [
+            {
+                "crossPolProducts": [],
+                "sdPolProducts": [],
+                "scaleFactor": 103107.95,
+                "numSpectralPoint": 960,
+                "numBin": 1,
+                "sideband": None,
+                "sw": "1",
+            }
+        ],
+    },
+]
+
+
+basebands_diff_sd_pols = [
+    {
+        "name": "BB_1",
+        "spectralWindows": [
+            {
+                "crossPolProducts": [],
+                "sdPolProducts": [
+                    pyasdm.enumerations.StokesParameter.XX,
+                    pyasdm.enumerations.StokesParameter.YY,
+                ],
+                "scaleFactor": 103107.95,
+                "numSpectralPoint": 960,
+                "numBin": 1,
+                "sideband": None,
+                "sw": "1",
+            }
+        ],
+    },
+    {
+        "name": "BB_2",
+        "spectralWindows": [
+            {
+                "crossPolProducts": [],
+                "sdPolProducts": [
+                    pyasdm.enumerations.StokesParameter.XX,
+                    pyasdm.enumerations.StokesParameter.XY,
+                    pyasdm.enumerations.StokesParameter.YY,
+                ],
+                "scaleFactor": 103107.95,
+                "numSpectralPoint": 960,
+                "numBin": 1,
+                "sideband": None,
+                "sw": "1",
+            }
+        ],
+    },
+]
+
+basebands_diff_cross_pols = [
+    {
+        "name": "BB_1",
+        "spectralWindows": [
+            {
+                "crossPolProducts": [
+                    pyasdm.enumerations.StokesParameter.XX,
+                    pyasdm.enumerations.StokesParameter.YY,
+                ],
+                "sdPolProducts": [],
+                "scaleFactor": 103107.95,
+                "numSpectralPoint": 1024,
+                "numBin": 1,
+                "sideband": None,
+                "sw": "1",
+            }
+        ],
+    },
+    {
+        "name": "BB_2",
+        "spectralWindows": [
+            {
+                "crossPolProducts": [
+                    pyasdm.enumerations.StokesParameter.XX,
+                    pyasdm.enumerations.StokesParameter.XY,
+                    pyasdm.enumerations.StokesParameter.YY,
+                ],
+                "sdPolProducts": [],
+                "scaleFactor": 103107.95,
+                "numSpectralPoint": 2048,
+                "numBin": 1,
+                "sideband": None,
+                "sw": "1",
+            }
+        ],
+    },
+]
+
+
+@pytest.mark.parametrize(
+    "input_basebands, expected_output",
+    [
+        (basebands_example_X2197, True),
+        (basebands_one_only, False),
+        (bdf_descr_X136e["basebands"], True),
+        ([bdf_descr_X136e["basebands"][1], bdf_descr_X136e["basebands"][3]], True),
+        (basebands_diff_sd_pols, False),
+        (basebands_diff_cross_pols, True),
+        (basebands_diff_cross_pols[0:2], True),
+    ],
+)
+def test_find_if_different_basebands_spws(input_basebands, expected_output):
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        find_if_different_basebands_spws,
+    )
+
+    result = find_if_different_basebands_spws(input_basebands)
+    assert result is expected_output
+
+
+@pytest.mark.parametrize(
+    "input_basebands, expected_output",
+    [
+        (basebands_example_X2197, True),
+        (basebands_one_only, False),
+        (bdf_descr_X136e["basebands"], True),
+        ([bdf_descr_X136e["basebands"][1], bdf_descr_X136e["basebands"][3]], True),
+        (basebands_diff_sd_pols, True),
+        (basebands_diff_cross_pols, True),
+    ],
+)
+def test_find_if_different_basebands_pols(input_basebands, expected_output):
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        find_if_different_basebands_pols,
+    )
+
+    result = find_if_different_basebands_pols(input_basebands)
+    assert result is expected_output
+
+
+def test_find_if_different_basebands_spws_empty():
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        find_if_different_basebands_spws,
+    )
+
+    result = find_if_different_basebands_spws([])
+    assert result is False
+
+
+def test_find_if_different_basebands_pols_empty():
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        find_if_different_basebands_pols,
+    )
+
+    result = find_if_different_basebands_pols([])
+    assert result is False

@@ -126,7 +126,7 @@ def load_visibilities_from_bdf(
     bdf_path: str,
     spw_id: int,
     array_slice: dict,
-    never_reshape_from_all_spws: bool = True,
+    never_reshape_from_all_spws: bool = False,
 ) -> np.ndarray:
 
     bdf_reader = pyasdm.bdf.BDFReader()
@@ -367,7 +367,7 @@ def load_flags_from_bdf(
     bdf_path: list[str],
     spw_id: int,
     array_slice: dict,
-    never_reshape_from_all_spws: bool = True,
+    never_reshape_from_all_spws: bool = False,
 ) -> np.ndarray:
 
     bdf_reader = pyasdm.bdf.BDFReader()

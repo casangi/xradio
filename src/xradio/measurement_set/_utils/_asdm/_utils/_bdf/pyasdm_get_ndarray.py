@@ -10,7 +10,7 @@ import typing
 
 import pyasdm
 
-from .basebands import find_spw_in_basebands_list
+from .basebands_spws import find_spw_in_basebands_list
 
 
 def load_visibilities_one_spw_to_ndarray(

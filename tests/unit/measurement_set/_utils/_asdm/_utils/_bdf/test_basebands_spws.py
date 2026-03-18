@@ -215,7 +215,7 @@ def test_calculate_overall_spw_idx(
     expected_overall_spw_idx,
     expected_error,
 ):
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.basebands_spws import (
         calculate_overall_spw_idx,
     )
 
@@ -239,7 +239,7 @@ def test_calculate_overall_spw_idx(
 def test_baseband_spw_to_overall_spw_idx(
     input_baseband_spw_idxs, input_bdf_descr, expected_overall_spw_idx, expected_error
 ):
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.basebands_spws import (
         baseband_spw_to_overall_spw_idx,
     )
 
@@ -336,7 +336,7 @@ basebands_example_X2197 = [
 def test_find_spw_in_basebands_list_empty(
     input_spw_idx, input_basebands, expected_baseband_idx, expected_spw_idx
 ):
-    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.basebands_spws import (
         find_spw_in_basebands_list,
     )
 

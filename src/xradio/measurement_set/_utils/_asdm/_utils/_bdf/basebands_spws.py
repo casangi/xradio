@@ -1,5 +1,6 @@
 """
-Functions to do various calculations related to the basebands/spw list(s).
+Functions to do various calculations related to the basebands/spw list(s) from
+BDF headers.
 """
 
 from xradio._utils.logging import xradio_logger

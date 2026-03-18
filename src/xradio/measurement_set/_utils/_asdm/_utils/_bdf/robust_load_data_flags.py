@@ -4,7 +4,7 @@ import numpy as np
 
 import pyasdm
 
-from .basebands import find_spw_in_basebands_list
+from .basebands_spws import find_spw_in_basebands_list
 from .shapes import (
     add_cross_and_auto_flag_shapes,
     full_shape_to_output_filled_flags_shape,

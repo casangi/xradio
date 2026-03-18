@@ -103,6 +103,59 @@ def test_load_visibilities_all_subsets_from_trees():
         mock_bdf_header.hasSubset.assert_not_called()
 
 
+def test_load_subset_with_get_subset():
+    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
+        load_subset_with_get_subset,
+    )
+
+    with (
+        mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
+        mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
+    ):
+        mock_bdf_reader.hasSubset.side_effect = [True, False]
+        subset = load_subset_with_get_subset(mock_bdf_reader)
+        assert subset
+        assert mock_bdf_reader.hasSubset.call_count == 0
+        mock_bdf_reader.getSubset.assert_called_once()
+
+        mock_bdf_header.getBasebandsList.assert_not_called()
+        mock_bdf_header.getSubset.assert_not_called()
+        mock_bdf_header.hasSubset.assert_not_called()
+
+
+def test_load_subset_with_get_ndarrays():
+    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
+        load_subset_with_get_ndarrays,
+    )
+
+    guessed_shape = (2, 45, 2, 64, 2, 2)
+    bdf_descr = {
+        "basebands": basebands_example,
+        "processor_type": "CORRELATOR",
+    }
+    with (
+        mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
+        mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
+    ):
+        mock_bdf_reader.hasSubset.side_effect = [True, False]
+        result_ndarray = np.ndarray(())
+
+        def load_spw_function(x, y):
+            return result_ndarray
+
+        load_spw_function_params = (bdf_descr, guessed_shape)
+        ndarrays = load_subset_with_get_ndarrays(
+            mock_bdf_reader, 0, load_spw_function, load_spw_function_params
+        )
+        assert ndarrays
+        assert mock_bdf_reader.hasSubset.call_count == 0
+        mock_bdf_reader.getSubset.assert_not_called()
+
+        mock_bdf_header.getBasebandsList.assert_not_called()
+        mock_bdf_header.getSubset.assert_not_called()
+        mock_bdf_header.hasSubset.assert_not_called()
+
+
 def test_load_vis_subset_from_tree():
     from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
         load_vis_subset_from_tree,

@@ -10,7 +10,6 @@ import xarray as xr
 import pyasdm
 
 from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
-from xradio._utils.list_and_array import check_if_consistent
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,
 )

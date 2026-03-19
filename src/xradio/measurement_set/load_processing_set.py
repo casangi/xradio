@@ -254,7 +254,7 @@ class ProcessingSetIterator:
         return sub_xdt
 
 
-def get_rss_gb():
-    import psutil, os
+def _get_rss_gb():
+    import psutil
 
     return psutil.Process(os.getpid()).memory_info().rss / 1e9

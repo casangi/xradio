@@ -198,6 +198,14 @@ class ProcessingSetIterator:
 
         If ``in_memory=True``, previously loaded ms_xdt's are served from the
         cache on the next pass without reloading from disk.
+
+        Returns
+        -------
+        tuple of float
+            A 2-tuple ``(load_time, longest_load_time)``, where ``load_time`` is
+            the total time in seconds spent loading data since the previous call
+            to :meth:`reset`, and ``longest_load_time`` is the maximum such value
+            observed across all iterations of this iterator.
         """
         self._index = 0
         self._current_ms_name = None

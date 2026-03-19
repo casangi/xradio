@@ -47,7 +47,6 @@ def load_processing_set(
         In memory representation of processing set using xr.DataTree.
     """
     from xradio._utils.zarr.common import _get_file_system_and_items
-    import dask
     import s3fs
     import posixpath
 

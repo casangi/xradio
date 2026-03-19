@@ -169,7 +169,6 @@ class ProcessingSetIterator:
             does not require reloading from disk. If False, only a single ms_xdt is held in
             memory at a time. By default False.
         """
-        import toolviper.utils.logger as logger
 
         # logger.debug("Memory usage at start of ProcessingSetIterator initialization: " + str(get_rss_gb()) + " GB")
         self.input_data = input_data

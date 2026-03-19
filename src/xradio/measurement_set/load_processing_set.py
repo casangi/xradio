@@ -70,6 +70,7 @@ def load_processing_set(
                         drop_variables=drop_variables,
                         cache=False,
                         chunks=None,
+                        consolidated=False,
                     )
                     .isel(ms_xds_isel)
                     .xr_ms.sel(data_group_name=data_group_name)
@@ -81,6 +82,7 @@ def load_processing_set(
                     drop_variables=drop_variables,
                     cache=False,
                     chunks=None,
+                    consolidated=False,
                 ).xr_ms.sel(data_group_name=data_group_name)
 
             if include_variables is not None:
@@ -200,10 +202,10 @@ class ProcessingSetIterator:
         self._index = 0
         self._current_ms_name = None
         self._current_ms_xdt = None
-        
+
         load_time = self._load_time
         self._load_time = 0.0
-        
+
         if self._longest_load_time < load_time:
             self._longest_load_time = load_time
         return load_time, self._longest_load_time
@@ -238,7 +240,6 @@ class ProcessingSetIterator:
             sub_xdt = ps_xdt[sub_xds_name]
             if self.in_memory:
                 self._cache[sub_xds_name] = sub_xdt
-                
 
         self._current_ms_xdt = sub_xdt
         self._load_time = self._load_time + time.time() - T_load_start

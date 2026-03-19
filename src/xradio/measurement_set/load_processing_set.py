@@ -1,6 +1,7 @@
 import os
 from typing import Dict, Union
 import xarray as xr
+import time
 
 
 def load_processing_set(
@@ -182,6 +183,8 @@ class ProcessingSetIterator:
         self._current_ms_name: Union[str, None] = None
         self._current_ms_xdt: Union[xr.DataTree, None] = None
         self._cache: Dict[str, xr.DataTree] = {}
+        self._load_time: float = 0.0
+        self._longest_load_time: float = 0.0
         # logger.debug("ProcessingSetIterator initialized with " + str(len(self._ms_name_list)) + " ms_xdts to iterate over.")
         # logger.debug("Memory usage after ProcessingSetIterator initialization: " + str(get_rss_gb()) + " GB")
 
@@ -197,6 +200,13 @@ class ProcessingSetIterator:
         self._index = 0
         self._current_ms_name = None
         self._current_ms_xdt = None
+        
+        load_time = self._load_time
+        self._load_time = 0.0
+        
+        if self._longest_load_time < load_time:
+            self._longest_load_time = load_time
+        return load_time, self._longest_load_time
 
     def __next__(self):
         import toolviper.utils.logger as logger
@@ -210,6 +220,7 @@ class ProcessingSetIterator:
         self._index += 1
         self._current_ms_name = sub_xds_name
 
+        T_load_start = time.time()
         if self.input_data is not None:
             sub_xdt = self.input_data[sub_xds_name]
         elif self.in_memory and sub_xds_name in self._cache:
@@ -227,8 +238,10 @@ class ProcessingSetIterator:
             sub_xdt = ps_xdt[sub_xds_name]
             if self.in_memory:
                 self._cache[sub_xds_name] = sub_xdt
+                
 
         self._current_ms_xdt = sub_xdt
+        self._load_time = self._load_time + time.time() - T_load_start
         # logger.debug("Memory usage at end of __next__: " + str(get_rss_gb()) + " GB")
         return sub_xdt
 

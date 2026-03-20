@@ -40,7 +40,23 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
         [xds.sizes[dim] for dim in ("l", "m")], dtype=np.int32
     )
     direction["_image_axes"] = np.array([2, 3], dtype=np.int32)
-    direction["system"] = xds_dir["reference_direction"]["attrs"]["equinox"].upper()
+    if "equinox" in xds_dir["reference_direction"]["attrs"]:
+        direction["system"] = xds_dir["reference_direction"]["attrs"]["equinox"].upper()
+    elif "frame" in xds_dir["reference_direction"]["attrs"]:
+        frame = xds_dir["reference_direction"]["attrs"]["frame"].upper()
+        direction["system"] = {
+            "FK5": "J2000",
+            "FK4": "B1950",
+            "ICRS": "ICRS",
+            "GALACTIC": "GALACTIC",
+            "J2000": "J2000",
+            "B1950": "B1950",
+        }.get(frame, frame)
+    else:
+        raise RuntimeError(
+            "Cannot determine direction coordinate system frame. "
+            f"direction metadata is {xds_dir}"
+        )
     if direction["system"] == "J2000.0":
         direction["system"] = "J2000"
     direction["projection"] = xds_dir["projection"]

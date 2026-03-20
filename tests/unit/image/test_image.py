@@ -57,6 +57,55 @@ def clean_path_logic(text: str) -> str:
     return text
 
 
+def _make_test_sky_xds_for_casa_coord_write():
+    xds = make_empty_sky_image(
+        phase_center=np.array([0.2, -0.5]),
+        image_size=np.array([4, 4]),
+        cell_size=np.array([1e-4, 1e-4]),
+        frequency_coords=np.array([1.4e9]),
+        pol_coords=np.array(["I"]),
+        time_coords=np.array([51544.0]),
+        do_sky_coords=False,
+    )
+    xds["SKY"] = xr.DataArray(
+        np.zeros((1, 1, 1, 4, 4), dtype=np.float32),
+        dims=["time", "frequency", "polarization", "l", "m"],
+    )
+    xds["SKY"].attrs["type"] = "sky"
+    xds.attrs["type"] = "image_dataset"
+    xds.attrs["data_groups"] = {"base": {"sky": "SKY"}}
+    return xds
+
+
+def test_write_image_uses_reference_direction_frame_without_equinox(tmp_path):
+    xds = _make_test_sky_xds_for_casa_coord_write()
+    ref_dir_attrs = xds.attrs["coordinate_system_info"]["reference_direction"]["attrs"]
+    del ref_dir_attrs["equinox"]
+    outname = tmp_path / "frame_only.im"
+
+    write_image(xds, str(outname), "casa")
+
+    with open_image_ro(str(outname)) as im:
+        direction = im.coordinates().dict()["direction0"]
+
+    assert direction["system"] == "J2000"
+    assert direction["conversionSystem"] == "J2000"
+
+
+def test_write_image_requires_reference_direction_frame_or_equinox(tmp_path):
+    xds = _make_test_sky_xds_for_casa_coord_write()
+    ref_dir_attrs = xds.attrs["coordinate_system_info"]["reference_direction"]["attrs"]
+    del ref_dir_attrs["equinox"]
+    del ref_dir_attrs["frame"]
+    outname = tmp_path / "missing_frame.im"
+
+    with pytest.raises(
+        RuntimeError,
+        match=r"Cannot determine direction coordinate system frame",
+    ):
+        write_image(xds, str(outname), "casa")
+
+
 @pytest.fixture(scope="module")
 def dask_client_module():
     """Set up and tear down a Dask client for the test module.

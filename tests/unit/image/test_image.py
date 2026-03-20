@@ -106,6 +106,36 @@ def test_write_image_requires_reference_direction_frame_or_equinox(tmp_path):
         write_image(xds, str(outname), "casa")
 
 
+def test_write_image_uses_fk4_frame_to_set_b1950(tmp_path):
+    xds = _make_test_sky_xds_for_casa_coord_write()
+    ref_dir_attrs = xds.attrs["coordinate_system_info"]["reference_direction"]["attrs"]
+    # Ensure the frame is FK4 and that we rely on the frame (not equinox) mapping
+    ref_dir_attrs["frame"] = "FK4"
+    ref_dir_attrs.pop("equinox", None)
+    outname = tmp_path / "fk4_frame.im"
+
+    write_image(xds, str(outname), "casa")
+
+    with open_image_ro(str(outname)) as im:
+        direction = im.coordinates().dict()["direction0"]
+
+    assert direction["system"] == "B1950"
+    assert direction["conversionSystem"] == "B1950"
+
+
+def test_write_image_raises_for_unsupported_reference_direction_frame(tmp_path):
+    xds = _make_test_sky_xds_for_casa_coord_write()
+    ref_dir_attrs = xds.attrs["coordinate_system_info"]["reference_direction"]["attrs"]
+    # Set an unrecognized frame and remove equinox so that frame mapping is required
+    ref_dir_attrs["frame"] = "UNSUPPORTED"
+    ref_dir_attrs.pop("equinox", None)
+    outname = tmp_path / "unsupported_frame.im"
+
+    with pytest.raises(
+        RuntimeError,
+        match=r"Unsupported direction coordinate system frame",
+    ):
+        write_image(xds, str(outname), "casa")
 @pytest.fixture(scope="module")
 def dask_client_module():
     """Set up and tear down a Dask client for the test module.

@@ -115,7 +115,7 @@ def test_load_subset_with_get_subset():
         mock_bdf_reader.hasSubset.side_effect = [True, False]
         subset = load_subset_with_get_subset(mock_bdf_reader)
         assert subset
-        assert mock_bdf_reader.hasSubset.call_count == 0
+        mock_bdf_reader.hasSubset.assert_not_called()
         mock_bdf_reader.getSubset.assert_called_once()
 
         mock_bdf_header.getBasebandsList.assert_not_called()

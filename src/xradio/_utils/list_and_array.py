@@ -113,6 +113,9 @@ def check_if_consistent(
     _type_
         _description_
     """
+    if array.size == 0:
+        return array
+
     if array.ndim == 0:
         return array.item()
 

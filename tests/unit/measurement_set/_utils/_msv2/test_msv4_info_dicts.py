@@ -43,7 +43,7 @@ def test_create_info_dicts_empty(ms_empty_required):
     ddi = 0
     field_id = 0
     taql_main = f"select * from $ms_main WHERE (OBSERVATION_ID = {observation_id}) and (DATA_DESC_ID = {ddi}) and (FIELD_ID = {field_id})"
-    with pytest.raises(AssertionError, match="is not consistent"):
+    with pytest.raises(KeyError, match="No variable named"):
         with open_query(ms_main, taql_main) as tb_tool:
 
             info_dicts = create_info_dicts(

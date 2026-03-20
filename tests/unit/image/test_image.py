@@ -66,6 +66,7 @@ def _make_test_sky_xds_for_casa_coord_write():
         pol_coords=np.array(["I"]),
         time_coords=np.array([51544.0]),
         do_sky_coords=False,
+        direction_reference="fk5",
     )
     xds["SKY"] = xr.DataArray(
         np.zeros((1, 1, 1, 4, 4), dtype=np.float32),

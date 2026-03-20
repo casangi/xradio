@@ -61,9 +61,10 @@ def clean_path_logic(text: str) -> str:
 def test_load_visibility_normalization_block_squeezes_spatial_axes(tmp_path):
     imagename = tmp_path / "synthetic.sumwt"
     data = np.arange(8, dtype=np.float32).reshape(4, 2, 1, 1)
+    masked_data = ma.masked_array(data, np.zeros_like(data, dtype=bool))
 
     with create_new_image(str(imagename), shape=list(data.shape)) as im:
-        im.put(data)
+        im.put(masked_data)
 
     xds = load_image({"visibility_normalization": str(imagename)})
 

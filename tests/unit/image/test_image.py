@@ -57,6 +57,29 @@ def clean_path_logic(text: str) -> str:
     return text
 
 
+def test_load_visibility_normalization_block_squeezes_spatial_axes(tmp_path):
+    imagename = tmp_path / "synthetic.sumwt"
+    data = np.arange(8, dtype=np.float32).reshape(4, 2, 1, 1)
+
+    with create_new_image(str(imagename), shape=list(data.shape)) as im:
+        im.put(data)
+
+    xds = load_image({"visibility_normalization": str(imagename)})
+
+    assert xds.VISIBILITY_NORMALIZATION.dims == (
+        "time",
+        "frequency",
+        "polarization",
+    )
+    assert xds.VISIBILITY_NORMALIZATION.shape == (1, 4, 2)
+    assert "l" not in xds.dims
+    assert "m" not in xds.dims
+    np.testing.assert_array_equal(
+        xds.VISIBILITY_NORMALIZATION.values,
+        data[np.newaxis, :, :, 0, 0],
+    )
+
+
 @pytest.fixture(scope="module")
 def dask_client_module():
     """Set up and tear down a Dask client for the test module.

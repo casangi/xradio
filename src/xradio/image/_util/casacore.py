@@ -111,6 +111,7 @@ def _load_casa_image_block(
         block = _get_persistent_block(
             full_path, shapes, starts, dimorder, transpose_list, new_axes
         )
+        block = _squeeze_if_needed(block, image_type)
         # data vars are all caps by convention
         mask_name = re.sub(r"\bMASK(\d+)\b", r"MASK_\1", m.upper())
         xds = _add_mask(xds, mask_name, block, dimorder)

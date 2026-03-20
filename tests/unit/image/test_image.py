@@ -137,6 +137,8 @@ def test_write_image_raises_for_unsupported_reference_direction_frame(tmp_path):
         match=r"Unsupported direction coordinate system frame",
     ):
         write_image(xds, str(outname), "casa")
+
+
 @pytest.fixture(scope="module")
 def dask_client_module():
     """Set up and tear down a Dask client for the test module.

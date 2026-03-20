@@ -43,7 +43,15 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
     if "equinox" in xds_dir["reference_direction"]["attrs"]:
         direction["system"] = xds_dir["reference_direction"]["attrs"]["equinox"].upper()
         # Allow J2000.0 for backward compatibility; it will be normalized below.
-        allowed_systems = {"FK5", "FK4", "ICRS", "GALACTIC", "J2000", "B1950", "J2000.0"}
+        allowed_systems = {
+            "FK5",
+            "FK4",
+            "ICRS",
+            "GALACTIC",
+            "J2000",
+            "B1950",
+            "J2000.0",
+        }
         if direction["system"] not in allowed_systems:
             raise RuntimeError(
                 f"Unsupported direction equinox '{direction['system']}'. "
@@ -61,7 +69,7 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
         }
         if frame not in frame_to_system:
             raise RuntimeError(
-                f"Unsupported direction frame '{frame}'. "
+                f"Unsupported direction coordinate system frame '{frame}'. "
                 "Supported frames are: FK5, FK4, ICRS, GALACTIC, J2000, B1950."
             )
         direction["system"] = frame_to_system[frame]

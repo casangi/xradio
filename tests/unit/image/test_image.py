@@ -31,6 +31,7 @@ from xradio.image import (
     open_image,
     write_image,
 )
+from xradio.image._util.casacore import _squeeze_if_needed
 from xradio.image._util._casacore.common import _create_new_image as create_new_image
 from xradio.image._util._casacore.common import _open_image_ro as open_image_ro
 from xradio.image._util.common import _image_type as image_type
@@ -77,6 +78,42 @@ def test_load_visibility_normalization_block_squeezes_spatial_axes(tmp_path):
     np.testing.assert_array_equal(
         xds.VISIBILITY_NORMALIZATION.values,
         data[np.newaxis, :, :, 0, 0],
+    )
+
+
+def test_squeeze_if_needed_rejects_non_singleton_spatial_axes():
+    data = da.from_array(np.zeros((1, 4, 2, 2, 3), dtype=np.float32))
+
+    with pytest.raises(
+        ValueError,
+        match=r"VISIBILITY_NORMALIZATION casa image must have l and m of length 1\. Found \(2, 3\)",
+    ):
+        _squeeze_if_needed(data, "VISIBILITY_NORMALIZATION")
+
+
+def test_load_visibility_normalization_mask_squeezes_spatial_axes(tmp_path):
+    imagename = tmp_path / "masked.sumwt"
+    data = np.arange(8, dtype=np.float32).reshape(4, 2, 1, 1)
+    mask = np.zeros_like(data, dtype=bool)
+    mask[1, 0, 0, 0] = True
+    masked_data = ma.masked_array(data, mask)
+
+    with create_new_image(str(imagename), shape=list(data.shape), mask="MASK_0") as im:
+        im.put(masked_data)
+
+    xds = load_image({"visibility_normalization": str(imagename)})
+
+    assert xds.FLAG_VISIBILITY_NORMALIZATION.dims == (
+        "time",
+        "frequency",
+        "polarization",
+    )
+    assert xds.FLAG_VISIBILITY_NORMALIZATION.shape == (1, 4, 2)
+    assert "l" not in xds.FLAG_VISIBILITY_NORMALIZATION.dims
+    assert "m" not in xds.FLAG_VISIBILITY_NORMALIZATION.dims
+    np.testing.assert_array_equal(
+        xds.FLAG_VISIBILITY_NORMALIZATION.values,
+        mask[np.newaxis, :, :, 0, 0],
     )
 
 

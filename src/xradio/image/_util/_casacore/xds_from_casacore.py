@@ -674,7 +674,6 @@ def _get_persistent_block(
     infile: str,
     shapes: tuple,
     starts: tuple,
-    dimorder: list,
     transpose_list: list,
     new_axes: list,
 ) -> da.Array:

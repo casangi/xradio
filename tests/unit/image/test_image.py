@@ -98,9 +98,9 @@ def _download(fname: str, wantreturn=True) -> xr.Dataset | None:
 
 
 class xds_from_image_test(unittest.TestCase):
-    _imname: str = "inp.im"
+    _imname: str = "casa_test_image.im"
     _outname: str = "out.im"
-    _infits: str = "inp.im.fits"
+    _infits: str = "test_image.fits"
     _uv_image: str = "complex_valued_uv.im"
 
     _xds = None
@@ -118,15 +118,15 @@ class xds_from_image_test(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.maxDiff = None
-        cls._make_image()
+        #cls._make_image()
 
     @classmethod
     def tearDownClass(cls):
         for f in [
-            cls._imname,
+            # cls._imname,
             cls._imname + "_2",
             cls._outname,
-            cls._infits,
+            # cls._infits,
             cls._uv_image,
             cls._xds_from_casa_true,
             cls._xds_from_no_sky_casa_true,
@@ -151,6 +151,7 @@ class xds_from_image_test(unittest.TestCase):
     def uv_image(cls):
         return cls._uv_image
 
+    """
     @classmethod
     def _make_image(cls):
         if not os.path.exists(cls.imname()):
@@ -179,6 +180,7 @@ class xds_from_image_test(unittest.TestCase):
             t.putcell("MESSAGE", 0, "HELLO FROM EARTH again")
             t.flush()
             t.close()
+    """
 
     def compare_image_block(self, imagename, zarr=False):
         full_xds = open_image(imagename)
@@ -229,14 +231,16 @@ class xds_from_image_test(unittest.TestCase):
     @classmethod
     def xds(cls):
         if not cls._xds:
-            cls._make_image()
+            # cls._make_image()
+            # download
             cls._xds = open_image(cls.imname(), {"frequency": 5})
         return cls._xds
 
     @classmethod
     def xds_no_sky(cls):
         if not cls._xds_no_sky:
-            cls._make_image()
+            # cls._make_image()
+            # download
             cls._xds_no_sky = open_image(cls.imname(), {"frequency": 5}, False, False)
         return cls._xds_no_sky
 
@@ -249,9 +253,12 @@ class xds_from_image_test(unittest.TestCase):
     @classmethod
     def infits(cls):
         if not os.path.exists(cls._infits):
+            # download test_image.fits
+            """
             with open_image_ro(cls.imname()) as im:
                 im.tofits(cls._infits)
                 assert os.path.exists(cls._infits), f"Could not create {cls._infits}"
+            """
         return cls._infits
 
     @classmethod
@@ -743,8 +750,6 @@ class fits_to_xds_test(xds_from_image_test):
         cls._fds_no_sky = open_image(
             cls.infits(), {"frequency": 5}, do_sky_coords=False
         )
-
-        # print("$$$$ Opened fits file", cls.infits())
 
     @classmethod
     def tearDownClass(cls):

@@ -72,6 +72,8 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
         )
     if direction["system"] == "J2000.0":
         direction["system"] = "J2000"
+    elif direction["system"] == "B1950.0":
+        direction["system"] = "B1950"
     direction["projection"] = xds_dir["projection"]
     direction["projection_parameters"] = xds_dir["projection_parameters"]
     direction["units"] = [

@@ -87,11 +87,15 @@ def test_create_field_and_source_xds_with_field_source(asdm_with_spw_simple):
     field_table.add(field_row_0)
 
     # IF
-    if_field_and_source_xds = create_field_and_source_xds(asdm_with_source_field, {"fieldId": [0]}, 0, False)
+    if_field_and_source_xds = create_field_and_source_xds(
+        asdm_with_source_field, {"fieldId": [0]}, 0, False
+    )
     check_dataset(if_field_and_source_xds, FieldSourceXds)
 
     # SD
-    sd_field_and_source_xds = create_field_and_source_xds(asdm_with_source_field, {"fieldId": [0]}, 0, True)
+    sd_field_and_source_xds = create_field_and_source_xds(
+        asdm_with_source_field, {"fieldId": [0]}, 0, True
+    )
     check_dataset(sd_field_and_source_xds, FieldSourceXds)
 
     # IF with lineinfo in Source

@@ -1,5 +1,5 @@
 """
-Calculations with the array shapes of auto/cross data arrays
+Calculations with the array shapes of auto/cross data/flag arrays
 """
 
 

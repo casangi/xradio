@@ -118,15 +118,15 @@ class xds_from_image_test(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.maxDiff = None
-        #cls._make_image()
+        # cls._make_image()
 
     @classmethod
     def tearDownClass(cls):
         for f in [
-            # cls._imname,
+            cls._imname,
             cls._imname + "_2",
             cls._outname,
-            # cls._infits,
+            cls._infits,
             cls._uv_image,
             cls._xds_from_casa_true,
             cls._xds_from_no_sky_casa_true,
@@ -136,6 +136,10 @@ class xds_from_image_test(unittest.TestCase):
 
     @classmethod
     def imname(cls):
+        if not os.path.exists(cls._imname):
+            # download
+            _download(cls._imname, wantreturn=False)
+            assert os.path.exists(cls._imname), f"{cls._imname} does not exist"
         return cls._imname
 
     @classmethod
@@ -150,37 +154,6 @@ class xds_from_image_test(unittest.TestCase):
     @classmethod
     def uv_image(cls):
         return cls._uv_image
-
-    """
-    @classmethod
-    def _make_image(cls):
-        if not os.path.exists(cls.imname()):
-            shape: list[int] = [10, 4, 20, 30]
-            mask: np.ndarray = np.array(
-                [i % 3 == 0 for i in range(np.prod(shape))], dtype=bool
-            ).reshape(shape)
-            pix: np.ndarray = np.array(
-                [range(np.prod(shape))], dtype=np.float64
-            ).reshape(shape)
-            masked_array = ma.masked_array(pix, mask)
-            with create_new_image(cls._imname, shape=shape, mask="MASK_0") as im:
-                im.put(masked_array)
-                shape = im.shape()
-            t = tables.table(cls._imname, readonly=False)
-            t.putkeyword("units", "Jy/beam")
-            csys = t.getkeyword("coords")
-            pc = np.array([6300, -2400])
-            # change pointing center
-            csys["direction0"]["crval"] = pc
-            csys["pointingcenter"]["value"] = pc * np.pi / 180 / 60
-            t.putkeyword("coords", csys)
-            t.close()
-            t = tables.table(os.sep.join([cls._imname, "logtable"]), readonly=False)
-            t.addrows()
-            t.putcell("MESSAGE", 0, "HELLO FROM EARTH again")
-            t.flush()
-            t.close()
-    """
 
     def compare_image_block(self, imagename, zarr=False):
         full_xds = open_image(imagename)
@@ -231,7 +204,6 @@ class xds_from_image_test(unittest.TestCase):
     @classmethod
     def xds(cls):
         if not cls._xds:
-            # cls._make_image()
             # download
             cls._xds = open_image(cls.imname(), {"frequency": 5})
         return cls._xds
@@ -239,7 +211,6 @@ class xds_from_image_test(unittest.TestCase):
     @classmethod
     def xds_no_sky(cls):
         if not cls._xds_no_sky:
-            # cls._make_image()
             # download
             cls._xds_no_sky = open_image(cls.imname(), {"frequency": 5}, False, False)
         return cls._xds_no_sky
@@ -254,11 +225,8 @@ class xds_from_image_test(unittest.TestCase):
     def infits(cls):
         if not os.path.exists(cls._infits):
             # download test_image.fits
-            """
-            with open_image_ro(cls.imname()) as im:
-                im.tofits(cls._infits)
-                assert os.path.exists(cls._infits), f"Could not create {cls._infits}"
-            """
+            download(cls._infits)
+            assert os.path.exists(cls._infits), f"Could not download {cls._infits}"
         return cls._infits
 
     @classmethod

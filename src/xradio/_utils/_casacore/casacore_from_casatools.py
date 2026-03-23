@@ -48,7 +48,7 @@ _VALID_IMAGE_TYPES = (
 )
 
 import numpy as np
-import toolviper.utils.logger as logger
+from xradio._utils.logging import xradio_logger
 
 casaconfig.config.data_auto_update = False
 casaconfig.config.measures_auto_update = False
@@ -335,13 +335,13 @@ class table(casatools.table):
         tb_query = taqlcommand.replace("$mtable", tablename).replace(
             "$gtable", tablename
         )
-        logger.debug(f"tb_query_from: {tb_query_from.name()}")
-        logger.debug(f"tb_query_cmd:  {tb_query}")
+        xradio_logger().debug(f"tb_query_from: {tb_query_from.name()}")
+        xradio_logger().debug(f"tb_query_cmd:  {tb_query}")
         tb_query_to = _wrap_table(swig_object=tb_query_from._swigobj.taql(tb_query))
         if not is_open:
             tb_query_from.close()
             shutil.rmtree(tablename)
-        logger.debug(f"tb_query_to: {tb_query_to.name()}")
+        xradio_logger().debug(f"tb_query_to: {tb_query_to.name()}")
         return tb_query_to
 
     def getcolshapestring(self, *args, **kwargs):

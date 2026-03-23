@@ -5,11 +5,11 @@ from typing import List, Tuple, Union
 
 import dask
 import dask.array as da
-import toolviper.utils.logger as logger
 import numpy as np
 import xarray as xr
 from astropy import units as u
 from xradio._utils.list_and_array import to_python_type
+from xradio._utils.logging import xradio_logger
 
 try:
     from casacore import tables
@@ -167,7 +167,7 @@ def _casa_image_to_xds_image_attrs(
         frame, eqnx = _convert_direction_system(coord_dict[dir_key]["system"], "system")
     else:
         frame = "icrs"
-        logger.warning(
+        xradio_logger().warning(
             "No direction coordinate found from which "
             "to get pointing center frame. Assuming ICRS"
         )
@@ -182,19 +182,19 @@ def _casa_image_to_xds_image_attrs(
     obj = "objectname"
     attrs[_object_name] = imageinfo[obj] if obj in imageinfo else ""
     attrs["user"] = meta_dict["miscinfo"]
-    """
-    defmask = "Image_defaultmask"
-    with open_table_ro(image.name()) as casa_table:
-        # the actual mask is a data var and data var names are all caps by convention
-        import re
 
-        if defmask in casa_table.keywordnames():
-            am = casa_table.getkeyword(defmask).upper()
-            am = re.sub(r"\bMASK(\d+)\b", r"MASK_\1", am)
-        else:
-            am = None
-        attrs[_image_flag] = "FLAG_" + image_type.upper()
-    """
+    # defmask = "Image_defaultmask"
+    # with open_table_ro(image.name()) as casa_table:
+    #     # the actual mask is a data var and data var names are all caps by convention
+    #     import re
+
+    #     if defmask in casa_table.keywordnames():
+    #         am = casa_table.getkeyword(defmask).upper()
+    #         am = re.sub(r"\bMASK(\d+)\b", r"MASK_\1", am)
+    #     else:
+    #         am = None
+    #     attrs[_image_flag] = "FLAG_" + image_type.upper()
+
     attrs["description"] = None
     # Store history as a dict (not xr.Dataset) for Xarray compatibility
     if history:
@@ -204,7 +204,7 @@ def _casa_image_to_xds_image_attrs(
             # Convert xr.Dataset to dict for serialization compatibility
             attrs["history"] = history_xds.to_dict()
         else:
-            logger.warning(
+            xradio_logger().warning(
                 f"Unable to find history table {htable}. History will not be included"
             )
     return attrs
@@ -412,7 +412,7 @@ def _convert_direction_system(
 ) -> tuple:
     if casa_system == "J2000":
         if verbose:
-            logger.info(
+            xradio_logger().info(
                 f"J2000 found as {which} reference frame in CASA image "
                 'This corresponds to fk5(equinox="j2000") in astropy. '
                 "Metadata will be written appropriately"
@@ -420,7 +420,7 @@ def _convert_direction_system(
         return ("fk5", "j2000.0")
     elif casa_system == "B1950":
         if verbose:
-            logger.info(
+            xradio_logger().info(
                 f"B1950 found as {which} reference frame in CASA image "
                 'This corresponds to fk4(equinox="b1950") in astropy. '
                 "Metadata will be written appropriately"
@@ -624,15 +624,13 @@ def _get_persistent_block(
     infile: str,
     shapes: tuple,
     starts: tuple,
-    dimorder: list,
     transpose_list: list,
     new_axes: list,
-) -> xr.DataArray:
+) -> da.Array:
     block = _read_image_chunk(infile, shapes, starts)
     block = np.expand_dims(block, new_axes)
     block = block.transpose(transpose_list)
     block = da.from_array(block, chunks=block.shape)
-    block = xr.DataArray(block, dims=dimorder)
     return block
 
 

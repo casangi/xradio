@@ -2,7 +2,7 @@ from typing import Union
 
 import xarray as xr
 
-import toolviper.utils.logger as logger
+from xradio._utils.logging import xradio_logger
 
 
 def interpolate_to_time(
@@ -56,7 +56,7 @@ def interpolate_to_time(
         ):
             xds = xds.drop_vars("scan_name")
         points_after = xds[time_name].size
-        logger.debug(
+        xradio_logger().debug(
             f"{message_prefix}: interpolating the time coordinate "
             f"from {points_before} to {points_after} points"
         )

@@ -8,6 +8,7 @@ Xarray Radio Astronomy Data IO is still in development.
 [![Coverage](https://codecov.io/gh/casangi/xradio/branch/main/graph/badge.svg)](https://codecov.io/gh/casangi/xradio/branch/main/xradio)
 [![Documentation Status](https://readthedocs.org/projects/xradio/badge/?version=latest)](https://xradio.readthedocs.io)
 [![Version Status](https://img.shields.io/pypi/v/xradio.svg)](https://pypi.python.org/pypi/xradio/)
+[![Benchmarks](https://img.shields.io/badge/Benchmarks-Tests-orange)](https://casangi.github.io/benchviper/xradio)
 
 # Installing
 XRADIO can be installed in virtual environments via pip. It is recommended to use the conda environment manager from [miniforge](https://github.com/conda-forge/miniforge) to create a clean, self-contained runtime where XRADIO and all its dependencies can be installed, for example:

@@ -8,11 +8,11 @@ try:
 except ImportError:
     import xradio._utils._casacore.casacore_from_casatools as tables
 
-import toolviper.utils.logger as logger
 
 from .subtables import subt_rename_ids
 from ._tables.read import load_generic_table, convert_casacore_time
 from xradio._utils.list_and_array import check_if_consistent
+from xradio._utils.logging import xradio_logger
 
 
 def create_info_dicts(
@@ -159,7 +159,7 @@ def try_optional_asdm_asis_table_info(
     try:
         asdm_asis_xds = load_generic_table(in_file, asdm_table_name)
     except ValueError as exc:
-        logger.debug(
+        xradio_logger().debug(
             f"Did not find the {asdm_table_name} subtable, not loading optional fields in observation_info. Exception: {exc}"
         )
 

@@ -4,6 +4,7 @@ import pytest
 
 import pyasdm
 
+
 @pytest.mark.parametrize(
     "input_correlation_mode, expected_error",
     [

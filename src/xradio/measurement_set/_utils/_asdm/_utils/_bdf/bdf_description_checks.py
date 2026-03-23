@@ -5,6 +5,13 @@ Sanity checks of various fields of the BDF description dict (BDF header metadata
 import pyasdm
 
 
+def check_basebands(basebands: list[dict]):
+    # TODO: working check for what's out there...
+    # An example of 2 basebands: uid___A002_X9bb85e_Xcb (I think they are rare)
+    if len(basebands) not in [1, 2, 3, 4]:
+        raise RuntimeError(f" {len(basebands)=}, {basebands=}")
+
+
 def check_correlation_mode(correlation_mode: pyasdm.enumerations.CorrelationMode):
     if correlation_mode == pyasdm.enumerations.CorrelationMode.CROSS_ONLY:
         raise RuntimeError(f" Unexpected {correlation_mode=}")

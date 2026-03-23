@@ -13,7 +13,12 @@ from .shapes import (
     add_cross_and_auto_flag_shapes,
     full_shape_to_output_filled_flags_shape,
 )
-from .bdf_description_checks import check_correlation_mode, ensure_presence_binary_components, exclude_unsupported_axis_names
+from .bdf_description_checks import (
+    check_basebands,
+    check_correlation_mode,
+    ensure_presence_binary_components,
+    exclude_unsupported_axis_names,
+)
 
 from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
@@ -315,13 +320,6 @@ def load_flags_from_partition_bdfs(
 
 def check_flags_dims(flags_dims: list[str]):
     exclude_unsupported_axis_names(flags_dims, True)
-
-
-def check_basebands(basebands: list[dict]):
-    # TODO: working check for what's out there...
-    # An example of 2 basebands: uid___A002_X9bb85e_Xcb (I think they are rare)
-    if len(basebands) not in [1, 2, 3, 4]:
-        raise RuntimeError(f" {len(basebands)=}, {basebands=}")
 
 
 def load_flags_from_bdf(

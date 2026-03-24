@@ -13,7 +13,7 @@ readme = "README.md"
 requires-python = ">= 3.11, < 3.14"
 
 dependencies = [
-    'xarray'
+    'xarray>=2025.09.0'
 ]
 
 [project.optional-dependencies]
@@ -22,7 +22,7 @@ zarr = [
     'toolviper>=0.0.12',
     's3fs',
     'scipy',
-    'xarray',
+    'xarray>=2025.09.0',
     'zarr>=3,<4',
     'pyarrow',
     'psutil' # psutil is needed so large FITS images are not loaded into memory
@@ -37,7 +37,7 @@ test = [
     'toolviper>=0.0.12',
     's3fs',
     'scipy',
-    'xarray',
+    'xarray>=2025.09.0',
     'zarr>=3,<4',
     'pyarrow',
     'psutil',
@@ -52,7 +52,7 @@ casacore = [
     'toolviper>=0.0.12',
     's3fs',
     'scipy',
-    'xarray',
+    'xarray>=2025.09.0',
     'zarr>=3,<4',
     'pyarrow',
     'psutil',
@@ -64,7 +64,7 @@ interactive = [
     'toolviper>=0.0.12',
     's3fs',
     'scipy',
-    'xarray',
+    'xarray>=2025.09.0',
     'zarr>=3,<4',
     'pyarrow',
     'psutil',
@@ -94,7 +94,7 @@ all = [
     'toolviper>=0.0.12',
     's3fs',
     'scipy',
-    'xarray',
+    'xarray>=2025.09.0',
     'zarr>=3,<4',
     'pyarrow',
     'psutil',

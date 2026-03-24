@@ -22,7 +22,16 @@ def load_visibilities_one_spw_to_ndarray(
     bdf_descr: dict,
     guessed_shape: tuple,
 ) -> np.ndarray:
+    """
+    Function meant to be passed to pyasdm.BDFReader.getNDArrays as
+    loader function that does "load data from one SPW only, skipping
+    all other SPWs".
 
+    It is expected that pyasdm.BDFReader.getNDArrays will call it for
+    the required binary components (crossData and/or autoData) and
+    assemble them into an MSv4 style ndarray (with dims time, baseline,
+    frequency, polarization).
+    """
     spw_chan_lens = [
         bdf_descr["basebands"][bb_idx]["spectralWindows"][spw_idx]["numSpectralPoint"]
         for bb_idx in range(0, len(bdf_descr["basebands"]))

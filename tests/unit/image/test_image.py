@@ -138,6 +138,8 @@ def test_write_image_raises_for_unsupported_reference_direction_frame(tmp_path):
         match=r"Unsupported direction coordinate system frame",
     ):
         write_image(xds, str(outname), "casa")
+
+
 def test_load_visibility_normalization_block_squeezes_spatial_axes(tmp_path):
     imagename = tmp_path / "synthetic.sumwt"
     data = np.arange(8, dtype=np.float32).reshape(4, 2, 1, 1)

@@ -674,15 +674,13 @@ def _get_persistent_block(
     infile: str,
     shapes: tuple,
     starts: tuple,
-    dimorder: list,
     transpose_list: list,
     new_axes: list,
-) -> xr.DataArray:
+) -> da.Array:
     block = _read_image_chunk(infile, shapes, starts)
     block = np.expand_dims(block, new_axes)
     block = block.transpose(transpose_list)
     block = da.from_array(block, chunks=block.shape)
-    block = xr.DataArray(block, dims=dimorder)
     return block
 
 

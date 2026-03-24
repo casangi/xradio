@@ -1437,6 +1437,8 @@ def convert_and_write_partition(
                 mode=persistence_mode,
                 zarr_format=ZARR_FORMAT,
                 consolidated=False,
+                safe_chunks=True,
+                align_chunks=True,
             )
         elif storage_backend == "netcdf":
             # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work

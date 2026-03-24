@@ -308,7 +308,7 @@ def load_flags_all_subsets_from_trees(
     return bdf_flag
 
 
-def make_per_spw_cross_pol_lens(basebands_descr: list[list]) -> int:
+def _make_per_spw_cross_pol_lens(basebands_descr: list[list]) -> int:
     per_spw_cross_pol_lens = [
         len(basebands_descr[bb_idx]["spectralWindows"][spw_idx]["crossPolProducts"])
         for bb_idx in range(0, len(basebands_descr))
@@ -317,7 +317,7 @@ def make_per_spw_cross_pol_lens(basebands_descr: list[list]) -> int:
     return per_spw_cross_pol_lens
 
 
-def make_per_spw_auto_pol_lens(basebands_descr: list[list]) -> int:
+def _make_per_spw_auto_pol_lens(basebands_descr: list[list]) -> int:
     per_spw_auto_pol_len = [
         len(basebands_descr[bb_idx]["spectralWindows"][spw_idx]["sdPolProducts"])
         for bb_idx in range(0, len(basebands_descr))
@@ -326,7 +326,7 @@ def make_per_spw_auto_pol_lens(basebands_descr: list[list]) -> int:
     return per_spw_auto_pol_len
 
 
-def make_per_baseband_cross_pol_lens(basebands_descr: list[list]) -> int:
+def _make_per_baseband_cross_pol_lens(basebands_descr: list[list]) -> int:
     per_baseband_cross_pol_lens = [
         len(basebands_descr[bb_idx]["spectralWindows"][0]["crossPolProducts"])
         for bb_idx in range(0, len(basebands_descr))
@@ -334,7 +334,7 @@ def make_per_baseband_cross_pol_lens(basebands_descr: list[list]) -> int:
     return per_baseband_cross_pol_lens
 
 
-def make_per_baseband_auto_pol_lens(basebands_descr: list[list]) -> int:
+def _make_per_baseband_auto_pol_lens(basebands_descr: list[list]) -> int:
     per_baseband_auto_pol_lens = [
         len(basebands_descr[bb_idx]["spectralWindows"][0]["sdPolProducts"])
         for bb_idx in range(0, len(basebands_descr))
@@ -342,7 +342,7 @@ def make_per_baseband_auto_pol_lens(basebands_descr: list[list]) -> int:
     return per_baseband_auto_pol_lens
 
 
-def make_flag_tree_offsets_per_spw(
+def _make_flag_tree_offsets_per_spw(
     per_spw_cross_pol_lens: list[int],
     per_spw_auto_pol_lens: list[int],
     overall_spw_idx: int,
@@ -364,7 +364,7 @@ def make_flag_tree_offsets_per_spw(
     return offset
 
 
-def make_flag_tree_offsets_per_baseband(
+def _make_flag_tree_offsets_per_baseband(
     per_baseband_cross_pol_lens, per_baseband_auto_pol_lens, baseband_idx
 ) -> dict[str, dict]:
 
@@ -401,24 +401,24 @@ def calculate_offset_additions_cross_sd(
     antenna_len = bdf_descr["num_antenna"]
     baseline_len = int(antenna_len * (antenna_len - 1) / 2)
 
-    per_spw_cross_pol_lens = make_per_spw_cross_pol_lens(basebands_descr)
+    per_spw_cross_pol_lens = _make_per_spw_cross_pol_lens(basebands_descr)
     if auto_only:
         guessed_cross_len = 0
     else:
         guessed_cross_len = baseline_len * np.sum(per_spw_cross_pol_lens, dtype=int)
 
-    per_spw_auto_pol_lens = make_per_spw_auto_pol_lens(basebands_descr)
+    per_spw_auto_pol_lens = _make_per_spw_auto_pol_lens(basebands_descr)
     guessed_auto_len = antenna_len * np.sum(per_spw_auto_pol_lens, dtype=int)
     time_len = bdf_descr["num_time"] if bdf_descr["dimensionality"] == 0 else 1
 
     offset = {"cross": {}, "auto": {}}
     if (guessed_cross_len + guessed_auto_len) * time_len == flag_array_len:
-        offset = make_flag_tree_offsets_per_spw(
+        offset = _make_flag_tree_offsets_per_spw(
             per_spw_cross_pol_lens, per_spw_auto_pol_lens, overall_spw_idx
         )
     else:
         # Try per-BB flags
-        per_baseband_cross_pol_lens = make_per_baseband_cross_pol_lens(basebands_descr)
+        per_baseband_cross_pol_lens = _make_per_baseband_cross_pol_lens(basebands_descr)
         if auto_only:
             second_guessed_cross_len = 0
         else:
@@ -426,7 +426,7 @@ def calculate_offset_additions_cross_sd(
                 per_baseband_cross_pol_lens, dtype=int
             )
 
-        per_baseband_auto_pol_lens = make_per_baseband_auto_pol_lens(basebands_descr)
+        per_baseband_auto_pol_lens = _make_per_baseband_auto_pol_lens(basebands_descr)
         second_guessed_auto_len = antenna_len * np.sum(
             per_baseband_auto_pol_lens, dtype=int
         )
@@ -434,7 +434,7 @@ def calculate_offset_additions_cross_sd(
         if (
             second_guessed_cross_len + second_guessed_auto_len
         ) * time_len == flag_array_len:
-            offset = make_flag_tree_offsets_per_baseband(
+            offset = _make_flag_tree_offsets_per_baseband(
                 per_baseband_cross_pol_lens, per_baseband_auto_pol_lens, baseband_idx
             )
         else:
@@ -480,14 +480,14 @@ def load_flags_subset_from_tree(
             full_shape_to_output_filled_flags_shape(shape), False, dtype="bool"
         )
 
-    flag_subset = expand_frequency_in_flags_subset(
+    flag_subset = _expand_frequency_in_flags_subset(
         flag_subset, bdf_descr, baseband_idx, spw_idx
     )
 
     return flag_subset
 
 
-def expand_frequency_in_flags_subset(
+def _expand_frequency_in_flags_subset(
     flag_subset: np.ndarray, bdf_descr: dict, baseband_idx: int, spw_idx: int
 ) -> np.ndarray:
     frequency_len = bdf_descr["basebands"][baseband_idx]["spectralWindows"][spw_idx][

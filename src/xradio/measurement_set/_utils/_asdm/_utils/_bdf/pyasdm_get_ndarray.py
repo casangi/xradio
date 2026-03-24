@@ -39,7 +39,7 @@ def load_visibilities_one_spw_to_ndarray(
     ]
 
     if component_name == "autoData":
-        vis_one_spw = load_vis_one_spw_auto_data_from_tree(
+        vis_one_spw = _load_vis_one_spw_auto_data_from_tree(
             bdf_file,
             guessed_shape,
             spw_chan_lens,
@@ -58,7 +58,7 @@ def load_visibilities_one_spw_to_ndarray(
         scale_factor = spw_descr["scaleFactor"] or 1
         processor_type = bdf_descr["processor_type"]
 
-        vis_one_spw = load_vis_one_spw_cross_data_from_tree(
+        vis_one_spw = _load_vis_one_spw_cross_data_from_tree(
             bdf_file,
             guessed_shape,
             spw_chan_lens,
@@ -71,7 +71,7 @@ def load_visibilities_one_spw_to_ndarray(
     return vis_one_spw
 
 
-def load_vis_one_spw_auto_data_from_tree(
+def _load_vis_one_spw_auto_data_from_tree(
     bdf_file: np.ndarray,
     guessed_shape: tuple[int, ...],
     spw_chan_lens: list[int],
@@ -133,7 +133,7 @@ def load_vis_one_spw_auto_data_from_tree(
     return vis_auto
 
 
-def load_vis_one_spw_cross_data_from_tree(
+def _load_vis_one_spw_cross_data_from_tree(
     bdf_file: np.ndarray,
     guessed_shape: tuple[int, ...],
     spw_chan_lens: list[int],

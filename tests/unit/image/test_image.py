@@ -475,11 +475,6 @@ class casacore_to_xds_to_casacore(xds_from_image_test):
                     # by casacore on the fly, so we cannot easily compare them,
                     # and really comes down to comparing the values of c used in
                     # the computations (eg, if c is in m/s or km/s)
-                    # it appears that 'worldreplace2' is not correctly recorded or retrieved
-                    # by casatools, with empty np.array returned instead.
-                    c2["coordinates"]["worldreplace2"] = np.array(
-                        [c2["coordinates"]["spectral2"]["wcs"]["crval"]]
-                    )
                     assert_attrs_dicts_equal(
                         c2,
                         c1,

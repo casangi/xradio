@@ -94,7 +94,7 @@ nitpicky = True
 # Ignore nitpicky warnings related to Python built-ins and the like
 # (https://stackoverflow.com/questions/11417221/sphinx-autodoc-gives-warning-pyclass-reference-target-not-found-type-warning)
 # (https://bugs.python.org/issue11975)
-nitpick_ignore = [('py:class', 'optional')]
+nitpick_ignore = [("py:class", "optional")]
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),

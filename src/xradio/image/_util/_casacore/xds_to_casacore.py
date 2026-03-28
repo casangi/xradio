@@ -40,9 +40,48 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
         [xds.sizes[dim] for dim in ("l", "m")], dtype=np.int32
     )
     direction["_image_axes"] = np.array([2, 3], dtype=np.int32)
-    direction["system"] = xds_dir["reference_direction"]["attrs"]["equinox"].upper()
+    if "equinox" in xds_dir["reference_direction"]["attrs"]:
+        direction["system"] = xds_dir["reference_direction"]["attrs"]["equinox"].upper()
+        # Allow J2000.0 for backward compatibility; it will be normalized below.
+        allowed_systems = {
+            "FK5",
+            "FK4",
+            "ICRS",
+            "GALACTIC",
+            "J2000",
+            "B1950",
+            "J2000.0",
+        }
+        if direction["system"] not in allowed_systems:
+            raise RuntimeError(
+                f"Unsupported direction equinox '{direction['system']}'. "
+                "Supported systems are: FK5, FK4, ICRS, GALACTIC, J2000, B1950."
+            )
+    elif "frame" in xds_dir["reference_direction"]["attrs"]:
+        frame = xds_dir["reference_direction"]["attrs"]["frame"].upper()
+        frame_to_system = {
+            "FK5": "J2000",
+            "FK4": "B1950",
+            "ICRS": "ICRS",
+            "GALACTIC": "GALACTIC",
+            "J2000": "J2000",
+            "B1950": "B1950",
+        }
+        if frame not in frame_to_system:
+            raise RuntimeError(
+                f"Unsupported direction coordinate system frame '{frame}'. "
+                "Supported frames are: FK5, FK4, ICRS, GALACTIC, J2000, B1950."
+            )
+        direction["system"] = frame_to_system[frame]
+    else:
+        raise RuntimeError(
+            "Cannot determine direction coordinate system frame. "
+            f"direction metadata is {xds_dir}"
+        )
     if direction["system"] == "J2000.0":
         direction["system"] = "J2000"
+    elif direction["system"] == "B1950.0":
+        direction["system"] = "B1950"
     direction["projection"] = xds_dir["projection"]
     direction["projection_parameters"] = xds_dir["projection_parameters"]
     direction["units"] = [

@@ -5,6 +5,7 @@ import xarray as xr
 def open_processing_set(
     ps_store: str,
     scan_intents: list | None = None,
+    array_backend: str = "dask",
 ) -> xr.DataTree:
     """Creates a lazy representation of a Processing Set (only meta-data is loaded into memory).
 
@@ -15,6 +16,8 @@ def open_processing_set(
     scan_intents : str | None, optional
         A list of scan_intents to be opened for example ['OBSERVE_TARGET#ON_SOURCE']. The scan_intents in a processing_set_xdt can be seen by calling processing_set_xdt.ps.summary().
         By default None, which will include all scan_intents.
+    array_backend : str, optional
+        The array backend to use for the data variables in the processing set. Options are 'dask' and 'xarray' both which are lazy. By default 'dask', which will create Dask arrays for the data variables.
 
     Returns
     -------
@@ -26,14 +29,26 @@ def open_processing_set(
     file_system, ms_store_list = _get_file_system_and_items(ps_store)
     import s3fs
 
+    if array_backend == "xarray":
+        chunks = None
+        chunked_array_type = None
+    elif array_backend == "dask":
+        chunks = {}
+        chunked_array_type = "dask"
+    else:
+        raise ValueError("array_backend must be either 'dask' or 'xarray'")
+
     if isinstance(file_system, s3fs.core.S3FileSystem):
         mapping = s3fs.S3Map(root=ps_store, s3=file_system, check=False)
         ps_xdt = xr.open_datatree(
-            mapping, engine="zarr", chunks={}, chunked_array_type="dask"
+            mapping, engine="zarr", chunks=chunks, chunked_array_type=chunked_array_type
         )
     else:
         ps_xdt = xr.open_datatree(
-            ps_store, engine="zarr", chunks={}, chunked_array_type="dask"
+            ps_store,
+            engine="zarr",
+            chunks=chunks,
+            chunked_array_type=chunked_array_type,
         )
 
     # Future work is to add ASDM backend

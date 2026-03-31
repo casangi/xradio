@@ -1066,7 +1066,7 @@ def convert_and_write_partition(
         _description_
     """
     from toolviper.utils.memory_management import memory_setup, free_memory
-    
+
     memory_setup(131072)
 
     ms_xdt = xr.DataTree()  # MSv4 as a Data Tree
@@ -1426,7 +1426,7 @@ def convert_and_write_partition(
 
         # get_logger().info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
 
-        #This prevents memory leak that occusrs with dask and large numpy arrays. 
+        # This prevents memory leak that occusrs with dask and large numpy arrays.
         ms_xdt = None
         free_memory()
 

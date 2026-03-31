@@ -313,5 +313,3 @@ def test_calculate_offset_additions_cross_sd(
         input_bdf_descr, input_baseband_idx, input_overall_spw_idx, input_flag_array_len
     )
     assert additions == expected_additions
-
-

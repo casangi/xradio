@@ -2,6 +2,10 @@
 Module that could be moved to a BDFReader.getNDArray() method in
 pyasdm or could stay here, as a function injected to either
 BDFReader.getNDArrays() (the "loadOneSPWFunction").
+
+Defines the function responsible for loading visibilities from the
+crossData and autoData binary component arrays, to be used in
+BDFReader.getNDArray().
 """
 
 import numpy as np

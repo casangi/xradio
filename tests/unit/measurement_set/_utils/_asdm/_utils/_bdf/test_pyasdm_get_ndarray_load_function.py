@@ -261,7 +261,7 @@ def test_load_visibilities_one_spw_to_ndarray(
     input_fromfile_array_len,
     expected_error,
 ):
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_get_ndarray import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_get_ndarray_load_function import (
         load_visibilities_one_spw_to_ndarray,
     )
 

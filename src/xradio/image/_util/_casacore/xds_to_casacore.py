@@ -253,8 +253,9 @@ def _coord_dict_from_xds(xds: xr.Dataset) -> dict:
     coord["worldmap2"] = np.array([3], dtype=np.int32)
     # this probbably needs some verification
     coord["worldreplace0"] = [0.0, 0.0]
-    coord["worldreplace1"] = np.array(coord["stokes1"]["crval"])
-    coord["worldreplace2"] = np.array(coord["spectral2"]["wcs"]["crval"])
+    coord["worldreplace1"] = np.atleast_1d(coord["stokes1"]["crval"])
+    coord["worldreplace2"] = np.atleast_1d(coord["spectral2"]["wcs"]["crval"])
+
     return coord
 
 

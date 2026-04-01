@@ -53,8 +53,19 @@ class CalibrationParameterArray:
     """
 
     data: Data[
-        tuple[Time, AntennaName, Frequency, ReceptorLabel],
+        Union[
+            tuple[Time, AntennaName, Frequency, ReceptorLabel],
+            tuple[Time, BaselineId, Frequency, Polarization],
+        ],
         Union[numpy.float32, numpy.float64, numpy.complex64, numpy.complex128],
+    ]
+
+    data: Data[
+        Union[
+            tuple[Time, BaselineId, Frequency, Polarization],
+            tuple[Time, AntennaName, Frequency, Polarization],  # SD
+        ],
+        Union[numpy.float16, numpy.float32, numpy.float64],
     ]
 
 
@@ -125,4 +136,3 @@ class CalibrationXds:
     receptors for each antenna should be specified here."""
 
     # --- Optional data variables / arrays ---
-

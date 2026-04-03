@@ -10,6 +10,7 @@ import numpy as np
 import os
 import shutil
 import xarray as xr
+import zarr.abc.codec
 
 from xradio.image._util.image_factory import (
     _make_empty_aperture_image,
@@ -192,7 +193,12 @@ def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dat
 
 
 def write_image(
-    xds: xr.Dataset, imagename: str, out_format: str = "casa", overwrite: bool = False
+    xds: xr.Dataset,
+    imagename: str,
+    out_format: str = "casa",
+    overwrite: bool = False,
+    compressor: zarr.abc.codec.BytesBytesCodec | None = None,
+    shards: dict | int | None = None,
 ) -> None:
     """
     TODO: I think the user should be permitted to specify data groups to write.
@@ -209,6 +215,17 @@ def write_image(
         Format of output image, currently "casa" and "zarr" are supported
     overwrite : bool
         If True, overwrite existing image. Default is False.
+    compressor : zarr.abc.codec.BytesBytesCodec | None
+        Codec used to compress inner chunks.  Only used when ``out_format='zarr'``.
+        Defaults to ``zarr.codecs.ZstdCodec(level=2)`` when ``shards`` is provided
+        and ``None`` means use xarray/zarr defaults.
+    shards : dict | int | None
+        Sharding specification.  Pass a ``dict`` of absolute shard sizes keyed
+        by dimension name (e.g. ``{'l': 512, 'm': 512}``), or a positive ``int``
+        factor so that ``shard_size = factor × chunk_size`` for every dimension.
+        Only used when ``out_format='zarr'``.  Requires zarr v3.  When ``None``
+        (default) no sharding is applied.
+
     Returns
     -------
     None
@@ -232,7 +249,7 @@ def write_image(
 
         _xds_to_multiple_casa_images(xds, imagename)
     elif my_format == "zarr":
-        _xds_to_zarr(xds, imagename)
+        _xds_to_zarr(xds, imagename, compressor=compressor, shards=shards)
     else:
         raise ValueError(
             f"Writing to format {out_format} is not supported. "

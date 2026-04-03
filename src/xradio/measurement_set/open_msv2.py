@@ -12,6 +12,7 @@ import datetime
 import importlib
 import pathlib
 import time
+import threading
 
 import numpy as np
 import toolviper.utils.logger as logger
@@ -49,6 +50,29 @@ from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
     create_phased_array_xds,
 )
 from xradio.measurement_set._utils._msv2.msv4_info_dicts import create_info_dicts
+
+# ---------------------------------------------------------------------------
+# Partition cache — avoid re-scanning the MS for repeated open_msv2 calls.
+# ---------------------------------------------------------------------------
+_PARTITION_CACHE_TTL = 300  # seconds
+_partition_cache: dict[tuple, tuple[float, list]] = {}
+_partition_cache_lock = threading.Lock()
+
+
+def _get_partitions_cached(in_file: str, partition_scheme: list) -> list[dict]:
+    """Return cached partitions for *in_file* or compute them fresh."""
+    key = (str(pathlib.Path(in_file).resolve()), tuple(partition_scheme))
+    now = time.monotonic()
+    with _partition_cache_lock:
+        if key in _partition_cache:
+            ts, partitions = _partition_cache[key]
+            if now - ts < _PARTITION_CACHE_TTL:
+                return partitions
+            del _partition_cache[key]
+    partitions = create_partitions(in_file, partition_scheme=partition_scheme)
+    with _partition_cache_lock:
+        _partition_cache[key] = (time.monotonic(), partitions)
+    return partitions
 
 
 def _build_partition_lazy(
@@ -92,12 +116,22 @@ def _build_partition_lazy(
             tb_tool.getcol("OBSERVATION_ID"), "OBSERVATION_ID"
         )
 
-        generic_observation_xds = load_generic_table(
-            in_file,
-            "OBSERVATION",
-            taql_where=f" where (ROWID() IN [{str(observation_id)}])",
-        )
-        telescope_name = generic_observation_xds["TELESCOPE_NAME"].values[0]
+        try:
+            generic_observation_xds = load_generic_table(
+                in_file,
+                "OBSERVATION",
+                taql_where=f" where (ROWID() IN [{str(observation_id)}])",
+            )
+            telescope_name = generic_observation_xds["TELESCOPE_NAME"].values[0]
+        except (IndexError, KeyError, ValueError) as exc:
+            logger.warning(
+                "Could not read OBSERVATION subtable row "
+                + str(observation_id)
+                + ": "
+                + str(exc)
+                + ". Using UNKNOWN telescope name."
+            )
+            telescope_name = "UNKNOWN"
 
         xds = xr.Dataset(
             attrs={
@@ -147,10 +181,10 @@ def _build_partition_lazy(
             main_chunksize["time"] = time_baseline_shape[0]
 
         # read_col_conversion_dask assumes dense data (every time has
-        # every baseline). Fall back to numpy reads for sparse data.
+        # every baseline). Use sparse-aware dask reader for sparse data.
         total_rows = tb_tool.nrows()
         is_dense = total_rows == time_baseline_shape[0] * time_baseline_shape[1]
-        parallel_mode = "time" if is_dense else "none"
+        parallel_mode = "time" if is_dense else "sparse"
 
         create_data_variables(
             in_file,
@@ -274,17 +308,27 @@ def _build_partition_lazy(
         field_id = np.max(field_id, axis=1)
         field_times = xds.time.values
 
-        field_and_source_xds, source_id, _num_lines, field_names = (
-            create_field_and_source_xds(
-                in_file,
-                field_id,
-                spectral_window_id,
-                field_times,
-                is_single_dish,
-                time_min_max,
-                ephemeris_interpolate,
+        try:
+            field_and_source_xds, source_id, _num_lines, field_names = (
+                create_field_and_source_xds(
+                    in_file,
+                    field_id,
+                    spectral_window_id,
+                    field_times,
+                    is_single_dish,
+                    time_min_max,
+                    ephemeris_interpolate,
+                )
             )
-        )
+        except (AssertionError, IndexError, KeyError, ValueError) as exc:
+            logger.warning(
+                "Could not build field_and_source sub-dataset: "
+                + str(exc)
+                + ". Creating minimal placeholder."
+            )
+            n_fields = len(unique_1d(field_id))
+            field_names = ["UNKNOWN"] * len(field_times)
+            field_and_source_xds = xr.Dataset(attrs={"type": "field_and_source"})
 
         xds = fix_uvw_frame(xds, field_and_source_xds, is_single_dish)
         xds = xds.assign_coords({"field_name": ("time", field_names)})
@@ -388,7 +432,7 @@ def open_msv2(
     if partition_scheme is None:
         partition_scheme = []
 
-    partitions = create_partitions(in_file, partition_scheme=partition_scheme)
+    partitions = _get_partitions_cached(in_file, partition_scheme)
     logger.info("Number of partitions: " + str(len(partitions)))
 
     ps_dt = xr.DataTree()

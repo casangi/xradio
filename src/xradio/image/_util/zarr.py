@@ -3,11 +3,17 @@ from ._zarr.xds_from_zarr import _read_zarr
 import numpy as np
 import os
 import xarray as xr
+import zarr.abc.codec
 from ..._utils.zarr.common import _open_dataset
 
 
-def _xds_to_zarr(xds: xr.Dataset, zarr_store: str):
-    _write_zarr(xds, zarr_store)
+def _xds_to_zarr(
+    xds: xr.Dataset,
+    zarr_store: str,
+    compressor: zarr.abc.codec.BytesBytesCodec | None = None,
+    shards: dict | int | None = None,
+):
+    _write_zarr(xds, zarr_store, compressor=compressor, shards=shards)
 
 
 def _xds_from_zarr(

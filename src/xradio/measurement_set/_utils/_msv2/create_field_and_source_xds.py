@@ -5,7 +5,6 @@ from typing import Tuple, Union
 import numpy as np
 import xarray as xr
 
-import toolviper.utils.logger as logger
 from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
     interpolate_to_time,
     rename_and_interpolate_to_time,
@@ -17,6 +16,7 @@ from xradio.measurement_set._utils._msv2._tables.read import (
     make_taql_where_between_min_max,
     load_generic_table,
 )
+from xradio._utils.logging import xradio_logger
 from xradio._utils.list_and_array import cast_to_str, get_pad_value
 from xradio._utils.dict_helpers import make_quantity_attrs
 from xradio._utils.coord_math import (
@@ -107,7 +107,7 @@ def create_field_and_source_xds(
             ephemeris_interpolate,
         )
 
-    logger.debug(
+    xradio_logger().debug(
         f"create_field_and_source_xds() execution time {time.time() - start_time:0.2f} s"
     )
 
@@ -203,7 +203,7 @@ def extract_ephemeris_info(
         if ref_frame in casacore_to_msv4_measure_type["direction"].get("Ref_map", {}):
             ref_frame = casacore_to_msv4_measure_type["direction"]["Ref_map"][ref_frame]
         else:
-            logger.debug(
+            xradio_logger().debug(
                 f"Unrecognized casacore direction reference frame found in posrefsys: {ref_frame}"
             )
         sky_coord_frame = ref_frame.lower()
@@ -613,7 +613,7 @@ def extract_source_info(
     coords = {}
 
     if all(source_id == -1):
-        logger.warning(
+        xradio_logger().warning(
             "Source_id is -1. No source information will be included in the field_and_source_xds."
         )
         xds = xds.assign_coords(
@@ -622,7 +622,7 @@ def extract_source_info(
         return xds, 0
 
     if not os.path.isdir(os.path.join(path, "SOURCE")):
-        logger.warning(
+        xradio_logger().warning(
             f"Could not find SOURCE table for source_id {source_id}. Source information will not be included in the field_and_source_xds."
         )
         xds = xds.assign_coords({"source_name": ("field_name", unknown)})
@@ -639,7 +639,7 @@ def extract_source_info(
     )
 
     if len(source_xds.data_vars) == 0:  # The source xds is empty.
-        logger.warning(
+        xradio_logger().warning(
             f"SOURCE table empty for (unique) source_id {unique_source_id} and spectral_window_id {spectral_window_id}."
         )
         xds = xds.assign_coords(
@@ -657,7 +657,7 @@ def extract_source_info(
     #     unique_source_id
     # ), "Can only process source table with a single time entry for a source_id and spectral_window_id."
     if len(source_xds.TIME) > len(unique_source_id):
-        logger.warning(
+        xradio_logger().warning(
             "Source table has more than one time entry for a source_id and spectral_window_id. This is not currently supported. Only the first time entry will be used."
         )
         source_xds = source_xds.drop_duplicates("SOURCE_ID", keep="first")
@@ -743,7 +743,7 @@ def extract_source_info(
             path,
             "DOPPLER",
         )
-        logger.warning(
+        xradio_logger().warning(
             "Doppler table present. Please open an issue on "
             "https://github.com/casangi/xradio/issues so that we can add support for this."
         )
@@ -843,7 +843,7 @@ def extract_field_info_and_check_ephemeris(
                 ephemeris_table_name = files[e_index]
                 field_and_source_xds.attrs["type"] = "field_and_source_ephemeris"
             else:
-                logger.warning(
+                xradio_logger().warning(
                     f"Could not find ephemeris table for field_id {field_id}. Ephemeris information will not be included in the field_and_source_xds."
                 )
     from xradio._utils.schema import convert_generic_xds_to_xradio_schema

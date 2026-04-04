@@ -17,4 +17,5 @@ jobs:
     with:
       cov_project: "xradio"
       test-path: "tests/"
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

@@ -1,6 +1,5 @@
 import itertools
 import time
-import toolviper.utils.logger as logger
 import os
 import pandas as pd
 
@@ -11,7 +10,8 @@ try:
 except ImportError:
     import xradio._utils._casacore.casacore_from_casatools as tables
 
-from ._tables.read import table_exists
+from xradio.measurement_set._utils._msv2._tables.read import table_exists
+from xradio._utils.logging import xradio_logger
 
 
 def enumerated_product(*args):
@@ -71,7 +71,7 @@ def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
         "ANTENNA1": main_tb.getcol("ANTENNA1"),
     }
     par_df = pd.DataFrame(base_cols).drop_duplicates()
-    logger.debug(
+    xradio_logger().debug(
         f"Loaded MAIN columns in {time.time() - t0:.2f}s "
         f"({len(par_df):,} unique MAIN rows)"
     )
@@ -98,7 +98,7 @@ def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
             field_source = np.asarray(field_tb.getcol("SOURCE_ID"))
             par_df["SOURCE_ID"] = field_source[par_df["FIELD_ID"]]
             source_id_added = True
-    logger.debug(
+    xradio_logger().debug(
         f"SOURCE processing in {time.time() - t1:.2f}s "
         f"(added SOURCE_ID={source_id_added})"
     )
@@ -110,7 +110,7 @@ def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
             field_ephemeris = np.asarray(field_tb.getcol("EPHEMERIS_ID"))
             par_df["EPHEMERIS_ID"] = field_ephemeris[par_df["FIELD_ID"]]
             ephemeris_id_added = True
-        logger.debug(
+        xradio_logger().debug(
             f"EPHEMERIS processing in {time.time() - t1:.2f}s "
             f"(added EPHEMERIS_ID={ephemeris_id_added})"
         )
@@ -142,7 +142,7 @@ def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
             if "SUB_SCAN_NUMBER" in par_df.columns:
                 par_df.drop(columns=["SUB_SCAN_NUMBER"], inplace=True)
 
-    logger.debug(
+    xradio_logger().debug(
         f"STATE processing in {time.time() - t2:.2f}s "
         f"(OBS_MODE={obs_mode_added}, SUB_SCAN_NUMBER={sub_scan_added})"
     )
@@ -150,7 +150,7 @@ def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
     # --------- Decide which partition keys are actually available ----------
     t3 = time.time()
     partition_scheme_updated = [k for k in partition_scheme if k in par_df.columns]
-    logger.info(f"Updated partition scheme used: {partition_scheme_updated}")
+    xradio_logger().info(f"Updated partition scheme used: {partition_scheme_updated}")
 
     # If none of the requested keys exist, there is a single partition of "everything"
     if not partition_scheme_updated:
@@ -193,10 +193,10 @@ def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
                 part[name] = [None]
         partitions.append(part)
 
-    logger.debug(
+    xradio_logger().debug(
         f"Partition build in {time.time() - t3:.2f}s; total {len(partitions):,} partitions"
     )
-    logger.debug(f"Total create_partitions time: {time.time() - t0:.2f}s")
+    xradio_logger().debug(f"Total create_partitions time: {time.time() - t0:.2f}s")
 
     # # with gzip.open("partition_original_small.pkl.gz", "wb") as f:
     # #     pickle.dump(partitions, f, protocol=pickle.HIGHEST_PROTOCOL)

@@ -47,9 +47,9 @@ try:
         build_minimal_msv4_xdt,
     )
 except ModuleNotFoundError as exc:
-    import toolviper.utils.logger as _logger
+    from xradio._utils.logging import xradio_logger
 
-    _logger.warning(
+    xradio_logger().warning(
         "Could not import casacore tables to handle MSv2. "
         "Could not import the functions to convert from MSv2 to MSv4. "
         f"That functionality will not be available. Details: {exc}"

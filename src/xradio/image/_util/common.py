@@ -7,7 +7,6 @@ from typing import Dict, List
 import xarray as xr
 from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import make_quantity
-import toolviper.utils.logger as logger
 
 _c = 2.99792458e08 * u.m / u.s
 # OPTICAL = Z
@@ -22,10 +21,39 @@ _image_type = "type"
 
 
 def _aperture_or_sky(xds: xr.Dataset) -> str:
+    """
+    Classify an image dataset as sky-domain or aperture-domain.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        Input image dataset.
+
+    Returns
+    -------
+    str
+        ``"SKY"`` when sky coordinates/data variables are present, otherwise
+        ``"APERTURE"``.
+    """
     return "SKY" if "SKY" in xds.data_vars or "l" in xds.coords else "APERTURE"
 
 
 def _get_xds_dim_order(has_sph: bool, image_type: str) -> list:
+    """
+    Compute canonical dimension order for an image dataset.
+
+    Parameters
+    ----------
+    has_sph : bool
+        Whether spherical sky coordinates are present.
+    image_type : str
+        Image type label.
+
+    Returns
+    -------
+    list
+        Ordered list of dimension names.
+    """
     dimorder = ["time", "frequency", "polarization"]
     if image_type.upper() != "VISIBILITY_NORMALIZATION":
         dir_lin = ["l", "m"] if has_sph else ["u", "v"]
@@ -35,10 +63,19 @@ def _get_xds_dim_order(has_sph: bool, image_type: str) -> list:
 
 def _convert_beam_to_rad(beam: dict) -> dict:
     """
-    Convert something that looks like a CASA beam dictionary or close to
-    to it to an xradio beam dict, with xradio quantities for major, minor,
-    and pa, with the quantities converted to radians. Conversions are
-    done using astropy. The input beam is not modified.
+    Convert a CASA-like beam dictionary to xradio beam quantities in radians.
+
+    Parameters
+    ----------
+    beam : dict
+        Beam dictionary keyed by beam parameter names with nested ``data`` and
+        ``attrs`` (including units).
+
+    Returns
+    -------
+    dict
+        Beam dictionary keyed by ``major``, ``minor``, and ``pa`` with values
+        expressed as xradio quantity dictionaries in radians.
     """
     mybeam = {}
     for k in beam:
@@ -53,6 +90,19 @@ def _convert_beam_to_rad(beam: dict) -> dict:
 
 
 def _get_unit(u: str) -> str:
+    """
+    Normalize shorthand angular units to astropy-compatible names.
+
+    Parameters
+    ----------
+    u : str
+        Unit string.
+
+    Returns
+    -------
+    str
+        Normalized unit string.
+    """
     if u == "'":
         return "arcmin"
     elif u == '"':
@@ -62,6 +112,19 @@ def _get_unit(u: str) -> str:
 
 
 def _coords_to_numpy(xds):
+    """
+    Materialize dask-backed coordinates as NumPy arrays.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        Dataset whose coordinates may be backed by dask arrays.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with dask-backed coordinate values converted to NumPy arrays.
+    """
     for k, v in xds.coords.items():
         if dask.is_dask_collection(v):
             attrs = xds[k].attrs
@@ -72,7 +135,17 @@ def _coords_to_numpy(xds):
 
 def _dask_arrayize_dv(xds: xr.Dataset) -> xr.Dataset:
     """
-    If necessary, change data variables to dask arrays
+    Convert NumPy-backed data variables to dask arrays when needed.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        Dataset whose data variables may be NumPy-backed.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with all data variables backed by dask arrays.
     """
     for k, v in xds.data_vars.items():
         if not dask.is_dask_collection(v):
@@ -93,6 +166,19 @@ def _dask_arrayize_dv(xds: xr.Dataset) -> xr.Dataset:
 
 
 def _numpy_arrayize_dv(xds: xr.Dataset) -> xr.Dataset:
+    """
+    Convert dask-backed data variables to NumPy arrays.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        Dataset whose data variables may be backed by dask arrays.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with all data variables backed by NumPy arrays.
+    """
     # just data variables right now
     # xds, is_copy = _coords_to_numpy(xds, is_copy)
     for k, v in xds.data_vars.items():
@@ -110,6 +196,18 @@ def _numpy_arrayize_dv(xds: xr.Dataset) -> xr.Dataset:
 
 
 def _default_freq_info() -> dict:
+    """
+    Build default spectral-coordinate metadata values.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    dict
+        Dictionary containing default spectral coordinate metadata.
+    """
     return {
         "rest_frequency": make_quantity(1420405751.7860003, "Hz"),
         "type": "spectral_coord",
@@ -131,12 +229,30 @@ def _freq_from_vel(
     restfreq: float,
 ) -> tuple:
     """
-    inputs are velocity info
-    restfreq is an astropy quantity with frequency units
-    a tuple of two dicts is returned. The first dict represents
-    the frequencies, the second the velocities. Both dicts have
-    keys 'value', 'unit', 'crval', 'cdelt', 'crpix'. 'value'
-    is a list.
+    Convert optical velocity-axis WCS parameters to frequency-axis values.
+
+    Parameters
+    ----------
+    crval : float
+        Velocity reference value.
+    cdelt : float
+        Velocity increment per channel.
+    crpix : float
+        Velocity reference pixel index (0-based).
+    cunit : str
+        Velocity unit string.
+    ctype : str
+        Doppler axis type; currently optical/z is supported.
+    nchan : float
+        Number of channels.
+    restfreq : float
+        Rest frequency in Hz.
+
+    Returns
+    -------
+    tuple
+        Two dictionaries ``(frequency_dict, velocity_dict)`` containing
+        ``value``, ``units``, ``crval``, ``cdelt``, and ``crpix``.
     """
     v0 = crval - cdelt * crpix
     vel = [v0 + i * cdelt for i in range(nchan)]
@@ -175,6 +291,32 @@ def _compute_world_sph_dims(
     cdelt: List[float],  # two element list of long-lat increments
     cunit: List[str],  # two element list of long-lat units
 ) -> dict:
+    """
+    Compute spherical world-coordinate grids from two-axis WCS inputs.
+
+    Parameters
+    ----------
+    projection : str
+        Spherical projection code (for example ``"SIN"``).
+    shape : list[int]
+        Two-element output grid shape.
+    ctype : list[str]
+        Two-element axis type names.
+    crpix : list[float]
+        Two-element reference pixel indices (0-based).
+    crval : list[float]
+        Two-element reference coordinate values.
+    cdelt : list[float]
+        Two-element coordinate increments.
+    cunit : list[str]
+        Two-element coordinate units.
+
+    Returns
+    -------
+    dict
+        Dictionary containing axis names, reference values, increments, and
+        world-coordinate value grids in radians.
+    """
     # Note that if doesn't matter if the inputs are in long, lat or lat, long order,
     # as long as all inputs have consistent ordering
     wcs_dict = {}
@@ -191,10 +333,20 @@ def _compute_world_sph_dims(
             fi = 1
             wcs_dict[f"CTYPE1"] = f"RA---{projection}"
             new_name = "right_ascension"
-        if axis_name.startswith("dec"):
+        elif axis_name.startswith("dec"):
             fi = 2
             wcs_dict["CTYPE2"] = f"DEC--{projection}"
             new_name = "declination"
+        elif axis_name.startswith("galactic_longitude") or axis_name.startswith("glon"):
+            fi = 1
+            wcs_dict[f"CTYPE1"] = f"GLON-{projection}"
+            new_name = "galactic_longitude"
+        elif axis_name.startswith("galactic_latitude") or axis_name.startswith("glat"):
+            fi = 2
+            wcs_dict["CTYPE2"] = f"GLAT-{projection}"
+            new_name = "galactic_latitude"
+        else:
+            raise RuntimeError(f"Unhandled sky axis name {ctype[i]}")
         wcs_dict[f"NAXIS{fi}"] = shape[i]
         j = fi - 1
         x_unit = _get_unit(cunit[i])
@@ -220,6 +372,23 @@ def _compute_velocity_values(
     freq_values: List[float],  # in Hz
     doppler: str,  # doppler definition
 ) -> List[float]:
+    """
+    Convert frequency values to velocity values for a doppler definition.
+
+    Parameters
+    ----------
+    restfreq : float
+        Rest frequency in Hz.
+    freq_values : list[float]
+        Frequency values in Hz.
+    doppler : str
+        Doppler definition name.
+
+    Returns
+    -------
+    list[float]
+        Velocity values in m/s.
+    """
     dop = doppler.lower()
     if dop == "radio":
         return [((1 - f / restfreq) * _c).value for f in freq_values]
@@ -233,14 +402,43 @@ def _compute_linear_world_values(
     naxis: int, crval: float, crpix: float, cdelt: float
 ) -> np.ndarray:
     """
-    Simple linear transformation to get world values which can be used for certain
-    coordinates like (often) frequency, l, m, u, v
+    Compute linearly sampled world-coordinate values.
+
+    Parameters
+    ----------
+    naxis : int
+        Number of points to compute.
+    crval : float
+        Reference coordinate value.
+    crpix : float
+        Reference pixel index (0-based).
+    cdelt : float
+        Increment per pixel.
+
+    Returns
+    -------
+    np.ndarray
+        Array of world-coordinate values.
     """
     return np.array([crval + (i - crpix) * cdelt for i in range(naxis)])
 
 
 # def _compute_ref_pix(xds: xr.Dataset, direction: dict) -> np.ndarray:
 def _compute_sky_reference_pixel(xds: xr.Dataset) -> np.ndarray:
+    """
+    Estimate reference pixel indices where ``l`` and ``m`` are zero.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        Dataset containing ``l`` and ``m`` coordinates.
+
+    Returns
+    -------
+    np.ndarray
+        Two-element array with interpolated reference pixel indices for
+        ``l`` and ``m``.
+    """
     crpix = [None, None]
     for i, c in enumerate(["l", "m"]):
         x = xds[c].values
@@ -253,6 +451,18 @@ def _compute_sky_reference_pixel(xds: xr.Dataset) -> np.ndarray:
 
 
 def _l_m_attr_notes() -> Dict[str, str]:
+    """
+    Provide explanatory note text for ``l`` and ``m`` coordinates.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    dict[str, str]
+        Mapping from coordinate name to explanatory note.
+    """
     return {
         "l": "l is the angle measured from the reference direction to the east. "
         "So l = x*cdelt, where x is the number of pixels from the reference direction. "

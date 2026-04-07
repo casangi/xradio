@@ -306,7 +306,11 @@ def load_flags_all_subsets_from_trees(
 
     bdf_flag = np.concatenate(flag_per_subset)
 
-    return bdf_flag
+    bdf_flag_expanded = _expand_frequency_in_flags_subset(
+        bdf_flag, bdf_descr, baseband_spw_idxs[0], baseband_spw_idxs[1]
+    )
+
+    return bdf_flag_expanded
 
 
 def load_flags_subset_from_tree(
@@ -341,10 +345,6 @@ def load_flags_subset_from_tree(
         flag_subset = np.full(
             full_shape_to_output_filled_flags_shape(shape), False, dtype="bool"
         )
-
-    flag_subset = _expand_frequency_in_flags_subset(
-        flag_subset, bdf_descr, baseband_idx, spw_idx
-    )
 
     return flag_subset
 

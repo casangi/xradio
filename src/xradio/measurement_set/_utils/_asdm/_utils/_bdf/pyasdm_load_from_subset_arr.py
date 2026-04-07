@@ -15,6 +15,7 @@ from .shapes import (
     add_cross_and_auto_flag_shapes,
     full_shape_to_output_filled_flags_shape,
 )
+from .pyasdm_load_from_trees import _expand_frequency_in_flags_subset
 
 
 def load_visibilities_all_subsets(
@@ -184,6 +185,7 @@ def define_visibility_shape(
 def load_flags_all_subsets(
     bdf_reader: pyasdm.bdf.BDFReader,
     guessed_shape: dict[str, tuple[int, ...]],
+    bdf_descr: dict,
     baseband_spw_idxs: tuple[int, int],
 ) -> np.ndarray:
 
@@ -204,7 +206,11 @@ def load_flags_all_subsets(
 
     bdf_flag = np.concatenate(flag_per_subset)
 
-    return bdf_flag
+    bdf_flag_expanded = _expand_frequency_in_flags_subset(
+        bdf_flag, bdf_descr, baseband_spw_idxs[0], baseband_spw_idxs[1]
+    )
+
+    return bdf_flag_expanded
 
 
 def define_flag_shape(
@@ -289,6 +295,9 @@ def _load_flags_subset(
     """
     Loads the flags array from one subset in a BDF. The subset includes all the SPWs in the BDF.
     The flag array is reshaped. Then the SPWs we are not interested in are selected out.
+
+    The returned array does not have the frequency dim, as it is not effectively used in the BDFs.
+    That will need to be added by the calling code.
     """
 
     if "flags" in subset and subset["flags"]["present"]:

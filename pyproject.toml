@@ -124,6 +124,10 @@ all = [
     'pandoc'
 ]
 
+
+[project.entry-points."xarray.backends"]
+asdm_xarray_backend = "xradio.measurement_set.asdm_xarray_backend:ASDMBackendEntryPoint"
+
 [tool.pytest.ini_options]
 addopts = [
     "--import-mode=importlib",

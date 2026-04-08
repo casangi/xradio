@@ -15,10 +15,10 @@ def open_asdm(
     partition_scheme: list[str] = None,
     include_processor_types: list[str] = None,
     include_spectral_resolution_types: list[str] = None,
-):
+) -> xr.DataTree:
     """
-    Opens an ASDM (ALMA Science Data Model) file and converts it into an xarray DataTree
-    structure. The ASDM is partitioned according to the specified scheme and each
+    Opens an ASDM (ALMA Science Data Model) file and presents it as an Xarray DataTree.
+    The ASDM is partitioned according to the specified scheme and each
     partition is converted into a separate MSv4 (Measurement Set version 4).
 
     Parameters

@@ -196,7 +196,7 @@ def load_flags_from_bdf(
             )
         else:
             bdf_flag = load_flags_all_subsets(
-                bdf_reader, guessed_shape, baseband_spw_idxs
+                bdf_reader, guessed_shape, bdf_descr, baseband_spw_idxs
             )
     except (RuntimeError, ValueError) as exc:
         trace = traceback.format_exc()

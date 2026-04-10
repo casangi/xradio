@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import xarray as xr
 
 
 def download_image(fname: str, directory: str | Path = ".") -> Path:
@@ -33,13 +37,11 @@ def download_image(fname: str, directory: str | Path = ".") -> Path:
     if not dest.exists():
         download(file=fname, folder=str(directory))
         if not dest.exists():
-            raise FileNotFoundError(
-                f"Could not download {fname!r} into {directory}"
-            )
+            raise FileNotFoundError(f"Could not download {fname!r} into {directory}")
     return dest
 
 
-def download_and_open_image(fname: str, directory: str | Path = "."):
+def download_and_open_image(fname: str, directory: str | Path = ".") -> xr.Dataset:
     """Download an image asset and return it as an opened ``xr.Dataset``.
 
     Parameters

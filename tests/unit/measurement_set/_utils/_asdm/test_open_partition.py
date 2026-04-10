@@ -142,18 +142,20 @@ def test_open_partition_asdm_with_spw_default(asdm_with_spw_default):
         )
 
 
-def test_open_partition_asdm_with_spw_simple(asdm_with_spw_simple):
+def test_open_partition_asdm_with_spw_simple(
+    asdm_with_main_execblock_config_processor_sbsummary,
+):
     from xradio.measurement_set._utils._asdm.open_partition import open_partition
 
     with pytest.raises(KeyError, match="BDFPath"):
         open_partition(
-            asdm_with_spw_simple,
+            asdm_with_main_execblock_config_processor_sbsummary,
             {"fieldId": [0], "configDescriptionId": [0], "scanNumber": [0]},
         )
 
 
 def test_open_partition_monkeypatched_bdf_asdm_with_spw_simple(
-    asdm_with_spw_simple, monkeypatch
+    asdm_with_main_execblock_config_processor_sbsummary, monkeypatch
 ):
     from xradio.measurement_set._utils._asdm.open_partition import open_partition
 
@@ -161,13 +163,13 @@ def test_open_partition_monkeypatched_bdf_asdm_with_spw_simple(
         "xradio.measurement_set._utils._asdm.open_partition.get_times_from_bdfs",
         mock_get_times_from_bdfs,
     )
-    add_main_table(asdm_with_spw_simple)
-    add_data_description_table(asdm_with_spw_simple)
-    add_polarization_table(asdm_with_spw_simple)
-    add_field_table(asdm_with_spw_simple)
-    add_source_table(asdm_with_spw_simple)
+    add_main_table(asdm_with_main_execblock_config_processor_sbsummary)
+    add_data_description_table(asdm_with_main_execblock_config_processor_sbsummary)
+    add_polarization_table(asdm_with_main_execblock_config_processor_sbsummary)
+    add_field_table(asdm_with_main_execblock_config_processor_sbsummary)
+    add_source_table(asdm_with_main_execblock_config_processor_sbsummary)
     partition = open_partition(
-        asdm_with_spw_simple,
+        asdm_with_main_execblock_config_processor_sbsummary,
         {
             "fieldId": [0],
             "configDescriptionId": [0],

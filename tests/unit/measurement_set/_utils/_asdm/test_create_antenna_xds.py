@@ -78,75 +78,20 @@ def test_create_antenna_xds_with_asdm_simple(asdm_with_spw_simple):
         create_antenna_xds(asdm_with_spw_simple, 4, 0, xr.DataArray([0]))
 
 
-def test_create_antenna_xds_with_asdm_simple_7m_antennas(asdm_with_spw_simple, asdm_with_feed):
-
-    add_execblock_table(asdm_with_spw_simple)
-
-    antenna_row_0_xml = """
-  <row>
-    <antennaId> Antenna_0 </antennaId>
-    <name> CM01 </name>
-    <antennaMake>MITSUBISHI_7</antennaMake>
-    <antennaType>GROUND_BASED</antennaType>
-    <dishDiameter> 7.0 </dishDiameter>
-    <position> 1 3 -0.002052 -2.32E-4 7.502983  </position>
-    <offset> 1 3 0.0 0.0 0.0  </offset>
-    <time> 5230000552242000000 </time>
-    <stationId> Station_0 </stationId>
-  </row>
-    """
-    antenna_row_1_xml = """
-  <row>
-    <antennaId> Antenna_1 </antennaId>
-    <name> CM03 </name>
-    <antennaMake>MITSUBISHI_7</antennaMake>
-    <antennaType>GROUND_BASED</antennaType>
-    <dishDiameter> 7.0 </dishDiameter>
-    <position> 1 3 -0.001862 0.001218 7.49941  </position>
-    <offset> 1 3 0.0 0.0 0.0  </offset>
-    <time> 5230000552242000000 </time>
-    <stationId> Station_1 </stationId>
-  </row>
-    """
-    antenna_table = asdm_with_spw_simple.getAntenna()
-    antenna_row_0 = pyasdm.AntennaRow(antenna_table)
-    antenna_row_0.setFromXML(antenna_row_0_xml)
-    antenna_table.add(antenna_row_0)
-    antenna_row_1 = pyasdm.AntennaRow(antenna_table)
-    antenna_row_1.setFromXML(antenna_row_1_xml)
-    antenna_table.add(antenna_row_1)
-
-    station_row_0_xml = """
-  <row>
-    <stationId> Station_0 </stationId>
-    <name> N602 </name>
-    <position> 1 3 2225077.740418 -5440126.559719 -2481521.871323  </position>
-    <type>ANTENNA_PAD</type>
-  </row>
-"""
-    station_row_1_xml = """
-  <row>
-    <stationId> Station_1 </stationId>
-    <name> J503 </name>
-    <position> 1 3 2225074.121158 -5440116.537775 -2481546.908647  </position>
-    <type>ANTENNA_PAD</type>
-  </row>
-
-    """
-    station_table = asdm_with_spw_simple.getStation()
-    station_row_0 = pyasdm.StationRow(station_table)
-    station_row_0.setFromXML(station_row_0_xml)
-    station_table.add(station_row_0)
-    station_row_1 = pyasdm.StationRow(station_table)
-    station_row_1.setFromXML(station_row_1_xml)
-    station_table.add(station_row_1)
+def test_create_antenna_xds_with_asdm_simple_7m_antennas(
+    asdm_with_execblock_antenna_station_feed,
+):
 
     # w/o Feed table
-    antenna_xds = create_antenna_xds(asdm_with_spw_simple, 2, 0, xr.DataArray([[0]]))
+    antenna_xds = create_antenna_xds(
+        asdm_with_execblock_antenna_station_feed, 2, 0, xr.DataArray([[0]])
+    )
     check_dataset(antenna_xds, AntennaXds)
 
     # w/ Feed table (no need for polarization xarray)
-    antenna_xds = create_antenna_xds(asdm_with_feed, 2, 0, None)
+    antenna_xds = create_antenna_xds(
+        asdm_with_execblock_antenna_station_feed, 2, 0, None
+    )
     check_dataset(antenna_xds, AntennaXds)
 
 
@@ -175,6 +120,6 @@ def test_get_telescope_name_asdm_default(asdm_with_spw_default):
         get_telescope_name(asdm_with_spw_default)
 
 
-def test_get_telescope_name_asdm_with_spw_simple(asdm_with_spw_simple):
-    name = get_telescope_name(asdm_with_spw_simple)
+def test_get_telescope_name_asdm_with_spw_simple(asdm_with_execblock_spw_simple):
+    name = get_telescope_name(asdm_with_execblock_spw_simple)
     assert name == "ALMA"

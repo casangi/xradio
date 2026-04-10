@@ -92,9 +92,26 @@ def asdm_with_spw_simple():
     tables.
     """
     asdm = make_asdm_with_spw_simple()
+    return asdm
+
+
+@pytest.fixture(scope="session")
+def asdm_with_execblock_spw_simple():
+    asdm = make_asdm_with_spw_simple()
     # Needed for test_open_partition / TODO: split to another one
     add_sbsummary_table(asdm)
     add_processor_table(asdm)
+    add_execblock_table(asdm)
+    return asdm
+
+
+@pytest.fixture(scope="session")
+def asdm_with_execblock_processor_sbsummary_spw_simple():
+    asdm = make_asdm_with_spw_simple()
+    # Needed for test_open_partition / TODO: split to another one
+    add_sbsummary_table(asdm)
+    add_processor_table(asdm)
+    add_execblock_table(asdm)
     return asdm
 
 
@@ -241,6 +258,7 @@ def add_sbsummary_table(asdm: pyasdm.ASDM):
     sbsummary_table.add(sbsummary_row_0)
 
 
+# Rename?: min_for_open_partition_to_work
 def make_asdm_with_main_execblock_config_processor_sbsummary():
     asdm = make_asdm_with_spw_simple()
     add_main_table(asdm)
@@ -248,6 +266,7 @@ def make_asdm_with_main_execblock_config_processor_sbsummary():
     add_config_description_table(asdm)
     add_processor_table(asdm)
     add_sbsummary_table(asdm)
+    add_antenna_station_tables(asdm)
     return asdm
 
 
@@ -299,11 +318,74 @@ def add_feed_table(asdm: pyasdm.ASDM):
     feed_table.add(feed_row_1)
 
 
+def add_antenna_station_tables(asdm: pyasdm.ASDM):
+    antenna_row_0_xml = """
+  <row>
+    <antennaId> Antenna_0 </antennaId>
+    <name> CM01 </name>
+    <antennaMake>MITSUBISHI_7</antennaMake>
+    <antennaType>GROUND_BASED</antennaType>
+    <dishDiameter> 7.0 </dishDiameter>
+    <position> 1 3 -0.002052 -2.32E-4 7.502983  </position>
+    <offset> 1 3 0.0 0.0 0.0  </offset>
+    <time> 5230000552242000000 </time>
+    <stationId> Station_0 </stationId>
+  </row>
+    """
+    antenna_row_1_xml = """
+  <row>
+    <antennaId> Antenna_1 </antennaId>
+    <name> CM03 </name>
+    <antennaMake>MITSUBISHI_7</antennaMake>
+    <antennaType>GROUND_BASED</antennaType>
+    <dishDiameter> 7.0 </dishDiameter>
+    <position> 1 3 -0.001862 0.001218 7.49941  </position>
+    <offset> 1 3 0.0 0.0 0.0  </offset>
+    <time> 5230000552242000000 </time>
+    <stationId> Station_1 </stationId>
+  </row>
+    """
+    antenna_table = asdm.getAntenna()
+    antenna_row_0 = pyasdm.AntennaRow(antenna_table)
+    antenna_row_0.setFromXML(antenna_row_0_xml)
+    antenna_table.add(antenna_row_0)
+    antenna_row_1 = pyasdm.AntennaRow(antenna_table)
+    antenna_row_1.setFromXML(antenna_row_1_xml)
+    antenna_table.add(antenna_row_1)
+
+    station_row_0_xml = """
+  <row>
+    <stationId> Station_0 </stationId>
+    <name> N602 </name>
+    <position> 1 3 2225077.740418 -5440126.559719 -2481521.871323  </position>
+    <type>ANTENNA_PAD</type>
+  </row>
+"""
+    station_row_1_xml = """
+  <row>
+    <stationId> Station_1 </stationId>
+    <name> J503 </name>
+    <position> 1 3 2225074.121158 -5440116.537775 -2481546.908647  </position>
+    <type>ANTENNA_PAD</type>
+  </row>
+
+    """
+    station_table = asdm.getStation()
+    station_row_0 = pyasdm.StationRow(station_table)
+    station_row_0.setFromXML(station_row_0_xml)
+    station_table.add(station_row_0)
+    station_row_1 = pyasdm.StationRow(station_table)
+    station_row_1.setFromXML(station_row_1_xml)
+    station_table.add(station_row_1)
+
+
 @pytest.fixture(scope="session")
-def asdm_with_feed():
+def asdm_with_execblock_antenna_station_feed():
     """
     Meant for create_antenna_xds tests
     """
     asdm = make_asdm_with_spw_simple()
+    add_execblock_table(asdm)
+    add_antenna_station_tables(asdm)
     add_feed_table(asdm)
     return asdm

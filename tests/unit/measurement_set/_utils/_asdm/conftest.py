@@ -257,3 +257,53 @@ def asdm_with_main_execblock_config_processor_sbsummary():
     Meant for tests of the info dicts (processor info, etc.)
     """
     return make_asdm_with_main_execblock_config_processor_sbsummary()
+
+
+def add_feed_table(asdm: pyasdm.ASDM):
+    feed_row_0_xml = """
+  <row>
+    <feedId> 0 </feedId>
+    <timeInterval> 7226686294548387903 3993371484612775807 </timeInterval>
+    <numReceptor> 2 </numReceptor>
+    <beamOffset> 2 2 2 0.0 0.0 0.0 0.0  </beamOffset>
+    <focusReference> 2 2 3 -99999.0 -99999.0 -99999.0 -99999.0 -99999.0 -99999.0  </focusReference>
+    <polarizationTypes> 1 2 X Y</polarizationTypes>
+    <polResponse> 2 2 2 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0  </polResponse>
+    <receptorAngle> 1 2 -0.9346238144 0.6361725124  </receptorAngle>
+    <antennaId> Antenna_0 </antennaId>
+    <receiverId> 1 2 0 0  </receiverId>
+    <spectralWindowId> SpectralWindow_0 </spectralWindowId>
+  </row>
+    """
+    feed_row_1_xml = """
+  <row>
+    <feedId> 0 </feedId>
+    <timeInterval> 7226686294548387903 3993371484612775807 </timeInterval>
+    <numReceptor> 2 </numReceptor>
+    <beamOffset> 2 2 2 0.0 0.0 0.0 0.0  </beamOffset>
+    <focusReference> 2 2 3 -99999.0 -99999.0 -99999.0 -99999.0 -99999.0 -99999.0  </focusReference>
+    <polarizationTypes> 1 2 X Y</polarizationTypes>
+    <polResponse> 2 2 2 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0  </polResponse>
+    <receptorAngle> 1 2 -0.9346238144 0.6361725124  </receptorAngle>
+    <antennaId> Antenna_1 </antennaId>
+    <receiverId> 1 2 0 0  </receiverId>
+    <spectralWindowId> SpectralWindow_0 </spectralWindowId>
+  </row>
+    """
+    feed_table = asdm.getFeed()
+    feed_row_0 = pyasdm.FeedRow(feed_table)
+    feed_row_0.setFromXML(feed_row_0_xml)
+    feed_table.add(feed_row_0)
+    feed_row_1 = pyasdm.FeedRow(feed_table)
+    feed_row_1.setFromXML(feed_row_1_xml)
+    feed_table.add(feed_row_1)
+
+
+@pytest.fixture(scope="session")
+def asdm_with_feed():
+    """
+    Meant for create_antenna_xds tests
+    """
+    asdm = make_asdm_with_spw_simple()
+    add_feed_table(asdm)
+    return asdm

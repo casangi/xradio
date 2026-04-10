@@ -15,7 +15,6 @@ from .shapes import (
     add_cross_and_auto_flag_shapes,
     full_shape_to_output_filled_flags_shape,
 )
-from .pyasdm_load_from_trees import _expand_frequency_in_flags_subset
 
 
 def load_visibilities_all_subsets(
@@ -185,7 +184,6 @@ def define_visibility_shape(
 def load_flags_all_subsets(
     bdf_reader: pyasdm.bdf.BDFReader,
     guessed_shape: dict[str, tuple[int, ...]],
-    bdf_descr: dict,
     baseband_spw_idxs: tuple[int, int],
 ) -> np.ndarray:
 
@@ -206,11 +204,7 @@ def load_flags_all_subsets(
 
     bdf_flag = np.concatenate(flag_per_subset)
 
-    bdf_flag_expanded = _expand_frequency_in_flags_subset(
-        bdf_flag, bdf_descr, baseband_spw_idxs[0], baseband_spw_idxs[1]
-    )
-
-    return bdf_flag_expanded
+    return bdf_flag
 
 
 def define_flag_shape(

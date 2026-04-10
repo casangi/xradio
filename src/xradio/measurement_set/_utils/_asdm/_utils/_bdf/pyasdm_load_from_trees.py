@@ -306,11 +306,7 @@ def load_flags_all_subsets_from_trees(
 
     bdf_flag = np.concatenate(flag_per_subset)
 
-    bdf_flag_expanded = _expand_frequency_in_flags_subset(
-        bdf_flag, bdf_descr, baseband_spw_idxs[0], baseband_spw_idxs[1]
-    )
-
-    return bdf_flag_expanded
+    return bdf_flag
 
 
 def load_flags_subset_from_tree(
@@ -345,18 +341,6 @@ def load_flags_subset_from_tree(
         flag_subset = np.full(
             full_shape_to_output_filled_flags_shape(shape), False, dtype="bool"
         )
-
-    return flag_subset
-
-
-def _expand_frequency_in_flags_subset(
-    flag_subset: np.ndarray, bdf_descr: dict, baseband_idx: int, spw_idx: int
-) -> np.ndarray:
-    frequency_len = bdf_descr["basebands"][baseband_idx]["spectralWindows"][spw_idx][
-        "numSpectralPoint"
-    ]
-    expanded_shape = flag_subset.shape[0:2] + (frequency_len,) + flag_subset.shape[-1:]
-    flag_subset = np.broadcast_to(flag_subset[:, :, np.newaxis, :], expanded_shape)
 
     return flag_subset
 

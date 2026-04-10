@@ -836,8 +836,8 @@ def test_load_flags_all_subsets_from_trees_X136e():
             (0, 1),
         )
         assert isinstance(flags, np.ndarray)
-        assert flags.size == 46080
-        assert flags.shape == (1, 45, 512, 2)
+        assert flags.size == 90
+        assert flags.shape == (1, 45, 2)
         assert flags.dtype == np.dtype("bool")
 
         mock_bdf_reader.hasSubset.assert_called()

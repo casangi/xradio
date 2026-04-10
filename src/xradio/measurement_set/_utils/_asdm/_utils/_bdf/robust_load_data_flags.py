@@ -196,7 +196,7 @@ def load_flags_from_bdf(
             )
         else:
             bdf_flag = load_flags_all_subsets(
-                bdf_reader, guessed_shape, bdf_descr, baseband_spw_idxs
+                bdf_reader, guessed_shape, baseband_spw_idxs
             )
     except (RuntimeError, ValueError) as exc:
         trace = traceback.format_exc()
@@ -207,4 +207,25 @@ def load_flags_from_bdf(
             + str(bdf_header)
         )
 
-    return bdf_flag
+    bdf_flag_expanded = _expand_frequency_in_flags_subset(
+        bdf_flag, bdf_descr, baseband_spw_idxs[0], baseband_spw_idxs[1]
+    )
+
+    return bdf_flag_expanded
+
+
+def _expand_frequency_in_flags_subset(
+    flag_subset: np.ndarray, bdf_descr: dict, baseband_idx: int, spw_idx: int
+) -> np.ndarray:
+    """
+    The BDF flags binary components do not give flags per-channel. Expand per-SPW
+    ndarray from a BDF, with dimensions (time, baseline, polarization) into an MSv4
+    flag array with dimensions (time, baseline, frequency, polarization)
+    """
+    frequency_len = bdf_descr["basebands"][baseband_idx]["spectralWindows"][spw_idx][
+        "numSpectralPoint"
+    ]
+    expanded_shape = flag_subset.shape[0:2] + (frequency_len,) + flag_subset.shape[-1:]
+    flag_subset = np.broadcast_to(flag_subset[:, :, np.newaxis, :], expanded_shape)
+
+    return flag_subset

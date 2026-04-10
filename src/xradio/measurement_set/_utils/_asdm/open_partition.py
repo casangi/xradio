@@ -229,6 +229,12 @@ def create_data_vars(
             "type": "quantity",
             "units": "",  # Do the ASDM/BDFs give anything?
             "field_and_source_xds": None,
+            "encoding": {
+                "preferred_chunks": {
+                    "time": 1,
+                    "polarization": shape_vis_weight_flag[-1],
+                }
+            },
         },
     )
 

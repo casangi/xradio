@@ -222,9 +222,7 @@ class TestWriteImageCasa:
         sky_name = (
             self._xds.attrs.get("data_groups", {}).get("base", {}).get("sky", "SKY")
         )
-        exp_data = np.squeeze(
-            np.transpose(self._xds[sky_name], [1, 2, 4, 3, 0]), 4
-        )
+        exp_data = np.squeeze(np.transpose(self._xds[sky_name], [1, 2, 4, 3, 0]), 4)
         assert (p == exp_data).all(), "Incorrect pixel values"
 
     def test_object_name_not_present(self):
@@ -251,9 +249,9 @@ class TestWriteImageCasa:
                     rtol=1e-7,
                     atol=1e-7,
                 )
-                assert np.isclose(test_im.getdata(), expec_im.getdata()).all(), (
-                    "Incorrect pixel data"
-                )
+                assert np.isclose(
+                    test_im.getdata(), expec_im.getdata()
+                ).all(), "Incorrect pixel data"
 
     def test_overwrite(self):
         """write_image respects the overwrite flag."""
@@ -323,12 +321,12 @@ class TestCasaRoundtrip:
         with open_image_ro(self._imname) as im1:
             for imname in [self._outname, self._outname_no_sky]:
                 with open_image_ro(imname) as im2:
-                    assert (im1.getdata() == im2.getdata()).all(), (
-                        "Incorrect pixel values"
-                    )
-                    assert (im1.getmask() == im2.getmask()).all(), (
-                        "Incorrect mask values"
-                    )
+                    assert (
+                        im1.getdata() == im2.getdata()
+                    ).all(), "Incorrect pixel values"
+                    assert (
+                        im1.getmask() == im2.getmask()
+                    ).all(), "Incorrect mask values"
                     assert im1.datatype() == im2.datatype(), (
                         f"Incorrect round-trip pixel type: "
                         f"input {im1.name()} {im1.datatype()}, "
@@ -457,9 +455,9 @@ class TestCasaRoundtrip:
             write_image(xds, outname, out_format="casa")
             subdirs = glob(f"{outname}/*/")
             subdirs = [d[d.index("/") + 1 : -1] for d in subdirs]
-            assert subdirs == ["logtable"], (
-                f"Unexpected directory (mask?) found. subdirs is {subdirs}"
-            )
+            assert subdirs == [
+                "logtable"
+            ], f"Unexpected directory (mask?) found. subdirs is {subdirs}"
             # case 2a: no mask + nans = nan_mask
             xds[sky][0, 1, 1, 1, 1] = float("NaN")
             shutil.rmtree(outname)
@@ -474,9 +472,10 @@ class TestCasaRoundtrip:
             subdirs = glob(f"{outname}/*/")
             subdirs = [d[d.index("/") + 1 : -1] for d in subdirs]
             subdirs.sort()
-            assert subdirs == ["logtable", "mask_xds_nans"], (
-                f"Unexpected subdirectory list found. subdirs is {subdirs}"
-            )
+            assert subdirs == [
+                "logtable",
+                "mask_xds_nans",
+            ], f"Unexpected subdirectory list found. subdirs is {subdirs}"
             with open_image_ro(outname) as im1:
                 casa_mask = im1.getmask()
             assert casa_mask[1, 1, 1, 1], "Wrong pixels are masked"
@@ -520,9 +519,10 @@ class TestCasaRoundtrip:
             subdirs = glob(f"{out_2}/*/")
             subdirs = [d[d.index("/") + 1 : -1] for d in subdirs]
             subdirs.sort()
-            assert subdirs == ["MASK_0", "logtable"], (
-                f"Unexpected subdirectory list found. subdirs is {subdirs}"
-            )
+            assert subdirs == [
+                "MASK_0",
+                "logtable",
+            ], f"Unexpected subdirectory list found. subdirs is {subdirs}"
             with open_image_ro(out_2) as im1:
                 casa_mask = im1.getmask()
             assert casa_mask[2, 2, 2, 2], "Wrong pixel masked"
@@ -641,9 +641,7 @@ class TestOpenImageFits:
     def setup_class(cls):
         download_image(cls._infits)
         cls._fds = open_image(cls._infits, {"frequency": 5}, do_sky_coords=True)
-        cls._fds_no_sky = open_image(
-            cls._infits, {"frequency": 5}, do_sky_coords=False
-        )
+        cls._fds_no_sky = open_image(cls._infits, {"frequency": 5}, do_sky_coords=False)
         cls._xds_true = download_and_open_image(cls._xds_from_casa_true)
         cls._xds_no_sky_true = download_and_open_image(cls._xds_from_no_sky_casa_true)
 
@@ -669,8 +667,7 @@ class TestOpenImageFits:
         c = 299792458  # speed of light in m/s
         radio_velocity = c * (
             1
-            - fds["frequency"].values
-            / fds["frequency"].attrs["rest_frequency"]["data"]
+            - fds["frequency"].values / fds["frequency"].attrs["rest_frequency"]["data"]
         )
         fds.coords["velocity"].values = radio_velocity
         fds_no_sky.coords["velocity"].values = radio_velocity
@@ -733,9 +730,9 @@ class TestOpenImageFits:
         if expected_present:
             assert flag in fds.data_vars, f"{flag} should be in data_vars, but is not"
         else:
-            assert flag not in fds.data_vars, (
-                f"{flag} should not be in data_vars, but is"
-            )
+            assert (
+                flag not in fds.data_vars
+            ), f"{flag} should not be in data_vars, but is"
 
     def test_compressed_guard(self):
         """Reading a compressed FITS file raises RuntimeError."""
@@ -749,9 +746,9 @@ class TestOpenImageFits:
             self._compressed_fits, overwrite=True
         )
         with fits.open(self._compressed_fits, do_not_scale_image_data=True) as hdulist:
-            assert isinstance(hdulist[1], fits.CompImageHDU), (
-                "Expected CompImageHDU in HDU[1]"
-            )
+            assert isinstance(
+                hdulist[1], fits.CompImageHDU
+            ), "Expected CompImageHDU in HDU[1]"
 
         with pytest.raises(RuntimeError) as exc_info:
             open_image(self._compressed_fits, {"frequency": 5})
@@ -767,9 +764,9 @@ class TestOpenImageFits:
         assert os.path.exists(self._bzero), f"{self._bzero} was not written"
         with pytest.raises(RuntimeError) as exc_info:
             open_image(self._bzero)
-        assert re.search(r"BSCALE/BZERO set", str(exc_info.value)), (
-            f"Expected error about BSCALE/BZERO, but got {str(exc_info.value)}"
-        )
+        assert re.search(
+            r"BSCALE/BZERO set", str(exc_info.value)
+        ), f"Expected error about BSCALE/BZERO, but got {str(exc_info.value)}"
 
     def test_bscale_guard(self):
         """Reading a FITS file with BSCALE != 1 raises RuntimeError."""
@@ -777,9 +774,9 @@ class TestOpenImageFits:
         assert os.path.exists(self._bscale), f"{self._bscale} was not written"
         with pytest.raises(RuntimeError) as exc_info:
             open_image(self._bscale)
-        assert re.search(r"BSCALE/BZERO set", str(exc_info.value)), (
-            f"Expected error about BSCALE/BZERO, but got {str(exc_info.value)}"
-        )
+        assert re.search(
+            r"BSCALE/BZERO set", str(exc_info.value)
+        ), f"Expected error about BSCALE/BZERO, but got {str(exc_info.value)}"
 
 
 # --------------------------------------------------------------------------- #

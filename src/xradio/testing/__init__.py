@@ -11,4 +11,3 @@ __all__ = [
 ]
 
 import xradio.testing.image  # noqa: F401, E402  – register the sub-package
-

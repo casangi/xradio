@@ -70,12 +70,12 @@ def create_empty_test_image(factory, do_sky_coords=None) -> xr.Dataset:
         The empty image dataset produced by *factory*.
     """
     args = [
-        [0.2, -0.5],                                    # phase_center
-        [10, 10],                                       # image_size
-        [np.pi / 180 / 60, np.pi / 180 / 60],          # cell_size
-        [1.412e9, 1.413e9],                             # frequency
-        ["I", "Q", "U"],                                # polarization
-        [54000.1],                                      # time
+        [0.2, -0.5],  # phase_center
+        [10, 10],  # image_size
+        [np.pi / 180 / 60, np.pi / 180 / 60],  # cell_size
+        [1.412e9, 1.413e9],  # frequency
+        ["I", "Q", "U"],  # polarization
+        [54000.1],  # time
     ]
     kwargs = {} if do_sky_coords is None else {"do_sky_coords": do_sky_coords}
     return factory(*args, **kwargs)

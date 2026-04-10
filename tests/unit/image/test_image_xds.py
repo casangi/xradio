@@ -228,19 +228,28 @@ class TestImageXdsValid:
 # method.  Defined at module level so pytest can collect them without
 # instantiating the class.
 _INVALID_TYPE_CALLS = [
-    pytest.param(lambda xds, uv: xds.xr_img.test_func(),                  id="test_func"),
-    pytest.param(lambda xds, uv: xds.xr_img.add_data_group("g", {}),      id="add_data_group"),
-    pytest.param(lambda xds, uv: xds.xr_img.get_lm_cell_size(),           id="get_lm_cell_size"),
-    pytest.param(lambda xds, uv: xds.xr_img.add_uv_coordinates(),         id="add_uv_coordinates"),
-    pytest.param(lambda xds, uv: uv.xr_img.get_uv_in_lambda(1.412e9),     id="get_uv_in_lambda"),
-    pytest.param(lambda xds, uv: xds.xr_img.get_reference_pixel_indices(), id="get_reference_pixel_indices"),
-    pytest.param(lambda xds, uv: xds.xr_img.sel(polarization="I"),        id="sel"),
+    pytest.param(lambda xds, uv: xds.xr_img.test_func(), id="test_func"),
+    pytest.param(
+        lambda xds, uv: xds.xr_img.add_data_group("g", {}), id="add_data_group"
+    ),
+    pytest.param(lambda xds, uv: xds.xr_img.get_lm_cell_size(), id="get_lm_cell_size"),
+    pytest.param(
+        lambda xds, uv: xds.xr_img.add_uv_coordinates(), id="add_uv_coordinates"
+    ),
+    pytest.param(
+        lambda xds, uv: uv.xr_img.get_uv_in_lambda(1.412e9), id="get_uv_in_lambda"
+    ),
+    pytest.param(
+        lambda xds, uv: xds.xr_img.get_reference_pixel_indices(),
+        id="get_reference_pixel_indices",
+    ),
+    pytest.param(lambda xds, uv: xds.xr_img.sel(polarization="I"), id="sel"),
 ]
 
 _INVALID_TYPE_VALUES = [
     pytest.param("image", False, id="type_image"),
     pytest.param("other", False, id="type_other"),
-    pytest.param(None,    True,  id="no_type"),
+    pytest.param(None, True, id="no_type"),
 ]
 
 

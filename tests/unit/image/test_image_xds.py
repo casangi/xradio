@@ -7,61 +7,19 @@ import xarray as xr
 from xradio.image import make_empty_sky_image
 from xradio.image.image_xds import InvalidAccessorLocation
 
-
-def _default_image_args():
-    """Return the default arguments used to build empty image datasets.
-
-    These mirror the values used in ``make_empty_image_tests.create_image`` in
-    ``tests/unit/image/test_image.py`` so that ImageXds tests exercise the same
-    coordinate setup.
-    """
-
-    phase_center = [0.2, -0.5]
-    image_size = [10, 10]
-    cell_size = [np.pi / 180 / 60, np.pi / 180 / 60]
-    frequency_coords = [1.412e9, 1.413e9]
-    pol_coords = ["I", "Q", "U"]
-    time_coords = [54000.1]
-    return (
-        phase_center,
-        image_size,
-        cell_size,
-        frequency_coords,
-        pol_coords,
-        time_coords,
-    )
+from xradio.testing.image import create_empty_test_image
 
 
 def _make_valid_image_dataset():
     """Create a minimal Dataset that is valid for the ImageXds accessor.
 
-    The dataset is constructed with ``make_empty_sky_image`` using the same
-    arguments as ``make_empty_image_tests.create_image`` and then promoted
-    to an ``image_dataset`` type with a simple ``data_groups`` mapping so
+    Built with :func:`~xradio.testing.image.create_empty_test_image`
+    (``make_empty_sky_image`` factory, sky coordinates enabled) and promoted
+    to an ``image_dataset`` node with a minimal ``data_groups`` mapping so
     that ImageXds methods accept it as an image node.
     """
 
-    (
-        phase_center,
-        image_size,
-        cell_size,
-        frequency_coords,
-        pol_coords,
-        time_coords,
-    ) = _default_image_args()
-
-    xds = make_empty_sky_image(
-        phase_center,
-        image_size,
-        cell_size,
-        frequency_coords,
-        pol_coords,
-        time_coords,
-        do_sky_coords=True,
-    )
-
-    # Make a shallow copy so tests can mutate coordinates and attrs safely.
-    xds = xds.copy()
+    xds = create_empty_test_image(make_empty_sky_image, do_sky_coords=True)
 
     # Promote the dataset to an ImageXds-compatible image_dataset node.
     xds.attrs["type"] = "image_dataset"
@@ -78,13 +36,14 @@ def _make_valid_image_dataset():
     return xds
 
 
+@pytest.fixture
+def image_xds_valid():
+    """Fixture providing a fresh ImageXds-compatible Dataset per test."""
+    return _make_valid_image_dataset()
+
+
 class TestImageXdsValid:
     """Test suite for ImageXds accessor with valid image datasets."""
-
-    @pytest.fixture
-    def image_xds_valid(self):
-        """Fixture providing a fresh ImageXds-compatible Dataset per test."""
-        return _make_valid_image_dataset()
 
     def test_xr_img_accessor_registration(self, image_xds_valid):
         """ImageXds accessor should be registered and keep a reference to the dataset."""
@@ -215,14 +174,23 @@ class TestImageXdsValid:
 
         xr.testing.assert_identical(selected_accessor, selected_direct)
 
+    @pytest.mark.parametrize(
+        "sel_kwargs",
+        [
+            pytest.param({"data_group_name": "base"}, id="kwarg"),
+            pytest.param({"indexers": {"data_group_name": "base"}}, id="indexers_dict"),
+        ],
+    )
     def test_sel_with_data_group_name_filters_data_vars_and_attrs(
-        self, image_xds_valid
+        self, image_xds_valid, sel_kwargs
     ):
-        """sel with data_group_name should keep only variables from the selected group."""
+        """sel with data_group_name keeps only the selected group's variables.
 
+        Exercises both calling conventions:
+        - ``sel(data_group_name=...)`` (keyword argument)
+        - ``sel(indexers={"data_group_name": ...})`` (indexers dict)
+        """
         xds = image_xds_valid
-
-        # Add simple data variables that can be associated with different groups.
         shape = (
             xds.sizes["time"],
             xds.sizes["frequency"],
@@ -230,7 +198,6 @@ class TestImageXdsValid:
             xds.sizes["l"],
             xds.sizes["m"],
         )
-
         xds = xds.copy()
         xds["SKY"] = xr.DataArray(
             np.zeros(shape, dtype=float),
@@ -240,81 +207,57 @@ class TestImageXdsValid:
             np.zeros(shape, dtype=float),
             dims=("time", "frequency", "polarization", "l", "m"),
         )
-
         xds.attrs["data_groups"] = {
             "base": {"sky": "SKY"},
             "psf": {"point_spread_function": "POINT_SPREAD_FUNCTION"},
         }
 
-        selected = xds.xr_img.sel(data_group_name="base")
-
-        # Only SKY (the base group's variable) should remain.
-        assert "SKY" in selected.data_vars
-        assert "POINT_SPREAD_FUNCTION" not in selected.data_vars
-
-        # attrs['data_groups'] should be reduced to just the selected group.
-        assert selected.attrs["data_groups"] == {
-            "base": xds.attrs["data_groups"]["base"]
-        }
-
-    def test_sel_with_data_group_name_in_indexers_kwargs(self, image_xds_valid):
-        """sel with data_group_name in indexers dict should behave like data_group_name= kwarg."""
-
-        xds = image_xds_valid
-
-        shape = (
-            xds.sizes["time"],
-            xds.sizes["frequency"],
-            xds.sizes["polarization"],
-            xds.sizes["l"],
-            xds.sizes["m"],
-        )
-
-        xds = xds.copy()
-        xds["SKY"] = xr.DataArray(
-            np.zeros(shape, dtype=float),
-            dims=("time", "frequency", "polarization", "l", "m"),
-        )
-        xds["POINT_SPREAD_FUNCTION"] = xr.DataArray(
-            np.zeros(shape, dtype=float),
-            dims=("time", "frequency", "polarization", "l", "m"),
-        )
-
-        xds.attrs["data_groups"] = {
-            "base": {"sky": "SKY"},
-            "psf": {"point_spread_function": "POINT_SPREAD_FUNCTION"},
-        }
-
-        # Pass data_group_name via indexers dict (covers lines 227-228 in image_xds.py).
-        selected = xds.xr_img.sel(indexers={"data_group_name": "base"})
+        selected = xds.xr_img.sel(**sel_kwargs)
 
         assert "SKY" in selected.data_vars
         assert "POINT_SPREAD_FUNCTION" not in selected.data_vars
         assert selected.attrs["data_groups"] == {
             "base": xds.attrs["data_groups"]["base"]
         }
+
+
+# ---------------------------------------------------------------------------
+# Parametrize tables for TestImageXdsInvalid
+# ---------------------------------------------------------------------------
+# Each entry is (call, id) where call(xds, xds_with_uv) invokes one accessor
+# method.  Defined at module level so pytest can collect them without
+# instantiating the class.
+_INVALID_TYPE_CALLS = [
+    pytest.param(lambda xds, uv: xds.xr_img.test_func(),                  id="test_func"),
+    pytest.param(lambda xds, uv: xds.xr_img.add_data_group("g", {}),      id="add_data_group"),
+    pytest.param(lambda xds, uv: xds.xr_img.get_lm_cell_size(),           id="get_lm_cell_size"),
+    pytest.param(lambda xds, uv: xds.xr_img.add_uv_coordinates(),         id="add_uv_coordinates"),
+    pytest.param(lambda xds, uv: uv.xr_img.get_uv_in_lambda(1.412e9),     id="get_uv_in_lambda"),
+    pytest.param(lambda xds, uv: xds.xr_img.get_reference_pixel_indices(), id="get_reference_pixel_indices"),
+    pytest.param(lambda xds, uv: xds.xr_img.sel(polarization="I"),        id="sel"),
+]
+
+_INVALID_TYPE_VALUES = [
+    pytest.param("image", False, id="type_image"),
+    pytest.param("other", False, id="type_other"),
+    pytest.param(None,    True,  id="no_type"),
+]
 
 
 class TestImageXdsInvalid:
     """Test suite for ImageXds accessor with invalid image datasets."""
 
-    @pytest.fixture
-    def image_xds_valid(self):
-        """Fixture providing a fresh ImageXds-compatible Dataset per test."""
-        return _make_valid_image_dataset()
-
-    @pytest.mark.parametrize(
-        "type_value, delete_type",
-        [("image", False), ("other", False), (None, True)],
-    )
+    @pytest.mark.parametrize("call", _INVALID_TYPE_CALLS)
+    @pytest.mark.parametrize("type_value,delete_type", _INVALID_TYPE_VALUES)
     def test_invalid_type_raises_invalid_accessor_location(
-        self, image_xds_valid, type_value, delete_type
+        self, image_xds_valid, call, type_value, delete_type
     ):
-        """All ImageXds methods that check type should reject non-image_dataset nodes."""
+        """Each ImageXds method rejects datasets whose type is not image_dataset.
 
+        Produces 21 independent items (7 methods × 3 invalid-type variants) so
+        a single regression is pinpointed without masking the remaining checks.
+        """
         base_xds = image_xds_valid
-
-        # Prepare datasets for methods that need extra coordinates.
         base_xds_with_uv = base_xds.xr_img.add_uv_coordinates()
 
         def make_test_xds(template):
@@ -325,27 +268,8 @@ class TestImageXdsInvalid:
                 test_xds.attrs["type"] = type_value
             return test_xds
 
-        # Each method gets its own dataset so failures are independent.
         with pytest.raises(InvalidAccessorLocation):
-            make_test_xds(base_xds).xr_img.test_func()
-
-        with pytest.raises(InvalidAccessorLocation):
-            make_test_xds(base_xds).xr_img.add_data_group("g", {})
-
-        with pytest.raises(InvalidAccessorLocation):
-            make_test_xds(base_xds).xr_img.get_lm_cell_size()
-
-        with pytest.raises(InvalidAccessorLocation):
-            make_test_xds(base_xds).xr_img.add_uv_coordinates()
-
-        with pytest.raises(InvalidAccessorLocation):
-            make_test_xds(base_xds_with_uv).xr_img.get_uv_in_lambda(1.412e9)
-
-        with pytest.raises(InvalidAccessorLocation):
-            make_test_xds(base_xds).xr_img.get_reference_pixel_indices()
-
-        with pytest.raises(InvalidAccessorLocation):
-            make_test_xds(base_xds).xr_img.sel(polarization="I")
+            call(make_test_xds(base_xds), make_test_xds(base_xds_with_uv))
 
     def test_invalid_type_error_message_includes_path_and_text(self, image_xds_valid):
         """Error message for invalid accessor location should include the dataset path."""

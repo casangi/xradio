@@ -27,12 +27,15 @@ def download_image(fname: str, directory: str | Path = ".") -> Path:
     """
     from toolviper.utils.data import download
 
-    directory = Path(directory)
+    directory = Path(directory).resolve()
     directory.mkdir(parents=True, exist_ok=True)
     dest = directory / fname
     if not dest.exists():
         download(file=fname, folder=str(directory))
-        assert dest.exists(), f"Could not download {fname!r} into {directory}"
+        if not dest.exists():
+            raise FileNotFoundError(
+                f"Could not download {fname!r} into {directory}"
+            )
     return dest
 
 

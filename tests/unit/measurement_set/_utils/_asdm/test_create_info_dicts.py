@@ -2,8 +2,6 @@ import xarray as xr
 
 import pytest
 
-import pyasdm
-
 from xradio.measurement_set._utils._asdm.create_info_dicts import (
     create_info_dicts,
     create_processor_info,

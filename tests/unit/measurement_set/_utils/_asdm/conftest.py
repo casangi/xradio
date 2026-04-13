@@ -389,3 +389,29 @@ def asdm_with_execblock_antenna_station_feed():
     add_antenna_station_tables(asdm)
     add_feed_table(asdm)
     return asdm
+
+
+def add_polarization_table(asdm: pyasdm.ASDM):
+    polarization_row_0_xml = """
+  <row>
+    <polarizationId> Polarization_0 </polarizationId>
+    <numCorr> 2 </numCorr>
+    <corrType> 1 2 XX YY</corrType>
+    <corrProduct> 2 2 2 X X Y Y</corrProduct>
+  </row>
+    """
+    polarization_table = asdm.getPolarization()
+    polarization_row_0 = pyasdm.PolarizationRow(polarization_table)
+    polarization_row_0.setFromXML(polarization_row_0_xml)
+    polarization_table.add(polarization_row_0)
+
+
+@pytest.fixture(scope="session")
+def asdm_with_polarization(asdm_with_spw_simple):
+    """
+    Meant for tests on arrays of arrays present for example in the
+    polarization table (the 'corrProduct')
+    """
+    asdm = make_asdm_with_spw_simple()
+    add_polarization_table(asdm)
+    return asdm

@@ -141,21 +141,6 @@ def add_feed_table(asdm: pyasdm.ASDM):
     feed_table.add(feed_row_0)
 
 
-def add_polarization_table(asdm: pyasdm.ASDM):
-    polarization_row_0_xml = """
-  <row>
-    <polarizationId> Polarization_0 </polarizationId>
-    <numCorr> 2 </numCorr>
-    <corrType> 1 2 XX YY</corrType>
-    <corrProduct> 2 2 2 X X Y Y</corrProduct>
-  </row>
-    """
-    polarization_table = asdm.getPolarization()
-    polarization_row_0 = pyasdm.PolarizationRow(polarization_table)
-    polarization_row_0.setFromXML(polarization_row_0_xml)
-    polarization_table.add(polarization_row_0)
-
-
 def test_exp_asdm_table_to_df_asdm_with_spw_simple_plus_feed(asdm_with_spw_simple):
     asdm_with_feed = copy.deepcopy(asdm_with_spw_simple)
     add_feed_table(asdm_with_feed)
@@ -179,10 +164,8 @@ def test_exp_asdm_table_to_df_asdm_with_spw_simple_plus_feed(asdm_with_spw_simpl
 
 
 def test_exp_asdm_table_to_df_asdm_with_spw_simple_plus_polarization(
-    asdm_with_spw_simple,
+    asdm_with_polarization,
 ):
-    asdm_with_polarization = copy.deepcopy(asdm_with_spw_simple)
-    add_polarization_table(asdm_with_polarization)
 
     cols = ["corrProduct"]
     polarization_df = exp_asdm_table_to_df(asdm_with_polarization, "Polarization", cols)

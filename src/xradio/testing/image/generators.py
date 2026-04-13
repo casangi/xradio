@@ -37,7 +37,7 @@ def make_beam_fit_params(xds: xr.Dataset) -> xr.DataArray:
         3,
     )
     ary = np.ones(shape, dtype=np.float32)
-    ary[0, 2, 0, :] = 2.0
+    ary[0, 0, 0, :] = 2.0
     return xr.DataArray(
         data=ary,
         dims=["time", "frequency", "polarization", "beam_params_label"],

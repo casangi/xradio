@@ -566,9 +566,21 @@ class TestZarrRoundtrip:
 
     def test_image_block(self):
         """Spatial block loaded from a zarr image matches the full-image slice."""
+        from xradio.testing.image.generators import make_beam_fit_params
+
+        xds_with_beam = self._zds.assign(
+            BEAM_FIT_PARAMS=make_beam_fit_params(self._zds)
+        )
+        xds_with_beam["BEAM_FIT_PARAMS"].attrs["units"] = "rad"
         assert_image_block_equal(
-            self._zds,
+            xds_with_beam,
             self._zarr_store + "_2",
+            selection={
+                "l": slice(2, 10),
+                "m": slice(3, 15),
+                "polarization": slice(0, 1),
+                "frequency": slice(0, 4),
+            },
             zarr=True,
         )
 

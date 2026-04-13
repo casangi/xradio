@@ -119,42 +119,20 @@ def test_exp_asdm_table_to_df_asdm_with_spw_simple(asdm_with_spw_simple):
     )
 
 
-def add_feed_table(asdm: pyasdm.ASDM):
-    feed_row_0_xml = """
-  <row>
-    <feedId> 0 </feedId>
-    <timeInterval> 7226686294548387903 3993371484612775807 </timeInterval>
-    <numReceptor> 2 </numReceptor>
-    <beamOffset> 2 2 2 0.0 0.0 0.0 0.0  </beamOffset>
-    <focusReference> 2 2 3 -99999.0 -99999.0 -99999.0 -99999.0 -99999.0 -99999.0  </focusReference>
-    <polarizationTypes> 1 2 X Y</polarizationTypes>
-    <polResponse> 2 2 2 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0  </polResponse>
-    <receptorAngle> 1 2 -0.9346238144 0.6361725124  </receptorAngle>
-    <antennaId> Antenna_0 </antennaId>
-    <receiverId> 1 2 0 0  </receiverId>
-    <spectralWindowId> SpectralWindow_0 </spectralWindowId>
-  </row>
-    """
-    feed_table = asdm.getFeed()
-    feed_row_0 = pyasdm.FeedRow(feed_table)
-    feed_row_0.setFromXML(feed_row_0_xml)
-    feed_table.add(feed_row_0)
+def test_exp_asdm_table_to_df_asdm_with_spw_simple_plus_feed(asdm_with_simple_feed):
 
-
-def test_exp_asdm_table_to_df_asdm_with_spw_simple_plus_feed(asdm_with_spw_simple):
-    asdm_with_feed = copy.deepcopy(asdm_with_spw_simple)
-    add_feed_table(asdm_with_feed)
+    from pyasdm.enumerations import PolarizationType
 
     cols = ["polarizationTypes"]
-    feed_df = exp_asdm_table_to_df(asdm_with_feed, "Feed", cols)
+    feed_df = exp_asdm_table_to_df(asdm_with_simple_feed, "Feed", cols)
     pd.testing.assert_frame_equal(
         feed_df,
         pd.DataFrame(
             [
                 [
                     [
-                        pyasdm.enumerations.PolarizationType.X,
-                        pyasdm.enumerations.PolarizationType.Y,
+                        PolarizationType.X,
+                        PolarizationType.Y,
                     ]
                 ]
             ],

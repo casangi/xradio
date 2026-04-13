@@ -415,3 +415,32 @@ def asdm_with_polarization(asdm_with_spw_simple):
     asdm = make_asdm_with_spw_simple()
     add_polarization_table(asdm)
     return asdm
+
+
+def add_simple_feed_table(asdm: pyasdm.ASDM):
+    feed_row_0_xml = """
+  <row>
+    <feedId> 0 </feedId>
+    <timeInterval> 7226686294548387903 3993371484612775807 </timeInterval>
+    <numReceptor> 2 </numReceptor>
+    <beamOffset> 2 2 2 0.0 0.0 0.0 0.0  </beamOffset>
+    <focusReference> 2 2 3 -99999.0 -99999.0 -99999.0 -99999.0 -99999.0 -99999.0  </focusReference>
+    <polarizationTypes> 1 2 X Y</polarizationTypes>
+    <polResponse> 2 2 2 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0  </polResponse>
+    <receptorAngle> 1 2 -0.9346238144 0.6361725124  </receptorAngle>
+    <antennaId> Antenna_0 </antennaId>
+    <receiverId> 1 2 0 0  </receiverId>
+    <spectralWindowId> SpectralWindow_0 </spectralWindowId>
+  </row>
+    """
+    feed_table = asdm.getFeed()
+    feed_row_0 = pyasdm.FeedRow(feed_table)
+    feed_row_0.setFromXML(feed_row_0_xml)
+    feed_table.add(feed_row_0)
+
+
+@pytest.fixture(scope="session")
+def asdm_with_simple_feed(asdm_with_spw_simple):
+    asdm = make_asdm_with_spw_simple()
+    add_simple_feed_table(asdm)
+    return asdm

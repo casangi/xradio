@@ -45,6 +45,7 @@ class CalibrationParameterNameArray:
     data: Data[CalibrationParameterName, str]
     """Name for each parameter."""
 
+
 @xarray_dataarray_schema
 class CalibrationParameterArray:
     """
@@ -53,11 +54,14 @@ class CalibrationParameterArray:
 
     data: Data[
         Union[
-            tuple[Time, AntennaName, Frequency, CalibrationParameterName, ReceptorLabel],
+            tuple[
+                Time, AntennaName, Frequency, CalibrationParameterName, ReceptorLabel
+            ],
             tuple[Time, BaselineId, Frequency, Polarization],
         ],
         Union[numpy.float32, numpy.float64, numpy.complex64, numpy.complex128],
     ]
+
 
 @xarray_dataarray_schema
 class ParameterErrorArray:
@@ -67,7 +71,9 @@ class ParameterErrorArray:
 
     data: Data[
         Union[
-            tuple[Time, AntennaName, Frequency, CalibrationParameterName, ReceptorLabel],
+            tuple[
+                Time, AntennaName, Frequency, CalibrationParameterName, ReceptorLabel
+            ],
             tuple[Time, BaselineId, Frequency, Polarization],
         ],
         Union[numpy.float32, numpy.float64],
@@ -123,7 +129,7 @@ class AntennaCalibrationXds:
     """The type of calibration data stored in this xds."""
     type_version: Attr[str]
     """A calibration-specific version number."""
-    
+
     # --- Optional Coordinates ---
 
     # These are compulsory in the Measurement Set xds, so maybe they should be compulsory here too?
@@ -138,7 +144,8 @@ class AntennaCalibrationXds:
     # FIXME: Add reference antenna and spectral_window_name.
 
     # --- Optional Attributes ---
-        
+
+
 # Note that the AntennaXDS has a map from (antenna_name, receptor_label) to polarization_type
 # Also receptor_label, which is a full-on *dimension* has labels 'pol_0' and 'pol_1',
 
@@ -187,7 +194,6 @@ class BaselineCorrectionXds:
     baseline_antenna2_name: Coordof[BaselineAntennaNameArray]
     """Antenna name for 2nd antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_name``"""
 
-
     # --- Required Attributes ---
 
     schema_version: Attr[str]
@@ -211,4 +217,3 @@ class BaselineCorrectionXds:
     combinations of 'X', 'Y', 'R' and 'L'.
     """
     # --- Optional Attributes ---
-

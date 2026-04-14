@@ -45,7 +45,6 @@ class CalibrationParameterNameArray:
     data: Data[CalibrationParameterName, str]
     """Name for each parameter."""
 
-
 @xarray_dataarray_schema
 class CalibrationParameterArray:
     """
@@ -54,20 +53,11 @@ class CalibrationParameterArray:
 
     data: Data[
         Union[
-            tuple[Time, AntennaName, Frequency, ReceptorLabel],
+            tuple[Time, AntennaName, Frequency, CalibrationParameterName, ReceptorLabel],
             tuple[Time, BaselineId, Frequency, Polarization],
         ],
         Union[numpy.float32, numpy.float64, numpy.complex64, numpy.complex128],
     ]
-
-    data: Data[
-        Union[
-            tuple[Time, BaselineId, Frequency, Polarization],
-            tuple[Time, AntennaName, Frequency, Polarization],  # SD
-        ],
-        Union[numpy.float16, numpy.float32, numpy.float64],
-    ]
-
 
 @xarray_dataarray_schema
 class ParameterErrorArray:
@@ -76,13 +66,16 @@ class ParameterErrorArray:
     """
 
     data: Data[
-        tuple[Time, AntennaName, Frequency, ReceptorLabel],
+        Union[
+            tuple[Time, AntennaName, Frequency, CalibrationParameterName, ReceptorLabel],
+            tuple[Time, BaselineId, Frequency, Polarization],
+        ],
         Union[numpy.float32, numpy.float64],
     ]
 
 
 @xarray_dataset_schema
-class CalibrationXds:
+class AntennaCalibrationXds:
     """Main dataset for antenna-based calibration data"""
 
     # --- Required Coordinates ---
@@ -105,15 +98,13 @@ class CalibrationXds:
     Labels for polarization receptor types, e.g. ``['X','Y']``, ``['R','L']``, ``['P','Q']``.
     """
 
-    scan_name: Coordof[ScanArray]
-    """Scan name to identify data taken in the same logical scan."""
-
     # --- Required data variables ---
 
     CALIBRATION_PARAMETER: Dataof[CalibrationParameterArray]
-    """Complex visibilities, either simulated or measured by interferometer."""
+    """Calibration parameters"""
 
     PARAMETER_ERROR: Dataof[ParameterErrorArray]
+    """Error estimates for calibration paramters."""
 
     # --- Required Attributes ---
 
@@ -128,11 +119,96 @@ class CalibrationXds:
     Dataset type
     """
 
+    type: Attr[str]
+    """The type of calibration data stored in this xds."""
+    type_version: Attr[str]
+    """A calibration-specific version number."""
+    
     # --- Optional Coordinates ---
 
-    receptor_label_mixed: Optional[Coord[tuple[AntennaName, ReceptorLabel], str]] = None
-    """If the receptor_labels are not consistent across antennas, the
-    receptor_labels ['P', 'Q'] should be used and then the actual
-    receptors for each antenna should be specified here."""
+    # These are compulsory in the Measurement Set xds, so maybe they should be compulsory here too?
+    field_name: Coordof[Coord[Time, str]]
+    """Field name."""
+
+    scan_name: CoordOf[ScanArray]
+    """Scan name to identify data taken in the same logical scan."""
 
     # --- Optional data variables / arrays ---
+
+    # FIXME: Add reference antenna and spectral_window_name.
+
+    # --- Optional Attributes ---
+        
+# Note that the AntennaXDS has a map from (antenna_name, receptor_label) to polarization_type
+# Also receptor_label, which is a full-on *dimension* has labels 'pol_0' and 'pol_1',
+
+# xds.antenna_xds
+#     Dimensions:                 (time: 120, baseline_id: 55, frequency: 32,
+#                                  polarization: 4, uvw_label: 3, antenna_name: 10,
+#                                  cartesian_pos_label: 3, receptor_label: 2)
+#     Coordinates:
+#     [...]
+#         polarization_type       (antenna_name, receptor_label) <U1 80B dask.array<chunksize=(10, 2), meta=np.ndarray>
+#       * receptor_label          (receptor_label) <U5 40B 'pol_0' 'pol_1'
+
+
+@xarray_dataset_schema
+class BaselineCorrectionXds:
+    """Calibration dataset for baseline effects"""
+
+    # --- Required Coordinates ---
+    time: Coordof[TimeCoordArray]
+    """
+    The time coordinate is the reference time for the calibration parameters
+    """
+    baseline_id: Coordof[BaselineArray]
+    """ Baseline ID """
+    frequency: Coordof[FrequencyArray]
+    """Center frequencies for each channel."""
+    polarization: Coordof[PolarizationArray]
+    """
+    Labels for polarization types, e.g. ``['XX','XY','YX','YY']``, ``['RR','RL','LR','LL']``.
+    """
+    field_name: Coordof[Coord[Time, str]]
+    """Field name."""
+    scan_name: Coordof[ScanArray]
+    """Scan name to identify data taken in the same logical scan."""
+
+    # --- Required data variables ---
+
+    CALIBRATION_PARAMETER: Dataof[CalibrationParameterArray]
+    """Calibration parameters"""
+
+    PARAMETER_ERROR: Dataof[ParameterErrorArray]
+    """Error estimates for calibration paramters."""
+
+    baseline_antenna1_name: Coordof[BaselineAntennaNameArray]
+    """Antenna name for 1st antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_name``"""
+    baseline_antenna2_name: Coordof[BaselineAntennaNameArray]
+    """Antenna name for 2nd antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_name``"""
+
+
+    # --- Required Attributes ---
+
+    schema_version: Attr[str]
+    """Semantic version of calibration xds data format."""
+    creator: Attr[CreatorDict]
+    """Creator information (software, version)."""
+    creation_date: Attr[str]
+    """Date calibration dataset was created. Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
+
+    type: Attr[Literal["antenna", "baseline"]] = "baseline"
+    """
+    Dataset type
+    """
+
+    # --- Optional Coordinates ---
+    polarization_mixed: Optional[Coord[tuple[BaselineId, Polarization], str]] = None
+    """
+    If the polarizations are not constant over baseline. For mixed polarizations one would
+    use ['PP', 'PQ', 'QP', 'QQ'] as the polarization labels and then specify here the
+    actual polarization basis for each baseline using labels from the set of all
+    combinations of 'X', 'Y', 'R' and 'L'.
+    """
+    # --- Optional Attributes ---
+

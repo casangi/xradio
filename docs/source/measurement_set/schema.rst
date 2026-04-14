@@ -264,10 +264,13 @@ Value Keys
 Scan Intents
 ~~~~~~~~~~~~
 
-Scan intents to be used with :py:class:`~xradio.measurement_set.schema.VisibilityXds` and
-:py:class:`~xradio.measurement_set.schema.SpectrumXds`,
-in the ``intents`` field of the
-:py:class:`~xradio.measurement_set.schema.ObservationInfoDict`:
+Scan intents to be used with
+:py:class:`~xradio.measurement_set.schema.VisibilityXds` and
+:py:class:`~xradio.measurement_set.schema.SpectrumXds`, in the
+``scan_intents`` field of the
+:py:class:`~xradio.measurement_set.schema.ScanArray`.  The format to
+be used is ``[intent]#[subintent]``, where the possible values for
+``[intent]`` are:
 
 * ``CALIBRATE AMPLI`` : Amplitude calibration scan
 * ``CALIBRATE ANTENNA PHASE`` : Requested by EVLA.
@@ -300,10 +303,7 @@ in the ``intents`` field of the
 * ``TEST`` : used for development.
 * ``UNSPECIFIED`` : Unspecified scan intent
 
-Sub-scan intents to be used with :py:class:`~xradio.measurement_set.schema.VisibilityXds` and
-:py:class:`~xradio.measurement_set.schema.SpectrumXds`,
-in the ``intents`` field of the
-:py:class:`~xradio.measurement_set.schema.ObservationInfoDict`:
+Possible values for ``[subintent]``:
 
 * ``ON SOURCE`` : on-source measurement
 * ``OFF SOURCE`` : off-source measurement

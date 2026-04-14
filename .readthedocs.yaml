@@ -16,7 +16,7 @@ python:
     - method: pip
       path: .
       extra_requirements:
-        - python-casacore
+        - casacore
 
 # Configuration for Sphinx documentation
 sphinx:

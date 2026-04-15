@@ -24,7 +24,8 @@ def load_visibilities_one_spw_to_ndarray(
     data_type: np.dtype,  # ???
     elements_count: int,  # ???
     bdf_descr: dict,
-    guessed_shape: tuple,
+    guessed_shape: tuple[int, ...],
+    array_slice: tuple[slice, ...],
 ) -> np.ndarray:
     """
     Function meant to be passed to pyasdm.BDFReader.getNDArrays as
@@ -82,6 +83,7 @@ def _load_vis_one_spw_auto_data_from_tree(
     overall_spw_idx: int,
     data_type: np.dtype,
     elements_count: int,
+    array_slice: tuple[int, ...],
 ) -> np.ndarray:
 
     polarization_len = guessed_shape[-2]

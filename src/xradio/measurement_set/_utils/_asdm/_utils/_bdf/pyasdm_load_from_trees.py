@@ -23,6 +23,7 @@ def load_visibilities_all_subsets_from_trees(
     guessed_shape: tuple[int, ...],
     baseband_spw_idxs: tuple[int, int],
     bdf_descr: dict,
+    array_slice: tuple[slice, ...],
     load_one_spw_from_file: bool = config.use_load_one_spw_at_a_time,
 ) -> np.ndarray:
 
@@ -31,7 +32,7 @@ def load_visibilities_all_subsets_from_trees(
         overall_spw_idx = baseband_spw_to_overall_spw_idx(baseband_spw_idxs, bdf_descr)
         spw_idx = overall_spw_idx
         load_spw_function = load_visibilities_one_spw_to_ndarray
-        load_spw_function_params = (bdf_descr, guessed_shape)
+        load_spw_function_params = (bdf_descr, guessed_shape, array_slice)
     else:
         spw_idx = None
         load_spw_function = None
@@ -48,6 +49,7 @@ def load_visibilities_all_subsets_from_trees(
                 guessed_shape,
                 baseband_spw_idxs,
                 bdf_descr,
+                array_slice,
             )
         else:
             ndarrays = load_subset_with_get_ndarrays(
@@ -106,6 +108,7 @@ def load_vis_subset_from_tree(
     guessed_shape: tuple,
     baseband_spw_idxs: tuple[int, int],
     bdf_descr: dict,
+    array_slice: tuple[slice, ...],
 ) -> np.ndarray:
     """
     Assumes all SPWs are consistent in number of channels => the data can be loaded all-SPWs at once,
@@ -128,6 +131,7 @@ def load_vis_subset_from_tree(
             guessed_shape,
             spw_chan_lens,
             overall_spw_idx,
+            array_slice,
         )
 
     else:
@@ -150,6 +154,7 @@ def load_vis_subset_from_tree(
             overall_spw_idx,
             scale_factor,
             processor_type,
+            array_slice,
         )
 
     if vis_subset_cross is None:
@@ -167,6 +172,7 @@ def load_vis_subset_cross_data_from_tree(
     overall_spw_idx: int,
     scale_factor: float,
     processor_type: pyasdm.enumerations.ProcessorType,
+    array_slice: tuple[slice, ...],
 ) -> np.ndarray:
 
     polarization_len = guessed_shape[-2]
@@ -180,9 +186,17 @@ def load_vis_subset_cross_data_from_tree(
     time_len = guessed_shape[0]
     baseline_len = guessed_shape[1]
     offset = 0
-    for time_idx in np.arange(0, time_len):
+    time_min = array_slice[0].start or 0
+    time_max = array_slice[0].stop or time_len
+    baseline_min = array_slice[1].start or 0
+    baseline_max = array_slice[1].stop or baseline_len
+    frequency_min = array_slice[2].start or 0
+    frequency_max = array_slice[2].stop or spw_channel_len
+    polarization_min = array_slice[3].start or 0
+    polarization_max = array_slice[3].stop or polarization_len
+    for time_idx in np.arange(time_min, time_max):
         vis_strides = []
-        for baseline_idx in np.arange(baseline_len):
+        for baseline_idx in np.arange(baseline_min, baseline_max):
             if processor_type == pyasdm.enumerations.ProcessorType.CORRELATOR:
                 offset += cross_offset_addition_before
                 spw_vis = cross_data_arr[
@@ -220,6 +234,7 @@ def load_vis_subset_auto_data_from_tree(
     guessed_shape: tuple[int, ...],
     spw_chan_lens: list[int],
     overall_spw_idx: int,
+    array_slice: tuple[slice, ...],
 ) -> np.ndarray:
 
     polarization_len = guessed_shape[-2]
@@ -238,6 +253,14 @@ def load_vis_subset_auto_data_from_tree(
 
     offset = 0
     vis_subset_integrations = []
+    time_min = array_slice[0].start or 0
+    time_max = array_slice[0].stop or time_len
+    antenna_min = array_slice[1].start or 0
+    antenna_max = array_slice[1].stop or baseline_len
+    frequency_min = array_slice[2].start or 0
+    frequency_max = array_slice[2].stop or spw_channel_len
+    polarization_min = array_slice[3].start or 0
+    polarization_max = array_slice[3].stop or polarization_len
     for time_idx in np.arange(0, guessed_shape[0]):
         vis_auto_strides = []
         for antenna_idx in np.arange(antenna_len):
@@ -284,6 +307,7 @@ def load_flags_all_subsets_from_trees(
     guessed_shape: dict[str, tuple[int, ...]],
     bdf_descr: dict,
     baseband_spw_idxs: tuple[int, int],
+    array_slice: tuple[slice, ...],
 ) -> np.ndarray:
 
     # Load taking pieces from the data trees of the binary components. Needed when the number
@@ -300,7 +324,7 @@ def load_flags_all_subsets_from_trees(
             return None
 
         flag_subset = load_flags_subset_from_tree(
-            subset, guessed_shape, bdf_descr, baseband_spw_idxs
+            subset, guessed_shape, bdf_descr, baseband_spw_idxs, array_slice
         )
         flag_per_subset.append(flag_subset)
 
@@ -314,6 +338,7 @@ def load_flags_subset_from_tree(
     guessed_shape: dict[str, tuple[int, ...]],
     bdf_descr: dict,
     baseband_spw_idxs: tuple[int, int],
+    array_slice: tuple[slice, ...],
 ) -> np.ndarray:
     """
     Loads the flags array from one subset in a BDF.
@@ -334,7 +359,12 @@ def load_flags_subset_from_tree(
         )
 
         flag_subset = load_flags_subset_cross_and_auto_blocks_from_tree(
-            flag_array, bdf_descr, offset_additions, guessed_shape, baseband_spw_idxs
+            flag_array,
+            bdf_descr,
+            offset_additions,
+            guessed_shape,
+            baseband_spw_idxs,
+            array_slice,
         )
     else:
         shape = add_cross_and_auto_flag_shapes(guessed_shape)
@@ -351,6 +381,7 @@ def load_flags_subset_cross_and_auto_blocks_from_tree(
     offset_additions: dict,
     guessed_shape: dict[str, tuple[int, ...]],
     baseband_spw_idxs: tuple[int, int],
+    array_slice: tuple[int, ...],
 ) -> np.ndarray[bool]:
 
     antenna_len = bdf_descr["num_antenna"]

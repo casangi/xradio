@@ -1,3 +1,15 @@
+"""
+Module to load data and flags binary components from BDFs.
+Robust in the sense that tolerates (common) inconsistencies in the BDF metadata,
+including especially incomplete or incorrect axes definitions.
+
+For the data it loads both autoData and crossData binary components for one SPW.
+
+For both data and flags, re-arranges the values for the different times, baselines,
+and polarizations in order to produce MSv4-style ndarrays.
+"""
+
+import time
 import traceback
 
 import numpy as np
@@ -29,7 +41,12 @@ from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees impo
 )
 
 
-def array_slice_to_msv4_indices(array_slice: dict) -> tuple[range, range, range, range]:
+def array_slice_to_msv4_indices(array_slice: dict) -> tuple[slice, slice, slice, slice]:
+    """
+    Translates a dict of slices to a tuple of slices, with order
+    (time, baseline, frequency, polarization). This latter style is used in
+    xr.backends.BackendArray.__getitem__ / xr.core.indexing.ExplicitIndexer
+    """
 
     time_slice = slice(None)
     baseline_slice = slice(None)
@@ -56,13 +73,7 @@ def load_visibilities_from_partition_bdfs(
     for bdf_path in bdf_paths:
         visibility_blob = load_visibilities_from_bdf(bdf_path, spw_id, array_slice)
 
-        if array_slice:
-            indices = array_slice_to_msv4_indices(array_slice)
-            visibility_blob = visibility_blob[*indices]
-
         cumulative_vis.append(visibility_blob)
-
-    import time
 
     start = time.perf_counter()
     visibility = np.concatenate(cumulative_vis)
@@ -93,7 +104,7 @@ def make_bdf_description(bdf_header: pyasdm.bdf.BDFHeader) -> dict:
 def load_visibilities_from_bdf(
     bdf_path: str,
     spw_id: int,
-    array_slice: dict,
+    array_slice: tuple[slice, ...],
     never_reshape_from_all_spws: bool = False,
 ) -> np.ndarray:
 
@@ -121,11 +132,11 @@ def load_visibilities_from_bdf(
             # TODO: this is assumed to be slower than the simpler version (simply reshape-based)
             # TO: integrate/replace with pyasdm.
             bdf_vis = load_visibilities_all_subsets_from_trees(
-                bdf_reader, guessed_shape, baseband_spw_idxs, bdf_descr
+                bdf_reader, guessed_shape, baseband_spw_idxs, bdf_descr, array_slice
             )
         else:
             bdf_vis = load_visibilities_all_subsets(
-                bdf_reader, guessed_shape, baseband_spw_idxs, bdf_descr
+                bdf_reader, guessed_shape, baseband_spw_idxs, bdf_descr, array_slice
             )
     except (RuntimeError, ValueError) as exc:
         trace = traceback.format_exc()
@@ -146,11 +157,6 @@ def load_flags_from_partition_bdfs(
     cumulative_flag = []
     for bdf_path in bdf_paths:
         flag_blob = load_flags_from_bdf(bdf_path, spw_id, array_slice)
-
-        if array_slice:
-            indices = array_slice_to_msv4_indices(array_slice)
-            flag_blob = flag_blob[*indices]
-
         cumulative_flag.append(flag_blob)
 
     return np.concatenate(cumulative_flag)
@@ -193,10 +199,11 @@ def load_flags_from_bdf(
                 guessed_shape,
                 bdf_descr,
                 baseband_spw_idxs,
+                array_slice,
             )
         else:
             bdf_flag = load_flags_all_subsets(
-                bdf_reader, guessed_shape, baseband_spw_idxs
+                bdf_reader, guessed_shape, baseband_spw_idxs, array_slice
             )
     except (RuntimeError, ValueError) as exc:
         trace = traceback.format_exc()

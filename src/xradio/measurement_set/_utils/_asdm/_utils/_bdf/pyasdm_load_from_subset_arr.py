@@ -22,6 +22,7 @@ def load_visibilities_all_subsets(
     guessed_shape: tuple[int, ...],
     baseband_spw_idxs: tuple[int, int],
     bdf_descr: dict,
+    array_slice: tuple[slice, ...],
 ) -> np.ndarray:
 
     baseband_description = bdf_descr["basebands"][baseband_spw_idxs[0]]
@@ -47,6 +48,7 @@ def load_visibilities_all_subsets(
             baseband_spw_idxs,
             scale_factor,
             processor_type,
+            array_slice,
         )
 
         vis_per_subset.append(vis_subset)
@@ -61,11 +63,12 @@ def _load_vis_subset(
     baseband_spw_idxs: tuple[int, int],
     scale_factor: float,
     processor_type: pyasdm.enumerations.ProcessorType,
+    array_slice: tuple[slice, ...],
 ) -> np.ndarray:
 
     if "autoData" in subset and subset["autoData"]["present"]:
         vis_subset_auto = _load_vis_subset_auto_data(
-            subset["autoData"]["arr"], guessed_shape, baseband_spw_idxs
+            subset["autoData"]["arr"], guessed_shape, baseband_spw_idxs, array_slice
         )
 
     else:
@@ -80,6 +83,7 @@ def _load_vis_subset(
             baseband_spw_idxs,
             scale_factor,
             processor_type,
+            array_slice,
         )
 
     if vis_subset_cross is None:
@@ -96,6 +100,7 @@ def _load_vis_subset_cross_data(
     baseband_spw_idxs: tuple[int, int],
     scale_factor: float,
     processor_type: pyasdm.enumerations.ProcessorType,
+    array_slice: tuple[slice, ...],
 ) -> np.ndarray:
 
     cross_shape = guessed_shape[0:2] + guessed_shape[3:]
@@ -111,6 +116,9 @@ def _load_vis_subset_cross_data(
         # radiometer / spectrometer
         vis_subset = cross_values / scale_factor
 
+    if array_slice:
+        vis_subset = vis_subset[array_slice]
+
     return vis_subset
 
 
@@ -118,6 +126,7 @@ def _load_vis_subset_auto_data(
     auto_data_arr: np.ndarray,
     guessed_shape: tuple[int, ...],
     baseband_spw_idxs: tuple[int, int],
+    array_slice: tuple[slice, ...],
 ) -> np.ndarray:
 
     polarization_len = guessed_shape[-2]
@@ -146,6 +155,9 @@ def _load_vis_subset_auto_data(
         auto_len = np.prod(auto_shape)
         auto_floats = (auto_data_arr[:auto_len]).reshape(auto_shape)
         vis_auto = auto_floats[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, :]
+
+    if array_slice:
+        vis_subset = vis_subset[array_slice]
 
     return vis_auto
 
@@ -185,6 +197,7 @@ def load_flags_all_subsets(
     bdf_reader: pyasdm.bdf.BDFReader,
     guessed_shape: dict[str, tuple[int, ...]],
     baseband_spw_idxs: tuple[int, int],
+    array_slice: tuple[slice, ...],
 ) -> np.ndarray:
 
     flag_per_subset = []
@@ -198,7 +211,9 @@ def load_flags_all_subsets(
             )
             return None
 
-        flag_subset = _load_flags_subset(subset, guessed_shape, baseband_spw_idxs)
+        flag_subset = _load_flags_subset(
+            subset, guessed_shape, baseband_spw_idxs, array_slice
+        )
 
         flag_per_subset.append(flag_subset)
 
@@ -285,6 +300,7 @@ def _load_flags_subset(
     subset: dict,
     guessed_shape: dict[str, tuple[int, ...]],
     baseband_spw_idxs: tuple[int, int],
+    array_slice: tuple[slice, ...],
 ) -> np.ndarray:
     """
     Loads the flags array from one subset in a BDF. The subset includes all the SPWs in the BDF.
@@ -345,5 +361,8 @@ def _load_flags_subset(
         flag_subset = np.full(
             full_shape_to_output_filled_flags_shape(shape), False, dtype="bool"
         )
+
+    if array_slice:
+        flag_subset = flag_subset[array_slice]
 
     return flag_subset

@@ -282,6 +282,7 @@ def test_load_visibilities_one_spw_to_ndarray(
                 input_elements_count,
                 input_bdf_descr,
                 input_guessed_shape,
+                slice(None),
             )
             assert isinstance(visibilities, np.ndarray)
             if input_component == "crossData":

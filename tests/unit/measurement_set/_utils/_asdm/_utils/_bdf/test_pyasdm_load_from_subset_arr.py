@@ -91,7 +91,11 @@ def test_load_visibilities_all_subsets():
     ):
         with pytest.raises(RuntimeError, match="autoData not present"):
             load_visibilities_all_subsets(
-                mock_bdf_reader, (1, 36, 9, 4, 2, 512, 2, 2), (0, 0), bdf_descr
+                mock_bdf_reader,
+                (1, 36, 9, 4, 2, 512, 2, 2),
+                (0, 0),
+                bdf_descr,
+                slice(None),
             )
         mock_bdf_header.getBasebandsList.assert_not_called()
 

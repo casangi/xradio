@@ -1,10 +1,12 @@
-from ._zarr.xds_to_zarr import _write_zarr
-from ._zarr.xds_from_zarr import _read_zarr
-import numpy as np
 import os
+
+import numpy as np
 import xarray as xr
 import zarr.abc.codec
+
 from ..._utils.zarr.common import _open_dataset
+from ._zarr.xds_from_zarr import _read_zarr
+from ._zarr.xds_to_zarr import _write_zarr
 
 
 def _xds_to_zarr(

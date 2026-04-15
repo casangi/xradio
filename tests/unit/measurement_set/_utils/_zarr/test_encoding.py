@@ -5,6 +5,7 @@ import xarray as xr
 import zarr.codecs
 
 from xradio.measurement_set._utils._zarr.encoding import add_encoding
+from xradio._utils.zarr.config import ZARR_FORMAT
 
 compressor = zarr.codecs.ZstdCodec(level=2)
 
@@ -24,7 +25,7 @@ def _make_xds(time=6, freq=8) -> xr.Dataset:
 def test_add_encoding_wo_chunks():
     xds = xr.Dataset(
         data_vars={
-            "da": xr.DataArray(
+            "vis": xr.DataArray(
                 [0, 2, 3],
                 coords=[[0, 1, 2]],
                 dims=["x"],
@@ -35,13 +36,13 @@ def test_add_encoding_wo_chunks():
 
     add_encoding(xds, compressor)
     assert xds
-    assert xds.da.encoding == {"compressors": (compressor,), "chunks": [3]}
+    assert xds["vis"].encoding == {"compressors": (compressor,), "chunks": [3]}
 
 
 def test_add_encoding_with_wrong_chunks():
     xds = xr.Dataset(
         data_vars={
-            "da": xr.DataArray(
+            "vis": xr.DataArray(
                 [0, 2, 3],
                 coords=[[0, 1, 2]],
                 dims=["x"],
@@ -52,13 +53,13 @@ def test_add_encoding_with_wrong_chunks():
 
     add_encoding(xds, compressor, chunks={"zz_not_there": 1})
     assert xds
-    assert xds.da.encoding == {"compressors": (compressor,), "chunks": [3]}
+    assert xds["vis"].encoding == {"compressors": (compressor,), "chunks": [3]}
 
 
 def test_add_encoding_with_chunks():
     xds = xr.Dataset(
         data_vars={
-            "da": xr.DataArray(
+            "vis": xr.DataArray(
                 [0, 2, 3],
                 coords=[[0, 1, 2]],
                 dims=["x"],
@@ -70,7 +71,7 @@ def test_add_encoding_with_chunks():
     chunks_size = 1
     add_encoding(xds, compressor, chunks={"x": chunks_size})
     assert xds
-    assert xds.da.encoding == {
+    assert xds["vis"].encoding == {
         "compressors": (compressor,),
         "chunks": [chunks_size],
     }
@@ -94,12 +95,17 @@ def test_sharding_sets_shards_and_chunks():
 
 
 def test_sharding_inner_chunk_defaults_to_full_axis():
-    """Omitting chunks= makes inner chunks equal to full axis (1 inner chunk/shard)."""
+    """Omitting chunks= makes inner chunks equal to full axis (1 inner chunk/shard).
+
+    This is the degenerate case where inner == outer, meaning each shard
+    contains exactly one chunk.  Sharding is still valid but provides no
+    sub-chunk granularity.
+    """
     xds = _make_xds(time=6, freq=8)
     add_encoding(xds, compressor, shards={"time": 6, "frequency": 8})
 
     enc = xds["vis"].encoding
-    assert enc["chunks"] == [6, 8]  # inner == full axis
+    assert enc["chunks"] == [6, 8]  # inner == full axis (degenerate: 1 chunk/shard)
     assert enc["shards"] == [6, 8]
 
 
@@ -182,3 +188,48 @@ def test_sharding_factor_invalid_raises():
         add_encoding(xds, compressor, shards=0)
     with pytest.raises(ValueError, match="positive integer"):
         add_encoding(xds, compressor, shards=-2)
+
+
+def test_roundtrip_with_sharding(tmp_path):
+    """Write a sharded dataset to zarr, read back, and compare values."""
+
+    xds = xr.Dataset(
+        {
+            "vis": xr.DataArray(
+                np.arange(24, dtype=np.float64).reshape(4, 6),
+                dims=["time", "frequency"],
+            ),
+        }
+    )
+    add_encoding(
+        xds,
+        compressor,
+        chunks={"time": 2, "frequency": 3},
+        shards={"time": 4, "frequency": 6},
+    )
+
+    store = str(tmp_path / "sharded.zarr")
+    xds.to_zarr(store, zarr_format=ZARR_FORMAT)
+
+    result = xr.open_zarr(store)
+    xr.testing.assert_identical(result, xds)
+
+
+def test_roundtrip_without_sharding(tmp_path):
+    """Write a plain (non-sharded) dataset to zarr, read back, and compare."""
+
+    xds = xr.Dataset(
+        {
+            "vis": xr.DataArray(
+                np.arange(24, dtype=np.float64).reshape(4, 6),
+                dims=["time", "frequency"],
+            ),
+        }
+    )
+    add_encoding(xds, compressor, chunks={"time": 2, "frequency": 3})
+
+    store = str(tmp_path / "plain.zarr")
+    xds.to_zarr(store, zarr_format=ZARR_FORMAT)
+
+    result = xr.open_zarr(store)
+    xr.testing.assert_identical(result, xds)

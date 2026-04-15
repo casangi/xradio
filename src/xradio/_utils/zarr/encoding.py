@@ -1,7 +1,6 @@
 """Shared zarr v3 encoding utilities (compressor + sharding)."""
 
 import zarr.abc.codec
-import zarr.codecs
 import xarray as xr
 
 
@@ -16,7 +15,7 @@ def add_encoding(
     Parameters
     ----------
     xds :
-        Dataset whose data variables will have their ``.encoding`` set in-place.
+        Dataset whose data variables will have their ``.encoding`` modified in-place.
     compressor :
         A zarr v3 ``BytesBytesCodec`` (e.g. ``zarr.codecs.ZstdCodec(level=2)``)
         used for compressing inner chunks.
@@ -35,14 +34,17 @@ def add_encoding(
           ``shard_size = factor × chunk_size``.  Must be a positive integer;
           divisibility is guaranteed by construction.
         - ``None`` (default) — no sharding.
-    """
-    if chunks is None:
-        chunks = xds.sizes
 
-    chunks = {**dict(xds.sizes), **chunks}  # Add missing sizes if present.
+    .. note::
+
+       This function mutates *xds* in-place by setting the ``.encoding``
+       attribute on each data variable.  It does **not** return a new dataset.
+    """
+    # Fill in any missing dimensions with full axis lengths.
+    chunks = {**dict(xds.sizes), **(chunks or {})}
 
     for da_name in list(xds.data_vars):
-        da_chunks = [chunks[dim_name] for dim_name in xds[da_name].dims]
+        da_chunks = [chunks[dim_name] for dim_name in xds[da_name].sizes]
         encoding = {"chunks": da_chunks, "compressors": (compressor,)}
 
         if shards is not None:
@@ -51,6 +53,9 @@ def add_encoding(
                     raise ValueError(
                         f"Shard factor must be a positive integer, got {shards}."
                     )
+                # Note: shard_size may exceed the axis length (e.g.
+                # axis_len=6, chunk=4, factor=3 → shard=12).  zarr v3 allows
+                # shards larger than the array dimension.
                 shard_shape = [c * shards for c in da_chunks]
             else:
                 shard_shape = [

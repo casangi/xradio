@@ -1436,6 +1436,7 @@ def convert_and_write_partition(
                 store=os.path.join(out_file, ms_v4_name),
                 mode=persistence_mode,
                 zarr_format=ZARR_FORMAT,
+                # metadata is consolidated once at the end of convert_msv2_to_processing_set
                 consolidated=False,
                 safe_chunks=True,
                 align_chunks=True,

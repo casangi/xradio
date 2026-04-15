@@ -1,12 +1,16 @@
-import dask.array as da
 import logging
+import os
+
+import dask.array as da
 import numpy as np
 import xarray as xr
 import zarr.abc.codec
-import os
-from .common import _np_types, _top_level_sub_xds
+import zarr.codecs
 
 from xradio._utils.zarr.config import ZARR_FORMAT
+from xradio._utils.zarr.encoding import add_encoding
+
+from .common import _top_level_sub_xds
 
 
 def _write_zarr(
@@ -33,8 +37,6 @@ def _write_zarr(
                 )
     xds_copy = xds.copy(deep=True)
     if compressor is not None or shards is not None:
-        import zarr.codecs
-        from xradio._utils.zarr.encoding import add_encoding
 
         _compressor = (
             compressor if compressor is not None else zarr.codecs.ZstdCodec(level=2)

@@ -2,6 +2,8 @@ import os
 import numpy as np
 import json
 import zarr
+import zarr.abc.codec
+import zarr.codecs
 import s3fs
 from xradio._utils.logging import xradio_logger
 from xradio._utils.zarr.common import _get_file_system_and_items
@@ -288,6 +290,11 @@ def create_data_variable_meta_data(
         if isinstance(compressor, zarr.abc.codec.BytesBytesCodec):
             codecs = [zarr.codecs.BytesCodec(), compressor]
         else:
+            xradio_logger().warning(
+                "Compressor %r is not a zarr v3 BytesBytesCodec; "
+                "falling back to zarr defaults",
+                compressor,
+            )
             codecs = None  # fall back to zarr defaults for unrecognised types
 
         open_kwargs: dict = dict(
@@ -306,6 +313,7 @@ def create_data_variable_meta_data(
 
         zarr_meta[data_variable_key]["chunks"] = chunks
         zarr_meta[data_variable_key]["shape"] = shape
+        zarr_meta[data_variable_key]["_zarr_array"] = z_arr
 
     return zarr_meta
 
@@ -316,6 +324,10 @@ def write_chunk(img_xds, meta, parallel_dims_chunk_id, image_file):
     Compression is handled by zarr itself (configured in
     ``create_data_variable_meta_data``); this function only computes the
     correct destination slice and delegates the write to the zarr API.
+
+    The zarr array handle stored in ``meta['_zarr_array']`` (set by
+    ``create_data_variable_meta_data``) is reused when available to avoid
+    re-opening the array on every chunk write.
     """
     dims = meta["dims"]
     data_variable_name = meta["name"]
@@ -338,11 +350,15 @@ def write_chunk(img_xds, meta, parallel_dims_chunk_id, image_file):
             start, end = 0, array.shape[i]
         slices.append(slice(start, min(end, shape[i])))
 
-    from xradio._utils.zarr.config import ZARR_FORMAT
+    # Reuse the array handle from create_data_variable_meta_data when present,
+    # avoiding an expensive zarr.open_array round-trip on every chunk write.
+    z_arr = meta.get("_zarr_array")
+    if z_arr is None:
+        from xradio._utils.zarr.config import ZARR_FORMAT
 
-    z_arr = zarr.open_array(
-        os.path.join(image_file, data_variable_name),
-        mode="r+",
-        zarr_format=ZARR_FORMAT,
-    )
+        z_arr = zarr.open_array(
+            os.path.join(image_file, data_variable_name),
+            mode="r+",
+            zarr_format=ZARR_FORMAT,
+        )
     z_arr[tuple(slices)] = array

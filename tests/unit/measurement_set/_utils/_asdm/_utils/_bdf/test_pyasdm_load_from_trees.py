@@ -91,11 +91,13 @@ def test_load_visibilities_all_subsets_from_trees():
     ):
         with pytest.raises(RuntimeError, match="not present"):
             # Test with load_one_spw_from_file=False => load_vis_subset_from_tree() (also below)
+            empty_slice = (slice(None), slice(None), slice(None), slice(None))
             load_visibilities_all_subsets_from_trees(
                 mock_bdf_reader,
                 (2, 45, 2, 64, 2, 2),
                 (0, 0),
                 bdf_descr,
+                empty_slice,
                 load_one_spw_from_file=False,
             )
         mock_bdf_header.getBasebandsList.assert_not_called()
@@ -172,8 +174,11 @@ def test_load_vis_subset_from_tree():
         mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
     ):
         mock_bdf_reader.hasSubset.side_effect = [True, False]
+        empty_slice = (slice(None), slice(None), slice(None), slice(None))
         with pytest.raises(RuntimeError, match="not present"):
-            load_vis_subset_from_tree(pyasdm_subset, guessed_shape, (0, 0), bdf_descr)
+            load_vis_subset_from_tree(
+                pyasdm_subset, guessed_shape, (0, 0), bdf_descr, empty_slice
+            )
         mock_bdf_header.getBasebandsList.assert_not_called()
         mock_bdf_header.getSubset.assert_not_called()
         mock_bdf_header.hasSubset.assert_not_called()
@@ -319,11 +324,13 @@ def test_load_visibilities_all_subsets_from_trees_X136e(input_load_one_spw_from_
                 },
                 None,
             ]
+        empty_slice = (slice(None), slice(None), slice(None), slice(None))
         visibilities = load_visibilities_all_subsets_from_trees(
             mock_bdf_reader,
             (1, 36, 9, 4, 2, 512, 2, 2),
             (0, 1),
             bdf_descr_X136e,
+            empty_slice,
             load_one_spw_from_file=input_load_one_spw_from_file,
         )
 
@@ -441,11 +448,13 @@ def test_load_visibilities_all_subsets_from_trees_X136e_simplified(
                 },
                 None,
             ]
+        empty_slice = (slice(None), slice(None), slice(None), slice(None))
         visibilities = load_visibilities_all_subsets_from_trees(
             mock_bdf_reader,
             (1, 36, 9, 4, 2, 512, 2, 2),
             (1, 0),
             bdf_descr_X136e_simplified,
+            empty_slice,
             load_one_spw_from_file=input_load_one_spw_from_file,
         )
 
@@ -480,11 +489,13 @@ def test_load_visibilities_all_subsets_from_trees_X136e_error(
         else:
             mock_bdf_reader.getSubset.side_effect = [ValueError, None]
 
+        empty_slice = (slice(None), slice(None), slice(None), slice(None))
         visibilities = load_visibilities_all_subsets_from_trees(
             mock_bdf_reader,
             (1, 36, 9, 4, 2, 512, 2, 2),
             (0, 1),
             bdf_descr_X136e,
+            empty_slice,
             load_one_spw_from_file=input_load_one_spw_from_file,
         )
         assert visibilities is None
@@ -686,6 +697,7 @@ def test_load_vis_subset_cross_data_from_tree(
         load_vis_subset_cross_data_from_tree,
     )
 
+    empty_slice = (slice(None), slice(None), slice(None), slice(None))
     visibilities = load_vis_subset_cross_data_from_tree(
         input_cross_data_arr,
         input_guessed_shape,
@@ -693,6 +705,7 @@ def test_load_vis_subset_cross_data_from_tree(
         input_overall_spw_idx,
         123456.789,
         input_processor_type,
+        empty_slice,
     )
 
     assert isinstance(visibilities, np.ndarray)
@@ -769,11 +782,13 @@ def test_load_vis_subset_auto_data_from_tree(
         load_vis_subset_auto_data_from_tree,
     )
 
+    empty_slice = (slice(None), slice(None), slice(None), slice(None))
     visibilities = load_vis_subset_auto_data_from_tree(
         input_auto_data_arr,
         input_guessed_shape,
         input_spw_chan_lens,
         input_overall_spw_idx,
+        empty_slice,
     )
 
     assert isinstance(visibilities, np.ndarray)
@@ -805,8 +820,9 @@ def test_load_flags_all_subsets_from_trees_error():
             "auto": (2, 9, 4, 2, 64, 2),
             "cross": (2, 36, 4, 2, 64, 2, 2),
         }
+        empty_slice = (slice(None), slice(None), slice(None), slice(None))
         vis = load_flags_all_subsets_from_trees(
-            mock_bdf_reader, guessed_shape, (0, 0), bdf_descr
+            mock_bdf_reader, guessed_shape, (0, 0), bdf_descr, empty_slice
         )
         assert vis is None
         mock_bdf_header.getBasebandsList.assert_not_called()
@@ -829,11 +845,9 @@ def test_load_flags_all_subsets_from_trees_X136e():
             "auto": (1, 9, 4, 2, 512, 2),
             "cross": (1, 36, 4, 2, 512, 2, 2),
         }
+        empty_slice = (slice(None), slice(None), slice(None), slice(None))
         flags = load_flags_all_subsets_from_trees(
-            mock_bdf_reader,
-            guessed_shape,
-            bdf_descr_X136e,
-            (0, 1),
+            mock_bdf_reader, guessed_shape, bdf_descr_X136e, (0, 1), empty_slice
         )
         assert isinstance(flags, np.ndarray)
         assert flags.size == 90
@@ -974,8 +988,9 @@ def test_load_flags_subset_from_tree(
     )
 
     with expected_error:
+        empty_slice = (slice(None), slice(None), slice(None), slice(None))
         flags = load_flags_subset_from_tree(
-            input_subset, input_guessed_shape, input_bdf_descr, (0, 0)
+            input_subset, input_guessed_shape, input_bdf_descr, (0, 0), empty_slice
         )
 
         assert isinstance(flags, np.ndarray)

@@ -274,6 +274,7 @@ def test_load_visibilities_one_spw_to_ndarray(
             np.zeros(input_fromfile_array_len, dtype="float64")
         ] * 2
         with expected_error:
+            empty_slice = (slice(None), slice(None), slice(None), slice(None))
             visibilities = load_visibilities_one_spw_to_ndarray(
                 input_component,
                 input_overall_spw_idx,
@@ -282,7 +283,7 @@ def test_load_visibilities_one_spw_to_ndarray(
                 input_elements_count,
                 input_bdf_descr,
                 input_guessed_shape,
-                slice(None),
+                empty_slice,
             )
             assert isinstance(visibilities, np.ndarray)
             if input_component == "crossData":

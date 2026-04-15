@@ -157,7 +157,7 @@ def _load_vis_subset_auto_data(
         vis_auto = auto_floats[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, :]
 
     if array_slice:
-        vis_subset = vis_subset[array_slice]
+        vis_auto = vis_auto[array_slice]
 
     return vis_auto
 
@@ -363,6 +363,6 @@ def _load_flags_subset(
         )
 
     if array_slice:
-        flag_subset = flag_subset[array_slice]
+        flag_subset = flag_subset[array_slice[0], array_slice[2], array_slice[3]]
 
     return flag_subset

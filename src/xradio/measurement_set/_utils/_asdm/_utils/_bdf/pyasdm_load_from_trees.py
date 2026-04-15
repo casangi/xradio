@@ -251,19 +251,20 @@ def load_vis_subset_auto_data_from_tree(
     antenna_len = guessed_shape[2]
     spw_channel_len = spw_chan_lens[overall_spw_idx]
 
+    time_len = guessed_shape[0]
     offset = 0
     vis_subset_integrations = []
     time_min = array_slice[0].start or 0
     time_max = array_slice[0].stop or time_len
     antenna_min = array_slice[1].start or 0
-    antenna_max = array_slice[1].stop or baseline_len
+    antenna_max = array_slice[1].stop or antenna_len
     frequency_min = array_slice[2].start or 0
     frequency_max = array_slice[2].stop or spw_channel_len
     polarization_min = array_slice[3].start or 0
     polarization_max = array_slice[3].stop or polarization_len
-    for time_idx in np.arange(0, guessed_shape[0]):
+    for time_idx in np.arange(time_min, time_len):
         vis_auto_strides = []
-        for antenna_idx in np.arange(antenna_len):
+        for antenna_idx in np.arange(antenna_min, antenna_max):
             offset += auto_offset_addition_before
             auto_floats = auto_data_arr
             if polarization_len == 3:

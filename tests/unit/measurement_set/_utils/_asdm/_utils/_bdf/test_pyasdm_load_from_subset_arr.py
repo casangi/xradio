@@ -90,12 +90,13 @@ def test_load_visibilities_all_subsets():
         mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
     ):
         with pytest.raises(RuntimeError, match="autoData not present"):
+            empty_slice = (slice(None), slice(None), slice(None), slice(None))
             load_visibilities_all_subsets(
                 mock_bdf_reader,
                 (1, 36, 9, 4, 2, 512, 2, 2),
                 (0, 0),
                 bdf_descr,
-                slice(None),
+                empty_slice,
             )
         mock_bdf_header.getBasebandsList.assert_not_called()
 
@@ -116,8 +117,13 @@ def test_load_visibilities_all_subsets_error():
     ):
         mock_bdf_reader.hasSubset.side_effect = [True, False]
         mock_bdf_reader.getSubset.side_effect = {ValueError}
+        empty_slice = (slice(None), slice(None), slice(None), slice(None))
         visibilities = load_visibilities_all_subsets(
-            mock_bdf_reader, (1, 36, 9, 4, 2, 512, 2, 2), (0, 0), bdf_descr
+            mock_bdf_reader,
+            (1, 36, 9, 4, 2, 512, 2, 2),
+            (0, 0),
+            bdf_descr,
+            empty_slice,
         )
         assert visibilities is None
         mock_bdf_header.getBasebandsList.assert_not_called()
@@ -253,8 +259,13 @@ def test_load_visibilities_all_subsets_X136e():
         mock_bdf_reader.getSubset.side_effect = [
             {"autoData": {"present": True, "arr": np.zeros((73728))}}
         ]
+        empty_slice = (slice(None), slice(None), slice(None), slice(None))
         visibilities = load_visibilities_all_subsets(
-            mock_bdf_reader, (1, 36, 9, 4, 2, 512, 2, 2), (0, 1), bdf_descr_X136e
+            mock_bdf_reader,
+            (1, 36, 9, 4, 2, 512, 2, 2),
+            (0, 1),
+            bdf_descr_X136e,
+            empty_slice,
         )
 
         assert isinstance(visibilities, np.ndarray)
@@ -277,12 +288,14 @@ def test__load_vis_subset():
         "autoData": {"present": True, "arr": np.zeros((18432))},
         "crossData": {"present": True, "arr": np.zeros((147456))},
     }
+    empty_slice = (slice(None), slice(None), slice(None), slice(None))
     visibilities = _load_vis_subset(
         subset,
         (2, 36, 9, 4, 2, 64, 2, 2),
         (0, 1),
         12345.6,
         pyasdm.enumerations.ProcessorType.CORRELATOR,
+        empty_slice,
     )
 
     assert isinstance(visibilities, np.ndarray)
@@ -348,12 +361,14 @@ def test__load_vis_subset_cross_data(
         _load_vis_subset_cross_data,
     )
 
+    empty_slice = (slice(None), slice(None), slice(None), slice(None))
     visibilities = _load_vis_subset_cross_data(
         input_data_arr,
         input_guessed_shape,
         input_baseband_spw_idxs,
         9876.5,
         input_processor_type,
+        empty_slice,
     )
 
     assert isinstance(visibilities, np.ndarray)
@@ -384,10 +399,12 @@ def test__load_vis_subset_auto_data(
         _load_vis_subset_auto_data,
     )
 
+    empty_slice = (slice(None), slice(None), slice(None), slice(None))
     visibilities = _load_vis_subset_auto_data(
         input_data_arr,
         input_guessed_shape,
         input_baseband_spw_idxs,
+        empty_slice,
     )
 
     assert isinstance(visibilities, np.ndarray)
@@ -437,7 +454,10 @@ def test_load_flags_all_subsets():
             "auto": (1, 7, 4, 2, 64, 2),
             "cross": (1, 28, 4, 2, 64, 2, 2),
         }
-        flags = load_flags_all_subsets(mock_bdf_reader, guessed_shape, (0, 0))
+        empty_slice = (slice(None), slice(None), slice(None), slice(None))
+        flags = load_flags_all_subsets(
+            mock_bdf_reader, guessed_shape, (0, 0), empty_slice
+        )
         assert flags.size == 560
         assert flags.shape == (1, 35, 4, 2, 2)
         assert mock_bdf_reader.hasSubset.call_count == 2
@@ -462,7 +482,10 @@ def test_load_flags_all_subsets_3pols_only_autodata():
             "auto": (1, 7, 4, 2, 64, 3),
             "cross": None,
         }
-        flags = load_flags_all_subsets(mock_bdf_reader, guessed_shape, (0, 0))
+        empty_slice = (slice(None), slice(None), slice(None), slice(None))
+        flags = load_flags_all_subsets(
+            mock_bdf_reader, guessed_shape, (0, 0), empty_slice
+        )
         assert flags.size == 28
         assert flags.shape == (1, 7, 4, 1)
         assert mock_bdf_reader.hasSubset.call_count == 2
@@ -488,7 +511,10 @@ def test_load_flags_all_subsets_auto_3pol():
             "cross": (1, 28, 4, 2, 64, 2, 4),
         }
         with pytest.raises(ValueError, match="number of dimensions"):
-            flags = load_flags_all_subsets(mock_bdf_reader, guessed_shape, (0, 0))
+            empty_slice = (slice(None), slice(None), slice(None), slice(None))
+            flags = load_flags_all_subsets(
+                mock_bdf_reader, guessed_shape, (0, 0), empty_slice
+            )
             assert flags.size == 560
             assert flags.shape == (1, 35, 4, 2, 2)
             assert mock_bdf_reader.hasSubset.call_count == 2
@@ -507,8 +533,9 @@ def test_load_flags_all_subsets_error():
     ):
         mock_bdf_reader.hasSubset.side_effect = [True, False]
         mock_bdf_reader.getSubset.side_effect = {ValueError}
+        empty_slice = (slice(None), slice(None), slice(None), slice(None))
         flags = load_flags_all_subsets(
-            mock_bdf_reader, (1, 36, 9, 4, 2, 512, 2, 2), (0, 0)
+            mock_bdf_reader, (1, 36, 9, 4, 2, 512, 2, 2), (0, 0), empty_slice
         )
         assert flags is None
         mock_bdf_header.getBasebandsList.assert_not_called()
@@ -531,10 +558,12 @@ def test_load_flags_all_subsets_X136e():
             "cross": (1, 36, 4, 2, 512, 2, 2),
             "auto": (1, 9, 4, 2, 512, 2),
         }
+        empty_slice = (slice(None), slice(None), slice(None), slice(None))
         flags = load_flags_all_subsets(
             mock_bdf_reader,
             guessed_shape,
             (0, 1),
+            empty_slice,
         )
         assert isinstance(flags, np.ndarray)
         assert flags.size == 90

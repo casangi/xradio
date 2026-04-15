@@ -51,6 +51,7 @@ def load_visibilities_one_spw_to_ndarray(
             overall_spw_idx,
             data_type,
             elements_count,
+            array_slice,
         )
 
     elif component_name == "crossData":
@@ -71,6 +72,7 @@ def load_visibilities_one_spw_to_ndarray(
             data_type,
             scale_factor,
             processor_type,
+            array_slice,
         )
 
     return vis_one_spw
@@ -147,6 +149,7 @@ def _load_vis_one_spw_cross_data_from_tree(
     data_type: np.dtype,
     scale_factor: float,
     processor_type: pyasdm.enumerations.ProcessorType,
+    array_slice: tuple[slice, ...],
 ) -> np.ndarray:
 
     polarization_len = guessed_shape[-2]

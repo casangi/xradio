@@ -1,14 +1,24 @@
-import dask.array as da
 import logging
+import os
+
+import dask.array as da
 import numpy as np
 import xarray as xr
-import os
-from .common import _np_types, _top_level_sub_xds
+import zarr.abc.codec
+import zarr.codecs
 
 from xradio._utils.zarr.config import ZARR_FORMAT
+from xradio._utils.zarr.encoding import add_encoding
+
+from .common import _top_level_sub_xds
 
 
-def _write_zarr(xds: xr.Dataset, zarr_store: str):
+def _write_zarr(
+    xds: xr.Dataset,
+    zarr_store: str,
+    compressor: zarr.abc.codec.BytesBytesCodec | None = None,
+    shards: dict | int | None = None,
+):
     max_chunk_size = 0.95 * 2**30
     for dv in xds.data_vars:
         obj = xds[dv]
@@ -26,6 +36,12 @@ def _write_zarr(xds: xr.Dataset, zarr_store: str):
                     f"by at least a factor of {chunk_size_bytes/max_chunk_size}."
                 )
     xds_copy = xds.copy(deep=True)
+    if compressor is not None or shards is not None:
+
+        _compressor = (
+            compressor if compressor is not None else zarr.codecs.ZstdCodec(level=2)
+        )
+        add_encoding(xds_copy, compressor=_compressor, shards=shards)
     sub_xds_dict = _encode(xds_copy, zarr_store)
     z_obj = xds_copy.to_zarr(store=zarr_store, compute=True, zarr_format=ZARR_FORMAT)
     if sub_xds_dict:

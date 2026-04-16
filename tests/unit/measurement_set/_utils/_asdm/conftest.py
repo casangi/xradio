@@ -444,3 +444,18 @@ def asdm_with_simple_feed(asdm_with_spw_simple):
     asdm = make_asdm_with_spw_simple()
     add_simple_feed_table(asdm)
     return asdm
+
+
+@pytest.fixture(scope="session")
+def asdm_with_main(asdm_with_spw_simple):
+    asdm = make_asdm_with_spw_simple()
+    add_main_table(asdm)
+    return asdm
+
+
+@pytest.fixture(scope="session")
+def asdm_with_main_config(asdm_with_spw_simple):
+    asdm = make_asdm_with_spw_simple()
+    add_main_table(asdm)
+    add_config_description_table(asdm)
+    return asdm

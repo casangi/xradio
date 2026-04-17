@@ -11,107 +11,6 @@ import pyasdm
 from xradio.schema.check import check_datatree
 
 
-def add_main_table(asdm: pyasdm.ASDM):
-    main_row_0_xml = """
-  <row>
-    <time> 5230000651200000000 </time>
-    <numAntenna> 2 </numAntenna>
-    <timeSampling>INTEGRATION</timeSampling>
-    <interval> 24192000000 </interval>
-    <numIntegration> 1512 </numIntegration>
-    <scanNumber> 1 </scanNumber>
-    <subscanNumber> 1 </subscanNumber>
-    <dataSize> 1681962 </dataSize>
-    <dataUID>
-      <EntityRef entityId="uid://A002/X11b94a6/X119f" partId="X00000000" entityTypeName="Main" documentVersion="1"/>
-    </dataUID>
-    <configDescriptionId> ConfigDescription_0 </configDescriptionId>
-    <execBlockId> ExecBlock_0 </execBlockId>
-    <fieldId> Field_0 </fieldId>
-    <stateId> 1 12 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0  </stateId>
-  </row>
-    """
-    main_table = asdm.getMain()
-    main_row_0 = pyasdm.MainRow(main_table)
-    main_row_0.setFromXML(main_row_0_xml)
-    main_table.add(main_row_0)
-
-
-def add_data_description_table(asdm: pyasdm.ASDM):
-    data_description_row_0_xml = """
-  <row>
-    <dataDescriptionId> DataDescription_0 </dataDescriptionId>
-    <polOrHoloId> Polarization_0 </polOrHoloId>
-    <spectralWindowId> SpectralWindow_0 </spectralWindowId>
-  </row>
-    """
-    data_description_table = asdm.getDataDescription()
-    data_description_row_0 = pyasdm.DataDescriptionRow(data_description_table)
-    data_description_row_0.setFromXML(data_description_row_0_xml)
-    data_description_table.add(data_description_row_0)
-
-
-def add_polarization_table(asdm: pyasdm.ASDM):
-    polarization_row_0_xml = """
-  <row>
-    <polarizationId> Polarization_0 </polarizationId>
-    <numCorr> 2 </numCorr>
-    <corrType> 1 2 XX YY</corrType>
-    <corrProduct> 2 2 2 X X Y Y</corrProduct>
-  </row>
-    """
-    polarization_table = asdm.getPolarization()
-    polarization_row_0 = pyasdm.PolarizationRow(polarization_table)
-    polarization_row_0.setFromXML(polarization_row_0_xml)
-    polarization_table.add(polarization_row_0)
-
-
-def add_field_table(asdm: pyasdm.ASDM):
-    field_row_0_xml = """
-  <row>
-    <fieldId> Field_0 </fieldId>
-    <fieldName> J0423-0120 </fieldName>
-    <numPoly> 1 </numPoly>
-    <delayDir> 2 1 2 1.1487030439690096 -0.023431362760917465  </delayDir>
-    <phaseDir> 2 1 2 1.1487030439690096 -0.023431362760917465  </phaseDir>
-    <referenceDir> 2 1 2 1.148703043969797 -0.02343136276090743  </referenceDir>
-    <time> 5230000639104000000 </time>
-    <code> none </code>
-    <directionCode>ICRS</directionCode>
-    <sourceId> 0 </sourceId>
-  </row>
-    """
-    field_table = asdm.getField()
-    field_row_0 = pyasdm.FieldRow(field_table)
-    field_row_0.setFromXML(field_row_0_xml)
-    field_table.add(field_row_0)
-
-
-def add_source_table(asdm: pyasdm.ASDM):
-    source_row_0_xml = """
-  <row>
-    <sourceId> 0 </sourceId>
-    <timeInterval> 7090683272335387903 4265377529038775807 </timeInterval>
-    <code> none </code>
-    <direction> 1 2 1.3528024488371877 0.31436086058385826  </direction>
-    <properMotion> 1 2 0.0 0.0  </properMotion>
-    <sourceName> J0510+1800 </sourceName>
-    <directionCode>J2000</directionCode>
-    <numFreq> 4 </numFreq>
-    <numStokes> 4 </numStokes>
-    <frequency> 1 4 2.1998305541101968E11 2.1800401136221878E11 2.3300428785048865E11 2.350043230298097E11  </frequency>
-    <stokesParameter> 1 4 I Q U V</stokesParameter>
-    <flux> 2 4 4 3.855274498565509 0.0 0.0 0.0 3.8656094704537534 0.0 0.0 0.0 3.7901533014049034 0.0 0.0 0.0 3.7805688135422617 0.0 0.0 0.0  </flux>
-    <size> 2 4 2 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0  </size>
-    <spectralWindowId> SpectralWindow_0 </spectralWindowId>
-  </row>
-"""
-    source_table = asdm.getSource()
-    source_row_0 = pyasdm.SourceRow(source_table)
-    source_row_0.setFromXML(source_row_0_xml)
-    source_table.add(source_row_0)
-
-
 def mock_get_times_from_bdfs(
     bdf_paths: list[str], scans_metadata: pd.DataFrame
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
@@ -155,7 +54,7 @@ def test_open_partition_asdm_with_spw_simple(
 
 
 def test_open_partition_monkeypatched_bdf_asdm_with_spw_simple(
-    asdm_with_main_execblock_config_processor_sbsummary, monkeypatch
+    asdm_with_main_etc_data_description_polarization_field_source, monkeypatch
 ):
     from xradio.measurement_set._utils._asdm.open_partition import open_partition
 
@@ -163,13 +62,8 @@ def test_open_partition_monkeypatched_bdf_asdm_with_spw_simple(
         "xradio.measurement_set._utils._asdm.open_partition.get_times_from_bdfs",
         mock_get_times_from_bdfs,
     )
-    add_main_table(asdm_with_main_execblock_config_processor_sbsummary)
-    add_data_description_table(asdm_with_main_execblock_config_processor_sbsummary)
-    add_polarization_table(asdm_with_main_execblock_config_processor_sbsummary)
-    add_field_table(asdm_with_main_execblock_config_processor_sbsummary)
-    add_source_table(asdm_with_main_execblock_config_processor_sbsummary)
     partition = open_partition(
-        asdm_with_main_execblock_config_processor_sbsummary,
+        asdm_with_main_etc_data_description_polarization_field_source,
         {
             "fieldId": [0],
             "configDescriptionId": [0],
@@ -235,7 +129,7 @@ def test_create_coordinates_with_spw_simple(asdm_with_spw_simple):
 
 
 def test_create_coordinates_monkeypatched_bdf_with_spw_simple(
-    asdm_with_spw_simple, monkeypatch
+    asdm_with_main_data_description_config_description_polarization, monkeypatch
 ):
     from xradio.measurement_set._utils._asdm.open_partition import create_coordinates
 
@@ -253,11 +147,10 @@ def test_create_coordinates_monkeypatched_bdf_with_spw_simple(
         mock_get_times_from_bdfs,
     )
 
-    add_main_table(asdm_with_spw_simple)
-    add_data_description_table(asdm_with_spw_simple)
-    add_polarization_table(asdm_with_spw_simple)
     coords, attrs, num_antenna, spw_id, bdf_spw_id, time_vars = create_coordinates(
-        asdm_with_spw_simple, partition_descr, False
+        asdm_with_main_data_description_config_description_polarization,
+        partition_descr,
+        False,
     )
     assert isinstance(coords, dict)
     for coo in [

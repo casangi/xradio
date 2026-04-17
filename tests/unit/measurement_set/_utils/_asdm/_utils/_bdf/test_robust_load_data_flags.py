@@ -477,6 +477,7 @@ def test_load_flags_from_bdf_with_error():
         with pytest.raises(RuntimeError, match="Error while loading flags from a BDF"):
             _flags = load_flags_from_bdf(bdf_path, 1, {}, True)
 
+
 @pytest.mark.parametrize(
     "input_flags_shape, input_baseband_idx, input_spw_idx, expected_shape",
     [
@@ -487,7 +488,9 @@ def test_load_flags_from_bdf_with_error():
         ((1, 3, 2), 1, 1, (1, 3, 1024, 2)),
     ],
 )
-def test__expand_frequency_in_flags_subset(input_flags_shape, input_baseband_idx, input_spw_idx, expected_shape):
+def test__expand_frequency_in_flags_subset(
+    input_flags_shape, input_baseband_idx, input_spw_idx, expected_shape
+):
     from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
         _expand_frequency_in_flags_subset,
     )

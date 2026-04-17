@@ -66,7 +66,14 @@ def array_slice_to_msv4_indices(array_slice: dict) -> tuple[slice, slice, slice,
 
 
 def load_visibilities_from_partition_bdfs(
-    bdf_paths: list[str], spw_id: int, array_slice: dict | None = None
+    bdf_paths: list[str],
+    spw_id: int,
+    array_slice: tuple[slice, ...] = (
+        slice(None),
+        slice(None),
+        slice(None),
+        slice(None),
+    ),
 ) -> np.ndarray:
 
     cumulative_vis = []
@@ -151,7 +158,14 @@ def load_visibilities_from_bdf(
 
 
 def load_flags_from_partition_bdfs(
-    bdf_paths: list[str], spw_id: int, array_slice: dict | None = None
+    bdf_paths: list[str],
+    spw_id: int,
+    array_slice: tuple[slice, ...] = (
+        slice(None),
+        slice(None),
+        slice(None),
+        slice(None),
+    ),
 ) -> np.ndarray:
 
     cumulative_flag = []
@@ -169,7 +183,7 @@ def check_flags_dims(flags_dims: list[str]):
 def load_flags_from_bdf(
     bdf_path: list[str],
     spw_id: int,
-    array_slice: dict,
+    array_slice: tuple[slice, ...],
     never_reshape_from_all_spws: bool = False,
 ) -> np.ndarray:
 
@@ -215,23 +229,31 @@ def load_flags_from_bdf(
         )
 
     bdf_flag_expanded = _expand_frequency_in_flags_subset(
-        bdf_flag, bdf_descr, baseband_spw_idxs[0], baseband_spw_idxs[1]
+        bdf_flag, bdf_descr, baseband_spw_idxs[0], baseband_spw_idxs[1], array_slice
     )
 
     return bdf_flag_expanded
 
 
 def _expand_frequency_in_flags_subset(
-    flag_subset: np.ndarray, bdf_descr: dict, baseband_idx: int, spw_idx: int
+    flag_subset: np.ndarray,
+    bdf_descr: dict,
+    baseband_idx: int,
+    spw_idx: int,
+    array_slice: tuple[slice, ...],
 ) -> np.ndarray:
     """
     The BDF flags binary components do not give flags per-channel. Expand per-SPW
     ndarray from a BDF, with dimensions (time, baseline, polarization) into an MSv4
     flag array with dimensions (time, baseline, frequency, polarization)
     """
-    frequency_len = bdf_descr["basebands"][baseband_idx]["spectralWindows"][spw_idx][
-        "numSpectralPoint"
-    ]
+    if not array_slice[2].start or not array_slice[2].stop:
+        frequency_len = bdf_descr["basebands"][baseband_idx]["spectralWindows"][
+            spw_idx
+        ]["numSpectralPoint"]
+    else:
+        frequency_len = len(array_slice[2].indices)
+
     expanded_shape = flag_subset.shape[0:2] + (frequency_len,) + flag_subset.shape[-1:]
     flag_subset = np.broadcast_to(flag_subset[:, :, np.newaxis, :], expanded_shape)
 

@@ -386,7 +386,8 @@ def test_load_flags_from_partition_bdfs():
         mock_bdf_reader.return_value.getHeader.return_value = mock_bdf_header
 
         bdf_paths = ["/inexistent_path_to_flags/foo/"]
-        flags = load_flags_from_partition_bdfs(bdf_paths, 0, {})
+        empty_slice = (slice(None), slice(None), slice(None), slice(None))
+        flags = load_flags_from_partition_bdfs(bdf_paths, 0, empty_slice)
         assert isinstance(flags, np.ndarray)
         assert flags.dtype == "bool"
         assert flags.shape == (1, 45, 1024, 2)
@@ -448,7 +449,10 @@ def test_load_flags_from_bdf(input_never_reshape, input_spw, expected_shape):
         make_sufficient_bdf_header_mock(mock_bdf_header)
         mock_bdf_reader.return_value.getHeader.return_value = mock_bdf_header
 
-        flags = load_flags_from_bdf(bdf_path, input_spw, {}, input_never_reshape)
+        empty_slice = (slice(None), slice(None), slice(None), slice(None))
+        flags = load_flags_from_bdf(
+            bdf_path, input_spw, empty_slice, input_never_reshape
+        )
         assert isinstance(flags, np.ndarray)
         assert flags.dtype == "bool"
         assert flags.shape == expected_shape
@@ -472,3 +476,30 @@ def test_load_flags_from_bdf_with_error():
 
         with pytest.raises(RuntimeError, match="Error while loading flags from a BDF"):
             _flags = load_flags_from_bdf(bdf_path, 1, {}, True)
+
+@pytest.mark.parametrize(
+    "input_flags_shape, input_baseband_idx, input_spw_idx, expected_shape",
+    [
+        ((1, 6, 2), 0, 0, (1, 6, 1024, 2)),
+        ((1, 6, 2), 0, 1, (1, 6, 512, 2)),
+        ((1, 3, 2), 0, 1, (1, 3, 512, 2)),
+        ((1, 3, 2), 1, 0, (1, 3, 1024, 2)),
+        ((1, 3, 2), 1, 1, (1, 3, 1024, 2)),
+    ],
+)
+def test__expand_frequency_in_flags_subset(input_flags_shape, input_baseband_idx, input_spw_idx, expected_shape):
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        _expand_frequency_in_flags_subset,
+    )
+
+    flags = np.ones(input_flags_shape, dtype="bool")
+    expanded = _expand_frequency_in_flags_subset(
+        flags,
+        bdf_descr_X136e,
+        input_baseband_idx,
+        input_spw_idx,
+        (slice(None), slice(None), slice(None), slice(None)),
+    )
+    assert isinstance(expanded, np.ndarray)
+    assert expanded.dtype == "bool"
+    assert expanded.shape == expected_shape

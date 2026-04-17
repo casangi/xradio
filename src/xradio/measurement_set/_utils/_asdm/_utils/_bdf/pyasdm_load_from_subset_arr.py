@@ -1,6 +1,7 @@
 """
 Loads visibility/flags from the 'arr' arrays produced by pyasdm.BDFReader.getSubset().
-These 'arr' 1d arrays contain the data for all the SPWs. These arrays are reshaped and
+This implies that all the data (for all the SPWs)is first loaded using getSubset().
+The 'arr' 1d arrays contain the data for all the SPWs. These arrays are reshaped and
 the relevant SPW is then selected.
 """
 
@@ -106,18 +107,37 @@ def _load_vis_subset_cross_data(
     cross_shape = guessed_shape[0:2] + guessed_shape[3:]
     cross_len = np.prod(cross_shape)
     cross_values = cross_data_arr[:cross_len].reshape(cross_shape)
+    time_slice, baseline_id_slice, frequency_slice, polarization_slice = array_slice
     if processor_type == pyasdm.enumerations.ProcessorType.CORRELATOR:
         vis_subset = (
-            cross_values[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, :, 0]
+            cross_values[
+                time_slice,
+                baseline_id_slice,
+                baseband_spw_idxs[0],
+                baseband_spw_idxs[1],
+                frequency_slice,
+                polarization_slice,
+                0,
+            ]
             + 1j
-            * cross_values[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, :, 1]
+            * cross_values[
+                time_slice,
+                baseline_id_slice,
+                baseband_spw_idxs[0],
+                baseband_spw_idxs[1],
+                frequency_slice,
+                polarization_slice,
+                1,
+            ]
         ) / scale_factor
     else:
         # radiometer / spectrometer
-        vis_subset = cross_values / scale_factor
-
-    if array_slice:
-        vis_subset = vis_subset[array_slice]
+        vis_subset = (
+            cross_values[
+                time_slice, baseline_id_slice, frequency_slice, polarization_slice
+            ]
+            / scale_factor
+        )
 
     return vis_subset
 
@@ -130,6 +150,7 @@ def _load_vis_subset_auto_data(
 ) -> np.ndarray:
 
     polarization_len = guessed_shape[-2]
+    time_slice, baseline_id_slice, frequency_slice, polarization_slice = array_slice
     if polarization_len == 3:
         # autoData: "The choice of a real- vs. complex-valued datum is dependent upon the
         # polarization product...parallel-hand polarizations are real-valued, while cross-hand
@@ -138,26 +159,61 @@ def _load_vis_subset_auto_data(
         auto_len = np.prod(auto_shape)
         auto_floats = (auto_data_arr[:auto_len]).reshape(auto_shape)
         vis_cross_hands = (
-            auto_floats[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, [1]]
-            + 1j * auto_floats[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, [2]]
+            auto_floats[
+                time_slice,
+                baseline_id_slice,
+                baseband_spw_idxs[0],
+                baseband_spw_idxs[1],
+                frequency_slice,
+                [1],
+            ]
+            + 1j
+            * auto_floats[
+                time_slice,
+                baseline_id_slice,
+                baseband_spw_idxs[0],
+                baseband_spw_idxs[1],
+                frequency_slice,
+                [2],
+            ]
         )
         vis_auto = np.concatenate(
             [
-                auto_floats[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, [0]],
+                auto_floats[
+                    time_slice,
+                    baseline_id_slice,
+                    baseband_spw_idxs[0],
+                    baseband_spw_idxs[1],
+                    frequency_slice,
+                    [0],
+                ],
                 vis_cross_hands,
                 vis_cross_hands,
-                auto_floats[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, [3]],
+                auto_floats[
+                    time_slice,
+                    baseline_id_slice,
+                    baseband_spw_idxs[0],
+                    baseband_spw_idxs[1],
+                    frequency_slice,
+                    [3],
+                ],
             ],
             axis=3,
         )
+        if polarization_slice:
+            vis_auto = vis_auto[..., polarization_slice]
     else:
         auto_shape = guessed_shape[:1] + guessed_shape[2:-1]
         auto_len = np.prod(auto_shape)
         auto_floats = (auto_data_arr[:auto_len]).reshape(auto_shape)
-        vis_auto = auto_floats[:, :, baseband_spw_idxs[0], baseband_spw_idxs[1], :, :]
-
-    if array_slice:
-        vis_auto = vis_auto[array_slice]
+        vis_auto = auto_floats[
+            time_slice,
+            baseline_id_slice,
+            baseband_spw_idxs[0],
+            baseband_spw_idxs[1],
+            frequency_slice,
+            polarization_slice,
+        ]
 
     return vis_auto
 

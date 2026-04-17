@@ -188,7 +188,6 @@ def load_vis_subset_cross_data_from_tree(
     spw_channel_len = spw_chan_lens[overall_spw_idx]
     time_len = guessed_shape[0]
     baseline_len = guessed_shape[1]
-    offset = 0
     time_min = array_slice[0].start or 0
     time_max = array_slice[0].stop or time_len
     baseline_min = array_slice[1].start or 0
@@ -268,7 +267,6 @@ def load_vis_subset_auto_data_from_tree(
     spw_channel_len = spw_chan_lens[overall_spw_idx]
 
     time_len = guessed_shape[0]
-    offset = 0
     vis_subset_integrations = []
     time_min = array_slice[0].start or 0
     time_max = array_slice[0].stop or time_len
@@ -414,32 +412,60 @@ def load_flags_subset_cross_and_auto_blocks_from_tree(
     polarization_cross_len = len(spw_descr["crossPolProducts"])
     polarization_auto_len = len(spw_descr["sdPolProducts"])
 
-    offset = 0
     flag_subset_integrations = []
-    for time_idx in np.arange(0, guessed_shape["auto"][0]):
+    time_len = guessed_shape["auto"][0]
+
+    time_min = array_slice[0].start or 0
+    time_max = array_slice[0].stop or time_len
+    baseline_min = array_slice[1].start or 0
+    baseline_max = array_slice[1].stop or baseline_len
+    polarization_min = array_slice[3].start or 0
+    polarization_max = array_slice[3].stop or polarization_len
+
+    for time_idx in np.arange(time_min, time_max):
         flag_strides = []
+
+        auto_offset_addition_before = offset_additions["auto"]["before"]
+        auto_offset_addition_after = offset_additions["auto"]["after"]
+        auto_offset_addition_both = (
+            auto_offset_addition_before + auto_offset_addition_after
+        )
+
         if (
             bdf_descr["correlation_mode"]
             != pyasdm.enumerations.CorrelationMode.AUTO_ONLY
         ):
             cross_offset_addition_before = offset_additions["cross"]["before"]
             cross_offset_addition_after = offset_additions["cross"]["after"]
-            for baseline_idx in np.arange(baseline_len):
-                offset += cross_offset_addition_before
+            cross_offset_addition_both = (
+                cross_offset_addition_before + cross_offset_addition_after
+            )
+            prev_auto_offset = time_idx * antenna_len * auto_offset_addition_both
+            for baseline_idx in np.arange(baseline_min, baseline_max):
+                offset = (
+                    time_idx * baseline_idx * cross_offset_addition_both
+                    + cross_offset_addition_before
+                    + prev_auto_offset
+                )
+                # notice: forgetting the int details (BinaryDataFlags enum)
                 stride = flag_array[offset : offset + polarization_cross_len].astype(
                     "bool"
-                )  # forgetting the int details (BinaryDataFlags enum)
+                )
                 flag_strides.append(stride)
                 offset += cross_offset_addition_after
 
-        auto_offset_addition_before = offset_additions["auto"]["before"]
-        auto_offset_addition_after = offset_additions["auto"]["after"]
-        for antenna_idx in np.arange(antenna_len):
-            offset += auto_offset_addition_before
+        total_cross_offset = time_idx * baseline_len * cross_offset_addition_both
+
+        for antenna_idx in np.arange(antenna_min, antenna_max):
+            offset = total_cross_offset + (
+                time_idx * antenna_idx * auto_offset_addition_both
+                + auto_offset_addition_before
+            )
             if polarization_auto_len != 3:
+                # notice: forgetting the int details (BinaryDataFlags enum)
                 stride = flag_array[offset : offset + polarization_auto_len].astype(
                     "bool"
-                )  # forgetting the int details
+                )
             else:
                 stride = np.array(
                     [
@@ -452,7 +478,6 @@ def load_flags_subset_cross_and_auto_blocks_from_tree(
                 )
 
             flag_strides.append(stride)
-            offset += auto_offset_addition_after
 
         flag_subset_integrations.append(np.stack(flag_strides))
 

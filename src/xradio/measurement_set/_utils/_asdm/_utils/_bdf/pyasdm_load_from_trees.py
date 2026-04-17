@@ -182,6 +182,9 @@ def load_vis_subset_cross_data_from_tree(
     cross_offset_addition_after = (
         np.sum(spw_chan_lens[overall_spw_idx:], dtype=int) * polarization_len * 2
     )
+    cross_offset_addition_both = (
+        cross_offset_addition_before + cross_offset_addition_after
+    )
     spw_channel_len = spw_chan_lens[overall_spw_idx]
     time_len = guessed_shape[0]
     baseline_len = guessed_shape[1]
@@ -198,30 +201,42 @@ def load_vis_subset_cross_data_from_tree(
         vis_strides = []
         for baseline_idx in np.arange(baseline_min, baseline_max):
             if processor_type == pyasdm.enumerations.ProcessorType.CORRELATOR:
-                offset += cross_offset_addition_before
-                spw_vis = cross_data_arr[
-                    offset : offset + spw_channel_len * polarization_len * 2
-                ]
+                offset = (
+                    time_idx * baseline_idx * cross_offset_addition_both
+                    + cross_offset_addition_before
+                )
+                first_frequency = offset + (frequency_min * polarization_len * 2)
+                last_frequency = offset + (frequency_max * polarization_len * 2)
+                spw_vis = cross_data_arr[first_frequency:last_frequency]
 
                 spw_vis = spw_vis.reshape((int(spw_vis.size / 2), 2))
                 spw_vis = spw_vis[:, 0] + 1j * spw_vis[:, 1]
                 spw_vis /= scale_factor
-                vis_strides.append(spw_vis.reshape((spw_channel_len, polarization_len)))
-                offset += cross_offset_addition_after
+                spw_vis = spw_vis.reshape(
+                    (frequency_max - frequency_min, polarization_len)
+                )
+                vis_strides.append(spw_vis)
 
             else:
                 # radiometer / spectrometer
-                offset += int(cross_offset_addition_before / 2)
-                spw_values = cross_data_arr[
-                    offset : offset + spw_channel_len * polarization_len
-                ]
+                offset = int(
+                    (
+                        time_idx * baseline_idx * cross_offset_addition_both
+                        + cross_offset_addition_before
+                    )
+                    / 2
+                )
+                first_frequency = offset + (frequency_min * polarization_len)
+                last_frequency = offset + (frequency_max * polarization_len)
+                spw_values = cross_data_arr[first_frequency:last_frequency]
                 spw_values = (
-                    spw_values.reshape((spw_channel_len, polarization_len))
+                    spw_values.reshape(
+                        (frequency_max - frequency_min, polarization_len)
+                    )
                     / scale_factor
                 )
 
                 vis_strides.append(spw_values)
-                offset += int(cross_offset_addition_after / 2)
 
     vis_subset = np.stack(vis_strides)
     vis_subset = vis_subset.reshape((1, *vis_subset.shape))
@@ -248,6 +263,7 @@ def load_vis_subset_auto_data_from_tree(
     auto_offset_addition_after = (
         np.sum(spw_chan_lens[overall_spw_idx:], dtype=int) * sd_polarization_len
     )
+    auto_offset_addition_both = auto_offset_addition_before + auto_offset_addition_after
     antenna_len = guessed_shape[2]
     spw_channel_len = spw_chan_lens[overall_spw_idx]
 
@@ -265,16 +281,21 @@ def load_vis_subset_auto_data_from_tree(
     for time_idx in np.arange(time_min, time_len):
         vis_auto_strides = []
         for antenna_idx in np.arange(antenna_min, antenna_max):
-            offset += auto_offset_addition_before
             auto_floats = auto_data_arr
+            offset = (
+                time_idx * antenna_idx * auto_offset_addition_both
+                + auto_offset_addition_before
+            )
+            first_frequency = offset + (frequency_min * sd_polarization_len)
+            last_frequency = offset + (frequency_max * sd_polarization_len)
             if polarization_len == 3:
                 # autoData: "The choice of a real- vs. complex-valued datum is dependent upon the
                 # polarization product...parallel-hand polarizations are real-valued, while cross-hand
                 # polarizations are complex-valued".
-                spw_floats = auto_floats[
-                    offset : offset + spw_channel_len * sd_polarization_len
-                ]
-                spw_floats = spw_floats.reshape((spw_channel_len, sd_polarization_len))
+                spw_floats = auto_floats[first_frequency:last_frequency]
+                spw_floats = spw_floats.reshape(
+                    (frequency_max - frequency_min, sd_polarization_len)
+                )
                 spw_vis = np.concatenate(
                     [
                         spw_floats[:, [0]],
@@ -285,10 +306,11 @@ def load_vis_subset_auto_data_from_tree(
                 )
                 vis_auto_strides.append(spw_vis)
             else:
-                spw_floats = auto_floats[
-                    offset : offset + spw_channel_len * sd_polarization_len
-                ]
-                spw_floats = spw_floats.reshape((spw_channel_len, sd_polarization_len))
+
+                spw_floats = auto_floats[first_frequency:last_frequency]
+                spw_floats = spw_floats.reshape(
+                    (frequency_max - frequency_min, sd_polarization_len)
+                )
                 vis_auto_strides.append(spw_floats)
 
             offset += auto_offset_addition_after

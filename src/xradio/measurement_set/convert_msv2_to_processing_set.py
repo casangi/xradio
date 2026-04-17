@@ -132,7 +132,7 @@ def convert_msv2_to_processing_set(
         assert parallel_mode in ["none", "partition", "time"]
     except AssertionError:
         xradio_logger().warning(
-            f"`parallel_mode` {parallel_mode} not recognosed. Defauling to 'none'."
+            f"`parallel_mode` {parallel_mode} not recognised. Defaulting to 'none'."
         )
         parallel_mode = "none"
 

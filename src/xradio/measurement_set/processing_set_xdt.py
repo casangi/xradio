@@ -795,8 +795,42 @@ class ProcessingSetXdt:
         add_antenna_stations: bool = False,
         add_elevation_plot: bool = True,
         add_continent_outlines: bool = True,
-        fig_size: tuple = (12, 8),
+        figure_size: tuple = (12, 8),
     ):
+        """
+        Plot the antenna positions of all antennas in all measurement sets onto 2D grids.
+
+        For connected arrays with a known array center the antenna positions are plotted in an east-west (X axis)\
+        north-south (Y axis) grid in meters centered on the array center.
+        For disconnected arrays (usually VLBI) or arrays with no-known array center antenna positions are plotted in a \
+        longitude and latitude grid in a quasi-mercator projection.
+        If `cartopy` is available, non-connected arrays are plotted along with continental outlines.
+        A plot of antenna elevations above sea level is also produced together with the 2d array configuration.
+
+        Parameters
+        ----------
+        add_antenna_labels: bool, optional
+            If 'True', annotations are shown with a descriptive label for each antenna, default is 'True'.
+        add_antenna_stations: bool, optional
+            If 'True', add antenna station information to the antenna labels, default is 'False'.
+        add_elevation_plot: bool, optional
+            If 'True', add a plot of the elevations above sea level for each antenna, default is 'True'.
+        add_continent_outlines: bool, optional
+            If 'True' and `cartopy` is available, add continental outlines for the longitude and latitude plots for \
+            disconnected arrays or arrays for which no array center is known.
+        figure_size: tuple, optional
+            Controls the size of the plot in inches.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        ValueError
+            If antenna positions are not in the Geocentric ITRS frame.
+
+        """
         from xradio._utils.logging import xradio_logger
         from matplotlib import pyplot as plt
         import astropy.units as ap_units
@@ -836,6 +870,7 @@ class ProcessingSetXdt:
                 "latitude": 21.443889,
                 "radius": 6373681.0,
             },
+            # GMRT antenna positions in the XDSes seem really weird...
             "GMRT": {
                 "longitude": 74.05210298316263,
                 "latitude": 19.090998273409596,
@@ -913,7 +948,7 @@ class ProcessingSetXdt:
         #         ant_rad[i_ant],
         #     )
 
-        fig = plt.figure(figsize=fig_size)
+        fig = plt.figure(figsize=figure_size)
 
         if add_elevation_plot:
             if cartopy_available:

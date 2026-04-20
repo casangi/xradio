@@ -937,9 +937,9 @@ flags_input_guessed_shape_2times_x136e = {
             {"flags": {"present": True, "arr": np.zeros((120))}},
             flags_input_guessed_shape_2times_x136e,
             bdf_descr_X136e,
-            20,
-            (1, 10, 2),
-            pytest.raises(ValueError, match="must have the same shape"),
+            40,
+            (2, 10, 2),
+            no_raises(),
         ),
         (
             {"flags": {"present": True, "arr": np.zeros((30))}},

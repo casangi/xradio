@@ -836,6 +836,65 @@ class ProcessingSetXdt:
         import astropy.units as ap_units
         from astropy.coordinates import EarthLocation
 
+        def setup_annotations_for_hover(plot_axes):
+            """
+            Creates annotations for antennae at position and elevation axes objects.
+
+            Parameters
+            plot_axes : matplotlib axes object list
+
+            Returns
+            -------
+            dict
+                dict from antenna axes -> annotation objects
+            """
+            annotations = []
+            for plot_ax in plot_axes:
+                annotation = plot_ax.annotate(
+                    "",
+                    xy=(0, 0),
+                    xytext=(5, 5),
+                    textcoords="offset points",
+                    arrowprops=dict(arrowstyle="-|>"),
+                    bbox=dict(boxstyle="round", fc="w"),
+                )
+                annotation.set_visible(False)
+                annotations.append(annotation)
+            return dict(zip(plot_axes, annotations))
+
+        def update_antenna_annotation(indices, plot_obj, annotation, ant_info):
+            position = plot_obj.get_offsets()[indices["ind"][0]]
+            annotation.xy = position
+
+            anno_text = ""
+            for num in indices["ind"]:
+                anno_text = ""
+                for key, value in ant_info[num].items():
+                    anno_text += f"{key}: {value}\n"
+
+            anno_text = anno_text.rstrip("\n")
+            annotation.set_text(anno_text)
+            annotation.get_bbox_patch().set_facecolor("#e8d192")
+            annotation.get_bbox_patch().set_alpha(1)
+
+        def hover_annotation(event):
+            if event.inaxes in plot_axes:
+                for axis in plot_axes:
+                    contained, indices = plot_map[axis].contains(event)
+                    annotation = annotation_map[axis]
+                    if contained:
+                        scatter = plot_map[axis]
+                        update_antenna_annotation(
+                            indices, scatter, annotation, info_dicts
+                        )
+                        annotation.set_visible(True)
+                        fig.canvas.draw_idle()
+                    else:
+                        visible = annotation.get_visible()
+                        if visible:
+                            annotation.set_visible(False)
+                            fig.canvas.draw_idle()
+
         if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
             raise InvalidAccessorLocation(
                 f"{self._xdt.path} is not a processing set node."
@@ -866,11 +925,11 @@ class ProcessingSetXdt:
                 "radius": 6373580.0,
             },
             "MeerKAT": {
-                "longitude": -30.711056,
-                "latitude": 21.443889,
+                "longitude": 21.443889,
+                "latitude": -30.711056,
                 "radius": 6373681.0,
             },
-            # GMRT antenna positions in the XDSes seem really weird...
+            # GMRT antenna positions in the XDSes seem really weird, maybe an unit error?
             "GMRT": {
                 "longitude": 74.05210298316263,
                 "latitude": 19.090998273409596,
@@ -891,6 +950,7 @@ class ProcessingSetXdt:
         ant_pos = combined_antenna_xds.ANTENNA_POSITION
         ant_names = ant_pos.antenna_name.values
         station_names = ant_pos.station_name.values
+        telescope_names = ant_pos.telescope_name.values
 
         overall_telescope = combined_antenna_xds.attrs["overall_telescope_name"]
         if "OSKAR" in overall_telescope:
@@ -905,6 +965,7 @@ class ProcessingSetXdt:
         pos_frame = ant_pos.attrs["frame"]
         pos_system = ant_pos.attrs["coordinate_system"]
 
+        # Convert antenna positions in bulk
         if pos_frame == "ITRS" and pos_system == "geocentric":
             ant_x = ant_pos.sel(cartesian_pos_label="x").values
             ant_y = ant_pos.sel(cartesian_pos_label="y").values
@@ -927,26 +988,18 @@ class ProcessingSetXdt:
             array_center = observatory_array_centers[overall_telescope]
         except KeyError:
             xradio_logger().warning(
-                f"Observatory {overall_telescope} not yet supported plotting as a disconnected array"
+                f"Observatory {overall_telescope} not yet supported, plotting as a disconnected array"
             )
             array_center = None
 
-        is_vlbi = array_center is None
+        plot_as_disconnected_array = array_center is None
+
         ant_labels = [f"{ant_name}" for ant_name in ant_names]
         if add_antenna_stations:
             ant_labels = [
                 f"{ant_name} @ {station_names[i_ant]}"
                 for i_ant, ant_name in enumerate(ant_names)
             ]
-
-        # for i_ant, ant_label in enumerate(ant_labels):
-        #     print(
-        #         ant_label,
-        #         ant_lon[i_ant],
-        #         ant_lat[i_ant],
-        #         ant_height[i_ant],
-        #         ant_rad[i_ant],
-        #     )
 
         fig = plt.figure(figsize=figure_size)
 
@@ -958,7 +1011,7 @@ class ProcessingSetXdt:
         else:
             main_plot_area = (0.1, 0.1, 0.8, 0.8)
 
-        if is_vlbi:
+        if plot_as_disconnected_array:
             if cartopy_available:
                 import cartopy.crs as ccrs
                 import cartopy.feature as cfeature
@@ -990,7 +1043,24 @@ class ProcessingSetXdt:
             ant_pos_ax.set_xlabel("East [m]")
             ant_pos_ax.set_ylabel("North [m]")
 
-        ant_pos_ax.plot(
+        # Build antenna info dictionaries
+        info_dicts = []
+        for i_ant, ant_name in enumerate(ant_names):
+            ant_dict = {
+                "Name": ant_name,
+                "Station": station_names[i_ant],
+                "Telescope": telescope_names[i_ant],
+                "Elevation": f"{ant_height[i_ant]:.0f}",
+            }
+            if plot_as_disconnected_array:
+                ant_dict["Longitude"] = f"{ant_plot_pos_x[i_ant]:.4f} deg"
+                ant_dict["Latitude"] = f"{ant_plot_pos_y[i_ant]:.4f} deg"
+            else:
+                ant_dict["East offset"] = f"{ant_plot_pos_x[i_ant]:.2f} m"
+                ant_dict["North offset"] = f"{ant_plot_pos_y[i_ant]:.2f} m"
+            info_dicts.append(ant_dict)
+
+        ant_pos_plot = ant_pos_ax.scatter(
             ant_plot_pos_x,
             ant_plot_pos_y,
             color="blue",
@@ -1009,21 +1079,27 @@ class ProcessingSetXdt:
                 )
 
         ant_pos_ax.set_title(f"{overall_telescope} Antenna Positions")
-
         if add_elevation_plot:
             ant_ids = np.arange(ant_height.shape[0])
-            el_ax = plt.axes((0.1, 0.05, 0.8, 0.25))
-            el_ax.plot(
+            ant_el_ax = plt.axes((0.1, 0.05, 0.8, 0.25))
+            ant_el_plot = ant_el_ax.scatter(
                 ant_ids,
                 ant_height,
                 color="blue",
                 marker="_",
                 ls="",
             )
-            el_ax.set_xlabel("Antenna")
-            el_ax.set_ylabel("Antenna Elevation [m]")
-            el_ax.set_xticks(ant_ids, labels=ant_labels, rotation=90)
+            ant_el_ax.set_xlabel("Antenna")
+            ant_el_ax.set_ylabel("Antenna Elevation [m]")
+            ant_el_ax.set_xticks(ant_ids, labels=ant_labels, rotation=90)
+            plot_axes = [ant_pos_ax, ant_el_ax]
+            plot_map = dict(zip(plot_axes, [ant_pos_plot, ant_el_plot]))
+        else:
+            plot_axes = [ant_pos_ax]
+            plot_map = dict(zip(plot_axes, [ant_pos_plot]))
 
+        annotation_map = setup_annotations_for_hover(plot_axes)
+        fig.canvas.mpl_connect("motion_notify_event", hover_annotation)
         plt.show()
 
         return

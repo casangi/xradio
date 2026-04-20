@@ -562,3 +562,82 @@ def asdm_with_main_config(asdm_with_spw_simple):
     add_main_table(asdm)
     add_config_description_table(asdm)
     return asdm
+
+
+def add_spw_table(asdm: pyasdm.ASDM):
+    spw_row_0_xml = """
+  <row>
+    <spectralWindowId> SpectralWindow_0 </spectralWindowId>
+    <basebandName>BB_1</basebandName>
+    <netSideband>LSB</netSideband>
+    <numChan> 1 </numChan>
+    <refFreq> 2.84021E11 </refFreq>
+    <sidebandProcessingMode>NONE</sidebandProcessingMode>
+    <totBandwidth> 2.0E9 </totBandwidth>
+    <windowFunction>UNIFORM</windowFunction>
+    <chanFreqArray> 1 1 2.83021E11  </chanFreqArray>
+    <chanWidth> 2.0E9 </chanWidth>
+    <effectiveBw> 2.0E9 </effectiveBw>
+    <name> X662533328#ALMA_RB_07#BB_1#SQLD </name>
+    <resolution> 2.0E9 </resolution>
+    <numAssocValues> 1 </numAssocValues>
+    <assocNature> 1 1 BASEBAND_WIDE</assocNature>
+    <assocSpectralWindowId> 1 1 SpectralWindow_0  </assocSpectralWindowId>
+  </row>
+    """
+    spw_table = asdm.getSpectralWindow()
+    spw_row_0 = pyasdm.SpectralWindowRow(spw_table)
+    spw_row_0.setFromXML(spw_row_0_xml)
+    spw_table.add(spw_row_0)
+
+
+def add_scan_table(asdm: pyasdm.ASDM):
+    scan_row_0_xml = """
+  <row>
+    <scanNumber> 1 </scanNumber>
+    <startTime> 5230000639104000000 </startTime>
+    <endTime> 5230000885728000000 </endTime>
+    <numIntent> 2 </numIntent>
+    <numSubscan> 10 </numSubscan>
+    <scanIntent> 1 2 CALIBRATE_POINTING CALIBRATE_WVR</scanIntent>
+    <calDataType> 1 2 CHANNEL_AVERAGE_CROSS WVR</calDataType>
+    <calibrationOnLine> 1 2 true true  </calibrationOnLine>
+    <calibrationFunction> 1 2 UNSPECIFIED UNSPECIFIED</calibrationFunction>
+    <calibrationSet> 1 2 NONE NONE</calibrationSet>
+    <calPattern> 1 2 FIVE_POINTS NONE</calPattern>
+    <numField> 1 </numField>
+    <fieldName> 1 1 &quot;J0423-0120&quot;  </fieldName>
+    <sourceName> J0423-0120 </sourceName>
+    <execBlockId> ExecBlock_0 </execBlockId>
+  </row>
+    """
+    scan_table = asdm.getScan()
+    scan_row_0 = pyasdm.ScanRow(scan_table)
+    scan_row_0.setFromXML(scan_row_0_xml)
+    scan_table.add(scan_row_0)
+
+
+@pytest.fixture(scope="session")
+def mock_asdm_set_from_file():
+    """
+    Meant to mock the asdm.setFromFile() function of pyasdm, for open_asdm to be able to run completely but
+    without using any real I/O.
+    """
+
+    def _function_mock_asdm_set_from_file(self, _directory: str):
+        """
+        This function is meant to mock asdm.setFromFile(), and needs to operate on an asdm object previously
+        instantiated.
+        """
+        add_main_table(self)
+        add_config_description_table(self)
+        add_data_description_table(self)
+        add_polarization_table(self)
+        add_field_table(self)
+        add_spw_table(self)
+        add_scan_table(self)
+        add_execblock_table(self)
+        add_processor_table(self)
+        add_sbsummary_table(self)
+
+    return _function_mock_asdm_set_from_file

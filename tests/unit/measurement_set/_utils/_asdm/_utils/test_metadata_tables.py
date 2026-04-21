@@ -1,10 +1,6 @@
-import copy
-
 import pandas as pd
 
 import pytest
-
-import pyasdm
 
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,

@@ -47,9 +47,9 @@ class CalibrationParameterNameArray:
 
 
 @xarray_dataarray_schema
-class CalibrationParameterArray:
+class AntennaCalibrationParameterArray:
     """
-    Calibration parameters; these can be real or complex
+    Calibration parameters for antennas; these can be real or complex
     """
 
     data: Data[
@@ -59,6 +59,18 @@ class CalibrationParameterArray:
             ],
             tuple[Time, BaselineId, Frequency, Polarization],
         ],
+        Union[numpy.float32, numpy.float64, numpy.complex64, numpy.complex128],
+    ]
+
+
+@xarray_dataarray_schema
+class BaselineCalibrationParameterArray:
+    """
+    Calibration parameters for antennas; these can be real or complex
+    """
+
+    data: Data[
+        tuple[Time, BaselineId, Frequency, CalibrationParameterName, ReceptorLabel],
         Union[numpy.float32, numpy.float64, numpy.complex64, numpy.complex128],
     ]
 
@@ -78,6 +90,35 @@ class ParameterErrorArray:
         ],
         Union[numpy.float32, numpy.float64],
     ]
+
+
+# Data variables
+@xarray_dataarray_schema
+class FlagArray:
+    """
+    An array of Boolean or integer values with the same shape as the
+    calibration parameters (either baseline or antenna based),
+    representing the cumulative flags applying to this data matrix.
+    """
+
+    data: Data[
+        Union[
+            tuple[
+                Time, AntennaName, Frequency, CalibrationParameterName, ReceptorLabel
+            ],
+            tuple[Time, BaselineId, Frequency, CalibrationParameterName, Polarization],
+        ],
+        bool,
+    ]
+    """ Flag value.  Data is flagged as bad if the array element is
+    ``True`` or nonzero."""
+    time: Coordof[TimeCoordArray]
+    baseline_id: Optional[Coordof[BaselineArray]]  # Only IF
+    antenna_name: Optional[Coordof[AntennaNameArray]]  # Only SD
+    frequency: Coordof[FrequencyArray]
+    receptor_label: Optional[Coordof[ReceptorLabelArray]] = None
+    polarization: Optional[Coordof[PolarizationArray]] = None
+    long_name: Optional[Attr[str]] = "Calibration flags"
 
 
 @xarray_dataset_schema
@@ -106,11 +147,13 @@ class AntennaCalibrationXds:
 
     # --- Required data variables ---
 
-    CALIBRATION_PARAMETER: Dataof[CalibrationParameterArray]
-    """Calibration parameters"""
+    ANTENNA_CALIBRATION_PARAMETER: Dataof[AntennaCalibrationParameterArray]
+    """Calibration parameters for single antennas"""
 
     PARAMETER_ERROR: Dataof[ParameterErrorArray]
     """Error estimates for calibration paramters."""
+
+    FLAG: Dataof[FlagArray]
 
     # --- Required Attributes ---
 
@@ -146,19 +189,6 @@ class AntennaCalibrationXds:
     # --- Optional Attributes ---
 
 
-# Note that the AntennaXDS has a map from (antenna_name, receptor_label) to polarization_type
-# Also receptor_label, which is a full-on *dimension* has labels 'pol_0' and 'pol_1',
-
-# xds.antenna_xds
-#     Dimensions:                 (time: 120, baseline_id: 55, frequency: 32,
-#                                  polarization: 4, uvw_label: 3, antenna_name: 10,
-#                                  cartesian_pos_label: 3, receptor_label: 2)
-#     Coordinates:
-#     [...]
-#         polarization_type       (antenna_name, receptor_label) <U1 80B dask.array<chunksize=(10, 2), meta=np.ndarray>
-#       * receptor_label          (receptor_label) <U5 40B 'pol_0' 'pol_1'
-
-
 @xarray_dataset_schema
 class BaselineCorrectionXds:
     """Calibration dataset for baseline effects"""
@@ -179,15 +209,17 @@ class BaselineCorrectionXds:
     field_name: Coordof[Coord[Time, str]]
     """Field name."""
     scan_name: Coordof[ScanArray]
-    """Scan name to identify data taken in the same logical scan."""
+    """Scan name to identify data taken in the same logical scan"""
 
     # --- Required data variables ---
 
-    CALIBRATION_PARAMETER: Dataof[CalibrationParameterArray]
-    """Calibration parameters"""
+    BASELINE_CALIBRATION_PARAMETER: Dataof[BaselineCalibrationParameterArray]
+    """Calibration parameters for baselines"""
 
     PARAMETER_ERROR: Dataof[ParameterErrorArray]
-    """Error estimates for calibration paramters."""
+    """Error estimates for calibration paramters"""
+
+    FLAGS: Dataof[FlagArray]
 
     baseline_antenna1_name: Coordof[BaselineAntennaNameArray]
     """Antenna name for 1st antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_name``"""

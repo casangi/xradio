@@ -9,6 +9,7 @@ from typing import Callable, Dict, Union
 
 import dask.array as da
 import numpy as np
+from toolviper.utils.memory_management import free_memory
 import xarray as xr
 import traceback
 
@@ -1064,6 +1065,9 @@ def convert_and_write_partition(
     _type_
         _description_
     """
+    from toolviper.utils.memory_management import memory_setup, free_memory
+
+    memory_setup(131072)
 
     ms_xdt = xr.DataTree()  # MSv4 as a Data Tree
 
@@ -1420,7 +1424,11 @@ def convert_and_write_partition(
             raise
         xradio_logger().debug("Write data  " + str(time.time() - start))
 
-    # get_logger().info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
+        # get_logger().info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
+
+        # This prevents memory leak that occusrs with dask and large numpy arrays.
+        ms_xdt = None
+        free_memory()
 
 
 def antenna_ids_to_names(

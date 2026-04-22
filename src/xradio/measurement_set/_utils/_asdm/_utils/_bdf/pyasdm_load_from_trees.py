@@ -214,7 +214,6 @@ def load_vis_subset_cross_data_from_tree(
                 spw_vis = spw_vis.reshape(
                     (frequency_max - frequency_min, polarization_len)
                 )
-                vis_strides.append(spw_vis)
 
             else:
                 # radiometer / spectrometer
@@ -234,8 +233,11 @@ def load_vis_subset_cross_data_from_tree(
                     )
                     / scale_factor
                 )
+                spw_vis = spw_values
 
-                vis_strides.append(spw_values)
+            if polarization_max - polarization_min != polarization_len:
+                spw_vis = spw_vis[..., polarization_min:polarization_max]
+            vis_strides.append(spw_vis)
 
     vis_subset = np.stack(vis_strides)
     vis_subset = vis_subset.reshape((1, *vis_subset.shape))
@@ -276,7 +278,7 @@ def load_vis_subset_auto_data_from_tree(
     frequency_max = array_slice[2].stop or spw_channel_len
     polarization_min = array_slice[3].start or 0
     polarization_max = array_slice[3].stop or sd_polarization_len
-    for time_idx in np.arange(time_min, time_len):
+    for time_idx in np.arange(time_min, time_max):
         vis_auto_strides = []
         for antenna_idx in np.arange(antenna_min, antenna_max):
             auto_floats = auto_data_arr
@@ -302,14 +304,18 @@ def load_vis_subset_auto_data_from_tree(
                     ],
                     axis=1,
                 )
-                vis_auto_strides.append(spw_vis)
             else:
 
                 spw_floats = auto_floats[first_frequency:last_frequency]
                 spw_floats = spw_floats.reshape(
                     (frequency_max - frequency_min, sd_polarization_len)
                 )
-                vis_auto_strides.append(spw_floats)
+                spw_vis = spw_floats
+
+            if polarization_max - polarization_min != polarization_len:
+                spw_vis = spw_vis[..., polarization_min:polarization_max]
+
+            vis_auto_strides.append(spw_vis)
 
         vis_subset_integrations.append(np.stack(vis_auto_strides))
 
@@ -452,6 +458,9 @@ def load_flags_subset_cross_and_auto_blocks_from_tree(
                 stride = flag_array[offset : offset + polarization_cross_len].astype(
                     "bool"
                 )
+                if polarization_max - polarization_min != polarization_cross_len:
+                    stride = stride[..., polarization_min:polarization_max]
+
                 flag_strides.append(stride)
 
         total_cross_offset = time_idx * baseline_len * cross_offset_addition_both
@@ -476,6 +485,8 @@ def load_flags_subset_cross_and_auto_blocks_from_tree(
                     ],
                     dtype="bool",
                 )
+                if polarization_max - polarization_min != polarization_cross_len:
+                    stride = stride[..., polarization_min:polarization_max]
 
             flag_strides.append(stride)
 

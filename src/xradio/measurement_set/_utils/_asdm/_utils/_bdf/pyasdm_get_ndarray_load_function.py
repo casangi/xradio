@@ -125,8 +125,6 @@ def _load_vis_one_spw_auto_data_from_tree(
             bdf_file.seek(component_offset + offset, os.SEEK_SET)
             spw_floats = np.fromfile(bdf_file, dtype=data_type, count=one_antenna_count)
 
-            first_frequency = offset + (frequency_min * sd_polarization_len)
-            last_frequency = offset + (frequency_max * sd_polarization_len)
             if polarization_len != 3:
                 spw_values = spw_floats.reshape(
                     (frequency_max - frequency_min, sd_polarization_len)
@@ -146,6 +144,9 @@ def _load_vis_one_spw_auto_data_from_tree(
                     ],
                     axis=1,
                 )
+
+            if polarization_max - polarization_min != polarization_len:
+                spw_values = spw_values[..., polarization_min:polarization_max]
 
             vis_auto_strides.append(spw_values)
 
@@ -208,9 +209,7 @@ def _load_vis_one_spw_cross_data_from_tree(
                 spw_vis = spw_vis.reshape((int(spw_vis.size / 2), 2))
                 spw_vis = spw_vis[:, 0] + 1j * spw_vis[:, 1]
                 spw_vis /= scale_factor
-                vis_strides.append(
-                    spw_vis.reshape((frequency_max - frequency_min, polarization_len))
-                )
+                spw_vis.reshape((frequency_max - frequency_min, polarization_len))
 
             else:
                 # radiometer / spectrometer
@@ -231,8 +230,12 @@ def _load_vis_one_spw_cross_data_from_tree(
                     )
                     / scale_factor
                 )
+                spw_vis = spw_values
 
-                vis_strides.append(spw_values)
+            if polarization_max - polarization_min != polarization_len:
+                spw_vis = spw_vis[..., polarization_min:polarization_max]
+
+            vis_strides.append(spw_vis)
 
     vis_cross = np.stack(vis_strides)
     vis_cross = vis_cross.reshape((1, *vis_cross.shape))

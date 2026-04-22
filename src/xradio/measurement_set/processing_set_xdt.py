@@ -1,4 +1,5 @@
 import pandas as pd
+
 from xradio._utils.list_and_array import to_list
 import numpy as np
 import xarray as xr
@@ -786,6 +787,322 @@ class ProcessingSetXdt:
         combined_antenna_xds = combined_antenna_xds.drop_duplicates("antenna_name")
 
         return combined_antenna_xds
+
+    def plot_antenna_positions_2d(
+        self,
+        add_antenna_labels: bool = True,
+        add_antenna_stations: bool = False,
+        add_elevation_plot: bool = True,
+        add_continent_outlines: bool = True,
+        figure_size: tuple = (12, 8),
+    ):
+        """
+        Plot the antenna positions of all antennas in all measurement sets onto 2D grids.
+
+        For connected arrays with a known array center the antenna positions are plotted in an east-west (X axis)\
+        north-south (Y axis) grid in meters centered on the array center.
+        For disconnected arrays (usually VLBI) or arrays with no-known array center antenna positions are plotted in a \
+        longitude and latitude grid in a quasi-mercator projection.
+        If `cartopy` is available, non-connected arrays are plotted along with continental outlines.
+        A plot of antenna elevations above sea level is also produced together with the 2d array configuration.
+
+        Parameters
+        ----------
+        add_antenna_labels: bool, optional
+            If 'True', annotations are shown with a descriptive label for each antenna, default is 'True'.
+        add_antenna_stations: bool, optional
+            If 'True', add antenna station information to the antenna labels, default is 'False'.
+        add_elevation_plot: bool, optional
+            If 'True', add a plot of the elevations above sea level for each antenna, default is 'True'.
+        add_continent_outlines: bool, optional
+            If 'True' and `cartopy` is available, add continental outlines for the longitude and latitude plots for \
+            disconnected arrays or arrays for which no array center is known.
+        figure_size: tuple, optional
+            Controls the size of the plot in inches.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        ValueError
+            If antenna positions are not in the Geocentric ITRS frame.
+
+        """
+        from xradio._utils.logging import xradio_logger
+        from matplotlib import pyplot as plt
+        import astropy.units as ap_units
+        from astropy.coordinates import EarthLocation
+        from dask.array import rad2deg
+
+        def setup_annotations_for_hover(plot_axes):
+            """
+            Creates annotations for antennae at position and elevation axes objects.
+
+            Parameters
+            plot_axes : matplotlib axes object list
+
+            Returns
+            -------
+            dict
+                dict from antenna axes -> annotation objects
+            """
+            annotations = []
+            for plot_ax in plot_axes:
+                annotation = plot_ax.annotate(
+                    "",
+                    xy=(0, 0),
+                    xytext=(5, 5),
+                    textcoords="offset points",
+                    arrowprops=dict(arrowstyle="-|>"),
+                    bbox=dict(boxstyle="round", fc="w"),
+                )
+                annotation.set_visible(False)
+                annotations.append(annotation)
+            return dict(zip(plot_axes, annotations))
+
+        def update_antenna_annotation(indices, plot_obj, annotation, ant_info):
+            position = plot_obj.get_offsets()[indices["ind"][0]]
+            annotation.xy = position
+
+            anno_text = ""
+            for num in indices["ind"]:
+                anno_text = ""
+                for key, value in ant_info[num].items():
+                    anno_text += f"{key}: {value}\n"
+
+            anno_text = anno_text.rstrip("\n")
+            annotation.set_text(anno_text)
+            annotation.get_bbox_patch().set_facecolor("#e8d192")
+            annotation.get_bbox_patch().set_alpha(1)
+
+        def hover_annotation(event):
+            if event.inaxes in plot_axes:
+                for axis in plot_axes:
+                    contained, indices = plot_map[axis].contains(event)
+                    annotation = annotation_map[axis]
+                    if contained:
+                        scatter = plot_map[axis]
+                        update_antenna_annotation(
+                            indices, scatter, annotation, info_dicts
+                        )
+                        annotation.set_visible(True)
+                        fig.canvas.draw_idle()
+                    else:
+                        visible = annotation.get_visible()
+                        if visible:
+                            annotation.set_visible(False)
+                            fig.canvas.draw_idle()
+
+        if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
+            raise InvalidAccessorLocation(
+                f"{self._xdt.path} is not a processing set node."
+            )
+        try:
+            import cartopy
+
+            if add_continent_outlines:
+                cartopy_available = True
+            else:
+                cartopy_available = False
+        except ImportError:
+            xradio_logger().info("To include Continent outlines: `pip install cartopy`")
+            cartopy_available = False
+
+        # Longitude and latitudes in degrees, radius in meters.
+        # VLBI arrays are marked with None for their centers.
+        observatory_array_centers = {
+            # Connected Arrays:
+            "ALMA": {
+                "longitude": -67.754929,
+                "latitude": -23.029,
+                "radius": 6379946.0,
+            },
+            "VLA": {
+                "longitude": rad2deg(-1.8782884344112576),
+                "latitude": rad2deg(0.5916753430723376),
+                "radius": 6373580.0,
+            },
+            "MeerKAT": {
+                "longitude": 21.443889,
+                "latitude": -30.711056,
+                "radius": 6373681.0,
+            },
+            # GMRT antenna positions in the XDSes seem really weird, maybe an unit error?
+            "GMRT": {
+                "longitude": 74.05210298316263,
+                "latitude": 19.090998273409596,
+                "radius": 6377126.8,
+            },
+            # Connected arrays with currently unknown array centers
+            "OSKAR": None,
+            "ASKAP": None,
+            # Disconnected arrays (VLBI)
+            "VLBA": None,
+            "EVN": None,
+            "EHT": None,
+            "LOFAR": None,
+        }
+
+        combined_antenna_xds = self.get_combined_antenna_xds()
+
+        ant_pos = combined_antenna_xds.ANTENNA_POSITION
+        ant_names = ant_pos.antenna_name.values
+        station_names = ant_pos.station_name.values
+        telescope_names = ant_pos.telescope_name.values
+
+        overall_telescope = combined_antenna_xds.attrs["overall_telescope_name"]
+        if "OSKAR" in overall_telescope:
+            overall_telescope = "OSKAR"
+        elif "ALMA" in overall_telescope:
+            overall_telescope = "ALMA"
+        elif "VLA" in overall_telescope:
+            overall_telescope = "VLA"
+        elif "ASKAP" in overall_telescope:
+            overall_telescope = "ASKAP"
+
+        pos_frame = ant_pos.attrs["frame"]
+        pos_system = ant_pos.attrs["coordinate_system"]
+
+        # Convert antenna positions in bulk
+        if pos_frame == "ITRS" and pos_system == "geocentric":
+            ant_x = ant_pos.sel(cartesian_pos_label="x").values
+            ant_y = ant_pos.sel(cartesian_pos_label="y").values
+            ant_z = ant_pos.sel(cartesian_pos_label="z").values
+            ant_locs = EarthLocation.from_geocentric(
+                ant_x * ap_units.m, ant_y * ap_units.m, ant_z * ap_units.m
+            )
+            ant_rad = np.sqrt(ant_x**2 + ant_y**2 + ant_z**2)
+
+            ant_lon, ant_lat, ant_height = ant_locs.geodetic
+            ant_lat = ant_lat.deg
+            ant_lon = ant_lon.deg
+            ant_height = ant_height
+        else:
+            raise ValueError(
+                f"Don't know how to plot antenna positions in {pos_system} {pos_frame}"
+            )
+
+        try:
+            array_center = observatory_array_centers[overall_telescope]
+        except KeyError:
+            xradio_logger().warning(
+                f"Observatory {overall_telescope} not yet supported, plotting as a disconnected array"
+            )
+            array_center = None
+
+        plot_as_disconnected_array = array_center is None
+
+        ant_labels = [f"{ant_name}" for ant_name in ant_names]
+        if add_antenna_stations:
+            ant_labels = [
+                f"{ant_name} @ {station_names[i_ant]}"
+                for i_ant, ant_name in enumerate(ant_names)
+            ]
+
+        fig = plt.figure(figsize=figure_size)
+
+        if add_elevation_plot:
+            if cartopy_available:
+                main_plot_area = (0.1, 0.40, 0.8, 0.55)
+            else:
+                main_plot_area = (0.1, 0.40, 0.8, 0.55)
+        else:
+            main_plot_area = (0.1, 0.1, 0.8, 0.8)
+
+        if plot_as_disconnected_array:
+            if cartopy_available:
+                import cartopy.crs as ccrs
+                import cartopy.feature as cfeature
+
+                ant_pos_ax = plt.axes(main_plot_area, projection=ccrs.PlateCarree())
+                ant_pos_ax.add_feature(cfeature.COASTLINE)
+                gl = ant_pos_ax.gridlines(draw_labels=True)
+                gl.top_labels = False
+                gl.right_labels = False
+
+            else:
+                ant_pos_ax = plt.axes(main_plot_area)
+                ant_pos_ax.set_xlabel("Longitude [deg]")
+                ant_pos_ax.set_ylabel("Latitude [deg]")
+
+            ant_plot_pos_x = ant_lon
+            ant_plot_pos_y = ant_lat
+
+        else:
+            ant_pos_ax = plt.axes(main_plot_area)
+
+            # Compute antenna positions relative to array center in a gnomonic projection
+            tel_lon = array_center["longitude"]
+            tel_lat = array_center["latitude"]
+            tel_rad = array_center["radius"]
+            ant_plot_pos_x = tel_rad * (ant_lon - tel_lon) * np.cos(tel_lat)
+            ant_plot_pos_y = tel_rad * (ant_lat - tel_lat)
+
+            ant_pos_ax.set_xlabel("East [m]")
+            ant_pos_ax.set_ylabel("North [m]")
+
+        # Build antenna info dictionaries
+        info_dicts = []
+        for i_ant, ant_name in enumerate(ant_names):
+            ant_dict = {
+                "Name": ant_name,
+                "Station": station_names[i_ant],
+                "Telescope": telescope_names[i_ant],
+                "Elevation": f"{ant_height[i_ant]:.0f}",
+            }
+            if plot_as_disconnected_array:
+                ant_dict["Longitude"] = f"{ant_plot_pos_x[i_ant]:.4f} deg"
+                ant_dict["Latitude"] = f"{ant_plot_pos_y[i_ant]:.4f} deg"
+            else:
+                ant_dict["East offset"] = f"{ant_plot_pos_x[i_ant]:.2f} m"
+                ant_dict["North offset"] = f"{ant_plot_pos_y[i_ant]:.2f} m"
+            info_dicts.append(ant_dict)
+
+        ant_pos_plot = ant_pos_ax.scatter(
+            ant_plot_pos_x,
+            ant_plot_pos_y,
+            color="blue",
+            marker="+",
+            ls="",
+        )
+
+        if add_antenna_labels:
+            for i_ant, ant_label in enumerate(ant_labels):
+                ant_pos_ax.annotate(
+                    ant_label,
+                    (ant_plot_pos_x[i_ant], ant_plot_pos_y[i_ant]),
+                    alpha=1,
+                    xytext=(2, 2),
+                    textcoords="offset points",
+                )
+
+        ant_pos_ax.set_title(f"{overall_telescope} Antenna Positions")
+        if add_elevation_plot:
+            ant_ids = np.arange(ant_height.shape[0])
+            ant_el_ax = plt.axes((0.1, 0.05, 0.8, 0.25))
+            ant_el_plot = ant_el_ax.scatter(
+                ant_ids,
+                ant_height,
+                color="blue",
+                marker="_",
+                ls="",
+            )
+            ant_el_ax.set_xlabel("Antenna")
+            ant_el_ax.set_ylabel("Antenna Elevation [m]")
+            ant_el_ax.set_xticks(ant_ids, labels=ant_labels, rotation=90)
+            plot_axes = [ant_pos_ax, ant_el_ax]
+            plot_map = dict(zip(plot_axes, [ant_pos_plot, ant_el_plot]))
+        else:
+            plot_axes = [ant_pos_ax]
+            plot_map = dict(zip(plot_axes, [ant_pos_plot]))
+
+        annotation_map = setup_annotations_for_hover(plot_axes)
+        fig.canvas.mpl_connect("motion_notify_event", hover_annotation)
+        plt.show()
+
+        return
 
     def plot_antenna_positions(self, label_all_antennas: bool = False):
         """

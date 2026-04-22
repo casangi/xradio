@@ -8,14 +8,62 @@ The testing module includes the following submodules:
 
 <!-- **`assertions (TBD)`**: Functions for validating data structures and schemas
 - **`fixtures (TBD)`**: Reusable test fixtures for setting up test data -->
+- **`image`**: Utilities for downloading, generating, and validating image test data
 - **`measurement_set`**: Utilities for generating, checking, and manipulating MeasurementSet test data
 - **`_utils (TBD)`**: Private testing utilities
 
-The `measurement_set` submodule contains several Python modules that provide specific functionality:
+### `image` submodule
 
-- **`io.py`**: I/O helpers to download test MeasurementSets (non-casacore dependent)
-- **`checker.py`**: Validation functions to check MSv4 data structures against expected specifications
-- **`msv2_io.py`**: MSv2-specific I/O operations and test data generators (casacore-dependent)
+Framework-agnostic helpers (no pytest dependency) for image unit tests, ASV
+benchmarks, and third-party projects that use `xradio.image`.
+
+#### `io.py`
+
+| Function | Signature | Purpose |
+|---|---|---|
+| `download_image` | `(fname, directory=".")→Path` | Download an image asset to disk without opening it. Mirrors `download_measurement_set`. |
+| `download_and_open_image` | `(fname, directory=".")→xr.Dataset` | Download an image asset and return it as an opened `xr.Dataset`. |
+| `remove_path` | `(path)→None` | Delete a file or directory tree. No-op when the path does not exist. |
+
+#### `generators.py`
+
+| Function | Signature | Purpose |
+|---|---|---|
+| `make_beam_fit_params` | `(xds)→xr.DataArray` | Build a synthetic `BEAM_FIT_PARAMS` DataArray from an open image dataset. Shape is derived from the `time`, `frequency`, and `polarization` dimensions. |
+| `create_empty_test_image` | `(factory, do_sky_coords=None)→xr.Dataset` | Call any `make_empty_*` factory (`make_empty_sky_image`, `make_empty_aperture_image`, `make_empty_lmuv_image`) with a canonical set of test coordinates. |
+| `scale_data_for_int16` | `(data)→np.ndarray` | Clip and cast a float array to the int16 range (NaN→0, clip to ±32767, cast). Supports `create_bzero_bscale_fits`. |
+| `create_bzero_bscale_fits` | `(outname, source_fits, bzero, bscale)→None` | Write a FITS file with explicit `BSCALE`/`BZERO` headers for guard testing. Reads pixel data from `source_fits`, scales it via `scale_data_for_int16`, and writes to `outname`. |
+
+#### `assertions.py`
+
+| Function | Signature | Purpose |
+|---|---|---|
+| `normalize_image_coords_for_compare` | `(coords, factor=180*60/π)→None` | Convert direction coordinates from radians to arcminutes in-place so a round-tripped CASA image can be compared with the original. Modifies `coords` in place. |
+| `assert_image_block_equal` | `(xds, output_path, zarr=False)→None` | Attach a synthetic `BEAM_FIT_PARAMS` variable to `xds`, write to `output_path`, reload a fixed spatial block, and assert equality via `assert_xarray_datasets_equal`. |
+
+All nine public names are re-exported from the package's `__init__.py`:
+
+```python
+from xradio.testing.image import (
+    download_image,
+    download_and_open_image,
+    remove_path,
+    make_beam_fit_params,
+    create_empty_test_image,
+    scale_data_for_int16,
+    create_bzero_bscale_fits,
+    normalize_image_coords_for_compare,
+    assert_image_block_equal,
+)
+```
+
+### `measurement_set` submodule
+
+| Module | Purpose |
+|---|---|
+| `io.py` | I/O helpers to download test MeasurementSets (non-casacore dependent) |
+| `checker.py` | Validation functions to check MSv4 data structures against expected specifications |
+| `msv2_io.py` | MSv2-specific I/O operations and test data generators (casacore-dependent) |
 
 These are Python modules and their functions are exported through the package's `__init__.py` for convenient access.
 

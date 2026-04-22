@@ -1,5 +1,4 @@
 import pandas as pd
-from dask.array import rad2deg
 
 from xradio._utils.list_and_array import to_list
 import numpy as np
@@ -835,6 +834,7 @@ class ProcessingSetXdt:
         from matplotlib import pyplot as plt
         import astropy.units as ap_units
         from astropy.coordinates import EarthLocation
+        from dask.array import rad2deg
 
         def setup_annotations_for_hover(plot_axes):
             """

@@ -911,6 +911,19 @@ def create_image_xds_from_store(
         img_xds[image_type] = xds[image_type]
         img_xds[image_type].attrs["type"] = image_type.lower()
 
+        expected_flag_name = "FLAG_" + image_type
+
+        def _add_flag_to_output(
+            img_xds: xr.Dataset,
+            flag_array: xr.DataArray,
+            expected_flag_name: str,
+            active_group: dict | None = None,
+        ):
+            img_xds[expected_flag_name] = flag_array
+            img_xds[expected_flag_name].attrs["type"] = "flag"
+            if active_group is not None:
+                active_group["flag"] = expected_flag_name
+
         active_data_group_name = None
         # If sky image, handle internal masks and beam fit params.
         if "sky" in image_type.lower():
@@ -925,54 +938,34 @@ def create_image_xds_from_store(
                 data_groups[active_data_group_name]["beam_fit_params_sky"] = (
                     "BEAM_FIT_PARAMS_" + image_type.upper()
                 )
-            expected_flag_name = "FLAG_" + image_type
-
-            # TODO remove this mask logic and everything that still makes it necessary
-            def _add_flag_to_group(
-                img_xds: xr.Dataset,
-                flag_array: xr.DataArray,
-                expected_flag_name: str,
-                active_group: dict,
-            ):
-                img_xds[expected_flag_name] = flag_array
-                img_xds[expected_flag_name].attrs["type"] = "flag"
-                active_group["flag"] = expected_flag_name
-
-            if expected_flag_name in xds:
-                _add_flag_to_group(
-                    img_xds,
-                    xds[expected_flag_name],
-                    expected_flag_name,
-                    data_groups[active_data_group_name],
-                )
-
-            if "MASK_0" in xds:
-                _add_flag_to_group(
-                    img_xds,
-                    xds["MASK_0"],
-                    expected_flag_name,
-                    data_groups[active_data_group_name],
-                )
-                """
-                TODO delete old code when certain new function works
-                img_xds[expected_flag_name] = xds["MASK_0"]
-                data_groups[active_data_group_name]["flag"] = expected_flag_name
-                img_xds[expected_flag_name].attrs["type"] = "flag"
-                """
-            if "MASK" in xds:
-                _add_flag_to_group(
-                    img_xds,
-                    xds["MASK"],
-                    expected_flag_name,
-                    data_groups[active_data_group_name],
-                )
-                """
-                TODO delete old code when certain new function works
-                img_xds[expected_flag_name] = xds["MASK"]
-                data_groups[active_data_group_name]["flag"] = expected_flag_name
-                img_xds[expected_flag_name].attrs["type"] = "flag"
-                """
             img_xds[image_type].attrs["type"] = "sky"
+
+        active_group = (
+            data_groups[active_data_group_name]
+            if active_data_group_name is not None
+            else None
+        )
+        if expected_flag_name in xds:
+            _add_flag_to_output(
+                img_xds,
+                xds[expected_flag_name],
+                expected_flag_name,
+                active_group,
+            )
+        elif "MASK_0" in xds:
+            _add_flag_to_output(
+                img_xds,
+                xds["MASK_0"],
+                expected_flag_name,
+                active_group,
+            )
+        elif "MASK" in xds:
+            _add_flag_to_output(
+                img_xds,
+                xds["MASK"],
+                expected_flag_name,
+                active_group,
+            )
 
         # If point spread function, handle beam fit params.
         if "point_spread_function" in image_type.lower():

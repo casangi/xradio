@@ -50,10 +50,15 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 def _squeeze_if_needed(ary: da, image_type: str) -> da:
     if image_type.upper() == "VISIBILITY_NORMALIZATION":
         shape = ary.shape
+        if len(shape) != 5:
+            raise ValueError(
+                "VISIBILITY_NORMALIZATION casa image must be 5D before squeezing. "
+                f"Found shape {shape}"
+            )
         if shape[3] != 1 or shape[4] != 1:
             raise ValueError(
-                "VISIBILITY_NORMALIZATION casa image must have l and m of length 1. Found "
-                + [shape[3], shape[4]]
+                "VISIBILITY_NORMALIZATION casa image must have l and m of length 1. "
+                f"Found {(shape[3], shape[4])}"
             )
         ary = ary.squeeze(axis=(3, 4))
     return ary
@@ -99,7 +104,7 @@ def _load_casa_image_block(
     starts, shapes, slices = _get_starts_shapes_slices(block_des, coords, cshape)
     transpose_list, new_axes = _get_transpose_list(coords)
     block = _get_persistent_block(
-        image_full_path, shapes, starts, dimorder, transpose_list, new_axes
+        image_full_path, shapes, starts, transpose_list, new_axes
     )
     block = _squeeze_if_needed(block, image_type)
     xds = _add_sky_or_aperture(
@@ -109,8 +114,9 @@ def _load_casa_image_block(
     for m in mymasks:
         full_path = os.sep.join([image_full_path, m])
         block = _get_persistent_block(
-            full_path, shapes, starts, dimorder, transpose_list, new_axes
+            full_path, shapes, starts, transpose_list, new_axes
         )
+        block = _squeeze_if_needed(block, image_type)
         # data vars are all caps by convention
         mask_name = re.sub(r"\bMASK(\d+)\b", r"MASK_\1", m.upper())
         xds = _add_mask(xds, mask_name, block, dimorder)

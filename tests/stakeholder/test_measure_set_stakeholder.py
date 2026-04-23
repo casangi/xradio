@@ -24,6 +24,7 @@ from xradio.measurement_set import (
     ProcessingSetXdt,
 )
 from xradio.schema.check import check_datatree
+from xradio._utils.zarr.config import ZARR_FORMAT
 
 # relative_tolerance = 10 ** (-12)
 relative_tolerance = 10 ** (-5)
@@ -364,7 +365,8 @@ def base_test(
         else:
             ps_copy_name = str(ps_name) + "_copy"
 
-        ps_lazy_xdt.to_zarr(ps_copy_name)  # Test writing to disk.
+        # Test writing to disk.
+        ps_lazy_xdt.to_zarr(ps_copy_name, zarr_format=ZARR_FORMAT)
 
         ms_xdt_name = list(ps_lazy_xdt.keys())[0]
         ms_xds = ps_lazy_xdt[ms_xdt_name].ds

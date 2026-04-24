@@ -9,6 +9,7 @@ import xarray as xr
 import pyasdm
 
 from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
+from xradio._utils.list_and_array import check_if_consistent
 from xradio.measurement_set._utils._asdm import asdm_backend_array
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,
@@ -397,15 +398,48 @@ def create_baseline_coords(
     coords_baselines = {}
     sdm_main_attrs = ["time", "configDescriptionId", "fieldId", "numAntenna"]
     main_df = exp_asdm_table_to_df(asdm, "Main", sdm_main_attrs)
-    configurations = main_df.loc[
+    configurations_in_main = main_df.loc[
         main_df["configDescriptionId"].isin(partition_descr["configDescriptionId"])
         & main_df["fieldId"].isin(partition_descr["fieldId"])
     ]
-    num_antenna = configurations["numAntenna"].max()
+    # Distinguish AUTO_ONLY vs. CROSS_AND_AUTO
+    sdm_config_description_attrs = [
+        "configDescriptionId",
+        "numAntenna",
+        "correlationMode",
+    ]
 
-    baseline_antenna1_id, baseline_antenna2_id = (
-        generate_baseline_antennax_id_as_in_bdf(num_antenna)
+    # num_antenna = configurations_in_main["numAntenna"].max()
+    config_description_id = check_if_consistent(
+        configurations_in_main["configDescriptionId"], "Main/configDescriptionId"
     )
+    # num_antenna = check_if_consistent(configurations["numAntenna"].values, "ConfigDescription/numAntenna")
+    config_description_df = exp_asdm_table_to_df(
+        asdm, "ConfigDescription", sdm_config_description_attrs
+    )
+    # print(f" ******* {partition_descr=}")
+    # print(f" ******* {partition_descr['configDescriptionId']=}")
+    # print(f" ******* {main_df=}")
+    # print(f" ******* {config_description_df=}")
+    # print(f" ******* {configurations_in_main=}")
+    config = config_description_df.loc[
+        config_description_df["configDescriptionId"] == config_description_id
+    ]
+    # print(f" ***** ==> finally, {config=}")
+
+    num_antenna = config["numAntenna"].values[0]
+    correlation_mode = config["correlationMode"].values[0]
+    if correlation_mode == pyasdm.enumerations.CorrelationMode.AUTO_ONLY:
+        auto_corr_indices = np.arange(num_antenna)
+        baseline_antenna1_id = baseline_antenna2_id = auto_corr_indices
+    elif correlation_mode == pyasdm.enumerations.CorrelationMode.CROSS_AND_AUTO:
+        baseline_antenna1_id, baseline_antenna2_id = (
+            generate_baseline_antennax_id_as_in_bdf(num_antenna)
+        )
+    else:
+        raise RuntimeError(
+            "Only AUTO_ONLY and CROSS_AND_AUTO correlation modes supported in ALMA. Found {correlation_mode=}"
+        )
 
     # TODO: get proper names
     coords_baselines["baseline_antenna1_name"] = (

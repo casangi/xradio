@@ -209,7 +209,9 @@ def _load_vis_one_spw_cross_data_from_tree(
                 spw_vis = spw_vis.reshape((int(spw_vis.size / 2), 2))
                 spw_vis = spw_vis[:, 0] + 1j * spw_vis[:, 1]
                 spw_vis /= scale_factor
-                spw_vis.reshape((frequency_max - frequency_min, polarization_len))
+                spw_vis = spw_vis.reshape(
+                    (frequency_max - frequency_min, polarization_len)
+                )
 
             else:
                 # radiometer / spectrometer

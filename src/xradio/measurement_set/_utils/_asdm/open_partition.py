@@ -2,7 +2,6 @@ import datetime
 import importlib
 import itertools
 
-import dask
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -10,6 +9,7 @@ import xarray as xr
 import pyasdm
 
 from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
+from xradio.measurement_set._utils._asdm import asdm_backend_array
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,
 )
@@ -194,7 +194,7 @@ def create_data_vars(
     Returns
     -------
     dict[str, tuple]
-        A dictionary containing the following data variables:
+        A dictionary containing the following data variables (the (dims, array, attrs) tuples that define them):
         - VISIBILITY : Complex visibility data with shape (time, baseline_id, frequency, polarization)
         - WEIGHT : Visibility weights with shape (time, baseline_id, frequency, polarization)
         - FLAG : Boolean flags with shape (time, baseline_id, frequency, polarization)
@@ -218,12 +218,10 @@ def create_data_vars(
     )
     data_vars["VISIBILITY"] = (
         dims_vis_weight_flag,
-        dask.array.from_delayed(
-            dask.delayed(load_visibilities_from_partition_bdfs)(
-                bdf_paths, bdf_spw_id, {}
-            ),
-            shape=shape_vis_weight_flag,
-            dtype="complex128",
+        xr.core.indexing.LazilyIndexedArray(
+            asdm_backend_array.VisibilityArray(
+                shape_vis_weight_flag, bdf_paths, bdf_spw_id
+            )
         ),
         {
             "type": "quantity",
@@ -240,20 +238,24 @@ def create_data_vars(
 
     data_vars["WEIGHT"] = (
         dims_vis_weight_flag,
-        dask.array.from_delayed(
-            dask.delayed(produce_weight_data_var)(xds),
-            shape=shape_vis_weight_flag,
-            dtype="float64",
+        xr.core.indexing.LazilyIndexedArray(
+            asdm_backend_array.WeightArray(shape_vis_weight_flag)
         ),
     )
 
     data_vars["FLAG"] = (
         dims_vis_weight_flag,
-        dask.array.from_delayed(
-            dask.delayed(load_flags_from_partition_bdfs)(bdf_paths, bdf_spw_id, {}),
-            shape=shape_vis_weight_flag,
-            dtype="bool",
+        xr.core.indexing.LazilyIndexedArray(
+            asdm_backend_array.FlagArray(shape_vis_weight_flag, bdf_paths, bdf_spw_id)
         ),
+        {
+            "encoding": {
+                "preferred_chunks": {
+                    "time": 1,
+                    "polarization": shape_vis_weight_flag[-1],
+                },
+            }
+        },
     )
 
     dims_uvw = ["time", "baseline_id", "uvw_label"]
@@ -264,9 +266,7 @@ def create_data_vars(
     )
     data_vars["UVW"] = (
         dims_uvw,
-        dask.array.from_delayed(
-            dask.delayed(produce_uvw_data_var)(xds), shape=shape_uvw, dtype="float64"
-        ),
+        xr.core.indexing.LazilyIndexedArray(asdm_backend_array.UVWArray(shape_uvw)),
         {"type": "uvw", "frame": "icrs", "units": "m"},
     )
 
@@ -568,7 +568,7 @@ def produce_uvw_data_var(xds: xr.Dataset) -> xr.DataArray:
 
 
 def produce_weight_data_var(xds: xr.Dataset) -> xr.DataArray:
-    return xr.DataArray(
+    result = xr.DataArray(
         dims=["time", "baseline_id", "frequency", "polarization"],
         data=np.ones(
             (
@@ -580,6 +580,7 @@ def produce_weight_data_var(xds: xr.Dataset) -> xr.DataArray:
             dtype="float64",
         ),
     )
+    return result
 
 
 def translate_asdm_tables_spw_id_to_bdf_spw_id(

@@ -254,7 +254,15 @@ def _expand_frequency_in_flags_subset(
     else:
         frequency_len = len(array_slice[2].indices)
 
-    expanded_shape = flag_subset.shape[0:2] + (frequency_len,) + flag_subset.shape[-1:]
-    flag_subset = np.broadcast_to(flag_subset[:, :, np.newaxis, :], expanded_shape)
+    if len(flag_subset.shape) == 3:
+        expanded_shape = (
+            flag_subset.shape[0:2] + (frequency_len,) + flag_subset.shape[-1:]
+        )
+        flag_subset = np.broadcast_to(flag_subset[:, :, np.newaxis, :], expanded_shape)
+    else:
+        expanded_shape = (
+            flag_subset.shape[0:1] + (frequency_len,) + flag_subset.shape[-1:]
+        )
+        flag_subset = np.broadcast_to(flag_subset[:, np.newaxis, :], expanded_shape)
 
     return flag_subset

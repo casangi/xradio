@@ -58,6 +58,58 @@ def load_visibilities_all_subsets(
     return bdf_vis
 
 
+def calc_auto_cross_baseline_slices(
+    array_slice_baseline, cross_baseline_len, nantennas, cross_data_present
+) -> tuple[slice, slice]:
+    auto_baseline_slice = None
+    cross_baseline_slice = None
+
+    if not cross_data_present:
+        cross_baseline_slice = None
+        auto_baseline_slice = array_slice_baseline
+
+    if isinstance(array_slice_baseline, slice):
+        if not array_slice_baseline.start:
+            # all global slice => all cross + all auto slices
+            auto_baseline_slice = cross_baseline_slice = array_slice_baseline
+        else:
+            if array_slice_baseline.start >= cross_baseline_len:
+                # All on the auto (second) half
+                auto_start = array_slice_baseline.start - cross_baseline_len
+                auto_end = array_slice_baseline.end - cross_baseline_len
+                auto_baseline_slice = slice(auto_start, auto_end)
+            elif array_slice_baseline.end >= cross_baseline_len:
+                # Part in cross (first) half, and part in auto (second) half
+                cross_start = array_slice_baseline.start
+                cross_end = cross_baseline_len
+                cross_baseline_slice = slice(cross_start, cross_end)
+                auto_start = 0
+                auto_end = array_slice_baseline.end - cross_baseline_len
+                auto_baseline_slice = slice(auto_start, auto_end)
+            else:
+                # All on the cross (first) half
+                cross_baseline_slice = array_slice_baseline
+
+    elif isinstance(array_slice_baseline, int):
+        if array_slice_baseline < cross_baseline_len:
+            cross_baseline_slice = array_slice_baseline
+        elif array_slice_baseline >= cross_baseline_len and array_slice_baseline < (
+            cross_baseline_len + nantennas
+        ):
+            auto_baseline_slice = array_slice_baseline - cross_baseline_len
+        else:
+            raise RuntimeError(
+                "Unexpected value (too high) of int {array_slice_baseline=}, with {cross_baseline_len=}, {nantennas=}"
+            )
+
+    else:
+        raise RuntimeError(
+            "Unexpected type of {array_slice_baseline=}, {type(array_slice_baseline)=}"
+        )
+
+    return cross_baseline_slice, auto_baseline_slice
+
+
 def _load_vis_subset(
     subset: dict,
     guessed_shape: tuple[int, ...],
@@ -67,30 +119,49 @@ def _load_vis_subset(
     array_slice: tuple[slice, ...],
 ) -> np.ndarray:
 
-    if "autoData" in subset and subset["autoData"]["present"]:
-        vis_subset_auto = _load_vis_subset_auto_data(
-            subset["autoData"]["arr"], guessed_shape, baseband_spw_idxs, array_slice
-        )
+    cross_data_present = "crossData" in subset and subset["crossData"]["present"]
 
+    cross_baseline_len = guessed_shape[1]
+    nantennas = guessed_shape[2]
+    cross_baseline_slice, auto_baseline_slice = calc_auto_cross_baseline_slices(
+        array_slice[1], cross_baseline_len, nantennas, cross_present
+    )
+
+    if "autoData" in subset and subset["autoData"]["present"]:
+        if auto_baseline_slice is not None:
+            auto_array_slice = (array_slice[0], auto_baseline_slice, *array_slice[2:])
+
+            vis_subset_auto = _load_vis_subset_auto_data(
+                subset["autoData"]["arr"],
+                guessed_shape,
+                baseband_spw_idxs,
+                auto_array_slice,
+            )
     else:
         # Never allowed for ALMA (BDF doc) and seems so in real life
         raise RuntimeError("autoData not present!")
 
     vis_subset_cross = None
-    if "crossData" in subset and subset["crossData"]["present"]:
+    if cross_data_present and cross_baseline_slice is not None:
+        cross_array_slice = (array_slice[0], cross_baseline_slice, *array_slice[2:4])
         vis_subset_cross = _load_vis_subset_cross_data(
             subset["crossData"]["arr"],
             guessed_shape,
             baseband_spw_idxs,
             scale_factor,
             processor_type,
-            array_slice,
+            cross_array_slice,
         )
 
-    if vis_subset_cross is None:
+    if cross_baseline_slice is None:
         vis_subset = vis_subset_auto
+    elif auto_baseline_slice is None:
+        vis_subset = vis_subset_cross
     else:
-        vis_subset = np.concatenate([vis_subset_cross, vis_subset_auto], axis=1)
+        if vis_subset_cross is not None:
+            vis_subset = np.concatenate([vis_subset_cross, vis_subset_auto], axis=1)
+        else:
+            vis_subset = vis_subset_auto
 
     return vis_subset
 
@@ -151,6 +222,7 @@ def _load_vis_subset_auto_data(
 
     polarization_len = guessed_shape[-2]
     time_slice, baseline_id_slice, frequency_slice, polarization_slice = array_slice
+
     if polarization_len == 3:
         # autoData: "The choice of a real- vs. complex-valued datum is dependent upon the
         # polarization product...parallel-hand polarizations are real-valued, while cross-hand
@@ -224,7 +296,7 @@ def define_visibility_shape(
     # shape of the full crossData/autoData binary component
     baseband_len = len(bdf_descr["basebands"])
     antenna_len = bdf_descr["num_antenna"]
-    baseline_len = int(antenna_len * (antenna_len - 1) / 2)
+    cross_baseline_len = int(antenna_len * (antenna_len - 1) / 2)
     baseband_descr = bdf_descr["basebands"][baseband_spw_idxs[0]]
     spw_len = len(baseband_descr["spectralWindows"])
     spw_descr = baseband_descr["spectralWindows"][baseband_spw_idxs[1]]
@@ -237,7 +309,7 @@ def define_visibility_shape(
     time_len = bdf_descr["num_time"] if bdf_descr["dimensionality"] == 0 else 1
     shape = (
         time_len,
-        baseline_len,
+        cross_baseline_len,
         antenna_len,
         baseband_len,
         spw_len,

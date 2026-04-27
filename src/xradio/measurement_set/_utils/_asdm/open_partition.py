@@ -402,31 +402,22 @@ def create_baseline_coords(
         main_df["configDescriptionId"].isin(partition_descr["configDescriptionId"])
         & main_df["fieldId"].isin(partition_descr["fieldId"])
     ]
+    config_description_id = check_if_consistent(
+        configurations_in_main["configDescriptionId"], "Main/configDescriptionId"
+    )
+
     # Distinguish AUTO_ONLY vs. CROSS_AND_AUTO
     sdm_config_description_attrs = [
         "configDescriptionId",
         "numAntenna",
         "correlationMode",
     ]
-
-    # num_antenna = configurations_in_main["numAntenna"].max()
-    config_description_id = check_if_consistent(
-        configurations_in_main["configDescriptionId"], "Main/configDescriptionId"
-    )
-    # num_antenna = check_if_consistent(configurations["numAntenna"].values, "ConfigDescription/numAntenna")
     config_description_df = exp_asdm_table_to_df(
         asdm, "ConfigDescription", sdm_config_description_attrs
     )
-    # print(f" ******* {partition_descr=}")
-    # print(f" ******* {partition_descr['configDescriptionId']=}")
-    # print(f" ******* {main_df=}")
-    # print(f" ******* {config_description_df=}")
-    # print(f" ******* {configurations_in_main=}")
     config = config_description_df.loc[
         config_description_df["configDescriptionId"] == config_description_id
     ]
-    # print(f" ***** ==> finally, {config=}")
-
     num_antenna = config["numAntenna"].values[0]
     correlation_mode = config["correlationMode"].values[0]
     if correlation_mode == pyasdm.enumerations.CorrelationMode.AUTO_ONLY:

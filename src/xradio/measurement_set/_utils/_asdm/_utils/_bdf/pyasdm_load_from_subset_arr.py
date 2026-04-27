@@ -119,15 +119,16 @@ def _load_vis_subset(
     array_slice: tuple[slice, ...],
 ) -> np.ndarray:
 
+    auto_data_present = "autoData" in subset and subset["autoData"]["present"]
     cross_data_present = "crossData" in subset and subset["crossData"]["present"]
 
     cross_baseline_len = guessed_shape[1]
     nantennas = guessed_shape[2]
     cross_baseline_slice, auto_baseline_slice = calc_auto_cross_baseline_slices(
-        array_slice[1], cross_baseline_len, nantennas, cross_present
+        array_slice[1], cross_baseline_len, nantennas, cross_data_present
     )
 
-    if "autoData" in subset and subset["autoData"]["present"]:
+    if auto_data_present:
         if auto_baseline_slice is not None:
             auto_array_slice = (array_slice[0], auto_baseline_slice, *array_slice[2:])
 

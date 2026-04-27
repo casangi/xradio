@@ -136,7 +136,7 @@ def load_visibilities_from_bdf(
     guessed_shape = define_visibility_shape(bdf_descr, baseband_spw_idxs)
     try:
         if never_reshape_from_all_spws or different_channels_per_spw:
-            # TODO: this is assumed to be slower than the simpler version (simply reshape-based)
+            # TODO: for "small" numbers of channels, this is assumed to be slower than the simpler version (simply reshape-based)
             # TO: integrate/replace with pyasdm.
             bdf_vis = load_visibilities_all_subsets_from_trees(
                 bdf_reader, guessed_shape, baseband_spw_idxs, bdf_descr, array_slice

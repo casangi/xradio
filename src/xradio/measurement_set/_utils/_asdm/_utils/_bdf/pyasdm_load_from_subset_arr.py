@@ -61,6 +61,21 @@ def load_visibilities_all_subsets(
 def calc_auto_cross_baseline_slices(
     array_slice_baseline, cross_baseline_len, nantennas, cross_data_present
 ) -> tuple[slice, slice]:
+    """
+    Indexing/selecting slices for baseline dimension need special treatment because some baselines are
+    loaded from the crossData binary component (cross-correlations, loaded as first block) and some
+    others are loaded from the autoData binary components (auto-correlations, loaded as a second block).
+
+    This function maps the overall VISIBILITY baseline dimension indices into separate indices for the
+    autoData and crossData binary components of the BDFs.
+
+    Turns an overall slice for indexing/selecting baseline id into separate slices for the
+    - cross correlations (to be loaded from crossData binary component)
+    - the auto correlations (to be loaded form the autoData binary component).
+    When either of them is not used (are not within the overall start/stop), their array selection slices
+    are set to None (meaning the selection does not take anything from them, as opposed to a
+    slice(None, None) which means all is selected).
+    """
     auto_baseline_slice = None
     cross_baseline_slice = None
 
@@ -179,6 +194,8 @@ def _load_vis_subset_cross_data(
     cross_shape = guessed_shape[0:2] + guessed_shape[3:]
     cross_len = np.prod(cross_shape)
     cross_values = cross_data_arr[:cross_len].reshape(cross_shape)
+    # These indices are passed directly to numpy array slicing below, no need to differentiate int/slice or
+    # look into the slices min/max.
     time_slice, baseline_id_slice, frequency_slice, polarization_slice = array_slice
     if processor_type == pyasdm.enumerations.ProcessorType.CORRELATOR:
         vis_subset = (

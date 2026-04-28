@@ -15,7 +15,7 @@ import typing
 import pyasdm
 
 from .basebands_spws import find_spw_in_basebands_list
-
+from .pyasdm_load_from_subset_arr import calc_auto_cross_baseline_slices
 
 def load_visibilities_one_spw_to_ndarray(
     component_name: str,
@@ -37,43 +37,65 @@ def load_visibilities_one_spw_to_ndarray(
     assemble them into an MSv4 style ndarray (with dims time, baseline,
     frequency, polarization).
     """
+
     spw_chan_lens = [
         bdf_descr["basebands"][bb_idx]["spectralWindows"][spw_idx]["numSpectralPoint"]
         for bb_idx in range(0, len(bdf_descr["basebands"]))
         for spw_idx in range(0, len(bdf_descr["basebands"][bb_idx]["spectralWindows"]))
     ]
 
+    cross_data_present = bdf_descr["correlation_mode"] == pyasdm.enumerations.CorrelationMode.CROSS_AND_AUTO
+    cross_baseline_len = guessed_shape[1]
+    nantennas = guessed_shape[2]
+    cross_baseline_slice, auto_baseline_slice = calc_auto_cross_baseline_slices(
+        array_slice[1], cross_baseline_len, nantennas, cross_data_present
+    )
+
     if component_name == "autoData":
-        vis_one_spw = _load_vis_one_spw_auto_data_from_tree(
-            bdf_file,
-            guessed_shape,
-            spw_chan_lens,
-            overall_spw_idx,
-            data_type,
-            elements_count,
-            array_slice,
-        )
+        if auto_baseline_slice is None:
+            vis_one_spw = None
+        else:
+            auto_array_slice = (array_slice[0], auto_baseline_slice, *array_slice[2:])
+            vis_one_spw = _load_vis_one_spw_auto_data_from_tree(
+                bdf_file,
+                guessed_shape,
+                spw_chan_lens,
+                overall_spw_idx,
+                data_type,
+                elements_count,
+                auto_array_slice,
+            )
+            # squeeze baseline_id dim
+            if isinstance(auto_baseline_slice, int):
+                vis_one_spw = np.squeeze(vis_one_spw, 1)
 
     elif component_name == "crossData":
-        baseband_spw_idxs = find_spw_in_basebands_list(
-            overall_spw_idx, bdf_descr["basebands"], bdf_file.name
-        )
+        if cross_baseline_slice is None:
+            vis_one_spw = None
+        else:
 
-        baseband_description = bdf_descr["basebands"][baseband_spw_idxs[0]]
-        spw_descr = baseband_description["spectralWindows"][baseband_spw_idxs[1]]
-        scale_factor = spw_descr["scaleFactor"] or 1
-        processor_type = bdf_descr["processor_type"]
+            baseband_spw_idxs = find_spw_in_basebands_list(
+                overall_spw_idx, bdf_descr["basebands"], bdf_file.name
+            )
 
-        vis_one_spw = _load_vis_one_spw_cross_data_from_tree(
-            bdf_file,
-            guessed_shape,
-            spw_chan_lens,
-            overall_spw_idx,
-            data_type,
-            scale_factor,
-            processor_type,
-            array_slice,
-        )
+            baseband_description = bdf_descr["basebands"][baseband_spw_idxs[0]]
+            spw_descr = baseband_description["spectralWindows"][baseband_spw_idxs[1]]
+            scale_factor = spw_descr["scaleFactor"] or 1
+            processor_type = bdf_descr["processor_type"]
+            cross_array_slice = (array_slice[0], cross_baseline_slice, *array_slice[2:4])
+            vis_one_spw = _load_vis_one_spw_cross_data_from_tree(
+                bdf_file,
+                guessed_shape,
+                spw_chan_lens,
+                overall_spw_idx,
+                data_type,
+                scale_factor,
+                processor_type,
+                cross_array_slice,
+            )
+            # squeeze baseline_id dim
+            if isinstance(cross_baseline_slice, int):
+                vis_one_spw = np.squeeze(vis_one_spw, 1)
 
     return vis_one_spw
 
@@ -107,8 +129,12 @@ def _load_vis_one_spw_auto_data_from_tree(
     vis_subset_integrations = []
     time_min = array_slice[0].start or 0
     time_max = array_slice[0].stop or time_len
-    antenna_min = array_slice[1].start or 0
-    antenna_max = array_slice[1].stop or antenna_len
+    if isinstance(array_slice[1], int):
+        antenna_min = array_slice[1]
+        antenna_max = array_slice[1] + 1
+    elif isinstance(array_slice[1], slice):
+        antenna_min = array_slice[1].start or 0
+        antenna_max = array_slice[1].stop or antenna_len
     frequency_min = array_slice[2].start or 0
     frequency_max = array_slice[2].stop or spw_channel_len
     polarization_min = array_slice[3].start or 0
@@ -184,8 +210,12 @@ def _load_vis_one_spw_cross_data_from_tree(
     baseline_len = guessed_shape[1]
     time_min = array_slice[0].start or 0
     time_max = array_slice[0].stop or time_len
-    baseline_min = array_slice[1].start or 0
-    baseline_max = array_slice[1].stop or baseline_len
+    if isinstance(array_slice[1], int):
+        baseline_min = array_slice[1]
+        baseline_max = array_slice[1] + 1
+    elif isinstance(array_slice[1], slice):
+        baseline_min = array_slice[1].start or 0
+        baseline_max = array_slice[1].stop or baseline_len
     frequency_min = array_slice[2].start or 0
     frequency_max = array_slice[2].stop or spw_channel_len
     polarization_min = array_slice[3].start or 0

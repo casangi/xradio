@@ -17,6 +17,20 @@ import pyasdm
 from .basebands_spws import find_spw_in_basebands_list
 from .pyasdm_load_from_subset_arr import calc_auto_cross_baseline_slices
 
+
+def calc_min_max_from_dimension_slice(
+    dimension_slice, default_min, default_max
+) -> [int, int]:
+    if isinstance(dimension_slice, int):
+        dimension_idx_min = dimension_slice
+        dimension_idx_max = dimension_slice + 1
+    elif isinstance(dimension_slice, slice):
+        dimension_idx_min = dimension_slice.start or default_min
+        dimension_idx_max = dimension_slice.stop or default_max
+
+    return dimension_idx_min, dimension_idx_max
+
+
 def load_visibilities_one_spw_to_ndarray(
     component_name: str,
     overall_spw_idx: int,
@@ -44,7 +58,10 @@ def load_visibilities_one_spw_to_ndarray(
         for spw_idx in range(0, len(bdf_descr["basebands"][bb_idx]["spectralWindows"]))
     ]
 
-    cross_data_present = bdf_descr["correlation_mode"] == pyasdm.enumerations.CorrelationMode.CROSS_AND_AUTO
+    cross_data_present = (
+        bdf_descr["correlation_mode"]
+        == pyasdm.enumerations.CorrelationMode.CROSS_AND_AUTO
+    )
     cross_baseline_len = guessed_shape[1]
     nantennas = guessed_shape[2]
     cross_baseline_slice, auto_baseline_slice = calc_auto_cross_baseline_slices(
@@ -82,7 +99,11 @@ def load_visibilities_one_spw_to_ndarray(
             spw_descr = baseband_description["spectralWindows"][baseband_spw_idxs[1]]
             scale_factor = spw_descr["scaleFactor"] or 1
             processor_type = bdf_descr["processor_type"]
-            cross_array_slice = (array_slice[0], cross_baseline_slice, *array_slice[2:4])
+            cross_array_slice = (
+                array_slice[0],
+                cross_baseline_slice,
+                *array_slice[2:4],
+            )
             vis_one_spw = _load_vis_one_spw_cross_data_from_tree(
                 bdf_file,
                 guessed_shape,
@@ -127,18 +148,16 @@ def _load_vis_one_spw_auto_data_from_tree(
 
     time_len = guessed_shape[0]
     vis_subset_integrations = []
-    time_min = array_slice[0].start or 0
-    time_max = array_slice[0].stop or time_len
-    if isinstance(array_slice[1], int):
-        antenna_min = array_slice[1]
-        antenna_max = array_slice[1] + 1
-    elif isinstance(array_slice[1], slice):
-        antenna_min = array_slice[1].start or 0
-        antenna_max = array_slice[1].stop or antenna_len
-    frequency_min = array_slice[2].start or 0
-    frequency_max = array_slice[2].stop or spw_channel_len
-    polarization_min = array_slice[3].start or 0
-    polarization_max = array_slice[3].stop or sd_polarization_len
+    time_min, time_max = calc_min_max_from_dimension_slice(array_slice[0], 0, time_len)
+    antenna_min, antenna_max = calc_min_max_from_dimension_slice(
+        array_slice[1], 0, antenna_len
+    )
+    frequency_min, frequency_max = calc_min_max_from_dimension_slice(
+        array_slice[2], 0, spw_channel_len
+    )
+    polarization_min, polarization_max = calc_min_max_from_dimension_slice(
+        array_slice[3], 0, sd_polarization_len
+    )
     component_offset = bdf_file.tell()
     for time_idx in np.arange(time_min, time_max):
         vis_auto_strides = []
@@ -208,18 +227,16 @@ def _load_vis_one_spw_cross_data_from_tree(
     spw_channel_len = spw_chan_lens[overall_spw_idx]
     time_len = guessed_shape[0]
     baseline_len = guessed_shape[1]
-    time_min = array_slice[0].start or 0
-    time_max = array_slice[0].stop or time_len
-    if isinstance(array_slice[1], int):
-        baseline_min = array_slice[1]
-        baseline_max = array_slice[1] + 1
-    elif isinstance(array_slice[1], slice):
-        baseline_min = array_slice[1].start or 0
-        baseline_max = array_slice[1].stop or baseline_len
-    frequency_min = array_slice[2].start or 0
-    frequency_max = array_slice[2].stop or spw_channel_len
-    polarization_min = array_slice[3].start or 0
-    polarization_max = array_slice[3].stop or polarization_len
+    time_min, time_max = calc_min_max_from_dimension_slice(array_slice[0], 0, time_len)
+    baseline_min, baseline_max = calc_min_max_from_dimension_slice(
+        array_slice[1], 0, baseline_len
+    )
+    frequency_min, frequency_max = calc_min_max_from_dimension_slice(
+        array_slice[2], 0, spw_channel_len
+    )
+    polarization_min, polarization_max = calc_min_max_from_dimension_slice(
+        array_slice[3], 0, polarization_len
+    )
     component_offset = bdf_file.tell()
     for time_idx in np.arange(time_min, time_max):
         vis_strides = []

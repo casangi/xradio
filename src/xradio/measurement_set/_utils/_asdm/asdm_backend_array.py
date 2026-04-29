@@ -49,9 +49,15 @@ class VisibilityArray(ASDMBackendArray):
 
     def _raw_indexing_method(self, key: tuple):
         xradio_logger().debug(f" VisibilityArray._raw_indexing_method, {key=}")
-        visibility = load_visibilities_from_partition_bdfs(
-            self._bdf_paths, self._bdf_spw_id, key
-        )
+        try:
+            visibility = load_visibilities_from_partition_bdfs(
+                self._bdf_paths, self._bdf_spw_id, key
+            )
+        except Exception as exc:
+            xradio_logger.warning(
+                f"Exception while indexing the VISIBILITY array with {key=}: {exc}"
+            )
+            raise exc
         return visibility
 
 
@@ -78,7 +84,15 @@ class FlagArray(ASDMBackendArray):
 
     def _raw_indexing_method(self, key: tuple):
         xradio_logger().debug(f" FlagArray._raw_indexing_method, {key=}")
-        flags = load_flags_from_partition_bdfs(self._bdf_paths, self._bdf_spw_id, key)
+        try:
+            flags = load_flags_from_partition_bdfs(
+                self._bdf_paths, self._bdf_spw_id, key
+            )
+        except Exception as exc:
+            xradio_logger.warning(
+                f"Exception while indexing the FLAG array with {key=}: {exc}"
+            )
+            raise exc
         return flags
 
 

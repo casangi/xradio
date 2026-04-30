@@ -7,6 +7,7 @@ import pyasdm
 
 
 from .array_indexing import (
+    calc_auto_cross_baseline_slices,
     min_max_from_dimension_slice,
 )
 from .basebands_spws import baseband_spw_to_overall_spw_idx, calculate_overall_spw_idx
@@ -21,6 +22,37 @@ from . import config
 from xradio._utils.logging import xradio_logger
 
 
+def figure_out_components_needed(
+    array_slice: tuple[slice, ...] | None, bdf_descr: dict
+) -> list[str]:
+    # For full partition (MSv4) loading we'd load both cross and auto, but depending on indexing/selection we
+    # might not need either auto (if indices are lower than the beginning of the auto-correlations) or cross
+    # (if indices are higher)
+    #
+    # Returns a subset of or {"autoData", "crossData"}
+
+    if not array_slice:
+        return ["autoData", "crossData"]
+
+    cross_data_present = (
+        bdf_descr["correlation_mode"] != pyasdm.enumerations.CorrelationMode.AUTO_ONLY
+    )
+    antenna_len = bdf_descr["num_antenna"]
+    cross_baseline_len = int(antenna_len * (antenna_len - 1) / 2)
+
+    cross_baseline_slice, auto_baseline_slice = calc_auto_cross_baseline_slices(
+        array_slice[1], cross_baseline_len, antenna_len, cross_data_present
+    )
+
+    components_needed = []
+    if auto_baseline_slice is not None:
+        components_needed.append("autoData")
+    if cross_data_present and cross_baseline_slice is not None:
+        components_needed.append("crossData")
+
+    return components_needed
+
+
 def load_visibilities_all_subsets_from_trees(
     bdf_reader: pyasdm.bdf.BDFReader,
     guessed_shape: tuple[int, ...],
@@ -30,12 +62,19 @@ def load_visibilities_all_subsets_from_trees(
     load_one_spw_from_file: bool = config.use_load_one_spw_at_a_time,
 ) -> np.ndarray:
 
+    components_to_load = figure_out_components_needed(array_slice, bdf_descr)
     num_channels = guessed_shape[-3]
+
     if load_one_spw_from_file and num_channels > 1:
         overall_spw_idx = baseband_spw_to_overall_spw_idx(baseband_spw_idxs, bdf_descr)
         spw_idx = overall_spw_idx
         load_spw_function = load_visibilities_one_spw_to_ndarray
-        load_spw_function_params = (bdf_descr, guessed_shape, array_slice)
+        load_spw_function_params = (
+            bdf_descr,
+            components_to_load,
+            guessed_shape,
+            array_slice,
+        )
     else:
         spw_idx = None
         load_spw_function = None
@@ -44,7 +83,7 @@ def load_visibilities_all_subsets_from_trees(
     vis_per_subset = []
     while bdf_reader.hasSubset():
         if load_spw_function is None and spw_idx is None:
-            subset = load_subset_with_get_subset(bdf_reader)
+            subset = load_subset_with_get_subset(bdf_reader, components_to_load)
             if subset is None:
                 return subset
             vis_subset = load_vis_subset_from_tree(
@@ -68,9 +107,11 @@ def load_visibilities_all_subsets_from_trees(
     return bdf_vis
 
 
-def load_subset_with_get_subset(bdf_reader: pyasdm.bdf.BDFReader) -> dict | None:
+def load_subset_with_get_subset(
+    bdf_reader: pyasdm.bdf.BDFReader, components_to_load: list[str]
+) -> dict | None:
     try:
-        subset = bdf_reader.getSubset(loadOnlyComponents={"autoData", "crossData"})
+        subset = bdf_reader.getSubset(loadOnlyComponents=components_to_load)
     except ValueError as exc:
         trace = traceback.format_exc()
         xradio_logger().warning(

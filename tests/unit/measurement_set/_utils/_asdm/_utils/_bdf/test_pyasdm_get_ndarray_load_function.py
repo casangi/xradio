@@ -282,13 +282,11 @@ def test_load_visibilities_one_spw_to_ndarray(
                 np.float64,
                 input_elements_count,
                 input_bdf_descr,
+                ["autoData", "crossData"],
                 input_guessed_shape,
                 empty_slice,
             )
 
-            if input_component == "crossData":
-                assert visibilities is None
-            else:
-                assert isinstance(visibilities, np.ndarray)
-                assert visibilities.size >= input_elements_count * 2
-                assert (visibilities == 0 + 0j).all()
+            assert isinstance(visibilities, np.ndarray)
+            assert visibilities.size >= input_elements_count * 2
+            assert (visibilities == 0 + 0j).all()

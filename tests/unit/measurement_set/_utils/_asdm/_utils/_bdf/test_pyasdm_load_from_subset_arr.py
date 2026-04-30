@@ -82,7 +82,9 @@ def test_load_visibilities_all_subsets():
 
     bdf_descr = {
         "basebands": basebands_simple,
+        "correlation_mode": pyasdm.enumerations.CorrelationMode.CROSS_AND_AUTO,
         "processor_type": "CORRELATOR",
+        "num_antenna": 7,
     }
 
     with (
@@ -108,6 +110,8 @@ def test_load_visibilities_all_subsets_error():
 
     bdf_descr = {
         "basebands": basebands_simple,
+        "correlation_mode": pyasdm.enumerations.CorrelationMode.CROSS_AND_AUTO,
+        "num_antenna": 7,
         "processor_type": "CORRELATOR",
     }
 

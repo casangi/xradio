@@ -17,6 +17,7 @@ from .shapes import (
     add_cross_and_auto_flag_shapes,
     full_shape_to_output_filled_flags_shape,
 )
+from .pyasdm_load_from_trees import figure_out_components_needed
 
 
 def load_visibilities_all_subsets(
@@ -32,10 +33,11 @@ def load_visibilities_all_subsets(
     scale_factor = spw_descr["scaleFactor"] or 1
     processor_type = bdf_descr["processor_type"]
 
+    components_to_load = figure_out_components_needed(array_slice, bdf_descr)
     vis_per_subset = []
     while bdf_reader.hasSubset():
         try:
-            subset = bdf_reader.getSubset(loadOnlyComponents={"autoData", "crossData"})
+            subset = bdf_reader.getSubset(loadOnlyComponents=components_to_load)
         except ValueError as exc:
             trace = traceback.format_exc()
             xradio_logger().warning(

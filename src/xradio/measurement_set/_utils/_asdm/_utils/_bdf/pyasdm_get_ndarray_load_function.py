@@ -28,6 +28,7 @@ def load_visibilities_one_spw_to_ndarray(
     data_type: np.dtype,  # ???
     elements_count: int,  # ???
     bdf_descr: dict,
+    components_to_load: list[str],
     guessed_shape: tuple[int, ...],
     array_slice: tuple[slice, ...],
 ) -> np.ndarray:
@@ -58,55 +59,49 @@ def load_visibilities_one_spw_to_ndarray(
         array_slice[1], cross_baseline_len, nantennas, cross_data_present
     )
 
-    if component_name == "autoData":
-        if auto_baseline_slice is None:
-            vis_one_spw = None
-        else:
-            auto_array_slice = (array_slice[0], auto_baseline_slice, *array_slice[2:])
-            vis_one_spw = _load_vis_one_spw_auto_data_from_tree(
-                bdf_file,
-                guessed_shape,
-                spw_chan_lens,
-                overall_spw_idx,
-                data_type,
-                elements_count,
-                auto_array_slice,
-            )
-            # squeeze baseline_id dim
-            if isinstance(auto_baseline_slice, int):
-                vis_one_spw = np.squeeze(vis_one_spw, 1)
+    vis_one_spw = None
+    if component_name == "autoData" and "autoData" in components_to_load:
+        auto_array_slice = (array_slice[0], auto_baseline_slice, *array_slice[2:])
+        vis_one_spw = _load_vis_one_spw_auto_data_from_tree(
+            bdf_file,
+            guessed_shape,
+            spw_chan_lens,
+            overall_spw_idx,
+            data_type,
+            elements_count,
+            auto_array_slice,
+        )
+        # squeeze baseline_id dim
+        if isinstance(auto_baseline_slice, int):
+            vis_one_spw = np.squeeze(vis_one_spw, 1)
 
-    elif component_name == "crossData":
-        if cross_baseline_slice is None:
-            vis_one_spw = None
-        else:
+    elif component_name == "crossData" and "crossData" in components_to_load:
+        baseband_spw_idxs = find_spw_in_basebands_list(
+            overall_spw_idx, bdf_descr["basebands"], bdf_file.name
+        )
 
-            baseband_spw_idxs = find_spw_in_basebands_list(
-                overall_spw_idx, bdf_descr["basebands"], bdf_file.name
-            )
-
-            baseband_description = bdf_descr["basebands"][baseband_spw_idxs[0]]
-            spw_descr = baseband_description["spectralWindows"][baseband_spw_idxs[1]]
-            scale_factor = spw_descr["scaleFactor"] or 1
-            processor_type = bdf_descr["processor_type"]
-            cross_array_slice = (
-                array_slice[0],
-                cross_baseline_slice,
-                *array_slice[2:4],
-            )
-            vis_one_spw = _load_vis_one_spw_cross_data_from_tree(
-                bdf_file,
-                guessed_shape,
-                spw_chan_lens,
-                overall_spw_idx,
-                data_type,
-                scale_factor,
-                processor_type,
-                cross_array_slice,
-            )
-            # squeeze baseline_id dim
-            if isinstance(cross_baseline_slice, int):
-                vis_one_spw = np.squeeze(vis_one_spw, 1)
+        baseband_description = bdf_descr["basebands"][baseband_spw_idxs[0]]
+        spw_descr = baseband_description["spectralWindows"][baseband_spw_idxs[1]]
+        scale_factor = spw_descr["scaleFactor"] or 1
+        processor_type = bdf_descr["processor_type"]
+        cross_array_slice = (
+            array_slice[0],
+            cross_baseline_slice,
+            *array_slice[2:4],
+        )
+        vis_one_spw = _load_vis_one_spw_cross_data_from_tree(
+            bdf_file,
+            guessed_shape,
+            spw_chan_lens,
+            overall_spw_idx,
+            data_type,
+            scale_factor,
+            processor_type,
+            cross_array_slice,
+        )
+        # squeeze baseline_id dim
+        if isinstance(cross_baseline_slice, int):
+            vis_one_spw = np.squeeze(vis_one_spw, 1)
 
     return vis_one_spw
 

@@ -83,7 +83,9 @@ def test_load_visibilities_all_subsets_from_trees():
 
     bdf_descr = {
         "basebands": basebands_example,
+        "correlation_mode": pyasdm.enumerations.CorrelationMode.CROSS_AND_AUTO,
         "processor_type": "CORRELATOR",
+        "num_antenna": 44,
     }
     with (
         mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
@@ -115,7 +117,7 @@ def test_load_subset_with_get_subset():
         mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
     ):
         mock_bdf_reader.hasSubset.side_effect = [True, False]
-        subset = load_subset_with_get_subset(mock_bdf_reader)
+        subset = load_subset_with_get_subset(mock_bdf_reader, ["autoData", "crossData"])
         assert subset
         mock_bdf_reader.hasSubset.assert_not_called()
         mock_bdf_reader.getSubset.assert_called_once()

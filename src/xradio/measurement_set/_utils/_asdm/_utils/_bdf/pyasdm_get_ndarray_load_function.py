@@ -15,20 +15,8 @@ import typing
 import pyasdm
 
 from .basebands_spws import find_spw_in_basebands_list
+from .array_indexing import min_max_from_dimension_slice
 from .pyasdm_load_from_subset_arr import calc_auto_cross_baseline_slices
-
-
-def calc_min_max_from_dimension_slice(
-    dimension_slice, default_min, default_max
-) -> [int, int]:
-    if isinstance(dimension_slice, int):
-        dimension_idx_min = dimension_slice
-        dimension_idx_max = dimension_slice + 1
-    elif isinstance(dimension_slice, slice):
-        dimension_idx_min = dimension_slice.start or default_min
-        dimension_idx_max = dimension_slice.stop or default_max
-
-    return dimension_idx_min, dimension_idx_max
 
 
 def load_visibilities_one_spw_to_ndarray(
@@ -148,14 +136,14 @@ def _load_vis_one_spw_auto_data_from_tree(
 
     time_len = guessed_shape[0]
     vis_subset_integrations = []
-    time_min, time_max = calc_min_max_from_dimension_slice(array_slice[0], 0, time_len)
-    antenna_min, antenna_max = calc_min_max_from_dimension_slice(
+    time_min, time_max = min_max_from_dimension_slice(array_slice[0], 0, time_len)
+    antenna_min, antenna_max = min_max_from_dimension_slice(
         array_slice[1], 0, antenna_len
     )
-    frequency_min, frequency_max = calc_min_max_from_dimension_slice(
+    frequency_min, frequency_max = min_max_from_dimension_slice(
         array_slice[2], 0, spw_channel_len
     )
-    polarization_min, polarization_max = calc_min_max_from_dimension_slice(
+    polarization_min, polarization_max = min_max_from_dimension_slice(
         array_slice[3], 0, sd_polarization_len
     )
     component_offset = bdf_file.tell()
@@ -227,14 +215,14 @@ def _load_vis_one_spw_cross_data_from_tree(
     spw_channel_len = spw_chan_lens[overall_spw_idx]
     time_len = guessed_shape[0]
     baseline_len = guessed_shape[1]
-    time_min, time_max = calc_min_max_from_dimension_slice(array_slice[0], 0, time_len)
-    baseline_min, baseline_max = calc_min_max_from_dimension_slice(
+    time_min, time_max = min_max_from_dimension_slice(array_slice[0], 0, time_len)
+    baseline_min, baseline_max = min_max_from_dimension_slice(
         array_slice[1], 0, baseline_len
     )
-    frequency_min, frequency_max = calc_min_max_from_dimension_slice(
+    frequency_min, frequency_max = min_max_from_dimension_slice(
         array_slice[2], 0, spw_channel_len
     )
-    polarization_min, polarization_max = calc_min_max_from_dimension_slice(
+    polarization_min, polarization_max = min_max_from_dimension_slice(
         array_slice[3], 0, polarization_len
     )
     component_offset = bdf_file.tell()

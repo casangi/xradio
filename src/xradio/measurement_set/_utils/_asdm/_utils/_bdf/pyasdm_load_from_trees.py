@@ -13,7 +13,7 @@ from .shapes import (
     add_cross_and_auto_flag_shapes,
     full_shape_to_output_filled_flags_shape,
 )
-from .pyasdm_get_ndarray_load_function import calc_min_max_from_dimension_slice
+from .array_indexing import min_max_from_dimension_slice
 from . import config
 
 from xradio._utils.logging import xradio_logger
@@ -190,14 +190,14 @@ def load_vis_subset_cross_data_from_tree(
     spw_channel_len = spw_chan_lens[overall_spw_idx]
     time_len = guessed_shape[0]
     baseline_len = guessed_shape[1]
-    time_min, time_max = calc_min_max_from_dimension_slice(array_slice[0], 0, time_len)
-    baseline_min, baseline_max = calc_min_max_from_dimension_slice(
+    time_min, time_max = min_max_from_dimension_slice(array_slice[0], 0, time_len)
+    baseline_min, baseline_max = min_max_from_dimension_slice(
         array_slice[1], 0, baseline_len
     )
-    frequency_min, frequency_max = calc_min_max_from_dimension_slice(
+    frequency_min, frequency_max = min_max_from_dimension_slice(
         array_slice[2], 0, spw_channel_len
     )
-    polarization_min, polarization_max = calc_min_max_from_dimension_slice(
+    polarization_min, polarization_max = min_max_from_dimension_slice(
         array_slice[3], 0, polarization_len
     )
     for time_idx in np.arange(time_min, time_max):
@@ -274,14 +274,14 @@ def load_vis_subset_auto_data_from_tree(
 
     time_len = guessed_shape[0]
     vis_subset_integrations = []
-    time_min, time_max = calc_min_max_from_dimension_slice(array_slice[0], 0, time_len)
-    antenna_min, antenna_max = calc_min_max_from_dimension_slice(
+    time_min, time_max = min_max_from_dimension_slice(array_slice[0], 0, time_len)
+    antenna_min, antenna_max = min_max_from_dimension_slice(
         array_slice[1], 0, antenna_len
     )
-    frequency_min, frequency_max = calc_min_max_from_dimension_slice(
+    frequency_min, frequency_max = min_max_from_dimension_slice(
         array_slice[2], 0, spw_channel_len
     )
-    polarization_min, polarization_max = calc_min_max_from_dimension_slice(
+    polarization_min, polarization_max = min_max_from_dimension_slice(
         array_slice[3], 0, sd_polarization_len
     )
     for time_idx in np.arange(time_min, time_max):
@@ -425,15 +425,15 @@ def load_flags_subset_cross_and_auto_blocks_from_tree(
     flag_subset_integrations = []
     time_len = guessed_shape["auto"][0]
 
-    time_min, time_max = calc_min_max_from_dimension_slice(array_slice[0], 0, time_len)
+    time_min, time_max = min_max_from_dimension_slice(array_slice[0], 0, time_len)
     # TODO: split baseline indices/antenna indices
-    baseline_min, baseline_max = calc_min_max_from_dimension_slice(
+    baseline_min, baseline_max = min_max_from_dimension_slice(
         array_slice[1], 0, baseline_len
     )
-    antenna_min, antenna_max = calc_min_max_from_dimension_slice(
+    antenna_min, antenna_max = min_max_from_dimension_slice(
         array_slice[1], 0, antenna_len
     )
-    polarization_min, polarization_max = calc_min_max_from_dimension_slice(
+    polarization_min, polarization_max = min_max_from_dimension_slice(
         array_slice[3], 0, polarization_cross_len
     )
     for time_idx in np.arange(time_min, time_max):

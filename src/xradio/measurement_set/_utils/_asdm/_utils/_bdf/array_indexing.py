@@ -4,7 +4,7 @@ Functions related to indexing of the dimensions of the VISIBILITY and FLAG array
 
 
 def min_max_from_dimension_slice(
-    dimension_slice, default_min, default_max
+    dimension_slice: slice | None, default_min: int, default_max: int
 ) -> [int, int]:
     if isinstance(dimension_slice, int):
         dimension_idx_min = dimension_slice
@@ -12,12 +12,18 @@ def min_max_from_dimension_slice(
     elif isinstance(dimension_slice, slice):
         dimension_idx_min = dimension_slice.start or default_min
         dimension_idx_max = dimension_slice.stop or default_max
+    else:
+        dimension_idx_min = default_min
+        dimension_idx_max = default_max
 
     return dimension_idx_min, dimension_idx_max
 
 
 def calc_auto_cross_baseline_slices(
-    array_slice_baseline, cross_baseline_len, nantennas, cross_data_present
+    array_slice_baseline: slice | int,
+    cross_baseline_len: int,
+    nantennas: int,
+    cross_data_present: bool,
 ) -> tuple[slice, slice]:
     """
     Indexing/selecting slices for baseline dimension need special treatment because some baselines are

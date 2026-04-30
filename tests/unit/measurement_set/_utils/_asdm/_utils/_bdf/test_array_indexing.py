@@ -13,6 +13,8 @@ import pytest
         (0, 0, 33, (0, 1)),
         (3, 0, 4, (3, 4)),
         (4, 3, 1112, (4, 5)),
+        (None, 0, 33, (0, 33)),
+        (None, 10, 12, (10, 12)),
     ],
 )
 def test_min_max_from_dimension_slice(

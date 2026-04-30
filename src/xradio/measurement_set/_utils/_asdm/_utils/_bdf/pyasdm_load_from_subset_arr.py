@@ -12,6 +12,7 @@ import numpy as np
 import pyasdm
 
 from xradio._utils.logging import xradio_logger
+from .array_indexing import calc_auto_cross_baseline_slices
 from .shapes import (
     add_cross_and_auto_flag_shapes,
     full_shape_to_output_filled_flags_shape,
@@ -56,73 +57,6 @@ def load_visibilities_all_subsets(
 
     bdf_vis = np.concatenate(vis_per_subset)
     return bdf_vis
-
-
-def calc_auto_cross_baseline_slices(
-    array_slice_baseline, cross_baseline_len, nantennas, cross_data_present
-) -> tuple[slice, slice]:
-    """
-    Indexing/selecting slices for baseline dimension need special treatment because some baselines are
-    loaded from the crossData binary component (cross-correlations, loaded as first block) and some
-    others are loaded from the autoData binary components (auto-correlations, loaded as a second block).
-
-    This function maps the overall VISIBILITY baseline dimension indices into separate indices for the
-    autoData and crossData binary components of the BDFs.
-
-    Turns an overall slice for indexing/selecting baseline id into separate slices for the
-    - cross correlations (to be loaded from crossData binary component)
-    - the auto correlations (to be loaded form the autoData binary component).
-    When either of them is not used (are not within the overall start/stop), their array selection slices
-    are set to None (meaning the selection does not take anything from them, as opposed to a
-    slice(None, None) which means all is selected).
-    """
-    auto_baseline_slice = None
-    cross_baseline_slice = None
-
-    if not cross_data_present:
-        cross_baseline_slice = None
-        auto_baseline_slice = array_slice_baseline
-
-    if isinstance(array_slice_baseline, slice):
-        if not array_slice_baseline.start:
-            # all global slice => all cross + all auto slices
-            auto_baseline_slice = cross_baseline_slice = array_slice_baseline
-        else:
-            if array_slice_baseline.start >= cross_baseline_len:
-                # All on the auto (second) half
-                auto_start = array_slice_baseline.start - cross_baseline_len
-                auto_end = array_slice_baseline.end - cross_baseline_len
-                auto_baseline_slice = slice(auto_start, auto_end)
-            elif array_slice_baseline.end >= cross_baseline_len:
-                # Part in cross (first) half, and part in auto (second) half
-                cross_start = array_slice_baseline.start
-                cross_end = cross_baseline_len
-                cross_baseline_slice = slice(cross_start, cross_end)
-                auto_start = 0
-                auto_end = array_slice_baseline.end - cross_baseline_len
-                auto_baseline_slice = slice(auto_start, auto_end)
-            else:
-                # All on the cross (first) half
-                cross_baseline_slice = array_slice_baseline
-
-    elif isinstance(array_slice_baseline, int):
-        if array_slice_baseline < cross_baseline_len:
-            cross_baseline_slice = array_slice_baseline
-        elif array_slice_baseline >= cross_baseline_len and array_slice_baseline < (
-            cross_baseline_len + nantennas
-        ):
-            auto_baseline_slice = array_slice_baseline - cross_baseline_len
-        else:
-            raise RuntimeError(
-                "Unexpected value (too high) of int {array_slice_baseline=}, with {cross_baseline_len=}, {nantennas=}"
-            )
-
-    else:
-        raise RuntimeError(
-            "Unexpected type of {array_slice_baseline=}, {type(array_slice_baseline)=}"
-        )
-
-    return cross_baseline_slice, auto_baseline_slice
 
 
 def _load_vis_subset(

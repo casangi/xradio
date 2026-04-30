@@ -6,6 +6,9 @@ import numpy as np
 import pyasdm
 
 
+from .array_indexing import (
+    min_max_from_dimension_slice,
+)
 from .basebands_spws import baseband_spw_to_overall_spw_idx, calculate_overall_spw_idx
 from .flags_offsets import calculate_offset_additions_cross_sd
 from .pyasdm_get_ndarray_load_function import load_visibilities_one_spw_to_ndarray
@@ -13,7 +16,6 @@ from .shapes import (
     add_cross_and_auto_flag_shapes,
     full_shape_to_output_filled_flags_shape,
 )
-from .array_indexing import min_max_from_dimension_slice
 from . import config
 
 from xradio._utils.logging import xradio_logger

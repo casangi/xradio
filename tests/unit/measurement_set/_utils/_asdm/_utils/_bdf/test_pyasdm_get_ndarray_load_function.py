@@ -285,9 +285,10 @@ def test_load_visibilities_one_spw_to_ndarray(
                 input_guessed_shape,
                 empty_slice,
             )
-            assert isinstance(visibilities, np.ndarray)
+
             if input_component == "crossData":
-                assert visibilities.size == input_elements_count * 2
+                assert visibilities is None
             else:
+                assert isinstance(visibilities, np.ndarray)
                 assert visibilities.size >= input_elements_count * 2
-            assert (visibilities == 0 + 0j).all()
+                assert (visibilities == 0 + 0j).all()

@@ -14,9 +14,11 @@ import typing
 
 import pyasdm
 
+from .array_indexing import (
+    calc_auto_cross_baseline_slices,
+    min_max_from_dimension_slice,
+)
 from .basebands_spws import find_spw_in_basebands_list
-from .array_indexing import min_max_from_dimension_slice
-from .pyasdm_load_from_subset_arr import calc_auto_cross_baseline_slices
 
 
 def load_visibilities_one_spw_to_ndarray(

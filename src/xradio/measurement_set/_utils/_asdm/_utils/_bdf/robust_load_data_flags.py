@@ -77,16 +77,15 @@ def load_visibilities_from_partition_bdfs(
 ) -> np.ndarray:
 
     cumulative_vis = []
+    start = time.perf_counter()
     for bdf_path in bdf_paths:
         visibility_blob = load_visibilities_from_bdf(bdf_path, spw_id, array_slice)
-
         cumulative_vis.append(visibility_blob)
 
-    start = time.perf_counter()
     visibility = np.concatenate(cumulative_vis)
     end = time.perf_counter()
     xradio_logger().info(
-        f"Loaded visibility, with {visibility.shape=} from {len(bdf_paths)=} blobs, time: {end-start:.6}"
+        f"Loaded VISIBILITY array, with {visibility.shape=} from {len(bdf_paths)=} blobs, time: {end-start:.6}"
     )
 
     return visibility
@@ -112,7 +111,7 @@ def load_visibilities_from_bdf(
     bdf_path: str,
     spw_id: int,
     array_slice: tuple[slice, ...],
-    never_reshape_from_all_spws: bool = False,
+    never_reshape_from_all_spws: bool = True,
 ) -> np.ndarray:
 
     bdf_reader = pyasdm.bdf.BDFReader()
@@ -169,11 +168,18 @@ def load_flags_from_partition_bdfs(
 ) -> np.ndarray:
 
     cumulative_flag = []
+    start = time.perf_counter()
     for bdf_path in bdf_paths:
         flag_blob = load_flags_from_bdf(bdf_path, spw_id, array_slice)
         cumulative_flag.append(flag_blob)
 
-    return np.concatenate(cumulative_flag)
+    flag = np.concatenate(cumulative_flag)
+    end = time.perf_counter()
+    xradio_logger().info(
+        f"Loaded FLAG array, with {flag.shape=} from {len(bdf_paths)=} blobs, time: {end-start:.6}"
+    )
+
+    return flag
 
 
 def check_flags_dims(flags_dims: list[str]):

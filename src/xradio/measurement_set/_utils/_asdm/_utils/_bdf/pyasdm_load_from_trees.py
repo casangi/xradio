@@ -7,7 +7,7 @@ import pyasdm
 
 
 from .array_indexing import (
-    calc_auto_cross_baseline_slices,
+    find_data_components_needed,
     min_max_from_dimension_slice,
 )
 from .basebands_spws import baseband_spw_to_overall_spw_idx, calculate_overall_spw_idx
@@ -22,37 +22,6 @@ from . import config
 from xradio._utils.logging import xradio_logger
 
 
-def figure_out_components_needed(
-    array_slice: tuple[slice, ...] | None, bdf_descr: dict
-) -> list[str]:
-    # For full partition (MSv4) loading we'd load both cross and auto, but depending on indexing/selection we
-    # might not need either auto (if indices are lower than the beginning of the auto-correlations) or cross
-    # (if indices are higher)
-    #
-    # Returns a subset of or {"autoData", "crossData"}
-
-    if not array_slice:
-        return ["autoData", "crossData"]
-
-    cross_data_present = (
-        bdf_descr["correlation_mode"] != pyasdm.enumerations.CorrelationMode.AUTO_ONLY
-    )
-    antenna_len = bdf_descr["num_antenna"]
-    cross_baseline_len = int(antenna_len * (antenna_len - 1) / 2)
-
-    cross_baseline_slice, auto_baseline_slice = calc_auto_cross_baseline_slices(
-        array_slice[1], cross_baseline_len, antenna_len, cross_data_present
-    )
-
-    components_needed = []
-    if auto_baseline_slice is not None:
-        components_needed.append("autoData")
-    if cross_data_present and cross_baseline_slice is not None:
-        components_needed.append("crossData")
-
-    return components_needed
-
-
 def load_visibilities_all_subsets_from_trees(
     bdf_reader: pyasdm.bdf.BDFReader,
     guessed_shape: tuple[int, ...],
@@ -62,7 +31,7 @@ def load_visibilities_all_subsets_from_trees(
     load_one_spw_from_file: bool = config.use_load_one_spw_at_a_time,
 ) -> np.ndarray:
 
-    components_to_load = figure_out_components_needed(array_slice, bdf_descr)
+    components_to_load = find_data_components_needed(array_slice, bdf_descr)
     num_channels = guessed_shape[-3]
 
     if load_one_spw_from_file and num_channels > 1:

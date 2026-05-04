@@ -2,6 +2,8 @@
 Functions related to indexing of the dimensions of the VISIBILITY and FLAG arrays.
 """
 
+import pyasdm
+
 
 def min_max_from_dimension_slice(
     dimension_slice: slice | None, default_min: int, default_max: int
@@ -95,3 +97,34 @@ def calc_auto_cross_baseline_slices(
         )
 
     return cross_baseline_slice, auto_baseline_slice
+
+
+def find_data_components_needed(
+    array_slice: slice | None, bdf_descr: dict
+) -> list[str]:
+    # For full partition (MSv4) loading we'd load both cross and auto, but depending on indexing/selection we
+    # might not need either auto (if indices are lower than the beginning of the auto-correlations) or cross
+    # (if indices are higher)
+    #
+    # Returns a subset of or {"autoData", "crossData"}
+
+    if not array_slice:
+        return ["autoData", "crossData"]
+
+    cross_data_present = (
+        bdf_descr["correlation_mode"] != pyasdm.enumerations.CorrelationMode.AUTO_ONLY
+    )
+    antenna_len = bdf_descr["num_antenna"]
+    cross_baseline_len = int(antenna_len * (antenna_len - 1) / 2)
+
+    cross_baseline_slice, auto_baseline_slice = calc_auto_cross_baseline_slices(
+        array_slice[1], cross_baseline_len, antenna_len, cross_data_present
+    )
+
+    components_needed = []
+    if auto_baseline_slice is not None:
+        components_needed.append("autoData")
+    if cross_data_present and cross_baseline_slice is not None:
+        components_needed.append("crossData")
+
+    return components_needed

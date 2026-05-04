@@ -12,12 +12,11 @@ import numpy as np
 import pyasdm
 
 from xradio._utils.logging import xradio_logger
-from .array_indexing import calc_auto_cross_baseline_slices
+from .array_indexing import calc_auto_cross_baseline_slices, find_data_components_needed
 from .shapes import (
     add_cross_and_auto_flag_shapes,
     full_shape_to_output_filled_flags_shape,
 )
-from .pyasdm_load_from_trees import figure_out_components_needed
 
 
 def load_visibilities_all_subsets(
@@ -33,7 +32,7 @@ def load_visibilities_all_subsets(
     scale_factor = spw_descr["scaleFactor"] or 1
     processor_type = bdf_descr["processor_type"]
 
-    components_to_load = figure_out_components_needed(array_slice, bdf_descr)
+    components_to_load = find_data_components_needed(array_slice, bdf_descr)
     vis_per_subset = []
     while bdf_reader.hasSubset():
         try:

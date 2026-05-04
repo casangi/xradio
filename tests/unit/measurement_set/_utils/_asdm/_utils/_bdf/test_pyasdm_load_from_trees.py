@@ -169,6 +169,8 @@ def test_load_vis_subset_from_tree():
     guessed_shape = (2, 45, 2, 64, 2, 2)
     bdf_descr = {
         "basebands": basebands_example,
+        "correlation_mode": pyasdm.enumerations.CorrelationMode.AUTO_ONLY,
+        "num_antenna": 18,
         "processor_type": "CORRELATOR",
     }
     with (
@@ -310,7 +312,7 @@ def test_load_visibilities_all_subsets_from_trees_X136e(input_load_one_spw_from_
         mock_bdf_reader.hasSubset.side_effect = [True, False]
         if input_load_one_spw_from_file:
             mock_bdf_reader.getNDArrays.side_effect = [
-                {"visibilities": np.ones(shape=(1, 45, 1024, 2), dtype="complex128")}
+                {"visibilities": np.ones(shape=(1, 9, 1024, 2), dtype="complex128")}
             ]
         else:
             mock_bdf_reader.getSubset.side_effect = [
@@ -320,8 +322,8 @@ def test_load_visibilities_all_subsets_from_trees_X136e(input_load_one_spw_from_
                         "arr": np.zeros((1000000), dtype="float64"),
                     },
                     "crossData": {
-                        "present": True,
-                        "arr": np.zeros((1000000), dtype="float64"),
+                        "present": False,
+                        "arr": None,
                     },
                 },
                 None,
@@ -337,9 +339,12 @@ def test_load_visibilities_all_subsets_from_trees_X136e(input_load_one_spw_from_
         )
 
         assert isinstance(visibilities, np.ndarray)
-        assert visibilities.size == 92160
-        assert visibilities.shape == (1, 45, 1024, 2)
-        assert visibilities.dtype == np.dtype("complex128")
+        assert visibilities.size == 18432
+        assert visibilities.shape == (1, 9, 1024, 2)
+        if input_load_one_spw_from_file:
+            assert visibilities.dtype == np.dtype("complex128")
+        else:
+            assert visibilities.dtype == np.dtype("float64")
 
         assert mock_bdf_reader.hasSubset.call_count == 2
         if input_load_one_spw_from_file:

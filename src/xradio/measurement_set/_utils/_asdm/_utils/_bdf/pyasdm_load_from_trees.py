@@ -7,6 +7,7 @@ import pyasdm
 
 
 from .array_indexing import (
+    calc_auto_cross_baseline_slices,
     find_data_components_needed,
     min_max_from_dimension_slice,
 )
@@ -139,15 +140,30 @@ def load_vis_subset_from_tree(
         bdf_descr["basebands"], baseband_idx, spw_idx
     )
 
+    cross_data_present = (
+        bdf_descr["correlation_mode"]
+        == pyasdm.enumerations.CorrelationMode.CROSS_AND_AUTO
+    )
+    nantennas = bdf_descr["num_antenna"]  # guessed_shape[2]
+    cross_baseline_len = guessed_shape[1]
+    cross_baseline_slice, auto_baseline_slice = calc_auto_cross_baseline_slices(
+        array_slice[1], cross_baseline_len, nantennas, cross_data_present
+    )
+    vis_subset_auto = None
     if "autoData" in subset and subset["autoData"]["present"]:
-        vis_subset_auto = load_vis_subset_auto_data_from_tree(
-            subset["autoData"]["arr"],
-            guessed_shape,
-            spw_chan_lens,
-            overall_spw_idx,
-            array_slice,
-        )
-
+        if auto_baseline_slice is not None:
+            auto_array_slice = (
+                array_slice[0],
+                auto_baseline_slice,
+                *array_slice[2:],
+            )
+            vis_subset_auto = load_vis_subset_auto_data_from_tree(
+                subset["autoData"]["arr"],
+                guessed_shape,
+                spw_chan_lens,
+                overall_spw_idx,
+                auto_array_slice,
+            )
     else:
         # Never allowed for ALMA (BDF doc) and seems so in real life
         raise RuntimeError(
@@ -155,12 +171,17 @@ def load_vis_subset_from_tree(
         )
 
     vis_subset_cross = None
-    if "crossData" in subset and subset["crossData"]["present"]:
+    if (
+        "crossData" in subset
+        and subset["crossData"]["present"]
+        and cross_baseline_slice is not None
+    ):
         baseband_description = bdf_descr["basebands"][baseband_spw_idxs[0]]
         spw_descr = baseband_description["spectralWindows"][baseband_spw_idxs[1]]
         scale_factor = spw_descr["scaleFactor"] or 1
         processor_type = bdf_descr["processor_type"]
 
+        cross_array_slice = (array_slice[0], cross_baseline_slice, *array_slice[2:4])
         vis_subset_cross = load_vis_subset_cross_data_from_tree(
             subset["crossData"]["arr"],
             guessed_shape,
@@ -168,11 +189,13 @@ def load_vis_subset_from_tree(
             overall_spw_idx,
             scale_factor,
             processor_type,
-            array_slice,
+            cross_array_slice,
         )
 
     if vis_subset_cross is None:
         vis_subset = vis_subset_auto
+    elif vis_subset_auto is None:
+        vis_subset = vis_subset_cross
     else:
         vis_subset = np.concatenate([vis_subset_cross, vis_subset_auto], axis=1)
 

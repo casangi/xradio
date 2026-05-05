@@ -433,20 +433,28 @@ def test_load_visibilities_all_subsets_from_trees_X136e_simplified(
         load_visibilities_all_subsets_from_trees,
     )
 
+    frequency_len = 512
+    polarization_len = 2
+    all_basebands_len = 9
     with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
         # For load_vis_subset, etc.
         mock_bdf_reader.hasSubset.side_effect = [True, False]
         # Only autoDAta values in this test
         if input_load_one_spw_from_file:
             mock_bdf_reader.getNDArrays.side_effect = [
-                {"visibilities": np.ones(shape=(1, 9, 512, 2), dtype="complex128")}
+                {
+                    "visibilities": np.ones(
+                        shape=(1, all_basebands_len, frequency_len, polarization_len),
+                        dtype="complex128",
+                    )
+                }
             ]
         else:
             mock_bdf_reader.getSubset.side_effect = [
                 {
                     "autoData": {
                         "present": True,
-                        "arr": np.zeros((500000), dtype="float64"),
+                        "arr": np.zeros((50000), dtype="float64"),
                     },
                     "crossData": {"present": False, "arr": None},
                 },
@@ -455,7 +463,7 @@ def test_load_visibilities_all_subsets_from_trees_X136e_simplified(
         empty_slice = (slice(None), slice(None), slice(None), slice(None))
         visibilities = load_visibilities_all_subsets_from_trees(
             mock_bdf_reader,
-            (1, 36, 9, 4, 2, 512, 2, 2),
+            (1, 36, 9, 4, 2, frequency_len, polarization_len, 2),
             (1, 0),
             bdf_descr_X136e_simplified,
             empty_slice,
@@ -463,8 +471,141 @@ def test_load_visibilities_all_subsets_from_trees_X136e_simplified(
         )
 
         assert isinstance(visibilities, np.ndarray)
-        assert visibilities.size == 9216
-        assert visibilities.shape == (1, 9, 512, 2)
+        assert visibilities.size == all_basebands_len * frequency_len * polarization_len
+        assert visibilities.shape == (
+            1,
+            all_basebands_len,
+            frequency_len,
+            polarization_len,
+        )
+        assert visibilities.dtype == np.dtype("complex128")
+
+        assert mock_bdf_reader.hasSubset.call_count == 2
+        if input_load_one_spw_from_file:
+            assert mock_bdf_reader.hasSubset.call_count == 2
+            mock_bdf_reader.getNDArrays.assert_called_once()
+            mock_bdf_reader.getSubset.assert_not_called()
+        else:
+            mock_bdf_reader.getSubset.assert_called_once()
+            mock_bdf_reader.getNDArrays.assert_not_called()
+
+
+bdf_descr_X136e_simplified_with_cross_data = {
+    "dimensionality": 1,
+    "num_time": 0,
+    "processor_type": pyasdm.enumerations.ProcessorType.CORRELATOR,
+    "binary_types": [
+        "flags",
+        "actualTimes",
+        "actualDurations",
+        "zeroLags",
+        "crossData",
+        "autoData",
+    ],
+    "correlation_mode": pyasdm.enumerations.CorrelationMode.CROSS_AND_AUTO,
+    "apc": [],
+    "num_antenna": 10,
+    "basebands": [
+        {
+            "name": "BB_1",
+            "spectralWindows": [
+                {
+                    "crossPolProducts": [
+                        pyasdm.enumerations.StokesParameter.XX,
+                        pyasdm.enumerations.StokesParameter.YY,
+                    ],
+                    "sdPolProducts": [
+                        pyasdm.enumerations.StokesParameter.XX,
+                        pyasdm.enumerations.StokesParameter.YY,
+                    ],
+                    "scaleFactor": None,
+                    "numSpectralPoint": 256,
+                    "numBin": 1,
+                    "sideband": pyasdm.enumerations.NetSideband.LSB,
+                    "sw": "1",
+                },
+            ],
+        },
+        {
+            "name": "BB_2",
+            "spectralWindows": [
+                {
+                    "crossPolProducts": [
+                        pyasdm.enumerations.StokesParameter.XX,
+                        pyasdm.enumerations.StokesParameter.YY,
+                    ],
+                    "sdPolProducts": [
+                        pyasdm.enumerations.StokesParameter.XX,
+                        pyasdm.enumerations.StokesParameter.YY,
+                    ],
+                    "scaleFactor": None,
+                    "numSpectralPoint": 128,
+                    "numBin": 1,
+                    "sideband": pyasdm.enumerations.NetSideband.LSB,
+                    "sw": "1",
+                },
+            ],
+        },
+    ],
+}
+
+
+@pytest.mark.parametrize("input_load_one_spw_from_file", [(True), (False)])
+def test_load_visibilities_all_subsets_from_trees_X136e_simplified_with_cross_data(
+    input_load_one_spw_from_file,
+):
+    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
+        load_visibilities_all_subsets_from_trees,
+    )
+
+    frequency_len = 128
+    polarization_len = 2
+    all_basebands_len = 45
+    with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
+        # For load_vis_subset, etc.
+        mock_bdf_reader.hasSubset.side_effect = [True, False]
+        # Only autoDAta values in this test
+        if input_load_one_spw_from_file:
+            mock_bdf_reader.getNDArrays.side_effect = [
+                {
+                    "visibilities": np.ones(
+                        shape=(1, all_basebands_len, frequency_len, polarization_len),
+                        dtype="complex128",
+                    )
+                }
+            ]
+        else:
+            mock_bdf_reader.getSubset.side_effect = [
+                {
+                    "autoData": {
+                        "present": True,
+                        "arr": np.zeros((50000), dtype="float64"),
+                    },
+                    "crossData": {
+                        "present": True,
+                        "arr": np.zeros((250000), dtype="complex128"),
+                    },
+                },
+                None,
+            ]
+        empty_slice = (slice(None), slice(None), slice(None), slice(None))
+        visibilities = load_visibilities_all_subsets_from_trees(
+            mock_bdf_reader,
+            (1, 36, 9, 4, 2, frequency_len, polarization_len, 2),
+            (1, 0),
+            bdf_descr_X136e_simplified_with_cross_data,
+            empty_slice,
+            load_one_spw_from_file=input_load_one_spw_from_file,
+        )
+
+        assert isinstance(visibilities, np.ndarray)
+        assert visibilities.size == all_basebands_len * frequency_len * polarization_len
+        assert visibilities.shape == (
+            1,
+            all_basebands_len,
+            frequency_len,
+            polarization_len,
+        )
         assert visibilities.dtype == np.dtype("complex128")
 
         assert mock_bdf_reader.hasSubset.call_count == 2

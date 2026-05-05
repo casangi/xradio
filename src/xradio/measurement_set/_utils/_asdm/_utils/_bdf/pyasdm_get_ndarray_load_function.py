@@ -75,6 +75,9 @@ def load_visibilities_one_spw_to_ndarray(
         if isinstance(auto_baseline_slice, int):
             vis_one_spw = np.squeeze(vis_one_spw, 1)
 
+        if bdf_descr["processor_type"] == pyasdm.enumerations.ProcessorType.CORRELATOR:
+            vis_one_spw = vis_one_spw.astype("complex128")
+
     elif component_name == "crossData" and "crossData" in components_to_load:
         baseband_spw_idxs = find_spw_in_basebands_list(
             overall_spw_idx, bdf_descr["basebands"], bdf_file.name

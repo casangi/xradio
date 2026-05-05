@@ -150,20 +150,23 @@ def load_vis_subset_from_tree(
         array_slice[1], cross_baseline_len, nantennas, cross_data_present
     )
     vis_subset_auto = None
-    if "autoData" in subset and subset["autoData"]["present"]:
-        if auto_baseline_slice is not None:
-            auto_array_slice = (
-                array_slice[0],
-                auto_baseline_slice,
-                *array_slice[2:],
-            )
-            vis_subset_auto = load_vis_subset_auto_data_from_tree(
-                subset["autoData"]["arr"],
-                guessed_shape,
-                spw_chan_lens,
-                overall_spw_idx,
-                auto_array_slice,
-            )
+    if (
+        "autoData" in subset
+        and subset["autoData"]["present"]
+        and auto_baseline_slice is not None
+    ):
+        auto_array_slice = (
+            array_slice[0],
+            auto_baseline_slice,
+            *array_slice[2:],
+        )
+        vis_subset_auto = load_vis_subset_auto_data_from_tree(
+            subset["autoData"]["arr"],
+            guessed_shape,
+            spw_chan_lens,
+            overall_spw_idx,
+            auto_array_slice,
+        )
     else:
         # Never allowed for ALMA (BDF doc) and seems so in real life
         raise RuntimeError(
@@ -193,6 +196,8 @@ def load_vis_subset_from_tree(
         )
 
     if vis_subset_cross is None:
+        if bdf_descr["processor_type"] == pyasdm.enumerations.ProcessorType.CORRELATOR:
+            vis_subset_auto = vis_subset_auto.astype("complex128")
         vis_subset = vis_subset_auto
     elif vis_subset_auto is None:
         vis_subset = vis_subset_cross

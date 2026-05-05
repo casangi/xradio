@@ -303,7 +303,7 @@ bdf_descr_X136e = {
 
 @pytest.mark.parametrize("input_load_one_spw_from_file", [(True), (False)])
 def test_load_visibilities_all_subsets_from_trees_X136e(input_load_one_spw_from_file):
-    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
         load_visibilities_all_subsets_from_trees,
     )
 
@@ -341,10 +341,7 @@ def test_load_visibilities_all_subsets_from_trees_X136e(input_load_one_spw_from_
         assert isinstance(visibilities, np.ndarray)
         assert visibilities.size == 18432
         assert visibilities.shape == (1, 9, 1024, 2)
-        if input_load_one_spw_from_file:
-            assert visibilities.dtype == np.dtype("complex128")
-        else:
-            assert visibilities.dtype == np.dtype("float64")
+        assert visibilities.dtype == np.dtype("complex128")
 
         assert mock_bdf_reader.hasSubset.call_count == 2
         if input_load_one_spw_from_file:
@@ -432,7 +429,7 @@ bdf_descr_X136e_simplified = {
 def test_load_visibilities_all_subsets_from_trees_X136e_simplified(
     input_load_one_spw_from_file,
 ):
-    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
         load_visibilities_all_subsets_from_trees,
     )
 
@@ -442,7 +439,7 @@ def test_load_visibilities_all_subsets_from_trees_X136e_simplified(
         # Only autoDAta values in this test
         if input_load_one_spw_from_file:
             mock_bdf_reader.getNDArrays.side_effect = [
-                {"visibilities": np.ones(shape=(1, 9, 512, 2), dtype="float64")}
+                {"visibilities": np.ones(shape=(1, 9, 512, 2), dtype="complex128")}
             ]
         else:
             mock_bdf_reader.getSubset.side_effect = [
@@ -468,7 +465,7 @@ def test_load_visibilities_all_subsets_from_trees_X136e_simplified(
         assert isinstance(visibilities, np.ndarray)
         assert visibilities.size == 9216
         assert visibilities.shape == (1, 9, 512, 2)
-        assert visibilities.dtype == np.dtype("float64")
+        assert visibilities.dtype == np.dtype("complex128")
 
         assert mock_bdf_reader.hasSubset.call_count == 2
         if input_load_one_spw_from_file:
@@ -484,7 +481,7 @@ def test_load_visibilities_all_subsets_from_trees_X136e_simplified(
 def test_load_visibilities_all_subsets_from_trees_X136e_error(
     input_load_one_spw_from_file,
 ):
-    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
         load_visibilities_all_subsets_from_trees,
     )
 
@@ -838,7 +835,7 @@ def test_load_flags_all_subsets_from_trees_error():
 
 
 def test_load_flags_all_subsets_from_trees_X136e():
-    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
         load_flags_all_subsets_from_trees,
     )
 

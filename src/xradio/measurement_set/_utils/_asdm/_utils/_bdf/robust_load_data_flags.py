@@ -65,6 +65,22 @@ def array_slice_to_msv4_indices(array_slice: dict) -> tuple[slice, slice, slice,
     return (time_slice, baseline_slice, frequency_slice, polarization_slice)
 
 
+def find_bdfs_in_selected_times(bdf_paths: list[str], time_slice) -> list[str]:
+    if time_slice is None:
+        return bdf_paths
+
+    bdfs_in_selected_times = bdf_paths  # TODO
+    return bdfs_in_selected_times
+
+
+def find_integrations_in_selected_times_for_bdf(bdf_path, time_slice) -> slice:
+    if time_slice is None:
+        return time_slice
+
+    time_slice_for_bdf = time_slice  # TODO
+    return time_slice_for_bdf
+
+
 def load_visibilities_from_partition_bdfs(
     bdf_paths: list[str],
     spw_id: int,
@@ -78,7 +94,15 @@ def load_visibilities_from_partition_bdfs(
 
     cumulative_vis = []
     start = time.perf_counter()
-    for bdf_path in bdf_paths:
+
+    if array_slice:
+        bdfs_in_selected_times = find_bdfs_in_selected_times(bdf_paths, array_slice[0])
+    for bdf_path in bdf_in_selected_times:
+        if array_slice:
+            time_slice = find_integrations_in_selected_times_for_bdf(
+                bdf_path, array_slice[0]
+            )
+            array_slice = (time_slice, *array_slice[1:])
         visibility_blob = load_visibilities_from_bdf(bdf_path, spw_id, array_slice)
         cumulative_vis.append(visibility_blob)
 

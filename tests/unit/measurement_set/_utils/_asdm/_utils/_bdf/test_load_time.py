@@ -10,27 +10,27 @@ import pyasdm
 
 def test_get_times_from_bdfs_empty():
     from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
-        get_times_from_bdfs,
+        load_times_from_partition_bdfs,
     )
 
     with pytest.raises(ValueError, match="at least one"):
-        get_times_from_bdfs([], pd.DataFrame())
+        load_times_from_partition_bdfs([], pd.DataFrame())
 
 
-def test_get_times_from_bdfs_non_existent():
+def test_load_times_from_partition_bdfs_non_existent():
     from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
-        get_times_from_bdfs,
+        load_times_from_partition_bdfs,
     )
 
     with pytest.raises(
         pyasdm.exceptions.BDFReaderException, match="No such file or directory"
     ):
-        get_times_from_bdfs(["empty-non-existent"], pd.DataFrame())
+        load_times_from_partition_bdfs(["empty-non-existent"], pd.DataFrame())
 
 
-def test_get_times_from_bdfs():
+def test_load_times_from_partition_bdfs():
     from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
-        get_times_from_bdfs,
+        load_times_from_partition_bdfs,
     )
 
     with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
@@ -44,20 +44,24 @@ def test_get_times_from_bdfs():
         mock_bdf_reader.return_value.getSubset.side_effect = [subset_times] * 2
 
         bdf_paths = ["/no_path/nonexistant/foo", "/no_path/nonexistant/bar"]
-        centers, durations, actual_times, actual_durations = get_times_from_bdfs(
-            bdf_paths, pd.DataFrame()
+        centers, durations, actual_times, actual_durations, time_indices_by_bdf = (
+            load_times_from_partition_bdfs(bdf_paths, pd.DataFrame())
         )
         assert (centers == [10] * 2).all()
         assert (durations == [1] * 2).all()
         assert (actual_times == [10.1] * 2).all()
         assert (actual_durations == [1.01] * 2).all()
+        assert time_indices_by_bdf == {
+            "bdf_names": ["/no_path/nonexistant/foo", "/no_path/nonexistant/bar"],
+            "bdf_start_stop": [0, 0, 1, 1],
+        }
         assert mock_bdf_reader.return_value.hasSubset.call_count == 4
         assert mock_bdf_reader.return_value.getSubset.call_count == 2
 
 
-def test_get_times_from_bdfs_error():
+def test_load_times_from_partition_bdfs_error():
     from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
-        get_times_from_bdfs,
+        load_times_from_partition_bdfs,
     )
 
     with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
@@ -81,14 +85,18 @@ def test_get_times_from_bdfs_error():
             pyasdm.exceptions.BDFReaderException,
             match="message from BDFReaderException",
         ):
-            _centers, _durations, _actual_times, _actual_durations = (
-                get_times_from_bdfs(bdf_paths, pd.DataFrame())
-            )
+            (
+                _centers,
+                _durations,
+                _actual_times,
+                _actual_durations,
+                _time_indices_by_bdf,
+            ) = load_times_from_partition_bdfs(bdf_paths, pd.DataFrame())
 
 
-def test_get_times_from_bdfs_error_runtime():
+def test_load_times_from_partition_bdfs_error_runtime():
     from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
-        get_times_from_bdfs,
+        load_times_from_partition_bdfs,
     )
 
     with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
@@ -105,7 +113,7 @@ def test_get_times_from_bdfs_error_runtime():
         bdf_paths = ["/no_path/nonexistant/foo", "/no_path/nonexistant/bar"]
         with pytest.raises(RuntimeError, match=bdf_reader_exception_msg):
             _centers, _durations, _actual_times, _actual_durations = (
-                get_times_from_bdfs(bdf_paths, pd.DataFrame())
+                load_times_from_partition_bdfs(bdf_paths, pd.DataFrame())
             )
 
 
@@ -196,13 +204,17 @@ def test_load_times_from_bdfs():
         mock_bdf_reader.return_value.getSubset.side_effect = [subset_times] * 2
 
         bdf_paths = ["/no_path/nonexistant/foo", "/no_path/nonexistant/bar"]
-        centers, durations, actual_times, actual_durations = load_times_from_bdfs(
-            bdf_paths
+        centers, durations, actual_times, actual_durations, time_indices_by_bdf = (
+            load_times_from_bdfs(bdf_paths)
         )
         assert (centers == [10] * 2).all()
         assert (durations == [1] * 2).all()
         assert (actual_times == [10.1] * 2).all()
         assert (actual_durations == [1.01] * 2).all()
+        assert time_indices_by_bdf == {
+            "bdf_names": ["/no_path/nonexistant/foo", "/no_path/nonexistant/bar"],
+            "bdf_start_stop": [0, 0, 1, 1],
+        }
         assert mock_bdf_reader.return_value.hasSubset.call_count == 4
         assert mock_bdf_reader.return_value.getSubset.call_count == 2
 

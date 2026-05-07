@@ -65,7 +65,7 @@ def load_times_from_partition_bdfs(
         actual_times = np.zeros(2)
         actual_durations = np.zeros(2)
 
-    return time_centers, durations, actual_times, actual_durations
+    return time_centers, durations, actual_times, actual_durations, time_indices_by_bdf
 
 
 def make_blob_info(bdf_header: pyasdm.bdf.BDFHeader) -> dict:
@@ -158,7 +158,7 @@ def load_times_from_bdfs(
         [],
     )
 
-    time_indices_by_bdf = {}
+    time_indices_by_bdf = {"bdf_names": bdf_paths, "bdf_start_stop": []}
     time_index = 0
     for bdf_path in bdf_paths:
         bdf_reader = pyasdm.bdf.BDFReader()
@@ -179,7 +179,9 @@ def load_times_from_bdfs(
         all_actual_durations.append(actual_durations)
 
         len_bdf_times = len(actual_times)
-        time_indices_by_bdf[bdf_path] = (time_index, time_index + len_bdf_times)
+        start_stop = [time_index, time_index + len_bdf_times - 1]
+        time_indices_by_bdf["bdf_start_stop"].extend(start_stop)
+        time_index += len_bdf_times
 
     return (
         np.concatenate(all_time_centers),

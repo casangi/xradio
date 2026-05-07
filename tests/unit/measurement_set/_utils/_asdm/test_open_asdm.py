@@ -40,10 +40,10 @@ def test_open_asdm_with_spw_default(mock_asdm_set_from_file, monkeypatch):
 
 def test_open_asdm_with_spw_simple(mock_asdm_set_from_file, monkeypatch):
 
-    def mock_get_times_from_bdfs(
+    def mock_load_times_from_partition_bdfs(
         bdf_paths: list[str], scans_metadata: pd.DataFrame
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-        return np.array([0.1]), np.array([1.0]), np.array([0.101]), np.array([1.0])
+        return np.array([0.1]), np.array([1.0]), np.array([0.101]), np.array([1.0]), {}
 
     monkeypatch.setattr(
         "xradio.measurement_set._utils._asdm.open_asdm.pyasdm.ASDM.setFromFile",
@@ -53,8 +53,8 @@ def test_open_asdm_with_spw_simple(mock_asdm_set_from_file, monkeypatch):
         "pyasdm.MainRow.getBDFPath", lambda bdf_paths: "/monkypatched_path/foo"
     )
     monkeypatch.setattr(
-        "xradio.measurement_set._utils._asdm.open_partition.get_times_from_bdfs",
-        mock_get_times_from_bdfs,
+        "xradio.measurement_set._utils._asdm.open_partition.load_times_from_partition_bdfs",
+        mock_load_times_from_partition_bdfs,
     )
 
     ps_xdt = open_asdm(

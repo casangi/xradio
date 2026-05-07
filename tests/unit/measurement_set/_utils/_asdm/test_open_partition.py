@@ -11,10 +11,10 @@ import pyasdm
 from xradio.schema.check import check_datatree
 
 
-def mock_get_times_from_bdfs(
+def mock_load_times_from_partition_bdfs(
     bdf_paths: list[str], scans_metadata: pd.DataFrame
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    return np.array([0.1]), np.array([1.0]), np.array([0.101]), np.array([1.0])
+    return np.array([0.1]), np.array([1.0]), np.array([0.101]), np.array([1.0]), {}
 
 
 def test_open_partition_none():
@@ -59,8 +59,8 @@ def test_open_partition_monkeypatched_bdf_asdm_with_spw_simple(
     from xradio.measurement_set._utils._asdm.open_partition import open_partition
 
     monkeypatch.setattr(
-        "xradio.measurement_set._utils._asdm.open_partition.get_times_from_bdfs",
-        mock_get_times_from_bdfs,
+        "xradio.measurement_set._utils._asdm.open_partition.load_times_from_partition_bdfs",
+        mock_load_times_from_partition_bdfs,
     )
     partition = open_partition(
         asdm_with_main_etc_data_description_polarization_field_source,
@@ -89,7 +89,7 @@ def test_create_data_vars_no_bdf_path(asdm_with_spw_default):
     from xradio.measurement_set._utils._asdm.open_partition import create_data_vars
 
     with pytest.raises(KeyError, match="time"):
-        create_data_vars(xr.Dataset(), [""], 0)
+        create_data_vars(xr.Dataset(), [""], 0, {"bdf_names": [], "bdf_start_stop": []})
 
 
 def test_create_coordinates_no_bdf_path(asdm_with_spw_default):
@@ -143,14 +143,16 @@ def test_create_coordinates_monkeypatched_bdf_with_spw_simple(
     }
 
     monkeypatch.setattr(
-        "xradio.measurement_set._utils._asdm.open_partition.get_times_from_bdfs",
-        mock_get_times_from_bdfs,
+        "xradio.measurement_set._utils._asdm.open_partition.load_times_from_partition_bdfs",
+        mock_load_times_from_partition_bdfs,
     )
 
-    coords, attrs, num_antenna, spw_id, bdf_spw_id, time_vars = create_coordinates(
-        asdm_with_main_data_description_config_description_polarization,
-        partition_descr,
-        False,
+    coords, attrs, num_antenna, spw_id, bdf_spw_id, time_vars, time_indices_by_bdf = (
+        create_coordinates(
+            asdm_with_main_data_description_config_description_polarization,
+            partition_descr,
+            False,
+        )
     )
     assert isinstance(coords, dict)
     for coo in [
@@ -171,6 +173,7 @@ def test_create_coordinates_monkeypatched_bdf_with_spw_simple(
     assert isinstance(time_vars, dict)
     for var in ["EFFECTIVE_INTEGRATION_TIME", "TIME_CENTROID"]:
         assert var in time_vars
+    assert time_indices_by_bdf == {}
 
 
 def test_produce_uvw_data_var():

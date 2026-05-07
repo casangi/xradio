@@ -42,16 +42,23 @@ class ASDMBackendArray(xr.backends.BackendArray):
 class VisibilityArray(ASDMBackendArray):
     """For the MSv4 VISIBILITY data var"""
 
-    def __init__(self, shape: tuple[int], bdf_paths: list[str], bdf_spw_id: int):
+    def __init__(
+        self,
+        shape: tuple[int],
+        bdf_paths: list[str],
+        bdf_spw_id: int,
+        time_indices_by_bdf: dict,
+    ):
         super().__init__(shape, np.dtype("complex128"))
         self._bdf_paths = bdf_paths
         self._bdf_spw_id = bdf_spw_id
+        self._time_indices_by_bdf = time_indices_by_bdf
 
     def _raw_indexing_method(self, key: tuple):
         xradio_logger().debug(f" VisibilityArray._raw_indexing_method, {key=}")
         try:
             visibility = load_visibilities_from_partition_bdfs(
-                self._bdf_paths, self._bdf_spw_id, key
+                self._bdf_paths, self._bdf_spw_id, self._time_indices_by_bdf, key
             )
         except Exception as exc:
             xradio_logger.warning(
@@ -77,16 +84,23 @@ class WeightArray(ASDMBackendArray):
 class FlagArray(ASDMBackendArray):
     """For the MSv4 FLAG data var"""
 
-    def __init__(self, shape: tuple[int], bdf_paths: list[str], bdf_spw_id: int):
+    def __init__(
+        self,
+        shape: tuple[int],
+        bdf_paths: list[str],
+        bdf_spw_id: int,
+        time_indices_by_bdf: dict,
+    ):
         super().__init__(shape, np.dtype("bool"))
         self._bdf_paths = bdf_paths
         self._bdf_spw_id = bdf_spw_id
+        self._time_indices_by_bdf = time_indices_by_bdf
 
     def _raw_indexing_method(self, key: tuple):
         xradio_logger().debug(f" FlagArray._raw_indexing_method, {key=}")
         try:
             flags = load_flags_from_partition_bdfs(
-                self._bdf_paths, self._bdf_spw_id, key
+                self._bdf_paths, self._bdf_spw_id, self._time_indices_by_bdf, key
             )
         except Exception as exc:
             xradio_logger.warning(

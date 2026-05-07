@@ -147,16 +147,26 @@ def create_correlated_xds(
     xds.attrs.update(info_dicts)
 
     is_single_dish = False
-    coords, coord_attrs, num_antenna, spw_id, bdf_spw_id, time_vars = (
-        create_coordinates(asdm, partition_descr, is_single_dish)
-    )
+    (
+        coords,
+        coord_attrs,
+        num_antenna,
+        spw_id,
+        bdf_spw_id,
+        time_vars,
+        time_indices_by_bdf,
+    ) = create_coordinates(asdm, partition_descr, is_single_dish)
     xds = xds.assign_coords(coords)
     for coord_name in coords:
         if coord_name in coord_attrs:
             xds.coords[coord_name].attrs = coord_attrs[coord_name]
 
     xds = xds.assign(time_vars)
-    xds = xds.assign(create_data_vars(xds, partition_descr["BDFPath"], bdf_spw_id))
+    xds = xds.assign(
+        create_data_vars(
+            xds, partition_descr["BDFPath"], bdf_spw_id, time_indices_by_bdf
+        )
+    )
 
     data_group_base = {
         "correlated_data": "VISIBILITY",
@@ -172,7 +182,7 @@ def create_correlated_xds(
 
 
 def create_data_vars(
-    xds: xr.Dataset, bdf_paths: list[str], bdf_spw_id: int
+    xds: xr.Dataset, bdf_paths: list[str], bdf_spw_id: int, time_indices_by_bdf: dict
 ) -> dict[str, tuple]:
     """
     Create a dictionary of data variables for a radio astronomy dataset.
@@ -187,6 +197,10 @@ def create_data_vars(
         Paths to BDFs with data/flags for the partition
     bdf_spw_id : int
         Index of the SPW to load (index in the BDF, derived from the metadata SPW index)
+    time_indices_by_bdf : dict
+        Dictionary that gives the list of BDFs and their respective time
+        indices (start, stop)
+
 
     Returns
     -------
@@ -217,7 +231,7 @@ def create_data_vars(
         dims_vis_weight_flag,
         xr.core.indexing.LazilyIndexedArray(
             asdm_backend_array.VisibilityArray(
-                shape_vis_weight_flag, bdf_paths, bdf_spw_id
+                shape_vis_weight_flag, bdf_paths, bdf_spw_id, time_indices_by_bdf
             )
         ),
         {
@@ -243,7 +257,9 @@ def create_data_vars(
     data_vars["FLAG"] = (
         dims_vis_weight_flag,
         xr.core.indexing.LazilyIndexedArray(
-            asdm_backend_array.FlagArray(shape_vis_weight_flag, bdf_paths, bdf_spw_id)
+            asdm_backend_array.FlagArray(
+                shape_vis_weight_flag, bdf_paths, bdf_spw_id, time_indices_by_bdf
+            )
         ),
         {
             "encoding": {
@@ -310,6 +326,9 @@ def create_coordinates(
     time_vars : dict
         Dictionary containing time-related variables including effective
         integration time and time centroid information.
+    time_indices_by_bdf : dict
+        Dictionary that gives the list of BDFs and their respective time
+        indices (start, stop)
 
     Notes
     -----
@@ -370,7 +389,15 @@ def create_coordinates(
     )
 
     # TODO: this needs clean-up!
-    return coords, attrs, num_antenna, spw_id, bdf_spw_id, time_vars
+    return (
+        coords,
+        attrs,
+        num_antenna,
+        spw_id,
+        bdf_spw_id,
+        time_vars,
+        time_indices_by_bdf,
+    )
 
 
 def create_scan_name_coord_attrs(

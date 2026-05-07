@@ -10,11 +10,12 @@ from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._asdm._utils.time import convert_time_asdm_to_unix
 
 
-def get_times_from_bdfs(
+def load_times_from_partition_bdfs(
     bdf_paths: list[str], scans_metadata: pd.DataFrame
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, dict]:
     """
-    Extract and convert time information from BDF files and scan metadata.
+    Extract and convert time information from the BDF files and scan metadata of a
+    partition/MSv4.
 
     This function attempts to read timing information from BDF files and falls back to
     scan metadata if BDF reading fails. All times are converted to Unix timestamp format.
@@ -35,6 +36,7 @@ def get_times_from_bdfs(
         - durations: Array of scan durations
         - actual_times: Array of actual (measured) times
         - actual_durations: Array of actual (measured) durations
+        - time_indices_by_bdf: TODO
 
     Notes
     -----
@@ -44,8 +46,8 @@ def get_times_from_bdfs(
     """
 
     try:
-        time_centers, durations, actual_times, actual_durations = load_times_from_bdfs(
-            bdf_paths
+        time_centers, durations, actual_times, actual_durations, time_indices_by_bdf = (
+            load_times_from_bdfs(bdf_paths)
         )
         for time_var in time_centers, durations, actual_times, actual_durations:
             time_var = convert_time_asdm_to_unix(time_var)
@@ -120,7 +122,7 @@ def save_blob_info(csv_path: str, blob_info: pd.DataFrame) -> None:
 
 def load_times_from_bdfs(
     bdf_paths: list[str],
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, dict]:
     """
     Read timing information from Binary Data Format (BDF) files.
     This function processes a list of BDF files to extract timing information for each data subset,
@@ -140,6 +142,7 @@ def load_times_from_bdfs(
         - durations : Array of nominal durations for each subset (in seconds)
         - actual_times : Array of actual measured times for each subset (in seconds)
         - actual_durations : Array of actual measured durations for each subset (in seconds)
+        - time_indices_by_bdf : TODO
 
     Notes
     -----
@@ -155,6 +158,8 @@ def load_times_from_bdfs(
         [],
     )
 
+    time_indices_by_bdf = {}
+    time_index = 0
     for bdf_path in bdf_paths:
         bdf_reader = pyasdm.bdf.BDFReader()
         try:
@@ -173,11 +178,15 @@ def load_times_from_bdfs(
         all_actual_times.append(actual_times)
         all_actual_durations.append(actual_durations)
 
+        len_bdf_times = len(actual_times)
+        time_indices_by_bdf[bdf_path] = (time_index, time_index + len_bdf_times)
+
     return (
         np.concatenate(all_time_centers),
         np.concatenate(all_durations),
         np.concatenate(all_actual_times),
         np.concatenate(all_actual_durations),
+        time_indices_by_bdf,
     )
 
 

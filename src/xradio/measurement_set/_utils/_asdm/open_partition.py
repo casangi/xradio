@@ -22,7 +22,7 @@ from xradio.measurement_set._utils._asdm._utils.spectral_window import (
     get_spw_name,
 )
 from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
-    get_times_from_bdfs,
+    load_times_from_partition_bdfs,
 )
 from xradio.measurement_set._utils._asdm.create_antenna_xds import create_antenna_xds
 from xradio.measurement_set._utils._asdm.create_field_and_source_xds import (
@@ -327,8 +327,8 @@ def create_coordinates(
         scan_df["scanNumber"].isin(partition_descr["scanNumber"])
     ]
 
-    time_centers, durations, actual_times, actual_durations = get_times_from_bdfs(
-        partition_descr["BDFPath"], scans_metadata_df
+    time_centers, durations, actual_times, actual_durations, time_indices_by_bdf = (
+        load_times_from_partition_bdfs(partition_descr["BDFPath"], scans_metadata_df)
     )
 
     coords = {}

@@ -54,6 +54,7 @@ def test_load_times_from_partition_bdfs():
         assert time_indices_by_bdf == {
             "bdf_names": ["/no_path/nonexistant/foo", "/no_path/nonexistant/bar"],
             "bdf_start_stop": [0, 0, 1, 1],
+            "bdf_start": [0, 1, 2],
         }
         assert mock_bdf_reader.return_value.hasSubset.call_count == 4
         assert mock_bdf_reader.return_value.getSubset.call_count == 2
@@ -214,6 +215,7 @@ def test_load_times_from_bdfs():
         assert time_indices_by_bdf == {
             "bdf_names": ["/no_path/nonexistant/foo", "/no_path/nonexistant/bar"],
             "bdf_start_stop": [0, 0, 1, 1],
+            "bdf_start": [0, 1, 2],
         }
         assert mock_bdf_reader.return_value.hasSubset.call_count == 4
         assert mock_bdf_reader.return_value.getSubset.call_count == 2

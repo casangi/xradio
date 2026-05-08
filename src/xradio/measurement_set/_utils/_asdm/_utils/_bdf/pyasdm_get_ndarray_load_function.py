@@ -151,7 +151,7 @@ def _load_vis_one_spw_auto_data_from_tree(
         vis_auto_strides = []
         for antenna_idx in np.arange(antenna_min, antenna_max):
             offset = (
-                time_idx * antenna_idx * auto_offset_addition_both
+                (time_idx - time_min) * antenna_idx * auto_offset_addition_both
                 + auto_offset_addition_before
             )
             one_antenna_count = (frequency_max - frequency_min) * sd_polarization_len
@@ -229,11 +229,10 @@ def _load_vis_one_spw_cross_data_from_tree(
     for time_idx in np.arange(time_min, time_max):
         vis_strides = []
         for baseline_idx in np.arange(baseline_min, baseline_max):
+            offset = (
+                time_idx - time_min
+            ) * baseline_idx * cross_offset_both + cross_offset_addition_before
             if processor_type == pyasdm.enumerations.ProcessorType.CORRELATOR:
-                offset = (
-                    time_idx * baseline_idx * cross_offset_both
-                    + cross_offset_addition_before
-                )
                 one_baseline_count = (
                     (frequency_max - frequency_min) * polarization_len * 2
                 )
@@ -250,13 +249,7 @@ def _load_vis_one_spw_cross_data_from_tree(
 
             else:
                 # radiometer / spectrometer
-                offset = int(
-                    (
-                        time_idx * baseline_idx * cross_offset_both
-                        + cross_offset_addition_before
-                    )
-                    / 2
-                )
+                offset = offset // 2
                 one_baseline_count = (frequency_max - frequency_min) * polarization_len
                 spw_values = np.fromfile(
                     bdf_file, dtype=data_type, count=one_baseline_count

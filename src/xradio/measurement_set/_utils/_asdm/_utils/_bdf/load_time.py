@@ -158,7 +158,11 @@ def load_times_from_bdfs(
         [],
     )
 
-    time_indices_by_bdf = {"bdf_names": bdf_paths, "bdf_start_stop": []}
+    time_indices_by_bdf = {
+        "bdf_names": bdf_paths,
+        "bdf_start_stop": [],
+        "bdf_start": [],
+    }
     time_index = 0
     for bdf_path in bdf_paths:
         bdf_reader = pyasdm.bdf.BDFReader()
@@ -180,8 +184,12 @@ def load_times_from_bdfs(
 
         len_bdf_times = len(actual_times)
         start_stop = [time_index, time_index + len_bdf_times - 1]
+        time_indices_by_bdf["bdf_start"].append(time_index)
         time_indices_by_bdf["bdf_start_stop"].extend(start_stop)
         time_index += len_bdf_times
+
+    # The last "start" / past the end of the last BDF
+    time_indices_by_bdf["bdf_start"].append(time_index)
 
     return (
         np.concatenate(all_time_centers),

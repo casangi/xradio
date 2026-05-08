@@ -51,7 +51,17 @@ def load_visibilities_all_subsets_from_trees(
         load_spw_function_params = None
 
     vis_per_subset = []
+
+    time_len = guessed_shape[0]
+    time_min, time_max = min_max_from_dimension_slice(array_slice[0], 0, time_len)
+    time_index = 0
     while bdf_reader.hasSubset():
+        if time_index < time_min or time_index >= time_max:
+            # skip subset by time indexing
+            subset = load_subset_with_get_subset(bdf_reader, [])
+            time_index += 1
+            continue
+
         if load_spw_function is None and spw_idx is None:
             subset = load_subset_with_get_subset(bdf_reader, components_to_load)
             if subset is None:
@@ -72,6 +82,7 @@ def load_visibilities_all_subsets_from_trees(
             vis_subset = ndarrays["visibilities"]
 
         vis_per_subset.append(vis_subset)
+        time_index += 1
 
     bdf_vis = np.concatenate(vis_per_subset)
     return bdf_vis

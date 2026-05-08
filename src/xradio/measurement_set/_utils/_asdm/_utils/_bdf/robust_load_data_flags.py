@@ -65,25 +65,100 @@ def array_slice_to_msv4_indices(array_slice: dict) -> tuple[slice, slice, slice,
     return (time_slice, baseline_slice, frequency_slice, polarization_slice)
 
 
-def find_bdfs_in_selected_times(bdf_paths: list[str], time_slice) -> list[str]:
-    if time_slice is None:
-        return bdf_paths
+def search_index_in_bdf_time_starts(index: int, bdf_start: list[int]) -> int:
+    len_bdf_start = len(bdf_start)
+    if len_bdf_start <= 1:
+        return len(bdf_start) - 1
 
-    bdfs_in_selected_times = bdf_paths  # TODO
-    return bdfs_in_selected_times
+    left_index = 0
+    right_index = len(bdf_start) - 1
+    while left_index <= right_index:
+        middle_index = (left_index + right_index) // 2
+        if bdf_start[middle_index] <= index and (
+            middle_index + 1 == len_bdf_start or index < bdf_start[middle_index + 1]
+        ):
+            return middle_index
+
+        if bdf_start[middle_index] > index:
+            right_index = middle_index - 1
+        else:
+            left_index = middle_index + 1
+
+    return middle_index
 
 
-def find_integrations_in_selected_times_for_bdf(bdf_path, time_slice) -> slice:
-    if time_slice is None:
-        return time_slice
+def find_index_in_bdf_start_indices(
+    time_slice: int | slice, bdf_start_indices: list[int]
+) -> tuple[tuple[int, int], slice]:
+    # binary search through bdf_start_stop (used as start/stop boundaries)
+    # Keep absolute indices, does not shift to relative indices within BDFs
 
-    time_slice_for_bdf = time_slice  # TODO
-    return time_slice_for_bdf
+    if isinstance(time_slice, int):
+        bdf_index_first = search_index_in_bdf_time_starts(time_slice, bdf_start_indices)
+        bdf_index_last = bdf_index_first + 1
+    elif isinstance(time_slice, slice):
+        bdf_index_first = search_index_in_bdf_time_starts(
+            time_slice.start, bdf_start_indices
+        )
+        bdf_index_last = search_index_in_bdf_time_starts(
+            time_slice.stop, bdf_start_indices
+        )
+
+    return (
+        bdf_start_indices[bdf_index_first],
+        bdf_start_indices[bdf_index_last],
+    ), slice(bdf_index_first, bdf_index_last)
+
+
+def find_bdfs_and_indices_in_selected_times(
+    time_indices_by_bdf: dict, time_slice: slice | int
+) -> tuple[list[str], list[slice]]:
+
+    if (
+        time_slice is None
+        or isinstance(time_slice, slice)
+        and time_slice.start is None
+        and time_slice.stop is None
+    ):
+        bdf_paths = time_indices_by_bdf["bdf_names"]
+        return bdf_paths, [slice(None, None)] * len(bdf_paths)
+
+    bdf_paths = time_indices_by_bdf["bdf_names"]
+    bdf_start_indices = time_indices_by_bdf["bdf_start"]
+
+    (start_first_found, start_last_found), bdf_slice = find_index_in_bdf_start_indices(
+        time_slice, bdf_start_indices
+    )
+    if isinstance(time_slice, int):
+        bdfs_in_selected_times = bdf_paths[bdf_slice]
+        index_within_bdf = time_slice - start_first_found
+        time_slices_for_bdfs = [slice(index_within_bdf, index_within_bdf + 1)]
+
+    elif isinstance(time_slice, slice):
+        bdfs_in_selected_times = bdf_paths[bdf_slice]
+
+        bdf_slice_len = bdf_slice.stop - bdf_slice.start
+        if bdf_slice_len == 1:
+            time_slices_for_bdfs = [
+                slice(
+                    time_slice.start - start_first_found,
+                    time_slice.stop - start_first_found,
+                )
+            ]
+        elif bdf_slice_len > 1:
+            time_slices_for_bdfs = [slice(time_slice.start - start_first_found, None)]
+            time_slices_for_bdfs.extend((bdf_slice_len - 2) * [slice(None, None)])
+            time_slices_for_bdfs.append(slice(None, time_slice.stop - start_last_found))
+        else:
+            time_slices_for_bdfs = []
+
+    return bdfs_in_selected_times, time_slices_for_bdfs
 
 
 def load_visibilities_from_partition_bdfs(
     bdf_paths: list[str],
     spw_id: int,
+    time_indices_by_bdf: dict,
     array_slice: tuple[slice, ...] = (
         slice(None),
         slice(None),
@@ -96,13 +171,16 @@ def load_visibilities_from_partition_bdfs(
     start = time.perf_counter()
 
     if array_slice:
-        bdfs_in_selected_times = find_bdfs_in_selected_times(bdf_paths, array_slice[0])
-    for bdf_path in bdf_in_selected_times:
-        if array_slice:
-            time_slice = find_integrations_in_selected_times_for_bdf(
-                bdf_path, array_slice[0]
-            )
-            array_slice = (time_slice, *array_slice[1:])
+        bdfs_in_selected_times, bdf_time_slices = (
+            find_bdfs_and_indices_in_selected_times(time_indices_by_bdf, array_slice[0])
+        )
+    else:
+        bdfs_in_selected_times, bdf_time_slices = bdf_paths, [slice(None, None)] * len(
+            bdf_paths
+        )
+
+    for bdf_path, time_slice in zip(bdfs_in_selected_times, bdf_time_slices):
+        array_slice = (time_slice, *array_slice[1:])
         visibility_blob = load_visibilities_from_bdf(bdf_path, spw_id, array_slice)
         cumulative_vis.append(visibility_blob)
 
@@ -183,6 +261,7 @@ def load_visibilities_from_bdf(
 def load_flags_from_partition_bdfs(
     bdf_paths: list[str],
     spw_id: int,
+    time_indices_by_bdf: dict,
     array_slice: tuple[slice, ...] = (
         slice(None),
         slice(None),
@@ -193,7 +272,18 @@ def load_flags_from_partition_bdfs(
 
     cumulative_flag = []
     start = time.perf_counter()
-    for bdf_path in bdf_paths:
+
+    if array_slice:
+        bdfs_in_selected_times, bdf_time_indices = (
+            find_bdfs_and_indices_in_selected_times(time_indices_by_bdf, array_slice[0])
+        )
+    else:
+        bdfs_in_selected_times, bdf_time_indices = bdf_paths, [slice(None, None)] * len(
+            bdf_paths
+        )
+
+    for bdf_path, bdf_time_slice in zip(bdfs_in_selected_times, bdf_time_indices):
+        array_slice = (bdf_time_slice, *array_slice[1:])
         flag_blob = load_flags_from_bdf(bdf_path, spw_id, array_slice)
         cumulative_flag.append(flag_blob)
 

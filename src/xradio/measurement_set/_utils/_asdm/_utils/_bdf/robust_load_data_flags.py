@@ -90,7 +90,7 @@ def search_index_in_bdf_time_starts(index: int, bdf_start: list[int]) -> int:
 def find_index_in_bdf_start_indices(
     time_slice: int | slice, bdf_start_indices: list[int]
 ) -> tuple[tuple[int, int], slice]:
-    # binary search through bdf_start_stop (used as start/stop boundaries)
+    # binary search through BDF start (time) indices (used as start/stop boundaries)
     # Keep absolute indices, does not shift to relative indices within BDFs
 
     if isinstance(time_slice, int):

@@ -221,8 +221,9 @@ def test_load_visibilities_from_partition_bdfs_empty():
     )
 
     bdf_paths = []
+    times_by_bdf = {"bdf_names": [], "bdf_start": []}
     with pytest.raises(ValueError, match="at least one array"):
-        load_visibilities_from_partition_bdfs(bdf_paths, 0, {})
+        load_visibilities_from_partition_bdfs(bdf_paths, 0, times_by_bdf)
 
 
 def test_load_visibilities_from_partition_bdfs_inexistent():
@@ -248,14 +249,15 @@ def test_load_visibilities_from_partition_bdfs_inexistent():
         mock_bdf_reader.return_value.getHeader.return_value = mock_bdf_header
 
         bdf_paths = ["/inexistent_path/foo/"]
-        visibilities = load_visibilities_from_partition_bdfs(bdf_paths, 0, {})
+        times_by_bdf = {"bdf_names": bdf_paths, "bdf_start": [0]}
+        visibilities = load_visibilities_from_partition_bdfs(bdf_paths, 0, times_by_bdf)
         assert isinstance(visibilities, np.ndarray)
         assert visibilities.dtype == "complex128"
-        assert visibilities.shape == (2, *subset_shape[1:])
+        assert visibilities.shape == subset_shape
 
         mock_bdf_header.getBasebandsList.assert_called_once()
         assert mock_bdf_reader.return_value.hasSubset.call_count == 3
-        assert mock_bdf_reader.return_value.getNDArrays.call_count == 2
+        assert mock_bdf_reader.return_value.getNDArrays.call_count == 1
 
 
 @pytest.mark.parametrize(
@@ -332,8 +334,9 @@ def test_load_flags_from_partition_bdfs_empty():
     )
 
     bdf_paths = []
+    times_by_bdf = {"bdf_names": [], "bdf_start": []}
     with pytest.raises(ValueError, match="at least one array"):
-        load_flags_from_partition_bdfs(bdf_paths, 0, {})
+        load_flags_from_partition_bdfs(bdf_paths, 0, times_by_bdf)
 
 
 def test_load_flags_from_partition_bdfs_inexistent():
@@ -342,10 +345,11 @@ def test_load_flags_from_partition_bdfs_inexistent():
     )
 
     bdf_paths = ["/inexistent_path_to_flags/foo/"]
+    times_by_bdf = {"bdf_names": bdf_paths, "bdf_start": [0]}
     with pytest.raises(
         pyasdm.exceptions.BDFReaderException, match="Error while opening"
     ):
-        load_flags_from_partition_bdfs(bdf_paths, 0, {})
+        load_flags_from_partition_bdfs(bdf_paths, 0, times_by_bdf)
 
 
 def make_sufficient_bdf_header_mock(mock_bdf_header):
@@ -387,7 +391,8 @@ def test_load_flags_from_partition_bdfs():
 
         bdf_paths = ["/inexistent_path_to_flags/foo/"]
         empty_slice = (slice(None), slice(None), slice(None), slice(None))
-        flags = load_flags_from_partition_bdfs(bdf_paths, 0, empty_slice)
+        times_by_bdf = {"bdf_names": bdf_paths, "bdf_start": [0]}
+        flags = load_flags_from_partition_bdfs(bdf_paths, 0, times_by_bdf, empty_slice)
         assert isinstance(flags, np.ndarray)
         assert flags.dtype == "bool"
         assert flags.shape == (1, 45, 1024, 2)

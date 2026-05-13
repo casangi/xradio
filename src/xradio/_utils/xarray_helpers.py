@@ -75,13 +75,13 @@ def delete_data_variables(xdx: Union[xr.Dataset, xr.DataTree], variables: list):
     Returns
     -------
     """
-    
+
     for var in variables:
         if var in xdx.data_vars:
             del xdx[var]
         else:
             raise ValueError(f"Variable '{var}' not found in the dataset.")
-    
+
     for data_group_name in xdx.attrs["data_groups"]:
         data_group = xdx.attrs["data_groups"][data_group_name]
         for var in variables:

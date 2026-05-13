@@ -5,6 +5,8 @@ import xarray as xr
 import os
 from .common import _np_types, _top_level_sub_xds
 
+from xradio._utils.zarr.config import ZARR_FORMAT
+
 
 def _write_zarr(xds: xr.Dataset, zarr_store: str):
     max_chunk_size = 0.95 * 2**30
@@ -25,7 +27,7 @@ def _write_zarr(xds: xr.Dataset, zarr_store: str):
                 )
     xds_copy = xds.copy(deep=True)
     sub_xds_dict = _encode(xds_copy, zarr_store)
-    z_obj = xds_copy.to_zarr(store=zarr_store, compute=True)
+    z_obj = xds_copy.to_zarr(store=zarr_store, compute=True, zarr_format=ZARR_FORMAT)
     if sub_xds_dict:
         _write_sub_xdses(sub_xds_dict)
 
@@ -62,4 +64,4 @@ def _encode_dict(my_dict: dict, top_path: str, sub_xds_dict) -> tuple:
 
 def _write_sub_xdses(sub_xds: dict):
     for k, v in sub_xds.items():
-        z_obj = v.to_zarr(store=k, compute=True)
+        z_obj = v.to_zarr(store=k, compute=True, zarr_format=ZARR_FORMAT)

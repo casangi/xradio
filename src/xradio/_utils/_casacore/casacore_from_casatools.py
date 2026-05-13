@@ -781,7 +781,7 @@ class image(casatools.image):
             if "imageinfo" in tb.keywordnames():
                 image_metadata = tb.getkeyword("imageinfo")
             else:
-                image_metadata = {"imagetype": "Intensity", "objectname": ""}
+                image_metadata = {"imagetype": "sky", "objectname": ""}
 
         image_metadata["imagetype"] = _validate_image_type(
             image_metadata.get("imagetype", "Intensity")

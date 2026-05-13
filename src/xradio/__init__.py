@@ -4,7 +4,9 @@ import warnings as _warnings
 # UnstableSpecificationWarning whenever they are written or read. XRADIO
 # knowingly opts in to those formats, so silence the warning package-wide.
 try:
-    from zarr.errors import UnstableSpecificationWarning as _UnstableSpecificationWarning
+    from zarr.errors import (
+        UnstableSpecificationWarning as _UnstableSpecificationWarning,
+    )
 
     _warnings.filterwarnings("ignore", category=_UnstableSpecificationWarning)
 except ImportError:
@@ -15,4 +17,20 @@ except ImportError:
         category=FutureWarning,
         message=r".*",
         module=r"zarr\..*",
+    )
+
+# Zarr v3 has not yet specified consolidated metadata; suppress the resulting
+# ZarrUserWarning since XRADIO intentionally writes/reads consolidated metadata.
+try:
+    from zarr.errors import ZarrUserWarning as _ZarrUserWarning
+
+    _warnings.filterwarnings(
+        "ignore",
+        category=_ZarrUserWarning,
+        message=r".*[Cc]onsolidated metadata.*",
+    )
+except ImportError:
+    _warnings.filterwarnings(
+        "ignore",
+        message=r".*[Cc]onsolidated metadata is currently not part in the Zarr format 3 specification.*",
     )

@@ -6,10 +6,11 @@ import numpy as np
 import xarray as xr
 
 from xradio._utils.list_and_array import to_list
+from xradio.measurement_set.measurement_set_xdt import MS_DATASET_TYPES
 
 IMAGE_DATASET_TYPES = {"image_dataset"}
 
-from xradio._utils.xarray_helpers import get_data_group_name, create_new_data_group
+from xradio._utils.xarray_helpers import delete_data_variables, get_data_group_name, create_new_data_group
 
 
 class InvalidAccessorLocation(ValueError):
@@ -270,3 +271,24 @@ class ImageXds:
             return sel_img_xds
         else:
             return self._xds.sel(indexers, method, tolerance, drop, **indexers_kwargs)
+
+    def delete_data_variables(self, variables: list[str]) -> xr.DataTree:
+        """Delete data variables from the image dataset and all data groups.
+
+        Parameters
+        ----------
+        variables : list of str
+            List of data variable names to delete.
+
+        Returns
+        -------
+        xarray.DataTree
+            ImageXds DataTree with specified data variables deleted.
+        """
+        if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
+            raise InvalidAccessorLocation(
+                f"{self._xds.path} is not a image node (type {self._xds.attrs.get('type')}."
+            )
+
+        delete_data_variables(self._xds, variables)
+        return self._xds

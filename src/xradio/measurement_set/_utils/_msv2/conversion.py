@@ -1017,6 +1017,8 @@ def convert_and_write_partition(
     storage_backend="zarr",
     parallel_mode: str = "none",
     persistence_mode: str = "w-",
+    main_shards: dict | int | None = None,
+    pointing_shards: dict | int | None = None,
 ):
     """_summary_
 
@@ -1048,8 +1050,8 @@ def convert_and_write_partition(
         _description_, by default None
     sys_cal_interpolate : bool, optional
         _description_, by default None
-    compressor : numcodecs.abc.Codec, optional
-        _description_, by default numcodecs.Zstd(level=2)
+    compressor : zarr.abc.codec.BytesBytesCodec, optional
+        _description_, by default zarr.codecs.ZstdCodec(level=2)
     add_reshaping_indices : bool, optional
         _description_, by default False
     storage_backend : str, optional
@@ -1058,6 +1060,15 @@ def convert_and_write_partition(
         _description_
     persistence_mode: str = "w-",
         _description_, by default "w-"
+    main_shards : dict | int | None, optional
+        Sharding for the main dataset.  Pass a ``dict`` of absolute shard sizes
+        keyed by dimension name, or a positive ``int`` factor so that
+        ``shard_size = factor × chunk_size`` for every dimension.  When set,
+        zarr v3 ``ShardingCodec`` is used and ``main_chunksize`` defines the
+        inner-chunk shape within each shard.  By default ``None`` (no sharding).
+    pointing_shards : dict | int | None, optional
+        Sharding for the pointing dataset, analogous to ``main_shards``.
+        By default ``None``.
 
     Returns
     -------
@@ -1118,9 +1129,9 @@ def convert_and_write_partition(
                     "software_name": "xradio",
                     "version": importlib.metadata.version("xradio"),
                 },
-                "creation_date": datetime.datetime.now(
-                    datetime.timezone.utc
-                ).isoformat(),
+                "creation_date": (
+                    datetime.datetime.now(datetime.timezone.utc).isoformat()
+                ),
                 "type": "visibility",
             }
         )
@@ -1281,7 +1292,12 @@ def convert_and_write_partition(
             pointing_chunksize = parse_chunksize(
                 pointing_chunksize, "pointing", pointing_xds
             )
-            add_encoding(pointing_xds, compressor=compressor, chunks=pointing_chunksize)
+            add_encoding(
+                pointing_xds,
+                compressor=compressor,
+                chunks=pointing_chunksize,
+                shards=pointing_shards,
+            )
             xradio_logger().debug(
                 "Time pointing (with add compressor and chunking) "
                 + str(time.time() - start)
@@ -1359,7 +1375,9 @@ def convert_and_write_partition(
 
         # xds ready, prepare to write
         start = time.time()
-        add_encoding(xds, compressor=compressor, chunks=main_chunksize)
+        add_encoding(
+            xds, compressor=compressor, chunks=main_chunksize, shards=main_shards
+        )
         xradio_logger().debug(
             "Time add compressor and chunk " + str(time.time() - start)
         )
@@ -1418,6 +1436,10 @@ def convert_and_write_partition(
                 store=os.path.join(out_file, ms_v4_name),
                 mode=persistence_mode,
                 zarr_format=ZARR_FORMAT,
+                # metadata is consolidated once at the end of convert_msv2_to_processing_set
+                consolidated=False,
+                safe_chunks=True,
+                align_chunks=True,
             )
         elif storage_backend == "netcdf":
             # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
@@ -1528,7 +1550,9 @@ def add_group_to_data_groups(
         "flag": "FLAG",
         "weight": "WEIGHT",
         "field_and_source": f"field_and_source_{what_group}_xds",
-        "description": f"Data group derived from the data column '{correlated_data_name}' of an MSv2 converted to MSv4",
+        "description": (
+            f"Data group derived from the data column '{correlated_data_name}' of an MSv2 converted to MSv4"
+        ),
         "date": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
     if uvw:

@@ -70,6 +70,8 @@ def convert_msv2_to_processing_set(
     storage_backend: Literal["zarr", "netcdf"] = "zarr",
     parallel_mode: Literal["none", "partition", "time"] = "none",
     persistence_mode: str = "w-",
+    main_shards: dict | int | None = None,
+    pointing_shards: dict | int | None = None,
 ):
     """Convert a Measurement Set v2 into a Processing Set of Measurement Set v4.
 
@@ -101,8 +103,18 @@ def convert_msv2_to_processing_set(
         Whether to interpolate the time axis of the system calibration data variables (sys_cal_xds) to the time axis of the main dataset
     use_table_iter : bool, optional
         Whether to use the table iterator to read the main table of the MS v2. This should be set to True when reading datasets with large number of rows and few partitions, by default False.
-    compressor : numcodecs.abc.Codec, optional
-        The Blosc compressor to use when saving the converted data to disk using Zarr, by default numcodecs.Zstd(level=2).
+    compressor : zarr.abc.codec.BytesBytesCodec, optional
+        The codec to use when saving the converted data to disk using Zarr, by default zarr.codecs.ZstdCodec(level=2).
+    main_shards : dict | int | None, optional
+        Sharding for the main dataset.  Pass a ``dict`` of absolute shard sizes
+        keyed by dimension name (same keys as ``main_chunksize``), or a positive
+        ``int`` factor so that ``shard_size = factor × chunk_size`` for every
+        dimension.  When provided, zarr v3 ``ShardingCodec`` is used and
+        ``main_chunksize`` becomes the inner-chunk size within each shard.
+        By default ``None`` (no sharding).
+    pointing_shards : dict | int | None, optional
+        Sharding for the pointing dataset, analogous to ``main_shards``.
+        By default ``None``.
     add_reshaping_indices : bool, optional
         Whether to add the tidxs, bidxs and row_id variables to each partition of the main dataset. These can be used to reshape the data back to the original ordering in the MS v2. This is mainly intended for testing and debugging, by default False.
     storage_backend : Literal["zarr", "netcdf"], optional
@@ -126,7 +138,11 @@ def convert_msv2_to_processing_set(
     if not str(out_file).endswith("ps.zarr"):
         out_file += ".ps.zarr"
 
-    ps_dt.to_zarr(store=out_file, mode=persistence_mode, zarr_format=ZARR_FORMAT)
+    ps_dt.to_zarr(
+        store=out_file,
+        mode=persistence_mode,
+        zarr_format=ZARR_FORMAT,
+    )
 
     # Check `parallel_mode` is valid
     try:
@@ -194,6 +210,8 @@ def convert_msv2_to_processing_set(
                     compressor=compressor,
                     parallel_mode=parallel_mode,
                     persistence_mode=persistence_mode,
+                    main_shards=main_shards,
+                    pointing_shards=pointing_shards,
                 )
             )
         else:
@@ -216,6 +234,8 @@ def convert_msv2_to_processing_set(
                 compressor=compressor,
                 parallel_mode=parallel_mode,
                 persistence_mode=persistence_mode,
+                main_shards=main_shards,
+                pointing_shards=pointing_shards,
             )
             end_time = time.time()
             xradio_logger().debug(

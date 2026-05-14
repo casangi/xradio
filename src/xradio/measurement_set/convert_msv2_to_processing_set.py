@@ -1,4 +1,4 @@
-from typing import Dict, Union, Literal
+from typing import Dict, Union, Literal, Callable
 import time
 
 import dask
@@ -57,6 +57,7 @@ def convert_msv2_to_processing_set(
     in_file: str,
     out_file: str,
     partition_scheme: list = [],
+    partition_filter: Union[Callable, None] = None,
     main_chunksize: Union[Dict, float, None] = None,
     with_pointing: bool = True,
     pointing_chunksize: Union[Dict, float, None] = None,
@@ -85,6 +86,9 @@ def convert_msv2_to_processing_set(
         "FIELD_ID", "SCAN_NUMBER", "STATE_ID", "SOURCE_ID", "SUB_SCAN_NUMBER", "ANTENNA1".
         "ANTENNA1" is intended as a single-dish specific partitioning option.
         For mosaics where the phase center is rapidly changing (such as VLA on the fly mosaics) partition_scheme should be set to an empty list []. By default, [].
+    partition_filter: Union[Callable, None], optional
+        Callable predicate with a single 'partition' parameter,
+        assumed to hold an MS v2 partition dictionnary at call time.
     main_chunksize : Union[Dict, float, None], optional
         Defines the chunk size of the main dataset. If given as a dictionary, defines the sizes of several dimensions, and acceptable keys are "time", "baseline_id", "antenna_id", "frequency", "polarization". If given as a float, gives the size of a chunk in GiB. By default, None.
     with_pointing : bool, optional
@@ -138,8 +142,17 @@ def convert_msv2_to_processing_set(
         parallel_mode = "none"
 
     partitions = create_partitions(in_file, partition_scheme=partition_scheme)
+    n_all_partitions = len(partitions)
 
-    xradio_logger().info("Number of partitions: " + str(len(partitions)))
+    if partition_filter is not None:
+        partitions = [p for p in partitions if partition_filter(p)]
+        if not partitions:
+            raise RuntimeError("No partitions selected by partition_filter")
+    n_selected_partitions = len(partitions)
+
+    xradio_logger().info(
+        f"Selected {n_selected_partitions} partitions out of {n_all_partitions}"
+    )
     if parallel_mode == "time":
         assert (
             len(partitions) == 1
@@ -219,7 +232,8 @@ def convert_msv2_to_processing_set(
             )
             end_time = time.time()
             xradio_logger().debug(
-                f"Time to convert partition {ms_v4_id}: {end_time - start_time:.2f} seconds"
+                f"Time to convert partition {ms_v4_id}: {end_time - start_time:.2f}"
+                " seconds"
             )
 
     if parallel_mode == "partition":

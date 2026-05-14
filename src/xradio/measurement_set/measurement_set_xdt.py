@@ -245,7 +245,7 @@ class MeasurementSetXdt:
         """
         if self._xdt.attrs.get("type") not in MS_DATASET_TYPES:
             raise InvalidAccessorLocation(
-                f"{self._xdt.path} is not a MSv4 node (type {self._xdt.attrs.get('type')}."
+                f"{self._xdt.path} is not a MSv4 node (type {self._xdt.attrs.get('type')})."
             )
 
         delete_data_variables(self._xdt, variables)

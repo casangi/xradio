@@ -1,4 +1,4 @@
-from typing import Dict, Union, Literal, Callable
+from typing import Dict, Union, Literal, Callable, Any
 import time
 
 import dask
@@ -57,7 +57,7 @@ def convert_msv2_to_processing_set(
     in_file: str,
     out_file: str,
     partition_scheme: list = [],
-    partition_filter: Union[Callable, None] = None,
+    partition_filter: Callable[[Dict[str, Any]], bool] | None = None,
     main_chunksize: Union[Dict, float, None] = None,
     with_pointing: bool = True,
     pointing_chunksize: Union[Dict, float, None] = None,
@@ -86,9 +86,17 @@ def convert_msv2_to_processing_set(
         "FIELD_ID", "SCAN_NUMBER", "STATE_ID", "SOURCE_ID", "SUB_SCAN_NUMBER", "ANTENNA1".
         "ANTENNA1" is intended as a single-dish specific partitioning option.
         For mosaics where the phase center is rapidly changing (such as VLA on the fly mosaics) partition_scheme should be set to an empty list []. By default, [].
-    partition_filter: Union[Callable, None], optional
-        Callable predicate with a single 'partition' parameter,
-        assumed to hold an MS v2 partition dictionnary at call time.
+    partition_filter: Callable[[Dict[str, Any]], bool], optional
+        Callable predicate taking a single argument, assumed to be an MS v2 partition
+        dictionary at call time.
+        When provided, only partitions for which the predicate returns ``True``
+        are converted.
+        Examples
+        --------
+        >>> partition_filter = lambda p: (
+        ...     "OBSERVE_TARGET#ON_SOURCE" in p["OBS_MODE"]
+        ...     and 6 in p["SCAN_NUMBER"]
+        ... )
     main_chunksize : Union[Dict, float, None], optional
         Defines the chunk size of the main dataset. If given as a dictionary, defines the sizes of several dimensions, and acceptable keys are "time", "baseline_id", "antenna_id", "frequency", "polarization". If given as a float, gives the size of a chunk in GiB. By default, None.
     with_pointing : bool, optional

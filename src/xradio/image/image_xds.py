@@ -6,7 +6,6 @@ import numpy as np
 import xarray as xr
 
 from xradio._utils.list_and_array import to_list
-from xradio.measurement_set.measurement_set_xdt import MS_DATASET_TYPES
 
 IMAGE_DATASET_TYPES = {"image_dataset"}
 

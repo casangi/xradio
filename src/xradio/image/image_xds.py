@@ -275,7 +275,7 @@ class ImageXds:
         else:
             return self._xds.sel(indexers, method, tolerance, drop, **indexers_kwargs)
 
-    def delete_data_variables(self, variables: list[str]) -> xr.DataTree:
+    def delete_data_variables(self, variables: list[str]) -> xr.Dataset:
         """Delete data variables from the image dataset and all data groups.
 
         Parameters
@@ -285,8 +285,8 @@ class ImageXds:
 
         Returns
         -------
-        xarray.DataTree
-            ImageXds DataTree with specified data variables deleted.
+        xarray.Dataset
+            ImageXds Dataset with specified data variables deleted.
         """
         if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
             raise InvalidAccessorLocation(

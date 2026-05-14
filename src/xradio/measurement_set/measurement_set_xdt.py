@@ -248,7 +248,21 @@ class MeasurementSetXdt:
                 f"{self._xdt.path} is not a MSv4 node (type {self._xdt.attrs.get('type')})."
             )
 
-        delete_data_variables(self._xdt, variables)
+        xds = self._xdt.ds
+        variables_to_delete = [var for var in variables if var in xds.data_vars]
+
+        for var in variables_to_delete:
+            del xds[var]
+
+        data_groups = self._xdt.attrs.get("data_groups")
+        if isinstance(data_groups, dict):
+            deleted = set(variables_to_delete)
+            for data_group in data_groups.values():
+                if isinstance(data_group, dict):
+                    for key, value in list(data_group.items()):
+                        if value in deleted:
+                            del data_group[key]
+
         return self._xdt
 
     def add_data_group(

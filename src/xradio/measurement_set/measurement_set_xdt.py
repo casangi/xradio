@@ -6,7 +6,11 @@ import numpy as np
 import xarray as xr
 
 from xradio._utils.list_and_array import to_python_type
-from xradio._utils.xarray_helpers import get_data_group_name, create_new_data_group
+from xradio._utils.xarray_helpers import (
+    get_data_group_name,
+    create_new_data_group,
+    delete_data_variables,
+)
 
 MS_DATASET_TYPES = {"visibility", "spectrum", "radiometer"}
 
@@ -225,6 +229,41 @@ class MeasurementSetXdt:
         }
 
         return partition_info
+
+    def delete_data_variables(self, variables: list[str]) -> xr.DataTree:
+        """Delete data variables from the MSv4 dataset and all data groups.
+
+        Parameters
+        ----------
+        variables : list of str
+            List of data variable names to delete.
+
+        Returns
+        -------
+        xarray.DataTree
+            MSv4 DataTree with specified data variables deleted.
+        """
+        if self._xdt.attrs.get("type") not in MS_DATASET_TYPES:
+            raise InvalidAccessorLocation(
+                f"{self._xdt.path} is not a MSv4 node (type {self._xdt.attrs.get('type')})."
+            )
+
+        xds = self._xdt.ds
+        variables_to_delete = [var for var in variables if var in xds.data_vars]
+
+        for var in variables_to_delete:
+            del xds[var]
+
+        data_groups = self._xdt.attrs.get("data_groups")
+        if isinstance(data_groups, dict):
+            deleted = set(variables_to_delete)
+            for data_group in data_groups.values():
+                if isinstance(data_group, dict):
+                    for key, value in list(data_group.items()):
+                        if value in deleted:
+                            del data_group[key]
+
+        return self._xdt
 
     def add_data_group(
         self,

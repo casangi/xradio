@@ -290,7 +290,8 @@ class ImageXds:
         """
         if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
             raise InvalidAccessorLocation(
-                f"{self._xds.path} is not a image node (type {self._xds.attrs.get('type')}."
+                f"{getattr(self._xds, 'path', 'dataset')} is not a image node "
+                f"(type {self._xds.attrs.get('type')})."
             )
 
         delete_data_variables(self._xds, variables)

@@ -1429,7 +1429,8 @@ def convert_and_write_partition(
 
         # get_logger().info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
 
-        # This prevents memory leak that occusrs with dask and large numpy arrays.
+        # Drop the dataset reference and trigger explicit cleanup to help release
+        # memory retained by Dask task graphs and large NumPy-backed arrays after writing.
         ms_xdt = None
         free_memory()
 

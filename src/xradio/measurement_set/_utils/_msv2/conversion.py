@@ -9,7 +9,6 @@ from typing import Callable, Dict, Union
 
 import dask.array as da
 import numpy as np
-from toolviper.utils.memory_management import free_memory
 import xarray as xr
 import zarr.codecs
 

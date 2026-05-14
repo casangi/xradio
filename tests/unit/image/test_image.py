@@ -179,8 +179,6 @@ class TestOpenImageCasa:
         assert_xarray_datasets_equal(self._xds_no_sky, self._xds_no_sky_true)
 
     def test_uv_image(self):
-        print("xds_uv", self._xds_uv)
-        print("xds_uv_true", self._xds_uv_true)
         assert_xarray_datasets_equal(self._xds_uv, self._xds_uv_true)
 
 

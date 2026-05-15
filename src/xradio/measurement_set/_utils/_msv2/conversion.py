@@ -49,6 +49,7 @@ from ._tables.read import (
     extract_table_attributes,
     read_col_conversion_numpy,
     read_col_conversion_dask,
+    read_col_conversion_dask_sparse,
     load_generic_table,
 )
 from ._tables.read_main_table import get_baselines, get_baseline_indices, get_utimes_tol
@@ -693,7 +694,8 @@ def create_data_variables(
 def get_read_col_conversion_function(col_name: str, parallel_mode: str) -> Callable:
     """
     Returns the appropriate read_col_conversion function: use the dask version
-    for large columns and parallel_mode="time", or the numpy version otherwise.
+    for large columns and parallel_mode="time" or "sparse", or the numpy
+    version otherwise.
     """
     large_columns = {
         "DATA",
@@ -703,11 +705,13 @@ def get_read_col_conversion_function(col_name: str, parallel_mode: str) -> Calla
         "WEIGHT",
         "FLAG",
     }
-    return (
-        read_col_conversion_dask
-        if parallel_mode == "time" and col_name in large_columns
-        else read_col_conversion_numpy
-    )
+    if col_name not in large_columns:
+        return read_col_conversion_numpy
+    if parallel_mode == "time":
+        return read_col_conversion_dask
+    if parallel_mode == "sparse":
+        return read_col_conversion_dask_sparse
+    return read_col_conversion_numpy
 
 
 def repeat_weight_array(
@@ -1121,9 +1125,9 @@ def convert_and_write_partition(
                     "software_name": "xradio",
                     "version": importlib.metadata.version("xradio"),
                 },
-                "creation_date": datetime.datetime.now(
-                    datetime.timezone.utc
-                ).isoformat(),
+                "creation_date": (
+                    datetime.datetime.now(datetime.timezone.utc).isoformat()
+                ),
                 "type": "visibility",
             }
         )
@@ -1536,7 +1540,9 @@ def add_group_to_data_groups(
         "flag": "FLAG",
         "weight": "WEIGHT",
         "field_and_source": f"field_and_source_{what_group}_xds",
-        "description": f"Data group derived from the data column '{correlated_data_name}' of an MSv2 converted to MSv4",
+        "description": (
+            f"Data group derived from the data column '{correlated_data_name}' of an MSv2 converted to MSv4"
+        ),
         "date": datetime.datetime.now(datetime.timezone.utc).isoformat(),
     }
     if uvw:

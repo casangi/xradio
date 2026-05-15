@@ -23,7 +23,7 @@ def create_new_data_group(
     new_data_group_name: str,
     data_group: dict,
     data_group_dv_shared_with: str = None,
-) -> xr.DataTree:
+) -> tuple[str, dict]:
     """Adds a data group to Xarray Data Structure (Dataset or DataTree).
 
     Parameters
@@ -37,8 +37,8 @@ def create_new_data_group(
 
     Returns
     -------
-    xr.DataTree
-        MSv4 DataTree with the new group added
+    tuple[str, dict]
+        A tuple containing the name of the new data group and the dictionary with its variables and attributes.
     """
 
     data_group_dv_shared_with = get_data_group_name(xdx, data_group_dv_shared_with)
@@ -61,3 +61,29 @@ def create_new_data_group(
                 new_data_group[key] = default_data_group[key]
 
     return new_data_group_name, new_data_group
+
+
+def delete_data_variables(xdx: Union[xr.Dataset, xr.DataTree], variables: list):
+    """Deletes data variables from an Xarray Dataset or DataTree.
+
+    Parameters
+    ----------
+    xdx : Union[xr.Dataset, xr.DataTree]
+        The Xarray Dataset or DataTree to delete data variables from.
+    variables : list
+        A list of variable names to delete.
+    Returns
+    -------
+    """
+
+    for var in variables:
+        if var in xdx.data_vars:
+            del xdx[var]
+        else:
+            raise ValueError(f"Variable '{var}' not found in the dataset.")
+
+    for data_group_name in xdx.attrs["data_groups"]:
+        data_group = xdx.attrs["data_groups"][data_group_name]
+        for var in variables:
+            if var in data_group:
+                del data_group[var]

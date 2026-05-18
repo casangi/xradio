@@ -314,11 +314,12 @@ def test_load_visibilities_from_bdf_error_loading(input_never_reshape, input_spw
 
         make_sufficient_bdf_header_mock(mock_bdf_header)
         mock_bdf_reader.return_value.getHeader.return_value = mock_bdf_header
+        array_slice = (slice(0, 3), slice(None), slice(None), slice(None))
         with pytest.raises(RuntimeError, match="Error while loading data/visibilities"):
             load_visibilities_from_bdf(
                 "/inexistent/foo/path/",
                 input_spw,
-                {},
+                array_slice,
                 never_reshape_from_all_spws=input_never_reshape,
             )
 

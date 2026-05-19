@@ -57,12 +57,12 @@ def open_partition(
     xr.DataTree
         Datatree with MSv4 populated from the ASDM partition
     """
-    msv4_xdt = xr.DataTree()
 
+    # correlated_xds with already populated coordinates, data variables and info_dicts
     correlated_xds, num_antenna, spw_id = create_correlated_xds(asdm, partition_descr)
-    msv4_xdt.ds = correlated_xds
 
-    msv4_xdt["/antenna_xds"] = create_antenna_xds(
+    # antenna_xds
+    antenna_xds = create_antenna_xds(
         asdm, num_antenna, spw_id, correlated_xds.polarization
     )
 
@@ -82,17 +82,32 @@ def open_partition(
 
     # field_and_source_xds
     is_single_dish = False
-    msv4_xdt["/field_and_source_base_xds"] = create_field_and_source_xds(
+    field_and_source_xds = create_field_and_source_xds(
         asdm, partition_descr, spw_id, is_single_dish
     )
 
-    # info_dicts
+    if not is_single_dish:
+        uvw_data_var = create_uvw_data_var(
+            correlated_xds.sizes,
+            correlated_xds.coords["time"],
+            correlated_xds.coords["baseline_antenna1_name"],
+            correlated_xds.coords["baseline_antenna2_name"],
+            antenna_xds.data_vars["ANTENNA_POSITION"],
+            field_and_source_xds.FIELD_PHASE_CENTER,
+        )
+        correlated_xds = correlated_xds.assign(uvw_data_var)
+
+    msv4_xdt = xr.DataTree()
+    msv4_xdt.ds = correlated_xds
+    msv4_xdt["/antenna_xds"] = antenna_xds
+    msv4_xdt["/field_and_source_base_xds"] = field_and_source_xds
 
     return msv4_xdt
 
 
 def create_correlated_xds(
-    asdm: pyasdm.ASDM, partition_descr: dict[str, np.ndarray]
+    asdm: pyasdm.ASDM,
+    partition_descr: dict[str, np.ndarray],
 ) -> tuple[xr.DataTree, int, int]:
     """
     Create a correlated data xarray Dataset from ASDM data.
@@ -271,18 +286,6 @@ def create_data_vars(
         },
     )
 
-    dims_uvw = ["time", "baseline_id", "uvw_label"]
-    shape_uvw = (
-        xds.sizes["time"],
-        xds.sizes["baseline_id"],
-        xds.sizes["uvw_label"],
-    )
-    data_vars["UVW"] = (
-        dims_uvw,
-        xr.core.indexing.LazilyIndexedArray(asdm_backend_array.UVWArray(shape_uvw)),
-        {"type": "uvw", "frame": "icrs", "units": "m"},
-    )
-
     return data_vars
 
 
@@ -415,7 +418,8 @@ def create_scan_name_coord_attrs(
 
 
 def create_baseline_coords(
-    asdm: pyasdm.ASDM, partition_descr: dict[str, np.ndarray]
+    asdm: pyasdm.ASDM,
+    partition_descr: dict[str, np.ndarray],
 ) -> tuple[dict, int]:
 
     coords_baselines = {}
@@ -455,14 +459,18 @@ def create_baseline_coords(
             "Only AUTO_ONLY and CROSS_AND_AUTO correlation modes supported in ALMA. Found {correlation_mode=}"
         )
 
-    # TODO: get proper names
+    sdm_antenna_attrs = [
+        "name",
+    ]
+    antenna_df = exp_asdm_table_to_df(asdm, "Antenna", sdm_antenna_attrs)
+    antenna_name = antenna_df["name"].values
     coords_baselines["baseline_antenna1_name"] = (
         ["baseline_id"],
-        list(["antenna_" + str(idx) for idx in baseline_antenna1_id]),
+        list([antenna_name[idx] for idx in baseline_antenna1_id]),
     )
     coords_baselines["baseline_antenna2_name"] = (
         ["baseline_id"],
-        list(["antenna_" + str(idx) for idx in baseline_antenna2_id]),
+        list([antenna_name[idx] for idx in baseline_antenna2_id]),
     )
     coords_baselines["baseline_id"] = np.arange(len(baseline_antenna1_id))
     len_baseline_coords = len(baseline_antenna1_id)
@@ -598,6 +606,38 @@ def find_bdf_spw_id(
         config_description_df,
     )
     return bdf_spw_id
+
+
+def create_uvw_data_var(
+    correlated_xds_sizes: dict,
+    time: xr.DataArray,
+    baseline_antenna1_name: xr.DataArray,
+    baseline_antenna2_name: xr.DataArray,
+    antenna_position: xr.DataArray,
+    field_phase_center_direction: xr.DataArray,
+) -> dict:
+    dims_uvw = ["time", "baseline_id", "uvw_label"]
+    shape_uvw = (
+        correlated_xds_sizes["time"],
+        correlated_xds_sizes["baseline_id"],
+        correlated_xds_sizes["uvw_label"],
+    )
+    uvw = (
+        dims_uvw,
+        xr.core.indexing.LazilyIndexedArray(
+            asdm_backend_array.UVWArray(
+                shape_uvw,
+                time,
+                baseline_antenna1_name,
+                baseline_antenna2_name,
+                antenna_position,
+                field_phase_center_direction,
+            )
+        ),
+        {"type": "uvw", "frame": "icrs", "units": "m"},
+    )
+
+    return {"UVW": uvw}
 
 
 def produce_uvw_data_var(xds: xr.Dataset) -> xr.DataArray:

@@ -292,7 +292,7 @@ def add_data_description_table(asdm: pyasdm.ASDM):
     data_description_table.add(data_description_row_0)
 
 
-def make_asdm_with_main_data_description_config_description_polarization():
+def make_asdm_with_main_data_description_config_description_antenna_polarization():
     """
     Produces an ASDM with a minimum set of tables for create_coordinates.
     """
@@ -301,12 +301,15 @@ def make_asdm_with_main_data_description_config_description_polarization():
     add_data_description_table(asdm)
     add_config_description_table(asdm)
     add_polarization_table(asdm)
+    add_antenna_station_tables(asdm)
     return asdm
 
 
 @pytest.fixture(scope="session")
-def asdm_with_main_data_description_config_description_polarization():
-    return make_asdm_with_main_data_description_config_description_polarization()
+def asdm_with_main_data_description_config_description_antenna_polarization():
+    return (
+        make_asdm_with_main_data_description_config_description_antenna_polarization()
+    )
 
 
 def add_field_table(asdm: pyasdm.ASDM):
@@ -634,8 +637,10 @@ def mock_asdm_set_from_file():
         add_data_description_table(self)
         add_polarization_table(self)
         add_field_table(self)
+        add_source_table(self)
         add_spw_table(self)
         add_scan_table(self)
+        add_antenna_station_tables(self)
         add_execblock_table(self)
         add_processor_table(self)
         add_sbsummary_table(self)

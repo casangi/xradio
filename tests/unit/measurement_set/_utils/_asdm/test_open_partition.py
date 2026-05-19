@@ -129,7 +129,7 @@ def test_create_coordinates_with_spw_simple(asdm_with_spw_simple):
 
 
 def test_create_coordinates_monkeypatched_bdf_with_spw_simple(
-    asdm_with_main_data_description_config_description_polarization, monkeypatch
+    asdm_with_main_data_description_config_description_antenna_polarization, monkeypatch
 ):
     from xradio.measurement_set._utils._asdm.open_partition import create_coordinates
 
@@ -149,7 +149,7 @@ def test_create_coordinates_monkeypatched_bdf_with_spw_simple(
 
     coords, attrs, num_antenna, spw_id, bdf_spw_id, time_vars, time_indices_by_bdf = (
         create_coordinates(
-            asdm_with_main_data_description_config_description_polarization,
+            asdm_with_main_data_description_config_description_antenna_polarization,
             partition_descr,
             False,
         )

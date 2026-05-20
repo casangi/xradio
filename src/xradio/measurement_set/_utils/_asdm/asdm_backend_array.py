@@ -8,13 +8,14 @@ from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags impo
     load_visibilities_from_partition_bdfs,
     load_flags_from_partition_bdfs,
 )
+from xradio.measurement_set._utils._asdm._utils.calculate_uvw import calculate_uvw
 
 
 class ASDMBackendArray(xr.backends.BackendArray):
     """To support lazy loading and indexing in the Xarray Backend for
     ASDM data."""
 
-    def __init__(self, shape, dtype):
+    def __init__(self, shape: tuple[int], dtype):
         self._shape = shape
         self._dtype = dtype
 
@@ -54,7 +55,7 @@ class VisibilityArray(ASDMBackendArray):
         self._bdf_spw_id = bdf_spw_id
         self._time_indices_by_bdf = time_indices_by_bdf
 
-    def _raw_indexing_method(self, key: tuple):
+    def _raw_indexing_method(self, key: tuple) -> np.ndarray:
         xradio_logger().debug(f" VisibilityArray._raw_indexing_method, {key=}")
         try:
             visibility = load_visibilities_from_partition_bdfs(
@@ -71,10 +72,10 @@ class VisibilityArray(ASDMBackendArray):
 class WeightArray(ASDMBackendArray):
     """For the MSv4 WEIGHT data var"""
 
-    def __init__(self, shape):
+    def __init__(self, shape: tuple[int]):
         super().__init__(shape, np.dtype("float64"))
 
-    def _raw_indexing_method(self, key: tuple):
+    def _raw_indexing_method(self, key: tuple) -> np.ndarray:
         xradio_logger().debug(f" WeightArray._raw_indexing_method, {key=}")
         weight = np.ones(shape=self.shape, dtype=self.dtype)
         weight = weight[key]
@@ -96,7 +97,7 @@ class FlagArray(ASDMBackendArray):
         self._bdf_spw_id = bdf_spw_id
         self._time_indices_by_bdf = time_indices_by_bdf
 
-    def _raw_indexing_method(self, key: tuple):
+    def _raw_indexing_method(self, key: tuple) -> np.ndarray:
         xradio_logger().debug(f" FlagArray._raw_indexing_method, {key=}")
         try:
             flags = load_flags_from_partition_bdfs(
@@ -113,9 +114,30 @@ class FlagArray(ASDMBackendArray):
 class UVWArray(ASDMBackendArray):
     """For the MSv4 UVW data var"""
 
-    def __init__(self, shape):
+    def __init__(
+        self,
+        shape: tuple[int],
+        time: xr.DataArray,
+        baseline_antenna1_name: xr.DataArray,
+        baseline_antenna2_name: xr.DataArray,
+        antenna_position: xr.DataArray,
+        field_phase_center_direction: xr.DataArray,
+    ):
         super().__init__(shape, np.dtype("float64"))
+        self.time = time
+        self.baseline_antenna1_name = baseline_antenna1_name
+        self.baseline_antenna2_name = baseline_antenna2_name
+        self.antenna_position = antenna_position
+        self.field_phase_center_direction = field_phase_center_direction
 
-    def _raw_indexing_method(self, key: tuple):
+    def _raw_indexing_method(self, key: tuple) -> np.ndarray:
         xradio_logger().debug(f" UVWArray._raw_indexing_method, {key=}")
-        return np.ones(shape=self.shape, dtype=self.dtype)
+        return calculate_uvw(
+            self.shape,
+            key,
+            self.time,
+            self.baseline_antenna1_name,
+            self.baseline_antenna2_name,
+            self.antenna_position,
+            self.field_phase_center_direction,
+        )

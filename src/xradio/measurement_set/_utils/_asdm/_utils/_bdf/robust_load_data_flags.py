@@ -16,6 +16,7 @@ import numpy as np
 
 import pyasdm
 
+from .array_indexing import find_bdfs_and_indices_in_selected_times
 from .basebands_spws import (
     find_if_different_basebands_pols,
     find_if_different_basebands_spws,
@@ -39,120 +40,6 @@ from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees impo
     load_flags_all_subsets_from_trees,
     load_visibilities_all_subsets_from_trees,
 )
-
-
-def array_slice_to_msv4_indices(array_slice: dict) -> tuple[slice, slice, slice, slice]:
-    """
-    Translates a dict of slices to a tuple of slices, with order
-    (time, baseline, frequency, polarization). This latter style is used in
-    xr.backends.BackendArray.__getitem__ / xr.core.indexing.ExplicitIndexer
-    """
-
-    time_slice = slice(None)
-    baseline_slice = slice(None)
-    frequency_slice = slice(None)
-    polarization_slice = slice(None)
-
-    if "time" in array_slice:
-        time_slice = array_slice["time"]
-    if "baseline" in array_slice:
-        baseline_slice = array_slice["baseline"]
-    if "frequency" in array_slice:
-        frequency_slice = array_slice["frequency"]
-    if "polarization" in array_slice:
-        polarization_slice = array_slice["polarization"]
-
-    return (time_slice, baseline_slice, frequency_slice, polarization_slice)
-
-
-def search_index_in_bdf_time_starts(index: int, bdf_start: list[int]) -> int:
-    len_bdf_start = len(bdf_start)
-    if len_bdf_start <= 1:
-        return len(bdf_start) - 1
-
-    left_index = 0
-    right_index = len(bdf_start) - 1
-    while left_index <= right_index:
-        middle_index = (left_index + right_index) // 2
-        if bdf_start[middle_index] <= index and (
-            middle_index + 1 == len_bdf_start or index < bdf_start[middle_index + 1]
-        ):
-            return middle_index
-
-        if bdf_start[middle_index] > index:
-            right_index = middle_index - 1
-        else:
-            left_index = middle_index + 1
-
-    return middle_index
-
-
-def find_index_in_bdf_start_indices(
-    time_slice: int | slice, bdf_start_indices: list[int]
-) -> tuple[tuple[int, int], slice]:
-    # binary search through BDF start (time) indices (used as start/stop boundaries)
-    # Keep absolute indices, does not shift to relative indices within BDFs
-
-    if isinstance(time_slice, int):
-        bdf_index_first = search_index_in_bdf_time_starts(time_slice, bdf_start_indices)
-        bdf_index_last = bdf_index_first + 1
-    elif isinstance(time_slice, slice):
-        bdf_index_first = search_index_in_bdf_time_starts(
-            time_slice.start, bdf_start_indices
-        )
-        bdf_index_last = search_index_in_bdf_time_starts(
-            time_slice.stop, bdf_start_indices
-        )
-
-    return (
-        bdf_start_indices[bdf_index_first],
-        bdf_start_indices[bdf_index_last],
-    ), slice(bdf_index_first, bdf_index_last)
-
-
-def find_bdfs_and_indices_in_selected_times(
-    time_indices_by_bdf: dict, time_slice: slice | int
-) -> tuple[list[str], list[slice]]:
-
-    if (
-        time_slice is None
-        or isinstance(time_slice, slice)
-        and time_slice.start is None
-        and time_slice.stop is None
-    ):
-        bdf_paths = time_indices_by_bdf["bdf_names"]
-        return bdf_paths, [slice(None, None)] * len(bdf_paths)
-
-    bdf_paths = time_indices_by_bdf["bdf_names"]
-    bdf_start_indices = time_indices_by_bdf["bdf_start"]
-
-    (start_first_found, start_last_found), bdf_slice = find_index_in_bdf_start_indices(
-        time_slice, bdf_start_indices
-    )
-    if isinstance(time_slice, int):
-        bdfs_in_selected_times = bdf_paths[bdf_slice]
-        index_within_bdf = time_slice - start_first_found
-        time_slices_for_bdfs = [slice(index_within_bdf, index_within_bdf + 1)]
-
-    elif isinstance(time_slice, slice):
-        bdfs_in_selected_times = bdf_paths[bdf_slice]
-
-        bdf_slice_len = bdf_slice.stop - bdf_slice.start
-        if bdf_slice_len == 1:
-            time_slices_for_bdfs = [
-                slice(
-                    time_slice.start - start_first_found,
-                    time_slice.stop - start_first_found,
-                )
-            ]
-        elif bdf_slice_len > 1:
-            time_slices_for_bdfs = [slice(time_slice.start - start_first_found, None)]
-            time_slices_for_bdfs.extend((bdf_slice_len - 2) * [slice(None, None)])
-            time_slices_for_bdfs.append(slice(None, time_slice.stop - start_last_found))
-        else:
-            time_slices_for_bdfs = []
-
-    return bdfs_in_selected_times, time_slices_for_bdfs
 
 
 def load_visibilities_from_partition_bdfs(

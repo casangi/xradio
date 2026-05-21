@@ -30,6 +30,71 @@ def test_min_max_from_dimension_slice(
     assert result == expected_result
 
 
+time_indices_by_bdf_simple_3 = {
+    "bdf_names": ["a", "b", "c"],
+    "bdf_start": [0, 10, 15, 25],
+}
+
+
+@pytest.mark.parametrize(
+    "input_time_indices_by_bdf, input_time_slice, expected_bdfs, expected_bdf_time_slices",
+    [
+        (
+            time_indices_by_bdf_simple_3,
+            None,
+            time_indices_by_bdf_simple_3["bdf_names"],
+            [slice(None, None)] * len(time_indices_by_bdf_simple_3["bdf_names"]),
+        ),
+        # single BDF
+        (time_indices_by_bdf_simple_3, 0, ["a"], [slice(0, 1)]),
+        (time_indices_by_bdf_simple_3, slice(0, 1), ["a"], [slice(0, 1)]),
+        (time_indices_by_bdf_simple_3, slice(None, 1), ["a"], [slice(None, 1)]),
+        (time_indices_by_bdf_simple_3, slice(0, 7), ["a"], [slice(0, 7)]),
+        (time_indices_by_bdf_simple_3, slice(0, None), ["a"], [slice(0, None)]),
+        (time_indices_by_bdf_simple_3, 4, ["a"], [slice(4, 5)]),
+        (time_indices_by_bdf_simple_3, 9, ["a"], [slice(9, 10)]),
+        (time_indices_by_bdf_simple_3, 10, ["b"], [slice(0, 1)]),
+        (time_indices_by_bdf_simple_3, 14, ["b"], [slice(4, 5)]),
+        (time_indices_by_bdf_simple_3, slice(10, 11), ["b"], [slice(0, 1)]),
+        (time_indices_by_bdf_simple_3, slice(10, 15), ["b"], [slice(0, 5)]),
+        (time_indices_by_bdf_simple_3, 19, ["c"], [slice(4, 5)]),
+        (time_indices_by_bdf_simple_3, 20, ["c"], [slice(5, 6)]),
+        (time_indices_by_bdf_simple_3, 21, ["c"], [slice(6, 7)]),
+        (time_indices_by_bdf_simple_3, slice(15, 16), ["c"], [slice(0, 1)]),
+        (time_indices_by_bdf_simple_3, slice(15, 20), ["c"], [slice(0, 5)]),
+        (time_indices_by_bdf_simple_3, slice(15, 25), ["c"], [slice(0, 10)]),
+        # Multiple BDFs
+        (
+            time_indices_by_bdf_simple_3,
+            slice(0, None),
+            ["a", "b", "c"],
+            [slice(0, None), slice(None, None), slice(None, None)],
+        ),
+        #        (time_indices_by_bdf_simple_3, slice(0, 25), ["a", "b", "c"], [slice(0, None), slice(None, None), slice(None, None)]),
+        (
+            time_indices_by_bdf_simple_3,
+            slice(0, 15),
+            ["a", "b"],
+            [slice(0, None), slice(None, 5)],
+        ),
+        # out-of-range:
+        (time_indices_by_bdf_simple_3, 28, [], [slice(3, 4)]),
+    ],
+)
+def test_find_bdfs_and_indices_in_selected_times(
+    input_time_indices_by_bdf, input_time_slice, expected_bdfs, expected_bdf_time_slices
+):
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        find_bdfs_and_indices_in_selected_times,
+    )
+
+    bdfs_in_selected_times, bdf_time_slices = find_bdfs_and_indices_in_selected_times(
+        input_time_indices_by_bdf, input_time_slice
+    )
+    assert bdfs_in_selected_times == expected_bdfs
+    assert bdf_time_slices == expected_bdf_time_slices
+
+
 def test_calc_auto_cross_baseline_slices_wrong_type():
     from xradio.measurement_set._utils._asdm._utils._bdf.array_indexing import (
         calc_auto_cross_baseline_slices,

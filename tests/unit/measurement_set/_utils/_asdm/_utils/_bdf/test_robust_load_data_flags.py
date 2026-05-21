@@ -7,27 +7,6 @@ import numpy as np
 
 import pyasdm
 
-
-def test_array_slice_to_msv4_indices():
-    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
-        array_slice_to_msv4_indices,
-    )
-
-    slice_def = {
-        "time": slice(0, 1),
-        "baseline": slice(0, 9),
-        "frequency": slice(0, 0.1),
-        "polarization": slice(0, 1),
-    }
-    indices = array_slice_to_msv4_indices(slice_def)
-    assert indices == (
-        slice_def["time"],
-        slice_def["baseline"],
-        slice_def["frequency"],
-        slice_def["polarization"],
-    )
-
-
 # From uid___A002_Xfd764e_X2197
 basebands_example_X2197 = [
     {

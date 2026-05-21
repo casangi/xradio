@@ -21,51 +21,6 @@ def min_max_from_dimension_slice(
     return dimension_idx_min, dimension_idx_max
 
 
-def _search_index_in_bdf_time_starts(index: int, bdf_start: list[int]) -> int:
-    len_bdf_start = len(bdf_start)
-    if len_bdf_start <= 1:
-        return len(bdf_start) - 1
-
-    left_index = 0
-    right_index = len(bdf_start) - 1
-    while left_index <= right_index:
-        middle_index = (left_index + right_index) // 2
-        if bdf_start[middle_index] <= index and (
-            middle_index + 1 == len_bdf_start or index < bdf_start[middle_index + 1]
-        ):
-            return middle_index
-
-        if bdf_start[middle_index] > index:
-            right_index = middle_index - 1
-        else:
-            left_index = middle_index + 1
-
-    return middle_index
-
-
-def _find_index_in_bdf_start_indices(
-    time_slice: int | slice, bdf_start_indices: list[int]
-) -> tuple[tuple[int, int], slice]:
-    # binary search through BDF start (time) indices (used as start/stop boundaries)
-    # Keep absolute indices, does not shift to relative indices within BDFs
-
-    if isinstance(time_slice, int):
-        bdf_index_first = _search_index_in_bdf_time_starts(time_slice, bdf_start_indices)
-        bdf_index_last = bdf_index_first + 1
-    elif isinstance(time_slice, slice):
-        bdf_index_first = _search_index_in_bdf_time_starts(
-            time_slice.start, bdf_start_indices
-        )
-        bdf_index_last = _search_index_in_bdf_time_starts(
-            time_slice.stop, bdf_start_indices
-        )
-
-    return (
-        bdf_start_indices[bdf_index_first],
-        bdf_start_indices[bdf_index_last],
-    ), slice(bdf_index_first, bdf_index_last)
-
-
 def find_bdfs_and_indices_in_selected_times(
     time_indices_by_bdf: dict, time_slice: slice | int
 ) -> tuple[list[str], list[slice]]:
@@ -102,13 +57,77 @@ def find_bdfs_and_indices_in_selected_times(
                 )
             ]
         elif bdf_slice_len > 1:
-            time_slices_for_bdfs = [slice(time_slice.start - start_first_found, None)]
+            first_start = (
+                None
+                if time_slice.start is None
+                else time_slice.start - start_first_found
+            )
+            time_slices_for_bdfs = [slice(first_start, None)]
+
             time_slices_for_bdfs.extend((bdf_slice_len - 2) * [slice(None, None)])
-            time_slices_for_bdfs.append(slice(None, time_slice.stop - start_last_found))
+
+            last_stop = (
+                None if time_slice.stop is None else time_slice.stop - start_last_found
+            )
+            time_slices_for_bdfs.append(slice(None, last_stop))
         else:
             time_slices_for_bdfs = []
 
     return bdfs_in_selected_times, time_slices_for_bdfs
+
+
+def _find_index_in_bdf_start_indices(
+    time_slice: int | slice, bdf_start_indices: list[int]
+) -> tuple[tuple[int, int], slice]:
+    # binary search through BDF start (time) indices (used as start/stop boundaries)
+    # Keep absolute indices, does not shift to relative indices within BDFs
+
+    if isinstance(time_slice, int):
+        bdf_index_first = _search_index_in_bdf_time_starts(
+            time_slice, bdf_start_indices
+        )
+        bdf_index_last = bdf_index_first
+    elif isinstance(time_slice, slice):
+        if time_slice.start is None:
+            bdf_index_first = 0
+        else:
+            bdf_index_first = _search_index_in_bdf_time_starts(
+                time_slice.start, bdf_start_indices
+            )
+        if time_slice.stop is None:
+            bdf_index_last = len(bdf_start_indices) - 2
+        else:
+            bdf_index_last = _search_index_in_bdf_time_starts(
+                time_slice.stop - 1, bdf_start_indices
+            )
+
+    result = (
+        bdf_start_indices[bdf_index_first],
+        bdf_start_indices[bdf_index_last],
+    ), slice(bdf_index_first, bdf_index_last + 1)
+    return result
+
+
+def _search_index_in_bdf_time_starts(index: int, bdf_start: list[int]) -> int:
+    len_bdf_start = len(bdf_start)
+    if len_bdf_start <= 1:
+        return len(bdf_start) - 1
+
+    left_index = 0
+    right_index = len(bdf_start) - 1
+    while left_index <= right_index:
+        middle_index = (left_index + right_index) // 2
+        if bdf_start[middle_index] <= index and (
+            middle_index + 1 == len_bdf_start or index < bdf_start[middle_index + 1]
+        ):
+            return middle_index
+
+        if bdf_start[middle_index] > index:
+            right_index = middle_index - 1
+        else:
+            left_index = middle_index + 1
+
+    return middle_index
 
 
 def calc_auto_cross_baseline_slices(

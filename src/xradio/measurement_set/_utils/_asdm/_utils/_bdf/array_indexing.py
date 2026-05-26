@@ -50,12 +50,15 @@ def find_bdfs_and_indices_in_selected_times(
 
         bdf_slice_len = bdf_slice.stop - bdf_slice.start
         if bdf_slice_len == 1:
-            time_slices_for_bdfs = [
-                slice(
-                    time_slice.start - start_first_found,
-                    time_slice.stop - start_first_found,
-                )
-            ]
+            slice_start = (
+                None
+                if time_slice.start is None
+                else time_slice.start - start_first_found
+            )
+            slice_stop = (
+                None if time_slice.stop is None else time_slice.stop - start_first_found
+            )
+            time_slices_for_bdfs = [slice(slice_start, slice_stop)]
         elif bdf_slice_len > 1:
             first_start = (
                 None

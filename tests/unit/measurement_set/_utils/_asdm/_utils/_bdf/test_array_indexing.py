@@ -49,6 +49,7 @@ time_indices_by_bdf_simple_3 = {
         (time_indices_by_bdf_simple_3, 0, ["a"], [slice(0, 1)]),
         (time_indices_by_bdf_simple_3, slice(0, 1), ["a"], [slice(0, 1)]),
         (time_indices_by_bdf_simple_3, slice(None, 1), ["a"], [slice(None, 1)]),
+        (time_indices_by_bdf_simple_3, slice(2, 8), ["a"], [slice(2, 8)]),
         (time_indices_by_bdf_simple_3, slice(0, 7), ["a"], [slice(0, 7)]),
         (time_indices_by_bdf_simple_3, 4, ["a"], [slice(4, 5)]),
         (time_indices_by_bdf_simple_3, 9, ["a"], [slice(9, 10)]),
@@ -56,6 +57,12 @@ time_indices_by_bdf_simple_3 = {
         (time_indices_by_bdf_simple_3, 14, ["b"], [slice(4, 5)]),
         (time_indices_by_bdf_simple_3, slice(10, 11), ["b"], [slice(0, 1)]),
         (time_indices_by_bdf_simple_3, slice(10, 15), ["b"], [slice(0, 5)]),
+        (
+            time_indices_by_bdf_simple_3,
+            slice(15, None),
+            ["c"],
+            [slice(0, None)],
+        ),
         (time_indices_by_bdf_simple_3, 19, ["c"], [slice(4, 5)]),
         (time_indices_by_bdf_simple_3, 20, ["c"], [slice(5, 6)]),
         (time_indices_by_bdf_simple_3, 21, ["c"], [slice(6, 7)]),
@@ -72,9 +79,9 @@ time_indices_by_bdf_simple_3 = {
         ),
         (
             time_indices_by_bdf_simple_3,
-            slice(15, None),
-            ["c"],
-            [slice(0, None)],
+            slice(14, None),
+            ["b", "c"],
+            [slice(4, None), slice(None, None)],
         ),
         (
             time_indices_by_bdf_simple_3,
@@ -96,6 +103,12 @@ time_indices_by_bdf_simple_3 = {
         ),
         (
             time_indices_by_bdf_simple_3,
+            slice(2, 23),
+            ["a", "b", "c"],
+            [slice(2, None), slice(None, None), slice(None, 8)],
+        ),
+        (
+            time_indices_by_bdf_simple_3,
             slice(None, 25),
             ["a", "b", "c"],
             [slice(None, None), slice(None, None), slice(None, 10)],
@@ -105,6 +118,12 @@ time_indices_by_bdf_simple_3 = {
             slice(0, 15),
             ["a", "b"],
             [slice(0, None), slice(None, 5)],
+        ),
+        (
+            time_indices_by_bdf_simple_3,
+            slice(9, 14),
+            ["a", "b"],
+            [slice(9, None), slice(None, 4)],
         ),
         (
             time_indices_by_bdf_simple_3,

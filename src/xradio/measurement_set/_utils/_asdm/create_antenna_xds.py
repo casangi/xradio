@@ -75,7 +75,7 @@ def create_antenna_xds(
             f"the antennas found in the Antenna table are {antenna_df.shape[0]=}"
         )
 
-    sdm_station_attrs = ["stationId", "name"]
+    sdm_station_attrs = ["stationId", "name", "position"]
     station_df = exp_asdm_table_to_df(asdm, "Station", sdm_station_attrs)
     antenna_df = pd.merge(
         antenna_df, station_df, on="stationId", suffixes=("_antenna", "_station")
@@ -94,7 +94,7 @@ def create_antenna_xds(
             "station_name": station_name,
             "mount": mount,
             "telescope_name": (["antenna_name"], telescope_name_by_antenna),
-            # Later, from Feed table/(polarizationTypes:
+            # Later/below, from Feed table/(polarizationTypes:
             # "receptor_label"
             # "polarization_type"
         }
@@ -109,10 +109,17 @@ def create_antenna_xds(
         [val.get() for val in antenna_df["dishDiameter"].values],
         diameter_attrs,
     )
-    # TODO: np.map or alike:
+    # consider antenna_df["offset"]
     position_values = [
-        [pos[0].get(), pos[1].get(), pos[2].get()] for pos in antenna_df["position"]
-    ]  # + antenna_df["offset"]
+        [
+            pos[0].get() + pos_station[0].get(),
+            pos[1].get() + pos_station[1].get(),
+            pos[2].get() + pos_station[2].get(),
+        ]
+        for pos, pos_station in zip(
+            antenna_df["position_antenna"], antenna_df["position_station"]
+        )
+    ]
     position_attrs = {
         "type": "location",
         "units": "m",

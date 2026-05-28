@@ -20,7 +20,7 @@ def test_add_encoding_wo_chunks():
 
     add_encoding(xds, single_encoding)
     assert xds
-    assert xds.da.encoding == {"compressor": single_encoding, "chunks": [3]}
+    assert xds.da.encoding == {"compressors": (single_encoding,), "chunks": [3]}
 
 
 def test_add_encoding_with_wrong_chunks():
@@ -38,7 +38,7 @@ def test_add_encoding_with_wrong_chunks():
     chunks_size = 1
     add_encoding(xds, single_encoding, chunks={"zz_not_there": chunks_size})
     assert xds
-    assert xds.da.encoding == {"compressor": single_encoding, "chunks": [3]}
+    assert xds.da.encoding == {"compressors": (single_encoding,), "chunks": [3]}
 
 
 def test_add_encoding_with_chunks():
@@ -56,4 +56,7 @@ def test_add_encoding_with_chunks():
     chunks_size = 1
     add_encoding(xds, single_encoding, chunks={"x": chunks_size})
     assert xds
-    assert xds.da.encoding == {"compressor": single_encoding, "chunks": [chunks_size]}
+    assert xds.da.encoding == {
+        "compressors": (single_encoding,),
+        "chunks": [chunks_size],
+    }

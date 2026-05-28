@@ -1,8 +1,8 @@
-import numcodecs
-from typing import Dict, Union, Literal
+from typing import Dict, Union, Literal, Callable, Any
 import time
 
 import dask
+import zarr.codecs
 
 from xradio.measurement_set._utils._msv2.partition_queries import (
     create_partitions,
@@ -11,6 +11,7 @@ from xradio.measurement_set._utils._msv2.conversion import (
     convert_and_write_partition,
     estimate_memory_and_cores_for_partitions,
 )
+from xradio._utils.zarr.config import ZARR_FORMAT
 from xradio._utils.logging import xradio_logger
 
 
@@ -56,6 +57,7 @@ def convert_msv2_to_processing_set(
     in_file: str,
     out_file: str,
     partition_scheme: list = [],
+    partition_filter: Callable[[Dict[str, Any]], bool] | None = None,
     main_chunksize: Union[Dict, float, None] = None,
     with_pointing: bool = True,
     pointing_chunksize: Union[Dict, float, None] = None,
@@ -64,7 +66,7 @@ def convert_msv2_to_processing_set(
     phase_cal_interpolate: bool = False,
     sys_cal_interpolate: bool = False,
     use_table_iter: bool = False,
-    compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
+    compressor: zarr.abc.codec.BytesBytesCodec = zarr.codecs.ZstdCodec(level=2),
     add_reshaping_indices: bool = False,
     storage_backend: Literal["zarr", "netcdf"] = "zarr",
     parallel_mode: Literal["none", "partition", "time"] = "none",
@@ -84,6 +86,17 @@ def convert_msv2_to_processing_set(
         "FIELD_ID", "SCAN_NUMBER", "STATE_ID", "SOURCE_ID", "SUB_SCAN_NUMBER", "ANTENNA1".
         "ANTENNA1" is intended as a single-dish specific partitioning option.
         For mosaics where the phase center is rapidly changing (such as VLA on the fly mosaics) partition_scheme should be set to an empty list []. By default, [].
+    partition_filter: Callable[[Dict[str, Any]], bool], optional
+        Callable predicate taking a single argument, assumed to be an MS v2 partition
+        dictionary at call time.
+        When provided, only partitions for which the predicate returns ``True``
+        are converted.
+        Examples
+        --------
+        >>> partition_filter = lambda p: (
+        ...     "OBSERVE_TARGET#ON_SOURCE" in p["OBS_MODE"]
+        ...     and 6 in p["SCAN_NUMBER"]
+        ... )
     main_chunksize : Union[Dict, float, None], optional
         Defines the chunk size of the main dataset. If given as a dictionary, defines the sizes of several dimensions, and acceptable keys are "time", "baseline_id", "antenna_id", "frequency", "polarization". If given as a float, gives the size of a chunk in GiB. By default, None.
     with_pointing : bool, optional
@@ -125,20 +138,29 @@ def convert_msv2_to_processing_set(
     if not str(out_file).endswith("ps.zarr"):
         out_file += ".ps.zarr"
 
-    ps_dt.to_zarr(store=out_file, mode=persistence_mode)
+    ps_dt.to_zarr(store=out_file, mode=persistence_mode, zarr_format=ZARR_FORMAT)
 
     # Check `parallel_mode` is valid
     try:
         assert parallel_mode in ["none", "partition", "time"]
     except AssertionError:
         xradio_logger().warning(
-            f"`parallel_mode` {parallel_mode} not recognosed. Defauling to 'none'."
+            f"`parallel_mode` {parallel_mode} not recognised. Defaulting to 'none'."
         )
         parallel_mode = "none"
 
     partitions = create_partitions(in_file, partition_scheme=partition_scheme)
+    n_all_partitions = len(partitions)
 
-    xradio_logger().info("Number of partitions: " + str(len(partitions)))
+    if partition_filter is not None:
+        partitions = [p for p in partitions if partition_filter(p)]
+        if not partitions:
+            raise RuntimeError("No partitions selected by partition_filter")
+    n_selected_partitions = len(partitions)
+
+    xradio_logger().info(
+        f"Selected {n_selected_partitions} partitions out of {n_all_partitions}"
+    )
     if parallel_mode == "time":
         assert (
             len(partitions) == 1
@@ -218,7 +240,8 @@ def convert_msv2_to_processing_set(
             )
             end_time = time.time()
             xradio_logger().debug(
-                f"Time to convert partition {ms_v4_id}: {end_time - start_time:.2f} seconds"
+                f"Time to convert partition {ms_v4_id}: {end_time - start_time:.2f}"
+                " seconds"
             )
 
     if parallel_mode == "partition":
@@ -226,6 +249,7 @@ def convert_msv2_to_processing_set(
 
     import zarr
 
-    root_group = zarr.open(out_file, mode="r+")  # Open in read/write mode
+    # Open in read/write mode
+    root_group = zarr.open(out_file, mode="r+", zarr_format=ZARR_FORMAT)
     root_group.attrs["type"] = "processing_set"  # Replace
-    zarr.convenience.consolidate_metadata(root_group.store)
+    zarr.consolidate_metadata(root_group.store)

@@ -1,16 +1,16 @@
 from collections import deque
 import datetime
 import importlib
-import numcodecs
 import os
 import pathlib
 import time
+import traceback
 from typing import Callable, Dict, Union
 
 import dask.array as da
 import numpy as np
 import xarray as xr
-import traceback
+import zarr.codecs
 
 try:
     from casacore import tables
@@ -1012,7 +1012,7 @@ def convert_and_write_partition(
     ephemeris_interpolate: bool = False,
     phase_cal_interpolate: bool = False,
     sys_cal_interpolate: bool = False,
-    compressor: numcodecs.abc.Codec = numcodecs.Zstd(level=2),
+    compressor: zarr.abc.codec.BytesBytesCodec = zarr.codecs.ZstdCodec(level=2),
     add_reshaping_indices: bool = False,
     storage_backend="zarr",
     parallel_mode: str = "none",
@@ -1064,6 +1064,9 @@ def convert_and_write_partition(
     _type_
         _description_
     """
+    from toolviper.utils.memory_management import memory_setup, free_memory
+
+    memory_setup(131072)
 
     ms_xdt = xr.DataTree()  # MSv4 as a Data Tree
 
@@ -1412,15 +1415,24 @@ def convert_and_write_partition(
             ms_xdt["/phased_array_xds"] = phased_array_xds
 
         if storage_backend == "zarr":
+            from xradio._utils.zarr.config import ZARR_FORMAT
+
             ms_xdt.to_zarr(
-                store=os.path.join(out_file, ms_v4_name), mode=persistence_mode
+                store=os.path.join(out_file, ms_v4_name),
+                mode=persistence_mode,
+                zarr_format=ZARR_FORMAT,
             )
         elif storage_backend == "netcdf":
             # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
             raise
         xradio_logger().debug("Write data  " + str(time.time() - start))
 
-    # get_logger().info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
+        # get_logger().info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
+
+        # Drop the dataset reference and trigger explicit cleanup to help release
+        # memory retained by Dask task graphs and large NumPy-backed arrays after writing.
+        ms_xdt = None
+        free_memory()
 
 
 def antenna_ids_to_names(

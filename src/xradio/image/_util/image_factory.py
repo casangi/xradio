@@ -627,7 +627,7 @@ def detect_store_type(store):
         elif os.path.isdir(store):
             if "table.info" in os.listdir(store):
                 store_type = "casa"
-            elif ".zattrs" in os.listdir(store):
+            elif ".zattrs" in os.listdir(store) or "zarr.json" in os.listdir(store):
                 store_type = "zarr"
             else:
                 xradio_logger().error("Unknown directory structure.")
@@ -637,10 +637,6 @@ def detect_store_type(store):
             raise ValueError(
                 "Path does not exist. The current path: "
                 + str(os.system("pwd"))
-                + " .The current casa directory: "
-                + str(os.system("ls 3c286_Band6_5chans_lsrk_robust_0.5_niter_99_casa"))
-                + ". The current fits directory: "
-                + str(os.system("ls 3c286_Band6_5chans_lsrk_robust_0.5_niter_99_fits"))
                 + " The given store "
                 + str(store)
             )

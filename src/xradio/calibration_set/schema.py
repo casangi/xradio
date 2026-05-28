@@ -50,7 +50,19 @@ class CalibrationParameterNameArray:
     data: Data[CalibrationParameterName, str]
     """Name for each parameter."""
 
+@xarray_dataarray_schema
+class CalibrationParameterUnitArray:
+    """
+    Defines units for calibration parameters
+    """
+    data: Data[
+        CalibrationParameterName,
+        LiteralString # Units are all of the form Literal['m'] or Literal['s'] etc, so I think this covers that
+    ]
+    calibration_parameter_name: Coordof[CalibrationParameterNameArray]
 
+
+    
 @xarray_dataarray_schema
 class AntennaCalibrationParameterArray:
     """
@@ -177,6 +189,9 @@ class AntennaCalibrationXds:
 
     FLAGS: Dataof[FlagArray]
 
+    units: Dataof[CalibrationParameterUnitArray]
+    
+    
     # --- Required Attributes ---
 
     schema_version: Attr[str]
@@ -213,67 +228,71 @@ class AntennaCalibrationXds:
     # --- Optional Attributes ---
 
 
-# @xarray_dataset_schema
-# class BaselineCalibrationXds:
-#     """Calibration dataset for baseline effects"""
+@xarray_dataset_schema
+class BaselineCalibrationXds:
+    """Calibration dataset for baseline effects"""
 
-#     # --- Required Coordinates ---
-#     time: Coordof[TimeCoordArray]
-#     """
-#     The time coordinate is the reference time for the calibration parameters
-#     """
-#     baseline_id: Coordof[BaselineArray]
-#     """ Baseline ID """
-#     frequency: Coordof[FrequencyArray]
-#     """Center frequencies for each channel."""
-#     polarization: Coordof[PolarizationArray]
-#     """
-#     Labels for polarization types, e.g. ``['XX','XY','YX','YY']``, ``['RR','RL','LR','LL']``.
-#     """
-#     calibration_parameter_name: Coordof[CalibrationParameterNameArray]
-#     """Calibration parameter name. """
+    # --- Required Coordinates ---
+    time: Coordof[TimeCoordArray]
+    """
+    The time coordinate is the reference time for the calibration parameters
+    """
+    baseline_id: Coordof[BaselineArray]
+    """ Baseline ID """
+    frequency: Coordof[FrequencyArray]
+    """Center frequencies for each channel."""
+    polarization: Coordof[PolarizationArray]
+    """
+    Labels for polarization types, e.g. ``['XX','XY','YX','YY']``, ``['RR','RL','LR','LL']``.
+    """
+    calibration_parameter_name: Coordof[CalibrationParameterNameArray]
+    """Calibration parameter name. """
 
-#     # --- Required data variables ---
+    # --- Required data variables ---
+    
+    BASELINE_CALIBRATION_PARAMETER: Dataof[BaselineCalibrationParameterArray]
+    """Calibration parameters for baselines"""
 
-#     BASELINE_CALIBRATION_PARAMETER: Dataof[BaselineCalibrationParameterArray]
-#     """Calibration parameters for baselines"""
+    PARAMETER_ERROR: Dataof[ParameterErrorArray]
+    """Error estimates for calibration paramters"""
 
-#     PARAMETER_ERROR: Dataof[ParameterErrorArray]
-#     """Error estimates for calibration paramters"""
+    FLAGS: Dataof[FlagArray]
 
-#     FLAGS: Dataof[FlagArray]
+    baseline_antenna1_name: Coordof[BaselineAntennaNameArray]
+    """Antenna name for 1st antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_name``"""
 
-#     baseline_antenna1_name: Coordof[BaselineAntennaNameArray]
-#     """Antenna name for 1st antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_name``"""
-#     baseline_antenna2_name: Coordof[BaselineAntennaNameArray]
-#     """Antenna name for 2nd antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_name``"""
+    baseline_antenna2_name: Coordof[BaselineAntennaNameArray]
+    """Antenna name for 2nd antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_name``"""
 
-#     # --- Required Attributes ---
+    units: Dataof[CalibrationParameterUnitArray]
 
-#     schema_version: Attr[str]
-#     """Semantic version of calibration xds data format."""
-#     creator: Attr[CreatorDict]
-#     """Creator information (software, version)."""
-#     creation_date: Attr[str]
-#     """Date calibration dataset was created. Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
+    
+    # --- Required Attributes ---
 
-# type: Attr[Literal["antenna_calibration", "baseline_calibration"]] = "baseline_calibration"
-#     """
-#     Dataset type
-#     """
+    schema_version: Attr[str]
+    """Semantic version of calibration xds data format."""
+    creator: Attr[CreatorDict]
+    """Creator information (software, version)."""
+    creation_date: Attr[str]
+    """Date calibration dataset was created. Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
 
-#     # --- Optional Coordinates ---
-#     polarization_mixed: Optional[Coord[tuple[BaselineId, Polarization], str]] = None
-#     """
-#     If the polarizations are not constant over baseline. For mixed polarizations one would
-#     use ['PP', 'PQ', 'QP', 'QQ'] as the polarization labels and then specify here the
-#     actual polarization basis for each baseline using labels from the set of all
-#     combinations of 'X', 'Y', 'R' and 'L'.
-#     """
-#     field_name: Optional[Coordof[Coord[Time, str]]] = None
-#     """Field name."""
-#     scan_name: Optional[Coordof[ScanArray]] = None
-#     """Scan name to identify data taken in the same logical scan"""
+    type: Attr[Literal["antenna_calibration", "baseline_calibration"]] = "baseline_calibration"
+    """
+    Dataset type
+    """
+
+    # --- Optional Coordinates ---
+    polarization_mixed: Optional[Coord[tuple[BaselineId, Polarization], str]] = None
+    """
+    If the polarizations are not constant over baseline. For mixed polarizations one would
+    use ['PP', 'PQ', 'QP', 'QQ'] as the polarization labels and then specify here the
+    actual polarization basis for each baseline using labels from the set of all
+    combinations of 'X', 'Y', 'R' and 'L'.
+    """
+    field_name: Optional[Coordof[Coord[Time, str]]] = None
+    """Field name."""
+    scan_name: Optional[Coordof[ScanArray]] = None
+    """Scan name to identify data taken in the same logical scan"""
 
 
-#     # --- Optional Attributes ---
+    # --- Optional Attributes ---

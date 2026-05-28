@@ -67,7 +67,7 @@ class AntennaCalibrationParameterArray:
     frequency: Coordof[FrequencyArray]
     calibration_parameter_name: Coordof[CalibrationParameterNameArray]
     receptor_label: Coordof[ReceptorLabelArray]
-    
+
 
 @xarray_dataarray_schema
 class BaselineCalibrationParameterArray:
@@ -88,7 +88,6 @@ class BaselineCalibrationParameterArray:
 
     long_name: Optional[Attr[str]] = "Baseline Calibration Parameter"
 
-    
 
 @xarray_dataarray_schema
 class ParameterErrorArray:
@@ -108,6 +107,7 @@ class ParameterErrorArray:
 
 
 # Data variables
+
 
 # Note that this FlagArray is *distinct* from the one in
 # MeasurementSet! It is still a multidimensional cube of booleans but
@@ -139,7 +139,7 @@ class FlagArray:
     calibration_parameter_name: Coordof[CalibrationParameterNameArray]
     receptor_label: Optional[Coordof[ReceptorLabelArray]] = None
     polarization: Optional[Coordof[PolarizationArray]] = None
-    # 
+    #
     long_name: Optional[Attr[str]] = "Calibration flags"
 
 
@@ -166,7 +166,7 @@ class AntennaCalibrationXds:
     """
     Labels for polarization receptor types, e.g. ``['X','Y']``, ``['R','L']``, ``['P','Q']``.
     """
-    
+
     # --- Required data variables ---
 
     ANTENNA_CALIBRATION_PARAMETER: Dataof[AntennaCalibrationParameterArray]
@@ -193,8 +193,9 @@ class AntennaCalibrationXds:
     type_version: Attr[str]
     """A calibration-specific version number."""
 
-    
-    type: Attr[Literal["antenna_calibration", "baseline_calibration"]] = "antenna_calibration"
+    type: Attr[Literal["antenna_calibration", "baseline_calibration"]] = (
+        "antenna_calibration"
+    )
     """The type of calibration data stored in this xds."""
 
     # --- Optional Coordinates ---
@@ -204,7 +205,7 @@ class AntennaCalibrationXds:
 
     scan_name: Optional[Coordof[ScanArray]] = None
     """Scan name to identify data taken in the same logical scan."""
-    
+
     # --- Optional data variables / arrays ---
 
     # FIXME: Add reference antenna and spectral_window_name.
@@ -256,7 +257,7 @@ class AntennaCalibrationXds:
 #     creation_date: Attr[str]
 #     """Date calibration dataset was created. Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
 
-#     type: Attr[Literal["antenna_calibration", "baseline_calibration"]] = "baseline_calibration"
+# type: Attr[Literal["antenna_calibration", "baseline_calibration"]] = "baseline_calibration"
 #     """
 #     Dataset type
 #     """
@@ -276,4 +277,3 @@ class AntennaCalibrationXds:
 
 
 #     # --- Optional Attributes ---
-

@@ -50,19 +50,20 @@ class CalibrationParameterNameArray:
     data: Data[CalibrationParameterName, str]
     """Name for each parameter."""
 
+
 @xarray_dataarray_schema
 class CalibrationParameterUnitArray:
     """
     Defines units for calibration parameters
     """
+
     data: Data[
         CalibrationParameterName,
-        LiteralString # Units are all of the form Literal['m'] or Literal['s'] etc, so I think this covers that
+        LiteralString,  # Units are all of the form Literal['m'] or Literal['s'] etc, so I think this covers that
     ]
     calibration_parameter_name: Coordof[CalibrationParameterNameArray]
 
 
-    
 @xarray_dataarray_schema
 class AntennaCalibrationParameterArray:
     """
@@ -190,8 +191,7 @@ class AntennaCalibrationXds:
     FLAGS: Dataof[FlagArray]
 
     units: Dataof[CalibrationParameterUnitArray]
-    
-    
+
     # --- Required Attributes ---
 
     schema_version: Attr[str]
@@ -249,7 +249,7 @@ class BaselineCalibrationXds:
     """Calibration parameter name. """
 
     # --- Required data variables ---
-    
+
     BASELINE_CALIBRATION_PARAMETER: Dataof[BaselineCalibrationParameterArray]
     """Calibration parameters for baselines"""
 
@@ -266,7 +266,6 @@ class BaselineCalibrationXds:
 
     units: Dataof[CalibrationParameterUnitArray]
 
-    
     # --- Required Attributes ---
 
     schema_version: Attr[str]
@@ -276,7 +275,9 @@ class BaselineCalibrationXds:
     creation_date: Attr[str]
     """Date calibration dataset was created. Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
 
-    type: Attr[Literal["antenna_calibration", "baseline_calibration"]] = "baseline_calibration"
+    type: Attr[Literal["antenna_calibration", "baseline_calibration"]] = (
+        "baseline_calibration"
+    )
     """
     Dataset type
     """
@@ -293,6 +294,5 @@ class BaselineCalibrationXds:
     """Field name."""
     scan_name: Optional[Coordof[ScanArray]] = None
     """Scan name to identify data taken in the same logical scan"""
-
 
     # --- Optional Attributes ---

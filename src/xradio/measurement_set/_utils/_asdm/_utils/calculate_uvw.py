@@ -8,7 +8,6 @@ import astropy.units as u
 
 
 def calculate_uvw(
-    shape: tuple,
     key: tuple[slice] | None,
     time: xr.DataArray,
     baseline_antenna1_name: xr.DataArray,
@@ -16,6 +15,11 @@ def calculate_uvw(
     antenna_position: xr.DataArray,
     field_phase_center_direction: xr.DataArray,
 ) -> np.ndarray:
+    """
+    Produces an array of UVW coordinates of shape (num_times, num_antennas, 3),
+    where num_times is the length of the time input, and num_antenna
+    is the length of the antenna_position input.
+    """
     site_position = {
         "m0": {
             "unit": "m",

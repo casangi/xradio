@@ -1,8 +1,12 @@
 from contextlib import nullcontext as no_raises
+import warnings
 
 import numpy as np
 import pandas as pd
 import xarray as xr
+
+from astropy.utils.exceptions import AstropyWarning
+from erfa import ErfaWarning
 
 import pytest
 
@@ -73,8 +77,38 @@ def test_open_partition_monkeypatched_bdf_asdm_with_spw_simple(
             "BDFPath": ["/inexistent_test_path/foo"],
         },
     )
+
     assert isinstance(partition, xr.DataTree)
     check_datatree(partition)
+
+    visibility_selection = partition.data_vars["VISIBILITY"][0, 0, 0, 0]
+    assert isinstance(visibility_selection, xr.DataArray)
+
+    flag_selection = partition.data_vars["FLAG"][0, 0, 0, 0]
+    assert isinstance(flag_selection, xr.DataArray)
+
+    weight_selection = partition.data_vars["WEIGHT"][0, 0, 0, 0]
+    assert isinstance(weight_selection, xr.DataArray)
+    assert weight_selection.values == np.ones((1, 1, 1, 1), dtype="float64")
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            action="ignore",
+            category=AstropyWarning,
+            message="Tried to get",
+            append=True,
+        )
+        warnings.filterwarnings(
+            action="ignore",
+            category=ErfaWarning,
+            message="ERFA function",
+            append=True,
+        )
+        uvw_selection = partition.data_vars["UVW"][0:1, :, :]
+
+        assert isinstance(uvw_selection, xr.DataArray)
+        assert isinstance(uvw_selection.values, np.ndarray)
+        assert np.allclose(uvw_selection, np.zeros((1, 2, 3), dtype="float64"))
 
 
 def test_correlated_xds_default(asdm_with_spw_default):
@@ -174,22 +208,6 @@ def test_create_coordinates_monkeypatched_bdf_with_spw_simple(
     for var in ["EFFECTIVE_INTEGRATION_TIME", "TIME_CENTROID"]:
         assert var in time_vars
     assert time_indices_by_bdf == {}
-
-
-def test_produce_uvw_data_var():
-    from xradio.measurement_set._utils._asdm.open_partition import produce_uvw_data_var
-
-    with pytest.raises(KeyError, match="time"):
-        produce_uvw_data_var(xr.Dataset())
-
-
-def test_produce_weight_data_var():
-    from xradio.measurement_set._utils._asdm.open_partition import (
-        produce_weight_data_var,
-    )
-
-    with pytest.raises(KeyError, match="time"):
-        produce_weight_data_var(xr.Dataset())
 
 
 def test_translate_asdm_tables_spw_id_to_bdf_spw_id(asdm_empty):

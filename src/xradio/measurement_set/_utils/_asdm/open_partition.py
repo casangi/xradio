@@ -640,37 +640,6 @@ def create_uvw_data_var(
     return {"UVW": uvw}
 
 
-def produce_uvw_data_var(xds: xr.Dataset) -> xr.DataArray:
-    # TODO: best guess is to try to reproduce sdm tool behavior?
-    return xr.DataArray(
-        dims=["time", "baseline_id", "frequency", "polarization"],
-        data=np.ones(
-            (
-                xds.sizes["time"],
-                xds.sizes["baseline_id"],
-                xds.sizes["uvw_label"],
-            ),
-            dtype="float64",
-        ),
-    )
-
-
-def produce_weight_data_var(xds: xr.Dataset) -> xr.DataArray:
-    result = xr.DataArray(
-        dims=["time", "baseline_id", "frequency", "polarization"],
-        data=np.ones(
-            (
-                xds.sizes["time"],
-                xds.sizes["baseline_id"],
-                xds.sizes["frequency"],
-                xds.sizes["polarization"],
-            ),
-            dtype="float64",
-        ),
-    )
-    return result
-
-
 def translate_asdm_tables_spw_id_to_bdf_spw_id(
     spw_id: int,
     data_description_df: pd.DataFrame,

@@ -28,7 +28,12 @@ class ASDMBackendArray(xr.backends.BackendArray):
         return self._dtype
 
     def __getitem__(self, key: xr.core.indexing.ExplicitIndexer) -> np.typing.ArrayLike:
-        """'key' is a tuple of slices/integers provided by Xarray's indexer."""
+        """
+        Makes the ASDM backend arrays indexable (subscriptable with []), via the
+        LazilyIndexedArray wrapper class.
+
+        'key' is a tuple of slices/integers provided by Xarray's indexer.
+        """
         return xr.core.indexing.explicit_indexing_adapter(
             key,
             self.shape,
@@ -62,7 +67,7 @@ class VisibilityArray(ASDMBackendArray):
                 self._bdf_paths, self._bdf_spw_id, self._time_indices_by_bdf, key
             )
         except Exception as exc:
-            xradio_logger.warning(
+            xradio_logger().warning(
                 f"Exception while indexing the VISIBILITY array with {key=}: {exc}"
             )
             raise exc
@@ -104,7 +109,7 @@ class FlagArray(ASDMBackendArray):
                 self._bdf_paths, self._bdf_spw_id, self._time_indices_by_bdf, key
             )
         except Exception as exc:
-            xradio_logger.warning(
+            xradio_logger().warning(
                 f"Exception while indexing the FLAG array with {key=}: {exc}"
             )
             raise exc
@@ -133,7 +138,6 @@ class UVWArray(ASDMBackendArray):
     def _raw_indexing_method(self, key: tuple) -> np.ndarray:
         xradio_logger().debug(f" UVWArray._raw_indexing_method, {key=}")
         return calculate_uvw(
-            self.shape,
             key,
             self.time,
             self.baseline_antenna1_name,

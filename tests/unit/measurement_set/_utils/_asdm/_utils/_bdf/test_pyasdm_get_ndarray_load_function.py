@@ -201,9 +201,13 @@ guessed_shape_base = (1, 1, 1, 4, 2, 64, 2, 2)
 guessed_shape_3pol = (1, 1, 1, 4, 2, 64, 3, 2)
 guessed_shape_2times = (2, 1, 1, 4, 2, 64, 2, 2)
 
+empty_slice = (slice(None), slice(None), slice(None), slice(None))
+slice_with_int_baseline = (slice(None), 0, slice(None), slice(None))
+slice_with_int_pol = (slice(None), slice(None), slice(None), 0)
+
 
 @pytest.mark.parametrize(
-    "input_bdf_descr, input_component, input_overall_spw_idx, input_elements_count, input_guessed_shape, input_fromfile_array_len, expected_error",
+    "input_bdf_descr, input_component, input_overall_spw_idx, input_elements_count, input_guessed_shape, input_fromfile_array_len, input_array_slice, expected_error",
     [
         (
             bdf_descr_X136e,
@@ -212,6 +216,7 @@ guessed_shape_2times = (2, 1, 1, 4, 2, 64, 2, 2)
             64,
             guessed_shape_base,
             64 * 2,
+            empty_slice,
             no_raises(),
         ),
         (
@@ -221,6 +226,7 @@ guessed_shape_2times = (2, 1, 1, 4, 2, 64, 2, 2)
             64,
             guessed_shape_2times,
             64 * 2,
+            empty_slice,
             no_raises(),
         ),
         (
@@ -230,6 +236,7 @@ guessed_shape_2times = (2, 1, 1, 4, 2, 64, 2, 2)
             64,
             guessed_shape_base,
             64 * 2 * 2,
+            empty_slice,
             no_raises(),
         ),
         (
@@ -239,6 +246,27 @@ guessed_shape_2times = (2, 1, 1, 4, 2, 64, 2, 2)
             64,
             guessed_shape_base,
             64 * 2,
+            empty_slice,
+            no_raises(),
+        ),
+        (
+            bdf_descr_radiometer_pseudo_X136e,
+            "crossData",
+            0,
+            64,
+            guessed_shape_base,
+            64 * 2,
+            slice_with_int_pol,
+            no_raises(),
+        ),
+        (
+            bdf_descr_radiometer_pseudo_X136e,
+            "autoData",
+            0,
+            64,
+            guessed_shape_base,
+            64 * 2,
+            slice_with_int_pol,
             no_raises(),
         ),
         (
@@ -248,6 +276,17 @@ guessed_shape_2times = (2, 1, 1, 4, 2, 64, 2, 2)
             64,
             guessed_shape_3pol,
             64 * 2 * 2,
+            empty_slice,
+            no_raises(),
+        ),
+        (
+            bdf_descr_autodata_3pol_pseudo_X136e,
+            "autoData",
+            0,
+            64,
+            guessed_shape_3pol,
+            64 * 2 * 2,
+            slice_with_int_baseline,
             no_raises(),
         ),
     ],
@@ -259,6 +298,7 @@ def test_load_visibilities_one_spw_to_ndarray(
     input_elements_count,
     input_guessed_shape,
     input_fromfile_array_len,
+    input_array_slice,
     expected_error,
 ):
     from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_get_ndarray_load_function import (
@@ -274,7 +314,6 @@ def test_load_visibilities_one_spw_to_ndarray(
             np.zeros(input_fromfile_array_len, dtype="float64")
         ] * 2
         with expected_error:
-            empty_slice = (slice(None), slice(None), slice(None), slice(None))
             visibilities = load_visibilities_one_spw_to_ndarray(
                 input_component,
                 input_overall_spw_idx,
@@ -284,9 +323,10 @@ def test_load_visibilities_one_spw_to_ndarray(
                 input_bdf_descr,
                 ["autoData", "crossData"],
                 input_guessed_shape,
-                empty_slice,
+                input_array_slice,
             )
 
             assert isinstance(visibilities, np.ndarray)
-            assert visibilities.size >= input_elements_count * 2
+            polarization_multiplier = 1 if isinstance(input_array_slice[3], int) else 2
+            assert visibilities.size >= input_elements_count * polarization_multiplier
             assert (visibilities == 0 + 0j).all()

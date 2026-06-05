@@ -72,9 +72,11 @@ def load_visibilities_from_partition_bdfs(
         cumulative_vis.append(visibility_blob)
 
     visibility = np.concatenate(cumulative_vis)
+
     end = time.perf_counter()
+    loaded_shape = None if visibility is None else visibility.shape
     xradio_logger().info(
-        f"Loaded VISIBILITY array, with {visibility.shape=} from {len(bdf_paths)=} blobs, time: {end-start:.6}"
+        f"Loaded VISIBILITY array, with {loaded_shape=} from {len(bdf_paths)=} blobs, time: {end-start:.6}"
     )
 
     return visibility

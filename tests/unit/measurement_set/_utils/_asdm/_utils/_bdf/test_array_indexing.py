@@ -133,6 +133,7 @@ time_indices_by_bdf_simple_3 = {
         ),
         # out-of-range:
         (time_indices_by_bdf_simple_3, 28, [], [slice(3, 4)]),
+        (time_indices_by_bdf_simple_3, 25, [], [slice(0, 1)]),
     ],
 )
 def test_find_bdfs_and_indices_in_selected_times(
@@ -156,6 +157,15 @@ def test_calc_auto_cross_baseline_slices_wrong_type():
 
     with pytest.raises(RuntimeError, match="Unexpected type"):
         _result = calc_auto_cross_baseline_slices(3.4, 10, 5, True)
+
+
+def test_calc_auto_cross_baseline_slices_wrong_value():
+    from xradio.measurement_set._utils._asdm._utils._bdf.array_indexing import (
+        calc_auto_cross_baseline_slices,
+    )
+
+    with pytest.raises(RuntimeError, match="Unexpected value"):
+        _result = calc_auto_cross_baseline_slices(3333, 10, 5, True)
 
 
 @pytest.mark.parametrize(
@@ -207,6 +217,7 @@ dummy_bdf_descr_cross = {
 @pytest.mark.parametrize(
     "input_slice, input_bdf_descr, expected_result",
     [
+        (None, None, ["autoData", "crossData"]),
         ((None, slice(None, None), None, None), dummy_bdf_descr_auto, ["autoData"]),
         ((None, slice(0, 3), None, None), dummy_bdf_descr_auto, ["autoData"]),
         ((None, 2, None, None), dummy_bdf_descr_auto, ["autoData"]),

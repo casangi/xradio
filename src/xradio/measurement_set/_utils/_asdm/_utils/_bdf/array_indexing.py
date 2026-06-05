@@ -73,8 +73,6 @@ def find_bdfs_and_indices_in_selected_times(
                 None if time_slice.stop is None else time_slice.stop - start_last_found
             )
             time_slices_for_bdfs.append(slice(None, last_stop))
-        else:
-            time_slices_for_bdfs = []
 
     return bdfs_in_selected_times, time_slices_for_bdfs
 

@@ -12,7 +12,8 @@ import pytest
 
 import pyasdm
 
-from xradio.schema.check import check_datatree
+from xradio.schema.check import check_array, check_datatree
+from xradio.measurement_set.schema import UvwArray
 
 
 def mock_load_times_from_partition_bdfs(
@@ -208,6 +209,70 @@ def test_create_coordinates_monkeypatched_bdf_with_spw_simple(
     for var in ["EFFECTIVE_INTEGRATION_TIME", "TIME_CENTROID"]:
         assert var in time_vars
     assert time_indices_by_bdf == {}
+
+
+def create_uvw_data_var():
+    from xradio.measurement_set._utils._asdm.open_partition import (
+        create_uvw_data_var,
+    )
+
+    time_len = 2
+    baseline_id_len = 3
+    uvw_label_len = 3
+    dimension_sizes = {
+        "time": time_len,
+        "baseline_id": baseline_id_len,
+        "uvw_label": uvw_label_len,
+    }
+    time = xr.DataArray(
+        data=np.array([0, 10]) + 5e9,
+        dims="time",
+        coords={"time": "time"},
+        attrs={"type": "time", "units": "s", "scale": "tai", "format": "unix"},
+    )
+    baseline_antenna1_name = xr.DataArray(
+        data=["DA01", "DV01"],
+    )
+    baseline_antenna2_name = xr.DataArray(
+        data=["DV01", "DA01"],
+    )
+    phase_center_ra_dec = xr.DataArray(
+        data=[[0.11, 0.15]],
+        dims=["field_name", "sky_dir_label"],
+        coords={
+            "field_name": ["dummy_field"],
+            "sky_dir_label": ["ra", "dec"],
+        },
+    )
+    antenna_position = xr.DataArray(
+        data=[[100, 200, -300], [50, 100, 100]],
+        dims=[
+            "antenna_name",
+            "ellipsoid_dir_label",
+        ],
+        coords={
+            "antenna_name": ["DA01", "DV01"],
+            "ellipsoid_dir_label": ["x", "y", "z"],
+        },
+    )
+
+    uvw_data_var = crate_uvw_data_var(
+        dimension_sizes,
+        time,
+        baseline_antenna1_name,
+        baseline_antenna2_name,
+        antenna_position,
+        field_phase_center_direction,
+    )
+    assert isinstance(uvw_data_var, dict)
+    assert "uvw" in uvw_data_var
+    uvs = uvw_data_var["uvw"]
+    check_array(uvw, UvwArray)
+    assert uvw.dims == {
+        "time": time_len,
+        "baseline_id": baseline_id_len,
+        "uvw_label": uvw_label_len,
+    }
 
 
 def test_translate_asdm_tables_spw_id_to_bdf_spw_id(asdm_empty):

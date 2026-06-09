@@ -12,8 +12,16 @@ import pytest
 
 import pyasdm
 
-from xradio.schema.check import check_array, check_datatree
-from xradio.measurement_set.schema import UvwArray
+from xradio.schema.check import (
+    xarray_dataclass_to_array_schema,
+    xarray_dataclass_to_dataset_schema,
+    check_array,
+    check_attributes,
+    check_datatree,
+    check_dimensions,
+    check_dtype,
+)
+from xradio.measurement_set.schema import UvwArray, VisibilityXds
 
 
 def mock_load_times_from_partition_bdfs(
@@ -200,6 +208,9 @@ def test_create_coordinates_monkeypatched_bdf_with_spw_simple(
         "scan_name",
     ]:
         assert coo in coords
+
+    visibility_schema = xarray_dataclass_to_dataset_schema(VisibilityXds)
+    check_dimensions(coords, visibility_schema.dimensions)
     assert isinstance(attrs, dict)
     assert attrs["frequency"]["units"] == "Hz"
     assert num_antenna == 2
@@ -211,9 +222,9 @@ def test_create_coordinates_monkeypatched_bdf_with_spw_simple(
     assert time_indices_by_bdf == {}
 
 
-def create_uvw_data_var():
+def test__create_uvw_data_var():
     from xradio.measurement_set._utils._asdm.open_partition import (
-        create_uvw_data_var,
+        _create_uvw_data_var,
     )
 
     time_len = 2
@@ -236,7 +247,7 @@ def create_uvw_data_var():
     baseline_antenna2_name = xr.DataArray(
         data=["DV01", "DA01"],
     )
-    phase_center_ra_dec = xr.DataArray(
+    field_phase_center_direction = xr.DataArray(
         data=[[0.11, 0.15]],
         dims=["field_name", "sky_dir_label"],
         coords={
@@ -256,7 +267,7 @@ def create_uvw_data_var():
         },
     )
 
-    uvw_data_var = crate_uvw_data_var(
+    uvw_data_var = _create_uvw_data_var(
         dimension_sizes,
         time,
         baseline_antenna1_name,
@@ -265,22 +276,29 @@ def create_uvw_data_var():
         field_phase_center_direction,
     )
     assert isinstance(uvw_data_var, dict)
-    assert "uvw" in uvw_data_var
-    uvs = uvw_data_var["uvw"]
-    check_array(uvw, UvwArray)
-    assert uvw.dims == {
-        "time": time_len,
-        "baseline_id": baseline_id_len,
-        "uvw_label": uvw_label_len,
-    }
+    assert "UVW" in uvw_data_var
+    uvw = uvw_data_var["UVW"]
+
+    uvw_schema = xarray_dataclass_to_array_schema(UvwArray)
+    # check_array checks the type strictly for a xr.DataArray but
+    # we have the xr.DataArray wrapped in a LazilyIndexedArray
+    # check_array(uvw / uvw[1], uvw_schema)
+    check_array(xr.DataArray(uvw), uvw_schema)
+
+    # Check the pieces that will be used to create the xr.DataArray
+    check_dimensions(uvw[0], uvw_schema.dimensions)
+    check_dtype(uvw[1].dtype, uvw_schema.dtypes)
+    # check_data_vars(uvw[0], uvw_schema.coordinates, "coords")
+    check_attributes(uvw[2], uvw_schema.attributes)
+    assert uvw[1].shape == (time_len, baseline_id_len, uvw_label_len)
 
 
-def test_translate_asdm_tables_spw_id_to_bdf_spw_id(asdm_empty):
+def test__translate_asdm_tables_spw_id_to_bdf_spw_id(asdm_empty):
     from xradio.measurement_set._utils._asdm.open_partition import (
-        translate_asdm_tables_spw_id_to_bdf_spw_id,
+        _translate_asdm_tables_spw_id_to_bdf_spw_id,
     )
 
-    bdf_spw_id = translate_asdm_tables_spw_id_to_bdf_spw_id(
+    bdf_spw_id = _translate_asdm_tables_spw_id_to_bdf_spw_id(
         [0],
         pd.DataFrame({"dataDescriptionId": [0, 1], "spectralWindowId": [14, 16]}),
         pd.DataFrame(),
@@ -310,15 +328,15 @@ def test_translate_asdm_tables_spw_id_to_bdf_spw_id(asdm_empty):
         ),
     ],
 )
-def test_generate_baseline_antennax_id_as_in_bdf(
+def test__generate_baseline_antennax_id_as_in_bdf(
     num_antenna, expected_output, expected_error
 ):
     from xradio.measurement_set._utils._asdm.open_partition import (
-        generate_baseline_antennax_id_as_in_bdf,
+        _generate_baseline_antennax_id_as_in_bdf,
     )
 
     with expected_error:
-        antennax_id = generate_baseline_antennax_id_as_in_bdf(num_antenna)
+        antennax_id = _generate_baseline_antennax_id_as_in_bdf(num_antenna)
         if len(expected_output[0]) == 1 and len(antennax_id[0]) == 1:
             assert antennax_id[0] == expected_output[0]
             assert antennax_id[1] == expected_output[1]
@@ -347,15 +365,15 @@ def test_generate_baseline_antennax_id_as_in_bdf(
         ),
     ],
 )
-def test_generate_baseline_antennax_id_as_in_msv2(
+def test__generate_baseline_antennax_id_as_in_msv2(
     num_antenna, expected_output, expected_error
 ):
     from xradio.measurement_set._utils._asdm.open_partition import (
-        generate_baseline_antennax_id_as_in_msv2,
+        _generate_baseline_antennax_id_as_in_msv2,
     )
 
     with expected_error:
-        antennax_id = generate_baseline_antennax_id_as_in_msv2(num_antenna)
+        antennax_id = _generate_baseline_antennax_id_as_in_msv2(num_antenna)
         if len(expected_output[0]) == 1 and len(antennax_id[0]) == 1:
             assert antennax_id[0] == expected_output[0]
             assert antennax_id[1] == expected_output[1]

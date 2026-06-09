@@ -87,7 +87,7 @@ def open_partition(
     )
 
     if not is_single_dish:
-        uvw_data_var = create_uvw_data_var(
+        uvw_data_var = _create_uvw_data_var(
             correlated_xds.sizes,
             correlated_xds.coords["time"],
             correlated_xds.coords["baseline_antenna1_name"],
@@ -363,31 +363,31 @@ def create_coordinates(
     integration_time = durations[0]
     attrs["time"].update({"integration_time": make_quantity(integration_time, "s")})
 
-    coords["scan_name"], attrs["scan_name"] = create_scan_name_coord_attrs(
+    coords["scan_name"], attrs["scan_name"] = _create_scan_name_coord_attrs(
         time_centers, scans_metadata_df, partition_descr
     )
 
-    baseline_coords, num_antenna, len_baseline_coords = create_baseline_coords(
+    baseline_coords, num_antenna, len_baseline_coords = _create_baseline_coords(
         asdm, partition_descr
     )
     coords.update(baseline_coords)
 
-    coords["polarization"], spw_id, data_description_df = create_polarizations_coord(
+    coords["polarization"], spw_id, data_description_df = _create_polarizations_coord(
         asdm, partition_descr
     )
 
-    coords["frequency"], attrs["frequency"], spw_df = create_frequency_coord_attrs(
+    coords["frequency"], attrs["frequency"], spw_df = _create_frequency_coord_attrs(
         asdm, spw_id
     )
 
-    coords["field_name"] = create_field_name_coord(asdm, time_centers, partition_descr)
+    coords["field_name"] = _create_field_name_coord(asdm, time_centers, partition_descr)
 
-    time_vars = create_time_vars(actual_durations, actual_times, len_baseline_coords)
+    time_vars = _create_time_vars(actual_durations, actual_times, len_baseline_coords)
 
     if not is_single_dish:
         coords["uvw_label"] = np.array(["u", "v", "w"])
 
-    bdf_spw_id = find_bdf_spw_id(
+    bdf_spw_id = _find_bdf_spw_id(
         asdm, spw_id, data_description_df, spw_df, partition_descr
     )
 
@@ -403,7 +403,7 @@ def create_coordinates(
     )
 
 
-def create_scan_name_coord_attrs(
+def _create_scan_name_coord_attrs(
     time_centers: np.ndarray, scans_metadata_df: pd.DataFrame, partition_descr: dict
 ) -> tuple[tuple, dict]:
 
@@ -417,7 +417,7 @@ def create_scan_name_coord_attrs(
     return coord_scan_name, attrs_scan_name
 
 
-def create_baseline_coords(
+def _create_baseline_coords(
     asdm: pyasdm.ASDM,
     partition_descr: dict[str, np.ndarray],
 ) -> tuple[dict, int]:
@@ -452,7 +452,7 @@ def create_baseline_coords(
         baseline_antenna1_id = baseline_antenna2_id = auto_corr_indices
     elif correlation_mode == pyasdm.enumerations.CorrelationMode.CROSS_AND_AUTO:
         baseline_antenna1_id, baseline_antenna2_id = (
-            generate_baseline_antennax_id_as_in_bdf(num_antenna)
+            _generate_baseline_antennax_id_as_in_bdf(num_antenna)
         )
     else:
         raise RuntimeError(
@@ -478,7 +478,7 @@ def create_baseline_coords(
     return coords_baselines, num_antenna, len_baseline_coords
 
 
-def create_polarizations_coord(
+def _create_polarizations_coord(
     asdm: pyasdm.ASDM, partition_descr: dict[str, np.ndarray]
 ) -> tuple[dict, int, pd.DataFrame]:
 
@@ -504,7 +504,7 @@ def create_polarizations_coord(
     return polarization_setup, spw_id, data_description_df
 
 
-def create_time_vars(
+def _create_time_vars(
     actual_durations: np.ndarray, actual_times: np.ndarray, len_baseline_antenna1_id
 ) -> dict:
     # TODO This redim should be done inside ._bdf/load_time
@@ -531,7 +531,7 @@ def create_time_vars(
     return time_vars
 
 
-def create_frequency_coord_attrs(
+def _create_frequency_coord_attrs(
     asdm: pyasdm.ASDM, spw_id: int
 ) -> tuple[tuple, dict, pd.DataFrame]:
 
@@ -567,7 +567,7 @@ def create_frequency_coord_attrs(
     return frequency_coord, frequency_attrs, spw_df
 
 
-def create_field_name_coord(
+def _create_field_name_coord(
     asdm: pyasdm.ASDM, time_centers: np.ndarray, partition_descr: dict
 ) -> tuple:
 
@@ -583,7 +583,7 @@ def create_field_name_coord(
     return field_name_coord
 
 
-def find_bdf_spw_id(
+def _find_bdf_spw_id(
     asdm: pyasdm.ASDM,
     spw_id: int,
     data_description_df: pd.DataFrame,
@@ -598,7 +598,7 @@ def find_bdf_spw_id(
     config_description_df = exp_asdm_table_to_df(
         asdm, "ConfigDescription", sdm_config_description_attrs
     )
-    bdf_spw_id = translate_asdm_tables_spw_id_to_bdf_spw_id(
+    bdf_spw_id = _translate_asdm_tables_spw_id_to_bdf_spw_id(
         spw_id,
         data_description_df,
         spw_df,
@@ -608,7 +608,7 @@ def find_bdf_spw_id(
     return bdf_spw_id
 
 
-def create_uvw_data_var(
+def _create_uvw_data_var(
     correlated_xds_sizes: dict,
     time: xr.DataArray,
     baseline_antenna1_name: xr.DataArray,
@@ -640,7 +640,7 @@ def create_uvw_data_var(
     return {"UVW": uvw}
 
 
-def translate_asdm_tables_spw_id_to_bdf_spw_id(
+def _translate_asdm_tables_spw_id_to_bdf_spw_id(
     spw_id: int,
     data_description_df: pd.DataFrame,
     spw_df: pd.DataFrame,
@@ -663,7 +663,7 @@ def translate_asdm_tables_spw_id_to_bdf_spw_id(
     return bdf_spw_id
 
 
-def generate_baseline_antennax_id_as_in_bdf(
+def _generate_baseline_antennax_id_as_in_bdf(
     num_antenna,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Generate antenna IDs for baselines following ASDM BDF ordering.
@@ -715,7 +715,7 @@ def generate_baseline_antennax_id_as_in_bdf(
     return baseline_antenna1_id, baseline_antenna2_id
 
 
-def generate_baseline_antennax_id_as_in_msv2(
+def _generate_baseline_antennax_id_as_in_msv2(
     num_antenna,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
@@ -746,7 +746,7 @@ def generate_baseline_antennax_id_as_in_msv2(
 
     Examples
     --------
-    >>> generate_baseline_antennax_id_as_in_msv2(3)
+    >>> _generate_baseline_antennax_id_as_in_msv2(3)
     (array([0, 0, 0, 1, 1, 2]), array([0, 1, 2, 1, 2, 2]))
     """
 

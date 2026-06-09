@@ -229,8 +229,8 @@ def check_dimensions(
     """
     Check whether a dimension list conforms to a schema
 
-    :param array: Dimension list to check
-    :param schema: Expected possibilities for dimension list
+    :param dims: Dimension list to check
+    :param expected: Expected possibilities for dimension list
     :param check_order: Whether to check order of dimensions
     :returns: :py:class:`SchemaIssues` found
     """

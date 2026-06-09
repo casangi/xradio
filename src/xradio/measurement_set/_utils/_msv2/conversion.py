@@ -1012,7 +1012,9 @@ def convert_and_write_partition(
     ephemeris_interpolate: bool = False,
     phase_cal_interpolate: bool = False,
     sys_cal_interpolate: bool = False,
-    compressor: zarr.abc.codec.BytesBytesCodec = zarr.codecs.ZstdCodec(level=2),
+    compressor: zarr.abc.codec.BytesBytesCodec = zarr.codecs.BloscCodec(
+        cname="lz4", clevel=5, shuffle="noshuffle"
+    ),
     add_reshaping_indices: bool = False,
     storage_backend="zarr",
     parallel_mode: str = "none",
@@ -1048,8 +1050,8 @@ def convert_and_write_partition(
         _description_, by default None
     sys_cal_interpolate : bool, optional
         _description_, by default None
-    compressor : numcodecs.abc.Codec, optional
-        _description_, by default numcodecs.Zstd(level=2)
+    compressor : zarr.abc.codec.BytesBytesCodec, optional
+        _description_, by default zarr.codecs.BloscCodec(cname="lz4", clevel=5, shuffle="noshuffle")
     add_reshaping_indices : bool, optional
         _description_, by default False
     storage_backend : str, optional

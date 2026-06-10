@@ -1,0 +1,4659 @@
+{
+ "complete": {
+  "ANTENNA": {
+   "DISH_DIAMETER": {
+    "comment": "Physical diameter of dish",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "m"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "FLAG_ROW": {
+    "comment": "Flag for this row",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "MEAN_ORBIT": {
+    "_c_order": true,
+    "comment": "Mean Keplerian elements",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "double"
+   },
+   "MOUNT": {
+    "comment": "Mount type e.g. alt-az, equatorial, etc.",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "NAME": {
+    "comment": "Antenna name, e.g. VLA22, CA03",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "OFFSET": {
+    "_c_order": true,
+    "comment": "Axes offset of mount to FEED REFERENCE point",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "ITRF",
+      "type": "position"
+     },
+     "QuantumUnits": [
+      "m",
+      "m",
+      "m"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 5,
+    "shape": [
+     3
+    ],
+    "valueType": "double"
+   },
+   "ORBIT_ID": {
+    "comment": "index into ORBIT table (ignore if<0)",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "PHASED_ARRAY_ID": {
+    "comment": "index into PHASED_ARRAY table",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "POSITION": {
+    "_c_order": true,
+    "comment": "Antenna X,Y,Z phase reference position",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "ITRF",
+      "type": "position"
+     },
+     "QuantumUnits": [
+      "m",
+      "m",
+      "m"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 5,
+    "shape": [
+     3
+    ],
+    "valueType": "double"
+   },
+   "STATION": {
+    "comment": "Station (antenna pad) name",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "TYPE": {
+    "comment": "Antenna type (e.g. SPACE-BASED)",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "DATA_DESCRIPTION": {
+   "FLAG_ROW": {
+    "comment": "Flag this row",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "LAG_ID": {
+    "comment": "The lag index",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "POLARIZATION_ID": {
+    "comment": "Pointer to polarization table",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "SPECTRAL_WINDOW_ID": {
+    "comment": "Pointer to spectralwindow table",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "DOPPLER": {
+   "DOPPLER_ID": {
+    "comment": "Doppler tracking id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "SOURCE_ID": {
+    "comment": "Pointer to SOURCE table",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "TRANSITION_ID": {
+    "comment": "Pointer to list of transitions in SOURCE table",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "VELDEF": {
+    "comment": "Velocity Definition for Doppler shift",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "RADIO",
+      "type": "doppler"
+     },
+     "QuantumUnits": [
+      "m/s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "FEED": {
+   "ANTENNA_ID": {
+    "comment": "ID of antenna in this array",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "BEAM_ID": {
+    "comment": "Id for BEAM model",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "BEAM_OFFSET": {
+    "_c_order": true,
+    "comment": "Beam position offset (on sky but in antennareference frame)",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "J2000",
+      "type": "direction"
+     },
+     "QuantumUnits": [
+      "rad",
+      "rad"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 2,
+    "option": 0,
+    "valueType": "double"
+   },
+   "FEED_ID": {
+    "comment": "Feed id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "FOCUS_LENGTH": {
+    "comment": "Focus length",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "m"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "INTERVAL": {
+    "comment": "Interval for which this set of parameters is accurate",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "NUM_RECEPTORS": {
+    "comment": "Number of receptors on this feed (probably 1 or 2)",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "PHASED_FEED_ID": {
+    "comment": "index into PHASED_FEED table (ignore if<0)",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "POLARIZATION_TYPE": {
+    "_c_order": true,
+    "comment": "Type of polarization to which a given RECEPTOR responds",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "string"
+   },
+   "POL_RESPONSE": {
+    "_c_order": true,
+    "comment": "D-matrix i.e. leakage between two receptors",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": 2,
+    "option": 0,
+    "valueType": "complex"
+   },
+   "POSITION": {
+    "_c_order": true,
+    "comment": "Position of feed relative to feed reference position",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "ITRF",
+      "type": "position"
+     },
+     "QuantumUnits": [
+      "m",
+      "m",
+      "m"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 5,
+    "shape": [
+     3
+    ],
+    "valueType": "double"
+   },
+   "RECEPTOR_ANGLE": {
+    "_c_order": true,
+    "comment": "The reference angle for polarization",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "rad"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "double"
+   },
+   "SPECTRAL_WINDOW_ID": {
+    "comment": "ID for this spectral window setup",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "TIME": {
+    "comment": "Midpoint of time for which this set of parameters is accurate",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "FIELD": {
+   "CODE": {
+    "comment": "Special characteristics of field, e.g. Bandpass calibrator",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "DELAY_DIR": {
+    "_c_order": true,
+    "comment": "Direction of delay center (e.g. RA, DEC)as polynomial in time.",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "J2000",
+      "type": "direction"
+     },
+     "QuantumUnits": [
+      "rad",
+      "rad"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 2,
+    "option": 0,
+    "valueType": "double"
+   },
+   "EPHEMERIS_ID": {
+    "comment": "Ephemeris id, pointer to EPHEMERIS table",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "FLAG_ROW": {
+    "comment": "Row Flag",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "NAME": {
+    "comment": "Name of this field",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "NUM_POLY": {
+    "comment": "Polynomial order of _DIR columns",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "PHASE_DIR": {
+    "_c_order": true,
+    "comment": "Direction of phase center (e.g. RA, DEC).",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "J2000",
+      "type": "direction"
+     },
+     "QuantumUnits": [
+      "rad",
+      "rad"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 2,
+    "option": 0,
+    "valueType": "double"
+   },
+   "REFERENCE_DIR": {
+    "_c_order": true,
+    "comment": "Direction of REFERENCE center (e.g. RA, DEC).as polynomial in time.",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "J2000",
+      "type": "direction"
+     },
+     "QuantumUnits": [
+      "rad",
+      "rad"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 2,
+    "option": 0,
+    "valueType": "double"
+   },
+   "SOURCE_ID": {
+    "comment": "Source id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "TIME": {
+    "comment": "Time origin for direction and rate",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "FLAG_CMD": {
+   "APPLIED": {
+    "comment": "True if flag has been applied to main table",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "COMMAND": {
+    "comment": "Flagging command",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "INTERVAL": {
+    "comment": "Time interval for which this flag is valid",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "LEVEL": {
+    "comment": "Flag level - revision level ",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "REASON": {
+    "comment": "Flag reason",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "SEVERITY": {
+    "comment": "Severity code (0-10) ",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "TIME": {
+    "comment": "Midpoint of interval for which this flag is valid",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "TYPE": {
+    "comment": "Type of flag (FLAG or UNFLAG)",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "FREQ_OFFSET": {
+   "ANTENNA1": {
+    "comment": "Antenna1 id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "ANTENNA2": {
+    "comment": "Antenna2 id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "FEED_ID": {
+    "comment": "Feed id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "INTERVAL": {
+    "comment": "Time interval",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "OFFSET": {
+    "comment": "Frequency offset - antenna based",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "Hz"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "SPECTRAL_WINDOW_ID": {
+    "comment": "Spectral window id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "TIME": {
+    "comment": "Midpoint of interval",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "HISTORY": {
+   "APPLICATION": {
+    "comment": "Application name",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "APP_PARAMS": {
+    "_c_order": true,
+    "comment": "Application parameters",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "string"
+   },
+   "CLI_COMMAND": {
+    "_c_order": true,
+    "comment": "CLI command sequence",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "string"
+   },
+   "MESSAGE": {
+    "comment": "Log message",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "OBJECT_ID": {
+    "comment": "Originating ObjectID",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "OBSERVATION_ID": {
+    "comment": "Observation id (index in OBSERVATION table)",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "ORIGIN": {
+    "comment": "(Source code) origin from which message originated",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "PRIORITY": {
+    "comment": "Message priority",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "TIME": {
+    "comment": "Timestamp of message",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "MAIN": {
+   "ANTENNA1": {
+    "comment": "ID of first antenna in interferometer",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "ANTENNA2": {
+    "comment": "ID of second antenna in interferometer",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "ANTENNA3": {
+    "comment": "ID of third antenna in interferometer",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "ARRAY_ID": {
+    "comment": "ID of array or subarray",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "BASELINE_REF": {
+    "comment": "Reference antenna for this baseline, True for ANTENNA1",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "CORRECTED_DATA": {
+    "_c_order": true,
+    "comment": "The corrected data column",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "complex"
+   },
+   "CORRECTED_WEIGHT_SPECTRUM": {
+    "_c_order": true,
+    "comment": "Weight for each corrected data point",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "float"
+   },
+   "DATA": {
+    "_c_order": true,
+    "comment": "The data column",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "complex"
+   },
+   "DATA_DESC_ID": {
+    "comment": "The data description table index",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "EXPOSURE": {
+    "comment": "The effective integration time",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "FEED1": {
+    "comment": "The feed index for ANTENNA1",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "FEED2": {
+    "comment": "The feed index for ANTENNA2",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "FEED3": {
+    "comment": "The feed index for ANTENNA3",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "FIELD_ID": {
+    "comment": "Unique id for this pointing",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "FLAG": {
+    "_c_order": true,
+    "comment": "The data flags, array of bools with same shape as data",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": 2,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "FLAG_CATEGORY": {
+    "_c_order": true,
+    "comment": "The flag category, NUM_CAT flags for each datum",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "CATEGORY": []
+    },
+    "maxlen": 0,
+    "ndim": 3,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "FLAG_ROW": {
+    "comment": "Row flag - flag all data in this row if True",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "FLOAT_DATA": {
+    "_c_order": true,
+    "comment": "Floating point data - for single dish",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "float"
+   },
+   "IMAGING_WEIGHT": {
+    "_c_order": true,
+    "comment": "Weight set by imaging task (e.g. uniform weighting)",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "float"
+   },
+   "INTERVAL": {
+    "comment": "The sampling interval",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "LAG_DATA": {
+    "_c_order": true,
+    "comment": "The lag data column",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "complex"
+   },
+   "MODEL_DATA": {
+    "_c_order": true,
+    "comment": "The model data column",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "complex"
+   },
+   "OBSERVATION_ID": {
+    "comment": "ID for this observation, index in OBSERVATION table",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "PHASE_ID": {
+    "comment": "Id for phase switching",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "PROCESSOR_ID": {
+    "comment": "Id for backend processor, index in PROCESSOR table",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "PULSAR_BIN": {
+    "comment": "Pulsar pulse-phase bin for this DATA",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "PULSAR_GATE_ID": {
+    "comment": "ID for this gate, index into PULSAR_GATE table",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "SCAN_NUMBER": {
+    "comment": "Sequential scan number from on-line system",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "SIGMA": {
+    "_c_order": true,
+    "comment": "Estimated rms noise for channel with unity bandpass response",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "float"
+   },
+   "SIGMA_SPECTRUM": {
+    "_c_order": true,
+    "comment": "Estimated rms noise for each data point",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "float"
+   },
+   "STATE_ID": {
+    "comment": "ID for this observing state",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "TIME": {
+    "comment": "Modified Julian Day",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "TIME_CENTROID": {
+    "comment": "Modified Julian Day",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "TIME_EXTRA_PREC": {
+    "comment": "Additional precision for TIME",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "UVW": {
+    "_c_order": true,
+    "comment": "Vector with uvw coordinates (in meters)",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "ITRF",
+      "type": "uvw"
+     },
+     "QuantumUnits": [
+      "m",
+      "m",
+      "m"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 5,
+    "shape": [
+     3
+    ],
+    "valueType": "double"
+   },
+   "UVW2": {
+    "_c_order": true,
+    "comment": "uvw coordinates for second pair of triple corr product",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "ITRF",
+      "type": "uvw"
+     },
+     "QuantumUnits": [
+      "m",
+      "m",
+      "m"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "double"
+   },
+   "VIDEO_POINT": {
+    "_c_order": true,
+    "comment": "zero frequency point, needed for transform to lag",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "complex"
+   },
+   "WEIGHT": {
+    "_c_order": true,
+    "comment": "Weight for each polarization spectrum",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "float"
+   },
+   "WEIGHT_SPECTRUM": {
+    "_c_order": true,
+    "comment": "Weight for each data point",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "float"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {
+    "MS_VERSION": 2.0
+   },
+   "_private_keywords_": {}
+  },
+  "OBSERVATION": {
+   "FLAG_ROW": {
+    "comment": "Row flag",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "LOG": {
+    "_c_order": true,
+    "comment": "Observing log",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "string"
+   },
+   "OBSERVER": {
+    "comment": "Name of observer(s)",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "PROJECT": {
+    "comment": "Project identification string",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "RELEASE_DATE": {
+    "comment": "Release date when data becomes public",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "SCHEDULE": {
+    "_c_order": true,
+    "comment": "Observing schedule",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "string"
+   },
+   "SCHEDULE_TYPE": {
+    "comment": "Observing schedule type",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "TELESCOPE_NAME": {
+    "comment": "Telescope Name (e.g. WSRT, VLBA)",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "TIME_RANGE": {
+    "_c_order": true,
+    "comment": "Start and end of observation",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 5,
+    "shape": [
+     2
+    ],
+    "valueType": "double"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "POINTING": {
+   "ANTENNA_ID": {
+    "comment": "Antenna Id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "DIRECTION": {
+    "_c_order": true,
+    "comment": "Antenna pointing direction as polynomial in time",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "J2000",
+      "type": "direction"
+     },
+     "QuantumUnits": [
+      "rad",
+      "rad"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 2,
+    "option": 0,
+    "valueType": "double"
+   },
+   "ENCODER": {
+    "_c_order": true,
+    "comment": "Encoder values",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "J2000",
+      "type": "direction"
+     },
+     "QuantumUnits": [
+      "rad",
+      "rad"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "double"
+   },
+   "INTERVAL": {
+    "comment": "Time interval",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "NAME": {
+    "comment": "Pointing position name",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "NUM_POLY": {
+    "comment": "Series order",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "ON_SOURCE": {
+    "comment": "On source flag",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "OVER_THE_TOP": {
+    "comment": "Antenna over the top",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "POINTING_MODEL_ID": {
+    "comment": "Pointing model id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "POINTING_OFFSET": {
+    "_c_order": true,
+    "comment": "A priori pointing correction as polynomial in time",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "J2000",
+      "type": "direction"
+     },
+     "QuantumUnits": [
+      "rad",
+      "rad"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "double"
+   },
+   "SOURCE_OFFSET": {
+    "_c_order": true,
+    "comment": "Offset from source as polynomial in time",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "J2000",
+      "type": "direction"
+     },
+     "QuantumUnits": [
+      "rad",
+      "rad"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "double"
+   },
+   "TARGET": {
+    "_c_order": true,
+    "comment": "target direction as polynomial in time",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "J2000",
+      "type": "direction"
+     },
+     "QuantumUnits": [
+      "rad",
+      "rad"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "double"
+   },
+   "TIME": {
+    "comment": "Time interval midpoint",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "TIME_ORIGIN": {
+    "comment": "Time origin for direction",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "TRACKING": {
+    "comment": "Tracking flag - True if on position",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "POLARIZATION": {
+   "CORR_PRODUCT": {
+    "_c_order": true,
+    "comment": "Indices describing receptors of feed going into correlation",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": 2,
+    "option": 0,
+    "valueType": "int"
+   },
+   "CORR_TYPE": {
+    "_c_order": true,
+    "comment": "The polarization type for each correlation product, as a Stokes enum.",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "int"
+   },
+   "FLAG_ROW": {
+    "comment": "Row flag",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "NUM_CORR": {
+    "comment": "Number of correlation products",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "PROCESSOR": {
+   "FLAG_ROW": {
+    "comment": "Row flag",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "MODE_ID": {
+    "comment": "Processor mode id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "PASS_ID": {
+    "comment": "Processor pass number",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "SUB_TYPE": {
+    "comment": "Processor sub type",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "TYPE": {
+    "comment": "Processor type",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "TYPE_ID": {
+    "comment": "Processor type id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "SOURCE": {
+   "CALIBRATION_GROUP": {
+    "comment": "Number of grouping for calibration purpose.",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "CODE": {
+    "comment": "Special characteristics of source, e.g. Bandpass calibrator",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "DIRECTION": {
+    "_c_order": true,
+    "comment": "Direction (e.g. RA, DEC).",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "J2000",
+      "type": "direction"
+     },
+     "QuantumUnits": [
+      "rad",
+      "rad"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 5,
+    "shape": [
+     2
+    ],
+    "valueType": "double"
+   },
+   "INTERVAL": {
+    "comment": "Interval of time for which this set of parameters is accurate",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "NAME": {
+    "comment": "Name of source as given during observations",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "NUM_LINES": {
+    "comment": "Number of spectral lines",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "POSITION": {
+    "_c_order": true,
+    "comment": "Position (e.g. for solar system objects",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "ITRF",
+      "type": "position"
+     },
+     "QuantumUnits": [
+      "m",
+      "m",
+      "m"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "double"
+   },
+   "PROPER_MOTION": {
+    "_c_order": true,
+    "comment": "Proper motion",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "rad/s"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 5,
+    "shape": [
+     2
+    ],
+    "valueType": "double"
+   },
+   "PULSAR_ID": {
+    "comment": "Pulsar Id, pointer to pulsar table",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "REST_FREQUENCY": {
+    "_c_order": true,
+    "comment": "Line rest frequency",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "LSRK",
+      "type": "frequency"
+     },
+     "QuantumUnits": [
+      "Hz"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "double"
+   },
+   "SOURCE_ID": {
+    "comment": "Source id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "SOURCE_MODEL": {
+    "comment": "Component Source Model",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "record"
+   },
+   "SPECTRAL_WINDOW_ID": {
+    "comment": "ID for this spectral window setup",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "SYSVEL": {
+    "_c_order": true,
+    "comment": "Systemic velocity at reference",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "LSRK",
+      "type": "radialvelocity"
+     },
+     "QuantumUnits": [
+      "m/s"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "double"
+   },
+   "TIME": {
+    "comment": "Midpoint of time for which this set of parameters is accurate.",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "TRANSITION": {
+    "_c_order": true,
+    "comment": "Line Transition name",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "string"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "SPECTRAL_WINDOW": {
+   "ASSOC_NATURE": {
+    "_c_order": true,
+    "comment": "Nature of association with other spectral window",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "string"
+   },
+   "ASSOC_SPW_ID": {
+    "_c_order": true,
+    "comment": "Associated spectral window id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "int"
+   },
+   "BBC_NO": {
+    "comment": "Baseband converter number",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "BBC_SIDEBAND": {
+    "comment": "BBC sideband",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "CHAN_FREQ": {
+    "_c_order": true,
+    "comment": "Center frequencies for each channel in the data matrix",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "TabRefCodes": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       64
+      ],
+      "TabRefTypes": [
+       "REST",
+       "LSRK",
+       "LSRD",
+       "BARY",
+       "GEO",
+       "TOPO",
+       "GALACTO",
+       "LGROUP",
+       "CMB",
+       "Undefined"
+      ],
+      "VarRefCol": "MEAS_FREQ_REF",
+      "type": "frequency"
+     },
+     "QuantumUnits": [
+      "Hz"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "double"
+   },
+   "CHAN_WIDTH": {
+    "_c_order": true,
+    "comment": "Channel width for each channel",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "Hz"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "double"
+   },
+   "DOPPLER_ID": {
+    "comment": "Doppler Id, points to DOPPLER table",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "EFFECTIVE_BW": {
+    "_c_order": true,
+    "comment": "Effective noise bandwidth of each channel",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "Hz"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "double"
+   },
+   "FLAG_ROW": {
+    "comment": "Row flag",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "FREQ_GROUP": {
+    "comment": "Frequency group",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "FREQ_GROUP_NAME": {
+    "comment": "Frequency group name",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "IF_CONV_CHAIN": {
+    "comment": "The IF conversion chain number",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "MEAS_FREQ_REF": {
+    "comment": "Frequency Measure reference",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "NAME": {
+    "comment": "Spectral window name",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "NET_SIDEBAND": {
+    "comment": "Net sideband",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "NUM_CHAN": {
+    "comment": "Number of spectral channels",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "RECEIVER_ID": {
+    "comment": "Receiver Id for this spectral window",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "REF_FREQUENCY": {
+    "comment": "The reference frequency",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "TabRefCodes": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       64
+      ],
+      "TabRefTypes": [
+       "REST",
+       "LSRK",
+       "LSRD",
+       "BARY",
+       "GEO",
+       "TOPO",
+       "GALACTO",
+       "LGROUP",
+       "CMB",
+       "Undefined"
+      ],
+      "VarRefCol": "MEAS_FREQ_REF",
+      "type": "frequency"
+     },
+     "QuantumUnits": [
+      "Hz"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "RESOLUTION": {
+    "_c_order": true,
+    "comment": "The effective noise bandwidth for each channel",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "Hz"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "double"
+   },
+   "TOTAL_BANDWIDTH": {
+    "comment": "The total bandwidth for this window",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "Hz"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "STATE": {
+   "CAL": {
+    "comment": "Noise calibration temperature",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "K"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "FLAG_ROW": {
+    "comment": "Row flag",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "LOAD": {
+    "comment": "Load temperature",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "K"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "OBS_MODE": {
+    "comment": "Observing mode, e.g., OFF_SPECTRUM",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "REF": {
+    "comment": "True for a reference observation",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "SIG": {
+    "comment": "True for a source observation",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "SUB_SCAN": {
+    "comment": "Sub scan number, relative to scan number",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "SYSCAL": {
+   "ANTENNA_ID": {
+    "comment": "ID of antenna in this array",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "FEED_ID": {
+    "comment": "Feed id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "INTERVAL": {
+    "comment": "Interval for which this set of parameters is accurate",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "PHASE_DIFF": {
+    "comment": "Phase difference between receptor 2 and receptor 1",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "rad"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "float"
+   },
+   "PHASE_DIFF_FLAG": {
+    "comment": "Flag for PHASE_DIFF",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "SPECTRAL_WINDOW_ID": {
+    "comment": "ID for this spectral window setup",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "TANT": {
+    "_c_order": true,
+    "comment": "Antenna temperature for each receptor",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "K"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "float"
+   },
+   "TANT_FLAG": {
+    "comment": "Flag for TANT",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "TANT_SPECTRUM": {
+    "_c_order": true,
+    "comment": "Antenna temperature for each channel and receptor",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "K"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "float"
+   },
+   "TANT_TSYS": {
+    "_c_order": true,
+    "comment": "Ratio of Antenna & system temperature for each receptor",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "float"
+   },
+   "TANT_TSYS_FLAG": {
+    "comment": "Flag for TANT_TSYS",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "TANT_TSYS_SPECTRUM": {
+    "_c_order": true,
+    "comment": "Ratio of Antenna & system temperature for each channel and receptor",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "float"
+   },
+   "TCAL": {
+    "_c_order": true,
+    "comment": "Calibration temperature for each receptor",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "K"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "float"
+   },
+   "TCAL_FLAG": {
+    "comment": "Flag for TCAL",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "TCAL_SPECTRUM": {
+    "_c_order": true,
+    "comment": "Calibration temperature for each channel and receptor",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "K"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "float"
+   },
+   "TIME": {
+    "comment": "Midpoint of time for which this set of parameters is accurate",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "TRX": {
+    "_c_order": true,
+    "comment": "Receiver temperature for each of the two receptors",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "K"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "float"
+   },
+   "TRX_FLAG": {
+    "comment": "Flag for TRX",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "TRX_SPECTRUM": {
+    "_c_order": true,
+    "comment": "Receiver temperature for each channel and receptor",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "K"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "float"
+   },
+   "TSKY": {
+    "_c_order": true,
+    "comment": "Sky temperature for each of the two receptors",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "K"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "float"
+   },
+   "TSKY_FLAG": {
+    "comment": "Flag for TSKY",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "TSKY_SPECTRUM": {
+    "_c_order": true,
+    "comment": "Sky temperature for each channel and receptor",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "K"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "float"
+   },
+   "TSYS": {
+    "_c_order": true,
+    "comment": "System temp. for each of the two receptors",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "K"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "float"
+   },
+   "TSYS_FLAG": {
+    "comment": "Flag for TSYS",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "TSYS_SPECTRUM": {
+    "_c_order": true,
+    "comment": "System temperature for each channel and receptor",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "K"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "float"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "WEATHER": {
+   "ANTENNA_ID": {
+    "comment": "Antenna number",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "DEW_POINT": {
+    "comment": "Dew point",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "K"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "float"
+   },
+   "DEW_POINT_FLAG": {
+    "comment": "Flag for dew point",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "H2O": {
+    "comment": "Average column density of water-vapor",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "m-2"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "float"
+   },
+   "H2O_FLAG": {
+    "comment": "Flag for average column density of water-vapor",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "INTERVAL": {
+    "comment": "Interval over which data is relevant",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "IONOS_ELECTRON": {
+    "comment": "Average column density of electrons",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "m-2"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "float"
+   },
+   "IONOS_ELECTRON_FLAG": {
+    "comment": "Flag for average column density of electrons",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "PRESSURE": {
+    "comment": "Ambient atmospheric pressure",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "hPa"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "float"
+   },
+   "PRESSURE_FLAG": {
+    "comment": "Flag for ambient atmospheric pressure",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "REL_HUMIDITY": {
+    "comment": "Ambient relative humidity",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "%"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "float"
+   },
+   "REL_HUMIDITY_FLAG": {
+    "comment": "Flag for ambient relative humidity",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "TEMPERATURE": {
+    "comment": "Ambient Air Temperature for an antenna",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "K"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "float"
+   },
+   "TEMPERATURE_FLAG": {
+    "comment": "Flag for ambient Air Temperature for an antenna",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "TIME": {
+    "comment": "An MEpoch specifying the midpoint of the time forwhich data is relevant",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "WIND_DIRECTION": {
+    "comment": "Average wind direction",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "rad"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "float"
+   },
+   "WIND_DIRECTION_FLAG": {
+    "comment": "Flag for wind direction",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "WIND_SPEED": {
+    "comment": "Average wind speed",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "m/s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "float"
+   },
+   "WIND_SPEED_FLAG": {
+    "comment": "Flag for wind speed",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  }
+ },
+ "required": {
+  "ANTENNA": {
+   "DISH_DIAMETER": {
+    "comment": "Physical diameter of dish",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "m"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "FLAG_ROW": {
+    "comment": "Flag for this row",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "MOUNT": {
+    "comment": "Mount type e.g. alt-az, equatorial, etc.",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "NAME": {
+    "comment": "Antenna name, e.g. VLA22, CA03",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "OFFSET": {
+    "_c_order": true,
+    "comment": "Axes offset of mount to FEED REFERENCE point",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "ITRF",
+      "type": "position"
+     },
+     "QuantumUnits": [
+      "m",
+      "m",
+      "m"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 5,
+    "shape": [
+     3
+    ],
+    "valueType": "double"
+   },
+   "POSITION": {
+    "_c_order": true,
+    "comment": "Antenna X,Y,Z phase reference position",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "ITRF",
+      "type": "position"
+     },
+     "QuantumUnits": [
+      "m",
+      "m",
+      "m"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 5,
+    "shape": [
+     3
+    ],
+    "valueType": "double"
+   },
+   "STATION": {
+    "comment": "Station (antenna pad) name",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "TYPE": {
+    "comment": "Antenna type (e.g. SPACE-BASED)",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "DATA_DESCRIPTION": {
+   "FLAG_ROW": {
+    "comment": "Flag this row",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "POLARIZATION_ID": {
+    "comment": "Pointer to polarization table",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "SPECTRAL_WINDOW_ID": {
+    "comment": "Pointer to spectralwindow table",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "DOPPLER": {
+   "DOPPLER_ID": {
+    "comment": "Doppler tracking id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "SOURCE_ID": {
+    "comment": "Pointer to SOURCE table",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "TRANSITION_ID": {
+    "comment": "Pointer to list of transitions in SOURCE table",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "VELDEF": {
+    "comment": "Velocity Definition for Doppler shift",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "RADIO",
+      "type": "doppler"
+     },
+     "QuantumUnits": [
+      "m/s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "FEED": {
+   "ANTENNA_ID": {
+    "comment": "ID of antenna in this array",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "BEAM_ID": {
+    "comment": "Id for BEAM model",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "BEAM_OFFSET": {
+    "_c_order": true,
+    "comment": "Beam position offset (on sky but in antennareference frame)",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "J2000",
+      "type": "direction"
+     },
+     "QuantumUnits": [
+      "rad",
+      "rad"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 2,
+    "option": 0,
+    "valueType": "double"
+   },
+   "FEED_ID": {
+    "comment": "Feed id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "INTERVAL": {
+    "comment": "Interval for which this set of parameters is accurate",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "NUM_RECEPTORS": {
+    "comment": "Number of receptors on this feed (probably 1 or 2)",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "POLARIZATION_TYPE": {
+    "_c_order": true,
+    "comment": "Type of polarization to which a given RECEPTOR responds",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "string"
+   },
+   "POL_RESPONSE": {
+    "_c_order": true,
+    "comment": "D-matrix i.e. leakage between two receptors",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": 2,
+    "option": 0,
+    "valueType": "complex"
+   },
+   "POSITION": {
+    "_c_order": true,
+    "comment": "Position of feed relative to feed reference position",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "ITRF",
+      "type": "position"
+     },
+     "QuantumUnits": [
+      "m",
+      "m",
+      "m"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 5,
+    "shape": [
+     3
+    ],
+    "valueType": "double"
+   },
+   "RECEPTOR_ANGLE": {
+    "_c_order": true,
+    "comment": "The reference angle for polarization",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "rad"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "double"
+   },
+   "SPECTRAL_WINDOW_ID": {
+    "comment": "ID for this spectral window setup",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "TIME": {
+    "comment": "Midpoint of time for which this set of parameters is accurate",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "FIELD": {
+   "CODE": {
+    "comment": "Special characteristics of field, e.g. Bandpass calibrator",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "DELAY_DIR": {
+    "_c_order": true,
+    "comment": "Direction of delay center (e.g. RA, DEC)as polynomial in time.",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "J2000",
+      "type": "direction"
+     },
+     "QuantumUnits": [
+      "rad",
+      "rad"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 2,
+    "option": 0,
+    "valueType": "double"
+   },
+   "FLAG_ROW": {
+    "comment": "Row Flag",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "NAME": {
+    "comment": "Name of this field",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "NUM_POLY": {
+    "comment": "Polynomial order of _DIR columns",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "PHASE_DIR": {
+    "_c_order": true,
+    "comment": "Direction of phase center (e.g. RA, DEC).",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "J2000",
+      "type": "direction"
+     },
+     "QuantumUnits": [
+      "rad",
+      "rad"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 2,
+    "option": 0,
+    "valueType": "double"
+   },
+   "REFERENCE_DIR": {
+    "_c_order": true,
+    "comment": "Direction of REFERENCE center (e.g. RA, DEC).as polynomial in time.",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "J2000",
+      "type": "direction"
+     },
+     "QuantumUnits": [
+      "rad",
+      "rad"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 2,
+    "option": 0,
+    "valueType": "double"
+   },
+   "SOURCE_ID": {
+    "comment": "Source id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "TIME": {
+    "comment": "Time origin for direction and rate",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "FLAG_CMD": {
+   "APPLIED": {
+    "comment": "True if flag has been applied to main table",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "COMMAND": {
+    "comment": "Flagging command",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "INTERVAL": {
+    "comment": "Time interval for which this flag is valid",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "LEVEL": {
+    "comment": "Flag level - revision level ",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "REASON": {
+    "comment": "Flag reason",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "SEVERITY": {
+    "comment": "Severity code (0-10) ",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "TIME": {
+    "comment": "Midpoint of interval for which this flag is valid",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "TYPE": {
+    "comment": "Type of flag (FLAG or UNFLAG)",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "FREQ_OFFSET": {
+   "ANTENNA1": {
+    "comment": "Antenna1 id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "ANTENNA2": {
+    "comment": "Antenna2 id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "FEED_ID": {
+    "comment": "Feed id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "INTERVAL": {
+    "comment": "Time interval",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "OFFSET": {
+    "comment": "Frequency offset - antenna based",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "Hz"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "SPECTRAL_WINDOW_ID": {
+    "comment": "Spectral window id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "TIME": {
+    "comment": "Midpoint of interval",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "HISTORY": {
+   "APPLICATION": {
+    "comment": "Application name",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "APP_PARAMS": {
+    "_c_order": true,
+    "comment": "Application parameters",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "string"
+   },
+   "CLI_COMMAND": {
+    "_c_order": true,
+    "comment": "CLI command sequence",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "string"
+   },
+   "MESSAGE": {
+    "comment": "Log message",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "OBJECT_ID": {
+    "comment": "Originating ObjectID",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "OBSERVATION_ID": {
+    "comment": "Observation id (index in OBSERVATION table)",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "ORIGIN": {
+    "comment": "(Source code) origin from which message originated",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "PRIORITY": {
+    "comment": "Message priority",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "TIME": {
+    "comment": "Timestamp of message",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "MAIN": {
+   "ANTENNA1": {
+    "comment": "ID of first antenna in interferometer",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "ANTENNA2": {
+    "comment": "ID of second antenna in interferometer",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "ARRAY_ID": {
+    "comment": "ID of array or subarray",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "DATA_DESC_ID": {
+    "comment": "The data description table index",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "EXPOSURE": {
+    "comment": "The effective integration time",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "FEED1": {
+    "comment": "The feed index for ANTENNA1",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "FEED2": {
+    "comment": "The feed index for ANTENNA2",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "FIELD_ID": {
+    "comment": "Unique id for this pointing",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "FLAG": {
+    "_c_order": true,
+    "comment": "The data flags, array of bools with same shape as data",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": 2,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "FLAG_CATEGORY": {
+    "_c_order": true,
+    "comment": "The flag category, NUM_CAT flags for each datum",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": 3,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "FLAG_ROW": {
+    "comment": "Row flag - flag all data in this row if True",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "INTERVAL": {
+    "comment": "The sampling interval",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "OBSERVATION_ID": {
+    "comment": "ID for this observation, index in OBSERVATION table",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "PROCESSOR_ID": {
+    "comment": "Id for backend processor, index in PROCESSOR table",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "SCAN_NUMBER": {
+    "comment": "Sequential scan number from on-line system",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "SIGMA": {
+    "_c_order": true,
+    "comment": "Estimated rms noise for channel with unity bandpass response",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "float"
+   },
+   "STATE_ID": {
+    "comment": "ID for this observing state",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "TIME": {
+    "comment": "Modified Julian Day",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "TIME_CENTROID": {
+    "comment": "Modified Julian Day",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "UVW": {
+    "_c_order": true,
+    "comment": "Vector with uvw coordinates (in meters)",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "ITRF",
+      "type": "uvw"
+     },
+     "QuantumUnits": [
+      "m",
+      "m",
+      "m"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 5,
+    "shape": [
+     3
+    ],
+    "valueType": "double"
+   },
+   "WEIGHT": {
+    "_c_order": true,
+    "comment": "Weight for each polarization spectrum",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "float"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {
+    "MS_VERSION": 2.0
+   },
+   "_private_keywords_": {}
+  },
+  "OBSERVATION": {
+   "FLAG_ROW": {
+    "comment": "Row flag",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "LOG": {
+    "_c_order": true,
+    "comment": "Observing log",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "string"
+   },
+   "OBSERVER": {
+    "comment": "Name of observer(s)",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "PROJECT": {
+    "comment": "Project identification string",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "RELEASE_DATE": {
+    "comment": "Release date when data becomes public",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "SCHEDULE": {
+    "_c_order": true,
+    "comment": "Observing schedule",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "string"
+   },
+   "SCHEDULE_TYPE": {
+    "comment": "Observing schedule type",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "TELESCOPE_NAME": {
+    "comment": "Telescope Name (e.g. WSRT, VLBA)",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "TIME_RANGE": {
+    "_c_order": true,
+    "comment": "Start and end of observation",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 5,
+    "shape": [
+     2
+    ],
+    "valueType": "double"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "POINTING": {
+   "ANTENNA_ID": {
+    "comment": "Antenna Id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "DIRECTION": {
+    "_c_order": true,
+    "comment": "Antenna pointing direction as polynomial in time",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "J2000",
+      "type": "direction"
+     },
+     "QuantumUnits": [
+      "rad",
+      "rad"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 2,
+    "option": 0,
+    "valueType": "double"
+   },
+   "INTERVAL": {
+    "comment": "Time interval",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "NAME": {
+    "comment": "Pointing position name",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "NUM_POLY": {
+    "comment": "Series order",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "TARGET": {
+    "_c_order": true,
+    "comment": "target direction as polynomial in time",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "J2000",
+      "type": "direction"
+     },
+     "QuantumUnits": [
+      "rad",
+      "rad"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": -1,
+    "option": 0,
+    "valueType": "double"
+   },
+   "TIME": {
+    "comment": "Time interval midpoint",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "TIME_ORIGIN": {
+    "comment": "Time origin for direction",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "TRACKING": {
+    "comment": "Tracking flag - True if on position",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "POLARIZATION": {
+   "CORR_PRODUCT": {
+    "_c_order": true,
+    "comment": "Indices describing receptors of feed going into correlation",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": 2,
+    "option": 0,
+    "valueType": "int"
+   },
+   "CORR_TYPE": {
+    "_c_order": true,
+    "comment": "The polarization type for each correlation product, as a Stokes enum.",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "int"
+   },
+   "FLAG_ROW": {
+    "comment": "Row flag",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "NUM_CORR": {
+    "comment": "Number of correlation products",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "PROCESSOR": {
+   "FLAG_ROW": {
+    "comment": "Row flag",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "MODE_ID": {
+    "comment": "Processor mode id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "SUB_TYPE": {
+    "comment": "Processor sub type",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "TYPE": {
+    "comment": "Processor type",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "TYPE_ID": {
+    "comment": "Processor type id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "SOURCE": {
+   "CALIBRATION_GROUP": {
+    "comment": "Number of grouping for calibration purpose.",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "CODE": {
+    "comment": "Special characteristics of source, e.g. Bandpass calibrator",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "DIRECTION": {
+    "_c_order": true,
+    "comment": "Direction (e.g. RA, DEC).",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "J2000",
+      "type": "direction"
+     },
+     "QuantumUnits": [
+      "rad",
+      "rad"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 5,
+    "shape": [
+     2
+    ],
+    "valueType": "double"
+   },
+   "INTERVAL": {
+    "comment": "Interval of time for which this set of parameters is accurate",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "NAME": {
+    "comment": "Name of source as given during observations",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "NUM_LINES": {
+    "comment": "Number of spectral lines",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "PROPER_MOTION": {
+    "_c_order": true,
+    "comment": "Proper motion",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "rad/s"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 5,
+    "shape": [
+     2
+    ],
+    "valueType": "double"
+   },
+   "SOURCE_ID": {
+    "comment": "Source id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "SPECTRAL_WINDOW_ID": {
+    "comment": "ID for this spectral window setup",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "TIME": {
+    "comment": "Midpoint of time for which this set of parameters is accurate.",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "SPECTRAL_WINDOW": {
+   "CHAN_FREQ": {
+    "_c_order": true,
+    "comment": "Center frequencies for each channel in the data matrix",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "TabRefCodes": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       64
+      ],
+      "TabRefTypes": [
+       "REST",
+       "LSRK",
+       "LSRD",
+       "BARY",
+       "GEO",
+       "TOPO",
+       "GALACTO",
+       "LGROUP",
+       "CMB",
+       "Undefined"
+      ],
+      "VarRefCol": "MEAS_FREQ_REF",
+      "type": "frequency"
+     },
+     "QuantumUnits": [
+      "Hz"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "double"
+   },
+   "CHAN_WIDTH": {
+    "_c_order": true,
+    "comment": "Channel width for each channel",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "Hz"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "double"
+   },
+   "EFFECTIVE_BW": {
+    "_c_order": true,
+    "comment": "Effective noise bandwidth of each channel",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "Hz"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "double"
+   },
+   "FLAG_ROW": {
+    "comment": "Row flag",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "FREQ_GROUP": {
+    "comment": "Frequency group",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "FREQ_GROUP_NAME": {
+    "comment": "Frequency group name",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "IF_CONV_CHAIN": {
+    "comment": "The IF conversion chain number",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "MEAS_FREQ_REF": {
+    "comment": "Frequency Measure reference",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "NAME": {
+    "comment": "Spectral window name",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "NET_SIDEBAND": {
+    "comment": "Net sideband",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "NUM_CHAN": {
+    "comment": "Number of spectral channels",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "REF_FREQUENCY": {
+    "comment": "The reference frequency",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "TabRefCodes": [
+       0,
+       1,
+       2,
+       3,
+       4,
+       5,
+       6,
+       7,
+       8,
+       64
+      ],
+      "TabRefTypes": [
+       "REST",
+       "LSRK",
+       "LSRD",
+       "BARY",
+       "GEO",
+       "TOPO",
+       "GALACTO",
+       "LGROUP",
+       "CMB",
+       "Undefined"
+      ],
+      "VarRefCol": "MEAS_FREQ_REF",
+      "type": "frequency"
+     },
+     "QuantumUnits": [
+      "Hz"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "RESOLUTION": {
+    "_c_order": true,
+    "comment": "The effective noise bandwidth for each channel",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "Hz"
+     ]
+    },
+    "maxlen": 0,
+    "ndim": 1,
+    "option": 0,
+    "valueType": "double"
+   },
+   "TOTAL_BANDWIDTH": {
+    "comment": "The total bandwidth for this window",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "Hz"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "STATE": {
+   "CAL": {
+    "comment": "Noise calibration temperature",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "K"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "FLAG_ROW": {
+    "comment": "Row flag",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "LOAD": {
+    "comment": "Load temperature",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "K"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "OBS_MODE": {
+    "comment": "Observing mode, e.g., OFF_SPECTRUM",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "string"
+   },
+   "REF": {
+    "comment": "True for a reference observation",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "SIG": {
+    "comment": "True for a source observation",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "boolean"
+   },
+   "SUB_SCAN": {
+    "comment": "Sub scan number, relative to scan number",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "SYSCAL": {
+   "ANTENNA_ID": {
+    "comment": "ID of antenna in this array",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "FEED_ID": {
+    "comment": "Feed id",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "INTERVAL": {
+    "comment": "Interval for which this set of parameters is accurate",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "SPECTRAL_WINDOW_ID": {
+    "comment": "ID for this spectral window setup",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "TIME": {
+    "comment": "Midpoint of time for which this set of parameters is accurate",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  },
+  "WEATHER": {
+   "ANTENNA_ID": {
+    "comment": "Antenna number",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {},
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "int"
+   },
+   "INTERVAL": {
+    "comment": "Interval over which data is relevant",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "TIME": {
+    "comment": "An MEpoch specifying the midpoint of the time forwhich data is relevant",
+    "dataManagerGroup": "StandardStMan",
+    "dataManagerType": "StandardStMan",
+    "keywords": {
+     "MEASINFO": {
+      "Ref": "UTC",
+      "type": "epoch"
+     },
+     "QuantumUnits": [
+      "s"
+     ]
+    },
+    "maxlen": 0,
+    "option": 0,
+    "valueType": "double"
+   },
+   "_define_hypercolumn_": {},
+   "_keywords_": {},
+   "_private_keywords_": {}
+  }
+ }
+}

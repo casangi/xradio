@@ -1012,7 +1012,7 @@ def convert_and_write_partition(
     ephemeris_interpolate: bool = False,
     phase_cal_interpolate: bool = False,
     sys_cal_interpolate: bool = False,
-    compressor: zarr.abc.codec.BytesBytesCodec = zarr.codecs.ZstdCodec(level=2),
+    compressor: zarr.abc.codec.BytesBytesCodec | None = zarr.codecs.ZstdCodec(level=2),
     add_reshaping_indices: bool = False,
     storage_backend="zarr",
     parallel_mode: str = "none",
@@ -1503,7 +1503,7 @@ def antenna_ids_to_names(
         xds = xds.assign_coords({"antenna_name": xds["baseline_id"].data})
         xds = xds.drop_vars("baseline_id")
 
-        # drop more vars that seem unwanted in main_sd_xds, but there shouuld be a better way
+        # drop more vars that seem unwanted in main_sd_xds, but there should be a better way
         # of not creating them in the first place
         unwanted_coords_sd = ["baseline_antenna1_id", "baseline_antenna2_id"]
         for unwanted_coord in unwanted_coords_sd:

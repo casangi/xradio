@@ -408,9 +408,12 @@ def base_test(
         assert (
             sum == sum_lazy
         ), "open_processing_set and load_processing_set VISIBILITY and WEIGHT values differ."
-        assert sum == pytest.approx(
-            expected_sum_value, rel=relative_tolerance
-        ), "VISIBILITY and WEIGHT values have changed from " + str(expected_sum_value) + "to" + str(sum)
+        assert sum == pytest.approx(expected_sum_value, rel=relative_tolerance), (
+            "VISIBILITY and WEIGHT values have changed from "
+            + str(expected_sum_value)
+            + "to"
+            + str(sum)
+        )
 
         if do_schema_check:
             # print("*******************")

@@ -5,10 +5,7 @@ import pandas as pd
 
 import numpy as np
 
-try:
-    from casacore import tables
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as tables
+from casacoretables import tables
 
 from xradio.measurement_set._utils._msv2._tables.read import table_exists
 from xradio._utils.logging import xradio_logger

@@ -16,7 +16,7 @@ XRADIO can be installed in virtual environments via pip. It is recommended to us
 conda create --name xradio python=3.13 --no-default-packages
 conda activate xradio
 ```
-> 📝 On macOS, if one wants to use the functions to convert MSv2=>MSv4, it is required to pre-install `python-casacore`. That can be done using `conda install -c conda-forge python-casacore`. See more alternatives below.
+> 📝 MSv2=>MSv4 conversion and CASA image I/O use [`casacoretables`](https://github.com/casangi/casacoretables), a standalone, dependency-light build of casacore's table system that works the same on **Linux and macOS** (no `conda install` of `python-casacore` and no `casatools` are needed). PyPI wheels for `casacoretables` are not published yet, so it currently has to be installed from source.
 
 XRADIO can now be installed using:
 ```sh
@@ -35,16 +35,17 @@ To install the zarr backend and the interactive components (JupyterLab) use:
 pip install "xradio[interactive]"
 ```
 
-To install the casacore backend along with the zarr backend which enables conversion from MSv2 to MSv4 use (this only works for Linux):
+To install the casacore backend along with the zarr backend which enables conversion from MSv2 to MSv4 use (works on Linux and macOS):
 ```sh
 pip install "xradio[casacore]"
 ```
+This pulls in `casacoretables`. Until its PyPI wheels are published, install it from source first (e.g. `pip install /path/to/casacoretables`).
 
 To installs all the needed packages to run the unit tests:
 ```sh
 pip install "xradio[test]"
 ```
-This also installs the zarr backend and the casacore backend on Linux. Note the tests will fail on MacOS if python-casacore is not installed separately using conda.
+This also installs the zarr backend and the `casacoretables` backend, which works on both Linux and macOS.
 
 Multiple-dependencies can be installed using:
 ```sh

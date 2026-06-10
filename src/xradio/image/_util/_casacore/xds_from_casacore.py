@@ -11,13 +11,8 @@ from astropy import units as u
 from xradio._utils.list_and_array import to_python_type
 from xradio._utils.logging import xradio_logger
 
-try:
-    from casacore import tables
-    from casacore.images import coordinates, image as casa_image
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as tables
-    import xradio._utils._casacore.casacore_from_casatools as coordinates
-    from xradio._utils._casacore.casacore_from_casatools import image as casa_image
+from casacoretables import tables
+from xradio._utils._casacore.casa_images import coordinates, image as casa_image
 
 
 from xradio.image._util._casacore.common import (

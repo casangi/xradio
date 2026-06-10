@@ -1,7 +1,4 @@
-try:
-    from casacore import images
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as images
+from xradio._utils._casacore import casa_images as images
 
 from contextlib import contextmanager
 from typing import Generator, List

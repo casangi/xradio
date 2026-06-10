@@ -8,10 +8,7 @@ import xarray as xr
 from astropy.coordinates import Angle
 from astropy import units as apu
 
-try:
-    from casacore import tables
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as tables
+from casacoretables import tables
 
 from xradio.image._util._casacore.common import (
     _image_flag,

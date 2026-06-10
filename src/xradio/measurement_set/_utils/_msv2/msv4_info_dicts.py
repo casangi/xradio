@@ -4,10 +4,7 @@ import numpy as np
 
 import xarray as xr
 
-try:
-    from casacore import tables
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as tables
+from casacoretables import tables
 
 
 from .subtables import subt_rename_ids

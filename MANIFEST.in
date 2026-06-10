@@ -2,3 +2,4 @@ include README.md
 include MANIFEST.in
 include LICENSE
 include CONTRIBUTOR_LICENSING_AGREEMENT
+include src/xradio/testing/measurement_set/_ms_descriptors.json

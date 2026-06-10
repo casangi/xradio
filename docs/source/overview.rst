@@ -123,9 +123,11 @@ be installed, for example:
    conda create --name xradio python=3.13 --no-default-packages
    conda activate xradio
 
-On macOS, if one wants to use the functions to convert MSv2=>MSv4, it is 
-required to pre-install `python-casacore`. That can be done using 
-`conda install -c conda-forge python-casacore`.
+MSv2=>MSv4 conversion and CASA image I/O use ``casacoretables``, a standalone,
+dependency-light build of casacore's table system that works identically on
+Linux and macOS (it replaces both ``python-casacore`` and ``casatools``; no
+``conda install`` is needed on macOS). PyPI wheels for ``casacoretables`` are
+not published yet, so for now install it from source.
 XRADIO can now be installed using:
 
 .. code:: sh
@@ -152,8 +154,8 @@ components (JupyterLab) use:
 
    pip install "xradio[interactive]"
 
-To install the casacore backend along with the zarr backend which enables conversion 
-from MSv2 to MSv4 use (this only works for Linux):
+To install the casacore backend along with the zarr backend which enables conversion
+from MSv2 to MSv4 use (works on Linux and macOS):
 
 .. code:: sh
 
@@ -165,8 +167,8 @@ To installs all the needed packages to run the unit tests:
 
    pip install "xradio[test]"
 
-This also installs the zarr backend and the casacore backend on Linux. 
-Note the tests will fail on MacOS if python-casacore is not installed separately using conda.
+This also installs the zarr backend and the ``casacoretables`` backend, which
+works on both Linux and macOS.
 
 Multiple-dependencies can be installed using:
 
@@ -181,10 +183,7 @@ To install a more complete set of dependencies:
    pip install "xradio[all]"
 
 This will include the dependencies required to run the interactive Jupyter notebooks, run tests, build documentation,
-and python-casacore to enable MSv2=>MSv4 functionality on Linux.
+and ``casacoretables`` to enable MSv2=>MSv4 functionality on Linux and macOS.
 
-Instruction of how to setup a developer environment can be found at 
+Instruction of how to setup a developer environment can be found at
 `Development <https://xradio.readthedocs.io/en/latest/development.html>`__.
-
-Instruction of how to setup a developer environment using casatools instead of python-casacore can be found at 
-`casatools I/O backend guide <docs/source/measurement_set/guides/backends.md>`__.

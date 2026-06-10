@@ -10,10 +10,7 @@ import xarray as xr
 
 import astropy.units
 
-try:
-    from casacore import tables
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as tables
+from casacoretables import tables
 
 from xradio.measurement_set._utils._msv2._tables.table_query import (
     open_query,
@@ -1394,10 +1391,15 @@ def load_col_chunk(
     # Create memory buffer to populate with data from disk
     row_data = np.full((num_rows,) + extra_dimensions, np.nan, dtype=col_dtype)
 
-    # Load data from the column
-    # Release the casacore table as soon as possible
+    # Load data from the column.
+    # Release the casacore table as soon as possible.
+    # NOTE: we copy `getcol` into the pre-allocated buffer rather than filling it
+    # in place with `getcolnp`. casacoretables' `getcolnp` shares the numpy
+    # buffer (zero-copy, GIL-released in-place write), and that in-place write is
+    # not reliably observed when this runs inside a dask (multiprocess) worker,
+    # which would leave VISIBILITY/WEIGHT as NaN (see parallel_mode="time").
     with table_manager.get_table() as tb_tool:
-        tb_tool.getcolnp(col_name, row_data, startrow=start_row, nrow=num_rows)
+        row_data[:] = tb_tool.getcol(col_name, startrow=start_row, nrow=num_rows)
 
     # Initialise reshaped numpy array
     reshaped_data = np.full(

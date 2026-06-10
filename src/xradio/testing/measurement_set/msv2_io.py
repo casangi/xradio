@@ -14,10 +14,14 @@ from typing import Generator, Tuple, Dict, Any, Optional, Iterable
 
 import numpy as np
 
-import casacore.tables as tables
-from casacore.tables import default_ms, default_ms_subtable
-from casacore.tables.tableutil import makedminfo, maketabdesc
-from casacore.tables.msutil import complete_ms_desc, makearrcoldesc, required_ms_desc
+from casacoretables import tables
+from casacoretables.tables import makedminfo, maketabdesc, makearrcoldesc
+from xradio.testing.measurement_set._casacore_ms import (
+    complete_ms_desc,
+    default_ms,
+    default_ms_subtable,
+    required_ms_desc,
+)
 
 # 2 observations, 2 fields, 2 states
 # 2 SPWs, 4 polarizations
@@ -304,7 +308,7 @@ def make_ms_empty(name: str, descr: dict = None, complete: bool = False):
     del weightspeccoldesc["desc"]["shape"]
     tabdesc.update(tables.maketabdesc(weightspeccoldesc))
 
-    vis = tables.default_ms(name, tabdesc=tabdesc, dminfo=makedminfo(tabdesc))
+    vis = default_ms(name, tabdesc=tabdesc, dminfo=makedminfo(tabdesc))
     assert vis.nrows() == 0
 
 
@@ -387,7 +391,7 @@ def gen_main_table(
         ms_data_man_info = makedminfo(ms_desc, dmgroups_spec)
 
     if "STATE" not in descr:
-        vis = tables.default_ms(mspath, tabdesc=ms_desc, dminfo=makedminfo(ms_desc))
+        vis = default_ms(mspath, tabdesc=ms_desc, dminfo=makedminfo(ms_desc))
         assert vis.nrows() == 0
         return
     # else:
@@ -944,7 +948,7 @@ def open_opt_subtable(
     Generator[tables.table, None, None]
         context for an optional subtable created as per MSv2 specs
     """
-    subt_desc = tables.complete_ms_desc(tbl_name)
+    subt_desc = complete_ms_desc(tbl_name)
     # table = tables.table(mspath + "/" + tbl_name, tabledesc=subt_desc,
     #                dminfo=makedminfo(subt_desc), ack=False, readonly=False)
     table = default_ms_subtable(tbl_name, mspath + "/" + tbl_name, subt_desc)

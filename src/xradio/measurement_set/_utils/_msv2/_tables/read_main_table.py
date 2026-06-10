@@ -3,10 +3,7 @@ from typing import Tuple
 import numpy as np
 import pandas as pd
 
-try:
-    from casacore import tables
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as tables
+from casacoretables import tables
 
 
 from .table_query import open_query

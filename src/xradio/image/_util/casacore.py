@@ -13,10 +13,7 @@ import re
 import dask.array as da
 from xradio._utils.schema import get_data_group_keys
 
-try:
-    from casacore import tables
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as tables
+from casacoretables import tables
 
 
 from xradio.image._util._casacore.xds_from_casacore import (

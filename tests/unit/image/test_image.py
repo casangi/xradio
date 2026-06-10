@@ -17,10 +17,7 @@ Each test class maps to one or two public functions defined in
 The dask cluster fixture is provided by ``conftest.py`` in this directory.
 """
 
-try:
-    from casacore import tables
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as tables
+from casacoretables import tables
 
 from astropy.io import fits
 import astropy.units as u

@@ -426,5 +426,6 @@ Software-related:
 - Expand and refine Processing Set methods
 - Add ASDM and WSU-ASDM backend
 - Possibly add a NetCDF backend
-- Replace python-casacore backend with a more lightweight (possibly pure
-  Python) package
+- ✅ Done: the python-casacore / casatools backends have been replaced by the
+  lightweight, dependency-light ``casacoretables`` package (a standalone build
+  of casacore's table system)

@@ -1,6 +1,15 @@
 
 # Development Setup for `xradio` with `casatools` I/O Backend
 
+> ⚠️ **Deprecated.** `xradio` no longer has selectable I/O backends. As of the
+> casacore-backend consolidation, both `python-casacore` and `casatools` have
+> been replaced by a single backend,
+> [`casacoretables`](https://github.com/casangi/casacoretables) — a standalone,
+> dependency-light build of casacore's table system that has no symbol clash
+> with a CASA install and works the same on Linux and macOS. There is nothing to
+> configure: installing `xradio[casacore]` (which pulls in `casacoretables`) is
+> all that is required. This guide is kept only for historical reference.
+
 This guide describes how to set up a local development environment for `xradio`, specifically configured to use the `casatools` I/O backend for interacting with CASA MeasurementSets (MS) and Images.
 This setup provides a unified development environment that can combine RADPS-targeted new libraries (e.g. `xradio`, `astroviper`) with legacy CASA/Pipeline codebase, facilitating experimentation, prototyping, and benchmarking.
 

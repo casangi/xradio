@@ -22,10 +22,10 @@ Setting up a Development Environment
 
 ..
 
-   📝 On macOS, if one wants to use the functions to convert MSv2=>MSv4,
-   it is required to pre-install ``python-casacore`` . This can be done
-   using ``conda install -c conda-forge python-casacore``. See more
-   alternatives below.
+   📝 MSv2=>MSv4 conversion and CASA image I/O use ``casacoretables``,
+   a standalone build of casacore's table system that works the same on
+   Linux and macOS (replacing both ``python-casacore`` and ``casatools``).
+   Its PyPI wheels are not published yet, so for now install it from source.
 
 - Clone XRADIO repository, move into directory and install:
 
@@ -115,9 +115,9 @@ support for ``casacore`` table Measurement Set v2 (``MS v2``), through a
 conversion function that allows users to convert data from Measurement
 Set v2 (stored in Casacore tables) to Measurement Set v4 (stored using
 zarr). The conversion function for MS v2 requires the optional
-dependency ``python-casacore``, or alternatively CASA’s ``casatools``
-backend (see `casatools I/O
-backend <measurement_set/guides/backends.md>`__).
+dependency ``casacoretables`` -- a standalone, dependency-light build of
+casacore's table system that replaces both ``python-casacore`` and
+``casatools`` and works the same on Linux and macOS.
 
 .. raw:: html
 
@@ -149,13 +149,14 @@ XRADIO is built using the following core packages:
   as a storage backend for scalable, chunked and compressed
   n-dimensional data.
 - Optionally,
-  `python-casacore <https://github.com/casacore/python-casacore>`__
+  `casacoretables <https://github.com/casangi/casacoretables>`__
   (`Casacore Table Data System (CTDS) File
-  Formats <https://casacore.github.io/casacore-notes/260.pdf>`__): Used
-  to convert data from MS v2 to MS v4 in Zarr format, with ongoing
-  development toward a lightweight, pure Python replacement.
-  Alternatively, the `casatools I/O
-  backend <measurement_set/guides/backends.md>`__ can be used.
+  Formats <https://casacore.github.io/casacore-notes/260.pdf>`__): A
+  standalone, dependency-light build of casacore's table system (with a
+  pybind11 binding) used to read MS v2 and CASA images when converting to
+  MS v4 / image Zarr. It is the single CASA-table backend, replacing both
+  ``python-casacore`` and ``casatools``, and has no symbol clash with a
+  CASA install in the same process.
 - Optionally, `pyasdm <https://github.com/casangi/pyasdm>`__ (under
   development): A Python-based storage backend in progress, designed for
   accessing ASDM (Astronomy Science Data Model) data.

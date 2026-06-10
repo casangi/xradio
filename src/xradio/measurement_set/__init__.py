@@ -26,6 +26,7 @@ try:
         convert_msv2_to_processing_set,
         estimate_conversion_memory_and_cores,
     )
+    from .open_msv2 import open_msv2
 except ModuleNotFoundError as exc:
     warnings.warn(
         f"Could not import the function to convert from MSv2 to MSv4. "
@@ -34,5 +35,9 @@ except ModuleNotFoundError as exc:
     )
 else:
     __all__.extend(
-        ["convert_msv2_to_processing_set", "estimate_conversion_memory_and_cores"]
+        [
+            "convert_msv2_to_processing_set",
+            "estimate_conversion_memory_and_cores",
+            "open_msv2",
+        ]
     )

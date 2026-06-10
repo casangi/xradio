@@ -4,6 +4,7 @@ import re
 from typing import Any, Callable, Dict, List, Tuple, Union
 
 import dask.array as da
+from dask.utils import SerializableLock
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -1312,6 +1313,8 @@ def read_col_conversion_dask(
     -------
     da.Array
     """
+    # Serialize casacore access across dask threads (casacore is not thread-safe)
+    _casacore_lock = SerializableLock()
 
     # Use casacore to get the shape of a row for this column
     #################################################################################
@@ -1365,6 +1368,7 @@ def read_col_conversion_dask(
         rows_per_time=rows_per_time,
         cshape=cshape,
         extra_dimensions=extra_dimensions,
+        lock=_casacore_lock,
         drop_axis=[1],
         new_axis=list(range(1, len(cshape + extra_dimensions))),
         meta=np.array([], dtype=col_dtype),
@@ -1384,6 +1388,7 @@ def load_col_chunk(
     rows_per_time,
     cshape,
     extra_dimensions,
+    lock=None,
 ):
     start_row = x[0][0]
     end_row = x[0][1]
@@ -1396,8 +1401,15 @@ def load_col_chunk(
 
     # Load data from the column
     # Release the casacore table as soon as possible
-    with table_manager.get_table() as tb_tool:
-        tb_tool.getcolnp(col_name, row_data, startrow=start_row, nrow=num_rows)
+    # Acquire lock to serialize casacore access (not thread-safe)
+    if lock is not None:
+        lock.acquire()
+    try:
+        with table_manager.get_table() as tb_tool:
+            tb_tool.getcolnp(col_name, row_data, startrow=start_row, nrow=num_rows)
+    finally:
+        if lock is not None:
+            lock.release()
 
     # Initialise reshaped numpy array
     reshaped_data = np.full(
@@ -1417,3 +1429,142 @@ def load_col_chunk(
     reshaped_data[tidxs_slc, bidxs_slc] = row_data
 
     return reshaped_data
+
+
+def read_col_conversion_dask_sparse(
+    table_manager: TableManager,
+    col: str,
+    cshape: Tuple[int],
+    tidxs: np.ndarray,
+    bidxs: np.ndarray,
+    use_table_iter: bool,
+    time_chunksize: int,
+) -> da.Array:
+    """Lazy dask reader for sparse data (not every time has every baseline).
+
+    Unlike :func:`read_col_conversion_dask`, this function does NOT assume
+    that the number of MSv2 rows equals ``ntime * nbaseline``.  Instead it
+    groups rows by time index, builds per-time-chunk row-ranges, and pads
+    missing baselines with fill values.
+
+    The function signature matches :func:`read_col_conversion_dask` and
+    :func:`read_col_conversion_numpy` so it is a drop-in replacement in
+    :func:`get_read_col_conversion_function`.
+    """
+    _casacore_lock = SerializableLock()
+
+    with table_manager.get_table() as tb_tool:
+        if tb_tool.isscalarcol(col):
+            extra_dimensions = ()
+        else:
+            shape_string = tb_tool.getcolshapestring(col)[0]
+            extra_dimensions = tuple(
+                int(dim) for dim in shape_string.strip("[]").split(", ")
+            )
+        col_dtype = np.array(tb_tool.col(col)[0]).dtype
+
+    fill_value = _sparse_pad_value(col_dtype)
+
+    num_utimes = cshape[0]
+    n_baselines = cshape[1]
+
+    # Build cumulative row offsets per unique time.
+    rows_per_time = np.bincount(tidxs, minlength=num_utimes)
+    cum_rows = np.empty(num_utimes + 1, dtype=np.int64)
+    cum_rows[0] = 0
+    np.cumsum(rows_per_time, out=cum_rows[1:])
+
+    # Chunk along the time axis
+    tmp_chunks = da.core.normalize_chunks(time_chunksize, (num_utimes,))[0]
+
+    # Build (start_row, end_row, n_times_in_chunk) per chunk
+    chunk_specs = []
+    t_offset = 0
+    for chunk in tmp_chunks:
+        start_row = int(cum_rows[t_offset])
+        end_row = int(cum_rows[t_offset + chunk])
+        chunk_specs.append((start_row, end_row, chunk))
+        t_offset += chunk
+
+    arr_specs = da.from_array(np.array(chunk_specs, dtype=np.int64), chunks=(1, 3))
+
+    output_chunkshape = (tmp_chunks, n_baselines) + extra_dimensions
+
+    data = arr_specs.map_blocks(
+        _load_col_chunk_sparse,
+        table_manager=table_manager,
+        col_name=col,
+        col_dtype=col_dtype,
+        fill_value=fill_value,
+        tidxs=tidxs,
+        bidxs=bidxs,
+        n_baselines=n_baselines,
+        extra_dimensions=extra_dimensions,
+        lock=_casacore_lock,
+        drop_axis=[1],
+        new_axis=list(range(1, len(cshape + extra_dimensions))),
+        meta=np.array([], dtype=col_dtype),
+        chunks=output_chunkshape,
+    )
+
+    return data
+
+
+def _load_col_chunk_sparse(
+    x,
+    table_manager,
+    col_name,
+    col_dtype,
+    fill_value,
+    tidxs,
+    bidxs,
+    n_baselines,
+    extra_dimensions,
+    lock=None,
+):
+    """Per-chunk read for sparse data."""
+    start_row = int(x[0][0])
+    end_row = int(x[0][1])
+    num_utimes = int(x[0][2])
+    num_rows = end_row - start_row
+
+    if num_rows == 0:
+        return np.full(
+            (num_utimes, n_baselines) + extra_dimensions, fill_value, dtype=col_dtype
+        )
+
+    row_data = np.full((num_rows,) + extra_dimensions, fill_value, dtype=col_dtype)
+
+    if lock is not None:
+        lock.acquire()
+    try:
+        with table_manager.get_table() as tb_tool:
+            tb_tool.getcolnp(col_name, row_data, startrow=start_row, nrow=num_rows)
+    finally:
+        if lock is not None:
+            lock.release()
+
+    reshaped_data = np.full(
+        (num_utimes, n_baselines) + extra_dimensions, fill_value, dtype=col_dtype
+    )
+
+    slc = slice(start_row, end_row)
+    tidxs_slc = tidxs[slc] - tidxs[start_row]
+    bidxs_slc = bidxs[slc]
+
+    # Only scatter rows with valid baseline index
+    valid = (bidxs_slc >= 0) & (bidxs_slc < n_baselines)
+    reshaped_data[tidxs_slc[valid], bidxs_slc[valid]] = row_data[valid]
+
+    return reshaped_data
+
+
+def _sparse_pad_value(dtype: np.dtype):
+    """Return the fill value for missing baselines, matching get_pad_value semantics."""
+    if np.issubdtype(dtype, np.floating) or np.issubdtype(dtype, np.complexfloating):
+        return np.nan
+    elif np.issubdtype(dtype, np.bool_):
+        return True  # Missing → flagged
+    elif np.issubdtype(dtype, np.integer):
+        return 0
+    return np.nan

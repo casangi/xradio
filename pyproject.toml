@@ -120,6 +120,9 @@ all = [
     'pandoc'
 ]
 
+[project.entry-points."xarray.backends"]
+"xradio:msv2" = "xradio.measurement_set._msv2_backend:MSv2BackendEntrypoint"
+
 [tool.pytest.ini_options]
 addopts = [
     "--import-mode=importlib",

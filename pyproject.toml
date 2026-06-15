@@ -41,6 +41,7 @@ test = [
     'xarray',
     'zarr>=3,<4',
     'pyarrow',
+    'pyasdm',
     'psutil',
     'pytest',
     'pytest-cov',
@@ -60,8 +61,11 @@ casacore = [
     'python_casacore>=3.6.1; sys_platform != "darwin"'
 ]
 
-pyasdm = [
-    'pyasdm'
+asdm = [
+    'astropy',
+    'pyasdm',
+    'toolviper',
+    'xarray',
 ]
 
 interactive = [

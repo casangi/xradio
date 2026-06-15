@@ -76,7 +76,7 @@ basebands_simple = [
 
 
 def test_load_visibilities_all_subsets():
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_subset_arr import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
         load_visibilities_all_subsets,
     )
 
@@ -104,7 +104,7 @@ def test_load_visibilities_all_subsets():
 
 
 def test_load_visibilities_all_subsets_error():
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_subset_arr import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
         load_visibilities_all_subsets,
     )
 
@@ -253,7 +253,7 @@ bdf_descr_X136e = {
 
 
 def test_load_visibilities_all_subsets_X136e():
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_subset_arr import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
         load_visibilities_all_subsets,
     )
 
@@ -284,7 +284,7 @@ def test_load_visibilities_all_subsets_X136e():
 
 
 def test__load_vis_subset():
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_subset_arr import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
         _load_vis_subset,
     )
 
@@ -361,7 +361,7 @@ def test__load_vis_subset_cross_data(
     expected_size,
     expected_shape,
 ):
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_subset_arr import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
         _load_vis_subset_cross_data,
     )
 
@@ -399,7 +399,7 @@ def test__load_vis_subset_auto_data(
     expected_size,
     expected_shape,
 ):
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_subset_arr import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
         _load_vis_subset_auto_data,
     )
 
@@ -433,7 +433,7 @@ def test__load_vis_subset_auto_data(
 def test_define_visibility_shape(
     input_bdf_descr, input_baseband_spw_idxs, expected_shape
 ):
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_subset_arr import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
         define_visibility_shape,
     )
 
@@ -442,7 +442,7 @@ def test_define_visibility_shape(
 
 
 def test_load_flags_all_subsets():
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_subset_arr import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
         load_flags_all_subsets,
     )
 
@@ -470,7 +470,7 @@ def test_load_flags_all_subsets():
 
 
 def test_load_flags_all_subsets_3pols_only_autodata():
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_subset_arr import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
         load_flags_all_subsets,
     )
 
@@ -498,7 +498,7 @@ def test_load_flags_all_subsets_3pols_only_autodata():
 
 
 def test_load_flags_all_subsets_auto_3pol():
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_subset_arr import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
         load_flags_all_subsets,
     )
 
@@ -527,7 +527,7 @@ def test_load_flags_all_subsets_auto_3pol():
 
 
 def test_load_flags_all_subsets_error():
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_subset_arr import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
         load_flags_all_subsets,
     )
 
@@ -548,7 +548,7 @@ def test_load_flags_all_subsets_error():
 
 
 def test_load_flags_all_subsets_X136e():
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_subset_arr import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
         load_flags_all_subsets,
     )
 
@@ -581,7 +581,7 @@ def test_load_flags_all_subsets_X136e():
 
 
 def test_define_flag_shape_X136e():
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_subset_arr import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
         define_flag_shape,
     )
 
@@ -590,7 +590,7 @@ def test_define_flag_shape_X136e():
 
 
 def test__try_alternatives_guessed_shape():
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_subset_arr import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
         _try_alternatives_guessed_shape,
     )
 
@@ -608,7 +608,7 @@ def test__try_alternatives_guessed_shape():
 
 
 def test__try_alternatives_guessed_shape_oversized():
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_subset_arr import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
         _try_alternatives_guessed_shape,
     )
 

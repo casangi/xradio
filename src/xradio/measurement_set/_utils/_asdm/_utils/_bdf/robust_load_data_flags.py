@@ -30,7 +30,7 @@ from .bdf_description_checks import (
 )
 
 from xradio._utils.logging import xradio_logger
-from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_subset_arr import (
+from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
     define_flag_shape,
     define_visibility_shape,
     load_flags_all_subsets,

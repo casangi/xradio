@@ -62,7 +62,10 @@ def find_spw_in_basebands_list(
 
 
 def find_if_different_basebands_spws(basebands: list[dict]) -> bool:
-    """whether there are differnt numbers of SPWs in some basebands"""
+    """
+    Whether there are different numbers of SPWs in some basebands,
+    or different numbers of channels in some SPWs.
+    """
 
     all_same = True
     spws_per_baseband = -1

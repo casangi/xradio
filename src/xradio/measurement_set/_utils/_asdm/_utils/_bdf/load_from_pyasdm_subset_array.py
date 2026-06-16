@@ -1,9 +1,11 @@
 """
 Loads visibility/flags from the 'arr' arrays produced by pyasdm.BDFReader.getSubset().
-This implies that all the data (for all the SPWs)is first loaded using the original
+This implies that all the data (for all the SPWs) is first loaded using the original
 getSubset() of pyasdm.
 The 'arr' 1d arrays contain the data for all the SPWs. These arrays are reshaped and
-the relevant SPW is then selected.
+the relevant SPW is then selected. That procedure works only when the number of SPWs
+in every baseband and the number of channels in every SPW are the same (regular
+n-dimensional numpy array).
 """
 
 import traceback

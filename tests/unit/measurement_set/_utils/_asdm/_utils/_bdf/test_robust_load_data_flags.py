@@ -464,17 +464,117 @@ def test_load_flags_from_bdf_with_error():
 
 
 @pytest.mark.parametrize(
-    "input_flags_shape, input_baseband_idx, input_spw_idx, expected_shape",
+    "input_flags_shape, input_baseband_idx, input_spw_idx, input_slice, expected_shape",
     [
-        ((1, 6, 2), 0, 0, (1, 6, 1024, 2)),
-        ((1, 6, 2), 0, 1, (1, 6, 512, 2)),
-        ((1, 3, 2), 0, 1, (1, 3, 512, 2)),
-        ((1, 3, 2), 1, 0, (1, 3, 1024, 2)),
-        ((1, 3, 2), 1, 1, (1, 3, 1024, 2)),
+        (
+            (1, 6, 2),
+            0,
+            0,
+            None,
+            (1, 6, 1024, 2),
+        ),
+        (
+            (1, 6, 2),
+            0,
+            0,
+            (slice(None), slice(None), None, 0),
+            (1, 6, 1024, 2),
+        ),
+        (
+            (1, 6, 2),
+            0,
+            0,
+            (slice(None), slice(None), slice(None), slice(None)),
+            (1, 6, 1024, 2),
+        ),
+        (
+            (1, 6, 2),
+            0,
+            1,
+            (slice(None), slice(None), slice(None), slice(None)),
+            (1, 6, 512, 2),
+        ),
+        (
+            (1, 3, 2),
+            0,
+            1,
+            (slice(None), slice(None), slice(None), slice(None)),
+            (1, 3, 512, 2),
+        ),
+        (
+            (1, 3, 2),
+            1,
+            0,
+            (slice(None), slice(None), slice(None), slice(None)),
+            (1, 3, 1024, 2),
+        ),
+        (
+            (1, 3, 2),
+            1,
+            1,
+            (slice(None), slice(None), slice(None), slice(None)),
+            (1, 3, 1024, 2),
+        ),
+        (
+            (3, 2),
+            1,
+            1,
+            (slice(None), slice(None), slice(None), slice(None)),
+            (3, 1024, 2),
+        ),
+        (
+            (1, 3, 2),
+            1,
+            1,
+            (slice(None), slice(None), 64, slice(None)),
+            (1, 3, 2),
+        ),
+        (
+            (1, 2),
+            1,
+            1,
+            (slice(None), slice(None), 64, slice(None)),
+            (1, 2),
+        ),
+        (
+            (1, 3, 2),
+            1,
+            1,
+            (slice(None), slice(None), slice(32, 33), slice(None)),
+            (1, 3, 1, 2),
+        ),
+        (
+            (1, 3, 2),
+            1,
+            1,
+            (slice(None), slice(None), slice(32, 33, 1), slice(None)),
+            (1, 3, 1, 2),
+        ),
+        (
+            (1, 3, 2),
+            1,
+            1,
+            (slice(None), slice(None), slice(16, 46), slice(None)),
+            (1, 3, 30, 2),
+        ),
+        (
+            (1, 3, 2),
+            1,
+            1,
+            (slice(None), slice(None), slice(16, 46, 2), slice(None)),
+            (1, 3, 15, 2),
+        ),
+        (
+            (3, 2),
+            1,
+            1,
+            (slice(None), slice(None), slice(16, 46, 2), slice(None)),
+            (3, 15, 2),
+        ),
     ],
 )
 def test__expand_frequency_in_flags_subset(
-    input_flags_shape, input_baseband_idx, input_spw_idx, expected_shape
+    input_flags_shape, input_baseband_idx, input_spw_idx, input_slice, expected_shape
 ):
     from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
         _expand_frequency_in_flags_subset,
@@ -486,7 +586,7 @@ def test__expand_frequency_in_flags_subset(
         bdf_descr_X136e,
         input_baseband_idx,
         input_spw_idx,
-        (slice(None), slice(None), slice(None), slice(None)),
+        input_slice,
     )
     assert isinstance(expanded, np.ndarray)
     assert expanded.dtype == "bool"

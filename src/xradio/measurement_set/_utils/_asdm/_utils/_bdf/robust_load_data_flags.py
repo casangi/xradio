@@ -256,12 +256,27 @@ def _expand_frequency_in_flags_subset(
     ndarray from a BDF, with dimensions (time, baseline, polarization) into an MSv4
     flag array with dimensions (time, baseline, frequency, polarization)
     """
-    if not array_slice or not array_slice[2].start or not array_slice[2].stop:
+    if array_slice and len(array_slice) >= 3 and isinstance(array_slice[2], int):
+        return flag_subset
+
+    if (
+        not array_slice
+        or not array_slice[2]
+        or (
+            isinstance(array_slice[2], slice)
+            and (not array_slice[2].start or not array_slice[2].stop)
+        )
+    ):
         frequency_len = bdf_descr["basebands"][baseband_idx]["spectralWindows"][
             spw_idx
         ]["numSpectralPoint"]
     else:
-        frequency_len = len(array_slice[2].indices)
+        if array_slice[2].step:
+            frequency_len = len(
+                range(array_slice[2].start, array_slice[2].stop, array_slice[2].step)
+            )
+        else:
+            frequency_len = len(range(array_slice[2].start, array_slice[2].stop))
 
     if len(flag_subset.shape) == 3:
         expanded_shape = (

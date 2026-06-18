@@ -131,7 +131,7 @@ all = [
 
 
 [project.entry-points."xarray.backends"]
-asdm_xarray_backend = "xradio.measurement_set.asdm_xarray_backend:ASDMBackendEntryPoint"
+xradio_asdm = "xradio.measurement_set._utils._asdm.xradio_asdm_xarray_backend:ASDMBackendEntryPoint"
 
 [tool.pytest.ini_options]
 addopts = [

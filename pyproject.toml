@@ -136,7 +136,9 @@ xradio_asdm = "xradio.measurement_set._utils._asdm.xradio_asdm_xarray_backend:AS
 [tool.pytest.ini_options]
 addopts = [
     "--import-mode=importlib",
-    "--strict-markers"
+    "--strict-markers",
+    "-ra",  # extra test summary info for (a)ll except passed
+    "-v",  # increase verbosity
 ]
 testpaths = [
     "tests"

@@ -22,7 +22,7 @@ import pyasdm
 def test_ASDMBackendArray__raw_indexing_method(
     input_shape, input_dtype, input_key, expected_error
 ):
-    from xradio.measurement_set._utils._asdm.asdm_backend_array import ASDMBackendArray
+    from xradio.measurement_set._utils._asdm.asdm_backend_arrays import ASDMBackendArray
 
     backend_array = ASDMBackendArray(input_shape, input_dtype)
     assert backend_array.shape == input_shape
@@ -58,7 +58,7 @@ def test_VisibilityArray__raw_indexing_method(
     input_key,
     expected_error,
 ):
-    from xradio.measurement_set._utils._asdm.asdm_backend_array import VisibilityArray
+    from xradio.measurement_set._utils._asdm.asdm_backend_arrays import VisibilityArray
 
     vis = VisibilityArray(
         input_shape, input_bdf_paths, input_bdf_spw_id, input_time_indices
@@ -81,7 +81,7 @@ def test_VisibilityArray__raw_indexing_method(
 def test_WeightArray__raw_indexing_method(
     input_shape, expected_output_shape, expected_error
 ):
-    from xradio.measurement_set._utils._asdm.asdm_backend_array import WeightArray
+    from xradio.measurement_set._utils._asdm.asdm_backend_arrays import WeightArray
 
     weight = WeightArray(input_shape)
     assert weight.shape == input_shape
@@ -121,7 +121,7 @@ def test_FlagArray__raw_indexing_method(
     input_key,
     expected_error,
 ):
-    from xradio.measurement_set._utils._asdm.asdm_backend_array import FlagArray
+    from xradio.measurement_set._utils._asdm.asdm_backend_arrays import FlagArray
 
     flag = FlagArray(input_shape, input_bdf_paths, input_bdf_spw_id, input_time_indices)
     assert flag.shape == input_shape
@@ -131,7 +131,7 @@ def test_FlagArray__raw_indexing_method(
 
 
 def test_UVWArray__raw_indexing_method():
-    from xradio.measurement_set._utils._asdm.asdm_backend_array import UVWArray
+    from xradio.measurement_set._utils._asdm.asdm_backend_arrays import UVWArray
 
     uvw = UVWArray(None, None, None, None, None, None)
     with pytest.raises(AttributeError, match="NoneType"):

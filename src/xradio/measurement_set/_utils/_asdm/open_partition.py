@@ -10,7 +10,7 @@ import pyasdm
 
 from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
 from xradio._utils.list_and_array import check_if_consistent
-from xradio.measurement_set._utils._asdm import asdm_backend_array
+from xradio.measurement_set._utils._asdm import asdm_backend_arrays
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,
 )
@@ -245,7 +245,7 @@ def create_data_vars(
     data_vars["VISIBILITY"] = (
         dims_vis_weight_flag,
         xr.core.indexing.LazilyIndexedArray(
-            asdm_backend_array.VisibilityArray(
+            asdm_backend_arrays.VisibilityArray(
                 shape_vis_weight_flag, bdf_paths, bdf_spw_id, time_indices_by_bdf
             )
         ),
@@ -265,14 +265,14 @@ def create_data_vars(
     data_vars["WEIGHT"] = (
         dims_vis_weight_flag,
         xr.core.indexing.LazilyIndexedArray(
-            asdm_backend_array.WeightArray(shape_vis_weight_flag)
+            asdm_backend_arrays.WeightArray(shape_vis_weight_flag)
         ),
     )
 
     data_vars["FLAG"] = (
         dims_vis_weight_flag,
         xr.core.indexing.LazilyIndexedArray(
-            asdm_backend_array.FlagArray(
+            asdm_backend_arrays.FlagArray(
                 shape_vis_weight_flag, bdf_paths, bdf_spw_id, time_indices_by_bdf
             )
         ),
@@ -625,7 +625,7 @@ def _create_uvw_data_var(
     uvw = (
         dims_uvw,
         xr.core.indexing.LazilyIndexedArray(
-            asdm_backend_array.UVWArray(
+            asdm_backend_arrays.UVWArray(
                 shape_uvw,
                 time,
                 baseline_antenna1_name,

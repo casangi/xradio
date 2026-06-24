@@ -1010,6 +1010,7 @@ class EffectiveChannelWidthArray:
         Union[
             tuple[Time, BaselineId, Frequency, Polarization],
             tuple[Time, AntennaName, Frequency, Polarization],
+            tuple[Time, AntennaName, Frequency, ReceptorLabel],
         ],  # SD
         float,
     ]

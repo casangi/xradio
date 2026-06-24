@@ -24,14 +24,20 @@ from xradio.measurement_set.schema import (
     ReceptorLabel,
     Polarization,
     PolarizationArray,
+    TimeSamplingArray,
+    EffectiveChannelWidthArray,
+    FrequencyCentroidArray,
 )
+
 
 import numpy
 
-CalibrationParameterName = Literal["calibration_parameter_name"]
-""" Dimension for names of calibration parameters"""
+Direction = Literal["direction"]
 
 
+
+
+# Note: this isn't in measurement_set.schema but I'm pretty sure that's where it belongs
 @xarray_dataarray_schema
 class ReceptorLabelArray:
     """
@@ -41,47 +47,29 @@ class ReceptorLabelArray:
     data: Data[ReceptorLabel, str]
 
 
-@xarray_dataarray_schema
-class CalibrationParameterNameArray:
-    """
-    Model of the calibration_parameter_name coordinate used in the main dataset.
-    """
-
-    data: Data[CalibrationParameterName, str]
-    """Name for each parameter."""
-
-
-@xarray_dataarray_schema
-class CalibrationParameterUnitArray:
-    """
-    Defines units for calibration parameters
-    """
-
-    data: Data[
-        CalibrationParameterName,
-        LiteralString,  # Units are all of the form Literal['m'] or Literal['s'] etc, so I think this covers that
-    ]
-    calibration_parameter_name: Coordof[CalibrationParameterNameArray]
-
 
 @xarray_dataarray_schema
 class AntennaCalibrationParameterArray:
     """
-    Calibration parameters for antennas; these can be real or complex
+    A baseclass for AntennaCalibrationParameterArrays; each
+    subclass is allowed to be more specific about the Data type and
+    required to specify its own units.
     """
 
     data: Data[
-        tuple[Time, AntennaName, Frequency, CalibrationParameterName, ReceptorLabel],
+        tuple[#Direction,
+            Time, AntennaName, Frequency, ReceptorLabel],
         Union[numpy.float32, numpy.float64, numpy.complex64, numpy.complex128],
     ]
 
+    direction: Coord[Direction, str]
     time: Coordof[TimeCoordArray]
     antenna_name: Coordof[AntennaNameArray]
     frequency: Coordof[FrequencyArray]
-    calibration_parameter_name: Coordof[CalibrationParameterNameArray]
     receptor_label: Coordof[ReceptorLabelArray]
 
 
+    
 @xarray_dataarray_schema
 class BaselineCalibrationParameterArray:
     """
@@ -89,19 +77,66 @@ class BaselineCalibrationParameterArray:
     """
 
     data: Data[
-        tuple[Time, BaselineId, Frequency, CalibrationParameterName, Polarization],
+        tuple[Direction, Time, BaselineId, Frequency, Polarization],
         Union[numpy.float32, numpy.float64, numpy.complex64, numpy.complex128],
     ]
-
+    direction: Coord[Direction, str]
     time: Coordof[TimeCoordArray]
     baseline_id: Coordof[BaselineArray]
     frequency: Coordof[FrequencyArray]
-    calibration_parameter_name: Coordof[CalibrationParameterNameArray]
     polarization: Coordof[PolarizationArray]
 
     long_name: Optional[Attr[str]] = "Baseline Calibration Parameter"
 
+    
+############################################################
+## We flesh out how this works for fringefit parameters.
+##
+## We state that all the parameter values are real, and they all derive
+## their axes by inheritance from AntennaCalibrationParameterArray but
+## each of them has a different unit
+##############################################################
 
+
+@xarray_dataarray_schema
+class PhaseCalibrationParameterArray(AntennaCalibrationParameterArray):
+    """A phase-offset calibration parameter for use in (e.g.) fringe fit tables"""
+
+    data: Data[
+        tuple[Direction, Time, AntennaName, Frequency, ReceptorLabel], numpy.float64
+    ]
+
+    long_name: Optional[Attr[str]] = "Phase offset"
+    units: Attr[UnitsRadians] = "rad"
+
+
+
+@xarray_dataarray_schema
+class DelayCalibrationParameterArray(AntennaCalibrationParameterArray):
+    """A delay calibration parameter for use in (e.g.) fringe fit tables"""
+
+    data: Data[
+        tuple[Direction, Time, AntennaName, Frequency, ReceptorLabel], numpy.float64
+    ]
+    long_name: Optional[Attr[str]] = "Delay"
+    units: Attr[UnitsSeconds] = "s"
+
+
+@xarray_dataarray_schema
+class RateCalibrationParameterArray(AntennaCalibrationParameterArray):
+    """A dimensionless delay-rate calibration parameter for use in (e.g.) fringe fit tables"""
+
+    data: Data[
+        tuple[Direction, Time, AntennaName, Frequency, ReceptorLabel], numpy.float64
+    ]
+    long_name: Optional[Attr[str]] = "Rate"
+    units: Attr[UnitsDimensionless] = "dimensionless"
+
+
+## Every calibration parameter comes with an error. I would really
+## prefer not to repeat the units; I hope we can mandate that they are
+## implicitly those of the parameter itself without needed to enforce
+## that at the schema level?
 @xarray_dataarray_schema
 class ParameterErrorArray:
     """
@@ -109,25 +144,33 @@ class ParameterErrorArray:
     """
 
     data: Data[
-        Union[
+        #Union[
             tuple[
-                Time, AntennaName, Frequency, CalibrationParameterName, ReceptorLabel
-            ],
-            tuple[Time, BaselineId, Frequency, Polarization],
+                Direction,
+                Time,
+                AntennaName,
+                Frequency,
+                ReceptorLabel,
+         #   ],
+         #   tuple[Direction, Time, BaselineId, Frequency, Polarization],
         ],
         Union[numpy.float32, numpy.float64],
     ]
+    direction: Coord[Direction, str]
+    time: Coordof[TimeCoordArray]
+    antenna_name: Coordof[AntennaNameArray]
+#    baseline_id: Coordof[BaselineArray]
+    frequency: Coordof[FrequencyArray]
+    receptor_label: Coordof[ReceptorLabelArray]
+#    polarization: Coordof[PolarizationArray]
 
 
-# Data variables
+# We expect that a given CalibrationFlagArray will have either
+# (a) both a baseline and a polarization dimension; OR
+# (b) both an antenna_name and a receptor_label dimension
 
-
-# Note that this FlagArray is *distinct* from the one in
-# MeasurementSet! It is still a multidimensional cube of booleans but
-# it has calibration-specific dimensions. I think it is OK to reuse the
-# name.
 @xarray_dataarray_schema
-class FlagArray:
+class CalibrationFlagArray:
     """
     An array of Boolean or integer values with the same shape as the
     calibration parameters (either baseline or antenna based),
@@ -137,19 +180,29 @@ class FlagArray:
     data: Data[
         Union[
             tuple[
-                Time, AntennaName, Frequency, CalibrationParameterName, ReceptorLabel
+                Direction,
+                Time,
+                AntennaName,
+                Frequency,
+                ReceptorLabel,
             ],
-            tuple[Time, BaselineId, Frequency, CalibrationParameterName, Polarization],
+            tuple[
+                Direction,
+                Time,
+                BaselineId,
+                Frequency,
+                Polarization,
+            ],
         ],
         bool,
     ]
     """ Flag value.  Data is flagged as bad if the array element is
     ``True`` or nonzero."""
+    direction: Coord[Direction, str]
     time: Coordof[TimeCoordArray]
     antenna_name: Optional[Coordof[AntennaNameArray]]  # Only SD
     baseline_id: Optional[Coordof[BaselineArray]]  # Only IF
     frequency: Coordof[FrequencyArray]
-    calibration_parameter_name: Coordof[CalibrationParameterNameArray]
     receptor_label: Optional[Coordof[ReceptorLabelArray]] = None
     polarization: Optional[Coordof[PolarizationArray]] = None
     #
@@ -157,41 +210,37 @@ class FlagArray:
 
 
 @xarray_dataset_schema
-class AntennaCalibrationXds:
-    """Main dataset for antenna-based calibration data"""
+class FringeJonesXds:
+    """ A class for the FringeJonesXds, as used in the fringefit task.
+
+    Each calibration type will need to specify its own Xds in this way.
+    """
+    # --- Required data variables ---
+    CALPARAM_PHASE: Dataof[PhaseCalibrationParameterArray]
+    CALPARAM_DELAY: Dataof[DelayCalibrationParameterArray]
+    CALPARAM_RATE: Dataof[RateCalibrationParameterArray]
+
+    CALERROR_PHASE: Dataof[ParameterErrorArray]
+    CALERROR_DELAY: Dataof[ParameterErrorArray]
+    CALERROR_RATE: Dataof[ParameterErrorArray]
 
     # --- Required Coordinates ---
+    direction: Coord[Direction, str]
     time: Coordof[TimeCoordArray]
     """
     The time coordinate is the mid-point of the solution interval used to solve for
     the calibration parameters.
     """
-    frequency: Coordof[FrequencyArray]
-    """Center frequencies for each frequency interval used in calibration. """
-
-    calibration_parameter_name: Coordof[CalibrationParameterNameArray]
-    """Calibration parameter name. """
-
     antenna_name: Coordof[AntennaNameArray]
     """Antenna name. Maps to ``attrs['antenna_xds'].antenna_name``. """
+
+    frequency: Coordof[FrequencyArray]
+    """Center frequencies for each frequency interval used in calibration. """
 
     receptor_label: Coordof[ReceptorLabelArray]
     """
     Labels for polarization receptor types, e.g. ``['X','Y']``, ``['R','L']``, ``['P','Q']``.
     """
-
-    # --- Required data variables ---
-
-    ANTENNA_CALIBRATION_PARAMETER: Dataof[AntennaCalibrationParameterArray]
-    """Calibration parameters for single antennas"""
-
-    PARAMETER_ERROR: Dataof[ParameterErrorArray]
-    """Error estimates for calibration paramters."""
-
-    FLAGS: Dataof[FlagArray]
-
-    units: Dataof[CalibrationParameterUnitArray]
-
     # --- Required Attributes ---
 
     schema_version: Attr[str]
@@ -200,10 +249,6 @@ class AntennaCalibrationXds:
     """Creator information (software, version)."""
     creation_date: Attr[str]
     """Date calibration dataset was created. Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
-
-    """
-    Dataset type
-    """
 
     type_version: Attr[str]
     """A calibration-specific version number."""
@@ -223,76 +268,98 @@ class AntennaCalibrationXds:
 
     # --- Optional data variables / arrays ---
 
-    # FIXME: Add reference antenna and spectral_window_name.
+    # Note to self: we need this stuff too, we were asked for it!
+    TIME_CENTROID: Optional[Dataof[TimeSamplingArray]] = None
+    """
+    The time centroid of the visibility, includes the effects of missing data
+    unlike the ``time`` coordinate, see :py:class:`~xradio.measurement_set.schema.TimeArray`.
+    """
+    TIME_CENTROID_EXTRA_PRECISION: Optional[Dataof[TimeSamplingArray]] = None
+    """Additional precision for ``TIME_CENTROID``"""
+    EFFECTIVE_CHANNEL_WIDTH: Optional[Dataof[EffectiveChannelWidthArray]] = None
+    """The channel bandwidth that includes the effects of missing data."""
+    FREQUENCY_CENTROID: Optional[Dataof[FrequencyCentroidArray]] = None
+    """Includes the effects of missing data unlike ``frequency``."""
 
     # --- Optional Attributes ---
 
+    # Note that we do not need a spectral_window attribute because the
+    # FrequencyArray coordinate is already required to have one
 
-@xarray_dataset_schema
-class BaselineCalibrationXds:
-    """Calibration dataset for baseline effects"""
+    reference_antenna: Optional[Attr[str]] = None
+    """The reference antenna (if any) used for this calibration."""
 
-    # --- Required Coordinates ---
-    time: Coordof[TimeCoordArray]
-    """
-    The time coordinate is the reference time for the calibration parameters
-    """
-    baseline_id: Coordof[BaselineArray]
-    """ Baseline ID """
-    frequency: Coordof[FrequencyArray]
-    """Center frequencies for each channel."""
-    polarization: Coordof[PolarizationArray]
-    """
-    Labels for polarization types, e.g. ``['XX','XY','YX','YY']``, ``['RR','RL','LR','LL']``.
-    """
-    calibration_parameter_name: Coordof[CalibrationParameterNameArray]
-    """Calibration parameter name. """
+## The BaselineCalibrationXds is now obsolete, but I am not ready to
+## delete it yet; I need a concrete BaslineCalibration example fleshed
+## out before I let it go.
+    
+# @xarray_dataset_schema
+# class BaselineCalibrationXds:
+#     """Calibration dataset for baseline effects"""
 
-    # --- Required data variables ---
+#     # --- Required Coordinates ---
+#     time: Coordof[TimeCoordArray]
+#     """
+#     The time coordinate is the reference time for the calibration parameters
+#     """
+#     baseline_id: Coordof[BaselineArray]
+#     """ Baseline ID """
+#     frequency: Coordof[FrequencyArray]
+#     """Center frequencies for each channel."""
+#     polarization: Coordof[PolarizationArray]
+#     """
+#     Labels for polarization types, e.g. ``['XX','XY','YX','YY']``, ``['RR','RL','LR','LL']``.
+#     """
+#     calibration_parameter_name: Coordof[CalibrationParameterNameArray]
+#     """Calibration parameter name. """
 
-    BASELINE_CALIBRATION_PARAMETER: Dataof[BaselineCalibrationParameterArray]
-    """Calibration parameters for baselines"""
+#     # --- Required data variables ---
 
-    PARAMETER_ERROR: Dataof[ParameterErrorArray]
-    """Error estimates for calibration paramters"""
+#     BASELINE_CALIBRATION_PARAMETER: Dataof[BaselineCalibrationParameterArray]
+#     """Calibration parameters for baselines"""
 
-    FLAGS: Dataof[FlagArray]
+#     PARAMETER_ERROR: Dataof[ParameterErrorArray]
+#     """Error estimates for calibration paramters"""
 
-    baseline_antenna1_name: Coordof[BaselineAntennaNameArray]
-    """Antenna name for 1st antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_name``"""
+#     FLAGS: Dataof[CalibrationFlagArray]
 
-    baseline_antenna2_name: Coordof[BaselineAntennaNameArray]
-    """Antenna name for 2nd antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_name``"""
+#     baseline_antenna1_name: Coordof[BaselineAntennaNameArray]
+#     """Antenna name for 1st antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_name``"""
 
-    units: Dataof[CalibrationParameterUnitArray]
+#     baseline_antenna2_name: Coordof[BaselineAntennaNameArray]
+#     """Antenna name for 2nd antenna in baseline. Maps to ``attrs['antenna_xds'].antenna_name``"""
 
-    # --- Required Attributes ---
+#     units: Dataof[CalibrationParameterUnitArray]
 
-    schema_version: Attr[str]
-    """Semantic version of calibration xds data format."""
-    creator: Attr[CreatorDict]
-    """Creator information (software, version)."""
-    creation_date: Attr[str]
-    """Date calibration dataset was created. Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
+#     # --- Required Attributes ---
 
-    type: Attr[Literal["antenna_calibration", "baseline_calibration"]] = (
-        "baseline_calibration"
-    )
-    """
-    Dataset type
-    """
+#     schema_version: Attr[str]
+#     """Semantic version of calibration xds data format."""
+#     creator: Attr[CreatorDict]
+#     """Creator information (software, version)."""
+#     creation_date: Attr[str]
+#     """Date calibration dataset was created. Format: YYYY-MM-DDTHH:mm:ss.SSS (ISO 8601)"""
 
-    # --- Optional Coordinates ---
-    polarization_mixed: Optional[Coord[tuple[BaselineId, Polarization], str]] = None
-    """
-    If the polarizations are not constant over baseline. For mixed polarizations one would
-    use ['PP', 'PQ', 'QP', 'QQ'] as the polarization labels and then specify here the
-    actual polarization basis for each baseline using labels from the set of all
-    combinations of 'X', 'Y', 'R' and 'L'.
-    """
-    field_name: Optional[Coordof[Coord[Time, str]]] = None
-    """Field name."""
-    scan_name: Optional[Coordof[ScanArray]] = None
-    """Scan name to identify data taken in the same logical scan"""
+#     type: Attr[Literal["antenna_calibration", "baseline_calibration"]] = (
+#         "baseline_calibration"
+#     )
+#     """
+#     Dataset type
+#     """
 
-    # --- Optional Attributes ---
+#     # --- Optional Coordinates ---
+#     polarization_mixed: Optional[Coord[tuple[BaselineId, Polarization], str]] = None
+#     """
+#     If the polarizations are not constant over baseline. For mixed polarizations one would
+#     use ['PP', 'PQ', 'QP', 'QQ'] as the polarization labels and then specify here the
+#     actual polarization basis for each baseline using labels from the set of all
+#     combinations of 'X', 'Y', 'R' and 'L'.
+#     """
+#     field_name: Optional[Coordof[Coord[Time, str]]] = None
+#     """Field name."""
+#     scan_name: Optional[Coordof[ScanArray]] = None
+#     """Scan name to identify data taken in the same logical scan"""
+
+#     # --- Optional Attributes ---
+
+    

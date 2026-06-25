@@ -46,7 +46,6 @@ def test_open_datatree_mocked_open_asdm():
         asdm_ps = asdm_backend.open_datatree(bogus_path)
         assert asdm_ps == dummy_asdm_ps
         mock_open_asdm.assert_called_once()
-        param = mock_open_asdm.call_args
         assert mock_open_asdm.call_args[0] == (bogus_path, None, None, None)
 
 
@@ -59,7 +58,7 @@ def test_guess_can_open_except():
     # something that does not cast to Path cleanly
     bogus_path = 33
     guess = asdm_backend.guess_can_open(bogus_path)
-    assert guess == False
+    assert not guess
 
 
 def test_guess_can_open_false():
@@ -70,4 +69,4 @@ def test_guess_can_open_false():
     asdm_backend = ASDMBackendEntryPoint()
     bogus_path = "/bogus/inexistent/test_path"
     guess = asdm_backend.guess_can_open(bogus_path)
-    assert guess == False
+    assert not guess

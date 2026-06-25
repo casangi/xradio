@@ -9,7 +9,7 @@ def test_calculate_uvw_fail():
     from xradio.measurement_set._utils._asdm._utils.calculate_uvw import calculate_uvw
 
     with pytest.raises(KeyError, match="antenna_name"):
-        uvw = calculate_uvw(
+        _uvw = calculate_uvw(
             None,
             xr.DataArray(),
             xr.DataArray(),

@@ -150,6 +150,26 @@ def test_find_bdfs_and_indices_in_selected_times(
     assert bdf_time_slices == expected_bdf_time_slices
 
 
+@pytest.mark.parametrize(
+    "input_index, input_bdf_start, expected_result",
+    [
+        (0, [1, 3], 0),  # index requested is lower than the first BDF start
+        (3, [1, 3], 1),
+        (0, [1], 0),  # one start only
+        (1, [0], 0),
+    ],
+)
+def test__search_index_in_bdf_time_starts_corner_cases(
+    input_index, input_bdf_start, expected_result
+):
+    from xradio.measurement_set._utils._asdm._utils._bdf.array_indexing import (
+        _search_index_in_bdf_time_starts,
+    )
+
+    found_index = _search_index_in_bdf_time_starts(input_index, input_bdf_start)
+    assert found_index == expected_result
+
+
 def test_calc_auto_cross_baseline_slices_wrong_type():
     from xradio.measurement_set._utils._asdm._utils._bdf.array_indexing import (
         calc_auto_cross_baseline_slices,

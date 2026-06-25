@@ -36,7 +36,7 @@ from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_arr
     load_flags_all_subsets,
     load_visibilities_all_subsets,
 )
-from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
+from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
     load_flags_all_subsets_from_trees,
     load_visibilities_all_subsets_from_trees,
 )

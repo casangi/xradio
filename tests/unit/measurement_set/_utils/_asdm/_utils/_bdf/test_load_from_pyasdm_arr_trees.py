@@ -77,7 +77,7 @@ basebands_example = [
 
 
 def test_load_visibilities_all_subsets_from_trees():
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
         load_visibilities_all_subsets_from_trees,
     )
 
@@ -108,7 +108,7 @@ def test_load_visibilities_all_subsets_from_trees():
 
 
 def test_load_subset_with_get_subset():
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
         load_subset_with_get_subset,
     )
 
@@ -128,7 +128,7 @@ def test_load_subset_with_get_subset():
 
 
 def test_load_subset_with_get_ndarrays():
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
         load_subset_with_get_ndarrays,
     )
 
@@ -161,7 +161,7 @@ def test_load_subset_with_get_ndarrays():
 
 
 def test_load_vis_subset_from_tree():
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
         load_vis_subset_from_tree,
     )
 
@@ -303,7 +303,7 @@ bdf_descr_X136e = {
 
 @pytest.mark.parametrize("input_load_one_spw_from_file", [(True), (False)])
 def test_load_visibilities_all_subsets_from_trees_X136e(input_load_one_spw_from_file):
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
         load_visibilities_all_subsets_from_trees,
     )
 
@@ -429,7 +429,7 @@ bdf_descr_X136e_simplified = {
 def test_load_visibilities_all_subsets_from_trees_X136e_simplified(
     input_load_one_spw_from_file,
 ):
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
         load_visibilities_all_subsets_from_trees,
     )
 
@@ -554,7 +554,7 @@ bdf_descr_X136e_simplified_with_cross_data = {
 def test_load_visibilities_all_subsets_from_trees_X136e_simplified_with_cross_data(
     input_load_one_spw_from_file,
 ):
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
         load_visibilities_all_subsets_from_trees,
     )
 
@@ -622,7 +622,7 @@ def test_load_visibilities_all_subsets_from_trees_X136e_simplified_with_cross_da
 def test_load_visibilities_all_subsets_from_trees_X136e_error(
     input_load_one_spw_from_file,
 ):
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
         load_visibilities_all_subsets_from_trees,
     )
 
@@ -838,7 +838,7 @@ def test_load_vis_subset_cross_data_from_tree(
     expected_size,
     expected_shape,
 ):
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
         load_vis_subset_cross_data_from_tree,
     )
 
@@ -923,7 +923,7 @@ def test_load_vis_subset_auto_data_from_tree(
     expected_size,
     expected_shape,
 ):
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
         load_vis_subset_auto_data_from_tree,
     )
 
@@ -947,7 +947,7 @@ def test_load_vis_subset_auto_data_from_tree(
 
 
 def test_load_flags_all_subsets_from_trees_error():
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
         load_flags_all_subsets_from_trees,
     )
 
@@ -976,7 +976,7 @@ def test_load_flags_all_subsets_from_trees_error():
 
 
 def test_load_flags_all_subsets_from_trees_X136e():
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
         load_flags_all_subsets_from_trees,
     )
 
@@ -1128,7 +1128,7 @@ def test_load_flags_subset_from_tree(
     expected_shape,
     expected_error,
 ):
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
         load_flags_subset_from_tree,
     )
 

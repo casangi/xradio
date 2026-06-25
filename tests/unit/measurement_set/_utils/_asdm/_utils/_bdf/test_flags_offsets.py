@@ -305,7 +305,7 @@ def test_calculate_offset_additions_cross_sd(
     input_flag_array_len,
     expected_additions,
 ):
-    from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_load_from_trees import (
+    from xradio.measurement_set._utils._asdm._utils._bdf.flags_offsets import (
         calculate_offset_additions_cross_sd,
     )
 

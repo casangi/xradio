@@ -1,13 +1,15 @@
 """
 Loads visibility/flags from the 'arr' arrays produced by pyasdmBDFReader.getSubset().
-As in load_from_pyasdm_subset_array, that all the data (for all the SPWs) is first
-loaded using the original getSubset() of pyasdm.
+As in load_from_pyasdm_subset_array, that implies that all the data (for all the SPWs)
+is first loaded using the original getSubset() of pyasdm.
+
 The 'arr' 1d arrays contain the data for all the SPWs. In contrast to
 load_from_pyasdm_subset_array, this module looks for the data specific to one SPW by
 looking through the trees of data included in the 'arr' 1d arrays (and skipping the
-'other' SPWs). This procedure works for any BDF, and it required (as opposed to
-load_from_pyasdm_subset_array) when either the number of SPWs is not the same for
-every baseband or the number of channels is not the same for every SPW.
+'other' SPWs). This procedure works for any BDF, regardless of the configuration of
+basebands and SPWs. It is required (as opposed to load_from_pyasdm_subset_array) when
+either the number of SPWs is not the same for every baseband or the number of channels
+is not the same for every SPW.
 """
 
 import traceback

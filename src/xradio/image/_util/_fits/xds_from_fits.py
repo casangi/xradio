@@ -36,10 +36,12 @@ from xradio.image._util.common import (
     _l_m_attr_notes,
 )
 
-from xradio.image._util._casacore.common import (
-    _image_flag,
-    _beam_fit_params,
-)
+# from xradio.image._util._casacore.common import (
+#     _image_flag,
+#     _beam_fit_params,
+# )
+_image_flag = "flag"
+_beam_fit_params = "beam_fit_params"
 
 
 def _fits_image_to_xds(

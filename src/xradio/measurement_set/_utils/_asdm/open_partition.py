@@ -41,6 +41,7 @@ from xradio._utils.dict_helpers import (
 def open_partition(
     asdm: pyasdm.ASDM,
     partition_descr: dict[str, np.ndarray],
+    with_pointing: bool = False,
 ) -> xr.DataTree:
     """
     TODO: opens a partition as an MSv4 DataTre
@@ -51,6 +52,8 @@ def open_partition(
         Input ASDM object
     partition_descr:
         description of partition IDs in a dictionary of "ID ASDM key/attribute" -> numeric IDs
+    with_pointing:
+        whether to load the Pointing table from the ASDM into a pointing xds sub-dataset
 
     Returns
     -------
@@ -77,6 +80,8 @@ def open_partition(
     # weather_xds
 
     # pointing_xds
+    if with_pointing:
+        pointing_xds = create_pointing_xds(asdm)
 
     # phased_array_xds
 
@@ -101,6 +106,8 @@ def open_partition(
     msv4_xdt.ds = correlated_xds
     msv4_xdt["/antenna_xds"] = antenna_xds
     msv4_xdt["/field_and_source_base_xds"] = field_and_source_xds
+    if with_pointing:
+        msv4_xdt["/pointing_xds"] = pointing_xds
 
     return msv4_xdt
 

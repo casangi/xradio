@@ -1,5 +1,4 @@
 from collections.abc import Mapping, Iterable
-import datetime
 from typing import Any, Union
 
 import numpy as np
@@ -9,7 +8,6 @@ from xradio._utils.list_and_array import to_python_type
 from xradio._utils.xarray_helpers import (
     get_data_group_name,
     create_new_data_group,
-    delete_data_variables,
 )
 
 MS_DATASET_TYPES = {"visibility", "spectrum", "radiometer"}
@@ -107,7 +105,7 @@ class MeasurementSetXdt:
             data_variables_to_drop = []
             field_and_source_to_drop = []
             for dg_name, dg in self._xdt.attrs["data_groups"].items():
-                # print(f"Data group: {dg_name}", dg)
+
                 f_and_s = dg["field_and_source"]
                 dg_copy = dg.copy()
                 dg_copy.pop("date", None)

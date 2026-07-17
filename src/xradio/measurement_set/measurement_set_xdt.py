@@ -138,7 +138,6 @@ class MeasurementSetXdt:
         else:
             return self._xdt.sel(indexers, method, tolerance, drop, **indexers_kwargs)
 
-
     def get_field_and_source_xds(self, data_group_name: str = None) -> xr.Dataset:
         """Get the field_and_source_xds associated with data group `data_group_name`.
 

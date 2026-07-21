@@ -2,6 +2,8 @@ import pytest
 
 import pyasdm
 
+import xarray as xr
+
 from xradio.measurement_set._utils._asdm.create_pointing_xds import create_pointing_xds
 
 # Examples mix from uid___A002_X94f2b3_Xb79 (TelCal unit tests) and uid___A002_Xf002b5_X3233 (PL Bencharmk2025)
@@ -67,16 +69,20 @@ def test_create_pointing_xds_with_asdm_simple(asdm_with_spw_simple):
         create_pointing_xds(asdm_with_spw_simple)
 
 
-def test_create_pointing_xds_with_asdm_simple_pointing(
-    asdm_with_spw_simple
-):
+def test_create_pointing_xds_with_asdm_simple_pointing(asdm_with_spw_simple):
 
     pointing_table = asdm_with_spw_simple.getPointing()
-    for pointing_row_xml in [pointing_row_xml_0, pointing_row_xml_1, pointing_row_xml_2]:
+    for pointing_row_xml in [
+        pointing_row_xml_0,
+        pointing_row_xml_1,
+        pointing_row_xml_2,
+    ]:
         pointing_row = pyasdm.PointingRow(pointing_table)
         pointing_row.setFromXML(pointing_row_xml)
         pointing_table.add(pointing_row)
 
-
-    with pytest.raises(AttributeError, match="no attribute 'getDuration'"):
-        _result = create_pointing_xds(asdm_with_spw_simple)
+    result = create_pointing_xds(asdm_with_spw_simple)
+    assert isinstance(result, xr.Dataset)
+    for coord in ["time_pointing", "antenna_name", "local_sky_dirlabel"]:
+        assert coord in result.coords
+    assert not result.data_vars

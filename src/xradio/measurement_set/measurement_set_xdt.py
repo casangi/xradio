@@ -218,6 +218,7 @@ class MeasurementSetXdt:
                 np.unique(field_and_source_xds.field_name.values)
             ),
             "polarization_setup": to_python_type(self._xdt.polarization.values),
+            "polarization": self._xdt.polarization.values.tolist(),
             "scan_name": to_python_type(np.unique(self._xdt.scan_name.values)),
             "source_name": to_python_type(
                 np.unique(field_and_source_xds.source_name.values)

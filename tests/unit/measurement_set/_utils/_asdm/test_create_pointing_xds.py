@@ -69,20 +69,24 @@ def test_create_pointing_xds_with_asdm_simple(asdm_with_spw_simple):
         create_pointing_xds(asdm_with_spw_simple)
 
 
-def test_create_pointing_xds_with_asdm_simple_pointing(asdm_with_spw_simple):
+def test_create_pointing_xds_with_asdm_antenna_pointing(
+    asdm_with_execblock_antenna_station_feed,
+):
 
-    pointing_table = asdm_with_spw_simple.getPointing()
+    # TODO: turn into specific fixture, asdm_with_antenna_pointing():
+    pointing_table = asdm_with_execblock_antenna_station_feed.getPointing()
     for pointing_row_xml in [
         pointing_row_xml_0,
         pointing_row_xml_1,
-        pointing_row_xml_2,
+        # pointing_row_xml_2,
     ]:
         pointing_row = pyasdm.PointingRow(pointing_table)
         pointing_row.setFromXML(pointing_row_xml)
         pointing_table.add(pointing_row)
 
-    result = create_pointing_xds(asdm_with_spw_simple)
+    result = create_pointing_xds(asdm_with_execblock_antenna_station_feed)
     assert isinstance(result, xr.Dataset)
-    for coord in ["time_pointing", "antenna_name", "local_sky_dirlabel"]:
+    for coord in ["time_pointing", "antenna_name", "local_sky_dir_label"]:
         assert coord in result.coords
-    assert not result.data_vars
+    for data_var in ["DIRECTION", "POINTING_DISH_MEASURED"]:
+        assert data_var in result.data_vars

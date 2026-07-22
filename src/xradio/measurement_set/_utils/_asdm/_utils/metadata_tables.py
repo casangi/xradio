@@ -104,6 +104,22 @@ def load_asdm_col(sdm_table: pyasdm.ASDM, col_name: str) -> list:
             # elif type(value) in pyasdm.enumerations or type(value) in pyasdm.types:
             #    # catch-all
             #    value = value.getValue()
+        elif (
+            isinstance(value, list)
+            and len(value) > 0
+            and (
+                isinstance(value[0], list)
+                and (
+                    isinstance(value[0][0], pyasdm.types.Angle)
+                    # or isinstance(value[0][0], pyasdm.enumerations.StokesParameter)
+                )
+            )
+        ):
+            # two-dim list/array of list/array of Angle, as seen in Pointing
+            value = [
+                [item_val.get() for item_val in first_dim_val]
+                for first_dim_val in value
+            ]
         elif type(value) in [pyasdm.types.Frequency]:
             value = value.get()
         elif (

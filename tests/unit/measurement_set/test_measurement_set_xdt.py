@@ -39,7 +39,7 @@ def test_get_partition_info():
                     "spectral_window_name",
                     "spectral_window_intents",
                     "field_name",
-                    "polarization_setup",
+                    "polarization",
                     "scan_name",
                     "source_name",
                     "scan_intents",
@@ -93,7 +93,7 @@ def test_get_field_and_source_xds_with_group(msv4_xdt_min):
 expected_partition_info_fields = [
     "spectral_window_name",
     "field_name",
-    "polarization_setup",
+    "polarization",
     "scan_name",
     "source_name",
     "scan_intents",

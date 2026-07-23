@@ -80,7 +80,7 @@ def load_asdm_col(sdm_table: pyasdm.ASDM, col_name: str) -> list:
             ]
         ):
             # (or isinstance(value[0], pyasdm.enumerations.PolarizationType))
-            # 1-dim array of StoeksParameter
+            # 1-dim array of StokesParameter
             value = [item_val.getName() for item_val in value]
         elif (
             isinstance(value, list)

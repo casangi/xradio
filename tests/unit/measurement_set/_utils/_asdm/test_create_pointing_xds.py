@@ -6,6 +6,9 @@ import xarray as xr
 
 from xradio.measurement_set._utils._asdm.create_pointing_xds import create_pointing_xds
 
+from xradio.measurement_set.schema import PointingXds
+from xradio.schema.check import check_dataset
+
 # Examples mix from uid___A002_X94f2b3_Xb79 (TelCal unit tests) and uid___A002_Xf002b5_X3233 (PL Bencharmk2025)
 # Not including <atmosphericCorrection>
 pointing_row_xml_0 = """
@@ -84,9 +87,11 @@ def test_create_pointing_xds_with_asdm_antenna_pointing(
         pointing_row.setFromXML(pointing_row_xml)
         pointing_table.add(pointing_row)
 
-    result = create_pointing_xds(asdm_with_execblock_antenna_station_feed)
-    assert isinstance(result, xr.Dataset)
+    pointing_xds = create_pointing_xds(asdm_with_execblock_antenna_station_feed)
+    check_dataset(pointing_xds, PointingXds)
+    # Make sure for this non-interpolated xds, there is time_pointing
     for coord in ["time_pointing", "antenna_name", "local_sky_dir_label"]:
-        assert coord in result.coords
+        assert coord in pointing_xds.coords
+    # The set of variables expected in this example
     for data_var in ["DIRECTION", "POINTING_DISH_MEASURED"]:
-        assert data_var in result.data_vars
+        assert data_var in pointing_xds.data_vars

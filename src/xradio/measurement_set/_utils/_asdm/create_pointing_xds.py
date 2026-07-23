@@ -6,10 +6,15 @@ import xarray as xr
 import pyasdm
 
 
+from xradio._utils.dict_helpers import make_time_measure_attrs
 from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,
 )
+from xradio.measurement_set._utils._asdm._utils.sky_coord_dict_helper import (
+    make_sky_coord_measure_attrs,
+)
+from xradio.measurement_set._utils._asdm._utils.time import convert_time_asdm_to_unix
 
 
 def create_pointing_xds(asdm: pyasdm.ASDM) -> xr.Dataset:
@@ -79,27 +84,31 @@ def create_pointing_xds(asdm: pyasdm.ASDM) -> xr.Dataset:
             time_centers_from_row
         )
 
-    time_pointing = ("time_pointing", all_time_centers)
+    time_pointing_values = convert_time_asdm_to_unix(all_time_centers)
+    time_attrs = make_time_measure_attrs("s", "tai", time_format="unix")
+    time_pointing_coord = ("time_pointing", time_pointing_values, time_attrs)
     # Could take: antenna_df["name"].values.astype("str"))
-    antenna_name = ("antenna_name", antenna_names_coord)
+    antenna_name_coord = ("antenna_name", antenna_names_coord)
     xds = xds.assign_coords(
         {
-            "time_pointing": time_pointing,
-            "antenna_name": antenna_name,
+            "time_pointing": time_pointing_coord,
+            "antenna_name": antenna_name_coord,
             "local_sky_dir_label": ["az", "alt"],
         }
     )
 
-    empty_direction = np.array([]).reshape(0, len(all_time_centers), 2)
-    direction_vars = {}
-    direction_vars["target"] = direction_vars["offset"] = direction_vars["encoder"] = (
-        direction_vars["pointingDirection"]
-    ) = empty_direction
-    for antenna_id, group in antenna_groups:
+    empty_direction = np.array([]).reshape(0, len(time_pointing_values), 2)
+    direction_vars = {
+        "target": empty_direction,
+        "offset": empty_direction,
+        "encoder": empty_direction,
+        "pointingDirection": empty_direction,
+    }
+    for _antenna_id, group in antenna_groups:
         for dvar in direction_vars:
-            # First concatenate all the rows per antenna (along time_pointing coord)
+            # First concatenate all the rows for the antenna (along time_pointing coord)
             direction_var_antenna_values = np.concatenate(group[dvar].values)
-            # Then concatenate all the antennas (along antenna_name coord)
+            # Then concatenate this antenna to all the antennas (along antenna_name coord)
             direction_vars[dvar] = np.concatenate(
                 (direction_vars[dvar], [direction_var_antenna_values])
             )
@@ -120,9 +129,14 @@ def create_pointing_xds(asdm: pyasdm.ASDM) -> xr.Dataset:
     # Using antenna/pointing order first, as it is closer to what we get from the ASDM/Pointing rows
     # time_antenna_dir_dims = ["time_pointing", "antenna_name", "local_sky_dir_label"]
     antenna_time_dir_dims = ["antenna_name", "time_pointing", "local_sky_dir_label"]
+    direction_attrs = make_sky_coord_measure_attrs("rad", "altaz")
     data_vars = {
-        "DIRECTION": (antenna_time_dir_dims, direction_vars["target"]),
-        "POINTING_DISH_MEASURED": (antenna_time_dir_dims, direction_vars["encoder"]),
+        "DIRECTION": (antenna_time_dir_dims, direction_vars["target"], direction_attrs),
+        "POINTING_DISH_MEASURED": (
+            antenna_time_dir_dims,
+            direction_vars["encoder"],
+            direction_attrs,
+        ),
         # "POINTING_OVER_THE_TOP": (antenna_time_dir_dims, over_the_top),
     }
     xds = xds.assign(data_vars)

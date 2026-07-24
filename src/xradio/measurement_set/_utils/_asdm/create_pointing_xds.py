@@ -1,6 +1,7 @@
 import time
 
 import numpy as np
+import pandas as pd
 import xarray as xr
 
 import pyasdm
@@ -69,57 +70,56 @@ def create_pointing_xds(asdm: pyasdm.ASDM) -> xr.Dataset:
     ]
     pointing_df = exp_asdm_table_to_df(asdm, "Pointing", sdm_pointing_attrs)
 
-    # Definitions for coords/time_pointing,
-    #  if no sampled timeInterval: getStart() + interval/2 + idx * (interval), (interval = getDuration() / numSamples)
-    #  if sampled timeInterval: the per sample ASDM timeInterval getStart()+getDuration()/2
-    num_samples = int(pointing_df["numSample"].values[0])
-    # time_interval_all_rows = pointing_df["timeInterval"]
     antenna_groups = pointing_df.groupby("antennaId")
-    antenna_names_coord = []
+
+    coords = _make_pointing_coords(pointing_df, antenna_df, antenna_groups)
+    xds = xds.assign_coords(coords)
+
+    data_vars = _make_pointing_data_vars(
+        xds.coords["time_pointing"].values, antenna_groups
+    )
+    xds = xds.assign(data_vars)
+    xds = xds.transpose("time_pointing", "antenna_name", "local_sky_dir_label")
+
+    xradio_logger().info(
+        f"create_pointing_xds() took {time.time() - time_start:0.2f} s"
+    )
+
+    return xds
+
+
+def _make_pointing_coords(
+    pointing_df: pd.DataFrame,
+    antenna_df: pd.DataFrame,
+    antenna_groups: pd.api.typing.DataFrameGroupBy,
+) -> dict:
+    antenna_names = []
     time_interval_all_rows = {}
     for antenna_id, group in antenna_groups:
-        antenna_name = antenna_df.loc[
-            antenna_df["antennaId"] == antenna_id, "name"
-        ].values[0]
-        antenna_names_coord.append(antenna_name)
-        time_interval_all_rows[antenna_name] = group["timeInterval"]
+        name = antenna_df.loc[antenna_df["antennaId"] == antenna_id, "name"].values[0]
+        antenna_names.append(name)
+        time_interval_all_rows[name] = group["timeInterval"]
 
-    # This makes the time coord
-    rows_per_antenna = min(
-        [
-            len(time_interval_all_rows[antenna_name])
-            for antenna_name in antenna_names_coord
-        ]
+    all_time_centers = _retrieve_all_time_centers(
+        pointing_df, time_interval_all_rows, antenna_names
     )
-    all_time_centers = np.zeros((rows_per_antenna * num_samples), dtype="float64")
-    all_row_idx = np.arange(0, rows_per_antenna)
-    first_antenna_name = antenna_names_coord[0]
-    for row_idx in all_row_idx:
-        time_interval = time_interval_all_rows[first_antenna_name][row_idx]
-        # For MSv4 only the centers are kept (no INTERVAL col as in MSv2)
-        # ASDM always in ns
-        sample_interval = (time_interval.getDuration() / num_samples).get()
-        first_center = ((time_interval.getStart() + int(sample_interval)) / 2).get()
-        last_center = first_center + (num_samples) * sample_interval
-        time_centers_from_row = np.arange(first_center, last_center, sample_interval)
-        index_time_centers = row_idx * num_samples
-        all_time_centers[index_time_centers : index_time_centers + num_samples] = (
-            time_centers_from_row
-        )
-
     time_pointing_values = convert_time_asdm_to_unix(all_time_centers)
     time_attrs = make_time_measure_attrs("s", "tai", time_format="unix")
     time_pointing_coord = ("time_pointing", time_pointing_values, time_attrs)
     # Could take: antenna_df["name"].values.astype("str"))
-    antenna_name_coord = ("antenna_name", antenna_names_coord)
-    xds = xds.assign_coords(
-        {
-            "time_pointing": time_pointing_coord,
-            "antenna_name": antenna_name_coord,
-            "local_sky_dir_label": ["az", "alt"],
-        }
-    )
+    antenna_name_coord = ("antenna_name", antenna_names)
+    coords = {
+        "time_pointing": time_pointing_coord,
+        "antenna_name": antenna_name_coord,
+        "local_sky_dir_label": ["az", "alt"],
+    }
 
+    return coords
+
+
+def _make_pointing_data_vars(
+    time_pointing_values: np.ndarray, antenna_groups: pd.api.typing.DataFrameGroupBy
+) -> dict[str, tuple]:
     # The direction arrays are broken into time/interval rows with a subset
     # of samples within that interval. Concatenate them:
     empty_direction = np.array([]).reshape(0, len(time_pointing_values), 2)
@@ -151,7 +151,7 @@ def create_pointing_xds(asdm: pyasdm.ASDM) -> xr.Dataset:
     antenna_time_dir_dims = ["antenna_name", "time_pointing", "local_sky_dir_label"]
     direction_attrs = make_sky_coord_measure_attrs("rad", "altaz")
     data_vars = {
-        "DIRECTION": (antenna_time_dir_dims, direction_vars["target"], direction_attrs),
+        "DIRECTION": (antenna_time_dir_dims, corrected_rotated_target, direction_attrs),
         "POINTING_DISH_MEASURED": (
             antenna_time_dir_dims,
             direction_vars["encoder"],
@@ -159,11 +159,40 @@ def create_pointing_xds(asdm: pyasdm.ASDM) -> xr.Dataset:
         ),
         # "POINTING_OVER_THE_TOP": (antenna_time_dir_dims, over_the_top),
     }
-    xds = xds.assign(data_vars)
-    xds = xds.transpose("time_pointing", "antenna_name", "local_sky_dir_label")
 
-    xradio_logger().info(
-        f"create_pointing_xds() took {time.time() - time_start:0.2f} s"
+    return data_vars
+
+
+def _retrieve_all_time_centers(
+    pointing_df: pd.DataFrame,
+    time_interval_all_rows: np.ndarray,
+    antenna_names_coord: xr.DataArray,
+) -> np.ndarray:
+    # This makes the time coord.
+    # Definitions for coords/time_pointing,
+    #  if no sampled timeInterval: getStart() + interval/2 + idx * (interval), (interval = getDuration() / numSamples)
+    #  if sampled timeInterval: the per sample ASDM timeInterval getStart()+getDuration()/2
+    num_samples = int(pointing_df["numSample"].values[0])
+    rows_per_antenna = min(
+        [
+            len(time_interval_all_rows[antenna_name])
+            for antenna_name in antenna_names_coord
+        ]
     )
+    all_time_centers = np.zeros((rows_per_antenna * num_samples), dtype="float64")
+    all_row_idx = np.arange(0, rows_per_antenna)
+    first_antenna_name = antenna_names_coord[0]
+    for row_idx in all_row_idx:
+        time_interval = time_interval_all_rows[first_antenna_name][row_idx]
+        # For MSv4 only the centers are kept (no INTERVAL col as in MSv2)
+        # ASDM always in ns
+        sample_interval = (time_interval.getDuration() / num_samples).get()
+        first_center = ((time_interval.getStart() + int(sample_interval)) / 2).get()
+        last_center = first_center + (num_samples) * sample_interval
+        time_centers_from_row = np.arange(first_center, last_center, sample_interval)
+        index_time_centers = row_idx * num_samples
+        all_time_centers[index_time_centers : index_time_centers + num_samples] = (
+            time_centers_from_row
+        )
 
-    return xds
+    return all_time_centers

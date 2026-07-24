@@ -15,6 +15,7 @@ def open_asdm(
     partition_scheme: list[str] = None,
     include_processor_types: list[str] = None,
     include_spectral_resolution_types: list[str] = None,
+    with_pointing: bool = False,
 ) -> xr.DataTree:
     """
     Opens an ASDM (ALMA Science Data Model) file and presents it as an Xarray DataTree.
@@ -42,6 +43,9 @@ def open_asdm(
         "CHANNEL_AVERAGE", "BASEBAND_WIDE", "FULL_RESOLUTION".
         Default is (subject to change) ["FULL_RESOLUTION", "BASEBAND_WIDE"], which implied
         channel average data are excluded.
+    with_pointing:
+        whether to load the Pointing table from the ASDM into pointing_xds sub-datasets included
+        in the resulting DataTree.
 
     Returns
     -------
@@ -98,7 +102,9 @@ def open_asdm(
         )
 
         try:
-            msv4_xdt = open_partition(asdm, partition_descr)
+            msv4_xdt = open_partition(
+                asdm, partition_descr, with_pointing=with_pointing
+            )
         except RuntimeError as exc:
             trace = traceback.format_exc()
             xradio_logger().error(

@@ -21,8 +21,29 @@ from xradio.measurement_set._utils._asdm._utils.time import convert_time_asdm_to
 
 def create_pointing_xds(asdm: pyasdm.ASDM) -> xr.Dataset:
     """
-    Create an xarray Dataset with pointing data from an ASDM.
+    Build an xarray Dataset with antenna pointing information extracted from
+    an ASDM Pointing table.
 
+    How the MSv4 data_vars are derived from the attributes of the ASDM pointing table:
+    - MSv4/POINTING_BEAM = rotate(ASDM/target, ASDM/offset) + correction
+         where correction = (ASDM/encoder - ASDM/pointingDirection) is applied when
+         importasdm/with_pointing_correction=True.
+    - MSV4/(POINTING_DISH_MEASURED) = ASDM/encoder
+    - MSv4/(POINTING_OVER_THE_TOP) = ASDM/overTheTop (optional attribute apparently not
+         present in usual ALMA ASDMs
+
+
+    Parameters
+    ----------
+    asdm : pyasdm.ASDM
+        ASDM instance from which the Pointing and Antenna tables are read.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with pointing metadata and data variables derived from the ASDM
+        pointing measurements, including the measured dish direction and the
+        nominal direction information.
     """
 
     time_start = time.time()
@@ -116,14 +137,6 @@ def create_pointing_xds(asdm: pyasdm.ASDM) -> xr.Dataset:
             direction_vars[dvar] = np.concatenate(
                 (direction_vars[dvar], [direction_var_antenna_values])
             )
-
-    # How the MSv4 data_vars are derived from the attributes of the ASDM pointing table:
-    # MSv4/POINTING_BEAM = rotate(ASDM/target, ASDM/offset) + correction
-    #  where correction = (ASDM/encoder - ASDM/pointingDirection) is applied when
-    #
-    # MSV4/(POINTING_DISH_MEASURED) = ASDM/encoder
-    #
-    # MSv4/(POINTING_OVER_THE_TOP) = ASDM/overTheTop (optional attribute apparently not present in usual ALMA ASDMs
 
     rotated_target = rotate_offset_to_target(
         direction_vars["target"], direction_vars["offset"]

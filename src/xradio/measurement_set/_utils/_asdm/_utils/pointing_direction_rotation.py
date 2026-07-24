@@ -1,3 +1,12 @@
+"""Utilities for rotating ASDM pointing-direction offsets into a target AltAz frame.
+
+This module provides helpers for converting/rotating local offset directions expressed
+in an AltAz-based East-North-Up (ENU) basis into the global coordinate frame of a
+corresponding target direction. It is meant to be used when working with pointing
+information from ASDM tables, where offsets are stored in the local frame of the
+pointing target.
+"""
+
 import numpy as np
 
 import astropy.units as u
@@ -14,15 +23,21 @@ def rotate_offset_to_target(target: np.ndarray, offset: np.ndarray) -> np.ndarra
 
     Parameters
     ----------
-    target : Array with target AltAz coordinates (in the last dimension), arbitrary shape (...). Typically 3
+    target : np.ndarray
+        Target AltAz coordinates with shape (..., 2). The trailing axis stores
+        ``(az, alt)`` in radians. The array may have arbitrary leading shape,
+        such as ``(n_antenna, n_samples, 2)``. Typically 3
              dimensions. The second dimension is the samples over time for a time interval and an antenna. The
              first dimension is for the groups of rows of the pointing table for every antenna.
-    offset : Array with offset AltAz coordinates, same shape as target.
+    offset : np.ndarray
+        Offset AltAz coordinates, same shape as ``target``, expressed as
+        ``(az, alt)`` in radians.
 
     Returns
     -------
     np.ndarray
-        Rotated directions in the same frame.
+        Rotated offset directions in the same AltAz frame as ``target``, with
+        shape ``target.shape``.
     """
     target_coord = SkyCoord(
         az=target[..., 0] * u.rad,
@@ -55,17 +70,19 @@ def rotate_offset_to_target(target: np.ndarray, offset: np.ndarray) -> np.ndarra
 
 def altaz_local_basis(target: SkyCoord):
     """
-    Compute the local East-North-Up basis for each AltAz coordinate.
+    Build the local East-North-Up basis for one or more AltAz directions.
 
     Parameters
     ----------
     target : SkyCoord
-        AltAz coordinates of arbitrary shape (...).
+        AltAz coordinates of arbitrary shape ``(...)``.
 
     Returns
     -------
-    east, north, up : ndarray
-        Arrays of shape (..., 3).
+    tuple[np.ndarray, np.ndarray, np.ndarray]
+        ``(east, north, up)`` arrays, each with shape ``(..., 3)``. The vectors
+        are expressed in the global Cartesian frame and form the local ENU basis
+        attached to each target direction.
     """
 
     az = target.az.rad
@@ -92,21 +109,22 @@ def altaz_local_basis(target: SkyCoord):
 
 def rotate_sky_coords_offset_to_target(target: SkyCoord, offset: SkyCoord) -> SkyCoord:
     """
-    Rotate offset directions from the local ENU frame defined by each
-    target direction into the global AltAz frame.
+    Rotate offset vectors from the local ENU basis of each target into global AltAz.
 
     Parameters
     ----------
     target : SkyCoord
-        AltAz coordinates, arbitrary shape (...).
-
+        AltAz coordinates defining the local reference directions. The input may
+        have arbitrary shape ``(...)``.
     offset : SkyCoord
-        AltAz coordinates, same shape as target.
+        Offset directions expressed in the local ENU frame attached to each
+        corresponding target coordinate. Must have the same shape as ``target``.
 
     Returns
     -------
     SkyCoord
-        Rotated directions in the same AltAz frame.
+        A ``SkyCoord`` object in the same frame as ``target`` containing the
+        rotated directions expressed in the global AltAz reference frame.
     """
 
     east, north, up = altaz_local_basis(target)

@@ -44,7 +44,7 @@ def open_partition(
     with_pointing: bool = False,
 ) -> xr.DataTree:
     """
-    TODO: opens a partition as an MSv4 DataTre
+    Opens an ASDM partition as an MSv4 DataTre
 
     Parameters
     ----------

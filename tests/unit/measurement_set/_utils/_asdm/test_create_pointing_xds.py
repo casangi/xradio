@@ -10,24 +10,26 @@ from xradio.measurement_set._utils._asdm.create_pointing_xds import (
 from xradio.measurement_set.schema import PointingXds
 from xradio.schema.check import check_dataset
 
+pointing_table_empty_msg = "Pointing table seems empty"
+
 
 def test_create_pointing_xds_empty():
-    with pytest.raises(AttributeError, match="has no attribute"):
+    with pytest.raises(AttributeError, match="NoneType"):
         create_pointing_xds(None)
 
 
 def test_create_pointing_xds_with_asdm_empty(asdm_empty):
-    with pytest.raises(IndexError, match="out of bounds"):
+    with pytest.raises(RuntimeError, match=pointing_table_empty_msg):
         create_pointing_xds(asdm_empty)
 
 
 def test_create_pointing_xds_with_asdm_default(asdm_with_spw_default):
-    with pytest.raises(IndexError, match="out of bounds"):
+    with pytest.raises(RuntimeError, match=pointing_table_empty_msg):
         create_pointing_xds(asdm_with_spw_default)
 
 
 def test_create_pointing_xds_with_asdm_simple(asdm_with_spw_simple):
-    with pytest.raises(IndexError, match="out of bounds"):
+    with pytest.raises(RuntimeError, match=pointing_table_empty_msg):
         create_pointing_xds(asdm_with_spw_simple)
 
 

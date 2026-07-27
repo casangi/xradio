@@ -69,6 +69,10 @@ def create_pointing_xds(asdm: pyasdm.ASDM) -> xr.Dataset:
         "pointingDirection",
     ]
     pointing_df = exp_asdm_table_to_df(asdm, "Pointing", sdm_pointing_attrs)
+    if pointing_df.empty:
+        raise RuntimeError(
+            "The ASDM Pointing table seems empty but it was requested to read it into pointing_xds"
+        )
 
     antenna_groups = pointing_df.groupby("antennaId")
 
@@ -93,21 +97,28 @@ def _make_pointing_coords(
     antenna_df: pd.DataFrame,
     antenna_groups: pd.api.typing.DataFrameGroupBy,
 ) -> dict:
-    antenna_names = []
+    all_antenna_names = []
     time_interval_all_rows = {}
+    num_samples = {}
     for antenna_id, group in antenna_groups:
-        name = antenna_df.loc[antenna_df["antennaId"] == antenna_id, "name"].values[0]
-        antenna_names.append(name)
-        time_interval_all_rows[name] = group["timeInterval"]
+        antenna_name = antenna_df.loc[
+            antenna_df["antennaId"] == antenna_id, "name"
+        ].values[0]
+        all_antenna_names.append(antenna_name)
+        time_interval_all_rows[antenna_name] = group["timeInterval"].values
+        num_samples[antenna_name] = pointing_df.loc[
+            pointing_df["antennaId"] == antenna_id, "numSample"
+        ].values
 
+    one_antenna_name = all_antenna_names[0]
     all_time_centers = _retrieve_all_time_centers(
-        pointing_df, time_interval_all_rows, antenna_names
+        num_samples[one_antenna_name], time_interval_all_rows[one_antenna_name]
     )
     time_pointing_values = convert_time_asdm_to_unix(all_time_centers)
     time_attrs = make_time_measure_attrs("s", "tai", time_format="unix")
     time_pointing_coord = ("time_pointing", time_pointing_values, time_attrs)
     # Could take: antenna_df["name"].values.astype("str"))
-    antenna_name_coord = ("antenna_name", antenna_names)
+    antenna_name_coord = ("antenna_name", all_antenna_names)
     coords = {
         "time_pointing": time_pointing_coord,
         "antenna_name": antenna_name_coord,
@@ -164,35 +175,29 @@ def _make_pointing_data_vars(
 
 
 def _retrieve_all_time_centers(
-    pointing_df: pd.DataFrame,
+    num_samples: np.ndarray,
     time_interval_all_rows: np.ndarray,
-    antenna_names_coord: xr.DataArray,
 ) -> np.ndarray:
     # This makes the time coord.
-    # Definitions for coords/time_pointing,
+    # Definitions for coords/time_pointing:
     #  if no sampled timeInterval: getStart() + interval/2 + idx * (interval), (interval = getDuration() / numSamples)
     #  if sampled timeInterval: the per sample ASDM timeInterval getStart()+getDuration()/2
-    num_samples = int(pointing_df["numSample"].values[0])
-    rows_per_antenna = min(
-        [
-            len(time_interval_all_rows[antenna_name])
-            for antenna_name in antenna_names_coord
-        ]
-    )
-    all_time_centers = np.zeros((rows_per_antenna * num_samples), dtype="float64")
-    all_row_idx = np.arange(0, rows_per_antenna)
-    first_antenna_name = antenna_names_coord[0]
-    for row_idx in all_row_idx:
-        time_interval = time_interval_all_rows[first_antenna_name][row_idx]
+    rows_per_antenna = len(num_samples)
+    total_time_len = sum(num_samples)
+    all_time_centers = np.zeros((total_time_len), dtype="float64")
+    index_time_centers = 0
+    for row_idx in np.arange(0, rows_per_antenna):
+        time_interval = time_interval_all_rows[row_idx]
         # For MSv4 only the centers are kept (no INTERVAL col as in MSv2)
         # ASDM always in ns
-        sample_interval = (time_interval.getDuration() / num_samples).get()
+        row_num_samples = int(num_samples[row_idx])
+        sample_interval = (time_interval.getDuration() / row_num_samples).get()
         first_center = ((time_interval.getStart() + int(sample_interval)) / 2).get()
-        last_center = first_center + (num_samples) * sample_interval
+        last_center = first_center + (row_num_samples) * sample_interval
         time_centers_from_row = np.arange(first_center, last_center, sample_interval)
-        index_time_centers = row_idx * num_samples
-        all_time_centers[index_time_centers : index_time_centers + num_samples] = (
+        all_time_centers[index_time_centers : index_time_centers + row_num_samples] = (
             time_centers_from_row
         )
+        index_time_centers += row_num_samples
 
     return all_time_centers

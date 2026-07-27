@@ -132,7 +132,8 @@ def rotate_sky_coords_offset_to_target(target: SkyCoord, offset: SkyCoord) -> Sk
     # Offset vectors in Cartesian coordinates
     xyz = np.moveaxis(offset.cartesian.xyz.value, 0, -1)
 
-    # Avoid explicitly building the full 3×3 rotation matrix (einsum):
+    # Emulates the 'eulmat', 'matvec' calculations of the CASA sdm tool
+    # But avoids explicitly building the full 3×3 rotation matrix (einsum):
     #
     # Since the matrix columns are just the basis vectors, you can apply the rotation directly:
     # This is mathematically identical to the matrix multiplication because

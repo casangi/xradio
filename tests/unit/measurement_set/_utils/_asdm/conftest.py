@@ -719,6 +719,7 @@ def mock_asdm_set_from_file():
         add_spw_table(self)
         add_scan_table(self)
         add_antenna_station_tables(self)
+        add_pointing_table(self)
         add_execblock_table(self)
         add_processor_table(self)
         add_sbsummary_table(self)

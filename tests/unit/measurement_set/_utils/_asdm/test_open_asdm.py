@@ -38,7 +38,7 @@ def test_open_asdm_with_spw_default(mock_asdm_set_from_file, monkeypatch):
         open_asdm("/unused_path/foo", [])
 
 
-def test_open_asdm_with_spw_simple(mock_asdm_set_from_file, monkeypatch):
+def test_open_asdm_with_mocked_set_from_file(mock_asdm_set_from_file, monkeypatch):
 
     def mock_load_times_from_partition_bdfs(
         bdf_paths: list[str], scans_metadata: pd.DataFrame
@@ -61,11 +61,15 @@ def test_open_asdm_with_spw_simple(mock_asdm_set_from_file, monkeypatch):
         "/unused_path/foo",
         ["dataDescriptionId", "execBlockId", "fieldId", "scanIntent"],
         include_processor_types=["CORRELATOR", "SPECTROMETER", "RADIOMETER"],
+        with_pointing=True,
     )
     assert isinstance(ps_xdt, xr.DataTree)
     assert ps_xdt.type == "processing_set"
-    for _msv4_name, msv4_xdt in enumerate(ps_xdt):
-        assert isinstance(msv4_xdt, str)
+    for _msv4_idx, msv4_name in enumerate(ps_xdt):
+        assert isinstance(msv4_name, str)
+        assert "antenna_xds" in ps_xdt[msv4_name]
+        assert "field_and_source_base_xds" in ps_xdt[msv4_name]
+        assert "pointing_xds" in ps_xdt[msv4_name]
     check_datatree(ps_xdt)
 
 

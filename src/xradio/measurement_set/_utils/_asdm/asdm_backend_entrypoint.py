@@ -27,6 +27,8 @@ class ASDMBackendEntryPoint(BackendEntrypoint):
         partition_scheme: list[str] = None,
         include_processor_types: list[str] = None,
         include_spectral_resolution_types: list[str] = None,
+        with_pointing: bool = None,
+        pointing_for_only_spectral_resolution_types: list[str] = None,
     ) -> xr.DataTree:
 
         if drop_variables is not None:
@@ -37,6 +39,8 @@ class ASDMBackendEntryPoint(BackendEntrypoint):
             partition_scheme,
             include_processor_types,
             include_spectral_resolution_types,
+            with_pointing,
+            pointing_for_only_spectral_resolution_types,
         )
 
     def guess_can_open(self, filename_or_obj) -> bool:

@@ -120,6 +120,37 @@ def test_open_partition_monkeypatched_bdf_asdm_with_spw_simple(
         assert np.allclose(uvw_selection, np.zeros((1, 2, 3), dtype="float64"))
 
 
+def test_open_partition_monkeypatched_bdf_asdm_with_spw_simple_pointing_selection(
+    asdm_with_main_etc_data_description_polarization_field_source, monkeypatch
+):
+    from xradio.measurement_set._utils._asdm.open_partition import open_partition
+
+    monkeypatch.setattr(
+        "xradio.measurement_set._utils._asdm.open_partition.load_times_from_partition_bdfs",
+        mock_load_times_from_partition_bdfs,
+    )
+    partition = open_partition(
+        asdm_with_main_etc_data_description_polarization_field_source,
+        {
+            "fieldId": [0],
+            "configDescriptionId": [0],
+            "scanNumber": [0],
+            "scanIntent": [0],
+            "dataDescriptionId": [0],
+            "BDFPath": ["/inexistent_test_path/foo"],
+            "spectralType": ["FULL_RESOLUTION"],
+        },
+        with_pointing=True,
+        pointing_for_only_spectral_resolution_types=["nonexistent_foo_bar"],
+    )
+
+    assert isinstance(partition, xr.DataTree)
+    check_datatree(partition)
+
+    assert "antenna_xds" in partition
+    assert "pointing_xds" not in partition
+
+
 def test_correlated_xds_default(asdm_with_spw_default):
     from xradio.measurement_set._utils._asdm.open_partition import create_correlated_xds
 

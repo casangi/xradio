@@ -7,6 +7,9 @@ from xradio.measurement_set._utils._asdm._utils.field_source import get_directio
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,
 )
+from xradio.measurement_set._utils._asdm._utils.sky_coord_dict_helper import (
+    make_sky_coord_measure_attrs,
+)
 from xradio._utils.dict_helpers import make_quantity, make_spectral_coord_measure_attrs
 
 
@@ -84,7 +87,7 @@ def create_field_and_source_xds(
     ref_dir = field_df["referenceDir"].values[0][0]
     xds[center_dv] = (
         ["field_name", "sky_dir_label"],
-        [[ref_dir[0].get(), ref_dir[1].get()]],
+        [[ref_dir[0], ref_dir[1]]],
     )
     xds.data_vars[center_dv].attrs.update(
         make_sky_coord_measure_attrs(["rad", "rad"], "fk5")
@@ -169,30 +172,3 @@ def create_field_and_source_xds(
     xds.attrs.update({"is_ephemeris": is_ephemeris})
 
     return xds
-
-
-# TODO: to move to dict-helpers or related place
-def make_sky_coord_measure_attrs(units: str, frame: str) -> dict:
-    """
-    Create a dictionary of sky coordinate measure attributes.
-    Parameters
-    ----------
-    units : str or list
-        Units for sky coordinate measure. Can be a single string or list of strings.
-    frame : str
-        Reference frame for sky coordinate measure.
-    Returns
-    -------
-    dict
-        Dictionary containing the measure attributes with the following keys:
-        - units: list of units
-        - frame: reference frame
-        - type: fixed to "sky_coord"
-    Examples
-    --------
-    >>> make_sky_coord_measure_attrs("rad", "ICRS")
-    {'units': 'rad', 'frame': 'ICRS', 'type': 'sky_coord'}
-    """
-
-    sky_coord_measure_attrs = {"units": units, "frame": frame, "type": "sky_coord"}
-    return sky_coord_measure_attrs

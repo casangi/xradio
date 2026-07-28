@@ -1,3 +1,5 @@
+import numpy as np
+
 import pandas as pd
 
 import pytest
@@ -146,3 +148,18 @@ def test_exp_asdm_table_to_df_asdm_with_spw_simple_plus_polarization(
     assert polarization_df.columns == cols
     assert polarization_df.shape == (1, 1)
     assert polarization_df["corrProduct"].values[0] == [["X", "X", "Y", "Y"]]
+
+
+def test_exp_asdm_table_to_df_asdm_with_field_direction(
+    asdm_with_main_etc_data_description_polarization_field_source,
+):
+
+    cols = ["referenceDir"]
+    field_df = exp_asdm_table_to_df(
+        asdm_with_main_etc_data_description_polarization_field_source, "Field", cols
+    )
+    assert field_df.columns == cols
+    assert field_df.shape == (1, 1)
+    assert np.allclose(
+        field_df["referenceDir"].values[0], [1.14870, -0.0234314], rtol=1e-5
+    )

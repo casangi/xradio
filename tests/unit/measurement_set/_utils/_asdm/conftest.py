@@ -567,6 +567,84 @@ def asdm_with_main_config(asdm_with_spw_simple):
     return asdm
 
 
+def add_pointing_table(asdm: pyasdm.ASDM):
+    """
+    Meant for tests of create_pointing_xds and related functions
+    """
+    # Examples mixed from uid___A002_X94f2b3_Xb79 (TelCal unit tests) and uid___A002_Xf002b5_X3233 (PL
+    # Bencharmk2025). Not including the <atmosphericCorrection> array here.
+    pointing_rows_xml = [
+        """
+    <row>
+    <timeInterval> 2568597435384000000 24240000000 </timeInterval> <numSample> 4 </numSample>
+    <encoder> 2 4 2 -1.46 1.14 -1.46 1.14 -1.46 1.14 -1.46 1.14 </encoder>
+    <pointingTracking> True </pointingTracking> <usePolynomials> False </usePolynomials>
+    <timeOrigin> 5137194858648000000 </timeOrigin> <numTerm> 1 </numTerm>
+    <pointingDirection> 2 4 2 -1.46 1.14 -1.46 1.14 -1.46 1.14 -1.46 1.14 </pointingDirection>
+    <target> 2 4 2 -1.46 1.14 -1.46 1.14 -1.46 1.14 -1.46 1.14 </target>
+    <offset> 2 4 2 0.1 0.2 0.1 0.2 0.1 0.2 0.1 0.2 </offset>
+    <sourceOffset> 2 4 2 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 </sourceOffset>
+    <antennaId> Antenna_0 </antennaId> <pointingModelId> 2 </pointingModelId>
+    </row>
+    """,
+        """
+    <row>
+    <timeInterval> 2568597447744000000 24240000000 </timeInterval> <numSample> 4 </numSample>
+    <encoder> 2 4 2 -1.46 1.14 -1.46 1.14 -1.46 1.14 -1.46 1.14 </encoder>
+    <pointingTracking> True </pointingTracking> <usePolynomials> False </usePolynomials>
+    <timeOrigin> 5137194858648000000 </timeOrigin> <numTerm> 1 </numTerm>
+    <pointingDirection> 2 4 2 -1.46 1.14 -1.46 1.14 -1.46 1.14 -1.46 1.14 </pointingDirection>
+    <target> 2 4 2 -1.46 1.14 -1.46 1.14 -1.46 1.14 -1.46 1.14 </target>
+    <offset> 2 4 2 0.2 0.3 0.2 0.3 0.2 0.3 0.2 0.3 </offset>
+    <sourceOffset> 2 4 2 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 </sourceOffset>
+    <antennaId> Antenna_0 </antennaId> <pointingModelId> 2 </pointingModelId>
+    </row>
+    """,
+        """
+    <row>
+    <timeInterval> 2568597435384000000 24240000000 </timeInterval> <numSample> 4 </numSample>
+    <encoder> 2 4 2 -1.46 1.14 -1.46 1.14 -1.46 1.14 -1.46 1.14 </encoder>
+    <pointingTracking> True </pointingTracking> <usePolynomials> False </usePolynomials>
+    <timeOrigin> 5137194858648000000 </timeOrigin> <numTerm> 1 </numTerm>
+    <pointingDirection> 2 4 2 -1.46 1.14 -1.46 1.14 -1.46 1.14 -1.46 1.14 </pointingDirection>
+    <target> 2 4 2 -1.46 1.14 -1.46 1.14 -1.46 1.14 -1.46 1.14 </target>
+    <offset> 2 4 2 0.01 0.02 0.01 0.02 0.01 0.02 0.01 0.02 </offset>
+    <sourceOffset> 2 4 2 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 </sourceOffset>
+    <antennaId> Antenna_1 </antennaId> <pointingModelId> 2 </pointingModelId>
+    </row>
+    """,
+        """
+    <row>
+    <timeInterval> 2568597447744000000 24240000000 </timeInterval> <numSample> 4 </numSample>
+    <encoder> 2 4 2 -1.46 1.14 -1.46 1.14 -1.46 1.14 -1.46 1.14 </encoder>
+    <pointingTracking> True </pointingTracking> <usePolynomials> False </usePolynomials>
+    <timeOrigin> 5137194858648000000 </timeOrigin> <numTerm> 1 </numTerm>
+    <pointingDirection> 2 4 2 -1.46 1.14 -1.46 1.14 -1.46 1.14 -1.46 1.14 </pointingDirection>
+    <target> 2 4 2 -1.46 1.14 -1.46 1.14 -1.46 1.14 -1.46 1.14 </target>
+    <offset> 2 4 2 0.001 0.002 0.001 0.002 0.001 0.002 0.001 0.002 </offset>
+    <sourceOffset> 2 4 2 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0 </sourceOffset>
+    <antennaId> Antenna_1 </antennaId> <pointingModelId> 2 </pointingModelId>
+    </row>
+    """,
+    ]
+    pointing_table = asdm.getPointing()
+    for pointing_row_xml in pointing_rows_xml:
+        pointing_row = pyasdm.PointingRow(pointing_table)
+        pointing_row.setFromXML(pointing_row_xml)
+        pointing_table.add(pointing_row)
+
+
+@pytest.fixture(scope="session")
+def asdm_with_antenna_station_pointing():
+    """
+    Meant for create_antenna_xds tests
+    """
+    asdm = make_asdm_with_spw_simple()
+    add_antenna_station_tables(asdm)
+    add_pointing_table(asdm)
+    return asdm
+
+
 def add_spw_table(asdm: pyasdm.ASDM):
     spw_row_0_xml = """
   <row>
@@ -641,6 +719,7 @@ def mock_asdm_set_from_file():
         add_spw_table(self)
         add_scan_table(self)
         add_antenna_station_tables(self)
+        add_pointing_table(self)
         add_execblock_table(self)
         add_processor_table(self)
         add_sbsummary_table(self)

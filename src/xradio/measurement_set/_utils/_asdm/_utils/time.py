@@ -3,7 +3,7 @@ import numpy as np
 import pyasdm
 
 
-def convert_time_asdm_to_unix(times_asdm: np.ndarray):
+def convert_time_asdm_to_unix(times_asdm: np.ndarray) -> np.ndarray:
     """Convert ASDM time values to Unix timestamps.
 
     The ASDM stores time values as nanoseconds since the MJD epoch.
@@ -17,8 +17,8 @@ def convert_time_asdm_to_unix(times_asdm: np.ndarray):
 
     Returns
     -------
-    list
-        A list of Unix timestamps (seconds since the Unix epoch), converted from the input ASDM times.
+    np.ndarray
+        Array of Unix timestamps (seconds since the Unix epoch), converted from the input ASDM times.
 
     Notes
     -----

@@ -82,8 +82,8 @@ def create_partitions(
     ]  # , "processorId"]
     if include_processor_types:
         sdm_config_description_attrs.append("processorType")
-    if include_spectral_resolution_types:
-        sdm_config_description_attrs.append("spectralType")
+    # include this always in the resulting partition (for pointing for example)
+    sdm_config_description_attrs.append("spectralType")
 
     config_description_df = exp_asdm_table_to_df(
         sdm, "ConfigDescription", sdm_config_description_attrs

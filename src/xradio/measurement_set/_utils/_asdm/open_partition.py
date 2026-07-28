@@ -28,6 +28,7 @@ from xradio.measurement_set._utils._asdm.create_antenna_xds import create_antenn
 from xradio.measurement_set._utils._asdm.create_field_and_source_xds import (
     create_field_and_source_xds,
 )
+from xradio.measurement_set._utils._asdm.create_pointing_xds import create_pointing_xds
 from xradio.measurement_set._utils._asdm.create_info_dicts import create_info_dicts
 from xradio._utils.dict_helpers import (
     make_quantity,
@@ -41,9 +42,11 @@ from xradio._utils.dict_helpers import (
 def open_partition(
     asdm: pyasdm.ASDM,
     partition_descr: dict[str, np.ndarray],
+    with_pointing: bool = False,
+    pointing_for_only_spectral_resolution_types: list[str] = None,
 ) -> xr.DataTree:
     """
-    TODO: opens a partition as an MSv4 DataTre
+    Opens an ASDM partition as an MSv4 DataTre
 
     Parameters
     ----------
@@ -51,6 +54,14 @@ def open_partition(
         Input ASDM object
     partition_descr:
         description of partition IDs in a dictionary of "ID ASDM key/attribute" -> numeric IDs
+    with_pointing:
+        whether to read the Pointing table from the ASDM into a pointing xds sub-dataset
+    pointing_for_only_spectral_resolution_types:
+        When with_pointing is enabled, this parameter can be used to give a list of the spectral
+        resolution types for which the pointing dataset should be created. The MSv4 created
+        for this partition will not have a pointing dataset if its spectral resolution type is
+        not included in the list. When the list is not given or is empty, the pointing dataset
+        is created regardless of the spectral resolution type.
 
     Returns
     -------
@@ -77,6 +88,13 @@ def open_partition(
     # weather_xds
 
     # pointing_xds
+    read_pointing = with_pointing and (
+        not pointing_for_only_spectral_resolution_types
+        or partition_descr["spectralType"]
+        in pointing_for_only_spectral_resolution_types
+    )
+    if read_pointing:
+        pointing_xds = create_pointing_xds(asdm)
 
     # phased_array_xds
 
@@ -101,6 +119,8 @@ def open_partition(
     msv4_xdt.ds = correlated_xds
     msv4_xdt["/antenna_xds"] = antenna_xds
     msv4_xdt["/field_and_source_base_xds"] = field_and_source_xds
+    if read_pointing:
+        msv4_xdt["/pointing_xds"] = pointing_xds
 
     return msv4_xdt
 

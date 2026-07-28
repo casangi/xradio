@@ -46,7 +46,7 @@ def test_open_datatree_mocked_open_asdm():
         asdm_ps = asdm_backend.open_datatree(bogus_path)
         assert asdm_ps == dummy_asdm_ps
         mock_open_asdm.assert_called_once()
-        assert mock_open_asdm.call_args[0] == (bogus_path, None, None, None)
+        assert mock_open_asdm.call_args[0] == (bogus_path, None, None, None, None, None)
 
 
 def test_guess_can_open_except():

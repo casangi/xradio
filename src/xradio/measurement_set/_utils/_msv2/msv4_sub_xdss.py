@@ -1,6 +1,5 @@
 import os
 import time
-from typing import Optional, Tuple, Union
 
 import numpy as np
 import xarray as xr
@@ -8,23 +7,23 @@ from numpy.typing import ArrayLike
 
 from xradio._utils.coord_math import convert_to_si_units
 from xradio._utils.dict_helpers import (
-    make_time_measure_attrs,
     make_spectral_coord_measure_attrs,
+    make_time_measure_attrs,
 )
 from xradio._utils.logging import xradio_logger
 from xradio._utils.schema import (
     column_description_casacore_to_msv4_measure,
     convert_generic_xds_to_xradio_schema,
 )
-from xradio.measurement_set._utils._utils.interpolate import (
-    interpolate_to_time,
-)
-from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
 from xradio.measurement_set._utils._msv2._tables.read import (
     load_generic_table,
     make_taql_where_between_min_max,
     table_exists,
     table_has_column,
+)
+from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
+from xradio.measurement_set._utils._utils.interpolate import (
+    interpolate_to_time,
 )
 
 standard_time_coord_attrs = make_time_measure_attrs(time_format="unix")
@@ -33,7 +32,7 @@ standard_time_coord_attrs = make_time_measure_attrs(time_format="unix")
 def rename_and_interpolate_to_time(
     xds: xr.Dataset,
     time_initial_name: str,
-    interp_time: Union[xr.DataArray, None],
+    interp_time: xr.DataArray | None,
     message_prefix: str,
 ) -> xr.Dataset:
     """
@@ -414,8 +413,8 @@ def correct_generic_pointing_xds(
 def create_pointing_xds(
     in_file: str,
     ant_xds_name_ids: xr.DataArray,
-    time_min_max: Union[Tuple[np.float64, np.float64], None],
-    interp_time: Union[xr.DataArray, None] = None,
+    time_min_max: tuple[np.float64, np.float64] | None,
+    interp_time: xr.DataArray | None = None,
 ) -> xr.Dataset:
     """
     Creates a Pointing Xarray Dataset from an MS v2 POINTING (sub)table.
@@ -596,7 +595,7 @@ def create_system_calibration_xds(
     spectral_window_id: int,
     main_xds_frequency: xr.DataArray,
     ant_xds: xr.DataArray,
-    sys_cal_interp_time: Union[xr.DataArray, None] = None,
+    sys_cal_interp_time: xr.DataArray | None = None,
 ):
     """
     Creates a system calibration Xarray Dataset from a MSv2 SYSCAL table.
@@ -708,7 +707,7 @@ def create_phased_array_xds(
     antenna_names: list[str],
     receptor_label: list[str],
     polarization_type: ArrayLike,
-) -> Optional[xr.Dataset]:
+) -> xr.Dataset | None:
     """
     Create an Xarray Dataset containing phased array information.
 

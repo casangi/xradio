@@ -12,8 +12,9 @@ import inspect
 import logging
 import os
 import shutil
+from collections.abc import Sequence
 from functools import wraps
-from typing import Any, Dict, List, Sequence, Union
+from typing import Any
 
 # Configure casaconfig settings prior to casatools import
 # this ensures optimal initialization and resource allocation for casatools
@@ -27,7 +28,11 @@ except ModuleNotFoundError as exc:
         "python-casacore is not available either. MSv2 related functionality "
         "requires either python-casacore or casatools. Import failure details: "
         f"{exc}"
-    )
+    ) from exc
+
+import numpy as np
+
+from xradio._utils.logging import xradio_logger
 
 # Valid casacore ImageInfo enum values
 # Reference: https://casacore.github.io/casacore/classcasacore_1_1ImageInfo.html
@@ -46,9 +51,6 @@ _VALID_IMAGE_TYPES = (
     "Velocity",
     "VelocityDispersion",
 )
-
-import numpy as np
-from xradio._utils.logging import xradio_logger
 
 casaconfig.config.data_auto_update = False
 casaconfig.config.measures_auto_update = False
@@ -244,14 +246,16 @@ class table(casatools.table):
         tabledesc: bool = False,
         nrow: int = 0,
         readonly: bool = True,
-        lockoptions: Dict = {},
+        lockoptions: dict | None = None,
         ack: bool = True,
-        dminfo: Dict = {},
+        dminfo: dict | None = None,
         endian: str = "aipsrc",
         memorytable: bool = False,
-        concatsubtables: List = [],
+        concatsubtables: list | None = None,
         **kwargs,
     ):
+        if lockoptions is None:
+            lockoptions = {}
         _tablename = tablename.replace("::", "/")
         super().__init__(
             tablename=_tablename, lockoptions=lockoptions, nomodify=readonly, **kwargs
@@ -265,7 +269,9 @@ class table(casatools.table):
         """Function to exit a with block which closes the table object."""
         self.close()
 
-    def row(self, columnnames: List[str] = [], exclude: bool = False) -> "tablerow":
+    def row(
+        self, columnnames: list[str] | None = None, exclude: bool = False
+    ) -> "tablerow":
         """Access rows in the table.
 
         Parameters
@@ -280,6 +286,8 @@ class table(casatools.table):
         tablerow
             A tablerow object for accessing rows.
         """
+        if columnnames is None:
+            columnnames = []
         return tablerow(self, columnnames=columnnames, exclude=exclude)
 
     def col(self, columnname: str) -> "tablecolumn":
@@ -538,7 +546,7 @@ def _convert_numpy_scalars_to_native(value: Any) -> Any:
     if isinstance(value, dict):
         return {k: _convert_numpy_scalars_to_native(v) for k, v in value.items()}
 
-    elif isinstance(value, (list, tuple)):
+    elif isinstance(value, list | tuple):
         # Preserve list or tuple type
         return type(value)(_convert_numpy_scalars_to_native(item) for item in value)
 
@@ -953,12 +961,14 @@ class tablerow(casatools.tablerow):
     """
 
     def __init__(
-        self, table: table, columnnames: List[str] = [], exclude: bool = False
+        self, table: table, columnnames: list[str] | None = None, exclude: bool = False
     ):
+        if columnnames is None:
+            columnnames = []
         super().__init__(table, columnnames=columnnames, exclude=exclude)
 
     @method_wrapper
-    def get(self, rownr: int) -> Dict[str, Any]:
+    def get(self, rownr: int) -> dict[str, Any]:
         """Retrieve data for a specific row.
 
         Parameters
@@ -973,9 +983,7 @@ class tablerow(casatools.tablerow):
         """
         return super().get(rownr)
 
-    def __getitem__(
-        self, key: Union[int, slice]
-    ) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
+    def __getitem__(self, key: int | slice) -> dict[str, Any] | list[dict[str, Any]]:
         """Retrieve rows using indexing or slicing.
 
         Parameters
@@ -1035,7 +1043,7 @@ class tablecolumn:
         """
         return self._table.getcell(self._columnname, irow)
 
-    def __getitem__(self, key: Union[int, slice]) -> Union[Any, List[Any]]:
+    def __getitem__(self, key: int | slice) -> Any | list[Any]:
         """Get a value or a list of values from the column using indexing or slicing.
 
         Parameters

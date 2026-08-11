@@ -1,9 +1,11 @@
-from ._zarr.xds_to_zarr import _write_zarr
-from ._zarr.xds_from_zarr import _read_zarr
-import numpy as np
 import os
+
+import numpy as np
 import xarray as xr
-from ..._utils.zarr.common import _open_dataset
+
+from xradio._utils.zarr.common import _open_dataset
+from xradio.image._util._zarr.xds_from_zarr import _read_zarr
+from xradio.image._util._zarr.xds_to_zarr import _write_zarr
 
 
 def _xds_to_zarr(xds: xr.Dataset, zarr_store: str):
@@ -11,7 +13,7 @@ def _xds_to_zarr(xds: xr.Dataset, zarr_store: str):
 
 
 def _xds_from_zarr(
-    zarr_store: str, output: dict = {}, selection: dict = {}
+    zarr_store: str, output: dict | None = None, selection: dict | None = None
 ) -> xr.Dataset:
     # supported key/values in output are:
     # "dv"
@@ -21,6 +23,10 @@ def _xds_from_zarr(
     # "coords"
     #    what coordinates should be returned as
     #    "numpy": numpy arrays
+    if output is None:
+        output = {}
+    if selection is None:
+        selection = {}
     return _read_zarr(zarr_store, output, selection)
 
 

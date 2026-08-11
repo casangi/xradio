@@ -1,30 +1,30 @@
-import numpy as np
 import os
 import pathlib
-import pytest
 import time
 import warnings
+
+import numpy as np
 
 # pytest.skip(
 #     "Skipping because we are debugging another set of tests and these take a while to run.",
 #     allow_module_level=True,
 # )
-
 import pandas as pd
-import xarray as xr
-
-from toolviper.utils.data import download
+import pytest
 import toolviper.utils.logger as logger
+import xarray as xr
+from toolviper.utils.data import download
+
+from xradio._utils.zarr.config import ZARR_FORMAT
 from xradio.measurement_set import (
-    open_processing_set,
-    load_processing_set,
-    convert_msv2_to_processing_set,
-    estimate_conversion_memory_and_cores,
     MeasurementSetXdt,
     ProcessingSetXdt,
+    convert_msv2_to_processing_set,
+    estimate_conversion_memory_and_cores,
+    load_processing_set,
+    open_processing_set,
 )
 from xradio.schema.check import check_datatree
-from xradio._utils.zarr.config import ZARR_FORMAT
 
 # relative_tolerance = 10 ** (-12)
 relative_tolerance = 10 ** (-5)
@@ -39,7 +39,6 @@ def tmp_path():
 def download_and_convert_msv2_to_processing_set(
     msv2_name, folder, partition_scheme, parallel_mode: str = "partition"
 ):
-
     _logger_name = "xradio"
     if os.getenv("VIPER_LOGGER_NAME") != _logger_name:
         os.environ["VIPER_LOGGER_NAME"] = _logger_name
@@ -178,11 +177,11 @@ def base_check_ps_accessor(ps_lazy_xdt: xr.DataTree, ps_xdt: xr.DataTree):
     assert isinstance(freq_axis, xr.DataArray)
 
     combined_field_xds = ps_xdt.xr_ps.get_combined_field_and_source_xds()
-    assert type(combined_field_xds) == xr.Dataset
+    assert type(combined_field_xds) is xr.Dataset
     combined_antenna = ps_xdt.xr_ps.get_combined_antenna_xds()
-    assert type(combined_antenna) == xr.Dataset
+    assert type(combined_antenna) is xr.Dataset
     base_field_xds = ps_xdt.xr_ps.get_combined_field_and_source_xds("base")
-    assert type(base_field_xds) == xr.Dataset
+    assert type(base_field_xds) is xr.Dataset
 
     try:
         import matplotlib
@@ -287,7 +286,7 @@ def base_check_time_secondary_datasets(ps_xdt: xr.DataTree):
     def get_ps_time_min_max(ps_xdt: xr.DataTree) -> tuple[np.float64, np.float64]:
         """Finds min/max of the time coord across all the MSv4 of the PS"""
         ps_time_min, ps_time_max = 1.5e308, -1.5e308
-        for ms_name, ms_xdt in ps_xdt.items():
+        for ms_xdt in ps_xdt.values():
             ms_time_min, ms_time_max = ms_xdt.time.min(), ms_xdt.time.max()
             if ms_time_min < ps_time_min:
                 ps_time_min = ms_time_min
@@ -327,25 +326,25 @@ def base_test(
     folder: pathlib.Path,
     expected_sum_value: float,
     is_s3: bool = False,
-    partition_schemes: list = [[], ["FIELD_ID"]],
+    partition_schemes: list | None = None,
     parallel_mode: str = "partition",
     preconverted: bool = False,
     do_schema_check: bool = True,
     expected_secondary_xds: set = None,
 ):
+    if partition_schemes is None:
+        partition_schemes = [[], ["FIELD_ID"]]
+
     start = time.time()
 
     from toolviper.dask.client import local_client
 
-    viper_client = local_client(
+    # keep a reference so the Dask client stays alive for the whole test
+    viper_client = local_client(  # noqa: F841
         cores=2, memory_limit="3GB"
     )  ##Do not increase size otherwise GitHub MacOS runner will hang.
 
-    viper_client
-
-    ps_list = (
-        []
-    )  # Create a list of PS for each partition scheme. This will be returned.
+    ps_list = []  # Create a list of PS for each partition scheme. This will be returned.
     for partition_scheme in partition_schemes:
         if is_s3:
             ps_name = file_name
@@ -370,9 +369,9 @@ def base_test(
 
         ms_xdt_name = list(ps_lazy_xdt.keys())[0]
         ms_xds = ps_lazy_xdt[ms_xdt_name].ds
-        assert (
-            type(ms_xds.WEIGHT) is xr.DataArray
-        ), "open_processing_set did not create Dask array."
+        assert type(ms_xds.WEIGHT) is xr.DataArray, (
+            "open_processing_set did not create Dask array."
+        )
 
         # sel_parms = {key: {} for key in ps_lazy_xdt.keys()}
         ps_xdt = load_processing_set(str(ps_copy_name))
@@ -405,12 +404,12 @@ def base_test(
             base_check_time_centroid(ms_xds)
 
         print("sum", sum, sum_lazy)
-        assert (
-            sum == sum_lazy
-        ), "open_processing_set and load_processing_set VISIBILITY and WEIGHT values differ."
-        assert sum == pytest.approx(
-            expected_sum_value, rel=relative_tolerance
-        ), "VISIBILITY and WEIGHT values have changed."
+        assert sum == sum_lazy, (
+            "open_processing_set and load_processing_set VISIBILITY and WEIGHT values differ."
+        )
+        assert sum == pytest.approx(expected_sum_value, rel=relative_tolerance), (
+            "VISIBILITY and WEIGHT values have changed."
+        )
 
         if do_schema_check:
             # print("*******************")

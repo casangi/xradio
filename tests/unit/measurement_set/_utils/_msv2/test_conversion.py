@@ -1,15 +1,14 @@
+import shutil
 from collections import namedtuple
 from contextlib import nullcontext as no_raises
 
 import numpy as np
 import pytest
-import shutil
 import xarray as xr
 
 import xradio.measurement_set._utils._msv2.conversion as conversion
 from xradio.measurement_set.schema import VisibilityXds
 from xradio.schema.check import check_dataset, check_datatree
-
 from xradio.testing.measurement_set.checker import check_msv4_matches_descr
 
 minxds = namedtuple("minxds", "data_vars coords sizes")
@@ -312,7 +311,6 @@ def test_estimate_memory_and_cores_for_partitions(
 
 
 def test_convert_and_write_partition_empty_complete(ms_empty_complete):
-
     conversion.convert_and_write_partition(
         in_file=ms_empty_complete.fname,
         out_file="out_file_test_empty_complete.zarr",
@@ -326,7 +324,6 @@ def test_convert_and_write_partition_empty_complete(ms_empty_complete):
 
 
 def test_convert_and_write_partition_empty_required(ms_empty_required):
-
     conversion.convert_and_write_partition(
         in_file=ms_empty_required.fname,
         out_file="out_file_test_empty.zarr",
@@ -340,7 +337,6 @@ def test_convert_and_write_partition_empty_required(ms_empty_required):
 
 
 def test_convert_and_write_partition_min(ms_minimal_required):
-
     out_name = "out_file_test_convert_write.zarr"
     msv4_id = "msv4_id"
     try:
@@ -379,7 +375,6 @@ def test_convert_and_write_partition_min(ms_minimal_required):
 
 
 def test_convert_and_write_partition_misbehaved(ms_minimal_misbehaved):
-
     out_name = "out_file_test_convert_write_misbehaving_ms.zarr"
     msv4_id = "msv4_id"
     try:
@@ -408,7 +403,6 @@ def test_convert_and_write_partition_misbehaved(ms_minimal_misbehaved):
 
 
 def test_convert_and_write_partition_with_antenna1(ms_minimal_required):
-
     out_name = "out_file_test_convert_write_with_antenna1.zarr"
     msv4_id = "msv4_id"
     try:
@@ -453,7 +447,6 @@ def test_convert_and_write_partition_with_antenna1(ms_minimal_required):
 
 
 def test_convert_and_write_partition_without_opt(ms_minimal_without_opt):
-
     out_name = "out_file_test_convert_write_ms_min_without_optional_subtables.zarr"
     msv4_id = "msv4_id"
     try:
@@ -506,7 +499,6 @@ ms_custom_description = {
 
 @pytest.mark.parametrize("ms_custom_spec", [ms_custom_description], indirect=True)
 def test_convert_and_write_partition_custom(ms_custom_spec):
-
     out_name = "out_file_test_convert_write.zarr"
     msv4_id = "msv4_id"
     try:

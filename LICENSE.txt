@@ -1,6 +1,6 @@
 BSD 3-Clause License
 
-All works in this repository are copyrighted 2024.  
+All works in this repository are copyrighted 2024.
 For inquiries contact  Associated Universities, Inc., 2650 Park Tower Drive Vienna, VA 22180, USA.
 
 Portions of this repository are copyrighted by the following entities:

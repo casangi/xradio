@@ -30,7 +30,7 @@ To install the zarr backend use:
 ```sh
 pip install "xradio[zarr]"
 ```
-This allows for opening data stored using zarr. 
+This allows for opening data stored using zarr.
 
 To install the zarr backend and the interactive components (JupyterLab) use:
 ```sh

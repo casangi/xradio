@@ -1,33 +1,27 @@
-from typing import Dict, TypedDict, Union
+from typing import TypedDict
 
 import xarray as xr
 
-PartitionIds = TypedDict(
-    "PartitionIds",
-    {
-        "array_id": int,
-        "observation_id": int,
-        "pol_setup_id": int,
-        "processor_id": int,
-        "spw_id": int,
-    },
-)
 
-VisGroup = TypedDict(
-    "VisGroup",
-    {
-        "seq_id": int,
-        "vis": str,
-        "flag": str,
-        "weight": str,
-        "uvw": str,
-        "imaging_weight": Union[str, None],
-        "descr": str,
-    },
-)
+class PartitionIds(TypedDict):
+    array_id: int
+    observation_id: int
+    pol_setup_id: int
+    processor_id: int
+    spw_id: int
 
 
-def make_vis_group_attr(xds: xr.Dataset) -> Dict:
+class VisGroup(TypedDict):
+    seq_id: int
+    vis: str
+    flag: str
+    weight: str
+    uvw: str
+    imaging_weight: str | None
+    descr: str
+
+
+def make_vis_group_attr(xds: xr.Dataset) -> dict:
     """
     Add an attribute with the initial data/vis groups that have been
     read from the MS (DATA / CORRECTED_DATA / MODEL_DATA)
@@ -49,7 +43,7 @@ def make_vis_group_attr(xds: xr.Dataset) -> Dict:
     img_weight = imgw_name if imgw_name in xds.data_vars else None
     vis_groups = {}
     seq_id = 1
-    for var, msv2_name in zip(msv2_extended_vis_vars, msv2_col_names):
+    for var, msv2_name in zip(msv2_extended_vis_vars, msv2_col_names, strict=False):
         if var in xds.data_vars:
             grp: VisGroup = {
                 "seq_id": seq_id,
@@ -92,7 +86,7 @@ def add_partition_attrs(
     ddi: int,
     ddi_xds: xr.Dataset,
     part_ids: PartitionIds,
-    other_attrs: Dict,
+    other_attrs: dict,
 ) -> xr.Dataset:
     """
     add attributes to the xr.Dataset:

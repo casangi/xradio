@@ -1,5 +1,6 @@
-from xradio._utils.zarr.common import _get_file_system_and_items
 import xarray as xr
+
+from xradio._utils.zarr.common import _get_file_system_and_items
 
 
 def open_processing_set(

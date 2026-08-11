@@ -26,4 +26,3 @@ twine==4.0.2
 pandoc==2.3
 myst-parser==4.0.1
 toolviper
-

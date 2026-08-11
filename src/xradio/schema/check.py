@@ -1,21 +1,24 @@
 import builtins
 import dataclasses
-import typing
-import inspect
 import functools
+import inspect
+import typing
 import warnings
 
-import xarray
 import numpy
+import xarray
 
-from xradio.schema import (
-    metamodel,
-    bases,
+# Import the xarray_dataclass_to_* functions from their defining module (not
+# from the xradio.schema package namespace): this module is imported while
+# xradio/schema/__init__.py is still initializing, so package-level re-exports
+# are not necessarily bound yet.
+from xradio.schema import bases, metamodel
+from xradio.schema.dataclass import (
+    value_schema,
     xarray_dataclass_to_array_schema,
     xarray_dataclass_to_dataset_schema,
     xarray_dataclass_to_dict_schema,
 )
-from xradio.schema.dataclass import value_schema
 from xradio.schema.metamodel import AttrSchemaRef, ValueSchema
 
 
@@ -28,7 +31,7 @@ class SchemaIssue:
     source of the issue.
     """
 
-    path: typing.List[typing.Tuple[str, str]]
+    path: list[tuple[str, str]]
     """Path to offending data item, using pairs of (entity type, entity name).
     Entity types can be ``data_var``, ``coord`` or ``attr``.
 
@@ -39,11 +42,11 @@ class SchemaIssue:
     """
     Explanation of the issue
     """
-    found: typing.Optional[typing.Any] = None
+    found: typing.Any | None = None
     """
     What was found. Can be any type (type, dtype, value)
     """
-    expected: typing.Optional[typing.List[typing.Any]] = None
+    expected: list[typing.Any] | None = None
     """
     List of expected values. Can be any type (type, dtype, value)
     """
@@ -87,7 +90,7 @@ class SchemaIssues(Exception):
         else:
             self.issues = list(issues)
 
-    def at_path(self, elem: str, ix: typing.Optional[str] = None) -> "SchemaIssues":
+    def at_path(self, elem: str, ix: str | None = None) -> "SchemaIssues":
         for issue in self.issues:
             issue.path.insert(0, (elem, ix))
         return self
@@ -120,9 +123,7 @@ class SchemaIssues(Exception):
     def __repr__(self):
         return f"SchemaIssues({str(self)})"
 
-    def expect(
-        self, elem: typing.Optional[str] = None, ix: typing.Optional[str] = None
-    ):
+    def expect(self, elem: str | None = None, ix: str | None = None):
         """
         Raises this object if issues were found
 
@@ -140,7 +141,7 @@ class SchemaIssues(Exception):
 
 
 def check_array(
-    array: xarray.DataArray, schema: typing.Union[type, metamodel.ArraySchema]
+    array: xarray.DataArray, schema: type | metamodel.ArraySchema
 ) -> SchemaIssues:
     """
     Check whether an xarray DataArray conforms to a schema
@@ -177,8 +178,8 @@ def check_array(
 
 def check_dataset(
     dataset: xarray.Dataset,
-    schema: typing.Union[type, metamodel.DatasetSchema],
-    allow_superflous_dims: typing.Set[str] = frozenset(),
+    schema: type | metamodel.DatasetSchema,
+    allow_superflous_dims: set[str] = frozenset(),
 ) -> SchemaIssues:
     """
     Check whether an xarray DataArray conforms to a schema
@@ -224,7 +225,7 @@ def check_dimensions(
     dims: [str],
     expected: [[str]],
     check_order: bool = True,
-    allow_superflous: typing.Set[str] = frozenset(),
+    allow_superflous: set[str] = frozenset(),
 ) -> SchemaIssues:
     """
     Check whether a dimension list conforms to a schema
@@ -275,7 +276,7 @@ def check_dimensions(
     elif hint_add:
         message = f"Missing dimension {','.join(hint_add)}!"
     else:
-        message = f"Unexpected dimensions/coordinates!"
+        message = "Unexpected dimensions/coordinates!"
     return SchemaIssues(
         [
             SchemaIssue(
@@ -323,8 +324,8 @@ def check_dtype(dtype: numpy.dtype, expected: [numpy.dtype]) -> SchemaIssues:
 
 
 def check_attributes(
-    attrs: typing.Dict[str, typing.Any],
-    attrs_schema: typing.List[metamodel.AttrSchemaRef],
+    attrs: dict[str, typing.Any],
+    attrs_schema: list[metamodel.AttrSchemaRef],
     attr_kind: str = "attrs",
 ) -> SchemaIssues:
     """
@@ -361,8 +362,8 @@ def check_attributes(
 
 
 def check_data_vars(
-    data_vars: typing.Dict[str, xarray.DataArray],
-    data_vars_schema: typing.List[metamodel.ArraySchemaRef],
+    data_vars: dict[str, xarray.DataArray],
+    data_vars_schema: list[metamodel.ArraySchemaRef],
     data_var_kind: str,
 ) -> SchemaIssues:
     """
@@ -430,9 +431,7 @@ def check_data_vars(
     return issues
 
 
-def check_dict(
-    dct: dict, schema: typing.Union[type, metamodel.DictSchema]
-) -> SchemaIssues:
+def check_dict(dct: dict, schema: type | metamodel.DictSchema) -> SchemaIssues:
     """
     Check whether a dictionary conforms to a schema
 
@@ -594,7 +593,7 @@ def _check_value(val: typing.Any, schema: metamodel.ValueSchema):
             [
                 SchemaIssue(
                     path=[],
-                    message=f"Disallowed literal value!",
+                    message="Disallowed literal value!",
                     expected=schema.literal,
                     found=val,
                 )
@@ -627,7 +626,8 @@ def register_dataset_type(schema: metamodel.DatasetSchema):
         if attr.literal is None:
             warnings.warn(
                 f"In dataset schema {schema.schema_name}:"
-                'Attribute "type" should be a literal!'
+                'Attribute "type" should be a literal!',
+                stacklevel=2,
             )
             continue
 

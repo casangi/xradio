@@ -6,8 +6,6 @@ so they work equally in pytest, unittest, and ASV benchmarks.
 
 from __future__ import annotations
 
-from typing import Dict
-
 import numpy as np
 import xarray as xr
 
@@ -65,7 +63,7 @@ def normalize_image_coords_for_compare(
 def assert_image_block_equal(
     xds: xr.Dataset,
     output_path: str,
-    selection: Dict[str, slice],
+    selection: dict[str, slice],
     zarr: bool = False,
     do_sky_coords: bool = True,
 ) -> None:

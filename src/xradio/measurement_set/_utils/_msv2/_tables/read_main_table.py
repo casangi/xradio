@@ -1,5 +1,3 @@
-from typing import Tuple
-
 import numpy as np
 import pandas as pd
 
@@ -9,15 +7,15 @@ except ImportError:
     import xradio._utils._casacore.casacore_from_casatools as tables
 
 
-from .table_query import open_query
 from xradio._utils.list_and_array import (
-    unique_1d,
-    pairing_function,
     inverse_pairing_function,
+    pairing_function,
+    unique_1d,
 )
+from xradio.measurement_set._utils._msv2._tables.table_query import open_query
 
 
-def get_utimes_tol(mtable: tables.table, taql_where: str) -> Tuple[np.ndarray, float]:
+def get_utimes_tol(mtable: tables.table, taql_where: str) -> tuple[np.ndarray, float]:
     taql_utimes = f"select DISTINCT TIME from $mtable {taql_where}"
     with open_query(mtable, taql_utimes) as query_utimes:
         utimes = unique_1d(query_utimes.getcol("TIME", 0, -1))

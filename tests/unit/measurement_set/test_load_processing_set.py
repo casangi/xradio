@@ -1,8 +1,8 @@
 import pytest
 import xarray as xr
-from xradio.measurement_set.load_processing_set import ProcessingSetIterator
-from xradio.measurement_set import load_processing_set
 
+from xradio.measurement_set import load_processing_set
+from xradio.measurement_set.load_processing_set import ProcessingSetIterator
 from xradio.schema.check import check_datatree
 
 
@@ -20,9 +20,9 @@ class TestLoadProcessingSet:
         ps_xdt = load_processing_set(str(convert_measurement_set_to_processing_set))
         issues = check_datatree(ps_xdt)
         # The check_datatree function returns a SchemaIssues object, not a string
-        assert (
-            str(issues) == "No schema issues found"
-        ), f"Schema validation failed: {issues}"
+        assert str(issues) == "No schema issues found", (
+            f"Schema validation failed: {issues}"
+        )
 
     def test_basic_load(self, convert_measurement_set_to_processing_set):
         """Test basic loading of processing set without parameters"""
@@ -43,13 +43,15 @@ class TestLoadProcessingSet:
         ms_basename = "Antennae_North.cal.lsrk.split"
         expected_names = [f"{ms_basename}_{i}" for i in range(4)]  # 0 to 3
         ms_names = list(full_ps.children.keys())
-        assert len(ms_names) == len(
-            expected_names
-        ), "Number of measurement sets doesn't match"
-        for ms_name, expected_name in zip(sorted(ms_names), sorted(expected_names)):
-            assert (
-                ms_name == expected_name
-            ), f"Expected {expected_name} but got {ms_name}"
+        assert len(ms_names) == len(expected_names), (
+            "Number of measurement sets doesn't match"
+        )
+        for ms_name, expected_name in zip(
+            sorted(ms_names), sorted(expected_names), strict=False
+        ):
+            assert ms_name == expected_name, (
+                f"Expected {expected_name} but got {ms_name}"
+            )
 
         # Test loading with selection parameters
         sel_parms = {ms_name: {"time": slice(0, 10)}}
@@ -266,7 +268,7 @@ class TestProcessingSetIterator:
         iterator.reset()
 
         # Second pass: objects should be the exact same instances from the cache
-        for ms_name, ms_xdt in zip(ms_names, iterator):
+        for ms_name, ms_xdt in zip(ms_names, iterator, strict=False):
             assert id(ms_xdt) == cached_ids[ms_name]
 
     def test_in_memory_false_reset_reloads_from_disk(

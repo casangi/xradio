@@ -1,8 +1,0 @@
-# Run Black using template in ToolVIPER
-name: Run black
-
-on: [push, pull_request]
-
-jobs:
-    call-testing-linux:
-      uses: nrao/gh-actions-templates-public/.github/workflows/black-template.yml@main

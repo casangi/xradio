@@ -1,4 +1,4 @@
-from typing import Generator
+from collections.abc import Generator
 from contextlib import contextmanager
 
 try:
@@ -20,7 +20,6 @@ def open_table_ro(infile: str) -> Generator[tables.table, None, None]:
 
 @contextmanager
 def open_query(table: tables.table, query: str) -> Generator[tables.table, None, None]:
-
     if hasattr(tables, "taql"):
         ttq = tables.taql(query)
     else:
@@ -32,7 +31,6 @@ def open_query(table: tables.table, query: str) -> Generator[tables.table, None,
 
 
 class TableManager:
-
     def __init__(
         self,
         infile: str,

@@ -1,15 +1,13 @@
-from collections.abc import Mapping, Iterable
-import datetime
-from typing import Any, Union
+from collections.abc import Iterable, Mapping
+from typing import Any
 
 import numpy as np
 import xarray as xr
 
 from xradio._utils.list_and_array import to_python_type
 from xradio._utils.xarray_helpers import (
-    get_data_group_name,
     create_new_data_group,
-    delete_data_variables,
+    get_data_group_name,
 )
 
 MS_DATASET_TYPES = {"visibility", "spectrum", "radiometer"}
@@ -53,9 +51,9 @@ class MeasurementSetXdt:
 
     def sel(
         self,
-        indexers: Union[Mapping[Any, Any], None] = None,
-        method: Union[str, None] = None,
-        tolerance: Union[int, float, Iterable[Union[int, float]], None] = None,
+        indexers: Mapping[Any, Any] | None = None,
+        method: str | None = None,
+        tolerance: int | float | Iterable[int | float] | None = None,
         drop: bool = False,
         **indexers_kwargs: Any,
     ) -> xr.DataTree:
@@ -98,7 +96,7 @@ class MeasurementSetXdt:
         if data_group_name is not None:
             sel_data_group_set = set(
                 self._xdt.attrs["data_groups"][data_group_name].values()
-            ) - set(["date", "description"])
+            ) - {"date", "description"}
 
             sel_field_and_source_xds = self._xdt.attrs["data_groups"][data_group_name][
                 "field_and_source"
@@ -106,8 +104,7 @@ class MeasurementSetXdt:
 
             data_variables_to_drop = []
             field_and_source_to_drop = []
-            for dg_name, dg in self._xdt.attrs["data_groups"].items():
-                # print(f"Data group: {dg_name}", dg)
+            for dg in self._xdt.attrs["data_groups"].values():
                 f_and_s = dg["field_and_source"]
                 dg_copy = dg.copy()
                 dg_copy.pop("date", None)
@@ -268,7 +265,7 @@ class MeasurementSetXdt:
     def add_data_group(
         self,
         new_data_group_name: str,
-        new_data_group: dict = {},
+        new_data_group: dict | None = None,
         data_group_dv_shared_with: str = None,
     ) -> xr.DataTree:
         """Adds a data group to the MSv4 DataTree, grouping the given data, weight, flag, etc. variables
@@ -293,6 +290,9 @@ class MeasurementSetXdt:
             raise InvalidAccessorLocation(
                 f"{self._xdt.path} is not a MSv4 node (type {self._xdt.attrs.get('type')}."
             )
+
+        if new_data_group is None:
+            new_data_group = {}
 
         new_data_group_name, new_data_group = create_new_data_group(
             self._xdt,

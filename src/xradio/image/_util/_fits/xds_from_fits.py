@@ -1,11 +1,9 @@
 import copy
 import re
-from typing import Union
 
 import dask
 import dask.array as da
 import numpy as np
-import psutil
 import xarray as xr
 from astropy import units as u
 from astropy.io import fits
@@ -15,13 +13,11 @@ from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import (
     make_direction_location_dict,
     make_quantity,
-    make_spectral_coord_reference_dict,
     make_skycoord_dict,
+    make_spectral_coord_reference_dict,
     make_time_measure_dict,
 )
-
 from xradio._utils.list_and_array import to_python_type
-from xradio.measurement_set._utils._utils.stokes_types import stokes_types
 from xradio.image._util.common import (
     _compute_linear_world_values,
     _compute_velocity_values,
@@ -35,6 +31,7 @@ from xradio.image._util.common import (
     _image_type,
     _l_m_attr_notes,
 )
+from xradio.measurement_set._utils._utils.stokes_types import stokes_types
 
 # from xradio.image._util._casacore.common import (
 #     _image_flag,
@@ -162,7 +159,7 @@ def _add_l_m_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
 
 def _add_lin_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
     if not helpers["sphr_dims"]:
-        for i, j in zip(helpers["dir_axes"], ("u", "v")):
+        for i, j in zip(helpers["dir_axes"], ("u", "v"), strict=False):
             meta = {
                 "units": "wavelengths",
                 "crval": helpers["crval"][i],
@@ -213,9 +210,9 @@ def _xds_coordinate_system_info_attrs_from_header(helpers: dict, header) -> dict
         ddata, units=dunits, frame=ref_sys
     )
     if ref_eqx is not None:
-        coordinate_system_info["reference_direction"]["attrs"][
-            "equinox"
-        ] = ref_eqx.lower()
+        coordinate_system_info["reference_direction"]["attrs"]["equinox"] = (
+            ref_eqx.lower()
+        )
 
     coordinate_system_info["native_pole_direction"] = make_direction_location_dict(
         [header["LONPOLE"] * _deg_to_rad, header["LATPOLE"] * _deg_to_rad],
@@ -228,15 +225,15 @@ def _xds_coordinate_system_info_attrs_from_header(helpers: dict, header) -> dict
         for j in (0, 1):
             # dir_axes are now 0-based, but fits needs 1-based
             try:
-                pc[i][j] = header[f"PC{dir_axes[i]+1}_{dir_axes[j]+1}"]
+                pc[i][j] = header[f"PC{dir_axes[i] + 1}_{dir_axes[j] + 1}"]
             except KeyError:
                 try:
-                    pc[i][j] = header[f"PC0{dir_axes[i]+1}_0{dir_axes[j]+1}"]
-                except KeyError:
+                    pc[i][j] = header[f"PC0{dir_axes[i] + 1}_0{dir_axes[j] + 1}"]
+                except KeyError as exc:
                     raise RuntimeError(
-                        f"Could not find PC{dir_axes[i]+1}_{dir_axes[j]+1} or "
-                        f"PC0{dir_axes[i]+1}_0{dir_axes[j]+1} in FITS header"
-                    )
+                        f"Could not find PC{dir_axes[i] + 1}_{dir_axes[j] + 1} or "
+                        f"PC0{dir_axes[i] + 1}_0{dir_axes[j] + 1} in FITS header"
+                    ) from exc
     coordinate_system_info["pixel_coordinate_transformation_matrix"] = to_python_type(
         pc
     )
@@ -440,7 +437,7 @@ def _user_attrs_from_header(header) -> dict:
     return user
 
 
-def _beam_attr_from_header(helpers: dict, header) -> Union[dict, str, None]:
+def _beam_attr_from_header(helpers: dict, header) -> dict | str | None:
     # The helpers dict is modified in place. header is not modified
     helpers["has_multibeam"] = False
     if "BMAJ" in header:
@@ -499,8 +496,6 @@ def _fits_header_to_xds_attrs(
                 "or Astropy's `.scale()`/`.copy()` workflows"
             )
     primary = None
-    # FIXME beams is set but never actually used in this function. What's up with that?
-    beams = None
     for hdu in hdulist:
         if hdu.name == "PRIMARY":
             primary = hdu
@@ -521,11 +516,13 @@ def _fits_header_to_xds_attrs(
             # NOTE: sanity-check for ndarray type has been removed to avoid
             # forcing eager memory load of possibly very large data array.
         elif hdu.name == "BEAMS":
-            beams = hdu
+            # FIXME the BEAMS HDU is recognized but never actually used in
+            # this function. What's up with that?
+            pass
         else:
             raise RuntimeError(f"Unknown HDU name {hdu.name}")
     if not primary:
-        raise RuntimeError(f"No PRIMARY HDU found in fits file")
+        raise RuntimeError("No PRIMARY HDU found in fits file")
     header = primary.header
     helpers = {}
     attrs = {}
@@ -571,7 +568,7 @@ def _fits_header_to_xds_attrs(
         elif v == 64:
             helpers["dtype"] = "float64"
         else:
-            raise RuntimeError(f'Unhandled data type {header["BITPIX"]}')
+            raise RuntimeError(f"Unhandled data type {header['BITPIX']}")
     helpers["obsdate"] = make_time_measure_dict(
         data=Time(header["DATE-OBS"], format="isot").mjd,
         units=["d"],
@@ -637,7 +634,10 @@ def _create_coords(
                 cdelt=cdelt_rad,
             )
         if do_sky_coords:
-            pick = lambda mylist: [mylist[i] for i in sphr_dims]
+
+            def pick(mylist):
+                return [mylist[i] for i in sphr_dims]
+
             my_ret = _compute_world_sph_dims(
                 projection=helpers["projection"],
                 shape=pick(helpers["shape"]),
@@ -668,7 +668,6 @@ def _get_time_values(helpers):
 
 
 def _get_pol_values(helpers):
-
     idx = helpers["ctype"].index("STOKES")
     if idx >= 0:
         vals = []
@@ -803,7 +802,6 @@ def _create_beam_data_var(
 def _get_uv_values(helpers: dict) -> tuple:
     shape = helpers["shape"]
     ctype = helpers["ctype"]
-    unit = helpers["cunit"]
     delt = helpers["cdelt"]
     ref_pix = helpers["crpix"]
     ref_val = helpers["crval"]
@@ -826,7 +824,7 @@ def _get_uv_values(helpers: dict) -> tuple:
 
 def _add_sky_or_aperture(
     xds: xr.Dataset,
-    ary: Union[np.ndarray, da.array],
+    ary: np.ndarray | da.Array,
     dim_order: list,
     header,
     helpers: dict,
@@ -838,6 +836,7 @@ def _add_sky_or_aperture(
     for h, a in zip(
         ["BUNIT", "BTYPE", "OBJECT", "OBSERVER"],
         ["units", _image_type, "object_name", "observer"],
+        strict=False,
     ):
         if h in header:
             xda.attrs[a] = header[h]
@@ -851,7 +850,7 @@ def _add_sky_or_aperture(
     xda = xda.rename(name)
     xds[xda.name] = xda
     if helpers["has_mask"]:
-        pp = da if type(xda[0].data) == dask.array.core.Array else np
+        pp = da if type(xda[0].data) is dask.array.core.Array else np
         mask = pp.isnan(xda)
         mask.attrs = {}
         mask = mask.rename("FLAG_" + name.upper())
@@ -981,7 +980,9 @@ def _get_transpose_list(helpers: dict) -> tuple:
         last_axis -= 1
     new_axes.sort()
     if transpose_list.count(-1) > 0:
-        raise RuntimeError(f"Logic error: axes {axes}, transpose_list {transpose_list}")
+        raise RuntimeError(
+            f"Logic error: axes {ctype}, transpose_list {transpose_list}"
+        )
     return transpose_list, new_axes
 
 
@@ -990,7 +991,8 @@ def _read_image_chunk(img_full_path, shapes: tuple, starts: tuple) -> np.ndarray
     hdu = hdulist[0]
     # Chunk slice
     slices = tuple(
-        slice(start, start + length) for start, length in zip(starts, shapes)
+        slice(start, start + length)
+        for start, length in zip(starts, shapes, strict=False)
     )
     chunk = hdu.data[slices]
     hdulist.close()

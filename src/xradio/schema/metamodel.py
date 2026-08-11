@@ -4,8 +4,8 @@ Data classes used by Xradio routines to represent dataset schemas.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, MISSING
 import typing
+from dataclasses import dataclass
 
 __all__ = [
     "ValueSchema",
@@ -37,15 +37,15 @@ class ValueSchema:
     * ``dict``: Dictionary
     * ``dataarray``: An xarray dataarray (encoded using ``to_dict``)
     """
-    dict_schema: typing.Optional[DictSchema] = None
+    dict_schema: DictSchema | None = None
     """
     Dictionary schema, if it is a dict
     """
-    array_schema: typing.Optional[ArraySchema] = None
+    array_schema: ArraySchema | None = None
     """
     Array schema, if it is an xarray DataArray
     """
-    literal: typing.Optional[typing.List[typing.Any]] = None
+    literal: list[typing.Any] | None = None
     """
     Allowed literal values, if specified.
     """
@@ -65,7 +65,7 @@ class AttrSchemaRef(ValueSchema):
 
     name: str = ""
     """Name of attribute as given in data array / dataset."""
-    default: typing.Optional[typing.Any] = None
+    default: typing.Any | None = None
     """If optional: what is the default value?"""
     docstring: str = ""
     """Documentation string of attribute reference"""
@@ -83,22 +83,22 @@ class ArraySchema:
 
     schema_name: str
     """(Class) name of the schema"""
-    dimensions: typing.List[typing.List[str]]
+    dimensions: list[list[str]]
     """List of possible dimensions"""
-    dtypes: typing.List[typing.List[str]]
+    dtypes: list[list[str]]
     """List of possible dtype options, where each inner list contains
     (numpy) types as array interface protocol descriptors (e.g. `">f4"`).
     Each inner list corresponds to a possible configuration of dtypes
     for the data array."""
 
-    coordinates: typing.List["ArraySchemaRef"]
+    coordinates: list[ArraySchemaRef]
     """Coordinates data arrays giving values to dimensions"""
-    attributes: typing.List[AttrSchemaRef]
+    attributes: list[AttrSchemaRef]
     """Attributes associated with data array"""
 
-    class_docstring: typing.Optional[str]
+    class_docstring: str | None
     """Documentation string of class"""
-    data_docstring: typing.Optional[str]
+    data_docstring: str | None
     """Documentation string of data in class"""
 
     def is_coord(self) -> bool:
@@ -136,9 +136,9 @@ class ArraySchemaRef(ArraySchema):
     """Name of array schema as given in dataset."""
     optional: bool
     """Is the data array optional?"""
-    default: typing.Optional[typing.Any] = None
+    default: typing.Any | None = None
     """If optional: what is the default value?"""
-    docstring: typing.Optional[str] = None
+    docstring: str | None = None
     """Documentation string of array reference"""
 
 
@@ -160,7 +160,7 @@ class DatasetSchema:
     attributes: list[AttrSchemaRef]
     """List of attributes"""
 
-    class_docstring: typing.Optional[str]
+    class_docstring: str | None
     """Documentation string of class"""
 
 
@@ -176,5 +176,5 @@ class DictSchema:
     attributes: list[AttrSchemaRef]
     """List of attributes"""
 
-    class_docstring: typing.Optional[str]
+    class_docstring: str | None
     """Documentation string of class"""

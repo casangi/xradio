@@ -1,5 +1,4 @@
 import pytest
-
 import xarray as xr
 
 from xradio.measurement_set.schema import (
@@ -10,8 +9,8 @@ from xradio.schema.check import check_dict
 
 
 def test_create_info_dicts_empty(ms_empty_required):
-    from xradio.measurement_set._utils._msv2.msv4_info_dicts import create_info_dicts
     from xradio.measurement_set._utils._msv2._tables.table_query import open_query
+    from xradio.measurement_set._utils._msv2.msv4_info_dicts import create_info_dicts
 
     msv4_xds = xr.Dataset(
         data_vars={"FLAG": ("frequency", [True, False])},
@@ -45,7 +44,6 @@ def test_create_info_dicts_empty(ms_empty_required):
     taql_main = f"select * from $ms_main WHERE (OBSERVATION_ID = {observation_id}) and (DATA_DESC_ID = {ddi}) and (FIELD_ID = {field_id})"
     with pytest.raises(AssertionError, match="is not consistent"):
         with open_query(ms_main, taql_main) as tb_tool:
-
             info_dicts = create_info_dicts(
                 ms_empty_required.fname,
                 msv4_xds,
@@ -57,8 +55,8 @@ def test_create_info_dicts_empty(ms_empty_required):
 
 
 def test_create_info_dicts(ms_minimal_required):
-    from xradio.measurement_set._utils._msv2.msv4_info_dicts import create_info_dicts
     from xradio.measurement_set._utils._msv2._tables.table_query import open_query
+    from xradio.measurement_set._utils._msv2.msv4_info_dicts import create_info_dicts
 
     msv4_xds = xr.Dataset(
         data_vars={"FLAG": ("frequency", [True, False])},
@@ -92,7 +90,6 @@ def test_create_info_dicts(ms_minimal_required):
     taql_main = f"select * from $ms_main WHERE (OBSERVATION_ID = {observation_id}) and (DATA_DESC_ID = {ddi}) and (FIELD_ID = {field_id})"
 
     with open_query(ms_main, taql_main) as tb_tool:
-
         info_dicts = create_info_dicts(
             ms_minimal_required.fname,
             msv4_xds,

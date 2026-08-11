@@ -1,14 +1,9 @@
-from .dataclass import (
-    xarray_dataclass_to_array_schema,
-    xarray_dataclass_to_dataset_schema,
-    xarray_dataclass_to_dict_schema,
-)
-from .bases import (
+from xradio.schema.bases import (
+    dict_schema,
     xarray_dataarray_schema,
     xarray_dataset_schema,
-    dict_schema,
 )
-from .check import (
+from xradio.schema.check import (
     SchemaIssue,
     SchemaIssues,
     check_array,
@@ -16,8 +11,14 @@ from .check import (
     check_dict,
     schema_checked,
 )
+from xradio.schema.dataclass import (
+    xarray_dataclass_to_array_schema,
+    xarray_dataclass_to_dataset_schema,
+    xarray_dataclass_to_dict_schema,
+)
 
 __all__ = [
+    "dict_schema",
     "xarray_dataclass_to_array_schema",
     "xarray_dataclass_to_dataset_schema",
     "xarray_dataclass_to_dict_schema",

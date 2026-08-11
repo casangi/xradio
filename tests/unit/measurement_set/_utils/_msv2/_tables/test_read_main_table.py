@@ -1,4 +1,5 @@
 import datetime
+
 import numpy as np
 import pytest
 
@@ -7,7 +8,7 @@ from xradio.measurement_set._utils._msv2._tables.read import (
 )
 
 time_start = (
-    datetime.datetime(2025, 5, 1, 1, 1, tzinfo=datetime.timezone.utc).timestamp()
+    datetime.datetime(2025, 5, 1, 1, 1, tzinfo=datetime.UTC).timestamp()
     + CASACORE_TO_PD_TIME_CORRECTION
 )
 

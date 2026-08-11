@@ -3,8 +3,8 @@ try:
 except ImportError:
     import xradio._utils._casacore.casacore_from_casatools as images
 
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Generator, List
 
 
 @contextmanager
@@ -21,7 +21,7 @@ def _open_image_ro(infile: str) -> Generator[images.image, None, None]:
 
 @contextmanager
 def _create_new_image(
-    outfile: str, shape: List[int], mask="", value="default"
+    outfile: str, shape: list[int], mask="", value="default"
 ) -> Generator[images.image, None, None]:
     # new image will be opened rw
     # the crux of the issue here seems to be that python has no single

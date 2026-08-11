@@ -1,19 +1,15 @@
-from collections.abc import Mapping, Iterable
-import datetime
-from typing import Any, Union
+from collections.abc import Iterable, Mapping
+from typing import Any
 
 import numpy as np
 import xarray as xr
 
-from xradio._utils.list_and_array import to_list
+from xradio._utils.xarray_helpers import (
+    create_new_data_group,
+    delete_data_variables,
+)
 
 IMAGE_DATASET_TYPES = {"image_dataset"}
-
-from xradio._utils.xarray_helpers import (
-    delete_data_variables,
-    get_data_group_name,
-    create_new_data_group,
-)
 
 
 class InvalidAccessorLocation(ValueError):
@@ -55,7 +51,7 @@ class ImageXds:
     def add_data_group(
         self,
         new_data_group_name: str,
-        new_data_group: dict = {},
+        new_data_group: dict | None = None,
         data_group_dv_shared_with: str = None,
     ) -> xr.Dataset:
         """Adds a data group to the image Dataset, grouping the given data, weight, flag, etc. variables
@@ -80,6 +76,9 @@ class ImageXds:
         #        raise InvalidAccessorLocation(f"{self._xds.path} is not a image node.")
 
         self.test_func()
+
+        if new_data_group is None:
+            new_data_group = {}
 
         new_data_group_name, new_data_group = create_new_data_group(
             self._xds,
@@ -125,8 +124,6 @@ class ImageXds:
         #    if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
         #        raise InvalidAccessorLocation(f"{self._xds.path} is not a image node.")
         self.test_func()
-
-        from xradio.image._util.image_factory import _make_uv_coords
 
         # self._xds = _make_uv_coords(self._xds,image_size=image_size, sky_image_cell_size=self.get_lm_cell_size())
 
@@ -195,9 +192,9 @@ class ImageXds:
             v_index = np.where(self._xds.coords["v"].values == 0)[0][0]
             uv_indexes = np.array([u_index, v_index])
 
-            assert np.array_equal(
-                lm_indexes, uv_indexes
-            ), "lm and uv reference pixel indices do not match."
+            assert np.array_equal(lm_indexes, uv_indexes), (
+                "lm and uv reference pixel indices do not match."
+            )
             image_center_index = uv_indexes
         else:
             uv_indexes = None
@@ -209,9 +206,9 @@ class ImageXds:
 
     def sel(
         self,
-        indexers: Union[Mapping[Any, Any], None] = None,
-        method: Union[str, None] = None,
-        tolerance: Union[int, float, Iterable[Union[int, float]], None] = None,
+        indexers: Mapping[Any, Any] | None = None,
+        method: str | None = None,
+        tolerance: int | float | Iterable[int | float] | None = None,
         drop: bool = False,
         **indexers_kwargs: Any,
     ) -> xr.Dataset:
@@ -246,11 +243,10 @@ class ImageXds:
         if data_group_name is not None:
             sel_data_group_set = set(
                 self._xds.attrs["data_groups"][data_group_name].values()
-            ) - set(["date", "description"])
+            ) - {"date", "description"}
 
             data_variables_to_drop = []
-            for dg_name, dg in self._xds.attrs["data_groups"].items():
-                # print(f"Data group: {dg_name}", dg)
+            for dg in self._xds.attrs["data_groups"].values():
                 dg_copy = dg.copy()
                 dg_copy.pop("date", None)
                 dg_copy.pop("description", None)

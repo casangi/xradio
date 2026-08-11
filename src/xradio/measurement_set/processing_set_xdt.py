@@ -1,9 +1,8 @@
+import numpy as np
 import pandas as pd
+import xarray as xr
 
 from xradio._utils.list_and_array import to_list
-import numpy as np
-import xarray as xr
-from xradio.measurement_set.measurement_set_xdt import get_data_group_name
 
 PS_DATASET_TYPES = {"processing_set"}
 
@@ -178,9 +177,9 @@ class ProcessingSetXdt:
                 "observer"
             ]
             for ms_xdt in self._xdt.values():
-                assert (
-                    frame == ms_xdt.frequency.attrs["observer"]
-                ), "Frequency reference frame not consistent in Processing Set."
+                assert frame == ms_xdt.frequency.attrs["observer"], (
+                    "Frequency reference frame not consistent in Processing Set."
+                )
                 if ms_xdt.frequency.attrs["spectral_window_name"] not in spw_names:
                     spw_names.append(ms_xdt.frequency.attrs["spectral_window_name"])
                     freq_axis_list.append(ms_xdt.frequency)
@@ -211,8 +210,8 @@ class ProcessingSetXdt:
             "start_frequency": [],
             "end_frequency": [],
         }
-        from astropy.coordinates import SkyCoord
         import astropy.units as u
+        from astropy.coordinates import SkyCoord
 
         for key, value in sorted(self._xdt.items()):
             partition_info = value.xr_ms.get_partition_info()
@@ -351,7 +350,6 @@ class ProcessingSetXdt:
         summary_table = self.summary()
         data_group_name = None
         for key, value in kwargs.items():
-
             if "data_group_name" == key:
                 data_group_name = value
             else:
@@ -410,13 +408,12 @@ class ProcessingSetXdt:
             )
 
         combined_field_and_source_xds = xr.Dataset()
-        for ms_name, ms_xdt in self._xdt.items():
+        for ms_xdt in self._xdt.values():
             field_and_source_xds = ms_xdt.xr_ms.get_field_and_source_xds(
                 data_group_name
             )
 
             if not field_and_source_xds.attrs["type"] == "field_and_source_ephemeris":
-
                 if (
                     "line_name" in field_and_source_xds.coords
                 ):  # Not including line info since it is a function of spw.
@@ -509,13 +506,12 @@ class ProcessingSetXdt:
             )
 
         combined_ephemeris_field_and_source_xds = xr.Dataset()
-        for ms_name, ms_xdt in self._xdt.items():
+        for ms_xdt in self._xdt.values():
             field_and_source_xds = field_and_source_xds = (
                 ms_xdt.xr_ms.get_field_and_source_xds(data_group_name)
             )
 
             if field_and_source_xds.attrs["type"] == "field_and_source_ephemeris":
-
                 if (
                     "line_name" in field_and_source_xds.coords
                 ):  # Not including line info since it is a function of spw.
@@ -550,7 +546,6 @@ class ProcessingSetXdt:
                 if len(combined_ephemeris_field_and_source_xds.data_vars) == 0:
                     combined_ephemeris_field_and_source_xds = field_and_source_xds
                 else:
-
                     combined_ephemeris_field_and_source_xds = xr.concat(
                         [combined_ephemeris_field_and_source_xds, field_and_source_xds],
                         dim="time",
@@ -560,7 +555,6 @@ class ProcessingSetXdt:
         if (len(combined_ephemeris_field_and_source_xds.data_vars) > 0) and (
             "FIELD_PHASE_CENTER_DIRECTION" in combined_ephemeris_field_and_source_xds
         ):
-
             from xradio._utils.coord_math import wrap_to_pi
 
             offset = (
@@ -571,11 +565,11 @@ class ProcessingSetXdt:
                 wrap_to_pi(offset.sel(sky_dir_label=["ra", "dec"])).values,
                 dims=["time", "sky_dir_label"],
             )
-            combined_ephemeris_field_and_source_xds["FIELD_OFFSET"].attrs = (
-                combined_ephemeris_field_and_source_xds[
-                    "FIELD_PHASE_CENTER_DIRECTION"
-                ].attrs
-            )
+            combined_ephemeris_field_and_source_xds[
+                "FIELD_OFFSET"
+            ].attrs = combined_ephemeris_field_and_source_xds[
+                "FIELD_PHASE_CENTER_DIRECTION"
+            ].attrs
             combined_ephemeris_field_and_source_xds["FIELD_OFFSET"].attrs["units"] = (
                 combined_ephemeris_field_and_source_xds["FIELD_OFFSET"].attrs["units"][
                     :2
@@ -640,7 +634,9 @@ class ProcessingSetXdt:
             coord_x, coord_y = np.array(scatter.get_offsets()).transpose()
             offset_x = np.abs(np.max(coord_x) - np.min(coord_x)) * 0.01
             offset_y = np.abs(np.max(coord_y) - np.min(coord_y)) * 0.01
-            for idx, (x, y) in enumerate(zip(coord_x + offset_x, coord_y + offset_y)):
+            for idx, (x, y) in enumerate(
+                zip(coord_x + offset_x, coord_y + offset_y, strict=False)
+            ):
                 axis.annotate(field_names[idx], (x, y), alpha=1)
 
         if self._xdt.attrs.get("type") not in PS_DATASET_TYPES:
@@ -697,7 +693,6 @@ class ProcessingSetXdt:
         if (len(combined_ephemeris_field_and_source_xds.data_vars) > 0) and (
             "FIELD_PHASE_CENTER_DIRECTION" in combined_ephemeris_field_and_source_xds
         ):
-
             fig = plt.figure()
             plt.title(
                 "Offset of Field Phase Center from Source Location (Ephemeris Data)"
@@ -766,7 +761,7 @@ class ProcessingSetXdt:
             )
 
         combined_antenna_xds = xr.Dataset()
-        for cor_name, ms_xdt in self._xdt.items():
+        for ms_xdt in self._xdt.values():
             antenna_xds = ms_xdt.antenna_xds.ds
 
             if len(combined_antenna_xds.data_vars) == 0:
@@ -830,11 +825,12 @@ class ProcessingSetXdt:
             If antenna positions are not in the Geocentric ITRS frame.
 
         """
-        from xradio._utils.logging import xradio_logger
-        from matplotlib import pyplot as plt
         import astropy.units as ap_units
         from astropy.coordinates import EarthLocation
         from dask.array import rad2deg
+        from matplotlib import pyplot as plt
+
+        from xradio._utils.logging import xradio_logger
 
         def setup_annotations_for_hover(plot_axes):
             """
@@ -860,7 +856,7 @@ class ProcessingSetXdt:
                 )
                 annotation.set_visible(False)
                 annotations.append(annotation)
-            return dict(zip(plot_axes, annotations))
+            return dict(zip(plot_axes, annotations, strict=False))
 
         def update_antenna_annotation(indices, plot_obj, annotation, ant_info):
             position = plot_obj.get_offsets()[indices["ind"][0]]
@@ -900,7 +896,8 @@ class ProcessingSetXdt:
                 f"{self._xdt.path} is not a processing set node."
             )
         try:
-            import cartopy
+            # availability probe only; used via cartopy_available below
+            import cartopy  # noqa: F401
 
             if add_continent_outlines:
                 cartopy_available = True
@@ -973,7 +970,6 @@ class ProcessingSetXdt:
             ant_locs = EarthLocation.from_geocentric(
                 ant_x * ap_units.m, ant_y * ap_units.m, ant_z * ap_units.m
             )
-            ant_rad = np.sqrt(ant_x**2 + ant_y**2 + ant_z**2)
 
             ant_lon, ant_lat, ant_height = ant_locs.geodetic
             ant_lat = ant_lat.deg
@@ -1093,10 +1089,10 @@ class ProcessingSetXdt:
             ant_el_ax.set_ylabel("Antenna Elevation [m]")
             ant_el_ax.set_xticks(ant_ids, labels=ant_labels, rotation=90)
             plot_axes = [ant_pos_ax, ant_el_ax]
-            plot_map = dict(zip(plot_axes, [ant_pos_plot, ant_el_plot]))
+            plot_map = dict(zip(plot_axes, [ant_pos_plot, ant_el_plot], strict=False))
         else:
             plot_axes = [ant_pos_ax]
-            plot_map = dict(zip(plot_axes, [ant_pos_plot]))
+            plot_map = dict(zip(plot_axes, [ant_pos_plot], strict=False))
 
         annotation_map = setup_annotations_for_hover(plot_axes)
         fig.canvas.mpl_connect("motion_notify_event", hover_annotation)
@@ -1177,7 +1173,7 @@ class ProcessingSetXdt:
                 )
                 antenna_annotations.append(annotation)
                 annotation.set_visible(False)
-            annotations_map = dict(zip(antenna_axes, antenna_annotations))
+            annotations_map = dict(zip(antenna_axes, antenna_annotations, strict=False))
 
             return annotations_map
 
@@ -1191,7 +1187,7 @@ class ProcessingSetXdt:
                 offset_x = np.abs(np.max(coord_x) - np.min(coord_x)) * 0.01
                 offset_y = np.abs(np.max(coord_y) - np.min(coord_y)) * 0.01
                 for idx, (x, y) in enumerate(
-                    zip(coord_x + offset_x, coord_y + offset_y)
+                    zip(coord_x + offset_x, coord_y + offset_y, strict=False)
                 ):
                     axis.annotate(
                         antenna_names[idx],
@@ -1238,7 +1234,9 @@ class ProcessingSetXdt:
         ax4.axis("off")
 
         antenna_axes = [ax1, ax2, ax3]
-        scatter_map = dict(zip(antenna_axes, [scatter1, scatter2, scatter3]))
+        scatter_map = dict(
+            zip(antenna_axes, [scatter1, scatter2, scatter3], strict=False)
+        )
         if label_all_antennas:
             annotations_map = setup_annotations_for_all(antenna_axes, scatter_map)
         else:
@@ -1256,7 +1254,7 @@ class ProcessingSetXdt:
             The Measurement Set Data Tree object.
         """
 
-        assert (
-            len(self._xdt.children) == 1
-        ), "Processing Set contains multiple Measurement Sets and cannot determine which to return."
+        assert len(self._xdt.children) == 1, (
+            "Processing Set contains multiple Measurement Sets and cannot determine which to return."
+        )
         return list(self._xdt.children.values())[0]

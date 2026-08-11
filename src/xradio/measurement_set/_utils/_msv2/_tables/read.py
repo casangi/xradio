@@ -1,27 +1,27 @@
 import os
-from pathlib import Path
 import re
-from typing import Any, Callable, Dict, List, Tuple, Union
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
 
+import astropy.units
 import dask.array as da
 import numpy as np
 import pandas as pd
 import xarray as xr
-
-import astropy.units
 
 try:
     from casacore import tables
 except ImportError:
     import xradio._utils._casacore.casacore_from_casatools as tables
 
-from xradio.measurement_set._utils._msv2._tables.table_query import (
-    open_query,
-    open_table_ro,
-    TableManager,
-)
 from xradio._utils.list_and_array import get_pad_value
 from xradio._utils.logging import xradio_logger
+from xradio.measurement_set._utils._msv2._tables.table_query import (
+    TableManager,
+    open_query,
+    open_table_ro,
+)
 
 CASACORE_TO_PD_TIME_CORRECTION = 3_506_716_800.0
 SECS_IN_DAY = 86400
@@ -152,11 +152,11 @@ def casacore_numpy_to_json_safe_type(value: object) -> object:
 
 
 def make_taql_where_between_min_max(
-    min_max: Tuple[np.float64, np.float64],
+    min_max: tuple[np.float64, np.float64],
     path: str,
     table_name: str,
     colname="TIME",
-) -> Union[str, None]:
+) -> str | None:
     """
     From a numerical min/max range, produce a TaQL string to select between
     those min/max values (example: times) in a table.
@@ -199,8 +199,8 @@ def make_taql_where_between_min_max(
 
 
 def find_projected_min_max_table(
-    min_max: Tuple[np.float64, np.float64], path: str, table_name: str, colname: str
-) -> Union[Tuple[np.float64, np.float64], None]:
+    min_max: tuple[np.float64, np.float64], path: str, table_name: str, colname: str
+) -> tuple[np.float64, np.float64] | None:
     """
     We have: min/max values that define a range (for example of time)
     We want: to project that min/max range on a sortable column (for example a
@@ -253,8 +253,8 @@ def find_projected_min_max_table(
 
 
 def find_projected_min_max_array(
-    min_max: Tuple[np.float64, np.float64], array: np.array
-) -> Tuple[np.float64, np.float64]:
+    min_max: tuple[np.float64, np.float64], array: np.array
+) -> tuple[np.float64, np.float64]:
     """Does the min/max checks and search for find_projected_min_max_table()"""
 
     sorted_array = np.sort(array)
@@ -287,7 +287,7 @@ def find_projected_min_max_array(
     return (projected_min, projected_max)
 
 
-def extract_table_attributes(infile: str) -> Dict[str, Dict]:
+def extract_table_attributes(infile: str) -> dict[str, dict]:
     """
     Return a dictionary of table attributes created from MS keywords and column descriptions
 
@@ -303,7 +303,7 @@ def extract_table_attributes(infile: str) -> Dict[str, Dict]:
     """
     with open_table_ro(infile) as tb_tool:
         kwd = tb_tool.getkeywords()
-        attrs = dict([(kk, kwd[kk]) for kk in kwd if kk not in os.listdir(infile)])
+        attrs = {kk: kwd[kk] for kk in kwd if kk not in os.listdir(infile)}
         cols = tb_tool.colnames()
         column_descriptions = {}
         for col in cols:
@@ -315,8 +315,8 @@ def extract_table_attributes(infile: str) -> Dict[str, Dict]:
 
 
 def add_units_measures(
-    mvars: Dict[str, xr.DataArray], cc_attrs: Dict[str, Any]
-) -> Dict[str, xr.DataArray]:
+    mvars: dict[str, xr.DataArray], cc_attrs: dict[str, Any]
+) -> dict[str, xr.DataArray]:
     """
     Add attributes with units and measure metainfo to the variables passed in the input dictionary
 
@@ -483,7 +483,7 @@ def add_ephemeris_vars(tname: str, xds: xr.Dataset) -> xr.Dataset:
     return xds
 
 
-def is_nested_ms(attrs: Dict) -> bool:
+def is_nested_ms(attrs: dict) -> bool:
     ctds_attrs = attrs["other"]["msv2"]["ctds_attrs"]
     return (
         "MS_VERSION" in ctds_attrs
@@ -505,9 +505,9 @@ def is_nested_ms(attrs: Dict) -> bool:
 def load_generic_table(
     inpath: str,
     tname: str,
-    timecols: Union[List[str], None] = None,
-    ignore: Union[List[str], None] = None,
-    rename_ids: Dict[str, str] = None,
+    timecols: list[str] | None = None,
+    ignore: list[str] | None = None,
+    rename_ids: dict[str, str] = None,
     taql_where: str = None,
 ) -> xr.Dataset:
     """
@@ -551,7 +551,7 @@ def load_generic_table(
         )
 
     cc_attrs = extract_table_attributes(infile)
-    attrs: Dict[str, Any] = {"other": {"msv2": {"ctds_attrs": cc_attrs}}}
+    attrs: dict[str, Any] = {"other": {"msv2": {"ctds_attrs": cc_attrs}}}
     if is_nested_ms(attrs):
         xradio_logger().warning(
             f"Skipping subtable that looks like a MeasurementSet main table: {inpath} {tname}"
@@ -593,7 +593,7 @@ def load_generic_table(
 
     dim_prefix = "dim"
     dims = ["row"] + [f"{dim_prefix}_{i}" for i in range(1, 20)]
-    xds = xds.rename(dict([(dv, dims[di]) for di, dv in enumerate(xds.sizes)]))
+    xds = xds.rename({dv: dims[di] for di, dv in enumerate(xds.sizes)})
     if rename_ids:
         rename_ids = {k: v for k, v in rename_ids.items() if k in xds.sizes}
     xds = xds.rename_dims(rename_ids)
@@ -630,9 +630,9 @@ def load_generic_table(
 def load_cols_into_coords_data_vars(
     inpath: str,
     tb_tool: tables.table,
-    timecols: Union[List[str], None] = None,
-    ignore: Union[List[str], None] = None,
-) -> Tuple[Dict[str, xr.Dataset], Dict[str, xr.Dataset]]:
+    timecols: list[str] | None = None,
+    ignore: list[str] | None = None,
+) -> tuple[dict[str, xr.Dataset], dict[str, xr.Dataset]]:
     """
     Produce a set of coordinate xarrays and a set of data variables xarrays
     from the columns of a table.
@@ -702,9 +702,9 @@ def find_best_col_loader(inpath: str, nrows: int) -> Callable:
 def load_generic_cols(
     inpath: str,
     tb_tool: tables.table,
-    timecols: Union[List[str], None],
-    ignore: Union[List[str], None],
-) -> Tuple[Dict[str, xr.Dataset], Dict[str, xr.Dataset]]:
+    timecols: list[str] | None,
+    ignore: list[str] | None,
+) -> tuple[dict[str, xr.Dataset], dict[str, xr.Dataset]]:
     """
     Loads data for each MS column (loading the data in memory) into Xarray datasets
 
@@ -759,7 +759,7 @@ def load_generic_cols(
         except Exception:
             # sometimes the cols are variable, so we need to standardize to the largest sizes
 
-            if len(set([isinstance(row[col], dict) for row in trows])) > 1:
+            if len({isinstance(row[col], dict) for row in trows}) > 1:
                 continue  # can't deal with this case
 
             data = handle_variable_col_issues(inpath, col, col_types[col], trows)
@@ -781,9 +781,9 @@ def load_generic_cols(
 def load_fixed_size_cols(
     inpath: str,
     tb_tool: tables.table,
-    timecols: Union[List[str], None],
-    ignore: Union[List[str], None],
-) -> Tuple[Dict[str, xr.Dataset], Dict[str, xr.Dataset]]:
+    timecols: list[str] | None,
+    ignore: list[str] | None,
+) -> tuple[dict[str, xr.Dataset], dict[str, xr.Dataset]]:
     """
     Loads columns into memory via the table tool getcol() function, as opposed to
     load_generic_cols() which loads on a per-row basis via row().
@@ -840,8 +840,8 @@ def load_fixed_size_cols(
 
 
 def find_loadable_cols(
-    tb_tool: tables.table, ignore: Union[List[str], None]
-) -> Dict[str, str]:
+    tb_tool: tables.table, ignore: list[str] | None
+) -> dict[str, str]:
     """
     For a table, finds the columns that are loadable = not of record type,
     and not to be ignored
@@ -878,8 +878,8 @@ def raw_col_data_to_coords_vars(
     tb_tool: tables.table,
     col: str,
     data: np.ndarray,
-    timecols: Union[List[str], None],
-) -> Tuple[str, xr.DataArray]:
+    timecols: list[str] | None,
+) -> tuple[str, xr.DataArray]:
     """
     From a raw np array of data (freshly loaded from a table column), prepares either a
     coord or a data_var ready to be added to an xr.Dataset
@@ -1134,12 +1134,12 @@ def read_col_chunk(
     infile: str,
     ts_taql: str,
     col: str,
-    cshape: Tuple[int],
+    cshape: tuple[int],
     tidxs: np.ndarray,
     bidxs: np.ndarray,
     didxs: np.ndarray,
-    d1: Tuple[int, int],
-    d2: Tuple[int, int],
+    d1: tuple[int, int],
+    d2: tuple[int, int],
 ) -> np.ndarray:
     """
     Function to perform delayed reads from table columns.
@@ -1191,7 +1191,7 @@ def read_col_chunk(
 def read_col_conversion_numpy(
     table_manager: TableManager,
     col: str,
-    cshape: Tuple[int],
+    cshape: tuple[int],
     tidxs: np.ndarray,
     bidxs: np.ndarray,
     use_table_iter: bool,
@@ -1226,7 +1226,6 @@ def read_col_conversion_numpy(
     # https://github.com/casacore/python-casacore/issues/130 isn't mitigated.
 
     with table_manager.get_table() as tb_tool:
-
         # Use casacore to get the shape of a row for this column
         #################################################################################
 
@@ -1286,7 +1285,7 @@ def read_col_conversion_numpy(
 def read_col_conversion_dask(
     table_manager: TableManager,
     col: str,
-    cshape: Tuple[int],
+    cshape: tuple[int],
     tidxs: np.ndarray,
     bidxs: np.ndarray,
     use_table_iter: bool,

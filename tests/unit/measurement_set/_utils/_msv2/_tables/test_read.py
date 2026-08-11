@@ -1,7 +1,7 @@
-import pytest
+from pathlib import Path
 
 import numpy as np
-from pathlib import Path
+import pytest
 
 
 @pytest.mark.parametrize(
@@ -387,11 +387,11 @@ def test_add_units_measures_dubious_units(msv4_xds_min):
 
 
 def test_get_pad_value_in_tablerow_column(ms_minimal_required):
-    from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
     from xradio.measurement_set._utils._msv2._tables.read import (
         get_pad_value,
         get_pad_value_in_tablerow_column,
     )
+    from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
 
     with open_table_ro(ms_minimal_required.fname + "/POLARIZATION") as tb_tool:
         trows = tb_tool.row([], exclude=True)[0:12]
@@ -435,8 +435,9 @@ def test_get_pad_value_baseline_id(msv4_xds_min):
 
 
 def test_redimension_ms_subtable_source(generic_source_xds_min):
-    from xradio.measurement_set._utils._msv2._tables.read import redimension_ms_subtable
     import xarray as xr
+
+    from xradio.measurement_set._utils._msv2._tables.read import redimension_ms_subtable
 
     res = redimension_ms_subtable(generic_source_xds_min, "SOURCE")
     assert isinstance(res, xr.Dataset)
@@ -445,8 +446,9 @@ def test_redimension_ms_subtable_source(generic_source_xds_min):
 
 
 def test_redimension_ms_subtable_phase_cal(generic_phase_cal_xds_min):
-    from xradio.measurement_set._utils._msv2._tables.read import redimension_ms_subtable
     import xarray as xr
+
+    from xradio.measurement_set._utils._msv2._tables.read import redimension_ms_subtable
 
     res = redimension_ms_subtable(generic_phase_cal_xds_min, "PHASE_CAL")
     assert isinstance(res, xr.Dataset)
@@ -462,8 +464,9 @@ def test_is_ephem_subtable_ms(ms_minimal_required):
 
 
 def test_add_ephemeris_vars(ms_minimal_required):
-    from xradio.measurement_set._utils._msv2._tables.read import add_ephemeris_vars
     import xarray as xr
+
+    from xradio.measurement_set._utils._msv2._tables.read import add_ephemeris_vars
 
     # would need an ephem_xds fixture
     ephem_xds = xr.Dataset(data_vars={"MJD": ("row", np.array([]))})
@@ -485,9 +488,9 @@ def test_is_nested_ms_empty():
 
 
 def test_is_nested_ms_ant(ms_minimal_required):
-    from xradio.measurement_set._utils._msv2._tables.read import is_nested_ms
     from xradio.measurement_set._utils._msv2._tables.read import (
         extract_table_attributes,
+        is_nested_ms,
     )
 
     ctds_attrs = extract_table_attributes(ms_minimal_required.fname)
@@ -498,9 +501,9 @@ def test_is_nested_ms_ant(ms_minimal_required):
 
 
 def test_is_nested_ms_ms_min(ms_minimal_required):
-    from xradio.measurement_set._utils._msv2._tables.read import is_nested_ms
     from xradio.measurement_set._utils._msv2._tables.read import (
         extract_table_attributes,
+        is_nested_ms,
     )
 
     ctds_attrs = extract_table_attributes(ms_minimal_required.fname)
@@ -511,22 +514,24 @@ def test_is_nested_ms_ms_min(ms_minimal_required):
 
 
 def test_load_generic_table_antenna(ms_minimal_required):
-    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
     import xarray as xr
+
+    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
 
     res = load_generic_table(ms_minimal_required.fname, "ANTENNA")
     assert res
-    assert type(res) == xr.Dataset
+    assert type(res) is xr.Dataset
     assert all([dim in res.dims for dim in ["row", "dim_1"]])
 
 
 def test_load_generic_table_feed(ms_minimal_required):
-    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
     import xarray as xr
+
+    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
 
     res = load_generic_table(ms_minimal_required.fname, "FEED")
     assert res
-    assert type(res) == xr.Dataset
+    assert type(res) is xr.Dataset
     assert all(
         [
             dim in res.dims
@@ -536,12 +541,13 @@ def test_load_generic_table_feed(ms_minimal_required):
 
 
 def test_load_generic_table_polarization(ms_minimal_required):
-    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
     import xarray as xr
+
+    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
 
     res = load_generic_table(ms_minimal_required.fname, "POLARIZATION")
     assert res
-    assert type(res) == xr.Dataset
+    assert type(res) is xr.Dataset
     assert all([dim in res.dims for dim in ["row", "dim_1", "dim_2"]])
 
 
@@ -556,15 +562,16 @@ def test_load_generic_table_polarization(ms_minimal_required):
     ],
 )
 def test_load_generic_table_source(input_name, expected_additional_columns, request):
-    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
     import xarray as xr
+
+    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
 
     fixture = request.getfixturevalue(input_name)
     input_path = fixture.fname
 
     res = load_generic_table(input_path, "SOURCE")
     assert res
-    assert type(res) == xr.Dataset
+    assert type(res) is xr.Dataset
     assert all(
         [
             dim in res.dims
@@ -588,12 +595,13 @@ def test_load_generic_table_source(input_name, expected_additional_columns, requ
 
 
 def test_load_generic_table_state(ms_minimal_required):
-    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
     import xarray as xr
+
+    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
 
     res = load_generic_table(ms_minimal_required.fname, "STATE")
     assert res
-    assert type(res) == xr.Dataset
+    assert type(res) is xr.Dataset
     assert all([dim in res.dims for dim in ["row"]])
     assert all(
         [
@@ -604,12 +612,13 @@ def test_load_generic_table_state(ms_minimal_required):
 
 
 def test_load_generic_table_pointing(ms_minimal_required):
-    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
     import xarray as xr
+
+    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
 
     res = load_generic_table(ms_minimal_required.fname, "POINTING")
     assert res
-    assert type(res) == xr.Dataset
+    assert type(res) is xr.Dataset
     assert all([dim in res.dims for dim in ["TIME", "ANTENNA_ID", "dim_1", "dim_2"]])
     assert all(
         [
@@ -628,8 +637,9 @@ def test_load_generic_table_pointing(ms_minimal_required):
 
 
 def test_load_generic_table_ephem(ms_minimal_required):
-    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
     import xarray as xr
+
+    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
 
     res = load_generic_table(ms_minimal_required.fname, "FIELD/EPHEM0_FIELDNAME.tab")
     exp_attrs = {
@@ -665,20 +675,22 @@ def test_load_generic_table_ephem(ms_minimal_required):
 
 
 def test_load_generic_table_weather(ms_minimal_required):
-    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
     import xarray as xr
+
+    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
 
     res = load_generic_table(ms_minimal_required.fname, "WEATHER")
     assert res
-    assert type(res) == xr.Dataset
+    assert type(res) is xr.Dataset
     assert all([dim in res.dims for dim in ["ANTENNA_ID", "TIME"]])
     assert all([var in res.data_vars for var in ["H2O"]])
 
 
 def test_load_generic_cols_state(ms_minimal_required):
+    import xarray as xr
+
     from xradio.measurement_set._utils._msv2._tables.read import load_generic_cols
     from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
-    import xarray as xr
 
     subt_state = str(Path(ms_minimal_required.fname) / "STATE")
     with open_table_ro(subt_state) as tb_tool:
@@ -697,9 +709,10 @@ def test_load_generic_cols_state(ms_minimal_required):
 
 
 def test_load_generic_cols_spw(ms_minimal_required):
+    import xarray as xr
+
     from xradio.measurement_set._utils._msv2._tables.read import load_generic_cols
     from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
-    import xarray as xr
 
     subt_state = str(Path(ms_minimal_required.fname) / "SPECTRAL_WINDOW")
     with open_table_ro(subt_state) as tb_tool:

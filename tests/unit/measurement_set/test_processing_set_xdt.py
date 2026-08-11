@@ -1,13 +1,13 @@
-import pytest
 import numpy as np
-import xarray as xr
 import pandas as pd
+import pytest
+import xarray as xr
 
-from xradio.measurement_set.processing_set_xdt import (
-    ProcessingSetXdt,
-    InvalidAccessorLocation,
-)
 from xradio.measurement_set import load_processing_set
+from xradio.measurement_set.processing_set_xdt import (
+    InvalidAccessorLocation,
+    ProcessingSetXdt,
+)
 from xradio.schema.check import check_datatree
 
 # Define input MS path for testing
@@ -256,9 +256,9 @@ class TestProcessingSetXdtWithEphemerisData:
 
         issues = check_datatree(ps_xdt)
         # The check_datatree function returns a SchemaIssues object, not a string
-        assert (
-            str(issues) == "No schema issues found"
-        ), f"Schema validation failed: {issues}"
+        assert str(issues) == "No schema issues found", (
+            f"Schema validation failed: {issues}"
+        )
 
     @pytest.mark.parametrize(
         "convert_measurement_set_to_processing_set",
@@ -309,7 +309,7 @@ class TestProcessingSetXdtWithEphemerisData:
             assert center_field.size == 1  # Should be a single value
         else:
             # Otherwise it should be a regular string
-            assert isinstance(center_field, (str, np.str_))
+            assert isinstance(center_field, str | np.str_)
 
     @pytest.mark.parametrize(
         "convert_measurement_set_to_processing_set",

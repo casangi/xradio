@@ -4,8 +4,6 @@ convert, and retrieve information from Processing Set and Measurement Sets nodes
 Processing Set DataTree
 """
 
-import warnings
-
 from .processing_set_xdt import ProcessingSetXdt
 from .open_processing_set import open_processing_set
 from .load_processing_set import load_processing_set
@@ -26,12 +24,10 @@ try:
         convert_msv2_to_processing_set,
         estimate_conversion_memory_and_cores,
     )
-except ModuleNotFoundError as exc:
-    warnings.warn(
-        f"Could not import the function to convert from MSv2 to MSv4. "
-        f"That functionality will not be available. Details: {exc}",
-        UserWarning,
-    )
+except ModuleNotFoundError:
+    # Optional MSv2-conversion backend not installed; the conversion functions
+    # are simply not exported.
+    pass
 else:
     __all__.extend(
         ["convert_msv2_to_processing_set", "estimate_conversion_memory_and_cores"]

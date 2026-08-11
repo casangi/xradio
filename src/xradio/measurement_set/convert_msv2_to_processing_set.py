@@ -66,7 +66,9 @@ def convert_msv2_to_processing_set(
     phase_cal_interpolate: bool = False,
     sys_cal_interpolate: bool = False,
     use_table_iter: bool = False,
-    compressor: zarr.abc.codec.BytesBytesCodec = zarr.codecs.ZstdCodec(level=2),
+    compressor: zarr.abc.codec.BytesBytesCodec = zarr.codecs.BloscCodec(
+        cname="lz4", clevel=5, shuffle="noshuffle"
+    ),
     add_reshaping_indices: bool = False,
     storage_backend: Literal["zarr", "netcdf"] = "zarr",
     parallel_mode: Literal["none", "partition", "time"] = "none",
@@ -113,8 +115,8 @@ def convert_msv2_to_processing_set(
         Whether to interpolate the time axis of the system calibration data variables (sys_cal_xds) to the time axis of the main dataset
     use_table_iter : bool, optional
         Whether to use the table iterator to read the main table of the MS v2. This should be set to True when reading datasets with large number of rows and few partitions, by default False.
-    compressor : numcodecs.abc.Codec, optional
-        The Blosc compressor to use when saving the converted data to disk using Zarr, by default numcodecs.Zstd(level=2).
+    compressor : zarr.abc.codec.BytesBytesCodec, optional
+        The zarr v3 bytes-to-bytes codec to use when saving the converted data to disk using Zarr, by default zarr.codecs.BloscCodec(cname="lz4", clevel=5, shuffle="noshuffle"). blosc-lz4 decompresses markedly faster than zstd for the high-entropy visibility data (faster reads/loads) at a small cost in compression ratio.
     add_reshaping_indices : bool, optional
         Whether to add the tidxs, bidxs and row_id variables to each partition of the main dataset. These can be used to reshape the data back to the original ordering in the MS v2. This is mainly intended for testing and debugging, by default False.
     storage_backend : Literal["zarr", "netcdf"], optional

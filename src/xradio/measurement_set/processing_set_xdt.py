@@ -1,3 +1,5 @@
+import weakref
+
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -15,15 +17,12 @@ class InvalidAccessorLocation(ValueError):
     pass
 
 
-@xr.register_datatree_accessor("xr_ps")
 class ProcessingSetXdt:
     """
     Accessor to Processing Set DataTree nodes. Provides Processing Set specific functionality such
     as producing a summary of the processing set (with information from all its MSv4s), or retrieving
     combined antenna or field_and_source datasets.
     """
-
-    _xdt: xr.DataTree
 
     def __init__(self, datatree: xr.DataTree):
         """
@@ -35,8 +34,34 @@ class ProcessingSetXdt:
             The Processing Set DataTree node to construct a ProcessingSetXdt accessor.
         """
 
-        self._xdt = datatree
+        self._xdt_strong: xr.DataTree | None = datatree
+        self._xdt_ref: weakref.ref | None = None
         self.meta = {"summary": {}}
+
+    @property
+    def _xdt(self) -> xr.DataTree:
+        if self._xdt_strong is not None:
+            return self._xdt_strong
+        xdt = self._xdt_ref() if self._xdt_ref is not None else None
+        if xdt is None:
+            raise ReferenceError(
+                "The DataTree behind this ProcessingSetXdt accessor no longer exists. "
+                "Access the accessor as xdt.xr_ps.<method>() rather than "
+                "keeping the accessor object alive beyond its DataTree."
+            )
+        return xdt
+
+    def _weaken(self) -> "ProcessingSetXdt":
+        """Switch to a WEAK back-reference; called by the accessor-protocol
+        factory below. xarray caches accessor instances on the DataTree node,
+        so a strong back-reference would form a reference cycle keeping the
+        node and every array under it alive until a full gc pass (the 2026-08
+        memory diagnosis). Directly constructed instances keep their strong
+        reference: wrapper semantics, e.g. ProcessingSetXdt(xr.DataTree())."""
+        if self._xdt_strong is not None:
+            self._xdt_ref = weakref.ref(self._xdt_strong)
+            self._xdt_strong = None
+        return self
 
     def summary(
         self, data_group_name: str | None = None, first_columns: list[str] = None
@@ -1258,3 +1283,11 @@ class ProcessingSetXdt:
             "Processing Set contains multiple Measurement Sets and cannot determine which to return."
         )
         return list(self._xdt.children.values())[0]
+
+
+def _xr_ps_accessor_factory(datatree: xr.DataTree) -> ProcessingSetXdt:
+    """Accessor-protocol factory: weak-referenced ProcessingSetXdt (no cache cycle)."""
+    return ProcessingSetXdt(datatree)._weaken()
+
+
+xr.register_datatree_accessor("xr_ps")(_xr_ps_accessor_factory)

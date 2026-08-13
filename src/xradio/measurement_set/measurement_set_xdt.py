@@ -1,3 +1,4 @@
+import weakref
 from collections.abc import Iterable, Mapping
 from typing import Any
 
@@ -21,7 +22,6 @@ class InvalidAccessorLocation(ValueError):
     pass
 
 
-@xr.register_datatree_accessor("xr_ms")
 class MeasurementSetXdt:
     """Accessor to the Measurement Set DataTree node. Provides MSv4 specific functionality
     such as:
@@ -34,8 +34,6 @@ class MeasurementSetXdt:
 
     """
 
-    _xdt: xr.DataTree
-
     def __init__(self, datatree: xr.DataTree):
         """
         Initialize the MeasurementSetXdt instance.
@@ -46,8 +44,34 @@ class MeasurementSetXdt:
             The MSv4 DataTree node to construct a MeasurementSetXdt accessor.
         """
 
-        self._xdt = datatree
+        self._xdt_strong: xr.DataTree | None = datatree
+        self._xdt_ref: weakref.ref | None = None
         self.meta = {"summary": {}}
+
+    @property
+    def _xdt(self) -> xr.DataTree:
+        if self._xdt_strong is not None:
+            return self._xdt_strong
+        xdt = self._xdt_ref() if self._xdt_ref is not None else None
+        if xdt is None:
+            raise ReferenceError(
+                "The DataTree behind this MeasurementSetXdt accessor no longer exists. "
+                "Access the accessor as xdt.xr_ms.<method>() rather than "
+                "keeping the accessor object alive beyond its DataTree."
+            )
+        return xdt
+
+    def _weaken(self) -> "MeasurementSetXdt":
+        """Switch to a WEAK back-reference; called by the accessor-protocol
+        factory below. xarray caches accessor instances on the DataTree node,
+        so a strong back-reference would form a reference cycle keeping the
+        node and every array under it alive until a full gc pass (the 2026-08
+        memory diagnosis). Directly constructed instances keep their strong
+        reference: wrapper semantics, e.g. MeasurementSetXdt(xr.DataTree())."""
+        if self._xdt_strong is not None:
+            self._xdt_ref = weakref.ref(self._xdt_strong)
+            self._xdt_strong = None
+        return self
 
     def sel(
         self,
@@ -360,3 +384,11 @@ class MeasurementSetXdt:
         # self._xdt.attrs["data_groups"][new_data_group_name] = new_data_group
 
         # return self._xdt
+
+
+def _xr_ms_accessor_factory(datatree: xr.DataTree) -> MeasurementSetXdt:
+    """Accessor-protocol factory: weak-referenced MeasurementSetXdt (no cache cycle)."""
+    return MeasurementSetXdt(datatree)._weaken()
+
+
+xr.register_datatree_accessor("xr_ms")(_xr_ms_accessor_factory)

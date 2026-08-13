@@ -308,9 +308,61 @@ make schema-export                                 # regenerate schemas/Visibili
 
 ---
 
+## Writing xarray Accessors — memory-safety rules (MANDATORY)
+
+Background (2026-08 Frontera diagnosis): xarray's *documented* accessor recipe
+(`self._obj = xarray_obj` + xarray caching the instance in `obj._cache[name]`)
+creates a **reference cycle** `obj → _cache → accessor → obj`. A cycle is
+invisible at laptop scale, but it pins the ENTIRE Dataset/DataTree — every
+numpy array in it — until a full garbage-collection pass. In the VIPER imaging
+pipeline this pinned 1.5–2.5 GB *per mapping task* (superseded image datasets
+died mid-task with their accessor cycles attached), ratcheting worker RSS until
+nodes ran out of memory. Reference-counted (cycle-free) death is a hard
+requirement for XRADIO objects. Reference implementations of the rules below:
+`image_xds.py` (`ImageXds`), `measurement_set_xdt.py` (`MeasurementSetXdt`),
+`processing_set_xdt.py` (`ProcessingSetXdt`).
+
+1. **Never register an accessor class directly** (no `@xr.register_dataset_accessor("name")`
+   on the class). Register a module-level **factory** that constructs the
+   instance and immediately weakens its back-reference:
+   `xr.register_dataset_accessor("xr_x")(lambda ds: XAccessor(ds)._weaken())`.
+2. **Hybrid strong/weak back-reference.** `__init__` stores the object
+   strongly (`self._xds_strong = ds; self._xds_ref = None`) so direct
+   construction (`XAccessor(ds)` as a standalone wrapper, used in tests and
+   templates) keeps wrapper semantics. `_weaken()` — called only by the
+   factory — swaps to `weakref.ref`. On the accessor path
+   (`ds.xr_x.method()`), `ds` itself keeps the object alive for the duration
+   of the call, so the weak reference is always valid when it matters.
+3. **Access the object only through the `_xds`/`_xdt` property**, which
+   returns the strong reference if set, else dereferences the weakref and
+   raises `ReferenceError` with usage guidance if the object is gone. Never
+   touch `_xds_strong`/`_xds_ref` from method bodies.
+4. **Rebinding must go through a strong local.** Under a weak back-reference,
+   `self._xds = self._xds.assign_coords(...)` followed by `return self._xds`
+   can lose the new object *between the two statements* (nothing else holds
+   it). Always: `xds = self._xds.assign_coords(...); self._xds = xds; return xds`.
+   The `_xds` setter preserves the current mode (weak stays weak, strong
+   stays strong).
+5. **Never store accessor instances** in attributes, containers, or module
+   state — use them inline (`ds.xr_x.method()`) and let them die. An accessor
+   kept beyond its object's life raises `ReferenceError` by design.
+6. **Prove cycle-free death in a unit test** for every new accessor:
+   ```python
+   ds = make_dataset(); ds.xr_x  # populate the accessor cache
+   wr = weakref.ref(ds); del ds
+   assert wr() is None            # died by refcount, NO gc.collect() needed
+   ```
+7. **DataTree caveat (related, not accessor-specific):** `xarray.DataTree`
+   parent↔child links are themselves strong reference cycles — any dropped
+   tree is cyclic garbage. Consumers that drop task-owned trees must sever
+   them (see `astroviper.utils.data_tree.release_data_tree`); XRADIO code
+   should avoid keeping dropped subtrees reachable.
+
+---
+
 ## Gotchas
 
-- **Accessors require `import xradio`.** `.xr_ps`, `.xr_ms`, `.xr_img` are only registered as a side effect of importing the package; without it they raise `AttributeError`. Calling a method on the wrong node type raises `InvalidAccessorLocation` (a `ValueError` subclass). `make_empty_*` images set `attrs["type"]="image"` (singular) and the `.xr_img` accessor rejects them until they become an `"image_dataset"`.
+- **Accessors require importing their SUBPACKAGE, not just `xradio`.** Bare `import xradio` registers nothing; `import xradio.measurement_set` registers `.xr_ps`/`.xr_ms` and `import xradio.image` registers `.xr_img` (registration is a side effect of the defining module's import). Without it they raise `AttributeError`. Calling a method on the wrong node type raises `InvalidAccessorLocation` (a `ValueError` subclass). `make_empty_*` images set `attrs["type"]="image"` (singular) and the `.xr_img` accessor rejects them until they become an `"image_dataset"`.
 - **casacore is optional (but no longer macOS-gated).** `convert_msv2_to_processing_set` / `estimate_conversion_memory_and_cores` are imported inside a `try/except` — if `casacoretables` is missing they emit a `UserWarning` and are simply **absent** from the namespace. `casacoretables` installs on Linux and macOS alike (no separate `python-casacore` conda step).
 - **casacore table locking breaks on Dropbox-backed paths.** Run any casacore/CASA table operations (conversion, CASA-image read/write, related tests) in `$TMPDIR`, not in the Dropbox tree.
 - **`storage_backend="netcdf"` is documented but NOT implemented.** Only `zarr` works.

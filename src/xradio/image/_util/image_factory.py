@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import xarray as xr
 
@@ -672,37 +674,42 @@ def detect_image_type(store):
     """
 
     if isinstance(store, str):
-        if "fits" in store.lower():
+        # Classify by the file name only: matching against the full path
+        # would pick up substrings from directory names (e.g. a "Dropbox"
+        # folder contains "pb" and would classify everything in it as a
+        # primary beam).
+        name = os.path.basename(os.path.normpath(store)).lower()
+        if "fits" in name:
             image_type = "SKY"
-        elif "image" in store.lower():
+        elif "image" in name:
             image_type = "SKY"
-        elif "sky" in store.lower():
+        elif "sky" in name:
             image_type = "SKY"
-        elif "psf" in store.lower():
+        elif "psf" in name:
             image_type = "POINT_SPREAD_FUNCTION"
-        elif "model" in store.lower():
+        elif "model" in name:
             image_type = "MODEL"
-        elif "residual" in store.lower():
+        elif "residual" in name:
             image_type = "RESIDUAL"
-        elif "dirty" in store.lower():
+        elif "dirty" in name:
             image_type = "DIRTY"
-        elif "pb" in store.lower():
+        elif "pb" in name:
             image_type = "PRIMARY_BEAM"
-        elif "aperture" in store.lower():
+        elif "aperture" in name:
             image_type = "APERTURE"
-        elif "uv" in store.lower():
+        elif "uv" in name:
             # Must precede the "im" check so uv images aren't misclassified as SKY.
             image_type = "APERTURE"
-        elif "visibility" in store.lower():
+        elif "visibility" in name:
             image_type = "VISIBILITY"
-        elif "sumwt" in store.lower():
+        elif "sumwt" in name:
             image_type = "VISIBILITY_NORMALIZATION"
-        elif "zarr" in store.lower():
+        elif "zarr" in name:
             image_type = "ALL"
-        elif "im" in store.lower():
+        elif "im" in name:
             # Must precede the "mask" check so *mask*.im images aren't misclassified.
             image_type = "SKY"
-        elif "mask" in store.lower():
+        elif "mask" in name:
             image_type = "MASK_DECONVOLVE"
         else:
             image_type = "UNKNOWN"

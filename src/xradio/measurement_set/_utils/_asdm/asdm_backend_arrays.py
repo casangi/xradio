@@ -1,3 +1,5 @@
+import traceback
+
 import numpy as np
 
 import xarray as xr
@@ -67,8 +69,10 @@ class VisibilityArray(ASDMBackendArray):
                 self._bdf_paths, self._bdf_spw_id, self._time_indices_by_bdf, key
             )
         except Exception as exc:
+            trace = traceback.format_exc()
             xradio_logger().warning(
-                f"Exception while indexing the VISIBILITY array with {key=}: {exc}"
+                f"Exception while indexing the VISIBILITY array with {key=}: {exc}\n"
+                f"Traceback: {trace}"
             )
             raise exc
         return visibility
@@ -109,8 +113,10 @@ class FlagArray(ASDMBackendArray):
                 self._bdf_paths, self._bdf_spw_id, self._time_indices_by_bdf, key
             )
         except Exception as exc:
+            trace = traceback.format_exc()
             xradio_logger().warning(
-                f"Exception while indexing the FLAG array with {key=}: {exc}"
+                f"Exception while indexing the FLAG array with {key=}: {exc}\n"
+                f"Traceback: {trace}"
             )
             raise exc
         return flags

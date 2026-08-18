@@ -12,8 +12,15 @@ def min_max_from_dimension_slice(
         dimension_idx_min = dimension_slice
         dimension_idx_max = dimension_slice + 1
     elif isinstance(dimension_slice, slice):
-        dimension_idx_min = dimension_slice.start or default_min
-        dimension_idx_max = dimension_slice.stop or default_max
+        if dimension_slice.start:
+            dimension_idx_min = max(dimension_slice.start, default_min)
+        else:
+            dimension_idx_min = default_min
+
+        if dimension_slice.stop:
+            dimension_idx_max = min(dimension_slice.stop, default_max)
+        else:
+            dimension_idx_max = default_max
     else:
         dimension_idx_min = default_min
         dimension_idx_max = default_max

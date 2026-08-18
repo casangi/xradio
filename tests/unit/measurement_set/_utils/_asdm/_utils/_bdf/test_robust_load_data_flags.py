@@ -272,7 +272,8 @@ def test_load_visibilities_from_bdf_incomplete_descr(input_never_reshape, input_
 @pytest.mark.parametrize(
     "input_never_reshape, input_spw", [(True, 0), (True, 2), (False, 1), (False, 4)]
 )
-def test_load_visibilities_from_bdf_error_loading(input_never_reshape, input_spw):
+def test_load_visibilities_from_bdf_bogus_input_slice(input_never_reshape, input_spw):
+    """Exercises slice indices that are out of bounds for the (mocked) BDF, in the time dim"""
     from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
         load_visibilities_from_bdf,
     )
@@ -294,18 +295,17 @@ def test_load_visibilities_from_bdf_error_loading(input_never_reshape, input_spw
         make_sufficient_bdf_header_mock(mock_bdf_header)
         mock_bdf_reader.return_value.getHeader.return_value = mock_bdf_header
         array_slice = (slice(0, 3), slice(None), slice(None), slice(None))
-        with pytest.raises(RuntimeError, match="Error while loading data/visibilities"):
-            load_visibilities_from_bdf(
-                "/inexistent/foo/path/",
-                input_spw,
-                array_slice,
-                never_reshape_from_all_spws=input_never_reshape,
-            )
-
+        visibilities = load_visibilities_from_bdf(
+            "/inexistent/foo/path/",
+            input_spw,
+            array_slice,
+            never_reshape_from_all_spws=input_never_reshape,
+        )
+        assert visibilities.shape == subset_shape
         mock_bdf_header.getBasebandsList.assert_called_once()
-        assert mock_bdf_reader.return_value.hasSubset.call_count == 2
-        assert mock_bdf_reader.return_value.getNDArrays.call_count == 2
-        assert mock_bdf_reader.return_value.getSubset.call_count == 0
+        assert mock_bdf_reader.return_value.hasSubset.call_count == 3
+        assert mock_bdf_reader.return_value.getNDArrays.call_count == 1
+        assert mock_bdf_reader.return_value.getSubset.call_count == 1
 
 
 def test_load_flags_from_partition_bdfs_empty():

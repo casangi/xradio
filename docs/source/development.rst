@@ -20,13 +20,6 @@ Setting up a Development Environment
    conda create --name xradio python=3.13 --no-default-packages
    conda activate xradio
 
-..
-
-   📝 On macOS, if one wants to use the functions to convert MSv2=>MSv4,
-   it is required to pre-install ``python-casacore`` . This can be done
-   using ``conda install -c conda-forge python-casacore``. See more
-   alternatives below.
-
 - Clone XRADIO repository, move into directory and install:
 
 .. code:: sh
@@ -137,9 +130,8 @@ support for ``casacore`` table Measurement Set v2 (``MS v2``), through a
 conversion function that allows users to convert data from Measurement
 Set v2 (stored in Casacore tables) to Measurement Set v4 (stored using
 zarr). The conversion function for MS v2 requires the optional
-dependency ``python-casacore``, or alternatively CASA’s ``casatools``
-backend (see `casatools I/O
-backend <measurement_set/guides/backends.md>`__).
+dependency `arcae <https://github.com/ska-sa/arcae>`__, which provides
+casacore table access with self-contained wheels for Linux and macOS.
 
 .. raw:: html
 
@@ -170,14 +162,11 @@ XRADIO is built using the following core packages:
   `v3 <https://zarr-specs.readthedocs.io/en/latest/specs.html>`__): Used
   as a storage backend for scalable, chunked and compressed
   n-dimensional data.
-- Optionally,
-  `python-casacore <https://github.com/casacore/python-casacore>`__
+- Optionally, `arcae <https://github.com/ska-sa/arcae>`__
   (`Casacore Table Data System (CTDS) File
   Formats <https://casacore.github.io/casacore-notes/260.pdf>`__): Used
-  to convert data from MS v2 to MS v4 in Zarr format, with ongoing
-  development toward a lightweight, pure Python replacement.
-  Alternatively, the `casatools I/O
-  backend <measurement_set/guides/backends.md>`__ can be used.
+  to convert data from MS v2 to MS v4 in Zarr format and to read/write
+  CASA images.
 - Optionally, `pyasdm <https://github.com/casangi/pyasdm>`__ (under
   development): A Python-based storage backend in progress, designed for
   accessing ASDM (Astronomy Science Data Model) data.

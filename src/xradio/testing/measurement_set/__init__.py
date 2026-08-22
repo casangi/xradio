@@ -47,7 +47,7 @@ except ModuleNotFoundError as exc:
     from xradio._utils.logging import xradio_logger
 
     xradio_logger().warning(
-        "Could not import casacore tables to handle MSv2. "
+        "Could not import a casacore tables backend (arcae) to handle MSv2. "
         "Could not import the functions to convert from MSv2 to MSv4. "
         f"That functionality will not be available. Details: {exc}"
     )

@@ -1,12 +1,7 @@
 import numpy as np
 import pandas as pd
 
-try:
-    from casacore import tables
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as tables
-
-
+from xradio._utils._casacore.backend import tables
 from xradio._utils.list_and_array import (
     inverse_pairing_function,
     pairing_function,

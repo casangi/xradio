@@ -32,12 +32,12 @@ make python-format     # == black --config pyproject.toml src/ tests/ docs/sourc
 ```bash
 pip install -e ".[all]"          # editable dev install with every extra
 pip install "xradio[zarr]"       # zarr backend only
-pip install "xradio[casacore]"   # MSv2->MSv4 conversion + CASA image IO (pulls casacoretables; Linux+macOS)
+pip install "xradio[casacore]"   # MSv2->MSv4 conversion + CASA image IO (pulls arcae; Linux+macOS)
 ```
 
 - **Base `pip install xradio` pulls only `xarray`** → schema-check + JSON export only (no zarr I/O, no conversion).
 - Optional extras: `zarr`, `casacore`, `interactive`, `test`, `docs`, `all` (combinable, e.g. `[interactive,casacore,test]`).
-- **Single CASA-table backend:** MSv2→MSv4 conversion and CASA image IO use **`casacoretables`** (a standalone, symbol-clash-free build of casacore's table system). It replaces both `python-casacore` and `casatools`, and works identically on **Linux and macOS** — no `conda install` of `python-casacore` and no macOS gating. ⚠ PyPI wheels for `casacoretables` are not published yet, so install it from source for now.
+- **Primary CASA-table backend: [arcae](https://github.com/ska-sa/arcae)** (Arrow-based casacore table bindings with self-contained wheels for Linux and macOS). Backend selection lives in `src/xradio/_utils/_casacore/backend.py`: arcae first (via the `casacore_from_arcae` / `images_from_arcae` shims that emulate the python-casacore `tables`/`images` API — arcae has no image API, so CASA images are read/written through table access + TaQL), falling back to `python-casacore` if arcae is absent (undocumented backup only — no extra installs it, no workflow uses it). `casatools` is no longer supported.
 - `requires-python = ">=3.11, <3.14"` (3.11 / 3.12 / 3.13).
 
 ---
@@ -263,7 +263,7 @@ ms_xdt.ds.VISIBILITY.max().compute()
 - **`parallel_mode` dispatch** (`convert_msv2_to_processing_set.py:198-248`): `partition` wraps each `convert_and_write_partition` in `dask.delayed`, then `dask.compute(delayed_list)`. `time` hard-asserts `len(partitions)==1` (`:164-167`).
 - **Per-partition conversion** (`_utils/_msv2/conversion.py::convert_and_write_partition`, `l.1001`): builds a TaQL `WHERE` (`create_taql_query_where`, `l.764`); reshapes flat MSv2 rows into the dense `(time, baseline_id, frequency, polarization)` grid via `tidxs`/`bidxs` (`calc_indx_for_row_split`, `l.390`); assembles `ms_xdt.ds` + sub-xds child nodes (`l.1393-1416`); applies chunking + `add_encoding`; writes via `to_zarr(..., zarr_format=ZARR_FORMAT)` to `out_file/<ms_v4_name>` (`l.1420-1424`).
 - **Finalize** (`convert_msv2_to_processing_set.py`): reopens root, sets `attrs["type"]="processing_set"` (`:254`), calls `zarr.consolidate_metadata(...)` (`:255`).
-- **casacore read path**: every table-touching module does `from casacoretables import tables` (single backend — no try/except, no casatools fallback). CASA images are read via `xradio._utils._casacore.casa_images` (a casacoretables-backed reimplementation of `casacore.images`: pixels via raw `getcellslice`, coords via the `coords` table keyword + vendored python-casacore `coordinates.py`, with `latpole`/`longpole` filled by astropy WCS). Tables open read-only (`lockoptions={"option":"usernoread"}`, `ack=False`). `load_generic_table` always injects a TaQL exclusion of `SOURCE_MODEL` (frequently corrupted). The MS test-data generator (`xradio.testing.measurement_set.msv2_io`) builds MSv2 files via `_casacore_ms.py` (`default_ms`/`required_ms_desc`/… reimplemented from vendored `_ms_descriptors.json`, since casacore's `ms` module is not bundled).
+- **casacore read path**: every table-touching module imports `tables` (and `images`/`coordinates` for image IO) from `xradio._utils._casacore.backend`, which selects arcae first and python-casacore as an undocumented fallback. The arcae shim (`_utils/_casacore/casacore_from_arcae.py`) emulates the python-casacore `tables` API: keywords come from `tabledesc()["_keywords_"]` (casacore JsonOut, full precision; NUL padding stripped), and TaQL (`Table.from_taql`, always bound to the open handle via `$1`) covers what arcae lacks — tiled-column reads (`col[blc:trc]` slice expressions, 1-based inclusive), tiled writes (helper-table `UPDATE ... SET col[...] = t2.X`), `CREATE TABLE`, keyword writes (`SET KEYWORD` literals with a JSON `COPY KEYWORD` fallback for `*0`-style field names), table copies and column drops. ⚠ casacore errors inside `from_taql` abort the process (arcae issue), so avoid feeding it invalid TaQL. CASA images (`_utils/_casacore/images_from_arcae.py`) are plain tables: pixels in a single-cell `TiledCellStMan` `map` column, metadata in table keywords; lonpole/latpole are recomputed via astropy/wcslib like casacore's restore does. Tables open read-only (`lockoptions={"option":"usernoread"}`, `ack=False`). `load_generic_table` always injects a TaQL exclusion of `SOURCE_MODEL` (frequently corrupted). The MS test-data generator (`xradio.testing.measurement_set.msv2_io`) builds MSv2 files via arcae's `ms_from_descriptor`/`ms_descriptor` (exposed as `default_ms`/`required_ms_desc`/… on the backend module).
 
 ---
 
@@ -304,7 +304,7 @@ make schema-export                                 # regenerate schemas/Visibili
   - `xradio.testing.image`: `download_image`, `download_and_open_image`, `create_empty_test_image`, `assert_image_block_equal`, `remove_path`
 - **Test data** downloads via `toolviper.utils.data.download` (default to `/tmp` for MS assets — avoids Dropbox table-locking issues).
 - **Schema checking:** validate data with `check_dataset` / `check_array` / `check_dict` / `check_datatree`; call `.expect()` on the returned `SchemaIssues` to raise.
-- **CI**: reusable `nrao/gh-actions-templates-public` templates (linux + codecov, macos, casatools, integration, basic-schema-install, run-ipynb) plus a Black formatting check (`black.yml`). `cov_project="xradio"`, test path `tests/`.
+- **CI**: reusable `nrao/gh-actions-templates-public` templates (linux + codecov, macos, integration, basic-schema-install, run-ipynb) plus a Black formatting check (`black.yml`). `cov_project="xradio"`, test path `tests/`.
 
 ---
 
@@ -363,7 +363,7 @@ requirement for XRADIO objects. Reference implementations of the rules below:
 ## Gotchas
 
 - **Accessors require importing their SUBPACKAGE, not just `xradio`.** Bare `import xradio` registers nothing; `import xradio.measurement_set` registers `.xr_ps`/`.xr_ms` and `import xradio.image` registers `.xr_img` (registration is a side effect of the defining module's import). Without it they raise `AttributeError`. Calling a method on the wrong node type raises `InvalidAccessorLocation` (a `ValueError` subclass). `make_empty_*` images set `attrs["type"]="image"` (singular) and the `.xr_img` accessor rejects them until they become an `"image_dataset"`.
-- **casacore is optional (but no longer macOS-gated).** `convert_msv2_to_processing_set` / `estimate_conversion_memory_and_cores` are imported inside a `try/except` — if `casacoretables` is missing they emit a `UserWarning` and are simply **absent** from the namespace. `casacoretables` installs on Linux and macOS alike (no separate `python-casacore` conda step).
+- **casacore is optional (but no longer macOS-gated).** `convert_msv2_to_processing_set` / `estimate_conversion_memory_and_cores` are imported inside a `try/except` — if `arcae` is missing (and no python-casacore fallback is present) they emit a `UserWarning` and are simply **absent** from the namespace. `arcae` installs from PyPI on Linux and macOS alike.
 - **casacore table locking breaks on Dropbox-backed paths.** Run any casacore/CASA table operations (conversion, CASA-image read/write, related tests) in `$TMPDIR`, not in the Dropbox tree.
 - **`storage_backend="netcdf"` is documented but NOT implemented.** Only `zarr` works.
 - **No `[build-system]` table** in `pyproject.toml` (legacy setuptools fallback); no `setup.py`/`setup.cfg`. If you add entry points / dynamic version / explicit package discovery, add `[build-system]` first.

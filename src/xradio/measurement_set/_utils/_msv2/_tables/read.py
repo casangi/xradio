@@ -10,11 +10,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-try:
-    from casacore import tables
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as tables
-
+from xradio._utils._casacore.backend import tables
 from xradio._utils.list_and_array import get_pad_value
 from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._msv2._tables.table_query import (

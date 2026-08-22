@@ -3,12 +3,7 @@ import re
 import numpy as np
 import xarray as xr
 
-try:
-    from casacore import tables
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as tables
-
-
+from xradio._utils._casacore.backend import tables
 from xradio._utils.list_and_array import check_if_consistent
 from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._msv2._tables.read import (

@@ -1,33 +1,40 @@
-from astropy import units as u
 import copy
 import os
-from typing import List, Tuple, Union
 
 import dask
 import dask.array as da
 import numpy as np
 import xarray as xr
 from astropy import units as u
+
 from xradio._utils.list_and_array import to_python_type
 from xradio._utils.logging import xradio_logger
 
 try:
     from casacore import tables
-    from casacore.images import coordinates, image as casa_image
+    from casacore.images import coordinates
+    from casacore.images import image as casa_image
 except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as tables
     import xradio._utils._casacore.casacore_from_casatools as coordinates
+    import xradio._utils._casacore.casacore_from_casatools as tables
     from xradio._utils._casacore.casacore_from_casatools import image as casa_image
 
 
+from xradio._utils._casacore.tables import extract_table_attributes, open_table_ro
+from xradio._utils.coord_math import _deg_to_rad
+from xradio._utils.dict_helpers import (
+    _casacore_q_to_xradio_q,
+    make_direction_location_dict,
+    make_quantity,
+    make_skycoord_dict,
+    make_spectral_coord_reference_dict,
+    make_time_measure_dict,
+)
 from xradio.image._util._casacore.common import (
-    _image_flag,
-    _beam_fit_params,
     _object_name,
     _open_image_ro,
     _pointing_center,
 )
-
 from xradio.image._util.common import (
     _compute_linear_world_values,
     _compute_velocity_values,
@@ -39,16 +46,7 @@ from xradio.image._util.common import (
     _image_type,
     _l_m_attr_notes,
 )
-from xradio._utils._casacore.tables import extract_table_attributes, open_table_ro
-from xradio._utils.coord_math import _deg_to_rad
-from xradio._utils.dict_helpers import (
-    _casacore_q_to_xradio_q,
-    make_direction_location_dict,
-    make_spectral_coord_reference_dict,
-    make_quantity,
-    make_skycoord_dict,
-    make_time_measure_dict,
-)
+from xradio.measurement_set._utils._msv2._tables.read import convert_casacore_time
 
 
 def _add_lin_attrs(xds, coord_dict, dir_axes):
@@ -66,7 +64,7 @@ def _add_lin_attrs(xds, coord_dict, dir_axes):
 
 
 def _add_mask(
-    xds: xr.Dataset, name: str, ary: Union[np.ndarray, da.array], dimorder: list
+    xds: xr.Dataset, name: str, ary: np.ndarray | da.Array, dimorder: list
 ) -> xr.Dataset:
     xda = xr.DataArray(ary, dims=dimorder)
     # True pixels are good in numpy masked arrays
@@ -212,7 +210,7 @@ def _casa_image_to_xds_image_attrs(
 
 def _add_sky_or_aperture(
     xds: xr.Dataset,
-    ary: Union[np.ndarray, da.array],
+    ary: np.ndarray | da.Array,
     dimorder: list,
     img_full_path: str,
     has_sph_dims: bool,
@@ -292,9 +290,9 @@ def _casa_image_to_xds_attrs(img_full_path: str) -> dict:
             data=[ra, dec], units="rad", frame=ap_system
         )
         if ap_equinox:
-            coordinate_system_info["reference_direction"]["attrs"][
-                "equinox"
-            ] = ap_equinox
+            coordinate_system_info["reference_direction"]["attrs"]["equinox"] = (
+                ap_equinox
+            )
 
         pol_dir = [-1, coord_dir_dict["latpole"] * _deg_to_rad]
         if "lonpole" in coord_dir_dict:
@@ -341,7 +339,7 @@ def _casa_image_to_xds_coords(
         for aa in cc[1]["axes"]
     ]
     attrs["dir_axes"] = diraxes
-    dimmap = _get_dimmap(coord_dict, verbose)
+    dimmap = _get_dimmap(coord_dict, diraxes, verbose)
     attrs["dimmap"] = dimmap
     sphr_dims = (
         [dimmap["l"], dimmap["m"]] if ("l" in dimmap) and ("m" in dimmap) else []
@@ -379,7 +377,10 @@ def _casa_image_to_xds_coords(
                         dc = coordinates.directioncoordinate(coord_dict[k])
                         break
                 crval = _flatten_list(csys.get_referencevalue())[::-1]
-                pick = lambda my_list: [my_list[i] for i in sphr_dims]
+
+                def pick(my_list):
+                    return [my_list[i] for i in sphr_dims]
+
                 my_ret = _compute_world_sph_dims(
                     projection=dc.get_projection(),
                     shape=pick(shape),
@@ -441,16 +442,14 @@ def _convert_direction_system(
 def _flatten_list(list_of_lists: list) -> list:
     flat = []
     for x in list_of_lists:
-        if type(x) == list or type(x) == np.ndarray:
+        if type(x) is list or type(x) is np.ndarray:
             flat.extend(_flatten_list(x))
         else:
             flat.append(x)
     return flat
 
 
-def _get_chunk_list(
-    chunks: dict, coords: list, image_shape: Union[list, tuple]
-) -> tuple:
+def _get_chunk_list(chunks: dict, coords: list, image_shape: list | tuple) -> tuple:
     ret_list = list(image_shape)
     axis = 0
     for c in coords:
@@ -477,14 +476,14 @@ def _get_chunk_list(
     return tuple(ret_list)
 
 
-def _get_dimmap(coords: list, verbose: bool = False) -> dict:
+def _get_dimmap(coords: list, diraxes: list, verbose: bool = False) -> dict:
     # example of dimmap:
     # [('direction0', 0), ('direction1', 1), ('spectral0', 2), ('stokes0', 3)]
     dimmap: list[tuple] = [
         (coord[:-1] + str(ii), ci)
         for coord in coords
         if coord[:-1] in ["direction", "stokes", "spectral", "linear"]
-        for ii, ci in enumerate(coords["pixelmap%s" % coord[-1]])
+        for ii, ci in enumerate(coords[f"pixelmap{coord[-1]}"])
     ]
     if verbose:
         print(f"dimmap: {dimmap}")
@@ -534,7 +533,7 @@ def _get_dimmap(coords: list, verbose: bool = False) -> dict:
 
 def _get_freq_values_attrs(
     casa_coords: coordinates.coordinatesystem, shape: tuple
-) -> Tuple[List[float], dict]:
+) -> tuple[list[float], dict]:
     values = None
     attrs = {}
     idx = _get_image_axis_order(casa_coords)[::-1].index("Frequency")
@@ -606,15 +605,12 @@ def _get_image_dim_order(coords: coordinates.coordinatesystem) -> list:
         elif b.startswith("stok"):
             ret.append("polarization")
         else:
-            raise Exception(f"Unhandled axis name {c}")
+            raise Exception(f"Unhandled axis name {axis}")
     return ret
 
 
 def _get_mask_names(infile: str) -> list:
     t = tables.table(infile)
-    tb_tool = tables.table(
-        infile, readonly=True, lockoptions={"option": "usernoread"}, ack=False
-    )
     mymasks = t.getkeyword("masks") if "masks" in t.keywordnames() else []
     t.close()
     return mymasks
@@ -634,7 +630,7 @@ def _get_persistent_block(
     return block
 
 
-def _get_pol_values_attrs(casa_coord_dict: dict) -> Tuple[List[str], dict]:
+def _get_pol_values_attrs(casa_coord_dict: dict) -> tuple[list[str], dict]:
     values = None
     for k in casa_coord_dict:
         if k.startswith("stokes"):
@@ -644,7 +640,7 @@ def _get_pol_values_attrs(casa_coord_dict: dict) -> Tuple[List[str], dict]:
     return (values, {})
 
 
-def _get_pol_values(coord_dict: dict) -> List[str]:
+def _get_pol_values(coord_dict: dict) -> list[str]:
     for k in coord_dict:
         if k.startswith("stokes"):
             return coord_dict[k]["stokes"]
@@ -679,7 +675,7 @@ def _get_starts_shapes_slices(
     return starts, shapes, slices
 
 
-def _get_time_values_attrs(cimage_coord_dict: dict) -> Tuple[List[float], dict]:
+def _get_time_values_attrs(cimage_coord_dict: dict) -> tuple[list[float], dict]:
     attrs = {}
     attrs["type"] = "time"
     attrs["scale"] = cimage_coord_dict["obsdate"]["refer"].lower()
@@ -702,7 +698,6 @@ def _get_transpose_list(coords: coordinates.coordinatesystem) -> list:
     new_axes = [4]
     last_axis = 3
     not_covered = ["l", "m", "u", "v", "s", "f"]
-    csys = coords.dict()
     for i, c in enumerate(flat):
         b = c.lower()
         if b.startswith("right") or b.startswith("uu"):
@@ -732,13 +727,13 @@ def _get_transpose_list(coords: coordinates.coordinatesystem) -> list:
         last_axis -= 1
     new_axes.sort()
     if transpose_list.count(-1) > 0:
-        raise Exception(f"Logic error: axes {axes}, transpose_list {transpose_list}")
+        raise Exception(f"Logic error: axes {flat}, transpose_list {transpose_list}")
     return transpose_list, new_axes
 
 
 def _get_uv_values(
-    coord_dict: dict, axis_names: List[str], shape: Tuple[int]
-) -> Tuple[List[float]]:
+    coord_dict: dict, axis_names: list[str], shape: tuple[int]
+) -> tuple[list[float]]:
     for i, axis in enumerate(["UU", "VV"]):
         idx = axis_names.index(axis)
         if idx >= 0:
@@ -760,7 +755,7 @@ def _get_uv_values(
 
 
 def _get_uv_values_attrs(
-    casa_coord_dict: dict, axis_names: List[str], shape: Tuple[int]
+    casa_coord_dict: dict, axis_names: list[str], shape: tuple[int]
 ) -> dict:
     ret = {}
     for i, axis in enumerate(["UU", "VV"]):
@@ -801,8 +796,8 @@ def _get_velocity_values(coord_dict: dict, freq_values: list) -> list:
 
 
 def _get_velocity_values_attrs(
-    coord_dict: dict, freq_values: List[float]
-) -> Tuple[List[float], dict]:
+    coord_dict: dict, freq_values: list[float]
+) -> tuple[list[float], dict]:
     restfreq = 1420405751.786
     attrs = {}
     for k in coord_dict:
@@ -830,7 +825,7 @@ def _get_beam(
     npol: int,
     as_dask_array: bool,
     image_type: str = "SKY",
-) -> Union[xr.DataArray, None]:
+) -> xr.DataArray | None:
     # the image may have multiple beams
     with _open_image_ro(img_full_path) as casa_image:
         imageinfo = casa_image.info()["imageinfo"]
@@ -908,15 +903,13 @@ def read_generic_table(infile, subtables=False, timecols=None, ignore=None):
         if tb_tool.nrows() == 0:
             return xr.Dataset(attrs=attrs)
 
-        dims = ["row"] + ["d%i" % ii for ii in range(1, 20)]
+        dims = ["row"] + [f"d{ii}" for ii in range(1, 20)]
         cols = tb_tool.colnames()
-        ctype = dict(
-            [
-                (col, tb_tool.getcell(col, 0))
-                for col in cols
-                if ((col not in ignore) and (tb_tool.iscelldefined(col, 0)))
-            ]
-        )
+        ctype = {
+            col: tb_tool.getcell(col, 0)
+            for col in cols
+            if ((col not in ignore) and (tb_tool.iscelldefined(col, 0)))
+        }
         mvars, mcoords, xds = {}, {}, xr.Dataset()
 
         tr = tb_tool.row(ignore, exclude=True)[:]
@@ -939,7 +932,7 @@ def read_generic_table(infile, subtables=False, timecols=None, ignore=None):
                             for rr in tr
                         ]
                     )
-            except:
+            except Exception:
                 # sometimes the columns are variable, so we need to standardize to the largest sizes
                 if len(np.unique([isinstance(rr[col], dict) for rr in tr])) > 1:
                     continue  # can't deal with this case
@@ -964,32 +957,26 @@ def read_generic_table(infile, subtables=False, timecols=None, ignore=None):
                             for rr in tr
                         ]
                     )
-                except:
+                except Exception:
                     data = []
 
             if len(data) == 0:
                 continue
             if col in timecols:
-                convert_time(data)
+                data = convert_casacore_time(data)
             if col.endswith("_ID"):
                 mcoords[col] = xr.DataArray(
                     data,
-                    dims=[
-                        "d%i_%i" % (di, ds)
-                        for di, ds in enumerate(np.array(data).shape)
-                    ],
+                    dims=[f"d{di}_{ds}" for di, ds in enumerate(np.array(data).shape)],
                 )
             else:
                 mvars[col] = xr.DataArray(
                     data,
-                    dims=[
-                        "d%i_%i" % (di, ds)
-                        for di, ds in enumerate(np.array(data).shape)
-                    ],
+                    dims=[f"d{di}_{ds}" for di, ds in enumerate(np.array(data).shape)],
                 )
 
         xds = xr.Dataset(mvars, coords=mcoords)
-        xds = xds.rename(dict([(dv, dims[di]) for di, dv in enumerate(xds.sizes)]))
+        xds = xds.rename({dv: dims[di] for di, dv in enumerate(xds.sizes)})
         attrs["bad_cols"] = list(
             np.setdiff1d(
                 [dv for dv in tb_tool.colnames()],
@@ -1008,7 +995,7 @@ def read_generic_table(infile, subtables=False, timecols=None, ignore=None):
                 ]
             )
             attrs["subtables"] = []
-            for ii, subtable in enumerate(stbl_list):
+            for subtable in stbl_list:
                 sxds = read_generic_table(
                     os.path.join(infile, subtable),
                     subtables=subtables,
@@ -1023,7 +1010,7 @@ def read_generic_table(infile, subtables=False, timecols=None, ignore=None):
 
 def _read_image_array(
     infile: str,
-    chunks: Union[list, dict],
+    chunks: list | dict,
     mask: str = None,
     verbose: bool = False,
     blc=None,

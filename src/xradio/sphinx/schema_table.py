@@ -1,13 +1,9 @@
-import importlib
 import dataclasses
-import typing
+import importlib
 
-from docutils import nodes, utils
-from docutils.parsers.rst import Directive, DirectiveError
+from docutils import nodes
 from docutils.parsers.rst import directives
-from docutils.utils import SystemMessagePropagation
 from docutils.statemachine import StringList
-
 from sphinx.directives import ObjectDescription
 from sphinx.util.docutils import switch_source_input
 
@@ -50,7 +46,7 @@ class SchemaTableDirective(ObjectDescription):
 
         # Add title, if requested
         if "title" in self.options:
-            self._table += nodes.title(text=caption)
+            self._table += nodes.title(text=self.options["title"])
 
         # Declare columns
         column_widths = [10, 10, 5, 5, 40]
@@ -90,13 +86,17 @@ class SchemaTableDirective(ObjectDescription):
     def _add_row(
         self,
         name="",
-        dimss=[],
-        types=[],
+        dimss=None,
+        types=None,
         meta=None,
         descr="",
         optional=False,
         default=dataclasses.MISSING,
     ):
+        if dimss is None:
+            dimss = []
+        if types is None:
+            types = []
         # Create row
         row = nodes.row()
         self._tbody += row
@@ -155,7 +155,6 @@ class SchemaTableDirective(ObjectDescription):
 
 
 def format_literals(literal) -> nodes.line:
-
     if isinstance(literal, list) and all([isinstance(item, str) for item in literal]):
         formatted_literal = [nodes.literal(text=f"'{val}'") for val in literal]
     else:
@@ -202,12 +201,12 @@ def format_attr_model_text(state, attr) -> nodes.line:
     type name.
     """
 
-    if getattr(attr, "literal"):
+    if attr.literal:
         line = format_literals(attr.literal)
     else:
-        if getattr(attr, "dict_schema"):
+        if attr.dict_schema:
             attr_type = attr.dict_schema.schema_name
-        elif getattr(attr, "array_schema"):
+        elif attr.array_schema:
             attr_type = attr.array_schema.schema_name
         else:
             attr_type = attr.type

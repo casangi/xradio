@@ -1,15 +1,15 @@
 import os
-from typing import Dict, Union
-import xarray as xr
 import time
+
+import xarray as xr
 
 
 def load_processing_set(
     ps_store: str,
     sel_parms: dict = None,
     data_group_name: str = None,
-    include_variables: Union[list, None] = None,
-    drop_variables: Union[list, None] = None,
+    include_variables: list | None = None,
+    drop_variables: list | None = None,
     load_sub_datasets: bool = True,
 ) -> xr.DataTree:
     """Loads a processing set into memory.
@@ -46,9 +46,11 @@ def load_processing_set(
     xarray.DataTree
         In memory representation of processing set using xr.DataTree.
     """
-    from xradio._utils.zarr.common import _get_file_system_and_items
-    import s3fs
     import posixpath
+
+    import s3fs
+
+    from xradio._utils.zarr.common import _get_file_system_and_items
 
     file_system, ms_store_list = _get_file_system_and_items(ps_store)
 
@@ -104,7 +106,6 @@ def load_processing_set(
 
         if (include_variables is not None) or data_group_name:
             for ms_name, ms_xdt in ps_xdt.items():
-
                 ms_xdt = ms_xdt.xr_ms.sel(data_group_name=data_group_name)
 
                 if include_variables is not None:
@@ -130,10 +131,10 @@ class ProcessingSetIterator:
         self,
         sel_parms: dict,
         input_data_store: str,
-        input_data: Union[Dict, xr.DataTree, None] = None,
+        input_data: dict | xr.DataTree | None = None,
         data_group_name: str = None,
-        include_variables: Union[list, None] = None,
-        drop_variables: Union[list, None] = None,
+        include_variables: list | None = None,
+        drop_variables: list | None = None,
         load_sub_datasets: bool = True,
         in_memory: bool = False,
     ):
@@ -180,9 +181,9 @@ class ProcessingSetIterator:
         self.in_memory = in_memory
         self._ms_name_list = list(sel_parms.keys())
         self._index = 0
-        self._current_ms_name: Union[str, None] = None
-        self._current_ms_xdt: Union[xr.DataTree, None] = None
-        self._cache: Dict[str, xr.DataTree] = {}
+        self._current_ms_name: str | None = None
+        self._current_ms_xdt: xr.DataTree | None = None
+        self._cache: dict[str, xr.DataTree] = {}
         self._load_time: float = 0.0
         self._longest_load_time: float = 0.0
         # logger.debug("ProcessingSetIterator initialized with " + str(len(self._ms_name_list)) + " ms_xdts to iterate over.")
@@ -217,8 +218,6 @@ class ProcessingSetIterator:
         return load_time, self._longest_load_time
 
     def __next__(self):
-        import toolviper.utils.logger as logger
-
         # logger.debug("ProcessingSetIterator __next__ called. Current index: " + str(self._index))
         # logger.debug("Memory usage at start of __next__: " + str(get_rss_gb()) + " GB")
         if self._index >= len(self._ms_name_list):

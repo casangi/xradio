@@ -6,18 +6,18 @@ xradio.testing.
 All functions that depend on casacore have been moved to this module.
 """
 
-from contextlib import contextmanager
 import datetime
 import itertools
+from collections.abc import Generator, Iterable
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator, Tuple, Dict, Any, Optional, Iterable
-
-import numpy as np
+from typing import Any
 
 import casacore.tables as tables
+import numpy as np
 from casacore.tables import default_ms, default_ms_subtable
-from casacore.tables.tableutil import makedminfo, maketabdesc
 from casacore.tables.msutil import complete_ms_desc, makearrcoldesc, required_ms_desc
+from casacore.tables.tableutil import makedminfo, maketabdesc
 
 # 2 observations, 2 fields, 2 states
 # 2 SPWs, 4 polarizations
@@ -215,12 +215,12 @@ def _gen_test_ms_impl(
 def gen_test_ms(
     msname: str,
     *,
-    descr: Optional[Dict[str, Any]] = None,
+    descr: dict[str, Any] | None = None,
     opt_tables: bool = True,
     vlbi_tables: bool = True,
     required_only: bool = True,
     misbehave: bool = False,
-) -> Tuple[str, Dict[str, Any]]:
+) -> tuple[str, dict[str, Any]]:
     """
     Generate an MS on disk and return both the path and the generated description.
 
@@ -245,7 +245,7 @@ def gen_minimal_ms(
     misbehave: bool = False,
     include_optional_tables: bool = True,
     include_vlbi_tables: bool = True,
-) -> Tuple[str, Dict[str, Any]]:
+) -> tuple[str, dict[str, Any]]:
     """
     Generate a minimal MSv2 dataset with sensible defaults used across tests/benchmarks.
     """
@@ -435,9 +435,7 @@ def gen_main_table(
         # TIME
         CASACORE_TO_DATETIME_CORRECTION = 3_506_716_800.0
         start = (
-            datetime.datetime(
-                2025, 5, 1, 1, 1, tzinfo=datetime.timezone.utc
-            ).timestamp()
+            datetime.datetime(2025, 5, 1, 1, 1, tzinfo=datetime.UTC).timestamp()
             + CASACORE_TO_DATETIME_CORRECTION
         )
         time_col = np.arange(nrows) + start
@@ -451,7 +449,7 @@ def gen_main_table(
         # combinations without repetitions: baselines as list of tuples
         ants = np.arange(nants)
         baselines = list(itertools.combinations(ants, 2))
-        ant1_ant2 = list(zip(*baselines))
+        ant1_ant2 = list(zip(*baselines, strict=False))
 
         # TODO: needs fixes for rounding
         _reps = np.tile(ant1_ant2[0], int(nrows / len(baselines)))
@@ -561,8 +559,8 @@ def gen_subt_ddi(mspath: str, spws_descr: dict, pol_setup_descr: dict):
         ddis = list(
             itertools.product(list(spws_descr.values()), pol_setup_descr.values())
         )
-        spw_ids = list(zip(*ddis))[0]
-        pol_ids = list(zip(*ddis))[1]
+        spw_ids = list(zip(*ddis, strict=False))[0]
+        pol_ids = list(zip(*ddis, strict=False))[1]
         ddi_tbl.putcol("SPECTRAL_WINDOW_ID", spw_ids)
         ddi_tbl.putcol("POLARIZATION_ID", pol_ids)
         ddi_tbl.putcol("FLAG_ROW", np.broadcast_to(False, nrows))
@@ -881,7 +879,6 @@ def gen_subt_ephem(mspath: str, misbehave=False):
     with tables.table(
         str(ephem0_path), tabledesc=tabdesc, nrow=1, readonly=False, ack=False
     ) as tbl:
-
         if misbehave:
             del tabdesc["RA"]["keywords"]
             del keywords["posrefsys"]
@@ -1780,7 +1777,7 @@ def build_processing_set_from_msv2(
     in_file: str | Path,
     out_file: str | Path,
     *,
-    partition_scheme: Optional[Iterable[dict]] = None,
+    partition_scheme: Iterable[dict] | None = None,
     persistence_mode: str = "w",
     parallel_mode: str = "partition",
     **convert_kwargs: Any,
@@ -1806,7 +1803,7 @@ def build_msv4_partition(
     out_root: str | Path,
     *,
     msv4_id: str = "msv4id",
-    partition_kwargs: Optional[Dict[str, Any]] = None,
+    partition_kwargs: dict[str, Any] | None = None,
     use_table_iter: bool = False,
     persistence_mode: str = "w",
 ) -> Path:
@@ -1834,7 +1831,7 @@ def build_minimal_msv4_xdt(
     *,
     out_root: str | Path | None = None,
     msv4_id: str = "msv4id",
-    partition_kwargs: Optional[Dict[str, Any]] = None,
+    partition_kwargs: dict[str, Any] | None = None,
     use_table_iter: bool = False,
     persistence_mode: str = "w",
 ) -> Path:

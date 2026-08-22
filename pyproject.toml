@@ -48,7 +48,7 @@ test = [
     'python_casacore>=3.6.1; sys_platform != "darwin"'
 ]
 
-casacore = [    
+casacore = [
     'astropy',
     'toolviper>=0.1.3',
     's3fs',
@@ -117,7 +117,8 @@ all = [
     'sphinx-autosummary-accessors',
     'sphinx_rtd_theme',
     'twine',
-    'pandoc'
+    'pandoc',
+    'pre-commit'
 ]
 
 [tool.pytest.ini_options]
@@ -132,7 +133,26 @@ pythonpath = [
     "."
 ]
 
-[tool.black]
-line-length = 88
-target-version = ['py312']
-include = '\.py$'
+[tool.ruff]
+target-version = "py311"
+# reviews/ holds archival schema-review notebooks (kept with their historical
+# stored outputs); they are records, not maintained code -- don't lint/format.
+extend-exclude = ["reviews"]
+
+[tool.ruff.lint]
+# Ruff replaces isort + black (layout via `ruff format`, import sorting via the
+# "I" rules) and also lints for real defects and best practices:
+#   E4/E7/E9 -- pycodestyle errors (import placement, statement syntax, runtime)
+#   F        -- pyflakes: undefined names, unused imports, unused variables
+#   B        -- flake8-bugbear: likely bugs (mutable defaults, loop captures, ...)
+#   UP       -- pyupgrade: outdated syntax/typing (mirrors the pyupgrade hook)
+select = ["E4", "E7", "E9", "F", "B", "UP", "I"]
+# E741 (ambiguous variable name l/I/O): l and m are the standard radio-astronomy
+# direction-cosine coordinate names in the image schema and must keep those names.
+ignore = ["E741"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tutorial/guide notebooks introduce imports cell-by-cell as the narrative
+# needs them (E402), and use try-import cells to probe for/install packages
+# (F401); that is deliberate style, not an error.
+"*.ipynb" = ["E402", "F401"]

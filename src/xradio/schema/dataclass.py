@@ -1,15 +1,30 @@
-from typing import get_type_hints, get_args
-from .typing import get_dims, get_types, get_role, Role, get_annotated, is_optional
-
-import typing
-import inspect
 import ast
 import dataclasses
-import numpy
+import inspect
 import itertools
 import textwrap
+import typing
+import warnings
+from typing import get_args, get_type_hints
 
-from xradio.schema.metamodel import *
+import numpy
+
+from xradio.schema.metamodel import (
+    ArraySchema,
+    ArraySchemaRef,
+    AttrSchemaRef,
+    DatasetSchema,
+    DictSchema,
+    ValueSchema,
+)
+from xradio.schema.typing import (
+    Role,
+    get_annotated,
+    get_dims,
+    get_role,
+    get_types,
+    is_optional,
+)
 
 
 def extract_field_docstrings(klass):
@@ -29,10 +44,10 @@ def extract_field_docstrings(klass):
 
     # Expect module containing a class definition
     if not isinstance(module, ast.Module) or len(module.body) != 1:
-        raise valueError(f"Expected parser to generate ast.Module, got {module}!")
+        raise ValueError(f"Expected parser to generate ast.Module, got {module}!")
     cls = module.body[0]
     if not isinstance(cls, ast.ClassDef):
-        raise valueError(f"Expected a class definition, got {ast.dump(cls)}!")
+        raise ValueError(f"Expected a class definition, got {ast.dump(cls)}!")
 
     # Go through body, collect dostrings
     docstrings = {}
@@ -40,12 +55,16 @@ def extract_field_docstrings(klass):
         # Handle both annotated and unannotated case
         if isinstance(assign, ast.AnnAssign):
             if not isinstance(assign.target, ast.Name):
-                warnings.warn(f"Expected name in assignment {ast.dump(assign)}!")
+                warnings.warn(
+                    f"Expected name in assignment {ast.dump(assign)}!", stacklevel=2
+                )
                 continue
             names = [assign.target.id]
         elif isinstance(assign, ast.Assign):
             if not all(isinstance(name, ast.Name) for name in assign.targets):
-                warnings.warn(f"Expected names in assignment {ast.dump(assign)}!")
+                warnings.warn(
+                    f"Expected names in assignment {ast.dump(assign)}!", stacklevel=2
+                )
                 continue
             names = [name.id for name in assign.targets]
         else:
@@ -104,7 +123,6 @@ def value_schema(ann: typing.Any, klass_name: str, field_name: str) -> "ValueSch
 
     # Optional?
     if is_optional(ann):
-
         # Optional is actually represented as a union... Construct
         # same union type without the "None" type.
         typs = [typ for typ in get_args(ann) if typ is not None.__class__]
@@ -140,7 +158,7 @@ def value_schema(ann: typing.Any, klass_name: str, field_name: str) -> "ValueSch
         return ValueSchema(ann.__name__)
 
     # Is a list
-    if typing.get_origin(ann) in [typing.List, list]:
+    if typing.get_origin(ann) in [list, list]:
         args = typing.get_args(ann)
 
         # Must be a string list
@@ -262,8 +280,8 @@ def extract_xarray_dataclass(klass, allow_undefined_coords: bool = False):
             except TypeError as e:
                 raise ValueError(
                     f"Could not get annotation in '{klass.__name__}' field '{field.name}': {e}"
-                )
-            vschema = value_schema(get_annotated(typ), klass.__name__, field.name)
+                ) from e
+            vschema = value_schema(ann, klass.__name__, field.name)
             if is_optional(typ):
                 vschema.optional = True
 
@@ -476,7 +494,7 @@ def xarray_dataclass_to_dataset_schema(klass):
     opt_dimensions = all_dimensions.keys() - req_dimensions
     dimensions = [req_dimensions]
     for dim in opt_dimensions:
-        dimensions += [dims | set([dim]) for dims in dimensions]
+        dimensions += [dims | {dim} for dims in dimensions]
 
     # Reorder consistently / convert to lists
     dimensions = [[dim for dim in all_dimensions if dim in dims] for dims in dimensions]

@@ -10,9 +10,7 @@ import json
 from xradio.schema import (
     bases,
     metamodel,
-    xarray_dataclass_to_array_schema,
     xarray_dataclass_to_dataset_schema,
-    xarray_dataclass_to_dict_schema,
 )
 
 __all__ = ["export_schema_json_file", "import_schema_json_file"]
@@ -64,10 +62,8 @@ class DataclassDecoder(json.JSONDecoder):
         super().__init__(*args, object_hook=self.object_hook, **kwargs)
 
     def object_hook(self, obj):
-
         # Detect dictionaries with '$class' annotation
         if isinstance(obj, dict) and CLASS_ATTR in obj:
-
             # Identify the class
             cls_name = obj[CLASS_ATTR]
             cls = self._dataclass_map.get(cls_name)
@@ -83,7 +79,7 @@ class DataclassDecoder(json.JSONDecoder):
         return obj
 
 
-def export_schema_json_file(schema: "DatasetSchema", fname: str):
+def export_schema_json_file(schema: metamodel.DatasetSchema, fname: str):
     """
     Exports given schema as a JSON file
 
@@ -116,5 +112,5 @@ def import_schema_json_file(fname: str):
     :returns: Deserialised object
     """
 
-    with open(fname, "r", encoding="utf8") as f:
+    with open(fname, encoding="utf8") as f:
         return json.load(f, cls=DataclassDecoder, dataclass_map=DATACLASS_MAP)

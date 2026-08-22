@@ -5,7 +5,7 @@ Schema Support
 Data model schemas not only allow us to generate documentation,
 but also check automatically whether :py:class:`xarray.DataArray` and
 :py:class:`xarray.Dataset` objects conform to the :py:mod:`xradio` schemas (see
-e.g. :py:class:`xradio.measurement_set.schema.VisibilityXds`). 
+e.g. :py:class:`xradio.measurement_set.schema.VisibilityXds`).
 
 Checking
 --------

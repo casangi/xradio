@@ -112,10 +112,10 @@ schema version in the attribute section.
 Installation
 ~~~~~~~~~~~~
 
-XRADIO can be installed in virtual environments via pip. It is 
-recommended to use the conda environment manager from 
-`miniforge <https://github.com/conda-forge/miniforge>`__ to create a 
-clean, self-contained runtime where XRADIO and all its dependencies can 
+XRADIO can be installed in virtual environments via pip. It is
+recommended to use the conda environment manager from
+`miniforge <https://github.com/conda-forge/miniforge>`__ to create a
+clean, self-contained runtime where XRADIO and all its dependencies can
 be installed, for example:
 
 .. code:: sh
@@ -123,8 +123,8 @@ be installed, for example:
    conda create --name xradio python=3.13 --no-default-packages
    conda activate xradio
 
-On macOS, if one wants to use the functions to convert MSv2=>MSv4, it is 
-required to pre-install `python-casacore`. That can be done using 
+On macOS, if one wants to use the functions to convert MSv2=>MSv4, it is
+required to pre-install `python-casacore`. That can be done using
 `conda install -c conda-forge python-casacore`.
 XRADIO can now be installed using:
 
@@ -132,9 +132,9 @@ XRADIO can now be installed using:
 
    pip install xradio
 
-This installs only the minimal dependencies for XRADIO, which 
-allow you to use the schema checker and export schemas to JSON. 
-**Note that if only the minimal dependencies are installed, the functionality 
+This installs only the minimal dependencies for XRADIO, which
+allow you to use the schema checker and export schemas to JSON.
+**Note that if only the minimal dependencies are installed, the functionality
 to open data stored using zarr and to convert MSv2 to MSv4 will not be available.**
 
 To install the zarr backend use:
@@ -143,16 +143,16 @@ To install the zarr backend use:
 
    pip install "xradio[zarr]"
 
-This allows for opening data stored using zarr. 
+This allows for opening data stored using zarr.
 
-To install the zarr backend and the interactive 
+To install the zarr backend and the interactive
 components (JupyterLab) use:
 
 .. code:: sh
 
    pip install "xradio[interactive]"
 
-To install the casacore backend along with the zarr backend which enables conversion 
+To install the casacore backend along with the zarr backend which enables conversion
 from MSv2 to MSv4 use (this only works for Linux):
 
 .. code:: sh
@@ -165,7 +165,7 @@ To installs all the needed packages to run the unit tests:
 
    pip install "xradio[test]"
 
-This also installs the zarr backend and the casacore backend on Linux. 
+This also installs the zarr backend and the casacore backend on Linux.
 Note the tests will fail on MacOS if python-casacore is not installed separately using conda.
 
 Multiple-dependencies can be installed using:
@@ -183,8 +183,8 @@ To install a more complete set of dependencies:
 This will include the dependencies required to run the interactive Jupyter notebooks, run tests, build documentation,
 and python-casacore to enable MSv2=>MSv4 functionality on Linux.
 
-Instruction of how to setup a developer environment can be found at 
+Instruction of how to setup a developer environment can be found at
 `Development <https://xradio.readthedocs.io/en/latest/development.html>`__.
 
-Instruction of how to setup a developer environment using casatools instead of python-casacore can be found at 
+Instruction of how to setup a developer environment using casatools instead of python-casacore can be found at
 `casatools I/O backend guide <docs/source/measurement_set/guides/backends.md>`__.

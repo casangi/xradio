@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
 import math
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 import numpy as np
@@ -146,9 +146,7 @@ def _check_indexes(
         true_index = true.indexes[name]
         if type(test_index) is not type(true_index):
             raise AssertionError(
-                "coord '{}' index type mismatch: test={} true={}".format(
-                    name, type(test_index).__name__, type(true_index).__name__
-                )
+                f"coord '{name}' index type mismatch: test={type(test_index).__name__} true={type(true_index).__name__}"
             )
         _compare_arrays(
             np.asarray(test_index.values),
@@ -340,7 +338,7 @@ def _is_numeric_dtype(dtype: np.dtype) -> bool:
 
 
 def _is_numeric_scalar(value: Any) -> bool:
-    return isinstance(value, (int, float, complex, np.number)) and not isinstance(
+    return isinstance(value, int | float | complex | np.number) and not isinstance(
         value, bool
     )
 
@@ -355,7 +353,7 @@ def _is_nan_scalar(value: Any) -> bool:
 
 
 def _is_sequence(value: Any) -> bool:
-    if isinstance(value, (str, bytes)):
+    if isinstance(value, str | bytes):
         return False
     return isinstance(value, Sequence)
 

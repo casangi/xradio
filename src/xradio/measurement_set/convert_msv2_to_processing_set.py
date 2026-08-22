@@ -1,23 +1,24 @@
-from typing import Dict, Union, Literal, Callable, Any
 import time
+from collections.abc import Callable
+from typing import Any, Literal
 
 import dask
 import zarr.codecs
 
-from xradio.measurement_set._utils._msv2.partition_queries import (
-    create_partitions,
-)
+from xradio._utils.logging import xradio_logger
+from xradio._utils.zarr.config import ZARR_FORMAT
 from xradio.measurement_set._utils._msv2.conversion import (
     convert_and_write_partition,
     estimate_memory_and_cores_for_partitions,
 )
-from xradio._utils.zarr.config import ZARR_FORMAT
-from xradio._utils.logging import xradio_logger
+from xradio.measurement_set._utils._msv2.partition_queries import (
+    create_partitions,
+)
 
 
 def estimate_conversion_memory_and_cores(
     in_file: str,
-    partition_scheme: list = [],
+    partition_scheme: list | None = None,
 ) -> tuple[float, int, int]:
     """
     Given an MSv2 and a partition_scheme to use when converting it to MSv4,
@@ -48,6 +49,9 @@ def estimate_conversion_memory_and_cores(
         suggested number of cores to use (maximum/4 as a rule of thumb)
     """
 
+    if partition_scheme is None:
+        partition_scheme = []
+
     partitions = create_partitions(in_file, partition_scheme=partition_scheme)
 
     return estimate_memory_and_cores_for_partitions(in_file, partitions)
@@ -56,17 +60,18 @@ def estimate_conversion_memory_and_cores(
 def convert_msv2_to_processing_set(
     in_file: str,
     out_file: str,
-    partition_scheme: list = [],
-    partition_filter: Callable[[Dict[str, Any]], bool] | None = None,
-    main_chunksize: Union[Dict, float, None] = None,
+    partition_scheme: list | None = None,
+    partition_filter: Callable[[dict[str, Any]], bool] | None = None,
+    main_chunksize: dict | float | None = None,
     with_pointing: bool = True,
-    pointing_chunksize: Union[Dict, float, None] = None,
+    pointing_chunksize: dict | float | None = None,
     pointing_interpolate: bool = False,
     ephemeris_interpolate: bool = False,
     phase_cal_interpolate: bool = False,
     sys_cal_interpolate: bool = False,
     use_table_iter: bool = False,
-    compressor: zarr.abc.codec.BytesBytesCodec = zarr.codecs.BloscCodec(
+    # the codec default is an immutable config object, safe to build once here
+    compressor: zarr.abc.codec.BytesBytesCodec = zarr.codecs.BloscCodec(  # noqa: B008
         cname="lz4", clevel=5, shuffle="noshuffle"
     ),
     add_reshaping_indices: bool = False,
@@ -151,6 +156,9 @@ def convert_msv2_to_processing_set(
         )
         parallel_mode = "none"
 
+    if partition_scheme is None:
+        partition_scheme = []
+
     partitions = create_partitions(in_file, partition_scheme=partition_scheme)
     n_all_partitions = len(partitions)
 
@@ -164,14 +172,13 @@ def convert_msv2_to_processing_set(
         f"Selected {n_selected_partitions} partitions out of {n_all_partitions}"
     )
     if parallel_mode == "time":
-        assert (
-            len(partitions) == 1
-        ), "MS v2 contains more than one partition. `parallel_mode = 'time'` not valid."
+        assert len(partitions) == 1, (
+            "MS v2 contains more than one partition. `parallel_mode = 'time'` not valid."
+        )
 
     delayed_list = []
 
     for ms_v4_id, partition_info in enumerate(partitions):
-
         xradio_logger().info(
             "OBSERVATION_ID "
             + str(partition_info["OBSERVATION_ID"])

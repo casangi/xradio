@@ -1,15 +1,14 @@
-from collections.abc import Mapping, Iterable
-import datetime
-from typing import Any, Union
+import weakref
+from collections.abc import Iterable, Mapping
+from typing import Any
 
 import numpy as np
 import xarray as xr
 
 from xradio._utils.list_and_array import to_python_type
 from xradio._utils.xarray_helpers import (
-    get_data_group_name,
     create_new_data_group,
-    delete_data_variables,
+    get_data_group_name,
 )
 
 MS_DATASET_TYPES = {"visibility", "spectrum", "radiometer"}
@@ -23,7 +22,6 @@ class InvalidAccessorLocation(ValueError):
     pass
 
 
-@xr.register_datatree_accessor("xr_ms")
 class MeasurementSetXdt:
     """Accessor to the Measurement Set DataTree node. Provides MSv4 specific functionality
     such as:
@@ -36,8 +34,6 @@ class MeasurementSetXdt:
 
     """
 
-    _xdt: xr.DataTree
-
     def __init__(self, datatree: xr.DataTree):
         """
         Initialize the MeasurementSetXdt instance.
@@ -48,14 +44,40 @@ class MeasurementSetXdt:
             The MSv4 DataTree node to construct a MeasurementSetXdt accessor.
         """
 
-        self._xdt = datatree
+        self._xdt_strong: xr.DataTree | None = datatree
+        self._xdt_ref: weakref.ref | None = None
         self.meta = {"summary": {}}
+
+    @property
+    def _xdt(self) -> xr.DataTree:
+        if self._xdt_strong is not None:
+            return self._xdt_strong
+        xdt = self._xdt_ref() if self._xdt_ref is not None else None
+        if xdt is None:
+            raise ReferenceError(
+                "The DataTree behind this MeasurementSetXdt accessor no longer exists. "
+                "Access the accessor as xdt.xr_ms.<method>() rather than "
+                "keeping the accessor object alive beyond its DataTree."
+            )
+        return xdt
+
+    def _weaken(self) -> "MeasurementSetXdt":
+        """Switch to a WEAK back-reference; called by the accessor-protocol
+        factory below. xarray caches accessor instances on the DataTree node,
+        so a strong back-reference would form a reference cycle keeping the
+        node and every array under it alive until a full gc pass (the 2026-08
+        memory diagnosis). Directly constructed instances keep their strong
+        reference: wrapper semantics, e.g. MeasurementSetXdt(xr.DataTree())."""
+        if self._xdt_strong is not None:
+            self._xdt_ref = weakref.ref(self._xdt_strong)
+            self._xdt_strong = None
+        return self
 
     def sel(
         self,
-        indexers: Union[Mapping[Any, Any], None] = None,
-        method: Union[str, None] = None,
-        tolerance: Union[int, float, Iterable[Union[int, float]], None] = None,
+        indexers: Mapping[Any, Any] | None = None,
+        method: str | None = None,
+        tolerance: int | float | Iterable[int | float] | None = None,
         drop: bool = False,
         **indexers_kwargs: Any,
     ) -> xr.DataTree:
@@ -98,7 +120,7 @@ class MeasurementSetXdt:
         if data_group_name is not None:
             sel_data_group_set = set(
                 self._xdt.attrs["data_groups"][data_group_name].values()
-            ) - set(["date", "description"])
+            ) - {"date", "description"}
 
             sel_field_and_source_xds = self._xdt.attrs["data_groups"][data_group_name][
                 "field_and_source"
@@ -106,8 +128,7 @@ class MeasurementSetXdt:
 
             data_variables_to_drop = []
             field_and_source_to_drop = []
-            for dg_name, dg in self._xdt.attrs["data_groups"].items():
-                # print(f"Data group: {dg_name}", dg)
+            for dg in self._xdt.attrs["data_groups"].values():
                 f_and_s = dg["field_and_source"]
                 dg_copy = dg.copy()
                 dg_copy.pop("date", None)
@@ -268,7 +289,7 @@ class MeasurementSetXdt:
     def add_data_group(
         self,
         new_data_group_name: str,
-        new_data_group: dict = {},
+        new_data_group: dict | None = None,
         data_group_dv_shared_with: str = None,
     ) -> xr.DataTree:
         """Adds a data group to the MSv4 DataTree, grouping the given data, weight, flag, etc. variables
@@ -293,6 +314,9 @@ class MeasurementSetXdt:
             raise InvalidAccessorLocation(
                 f"{self._xdt.path} is not a MSv4 node (type {self._xdt.attrs.get('type')}."
             )
+
+        if new_data_group is None:
+            new_data_group = {}
 
         new_data_group_name, new_data_group = create_new_data_group(
             self._xdt,
@@ -360,3 +384,11 @@ class MeasurementSetXdt:
         # self._xdt.attrs["data_groups"][new_data_group_name] = new_data_group
 
         # return self._xdt
+
+
+def _xr_ms_accessor_factory(datatree: xr.DataTree) -> MeasurementSetXdt:
+    """Accessor-protocol factory: weak-referenced MeasurementSetXdt (no cache cycle)."""
+    return MeasurementSetXdt(datatree)._weaken()
+
+
+xr.register_datatree_accessor("xr_ms")(_xr_ms_accessor_factory)

@@ -7,49 +7,46 @@ type annotations, especially adding xradio-specific support for multiple
 options in data variable / coordinate dimensionality and dtype.
 """
 
+from collections.abc import Collection, Hashable, Iterable, Sequence
 from typing import (
+    Annotated,
     Any,
-    List,
-    Tuple,
-    Hashable,
-    Iterable,
-    Type,
     ClassVar,
-    Dict,
+    Generic,
+    Literal,
+    Protocol,
     TypeVar,
     Union,
-    Sequence,
-    Generic,
-    Collection,
-    Literal,
-    get_type_hints,
     get_args,
     get_origin,
-    Annotated,
-    Protocol,
+    get_type_hints,
 )
-
-from typing import Union
 
 try:
     # Python 3.10 forward: TypeAlias, ParamSpec are standard, and there is the
     # "a | b" UnionType alternative to "Union[a,b]"
-    from typing import TypeAlias, ParamSpec
     from types import UnionType
+    from typing import ParamSpec, TypeAlias
 
     HAVE_UNIONTYPE = True
 except ImportError:
     # Python 3.9: Get TypeAlias, ParamSpec from typing_extensions, no support
     # for "a | b"
-    from typing_extensions import (
-        TypeAlias,
+    from typing import (
         ParamSpec,
+        TypeAlias,
     )
 
     HAVE_UNIONTYPE = False
-import numpy as np
-from itertools import chain
+from dataclasses import Field, is_dataclass
 from enum import Enum
+from itertools import chain
+from typing import TYPE_CHECKING
+
+import numpy as np
+
+if TYPE_CHECKING:
+    import xarray as xr
 
 PInit = ParamSpec("PInit")
 T = TypeVar("T")
@@ -62,10 +59,10 @@ AnyArray: TypeAlias = "np.ndarray[Any, Any]"
 AnyDType: TypeAlias = "np.dtype[Any]"
 AnyField: TypeAlias = "Field[Any]"
 AnyXarray: TypeAlias = "xr.DataArray | xr.Dataset"
-Dims = Tuple[str, ...]
+Dims = tuple[str, ...]
 Order = Literal["C", "F"]
-Shape = Union[Sequence[int], int]
-Sizes = Dict[str, int]
+Shape = Sequence[int] | int
+Sizes = dict[str, int]
 
 
 class DataClass(Protocol[PInit]):
@@ -73,7 +70,7 @@ class DataClass(Protocol[PInit]):
 
     def __init__(self, *args: PInit.args, **kwargs: PInit.kwargs) -> None: ...
 
-    __dataclass_fields__: ClassVar[Dict[str, AnyField]]
+    __dataclass_fields__: ClassVar[dict[str, AnyField]]
 
 
 class Labeled(Generic[TDims]):
@@ -133,7 +130,7 @@ Reference:
 
 """
 
-Coord = Annotated[Union[Labeled[TDims], Collection[TDType], TDType], Role.COORD]
+Coord = Annotated[Labeled[TDims] | Collection[TDType] | TDType, Role.COORD]
 """Type hint for coordinate fields (``Coord[TDims, TDType]``).
 
 Example:
@@ -152,7 +149,7 @@ Hint:
 
 """
 
-Coordof = Annotated[Union[TDataClass, Any], Role.COORD]
+Coordof = Annotated[TDataClass | Any, Role.COORD]
 """Type hint for coordinate fields (``Coordof[TDataClass]``).
 
 Unlike ``Coord``, it specifies a dataclass that defines a DataArray class.
@@ -181,7 +178,7 @@ Example:
 
 """
 
-Data = Annotated[Union[Labeled[TDims], Collection[TDType], TDType], Role.DATA]
+Data = Annotated[Labeled[TDims] | Collection[TDType] | TDType, Role.DATA]
 """Type hint for data fields (``Coordof[TDims, TDType]``).
 
 Example:
@@ -202,7 +199,7 @@ Example:
 
 """
 
-Dataof = Annotated[Union[TDataClass, Any], Role.DATA]
+Dataof = Annotated[TDataClass | Any, Role.DATA]
 """Type hint for data fields (``Coordof[TDataClass]``).
 
 Unlike ``Data``, it specifies a dataclass that defines a DataArray class.
@@ -268,7 +265,7 @@ def get_annotated(tp: Any) -> Any:
     raise TypeError("Could not find any role-annotated type.")
 
 
-def get_annotations(tp: Any) -> Tuple[Any, ...]:
+def get_annotations(tp: Any) -> tuple[Any, ...]:
     """Extract annotations of the first role-annotated type."""
     for annotated in filter(Role.annotates, find_annotated(tp)):
         return get_args(annotated)[1:]
@@ -276,12 +273,12 @@ def get_annotations(tp: Any) -> Tuple[Any, ...]:
     raise TypeError("Could not find any role-annotated type.")
 
 
-def get_dataclass(tp: Any) -> Type[DataClass[Any]]:
+def get_dataclass(tp: Any) -> type[DataClass[Any]]:
     """Extract a dataclass."""
     try:
         dataclass = get_args(get_annotated(tp))[0]
-    except TypeError:
-        raise TypeError(f"Could not find any dataclass in {tp!r}.")
+    except TypeError as exc:
+        raise TypeError(f"Could not find any dataclass in {tp!r}.") from exc
 
     if not is_dataclass(dataclass):
         raise TypeError(f"Could not find any dataclass in {tp!r}.")
@@ -289,12 +286,12 @@ def get_dataclass(tp: Any) -> Type[DataClass[Any]]:
     return dataclass
 
 
-def get_dims(tp: Any) -> List[Dims]:
+def get_dims(tp: Any) -> list[Dims]:
     """Extract data dimensions (dims)."""
     try:
         dims = get_args(get_args(get_annotated(tp))[0])[0]
-    except TypeError:
-        raise TypeError(f"Could not find any dims in {tp!r}.")
+    except TypeError as exc:
+        raise TypeError(f"Could not find any dims in {tp!r}.") from exc
 
     # List of allowed dtypes (might just be one)
     if get_origin(dims) is Union:
@@ -314,7 +311,7 @@ def get_dims(tp: Any) -> List[Dims]:
             dims_out.append([str(args[0])])
             continue
 
-        if not (origin is tuple or origin is Tuple):
+        if not (origin is tuple or origin is tuple):
             raise TypeError(f"Could not find any dims in {tp!r}.")
 
         # Zero-dimensions
@@ -330,7 +327,7 @@ def get_dims(tp: Any) -> List[Dims]:
     return dims_out
 
 
-def get_types(tp: Any) -> List[AnyDType]:
+def get_types(tp: Any) -> list[AnyDType]:
     """Extract data types from type annotation
 
     E.g. Coord[..., Type1 | Type2 | ...] or Data[..., Type1 | Type2 | ...]
@@ -338,8 +335,8 @@ def get_types(tp: Any) -> List[AnyDType]:
     """
     try:
         typ = get_args(get_args(get_annotated(tp))[1])[0]
-    except TypeError:
-        raise TypeError(f"Could not find any dtype in {tp!r}.")
+    except TypeError as exc:
+        raise TypeError(f"Could not find any dtype in {tp!r}.") from exc
 
     # List of allowed dtypes (might just be one)
     if get_origin(typ) is Union:
@@ -392,8 +389,11 @@ def is_optional(type_ann):
     """
     Check whether a type annotation indicates that the value is optional
 
-    Boils down to checking whether it's a union type that includes None
+    Boils down to checking whether it's a union type that includes None.
+    Handles both spellings: ``Optional[X]``/``Union[X, None]`` (typing.Union)
+    and ``X | None`` (types.UnionType).
     """
-    if get_origin(type_ann) is Union:
+    origin = get_origin(type_ann)
+    if origin is Union or (HAVE_UNIONTYPE and origin is UnionType):
         return None.__class__ in get_args(type_ann)
     return False

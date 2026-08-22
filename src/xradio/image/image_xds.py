@@ -1,19 +1,16 @@
-from collections.abc import Mapping, Iterable
-import datetime
-from typing import Any, Union
+import weakref
+from collections.abc import Iterable, Mapping
+from typing import Any
 
 import numpy as np
 import xarray as xr
 
-from xradio._utils.list_and_array import to_list
+from xradio._utils.xarray_helpers import (
+    create_new_data_group,
+    delete_data_variables,
+)
 
 IMAGE_DATASET_TYPES = {"image_dataset"}
-
-from xradio._utils.xarray_helpers import (
-    delete_data_variables,
-    get_data_group_name,
-    create_new_data_group,
-)
 
 
 class InvalidAccessorLocation(ValueError):
@@ -24,11 +21,19 @@ class InvalidAccessorLocation(ValueError):
     pass
 
 
-@xr.register_dataset_accessor("xr_img")
 class ImageXds:
-    """Accessor to the Image Dataset."""
+    """Accessor to the Image Dataset.
 
-    _xds: xr.Dataset
+    The accessor holds its Dataset through a WEAK reference: xarray caches the
+    accessor instance on the Dataset (``ds._cache["xr_img"]``) on first
+    access, so a strong back-reference would form a reference cycle that
+    keeps the entire image Dataset (and its arrays) alive until a full
+    garbage-collection pass. The 2026-08 Frontera memory diagnosis traced
+    ~1.5 GB of cyclic garbage per imaging task to exactly this cycle. With a
+    weak reference the Dataset dies deterministically by refcount; the
+    accessor is only ever used as ``ds.xr_img.method()``, where ``ds`` itself
+    keeps the Dataset alive for the duration of the call.
+    """
 
     def __init__(self, dataset: xr.Dataset):
         """
@@ -40,8 +45,44 @@ class ImageXds:
             The image Dataset node to construct an ImageXds accessor.
         """
 
-        self._xds = dataset
+        self._xds_strong: xr.Dataset | None = dataset
+        self._xds_ref: weakref.ref | None = None
         self.meta = {"summary": {}}
+
+    @property
+    def _xds(self) -> xr.Dataset:
+        if self._xds_strong is not None:
+            return self._xds_strong
+        xds = self._xds_ref() if self._xds_ref is not None else None
+        if xds is None:
+            raise ReferenceError(
+                "The Dataset behind this ImageXds accessor no longer exists. "
+                "Access the accessor as ds.xr_img.<method>() rather than "
+                "keeping the accessor object alive beyond its Dataset."
+            )
+        return xds
+
+    @_xds.setter
+    def _xds(self, dataset: xr.Dataset) -> None:
+        # Preserve the current reference mode on rebinding (e.g. from
+        # add_uv_coordinates): weak stays weak, strong stays strong.
+        if self._xds_strong is None and self._xds_ref is not None:
+            self._xds_ref = weakref.ref(dataset)
+        else:
+            self._xds_strong = dataset
+
+    def _weaken(self) -> "ImageXds":
+        """Switch to a WEAK back-reference; called by the accessor-protocol
+        factory below. xarray caches accessor instances on the Dataset
+        (``ds._cache["xr_img"]``), so a strong back-reference would form a
+        reference cycle keeping the whole image Dataset alive until a full gc
+        pass (the 2026-08 memory diagnosis: ~1.5 GB/task). Directly
+        constructed instances keep their strong reference (wrapper
+        semantics)."""
+        if self._xds_strong is not None:
+            self._xds_ref = weakref.ref(self._xds_strong)
+            self._xds_strong = None
+        return self
 
     def test_func(self):
         if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
@@ -55,7 +96,7 @@ class ImageXds:
     def add_data_group(
         self,
         new_data_group_name: str,
-        new_data_group: dict = {},
+        new_data_group: dict | None = None,
         data_group_dv_shared_with: str = None,
     ) -> xr.Dataset:
         """Adds a data group to the image Dataset, grouping the given data, weight, flag, etc. variables
@@ -80,6 +121,9 @@ class ImageXds:
         #        raise InvalidAccessorLocation(f"{self._xds.path} is not a image node.")
 
         self.test_func()
+
+        if new_data_group is None:
+            new_data_group = {}
 
         new_data_group_name, new_data_group = create_new_data_group(
             self._xds,
@@ -126,8 +170,6 @@ class ImageXds:
         #        raise InvalidAccessorLocation(f"{self._xds.path} is not a image node.")
         self.test_func()
 
-        from xradio.image._util.image_factory import _make_uv_coords
-
         # self._xds = _make_uv_coords(self._xds,image_size=image_size, sky_image_cell_size=self.get_lm_cell_size())
 
         # Calculate uv coordinates in meters based on l and m. _make_uv_coords assumes reference pixel at center (not necessary the case).
@@ -137,8 +179,12 @@ class ImageXds:
         u = self._xds.coords["l"].values / ((delta[0] ** 2) * image_size[0])
         v = self._xds.coords["m"].values / ((delta[1] ** 2) * image_size[1])
 
-        self._xds = self._xds.assign_coords({"u": u, "v": v})
-        return self._xds
+        # Keep a strong local reference: self._xds only holds the Dataset
+        # weakly, so assigning and immediately re-reading it would let the
+        # new Dataset be freed between the two statements.
+        xds = self._xds.assign_coords({"u": u, "v": v})
+        self._xds = xds
+        return xds
 
     def get_uv_in_lambda(self, frequency: float):
         """Get the uv coordinates in wavelengths for a specific frequency from the image Dataset.
@@ -195,9 +241,9 @@ class ImageXds:
             v_index = np.where(self._xds.coords["v"].values == 0)[0][0]
             uv_indexes = np.array([u_index, v_index])
 
-            assert np.array_equal(
-                lm_indexes, uv_indexes
-            ), "lm and uv reference pixel indices do not match."
+            assert np.array_equal(lm_indexes, uv_indexes), (
+                "lm and uv reference pixel indices do not match."
+            )
             image_center_index = uv_indexes
         else:
             uv_indexes = None
@@ -209,9 +255,9 @@ class ImageXds:
 
     def sel(
         self,
-        indexers: Union[Mapping[Any, Any], None] = None,
-        method: Union[str, None] = None,
-        tolerance: Union[int, float, Iterable[Union[int, float]], None] = None,
+        indexers: Mapping[Any, Any] | None = None,
+        method: str | None = None,
+        tolerance: int | float | Iterable[int | float] | None = None,
         drop: bool = False,
         **indexers_kwargs: Any,
     ) -> xr.Dataset:
@@ -246,11 +292,10 @@ class ImageXds:
         if data_group_name is not None:
             sel_data_group_set = set(
                 self._xds.attrs["data_groups"][data_group_name].values()
-            ) - set(["date", "description"])
+            ) - {"date", "description"}
 
             data_variables_to_drop = []
-            for dg_name, dg in self._xds.attrs["data_groups"].items():
-                # print(f"Data group: {dg_name}", dg)
+            for dg in self._xds.attrs["data_groups"].values():
                 dg_copy = dg.copy()
                 dg_copy.pop("date", None)
                 dg_copy.pop("description", None)
@@ -296,3 +341,11 @@ class ImageXds:
 
         delete_data_variables(self._xds, variables)
         return self._xds
+
+
+def _xr_img_accessor_factory(dataset: xr.Dataset) -> ImageXds:
+    """Accessor-protocol factory: weak-referenced ImageXds (no cache cycle)."""
+    return ImageXds(dataset)._weaken()
+
+
+xr.register_dataset_accessor("xr_img")(_xr_img_accessor_factory)

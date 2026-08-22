@@ -1,10 +1,8 @@
 import pathlib
-import pytest
-import toolviper
 
 import numpy as np
-
-from toolviper.utils.data import download
+import pytest
+import toolviper
 
 # relative_tolerance = 10 ** (-12)
 relative_tolerance = 10 ** (-6)
@@ -39,9 +37,9 @@ def test_image(tmp_path: pathlib.Path):
     write_image(img_xds, str(zarr_output), out_format="zarr", overwrite=True)
 
     # Assertion
-    assert np.isclose(
-        sum_result, sum_lazy, rtol=relative_tolerance
-    ), "read_image and load_image SKY sums differ."
+    assert np.isclose(sum_result, sum_lazy, rtol=relative_tolerance), (
+        "read_image and load_image SKY sums differ."
+    )
 
     # Cleanup happens automatically with pytest's tmp_path fixture
 

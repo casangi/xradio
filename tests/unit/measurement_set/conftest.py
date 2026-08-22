@@ -1,28 +1,27 @@
-from collections import namedtuple
-import os
-from pathlib import Path
-import pytest
 import shutil
+from collections import namedtuple
+from pathlib import Path
+
+import pytest
 
 # Ensure pytest assert introspection in vis data checks
-# Must be imported before any other imports
+# Must be registered before the xradio imports below (deliberate E402)
 pytest.register_assert_rewrite("xradio.testing.measurement_set.checker")
 
-import xarray as xr
+import xarray as xr  # noqa: E402
 
-from xradio.measurement_set import open_processing_set
-from xradio.testing.measurement_set.msv2_io import (
-    gen_test_ms,
-    gen_minimal_ms,
-    make_ms_empty,
+from xradio.measurement_set import open_processing_set  # noqa: E402
+from xradio.testing.measurement_set.io import download_measurement_set  # noqa: E402
+from xradio.testing.measurement_set.msv2_io import (  # noqa: E402
     build_minimal_msv4_xdt,
     build_processing_set_from_msv2,
+    gen_minimal_ms,
+    gen_test_ms,
+    make_ms_empty,
 )
-from xradio.testing.measurement_set.io import download_measurement_set
 
-"""
-A tuple with an MS filename (as str) and a description of its expected structure and contents (as a dict).
-"""
+# A tuple with an MS filename (as str) and a description of its expected
+# structure and contents (as a dict).
 MSWithSpec = namedtuple("MSWithSpec", "fname descr")
 
 

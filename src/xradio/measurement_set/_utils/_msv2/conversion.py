@@ -1,11 +1,11 @@
-from collections import deque
 import datetime
 import importlib
 import os
 import pathlib
 import time
 import traceback
-from typing import Callable, Dict, Union
+from collections import deque
+from collections.abc import Callable
 
 import dask.array as da
 import numpy as np
@@ -17,14 +17,27 @@ try:
 except ImportError:
     import xradio._utils._casacore.casacore_from_casatools as tables
 
-from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
-    create_pointing_xds,
-    create_system_calibration_xds,
-    create_weather_xds,
-    create_phased_array_xds,
+from xradio._utils.dict_helpers import make_quantity, make_spectral_coord_reference_dict
+from xradio._utils.list_and_array import check_if_consistent, unique_1d
+from xradio._utils.logging import xradio_logger
+from xradio._utils.schema import column_description_casacore_to_msv4_measure
+from xradio.measurement_set._utils._msv2._tables.read import (
+    convert_casacore_time,
+    extract_table_attributes,
+    load_generic_table,
+    read_col_conversion_dask,
+    read_col_conversion_numpy,
 )
-from .msv4_info_dicts import create_info_dicts
-from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
+from xradio.measurement_set._utils._msv2._tables.read_main_table import (
+    get_baseline_indices,
+    get_baselines,
+    get_utimes_tol,
+)
+from xradio.measurement_set._utils._msv2._tables.table_query import (
+    TableManager,
+    open_query,
+    open_table_ro,
+)
 from xradio.measurement_set._utils._msv2.create_antenna_xds import (
     create_antenna_xds,
     create_gain_curve_xds,
@@ -33,34 +46,27 @@ from xradio.measurement_set._utils._msv2.create_antenna_xds import (
 from xradio.measurement_set._utils._msv2.create_field_and_source_xds import (
     create_field_and_source_xds,
 )
-from xradio._utils.schema import column_description_casacore_to_msv4_measure
-from xradio._utils.logging import xradio_logger
-from .msv2_to_msv4_meta import (
-    create_attribute_metadata,
-    col_to_data_variable_names,
+from xradio.measurement_set._utils._msv2.msv2_to_msv4_meta import (
     col_dims,
+    col_to_data_variable_names,
+    create_attribute_metadata,
 )
-
-from .._zarr.encoding import add_encoding
-from .subtables import subt_rename_ids
-from ._tables.table_query import open_table_ro, open_query, TableManager
-from ._tables.read import (
-    convert_casacore_time,
-    extract_table_attributes,
-    read_col_conversion_numpy,
-    read_col_conversion_dask,
-    load_generic_table,
+from xradio.measurement_set._utils._msv2.msv4_info_dicts import create_info_dicts
+from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
+    create_phased_array_xds,
+    create_pointing_xds,
+    create_system_calibration_xds,
+    create_weather_xds,
 )
-from ._tables.read_main_table import get_baselines, get_baseline_indices, get_utimes_tol
-from .._utils.stokes_types import stokes_types
-
-from xradio._utils.list_and_array import check_if_consistent, unique_1d
-from xradio._utils.dict_helpers import make_spectral_coord_reference_dict, make_quantity
+from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
+from xradio.measurement_set._utils._utils.stokes_types import stokes_types
+from xradio.measurement_set._utils._zarr.encoding import add_encoding
+from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
 
 
 def parse_chunksize(
-    chunksize: Union[Dict, float, None], xds_type: str, xds: xr.Dataset
-) -> Dict[str, int]:
+    chunksize: dict | float | None, xds_type: str, xds: xr.Dataset
+) -> dict[str, int]:
     """
     Parameters
     ----------
@@ -117,7 +123,7 @@ def check_chunksize(chunksize: dict, xds_type: str) -> None:
 
 def mem_chunksize_to_dict(
     chunksize: float, xds_type: str, xds: xr.Dataset
-) -> Dict[str, int]:
+) -> dict[str, int]:
     """
     Given a desired 'chunksize' as amount of memory in GB, calculate best chunk sizes
     for every dimension of an xds.
@@ -150,7 +156,7 @@ def mem_chunksize_to_dict(
 GiBYTES_TO_BYTES = 1024 * 1024 * 1024
 
 
-def mem_chunksize_to_dict_main(chunksize: float, xds: xr.Dataset) -> Dict[str, int]:
+def mem_chunksize_to_dict_main(chunksize: float, xds: xr.Dataset) -> dict[str, int]:
     """
     Checks the assumption that all polarizations can be held in memory, at least for one
     data point (one time, one freq, one channel).
@@ -193,7 +199,7 @@ def mem_chunksize_to_dict_main_balanced(
     xds_dim_sizes: dict,
     baseline_or_antenna_name: str,
     sizeof_vis: int,
-) -> Dict[str, int]:
+) -> dict[str, int]:
     """
     Assumes the ratio is <1 and all pols can fit in memory (from
     mem_chunksize_to_dict_main()).
@@ -260,7 +266,7 @@ def mem_chunksize_to_dict_main_balanced(
 
     chunked_dim_names = ["time", baseline_or_antenna_name, "frequency", "polarization"]
     dim_chunksizes_int = [int(v) for v in dim_chunksizes]
-    result = dict(zip(chunked_dim_names, dim_chunksizes_int))
+    result = dict(zip(chunked_dim_names, dim_chunksizes_int, strict=False))
 
     xradio_logger().debug(
         f"Auto-calculated main chunk sizes with {chunksize=}, {total_size=} GiB (for {dim_sizes=}): {result=} which uses {used} GiB."
@@ -269,7 +275,7 @@ def mem_chunksize_to_dict_main_balanced(
     return result
 
 
-def mem_chunksize_to_dict_pointing(chunksize: float, xds: xr.Dataset) -> Dict[str, int]:
+def mem_chunksize_to_dict_pointing(chunksize: float, xds: xr.Dataset) -> dict[str, int]:
     """
     Equivalent to mem_chunksize_to_dict_main adapted to pointing xdss.
     Assumes these relevant dims: (time, antenna, direction).
@@ -324,7 +330,7 @@ def mem_chunksize_to_dict_pointing(chunksize: float, xds: xr.Dataset) -> Dict[st
             used = np.prod(dim_chunksizes) * sizeof_pointing / GiBYTES_TO_BYTES
 
     dim_chunksizes_int = [int(v) for v in dim_chunksizes]
-    result = dict(zip(chunked_dim_names, dim_chunksizes_int))
+    result = dict(zip(chunked_dim_names, dim_chunksizes_int, strict=False))
 
     if ratio < 1:
         xradio_logger().debug(
@@ -775,7 +781,6 @@ def create_taql_query_where(partition_info: dict):
     taql_where = "WHERE "
     for col_name in main_par_table_cols:
         if col_name in partition_info:
-
             if partition_info[col_name][0] is not None:
                 taql_where = (
                     taql_where
@@ -1001,18 +1006,19 @@ def estimate_memory_and_cores_for_partitions(
 def convert_and_write_partition(
     in_file: str,
     out_file: str,
-    ms_v4_id: Union[int, str],
-    partition_info: Dict,
+    ms_v4_id: int | str,
+    partition_info: dict,
     use_table_iter: bool,
     partition_scheme: str = "ddi_intent_field",
-    main_chunksize: Union[Dict, float, None] = None,
+    main_chunksize: dict | float | None = None,
     with_pointing: bool = True,
-    pointing_chunksize: Union[Dict, float, None] = None,
+    pointing_chunksize: dict | float | None = None,
     pointing_interpolate: bool = False,
     ephemeris_interpolate: bool = False,
     phase_cal_interpolate: bool = False,
     sys_cal_interpolate: bool = False,
-    compressor: zarr.abc.codec.BytesBytesCodec = zarr.codecs.BloscCodec(
+    # the codec default is an immutable config object, safe to build once here
+    compressor: zarr.abc.codec.BytesBytesCodec = zarr.codecs.BloscCodec(  # noqa: B008
         cname="lz4", clevel=5, shuffle="noshuffle"
     ),
     add_reshaping_indices: bool = False,
@@ -1066,7 +1072,7 @@ def convert_and_write_partition(
     _type_
         _description_
     """
-    from toolviper.utils.memory_management import memory_setup, free_memory
+    from toolviper.utils.memory_management import free_memory, memory_setup
 
     memory_setup(131072)
 
@@ -1123,9 +1129,7 @@ def convert_and_write_partition(
                     "software_name": "xradio",
                     "version": importlib.metadata.version("xradio"),
                 },
-                "creation_date": datetime.datetime.now(
-                    datetime.timezone.utc
-                ).isoformat(),
+                "creation_date": datetime.datetime.now(datetime.UTC).isoformat(),
                 "type": "visibility",
             }
         )
@@ -1539,7 +1543,7 @@ def add_group_to_data_groups(
         "weight": "WEIGHT",
         "field_and_source": f"field_and_source_{what_group}_xds",
         "description": f"Data group derived from the data column '{correlated_data_name}' of an MSv2 converted to MSv4",
-        "date": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "date": datetime.datetime.now(datetime.UTC).isoformat(),
     }
     if uvw:
         data_groups[what_group]["uvw"] = "UVW"

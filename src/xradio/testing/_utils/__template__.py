@@ -2,12 +2,11 @@ import pytest
 import xarray as xr
 
 from xradio.measurement_set import load_processing_set
-from xradio.schema.check import check_datatree
-
 from xradio.measurement_set.measurement_set_xdt import (
-    MeasurementSetXdt,
     InvalidAccessorLocation,
+    MeasurementSetXdt,
 )
+from xradio.schema.check import check_datatree
 
 
 def test_simple():
@@ -45,9 +44,9 @@ class TestLoadProcessingSet:
         ps_xdt = load_processing_set(str(convert_measurement_set_to_processing_set))
         issues = check_datatree(ps_xdt)
         # The check_datatree function returns a SchemaIssues object, not a string
-        assert (
-            str(issues) == "No schema issues found"
-        ), f"Schema validation failed: {issues}"
+        assert str(issues) == "No schema issues found", (
+            f"Schema validation failed: {issues}"
+        )
 
 
 if __name__ == "__main__":

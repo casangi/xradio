@@ -89,7 +89,7 @@ might have a ‘base’ group and an ‘imaging’ group:
 .. code:: python
 
    Example: ms_xds.attrs['data_groups'] = {
-      'base': {'correlated_data': 'VISIBILITY', 'flag': 'FLAG', 'weight': 'WEIGHT', 'uvw': 'UVW'}, 
+      'base': {'correlated_data': 'VISIBILITY', 'flag': 'FLAG', 'weight': 'WEIGHT', 'uvw': 'UVW'},
       'imaging': {'correlated_data': 'VISIBILITY_CORRECTED', 'flag': 'FLAG', 'weight': 'WEIGHT_IMAGING', 'uvw': 'UVW'}
    }
 

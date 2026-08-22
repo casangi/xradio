@@ -12,11 +12,7 @@ import numpy as np
 import xarray as xr
 import zarr.codecs
 
-try:
-    from casacore import tables
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as tables
-
+from xradio._utils._casacore.backend import tables
 from xradio._utils.dict_helpers import make_quantity, make_spectral_coord_reference_dict
 from xradio._utils.list_and_array import check_if_consistent, unique_1d
 from xradio._utils.logging import xradio_logger

@@ -7,19 +7,7 @@ import numpy as np
 import xarray as xr
 from astropy import units as u
 
-from xradio._utils.list_and_array import to_python_type
-from xradio._utils.logging import xradio_logger
-
-try:
-    from casacore import tables
-    from casacore.images import coordinates
-    from casacore.images import image as casa_image
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as coordinates
-    import xradio._utils._casacore.casacore_from_casatools as tables
-    from xradio._utils._casacore.casacore_from_casatools import image as casa_image
-
-
+from xradio._utils._casacore.backend import coordinates, images, tables
 from xradio._utils._casacore.tables import extract_table_attributes, open_table_ro
 from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import (
@@ -30,6 +18,8 @@ from xradio._utils.dict_helpers import (
     make_spectral_coord_reference_dict,
     make_time_measure_dict,
 )
+from xradio._utils.list_and_array import to_python_type
+from xradio._utils.logging import xradio_logger
 from xradio.image._util._casacore.common import (
     _object_name,
     _open_image_ro,
@@ -47,6 +37,8 @@ from xradio.image._util.common import (
     _l_m_attr_notes,
 )
 from xradio.measurement_set._utils._msv2._tables.read import convert_casacore_time
+
+casa_image = images.image
 
 
 def _add_lin_attrs(xds, coord_dict, dir_axes):

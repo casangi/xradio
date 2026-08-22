@@ -18,8 +18,6 @@ XRADIO can be installed in virtual environments via pip. It is recommended to us
 conda create --name xradio python=3.13 --no-default-packages
 conda activate xradio
 ```
-> 📝 On macOS, if one wants to use the functions to convert MSv2=>MSv4, it is required to pre-install `python-casacore`. That can be done using `conda install -c conda-forge python-casacore`. See more alternatives below.
-
 XRADIO can now be installed using:
 ```sh
 pip install xradio
@@ -37,7 +35,7 @@ To install the zarr backend and the interactive components (JupyterLab) use:
 pip install "xradio[interactive]"
 ```
 
-To install the casacore backend along with the zarr backend which enables conversion from MSv2 to MSv4 use (this only works for Linux):
+To install the casacore-table backend (based on [arcae](https://github.com/ska-sa/arcae)) along with the zarr backend, which enables conversion from MSv2 to MSv4 and CASA image IO on both Linux and macOS, use:
 ```sh
 pip install "xradio[casacore]"
 ```
@@ -46,7 +44,7 @@ To installs all the needed packages to run the unit tests:
 ```sh
 pip install "xradio[test]"
 ```
-This also installs the zarr backend and the casacore backend on Linux. Note the tests will fail on MacOS if python-casacore is not installed separately using conda.
+This also installs the zarr backend and the casacore-table backend (arcae).
 
 Multiple-dependencies can be installed using:
 ```sh
@@ -58,8 +56,6 @@ To install a more complete set of dependencies:
 pip install "xradio[all]"
 ```
 This will include the dependencies required to run the interactive Jupyter notebooks, run tests, build documentation,
-and python-casacore to enable MSv2=>MSv4 functionality on Linux.
+and arcae to enable MSv2=>MSv4 functionality.
 
 Instruction of how to setup a developer environment can be found at [Development](https://xradio.readthedocs.io/en/latest/development.html).
-
-Instruction of how to setup a developer environment using casatools instead of python-casacore can be found at [casatools I/O backend guide](docs/source/measurement_set/guides/backends.md).

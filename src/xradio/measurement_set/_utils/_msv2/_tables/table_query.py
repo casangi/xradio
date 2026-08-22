@@ -1,10 +1,7 @@
 from collections.abc import Generator
 from contextlib import contextmanager
 
-try:
-    from casacore import tables
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as tables
+from xradio._utils._casacore.backend import tables
 
 
 @contextmanager

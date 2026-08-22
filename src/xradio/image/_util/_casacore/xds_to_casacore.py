@@ -7,11 +7,7 @@ import xarray as xr
 from astropy import units as apu
 from astropy.coordinates import Angle
 
-try:
-    from casacore import tables
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as tables
-
+from xradio._utils._casacore.backend import tables
 from xradio._utils._casacore.tables import open_table_rw
 from xradio.image._util._casacore.common import (
     _create_new_image,

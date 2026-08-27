@@ -1,6 +1,6 @@
 [project]
 name = "xradio"
-version = "v1.2.2"
+version = "v1.2.3"
 
 description = " Xarray Radio Astronomy Data IO"
 authors = [

@@ -1,7 +1,8 @@
 import os
+import shutil
 import time
+from contextlib import ExitStack
 
-import dask.array as da
 import numpy as np
 import xarray as xr
 from astropy import units as apu
@@ -336,6 +337,50 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
     return ii
 
 
+def _iter_chunk_slices(chunk_bounds: tuple):
+    """Yield (blc, slices) for every chunk of a 4-d chunk bounds spec."""
+    loc0 = 0
+    for i0 in chunk_bounds[0]:
+        loc1 = 0
+        for i1 in chunk_bounds[1]:
+            loc2 = 0
+            for i2 in chunk_bounds[2]:
+                loc3 = 0
+                for i3 in chunk_bounds[3]:
+                    yield (
+                        (loc0, loc1, loc2, loc3),
+                        (
+                            slice(loc0, loc0 + i0),
+                            slice(loc1, loc1 + i1),
+                            slice(loc2, loc2 + i2),
+                            slice(loc3, loc3 + i3),
+                        ),
+                    )
+                    loc3 += i3
+                loc2 += i2
+            loc1 += i1
+        loc0 += i0
+
+
+def _put_block(tb, values: np.ndarray, blc: tuple) -> None:
+    tb.putcellslice(
+        tb.colnames()[0],
+        0,
+        values,
+        blc,
+        tuple(np.array(blc) + np.array(values.shape) - 1),
+    )
+
+
+def _get_block(tb, blc: tuple, shape: tuple) -> np.ndarray:
+    return tb.getcellslice(
+        tb.colnames()[0],
+        0,
+        blc,
+        tuple(np.array(blc) + np.array(shape) - 1),
+    )
+
+
 def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
     sky_ap = _aperture_or_sky(xds)
 
@@ -375,67 +420,136 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
         masks_rec[flag] = mask_rec
         masks_rec[flag]["mask"] = f"Table: {os.sep.join([image_full_path, flag])}"
         masks.append(flag)
-    myvars = [sky_ap]
-    myvars.extend(masks)
-    # xr.apply_ufunc seems to like stripping attributes from xds and its coordinates,
-    # so make a deep copy of the pertinent thing to be handled in xr.apply_ufunc()
-    nan_mask = xr.apply_ufunc(da.isnan, xds[sky_ap].copy(deep=True), dask="allowed")
-    # test if nan pixels are all already masked in active_mask.
-    # if so, don't worry about masking them again, just use active_mask
-    # which already masks all nans
-    arr_masks = {}
-    do_mask_nans = False
-    there_are_nans = nan_mask.any()
-    if there_are_nans:
-        has_flag = bool(flag)
-        if not has_flag:
-            do_mask_nans = True
-        else:
-            notted_flag = xr.apply_ufunc(
-                da.logical_not, xds[flag].copy(deep=True), dask="allowed"
-            )
-            some_nans_are_not_already_masked = xr.apply_ufunc(
-                da.logical_and, nan_mask, notted_flag, dask="allowed"
-            )
-            do_mask_nans = some_nans_are_not_already_masked.any()
-    if do_mask_nans:
-        mask_name = "mask_xds_nans"
-        i = 0
-        while mask_name in masks:
-            mask_name = f"mask_xds_nans{i}"
-            i += 1
-        masks_rec[mask_name] = mask_rec
-        masks_rec[mask_name]["mask"] = (
-            f"Table: {os.sep.join([image_full_path, mask_name])}"
-        )
-        masks.append(mask_name)
-        arr_masks[mask_name] = nan_mask
-        if flag:
-            mask_name = f"mask_xds_nans_or_{flag}"
-            i = 0
-            while mask_name in masks:
-                mask_name = f"mask_xds_nans{i}"
-                i += 1
-            masks_rec[mask_name] = mask_rec
-            masks_rec[mask_name]["mask"] = (
-                f"Table: {os.sep.join([image_full_path, mask_name])}"
-            )
-            masks.append(mask_name)
-            # This command strips attributes at various places for no
-            # apparent reason, so make a copy of the xds to run it on
-            arr_masks[mask_name] = xr.apply_ufunc(
-                da.logical_or,
-                xds[flag].copy(deep=True),
-                nan_mask,
-                dask="allowed",
-            )
-        flag = mask_name
 
-    _write_initial_image(xds, image_full_path, flag, casa_image_shape[::-1])
-    for v in myvars:
-        _write_pixels(v, flag, image_full_path, xds)
-    for name, v in arr_masks.items():
-        _write_pixels(name, flag, image_full_path, xds, v)
+    # Reserve names for the masks derived from nan pixels; whether they are
+    # actually needed is only known after the data has been scanned
+    nans_mask_name = "mask_xds_nans"
+    i = 0
+    while nans_mask_name in masks:
+        nans_mask_name = f"mask_xds_nans{i}"
+        i += 1
+    nans_or_flag_mask_name = ""
+    if flag:
+        nans_or_flag_mask_name = f"mask_xds_nans_or_{flag}"
+        i = 0
+        while nans_or_flag_mask_name in masks:
+            nans_or_flag_mask_name = f"mask_xds_nans{i}"
+            i += 1
+
+    # Create the image with a mask table that serves as the donor for any
+    # other mask tables: the flag mask if there is a flag, else the nan mask
+    # (which is removed again below if the data turns out to have no nans)
+    creation_mask = flag if flag else nans_mask_name
+    _write_initial_image(xds, image_full_path, creation_mask, casa_image_shape[::-1])
+
+    # Single fused pass over the (possibly dask backed) data: every chunk of
+    # the image (and of the flag variable) is materialized exactly once.
+    # Pixels and the flag mask are written immediately; the nan pixel
+    # information needed for the nan masks is kept as packed bits, only for
+    # chunks that contain nans.
+    sky_t = xds[sky_ap].isel(time=0).transpose(*trans_coords)
+    flag_t = xds[flag].isel(time=0).transpose(*trans_coords) if flag else None
+    chunk_bounds = (
+        tuple(zip(sky_t.shape, strict=False)) if sky_t.chunks is None else sky_t.chunks
+    )
+    nan_blocks = {}
+    do_mask_nans = False
+    with ExitStack() as stack:
+        sky_tb = stack.enter_context(open_table_rw(image_full_path))
+        flag_tb = (
+            stack.enter_context(open_table_rw(os.sep.join([image_full_path, flag])))
+            if flag
+            else None
+        )
+        for blc, slices in _iter_chunk_slices(chunk_bounds):
+            sky_np = sky_t[slices].values
+            _put_block(sky_tb, sky_np, blc)
+            flag_np = None
+            if flag_tb is not None:
+                flag_np = flag_t[slices].values
+                _put_block(flag_tb, np.logical_not(flag_np), blc)
+            nan_np = np.isnan(sky_np)
+            if nan_np.any():
+                nan_blocks[blc] = (np.packbits(nan_np), nan_np.shape)
+                # nans that are already flagged do not need an extra mask
+                unmasked_nans = (
+                    nan_np
+                    if flag_np is None
+                    else np.logical_and(nan_np, np.logical_not(flag_np))
+                )
+                if unmasked_nans.any():
+                    do_mask_nans = True
+
+    # Any mask variables other than the flag (each is a single pass over its
+    # own chunk grid)
+    for m in masks:
+        if m != flag:
+            _write_pixels(m, creation_mask, image_full_path, xds)
+
+    if do_mask_nans:
+        if flag:
+            # Seed both nan mask tables from the (already written) flag mask
+            # table: for the nans-or-flag mask this prefills chunks without
+            # nans with their final values
+            donor_path = os.sep.join([image_full_path, flag])
+            for name in (nans_mask_name, nans_or_flag_mask_name):
+                tb = tables.table(donor_path)
+                tb.copy(os.sep.join([image_full_path, name]), deep=True, valuecopy=True)
+                tb.close()
+        # else: the nans mask table was already created with the image
+        with ExitStack() as stack:
+            nans_tb = stack.enter_context(
+                open_table_rw(os.sep.join([image_full_path, nans_mask_name]))
+            )
+            nans_or_tb = (
+                stack.enter_context(
+                    open_table_rw(
+                        os.sep.join([image_full_path, nans_or_flag_mask_name])
+                    )
+                )
+                if flag
+                else None
+            )
+            for blc, slices in _iter_chunk_slices(chunk_bounds):
+                shape = tuple(s.stop - s.start for s in slices)
+                if blc in nan_blocks:
+                    packed, nan_shape = nan_blocks[blc]
+                    nan_np = (
+                        np.unpackbits(packed, count=int(np.prod(nan_shape)))
+                        .astype(bool)
+                        .reshape(nan_shape)
+                    )
+                    not_nan = np.logical_not(nan_np)
+                    _put_block(nans_tb, not_nan, blc)
+                    if nans_or_tb is not None:
+                        # stored value is the notted flag (from the donor copy)
+                        stored = _get_block(nans_or_tb, blc, shape)
+                        _put_block(nans_or_tb, np.logical_and(stored, not_nan), blc)
+                else:
+                    _put_block(nans_tb, np.ones(shape, dtype=bool), blc)
+                    # chunks without nans need no nans-or-flag update: the
+                    # donor copy already holds the notted flag values
+        masks_rec[nans_mask_name] = mask_rec
+        masks_rec[nans_mask_name]["mask"] = (
+            f"Table: {os.sep.join([image_full_path, nans_mask_name])}"
+        )
+        masks.append(nans_mask_name)
+        flag = nans_mask_name
+        if nans_or_flag_mask_name:
+            masks_rec[nans_or_flag_mask_name] = mask_rec
+            masks_rec[nans_or_flag_mask_name]["mask"] = (
+                f"Table: {os.sep.join([image_full_path, nans_or_flag_mask_name])}"
+            )
+            masks.append(nans_or_flag_mask_name)
+            flag = nans_or_flag_mask_name
+    elif not flag:
+        # The nan mask table created with the image is not needed: restore
+        # the maskless state
+        shutil.rmtree(os.sep.join([image_full_path, nans_mask_name]))
+        with open_table_rw(image_full_path) as tb:
+            tb.removekeyword("masks")
+            tb.removekeyword("Image_defaultmask")
+
     if masks:
         with open_table_rw(image_full_path) as tb:
             tb.putkeyword("masks", masks_rec)
@@ -449,9 +563,13 @@ def _write_initial_image(
         maskname = ""
     for dv in ["SKY", "APERTURE"]:
         if dv in xds.data_vars:
-            value = xds[dv][0, 0, 0, 0, 0].values.item()
-            if xds[dv][0, 0, 0, 0, 0].values.dtype == "float32":
+            # only the type of value matters (it selects the casacore image
+            # precision); avoid computing any (possibly dask backed) pixels
+            dtype = xds[dv].dtype
+            if dtype == np.float32:
                 value = "default"
+            else:
+                value = np.zeros((), dtype=dtype).item()
             break
     image_full_path = os.path.expanduser(imagename)
     with _create_new_image(

@@ -9,8 +9,11 @@
 The dask cluster fixture is provided by ``conftest.py`` in this directory.
 """
 
+import os
 from copy import deepcopy
 
+import dask
+import dask.array as da
 import numpy as np
 import pytest
 import xarray as xr
@@ -22,6 +25,7 @@ from xradio.image import (
     open_image,
     write_image,
 )
+from xradio.image._util._casacore.common import _open_image_ro as open_image_ro
 from xradio.image.schema import (
     DataGroupDict,
     FrequencyCoordArray,
@@ -115,6 +119,23 @@ def make_valid_image_xds() -> xr.Dataset:
                         }
                     },
                 },
+                "distance": {
+                    "attrs": {
+                        "coordinate_system": "geocentric",
+                        "frame": "ITRF",
+                        "origin_object_name": "earth",
+                        "type": "location",
+                        "units": "m",
+                    },
+                    "data": [6379946.0],
+                    "dims": ["ellipsoid_dis_label"],
+                    "coords": {
+                        "ellipsoid_dis_label": {
+                            "dims": ["ellipsoid_dis_label"],
+                            "data": ["dist"],
+                        }
+                    },
+                },
             },
             "obsdate": {
                 "attrs": {
@@ -145,7 +166,9 @@ def make_valid_image_xds() -> xr.Dataset:
         attrs={"type": "flag"},
     )
     beam_fit_params = xr.DataArray(
-        np.zeros((1, nchan, npol, 3), dtype=np.float64),
+        np.broadcast_to(np.array([1e-5, 5e-6, 0.1]), (1, nchan, npol, 3)).astype(
+            np.float64
+        ),
         dims=("time", "frequency", "polarization", "beam_params_label"),
         attrs={"units": "rad", "type": "beam_fit_params_sky"},
     )
@@ -590,6 +613,135 @@ class TestFormatRoundRobin:
         np.testing.assert_allclose(final[unflagged], orig[unflagged], rtol=1e-6)
         np.testing.assert_allclose(xds_rt.frequency.values, xds_casa.frequency.values)
         assert xds_rt.SKY.attrs.get("sub_type") == xds_casa.SKY.attrs.get("sub_type")
+
+
+class TestCasaWriteSinglePass:
+    """The CASA writer materializes every chunk of dask backed data exactly
+    once, including when nan masks have to be derived from the pixel data."""
+
+    _outname = "single_pass_casa.im"
+
+    def teardown_method(self):
+        remove_path(self._outname)
+
+    @staticmethod
+    def _replace_with_counting_dask(xds, names, chunks):
+        """Replace numpy backed variables with dask backed ones that count
+        how often each chunk is materialized."""
+        counters = {}
+        for name in names:
+            counter = {"n": 0}
+
+            def count(block, counter=counter):
+                counter["n"] += 1
+                return block
+
+            values = xds[name].values
+            arr = da.from_array(values, chunks=chunks)
+            counted = arr.map_blocks(
+                count,
+                dtype=values.dtype,
+                meta=np.empty((0,) * values.ndim, dtype=values.dtype),
+            )
+            xds[name] = (xds[name].dims, counted, xds[name].attrs)
+            counters[name] = (counter, arr.npartitions)
+        return counters
+
+    def _assert_single_pass(self, counters):
+        for name, (counter, nchunks) in counters.items():
+            assert counter["n"] == nchunks, (
+                f"{name} was materialized {counter['n']} times for {nchunks} chunks"
+            )
+
+    def test_single_pass_with_unmasked_nans(self, image_xds_valid):
+        xds = image_xds_valid
+        sky = xds["SKY"].values
+        sky[0, 0, 0, 0, 0] = np.nan  # nan that is not flagged
+        sky[0, 1, 2, 3, 3] = np.nan  # nan that is also flagged
+        flag = xds["FLAG_SKY"].values
+        flag[0, 1, 2, 3, 3] = True
+        expected_flag = flag.copy()
+        expected_default_mask = np.isnan(sky) | flag
+        counters = self._replace_with_counting_dask(
+            xds, ["SKY", "FLAG_SKY"], (1, 1, 3, 2, 2)
+        )
+        remove_path(self._outname)
+        # the chunk counters live in this process, so compute locally rather
+        # than on the distributed cluster of the dask_client_module fixture
+        with dask.config.set(scheduler="synchronous"):
+            write_image(xds, self._outname, out_format="casa", overwrite=True)
+        self._assert_single_pass(counters)
+        assert os.path.isdir(os.path.join(self._outname, "mask_xds_nans"))
+        assert os.path.isdir(os.path.join(self._outname, "mask_xds_nans_or_MASK_0"))
+        # the default mask merges the flag with the nan mask
+        with open_image_ro(self._outname) as im:
+            casa_mask = im.getmask()
+        np.testing.assert_array_equal(
+            casa_mask, np.transpose(expected_default_mask[0], (0, 1, 3, 2))
+        )
+        rt = open_image(self._outname)
+        assert not check_image(rt)
+        np.testing.assert_array_equal(rt.FLAG_SKY.values, expected_flag)
+        good = ~expected_default_mask
+        np.testing.assert_array_equal(rt.SKY.values[good], sky[good])
+
+    def test_single_pass_without_nans(self, image_xds_valid):
+        xds = image_xds_valid
+        xds["FLAG_SKY"].values[0, 0, 1, 2, 2] = True
+        expected_flag = xds["FLAG_SKY"].values.copy()
+        counters = self._replace_with_counting_dask(
+            xds, ["SKY", "FLAG_SKY"], (1, 1, 3, 2, 2)
+        )
+        remove_path(self._outname)
+        # the chunk counters live in this process, so compute locally rather
+        # than on the distributed cluster of the dask_client_module fixture
+        with dask.config.set(scheduler="synchronous"):
+            write_image(xds, self._outname, out_format="casa", overwrite=True)
+        self._assert_single_pass(counters)
+        assert not os.path.isdir(os.path.join(self._outname, "mask_xds_nans"))
+        rt = open_image(self._outname)
+        assert not check_image(rt)
+        np.testing.assert_array_equal(rt.FLAG_SKY.values, expected_flag)
+
+    def test_single_pass_no_flag_with_nans(self, image_xds_valid):
+        xds = image_xds_valid
+        del xds["FLAG_SKY"]
+        del xds.attrs["data_groups"]["base"]["flag"]
+        sky = xds["SKY"].values
+        sky[0, 1, 0, 2, 1] = np.nan
+        counters = self._replace_with_counting_dask(xds, ["SKY"], (1, 1, 3, 2, 2))
+        remove_path(self._outname)
+        # the chunk counters live in this process, so compute locally rather
+        # than on the distributed cluster of the dask_client_module fixture
+        with dask.config.set(scheduler="synchronous"):
+            write_image(xds, self._outname, out_format="casa", overwrite=True)
+        self._assert_single_pass(counters)
+        assert os.path.isdir(os.path.join(self._outname, "mask_xds_nans"))
+        # the nan mask is the default mask of the written image
+        with open_image_ro(self._outname) as im:
+            casa_mask = im.getmask()
+        np.testing.assert_array_equal(
+            casa_mask, np.transpose(np.isnan(sky)[0], (0, 1, 3, 2))
+        )
+        rt = open_image(self._outname)
+        assert not check_image(rt)
+
+    def test_single_pass_no_flag_no_nans(self, image_xds_valid):
+        xds = image_xds_valid
+        del xds["FLAG_SKY"]
+        del xds.attrs["data_groups"]["base"]["flag"]
+        counters = self._replace_with_counting_dask(xds, ["SKY"], (1, 1, 3, 2, 2))
+        remove_path(self._outname)
+        # the chunk counters live in this process, so compute locally rather
+        # than on the distributed cluster of the dask_client_module fixture
+        with dask.config.set(scheduler="synchronous"):
+            write_image(xds, self._outname, out_format="casa", overwrite=True)
+        self._assert_single_pass(counters)
+        # the provisional nan mask table and its keywords must be gone
+        assert not os.path.isdir(os.path.join(self._outname, "mask_xds_nans"))
+        rt = open_image(self._outname)
+        assert not check_image(rt)
+        assert "FLAG_SKY" not in rt.data_vars
 
 
 class TestXarrayBackends:

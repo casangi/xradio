@@ -1,3 +1,4 @@
+import copy
 import logging
 import os
 
@@ -26,7 +27,13 @@ def _write_zarr(xds: xr.Dataset, zarr_store: str):
                     "reduce the chunk size of the dask array in the data variable "
                     f"by at least a factor of {chunk_size_bytes / max_chunk_size}."
                 )
-    xds_copy = xds.copy(deep=True)
+    # _encode only mutates dataset and data variable attrs, so shallow copy
+    # the dataset (sharing the pixel data buffers) and deep copy just the
+    # attrs; a deep dataset copy would duplicate every data array in memory
+    xds_copy = xds.copy(deep=False)
+    xds_copy.attrs = copy.deepcopy(xds.attrs)
+    for dv in xds_copy.data_vars:
+        xds_copy[dv].attrs = copy.deepcopy(xds_copy[dv].attrs)
     sub_xds_dict = _encode(xds_copy, zarr_store)
     xds_copy.to_zarr(store=zarr_store, compute=True, zarr_format=ZARR_FORMAT)
     if sub_xds_dict:

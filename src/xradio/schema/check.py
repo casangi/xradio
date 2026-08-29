@@ -390,13 +390,19 @@ def check_data_vars(
 
         data_vars_names = []
         if allow_multiple_versions:
+            # A version of the data variable is either the canonical name
+            # itself or the canonical name followed by a "_" separated
+            # suffix (e.g. "SKY" matches "SKY" and "SKY_DECONVOLVED", but
+            # not "FLAG_SKY").
             for data_var_name in data_vars:
-                if data_var_schema.name in data_var_name:
+                if data_var_name == data_var_schema.name or data_var_name.startswith(
+                    data_var_schema.name + "_"
+                ):
                     data_vars_names.append(data_var_name)
         else:
             data_vars_names = [data_var_schema.name]
 
-        if (len(data_vars_names) == 0) and ~data_var_schema.optional:
+        if (len(data_vars_names) == 0) and not data_var_schema.optional:
             data_vars_names = [data_var_schema.name]
 
         for data_var_name in data_vars_names:
@@ -560,6 +566,42 @@ def _check_value(val: typing.Any, schema: metamodel.ValueSchema):
                     SchemaIssue(
                         path=[],
                         message=f"{type(val).__name__} is not a list of strings!",
+                        expected=expected,
+                        found=type(val),
+                    )
+                ]
+            )
+    elif schema.type == "list[float]":
+        if not isinstance(val, list) or any(
+            not isinstance(v, int | float) or isinstance(v, bool) for v in val
+        ):
+            expected = [list[float]]
+            if schema.optional:
+                expected.append(type(None))
+            return SchemaIssues(
+                [
+                    SchemaIssue(
+                        path=[],
+                        message=f"{type(val).__name__} is not a list of floats!",
+                        expected=expected,
+                        found=type(val),
+                    )
+                ]
+            )
+    elif schema.type == "list[list[float]]":
+        if not isinstance(val, list) or any(
+            not isinstance(row, list)
+            or any(not isinstance(v, int | float) or isinstance(v, bool) for v in row)
+            for row in val
+        ):
+            expected = [list[list[float]]]
+            if schema.optional:
+                expected.append(type(None))
+            return SchemaIssues(
+                [
+                    SchemaIssue(
+                        path=[],
+                        message=f"{type(val).__name__} is not a list of lists of floats!",
                         expected=expected,
                         found=type(val),
                     )

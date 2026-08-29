@@ -77,7 +77,7 @@
           "type": "dataarray",
           "array_schema": {
             "$class": "ArraySchema",
-            "schema_name": "xradio.measurement_set.schema.QuantityInSecondsArray",
+            "schema_name": "xradio.schema.measures.QuantityInSecondsArray",
             "dimensions": [
               []
             ],
@@ -184,7 +184,7 @@
           "type": "dataarray",
           "array_schema": {
             "$class": "ArraySchema",
-            "schema_name": "xradio.measurement_set.schema.SpectralCoordArray",
+            "schema_name": "xradio.schema.measures.SpectralCoordArray",
             "dimensions": [
               []
             ],
@@ -243,7 +243,7 @@
           "type": "dataarray",
           "array_schema": {
             "$class": "ArraySchema",
-            "schema_name": "xradio.measurement_set.schema.QuantityInHertzArray",
+            "schema_name": "xradio.schema.measures.QuantityInHertzArray",
             "dimensions": [
               []
             ],
@@ -283,7 +283,7 @@
           "type": "dataarray",
           "array_schema": {
             "$class": "ArraySchema",
-            "schema_name": "xradio.measurement_set.schema.DopplerArray",
+            "schema_name": "xradio.schema.measures.DopplerArray",
             "dimensions": [
               []
             ],
@@ -393,7 +393,7 @@
     },
     {
       "$class": "ArraySchemaRef",
-      "schema_name": "xradio.measurement_set.schema.PolarizationArray",
+      "schema_name": "xradio.schema.measures.PolarizationArray",
       "dimensions": [
         [
           "polarization"
@@ -578,7 +578,7 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.measurement_set.schema.QuantityInSecondsArray",
+                "schema_name": "xradio.schema.measures.QuantityInSecondsArray",
                 "dimensions": [
                   []
                 ],
@@ -683,7 +683,7 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.measurement_set.schema.SpectralCoordArray",
+                "schema_name": "xradio.schema.measures.SpectralCoordArray",
                 "dimensions": [
                   []
                 ],
@@ -742,7 +742,7 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.measurement_set.schema.QuantityInHertzArray",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
                 "dimensions": [
                   []
                 ],
@@ -782,7 +782,7 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.measurement_set.schema.DopplerArray",
+                "schema_name": "xradio.schema.measures.DopplerArray",
                 "dimensions": [
                   []
                 ],
@@ -891,7 +891,7 @@
         },
         {
           "$class": "ArraySchemaRef",
-          "schema_name": "xradio.measurement_set.schema.PolarizationArray",
+          "schema_name": "xradio.schema.measures.PolarizationArray",
           "dimensions": [
             [
               "polarization"
@@ -1026,7 +1026,7 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.measurement_set.schema.QuantityInSecondsArray",
+                "schema_name": "xradio.schema.measures.QuantityInSecondsArray",
                 "dimensions": [
                   []
                 ],
@@ -1159,7 +1159,7 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.measurement_set.schema.SpectralCoordArray",
+                "schema_name": "xradio.schema.measures.SpectralCoordArray",
                 "dimensions": [
                   []
                 ],
@@ -1218,7 +1218,7 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.measurement_set.schema.QuantityInHertzArray",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
                 "dimensions": [
                   []
                 ],
@@ -1258,7 +1258,7 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.measurement_set.schema.DopplerArray",
+                "schema_name": "xradio.schema.measures.DopplerArray",
                 "dimensions": [
                   []
                 ],
@@ -1367,7 +1367,7 @@
         },
         {
           "$class": "ArraySchemaRef",
-          "schema_name": "xradio.measurement_set.schema.PolarizationArray",
+          "schema_name": "xradio.schema.measures.PolarizationArray",
           "dimensions": [
             [
               "polarization"
@@ -1517,7 +1517,7 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.measurement_set.schema.QuantityInSecondsArray",
+                "schema_name": "xradio.schema.measures.QuantityInSecondsArray",
                 "dimensions": [
                   []
                 ],
@@ -1650,7 +1650,7 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.measurement_set.schema.SpectralCoordArray",
+                "schema_name": "xradio.schema.measures.SpectralCoordArray",
                 "dimensions": [
                   []
                 ],
@@ -1709,7 +1709,7 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.measurement_set.schema.QuantityInHertzArray",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
                 "dimensions": [
                   []
                 ],
@@ -1749,7 +1749,7 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.measurement_set.schema.DopplerArray",
+                "schema_name": "xradio.schema.measures.DopplerArray",
                 "dimensions": [
                   []
                 ],
@@ -1858,7 +1858,7 @@
         },
         {
           "$class": "ArraySchemaRef",
-          "schema_name": "xradio.measurement_set.schema.PolarizationArray",
+          "schema_name": "xradio.schema.measures.PolarizationArray",
           "dimensions": [
             [
               "polarization"
@@ -1909,7 +1909,7 @@
     },
     {
       "$class": "ArraySchemaRef",
-      "schema_name": "xradio.measurement_set.schema.QuantityInSecondsArray",
+      "schema_name": "xradio.schema.measures.QuantityInSecondsArray",
       "dimensions": [
         [
           "time",
@@ -2033,7 +2033,7 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.measurement_set.schema.QuantityInSecondsArray",
+                "schema_name": "xradio.schema.measures.QuantityInSecondsArray",
                 "dimensions": [
                   []
                 ],
@@ -2265,7 +2265,7 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.measurement_set.schema.QuantityInSecondsArray",
+                "schema_name": "xradio.schema.measures.QuantityInSecondsArray",
                 "dimensions": [
                   []
                 ],
@@ -2469,7 +2469,7 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.measurement_set.schema.SpectralCoordArray",
+                "schema_name": "xradio.schema.measures.SpectralCoordArray",
                 "dimensions": [
                   []
                 ],
@@ -2528,7 +2528,7 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.measurement_set.schema.QuantityInHertzArray",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
                 "dimensions": [
                   []
                 ],
@@ -2568,7 +2568,7 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.measurement_set.schema.DopplerArray",
+                "schema_name": "xradio.schema.measures.DopplerArray",
                 "dimensions": [
                   []
                 ],
@@ -2742,7 +2742,7 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.measurement_set.schema.QuantityInSecondsArray",
+                "schema_name": "xradio.schema.measures.QuantityInSecondsArray",
                 "dimensions": [
                   []
                 ],
@@ -2813,7 +2813,7 @@
         },
         {
           "$class": "ArraySchemaRef",
-          "schema_name": "xradio.measurement_set.schema.PolarizationArray",
+          "schema_name": "xradio.schema.measures.PolarizationArray",
           "dimensions": [
             [
               "polarization"
@@ -2932,7 +2932,7 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.measurement_set.schema.SpectralCoordArray",
+                "schema_name": "xradio.schema.measures.SpectralCoordArray",
                 "dimensions": [
                   []
                 ],
@@ -2991,7 +2991,7 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.measurement_set.schema.QuantityInHertzArray",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
                 "dimensions": [
                   []
                 ],
@@ -3031,7 +3031,7 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.measurement_set.schema.DopplerArray",
+                "schema_name": "xradio.schema.measures.DopplerArray",
                 "dimensions": [
                   []
                 ],

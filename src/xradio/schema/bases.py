@@ -161,8 +161,11 @@ def _dataarray_new(
         )
 
         # Default to simple range of specified dtype if part of dimensions
-        # (that's roughly the behaviour of the xarray constructor as well)
-        if val is None and dims is not None:
+        # (that's roughly the behaviour of the xarray constructor as well).
+        # Coordinates that are not dimensions (e.g. optional non-dimension
+        # coordinates) are skipped; if required, the schema check below
+        # will report them as missing.
+        if val is None and dims is not None and coord.name in dims:
             dim_ix = dims.index(coord.name)
             if dim_ix is not None and dim_ix < len(data.shape):
                 dtype = coord.dtypes[0]

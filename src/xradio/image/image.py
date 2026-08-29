@@ -198,17 +198,18 @@ def write_image(
 ) -> None:
     """
     TODO: I think the user should be permitted to specify data groups to write.
-    Convert an xds image to CASA or zarr image.
+    Convert an xds image to a CASA, FITS or zarr image.
     xds : xarray.Dataset
         XDS to convert
     imagename : str
         Path to output image
-        For writing to CASA, it is possible multiple images will be created, based
-        on what are in the data groups. If multiple images are created, the imagenames
-        will have identifying extensions added to the provided imagename. If only one
-        image is created, the provided imagename will be used as is.
+        For writing to CASA or FITS, it is possible multiple images will be created,
+        based on what are in the data groups. If multiple images are created, the
+        imagenames will have identifying extensions added to the provided imagename.
+        If only one image is created, the provided imagename will be used as is.
+        For FITS, flagged pixels are written as NaN.
     out_format : str
-        Format of output image, currently "casa" and "zarr" are supported
+        Format of output image, currently "casa", "fits" and "zarr" are supported
     overwrite : bool
         If True, overwrite existing image. Default is False.
     Returns
@@ -235,12 +236,18 @@ def write_image(
         )
 
         _xds_to_multiple_casa_images(xds, imagename)
+    elif my_format == "fits":
+        from xradio.image._util.fits import (
+            _xds_to_multiple_fits_images,
+        )
+
+        _xds_to_multiple_fits_images(xds, imagename)
     elif my_format == "zarr":
         _xds_to_zarr(xds, imagename)
     else:
         raise ValueError(
             f"Writing to format {out_format} is not supported. "
-            'out_format must be either "casa" or "zarr".'
+            'out_format must be either "casa", "fits" or "zarr".'
         )
 
 

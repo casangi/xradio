@@ -8,7 +8,7 @@ from xradio._utils.dict_helpers import (
     make_quantity,
     make_skycoord_dict,
     make_spectral_coord_reference_dict,
-    make_time_coord_attrs,
+    make_time_measure_attrs,
 )
 from xradio._utils.logging import xradio_logger
 from xradio.image._util.common import _c, _compute_world_sph_dims, _l_m_attr_notes
@@ -172,9 +172,10 @@ def _add_common_attrs(
     xr.Dataset
         Input dataset with updated coordinate attrs and dataset attrs.
     """
-    xds.time.attrs = make_time_coord_attrs(units="d", scale="utc", time_format="mjd")
+    xds.time.attrs = make_time_measure_attrs(units="d", scale="utc", time_format="mjd")
     freq_vals = np.array(xds.frequency)
     xds.frequency.attrs = {
+        "frame": spectral_reference.upper(),
         "observer": spectral_reference.lower(),
         "reference_frequency": make_spectral_coord_reference_dict(
             value=freq_vals[len(freq_vals) // 2].item(),
@@ -206,7 +207,7 @@ def _add_common_attrs(
             "projection": projection,
             "projection_parameters": [0.0, 0.0],
         },
-        "type": "image",
+        "type": "image_dataset",
     }
     return xds
 
@@ -906,6 +907,12 @@ def create_image_xds_from_store(
 
         img_xds.attrs = img_xds.attrs | xds.attrs
         img_xds[image_type] = xds[image_type]
+        # The backend stores the native casacore image type (or FITS BTYPE),
+        # e.g. "Intensity", in the "type" attribute. Preserve it as the
+        # sub image type before overwriting "type" with the data group role.
+        native_image_type = img_xds[image_type].attrs.get("type")
+        if native_image_type and native_image_type != "Undefined":
+            img_xds[image_type].attrs["sub_type"] = native_image_type.replace(" ", "")
         img_xds[image_type].attrs["type"] = image_type.lower()
 
         expected_flag_name = "FLAG_" + image_type
@@ -956,7 +963,8 @@ def create_image_xds_from_store(
                 expected_flag_name,
                 active_group,
             )
-        elif "MASK" in xds:
+        elif "MASK" in xds and image_type != "MASK":
+            # Do not treat a mask image as its own flag
             _add_flag_to_output(
                 img_xds,
                 xds["MASK"],

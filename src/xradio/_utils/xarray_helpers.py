@@ -83,5 +83,7 @@ def delete_data_variables(xdx: xr.Dataset | xr.DataTree, variables: list):
     for data_group_name in xdx.attrs["data_groups"]:
         data_group = xdx.attrs["data_groups"][data_group_name]
         for var in variables:
-            if var in data_group:
-                del data_group[var]
+            # Data groups map roles (e.g. "sky") to variable names (e.g.
+            # "SKY"), so remove every role whose value is the deleted variable
+            for role in [key for key, value in data_group.items() if value == var]:
+                del data_group[role]

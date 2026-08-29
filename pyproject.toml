@@ -121,6 +121,10 @@ all = [
     'pre-commit'
 ]
 
+[project.entry-points."xarray.backends"]
+xradio_casa_image = "xradio.image.backends:CasaImageBackendEntrypoint"
+xradio_fits_image = "xradio.image.backends:FitsImageBackendEntrypoint"
+
 [tool.pytest.ini_options]
 addopts = [
     "--import-mode=importlib",

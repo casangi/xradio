@@ -120,6 +120,8 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
         # it appears this was purged from the schema, not sure why
         # meta["rest_frequencies"] = [meta["rest_frequency"]]
         meta["type"] = "spectral_coord"
+        meta["units"] = helpers.get("freq_units", "Hz")
+        meta["frame"] = helpers["specsys"]
         meta["wave_units"] = "mm"
         freq_axis = helpers["freq_axis"]
         meta["reference_frequency"] = make_spectral_coord_reference_dict(
@@ -550,12 +552,21 @@ def _fits_header_to_xds_attrs(
         )
     helpers["has_mask"] = False
     if compute_mask:
-        # primary.data is a memory-mapped numpy array (fits.open uses memmap=True upstream).
-        # numpy scans it block-by-block without loading the full array into RAM.
+        # primary.data is a memory-mapped numpy array (fits.open uses memmap=True
+        # upstream). Scan it in fixed-size flat blocks: np.isnan on the whole
+        # memmap would page in the entire file AND allocate a full-size bool
+        # temporary, while a block-wise scan bounds memory to one block and
+        # short-circuits on the first NaN found (typically in the first,
+        # NaN-blanked corner block).
         # Using dask here caused a "large graph" warning when a distributed client was
         # active, because da.from_array(memmap) embeds array slices as task arguments
         # which get serialised and shipped to the scheduler.
-        helpers["has_mask"] = bool(np.any(np.isnan(primary.data)))
+        flat = primary.data.reshape(-1)
+        block_size = 2**23
+        for start in range(0, flat.size, block_size):
+            if np.isnan(flat[start : start + block_size]).any():
+                helpers["has_mask"] = True
+                break
     beam = _beam_attr_from_header(helpers, header)
     if beam != "mb":
         helpers["beam"] = beam
@@ -703,6 +714,7 @@ def _get_freq_values(helpers: dict) -> list:
         )
         cunit = helpers["cunit"][freq_idx]
         helpers["frequency"] = vals * u.Unit(cunit)
+        helpers["freq_units"] = cunit
         return vals
     elif "VOPT" in ctype:
         if "restfreq" in helpers:
@@ -712,7 +724,7 @@ def _get_freq_values(helpers: dict) -> list:
                 "Spectral axis in FITS header is velocity, but there is "
                 "no rest frequency so converting to frequency is not possible"
             )
-        helpers["doppler"] = "Z"
+        helpers["doppler"] = "z"
         v_idx = ctype.index("VOPT")
         helpers["freq_idx"] = v_idx
         helpers["freq_axis"] = v_idx
@@ -726,6 +738,7 @@ def _get_freq_values(helpers: dict) -> list:
         helpers["velocity"] = vel["value"] * u.Unit(vel["units"])
         helpers["crval"][v_idx] = (freq["crval"] * u.Unit(freq["units"])).to(u.Hz).value
         helpers["cdelt"][v_idx] = (freq["cdelt"] * u.Unit(freq["units"])).to(u.Hz).value
+        helpers["freq_units"] = "Hz"
         return list(freq["value"])
     else:
         return [1420e6]

@@ -156,6 +156,7 @@ def make_taql_where_between_min_max(
     path: str,
     table_name: str,
     colname="TIME",
+    pad_steps: int = 0,
 ) -> str | None:
     """
     From a numerical min/max range, produce a TaQL string to select between
@@ -181,6 +182,9 @@ def make_taql_where_between_min_max(
         Name of the table where to load a column (example: 'POINTING')
     colname :
         Name of the column to search for min/max values (examples: 'TIME', 'MJD')
+    pad_steps :
+        Number of additional column values (tabulation steps) to include on
+        either side of the projected range, where available
 
     Returns
     -------
@@ -188,7 +192,9 @@ def make_taql_where_between_min_max(
         TaQL (sub)string with the min/max time 'WHERE' constraint
     """
 
-    min_max_range = find_projected_min_max_table(min_max, path, table_name, colname)
+    min_max_range = find_projected_min_max_table(
+        min_max, path, table_name, colname, pad_steps
+    )
     if min_max_range is None:
         taql = None
     else:
@@ -199,7 +205,11 @@ def make_taql_where_between_min_max(
 
 
 def find_projected_min_max_table(
-    min_max: tuple[np.float64, np.float64], path: str, table_name: str, colname: str
+    min_max: tuple[np.float64, np.float64],
+    path: str,
+    table_name: str,
+    colname: str,
+    pad_steps: int = 0,
 ) -> tuple[np.float64, np.float64] | None:
     """
     We have: min/max values that define a range (for example of time)
@@ -237,6 +247,9 @@ def find_projected_min_max_table(
         Name of the table where to load a column (example: 'POINTING')
     colname :
         Name of the column to search for min/max values (example: 'TIME')
+    pad_steps :
+        Number of additional column values (tabulation steps) to include on
+        either side of the projected range, where available
 
     Returns
     -------
@@ -248,14 +261,17 @@ def find_projected_min_max_table(
             return None
         col = tb_tool.getcol(colname)
 
-    out_min_max = find_projected_min_max_array(min_max, col)
+    out_min_max = find_projected_min_max_array(min_max, col, pad_steps)
     return out_min_max
 
 
 def find_projected_min_max_array(
-    min_max: tuple[np.float64, np.float64], array: np.array
+    min_max: tuple[np.float64, np.float64], array: np.array, pad_steps: int = 0
 ) -> tuple[np.float64, np.float64]:
-    """Does the min/max checks and search for find_projected_min_max_table()"""
+    """Does the min/max checks and search for find_projected_min_max_table().
+
+    pad_steps extends the projected range by that many additional array
+    values (tabulation steps) on either side, where available."""
 
     sorted_array = np.sort(array)
     range_min, range_max = min_max
@@ -269,7 +285,8 @@ def find_projected_min_max_array(
     else:
         max_idx = sorted_array.size - 1
         max_array_idx = min(
-            max_idx, np.searchsorted(sorted_array, range_max, side="right")
+            max_idx,
+            np.searchsorted(sorted_array, range_max, side="right") + pad_steps,
         )
         projected_max = sorted_array[max_array_idx] + tol
 
@@ -282,6 +299,7 @@ def find_projected_min_max_array(
         # ensure 'sorted_array[min_array_idx] < range_min' when values ==
         if sorted_array[min_array_idx] == range_min:
             min_array_idx = max(0, min_array_idx - 1)
+        min_array_idx = max(0, min_array_idx - pad_steps)
         projected_min = sorted_array[min_array_idx] - tol
 
     return (projected_min, projected_max)

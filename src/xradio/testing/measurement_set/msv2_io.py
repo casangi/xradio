@@ -707,7 +707,7 @@ def gen_subt_field(
         gen_subt_ephem(mspath, misbehave)
 
 
-def gen_subt_ephem(mspath: str, misbehave=False):
+def gen_subt_ephem(mspath: str, misbehave=False, nrows: int = 1):
     """
     Creates a phony ephemerides table under the FIELD subtable.
     The usual tables... context or 'default_ms_subtable' not working. Needs
@@ -720,6 +720,10 @@ def gen_subt_ephem(mspath: str, misbehave=False):
     misbehave : bool
         if True, some metadata (keywords) will be missing: posrefsys, and metadata
         of column 'RA'
+    nrows : int
+        number of tabulation rows to generate (one MJD step, 'dMJD', apart).
+        With the default of 1, the single row holds the same values as
+        produced historically.
 
     Returns
     -------
@@ -877,24 +881,25 @@ def gen_subt_ephem(mspath: str, misbehave=False):
         "posrefsys": "ICRF/ICRS",
     }
     with tables.table(
-        str(ephem0_path), tabledesc=tabdesc, nrow=1, readonly=False, ack=False
+        str(ephem0_path), tabledesc=tabdesc, nrow=nrows, readonly=False, ack=False
     ) as tbl:
         if misbehave:
             del tabdesc["RA"]["keywords"]
             del keywords["posrefsys"]
 
-        tbl.putcol("MJD", 50000)
-        tbl.putcol("RA", 230.334)
-        tbl.putcol("DEC", -15.678)
-        tbl.putcol("Rho", 0.55)
-        tbl.putcol("RadVel", 0.004)
-        tbl.putcol("DiskLong", 333.01)
-        tbl.putcol("DiskLat", 4.09)
-        tbl.putcol("SI_lon", 338.81)
-        tbl.putcol("SI_lat", 2.44)
-        tbl.putcol("r", 9.1234)
-        tbl.putcol("rdot", -1.234)
-        tbl.putcol("phang", 5.6789)
+        steps = np.arange(nrows)
+        tbl.putcol("MJD", 50000 + steps * keywords["dMJD"])
+        tbl.putcol("RA", 230.334 + steps * 0.015)
+        tbl.putcol("DEC", -15.678 - steps * 0.003)
+        tbl.putcol("Rho", np.full(nrows, 0.55))
+        tbl.putcol("RadVel", np.full(nrows, 0.004))
+        tbl.putcol("DiskLong", np.full(nrows, 333.01))
+        tbl.putcol("DiskLat", np.full(nrows, 4.09))
+        tbl.putcol("SI_lon", np.full(nrows, 338.81))
+        tbl.putcol("SI_lat", np.full(nrows, 2.44))
+        tbl.putcol("r", np.full(nrows, 9.1234))
+        tbl.putcol("rdot", np.full(nrows, -1.234))
+        tbl.putcol("phang", np.full(nrows, 5.6789))
         tbl.putkeywords(keywords)
 
 

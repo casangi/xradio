@@ -64,7 +64,11 @@ def create_field_and_source_xds(
     time_min_max : Tuple[np.float64, np.float46]
         Min / max times to constrain loading (usually to the time range relevant to an MSv4)
     ephemeris_interpolate : bool
-        If true ephemeris data is interpolated to the main MSv4 time axis given in field_times.
+        If true, ephemeris data is interpolated to the main MSv4 time axis given in
+        field_times. If false, the original ephemeris tabulation is kept on the
+        "time_ephemeris" axis, selected to time_min_max extended by one tabulation
+        step on either side (where available), so that enough points are preserved
+        for downstream (for example spline) interpolation.
 
     Returns:
     -------
@@ -148,6 +152,11 @@ def extract_ephemeris_info(
         Min / max times to constrain loading (usually to the time range relevant to an MSv4)
     interp_time : Union[xr.DataArray, None]
         Time axis to interpolate the data vars to (usually main MSv4 time)
+    ephemeris_interpolate : bool
+        If true, the ephemeris data variables are interpolated to interp_time.
+        If false, the original ephemeris tabulation is kept on the
+        "time_ephemeris" axis, selected to time_min_max extended by one
+        tabulation step on either side (where available).
 
     Returns:
     -------
@@ -162,13 +171,19 @@ def extract_ephemeris_info(
         {"sky_dis_label": ["dist"], "cartesian_pos_label": ["x", "y", "z"]}
     )
 
-    # Only read data between the min and max times of the visibility data in the MSv4.
+    # Only read data between the min and max times of the visibility data in
+    # the MSv4, extended to the bracketing tabulation points. When not
+    # interpolating to the main MSv4 time axis, additionally include one
+    # tabulation step before and one after (where available), so that enough
+    # points are preserved for downstream (for example spline) interpolation
+    # (see issue #603).
     min_max_mjd = (
         convert_casacore_time_to_mjd(time_min_max[0]),
         convert_casacore_time_to_mjd(time_min_max[1]),
     )
+    pad_steps = 0 if ephemeris_interpolate else 1
     taql_time_range = make_taql_where_between_min_max(
-        min_max_mjd, path, table_name, "MJD"
+        min_max_mjd, path, table_name, "MJD", pad_steps=pad_steps
     )
     ephemeris_xds = load_generic_table(
         path, table_name, timecols=["MJD"], taql_where=taql_time_range
@@ -368,7 +383,7 @@ def extract_ephemeris_info(
         )
 
         temp_xds["SUB_SOLAR_DISTANCE"] = xr.DataArray(
-            [ephemeris_xds["r"].data],
+            np.column_stack((ephemeris_xds["r"].data,)),
             dims=["time_ephemeris", "ellipsoid_dis_label"],
         )
         temp_xds["SUB_SOLAR_DISTANCE"].attrs.update(
@@ -391,6 +406,10 @@ def extract_ephemeris_info(
     }
     temp_xds = temp_xds.assign_coords(coords)
     temp_xds["time_ephemeris"].attrs.update(standard_time_coord_attrs)
+    # When not interpolating, the coordinate keeps the "time_ephemeris" label
+    # and type (rename_and_interpolate_to_time resets the type to "time" on
+    # the interpolated branch)
+    temp_xds["time_ephemeris"].attrs["type"] = "time_ephemeris"
 
     # Convert to si units
     temp_xds = convert_to_si_units(temp_xds)

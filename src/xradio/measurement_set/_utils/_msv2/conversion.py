@@ -1051,7 +1051,11 @@ def convert_and_write_partition(
     pointing_interpolate : bool, optional
         _description_, by default None
     ephemeris_interpolate : bool, optional
-        _description_, by default None
+        Whether to interpolate the time axis of the ephemeris data variables of the
+        field_and_source sub-dataset to the time axis of the main dataset. If False,
+        the original ephemeris tabulation is kept on the "time_ephemeris" axis,
+        selected to the time range of the main dataset extended by one tabulation
+        step on either side (where available), by default False
     phase_cal_interpolate : bool, optional
         _description_, by default None
     sys_cal_interpolate : bool, optional

@@ -113,7 +113,9 @@ def convert_msv2_to_processing_set(
     pointing_interpolate : bool, optional
         Whether to interpolate the time axis of the pointing sub-dataset to the time axis of the main dataset
     ephemeris_interpolate : bool, optional
-        Whether to interpolate the time axis of the ephemeris data variables (of the field_and_source sub-dataset) to the time axis of the main dataset
+        Whether to interpolate the time axis of the ephemeris data variables (of the field_and_source sub-dataset) to the time axis of the main dataset.
+        If False (the default), the original ephemeris tabulation is kept on the "time_ephemeris" axis, selected to the time range of the main dataset
+        extended by one tabulation step on either side (where available), so that enough points are preserved for downstream (for example spline) interpolation.
     phase_cal_interpolate : bool, optional
         Whether to interpolate the time axis of the phase calibration data variables to the time axis of the main dataset
     sys_cal_interpolate : bool, optional

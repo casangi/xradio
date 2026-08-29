@@ -66,6 +66,20 @@ sky = "SKY"
 pytestmark = pytest.mark.usefixtures("dask_client_module")
 
 
+def update_truth_attrs_to_schema(truth_xds, frequency_frame="LSRK"):
+    """Align a blessed truth dataset with the image schema attrs the current
+    code produces: the required frequency units/frame, the "image_dataset"
+    dataset type (empty image truths still carry "image") and the typed time
+    coordinate. Remove once the truth stores have been re-blessed.
+    """
+    truth_xds.frequency.attrs.setdefault("units", "Hz")
+    truth_xds.frequency.attrs.setdefault("frame", frequency_frame)
+    if truth_xds.attrs.get("type") == "image":
+        truth_xds.attrs["type"] = "image_dataset"
+    truth_xds.time.attrs.setdefault("type", "time")
+    return truth_xds
+
+
 # --------------------------------------------------------------------------- #
 # TestLoadImage  –  load_image                                                 #
 # --------------------------------------------------------------------------- #
@@ -157,9 +171,15 @@ class TestOpenImageCasa:
         cls._xds = open_image(cls._imname, {"frequency": 5})
         cls._xds_no_sky = open_image(cls._imname, {"frequency": 5}, False, False)
         cls._xds_uv = download_and_open_image(cls._uv_image)
-        cls._xds_true = download_and_open_image(cls._xds_from_casa_true)
-        cls._xds_no_sky_true = download_and_open_image(cls._xds_from_no_sky_casa_true)
-        cls._xds_uv_true = download_and_open_image(cls._xds_from_casa_uv_true)
+        cls._xds_true = update_truth_attrs_to_schema(
+            download_and_open_image(cls._xds_from_casa_true)
+        )
+        cls._xds_no_sky_true = update_truth_attrs_to_schema(
+            download_and_open_image(cls._xds_from_no_sky_casa_true)
+        )
+        cls._xds_uv_true = update_truth_attrs_to_schema(
+            download_and_open_image(cls._xds_from_casa_uv_true)
+        )
 
     @classmethod
     def teardown_class(cls):
@@ -547,7 +567,9 @@ class TestZarrRoundtrip:
     def setup_class(cls):
         download_image(cls._imname)
         cls._xds = open_image(cls._imname, {"frequency": 5})
-        cls._xds_true = download_and_open_image(cls._xds_from_casa_true)
+        cls._xds_true = update_truth_attrs_to_schema(
+            download_and_open_image(cls._xds_from_casa_true)
+        )
         write_image(cls._xds, cls._zarr_store, out_format="zarr", overwrite=True)
         cls._zds = open_image(cls._zarr_store)
 
@@ -655,8 +677,12 @@ class TestOpenImageFits:
         download_image(cls._infits)
         cls._fds = open_image(cls._infits, {"frequency": 5}, do_sky_coords=True)
         cls._fds_no_sky = open_image(cls._infits, {"frequency": 5}, do_sky_coords=False)
-        cls._xds_true = download_and_open_image(cls._xds_from_casa_true)
-        cls._xds_no_sky_true = download_and_open_image(cls._xds_from_no_sky_casa_true)
+        cls._xds_true = update_truth_attrs_to_schema(
+            download_and_open_image(cls._xds_from_casa_true)
+        )
+        cls._xds_no_sky_true = update_truth_attrs_to_schema(
+            download_and_open_image(cls._xds_from_no_sky_casa_true)
+        )
 
     @classmethod
     def teardown_class(cls):
@@ -848,7 +874,9 @@ class TestMakeEmptyImages:
 
     @pytest.mark.parametrize("case", MAKE_EMPTY_CASES, ids=lambda c: c["name"])
     def test_make_empty_image(self, case):
-        truth_xds = download_and_open_image(case["truth_xds"])
+        truth_xds = update_truth_attrs_to_schema(
+            download_and_open_image(case["truth_xds"])
+        )
         assert_xarray_datasets_equal(
             self._generated_xds[case["name"]],
             truth_xds,

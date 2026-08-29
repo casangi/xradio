@@ -551,6 +551,8 @@ def _get_freq_values_attrs(
                 )
                 attrs["rest_frequency"] = make_quantity(sd["restfreq"], "Hz")
                 attrs["type"] = "spectral_coord"
+                attrs["units"] = sd["unit"]
+                attrs["frame"] = sd["system"]
                 attrs["wave_units"] = sd["waveUnit"]
 
                 attrs["reference_frequency"] = make_spectral_coord_reference_dict(

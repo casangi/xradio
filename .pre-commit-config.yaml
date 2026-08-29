@@ -9,7 +9,7 @@ repos:
         # PEP 224 attribute docstrings in the schema modules (rendered by
         # Sphinx), and long reference/provenance string blocks elsewhere.
         exclude: >-
-          ^(src/xradio/measurement_set/schema\.py|src/xradio/schema/common\.py|src/xradio/schema/typing\.py|src/xradio/image/_util/_zarr/xds_from_zarr\.py|tests/stakeholder/test_measure_set_stakeholder\.py)$
+          ^(src/xradio/measurement_set/schema\.py|src/xradio/schema/common\.py|src/xradio/schema/measures\.py|src/xradio/schema/typing\.py|src/xradio/image/schema\.py|src/xradio/image/_util/_zarr/xds_from_zarr\.py|tests/stakeholder/test_measure_set_stakeholder\.py)$
       - id: check-merge-conflict
       - id: check-json
       - id: check-toml

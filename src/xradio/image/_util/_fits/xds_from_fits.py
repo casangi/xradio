@@ -120,6 +120,8 @@ def _add_freq_attrs(xds: xr.Dataset, helpers: dict) -> xr.Dataset:
         # it appears this was purged from the schema, not sure why
         # meta["rest_frequencies"] = [meta["rest_frequency"]]
         meta["type"] = "spectral_coord"
+        meta["units"] = helpers.get("freq_units", "Hz")
+        meta["frame"] = helpers["specsys"]
         meta["wave_units"] = "mm"
         freq_axis = helpers["freq_axis"]
         meta["reference_frequency"] = make_spectral_coord_reference_dict(
@@ -703,6 +705,7 @@ def _get_freq_values(helpers: dict) -> list:
         )
         cunit = helpers["cunit"][freq_idx]
         helpers["frequency"] = vals * u.Unit(cunit)
+        helpers["freq_units"] = cunit
         return vals
     elif "VOPT" in ctype:
         if "restfreq" in helpers:
@@ -712,7 +715,7 @@ def _get_freq_values(helpers: dict) -> list:
                 "Spectral axis in FITS header is velocity, but there is "
                 "no rest frequency so converting to frequency is not possible"
             )
-        helpers["doppler"] = "Z"
+        helpers["doppler"] = "z"
         v_idx = ctype.index("VOPT")
         helpers["freq_idx"] = v_idx
         helpers["freq_axis"] = v_idx
@@ -726,6 +729,7 @@ def _get_freq_values(helpers: dict) -> list:
         helpers["velocity"] = vel["value"] * u.Unit(vel["units"])
         helpers["crval"][v_idx] = (freq["crval"] * u.Unit(freq["units"])).to(u.Hz).value
         helpers["cdelt"][v_idx] = (freq["cdelt"] * u.Unit(freq["units"])).to(u.Hz).value
+        helpers["freq_units"] = "Hz"
         return list(freq["value"])
     else:
         return [1420e6]

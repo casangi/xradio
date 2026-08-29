@@ -24,7 +24,15 @@ class ValueSchema:
     """
 
     type: typing.Literal[
-        "bool", "str", "int", "float", "list[str]", "dict", "dataarray"
+        "bool",
+        "str",
+        "int",
+        "float",
+        "list[str]",
+        "list[float]",
+        "list[list[float]]",
+        "dict",
+        "dataarray",
     ]
     """
     Type of value
@@ -34,6 +42,8 @@ class ValueSchema:
     * ``int``: A 64-bit signed integer
     * ``float``: A double-precision floating point number
     * ``list[str]``: A list of strings
+    * ``list[float]``: A list of floating point numbers
+    * ``list[list[float]]``: A list of lists of floating point numbers (matrix)
     * ``dict``: Dictionary
     * ``dataarray``: An xarray dataarray (encoded using ``to_dict``)
     """

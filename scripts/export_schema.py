@@ -8,6 +8,7 @@ from xradio.schema.export import export_schema_json_file
 SCHEMA_MAP = {
     "VisibilityXds": ("xradio.measurement_set.schema", "VisibilityXds"),
     "SpectrumXds": ("xradio.measurement_set.schema", "SpectrumXds"),
+    "ImageXds": ("xradio.image.schema", "ImageXds"),
 }
 
 # Enough arguments?

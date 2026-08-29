@@ -289,7 +289,9 @@ def _history_from_xds(xds: xr.Dataset, image: str) -> None:
 def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
     ii = {}
     ap_sky = _aperture_or_sky(xds)
-    ii["imagetype"] = xds[ap_sky].attrs["type"] if "type" in xds[ap_sky].attrs else ""
+    # The casacore image type is stored in the sub_type attribute; the type
+    # attribute holds the data group role (e.g. "sky")
+    ii["imagetype"] = xds[ap_sky].attrs.get("sub_type", "")
     ii["objectname"] = (
         xds[ap_sky].attrs[_object_name] if _object_name in xds[ap_sky].attrs else ""
     )

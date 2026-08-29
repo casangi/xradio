@@ -89,6 +89,24 @@ BeamParamsLabel = Literal["beam_params_label"]
 UnitsOfImageTime = Literal["d", "s"]
 """ Units of time values in images. Typically days ('d') for MJD formatted times. """
 
+# Sub image types of a sky image, derived from the casacore image type, see
+# https://github.com/casacore/casacore/blob/dede86795b94ea5651d26a889fea8ced455bfd14/images/Images/ImageInfo.h#L93-L110
+# (casacore spellings with spaces, e.g. "Column Density", are normalized by
+# removing the spaces)
+AllowedSkyImageSubTypes = Literal[
+    "Intensity",
+    "ColumnDensity",
+    "DepolarizationRatio",
+    "KineticTemperature",
+    "MagneticField",
+    "OpticalDepth",
+    "RotationMeasure",
+    "RotationalTemperature",
+    "SpectralIndex",
+    "Velocity",
+    "VelocityDispersion",
+]
+
 
 @xarray_dataarray_schema
 class TimeMeasureArray:
@@ -358,25 +376,51 @@ class DataGroupDict:
     of the data variables that fill the role for this group."""
 
     sky: str | None
-    """ Name of the sky variable, for example 'SKY'. Derived from the gridded visibilities. On plane tangential to celestial sphere. """
+    """ Image of the sky. Name of the sky variable, for example 'SKY'. Derived
+    from the gridded visibilities. On plane tangential to celestial sphere.
+    The variable's ``sub_type`` attribute records the physical quantity held
+    by the image (Intensity, ColumnDensity, DepolarizationRatio,
+    KineticTemperature, MagneticField, OpticalDepth, RotationMeasure,
+    RotationalTemperature, SpectralIndex, Velocity, VelocityDispersion),
+    derived from the casacore image type, see :py:class:`SkyArray`. """
     flag: str | None
-    """ Name of the sky pixels flags variable, for example 'FLAG_SKY'. For CASA images this is an internal mask. """
+    """ A boolean image defining any invalid pixels. Name of the sky pixels
+    flags variable, for example 'FLAG_SKY'. For CASA images this is an
+    internal mask. """
     point_spread_function: str | None
-    """ Name of the point spread function variable of the group, for example 'POINT_SPREAD_FUNCTION'. On plane tangential to celestial sphere. """
+    """ The instrumental response or "dirty beam." Represents how a point
+    source would appear given the uv-coverage and weighting scheme. Used by
+    deconvolution algorithms to model and remove sidelobe artifacts.
+    Determines the resolution of the image. Should be unity at the peak.
+    Name of the point spread function variable of the group, for example
+    'POINT_SPREAD_FUNCTION'. On plane tangential to celestial sphere. """
     primary_beam: str | None
-    """ Name of the primary beam variable of the group, for example 'PRIMARY_BEAM'. On plane tangential to celestial sphere. """
+    """ The effective antenna power pattern projected onto the sky, describing
+    how sensitivity falls off from the pointing center. Values range from 1.0
+    at center to ~0 at the edges. Name of the primary beam variable of the
+    group, for example 'PRIMARY_BEAM'. On plane tangential to celestial
+    sphere. """
     mask: str | None
-    """ Name of the deconvolution mask variable of the group, for example 'MASK'. On plane tangential to celestial sphere. """
+    """ A boolean image defining the region(s) where the deconvolution
+    algorithm is allowed to place clean components. Name of the deconvolution
+    mask variable of the group, for example 'MASK'. On plane tangential to
+    celestial sphere. """
     beam_fit_params_sky: str | None
-    """ Name of the beam fit parameters variable that applies to the sky variable of the group,
-    for example 'BEAM_FIT_PARAMS_SKY'. """
+    """ The Gaussian fit of the resolution element. Note that this would be
+    the same as the beam_fit_params_point_spread_function except when the sky
+    image is convolved to a common beam. Name of the beam fit parameters
+    variable that applies to the sky variable of the group, for example
+    'BEAM_FIT_PARAMS_SKY'. """
     beam_fit_params_point_spread_function: str | None
-    """ Name of the beam fit parameters variable that applies to the point spread function of the
-    group, for example 'BEAM_FIT_PARAMS_POINT_SPREAD_FUNCTION'. """
+    """ The Gaussian fit to the peak of the point_spread_function. Name of the
+    beam fit parameters variable that applies to the point spread function of
+    the group, for example 'BEAM_FIT_PARAMS_POINT_SPREAD_FUNCTION'. """
     visibility: str | None
     """ Name of the visibility variable of the group, for example 'VISIBILITY'. The gridded visibilities used to create the images using a Fourier transform. On aperture plane."""
     visibility_normalization: str | None
-    """ Normalization factor for the gridded visibility data, for example 'VISIBILITY_NORMALIZATION'. """
+    """ The aggregate of the image weights and used to normalize the gridded
+    visibilities. Name of the variable, for example
+    'VISIBILITY_NORMALIZATION'. """
     uv_sampling: str | None
     """ Name of the uv sampling variable of the group, for example 'UV_SAMPLING'. The gridded weights used to create the point spread function using a Fourier transform. On aperture plane."""
     uv_sampling_normalization: str | None
@@ -386,9 +430,10 @@ class DataGroupDict:
     aperture_normalization: str | None
     """ Normalization factor for the aperture data.  """
     description: str | None
-    """ More details about the data group. """
+    """ String description. More details about the data group. """
     date: str | None
-    """ Creation date-time, in ISO 8601 format: 'YYYY-MM-DDTHH:mm:ss.SSS'. """
+    """ Date created. Creation date-time, in ISO 8601 format:
+    'YYYY-MM-DDTHH:mm:ss.SSS'. """
 
 
 @dict_schema
@@ -403,10 +448,18 @@ class DataGroupsDict:
 # Data variables
 @xarray_dataarray_schema
 class SkyArray:
-    """Sky image data array. Derived from the gridded visibilities, on a plane
+    """Image of the sky. Derived from the gridded visibilities, on a plane
     tangential to the celestial sphere. Examples of versions of this variable
     (each belonging to its own data group) are ``SKY``, ``SKY_DECONVOLVED``,
-    ``SKY_MODEL`` and ``SKY_RESIDUAL``."""
+    ``SKY_MODEL`` and ``SKY_RESIDUAL``.
+
+    The optional ``sub_type`` attribute records the physical quantity held by
+    the image, derived from the `casacore image type
+    <https://github.com/casacore/casacore/blob/dede86795b94ea5651d26a889fea8ced455bfd14/images/Images/ImageInfo.h#L93-L110>`_
+    (without changing the image ``type``): Intensity, ColumnDensity,
+    DepolarizationRatio, KineticTemperature, MagneticField, OpticalDepth,
+    RotationMeasure, RotationalTemperature, SpectralIndex, Velocity or
+    VelocityDispersion."""
 
     data: Data[
         tuple[Time, Frequency, Polarization, L, M],
@@ -449,15 +502,18 @@ class SkyArray:
     for example 'BEAM_FIT_PARAMS_SKY'. """
     flag: Attr[str] | None = None
     """ Name of the flag variable that applies to this image, for example 'FLAG_SKY'. """
+    sub_type: Attr[AllowedSkyImageSubTypes] | None = None
+    """ Sub image type, derived from the casacore image type (with spaces
+    removed, so casacore's 'Column Density' becomes 'ColumnDensity'). """
     allow_multiple_versions: Attr[bool] | None = True
 
 
 @xarray_dataarray_schema
 class FlagArray:
-    """Boolean image flagging invalid pixels (``True`` means bad). For CASA
-    images this is derived from the (inverted) internal mask. Versions of this
-    variable are named after the image they apply to, for example ``FLAG_SKY``
-    or ``FLAG_SKY_RESIDUAL``."""
+    """A boolean image defining any invalid pixels (``True`` means invalid).
+    For CASA images this is derived from the (inverted) internal mask.
+    Versions of this variable are named after the image they apply to, for
+    example ``FLAG_SKY`` or ``FLAG_SKY_RESIDUAL``."""
 
     data: Data[tuple[Time, Frequency, Polarization, L, M], bool]
     """ Pixel flags, ``True`` means the pixel is invalid. """
@@ -475,11 +531,17 @@ class FlagArray:
 
 @xarray_dataarray_schema
 class BeamFitParamsArray:
-    """Parameters of the Gaussian fit of the resolution element, per plane
-    (time, frequency, polarization). The last dimension holds the major axis,
-    minor axis and position angle, all in radians. Versions of this variable
-    are named after the image they apply to, for example
-    ``BEAM_FIT_PARAMS_SKY`` or ``BEAM_FIT_PARAMS_POINT_SPREAD_FUNCTION``."""
+    """Parameters of a Gaussian beam fit, per plane (time, frequency,
+    polarization). The last dimension holds the major axis, minor axis and
+    position angle, all in radians. Versions of this variable are named after
+    the image they apply to:
+
+    * ``BEAM_FIT_PARAMS_SKY``: The Gaussian fit of the resolution element.
+      Note that this would be the same as the
+      ``beam_fit_params_point_spread_function`` except when the sky image is
+      convolved to a common beam.
+    * ``BEAM_FIT_PARAMS_POINT_SPREAD_FUNCTION``: The Gaussian fit to the peak
+      of the point_spread_function."""
 
     data: Data[tuple[Time, Frequency, Polarization, BeamParamsLabel], float]
     """ Gaussian fit parameters ('major', 'minor', 'pa'), in radians. """
@@ -499,8 +561,9 @@ class BeamFitParamsArray:
 
 @xarray_dataarray_schema
 class MaskArray:
-    """Image defining the region(s) where a deconvolution algorithm is allowed
-    to place clean components (nonzero means selected)."""
+    """A boolean image defining the region(s) where the deconvolution
+    algorithm is allowed to place clean components (nonzero or ``True`` means
+    selected). Loaders may deliver the mask as a float valued image."""
 
     data: Data[
         tuple[Time, Frequency, Polarization, L, M],
@@ -525,6 +588,8 @@ class MaskArray:
     object_name: Attr[str] | None = None
     user: Attr[UserDict] | None = None
     description: Attr[str] | None = None
+    sub_type: Attr[str] | None = None
+    """ Sub image type, derived from the casacore image type, if known. """
     allow_multiple_versions: Attr[bool] | None = True
 
 
@@ -532,7 +597,7 @@ class MaskArray:
 class PrimaryBeamArray:
     """The effective antenna power pattern projected onto the sky, describing
     how sensitivity falls off from the pointing center. Values range from 1.0
-    at the center to about 0 at the edges."""
+    at center to ~0 at the edges."""
 
     data: Data[
         tuple[Time, Frequency, Polarization, L, M],
@@ -557,13 +622,15 @@ class PrimaryBeamArray:
     object_name: Attr[str] | None = None
     user: Attr[UserDict] | None = None
     description: Attr[str] | None = None
+    sub_type: Attr[str] | None = None
+    """ Sub image type, derived from the casacore image type, if known. """
     allow_multiple_versions: Attr[bool] | None = True
 
 
 @xarray_dataarray_schema
 class PointSpreadFunctionArray:
-    """The instrumental response or "dirty beam". Represents how a point
-    source would appear given the uv coverage and weighting scheme. Used by
+    """The instrumental response or "dirty beam." Represents how a point
+    source would appear given the uv-coverage and weighting scheme. Used by
     deconvolution algorithms to model and remove sidelobe artifacts.
     Determines the resolution of the image. Should be unity at the peak."""
 
@@ -594,14 +661,16 @@ class PointSpreadFunctionArray:
     beam_fit_params: Attr[str] | None = None
     """ Name of the beam fit parameters variable that applies to this image,
     for example 'BEAM_FIT_PARAMS_POINT_SPREAD_FUNCTION'. """
+    sub_type: Attr[str] | None = None
+    """ Sub image type, derived from the casacore image type, if known. """
     allow_multiple_versions: Attr[bool] | None = True
 
 
 @xarray_dataarray_schema
 class VisibilityNormalizationArray:
     """The aggregate of the image weights (the sum of gridded weights per
-    plane), used to normalize the gridded visibilities. Loaded from the CASA
-    sum of weights ('sumwt') image."""
+    plane) and used to normalize the gridded visibilities. Loaded from the
+    CASA sum of weights ('sumwt') image."""
 
     data: Data[
         tuple[Time, Frequency, Polarization],
@@ -623,6 +692,8 @@ class VisibilityNormalizationArray:
     object_name: Attr[str] | None = None
     user: Attr[UserDict] | None = None
     description: Attr[str] | None = None
+    sub_type: Attr[str] | None = None
+    """ Sub image type, derived from the casacore image type, if known. """
 
 
 @xarray_dataarray_schema
@@ -653,6 +724,8 @@ class VisibilityArray:
     object_name: Attr[str] | None = None
     user: Attr[UserDict] | None = None
     description: Attr[str] | None = None
+    sub_type: Attr[str] | None = None
+    """ Sub image type, derived from the casacore image type, if known. """
 
 
 @xarray_dataarray_schema
@@ -683,6 +756,8 @@ class UvSamplingArray:
     object_name: Attr[str] | None = None
     user: Attr[UserDict] | None = None
     description: Attr[str] | None = None
+    sub_type: Attr[str] | None = None
+    """ Sub image type, derived from the casacore image type, if known. """
 
 
 @xarray_dataarray_schema
@@ -733,6 +808,8 @@ class ApertureArray:
     object_name: Attr[str] | None = None
     user: Attr[UserDict] | None = None
     description: Attr[str] | None = None
+    sub_type: Attr[str] | None = None
+    """ Sub image type, derived from the casacore image type, if known. """
 
 
 @xarray_dataarray_schema

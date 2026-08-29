@@ -69,14 +69,18 @@ pytestmark = pytest.mark.usefixtures("dask_client_module")
 def update_truth_attrs_to_schema(truth_xds, frequency_frame="LSRK"):
     """Align a blessed truth dataset with the image schema attrs the current
     code produces: the required frequency units/frame, the "image_dataset"
-    dataset type (empty image truths still carry "image") and the typed time
-    coordinate. Remove once the truth stores have been re-blessed.
+    dataset type (empty image truths still carry "image"), the typed time
+    coordinate and the sub_type attribute of pixel images (derived from the
+    casacore image type). Remove once the truth stores have been re-blessed.
     """
     truth_xds.frequency.attrs.setdefault("units", "Hz")
     truth_xds.frequency.attrs.setdefault("frame", frequency_frame)
     if truth_xds.attrs.get("type") == "image":
         truth_xds.attrs["type"] = "image_dataset"
     truth_xds.time.attrs.setdefault("type", "time")
+    for data_var in truth_xds.data_vars.values():
+        if data_var.attrs.get("type") in ("sky", "aperture"):
+            data_var.attrs.setdefault("sub_type", "Intensity")
     return truth_xds
 
 

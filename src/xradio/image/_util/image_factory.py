@@ -907,6 +907,12 @@ def create_image_xds_from_store(
 
         img_xds.attrs = img_xds.attrs | xds.attrs
         img_xds[image_type] = xds[image_type]
+        # The backend stores the native casacore image type (or FITS BTYPE),
+        # e.g. "Intensity", in the "type" attribute. Preserve it as the
+        # sub image type before overwriting "type" with the data group role.
+        native_image_type = img_xds[image_type].attrs.get("type")
+        if native_image_type and native_image_type != "Undefined":
+            img_xds[image_type].attrs["sub_type"] = native_image_type.replace(" ", "")
         img_xds[image_type].attrs["type"] = image_type.lower()
 
         expected_flag_name = "FLAG_" + image_type

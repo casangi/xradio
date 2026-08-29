@@ -136,6 +136,7 @@ def make_valid_image_xds() -> xr.Dataset:
             },
             "object_name": "test_object",
             "beam_fit_params": "BEAM_FIT_PARAMS_SKY",
+            "sub_type": "Intensity",
         },
     )
     flag = xr.DataArray(
@@ -299,6 +300,13 @@ class TestImageSchemaSynthetic:
         csys = deepcopy(xds.attrs["coordinate_system_info"])
         csys["reference_direction"]["attrs"]["frame"] = "not_a_frame"
         xds.attrs["coordinate_system_info"] = csys
+        issues = check_image(xds)
+        assert any("Disallowed literal value" in i.message for i in issues)
+
+    def test_invalid_sky_sub_type(self, image_xds_valid):
+        """The sky sub_type must be one of the casacore derived sub types."""
+        xds = image_xds_valid
+        xds["SKY"].attrs["sub_type"] = "NotAType"
         issues = check_image(xds)
         assert any("Disallowed literal value" in i.message for i in issues)
 
@@ -478,3 +486,148 @@ class TestImageSchemaFromFormats:
         zarr_xds = open_image(self._zarr_store)
         issues = check_image(zarr_xds)
         assert not issues, f"Schema check of zarr image failed: {issues}"
+
+    def test_sub_type_from_casa_image_type(self):
+        """The casacore image type is preserved as the sub_type attribute
+        without changing the (role based) type attribute."""
+        xds = open_image(self._casa_image)
+        assert xds.SKY.attrs["type"] == "sky"
+        assert xds.SKY.attrs.get("sub_type") == "Intensity"
+
+
+class TestFitsWriter:
+    """Writing an image dataset to FITS and reading it back."""
+
+    _fits_store = "test_fits_write.fits"
+
+    def teardown_method(self):
+        remove_path(self._fits_store)
+
+    def test_fits_roundtrip_with_flags(self, image_xds_valid):
+        xds = image_xds_valid
+        xds["SKY"].values[0, 0, 0, 1, 2] = 42.0
+        xds["FLAG_SKY"].values[0, 1, 2, 3, 3] = True
+        remove_path(self._fits_store)
+        write_image(xds, self._fits_store, out_format="fits", overwrite=True)
+        rt = open_image(self._fits_store)
+        issues = check_image(rt)
+        assert not issues, f"Schema check of written FITS image failed: {issues}"
+        assert rt.SKY.values[0, 0, 0, 1, 2] == 42.0
+        # flags round trip through the FITS NaN convention
+        assert bool(rt.FLAG_SKY.values[0, 1, 2, 3, 3])
+        assert rt.FLAG_SKY.values.sum() == 1
+        np.testing.assert_allclose(rt.l.values, xds.l.values, atol=1e-12)
+        np.testing.assert_allclose(rt.m.values, xds.m.values, atol=1e-12)
+        np.testing.assert_allclose(rt.frequency.values, xds.frequency.values)
+        assert list(rt.polarization.values) == list(xds.polarization.values)
+        # single (uniform) beam round trips through BMAJ/BMIN/BPA cards
+        np.testing.assert_allclose(
+            rt.BEAM_FIT_PARAMS_SKY.values, xds.BEAM_FIT_PARAMS_SKY.values, atol=1e-12
+        )
+
+    def test_fits_roundtrip_multibeam(self, image_xds_valid):
+        xds = image_xds_valid
+        beams = np.zeros(xds.BEAM_FIT_PARAMS_SKY.shape)
+        beams[0, :, :, 0] = np.arange(1, 7).reshape(2, 3) * 1e-5
+        beams[0, :, :, 1] = np.arange(1, 7).reshape(2, 3) * 5e-6
+        beams[0, :, :, 2] = np.arange(1, 7).reshape(2, 3) * 1e-2
+        xds["BEAM_FIT_PARAMS_SKY"].values[:] = beams
+        remove_path(self._fits_store)
+        write_image(xds, self._fits_store, out_format="fits", overwrite=True)
+        rt = open_image(self._fits_store)
+        issues = check_image(rt)
+        assert not issues, f"Schema check of written FITS image failed: {issues}"
+        # per plane beams round trip through the CASA style BEAMS table
+        np.testing.assert_allclose(
+            rt.BEAM_FIT_PARAMS_SKY.values, beams, rtol=1e-6, atol=1e-12
+        )
+
+
+class TestFormatRoundRobin:
+    """Round robin an image through every supported format: each step writes
+    to disk, opens the result and checks it against the schema."""
+
+    _casa_image = "casa_test_image.im"
+    _stores = ["round_robin.fits", "round_robin.zarr", "round_robin.im"]
+
+    @classmethod
+    def setup_class(cls):
+        download_image(cls._casa_image)
+
+    @classmethod
+    def teardown_class(cls):
+        for path in [cls._casa_image] + cls._stores:
+            remove_path(path)
+
+    def test_round_robin_all_formats(self):
+        fits_store, zarr_store, casa_store = self._stores
+        for path in self._stores:
+            remove_path(path)
+
+        xds_casa = open_image(self._casa_image)
+        assert not check_image(xds_casa)
+
+        write_image(xds_casa, fits_store, out_format="fits", overwrite=True)
+        xds_fits = open_image(fits_store)
+        issues = check_image(xds_fits)
+        assert not issues, f"Schema check after writing to FITS failed: {issues}"
+
+        write_image(xds_fits, zarr_store, out_format="zarr", overwrite=True)
+        xds_zarr = open_image(zarr_store)
+        issues = check_image(xds_zarr)
+        assert not issues, f"Schema check after writing to zarr failed: {issues}"
+
+        write_image(xds_zarr, casa_store, out_format="casa", overwrite=True)
+        xds_rt = open_image(casa_store)
+        issues = check_image(xds_rt)
+        assert not issues, f"Schema check after writing to CASA failed: {issues}"
+
+        # Pixel values survive the full round robin (flagged pixels become
+        # NaN through the FITS leg, so compare unflagged pixels)
+        orig = xds_casa.SKY.values
+        final = xds_rt.SKY.values
+        unflagged = ~xds_casa.FLAG_SKY.values
+        np.testing.assert_allclose(final[unflagged], orig[unflagged], rtol=1e-6)
+        np.testing.assert_allclose(xds_rt.frequency.values, xds_casa.frequency.values)
+        assert xds_rt.SKY.attrs.get("sub_type") == xds_casa.SKY.attrs.get("sub_type")
+
+
+class TestXarrayBackends:
+    """CASA and FITS images open through the xarray backend entrypoints."""
+
+    _casa_image = "casa_test_image.im"
+    _fits_image = "test_image.fits"
+
+    @classmethod
+    def setup_class(cls):
+        download_image(cls._casa_image)
+        download_image(cls._fits_image)
+
+    @classmethod
+    def teardown_class(cls):
+        for path in [cls._casa_image, cls._fits_image]:
+            remove_path(path)
+
+    def test_backends_registered(self):
+        engines = xr.backends.list_engines()
+        assert "xradio_casa_image" in engines
+        assert "xradio_fits_image" in engines
+
+    def test_open_dataset_casa_engine(self):
+        xds = xr.open_dataset(self._casa_image, engine="xradio_casa_image")
+        assert "SKY" in xds.data_vars
+        assert not check_image(xds)
+
+    def test_open_dataset_fits_engine(self):
+        xds = xr.open_dataset(self._fits_image, engine="xradio_fits_image")
+        assert "SKY" in xds.data_vars
+        assert not check_image(xds)
+
+    def test_open_dataset_autodetect(self):
+        """guess_can_open lets xarray pick the right backend by itself."""
+        xds = xr.open_dataset(self._casa_image)
+        assert "SKY" in xds.data_vars
+        assert not check_image(xds)
+        xds = xr.open_dataset(self._fits_image)
+        assert "SKY" in xds.data_vars
+        assert not check_image(xds)

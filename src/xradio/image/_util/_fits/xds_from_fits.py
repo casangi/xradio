@@ -552,12 +552,21 @@ def _fits_header_to_xds_attrs(
         )
     helpers["has_mask"] = False
     if compute_mask:
-        # primary.data is a memory-mapped numpy array (fits.open uses memmap=True upstream).
-        # numpy scans it block-by-block without loading the full array into RAM.
+        # primary.data is a memory-mapped numpy array (fits.open uses memmap=True
+        # upstream). Scan it in fixed-size flat blocks: np.isnan on the whole
+        # memmap would page in the entire file AND allocate a full-size bool
+        # temporary, while a block-wise scan bounds memory to one block and
+        # short-circuits on the first NaN found (typically in the first,
+        # NaN-blanked corner block).
         # Using dask here caused a "large graph" warning when a distributed client was
         # active, because da.from_array(memmap) embeds array slices as task arguments
         # which get serialised and shipped to the scheduler.
-        helpers["has_mask"] = bool(np.any(np.isnan(primary.data)))
+        flat = primary.data.reshape(-1)
+        block_size = 2**23
+        for start in range(0, flat.size, block_size):
+            if np.isnan(flat[start : start + block_size]).any():
+                helpers["has_mask"] = True
+                break
     beam = _beam_attr_from_header(helpers, header)
     if beam != "mb":
         helpers["beam"] = beam

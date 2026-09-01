@@ -44,7 +44,9 @@ def get_pad_value(col_dtype: np.dtype) -> object:
         return complex(np.nan, np.nan)
     elif np.issubdtype(col_dtype, np.bool_):
         return False
-    elif np.issubdtype(col_dtype, str):
+    elif np.issubdtype(col_dtype, str) or isinstance(
+        col_dtype, getattr(np.dtypes, "StringDType", ())
+    ):
         return ""
     else:
         raise RuntimeError(

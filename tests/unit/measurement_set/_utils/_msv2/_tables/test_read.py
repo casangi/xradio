@@ -424,6 +424,10 @@ def test_get_pad_value_n_polynomial(pointing_xds_min):
     res = get_pad_value(pointing_xds_min.coords["antenna_name"].dtype)
 
     assert res == get_pad_value(str)
+    assert get_pad_value(np.str_) == ""
+    assert get_pad_value(np.dtype("<U10")) == ""
+    if hasattr(np.dtypes, "StringDType"):
+        assert get_pad_value(np.dtypes.StringDType()) == ""
 
 
 def test_get_pad_value_baseline_id(msv4_xds_min):

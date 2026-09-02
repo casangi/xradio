@@ -438,6 +438,42 @@ def test_get_pad_value_baseline_id(msv4_xds_min):
     assert res == get_pad_value(np.int64)
 
 
+def test_tiled_putcol_startrow(tmp_path: Path) -> None:
+    """Test putcol writes to tiled columns with startrow > 0 correctly.
+
+    Verify that putcol writes to a tiled column when startrow > 0,
+    leaving preceding rows untouched.
+    """
+    from xradio._utils._casacore.tables import open_table_rw
+    from xradio.testing.measurement_set.msv2_io import gen_minimal_ms
+
+    fname, descr = gen_minimal_ms(str(tmp_path / "test_tiled_startrow.ms"))
+
+    nchans = descr["nchans"]
+    npols = descr["npols"]
+    nrows = descr["nrows_per_ddi"] * descr["nddis"]
+
+    # DATA is a TiledColumnStMan column in any standard MS
+    with open_table_rw(fname) as tb:
+        assert tb._is_tiled("DATA"), "DATA must be tiled for this test to be meaningful"
+        original_data = tb.getcol("DATA")  # shape (nrows, nchans, npols)
+
+        # Write a distinctive sentinel block at rows [startrow, startrow+chunk).
+        # Use the second half to guarantee startrow > 0.
+        chunk = max(1, nrows // 2)
+        startrow = nrows - chunk
+
+        sentinel = np.full((chunk, nchans, npols), 999.0, dtype=np.float32)
+        tb.putcol("DATA", sentinel, startrow=startrow, nrow=chunk)
+
+        result = tb.getcol("DATA")
+
+    # Rows before startrow must be untouched
+    np.testing.assert_array_equal(result[:startrow], original_data[:startrow])
+    # Rows [startrow, startrow+chunk) must carry the sentinel value
+    np.testing.assert_array_equal(result[startrow:], sentinel)
+
+
 def test_redimension_ms_subtable_source(generic_source_xds_min):
     import xarray as xr
 

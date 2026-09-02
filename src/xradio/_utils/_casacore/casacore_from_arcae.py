@@ -618,7 +618,13 @@ class table:
         write to directly."""
         self._update_from_helper(columnname, data, startrow)
 
-    def _update_from_helper(self, columnname, data, startrow, slice_spec=""):
+    def _update_from_helper(
+        self,
+        columnname: str,
+        data: np.ndarray,
+        startrow: int | float,
+        slice_spec: str = "",
+    ) -> None:
         """UPDATE rows [startrow, startrow+len(data)) of ``columnname`` (with
         an optional cell slice) from a temporary helper table holding
         ``data``."""
@@ -649,10 +655,18 @@ class table:
             helper.putcol("XRADIO_PUT_VALUE", data)
             helper.close()
             startrow = int(startrow)
+            # TaQL comma-join requires equal row counts; create a RefTable as a
+            # write-through view of target rows to match the helper size.
+            ref_path: str = os.path.join(helper_dir, "ref.tbl")
             self._taql(
-                f"UPDATE $1, {_quote_path(helper_path)} t2 "
-                f"SET {columnname}{slice_spec} = t2.XRADIO_PUT_VALUE "
-                f"LIMIT {startrow}:{startrow + nrows}"
+                f"SELECT FROM $1 "
+                f"LIMIT {startrow}:{startrow + nrows} "
+                f"GIVING {_quote_path(ref_path)}"
+            ).close()
+            self._taql(
+                f"UPDATE {_quote_path(ref_path)}, "
+                f"{_quote_path(helper_path)} t2 "
+                f"SET {columnname}{slice_spec} = t2.XRADIO_PUT_VALUE"
             ).close()
         finally:
             shutil.rmtree(helper_dir, ignore_errors=True)

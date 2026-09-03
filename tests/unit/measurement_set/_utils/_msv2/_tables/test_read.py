@@ -455,7 +455,10 @@ def test_tiled_putcol_startrow(tmp_path: Path) -> None:
 
     # DATA is a TiledColumnStMan column in any standard MS
     with open_table_rw(fname) as tb:
-        assert tb._is_tiled("DATA"), "DATA must be tiled for this test to be meaningful"
+        # Check if column is tiled via column descriptor (works across all backends)
+        col_desc = tb.getcoldesc("DATA")
+        is_tiled = col_desc.get("dataManagerType") == "TiledColumnStMan"
+        assert is_tiled, "DATA must be tiled for this test to be meaningful"
         original_data = tb.getcol("DATA")  # shape (nrows, nchans, npols)
 
         # Write a distinctive sentinel block at rows [startrow, startrow+chunk).

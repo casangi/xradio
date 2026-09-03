@@ -22,6 +22,7 @@ the coordinate wrapper classes).
 """
 
 import os
+import re
 
 import numpy as np
 
@@ -813,7 +814,9 @@ class image:
             ):
                 continue
             # FITS axis numbers (1-based, Fortran order) for this coordinate
-            axes = [int(a) + 1 for a in np.atleast_1d(coords[f"pixelmap{key[-1]}"])]
+            # Extract numeric suffix (handles double-digit indices like direction10)
+            coord_idx = re.search(r"\d+", key).group()
+            axes = [int(a) + 1 for a in np.atleast_1d(coords[f"pixelmap{coord_idx}"])]
             if key.startswith("direction"):
                 projection = sub.get("projection", "SIN")
                 for j, (fits_base, casa_idx) in enumerate(

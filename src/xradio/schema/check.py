@@ -396,7 +396,7 @@ def check_data_vars(
         else:
             data_vars_names = [data_var_schema.name]
 
-        if (len(data_vars_names) == 0) and ~data_var_schema.optional:
+        if (len(data_vars_names) == 0) and not data_var_schema.optional:
             data_vars_names = [data_var_schema.name]
 
         for data_var_name in data_vars_names:

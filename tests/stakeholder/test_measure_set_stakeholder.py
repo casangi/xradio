@@ -1,5 +1,6 @@
 import os
 import pathlib
+import shutil
 import time
 import warnings
 
@@ -364,69 +365,77 @@ def base_test(
         else:
             ps_copy_name = str(ps_name) + "_copy"
 
-        # Test writing to disk.
-        ps_lazy_xdt.to_zarr(ps_copy_name, zarr_format=ZARR_FORMAT)
-
-        ms_xdt_name = list(ps_lazy_xdt.keys())[0]
-        ms_xds = ps_lazy_xdt[ms_xdt_name].ds
-        assert type(ms_xds.WEIGHT) is xr.DataArray, (
-            "open_processing_set did not create Dask array."
-        )
-
-        # sel_parms = {key: {} for key in ps_lazy_xdt.keys()}
-        ps_xdt = load_processing_set(str(ps_copy_name))
-
+        # Clean up any existing zarr store from previous runs
         if os.path.isdir(ps_copy_name):
-            os.system("rm -rf " + str(ps_copy_name))  # Remove ps_xdt copy folder.
+            shutil.rmtree(ps_copy_name)
 
-        base_check_ps_accessor(ps_lazy_xdt, ps_xdt)
+        try:
+            # Test writing to disk.
+            ps_lazy_xdt.to_zarr(ps_copy_name, zarr_format=ZARR_FORMAT)
 
-        base_check_ms_accessor(ps_xdt)
+            ms_xdt_name = list(ps_lazy_xdt.keys())[0]
+            ms_xds = ps_lazy_xdt[ms_xdt_name].ds
+            assert type(ms_xds.WEIGHT) is xr.DataArray, (
+                "open_processing_set did not create Dask array."
+            )
 
-        base_check_time_secondary_datasets(ps_xdt)
+            # sel_parms = {key: {} for key in ps_lazy_xdt.keys()}
+            ps_xdt = load_processing_set(str(ps_copy_name))
 
-        sum = 0.0
-        sum_lazy = 0.0
-        for ms_xds_name in ps_xdt.keys():
-            ms_xds = ps_xdt[ms_xds_name]
-            if "VISIBILITY" in ms_xds:
-                data_name = "VISIBILITY"
-            else:
-                data_name = "SPECTRUM"
-            sum = sum + np.nansum(np.abs(ms_xds[data_name] * ms_xds.WEIGHT))
-            sum_lazy = sum_lazy + np.nansum(
-                np.abs(
-                    ps_lazy_xdt[ms_xds_name][data_name]
-                    * ps_lazy_xdt[ms_xds_name].WEIGHT
+            base_check_ps_accessor(ps_lazy_xdt, ps_xdt)
+
+            base_check_ms_accessor(ps_xdt)
+
+            base_check_time_secondary_datasets(ps_xdt)
+
+            sum = 0.0
+            sum_lazy = 0.0
+            for ms_xds_name in ps_xdt.keys():
+                ms_xds = ps_xdt[ms_xds_name]
+                if "VISIBILITY" in ms_xds:
+                    data_name = "VISIBILITY"
+                else:
+                    data_name = "SPECTRUM"
+                sum = sum + np.nansum(np.abs(ms_xds[data_name] * ms_xds.WEIGHT))
+                sum_lazy = sum_lazy + np.nansum(
+                    np.abs(
+                        ps_lazy_xdt[ms_xds_name][data_name]
+                        * ps_lazy_xdt[ms_xds_name].WEIGHT
+                    )
                 )
+
+                base_check_time_centroid(ms_xds)
+
+            print("sum", sum, sum_lazy)
+            assert sum == sum_lazy, (
+                "open_processing_set and load_processing_set VISIBILITY and WEIGHT values differ."
+            )
+            assert sum == pytest.approx(expected_sum_value, rel=relative_tolerance), (
+                "VISIBILITY and WEIGHT values have changed."
             )
 
-            base_check_time_centroid(ms_xds)
+            if do_schema_check:
+                # print("*******************")
+                # print(ps_xdt.xr_ps.summary())
+                # #print(ps_xdt["ALMA_uid___A002_X1003af4_X75a3.split.avg_00"].field_and_source_base_xds)
+                # print("*******************")
 
-        print("sum", sum, sum_lazy)
-        assert sum == sum_lazy, (
-            "open_processing_set and load_processing_set VISIBILITY and WEIGHT values differ."
-        )
-        assert sum == pytest.approx(expected_sum_value, rel=relative_tolerance), (
-            "VISIBILITY and WEIGHT values have changed."
-        )
+                start_check = time.time()
+                issues = check_datatree(ps_xdt)
 
-        if do_schema_check:
-            # print("*******************")
-            # print(ps_xdt.xr_ps.summary())
-            # #print(ps_xdt["ALMA_uid___A002_X1003af4_X75a3.split.avg_00"].field_and_source_base_xds)
-            # print("*******************")
+                print("***** Number of issues found:", len(issues))
+                assert len(issues) == 0, "Schema check failed, issues found: " + str(
+                    issues
+                )
+                print(
+                    f"Time to check datasets (all MSv4s) against schema: {time.time() - start_check}"
+                )
 
-            start_check = time.time()
-            issues = check_datatree(ps_xdt)
-
-            print("***** Number of issues found:", len(issues))
-            assert len(issues) == 0, "Schema check failed, issues found: " + str(issues)
-            print(
-                f"Time to check datasets (all MSv4s) against schema: {time.time() - start_check}"
-            )
-
-        check_expected_datasets_presence(ps_xdt, expected_secondary_xds)
+            check_expected_datasets_presence(ps_xdt, expected_secondary_xds)
+        finally:
+            # Ensure cleanup always happens, even if an exception occurs above
+            if os.path.isdir(ps_copy_name):
+                shutil.rmtree(ps_copy_name)  # Remove ps_xdt copy folder.
 
         ps_list.append(ps_xdt)
 

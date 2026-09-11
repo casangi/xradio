@@ -6,4 +6,5 @@ def add_encoding(xds, compressor, chunks=None):
 
     for da_name in list(xds.data_vars):
         da_chunks = [chunks[dim_name] for dim_name in xds[da_name].sizes]
-        xds[da_name].encoding = {"compressors": (compressor,), "chunks": da_chunks}
+        compressors = (compressor,) if compressor else ()
+        xds[da_name].encoding = {"compressors": compressors, "chunks": da_chunks}

@@ -6,8 +6,8 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-import sys
 import os
+import sys
 
 project = "xradio"
 copyright = "Associated Universities, Inc."
@@ -35,7 +35,8 @@ exclude_patterns = []
 sys.path.insert(0, os.path.abspath(os.path.join("..", "..", "src")))
 sys.path.insert(0, os.path.abspath("."))
 
-from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
+# must come after the sys.path setup above
+from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION  # noqa: E402
 
 rst_epilog = f"""
 .. |MSV4_SCHEMA_VERSION| replace:: {MSV4_SCHEMA_VERSION}
@@ -45,7 +46,6 @@ rst_epilog = f"""
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#options-for-html-output
 
 # import sphinx_adc_theme
-import sphinx_rtd_theme
 
 # html_theme = "sphinx_adc_theme"
 # html_theme_path = [sphinx_adc_theme.get_html_theme_path()]

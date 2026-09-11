@@ -102,7 +102,7 @@ def check_msv4_matches_descr(msv4_xdt, msv2_descr):
         assert "session_reference_UID" not in observation_info
 
     if (
-        (msv2_descr["params"]["opt_tables"] and not msv2_descr["params"]["misbehave"])
+        msv2_descr["params"]["opt_tables"] and not msv2_descr["params"]["misbehave"]
     ) or "OBSERVATION" in msv2_descr:
         assert "execution_block_UID" in observation_info
         assert "scheduling_block_UID" in observation_info

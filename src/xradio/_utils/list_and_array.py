@@ -1,8 +1,8 @@
 """Contains optimised functions to be used within other modules."""
 
 import numpy as np
-import xarray as xr
 import pandas as pd
+import xarray as xr
 
 
 def cast_to_str(x):
@@ -67,7 +67,7 @@ def to_python_type(x):
         return x.item()
     elif isinstance(x, np.ndarray):
         return x.tolist()
-    elif isinstance(x, (list, tuple)):
+    elif isinstance(x, list | tuple):
         return type(x)(to_python_type(v) for v in x)
     elif isinstance(x, dict):
         return {k: to_python_type(v) for k, v in x.items()}

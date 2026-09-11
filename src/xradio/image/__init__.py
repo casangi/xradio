@@ -1,6 +1,6 @@
 # methods in cngi_io.image.image should be used going forward,
 # methods in cngi_io.image.cngi_image_io are deprecated
-from .image import (
+from xradio.image.image import (
     load_image,
     make_empty_aperture_image,
     make_empty_lmuv_image,
@@ -8,10 +8,10 @@ from .image import (
     open_image,
     write_image,
 )
-
-from .image_xds import ImageXds
+from xradio.image.image_xds import ImageXds
 
 __all__ = [
+    "ImageXds",
     "load_image",
     "make_empty_aperture_image",
     "make_empty_lmuv_image",

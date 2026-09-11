@@ -1,5 +1,5 @@
-from types import ModuleType
 import logging
+from types import ModuleType
 
 try:
     import toolviper.utils.logger as _logger  # noqa: F841

@@ -1,17 +1,18 @@
-import copy
-import dask.array as da
+import os
 
 import numpy as np
-import os
 import xarray as xr
-import s3fs
-from .common import _np_types, _top_level_sub_xds
-from ..common import _coords_to_numpy, _dask_arrayize_dv, _numpy_arrayize_dv
-from xradio._utils.zarr.common import _get_file_system_and_items
+
+from xradio.image._util._zarr.common import _np_types, _top_level_sub_xds
+from xradio.image._util.common import (
+    _coords_to_numpy,
+    _dask_arrayize_dv,
+    _numpy_arrayize_dv,
+)
 
 
 def _read_zarr(
-    zarr_store: str, id_dict: dict, selection: dict = {}
+    zarr_store: str, id_dict: dict, selection: dict | None = None
 ) -> (xr.Dataset, bool):
     # supported key/values in id_dict are:
     # "dv"
@@ -24,6 +25,8 @@ def _read_zarr(
     # it's easiest just to copy the object rather than figuring out
     # if it should be copied at some point or not
     # xds = xr.open_zarr(zarr_store).isel(selection).copy(deep=True)
+    if selection is None:
+        selection = {}
     xds = xr.open_zarr(zarr_store).isel(selection)
     do_dask = False
     do_numpy = False
@@ -66,7 +69,6 @@ def _decode(xds: xr.Dataset, zarr_store: str, id_dict: dict) -> xr.Dataset:
 
 def _decode_dict(my_dict: dict, top_key: str) -> dict:
     # Decodes numpy arrays
-    my_dict
     for k, v in my_dict.items():
         if isinstance(v, dict):
             if (

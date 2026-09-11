@@ -1,22 +1,21 @@
-import copy
 import os
 import time
 
 import dask.array as da
 import numpy as np
 import xarray as xr
-from astropy.coordinates import Angle
 from astropy import units as apu
+from astropy.coordinates import Angle
 
 try:
     from casacore import tables
 except ImportError:
     import xradio._utils._casacore.casacore_from_casatools as tables
 
+from xradio._utils._casacore.tables import open_table_rw
 from xradio.image._util._casacore.common import (
-    _image_flag,
-    _beam_fit_params,
     _create_new_image,
+    _image_flag,
     _object_name,
     _pointing_center,
 )
@@ -25,7 +24,6 @@ from xradio.image._util.common import (
     _compute_sky_reference_pixel,
     _doppler_types,
 )
-from xradio._utils._casacore.tables import open_table_rw
 
 
 def _compute_direction_dict(xds: xr.Dataset) -> dict:
@@ -56,8 +54,7 @@ def _compute_direction_dict(xds: xr.Dataset) -> dict:
     direction["axes"] = ["Right Ascension", "Declination"]
     direction["conversionSystem"] = direction["system"]
     for i, s in enumerate(["longpole", "latpole"]):
-        m = "lonpole" if s == "longpole" else s
-        # lonpole, latpole are numerical values in degrees in casa images
+        # longpole, latpole are numerical values in degrees in casa images
         direction[s] = float(
             Angle(
                 str(xds_dir["native_pole_direction"]["data"][i])
@@ -75,11 +72,9 @@ def _compute_linear_dict(xds: xr.Dataset) -> dict:
     linear["cdelt"] = np.array([u["cdelt"], v["cdelt"]])
     linear["axes"] = ["UU", "VV"]
     linear["units"] = [u["units"], v["units"]]
-    lu = len(xds.coords["u"])
-    lv = len(xds.coords["v"])
     linear["crpix"] = np.array([0.0, 0.0], dtype=np.float64)
     # np.interp() appears to require the x coordinate be monotonically increasing
-    for i, w, z in zip([0, 1], [u, v], ["u", "v"]):
+    for i, w, z in zip([0, 1], [u, v], ["u", "v"], strict=False):
         x = xds.coords[z].values
         y = np.array(range(len(x)), dtype=np.float64)
         if w["cdelt"] < 0:
@@ -125,7 +120,6 @@ def _compute_spectral_dict(xds: xr.Dataset) -> dict:
         wcs["cdelt"] = float(xds.frequency.values[1] - xds.frequency.values[0])
     else:
         # TODO this is just a temporary fix, likely schema will be updated to include chan widths
-        myu = apu.Unit(spec["unit"])
         mydel = 1.8 * apu.GHz
         my_del_converted = mydel.to(spec["unit"])
         wcs["cdelt"] = my_del_converted.value
@@ -309,7 +303,7 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
         chan = 0
         polarization = 0
         bv = xds.BEAM_FIT_PARAMS.values
-        for i in range(pp["nChannels"] * pp["nStokes"]):
+        for _ in range(pp["nChannels"] * pp["nStokes"]):
             bp = bv[0][chan][polarization][:]
             b = {
                 "major": {"unit": bu, "value": bp[0]},
@@ -341,7 +335,6 @@ def _imageinfo_dict_from_xds(xds: xr.Dataset) -> dict:
 
 
 def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
-
     sky_ap = _aperture_or_sky(xds)
 
     if xds[sky_ap].shape[0] != 1:
@@ -410,9 +403,9 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
             mask_name = f"mask_xds_nans{i}"
             i += 1
         masks_rec[mask_name] = mask_rec
-        masks_rec[mask_name][
-            "mask"
-        ] = f"Table: {os.sep.join([image_full_path, mask_name])}"
+        masks_rec[mask_name]["mask"] = (
+            f"Table: {os.sep.join([image_full_path, mask_name])}"
+        )
         masks.append(mask_name)
         arr_masks[mask_name] = nan_mask
         if flag:
@@ -422,9 +415,9 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
                 mask_name = f"mask_xds_nans{i}"
                 i += 1
             masks_rec[mask_name] = mask_rec
-            masks_rec[mask_name][
-                "mask"
-            ] = f"Table: {os.sep.join([image_full_path, mask_name])}"
+            masks_rec[mask_name]["mask"] = (
+                f"Table: {os.sep.join([image_full_path, mask_name])}"
+            )
             masks.append(mask_name)
             # This command strips attributes at various places for no
             # apparent reason, so make a copy of the xds to run it on
@@ -435,7 +428,6 @@ def _write_casa_data(xds: xr.Dataset, image_full_path: str) -> None:
                 dask="allowed",
             )
         flag = mask_name
-    data_type = "complex" if "u" in xds.coords else "float"
 
     _write_initial_image(xds, image_full_path, flag, casa_image_shape[::-1])
     for v in myvars:
@@ -462,7 +454,7 @@ def _write_initial_image(
     image_full_path = os.path.expanduser(imagename)
     with _create_new_image(
         image_full_path, mask=maskname, shape=image_shape, value=value
-    ) as casa_image:
+    ):
         # just create the image, don't do anythong with it
         pass
 
@@ -509,10 +501,11 @@ def _write_pixels(
         trans_coords = ("frequency", "polarization", "v", "u")
     else:
         raise RuntimeError(f"Unhandled coords combination {xds.coords.keys()}")
-    trans_coord = ("frequency", "polarization", "m", "l")
     arr = xds[v] if v in xds.data_vars else value
     arr = arr.isel(time=0).transpose(*trans_coords)
-    chunk_bounds = tuple(zip(arr.shape)) if arr.chunks is None else arr.chunks
+    chunk_bounds = (
+        tuple(zip(arr.shape, strict=False)) if arr.chunks is None else arr.chunks
+    )
     b = [0, 0, 0, 0]
     loc0, loc1, loc2, loc3 = (0, 0, 0, 0)
     for i0 in chunk_bounds[0]:

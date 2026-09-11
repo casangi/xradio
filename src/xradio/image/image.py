@@ -3,38 +3,35 @@
 # Public interface
 #
 #################################
-import warnings
-from typing import List, Union
 import copy
-import numpy as np
 import os
 import shutil
+
+import numpy as np
 import xarray as xr
 
+from xradio._utils.logging import xradio_logger
+from xradio.image._util._fits.xds_from_fits import _fits_image_to_xds
 from xradio.image._util.image_factory import (
     _make_empty_aperture_image,
     _make_empty_lmuv_image,
     _make_empty_sky_image,
+    create_image_xds_from_store,
 )
 from xradio.image._util.zarr import (
-    _load_image_from_zarr_no_dask,
     _xds_from_zarr,
     _xds_to_zarr,
 )
-from xradio.image._util._fits.xds_from_fits import _fits_image_to_xds
-
-from xradio.image._util.image_factory import create_image_xds_from_store
-from xradio._utils.logging import xradio_logger
 
 # warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 def open_image(
-    store: Union[str, dict],
-    chunks: dict = {},
+    store: str | dict,
+    chunks: dict | None = None,
     verbose: bool = False,
     do_sky_coords: bool = True,
-    selection: dict = {},
+    selection: dict | None = None,
     compute_mask: bool = True,
 ) -> xr.Dataset:
     """
@@ -117,7 +114,12 @@ def open_image(
     #     )
     #     _open_casa_image = None
 
-    from ._util.casacore import _open_casa_image
+    from xradio.image._util.casacore import _open_casa_image
+
+    if chunks is None:
+        chunks = {}
+    if selection is None:
+        selection = {}
 
     img_xds = create_image_xds_from_store(
         store,
@@ -174,10 +176,10 @@ def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dat
     selection = copy.deepcopy(block_des) if block_des else block_des
     if selection:
         for k, v in selection.items():
-            if type(v) == int:
+            if type(v) is int:
                 selection[k] = slice(v, v + 1)
 
-    from ._util.casacore import _load_casa_image_block
+    from xradio.image._util.casacore import _load_casa_image_block
 
     img_xds = create_image_xds_from_store(
         store,
@@ -228,7 +230,9 @@ def write_image(
             )
     my_format = out_format.lower()
     if my_format == "casa":
-        from ._util.casacore import _xds_to_multiple_casa_images, _xds_to_casa_image
+        from xradio.image._util.casacore import (
+            _xds_to_multiple_casa_images,
+        )
 
         _xds_to_multiple_casa_images(xds, imagename)
     elif my_format == "zarr":
@@ -241,12 +245,12 @@ def write_image(
 
 
 def make_empty_sky_image(
-    phase_center: Union[list, np.ndarray],
-    image_size: Union[list, np.ndarray],
-    cell_size: Union[list, np.ndarray],
-    frequency_coords: Union[list, np.ndarray],
-    pol_coords: Union[list, np.ndarray],
-    time_coords: Union[list, np.ndarray],
+    phase_center: list | np.ndarray,
+    image_size: list | np.ndarray,
+    cell_size: list | np.ndarray,
+    frequency_coords: list | np.ndarray,
+    pol_coords: list | np.ndarray,
+    time_coords: list | np.ndarray,
     direction_reference: str = "fK5",
     projection: str = "SIN",
     spectral_reference: str = "lsrk",
@@ -295,12 +299,12 @@ def make_empty_sky_image(
 
 
 def make_empty_aperture_image(
-    phase_center: Union[List[float], np.ndarray],
-    image_size: Union[List[int], np.ndarray],
-    sky_image_cell_size: Union[List[float], np.ndarray],
-    frequency_coords: Union[List[float], np.ndarray],
-    pol_coords: Union[List[str], np.ndarray],
-    time_coords: Union[List[float], np.ndarray],
+    phase_center: list[float] | np.ndarray,
+    image_size: list[int] | np.ndarray,
+    sky_image_cell_size: list[float] | np.ndarray,
+    frequency_coords: list[float] | np.ndarray,
+    pol_coords: list[str] | np.ndarray,
+    time_coords: list[float] | np.ndarray,
     direction_reference: str = "fk5",
     projection: str = "SIN",
     spectral_reference: str = "lsrk",
@@ -344,12 +348,12 @@ def make_empty_aperture_image(
 
 
 def make_empty_lmuv_image(
-    phase_center: Union[List[float], np.ndarray],
-    image_size: Union[List[int], np.ndarray],
-    sky_image_cell_size: Union[List[float], np.ndarray],
-    frequency_coords: Union[List[float], np.ndarray],
-    pol_coords: Union[List[float], np.ndarray],
-    time_coords: Union[List[float], np.ndarray],
+    phase_center: list[float] | np.ndarray,
+    image_size: list[int] | np.ndarray,
+    sky_image_cell_size: list[float] | np.ndarray,
+    frequency_coords: list[float] | np.ndarray,
+    pol_coords: list[float] | np.ndarray,
+    time_coords: list[float] | np.ndarray,
     direction_reference: str = "fk5",
     projection: str = "SIN",
     spectral_reference: str = "lsrk",

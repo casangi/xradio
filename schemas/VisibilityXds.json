@@ -3573,7 +3573,7 @@
             "docstring": "From ASDM: The scheduling block archive’s UID. Intended to be populated with the entityId\nstring of the sbSummaryUID attribute of the SBSummary table. "
           }
         ],
-        "class_docstring": "ObservationInfoDict(observer: 'list[str]', release_date: 'str', project_UID: 'str', execution_block_UID: 'Optional[str]', session_reference_UID: 'Optional[str]', observing_log: 'Optional[str]', scheduling_block_UID: 'Optional[str]')"
+        "class_docstring": "ObservationInfoDict(observer: 'list[str]', release_date: 'str', project_UID: 'str', execution_block_UID: 'str | None', session_reference_UID: 'str | None', observing_log: 'str | None', scheduling_block_UID: 'str | None')"
       },
       "name": "observation_info",
       "docstring": null

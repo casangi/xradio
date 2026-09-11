@@ -1,39 +1,38 @@
 import os
 import time
-from typing import Tuple, Union
 
 import numpy as np
 import xarray as xr
 
+from xradio._utils.coord_math import (
+    convert_to_si_units,
+    wrap_to_pi,
+)
+from xradio._utils.dict_helpers import make_quantity_attrs
+from xradio._utils.list_and_array import (
+    cast_to_str,
+    check_if_consistent,
+    get_pad_value,
+    to_np_array,
+    unique_1d,
+)
+from xradio._utils.logging import xradio_logger
+from xradio._utils.schema import (
+    casacore_to_msv4_measure_type,
+    column_description_casacore_to_msv4_measure,
+    convert_generic_xds_to_xradio_schema,
+)
+from xradio.measurement_set._utils._msv2._tables.read import (
+    convert_casacore_time_to_mjd,
+    load_generic_table,
+    make_taql_where_between_min_max,
+)
 from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
     interpolate_to_time,
     rename_and_interpolate_to_time,
     standard_time_coord_attrs,
 )
 from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
-from xradio.measurement_set._utils._msv2._tables.read import (
-    convert_casacore_time_to_mjd,
-    make_taql_where_between_min_max,
-    load_generic_table,
-)
-from xradio._utils.logging import xradio_logger
-from xradio._utils.list_and_array import cast_to_str, get_pad_value
-from xradio._utils.dict_helpers import make_quantity_attrs
-from xradio._utils.coord_math import (
-    convert_to_si_units,
-    wrap_to_pi,
-)
-
-from xradio._utils.list_and_array import (
-    check_if_consistent,
-    unique_1d,
-    to_np_array,
-)
-from xradio._utils.schema import (
-    casacore_to_msv4_measure_type,
-    column_description_casacore_to_msv4_measure,
-    convert_generic_xds_to_xradio_schema,
-)
 
 
 def create_field_and_source_xds(
@@ -42,7 +41,7 @@ def create_field_and_source_xds(
     spectral_window_id: int,
     field_times: list,
     is_single_dish: bool,
-    time_min_max: Tuple[np.float64, np.float64],
+    time_min_max: tuple[np.float64, np.float64],
     ephemeris_interpolate: bool = True,
 ) -> tuple[xr.Dataset, np.ndarray, int]:
     """
@@ -129,8 +128,8 @@ def extract_ephemeris_info(
     path,
     table_name,
     is_single_dish,
-    time_min_max: Tuple[np.float64, np.float64],
-    interp_time: Union[xr.DataArray, None],
+    time_min_max: tuple[np.float64, np.float64],
+    interp_time: xr.DataArray | None,
     field_names: list,
     ephemeris_interpolate: bool = True,
 ):
@@ -175,9 +174,9 @@ def extract_ephemeris_info(
         path, table_name, timecols=["MJD"], taql_where=taql_time_range
     )
 
-    assert (
-        len(ephemeris_xds.ephemeris_id) == 1
-    ), "Non standard ephemeris table. Only a single ephemeris is allowed per MSv4."
+    assert len(ephemeris_xds.ephemeris_id) == 1, (
+        "Non standard ephemeris table. Only a single ephemeris is allowed per MSv4."
+    )
     ephemeris_xds = ephemeris_xds.isel(
         ephemeris_id=0
     )  # Collapse the ephemeris_id dimension.
@@ -189,9 +188,9 @@ def extract_ephemeris_info(
         "column_descriptions"
     ]
 
-    assert (
-        ephemeris_meta["obsloc"] == "GEOCENTRIC"
-    ), "Only geocentric observer ephemeris are supported."
+    assert ephemeris_meta["obsloc"] == "GEOCENTRIC", (
+        "Only geocentric observer ephemeris are supported."
+    )
 
     if "posrefsys" in ephemeris_meta:
         # Note the phase center can be given as "J2000" or "J2000.0"
@@ -222,7 +221,6 @@ def extract_ephemeris_info(
     # Convert Observer position to geodetic coordinates
     from astropy import units as u
     from astropy.coordinates import EarthLocation
-    from astropy.time import Time
 
     # Create an EarthLocation object for the geodetic coordinates
     # Assume that geodetic coordinates are given in degrees and meters
@@ -458,7 +456,7 @@ def extract_ephemeris_info(
 
 
 def make_line_dims_and_coords(
-    source_xds: xr.Dataset, source_id: Union[int, np.ndarray], num_lines: int
+    source_xds: xr.Dataset, source_id: int | np.ndarray, num_lines: int
 ) -> tuple[list, dict]:
     """
     Produces the dimensions and coordinates used in data variables related
@@ -584,7 +582,7 @@ def pad_missing_sources(
 def extract_source_info(
     xds: xr.Dataset,
     path: str,
-    source_id: Union[int, np.ndarray],
+    source_id: int | np.ndarray,
     spectral_window_id: int,
 ) -> tuple[xr.Dataset, int]:
     """
@@ -647,9 +645,9 @@ def extract_source_info(
         )  # Need to add this for ps.summary() to work.
         return xds, 0
 
-    assert (
-        len(source_xds.SPECTRAL_WINDOW_ID) == 1
-    ), "Can only process source table with a single spectral_window_id for a given MSv4 partition."
+    assert len(source_xds.SPECTRAL_WINDOW_ID) == 1, (
+        "Can only process source table with a single spectral_window_id for a given MSv4 partition."
+    )
 
     # This source table time is not the same as the time in the field_and_source_xds that is derived from the main MSv4 time axis.
     # The source_id maps to the time axis in the field_and_source_xds. That is why "if len(source_id) == 1" is used to check if there should be a time axis.
@@ -760,7 +758,7 @@ def extract_source_info(
 def extract_field_info_and_check_ephemeris(
     field_and_source_xds: xr.Dataset,
     in_file: str,
-    field_id: Union[int, np.ndarray],
+    field_id: int | np.ndarray,
     field_times: list,
     is_single_dish: bool,
 ):
@@ -801,9 +799,9 @@ def extract_field_info_and_check_ephemeris(
         taql_where=taql_where,
     )
 
-    assert (
-        len(field_xds.poly_id) == 1
-    ), "Polynomial field positions not supported. Please open an issue on https://github.com/casangi/xradio/issues so that we can add support for this."
+    assert len(field_xds.poly_id) == 1, (
+        "Polynomial field positions not supported. Please open an issue on https://github.com/casangi/xradio/issues so that we can add support for this."
+    )
 
     field_xds = field_xds.isel(poly_id=0, drop=True)
 

@@ -1,26 +1,29 @@
+import gzip
 import itertools
-import time
 import os
-import pandas as pd
+import pickle
+import time
+from collections.abc import Iterable, Mapping
+from typing import Any
 
 import numpy as np
+import pandas as pd
 
 try:
     from casacore import tables
 except ImportError:
     import xradio._utils._casacore.casacore_from_casatools as tables
 
-from xradio.measurement_set._utils._msv2._tables.read import table_exists
 from xradio._utils.logging import xradio_logger
+from xradio.measurement_set._utils._msv2._tables.read import table_exists
 
 
 def enumerated_product(*args):
     yield from zip(
-        itertools.product(*(range(len(x)) for x in args)), itertools.product(*args)
+        itertools.product(*(range(len(x)) for x in args)),
+        itertools.product(*args),
+        strict=False,
     )
-
-
-import pickle, gzip
 
 
 def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
@@ -208,10 +211,7 @@ def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
     return partitions
 
 
-from typing import Any, List, Dict
-
-
-def save_dict_list(filename: str, data: List[Dict[str, Any]]) -> None:
+def save_dict_list(filename: str, data: list[dict[str, Any]]) -> None:
     """
     Save a list of dictionaries containing NumPy arrays (or other objects)
     to a compressed pickle file.
@@ -220,7 +220,7 @@ def save_dict_list(filename: str, data: List[Dict[str, Any]]) -> None:
         pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
 
 
-def load_dict_list(filename: str) -> List[Dict[str, Any]]:
+def load_dict_list(filename: str) -> list[dict[str, Any]]:
     """
     Load a list of dictionaries containing NumPy arrays (or other objects)
     from a compressed pickle file.
@@ -229,7 +229,7 @@ def load_dict_list(filename: str) -> List[Dict[str, Any]]:
         return pickle.load(f)
 
 
-def dict_list_equal(a: List[Dict[str, Any]], b: List[Dict[str, Any]]) -> bool:
+def dict_list_equal(a: list[dict[str, Any]], b: list[dict[str, Any]]) -> bool:
     """
     Compare two lists of dictionaries to ensure they are exactly the same.
     NumPy arrays are compared with array_equal, other objects with ==.
@@ -237,7 +237,7 @@ def dict_list_equal(a: List[Dict[str, Any]], b: List[Dict[str, Any]]) -> bool:
     if len(a) != len(b):
         return False
 
-    for d1, d2 in zip(a, b):
+    for d1, d2 in zip(a, b, strict=False):
         if d1.keys() != d2.keys():
             return False
         for k in d1:
@@ -251,10 +251,6 @@ def dict_list_equal(a: List[Dict[str, Any]], b: List[Dict[str, Any]]) -> bool:
     return True
 
 
-from typing import Iterable, Mapping, Tuple, List, Dict, Any, Set
-import numpy as np
-
-
 def _to_python_scalar(x: Any) -> Any:
     """Convert NumPy scalars to Python scalars; leave others unchanged."""
     if isinstance(x, np.generic):
@@ -262,7 +258,7 @@ def _to_python_scalar(x: Any) -> Any:
     return x
 
 
-def _to_hashable_value_list(v: Any) -> Tuple[Any, ...]:
+def _to_hashable_value_list(v: Any) -> tuple[Any, ...]:
     """
     Normalize a dict value (often list/np.ndarray) into a sorted, hashable tuple.
     - Accepts list/tuple/np.ndarray/scalars/None.
@@ -271,10 +267,10 @@ def _to_hashable_value_list(v: Any) -> Tuple[Any, ...]:
     """
     if isinstance(v, np.ndarray):
         v = v.tolist()
-    if v is None or isinstance(v, (str, bytes)):
+    if v is None or isinstance(v, str | bytes):
         # Treat a bare scalar as a single-element collection for consistency.
         v = [v]
-    elif not isinstance(v, (list, tuple)):
+    elif not isinstance(v, list | tuple):
         v = [v]
 
     py_vals = [_to_python_scalar(x) for x in v]
@@ -284,14 +280,14 @@ def _to_hashable_value_list(v: Any) -> Tuple[Any, ...]:
 
 def _canon_partition(
     d: Mapping[str, Any], ignore_keys: Iterable[str] = ()
-) -> Tuple[Tuple[str, Tuple[Any, ...]], ...]:
+) -> tuple[tuple[str, tuple[Any, ...]], ...]:
     """
     Canonicalize a partition dict into a hashable, order-insensitive representation.
     - Drops keys in ignore_keys.
     - Converts each value collection to a sorted tuple.
     - Sorts keys.
     """
-    ign: Set[str] = set(ignore_keys)
+    ign: set[str] = set(ignore_keys)
     items = []
     for k, v in d.items():
         if k in ign:
@@ -302,10 +298,10 @@ def _canon_partition(
 
 
 def compare_partitions_subset(
-    new_partitions: List[Dict[str, Any]],
-    original_partitions: List[Dict[str, Any]],
+    new_partitions: list[dict[str, Any]],
+    original_partitions: list[dict[str, Any]],
     ignore_keys: Iterable[str] = (),
-) -> Tuple[bool, List[Dict[str, Any]]]:
+) -> tuple[bool, list[dict[str, Any]]]:
     """
     Check that every partition in `new_partitions` also appears in `original_partitions`,
     ignoring ordering (of partitions and of values within each key).

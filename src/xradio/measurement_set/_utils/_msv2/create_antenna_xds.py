@@ -1,25 +1,23 @@
-from typing import Tuple, Union
+import os
 
 import numpy as np
 import xarray as xr
-import os
 
-from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
-from xradio.measurement_set._utils._msv2._tables.read import (
-    load_generic_table,
-    convert_casacore_time,
-    make_taql_where_between_min_max,
-    table_exists,
-)
-from xradio._utils.schema import convert_generic_xds_to_xradio_schema
-from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
-    rename_and_interpolate_to_time,
-)
-
+from xradio._utils.dict_helpers import make_quantity_attrs
 from xradio._utils.list_and_array import (
     unique_1d,
 )
-from xradio._utils.dict_helpers import make_quantity_attrs
+from xradio._utils.schema import convert_generic_xds_to_xradio_schema
+from xradio.measurement_set._utils._msv2._tables.read import (
+    convert_casacore_time,
+    load_generic_table,
+    make_taql_where_between_min_max,
+    table_exists,
+)
+from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
+    rename_and_interpolate_to_time,
+)
+from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
 
 
 def create_antenna_xds(
@@ -119,7 +117,7 @@ def extract_antenna_info(
         in_file,
         "ANTENNA",
         rename_ids=subt_rename_ids["ANTENNA"],
-        taql_where=f" where (ROWID() IN [{','.join(map(str,unique_antenna_id))}])",  # order is not guaranteed
+        taql_where=f" where (ROWID() IN [{','.join(map(str, unique_antenna_id))}])",  # order is not guaranteed
     )
     generic_ant_xds = generic_ant_xds.assign_coords({"antenna_id": unique_antenna_id})
     generic_ant_xds = generic_ant_xds.sel(
@@ -228,9 +226,9 @@ def extract_feed_info(
                 SPECTRAL_WINDOW_ID=spectral_window_id, drop=True
             )
 
-    assert len(generic_feed_xds.TIME) == len(
-        antenna_id
-    ), "Can only process feed table with a single time entry for an feed, antenna and spectral_window_id."
+    assert len(generic_feed_xds.TIME) == len(antenna_id), (
+        "Can only process feed table with a single time entry for an feed, antenna and spectral_window_id."
+    )
     generic_feed_xds = generic_feed_xds.sel(
         ANTENNA_ID=antenna_id, drop=False
     )  # Make sure the antenna_id is in the same order as the xds.
@@ -238,9 +236,9 @@ def extract_feed_info(
     num_receptors = np.ravel(generic_feed_xds.NUM_RECEPTORS)
     num_receptors = unique_1d(num_receptors[~np.isnan(num_receptors)])
 
-    assert (
-        len(num_receptors) == 1
-    ), "The number of receptors must be constant in feed table."
+    assert len(num_receptors) == 1, (
+        "The number of receptors must be constant in feed table."
+    )
 
     to_new_data_variables = {
         "RECEPTOR_ANGLE": [
@@ -320,23 +318,23 @@ def create_gain_curve_xds(
     generic_gain_curve_xds = load_generic_table(
         in_file,
         "GAIN_CURVE",
-        taql_where=f" where (ANTENNA_ID IN [{','.join(map(str,ant_xds.antenna_id.values))}]) AND (SPECTRAL_WINDOW_ID = {spectral_window_id})",
+        taql_where=f" where (ANTENNA_ID IN [{','.join(map(str, ant_xds.antenna_id.values))}]) AND (SPECTRAL_WINDOW_ID = {spectral_window_id})",
     )
 
     if not generic_gain_curve_xds.data_vars:
         # Some times the gain_curve table is empty (this is the case with ngEHT simulation data we have).
         return gain_curve_xds
 
-    assert (
-        len(generic_gain_curve_xds.SPECTRAL_WINDOW_ID) == 1
-    ), "Only one spectral window is supported."
+    assert len(generic_gain_curve_xds.SPECTRAL_WINDOW_ID) == 1, (
+        "Only one spectral window is supported."
+    )
     generic_gain_curve_xds = generic_gain_curve_xds.isel(
         SPECTRAL_WINDOW_ID=0, drop=True
     )  # Drop the spectral window dimension as it is singleton.
 
-    assert (
-        len(generic_gain_curve_xds.TIME) == 1
-    ), "Only one gain curve measurement per antenna is supported."
+    assert len(generic_gain_curve_xds.TIME) == 1, (
+        "Only one gain curve measurement per antenna is supported."
+    )
     measured_time = generic_gain_curve_xds.coords["TIME"].values[0]
     generic_gain_curve_xds = generic_gain_curve_xds.isel(TIME=0, drop=True)
 
@@ -399,8 +397,8 @@ def create_phase_calibration_xds(
     in_file: str,
     spectral_window_id: int,
     ant_xds: xr.Dataset,
-    time_min_max: Tuple[np.float64, np.float64],
-    phase_cal_interp_time: Union[xr.DataArray, None] = None,
+    time_min_max: tuple[np.float64, np.float64],
+    phase_cal_interp_time: xr.DataArray | None = None,
 ) -> xr.Dataset:
     """
     Produces a phase_calibration_xds, reformats MSv2 Phase Cal table content to MSv4 schema.
@@ -436,12 +434,12 @@ def create_phase_calibration_xds(
         in_file,
         "PHASE_CAL",
         timecols=["TIME"],
-        taql_where=f" {taql_time_range} AND (ANTENNA_ID IN [{','.join(map(str,ant_xds.antenna_id.values))}]) AND (SPECTRAL_WINDOW_ID = {spectral_window_id})",
+        taql_where=f" {taql_time_range} AND (ANTENNA_ID IN [{','.join(map(str, ant_xds.antenna_id.values))}]) AND (SPECTRAL_WINDOW_ID = {spectral_window_id})",
     )
 
-    assert (
-        len(generic_phase_cal_xds.SPECTRAL_WINDOW_ID) == 1
-    ), "Only one spectral window is supported."
+    assert len(generic_phase_cal_xds.SPECTRAL_WINDOW_ID) == 1, (
+        "Only one spectral window is supported."
+    )
     generic_phase_cal_xds = generic_phase_cal_xds.isel(
         SPECTRAL_WINDOW_ID=0, drop=True
     )  # Drop the spectral window dimension as it is singleton.

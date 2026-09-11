@@ -1,13 +1,36 @@
 import dataclasses
-from typing import Literal, Optional, Union
-import numpy
-import xarray
-import dask.array
-import pytest
 import inspect
 import json
+from typing import Literal
 
-from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof, Name
+import dask.array
+import numpy
+import pytest
+import xarray
+
+from xradio.schema.bases import (
+    dict_schema,
+    xarray_dataarray_schema,
+    xarray_dataset_schema,
+)
+from xradio.schema.check import (
+    SchemaIssue,
+    SchemaIssues,
+    _check_value,
+    check_array,
+    check_dataset,
+    check_datatree,
+    check_dict,
+    check_dimensions,
+    register_dataset_type,
+    schema_checked,
+)
+from xradio.schema.dataclass import (
+    xarray_dataclass_to_array_schema,
+    xarray_dataclass_to_dataset_schema,
+    xarray_dataclass_to_dict_schema,
+)
+from xradio.schema.export import export_schema_json_file, import_schema_json_file
 from xradio.schema.metamodel import (
     ArraySchema,
     ArraySchemaRef,
@@ -15,29 +38,7 @@ from xradio.schema.metamodel import (
     DatasetSchema,
     DictSchema,
 )
-from xradio.schema.check import (
-    check_array,
-    check_dataset,
-    check_dimensions,
-    check_dict,
-    schema_checked,
-    register_dataset_type,
-    check_datatree,
-    SchemaIssue,
-    SchemaIssues,
-    _check_value,
-)
-from xradio.schema.dataclass import (
-    xarray_dataclass_to_dict_schema,
-    xarray_dataclass_to_array_schema,
-    xarray_dataclass_to_dataset_schema,
-)
-from xradio.schema.bases import (
-    xarray_dataarray_schema,
-    xarray_dataset_schema,
-    dict_schema,
-)
-from xradio.schema.export import export_schema_json_file, import_schema_json_file
+from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof
 
 Dim1 = Literal["coord"]
 Dim2 = Literal["coord2"]
@@ -60,7 +61,7 @@ class _TestArraySchema:
     """Required attribute"""
     attr2: Attr[int] = 123
     """Required attribute with default"""
-    attr3: Optional[Attr[int]] = None
+    attr3: Attr[int] | None = None
     """Optional attribute with default"""
 
 
@@ -433,13 +434,13 @@ def test_check_array_wrong_type():
     )
     assert len(results) == 3
     assert results[0].path == [("attrs", "attr1")]
-    assert results[0].found == int
+    assert results[0].found is int
     assert results[0].expected == [str]
     assert results[1].path == [("attrs", "attr2")]
-    assert results[1].found == type
+    assert results[1].found is type
     assert results[1].expected == [int]
     assert results[2].path == [("attrs", "attr3")]
-    assert results[2].found == float
+    assert results[2].found is float
     assert results[2].expected == [int, type(None)]
 
 
@@ -452,9 +453,9 @@ def test_schema_checked_wrap():
     # benefit...)
     assert fn.__doc__ == "Docstring"
     sig = inspect.signature(fn)
-    assert sig.parameters["a"].annotation == int
+    assert sig.parameters["a"].annotation is int
     assert sig.parameters["b"].annotation == _TestArraySchema
-    assert sig.return_annotation == str
+    assert sig.return_annotation is str
 
 
 def test_schema_checked_no_annotation():
@@ -492,36 +493,7 @@ def test_schema_checked_annotation():
 
 def test_schema_checked_annotation_optional():
     @schema_checked
-    def fn(array: Optional[_TestArraySchema]):
-        pass
-
-    data = numpy.zeros(10, dtype=complex)
-    coords = [("coord", numpy.arange(10, dtype=float))]
-    attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
-    array = xarray.DataArray(data, coords, attrs=attrs)
-    fn(array)
-
-    data = numpy.zeros(10, dtype=float)
-    array = xarray.DataArray(data, coords, attrs=attrs)
-    with pytest.raises(SchemaIssues) as exc_info:
-        fn(array)
-    assert exc_info.value.issues[0].path == [("array", None), ("dtype", None)]
-
-    # Should succeed
-    fn(None)
-
-    # Should fail
-    with pytest.raises(SchemaIssues) as exc_info:
-        fn(1)
-    assert exc_info.value.issues[0].path == [("array", None)]
-    print(exc_info.value.issues[0].expected)
-    assert exc_info.value.issues[0].expected == [xarray.DataArray, type(None)]
-    assert exc_info.value.issues[0].found == int
-
-
-def test_schema_checked_annotation_optional():
-    @schema_checked
-    def fn(array: Optional[_TestArraySchema]):
+    def fn(array: _TestArraySchema | None):
         pass
 
     data = numpy.zeros(10, dtype=complex)
@@ -544,7 +516,7 @@ def test_schema_checked_annotation_optional():
         fn(1)
     assert exc_info.value.issues[0].path == [("array", None)]
     assert exc_info.value.issues[0].expected == [xarray.DataArray, type(None)]
-    assert exc_info.value.issues[0].found == int
+    assert exc_info.value.issues[0].found is int
 
 
 @dict_schema
@@ -559,7 +531,7 @@ class _TestDictSchema:
     """Required attribute"""
     attr2: int = 123
     """Required attribute with default"""
-    attr3: Optional[int] = None
+    attr3: int | None = None
     """Optional attribute with default"""
 
 
@@ -643,7 +615,7 @@ def test_check_dict_typ():
     results = check_dict(data, TEST_DICT_SCHEMA)
     assert len(results) == 1
     assert results[0].path == [("", "attr2")]
-    assert results[0].found == str
+    assert results[0].found is str
     assert results[0].expected == [int]
 
     with pytest.raises(SchemaIssues):
@@ -656,7 +628,7 @@ def test_check_dict_missing():
     results = check_dict(data, TEST_DICT_SCHEMA)
     assert len(results) == 1
     assert results[0].path == [("", "attr2")]
-    assert results[0].found == None
+    assert results[0].found is None
     assert results[0].expected == ["int"]
 
     with pytest.raises(SchemaIssues):
@@ -675,7 +647,7 @@ class _TestDatasetSchemaCoord:
     """Required attribute"""
     attr2: Attr[int] = 123
     """Required attribute with default"""
-    attr3: Optional[Attr[int]] = None
+    attr3: Attr[int] | None = None
     """Optional attribute with default"""
 
 
@@ -689,21 +661,21 @@ class _TestDatasetSchema:
 
     coord: Coordof[_TestDatasetSchemaCoord]
     """Docstring of coordinate"""
-    coord2: Optional[Coord[Dim2, int]]
+    coord2: Coord[Dim2, int] | None
     """Docstring of second coordinate"""
     data_var: Dataof[_TestArraySchema]
     """Docstring of external data variable"""
-    data_var_simple: Optional[Data[Dim2, numpy.float32]]
+    data_var_simple: Data[Dim2, numpy.float32] | None
     """Docstring of simple optional data variable"""
     attr1: Attr[str]
     """Required attribute"""
     attr2: Attr[int] = 123
     """Required attribute with default"""
-    attr3: Optional[Attr[int]] = None
+    attr3: Attr[int] | None = None
     """Optional attribute with default"""
 
 
-def _dataclass_to_dict(obj, ignore=[]):
+def _dataclass_to_dict(obj, ignore=()):
     return {
         f.name: getattr(obj, f.name)
         for f in dataclasses.fields(type(obj))
@@ -794,27 +766,6 @@ TEST_DATASET_SCHEMA = DatasetSchema(
 
 def test_xarray_dataclass_to_dataset_schema():
     assert xarray_dataclass_to_dataset_schema(_TestDatasetSchema) == TEST_DATASET_SCHEMA
-
-
-def test_check_dataset():
-    attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
-    coords = {
-        "coord": xarray.DataArray(
-            numpy.arange(10, dtype=float), dims=("coord",), attrs=attrs
-        ),
-        "coord2": numpy.arange(5, dtype=int),
-    }
-    data_vars = {
-        "data_var": ("coord", numpy.zeros(10, dtype=complex), attrs),
-        "data_var_simple": ("coord2", numpy.zeros(5, dtype=numpy.float32)),
-    }
-    dataset = xarray.Dataset(data_vars, coords, attrs)
-    issues = check_dataset(dataset, TEST_DATASET_SCHEMA)
-    assert not issues
-    numpy.testing.assert_equal(dataset["data_var"], numpy.zeros(10, dtype=complex))
-    numpy.testing.assert_equal(
-        dataset["data_var_simple"], numpy.zeros(5, dtype=numpy.float32)
-    )
 
 
 def test_check_dataset_constructor_dataset_style():
@@ -1109,18 +1060,6 @@ def test_check_dict_dict_attribute():
     assert check_dict({"da": {"attr2": 234, "attr3": 345}}, _DictSchema)
 
 
-def test_check_dict_dict_attribute():
-    # Check inside dictionary
-    @dict_schema
-    class _DictSchema:
-        da: _TestDictSchema
-
-    assert not check_dict(
-        {"da": {"attr1": "asd", "attr2": 234, "attr3": 345}}, _DictSchema
-    )
-    assert check_dict({"da": {"attr2": 234, "attr3": 345}}, _DictSchema)
-
-
 TEST_DATASET_SCHEMA_JSON = {
     "$class": "DatasetSchema",
     "schema_name": "tests.unit.schema.test_schema._TestDatasetSchema",
@@ -1264,13 +1203,12 @@ TEST_DATASET_SCHEMA_JSON = {
 
 
 def test_schema_export(tmp_path):
-
     # Export schema
     tmp_fname = tmp_path / "test_dataset_schema.json"
     export_schema_json_file(_TestDatasetSchema, tmp_fname)
 
     # Check against reference
-    with open(tmp_fname, "r", encoding="utf8") as f:
+    with open(tmp_fname, encoding="utf8") as f:
         assert json.load(f) == TEST_DATASET_SCHEMA_JSON
 
     # Check import round-trip
@@ -1297,7 +1235,7 @@ class _TestMultiVersionArray:
 
     data: Data[Dim1, float]
     """Data"""
-    allow_multiple_versions: Optional[Attr[bool]] = True
+    allow_multiple_versions: Attr[bool] | None = True
 
 
 @xarray_dataset_schema
@@ -1329,7 +1267,7 @@ class _DictWithDataArrayAttr:
 
 @dict_schema
 class _DictWithOptionalDataArrayAttr:
-    da: Optional[_TestArraySchema]
+    da: _TestArraySchema | None
 
 
 @dict_schema
@@ -1339,7 +1277,7 @@ class _DictWithNestedDictAttr:
 
 @dict_schema
 class _DictWithOptionalNestedDictAttr:
-    nested: Optional[_TestDictSchema]
+    nested: _TestDictSchema | None
 
 
 @dict_schema
@@ -1349,7 +1287,7 @@ class _DictWithListStrAttr:
 
 @dict_schema
 class _DictWithOptionalListStrAttr:
-    tags: Optional[list[str]]
+    tags: list[str] | None
 
 
 @dict_schema
@@ -1836,8 +1774,8 @@ def isolated_dataset_types(monkeypatch):
 
 
 def test_register_dataset_type(isolated_dataset_types):
-    from xradio.schema.check import _DATASET_TYPES
     from xradio.schema import xarray_dataclass_to_dataset_schema
+    from xradio.schema.check import _DATASET_TYPES
 
     schema = xarray_dataclass_to_dataset_schema(_TestRegisteredDatasetSchema)
     register_dataset_type(schema)
@@ -1846,7 +1784,7 @@ def test_register_dataset_type(isolated_dataset_types):
 
 
 def test_register_dataset_type_no_literal():
-    from xradio.schema.metamodel import DatasetSchema, AttrSchemaRef
+    from xradio.schema.metamodel import AttrSchemaRef, DatasetSchema
 
     schema_no_literal = DatasetSchema(
         schema_name="test_no_literal",

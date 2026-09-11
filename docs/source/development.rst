@@ -44,6 +44,28 @@ that you can run tests, the interactive Jupyter notebooks and build the
 documentation (the dependencies can be found in the
 `pyproject.toml <https://github.com/casangi/xradio/blob/main/pyproject.toml>`__).
 
+- Install the `pre-commit <https://pre-commit.com/>`__ git hooks (the
+  ``pre-commit`` package itself is installed as part of ``[all]``):
+
+.. code:: sh
+
+   pre-commit install
+
+Once installed, every ``git commit`` automatically runs the checks
+configured in
+`.pre-commit-config.yaml <https://github.com/casangi/xradio/blob/main/.pre-commit-config.yaml>`__:
+`Ruff <https://docs.astral.sh/ruff/>`__ (formatting, linting and import
+sorting), ``pyupgrade``, ``absolufy-imports`` and various file hygiene
+checks. The same checks run in a GitHub Action on every push and pull
+request, so committing without the hooks installed just moves the
+failure to CI. If a hook rewrites files during a commit, the commit is
+aborted — re-stage the modified files (``git add``) and commit again.
+To run all checks by hand over the whole repository:
+
+.. code:: sh
+
+   pre-commit run --all-files
+
 Building documentation
 ----------------------
 
@@ -75,10 +97,10 @@ Submitting Code
      git checkout -b feature-or-fix-name
 
 (If you create the branch in your cloned repository remember to link it
-to the GitHub issue). 
+to the GitHub issue).
 
-- Make your code changes and add unit tests. 
-- Run the tests locally using `pytest <https://github.com/pytest-dev/pytest>`__. 
+- Make your code changes and add unit tests.
+- Run the tests locally using `pytest <https://github.com/pytest-dev/pytest>`__.
 - After running `Black <https://github.com/psf/black>`__ add, commit and push your code changes to the GitHub branch:
 
 .. code:: sh
@@ -132,7 +154,7 @@ backend <measurement_set/guides/backends.md>`__).
 
    Figure 1: XRADIO Architecture.
 
-    
+
 
 Dependencies
 ------------
@@ -219,10 +241,15 @@ Lazy and Eager Functions
 Coding Conventions
 ------------------
 
-- **Formatting**: All code should be formatted using
-  `Black <https://github.com/psf/black>`__. A GitHub Action will trigger
-  on every push and pull request to check if the code has been correctly
-  formatted.
+- **Formatting and Linting**: All code is formatted and linted with
+  `Ruff <https://docs.astral.sh/ruff/>`__: ``ruff format`` (a
+  Black-compatible formatter) and ``ruff check`` (import sorting plus
+  lint rules for common defects; the rule selection lives in
+  ``[tool.ruff.lint]`` of
+  `pyproject.toml <https://github.com/casangi/xradio/blob/main/pyproject.toml>`__).
+  Both run automatically through the pre-commit hooks (see `Setting up
+  a Development Environment`_), and a GitHub Action checks them on
+  every push and pull request.
 - **Naming Conventions**:
 
   - Use descriptive names. For example, use ``image_size`` instead of

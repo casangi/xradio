@@ -1,5 +1,3 @@
-from typing import Union
-
 import xarray as xr
 
 from xradio._utils.logging import xradio_logger
@@ -7,7 +5,7 @@ from xradio._utils.logging import xradio_logger
 
 def interpolate_to_time(
     xds: xr.Dataset,
-    interp_time: Union[xr.DataArray, None],
+    interp_time: xr.DataArray | None,
     message_prefix: str,
     time_name: str = "time",
 ) -> xr.Dataset:

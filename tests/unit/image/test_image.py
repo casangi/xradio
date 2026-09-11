@@ -22,19 +22,21 @@ try:
 except ImportError:
     import xradio._utils._casacore.casacore_from_casatools as tables
 
-from astropy.io import fits
-import astropy.units as u
-from copy import deepcopy
-import dask.array as da
-from glob import glob
-import numpy as np
-import numpy.ma as ma
 import os
-import pytest
 import re
 import shutil
-import xarray as xr
+from copy import deepcopy
+from glob import glob
 
+import astropy.units as u
+import dask.array as da
+import numpy as np
+import numpy.ma as ma
+import pytest
+import xarray as xr
+from astropy.io import fits
+
+from xradio._utils._casacore.tables import open_table_ro
 from xradio.image import (
     load_image,
     make_empty_aperture_image,
@@ -43,13 +45,11 @@ from xradio.image import (
     open_image,
     write_image,
 )
-from xradio.image._util.casacore import _squeeze_if_needed
 from xradio.image._util._casacore.common import _create_new_image as create_new_image
-from xradio.image._util._casacore.common import _open_image_ro as open_image_ro
 from xradio.image._util._casacore.common import _object_name
+from xradio.image._util._casacore.common import _open_image_ro as open_image_ro
+from xradio.image._util.casacore import _squeeze_if_needed
 from xradio.image._util.common import _image_type as image_type
-from xradio._utils._casacore.tables import open_table_ro
-
 from xradio.testing import assert_attrs_dicts_equal, assert_xarray_datasets_equal
 from xradio.testing.image import (
     assert_image_block_equal,
@@ -249,9 +249,9 @@ class TestWriteImageCasa:
                     rtol=1e-7,
                     atol=1e-7,
                 )
-                assert np.isclose(
-                    test_im.getdata(), expec_im.getdata()
-                ).all(), "Incorrect pixel data"
+                assert np.isclose(test_im.getdata(), expec_im.getdata()).all(), (
+                    "Incorrect pixel data"
+                )
 
     def test_overwrite(self):
         """write_image respects the overwrite flag."""
@@ -321,12 +321,12 @@ class TestCasaRoundtrip:
         with open_image_ro(self._imname) as im1:
             for imname in [self._outname, self._outname_no_sky]:
                 with open_image_ro(imname) as im2:
-                    assert (
-                        im1.getdata() == im2.getdata()
-                    ).all(), "Incorrect pixel values"
-                    assert (
-                        im1.getmask() == im2.getmask()
-                    ).all(), "Incorrect mask values"
+                    assert (im1.getdata() == im2.getdata()).all(), (
+                        "Incorrect pixel values"
+                    )
+                    assert (im1.getmask() == im2.getmask()).all(), (
+                        "Incorrect mask values"
+                    )
                     assert im1.datatype() == im2.datatype(), (
                         f"Incorrect round-trip pixel type: "
                         f"input {im1.name()} {im1.datatype()}, "
@@ -393,7 +393,7 @@ class TestCasaRoundtrip:
         with open_image_ro(self._imname2) as im1:
             beams1 = im1.imageinfo()["perplanebeams"]
             for do_sky, outname in zip(
-                [True, False], [self._outname2, self._outname2_no_sky]
+                [True, False], [self._outname2, self._outname2_no_sky], strict=False
             ):
                 xds = open_image(self._imname2, do_sky_coords=do_sky)
                 write_image(xds, outname, out_format="casa")
@@ -448,6 +448,7 @@ class TestCasaRoundtrip:
             [self._outname3, self._outname3_no_sky],
             [self._outname4, self._outname4_no_sky],
             [self._outname5, self._outname5_no_sky],
+            strict=False,
         ):
             # case 1: no mask + no nans = no mask
             xds = open_image(self._imname3, do_sky_coords=do_sky)
@@ -455,9 +456,9 @@ class TestCasaRoundtrip:
             write_image(xds, outname, out_format="casa")
             subdirs = glob(f"{outname}/*/")
             subdirs = [d[d.index("/") + 1 : -1] for d in subdirs]
-            assert subdirs == [
-                "logtable"
-            ], f"Unexpected directory (mask?) found. subdirs is {subdirs}"
+            assert subdirs == ["logtable"], (
+                f"Unexpected directory (mask?) found. subdirs is {subdirs}"
+            )
             # case 2a: no mask + nans = nan_mask
             xds[sky][0, 1, 1, 1, 1] = float("NaN")
             shutil.rmtree(outname)
@@ -599,9 +600,9 @@ class TestZarrRoundtrip:
         xds["BEAM_FIT_PARAMS"] = xdb
         write_image(xds, self._zarr_beam_test, "zarr")
         xds2 = open_image(self._zarr_beam_test)
-        assert np.allclose(
-            xds2.BEAM_FIT_PARAMS.values, xds.BEAM_FIT_PARAMS.values
-        ), "Incorrect beam values"
+        assert np.allclose(xds2.BEAM_FIT_PARAMS.values, xds.BEAM_FIT_PARAMS.values), (
+            "Incorrect beam values"
+        )
 
 
 # --------------------------------------------------------------------------- #
@@ -714,7 +715,7 @@ class TestOpenImageFits:
             for c in range(50):
                 for b in ["major", "minor", "pa"]:
                     bb = "positionangle" if b == "pa" else b
-                    expec_comp = expec[f"*{p*50+c}"][bb]
+                    expec_comp = expec[f"*{p * 50 + c}"][bb]
                     expec_comp = (
                         (expec_comp["value"] * u.Unit(expec_comp["unit"]))
                         .to("rad")
@@ -742,9 +743,9 @@ class TestOpenImageFits:
         if expected_present:
             assert flag in fds.data_vars, f"{flag} should be in data_vars, but is not"
         else:
-            assert (
-                flag not in fds.data_vars
-            ), f"{flag} should not be in data_vars, but is"
+            assert flag not in fds.data_vars, (
+                f"{flag} should not be in data_vars, but is"
+            )
 
     def test_compressed_guard(self):
         """Reading a compressed FITS file raises RuntimeError."""
@@ -758,16 +759,15 @@ class TestOpenImageFits:
             self._compressed_fits, overwrite=True
         )
         with fits.open(self._compressed_fits, do_not_scale_image_data=True) as hdulist:
-            assert isinstance(
-                hdulist[1], fits.CompImageHDU
-            ), "Expected CompImageHDU in HDU[1]"
+            assert isinstance(hdulist[1], fits.CompImageHDU), (
+                "Expected CompImageHDU in HDU[1]"
+            )
 
         with pytest.raises(RuntimeError) as exc_info:
             open_image(self._compressed_fits, {"frequency": 5})
 
         assert re.search(r"name=COMPRESSED_IMAGE", str(exc_info.value)), (
-            f"Expected error about COMPRESSED_IMAGE HDU, "
-            f"but got {str(exc_info.value)}"
+            f"Expected error about COMPRESSED_IMAGE HDU, but got {str(exc_info.value)}"
         )
 
     def test_bzero_guard(self):
@@ -776,9 +776,9 @@ class TestOpenImageFits:
         assert os.path.exists(self._bzero), f"{self._bzero} was not written"
         with pytest.raises(RuntimeError) as exc_info:
             open_image(self._bzero)
-        assert re.search(
-            r"BSCALE/BZERO set", str(exc_info.value)
-        ), f"Expected error about BSCALE/BZERO, but got {str(exc_info.value)}"
+        assert re.search(r"BSCALE/BZERO set", str(exc_info.value)), (
+            f"Expected error about BSCALE/BZERO, but got {str(exc_info.value)}"
+        )
 
     def test_bscale_guard(self):
         """Reading a FITS file with BSCALE != 1 raises RuntimeError."""
@@ -786,9 +786,9 @@ class TestOpenImageFits:
         assert os.path.exists(self._bscale), f"{self._bscale} was not written"
         with pytest.raises(RuntimeError) as exc_info:
             open_image(self._bscale)
-        assert re.search(
-            r"BSCALE/BZERO set", str(exc_info.value)
-        ), f"Expected error about BSCALE/BZERO, but got {str(exc_info.value)}"
+        assert re.search(r"BSCALE/BZERO set", str(exc_info.value)), (
+            f"Expected error about BSCALE/BZERO, but got {str(exc_info.value)}"
+        )
 
 
 # --------------------------------------------------------------------------- #

@@ -2,5 +2,5 @@
 def test_subtables_subt_rename_ids():
     from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
 
-    for key, val in subt_rename_ids.items():
+    for val in subt_rename_ids.values():
         assert isinstance(val, dict)

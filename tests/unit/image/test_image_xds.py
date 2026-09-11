@@ -6,7 +6,6 @@ import xarray as xr
 
 from xradio.image import make_empty_sky_image
 from xradio.image.image_xds import InvalidAccessorLocation
-
 from xradio.testing.image import create_empty_test_image
 
 

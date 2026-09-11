@@ -3,20 +3,20 @@ try:
 except ImportError:
     import xradio._utils._casacore.casacore_from_casatools as tables
 
-from contextlib import contextmanager
 import os
-from typing import Dict, Generator
+from collections.abc import Generator
+from contextlib import contextmanager
 
 # common casacore table handling code
 
 
-def extract_table_attributes(infile: str) -> Dict[str, Dict]:
+def extract_table_attributes(infile: str) -> dict[str, dict]:
     """
     return a dictionary of table attributes created from MS keywords and column descriptions
     """
     with open_table_ro(infile) as tb_tool:
         kwd = tb_tool.getkeywords()
-        attrs = dict([(kk, kwd[kk]) for kk in kwd if kk not in os.listdir(infile)])
+        attrs = {kk: kwd[kk] for kk in kwd if kk not in os.listdir(infile)}
         cols = tb_tool.colnames()
         column_descriptions = {}
         for col in cols:

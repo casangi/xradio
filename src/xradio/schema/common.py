@@ -1,13 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal, Optional, Union, List
-from xradio.schema.bases import (
-    xarray_dataset_schema,
-    xarray_dataarray_schema,
-    dict_schema,
-)
-from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof, Name
-import numpy
+from typing import Literal
 
 # Dimensions
 Time = Literal["time"]

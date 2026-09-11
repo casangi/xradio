@@ -1,13 +1,11 @@
 import xarray as xr
+
 from xradio._utils.schema import get_data_group_keys
-from collections.abc import Mapping, Iterable
-from typing import Any, Union
 
 
 def get_data_group_name(
-    xdx: Union[xr.Dataset, xr.DataTree], data_group_name: str = None
+    xdx: xr.Dataset | xr.DataTree, data_group_name: str = None
 ) -> str:
-
     if data_group_name is None:
         if "base" in xdx.attrs["data_groups"]:
             data_group_name = "base"
@@ -18,7 +16,7 @@ def get_data_group_name(
 
 
 def create_new_data_group(
-    xdx: Union[xr.Dataset, xr.DataTree],
+    xdx: xr.Dataset | xr.DataTree,
     schema_name: str,
     new_data_group_name: str,
     data_group: dict,
@@ -63,7 +61,7 @@ def create_new_data_group(
     return new_data_group_name, new_data_group
 
 
-def delete_data_variables(xdx: Union[xr.Dataset, xr.DataTree], variables: list):
+def delete_data_variables(xdx: xr.Dataset | xr.DataTree, variables: list):
     """Deletes data variables from an Xarray Dataset or DataTree.
 
     Parameters

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-import sys
 import importlib
+import sys
 
 from xradio.schema.export import export_schema_json_file
 

@@ -9,13 +9,15 @@ from xradio._utils.logging import xradio_logger
 def calculate_overall_spw_idx(
     basebands_descr: list[dict], baseband_idx: int, spw_idx: int
 ) -> int:
-    overall_spw_idx = sum(
-        [
-            len(basebands_descr[bb_idx]["spectralWindows"])
-            for bb_idx in range(0, baseband_idx)
-        ]
+    overall_spw_idx = (
+        sum(
+            [
+                len(basebands_descr[bb_idx]["spectralWindows"])
+                for bb_idx in range(0, baseband_idx)
+            ]
+        )
+        + spw_idx
     )
-    +spw_idx
 
     return overall_spw_idx
 
@@ -34,7 +36,6 @@ def find_spw_in_basebands_list(
     basebands: list[dict],
     bdf_path: str,
 ) -> tuple[int, int]:
-
     bb_index_cnt = 0
     basebands_len_cumsum = 0
     found = False

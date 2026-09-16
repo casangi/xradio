@@ -1,8 +1,7 @@
 from contextlib import nullcontext as no_raises
 
-import pytest
-
 import pyasdm
+import pytest
 
 basebands_example = [
     {
@@ -190,14 +189,14 @@ bdf_descr_X136e = {
     "input_basebands, input_baseband_idx, input_spw_idx, expected_overall_spw_idx, expected_error",
     [
         (basebands_example, 0, 0, 0, no_raises()),
-        (basebands_example, 0, 1, 0, no_raises()),
+        (basebands_example, 0, 1, 1, no_raises()),
         (basebands_example, 1, 0, 1, no_raises()),
         (basebands_example, 3, 0, 4, no_raises()),
-        (basebands_example, 4, 1, 5, no_raises()),
-        (basebands_example, 6, 1, 5, pytest.raises(IndexError, match="out of range")),
+        (basebands_example, 4, 1, 6, no_raises()),
+        (basebands_example, 6, 1, 6, pytest.raises(IndexError, match="out of range")),
         (bdf_descr_X136e["basebands"], 0, 0, 0, no_raises()),
-        (bdf_descr_X136e["basebands"], 0, 1, 0, no_raises()),
-        (bdf_descr_X136e["basebands"], 0, 2, 0, no_raises()),
+        (bdf_descr_X136e["basebands"], 0, 1, 1, no_raises()),
+        (bdf_descr_X136e["basebands"], 0, 2, 2, no_raises()),
         (bdf_descr_X136e["basebands"], 2, 0, 4, no_raises()),
         (
             bdf_descr_X136e["basebands"],
@@ -230,8 +229,8 @@ def test_calculate_overall_spw_idx(
     "input_baseband_spw_idxs, input_bdf_descr, expected_overall_spw_idx, expected_error",
     [
         ((0, 0), bdf_descr_X136e, 0, no_raises()),
-        ((0, 1), bdf_descr_X136e, 0, no_raises()),
-        ((0, 2), bdf_descr_X136e, 0, no_raises()),
+        ((0, 1), bdf_descr_X136e, 1, no_raises()),
+        ((0, 2), bdf_descr_X136e, 2, no_raises()),
         ((2, 0), bdf_descr_X136e, 4, no_raises()),
         ((5, 0), bdf_descr_X136e, 4, pytest.raises(IndexError, match="out of range")),
     ],

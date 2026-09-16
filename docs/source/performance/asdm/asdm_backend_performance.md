@@ -95,7 +95,7 @@ equivalent distributed storage) using two system configurations:
 ### Storage & Workload Considerations
 
 Both systems share the same disk array. The `dev07`/`perf07` host is directly attached via fiber channel,
-whereas `dev01` accesses the storage array via NFS through `dev07`. 
+whereas `dev01` accesses the storage array via NFS through `dev07`.
 
 The disk array has sufficient storage for repeated tests with the datasets listed above. A comparison with a
 different system such as lustre is to be done. For the initial rounds of performance comparisons it was preferred
@@ -130,7 +130,7 @@ data variables of the MSv4s:
 ### 1. Full MSv4 Partition Loading
 
 An initial comparison of the ASDM backend against the PS/Zarr format of XRADIO was performed using the simplest
-access pattern or approach to loading the data: load full partitions at once. 
+access pattern or approach to loading the data: load full partitions at once.
 
 The following bar plot shows the ratio between an open operation in the ASDM backend versus and open operation
 on a Zarr version of the equivalent Processing Set:
@@ -154,7 +154,7 @@ The load time results for the "ALMA ASDM benchmark compact", when loading the da
 - **1 time unit (integration):** All baselines, frequencies and polarizations are loaded at once.
   This approach is similar to the way the CASA visibility iterator/buffer loads data from MSv2s.
 
-- **1 baseline:** All times, frequencies and polarizations loaded at once. 
+- **1 baseline:** All times, frequencies and polarizations loaded at once.
 
 - **1 frequency:** All times, baselines and polarizations loaded at once.
 

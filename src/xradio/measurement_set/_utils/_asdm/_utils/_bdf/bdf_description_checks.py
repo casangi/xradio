@@ -20,7 +20,6 @@ def check_correlation_mode(correlation_mode: pyasdm.enumerations.CorrelationMode
 def ensure_presence_binary_components(
     data_array_names: list[str], binary_types: list[str], bdf_path: str
 ):
-
     for array_name in data_array_names:
         if array_name not in binary_types:
             raise RuntimeError(
@@ -32,7 +31,6 @@ def ensure_presence_binary_components(
 def exclude_unsupported_axis_names(
     dims: list[str], exclude_also_for_flags: bool = False
 ):
-
     # This effectively assumes we'll always get "POL" from the last 3 possible axes,
     # from BDF doc: "The final three axes, STO, POL and HOL, also appear at the same
     # level in the axis hierarchy; however, only one of these axes will normally

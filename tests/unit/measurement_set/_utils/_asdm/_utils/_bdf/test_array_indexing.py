@@ -1,6 +1,5 @@
-import pytest
-
 import pyasdm
+import pytest
 
 
 @pytest.mark.parametrize(

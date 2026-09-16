@@ -1,10 +1,8 @@
-import numpy as np
-
-import xarray as xr
-
 import astropy.coordinates as coord
-from astropy.time import Time
 import astropy.units as u
+import numpy as np
+import xarray as xr
+from astropy.time import Time
 
 
 def calculate_uvw(

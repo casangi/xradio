@@ -2,10 +2,8 @@ from contextlib import nullcontext as no_raises
 from unittest import mock
 
 import numpy as np
-
-import pytest
-
 import pyasdm
+import pytest
 
 # From uid___A002_Xc33ac1_X136e (AUTO_ONLY)
 bdf_descr_X136e = {

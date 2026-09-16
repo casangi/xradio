@@ -1,7 +1,6 @@
 import pandas as pd
-import xarray as xr
-
 import pytest
+import xarray as xr
 
 from xradio.measurement_set._utils._asdm.create_antenna_xds import (
     create_antenna_xds,
@@ -35,7 +34,6 @@ def test_create_antenna_xds_with_asdm_simple(asdm_with_spw_simple):
 def test_create_antenna_xds_with_asdm_simple_7m_antennas(
     asdm_with_execblock_antenna_station_feed,
 ):
-
     # w/o Feed table
     antenna_xds = create_antenna_xds(
         asdm_with_execblock_antenna_station_feed, 2, 0, xr.DataArray([[0]])

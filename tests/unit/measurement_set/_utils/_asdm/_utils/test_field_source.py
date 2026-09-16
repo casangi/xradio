@@ -1,26 +1,22 @@
 import copy
 
-import pytest
-
 import pyasdm
+import pytest
 
 from xradio.measurement_set._utils._asdm._utils.field_source import get_direction_codes
 
 
 def test_get_direction_codes_empty(asdm_empty):
-
     with pytest.raises(AttributeError, match="has no attribute"):
         get_direction_codes(asdm_empty, (0, 0, 1))
 
 
 def test_get_direction_codes_asdm_with_spw_default(asdm_with_spw_default):
-
     with pytest.raises(AttributeError, match="has no attribute"):
         get_direction_codes(asdm_with_spw_default, (0, 0, 1))
 
 
 def test_get_direction_codes_asdm_with_spw_simple(asdm_with_spw_simple):
-
     asdm_with_source = copy.deepcopy(asdm_with_spw_simple)
 
     # directionCode was ICRS - chanced for testing purposes

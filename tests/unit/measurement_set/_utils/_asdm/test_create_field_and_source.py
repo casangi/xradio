@@ -1,8 +1,7 @@
 import copy
 
-import pytest
-
 import pyasdm
+import pytest
 
 from xradio.measurement_set._utils._asdm.create_field_and_source_xds import (
     create_field_and_source_xds,
@@ -33,7 +32,6 @@ def test_create_field_and_source_xds_with_asdm_simple(asdm_with_spw_simple):
 
 
 def test_create_field_and_source_xds_with_field_source(asdm_with_spw_simple):
-
     asdm_with_source_field = copy.deepcopy(asdm_with_spw_simple)
 
     # numLines, etc. optional attributes (line info) borrowed from a different row

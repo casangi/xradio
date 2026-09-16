@@ -1,9 +1,8 @@
 from contextlib import nullcontext as no_raises
+
 import numpy as np
-
-import pytest
-
 import pyasdm
+import pytest
 
 
 @pytest.mark.parametrize(

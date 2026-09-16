@@ -1,9 +1,5 @@
 import pytest
 
-import pyasdm
-
-import xarray as xr
-
 from xradio.measurement_set._utils._asdm.create_pointing_xds import (
     create_pointing_xds,
 )

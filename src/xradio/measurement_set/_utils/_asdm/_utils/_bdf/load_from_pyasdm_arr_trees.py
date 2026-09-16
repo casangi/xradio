@@ -13,28 +13,32 @@ is not the same for every SPW.
 """
 
 import traceback
-from typing import Callable
+from collections.abc import Callable
 
 import numpy as np
-
 import pyasdm
 
-
-from .array_indexing import (
+from xradio._utils.logging import xradio_logger
+from xradio.measurement_set._utils._asdm._utils._bdf import config
+from xradio.measurement_set._utils._asdm._utils._bdf.array_indexing import (
     calc_auto_cross_baseline_slices,
     find_data_components_needed,
     min_max_from_dimension_slice,
 )
-from .basebands_spws import baseband_spw_to_overall_spw_idx, calculate_overall_spw_idx
-from .flags_offsets import calculate_offset_additions_cross_sd
-from .pyasdm_get_ndarray_load_function import load_visibilities_one_spw_to_ndarray
-from .shapes import (
+from xradio.measurement_set._utils._asdm._utils._bdf.basebands_spws import (
+    baseband_spw_to_overall_spw_idx,
+    calculate_overall_spw_idx,
+)
+from xradio.measurement_set._utils._asdm._utils._bdf.flags_offsets import (
+    calculate_offset_additions_cross_sd,
+)
+from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_get_ndarray_load_function import (
+    load_visibilities_one_spw_to_ndarray,
+)
+from xradio.measurement_set._utils._asdm._utils._bdf.shapes import (
     add_cross_and_auto_flag_shapes,
     full_shape_to_output_filled_flags_shape,
 )
-from . import config
-
-from xradio._utils.logging import xradio_logger
 
 
 def load_visibilities_all_subsets_from_trees(
@@ -45,7 +49,6 @@ def load_visibilities_all_subsets_from_trees(
     array_slice: tuple[slice, ...],
     load_one_spw_from_file: bool = config.use_load_one_spw_at_a_time,
 ) -> np.ndarray:
-
     components_to_load = find_data_components_needed(array_slice, bdf_descr)
     num_channels = guessed_shape[-3]
 
@@ -124,7 +127,6 @@ def load_subset_with_get_ndarrays(
     load_spw_function: Callable,
     load_spw_function_params: tuple,
 ) -> dict | None:
-
     try:
         ndarrays = bdf_reader.getNDArrays(
             arrayNames=["visibilities"],
@@ -241,7 +243,6 @@ def load_vis_subset_cross_data_from_tree(
     processor_type: pyasdm.enumerations.ProcessorType,
     array_slice: tuple[slice, ...],
 ) -> np.ndarray:
-
     polarization_len = guessed_shape[-2]
     cross_offset_addition_before = (
         np.sum(spw_chan_lens[0:overall_spw_idx], dtype=int) * polarization_len * 2
@@ -321,7 +322,6 @@ def load_vis_subset_auto_data_from_tree(
     overall_spw_idx: int,
     array_slice: tuple[slice, ...],
 ) -> np.ndarray:
-
     polarization_len = guessed_shape[-2]
     if polarization_len == 3:
         sd_polarization_len = 4
@@ -376,7 +376,6 @@ def load_vis_subset_auto_data_from_tree(
                     axis=1,
                 )
             else:
-
                 spw_floats = auto_floats[first_frequency:last_frequency]
                 spw_floats = spw_floats.reshape(
                     (frequency_max - frequency_min, sd_polarization_len)
@@ -405,7 +404,6 @@ def load_flags_all_subsets_from_trees(
     baseband_spw_idxs: tuple[int, int],
     array_slice: tuple[slice, ...],
 ) -> np.ndarray:
-
     # Load taking pieces from the data trees of the binary components. Needed when the number
     # of SPWs per baseband, or number of channels per SPW are not uniform.
     flag_per_subset = []
@@ -479,7 +477,6 @@ def load_flags_subset_cross_and_auto_blocks_from_tree(
     baseband_spw_idxs: tuple[int, int],
     array_slice: tuple[int, ...],
 ) -> np.ndarray[bool]:
-
     antenna_len = bdf_descr["num_antenna"]
     baseline_len = int(antenna_len * (antenna_len - 1) / 2)
     baseband_description = bdf_descr["basebands"][baseband_spw_idxs[0]]

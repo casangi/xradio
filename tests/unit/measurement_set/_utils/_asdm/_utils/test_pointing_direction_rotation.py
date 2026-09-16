@@ -1,7 +1,6 @@
 from contextlib import nullcontext as no_raises
 
 import numpy as np
-
 import pytest
 
 from xradio.measurement_set._utils._asdm._utils.pointing_direction_rotation import (

@@ -1,5 +1,6 @@
+from collections.abc import Iterable
 from pathlib import Path
-from typing import ClassVar, Iterable
+from typing import ClassVar
 
 import xarray as xr
 from xarray.backends import BackendEntrypoint
@@ -30,7 +31,6 @@ class ASDMBackendEntryPoint(BackendEntrypoint):
         with_pointing: bool = None,
         pointing_for_only_spectral_resolution_types: list[str] = None,
     ) -> xr.DataTree:
-
         if drop_variables is not None:
             raise RuntimeError("drop_variables not supported")
 

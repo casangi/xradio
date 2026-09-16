@@ -1,10 +1,8 @@
 from unittest import mock
 
-import pytest
-
 import numpy as np
-
 import pyasdm
+import pytest
 
 basebands_simple = [
     {
@@ -261,7 +259,7 @@ def test_load_visibilities_all_subsets_X136e():
         # For _load_vis_subset, etc.
         mock_bdf_reader.hasSubset.side_effect = [True, False]
         mock_bdf_reader.getSubset.side_effect = [
-            {"autoData": {"present": True, "arr": np.zeros((73728))}}
+            {"autoData": {"present": True, "arr": np.zeros(73728)}}
         ]
         empty_slice = (slice(None), slice(None), slice(None), slice(None))
         visibilities = load_visibilities_all_subsets(
@@ -289,8 +287,8 @@ def test__load_vis_subset():
     )
 
     subset = {
-        "autoData": {"present": True, "arr": np.zeros((18432))},
-        "crossData": {"present": True, "arr": np.zeros((147456))},
+        "autoData": {"present": True, "arr": np.zeros(18432)},
+        "crossData": {"present": True, "arr": np.zeros(147456)},
     }
     empty_slice = (slice(None), slice(None), slice(None), slice(None))
     visibilities = _load_vis_subset(
@@ -312,7 +310,7 @@ def test__load_vis_subset():
     "input_data_arr, input_guessed_shape, input_baseband_spw_idxs, input_processor_type, expected_size, expected_shape",
     [
         (
-            np.zeros((86016)),
+            np.zeros(86016),
             (2, 21, 9, 4, 2, 64, 2, 2),
             (0, 0),
             pyasdm.enumerations.ProcessorType.CORRELATOR,
@@ -320,7 +318,7 @@ def test__load_vis_subset():
             (2, 21, 64, 2),
         ),
         (
-            np.zeros((7168)),
+            np.zeros(7168),
             (1, 7, 4, 4, 2, 32, 2, 2),
             (0, 0),
             pyasdm.enumerations.ProcessorType.CORRELATOR,
@@ -328,7 +326,7 @@ def test__load_vis_subset():
             (1, 7, 32, 2),
         ),
         (
-            np.zeros((14336)),
+            np.zeros(14336),
             (1, 7, 4, 4, 2, 32, 4, 2),
             (0, 0),
             pyasdm.enumerations.ProcessorType.CORRELATOR,
@@ -336,7 +334,7 @@ def test__load_vis_subset():
             (1, 7, 32, 4),
         ),
         (
-            np.zeros((14336)),
+            np.zeros(14336),
             (1, 7, 4, 4, 2, 32, 4, 2),
             (0, 0),
             pyasdm.enumerations.ProcessorType.RADIOMETER,
@@ -344,7 +342,7 @@ def test__load_vis_subset():
             (1, 7, 4, 2, 32, 4, 2),
         ),
         (
-            np.zeros((14336)),
+            np.zeros(14336),
             (1, 7, 4, 4, 2, 32, 4, 2),
             (0, 0),
             pyasdm.enumerations.ProcessorType.SPECTROMETER,
@@ -387,9 +385,9 @@ def test__load_vis_subset_cross_data(
 @pytest.mark.parametrize(
     "input_data_arr, input_guessed_shape, input_baseband_spw_idxs, expected_size, expected_shape",
     [
-        (np.zeros((18432)), (2, 36, 9, 4, 2, 64, 2, 2), (0, 0), 2304, (2, 9, 64, 2)),
-        (np.zeros((2048)), (1, 7, 4, 4, 2, 32, 2, 2), (0, 0), 256, (1, 4, 32, 2)),
-        (np.zeros((4096)), (1, 7, 4, 4, 2, 32, 3, 2), (0, 0), 512, (1, 1, 4, 128)),
+        (np.zeros(18432), (2, 36, 9, 4, 2, 64, 2, 2), (0, 0), 2304, (2, 9, 64, 2)),
+        (np.zeros(2048), (1, 7, 4, 4, 2, 32, 2, 2), (0, 0), 256, (1, 4, 32, 2)),
+        (np.zeros(4096), (1, 7, 4, 4, 2, 32, 3, 2), (0, 0), 512, (1, 1, 4, 128)),
     ],
 )
 def test__load_vis_subset_auto_data(
@@ -508,7 +506,7 @@ def test_load_flags_all_subsets_auto_3pol():
     ):
         mock_bdf_reader.hasSubset.side_effect = [True, False]
         mock_bdf_reader.getSubset.side_effect = [
-            {"flags": {"present": True, "arr": np.zeros((114688 + 10752))}}
+            {"flags": {"present": True, "arr": np.zeros(114688 + 10752)}}
         ]
         guessed_shape = {
             "auto": (1, 7, 4, 2, 64, 3),
@@ -556,7 +554,7 @@ def test_load_flags_all_subsets_X136e():
         # For _load_vis_subset, etc.
         mock_bdf_reader.hasSubset.side_effect = [True, False]
         mock_bdf_reader.getSubset.side_effect = [
-            {"autoData": {"present": True, "arr": np.zeros((73728))}}
+            {"autoData": {"present": True, "arr": np.zeros(73728)}}
         ]
         guessed_shape = {
             "cross": (1, 36, 4, 2, 512, 2, 2),

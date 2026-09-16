@@ -1,9 +1,7 @@
 import numpy as np
 import pandas as pd
-import xarray as xr
-
-
 import pyasdm
+import xarray as xr
 
 from xradio._utils.dict_helpers import make_quantity_attrs
 from xradio._utils.logging import xradio_logger
@@ -117,7 +115,7 @@ def create_antenna_xds(
             pos[2].get() + pos_station[2].get(),
         ]
         for pos, pos_station in zip(
-            antenna_df["position_antenna"], antenna_df["position_station"]
+            antenna_df["position_antenna"], antenna_df["position_station"], strict=False
         )
     ]
     position_attrs = {

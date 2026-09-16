@@ -4,13 +4,21 @@ import itertools
 
 import numpy as np
 import pandas as pd
+import pyasdm
 import xarray as xr
 
-import pyasdm
-
-from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
+from xradio._utils.dict_helpers import (
+    make_quantity,
+    make_quantity_attrs,
+    make_spectral_coord_measure_attrs,
+    make_spectral_coord_reference_dict,
+    make_time_measure_attrs,
+)
 from xradio._utils.list_and_array import check_if_consistent
 from xradio.measurement_set._utils._asdm import asdm_backend_arrays
+from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
+    load_times_from_partition_bdfs,
+)
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,
 )
@@ -21,22 +29,13 @@ from xradio.measurement_set._utils._asdm._utils.spectral_window import (
     get_spw_frequency_centers,
     get_spw_name,
 )
-from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
-    load_times_from_partition_bdfs,
-)
 from xradio.measurement_set._utils._asdm.create_antenna_xds import create_antenna_xds
 from xradio.measurement_set._utils._asdm.create_field_and_source_xds import (
     create_field_and_source_xds,
 )
-from xradio.measurement_set._utils._asdm.create_pointing_xds import create_pointing_xds
 from xradio.measurement_set._utils._asdm.create_info_dicts import create_info_dicts
-from xradio._utils.dict_helpers import (
-    make_quantity,
-    make_quantity_attrs,
-    make_spectral_coord_measure_attrs,
-    make_spectral_coord_reference_dict,
-    make_time_measure_attrs,
-)
+from xradio.measurement_set._utils._asdm.create_pointing_xds import create_pointing_xds
+from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
 
 
 def open_partition(
@@ -165,7 +164,7 @@ def create_correlated_xds(
     The function sets up a non-single-dish observation structure.
     """
 
-    datetime_now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    datetime_now = datetime.datetime.now(datetime.UTC).isoformat()
     xds = xr.Dataset(
         attrs={
             "schema_version": MSV4_SCHEMA_VERSION,
@@ -426,7 +425,6 @@ def create_coordinates(
 def _create_scan_name_coord_attrs(
     time_centers: np.ndarray, scans_metadata_df: pd.DataFrame, partition_descr: dict
 ) -> tuple[tuple, dict]:
-
     scan_numbers = np.array(scans_metadata_df["scanNumber"]).astype(str)
     # TODO: proper mapping begin/end scans, subscans -> BDFs
     if len(scan_numbers) != len(time_centers):
@@ -441,7 +439,6 @@ def _create_baseline_coords(
     asdm: pyasdm.ASDM,
     partition_descr: dict[str, np.ndarray],
 ) -> tuple[dict, int]:
-
     coords_baselines = {}
     sdm_main_attrs = ["time", "configDescriptionId", "fieldId", "numAntenna"]
     main_df = exp_asdm_table_to_df(asdm, "Main", sdm_main_attrs)
@@ -501,7 +498,6 @@ def _create_baseline_coords(
 def _create_polarizations_coord(
     asdm: pyasdm.ASDM, partition_descr: dict[str, np.ndarray]
 ) -> tuple[dict, int, pd.DataFrame]:
-
     # From dataDescriptionId get SPW and polarization IDs
     dd_id = partition_descr["dataDescriptionId"][0]
     sdm_dd_attrs = ["dataDescriptionId", "spectralWindowId", "polOrHoloId"]
@@ -554,7 +550,6 @@ def _create_time_vars(
 def _create_frequency_coord_attrs(
     asdm: pyasdm.ASDM, spw_id: int
 ) -> tuple[tuple, dict, pd.DataFrame]:
-
     # frequency coord
     sdm_spw_attrs = [
         "spectralWindowId",
@@ -590,7 +585,6 @@ def _create_frequency_coord_attrs(
 def _create_field_name_coord(
     asdm: pyasdm.ASDM, time_centers: np.ndarray, partition_descr: dict
 ) -> tuple:
-
     # field_name will be created from field_and_source_xds?
     sdm_field_attrs = ["fieldId", "fieldName"]
     field_df = exp_asdm_table_to_df(asdm, "Field", sdm_field_attrs)
@@ -610,7 +604,6 @@ def _find_bdf_spw_id(
     spw_df: pd.DataFrame,
     partition_descr: dict[str, np.ndarray],
 ) -> int:
-
     sdm_config_description_attrs = [
         "configDescriptionId",
         "dataDescriptionId",
@@ -668,7 +661,6 @@ def _translate_asdm_tables_spw_id_to_bdf_spw_id(
     config_description_id: int,
     config_description_df: pd.DataFrame,
 ) -> int:
-
     this_config_df = config_description_df.loc[
         config_description_df["configDescriptionId"].isin(config_description_id)
     ]
@@ -774,7 +766,8 @@ def _generate_baseline_antennax_id_as_in_msv2(
     # This might turn out too simplistic. We'll have to check how the baselines (auto-corrs and
     # cross-corrs) are read from the BDFs, and other factors.
     baseline_antenna1_id, baseline_antenna2_id = zip(
-        *itertools.combinations_with_replacement(np.arange(num_antenna), 2)
+        *itertools.combinations_with_replacement(np.arange(num_antenna), 2),
+        strict=False,
     )
 
     return baseline_antenna1_id, baseline_antenna2_id

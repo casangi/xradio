@@ -8,17 +8,19 @@ crossData and autoData binary component arrays, to be used in
 BDFReader.getNDArray().
 """
 
-import numpy as np
 import os
 import typing
 
+import numpy as np
 import pyasdm
 
-from .array_indexing import (
+from xradio.measurement_set._utils._asdm._utils._bdf.array_indexing import (
     calc_auto_cross_baseline_slices,
     min_max_from_dimension_slice,
 )
-from .basebands_spws import find_spw_in_basebands_list
+from xradio.measurement_set._utils._asdm._utils._bdf.basebands_spws import (
+    find_spw_in_basebands_list,
+)
 
 
 def load_visibilities_one_spw_to_ndarray(
@@ -118,7 +120,6 @@ def _load_vis_one_spw_auto_data_from_tree(
     elements_count: int,
     array_slice: tuple[int, ...],
 ) -> np.ndarray:
-
     polarization_len = guessed_shape[-2]
     if polarization_len == 3:
         sd_polarization_len = 4
@@ -151,9 +152,8 @@ def _load_vis_one_spw_auto_data_from_tree(
         vis_auto_strides = []
         for antenna_idx in np.arange(antenna_min, antenna_max):
             offset = (
-                (time_idx - time_min) * antenna_idx * auto_offset_addition_both
-                + auto_offset_addition_before
-            )
+                time_idx - time_min
+            ) * antenna_idx * auto_offset_addition_both + auto_offset_addition_before
             one_antenna_count = (frequency_max - frequency_min) * sd_polarization_len
             bdf_file.seek(component_offset + offset, os.SEEK_SET)
             spw_floats = np.fromfile(bdf_file, dtype=data_type, count=one_antenna_count)
@@ -203,7 +203,6 @@ def _load_vis_one_spw_cross_data_from_tree(
     processor_type: pyasdm.enumerations.ProcessorType,
     array_slice: tuple[slice, ...],
 ) -> np.ndarray:
-
     polarization_len = guessed_shape[-2]
     cross_offset_addition_before = (
         np.sum(spw_chan_lens[0:overall_spw_idx], dtype=int) * polarization_len * 2

@@ -1,14 +1,12 @@
 import traceback
 
 import numpy as np
-
 import xarray as xr
-
 
 from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
-    load_visibilities_from_partition_bdfs,
     load_flags_from_partition_bdfs,
+    load_visibilities_from_partition_bdfs,
 )
 from xradio.measurement_set._utils._asdm._utils.calculate_uvw import calculate_uvw
 

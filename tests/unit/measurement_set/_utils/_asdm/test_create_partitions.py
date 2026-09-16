@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-
 import pytest
 
 from xradio.measurement_set._utils._asdm.create_partitions import (
@@ -35,7 +34,6 @@ def test_create_partitions_asdm_with_spw_simple(asdm_with_spw_simple, monkeypatc
 def test_create_partitions_with_includes_asdm_with_spw_simple(
     asdm_with_main_config, monkeypatch
 ):
-
     monkeypatch.setattr(
         "pyasdm.MainRow.getBDFPath", lambda bdf_paths: "/monkypatched_path/foo"
     )
@@ -54,7 +52,6 @@ def test_create_partitions_with_includes_asdm_with_spw_simple(
 def test_create_partitions_with_filter_on_processor_type_asdm_with_spw_simple(
     asdm_with_main, monkeypatch
 ):
-
     monkeypatch.setattr(
         "pyasdm.MainRow.getBDFPath", lambda bdf_paths: "/monkypatched_path/foo"
     )
@@ -69,7 +66,6 @@ def test_create_partitions_with_filter_on_processor_type_asdm_with_spw_simple(
 def test_create_partitions_with_filter_on_spectral_resolution_type_asdm_with_spw_simple(
     asdm_with_main, monkeypatch
 ):
-
     monkeypatch.setattr(
         "pyasdm.MainRow.getBDFPath", lambda bdf_paths: "/monkypatched_path/foo"
     )

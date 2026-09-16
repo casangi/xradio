@@ -1,27 +1,24 @@
-from contextlib import nullcontext as no_raises
 import warnings
+from contextlib import nullcontext as no_raises
 
 import numpy as np
 import pandas as pd
+import pyasdm
+import pytest
 import xarray as xr
-
 from astropy.utils.exceptions import AstropyWarning
 from erfa import ErfaWarning
 
-import pytest
-
-import pyasdm
-
+from xradio.measurement_set.schema import UvwArray, VisibilityXds
 from xradio.schema.check import (
-    xarray_dataclass_to_array_schema,
-    xarray_dataclass_to_dataset_schema,
     check_array,
     check_attributes,
     check_datatree,
     check_dimensions,
     check_dtype,
+    xarray_dataclass_to_array_schema,
+    xarray_dataclass_to_dataset_schema,
 )
-from xradio.measurement_set.schema import UvwArray, VisibilityXds
 
 
 def mock_load_times_from_partition_bdfs(

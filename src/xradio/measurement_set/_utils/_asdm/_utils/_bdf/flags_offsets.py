@@ -5,7 +5,6 @@ flags of a given SPW. These offsets are the position increments (increments 'bef
 """
 
 import numpy as np
-
 import pyasdm
 
 
@@ -15,7 +14,6 @@ def calculate_offset_additions_cross_sd(
     overall_spw_idx: int,
     flag_array_len: int,
 ) -> dict[str, tuple[int, int]]:
-
     auto_only = (
         bdf_descr["correlation_mode"] == pyasdm.enumerations.CorrelationMode.AUTO_ONLY
     )
@@ -109,7 +107,6 @@ def _make_flag_tree_offsets_per_spw(
     per_spw_auto_pol_lens: list[int],
     overall_spw_idx: int,
 ) -> dict[str, dict]:
-
     offset = {"cross": {}, "auto": {}}
     offset["cross"]["before"] = np.sum(
         per_spw_cross_pol_lens[0:overall_spw_idx], dtype=int
@@ -129,7 +126,6 @@ def _make_flag_tree_offsets_per_spw(
 def _make_flag_tree_offsets_per_baseband(
     per_baseband_cross_pol_lens, per_baseband_auto_pol_lens, baseband_idx
 ) -> dict[str, dict]:
-
     offset = {"cross": {}, "auto": {}}
     offset["cross"]["before"] = np.sum(
         per_baseband_cross_pol_lens[0:baseband_idx], dtype=int

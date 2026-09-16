@@ -11,12 +11,14 @@ n-dimensional numpy array).
 import traceback
 
 import numpy as np
-
 import pyasdm
 
 from xradio._utils.logging import xradio_logger
-from .array_indexing import calc_auto_cross_baseline_slices, find_data_components_needed
-from .shapes import (
+from xradio.measurement_set._utils._asdm._utils._bdf.array_indexing import (
+    calc_auto_cross_baseline_slices,
+    find_data_components_needed,
+)
+from xradio.measurement_set._utils._asdm._utils._bdf.shapes import (
     add_cross_and_auto_flag_shapes,
     full_shape_to_output_filled_flags_shape,
 )
@@ -29,7 +31,6 @@ def load_visibilities_all_subsets(
     bdf_descr: dict,
     array_slice: tuple[slice, ...],
 ) -> np.ndarray:
-
     baseband_description = bdf_descr["basebands"][baseband_spw_idxs[0]]
     spw_descr = baseband_description["spectralWindows"][baseband_spw_idxs[1]]
     scale_factor = spw_descr["scaleFactor"] or 1
@@ -71,7 +72,6 @@ def _load_vis_subset(
     processor_type: pyasdm.enumerations.ProcessorType,
     array_slice: tuple[slice, ...],
 ) -> np.ndarray:
-
     auto_data_present = "autoData" in subset and subset["autoData"]["present"]
     cross_data_present = "crossData" in subset and subset["crossData"]["present"]
 
@@ -128,7 +128,6 @@ def _load_vis_subset_cross_data(
     processor_type: pyasdm.enumerations.ProcessorType,
     array_slice: tuple[slice, ...],
 ) -> np.ndarray:
-
     cross_shape = guessed_shape[0:2] + guessed_shape[3:]
     cross_len = np.prod(cross_shape)
     cross_values = cross_data_arr[:cross_len].reshape(cross_shape)
@@ -175,7 +174,6 @@ def _load_vis_subset_auto_data(
     baseband_spw_idxs: tuple[int, int],
     array_slice: tuple[slice, ...],
 ) -> np.ndarray:
-
     polarization_len = guessed_shape[-2]
     time_slice, baseline_id_slice, frequency_slice, polarization_slice = array_slice
 
@@ -283,7 +281,6 @@ def load_flags_all_subsets(
     baseband_spw_idxs: tuple[int, int],
     array_slice: tuple[slice, ...],
 ) -> np.ndarray:
-
     flag_per_subset = []
     while bdf_reader.hasSubset():
         try:
@@ -309,7 +306,6 @@ def load_flags_all_subsets(
 def define_flag_shape(
     bdf_descr: dict, baseband_spw_idxs: tuple[int, int]
 ) -> dict[str, tuple[int, ...]]:
-
     baseband_len = len(bdf_descr["basebands"])
     antenna_len = bdf_descr["num_antenna"]
     baseline_len = int(antenna_len * (antenna_len - 1) / 2)
@@ -347,7 +343,6 @@ def _try_alternatives_guessed_shape(
     flags_actual_size: int,
     baseband_spw_idxs: tuple[int, int],
 ) -> dict[str, tuple[int, ...]]:
-
     guessed_size = np.prod(add_cross_and_auto_flag_shapes(guessed_shape))
     if guessed_size > flags_actual_size:
         # try single value for all basebands

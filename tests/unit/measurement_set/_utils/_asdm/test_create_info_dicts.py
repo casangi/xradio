@@ -1,11 +1,10 @@
-import xarray as xr
-
 import pytest
+import xarray as xr
 
 from xradio.measurement_set._utils._asdm.create_info_dicts import (
     create_info_dicts,
-    create_processor_info,
     create_observation_info,
+    create_processor_info,
 )
 
 
@@ -27,7 +26,6 @@ def test_create_info_dicts_with_asdm_simple(asdm_with_spw_simple):
 def test_create_info_dicts_with_asdm_simple_extended(
     asdm_with_main_execblock_config_processor_sbsummary,
 ):
-
     # Only field from the partition dict needed here is configDescriptionId
     info_dicts = create_info_dicts(
         asdm_with_main_execblock_config_processor_sbsummary,
@@ -55,7 +53,6 @@ def test_create_info_dicts_with_asdm_simple_extended(
 def test_create_observation_info_with_asdm_simple_extended(
     asdm_with_main_execblock_config_processor_sbsummary,
 ):
-
     # Only field from the partition dict needed here is configDescriptionId
     observation_info = create_observation_info(
         asdm_with_main_execblock_config_processor_sbsummary,
@@ -76,7 +73,6 @@ def test_create_observation_info_with_asdm_simple_extended(
 def test_create_processor_info_with_asdm_simple_extended(
     asdm_with_main_execblock_config_processor_sbsummary,
 ):
-
     # Only field from the partition dict needed here is configDescriptionId
     processor_info = create_processor_info(
         asdm_with_main_execblock_config_processor_sbsummary,

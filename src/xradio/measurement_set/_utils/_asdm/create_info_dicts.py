@@ -1,6 +1,5 @@
-import xarray as xr
-
 import pyasdm
+import xarray as xr
 
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,

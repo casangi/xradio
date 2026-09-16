@@ -1,11 +1,9 @@
 from contextlib import nullcontext as no_raises
 from unittest import mock
 
-import pytest
-
 import numpy as np
-
 import pyasdm
+import pytest
 
 # From uid___A002_Xfd764e_X2197
 basebands_example_X2197 = [

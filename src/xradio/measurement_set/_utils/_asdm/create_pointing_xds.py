@@ -2,9 +2,8 @@ import time
 
 import numpy as np
 import pandas as pd
-import xarray as xr
-
 import pyasdm
+import xarray as xr
 
 from xradio._utils.dict_helpers import make_time_measure_attrs
 from xradio._utils.logging import xradio_logger

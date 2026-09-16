@@ -1,7 +1,6 @@
-import pytest
-
 import numpy as np
 import pandas as pd
+import pytest
 import xarray as xr
 
 from xradio.measurement_set._utils._asdm.open_asdm import open_asdm
@@ -26,7 +25,6 @@ def test_open_asdm_empty(asdm_empty, monkeypatch):
 
 
 def test_open_asdm_with_spw_default(mock_asdm_set_from_file, monkeypatch):
-
     monkeypatch.setattr(
         "xradio.measurement_set._utils._asdm.open_asdm.pyasdm.ASDM.setFromFile",
         mock_asdm_set_from_file,
@@ -39,7 +37,6 @@ def test_open_asdm_with_spw_default(mock_asdm_set_from_file, monkeypatch):
 
 
 def test_open_asdm_with_mocked_set_from_file(mock_asdm_set_from_file, monkeypatch):
-
     def mock_load_times_from_partition_bdfs(
         bdf_paths: list[str], scans_metadata: pd.DataFrame
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:

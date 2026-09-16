@@ -31,7 +31,6 @@ def min_max_from_dimension_slice(
 def find_bdfs_and_indices_in_selected_times(
     time_indices_by_bdf: dict, time_slice: slice | int
 ) -> tuple[list[str], list[slice]]:
-
     if (
         time_slice is None
         or isinstance(time_slice, slice)
@@ -110,9 +109,12 @@ def _find_index_in_bdf_start_indices(
             )
 
     result = (
-        bdf_start_indices[bdf_index_first],
-        bdf_start_indices[bdf_index_last],
-    ), slice(bdf_index_first, bdf_index_last + 1)
+        (
+            bdf_start_indices[bdf_index_first],
+            bdf_start_indices[bdf_index_last],
+        ),
+        slice(bdf_index_first, bdf_index_last + 1),
+    )
     return result
 
 

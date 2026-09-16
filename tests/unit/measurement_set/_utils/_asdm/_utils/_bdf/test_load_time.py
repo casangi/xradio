@@ -2,10 +2,8 @@ from unittest import mock
 
 import numpy as np
 import pandas as pd
-
-import pytest
-
 import pyasdm
+import pytest
 
 
 def test_get_times_from_bdfs_empty():
@@ -38,8 +36,8 @@ def test_load_times_from_partition_bdfs():
         subset_times = {
             "midpointInNanoSeconds": 1e10,
             "intervalInNanoSeconds": 1e9,
-            "actualTimes": {"present": True, "arr": 10.1e9 * np.ones((100))},
-            "actualDurations": {"present": True, "arr": 1.01e9 * np.ones((100))},
+            "actualTimes": {"present": True, "arr": 10.1e9 * np.ones(100)},
+            "actualDurations": {"present": True, "arr": 1.01e9 * np.ones(100)},
         }
         mock_bdf_reader.return_value.getSubset.side_effect = [subset_times] * 2
 
@@ -75,8 +73,8 @@ def test_load_times_from_partition_bdfs_error():
         subset_times = {
             "midpointInNanoSeconds": 1e10,
             "intervalInNanoSeconds": 1e9,
-            "actualTimes": {"present": True, "arr": 10.1e9 * np.ones((100))},
-            "actualDurations": {"present": True, "arr": 1.01e9 * np.ones((100))},
+            "actualTimes": {"present": True, "arr": 10.1e9 * np.ones(100)},
+            "actualDurations": {"present": True, "arr": 1.01e9 * np.ones(100)},
         }
         mock_bdf_reader.return_value.getSubset.side_effect = [subset_times] * 2
 
@@ -198,8 +196,8 @@ def test_load_times_from_bdfs():
         subset_times = {
             "midpointInNanoSeconds": 1e10,
             "intervalInNanoSeconds": 1e9,
-            "actualTimes": {"present": True, "arr": 10.1e9 * np.ones((100))},
-            "actualDurations": {"present": True, "arr": 1.01e9 * np.ones((100))},
+            "actualTimes": {"present": True, "arr": 10.1e9 * np.ones(100)},
+            "actualDurations": {"present": True, "arr": 1.01e9 * np.ones(100)},
         }
         mock_bdf_reader.return_value.getSubset.side_effect = [subset_times] * 2
 
@@ -262,8 +260,8 @@ def test_load_times_bdf():
             {
                 "midpointInNanoSeconds": 1e10,
                 "intervalInNanoSeconds": 1e9,
-                "actualTimes": {"present": True, "arr": 10.1e9 * np.ones((100))},
-                "actualDurations": {"present": True, "arr": 1.01e9 * np.ones((100))},
+                "actualTimes": {"present": True, "arr": 10.1e9 * np.ones(100)},
+                "actualDurations": {"present": True, "arr": 1.01e9 * np.ones(100)},
             },
             None,
         ]

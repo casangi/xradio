@@ -1,6 +1,5 @@
-import pytest
-
 import pyasdm
+import pytest
 
 
 def make_asdm_empty():

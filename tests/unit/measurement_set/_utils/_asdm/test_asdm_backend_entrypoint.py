@@ -1,8 +1,7 @@
 from unittest import mock
 
-import pytest
-
 import pyasdm
+import pytest
 
 
 def test_open_datatree_drop_variables_not_supported():

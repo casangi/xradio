@@ -3,7 +3,6 @@ import time
 
 import numpy as np
 import pandas as pd
-
 import pyasdm
 
 from xradio._utils.logging import xradio_logger

@@ -1,7 +1,5 @@
 import numpy as np
-
 import pandas as pd
-
 import pytest
 
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
@@ -21,7 +19,6 @@ def test_load_asdm_col_asdm_empty(asdm_empty):
 
 
 def test_load_asdm_col_asdm_spw_default(asdm_with_spw_default):
-
     with pytest.raises(AttributeError, match="has no attribute"):
         load_asdm_col(asdm_with_spw_default.getSpectralWindow(), "foo_nonexistant")
 
@@ -94,14 +91,12 @@ def test_exp_asdm_table_to_df_asdm_empty(asdm_empty):
 
 
 def test_exp_asdm_table_to_df_asdm_with_spw_default(asdm_with_spw_default):
-
     cols = ["fieldId"]
     main_df = exp_asdm_table_to_df(asdm_with_spw_default, "Main", cols)
     assert main_df.empty
 
 
 def test_exp_asdm_table_to_df_asdm_with_spw_simple(asdm_with_spw_simple):
-
     cols = ["fieldId"]
     main_df = exp_asdm_table_to_df(asdm_with_spw_simple, "Main", cols)
     assert main_df.empty
@@ -118,7 +113,6 @@ def test_exp_asdm_table_to_df_asdm_with_spw_simple(asdm_with_spw_simple):
 
 
 def test_exp_asdm_table_to_df_asdm_with_spw_simple_plus_feed(asdm_with_simple_feed):
-
     from pyasdm.enumerations import PolarizationType
 
     cols = ["polarizationTypes"]
@@ -142,7 +136,6 @@ def test_exp_asdm_table_to_df_asdm_with_spw_simple_plus_feed(asdm_with_simple_fe
 def test_exp_asdm_table_to_df_asdm_with_spw_simple_plus_polarization(
     asdm_with_polarization,
 ):
-
     cols = ["corrProduct"]
     polarization_df = exp_asdm_table_to_df(asdm_with_polarization, "Polarization", cols)
     assert polarization_df.columns == cols
@@ -153,7 +146,6 @@ def test_exp_asdm_table_to_df_asdm_with_spw_simple_plus_polarization(
 def test_exp_asdm_table_to_df_asdm_with_field_direction(
     asdm_with_main_etc_data_description_polarization_field_source,
 ):
-
     cols = ["referenceDir"]
     field_df = exp_asdm_table_to_df(
         asdm_with_main_etc_data_description_polarization_field_source, "Field", cols

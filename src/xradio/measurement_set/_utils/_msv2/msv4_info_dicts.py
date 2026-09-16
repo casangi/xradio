@@ -1,7 +1,6 @@
 import re
 
 import numpy as np
-
 import xarray as xr
 
 try:
@@ -10,14 +9,14 @@ except ImportError:
     import xradio._utils._casacore.casacore_from_casatools as tables
 
 
-from .subtables import subt_rename_ids
-from ._tables.read import (
+from xradio._utils.list_and_array import check_if_consistent
+from xradio._utils.logging import xradio_logger
+from xradio.measurement_set._utils._msv2._tables.read import (
     casacore_numpy_to_json_safe_type,
     convert_casacore_time,
     load_generic_table,
 )
-from xradio._utils.list_and_array import check_if_consistent
-from xradio._utils.logging import xradio_logger
+from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
 
 
 def create_info_dicts(

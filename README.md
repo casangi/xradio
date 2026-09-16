@@ -9,6 +9,8 @@ Xarray Radio Astronomy Data IO is still in development.
 [![Documentation Status](https://readthedocs.org/projects/xradio/badge/?version=latest)](https://xradio.readthedocs.io)
 [![Version Status](https://img.shields.io/pypi/v/xradio.svg)](https://pypi.python.org/pypi/xradio/)
 [![Benchmarks](https://img.shields.io/badge/Benchmarks-Tests-orange)](https://casangi.github.io/benchviper/xradio)
+[![Read the Docs Status](https://readthedocs.org)](https://xradio.readthedocs.io/en/latest/?badge=latest)
+
 
 # Installing
 XRADIO can be installed in virtual environments via pip. It is recommended to use the conda environment manager from [miniforge](https://github.com/conda-forge/miniforge) to create a clean, self-contained runtime where XRADIO and all its dependencies can be installed, for example:
@@ -28,7 +30,7 @@ To install the zarr backend use:
 ```sh
 pip install "xradio[zarr]"
 ```
-This allows for opening data stored using zarr. 
+This allows for opening data stored using zarr.
 
 To install the zarr backend and the interactive components (JupyterLab) use:
 ```sh

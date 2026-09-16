@@ -1,5 +1,6 @@
-import pytest
 import numpy as np
+import pytest
+
 import xradio._utils.list_and_array as opt
 
 

@@ -196,7 +196,7 @@ even though the tests are stored in an external project.
 
 from xradio.testing.measurement_set.io import download_measurement_set
 from xradio.testing.measurement_set.msv2_io import (
-    build_processing_set_from_msv2, 
+    build_processing_set_from_msv2,
     build_minimal_msv4_xdt
 )
 
@@ -228,7 +228,7 @@ class TestLoadProcessingSet:
     def time_basic_load(self):
         """Test basic loading of processing set without parameters"""
         ps_xdt = load_processing_set(self.processing_set)
-    
+
 ```
 
 # Running Tests

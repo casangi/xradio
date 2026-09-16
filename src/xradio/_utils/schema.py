@@ -1,5 +1,7 @@
-import xarray as xr
 from typing import Union
+
+import xarray as xr
+
 from xradio._utils.dict_helpers import ensure_units_are_consistent
 from xradio._utils.logging import xradio_logger
 
@@ -9,7 +11,7 @@ def convert_generic_xds_to_xradio_schema(
     msv4_xds: xr.Dataset,
     to_new_data_variables: dict[str, list],
     to_new_coords: dict[str, list],
-    ref_code: Union[int, None] = None,
+    ref_code: int | None = None,
 ) -> xr.Dataset:
     """Converts a generic xarray Dataset to the xradio schema.
 
@@ -63,7 +65,6 @@ def convert_generic_xds_to_xradio_schema(
     name_keys = list(generic_xds.data_vars.keys()) + list(generic_xds.coords.keys())
 
     for key in name_keys:
-
         if key in column_description:
             msv4_measure = column_description_casacore_to_msv4_measure(
                 column_description[key], ref_code
@@ -89,8 +90,8 @@ def convert_generic_xds_to_xradio_schema(
                 coord_attrs[new_coord[0]] = msv4_measure
 
     msv4_xds = msv4_xds.assign_coords(coords)
-    for coord, coord_attrs in coord_attrs.items():
-        msv4_xds.coords[coord].attrs.update(coord_attrs)
+    for coord, attrs in coord_attrs.items():
+        msv4_xds.coords[coord].attrs.update(attrs)
 
     return msv4_xds
 
@@ -130,8 +131,7 @@ def column_description_casacore_to_msv4_measure(
                 casa_ref = casa_frequency_frames[ref_index]
             else:
                 xradio_logger().debug(
-                    f"Could not determine {measinfo['type']} measure "
-                    "reference frame!"
+                    f"Could not determine {measinfo['type']} measure reference frame!"
                 )
 
             # Convert into MSv4 representation of reference frame, warn if unknown
@@ -244,7 +244,8 @@ def get_data_group_keys(schema_name: str) -> list[tuple[str, bool]]:
     ValueError
         If the schema name is unknown.
     """
-    from typing import get_type_hints, get_origin, get_args, Union
+    from types import UnionType
+    from typing import get_args, get_origin, get_type_hints
 
     if schema_name == "msv4":
         from xradio.measurement_set.schema import DataGroupDict
@@ -262,7 +263,9 @@ def get_data_group_keys(schema_name: str) -> list[tuple[str, bool]]:
     for name, anno in annotations.items():
         origin = get_origin(anno)
         is_optional = False
-        if origin is Union:
+        # Optionality can be spelled Union[X, None]/Optional[X] (typing.Union)
+        # or "X | None" (types.UnionType)
+        if origin is Union or origin is UnionType:
             args = get_args(anno)
             is_optional = type(None) in args
         keys_with_optional[name] = is_optional

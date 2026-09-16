@@ -15,11 +15,13 @@ implementation differs in a number of critical ways:
   generating documentation generation using Sphinx
 """
 
-import xarray
-import inspect
-from . import dataclass, check, metamodel, typing
-import numpy
 import dataclasses
+import inspect
+
+import numpy
+import xarray
+
+from xradio.schema import check, dataclass, metamodel, typing
 
 
 def _guess_dtype(obj: typing.Any):
@@ -30,7 +32,9 @@ def _guess_dtype(obj: typing.Any):
 
 
 def _set_parameter(
-    val: typing.Any, args: dict, schema: typing.Union["AttrSchemaRef", "ArraySchemaRef"]
+    val: typing.Any,
+    args: dict,
+    schema: metamodel.AttrSchemaRef | metamodel.ArraySchemaRef,
 ):
     """
     Extract given entry from parameters - while taking care that the
@@ -144,7 +148,7 @@ def _dataarray_new(
             break
 
     # If we are constructing from a data array / variable, take over attributes
-    if isinstance(data, (xarray.DataArray, xarray.Variable)):
+    if isinstance(data, xarray.DataArray | xarray.Variable):
         for attr, attr_val in data.attrs.items():
             # Explicit parameters take precedence though
             if attr not in attrs:
@@ -268,7 +272,7 @@ def xarray_dataarray_schema(cls):
 
 
 def is_dataarray_schema(val: typing.Any):
-    return type(val) == type and hasattr(val, "__xradio_array_schema")
+    return type(val) is type and hasattr(val, "__xradio_array_schema")
 
 
 def _dataset_new(cls, *args, data_vars=None, coords=None, attrs=None, **kwargs):
@@ -423,7 +427,7 @@ def xarray_dataset_schema(cls):
 
 
 def is_dataset_schema(val: typing.Any):
-    return type(val) == type and hasattr(val, "__xradio_dataset_schema")
+    return type(val) is type and hasattr(val, "__xradio_dataset_schema")
 
 
 def _dict_new(cls, *args, **kwargs):
@@ -469,4 +473,4 @@ def dict_schema(cls):
 
 
 def is_dict_schema(val: typing.Any):
-    return type(val) == type and hasattr(val, "__xradio_dict_schema")
+    return type(val) is type and hasattr(val, "__xradio_dict_schema")

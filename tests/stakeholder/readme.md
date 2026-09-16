@@ -134,5 +134,3 @@ Data were chosen to cover as much observing modes as possible. The following obs
 | uid___A002_Xe3a5fd_Xe38e.small.ms | single | relative | Y | raster |
 | uid___A002_X1015532_X1926f.small.ms | multi | absolute | N | raster |
 | uid___A002_Xae00c5_X2e6b.small.ms | single | relative | Y | fast |
-
-

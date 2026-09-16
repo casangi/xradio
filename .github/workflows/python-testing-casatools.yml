@@ -1,5 +1,17 @@
 name: "Python Testing with casatools"
 
+# 2026-08-20: inlined from
+# nrao/gh-actions-templates-public/.github/workflows/python-testing-casatools-template.yml
+# to pin casatools. casatools >= 6.7.6 wheels vendor an unmangled
+# libssl.so.3 (casatools/__casac__/lib/) whose versioned OpenSSL symbol
+# references (OPENSSL_3.0.1) cannot bind against the conda-forge libcrypto
+# already loaded by Python's own ssl module (conda-forge builds OpenSSL
+# without symbol versioning), so `import casatools` dies with
+#   ImportError: ... libcrypto.so.3: version `OPENSSL_3.0.1' not found
+# in every conda env. 6.7.0.31 (the last auditwheel-mangled build) is what
+# this CI ran green on. Drop the pin (and consider returning to the shared
+# template) once a casatools release imports cleanly in a conda-forge env.
+
 on:
   pull_request:
     paths-ignore:
@@ -7,10 +19,70 @@ on:
       - "**.rst"
 
 jobs:
-  call-testing-with-casatools:
-    uses: nrao/gh-actions-templates-public/.github/workflows/python-testing-casatools-template.yml@main
-    with:
-      cov_project: "xradio"
-      test-path: "tests/"
-      pytest_ignore: "tests/unit/measurement_set"
-    secrets: inherit
+  build:
+    strategy:
+      matrix:
+        os: ["ubuntu-latest", "macos-latest"]
+        python-version: ["3.11", "3.12"]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Conda
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-activate-base: false
+          activate-environment: test
+          python-version: ${{ matrix.python-version }}
+          channels: conda-forge
+          use-only-tar-bz2: true
+          show-channel-urls: true
+          miniforge-version: latest
+
+      - name: Install dependencies with pip
+        run: |
+          python -m pip install --upgrade pip
+          # install the current package
+          pip install ".[all]"
+          pip uninstall python-casacore -y
+          # Pinned: see the header comment (>=6.7.6 cannot import in conda envs).
+          pip install "casatools==6.7.0.31"
+          # trigger `casa-data` fetch
+          mkdir -p ~/.casa/data && python -c 'import casatools'
+
+      - name: Test with pytest
+        env:
+          SKIP_TESTS_CASATOOLS: "1"  # Skip tests that require casatasks
+        run: |
+          pytest -v tests/ \
+          --ignore=tests/unit/measurement_set \
+          --html=test-results.html --self-contained-html \
+          --cov=xradio --no-cov-on-fail \
+          --cov-report=html --cov-report=xml --doctest-modules \
+          --junitxml=junit.xml -o junit_family=legacy
+
+      - name: Upload pytest test results and coverage reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-results-${{ matrix.os }}-${{ matrix.python-version }}-with-casatools
+          path: |
+            ./test-results.html
+            ./htmlcov
+        # Use always() to always run this step to publish test results when there are test failures
+        if: ${{ always() }}
+
+      - name: Upload code coverage results to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: ${{ github.repository }}
+
+      - name: Upload test stats to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: ${{ github.repository }}

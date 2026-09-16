@@ -1,4 +1,4 @@
-from . import schema_table
+from xradio.sphinx import schema_table
 
 
 def setup(app):

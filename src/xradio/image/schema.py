@@ -1,9 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal, Optional, Union
 from xradio.schema.bases import (
-    xarray_dataset_schema,
-    xarray_dataarray_schema,
     dict_schema,
 )
 
@@ -12,31 +9,31 @@ from xradio.schema.bases import (
 class DataGroupDict:
     """Defines a group of images."""
 
-    sky: Optional[str]
+    sky: str | None
     """ Name of the sky variable, for example 'SKY'. Derived from the gridded visibilities. On plane tangential to celestial sphere. """
-    flag: Optional[str]
+    flag: str | None
     """ Name of the sky pixels flags variable, for example 'FLAG_SKY'. For CASA images this is an internal mask. """
-    point_spread_function: Optional[str]
+    point_spread_function: str | None
     """ Name of the point spread function variable of the group, for example 'POINT_SPREAD_FUNCTION'. On plane tangential to celestial sphere. """
-    primary_beam: Optional[str]
+    primary_beam: str | None
     """ Name of the primary beam variable of the group, for example 'PRIMARY_BEAM'. On plane tangential to celestial sphere. """
-    mask: Optional[str]
+    mask: str | None
     """ Name of the deconvolution mask variable of the group, for example 'MASK_DECONVOLVE'. On plane tangential to celestial sphere. """
-    beam_fit_params_sky: Optional[str]
+    beam_fit_params_sky: str | None
     """ Name of the beam fit parameters variable of the group, for example 'BEAM_FIT_PARAMETERS'. That applies to the sky, residual images and the point spread function if present. """
-    beam_fit_params_point_spread_function: Optional[str]
+    beam_fit_params_point_spread_function: str | None
     """ Name of the beam fit parameters variable of the group, for example 'BEAM_FIT_PARAMETERS'. That applies to the sky, residual images and the point spread function if present. """
-    visibility: Optional[str]
+    visibility: str | None
     """ Name of the visibility variable of the group, for example 'VISIBILITY'. The gridded visibilities used to create the images using a Fourier transform. On aperture plane."""
-    visibility_normalization: Optional[str]
+    visibility_normalization: str | None
     """ Normalization factor for the gridded visibility data. """
-    uv_sampling: Optional[str]
+    uv_sampling: str | None
     """ Name of the uv sampling variable of the group, for example 'UV_SAMPLING'. The gridded weights used to create the point spread function using a Fourier transform. On aperture plane."""
-    uv_sampling_normalization: Optional[str]
+    uv_sampling_normalization: str | None
     """ Normalization factor for the gridded weights. This is the sum of weights and the sensitivity can be calculated using 1/sqrt(uv_sampling_normalization)."""
-    aperture: Optional[str]
+    aperture: str | None
     """ Name of the aperture variable of the group, for example 'APERTURE'. On aperture plane. The aperture is the Fourier transform of the primary beam."""
-    aperture_normalization: Optional[str]
+    aperture_normalization: str | None
     """ Normalization factor for the aperture data.  """
     description: str
     """ More details about the data group. """

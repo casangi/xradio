@@ -1,8 +1,7 @@
 import shutil
 
-import xarray as xr
-
 import pytest
+import xarray as xr
 
 mem_estimate_min_ms = 0.011131428182125092
 

@@ -1,18 +1,17 @@
-from astropy.wcs import WCS
-from collections import OrderedDict
+import os
+
 import numpy as np
 import xarray as xr
-from typing import List, Union
-from .common import _c, _compute_world_sph_dims, _l_m_attr_notes
-from xradio._utils.coord_math import _deg_to_rad
+
 from xradio._utils.dict_helpers import (
     make_direction_location_dict,
-    make_spectral_coord_reference_dict,
     make_quantity,
     make_skycoord_dict,
+    make_spectral_coord_reference_dict,
     make_time_coord_attrs,
 )
 from xradio._utils.logging import xradio_logger
+from xradio.image._util.common import _c, _compute_world_sph_dims, _l_m_attr_notes
 
 
 def _is_galactic_frame(direction_reference: str) -> bool:
@@ -71,9 +70,9 @@ def _spherical_coord_names_for_frame(direction_reference: str) -> tuple[str, str
 
 
 def _input_checks(
-    phase_center: Union[list, np.ndarray],
-    image_size: Union[list, np.ndarray],
-    cell_size: Union[list, np.ndarray],
+    phase_center: list | np.ndarray,
+    image_size: list | np.ndarray,
+    cell_size: list | np.ndarray,
 ) -> None:
     """
     Validate input parameters for image creation functions.
@@ -106,8 +105,8 @@ def _input_checks(
 
 
 def _make_coords(
-    frequency_coords: Union[list, np.ndarray],
-    time_coords: Union[list, np.ndarray],
+    frequency_coords: list | np.ndarray,
+    time_coords: list | np.ndarray,
 ) -> dict:
     """
     Build common time/frequency/velocity coordinate arrays.
@@ -144,8 +143,8 @@ def _add_common_attrs(
     restfreq: float,
     spectral_reference: str,
     direction_reference: str,
-    phase_center: Union[List[float], np.ndarray],
-    cell_size: Union[List[float], np.ndarray],
+    phase_center: list[float] | np.ndarray,
+    cell_size: list[float] | np.ndarray,
     projection: str,
 ) -> xr.Dataset:
     """
@@ -213,9 +212,9 @@ def _add_common_attrs(
 
 
 def _make_common_coords(
-    pol_coords: Union[list, np.ndarray],
-    frequency_coords: Union[list, np.ndarray],
-    time_coords: Union[list, np.ndarray],
+    pol_coords: list | np.ndarray,
+    frequency_coords: list | np.ndarray,
+    time_coords: list | np.ndarray,
 ) -> dict:
     """
     Build shared non-direction coordinates used by image constructors.
@@ -247,8 +246,8 @@ def _make_common_coords(
 
 
 def _make_lm_values(
-    image_size: Union[list, np.ndarray],
-    cell_size: Union[list, np.ndarray],
+    image_size: list | np.ndarray,
+    cell_size: list | np.ndarray,
 ) -> dict:
     """
     Build linear ``l`` and ``m`` coordinate arrays from image geometry.
@@ -277,9 +276,9 @@ def _make_lm_values(
 
 def _make_sky_coords(
     projection: str,
-    image_size: Union[list, np.ndarray],
-    cell_size: Union[list, np.ndarray],
-    phase_center: Union[list, np.ndarray],
+    image_size: list | np.ndarray,
+    cell_size: list | np.ndarray,
+    phase_center: list | np.ndarray,
     direction_reference: str,
 ) -> dict:
     """
@@ -339,12 +338,12 @@ def _add_lm_coord_attrs(xds: xr.Dataset) -> None:
 
 
 def _make_empty_sky_image(
-    phase_center: Union[list, np.ndarray],
-    image_size: Union[list, np.ndarray],
-    cell_size: Union[list, np.ndarray],
-    frequency_coords: Union[list, np.ndarray],
-    pol_coords: Union[list, np.ndarray],
-    time_coords: Union[list, np.ndarray],
+    phase_center: list | np.ndarray,
+    image_size: list | np.ndarray,
+    cell_size: list | np.ndarray,
+    frequency_coords: list | np.ndarray,
+    pol_coords: list | np.ndarray,
+    time_coords: list | np.ndarray,
     direction_reference: str,
     projection: str,
     spectral_reference: str,
@@ -409,8 +408,8 @@ def _make_empty_sky_image(
 
 def _make_uv_coords(
     xds: xr.Dataset,
-    image_size: Union[list, np.ndarray],
-    sky_image_cell_size: Union[list, np.ndarray],
+    image_size: list | np.ndarray,
+    sky_image_cell_size: list | np.ndarray,
 ) -> xr.Dataset:
     """
     Attach ``u`` and ``v`` coordinates to a dataset.
@@ -438,8 +437,8 @@ def _make_uv_coords(
 
 
 def _make_uv_values(
-    image_size: Union[list, np.ndarray],
-    sky_image_cell_size: Union[list, np.ndarray],
+    image_size: list | np.ndarray,
+    sky_image_cell_size: list | np.ndarray,
 ) -> dict:
     """
     Compute linear ``u`` and ``v`` coordinate arrays.
@@ -464,12 +463,12 @@ def _make_uv_values(
 
 
 def _make_empty_aperture_image(
-    phase_center: Union[list, np.ndarray],
-    image_size: Union[list, np.ndarray],
-    sky_image_cell_size: Union[list, np.ndarray],
-    frequency_coords: Union[list, np.ndarray],
-    pol_coords: Union[list, np.ndarray],
-    time_coords: Union[list, np.ndarray],
+    phase_center: list | np.ndarray,
+    image_size: list | np.ndarray,
+    sky_image_cell_size: list | np.ndarray,
+    frequency_coords: list | np.ndarray,
+    pol_coords: list | np.ndarray,
+    time_coords: list | np.ndarray,
     direction_reference: str,
     projection: str,
     spectral_reference: str,
@@ -541,12 +540,12 @@ def _move_beam_param_dim_coord(xds: xr.Dataset) -> xr.Dataset:
 
 
 def _make_empty_lmuv_image(
-    phase_center: Union[list, np.ndarray],
-    image_size: Union[list, np.ndarray],
-    sky_image_cell_size: Union[list, np.ndarray],
-    frequency_coords: Union[list, np.ndarray],
-    pol_coords: Union[list, np.ndarray],
-    time_coords: Union[list, np.ndarray],
+    phase_center: list | np.ndarray,
+    image_size: list | np.ndarray,
+    sky_image_cell_size: list | np.ndarray,
+    frequency_coords: list | np.ndarray,
+    pol_coords: list | np.ndarray,
+    time_coords: list | np.ndarray,
     direction_reference: str,
     projection: str,
     spectral_reference: str,
@@ -673,40 +672,44 @@ def detect_image_type(store):
         - 'UNKNOWN': Could not detect type from name
         - 'ALL': Non-string store type
     """
-    import os
 
     if isinstance(store, str):
-        if "fits" in store.lower():
+        # Classify by the file name only: matching against the full path
+        # would pick up substrings from directory names (e.g. a "Dropbox"
+        # folder contains "pb" and would classify everything in it as a
+        # primary beam).
+        name = os.path.basename(os.path.normpath(store)).lower()
+        if "fits" in name:
             image_type = "SKY"
-        elif "image" in store.lower():
+        elif "image" in name:
             image_type = "SKY"
-        elif "sky" in store.lower():
+        elif "sky" in name:
             image_type = "SKY"
-        elif "psf" in store.lower():
+        elif "psf" in name:
             image_type = "POINT_SPREAD_FUNCTION"
-        elif "model" in store.lower():
+        elif "model" in name:
             image_type = "MODEL"
-        elif "residual" in store.lower():
+        elif "residual" in name:
             image_type = "RESIDUAL"
-        elif "dirty" in store.lower():
+        elif "dirty" in name:
             image_type = "DIRTY"
-        elif "pb" in store.lower():
+        elif "pb" in name:
             image_type = "PRIMARY_BEAM"
-        elif "aperture" in store.lower():
+        elif "aperture" in name:
             image_type = "APERTURE"
-        elif "uv" in store.lower():
+        elif "uv" in name:
             # Must precede the "im" check so uv images aren't misclassified as SKY.
             image_type = "APERTURE"
-        elif "visibility" in store.lower():
+        elif "visibility" in name:
             image_type = "VISIBILITY"
-        elif "sumwt" in store.lower():
+        elif "sumwt" in name:
             image_type = "VISIBILITY_NORMALIZATION"
-        elif "zarr" in store.lower():
+        elif "zarr" in name:
             image_type = "ALL"
-        elif "im" in store.lower():
+        elif "im" in name:
             # Must precede the "mask" check so *mask*.im images aren't misclassified.
             image_type = "SKY"
-        elif "mask" in store.lower():
+        elif "mask" in name:
             image_type = "MASK_DECONVOLVE"
         else:
             image_type = "UNKNOWN"
@@ -756,7 +759,6 @@ def create_store_dict(store_to_label):
 
     store_dict = {}
     for image_type, store in store_dict_to_label.items():
-
         if isinstance(image_type, int):
             image_type = detect_image_type(store)
 
@@ -801,7 +803,7 @@ def create_store_dict(store_to_label):
 
 
 def create_image_xds_from_store(
-    store: Union[list, dict, str],
+    store: list | dict | str,
     access_store_casa: callable,
     casa_kwargs: dict,
     access_store_fits: callable,
@@ -881,7 +883,6 @@ def create_image_xds_from_store(
     img_xds = xr.Dataset()
     # Loop over all the input CASA and Fits images.
     for image_type, store_description in store_dict.items():
-
         store_type = store_description["store_type"]
         store = store_description["store"]
 
@@ -973,7 +974,7 @@ def create_image_xds_from_store(
         # Figure out data groups.
         # Each sky image gets its own data group and shares all other images between them.
         if "sky" not in image_type.lower():
-            for data_group_name, data_group in data_groups.items():
+            for data_group in data_groups.values():
                 data_group[image_type.lower()] = image_type
 
                 if "point_spread_function" in image_type.lower():

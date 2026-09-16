@@ -34,17 +34,14 @@ from xradio.testing.measurement_set.io import (
 # Casacore-dependent imports (with fallback)
 try:
     # Export generators
-    from xradio.testing.measurement_set.msv2_io import (
-        gen_test_ms,
-        make_ms_empty,
-        gen_minimal_ms,
-    )
-
     # Export IO helpers (casacore-dependent)
     from xradio.testing.measurement_set.msv2_io import (
-        build_processing_set_from_msv2,
-        build_msv4_partition,
         build_minimal_msv4_xdt,
+        build_msv4_partition,
+        build_processing_set_from_msv2,
+        gen_minimal_ms,
+        gen_test_ms,
+        make_ms_empty,
     )
 except ModuleNotFoundError as exc:
     from xradio._utils.logging import xradio_logger

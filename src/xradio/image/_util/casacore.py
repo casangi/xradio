@@ -5,12 +5,12 @@
 #
 #################################
 import os
-import warnings
-from typing import Union
-
-import xarray as xr
 import re
+import warnings
+
 import dask.array as da
+import xarray as xr
+
 from xradio._utils.schema import get_data_group_keys
 
 try:
@@ -19,16 +19,17 @@ except ImportError:
     import xradio._utils._casacore.casacore_from_casatools as tables
 
 
+from xradio.image._util._casacore.common import _beam_fit_params, _open_image_ro
 from xradio.image._util._casacore.xds_from_casacore import (
     _add_mask,
     _add_sky_or_aperture,
     _casa_image_to_xds_attrs,
     _casa_image_to_xds_coords,
+    _get_beam,
     _get_mask_names,
     _get_persistent_block,
     _get_starts_shapes_slices,
     _get_transpose_list,
-    _get_beam,
     _read_image_array,
 )
 from xradio.image._util._casacore.xds_to_casacore import (
@@ -39,10 +40,9 @@ from xradio.image._util._casacore.xds_to_casacore import (
 )
 from xradio.image._util.common import (
     _aperture_or_sky,
-    _get_xds_dim_order,
     _dask_arrayize_dv,
+    _get_xds_dim_order,
 )
-from xradio.image._util._casacore.common import _beam_fit_params, _open_image_ro
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -141,7 +141,7 @@ def _load_casa_image_block(
 
 def _open_casa_image(
     infile: str,
-    chunks: Union[list, dict],
+    chunks: list | dict,
     verbose: bool,
     do_sky_coords: bool,
     masks: bool = True,
@@ -267,7 +267,7 @@ def _xds_to_multiple_casa_images(xds: xr.Dataset, image_store_name: str) -> None
                     outname = image_store_name + "." + image_type
                     _xds_to_casa_image(image_to_write_xds, outname)
                     if not os.path.exists(outname):
-                        raise IOError(f"Failed to write CASA image {outname}")
+                        raise OSError(f"Failed to write CASA image {outname}")
                     n_image_written += 1
                     last_image_written = outname
                     data_vars_name_set.remove(image_name)

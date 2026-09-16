@@ -3,8 +3,8 @@ import astropy.units as u
 import dask
 import dask.array as da
 import numpy as np
-from typing import Dict, List
 import xarray as xr
+
 from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import make_quantity
 
@@ -284,12 +284,12 @@ def _freq_from_vel(
 
 def _compute_world_sph_dims(
     projection: str,
-    shape: List[int],  # two element list of long-lat shape
-    ctype: List[str],  # two element list of long-lat axis names
-    crpix: List[float],  # two element list of long-lat crpix (zero-based)
-    crval: List[float],  # two element list of long-lat crval
-    cdelt: List[float],  # two element list of long-lat increments
-    cunit: List[str],  # two element list of long-lat units
+    shape: list[int],  # two element list of long-lat shape
+    ctype: list[str],  # two element list of long-lat axis names
+    crpix: list[float],  # two element list of long-lat crpix (zero-based)
+    crval: list[float],  # two element list of long-lat crval
+    cdelt: list[float],  # two element list of long-lat increments
+    cunit: list[str],  # two element list of long-lat units
 ) -> dict:
     """
     Compute spherical world-coordinate grids from two-axis WCS inputs.
@@ -331,7 +331,7 @@ def _compute_world_sph_dims(
         axis_name = ctype[i].lower()
         if axis_name.startswith("right") or axis_name.startswith("ra"):
             fi = 1
-            wcs_dict[f"CTYPE1"] = f"RA---{projection}"
+            wcs_dict["CTYPE1"] = f"RA---{projection}"
             new_name = "right_ascension"
         elif axis_name.startswith("dec"):
             fi = 2
@@ -339,7 +339,7 @@ def _compute_world_sph_dims(
             new_name = "declination"
         elif axis_name.startswith("galactic_longitude") or axis_name.startswith("glon"):
             fi = 1
-            wcs_dict[f"CTYPE1"] = f"GLON-{projection}"
+            wcs_dict["CTYPE1"] = f"GLON-{projection}"
             new_name = "galactic_longitude"
         elif axis_name.startswith("galactic_latitude") or axis_name.startswith("glat"):
             fi = 2
@@ -369,9 +369,9 @@ def _compute_world_sph_dims(
 
 def _compute_velocity_values(
     restfreq: float,  # in Hz
-    freq_values: List[float],  # in Hz
+    freq_values: list[float],  # in Hz
     doppler: str,  # doppler definition
-) -> List[float]:
+) -> list[float]:
     """
     Convert frequency values to velocity values for a doppler definition.
 
@@ -450,7 +450,7 @@ def _compute_sky_reference_pixel(xds: xr.Dataset) -> np.ndarray:
     return np.array(crpix)
 
 
-def _l_m_attr_notes() -> Dict[str, str]:
+def _l_m_attr_notes() -> dict[str, str]:
     """
     Provide explanatory note text for ``l`` and ``m`` coordinates.
 

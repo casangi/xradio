@@ -1,6 +1,3 @@
-import pytest
-
-
 from xradio.measurement_set._utils._msv2.partition_queries import create_partitions
 
 expected_partition_axes = [
@@ -42,7 +39,6 @@ def test_create_partitions_ms_empty(ms_empty_required):
 
 
 def test_create_partitions_ms_min(ms_minimal_required):
-
     parts = create_partitions(ms_minimal_required.fname, [])
     assert isinstance(parts, list)
     assert len(parts) == 4
@@ -50,25 +46,21 @@ def test_create_partitions_ms_min(ms_minimal_required):
 
 
 def test_create_partitions_ms_min_with_field(ms_minimal_required):
-
     parts = create_partitions(ms_minimal_required.fname, ["FIELD_ID"])
     check_expected_min_partitions(parts, 4)
 
 
 def test_create_partitions_ms_min_with_antenna1(ms_minimal_required):
-
     parts = create_partitions(ms_minimal_required.fname, ["ANTENNA1"])
     check_expected_min_partitions(parts, 16)
 
 
 def test_create_partitions_ms_min_with_state_id(ms_minimal_required):
-
     parts = create_partitions(ms_minimal_required.fname, ["STATE_ID"])
     check_expected_min_partitions(parts, 4)
 
 
 def test_create_partitions_ms_min_with_all(ms_minimal_required):
-
     parts = create_partitions(
         ms_minimal_required.fname,
         [
@@ -84,7 +76,6 @@ def test_create_partitions_ms_min_with_all(ms_minimal_required):
 
 
 def test_create_partitions_ms_min_with_other(ms_minimal_required):
-
     parts = create_partitions(
         ms_minimal_required.fname,
         ["FIELD_ID", "SOURCE_ID", "DATA_DESC_ID"],

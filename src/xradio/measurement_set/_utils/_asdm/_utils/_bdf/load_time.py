@@ -3,7 +3,6 @@ import traceback
 
 import numpy as np
 import pandas as pd
-
 import pyasdm
 
 from xradio._utils.logging import xradio_logger
@@ -238,7 +237,7 @@ def load_times_bdf(
                 f"BDFReaderException while trying to load actualTimes and "
                 f"actualDurations for BDF: {bdf_path=}. Details: {exc}."
                 f"{trace=}\n === BDF header:\n" + str(bdf_reader.getHeader())
-            )
+            ) from exc
 
         # dims:
         # BAL ANT BAB POL / channel avg data

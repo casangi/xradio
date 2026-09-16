@@ -13,32 +13,32 @@ import time
 import traceback
 
 import numpy as np
-
 import pyasdm
 
-from .array_indexing import find_bdfs_and_indices_in_selected_times
-from .basebands_spws import (
+from xradio._utils.logging import xradio_logger
+from xradio.measurement_set._utils._asdm._utils._bdf.array_indexing import (
+    find_bdfs_and_indices_in_selected_times,
+)
+from xradio.measurement_set._utils._asdm._utils._bdf.basebands_spws import (
     find_if_different_basebands_pols,
     find_if_different_basebands_spws,
     find_spw_in_basebands_list,
 )
-from .bdf_description_checks import (
+from xradio.measurement_set._utils._asdm._utils._bdf.bdf_description_checks import (
     check_basebands,
     check_correlation_mode,
     ensure_presence_binary_components,
     exclude_unsupported_axis_names,
 )
-
-from xradio._utils.logging import xradio_logger
+from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
+    load_flags_all_subsets_from_trees,
+    load_visibilities_all_subsets_from_trees,
+)
 from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
     define_flag_shape,
     define_visibility_shape,
     load_flags_all_subsets,
     load_visibilities_all_subsets,
-)
-from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
-    load_flags_all_subsets_from_trees,
-    load_visibilities_all_subsets_from_trees,
 )
 
 
@@ -53,7 +53,6 @@ def load_visibilities_from_partition_bdfs(
         slice(None),
     ),
 ) -> np.ndarray:
-
     cumulative_vis = []
     start = time.perf_counter()
 
@@ -62,11 +61,14 @@ def load_visibilities_from_partition_bdfs(
             find_bdfs_and_indices_in_selected_times(time_indices_by_bdf, array_slice[0])
         )
     else:
-        bdfs_in_selected_times, bdf_time_slices = bdf_paths, [slice(None, None)] * len(
-            bdf_paths
+        bdfs_in_selected_times, bdf_time_slices = (
+            bdf_paths,
+            [slice(None, None)] * len(bdf_paths),
         )
 
-    for bdf_path, time_slice in zip(bdfs_in_selected_times, bdf_time_slices):
+    for bdf_path, time_slice in zip(
+        bdfs_in_selected_times, bdf_time_slices, strict=True
+    ):
         array_slice = (time_slice, *array_slice[1:])
         visibility_blob = load_visibilities_from_bdf(bdf_path, spw_id, array_slice)
         cumulative_vis.append(visibility_blob)
@@ -76,7 +78,7 @@ def load_visibilities_from_partition_bdfs(
     end = time.perf_counter()
     loaded_shape = None if visibility is None else visibility.shape
     xradio_logger().info(
-        f"Loaded VISIBILITY array, with {loaded_shape=} from {len(bdf_paths)=} blobs, time: {end-start:.6}"
+        f"Loaded VISIBILITY array, with {loaded_shape=} from {len(bdf_paths)=} blobs, time: {end - start:.6}"
     )
 
     return visibility
@@ -104,7 +106,6 @@ def load_visibilities_from_bdf(
     array_slice: tuple[slice, ...],
     never_reshape_from_all_spws: bool = True,
 ) -> np.ndarray:
-
     bdf_reader = pyasdm.bdf.BDFReader()
     bdf_reader.open(bdf_path)
     bdf_header = bdf_reader.getHeader()
@@ -142,7 +143,7 @@ def load_visibilities_from_bdf(
             + trace
             + "BDF header:\n"
             + str(bdf_header)
-        )
+        ) from exc
 
     return bdf_vis
 
@@ -158,7 +159,6 @@ def load_flags_from_partition_bdfs(
         slice(None),
     ),
 ) -> np.ndarray:
-
     cumulative_flag = []
     start = time.perf_counter()
 
@@ -167,11 +167,14 @@ def load_flags_from_partition_bdfs(
             find_bdfs_and_indices_in_selected_times(time_indices_by_bdf, array_slice[0])
         )
     else:
-        bdfs_in_selected_times, bdf_time_indices = bdf_paths, [slice(None, None)] * len(
-            bdf_paths
+        bdfs_in_selected_times, bdf_time_indices = (
+            bdf_paths,
+            [slice(None, None)] * len(bdf_paths),
         )
 
-    for bdf_path, bdf_time_slice in zip(bdfs_in_selected_times, bdf_time_indices):
+    for bdf_path, bdf_time_slice in zip(
+        bdfs_in_selected_times, bdf_time_indices, strict=True
+    ):
         array_slice = (bdf_time_slice, *array_slice[1:])
         flag_blob = load_flags_from_bdf(bdf_path, spw_id, array_slice)
         cumulative_flag.append(flag_blob)
@@ -179,7 +182,7 @@ def load_flags_from_partition_bdfs(
     flag = np.concatenate(cumulative_flag)
     end = time.perf_counter()
     xradio_logger().info(
-        f"Loaded FLAG array, with {flag.shape=} from {len(bdf_paths)=} blobs, time: {end-start:.6}"
+        f"Loaded FLAG array, with {flag.shape=} from {len(bdf_paths)=} blobs, time: {end - start:.6}"
     )
 
     return flag
@@ -195,7 +198,6 @@ def load_flags_from_bdf(
     array_slice: tuple[slice, ...],
     never_reshape_from_all_spws: bool = False,
 ) -> np.ndarray:
-
     bdf_reader = pyasdm.bdf.BDFReader()
     bdf_reader.open(bdf_path)
     bdf_header = bdf_reader.getHeader()
@@ -235,7 +237,7 @@ def load_flags_from_bdf(
             + trace
             + "BDF header:"
             + str(bdf_header)
-        )
+        ) from exc
 
     bdf_flag_expanded = _expand_frequency_in_flags_subset(
         bdf_flag, bdf_descr, baseband_spw_idxs[0], baseband_spw_idxs[1], array_slice

@@ -2,10 +2,8 @@ from contextlib import nullcontext as no_raises
 from unittest import mock
 
 import numpy as np
-
-import pytest
-
 import pyasdm
+import pytest
 
 basebands_example = [
     {
@@ -339,16 +337,18 @@ def test_load_visibilities_all_subsets_from_trees_X136e(input_load_one_spw_from_
         )
 
         assert isinstance(visibilities, np.ndarray)
-        assert visibilities.size == 18432
-        assert visibilities.shape == (1, 9, 1024, 2)
         assert visibilities.dtype == np.dtype("complex128")
 
         assert mock_bdf_reader.hasSubset.call_count == 2
         if input_load_one_spw_from_file:
+            assert visibilities.size == 18432
+            assert visibilities.shape == (1, 9, 1024, 2)
             assert mock_bdf_reader.hasSubset.call_count == 2
             mock_bdf_reader.getNDArrays.assert_called_once()
             mock_bdf_reader.getSubset.assert_not_called()
         else:
+            assert visibilities.size == 9216
+            assert visibilities.shape == (1, 9, 512, 2)
             mock_bdf_reader.getSubset.assert_called_once()
             mock_bdf_reader.getNDArrays.assert_not_called()
 
@@ -984,7 +984,7 @@ def test_load_flags_all_subsets_from_trees_X136e():
         # For load_vis_subset, etc.
         mock_bdf_reader.hasSubset.side_effect = [True, False]
         mock_bdf_reader.getSubset.side_effect = [
-            {"autoData": {"present": True, "arr": np.zeros((73728))}}
+            {"autoData": {"present": True, "arr": np.zeros(73728)}}
         ]
         guessed_shape = {
             "auto": (1, 9, 4, 2, 512, 2),
@@ -1063,7 +1063,7 @@ flags_input_guessed_shape_2times_x136e = {
             no_raises(),
         ),
         (
-            {"flags": {"present": True, "arr": np.zeros((120))}},
+            {"flags": {"present": True, "arr": np.zeros(120)}},
             flags_input_guessed_shape_x136e,
             bdf_descr_X136e,
             20,
@@ -1071,7 +1071,7 @@ flags_input_guessed_shape_2times_x136e = {
             no_raises(),
         ),
         (
-            {"flags": {"present": True, "arr": np.zeros((80))}},
+            {"flags": {"present": True, "arr": np.zeros(80)}},
             flags_input_guessed_shape_x136e,
             bdf_descr_X136e,
             20,
@@ -1079,7 +1079,7 @@ flags_input_guessed_shape_2times_x136e = {
             no_raises(),
         ),
         (
-            {"flags": {"present": True, "arr": np.zeros((120))}},
+            {"flags": {"present": True, "arr": np.zeros(120)}},
             flags_input_guessed_shape_2times_x136e,
             bdf_descr_X136e,
             40,
@@ -1087,7 +1087,7 @@ flags_input_guessed_shape_2times_x136e = {
             no_raises(),
         ),
         (
-            {"flags": {"present": True, "arr": np.zeros((30))}},
+            {"flags": {"present": True, "arr": np.zeros(30)}},
             flags_input_guessed_shape_x136e,
             bdf_descr_autodata_3pol_pseudo_X136e,
             40,
@@ -1095,7 +1095,7 @@ flags_input_guessed_shape_2times_x136e = {
             no_raises(),
         ),
         (
-            {"flags": {"present": True, "arr": np.zeros((3))}},
+            {"flags": {"present": True, "arr": np.zeros(3)}},
             flags_input_guessed_shape_x136e,
             bdf_descr_autodata_3pol_pseudo_X136e,
             40,
@@ -1103,7 +1103,7 @@ flags_input_guessed_shape_2times_x136e = {
             pytest.raises(RuntimeError, match="Unexpected flags array"),
         ),
         (
-            {"flags": {"present": True, "arr": np.zeros((450))}},
+            {"flags": {"present": True, "arr": np.zeros(450)}},
             flags_input_guessed_shape_x136e,
             bdf_descr_X64c6,
             90,
@@ -1111,7 +1111,7 @@ flags_input_guessed_shape_2times_x136e = {
             no_raises(),
         ),
         (
-            {"flags": {"present": True, "arr": np.zeros((360))}},
+            {"flags": {"present": True, "arr": np.zeros(360)}},
             flags_input_guessed_shape_x136e,
             bdf_descr_X64c6,
             90,

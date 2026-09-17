@@ -147,6 +147,8 @@ class table:
         _name=None,
     ):
         self._closed = False
+        # Cache for column metadata to avoid redundant lookups in TaQL fallback
+        self._col_cache = {}
         if _arcae_table is not None:
             self._t = _arcae_table
             self._name = _name or ""
@@ -448,12 +450,26 @@ class table:
         return cell
 
     def getcellslice(self, columnname, rownr, blc, trc, inc=[]):  # noqa: B006
+        # Fast path: use native arcae getcellslice if available
+        if hasattr(self._t, "getcellslice"):
+            data = self._t.getcellslice(columnname, int(rownr), blc, trc, inc)
+            return self._convert_read(data, columnname)
+
+        # Fallback path: TaQL for older arcae versions without native getcellslice
         if inc not in ([], None) and any(int(i) != 1 for i in np.atleast_1d(inc)):
-            raise NotImplementedError("inc != 1 is not supported")
-        desc = self.getcoldesc(columnname)
-        ndim = int(desc.get("ndim", len(np.atleast_1d(blc))))
-        spec = _slice_spec(blc, trc, ndim)
+            raise NotImplementedError("inc != 1 is not supported in TaQL fallback")
+
+        # Use cached column metadata to avoid redundant lookups
+        if columnname not in self._col_cache:
+            desc = self.getcoldesc(columnname)
+            ndim = int(desc.get("ndim", len(np.atleast_1d(blc))))
+            self._col_cache[columnname] = {"ndim": ndim}
+        ndim = self._col_cache[columnname]["ndim"]
         rownr = int(rownr)
+        blc = np.atleast_1d(blc)
+        trc = np.atleast_1d(trc)
+
+        spec = _slice_spec(blc, trc, ndim)
         query = f"SELECT {columnname}{spec} AS DATA FROM $1 LIMIT {rownr}:{rownr + 1}"
         result = self._taql(query)
         try:

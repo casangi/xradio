@@ -132,7 +132,31 @@ _KEYWORD_HELPER_COLUMN = "_XRADIO_KEYWORD_HELPER_"
 
 
 class table:
-    """python-casacore-compatible ``table`` on top of an arcae Table."""
+    """python-casacore-compatible ``table`` on top of an arcae Table.
+
+    Parameters
+    ----------
+    tablename : str or path-like, optional
+        Path to the CASA table.
+    tabledesc : dict, optional
+        Table descriptor for creating a new table.
+    nrow : int, default 0
+        Initial number of rows when creating a table.
+    readonly : bool, default True
+        Whether to open the table in read-only mode.
+    lockoptions : str, default "default"
+        Locking options ("default", "auto", "user", "userwait", "permanent",
+        "permanentwait", "nolock").
+    ack : bool, default False
+        Whether to acknowledge table opening (compatibility flag).
+    dminfo : dict, optional
+        Data manager info when creating a table.
+    ninstances : int, default 1
+        Number of independent C++ table instances in the arcae
+        ``IsolatedTableProxy`` pool. Setting ``ninstances > 1`` enables
+        concurrent multi-threaded reads (e.g., via ``ThreadPoolExecutor``)
+        without lock contention. Only supported when ``readonly=True``.
+    """
 
     def __init__(
         self,
@@ -145,6 +169,7 @@ class table:
         dminfo=None,
         _arcae_table=None,
         _name=None,
+        ninstances=1,
     ):
         self._closed = False
         # Cache for column metadata to avoid redundant lookups in TaQL fallback
@@ -156,11 +181,14 @@ class table:
         tablename = _resolve_subtable_path(os.path.expanduser(str(tablename)))
         self._name = tablename
         if tabledesc is not None:
+            if ninstances > 1:
+                raise ValueError("Table creation requires ninstances=1")
             self._t = _create_table(tablename, tabledesc, nrow, dminfo)
         else:
             try:
                 self._t = _at.Table.from_filename(
                     tablename,
+                    ninstances=ninstances,
                     readonly=readonly,
                     lockoptions=_normalize_lockoptions(lockoptions),
                 )

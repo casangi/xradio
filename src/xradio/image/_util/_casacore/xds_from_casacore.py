@@ -8,7 +8,11 @@ import xarray as xr
 from astropy import units as u
 
 from xradio._utils._casacore.backend import coordinates, images, tables
-from xradio._utils._casacore.tables import extract_table_attributes, open_table_ro
+from xradio._utils._casacore.tables import (
+    extract_table_attributes,
+    get_table_ro,
+    open_table_ro,
+)
 from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import (
     _casacore_q_to_xradio_q,
@@ -614,8 +618,9 @@ def _get_persistent_block(
     starts: tuple,
     transpose_list: list,
     new_axes: list,
+    ninstances: int = 1,
 ) -> da.Array:
-    block = _read_image_chunk(infile, shapes, starts)
+    block = _read_image_chunk(infile, shapes, starts, ninstances=ninstances)
     block = np.expand_dims(block, new_axes)
     block = block.transpose(transpose_list)
     block = da.from_array(block, chunks=block.shape)
@@ -1007,6 +1012,7 @@ def _read_image_array(
     verbose: bool = False,
     blc=None,
     trc=None,
+    ninstances: int = 1,
 ) -> dask.array:
     """
     Read an array of image pixels into a dask array. The returned dask array
@@ -1136,7 +1142,10 @@ def _read_image_array(
                         )
                         starts = tuple([d0, d1, d2, d3, d4][: len(cshape)])
                         delayed_array = dask.delayed(_read_image_chunk)(
-                            img_full_path, shapes, starts
+                            img_full_path,
+                            shapes,
+                            starts,
+                            ninstances=ninstances,
                         )
                         d4slices += [
                             dask.array.from_delayed(delayed_array, shapes, data_type)
@@ -1164,12 +1173,23 @@ def _read_image_array(
     return ary.transpose(transpose_list)
 
 
-def _read_image_chunk(infile: str, shapes: tuple, starts: tuple) -> np.ndarray:
-    with open_table_ro(infile) as tb_tool:
+def _read_image_chunk(
+    infile: str, shapes: tuple, starts: tuple, ninstances: int = 1
+) -> np.ndarray:
+    if ninstances > 1:
+        tb_tool = get_table_ro(infile, ninstances=ninstances)
         data: np.ndarray = tb_tool.getcellslice(
             tb_tool.colnames()[0],
             0,
             starts,
             tuple(np.array(starts) + np.array(shapes) - 1),
         )
+    else:
+        with open_table_ro(infile) as tb_tool:
+            data: np.ndarray = tb_tool.getcellslice(
+                tb_tool.colnames()[0],
+                0,
+                starts,
+                tuple(np.array(starts) + np.array(shapes) - 1),
+            )
     return data

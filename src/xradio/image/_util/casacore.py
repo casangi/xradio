@@ -84,8 +84,16 @@ def _get_casa_image_metadata(infile: str, do_sky_coords: bool, image_type: str) 
 
 
 def _load_casa_image_block(
-    infile: str, block_des: dict, do_sky_coords: bool, image_type: str
+    infile: str,
+    block_des: dict,
+    do_sky_coords: bool,
+    image_type: str,
+    ninstances: int = 1,
+    backend_opts: dict | None = None,
+    **kwargs,
 ) -> xr.Dataset:
+    if backend_opts and "ninstances" in backend_opts:
+        ninstances = backend_opts["ninstances"]
     md = _get_casa_image_metadata(infile, do_sky_coords, image_type)
     coords = md["coords"]
     cshape = md["cshape"]
@@ -98,7 +106,12 @@ def _load_casa_image_block(
     starts, shapes, slices = _get_starts_shapes_slices(block_des, coords, cshape)
     transpose_list, new_axes = _get_transpose_list(coords)
     block = _get_persistent_block(
-        image_full_path, shapes, starts, transpose_list, new_axes
+        image_full_path,
+        shapes,
+        starts,
+        transpose_list,
+        new_axes,
+        ninstances=ninstances,
     )
     block = _squeeze_if_needed(block, image_type)
     xds = _add_sky_or_aperture(
@@ -108,7 +121,12 @@ def _load_casa_image_block(
     for m in mymasks:
         full_path = os.sep.join([image_full_path, m])
         block = _get_persistent_block(
-            full_path, shapes, starts, transpose_list, new_axes
+            full_path,
+            shapes,
+            starts,
+            transpose_list,
+            new_axes,
+            ninstances=ninstances,
         )
         block = _squeeze_if_needed(block, image_type)
         # data vars are all caps by convention
@@ -141,13 +159,20 @@ def _open_casa_image(
     masks: bool = True,
     history: bool = False,
     image_type: str = "SKY",
+    ninstances: int = 1,
+    backend_opts: dict | None = None,
+    **kwargs,
 ) -> xr.Dataset:
+    if backend_opts and "ninstances" in backend_opts:
+        ninstances = backend_opts["ninstances"]
     md = _get_casa_image_metadata(infile, do_sky_coords, image_type)
     xds = md["xds"]
     dimorder = md["dimorder"]
     sphr_dims = md["sphr_dims"]
     img_full_path = md["image_full_path"]
-    ary = _read_image_array(img_full_path, chunks, verbose=verbose)
+    ary = _read_image_array(
+        img_full_path, chunks, verbose=verbose, ninstances=ninstances
+    )
     ary = _squeeze_if_needed(ary, image_type)
     xds = _add_sky_or_aperture(
         xds,
@@ -161,7 +186,13 @@ def _open_casa_image(
     if masks:
         mymasks = _get_mask_names(img_full_path)
         for m in mymasks:
-            ary = _read_image_array(img_full_path, chunks, mask=m, verbose=verbose)
+            ary = _read_image_array(
+                img_full_path,
+                chunks,
+                mask=m,
+                verbose=verbose,
+                ninstances=ninstances,
+            )
             # data var names are all caps by convention
             mask_name = re.sub(r"\bMASK(\d+)\b", r"MASK_\1", m.upper())
             xds = _add_mask(xds, mask_name, ary, dimorder)

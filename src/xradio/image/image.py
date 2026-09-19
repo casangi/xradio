@@ -26,6 +26,19 @@ from xradio.image._util.zarr import (
 # warnings.filterwarnings("ignore", category=FutureWarning)
 
 
+def _resolve_ninstances(backend_opts: dict | None) -> int:
+    """Resolve ninstances from backend_opts or XRADIO_ARCAE_NINSTANCES env var."""
+    if backend_opts and "ninstances" in backend_opts:
+        return max(1, int(backend_opts["ninstances"]))
+    env_val = os.environ.get("XRADIO_ARCAE_NINSTANCES")
+    if env_val is not None:
+        try:
+            return max(1, int(env_val))
+        except ValueError:
+            pass
+    return 1
+
+
 def open_image(
     store: str | dict,
     chunks: dict | None = None,
@@ -33,6 +46,7 @@ def open_image(
     do_sky_coords: bool = True,
     selection: dict | None = None,
     compute_mask: bool = True,
+    backend_opts: dict | None = None,
 ) -> xr.Dataset:
     """
     Convert CASA, FITS, or zarr image to xradio image xds format
@@ -101,6 +115,11 @@ def open_image(
         for applications that are not designed to handle missing data. It is the user's responsibility,
         not the software's, to ensure that the mask is computed if it is necessary. Currently only
         implemented for FITS images.
+    backend_opts : dict, optional
+        Format- or engine-specific options. For CASA images using arcae,
+        pass {'ninstances': N} to pool N C++ table instances for concurrent
+        multi-threaded table reads. Can also be configured globally via the
+        XRADIO_ARCAE_NINSTANCES environment variable. Default is None.
     Returns
     -------
     xarray.Dataset
@@ -121,10 +140,18 @@ def open_image(
     if selection is None:
         selection = {}
 
+    ninstances = _resolve_ninstances(backend_opts)
+
     img_xds = create_image_xds_from_store(
         store,
         _open_casa_image,
-        {"chunks": chunks, "verbose": verbose, "do_sky_coords": do_sky_coords},
+        {
+            "chunks": chunks,
+            "verbose": verbose,
+            "do_sky_coords": do_sky_coords,
+            "ninstances": ninstances,
+            "backend_opts": backend_opts,
+        },
         _fits_image_to_xds,
         {
             "chunks": chunks,
@@ -139,7 +166,12 @@ def open_image(
     return img_xds
 
 
-def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dataset:
+def load_image(
+    store: str,
+    block_des: dict = None,
+    do_sky_coords=True,
+    backend_opts: dict | None = None,
+) -> xr.Dataset:
     """
     Load an image or portion of an image (subimage) into memory with data variables
     being converted from dask to numpy arrays and coordinate arrays being converted
@@ -166,6 +198,11 @@ def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dat
         images will have these coordinates added if they were saved with the zarr dataset,
         and if zarr image didn't have these coordinates when it was written, the resulting
         xr.Dataset will not.
+    backend_opts : dict, optional
+        Format- or engine-specific options. For CASA images using arcae,
+        pass {'ninstances': N} to pool N C++ table instances. Can also be
+        configured globally via the XRADIO_ARCAE_NINSTANCES environment
+        variable. Default is None.
     Returns
     -------
     xarray.Dataset
@@ -181,10 +218,17 @@ def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dat
 
     from xradio.image._util.casacore import _load_casa_image_block
 
+    ninstances = _resolve_ninstances(backend_opts)
+
     img_xds = create_image_xds_from_store(
         store,
         _load_casa_image_block,
-        {"block_des": selection, "do_sky_coords": do_sky_coords},
+        {
+            "block_des": selection,
+            "do_sky_coords": do_sky_coords,
+            "ninstances": ninstances,
+            "backend_opts": backend_opts,
+        },
         None,
         {},
         _xds_from_zarr,

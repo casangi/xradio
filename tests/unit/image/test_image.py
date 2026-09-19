@@ -179,6 +179,53 @@ class TestOpenImageCasa:
 
 
 # --------------------------------------------------------------------------- #
+# TestImageNinstances – multi-instance table pooling tests                    #
+# --------------------------------------------------------------------------- #
+
+
+class TestImageNinstances:
+    """Tests for multi-threaded table instances via backend_opts and env var in open_image and load_image."""
+
+    def test_open_and_load_image_with_backend_opts(self, tmp_path, monkeypatch):
+        imagename = tmp_path / "synthetic_cube.im"
+        shape = [4, 1, 10, 10]
+        data = np.arange(400, dtype=np.float32).reshape(shape)
+        masked_data = ma.masked_array(data, np.zeros_like(data, dtype=bool))
+
+        with create_new_image(str(imagename), shape=shape) as im:
+            im.put(masked_data)
+
+        # 1. Test backend_opts dictionary
+        xds_n1 = open_image(
+            str(imagename), chunks={"frequency": 2}, backend_opts={"ninstances": 1}
+        )
+        xds_n2 = open_image(
+            str(imagename), chunks={"frequency": 2}, backend_opts={"ninstances": 2}
+        )
+        xds_n4 = open_image(
+            str(imagename), chunks={"frequency": 2}, backend_opts={"ninstances": 4}
+        )
+
+        assert_xarray_datasets_equal(xds_n2, xds_n1)
+        assert_xarray_datasets_equal(xds_n4, xds_n1)
+
+        res_n1 = xds_n1.SKY.mean().compute(scheduler="threads", num_workers=2)
+        res_n4 = xds_n4.SKY.mean().compute(scheduler="threads", num_workers=4)
+        np.testing.assert_allclose(res_n4.values, res_n1.values)
+
+        lx_n1 = load_image(str(imagename), backend_opts={"ninstances": 1})
+        lx_n2 = load_image(str(imagename), backend_opts={"ninstances": 2})
+        assert_xarray_datasets_equal(lx_n2, lx_n1)
+
+        # 2. Test environment variable XRADIO_ARCAE_NINSTANCES
+        monkeypatch.setenv("XRADIO_ARCAE_NINSTANCES", "4")
+        xds_env = open_image(str(imagename), chunks={"frequency": 2})
+        assert_xarray_datasets_equal(xds_env, xds_n1)
+        res_env = xds_env.SKY.mean().compute(scheduler="threads", num_workers=4)
+        np.testing.assert_allclose(res_env.values, res_n1.values)
+
+
+# --------------------------------------------------------------------------- #
 # TestWriteImageCasa  –  write_image (CASA format)                             #
 # --------------------------------------------------------------------------- #
 

@@ -38,6 +38,7 @@ import sys
 
 import arcae
 import numpy as np
+import pyarrow as pa
 from arcae.lib import arrow_tables as _at
 
 # ---------------------------------------------------------------------------
@@ -478,12 +479,21 @@ class table:
         return cell
 
     def getcellslice(self, columnname, rownr, blc, trc, inc=[]):  # noqa: B006
-        # Fast path: use native arcae getcellslice if available
-        if hasattr(self._t, "getcellslice"):
-            data = self._t.getcellslice(columnname, int(rownr), blc, trc, inc)
+        # Fast path: try native arcae getcol with single-row cell indexing
+        inc_list = list(inc) if inc is not None and len(inc) > 0 else [1] * len(blc)
+        cell_index = tuple(
+            slice(int(b), int(t) + 1, int(s))
+            for b, t, s in zip(blc, trc, inc_list, strict=True)
+        )
+        try:
+            data = self._t.getcol(
+                columnname, index=([int(rownr)],) + cell_index
+            ).squeeze(axis=0)
             return self._convert_read(data, columnname)
+        except (pa.ArrowException, RuntimeError, ValueError, IndexError):
+            pass
 
-        # Fallback path: TaQL for older arcae versions without native getcellslice
+        # Fallback path: TaQL for older arcae versions without single-row slicing support
         if inc not in ([], None) and any(int(i) != 1 for i in np.atleast_1d(inc)):
             raise NotImplementedError("inc != 1 is not supported in TaQL fallback")
 
@@ -642,18 +652,32 @@ class table:
         self._t.putcol(columnname, data, index=([int(rownr)],))
 
     def putcellslice(self, columnname, rownr, value, blc, trc, inc=[]):  # noqa: B006
+        # Fast path: try native arcae putcol with single-row cell indexing
+        inc_list = list(inc) if inc is not None and len(inc) > 0 else [1] * len(blc)
+        cell_index = tuple(
+            slice(int(b), int(t) + 1, int(s))
+            for b, t, s in zip(blc, trc, inc_list, strict=True)
+        )
+        val = np.asarray(value)
+        dtype = self._col_dtype(columnname)
+        if dtype is not None and val.dtype != dtype:
+            val = val.astype(dtype)
+        try:
+            self._t.putcol(
+                columnname, val[None, ...], index=([int(rownr)],) + cell_index
+            )
+            return
+        except (pa.ArrowException, RuntimeError, ValueError, IndexError):
+            pass
+
         if inc not in ([], None) and any(int(i) != 1 for i in np.atleast_1d(inc)):
             raise NotImplementedError("inc != 1 is not supported")
         desc = self.getcoldesc(columnname)
         ndim = int(desc.get("ndim", len(np.atleast_1d(blc))))
-        value = np.asarray(value)
-        dtype = self._col_dtype(columnname)
-        if dtype is not None and value.dtype != dtype:
-            value = value.astype(dtype)
         spec = _slice_spec(blc, trc, ndim)
         rownr = int(rownr)
         self._update_from_helper(
-            columnname, value[np.newaxis, ...], rownr, slice_spec=spec
+            columnname, val[np.newaxis, ...], rownr, slice_spec=spec
         )
 
     def _put_rows_via_taql(self, columnname, data, startrow):

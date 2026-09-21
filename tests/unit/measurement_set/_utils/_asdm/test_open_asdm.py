@@ -33,7 +33,7 @@ def test_open_asdm_with_spw_default(mock_asdm_set_from_file, monkeypatch):
         "pyasdm.MainRow.getBDFPath", lambda bdf_paths: "/monkypatched_path/foo"
     )
     with pytest.raises(RuntimeError, match="No partitions left"):
-        open_asdm("/unused_path/foo", [])
+        open_asdm("/unused_path/foo", [], include_processor_types=["SPECTROMETER"])
 
 
 def test_open_asdm_with_mocked_set_from_file(mock_asdm_set_from_file, monkeypatch):

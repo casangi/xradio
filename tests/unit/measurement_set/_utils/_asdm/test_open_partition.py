@@ -156,6 +156,22 @@ def test_correlated_xds_default(asdm_with_spw_default):
         create_correlated_xds(asdm_with_spw_default, partition_descr)
 
 
+@pytest.mark.parametrize(
+    "asdm_name, expected_output",
+    [
+        ("asdm_empty", False),
+        ("asdm_with_spw_default", False),
+        ("asdm_with_main_execblock_config_processor_sbsummary", False),
+    ],
+)
+def test_find_if_single_dish(asdm_name, expected_output, request):
+    from xradio.measurement_set._utils._asdm.open_partition import find_if_single_dish
+
+    asdm_input = request.getfixturevalue(asdm_name)
+    is_single_dish = find_if_single_dish(asdm_input)
+    assert is_single_dish == expected_output
+
+
 def test_create_data_vars_no_bdf_path(asdm_with_spw_default):
     from xradio.measurement_set._utils._asdm.open_partition import create_data_vars
 

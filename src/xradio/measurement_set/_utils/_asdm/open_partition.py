@@ -180,7 +180,7 @@ def create_correlated_xds(
     info_dicts = create_info_dicts(asdm, xds, partition_descr)
     xds.attrs.update(info_dicts)
 
-    is_single_dish = False
+    is_single_dish = find_if_single_dish(asdm)
     (
         coords,
         coord_attrs,
@@ -213,6 +213,53 @@ def create_correlated_xds(
     xds.attrs.update({"data_groups": {"base": data_group_base}})
 
     return xds, num_antenna, spw_id
+
+
+def find_if_single_dish(asdm: pyasdm.ASDM) -> bool:
+    """Determine whether the ASDM is single-dish.
+
+    The ASDM is considered single-dish when every referenced configuration has
+    a correlation mode ``AUTO_ONLY``. Configuration descriptions not referenced
+    by the ``Main`` table are ignored.
+
+    Parameters
+    ----------
+    asdm : pyasdm.ASDM
+        ASDM object
+
+    Returns
+    -------
+    bool
+        ``True`` when all configurations used by the dataset are auto-only;
+        otherwise ``False``.
+    """
+    asdm_main_attrs = [
+        "configDescriptionId",
+    ]
+    main_df = exp_asdm_table_to_df(asdm, "Main", asdm_main_attrs)
+
+    asdm_config_description_attrs = [
+        "configDescriptionId",
+        "correlationMode",
+    ]
+    config_description_df = exp_asdm_table_to_df(
+        asdm, "ConfigDescription", asdm_config_description_attrs
+    )
+
+    unique_used_configs_df = config_description_df[
+        config_description_df["configDescriptionId"].isin(
+            main_df["configDescriptionId"]
+        )
+    ]
+
+    is_single_dish = (
+        not unique_used_configs_df.empty
+        and (
+            unique_used_configs_df["correlationMode"]
+            == pyasdm.enumerations.CorrelationMode.AUTO_ONLY
+        ).all()
+    )
+    return is_single_dish
 
 
 def create_data_vars(

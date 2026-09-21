@@ -134,10 +134,33 @@ def add_main_table(asdm: pyasdm.ASDM):
     <stateId> 1 12 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0  </stateId>
   </row>
     """
+    main_row_1_xml = """
+  <row>
+    <time> 5009117394144000000 </time>
+    <numAntenna> 9 </numAntenna>
+    <timeSampling>INTEGRATION</timeSampling>
+    <interval> 24192000000 </interval>
+    <numIntegration> 12 </numIntegration>
+    <scanNumber> 1 </scanNumber>
+    <subscanNumber> 1 </subscanNumber>
+    <dataSize> 2231020 </dataSize>
+    <dataUID>
+      <EntityRef entityId="uid://A002/Xc3412f/X2a7f" partId="X00000000" entityTypeName="Main" documentVersion="1"/>
+    </dataUID>
+    <configDescriptionId> ConfigDescription_1 </configDescriptionId>
+    <execBlockId> ExecBlock_0 </execBlockId>
+    <fieldId> Field_0 </fieldId>
+    <stateId> 1 9 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0  </stateId>
+  </row>
+
+    """
     main_table = asdm.getMain()
     main_row_0 = pyasdm.MainRow(main_table)
     main_row_0.setFromXML(main_row_0_xml)
+    main_row_1 = pyasdm.MainRow(main_table)
+    main_row_1.setFromXML(main_row_1_xml)
     main_table.add(main_row_0)
+    main_table.add(main_row_1)
 
 
 def add_execblock_table(asdm: pyasdm.ASDM):
@@ -201,10 +224,34 @@ def add_config_description_table(asdm: pyasdm.ASDM):
     <switchCycleId> 1 4 SwitchCycle_0 SwitchCycle_0 SwitchCycle_0 SwitchCycle_0  </switchCycleId>
   </row>
     """
+    config_description_row_1_xml = """
+  <row>
+    <numAntenna> 9 </numAntenna>
+    <numDataDescription> 4 </numDataDescription>
+    <numFeed> 1 </numFeed>
+    <correlationMode>CROSS_AND_AUTO</correlationMode>
+    <configDescriptionId> ConfigDescription_1 </configDescriptionId>
+    <numAtmPhaseCorrection> 1 </numAtmPhaseCorrection>
+    <atmPhaseCorrection> 1 1 AP_UNCORRECTED</atmPhaseCorrection>
+    <processorType>CORRELATOR</processorType>
+    <spectralType>FULL_RESOLUTION</spectralType>
+    <numAssocValues> 1 </numAssocValues>
+    <assocNature> 1 1 CHANNEL_AVERAGE</assocNature>
+    <antennaId> 1 9 Antenna_0 Antenna_1 Antenna_2 Antenna_3 Antenna_4 Antenna_5 Antenna_6 Antenna_7 Antenna_8  </antennaId>
+    <assocConfigDescriptionId> 1 1 ConfigDescription_2  </assocConfigDescriptionId>
+    <dataDescriptionId> 1 4 DataDescription_4 DataDescription_6 DataDescription_8 DataDescription_10  </dataDescriptionId>
+    <feedId> 1 9 0 0 0 0 0 0 0 0 0  </feedId>
+    <processorId> Processor_1 </processorId>
+    <switchCycleId> 1 4 SwitchCycle_0 SwitchCycle_0 SwitchCycle_0 SwitchCycle_0  </switchCycleId>
+  </row>
+    """
     config_description_table = asdm.getConfigDescription()
     config_description_row_0 = pyasdm.ConfigDescriptionRow(config_description_table)
     config_description_row_0.setFromXML(config_description_row_0_xml)
+    config_description_row_1 = pyasdm.ConfigDescriptionRow(config_description_table)
+    config_description_row_1.setFromXML(config_description_row_1_xml)
     config_description_table.add(config_description_row_0)
+    config_description_table.add(config_description_row_1)
 
 
 def add_processor_table(asdm: pyasdm.ASDM):

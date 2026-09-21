@@ -1,27 +1,24 @@
-from contextlib import nullcontext as no_raises
 import warnings
+from contextlib import nullcontext as no_raises
 
 import numpy as np
 import pandas as pd
+import pyasdm
+import pytest
 import xarray as xr
-
 from astropy.utils.exceptions import AstropyWarning
 from erfa import ErfaWarning
 
-import pytest
-
-import pyasdm
-
+from xradio.measurement_set.schema import UvwArray, VisibilityXds
 from xradio.schema.check import (
-    xarray_dataclass_to_array_schema,
-    xarray_dataclass_to_dataset_schema,
     check_array,
     check_attributes,
     check_datatree,
     check_dimensions,
     check_dtype,
+    xarray_dataclass_to_array_schema,
+    xarray_dataclass_to_dataset_schema,
 )
-from xradio.measurement_set.schema import UvwArray, VisibilityXds
 
 
 def mock_load_times_from_partition_bdfs(
@@ -157,6 +154,22 @@ def test_correlated_xds_default(asdm_with_spw_default):
     partition_descr = {"fieldId": [0], "scanNumber": [0], "BDFPath": []}
     with pytest.raises(IndexError, match="out of range"):
         create_correlated_xds(asdm_with_spw_default, partition_descr)
+
+
+@pytest.mark.parametrize(
+    "asdm_name, expected_output",
+    [
+        ("asdm_empty", False),
+        ("asdm_with_spw_default", False),
+        ("asdm_with_main_execblock_config_processor_sbsummary", False),
+    ],
+)
+def test_find_if_single_dish(asdm_name, expected_output, request):
+    from xradio.measurement_set._utils._asdm.open_partition import find_if_single_dish
+
+    asdm_input = request.getfixturevalue(asdm_name)
+    is_single_dish = find_if_single_dish(asdm_input)
+    assert is_single_dish == expected_output
 
 
 def test_create_data_vars_no_bdf_path(asdm_with_spw_default):

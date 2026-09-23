@@ -31,14 +31,17 @@ def min_max_from_dimension_slice(
 def find_bdfs_and_indices_in_selected_times(
     time_indices_by_bdf: dict, time_slice: slice | int
 ) -> tuple[list[str], list[slice]]:
+    """Produces:
+    - 1) the list of BDFs (names) corresponding to a time slice,
+    - 2) star/stop indices local to every BDF, as slices
+    """
     if (
         time_slice is None
         or isinstance(time_slice, slice)
         and time_slice.start is None
         and time_slice.stop is None
     ):
-        bdf_paths = time_indices_by_bdf["bdf_names"]
-        return bdf_paths, [slice(None, None)] * len(bdf_paths)
+        return _make_all_bdf_paths_and_slices(time_indices_by_bdf)
 
     bdf_paths = time_indices_by_bdf["bdf_names"]
     bdf_start_indices = time_indices_by_bdf["bdf_start"]
@@ -57,37 +60,79 @@ def find_bdfs_and_indices_in_selected_times(
         bdf_slice_len = bdf_slice.stop - bdf_slice.start
         if bdf_slice_len == 1:
             slice_start = (
-                None
-                if time_slice.start is None
-                else time_slice.start - start_first_found
+                0 if time_slice.start is None else time_slice.start - start_first_found
             )
             slice_stop = (
-                None if time_slice.stop is None else time_slice.stop - start_first_found
+                bdf_start_indices[bdf_slice.stop]
+                - bdf_start_indices[bdf_slice.stop - 1]
+                if time_slice.stop is None
+                else time_slice.stop - start_first_found
             )
             time_slices_for_bdfs = [slice(slice_start, slice_stop)]
         elif bdf_slice_len > 1:
-            first_start = (
-                None
-                if time_slice.start is None
-                else time_slice.start - start_first_found
+            time_slices_for_bdfs = _make_time_slices_for_multiple_bdfs(
+                time_slice,
+                start_first_found,
+                start_last_found,
+                bdf_slice,
+                bdf_start_indices,
             )
-            time_slices_for_bdfs = [slice(first_start, None)]
-
-            time_slices_for_bdfs.extend((bdf_slice_len - 2) * [slice(None, None)])
-
-            last_stop = (
-                None if time_slice.stop is None else time_slice.stop - start_last_found
-            )
-            time_slices_for_bdfs.append(slice(None, last_stop))
 
     return bdfs_in_selected_times, time_slices_for_bdfs
+
+
+def _make_all_bdf_paths_and_slices(
+    time_indices_by_bdf,
+) -> tuple[list[str], list[slice]]:
+    bdf_paths = time_indices_by_bdf["bdf_names"]
+    bdf_slices = [
+        slice(
+            time_indices_by_bdf["bdf_start"][idx],
+            time_indices_by_bdf["bdf_start"][idx + 1],
+        )
+        for idx in range(0, len(bdf_paths))
+    ]
+    return bdf_paths, bdf_slices
+
+
+def _make_time_slices_for_multiple_bdfs(
+    time_slice: slice,
+    start_first_found: int,
+    start_last_found: int,
+    bdf_slice: slice,
+    bdf_start_indices: list[int],
+) -> list[slice]:
+    first_start = (
+        0 if time_slice.start is None else time_slice.start - start_first_found
+    )
+    time_slices_for_bdfs = [
+        slice(
+            first_start,
+            bdf_start_indices[bdf_slice.start + 1] - start_first_found,
+        )
+    ]
+
+    middle_slices = [
+        slice(0, bdf_start_indices[idx + 1] - bdf_start_indices[idx])
+        for idx in range(bdf_slice.start + 1, bdf_slice.stop - 1)
+    ]
+    time_slices_for_bdfs.extend(middle_slices)
+
+    last_stop = (
+        bdf_start_indices[bdf_slice.stop] - start_last_found
+        if time_slice.stop is None
+        else time_slice.stop - start_last_found
+    )
+    time_slices_for_bdfs.append(slice(0, last_stop))
+
+    return time_slices_for_bdfs
 
 
 def _find_index_in_bdf_start_indices(
     time_slice: int | slice, bdf_start_indices: list[int]
 ) -> tuple[tuple[int, int], slice]:
-    # binary search through BDF start (time) indices (used as start/stop boundaries)
-    # Keep absolute indices, does not shift to relative indices within BDFs
+    """Binary search through BDF start (time) indices (used as start/stop boundaries).
+    Keeps absolute indices, does not shift to relative indices within BDFs."""
 
     if isinstance(time_slice, int):
         bdf_index_first = _search_index_in_bdf_time_starts(

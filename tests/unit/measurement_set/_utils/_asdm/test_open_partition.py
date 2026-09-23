@@ -13,6 +13,7 @@ from xradio.measurement_set.schema import UvwArray, VisibilityXds
 from xradio.schema.check import (
     check_array,
     check_attributes,
+    check_data_vars,
     check_datatree,
     check_dimensions,
     check_dtype,
@@ -85,7 +86,8 @@ def test_open_partition_monkeypatched_bdf_asdm_with_spw_simple(
     )
 
     assert isinstance(partition, xr.DataTree)
-    check_datatree(partition)
+    partition_issues = check_datatree(partition)
+    assert not partition_issues
 
     visibility_selection = partition.data_vars["VISIBILITY"][0, 0, 0, 0]
     assert isinstance(visibility_selection, xr.DataArray)
@@ -132,7 +134,7 @@ def test_open_partition_monkeypatched_bdf_asdm_with_spw_simple_pointing_selectio
             "fieldId": [0],
             "configDescriptionId": [0],
             "scanNumber": [0],
-            "scanIntent": [0],
+            "scanIntent": ["CALIBRATE_BANDPASS", "CALIBRATE_WVR", "CALIBRATE_FLUX"],
             "dataDescriptionId": [0],
             "BDFPath": ["/inexistent_test_path/foo"],
             "spectralType": ["FULL_RESOLUTION"],
@@ -142,7 +144,8 @@ def test_open_partition_monkeypatched_bdf_asdm_with_spw_simple_pointing_selectio
     )
 
     assert isinstance(partition, xr.DataTree)
-    check_datatree(partition)
+    partition_issues = check_datatree(partition)
+    assert not partition_issues
 
     assert "antenna_xds" in partition
     assert "pointing_xds" not in partition
@@ -250,11 +253,22 @@ def test_create_coordinates_monkeypatched_bdf_with_spw_simple(
         "baseline_antenna1_name",
         "baseline_antenna1_name",
         "scan_name",
+        "field_name",
     ]:
         assert coo in coords
 
+    # Build coordinates in an xarray dataset (this could/should be separated into a function in open_partition)
+    xds = xr.Dataset()
+    xds = xds.assign_coords(coords)
+    for coord_name in coords:
+        if coord_name in attrs:
+            xds.coords[coord_name].attrs = attrs[coord_name]
+
     visibility_schema = xarray_dataclass_to_dataset_schema(VisibilityXds)
-    check_dimensions(coords, visibility_schema.dimensions)
+    coordinate_issues = check_data_vars(
+        xds.coords, visibility_schema.coordinates, "coords"
+    )
+    assert not coordinate_issues
     assert isinstance(attrs, dict)
     assert attrs["frequency"]["units"] == "Hz"
     assert num_antenna == 2
@@ -327,13 +341,17 @@ def test__create_uvw_data_var():
     # check_array checks the type strictly for a xr.DataArray but
     # we have the xr.DataArray wrapped in a LazilyIndexedArray
     # check_array(uvw / uvw[1], uvw_schema)
-    check_array(xr.DataArray(uvw), uvw_schema)
+    issues_array = check_array(xr.DataArray(uvw), uvw_schema)
+    assert not issues_array
 
     # Check the pieces that will be used to create the xr.DataArray
-    check_dimensions(uvw[0], uvw_schema.dimensions)
-    check_dtype(uvw[1].dtype, uvw_schema.dtypes)
+    issues_dims = check_dimensions(uvw[0], uvw_schema.dimensions)
+    assert not issues_dims
+    issues_dtype = check_dtype(uvw[1].dtype, uvw_schema.dtypes)
+    assert not issues_dtype
     # check_data_vars(uvw[0], uvw_schema.coordinates, "coords")
-    check_attributes(uvw[2], uvw_schema.attributes)
+    issues_attrs = check_attributes(uvw[2], uvw_schema.attributes)
+    assert not issues_attrs
     assert uvw[1].shape == (time_len, baseline_id_len, uvw_label_len)
 
 

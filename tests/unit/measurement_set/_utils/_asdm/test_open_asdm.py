@@ -67,7 +67,8 @@ def test_open_asdm_with_mocked_set_from_file(mock_asdm_set_from_file, monkeypatc
         assert "antenna_xds" in ps_xdt[msv4_name]
         assert "field_and_source_base_xds" in ps_xdt[msv4_name]
         assert "pointing_xds" in ps_xdt[msv4_name]
-    check_datatree(ps_xdt)
+    ps_issues = check_datatree(ps_xdt)
+    assert not ps_issues
 
 
 def test_open_asdm_with_spw_simple_fails_some_partitions(
@@ -109,4 +110,5 @@ def test_open_asdm_with_spw_simple_fails_some_partitions(
     assert ps_xdt.type == "processing_set"
     for _msv4_name, msv4_xdt in enumerate(ps_xdt):
         assert isinstance(msv4_xdt, str)
-    check_datatree(ps_xdt)
+    ps_issues = check_datatree(ps_xdt)
+    assert not ps_issues

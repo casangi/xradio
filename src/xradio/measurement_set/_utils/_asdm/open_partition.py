@@ -477,7 +477,7 @@ def _create_scan_name_coord_attrs(
     if len(scan_numbers) != len(time_centers):
         scan_numbers = np.resize(scan_numbers, len(time_centers))
     coord_scan_name = (["time"], scan_numbers)
-    attrs_scan_name = {"scan_intents": partition_descr["scanIntent"]}
+    attrs_scan_name = {"scan_intents": [str(partition_descr["scanIntent"])]}
 
     return coord_scan_name, attrs_scan_name
 

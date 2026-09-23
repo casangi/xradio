@@ -6,6 +6,7 @@ import pandas as pd
 import pyasdm
 
 from xradio._utils.logging import xradio_logger
+from xradio.measurement_set._utils._asdm._utils._bdf import config
 from xradio.measurement_set._utils._asdm._utils.time import convert_time_asdm_to_unix
 
 
@@ -35,7 +36,7 @@ def load_times_from_partition_bdfs(
         - durations: Array of scan durations
         - actual_times: Array of actual (measured) times
         - actual_durations: Array of actual (measured) durations
-        - time_indices_by_bdf: TODO
+        - time_indices_by_bdf: Dictionary with names and start indices of every BDF
 
     Notes
     -----
@@ -141,7 +142,7 @@ def load_times_from_bdfs(
         - durations : Array of nominal durations for each subset (in seconds)
         - actual_times : Array of actual measured times for each subset (in seconds)
         - actual_durations : Array of actual measured durations for each subset (in seconds)
-        - time_indices_by_bdf : TODO
+        - time_indices_by_bdf: Dictionary with names and start indices of every BDF
 
     Notes
     -----
@@ -169,8 +170,9 @@ def load_times_from_bdfs(
             bdf_header = bdf_reader.getHeader()
             # xradio_logger().debug(" * In load_times_from_bdf, {bdf_path=}, BDF header: *")
             # xradio_logger().debug(bdf_header)
-            blob_info = make_blob_info(bdf_header)
-            save_blob_info("xradio_asdm_blob_header_info_etc.csv", blob_info)
+            if config.do_save_blob_info:
+                blob_info = make_blob_info(bdf_header)
+                save_blob_info("xradio_asdm_blob_header_info_etc.csv", blob_info)
         finally:
             bdf_reader.close()
 

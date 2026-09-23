@@ -38,5 +38,5 @@ def test_create_pointing_xds_with_asdm_antenna_pointing(
     for coord in ["time_pointing", "antenna_name", "local_sky_dir_label"]:
         assert coord in pointing_xds.coords
     # The set of variables expected in this example
-    for data_var in ["DIRECTION", "POINTING_DISH_MEASURED"]:
+    for data_var in ["POINTING_BEAM", "POINTING_DISH_MEASURED"]:
         assert data_var in pointing_xds.data_vars

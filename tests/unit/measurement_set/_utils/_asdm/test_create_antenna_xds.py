@@ -38,13 +38,15 @@ def test_create_antenna_xds_with_asdm_simple_7m_antennas(
     antenna_xds = create_antenna_xds(
         asdm_with_execblock_antenna_station_feed, 2, 0, xr.DataArray([[0]])
     )
-    check_dataset(antenna_xds, AntennaXds)
+    issues_wo = check_dataset(antenna_xds, AntennaXds)
+    assert not issues_wo
 
     # w/ Feed table (no need for polarization xarray)
     antenna_xds = create_antenna_xds(
         asdm_with_execblock_antenna_station_feed, 2, 0, None
     )
-    check_dataset(antenna_xds, AntennaXds)
+    issues_with = check_dataset(antenna_xds, AntennaXds)
+    assert not issues_with
 
 
 def test_create_feed_xds_empty():

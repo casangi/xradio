@@ -115,6 +115,7 @@ def _make_pointing_coords(
     )
     time_pointing_values = convert_time_asdm_to_unix(all_time_centers)
     time_attrs = make_time_measure_attrs("s", "tai", time_format="unix")
+    time_attrs["type"] = "time_pointing"
     time_pointing_coord = ("time_pointing", time_pointing_values, time_attrs)
     # Could take: antenna_df["name"].values.astype("str"))
     antenna_name_coord = ("antenna_name", all_antenna_names)
@@ -158,10 +159,15 @@ def _make_pointing_data_vars(
 
     # Using antenna/pointing order first, as it is closer to what we get from the ASDM/Pointing rows
     # time_antenna_dir_dims = ["time_pointing", "antenna_name", "local_sky_dir_label"]
+    # coord 'time' should be 'time_pointing' when not interpolating.
     antenna_time_dir_dims = ["antenna_name", "time_pointing", "local_sky_dir_label"]
     direction_attrs = make_sky_coord_measure_attrs("rad", "altaz")
     data_vars = {
-        "DIRECTION": (antenna_time_dir_dims, corrected_rotated_target, direction_attrs),
+        "POINTING_BEAM": (
+            antenna_time_dir_dims,
+            corrected_rotated_target,
+            direction_attrs,
+        ),
         "POINTING_DISH_MEASURED": (
             antenna_time_dir_dims,
             direction_vars["encoder"],

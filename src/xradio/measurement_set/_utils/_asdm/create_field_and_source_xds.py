@@ -2,7 +2,10 @@ import numpy as np
 import pyasdm
 import xarray as xr
 
-from xradio._utils.dict_helpers import make_quantity, make_spectral_coord_measure_attrs
+from xradio._utils.dict_helpers import (
+    make_quantity_attrs,
+    make_spectral_coord_measure_attrs,
+)
 from xradio.measurement_set._utils._asdm._utils.field_source import get_direction_codes
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,
@@ -143,21 +146,6 @@ def create_field_and_source_xds(
     )
 
     if line_info_available:
-        # TODO: fix this when some sources have it and some others don't
-        # - if that ever happens
-        rest_freq = source_df["restFrequency"].values
-        xds["LINE_REST_FREQUENCY"] = (
-            "field_name",
-            rest_freq,
-            make_spectral_coord_measure_attrs("Hz", observer="TOPO"),
-        )
-        sys_vel = source_df["sysVel"].values[0]
-        xds["LINE_SYSTEMIC_VELOCITY"] = (
-            "field_name",
-            sys_vel,
-            make_quantity(sys_vel, "m/s"),
-        )
-
         line_name = source_df["transition"].values
         line_label = [f"line_{idx}" for idx in np.arange(len(line_name))]
         line_coords = {
@@ -165,6 +153,23 @@ def create_field_and_source_xds(
             "line_name": ("line_label", line_name),
         }
         xds = xds.assign_coords(line_coords)
+
+        # TODO: fix this when some sources have it and some others don't
+        # - if that ever happens
+        rest_freq = source_df["restFrequency"].values
+        rest_freq = [[freq.get() for freq_list in rest_freq for freq in freq_list]]
+        xds["LINE_REST_FREQUENCY"] = (
+            ["field_name", "line_label"],
+            rest_freq,
+            make_spectral_coord_measure_attrs("Hz", observer="TOPO"),
+        )
+        sys_vel = source_df["sysVel"].values
+        sys_vel = [[vel for vel_list in sys_vel for vel in vel_list]]
+        xds["LINE_SYSTEMIC_VELOCITY"] = (
+            ["field_name", "line_label"],
+            sys_vel,
+            make_quantity_attrs("m/s"),
+        )
 
     # TODO: ephem
     is_ephemeris = False

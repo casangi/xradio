@@ -88,13 +88,15 @@ def test_create_field_and_source_xds_with_field_source(asdm_with_spw_simple):
     if_field_and_source_xds = create_field_and_source_xds(
         asdm_with_source_field, {"fieldId": [0]}, 0, False
     )
-    check_dataset(if_field_and_source_xds, FieldSourceXds)
+    issues_if = check_dataset(if_field_and_source_xds, FieldSourceXds)
+    assert not issues_if
 
     # SD
     sd_field_and_source_xds = create_field_and_source_xds(
         asdm_with_source_field, {"fieldId": [0]}, 0, True
     )
-    check_dataset(sd_field_and_source_xds, FieldSourceXds)
+    issues_sd = check_dataset(sd_field_and_source_xds, FieldSourceXds)
+    assert not issues_sd
 
     # IF with lineinfo in Source
     asdm_with_source_field_with_lineinfo = copy.deepcopy(asdm_with_spw_simple)
@@ -120,7 +122,8 @@ def test_create_field_and_source_xds_with_field_source(asdm_with_spw_simple):
     field_and_source_xds = create_field_and_source_xds(
         asdm_with_source_field_with_lineinfo, {"fieldId": [0]}, 0, False
     )
-    check_dataset(field_and_source_xds, FieldSourceXds)
+    issues_field_source = check_dataset(field_and_source_xds, FieldSourceXds)
+    assert not issues_field_source
 
 
 @pytest.mark.parametrize(

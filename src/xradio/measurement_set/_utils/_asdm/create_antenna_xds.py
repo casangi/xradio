@@ -79,9 +79,9 @@ def create_antenna_xds(
         antenna_df, station_df, on="stationId", suffixes=("_antenna", "_station")
     )
 
-    antenna_name = ("antenna_name", antenna_df["name_antenna"].values.astype("str"))
+    antenna_name = ("antenna_name", antenna_df["name_antenna"].to_numpy(dtype="str"))
     cartesian_pos_label = ("cartesian_pos_label", ["x", "y", "z"])
-    station_name = ("antenna_name", antenna_df["name_station"].values.astype("str"))
+    station_name = ("antenna_name", antenna_df["name_station"].to_numpy(dtype="str"))
     mount = ("antenna_name", np.repeat(["ALT-AZ"], len(antenna_name[1])))
     telescope_name = get_telescope_name(asdm)
     telescope_name_by_antenna = [telescope_name] * len(antenna_name[1])

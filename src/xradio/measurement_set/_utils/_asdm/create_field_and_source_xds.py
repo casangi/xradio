@@ -72,7 +72,7 @@ def create_field_and_source_xds(
     field_id = partition_descr["fieldId"]
     field_df = field_df.loc[field_df["fieldId"].isin(field_id)]
 
-    field_name = field_df["fieldName"].unique().astype("str")
+    field_name = field_df["fieldName"].to_numpy(dtype="str")
     field_coords = {
         "sky_dir_label": ["ra", "dec"],
         "field_name": ("field_name", field_name),
@@ -124,7 +124,7 @@ def create_field_and_source_xds(
         & (source_df["sourceId"].isin(np.array(source_id)))
     ]
 
-    source_name = source_df["sourceName"].unique().astype("str")
+    source_name = source_df["sourceName"].to_numpy(dtype="str")
     source_coords = {
         "source_name": ("field_name", source_name),
     }
@@ -146,7 +146,7 @@ def create_field_and_source_xds(
     )
 
     if line_info_available:
-        line_name = source_df["transition"].values
+        line_name = source_df["transition"].explode().to_numpy(dtype="str")
         line_label = [f"line_{idx}" for idx in np.arange(len(line_name))]
         line_coords = {
             "line_label": line_label,

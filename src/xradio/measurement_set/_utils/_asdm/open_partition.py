@@ -472,7 +472,7 @@ def create_coordinates(
 def _create_scan_name_coord_attrs(
     time_centers: np.ndarray, scans_metadata_df: pd.DataFrame, partition_descr: dict
 ) -> tuple[tuple, dict]:
-    scan_numbers = np.array(scans_metadata_df["scanNumber"]).astype(str)
+    scan_numbers = scans_metadata_df["scanNumber"].to_numpy(dtype="str")
     # TODO: proper mapping begin/end scans, subscans -> BDFs
     if len(scan_numbers) != len(time_centers):
         scan_numbers = np.resize(scan_numbers, len(time_centers))
@@ -638,7 +638,7 @@ def _create_field_name_coord(
 
     fields = field_df.loc[field_df["fieldId"].isin(partition_descr["fieldId"])][
         "fieldName"
-    ].values.astype(str)
+    ].to_numpy(dtype="str")
 
     field_name_coord = (["time"], np.resize(fields, len(time_centers)))
     return field_name_coord

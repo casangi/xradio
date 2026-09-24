@@ -448,6 +448,6 @@ def _load_flags_subset(
         )
 
     if array_slice:
-        flag_subset = flag_subset[:, array_slice[1], array_slice[2], array_slice[3]]
+        flag_subset = flag_subset[:, array_slice[1], array_slice[3]]
 
     return flag_subset

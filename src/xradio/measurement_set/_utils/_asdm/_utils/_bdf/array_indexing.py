@@ -87,8 +87,9 @@ def _make_all_bdf_paths_and_slices(
     bdf_paths = time_indices_by_bdf["bdf_names"]
     bdf_slices = [
         slice(
-            time_indices_by_bdf["bdf_start"][idx],
-            time_indices_by_bdf["bdf_start"][idx + 1],
+            0,
+            time_indices_by_bdf["bdf_start"][idx + 1]
+            - time_indices_by_bdf["bdf_start"][idx],
         )
         for idx in range(0, len(bdf_paths))
     ]

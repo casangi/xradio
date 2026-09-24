@@ -42,7 +42,7 @@ time_indices_by_bdf_simple_3 = {
             time_indices_by_bdf_simple_3,
             None,
             time_indices_by_bdf_simple_3["bdf_names"],
-            [slice(0, 10, None), slice(10, 15, None), slice(15, 25, None)],
+            [slice(0, 10, None), slice(0, 5, None), slice(0, 10, None)],
         ),
         # single BDF
         (time_indices_by_bdf_simple_3, 0, ["a"], [slice(0, 1)]),
@@ -92,7 +92,7 @@ time_indices_by_bdf_simple_3 = {
             time_indices_by_bdf_simple_3,
             slice(None, None),
             ["a", "b", "c"],
-            [slice(0, 10), slice(10, 15), slice(15, 25)],
+            [slice(0, 10), slice(0, 5), slice(0, 10)],
         ),
         (
             time_indices_by_bdf_simple_3,

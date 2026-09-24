@@ -15,6 +15,7 @@ from xradio._utils.dict_helpers import (
     make_time_measure_attrs,
 )
 from xradio._utils.list_and_array import check_if_consistent
+from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._asdm import asdm_backend_arrays
 from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
     load_times_from_partition_bdfs,
@@ -69,7 +70,9 @@ def open_partition(
     """
 
     # correlated_xds with already populated coordinates, data variables and info_dicts
-    correlated_xds, num_antenna, spw_id = create_correlated_xds(asdm, partition_descr)
+    correlated_xds, num_antenna, spw_id, is_single_dish = create_correlated_xds(
+        asdm, partition_descr
+    )
 
     # antenna_xds
     antenna_xds = create_antenna_xds(
@@ -98,7 +101,6 @@ def open_partition(
     # phased_array_xds
 
     # field_and_source_xds
-    is_single_dish = False
     field_and_source_xds = create_field_and_source_xds(
         asdm, partition_descr, spw_id, is_single_dish
     )
@@ -121,13 +123,17 @@ def open_partition(
     if read_pointing:
         msv4_xdt["/pointing_xds"] = pointing_xds
 
+    xradio_logger().debug(
+        "Openend partition, {is_single_dish=}, {spw_id=}, {num_antenna=}"
+    )
+
     return msv4_xdt
 
 
 def create_correlated_xds(
     asdm: pyasdm.ASDM,
     partition_descr: dict[str, np.ndarray],
-) -> tuple[xr.DataTree, int, int]:
+) -> tuple[xr.DataTree, int, int, bool]:
     """
     Create a correlated data xarray Dataset from ASDM data.
     This function creates an xarray Dataset containing correlated visibility data
@@ -143,7 +149,7 @@ def create_correlated_xds(
 
     Returns
     -------
-    tuple[xr.DataTree, int]
+    tuple[xr.DataTree, int, int, bool]
         A tuple containing:
         - xds : xr.Dataset
             The xarray Dataset containing the correlated visibility data with
@@ -152,6 +158,8 @@ def create_correlated_xds(
             The number of antennas in the dataset.
         - spw_id : int
             The spectral window ID.
+        - is_single_dish : int
+            Whether the ASDM has single dish or interferometric data
     Notes
     -----
     The created Dataset follows the MSv4 schema and includes:
@@ -212,7 +220,7 @@ def create_correlated_xds(
     }
     xds.attrs.update({"data_groups": {"base": data_group_base}})
 
-    return xds, num_antenna, spw_id
+    return xds, num_antenna, spw_id, is_single_dish
 
 
 def find_if_single_dish(asdm: pyasdm.ASDM) -> bool:

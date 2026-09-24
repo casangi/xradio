@@ -98,7 +98,7 @@ def test_WeightArray__raw_indexing_method(
 @pytest.mark.parametrize(
     "input_shape, input_bdf_paths, input_bdf_spw_id, input_time_indices, input_key, expected_error",
     [
-        (None, [], 0, {}, None, pytest.raises(ValueError, match="need at least one")),
+        (None, [], 0, {}, None, pytest.raises(KeyError, match="bdf_names")),
         (
             (10, 3, 8, 2),
             ["/foo/bdf1", "/foo/bdf2"],

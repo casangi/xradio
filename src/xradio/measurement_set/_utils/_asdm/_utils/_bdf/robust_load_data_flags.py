@@ -162,16 +162,10 @@ def load_flags_from_partition_bdfs(
     cumulative_flag = []
     start = time.perf_counter()
 
-    if array_slice:
-        bdfs_in_selected_times, bdf_time_indices = (
-            find_bdfs_and_indices_in_selected_times(time_indices_by_bdf, array_slice[0])
-        )
-    else:
-        bdfs_in_selected_times, bdf_time_indices = (
-            bdf_paths,
-            [slice(None, None)] * len(bdf_paths),
-        )
-
+    time_slice = array_slice[0] if array_slice else None
+    bdfs_in_selected_times, bdf_time_indices = find_bdfs_and_indices_in_selected_times(
+        time_indices_by_bdf, time_slice
+    )
     for bdf_path, bdf_time_slice in zip(
         bdfs_in_selected_times, bdf_time_indices, strict=True
     ):

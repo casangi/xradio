@@ -212,29 +212,30 @@ def test_load_visibilities_from_partition_bdfs_inexistent():
         mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
         mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
     ):
-        mock_bdf_reader.return_value.hasSubset.side_effect = [True, True, False]
+        mock_bdf_reader.return_value.hasSubset.side_effect = [True, True, True, False]
         subset_shape = (1, 9, 64, 2)
+        num_subsets = 3
         mock_bdf_reader.return_value.getNDArrays.side_effect = [
             {
                 "visibilities": np.zeros(subset_shape, dtype="complex128"),
                 # Will be needed when not using loadOneSPWFunction, etc.
                 # "autoData": {"present": True, "arr": np.zeros((71680), dtype="complex128")},
             },
-        ] * 2
+        ] * num_subsets
 
         make_sufficient_bdf_header_mock(mock_bdf_header)
         mock_bdf_reader.return_value.getHeader.return_value = mock_bdf_header
 
         bdf_paths = ["/inexistent_path/foo/"]
-        times_by_bdf = {"bdf_names": bdf_paths, "bdf_start": [0]}
+        times_by_bdf = {"bdf_names": bdf_paths, "bdf_start": [0, 4]}
         visibilities = load_visibilities_from_partition_bdfs(bdf_paths, 0, times_by_bdf)
         assert isinstance(visibilities, np.ndarray)
         assert visibilities.dtype == "complex128"
-        assert visibilities.shape == subset_shape
+        assert visibilities.shape == (num_subsets, *subset_shape[1:])
 
         mock_bdf_header.getBasebandsList.assert_called_once()
-        assert mock_bdf_reader.return_value.hasSubset.call_count == 3
-        assert mock_bdf_reader.return_value.getNDArrays.call_count == 1
+        assert mock_bdf_reader.return_value.hasSubset.call_count == 4
+        assert mock_bdf_reader.return_value.getNDArrays.call_count == 3
 
 
 @pytest.mark.parametrize(
@@ -283,27 +284,29 @@ def test_load_visibilities_from_bdf_bogus_input_slice(input_never_reshape, input
         mock_bdf_reader.return_value.hasSubset.side_effect = [True, True, False]
         # Force some error loading
         subset_shape = (1, 3, 64, 2)
+        exception_msg = "text pattern for the exception"
         mock_bdf_reader.return_value.getNDArrays.side_effect = [
             {
                 "visibilities": np.zeros(subset_shape, dtype="complex128"),
             },
-            RuntimeError,
+            RuntimeError(exception_msg),
         ]
 
         make_sufficient_bdf_header_mock(mock_bdf_header)
         mock_bdf_reader.return_value.getHeader.return_value = mock_bdf_header
         array_slice = (slice(0, 3), slice(None), slice(None), slice(None))
-        visibilities = load_visibilities_from_bdf(
-            "/inexistent/foo/path/",
-            input_spw,
-            array_slice,
-            never_reshape_from_all_spws=input_never_reshape,
-        )
-        assert visibilities.shape == subset_shape
+        with pytest.raises(RuntimeError, match=exception_msg):
+            _visibilities = load_visibilities_from_bdf(
+                "/inexistent/foo/path/",
+                input_spw,
+                array_slice,
+                never_reshape_from_all_spws=input_never_reshape,
+            )
+            # assert visibilities.shape == subset_shape
         mock_bdf_header.getBasebandsList.assert_called_once()
-        assert mock_bdf_reader.return_value.hasSubset.call_count == 3
-        assert mock_bdf_reader.return_value.getNDArrays.call_count == 1
-        assert mock_bdf_reader.return_value.getSubset.call_count == 1
+        assert mock_bdf_reader.return_value.hasSubset.call_count == 2
+        assert mock_bdf_reader.return_value.getNDArrays.call_count == 2
+        assert mock_bdf_reader.return_value.getSubset.call_count == 0
 
 
 def test_load_flags_from_partition_bdfs_empty():
@@ -312,7 +315,7 @@ def test_load_flags_from_partition_bdfs_empty():
     )
 
     bdf_paths = []
-    times_by_bdf = {"bdf_names": [], "bdf_start": []}
+    times_by_bdf = {"bdf_names": [], "bdf_start": [0]}
     with pytest.raises(ValueError, match="at least one array"):
         load_flags_from_partition_bdfs(bdf_paths, 0, times_by_bdf)
 
@@ -323,7 +326,7 @@ def test_load_flags_from_partition_bdfs_inexistent():
     )
 
     bdf_paths = ["/inexistent_path_to_flags/foo/"]
-    times_by_bdf = {"bdf_names": bdf_paths, "bdf_start": [0]}
+    times_by_bdf = {"bdf_names": bdf_paths, "bdf_start": [0, 4]}
     with pytest.raises(
         pyasdm.exceptions.BDFReaderException, match="Error while opening"
     ):
@@ -369,7 +372,7 @@ def test_load_flags_from_partition_bdfs():
 
         bdf_paths = ["/inexistent_path_to_flags/foo/"]
         empty_slice = (slice(None), slice(None), slice(None), slice(None))
-        times_by_bdf = {"bdf_names": bdf_paths, "bdf_start": [0]}
+        times_by_bdf = {"bdf_names": bdf_paths, "bdf_start": [0, 4]}
         flags = load_flags_from_partition_bdfs(bdf_paths, 0, times_by_bdf, empty_slice)
         assert isinstance(flags, np.ndarray)
         assert flags.dtype == "bool"

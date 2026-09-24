@@ -70,12 +70,14 @@ def load_visibilities_all_subsets_from_trees(
     vis_per_subset = []
 
     time_len = guessed_shape[0]
-    time_min, time_max = min_max_from_dimension_slice(array_slice[0], 0, time_len)
+    default_max = array_slice[0].stop or time_len
+    time_min, time_max = min_max_from_dimension_slice(array_slice[0], 0, default_max)
     time_index = 0
     while bdf_reader.hasSubset():
+        # TODO: if time_index >= time_max: simple break
         if time_index < time_min or time_index >= time_max:
             # skip subset by time indexing
-            subset = load_subset_with_get_subset(bdf_reader, [])
+            _subset = load_subset_with_get_subset(bdf_reader, [])
             time_index += 1
             continue
 

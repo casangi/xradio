@@ -260,6 +260,7 @@ def define_visibility_shape(
     )
 
     # if dimensionality==0, we have TIM dimension / packed format
+    # Otherwise, 1 (one subset = 1 time)
     time_len = bdf_descr["num_time"] if bdf_descr["dimensionality"] == 0 else 1
     shape = (
         time_len,
@@ -300,6 +301,10 @@ def load_flags_all_subsets(
 
     bdf_flag = np.concatenate(flag_per_subset)
 
+    # TODO: suboptimal, too late here
+    if array_slice:
+        bdf_flag = bdf_flag[array_slice[0], ...]
+
     return bdf_flag
 
 
@@ -316,6 +321,7 @@ def define_flag_shape(
     auto_pol_len = len(spw_descr["sdPolProducts"])
 
     # if dimensionality==0, we have TIM dimension / packed format
+    # otherwise, 1 (one subset = 1 time)
     time_len = bdf_descr["num_time"] if bdf_descr["dimensionality"] == 0 else 1
 
     # shapes of the blocks of flags corresponding to the crossData
@@ -442,6 +448,6 @@ def _load_flags_subset(
         )
 
     if array_slice:
-        flag_subset = flag_subset[array_slice[0], array_slice[2], array_slice[3]]
+        flag_subset = flag_subset[:, array_slice[1], array_slice[2], array_slice[3]]
 
     return flag_subset

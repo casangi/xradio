@@ -162,7 +162,7 @@ def create_observation_info(asdm: pyasdm.ASDM, partition_descr: dict) -> dict:
 
     scheduling_block_UID = sb_summary_df.loc[
         sb_summary_df["sBSummaryId"] == sb_summary_id[0]
-    ]["sbSummaryUID"].values[0]
+    ]["sbSummaryUID"].values
 
     def list_to_first(alist: list) -> object:
         return alist[0]

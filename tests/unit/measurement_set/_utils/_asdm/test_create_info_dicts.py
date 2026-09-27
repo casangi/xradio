@@ -41,7 +41,7 @@ def test_create_info_dicts_with_asdm_simple_extended(
         "execution_block_UID": "uid://A002/X11b94a6/X119b",
         "session_reference_UID": "uid://A002/X11b94a6/X119a",
         "observing_log": "[]",
-        "scheduling_block_UID": "u",
+        "scheduling_block_UID": "uid://A001/X362e/X332",
     }
     assert "processor_info" in info_dicts
     assert info_dicts["processor_info"] == {
@@ -66,7 +66,7 @@ def test_create_observation_info_with_asdm_simple_extended(
         "execution_block_UID": "uid://A002/X11b94a6/X119b",
         "session_reference_UID": "uid://A002/X11b94a6/X119a",
         "observing_log": "[]",
-        "scheduling_block_UID": "u",
+        "scheduling_block_UID": "uid://A001/X362e/X332",
     }
 
 

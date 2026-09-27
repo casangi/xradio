@@ -67,8 +67,8 @@ def test_make_skycoord_dict_raises_for_invalid_axis_label_count():
 @pytest.mark.parametrize(
     "units, frame, expected_output",
     [
-        ("any", "ICRS", {"units": "any", "frame": "ICRS", "type": "sky_coord"}),
-        ("rad", "ICRS", {"units": "rad", "frame": "ICRS", "type": "sky_coord"}),
+        ("any", "ICRS", {"units": "any", "frame": "icrs", "type": "sky_coord"}),
+        ("rad", "ICRS", {"units": "rad", "frame": "icrs", "type": "sky_coord"}),
         ("m", "altaz", {"units": "m", "frame": "altaz", "type": "sky_coord"}),
     ],
 )

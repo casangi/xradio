@@ -5,7 +5,6 @@ import pytest
 
 from xradio.measurement_set._utils._asdm.create_field_and_source_xds import (
     create_field_and_source_xds,
-    make_sky_coord_measure_attrs,
 )
 from xradio.measurement_set.schema import FieldSourceXds
 from xradio.schema.check import check_dataset
@@ -124,16 +123,3 @@ def test_create_field_and_source_xds_with_field_source(asdm_with_spw_simple):
     )
     issues_field_source = check_dataset(field_and_source_xds, FieldSourceXds)
     assert not issues_field_source
-
-
-@pytest.mark.parametrize(
-    "units, frame, expected_output",
-    [
-        ("any", "ICRS", {"units": "any", "frame": "ICRS", "type": "sky_coord"}),
-        ("rad", "ICRS", {"units": "rad", "frame": "ICRS", "type": "sky_coord"}),
-        ("m", "altaz", {"units": "m", "frame": "altaz", "type": "sky_coord"}),
-    ],
-)
-def test_make_sky_coord_measure_attrs(units, frame, expected_output):
-    result = make_sky_coord_measure_attrs(units, frame)
-    assert result == expected_output

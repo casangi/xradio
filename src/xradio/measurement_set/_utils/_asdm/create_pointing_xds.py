@@ -5,16 +5,16 @@ import pandas as pd
 import pyasdm
 import xarray as xr
 
-from xradio._utils.dict_helpers import make_time_measure_attrs
+from xradio._utils.dict_helpers import (
+    make_sky_coord_measure_attrs,
+    make_time_measure_attrs,
+)
 from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,
 )
 from xradio.measurement_set._utils._asdm._utils.pointing_direction_rotation import (
     rotate_offset_to_target,
-)
-from xradio.measurement_set._utils._asdm._utils.sky_coord_dict_helper import (
-    make_sky_coord_measure_attrs,
 )
 from xradio.measurement_set._utils._asdm._utils.time import convert_time_asdm_to_unix
 

@@ -112,7 +112,7 @@ def open_partition(
             correlated_xds.coords["baseline_antenna1_name"],
             correlated_xds.coords["baseline_antenna2_name"],
             antenna_xds.data_vars["ANTENNA_POSITION"],
-            field_and_source_xds.FIELD_PHASE_CENTER,
+            field_and_source_xds.FIELD_PHASE_CENTER_DIRECTION,
         )
         correlated_xds = correlated_xds.assign(uvw_data_var)
 

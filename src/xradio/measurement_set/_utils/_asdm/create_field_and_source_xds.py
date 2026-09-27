@@ -4,14 +4,12 @@ import xarray as xr
 
 from xradio._utils.dict_helpers import (
     make_quantity_attrs,
+    make_sky_coord_measure_attrs,
     make_spectral_coord_measure_attrs,
 )
 from xradio.measurement_set._utils._asdm._utils.field_source import get_direction_codes
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,
-)
-from xradio.measurement_set._utils._asdm._utils.sky_coord_dict_helper import (
-    make_sky_coord_measure_attrs,
 )
 
 
@@ -79,20 +77,21 @@ def create_field_and_source_xds(
     }
     xds = xds.assign_coords(field_coords)
 
-    # TODO: to split in _DIRECTION/_DISTANCE
-    if is_single_dish:
-        center_dv = "FIELD_REFERENCE_CENTER"
-    else:
-        center_dv = "FIELD_PHASE_CENTER"
+    phase_or_reference = "REFERENCE" if is_single_dish else "PHASE"
+    center_direction_dv = f"FIELD_{phase_or_reference}_CENTER_DIRECTION"
+    # TODO: make distance variable once we have ephem data
+    # center_distance_dv = f"FIELD_{phase_or_reference}_CENTER_DISTANCE"
 
     # ignore the polynomial dimension
     ref_dir = field_df["referenceDir"].values[0][0]
-    xds[center_dv] = (
+    xds[center_direction_dv] = (
         ["field_name", "sky_dir_label"],
         [[ref_dir[0], ref_dir[1]]],
     )
-    xds.data_vars[center_dv].attrs.update(
-        make_sky_coord_measure_attrs(["rad", "rad"], "fk5")
+    # TODO: should check for presence of Source/directionCode
+    # (optional, "if not J2000")
+    xds.data_vars[center_direction_dv].attrs.update(
+        make_sky_coord_measure_attrs("rad", "fk5")
     )
 
     line_info_available = True

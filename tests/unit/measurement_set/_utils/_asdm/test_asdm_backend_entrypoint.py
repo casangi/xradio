@@ -4,6 +4,20 @@ import pyasdm
 import pytest
 
 
+def test_ASDMBackendEntryPoint_in_xarray_backends_list():
+    """This test is actually for the entry-point defined in the pyproject.toml"""
+    import xarray as xr
+
+    from xradio.measurement_set._utils._asdm.asdm_backend_entrypoint import (
+        ASDMBackendEntryPoint,
+    )
+
+    expected_name = "xradio_asdm"
+    engines = xr.backends.list_engines()
+    assert expected_name in engines
+    assert isinstance(engines[expected_name], ASDMBackendEntryPoint)
+
+
 def test_open_datatree_drop_variables_not_supported():
     from xradio.measurement_set._utils._asdm.asdm_backend_entrypoint import (
         ASDMBackendEntryPoint,

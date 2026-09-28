@@ -382,7 +382,7 @@ documentation <api.rst>`__).
 Figure 3 summarizes the available and planned future functionality. The
 sub-package currently allows direct opening of data from
 `zarr <https://zarr-specs.readthedocs.io/en/latest/specs.html>`__ and
-will support ASDM pre- and post- WSU (ALMA Wide Band Sensitivity
+ASDM. It will support ASDM pre- and post- WSU (ALMA Wide Band Sensitivity
 Upgrade) and possibly
 `NetCDF <https://www.unidata.ucar.edu/software/netcdf/>`__ in the
 future. The WSU ASDM is an update of the
@@ -424,7 +424,7 @@ Schema-related:
 Software-related:
 
 - Expand and refine Processing Set methods
-- Add ASDM and WSU-ASDM backend
+- Complete the ASDM and WSU-ASDM backend
 - Possibly add a NetCDF backend
 - Replace python-casacore backend with a more lightweight (possibly pure
   Python) package

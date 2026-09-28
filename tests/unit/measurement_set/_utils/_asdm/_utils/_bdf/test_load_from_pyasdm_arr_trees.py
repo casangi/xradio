@@ -74,7 +74,18 @@ basebands_example = [
 ]
 
 
-def test_load_visibilities_all_subsets_from_trees():
+@pytest.mark.parametrize(
+    "input_slice",
+    [
+        ((slice(None), slice(None), slice(None), slice(None))),
+        ((slice(2, 3), slice(None), slice(None), slice(None))),
+        ((slice(None), slice(1, 5), slice(None), slice(None))),
+        ((slice(None), slice(None), slice(100, 200), slice(None))),
+        ((slice(None), slice(None), slice(None), slice(0, 1))),
+        ((slice(1, 2), slice(0, 3), slice(900, 960), slice(0, 1))),
+    ],
+)
+def test_load_visibilities_all_subsets_from_trees(input_slice):
     from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
         load_visibilities_all_subsets_from_trees,
     )
@@ -91,13 +102,12 @@ def test_load_visibilities_all_subsets_from_trees():
     ):
         with pytest.raises(RuntimeError, match="not present"):
             # Test with load_one_spw_from_file=False => load_vis_subset_from_tree() (also below)
-            empty_slice = (slice(None), slice(None), slice(None), slice(None))
             load_visibilities_all_subsets_from_trees(
                 mock_bdf_reader,
                 (2, 45, 2, 64, 2, 2),
                 (0, 0),
                 bdf_descr,
-                empty_slice,
+                input_slice,
                 load_one_spw_from_file=False,
             )
         mock_bdf_header.getBasebandsList.assert_not_called()
@@ -771,7 +781,7 @@ bdf_descr_X64c6 = {
 
 
 @pytest.mark.parametrize(
-    "input_cross_data_arr, input_guessed_shape, input_spw_chan_lens, input_overall_spw_idx, input_processor_type, expected_size, expected_shape",
+    "input_cross_data_arr, input_guessed_shape, input_spw_chan_lens, input_overall_spw_idx, input_processor_type, input_array_slice, expected_size, expected_shape",
     [
         (
             np.zeros((15360), dtype="float64"),
@@ -779,6 +789,7 @@ bdf_descr_X64c6 = {
             [32, 64, 16, 8],
             0,
             pyasdm.enumerations.ProcessorType.CORRELATOR,
+            ((slice(None), slice(None), slice(None), slice(None))),
             640,
             (1, 10, 32, 2),
         ),
@@ -788,6 +799,7 @@ bdf_descr_X64c6 = {
             [32, 64, 16, 8],
             3,
             pyasdm.enumerations.ProcessorType.RADIOMETER,
+            ((slice(None), slice(None), slice(None), slice(None))),
             160,
             (1, 10, 8, 2),
         ),
@@ -797,6 +809,7 @@ bdf_descr_X64c6 = {
             [32, 64, 16, 8],
             1,
             pyasdm.enumerations.ProcessorType.CORRELATOR,
+            ((slice(None), slice(None), slice(None), slice(None))),
             1280,
             (1, 10, 64, 2),
         ),
@@ -806,6 +819,7 @@ bdf_descr_X64c6 = {
             [32, 64, 16, 8],
             2,
             pyasdm.enumerations.ProcessorType.CORRELATOR,
+            ((slice(None), slice(None), slice(None), slice(None))),
             320,
             (1, 10, 16, 2),
         ),
@@ -815,6 +829,7 @@ bdf_descr_X64c6 = {
             [32, 64, 16, 8],
             3,
             pyasdm.enumerations.ProcessorType.CORRELATOR,
+            ((slice(None), slice(None), slice(None), slice(None))),
             160,
             (1, 10, 8, 2),
         ),
@@ -824,8 +839,29 @@ bdf_descr_X64c6 = {
             [32, 64, 16, 8],
             3,
             pyasdm.enumerations.ProcessorType.CORRELATOR,
+            ((slice(None), slice(None), slice(None), slice(None))),
             160,
             (1, 10, 8, 2),
+        ),
+        (
+            np.zeros((15360), dtype="float64"),
+            (3, 10, 5, 4, 2, 32, 2, 2),
+            [32, 64, 16, 8],
+            3,
+            pyasdm.enumerations.ProcessorType.CORRELATOR,
+            ((slice(None), slice(None), slice(None), slice(0, 1))),
+            80,
+            (1, 10, 8, 1),
+        ),
+        (
+            np.zeros((15360), dtype="float64"),
+            (3, 10, 5, 4, 2, 32, 2, 2),
+            [32, 64, 16, 8],
+            3,
+            pyasdm.enumerations.ProcessorType.CORRELATOR,
+            ((slice(1, 2), slice(2, 4), slice(0, 16), slice(0, 1))),
+            16,
+            (1, 2, 8, 1),
         ),
     ],
 )
@@ -835,6 +871,7 @@ def test_load_vis_subset_cross_data_from_tree(
     input_spw_chan_lens,
     input_overall_spw_idx,
     input_processor_type,
+    input_array_slice,
     expected_size,
     expected_shape,
 ):
@@ -842,7 +879,6 @@ def test_load_vis_subset_cross_data_from_tree(
         load_vis_subset_cross_data_from_tree,
     )
 
-    empty_slice = (slice(None), slice(None), slice(None), slice(None))
     visibilities = load_vis_subset_cross_data_from_tree(
         input_cross_data_arr,
         input_guessed_shape,
@@ -850,7 +886,7 @@ def test_load_vis_subset_cross_data_from_tree(
         input_overall_spw_idx,
         123456.789,
         input_processor_type,
-        empty_slice,
+        input_array_slice,
     )
 
     assert isinstance(visibilities, np.ndarray)
@@ -863,13 +899,14 @@ def test_load_vis_subset_cross_data_from_tree(
 
 
 @pytest.mark.parametrize(
-    "input_auto_data_arr, input_guessed_shape, input_spw_chan_lens, input_overall_spw_idx, expected_size, expected_shape",
+    "input_auto_data_arr, input_guessed_shape, input_spw_chan_lens, input_overall_spw_idx, input_array_slice, expected_size, expected_shape",
     [
         (
             np.zeros((15360), dtype="float64"),
             (1, 10, 5, 4, 2, 32, 2, 2),
             [32, 64, 16, 8],
             0,
+            ((slice(None), slice(None), slice(None), slice(None))),
             320,
             (1, 5, 32, 2),
         ),
@@ -878,6 +915,7 @@ def test_load_vis_subset_cross_data_from_tree(
             (1, 10, 5, 4, 2, 32, 2, 2),
             [32, 64, 16, 8],
             1,
+            ((slice(None), slice(None), slice(None), slice(None))),
             640,
             (1, 5, 64, 2),
         ),
@@ -886,6 +924,7 @@ def test_load_vis_subset_cross_data_from_tree(
             (1, 10, 5, 4, 2, 32, 2, 2),
             [32, 64, 16, 8],
             2,
+            ((slice(None), slice(None), slice(None), slice(None))),
             160,
             (1, 5, 16, 2),
         ),
@@ -894,6 +933,7 @@ def test_load_vis_subset_cross_data_from_tree(
             (1, 10, 5, 4, 2, 32, 2, 2),
             [32, 64, 16, 8],
             3,
+            ((slice(None), slice(None), slice(None), slice(None))),
             80,
             (1, 5, 8, 2),
         ),
@@ -902,6 +942,7 @@ def test_load_vis_subset_cross_data_from_tree(
             (1, 10, 5, 4, 2, 32, 3, 2),
             [32, 5, 16, 8],
             2,
+            ((slice(None), slice(None), slice(None), slice(None))),
             240,
             (1, 5, 16, 3),
         ),
@@ -910,8 +951,27 @@ def test_load_vis_subset_cross_data_from_tree(
             (2, 10, 5, 4, 2, 32, 2, 2),
             [32, 5, 16, 8],
             2,
-            320,
-            (2, 5, 16, 2),
+            ((slice(None), slice(None), slice(None), slice(1, 2))),
+            160,
+            (2, 5, 16, 1),
+        ),
+        (
+            np.zeros((15360), dtype="float64"),
+            (2, 10, 5, 4, 2, 32, 2, 2),
+            [32, 5, 16, 8],
+            2,
+            ((slice(None), slice(None), slice(8, 16), slice(1, 2))),
+            80,
+            (2, 5, 8, 1),
+        ),
+        (
+            np.zeros((15360), dtype="float64"),
+            (2, 10, 5, 4, 2, 32, 2, 2),
+            [32, 5, 16, 8],
+            2,
+            ((slice(0, 1), slice(3, 5), slice(8, 16), slice(1, 2))),
+            16,
+            (1, 2, 8, 1),
         ),
     ],
 )
@@ -920,6 +980,7 @@ def test_load_vis_subset_auto_data_from_tree(
     input_guessed_shape,
     input_spw_chan_lens,
     input_overall_spw_idx,
+    input_array_slice,
     expected_size,
     expected_shape,
 ):
@@ -927,13 +988,12 @@ def test_load_vis_subset_auto_data_from_tree(
         load_vis_subset_auto_data_from_tree,
     )
 
-    empty_slice = (slice(None), slice(None), slice(None), slice(None))
     visibilities = load_vis_subset_auto_data_from_tree(
         input_auto_data_arr,
         input_guessed_shape,
         input_spw_chan_lens,
         input_overall_spw_idx,
-        empty_slice,
+        input_array_slice,
     )
 
     assert isinstance(visibilities, np.ndarray)

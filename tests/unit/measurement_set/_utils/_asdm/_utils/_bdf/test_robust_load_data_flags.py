@@ -309,6 +309,47 @@ def test_load_visibilities_from_bdf_bogus_input_slice(input_never_reshape, input
         assert mock_bdf_reader.return_value.getSubset.call_count == 0
 
 
+@pytest.mark.parametrize(
+    "input_never_reshape, input_spw", [(True, 0), (True, 2), (False, 1), (False, 4)]
+)
+def test_load_visibilities_from_bdf_no_issues(input_never_reshape, input_spw):
+    """In priciple, all fine: correct slice and usable BDF description"""
+    from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
+        load_visibilities_from_bdf,
+    )
+
+    with (
+        mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
+        mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
+    ):
+        mock_bdf_reader.return_value.hasSubset.side_effect = [True, True, False]
+        # Force some error loading
+        subset_shape = (1, 3, 64, 2)
+        exception_msg = "text pattern for the exception"
+        # This load will use getNDArrays (unless patched to produce find_if_different_basebands_spws=>False)
+        mock_bdf_reader.return_value.getNDArrays.side_effect = [
+            {
+                "visibilities": np.zeros(subset_shape, dtype="complex128"),
+            },
+            RuntimeError(exception_msg),
+        ]
+
+        make_sufficient_bdf_header_mock(mock_bdf_header)
+        mock_bdf_reader.return_value.getHeader.return_value = mock_bdf_header
+        array_slice = (slice(None), slice(None), slice(0, 16), slice(None))
+        _visibilities = load_visibilities_from_bdf(
+            "/inexistent/foo/path/",
+            input_spw,
+            array_slice,
+            never_reshape_from_all_spws=input_never_reshape,
+        )
+        # assert visibilities.shape == subset_shape
+        mock_bdf_header.getBasebandsList.assert_called_once()
+        assert mock_bdf_reader.return_value.hasSubset.call_count == 3
+        assert mock_bdf_reader.return_value.getNDArrays.call_count == 1
+        assert mock_bdf_reader.return_value.getSubset.call_count == 1
+
+
 def test_load_flags_from_partition_bdfs_empty():
     from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
         load_flags_from_partition_bdfs,

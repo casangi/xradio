@@ -175,6 +175,17 @@ def test_make_blob_info():
         assert info.shape == (1, 22)
 
 
+def test_save_blob_info():
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
+        save_blob_info,
+    )
+
+    save_blob_info(
+        "foo_dummy_test_output_file_for_save_blob_info.csv",
+        pd.DataFrame(columns=["foo"]),
+    )
+
+
 def test_load_times_from_bdfs_empty():
     from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
         load_times_from_bdfs,

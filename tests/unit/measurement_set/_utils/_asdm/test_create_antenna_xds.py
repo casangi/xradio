@@ -49,6 +49,25 @@ def test_create_antenna_xds_with_asdm_simple_7m_antennas(
     assert not issues_with
 
 
+def test_create_antenna_xds_with_asdm_sd_with_execblock_antenna_station_feed(
+    asdm_sd_with_execblock_antenna_station_feed,
+):
+    # w/o Feed table
+    antenna_xds = create_antenna_xds(
+        asdm_sd_with_execblock_antenna_station_feed, 2, 0, xr.DataArray([[0]])
+    )
+    issues_wo = check_dataset(antenna_xds, AntennaXds)
+    assert not issues_wo
+
+    # w/ Feed table (no need for polarization xarray)
+    with pytest.raises(AttributeError, match="object has no attribute"):
+        _antenna_xds = create_antenna_xds(
+            asdm_sd_with_execblock_antenna_station_feed, 2, 0, None
+        )
+        # issues_with = check_dataset(antenna_xds, AntennaXds)
+        # assert not issues_with
+
+
 def test_create_feed_xds_empty():
     with pytest.raises(AttributeError, match="has no attribute"):
         create_feed_xds(None, pd.DataFrame(), 0, xr.DataArray([[0]]))

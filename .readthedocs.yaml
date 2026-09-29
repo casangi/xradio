@@ -17,6 +17,7 @@ python:
       path: .
       extra_requirements:
         - casacore
+        - asdm
 
 # Configuration for Sphinx documentation
 sphinx:

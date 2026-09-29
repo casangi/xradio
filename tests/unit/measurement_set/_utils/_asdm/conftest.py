@@ -84,6 +84,64 @@ def make_asdm_with_spw_simple():
     return test_asdm
 
 
+def make_sd_asdm_with_spw_simple():
+    spw_row_spec_44 = """
+  <row>
+    <spectralWindowId>SpectralWindow_44</spectralWindowId>
+    <basebandName>BB_1</basebandName>
+    <netSideband>LSB</netSideband>
+    <numChan>128</numChan>
+    <refFreq>9.6994575E10</refFreq>
+    <sidebandProcessingMode>NONE</sidebandProcessingMode>
+    <totBandwidth>2.0E9</totBandwidth>
+    <windowFunction>HANNING</windowFunction>
+    <chanFreqStart>9.69867625E10</chanFreqStart>
+    <chanFreqStep>-1.5625E7</chanFreqStep>
+    <chanWidth>1.5625E7</chanWidth>
+    <effectiveBw>4.1671875E7</effectiveBw>
+    <name>X0000000000#ALMA_RB_03#BB_1#SW-01#FULL_RES</name>
+    <quantization>true</quantization>
+    <refChan>-0.5</refChan>
+    <resolution>3.125E7</resolution>
+    <numAssocValues>44</numAssocValues>
+    <assocNature>1 44 BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE CHANNEL_AVERAGE</assocNature>
+    <assocSpectralWindowId>1 44 SpectralWindow_1 SpectralWindow_2 SpectralWindow_3 SpectralWindow_4 SpectralWindow_5 SpectralWindow_6 SpectralWindow_7 SpectralWindow_8 SpectralWindow_9 SpectralWindow_10 SpectralWindow_11 SpectralWindow_12 SpectralWindow_13 SpectralWindow_14 SpectralWindow_15 SpectralWindow_16 SpectralWindow_17 SpectralWindow_18 SpectralWindow_19 SpectralWindow_20 SpectralWindow_21 SpectralWindow_22 SpectralWindow_23 SpectralWindow_24 SpectralWindow_25 SpectralWindow_26 SpectralWindow_27 SpectralWindow_28 SpectralWindow_29 SpectralWindow_30 SpectralWindow_31 SpectralWindow_32 SpectralWindow_33 SpectralWindow_34 SpectralWindow_35 SpectralWindow_36 SpectralWindow_37 SpectralWindow_38 SpectralWindow_39 SpectralWindow_40 SpectralWindow_41 SpectralWindow_42 SpectralWindow_43 SpectralWindow_45</assocSpectralWindowId>
+  </row>
+    """
+    spw_row_spec_45 = """
+  <row>
+    <spectralWindowId>SpectralWindow_45</spectralWindowId>
+    <basebandName>BB_1</basebandName>
+    <netSideband>LSB</netSideband>
+    <numChan>1</numChan>
+    <refFreq>9.68617625E10</refFreq>
+    <sidebandProcessingMode>NONE</sidebandProcessingMode>
+    <totBandwidth>1.78125E9</totBandwidth>
+    <windowFunction>HANNING</windowFunction>
+    <chanFreqArray>1 1 9.59711375E10</chanFreqArray>
+    <chanWidthArray>1 1 1.78125E9</chanWidthArray>
+    <effectiveBwArray>1 1 1.78125E9</effectiveBwArray>
+    <name>X0000000000#ALMA_RB_03#BB_1#SW-01#CH_AVG</name>
+    <quantization>false</quantization>
+    <refChan>-0.5</refChan>
+    <resolutionArray>1 1 1.78125E9</resolutionArray>
+    <numAssocValues>44</numAssocValues>
+    <assocNature>1 44 BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE FULL_RESOLUTION</assocNature>
+    <assocSpectralWindowId>1 44 SpectralWindow_1 SpectralWindow_2 SpectralWindow_3 SpectralWindow_4 SpectralWindow_5 SpectralWindow_6 SpectralWindow_7 SpectralWindow_8 SpectralWindow_9 SpectralWindow_10 SpectralWindow_11 SpectralWindow_12 SpectralWindow_13 SpectralWindow_14 SpectralWindow_15 SpectralWindow_16 SpectralWindow_17 SpectralWindow_18 SpectralWindow_19 SpectralWindow_20 SpectralWindow_21 SpectralWindow_22 SpectralWindow_23 SpectralWindow_24 SpectralWindow_25 SpectralWindow_26 SpectralWindow_27 SpectralWindow_28 SpectralWindow_29 SpectralWindow_30 SpectralWindow_31 SpectralWindow_32 SpectralWindow_33 SpectralWindow_34 SpectralWindow_35 SpectralWindow_36 SpectralWindow_37 SpectralWindow_38 SpectralWindow_39 SpectralWindow_40 SpectralWindow_41 SpectralWindow_42 SpectralWindow_43 SpectralWindow_44</assocSpectralWindowId>
+  </row>
+    """
+    test_asdm = pyasdm.ASDM()
+    test_spw_table = test_asdm.getSpectralWindow()
+    spw_row_44 = pyasdm.SpectralWindowRow(test_spw_table)
+    spw_row_44.setFromXML(spw_row_spec_44)
+    test_spw_table.add(spw_row_44)
+    spw_row_45 = pyasdm.SpectralWindowRow(test_spw_table)
+    spw_row_45.setFromXML(spw_row_spec_45)
+    test_spw_table.add(spw_row_45)
+    assert test_spw_table.size() == 2
+    return test_asdm
+
+
 @pytest.fixture(scope="session")
 def asdm_with_spw_simple():
     """
@@ -163,6 +221,55 @@ def add_main_table(asdm: pyasdm.ASDM):
     main_table.add(main_row_1)
 
 
+def add_sd_main_table(asdm: pyasdm.ASDM):
+    # Examples from uid___A002_Xac5575_X4086
+    main_row_0_xml = """
+  <row>
+    <time>4953045221664000000</time>
+    <numAntenna>43</numAntenna>
+    <timeSampling>INTEGRATION</timeSampling>
+    <interval>38400000000</interval>
+    <numIntegration>4</numIntegration>
+    <scanNumber>1</scanNumber>
+    <subscanNumber>1</subscanNumber>
+    <dataSize>715535</dataSize>
+    <dataUID>
+      <EntityRef entityId="uid://A002/Xac5575/X4088" partId="X00000000" entityTypeName="Main" documentVersion="1"/>
+    </dataUID>
+    <configDescriptionId>ConfigDescription_0</configDescriptionId>
+    <execBlockId>ExecBlock_0</execBlockId>
+    <fieldId>Field_0</fieldId>
+    <stateId>1 43 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0</stateId>
+  </row>
+    """
+    main_row_1_xml = """
+  <row>
+    <time>4953045221664000000</time>
+    <numAntenna>43</numAntenna>
+    <timeSampling>SUBINTEGRATION</timeSampling>
+    <interval>38400000000</interval>
+    <numIntegration>40</numIntegration>
+    <scanNumber>1</scanNumber>
+    <subscanNumber>1</subscanNumber>
+    <dataSize>147704</dataSize>
+    <dataUID>
+      <EntityRef entityId="uid://A002/Xac5575/X4087" partId="X00000000" entityTypeName="Main" documentVersion="1"/>
+    </dataUID>
+    <configDescriptionId>ConfigDescription_1</configDescriptionId>
+    <execBlockId>ExecBlock_0</execBlockId>
+    <fieldId>Field_0</fieldId>
+    <stateId>1 43 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0 State_0</stateId>
+  </row>
+    """
+    main_table = asdm.getMain()
+    main_row_0 = pyasdm.MainRow(main_table)
+    main_row_0.setFromXML(main_row_0_xml)
+    main_row_1 = pyasdm.MainRow(main_table)
+    main_row_1.setFromXML(main_row_1_xml)
+    main_table.add(main_row_0)
+    main_table.add(main_row_1)
+
+
 def add_execblock_table(asdm: pyasdm.ASDM):
     execblock_row_0_xml = """
   <row>
@@ -197,6 +304,48 @@ def add_execblock_table(asdm: pyasdm.ASDM):
     <observingScript> StandardInterferometry.py </observingScript>
     <antennaId> 1 12 Antenna_0 Antenna_1 Antenna_2 Antenna_3 Antenna_4 Antenna_5 Antenna_6 Antenna_7 Antenna_8 Antenna_9 Antenna_10 Antenna_11  </antennaId>
     <sBSummaryId> SBSummary_0 </sBSummaryId>
+  </row>
+    """
+    execblock_table = asdm.getExecBlock()
+    execblock_row_0 = pyasdm.ExecBlockRow(execblock_table)
+    execblock_row_0.setFromXML(execblock_row_0_xml)
+    execblock_table.add(execblock_row_0)
+
+
+def add_sd_execblock_table(asdm: pyasdm.ASDM):
+    execblock_row_0_xml = """
+  <row>
+    <execBlockId>ExecBlock_0</execBlockId>
+    <startTime>4953045089210000000</startTime>
+    <endTime>4953045562561000000</endTime>
+    <execBlockNum>999</execBlockNum>
+    <execBlockUID>
+      <EntityRef entityId="uid://A002/Xac5575/X4086" partId="X00000000" entityTypeName="ASDM" documentVersion="1"/>
+    </execBlockUID>
+    <projectUID>
+      <EntityRef entityId="uid://A002/X5ca254/X1" partId="X00000000" entityTypeName="ObsProject" documentVersion="1"/>
+    </projectUID>
+    <configName>A</configName>
+    <telescopeName>ALMA</telescopeName>
+    <observerName>lknee</observerName>
+    <numObservingLog>0</numObservingLog>
+    <observingLog>1 0</observingLog>
+    <sessionReference>
+      <EntityRef entityId="uid://A002/X5ca254/Xb" partId="X00001ad7" entityTypeName="OUSStatus" documentVersion="1.0"/>
+    </sessionReference>
+    <baseRangeMin>0.0</baseRangeMin>
+    <baseRangeMax>0.0</baseRangeMax>
+    <baseRmsMinor>0.0</baseRmsMinor>
+    <baseRmsMajor>0.0</baseRmsMajor>
+    <basePa>0.0</basePa>
+    <aborted>false</aborted>
+    <numAntenna>43</numAntenna>
+    <siteAltitude>0.0</siteAltitude>
+    <siteLongitude>0.0</siteLongitude>
+    <siteLatitude>0.0</siteLatitude>
+    <observingScript> ---Use the edit facility to enter your script here--- </observingScript>
+    <antennaId>1 43 Antenna_0 Antenna_1 Antenna_2 Antenna_3 Antenna_4 Antenna_5 Antenna_6 Antenna_7 Antenna_8 Antenna_9 Antenna_10 Antenna_11 Antenna_12 Antenna_13 Antenna_14 Antenna_15 Antenna_16 Antenna_17 Antenna_18 Antenna_19 Antenna_20 Antenna_21 Antenna_22 Antenna_23 Antenna_24 Antenna_25 Antenna_26 Antenna_27 Antenna_28 Antenna_29 Antenna_30 Antenna_31 Antenna_32 Antenna_33 Antenna_34 Antenna_35 Antenna_36 Antenna_37 Antenna_38 Antenna_39 Antenna_40 Antenna_41 Antenna_42</antennaId>
+    <sBSummaryId>SBSummary_0</sBSummaryId>
   </row>
     """
     execblock_table = asdm.getExecBlock()
@@ -254,6 +403,58 @@ def add_config_description_table(asdm: pyasdm.ASDM):
     config_description_table.add(config_description_row_1)
 
 
+def add_sd_config_description_table(asdm: pyasdm.ASDM):
+    config_description_row_0_xml = """
+  <row>
+    <numAntenna>43</numAntenna>
+    <numDataDescription>4</numDataDescription>
+    <numFeed>1</numFeed>
+    <correlationMode>AUTO_ONLY</correlationMode>
+    <configDescriptionId>ConfigDescription_0</configDescriptionId>
+    <numAtmPhaseCorrection>1</numAtmPhaseCorrection>
+    <atmPhaseCorrection>1 1 AP_UNCORRECTED</atmPhaseCorrection>
+    <processorType>CORRELATOR</processorType>
+    <spectralType>FULL_RESOLUTION</spectralType>
+    <numAssocValues>2</numAssocValues>
+    <assocNature>1 2 CHANNEL_AVERAGE BASEBAND_WIDE</assocNature>
+    <antennaId>1 43 Antenna_0 Antenna_1 Antenna_2 Antenna_3 Antenna_4 Antenna_5 Antenna_6 Antenna_7 Antenna_8 Antenna_9 Antenna_10 Antenna_11 Antenna_12 Antenna_13 Antenna_14 Antenna_15 Antenna_16 Antenna_17 Antenna_18 Antenna_19 Antenna_20 Antenna_21 Antenna_22 Antenna_23 Antenna_24 Antenna_25 Antenna_26 Antenna_27 Antenna_28 Antenna_29 Antenna_30 Antenna_31 Antenna_32 Antenna_33 Antenna_34 Antenna_35 Antenna_36 Antenna_37 Antenna_38 Antenna_39 Antenna_40 Antenna_41 Antenna_42</antennaId>
+    <assocConfigDescriptionId>1 2 ConfigDescription_1 ConfigDescription_2</assocConfigDescriptionId>
+    <dataDescriptionId>1 4 DataDescription_1 DataDescription_3 DataDescription_5 DataDescription_7</dataDescriptionId>
+    <feedId>1 43 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0</feedId>
+    <processorId>Processor_0</processorId>
+    <switchCycleId>1 4 SwitchCycle_0 SwitchCycle_0 SwitchCycle_0 SwitchCycle_0</switchCycleId>
+  </row>
+    """
+    config_description_row_1_xml = """
+  <row>
+    <numAntenna>43</numAntenna>
+    <numDataDescription>4</numDataDescription>
+    <numFeed>1</numFeed>
+    <correlationMode>AUTO_ONLY</correlationMode>
+    <configDescriptionId>ConfigDescription_1</configDescriptionId>
+    <numAtmPhaseCorrection>1</numAtmPhaseCorrection>
+    <atmPhaseCorrection>1 1 AP_UNCORRECTED</atmPhaseCorrection>
+    <processorType>CORRELATOR</processorType>
+    <spectralType>CHANNEL_AVERAGE</spectralType>
+    <numAssocValues>2</numAssocValues>
+    <assocNature>1 2 FULL_RESOLUTION BASEBAND_WIDE</assocNature>
+    <antennaId>1 43 Antenna_0 Antenna_1 Antenna_2 Antenna_3 Antenna_4 Antenna_5 Antenna_6 Antenna_7 Antenna_8 Antenna_9 Antenna_10 Antenna_11 Antenna_12 Antenna_13 Antenna_14 Antenna_15 Antenna_16 Antenna_17 Antenna_18 Antenna_19 Antenna_20 Antenna_21 Antenna_22 Antenna_23 Antenna_24 Antenna_25 Antenna_26 Antenna_27 Antenna_28 Antenna_29 Antenna_30 Antenna_31 Antenna_32 Antenna_33 Antenna_34 Antenna_35 Antenna_36 Antenna_37 Antenna_38 Antenna_39 Antenna_40 Antenna_41 Antenna_42</antennaId>
+    <assocConfigDescriptionId>1 2 ConfigDescription_0 ConfigDescription_2</assocConfigDescriptionId>
+    <dataDescriptionId>1 4 DataDescription_2 DataDescription_4 DataDescription_6 DataDescription_8</dataDescriptionId>
+    <feedId>1 43 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0</feedId>
+    <processorId>Processor_0</processorId>
+    <switchCycleId>1 4 SwitchCycle_0 SwitchCycle_0 SwitchCycle_0 SwitchCycle_0</switchCycleId>
+  </row>
+    """
+    config_description_table = asdm.getConfigDescription()
+    config_description_row_0 = pyasdm.ConfigDescriptionRow(config_description_table)
+    config_description_row_0.setFromXML(config_description_row_0_xml)
+    config_description_row_1 = pyasdm.ConfigDescriptionRow(config_description_table)
+    config_description_row_1.setFromXML(config_description_row_1_xml)
+    config_description_table.add(config_description_row_0)
+    config_description_table.add(config_description_row_1)
+
+
 def add_processor_table(asdm: pyasdm.ASDM):
     processor_row_0_xml = """
   <row>
@@ -261,6 +462,21 @@ def add_processor_table(asdm: pyasdm.ASDM):
     <modeId> SquareLawDetector_3 </modeId>
     <processorType>RADIOMETER</processorType>
     <processorSubType>SQUARE_LAW_DETECTOR</processorSubType>
+  </row>
+    """
+    processor_table = asdm.getProcessor()
+    processor_row_0 = pyasdm.ProcessorRow(processor_table)
+    processor_row_0.setFromXML(processor_row_0_xml)
+    processor_table.add(processor_row_0)
+
+
+def add_sd_processor_table(asdm: pyasdm.ASDM):
+    processor_row_0_xml = """
+  <row>
+    <processorId>Processor_0</processorId>
+    <modeId>CorrelatorMode_0</modeId>
+    <processorType>CORRELATOR</processorType>
+    <processorSubType>ALMA_CORRELATOR_MODE</processorSubType>
   </row>
     """
     processor_table = asdm.getProcessor()
@@ -304,6 +520,38 @@ def add_sbsummary_table(asdm: pyasdm.ASDM):
     sbsummary_table.add(sbsummary_row_0)
 
 
+def add_sd_sbsummary_table(asdm: pyasdm.ASDM):
+    sbsummary_row_0_xml = """
+  <row>
+    <sBSummaryId>SBSummary_0</sBSummaryId>
+    <sbSummaryUID>
+      <EntityRef entityId="uid://A002/X5ca254/X3" partId="X00000000" entityTypeName="SchedBlock" documentVersion="1"/>
+    </sbSummaryUID>
+    <projectUID>
+      <EntityRef entityId="uid://A002/X5ca254/X1" partId="X00000000" entityTypeName="ObsProject" documentVersion="1"/>
+    </projectUID>
+    <obsUnitSetUID>
+      <EntityRef entityId="uid://A002/X5ca254/X1" partId="X00000000" entityTypeName="ObsProject" documentVersion="1"/>
+    </obsUnitSetUID>
+    <frequency>104.0</frequency>
+    <frequencyBand>UNSPECIFIED</frequencyBand>
+    <sbType>EXPERT</sbType>
+    <sbDuration>1800000000000</sbDuration>
+    <numObservingMode>1</numObservingMode>
+    <observingMode>1 1 "Expert"</observingMode>
+    <numberRepeats>1</numberRepeats>
+    <numScienceGoal>4</numScienceGoal>
+    <scienceGoal>1 4 "representativeFrequency = 104.0 GHz" "minAcceptableAngResolution = 0.0 arcsec" "maxAcceptableAngResolution = 0.0 arcsec" "dynamicRange = 999.999"</scienceGoal>
+    <numWeatherConstraint>3</numWeatherConstraint>
+    <weatherConstraint>1 3 "maxPWVC = 0.0 mm" "seeing = 0.0 arcsec" "phaseStability = 0.0 deg"</weatherConstraint>
+  </row>
+    """
+    sbsummary_table = asdm.getSBSummary()
+    sbsummary_row_0 = pyasdm.SBSummaryRow(sbsummary_table)
+    sbsummary_row_0.setFromXML(sbsummary_row_0_xml)
+    sbsummary_table.add(sbsummary_row_0)
+
+
 # Rename?: min_for_open_partition_to_work
 def make_asdm_with_main_execblock_config_processor_sbsummary():
     asdm = make_asdm_with_spw_simple()
@@ -322,6 +570,27 @@ def asdm_with_main_execblock_config_processor_sbsummary():
     Meant for tests of the info dicts (processor info, etc.)
     """
     return make_asdm_with_main_execblock_config_processor_sbsummary()
+
+
+def make_sd_asdm_with_main_execblock_config_processor_sbsummary():
+    # Examples taken from uid___A002_Xac5575_X4086
+    sd_asdm = make_sd_asdm_with_spw_simple()
+    add_sd_main_table(sd_asdm)
+    add_sd_execblock_table(sd_asdm)
+    add_sd_config_description_table(sd_asdm)
+    add_sd_processor_table(sd_asdm)
+    add_sd_sbsummary_table(sd_asdm)
+    add_sd_antenna_station_tables(sd_asdm)
+    return sd_asdm
+
+
+@pytest.fixture(scope="session")
+def asdm_sd_with_main_execblock_config_processor_sbsummary():
+    """
+    Meant for Single-Dish tests that require minimum tables for open_partition to work.
+    """
+    sd_asdm = make_sd_asdm_with_main_execblock_config_processor_sbsummary()
+    return sd_asdm
 
 
 def add_data_description_table(asdm: pyasdm.ASDM):
@@ -470,6 +739,51 @@ def add_feed_table(asdm: pyasdm.ASDM):
     feed_table.add(feed_row_1)
 
 
+def add_sd_feed_table(asdm: pyasdm.ASDM):
+    # For SPWs 44 and 45
+    feed_row_0_xml = """
+  <row>
+    <feedId>0</feedId>
+    <timeInterval>7088208563032387903 4270326947644775807</timeInterval>
+    <numReceptor>2</numReceptor>
+    <beamOffset>2 2 2 0.0 0.0 0.0 0.0</beamOffset>
+    <focusReference>2 2 3 -99999.0 -99999.0 -99999.0 -99999.0 -99999.0 -99999.0</focusReference>
+    <polarizationTypes>1 2 X Y</polarizationTypes>
+    <polResponse>2 2 2 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0</polResponse>
+    <receptorAngle>1 2 -0.1745329252 1.3962634016</receptorAngle>
+    <numChan>4</numChan>
+    <skyCouplingSpectrum>1 4 9.5E-4 9.5E-4 9.5E-4 9.5E-4</skyCouplingSpectrum>
+    <antennaId>Antenna_0</antennaId>
+    <receiverId>1 2 0 0</receiverId>
+    <spectralWindowId>SpectralWindow_44</spectralWindowId>
+  </row>
+    """
+    feed_row_1_xml = """
+  <row>
+    <feedId>0</feedId>
+    <timeInterval>7088208563032387903 4270326947644775807</timeInterval>
+    <numReceptor>2</numReceptor>
+    <beamOffset>2 2 2 0.0 0.0 0.0 0.0</beamOffset>
+    <focusReference>2 2 3 -99999.0 -99999.0 -99999.0 -99999.0 -99999.0 -99999.0</focusReference>
+    <polarizationTypes>1 2 X Y</polarizationTypes>
+    <polResponse>2 2 2 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0</polResponse>
+    <receptorAngle>1 2 -0.1745329252 1.3962634016</receptorAngle>
+    <numChan>4</numChan>
+    <skyCouplingSpectrum>1 4 9.5E-4 9.5E-4 9.5E-4 9.5E-4</skyCouplingSpectrum>
+    <antennaId>Antenna_1</antennaId>
+    <receiverId>1 2 0 0</receiverId>
+    <spectralWindowId>SpectralWindow_45</spectralWindowId>
+  </row>
+    """
+    feed_table = asdm.getFeed()
+    feed_row_0 = pyasdm.FeedRow(feed_table)
+    feed_row_0.setFromXML(feed_row_0_xml)
+    feed_table.add(feed_row_0)
+    feed_row_1 = pyasdm.FeedRow(feed_table)
+    feed_row_1.setFromXML(feed_row_1_xml)
+    feed_table.add(feed_row_1)
+
+
 def add_antenna_station_tables(asdm: pyasdm.ASDM):
     antenna_row_0_xml = """
   <row>
@@ -531,6 +845,66 @@ def add_antenna_station_tables(asdm: pyasdm.ASDM):
     station_table.add(station_row_1)
 
 
+def add_sd_antenna_station_tables(asdm: pyasdm.ASDM):
+    antenna_row_0_xml = """
+  <row>
+    <antennaId>Antenna_0</antennaId>
+    <name>DA41</name>
+    <antennaMake>AEM_12</antennaMake>
+    <antennaType>GROUND_BASED</antennaType>
+    <dishDiameter>12.0</dishDiameter>
+    <position>1 3 -0.001657 -8.37E-4 7.502615</position>
+    <offset>1 3 0.0 0.0 0.0</offset>
+    <time>4953045089210000000</time>
+    <stationId>Station_0</stationId>
+  </row>
+    """
+    antenna_row_1_xml = """
+  <row>
+    <antennaId>Antenna_1</antennaId>
+    <name>DA42</name>
+    <antennaMake>AEM_12</antennaMake>
+    <antennaType>GROUND_BASED</antennaType>
+    <dishDiameter>12.0</dishDiameter>
+    <position>1 3 -0.001568 -2.34E-4 7.500269</position>
+    <offset>1 3 0.0 0.0 0.0</offset>
+    <time>4953045089210000000</time>
+    <stationId>Station_1</stationId>
+  </row>
+    """
+    antenna_table = asdm.getAntenna()
+    antenna_row_0 = pyasdm.AntennaRow(antenna_table)
+    antenna_row_0.setFromXML(antenna_row_0_xml)
+    antenna_table.add(antenna_row_0)
+    antenna_row_1 = pyasdm.AntennaRow(antenna_table)
+    antenna_row_1.setFromXML(antenna_row_1_xml)
+    antenna_table.add(antenna_row_1)
+
+    station_row_0_xml = """
+  <row>
+    <stationId>Station_0</stationId>
+    <name>S306</name>
+    <position>1 3 2228432.363192 -5437814.564991 -2483417.372405</position>
+    <type>ANTENNA_PAD</type>
+  </row>
+"""
+    station_row_1_xml = """
+  <row>
+    <stationId>Station_1</stationId>
+    <name>S301</name>
+    <position>1 3 2226262.572752 -5438426.43103 -2484134.962501</position>
+    <type>ANTENNA_PAD</type>
+  </row>
+    """
+    station_table = asdm.getStation()
+    station_row_0 = pyasdm.StationRow(station_table)
+    station_row_0.setFromXML(station_row_0_xml)
+    station_table.add(station_row_0)
+    station_row_1 = pyasdm.StationRow(station_table)
+    station_row_1.setFromXML(station_row_1_xml)
+    station_table.add(station_row_1)
+
+
 @pytest.fixture(scope="session")
 def asdm_with_execblock_antenna_station_feed():
     """
@@ -541,6 +915,18 @@ def asdm_with_execblock_antenna_station_feed():
     add_antenna_station_tables(asdm)
     add_feed_table(asdm)
     return asdm
+
+
+@pytest.fixture(scope="session")
+def asdm_sd_with_execblock_antenna_station_feed():
+    """
+    Meant for create_antenna_xds tests
+    """
+    sd_asdm = make_sd_asdm_with_spw_simple()
+    add_sd_execblock_table(sd_asdm)
+    add_sd_antenna_station_tables(sd_asdm)
+    add_sd_feed_table(sd_asdm)
+    return sd_asdm
 
 
 def add_polarization_table(asdm: pyasdm.ASDM):
@@ -771,3 +1157,26 @@ def mock_asdm_set_from_file():
         add_sbsummary_table(self)
 
     return _function_mock_asdm_set_from_file
+
+
+@pytest.fixture(scope="session")
+def mock_sd_asdm_set_from_file():
+    """
+    Meant to mock the asdm.setFromFile() function of pyasdm, for open_asdm to be able to run completely
+    on an SD ASDM but without using any real I/O.
+    """
+
+    def _function_mock_sd_asdm_set_from_file(self, _directory: str):
+        """
+        This function is meant to mock asdm.setFromFile(), and needs to operate on an asdm object
+        previously instantiated (with SD info).
+        """
+        add_sd_main_table(self)
+        add_sd_config_description_table(self)
+        add_sd_feed_table(self)
+        add_sd_antenna_station_tables(self)
+        add_sd_execblock_table(self)
+        add_sd_processor_table(self)
+        add_sd_sbsummary_table(self)
+
+    return _function_mock_sd_asdm_set_from_file

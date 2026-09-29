@@ -363,6 +363,96 @@ def test_load_visibilities_all_subsets_from_trees_X136e(input_load_one_spw_from_
             mock_bdf_reader.getNDArrays.assert_not_called()
 
 
+# From (SD) EB uid___A002_Xac5575_X4086, BDF uid___A002_Xac5575_X4089 (AUTO_ONLY/ALMA WVR Data)
+bdf_descr_X4089 = {
+    "execBlock": "uid://A002/Xac5575/X4086",
+    "dimensionality": 0,
+    "num_time": 34,
+    "processor_type": pyasdm.enumerations.ProcessorType.RADIOMETER,
+    "binary_types": [
+        "flags",
+        "autoData",
+    ],
+    "correlation_mode": pyasdm.enumerations.CorrelationMode.AUTO_ONLY,
+    "apc": [],
+    "num_antenna": 43,
+    "basebands": [
+        {
+            "name": "NOBB",
+            "spectralWindows": [
+                {
+                    "crossPolProducts": [],
+                    "sdPolProducts": [
+                        pyasdm.enumerations.StokesParameter.I,
+                    ],
+                    "scaleFactor": None,
+                    "numSpectralPoint": 4,
+                    "numBin": 1,
+                    "sideband": pyasdm.enumerations.NetSideband.DSB,
+                    "sw": "1",
+                },
+            ],
+        },
+    ],
+}
+
+
+@pytest.mark.parametrize("input_load_one_spw_from_file", [(True), (False)])
+def test_load_visibilities_all_subsets_from_trees_X4089_wvr(
+    input_load_one_spw_from_file,
+):
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
+        load_visibilities_all_subsets_from_trees,
+    )
+
+    with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
+        # For load_vis_subset, etc.
+        mock_bdf_reader.hasSubset.side_effect = [True, False]
+        if input_load_one_spw_from_file:
+            mock_bdf_reader.getNDArrays.side_effect = [
+                {"visibilities": np.ones(shape=(1, 9, 4, 2), dtype="float64")}
+            ]
+        else:
+            mock_bdf_reader.getSubset.side_effect = [
+                {
+                    "autoData": {
+                        "present": True,
+                        "arr": np.zeros((1000000), dtype="float64"),
+                    },
+                    "crossData": {
+                        "present": False,
+                        "arr": None,
+                    },
+                },
+                None,
+            ]
+        empty_slice = (slice(None), slice(None), slice(None), slice(None))
+        visibilities = load_visibilities_all_subsets_from_trees(
+            mock_bdf_reader,
+            (1, 903, 43, 1, 1, 4, 1, 1),
+            (0, 0),
+            bdf_descr_X4089,
+            empty_slice,
+            load_one_spw_from_file=input_load_one_spw_from_file,
+        )
+
+        assert isinstance(visibilities, np.ndarray)
+        assert visibilities.dtype == np.dtype("float64")
+
+        assert mock_bdf_reader.hasSubset.call_count == 2
+        if input_load_one_spw_from_file:
+            assert visibilities.size == 72
+            assert visibilities.shape == (1, 9, 4, 2)
+            assert mock_bdf_reader.hasSubset.call_count == 2
+            mock_bdf_reader.getNDArrays.assert_called_once()
+            mock_bdf_reader.getSubset.assert_not_called()
+        else:
+            assert visibilities.size == 172
+            assert visibilities.shape == (1, 43, 4, 1)
+            mock_bdf_reader.getSubset.assert_called_once()
+            mock_bdf_reader.getNDArrays.assert_not_called()
+
+
 # All SPWs have same #chan => uses load_subset_with_get_subset() / load_vis_subset_from_tree()
 bdf_descr_X136e_simplified = {
     "dimensionality": 1,

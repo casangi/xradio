@@ -50,6 +50,33 @@ def test_create_info_dicts_with_asdm_simple_extended(
     }
 
 
+def test_create_info_dicts_with_asdm_sd_extended(
+    asdm_sd_with_main_execblock_config_processor_sbsummary,
+):
+    # Only field from the partition dict needed here is configDescriptionId
+    info_dicts = create_info_dicts(
+        asdm_sd_with_main_execblock_config_processor_sbsummary,
+        xr.Dataset(),
+        {"configDescriptionId": [1]},
+    )
+    assert isinstance(info_dicts, dict)
+    assert "observation_info" in info_dicts
+    assert info_dicts["observation_info"] == {
+        "observer": ["lknee"],
+        "release_date": "",
+        "project_UID": "uid://A002/X5ca254/X1",
+        "execution_block_UID": "uid://A002/Xac5575/X4086",
+        "session_reference_UID": "uid://A002/X5ca254/Xb",
+        "observing_log": "[]",
+        "scheduling_block_UID": "uid://A002/X5ca254/X3",
+    }
+    assert "processor_info" in info_dicts
+    assert info_dicts["processor_info"] == {
+        "type": "CORRELATOR",
+        "sub_type": "ALMA_CORRELATOR_MODE",
+    }
+
+
 def test_create_observation_info_with_asdm_simple_extended(
     asdm_with_main_execblock_config_processor_sbsummary,
 ):

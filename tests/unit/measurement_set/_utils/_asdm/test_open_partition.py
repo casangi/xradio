@@ -52,14 +52,23 @@ def test_open_partition_asdm_with_spw_default(asdm_with_spw_default):
         )
 
 
+@pytest.mark.parametrize(
+    "asdm_name",
+    [
+        ("asdm_with_main_execblock_config_processor_sbsummary"),
+        ("asdm_sd_with_main_execblock_config_processor_sbsummary"),
+    ],
+)
 def test_open_partition_asdm_with_spw_simple(
-    asdm_with_main_execblock_config_processor_sbsummary,
+    asdm_name,
+    request,
 ):
     from xradio.measurement_set._utils._asdm.open_partition import open_partition
 
+    asdm_input = request.getfixturevalue(asdm_name)
     with pytest.raises(KeyError, match="BDFPath"):
         open_partition(
-            asdm_with_main_execblock_config_processor_sbsummary,
+            asdm_input,
             {"fieldId": [0], "configDescriptionId": [0], "scanNumber": [0]},
         )
 

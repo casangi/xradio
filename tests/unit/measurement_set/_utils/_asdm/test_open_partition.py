@@ -184,11 +184,21 @@ def test_find_if_single_dish(asdm_name, expected_output, request):
     assert is_single_dish == expected_output
 
 
-def test_create_data_vars_no_bdf_path(asdm_with_spw_default):
+@pytest.mark.parametrize(
+    "input_is_single_dish",
+    [(True), (False)],
+)
+def test_create_data_vars_no_bdf_path(asdm_with_spw_default, input_is_single_dish):
     from xradio.measurement_set._utils._asdm.open_partition import create_data_vars
 
     with pytest.raises(KeyError, match="time"):
-        create_data_vars(xr.Dataset(), [""], 0, {"bdf_names": [], "bdf_start_stop": []})
+        create_data_vars(
+            xr.Dataset(),
+            input_is_single_dish,
+            [""],
+            0,
+            {"bdf_names": [], "bdf_start_stop": []},
+        )
 
 
 def test_create_coordinates_no_bdf_path(asdm_with_spw_default):

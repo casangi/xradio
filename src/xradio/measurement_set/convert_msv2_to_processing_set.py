@@ -71,7 +71,7 @@ def convert_msv2_to_processing_set(
     sys_cal_interpolate: bool = False,
     use_table_iter: bool = False,
     # the codec default is an immutable config object, safe to build once here
-    compressor: zarr.abc.codec.BytesBytesCodec = zarr.codecs.BloscCodec(  # noqa: B008
+    compressor: zarr.abc.codec.BytesBytesCodec | None = zarr.codecs.BloscCodec(  # noqa: B008
         cname="lz4", clevel=5, shuffle="noshuffle"
     ),
     add_reshaping_indices: bool = False,
@@ -121,7 +121,7 @@ def convert_msv2_to_processing_set(
     use_table_iter : bool, optional
         Whether to use the table iterator to read the main table of the MS v2. This should be set to True when reading datasets with large number of rows and few partitions, by default False.
     compressor : zarr.abc.codec.BytesBytesCodec, optional
-        The zarr v3 bytes-to-bytes codec to use when saving the converted data to disk using Zarr, by default zarr.codecs.BloscCodec(cname="lz4", clevel=5, shuffle="noshuffle"). blosc-lz4 decompresses markedly faster than zstd for the high-entropy visibility data (faster reads/loads) at a small cost in compression ratio.
+        The zarr v3 bytes-to-bytes codec to use when saving the converted data to disk using Zarr, by default zarr.codecs.BloscCodec(cname="lz4", clevel=5, shuffle="noshuffle"). blosc-lz4 decompresses markedly faster than zstd for the high-entropy visibility data (faster reads/loads) at a small cost in compression ratio. None disables compression
     add_reshaping_indices : bool, optional
         Whether to add the tidxs, bidxs and row_id variables to each partition of the main dataset. These can be used to reshape the data back to the original ordering in the MS v2. This is mainly intended for testing and debugging, by default False.
     storage_backend : Literal["zarr", "netcdf"], optional

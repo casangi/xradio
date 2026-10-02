@@ -333,6 +333,12 @@ requirement for XRADIO objects. Reference implementations of the rules below:
    factory — swaps to `weakref.ref`. On the accessor path
    (`ds.xr_x.method()`), `ds` itself keeps the object alive for the duration
    of the call, so the weak reference is always valid when it matters.
+   This holds only when `ds` is a name: a temporary
+   (`f(...).xr_x.method()`) is kept alive by nothing during the call. A
+   Dataset temporary dies at once, a DataTree temporary (parent<->child
+   cycle) at the next garbage collection in any thread, and the method then
+   raises `ReferenceError`. Always bind the object to a local first:
+   `xdt = f(...); xdt = xdt.xr_x.method()`.
 3. **Access the object only through the `_xds`/`_xdt` property**, which
    returns the strong reference if set, else dereferences the weakref and
    raises `ReferenceError` with usage guidance if the object is gone. Never

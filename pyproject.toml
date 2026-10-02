@@ -25,6 +25,10 @@ zarr = [
     'scipy',
     'xarray',
     'zarr>=3,<4',
+    # numcodecs < 0.16 copies each Blosc-compressed chunk out of a full-size
+    # output buffer, so every zarr chunk write peaks at uncompressed plus
+    # compressed size. 0.16 resizes the buffer in place.
+    'numcodecs>=0.16',
     'pyarrow',
     'psutil' # psutil is needed so large FITS images are not loaded into memory
 ]
@@ -40,6 +44,7 @@ test = [
     'scipy',
     'xarray',
     'zarr>=3,<4',
+    'numcodecs>=0.16', # see the zarr extra
     'pyarrow',
     'psutil',
     'pytest',
@@ -55,6 +60,7 @@ casacore = [
     'scipy',
     'xarray',
     'zarr>=3,<4',
+    'numcodecs>=0.16', # see the zarr extra
     'pyarrow',
     'psutil',
     'python_casacore>=3.6.1; sys_platform != "darwin"'
@@ -67,6 +73,7 @@ interactive = [
     'scipy',
     'xarray',
     'zarr>=3,<4',
+    'numcodecs>=0.16', # see the zarr extra
     'pyarrow',
     'psutil',
     'matplotlib',
@@ -97,6 +104,7 @@ all = [
     'scipy',
     'xarray',
     'zarr>=3,<4',
+    'numcodecs>=0.16', # see the zarr extra
     'pyarrow',
     'psutil',
     'pytest',

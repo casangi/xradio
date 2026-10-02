@@ -129,7 +129,10 @@ def _make_coords(
         frequency_coords = [frequency_coords]
     frequency_coords = np.array(frequency_coords, dtype=np.float64)
     restfreq = frequency_coords[len(frequency_coords) // 2]
-    vel_coords = (1 - frequency_coords / restfreq) * _c.to("m/s").value
+    # _c is in m/s already. _c.to("m/s") would parse "m/s" into a new
+    # CompositeUnit on every call, which astropy leaves in a reference cycle
+    # (its _decomposed_cache is the unit itself): cyclic garbage per call.
+    vel_coords = (1 - frequency_coords / restfreq) * _c.value
     if not isinstance(time_coords, list) and not isinstance(time_coords, np.ndarray):
         time_coords = [time_coords]
     time_coords = np.array(time_coords, dtype=np.float64)

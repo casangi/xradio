@@ -42,7 +42,6 @@ class RegionReader:
     """
 
     def __init__(self, arrays: Sequence[xr.DataArray | None]):
-        from dask.base import get_scheduler
         from dask.core import flatten
 
         self._arrays = list(arrays)
@@ -60,7 +59,9 @@ class RegionReader:
         self._graph = {}
         for array in dask_arrays:
             self._graph.update(array.__dask_graph__())
-        self._schedule = get_scheduler(collections=dask_arrays) if dask_arrays else None
+        # The scheduler is looked up when regions are computed (see regions),
+        # like dask.compute, so the caller's scheduler at that time applies
+        self._dask_arrays = dask_arrays
         # Per dask array: the block start offsets along each axis (with the
         # axis length appended) and the task key of every block
         self._offsets = []
@@ -144,7 +145,7 @@ class RegionReader:
             size * array.dtype.itemsize for array in self._arrays if array is not None
         )
 
-    def _compute_batch(self, regions: list) -> Iterator[tuple[tuple, list]]:
+    def _compute_batch(self, regions: list, schedule) -> Iterator[tuple[tuple, list]]:
         from dask.optimization import cull
 
         keys = []
@@ -163,7 +164,7 @@ class RegionReader:
             # only the tasks the batch depends on, so that a batch costs in
             # proportion to its size, not to the size of the whole graph
             graph, _ = cull(self._graph, keys)
-            results = dict(zip(keys, self._schedule(graph, keys), strict=True))
+            results = dict(zip(keys, schedule(graph, keys), strict=True))
         for region in regions:
             values = []
             for index, (array, lazy) in enumerate(
@@ -200,16 +201,23 @@ class RegionReader:
         values : list of np.ndarray or None
             The values of each array in the region (None for a None array).
         """
+        from dask.base import get_scheduler
+
         if batch_bytes is None:
             batch_bytes = BATCH_BYTES
+        # The scheduler active when the regions are computed (for example
+        # inside dask.config.set(scheduler=...)), not when the reader was made
+        schedule = (
+            get_scheduler(collections=self._dask_arrays) if self._dask_arrays else None
+        )
         batch = []
         size = 0
         for region in regions:
             region_bytes = self._region_bytes(region)
             if batch and size + region_bytes > batch_bytes:
-                yield from self._compute_batch(batch)
+                yield from self._compute_batch(batch, schedule)
                 batch, size = [], 0
             batch.append(region)
             size += region_bytes
         if batch:
-            yield from self._compute_batch(batch)
+            yield from self._compute_batch(batch, schedule)

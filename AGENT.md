@@ -38,7 +38,7 @@ pip install "xradio[casacore]"   # MSv2->MSv4 conversion + CASA image IO (pulls 
 - **Base `pip install xradio` pulls only `xarray`** → schema-check + JSON export only (no zarr I/O, no conversion).
 - Optional extras: `zarr`, `casacore`, `interactive`, `test`, `docs`, `all` (combinable, e.g. `[interactive,casacore,test]`).
 - **Single CASA-table backend:** MSv2→MSv4 conversion and CASA image IO use **`casacoretables`** (a standalone, symbol-clash-free build of casacore's table system). It replaces both `python-casacore` and `casatools`, and works identically on **Linux and macOS** — no `conda install` of `python-casacore` and no macOS gating. ⚠ PyPI wheels for `casacoretables` are not published yet, so install it from source for now.
-- `requires-python = ">=3.11, <3.14"` (3.11 / 3.12 / 3.13).
+- `requires-python = ">=3.11, <3.15"`; CI tests 3.12 / 3.13 / 3.14 (3.11 is still allowed but untested).
 
 ---
 

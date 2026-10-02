@@ -105,7 +105,8 @@ def open_partition(
         asdm, partition_descr, spw_id, is_single_dish
     )
 
-    if not is_single_dish:
+    is_spectrum_xds = correlated_xds.attrs["type"] == "spectrum"
+    if not is_spectrum_xds:
         uvw_data_var = _create_uvw_data_var(
             correlated_xds.sizes,
             correlated_xds.coords["time"],
@@ -125,7 +126,7 @@ def open_partition(
         msv4_xdt["/pointing_xds"] = pointing_xds
 
     xradio_logger().debug(
-        "Openend partition, {is_single_dish=}, {spw_id=}, {num_antenna=}"
+        "Openend partition, {is_spectrum_xds=} {is_single_dish=}, {spw_id=}, {num_antenna=}"
     )
 
     return msv4_xdt
@@ -190,6 +191,11 @@ def create_correlated_xds(
     xds.attrs.update(info_dicts)
 
     is_single_dish = find_if_single_dish(asdm)
+    if xds.attrs["processor_info"]["type"] == "RADIOMETER":
+        xds.attrs["type"] = "radiometer"
+    else:
+        xds.attrs["type"] = "spectrum" if is_single_dish else "visibility"
+    is_spectrum_xds = xds.attrs["type"] == "spectrum"
     (
         coords,
         coord_attrs,
@@ -198,24 +204,19 @@ def create_correlated_xds(
         bdf_spw_id,
         time_vars,
         time_indices_by_bdf,
-    ) = create_coordinates(asdm, partition_descr, is_single_dish)
+    ) = create_coordinates(asdm, partition_descr, is_spectrum_xds)
     xds = _assign_coords_and_attributes(xds, coords, coord_attrs)
 
     xds = xds.assign(time_vars)
     xds = xds.assign(
         create_data_vars(
             xds,
-            is_single_dish,
+            is_spectrum_xds,
             partition_descr["BDFPath"],
             bdf_spw_id,
             time_indices_by_bdf,
         )
     )
-
-    if xds.attrs["processor_info"]["type"] == "RADIOMETER":
-        xds.attrs["type"] = "radiometer"
-    else:
-        xds.attrs["type"] = "spectrum" if is_single_dish else "visibility"
 
     data_group_base = {
         "correlated_data": "VISIBILITY",
@@ -279,7 +280,7 @@ def find_if_single_dish(asdm: pyasdm.ASDM) -> bool:
 
 def create_data_vars(
     xds: xr.Dataset,
-    is_single_dish: bool,
+    is_spectrum_xds: bool,
     bdf_paths: list[str],
     bdf_spw_id: int,
     time_indices_by_bdf: dict,
@@ -293,8 +294,9 @@ def create_data_vars(
     xds : xr.Dataset
         Input xarray Dataset containing the dimension sizes for 'time', 'baseline_id',
         'frequency', 'polarization', and 'uvw_label'.
-    is_single_dish : bool
-        Whether this MSv4 is single dish == SpectrumXds (true) or interferometric == VisibilityXds (false)
+    is_spectrum_xds : bool
+        Whether this MSv4 is of "spectrum" type (true => SpectrumXds schema) or ["visibility",
+        "radiometer"] (false => VisibilityXds)
     bdf_paths : list[str]
         Paths to BDFs with data/flags for the partition
     bdf_spw_id : int
@@ -322,7 +324,7 @@ def create_data_vars(
 
     data_vars = {}
 
-    if is_single_dish:
+    if is_spectrum_xds:
         baseline_or_antenna_dim = "antenna_name"
         data_var_name = "SPECTRUM"
     else:
@@ -393,7 +395,7 @@ def create_data_vars(
 def create_coordinates(
     asdm: pyasdm.ASDM,
     partition_descr: dict[str, np.ndarray],
-    is_single_dish: bool = False,
+    is_spectrum_xds: bool = False,
 ) -> tuple[dict, dict, int, int, dict]:
     """
     Create coordinate systems and associated metadata from ASDM data.
@@ -410,9 +412,10 @@ def create_coordinates(
         Dictionary mapping ASDM keys/attributes to their corresponding numeric IDs.
         Expected keys include 'scanNumber', 'BDFPath', 'configDescriptionId',
         'fieldId', and 'dataDescriptionId'
-    is_single_dish : bool, optional
-        Flag indicating if the data is from single-dish observations. If False,
-        UVW coordinates will be included. Default is False.
+    is_spectrum_xds : bool, optional
+        Flag indicating whether we are creating coordinates for an SpectrumXds or VisibilityXds type
+        of correlated data xds. If False, baseline_id and UVW related coordinates will be included.
+        Default is False.
 
     Returns
     -------
@@ -469,7 +472,7 @@ def create_coordinates(
     )
 
     antenna_or_baseline_coords, num_antenna, len_antenna_or_baseline_coords = (
-        _create_antenna_or_baseline_coords(asdm, partition_descr, is_single_dish)
+        _create_antenna_or_baseline_coords(asdm, partition_descr, is_spectrum_xds)
     )
     coords.update(antenna_or_baseline_coords)
 
@@ -487,7 +490,7 @@ def create_coordinates(
         actual_durations, actual_times, len_antenna_or_baseline_coords
     )
 
-    if not is_single_dish:
+    if not is_spectrum_xds:
         coords["uvw_label"] = np.array(["u", "v", "w"])
 
     bdf_spw_id = _find_bdf_spw_id(
@@ -534,9 +537,9 @@ def _create_scan_name_coord_attrs(
 def _create_antenna_or_baseline_coords(
     asdm: pyasdm.ASDM,
     partition_descr: dict[str, np.ndarray],
-    is_single_dish: bool,
+    is_spectrum_xds: bool,
 ) -> tuple[dict, int]:
-    if is_single_dish:
+    if is_spectrum_xds:
         return _create_antenna_coords(asdm, partition_descr)
     else:
         return _create_baseline_coords(asdm, partition_descr)

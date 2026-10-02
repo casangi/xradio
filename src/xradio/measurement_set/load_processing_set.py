@@ -63,28 +63,23 @@ def load_processing_set(
             if isinstance(file_system, s3fs.core.S3FileSystem):
                 ms_store = s3fs.S3Map(root=ms_store, s3=file_system, check=False)
 
+            # Bind every tree to a local before calling its accessor: xr_ms
+            # holds only a weak reference to its tree, and a temporary tree
+            # (``open_datatree(...).isel(...).xr_ms.sel(...)``) is kept alive by
+            # nothing but its parent<->child cycle, so a garbage collection
+            # inside sel() (started by any thread) would free it and sel()
+            # would raise ReferenceError. See AGENT.md, accessor rule 2.
+            ms_xdt = xr.open_datatree(
+                ms_store,
+                engine="zarr",
+                drop_variables=drop_variables,
+                cache=False,
+                chunks=None,
+                consolidated=False,
+            )
             if ms_xds_isel:
-                ms_xdt = (
-                    xr.open_datatree(
-                        ms_store,
-                        engine="zarr",
-                        drop_variables=drop_variables,
-                        cache=False,
-                        chunks=None,
-                        consolidated=False,
-                    )
-                    .isel(ms_xds_isel)
-                    .xr_ms.sel(data_group_name=data_group_name)
-                )
-            else:
-                ms_xdt = xr.open_datatree(
-                    ms_store,
-                    engine="zarr",
-                    drop_variables=drop_variables,
-                    cache=False,
-                    chunks=None,
-                    consolidated=False,
-                ).xr_ms.sel(data_group_name=data_group_name)
+                ms_xdt = ms_xdt.isel(ms_xds_isel)
+            ms_xdt = ms_xdt.xr_ms.sel(data_group_name=data_group_name)
 
             if include_variables is not None:
                 vars_to_drop = [

@@ -26,6 +26,19 @@ from xradio.image._util.zarr import (
 # warnings.filterwarnings("ignore", category=FutureWarning)
 
 
+def _casa_image_reader_unavailable(exc: ImportError):
+    """Stand-in for the CASA image readers when neither python-casacore nor
+    casatools can be imported: it fails when a CASA image is read, so FITS and
+    zarr images open without those packages."""
+
+    def read_casa_image(store, **kwargs):
+        raise ModuleNotFoundError(
+            f"Reading the CASA image {store} needs python-casacore or casatools: {exc}"
+        ) from exc
+
+    return read_casa_image
+
+
 def open_image(
     store: str | dict,
     chunks: dict | None = None,
@@ -105,16 +118,12 @@ def open_image(
     -------
     xarray.Dataset
     """
-    # try:
-    #       from ._util.casacore import _open_casa_image
-    # except ModuleNotFoundError as exc:
-    #     get_logger().warning(
-    #         "Could not import the function to convert from MSv2 to MSv4. "
-    #         f"That functionality will not be available. Details: {exc}"
-    #     )
-    #     _open_casa_image = None
-
-    from xradio.image._util.casacore import _open_casa_image
+    # python-casacore and casatools are optional: FITS images are read with
+    # astropy and zarr images with zarr, so only a CASA image needs them.
+    try:
+        from xradio.image._util.casacore import _open_casa_image
+    except ImportError as exc:
+        _open_casa_image = _casa_image_reader_unavailable(exc)
 
     if chunks is None:
         chunks = {}
@@ -179,7 +188,10 @@ def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dat
             if type(v) is int:
                 selection[k] = slice(v, v + 1)
 
-    from xradio.image._util.casacore import _load_casa_image_block
+    try:
+        from xradio.image._util.casacore import _load_casa_image_block
+    except ImportError as exc:
+        _load_casa_image_block = _casa_image_reader_unavailable(exc)
 
     img_xds = create_image_xds_from_store(
         store,

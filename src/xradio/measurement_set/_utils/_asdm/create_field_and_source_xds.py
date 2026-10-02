@@ -64,13 +64,15 @@ def create_field_and_source_xds(
     xds = xr.Dataset(attrs={"type": "field_and_source"})
 
     # TODO: sourceId is an opt attr
-    sdm_field_attrs = ["fieldId", "fieldName", "referenceDir", "sourceId"]
+    sdm_field_attrs = ["fieldId", "fieldName", "phaseDir", "referenceDir", "sourceId"]
     field_df = exp_asdm_table_to_df(asdm, "Field", sdm_field_attrs)
 
     field_id = partition_descr["fieldId"]
     field_df = field_df.loc[field_df["fieldId"].isin(field_id)]
 
-    field_name = field_df["fieldName"].to_numpy(dtype="str")
+    field_name = (
+        field_df["fieldName"] + "_" + field_df["fieldId"].astype("str")
+    ).to_numpy(dtype="str")
     field_coords = {
         "sky_dir_label": ["ra", "dec"],
         "field_name": ("field_name", field_name),
@@ -82,11 +84,14 @@ def create_field_and_source_xds(
     # TODO: make distance variable once we have ephem data
     # center_distance_dv = f"FIELD_{phase_or_reference}_CENTER_DISTANCE"
 
-    # ignore the polynomial dimension
-    ref_dir = field_df["referenceDir"].values[0][0]
+    if is_single_dish:
+        # ignore the polynomial dimension
+        phase_or_ref_dir = field_df["referenceDir"].values[0][0]
+    else:
+        phase_or_ref_dir = field_df["phaseDir"].values[0][0]
     xds[center_direction_dv] = (
         ["field_name", "sky_dir_label"],
-        [[ref_dir[0], ref_dir[1]]],
+        [[phase_or_ref_dir[0], phase_or_ref_dir[1]]],
     )
     # TODO: should check for presence of Source/directionCode
     # (optional, "if not J2000")

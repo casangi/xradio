@@ -1,4 +1,3 @@
-import weakref
 from collections.abc import Iterable, Mapping
 from typing import Any
 
@@ -8,9 +7,30 @@ import xarray as xr
 from xradio._utils.xarray_helpers import (
     create_new_data_group,
     delete_data_variables,
+    register_uncached_accessor,
+    replace_data_groups,
+)
+from xradio.image._util.common import (
+    _compute_sky_reference_pixel,
+    _linear_axis_reference_pixel,
 )
 
 IMAGE_DATASET_TYPES = {"image_dataset"}
+
+#: u/v ``units`` values meaning wavelengths (the image schema convention).
+_WAVELENGTH_UNITS = {"lambda", "wavelength", "wavelengths"}
+
+# A reference pixel this close to an integer (in pixels) is a pixel of the grid
+_PIXEL_INDEX_TOLERANCE = 1e-9
+
+
+def _pixel_indices(pixels: np.ndarray) -> np.ndarray:
+    """Integer indices when every (fractional) pixel position is a pixel of
+    the grid, else the positions themselves."""
+    nearest = np.round(pixels)
+    if np.all(np.abs(pixels - nearest) <= _PIXEL_INDEX_TOLERANCE):
+        return nearest.astype(np.int64)
+    return pixels
 
 
 class InvalidAccessorLocation(ValueError):
@@ -24,15 +44,15 @@ class InvalidAccessorLocation(ValueError):
 class ImageXds:
     """Accessor to the Image Dataset.
 
-    The accessor holds its Dataset through a WEAK reference: xarray caches the
-    accessor instance on the Dataset (``ds._cache["xr_img"]``) on first
-    access, so a strong back-reference would form a reference cycle that
-    keeps the entire image Dataset (and its arrays) alive until a full
-    garbage-collection pass. The 2026-08 Frontera memory diagnosis traced
-    ~1.5 GB of cyclic garbage per imaging task to exactly this cycle. With a
-    weak reference the Dataset dies deterministically by refcount; the
-    accessor is only ever used as ``ds.xr_img.method()``, where ``ds`` itself
-    keeps the Dataset alive for the duration of the call.
+    Registered as ``xr.Dataset.xr_img`` without xarray's accessor cache: every
+    ``ds.xr_img`` builds a new accessor that holds ``ds`` strongly and is
+    never stored on ``ds``. Chained calls on temporaries
+    (``ds.isel(...).xr_img.get_lm_cell_size()``) therefore work, and there is
+    no ``ds -> accessor -> ds`` reference cycle: a dataset dies by reference
+    counting as soon as its last reference (including any accessor kept by
+    the caller) is dropped. The 2026-08 Frontera memory diagnosis traced
+    ~1.5 GB of cyclic garbage per imaging task to the cycle that xarray's
+    cached accessors form with a strong back-reference.
     """
 
     def __init__(self, dataset: xr.Dataset):
@@ -45,44 +65,8 @@ class ImageXds:
             The image Dataset node to construct an ImageXds accessor.
         """
 
-        self._xds_strong: xr.Dataset | None = dataset
-        self._xds_ref: weakref.ref | None = None
+        self._xds: xr.Dataset = dataset
         self.meta = {"summary": {}}
-
-    @property
-    def _xds(self) -> xr.Dataset:
-        if self._xds_strong is not None:
-            return self._xds_strong
-        xds = self._xds_ref() if self._xds_ref is not None else None
-        if xds is None:
-            raise ReferenceError(
-                "The Dataset behind this ImageXds accessor no longer exists. "
-                "Access the accessor as ds.xr_img.<method>() rather than "
-                "keeping the accessor object alive beyond its Dataset."
-            )
-        return xds
-
-    @_xds.setter
-    def _xds(self, dataset: xr.Dataset) -> None:
-        # Preserve the current reference mode on rebinding (e.g. from
-        # add_uv_coordinates): weak stays weak, strong stays strong.
-        if self._xds_strong is None and self._xds_ref is not None:
-            self._xds_ref = weakref.ref(dataset)
-        else:
-            self._xds_strong = dataset
-
-    def _weaken(self) -> "ImageXds":
-        """Switch to a WEAK back-reference; called by the accessor-protocol
-        factory below. xarray caches accessor instances on the Dataset
-        (``ds._cache["xr_img"]``), so a strong back-reference would form a
-        reference cycle keeping the whole image Dataset alive until a full gc
-        pass (the 2026-08 memory diagnosis: ~1.5 GB/task). Directly
-        constructed instances keep their strong reference (wrapper
-        semantics)."""
-        if self._xds_strong is not None:
-            self._xds_ref = weakref.ref(self._xds_strong)
-            self._xds_strong = None
-        return self
 
     def test_func(self):
         if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
@@ -133,7 +117,12 @@ class ImageXds:
             data_group_dv_shared_with=data_group_dv_shared_with,
         )
 
-        self._xds.attrs["data_groups"][new_data_group_name] = new_data_group
+        # Replace the attrs mapping: the data_groups dict may be shared with
+        # the datasets this one was derived from (or derived into).
+        replace_data_groups(
+            self._xds,
+            {**self._xds.attrs["data_groups"], new_data_group_name: new_data_group},
+        )
         return self._xds
 
     def get_lm_cell_size(self):
@@ -157,6 +146,10 @@ class ImageXds:
     def add_uv_coordinates(self) -> xr.Dataset:
         """Adds the uv coordinates in wavelengths to the image Dataset.
 
+        The ``u`` and ``v`` coordinates are the aperture plane coordinates
+        conjugate to ``l`` and ``m``, in wavelengths (``units`` ``"lambda"``,
+        the image schema convention), so they do not depend on frequency.
+
         Parameters
         ----------
 
@@ -172,32 +165,46 @@ class ImageXds:
 
         # self._xds = _make_uv_coords(self._xds,image_size=image_size, sky_image_cell_size=self.get_lm_cell_size())
 
-        # Calculate uv coordinates in meters based on l and m. _make_uv_coords assumes reference pixel at center (not necessary the case).
+        # Calculate uv coordinates in wavelengths based on l and m: the uv
+        # cell size is 1 / (image size * lm cell size). _make_uv_coords assumes reference pixel at center (not necessary the case).
         delta = self.get_lm_cell_size()
         image_size = [self._xds.sizes["l"], self._xds.sizes["m"]]
 
         u = self._xds.coords["l"].values / ((delta[0] ** 2) * image_size[0])
         v = self._xds.coords["m"].values / ((delta[1] ** 2) * image_size[1])
 
-        # Keep a strong local reference: self._xds only holds the Dataset
-        # weakly, so assigning and immediately re-reading it would let the
-        # new Dataset be freed between the two statements.
-        xds = self._xds.assign_coords({"u": u, "v": v})
+        xds = self._xds.assign_coords(
+            {"u": ("u", u, {"units": "lambda"}), "v": ("v", v, {"units": "lambda"})}
+        )
         self._xds = xds
         return xds
 
     def get_uv_in_lambda(self, frequency: float):
         """Get the uv coordinates in wavelengths for a specific frequency from the image Dataset.
 
+        The ``units`` attribute of the ``u`` and ``v`` coordinates decides the
+        conversion: coordinates already in wavelengths (``"lambda"`` or
+        ``"wavelengths"``, the convention of the image schema, the readers,
+        the ``make_empty_*`` factories and :meth:`add_uv_coordinates`) are
+        returned unchanged, and coordinates in a length unit (e.g. ``"m"``)
+        are divided by the wavelength ``c / frequency``.
+
         Parameters
         ----------
         frequency : float
             The frequency in Hz to calculate the uv coordinates in wavelengths.
+            Not used when the coordinates are already in wavelengths.
 
         Returns
         -------
-        np.ndarray
-            The uv coordinates in wavelengths.
+        tuple of xarray.DataArray
+            The u and v coordinates in wavelengths.
+
+        Raises
+        ------
+        ValueError
+            If a coordinate has no ``units`` or units that are neither
+            wavelengths nor a length.
         """
 
         #    if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
@@ -207,47 +214,53 @@ class ImageXds:
         c = 299792458.0  # Speed of light in m/s
         wavelength = c / frequency  # Wavelength in meters
 
-        u_in_lambda = self._xds.coords["u"] / wavelength
-        v_in_lambda = self._xds.coords["v"] / wavelength
+        u_in_lambda, v_in_lambda = (
+            _uv_in_wavelengths(self._xds.coords[name], wavelength)
+            for name in ("u", "v")
+        )
 
         return u_in_lambda, v_in_lambda
 
     def get_reference_pixel_indices(self):
         """Get the reference pixel indices from the image Dataset. The reference pixel is defined as the pixel where l=0 and m=0 or u=0 and v=0.
 
+        The reference pixel does not have to be a pixel of the image: a
+        cutout that does not contain the reference direction has its
+        reference pixel outside the image.
+
         Returns
         -------
-        dict
-            A dictionary with the reference pixel indices for each dimension.
+        numpy.ndarray
+            The (l, m) or (u, v) indices of the reference pixel: integers
+            when it is a pixel of the image, else its fractional (float)
+            pixel position, extrapolated with the coordinate increment
+            outside the image (negative, or beyond the last pixel).
         """
 
         #        if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
         #            raise InvalidAccessorLocation(f"{self._xds.path} is not a image node.")
         self.test_func()
 
-        image_center_index = None
-
+        lm_indexes = None
         if "l" in self._xds.coords:
-            l_index = np.where(self._xds.coords["l"].values == 0)[0][0]
-            m_index = np.where(self._xds.coords["m"].values == 0)[0][0]
+            lm_indexes = _pixel_indices(_compute_sky_reference_pixel(self._xds))
 
-            lm_indexes = np.array([l_index, m_index])
-            image_center_index = lm_indexes
-        else:
-            lm_indexes = None
-
+        uv_indexes = None
         if "u" in self._xds.coords:
-            u_index = np.where(self._xds.coords["u"].values == 0)[0][0]
-            v_index = np.where(self._xds.coords["v"].values == 0)[0][0]
-            uv_indexes = np.array([u_index, v_index])
-
-            assert np.array_equal(lm_indexes, uv_indexes), (
-                "lm and uv reference pixel indices do not match."
+            uv_indexes = _pixel_indices(
+                np.array(
+                    [
+                        _linear_axis_reference_pixel(self._xds.coords[name].values)
+                        for name in ("u", "v")
+                    ]
+                )
             )
-            image_center_index = uv_indexes
-        else:
-            uv_indexes = None
+            if lm_indexes is not None:
+                assert np.array_equal(lm_indexes, uv_indexes), (
+                    "lm and uv reference pixel indices do not match."
+                )
 
+        image_center_index = uv_indexes if uv_indexes is not None else lm_indexes
         if image_center_index is None:
             raise ValueError("No lm or uv coordinates found in the image Dataset.")
 
@@ -281,11 +294,11 @@ class ImageXds:
         self.test_func()
 
         if "data_group_name" in indexers_kwargs:
-            data_group_name = indexers_kwargs["data_group_name"]
-            del indexers_kwargs["data_group_name"]
+            data_group_name = indexers_kwargs.pop("data_group_name")
         elif (indexers is not None) and ("data_group_name" in indexers):
-            data_group_name = indexers["data_group_name"]
-            del indexers["data_group_name"]
+            # Copy rather than edit the caller's indexers mapping
+            indexers = dict(indexers)
+            data_group_name = indexers.pop("data_group_name")
         else:
             data_group_name = None
 
@@ -304,17 +317,20 @@ class ImageXds:
 
             data_variables_to_drop = list(set(data_variables_to_drop))
 
-            sel_img_xds = self._xds
-
-            sel_corr_xds = self._xds.sel(
+            sel_img_xds = self._xds.sel(
                 indexers, method, tolerance, drop, **indexers_kwargs
             ).drop_vars(data_variables_to_drop)
 
-            sel_img_xds = sel_corr_xds
-
-            sel_img_xds.attrs["data_groups"] = {
-                data_group_name: self._xds.attrs["data_groups"][data_group_name]
-            }
+            # Replace the attrs mapping and copy the selected group: both are
+            # otherwise shared with self._xds (sel shares the attrs dict).
+            replace_data_groups(
+                sel_img_xds,
+                {
+                    data_group_name: dict(
+                        self._xds.attrs["data_groups"][data_group_name]
+                    )
+                },
+            )
 
             return sel_img_xds
         else:
@@ -322,6 +338,11 @@ class ImageXds:
 
     def delete_data_variables(self, variables: list[str]) -> xr.Dataset:
         """Delete data variables from the image dataset and all data groups.
+
+        The variables are deleted from this dataset in place, and every data
+        group role that refers to one of them is removed. Datasets that share
+        data with this one (e.g. made with ``isel``, ``sel``, ``copy`` or
+        :meth:`sel`) keep their variables and data groups.
 
         Parameters
         ----------
@@ -332,6 +353,12 @@ class ImageXds:
         -------
         xarray.Dataset
             ImageXds Dataset with specified data variables deleted.
+
+        Raises
+        ------
+        ValueError
+            If a name is not a data variable of the dataset (nothing is
+            deleted then).
         """
         if self._xds.attrs.get("type") not in IMAGE_DATASET_TYPES:
             raise InvalidAccessorLocation(
@@ -343,9 +370,48 @@ class ImageXds:
         return self._xds
 
 
-def _xr_img_accessor_factory(dataset: xr.Dataset) -> ImageXds:
-    """Accessor-protocol factory: weak-referenced ImageXds (no cache cycle)."""
-    return ImageXds(dataset)._weaken()
+def _uv_units(coord: xr.DataArray):
+    """Return the units of a u or v coordinate, or None.
+
+    The units are the ``units`` attribute; the ``make_empty_*`` factories
+    instead store the coordinate attrs as a quantity dict, with the units in
+    ``attrs["attrs"]["units"]``.
+    """
+    units = coord.attrs.get("units")
+    if units is None:
+        nested = coord.attrs.get("attrs")
+        if isinstance(nested, Mapping):
+            units = nested.get("units")
+    if isinstance(units, list | tuple) and len(units) == 1:
+        units = units[0]
+    return units
 
 
-xr.register_dataset_accessor("xr_img")(_xr_img_accessor_factory)
+def _uv_in_wavelengths(coord: xr.DataArray, wavelength: float) -> xr.DataArray:
+    """Return a u or v coordinate in wavelengths, given the wavelength in m."""
+    units = _uv_units(coord)
+    if units is None:
+        raise ValueError(
+            f"The {coord.name} coordinate has no units, so it cannot be converted "
+            "to wavelengths. Set its 'units' attribute to 'lambda' (wavelengths, "
+            "the image schema convention) or to a length unit such as 'm'."
+        )
+    if str(units).strip().lower() in _WAVELENGTH_UNITS:
+        return coord.copy()
+
+    from astropy import units as u
+
+    try:
+        to_meters = u.Unit(units).to(u.m)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"Cannot convert the {coord.name} coordinate with units {units!r} to "
+            "wavelengths: the units must be 'lambda' (wavelengths) or a length "
+            "such as 'm'."
+        ) from exc
+    converted = coord * (to_meters / wavelength)
+    converted.attrs = {"units": "lambda"}
+    return converted
+
+
+register_uncached_accessor("xr_img", xr.Dataset)(ImageXds)

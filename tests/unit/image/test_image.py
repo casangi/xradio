@@ -38,6 +38,7 @@ import xarray as xr
 from astropy.io import fits
 
 from xradio._utils._casacore.tables import open_table_ro
+from xradio._utils.dict_helpers import make_quantity
 from xradio.image import (
     load_image,
     make_empty_aperture_image,
@@ -65,6 +66,32 @@ from xradio.testing.image import (
 sky = "SKY"
 
 pytestmark = pytest.mark.usefixtures("dask_client_module")
+
+
+def update_truth_attrs_to_schema(truth_xds):
+    """Add to a blessed truth of an image read from CASA or FITS the attrs the
+    readers have produced since it was blessed: the sub_type attribute of
+    pixel images (derived from the casacore image type) and the frequency
+    coordinate's channel_width quantity (from the truth's own channel
+    spacing). The other schema attributes the truth stores lack (frequency
+    units and frame, dataset and time types) are added by open_image, which
+    upgrades image zarr stores written by xradio 1.2.3 and earlier. Remove
+    once the truth stores have been re-blessed.
+    """
+    if truth_xds.sizes["frequency"] > 1:
+        truth_xds.frequency.attrs.setdefault(
+            "channel_width",
+            make_quantity(
+                float(
+                    abs(truth_xds.frequency.values[1] - truth_xds.frequency.values[0])
+                ),
+                "Hz",
+            ),
+        )
+    for data_var in truth_xds.data_vars.values():
+        if data_var.attrs.get("type") in ("sky", "aperture"):
+            data_var.attrs.setdefault("sub_type", "Intensity")
+    return truth_xds
 
 
 # --------------------------------------------------------------------------- #
@@ -137,6 +164,32 @@ class TestLoadImage:
             mask[np.newaxis, :, :, 0, 0],
         )
 
+    def test_open_image_mask_squeezes_spatial_axes(self, tmp_path):
+        """open_image squeezes the mask of a visibility normalisation image
+        like its pixels (it used to fail with a dimension mismatch)."""
+        imagename = tmp_path / "masked_open.sumwt"
+        data = np.arange(8, dtype=np.float32).reshape(4, 2, 1, 1)
+        mask = np.zeros_like(data, dtype=bool)
+        mask[2, 1, 0, 0] = True
+        masked_data = ma.masked_array(data, mask)
+
+        with create_new_image(
+            str(imagename), shape=list(data.shape), mask="MASK_0"
+        ) as im:
+            im.put(masked_data)
+
+        xds = open_image({"visibility_normalization": str(imagename)})
+
+        for name in ("VISIBILITY_NORMALIZATION", "FLAG_VISIBILITY_NORMALIZATION"):
+            assert xds[name].dims == ("time", "frequency", "polarization")
+            assert xds[name].shape == (1, 4, 2)
+        np.testing.assert_array_equal(
+            xds.VISIBILITY_NORMALIZATION.values, data[np.newaxis, :, :, 0, 0]
+        )
+        np.testing.assert_array_equal(
+            xds.FLAG_VISIBILITY_NORMALIZATION.values, mask[np.newaxis, :, :, 0, 0]
+        )
+
 
 # --------------------------------------------------------------------------- #
 # TestOpenImageCasa  –  open_image (CASA format)                               #
@@ -158,9 +211,15 @@ class TestOpenImageCasa:
         cls._xds = open_image(cls._imname, {"frequency": 5})
         cls._xds_no_sky = open_image(cls._imname, {"frequency": 5}, False, False)
         cls._xds_uv = download_and_open_image(cls._uv_image)
-        cls._xds_true = download_and_open_image(cls._xds_from_casa_true)
-        cls._xds_no_sky_true = download_and_open_image(cls._xds_from_no_sky_casa_true)
-        cls._xds_uv_true = download_and_open_image(cls._xds_from_casa_uv_true)
+        cls._xds_true = update_truth_attrs_to_schema(
+            download_and_open_image(cls._xds_from_casa_true)
+        )
+        cls._xds_no_sky_true = update_truth_attrs_to_schema(
+            download_and_open_image(cls._xds_from_no_sky_casa_true)
+        )
+        cls._xds_uv_true = update_truth_attrs_to_schema(
+            download_and_open_image(cls._xds_from_casa_uv_true)
+        )
 
     @classmethod
     def teardown_class(cls):
@@ -548,7 +607,9 @@ class TestZarrRoundtrip:
     def setup_class(cls):
         download_image(cls._imname)
         cls._xds = open_image(cls._imname, {"frequency": 5})
-        cls._xds_true = download_and_open_image(cls._xds_from_casa_true)
+        cls._xds_true = update_truth_attrs_to_schema(
+            download_and_open_image(cls._xds_from_casa_true)
+        )
         write_image(cls._xds, cls._zarr_store, out_format="zarr", overwrite=True)
         cls._zds = open_image(cls._zarr_store)
 
@@ -656,8 +717,12 @@ class TestOpenImageFits:
         download_image(cls._infits)
         cls._fds = open_image(cls._infits, {"frequency": 5}, do_sky_coords=True)
         cls._fds_no_sky = open_image(cls._infits, {"frequency": 5}, do_sky_coords=False)
-        cls._xds_true = download_and_open_image(cls._xds_from_casa_true)
-        cls._xds_no_sky_true = download_and_open_image(cls._xds_from_no_sky_casa_true)
+        cls._xds_true = update_truth_attrs_to_schema(
+            download_and_open_image(cls._xds_from_casa_true)
+        )
+        cls._xds_no_sky_true = update_truth_attrs_to_schema(
+            download_and_open_image(cls._xds_from_no_sky_casa_true)
+        )
 
     @classmethod
     def teardown_class(cls):
@@ -849,6 +914,8 @@ class TestMakeEmptyImages:
 
     @pytest.mark.parametrize("case", MAKE_EMPTY_CASES, ids=lambda c: c["name"])
     def test_make_empty_image(self, case):
+        # open_image upgrades the truth stores, written by xradio 1.2.3, to
+        # the current schema attributes
         truth_xds = download_and_open_image(case["truth_xds"])
         assert_xarray_datasets_equal(
             self._generated_xds[case["name"]],

@@ -6,6 +6,6 @@ python-format:
 
 # Export JSON schemas
 schema-export:
-	@for schema in VisibilityXds SpectrumXds; do \
+	@for schema in VisibilityXds SpectrumXds ImageXds; do \
 		PYTHONPATH=src python scripts/export_schema.py $$schema schemas/$$schema.json; \
 	done

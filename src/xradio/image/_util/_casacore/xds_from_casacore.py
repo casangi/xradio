@@ -1,5 +1,6 @@
 import copy
 import os
+import threading
 
 import dask
 import dask.array as da
@@ -24,6 +25,7 @@ from xradio._utils._casacore.tables import extract_table_attributes, open_table_
 from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import (
     _casacore_q_to_xradio_q,
+    ensure_units_are_consistent,
     make_direction_location_dict,
     make_quantity,
     make_skycoord_dict,
@@ -36,6 +38,8 @@ from xradio.image._util._casacore.common import (
     _pointing_center,
 )
 from xradio.image._util.common import (
+    _DEFAULT_FREQUENCY_HZ,
+    _DEFAULT_REST_FREQUENCY_HZ,
     _compute_linear_world_values,
     _compute_velocity_values,
     _compute_world_sph_dims,
@@ -43,10 +47,22 @@ from xradio.image._util.common import (
     _default_freq_info,
     _doppler_types,
     _get_unit,
+    _hz_per_unit,
     _image_type,
     _l_m_attr_notes,
 )
+from xradio.image._util.conventions import (
+    CASACORE_EPOCH_REF_TO_SCALE,
+    normalize_spectral_frame,
+    spectral_frame_to_observer,
+)
 from xradio.measurement_set._utils._msv2._tables.read import convert_casacore_time
+
+# Lowercase prefixes of the casacore axis names of the l (u) and m (v) image
+# axes: equatorial (Right Ascension, Declination), galactic (Longitude,
+# Latitude) and aperture plane (UU, VV) axes
+_LONGITUDE_AXIS_PREFIXES = ("right", "longitude", "uu")
+_LATITUDE_AXIS_PREFIXES = ("dec", "latitude", "vv")
 
 
 def _add_lin_attrs(xds, coord_dict, dir_axes):
@@ -141,23 +157,17 @@ def _casa_image_to_xds_image_attrs(
                 )
                 """
         elif k == "obsdate":
-            obsdate = coord_dict[k]
-            """
-            o_attrs = {"type": "time"}
-            o_attrs["scale"] = coord_dict[k]["refer"]
-            myu = coord_dict[k]["m0"]["unit"]
-            o_attrs["units"] = myu if isinstance(myu, list) else [myu]
-            o_attrs["format"] = _get_time_format(m0["value"], m0["unit"])
-            o_date = {}
-            o_date["attrs"] = o_attrs
-            """
-            m0 = obsdate["m0"]
-            attrs["obsdate"] = make_time_measure_dict(
-                data=m0["value"],
-                units=m0["unit"],
-                scale=obsdate["refer"],
-                time_format=_get_time_format(m0["value"], m0["unit"]),
-            )
+            # A sidereal or unset observation date (casacore's default is
+            # 0 d LAST) has no astropy time scale, so it is not stored (the
+            # time coordinate reader warns about it).
+            value, time_attrs = _casacore_epoch_to_mjd(coord_dict[k])
+            if time_attrs is not None:
+                attrs["obsdate"] = make_time_measure_dict(
+                    data=value,
+                    units=time_attrs["units"],
+                    scale=time_attrs["scale"],
+                    time_format=time_attrs["format"],
+                )
         else:
             attrs[k] = coord_dict[k] if k in coord_dict else ""
     dir_key = next((k for k in coord_dict if k.startswith("direction")), None)
@@ -225,21 +235,37 @@ def _add_sky_or_aperture(
     return xds
 
 
-def _get_time_format(value: float, unit: str) -> str:
-    if value >= 40000 and value <= 100000 and (unit == "d" or unit == ["d"]):
-        return "MJD"
-    else:
-        return ""
+def _casacore_epoch_to_mjd(epoch: dict) -> tuple[float, dict | None]:
+    """
+    Translate a casacore epoch measure to an MJD value and time attributes.
 
+    Parameters
+    ----------
+    epoch : dict
+        casacore epoch measure record, with ``refer`` (the epoch reference,
+        for example ``"UTC"``) and ``m0`` (``value`` and ``unit``), such as the
+        ``obsdate`` of an image coordinate system.
 
-def _add_time_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
-    meta = {}
-    meta["type"] = "time"
-    meta["scale"] = coord_dict["obsdate"]["refer"]
-    meta["units"] = [coord_dict["obsdate"]["m0"]["unit"]]
-    meta["format"] = _get_time_format(xds["time"][0], meta["units"])
-    xds["time"].attrs = copy.deepcopy(meta)
-    return xds
+    Returns
+    -------
+    value : float
+        The epoch in days since MJD 0 (casacore epochs count from MJD 0).
+    attrs : dict or None
+        The ``units`` (``"d"``), ``scale`` and ``format`` (``"mjd"``) time
+        attributes, or ``None`` when the reference has no astropy time scale:
+        the sidereal references (LAST, LMST, GMST1, GAST) and the unset
+        observation date of casacore images, ``0 d LAST``.
+    """
+    refer = str(epoch.get("refer", "")).upper()
+    m0 = epoch["m0"]
+    value = float(m0["value"])
+    unit = ensure_units_are_consistent(m0["unit"])
+    if unit != "d":
+        value = float((value * u.Unit(unit)).to(u.day).value)
+    scale = CASACORE_EPOCH_REF_TO_SCALE.get(refer)
+    if scale is None:
+        return value, None
+    return value, {"units": "d", "scale": scale, "format": "mjd"}
 
 
 def _add_vel_attrs(xds: xr.Dataset, coord_dict: dict) -> xr.Dataset:
@@ -347,15 +373,22 @@ def _casa_image_to_xds_coords(
     attrs["sphr_dims"] = sphr_dims
     coords = {}
     coord_attrs = {}
-    coords["time"], coord_attrs["time"] = _get_time_values_attrs(coord_dict)
-    coords["frequency"], coord_attrs["frequency"] = _get_freq_values_attrs(csys, shape)
-    velocity_vals, coord_attrs["velocity"] = _get_velocity_values_attrs(
+    coords["time"], coord_attrs["time"] = _get_time_values_attrs(
+        coord_dict, img_full_path
+    )
+    coords["frequency"], coord_attrs["frequency"] = _get_freq_values_attrs(
+        csys, shape, img_full_path
+    )
+    velocity_vals, velocity_attrs = _get_velocity_values_attrs(
         coord_dict, coords["frequency"]
     )
     coords["polarization"], coord_attrs["polarization"] = _get_pol_values_attrs(
         coord_dict
     )
-    coords["velocity"] = (["frequency"], velocity_vals)
+    # without a rest frequency there are no velocities (as in the FITS reader)
+    if velocity_vals is not None:
+        coords["velocity"] = (["frequency"], velocity_vals)
+        coord_attrs["velocity"] = velocity_attrs
     if image_type.upper() != "VISIBILITY_NORMALIZATION":
         if len(sphr_dims) > 0:
             crpix = _flatten_list(csys.get_referencepixel())[::-1]
@@ -374,13 +407,17 @@ def _casa_image_to_xds_coords(
             if do_sky_coords:
                 for k in coord_dict.keys():
                     if k.startswith("direction"):
-                        dc = coordinates.directioncoordinate(coord_dict[k])
+                        direction = coord_dict[k]
+                        dc = coordinates.directioncoordinate(direction)
                         break
                 crval = _flatten_list(csys.get_referencevalue())[::-1]
 
                 def pick(my_list):
                     return [my_list[i] for i in sphr_dims]
 
+                # casacore records the native pole in degrees and the
+                # projection parameters and PC matrix in (longitude,
+                # latitude) order
                 my_ret = _compute_world_sph_dims(
                     projection=dc.get_projection(),
                     shape=pick(shape),
@@ -389,6 +426,12 @@ def _casa_image_to_xds_coords(
                     crpix=pick(crpix),
                     cdelt=pick(inc),
                     cunit=pick(unit),
+                    projection_parameters=_flatten_list(
+                        direction.get("projection_parameters", [])
+                    ),
+                    pc=direction.get("pc"),
+                    lonpole=direction.get("longpole"),
+                    latpole=direction.get("latpole"),
                 )
                 for i in [0, 1]:
                     axis_name = my_ret["axis_name"][i]
@@ -532,40 +575,72 @@ def _get_dimmap(coords: list, diraxes: list, verbose: bool = False) -> dict:
 
 
 def _get_freq_values_attrs(
-    casa_coords: coordinates.coordinatesystem, shape: tuple
+    casa_coords: coordinates.coordinatesystem, shape: tuple, image_name: str = ""
 ) -> tuple[list[float], dict]:
-    values = None
-    attrs = {}
-    idx = _get_image_axis_order(casa_coords)[::-1].index("Frequency")
-    if idx >= 0:
-        casa_coord_dict = casa_coords.dict()
-        for k in casa_coord_dict:
-            if k.startswith("spectral"):
-                sd = casa_coord_dict[k]
-                wcs = sd["wcs"]
-                values = _compute_linear_world_values(
-                    naxis=shape[idx],
-                    crval=wcs["crval"],
-                    crpix=wcs["crpix"],
-                    cdelt=wcs["cdelt"],
-                )
-                attrs["rest_frequency"] = make_quantity(sd["restfreq"], "Hz")
-                attrs["type"] = "spectral_coord"
-                attrs["wave_units"] = sd["waveUnit"]
+    """
+    Compute the frequency coordinate values and attributes of a CASA image.
 
-                attrs["reference_frequency"] = make_spectral_coord_reference_dict(
-                    value=sd["wcs"]["crval"],
-                    units=sd["unit"],
-                    observer=sd["system"],
-                )
+    Values, reference, rest frequency and channel width are converted to Hz
+    from the unit of the spectral axis. The ``frame`` attribute holds the
+    casacore frame and the reference frequency observer the matching schema
+    observer (see :mod:`xradio.image._util.conventions`). An image without a
+    spectral axis gets a single channel with the attributes of casacore's
+    default spectral coordinate.
 
-                attrs = copy.deepcopy(attrs)
-                break
-    else:
-        values = [1420e6]
+    Parameters
+    ----------
+    casa_coords : coordinates.coordinatesystem
+        Coordinate system of the image.
+    shape : tuple
+        Image shape, in the reverse of casacore's axis order.
+    image_name : str, default ""
+        Image path, for messages.
+
+    Returns
+    -------
+    tuple[list[float], dict]
+        The frequency values (Hz) and the frequency coordinate attributes.
+    """
+    axis_order = _get_image_axis_order(casa_coords)[::-1]
+    casa_coord_dict = casa_coords.dict()
+    sd = next((v for k, v in casa_coord_dict.items() if k.startswith("spectral")), None)
+    if "Frequency" not in axis_order or sd is None:
         # this is the default frequency information CASA creates
-        attrs = _default_freq_info()
-    return (values, attrs)
+        return [_DEFAULT_FREQUENCY_HZ], _default_freq_info()
+    idx = axis_order.index("Frequency")
+    wcs = sd["wcs"]
+    hz_per_unit = _hz_per_unit(sd["unit"])
+    values = _compute_linear_world_values(
+        naxis=shape[idx],
+        crval=wcs["crval"] * hz_per_unit,
+        crpix=wcs["crpix"],
+        cdelt=wcs["cdelt"] * hz_per_unit,
+    )
+    frame = sd["system"]
+    try:
+        frame = normalize_spectral_frame(frame)
+        observer = spectral_frame_to_observer(frame)
+    except ValueError:
+        xradio_logger().warning(
+            f"The spectral reference frame {frame!r} of image {image_name} is "
+            "not a casacore frequency frame; it is kept as it is"
+        )
+        observer = str(frame).lower()
+    attrs = {
+        # casacore stores the rest frequency in the unit of the spectral axis
+        "rest_frequency": make_quantity(sd["restfreq"] * hz_per_unit, "Hz"),
+        "type": "spectral_coord",
+        "units": "Hz",
+        "frame": frame,
+        "wave_units": sd["waveUnit"],
+        "reference_frequency": make_spectral_coord_reference_dict(
+            value=wcs["crval"] * hz_per_unit,
+            units="Hz",
+            observer=observer,
+        ),
+        "channel_width": make_quantity(abs(wcs["cdelt"] * hz_per_unit), "Hz"),
+    }
+    return (values, copy.deepcopy(attrs))
 
 
 def _get_image_axis_order(coords: coordinates.coordinatesystem) -> list:
@@ -596,9 +671,9 @@ def _get_image_dim_order(coords: coordinates.coordinatesystem) -> list:
     ret = []
     for axis in flat:
         b = axis.lower()
-        if b.startswith("right") or b.startswith("uu"):
+        if b.startswith(_LONGITUDE_AXIS_PREFIXES):
             ret.append("l")
-        elif b.startswith("dec") or b.startswith("vv"):
+        elif b.startswith(_LATITUDE_AXIS_PREFIXES):
             ret.append("m")
         elif b.startswith("frequency"):
             ret.append("frequency")
@@ -675,15 +750,37 @@ def _get_starts_shapes_slices(
     return starts, shapes, slices
 
 
-def _get_time_values_attrs(cimage_coord_dict: dict) -> tuple[list[float], dict]:
-    attrs = {}
-    attrs["type"] = "time"
-    attrs["scale"] = cimage_coord_dict["obsdate"]["refer"].lower()
-    unit = cimage_coord_dict["obsdate"]["m0"]["unit"]
-    attrs["units"] = unit
-    time_val = cimage_coord_dict["obsdate"]["m0"]["value"]
-    attrs["format"] = _get_time_format(time_val, unit).lower()
-    return ([time_val], copy.deepcopy(attrs))
+def _get_time_values_attrs(
+    cimage_coord_dict: dict, image_name: str = ""
+) -> tuple[list[float], dict]:
+    """
+    Compute the time coordinate value and attributes from the observation date.
+
+    Parameters
+    ----------
+    cimage_coord_dict : dict
+        casacore coordinate system record of the image.
+    image_name : str, default ""
+        Image path, for messages.
+
+    Returns
+    -------
+    tuple[list[float], dict]
+        The time value (MJD days) and the time coordinate attributes. A
+        sidereal or unset observation date is labelled UTC, with a warning.
+    """
+    obsdate = cimage_coord_dict["obsdate"]
+    time_val, time_attrs = _casacore_epoch_to_mjd(obsdate)
+    if time_attrs is None:
+        xradio_logger().warning(
+            f"The observation date of image {image_name} has the casacore "
+            f"epoch reference {obsdate.get('refer')!r}, which is sidereal or "
+            "unset and has no astropy time scale: its time coordinate is "
+            "labelled UTC and the image has no obsdate attribute"
+        )
+        time_attrs = {"units": "d", "scale": "utc", "format": "mjd"}
+    attrs = {"type": "time", **time_attrs}
+    return ([time_val], attrs)
 
 
 def _get_time_values(coord_dict):
@@ -700,12 +797,12 @@ def _get_transpose_list(coords: coordinates.coordinatesystem) -> list:
     not_covered = ["l", "m", "u", "v", "s", "f"]
     for i, c in enumerate(flat):
         b = c.lower()
-        if b.startswith("right") or b.startswith("uu"):
+        if b.startswith(_LONGITUDE_AXIS_PREFIXES):
             transpose_list[3] = i
             # transpose_list[3] = csys['pixelmap0'][0]
             not_covered.remove("l")
             not_covered.remove("u")
-        elif b.startswith("dec") or b.startswith("vv"):
+        elif b.startswith(_LATITUDE_AXIS_PREFIXES):
             transpose_list[4] = i
             # transpose_list[4] = csys['pixelmap0'][1]
             not_covered.remove("m")
@@ -798,12 +895,32 @@ def _get_velocity_values(coord_dict: dict, freq_values: list) -> list:
 def _get_velocity_values_attrs(
     coord_dict: dict, freq_values: list[float]
 ) -> tuple[list[float], dict]:
-    restfreq = 1420405751.786
+    """
+    Compute the velocity coordinate values and attributes of a CASA image.
+
+    Parameters
+    ----------
+    coord_dict : dict
+        casacore coordinate system record of the image.
+    freq_values : list[float]
+        Frequency values, in Hz.
+
+    Returns
+    -------
+    tuple[list[float] or None, dict]
+        Velocities (m/s) and the velocity coordinate attributes. The values
+        follow the image's Doppler convention when it is radio or optical
+        (``"z"``), and the radio convention otherwise. The velocities are None
+        when the image has no rest frequency (casacore records 0 for an
+        unknown one).
+    """
+    restfreq = _DEFAULT_REST_FREQUENCY_HZ
     attrs = {}
     for k in coord_dict:
         if k.startswith("spectral"):
             sd = coord_dict[k]
-            restfreq = sd["restfreq"]
+            # casacore stores the rest frequency in the unit of the spectral axis
+            restfreq = sd["restfreq"] * _hz_per_unit(sd["unit"])
             attrs["doppler_type"] = _doppler_types[sd["velType"]]
             break
     if not attrs:
@@ -811,9 +928,12 @@ def _get_velocity_values_attrs(
 
     attrs["units"] = "m/s"
     attrs["type"] = "doppler"
+    if not restfreq > 0:
+        return None, copy.deepcopy(attrs)
+    doppler = "z" if attrs["doppler_type"] == "z" else "radio"
     return (
         _compute_velocity_values(
-            restfreq=restfreq, freq_values=freq_values, doppler="radio"
+            restfreq=restfreq, freq_values=freq_values, doppler=doppler
         ),
         copy.deepcopy(attrs),
     )
@@ -1172,7 +1292,21 @@ def _read_image_array(
     return ary.transpose(transpose_list)
 
 
+# casatools table calls are not thread safe: with dask's threaded scheduler,
+# concurrent chunk reads crash (segmentation fault) or fail with FiledesIO
+# errors, so they are serialized. python-casacore reads run concurrently
+# without problems and are not locked.
+_CASATOOLS_READ_LOCK = threading.Lock()
+
+
 def _read_image_chunk(infile: str, shapes: tuple, starts: tuple) -> np.ndarray:
+    if tables.__name__.endswith("casacore_from_casatools"):
+        with _CASATOOLS_READ_LOCK:
+            return _read_image_chunk_unlocked(infile, shapes, starts)
+    return _read_image_chunk_unlocked(infile, shapes, starts)
+
+
+def _read_image_chunk_unlocked(infile: str, shapes: tuple, starts: tuple) -> np.ndarray:
     with open_table_ro(infile) as tb_tool:
         data: np.ndarray = tb_tool.getcellslice(
             tb_tool.colnames()[0],

@@ -1909,3 +1909,173 @@ def test_schema_checked_params_skips_unchecked():
 
     fn_checked = schema_checked(fn, check_parameters=["b"])
     fn_checked(a="wrong_type_but_not_checked", b="correct_str")
+
+
+# ---------------------------------------------------------------------------
+# check_data_vars() multiple version name matching
+# ---------------------------------------------------------------------------
+
+
+def test_check_dataset_multi_version_boundary_prefix():
+    # A version of a data variable is the canonical name itself or the
+    # canonical name followed by an underscore separated suffix. Names that
+    # merely contain the canonical name (e.g. "prefix_data_var") or continue
+    # it without a separator (e.g. "data_varx") must NOT be matched, and so
+    # their (wrong) dtype must not be flagged.
+    attrs = {"attr1": "str"}
+    coords = {"coord": numpy.arange(10, dtype=float)}
+    data_vars = {
+        "data_var": ("coord", numpy.zeros(10, dtype=float)),
+        "prefix_data_var": ("coord", numpy.zeros(10, dtype=int)),
+        "data_varx": ("coord", numpy.zeros(10, dtype=int)),
+    }
+    assert not check_dataset(
+        xarray.Dataset(data_vars, coords, attrs), _TestDatasetSchemaMultiVersion
+    )
+
+
+def test_check_dataset_multi_version_suffix_checked():
+    # A "_" separated suffix version with the wrong dtype must be flagged
+    attrs = {"attr1": "str"}
+    coords = {"coord": numpy.arange(10, dtype=float)}
+    data_vars = {
+        "data_var": ("coord", numpy.zeros(10, dtype=float)),
+        "data_var_v2": ("coord", numpy.zeros(10, dtype=int)),
+    }
+    issues = check_dataset(
+        xarray.Dataset(data_vars, coords, attrs), _TestDatasetSchemaMultiVersion
+    )
+    assert len(issues) == 1
+    # The issue is reported under the name of the version that has it, not
+    # under the canonical schema name ("data_var")
+    assert issues[0].path == [("data_vars", "data_var_v2"), ("dtype", None)]
+    assert "data_vars['data_var_v2'].dtype" in str(issues)
+
+
+def test_check_dataset_multi_version_missing_required():
+    # A required multi-version variable without any version present is
+    # reported under its canonical name
+    attrs = {"attr1": "str"}
+    coords = {"coord": numpy.arange(10, dtype=float)}
+    data_vars = {"other_var": ("coord", numpy.zeros(10, dtype=float))}
+    issues = check_dataset(
+        xarray.Dataset(data_vars, coords, attrs), _TestDatasetSchemaMultiVersion
+    )
+    assert [issue.path for issue in issues] == [[("data_vars", "data_var")]]
+
+
+# ---------------------------------------------------------------------------
+# Array constructors with string dimension coordinates
+# ---------------------------------------------------------------------------
+
+DimLabel = Literal["label"]
+
+
+@xarray_dataarray_schema
+class _TestStringCoordArraySchema:
+    """Array schema with a string dimension coordinate"""
+
+    data: Data[DimLabel, float]
+    label: Coord[DimLabel, str]
+
+
+def test_check_array_constructor_string_coord():
+    array = _TestStringCoordArraySchema(numpy.zeros(3), label=["a", "b", "c"])
+    assert list(array.label.values) == ["a", "b", "c"]
+
+
+def test_check_array_constructor_string_coord_omitted():
+    # A string coordinate cannot be filled in with a numeric range, so
+    # omitting it must give schema issues rather than a numpy TypeError
+    with pytest.raises(SchemaIssues) as excinfo:
+        _TestStringCoordArraySchema(numpy.zeros(3))
+    assert [issue.path[0] for issue in excinfo.value.issues] == [("coords", "label")]
+
+
+# ---------------------------------------------------------------------------
+# check_dataset() with classes that are not dataset schemas
+# ---------------------------------------------------------------------------
+
+
+def test_check_dataset_plain_class():
+    class NotASchema:
+        pass
+
+    with pytest.raises(TypeError) as excinfo:
+        check_dataset(_make_valid_dataset(), NotASchema)
+    message = str(excinfo.value)
+    assert message.startswith("check_dataset: Expected DatasetSchema")
+    assert "NotASchema" in message and "not a dataset schema" in message
+    assert "Did you mean" not in message
+
+
+def test_check_dataset_array_schema_class():
+    with pytest.raises(TypeError, match="use check_array"):
+        check_dataset(_make_valid_dataset(), _TestArraySchema)
+
+
+def test_check_dataset_dict_schema_class():
+    with pytest.raises(TypeError, match="use check_dict"):
+        check_dataset(_make_valid_dataset(), _TestDictSchema)
+
+
+def test_check_dataset_class_named_like_schema(isolated_dataset_types):
+    # A class with the name of a registered dataset schema (for example the
+    # accessor xradio.image.ImageXds next to the schema
+    # xradio.image.schema.ImageXds) is not mistaken for it, and the schema
+    # is suggested
+    from xradio.schema import xarray_dataclass_to_dataset_schema
+
+    schema = xarray_dataclass_to_dataset_schema(_TestRegisteredDatasetSchema)
+    register_dataset_type(schema)
+    look_alike = type("_TestRegisteredDatasetSchema", (), {"__module__": "elsewhere"})
+    with pytest.raises(TypeError) as excinfo:
+        check_dataset(_make_valid_dataset(), look_alike)
+    message = str(excinfo.value)
+    assert "elsewhere._TestRegisteredDatasetSchema" in message
+    assert f"Did you mean the dataset schema {schema.schema_name}?" in message
+
+
+# ---------------------------------------------------------------------------
+# check_dict() list[float] and list[list[float]] attributes
+# ---------------------------------------------------------------------------
+
+
+@dict_schema
+class _DictWithListFloatAttr:
+    params: list[float]
+    matrix: list[list[float]] | None
+
+
+def test_dict_schema_list_float_value_schema():
+    schema = xarray_dataclass_to_dict_schema(_DictWithListFloatAttr)
+    types = {attr.name: (attr.type, attr.optional) for attr in schema.attributes}
+    assert types["params"] == ("list[float]", False)
+    assert types["matrix"] == ("list[list[float]]", True)
+
+
+def test_check_dict_list_float_valid():
+    assert not check_dict({"params": [0.0, 1.5]}, _DictWithListFloatAttr)
+    assert not check_dict(
+        {"params": [0.0], "matrix": [[1.0, 0.0], [0.0, 1.0]]}, _DictWithListFloatAttr
+    )
+
+
+def test_check_dict_list_float_invalid():
+    issues = check_dict({"params": "not_a_list"}, _DictWithListFloatAttr)
+    assert len(issues) == 1
+    assert "list of floats" in issues[0].message
+
+    issues = check_dict({"params": [1.0, "two"]}, _DictWithListFloatAttr)
+    assert len(issues) == 1
+
+
+def test_check_dict_list_list_float_invalid():
+    issues = check_dict({"params": [0.0], "matrix": [1.0, 0.0]}, _DictWithListFloatAttr)
+    assert len(issues) == 1
+    assert "list of lists of floats" in issues[0].message
+
+    issues = check_dict(
+        {"params": [0.0], "matrix": [[1.0, "zero"]]}, _DictWithListFloatAttr
+    )
+    assert len(issues) == 1

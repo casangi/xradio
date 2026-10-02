@@ -161,14 +161,24 @@ def value_schema(ann: typing.Any, klass_name: str, field_name: str) -> "ValueSch
     if typing.get_origin(ann) in [list, list]:
         args = typing.get_args(ann)
 
-        # Must be a string list
-        if args != (str,):
-            raise ValueError(
-                f"In '{klass_name}', field '{field_name}' has"
-                f" annotation {ann}, but only str, int, float, list[str] or Literal allowed!"
-            )
+        # Must be a list of strings, a list of floats or a list of lists of
+        # floats (e.g. a transformation matrix)
+        if args == (str,):
+            return ValueSchema("list[str]")
+        if args == (float,):
+            return ValueSchema("list[float]")
+        if (
+            len(args) == 1
+            and typing.get_origin(args[0]) is list
+            and typing.get_args(args[0]) == (float,)
+        ):
+            return ValueSchema("list[list[float]]")
 
-        return ValueSchema("list[str]")
+        raise ValueError(
+            f"In '{klass_name}', field '{field_name}' has"
+            f" annotation {ann}, but only str, int, float, list[str], list[float],"
+            f" list[list[float]] or Literal allowed!"
+        )
 
     # Is a literal?
     if typing.get_origin(ann) is typing.Literal:
@@ -491,7 +501,10 @@ def xarray_dataclass_to_dataset_schema(klass):
     #  a mapping of data variables to allowed dimensions [possibly empty
     #  if the data variable is optional], such that the superset of all
     #  dimensions matches. Likely overkill for now.)
-    opt_dimensions = all_dimensions.keys() - req_dimensions
+    # Iterate optional dimensions in declaration order so that the list of
+    # options is deterministic (a set difference here would make the order,
+    # and thereby the JSON export, depend on per-process string hashing)
+    opt_dimensions = [dim for dim in all_dimensions if dim not in req_dimensions]
     dimensions = [req_dimensions]
     for dim in opt_dimensions:
         dimensions += [dims | {dim} for dims in dimensions]

@@ -36,21 +36,30 @@ from xradio._utils.logging import xradio_logger
 
 # Valid casacore ImageInfo enum values
 # Reference: https://casacore.github.io/casacore/classcasacore_1_1ImageInfo.html
+# (casacore's spelling, with spaces, which python-casacore returns)
 _VALID_IMAGE_TYPES = (
     "Undefined",
     "Intensity",
     "Beam",
-    "ColumnDensity",
-    "DepolarizationRatio",
-    "KineticTemperature",
-    "MagneticField",
-    "OpticalDepth",
-    "RotationMeasure",
-    "RotationalTemperature",
-    "SpectralIndex",
+    "Column Density",
+    "Depolarization Ratio",
+    "Kinetic Temperature",
+    "Magnetic Field",
+    "Optical Depth",
+    "Rotation Measure",
+    "Rotational Temperature",
+    "Spectral Index",
     "Velocity",
-    "VelocityDispersion",
+    "Velocity Dispersion",
 )
+
+# casatools pixel type -> python-casacore image datatype()
+_PYTHON_CASACORE_PIXEL_TYPES = {
+    "float": "float",
+    "double": "double",
+    "complex": "Complex",
+    "dcomplex": "DComplex",
+}
 
 casaconfig.config.data_auto_update = False
 casaconfig.config.measures_auto_update = False
@@ -202,8 +211,10 @@ def _validate_image_type(value: str) -> str:
 
     Notes
     -----
-    Validation is case-insensitive. The returned string uses the
-    canonical capitalization from the casacore ImageInfo enum.
+    Validation is case-insensitive, as in casacore, but spaces matter:
+    ``"spectral index"`` gives ``"Spectral Index"`` while ``"SpectralIndex"``
+    gives ``"Intensity"``, as with python-casacore. The returned string uses
+    the canonical spelling of the casacore ImageInfo enum.
     """
     value_lower = value.lower()
     for valid_type in _VALID_IMAGE_TYPES:
@@ -589,8 +600,14 @@ class image(casatools.image):
             if values is None:
                 self.fromshape(imagename, shape=list(shape[::-1]), overwrite=overwrite)
             else:
+                pixels = np.full(shape, values).T
+                # casatools writes single precision pixels unless asked for
+                # double precision ('d'), which python-casacore selects from
+                # the type of values (float64 gives double, complex128
+                # DComplex)
+                precision = "d" if pixels.dtype in (np.float64, np.complex128) else "f"
                 self.fromarray(
-                    imagename, pixels=np.full(shape, values).T, overwrite=overwrite
+                    imagename, pixels=pixels, overwrite=overwrite, type=precision
                 )
             if maskname:
                 self.calcmask("T", name=maskname)
@@ -679,10 +696,14 @@ class image(casatools.image):
     def put(self, masked_array):
         """Put in data/mask into iatools.
 
+        Every pixel value is written, masked or not, as python-casacore's
+        ``image.put`` does (``usemask=False``: by default casatools would keep
+        the old values of masked pixels).
+
         Note: for casa mask table, the mask value defination is flipped:
             True (not masked) or False (masked) values
         """
-        self.putregion(masked_array.data.T, ~masked_array.mask.T)
+        self.putregion(masked_array.data.T, ~masked_array.mask.T, usemask=False)
 
     def __del__(self):
         """Ensure proper resource cleanup.
@@ -699,6 +720,30 @@ class image(casatools.image):
 
         # super().unlock() # taken care from xradio.image._util._casacore.common::_create_new_image
         super().close()
+
+    def _double_precision(self) -> bool:
+        """Whether the pixels are double precision: casatools does not
+        support some image tool methods (unlock, miscinfo) for them."""
+        return self.pixeltype() in ("double", "dcomplex")
+
+    def unlock(self):
+        """Release the image's table lock, as python-casacore's
+        ``image.unlock``. casatools cannot unlock double precision images;
+        their lock is released when the tool is closed (see ``__del__``)."""
+        if self._double_precision():
+            return True
+        return super().unlock()
+
+    def miscinfo(self):
+        """Return the image's miscinfo record (read from the image table for
+        double precision images, which casatools' miscinfo does not
+        support)."""
+        if not self._double_precision():
+            return super().miscinfo()
+        with table(self._imagename) as tb:
+            if "miscinfo" in tb.keywordnames():
+                return tb.getkeyword("miscinfo")
+        return {}
 
     def shape(self):
         """Get the shape of the image.
@@ -798,7 +843,10 @@ class image(casatools.image):
         return image_metadata
 
     def datatype(self):
-        return self.pixeltype()
+        """Pixel type, spelled as python-casacore spells it ('float',
+        'double', 'Complex' or 'DComplex')."""
+        pixeltype = self.pixeltype()
+        return _PYTHON_CASACORE_PIXEL_TYPES.get(pixeltype, pixeltype)
 
     def _flatten_multibeam(self, imageinfo):
         """Flatten the per-plane beam information in the image metadata.

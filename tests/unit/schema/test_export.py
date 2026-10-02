@@ -3,11 +3,12 @@ import pathlib
 
 import pytest
 
+from xradio.image.schema import ImageXds
 from xradio.measurement_set.schema import SpectrumXds, VisibilityXds
 from xradio.schema.export import export_schema_json_file
 
 
-@pytest.mark.parametrize("schema", [VisibilityXds, SpectrumXds])
+@pytest.mark.parametrize("schema", [VisibilityXds, SpectrumXds, ImageXds])
 def test_schema_export_in_synch(tmp_path, schema):
     """
     Checks whether JSON schemas in the repository tree match

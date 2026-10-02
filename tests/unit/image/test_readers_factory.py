@@ -8,7 +8,8 @@
 * the image type and data group roles detected from store names
 * sub types derived from the casacore image type
 * opening images whose coordinates differ only by round-off
-* the upgrade of image zarr stores written by xradio 1.2.3 and earlier
+* the upgrade of image zarr stores written by xradio 1.2.3 and earlier, and
+  of stores without a schema version or with another one
 
 The CASA images are created in ``tmp_path`` (casacore table locking does not
 work on synced folders).
@@ -23,6 +24,7 @@ from typing import get_args
 import dask
 import numpy as np
 import pytest
+import zarr
 from astropy.time import Time
 
 try:
@@ -40,7 +42,7 @@ from xradio.image import (
     open_image,
     write_image,
 )
-from xradio.image._util import image_factory
+from xradio.image._util import image_factory, legacy
 from xradio.image._util._casacore.common import _create_new_image
 from xradio.image._util.common import (
     _compute_sky_reference_pixel,
@@ -57,7 +59,11 @@ from xradio.image._util.image_factory import (
     detect_image_type,
 )
 from xradio.image._util.legacy import _LEGACY_L_M_NOTES, upgrade_legacy_image_attrs
-from xradio.image.schema import AllowedSkyImageSubTypes, check_image
+from xradio.image.schema import (
+    IMAGE_SCHEMA_VERSION,
+    AllowedSkyImageSubTypes,
+    check_image,
+)
 
 pytestmark = pytest.mark.usefixtures("dask_client_module")
 
@@ -1069,6 +1075,8 @@ def _legacy_image_xds():
     )
     xds.attrs["data_groups"] = {"base": {"sky": "SKY"}}
     xds.attrs["type"] = "image"
+    # the image schema was not versioned yet
+    del xds.attrs["schema_version"]
     frequency = xds.frequency.attrs
     del frequency["frame"]
     frequency["observer"] = "bary"
@@ -1085,24 +1093,46 @@ def _legacy_image_xds():
     return xds
 
 
-def _write_legacy_store(tmp_path):
-    """Write the legacy image dataset to a zarr store with xarray."""
-    store = str(tmp_path / "legacy.zarr")
+def _write_legacy_store(tmp_path, xds=None, name="legacy.zarr"):
+    """Write an image dataset (by default the legacy one) to a zarr store
+    with xarray."""
+    store = str(tmp_path / name)
     with warnings.catch_warnings():
         # zarr warns about the fixed width string dtypes of the coordinates
         warnings.simplefilter("ignore")
-        _legacy_image_xds().to_zarr(store)
+        (_legacy_image_xds() if xds is None else xds).to_zarr(store)
     return store
 
 
+@pytest.fixture
+def legacy_warnings(monkeypatch):
+    """The warnings the legacy upgrade logs, as a list of messages."""
+
+    class _Logger:
+        def __init__(self):
+            self.warnings = []
+
+        def warning(self, message, *args, **kwargs):
+            self.warnings.append(str(message))
+
+        def __getattr__(self, name):
+            return lambda *args, **kwargs: None
+
+    logger = _Logger()
+    monkeypatch.setattr(legacy, "xradio_logger", lambda: logger)
+    return logger.warnings
+
+
 class TestLegacyUpgrade:
-    """Image datasets written by xradio <= 1.2.3 are upgraded on read."""
+    """Image datasets written by xradio <= 1.2.3, or without the current
+    schema version, are upgraded on read."""
 
     def test_upgrade(self):
         legacy = _legacy_image_xds()
         assert check_image(legacy)
         xds = upgrade_legacy_image_attrs(legacy)
         assert xds.attrs["type"] == "image_dataset"
+        assert xds.attrs["schema_version"] == IMAGE_SCHEMA_VERSION
         assert xds.frequency.attrs["frame"] == "BARY"
         assert xds.frequency.attrs["observer"] == "BARY"
         assert xds.frequency.attrs["reference_frequency"]["attrs"]["observer"] == (
@@ -1124,6 +1154,7 @@ class TestLegacyUpgrade:
         assert not check_image(xds)
         # the input is not modified
         assert legacy.attrs["type"] == "image"
+        assert "schema_version" not in legacy.attrs
         assert "frame" not in legacy.frequency.attrs
         assert "obsdate" in legacy.SKY.attrs
         assert legacy.l.attrs["note"] == _LEGACY_L_M_NOTES["l"]
@@ -1179,9 +1210,98 @@ class TestLegacyUpgrade:
         store = _write_legacy_store(tmp_path)
         xds = reader(store)
         assert xds.attrs["type"] == "image_dataset"
+        assert xds.attrs["schema_version"] == IMAGE_SCHEMA_VERSION
         assert xds.frequency.attrs["frame"] == "BARY"
         assert "obsdate" not in xds.SKY.attrs
         assert not check_image(xds)
+
+    @pytest.mark.parametrize(
+        "version",
+        [None, "", "  ", "0.0.0", "0.0.1", " 0.0.1 ", f" {IMAGE_SCHEMA_VERSION} "],
+    )
+    def test_missing_or_older_schema_version_becomes_current(
+        self, version, legacy_warnings
+    ):
+        """After the upgrade the dataset follows the current conventions, so
+        it has the current version: an empty version counts as a missing one,
+        and the current version written with spaces is normalized."""
+        xds = make_empty_sky_image(*_FACTORY_ARGS)
+        if version is None:
+            del xds.attrs["schema_version"]
+        else:
+            xds.attrs["schema_version"] = version
+        upgraded = upgrade_legacy_image_attrs(xds)
+        assert upgraded is not xds
+        assert upgraded.attrs["schema_version"] == IMAGE_SCHEMA_VERSION
+        assert not check_image(upgraded)
+        # the input is not modified, and the upgrade is done once
+        assert xds.attrs.get("schema_version") == version
+        assert upgrade_legacy_image_attrs(upgraded) is upgraded
+        assert legacy_warnings == []
+
+    @pytest.mark.parametrize("bump", [(0, 0, 1), (0, 1, 0), (1, 0, 0)])
+    def test_newer_schema_version_is_kept_with_a_warning(self, bump, legacy_warnings):
+        current = [int(number) for number in IMAGE_SCHEMA_VERSION.split(".")]
+        newer = ".".join(str(c + b) for c, b in zip(current, bump, strict=True))
+        xds = make_empty_sky_image(*_FACTORY_ARGS)
+        xds.attrs["schema_version"] = newer
+        assert upgrade_legacy_image_attrs(xds) is xds
+        assert xds.attrs["schema_version"] == newer
+        (message,) = legacy_warnings
+        assert newer in message and IMAGE_SCHEMA_VERSION in message
+
+    @pytest.mark.parametrize(
+        "version", ["0.2", "v0.0.2", "latest", 2, ["0", "0"], np.array(["0.0.2"])]
+    )
+    def test_invalid_schema_version_is_kept_with_a_warning(
+        self, version, legacy_warnings
+    ):
+        xds = make_empty_sky_image(*_FACTORY_ARGS)
+        xds.attrs["schema_version"] = version
+        assert upgrade_legacy_image_attrs(xds) is xds
+        assert xds.attrs["schema_version"] is version
+        (message,) = legacy_warnings
+        assert "not a semantic version" in message
+        # check_image reports a version that is not a string
+        issues = check_image(xds)
+        assert bool(issues) == (not isinstance(version, str))
+
+    def test_other_upgrades_keep_a_newer_schema_version(self, legacy_warnings):
+        legacy_xds = _legacy_image_xds()
+        legacy_xds.attrs["schema_version"] = "99.0.0"
+        upgraded = upgrade_legacy_image_attrs(legacy_xds)
+        assert upgraded.attrs["type"] == "image_dataset"
+        assert upgraded.attrs["schema_version"] == "99.0.0"
+        assert len([m for m in legacy_warnings if "99.0.0" in m]) == 1
+
+    @pytest.mark.parametrize(
+        "stored, expected",
+        [
+            ("0.0.1", IMAGE_SCHEMA_VERSION),
+            ("", IMAGE_SCHEMA_VERSION),
+            ("99.0.0", "99.0.0"),
+        ],
+    )
+    def test_zarr_store_versions_on_read_and_write(
+        self, tmp_path, legacy_warnings, stored, expected
+    ):
+        """An older (or empty) stored version is upgraded on read and the
+        zarr writer stores what the dataset has; a newer one is kept
+        throughout."""
+        xds = make_empty_sky_image(*_FACTORY_ARGS)
+        shape = tuple(xds.sizes[d] for d in _DIMS5)
+        xds["SKY"] = (_DIMS5, np.ones(shape, np.float32), {"type": "sky"})
+        xds.attrs["data_groups"]["base"]["sky"] = "SKY"
+        xds.attrs["schema_version"] = stored
+        store = _write_legacy_store(tmp_path, xds, "versioned.zarr")
+        for reader in (open_image, load_image):
+            assert reader(store).attrs["schema_version"] == expected
+        (written,) = write_image(
+            open_image(store), str(tmp_path / "rewritten"), out_format="zarr"
+        )
+        assert written == str(tmp_path / "rewritten.img.zarr")
+        assert zarr.open_group(written, mode="r").attrs["schema_version"] == expected
+        assert open_image(written).attrs["schema_version"] == expected
 
     def test_zarr_store_in_a_list(self, tmp_path):
         store = _write_legacy_store(tmp_path)
@@ -1269,7 +1389,7 @@ class TestCanonicalPolarizationOrder:
         xds.attrs["data_groups"]["base"]["sky"] = "SKY"
         other = xds.isel(polarization=[3, 0, 2, 1])
         assert check_image(other)
-        store = str(tmp_path / "xyyx.zarr")
+        store = str(tmp_path / "xyyx.img.zarr")
         write_image(other, store, out_format="zarr")
         for reader in (open_image, load_image):
             back = reader(store)
@@ -1289,6 +1409,8 @@ def _tclean_list_dataset():
     """A dataset as open_image of a list of tclean products gave it in
     xradio <= 1.2.3: the deconvolution products in the sky image's group."""
     xds = make_empty_sky_image(*_FACTORY_ARGS)
+    # the image schema was not versioned yet
+    del xds.attrs["schema_version"]
     shape = tuple(xds.sizes[d] for d in _DIMS5)
     for value, (name, image_type) in enumerate(
         [
@@ -1335,6 +1457,7 @@ class TestLegacyRolesAndAttributes:
         assert xds.MODEL.attrs["type"] == "sky"
         assert xds.RESIDUAL.attrs["type"] == "sky"
         assert xds.MASK_DECONVOLVE.attrs["type"] == "mask"
+        assert xds.attrs["schema_version"] == IMAGE_SCHEMA_VERSION
         assert not check_image(xds)
         # the input is not modified, and the upgrade is done once
         assert "model" in legacy.attrs["data_groups"]["base"]

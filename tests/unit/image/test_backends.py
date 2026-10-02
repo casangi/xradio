@@ -27,6 +27,7 @@ from _xradio_xarray_backends import (
     FitsImageBackendEntrypoint,
 )
 from xradio.image import check_image, open_image
+from xradio.image.schema import IMAGE_SCHEMA_VERSION
 from xradio.testing.image.io import download_image
 
 _REPO_ROOT = pathlib.Path(__file__).resolve().parents[3]
@@ -261,6 +262,19 @@ class TestDropVariables:
         full = xr.open_dataset(path, engine=engine)
         assert full.attrs["data_groups"] == {"base": {"sky": "SKY", "flag": "FLAG_SKY"}}
         assert dropped.attrs["data_groups"] == {"base": {"sky": "SKY"}}
+
+
+# ---------------------------------------------------------------------------
+# The image schema version
+# ---------------------------------------------------------------------------
+
+
+class TestSchemaVersion:
+    def test_engines_set_the_current_schema_version(self, image):
+        path, engine, _ = image
+        ds = xr.open_dataset(path, engine=engine)
+        assert ds.attrs["schema_version"] == IMAGE_SCHEMA_VERSION
+        assert not check_image(ds)
 
 
 # ---------------------------------------------------------------------------

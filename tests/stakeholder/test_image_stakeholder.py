@@ -17,7 +17,7 @@ def test_image(tmp_path: pathlib.Path):
     toolviper.utils.data.download(file=image_name, folder=str(tmp_path))
 
     image_path = tmp_path / image_name
-    zarr_output = tmp_path / "test_image.zarr"
+    zarr_output = tmp_path / "test_image.img.zarr"
 
     # Load images
     lazy_img_xds = open_image(str(image_path))
@@ -33,8 +33,9 @@ def test_image(tmp_path: pathlib.Path):
     sum_result = np.nansum(np.abs(img_xds.SKY))
     sum_lazy = np.nansum(np.abs(lazy_img_xds.SKY))
 
-    # Write output
-    write_image(img_xds, str(zarr_output), out_format="zarr", overwrite=True)
+    # Write output (write_image returns the paths it wrote)
+    written = write_image(img_xds, str(zarr_output), out_format="zarr", overwrite=True)
+    assert written == [str(zarr_output)]
 
     # Assertion
     assert np.isclose(sum_result, sum_lazy, rtol=relative_tolerance), (

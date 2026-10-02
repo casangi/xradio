@@ -1,6 +1,6 @@
 import pytest
 
-from xradio._utils.dict_helpers import make_skycoord_dict
+from xradio._utils.dict_helpers import make_sky_coord_measure_attrs, make_skycoord_dict
 
 
 def test_make_skycoord_dict_defaults_to_lon_lat_for_galactic_frame():
@@ -62,3 +62,16 @@ def test_make_skycoord_dict_raises_for_invalid_axis_label_count():
             frame="galactic",
             axis_labels=("lon",),
         )
+
+
+@pytest.mark.parametrize(
+    "units, frame, expected_output",
+    [
+        ("any", "ICRS", {"units": "any", "frame": "icrs", "type": "sky_coord"}),
+        ("rad", "ICRS", {"units": "rad", "frame": "icrs", "type": "sky_coord"}),
+        ("m", "altaz", {"units": "m", "frame": "altaz", "type": "sky_coord"}),
+    ],
+)
+def test_make_sky_coord_measure_attrs(units, frame, expected_output):
+    result = make_sky_coord_measure_attrs(units, frame)
+    assert result == expected_output

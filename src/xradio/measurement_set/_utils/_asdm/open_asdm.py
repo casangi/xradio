@@ -1,0 +1,130 @@
+import traceback
+from pathlib import Path
+
+import pyasdm
+import xarray as xr
+
+from xradio._utils.logging import xradio_logger
+from xradio.measurement_set._utils._asdm.create_partitions import create_partitions
+from xradio.measurement_set._utils._asdm.open_partition import open_partition
+
+
+def open_asdm(
+    asdm_path: str,
+    partition_scheme: list[str] = None,
+    include_processor_types: list[str] = None,
+    include_spectral_resolution_types: list[str] = None,
+    with_pointing: bool = False,
+    pointing_for_only_spectral_resolution_types: list[str] = None,
+) -> xr.DataTree:
+    """
+    Opens an ASDM (ALMA Science Data Model) file and presents it as an Xarray DataTree.
+    The ASDM is partitioned according to the specified scheme and each
+    partition is converted into a separate MSv4 (Measurement Set version 4).
+
+    Parameters
+    ----------
+    asdm_path:
+        Input ASDM path
+    partition_scheme:
+        List of axes to partition the data on. Default is ["fieldId"].
+        The following partition axes are always used, in addition to the ones
+        given: ["execBlockId", "dataDescriptionId", "scanIntent"]
+        The optional axes are: ["fieldId", "scanNumber", "subscanNumber", "antennaId"]
+    include_processor_types:
+        when opening the ASDM, produce MSv4s only for partitions with these processor types.
+        Possible values are (from the ASDM ProcessorType enumeration):
+        "CORRELATOR", "SPECTROMETER", "RADIOMETER".
+        Default is (subject to change) ["CORRELATOR", "SPECTROMETER"], which implies
+        radiometer data (WVR and the like) are excluded.
+    include_spectral_resolution_types:
+        when opening the ASDM, produce MSv4s only for partitions with these spectral resolution
+        types. Possible values are (from the ASDM SpectralResolutionType enumeration):
+        "CHANNEL_AVERAGE", "BASEBAND_WIDE", "FULL_RESOLUTION".
+        Default is (subject to change) ["FULL_RESOLUTION", "BASEBAND_WIDE"], which implied
+        channel average data are excluded.
+    with_pointing:
+        whether to read the Pointing table from the ASDM into pointing_xds sub-datasets included
+        in the resulting DataTree.
+    pointing_for_only_spectral_resolution_types:
+        When with_pointing is enabled, this parameter can be used to give a list of the spectral
+        resolution types for which the pointing dataset should be created. The MSv4s created
+        for partitions with spectral resolution types not included in the list will not have
+        a pointing dataset. When the list is not given or is empty, all spectral resolution
+        types will have a pointing dataset.
+
+    Returns
+    -------
+    xr.DataTree
+        Datatree with processing set of MSv4s populated from the input ASDM.
+        Each node of the tree represents a partition of the original ASDM data.
+        The DataTree has a 'type' attribute set to 'processing_set'. Node names are
+        formatted as '{asdm_name}_{index}'
+    """
+
+    if not partition_scheme:
+        partition_scheme = ["fieldId"]
+
+    if not include_processor_types:
+        include_processor_types = ["CORRELATOR", "SPECTROMETER"]
+
+    if not include_spectral_resolution_types:
+        include_spectral_resolution_types = ["FULL_RESOLUTION", "BASEBAND_WIDE"]
+
+    ps_xdt = xr.DataTree()
+    ps_xdt.attrs["type"] = "processing_set"
+
+    asdm = pyasdm.ASDM()
+    asdm.setFromFile(asdm_path)
+
+    partitions = create_partitions(
+        asdm,
+        partition_scheme,
+        include_processor_types,
+        include_spectral_resolution_types,
+    )
+
+    for msv4_idx, partition_descr in enumerate(partitions):
+        xradio_logger().info(
+            "Opening partition for: execBlock "
+            + str(partition_descr["execBlockId"])
+            + ", dataDescription: "
+            + str(partition_descr["dataDescriptionId"])
+            + ", scanIntent: "
+            + str(partition_descr["scanIntent"])
+            + ", field: "
+            + str(partition_descr["fieldId"])
+            + ", scan: "
+            + str(partition_descr["scanNumber"])
+            + ", subscan: "
+            + str(partition_descr["subscanNumber"])
+            + ", state: "
+            + str(partition_descr["stateId"])
+            + (
+                ", antenna: " + str(partition_descr["antennaId"])
+                if "antennaId" in partition_descr
+                else ""
+            )
+        )
+
+        try:
+            msv4_xdt = open_partition(
+                asdm,
+                partition_descr,
+                with_pointing,
+                pointing_for_only_spectral_resolution_types,
+            )
+        except RuntimeError as exc:
+            trace = traceback.format_exc()
+            xradio_logger().error(
+                f"Continuing despite failure to open partition, with {partition_descr=}.\n"
+                f"Error: {exc}\n"
+                f"\nTraceback: {trace}\n"
+            )
+            msv4_xdt = xr.DataTree()
+
+        msv4_idx = f"{msv4_idx:0>{len(str(len(partitions) - 1))}}"
+        msv4_name = f"{Path(asdm_path).name}_{msv4_idx}"
+        ps_xdt[msv4_name] = msv4_xdt
+
+    return ps_xdt

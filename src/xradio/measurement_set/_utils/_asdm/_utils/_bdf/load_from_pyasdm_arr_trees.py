@@ -1,0 +1,572 @@
+"""
+Loads visibility/flags from the 'arr' arrays produced by pyasdmBDFReader.getSubset().
+As in load_from_pyasdm_subset_array, that implies that all the data (for all the SPWs)
+is first loaded using the original getSubset() of pyasdm.
+
+The 'arr' 1d arrays contain the data for all the SPWs. In contrast to
+load_from_pyasdm_subset_array, this module looks for the data specific to one SPW by
+looking through the trees of data included in the 'arr' 1d arrays (and skipping the
+'other' SPWs). This procedure works for any BDF, regardless of the configuration of
+basebands and SPWs. It is required (as opposed to load_from_pyasdm_subset_array) when
+either the number of SPWs is not the same for every baseband or the number of channels
+is not the same for every SPW.
+"""
+
+import traceback
+from collections.abc import Callable
+
+import numpy as np
+import pyasdm
+
+from xradio._utils.logging import xradio_logger
+from xradio.measurement_set._utils._asdm._utils._bdf import config
+from xradio.measurement_set._utils._asdm._utils._bdf.array_indexing import (
+    calc_auto_cross_baseline_slices,
+    find_data_components_needed,
+    min_max_from_dimension_slice,
+)
+from xradio.measurement_set._utils._asdm._utils._bdf.basebands_spws import (
+    baseband_spw_to_overall_spw_idx,
+    calculate_overall_spw_idx,
+)
+from xradio.measurement_set._utils._asdm._utils._bdf.flags_offsets import (
+    calculate_offset_additions_cross_sd,
+)
+from xradio.measurement_set._utils._asdm._utils._bdf.pyasdm_get_ndarray_load_function import (
+    load_visibilities_one_spw_to_ndarray,
+)
+from xradio.measurement_set._utils._asdm._utils._bdf.shapes import (
+    add_cross_and_auto_flag_shapes,
+    full_shape_to_output_filled_flags_shape,
+)
+
+
+def load_visibilities_all_subsets_from_trees(
+    bdf_reader: pyasdm.bdf.BDFReader,
+    guessed_shape: tuple[int, ...],
+    baseband_spw_idxs: tuple[int, int],
+    bdf_descr: dict,
+    array_slice: tuple[slice, ...],
+    load_one_spw_from_file: bool = config.use_load_one_spw_at_a_time,
+) -> np.ndarray:
+    components_to_load = find_data_components_needed(array_slice, bdf_descr)
+    num_channels = guessed_shape[-3]
+
+    if load_one_spw_from_file and num_channels > 1:
+        overall_spw_idx = baseband_spw_to_overall_spw_idx(baseband_spw_idxs, bdf_descr)
+        spw_idx = overall_spw_idx
+        load_spw_function = load_visibilities_one_spw_to_ndarray
+        load_spw_function_params = (
+            bdf_descr,
+            components_to_load,
+            guessed_shape,
+            array_slice,
+        )
+    else:
+        spw_idx = None
+        load_spw_function = None
+        load_spw_function_params = None
+
+    vis_per_subset = []
+
+    time_len = guessed_shape[0]
+    default_max = array_slice[0].stop or time_len
+    time_min, time_max = min_max_from_dimension_slice(array_slice[0], 0, default_max)
+    time_index = 0
+    while bdf_reader.hasSubset():
+        # TODO: if time_index >= time_max: simple break
+        if time_index < time_min or time_index >= time_max:
+            # skip subset by time indexing
+            _subset = load_subset_with_get_subset(bdf_reader, [])
+            time_index += 1
+            continue
+
+        if load_spw_function is None and spw_idx is None:
+            subset = load_subset_with_get_subset(bdf_reader, components_to_load)
+            if subset is None:
+                return subset
+            vis_subset = load_vis_subset_from_tree(
+                subset,
+                guessed_shape,
+                baseband_spw_idxs,
+                bdf_descr,
+                array_slice,
+            )
+        else:
+            ndarrays = load_subset_with_get_ndarrays(
+                bdf_reader, spw_idx, load_spw_function, load_spw_function_params
+            )
+            if ndarrays is None:
+                return ndarrays
+            vis_subset = ndarrays["visibilities"]
+
+        vis_per_subset.append(vis_subset)
+        time_index += 1
+
+    bdf_vis = np.concatenate(vis_per_subset)
+    return bdf_vis
+
+
+def load_subset_with_get_subset(
+    bdf_reader: pyasdm.bdf.BDFReader, components_to_load: list[str]
+) -> dict | None:
+    try:
+        subset = bdf_reader.getSubset(loadOnlyComponents=components_to_load)
+    except ValueError as exc:
+        trace = traceback.format_exc()
+        xradio_logger().warning(
+            f"Error in BDFReader.getSubset() for {bdf_reader.getPath()=} when "
+            f"trying to load visibilities. {exc=}" + trace
+        )
+        subset = None
+
+    return subset
+
+
+def load_subset_with_get_ndarrays(
+    bdf_reader: pyasdm.bdf.BDFReader,
+    spw_idx: int,
+    load_spw_function: Callable,
+    load_spw_function_params: tuple,
+) -> dict | None:
+    try:
+        ndarrays = bdf_reader.getNDArrays(
+            arrayNames=["visibilities"],
+            spwId=spw_idx,
+            loadOneSPWFunction=load_spw_function,
+            loadOneSPWFunctionParams=load_spw_function_params,
+        )
+    except ValueError as exc:
+        trace = traceback.format_exc()
+        xradio_logger().warning(
+            f"Error in BDFReader().getNDArrays() for {bdf_reader.getPath()=} when "
+            f"trying to load visibilities. {exc=}" + trace
+        )
+        ndarrays = None
+
+    return ndarrays
+
+
+def load_vis_subset_from_tree(
+    subset: dict,
+    guessed_shape: tuple,
+    baseband_spw_idxs: tuple[int, int],
+    bdf_descr: dict,
+    array_slice: tuple[slice, ...],
+) -> np.ndarray:
+    """
+    Assumes all SPWs are consistent in number of channels => the data can be loaded all-SPWs at once,
+    reshaped, and then one SPW sliced.
+    """
+
+    spw_chan_lens = [
+        bdf_descr["basebands"][bb_idx]["spectralWindows"][spw_idx]["numSpectralPoint"]
+        for bb_idx in range(0, len(bdf_descr["basebands"]))
+        for spw_idx in range(0, len(bdf_descr["basebands"][bb_idx]["spectralWindows"]))
+    ]
+    baseband_idx, spw_idx = baseband_spw_idxs
+    overall_spw_idx = calculate_overall_spw_idx(
+        bdf_descr["basebands"], baseband_idx, spw_idx
+    )
+
+    cross_data_present = (
+        bdf_descr["correlation_mode"]
+        == pyasdm.enumerations.CorrelationMode.CROSS_AND_AUTO
+    )
+    nantennas = bdf_descr["num_antenna"]  # guessed_shape[2]
+    cross_baseline_len = guessed_shape[1]
+    cross_baseline_slice, auto_baseline_slice = calc_auto_cross_baseline_slices(
+        array_slice[1], cross_baseline_len, nantennas, cross_data_present
+    )
+    vis_subset_auto = None
+    if (
+        "autoData" in subset
+        and subset["autoData"]["present"]
+        and auto_baseline_slice is not None
+    ):
+        auto_array_slice = (
+            array_slice[0],
+            auto_baseline_slice,
+            *array_slice[2:],
+        )
+        vis_subset_auto = load_vis_subset_auto_data_from_tree(
+            subset["autoData"]["arr"],
+            guessed_shape,
+            spw_chan_lens,
+            overall_spw_idx,
+            auto_array_slice,
+        )
+    else:
+        # Never allowed for ALMA (BDF doc) and seems so in real life
+        raise RuntimeError(
+            f"Binary component 'autoData' not present! This is never allowed in ALMA. Subset is: {subset}"
+        )
+
+    vis_subset_cross = None
+    if (
+        "crossData" in subset
+        and subset["crossData"]["present"]
+        and cross_baseline_slice is not None
+    ):
+        baseband_description = bdf_descr["basebands"][baseband_spw_idxs[0]]
+        spw_descr = baseband_description["spectralWindows"][baseband_spw_idxs[1]]
+        scale_factor = spw_descr["scaleFactor"] or 1
+        processor_type = bdf_descr["processor_type"]
+
+        cross_array_slice = (array_slice[0], cross_baseline_slice, *array_slice[2:4])
+        vis_subset_cross = load_vis_subset_cross_data_from_tree(
+            subset["crossData"]["arr"],
+            guessed_shape,
+            spw_chan_lens,
+            overall_spw_idx,
+            scale_factor,
+            processor_type,
+            cross_array_slice,
+        )
+
+    if vis_subset_cross is None:
+        if bdf_descr["processor_type"] == pyasdm.enumerations.ProcessorType.CORRELATOR:
+            vis_subset_auto = vis_subset_auto.astype("complex128")
+        vis_subset = vis_subset_auto
+    elif vis_subset_auto is None:
+        vis_subset = vis_subset_cross
+    else:
+        vis_subset = np.concatenate([vis_subset_cross, vis_subset_auto], axis=1)
+
+    return vis_subset
+
+
+def load_vis_subset_cross_data_from_tree(
+    cross_data_arr: np.ndarray,
+    guessed_shape: tuple[int, ...],
+    spw_chan_lens: list[int],
+    overall_spw_idx: int,
+    scale_factor: float,
+    processor_type: pyasdm.enumerations.ProcessorType,
+    array_slice: tuple[slice, ...],
+) -> np.ndarray:
+    polarization_len = guessed_shape[-2]
+    cross_offset_addition_before = (
+        np.sum(spw_chan_lens[0:overall_spw_idx], dtype=int) * polarization_len * 2
+    )
+    cross_offset_addition_after = (
+        np.sum(spw_chan_lens[overall_spw_idx:], dtype=int) * polarization_len * 2
+    )
+    cross_offset_addition_both = (
+        cross_offset_addition_before + cross_offset_addition_after
+    )
+    spw_channel_len = spw_chan_lens[overall_spw_idx]
+    time_len = guessed_shape[0]
+    baseline_len = guessed_shape[1]
+    time_min, time_max = min_max_from_dimension_slice(array_slice[0], 0, time_len)
+    baseline_min, baseline_max = min_max_from_dimension_slice(
+        array_slice[1], 0, baseline_len
+    )
+    frequency_min, frequency_max = min_max_from_dimension_slice(
+        array_slice[2], 0, spw_channel_len
+    )
+    polarization_min, polarization_max = min_max_from_dimension_slice(
+        array_slice[3], 0, polarization_len
+    )
+    for time_idx in np.arange(time_min, time_max):
+        vis_strides = []
+        for baseline_idx in np.arange(baseline_min, baseline_max):
+            if processor_type == pyasdm.enumerations.ProcessorType.CORRELATOR:
+                offset = (
+                    time_idx * baseline_idx * cross_offset_addition_both
+                    + cross_offset_addition_before
+                )
+                first_frequency = offset + (frequency_min * polarization_len * 2)
+                last_frequency = offset + (frequency_max * polarization_len * 2)
+                spw_vis = cross_data_arr[first_frequency:last_frequency]
+
+                spw_vis = spw_vis.reshape((int(spw_vis.size / 2), 2))
+                spw_vis = spw_vis[:, 0] + 1j * spw_vis[:, 1]
+                spw_vis /= scale_factor
+                spw_vis = spw_vis.reshape(
+                    (frequency_max - frequency_min, polarization_len)
+                )
+
+            else:
+                # radiometer / spectrometer
+                offset = int(
+                    (
+                        time_idx * baseline_idx * cross_offset_addition_both
+                        + cross_offset_addition_before
+                    )
+                    / 2
+                )
+                first_frequency = offset + (frequency_min * polarization_len)
+                last_frequency = offset + (frequency_max * polarization_len)
+                spw_values = cross_data_arr[first_frequency:last_frequency]
+                spw_values = (
+                    spw_values.reshape(
+                        (frequency_max - frequency_min, polarization_len)
+                    )
+                    / scale_factor
+                )
+                spw_vis = spw_values
+
+            if polarization_max - polarization_min != polarization_len:
+                spw_vis = spw_vis[..., polarization_min:polarization_max]
+            vis_strides.append(spw_vis)
+
+    vis_subset = np.stack(vis_strides)
+    vis_subset = vis_subset.reshape((1, *vis_subset.shape))
+
+    return vis_subset
+
+
+def load_vis_subset_auto_data_from_tree(
+    auto_data_arr: np.ndarray,
+    guessed_shape: tuple[int, ...],
+    spw_chan_lens: list[int],
+    overall_spw_idx: int,
+    array_slice: tuple[slice, ...],
+) -> np.ndarray:
+    polarization_len = guessed_shape[-2]
+    if polarization_len == 3:
+        sd_polarization_len = 4
+    else:
+        sd_polarization_len = polarization_len
+    auto_offset_addition_before = (
+        np.sum(spw_chan_lens[0:overall_spw_idx], dtype=int) * sd_polarization_len
+    )
+    auto_offset_addition_after = (
+        np.sum(spw_chan_lens[overall_spw_idx:], dtype=int) * sd_polarization_len
+    )
+    auto_offset_addition_both = auto_offset_addition_before + auto_offset_addition_after
+    antenna_len = guessed_shape[2]
+    spw_channel_len = spw_chan_lens[overall_spw_idx]
+
+    time_len = guessed_shape[0]
+    vis_subset_integrations = []
+    time_min, time_max = min_max_from_dimension_slice(array_slice[0], 0, time_len)
+    antenna_min, antenna_max = min_max_from_dimension_slice(
+        array_slice[1], 0, antenna_len
+    )
+    frequency_min, frequency_max = min_max_from_dimension_slice(
+        array_slice[2], 0, spw_channel_len
+    )
+    polarization_min, polarization_max = min_max_from_dimension_slice(
+        array_slice[3], 0, sd_polarization_len
+    )
+    for time_idx in np.arange(time_min, time_max):
+        vis_auto_strides = []
+        for antenna_idx in np.arange(antenna_min, antenna_max):
+            auto_floats = auto_data_arr
+            offset = (
+                time_idx * antenna_idx * auto_offset_addition_both
+                + auto_offset_addition_before
+            )
+            first_frequency = offset + (frequency_min * sd_polarization_len)
+            last_frequency = offset + (frequency_max * sd_polarization_len)
+            if polarization_len == 3:
+                # autoData: "The choice of a real- vs. complex-valued datum is dependent upon the
+                # polarization product...parallel-hand polarizations are real-valued, while cross-hand
+                # polarizations are complex-valued".
+                spw_floats = auto_floats[first_frequency:last_frequency]
+                spw_floats = spw_floats.reshape(
+                    (frequency_max - frequency_min, sd_polarization_len)
+                )
+                spw_vis = np.concatenate(
+                    [
+                        spw_floats[:, [0]],
+                        spw_floats[:, [1]] + 1j * spw_floats[:, [2]],
+                        spw_floats[:, [3]],
+                    ],
+                    axis=1,
+                )
+            else:
+                spw_floats = auto_floats[first_frequency:last_frequency]
+                spw_floats = spw_floats.reshape(
+                    (frequency_max - frequency_min, sd_polarization_len)
+                )
+                spw_vis = spw_floats
+
+            if polarization_max - polarization_min != polarization_len:
+                spw_vis = spw_vis[..., polarization_min:polarization_max]
+
+            vis_auto_strides.append(spw_vis)
+
+        vis_subset_integrations.append(np.stack(vis_auto_strides))
+
+    if len(vis_subset_integrations) == 1:
+        vis_auto = vis_subset_integrations[0][np.newaxis, :]
+    else:
+        vis_auto = np.stack(vis_subset_integrations)
+
+    return vis_auto
+
+
+def load_flags_all_subsets_from_trees(
+    bdf_reader: pyasdm.bdf.BDFReader,
+    guessed_shape: dict[str, tuple[int, ...]],
+    bdf_descr: dict,
+    baseband_spw_idxs: tuple[int, int],
+    array_slice: tuple[slice, ...],
+) -> np.ndarray:
+    # Load taking pieces from the data trees of the binary components. Needed when the number
+    # of SPWs per baseband, or number of channels per SPW are not uniform.
+    flag_per_subset = []
+    while bdf_reader.hasSubset():
+        try:
+            subset = bdf_reader.getSubset(loadOnlyComponents={"flags"})
+        except ValueError as exc:
+            xradio_logger().warning(
+                f"Error in getSubset for {bdf_reader.getPath()=} when trying to load "
+                f"flags. Will use all-False. {exc=}"
+            )
+            return None
+
+        flag_subset = load_flags_subset_from_tree(
+            subset, guessed_shape, bdf_descr, baseband_spw_idxs, array_slice
+        )
+        flag_per_subset.append(flag_subset)
+
+    bdf_flag = np.concatenate(flag_per_subset)
+
+    return bdf_flag
+
+
+def load_flags_subset_from_tree(
+    subset: dict,
+    guessed_shape: dict[str, tuple[int, ...]],
+    bdf_descr: dict,
+    baseband_spw_idxs: tuple[int, int],
+    array_slice: tuple[slice, ...],
+) -> np.ndarray:
+    """
+    Loads the flags array from one subset in a BDF.
+    """
+
+    baseband_idx, spw_idx = baseband_spw_idxs
+    if "flags" in subset and subset["flags"]["present"]:
+        overall_spw_idx = calculate_overall_spw_idx(
+            bdf_descr["basebands"], baseband_idx, spw_idx
+        )
+
+        flag_array = subset["flags"]["arr"]
+        offset_additions = calculate_offset_additions_cross_sd(
+            bdf_descr,
+            baseband_idx,
+            overall_spw_idx,
+            len(flag_array),
+        )
+
+        flag_subset = load_flags_subset_cross_and_auto_blocks_from_tree(
+            flag_array,
+            bdf_descr,
+            offset_additions,
+            guessed_shape,
+            baseband_spw_idxs,
+            array_slice,
+        )
+    else:
+        shape = add_cross_and_auto_flag_shapes(guessed_shape)
+        flag_subset = np.full(
+            full_shape_to_output_filled_flags_shape(shape), False, dtype="bool"
+        )
+
+    return flag_subset
+
+
+def load_flags_subset_cross_and_auto_blocks_from_tree(
+    flag_array: np.ndarray,
+    bdf_descr: dict,
+    offset_additions: dict,
+    guessed_shape: dict[str, tuple[int, ...]],
+    baseband_spw_idxs: tuple[int, int],
+    array_slice: tuple[int, ...],
+) -> np.ndarray[bool]:
+    antenna_len = bdf_descr["num_antenna"]
+    baseline_len = int(antenna_len * (antenna_len - 1) / 2)
+    baseband_description = bdf_descr["basebands"][baseband_spw_idxs[0]]
+    spw_descr = baseband_description["spectralWindows"][baseband_spw_idxs[1]]
+    polarization_cross_len = len(spw_descr["crossPolProducts"])
+    polarization_auto_len = len(spw_descr["sdPolProducts"])
+
+    flag_subset_integrations = []
+    time_len = guessed_shape["auto"][0]
+
+    time_min, time_max = min_max_from_dimension_slice(array_slice[0], 0, time_len)
+    # TODO: split baseline indices/antenna indices
+    baseline_min, baseline_max = min_max_from_dimension_slice(
+        array_slice[1], 0, baseline_len
+    )
+    antenna_min, antenna_max = min_max_from_dimension_slice(
+        array_slice[1], 0, antenna_len
+    )
+    polarization_min, polarization_max = min_max_from_dimension_slice(
+        array_slice[3], 0, polarization_cross_len
+    )
+    for time_idx in np.arange(time_min, time_max):
+        flag_strides = []
+
+        auto_offset_addition_before = offset_additions["auto"]["before"]
+        auto_offset_addition_after = offset_additions["auto"]["after"]
+        auto_offset_addition_both = (
+            auto_offset_addition_before + auto_offset_addition_after
+        )
+
+        cross_offset_addition_both = 0
+        if (
+            bdf_descr["correlation_mode"]
+            != pyasdm.enumerations.CorrelationMode.AUTO_ONLY
+        ):
+            cross_offset_addition_before = offset_additions["cross"]["before"]
+            cross_offset_addition_after = offset_additions["cross"]["after"]
+            cross_offset_addition_both = (
+                cross_offset_addition_before + cross_offset_addition_after
+            )
+            prev_auto_offset = time_idx * antenna_len * auto_offset_addition_both
+            for baseline_idx in np.arange(baseline_min, baseline_max):
+                offset = (
+                    time_idx * baseline_idx * cross_offset_addition_both
+                    + cross_offset_addition_before
+                    + prev_auto_offset
+                )
+                # notice: forgetting the int details (BinaryDataFlags enum)
+                stride = flag_array[offset : offset + polarization_cross_len].astype(
+                    "bool"
+                )
+                if polarization_max - polarization_min != polarization_cross_len:
+                    stride = stride[..., polarization_min:polarization_max]
+
+                flag_strides.append(stride)
+
+        total_cross_offset = time_idx * baseline_len * cross_offset_addition_both
+
+        for antenna_idx in np.arange(antenna_min, antenna_max):
+            offset = total_cross_offset + (
+                time_idx * antenna_idx * auto_offset_addition_both
+                + auto_offset_addition_before
+            )
+            if polarization_auto_len != 3:
+                # notice: forgetting the int details (BinaryDataFlags enum)
+                stride = flag_array[offset : offset + polarization_auto_len].astype(
+                    "bool"
+                )
+            else:
+                stride = np.array(
+                    [
+                        flag_array[offset],
+                        flag_array[offset + 1],
+                        flag_array[offset + 1],
+                        flag_array[offset + 2],
+                    ],
+                    dtype="bool",
+                )
+                if polarization_max - polarization_min != polarization_cross_len:
+                    stride = stride[..., polarization_min:polarization_max]
+
+            flag_strides.append(stride)
+
+        flag_subset_integrations.append(np.stack(flag_strides))
+
+    if len(flag_subset_integrations) == 1:
+        flag_subset = flag_subset_integrations[0][np.newaxis, :]
+    else:
+        flag_subset = np.stack(flag_subset_integrations)
+
+    return flag_subset

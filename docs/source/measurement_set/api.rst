@@ -29,3 +29,13 @@ the accessor can be used as `ms_xdt.xr_ms` (`xr` for xradio and `ms` for Measure
 
    .. autoclass:: MeasurementSetXdt
       :members:
+
+ASDM Xarray engine (`xradio_asdm`)
+----------------------------------
+
+Xradio includes an `Xarray backend <https://docs.xarray.dev/en/latest/api/backends.html>`__ for opening ASDMs (ALMA Science Data Model) as :py:class:`xarray.DataTree` s.
+When Xradio is installed this backend can be given in the `engine` parameter of `xarray.open_datatree() <https://docs.xarray.dev/en/latest/generated/xarray.open_datatree.html>`__,
+as `engine="xradio_asdm"`. The backend is implemented via a custom Xarray `BackendEntrypoint <https://docs.xarray.dev/en/latest/generated/xarray.backends.BackendEntrypoint.html>`__.
+The parameters supported are as listed in the following `open_asdm()` function which is used by the backend to open ASDMs:
+
+   .. autofunction:: xradio.measurement_set._utils._asdm.open_asdm.open_asdm

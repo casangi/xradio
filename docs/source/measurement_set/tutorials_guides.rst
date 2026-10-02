@@ -17,3 +17,4 @@ Tutorials and Guides
    guides/VLBA
    guides/VLBI
    guides/backends
+   guides/ALMA_ASDM_IF

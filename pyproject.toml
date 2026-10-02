@@ -46,6 +46,7 @@ test = [
     'zarr>=3,<4',
     'numcodecs>=0.16', # see the zarr extra
     'pyarrow',
+    'pyasdm',
     'psutil',
     'pytest',
     'pytest-cov',
@@ -64,6 +65,13 @@ casacore = [
     'pyarrow',
     'psutil',
     'python_casacore>=3.6.1; sys_platform != "darwin"'
+]
+
+asdm = [
+    'astropy',
+    'pyasdm',
+    'toolviper',
+    'xarray',
 ]
 
 interactive = [
@@ -111,6 +119,7 @@ all = [
     'pytest-cov',
     'pytest-html',
     'python_casacore>=3.6.1; sys_platform != "darwin" ',
+    'pyasdm',
     'matplotlib',
     'prettytable',
     'jupyterlab',
@@ -129,10 +138,16 @@ all = [
     'pre-commit'
 ]
 
+
+[project.entry-points."xarray.backends"]
+xradio_asdm = "xradio.measurement_set._utils._asdm.asdm_backend_entrypoint:ASDMBackendEntryPoint"
+
 [tool.pytest.ini_options]
 addopts = [
     "--import-mode=importlib",
-    "--strict-markers"
+    "--strict-markers",
+    "-ra",  # extra test summary info for (a)ll except passed
+    "-v",  # increase verbosity
 ]
 testpaths = [
     "tests"

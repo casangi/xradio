@@ -1,0 +1,454 @@
+import warnings
+from contextlib import nullcontext as no_raises
+
+import numpy as np
+import pandas as pd
+import pyasdm
+import pytest
+import xarray as xr
+from astropy.utils.exceptions import AstropyWarning
+from erfa import ErfaWarning
+
+from xradio.measurement_set.schema import UvwArray, VisibilityXds
+from xradio.schema.check import (
+    check_array,
+    check_attributes,
+    check_data_vars,
+    check_datatree,
+    check_dimensions,
+    check_dtype,
+    xarray_dataclass_to_array_schema,
+    xarray_dataclass_to_dataset_schema,
+)
+
+
+def mock_load_times_from_partition_bdfs(
+    bdf_paths: list[str], scans_metadata: pd.DataFrame
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    return np.array([0.1]), np.array([1.0]), np.array([0.101]), np.array([1.0]), {}
+
+
+def test_open_partition_none():
+    from xradio.measurement_set._utils._asdm.open_partition import open_partition
+
+    with pytest.raises(AttributeError, match="no attribute"):
+        open_partition(None, ["fieldId"])
+
+
+def test_open_partition_asdm_empty(asdm_empty):
+    from xradio.measurement_set._utils._asdm.open_partition import open_partition
+
+    with pytest.raises(IndexError, match="out of range"):
+        open_partition(asdm_empty, {"fieldId": [0]})
+
+
+def test_open_partition_asdm_with_spw_default(asdm_with_spw_default):
+    from xradio.measurement_set._utils._asdm.open_partition import open_partition
+
+    with pytest.raises(IndexError, match="out of range"):
+        open_partition(
+            asdm_with_spw_default,
+            {"fieldId": [0], "configDescriptionId": [0], "scanNumber": [0]},
+        )
+
+
+@pytest.mark.parametrize(
+    "asdm_name",
+    [
+        ("asdm_with_main_execblock_config_processor_sbsummary"),
+        ("asdm_sd_with_main_execblock_config_processor_sbsummary"),
+    ],
+)
+def test_open_partition_asdm_with_spw_simple(
+    asdm_name,
+    request,
+):
+    from xradio.measurement_set._utils._asdm.open_partition import open_partition
+
+    asdm_input = request.getfixturevalue(asdm_name)
+    with pytest.raises(KeyError, match="BDFPath"):
+        open_partition(
+            asdm_input,
+            {"fieldId": [0], "configDescriptionId": [0], "scanNumber": [0]},
+        )
+
+
+def test_open_partition_monkeypatched_bdf_asdm_with_spw_simple(
+    asdm_with_main_etc_data_description_polarization_field_source, monkeypatch
+):
+    from xradio.measurement_set._utils._asdm.open_partition import open_partition
+
+    monkeypatch.setattr(
+        "xradio.measurement_set._utils._asdm.open_partition.load_times_from_partition_bdfs",
+        mock_load_times_from_partition_bdfs,
+    )
+    partition = open_partition(
+        asdm_with_main_etc_data_description_polarization_field_source,
+        {
+            "fieldId": [0],
+            "configDescriptionId": [0],
+            "scanNumber": [0],
+            "scanIntent": [0],
+            "dataDescriptionId": [0],
+            "BDFPath": ["/inexistent_test_path/foo"],
+        },
+    )
+
+    assert isinstance(partition, xr.DataTree)
+    partition_issues = check_datatree(partition)
+    assert not partition_issues
+
+    visibility_selection = partition.data_vars["VISIBILITY"][0, 0, 0, 0]
+    assert isinstance(visibility_selection, xr.DataArray)
+
+    flag_selection = partition.data_vars["FLAG"][0, 0, 0, 0]
+    assert isinstance(flag_selection, xr.DataArray)
+
+    weight_selection = partition.data_vars["WEIGHT"][0, 0, 0, 0]
+    assert isinstance(weight_selection, xr.DataArray)
+    assert weight_selection.values == np.ones((1, 1, 1, 1), dtype="float64")
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            action="ignore",
+            category=AstropyWarning,
+            message="Tried to get",
+            append=True,
+        )
+        warnings.filterwarnings(
+            action="ignore",
+            category=ErfaWarning,
+            message="ERFA function",
+            append=True,
+        )
+        uvw_selection = partition.data_vars["UVW"][0:1, :, :]
+
+        assert isinstance(uvw_selection, xr.DataArray)
+        assert isinstance(uvw_selection.values, np.ndarray)
+        assert np.allclose(uvw_selection, np.zeros((1, 2, 3), dtype="float64"))
+
+
+def test_open_partition_monkeypatched_bdf_asdm_with_spw_simple_pointing_selection(
+    asdm_with_main_etc_data_description_polarization_field_source, monkeypatch
+):
+    from xradio.measurement_set._utils._asdm.open_partition import open_partition
+
+    monkeypatch.setattr(
+        "xradio.measurement_set._utils._asdm.open_partition.load_times_from_partition_bdfs",
+        mock_load_times_from_partition_bdfs,
+    )
+    partition = open_partition(
+        asdm_with_main_etc_data_description_polarization_field_source,
+        {
+            "fieldId": [0],
+            "configDescriptionId": [0],
+            "scanNumber": [0],
+            "scanIntent": ["CALIBRATE_BANDPASS", "CALIBRATE_WVR", "CALIBRATE_FLUX"],
+            "dataDescriptionId": [0],
+            "BDFPath": ["/inexistent_test_path/foo"],
+            "spectralType": ["FULL_RESOLUTION"],
+        },
+        with_pointing=True,
+        pointing_for_only_spectral_resolution_types=["nonexistent_foo_bar"],
+    )
+
+    assert isinstance(partition, xr.DataTree)
+    partition_issues = check_datatree(partition)
+    assert not partition_issues
+
+    assert "antenna_xds" in partition
+    assert "pointing_xds" not in partition
+
+
+def test_correlated_xds_default(asdm_with_spw_default):
+    from xradio.measurement_set._utils._asdm.open_partition import create_correlated_xds
+
+    partition_descr = {"fieldId": [0], "scanNumber": [0], "BDFPath": []}
+    with pytest.raises(IndexError, match="out of range"):
+        create_correlated_xds(asdm_with_spw_default, partition_descr)
+
+
+@pytest.mark.parametrize(
+    "asdm_name, expected_output",
+    [
+        ("asdm_empty", False),
+        ("asdm_with_spw_default", False),
+        ("asdm_with_main_execblock_config_processor_sbsummary", False),
+    ],
+)
+def test_find_if_single_dish(asdm_name, expected_output, request):
+    from xradio.measurement_set._utils._asdm.open_partition import find_if_single_dish
+
+    asdm_input = request.getfixturevalue(asdm_name)
+    is_single_dish = find_if_single_dish(asdm_input)
+    assert is_single_dish == expected_output
+
+
+def test_create_data_vars_no_bdf_path(asdm_with_spw_default):
+    from xradio.measurement_set._utils._asdm.open_partition import create_data_vars
+
+    with pytest.raises(KeyError, match="time"):
+        create_data_vars(xr.Dataset(), [""], 0, {"bdf_names": [], "bdf_start_stop": []})
+
+
+def test_create_coordinates_no_bdf_path(asdm_with_spw_default):
+    from xradio.measurement_set._utils._asdm.open_partition import create_coordinates
+
+    partition_descr = {"fieldId": [0], "scanNumber": [0], "BDFPath": []}
+    with pytest.raises(ValueError, match="at least one array"):
+        create_coordinates(asdm_with_spw_default, partition_descr, False)
+
+
+def test_create_coordinates_with_spw_default(asdm_with_spw_default):
+    from xradio.measurement_set._utils._asdm.open_partition import create_coordinates
+
+    partition_descr = {
+        "fieldId": [0],
+        "scanNumber": [0],
+        "BDFPath": ["/nonexistent/foo"],
+    }
+    with pytest.raises(
+        pyasdm.exceptions.BDFReaderException, match="No such file or directory"
+    ):
+        create_coordinates(asdm_with_spw_default, partition_descr, False)
+
+
+def test_create_coordinates_with_spw_simple(asdm_with_spw_simple):
+    from xradio.measurement_set._utils._asdm.open_partition import create_coordinates
+
+    partition_descr = {
+        "fieldId": [0],
+        "scanNumber": [0],
+        "BDFPath": ["/nonexistent/foo"],
+    }
+    with pytest.raises(
+        pyasdm.exceptions.BDFReaderException, match="No such file or directory"
+    ):
+        create_coordinates(asdm_with_spw_simple, partition_descr, False)
+
+
+def test_create_coordinates_monkeypatched_bdf_with_spw_simple(
+    asdm_with_main_data_description_config_description_antenna_polarization, monkeypatch
+):
+    from xradio.measurement_set._utils._asdm.open_partition import create_coordinates
+
+    partition_descr = {
+        "fieldId": [0],
+        "scanNumber": [0],
+        "scanIntent": 0,
+        "configDescriptionId": [0],
+        "dataDescriptionId": [0],
+        "BDFPath": ["/nonexistent/bar"],
+    }
+
+    monkeypatch.setattr(
+        "xradio.measurement_set._utils._asdm.open_partition.load_times_from_partition_bdfs",
+        mock_load_times_from_partition_bdfs,
+    )
+
+    coords, attrs, num_antenna, spw_id, bdf_spw_id, time_vars, time_indices_by_bdf = (
+        create_coordinates(
+            asdm_with_main_data_description_config_description_antenna_polarization,
+            partition_descr,
+            False,
+        )
+    )
+    assert isinstance(coords, dict)
+    for coo in [
+        "time",
+        "baseline_id",
+        "frequency",
+        "polarization",
+        "baseline_antenna1_name",
+        "baseline_antenna1_name",
+        "scan_name",
+        "field_name",
+    ]:
+        assert coo in coords
+
+    # Build coordinates in an xarray dataset (this could/should be separated into a function in open_partition)
+    xds = xr.Dataset()
+    xds = xds.assign_coords(coords)
+    for coord_name in coords:
+        if coord_name in attrs:
+            xds.coords[coord_name].attrs = attrs[coord_name]
+
+    visibility_schema = xarray_dataclass_to_dataset_schema(VisibilityXds)
+    coordinate_issues = check_data_vars(
+        xds.coords, visibility_schema.coordinates, "coords"
+    )
+    assert not coordinate_issues
+    assert isinstance(attrs, dict)
+    assert attrs["frequency"]["units"] == "Hz"
+    assert num_antenna == 2
+    assert spw_id == 0
+    assert bdf_spw_id == 0
+    assert isinstance(time_vars, dict)
+    for var in ["EFFECTIVE_INTEGRATION_TIME", "TIME_CENTROID"]:
+        assert var in time_vars
+    assert time_indices_by_bdf == {}
+
+
+def test__create_uvw_data_var():
+    from xradio.measurement_set._utils._asdm.open_partition import (
+        _create_uvw_data_var,
+    )
+
+    time_len = 2
+    baseline_id_len = 3
+    uvw_label_len = 3
+    dimension_sizes = {
+        "time": time_len,
+        "baseline_id": baseline_id_len,
+        "uvw_label": uvw_label_len,
+    }
+    time = xr.DataArray(
+        data=np.array([0, 10]) + 5e9,
+        dims="time",
+        coords={"time": "time"},
+        attrs={"type": "time", "units": "s", "scale": "tai", "format": "unix"},
+    )
+    baseline_antenna1_name = xr.DataArray(
+        data=["DA01", "DV01"],
+    )
+    baseline_antenna2_name = xr.DataArray(
+        data=["DV01", "DA01"],
+    )
+    field_phase_center_direction = xr.DataArray(
+        data=[[0.11, 0.15]],
+        dims=["field_name", "sky_dir_label"],
+        coords={
+            "field_name": ["dummy_field"],
+            "sky_dir_label": ["ra", "dec"],
+        },
+    )
+    antenna_position = xr.DataArray(
+        data=[[100, 200, -300], [50, 100, 100]],
+        dims=[
+            "antenna_name",
+            "ellipsoid_dir_label",
+        ],
+        coords={
+            "antenna_name": ["DA01", "DV01"],
+            "ellipsoid_dir_label": ["x", "y", "z"],
+        },
+    )
+
+    uvw_data_var = _create_uvw_data_var(
+        dimension_sizes,
+        time,
+        baseline_antenna1_name,
+        baseline_antenna2_name,
+        antenna_position,
+        field_phase_center_direction,
+    )
+    assert isinstance(uvw_data_var, dict)
+    assert "UVW" in uvw_data_var
+    uvw = uvw_data_var["UVW"]
+
+    uvw_schema = xarray_dataclass_to_array_schema(UvwArray)
+    # check_array checks the type strictly for a xr.DataArray but
+    # we have the xr.DataArray wrapped in a LazilyIndexedArray
+    # check_array(uvw / uvw[1], uvw_schema)
+    _issues_array = check_array(xr.DataArray(uvw), uvw_schema)
+    # we'd still need the coordinates
+    # assert not issues_array
+
+    # Check the pieces that will be used to create the xr.DataArray
+    issues_dims = check_dimensions(uvw[0], uvw_schema.dimensions)
+    assert not issues_dims
+    issues_dtype = check_dtype(uvw[1].dtype, uvw_schema.dtypes)
+    assert not issues_dtype
+    # check_data_vars(uvw[0], uvw_schema.coordinates, "coords")
+    issues_attrs = check_attributes(uvw[2], uvw_schema.attributes)
+    assert not issues_attrs
+    assert uvw[1].shape == (time_len, baseline_id_len, uvw_label_len)
+
+
+def test__translate_asdm_tables_spw_id_to_bdf_spw_id(asdm_empty):
+    from xradio.measurement_set._utils._asdm.open_partition import (
+        _translate_asdm_tables_spw_id_to_bdf_spw_id,
+    )
+
+    bdf_spw_id = _translate_asdm_tables_spw_id_to_bdf_spw_id(
+        [0],
+        pd.DataFrame({"dataDescriptionId": [0, 1], "spectralWindowId": [14, 16]}),
+        pd.DataFrame(),
+        [0],
+        pd.DataFrame({"configDescriptionId": [0, 1], "dataDescriptionId": [[0], [1]]}),
+    )
+    assert bdf_spw_id == 0
+
+
+@pytest.mark.parametrize(
+    "num_antenna, expected_output, expected_error",
+    [
+        (
+            1,
+            ((0,), (0,)),
+            no_raises(),
+        ),
+        (
+            2,
+            (np.array([0, 0, 1]), np.array([1, 0, 1])),
+            no_raises(),
+        ),
+        (
+            3,
+            (np.array([0, 0, 1, 0, 1, 2]), np.array([1, 2, 2, 0, 1, 2])),
+            no_raises(),
+        ),
+    ],
+)
+def test__generate_baseline_antennax_id_as_in_bdf(
+    num_antenna, expected_output, expected_error
+):
+    from xradio.measurement_set._utils._asdm.open_partition import (
+        _generate_baseline_antennax_id_as_in_bdf,
+    )
+
+    with expected_error:
+        antennax_id = _generate_baseline_antennax_id_as_in_bdf(num_antenna)
+        if len(expected_output[0]) == 1 and len(antennax_id[0]) == 1:
+            assert antennax_id[0] == expected_output[0]
+            assert antennax_id[1] == expected_output[1]
+        else:
+            assert (antennax_id[0] == expected_output[0]).all()
+            assert (antennax_id[1] == expected_output[1]).all()
+
+
+@pytest.mark.parametrize(
+    "num_antenna, expected_output, expected_error",
+    [
+        (
+            1,
+            ((0,), (0,)),
+            no_raises(),
+        ),
+        (
+            2,
+            (np.array([0, 0, 1]), np.array([0, 1, 1])),
+            no_raises(),
+        ),
+        (
+            3,
+            (np.array([0, 0, 0, 1, 1, 2]), np.array([0, 1, 2, 1, 2, 2])),
+            no_raises(),
+        ),
+    ],
+)
+def test__generate_baseline_antennax_id_as_in_msv2(
+    num_antenna, expected_output, expected_error
+):
+    from xradio.measurement_set._utils._asdm.open_partition import (
+        _generate_baseline_antennax_id_as_in_msv2,
+    )
+
+    with expected_error:
+        antennax_id = _generate_baseline_antennax_id_as_in_msv2(num_antenna)
+        if len(expected_output[0]) == 1 and len(antennax_id[0]) == 1:
+            assert antennax_id[0] == expected_output[0]
+            assert antennax_id[1] == expected_output[1]
+        else:
+            assert (antennax_id[0] == expected_output[0]).all()
+            assert (antennax_id[1] == expected_output[1]).all()

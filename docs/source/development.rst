@@ -179,8 +179,10 @@ XRADIO is built using the following core packages:
   Alternatively, the `casatools I/O
   backend <measurement_set/guides/backends.md>`__ can be used.
 - Optionally, `pyasdm <https://github.com/casangi/pyasdm>`__ (under
-  development): A Python-based storage backend in progress, designed for
-  accessing ASDM (Astronomy Science Data Model) data.
+  development): A pure Python library to access ASDM (ALMA Science Data
+  Model) data, used by the ASDM backend (the ``xradio_asdm`` Xarray
+  engine). It is installed with the ``asdm`` extra
+  (``pip install "xradio[asdm]"``).
 
 Schema Conventions
 ------------------

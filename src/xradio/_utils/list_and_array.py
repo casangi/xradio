@@ -97,24 +97,41 @@ def to_np_array(x):
 
 
 def check_if_consistent(
-    array: np.ndarray, array_name: str, err_msg: str = ""
-) -> np.ndarray:
-    """_summary_
+    array: np.ndarray | pd.Series | xr.DataArray,
+    array_name: str,
+    err_msg: str = "",
+) -> object:
+    """
+    Check that all the values of an array are the same and return that value.
 
     Parameters
     ----------
-    array : _type_
-        _description_
-    array_name : _type_
-        _description_
+    array : np.ndarray | pd.Series | xr.DataArray
+        Values that are expected to be all equal (0-D or 1-D).
+    array_name : str
+        Name of the quantity checked, used in the error message.
+    err_msg : str, optional
+        Additional context (for example the selection/query used to get the
+        values) appended to the error message.
 
     Returns
     -------
-    _type_
-        _description_
+    object
+        The single (unique) value of the array, as a scalar.
+
+    Raises
+    ------
+    RuntimeError
+        If the array is empty (there is no value to return), or if it holds
+        more than one distinct value.
     """
+    context = f" ({err_msg})" if err_msg else ""
+
     if array.size == 0:
-        return array
+        raise RuntimeError(
+            f"{array_name} is not consistent: no values found (empty selection), "
+            f"so there is no single value to return{context}."
+        )
 
     if array.ndim == 0:
         return array.item()
@@ -122,7 +139,8 @@ def check_if_consistent(
     array_unique = unique_1d(array)
     if len(array_unique) != 1:
         raise RuntimeError(
-            f"{array_name} is not consistent, {err_msg=}.\n{len(array)=}, {len(array_unique)=}, {array_unique=}"
+            f"{array_name} is not consistent: found {len(array_unique)} distinct "
+            f"values in {len(array)} entries{context}. Unique values: {array_unique}"
         )
 
     return array_unique[0]

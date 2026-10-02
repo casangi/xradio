@@ -1,8 +1,10 @@
+import numpy as np
 import pyasdm
 import xarray as xr
 
-from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
-    exp_asdm_table_to_df,
+from xradio._utils.logging import xradio_logger
+from xradio.measurement_set._utils._asdm._utils.time import (
+    convert_time_asdm_to_datetime64,
 )
 
 
@@ -22,7 +24,8 @@ def create_info_dicts(
     xds : xr.Dataset
         The xarray Dataset containing the processed data
     partition_descr : dict
-        Dictionary describing the data partitioning
+        Dictionary describing the data partitioning. The "execBlockId" and
+        "configDescriptionId" entries are used (one value each).
 
     Returns
     -------
@@ -58,7 +61,8 @@ def create_processor_info(asdm: pyasdm.ASDM, partition_descr: dict) -> dict:
     asdm : pyasdm.ASDM
         The ASDM object containing the observation data
     partition_descr : dict
-        Dictionary containing partition information including the configDescriptionId
+        Dictionary containing partition information, including the (single)
+        configDescriptionId of the partition
 
     Returns
     -------
@@ -66,14 +70,30 @@ def create_processor_info(asdm: pyasdm.ASDM, partition_descr: dict) -> dict:
         Dictionary containing processor information with keys:
         - type: The processor type name
         - sub_type: The processor subtype name
+
+    Raises
+    ------
+    ValueError
+        If the partition does not have exactly one configDescriptionId, or if
+        the ConfigDescription or Processor rows are not found.
     """
 
-    config_description_id = partition_descr["configDescriptionId"][0]
+    config_description_id = _get_single_id(partition_descr, "configDescriptionId")
     config_tbl = asdm.getConfigDescription()
-    table_name = config_tbl.getName()
-    config_description_tag = pyasdm.types.Tag(f"{table_name}_{config_description_id}")
-    config_row = config_tbl.getRowByKey(config_description_tag)
+    config_row = config_tbl.getRowByKey(
+        pyasdm.types.Tag(f"{config_tbl.getName()}_{config_description_id}")
+    )
+    if config_row is None:
+        raise ValueError(
+            f"No row with configDescriptionId={config_description_id} in the "
+            "ConfigDescription table"
+        )
     processor_row = config_row.getProcessorUsingProcessorId()
+    if processor_row is None:
+        raise ValueError(
+            f"No Processor row for {config_row.getProcessorId()}, used by "
+            f"configDescriptionId={config_description_id}"
+        )
 
     processor_info = {
         "type": processor_row.getProcessorType().getName(),
@@ -86,95 +106,111 @@ def create_processor_info(asdm: pyasdm.ASDM, partition_descr: dict) -> dict:
 def create_observation_info(asdm: pyasdm.ASDM, partition_descr: dict) -> dict:
     """
     Creates a dictionary with observation information from an ASDM dataset.
-    This function extracts various observation metadata from an ASDM (ALMA Science Data Model)
-    dataset and returns it as a structured dictionary. The information includes observer details,
-    project information, execution block data, and scheduling block information.
+
+    The information is taken from the ExecBlock row of the partition (and the
+    SBSummary row it refers to): observer, project, execution block and
+    scheduling block identifiers.
 
     Parameters
     ----------
     asdm : pyasdm.ASDM
         The ASDM dataset object containing the observation data
     partition_descr : dict
-        Dictionary containing partition descriptions, must include 'scanIntent' key
+        Dictionary containing the partition description. Its "execBlockId"
+        entry (one value) selects the ExecBlock row.
 
     Returns
     -------
     dict
-        A dictionary containing observation information with the following keys:
-        - observer : list
-            Name(s) of the observer(s)
-        - project : str
-            Project identifier
+        A dictionary containing observation information (ObservationInfoDict)
+        with the following keys:
+        - observer : list[str]
+            Name of the observer (ExecBlock.observerName)
         - release_date : str
-            Date when data becomes publicly available
-        - execution_block_id : str
-            Identifier for the execution block
-        - execution_block_number : int
-            Number of the execution block
+            Date when the data becomes public (ExecBlock.releaseDate), ISO
+            8601 string (YYYY-MM-DDThh:mm:ss.sssssssss). An empty string when
+            the optional releaseDate is absent.
+        - project_UID : str
+            Project UID (entityId of ExecBlock.projectUID)
         - execution_block_UID : str
-            Unique identifier for the execution block
-        - session_reference : str
-            Reference to the observation session
-        - observing_script : str
-            Script used for the observation
-        - observing_script_UID : str
-            Unique identifier for the observing script
-        - observing_log : str
-            Log of the observation
-        - scheduling_block_UID : str
-            Unique identifier for the scheduling block
-        - intents : list
-            List of scan intents from the partition description
+            Execution block UID (entityId of ExecBlock.execBlockUID)
+        - session_reference_UID : str
+            Session reference (entityId of ExecBlock.sessionReference)
+        - observing_log : str | None
+            Observing log (ExecBlock.observingLog), one line per log entry.
+            None when the log is empty.
+        - scheduling_block_UID : str | None
+            Scheduling block UID (entityId of SBSummary.sbSummaryUID), None
+            if the SBSummary row is not found.
+
+    Raises
+    ------
+    ValueError
+        If the partition does not have exactly one execBlockId or if the
+        ExecBlock row is not found.
     """
 
-    # TODO: needs clean-up, this comes from an early version
-    sdm_main_attrs = [
-        "execBlockId",
-    ]
-    main_df = exp_asdm_table_to_df(asdm, "Main", sdm_main_attrs)
-    asdm_execblock = asdm.getExecBlock()
-    table_name = asdm_execblock.getName()
-    execblock_ids = main_df["execBlockId"].unique()
-    execblock_tags = [
-        pyasdm.types.Tag(f"{table_name}_{execblock_id}")
-        for execblock_id in execblock_ids
-    ]
-    execblock_rows = [asdm_execblock.getRowByKey(tag) for tag in execblock_tags]
-
-    # Reorganize the loop? / table iteration => use many-cols data frames
-    observer = [row.getObserverName() for row in execblock_rows]
-    release_date = [
-        row.getReleaseDate() if row.isReleaseDateExists() else ""
-        for row in execblock_rows
-    ]
-    project_uid = [row.getProjectUID().getEntityId() for row in execblock_rows]
-    execblock_uid = [row.getExecBlockUID().getEntityId() for row in execblock_rows]
-    session_reference_uid = [
-        row.getSessionReference().getEntityId() for row in execblock_rows
-    ]
-    observing_log = [row.getObservingLog() for row in execblock_rows]
-    sb_summary_id = [row.getSBSummaryId().getTagValue() for row in execblock_rows]
-
-    # SBSummary sbSummaryUID
-    sdm_sbsummary_attrs = ["sBSummaryId", "sbSummaryUID"]
-    sb_summary_df = exp_asdm_table_to_df(asdm, "SBSummary", sdm_sbsummary_attrs)
-    # scheduling_block_UID = sbsummary_df.loc[sbsummary_df["sBSummaryId"] == sb_summary_id[0]]
-
-    scheduling_block_UID = sb_summary_df.loc[
-        sb_summary_df["sBSummaryId"] == sb_summary_id[0]
-    ]["sbSummaryUID"].values
-
-    def list_to_first(alist: list) -> object:
-        return alist[0]
+    execblock_id = _get_single_id(partition_descr, "execBlockId")
+    execblock_tbl = asdm.getExecBlock()
+    execblock_row = execblock_tbl.getRowByKey(
+        pyasdm.types.Tag(f"{execblock_tbl.getName()}_{execblock_id}")
+    )
+    if execblock_row is None:
+        raise ValueError(
+            f"No row with execBlockId={execblock_id} in the ExecBlock table"
+        )
 
     observation_info = {
-        "observer": observer,
-        "release_date": list_to_first(release_date),
-        "project_UID": list_to_first(project_uid),
-        "execution_block_UID": list_to_first(execblock_uid),
-        "session_reference_UID": list_to_first(session_reference_uid),
-        "observing_log": str(list_to_first(observing_log)),
-        "scheduling_block_UID": list_to_first(scheduling_block_UID),
+        "observer": [str(execblock_row.getObserverName())],
+        "release_date": _get_release_date(execblock_row),
+        "project_UID": execblock_row.getProjectUID().getEntityId(),
+        "execution_block_UID": execblock_row.getExecBlockUID().getEntityId(),
+        "session_reference_UID": execblock_row.getSessionReference().getEntityId(),
+        "observing_log": _get_observing_log(execblock_row),
+        "scheduling_block_UID": _get_scheduling_block_uid(execblock_row),
     }
 
     return observation_info
+
+
+def _get_single_id(partition_descr: dict, key: str) -> int:
+    """The single (integer) value of a partition description entry."""
+    values = np.unique(np.ravel(partition_descr[key]))
+    if len(values) != 1:
+        raise ValueError(
+            f"Expected exactly one {key} in the partition description, got "
+            f"{values.tolist()}"
+        )
+    return int(values[0])
+
+
+def _array_time_to_iso(array_time: pyasdm.types.ArrayTime) -> str:
+    """ASDM ArrayTime as an ISO 8601 string (fixed epoch shift, ns precision)."""
+    return str(convert_time_asdm_to_datetime64(int(array_time.get())))
+
+
+def _get_release_date(execblock_row: pyasdm.ExecBlockRow) -> str:
+    """ExecBlock.releaseDate as ISO string, or "" when absent."""
+    if not execblock_row.isReleaseDateExists():
+        return ""
+    return _array_time_to_iso(execblock_row.getReleaseDate())
+
+
+def _get_observing_log(execblock_row: pyasdm.ExecBlockRow) -> str | None:
+    """ExecBlock.observingLog entries joined with newlines, or None when empty."""
+    observing_log = execblock_row.getObservingLog()
+    if not observing_log:
+        return None
+    return "\n".join(str(entry) for entry in observing_log)
+
+
+def _get_scheduling_block_uid(execblock_row: pyasdm.ExecBlockRow) -> str | None:
+    """SBSummary.sbSummaryUID of the ExecBlock, or None if not found."""
+    sb_summary_row = execblock_row.getSBSummaryUsingSBSummaryId()
+    if sb_summary_row is None:
+        xradio_logger().warning(
+            f"No SBSummary row for {execblock_row.getSBSummaryId()} (used by "
+            f"{execblock_row.getExecBlockId()}), scheduling_block_UID is not set."
+        )
+        return None
+    return sb_summary_row.getSbSummaryUID().getEntityId()

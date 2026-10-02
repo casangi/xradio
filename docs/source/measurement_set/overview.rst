@@ -382,8 +382,10 @@ documentation <api.rst>`__).
 Figure 3 summarizes the available and planned future functionality. The
 sub-package currently allows direct opening of data from
 `zarr <https://zarr-specs.readthedocs.io/en/latest/specs.html>`__ and
-ASDM. It will support ASDM pre- and post- WSU (ALMA Wide Band Sensitivity
-Upgrade) and possibly
+ASDM (with the ``xradio_asdm`` Xarray engine, which needs the optional
+``asdm`` dependencies, see the :doc:`API documentation <api>` and the
+:doc:`ALMA ASDM guide <guides/ALMA_ASDM_IF>`). It will support ASDM pre-
+and post- WSU (ALMA Wide Band Sensitivity Upgrade) and possibly
 `NetCDF <https://www.unidata.ucar.edu/software/netcdf/>`__ in the
 future. The WSU ASDM is an update of the
 `ASDM <https://drive.google.com/file/d/1PMrZFbkrMVfe57K6AAh1dR1FalS35jP2/view>`__

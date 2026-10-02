@@ -3,8 +3,6 @@ Functions to do various calculations related to the basebands/spw list(s) from
 BDF headers.
 """
 
-from xradio._utils.logging import xradio_logger
-
 
 def calculate_overall_spw_idx(
     basebands_descr: list[dict], baseband_idx: int, spw_idx: int
@@ -36,30 +34,47 @@ def find_spw_in_basebands_list(
     basebands: list[dict],
     bdf_path: str,
 ) -> tuple[int, int]:
-    bb_index_cnt = 0
+    """
+    Find the baseband and the SPW within the baseband of an SPW of a BDF.
+
+    The SPWs of a BDF have no IDs, only positions: spw_id is the position of the SPW
+    in the list of all the SPWs of the BDF (the SPWs of the first baseband, then the
+    SPWs of the second baseband, etc.).
+
+    Parameters
+    ----------
+    spw_id : int
+        Position of the SPW in the BDF (0-based, over all basebands).
+    basebands : list[dict]
+        Basebands list from the BDF header.
+    bdf_path : str
+        Path of the BDF (for error messages).
+
+    Returns
+    -------
+    tuple[int, int]
+        Index of the baseband and index of the SPW within that baseband.
+
+    Raises
+    ------
+    RuntimeError
+        If the BDF does not have an SPW at position spw_id (the ASDM metadata and
+        the BDF header disagree).
+    """
     basebands_len_cumsum = 0
-    found = False
-    for bband in basebands:
-        bb_spw_len = len(bband["spectralWindows"])
-        if spw_id < basebands_len_cumsum + bb_spw_len:
-            spw_index = spw_id - basebands_len_cumsum
-            baseband_index = bb_index_cnt
-            found = True
-            break
-        else:
+    if spw_id >= 0:
+        for baseband_index, bband in enumerate(basebands):
+            bb_spw_len = len(bband["spectralWindows"])
+            if spw_id < basebands_len_cumsum + bb_spw_len:
+                return baseband_index, spw_id - basebands_len_cumsum
             basebands_len_cumsum += bb_spw_len
 
-        bb_index_cnt += 1
-
-    if not found:
-        # TODO: This is a highly dubious fallback for now...
-        # raise RuntimeError(err_msg)
-        err_msg = f"SPW {spw_id} not found in this BDF: {bdf_path}, defaulting to BB 0, SPW 0."
-        xradio_logger().warning(err_msg)
-        spw_index = 1 - 1
-        baseband_index = 0
-
-    return (baseband_index, spw_index)
+    raise RuntimeError(
+        f"SPW {spw_id} not found in BDF {bdf_path}, which has "
+        f"{sum(len(bband['spectralWindows']) for bband in basebands)} SPWs in "
+        f"{len(basebands)} basebands. The ASDM metadata (ConfigDescription / "
+        "DataDescription) and the BDF header disagree."
+    )
 
 
 def find_if_different_basebands_spws(basebands: list[dict]) -> bool:
@@ -94,7 +109,7 @@ def find_if_different_basebands_spws(basebands: list[dict]) -> bool:
     return not all_same
 
 
-def find_if_different_basebands_pols(basebands: list[dict]) -> tuple[int, int]:
+def find_if_different_basebands_pols(basebands: list[dict]) -> bool:
     """whether the number of polarizations is different for some of the basebands"""
 
     all_same = True

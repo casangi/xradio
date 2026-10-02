@@ -1,5 +1,50 @@
+import importlib.util
+import sys
+import tracemalloc
+from pathlib import Path
+
 import pyasdm
 import pytest
+
+
+def measure_peak_memory(function):
+    """
+    Run ``function()`` and return ``(result, peak)``: its result and the
+    largest increase (bytes) of the memory traced by tracemalloc while it ran.
+
+    Also correct when tracing is already on (PYTHONTRACEMALLOC, ``-X
+    tracemalloc``): the peak is reset and measured from the memory traced at
+    the start, and tracing is left on. Otherwise tracing is started and stopped.
+    """
+    was_tracing = tracemalloc.is_tracing()
+    if not was_tracing:
+        tracemalloc.start()
+    try:
+        tracemalloc.reset_peak()
+        start, _ = tracemalloc.get_traced_memory()
+        result = function()
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        if not was_tracing:
+            tracemalloc.stop()
+    return result, peak - start
+
+
+@pytest.fixture
+def peak_memory():
+    """measure_peak_memory: ``result, peak = peak_memory(function)``."""
+    return measure_peak_memory
+
+
+def set_row_from_xml(row, xml: str):
+    """
+    ``row.setFromXML(xml)`` with boolean attributes set to their XML value.
+
+    pyasdm parses booleans with ``bool(text)`` ("false" reads as True); see
+    ``synthetic_asdm.set_row_from_xml``. Use it for rows with boolean elements
+    (``aborted``, ``quantization``, ``usePolynomials``, ...).
+    """
+    return load_synthetic_asdm_module().set_row_from_xml(row, xml)
 
 
 def make_asdm_empty():
@@ -75,10 +120,10 @@ def make_asdm_with_spw_simple():
     test_asdm = pyasdm.ASDM()
     test_spw_table = test_asdm.getSpectralWindow()
     spw_row_0 = pyasdm.SpectralWindowRow(test_spw_table)
-    spw_row_0.setFromXML(spw_row_spec_0)
+    set_row_from_xml(spw_row_0, spw_row_spec_0)
     test_spw_table.add(spw_row_0)
     spw_row_8 = pyasdm.SpectralWindowRow(test_spw_table)
-    spw_row_8.setFromXML(spw_row_spec_8)
+    set_row_from_xml(spw_row_8, spw_row_spec_8)
     test_spw_table.add(spw_row_8)
     assert test_spw_table.size() == 2
     return test_asdm
@@ -133,10 +178,10 @@ def make_sd_asdm_with_spw_simple():
     test_asdm = pyasdm.ASDM()
     test_spw_table = test_asdm.getSpectralWindow()
     spw_row_44 = pyasdm.SpectralWindowRow(test_spw_table)
-    spw_row_44.setFromXML(spw_row_spec_44)
+    set_row_from_xml(spw_row_44, spw_row_spec_44)
     test_spw_table.add(spw_row_44)
     spw_row_45 = pyasdm.SpectralWindowRow(test_spw_table)
-    spw_row_45.setFromXML(spw_row_spec_45)
+    set_row_from_xml(spw_row_45, spw_row_spec_45)
     test_spw_table.add(spw_row_45)
     assert test_spw_table.size() == 2
     return test_asdm
@@ -154,18 +199,8 @@ def asdm_with_spw_simple():
 
 @pytest.fixture(scope="session")
 def asdm_with_execblock_spw_simple():
+    """SPW-simple ASDM plus the SBSummary, Processor and ExecBlock tables."""
     asdm = make_asdm_with_spw_simple()
-    # Needed for test_open_partition / TODO: split to another one
-    add_sbsummary_table(asdm)
-    add_processor_table(asdm)
-    add_execblock_table(asdm)
-    return asdm
-
-
-@pytest.fixture(scope="session")
-def asdm_with_execblock_processor_sbsummary_spw_simple():
-    asdm = make_asdm_with_spw_simple()
-    # Needed for test_open_partition / TODO: split to another one
     add_sbsummary_table(asdm)
     add_processor_table(asdm)
     add_execblock_table(asdm)
@@ -308,7 +343,7 @@ def add_execblock_table(asdm: pyasdm.ASDM):
     """
     execblock_table = asdm.getExecBlock()
     execblock_row_0 = pyasdm.ExecBlockRow(execblock_table)
-    execblock_row_0.setFromXML(execblock_row_0_xml)
+    set_row_from_xml(execblock_row_0, execblock_row_0_xml)
     execblock_table.add(execblock_row_0)
 
 
@@ -350,7 +385,7 @@ def add_sd_execblock_table(asdm: pyasdm.ASDM):
     """
     execblock_table = asdm.getExecBlock()
     execblock_row_0 = pyasdm.ExecBlockRow(execblock_table)
-    execblock_row_0.setFromXML(execblock_row_0_xml)
+    set_row_from_xml(execblock_row_0, execblock_row_0_xml)
     execblock_table.add(execblock_row_0)
 
 
@@ -1005,10 +1040,16 @@ def add_pointing_table(asdm: pyasdm.ASDM):
     """
     # Examples mixed from uid___A002_X94f2b3_Xb79 (TelCal unit tests) and uid___A002_Xf002b5_X3233 (PL
     # Bencharmk2025). Not including the <atmosphericCorrection> array here.
+    # timeInterval is (midpoint, duration) in ns as in ASDM XML tables. Two rows per antenna, of
+    # numSample=4 samples of 6.06 s each:
+    #  - row 0: start 5137194858648000000 (2021-09-01T06:34:18.648, = timeOrigin), duration 24.24 s
+    #  - row 1: start 5137194883368000000 (2021-09-01T06:34:43.368), duration 24.24 s
+    # (These values were originally exported through the pyasdm ArrayTimeInterval.fromBin bug, which
+    # halved them, and have been restored: midpoint = 2 * halved midpoint.)
     pointing_rows_xml = [
         """
     <row>
-    <timeInterval> 2568597435384000000 24240000000 </timeInterval> <numSample> 4 </numSample>
+    <timeInterval> 5137194870768000000 24240000000 </timeInterval> <numSample> 4 </numSample>
     <encoder> 2 4 2 -1.46 1.14 -1.46 1.14 -1.46 1.14 -1.46 1.14 </encoder>
     <pointingTracking> True </pointingTracking> <usePolynomials> False </usePolynomials>
     <timeOrigin> 5137194858648000000 </timeOrigin> <numTerm> 1 </numTerm>
@@ -1021,7 +1062,7 @@ def add_pointing_table(asdm: pyasdm.ASDM):
     """,
         """
     <row>
-    <timeInterval> 2568597447744000000 24240000000 </timeInterval> <numSample> 4 </numSample>
+    <timeInterval> 5137194895488000000 24240000000 </timeInterval> <numSample> 4 </numSample>
     <encoder> 2 4 2 -1.46 1.14 -1.46 1.14 -1.46 1.14 -1.46 1.14 </encoder>
     <pointingTracking> True </pointingTracking> <usePolynomials> False </usePolynomials>
     <timeOrigin> 5137194858648000000 </timeOrigin> <numTerm> 1 </numTerm>
@@ -1034,7 +1075,7 @@ def add_pointing_table(asdm: pyasdm.ASDM):
     """,
         """
     <row>
-    <timeInterval> 2568597435384000000 24240000000 </timeInterval> <numSample> 4 </numSample>
+    <timeInterval> 5137194870768000000 24240000000 </timeInterval> <numSample> 4 </numSample>
     <encoder> 2 4 2 -1.46 1.14 -1.46 1.14 -1.46 1.14 -1.46 1.14 </encoder>
     <pointingTracking> True </pointingTracking> <usePolynomials> False </usePolynomials>
     <timeOrigin> 5137194858648000000 </timeOrigin> <numTerm> 1 </numTerm>
@@ -1047,7 +1088,7 @@ def add_pointing_table(asdm: pyasdm.ASDM):
     """,
         """
     <row>
-    <timeInterval> 2568597447744000000 24240000000 </timeInterval> <numSample> 4 </numSample>
+    <timeInterval> 5137194895488000000 24240000000 </timeInterval> <numSample> 4 </numSample>
     <encoder> 2 4 2 -1.46 1.14 -1.46 1.14 -1.46 1.14 -1.46 1.14 </encoder>
     <pointingTracking> True </pointingTracking> <usePolynomials> False </usePolynomials>
     <timeOrigin> 5137194858648000000 </timeOrigin> <numTerm> 1 </numTerm>
@@ -1062,7 +1103,7 @@ def add_pointing_table(asdm: pyasdm.ASDM):
     pointing_table = asdm.getPointing()
     for pointing_row_xml in pointing_rows_xml:
         pointing_row = pyasdm.PointingRow(pointing_table)
-        pointing_row.setFromXML(pointing_row_xml)
+        set_row_from_xml(pointing_row, pointing_row_xml)
         pointing_table.add(pointing_row)
 
 
@@ -1180,3 +1221,127 @@ def mock_sd_asdm_set_from_file():
         add_sd_sbsummary_table(self)
 
     return _function_mock_sd_asdm_set_from_file
+
+
+# ---------------------------------------------------------------------------
+# Synthetic on-disk ASDMs (real tables + real MIME BDFs) with known values
+#
+# The writer and the expected-value ("truth") helpers live in the pytest-free
+# module ``synthetic_asdm.py`` next to this conftest. With
+# ``--import-mode=importlib`` that directory is not a package, so the module is
+# loaded from its file path and registered in ``sys.modules`` under
+# ``SYNTHETIC_ASDM_MODULE_NAME``. Test modules can either use the
+# ``synthetic_asdm_module`` fixture, or (e.g. to use it at collection time)
+# load it the same way::
+#
+#     import importlib.util, sys
+#     from pathlib import Path
+#
+#     def _load_synthetic_asdm():
+#         name = "xradio_tests_asdm_synthetic_asdm"
+#         if name not in sys.modules:
+#             spec = importlib.util.spec_from_file_location(
+#                 name, Path(__file__).with_name("synthetic_asdm.py"))
+#             module = importlib.util.module_from_spec(spec)
+#             sys.modules[name] = module
+#             spec.loader.exec_module(module)
+#         return sys.modules[name]
+#
+# The ``synth_*`` fixtures below write one ASDM each (session scope, under
+# ``tmp_path_factory``) and return its ``SyntheticASDM`` truth object:
+# ``truth.path`` is the ASDM directory to open with
+# ``xr.open_datatree(truth.path, engine="xradio_asdm")`` and
+# ``truth.expected_partitions()`` / ``synthetic_asdm.expected_visibility(...)``
+# etc. give the expected results.
+# ---------------------------------------------------------------------------
+
+SYNTHETIC_ASDM_MODULE_NAME = "xradio_tests_asdm_synthetic_asdm"
+
+
+def load_synthetic_asdm_module():
+    """Import synthetic_asdm.py from this directory (works with importlib mode)."""
+    if SYNTHETIC_ASDM_MODULE_NAME not in sys.modules:
+        spec = importlib.util.spec_from_file_location(
+            SYNTHETIC_ASDM_MODULE_NAME, Path(__file__).with_name("synthetic_asdm.py")
+        )
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[SYNTHETIC_ASDM_MODULE_NAME] = module
+        spec.loader.exec_module(module)
+    return sys.modules[SYNTHETIC_ASDM_MODULE_NAME]
+
+
+@pytest.fixture(scope="session")
+def synthetic_asdm_module():
+    """The synthetic_asdm helper module (writer, specs and expected-value functions)."""
+    return load_synthetic_asdm_module()
+
+
+@pytest.fixture(scope="session")
+def make_synthetic_asdm(synthetic_asdm_module, tmp_path_factory):
+    """
+    Factory: ``make_synthetic_asdm(spec)`` writes the ASDM described by an
+    ``ASDMSpec`` into a fresh session temporary directory and returns its
+    ``SyntheticASDM`` truth. Use it for ASDMs a test modifies or that only one
+    test needs.
+    """
+
+    def _make(spec):
+        directory = tmp_path_factory.mktemp("synthetic_asdm")
+        return synthetic_asdm_module.write_synthetic_asdm(spec, str(directory))
+
+    return _make
+
+
+@pytest.fixture(scope="session")
+def synth_interferometric(synthetic_asdm_module, make_synthetic_asdm):
+    """Interferometric dual-pol, 4 antennas, 3 SPWs in 2 basebands (8, 1, 4 channels),
+    float32 data, 2 scans x 2 subscans: one partition per SPW with 10 integrations."""
+    return make_synthetic_asdm(synthetic_asdm_module.interferometric_spec())
+
+
+@pytest.fixture(scope="session")
+def synth_interferometric_pointing(synthetic_asdm_module, make_synthetic_asdm):
+    """Same layout as synth_interferometric plus a Pointing table (zero offsets)."""
+    return make_synthetic_asdm(
+        synthetic_asdm_module.interferometric_spec(
+            with_pointing=True, name="uid___A002_X1234_X5690"
+        )
+    )
+
+
+@pytest.fixture(scope="session")
+def synth_full_pol(synthetic_asdm_module, make_synthetic_asdm):
+    """Interferometric full-pol (cross XX XY YX YY / sd XX XY YY), INT32 data with
+    scale factor, 2 basebands x 1 SPW, actualTimes present, ExecBlock releaseDate."""
+    return make_synthetic_asdm(synthetic_asdm_module.full_pol_spec())
+
+
+@pytest.fixture(scope="session")
+def synth_single_dish(synthetic_asdm_module, make_synthetic_asdm):
+    """Single dish (all AUTO_ONLY), ON/OFF and HOT/AMBIENT subscans."""
+    return make_synthetic_asdm(synthetic_asdm_module.single_dish_spec())
+
+
+@pytest.fixture(scope="session")
+def synth_single_dish_simple(synthetic_asdm_module, make_synthetic_asdm):
+    """Single dish (all AUTO_ONLY), one scan with two ON_SOURCE subscans: one
+    partition per SPW (does not depend on the subscan-intent partitioning)."""
+    return make_synthetic_asdm(
+        synthetic_asdm_module.single_dish_spec(
+            name="uid___A002_X1234_X5683", with_off_and_calibration=False
+        )
+    )
+
+
+@pytest.fixture(scope="session")
+def synth_mosaic(synthetic_asdm_module, make_synthetic_asdm):
+    """Calibrator + two mosaic pointings sharing the fieldName "M100" (one with
+    phaseDir != referenceDir), a mosaic scan with one subscan per pointing."""
+    return make_synthetic_asdm(synthetic_asdm_module.mosaic_spec())
+
+
+@pytest.fixture(scope="session")
+def synth_interleaved(synthetic_asdm_module, make_synthetic_asdm):
+    """ALMA-like interleaved WVR (packed) / SQLD / CHANNEL_AVERAGE / FULL_RESOLUTION
+    ConfigDescriptions in Main (the layout that triggered F07)."""
+    return make_synthetic_asdm(synthetic_asdm_module.interleaved_configs_spec())

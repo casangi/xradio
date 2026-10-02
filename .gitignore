@@ -11,6 +11,8 @@ __pycache__/
 *.tar*
 *.zip*
 *.fits*
+# Example ASDM downloaded/extracted by the ASDM guide notebook
+docs/source/measurement_set/guides/uid___*/
 
 # C extensions
 *.so

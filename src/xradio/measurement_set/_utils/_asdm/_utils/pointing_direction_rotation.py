@@ -1,10 +1,13 @@
 """Utilities for rotating ASDM pointing-direction offsets into a target AltAz frame.
 
-This module provides helpers for converting/rotating local offset directions expressed
-in an AltAz-based East-North-Up (ENU) basis into the global coordinate frame of a
-corresponding target direction. It is meant to be used when working with pointing
-information from ASDM tables, where offsets are stored in the local frame of the
-pointing target.
+This module provides helpers to apply the offsets of an ASDM Pointing table
+(``offset`` column) to the corresponding target directions (``target`` column).
+The offsets are small angles expressed in the local frame of each target: the
+first component is along increasing azimuth and the second along increasing
+elevation, and a zero offset designates the target itself. This is the
+``eulmat(az, -el, 0) * rect(offset)`` construction used by the CASA ``sdm``
+tool (importasdm) to compute the MSv2 POINTING DIRECTION, and it is equivalent
+to astropy's ``SkyOffsetFrame`` centered on the target.
 """
 
 import astropy.units as u
@@ -17,27 +20,55 @@ from astropy.coordinates import (
 
 def rotate_offset_to_target(target: np.ndarray, offset: np.ndarray) -> np.ndarray:
     """
-    Rotates alt-az offset directions ('offset' values from an ASDM pointing table) into the frame defined by the
-    corresponding target alt-az offset directions.
+    Apply alt-az offsets ('offset' values from an ASDM Pointing table) to their
+    target alt-az directions.
+
+    The offset ``(d_az, d_alt)`` is interpreted as a spherical direction in the
+    local frame of the target, whose origin ``(0, 0)`` is the target: a zero
+    offset returns the target, and the angular separation between the result
+    and the target is the angular length of the offset.
 
     Parameters
     ----------
     target : np.ndarray
         Target AltAz coordinates with shape (..., 2). The trailing axis stores
         ``(az, alt)`` in radians. The array may have arbitrary leading shape,
-        such as ``(n_antenna, n_samples, 2)``. Typically 3
-             dimensions. The second dimension is the samples over time for a time interval and an antenna. The
-             first dimension is for the groups of rows of the pointing table for every antenna.
+        such as ``(n_time, n_antenna, 2)``.
     offset : np.ndarray
-        Offset AltAz coordinates, same shape as ``target``, expressed as
-        ``(az, alt)`` in radians.
+        Offsets with the same shape as ``target``, ``(d_az, d_alt)`` in
+        radians, in the local frame of the corresponding target.
 
     Returns
     -------
     np.ndarray
-        Rotated offset directions in the same AltAz frame as ``target``, with
-        shape ``target.shape``.
+        Offset directions ``(az, alt)`` in radians in the same AltAz frame as
+        ``target``, with shape ``target.shape``. The azimuth is returned within
+        pi of the target azimuth, so that it follows the convention (range) of
+        the input azimuths (for example [-pi, pi] or the extended azimuth range
+        of the antenna mount) instead of being wrapped to [0, 2 pi).
+
+    Raises
+    ------
+    TypeError
+        If ``target`` or ``offset`` is None.
+    ValueError
+        If the shapes of ``target`` and ``offset`` differ or their trailing
+        dimension is not 2.
     """
+    if target is None or offset is None:
+        raise TypeError(
+            "target and offset must be arrays of (az, alt) values, got "
+            f"{type(target).__name__} and {type(offset).__name__} (NoneType "
+            "is not supported)"
+        )
+    target = np.asarray(target, dtype=np.float64)
+    offset = np.asarray(offset, dtype=np.float64)
+    if target.shape != offset.shape or target.ndim < 1 or target.shape[-1] != 2:
+        raise ValueError(
+            "target and offset must have the same shape (..., 2), got "
+            f"{target.shape} and {offset.shape}"
+        )
+
     target_coord = SkyCoord(
         az=target[..., 0] * u.rad,
         alt=target[..., 1] * u.rad,
@@ -54,16 +85,21 @@ def rotate_offset_to_target(target: np.ndarray, offset: np.ndarray) -> np.ndarra
         target_coord, offset_coord
     )
 
+    rotated_az = rotated_offset_coords.az.rad
+    # astropy wraps azimuths to [0, 2 pi). Bring them back within pi of the
+    # target azimuth to keep the convention of the input (and of the encoder
+    # and pointingDirection values the correction is combined with).
+    target_az = target[..., 0]
+    rotated_az = target_az + np.mod(rotated_az - target_az + np.pi, 2 * np.pi) - np.pi
+
     rotated_offset = np.stack(
         (
-            rotated_offset_coords.az.rad,
+            rotated_az,
             rotated_offset_coords.alt.rad,
         ),
         axis=-1,
     )
 
-    # If astropy's AltAz.az could return values in [0, 2pi), normalize => [-pi, pi]?
-    # rotated_target[:, 0] = np.mod(rotated_target[:, 0] + np.pi, 2*np.pi) - np.pi
     return rotated_offset
 
 
@@ -79,19 +115,21 @@ def altaz_local_basis(target: SkyCoord):
     Returns
     -------
     tuple[np.ndarray, np.ndarray, np.ndarray]
-        ``(east, north, up)`` arrays, each with shape ``(..., 3)``. The vectors
-        are expressed in the global Cartesian frame and form the local ENU basis
-        attached to each target direction.
+        ``(east, north, up)`` arrays, each with shape ``(..., 3)``, expressed
+        in the global (astropy AltAz) Cartesian frame: ``up`` is the unit
+        vector of the target direction, ``east`` the unit vector along
+        increasing azimuth and ``north`` the unit vector along increasing
+        elevation at the target.
     """
 
     az = target.az.rad
 
-    # Cartesian pointing vector, shape (..., N, 3)
-    # Astropy stores Cartesian coordinates as (3, ..., N). Moving the Cartesian axis to the end gives (..., N, 3)
+    # Cartesian pointing vector, shape (..., 3)
+    # Astropy stores Cartesian coordinates as (3, ...). Moving the Cartesian axis to the end gives (..., 3)
     # Up vector (pointing direction)
     up = np.moveaxis(target.cartesian.xyz.value, 0, -1)
 
-    # East vector
+    # East vector (direction of increasing azimuth)
     east = np.stack(
         (
             -np.sin(az),
@@ -101,6 +139,7 @@ def altaz_local_basis(target: SkyCoord):
         axis=-1,
     )
 
+    # North vector (direction of increasing elevation)
     north = np.cross(up, east)
 
     return east, north, up
@@ -108,7 +147,7 @@ def altaz_local_basis(target: SkyCoord):
 
 def rotate_sky_coords_offset_to_target(target: SkyCoord, offset: SkyCoord) -> SkyCoord:
     """
-    Rotate offset vectors from the local ENU basis of each target into global AltAz.
+    Rotate offsets from the local frame of each target into global AltAz.
 
     Parameters
     ----------
@@ -116,8 +155,11 @@ def rotate_sky_coords_offset_to_target(target: SkyCoord, offset: SkyCoord) -> Sk
         AltAz coordinates defining the local reference directions. The input may
         have arbitrary shape ``(...)``.
     offset : SkyCoord
-        Offset directions expressed in the local ENU frame attached to each
-        corresponding target coordinate. Must have the same shape as ``target``.
+        Offset directions expressed in the local frame attached to each
+        corresponding target coordinate: ``offset.az`` is the offset along
+        increasing azimuth and ``offset.alt`` the offset along increasing
+        elevation, so that ``(az, alt) = (0, 0)`` designates the target. Must
+        have the same shape as ``target``.
 
     Returns
     -------
@@ -128,18 +170,17 @@ def rotate_sky_coords_offset_to_target(target: SkyCoord, offset: SkyCoord) -> Sk
 
     east, north, up = altaz_local_basis(target)
 
-    # Offset vectors in Cartesian coordinates
+    # Offset directions as unit vectors in the local frame of the target, shape
+    # (..., 3): x is the boresight (the target itself for a zero offset), y is
+    # along increasing azimuth (east) and z along increasing elevation (north).
     xyz = np.moveaxis(offset.cartesian.xyz.value, 0, -1)
 
-    # Emulates the 'eulmat', 'matvec' calculations of the CASA sdm tool
-    # But avoids explicitly building the full 3×3 rotation matrix (einsum):
-    #
-    # Since the matrix columns are just the basis vectors, you can apply the rotation directly:
-    # This is mathematically identical to the matrix multiplication because
-    # v_rot = v_x e_east + v_y e_north + v_z e_up
-    # Expand local ENU coordinates into the global frame
+    # Emulates the 'eulmat', 'matvec' calculations of the CASA sdm tool, but
+    # avoids explicitly building the full 3x3 rotation matrix: its columns are
+    # the basis vectors (up, east, north), so the rotation is
+    #   v_rot = v_x e_up + v_y e_east + v_z e_north
     xyz_rot = (
-        xyz[..., 0, None] * east + xyz[..., 1, None] * north + xyz[..., 2, None] * up
+        xyz[..., 0, None] * up + xyz[..., 1, None] * east + xyz[..., 2, None] * north
     )
 
     cartesian_rot = CartesianRepresentation(

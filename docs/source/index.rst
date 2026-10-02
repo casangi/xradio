@@ -26,6 +26,7 @@ The Measurement Set |MSV4_SCHEMA_VERSION| is described in the section :doc:`Meas
    measurement_set/tutorials_guides
    measurement_set/schema
    measurement_set/api
+   performance/asdm/asdm_backend_performance
 
 .. toctree::
    :hidden:

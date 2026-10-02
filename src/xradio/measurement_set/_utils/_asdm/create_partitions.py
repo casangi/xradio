@@ -1,4 +1,3 @@
-import itertools
 import time
 
 import numpy as np
@@ -9,352 +8,557 @@ from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,
 )
-from xradio.measurement_set._utils._asdm._utils.time import convert_time_asdm_to_unix
+from xradio.measurement_set._utils._asdm._utils.time import (
+    convert_time_asdm_to_datetime64,
+)
+
+#: Partition axes that are always used (one MSv4 never mixes values of these).
+#: "scanIntent" is the set of "INTENT#SUBINTENT" observing modes of a Main row.
+MANDATORY_PARTITION_AXES = (
+    "execBlockId",
+    "configDescriptionId",
+    "dataDescriptionId",
+    "scanIntent",
+)
+#: Partition axes that can be requested with the ``partition_scheme`` parameter.
+OPTIONAL_PARTITION_AXES = ("fieldId", "scanNumber", "subscanNumber")
+#: Optional partition axes used when ``partition_scheme`` is None.
+DEFAULT_PARTITION_SCHEME = ("fieldId",)
+#: Placeholder for a missing (sub)intent in "INTENT#SUBINTENT" strings, as used
+#: in MSv2 OBS_MODE / MSv4 scan_intents.
+UNSPECIFIED_INTENT = "UNSPECIFIED"
+#: Keys of ``partition_descr["per_bdf"]``: one value per Main row (BDF) of the
+#: partition, aligned with ``partition_descr["BDFPath"]``.
+PER_BDF_KEYS = ("BDFPath", "time", "scanNumber", "subscanNumber", "fieldId", "stateId")
+
+# Main table columns loaded to build the partitions.
+_MAIN_ATTRS = [
+    "time",
+    "fieldId",
+    "configDescriptionId",
+    "scanNumber",
+    "subscanNumber",
+    "stateId",
+    "dataUID",
+    # BDFPath triggers a call to MainRow.getBDFPath, which uses
+    # getContainer().getDirectory()
+    "BDFPath",
+    "execBlockId",
+]
+# Partition description entries that keep one value per Main row / the time
+# order of first appearance (instead of sorted unique values).
+_TIME_ORDERED_KEYS = ("time", "dataUID")
+
+
+def validate_partition_scheme(partition_scheme: list[str] | None) -> list[str]:
+    """
+    Validate the optional partition axes requested by the user.
+
+    Parameters
+    ----------
+    partition_scheme : list[str] | None
+        Optional partition axes. None means the default ``["fieldId"]``. An
+        empty list means that only the mandatory axes are used.
+
+    Returns
+    -------
+    list[str]
+        The optional partition axes to use, without duplicates.
+
+    Raises
+    ------
+    ValueError
+        If partition_scheme is not a list of names, or if it includes names
+        other than the allowed optional axes ("fieldId", "scanNumber",
+        "subscanNumber").
+    """
+    allowed_msg = (
+        f"The allowed partition_scheme axes are {list(OPTIONAL_PARTITION_AXES)}. "
+        f"The axes {list(MANDATORY_PARTITION_AXES)} are always used."
+    )
+    if partition_scheme is None:
+        return list(DEFAULT_PARTITION_SCHEME)
+
+    if isinstance(partition_scheme, str) or not isinstance(
+        partition_scheme, list | tuple | np.ndarray
+    ):
+        raise ValueError(
+            f"partition_scheme must be a list of axis names or None, got "
+            f"{partition_scheme!r}. {allowed_msg}"
+        )
+
+    invalid = [axis for axis in partition_scheme if axis not in OPTIONAL_PARTITION_AXES]
+    if invalid:
+        raise ValueError(f"Unsupported partition_scheme axes: {invalid}. {allowed_msg}")
+
+    return list(dict.fromkeys(str(axis) for axis in partition_scheme))
 
 
 def create_partitions(
     sdm: pyasdm.ASDM,
-    partition_scheme: list[str],
-    include_processor_types: list[str] = None,
-    include_spectral_resolution_types: list[str] = None,
+    partition_scheme: list[str] | None = None,
+    include_processor_types: list[str] | None = None,
+    include_spectral_resolution_types: list[str] | None = None,
 ) -> list[dict]:
     """
-    TODO
+    Group the Main rows of an ASDM into partitions, one per MSv4.
+
+    Every Main row (BDF) is expanded into its data descriptions (one per
+    spectral window / polarization setup of its ConfigDescription). The
+    resulting rows are grouped by the mandatory axes ``execBlockId``,
+    ``configDescriptionId``, ``dataDescriptionId`` and ``scanIntent`` plus the
+    optional axes given in ``partition_scheme``.
 
     Parameters
     ----------
-    sdm:
-        Input ASDM object
-    partition_scheme:
-        List of axes to partition the data on. Default is ["fieldId"].
-        The following partition axes are always used, in addition to the ones
-        given: ["execBlockId", "dataDescriptionId", "scanIntent"]
-        The optional axes are: ["fieldId", "scanNumber", "subscanNumber", "antennaId"]
-    include_processor_types:
-        when opening the ASDM, produce MSv4s only for partitions with these processor types.
-        Possible values are "CORRELATOR", "SPECTROMETER", "RADIOMETER".
-        Default is None, which is interpreted as include all possible types.
+    sdm : pyasdm.ASDM
+        Input ASDM object.
+    partition_scheme : list[str] | None
+        Optional axes to partition the data on, in addition to the mandatory
+        ones. Allowed axes: "fieldId", "scanNumber", "subscanNumber".
+        None (default) means ``["fieldId"]``. An empty list means that only
+        the mandatory axes are used (for example one MSv4 with all the fields
+        of a mosaic).
+    include_processor_types : list[str] | None
+        Produce partitions only for these processor types (ASDM ProcessorType
+        enumeration: "CORRELATOR", "SPECTROMETER", "RADIOMETER"). None (or an
+        empty list) includes all types.
+    include_spectral_resolution_types : list[str] | None
+        Produce partitions only for these spectral resolution types (ASDM
+        SpectralResolutionType enumeration: "FULL_RESOLUTION",
+        "CHANNEL_AVERAGE", "BASEBAND_WIDE"). None (or an empty list) includes
+        all types.
 
+    Returns
+    -------
+    list[dict]
+        One partition description per partition. Each is a dict with, for
+        every column of the partitioning table, a 1-D ``np.ndarray`` of the
+        values found in the partition:
+
+        - "execBlockId", "configDescriptionId", "dataDescriptionId",
+          "fieldId", "scanNumber", "subscanNumber", "stateId",
+          "spectralWindowId", "polOrHoloId", "sourceId": sorted unique ints
+          ("sourceId" is -1 for fields without the optional sourceId).
+        - "processorType", "spectralType": sorted unique str.
+        - "scanIntent": sorted unique "INTENT#SUBINTENT" str, from
+          Scan.scanIntent x Subscan.subscanIntent ("UNSPECIFIED" is used for a
+          missing subscan intent).
+        - "time": unique Main row times (datetime64[ns], ascending).
+        - "dataUID": unique data UIDs, in time order.
+        - "BDFPath": one entry per Main row of the partition, ordered by Main
+          time (ascending, stable w.r.t. the Main table order).
+        - "per_bdf": dict of equal-length 1-D arrays aligned with "BDFPath":
+          "BDFPath" (str), "time" (int64 ASDM ArrayTime ns of the Main row),
+          "scanNumber", "subscanNumber", "fieldId", "stateId" (int64).
+
+    Raises
+    ------
+    ValueError
+        If partition_scheme is not valid (see :func:`validate_partition_scheme`).
+    RuntimeError
+        If no ConfigDescription is left after filtering by processor type or
+        spectral resolution type.
     """
-
-    def time_asdm_to_pd(times):
-        # Beware: ArrayTime uses TAI, not UTC scale -> look for UTCTime class
-        # This should be fine, as the first leap second was in 1972.30.06?
-        #
-        # Note that also these functions produce tai-referenced values:
-        # time_values = [((asdm_interval.toFITS()) for asdm_interval in main_df["time"].values]
-
-        time_unix = convert_time_asdm_to_unix(times)
-        return pd.to_datetime(time_unix, unit="s")
-
+    partition_scheme = validate_partition_scheme(partition_scheme)
+    logger = xradio_logger()
     start = time.perf_counter()
 
-    sdm_main_attrs = [
-        "time",  # here for now to keep an eye on it
+    main_df = _load_main_df(sdm)
+    if main_df.empty:
+        logger.warning("The ASDM Main table is empty, no partitions can be created.")
+        return []
+
+    config_description_df = _load_config_description_df(
+        sdm, main_df, include_processor_types, include_spectral_resolution_types
+    )
+    # Starting with Main+ConfigDescription prunes the possibilities down to the
+    # (configuration, data description) combinations actually used in Main.
+    partitioning_df = pd.merge(main_df, config_description_df, on="configDescriptionId")
+
+    data_description_df = exp_asdm_table_to_df(
+        sdm, "DataDescription", ["dataDescriptionId", "spectralWindowId", "polOrHoloId"]
+    )
+    partitioning_df = _merge_required(
+        partitioning_df, data_description_df, "dataDescriptionId", "DataDescription"
+    )
+    partitioning_df = _merge_required(
+        partitioning_df, _load_field_df(sdm), "fieldId", "Field"
+    )
+    partitioning_df, obs_modes = _add_scan_intent_ids(sdm, partitioning_df)
+    if partitioning_df.empty:
+        logger.warning(
+            "No Main rows left after matching them with the ConfigDescription, "
+            "DataDescription, Field and Scan tables, no partitions can be created."
+        )
+        return []
+
+    # The merges do not keep the Main order (pandas inner merges with
+    # non-unique keys may scramble rows). Restore a deterministic time order,
+    # stable w.r.t. the Main table order.
+    partitioning_df = partitioning_df.sort_values(
+        ["time", "_main_row", "dataDescriptionId"], kind="stable"
+    ).reset_index(drop=True)
+
+    partition_columns = list(MANDATORY_PARTITION_AXES) + partition_scheme
+    partitions = finalize_partitions_groupby(
+        partitioning_df, partition_columns, obs_modes
+    )
+
+    elapsed = time.perf_counter() - start
+    logger.info(
+        f"Found {len(partitions)} partitions in {len(main_df)} Main rows "
+        f"(partition axes: {partition_columns}), in {elapsed:.3f} s"
+    )
+
+    return partitions
+
+
+def finalize_partitions_groupby(
+    partitioning_df: pd.DataFrame,
+    partition_columns: list[str],
+    unique_scan_intents: list | np.ndarray,
+) -> list[dict]:
+    """
+    Produces the list of partition descriptions from the partitioning table.
+
+    Parameters
+    ----------
+    partitioning_df : pd.DataFrame
+        Table with one row per (Main row, data description), with at least the
+        ``partition_columns``, the "scanIntent" column (integer index into
+        ``unique_scan_intents``) and the ``PER_BDF_KEYS`` columns ("time" as
+        int64 ASDM ArrayTime nanoseconds). Columns whose name starts with "_"
+        are internal and not included in the partition descriptions.
+    partition_columns : list[str]
+        Columns that define the partitions: every unique combination of their
+        values gives one partition.
+    unique_scan_intents : list | np.ndarray
+        ``unique_scan_intents[idx]`` gives the intent strings of the scan
+        intent index ``idx`` used in the "scanIntent" column.
+
+    Returns
+    -------
+    list[dict]
+        One partition description per partition, see :func:`create_partitions`.
+        Partitions are ordered by the values of the partition columns.
+
+    Raises
+    ------
+    ValueError
+        If required columns are missing from ``partitioning_df``.
+    """
+    required = list(dict.fromkeys([*partition_columns, "scanIntent", *PER_BDF_KEYS]))
+    missing = [col for col in required if col not in partitioning_df.columns]
+    if missing:
+        raise ValueError(
+            f"The partitioning table is missing the columns {missing}. "
+            f"Available columns: {partitioning_df.columns.to_list()}"
+        )
+
+    value_columns = [
+        col
+        for col in partitioning_df.columns
+        if not str(col).startswith("_") and col not in ("BDFPath", "scanIntent")
+    ]
+
+    partitions = []
+    for _key, group in partitioning_df.groupby(list(partition_columns), sort=True):
+        # groupby keeps the row order, sort anyway so that BDFPath is in time
+        # order also for tables not sorted by the caller (stable sort)
+        group = group.sort_values("time", kind="stable")
+        partition_descr = {}
+        for col in value_columns:
+            partition_descr[col] = _unique_values(
+                group[col].to_numpy(), keep_order=col in _TIME_ORDERED_KEYS
+            )
+        partition_descr["time"] = convert_time_asdm_to_datetime64(
+            partition_descr["time"]
+        )
+
+        intent_idx = np.unique(group["scanIntent"].to_numpy())
+        partition_descr["scanIntent"] = np.unique(
+            np.concatenate(
+                [
+                    np.asarray(unique_scan_intents[int(idx)], dtype=str).ravel()
+                    for idx in intent_idx
+                ]
+            )
+        )
+        partition_descr["BDFPath"] = group["BDFPath"].to_numpy(dtype=str)
+        partition_descr["per_bdf"] = {
+            key: group[key].to_numpy(dtype=str if key == "BDFPath" else np.int64)
+            for key in PER_BDF_KEYS
+        }
+        partitions.append(partition_descr)
+
+    return partitions
+
+
+def _load_main_df(sdm: pyasdm.ASDM) -> pd.DataFrame:
+    """
+    Loads the Main table columns needed for partitioning, with normalized types.
+
+    "time" is given as int64 ASDM ArrayTime nanoseconds, "stateId" as the
+    state of the first antenna (one state is assumed for all antennas), and
+    "_main_row" gives the position of the row in the Main table.
+    """
+    main_df = exp_asdm_table_to_df(sdm, "Main", _MAIN_ATTRS)
+    if main_df.empty:
+        return main_df
+
+    main_df["_main_row"] = np.arange(len(main_df), dtype=np.int64)
+    main_df["time"] = _asdm_times_to_ns(main_df["time"].to_numpy())
+    main_df["stateId"] = [
+        _first_state_id(state_ids) for state_ids in main_df["stateId"]
+    ]
+    int_cols = [
         "fieldId",
         "configDescriptionId",
         "scanNumber",
         "subscanNumber",
         "stateId",
-        "dataUID",  # Here to see it, not partition idx
-        # BDFPath will trigger a call to MainRow.getBDFPath, which uses getContainer().getDirectory()
-        "BDFPath",  # Here to see it (and for time/data loading later), not partition idx
-        "execBlockId",  # Here to see it, not partition idx
+        "execBlockId",
     ]
-    main_df = exp_asdm_table_to_df(sdm, "Main", sdm_main_attrs)
-    # It is a key, but in principle not a partition axis. Adding time for convenience.
-    main_df["time"] = time_asdm_to_pd(main_df["time"].values)
+    main_df[int_cols] = main_df[int_cols].astype(np.int64)
+    main_df["BDFPath"] = main_df["BDFPath"].astype(str)
+    main_df["dataUID"] = main_df["dataUID"].astype(str)
+    return main_df
 
-    # assume one stateId / regardless of antenna
-    do_single_state_id = True
-    if do_single_state_id:
-        main_df["stateId"] = main_df["stateId"].apply(lambda val: val[0])
 
-    do_prints = True
-    if do_prints:
-        with pd.option_context("display.max_rows", 400):
-            xradio_logger().debug(f"* {main_df=}")
-
-    sdm_config_description_attrs = [
-        "configDescriptionId",
-        "dataDescriptionId",
-    ]  # , "processorId"]
-    if include_processor_types:
-        sdm_config_description_attrs.append("processorType")
-    # include this always in the resulting partition (for pointing for example)
-    sdm_config_description_attrs.append("spectralType")
-
+def _load_config_description_df(
+    sdm: pyasdm.ASDM,
+    main_df: pd.DataFrame,
+    include_processor_types: list[str] | None,
+    include_spectral_resolution_types: list[str] | None,
+) -> pd.DataFrame:
+    """
+    Loads the ConfigDescription table, filtered by processor and spectral
+    resolution types, with one row per (configDescriptionId, dataDescriptionId).
+    """
+    logger = xradio_logger()
     config_description_df = exp_asdm_table_to_df(
-        sdm, "ConfigDescription", sdm_config_description_attrs
+        sdm,
+        "ConfigDescription",
+        ["configDescriptionId", "dataDescriptionId", "processorType", "spectralType"],
     )
+    for col in ["processorType", "spectralType"]:
+        config_description_df[col] = config_description_df[col].map(_enum_name)
 
-    if include_processor_types:
-        config_description_before_df = config_description_df
+    unknown = ~main_df["configDescriptionId"].isin(
+        config_description_df["configDescriptionId"]
+    )
+    if unknown.any():
+        logger.warning(
+            f"{int(unknown.sum())} Main rows refer to configDescriptionIds "
+            f"{_abbreviated(sorted(set(main_df.loc[unknown, 'configDescriptionId'])))} that are not in "
+            "the ConfigDescription table. These rows are ignored."
+        )
+
+    filters = [
+        ("processorType", include_processor_types, "processor types"),
+        (
+            "spectralType",
+            include_spectral_resolution_types,
+            "spectral resolution types",
+        ),
+    ]
+    for col, include_values, description in filters:
+        if not include_values:
+            continue
+        num_before = len(config_description_df)
         config_description_df = config_description_df.loc[
-            config_description_df["processorType"].isin(include_processor_types)
+            config_description_df[col].isin(include_values)
         ]
-        xradio_logger().info(
-            f"Keeping only partitions for requested processor types. From the ConfigDescription "
-            f"table, with {config_description_before_df.shape[0]} rows, "
-            f"{config_description_df.shape[0]} rows are kept for processor types "
-            f"{include_processor_types}"
+        logger.info(
+            f"Keeping only partitions for requested {description}. From the "
+            f"ConfigDescription table, with {num_before} rows, "
+            f"{len(config_description_df)} rows are kept for {description} "
+            f"{list(include_values)}"
         )
         if config_description_df.empty:
-            raise RuntimeError("No partitions left after filtering processor types")
+            raise RuntimeError(f"No partitions left after filtering {description}")
 
-    if include_spectral_resolution_types:
-        config_description_before_df = config_description_df
-        config_description_df = config_description_df.loc[
-            config_description_df["spectralType"].isin(
-                include_spectral_resolution_types
-            )
-        ]
-        xradio_logger().info(
-            f"Keeping only partitions for requested spectral resolution types. From the "
-            f"ConfigDescription table, with {config_description_before_df.shape[0]} rows, "
-            f"{config_description_df.shape[0]} rows are kept for spectral resolution types "
-            f"{include_spectral_resolution_types}"
-        )
-        if config_description_df.empty:
-            raise RuntimeError(
-                "No partitions left after filtering spectral resolution types"
-            )
-
-    # Explode the list in ConfigDescription/dataDescriptionId
+    # One row per data description of every configuration
     config_description_df = config_description_df.explode(
         "dataDescriptionId", ignore_index=True
-    )
-    # the explode changes the type of dataDescriptionId to object (of np.int64 items...)
+    ).dropna(subset=["dataDescriptionId"])
+    # explode leaves an object column (of np.int64 items)
     config_description_df["dataDescriptionId"] = config_description_df[
         "dataDescriptionId"
-    ].astype(int)
-    if do_prints:
-        xradio_logger().debug(f"* {config_description_df=}")
+    ].astype(np.int64)
+    config_description_df["configDescriptionId"] = config_description_df[
+        "configDescriptionId"
+    ].astype(np.int64)
+    return config_description_df
 
-    sdm_dd_attrs = ["dataDescriptionId", "spectralWindowId", "polOrHoloId"]
-    data_description_df = exp_asdm_table_to_df(sdm, "DataDescription", sdm_dd_attrs)
-    if do_prints:
-        xradio_logger().debug(f"* {data_description_df=}")
 
-    sdm_field_attrs = ["fieldId", "sourceId"]
-    field_df = exp_asdm_table_to_df(sdm, "Field", sdm_field_attrs)
-    if do_prints:
-        xradio_logger().debug(f"* {field_df=}")
-
-    sdm_scan_attrs = ["execBlockId", "scanNumber", "scanIntent"]
-    scan_df = exp_asdm_table_to_df(sdm, "Scan", sdm_scan_attrs)
-    if do_prints:
-        xradio_logger().debug(f"* {scan_df=}")
-
-    # replace scan_intents (list of str) by an id
-    unique_scan_intents, unique_intents_inverse = np.unique(
-        scan_df["scanIntent"], return_inverse=True
+def _load_field_df(sdm: pyasdm.ASDM) -> pd.DataFrame:
+    """
+    Loads the Field ids with their (optional) sourceId, -1 when absent.
+    """
+    field_df = exp_asdm_table_to_df(
+        sdm, "Field", ["fieldId", "sourceId"], allow_absent=True
     )
-    scan_df["scanIntent"] = unique_intents_inverse
+    return pd.DataFrame(
+        {
+            "fieldId": np.asarray(field_df["fieldId"], dtype=np.int64),
+            "sourceId": np.array(
+                [
+                    -1 if source_id is None or pd.isna(source_id) else int(source_id)
+                    for source_id in field_df["sourceId"]
+                ],
+                dtype=np.int64,
+            ),
+        }
+    )
 
-    # Starting with Main+ConfigDescription will usually prune possibilities
-    # down to the rows actually in Main (for example there are few rows/scans
-    # left in main but the DataDescription and ConfigDescription still have
-    # lots of SPWs/Pol-Setups.
-    partitioning_df = pd.merge(main_df, config_description_df, on="configDescriptionId")
-    if do_prints:
-        xradio_logger().debug(
-            f" * Initial merge, Main+ConfigurationDescription: {partitioning_df=}"
+
+def _merge_required(
+    partitioning_df: pd.DataFrame, table_df: pd.DataFrame, key: str, table_name: str
+) -> pd.DataFrame:
+    """
+    Inner merge with a table where every key used must have a row. Rows with
+    keys missing from the table cannot be opened and are dropped, with a
+    warning.
+    """
+    table_df = table_df.astype({key: np.int64})
+    missing = ~partitioning_df[key].isin(table_df[key])
+    if missing.any():
+        xradio_logger().warning(
+            f"{int(missing.sum())} (Main row, data description) combinations refer to "
+            f"{key} values {_abbreviated(sorted(set(partitioning_df.loc[missing, key])))} that are "
+            f"not in the {table_name} table. These are ignored."
         )
-    partitioning_df = pd.merge(
-        partitioning_df, data_description_df, on="dataDescriptionId"
-    )
-    if do_prints:
-        xradio_logger().debug(f" * After DataDescription merge: {partitioning_df=}")
-
-    # Starting from DataDescription+ConfigDescription, then main
-    # partitioning_df = pd.merge(
-    #     config_description_df, data_description_df, on="dataDescriptionId"
-    # )
-    # partitioning_df = pd.merge(main_df, partitioning_df, on="configDescriptionId")
-
-    partitioning_df = pd.merge(partitioning_df, field_df, on="fieldId")
-    if do_prints:
-        xradio_logger().debug(f" * AFTER Field merge: {partitioning_df=}")
-    partitioning_df = pd.merge(
-        partitioning_df, scan_df, on=["scanNumber", "execBlockId"], suffixes=("", "_y")
-    )
-    if do_prints:
-        with pd.option_context("display.max_rows", 400):
-            xradio_logger().debug(f" * AFter Scan (all) merges: {partitioning_df=}")
-
-    potential_partitions = len(partitioning_df)
-    xradio_logger().debug(f" * {partitioning_df.columns=}")
-    scheme_cols = ["execBlockId", "dataDescriptionId", "scanIntent"] + partition_scheme
-
-    # possible check: would a full drop_duplicates() drop anything? It shouldn't
-    # partition_df = partitioning_df.drop_duplicates()
-    # print(f" *** {len(partition_df)=} after full drop duplicates!!! / of {potential_partitions}")
-
-    partition_df = partitioning_df.drop_duplicates(subset=scheme_cols).reset_index(
-        drop=True
-    )
-    xradio_logger().debug(f" * After drop_duplicates with subset: {partition_df=}")
-    partition_df = partition_df.drop(
-        columns=set(partition_df.columns.to_list()) - set(scheme_cols)
-    )
-
-    with pd.option_context("display.max_rows", 150):  # , 'display.max_columns', None):
-        xradio_logger().debug(f" * FINAL: {partition_df=}")
-    xradio_logger().debug(
-        f" => {len(partition_df)} out of {potential_partitions} potential partitions are found in dataset"
-    )
-
-    show_example_partition(partition_df, partitioning_df, scheme_cols)
-
-    partitions = finalize_partitions_groupby(
-        partitioning_df, partition_df.columns.to_list(), unique_scan_intents
-    )
-    end = time.perf_counter()
-    elapsed = end - start
-    xradio_logger().info(f" Time taken in create_partitions(): {elapsed:.6f} seconds")
-
-    return partitions
+        partitioning_df = partitioning_df.loc[~missing]
+    return pd.merge(partitioning_df, table_df, on=key)
 
 
-def show_example_partition(
-    partition_df: pd.DataFrame, partitioning_df: pd.DataFrame, scheme_cols: list[str]
-) -> None:
-    if partitioning_df.empty:
-        return
-
-    example_idx = min(90, partition_df.shape[0] - min(2, partition_df.shape[0]))
-    selector_part = partition_df.iloc[example_idx]
-    query = ""
-    for col in scheme_cols:
-        col_value = selector_part[col]
-        preffix_addition = " & " if query else ""
-        query += preffix_addition + f"{col} == {col_value}"
-
-    all_cols_example_idx = partitioning_df.query(query)
-    xradio_logger().debug(
-        f" Example {example_idx}-th partition (only explicit cols): {partition_df.iloc[example_idx]=},\n"
-        f" All cols from partitioning_df: {all_cols_example_idx=}"
-    )
-
-
-def finalize_partitions_groupby(
-    partitioning_df: pd.DataFrame,
-    # partition_df: pd.DataFrame,
-    partition_columns: list[str],
-    unique_scan_intents: np.ndarray,
-) -> list[dict]:
+def _add_scan_intent_ids(
+    sdm: pyasdm.ASDM, partitioning_df: pd.DataFrame
+) -> tuple[pd.DataFrame, list[tuple[str, ...]]]:
     """
-    Produces a list of partitions, with every partition defined as a dict.
-    One entry for every potentially partitioning ID/number/etc. column, with
-    values set to an array including all the IDs/numbers/etc. of that column
-    in the partition.
+    Adds the "scanIntent" column: for every row, the index of its observing
+    modes (sorted unique "INTENT#SUBINTENT" strings, from Scan.scanIntent and
+    Subscan.subscanIntent) in the returned list of observing modes.
 
-    partitioning_df: frame with all partitioning columns
-    partition_df: frame with only the 'partition_scheme' columns left, where
-       every row defines one partition base on those columns.
+    Rows of scans that are not in the Scan table are dropped, with a warning.
     """
+    logger = xradio_logger()
+    scan_df = exp_asdm_table_to_df(
+        sdm, "Scan", ["execBlockId", "scanNumber", "scanIntent"]
+    )
+    scan_intents = {
+        (int(eb_id), int(scan)): [_enum_name(intent) for intent in intents]
+        for eb_id, scan, intents in zip(
+            scan_df["execBlockId"],
+            scan_df["scanNumber"],
+            scan_df["scanIntent"],
+            strict=False,
+        )
+    }
+    subscan_df = exp_asdm_table_to_df(
+        sdm, "Subscan", ["execBlockId", "scanNumber", "subscanNumber", "subscanIntent"]
+    )
+    subscan_intents = {
+        (int(eb_id), int(scan), int(subscan)): _enum_name(intent)
+        for eb_id, scan, subscan, intent in zip(
+            subscan_df["execBlockId"],
+            subscan_df["scanNumber"],
+            subscan_df["subscanNumber"],
+            subscan_df["subscanIntent"],
+            strict=False,
+        )
+    }
 
-    def replace_back_intent_strings(
-        partitions_list: list, unique_scan_intents: np.ndarray
-    ) -> list:
-        """
-        Replace back indices of scan intent strings with their original list of intent strings
+    key_cols = ["execBlockId", "scanNumber", "subscanNumber"]
+    row_keys = list(partitioning_df[key_cols].itertuples(index=False, name=None))
+    modes_by_key = {}
+    missing_scans = set()
+    missing_subscans = set()
+    for key in dict.fromkeys(row_keys):
+        eb_id, scan, subscan = (int(val) for val in key)
+        if (eb_id, scan) not in scan_intents:
+            missing_scans.add((eb_id, scan))
+            modes_by_key[key] = None
+            continue
+        intents = scan_intents[(eb_id, scan)] or [UNSPECIFIED_INTENT]
+        subscan_intent = subscan_intents.get((eb_id, scan, subscan))
+        if subscan_intent is None:
+            missing_subscans.add((eb_id, scan, subscan))
+            subscan_intent = UNSPECIFIED_INTENT
+        modes_by_key[key] = tuple(
+            sorted({f"{intent}#{subscan_intent}" for intent in intents})
+        )
 
-        Indices in the unique_scan_intents array of intent strings are sed before this point for the
-        sake of unique, sorting, etc. functions which do not accept lists of strings.
-        """
-        for part in partitions_list:
-            intent_strings = unique_scan_intents[part["scanIntent"]]
-            if isinstance(intent_strings, list) and isinstance(intent_strings[0], str):
-                part["scanIntent"] = intent_strings
-            else:
-                part["scanIntent"] = list(itertools.chain.from_iterable(intent_strings))
+    if missing_subscans:
+        logger.warning(
+            f"No Subscan rows found for {len(missing_subscans)} (execBlockId, "
+            f"scanNumber, subscanNumber) combinations: "
+            f"{_abbreviated(sorted(missing_subscans))}. Their subscan intent is set "
+            f"to {UNSPECIFIED_INTENT}."
+        )
 
-        return partitions_list
+    row_modes = [modes_by_key[key] for key in row_keys]
+    if missing_scans:
+        keep = np.array([modes is not None for modes in row_modes], dtype=bool)
+        logger.warning(
+            f"No Scan rows found for {len(missing_scans)} (execBlockId, scanNumber) "
+            f"combinations: {_abbreviated(sorted(missing_scans))}. The data of "
+            f"{int((~keep).sum())} (Main row, data description) combinations of "
+            "these scans are ignored."
+        )
+        partitioning_df = partitioning_df.loc[keep]
+        row_modes = [modes for modes in row_modes if modes is not None]
 
-    def fix_types_for_anomalous_partitions(partitions_list: list) -> list:
-        """
-        Still trying to clarify these cases and how to best handle them.
-        See for example 2015.1.00665.S/uid___A002_Xae4720_X57fe.
-        """
-        for idx, part in enumerate(partitions_list):
-            if isinstance(part["scanIntent"], np.ndarray):
-                pass
-            elif isinstance(part["scanIntent"], dict):
-                # Single df row group, from for example subscans/BDFs with no or 1 time
-                partitions_list[idx] = {
-                    key: np.array([next(iter(val.values()))])
-                    for key, val in part.items()
-                }
-            else:
-                raise RuntimeError("Unexpected. Partition produced: {part=}")
+    obs_modes = sorted(set(row_modes))
+    mode_index = {modes: idx for idx, modes in enumerate(obs_modes)}
+    partitioning_df = partitioning_df.assign(
+        scanIntent=np.array([mode_index[modes] for modes in row_modes], dtype=np.int64)
+    )
 
-        return partitions_list
+    return partitioning_df, obs_modes
 
-    def retype_lists_etc_to_ndarray(partitions_list: list[dict]) -> list[dict]:
-        """
-        Added for uid___A002_X997a62_X8c-short and the like
-        This should go away.
-        """
-        print(f" = applying lists->ndarray fix, {partitions_list=}")
-        new_list = []
-        for partition_descr in partitions_list:
-            new_dict = {}
-            for key, val in partition_descr.items():
-                if isinstance(val, list):
-                    new_dict[key] = np.array(val)
-                elif isinstance(val, np.ndarray):
-                    new_dict[key] = val
-                else:
-                    new_dict[key] = np.array([val])
 
-            new_list.append(new_dict)
-        partitions_list = new_list
+def _abbreviated(values: list, max_items: int = 5) -> str:
+    """String with the first max_items values of a list (for log messages)."""
+    if len(values) <= max_items:
+        return str(values)
+    return f"{str(values[:max_items])[:-1]}, ...]"
 
-        # for val, key in partition_descr.items():
-        #     if not isinstance(val, list):
-        #         partition_descr[key] = val
-        # partitions_list = partitions_list_d2
-        # partitions_list_d2 = []
-        # for partition_descr in partitions_list:
-        #     if not isinstance(partition_descr["fieldId"], list):
-        #         partition_d2 = {}
-        #         for key, val in partition_descr.items():
-        #             if isinstance(val, list):
-        #                 partition_d2[key] = val
-        #             else:
-        #                 partition_d2[key] = [val]
-        #         print(f" ===> {partition_d2=}")
-        #         partition_descr = partition_d2
-        #     partitions_list_d2.append(partition_descr)
-        # partitions_list = partitions_list_d2
 
-        print(f" ===> After lists->ndarray fix, {partitions_list=}")
-        return partitions_list
+def _enum_name(value) -> str:
+    """Name of an ASDM enumeration value (or the value itself if a str)."""
+    if hasattr(value, "getName"):
+        return str(value.getName())
+    return str(value)
 
-    partition_groups = partitioning_df.groupby(partition_columns)
 
-    # if these two lens match, the partitions are a 1-row df => series
-    print(f"{len(partition_groups)=}, while {partitioning_df.shape[0]=}")
-    if len(partition_groups) == partitioning_df.shape[0]:
-        # Special case when partitioning all rows (scanNumber and subscanNumber
-        # included).
-        # Would need to pass something like orient="records" to to_dict()
-        # but the API is not the same between pd.DataFrame and pd.Series
-        # So when we are left with a 1-row frame (which will be seen by
-        # apply as a Series, use this DataFrame global to_dict:
-        partitions_list = partitioning_df.to_dict(orient="records")
+def _first_state_id(state_ids) -> int:
+    """State of the first antenna (-1 when no state is given)."""
+    state_ids = np.ravel(state_ids)
+    if len(state_ids) == 0:
+        return -1
+    return int(state_ids[0])
 
-        partitions_list = retype_lists_etc_to_ndarray(partitions_list)
 
-    else:
-        partitions_list = [
-            group.apply(lambda col: col.unique(), axis=0).to_dict()
-            for _name, group in partition_groups
-        ]
-        partitions_list = fix_types_for_anomalous_partitions(partitions_list)
+def _asdm_times_to_ns(times: np.ndarray) -> np.ndarray:
+    """ASDM ArrayTime values (objects or nanoseconds) to int64 nanoseconds."""
+    return np.array(
+        [int(value.get()) if hasattr(value, "get") else int(value) for value in times],
+        dtype=np.int64,
+    )
 
-    partitions_list = replace_back_intent_strings(partitions_list, unique_scan_intents)
 
-    return partitions_list
+def _unique_values(values: np.ndarray, keep_order: bool = False) -> np.ndarray:
+    """
+    Unique values as a 1-D array (str arrays instead of object arrays of str),
+    sorted or in order of first appearance.
+    """
+    values = np.asarray(values)
+    if values.dtype == object and all(isinstance(val, str) for val in values):
+        values = values.astype(str)
+    unique, first_idx = np.unique(values, return_index=True)
+    if keep_order:
+        return values[np.sort(first_idx)]
+    return unique

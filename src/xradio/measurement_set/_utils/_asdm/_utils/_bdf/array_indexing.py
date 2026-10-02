@@ -1,295 +1,219 @@
 """
 Functions related to indexing of the dimensions of the VISIBILITY and FLAG arrays.
+
+The loaders of BDF data work on contiguous blocks: every dimension (time, baseline,
+frequency, polarization) is selected with a slice(start, stop, 1) with explicit
+non-negative ints ("block slices"). Other (numpy "basic") indices, such as ints,
+None, negative indices or slices with steps, are split into a block slice that
+bounds the selection plus a "residual" index applied to the loaded block (see
+:func:`split_dim_key` and :func:`apply_residual_keys`).
 """
 
-import pyasdm
+import numbers
+
+import numpy as np
 
 
-def min_max_from_dimension_slice(
-    dimension_slice: slice | None, default_min: int, default_max: int
-) -> [int, int]:
-    if isinstance(dimension_slice, int):
-        dimension_idx_min = dimension_slice
-        dimension_idx_max = dimension_slice + 1
-    elif isinstance(dimension_slice, slice):
-        if dimension_slice.start:
-            dimension_idx_min = max(dimension_slice.start, default_min)
-        else:
-            dimension_idx_min = default_min
-
-        if dimension_slice.stop:
-            dimension_idx_max = min(dimension_slice.stop, default_max)
-        else:
-            dimension_idx_max = default_max
-    else:
-        dimension_idx_min = default_min
-        dimension_idx_max = default_max
-
-    return dimension_idx_min, dimension_idx_max
+def _is_int(value) -> bool:
+    return isinstance(value, numbers.Integral) and not isinstance(value, bool)
 
 
-def find_bdfs_and_indices_in_selected_times(
-    time_indices_by_bdf: dict, time_slice: slice | int
-) -> tuple[list[str], list[slice]]:
-    """Produces:
-    - 1) the list of BDFs (names) corresponding to a time slice,
-    - 2) star/stop indices local to every BDF, as slices
+def is_block_slice(dim_key) -> bool:
     """
-    if (
-        time_slice is None
-        or isinstance(time_slice, slice)
-        and time_slice.start is None
-        and time_slice.stop is None
-    ):
-        return _make_all_bdf_paths_and_slices(time_indices_by_bdf)
+    Whether a key is a slice(start, stop[, 1]) with explicit ints 0 <= start <= stop.
 
-    bdf_paths = time_indices_by_bdf["bdf_names"]
-    bdf_start_indices = time_indices_by_bdf["bdf_start"]
+    Parameters
+    ----------
+    dim_key : slice | int | None
+        Index along one dimension.
 
-    (start_first_found, start_last_found), bdf_slice = _find_index_in_bdf_start_indices(
-        time_slice, bdf_start_indices
+    Returns
+    -------
+    bool
+        True for block slices (contiguous selection with explicit bounds).
+    """
+    return bool(
+        isinstance(dim_key, slice)
+        and dim_key.step in (None, 1)
+        and _is_int(dim_key.start)
+        and _is_int(dim_key.stop)
+        and 0 <= dim_key.start <= dim_key.stop
     )
-    if isinstance(time_slice, int):
-        bdfs_in_selected_times = bdf_paths[bdf_slice]
-        index_within_bdf = time_slice - start_first_found
-        time_slices_for_bdfs = [slice(index_within_bdf, index_within_bdf + 1)]
 
-    elif isinstance(time_slice, slice):
-        bdfs_in_selected_times = bdf_paths[bdf_slice]
 
-        bdf_slice_len = bdf_slice.stop - bdf_slice.start
-        if bdf_slice_len == 1:
-            slice_start = (
-                0 if time_slice.start is None else time_slice.start - start_first_found
+def block_slice_len(dim_slice: slice) -> int:
+    """
+    Number of elements selected by a block slice.
+
+    Parameters
+    ----------
+    dim_slice : slice
+        Block slice (see :func:`is_block_slice`).
+
+    Returns
+    -------
+    int
+        stop - start
+    """
+    return int(dim_slice.stop - dim_slice.start)
+
+
+def split_dim_key(dim_key, dim_len: int) -> tuple[slice, int | np.ndarray | None]:
+    """
+    Split a numpy basic index along one dimension into a contiguous block slice and
+    a residual index to apply to the block.
+
+    ``array[dim_key]`` equals ``array[block][residual]`` (when residual is not None),
+    or ``array[block]`` (when residual is None).
+
+    Parameters
+    ----------
+    dim_key : slice | int | None
+        Index along the dimension. None selects the whole dimension.
+    dim_len : int
+        Length of the dimension.
+
+    Returns
+    -------
+    tuple[slice, int | np.ndarray | None]
+        - block: slice(start, stop, 1) with explicit ints, 0 <= start <= stop <=
+          dim_len (empty when start == stop)
+        - residual: None if the block is the selection, 0 for an int key (the
+          dimension is to be dropped), or an array of indices within the block
+          (slices with step != 1)
+
+    Raises
+    ------
+    IndexError
+        If an int key is out of range.
+    TypeError
+        If the key is not None, an int or a slice.
+    """
+    if dim_key is None:
+        return slice(0, dim_len, 1), None
+
+    if _is_int(dim_key):
+        index = int(dim_key)
+        if index < 0:
+            index += dim_len
+        if not 0 <= index < dim_len:
+            raise IndexError(
+                f"Index {dim_key} out of range for a dimension of length {dim_len}"
             )
-            slice_stop = (
-                bdf_start_indices[bdf_slice.stop]
-                - bdf_start_indices[bdf_slice.stop - 1]
-                if time_slice.stop is None
-                else time_slice.stop - start_first_found
-            )
-            time_slices_for_bdfs = [slice(slice_start, slice_stop)]
-        elif bdf_slice_len > 1:
-            time_slices_for_bdfs = _make_time_slices_for_multiple_bdfs(
-                time_slice,
-                start_first_found,
-                start_last_found,
-                bdf_slice,
-                bdf_start_indices,
-            )
+        return slice(index, index + 1, 1), 0
 
-    return bdfs_in_selected_times, time_slices_for_bdfs
+    if isinstance(dim_key, slice):
+        indices = range(*dim_key.indices(dim_len))
+        if len(indices) == 0:
+            return slice(0, 0, 1), None
+        if indices.step == 1:
+            return slice(indices.start, indices.stop, 1), None
+        lowest = min(indices[0], indices[-1])
+        highest = max(indices[0], indices[-1])
+        residual = np.asarray(indices, dtype=np.intp) - lowest
+        return slice(lowest, highest + 1, 1), residual
+
+    raise TypeError(f"Unexpected index type {type(dim_key)} ({dim_key=})")
 
 
-def _make_all_bdf_paths_and_slices(
-    time_indices_by_bdf,
-) -> tuple[list[str], list[slice]]:
-    bdf_paths = time_indices_by_bdf["bdf_names"]
-    bdf_slices = [
-        slice(
-            0,
-            time_indices_by_bdf["bdf_start"][idx + 1]
-            - time_indices_by_bdf["bdf_start"][idx],
-        )
-        for idx in range(0, len(bdf_paths))
-    ]
-    return bdf_paths, bdf_slices
+def apply_residual_keys(
+    block: np.ndarray, residuals: tuple[int | np.ndarray | None, ...]
+) -> np.ndarray:
+    """
+    Apply the residual indices (from :func:`split_dim_key`) to a loaded block.
 
+    Parameters
+    ----------
+    block : np.ndarray
+        Loaded block, one dimension per residual.
+    residuals : tuple[int | np.ndarray | None, ...]
+        Residual index of every dimension of the block.
 
-def _make_time_slices_for_multiple_bdfs(
-    time_slice: slice,
-    start_first_found: int,
-    start_last_found: int,
-    bdf_slice: slice,
-    bdf_start_indices: list[int],
-) -> list[slice]:
-    first_start = (
-        0 if time_slice.start is None else time_slice.start - start_first_found
-    )
-    time_slices_for_bdfs = [
-        slice(
-            first_start,
-            bdf_start_indices[bdf_slice.start + 1] - start_first_found,
-        )
-    ]
+    Returns
+    -------
+    np.ndarray
+        The selection, with the int-indexed dimensions dropped.
+    """
+    result = block
+    # From the last axis to the first, so that dropping an axis does not shift the
+    # axes still to be indexed.
+    for axis in reversed(range(len(residuals))):
+        residual = residuals[axis]
+        if residual is None:
+            continue
+        result = np.take(result, residual, axis=axis)
 
-    middle_slices = [
-        slice(0, bdf_start_indices[idx + 1] - bdf_start_indices[idx])
-        for idx in range(bdf_slice.start + 1, bdf_slice.stop - 1)
-    ]
-    time_slices_for_bdfs.extend(middle_slices)
-
-    last_stop = (
-        bdf_start_indices[bdf_slice.stop] - start_last_found
-        if time_slice.stop is None
-        else time_slice.stop - start_last_found
-    )
-    time_slices_for_bdfs.append(slice(0, last_stop))
-
-    return time_slices_for_bdfs
-
-
-def _find_index_in_bdf_start_indices(
-    time_slice: int | slice, bdf_start_indices: list[int]
-) -> tuple[tuple[int, int], slice]:
-    """Binary search through BDF start (time) indices (used as start/stop boundaries).
-    Keeps absolute indices, does not shift to relative indices within BDFs."""
-
-    if isinstance(time_slice, int):
-        bdf_index_first = _search_index_in_bdf_time_starts(
-            time_slice, bdf_start_indices
-        )
-        bdf_index_last = bdf_index_first
-    elif isinstance(time_slice, slice):
-        if time_slice.start is None:
-            bdf_index_first = 0
-        else:
-            bdf_index_first = _search_index_in_bdf_time_starts(
-                time_slice.start, bdf_start_indices
-            )
-        if time_slice.stop is None:
-            bdf_index_last = len(bdf_start_indices) - 2
-        else:
-            bdf_index_last = _search_index_in_bdf_time_starts(
-                time_slice.stop - 1, bdf_start_indices
-            )
-
-    result = (
-        (
-            bdf_start_indices[bdf_index_first],
-            bdf_start_indices[bdf_index_last],
-        ),
-        slice(bdf_index_first, bdf_index_last + 1),
-    )
     return result
 
 
-def _search_index_in_bdf_time_starts(index: int, bdf_start: list[int]) -> int:
-    len_bdf_start = len(bdf_start)
-    if len_bdf_start <= 1:
-        return len(bdf_start) - 1
-
-    left_index = 0
-    right_index = len(bdf_start) - 1
-    while left_index <= right_index:
-        middle_index = (left_index + right_index) // 2
-        if bdf_start[middle_index] <= index and (
-            middle_index + 1 == len_bdf_start or index < bdf_start[middle_index + 1]
-        ):
-            return middle_index
-
-        if bdf_start[middle_index] > index:
-            right_index = middle_index - 1
-        else:
-            left_index = middle_index + 1
-
-    return middle_index
-
-
-def calc_auto_cross_baseline_slices(
-    array_slice_baseline: slice | int,
-    cross_baseline_len: int,
-    nantennas: int,
-    cross_data_present: bool,
-) -> tuple[slice, slice]:
+def find_bdfs_and_indices_in_selected_times(
+    time_indices_by_bdf: dict, time_slice: slice | int | None
+) -> tuple[list[str], list[slice]]:
     """
-    Indexing/selecting slices for baseline dimension need special treatment because some baselines are
-    loaded from the crossData binary component (cross-correlations, loaded as first block) and some
-    others are loaded from the autoData binary components (auto-correlations, loaded as a second block).
+    Find the BDFs that hold a selection of times (integrations) of a partition, and
+    the time indices local to every BDF.
 
-    This function maps the overall VISIBILITY baseline dimension indices into separate indices for the
-    autoData and crossData binary components of the BDFs.
+    Parameters
+    ----------
+    time_indices_by_bdf : dict
+        "bdf_names": list of BDF paths; "bdf_start": index of the first integration
+        of every BDF in the partition time axis, with len(bdf_names) + 1 elements
+        (the last one is the total number of integrations).
+    time_slice : slice | int | None
+        Selection along the partition time axis. None selects all times. Slices must
+        have step 1 (or None); their bounds follow the Python conventions (negative
+        values count from the end, out-of-range values are clipped).
 
-    Turns an overall slice for indexing/selecting baseline id into separate slices for the
-    - cross correlations (to be loaded from crossData binary component)
-    - the auto correlations (to be loaded form the autoData binary component).
-    When either of them is not used (are not within the overall start/stop), their array selection slices
-    are set to None (meaning the selection does not take anything from them, as opposed to a
-    slice(None, None) which means all is selected).
+    Returns
+    -------
+    tuple[list[str], list[slice]]
+        The BDFs with selected integrations (in time order) and, for every one of
+        them, the BDF-local selection as slice(start, stop, 1) with explicit ints
+        (never empty). Both lists are empty for an empty selection.
+
+    Raises
+    ------
+    IndexError
+        If an int time index is out of range.
+    ValueError
+        If time_slice has a step other than 1, or time_indices_by_bdf is
+        inconsistent.
     """
-    auto_baseline_slice = None
-    cross_baseline_slice = None
-    skip_cross_slice = skip_auto_slice = False
-
-    if not cross_data_present:
-        cross_baseline_slice = None
-        auto_baseline_slice = array_slice_baseline
-
-    elif isinstance(array_slice_baseline, slice):
-        if not array_slice_baseline.start:
-            # All global slice => all cross + all auto slices
-            cross_start = auto_start = array_slice_baseline.start
-        elif array_slice_baseline.start >= cross_baseline_len:
-            # All on the auto (second) half
-            skip_cross_slice = True
-            auto_start = array_slice_baseline.start - cross_baseline_len
-        else:
-            # Some on the cross (first) half and more on the auto (second) half
-            cross_start = array_slice_baseline.start
-            auto_start = 0
-
-        if not array_slice_baseline.stop:
-            cross_stop = auto_stop = array_slice_baseline.stop
-        elif array_slice_baseline.stop >= cross_baseline_len:
-            # Part in cross (first) half, and part in auto (second) half
-            cross_stop = cross_baseline_len
-            auto_stop = array_slice_baseline.stop - cross_baseline_len
-        else:
-            # All on the cross (first) half
-            cross_stop = array_slice_baseline.stop
-            skip_auto_slice = True
-
-        if not skip_auto_slice:
-            auto_baseline_slice = slice(auto_start, auto_stop)
-        if not skip_cross_slice:
-            cross_baseline_slice = slice(cross_start, cross_stop)
-
-    elif isinstance(array_slice_baseline, int):
-        if array_slice_baseline < cross_baseline_len:
-            cross_baseline_slice = array_slice_baseline
-        elif array_slice_baseline >= cross_baseline_len and array_slice_baseline < (
-            cross_baseline_len + nantennas
-        ):
-            auto_baseline_slice = array_slice_baseline - cross_baseline_len
-        else:
-            raise RuntimeError(
-                "Unexpected value (too high) of int {array_slice_baseline=}, with {cross_baseline_len=}, {nantennas=}"
-            )
-
-    else:
-        raise RuntimeError(
-            "Unexpected type of {array_slice_baseline=}, {type(array_slice_baseline)=}"
+    bdf_names = list(time_indices_by_bdf["bdf_names"])
+    bdf_start = np.asarray(time_indices_by_bdf["bdf_start"], dtype=np.int64)
+    if len(bdf_start) != len(bdf_names) + 1:
+        raise ValueError(
+            f"Inconsistent time indices by BDF: {len(bdf_names)} BDFs but "
+            f"{len(bdf_start)} start indices (expected {len(bdf_names) + 1})"
         )
+    time_len = int(bdf_start[-1])
 
-    return cross_baseline_slice, auto_baseline_slice
+    if time_slice is None:
+        start, stop = 0, time_len
+    elif _is_int(time_slice):
+        time_block, _ = split_dim_key(time_slice, time_len)
+        start, stop = time_block.start, time_block.stop
+    elif isinstance(time_slice, slice):
+        if time_slice.step not in (None, 1):
+            raise ValueError(
+                f"Only contiguous time selections (step 1) are supported, got {time_slice=}"
+            )
+        start, stop, _ = time_slice.indices(time_len)
+    else:
+        raise TypeError(f"Unexpected type of time selection: {type(time_slice)}")
 
+    bdfs_in_selected_times, time_slices_for_bdfs = [], []
+    if stop <= start:
+        return bdfs_in_selected_times, time_slices_for_bdfs
 
-def find_data_components_needed(
-    array_slice: slice | None, bdf_descr: dict
-) -> list[str]:
-    # For full partition (MSv4) loading we'd load both cross and auto, but depending on indexing/selection we
-    # might not need either auto (if indices are lower than the beginning of the auto-correlations) or cross
-    # (if indices are higher)
-    #
-    # Returns a subset of or {"autoData", "crossData"}
+    first_bdf = int(np.searchsorted(bdf_start, start, side="right")) - 1
+    last_bdf = int(np.searchsorted(bdf_start, stop - 1, side="right")) - 1
+    for bdf_idx in range(first_bdf, last_bdf + 1):
+        bdf_first, bdf_end = int(bdf_start[bdf_idx]), int(bdf_start[bdf_idx + 1])
+        local_start = max(start, bdf_first) - bdf_first
+        local_stop = min(stop, bdf_end) - bdf_first
+        if local_stop > local_start:
+            bdfs_in_selected_times.append(bdf_names[bdf_idx])
+            time_slices_for_bdfs.append(slice(local_start, local_stop, 1))
 
-    if not array_slice:
-        return ["autoData", "crossData"]
-
-    cross_data_present = (
-        bdf_descr["correlation_mode"] != pyasdm.enumerations.CorrelationMode.AUTO_ONLY
-    )
-    antenna_len = bdf_descr["num_antenna"]
-    cross_baseline_len = int(antenna_len * (antenna_len - 1) / 2)
-
-    cross_baseline_slice, auto_baseline_slice = calc_auto_cross_baseline_slices(
-        array_slice[1], cross_baseline_len, antenna_len, cross_data_present
-    )
-
-    components_needed = []
-    if auto_baseline_slice is not None:
-        components_needed.append("autoData")
-    if cross_data_present and cross_baseline_slice is not None:
-        components_needed.append("crossData")
-
-    return components_needed
+    return bdfs_in_selected_times, time_slices_for_bdfs

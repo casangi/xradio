@@ -319,23 +319,31 @@ basebands_example_X2197 = [
 ]
 
 
+# 4 basebands with 2, 2, 1, 1 SPWs
+bdf_descr_X136e_basebands = bdf_descr_X136e["basebands"]
+
+
 @pytest.mark.parametrize(
     "input_spw_idx, input_basebands, expected_baseband_idx, expected_spw_idx",
     [
-        (0, [], 0, 0),
-        (1, [], 0, 0),
         (0, basebands_example_X2197, 0, 0),
         (1, basebands_example_X2197, 1, 0),
         (2, basebands_example_X2197, 2, 0),
         (3, basebands_example_X2197, 2, 1),
         (4, basebands_example_X2197, 3, 0),
-        (5, basebands_example_X2197, 0, 0),
+        (0, bdf_descr_X136e_basebands, 0, 0),
+        (1, bdf_descr_X136e_basebands, 0, 1),
+        (2, bdf_descr_X136e_basebands, 1, 0),
+        (3, bdf_descr_X136e_basebands, 1, 1),
+        (4, bdf_descr_X136e_basebands, 2, 0),
+        (5, bdf_descr_X136e_basebands, 3, 0),
     ],
 )
-def test_find_spw_in_basebands_list_empty(
+def test_find_spw_in_basebands_list(
     input_spw_idx, input_basebands, expected_baseband_idx, expected_spw_idx
 ):
     from xradio.measurement_set._utils._asdm._utils._bdf.basebands_spws import (
+        calculate_overall_spw_idx,
         find_spw_in_basebands_list,
     )
 
@@ -344,6 +352,35 @@ def test_find_spw_in_basebands_list_empty(
     )
     assert baseband_idx == expected_baseband_idx
     assert spw_idx == expected_spw_idx
+    # inverse mapping
+    assert (
+        calculate_overall_spw_idx(input_basebands, baseband_idx, spw_idx)
+        == input_spw_idx
+    )
+
+
+@pytest.mark.parametrize(
+    "input_spw_idx, input_basebands",
+    [
+        (0, []),
+        (1, []),
+        (5, basebands_example_X2197),
+        (6, basebands_example_X2197),
+        (-1, basebands_example_X2197),
+        (6, bdf_descr_X136e_basebands),
+    ],
+)
+def test_find_spw_in_basebands_list_not_found(input_spw_idx, input_basebands):
+    """An SPW not in the BDF raises (no silent substitution of SPW 0, F57)."""
+    from xradio.measurement_set._utils._asdm._utils._bdf.basebands_spws import (
+        find_spw_in_basebands_list,
+    )
+
+    with pytest.raises(RuntimeError, match=f"SPW {input_spw_idx} not found") as exc:
+        find_spw_in_basebands_list(
+            input_spw_idx, input_basebands, "bogus_path_non_existant.nope"
+        )
+    assert "bogus_path_non_existant.nope" in str(exc.value)
 
 
 # Will likely also need a ProcessorType.RADIOMETER/SPECTROMETER

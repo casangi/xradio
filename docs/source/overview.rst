@@ -159,7 +159,18 @@ from MSv2 to MSv4 use (this only works for Linux):
 
    pip install "xradio[casacore]"
 
-To installs all the needed packages to run the unit tests:
+To install the ASDM backend, which opens ALMA ASDMs (ALMA Science Data Model) as
+Processing Sets with ``xarray.open_datatree(..., engine="xradio_asdm")`` (it requires
+`pyasdm <https://github.com/casangi/pyasdm>`__), use:
+
+.. code:: sh
+
+   pip install "xradio[asdm]"
+
+Without these dependencies the ``xradio_asdm`` engine is not available
+(see :doc:`the ASDM backend API documentation <measurement_set/api>`).
+
+To install all the needed packages to run the unit tests:
 
 .. code:: sh
 
@@ -181,7 +192,7 @@ To install a more complete set of dependencies:
    pip install "xradio[all]"
 
 This will include the dependencies required to run the interactive Jupyter notebooks, run tests, build documentation,
-and python-casacore to enable MSv2=>MSv4 functionality on Linux.
+python-casacore to enable MSv2=>MSv4 functionality on Linux, and pyasdm for the ASDM backend.
 
 Instruction of how to setup a developer environment can be found at
 `Development <https://xradio.readthedocs.io/en/latest/development.html>`__.

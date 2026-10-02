@@ -41,7 +41,7 @@ test = [
     'xarray',
     'zarr>=3,<4',
     'pyarrow',
-    'pyasdm',
+    'pyasdm>=0.0.7',
     'psutil',
     'pytest',
     'pytest-cov',
@@ -63,8 +63,8 @@ casacore = [
 
 asdm = [
     'astropy',
-    'pyasdm',
-    'toolviper',
+    'pyasdm>=0.0.7',
+    'toolviper>=0.1.3',
     'xarray',
 ]
 
@@ -111,7 +111,7 @@ all = [
     'pytest-cov',
     'pytest-html',
     'python_casacore>=3.6.1; sys_platform != "darwin" ',
-    'pyasdm',
+    'pyasdm>=0.0.7',
     'matplotlib',
     'prettytable',
     'jupyterlab',
@@ -132,7 +132,9 @@ all = [
 
 
 [project.entry-points."xarray.backends"]
-xradio_asdm = "xradio.measurement_set._utils._asdm.asdm_backend_entrypoint:ASDMBackendEntryPoint"
+# Lightweight module (no pyasdm / xradio.measurement_set import when xarray lists
+# its engines); the ASDM reader itself needs the "asdm" extra.
+xradio_asdm = "xradio._asdm_backend_entrypoint:ASDMBackendEntryPoint"
 
 [tool.pytest.ini_options]
 addopts = [

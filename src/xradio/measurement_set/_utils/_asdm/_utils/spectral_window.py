@@ -73,8 +73,9 @@ def get_spw_frequency_centers(
     Get the frequency centers for a given spectral window (spw) from an ASDM dataset.
 
     This function retrieves the center frequencies for all channels in a spectral window, either by:
-    1. Computing them from a start frequency and frequency step size, or
-    2. Getting them directly from the channel frequency array.
+    1. Computing them from a start frequency and frequency step size
+       (chanFreqStart + i * chanFreqStep, i = 0..numChan-1), when both are present, or
+    2. Getting them directly from the channel frequency array (chanFreqArray).
 
     Parameters
     ----------
@@ -83,33 +84,54 @@ def get_spw_frequency_centers(
     spw_id : int
         The ID of the spectral window
     num_chan : int
-        Expected number of channels in the spectral window
+        Expected number of channels in the spectral window. It must match the
+        numChan of the spectral window.
 
     Returns
     -------
     np.ndarray
-        Array of frequency centers for each channel in the spectral window
+        Array (float64, Hz) of exactly ``num_chan`` frequency centers, one for each
+        channel in the spectral window
 
     Raises
     ------
+    ValueError
+        If the spectral window has neither chanFreqStart and chanFreqStep nor
+        chanFreqArray
     RuntimeError
-        If the number of frequencies retrieved doesn't match the expected number of channels
+        If ``num_chan`` doesn't match the numChan of the spectral window, or the
+        number of frequencies in chanFreqArray doesn't match the expected number of
+        channels
     """
     spw_tbl = asdm.getSpectralWindow()
     spw_row = spw_tbl.getRowByKey(pyasdm.types.Tag(f"SpectralWindow_{spw_id}"))
-    if spw_row.isChanFreqStartExists():
+    if spw_row.isChanFreqStartExists() and spw_row.isChanFreqStepExists():
         freq_start = spw_row.getChanFreqStart().get()
         freq_step = spw_row.getChanFreqStep().get()
-        frequency_centers = np.arange(
-            freq_start, freq_start + num_chan * freq_step, freq_step
+        # Not a float np.arange(start, start + num_chan * step, step): rounding in its
+        # stop value can produce num_chan + 1 frequencies.
+        frequency_centers = freq_start + freq_step * np.arange(
+            num_chan, dtype=np.float64
+        )
+    elif spw_row.isChanFreqArrayExists():
+        frequency_centers = np.array(
+            [freq.get() for freq in spw_row.getChanFreqArray()], dtype=np.float64
         )
     else:
-        frequencies = spw_row.getChanFreqArray()
-        frequency_centers = pyasdm.types.Frequency.values(frequencies)
-        if len(frequency_centers) != num_chan:
-            raise RuntimeError(
-                f"Expecting {num_chan} channels but got an array of channel frequencies of length {len(frequency_centers)} "
-            )
+        raise ValueError(
+            f"Cannot determine the channel frequencies of SpectralWindow_{spw_id}: "
+            "it has neither chanFreqStart and chanFreqStep nor chanFreqArray "
+            f"(chanFreqStart present: {spw_row.isChanFreqStartExists()}, "
+            f"chanFreqStep present: {spw_row.isChanFreqStepExists()})"
+        )
+
+    spw_num_chan = spw_row.getNumChan()
+    if num_chan != spw_num_chan or len(frequency_centers) != num_chan:
+        raise RuntimeError(
+            f"Expecting {num_chan} channels for SpectralWindow_{spw_id} but its numChan "
+            f"is {spw_num_chan} and {len(frequency_centers)} channel frequencies were "
+            "found"
+        )
 
     return frequency_centers
 
@@ -132,6 +154,12 @@ def get_chan_width(asdm: pyasdm.ASDM, spw_id: int) -> float:
     float
         Channel width value for the specified spectral window
 
+    Raises
+    ------
+    ValueError
+        If the spectral window has neither chanWidth nor chanWidthArray (both
+        optional).
+
     Notes
     -----
     The function first tries to get a single channel width value. If that doesn't exist,
@@ -141,8 +169,13 @@ def get_chan_width(asdm: pyasdm.ASDM, spw_id: int) -> float:
     spw_row = spw_tbl.getRowByKey(pyasdm.types.Tag(f"SpectralWindow_{spw_id}"))
     if spw_row.isChanWidthExists():
         chan_width = spw_row.getChanWidth().get()
-    else:
+    elif spw_row.isChanWidthArrayExists() and len(spw_row.getChanWidthArray()) > 0:
         chan_width = spw_row.getChanWidthArray()[0].get()
+    else:
+        raise ValueError(
+            f"Cannot determine the channel width of SpectralWindow_{spw_id}: it has "
+            "neither chanWidth nor chanWidthArray"
+        )
 
     return chan_width
 

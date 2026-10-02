@@ -398,6 +398,9 @@
                   "REST",
                   "BARY",
                   "TOPO",
+                  "GALACTO",
+                  "LGROUP",
+                  "CMB",
                   "gcrs",
                   "icrs",
                   "hcrs",
@@ -407,7 +410,7 @@
                 ],
                 "name": "observer",
                 "default": "icrs",
-                "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd. The other casacore frames (REST, BARY, TOPO,\nGALACTO, LGROUP, CMB) are not translated and keep their casacore name. The astropy frames icrs, hcrs and\nlsr are not translated to casacore frames (astropy's lsr uses a different solar motion than casacore's LSRK)."
               },
               {
                 "$class": "AttrSchemaRef",
@@ -424,13 +427,54 @@
             "data_docstring": null
           },
           "name": "reference_frequency",
-          "docstring": "A frequency representative of the image spectral axis. "
+          "docstring": "A frequency representative of the image spectral axis. Its\n``observer`` is the spectral reference frame of the image (``frame``) in\nthe vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, for example\n``\"lsrk\"`` for LSRK, ``\"gcrs\"`` for GEO and ``\"BARY\"`` for BARY. "
         },
         {
           "$class": "AttrSchemaRef",
           "type": "str",
           "name": "frame",
-          "docstring": "Native (casacore) spectral reference frame of the image, for example ``\"LSRK\"``. "
+          "docstring": "Spectral reference frame of the image, by its casacore name: one of\n``\"REST\"``, ``\"LSRK\"``, ``\"LSRD\"``, ``\"BARY\"``, ``\"GEO\"``, ``\"TOPO\"``,\n``\"GALACTO\"``, ``\"LGROUP\"`` or ``\"CMB\"``. Readers translate other names\nfor the same frames, such as FITS ``SPECSYS`` values (``\"BARYCENT\"``,\n``\"SOURCE\"``), to these; the CASA reader keeps casacore's\n``\"Undefined\"``. Images that the ``make_empty_*`` factories make in an\nastropy frame without a casacore equivalent hold its name (``\"icrs\"``,\n``\"hcrs\"`` or ``\"lsr\"``); the CASA and FITS writers cannot write those. "
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "dataarray",
+          "array_schema": {
+            "$class": "ArraySchema",
+            "schema_name": "xradio.schema.measures.QuantityInHertzArray",
+            "dimensions": [
+              []
+            ],
+            "dtypes": [
+              "<f8"
+            ],
+            "coordinates": [],
+            "attributes": [
+              {
+                "$class": "AttrSchemaRef",
+                "type": "str",
+                "literal": [
+                  "Hz"
+                ],
+                "name": "units",
+                "docstring": null
+              },
+              {
+                "$class": "AttrSchemaRef",
+                "type": "str",
+                "literal": [
+                  "quantity"
+                ],
+                "name": "type",
+                "default": "quantity",
+                "docstring": null
+              }
+            ],
+            "class_docstring": "Quantity with units of Hertz",
+            "data_docstring": null
+          },
+          "optional": true,
+          "name": "channel_width",
+          "docstring": "The nominal channel width, as in the measurement set frequency\ncoordinate (:py:class:`~xradio.measurement_set.schema.FrequencyArray`).\nReaders fill it from the spectral increment of the image; writers use it\nas the increment of a single channel spectral axis, which the frequency\nvalues alone do not determine. "
         },
         {
           "$class": "AttrSchemaRef",
@@ -446,6 +490,9 @@
             "REST",
             "BARY",
             "TOPO",
+            "GALACTO",
+            "LGROUP",
+            "CMB",
             "gcrs",
             "icrs",
             "hcrs",
@@ -455,7 +502,7 @@
           ],
           "optional": true,
           "name": "observer",
-          "docstring": "Astropy velocity reference frame (see :py:class:`~xradio.schema.measures.SpectralCoordArray`). "
+          "docstring": "Spectral reference frame of the axis in the vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, the same\nvalue as the ``observer`` of ``reference_frequency`` (see\n:py:class:`~xradio.schema.measures.SpectralCoordArray`). "
         },
         {
           "$class": "AttrSchemaRef",
@@ -510,7 +557,7 @@
       "data_docstring": "Polarization names. ",
       "name": "polarization",
       "optional": false,
-      "docstring": "Labels for polarization types, e.g. ``['I', 'Q', 'U', 'V']``. "
+      "docstring": "Labels for polarization types, e.g. ``['I', 'Q', 'U', 'V']``, in the\norder of the casacore ``Stokes`` enumeration (``I, Q, U, V``,\n``RR, RL, LR, LL``, ``XX, XY, YX, YY``), so that the correlations of a\npair of feeds map directly onto 2x2 Jones matrices. The readers return\nthis order: FITS files cannot store the correlations in it, so the FITS\nwriter reorders the planes in the file and the reader restores the order,\nand CASA images or zarr stores that hold another order are reordered when\nthey are read. The ``make_empty_*`` factories require this order and\n:py:func:`check_image` reports any other. "
     },
     {
       "$class": "ArraySchemaRef",
@@ -591,11 +638,11 @@
           "docstring": "Explanatory note on the definition of l. "
         }
       ],
-      "class_docstring": "The l coordinate of the image dataset.\n\nl is the angle measured from the reference direction to the east, so\nl = x*cdelt where x is the number of pixels from the reference direction.\nSee AIPS Memo #27, Section III. Values are in radians.",
-      "data_docstring": "Angle measured from the reference direction to the east, in radians. ",
+      "class_docstring": "The l coordinate of the image dataset.\n\nl is the projection plane coordinate (the FITS WCS intermediate world\ncoordinate) towards the east, measured from the reference direction:\nl = x*cdelt, where x is the pixel offset from the reference pixel and\ncdelt the pixel increment in radians. For the SIN projection without\nprojection parameters, the usual projection of interferometric images, l\nis the direction cosine l of AIPS Memo #27 (Section III). For other\nprojections l is neither the direction cosine nor the angular offset (for\nTAN they differ from l by 1% to 1.5% at 10 degrees from the reference\ndirection); the ``projection`` of ``coordinate_system_info`` defines it.",
+      "data_docstring": "Projection plane coordinate towards the east, in radians (the\ndimensionless direction cosine for the SIN projection). ",
       "name": "l",
       "optional": true,
-      "docstring": "Direction cosine towards the east (sky plane images). "
+      "docstring": "Projection plane coordinate towards the east (sky plane images; the\ndirection cosine for the SIN projection). "
     },
     {
       "$class": "ArraySchemaRef",
@@ -618,11 +665,11 @@
           "docstring": "Explanatory note on the definition of m. "
         }
       ],
-      "class_docstring": "The m coordinate of the image dataset.\n\nm is the angle measured from the reference direction to the north, so\nm = y*cdelt where y is the number of pixels from the reference direction.\nSee AIPS Memo #27, Section III. Values are in radians.",
-      "data_docstring": "Angle measured from the reference direction to the north, in radians. ",
+      "class_docstring": "The m coordinate of the image dataset.\n\nm is the projection plane coordinate (the FITS WCS intermediate world\ncoordinate) towards the north, measured from the reference direction:\nm = y*cdelt, where y is the pixel offset from the reference pixel and\ncdelt the pixel increment in radians. For the SIN projection without\nprojection parameters, the usual projection of interferometric images, m\nis the direction cosine m of AIPS Memo #27 (Section III). For other\nprojections m is neither the direction cosine nor the angular offset; the\n``projection`` of ``coordinate_system_info`` defines it.",
+      "data_docstring": "Projection plane coordinate towards the north, in radians (the\ndimensionless direction cosine for the SIN projection). ",
       "name": "m",
       "optional": true,
-      "docstring": "Direction cosine towards the north (sky plane images). "
+      "docstring": "Projection plane coordinate towards the north (sky plane images; the\ndirection cosine for the SIN projection). "
     },
     {
       "$class": "ArraySchemaRef",
@@ -642,7 +689,7 @@
           "type": "str",
           "optional": true,
           "name": "units",
-          "docstring": "Units to associate with axis, for example ``\"lambda\"``. "
+          "docstring": "Units to associate with axis. The convention is ``\"lambda\"``\n(wavelengths). "
         },
         {
           "$class": "AttrSchemaRef",
@@ -666,8 +713,8 @@
           "docstring": "Coordinate type. "
         }
       ],
-      "class_docstring": "The u coordinate of aperture plane data (conjugate to l).",
-      "data_docstring": "u values, typically in wavelengths. ",
+      "class_docstring": "The u coordinate of aperture plane data (conjugate to l).\n\nBy convention u is in wavelengths (``units`` ``\"lambda\"``), the Fourier\nconjugate of the dimensionless l.",
+      "data_docstring": "u values, in wavelengths. ",
       "name": "u",
       "optional": true,
       "docstring": "Aperture plane coordinate conjugate to l. "
@@ -690,7 +737,7 @@
           "type": "str",
           "optional": true,
           "name": "units",
-          "docstring": "Units to associate with axis, for example ``\"lambda\"``. "
+          "docstring": "Units to associate with axis. The convention is ``\"lambda\"``\n(wavelengths). "
         },
         {
           "$class": "AttrSchemaRef",
@@ -714,8 +761,8 @@
           "docstring": "Coordinate type. "
         }
       ],
-      "class_docstring": "The v coordinate of aperture plane data (conjugate to m).",
-      "data_docstring": "v values, typically in wavelengths. ",
+      "class_docstring": "The v coordinate of aperture plane data (conjugate to m).\n\nBy convention v is in wavelengths (``units`` ``\"lambda\"``), the Fourier\nconjugate of the dimensionless m.",
+      "data_docstring": "v values, in wavelengths. ",
       "name": "v",
       "optional": true,
       "docstring": "Aperture plane coordinate conjugate to m. "
@@ -734,7 +781,7 @@
       "coordinates": [],
       "attributes": [],
       "class_docstring": "Coordinate axis to make up the ``(\"major\", \"minor\", \"pa\")`` tuple of\nGaussian beam fit parameters, see :py:class:`BeamFitParamsArray`.",
-      "data_docstring": "Should be ``('major', 'minor', 'pa')``.",
+      "data_docstring": "Should be ``('major', 'minor', 'pa')``, in this order.",
       "name": "beam_params_label",
       "optional": true,
       "docstring": "Labels of the Gaussian beam fit parameters ('major', 'minor', 'pa'). "
@@ -991,6 +1038,9 @@
                       "REST",
                       "BARY",
                       "TOPO",
+                      "GALACTO",
+                      "LGROUP",
+                      "CMB",
                       "gcrs",
                       "icrs",
                       "hcrs",
@@ -1000,7 +1050,7 @@
                     ],
                     "name": "observer",
                     "default": "icrs",
-                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd. The other casacore frames (REST, BARY, TOPO,\nGALACTO, LGROUP, CMB) are not translated and keep their casacore name. The astropy frames icrs, hcrs and\nlsr are not translated to casacore frames (astropy's lsr uses a different solar motion than casacore's LSRK)."
                   },
                   {
                     "$class": "AttrSchemaRef",
@@ -1017,13 +1067,54 @@
                 "data_docstring": null
               },
               "name": "reference_frequency",
-              "docstring": "A frequency representative of the image spectral axis. "
+              "docstring": "A frequency representative of the image spectral axis. Its\n``observer`` is the spectral reference frame of the image (``frame``) in\nthe vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, for example\n``\"lsrk\"`` for LSRK, ``\"gcrs\"`` for GEO and ``\"BARY\"`` for BARY. "
             },
             {
               "$class": "AttrSchemaRef",
               "type": "str",
               "name": "frame",
-              "docstring": "Native (casacore) spectral reference frame of the image, for example ``\"LSRK\"``. "
+              "docstring": "Spectral reference frame of the image, by its casacore name: one of\n``\"REST\"``, ``\"LSRK\"``, ``\"LSRD\"``, ``\"BARY\"``, ``\"GEO\"``, ``\"TOPO\"``,\n``\"GALACTO\"``, ``\"LGROUP\"`` or ``\"CMB\"``. Readers translate other names\nfor the same frames, such as FITS ``SPECSYS`` values (``\"BARYCENT\"``,\n``\"SOURCE\"``), to these; the CASA reader keeps casacore's\n``\"Undefined\"``. Images that the ``make_empty_*`` factories make in an\nastropy frame without a casacore equivalent hold its name (``\"icrs\"``,\n``\"hcrs\"`` or ``\"lsr\"``); the CASA and FITS writers cannot write those. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "Hz"
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "optional": true,
+              "name": "channel_width",
+              "docstring": "The nominal channel width, as in the measurement set frequency\ncoordinate (:py:class:`~xradio.measurement_set.schema.FrequencyArray`).\nReaders fill it from the spectral increment of the image; writers use it\nas the increment of a single channel spectral axis, which the frequency\nvalues alone do not determine. "
             },
             {
               "$class": "AttrSchemaRef",
@@ -1039,6 +1130,9 @@
                 "REST",
                 "BARY",
                 "TOPO",
+                "GALACTO",
+                "LGROUP",
+                "CMB",
                 "gcrs",
                 "icrs",
                 "hcrs",
@@ -1048,7 +1142,7 @@
               ],
               "optional": true,
               "name": "observer",
-              "docstring": "Astropy velocity reference frame (see :py:class:`~xradio.schema.measures.SpectralCoordArray`). "
+              "docstring": "Spectral reference frame of the axis in the vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, the same\nvalue as the ``observer`` of ``reference_frequency`` (see\n:py:class:`~xradio.schema.measures.SpectralCoordArray`). "
             },
             {
               "$class": "AttrSchemaRef",
@@ -1124,8 +1218,8 @@
               "docstring": "Explanatory note on the definition of l. "
             }
           ],
-          "class_docstring": "The l coordinate of the image dataset.\n\nl is the angle measured from the reference direction to the east, so\nl = x*cdelt where x is the number of pixels from the reference direction.\nSee AIPS Memo #27, Section III. Values are in radians.",
-          "data_docstring": "Angle measured from the reference direction to the east, in radians. ",
+          "class_docstring": "The l coordinate of the image dataset.\n\nl is the projection plane coordinate (the FITS WCS intermediate world\ncoordinate) towards the east, measured from the reference direction:\nl = x*cdelt, where x is the pixel offset from the reference pixel and\ncdelt the pixel increment in radians. For the SIN projection without\nprojection parameters, the usual projection of interferometric images, l\nis the direction cosine l of AIPS Memo #27 (Section III). For other\nprojections l is neither the direction cosine nor the angular offset (for\nTAN they differ from l by 1% to 1.5% at 10 degrees from the reference\ndirection); the ``projection`` of ``coordinate_system_info`` defines it.",
+          "data_docstring": "Projection plane coordinate towards the east, in radians (the\ndimensionless direction cosine for the SIN projection). ",
           "name": "l",
           "optional": false
         },
@@ -1150,8 +1244,8 @@
               "docstring": "Explanatory note on the definition of m. "
             }
           ],
-          "class_docstring": "The m coordinate of the image dataset.\n\nm is the angle measured from the reference direction to the north, so\nm = y*cdelt where y is the number of pixels from the reference direction.\nSee AIPS Memo #27, Section III. Values are in radians.",
-          "data_docstring": "Angle measured from the reference direction to the north, in radians. ",
+          "class_docstring": "The m coordinate of the image dataset.\n\nm is the projection plane coordinate (the FITS WCS intermediate world\ncoordinate) towards the north, measured from the reference direction:\nm = y*cdelt, where y is the pixel offset from the reference pixel and\ncdelt the pixel increment in radians. For the SIN projection without\nprojection parameters, the usual projection of interferometric images, m\nis the direction cosine m of AIPS Memo #27 (Section III). For other\nprojections m is neither the direction cosine nor the angular offset; the\n``projection`` of ``coordinate_system_info`` defines it.",
+          "data_docstring": "Projection plane coordinate towards the north, in radians (the\ndimensionless direction cosine for the SIN projection). ",
           "name": "m",
           "optional": false
         },
@@ -1326,7 +1420,7 @@
                       "$class": "AttrSchemaRef",
                       "type": "str",
                       "name": "coordinate_system",
-                      "docstring": "Coordinate system, for example ``\"geocentric\"``. "
+                      "docstring": "Coordinate system, for example ``\"geocentric\"`` (spherical\ncoordinates of the position vector: longitude, geocentric latitude and\ndistance from the geocenter). "
                     },
                     {
                       "$class": "AttrSchemaRef",
@@ -1345,12 +1439,12 @@
                       "docstring": "Measure type. Should be ``\"location\"``. "
                     }
                   ],
-                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``).",
+                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``). The readers\nstore geocentric spherical coordinates (``coordinate_system``\n``\"geocentric\"``), see :py:class:`TelescopeDict`.",
                   "data_docstring": "Location values ('lon', 'lat' in radians, or 'dist' in meters, or 'x', 'y', 'z' in meters). "
                 },
                 "optional": true,
                 "name": "direction",
-                "docstring": "Location measure holding the geodetic longitude and latitude of the telescope. "
+                "docstring": "Location measure holding the longitude and the geocentric latitude of\nthe telescope ('lon', 'lat', in radians). "
               },
               {
                 "$class": "AttrSchemaRef",
@@ -1394,7 +1488,7 @@
                       "$class": "AttrSchemaRef",
                       "type": "str",
                       "name": "coordinate_system",
-                      "docstring": "Coordinate system, for example ``\"geocentric\"``. "
+                      "docstring": "Coordinate system, for example ``\"geocentric\"`` (spherical\ncoordinates of the position vector: longitude, geocentric latitude and\ndistance from the geocenter). "
                     },
                     {
                       "$class": "AttrSchemaRef",
@@ -1413,15 +1507,15 @@
                       "docstring": "Measure type. Should be ``\"location\"``. "
                     }
                   ],
-                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``).",
+                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``). The readers\nstore geocentric spherical coordinates (``coordinate_system``\n``\"geocentric\"``), see :py:class:`TelescopeDict`.",
                   "data_docstring": "Location values ('lon', 'lat' in radians, or 'dist' in meters, or 'x', 'y', 'z' in meters). "
                 },
                 "optional": true,
                 "name": "distance",
-                "docstring": "Location measure holding the geocentric distance of the telescope. "
+                "docstring": "Location measure holding the distance of the telescope from the\ngeocenter ('dist', in meters). "
               }
             ],
-            "class_docstring": "Telescope information stored in the attributes of image data variables."
+            "class_docstring": "Telescope information stored in the attributes of image data variables.\n\nThe telescope position is stored in geocentric spherical ITRF\ncoordinates (``coordinate_system`` ``\"geocentric\"``): ``direction`` holds\nthe longitude and the geocentric latitude, ``distance`` the distance from\nthe geocenter, so the Cartesian ITRF position is\nx = distance cos(lat) cos(lon), y = distance cos(lat) sin(lon) and\nz = distance sin(lat) (for example for astropy's\n``EarthLocation.from_geocentric``). The geocentric latitude is not the\ngeodetic latitude (for ALMA they differ by about 0.14 degrees)."
           },
           "optional": true,
           "name": "telescope",
@@ -1640,6 +1734,7 @@
           "type": "str",
           "literal": [
             "Intensity",
+            "Beam",
             "ColumnDensity",
             "DepolarizationRatio",
             "KineticTemperature",
@@ -1653,7 +1748,7 @@
           ],
           "optional": true,
           "name": "sub_type",
-          "docstring": "Sub image type, derived from the casacore image type (with spaces\nremoved, so casacore's 'Column Density' becomes 'ColumnDensity'). "
+          "docstring": "Sub image type, derived from the casacore image type or FITS BTYPE\n(casacore's name with spaces removed, so 'Column Density' becomes\n'ColumnDensity'). casacore's 'Undefined' image type, like a missing or\nunknown BTYPE, gives no sub_type, and an image without a sub_type is\nwritten to CASA with casacore's default type, Intensity. "
         },
         {
           "$class": "AttrSchemaRef",
@@ -1664,7 +1759,7 @@
           "docstring": null
         }
       ],
-      "class_docstring": "Image of the sky. Derived from the gridded visibilities, on a plane\ntangential to the celestial sphere. Examples of versions of this variable\n(each belonging to its own data group) are ``SKY``, ``SKY_DECONVOLVED``,\n``SKY_MODEL`` and ``SKY_RESIDUAL``.\n\nThe optional ``sub_type`` attribute records the physical quantity held by\nthe image, derived from the `casacore image type\n<https://github.com/casacore/casacore/blob/dede86795b94ea5651d26a889fea8ced455bfd14/images/Images/ImageInfo.h#L93-L110>`_\n(without changing the image ``type``): Intensity, ColumnDensity,\nDepolarizationRatio, KineticTemperature, MagneticField, OpticalDepth,\nRotationMeasure, RotationalTemperature, SpectralIndex, Velocity or\nVelocityDispersion.",
+      "class_docstring": "Image of the sky. Derived from the gridded visibilities, on a plane\ntangential to the celestial sphere. Examples of versions of this variable\n(each belonging to its own data group) are ``SKY``, ``SKY_DECONVOLVED``,\n``SKY_MODEL`` and ``SKY_RESIDUAL``.\n\nThe optional ``sub_type`` attribute records the physical quantity held by\nthe image, derived from the `casacore image type\n<https://github.com/casacore/casacore/blob/dede86795b94ea5651d26a889fea8ced455bfd14/images/Images/ImageInfo.h#L93-L110>`_\n(without changing the image ``type``): Intensity, Beam, ColumnDensity,\nDepolarizationRatio, KineticTemperature, MagneticField, OpticalDepth,\nRotationMeasure, RotationalTemperature, SpectralIndex, Velocity or\nVelocityDispersion.",
       "data_docstring": "Sky brightness (see ``units``, typically Jy/beam or Jy/pixel). ",
       "name": "SKY",
       "optional": true,
@@ -1680,6 +1775,18 @@
           "polarization",
           "l",
           "m"
+        ],
+        [
+          "time",
+          "frequency",
+          "polarization",
+          "u",
+          "v"
+        ],
+        [
+          "time",
+          "frequency",
+          "polarization"
         ]
       ],
       "dtypes": [
@@ -1839,6 +1946,9 @@
                       "REST",
                       "BARY",
                       "TOPO",
+                      "GALACTO",
+                      "LGROUP",
+                      "CMB",
                       "gcrs",
                       "icrs",
                       "hcrs",
@@ -1848,7 +1958,7 @@
                     ],
                     "name": "observer",
                     "default": "icrs",
-                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd. The other casacore frames (REST, BARY, TOPO,\nGALACTO, LGROUP, CMB) are not translated and keep their casacore name. The astropy frames icrs, hcrs and\nlsr are not translated to casacore frames (astropy's lsr uses a different solar motion than casacore's LSRK)."
                   },
                   {
                     "$class": "AttrSchemaRef",
@@ -1865,13 +1975,54 @@
                 "data_docstring": null
               },
               "name": "reference_frequency",
-              "docstring": "A frequency representative of the image spectral axis. "
+              "docstring": "A frequency representative of the image spectral axis. Its\n``observer`` is the spectral reference frame of the image (``frame``) in\nthe vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, for example\n``\"lsrk\"`` for LSRK, ``\"gcrs\"`` for GEO and ``\"BARY\"`` for BARY. "
             },
             {
               "$class": "AttrSchemaRef",
               "type": "str",
               "name": "frame",
-              "docstring": "Native (casacore) spectral reference frame of the image, for example ``\"LSRK\"``. "
+              "docstring": "Spectral reference frame of the image, by its casacore name: one of\n``\"REST\"``, ``\"LSRK\"``, ``\"LSRD\"``, ``\"BARY\"``, ``\"GEO\"``, ``\"TOPO\"``,\n``\"GALACTO\"``, ``\"LGROUP\"`` or ``\"CMB\"``. Readers translate other names\nfor the same frames, such as FITS ``SPECSYS`` values (``\"BARYCENT\"``,\n``\"SOURCE\"``), to these; the CASA reader keeps casacore's\n``\"Undefined\"``. Images that the ``make_empty_*`` factories make in an\nastropy frame without a casacore equivalent hold its name (``\"icrs\"``,\n``\"hcrs\"`` or ``\"lsr\"``); the CASA and FITS writers cannot write those. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "Hz"
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "optional": true,
+              "name": "channel_width",
+              "docstring": "The nominal channel width, as in the measurement set frequency\ncoordinate (:py:class:`~xradio.measurement_set.schema.FrequencyArray`).\nReaders fill it from the spectral increment of the image; writers use it\nas the increment of a single channel spectral axis, which the frequency\nvalues alone do not determine. "
             },
             {
               "$class": "AttrSchemaRef",
@@ -1887,6 +2038,9 @@
                 "REST",
                 "BARY",
                 "TOPO",
+                "GALACTO",
+                "LGROUP",
+                "CMB",
                 "gcrs",
                 "icrs",
                 "hcrs",
@@ -1896,7 +2050,7 @@
               ],
               "optional": true,
               "name": "observer",
-              "docstring": "Astropy velocity reference frame (see :py:class:`~xradio.schema.measures.SpectralCoordArray`). "
+              "docstring": "Spectral reference frame of the axis in the vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, the same\nvalue as the ``observer`` of ``reference_frequency`` (see\n:py:class:`~xradio.schema.measures.SpectralCoordArray`). "
             },
             {
               "$class": "AttrSchemaRef",
@@ -1972,10 +2126,10 @@
               "docstring": "Explanatory note on the definition of l. "
             }
           ],
-          "class_docstring": "The l coordinate of the image dataset.\n\nl is the angle measured from the reference direction to the east, so\nl = x*cdelt where x is the number of pixels from the reference direction.\nSee AIPS Memo #27, Section III. Values are in radians.",
-          "data_docstring": "Angle measured from the reference direction to the east, in radians. ",
+          "class_docstring": "The l coordinate of the image dataset.\n\nl is the projection plane coordinate (the FITS WCS intermediate world\ncoordinate) towards the east, measured from the reference direction:\nl = x*cdelt, where x is the pixel offset from the reference pixel and\ncdelt the pixel increment in radians. For the SIN projection without\nprojection parameters, the usual projection of interferometric images, l\nis the direction cosine l of AIPS Memo #27 (Section III). For other\nprojections l is neither the direction cosine nor the angular offset (for\nTAN they differ from l by 1% to 1.5% at 10 degrees from the reference\ndirection); the ``projection`` of ``coordinate_system_info`` defines it.",
+          "data_docstring": "Projection plane coordinate towards the east, in radians (the\ndimensionless direction cosine for the SIN projection). ",
           "name": "l",
-          "optional": false
+          "optional": true
         },
         {
           "$class": "ArraySchemaRef",
@@ -1998,10 +2152,104 @@
               "docstring": "Explanatory note on the definition of m. "
             }
           ],
-          "class_docstring": "The m coordinate of the image dataset.\n\nm is the angle measured from the reference direction to the north, so\nm = y*cdelt where y is the number of pixels from the reference direction.\nSee AIPS Memo #27, Section III. Values are in radians.",
-          "data_docstring": "Angle measured from the reference direction to the north, in radians. ",
+          "class_docstring": "The m coordinate of the image dataset.\n\nm is the projection plane coordinate (the FITS WCS intermediate world\ncoordinate) towards the north, measured from the reference direction:\nm = y*cdelt, where y is the pixel offset from the reference pixel and\ncdelt the pixel increment in radians. For the SIN projection without\nprojection parameters, the usual projection of interferometric images, m\nis the direction cosine m of AIPS Memo #27 (Section III). For other\nprojections m is neither the direction cosine nor the angular offset; the\n``projection`` of ``coordinate_system_info`` defines it.",
+          "data_docstring": "Projection plane coordinate towards the north, in radians (the\ndimensionless direction cosine for the SIN projection). ",
           "name": "m",
-          "optional": false
+          "optional": true
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.image.schema.UCoordArray",
+          "dimensions": [
+            [
+              "u"
+            ]
+          ],
+          "dtypes": [
+            "<f8"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "units",
+              "docstring": "Units to associate with axis. The convention is ``\"lambda\"``\n(wavelengths). "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "float",
+              "optional": true,
+              "name": "crval",
+              "docstring": "Reference value at the reference pixel. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "float",
+              "optional": true,
+              "name": "cdelt",
+              "docstring": "Increment per pixel. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "type",
+              "docstring": "Coordinate type. "
+            }
+          ],
+          "class_docstring": "The u coordinate of aperture plane data (conjugate to l).\n\nBy convention u is in wavelengths (``units`` ``\"lambda\"``), the Fourier\nconjugate of the dimensionless l.",
+          "data_docstring": "u values, in wavelengths. ",
+          "name": "u",
+          "optional": true
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.image.schema.VCoordArray",
+          "dimensions": [
+            [
+              "v"
+            ]
+          ],
+          "dtypes": [
+            "<f8"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "units",
+              "docstring": "Units to associate with axis. The convention is ``\"lambda\"``\n(wavelengths). "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "float",
+              "optional": true,
+              "name": "crval",
+              "docstring": "Reference value at the reference pixel. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "float",
+              "optional": true,
+              "name": "cdelt",
+              "docstring": "Increment per pixel. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "type",
+              "docstring": "Coordinate type. "
+            }
+          ],
+          "class_docstring": "The v coordinate of aperture plane data (conjugate to m).\n\nBy convention v is in wavelengths (``units`` ``\"lambda\"``), the Fourier\nconjugate of the dimensionless m.",
+          "data_docstring": "v values, in wavelengths. ",
+          "name": "v",
+          "optional": true
         }
       ],
       "attributes": [
@@ -2024,7 +2272,7 @@
           "docstring": null
         }
       ],
-      "class_docstring": "A boolean image defining any invalid pixels (``True`` means invalid).\nFor CASA images this is derived from the (inverted) internal mask.\nVersions of this variable are named after the image they apply to, for\nexample ``FLAG_SKY`` or ``FLAG_SKY_RESIDUAL``.",
+      "class_docstring": "A boolean image defining any invalid pixels (``True`` means invalid).\nFor CASA images this is derived from the (inverted) internal mask.\nVersions of this variable are named after the image they apply to and\nhave its dimensions: for example ``FLAG_SKY`` or ``FLAG_SKY_RESIDUAL`` on\nthe sky plane ``(l, m)``, ``FLAG_APERTURE`` on the aperture plane\n``(u, v)``, and ``FLAG_VISIBILITY_NORMALIZATION`` with one value per\nplane.",
       "data_docstring": "Pixel flags, ``True`` means the pixel is invalid. ",
       "name": "FLAG",
       "optional": true,
@@ -2198,6 +2446,9 @@
                       "REST",
                       "BARY",
                       "TOPO",
+                      "GALACTO",
+                      "LGROUP",
+                      "CMB",
                       "gcrs",
                       "icrs",
                       "hcrs",
@@ -2207,7 +2458,7 @@
                     ],
                     "name": "observer",
                     "default": "icrs",
-                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd. The other casacore frames (REST, BARY, TOPO,\nGALACTO, LGROUP, CMB) are not translated and keep their casacore name. The astropy frames icrs, hcrs and\nlsr are not translated to casacore frames (astropy's lsr uses a different solar motion than casacore's LSRK)."
                   },
                   {
                     "$class": "AttrSchemaRef",
@@ -2224,13 +2475,54 @@
                 "data_docstring": null
               },
               "name": "reference_frequency",
-              "docstring": "A frequency representative of the image spectral axis. "
+              "docstring": "A frequency representative of the image spectral axis. Its\n``observer`` is the spectral reference frame of the image (``frame``) in\nthe vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, for example\n``\"lsrk\"`` for LSRK, ``\"gcrs\"`` for GEO and ``\"BARY\"`` for BARY. "
             },
             {
               "$class": "AttrSchemaRef",
               "type": "str",
               "name": "frame",
-              "docstring": "Native (casacore) spectral reference frame of the image, for example ``\"LSRK\"``. "
+              "docstring": "Spectral reference frame of the image, by its casacore name: one of\n``\"REST\"``, ``\"LSRK\"``, ``\"LSRD\"``, ``\"BARY\"``, ``\"GEO\"``, ``\"TOPO\"``,\n``\"GALACTO\"``, ``\"LGROUP\"`` or ``\"CMB\"``. Readers translate other names\nfor the same frames, such as FITS ``SPECSYS`` values (``\"BARYCENT\"``,\n``\"SOURCE\"``), to these; the CASA reader keeps casacore's\n``\"Undefined\"``. Images that the ``make_empty_*`` factories make in an\nastropy frame without a casacore equivalent hold its name (``\"icrs\"``,\n``\"hcrs\"`` or ``\"lsr\"``); the CASA and FITS writers cannot write those. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "Hz"
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "optional": true,
+              "name": "channel_width",
+              "docstring": "The nominal channel width, as in the measurement set frequency\ncoordinate (:py:class:`~xradio.measurement_set.schema.FrequencyArray`).\nReaders fill it from the spectral increment of the image; writers use it\nas the increment of a single channel spectral axis, which the frequency\nvalues alone do not determine. "
             },
             {
               "$class": "AttrSchemaRef",
@@ -2246,6 +2538,9 @@
                 "REST",
                 "BARY",
                 "TOPO",
+                "GALACTO",
+                "LGROUP",
+                "CMB",
                 "gcrs",
                 "icrs",
                 "hcrs",
@@ -2255,7 +2550,7 @@
               ],
               "optional": true,
               "name": "observer",
-              "docstring": "Astropy velocity reference frame (see :py:class:`~xradio.schema.measures.SpectralCoordArray`). "
+              "docstring": "Spectral reference frame of the axis in the vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, the same\nvalue as the ``observer`` of ``reference_frequency`` (see\n:py:class:`~xradio.schema.measures.SpectralCoordArray`). "
             },
             {
               "$class": "AttrSchemaRef",
@@ -2324,7 +2619,7 @@
           "coordinates": [],
           "attributes": [],
           "class_docstring": "Coordinate axis to make up the ``(\"major\", \"minor\", \"pa\")`` tuple of\nGaussian beam fit parameters, see :py:class:`BeamFitParamsArray`.",
-          "data_docstring": "Should be ``('major', 'minor', 'pa')``.",
+          "data_docstring": "Should be ``('major', 'minor', 'pa')``, in this order.",
           "name": "beam_params_label",
           "optional": false
         }
@@ -2532,6 +2827,9 @@
                       "REST",
                       "BARY",
                       "TOPO",
+                      "GALACTO",
+                      "LGROUP",
+                      "CMB",
                       "gcrs",
                       "icrs",
                       "hcrs",
@@ -2541,7 +2839,7 @@
                     ],
                     "name": "observer",
                     "default": "icrs",
-                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd. The other casacore frames (REST, BARY, TOPO,\nGALACTO, LGROUP, CMB) are not translated and keep their casacore name. The astropy frames icrs, hcrs and\nlsr are not translated to casacore frames (astropy's lsr uses a different solar motion than casacore's LSRK)."
                   },
                   {
                     "$class": "AttrSchemaRef",
@@ -2558,13 +2856,54 @@
                 "data_docstring": null
               },
               "name": "reference_frequency",
-              "docstring": "A frequency representative of the image spectral axis. "
+              "docstring": "A frequency representative of the image spectral axis. Its\n``observer`` is the spectral reference frame of the image (``frame``) in\nthe vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, for example\n``\"lsrk\"`` for LSRK, ``\"gcrs\"`` for GEO and ``\"BARY\"`` for BARY. "
             },
             {
               "$class": "AttrSchemaRef",
               "type": "str",
               "name": "frame",
-              "docstring": "Native (casacore) spectral reference frame of the image, for example ``\"LSRK\"``. "
+              "docstring": "Spectral reference frame of the image, by its casacore name: one of\n``\"REST\"``, ``\"LSRK\"``, ``\"LSRD\"``, ``\"BARY\"``, ``\"GEO\"``, ``\"TOPO\"``,\n``\"GALACTO\"``, ``\"LGROUP\"`` or ``\"CMB\"``. Readers translate other names\nfor the same frames, such as FITS ``SPECSYS`` values (``\"BARYCENT\"``,\n``\"SOURCE\"``), to these; the CASA reader keeps casacore's\n``\"Undefined\"``. Images that the ``make_empty_*`` factories make in an\nastropy frame without a casacore equivalent hold its name (``\"icrs\"``,\n``\"hcrs\"`` or ``\"lsr\"``); the CASA and FITS writers cannot write those. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "Hz"
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "optional": true,
+              "name": "channel_width",
+              "docstring": "The nominal channel width, as in the measurement set frequency\ncoordinate (:py:class:`~xradio.measurement_set.schema.FrequencyArray`).\nReaders fill it from the spectral increment of the image; writers use it\nas the increment of a single channel spectral axis, which the frequency\nvalues alone do not determine. "
             },
             {
               "$class": "AttrSchemaRef",
@@ -2580,6 +2919,9 @@
                 "REST",
                 "BARY",
                 "TOPO",
+                "GALACTO",
+                "LGROUP",
+                "CMB",
                 "gcrs",
                 "icrs",
                 "hcrs",
@@ -2589,7 +2931,7 @@
               ],
               "optional": true,
               "name": "observer",
-              "docstring": "Astropy velocity reference frame (see :py:class:`~xradio.schema.measures.SpectralCoordArray`). "
+              "docstring": "Spectral reference frame of the axis in the vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, the same\nvalue as the ``observer`` of ``reference_frequency`` (see\n:py:class:`~xradio.schema.measures.SpectralCoordArray`). "
             },
             {
               "$class": "AttrSchemaRef",
@@ -2665,8 +3007,8 @@
               "docstring": "Explanatory note on the definition of l. "
             }
           ],
-          "class_docstring": "The l coordinate of the image dataset.\n\nl is the angle measured from the reference direction to the east, so\nl = x*cdelt where x is the number of pixels from the reference direction.\nSee AIPS Memo #27, Section III. Values are in radians.",
-          "data_docstring": "Angle measured from the reference direction to the east, in radians. ",
+          "class_docstring": "The l coordinate of the image dataset.\n\nl is the projection plane coordinate (the FITS WCS intermediate world\ncoordinate) towards the east, measured from the reference direction:\nl = x*cdelt, where x is the pixel offset from the reference pixel and\ncdelt the pixel increment in radians. For the SIN projection without\nprojection parameters, the usual projection of interferometric images, l\nis the direction cosine l of AIPS Memo #27 (Section III). For other\nprojections l is neither the direction cosine nor the angular offset (for\nTAN they differ from l by 1% to 1.5% at 10 degrees from the reference\ndirection); the ``projection`` of ``coordinate_system_info`` defines it.",
+          "data_docstring": "Projection plane coordinate towards the east, in radians (the\ndimensionless direction cosine for the SIN projection). ",
           "name": "l",
           "optional": false
         },
@@ -2691,8 +3033,8 @@
               "docstring": "Explanatory note on the definition of m. "
             }
           ],
-          "class_docstring": "The m coordinate of the image dataset.\n\nm is the angle measured from the reference direction to the north, so\nm = y*cdelt where y is the number of pixels from the reference direction.\nSee AIPS Memo #27, Section III. Values are in radians.",
-          "data_docstring": "Angle measured from the reference direction to the north, in radians. ",
+          "class_docstring": "The m coordinate of the image dataset.\n\nm is the projection plane coordinate (the FITS WCS intermediate world\ncoordinate) towards the north, measured from the reference direction:\nm = y*cdelt, where y is the pixel offset from the reference pixel and\ncdelt the pixel increment in radians. For the SIN projection without\nprojection parameters, the usual projection of interferometric images, m\nis the direction cosine m of AIPS Memo #27 (Section III). For other\nprojections m is neither the direction cosine nor the angular offset; the\n``projection`` of ``coordinate_system_info`` defines it.",
+          "data_docstring": "Projection plane coordinate towards the north, in radians (the\ndimensionless direction cosine for the SIN projection). ",
           "name": "m",
           "optional": false
         }
@@ -2767,7 +3109,7 @@
                       "$class": "AttrSchemaRef",
                       "type": "str",
                       "name": "coordinate_system",
-                      "docstring": "Coordinate system, for example ``\"geocentric\"``. "
+                      "docstring": "Coordinate system, for example ``\"geocentric\"`` (spherical\ncoordinates of the position vector: longitude, geocentric latitude and\ndistance from the geocenter). "
                     },
                     {
                       "$class": "AttrSchemaRef",
@@ -2786,12 +3128,12 @@
                       "docstring": "Measure type. Should be ``\"location\"``. "
                     }
                   ],
-                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``).",
+                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``). The readers\nstore geocentric spherical coordinates (``coordinate_system``\n``\"geocentric\"``), see :py:class:`TelescopeDict`.",
                   "data_docstring": "Location values ('lon', 'lat' in radians, or 'dist' in meters, or 'x', 'y', 'z' in meters). "
                 },
                 "optional": true,
                 "name": "direction",
-                "docstring": "Location measure holding the geodetic longitude and latitude of the telescope. "
+                "docstring": "Location measure holding the longitude and the geocentric latitude of\nthe telescope ('lon', 'lat', in radians). "
               },
               {
                 "$class": "AttrSchemaRef",
@@ -2835,7 +3177,7 @@
                       "$class": "AttrSchemaRef",
                       "type": "str",
                       "name": "coordinate_system",
-                      "docstring": "Coordinate system, for example ``\"geocentric\"``. "
+                      "docstring": "Coordinate system, for example ``\"geocentric\"`` (spherical\ncoordinates of the position vector: longitude, geocentric latitude and\ndistance from the geocenter). "
                     },
                     {
                       "$class": "AttrSchemaRef",
@@ -2854,15 +3196,15 @@
                       "docstring": "Measure type. Should be ``\"location\"``. "
                     }
                   ],
-                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``).",
+                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``). The readers\nstore geocentric spherical coordinates (``coordinate_system``\n``\"geocentric\"``), see :py:class:`TelescopeDict`.",
                   "data_docstring": "Location values ('lon', 'lat' in radians, or 'dist' in meters, or 'x', 'y', 'z' in meters). "
                 },
                 "optional": true,
                 "name": "distance",
-                "docstring": "Location measure holding the geocentric distance of the telescope. "
+                "docstring": "Location measure holding the distance of the telescope from the\ngeocenter ('dist', in meters). "
               }
             ],
-            "class_docstring": "Telescope information stored in the attributes of image data variables."
+            "class_docstring": "Telescope information stored in the attributes of image data variables.\n\nThe telescope position is stored in geocentric spherical ITRF\ncoordinates (``coordinate_system`` ``\"geocentric\"``): ``direction`` holds\nthe longitude and the geocentric latitude, ``distance`` the distance from\nthe geocenter, so the Cartesian ITRF position is\nx = distance cos(lat) cos(lon), y = distance cos(lat) sin(lon) and\nz = distance sin(lat) (for example for astropy's\n``EarthLocation.from_geocentric``). The geocentric latitude is not the\ngeodetic latitude (for ALMA they differ by about 0.14 degrees)."
           },
           "optional": true,
           "name": "telescope",
@@ -3254,6 +3596,9 @@
                       "REST",
                       "BARY",
                       "TOPO",
+                      "GALACTO",
+                      "LGROUP",
+                      "CMB",
                       "gcrs",
                       "icrs",
                       "hcrs",
@@ -3263,7 +3608,7 @@
                     ],
                     "name": "observer",
                     "default": "icrs",
-                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd. The other casacore frames (REST, BARY, TOPO,\nGALACTO, LGROUP, CMB) are not translated and keep their casacore name. The astropy frames icrs, hcrs and\nlsr are not translated to casacore frames (astropy's lsr uses a different solar motion than casacore's LSRK)."
                   },
                   {
                     "$class": "AttrSchemaRef",
@@ -3280,13 +3625,54 @@
                 "data_docstring": null
               },
               "name": "reference_frequency",
-              "docstring": "A frequency representative of the image spectral axis. "
+              "docstring": "A frequency representative of the image spectral axis. Its\n``observer`` is the spectral reference frame of the image (``frame``) in\nthe vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, for example\n``\"lsrk\"`` for LSRK, ``\"gcrs\"`` for GEO and ``\"BARY\"`` for BARY. "
             },
             {
               "$class": "AttrSchemaRef",
               "type": "str",
               "name": "frame",
-              "docstring": "Native (casacore) spectral reference frame of the image, for example ``\"LSRK\"``. "
+              "docstring": "Spectral reference frame of the image, by its casacore name: one of\n``\"REST\"``, ``\"LSRK\"``, ``\"LSRD\"``, ``\"BARY\"``, ``\"GEO\"``, ``\"TOPO\"``,\n``\"GALACTO\"``, ``\"LGROUP\"`` or ``\"CMB\"``. Readers translate other names\nfor the same frames, such as FITS ``SPECSYS`` values (``\"BARYCENT\"``,\n``\"SOURCE\"``), to these; the CASA reader keeps casacore's\n``\"Undefined\"``. Images that the ``make_empty_*`` factories make in an\nastropy frame without a casacore equivalent hold its name (``\"icrs\"``,\n``\"hcrs\"`` or ``\"lsr\"``); the CASA and FITS writers cannot write those. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "Hz"
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "optional": true,
+              "name": "channel_width",
+              "docstring": "The nominal channel width, as in the measurement set frequency\ncoordinate (:py:class:`~xradio.measurement_set.schema.FrequencyArray`).\nReaders fill it from the spectral increment of the image; writers use it\nas the increment of a single channel spectral axis, which the frequency\nvalues alone do not determine. "
             },
             {
               "$class": "AttrSchemaRef",
@@ -3302,6 +3688,9 @@
                 "REST",
                 "BARY",
                 "TOPO",
+                "GALACTO",
+                "LGROUP",
+                "CMB",
                 "gcrs",
                 "icrs",
                 "hcrs",
@@ -3311,7 +3700,7 @@
               ],
               "optional": true,
               "name": "observer",
-              "docstring": "Astropy velocity reference frame (see :py:class:`~xradio.schema.measures.SpectralCoordArray`). "
+              "docstring": "Spectral reference frame of the axis in the vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, the same\nvalue as the ``observer`` of ``reference_frequency`` (see\n:py:class:`~xradio.schema.measures.SpectralCoordArray`). "
             },
             {
               "$class": "AttrSchemaRef",
@@ -3387,8 +3776,8 @@
               "docstring": "Explanatory note on the definition of l. "
             }
           ],
-          "class_docstring": "The l coordinate of the image dataset.\n\nl is the angle measured from the reference direction to the east, so\nl = x*cdelt where x is the number of pixels from the reference direction.\nSee AIPS Memo #27, Section III. Values are in radians.",
-          "data_docstring": "Angle measured from the reference direction to the east, in radians. ",
+          "class_docstring": "The l coordinate of the image dataset.\n\nl is the projection plane coordinate (the FITS WCS intermediate world\ncoordinate) towards the east, measured from the reference direction:\nl = x*cdelt, where x is the pixel offset from the reference pixel and\ncdelt the pixel increment in radians. For the SIN projection without\nprojection parameters, the usual projection of interferometric images, l\nis the direction cosine l of AIPS Memo #27 (Section III). For other\nprojections l is neither the direction cosine nor the angular offset (for\nTAN they differ from l by 1% to 1.5% at 10 degrees from the reference\ndirection); the ``projection`` of ``coordinate_system_info`` defines it.",
+          "data_docstring": "Projection plane coordinate towards the east, in radians (the\ndimensionless direction cosine for the SIN projection). ",
           "name": "l",
           "optional": false
         },
@@ -3413,8 +3802,8 @@
               "docstring": "Explanatory note on the definition of m. "
             }
           ],
-          "class_docstring": "The m coordinate of the image dataset.\n\nm is the angle measured from the reference direction to the north, so\nm = y*cdelt where y is the number of pixels from the reference direction.\nSee AIPS Memo #27, Section III. Values are in radians.",
-          "data_docstring": "Angle measured from the reference direction to the north, in radians. ",
+          "class_docstring": "The m coordinate of the image dataset.\n\nm is the projection plane coordinate (the FITS WCS intermediate world\ncoordinate) towards the north, measured from the reference direction:\nm = y*cdelt, where y is the pixel offset from the reference pixel and\ncdelt the pixel increment in radians. For the SIN projection without\nprojection parameters, the usual projection of interferometric images, m\nis the direction cosine m of AIPS Memo #27 (Section III). For other\nprojections m is neither the direction cosine nor the angular offset; the\n``projection`` of ``coordinate_system_info`` defines it.",
+          "data_docstring": "Projection plane coordinate towards the north, in radians (the\ndimensionless direction cosine for the SIN projection). ",
           "name": "m",
           "optional": false
         }
@@ -3489,7 +3878,7 @@
                       "$class": "AttrSchemaRef",
                       "type": "str",
                       "name": "coordinate_system",
-                      "docstring": "Coordinate system, for example ``\"geocentric\"``. "
+                      "docstring": "Coordinate system, for example ``\"geocentric\"`` (spherical\ncoordinates of the position vector: longitude, geocentric latitude and\ndistance from the geocenter). "
                     },
                     {
                       "$class": "AttrSchemaRef",
@@ -3508,12 +3897,12 @@
                       "docstring": "Measure type. Should be ``\"location\"``. "
                     }
                   ],
-                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``).",
+                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``). The readers\nstore geocentric spherical coordinates (``coordinate_system``\n``\"geocentric\"``), see :py:class:`TelescopeDict`.",
                   "data_docstring": "Location values ('lon', 'lat' in radians, or 'dist' in meters, or 'x', 'y', 'z' in meters). "
                 },
                 "optional": true,
                 "name": "direction",
-                "docstring": "Location measure holding the geodetic longitude and latitude of the telescope. "
+                "docstring": "Location measure holding the longitude and the geocentric latitude of\nthe telescope ('lon', 'lat', in radians). "
               },
               {
                 "$class": "AttrSchemaRef",
@@ -3557,7 +3946,7 @@
                       "$class": "AttrSchemaRef",
                       "type": "str",
                       "name": "coordinate_system",
-                      "docstring": "Coordinate system, for example ``\"geocentric\"``. "
+                      "docstring": "Coordinate system, for example ``\"geocentric\"`` (spherical\ncoordinates of the position vector: longitude, geocentric latitude and\ndistance from the geocenter). "
                     },
                     {
                       "$class": "AttrSchemaRef",
@@ -3576,15 +3965,15 @@
                       "docstring": "Measure type. Should be ``\"location\"``. "
                     }
                   ],
-                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``).",
+                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``). The readers\nstore geocentric spherical coordinates (``coordinate_system``\n``\"geocentric\"``), see :py:class:`TelescopeDict`.",
                   "data_docstring": "Location values ('lon', 'lat' in radians, or 'dist' in meters, or 'x', 'y', 'z' in meters). "
                 },
                 "optional": true,
                 "name": "distance",
-                "docstring": "Location measure holding the geocentric distance of the telescope. "
+                "docstring": "Location measure holding the distance of the telescope from the\ngeocenter ('dist', in meters). "
               }
             ],
-            "class_docstring": "Telescope information stored in the attributes of image data variables."
+            "class_docstring": "Telescope information stored in the attributes of image data variables.\n\nThe telescope position is stored in geocentric spherical ITRF\ncoordinates (``coordinate_system`` ``\"geocentric\"``): ``direction`` holds\nthe longitude and the geocentric latitude, ``distance`` the distance from\nthe geocenter, so the Cartesian ITRF position is\nx = distance cos(lat) cos(lon), y = distance cos(lat) sin(lon) and\nz = distance sin(lat) (for example for astropy's\n``EarthLocation.from_geocentric``). The geocentric latitude is not the\ngeodetic latitude (for ALMA they differ by about 0.14 degrees)."
           },
           "optional": true,
           "name": "telescope",
@@ -3976,6 +4365,9 @@
                       "REST",
                       "BARY",
                       "TOPO",
+                      "GALACTO",
+                      "LGROUP",
+                      "CMB",
                       "gcrs",
                       "icrs",
                       "hcrs",
@@ -3985,7 +4377,7 @@
                     ],
                     "name": "observer",
                     "default": "icrs",
-                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd. The other casacore frames (REST, BARY, TOPO,\nGALACTO, LGROUP, CMB) are not translated and keep their casacore name. The astropy frames icrs, hcrs and\nlsr are not translated to casacore frames (astropy's lsr uses a different solar motion than casacore's LSRK)."
                   },
                   {
                     "$class": "AttrSchemaRef",
@@ -4002,13 +4394,54 @@
                 "data_docstring": null
               },
               "name": "reference_frequency",
-              "docstring": "A frequency representative of the image spectral axis. "
+              "docstring": "A frequency representative of the image spectral axis. Its\n``observer`` is the spectral reference frame of the image (``frame``) in\nthe vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, for example\n``\"lsrk\"`` for LSRK, ``\"gcrs\"`` for GEO and ``\"BARY\"`` for BARY. "
             },
             {
               "$class": "AttrSchemaRef",
               "type": "str",
               "name": "frame",
-              "docstring": "Native (casacore) spectral reference frame of the image, for example ``\"LSRK\"``. "
+              "docstring": "Spectral reference frame of the image, by its casacore name: one of\n``\"REST\"``, ``\"LSRK\"``, ``\"LSRD\"``, ``\"BARY\"``, ``\"GEO\"``, ``\"TOPO\"``,\n``\"GALACTO\"``, ``\"LGROUP\"`` or ``\"CMB\"``. Readers translate other names\nfor the same frames, such as FITS ``SPECSYS`` values (``\"BARYCENT\"``,\n``\"SOURCE\"``), to these; the CASA reader keeps casacore's\n``\"Undefined\"``. Images that the ``make_empty_*`` factories make in an\nastropy frame without a casacore equivalent hold its name (``\"icrs\"``,\n``\"hcrs\"`` or ``\"lsr\"``); the CASA and FITS writers cannot write those. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "Hz"
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "optional": true,
+              "name": "channel_width",
+              "docstring": "The nominal channel width, as in the measurement set frequency\ncoordinate (:py:class:`~xradio.measurement_set.schema.FrequencyArray`).\nReaders fill it from the spectral increment of the image; writers use it\nas the increment of a single channel spectral axis, which the frequency\nvalues alone do not determine. "
             },
             {
               "$class": "AttrSchemaRef",
@@ -4024,6 +4457,9 @@
                 "REST",
                 "BARY",
                 "TOPO",
+                "GALACTO",
+                "LGROUP",
+                "CMB",
                 "gcrs",
                 "icrs",
                 "hcrs",
@@ -4033,7 +4469,7 @@
               ],
               "optional": true,
               "name": "observer",
-              "docstring": "Astropy velocity reference frame (see :py:class:`~xradio.schema.measures.SpectralCoordArray`). "
+              "docstring": "Spectral reference frame of the axis in the vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, the same\nvalue as the ``observer`` of ``reference_frequency`` (see\n:py:class:`~xradio.schema.measures.SpectralCoordArray`). "
             },
             {
               "$class": "AttrSchemaRef",
@@ -4109,8 +4545,8 @@
               "docstring": "Explanatory note on the definition of l. "
             }
           ],
-          "class_docstring": "The l coordinate of the image dataset.\n\nl is the angle measured from the reference direction to the east, so\nl = x*cdelt where x is the number of pixels from the reference direction.\nSee AIPS Memo #27, Section III. Values are in radians.",
-          "data_docstring": "Angle measured from the reference direction to the east, in radians. ",
+          "class_docstring": "The l coordinate of the image dataset.\n\nl is the projection plane coordinate (the FITS WCS intermediate world\ncoordinate) towards the east, measured from the reference direction:\nl = x*cdelt, where x is the pixel offset from the reference pixel and\ncdelt the pixel increment in radians. For the SIN projection without\nprojection parameters, the usual projection of interferometric images, l\nis the direction cosine l of AIPS Memo #27 (Section III). For other\nprojections l is neither the direction cosine nor the angular offset (for\nTAN they differ from l by 1% to 1.5% at 10 degrees from the reference\ndirection); the ``projection`` of ``coordinate_system_info`` defines it.",
+          "data_docstring": "Projection plane coordinate towards the east, in radians (the\ndimensionless direction cosine for the SIN projection). ",
           "name": "l",
           "optional": false
         },
@@ -4135,8 +4571,8 @@
               "docstring": "Explanatory note on the definition of m. "
             }
           ],
-          "class_docstring": "The m coordinate of the image dataset.\n\nm is the angle measured from the reference direction to the north, so\nm = y*cdelt where y is the number of pixels from the reference direction.\nSee AIPS Memo #27, Section III. Values are in radians.",
-          "data_docstring": "Angle measured from the reference direction to the north, in radians. ",
+          "class_docstring": "The m coordinate of the image dataset.\n\nm is the projection plane coordinate (the FITS WCS intermediate world\ncoordinate) towards the north, measured from the reference direction:\nm = y*cdelt, where y is the pixel offset from the reference pixel and\ncdelt the pixel increment in radians. For the SIN projection without\nprojection parameters, the usual projection of interferometric images, m\nis the direction cosine m of AIPS Memo #27 (Section III). For other\nprojections m is neither the direction cosine nor the angular offset; the\n``projection`` of ``coordinate_system_info`` defines it.",
+          "data_docstring": "Projection plane coordinate towards the north, in radians (the\ndimensionless direction cosine for the SIN projection). ",
           "name": "m",
           "optional": false
         }
@@ -4211,7 +4647,7 @@
                       "$class": "AttrSchemaRef",
                       "type": "str",
                       "name": "coordinate_system",
-                      "docstring": "Coordinate system, for example ``\"geocentric\"``. "
+                      "docstring": "Coordinate system, for example ``\"geocentric\"`` (spherical\ncoordinates of the position vector: longitude, geocentric latitude and\ndistance from the geocenter). "
                     },
                     {
                       "$class": "AttrSchemaRef",
@@ -4230,12 +4666,12 @@
                       "docstring": "Measure type. Should be ``\"location\"``. "
                     }
                   ],
-                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``).",
+                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``). The readers\nstore geocentric spherical coordinates (``coordinate_system``\n``\"geocentric\"``), see :py:class:`TelescopeDict`.",
                   "data_docstring": "Location values ('lon', 'lat' in radians, or 'dist' in meters, or 'x', 'y', 'z' in meters). "
                 },
                 "optional": true,
                 "name": "direction",
-                "docstring": "Location measure holding the geodetic longitude and latitude of the telescope. "
+                "docstring": "Location measure holding the longitude and the geocentric latitude of\nthe telescope ('lon', 'lat', in radians). "
               },
               {
                 "$class": "AttrSchemaRef",
@@ -4279,7 +4715,7 @@
                       "$class": "AttrSchemaRef",
                       "type": "str",
                       "name": "coordinate_system",
-                      "docstring": "Coordinate system, for example ``\"geocentric\"``. "
+                      "docstring": "Coordinate system, for example ``\"geocentric\"`` (spherical\ncoordinates of the position vector: longitude, geocentric latitude and\ndistance from the geocenter). "
                     },
                     {
                       "$class": "AttrSchemaRef",
@@ -4298,15 +4734,15 @@
                       "docstring": "Measure type. Should be ``\"location\"``. "
                     }
                   ],
-                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``).",
+                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``). The readers\nstore geocentric spherical coordinates (``coordinate_system``\n``\"geocentric\"``), see :py:class:`TelescopeDict`.",
                   "data_docstring": "Location values ('lon', 'lat' in radians, or 'dist' in meters, or 'x', 'y', 'z' in meters). "
                 },
                 "optional": true,
                 "name": "distance",
-                "docstring": "Location measure holding the geocentric distance of the telescope. "
+                "docstring": "Location measure holding the distance of the telescope from the\ngeocenter ('dist', in meters). "
               }
             ],
-            "class_docstring": "Telescope information stored in the attributes of image data variables."
+            "class_docstring": "Telescope information stored in the attributes of image data variables.\n\nThe telescope position is stored in geocentric spherical ITRF\ncoordinates (``coordinate_system`` ``\"geocentric\"``): ``direction`` holds\nthe longitude and the geocentric latitude, ``distance`` the distance from\nthe geocenter, so the Cartesian ITRF position is\nx = distance cos(lat) cos(lon), y = distance cos(lat) sin(lon) and\nz = distance sin(lat) (for example for astropy's\n``EarthLocation.from_geocentric``). The geocentric latitude is not the\ngeodetic latitude (for ALMA they differ by about 0.14 degrees)."
           },
           "optional": true,
           "name": "telescope",
@@ -4703,6 +5139,9 @@
                       "REST",
                       "BARY",
                       "TOPO",
+                      "GALACTO",
+                      "LGROUP",
+                      "CMB",
                       "gcrs",
                       "icrs",
                       "hcrs",
@@ -4712,7 +5151,7 @@
                     ],
                     "name": "observer",
                     "default": "icrs",
-                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd. The other casacore frames (REST, BARY, TOPO,\nGALACTO, LGROUP, CMB) are not translated and keep their casacore name. The astropy frames icrs, hcrs and\nlsr are not translated to casacore frames (astropy's lsr uses a different solar motion than casacore's LSRK)."
                   },
                   {
                     "$class": "AttrSchemaRef",
@@ -4729,13 +5168,54 @@
                 "data_docstring": null
               },
               "name": "reference_frequency",
-              "docstring": "A frequency representative of the image spectral axis. "
+              "docstring": "A frequency representative of the image spectral axis. Its\n``observer`` is the spectral reference frame of the image (``frame``) in\nthe vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, for example\n``\"lsrk\"`` for LSRK, ``\"gcrs\"`` for GEO and ``\"BARY\"`` for BARY. "
             },
             {
               "$class": "AttrSchemaRef",
               "type": "str",
               "name": "frame",
-              "docstring": "Native (casacore) spectral reference frame of the image, for example ``\"LSRK\"``. "
+              "docstring": "Spectral reference frame of the image, by its casacore name: one of\n``\"REST\"``, ``\"LSRK\"``, ``\"LSRD\"``, ``\"BARY\"``, ``\"GEO\"``, ``\"TOPO\"``,\n``\"GALACTO\"``, ``\"LGROUP\"`` or ``\"CMB\"``. Readers translate other names\nfor the same frames, such as FITS ``SPECSYS`` values (``\"BARYCENT\"``,\n``\"SOURCE\"``), to these; the CASA reader keeps casacore's\n``\"Undefined\"``. Images that the ``make_empty_*`` factories make in an\nastropy frame without a casacore equivalent hold its name (``\"icrs\"``,\n``\"hcrs\"`` or ``\"lsr\"``); the CASA and FITS writers cannot write those. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "Hz"
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "optional": true,
+              "name": "channel_width",
+              "docstring": "The nominal channel width, as in the measurement set frequency\ncoordinate (:py:class:`~xradio.measurement_set.schema.FrequencyArray`).\nReaders fill it from the spectral increment of the image; writers use it\nas the increment of a single channel spectral axis, which the frequency\nvalues alone do not determine. "
             },
             {
               "$class": "AttrSchemaRef",
@@ -4751,6 +5231,9 @@
                 "REST",
                 "BARY",
                 "TOPO",
+                "GALACTO",
+                "LGROUP",
+                "CMB",
                 "gcrs",
                 "icrs",
                 "hcrs",
@@ -4760,7 +5243,7 @@
               ],
               "optional": true,
               "name": "observer",
-              "docstring": "Astropy velocity reference frame (see :py:class:`~xradio.schema.measures.SpectralCoordArray`). "
+              "docstring": "Spectral reference frame of the axis in the vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, the same\nvalue as the ``observer`` of ``reference_frequency`` (see\n:py:class:`~xradio.schema.measures.SpectralCoordArray`). "
             },
             {
               "$class": "AttrSchemaRef",
@@ -4889,7 +5372,7 @@
                       "$class": "AttrSchemaRef",
                       "type": "str",
                       "name": "coordinate_system",
-                      "docstring": "Coordinate system, for example ``\"geocentric\"``. "
+                      "docstring": "Coordinate system, for example ``\"geocentric\"`` (spherical\ncoordinates of the position vector: longitude, geocentric latitude and\ndistance from the geocenter). "
                     },
                     {
                       "$class": "AttrSchemaRef",
@@ -4908,12 +5391,12 @@
                       "docstring": "Measure type. Should be ``\"location\"``. "
                     }
                   ],
-                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``).",
+                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``). The readers\nstore geocentric spherical coordinates (``coordinate_system``\n``\"geocentric\"``), see :py:class:`TelescopeDict`.",
                   "data_docstring": "Location values ('lon', 'lat' in radians, or 'dist' in meters, or 'x', 'y', 'z' in meters). "
                 },
                 "optional": true,
                 "name": "direction",
-                "docstring": "Location measure holding the geodetic longitude and latitude of the telescope. "
+                "docstring": "Location measure holding the longitude and the geocentric latitude of\nthe telescope ('lon', 'lat', in radians). "
               },
               {
                 "$class": "AttrSchemaRef",
@@ -4957,7 +5440,7 @@
                       "$class": "AttrSchemaRef",
                       "type": "str",
                       "name": "coordinate_system",
-                      "docstring": "Coordinate system, for example ``\"geocentric\"``. "
+                      "docstring": "Coordinate system, for example ``\"geocentric\"`` (spherical\ncoordinates of the position vector: longitude, geocentric latitude and\ndistance from the geocenter). "
                     },
                     {
                       "$class": "AttrSchemaRef",
@@ -4976,15 +5459,15 @@
                       "docstring": "Measure type. Should be ``\"location\"``. "
                     }
                   ],
-                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``).",
+                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``). The readers\nstore geocentric spherical coordinates (``coordinate_system``\n``\"geocentric\"``), see :py:class:`TelescopeDict`.",
                   "data_docstring": "Location values ('lon', 'lat' in radians, or 'dist' in meters, or 'x', 'y', 'z' in meters). "
                 },
                 "optional": true,
                 "name": "distance",
-                "docstring": "Location measure holding the geocentric distance of the telescope. "
+                "docstring": "Location measure holding the distance of the telescope from the\ngeocenter ('dist', in meters). "
               }
             ],
-            "class_docstring": "Telescope information stored in the attributes of image data variables."
+            "class_docstring": "Telescope information stored in the attributes of image data variables.\n\nThe telescope position is stored in geocentric spherical ITRF\ncoordinates (``coordinate_system`` ``\"geocentric\"``): ``direction`` holds\nthe longitude and the geocentric latitude, ``distance`` the distance from\nthe geocenter, so the Cartesian ITRF position is\nx = distance cos(lat) cos(lon), y = distance cos(lat) sin(lon) and\nz = distance sin(lat) (for example for astropy's\n``EarthLocation.from_geocentric``). The geocentric latitude is not the\ngeodetic latitude (for ALMA they differ by about 0.14 degrees)."
           },
           "optional": true,
           "name": "telescope",
@@ -5368,6 +5851,9 @@
                       "REST",
                       "BARY",
                       "TOPO",
+                      "GALACTO",
+                      "LGROUP",
+                      "CMB",
                       "gcrs",
                       "icrs",
                       "hcrs",
@@ -5377,7 +5863,7 @@
                     ],
                     "name": "observer",
                     "default": "icrs",
-                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd. The other casacore frames (REST, BARY, TOPO,\nGALACTO, LGROUP, CMB) are not translated and keep their casacore name. The astropy frames icrs, hcrs and\nlsr are not translated to casacore frames (astropy's lsr uses a different solar motion than casacore's LSRK)."
                   },
                   {
                     "$class": "AttrSchemaRef",
@@ -5394,13 +5880,54 @@
                 "data_docstring": null
               },
               "name": "reference_frequency",
-              "docstring": "A frequency representative of the image spectral axis. "
+              "docstring": "A frequency representative of the image spectral axis. Its\n``observer`` is the spectral reference frame of the image (``frame``) in\nthe vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, for example\n``\"lsrk\"`` for LSRK, ``\"gcrs\"`` for GEO and ``\"BARY\"`` for BARY. "
             },
             {
               "$class": "AttrSchemaRef",
               "type": "str",
               "name": "frame",
-              "docstring": "Native (casacore) spectral reference frame of the image, for example ``\"LSRK\"``. "
+              "docstring": "Spectral reference frame of the image, by its casacore name: one of\n``\"REST\"``, ``\"LSRK\"``, ``\"LSRD\"``, ``\"BARY\"``, ``\"GEO\"``, ``\"TOPO\"``,\n``\"GALACTO\"``, ``\"LGROUP\"`` or ``\"CMB\"``. Readers translate other names\nfor the same frames, such as FITS ``SPECSYS`` values (``\"BARYCENT\"``,\n``\"SOURCE\"``), to these; the CASA reader keeps casacore's\n``\"Undefined\"``. Images that the ``make_empty_*`` factories make in an\nastropy frame without a casacore equivalent hold its name (``\"icrs\"``,\n``\"hcrs\"`` or ``\"lsr\"``); the CASA and FITS writers cannot write those. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "Hz"
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "optional": true,
+              "name": "channel_width",
+              "docstring": "The nominal channel width, as in the measurement set frequency\ncoordinate (:py:class:`~xradio.measurement_set.schema.FrequencyArray`).\nReaders fill it from the spectral increment of the image; writers use it\nas the increment of a single channel spectral axis, which the frequency\nvalues alone do not determine. "
             },
             {
               "$class": "AttrSchemaRef",
@@ -5416,6 +5943,9 @@
                 "REST",
                 "BARY",
                 "TOPO",
+                "GALACTO",
+                "LGROUP",
+                "CMB",
                 "gcrs",
                 "icrs",
                 "hcrs",
@@ -5425,7 +5955,7 @@
               ],
               "optional": true,
               "name": "observer",
-              "docstring": "Astropy velocity reference frame (see :py:class:`~xradio.schema.measures.SpectralCoordArray`). "
+              "docstring": "Spectral reference frame of the axis in the vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, the same\nvalue as the ``observer`` of ``reference_frequency`` (see\n:py:class:`~xradio.schema.measures.SpectralCoordArray`). "
             },
             {
               "$class": "AttrSchemaRef",
@@ -5498,7 +6028,7 @@
               "type": "str",
               "optional": true,
               "name": "units",
-              "docstring": "Units to associate with axis, for example ``\"lambda\"``. "
+              "docstring": "Units to associate with axis. The convention is ``\"lambda\"``\n(wavelengths). "
             },
             {
               "$class": "AttrSchemaRef",
@@ -5522,8 +6052,8 @@
               "docstring": "Coordinate type. "
             }
           ],
-          "class_docstring": "The u coordinate of aperture plane data (conjugate to l).",
-          "data_docstring": "u values, typically in wavelengths. ",
+          "class_docstring": "The u coordinate of aperture plane data (conjugate to l).\n\nBy convention u is in wavelengths (``units`` ``\"lambda\"``), the Fourier\nconjugate of the dimensionless l.",
+          "data_docstring": "u values, in wavelengths. ",
           "name": "u",
           "optional": false
         },
@@ -5545,7 +6075,7 @@
               "type": "str",
               "optional": true,
               "name": "units",
-              "docstring": "Units to associate with axis, for example ``\"lambda\"``. "
+              "docstring": "Units to associate with axis. The convention is ``\"lambda\"``\n(wavelengths). "
             },
             {
               "$class": "AttrSchemaRef",
@@ -5569,8 +6099,8 @@
               "docstring": "Coordinate type. "
             }
           ],
-          "class_docstring": "The v coordinate of aperture plane data (conjugate to m).",
-          "data_docstring": "v values, typically in wavelengths. ",
+          "class_docstring": "The v coordinate of aperture plane data (conjugate to m).\n\nBy convention v is in wavelengths (``units`` ``\"lambda\"``), the Fourier\nconjugate of the dimensionless m.",
+          "data_docstring": "v values, in wavelengths. ",
           "name": "v",
           "optional": false
         }
@@ -5648,7 +6178,7 @@
                       "$class": "AttrSchemaRef",
                       "type": "str",
                       "name": "coordinate_system",
-                      "docstring": "Coordinate system, for example ``\"geocentric\"``. "
+                      "docstring": "Coordinate system, for example ``\"geocentric\"`` (spherical\ncoordinates of the position vector: longitude, geocentric latitude and\ndistance from the geocenter). "
                     },
                     {
                       "$class": "AttrSchemaRef",
@@ -5667,12 +6197,12 @@
                       "docstring": "Measure type. Should be ``\"location\"``. "
                     }
                   ],
-                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``).",
+                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``). The readers\nstore geocentric spherical coordinates (``coordinate_system``\n``\"geocentric\"``), see :py:class:`TelescopeDict`.",
                   "data_docstring": "Location values ('lon', 'lat' in radians, or 'dist' in meters, or 'x', 'y', 'z' in meters). "
                 },
                 "optional": true,
                 "name": "direction",
-                "docstring": "Location measure holding the geodetic longitude and latitude of the telescope. "
+                "docstring": "Location measure holding the longitude and the geocentric latitude of\nthe telescope ('lon', 'lat', in radians). "
               },
               {
                 "$class": "AttrSchemaRef",
@@ -5716,7 +6246,7 @@
                       "$class": "AttrSchemaRef",
                       "type": "str",
                       "name": "coordinate_system",
-                      "docstring": "Coordinate system, for example ``\"geocentric\"``. "
+                      "docstring": "Coordinate system, for example ``\"geocentric\"`` (spherical\ncoordinates of the position vector: longitude, geocentric latitude and\ndistance from the geocenter). "
                     },
                     {
                       "$class": "AttrSchemaRef",
@@ -5735,15 +6265,15 @@
                       "docstring": "Measure type. Should be ``\"location\"``. "
                     }
                   ],
-                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``).",
+                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``). The readers\nstore geocentric spherical coordinates (``coordinate_system``\n``\"geocentric\"``), see :py:class:`TelescopeDict`.",
                   "data_docstring": "Location values ('lon', 'lat' in radians, or 'dist' in meters, or 'x', 'y', 'z' in meters). "
                 },
                 "optional": true,
                 "name": "distance",
-                "docstring": "Location measure holding the geocentric distance of the telescope. "
+                "docstring": "Location measure holding the distance of the telescope from the\ngeocenter ('dist', in meters). "
               }
             ],
-            "class_docstring": "Telescope information stored in the attributes of image data variables."
+            "class_docstring": "Telescope information stored in the attributes of image data variables.\n\nThe telescope position is stored in geocentric spherical ITRF\ncoordinates (``coordinate_system`` ``\"geocentric\"``): ``direction`` holds\nthe longitude and the geocentric latitude, ``distance`` the distance from\nthe geocenter, so the Cartesian ITRF position is\nx = distance cos(lat) cos(lon), y = distance cos(lat) sin(lon) and\nz = distance sin(lat) (for example for astropy's\n``EarthLocation.from_geocentric``). The geocentric latitude is not the\ngeodetic latitude (for ALMA they differ by about 0.14 degrees)."
           },
           "optional": true,
           "name": "telescope",
@@ -6129,6 +6659,9 @@
                       "REST",
                       "BARY",
                       "TOPO",
+                      "GALACTO",
+                      "LGROUP",
+                      "CMB",
                       "gcrs",
                       "icrs",
                       "hcrs",
@@ -6138,7 +6671,7 @@
                     ],
                     "name": "observer",
                     "default": "icrs",
-                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd. The other casacore frames (REST, BARY, TOPO,\nGALACTO, LGROUP, CMB) are not translated and keep their casacore name. The astropy frames icrs, hcrs and\nlsr are not translated to casacore frames (astropy's lsr uses a different solar motion than casacore's LSRK)."
                   },
                   {
                     "$class": "AttrSchemaRef",
@@ -6155,13 +6688,54 @@
                 "data_docstring": null
               },
               "name": "reference_frequency",
-              "docstring": "A frequency representative of the image spectral axis. "
+              "docstring": "A frequency representative of the image spectral axis. Its\n``observer`` is the spectral reference frame of the image (``frame``) in\nthe vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, for example\n``\"lsrk\"`` for LSRK, ``\"gcrs\"`` for GEO and ``\"BARY\"`` for BARY. "
             },
             {
               "$class": "AttrSchemaRef",
               "type": "str",
               "name": "frame",
-              "docstring": "Native (casacore) spectral reference frame of the image, for example ``\"LSRK\"``. "
+              "docstring": "Spectral reference frame of the image, by its casacore name: one of\n``\"REST\"``, ``\"LSRK\"``, ``\"LSRD\"``, ``\"BARY\"``, ``\"GEO\"``, ``\"TOPO\"``,\n``\"GALACTO\"``, ``\"LGROUP\"`` or ``\"CMB\"``. Readers translate other names\nfor the same frames, such as FITS ``SPECSYS`` values (``\"BARYCENT\"``,\n``\"SOURCE\"``), to these; the CASA reader keeps casacore's\n``\"Undefined\"``. Images that the ``make_empty_*`` factories make in an\nastropy frame without a casacore equivalent hold its name (``\"icrs\"``,\n``\"hcrs\"`` or ``\"lsr\"``); the CASA and FITS writers cannot write those. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "Hz"
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "optional": true,
+              "name": "channel_width",
+              "docstring": "The nominal channel width, as in the measurement set frequency\ncoordinate (:py:class:`~xradio.measurement_set.schema.FrequencyArray`).\nReaders fill it from the spectral increment of the image; writers use it\nas the increment of a single channel spectral axis, which the frequency\nvalues alone do not determine. "
             },
             {
               "$class": "AttrSchemaRef",
@@ -6177,6 +6751,9 @@
                 "REST",
                 "BARY",
                 "TOPO",
+                "GALACTO",
+                "LGROUP",
+                "CMB",
                 "gcrs",
                 "icrs",
                 "hcrs",
@@ -6186,7 +6763,7 @@
               ],
               "optional": true,
               "name": "observer",
-              "docstring": "Astropy velocity reference frame (see :py:class:`~xradio.schema.measures.SpectralCoordArray`). "
+              "docstring": "Spectral reference frame of the axis in the vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, the same\nvalue as the ``observer`` of ``reference_frequency`` (see\n:py:class:`~xradio.schema.measures.SpectralCoordArray`). "
             },
             {
               "$class": "AttrSchemaRef",
@@ -6259,7 +6836,7 @@
               "type": "str",
               "optional": true,
               "name": "units",
-              "docstring": "Units to associate with axis, for example ``\"lambda\"``. "
+              "docstring": "Units to associate with axis. The convention is ``\"lambda\"``\n(wavelengths). "
             },
             {
               "$class": "AttrSchemaRef",
@@ -6283,8 +6860,8 @@
               "docstring": "Coordinate type. "
             }
           ],
-          "class_docstring": "The u coordinate of aperture plane data (conjugate to l).",
-          "data_docstring": "u values, typically in wavelengths. ",
+          "class_docstring": "The u coordinate of aperture plane data (conjugate to l).\n\nBy convention u is in wavelengths (``units`` ``\"lambda\"``), the Fourier\nconjugate of the dimensionless l.",
+          "data_docstring": "u values, in wavelengths. ",
           "name": "u",
           "optional": false
         },
@@ -6306,7 +6883,7 @@
               "type": "str",
               "optional": true,
               "name": "units",
-              "docstring": "Units to associate with axis, for example ``\"lambda\"``. "
+              "docstring": "Units to associate with axis. The convention is ``\"lambda\"``\n(wavelengths). "
             },
             {
               "$class": "AttrSchemaRef",
@@ -6330,8 +6907,8 @@
               "docstring": "Coordinate type. "
             }
           ],
-          "class_docstring": "The v coordinate of aperture plane data (conjugate to m).",
-          "data_docstring": "v values, typically in wavelengths. ",
+          "class_docstring": "The v coordinate of aperture plane data (conjugate to m).\n\nBy convention v is in wavelengths (``units`` ``\"lambda\"``), the Fourier\nconjugate of the dimensionless m.",
+          "data_docstring": "v values, in wavelengths. ",
           "name": "v",
           "optional": false
         }
@@ -6409,7 +6986,7 @@
                       "$class": "AttrSchemaRef",
                       "type": "str",
                       "name": "coordinate_system",
-                      "docstring": "Coordinate system, for example ``\"geocentric\"``. "
+                      "docstring": "Coordinate system, for example ``\"geocentric\"`` (spherical\ncoordinates of the position vector: longitude, geocentric latitude and\ndistance from the geocenter). "
                     },
                     {
                       "$class": "AttrSchemaRef",
@@ -6428,12 +7005,12 @@
                       "docstring": "Measure type. Should be ``\"location\"``. "
                     }
                   ],
-                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``).",
+                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``). The readers\nstore geocentric spherical coordinates (``coordinate_system``\n``\"geocentric\"``), see :py:class:`TelescopeDict`.",
                   "data_docstring": "Location values ('lon', 'lat' in radians, or 'dist' in meters, or 'x', 'y', 'z' in meters). "
                 },
                 "optional": true,
                 "name": "direction",
-                "docstring": "Location measure holding the geodetic longitude and latitude of the telescope. "
+                "docstring": "Location measure holding the longitude and the geocentric latitude of\nthe telescope ('lon', 'lat', in radians). "
               },
               {
                 "$class": "AttrSchemaRef",
@@ -6477,7 +7054,7 @@
                       "$class": "AttrSchemaRef",
                       "type": "str",
                       "name": "coordinate_system",
-                      "docstring": "Coordinate system, for example ``\"geocentric\"``. "
+                      "docstring": "Coordinate system, for example ``\"geocentric\"`` (spherical\ncoordinates of the position vector: longitude, geocentric latitude and\ndistance from the geocenter). "
                     },
                     {
                       "$class": "AttrSchemaRef",
@@ -6496,15 +7073,15 @@
                       "docstring": "Measure type. Should be ``\"location\"``. "
                     }
                   ],
-                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``).",
+                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``). The readers\nstore geocentric spherical coordinates (``coordinate_system``\n``\"geocentric\"``), see :py:class:`TelescopeDict`.",
                   "data_docstring": "Location values ('lon', 'lat' in radians, or 'dist' in meters, or 'x', 'y', 'z' in meters). "
                 },
                 "optional": true,
                 "name": "distance",
-                "docstring": "Location measure holding the geocentric distance of the telescope. "
+                "docstring": "Location measure holding the distance of the telescope from the\ngeocenter ('dist', in meters). "
               }
             ],
-            "class_docstring": "Telescope information stored in the attributes of image data variables."
+            "class_docstring": "Telescope information stored in the attributes of image data variables.\n\nThe telescope position is stored in geocentric spherical ITRF\ncoordinates (``coordinate_system`` ``\"geocentric\"``): ``direction`` holds\nthe longitude and the geocentric latitude, ``distance`` the distance from\nthe geocenter, so the Cartesian ITRF position is\nx = distance cos(lat) cos(lon), y = distance cos(lat) sin(lon) and\nz = distance sin(lat) (for example for astropy's\n``EarthLocation.from_geocentric``). The geocentric latitude is not the\ngeodetic latitude (for ALMA they differ by about 0.14 degrees)."
           },
           "optional": true,
           "name": "telescope",
@@ -6886,6 +7463,9 @@
                       "REST",
                       "BARY",
                       "TOPO",
+                      "GALACTO",
+                      "LGROUP",
+                      "CMB",
                       "gcrs",
                       "icrs",
                       "hcrs",
@@ -6895,7 +7475,7 @@
                     ],
                     "name": "observer",
                     "default": "icrs",
-                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd. The other casacore frames (REST, BARY, TOPO,\nGALACTO, LGROUP, CMB) are not translated and keep their casacore name. The astropy frames icrs, hcrs and\nlsr are not translated to casacore frames (astropy's lsr uses a different solar motion than casacore's LSRK)."
                   },
                   {
                     "$class": "AttrSchemaRef",
@@ -6912,13 +7492,54 @@
                 "data_docstring": null
               },
               "name": "reference_frequency",
-              "docstring": "A frequency representative of the image spectral axis. "
+              "docstring": "A frequency representative of the image spectral axis. Its\n``observer`` is the spectral reference frame of the image (``frame``) in\nthe vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, for example\n``\"lsrk\"`` for LSRK, ``\"gcrs\"`` for GEO and ``\"BARY\"`` for BARY. "
             },
             {
               "$class": "AttrSchemaRef",
               "type": "str",
               "name": "frame",
-              "docstring": "Native (casacore) spectral reference frame of the image, for example ``\"LSRK\"``. "
+              "docstring": "Spectral reference frame of the image, by its casacore name: one of\n``\"REST\"``, ``\"LSRK\"``, ``\"LSRD\"``, ``\"BARY\"``, ``\"GEO\"``, ``\"TOPO\"``,\n``\"GALACTO\"``, ``\"LGROUP\"`` or ``\"CMB\"``. Readers translate other names\nfor the same frames, such as FITS ``SPECSYS`` values (``\"BARYCENT\"``,\n``\"SOURCE\"``), to these; the CASA reader keeps casacore's\n``\"Undefined\"``. Images that the ``make_empty_*`` factories make in an\nastropy frame without a casacore equivalent hold its name (``\"icrs\"``,\n``\"hcrs\"`` or ``\"lsr\"``); the CASA and FITS writers cannot write those. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "Hz"
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "optional": true,
+              "name": "channel_width",
+              "docstring": "The nominal channel width, as in the measurement set frequency\ncoordinate (:py:class:`~xradio.measurement_set.schema.FrequencyArray`).\nReaders fill it from the spectral increment of the image; writers use it\nas the increment of a single channel spectral axis, which the frequency\nvalues alone do not determine. "
             },
             {
               "$class": "AttrSchemaRef",
@@ -6934,6 +7555,9 @@
                 "REST",
                 "BARY",
                 "TOPO",
+                "GALACTO",
+                "LGROUP",
+                "CMB",
                 "gcrs",
                 "icrs",
                 "hcrs",
@@ -6943,7 +7567,7 @@
               ],
               "optional": true,
               "name": "observer",
-              "docstring": "Astropy velocity reference frame (see :py:class:`~xradio.schema.measures.SpectralCoordArray`). "
+              "docstring": "Spectral reference frame of the axis in the vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, the same\nvalue as the ``observer`` of ``reference_frequency`` (see\n:py:class:`~xradio.schema.measures.SpectralCoordArray`). "
             },
             {
               "$class": "AttrSchemaRef",
@@ -7194,6 +7818,9 @@
                       "REST",
                       "BARY",
                       "TOPO",
+                      "GALACTO",
+                      "LGROUP",
+                      "CMB",
                       "gcrs",
                       "icrs",
                       "hcrs",
@@ -7203,7 +7830,7 @@
                     ],
                     "name": "observer",
                     "default": "icrs",
-                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd. The other casacore frames (REST, BARY, TOPO,\nGALACTO, LGROUP, CMB) are not translated and keep their casacore name. The astropy frames icrs, hcrs and\nlsr are not translated to casacore frames (astropy's lsr uses a different solar motion than casacore's LSRK)."
                   },
                   {
                     "$class": "AttrSchemaRef",
@@ -7220,13 +7847,54 @@
                 "data_docstring": null
               },
               "name": "reference_frequency",
-              "docstring": "A frequency representative of the image spectral axis. "
+              "docstring": "A frequency representative of the image spectral axis. Its\n``observer`` is the spectral reference frame of the image (``frame``) in\nthe vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, for example\n``\"lsrk\"`` for LSRK, ``\"gcrs\"`` for GEO and ``\"BARY\"`` for BARY. "
             },
             {
               "$class": "AttrSchemaRef",
               "type": "str",
               "name": "frame",
-              "docstring": "Native (casacore) spectral reference frame of the image, for example ``\"LSRK\"``. "
+              "docstring": "Spectral reference frame of the image, by its casacore name: one of\n``\"REST\"``, ``\"LSRK\"``, ``\"LSRD\"``, ``\"BARY\"``, ``\"GEO\"``, ``\"TOPO\"``,\n``\"GALACTO\"``, ``\"LGROUP\"`` or ``\"CMB\"``. Readers translate other names\nfor the same frames, such as FITS ``SPECSYS`` values (``\"BARYCENT\"``,\n``\"SOURCE\"``), to these; the CASA reader keeps casacore's\n``\"Undefined\"``. Images that the ``make_empty_*`` factories make in an\nastropy frame without a casacore equivalent hold its name (``\"icrs\"``,\n``\"hcrs\"`` or ``\"lsr\"``); the CASA and FITS writers cannot write those. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "Hz"
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "optional": true,
+              "name": "channel_width",
+              "docstring": "The nominal channel width, as in the measurement set frequency\ncoordinate (:py:class:`~xradio.measurement_set.schema.FrequencyArray`).\nReaders fill it from the spectral increment of the image; writers use it\nas the increment of a single channel spectral axis, which the frequency\nvalues alone do not determine. "
             },
             {
               "$class": "AttrSchemaRef",
@@ -7242,6 +7910,9 @@
                 "REST",
                 "BARY",
                 "TOPO",
+                "GALACTO",
+                "LGROUP",
+                "CMB",
                 "gcrs",
                 "icrs",
                 "hcrs",
@@ -7251,7 +7922,7 @@
               ],
               "optional": true,
               "name": "observer",
-              "docstring": "Astropy velocity reference frame (see :py:class:`~xradio.schema.measures.SpectralCoordArray`). "
+              "docstring": "Spectral reference frame of the axis in the vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, the same\nvalue as the ``observer`` of ``reference_frequency`` (see\n:py:class:`~xradio.schema.measures.SpectralCoordArray`). "
             },
             {
               "$class": "AttrSchemaRef",
@@ -7324,7 +7995,7 @@
               "type": "str",
               "optional": true,
               "name": "units",
-              "docstring": "Units to associate with axis, for example ``\"lambda\"``. "
+              "docstring": "Units to associate with axis. The convention is ``\"lambda\"``\n(wavelengths). "
             },
             {
               "$class": "AttrSchemaRef",
@@ -7348,8 +8019,8 @@
               "docstring": "Coordinate type. "
             }
           ],
-          "class_docstring": "The u coordinate of aperture plane data (conjugate to l).",
-          "data_docstring": "u values, typically in wavelengths. ",
+          "class_docstring": "The u coordinate of aperture plane data (conjugate to l).\n\nBy convention u is in wavelengths (``units`` ``\"lambda\"``), the Fourier\nconjugate of the dimensionless l.",
+          "data_docstring": "u values, in wavelengths. ",
           "name": "u",
           "optional": false
         },
@@ -7371,7 +8042,7 @@
               "type": "str",
               "optional": true,
               "name": "units",
-              "docstring": "Units to associate with axis, for example ``\"lambda\"``. "
+              "docstring": "Units to associate with axis. The convention is ``\"lambda\"``\n(wavelengths). "
             },
             {
               "$class": "AttrSchemaRef",
@@ -7395,8 +8066,8 @@
               "docstring": "Coordinate type. "
             }
           ],
-          "class_docstring": "The v coordinate of aperture plane data (conjugate to m).",
-          "data_docstring": "v values, typically in wavelengths. ",
+          "class_docstring": "The v coordinate of aperture plane data (conjugate to m).\n\nBy convention v is in wavelengths (``units`` ``\"lambda\"``), the Fourier\nconjugate of the dimensionless m.",
+          "data_docstring": "v values, in wavelengths. ",
           "name": "v",
           "optional": false
         }
@@ -7474,7 +8145,7 @@
                       "$class": "AttrSchemaRef",
                       "type": "str",
                       "name": "coordinate_system",
-                      "docstring": "Coordinate system, for example ``\"geocentric\"``. "
+                      "docstring": "Coordinate system, for example ``\"geocentric\"`` (spherical\ncoordinates of the position vector: longitude, geocentric latitude and\ndistance from the geocenter). "
                     },
                     {
                       "$class": "AttrSchemaRef",
@@ -7493,12 +8164,12 @@
                       "docstring": "Measure type. Should be ``\"location\"``. "
                     }
                   ],
-                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``).",
+                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``). The readers\nstore geocentric spherical coordinates (``coordinate_system``\n``\"geocentric\"``), see :py:class:`TelescopeDict`.",
                   "data_docstring": "Location values ('lon', 'lat' in radians, or 'dist' in meters, or 'x', 'y', 'z' in meters). "
                 },
                 "optional": true,
                 "name": "direction",
-                "docstring": "Location measure holding the geodetic longitude and latitude of the telescope. "
+                "docstring": "Location measure holding the longitude and the geocentric latitude of\nthe telescope ('lon', 'lat', in radians). "
               },
               {
                 "$class": "AttrSchemaRef",
@@ -7542,7 +8213,7 @@
                       "$class": "AttrSchemaRef",
                       "type": "str",
                       "name": "coordinate_system",
-                      "docstring": "Coordinate system, for example ``\"geocentric\"``. "
+                      "docstring": "Coordinate system, for example ``\"geocentric\"`` (spherical\ncoordinates of the position vector: longitude, geocentric latitude and\ndistance from the geocenter). "
                     },
                     {
                       "$class": "AttrSchemaRef",
@@ -7561,15 +8232,15 @@
                       "docstring": "Measure type. Should be ``\"location\"``. "
                     }
                   ],
-                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``).",
+                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``). The readers\nstore geocentric spherical coordinates (``coordinate_system``\n``\"geocentric\"``), see :py:class:`TelescopeDict`.",
                   "data_docstring": "Location values ('lon', 'lat' in radians, or 'dist' in meters, or 'x', 'y', 'z' in meters). "
                 },
                 "optional": true,
                 "name": "distance",
-                "docstring": "Location measure holding the geocentric distance of the telescope. "
+                "docstring": "Location measure holding the distance of the telescope from the\ngeocenter ('dist', in meters). "
               }
             ],
-            "class_docstring": "Telescope information stored in the attributes of image data variables."
+            "class_docstring": "Telescope information stored in the attributes of image data variables.\n\nThe telescope position is stored in geocentric spherical ITRF\ncoordinates (``coordinate_system`` ``\"geocentric\"``): ``direction`` holds\nthe longitude and the geocentric latitude, ``distance`` the distance from\nthe geocenter, so the Cartesian ITRF position is\nx = distance cos(lat) cos(lon), y = distance cos(lat) sin(lon) and\nz = distance sin(lat) (for example for astropy's\n``EarthLocation.from_geocentric``). The geocentric latitude is not the\ngeodetic latitude (for ALMA they differ by about 0.14 degrees)."
           },
           "optional": true,
           "name": "telescope",
@@ -7951,6 +8622,9 @@
                       "REST",
                       "BARY",
                       "TOPO",
+                      "GALACTO",
+                      "LGROUP",
+                      "CMB",
                       "gcrs",
                       "icrs",
                       "hcrs",
@@ -7960,7 +8634,7 @@
                     ],
                     "name": "observer",
                     "default": "icrs",
-                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd. The other casacore frames (REST, BARY, TOPO,\nGALACTO, LGROUP, CMB) are not translated and keep their casacore name. The astropy frames icrs, hcrs and\nlsr are not translated to casacore frames (astropy's lsr uses a different solar motion than casacore's LSRK)."
                   },
                   {
                     "$class": "AttrSchemaRef",
@@ -7977,13 +8651,54 @@
                 "data_docstring": null
               },
               "name": "reference_frequency",
-              "docstring": "A frequency representative of the image spectral axis. "
+              "docstring": "A frequency representative of the image spectral axis. Its\n``observer`` is the spectral reference frame of the image (``frame``) in\nthe vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, for example\n``\"lsrk\"`` for LSRK, ``\"gcrs\"`` for GEO and ``\"BARY\"`` for BARY. "
             },
             {
               "$class": "AttrSchemaRef",
               "type": "str",
               "name": "frame",
-              "docstring": "Native (casacore) spectral reference frame of the image, for example ``\"LSRK\"``. "
+              "docstring": "Spectral reference frame of the image, by its casacore name: one of\n``\"REST\"``, ``\"LSRK\"``, ``\"LSRD\"``, ``\"BARY\"``, ``\"GEO\"``, ``\"TOPO\"``,\n``\"GALACTO\"``, ``\"LGROUP\"`` or ``\"CMB\"``. Readers translate other names\nfor the same frames, such as FITS ``SPECSYS`` values (``\"BARYCENT\"``,\n``\"SOURCE\"``), to these; the CASA reader keeps casacore's\n``\"Undefined\"``. Images that the ``make_empty_*`` factories make in an\nastropy frame without a casacore equivalent hold its name (``\"icrs\"``,\n``\"hcrs\"`` or ``\"lsr\"``); the CASA and FITS writers cannot write those. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "Hz"
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "optional": true,
+              "name": "channel_width",
+              "docstring": "The nominal channel width, as in the measurement set frequency\ncoordinate (:py:class:`~xradio.measurement_set.schema.FrequencyArray`).\nReaders fill it from the spectral increment of the image; writers use it\nas the increment of a single channel spectral axis, which the frequency\nvalues alone do not determine. "
             },
             {
               "$class": "AttrSchemaRef",
@@ -7999,6 +8714,9 @@
                 "REST",
                 "BARY",
                 "TOPO",
+                "GALACTO",
+                "LGROUP",
+                "CMB",
                 "gcrs",
                 "icrs",
                 "hcrs",
@@ -8008,7 +8726,7 @@
               ],
               "optional": true,
               "name": "observer",
-              "docstring": "Astropy velocity reference frame (see :py:class:`~xradio.schema.measures.SpectralCoordArray`). "
+              "docstring": "Spectral reference frame of the axis in the vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, the same\nvalue as the ``observer`` of ``reference_frequency`` (see\n:py:class:`~xradio.schema.measures.SpectralCoordArray`). "
             },
             {
               "$class": "AttrSchemaRef",
@@ -8110,7 +8828,7 @@
                   "type": "str",
                   "optional": true,
                   "name": "sky",
-                  "docstring": "Image of the sky. Name of the sky variable, for example 'SKY'. Derived\nfrom the gridded visibilities. On plane tangential to celestial sphere.\nThe variable's ``sub_type`` attribute records the physical quantity held\nby the image (Intensity, ColumnDensity, DepolarizationRatio,\nKineticTemperature, MagneticField, OpticalDepth, RotationMeasure,\nRotationalTemperature, SpectralIndex, Velocity, VelocityDispersion),\nderived from the casacore image type, see :py:class:`SkyArray`. "
+                  "docstring": "Image of the sky. Name of the sky variable, for example 'SKY'. Derived\nfrom the gridded visibilities. On plane tangential to celestial sphere.\nThe variable's ``sub_type`` attribute records the physical quantity held\nby the image (Intensity, Beam, ColumnDensity, DepolarizationRatio,\nKineticTemperature, MagneticField, OpticalDepth, RotationMeasure,\nRotationalTemperature, SpectralIndex, Velocity, VelocityDispersion),\nderived from the casacore image type, see :py:class:`SkyArray`. "
                 },
                 {
                   "$class": "AttrSchemaRef",
@@ -8406,5 +9124,5 @@
       "docstring": "Dataset type. "
     }
   ],
-  "class_docstring": "Image dataset.\n\nHolds one or more images that share coordinates. Data variables can\nappear in multiple versions distinguished by an underscore separated\nsuffix (for example ``SKY``, ``SKY_DECONVOLVED``, ``SKY_MODEL``,\n``FLAG_SKY``, ``BEAM_FIT_PARAMS_SKY``). The ``data_groups`` attribute\ngroups the variables that belong together and maps logical roles to\nconcrete variable names.\n\nSky plane images are defined on the ``(l, m)`` direction cosine\ndimensions, aperture plane data on the conjugate ``(u, v)`` dimensions."
+  "class_docstring": "Image dataset.\n\nHolds one or more images that share coordinates. Data variables can\nappear in multiple versions distinguished by an underscore separated\nsuffix (for example ``SKY``, ``SKY_DECONVOLVED``, ``SKY_MODEL``,\n``FLAG_SKY``, ``BEAM_FIT_PARAMS_SKY``). The ``data_groups`` attribute\ngroups the variables that belong together and maps logical roles to\nconcrete variable names.\n\nSky plane images are defined on the ``(l, m)`` projection plane\ndimensions (the direction cosines for the SIN projection, see\n:py:class:`LCoordArray`), aperture plane data on the conjugate ``(u, v)``\ndimensions."
 }

@@ -212,12 +212,12 @@ class LocalSkyCoordArray:
 # Coordinates / Axes
 @xarray_dataarray_schema
 class TimeCoordArray:
-    """Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`."""
+    """Data model of the main dataset time axis. See also :py:class:`~xradio.schema.measures.TimeArray`."""
 
     data: Data[Time, float]
     """
     Time, expressed in seconds since the epoch (see ``scale`` &
-    ``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.
+    ``format``), see also see :py:class:`~xradio.schema.measures.TimeArray`.
     """
 
     type: Attr[Time] = "time"
@@ -227,10 +227,10 @@ class TimeCoordArray:
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
-    """ Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` """
+    """ Astropy time scales, see :py:class:`~xradio.schema.measures.TimeArray` """
 
     format: Attr[AllowedTimeFormats] = "unix"
-    """ Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"""
+    """ Astropy format, see :py:class:`~xradio.schema.measures.TimeArray`"""
 
     integration_time: Attr[QuantityInSecondsArray] = None
     """ The nominal sampling interval (ms v2). Units of seconds. """
@@ -244,7 +244,7 @@ class TimeInterpolatedCoordArray:
     pointing_xds, weather_xds, field_and_source_info_xds, and phase_cal_xds
     when their respective time_system_cal, time_pointing, time_weather,
     time_ephemeris or time_phase_cal are interpolated to the main dataset
-    time. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.
+    time. See also :py:class:`~xradio.schema.measures.TimeArray`.
 
     The only difference with respect to the main TimeCoordArray is the
     absence of the attribute integration_time
@@ -253,7 +253,7 @@ class TimeInterpolatedCoordArray:
     data: Data[Time, float]
     """
     Time, expressed in seconds since the epoch (see ``scale`` &
-    ``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.
+    ``format``), see also see :py:class:`~xradio.schema.measures.TimeArray`.
     """
 
     type: Attr[Time] = "time"
@@ -263,10 +263,10 @@ class TimeInterpolatedCoordArray:
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
-    """ Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` """
+    """ Astropy time scales, see :py:class:`~xradio.schema.measures.TimeArray` """
 
     format: Attr[AllowedTimeFormats] = "unix"
-    """ Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"""
+    """ Astropy format, see :py:class:`~xradio.schema.measures.TimeArray`"""
 
 
 @xarray_dataarray_schema
@@ -288,10 +288,10 @@ class TimeSystemCalCoordArray:
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
-    """ Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` """
+    """ Astropy time scales, see :py:class:`~xradio.schema.measures.TimeArray` """
 
     format: Attr[AllowedTimeFormats] = "unix"
-    """ Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"""
+    """ Astropy format, see :py:class:`~xradio.schema.measures.TimeArray`"""
 
 
 @xarray_dataarray_schema
@@ -313,10 +313,10 @@ class TimePointingCoordArray:
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
-    """ Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` """
+    """ Astropy time scales, see :py:class:`~xradio.schema.measures.TimeArray` """
 
     format: Attr[AllowedTimeFormats] = "unix"
-    """ Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"""
+    """ Astropy format, see :py:class:`~xradio.schema.measures.TimeArray`"""
 
 
 @xarray_dataarray_schema
@@ -338,10 +338,10 @@ class TimeEphemerisCoordArray:
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
-    """ Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` """
+    """ Astropy time scales, see :py:class:`~xradio.schema.measures.TimeArray` """
 
     format: Attr[AllowedTimeFormats] = "unix"
-    """ Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"""
+    """ Astropy format, see :py:class:`~xradio.schema.measures.TimeArray`"""
 
 
 @xarray_dataarray_schema
@@ -363,10 +363,10 @@ class TimeWeatherCoordArray:
     """ Units to associate with axis"""
 
     scale: Attr[AllowedTimeScales] = "utc"
-    """ Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` """
+    """ Astropy time scales, see :py:class:`~xradio.schema.measures.TimeArray` """
 
     format: Attr[AllowedTimeFormats] = "unix"
-    """ Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"""
+    """ Astropy format, see :py:class:`~xradio.schema.measures.TimeArray`"""
 
 
 @xarray_dataarray_schema
@@ -1797,12 +1797,12 @@ class VisibilityXds:
     """
     The integration time, including the effects of missing data, in contrast to
     ``integration_time`` attribute of the ``time`` coordinate,
-    see :py:class:`~xradio.measurement_set.schema.TimeArray`. (MS v2: ``exposure``).
+    see :py:class:`~xradio.schema.measures.TimeArray`. (MS v2: ``exposure``).
     """
     TIME_CENTROID: Dataof[TimeSamplingArray] | None = None
     """
     The time centroid of the visibility, includes the effects of missing data
-    unlike the ``time`` coordinate, see :py:class:`~xradio.measurement_set.schema.TimeArray`.
+    unlike the ``time`` coordinate, see :py:class:`~xradio.schema.measures.TimeArray`.
     """
     TIME_CENTROID_EXTRA_PRECISION: Dataof[TimeSamplingArray] | None = None
     """Additional precision for ``TIME_CENTROID``"""
@@ -1891,12 +1891,12 @@ class SpectrumXds:
     """
     The integration time, including the effects of missing data, in contrast to
     ``integration_time`` attribute of the ``time`` coordinate,
-    see :py:class:`~xradio.measurement_set.schema.TimeArray`. (MS v2: ``exposure``).
+    see :py:class:`~xradio.schema.measures.TimeArray`. (MS v2: ``exposure``).
     """
     TIME_CENTROID: Dataof[TimeSamplingArray] | None = None
     """
     The time centroid of the visibility, includes the effects of missing data
-    unlike the ``time`` coordinate, see :py:class:`~xradio.measurement_set.schema.TimeArray`.
+    unlike the ``time`` coordinate, see :py:class:`~xradio.schema.measures.TimeArray`.
     """
     TIME_CENTROID_EXTRA_PRECISION: Dataof[TimeSamplingArray] | None = None
     """Additional precision for ``TIME_CENTROID``"""

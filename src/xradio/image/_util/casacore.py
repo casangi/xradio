@@ -4,14 +4,16 @@
 # Not exposed in API
 #
 #################################
+import numbers
 import os
 import re
 import warnings
 
 import dask.array as da
+import numpy as np
 import xarray as xr
 
-from xradio._utils.schema import get_data_group_keys
+from xradio._utils.logging import xradio_logger
 
 try:
     from casacore import tables
@@ -35,14 +37,22 @@ from xradio.image._util._casacore.xds_from_casacore import (
 from xradio.image._util._casacore.xds_to_casacore import (
     _coord_dict_from_xds,
     _history_from_xds,
+    _image_variable,
     _imageinfo_dict_from_xds,
     _write_casa_data,
 )
+from xradio.image._util._write_plan import (
+    ImageOutput,
+    ImageWritePlan,
+    naming_the_variable,
+    plan_image_outputs,
+)
 from xradio.image._util.common import (
-    _aperture_or_sky,
     _dask_arrayize_dv,
     _get_xds_dim_order,
+    _to_canonical_polarization_order,
 )
+from xradio.image._util.conventions import canonical_polarization_order
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -93,6 +103,17 @@ def _load_casa_image_block(
     infile: str, block_des: dict, do_sky_coords: bool, image_type: str
 ) -> xr.Dataset:
     md = _get_casa_image_metadata(infile, do_sky_coords, image_type)
+    # The dataset's polarization axis is in canonical order (see
+    # _to_canonical_polarization_order), which the selection indexes: for an
+    # image stored in another order, read every polarization, reorder, then
+    # select
+    pol_selection = None
+    stored_pols = md["xds"].polarization.values
+    if "polarization" in block_des and canonical_polarization_order(
+        stored_pols
+    ) != list(range(len(stored_pols))):
+        pol_selection = block_des["polarization"]
+        block_des = {k: v for k, v in block_des.items() if k != "polarization"}
     coords = md["coords"]
     cshape = md["cshape"]
     dimorder = md["dimorder"]
@@ -136,6 +157,9 @@ def _load_casa_image_block(
         xds[image_type.upper()].attrs[_beam_fit_params] = (
             "BEAM_FIT_PARAMS_" + image_type.upper()
         )
+    xds = _to_canonical_polarization_order(xds)
+    if pol_selection is not None:
+        xds = xds.isel(polarization=pol_selection)
     return xds
 
 
@@ -168,6 +192,8 @@ def _open_casa_image(
         mymasks = _get_mask_names(img_full_path)
         for m in mymasks:
             ary = _read_image_array(img_full_path, chunks, mask=m, verbose=verbose)
+            # masks have the image's shape, so squeeze them like the image
+            ary = _squeeze_if_needed(ary, image_type)
             # data var names are all caps by convention
             mask_name = re.sub(r"\bMASK(\d+)\b", r"MASK_\1", m.upper())
             xds = _add_mask(xds, mask_name, ary, dimorder)
@@ -191,14 +217,49 @@ def _open_casa_image(
     # xds = _add_coord_attrs(xds, ret["icoords"], ret["dir_axes"])
     xds = _dask_arrayize_dv(xds)
 
-    return xds
+    # images converted from FITS (importfits) can hold another order
+    return _to_canonical_polarization_order(xds)
 
 
-def _xds_to_multiple_casa_images(xds: xr.Dataset, image_store_name: str) -> None:
+def _casa_image_xds(xds: xr.Dataset, output: ImageOutput) -> xr.Dataset:
+    """Return the single image dataset the CASA writer writes for one planned
+    output.
+
+    The image becomes SKY (sky plane) or APERTURE (aperture plane); the flags
+    of a sky image become its MASK_0 (default) mask and its beam fit
+    parameters BEAM_FIT_PARAMS. An image whose ``type`` attribute is a mask
+    or flag type (a deconvolution mask) gets the type of its plane instead,
+    so that it is not registered as a mask of itself, and the image's
+    ``flag`` attribute is derived from the data group only.
+    """
+    name = "SKY" if output.plane == "sky" else "APERTURE"
+    image = xds[output.variable].copy(deep=False)
+    attrs = dict(image.attrs)
+    if attrs.get("type") in ("mask", "flag"):
+        attrs["type"] = output.plane
+    attrs.pop("flag", None)
+    image.attrs = attrs
+    image_xds = xr.Dataset(attrs=xds.attrs.copy())
+    image_xds[name] = image
+    if output.flag is not None:
+        image_xds["MASK_0"] = xds[output.flag]
+        image_xds[name].attrs["flag"] = "MASK_0"
+    if output.beam_fit_params is not None:
+        image_xds["BEAM_FIT_PARAMS"] = xds[output.beam_fit_params]
+    return image_xds
+
+
+def _xds_to_multiple_casa_images(
+    xds: xr.Dataset, image_store_name: str, plan: ImageWritePlan | None = None
+) -> None:
     """Function disentagles xradio xr.Dataset into multiple casa images based on data_groups attribute.
     An xr.Dataset may contain multiple images (sky, residual, psf, etc) stored under different data variables sharing common coordinates.
     An addtional complication is that CASA images allow for internal masks and beam fit parameters to be stored alongside the main image data so these also need to be handled.
-    This function creates separate casa images for each image type found in the data_groups attribute of the xr.Dataset.
+    This function creates one casa image per data variable that is an image of some data group
+    (see :func:`xradio.image._util._write_plan.plan_image_outputs`): sky plane images (l and m
+    dimensions) and aperture plane images (u and v dimensions, such as the aperture, visibility
+    and uv sampling images). Images with neither (the normalization images) are skipped with a
+    warning. Every image is validated, and its metadata computed, before any image is written.
 
     Parameters
     ----------
@@ -206,104 +267,140 @@ def _xds_to_multiple_casa_images(xds: xr.Dataset, image_store_name: str) -> None
         The xradio xr.Dataset containing multiple images and associated data.
     image_store_name : str
         The base name or path for storing the output CASA images.
-        If only one image is written, it will be named image_store_name, esle the images
-        will be named image_store_name.<image_type> where <image_type> is sky, residual, point_spread_function, etc.
+        If only one image is written, it will be named image_store_name, else the images
+        will be named image_store_name.<g1>...<gn>.<role>, where g1 to gn are the data groups
+        whose <role> (sky, point_spread_function, primary_beam, etc.) refers to the image.
+        Used only when ``plan`` is None.
+    plan : ImageWritePlan, optional
+        The planned outputs, as computed by ``write_image`` (whose output paths are then used
+        instead of names derived from image_store_name).
     """
-
-    data_vars_name_set = set(xds.data_vars.keys())
-
-    data_group_keys = list(get_data_group_keys(schema_name="image").keys())
-    internal_image_types_to_exclude = [
-        "flag",
-        "beam_fit_params_sky",
-        "beam_fit_params_point_spread_function",
-    ]
-    n_image_written = 0
-    last_image_written = ""
-    for data_group in xds.attrs["data_groups"].keys():
-        for image_type in data_group_keys:
-            if (image_type in xds.attrs["data_groups"][data_group]) and (
-                image_type not in internal_image_types_to_exclude
-            ):
-                image_name = xds.attrs["data_groups"][data_group][image_type]
-                if image_name in data_vars_name_set:
-                    image_to_write_xds = xr.Dataset()
-                    image_to_write_xds.attrs = xds.attrs.copy()
-
-                    if image_type == "aperture":
-                        image_to_write_xds["APERTURE"] = xds[image_name]
-                    else:
-                        image_to_write_xds["SKY"] = xds[image_name]
-
-                    # This code handles adding internal masks and beam fit params if they exist.
-                    if image_type == "sky":
-                        if (
-                            "beam_fit_params_sky"
-                            in xds.attrs["data_groups"][data_group]
-                        ):
-                            beam_fit_params_name = xds.attrs["data_groups"][data_group][
-                                "beam_fit_params_sky"
-                            ]
-                            image_to_write_xds["BEAM_FIT_PARAMS"] = xds[
-                                beam_fit_params_name
-                            ]
-
-                        if "flag" in xds.attrs["data_groups"][data_group]:
-                            mask_sky_name = xds.attrs["data_groups"][data_group]["flag"]
-                            image_to_write_xds["MASK_0"] = xds[mask_sky_name]
-                            image_to_write_xds["SKY"].attrs["flag"] = "MASK_0"
-
-                    if image_type == "point_spread_function":
-                        if (
-                            "beam_fit_params_point_spread_function"
-                            in xds.attrs["data_groups"][data_group]
-                        ):
-                            beam_fit_params_name = xds.attrs["data_groups"][data_group][
-                                "beam_fit_params_point_spread_function"
-                            ]
-                            image_to_write_xds["BEAM_FIT_PARAMS"] = xds[
-                                beam_fit_params_name
-                            ]
-                    outname = image_store_name + "." + image_type
-                    _xds_to_casa_image(image_to_write_xds, outname)
-                    if not os.path.exists(outname):
-                        raise OSError(f"Failed to write CASA image {outname}")
-                    n_image_written += 1
-                    last_image_written = outname
-                    data_vars_name_set.remove(image_name)
-    if n_image_written == 0:
-        raise ValueError("No valid image types found in xds to write to CASA images.")
-    if n_image_written == 1:
-        # rename the single written image to what the user requested
-        os.rename(last_image_written, image_store_name)
+    if plan is None:
+        plan = plan_image_outputs(xds, image_store_name, "casa")
+    for message in plan.warnings:
+        xradio_logger().warning(message)
+    images = [(output, _casa_image_xds(xds, output)) for output in plan.outputs]
+    # validate every image and compute its metadata before writing any pixels
+    keywords = []
+    for output, image_xds in images:
+        with _naming_the_variable(output):
+            keywords.append(_casa_image_keywords(image_xds))
+    for (output, image_xds), image_keywords in zip(images, keywords, strict=True):
+        with _naming_the_variable(output):
+            _write_casa_image(image_xds, output.path, image_keywords)
+        if not os.path.exists(output.path):
+            raise OSError(f"Failed to write CASA image {output.path}")
 
 
-def _xds_to_casa_image(xds: xr.Dataset, image_store_name: str) -> None:
-    image_full_path = os.path.expanduser(image_store_name)
-    _write_casa_data(xds, image_full_path)
-    # create coordinates
-    ap_sky = _aperture_or_sky(xds)
-    coord = _coord_dict_from_xds(xds)
-    ii = _imageinfo_dict_from_xds(xds)
-    units = xds[ap_sky].attrs["units"] if "units" in xds[ap_sky].attrs else None
-    miscinfo = (
-        xds.attrs["user"]
-        if "user" in xds.attrs and len(xds.attrs["user"]) > 0
-        else None
+def _naming_the_variable(output: ImageOutput):
+    """Errors raised while writing a planned output name its data variable
+    (the single image dataset calls the image SKY or APERTURE)."""
+    return naming_the_variable(
+        output.variable, "CASA", ("SKY", "APERTURE", "the image")
     )
+
+
+# Range of the integers casacore keyword records hold (Int64)
+_INT64 = np.iinfo(np.int64)
+
+
+def _casa_keyword_value_ok(value) -> bool:
+    """Whether casacore can store a value in a table keyword record: strings,
+    booleans, real or complex numbers (integers within Int64), and arrays and
+    lists of them, but no times or durations (numpy datetime64 or
+    timedelta64), which python-casacore rejects and casatools drops."""
+    if isinstance(value, np.datetime64 | np.timedelta64):
+        return False
+    if isinstance(value, numbers.Integral) and not isinstance(value, bool | np.bool_):
+        return _INT64.min <= int(value) <= _INT64.max
+    if isinstance(value, str | bool | numbers.Number | np.generic):
+        return True
+    if isinstance(value, np.ndarray):
+        if value.dtype.kind == "u" and value.size:
+            return int(value.max()) <= _INT64.max
+        return value.dtype != object and value.dtype.kind not in "mMV"
+    if isinstance(value, dict):
+        return all(
+            isinstance(k, str) and _casa_keyword_value_ok(v) for k, v in value.items()
+        )
+    if isinstance(value, list | tuple):
+        return all(isinstance(v, str) for v in value) or all(
+            isinstance(v, bool | numbers.Number | np.generic)
+            and _casa_keyword_value_ok(v)
+            for v in value
+        )
+    return False
+
+
+def _miscinfo_from_xds(xds: xr.Dataset) -> dict:
+    """Return the casacore miscinfo record of an image: the image variable's
+    ``user`` attribute (where the readers store it), merged over any
+    dataset level ``user`` attribute. Values casacore cannot store (None,
+    mixed lists, arbitrary objects) are dropped with a warning."""
+    ap_sky = _image_variable(xds)
+    miscinfo = {}
+    for user in (xds.attrs.get("user"), xds[ap_sky].attrs.get("user")):
+        if isinstance(user, dict):
+            miscinfo.update(user)
+    dropped = [
+        key
+        for key, value in miscinfo.items()
+        if not isinstance(key, str) or not _casa_keyword_value_ok(value)
+    ]
+    if dropped:
+        xradio_logger().warning(
+            f"Not writing user keywords {dropped} to the CASA image miscinfo: "
+            "casacore cannot store their values"
+        )
+    return {key: value for key, value in miscinfo.items() if key not in dropped}
+
+
+def _casa_image_keywords(xds: xr.Dataset) -> dict:
+    """Compute the table keywords of a CASA image (coordinate system, image
+    info, brightness units and miscinfo) from a single image dataset. Errors
+    in the metadata are raised here, before any pixel is written."""
+    sky_ap = _image_variable(xds)
+    n_time = xds[sky_ap].sizes.get("time")
+    if n_time != 1:
+        raise RuntimeError(
+            "XDS can only be converted if it has exactly one time plane "
+            f"(found {n_time or 'no time axis'})"
+        )
+    keywords = {
+        "coords": _coord_dict_from_xds(xds),
+        "imageinfo": _imageinfo_dict_from_xds(xds),
+    }
+    units = xds[sky_ap].attrs.get("units")
+    if units:
+        keywords["units"] = units
+    miscinfo = _miscinfo_from_xds(xds)
+    if miscinfo:
+        keywords["miscinfo"] = miscinfo
+    return keywords
+
+
+def _write_casa_image(xds: xr.Dataset, image_full_path: str, keywords: dict) -> None:
+    """Write the pixels and masks of a single image dataset, then its table
+    keywords (from :func:`_casa_image_keywords`) and history."""
+    _write_casa_data(xds, image_full_path)
     tb = tables.table(
         image_full_path,
         readonly=False,
         lockoptions={"option": "permanentwait"},
         ack=False,
     )
-
-    tb.putkeyword("coords", coord)
-    tb.putkeyword("imageinfo", ii)
-    if units:
-        tb.putkeyword("units", units)
-    if miscinfo:
-        tb.putkeyword("miscinfo", miscinfo)
-    tb.done()
+    try:
+        for name in ("coords", "imageinfo", "units", "miscinfo"):
+            if name in keywords:
+                tb.putkeyword(name, keywords[name])
+    finally:
+        tb.done()
     # history
     _history_from_xds(xds, image_full_path)
+
+
+def _xds_to_casa_image(xds: xr.Dataset, image_store_name: str) -> None:
+    image_full_path = os.path.expanduser(image_store_name)
+    # metadata first, so that an error in it leaves no image behind
+    keywords = _casa_image_keywords(xds)
+    _write_casa_image(xds, image_full_path, keywords)

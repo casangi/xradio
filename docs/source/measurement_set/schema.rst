@@ -217,9 +217,9 @@ as frequencies or timestamps.
 
    .. xradio_array_schema_table:: xradio.measurement_set.schema.FrequencyArray
 
-.. autoclass:: xradio.measurement_set.schema.PolarizationArray()
+.. autoclass:: xradio.schema.measures.PolarizationArray()
 
-   .. xradio_array_schema_table:: xradio.measurement_set.schema.PolarizationArray
+   .. xradio_array_schema_table:: xradio.schema.measures.PolarizationArray
 
 .. autoclass:: xradio.measurement_set.schema.UvwLabelArray()
 

@@ -1946,7 +1946,94 @@ def test_check_dataset_multi_version_suffix_checked():
         xarray.Dataset(data_vars, coords, attrs), _TestDatasetSchemaMultiVersion
     )
     assert len(issues) == 1
-    assert issues[0].path[-1] == ("dtype", None)
+    # The issue is reported under the name of the version that has it, not
+    # under the canonical schema name ("data_var")
+    assert issues[0].path == [("data_vars", "data_var_v2"), ("dtype", None)]
+    assert "data_vars['data_var_v2'].dtype" in str(issues)
+
+
+def test_check_dataset_multi_version_missing_required():
+    # A required multi-version variable without any version present is
+    # reported under its canonical name
+    attrs = {"attr1": "str"}
+    coords = {"coord": numpy.arange(10, dtype=float)}
+    data_vars = {"other_var": ("coord", numpy.zeros(10, dtype=float))}
+    issues = check_dataset(
+        xarray.Dataset(data_vars, coords, attrs), _TestDatasetSchemaMultiVersion
+    )
+    assert [issue.path for issue in issues] == [[("data_vars", "data_var")]]
+
+
+# ---------------------------------------------------------------------------
+# Array constructors with string dimension coordinates
+# ---------------------------------------------------------------------------
+
+DimLabel = Literal["label"]
+
+
+@xarray_dataarray_schema
+class _TestStringCoordArraySchema:
+    """Array schema with a string dimension coordinate"""
+
+    data: Data[DimLabel, float]
+    label: Coord[DimLabel, str]
+
+
+def test_check_array_constructor_string_coord():
+    array = _TestStringCoordArraySchema(numpy.zeros(3), label=["a", "b", "c"])
+    assert list(array.label.values) == ["a", "b", "c"]
+
+
+def test_check_array_constructor_string_coord_omitted():
+    # A string coordinate cannot be filled in with a numeric range, so
+    # omitting it must give schema issues rather than a numpy TypeError
+    with pytest.raises(SchemaIssues) as excinfo:
+        _TestStringCoordArraySchema(numpy.zeros(3))
+    assert [issue.path[0] for issue in excinfo.value.issues] == [("coords", "label")]
+
+
+# ---------------------------------------------------------------------------
+# check_dataset() with classes that are not dataset schemas
+# ---------------------------------------------------------------------------
+
+
+def test_check_dataset_plain_class():
+    class NotASchema:
+        pass
+
+    with pytest.raises(TypeError) as excinfo:
+        check_dataset(_make_valid_dataset(), NotASchema)
+    message = str(excinfo.value)
+    assert message.startswith("check_dataset: Expected DatasetSchema")
+    assert "NotASchema" in message and "not a dataset schema" in message
+    assert "Did you mean" not in message
+
+
+def test_check_dataset_array_schema_class():
+    with pytest.raises(TypeError, match="use check_array"):
+        check_dataset(_make_valid_dataset(), _TestArraySchema)
+
+
+def test_check_dataset_dict_schema_class():
+    with pytest.raises(TypeError, match="use check_dict"):
+        check_dataset(_make_valid_dataset(), _TestDictSchema)
+
+
+def test_check_dataset_class_named_like_schema(isolated_dataset_types):
+    # A class with the name of a registered dataset schema (for example the
+    # accessor xradio.image.ImageXds next to the schema
+    # xradio.image.schema.ImageXds) is not mistaken for it, and the schema
+    # is suggested
+    from xradio.schema import xarray_dataclass_to_dataset_schema
+
+    schema = xarray_dataclass_to_dataset_schema(_TestRegisteredDatasetSchema)
+    register_dataset_type(schema)
+    look_alike = type("_TestRegisteredDatasetSchema", (), {"__module__": "elsewhere"})
+    with pytest.raises(TypeError) as excinfo:
+        check_dataset(_make_valid_dataset(), look_alike)
+    message = str(excinfo.value)
+    assert "elsewhere._TestRegisteredDatasetSchema" in message
+    assert f"Did you mean the dataset schema {schema.schema_name}?" in message
 
 
 # ---------------------------------------------------------------------------

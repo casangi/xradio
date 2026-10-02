@@ -29,9 +29,14 @@ SkyDirLabel = Literal["sky_dir_label"]
 SkyDisLabel = Literal["sky_dis_label"]
 """ Coordinate labels of sky distance (typically shape 1 and 'dist') """
 EllipsoidDirLabel = Literal["ellipsoid_dir_label"]
-""" Coordinate labels of geodetic earth location data (typically shape 3 and 'lon', 'lat', 'height')"""
+""" Coordinate labels of the angles of spherical earth location data
+(typically shape 2 and 'lon', 'lat'). The ``coordinate_system`` attribute of
+the location measure says whether the latitude is geodetic or geocentric. """
 EllipsoidDisLabel = Literal["ellipsoid_dis_label"]
-""" Coordinate label of geodetic earth height (typically shape 1 and 'dist')"""
+""" Coordinate label of the radial component of spherical earth location data
+(typically shape 1): 'height' above the ellipsoid for geodetic locations, or
+'dist' from the geocenter for geocentric locations (see the
+``coordinate_system`` attribute of the location measure). """
 CartesianPosLabel = Literal["cartesian_pos_label"]
 """ Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
 
@@ -226,17 +231,20 @@ class SkyCoordArray:
     """
 
 
-# For now allowing both some of the casacore frames (from "REST" to "TOPO" -
-# all in uppercase) as well as the astropy frames (all in lowercase, taken
-# from the list of SpectralCoord:
-# https://docs.astropy.org/en/stable/coordinates/spectralcoord.html)
+# Allowing both the casacore frames that are not translated to astropy (all
+# in uppercase, casacore spelling) and the astropy frames (all in lowercase,
+# taken from the list of SpectralCoord:
+# https://docs.astropy.org/en/stable/coordinates/spectralcoord.html). Every
+# casacore MFrequency frame maps to exactly one value: LSRK -> lsrk,
+# LSRD -> lsrd and GEO -> gcrs; the others keep their casacore name.
 AllowedSpectralCoordFrames = Literal[
+    # casacore frames, not translated to astropy
     "REST",
-    # "LSRK" -> "lsrk",
-    # "LSRD" -> "lsrd",
     "BARY",
-    # "GEO", -> "gcrs"
     "TOPO",
+    "GALACTO",
+    "LGROUP",
+    "CMB",
     # astropy frames
     "gcrs",
     "icrs",
@@ -245,6 +253,18 @@ AllowedSpectralCoordFrames = Literal[
     "lsrd",
     "lsr",
 ]
+"""
+Spectral reference frames (``observer`` of spectral coordinates). The
+lowercase values are astropy frame names (``gcrs``, ``icrs``, ``hcrs``,
+``lsrk``, ``lsrd``, ``lsr``); the uppercase values are casacore frames that
+are not translated to astropy and keep their casacore name (``REST``,
+``BARY``, ``TOPO``, ``GALACTO``, ``LGROUP``, ``CMB``). The remaining casacore
+frames are translated: ``LSRK`` is ``lsrk``, ``LSRD`` is ``lsrd`` and ``GEO``
+is ``gcrs``. ``icrs``, ``hcrs`` and ``lsr`` have no casacore equivalent in
+this vocabulary (astropy's ``lsr`` uses a different solar motion than
+casacore's LSRK), so the image writers, which name spectral frames like
+casacore and FITS do, cannot write images in these frames.
+"""
 
 
 @xarray_dataarray_schema
@@ -264,7 +284,9 @@ class SpectralCoordArray:
     rather it assumes if no velocity frame is given that this is the default.
 
     When converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy
-    frame names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd
+    frame names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd. The other casacore frames (REST, BARY, TOPO,
+    GALACTO, LGROUP, CMB) are not translated and keep their casacore name. The astropy frames icrs, hcrs and
+    lsr are not translated to casacore frames (astropy's lsr uses a different solar motion than casacore's LSRK).
     """
 
     type: Attr[SpectralCoord] = "spectral_coord"
@@ -317,7 +339,7 @@ class LocationArray:
 
     ellipsoid: Attr[AllowedEllipsoid] | None
     """
-    Ellipsoid used in geodetic Earth locations (with EllipsoidDirLabel and EllipsoidDirLabel coordinate)
+    Ellipsoid used in geodetic Earth locations (with EllipsoidDirLabel and EllipsoidDisLabel coordinates)
     """
 
     type: Attr[Location] = "location"

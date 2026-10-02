@@ -58,7 +58,7 @@
           ],
           "name": "scale",
           "default": "utc",
-          "docstring": "Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` "
+          "docstring": "Astropy time scales, see :py:class:`~xradio.schema.measures.TimeArray` "
         },
         {
           "$class": "AttrSchemaRef",
@@ -71,7 +71,7 @@
           ],
           "name": "format",
           "default": "unix",
-          "docstring": "Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"
+          "docstring": "Astropy format, see :py:class:`~xradio.schema.measures.TimeArray`"
         },
         {
           "$class": "AttrSchemaRef",
@@ -114,8 +114,8 @@
           "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
         }
       ],
-      "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.",
-      "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.",
+      "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.schema.measures.TimeArray`.",
+      "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.schema.measures.TimeArray`.",
       "name": "time",
       "optional": false,
       "docstring": "The time coordinate is the mid-point of the nominal sampling interval, as\nspeciﬁed in the ``ms_v4.time.attrs['integration_time']`` (ms v2 interval)."
@@ -212,6 +212,9 @@
                   "REST",
                   "BARY",
                   "TOPO",
+                  "GALACTO",
+                  "LGROUP",
+                  "CMB",
                   "gcrs",
                   "icrs",
                   "hcrs",
@@ -221,7 +224,7 @@
                 ],
                 "name": "observer",
                 "default": "icrs",
-                "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd. The other casacore frames (REST, BARY, TOPO,\nGALACTO, LGROUP, CMB) are not translated and keep their casacore name. The astropy frames icrs, hcrs and\nlsr are not translated to casacore frames (astropy's lsr uses a different solar motion than casacore's LSRK)."
               },
               {
                 "$class": "AttrSchemaRef",
@@ -375,6 +378,9 @@
             "REST",
             "BARY",
             "TOPO",
+            "GALACTO",
+            "LGROUP",
+            "CMB",
             "gcrs",
             "icrs",
             "hcrs",
@@ -643,7 +649,7 @@
               ],
               "name": "scale",
               "default": "utc",
-              "docstring": "Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` "
+              "docstring": "Astropy time scales, see :py:class:`~xradio.schema.measures.TimeArray` "
             },
             {
               "$class": "AttrSchemaRef",
@@ -656,7 +662,7 @@
               ],
               "name": "format",
               "default": "unix",
-              "docstring": "Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"
+              "docstring": "Astropy format, see :py:class:`~xradio.schema.measures.TimeArray`"
             },
             {
               "$class": "AttrSchemaRef",
@@ -699,8 +705,8 @@
               "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
             }
           ],
-          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.",
-          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.",
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.schema.measures.TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.schema.measures.TimeArray`.",
           "name": "time",
           "optional": false
         },
@@ -822,6 +828,9 @@
                       "REST",
                       "BARY",
                       "TOPO",
+                      "GALACTO",
+                      "LGROUP",
+                      "CMB",
                       "gcrs",
                       "icrs",
                       "hcrs",
@@ -831,7 +840,7 @@
                     ],
                     "name": "observer",
                     "default": "icrs",
-                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd. The other casacore frames (REST, BARY, TOPO,\nGALACTO, LGROUP, CMB) are not translated and keep their casacore name. The astropy frames icrs, hcrs and\nlsr are not translated to casacore frames (astropy's lsr uses a different solar motion than casacore's LSRK)."
                   },
                   {
                     "$class": "AttrSchemaRef",
@@ -985,6 +994,9 @@
                 "REST",
                 "BARY",
                 "TOPO",
+                "GALACTO",
+                "LGROUP",
+                "CMB",
                 "gcrs",
                 "icrs",
                 "hcrs",
@@ -1100,7 +1112,7 @@
               ],
               "name": "scale",
               "default": "utc",
-              "docstring": "Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` "
+              "docstring": "Astropy time scales, see :py:class:`~xradio.schema.measures.TimeArray` "
             },
             {
               "$class": "AttrSchemaRef",
@@ -1113,7 +1125,7 @@
               ],
               "name": "format",
               "default": "unix",
-              "docstring": "Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"
+              "docstring": "Astropy format, see :py:class:`~xradio.schema.measures.TimeArray`"
             },
             {
               "$class": "AttrSchemaRef",
@@ -1156,8 +1168,8 @@
               "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
             }
           ],
-          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.",
-          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.",
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.schema.measures.TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.schema.measures.TimeArray`.",
           "name": "time",
           "optional": false
         },
@@ -1279,6 +1291,9 @@
                       "REST",
                       "BARY",
                       "TOPO",
+                      "GALACTO",
+                      "LGROUP",
+                      "CMB",
                       "gcrs",
                       "icrs",
                       "hcrs",
@@ -1288,7 +1303,7 @@
                     ],
                     "name": "observer",
                     "default": "icrs",
-                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd. The other casacore frames (REST, BARY, TOPO,\nGALACTO, LGROUP, CMB) are not translated and keep their casacore name. The astropy frames icrs, hcrs and\nlsr are not translated to casacore frames (astropy's lsr uses a different solar motion than casacore's LSRK)."
                   },
                   {
                     "$class": "AttrSchemaRef",
@@ -1442,6 +1457,9 @@
                 "REST",
                 "BARY",
                 "TOPO",
+                "GALACTO",
+                "LGROUP",
+                "CMB",
                 "gcrs",
                 "icrs",
                 "hcrs",
@@ -1591,7 +1609,7 @@
               ],
               "name": "scale",
               "default": "utc",
-              "docstring": "Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` "
+              "docstring": "Astropy time scales, see :py:class:`~xradio.schema.measures.TimeArray` "
             },
             {
               "$class": "AttrSchemaRef",
@@ -1604,7 +1622,7 @@
               ],
               "name": "format",
               "default": "unix",
-              "docstring": "Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"
+              "docstring": "Astropy format, see :py:class:`~xradio.schema.measures.TimeArray`"
             },
             {
               "$class": "AttrSchemaRef",
@@ -1647,8 +1665,8 @@
               "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
             }
           ],
-          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.",
-          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.",
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.schema.measures.TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.schema.measures.TimeArray`.",
           "name": "time",
           "optional": false
         },
@@ -1770,6 +1788,9 @@
                       "REST",
                       "BARY",
                       "TOPO",
+                      "GALACTO",
+                      "LGROUP",
+                      "CMB",
                       "gcrs",
                       "icrs",
                       "hcrs",
@@ -1779,7 +1800,7 @@
                     ],
                     "name": "observer",
                     "default": "icrs",
-                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd. The other casacore frames (REST, BARY, TOPO,\nGALACTO, LGROUP, CMB) are not translated and keep their casacore name. The astropy frames icrs, hcrs and\nlsr are not translated to casacore frames (astropy's lsr uses a different solar motion than casacore's LSRK)."
                   },
                   {
                     "$class": "AttrSchemaRef",
@@ -1933,6 +1954,9 @@
                 "REST",
                 "BARY",
                 "TOPO",
+                "GALACTO",
+                "LGROUP",
+                "CMB",
                 "gcrs",
                 "icrs",
                 "hcrs",
@@ -2064,7 +2088,7 @@
               ],
               "name": "scale",
               "default": "utc",
-              "docstring": "Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` "
+              "docstring": "Astropy time scales, see :py:class:`~xradio.schema.measures.TimeArray` "
             },
             {
               "$class": "AttrSchemaRef",
@@ -2077,7 +2101,7 @@
               ],
               "name": "format",
               "default": "unix",
-              "docstring": "Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"
+              "docstring": "Astropy format, see :py:class:`~xradio.schema.measures.TimeArray`"
             },
             {
               "$class": "AttrSchemaRef",
@@ -2120,8 +2144,8 @@
               "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
             }
           ],
-          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.",
-          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.",
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.schema.measures.TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.schema.measures.TimeArray`.",
           "name": "time",
           "optional": false
         },
@@ -2285,7 +2309,7 @@
       "data_docstring": null,
       "name": "EFFECTIVE_INTEGRATION_TIME",
       "optional": true,
-      "docstring": "The integration time, including the effects of missing data, in contrast to\n``integration_time`` attribute of the ``time`` coordinate,\nsee :py:class:`~xradio.measurement_set.schema.TimeArray`. (MS v2: ``exposure``)."
+      "docstring": "The integration time, including the effects of missing data, in contrast to\n``integration_time`` attribute of the ``time`` coordinate,\nsee :py:class:`~xradio.schema.measures.TimeArray`. (MS v2: ``exposure``)."
     },
     {
       "$class": "ArraySchemaRef",
@@ -2347,7 +2371,7 @@
               ],
               "name": "scale",
               "default": "utc",
-              "docstring": "Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` "
+              "docstring": "Astropy time scales, see :py:class:`~xradio.schema.measures.TimeArray` "
             },
             {
               "$class": "AttrSchemaRef",
@@ -2360,7 +2384,7 @@
               ],
               "name": "format",
               "default": "unix",
-              "docstring": "Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"
+              "docstring": "Astropy format, see :py:class:`~xradio.schema.measures.TimeArray`"
             },
             {
               "$class": "AttrSchemaRef",
@@ -2403,8 +2427,8 @@
               "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
             }
           ],
-          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.",
-          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.",
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.schema.measures.TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.schema.measures.TimeArray`.",
           "name": "time",
           "optional": false
         },
@@ -2517,7 +2541,7 @@
       "data_docstring": null,
       "name": "TIME_CENTROID",
       "optional": true,
-      "docstring": "The time centroid of the visibility, includes the effects of missing data\nunlike the ``time`` coordinate, see :py:class:`~xradio.measurement_set.schema.TimeArray`."
+      "docstring": "The time centroid of the visibility, includes the effects of missing data\nunlike the ``time`` coordinate, see :py:class:`~xradio.schema.measures.TimeArray`."
     },
     {
       "$class": "ArraySchemaRef",
@@ -2579,7 +2603,7 @@
               ],
               "name": "scale",
               "default": "utc",
-              "docstring": "Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` "
+              "docstring": "Astropy time scales, see :py:class:`~xradio.schema.measures.TimeArray` "
             },
             {
               "$class": "AttrSchemaRef",
@@ -2592,7 +2616,7 @@
               ],
               "name": "format",
               "default": "unix",
-              "docstring": "Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"
+              "docstring": "Astropy format, see :py:class:`~xradio.schema.measures.TimeArray`"
             },
             {
               "$class": "AttrSchemaRef",
@@ -2635,8 +2659,8 @@
               "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
             }
           ],
-          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.",
-          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.",
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.schema.measures.TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.schema.measures.TimeArray`.",
           "name": "time",
           "optional": false
         },
@@ -2829,6 +2853,9 @@
                       "REST",
                       "BARY",
                       "TOPO",
+                      "GALACTO",
+                      "LGROUP",
+                      "CMB",
                       "gcrs",
                       "icrs",
                       "hcrs",
@@ -2838,7 +2865,7 @@
                     ],
                     "name": "observer",
                     "default": "icrs",
-                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd. The other casacore frames (REST, BARY, TOPO,\nGALACTO, LGROUP, CMB) are not translated and keep their casacore name. The astropy frames icrs, hcrs and\nlsr are not translated to casacore frames (astropy's lsr uses a different solar motion than casacore's LSRK)."
                   },
                   {
                     "$class": "AttrSchemaRef",
@@ -2992,6 +3019,9 @@
                 "REST",
                 "BARY",
                 "TOPO",
+                "GALACTO",
+                "LGROUP",
+                "CMB",
                 "gcrs",
                 "icrs",
                 "hcrs",
@@ -3056,7 +3086,7 @@
               ],
               "name": "scale",
               "default": "utc",
-              "docstring": "Astropy time scales, see :py:class:`~xradio.measurement_set.schema.TimeArray` "
+              "docstring": "Astropy time scales, see :py:class:`~xradio.schema.measures.TimeArray` "
             },
             {
               "$class": "AttrSchemaRef",
@@ -3069,7 +3099,7 @@
               ],
               "name": "format",
               "default": "unix",
-              "docstring": "Astropy format, see :py:class:`~xradio.measurement_set.schema.TimeArray`"
+              "docstring": "Astropy format, see :py:class:`~xradio.schema.measures.TimeArray`"
             },
             {
               "$class": "AttrSchemaRef",
@@ -3112,8 +3142,8 @@
               "docstring": "The nominal sampling interval (ms v2). Units of seconds. "
             }
           ],
-          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.measurement_set.schema.TimeArray`.",
-          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.measurement_set.schema.TimeArray`.",
+          "class_docstring": "Data model of the main dataset time axis. See also :py:class:`~xradio.schema.measures.TimeArray`.",
+          "data_docstring": "Time, expressed in seconds since the epoch (see ``scale`` &\n``format``), see also see :py:class:`~xradio.schema.measures.TimeArray`.",
           "name": "time",
           "optional": true
         },
@@ -3199,6 +3229,9 @@
             "REST",
             "BARY",
             "TOPO",
+            "GALACTO",
+            "LGROUP",
+            "CMB",
             "gcrs",
             "icrs",
             "hcrs",
@@ -3292,6 +3325,9 @@
                       "REST",
                       "BARY",
                       "TOPO",
+                      "GALACTO",
+                      "LGROUP",
+                      "CMB",
                       "gcrs",
                       "icrs",
                       "hcrs",
@@ -3301,7 +3337,7 @@
                     ],
                     "name": "observer",
                     "default": "icrs",
-                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd"
+                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd. The other casacore frames (REST, BARY, TOPO,\nGALACTO, LGROUP, CMB) are not translated and keep their casacore name. The astropy frames icrs, hcrs and\nlsr are not translated to casacore frames (astropy's lsr uses a different solar motion than casacore's LSRK)."
                   },
                   {
                     "$class": "AttrSchemaRef",
@@ -3455,6 +3491,9 @@
                 "REST",
                 "BARY",
                 "TOPO",
+                "GALACTO",
+                "LGROUP",
+                "CMB",
                 "gcrs",
                 "icrs",
                 "hcrs",
@@ -3499,6 +3538,9 @@
             "REST",
             "BARY",
             "TOPO",
+            "GALACTO",
+            "LGROUP",
+            "CMB",
             "gcrs",
             "icrs",
             "hcrs",

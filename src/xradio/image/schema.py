@@ -32,6 +32,7 @@ from typing import Literal
 import numpy
 import xarray
 
+from xradio.image._util.conventions import canonical_polarization_order
 from xradio.schema.bases import (
     dict_schema,
     xarray_dataarray_schema,
@@ -40,11 +41,16 @@ from xradio.schema.bases import (
 from xradio.schema.check import (
     SchemaIssue,
     SchemaIssues,
+    _matching_data_var_names,
     check_array,
     check_dataset,
     check_dict,
 )
-from xradio.schema.dataclass import xarray_dataclass_to_dict_schema
+from xradio.schema.dataclass import (
+    xarray_dataclass_to_array_schema,
+    xarray_dataclass_to_dataset_schema,
+    xarray_dataclass_to_dict_schema,
+)
 from xradio.schema.measures import (
     ZD,
     AllowedDopplerTypes,
@@ -76,9 +82,13 @@ from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof
 
 # Dimensions
 L = Literal["l"]
-""" Direction cosine towards the east, measured from the reference direction (see AIPS Memo #27). """
+""" Projection plane coordinate towards the east, measured from the reference
+direction (the direction cosine l of AIPS Memo #27 for the SIN projection,
+see :py:class:`LCoordArray`). """
 M = Literal["m"]
-""" Direction cosine towards the north, measured from the reference direction (see AIPS Memo #27). """
+""" Projection plane coordinate towards the north, measured from the reference
+direction (the direction cosine m of AIPS Memo #27 for the SIN projection,
+see :py:class:`MCoordArray`). """
 U = Literal["u"]
 """ Aperture plane dimension conjugate to l. """
 V = Literal["v"]
@@ -86,15 +96,23 @@ V = Literal["v"]
 BeamParamsLabel = Literal["beam_params_label"]
 """ Coordinate labels of Gaussian beam fit parameters (shape 3 and 'major', 'minor', 'pa'). """
 
+BEAM_PARAMS_LABELS = ("major", "minor", "pa")
+""" Values of the ``beam_params_label`` coordinate, in this order. """
+
 UnitsOfImageTime = Literal["d", "s"]
 """ Units of time values in images. Typically days ('d') for MJD formatted times. """
 
 # Sub image types of a sky image, derived from the casacore image type, see
 # https://github.com/casacore/casacore/blob/dede86795b94ea5651d26a889fea8ced455bfd14/images/Images/ImageInfo.h#L93-L110
-# (casacore spellings with spaces, e.g. "Column Density", are normalized by
-# removing the spaces)
+# The values are casacore's names without spaces (casacore's "Column Density"
+# is "ColumnDensity"), in casacore's order. Readers translate casacore image
+# types and FITS BTYPE values case insensitively, and writers translate back
+# to casacore's spelling (see normalize_sub_type and sub_type_to_casacore in
+# xradio.image._util.conventions); casacore's "Undefined" type gives no
+# sub_type (and an image without a sub_type is written to CASA as Intensity).
 AllowedSkyImageSubTypes = Literal[
     "Intensity",
+    "Beam",
     "ColumnDensity",
     "DepolarizationRatio",
     "KineticTemperature",
@@ -160,13 +178,33 @@ class FrequencyCoordArray:
     rest_frequency: Attr[QuantityInHertzArray]
     """ Rest frequency of the spectral line stored with the image. """
     reference_frequency: Attr[SpectralCoordArray]
-    """ A frequency representative of the image spectral axis. """
+    """ A frequency representative of the image spectral axis. Its
+    ``observer`` is the spectral reference frame of the image (``frame``) in
+    the vocabulary of
+    :py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, for example
+    ``"lsrk"`` for LSRK, ``"gcrs"`` for GEO and ``"BARY"`` for BARY. """
     frame: Attr[str]
-    """ Native (casacore) spectral reference frame of the image, for example ``"LSRK"``. """
+    """ Spectral reference frame of the image, by its casacore name: one of
+    ``"REST"``, ``"LSRK"``, ``"LSRD"``, ``"BARY"``, ``"GEO"``, ``"TOPO"``,
+    ``"GALACTO"``, ``"LGROUP"`` or ``"CMB"``. Readers translate other names
+    for the same frames, such as FITS ``SPECSYS`` values (``"BARYCENT"``,
+    ``"SOURCE"``), to these; the CASA reader keeps casacore's
+    ``"Undefined"``. Images that the ``make_empty_*`` factories make in an
+    astropy frame without a casacore equivalent hold its name (``"icrs"``,
+    ``"hcrs"`` or ``"lsr"``); the CASA and FITS writers cannot write those. """
+    channel_width: Attr[QuantityInHertzArray] | None = None
+    """ The nominal channel width, as in the measurement set frequency
+    coordinate (:py:class:`~xradio.measurement_set.schema.FrequencyArray`).
+    Readers fill it from the spectral increment of the image; writers use it
+    as the increment of a single channel spectral axis, which the frequency
+    values alone do not determine. """
     wave_units: Attr[str] | None = None
     """ Units to associate with the wavelength representation of the axis, for example ``"mm"``. """
     observer: Attr[AllowedSpectralCoordFrames] | None = None
-    """ Astropy velocity reference frame (see :py:class:`~xradio.schema.measures.SpectralCoordArray`). """
+    """ Spectral reference frame of the axis in the vocabulary of
+    :py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, the same
+    value as the ``observer`` of ``reference_frequency`` (see
+    :py:class:`~xradio.schema.measures.SpectralCoordArray`). """
 
     type: Attr[SpectralCoord] = "spectral_coord"
     """ Coordinate type. Should be ``"spectral_coord"``. """
@@ -195,13 +233,20 @@ class VelocityCoordArray:
 class LCoordArray:
     """The l coordinate of the image dataset.
 
-    l is the angle measured from the reference direction to the east, so
-    l = x*cdelt where x is the number of pixels from the reference direction.
-    See AIPS Memo #27, Section III. Values are in radians.
+    l is the projection plane coordinate (the FITS WCS intermediate world
+    coordinate) towards the east, measured from the reference direction:
+    l = x*cdelt, where x is the pixel offset from the reference pixel and
+    cdelt the pixel increment in radians. For the SIN projection without
+    projection parameters, the usual projection of interferometric images, l
+    is the direction cosine l of AIPS Memo #27 (Section III). For other
+    projections l is neither the direction cosine nor the angular offset (for
+    TAN they differ from l by 1% to 1.5% at 10 degrees from the reference
+    direction); the ``projection`` of ``coordinate_system_info`` defines it.
     """
 
     data: Data[L, float]
-    """ Angle measured from the reference direction to the east, in radians. """
+    """ Projection plane coordinate towards the east, in radians (the
+    dimensionless direction cosine for the SIN projection). """
 
     note: Attr[str] | None = None
     """ Explanatory note on the definition of l. """
@@ -211,13 +256,19 @@ class LCoordArray:
 class MCoordArray:
     """The m coordinate of the image dataset.
 
-    m is the angle measured from the reference direction to the north, so
-    m = y*cdelt where y is the number of pixels from the reference direction.
-    See AIPS Memo #27, Section III. Values are in radians.
+    m is the projection plane coordinate (the FITS WCS intermediate world
+    coordinate) towards the north, measured from the reference direction:
+    m = y*cdelt, where y is the pixel offset from the reference pixel and
+    cdelt the pixel increment in radians. For the SIN projection without
+    projection parameters, the usual projection of interferometric images, m
+    is the direction cosine m of AIPS Memo #27 (Section III). For other
+    projections m is neither the direction cosine nor the angular offset; the
+    ``projection`` of ``coordinate_system_info`` defines it.
     """
 
     data: Data[M, float]
-    """ Angle measured from the reference direction to the north, in radians. """
+    """ Projection plane coordinate towards the north, in radians (the
+    dimensionless direction cosine for the SIN projection). """
 
     note: Attr[str] | None = None
     """ Explanatory note on the definition of m. """
@@ -225,13 +276,17 @@ class MCoordArray:
 
 @xarray_dataarray_schema
 class UCoordArray:
-    """The u coordinate of aperture plane data (conjugate to l)."""
+    """The u coordinate of aperture plane data (conjugate to l).
+
+    By convention u is in wavelengths (``units`` ``"lambda"``), the Fourier
+    conjugate of the dimensionless l."""
 
     data: Data[U, float]
-    """ u values, typically in wavelengths. """
+    """ u values, in wavelengths. """
 
     units: Attr[str] | None = None
-    """ Units to associate with axis, for example ``"lambda"``. """
+    """ Units to associate with axis. The convention is ``"lambda"``
+    (wavelengths). """
     crval: Attr[float] | None = None
     """ Reference value at the reference pixel. """
     cdelt: Attr[float] | None = None
@@ -242,13 +297,17 @@ class UCoordArray:
 
 @xarray_dataarray_schema
 class VCoordArray:
-    """The v coordinate of aperture plane data (conjugate to m)."""
+    """The v coordinate of aperture plane data (conjugate to m).
+
+    By convention v is in wavelengths (``units`` ``"lambda"``), the Fourier
+    conjugate of the dimensionless m."""
 
     data: Data[V, float]
-    """ v values, typically in wavelengths. """
+    """ v values, in wavelengths. """
 
     units: Attr[str] | None = None
-    """ Units to associate with axis, for example ``"lambda"``. """
+    """ Units to associate with axis. The convention is ``"lambda"``
+    (wavelengths). """
     crval: Attr[float] | None = None
     """ Reference value at the reference pixel. """
     cdelt: Attr[float] | None = None
@@ -262,8 +321,8 @@ class BeamParamsLabelCoordArray:
     """Coordinate axis to make up the ``("major", "minor", "pa")`` tuple of
     Gaussian beam fit parameters, see :py:class:`BeamFitParamsArray`."""
 
-    data: Data[BeamParamsLabel, str] = ("major", "minor", "pa")
-    """Should be ``('major', 'minor', 'pa')``."""
+    data: Data[BeamParamsLabel, str] = BEAM_PARAMS_LABELS
+    """Should be ``('major', 'minor', 'pa')``, in this order."""
 
 
 # Measures used in image attributes
@@ -295,7 +354,9 @@ class TelescopeLocationArray:
     Location measure of the telescope, stored in the ``telescope`` attribute
     of image data variables. Unlike
     :py:class:`~xradio.schema.measures.LocationArray` the frame is the native
-    casacore telescope position frame (typically ``"ITRF"``).
+    casacore telescope position frame (typically ``"ITRF"``). The readers
+    store geocentric spherical coordinates (``coordinate_system``
+    ``"geocentric"``), see :py:class:`TelescopeDict`.
     """
 
     data: Data[EllipsoidDirLabel | EllipsoidDisLabel | CartesianPosLabel, float]
@@ -306,7 +367,9 @@ class TelescopeLocationArray:
     frame: Attr[str]
     """ Reference frame, for example ``"ITRF"``. """
     coordinate_system: Attr[str]
-    """ Coordinate system, for example ``"geocentric"``. """
+    """ Coordinate system, for example ``"geocentric"`` (spherical
+    coordinates of the position vector: longitude, geocentric latitude and
+    distance from the geocenter). """
     origin_object_name: Attr[str]
     """ earth/sun/moon/etc. """
     type: Attr[Location] = "location"
@@ -335,14 +398,25 @@ class NativePoleDirectionArray:
 # Info dicts
 @dict_schema
 class TelescopeDict:
-    """Telescope information stored in the attributes of image data variables."""
+    """Telescope information stored in the attributes of image data variables.
+
+    The telescope position is stored in geocentric spherical ITRF
+    coordinates (``coordinate_system`` ``"geocentric"``): ``direction`` holds
+    the longitude and the geocentric latitude, ``distance`` the distance from
+    the geocenter, so the Cartesian ITRF position is
+    x = distance cos(lat) cos(lon), y = distance cos(lat) sin(lon) and
+    z = distance sin(lat) (for example for astropy's
+    ``EarthLocation.from_geocentric``). The geocentric latitude is not the
+    geodetic latitude (for ALMA they differ by about 0.14 degrees)."""
 
     name: str
     """ Telescope name, for example 'ALMA'. """
     direction: TelescopeLocationArray | None
-    """ Location measure holding the geodetic longitude and latitude of the telescope. """
+    """ Location measure holding the longitude and the geocentric latitude of
+    the telescope ('lon', 'lat', in radians). """
     distance: TelescopeLocationArray | None
-    """ Location measure holding the geocentric distance of the telescope. """
+    """ Location measure holding the distance of the telescope from the
+    geocenter ('dist', in meters). """
 
 
 @dict_schema
@@ -379,7 +453,7 @@ class DataGroupDict:
     """ Image of the sky. Name of the sky variable, for example 'SKY'. Derived
     from the gridded visibilities. On plane tangential to celestial sphere.
     The variable's ``sub_type`` attribute records the physical quantity held
-    by the image (Intensity, ColumnDensity, DepolarizationRatio,
+    by the image (Intensity, Beam, ColumnDensity, DepolarizationRatio,
     KineticTemperature, MagneticField, OpticalDepth, RotationMeasure,
     RotationalTemperature, SpectralIndex, Velocity, VelocityDispersion),
     derived from the casacore image type, see :py:class:`SkyArray`. """
@@ -456,7 +530,7 @@ class SkyArray:
     The optional ``sub_type`` attribute records the physical quantity held by
     the image, derived from the `casacore image type
     <https://github.com/casacore/casacore/blob/dede86795b94ea5651d26a889fea8ced455bfd14/images/Images/ImageInfo.h#L93-L110>`_
-    (without changing the image ``type``): Intensity, ColumnDensity,
+    (without changing the image ``type``): Intensity, Beam, ColumnDensity,
     DepolarizationRatio, KineticTemperature, MagneticField, OpticalDepth,
     RotationMeasure, RotationalTemperature, SpectralIndex, Velocity or
     VelocityDispersion."""
@@ -503,8 +577,11 @@ class SkyArray:
     flag: Attr[str] | None = None
     """ Name of the flag variable that applies to this image, for example 'FLAG_SKY'. """
     sub_type: Attr[AllowedSkyImageSubTypes] | None = None
-    """ Sub image type, derived from the casacore image type (with spaces
-    removed, so casacore's 'Column Density' becomes 'ColumnDensity'). """
+    """ Sub image type, derived from the casacore image type or FITS BTYPE
+    (casacore's name with spaces removed, so 'Column Density' becomes
+    'ColumnDensity'). casacore's 'Undefined' image type, like a missing or
+    unknown BTYPE, gives no sub_type, and an image without a sub_type is
+    written to CASA with casacore's default type, Intensity. """
     allow_multiple_versions: Attr[bool] | None = True
 
 
@@ -512,17 +589,27 @@ class SkyArray:
 class FlagArray:
     """A boolean image defining any invalid pixels (``True`` means invalid).
     For CASA images this is derived from the (inverted) internal mask.
-    Versions of this variable are named after the image they apply to, for
-    example ``FLAG_SKY`` or ``FLAG_SKY_RESIDUAL``."""
+    Versions of this variable are named after the image they apply to and
+    have its dimensions: for example ``FLAG_SKY`` or ``FLAG_SKY_RESIDUAL`` on
+    the sky plane ``(l, m)``, ``FLAG_APERTURE`` on the aperture plane
+    ``(u, v)``, and ``FLAG_VISIBILITY_NORMALIZATION`` with one value per
+    plane."""
 
-    data: Data[tuple[Time, Frequency, Polarization, L, M], bool]
+    data: Data[
+        tuple[Time, Frequency, Polarization, L, M]
+        | tuple[Time, Frequency, Polarization, U, V]
+        | tuple[Time, Frequency, Polarization],
+        bool,
+    ]
     """ Pixel flags, ``True`` means the pixel is invalid. """
 
     time: Coordof[TimeCoordArray]
     frequency: Coordof[FrequencyCoordArray]
     polarization: Coordof[PolarizationArray]
-    l: Coordof[LCoordArray]  # noqa: E741
-    m: Coordof[MCoordArray]
+    l: Coordof[LCoordArray] | None = None  # noqa: E741
+    m: Coordof[MCoordArray] | None = None
+    u: Coordof[UCoordArray] | None = None
+    v: Coordof[VCoordArray] | None = None
 
     type: Attr[Literal["flag"]] = "flag"
     """ Image type. Should be ``"flag"``. """
@@ -843,8 +930,10 @@ class ImageXds:
     groups the variables that belong together and maps logical roles to
     concrete variable names.
 
-    Sky plane images are defined on the ``(l, m)`` direction cosine
-    dimensions, aperture plane data on the conjugate ``(u, v)`` dimensions.
+    Sky plane images are defined on the ``(l, m)`` projection plane
+    dimensions (the direction cosines for the SIN projection, see
+    :py:class:`LCoordArray`), aperture plane data on the conjugate ``(u, v)``
+    dimensions.
     """
 
     # --- Required Coordinates ---
@@ -853,7 +942,15 @@ class ImageXds:
     frequency: Coordof[FrequencyCoordArray]
     """ Center frequencies for each channel. """
     polarization: Coordof[PolarizationArray]
-    """ Labels for polarization types, e.g. ``['I', 'Q', 'U', 'V']``. """
+    """ Labels for polarization types, e.g. ``['I', 'Q', 'U', 'V']``, in the
+    order of the casacore ``Stokes`` enumeration (``I, Q, U, V``,
+    ``RR, RL, LR, LL``, ``XX, XY, YX, YY``), so that the correlations of a
+    pair of feeds map directly onto 2x2 Jones matrices. The readers return
+    this order: FITS files cannot store the correlations in it, so the FITS
+    writer reorders the planes in the file and the reader restores the order,
+    and CASA images or zarr stores that hold another order are reordered when
+    they are read. The ``make_empty_*`` factories require this order and
+    :py:func:`check_image` reports any other. """
 
     # --- Required Attributes ---
     data_groups: Attr[DataGroupsDict]
@@ -865,9 +962,11 @@ class ImageXds:
     velocity: Coordof[VelocityCoordArray] | None = None
     """ Velocity of each frequency channel (non-dimensional coordinate parallel to ``frequency``). """
     l: Coordof[LCoordArray] | None = None  # noqa: E741
-    """ Direction cosine towards the east (sky plane images). """
+    """ Projection plane coordinate towards the east (sky plane images; the
+    direction cosine for the SIN projection). """
     m: Coordof[MCoordArray] | None = None
-    """ Direction cosine towards the north (sky plane images). """
+    """ Projection plane coordinate towards the north (sky plane images; the
+    direction cosine for the SIN projection). """
     u: Coordof[UCoordArray] | None = None
     """ Aperture plane coordinate conjugate to l. """
     v: Coordof[VCoordArray] | None = None
@@ -937,20 +1036,54 @@ DATA_GROUP_ROLE_SCHEMAS = {
 }
 
 
+# Attributes of image variables that name another data variable, with the
+# array schema the named variable must conform to, by the array schema of the
+# image variables that carry them.
+_REFERENCE_ATTRIBUTE_SCHEMAS = {
+    SkyArray: {"flag": FlagArray, "beam_fit_params": BeamFitParamsArray},
+    PointSpreadFunctionArray: {"beam_fit_params": BeamFitParamsArray},
+}
+
+
 def check_image(image_xds: xarray.Dataset) -> SchemaIssues:
     """Check an image dataset against the image schema.
 
-    In addition to :py:func:`xradio.schema.check.check_dataset` with the
-    :py:class:`ImageXds` schema, this validates the ``data_groups``
-    attribute in depth: every data group is checked against
-    :py:class:`DataGroupDict`, unknown roles are reported, and every data
-    variable referenced by a data group role must exist in the dataset and
-    conform to the array schema of its role (see
-    ``DATA_GROUP_ROLE_SCHEMAS``).
+    Runs :py:func:`xradio.schema.check.check_dataset` with the
+    :py:class:`ImageXds` schema, which checks the data variables whose names
+    match a data variable of the schema (for example ``SKY_RESIDUAL`` as a
+    version of ``SKY``), and adds the checks it cannot do:
 
-    The coordinate-only datasets produced by ``make_empty_sky_image`` and its
-    aperture and lmuv siblings conform to this schema (with an empty ``base``
-    data group and no data variables yet).
+    * every data group is a dictionary that conforms to
+      :py:class:`DataGroupDict`, and has no unknown roles;
+    * every data variable referenced by a data group role exists and
+      conforms to the array schema of its role (see
+      ``DATA_GROUP_ROLE_SCHEMAS``), whatever its name;
+    * the ``flag`` and ``beam_fit_params`` attributes of sky images, and the
+      ``beam_fit_params`` attribute of point spread functions, name existing
+      data variables that conform to :py:class:`FlagArray` and
+      :py:class:`BeamFitParamsArray`;
+    * the ``beam_params_label`` coordinate holds ``'major', 'minor', 'pa'``
+      in this order, the order of the beam fit parameters in the schema (the
+      writers select them by label, but other software indexes them by
+      position);
+    * the polarization labels are in canonical (casacore ``Stokes``, Jones
+      matrix) order, see :py:class:`ImageXds`.
+
+    A defect of a data variable is reported once, under the name of that
+    variable, also when several data groups reference it. A defect of a
+    coordinate is reported for the dataset and for each data variable that
+    has the coordinate.
+
+    The check covers structure and vocabularies (dimensions, dtypes and
+    attribute types and values). Apart from the beam parameter labels and the
+    order of the polarization labels it does not check coordinate values, nor
+    the consistency of attributes with each
+    other, and a conforming dataset is not necessarily writable in every
+    format: the CASA and FITS writers raise
+    for example for frequency axes that are not uniformly spaced, for
+    spectral frames without a casacore equivalent (``icrs``, ``hcrs`` and
+    ``lsr``) and, for FITS, for polarization sets that cannot form a FITS
+    ``STOKES`` axis.
 
     :param image_xds: Image dataset to check
     :returns: List of schema issues found (empty if the dataset conforms)
@@ -958,12 +1091,67 @@ def check_image(image_xds: xarray.Dataset) -> SchemaIssues:
 
     issues = check_dataset(image_xds, ImageXds)
 
-    data_groups = image_xds.attrs.get("data_groups")
-    if not isinstance(data_groups, dict):
-        # Missing or wrong-typed data_groups has already been reported by
-        # check_dataset
-        return issues
+    # Names of the data variables checked so far against each array schema
+    # (by schema name), so that check_image checks every variable once per
+    # schema: check_dataset has already checked the variables whose names
+    # match a data variable of the dataset schema
+    checked = {}
+    for data_var_schema in xarray_dataclass_to_dataset_schema(ImageXds).data_vars:
+        checked.setdefault(data_var_schema.schema_name, set()).update(
+            _matching_data_var_names(image_xds.data_vars, data_var_schema)
+        )
 
+    data_groups = image_xds.attrs.get("data_groups")
+    # Missing or wrong-typed data_groups has already been reported by
+    # check_dataset
+    if isinstance(data_groups, dict):
+        issues += _check_data_groups(image_xds, data_groups, checked)
+
+    issues += _check_reference_attributes(image_xds, checked)
+    issues += _check_beam_params_labels(image_xds)
+    issues += _check_polarization_order(image_xds)
+    return issues
+
+
+def _check_referenced_variable(
+    image_xds: xarray.Dataset, variable_name: str, array_schema: type, checked: dict
+) -> SchemaIssues:
+    """Check an existing data variable against an array schema, unless it
+    has already been checked against that schema.
+
+    :param image_xds: Image dataset
+    :param variable_name: Name of a data variable of ``image_xds``
+    :param array_schema: Array schema class the variable must conform to
+    :param checked: Names of the variables checked so far, by schema name
+        (updated)
+    :returns: Schema issues found
+    """
+
+    names = checked.setdefault(
+        xarray_dataclass_to_array_schema(array_schema).schema_name, set()
+    )
+    if variable_name in names:
+        return SchemaIssues()
+    names.add(variable_name)
+    return check_array(image_xds[variable_name], array_schema).at_path(
+        "data_vars", variable_name
+    )
+
+
+def _check_data_groups(
+    image_xds: xarray.Dataset, data_groups: dict, checked: dict
+) -> SchemaIssues:
+    """Check the data groups of an image dataset and the variables their
+    roles reference.
+
+    :param image_xds: Image dataset
+    :param data_groups: The ``data_groups`` attribute of ``image_xds``
+    :param checked: Names of the variables checked so far, by schema name
+        (updated)
+    :returns: Schema issues found
+    """
+
+    issues = SchemaIssues()
     data_group_keys = {
         attr.name for attr in xarray_dataclass_to_dict_schema(DataGroupDict).attributes
     }
@@ -1019,8 +1207,100 @@ def check_image(image_xds: xarray.Dataset) -> SchemaIssues:
                     ]
                 )
                 continue
-            issues += check_array(image_xds[variable_name], role_schema).at_path(
-                "data_vars", variable_name
+            issues += _check_referenced_variable(
+                image_xds, variable_name, role_schema, checked
             )
 
     return issues
+
+
+def _check_reference_attributes(
+    image_xds: xarray.Dataset, checked: dict
+) -> SchemaIssues:
+    """Check that the attributes of image variables that name other data
+    variables (see ``_REFERENCE_ATTRIBUTE_SCHEMAS``) name existing variables
+    that conform to the schema of the reference.
+
+    :param image_xds: Image dataset
+    :param checked: Names of the variables checked so far, by schema name;
+        the images carrying the attributes are the variables checked against
+        the image's array schema (updated)
+    :returns: Schema issues found
+    """
+
+    issues = SchemaIssues()
+    for image_schema, references in _REFERENCE_ATTRIBUTE_SCHEMAS.items():
+        images = checked.get(
+            xarray_dataclass_to_array_schema(image_schema).schema_name, set()
+        )
+        for image_name in [name for name in image_xds.data_vars if name in images]:
+            for attr_name, array_schema in references.items():
+                variable_name = image_xds[image_name].attrs.get(attr_name)
+                # A value of the wrong type has been reported by the array check
+                if not isinstance(variable_name, str):
+                    continue
+                if variable_name not in image_xds.data_vars:
+                    issues.add(
+                        SchemaIssue(
+                            path=[("data_vars", image_name), ("attrs", attr_name)],
+                            message=f"References data variable '{variable_name}', "
+                            "which does not exist!",
+                            found=variable_name,
+                        )
+                    )
+                    continue
+                issues += _check_referenced_variable(
+                    image_xds, variable_name, array_schema, checked
+                )
+    return issues
+
+
+def _check_beam_params_labels(image_xds: xarray.Dataset) -> SchemaIssues:
+    """Check the values of the ``beam_params_label`` coordinate.
+
+    :param image_xds: Image dataset
+    :returns: Schema issues found
+    """
+
+    if "beam_params_label" not in image_xds.coords:
+        return SchemaIssues()
+    labels = [str(label) for label in image_xds.coords["beam_params_label"].values]
+    if tuple(labels) == BEAM_PARAMS_LABELS:
+        return SchemaIssues()
+    return SchemaIssues(
+        [
+            SchemaIssue(
+                path=[("coords", "beam_params_label")],
+                message="Beam fit parameter labels must be 'major', 'minor', 'pa' "
+                "in this order!",
+                found=labels,
+                expected=[list(BEAM_PARAMS_LABELS)],
+            )
+        ]
+    )
+
+
+def _check_polarization_order(image_xds: xarray.Dataset) -> SchemaIssues:
+    """Check that the polarization labels are in canonical order.
+
+    :param image_xds: Image dataset
+    :returns: Schema issues found
+    """
+
+    if "polarization" not in image_xds.coords:
+        return SchemaIssues()
+    labels = [str(label) for label in image_xds.coords["polarization"].values]
+    order = canonical_polarization_order(labels)
+    if order == list(range(len(labels))):
+        return SchemaIssues()
+    return SchemaIssues(
+        [
+            SchemaIssue(
+                path=[("coords", "polarization")],
+                message="Polarization labels must be in canonical (casacore "
+                "Stokes, Jones matrix) order, for example RR, RL, LR, LL!",
+                found=labels,
+                expected=[[labels[i] for i in order]],
+            )
+        ]
+    )

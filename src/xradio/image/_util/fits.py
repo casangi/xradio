@@ -3,17 +3,61 @@ import os
 import xarray as xr
 
 from xradio._utils.logging import xradio_logger
-from xradio._utils.schema import get_data_group_keys
-from xradio.image._util._fits.xds_to_fits import _xds_to_fits_image
+from xradio.image._util._fits.xds_to_fits import (
+    _fits_image_header,
+    _image_label,
+    _xds_to_fits_image,
+)
+from xradio.image._util._write_plan import (
+    ImageOutput,
+    ImageWritePlan,
+    naming_the_variable,
+    plan_image_outputs,
+)
 
 
-def _xds_to_multiple_fits_images(xds: xr.Dataset, image_store_name: str) -> None:
+def _fits_image_xds(xds: xr.Dataset, output: ImageOutput) -> xr.Dataset:
+    """Return the single image dataset the FITS writer writes for one
+    planned output: the image as SKY, with its flags as FLAG and its beam fit
+    parameters as BEAM_FIT_PARAMS."""
+    image_xds = xr.Dataset(attrs=xds.attrs.copy())
+    image_xds["SKY"] = xds[output.variable]
+    if output.flag is not None:
+        image_xds["FLAG"] = xds[output.flag]
+    if output.beam_fit_params is not None:
+        image_xds["BEAM_FIT_PARAMS"] = xds[output.beam_fit_params]
+    return image_xds
+
+
+def _naming_the_variable(image_xds: xr.Dataset, output: ImageOutput):
+    """Errors raised while writing a planned output name its data variable
+    (the single image dataset calls the image SKY, and the FITS writer's
+    messages name it by its type)."""
+    return naming_the_variable(
+        output.variable, "FITS", (_image_label(image_xds["SKY"]), "SKY")
+    )
+
+
+def _prepared_fits_image(image_xds: xr.Dataset, output: ImageOutput) -> tuple:
+    """Build and validate the FITS header of one planned output, without
+    reading its pixels (see :func:`_fits_image_header`). Errors name the
+    data variable."""
+    with _naming_the_variable(image_xds, output):
+        return _fits_image_header(image_xds)
+
+
+def _xds_to_multiple_fits_images(
+    xds: xr.Dataset, image_store_name: str, plan: ImageWritePlan | None = None
+) -> None:
     """Disentangle an xradio image dataset into multiple FITS images based on
     the data_groups attribute, mirroring the CASA writer. One FITS file is
-    written per image type found in the data groups; flags are applied as NaN
-    pixels (the FITS convention) and beam fit parameters are written as
-    BMAJ/BMIN/BPA header cards (single beam) or a CASA style BEAMS binary
-    table (per plane beams).
+    written per data variable that is an image of some data group (see
+    :func:`xradio.image._util._write_plan.plan_image_outputs`); flags are
+    applied as NaN pixels (the FITS convention) and beam fit parameters are
+    written as BMAJ/BMIN/BPA header cards (single beam) or a CASA style BEAMS
+    binary table (per plane beams). Images without l and m dimensions are
+    skipped with a warning. The header of every image is built and validated
+    before any file is written.
 
     Parameters
     ----------
@@ -21,73 +65,24 @@ def _xds_to_multiple_fits_images(xds: xr.Dataset, image_store_name: str) -> None
         The xradio image dataset containing one or more images.
     image_store_name : str
         The base name or path for storing the output FITS images. If only one
-        image is written, it will be named image_store_name, else the images
-        will be named image_store_name.<image_type> where <image_type> is
-        sky, point_spread_function, etc.
+        image is written, it is named image_store_name, else the images are
+        named <stem>.<g1>...<gn>.<role>[.fits], where g1 to gn are the data
+        groups whose <role> refers to the image and a .fits extension of
+        image_store_name stays last. Used only when ``plan`` is None.
+    plan : ImageWritePlan, optional
+        The planned outputs, as computed by ``write_image`` (whose output
+        paths are then used instead of names derived from image_store_name).
     """
-
-    data_vars_name_set = set(xds.data_vars.keys())
-
-    data_group_keys = list(get_data_group_keys(schema_name="image").keys())
-    internal_image_types_to_exclude = [
-        "flag",
-        "beam_fit_params_sky",
-        "beam_fit_params_point_spread_function",
-    ]
-    n_image_written = 0
-    last_image_written = ""
-    for data_group in xds.attrs["data_groups"].keys():
-        for image_type in data_group_keys:
-            if (image_type in xds.attrs["data_groups"][data_group]) and (
-                image_type not in internal_image_types_to_exclude
-            ):
-                image_name = xds.attrs["data_groups"][data_group][image_type]
-                if image_name in data_vars_name_set:
-                    if "l" not in xds[image_name].dims:
-                        xradio_logger().warning(
-                            f"Not writing {image_name} to FITS: only sky "
-                            "plane images (with l and m dimensions) are "
-                            "supported"
-                        )
-                        data_vars_name_set.remove(image_name)
-                        continue
-                    image_to_write_xds = xr.Dataset()
-                    image_to_write_xds.attrs = xds.attrs.copy()
-                    image_to_write_xds["SKY"] = xds[image_name]
-
-                    beam_fit_params_role = {
-                        "sky": "beam_fit_params_sky",
-                        "point_spread_function": (
-                            "beam_fit_params_point_spread_function"
-                        ),
-                    }.get(image_type)
-                    if (
-                        beam_fit_params_role is not None
-                        and beam_fit_params_role in xds.attrs["data_groups"][data_group]
-                    ):
-                        beam_fit_params_name = xds.attrs["data_groups"][data_group][
-                            beam_fit_params_role
-                        ]
-                        image_to_write_xds["BEAM_FIT_PARAMS"] = xds[
-                            beam_fit_params_name
-                        ]
-
-                    if (
-                        image_type == "sky"
-                        and "flag" in xds.attrs["data_groups"][data_group]
-                    ):
-                        flag_name = xds.attrs["data_groups"][data_group]["flag"]
-                        image_to_write_xds["FLAG"] = xds[flag_name]
-
-                    outname = image_store_name + "." + image_type
-                    _xds_to_fits_image(image_to_write_xds, outname)
-                    if not os.path.exists(outname):
-                        raise OSError(f"Failed to write FITS image {outname}")
-                    n_image_written += 1
-                    last_image_written = outname
-                    data_vars_name_set.remove(image_name)
-    if n_image_written == 0:
-        raise ValueError("No valid image types found in xds to write to FITS images.")
-    if n_image_written == 1:
-        # rename the single written image to what the user requested
-        os.rename(last_image_written, image_store_name)
+    if plan is None:
+        plan = plan_image_outputs(xds, image_store_name, "fits")
+    for message in plan.warnings:
+        xradio_logger().warning(message)
+    images = [(output, _fits_image_xds(xds, output)) for output in plan.outputs]
+    # build and validate every header before writing any image; the headers
+    # are then reused, so each is built (and its warnings logged) once
+    prepared = [_prepared_fits_image(image_xds, output) for output, image_xds in images]
+    for (output, image_xds), header in zip(images, prepared, strict=True):
+        with _naming_the_variable(image_xds, output):
+            _xds_to_fits_image(image_xds, output.path, prepared=header)
+        if not os.path.exists(output.path):
+            raise OSError(f"Failed to write FITS image {output.path}")

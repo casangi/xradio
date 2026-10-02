@@ -2,6 +2,9 @@
 
 * ``TestImageSchemaSynthetic``   → schema checking of synthetic image datasets
                                    (no downloads), including negative cases
+* ``TestImageSchemaVocabularies``, ``TestImageSchemaFlagDimensions``,
+  ``TestImageSchemaReferences`` → vocabularies, flag dimensions, and the
+                                   values and references the writers rely on
 * ``TestImageSchemaConstructors`` → schema classes used as constructors
 * ``TestImageSchemaFromFormats`` → schema checking of images opened from CASA,
                                    FITS and zarr stores (downloads test data)
@@ -11,6 +14,7 @@ The dask cluster fixture is provided by ``conftest.py`` in this directory.
 
 import os
 from copy import deepcopy
+from typing import get_args
 
 import dask
 import dask.array as da
@@ -18,6 +22,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
+import xradio.image
 from xradio.image import (
     make_empty_aperture_image,
     make_empty_lmuv_image,
@@ -26,14 +31,29 @@ from xradio.image import (
     write_image,
 )
 from xradio.image._util._casacore.common import _open_image_ro as open_image_ro
+from xradio.image._util.conventions import (
+    CASACORE_IMAGE_TYPES,
+    CASACORE_SPECTRAL_FRAMES,
+    normalize_spectral_frame,
+    normalize_sub_type,
+    spectral_frame_to_observer,
+)
 from xradio.image.schema import (
+    AllowedSkyImageSubTypes,
     DataGroupDict,
+    FlagArray,
     FrequencyCoordArray,
     ImageXds,
     SkyArray,
     check_image,
 )
-from xradio.schema.check import check_dataset, check_datatree, check_dict
+from xradio.schema.check import (
+    SchemaIssues,
+    check_dataset,
+    check_datatree,
+    check_dict,
+)
+from xradio.schema.measures import AllowedSpectralCoordFrames
 from xradio.testing.image import create_empty_test_image, download_image, remove_path
 
 pytestmark = pytest.mark.usefixtures("dask_client_module")
@@ -238,13 +258,15 @@ class TestImageSchemaSynthetic:
 
     def test_versioned_variables_are_checked(self, image_xds_valid):
         """A version of SKY (here SKY_MODEL) must be validated against the sky
-        array schema via allow_multiple_versions."""
+        array schema via allow_multiple_versions, and its issues reported
+        under its own name."""
         xds = image_xds_valid
         xds["SKY_MODEL"] = xds["SKY"].astype(np.int32)
         xds["SKY_MODEL"].attrs = dict(xds["SKY"].attrs)
         issues = check_image(xds)
-        assert issues, "int32 SKY_MODEL should have been flagged"
-        assert any(i.path[-1] == ("dtype", None) for i in issues)
+        assert [i.path for i in issues] == [
+            [("data_vars", "SKY_MODEL"), ("dtype", None)]
+        ]
 
     def test_flag_variable_not_checked_as_sky(self, image_xds_valid):
         """FLAG_SKY contains 'SKY' as a substring but must not be validated
@@ -256,7 +278,64 @@ class TestImageSchemaSynthetic:
         xds["FLAG_SKY"] = xds["FLAG_SKY"].astype(np.float32)
         xds["FLAG_SKY"].attrs = {"type": "flag"}
         issues = check_image(xds)
-        assert any(i.path[-1] == ("dtype", None) for i in issues)
+        # Reported once, under FLAG_SKY (not the schema name FLAG), although
+        # both the dataset schema and the 'flag' role of the base group
+        # refer to the variable
+        assert [i.path for i in issues] == [
+            [("data_vars", "FLAG_SKY"), ("dtype", None)]
+        ]
+
+    def test_versioned_flag_issue_path(self, image_xds_valid):
+        """Issues of a versioned variable of another data group are reported
+        under its own name, here FLAG_SKY_RESIDUAL rather than FLAG."""
+        xds = image_xds_valid
+        xds["SKY_RESIDUAL"] = xds["SKY"]
+        xds["FLAG_SKY_RESIDUAL"] = xds["FLAG_SKY"].astype(np.float32)
+        xds["FLAG_SKY_RESIDUAL"].attrs = {"type": "flag"}
+        xds.attrs["data_groups"]["residual"] = {
+            "sky": "SKY_RESIDUAL",
+            "flag": "FLAG_SKY_RESIDUAL",
+        }
+        issues = check_image(xds)
+        assert [i.path for i in issues] == [
+            [("data_vars", "FLAG_SKY_RESIDUAL"), ("dtype", None)]
+        ]
+        assert "data_vars['FLAG_SKY_RESIDUAL'].dtype" in str(issues)
+
+    def test_variable_of_several_groups_reported_once(self, image_xds_valid):
+        """A defective variable that several data groups reference (here the
+        primary beam of four sky image groups) is reported once."""
+        xds = image_xds_valid
+        xds["PRIMARY_BEAM"] = xds["SKY"].astype(np.int32)
+        xds["PRIMARY_BEAM"].attrs = {"type": "primary_beam"}
+        groups = xds.attrs["data_groups"]
+        groups["base"]["primary_beam"] = "PRIMARY_BEAM"
+        for name in ("deconvolved", "dirty", "model", "residual"):
+            xds[f"SKY_{name.upper()}"] = xds["SKY"]
+            groups[name] = {
+                "sky": f"SKY_{name.upper()}",
+                "primary_beam": "PRIMARY_BEAM",
+            }
+        issues = check_image(xds)
+        assert [i.path for i in issues] == [
+            [("data_vars", "PRIMARY_BEAM"), ("dtype", None)]
+        ]
+
+    def test_role_variable_with_other_name_is_checked_once(self, image_xds_valid):
+        """A variable that a role references by a name the dataset schema
+        does not match (so check_dataset does not check it) is checked
+        against the schema of the role, once."""
+        xds = image_xds_valid
+        xds["MY_PB"] = xds["SKY"].astype(np.int32)
+        xds["MY_PB"].attrs = {"type": "primary_beam"}
+        xds.attrs["data_groups"]["base"]["primary_beam"] = "MY_PB"
+        xds["SKY_OTHER"] = xds["SKY"]
+        xds.attrs["data_groups"]["other"] = {
+            "sky": "SKY_OTHER",
+            "primary_beam": "MY_PB",
+        }
+        issues = check_image(xds)
+        assert [i.path for i in issues] == [[("data_vars", "MY_PB"), ("dtype", None)]]
 
     def test_wrong_dataset_type(self, image_xds_valid):
         xds = image_xds_valid
@@ -399,6 +478,213 @@ class TestImageSchemaSynthetic:
         assert issues
 
 
+class TestImageSchemaVocabularies:
+    """The schema vocabularies agree with the conventions the readers,
+    writers and factories translate through."""
+
+    @pytest.mark.parametrize("frame", CASACORE_SPECTRAL_FRAMES)
+    def test_spectral_frames(self, image_xds_valid, frame):
+        """Every casacore spectral frame conforms, with the frame attribute
+        holding the casacore name and the reference frequency observer its
+        translation."""
+        xds = image_xds_valid
+        freq_attrs = xds.coords["frequency"].attrs
+        freq_attrs["frame"] = frame
+        observer = spectral_frame_to_observer(frame)
+        freq_attrs["reference_frequency"]["attrs"]["observer"] = observer
+        freq_attrs["observer"] = observer
+        assert not check_image(xds)
+
+    def test_spectral_frame_observers_are_allowed(self):
+        allowed = set(get_args(AllowedSpectralCoordFrames))
+        observers = {spectral_frame_to_observer(f) for f in CASACORE_SPECTRAL_FRAMES}
+        assert observers <= allowed
+        # GEO is translated to its astropy name
+        assert spectral_frame_to_observer("GEO") == "gcrs"
+
+    def test_unknown_spectral_observer(self, image_xds_valid):
+        xds = image_xds_valid
+        xds.coords["frequency"].attrs["reference_frequency"]["attrs"]["observer"] = (
+            "galacto"
+        )
+        issues = check_image(xds)
+        assert issues
+        assert all("Disallowed literal value" in i.message for i in issues)
+
+    def test_sky_sub_types_match_casacore_image_types(self):
+        """The sky sub_type vocabulary is exactly the casacore image types
+        (without 'Undefined'), as the readers translate them."""
+        translated = {normalize_sub_type(t) for t in CASACORE_IMAGE_TYPES}
+        assert set(get_args(AllowedSkyImageSubTypes)) == translated - {None}
+
+    @pytest.mark.parametrize("sub_type", ["Beam", "SpectralIndex", "Intensity"])
+    def test_sky_sub_type(self, image_xds_valid, sub_type):
+        xds = image_xds_valid
+        xds["SKY"].attrs["sub_type"] = sub_type
+        assert not check_image(xds)
+
+    def test_frequency_channel_width(self, image_xds_valid):
+        """The optional channel_width of the frequency coordinate is a
+        quantity in Hz, as in the measurement set frequency coordinate."""
+        xds = image_xds_valid
+        width = {"data": 1e6, "dims": [], "attrs": {"units": "Hz", "type": "quantity"}}
+        xds.coords["frequency"].attrs["channel_width"] = width
+        assert not check_image(xds)
+        width["attrs"]["units"] = "MHz"
+        issues = check_image(xds)
+        assert issues
+        assert all(("attrs", "channel_width") in i.path for i in issues)
+
+
+class TestImageSchemaFlagDimensions:
+    """Flag variables have the dimensions of the image they apply to."""
+
+    def test_flag_on_aperture_plane(self):
+        """A flag on the (u, v) dimensions (FLAG_APERTURE, as read from a
+        masked uv image) conforms."""
+        xds = create_empty_test_image(make_empty_aperture_image)
+        dims = ("time", "frequency", "polarization", "u", "v")
+        shape = tuple(xds.sizes[dim] for dim in dims)
+        xds["APERTURE"] = (dims, np.zeros(shape, np.complex64), {"type": "aperture"})
+        xds["FLAG_APERTURE"] = (dims, np.zeros(shape, bool), {"type": "flag"})
+        xds.attrs["data_groups"]["base"] = {
+            "aperture": "APERTURE",
+            "flag": "FLAG_APERTURE",
+        }
+        assert not check_image(xds)
+
+    def test_flag_per_plane(self, image_xds_valid):
+        """A flag with one value per plane (FLAG_VISIBILITY_NORMALIZATION, as
+        read from a masked sumwt image) conforms."""
+        xds = image_xds_valid
+        dims = ("time", "frequency", "polarization")
+        shape = tuple(xds.sizes[dim] for dim in dims)
+        xds["VISIBILITY_NORMALIZATION"] = (
+            dims,
+            np.ones(shape, np.float32),
+            {"type": "visibility_normalization"},
+        )
+        xds["FLAG_VISIBILITY_NORMALIZATION"] = (
+            dims,
+            np.zeros(shape, bool),
+            {"type": "flag"},
+        )
+        xds.attrs["data_groups"]["base"]["visibility_normalization"] = (
+            "VISIBILITY_NORMALIZATION"
+        )
+        assert not check_image(xds)
+
+    def test_flag_with_other_dimensions(self, image_xds_valid):
+        xds = image_xds_valid
+        xds["FLAG_SKY"] = xds["FLAG_SKY"].transpose(
+            "time", "frequency", "polarization", "m", "l"
+        )
+        issues = check_image(xds)
+        assert [i.path for i in issues] == [[("data_vars", "FLAG_SKY"), ("dims", None)]]
+        assert "wrong order" in issues[0].message
+
+
+class TestImageSchemaReferences:
+    """Coordinate values and attributes that the writers rely on."""
+
+    def test_beam_params_label_order(self, image_xds_valid):
+        """The beam parameter labels must be in the schema order major,
+        minor, pa (the writers select them by label, other software indexes
+        them by position)."""
+        xds = image_xds_valid.assign_coords(beam_params_label=["minor", "major", "pa"])
+        issues = check_image(xds)
+        assert [i.path for i in issues] == [[("coords", "beam_params_label")]]
+        assert issues[0].found == ["minor", "major", "pa"]
+
+    @pytest.mark.parametrize(
+        "labels, canonical",
+        [
+            (["I", "U", "Q"], ["I", "Q", "U"]),
+            (["U", "I", "Q"], ["I", "Q", "U"]),
+        ],
+    )
+    def test_polarization_order(self, image_xds_valid, labels, canonical):
+        """Polarization labels must be in canonical (Jones matrix) order."""
+        order = [image_xds_valid.polarization.values.tolist().index(p) for p in labels]
+        xds = image_xds_valid.isel(polarization=order)
+        issues = check_image(xds)
+        assert [i.path for i in issues] == [[("coords", "polarization")]]
+        assert issues[0].found == labels
+        assert issues[0].expected == [canonical]
+        assert not check_image(xds.isel(polarization=np.argsort(order)))
+
+    def test_beam_params_label_two_labels(self, image_xds_valid):
+        xds = image_xds_valid.isel(beam_params_label=slice(0, 2))
+        issues = check_image(xds)
+        assert [i.path for i in issues] == [[("coords", "beam_params_label")]]
+
+    @pytest.mark.parametrize("attr_name", ["flag", "beam_fit_params"])
+    def test_sky_reference_to_missing_variable(self, image_xds_valid, attr_name):
+        xds = image_xds_valid
+        xds["SKY"].attrs[attr_name] = "NOT_THERE"
+        issues = check_image(xds)
+        assert [i.path for i in issues] == [
+            [("data_vars", "SKY"), ("attrs", attr_name)]
+        ]
+        assert issues[0].found == "NOT_THERE"
+
+    def test_sky_flag_reference(self, image_xds_valid):
+        xds = image_xds_valid
+        xds["SKY"].attrs["flag"] = "FLAG_SKY"
+        assert not check_image(xds)
+
+    def test_versioned_sky_reference_to_missing_variable(self, image_xds_valid):
+        """Versions of SKY and images referenced by a sky role are checked."""
+        xds = image_xds_valid
+        xds["IMAGE_OF_GROUP"] = xds["SKY"].copy()
+        xds["IMAGE_OF_GROUP"].attrs = dict(xds["SKY"].attrs, flag="NOT_THERE")
+        xds.attrs["data_groups"]["other"] = {"sky": "IMAGE_OF_GROUP"}
+        issues = check_image(xds)
+        assert [i.path for i in issues] == [
+            [("data_vars", "IMAGE_OF_GROUP"), ("attrs", "flag")]
+        ]
+
+    def test_reference_to_nonconforming_variable(self, image_xds_valid):
+        """A variable named by a reference attribute must conform to the
+        schema of the reference: here a float image named as the flag."""
+        xds = image_xds_valid
+        xds["MY_FLAG"] = xds["SKY"].copy()
+        xds["MY_FLAG"].attrs = {"type": "flag"}
+        xds["SKY"].attrs["flag"] = "MY_FLAG"
+        issues = check_image(xds)
+        assert [i.path for i in issues] == [[("data_vars", "MY_FLAG"), ("dtype", None)]]
+
+    def test_point_spread_function_beam_reference(self, image_xds_valid):
+        xds = image_xds_valid
+        xds["POINT_SPREAD_FUNCTION"] = xds["SKY"].copy()
+        xds["POINT_SPREAD_FUNCTION"].attrs = {
+            "type": "point_spread_function",
+            "beam_fit_params": "BEAM_FIT_PARAMS_SKY",
+        }
+        xds.attrs["data_groups"]["base"]["point_spread_function"] = (
+            "POINT_SPREAD_FUNCTION"
+        )
+        assert not check_image(xds)
+        xds["POINT_SPREAD_FUNCTION"].attrs["beam_fit_params"] = "NOT_THERE"
+        issues = check_image(xds)
+        assert [i.path for i in issues] == [
+            [("data_vars", "POINT_SPREAD_FUNCTION"), ("attrs", "beam_fit_params")]
+        ]
+
+    def test_undeclared_reference_attributes_are_not_checked(self, image_xds_valid):
+        """Only the attributes the schema declares as references are checked:
+        the readers leave a beam_fit_params attribute on primary beams whose
+        beams they do not load."""
+        xds = image_xds_valid
+        xds["PRIMARY_BEAM"] = xds["SKY"].copy()
+        xds["PRIMARY_BEAM"].attrs = {
+            "type": "primary_beam",
+            "beam_fit_params": "BEAM_FIT_PARAMS_PRIMARY_BEAM",
+        }
+        xds.attrs["data_groups"]["base"]["primary_beam"] = "PRIMARY_BEAM"
+        assert not check_image(xds)
+
+
 class TestImageSchemaConstructors:
     """The schema classes double as constructors that validate on creation."""
 
@@ -435,6 +721,59 @@ class TestImageSchemaConstructors:
         assert isinstance(sky, xr.DataArray)
         assert sky.attrs["type"] == "sky"
 
+    def test_flag_array_constructor_in_the_aperture_plane(self, image_xds_valid):
+        """The (u, v) alternative of FlagArray, with dims given or picked from
+        the coordinates given."""
+        u = xr.DataArray(np.arange(4.0), dims="u", attrs={"units": "lambda"})
+        v = xr.DataArray(np.arange(4.0), dims="v", attrs={"units": "lambda"})
+        coords = dict(
+            time=image_xds_valid.time,
+            frequency=image_xds_valid.frequency,
+            polarization=image_xds_valid.polarization,
+            u=u,
+            v=v,
+        )
+        data = np.zeros((1, 2, 3, 4, 4), dtype=bool)
+        dims = ("time", "frequency", "polarization", "u", "v")
+        for kwargs in ({"dims": dims}, {}):
+            flag = FlagArray(data, **kwargs, **coords)
+            assert flag.dims == dims
+        flag = FlagArray(
+            data,
+            time=image_xds_valid.time,
+            frequency=image_xds_valid.frequency,
+            polarization=image_xds_valid.polarization,
+            l=image_xds_valid.l,
+            m=image_xds_valid.m,
+        )
+        assert flag.dims == ("time", "frequency", "polarization", "l", "m")
+
+    def test_sky_array_constructor_without_polarization(self, image_xds_valid):
+        """Omitting the (string) polarization coordinate gives schema issues
+        rather than a numpy TypeError from filling it with a range."""
+        with pytest.raises(SchemaIssues) as excinfo:
+            SkyArray(
+                np.zeros((1, 2, 3, 4, 4), dtype=np.float32),
+                time=image_xds_valid.time,
+                frequency=image_xds_valid.frequency,
+                l=image_xds_valid.l,
+                m=image_xds_valid.m,
+            )
+        paths = [issue.path[0] for issue in excinfo.value.issues]
+        assert paths == [("coords", "polarization")]
+
+    def test_check_dataset_with_accessor_class(self, image_xds_valid):
+        """xradio.image.ImageXds is the xr_img accessor, not the schema
+        xradio.image.schema.ImageXds: check_dataset says so."""
+        assert xradio.image.ImageXds is not ImageXds
+        with pytest.raises(TypeError) as excinfo:
+            check_dataset(image_xds_valid, xradio.image.ImageXds)
+        message = str(excinfo.value)
+        assert "not a dataset schema" in message
+        assert "Did you mean the dataset schema xradio.image.schema.ImageXds?" in (
+            message
+        )
+
 
 class TestMakeEmptyImageSchemas:
     """The empty image factories produce datasets that conform to the schema."""
@@ -453,6 +792,33 @@ class TestMakeEmptyImageSchemas:
         issues = check_image(xds)
         assert not issues, f"Schema check of empty image failed: {issues}"
         assert not check_datatree(xr.DataTree(dataset=xds))
+
+    @pytest.mark.parametrize(
+        "factory",
+        [make_empty_sky_image, make_empty_aperture_image, make_empty_lmuv_image],
+    )
+    @pytest.mark.parametrize(
+        "spectral_reference", [*CASACORE_SPECTRAL_FRAMES, "lsrk", "gcrs", "bary"]
+    )
+    def test_make_empty_image_spectral_frames(self, factory, spectral_reference):
+        """The factories translate every spectral frame they accept through
+        the shared conventions, so the result conforms for each of them."""
+        xds = factory(
+            [0.2, -0.5],
+            [10, 10],
+            [np.pi / 180 / 60, np.pi / 180 / 60],
+            [1.412e9, 1.413e9],
+            ["I", "Q", "U"],
+            [54000.1],
+            spectral_reference=spectral_reference,
+        )
+        issues = check_image(xds)
+        assert not issues, f"Schema check of empty image failed: {issues}"
+        frame = normalize_spectral_frame(spectral_reference)
+        freq_attrs = xds.frequency.attrs
+        assert freq_attrs["frame"] == frame
+        observer = freq_attrs["reference_frequency"]["attrs"]["observer"]
+        assert observer == spectral_frame_to_observer(frame)
 
 
 class TestImageSchemaFromFormats:

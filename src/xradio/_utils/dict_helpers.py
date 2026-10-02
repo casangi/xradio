@@ -1,5 +1,10 @@
 from xradio._utils.list_and_array import to_python_type
 
+# Spectral frames that have no astropy equivalent and keep their (uppercase)
+# casacore name as observer; any other observer is an astropy frame name and
+# is lowercased.
+_CASACORE_NAMED_OBSERVERS = ("TOPO", "BARY", "REST", "GALACTO", "LGROUP", "CMB")
+
 
 def make_quantity(value, units: str, dims: list | None = None) -> dict:
     """
@@ -85,7 +90,9 @@ def make_spectral_coord_reference_dict(
     units : str
         Spectral coordinate units.
     observer : str, default="lsrk"
-        Spectral reference frame.
+        Spectral reference frame. The casacore frames without an astropy
+        equivalent (TOPO, BARY, REST, GALACTO, LGROUP, CMB) keep their
+        uppercase name, any other frame name is lowercased.
 
     Returns
     -------
@@ -96,7 +103,7 @@ def make_spectral_coord_reference_dict(
     return {
         "attrs": make_spectral_coord_measure_attrs(
             u,
-            observer.lower() if observer not in ["TOPO", "BARY", "REST"] else observer,
+            observer if observer in _CASACORE_NAMED_OBSERVERS else observer.lower(),
         ),
         "data": to_python_type(value),
         "dims": [],

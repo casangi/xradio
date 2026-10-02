@@ -14,9 +14,12 @@ underscore separated suffix of the canonical variable name. The
 :ref:`image data groups dictionary` groups the variables that belong together
 and maps logical roles to concrete variable names.
 
-Sky plane images are defined on the ``(l, m)`` direction cosine dimensions,
-aperture plane data (gridded visibilities, gridded weights and apertures) on
-the conjugate ``(u, v)`` dimensions.
+Sky plane images are defined on the ``(l, m)`` projection plane dimensions
+(pixel offsets from the reference pixel times the pixel increment, which are
+the direction cosines for the SIN projection, see
+:py:class:`~xradio.image.schema.LCoordArray`), aperture plane data (gridded
+visibilities, gridded weights and apertures) on the conjugate ``(u, v)``
+dimensions, in wavelengths.
 
 In addition to :py:func:`xradio.schema.check.check_dataset`, image datasets
 can be checked with :py:func:`xradio.image.schema.check_image`, which also
@@ -138,7 +141,8 @@ Measures and info dictionaries
 
 The measures used by the image schema (sky coordinates, spectral coordinates,
 quantities) are shared with the measurement set schema and are defined in
-:py:mod:`xradio.schema.measures`. The following are specific to images:
+:py:mod:`xradio.schema.measures` (see :ref:`measures`). The following are
+specific to images:
 
 .. autoclass:: xradio.image.schema.TimeMeasureArray()
 

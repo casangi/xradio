@@ -130,8 +130,10 @@ all = [
 ]
 
 [project.entry-points."xarray.backends"]
-xradio_casa_image = "xradio.image.backends:CasaImageBackendEntrypoint"
-xradio_fits_image = "xradio.image.backends:FitsImageBackendEntrypoint"
+# _xradio_xarray_backends is a top level module (src/_xradio_xarray_backends.py),
+# so that loading the entry points does not import the xradio package
+xradio_casa_image = "_xradio_xarray_backends:CasaImageBackendEntrypoint"
+xradio_fits_image = "_xradio_xarray_backends:FitsImageBackendEntrypoint"
 
 [tool.pytest.ini_options]
 addopts = [

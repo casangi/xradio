@@ -1,3 +1,6 @@
+import copy
+
+import numpy as np
 import pytest
 import xarray as xr
 
@@ -135,6 +138,149 @@ def test_sel_with_data_group(msv4_xdt_min):
 def test_sel_polarization(msv4_xdt_min):
     result_xdt = msv4_xdt_min.xr_ms.sel(polarization="XX")
     check_dataset(result_xdt.ds, VisibilityXds)
+
+
+def _msv4_tree():
+    """A small in-memory MSv4-like tree with two data groups that share the
+    flags, weights and uvw."""
+    dims = ("time", "baseline_id", "frequency", "polarization")
+    shape = (2, 3, 4, 2)
+    group = {
+        "flag": "FLAG",
+        "weight": "WEIGHT",
+        "uvw": "UVW",
+        "field_and_source": "field_and_source_base_xds",
+        "description": "",
+        "date": "2000-01-01T00:00:00.000",
+    }
+    xds = xr.Dataset(
+        {
+            "VISIBILITY": (dims, np.zeros(shape, complex)),
+            "VISIBILITY_CORRECTED": (dims, np.ones(shape, complex)),
+            "FLAG": (dims, np.zeros(shape, bool)),
+            "WEIGHT": (dims, np.ones(shape)),
+            "UVW": (("time", "baseline_id", "uvw_label"), np.zeros((2, 3, 3))),
+        },
+        coords={
+            "time": [0.0, 1.0],
+            "baseline_id": [0, 1, 2],
+            "frequency": [1.0e9, 1.1e9, 1.2e9, 1.3e9],
+            "polarization": ["XX", "YY"],
+            "uvw_label": ["u", "v", "w"],
+        },
+        attrs={
+            "type": "visibility",
+            "data_groups": {
+                "base": {"correlated_data": "VISIBILITY", **group},
+                "corrected": {"correlated_data": "VISIBILITY_CORRECTED", **group},
+            },
+        },
+    )
+    field_and_source = xr.Dataset({"FIELD_PHASE_CENTER": ("sky_dir_label", [0.0, 0.0])})
+    return xr.DataTree.from_dict(
+        {"/": xds, "/field_and_source_base_xds": field_and_source}, name="ms"
+    )
+
+
+_DERIVED_TREES = [
+    pytest.param(lambda xdt: xdt.isel(time=[0]), id="isel"),
+    pytest.param(lambda xdt: xdt.sel(polarization=["XX"]), id="sel"),
+    pytest.param(lambda xdt: xdt.copy(deep=False), id="shallow_copy"),
+    pytest.param(
+        lambda xdt: xdt.xr_ms.sel(data_group_name="corrected"), id="xr_ms_sel"
+    ),
+]
+
+
+class TestDataGroupsAreNotShared:
+    """Deleting variables, selecting a data group or adding one changes only
+    the DataTree node the accessor is called on."""
+
+    def test_delete_removes_the_variable_from_the_tree(self):
+        xdt = _msv4_tree()
+
+        result = xdt.xr_ms.delete_data_variables(["VISIBILITY_CORRECTED"])
+
+        assert result is xdt
+        assert "VISIBILITY_CORRECTED" not in xdt.data_vars
+        assert "VISIBILITY_CORRECTED" not in xdt.ds.data_vars
+        assert "VISIBILITY_CORRECTED" not in xdt.to_dataset().data_vars
+        assert "correlated_data" not in xdt.attrs["data_groups"]["corrected"]
+        assert xdt.attrs["data_groups"]["base"]["correlated_data"] == "VISIBILITY"
+        assert "field_and_source_base_xds" in xdt.children
+
+    def test_delete_ignores_unknown_names_and_accepts_a_string(self):
+        xdt = _msv4_tree()
+
+        xdt.xr_ms.delete_data_variables(["NOT_THERE"])
+        xdt.xr_ms.delete_data_variables("FLAG")
+
+        assert "FLAG" not in xdt.data_vars
+        assert all("flag" not in g for g in xdt.attrs["data_groups"].values())
+
+    @pytest.mark.parametrize("derive", _DERIVED_TREES)
+    def test_delete_from_derived_keeps_parent(self, derive):
+        parent = _msv4_tree()
+        expected = copy.deepcopy(parent.attrs["data_groups"])
+        derived = derive(parent)
+
+        derived.xr_ms.delete_data_variables(["FLAG"])
+
+        assert "FLAG" not in derived.data_vars
+        assert all("flag" not in g for g in derived.attrs["data_groups"].values())
+        assert "FLAG" in parent.data_vars
+        assert parent.attrs["data_groups"] == expected
+
+    @pytest.mark.parametrize("derive", _DERIVED_TREES)
+    def test_delete_from_parent_keeps_derived(self, derive):
+        parent = _msv4_tree()
+        derived = derive(parent)
+        expected = copy.deepcopy(derived.attrs["data_groups"])
+
+        parent.xr_ms.delete_data_variables(["FLAG", "WEIGHT"])
+
+        assert "FLAG" in derived.data_vars
+        assert derived.attrs["data_groups"] == expected
+
+    def test_sel_data_group_leaves_the_tree_unchanged(self):
+        xdt = _msv4_tree()
+        expected_groups = copy.deepcopy(xdt.attrs["data_groups"])
+        indexers = {"data_group_name": "base", "polarization": "XX"}
+
+        selected = xdt.xr_ms.sel(indexers)
+
+        assert selected is not xdt
+        assert "VISIBILITY_CORRECTED" not in selected.data_vars
+        assert "polarization" not in selected.dims
+        assert set(selected.attrs["data_groups"]) == {"base"}
+        assert "field_and_source_base_xds" in selected.children
+        # The caller's tree, its data groups and its indexers are untouched
+        assert "VISIBILITY_CORRECTED" in xdt.data_vars
+        assert xdt.sizes["polarization"] == 2
+        assert xdt.attrs["data_groups"] == expected_groups
+        assert indexers == {"data_group_name": "base", "polarization": "XX"}
+
+    def test_sel_data_group_of_a_processing_set_child(self):
+        ps = xr.DataTree.from_dict({"/ms_0": _msv4_tree()})
+        ps.attrs["type"] = "processing_set"
+
+        selected = ps["ms_0"].xr_ms.sel(data_group_name="corrected")
+
+        assert "VISIBILITY" not in selected.data_vars
+        assert "VISIBILITY" in ps["ms_0"].data_vars
+        assert set(ps["ms_0"].attrs["data_groups"]) == {"base", "corrected"}
+
+    @pytest.mark.parametrize("derive", _DERIVED_TREES)
+    def test_add_data_group_keeps_other_trees(self, derive):
+        parent = _msv4_tree()
+        derived = derive(parent)
+        parent_groups = set(parent.attrs["data_groups"])
+        derived_groups = set(derived.attrs["data_groups"])
+
+        derived.xr_ms.add_data_group("extra", {"correlated_data": "VISIBILITY"})
+
+        assert set(derived.attrs["data_groups"]) == derived_groups | {"extra"}
+        assert set(parent.attrs["data_groups"]) == parent_groups
 
 
 if __name__ == "__main__":

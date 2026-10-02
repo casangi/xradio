@@ -18,49 +18,26 @@ Shared Measures
 
 .. automodule:: xradio.schema.measures
 
-.. autoclass:: xradio.schema.measures.TimeArray()
+The quantities and measures in this module are documented with the other
+measures (see :ref:`measures`), except
+:py:class:`~xradio.schema.measures.PolarizationArray`, which is documented
+with the measurement set coordinates. They can also be imported from
+``xradio.measurement_set.schema``, where earlier releases defined them.
 
-   .. xradio_array_schema_table:: xradio.schema.measures.TimeArray
+.. note::
 
-.. autoclass:: xradio.schema.measures.SkyCoordArray()
-
-   .. xradio_array_schema_table:: xradio.schema.measures.SkyCoordArray
-
-.. autoclass:: xradio.schema.measures.SpectralCoordArray()
-
-   .. xradio_array_schema_table:: xradio.schema.measures.SpectralCoordArray
-
-.. autoclass:: xradio.schema.measures.LocationArray()
-
-   .. xradio_array_schema_table:: xradio.schema.measures.LocationArray
-
-.. autoclass:: xradio.schema.measures.DopplerArray()
-
-   .. xradio_array_schema_table:: xradio.schema.measures.DopplerArray
-
-.. autoclass:: xradio.schema.measures.PolarizationArray()
-
-   .. xradio_array_schema_table:: xradio.schema.measures.PolarizationArray
-
-.. autoclass:: xradio.schema.measures.QuantityInSecondsArray()
-
-   .. xradio_array_schema_table:: xradio.schema.measures.QuantityInSecondsArray
-
-.. autoclass:: xradio.schema.measures.QuantityInHertzArray()
-
-   .. xradio_array_schema_table:: xradio.schema.measures.QuantityInHertzArray
-
-.. autoclass:: xradio.schema.measures.QuantityInMetersArray()
-
-   .. xradio_array_schema_table:: xradio.schema.measures.QuantityInMetersArray
-
-.. autoclass:: xradio.schema.measures.QuantityInMetersPerSecondArray()
-
-   .. xradio_array_schema_table:: xradio.schema.measures.QuantityInMetersPerSecondArray
-
-.. autoclass:: xradio.schema.measures.QuantityInRadiansArray()
-
-   .. xradio_array_schema_table:: xradio.schema.measures.QuantityInRadiansArray
+   Because of this move, the ``schema_name`` of five array schemas changed
+   from ``xradio.measurement_set.schema.<name>`` to
+   ``xradio.schema.measures.<name>`` in the JSON export of the measurement
+   set schemas (``schemas/VisibilityXds.json`` and
+   ``schemas/SpectrumXds.json``): ``DopplerArray``, ``PolarizationArray``,
+   ``QuantityInHertzArray``, ``QuantityInSecondsArray`` and
+   ``SpectralCoordArray``. The move does not change what the schemas
+   accept, but consumers of the JSON files that look up array schemas by
+   ``schema_name`` need the new names. In the same release
+   :py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames` gained the
+   casacore frames ``GALACTO``, ``LGROUP`` and ``CMB``, so spectral
+   coordinates of measurement sets accept these observers too.
 
 Decorators
 ----------

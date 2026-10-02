@@ -1,18 +1,26 @@
-# .github/workflows/python-testing-linux.yml
+# .github/workflows/run-ipynb.yml
+# Runs on pull requests and merges to main only (not on every branch push).
 name: ipynb Tests
 
 on:
-  push:
-    paths-ignore:
-      - '**.md'
-      - '**.rst'
   pull_request:
     paths-ignore:
       - '**.md'
       - '**.rst'
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - '**.rst'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
 
   call-testing-linux:
-    uses: nrao/gh-actions-templates-public/.github/workflows/run-ipynb-template.yml@main
-    secrets: inherit
+    uses: nrao/gh-actions-templates-public/.github/workflows/run-ipynb-template.yml@17-ci-python-312-314-push-pr-split
+    with:
+      python-version: "3.13"

@@ -1,4 +1,5 @@
-# Run MacOS tests using template in ToolVIPER
+# Run MacOS tests using the shared template.
+# Runs on pull requests and merges to main only (not on every branch push).
 name: MacOS Tests
 
 on:
@@ -10,6 +11,15 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   call-testing-macos:
-    uses: nrao/gh-actions-templates-public/.github/workflows/python-testing-macos-template.yml@main
+    uses: nrao/gh-actions-templates-public/.github/workflows/python-testing-macos-template.yml@17-ci-python-312-314-push-pr-split
+    with:
+      python-versions: '["3.12", "3.13", "3.14"]'
+      # TODO: remove once toolviper, xradio and graphviper releases with
+      # requires-python "<3.15" are on PyPI (needed for the 3.14 job).
+      ignore-requires-python: true

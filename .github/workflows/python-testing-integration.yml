@@ -12,8 +12,12 @@ on:
       - '**.md'
       - '**.rst'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   test:
-    uses: nrao/gh-actions-templates-public/.github/workflows/python-testing-integration-template.yml@main
+    uses: nrao/gh-actions-templates-public/.github/workflows/python-testing-integration-template.yml@17-ci-python-312-314-push-pr-split
     secrets:
       TESTVIPER_DISPATCH_TOKEN: ${{ secrets.TESTVIPER_DISPATCH_TOKEN }}

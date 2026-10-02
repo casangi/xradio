@@ -1,9 +1,22 @@
 # .github/workflows/python-publish.yml
+# Pull requests and merges to main build the sdist/wheel as a check; only a
+# GitHub release publishes to PyPI (the template's publish job runs for tag
+# refs only).
 name: Publish Python 🐍 distribution 📦 to PyPI and TestPyPI
 
 on:
   release:
-    types: [created]
+    types: [published]
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - '**.rst'
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - '**.rst'
 
 jobs:
   # check-codecov-token:
@@ -13,7 +26,7 @@ jobs:
   #       run: echo "2 PYPI_TOKEN=${{ secrets.PYPI_TOKEN }}"
 
   call-publish:
-    uses: nrao/gh-actions-templates-public/.github/workflows/python-publish-cngi-template.yml@main
+    uses: nrao/gh-actions-templates-public/.github/workflows/python-publish-cngi-template.yml@17-ci-python-312-314-push-pr-split
     with:
       pypi-url: "https://pypi.org/project/xradio"
     #secrets: inherit

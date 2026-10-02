@@ -22,6 +22,7 @@ try:
 except ImportError:
     import xradio._utils._casacore.casacore_from_casatools as tables
 
+import gc
 import os
 import re
 import shutil
@@ -884,6 +885,38 @@ class TestMakeEmptyImages:
         assert_xarray_datasets_equal(
             self._generated_xds[case["name"]],
             truth_xds,
+        )
+
+    @pytest.mark.parametrize("case", MAKE_EMPTY_CASES, ids=lambda c: c["name"])
+    def test_make_empty_image_leaves_no_unit_cycles(self, case):
+        """Building an empty image must not leave astropy units as cyclic garbage.
+
+        AGENT.md requires XRADIO objects to die by reference counting alone.
+        Converting a Quantity with a unit string (``_c.to("m/s")``) parses a
+        new CompositeUnit on every call, and astropy stores that unit in its
+        own ``_decomposed_cache``: a self-reference that only a garbage
+        collection frees. With gc disabled, nothing a factory call creates may
+        end up in ``gc.garbage`` as an astropy unit.
+        """
+        create_empty_test_image(case["factory"], case["do_sky_coords"])  # warm up
+        gc.collect()
+        gc.disable()
+        try:
+            for _ in range(3):
+                create_empty_test_image(case["factory"], case["do_sky_coords"])
+            gc.set_debug(gc.DEBUG_SAVEALL)
+            gc.collect()
+            units = sorted(
+                {str(obj) for obj in gc.garbage if isinstance(obj, u.UnitBase)}
+            )
+        finally:
+            gc.set_debug(0)
+            gc.garbage.clear()
+            gc.enable()
+        assert units == [], (
+            f"{case['factory'].__name__} left astropy units {units} in reference "
+            "cycles. Use Quantity.value when the unit is already right, or "
+            "convert to a module-level unit constant, not a new unit per call."
         )
 
 

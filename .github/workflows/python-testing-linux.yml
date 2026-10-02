@@ -1,4 +1,5 @@
-# Run Linux tests using template in ToolVIPER
+# Run Linux tests using the shared template.
+# Push to a branch: Python 3.13 only. Pull request / push to main: 3.12-3.14.
 name: Linux Tests
 
 on:
@@ -11,11 +12,24 @@ on:
       - '**.md'
       - '**.rst'
 
+concurrency:
+  # A newer push to the same branch/PR cancels the older run. Each run on main
+  # gets its own group, so merges are never queued behind or cancelled by
+  # each other.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   call-testing-linux:
-    uses: nrao/gh-actions-templates-public/.github/workflows/python-testing-linux-template.yml@main
+    uses: nrao/gh-actions-templates-public/.github/workflows/python-testing-linux-template.yml@17-ci-python-312-314-push-pr-split
     with:
       cov_project: "xradio"
       test-path: "tests/"
+      # Pull requests and pushes to main: 3.12-3.14; other branch pushes: 3.13.
+      python-versions: '["3.12", "3.13", "3.14"]'
+      push-python-versions: '["3.13"]'
+      # TODO: remove once toolviper, xradio and graphviper releases with
+      # requires-python "<3.15" are on PyPI (needed for the 3.14 job).
+      ignore-requires-python: true
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

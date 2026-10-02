@@ -19,6 +19,15 @@ from casacore.tables import default_ms, default_ms_subtable
 from casacore.tables.msutil import complete_ms_desc, makearrcoldesc, required_ms_desc
 from casacore.tables.tableutil import makedminfo, maketabdesc
 
+# Start of the MAIN table TIME column of the generated test MSs, in casacore
+# time (seconds since MJD 0, 1858-11-17). Also used as the TIME of the rows of
+# the GAIN_CURVE and PHASE_CAL subtables.
+_CASACORE_TO_DATETIME_CORRECTION = 3_506_716_800.0
+TEST_MS_START_TIME = (
+    datetime.datetime(2025, 5, 1, 1, 1, tzinfo=datetime.UTC).timestamp()
+    + _CASACORE_TO_DATETIME_CORRECTION
+)
+
 # 2 observations, 2 fields, 2 states
 # 2 SPWs, 4 polarizations
 default_ms_descr = {
@@ -433,12 +442,7 @@ def gen_main_table(
         # Make Ids
 
         # TIME
-        CASACORE_TO_DATETIME_CORRECTION = 3_506_716_800.0
-        start = (
-            datetime.datetime(2025, 5, 1, 1, 1, tzinfo=datetime.UTC).timestamp()
-            + CASACORE_TO_DATETIME_CORRECTION
-        )
-        time_col = np.arange(nrows) + start
+        time_col = np.arange(nrows) + TEST_MS_START_TIME
         msv2.putcol("TIME", time_col)
 
         # (TIME_EXTRA_PREC): nothing for now
@@ -1553,7 +1557,7 @@ def gen_subt_gain_curve(mspath: str, ant_descr: dict):
             "keywords": {},
         },
         "TIME": {
-            "valueType": "int",
+            "valueType": "double",
             "dataManagerType": "StandardStMan",
             "dataManagerGroup": "StandardStMan",
             "option": 0,
@@ -1564,7 +1568,7 @@ def gen_subt_gain_curve(mspath: str, ant_descr: dict):
             },
         },
         "INTERVAL": {
-            "valueType": "int",
+            "valueType": "double",
             "dataManagerType": "StandardStMan",
             "dataManagerGroup": "StandardStMan",
             "option": 0,
@@ -1627,8 +1631,8 @@ def gen_subt_gain_curve(mspath: str, ant_descr: dict):
         tbl.putcol("ANTENNA_ID", np.arange(0, nants))
         tbl.putcol("FEED_ID", np.repeat(0, nants))
         tbl.putcol("SPECTRAL_WINDOW_ID", np.repeat(0, nants))
-        tbl.putcol("TIME", np.repeat(1e12, nants))
-        tbl.putcol("INTERVAL", np.repeat(2, nants))
+        tbl.putcol("TIME", np.repeat(TEST_MS_START_TIME, nants))
+        tbl.putcol("INTERVAL", np.repeat(2.0, nants))
         tbl.putcol("TYPE", np.repeat("(”POWER(EL)", nants))
         tbl.putcol("NUM_POLY", np.repeat(num_poly, nants))
         tbl.putcol("GAIN", np.broadcast_to(0.85, (nants, nreceptors, num_poly)))
@@ -1677,7 +1681,7 @@ def gen_subt_phase_cal(mspath: str, ant_descr: dict):
             "keywords": {},
         },
         "TIME": {
-            "valueType": "int",
+            "valueType": "double",
             "dataManagerType": "StandardStMan",
             "dataManagerGroup": "StandardStMan",
             "option": 0,
@@ -1688,7 +1692,7 @@ def gen_subt_phase_cal(mspath: str, ant_descr: dict):
             },
         },
         "INTERVAL": {
-            "valueType": "int",
+            "valueType": "double",
             "dataManagerType": "StandardStMan",
             "dataManagerGroup": "StandardStMan",
             "option": 0,
@@ -1757,8 +1761,8 @@ def gen_subt_phase_cal(mspath: str, ant_descr: dict):
         tbl.putcol("ANTENNA_ID", np.arange(0, nants))
         tbl.putcol("FEED_ID", np.repeat(0, nants))
         tbl.putcol("SPECTRAL_WINDOW_ID", np.repeat(0, nants))
-        tbl.putcol("TIME", np.repeat(1e12, nants))
-        tbl.putcol("INTERVAL", np.repeat(2, nants))
+        tbl.putcol("TIME", np.repeat(TEST_MS_START_TIME, nants))
+        tbl.putcol("INTERVAL", np.repeat(2.0, nants))
         tbl.putcol("NUM_TONES", np.repeat(ntones, nants))
         tbl.putcol(
             "TONE_FREQUENCY", np.broadcast_to(1.234e9, (nants, ntones, nreceptors))

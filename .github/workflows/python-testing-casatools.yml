@@ -11,30 +11,50 @@ name: "Python Testing with casatools"
 # in every conda env. 6.7.0.31 (the last auditwheel-mangled build) is what
 # this CI ran green on. Drop the pin (and consider returning to the shared
 # template) once a casatools release imports cleanly in a conda-forge env.
+#
+# Python: 6.7.0.31 only has cp310-cp312 wheels (and no casatools release has
+# cp314 wheels), so this job tests 3.12 only, not the 3.12-3.14 matrix.
 
+# Runs on pull requests and merges to main only (not on every branch push).
 on:
   pull_request:
     paths-ignore:
       - "**.md"
       - "**.rst"
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+      - "**.rst"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
 
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         os: ["ubuntu-latest", "macos-latest"]
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.12"]
     runs-on: ${{ matrix.os }}
     defaults:
       run:
         shell: bash -el {0}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - name: Setup Conda
-        uses: conda-incubator/setup-miniconda@v3
+        uses: conda-incubator/setup-miniconda@v4
         with:
-          auto-activate-base: false
+          auto-activate: false
           activate-environment: test
           python-version: ${{ matrix.python-version }}
           channels: conda-forge
@@ -65,7 +85,7 @@ jobs:
           --junitxml=junit.xml -o junit_family=legacy
 
       - name: Upload pytest test results and coverage reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: pytest-results-${{ matrix.os }}-${{ matrix.python-version }}-with-casatools
           path: |
@@ -75,14 +95,17 @@ jobs:
         if: ${{ always() }}
 
       - name: Upload code coverage results to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: ${{ github.repository }}
 
       - name: Upload test stats to Codecov
         if: ${{ !cancelled() }}
-        uses: codecov/test-results-action@v1
+        # codecov/test-results-action is archived; codecov-action uploads test results.
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: ${{ github.repository }}
+          report_type: test_results
+          files: ./junit.xml

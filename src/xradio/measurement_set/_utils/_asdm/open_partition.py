@@ -46,7 +46,7 @@ def open_partition(
     pointing_for_only_spectral_resolution_types: list[str] = None,
 ) -> xr.DataTree:
     """
-    Opens an ASDM partition as an MSv4 DataTre
+    Open an ASDM partition as an MSv4 DataTree.
 
     Parameters
     ----------
@@ -66,7 +66,7 @@ def open_partition(
     Returns
     -------
     xr.DataTree
-        Datatree with MSv4 populated from the ASDM partition
+        DataTree with MSv4 populated from the ASDM partition.
     """
 
     # correlated_xds with already populated coordinates, data variables and info_dicts
@@ -79,7 +79,7 @@ def open_partition(
         asdm, num_antenna, spw_id, correlated_xds.polarization
     )
 
-    # TODO:
+    # TODO?:
 
     # gain_curve_xds
 
@@ -114,6 +114,7 @@ def open_partition(
             antenna_xds.data_vars["ANTENNA_POSITION"],
             field_and_source_xds.FIELD_PHASE_CENTER_DIRECTION,
         )
+        correlated_xds.attrs["data_groups"]["base"]["uvw"] = next(iter(uvw_data_var))
         correlated_xds = correlated_xds.assign(uvw_data_var)
 
     msv4_xdt = xr.DataTree()
@@ -181,7 +182,7 @@ def create_correlated_xds(
                 "version": importlib.metadata.version("xradio"),
             },
             "creation_date": datetime_now,
-            "type": "visibility",
+            "type": "",
         }
     )
 
@@ -198,17 +199,23 @@ def create_correlated_xds(
         time_vars,
         time_indices_by_bdf,
     ) = create_coordinates(asdm, partition_descr, is_single_dish)
-    xds = xds.assign_coords(coords)
-    for coord_name in coords:
-        if coord_name in coord_attrs:
-            xds.coords[coord_name].attrs = coord_attrs[coord_name]
+    xds = _assign_coords_and_attributes(xds, coords, coord_attrs)
 
     xds = xds.assign(time_vars)
     xds = xds.assign(
         create_data_vars(
-            xds, partition_descr["BDFPath"], bdf_spw_id, time_indices_by_bdf
+            xds,
+            is_single_dish,
+            partition_descr["BDFPath"],
+            bdf_spw_id,
+            time_indices_by_bdf,
         )
     )
+
+    if xds.attrs["processor_info"]["type"] == "RADIOMETER":
+        xds.attrs["type"] = "radiometer"
+    else:
+        xds.attrs["type"] = "spectrum" if is_single_dish else "visibility"
 
     data_group_base = {
         "correlated_data": "VISIBILITY",
@@ -271,7 +278,11 @@ def find_if_single_dish(asdm: pyasdm.ASDM) -> bool:
 
 
 def create_data_vars(
-    xds: xr.Dataset, bdf_paths: list[str], bdf_spw_id: int, time_indices_by_bdf: dict
+    xds: xr.Dataset,
+    is_single_dish: bool,
+    bdf_paths: list[str],
+    bdf_spw_id: int,
+    time_indices_by_bdf: dict,
 ) -> dict[str, tuple]:
     """
     Create a dictionary of data variables for a radio astronomy dataset.
@@ -282,6 +293,8 @@ def create_data_vars(
     xds : xr.Dataset
         Input xarray Dataset containing the dimension sizes for 'time', 'baseline_id',
         'frequency', 'polarization', and 'uvw_label'.
+    is_single_dish : bool
+        Whether this MSv4 is single dish == SpectrumXds (true) or interferometric == VisibilityXds (false)
     bdf_paths : list[str]
         Paths to BDFs with data/flags for the partition
     bdf_spw_id : int
@@ -309,42 +322,56 @@ def create_data_vars(
 
     data_vars = {}
 
-    dims_vis_weight_flag = ["time", "baseline_id", "frequency", "polarization"]
+    if is_single_dish:
+        baseline_or_antenna_dim = "antenna_name"
+        data_var_name = "SPECTRUM"
+    else:
+        baseline_or_antenna_dim = "baseline_id"
+        data_var_name = "VISIBILITY"
+
+    dims_data_weight_flag = [
+        "time",
+        baseline_or_antenna_dim,
+        "frequency",
+        "polarization",
+    ]
     shape_vis_weight_flag = (
         xds.sizes["time"],
-        xds.sizes["baseline_id"],
+        xds.sizes[baseline_or_antenna_dim],
         xds.sizes["frequency"],
         xds.sizes["polarization"],
     )
-    data_vars["VISIBILITY"] = (
-        dims_vis_weight_flag,
+
+    data_attrs = {
+        "type": "quantity",
+        "units": "",  # Do the ASDM/BDFs give anything?
+        "field_and_source_xds": None,
+        "encoding": {
+            "preferred_chunks": {
+                "time": 1,
+                "polarization": shape_vis_weight_flag[-1],
+            }
+        },
+    }
+    data_vars[data_var_name] = (
+        dims_data_weight_flag,
         xr.core.indexing.LazilyIndexedArray(
             asdm_backend_arrays.VisibilityArray(
                 shape_vis_weight_flag, bdf_paths, bdf_spw_id, time_indices_by_bdf
             )
         ),
-        {
-            "type": "quantity",
-            "units": "",  # Do the ASDM/BDFs give anything?
-            "field_and_source_xds": None,
-            "encoding": {
-                "preferred_chunks": {
-                    "time": 1,
-                    "polarization": shape_vis_weight_flag[-1],
-                }
-            },
-        },
+        data_attrs,
     )
 
     data_vars["WEIGHT"] = (
-        dims_vis_weight_flag,
+        dims_data_weight_flag,
         xr.core.indexing.LazilyIndexedArray(
             asdm_backend_arrays.WeightArray(shape_vis_weight_flag)
         ),
     )
 
     data_vars["FLAG"] = (
-        dims_vis_weight_flag,
+        dims_data_weight_flag,
         xr.core.indexing.LazilyIndexedArray(
             asdm_backend_arrays.FlagArray(
                 shape_vis_weight_flag, bdf_paths, bdf_spw_id, time_indices_by_bdf
@@ -441,10 +468,10 @@ def create_coordinates(
         time_centers, scans_metadata_df, partition_descr
     )
 
-    baseline_coords, num_antenna, len_baseline_coords = _create_baseline_coords(
-        asdm, partition_descr
+    antenna_or_baseline_coords, num_antenna, len_antenna_or_baseline_coords = (
+        _create_antenna_or_baseline_coords(asdm, partition_descr, is_single_dish)
     )
-    coords.update(baseline_coords)
+    coords.update(antenna_or_baseline_coords)
 
     coords["polarization"], spw_id, data_description_df = _create_polarizations_coord(
         asdm, partition_descr
@@ -456,7 +483,9 @@ def create_coordinates(
 
     coords["field_name"] = _create_field_name_coord(asdm, time_centers, partition_descr)
 
-    time_vars = _create_time_vars(actual_durations, actual_times, len_baseline_coords)
+    time_vars = _create_time_vars(
+        actual_durations, actual_times, len_antenna_or_baseline_coords
+    )
 
     if not is_single_dish:
         coords["uvw_label"] = np.array(["u", "v", "w"])
@@ -477,6 +506,18 @@ def create_coordinates(
     )
 
 
+def _assign_coords_and_attributes(
+    xds: xr.Dataset, coords: dict, coord_attrs: dict
+) -> xr.Dataset:
+    """helper to assign coords and also set the attributes of those coords"""
+    xds = xds.assign_coords(coords)
+    for coord_name in coords:
+        if coord_name in coord_attrs:
+            xds.coords[coord_name].attrs = coord_attrs[coord_name]
+
+    return xds
+
+
 def _create_scan_name_coord_attrs(
     time_centers: np.ndarray, scans_metadata_df: pd.DataFrame, partition_descr: dict
 ) -> tuple[tuple, dict]:
@@ -490,10 +531,61 @@ def _create_scan_name_coord_attrs(
     return coord_scan_name, attrs_scan_name
 
 
+def _create_antenna_or_baseline_coords(
+    asdm: pyasdm.ASDM,
+    partition_descr: dict[str, np.ndarray],
+    is_single_dish: bool,
+) -> tuple[dict, int]:
+    if is_single_dish:
+        return _create_antenna_coords(asdm, partition_descr)
+    else:
+        return _create_baseline_coords(asdm, partition_descr)
+
+
+def _create_antenna_coords(
+    asdm: pyasdm.ASDM,
+    partition_descr: dict[str, np.ndarray],
+) -> tuple[dict, int, int]:
+    sdm_main_attrs = ["time", "configDescriptionId", "fieldId", "numAntenna"]
+    main_df = exp_asdm_table_to_df(asdm, "Main", sdm_main_attrs)
+    configurations_in_main = main_df.loc[
+        main_df["configDescriptionId"].isin(partition_descr["configDescriptionId"])
+        & main_df["fieldId"].isin(partition_descr["fieldId"])
+    ]
+    config_description_id = check_if_consistent(
+        configurations_in_main["configDescriptionId"], "Main/configDescriptionId"
+    )
+
+    sdm_config_description_attrs = [
+        "configDescriptionId",
+        "numAntenna",
+        "correlationMode",
+    ]
+    config_description_df = exp_asdm_table_to_df(
+        asdm, "ConfigDescription", sdm_config_description_attrs
+    )
+    config = config_description_df.loc[
+        config_description_df["configDescriptionId"] == config_description_id
+    ]
+    num_antenna = config["numAntenna"].values[0]
+    # TODO: use/constrain by num_antenna
+
+    sdm_antenna_attrs = [
+        "name",
+    ]
+    antenna_df = exp_asdm_table_to_df(asdm, "Antenna", sdm_antenna_attrs)
+    antenna_name = antenna_df["name"].values
+    coords_antennas = {}
+    coords_antennas["antenna_name"] = antenna_name
+    len_antenna_coords = len(antenna_name)
+
+    return coords_antennas, num_antenna, len_antenna_coords
+
+
 def _create_baseline_coords(
     asdm: pyasdm.ASDM,
     partition_descr: dict[str, np.ndarray],
-) -> tuple[dict, int]:
+) -> tuple[dict, int, int]:
     coords_baselines = {}
     sdm_main_attrs = ["time", "configDescriptionId", "fieldId", "numAntenna"]
     main_df = exp_asdm_table_to_df(asdm, "Main", sdm_main_attrs)
@@ -576,15 +668,16 @@ def _create_polarizations_coord(
 
 
 def _create_time_vars(
-    actual_durations: np.ndarray, actual_times: np.ndarray, len_baseline_antenna1_id
+    actual_durations: np.ndarray, actual_times: np.ndarray, len_baseline_or_antenna
 ) -> dict:
     # TODO This redim should be done inside ._bdf/load_time
     # We need (time, baseline_id) dims but times and durations form ASDM/BDFs are independent of baseline
-    redim_actual_durations = np.resize(
-        actual_durations, (len(actual_durations), len_baseline_antenna1_id)
+    redim_actual_durations = np.broadcast_to(
+        actual_durations[:, np.newaxis],
+        (len(actual_durations), len_baseline_or_antenna),
     )
-    redim_actual_times = np.resize(
-        actual_times, (len(actual_times), len_baseline_antenna1_id)
+    redim_actual_times = np.broadcast_to(
+        actual_times[:, np.newaxis], (len(actual_times), len_baseline_or_antenna)
     )
     time_vars = {
         "EFFECTIVE_INTEGRATION_TIME": (
@@ -716,6 +809,27 @@ def _translate_asdm_tables_spw_id_to_bdf_spw_id(
     config_description_id: int,
     config_description_df: pd.DataFrame,
 ) -> int:
+    """Translate an ASDM spectral-window ID to the matching BDF spectral-window ID.
+
+    Parameters
+    ----------
+    spw_id : int
+        Spectral-window ID in the ASDM table space.
+    data_description_df : pandas.DataFrame
+        Data-description table for the ASDM partition.
+    spw_df : pandas.DataFrame
+        Spectral-window table for the ASDM partition.
+    config_description_id : int
+        Configuration-description ID associated with the current partition.
+    config_description_df : pandas.DataFrame
+        Configuration-description table for the ASDM partition.
+
+    Returns
+    -------
+    int
+        The spectral-window ID used in the BDF representation for the given ASDM
+        spectral window.
+    """
     this_config_df = config_description_df.loc[
         config_description_df["configDescriptionId"].isin(config_description_id)
     ]

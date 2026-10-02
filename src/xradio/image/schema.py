@@ -17,6 +17,10 @@ conventions as the measurement set v4 schema
 * The ``data_groups`` dataset attribute maps logical roles (``sky``,
   ``flag``, ``point_spread_function``, ...) to concrete data variable names,
   grouping the variables that belong together.
+* The ``schema_version`` dataset attribute holds the version of the image
+  schema that the dataset conforms to, ``IMAGE_SCHEMA_VERSION`` for the
+  datasets that xradio makes, opens or upgrades (as the measurement set
+  datasets carry ``MSV4_SCHEMA_VERSION``).
 
 Schema building blocks shared with the measurement set schema live in
 :py:mod:`xradio.schema.measures`.
@@ -79,6 +83,11 @@ from xradio.schema.measures import (
     UnitsRadians,
 )
 from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof
+
+IMAGE_SCHEMA_VERSION = "0.0.2"
+""" Current version of the image schema (semantic versioning, see the
+documentation's schema versioning section). Image datasets carry it in their
+``schema_version`` attribute, and the documentation takes it from here. """
 
 # Dimensions
 L = Literal["l"]
@@ -957,6 +966,12 @@ class ImageXds:
     """ Defines groups of image variables that belong together, mapping
     logical roles (sky, flag, point_spread_function, ...) to data variable
     names. """
+    schema_version: Attr[str]
+    """ Semantic version (MAJOR.MINOR.PATCH) of the image schema that the
+    dataset conforms to, see ``xradio.image.schema.IMAGE_SCHEMA_VERSION``.
+    The factories and the CASA and FITS readers set the current version;
+    zarr stores keep theirs, and stores without one or with an older one are
+    upgraded to the current version when they are read. """
 
     # --- Optional Coordinates ---
     velocity: Coordof[VelocityCoordArray] | None = None

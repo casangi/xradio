@@ -8,11 +8,14 @@
 * ``TestImageSchemaConstructors`` → schema classes used as constructors
 * ``TestImageSchemaFromFormats`` → schema checking of images opened from CASA,
                                    FITS and zarr stores (downloads test data)
+* ``TestSchemaVersion``          → the ``schema_version`` attribute and
+                                   ``IMAGE_SCHEMA_VERSION``
 
 The dask cluster fixture is provided by ``conftest.py`` in this directory.
 """
 
 import os
+import re
 from copy import deepcopy
 from typing import get_args
 
@@ -39,6 +42,7 @@ from xradio.image._util.conventions import (
     spectral_frame_to_observer,
 )
 from xradio.image.schema import (
+    IMAGE_SCHEMA_VERSION,
     AllowedSkyImageSubTypes,
     DataGroupDict,
     FlagArray,
@@ -53,6 +57,7 @@ from xradio.schema.check import (
     check_datatree,
     check_dict,
 )
+from xradio.schema.dataclass import xarray_dataclass_to_dataset_schema
 from xradio.schema.measures import AllowedSpectralCoordFrames
 from xradio.testing.image import create_empty_test_image, download_image, remove_path
 
@@ -228,6 +233,7 @@ def make_valid_image_xds() -> xr.Dataset:
             "pixel_coordinate_transformation_matrix": [[1.0, 0.0], [0.0, 1.0]],
         },
         "type": "image_dataset",
+        "schema_version": IMAGE_SCHEMA_VERSION,
         "data_groups": {
             "base": {
                 "sky": "SKY",
@@ -348,6 +354,21 @@ class TestImageSchemaSynthetic:
         del xds.attrs["data_groups"]
         issues = check_image(xds)
         assert any(i.path[0] == ("attrs", "data_groups") for i in issues)
+
+    def test_missing_schema_version(self, image_xds_valid):
+        """schema_version is a required attribute."""
+        xds = image_xds_valid
+        del xds.attrs["schema_version"]
+        issues = check_image(xds)
+        assert [i.path for i in issues] == [[("attrs", "schema_version")]]
+        assert "attribute is missing" in issues[0].message
+        assert check_datatree(xr.DataTree(dataset=xds))
+
+    def test_schema_version_must_be_a_string(self, image_xds_valid):
+        xds = image_xds_valid
+        xds.attrs["schema_version"] = 2
+        issues = check_image(xds)
+        assert [i.path for i in issues] == [[("attrs", "schema_version")]]
 
     def test_data_group_references_missing_variable(self, image_xds_valid):
         xds = image_xds_valid
@@ -792,6 +813,7 @@ class TestMakeEmptyImageSchemas:
         issues = check_image(xds)
         assert not issues, f"Schema check of empty image failed: {issues}"
         assert not check_datatree(xr.DataTree(dataset=xds))
+        assert xds.attrs["schema_version"] == IMAGE_SCHEMA_VERSION
 
     @pytest.mark.parametrize(
         "factory",
@@ -827,7 +849,7 @@ class TestImageSchemaFromFormats:
     _casa_image = "casa_test_image.im"
     _fits_image = "test_image.fits"
     _uv_image = "complex_valued_uv.im"
-    _zarr_store = "test_image_schema_write.zarr"
+    _zarr_store = "test_image_schema_write.img.zarr"
 
     @classmethod
     def setup_class(cls):
@@ -843,16 +865,19 @@ class TestImageSchemaFromFormats:
         xds = open_image(self._casa_image)
         issues = check_image(xds)
         assert not issues, f"Schema check of CASA image failed: {issues}"
+        assert xds.attrs["schema_version"] == IMAGE_SCHEMA_VERSION
 
     def test_open_fits_image_schema(self):
         xds = open_image(self._fits_image)
         issues = check_image(xds)
         assert not issues, f"Schema check of FITS image failed: {issues}"
+        assert xds.attrs["schema_version"] == IMAGE_SCHEMA_VERSION
 
     def test_open_aperture_image_schema(self):
         xds = open_image(self._uv_image)
         issues = check_image(xds)
         assert not issues, f"Schema check of aperture image failed: {issues}"
+        assert xds.attrs["schema_version"] == IMAGE_SCHEMA_VERSION
 
     def test_multi_image_open_schema(self):
         """Opening multiple images (with versioned sky variables) yields a
@@ -871,10 +896,12 @@ class TestImageSchemaFromFormats:
     def test_zarr_roundtrip_schema(self):
         xds = open_image(self._casa_image)
         remove_path(self._zarr_store)
-        write_image(xds, self._zarr_store, out_format="zarr", overwrite=True)
+        written = write_image(xds, self._zarr_store, out_format="zarr", overwrite=True)
+        assert written == [self._zarr_store]
         zarr_xds = open_image(self._zarr_store)
         issues = check_image(zarr_xds)
         assert not issues, f"Schema check of zarr image failed: {issues}"
+        assert zarr_xds.attrs["schema_version"] == IMAGE_SCHEMA_VERSION
 
     def test_sub_type_from_casa_image_type(self):
         """The casacore image type is preserved as the sub_type attribute
@@ -937,7 +964,7 @@ class TestFormatRoundRobin:
     to disk, opens the result and checks it against the schema."""
 
     _casa_image = "casa_test_image.im"
-    _stores = ["round_robin.fits", "round_robin.zarr", "round_robin.im"]
+    _stores = ["round_robin.fits", "round_robin.img.zarr", "round_robin.im"]
 
     @classmethod
     def setup_class(cls):
@@ -961,7 +988,8 @@ class TestFormatRoundRobin:
         issues = check_image(xds_fits)
         assert not issues, f"Schema check after writing to FITS failed: {issues}"
 
-        write_image(xds_fits, zarr_store, out_format="zarr", overwrite=True)
+        written = write_image(xds_fits, zarr_store, out_format="zarr", overwrite=True)
+        assert written == [zarr_store]
         xds_zarr = open_image(zarr_store)
         issues = check_image(xds_zarr)
         assert not issues, f"Schema check after writing to zarr failed: {issues}"
@@ -979,6 +1007,8 @@ class TestFormatRoundRobin:
         np.testing.assert_allclose(final[unflagged], orig[unflagged], rtol=1e-6)
         np.testing.assert_allclose(xds_rt.frequency.values, xds_casa.frequency.values)
         assert xds_rt.SKY.attrs.get("sub_type") == xds_casa.SKY.attrs.get("sub_type")
+        for xds in (xds_casa, xds_fits, xds_zarr, xds_rt):
+            assert xds.attrs["schema_version"] == IMAGE_SCHEMA_VERSION
 
 
 class TestCasaWriteSinglePass:
@@ -1135,17 +1165,41 @@ class TestXarrayBackends:
         xds = xr.open_dataset(self._casa_image, engine="xradio_casa_image")
         assert "SKY" in xds.data_vars
         assert not check_image(xds)
+        assert xds.attrs["schema_version"] == IMAGE_SCHEMA_VERSION
 
     def test_open_dataset_fits_engine(self):
         xds = xr.open_dataset(self._fits_image, engine="xradio_fits_image")
         assert "SKY" in xds.data_vars
         assert not check_image(xds)
+        assert xds.attrs["schema_version"] == IMAGE_SCHEMA_VERSION
 
     def test_open_dataset_autodetect(self):
         """guess_can_open lets xarray pick the right backend by itself."""
         xds = xr.open_dataset(self._casa_image)
         assert "SKY" in xds.data_vars
         assert not check_image(xds)
+        assert xds.attrs["schema_version"] == IMAGE_SCHEMA_VERSION
         xds = xr.open_dataset(self._fits_image)
         assert "SKY" in xds.data_vars
         assert not check_image(xds)
+        assert xds.attrs["schema_version"] == IMAGE_SCHEMA_VERSION
+
+
+class TestSchemaVersion:
+    """The image schema version: the IMAGE_SCHEMA_VERSION constant, which the
+    documentation also takes, and the required schema_version attribute that
+    every producer of image datasets sets to it (the producers are tested
+    with their readers and factories)."""
+
+    def test_constant_is_a_semantic_version(self):
+        assert re.fullmatch(r"\d+\.\d+\.\d+", IMAGE_SCHEMA_VERSION)
+
+    def test_attribute_is_a_required_string(self):
+        (attribute,) = (
+            attr
+            for attr in xarray_dataclass_to_dataset_schema(ImageXds).attributes
+            if attr.name == "schema_version"
+        )
+        assert attribute.type == "str"
+        assert not attribute.optional
+        assert "IMAGE_SCHEMA_VERSION" in attribute.docstring

@@ -1,21 +1,25 @@
 """
-Upgrade of image datasets written by xradio 1.2.3 and earlier.
+Upgrade of image datasets written by xradio 1.2.3 and earlier, and of image
+datasets of older image schema versions.
 
 Image zarr stores written by xradio 1.2.3 and earlier predate the image schema
 (:py:class:`xradio.image.schema.ImageXds`): stores made from
 ``make_empty_sky_image`` and its siblings (for example the outputs of
 AstroVIPER) have the dataset type ``"image"``, and stores converted from CASA
-or FITS images lack the frequency ``units`` and ``frame``.
+or FITS images lack the frequency ``units`` and ``frame``. Stores written
+before the image schema was versioned lack the ``schema_version`` attribute.
 :func:`upgrade_legacy_image_attrs` brings their attributes up to the current
-conventions, so that they open like images written today. ``open_image`` and
-``load_image`` apply it to every zarr store they read; writing the opened
-dataset back to zarr stores the upgraded attributes (for example to re-bless
-test truth stores).
+conventions, so that they open like images written today, with the current
+``schema_version`` (:py:data:`xradio.image.schema.IMAGE_SCHEMA_VERSION`).
+``open_image`` and ``load_image`` apply it to every zarr store they read;
+writing the opened dataset back to zarr stores the upgraded attributes (for
+example to re-bless test truth stores).
 """
 
 from __future__ import annotations
 
 import copy
+import re
 
 import numpy as np
 import xarray as xr
@@ -27,7 +31,11 @@ from xradio.image._util.conventions import (
     normalize_spectral_frame,
     spectral_frame_to_observer,
 )
+from xradio.image.schema import IMAGE_SCHEMA_VERSION
 
+#: A semantic version, MAJOR.MINOR.PATCH (the form of the ``schema_version``
+#: attribute).
+_SEMANTIC_VERSION = re.compile(r"(\d+)\.(\d+)\.(\d+)")
 #: astropy time scales (astropy.time.Time.SCALES)
 _ASTROPY_TIME_SCALES = ("tai", "tcb", "tcg", "tdb", "tt", "ut1", "utc", "local")
 #: The ``note`` attributes of the l and m coordinates written by xradio <= 1.2.3,
@@ -64,8 +72,9 @@ _TEXT_ROLES = ("description", "date")
 
 def upgrade_legacy_image_attrs(xds: xr.Dataset) -> xr.Dataset:
     """
-    Bring the attributes of an image dataset written by xradio <= 1.2.3 up to
-    the current image schema conventions.
+    Bring the attributes of an image dataset written by xradio <= 1.2.3, or
+    of an older image schema version, up to the current image schema
+    conventions.
 
     The upgrade only fills in or translates what the current readers and
     factories write, so datasets that already follow the conventions are
@@ -101,7 +110,15 @@ def upgrade_legacy_image_attrs(xds: xr.Dataset) -> xr.Dataset:
       become data groups of their own and the role ``mask`` (see
       :func:`_upgrade_data_groups`), and variables referenced by a data group
       role get the ``type`` of the role (and beam fit parameters the
-      ``units`` ``"rad"``) when they have none.
+      ``units`` ``"rad"``) when they have none;
+    * a dataset without a ``schema_version`` attribute (written before the
+      image schema was versioned), with an empty one or with an older version
+      gets the current version,
+      :py:data:`xradio.image.schema.IMAGE_SCHEMA_VERSION`, since the upgraded
+      dataset follows the current conventions (the current version written
+      differently, for example with spaces, is normalized to it). A newer
+      version (of a later xradio), or a value that is not a semantic version,
+      is kept, with a warning (see :func:`_upgraded_schema_version`).
 
     Parameters
     ----------
@@ -133,6 +150,12 @@ def upgrade_legacy_image_attrs(xds: xr.Dataset) -> xr.Dataset:
         if dataset_attrs is None:
             dataset_attrs = dict(xds.attrs)
         dataset_attrs["data_groups"] = data_groups
+
+    schema_version = _upgraded_schema_version(xds.attrs.get("schema_version"), changes)
+    if schema_version is not None:
+        if dataset_attrs is None:
+            dataset_attrs = dict(xds.attrs)
+        dataset_attrs["schema_version"] = schema_version
 
     coord_attrs = {}
     new_coords = {}
@@ -194,8 +217,8 @@ def upgrade_legacy_image_attrs(xds: xr.Dataset) -> xr.Dataset:
     if not changes:
         return xds
     xradio_logger().debug(
-        "Upgraded the attributes of an image dataset written by xradio <= "
-        f"1.2.3: {'; '.join(changes)}"
+        "Upgraded the attributes of an image dataset to the current image "
+        f"schema conventions: {'; '.join(changes)}"
     )
     xds = xds.copy(deep=False)
     if new_coords:
@@ -207,6 +230,91 @@ def upgrade_legacy_image_attrs(xds: xr.Dataset) -> xr.Dataset:
     for name, attrs in data_var_attrs.items():
         xds[name].attrs = attrs
     return xds
+
+
+def _semantic_version(version) -> tuple[int, int, int] | None:
+    """
+    Parse a semantic version.
+
+    Parameters
+    ----------
+    version : object
+        A ``schema_version`` attribute value.
+
+    Returns
+    -------
+    tuple of int or None
+        The (MAJOR, MINOR, PATCH) numbers, or None when ``version`` is not a
+        string of the form MAJOR.MINOR.PATCH.
+    """
+    if not isinstance(version, str):
+        return None
+    match = _SEMANTIC_VERSION.fullmatch(version.strip())
+    if match is None:
+        return None
+    major, minor, patch = (int(number) for number in match.groups())
+    return major, minor, patch
+
+
+def _upgraded_schema_version(version, changes: list) -> str | None:
+    """
+    Return the image schema version of an upgraded image dataset.
+
+    The upgrade brings a dataset up to the current conventions, so a dataset
+    without a version (written before the image schema was versioned), with
+    an empty one (taken as missing) or with an older version gets the current
+    one, :py:data:`xradio.image.schema.IMAGE_SCHEMA_VERSION`; the current
+    version written differently (for example with surrounding spaces) is
+    normalized to it. A newer version, written by a later xradio, is kept:
+    this xradio cannot know what changed, and writing the dataset back keeps
+    the version it conforms to. A value that is not a semantic version is
+    kept too (:py:func:`xradio.image.schema.check_image` reports one that is
+    not a string). Both are logged as warnings.
+
+    Parameters
+    ----------
+    version : object
+        The dataset's ``schema_version`` attribute, None when it has none.
+    changes : list of str
+        Description of the changes (appended to).
+
+    Returns
+    -------
+    str or None
+        :py:data:`~xradio.image.schema.IMAGE_SCHEMA_VERSION` when the version
+        changes, else None.
+    """
+    if version is None:
+        changes.append(f"schema_version {IMAGE_SCHEMA_VERSION!r} added")
+        return IMAGE_SCHEMA_VERSION
+    # (a value of another type, for example a numpy array, is not compared)
+    if isinstance(version, str) and version == IMAGE_SCHEMA_VERSION:
+        return None
+    if isinstance(version, str) and not version.strip():
+        changes.append(f"empty schema_version {version!r} -> {IMAGE_SCHEMA_VERSION!r}")
+        return IMAGE_SCHEMA_VERSION
+    found = _semantic_version(version)
+    if found is None:
+        xradio_logger().warning(
+            f"The image dataset has the schema_version {version!r}, which is "
+            "not a semantic version (MAJOR.MINOR.PATCH): it is kept, and the "
+            "dataset is read as one of the image schema version "
+            f"{IMAGE_SCHEMA_VERSION}"
+        )
+        return None
+    current = _semantic_version(IMAGE_SCHEMA_VERSION)
+    if found > current:
+        xradio_logger().warning(
+            f"The image dataset has the schema_version {version}, newer than "
+            f"the image schema version {IMAGE_SCHEMA_VERSION} of this xradio: "
+            "the version is kept, but this xradio may not understand all of "
+            "the dataset; update xradio to read it fully"
+        )
+        return None
+    # an older version, or the current one written differently (the exact
+    # current version returned above)
+    changes.append(f"schema_version {version!r} -> {IMAGE_SCHEMA_VERSION!r}")
+    return IMAGE_SCHEMA_VERSION
 
 
 def _upgrade_factory_equinox(coordinate_system_info, changes: list) -> dict | None:

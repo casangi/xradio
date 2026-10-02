@@ -39,7 +39,7 @@ benchmarks, and third-party projects that use `xradio.image`.
 | Function | Signature | Purpose |
 |---|---|---|
 | `normalize_image_coords_for_compare` | `(coords, factor=180*60/π)→None` | Convert direction coordinates from radians to arcminutes in-place so a round-tripped CASA image can be compared with the original. Modifies `coords` in place. |
-| `assert_image_block_equal` | `(xds, output_path, zarr=False)→None` | Attach a synthetic `BEAM_FIT_PARAMS` variable to `xds`, write to `output_path`, reload a fixed spatial block, and assert equality via `assert_xarray_datasets_equal`. |
+| `assert_image_block_equal` | `(xds, output_path, selection, zarr=False, do_sky_coords=True)→None` | Write `xds` (a single image; add extra variables such as `BEAM_FIT_PARAMS` before calling) to `output_path` as a CASA image, or with `zarr=True` as a zarr store, which gets the `.img.zarr` extension (`out` becomes `out.img.zarr`). Then reload the block given by `selection` with `load_image`, from the path `write_image` returns, and assert equality with the same slice of `xds` via `assert_xarray_datasets_equal`. |
 
 All nine public names are re-exported from the package's `__init__.py`:
 

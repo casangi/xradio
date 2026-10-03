@@ -92,5 +92,61 @@ def test_convert_msv2_to_processing_set_with_other_opts(ms_minimal_misbehaved):
         shutil.rmtree(out_path_with_ending)
 
 
+@pytest.mark.parametrize("parallel_mode", ["none", "partition"])
+def test_convert_msv2_to_processing_set_subtable_cache_identical(
+    ms_minimal_required, parallel_mode, tmp_path, monkeypatch
+):
+    """The processing set is the same with and without the sub-table cache (shared
+    by the partitions, also by the dask threads of parallel_mode="partition")."""
+    import importlib
+
+    import dask
+    import numpy as np
+
+    from xradio.measurement_set import convert_msv2_to_processing_set
+    from xradio.measurement_set._utils._msv2._tables import subtable_cache
+
+    built = []
+    cache_class = subtable_cache.SubtableCache
+
+    def spy_cache():
+        built.append(cache_class())
+        return built[-1]
+
+    # (the package re-exports the function under the module's name)
+    converter_module = importlib.import_module(
+        "xradio.measurement_set.convert_msv2_to_processing_set"
+    )
+    monkeypatch.setattr(converter_module, "SubtableCache", spy_cache)
+    trees = {}
+    for mode in ("0", "1"):
+        monkeypatch.setenv(subtable_cache.SUBTABLE_CACHE_ENV_VAR, mode)
+        out_file = str(tmp_path / f"cache{mode}.ps.zarr")
+        with dask.config.set(num_workers=2):
+            convert_msv2_to_processing_set(
+                ms_minimal_required.fname,
+                out_file=out_file,
+                partition_scheme=["FIELD_ID"],
+                # the other SPWs have no PHASE_CAL rows (conversion fails)
+                partition_filter=lambda p: p["DATA_DESC_ID"][0] in (0, 1),
+                parallel_mode=parallel_mode,
+                pointing_interpolate=True,
+                persistence_mode="w",
+            )
+        trees[mode] = xr.open_datatree(out_file, engine="zarr")
+    assert len(built) == 1  # one cache for the conversion with XRADIO_..._CACHE=1
+    assert built[0].stats["pointing_cached"] == len(trees["1"].children) > 1
+    paths = {node.path for node in trees["0"].subtree}
+    assert paths == {node.path for node in trees["1"].subtree}
+    for path in paths:
+        ds_0 = trees["0"][path].to_dataset(inherit=False)
+        ds_1 = trees["1"][path].to_dataset(inherit=False)
+        assert list(ds_0.variables) == list(ds_1.variables), path
+        for name, var in ds_0.variables.items():
+            assert var.dims == ds_1[name].dims, (path, name)
+            assert var.dtype == ds_1[name].dtype, (path, name)
+            np.testing.assert_array_equal(var.values, ds_1[name].values)
+
+
 if __name__ == "__main__":
     pytest.main(["-v", "-s", __file__])

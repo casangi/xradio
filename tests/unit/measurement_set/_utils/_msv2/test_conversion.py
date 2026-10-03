@@ -847,3 +847,63 @@ def test_create_data_variables_reads_columns_in_sorted_order(
     _convert_partition(monkeypatch, msname, str(tmp_path / "r"), partition, "rows")
     assert read_cols == sorted(read_cols)
     assert "DATA" in read_cols and "WEIGHT" in read_cols
+
+
+# --- sub-table cache (TEMPORARY XRADIO_MSV2_SUBTABLE_CACHE switch) ----------------
+
+
+@pytest.mark.parametrize("ms_fixture", ["ms_minimal_required", "ms_minimal_misbehaved"])
+@pytest.mark.parametrize("interpolate", [False, True])
+def test_convert_and_write_partition_subtable_cache_bit_identical(
+    ms_fixture, interpolate, tmp_path, monkeypatch, request
+):
+    """Every partition converts to exactly the same MSv4 (or fails the same way)
+    with the sub-table cache shared by the partitions (POINTING, SYSCAL, WEATHER,
+    PHASE_CAL, GAIN_CURVE, ephemerides, ...) as with per-partition reads."""
+    from xradio.measurement_set._utils._msv2._tables.subtable_cache import (
+        SUBTABLE_CACHE_ENV_VAR,
+        SubtableCache,
+    )
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions,
+    )
+
+    msname = request.getfixturevalue(ms_fixture).fname
+    partitions = create_partitions(msname, ["FIELD_ID"])
+    cache = SubtableCache()
+    msv4_name = pathlib.Path(msname).name.replace(".ms", "") + "_0"
+    n_converted = 0
+    for idx, partition in enumerate(partitions):
+        results = {}
+        for mode in ("0", "1"):
+            monkeypatch.setenv(SUBTABLE_CACHE_ENV_VAR, mode)
+            out_file = str(tmp_path / f"p{idx}_cache{mode}")
+            try:
+                conversion.convert_and_write_partition(
+                    in_file=msname,
+                    out_file=out_file,
+                    ms_v4_id="0",
+                    partition_info=partition,
+                    use_table_iter=False,
+                    pointing_interpolate=interpolate,
+                    ephemeris_interpolate=interpolate,
+                    phase_cal_interpolate=interpolate,
+                    sys_cal_interpolate=interpolate,
+                    persistence_mode="w",
+                    subtable_cache=cache,  # unused with XRADIO_MSV2_SUBTABLE_CACHE=0
+                )
+            except Exception as exc:  # e.g. PHASE_CAL rows missing for a SPW
+                results[mode] = f"{type(exc).__name__}: {exc}"
+                continue
+            results[mode] = xr.open_datatree(
+                os.path.join(out_file, msv4_name), engine="zarr"
+            )
+        if isinstance(results["0"], str):
+            assert results["1"] == results["0"]
+            continue
+        n_converted += 1
+        assert "/pointing_xds" in {node.path for node in results["1"].subtree}
+        assert_msv4_bit_identical(results["0"], results["1"])
+    assert n_converted > 1
+    assert cache.stats["pointing_cached"] == n_converted
+    assert cache.stats["memo_hits"] > 0

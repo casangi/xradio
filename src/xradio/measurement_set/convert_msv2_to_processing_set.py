@@ -7,6 +7,10 @@ import zarr.codecs
 
 from xradio._utils.logging import xradio_logger
 from xradio._utils.zarr.config import ZARR_FORMAT
+from xradio.measurement_set._utils._msv2._tables.subtable_cache import (
+    SubtableCache,
+    get_subtable_cache_mode,
+)
 from xradio.measurement_set._utils._msv2.conversion import (
     convert_and_write_partition,
     estimate_memory_and_cores_for_partitions,
@@ -178,6 +182,9 @@ def convert_msv2_to_processing_set(
         )
 
     delayed_list = []
+    # Sub-table data read once and shared by all partitions (TEMPORARY switch:
+    # XRADIO_MSV2_SUBTABLE_CACHE=0 reads the sub-tables for every partition)
+    subtable_cache = SubtableCache() if get_subtable_cache_mode() else None
 
     for ms_v4_id, partition_info in enumerate(partitions):
         xradio_logger().info(
@@ -225,6 +232,7 @@ def convert_msv2_to_processing_set(
                     compressor=compressor,
                     parallel_mode=parallel_mode,
                     persistence_mode=persistence_mode,
+                    subtable_cache=subtable_cache,
                 )
             )
         else:
@@ -247,6 +255,7 @@ def convert_msv2_to_processing_set(
                 compressor=compressor,
                 parallel_mode=parallel_mode,
                 persistence_mode=persistence_mode,
+                subtable_cache=subtable_cache,
             )
             end_time = time.time()
             xradio_logger().debug(
@@ -256,6 +265,9 @@ def convert_msv2_to_processing_set(
 
     if parallel_mode == "partition":
         dask.compute(delayed_list)
+    if subtable_cache is not None:
+        xradio_logger().debug(f"Sub-table cache: {dict(subtable_cache.stats)}")
+        subtable_cache.clear()
 
     import zarr
 

@@ -38,6 +38,11 @@ from xradio.measurement_set._utils._msv2._tables.read_main_table import (
     utimes_tol_from_times,
 )
 from xradio.measurement_set._utils._msv2._tables.read_rows import MainTableRows
+from xradio.measurement_set._utils._msv2._tables.subtable_cache import (
+    SubtableCache,
+    activate_subtable_cache,
+    resolve_subtable_cache,
+)
 from xradio.measurement_set._utils._msv2._tables.table_query import (
     TableManager,
     open_query,
@@ -1154,6 +1159,7 @@ def convert_and_write_partition(
     storage_backend="zarr",
     parallel_mode: str = "none",
     persistence_mode: str = "w-",
+    subtable_cache: SubtableCache | None = None,
 ):
     """_summary_
 
@@ -1195,6 +1201,10 @@ def convert_and_write_partition(
         _description_
     persistence_mode: str = "w-",
         _description_, by default "w-"
+    subtable_cache : SubtableCache | None, optional
+        Sub-table data shared by the partitions of a conversion (see
+        _tables/subtable_cache.py), by default None: a cache for this partition
+        only. Not used with XRADIO_MSV2_SUBTABLE_CACHE=0 (TEMPORARY).
 
     Returns
     -------
@@ -1215,9 +1225,14 @@ def convert_and_write_partition(
     scan_intents = str(partition_info["OBS_MODE"][0]).split(",")
 
     start = time.time()
-    with open_partition_main_table(
-        in_file, partition_info, taql_where, main_read
-    ) as tb_tool:
+    with (
+        # TEMPORARY (exploration only): XRADIO_MSV2_SUBTABLE_CACHE=0 reads every
+        # sub-table per partition as before
+        activate_subtable_cache(resolve_subtable_cache(subtable_cache)),
+        open_partition_main_table(
+            in_file, partition_info, taql_where, main_read
+        ) as tb_tool,
+    ):
         if tb_tool.nrows() == 0:
             tb_tool.close()
             return xr.Dataset(), {}, {}

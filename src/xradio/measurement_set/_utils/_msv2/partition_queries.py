@@ -16,6 +16,27 @@ except ImportError:
 
 from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._msv2._tables.read import table_exists
+from xradio.measurement_set._utils._msv2._tables.read_rows import (
+    group_row_runs,
+    runs_to_rows,
+)
+
+# Keys of a partition description holding the partition's MAIN row membership, as
+# runs of consecutive rows: run i is rows [starts[i], starts[i] + lengths[i]).
+MAIN_ROW_STARTS_KEY = "main_row_starts"
+MAIN_ROW_LENGTHS_KEY = "main_row_lengths"
+
+# Partition description keys that select MAIN rows, in the order used by
+# conversion.create_taql_query_where (which also lists STATE_ID twice). For
+# ANTENNA1, ANTENNA2 must be in the same list (autocorrelations only).
+MAIN_ROW_SELECTION_KEYS = (
+    "DATA_DESC_ID",
+    "OBSERVATION_ID",
+    "STATE_ID",
+    "FIELD_ID",
+    "SCAN_NUMBER",
+    "ANTENNA1",
+)
 
 
 def enumerated_product(*args):
@@ -41,7 +62,21 @@ def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
     Returns
     -------
     list
-        list of dictionaries with the partition information.
+        list of dictionaries with the partition information. Besides the
+        partition axes (a list of the unique values of every axis, or [None]
+        when the axis is not available), every dictionary holds the MAIN rows
+        of the partition as runs of consecutive rows (the same rows, in the
+        same ascending order, that conversion.create_taql_query_where selects):
+
+        - "main_row_starts": np.ndarray (int64), first row of every run.
+        - "main_row_lengths": np.ndarray (int64), number of rows of every run.
+
+        The rows are computed with one vectorized group-by over all MAIN rows.
+        Like the TaQL selection they include the ANTENNA1 rule (with
+        "ANTENNA1" in the scheme, a partition only holds the rows whose
+        ANTENNA2 equals its ANTENNA1, i.e. autocorrelations), and rows with
+        STATE_ID=-1 are grouped with the last STATE row (numpy negative
+        indexing into STATE, as in the partition axes).
     """
 
     ### Test new implementation without
@@ -73,7 +108,17 @@ def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
         "OBSERVATION_ID": main_tb.getcol("OBSERVATION_ID"),
         "ANTENNA1": main_tb.getcol("ANTENNA1"),
     }
-    par_df = pd.DataFrame(base_cols).drop_duplicates()
+    # ANTENNA2 is only needed for the row membership of ANTENNA1 partitions
+    antenna2 = main_tb.getcol("ANTENNA2") if "ANTENNA1" in partition_scheme else None
+
+    # Unique combinations of the key columns, in order of first appearance and
+    # with the index labels of their first MAIN row (as drop_duplicates() gives
+    # them), plus the combination of every MAIN row, used for row membership.
+    row_key, first_rows = _factorize_rows(list(base_cols.values()))
+    par_df = pd.DataFrame(
+        {name: col[first_rows] for name, col in base_cols.items()},
+        index=first_rows,
+    )
     xradio_logger().debug(
         f"Loaded MAIN columns in {time.time() - t0:.2f}s "
         f"({len(par_df):,} unique MAIN rows)"
@@ -185,6 +230,8 @@ def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
         groups_iter = [(None, par_df)]
 
     partitions = []
+    # Partition index of every unique key combination (-1: in no partition)
+    key_partition = np.full(len(first_rows), -1, dtype=np.int64)
     # Fast aggregation: use NumPy for uniques to avoid pandas overhead in the tight loop.
     for _, gdf in groups_iter:
         part = {}
@@ -194,10 +241,32 @@ def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
                 part[name] = np.unique(gdf[name].to_numpy()).tolist()
             else:
                 part[name] = [None]
+        # gdf.index holds the first MAIN row of each of the group's combinations
+        key_partition[row_key[gdf.index.to_numpy()]] = len(partitions)
         partitions.append(part)
 
     xradio_logger().debug(
         f"Partition build in {time.time() - t3:.2f}s; total {len(partitions):,} partitions"
+    )
+
+    # --------- MAIN row membership of every partition (row runs) ----------
+    t4 = time.time()
+    row_partition = key_partition[row_key]
+    del row_key
+    if antenna2 is not None:
+        # create_taql_query_where adds "ANTENNA2 IN [<the partition's ANTENNA1>]".
+        # ANTENNA1 is a partition key, so the partition's ANTENNA1 list is the
+        # row's own ANTENNA1.
+        row_partition[antenna2 != base_cols["ANTENNA1"]] = -1
+    for part, (starts, lengths) in zip(
+        partitions, group_row_runs(row_partition, len(partitions)), strict=True
+    ):
+        part[MAIN_ROW_STARTS_KEY] = starts
+        part[MAIN_ROW_LENGTHS_KEY] = lengths
+    xradio_logger().debug(
+        f"Partition MAIN row runs in {time.time() - t4:.2f}s "
+        f"({int(np.count_nonzero(row_partition >= 0)):,} of {len(row_partition):,} "
+        "MAIN rows in a partition)"
     )
     xradio_logger().debug(f"Total create_partitions time: {time.time() - t0:.2f}s")
 
@@ -209,6 +278,122 @@ def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
     # org_partitions = load_dict_list("partition_original.pkl.gz")
 
     return partitions
+
+
+def _factorize_rows(columns: list[np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Number the distinct value combinations of several equal-length columns.
+
+    Parameters
+    ----------
+    columns : list[np.ndarray]
+        1-D columns (one value per row).
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray]
+        ``(row_key, first_rows)``: the combination number of every row (int64,
+        numbered in order of first appearance) and the first row of every
+        combination (ascending, i.e. the rows ``drop_duplicates()`` keeps).
+    """
+    nrows = len(columns[0]) if columns else 0
+    if nrows == 0:
+        return np.empty(0, dtype=np.int64), np.empty(0, dtype=np.int64)
+    row_key = None
+    for col in columns:
+        # pd.factorize numbers values in order of first appearance
+        codes, uniques = pd.factorize(col)
+        if row_key is None:
+            row_key = codes.astype(np.int64, copy=False)
+        else:
+            # < nrows**2 (re-factorized at every step), no int64 overflow
+            row_key, _ = pd.factorize(row_key * len(uniques) + codes)
+            row_key = row_key.astype(np.int64, copy=False)
+    # Numbered in order of first appearance: a row starts a new combination
+    # exactly when its number is above all the numbers before it.
+    is_first = np.empty(nrows, dtype=bool)
+    is_first[0] = True
+    is_first[1:] = row_key[1:] > np.maximum.accumulate(row_key)[:-1]
+    return row_key, np.flatnonzero(is_first)
+
+
+def partition_main_rows(main_tb: tables.table, partition_info: dict) -> np.ndarray:
+    """
+    The MAIN row numbers of a partition, ascending: the rows that
+    conversion.create_taql_query_where(partition_info) selects.
+
+    Uses the row runs that create_partitions stores in the partition
+    description. A description without them (e.g. built by hand) gets its rows
+    from a numpy twin of the TaQL selection, which reads the key columns of
+    the whole MAIN table once.
+
+    Parameters
+    ----------
+    main_tb : tables.table
+        The opened MAIN table (base table).
+    partition_info : dict
+        Partition description (as produced by create_partitions).
+
+    Returns
+    -------
+    np.ndarray
+        int64 MAIN row numbers of the partition.
+    """
+    if MAIN_ROW_STARTS_KEY in partition_info and MAIN_ROW_LENGTHS_KEY in partition_info:
+        rows = runs_to_rows(
+            partition_info[MAIN_ROW_STARTS_KEY], partition_info[MAIN_ROW_LENGTHS_KEY]
+        )
+        if rows.size and (rows[-1] >= main_tb.nrows() or rows[0] < 0):
+            raise ValueError(
+                f"The partition MAIN rows [{rows[0]}, {rows[-1]}] do not fit the MAIN "
+                f"table of {main_tb.nrows()} rows (stale partition description?)"
+            )
+        return rows
+
+    return select_main_rows(main_tb, partition_info)
+
+
+def select_main_rows(main_tb: tables.table, partition_info: dict) -> np.ndarray:
+    """
+    numpy twin of the TaQL selection of conversion.create_taql_query_where:
+    the rows whose MAIN_ROW_SELECTION_KEYS values are in the partition's value
+    lists (keys missing or [None] are skipped; for ANTENNA1, ANTENNA2 must be in
+    the same list).
+
+    Parameters
+    ----------
+    main_tb : tables.table
+        The opened MAIN table (base table).
+    partition_info : dict
+        Partition description.
+
+    Returns
+    -------
+    np.ndarray
+        int64 MAIN row numbers selected, ascending.
+    """
+    nrows = main_tb.nrows()
+
+    def read_int_col(name: str) -> np.ndarray:
+        # scalar int columns are never undefined: a whole-column read is safe
+        values = np.empty(nrows, dtype=np.int32)
+        if nrows:
+            main_tb.getcolnp(name, values)
+        return values
+
+    mask = None
+    for key in MAIN_ROW_SELECTION_KEYS:
+        values = partition_info.get(key)
+        if values is None or values[0] is None:
+            continue
+        key_mask = np.isin(read_int_col(key), np.asarray(values))
+        if key == "ANTENNA1":
+            key_mask &= np.isin(read_int_col("ANTENNA2"), np.asarray(values))
+        mask = key_mask if mask is None else (mask & key_mask)
+
+    if mask is None:
+        return np.arange(nrows, dtype=np.int64)
+    return np.flatnonzero(mask).astype(np.int64, copy=False)
 
 
 def save_dict_list(filename: str, data: list[dict[str, Any]]) -> None:

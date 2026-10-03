@@ -826,6 +826,12 @@ def create_data_variables(
                 )
                 target_cols.append("WEIGHT")
 
+    if read_rows:
+        # The grid plan and time-chunk rows (8-24 bytes per row) are not needed
+        # after the reads: do not keep them alive through to_zarr. The lazy
+        # (parallel_mode="time") blocks keep their own reference.
+        table_manager.release_plans()
+
 
 def get_read_col_conversion_function(
     col_name: str, parallel_mode: str, read_rows: bool = False

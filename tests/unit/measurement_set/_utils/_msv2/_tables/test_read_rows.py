@@ -691,3 +691,70 @@ def test_main_table_rows(rows_tb):
         rr.MainTableRows(tb, np.array([0, NROWS]))
     with pytest.raises(ValueError):
         rr.MainTableRows(tb, np.array([3, 1]))
+
+
+def test_main_table_rows_plans_follow_new_index_arrays(rows_tb):
+    """
+    The cached plans are keyed by the index arrays themselves, not by their
+    id(): a new array that reuses a freed array's id must not get the stale
+    plan (which would scatter the data into the wrong cells).
+    """
+    tb, _ = rows_tb
+    nt, nb = 4, 10
+    part = rr.MainTableRows(tb, np.arange(nt * nb))
+    times = [np.repeat(np.arange(nt), nb), np.repeat(np.arange(nt)[::-1], nb)]
+    baselines = np.tile(np.arange(nb), nt)
+    n_stale = 0
+    for trial in range(100):
+        tidxs = times[trial % 2].copy()
+        bidxs = baselines.copy()
+        plan = part.grid_plan(tidxs, bidxs, (nt, nb))
+        n_stale += not np.array_equal(plan.gidx, tidxs * nb + bidxs)
+        assert part.grid_plan(tidxs, bidxs, (nt, nb)) is plan
+        # freed in reverse order: the next copies typically get the same ids
+        del plan
+        del bidxs
+        del tidxs
+    assert n_stale == 0
+    for trial in range(50):
+        tidxs = np.repeat(np.roll(np.arange(nt), trial), nb)
+        bidxs = np.tile(np.arange(nb), nt)
+        chunk_rows = part.time_chunk_rows(tidxs, bidxs, (3, 1), nb)
+        assert part.time_chunk_rows(tidxs, bidxs, (3, 1), nb) is chunk_rows
+        assert chunk_rows.tidxs is tidxs
+        del tidxs, bidxs, chunk_rows
+    # equal values in a new array: a new plan (arrays may change in between)
+    tidxs, bidxs = np.repeat(np.arange(nt), nb), np.tile(np.arange(nb), nt)
+    plan = part.grid_plan(tidxs, bidxs, (nt, nb))
+    assert part.grid_plan(tidxs.copy(), bidxs, (nt, nb)) is not plan
+    assert part.grid_plan(tidxs.tolist(), bidxs, (nt, nb)).gidx.size == nt * nb
+    part.release_plans()
+    assert part._grid_plan is None and part._time_chunk_rows is None
+
+
+@pytest.mark.parametrize("time_ordered", [True, False])
+@pytest.mark.parametrize("time_chunks", [(1,) * 9, (4, 4, 1), (9,)])
+def test_time_chunk_rows_matches_per_chunk_selection(time_ordered, time_chunks):
+    rng = np.random.default_rng(7)
+    nt, nb = 9, 5
+    cells = np.flatnonzero(rng.random(nt * nb) < 0.7)
+    if not time_ordered:  # baseline-major rows
+        cells = cells[np.lexsort((cells // nb, cells % nb))]
+    rows = np.sort(rng.choice(1000, cells.size, replace=False))
+    tidxs, bidxs = cells // nb, cells % nb
+    chunk_rows = rr.TimeChunkRows(rows, tidxs, bidxs, time_chunks, nb)
+    assert chunk_rows.n_chunks == len(time_chunks)
+    assert (chunk_rows.order is None) == (time_ordered or len(time_chunks) == 1)
+    # the per-chunk arrays the time reader used to build for every column
+    bounds = np.cumsum((0,) + time_chunks)
+    chunk_of_row = np.searchsorted(bounds, tidxs, side="right") - 1
+    for k in range(len(time_chunks)):
+        idx = np.flatnonzero(chunk_of_row == k)
+        rows_k, gidx_k = chunk_rows.chunk(k)
+        np.testing.assert_array_equal(rows_k, rows[idx])
+        np.testing.assert_array_equal(
+            gidx_k, (tidxs[idx] - bounds[k]) * nb + bidxs[idx]
+        )
+        assert np.all(np.diff(rows_k) > 0)
+    with pytest.raises(ValueError):
+        rr.TimeChunkRows(rows, tidxs[:-1], bidxs, time_chunks, nb)

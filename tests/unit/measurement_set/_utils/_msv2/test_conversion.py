@@ -849,6 +849,42 @@ def test_create_data_variables_reads_columns_in_sorted_order(
     assert "DATA" in read_cols and "WEIGHT" in read_cols
 
 
+@pytest.mark.parametrize("parallel_mode", ["none", "time"])
+def test_create_data_variables_releases_the_row_plans(
+    ms_main_layouts, parallel_mode, tmp_path, monkeypatch
+):
+    """The grid plan / time-chunk rows (8-24 bytes per row) are not kept
+    alive through to_zarr."""
+    from xradio.measurement_set._utils._msv2._tables.read_rows import MainTableRows
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions,
+    )
+
+    released = []
+    create = conversion.create_data_variables
+
+    def spy(in_file, xds, table_manager, *args, **kwargs):
+        create(in_file, xds, table_manager, *args, **kwargs)
+        assert isinstance(table_manager, MainTableRows)
+        released.append(
+            table_manager._grid_plan is None and table_manager._time_chunk_rows is None
+        )
+
+    monkeypatch.setattr(conversion, "create_data_variables", spy)
+    msname = ms_main_layouts["baseline_major"]
+    partition = create_partitions(msname, [])[0]
+    _convert_partition(
+        monkeypatch,
+        msname,
+        str(tmp_path / "r"),
+        partition,
+        "rows",
+        main_chunksize={"time": 4},
+        parallel_mode=parallel_mode,
+    )
+    assert released == [True]
+
+
 # --- sub-table cache (TEMPORARY XRADIO_MSV2_SUBTABLE_CACHE switch) ----------------
 
 

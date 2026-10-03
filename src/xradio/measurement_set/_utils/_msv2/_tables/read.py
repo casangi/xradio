@@ -19,6 +19,7 @@ from xradio._utils.list_and_array import get_pad_value
 from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._msv2._tables.read_rows import (
     MainTableRows,
+    TimeChunkRows,
     make_row_grid_plan,
     parse_shape_string,
     read_rows_to_grid,
@@ -1824,27 +1825,22 @@ def read_col_conversion_dask_rows(
     in_file = main_rows.name()
     num_utimes, num_baselines = int(cshape[0]), int(cshape[1])
     time_chunks = da.core.normalize_chunks(time_chunksize, (num_utimes,))[0]
-    chunk_bounds = np.cumsum((0,) + tuple(time_chunks))
 
-    # Rows of every time chunk; the stable sort keeps them ascending in a chunk
-    tidxs = np.asarray(tidxs, dtype=np.int64)
-    bidxs = np.asarray(bidxs, dtype=np.int64)
-    chunk_of_row = np.searchsorted(chunk_bounds, tidxs, side="right") - 1
-    order = np.argsort(chunk_of_row, kind="stable")
-    rows_per_chunk = np.bincount(chunk_of_row, minlength=len(time_chunks))
+    # The rows of every time chunk, computed once per partition and shared by
+    # the blocks of every column: the graph references the partition's index
+    # arrays (one graph key, so a distributed scheduler sends it once per
+    # worker) instead of holding copies per block and column.
+    chunk_rows = main_rows.time_chunk_rows(tidxs, bidxs, time_chunks, num_baselines)
+    shared_rows = main_rows.time_chunk_rows_delayed(chunk_rows)
 
     blocks = []
-    pos = 0
     for k, ntimes in enumerate(time_chunks):
-        idx = order[pos : pos + rows_per_chunk[k]]
-        pos += rows_per_chunk[k]
-        gidx = (tidxs[idx] - chunk_bounds[k]) * num_baselines + bidxs[idx]
         block_shape = (int(ntimes), num_baselines) + extra_dimensions
         block = dask.delayed(_load_rows_time_chunk, pure=False)(
             in_file,
             col,
-            main_rows.rows[idx],
-            gidx,
+            shared_rows,
+            k,
             block_shape,
             col_dtype,
             main_rows.max_elems,
@@ -1857,13 +1853,14 @@ def read_col_conversion_dask_rows(
 def _load_rows_time_chunk(
     in_file: str,
     col: str,
-    rows: np.ndarray,
-    gidx: np.ndarray,
+    chunk_rows: TimeChunkRows,
+    k: int,
     shape: tuple[int, ...],
     dtype: np.dtype,
     max_elems: int,
 ) -> np.ndarray:
-    """Read one time chunk (block) of read_col_conversion_dask_rows."""
+    """Read time chunk (block) ``k`` of read_col_conversion_dask_rows."""
+    rows, gidx = chunk_rows.chunk(k)
     plan = make_row_grid_plan(rows, gidx, shape[0] * shape[1])
     if plan.grid_is_full:
         data = np.empty(shape, dtype=dtype)

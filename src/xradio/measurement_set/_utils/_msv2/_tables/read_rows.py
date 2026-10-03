@@ -773,6 +773,103 @@ def read_rows_to_grid(
     return stats
 
 
+class TimeChunkRows:
+    """
+    The rows of a partition grouped by chunks of times (the blocks of the lazy
+    columns of parallel_mode="time"), computed once per partition and shared,
+    not copied, by every block of every column.
+
+    It holds references to the partition's row numbers and time / baseline
+    indices (alive for the whole partition anyway) plus, only when the rows are
+    not already ordered by time chunk, a permutation (8 bytes per row). Every
+    block computes its own rows and grid cells from these when it runs, so
+    the dask graph holds no per-block or per-column copies of the row indices.
+
+    Parameters
+    ----------
+    rows : np.ndarray
+        MAIN row numbers of the partition (strictly increasing).
+    tidxs : np.ndarray
+        Time index of every partition row.
+    bidxs : np.ndarray
+        Baseline index of every partition row.
+    time_chunks : tuple[int, ...]
+        Number of times of every chunk (as dask chunks along time).
+    num_baselines : int
+        Number of baselines of the grid.
+    """
+
+    __slots__ = (
+        "rows",
+        "tidxs",
+        "bidxs",
+        "order",
+        "row_bounds",
+        "time_bounds",
+        "num_baselines",
+    )
+
+    def __init__(
+        self,
+        rows: np.ndarray,
+        tidxs: np.ndarray,
+        bidxs: np.ndarray,
+        time_chunks: tuple[int, ...],
+        num_baselines: int,
+    ):
+        if len(tidxs) != len(rows) or len(bidxs) != len(rows):
+            raise ValueError(
+                f"Got {len(tidxs)} time and {len(bidxs)} baseline indices for "
+                f"{len(rows)} partition rows"
+            )
+        self.rows = rows
+        self.tidxs = tidxs
+        self.bidxs = bidxs
+        self.num_baselines = int(num_baselines)
+        self.time_bounds = np.cumsum(
+            (0,) + tuple(int(n) for n in time_chunks), dtype=np.int64
+        )
+        n_chunks = len(time_chunks)
+        chunk_of_row = np.searchsorted(self.time_bounds, tidxs, side="right") - 1
+        if chunk_of_row.size < 2 or bool(np.all(chunk_of_row[1:] >= chunk_of_row[:-1])):
+            # rows already ordered by time chunk (e.g. time-ordered MSs)
+            self.order = None
+        else:
+            # a stable sort keeps the rows of a chunk ascending
+            self.order = np.argsort(chunk_of_row, kind="stable")
+            chunk_of_row = chunk_of_row[self.order]
+        self.row_bounds = np.searchsorted(chunk_of_row, np.arange(n_chunks + 1))
+
+    @property
+    def n_chunks(self) -> int:
+        """Number of time chunks."""
+        return int(self.time_bounds.size - 1)
+
+    def chunk(self, k: int) -> tuple[np.ndarray, np.ndarray]:
+        """
+        The rows of time chunk ``k`` and their cells in the chunk's grid.
+
+        Parameters
+        ----------
+        k : int
+            Chunk index.
+
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray]
+            ``(rows, gidx)``: MAIN row numbers (ascending) and flat cells
+            ``(time_index - first time of the chunk) * num_baselines +
+            baseline_index`` (both int64).
+        """
+        lo, hi = int(self.row_bounds[k]), int(self.row_bounds[k + 1])
+        idx = slice(lo, hi) if self.order is None else self.order[lo:hi]
+        rows = np.asarray(self.rows[idx], dtype=np.int64)
+        gidx = (
+            np.asarray(self.tidxs[idx], dtype=np.int64) - int(self.time_bounds[k])
+        ) * self.num_baselines + np.asarray(self.bidxs[idx], dtype=np.int64)
+        return rows, gidx
+
+
 class MainTableRows:
     """
     A partition of the MSv2 MAIN table: the base table plus the partition's row
@@ -810,8 +907,14 @@ class MainTableRows:
         self._table = table
         self._rows = rows
         self._max_elems = _check_max_elems(max_elems)
+        # Plans cached for the index arrays they were computed from. The arrays
+        # are kept and compared by identity ("is"): an id() alone can be reused
+        # by a new array once the old one is freed.
         self._grid_plan_key: tuple[Any, ...] | None = None
         self._grid_plan: RowGridPlan | None = None
+        self._time_chunk_key: tuple[Any, ...] | None = None
+        self._time_chunk_rows: TimeChunkRows | None = None
+        self._time_chunk_delayed: Any = None
 
     @property
     def table(self) -> tables.table:
@@ -868,8 +971,33 @@ class MainTableRows:
 
     def close(self) -> None:
         """Release cached state. The MAIN table is closed by its owner."""
+        self.release_plans()
+
+    def release_plans(self) -> None:
+        """
+        Drop the cached grid plan and time-chunk rows (index arrays of 8-24
+        bytes per row), e.g. once every column of the partition has been read.
+        """
         self._grid_plan = None
         self._grid_plan_key = None
+        self._time_chunk_rows = None
+        self._time_chunk_key = None
+        self._time_chunk_delayed = None
+
+    @staticmethod
+    def _same_key(cached: tuple[Any, ...] | None, key: tuple[Any, ...]) -> bool:
+        # arrays by identity (the cached key holds them, so their ids cannot be
+        # reused), everything else by value
+        return (
+            cached is not None
+            and len(cached) == len(key)
+            and all(
+                a is b
+                if isinstance(a, np.ndarray) or isinstance(b, np.ndarray)
+                else a == b
+                for a, b in zip(cached, key, strict=True)
+            )
+        )
 
     def grid_plan(
         self,
@@ -879,7 +1007,9 @@ class MainTableRows:
     ) -> RowGridPlan:
         """
         The ``RowGridPlan`` of this partition for the given time / baseline
-        indices of its rows (computed on first use, then reused for every column).
+        indices of its rows (computed on first use, then reused for every column
+        read with the same index arrays). The arrays must not be modified in
+        place while the plan is cached (see ``release_plans``).
 
         Parameters
         ----------
@@ -895,8 +1025,8 @@ class MainTableRows:
         RowGridPlan
             Plan of the partition rows.
         """
-        key = (id(tidxs), id(bidxs), tuple(time_baseline_shape))
-        if self._grid_plan is None or self._grid_plan_key != key:
+        key = (tidxs, bidxs, tuple(int(n) for n in time_baseline_shape))
+        if self._grid_plan is None or not self._same_key(self._grid_plan_key, key):
             if len(tidxs) != self._rows.size or len(bidxs) != self._rows.size:
                 raise ValueError(
                     f"Got {len(tidxs)} time and {len(bidxs)} baseline indices for "
@@ -911,3 +1041,75 @@ class MainTableRows:
             )
             self._grid_plan_key = key
         return self._grid_plan
+
+    def time_chunk_rows(
+        self,
+        tidxs: np.ndarray,
+        bidxs: np.ndarray,
+        time_chunks: tuple[int, ...],
+        num_baselines: int,
+    ) -> TimeChunkRows:
+        """
+        The ``TimeChunkRows`` of this partition for the given time / baseline
+        indices and time chunks (computed on first use, then shared by every
+        column read with the same arguments; same caching rule as
+        ``grid_plan``).
+
+        Parameters
+        ----------
+        tidxs : np.ndarray
+            Time index of every partition row.
+        bidxs : np.ndarray
+            Baseline index of every partition row.
+        time_chunks : tuple[int, ...]
+            Number of times of every chunk.
+        num_baselines : int
+            Number of baselines of the grid.
+
+        Returns
+        -------
+        TimeChunkRows
+            Rows of every time chunk.
+        """
+        key = (
+            tidxs,
+            bidxs,
+            tuple(int(n) for n in time_chunks),
+            int(num_baselines),
+        )
+        if self._time_chunk_rows is None or not self._same_key(
+            self._time_chunk_key, key
+        ):
+            self._time_chunk_rows = TimeChunkRows(
+                self._rows, tidxs, bidxs, time_chunks, num_baselines
+            )
+            self._time_chunk_key = key
+            self._time_chunk_delayed = None
+        return self._time_chunk_rows
+
+    def time_chunk_rows_delayed(self, chunk_rows: TimeChunkRows) -> Any:
+        """
+        A dask Delayed of ``chunk_rows`` (as returned by ``time_chunk_rows``),
+        created once, so that the blocks of every column depend on one graph key
+        (the threaded scheduler passes the object itself to every block, a
+        distributed scheduler sends it once per worker).
+
+        Parameters
+        ----------
+        chunk_rows : TimeChunkRows
+            The cached time-chunk rows of this partition.
+
+        Returns
+        -------
+        dask.delayed.Delayed
+            Delayed whose value is ``chunk_rows``.
+        """
+        if chunk_rows is not self._time_chunk_rows:
+            raise ValueError("chunk_rows is not the cached TimeChunkRows")
+        if self._time_chunk_delayed is None:
+            import dask
+
+            self._time_chunk_delayed = dask.delayed(
+                chunk_rows, pure=False, traverse=False
+            )
+        return self._time_chunk_delayed

@@ -901,6 +901,102 @@ def test_read_col_conversion_dask_rows_matches_numpy(
     assert data.tobytes() == expected.tobytes()
 
 
+def _graph_arrays(obj, found=None, visited=None, depth=0):
+    """numpy arrays (by base array id) reachable from a dask graph's values."""
+    found = {} if found is None else found
+    visited = set() if visited is None else visited
+    if depth > 12 or id(obj) in visited:
+        return found
+    visited.add(id(obj))
+    if isinstance(obj, np.ndarray):
+        base = obj
+        while isinstance(base.base, np.ndarray):
+            base = base.base
+        found[id(base)] = base
+        return found
+    if isinstance(obj, dict):
+        children = list(obj.values())
+    elif isinstance(obj, list | tuple | set):
+        children = list(obj)
+    elif isinstance(obj, str | bytes | int | float | type(None)):
+        return found
+    else:
+        children = [
+            getattr(obj, slot)
+            for slot in getattr(type(obj), "__slots__", ())
+            if hasattr(obj, slot)
+        ] + [
+            getattr(obj, attr)
+            for attr in ("args", "kwargs", "value")
+            if hasattr(obj, attr)
+        ]
+    for child in children:
+        _graph_arrays(child, found, visited, depth + 1)
+    return found
+
+
+def test_read_col_conversion_dask_rows_shares_row_indices(ms_minimal_required):
+    """
+    parallel_mode="time": the blocks of all large columns share one graph key
+    with the partition's row / time / baseline indices; the graphs hold no
+    per-block or per-column copies of them (that was 16 bytes per row and
+    column, kept until to_zarr returns).
+    """
+    import dask
+
+    from xradio.measurement_set._utils._msv2._tables.read import (
+        read_col_conversion_dask_rows,
+    )
+    from xradio.measurement_set._utils._msv2._tables.read_rows import (
+        MainTableRows,
+        TimeChunkRows,
+    )
+    from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        partition_main_rows,
+    )
+
+    fname = ms_minimal_required.fname
+    partition, _, tidxs, bidxs, cshape = _ddi0_partition_indices(fname)
+    with open_table_ro(fname) as main_tb:
+        main_rows = MainTableRows(main_tb, partition_main_rows(main_tb, partition))
+        lazy = {
+            col: read_col_conversion_dask_rows(
+                main_rows, col, cshape, tidxs, bidxs, False, 2
+            )
+            for col in ("DATA", "FLAG")
+        }
+        # the partition's own index arrays (by base array, as _graph_arrays)
+        held = set(_graph_arrays([main_rows.rows, tidxs, bidxs]))
+        found = {}
+        for array in lazy.values():
+            graph = dict(array.__dask_graph__())
+            shared = [
+                value
+                for key, value in graph.items()
+                if isinstance(key, str) and key.startswith("TimeChunkRows")
+            ]
+            assert len(shared) == 1
+            _graph_arrays(graph, found)
+        keys = [set(dict(array.__dask_graph__())) for array in lazy.values()]
+        shared_keys = {
+            k for k in keys[0] & keys[1] if str(k).startswith("TimeChunkRows")
+        }
+        assert len(shared_keys) == 1  # one key for both columns
+        extra = sum(a.nbytes for k, a in found.items() if k not in held)
+        n_chunks = len(lazy["DATA"].chunks[0])
+        # chunk bounds only (+ 8 bytes per row for rows not in time order)
+        assert extra <= 16 * (n_chunks + 1) + 8 * main_rows.nrows()
+        chunk_rows = main_rows.time_chunk_rows(
+            tidxs, bidxs, lazy["DATA"].chunks[0], cshape[1]
+        )
+        assert isinstance(chunk_rows, TimeChunkRows)
+        if chunk_rows.order is None:
+            assert extra <= 16 * (n_chunks + 1)
+        computed = dask.compute(*lazy.values(), scheduler="threads", num_workers=2)
+    assert all(isinstance(value, np.ndarray) for value in computed)
+
+
 # --- sub-table cache (TEMPORARY XRADIO_MSV2_SUBTABLE_CACHE switch) ----------------
 
 

@@ -1,4 +1,5 @@
 import datetime
+import functools
 import importlib
 import os
 import pathlib
@@ -71,6 +72,14 @@ from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
 from xradio.measurement_set._utils._msv2.partition_queries import (
     PartitionMainRows,
     partition_main_rows,
+)
+from xradio.measurement_set._utils._msv2.stream_write import (
+    DeferredVariable,
+    deferred_main_column,
+    deferred_ones,
+    get_stream_batch_bytes,
+    get_stream_write_mode,
+    write_deferred_variables,
 )
 from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
 from xradio.measurement_set._utils._utils.stokes_types import stokes_types
@@ -735,11 +744,18 @@ def create_data_variables(
     use_table_iter,
     parallel_mode,
     main_chunksize,
+    deferred: dict[str, DeferredVariable] | None = None,
 ):
     """
     Reads the MAIN columns that become data variables of the main xds and adds
     them to ``xds`` (in place). A column that fails to read is skipped (logged
     at debug level); if WEIGHT_SPECTRUM fails, WEIGHT is tried instead.
+
+    With ``deferred`` (streamed write), the columns are not read here: every
+    data variable is a placeholder, added after checking that the column can
+    be read for the partition (the same columns are skipped), and its
+    description is put in ``deferred``; ``write_deferred_variables`` reads and
+    writes the values after the MSv4 metadata.
 
     Parameters
     ----------
@@ -761,6 +777,10 @@ def create_data_variables(
         chunk size is set in ``main_chunksize``.
     main_chunksize : dict | None
         Chunk sizes of the main xds.
+    deferred : dict[str, DeferredVariable] | None, optional
+        Streamed write (row read path, parallel_mode "none" or "partition"
+        only): filled with the descriptions of the placeholder variables, by
+        name. By default None: the columns are read into the xds.
     """
     time_chunksize = main_chunksize.get("time", None) if main_chunksize else None
     if parallel_mode == "time" and time_chunksize is None:
@@ -791,31 +811,46 @@ def create_data_variables(
     # read) does not depend on the hash seed (set iteration order).
     target_cols = deque(sorted(target_cols))
 
+    if deferred is not None and (not read_rows or parallel_mode == "time"):
+        raise ValueError(
+            "The streamed write needs the row read path and parallel_mode "
+            f"'none' or 'partition' (got {parallel_mode!r})"
+        )
+
     while target_cols:
         col = target_cols.popleft()
         datavar_name = col_to_data_variable_names[col]
-        read_col_conversion = get_read_col_conversion_function(
-            col, parallel_mode, read_rows=read_rows
-        )
+        if deferred is None:
+            read_col_conversion = get_read_col_conversion_function(
+                col, parallel_mode, read_rows=read_rows
+            )
 
         try:
             start = time.time()
-            col_data = read_col_conversion(
-                table_manager,
-                col,
-                time_baseline_shape,
-                tidxs,
-                bidxs,
-                use_table_iter,
-                time_chunksize,
-            )
-
-            if col == "TIME_CENTROID":
-                col_data = convert_casacore_time(col_data, False)
-
-            elif col == "WEIGHT":
-                col_data = repeat_weight_array(
-                    col_data, parallel_mode, xds.sizes, main_chunksize
+            if deferred is None:
+                col_data = read_col_conversion(
+                    table_manager,
+                    col,
+                    time_baseline_shape,
+                    tidxs,
+                    bidxs,
+                    use_table_iter,
+                    time_chunksize,
+                )
+                col_data = postprocess_main_column(
+                    col, col_data, parallel_mode, xds.sizes, main_chunksize
+                )
+            else:
+                # The same conversion, applied to every batch when it is written
+                transform = functools.partial(
+                    postprocess_main_column,
+                    col,
+                    parallel_mode="none",
+                    main_sizes={"frequency": xds.sizes["frequency"]},
+                    main_chunksize=None,
+                )
+                col_data, spec = deferred_main_column(
+                    table_manager, col, datavar_name, time_baseline_shape, transform
                 )
 
             xds[datavar_name] = xr.DataArray(
@@ -823,6 +858,8 @@ def create_data_variables(
                 dims=col_dims[col],
                 attrs=create_attribute_metadata(col, main_column_descriptions),
             )
+            if deferred is not None:
+                deferred[datavar_name] = spec
             xradio_logger().debug(f"Time to read column {col} : {time.time() - start}")
 
         except Exception as exc:
@@ -889,6 +926,45 @@ def repeat_weight_array(
         return result.rechunk(chunksizes)
 
     return np.tile(reshaped_arr, repeats)
+
+
+def postprocess_main_column(
+    col: str,
+    col_data,
+    parallel_mode: str = "none",
+    main_sizes: dict[str, int] | None = None,
+    main_chunksize: dict[str, int] | None = None,
+):
+    """
+    The conversion applied to the values of a MAIN column after reading them
+    onto the (time, baseline) grid: TIME_CENTROID to seconds from the Unix
+    epoch, WEIGHT repeated along frequency (see repeat_weight_array); other
+    columns are returned as they are. Used for whole columns and for the
+    batches of the streamed write.
+
+    Parameters
+    ----------
+    col : str
+        MAIN column name.
+    col_data : np.ndarray | da.Array
+        Column values on the (time, baseline, ...) grid.
+    parallel_mode : str, optional
+        As for repeat_weight_array.
+    main_sizes : dict[str, int] | None, optional
+        Sizes of the main xds (WEIGHT only).
+    main_chunksize : dict[str, int] | None, optional
+        Chunk sizes of the main xds (WEIGHT with parallel_mode="time" only).
+
+    Returns
+    -------
+    np.ndarray | da.Array
+        The converted values.
+    """
+    if col == "TIME_CENTROID":
+        return convert_casacore_time(col_data, False)
+    if col == "WEIGHT":
+        return repeat_weight_array(col_data, parallel_mode, main_sizes, main_chunksize)
+    return col_data
 
 
 def add_missing_data_var_attrs(xds):
@@ -1242,6 +1318,18 @@ def convert_and_write_partition(
     taql_where = create_taql_query_where(partition_info)
     # TEMPORARY (exploration only): "rows" (default) or "taql", see get_main_read_mode
     main_read = get_main_read_mode()
+    # Streamed write of the MAIN data variables (TEMPORARY switch
+    # XRADIO_MSV2_STREAM_WRITE, see stream_write.py): they are written after the
+    # MSv4 metadata, one at a time, in batches of whole zarr chunks along time.
+    # parallel_mode="time" already writes the large ones lazily (dask).
+    stream_write = (
+        storage_backend == "zarr"
+        and main_read == "rows"
+        and parallel_mode in ("none", "partition")
+        and get_stream_write_mode()
+    )
+    deferred: dict[str, DeferredVariable] | None = {} if stream_write else None
+    stream_batch_bytes = get_stream_batch_bytes() if stream_write else None
     table_manager = TableManager(in_file, taql_where)
     ddi = partition_info["DATA_DESC_ID"][0]
     scan_intents = str(partition_info["OBS_MODE"][0]).split(",")
@@ -1349,6 +1437,7 @@ def convert_and_write_partition(
             use_table_iter,
             parallel_mode,
             main_chunksize,
+            deferred=deferred,
         )
 
         # Add data_groups
@@ -1358,7 +1447,11 @@ def convert_and_write_partition(
         if (
             "WEIGHT" not in xds.data_vars
         ):  # Some single dish datasets don't have WEIGHT.
-            if is_single_dish:
+            if deferred is not None:  # streamed write: written after the metadata
+                like = xds.SPECTRUM if is_single_dish else xds.VISIBILITY
+                ones, deferred["WEIGHT"] = deferred_ones("WEIGHT", like.shape)
+                xds["WEIGHT"] = xr.DataArray(ones, dims=like.dims)
+            elif is_single_dish:
                 xds["WEIGHT"] = xr.DataArray(
                     np.ones(xds.SPECTRUM.shape, dtype=np.float64),
                     dims=xds.SPECTRUM.dims,
@@ -1480,10 +1573,18 @@ def convert_and_write_partition(
         start = time.time()
 
         # Time and frequency should always be increasing
+        reverse_frequency = False
         if len(xds.frequency) > 1 and xds.frequency[1] - xds.frequency[0] < 0:
             xds = xds.sel(frequency=slice(None, None, -1))
+            reverse_frequency = True  # the streamed write reverses every batch
 
         if len(xds.time) > 1 and xds.time[1] - xds.time[0] < 0:
+            if deferred is not None:
+                # The row read path gives sorted times (np.unique), so this is
+                # not reached; the batches are not reversed along time.
+                raise RuntimeError(
+                    "The streamed write needs increasing times, got decreasing ones"
+                )
             xds = xds.sel(time=slice(None, None, -1))
 
         # Create field_and_source_xds (combines field, source and ephemeris data into one super dataset)
@@ -1596,11 +1697,35 @@ def convert_and_write_partition(
         if storage_backend == "zarr":
             from xradio._utils.zarr.config import ZARR_FORMAT
 
-            ms_xdt.to_zarr(
-                store=os.path.join(out_file, ms_v4_name),
-                mode=persistence_mode,
-                zarr_format=ZARR_FORMAT,
-            )
+            store_path = os.path.join(out_file, ms_v4_name)
+            if deferred is None:
+                ms_xdt.to_zarr(
+                    store=store_path,
+                    mode=persistence_mode,
+                    zarr_format=ZARR_FORMAT,
+                )
+            else:
+                # Streamed write: all metadata (encodings, consolidated metadata),
+                # coordinates, small variables and sub-datasets now; the deferred
+                # (placeholder) variables are never computed but written next, one
+                # at a time, in batches of whole zarr chunks along time.
+                ms_xdt.to_zarr(
+                    store=store_path,
+                    mode=persistence_mode,
+                    zarr_format=ZARR_FORMAT,
+                    compute=False,
+                )
+                write_deferred_variables(
+                    store_path,
+                    xds,
+                    deferred,
+                    tb_tool,
+                    tidxs,
+                    bidxs,
+                    time_baseline_shape[1],
+                    reverse_frequency,
+                    stream_batch_bytes,
+                )
         elif storage_backend == "netcdf":
             # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
             raise

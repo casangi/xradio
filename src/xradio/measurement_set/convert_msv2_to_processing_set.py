@@ -111,6 +111,7 @@ def convert_msv2_to_processing_set(
         ... )
     main_chunksize : Union[Dict, float, None], optional
         Defines the chunk size of the main dataset. If given as a dictionary, defines the sizes of several dimensions, and acceptable keys are "time", "baseline_id", "antenna_id", "frequency", "polarization". If given as a float, gives the size of a chunk in GiB. By default, None.
+        With parallel_mode "none" or "partition" (and the default row read path), the data variables of the main dataset are read and written one at a time, in batches of whole time chunks: with time chunks smaller than a data variable, a partition never holds a whole data variable in memory. By default (None) every data variable is one chunk, written in one piece.
     with_pointing : bool, optional
         Whether to convert the POINTING subtable into pointing sub-datasets
     pointing_chunksize : Union[Dict, float, None], optional

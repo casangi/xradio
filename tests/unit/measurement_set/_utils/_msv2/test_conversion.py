@@ -9,6 +9,10 @@ import pytest
 import xarray as xr
 
 import xradio.measurement_set._utils._msv2.conversion as conversion
+from xradio.measurement_set._utils._msv2.stream_write import (
+    STREAM_BATCH_MB_ENV_VAR,
+    STREAM_WRITE_ENV_VAR,
+)
 from xradio.measurement_set.schema import VisibilityXds
 from xradio.schema.check import check_dataset, check_datatree
 from xradio.testing.measurement_set.checker import check_msv4_matches_descr
@@ -535,14 +539,17 @@ def test_convert_and_write_partition_custom(ms_custom_spec):
 MAIN_LAYOUTS = ("dense", "sparse_dup", "baseline_major")
 
 
-def _rewrite_main_rows(msname: str, layout: str, seed: int) -> None:
+def _rewrite_main_rows(
+    msname: str, layout: str, seed: int, weight: bool = True
+) -> None:
     """
     Rewrite the MAIN rows of a generated MS: every DDI gets 30 times x 10
     baselines (time-major or baseline-major rows), random data, flags, weights
-    and UVW. "sparse_dup" moves 10% of the rows to 3 extra, sparsely filled
-    times (leaving their cells empty) and gives some rows the (time, baseline)
-    of the row before (duplicated cells). The generated MS uses
-    TiledColumnStMan, which cannot remove rows.
+    (unless ``weight`` is False: the WEIGHT cells stay undefined) and UVW.
+    "sparse_dup" moves 10% of the rows to 3 extra, sparsely filled times
+    (leaving their cells empty) and gives some rows the (time, baseline) of the
+    row before (duplicated cells). The generated MS uses TiledColumnStMan,
+    which cannot remove rows.
     """
     from casacore import tables
 
@@ -586,7 +593,8 @@ def _rewrite_main_rows(msname: str, layout: str, seed: int) -> None:
             )
             main_tb.putcol(col, values.astype(np.complex64))
         main_tb.putcol("FLAG", rng.random((nrows,) + cell) < 0.3)
-        main_tb.putcol("WEIGHT", rng.random((nrows, cell[1])).astype(np.float32))
+        if weight:
+            main_tb.putcol("WEIGHT", rng.random((nrows, cell[1])).astype(np.float32))
 
 
 @pytest.fixture(scope="module")
@@ -1001,22 +1009,34 @@ def test_get_read_col_conversion_function(col_name, parallel_mode, read_rows, ex
     assert func.__name__ == expected
 
 
+@pytest.mark.parametrize("stream", ["0", "1"])
 def test_create_data_variables_reads_columns_in_sorted_order(
-    ms_main_layouts, tmp_path, monkeypatch
+    ms_main_layouts, stream, tmp_path, monkeypatch
 ):
-    """The read order (and with it the memory peak) does not depend on the hash seed."""
+    """The read order (and with it the memory peak and the order of the data
+    variables) does not depend on the hash seed."""
     from xradio.measurement_set._utils._msv2.partition_queries import (
         create_partitions,
     )
 
     read_cols = []
-    get_function = conversion.get_read_col_conversion_function
+    monkeypatch.setenv(STREAM_WRITE_ENV_VAR, stream)
+    if stream == "0":
+        get_function = conversion.get_read_col_conversion_function
 
-    def spy(col_name, *args, **kwargs):
-        read_cols.append(col_name)
-        return get_function(col_name, *args, **kwargs)
+        def spy(col_name, *args, **kwargs):
+            read_cols.append(col_name)
+            return get_function(col_name, *args, **kwargs)
 
-    monkeypatch.setattr(conversion, "get_read_col_conversion_function", spy)
+        monkeypatch.setattr(conversion, "get_read_col_conversion_function", spy)
+    else:  # the columns are checked (and later written) in the same order
+        deferred_column = conversion.deferred_main_column
+
+        def spy(main_rows, col, *args, **kwargs):
+            read_cols.append(col)
+            return deferred_column(main_rows, col, *args, **kwargs)
+
+        monkeypatch.setattr(conversion, "deferred_main_column", spy)
     msname = ms_main_layouts["dense"]
     partition = create_partitions(msname, [])[0]
     _convert_partition(monkeypatch, msname, str(tmp_path / "r"), partition, "rows")
@@ -1118,3 +1138,517 @@ def test_convert_and_write_partition_subtable_cache_bit_identical(
     assert n_converted > 1
     assert cache.stats["pointing_cached"] == n_converted
     assert cache.stats["memo_hits"] > 0
+
+
+# --- streamed write of the MAIN data variables (TEMPORARY XRADIO_MSV2_STREAM_WRITE) --
+
+
+def _store_contents(path: str) -> tuple[dict, dict]:
+    """
+    The files of a zarr store: the sha256 of every chunk file, and every
+    zarr.json (array / group metadata, consolidated metadata) as JSON without
+    the creation dates (they differ per run).
+    """
+    import hashlib
+    import json
+
+    chunks, metadata = {}, {}
+    for dirpath, _, filenames in os.walk(path):
+        for filename in filenames:
+            file_path = os.path.join(dirpath, filename)
+            rel = os.path.relpath(file_path, path)
+            with open(file_path, "rb") as f:
+                content = f.read()
+            if filename == "zarr.json":
+                metadata[rel] = _without_dates(json.loads(content))
+            else:
+                chunks[rel] = hashlib.sha256(content).hexdigest()
+    return chunks, metadata
+
+
+def assert_stores_identical(path_a: str, path_b: str) -> None:
+    """Byte-identical chunk files, same metadata except dates."""
+    chunks_a, metadata_a = _store_contents(path_a)
+    chunks_b, metadata_b = _store_contents(path_b)
+    assert sorted(chunks_a) == sorted(chunks_b)
+    assert [name for name in chunks_a if chunks_a[name] != chunks_b[name]] == []
+    assert sorted(metadata_a) == sorted(metadata_b)
+    for name in metadata_a:
+        assert metadata_a[name] == metadata_b[name], name
+
+
+def _convert_streamed(
+    monkeypatch, msname, out_file, partition_info, stream, batch_mb=None, **kw
+):
+    """Convert one partition (row read path) with or without the streamed
+    write; returns the MSv4 and its store path."""
+    monkeypatch.setenv(STREAM_WRITE_ENV_VAR, stream)
+    if batch_mb is None:
+        monkeypatch.delenv(STREAM_BATCH_MB_ENV_VAR, raising=False)
+    else:
+        monkeypatch.setenv(STREAM_BATCH_MB_ENV_VAR, str(batch_mb))
+    xdt = _convert_partition(
+        monkeypatch, msname, out_file, partition_info, "rows", **kw
+    )
+    msv4_name = pathlib.Path(msname).name.replace(".ms", "") + "_0"
+    return xdt, os.path.join(out_file, msv4_name)
+
+
+@pytest.fixture
+def stream_stats(monkeypatch):
+    """The statistics returned by every write_deferred_variables call."""
+    recorded = []
+    write = conversion.write_deferred_variables
+
+    def spy(*args, **kwargs):
+        stats = write(*args, **kwargs)
+        recorded.append(stats)
+        return stats
+
+    monkeypatch.setattr(conversion, "write_deferred_variables", spy)
+    return recorded
+
+
+STREAM_CHUNKS = {
+    "one_chunk": None,  # the default: one chunk per variable
+    "time4": {"time": 4},  # uneven last chunk
+    "time1": {"time": 1},
+    "balanced": 2e-6,  # GiB: chunks along time, baseline and frequency
+}
+# one chunk per batch, a few chunks per batch, the default (one batch here)
+STREAM_BATCH_MB = (1e-9, 0.02, None)
+
+
+@pytest.mark.parametrize("chunks", list(STREAM_CHUNKS))
+@pytest.mark.parametrize("layout", MAIN_LAYOUTS)
+def test_stream_write_bit_identical(
+    ms_main_layouts, layout, chunks, tmp_path, monkeypatch, stream_stats
+):
+    """
+    The streamed write gives byte-identical chunk files and the same metadata
+    (except dates) as reading everything and one to_zarr: dense, sparse with
+    duplicated (time, baseline) rows and baseline-major rows, several chunk
+    layouts and batch sizes.
+    """
+    from xradio.measurement_set._utils._msv2 import stream_write
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
+
+    msname = ms_main_layouts[layout]
+    partitions, runs = create_partitions_with_main_rows(msname, [])
+    kw = {"main_chunksize": STREAM_CHUNKS[chunks], "main_row_runs": runs[1]}
+    old_xdt, old = _convert_streamed(
+        monkeypatch, msname, str(tmp_path / "old"), partitions[1], "0", **kw
+    )
+    for idx, batch_mb in enumerate(STREAM_BATCH_MB):
+        _, new = _convert_streamed(
+            monkeypatch,
+            msname,
+            str(tmp_path / f"new{idx}"),
+            partitions[1],
+            "1",
+            batch_mb,
+            **kw,
+        )
+        assert_stores_identical(old, new)
+    assert len(stream_stats) == len(STREAM_BATCH_MB)
+
+    n_times = old_xdt.ds.sizes["time"]
+    time_chunk = old_xdt.ds.VISIBILITY.encoding["chunks"][0]
+    expected = {
+        "VISIBILITY",
+        "VISIBILITY_CORRECTED",
+        "FLAG",
+        "WEIGHT",
+        "UVW",
+        "TIME_CENTROID",
+        "EFFECTIVE_INTEGRATION_TIME",
+    }
+    for stats, batch_mb in zip(stream_stats, STREAM_BATCH_MB, strict=True):
+        assert set(stats["variables"]) == expected
+        vis = stats["variables"]["VISIBILITY"]
+        assert vis["calls"] >= 1 and vis["direct_rows"] + vis["scatter_rows"] > 0
+        target = int((batch_mb or stream_write.DEFAULT_STREAM_BATCH_MB) * 2**20)
+        batches = stream_write.time_batches(
+            n_times, time_chunk, vis["bytes"] // n_times, max(1, target)
+        )
+        fits_budget = vis["bytes"] <= stream_write.FRAGMENTED_BATCH_FACTOR * target
+        if len(batches) == 1:
+            assert vis["batches"] == 1 and vis["guard"] == "one batch"
+        elif layout == "dense":  # time-ordered: one row run per batch
+            assert vis["guard"] == "time" and vis["batches"] == len(batches)
+            assert vis["runs_batched"] == vis["runs_whole"] + len(batches) - 1
+        elif layout == "baseline_major":  # the small-read guard
+            assert vis["runs_whole"] == 1
+            if fits_budget:
+                assert vis["guard"] == "fragmented: one pass" and vis["batches"] == 1
+            else:
+                assert vis["guard"] == "fragmented: large batches"
+        else:  # sparse_dup: the rows of the extra times are spread over the partition
+            assert vis["guard"] in (
+                "time",
+                "fragmented: one pass",
+                "fragmented: large batches",
+            )
+    for stats in stream_stats[-1]["variables"].values():  # default batch size
+        assert stats["batches"] == 1
+    # one chunk per batch on time-ordered rows
+    if layout == "dense":
+        vis = stream_stats[0]["variables"]["VISIBILITY"]
+        assert vis["batches"] == -(-n_times // time_chunk)
+
+
+@pytest.mark.parametrize(
+    "layout, guard",
+    [
+        ("baseline_major", "forced_time_batches"),
+        ("sparse_dup", "forced_time_batches"),
+        ("baseline_major", "large_batches"),
+    ],
+)
+def test_stream_write_fragmented_rows_bit_identical(
+    ms_main_layouts, layout, guard, tmp_path, monkeypatch, stream_stats
+):
+    """Rows scattered over time batches (baseline-major, sparse with duplicated
+    cells) read in time batches (guard disabled) or in the larger batches of
+    the guard: still byte-identical."""
+    from xradio.measurement_set._utils._msv2 import stream_write
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
+
+    msname = ms_main_layouts[layout]
+    partitions, runs = create_partitions_with_main_rows(msname, [])
+    kw = {"main_chunksize": {"time": 4}, "main_row_runs": runs[2]}
+    old_xdt, old = _convert_streamed(
+        monkeypatch, msname, str(tmp_path / "old"), partitions[2], "0", **kw
+    )
+    n_chunks = -(-old_xdt.ds.sizes["time"] // 4)
+    if guard == "forced_time_batches":
+        monkeypatch.setattr(stream_write, "FRAGMENTED_RUNS_RATIO", np.inf)
+    else:
+        monkeypatch.setattr(stream_write, "FRAGMENTED_BATCH_FACTOR", 3)
+    # 0.01 MiB: one 10240-byte VISIBILITY chunk (4 times x 10 baselines x 16 x 2)
+    _, new = _convert_streamed(
+        monkeypatch, msname, str(tmp_path / "new"), partitions[2], "1", 0.01, **kw
+    )
+    assert_stores_identical(old, new)
+    vis = stream_stats[-1]["variables"]["VISIBILITY"]
+    if guard == "forced_time_batches":
+        assert vis["guard"] == "time" and vis["batches"] == n_chunks
+        assert vis["runs_batched"] > 2 * vis["runs_whole"]
+    else:  # 3 chunks per batch
+        assert vis["guard"] == "fragmented: large batches"
+        assert vis["batches"] == -(-n_chunks // 3)
+
+
+@pytest.mark.parametrize(
+    "variant, scheme",
+    [
+        ("interferometer", []),
+        ("interferometer", ["FIELD_ID"]),
+        ("single_dish", ["ANTENNA1"]),
+    ],
+)
+def test_stream_write_tiled_shape_main_bit_identical(
+    ms_tiled_shape_main, variant, scheme, tmp_path, monkeypatch
+):
+    """TiledShapeStMan MAIN columns (tiles shared by partitions, interleaved
+    FIELD_IDs) and single dish (antenna_name, no UVW)."""
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
+
+    msname = ms_tiled_shape_main[variant]
+    partitions, runs = create_partitions_with_main_rows(msname, scheme)
+    converted = 0
+    for idx in range(min(len(partitions), 2)):
+        kw = {
+            "main_row_runs": runs[idx],
+            "with_pointing": False,
+            "main_chunksize": {"time": 3},
+        }
+        out = {}
+        for stream in ("0", "1"):
+            try:
+                xdt, out[stream] = _convert_streamed(
+                    monkeypatch,
+                    msname,
+                    str(tmp_path / f"s{stream}_{idx}"),
+                    partitions[idx],
+                    stream,
+                    1e-9,
+                    **kw,
+                )
+            except Exception as exc:
+                out[stream] = f"{type(exc).__name__}: {exc}"
+        if out["0"].startswith(str(tmp_path)) and out["1"].startswith(str(tmp_path)):
+            assert_stores_identical(out["0"], out["1"])
+            converted += 1
+            if variant == "single_dish":
+                assert "antenna_name" in xdt.ds.SPECTRUM.dims and "UVW" not in xdt.ds
+        else:
+            assert out["0"] == out["1"]
+    assert converted >= 1
+
+
+STREAM_EDGE_VARIANTS = ("reversed_freq", "wsp_partial", "no_weight", "varying_shape")
+
+
+def _add_tiled_shape_column(main_tb, col, values, tile_rows, rows=None):
+    """Add a TiledShapeStMan column; only ``rows`` (all by default) are written,
+    the other cells stay undefined."""
+    from casacore import tables
+
+    desc = tables.makearrcoldesc(
+        col,
+        values.flat[0],
+        ndim=2,
+        valuetype={"f": "float", "c": "complex"}[values.dtype.kind],
+        datamanagertype="TiledShapeStMan",
+        datamanagergroup=f"TSM_{col}",
+    )
+    cell = values.shape[1:]
+    main_tb.addcols(
+        tables.maketabdesc([desc]),
+        dminfo={
+            "TYPE": "TiledShapeStMan",
+            "NAME": f"TSM_{col}",
+            "SPEC": {
+                "DEFAULTTILESHAPE": np.array([cell[1], cell[0], tile_rows], np.int32)
+            },
+        },
+    )
+    if rows is None:
+        main_tb.putcol(col, values)
+        return
+    for row in rows:
+        main_tb.putcell(col, int(row), values[row])
+
+
+@pytest.fixture(scope="module")
+def ms_stream_edges(tmp_path_factory):
+    """
+    Generated MSs (dense, time-ordered rows, see _rewrite_main_rows) for the
+    column decisions of the streamed write:
+
+    - "reversed_freq": decreasing CHAN_FREQ, WEIGHT_SPECTRUM (TiledShapeStMan)
+    - "wsp_partial": WEIGHT_SPECTRUM with undefined cells in the middle of
+      every partition (falls back to WEIGHT)
+    - "no_weight": no WEIGHT_SPECTRUM and undefined WEIGHT cells (WEIGHT=1)
+    - "varying_shape": MODEL_DATA (StandardStMan) with cells of another shape
+      in every partition (VISIBILITY_MODEL is dropped); in "reversed_freq"
+      all its cells have one shape
+    """
+    from casacore import tables
+
+    from xradio.testing.measurement_set.msv2_io import default_ms_descr, gen_test_ms
+
+    base = tmp_path_factory.mktemp("ms_stream_edges")
+    paths = {}
+    for seed, variant in enumerate(STREAM_EDGE_VARIANTS):
+        msname = str(base / f"edge_{variant}.ms")
+        gen_test_ms(
+            msname,
+            descr=dict(default_ms_descr, data_cols=["DATA", "CORRECTED_DATA"]),
+            opt_tables=True,
+            vlbi_tables=False,
+            required_only=True,
+            misbehave=False,
+        )
+        _rewrite_main_rows(msname, "dense", seed, weight=variant != "no_weight")
+        rng = np.random.default_rng(100 + seed)
+        with tables.table(msname, readonly=False, ack=False) as main_tb:
+            nrows = main_tb.nrows()
+            cell = main_tb.getcell("DATA", 0).shape
+            ddi = main_tb.getcol("DATA_DESC_ID")
+            pos = np.arange(nrows) - np.searchsorted(ddi, ddi)  # row index in its DDI
+            weights = rng.random((nrows,) + cell).astype(np.float32)
+            if variant == "reversed_freq":
+                _add_tiled_shape_column(main_tb, "WEIGHT_SPECTRUM", weights, 7)
+            elif variant == "wsp_partial":
+                defined = np.flatnonzero((pos < 100) | (pos >= 110))
+                _add_tiled_shape_column(main_tb, "WEIGHT_SPECTRUM", weights, 7, defined)
+            if variant in ("reversed_freq", "varying_shape"):
+                # MODEL_DATA in StandardStMan (indirect arrays: cells compared)
+                model = (weights + 1j * weights[::-1]).astype(np.complex64)
+                desc = tables.makearrcoldesc(
+                    "MODEL_DATA", 0j, ndim=2, valuetype="complex"
+                )
+                main_tb.addcols(tables.maketabdesc([desc]))
+                main_tb.putcol("MODEL_DATA", model)
+                if variant == "varying_shape":
+                    for row in np.flatnonzero((pos >= 50) & (pos < 53)):
+                        main_tb.putcell("MODEL_DATA", int(row), model[row][:, :1])
+        if variant == "reversed_freq":
+            with tables.table(
+                os.path.join(msname, "SPECTRAL_WINDOW"), readonly=False, ack=False
+            ) as spw_tb:
+                n_spw, n_chan = spw_tb.getcol("CHAN_FREQ").shape
+                decreasing = 1.0e9 + 1.0e6 * np.arange(n_chan)[::-1]
+                spw_tb.putcol("CHAN_FREQ", np.tile(decreasing, (n_spw, 1)))
+        paths[variant] = msname
+    yield paths
+    shutil.rmtree(base, ignore_errors=True)
+
+
+@pytest.mark.parametrize("variant", STREAM_EDGE_VARIANTS)
+def test_stream_write_column_decisions_bit_identical(
+    ms_stream_edges, variant, tmp_path, monkeypatch, stream_stats
+):
+    """
+    The columns that the non-streamed path skips (undefined cells, other cell
+    shapes) or replaces (WEIGHT_SPECTRUM -> WEIGHT -> WEIGHT=1) are decided
+    before writing, with the same result; reversed frequencies are reversed
+    batch by batch.
+    """
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
+
+    msname = ms_stream_edges[variant]
+    partitions, runs = create_partitions_with_main_rows(msname, [])
+    kw = {"main_chunksize": {"time": 4}, "main_row_runs": runs[1]}
+    old_xdt, old = _convert_streamed(
+        monkeypatch, msname, str(tmp_path / "old"), partitions[1], "0", **kw
+    )
+    new_xdt, new = _convert_streamed(
+        monkeypatch, msname, str(tmp_path / "new"), partitions[1], "1", 1e-9, **kw
+    )
+    assert_stores_identical(old, new)
+    assert_msv4_bit_identical(old_xdt, new_xdt)
+    xds, stats = new_xdt.ds, stream_stats[-1]["variables"]
+    assert stats["VISIBILITY"]["batches"] > 1
+    if variant == "reversed_freq":
+        assert np.all(np.diff(xds.frequency.values) > 0)
+        assert stats["WEIGHT"]["col"] == "WEIGHT_SPECTRUM"
+        assert "TiledShapeStMan" in stats["WEIGHT"]["readable"]
+        assert "compared" in stats["VISIBILITY_MODEL"]["readable"]
+    elif variant == "wsp_partial":
+        assert stats["WEIGHT"]["col"] == "WEIGHT"
+        assert xds.WEIGHT.dtype == np.float32
+    elif variant == "no_weight":
+        assert stats["WEIGHT"]["col"] is None and xds.WEIGHT.dtype == np.float64
+        assert np.all(xds.WEIGHT.values == 1)
+    else:
+        assert "VISIBILITY_MODEL" not in xds and "VISIBILITY_MODEL" not in stats
+        assert sorted(xds.attrs["data_groups"]) == ["base", "corrected"]
+
+
+def test_stream_write_failure_removes_the_variable(
+    ms_main_layouts, tmp_path, monkeypatch
+):
+    """A read failing after part of a variable was written: the variable is
+    removed (array and consolidated metadata) and the error is raised; the
+    variables written before it are complete."""
+    import json
+
+    from xradio.measurement_set._utils._msv2 import stream_write
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
+
+    msname = ms_main_layouts["dense"]
+    partitions, runs = create_partitions_with_main_rows(msname, [])
+    kw = {"main_chunksize": {"time": 4}, "main_row_runs": runs[0]}
+    old_xdt, _ = _convert_streamed(
+        monkeypatch, msname, str(tmp_path / "old"), partitions[0], "0", **kw
+    )
+    read = stream_write.read_rows_to_grid
+    data_reads = []
+
+    def failing_read(table, col, *args, **kwargs):
+        if col == "DATA":
+            data_reads.append(col)
+            if len(data_reads) == 2:
+                raise RuntimeError("simulated read failure")
+        return read(table, col, *args, **kwargs)
+
+    monkeypatch.setattr(stream_write, "read_rows_to_grid", failing_read)
+    with pytest.raises(RuntimeError, match="simulated read failure"):
+        _convert_streamed(
+            monkeypatch, msname, str(tmp_path / "new"), partitions[0], "1", 1e-9, **kw
+        )
+    store = os.path.join(
+        str(tmp_path / "new"), pathlib.Path(msname).name.replace(".ms", "") + "_0"
+    )
+    assert not os.path.exists(os.path.join(store, "VISIBILITY"))
+    with open(os.path.join(store, "zarr.json")) as f:
+        consolidated = json.load(f)["consolidated_metadata"]["metadata"]
+    assert "VISIBILITY" not in consolidated
+    assert "VISIBILITY_CORRECTED" in consolidated
+    partial = xr.open_datatree(store, engine="zarr")
+    assert "VISIBILITY" not in partial.ds
+    # written before the failure (data variable order), complete
+    assert (
+        partial.ds.VISIBILITY_CORRECTED.values.tobytes()
+        == old_xdt.ds.VISIBILITY_CORRECTED.values.tobytes()
+    )
+
+
+@pytest.mark.parametrize(
+    "main_read, parallel_mode, stream, streamed",
+    [
+        ("rows", "none", "1", True),
+        ("rows", "partition", "1", True),
+        ("rows", "none", "0", False),
+        ("rows", "time", "1", False),  # already lazy (dask)
+        ("taql", "none", "1", False),
+    ],
+)
+def test_stream_write_selection(
+    ms_main_layouts, main_read, parallel_mode, stream, streamed, tmp_path, monkeypatch
+):
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions,
+    )
+
+    calls = []
+    monkeypatch.setattr(
+        conversion,
+        "write_deferred_variables",
+        lambda *args, **kwargs: calls.append(args) or {},
+    )
+    monkeypatch.setenv(STREAM_WRITE_ENV_VAR, stream)
+    msname = ms_main_layouts["dense"]
+    partition = create_partitions(msname, [])[0]
+    if streamed:
+        # placeholders only: the spy writes nothing, so do not read the result
+        monkeypatch.setenv(conversion.MAIN_READ_ENV_VAR, main_read)
+        conversion.convert_and_write_partition(
+            in_file=msname,
+            out_file=str(tmp_path / "r"),
+            ms_v4_id="0",
+            partition_info=partition,
+            use_table_iter=False,
+            parallel_mode=parallel_mode,
+            persistence_mode="w",
+        )
+    else:
+        _convert_partition(
+            monkeypatch,
+            msname,
+            str(tmp_path / "r"),
+            partition,
+            main_read,
+            main_chunksize={"time": 4},
+            parallel_mode=parallel_mode,
+        )
+    assert len(calls) == (1 if streamed else 0)
+
+
+def test_stream_write_rejects_a_bad_batch_size_before_writing(
+    ms_main_layouts, tmp_path, monkeypatch
+):
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions,
+    )
+
+    msname = ms_main_layouts["dense"]
+    partition = create_partitions(msname, [])[0]
+    with pytest.raises(ValueError, match=STREAM_BATCH_MB_ENV_VAR):
+        _convert_streamed(
+            monkeypatch, msname, str(tmp_path / "r"), partition, "1", "zero"
+        )
+    assert not os.path.exists(str(tmp_path / "r"))

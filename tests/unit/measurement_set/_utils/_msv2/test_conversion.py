@@ -766,6 +766,162 @@ def test_convert_and_write_partition_rows_time_mode(
         assert_msv4_bit_identical(taql_timed, timed)
 
 
+def _to_tiled_shape_columns(main_tb, columns: dict, cell: tuple, tile_rows: int):
+    """Replace MAIN columns by TiledShapeStMan columns (tile_rows rows per tile)
+    holding the given values."""
+    from casacore import tables
+
+    main_tb.removecols([col for col in columns if col in main_tb.colnames()])
+    for col, values in columns.items():
+        group = f"TSM_{col}"
+        desc = tables.makearrcoldesc(
+            col,
+            values.flat[0],
+            ndim=2,
+            valuetype={"b": "boolean", "f": "float", "c": "complex"}[values.dtype.kind],
+            datamanagertype="TiledShapeStMan",
+            datamanagergroup=group,
+        )
+        tile = np.array([cell[1], cell[0], tile_rows], dtype=np.int32)
+        main_tb.addcols(
+            tables.maketabdesc([desc]),
+            dminfo={
+                "TYPE": "TiledShapeStMan",
+                "NAME": group,
+                "SPEC": {"DEFAULTTILESHAPE": tile},
+            },
+        )
+        main_tb.putcol(col, values)
+
+
+@pytest.fixture(scope="module")
+def ms_tiled_shape_main(tmp_path_factory):
+    """
+    Generated MSs whose MAIN data columns are TiledShapeStMan columns with
+    7-row tiles (tiles hold rows of several partitions), with interleaved
+    FIELD_IDs:
+
+    - "interferometer": DATA, CORRECTED_DATA, FLAG; every 5th row an
+      autocorrelation.
+    - "single_dish": FLOAT_DATA, FLAG; autocorrelations only (ANTENNA1
+      partitions).
+    """
+    from casacore import tables
+
+    from xradio.testing.measurement_set.msv2_io import default_ms_descr, gen_test_ms
+
+    base = tmp_path_factory.mktemp("ms_tiled_shape_main")
+    paths = {}
+    for variant in ("interferometer", "single_dish"):
+        msname = str(base / f"tsm_{variant}.ms")
+        gen_test_ms(
+            msname,
+            descr=dict(default_ms_descr, data_cols=["DATA", "CORRECTED_DATA"]),
+            opt_tables=True,
+            vlbi_tables=False,
+            required_only=True,
+            misbehave=False,
+        )
+        rng = np.random.default_rng(11)
+        with tables.table(msname, readonly=False, ack=False) as main_tb:
+            nrows = main_tb.nrows()
+            rows = np.arange(nrows)
+            cell = main_tb.getcell("DATA", 0).shape
+            main_tb.putcol("FIELD_ID", ((rows // 13) % 2).astype(np.int32))
+            ant1, ant2 = main_tb.getcol("ANTENNA1"), main_tb.getcol("ANTENNA2")
+            auto = rows % 5 == 0 if variant == "interferometer" else rows >= 0
+            ant2[auto] = ant1[auto]
+            main_tb.putcol("ANTENNA2", ant2)
+            visibilities = (
+                rng.normal(size=(nrows,) + cell) + 1j * rng.normal(size=(nrows,) + cell)
+            ).astype(np.complex64)
+            columns = {"FLAG": rng.random((nrows,) + cell) < 0.3}
+            if variant == "interferometer":
+                columns["DATA"] = visibilities
+                columns["CORRECTED_DATA"] = (visibilities * 2).astype(np.complex64)
+            else:
+                main_tb.removecols(["DATA", "CORRECTED_DATA"])
+                columns["FLOAT_DATA"] = visibilities.real.astype(np.float32)
+            _to_tiled_shape_columns(main_tb, columns, cell, tile_rows=7)
+        paths[variant] = msname
+    yield paths
+    shutil.rmtree(base, ignore_errors=True)
+
+
+@pytest.mark.parametrize(
+    "variant, scheme",
+    [
+        ("interferometer", []),
+        ("interferometer", ["FIELD_ID"]),
+        ("interferometer", ["FIELD_ID", "SCAN_NUMBER"]),
+        ("single_dish", ["ANTENNA1"]),
+        ("single_dish", ["FIELD_ID", "ANTENNA1"]),
+    ],
+)
+def test_convert_and_write_partition_rows_vs_taql_tiled_shape_main(
+    ms_tiled_shape_main, variant, scheme, tmp_path, monkeypatch
+):
+    """
+    TiledShapeStMan MAIN columns whose tiles hold rows of several partitions,
+    with the FIELD_ID / ANTENNA1 partition schemes: the rows path gives exactly
+    the output of the TaQL path.
+    """
+    from casacore import tables
+
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
+
+    msname = ms_tiled_shape_main[variant]
+    with tables.table(msname, ack=False) as main_tb:
+        data_col = "DATA" if variant == "interferometer" else "FLOAT_DATA"
+        assert main_tb.getdminfo(data_col)["TYPE"] == "TiledShapeStMan"
+    partitions, runs = create_partitions_with_main_rows(msname, scheme)
+    converted = 0
+    for idx in range(min(len(partitions), 3)):
+        kw = {"main_row_runs": runs[idx], "with_pointing": False}
+        out = {}
+        for main_read in ("taql", "rows"):
+            try:
+                out[main_read] = _convert_partition(
+                    monkeypatch,
+                    msname,
+                    str(tmp_path / f"{main_read}{idx}"),
+                    partitions[idx],
+                    main_read,
+                    **kw,
+                )
+            except Exception as exc:
+                out[main_read] = f"{type(exc).__name__}: {exc}"
+        if isinstance(out["taql"], str) or isinstance(out["rows"], str):
+            assert out["taql"] == out["rows"]
+            continue
+        assert_msv4_bit_identical(out["taql"], out["rows"])
+        converted += 1
+    assert converted >= 2
+    if scheme == []:  # time mode on tiled-shape columns too
+        timed = _convert_partition(
+            monkeypatch,
+            msname,
+            str(tmp_path / "time"),
+            partitions[0],
+            "rows",
+            main_chunksize={"time": 4},
+            parallel_mode="time",
+            **kw | {"main_row_runs": runs[0]},
+        )
+        none = _convert_partition(
+            monkeypatch,
+            msname,
+            str(tmp_path / "none"),
+            partitions[0],
+            "rows",
+            main_chunksize={"time": 4},
+            **kw | {"main_row_runs": runs[0]},
+        )
+        assert_msv4_bit_identical(none, timed)
+
+
 def test_convert_and_write_partition_rows_runs_no_taql_on_main(
     ms_main_layouts, tmp_path, monkeypatch
 ):

@@ -136,6 +136,9 @@ def convert_msv2_to_processing_set(
         Choose whether to use Dask to execute conversion in parallel, by default "none" and conversion occurs serially.
         The option "partition", parallelises the conversion over partitions specified by `partition_scheme`. The option "time" can only be used for phased array interferometers where there are no partitions
         in the MS v2; instead the MS v2 is parallelised along the time dimension and can be controlled by `main_chunksize`.
+        With the default (row) MAIN read path, "time" gives the same output as "none" for any row order and also for missing or
+        duplicated (time, baseline) rows (cells without a row are padded as in "none", FLAG=False); the TaQL read path needs dense,
+        time-ordered rows there.
     persistence_mode : str, optional
         “w” means create (overwrite if exists);
         “w-” means create (fail if exists);

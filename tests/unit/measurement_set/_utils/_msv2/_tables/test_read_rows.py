@@ -358,6 +358,49 @@ def test_read_rows_whole_column_with_undefined_cells_raises(rows_table, tmp_path
     assert proc.stdout.split() == ["raised", "raised"]
 
 
+def test_read_rows_to_grid_whole_column_with_undefined_cells_raises(
+    rows_table, tmp_path
+):
+    """
+    The same guard on the direct (no temporary) path of read_rows_to_grid: a
+    partition of all rows mapped to consecutive cells is one direct segment
+    over the whole column. Run in a subprocess (a regression is a SIGSEGV).
+    """
+    path, _ = rows_table
+    one_row = str(tmp_path / "one_row.tab")
+    code = textwrap.dedent(
+        f"""
+        import numpy as np
+        from casacore import tables
+        from xradio.measurement_set._utils._msv2._tables import read_rows as rr
+
+        def check(tb, nrows):
+            plan = rr.make_row_grid_plan(np.arange(nrows), np.arange(nrows), nrows, 1)
+            assert plan.direct_lengths.tolist() == [nrows]
+            grid = np.empty((nrows, 1, {NCHAN}, {NPOL}), np.complex64)
+            try:
+                rr.read_rows_to_grid(tb, "TSM_UNDEF", plan, grid)
+            except RuntimeError:
+                print("raised")
+
+        tb = tables.table({path!r}, ack=False)
+        check(tb, tb.nrows())
+        tb.close()
+        desc = tables.maketabdesc([tables.makearrcoldesc(
+            "TSM_UNDEF", 0j, ndim=2, valuetype="complex",
+            datamanagertype="TiledShapeStMan", datamanagergroup="G")])
+        tb = tables.table({one_row!r}, desc, nrow=1, readonly=False, ack=False)
+        check(tb, 1)
+        tb.close()
+        """
+    )
+    proc = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, timeout=300
+    )
+    assert proc.returncode == 0, proc.stderr[-2000:]
+    assert proc.stdout.split() == ["raised", "raised"]
+
+
 def test_read_column_rows(rows_tb):
     tb, ref = rows_tb
     rows = ROW_SELECTIONS["few_runs"]

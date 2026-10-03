@@ -21,6 +21,9 @@ from xradio.measurement_set._utils._msv2._tables.read import (
     table_exists,
     table_has_column,
 )
+from xradio.measurement_set._utils._msv2._tables.read_pointing import (
+    load_cached_pointing_generic_xds,
+)
 from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
 from xradio.measurement_set._utils._utils.interpolate import (
     interpolate_to_time,
@@ -440,25 +443,42 @@ def create_pointing_xds(
     """
     start = time.time()
 
-    taql_time_range = make_taql_where_between_min_max(
-        time_min_max, in_file, "POINTING", "TIME"
-    )
+    time_ant_dims = ["time_pointing", "antenna_name"]
+    time_ant_dir_dims = time_ant_dims + ["local_sky_dir_label"]
+    to_new_data_variables = {
+        "DIRECTION": ["POINTING_BEAM", time_ant_dir_dims],
+        "ENCODER": ["POINTING_DISH_MEASURED", time_ant_dir_dims],
+        "OVER_THE_TOP": ["POINTING_OVER_THE_TOP", time_ant_dims],
+    }
 
-    if taql_time_range is None:
-        taql_where = f"WHERE (ANTENNA_ID IN [{','.join(map(str, ant_xds_name_ids.antenna_id.values))}])"
-    else:
-        taql_where = (
-            taql_time_range
-            + f" AND (ANTENNA_ID IN [{','.join(map(str, ant_xds_name_ids.antenna_id.values))}])"
-        )
-    # Read POINTING table into a Xarray Dataset.
-    generic_pointing_xds = load_generic_table(
+    # With an active sub-table cache, POINTING is read once per conversion and
+    # the rows of this partition are selected from it (None: read them here).
+    generic_pointing_xds = load_cached_pointing_generic_xds(
         in_file,
-        "POINTING",
-        timecols=["TIME"],
-        rename_ids=subt_rename_ids["POINTING"],
-        taql_where=taql_where,
+        time_min_max,
+        ant_xds_name_ids.antenna_id.values,
+        tuple(to_new_data_variables),
     )
+    if generic_pointing_xds is None:
+        taql_time_range = make_taql_where_between_min_max(
+            time_min_max, in_file, "POINTING", "TIME"
+        )
+
+        if taql_time_range is None:
+            taql_where = f"WHERE (ANTENNA_ID IN [{','.join(map(str, ant_xds_name_ids.antenna_id.values))}])"
+        else:
+            taql_where = (
+                taql_time_range
+                + f" AND (ANTENNA_ID IN [{','.join(map(str, ant_xds_name_ids.antenna_id.values))}])"
+            )
+        # Read POINTING table into a Xarray Dataset.
+        generic_pointing_xds = load_generic_table(
+            in_file,
+            "POINTING",
+            timecols=["TIME"],
+            rename_ids=subt_rename_ids["POINTING"],
+            taql_where=taql_where,
+        )
 
     if not generic_pointing_xds.data_vars:
         # apparently empty MS/POINTING table => produce empty xds
@@ -471,14 +491,6 @@ def create_pointing_xds(
             generic_pointing_xds = generic_pointing_xds.sel({"n_polynomial": 0})
         elif size == 0:
             generic_pointing_xds = generic_pointing_xds.drop_dims("n_polynomial")
-
-    time_ant_dims = ["time_pointing", "antenna_name"]
-    time_ant_dir_dims = time_ant_dims + ["local_sky_dir_label"]
-    to_new_data_variables = {
-        "DIRECTION": ["POINTING_BEAM", time_ant_dir_dims],
-        "ENCODER": ["POINTING_DISH_MEASURED", time_ant_dir_dims],
-        "OVER_THE_TOP": ["POINTING_OVER_THE_TOP", time_ant_dims],
-    }
 
     to_new_coords = {
         "TIME": ["time_pointing", ["time_pointing"]],

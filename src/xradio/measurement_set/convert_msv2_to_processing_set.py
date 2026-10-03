@@ -120,6 +120,7 @@ def convert_msv2_to_processing_set(
         Whether to interpolate the time axis of the system calibration data variables (sys_cal_xds) to the time axis of the main dataset
     use_table_iter : bool, optional
         Whether to use the table iterator to read the main table of the MS v2. This should be set to True when reading datasets with large number of rows and few partitions, by default False.
+        Only used by the TaQL main-table read path (the default row read path reads in bounded calls without it).
     compressor : zarr.abc.codec.BytesBytesCodec, optional
         The zarr v3 bytes-to-bytes codec to use when saving the converted data to disk using Zarr, by default zarr.codecs.BloscCodec(cname="lz4", clevel=5, shuffle="noshuffle"). blosc-lz4 decompresses markedly faster than zstd for the high-entropy visibility data (faster reads/loads) at a small cost in compression ratio.
     add_reshaping_indices : bool, optional

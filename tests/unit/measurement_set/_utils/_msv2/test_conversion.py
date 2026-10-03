@@ -798,6 +798,16 @@ def test_get_main_read_mode(monkeypatch):
         conversion.get_main_read_mode()
 
 
+def test_get_main_read_mode_without_python_casacore(monkeypatch):
+    # the casatools fallback module has no getcolnp/selectrows
+    monkeypatch.setattr(conversion, "ROWS_READ_SUPPORTED", False)
+    monkeypatch.delenv(conversion.MAIN_READ_ENV_VAR, raising=False)
+    assert conversion.get_main_read_mode() == "taql"
+    monkeypatch.setenv(conversion.MAIN_READ_ENV_VAR, "rows")
+    with pytest.raises(ValueError, match="python-casacore"):
+        conversion.get_main_read_mode()
+
+
 @pytest.mark.parametrize(
     "col_name, parallel_mode, read_rows, expected",
     [

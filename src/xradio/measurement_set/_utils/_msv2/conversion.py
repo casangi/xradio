@@ -77,22 +77,34 @@ from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
 #   per column, whole-column getcol (or the TIME iterator with use_table_iter).
 MAIN_READ_ENV_VAR = "XRADIO_MSV2_MAIN_READ"
 MAIN_READ_MODES = ("rows", "taql")
+# The row reads need python-casacore's in-place reads (the casatools fallback
+# module has no getcolnp / selectrows): without them the default is "taql".
+ROWS_READ_SUPPORTED = all(
+    hasattr(tables.table, method)
+    for method in ("getcolnp", "getcolslicenp", "selectrows")
+)
 
 
 def get_main_read_mode() -> str:
     """
     TEMPORARY, EXPLORATION ONLY: the MAIN-table read path selected with the
     environment variable XRADIO_MSV2_MAIN_READ ("rows", the default, or "taql").
+    Without python-casacore (casatools fallback) the default is "taql".
 
     Returns
     -------
     str
         "rows" or "taql".
     """
-    mode = os.environ.get(MAIN_READ_ENV_VAR, "").strip().lower() or "rows"
+    default = "rows" if ROWS_READ_SUPPORTED else "taql"
+    mode = os.environ.get(MAIN_READ_ENV_VAR, "").strip().lower() or default
     if mode not in MAIN_READ_MODES:
         raise ValueError(
             f"{MAIN_READ_ENV_VAR}={mode!r} is not one of {MAIN_READ_MODES}"
+        )
+    if mode == "rows" and not ROWS_READ_SUPPORTED:
+        raise ValueError(
+            f"{MAIN_READ_ENV_VAR}=rows needs python-casacore (getcolnp, selectrows)"
         )
     return mode
 

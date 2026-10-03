@@ -395,12 +395,15 @@ def read_rows(
         exactly the column dtype (see ``column_dtype``).
     chan : slice | None, optional
         Channel range ``slice(start, stop)`` to read (2-D cells only), by
-        default all channels.
+        default all channels. A range that does not cover whole tiles makes
+        casacore size the tile cache for the whole window (up to the whole
+        hypercube); bound it first with ``table.setmaxcachesize(col, MiB)``.
     pol : slice | None, optional
         Polarization range ``slice(start, stop)`` to read (2-D cells only), by
-        default all polarizations.
+        default all polarizations (same tile-cache caveat as ``chan``).
     max_elems : int, optional
-        Maximum number of elements per casacore call, at most 2**29.
+        Maximum number of elements per casacore call, at most 2**29 (a call
+        always reads at least one row).
     stats : dict[str, int] | None, optional
         Dict to accumulate call counters into ("calls", "selectrows_calls").
 

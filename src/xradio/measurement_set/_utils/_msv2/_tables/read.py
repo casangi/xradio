@@ -17,6 +17,12 @@ except ImportError:
 
 from xradio._utils.list_and_array import get_pad_value
 from xradio._utils.logging import xradio_logger
+from xradio.measurement_set._utils._msv2._tables.read_rows import (
+    MainTableRows,
+    make_row_grid_plan,
+    parse_shape_string,
+    read_rows_to_grid,
+)
 from xradio.measurement_set._utils._msv2._tables.table_query import (
     TableManager,
     open_query,
@@ -1416,3 +1422,179 @@ def load_col_chunk(
     reshaped_data[tidxs_slc, bidxs_slc] = row_data
 
     return reshaped_data
+
+
+def _partition_cell_shape_and_dtype(
+    main_rows: MainTableRows, col: str
+) -> tuple[tuple[int, ...], np.dtype]:
+    """
+    Cell shape and output dtype of a column, taken from the first row of the
+    partition exactly as the TaQL path does (shape string of the first row,
+    dtype of the first cell as python-casacore returns it: scalar cells come
+    back as Python scalars, so for example an int column gives int64).
+    Raises like the TaQL path if that cell is undefined.
+    """
+    table = main_rows.table
+    first_row = int(main_rows.rows[0])
+    if table.isscalarcol(col):
+        extra_dimensions = ()
+    else:
+        extra_dimensions = parse_shape_string(
+            table.getcolshapestring(col, first_row, 1)[0]
+        )
+    col_dtype = np.array(table.getcell(col, first_row)).dtype
+    return extra_dimensions, col_dtype
+
+
+def read_col_conversion_rows(
+    main_rows: MainTableRows,
+    col: str,
+    cshape: tuple[int],
+    tidxs: np.ndarray,
+    bidxs: np.ndarray,
+    use_table_iter: bool,
+    time_chunksize: int,
+) -> np.ndarray:
+    """
+    TaQL-free twin of read_col_conversion_numpy: reads a column of the
+    partition rows from the base MAIN table into the dense (time, baseline,
+    ...) grid, with bounded getcolnp calls (straight into the grid where rows
+    map to consecutive cells, otherwise via a bounded temporary + scatter).
+
+    The output is identical to read_col_conversion_numpy's: same dtype, pad
+    value (get_pad_value) for the cells without a row and, for duplicated
+    (time, baseline) rows, the last row wins. A column that cannot be read
+    (undefined cells, varying cell shapes) raises, as in the TaQL path.
+
+    Parameters
+    ----------
+    main_rows : MainTableRows
+        MAIN table and the partition rows.
+    col : str
+        Column name.
+    cshape : Tuple[int]
+        (n_times, n_baselines) of the grid.
+    tidxs : np.ndarray
+        Time index of every partition row.
+    bidxs : np.ndarray
+        Baseline index of every partition row.
+    use_table_iter : bool
+        Ignored (the row reads are bounded without the TIME iterator).
+    time_chunksize : int
+        Ignored (numpy version).
+
+    Returns
+    -------
+    np.ndarray
+        The column values on the (time, baseline, ...) grid.
+    """
+    extra_dimensions, col_dtype = _partition_cell_shape_and_dtype(main_rows, col)
+    plan = main_rows.grid_plan(tidxs, bidxs, cshape)
+    shape = tuple(cshape) + extra_dimensions
+    if plan.grid_is_full:
+        data = np.empty(shape, dtype=col_dtype)
+    else:
+        # Use a custom/safe fill value (https://github.com/casangi/xradio/issues/219)
+        data = np.full(shape, get_pad_value(col_dtype), dtype=col_dtype)
+    read_rows_to_grid(main_rows.table, col, plan, data, max_elems=main_rows.max_elems)
+    return data
+
+
+def read_col_conversion_dask_rows(
+    main_rows: MainTableRows,
+    col: str,
+    cshape: tuple[int],
+    tidxs: np.ndarray,
+    bidxs: np.ndarray,
+    use_table_iter: bool,
+    time_chunksize: int,
+) -> da.Array:
+    """
+    TaQL-free twin of read_col_conversion_dask (parallel_mode="time"): a dask
+    array with one block per chunk of times, each block reading the rows of its
+    times from the base MAIN table (bounded reads, as read_col_conversion_rows).
+
+    Unlike read_col_conversion_dask it does not need a dense, time-ordered
+    partition (any row order, missing or duplicated (time, baseline) rows), and
+    cells without a row are padded with get_pad_value (FLAG=False), as in the
+    numpy path. For dense, time-ordered partitions the values are identical.
+
+    Parameters
+    ----------
+    main_rows : MainTableRows
+        MAIN table and the partition rows.
+    col : str
+        Column name.
+    cshape : Tuple[int]
+        (n_times, n_baselines) of the grid.
+    tidxs : np.ndarray
+        Time index of every partition row.
+    bidxs : np.ndarray
+        Baseline index of every partition row.
+    use_table_iter : bool
+        Ignored.
+    time_chunksize : int
+        Number of times per block (as dask chunks along time).
+
+    Returns
+    -------
+    da.Array
+        Lazy (time, baseline, ...) array; every block opens the MAIN table by
+        name when computed.
+    """
+    import dask
+
+    extra_dimensions, col_dtype = _partition_cell_shape_and_dtype(main_rows, col)
+    in_file = main_rows.name()
+    num_utimes, num_baselines = int(cshape[0]), int(cshape[1])
+    time_chunks = da.core.normalize_chunks(time_chunksize, (num_utimes,))[0]
+    chunk_bounds = np.cumsum((0,) + tuple(time_chunks))
+
+    # Rows of every time chunk; the stable sort keeps them ascending in a chunk
+    tidxs = np.asarray(tidxs, dtype=np.int64)
+    bidxs = np.asarray(bidxs, dtype=np.int64)
+    chunk_of_row = np.searchsorted(chunk_bounds, tidxs, side="right") - 1
+    order = np.argsort(chunk_of_row, kind="stable")
+    rows_per_chunk = np.bincount(chunk_of_row, minlength=len(time_chunks))
+
+    blocks = []
+    pos = 0
+    for k, ntimes in enumerate(time_chunks):
+        idx = order[pos : pos + rows_per_chunk[k]]
+        pos += rows_per_chunk[k]
+        gidx = (tidxs[idx] - chunk_bounds[k]) * num_baselines + bidxs[idx]
+        block_shape = (int(ntimes), num_baselines) + extra_dimensions
+        block = dask.delayed(_load_rows_time_chunk, pure=False)(
+            in_file,
+            col,
+            main_rows.rows[idx],
+            gidx,
+            block_shape,
+            col_dtype,
+            main_rows.max_elems,
+        )
+        blocks.append(da.from_delayed(block, shape=block_shape, dtype=col_dtype))
+
+    return da.concatenate(blocks, axis=0)
+
+
+def _load_rows_time_chunk(
+    in_file: str,
+    col: str,
+    rows: np.ndarray,
+    gidx: np.ndarray,
+    shape: tuple[int, ...],
+    dtype: np.dtype,
+    max_elems: int,
+) -> np.ndarray:
+    """Read one time chunk (block) of read_col_conversion_dask_rows."""
+    plan = make_row_grid_plan(rows, gidx, shape[0] * shape[1])
+    if plan.grid_is_full:
+        data = np.empty(shape, dtype=dtype)
+    else:
+        data = np.full(shape, get_pad_value(dtype), dtype=dtype)
+    if rows.size:
+        # Opened in the thread/process that computes the block
+        with open_table_ro(in_file) as tb_tool:
+            read_rows_to_grid(tb_tool, col, plan, data, max_elems=max_elems)
+    return data

@@ -5,7 +5,8 @@ import pathlib
 import time
 import traceback
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
 
 import dask.array as da
 import numpy as np
@@ -26,13 +27,17 @@ from xradio.measurement_set._utils._msv2._tables.read import (
     extract_table_attributes,
     load_generic_table,
     read_col_conversion_dask,
+    read_col_conversion_dask_rows,
     read_col_conversion_numpy,
+    read_col_conversion_rows,
 )
 from xradio.measurement_set._utils._msv2._tables.read_main_table import (
     get_baseline_indices,
     get_baselines,
     get_utimes_tol,
+    utimes_tol_from_times,
 )
+from xradio.measurement_set._utils._msv2._tables.read_rows import MainTableRows
 from xradio.measurement_set._utils._msv2._tables.table_query import (
     TableManager,
     open_query,
@@ -58,10 +63,77 @@ from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
     create_system_calibration_xds,
     create_weather_xds,
 )
+from xradio.measurement_set._utils._msv2.partition_queries import partition_main_rows
 from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
 from xradio.measurement_set._utils._utils.stokes_types import stokes_types
 from xradio.measurement_set._utils._zarr.encoding import add_encoding
 from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
+
+# TEMPORARY, EXPLORATION ONLY (remove before merging): selects how the MAIN table
+# of a partition is read, for A/B benchmarks of the two implementations:
+# - "rows" (default): row numbers from the partition description (no TaQL on
+#   MAIN), bounded getcolnp reads from the base table (_tables/read_rows.py).
+# - "taql": the previous path, one TaQL "select * ... WHERE" per partition and
+#   per column, whole-column getcol (or the TIME iterator with use_table_iter).
+MAIN_READ_ENV_VAR = "XRADIO_MSV2_MAIN_READ"
+MAIN_READ_MODES = ("rows", "taql")
+
+
+def get_main_read_mode() -> str:
+    """
+    TEMPORARY, EXPLORATION ONLY: the MAIN-table read path selected with the
+    environment variable XRADIO_MSV2_MAIN_READ ("rows", the default, or "taql").
+
+    Returns
+    -------
+    str
+        "rows" or "taql".
+    """
+    mode = os.environ.get(MAIN_READ_ENV_VAR, "").strip().lower() or "rows"
+    if mode not in MAIN_READ_MODES:
+        raise ValueError(
+            f"{MAIN_READ_ENV_VAR}={mode!r} is not one of {MAIN_READ_MODES}"
+        )
+    return mode
+
+
+@contextmanager
+def open_partition_main_table(
+    in_file: str, partition_info: dict, taql_where: str, main_read: str
+) -> Generator[tables.table | MainTableRows, None, None]:
+    """
+    Opens the MAIN rows of a partition for reading.
+
+    Parameters
+    ----------
+    in_file : str
+        Input MSv2 path.
+    partition_info : dict
+        Partition description (create_partitions).
+    taql_where : str
+        TaQL WHERE of the partition (create_taql_query_where), used by "taql".
+    main_read : str
+        "rows": yields a MainTableRows over the base MAIN table (opened once
+        here and closed on exit) and the partition rows. "taql": yields the
+        TaQL selection of the partition.
+
+    Yields
+    ------
+    tables.table | MainTableRows
+        The partition rows, both with the table API the converter uses.
+    """
+    if main_read == "taql":
+        with TableManager(in_file, taql_where).get_table() as tb_tool:
+            yield tb_tool
+    else:
+        with open_table_ro(in_file) as main_tb:
+            main_rows = MainTableRows(
+                main_tb, partition_main_rows(main_tb, partition_info)
+            )
+            try:
+                yield main_rows
+            finally:
+                main_rows.close()
 
 
 def parse_chunksize(
@@ -407,9 +479,16 @@ def calc_indx_for_row_split(tb_tool, taql_where):
     ]
 
     freq_cnt, pol_cnt = [(cc[0], cc[1]) for cc in cshapes if len(cc) == 2][0]
-    utimes, tol = get_utimes_tol(tb_tool, taql_where)
+    if isinstance(tb_tool, MainTableRows):
+        # Unique times in numpy (same values as TaQL's DISTINCT), TIME read once
+        times = tb_tool.getcol("TIME")
+        utimes, tol = utimes_tol_from_times(times)
+    else:
+        utimes, tol = get_utimes_tol(tb_tool, taql_where)
+        times = tb_tool.getcol("TIME")
 
-    tidxs = np.searchsorted(utimes, tb_tool.getcol("TIME"))
+    tidxs = np.searchsorted(utimes, times)
+    del times
 
     ts_ant1, ts_ant2 = (
         tb_tool.getcol("ANTENNA1"),
@@ -630,6 +709,32 @@ def create_data_variables(
     parallel_mode,
     main_chunksize,
 ):
+    """
+    Reads the MAIN columns that become data variables of the main xds and adds
+    them to ``xds`` (in place). A column that fails to read is skipped (logged
+    at debug level); if WEIGHT_SPECTRUM fails, WEIGHT is tried instead.
+
+    Parameters
+    ----------
+    in_file : str
+        Input MSv2 path.
+    xds : xr.Dataset
+        Main xds, with its coordinates already set.
+    table_manager : TableManager | MainTableRows
+        The partition's MAIN rows: a TableManager (TaQL read path, one TaQL
+        selection per column) or a MainTableRows (row read path, no TaQL).
+    time_baseline_shape : tuple
+        (n_times, n_baselines) of the partition.
+    tidxs, bidxs, didxs : np.ndarray
+        Time and baseline index of every partition row (didxs unused).
+    use_table_iter : bool
+        TaQL read path only: read per TIME run with the table iterator.
+    parallel_mode : str
+        "time" gives lazy (dask) arrays for the large columns, when the time
+        chunk size is set in ``main_chunksize``.
+    main_chunksize : dict | None
+        Chunk sizes of the main xds.
+    """
     time_chunksize = main_chunksize.get("time", None) if main_chunksize else None
     if parallel_mode == "time" and time_chunksize is None:
         xradio_logger().warning(
@@ -638,8 +743,12 @@ def create_data_variables(
         parallel_mode = "none"
 
     # Create Data Variables
-    with table_manager.get_table() as tb_tool:
-        col_names = tb_tool.colnames()
+    read_rows = isinstance(table_manager, MainTableRows)
+    if read_rows:
+        col_names = table_manager.colnames()
+    else:
+        with table_manager.get_table() as tb_tool:
+            col_names = tb_tool.colnames()
 
     target_cols = set(col_names) & set(col_to_data_variable_names.keys())
     if target_cols.issuperset({"WEIGHT", "WEIGHT_SPECTRUM"}):
@@ -649,13 +758,18 @@ def create_data_variables(
     main_column_descriptions = main_table_attrs["column_descriptions"]
 
     # Use a double-ended queue in case WEIGHT_SPECTRUM conversion fails, and
-    # we need to add WEIGHT to list of columns to convert during iteration
-    target_cols = deque(target_cols)
+    # we need to add WEIGHT to list of columns to convert during iteration.
+    # Sorted, so that the read order (and with it the data variable order and the
+    # memory peak, which depends on what is already held when each column is
+    # read) does not depend on the hash seed (set iteration order).
+    target_cols = deque(sorted(target_cols))
 
     while target_cols:
         col = target_cols.popleft()
         datavar_name = col_to_data_variable_names[col]
-        read_col_conversion = get_read_col_conversion_function(col, parallel_mode)
+        read_col_conversion = get_read_col_conversion_function(
+            col, parallel_mode, read_rows=read_rows
+        )
 
         try:
             start = time.time()
@@ -696,10 +810,14 @@ def create_data_variables(
                 target_cols.append("WEIGHT")
 
 
-def get_read_col_conversion_function(col_name: str, parallel_mode: str) -> Callable:
+def get_read_col_conversion_function(
+    col_name: str, parallel_mode: str, read_rows: bool = False
+) -> Callable:
     """
     Returns the appropriate read_col_conversion function: use the dask version
     for large columns and parallel_mode="time", or the numpy version otherwise.
+    With read_rows, the TaQL-free versions that take a MainTableRows
+    (read_col_conversion_dask_rows / read_col_conversion_rows).
     """
     large_columns = {
         "DATA",
@@ -709,11 +827,10 @@ def get_read_col_conversion_function(col_name: str, parallel_mode: str) -> Calla
         "WEIGHT",
         "FLAG",
     }
-    return (
-        read_col_conversion_dask
-        if parallel_mode == "time" and col_name in large_columns
-        else read_col_conversion_numpy
-    )
+    use_dask = parallel_mode == "time" and col_name in large_columns
+    if read_rows:
+        return read_col_conversion_dask_rows if use_dask else read_col_conversion_rows
+    return read_col_conversion_dask if use_dask else read_col_conversion_numpy
 
 
 def repeat_weight_array(
@@ -1079,15 +1196,22 @@ def convert_and_write_partition(
     ms_xdt = xr.DataTree()  # MSv4 as a Data Tree
 
     taql_where = create_taql_query_where(partition_info)
+    # TEMPORARY (exploration only): "rows" (default) or "taql", see get_main_read_mode
+    main_read = get_main_read_mode()
     table_manager = TableManager(in_file, taql_where)
     ddi = partition_info["DATA_DESC_ID"][0]
     scan_intents = str(partition_info["OBS_MODE"][0]).split(",")
 
     start = time.time()
-    with table_manager.get_table() as tb_tool:
+    with open_partition_main_table(
+        in_file, partition_info, taql_where, main_read
+    ) as tb_tool:
         if tb_tool.nrows() == 0:
             tb_tool.close()
             return xr.Dataset(), {}, {}
+        # The column reader: the TaQL path re-runs the partition's TaQL query per
+        # column, the rows path reads the partition rows of the open MAIN table.
+        main_reader = tb_tool if main_read == "rows" else table_manager
 
         xradio_logger().debug("Starting a real convert_and_write_partition")
         (
@@ -1168,7 +1292,7 @@ def convert_and_write_partition(
         create_data_variables(
             in_file,
             xds,
-            table_manager,
+            main_reader,
             time_baseline_shape,
             tidxs,
             bidxs,

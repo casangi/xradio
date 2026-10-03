@@ -19,6 +19,12 @@ order, all data groups whose ``<role>`` refers to the variable. For FITS, a
 ``.fits`` extension of ``<name>`` (in any case) stays last, so ``img.fits``
 gives ``img.base.sky.fits``.
 
+A zarr store holds the whole dataset. Its name has the extension
+``.img.zarr`` (:data:`ZARR_IMAGE_EXTENSION`), as processing sets have
+``.ps.zarr``: :func:`zarr_store_name` keeps a ``<name>`` that ends in
+``.img.zarr``, replaces a bare ``.zarr`` extension and appends ``.img.zarr``
+to any other name.
+
 :func:`write_outputs_atomically` writes the outputs into a temporary directory
 next to them and moves them into place only after all of them have been
 written, so that a failed write leaves nothing behind and a lazily read source
@@ -52,6 +58,12 @@ COMPANION_ROLES = {
 _TEXT_ROLES = ("description", "date")
 
 _FITS_EXTENSION = ".fits"
+
+#: Extension of the zarr stores ``write_image`` writes (processing sets have
+#: ``.ps.zarr``).
+ZARR_IMAGE_EXTENSION = ".img.zarr"
+
+_ZARR_EXTENSION = ".zarr"
 
 _FORMAT_NAMES = {"casa": "CASA", "fits": "FITS"}
 
@@ -172,6 +184,36 @@ def _check_group_name(group: str) -> None:
             f"Cannot write the image dataset to several images: the data "
             f"group name {group!r} cannot be part of an output file name"
         )
+
+
+def zarr_store_name(image_store_name: str) -> str:
+    """Name of the zarr store ``write_image`` writes for a given name.
+
+    Image zarr stores have the extension ``.img.zarr``
+    (:data:`ZARR_IMAGE_EXTENSION`). A name that ends in ``.img.zarr`` (in any
+    case) is kept, a name that ends in a bare ``.zarr`` (in any case) has
+    that extension replaced (``out.zarr`` gives ``out.img.zarr``), and any
+    other name gets ``.img.zarr`` appended (``out`` gives ``out.img.zarr``).
+    Only the end of the name counts, with the leading dot: ``out.ps.zarr``
+    gives ``out.ps.img.zarr``, ``out.img.zarr.zarr`` gives
+    ``out.img.zarr.img.zarr`` and ``img.zarr`` gives ``img.img.zarr``.
+
+    Parameters
+    ----------
+    image_store_name : str
+        The output name given to ``write_image``.
+
+    Returns
+    -------
+    str
+        The name of the store, ending in ``.img.zarr``.
+    """
+    lowered = image_store_name.lower()
+    if lowered.endswith(ZARR_IMAGE_EXTENSION):
+        return image_store_name
+    if lowered.endswith(_ZARR_EXTENSION):
+        return image_store_name[: -len(_ZARR_EXTENSION)] + ZARR_IMAGE_EXTENSION
+    return image_store_name + ZARR_IMAGE_EXTENSION
 
 
 def _output_path(

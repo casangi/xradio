@@ -8943,6 +8943,12 @@
     },
     {
       "$class": "AttrSchemaRef",
+      "type": "str",
+      "name": "schema_version",
+      "docstring": "Semantic version (MAJOR.MINOR.PATCH) of the image schema that the\ndataset conforms to, see ``xradio.image.schema.IMAGE_SCHEMA_VERSION``.\nThe factories and the CASA and FITS readers set the current version;\nzarr stores keep theirs, and stores without one or with an older one are\nupgraded to the current version when they are read. "
+    },
+    {
+      "$class": "AttrSchemaRef",
       "type": "dict",
       "dict_schema": {
         "$class": "DictSchema",

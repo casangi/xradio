@@ -4,6 +4,8 @@ FITS and zarr drivers.
 
 * ``TestOutputPlan``         -> the output planner (names, roles, warnings)
 * ``TestMultiImageWrites``   -> one output per image variable (CASA and FITS)
+* ``TestZarrStoreNames``     -> the .img.zarr extension of zarr stores and the
+                                paths write_image returns
 * ``TestOverwrite``          -> overwrite checks, temporary directory, failures
 * ``TestFitsDriver``         -> FITS validation before any file is written
 * ``TestCasaDriver``         -> CASA specific roles, masks and miscinfo
@@ -19,6 +21,7 @@ import pytest
 import xarray as xr
 
 from xradio._utils._casacore.tables import open_table_ro
+from xradio.image import image as image_api
 from xradio.image import (
     load_image,
     make_empty_sky_image,
@@ -27,8 +30,9 @@ from xradio.image import (
 )
 from xradio.image._util import casacore as casa_driver
 from xradio.image._util import fits as fits_driver
-from xradio.image._util._write_plan import plan_image_outputs
+from xradio.image._util._write_plan import plan_image_outputs, zarr_store_name
 from xradio.image._util._zarr import xds_to_zarr
+from xradio.image.schema import IMAGE_SCHEMA_VERSION
 from xradio.testing.image import download_image
 
 _DIMS = ("time", "frequency", "polarization", "l", "m")
@@ -283,12 +287,13 @@ class TestMultiImageWrites:
 
     @pytest.mark.parametrize(
         "out_format, name",
-        [("casa", "out.im"), ("fits", "out.fits"), ("zarr", "o.zarr")],
+        [("casa", "out.im"), ("fits", "out.fits"), ("zarr", "o.img.zarr")],
     )
     def test_single_image_is_written_to_the_given_name(
         self, tmp_path, out_format, name
     ):
-        write_image(single_image_dataset(), str(tmp_path / name), out_format)
+        written = write_image(single_image_dataset(), str(tmp_path / name), out_format)
+        assert written == [str(tmp_path / name)]
         assert _listing(tmp_path) == [name]
 
     def test_casa_writes_every_group(self, tmp_path):
@@ -386,6 +391,163 @@ class TestMultiImageWrites:
 
 
 # --------------------------------------------------------------------------- #
+# TestZarrStoreNames                                                           #
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture
+def write_image_log(monkeypatch):
+    """The info and warning messages that write_image itself logs (not its
+    drivers), as lists keyed by level."""
+
+    class _Logger:
+        def __init__(self):
+            self.messages = {"info": [], "warning": []}
+
+        def info(self, message, *args, **kwargs):
+            self.messages["info"].append(str(message))
+
+        def warning(self, message, *args, **kwargs):
+            self.messages["warning"].append(str(message))
+
+        def __getattr__(self, name):
+            return lambda *args, **kwargs: None
+
+    logger = _Logger()
+    monkeypatch.setattr(image_api, "xradio_logger", lambda: logger)
+    return logger.messages
+
+
+class TestZarrStoreNames:
+    """Zarr stores get the extension .img.zarr, and write_image returns the
+    paths it wrote, for every format (single images: see
+    TestMultiImageWrites.test_single_image_is_written_to_the_given_name)."""
+
+    @pytest.mark.parametrize(
+        "name, store",
+        [
+            ("out", "out.img.zarr"),
+            ("out.zarr", "out.img.zarr"),
+            ("out.ZARR", "out.img.zarr"),
+            ("out.Zarr", "out.img.zarr"),
+            ("out.img.zarr", "out.img.zarr"),
+            ("out.IMG.ZARR", "out.IMG.ZARR"),
+            ("out.Img.Zarr", "out.Img.Zarr"),
+            ("out.img", "out.img.img.zarr"),
+            ("out.ps.zarr", "out.ps.img.zarr"),
+            ("out.zarr.old", "out.zarr.old.img.zarr"),
+            # only the end of the name counts, with the leading dot
+            ("img.zarr", "img.img.zarr"),
+            ("out.img.zarr.zarr", "out.img.zarr.img.zarr"),
+            (os.path.join("dir.zarr", "out"), os.path.join("dir.zarr", "out.img.zarr")),
+        ],
+    )
+    def test_store_name(self, name, store):
+        assert zarr_store_name(name) == store
+
+    @pytest.mark.parametrize(
+        "name, store",
+        [
+            ("out", "out.img.zarr"),
+            ("out.zarr", "out.img.zarr"),
+            ("out.ZARR", "out.img.zarr"),
+            ("out.img.zarr", "out.img.zarr"),
+            ("out.IMG.Zarr", "out.IMG.Zarr"),
+        ],
+    )
+    def test_write_returns_and_logs_the_store_name(
+        self, tmp_path, write_image_log, name, store
+    ):
+        xds = single_image_dataset()
+        written = write_image(xds, str(tmp_path / name), "zarr")
+        assert written == [str(tmp_path / store)]
+        assert _listing(tmp_path) == [store]
+        got = open_image(written[0])
+        np.testing.assert_array_equal(got["SKY"].values, xds["SKY"].values)
+        assert got.attrs["schema_version"] == IMAGE_SCHEMA_VERSION
+        if store == name:
+            assert write_image_log["info"] == []
+        else:
+            # the store name is logged when write_image changed it
+            (message,) = write_image_log["info"]
+            assert ".img.zarr" in message
+            assert str(tmp_path / name) in message
+            assert str(tmp_path / store) in message
+        # nothing has the given name, so there is nothing to warn about
+        assert write_image_log["warning"] == []
+
+    def test_trailing_separator_and_home_directory(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("HOME", str(tmp_path))
+        written = write_image(single_image_dataset(), "~/out.zarr" + os.sep, "zarr")
+        assert written == [str(tmp_path / "out.img.zarr")]
+        assert _listing(tmp_path) == ["out.img.zarr"]
+
+    def test_overwrite_applies_to_the_store_name(self, tmp_path, write_image_log):
+        """The overwrite check, the staging directory and the replacement
+        concern the store name with the .img.zarr extension, not the name
+        given: a store at the given name (for example one written by an
+        earlier xradio) is neither checked nor changed, and every write warns
+        that it is left in place."""
+        xds = single_image_dataset()
+        given = tmp_path / "out.zarr"
+        given.mkdir()
+        (given / "old").write_text("keep me")
+        store = str(tmp_path / "out.img.zarr")
+        assert write_image(xds, str(given), "zarr") == [store]
+        assert _listing(tmp_path) == ["out.img.zarr", "out.zarr"]
+        (warning,) = write_image_log["warning"]
+        assert f"{given} exists and is not replaced" in warning
+        assert store in warning
+        with pytest.raises(FileExistsError, match=r"out\.img\.zarr"):
+            write_image(xds, str(given), "zarr")
+        # nothing is logged when the overwrite check fails (nothing is written)
+        assert len(write_image_log["info"]) == 1
+        assert len(write_image_log["warning"]) == 1
+        changed = xds.copy(deep=True)
+        changed["SKY"] = changed["SKY"] + 1
+        assert write_image(changed, str(given), "zarr", overwrite=True) == [store]
+        assert len(write_image_log["warning"]) == 2
+        np.testing.assert_array_equal(
+            open_image(store)["SKY"].values, changed["SKY"].values
+        )
+        # no staging directory is left behind, and the given name is unchanged
+        assert _listing(tmp_path) == ["out.img.zarr", "out.zarr"]
+        assert _listing(given) == ["old"]
+        assert (given / "old").read_text() == "keep me"
+
+    def test_file_with_the_given_name_is_kept_with_a_warning(
+        self, tmp_path, write_image_log
+    ):
+        given = tmp_path / "out"
+        given.write_text("not a store")
+        written = write_image(single_image_dataset(), str(given), "zarr", True)
+        assert written == [str(tmp_path / "out.img.zarr")]
+        assert _listing(tmp_path) == ["out", "out.img.zarr"]
+        assert given.read_text() == "not a store"
+        (warning,) = write_image_log["warning"]
+        assert str(given) in warning and written[0] in warning
+
+    @pytest.mark.parametrize(
+        "out_format, name, extension",
+        [("casa", "out", ""), ("fits", "out.fits", ".fits")],
+    )
+    def test_multi_image_write_returns_every_output(
+        self, tmp_path, out_format, name, extension
+    ):
+        xds = multi_group_dataset()
+        written = write_image(xds, str(tmp_path / name), out_format)
+        # every output, in output order
+        assert (
+            written == plan_image_outputs(xds, str(tmp_path / name), out_format).paths
+        )
+        assert sorted(written) == sorted(
+            str(tmp_path / output)
+            for output in _expected_multi_group_names("out", extension)
+        )
+        assert sorted(os.path.basename(path) for path in written) == _listing(tmp_path)
+
+
+# --------------------------------------------------------------------------- #
 # TestOverwrite                                                                #
 # --------------------------------------------------------------------------- #
 
@@ -458,6 +620,39 @@ class TestOverwrite:
         assert _listing(tmp_path) == [existing.name]
         assert existing.read_text() == "old"
 
+    @pytest.mark.parametrize("name", ["out.zarr", "out", "out.img.zarr"])
+    def test_zarr_failure_changes_nothing(self, tmp_path, monkeypatch, name):
+        """A zarr write that fails, under any name that gives the store
+        out.img.zarr, leaves the existing out.img.zarr untouched and removes
+        the temporary directory."""
+        store = tmp_path / "out.img.zarr"
+        xds = single_image_dataset()
+        write_image(xds, str(store), "zarr")
+        files = sorted(str(path.relative_to(store)) for path in store.rglob("*"))
+        original = image_api._xds_to_zarr
+        staged = []
+
+        def fail_after_writing(xds, path, *args, **kwargs):
+            staged.append(path)
+            original(xds, path, *args, **kwargs)
+            raise RuntimeError("simulated write failure")
+
+        monkeypatch.setattr(image_api, "_xds_to_zarr", fail_after_writing)
+        changed = xds.copy(deep=True)
+        changed["SKY"] = changed["SKY"] + 1
+        with pytest.raises(RuntimeError, match="simulated write failure"):
+            write_image(changed, str(tmp_path / name), "zarr", overwrite=True)
+        # the store was written into the temporary directory under its final
+        # name, and that directory is removed
+        (path,) = staged
+        assert os.path.basename(path) == "out.img.zarr"
+        assert os.path.dirname(path) != str(tmp_path)
+        assert _listing(tmp_path) == ["out.img.zarr"]
+        assert sorted(str(p.relative_to(store)) for p in store.rglob("*")) == files
+        np.testing.assert_array_equal(
+            open_image(str(store))["SKY"].values, xds["SKY"].values
+        )
+
     def test_created_parent_directories_are_removed_on_failure(
         self, tmp_path, monkeypatch
     ):
@@ -474,7 +669,8 @@ class TestOverwrite:
         assert _listing(tmp_path / "a" / "b") == ["out.fits"]
 
     @pytest.mark.parametrize(
-        "out_format, name", [("zarr", "a.zarr"), ("casa", "a.im"), ("fits", "a.fits")]
+        "out_format, name",
+        [("zarr", "a.img.zarr"), ("casa", "a.im"), ("fits", "a.fits")],
     )
     def test_lazy_dataset_written_back_onto_its_source(
         self, tmp_path, out_format, name
@@ -540,8 +736,10 @@ class TestOverwrite:
         monkeypatch.chdir(tmp_path)
         xds = single_image_dataset()
         for out_format in ("fits", "zarr", "casa"):
-            path = f"~/k2.{out_format}"
-            write_image(xds, path, out_format)
+            name = "k2.img.zarr" if out_format == "zarr" else f"k2.{out_format}"
+            path = f"~/{name}"
+            # the returned path has the home directory expanded
+            assert write_image(xds, path, out_format) == [str(home / name)]
             reopened = open_image(path)
             np.testing.assert_array_equal(
                 reopened.SKY.values,
@@ -704,8 +902,8 @@ class TestZarrWriter:
         )
         xds = xds.chunk({"frequency": (2, 1, 2)})
         before = {name: dict(xds[name].encoding) for name in xds.data_vars}
-        write_image(xds, str(tmp_path / "irregular.zarr"), "zarr")
-        got = open_image(str(tmp_path / "irregular.zarr"))
+        write_image(xds, str(tmp_path / "irregular.img.zarr"), "zarr")
+        got = open_image(str(tmp_path / "irregular.img.zarr"))
         np.testing.assert_array_equal(got["SKY"].values, xds["SKY"].values)
         assert got["SKY"].encoding["chunks"][1] == 2
         # the caller's dataset is not changed
@@ -713,7 +911,7 @@ class TestZarrWriter:
         assert {name: dict(xds[name].encoding) for name in xds.data_vars} == before
 
     def test_selection_of_a_zarr_image(self, tmp_path):
-        source = str(tmp_path / "source.zarr")
+        source = str(tmp_path / "source.img.zarr")
         xds = single_image_dataset()
         xds = xds.isel(frequency=[0, 1, 0, 1]).assign_coords(
             frequency=1.412e9 + 1e6 * np.arange(4)
@@ -721,8 +919,8 @@ class TestZarrWriter:
         write_image(xds.chunk({"frequency": 2}), source, "zarr")
         selected = open_image(source, selection={"frequency": slice(1, 4)})
         assert selected["SKY"].encoding["chunks"][1] == 2
-        write_image(selected, str(tmp_path / "selected.zarr"), "zarr")
-        got = open_image(str(tmp_path / "selected.zarr"))
+        write_image(selected, str(tmp_path / "selected.img.zarr"), "zarr")
+        got = open_image(str(tmp_path / "selected.img.zarr"))
         np.testing.assert_array_equal(
             got["SKY"].values, xds["SKY"].isel(frequency=slice(1, 4)).values
         )
@@ -730,7 +928,7 @@ class TestZarrWriter:
     def test_zarr_v2_store_is_rewritten_as_zarr_v3(self, tmp_path, monkeypatch):
         """Stores of older xradio versions are zarr v2; their inherited v2
         codecs (also of datasets stored in attrs) must not reach a v3 write."""
-        old = str(tmp_path / "old.zarr")
+        old = str(tmp_path / "old.img.zarr")
         source = single_image_dataset()
         source.attrs["extra"] = xr.Dataset({"A": ("row", np.arange(4.0))})
         monkeypatch.setattr(xds_to_zarr, "ZARR_FORMAT", 2)
@@ -738,7 +936,7 @@ class TestZarrWriter:
         monkeypatch.undo()
         assert os.path.exists(os.path.join(old, ".zgroup"))
         xds = open_image(old)
-        new = str(tmp_path / "new.zarr")
+        new = str(tmp_path / "new.img.zarr")
         write_image(xds, new, "zarr")
         assert os.path.exists(os.path.join(new, "zarr.json"))
         got = open_image(new)
@@ -754,7 +952,7 @@ class TestZarrWriter:
         xds.attrs["nested"] = {"array": np.ones(2)}
         xds.attrs["extra"] = extra
         xds["SKY"].attrs["array"] = np.arange(2)
-        path = str(tmp_path / "attrs.zarr")
+        path = str(tmp_path / "attrs.img.zarr")
         write_image(xds, path, "zarr")
         assert isinstance(xds.attrs["array"], np.ndarray)
         assert isinstance(xds.attrs["nested"]["array"], np.ndarray)
@@ -770,7 +968,7 @@ class TestZarrWriter:
         data = da.zeros((1, 1, 1, 16384, 16384), dtype=np.float32, chunks=-1)
         xds = xr.Dataset({"SKY": (_DIMS, data)})
         with pytest.raises(ValueError, match="too large for compression"):
-            write_image(xds, str(tmp_path / "big.zarr"), "zarr")
+            write_image(xds, str(tmp_path / "big.img.zarr"), "zarr")
         assert _listing(tmp_path) == []
 
 
@@ -785,7 +983,7 @@ class TestOpenImageSelection:
 
     @pytest.mark.parametrize("index", [1, np.int64(1), -1])
     def test_integer_selection_keeps_the_dimension(self, tmp_path, index):
-        path = str(tmp_path / "image.zarr")
+        path = str(tmp_path / "image.img.zarr")
         xds = single_image_dataset()
         write_image(xds, path, "zarr")
         for got in (

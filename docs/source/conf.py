@@ -36,10 +36,12 @@ sys.path.insert(0, os.path.abspath(os.path.join("..", "..", "src")))
 sys.path.insert(0, os.path.abspath("."))
 
 # must come after the sys.path setup above
+from xradio.image.schema import IMAGE_SCHEMA_VERSION  # noqa: E402
 from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION  # noqa: E402
 
 rst_epilog = f"""
 .. |MSV4_SCHEMA_VERSION| replace:: {MSV4_SCHEMA_VERSION}
+.. |IMAGE_SCHEMA_VERSION| replace:: {IMAGE_SCHEMA_VERSION}
 """
 
 # -- Options for HTML output -------------------------------------------------

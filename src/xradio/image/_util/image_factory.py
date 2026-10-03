@@ -26,6 +26,7 @@ from xradio.image._util.conventions import (
     spectral_frame_to_observer,
     time_values_to_astropy,
 )
+from xradio.image.schema import IMAGE_SCHEMA_VERSION
 
 # Equinox of the reference direction, by direction frame (frames that are
 # absent have no equinox)
@@ -293,7 +294,9 @@ def _add_common_attrs(
     Returns
     -------
     xr.Dataset
-        Input dataset with updated coordinate attrs and dataset attrs.
+        Input dataset with updated coordinate attrs and dataset attrs (an
+        empty ``base`` data group, the current ``schema_version``, the
+        coordinate system information and the dataset ``type``).
 
     Raises
     ------
@@ -330,6 +333,7 @@ def _add_common_attrs(
         reference["attrs"]["equinox"] = equinox
     xds.attrs = {
         "data_groups": {"base": {}},
+        "schema_version": IMAGE_SCHEMA_VERSION,
         "coordinate_system_info": {
             "reference_direction": reference,
             "native_pole_direction": make_direction_location_dict(
@@ -1532,7 +1536,10 @@ def create_image_xds_from_store(
         includes:
         - Data variables for each image type (e.g., 'SKY', 'MODEL', 'RESIDUAL')
         - Coordinates shared across all images
-        - Attributes including 'type' and 'data_groups'
+        - Attributes including 'type', 'data_groups' and 'schema_version'
+          (the current image schema version, IMAGE_SCHEMA_VERSION, for CASA
+          and FITS images; zarr stores keep their own, see
+          :func:`xradio.image._util.legacy.upgrade_legacy_image_attrs`)
 
     Raises
     ------
@@ -1706,4 +1713,5 @@ def create_image_xds_from_store(
             img_xds = _move_beam_param_dim_coord(img_xds)
     img_xds.attrs["type"] = "image_dataset"
     img_xds.attrs["data_groups"] = data_groups
+    img_xds.attrs["schema_version"] = IMAGE_SCHEMA_VERSION
     return img_xds

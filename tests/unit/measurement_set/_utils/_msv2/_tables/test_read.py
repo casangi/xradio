@@ -800,3 +800,102 @@ def test_read_col_conversion_dask(ms_minimal_required):
         ms_minimal_required.descr["nchans"],
         ms_minimal_required.descr["npols"],
     )
+
+
+def _ddi0_partition_indices(fname):
+    """TaQL-path reference indices of the DDI 0 partition of an MS."""
+    from xradio.measurement_set._utils._msv2._tables.table_query import TableManager
+    from xradio.measurement_set._utils._msv2.conversion import (
+        calc_indx_for_row_split,
+        create_taql_query_where,
+    )
+
+    partition = {"DATA_DESC_ID": [0], "OBS_MODE": ["scan_intent#subscan_intent"]}
+    where = create_taql_query_where(partition)
+    table_manager = TableManager(fname, where)
+    with table_manager.get_table() as tb_tool:
+        tidxs, bidxs, _didxs, ant1, _ant2, utime = calc_indx_for_row_split(
+            tb_tool, where
+        )
+    return partition, table_manager, tidxs, bidxs, (len(utime), len(ant1))
+
+
+@pytest.mark.parametrize(
+    "col", ["DATA", "FLAG", "UVW", "TIME_CENTROID", "EXPOSURE", "WEIGHT", "SIGMA"]
+)
+def test_read_col_conversion_rows_matches_numpy(ms_minimal_required, col):
+    from xradio.measurement_set._utils._msv2._tables.read import (
+        read_col_conversion_numpy,
+        read_col_conversion_rows,
+    )
+    from xradio.measurement_set._utils._msv2._tables.read_rows import MainTableRows
+    from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        partition_main_rows,
+    )
+
+    fname = ms_minimal_required.fname
+    partition, table_manager, tidxs, bidxs, cshape = _ddi0_partition_indices(fname)
+    try:
+        expected = read_col_conversion_numpy(
+            table_manager, col, cshape, tidxs, bidxs, False, None
+        )
+    except RuntimeError:
+        expected = None  # e.g. undefined WEIGHT cells: the column is skipped
+
+    with open_table_ro(fname) as main_tb:
+        for max_elems in (2**26, 5):
+            main_rows = MainTableRows(
+                main_tb, partition_main_rows(main_tb, partition), max_elems=max_elems
+            )
+            if expected is None:
+                with pytest.raises(RuntimeError):
+                    read_col_conversion_rows(
+                        main_rows, col, cshape, tidxs, bidxs, False, None
+                    )
+                continue
+            data = read_col_conversion_rows(
+                main_rows, col, cshape, tidxs, bidxs, False, None
+            )
+            assert data.dtype == expected.dtype
+            assert data.shape == expected.shape
+            # bit-identical, including the NaN pads of the missing cells
+            assert data.tobytes() == expected.tobytes()
+
+
+@pytest.mark.parametrize("time_chunksize", [1, 7, 1000])
+@pytest.mark.parametrize("col", ["DATA", "FLAG"])
+def test_read_col_conversion_dask_rows_matches_numpy(
+    ms_minimal_required, col, time_chunksize
+):
+    import dask.array as da
+
+    from xradio.measurement_set._utils._msv2._tables.read import (
+        read_col_conversion_dask_rows,
+        read_col_conversion_numpy,
+    )
+    from xradio.measurement_set._utils._msv2._tables.read_rows import MainTableRows
+    from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        partition_main_rows,
+    )
+
+    fname = ms_minimal_required.fname
+    partition, table_manager, tidxs, bidxs, cshape = _ddi0_partition_indices(fname)
+    expected = read_col_conversion_numpy(
+        table_manager, col, cshape, tidxs, bidxs, False, None
+    )
+    with open_table_ro(fname) as main_tb:
+        main_rows = MainTableRows(main_tb, partition_main_rows(main_tb, partition))
+        lazy = read_col_conversion_dask_rows(
+            main_rows, col, cshape, tidxs, bidxs, False, time_chunksize
+        )
+        assert isinstance(lazy, da.Array)
+        assert (
+            lazy.chunks[0] == da.core.normalize_chunks(time_chunksize, (cshape[0],))[0]
+        )
+        assert lazy.chunks[1:] == tuple((n,) for n in expected.shape[1:])
+        data = lazy.compute(scheduler="synchronous")
+    assert data.dtype == expected.dtype
+    # missing cells padded as in the numpy path (FLAG False, NaN visibilities)
+    assert data.tobytes() == expected.tobytes()

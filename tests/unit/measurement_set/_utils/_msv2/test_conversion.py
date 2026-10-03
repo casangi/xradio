@@ -1,3 +1,5 @@
+import os
+import pathlib
 import shutil
 from collections import namedtuple
 from contextlib import nullcontext as no_raises
@@ -526,3 +528,312 @@ def test_convert_and_write_partition_custom(ms_custom_spec):
 
     finally:
         shutil.rmtree(out_name)
+
+
+# --- MAIN read paths: TaQL vs rows (TEMPORARY XRADIO_MSV2_MAIN_READ switch) ------
+
+MAIN_LAYOUTS = ("dense", "sparse_dup", "baseline_major")
+
+
+def _rewrite_main_rows(msname: str, layout: str, seed: int) -> None:
+    """
+    Rewrite the MAIN rows of a generated MS: every DDI gets 30 times x 10
+    baselines (time-major or baseline-major rows), random data, flags, weights
+    and UVW. "sparse_dup" moves 10% of the rows to 3 extra, sparsely filled
+    times (leaving their cells empty) and gives some rows the (time, baseline)
+    of the row before (duplicated cells). The generated MS uses
+    TiledColumnStMan, which cannot remove rows.
+    """
+    from casacore import tables
+
+    rng = np.random.default_rng(seed)
+    with tables.table(msname, readonly=False, ack=False) as main_tb:
+        nrows = main_tb.nrows()
+        ddi = main_tb.getcol("DATA_DESC_ID")
+        assert np.all(np.diff(ddi) >= 0)
+        pos = np.arange(nrows) - np.searchsorted(ddi, ddi)  # row index in its DDI
+        ant1, ant2 = np.triu_indices(5, 1)
+        nbl = ant1.size
+        ntimes = int(pos.max() + 1) // nbl
+        if layout == "baseline_major":
+            tidx, bidx = pos % ntimes, pos // ntimes
+        else:
+            tidx, bidx = pos // nbl, pos % nbl
+        if layout == "sparse_dup":
+            moved = rng.choice(nrows, nrows // 10, replace=False)
+            tidx[moved] = ntimes + rng.integers(0, 3, moved.size)
+            dup = np.concatenate(
+                [
+                    rng.choice(np.flatnonzero((pos > 0) & (ddi == d)), 4, replace=False)
+                    for d in np.unique(ddi)
+                ]
+            )
+            tidx[dup], bidx[dup] = tidx[dup - 1], bidx[dup - 1]
+            for d in np.unique(ddi):  # every DDI has duplicated (time, baseline) cells
+                cells = tidx[ddi == d] * nbl + bidx[ddi == d]
+                assert np.unique(cells).size < cells.size
+        time0 = main_tb.getcell("TIME", 0)
+        main_tb.putcol("TIME", time0 + tidx.astype(float))
+        main_tb.putcol("TIME_CENTROID", time0 + tidx + rng.random(nrows) * 0.1)
+        main_tb.putcol("ANTENNA1", ant1[bidx].astype(np.int32))
+        main_tb.putcol("ANTENNA2", ant2[bidx].astype(np.int32))
+        main_tb.putcol("EXPOSURE", rng.random(nrows))
+        main_tb.putcol("UVW", rng.normal(size=(nrows, 3)))
+        cell = main_tb.getcell("DATA", 0).shape
+        for col in ("DATA", "CORRECTED_DATA"):
+            values = rng.normal(size=(nrows,) + cell) + 1j * rng.normal(
+                size=(nrows,) + cell
+            )
+            main_tb.putcol(col, values.astype(np.complex64))
+        main_tb.putcol("FLAG", rng.random((nrows,) + cell) < 0.3)
+        main_tb.putcol("WEIGHT", rng.random((nrows, cell[1])).astype(np.float32))
+
+
+@pytest.fixture(scope="module")
+def ms_main_layouts(tmp_path_factory):
+    """Generated MSs whose MAIN rows have the layouts of MAIN_LAYOUTS."""
+    from xradio.testing.measurement_set.msv2_io import default_ms_descr, gen_test_ms
+
+    base = tmp_path_factory.mktemp("ms_main_layouts")
+    descr = dict(default_ms_descr, data_cols=["DATA", "CORRECTED_DATA"])
+    paths = {}
+    for seed, layout in enumerate(MAIN_LAYOUTS):
+        msname = str(base / f"layout_{layout}.ms")
+        gen_test_ms(
+            msname,
+            descr=descr,
+            opt_tables=True,
+            vlbi_tables=False,
+            required_only=True,
+            misbehave=False,
+        )
+        _rewrite_main_rows(msname, layout, seed)
+        paths[layout] = msname
+    yield paths
+    shutil.rmtree(base, ignore_errors=True)
+
+
+def _without_dates(attrs):
+    """attrs as comparable JSON, without the creation dates (they differ per run)."""
+    import json
+
+    def strip(obj):
+        if isinstance(obj, dict):
+            return {
+                k: strip(v)
+                for k, v in obj.items()
+                if k not in ("creation_date", "date")
+            }
+        if isinstance(obj, list | tuple):
+            return [strip(v) for v in obj]
+        return obj
+
+    return json.dumps(strip(attrs), sort_keys=True, default=str)
+
+
+def assert_msv4_bit_identical(xdt_a: xr.DataTree, xdt_b: xr.DataTree) -> None:
+    """Same nodes, variables (bitwise values, dtypes, dims), attrs and chunks."""
+    assert {node.path for node in xdt_a.subtree} == {
+        node.path for node in xdt_b.subtree
+    }
+    for node in xdt_a.subtree:
+        ds_a = node.to_dataset(inherit=False)
+        ds_b = xdt_b[node.path].to_dataset(inherit=False)
+        assert list(ds_a.variables) == list(ds_b.variables), node.path
+        assert _without_dates(ds_a.attrs) == _without_dates(ds_b.attrs), node.path
+        for name, var_a in ds_a.variables.items():
+            var_b = ds_b.variables[name]
+            where = f"{node.path}/{name}"
+            assert var_a.dims == var_b.dims, where
+            assert var_a.dtype == var_b.dtype, where
+            assert var_a.encoding.get("chunks") == var_b.encoding.get("chunks"), where
+            values_a, values_b = var_a.values, var_b.values
+            if values_a.dtype == object:
+                np.testing.assert_array_equal(values_a, values_b, err_msg=where)
+            else:
+                assert values_a.tobytes() == values_b.tobytes(), where
+            assert _without_dates(var_a.attrs) == _without_dates(var_b.attrs), where
+
+
+def _convert_partition(monkeypatch, msname, out_file, partition_info, main_read, **kw):
+    monkeypatch.setenv(conversion.MAIN_READ_ENV_VAR, main_read)
+    kw.setdefault("use_table_iter", False)
+    conversion.convert_and_write_partition(
+        in_file=msname,
+        out_file=out_file,
+        ms_v4_id="0",
+        partition_info=partition_info,
+        persistence_mode="w",
+        **kw,
+    )
+    msv4_name = pathlib.Path(msname).name.replace(".ms", "") + "_0"
+    return xr.open_datatree(os.path.join(out_file, msv4_name), engine="zarr")
+
+
+@pytest.mark.parametrize("layout", MAIN_LAYOUTS)
+@pytest.mark.parametrize("partition_source", ["create_partitions", "hand_built"])
+def test_convert_and_write_partition_rows_vs_taql_bit_identical(
+    ms_main_layouts, layout, partition_source, tmp_path, monkeypatch
+):
+    """The rows read path gives exactly the output of the TaQL path."""
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions,
+    )
+
+    msname = ms_main_layouts[layout]
+    if partition_source == "create_partitions":
+        partition = create_partitions(msname, [])[1]  # with MAIN row runs
+    else:  # without row runs: rows from the numpy twin of the TaQL selection
+        partition = {"DATA_DESC_ID": [1], "OBS_MODE": ["scan_intent#subscan_intent"]}
+
+    taql = _convert_partition(
+        monkeypatch, msname, str(tmp_path / "t"), partition, "taql"
+    )
+    taql_iter = _convert_partition(
+        monkeypatch,
+        msname,
+        str(tmp_path / "ti"),
+        partition,
+        "taql",
+        use_table_iter=True,
+    )
+    rows = _convert_partition(
+        monkeypatch, msname, str(tmp_path / "r"), partition, "rows"
+    )
+
+    assert {"VISIBILITY", "VISIBILITY_CORRECTED", "FLAG", "WEIGHT", "UVW"} <= set(
+        rows.ds.data_vars
+    )
+    assert rows.ds.WEIGHT.dtype == np.float32  # read from WEIGHT, not the ones fallback
+    if layout == "sparse_dup":
+        assert np.isnan(rows.ds.VISIBILITY.values).any()  # padded missing cells
+    assert_msv4_bit_identical(taql, rows)
+    assert_msv4_bit_identical(taql_iter, rows)
+
+
+@pytest.mark.parametrize("layout", MAIN_LAYOUTS)
+def test_convert_and_write_partition_rows_time_mode(
+    ms_main_layouts, layout, tmp_path, monkeypatch
+):
+    """parallel_mode="time" on the rows path: same output as the numpy path,
+    also for sparse, duplicated and baseline-major rows."""
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions,
+    )
+
+    msname = ms_main_layouts[layout]
+    partition = create_partitions(msname, [])[0]
+    chunks = {"time": 4}
+    none = _convert_partition(
+        monkeypatch,
+        msname,
+        str(tmp_path / "n"),
+        partition,
+        "rows",
+        main_chunksize=chunks,
+    )
+    timed = _convert_partition(
+        monkeypatch,
+        msname,
+        str(tmp_path / "t"),
+        partition,
+        "rows",
+        main_chunksize=chunks,
+        parallel_mode="time",
+    )
+    assert_msv4_bit_identical(none, timed)
+    if layout == "dense":  # the TaQL time path needs dense, time-ordered rows
+        taql_timed = _convert_partition(
+            monkeypatch,
+            msname,
+            str(tmp_path / "tt"),
+            partition,
+            "taql",
+            main_chunksize=chunks,
+            parallel_mode="time",
+        )
+        assert_msv4_bit_identical(taql_timed, timed)
+
+
+def test_convert_and_write_partition_rows_runs_no_taql_on_main(
+    ms_main_layouts, tmp_path, monkeypatch
+):
+    import sys
+
+    from casacore import tables
+
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions,
+    )
+
+    msname = ms_main_layouts["dense"]
+    partition = create_partitions(msname, [])[0]
+    queries = []
+    taql = tables.taql
+
+    def spy_taql(query, *args, **kwargs):
+        queries.append(query)
+        if not args and "locals" not in kwargs:
+            # $name substitution looks at the caller's local variables
+            kwargs["locals"] = sys._getframe(1).f_locals
+        return taql(query, *args, **kwargs)
+
+    monkeypatch.setattr(tables, "taql", spy_taql)
+    _convert_partition(monkeypatch, msname, str(tmp_path / "r"), partition, "rows")
+    assert queries  # sub-tables are still read with TaQL
+    assert not [q for q in queries if "$mtable" in q]
+    queries.clear()
+    _convert_partition(monkeypatch, msname, str(tmp_path / "t"), partition, "taql")
+    assert [q for q in queries if "$mtable" in q]
+
+
+def test_get_main_read_mode(monkeypatch):
+    monkeypatch.delenv(conversion.MAIN_READ_ENV_VAR, raising=False)
+    assert conversion.get_main_read_mode() == "rows"
+    for value, expected in (("taql", "taql"), (" ROWS ", "rows"), ("", "rows")):
+        monkeypatch.setenv(conversion.MAIN_READ_ENV_VAR, value)
+        assert conversion.get_main_read_mode() == expected
+    monkeypatch.setenv(conversion.MAIN_READ_ENV_VAR, "bogus")
+    with pytest.raises(ValueError, match="XRADIO_MSV2_MAIN_READ"):
+        conversion.get_main_read_mode()
+
+
+@pytest.mark.parametrize(
+    "col_name, parallel_mode, read_rows, expected",
+    [
+        ("DATA", "none", False, "read_col_conversion_numpy"),
+        ("DATA", "time", False, "read_col_conversion_dask"),
+        ("UVW", "time", False, "read_col_conversion_numpy"),
+        ("DATA", "none", True, "read_col_conversion_rows"),
+        ("FLAG", "time", True, "read_col_conversion_dask_rows"),
+        ("TIME_CENTROID", "time", True, "read_col_conversion_rows"),
+    ],
+)
+def test_get_read_col_conversion_function(col_name, parallel_mode, read_rows, expected):
+    func = conversion.get_read_col_conversion_function(
+        col_name, parallel_mode, read_rows=read_rows
+    )
+    assert func.__name__ == expected
+
+
+def test_create_data_variables_reads_columns_in_sorted_order(
+    ms_main_layouts, tmp_path, monkeypatch
+):
+    """The read order (and with it the memory peak) does not depend on the hash seed."""
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions,
+    )
+
+    read_cols = []
+    get_function = conversion.get_read_col_conversion_function
+
+    def spy(col_name, *args, **kwargs):
+        read_cols.append(col_name)
+        return get_function(col_name, *args, **kwargs)
+
+    monkeypatch.setattr(conversion, "get_read_col_conversion_function", spy)
+    msname = ms_main_layouts["dense"]
+    partition = create_partitions(msname, [])[0]
+    _convert_partition(monkeypatch, msname, str(tmp_path / "r"), partition, "rows")
+    assert read_cols == sorted(read_cols)
+    assert "DATA" in read_cols and "WEIGHT" in read_cols

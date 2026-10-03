@@ -1199,6 +1199,103 @@ def test_getcol_as_tablerow_stack_falls_back_to_rows(generic_cols_table):
     }
 
 
+class _ReadCallSpy:
+    """Table proxy recording the elements read by every getcol / getcolnp call."""
+
+    def __init__(self, tb):
+        self._tb = tb
+        self.calls = []
+
+    def __getattr__(self, name):
+        return getattr(self._tb, name)
+
+    def getcol(self, col, *args, **kwargs):
+        values = self._tb.getcol(col, *args, **kwargs)
+        size = len(values) if isinstance(values, list) else np.asarray(values).size
+        self.calls.append(("getcol", col, args, size))
+        return values
+
+    def getcolnp(self, col, out, *args):
+        self.calls.append(("getcolnp", col, args, out.size))
+        return self._tb.getcolnp(col, out, *args)
+
+
+@pytest.mark.parametrize("max_elems", [None, 7, 1])
+@pytest.mark.parametrize("where", [None, "where ANTENNA_ID IN [1, 2]"])
+def test_load_generic_cols_vectorized_reads_are_bounded(
+    generic_cols_table, max_elems, where, monkeypatch
+):
+    """
+    Every column read of the vectorized loader covers at most
+    SUBTABLE_READ_MAX_ELEMS elements (python-casacore #130; at least one row),
+    with a range (never one unbounded whole-column getcol), and the result
+    is still that of the row() loader.
+    """
+    from xradio.measurement_set._utils._msv2._tables import read as read_module
+    from xradio.measurement_set._utils._msv2._tables.table_query import (
+        open_query,
+        open_table_ro,
+    )
+
+    if max_elems is not None:
+        monkeypatch.setattr(read_module, "SUBTABLE_READ_MAX_ELEMS", max_elems)
+    limit = read_module.SUBTABLE_READ_MAX_ELEMS
+    with open_table_ro(generic_cols_table) as gtable:
+        with open_query(gtable, f"select * from $gtable {where or ''}") as tb_tool:
+            expected = read_module.load_generic_cols(
+                generic_cols_table, tb_tool, ["TIME"], ["S_UCHAR"]
+            )
+            spy = _ReadCallSpy(tb_tool)
+            actual = read_module.load_generic_cols_vectorized(
+                generic_cols_table, spy, ["TIME"], ["S_UCHAR"]
+            )
+            nrows = tb_tool.nrows()
+    for exp, act in zip(expected, actual, strict=True):
+        assert list(exp) == list(act)
+        for name in exp:
+            assert exp[name].dtype == act[name].dtype, name
+            np.testing.assert_array_equal(exp[name].values, act[name].values)
+    assert spy.calls
+    for kind, col, args, size in spy.calls:
+        assert len(args) >= 2, (kind, col, args)  # startrow, nrow given
+        assert args[1] < nrows or nrows == 1, (kind, col, args)  # not all rows
+        # at most max_elems elements, or one row
+        assert size <= limit or args[1] == 1, (kind, col, args, size)
+
+
+def test_getcol_as_tablerow_stack_raises_memory_error(generic_cols_table, monkeypatch):
+    """A MemoryError is not turned into a row() read (which needs more memory)."""
+    from xradio.measurement_set._utils._msv2._tables import read as read_module
+    from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
+
+    def fail(*args, **kwargs):
+        raise MemoryError("no memory")
+
+    monkeypatch.setattr(read_module, "read_column_rows", fail)
+    with open_table_ro(generic_cols_table) as tb_tool:
+        for col, col_type, manager in (
+            ("TIME", "double", "StandardStMan"),
+            ("A_FIXED", "float", "StandardStMan"),
+        ):
+            with pytest.raises(MemoryError):
+                read_module.getcol_as_tablerow_stack(tb_tool, col, col_type, manager)
+    with pytest.raises(MemoryError):
+        read_module.load_sorted_column(generic_cols_table, "TIME")
+
+    def other_error(*args, **kwargs):
+        raise RuntimeError("cannot read")
+
+    monkeypatch.setattr(read_module, "read_column_rows", other_error)
+    assert read_module.load_sorted_column(generic_cols_table, "TIME") is None
+    with open_table_ro(generic_cols_table) as tb_tool:
+        assert (
+            read_module.getcol_as_tablerow_stack(
+                tb_tool, "TIME", "double", "StandardStMan"
+            )
+            is None
+        )
+
+
 def test_load_generic_table_memoized(ms_minimal_required):
     """Memoized sub-tables are loaded once per cache, other tables every time."""
     expected, actual, cache = _load_both_ways(ms_minimal_required.fname, "ANTENNA")
@@ -1229,11 +1326,17 @@ def test_find_projected_min_max_table_cached(generic_cols_table, min_max):
 
     path, name = os.path.split(generic_cols_table)
     expected = find_projected_min_max_table(min_max, path, name, "TIME")
-    cache = SubtableCache()
-    with activate_subtable_cache(cache):
-        for _ in range(2):
-            assert find_projected_min_max_table(min_max, path, name, "TIME") == expected
-    assert cache.stats["value_builds"] == 1
+    for n_partitions in (2, 1):
+        cache = SubtableCache(n_partitions=n_partitions)
+        with activate_subtable_cache(cache):
+            for _ in range(3):
+                assert (
+                    find_projected_min_max_table(min_max, path, name, "TIME")
+                    == expected
+                )
+        assert cache.stats["value_builds"] == 1
+        # a cache of one partition reads the first request per partition
+        assert cache.stats["value_deferred"] == (n_partitions == 1)
 
 
 def test_find_projected_min_max_table_cached_errors(
@@ -1264,4 +1367,4 @@ def test_find_projected_min_max_table_cached_errors(
         ((0, 1e10), path, name, "NO_SUCH_COLUMN"),
         (None, path, name, "TIME"),
     ]:
-        assert project(SubtableCache(), *args) == project(None, *args)
+        assert project(SubtableCache(n_partitions=2), *args) == project(None, *args)

@@ -14,17 +14,27 @@ selection. With a cache active (see ``activate_subtable_cache``):
 - ``load_generic_table`` results of sub-tables that partitions load with the
   same arguments are memoized (bounded LRU; every caller gets its own deep copy).
 - ``load_generic_table`` reads the columns of the other sub-tables with
-  vectorized ``getcol`` calls instead of one ``row()`` dict per table row.
+  vectorized, bounded reads instead of one ``row()`` dict per table row.
 
 The output is identical to the uncached reads. The MS must not change during a
 conversion.
+
+Whole-table values (POINTING, sorted columns) only pay off when several
+partitions use them: a cache that only one partition of this process is known
+to use (``SubtableCache(n_partitions=1)``, the cache of a direct
+``convert_and_write_partition`` call, a copy unpickled in a worker process)
+builds them at the second request of the same value only; the first request
+reads per partition, as without cache. Their total size is bounded
+(``VALUES_MAX_TOTAL_BYTES``).
 
 Sharing: the cache never holds an open casacore table (tables are opened, read
 and closed inside the builders), so it is safe to share between the threads of
 ``parallel_mode="partition"`` and across ``fork()``. A pickled cache carries
 only its token: the copies unpickled in one (worker) process share one state,
-built in that process on first use. A worker process keeps the state of the
-most recent conversion only (``MAX_PROCESS_STATES``).
+built in that process. A worker keeps the state while copies of the cache are
+alive in it, and for ``PROCESS_STATE_IDLE_SECONDS`` after the last one is
+released (so that consecutive tasks of a conversion share it), at most
+``MAX_IDLE_PROCESS_STATES`` idle states.
 """
 
 import collections
@@ -32,7 +42,9 @@ import contextlib
 import contextvars
 import os
 import threading
+import time
 import uuid
+import weakref
 from collections.abc import Callable, Generator, Hashable
 from typing import Any
 
@@ -71,8 +83,14 @@ MEMOIZED_TABLES = frozenset(
 MEMO_MAX_ENTRIES = 64
 MEMO_MAX_TOTAL_BYTES = 128 * 1024 * 1024
 MEMO_MAX_DATASET_BYTES = 16 * 1024 * 1024
-# Unpickled caches (worker processes): states kept per process
-MAX_PROCESS_STATES = 1
+# Total size of the values built with get_or_build (POINTING columns, sorted
+# columns). A value that does not fit is used by the caller that built it and
+# then marked as not cached (the next callers read per partition).
+VALUES_MAX_TOTAL_BYTES = 768 * 1024 * 1024
+# Unpickled caches (worker processes): idle states (no copy alive) are kept this
+# long, at most this many of them.
+PROCESS_STATE_IDLE_SECONDS = 30.0
+MAX_IDLE_PROCESS_STATES = 2
 
 _ACTIVE_SUBTABLE_CACHE: contextvars.ContextVar["SubtableCache | None"] = (
     contextvars.ContextVar("xradio_msv2_subtable_cache", default=None)
@@ -102,6 +120,23 @@ def is_memoized_table(table_name: str) -> bool:
     return table_name in MEMOIZED_TABLES or table_name.startswith("ASDM_")
 
 
+# Marks a get_or_build value that was built but not kept (over budget)
+_NOT_KEPT = object()
+
+
+def _value_nbytes(value: Any) -> int:
+    """Memory held by a get_or_build value (arrays, tuples of them, objects
+    with an nbytes attribute)."""
+    if value is None or value is _NOT_KEPT:
+        return 0
+    nbytes = getattr(value, "nbytes", None)
+    if isinstance(nbytes, int):
+        return nbytes
+    if isinstance(value, tuple | list):
+        return sum(_value_nbytes(item) for item in value)
+    return 0
+
+
 class _SubtableCacheState:
     """The data of a SubtableCache (shared by its unpickled copies)."""
 
@@ -109,17 +144,84 @@ class _SubtableCacheState:
         self.lock = threading.Lock()
         self.build_locks: dict[Hashable, threading.Lock] = {}
         self.values: dict[Hashable, Any] = {}
+        self.values_bytes = 0
+        self.requests: collections.Counter = collections.Counter()
         self.memo: collections.OrderedDict[Hashable, xr.Dataset] = (
             collections.OrderedDict()
         )
         self.memo_bytes = 0
         self.stats: collections.Counter = collections.Counter()
+        # unpickled copies of the cache alive in this process
+        self.n_copies = 0
 
 
-_PROCESS_STATES: collections.OrderedDict[str, _SubtableCacheState] = (
-    collections.OrderedDict()
-)
-_PROCESS_STATES_LOCK = threading.Lock()
+class _ProcessStates:
+    """
+    States of the caches unpickled in this process, by token: a state lives
+    while copies of its cache are alive, then idles for
+    PROCESS_STATE_IDLE_SECONDS (at most MAX_IDLE_PROCESS_STATES idle states).
+    """
+
+    def __init__(self) -> None:
+        # reentrant: release() runs from a weakref finalizer, which garbage
+        # collection can trigger while this thread holds the lock
+        self.lock = threading.RLock()
+        self.states: weakref.WeakValueDictionary[str, _SubtableCacheState] = (
+            weakref.WeakValueDictionary()
+        )
+        self.idle: collections.OrderedDict[str, tuple[_SubtableCacheState, float]] = (
+            collections.OrderedDict()
+        )
+        self.timer: threading.Timer | None = None
+
+    def acquire(self, token: str) -> _SubtableCacheState:
+        """The state of a newly unpickled copy (one more copy alive)."""
+        with self.lock:
+            state = self.states.get(token)
+            if state is None:
+                state = _SubtableCacheState()
+                self.states[token] = state
+            self.idle.pop(token, None)
+            state.n_copies += 1
+            return state
+
+    def release(self, token: str, state: _SubtableCacheState) -> None:
+        """A copy was garbage collected: keep its state idle for a while."""
+        with self.lock:
+            state.n_copies -= 1
+            if state.n_copies > 0 or self.states.get(token) is not state:
+                return
+            self.idle[token] = (state, time.monotonic())
+            self.idle.move_to_end(token)
+            while len(self.idle) > MAX_IDLE_PROCESS_STATES:
+                self.idle.popitem(last=False)
+            self._schedule_expiry()
+
+    def forget(self, token: str) -> None:
+        """Drop a state (SubtableCache.clear)."""
+        with self.lock:
+            self.idle.pop(token, None)
+            self.states.pop(token, None)
+
+    def _schedule_expiry(self) -> None:
+        if self.timer is not None and self.timer.is_alive():
+            return
+        self.timer = threading.Timer(PROCESS_STATE_IDLE_SECONDS, self._expire)
+        self.timer.daemon = True
+        self.timer.start()
+
+    def _expire(self) -> None:
+        with self.lock:
+            self.timer = None
+            now = time.monotonic()
+            for token, (_, idle_since) in list(self.idle.items()):
+                if now - idle_since >= PROCESS_STATE_IDLE_SECONDS:
+                    del self.idle[token]
+            if self.idle:
+                self._schedule_expiry()
+
+
+_PROCESS_STATES = _ProcessStates()
 
 
 class SubtableCache:
@@ -133,18 +235,36 @@ class SubtableCache:
       the first builder.
     - memoized datasets (``memo_dataset``), kept in a bounded LRU; every caller
       gets a deep copy, so callers may modify what they get.
+
+    Parameters
+    ----------
+    n_partitions : int | None, optional
+        Number of partitions that will use the cache in this process. With 2 or
+        more, whole-table values are built at their first request. Otherwise
+        (1, or None: unknown) only at their second request: the first one
+        reads per partition (see ``get_or_build``).
     """
 
-    def __init__(self) -> None:
+    def __init__(self, n_partitions: int | None = None) -> None:
         self._token = uuid.uuid4().hex
         self._state = _SubtableCacheState()
+        self._build_at_request = 1 if (n_partitions or 0) >= 2 else 2
 
     @property
     def stats(self) -> collections.Counter:
-        """Counters of cache hits, builds, fallbacks, ..."""
+        """Counters of cache hits, builds, fallbacks, ... (read only: use
+        ``count`` to increment them)."""
         return self._state.stats
 
-    def get_or_build(self, key: Hashable, builder: Callable[[], Any]) -> Any:
+    def count(self, name: str, n: int = 1) -> None:
+        """Increment the counter ``name`` of ``stats`` (thread safe)."""
+        state = self._state
+        with state.lock:
+            state.stats[name] += n
+
+    def get_or_build(
+        self, key: Hashable, builder: Callable[[], Any], amortized: bool = False
+    ) -> Any:
         """
         The value stored under ``key``, built with ``builder()`` on first use.
 
@@ -154,26 +274,46 @@ class SubtableCache:
             Cache key (should include the table path).
         builder : Callable[[], Any]
             Builds the value. Exceptions propagate and nothing is stored.
+        amortized : bool, optional
+            The value is a whole-table read that only pays off when several
+            partitions use it. If only one partition of this process is known
+            to use the cache, it is built at the second request of ``key``
+            only; before that, None is returned and the caller reads per
+            partition (as with a value that is not cacheable).
 
         Returns
         -------
         Any
-            The shared value (not copied: callers must not modify it).
+            The shared value (not copied: callers must not modify it), or None
+            (deferred, see ``amortized``, or built but too large to keep).
         """
         state = self._state
         with state.lock:
+            state.requests[key] += 1
             if key in state.values:
                 state.stats["value_hits"] += 1
-                return state.values[key]
+                value = state.values[key]
+                return None if value is _NOT_KEPT else value
+            if amortized and state.requests[key] < self._build_at_request:
+                state.stats["value_deferred"] += 1
+                return None
             build_lock = state.build_locks.setdefault(key, threading.Lock())
         with build_lock:
             with state.lock:
                 if key in state.values:
                     state.stats["value_hits"] += 1
-                    return state.values[key]
+                    value = state.values[key]
+                    return None if value is _NOT_KEPT else value
             value = builder()
+            nbytes = _value_nbytes(value)
             with state.lock:
-                state.values[key] = value
+                if state.values_bytes + nbytes <= VALUES_MAX_TOTAL_BYTES:
+                    state.values[key] = value
+                    state.values_bytes += nbytes
+                else:
+                    # used by this caller only; the next ones read per partition
+                    state.values[key] = _NOT_KEPT
+                    state.stats["value_not_kept"] += 1
                 state.build_locks.pop(key, None)
                 state.stats["value_builds"] += 1
         return value
@@ -228,10 +368,11 @@ class SubtableCache:
         state = self._state
         with state.lock:
             state.values.clear()
+            state.values_bytes = 0
+            state.requests.clear()
             state.memo.clear()
             state.memo_bytes = 0
-        with _PROCESS_STATES_LOCK:
-            _PROCESS_STATES.pop(self._token, None)
+        _PROCESS_STATES.forget(self._token)
 
     def __dask_tokenize__(self) -> tuple[str, str]:
         # dask.delayed tokenizes its arguments: identify the cache, not its
@@ -245,16 +386,10 @@ class SubtableCache:
 
     def __setstate__(self, pickled: dict) -> None:
         self._token = pickled["token"]
-        with _PROCESS_STATES_LOCK:
-            state = _PROCESS_STATES.get(self._token)
-            if state is None:
-                state = _SubtableCacheState()
-                _PROCESS_STATES[self._token] = state
-                while len(_PROCESS_STATES) > MAX_PROCESS_STATES:
-                    _PROCESS_STATES.popitem(last=False)
-            else:
-                _PROCESS_STATES.move_to_end(self._token)
-        self._state = state
+        self._state = _PROCESS_STATES.acquire(self._token)
+        # how many partitions this process converts is not known
+        self._build_at_request = 2
+        weakref.finalize(self, _PROCESS_STATES.release, self._token, self._state)
 
 
 def active_subtable_cache() -> SubtableCache | None:
@@ -277,11 +412,15 @@ def resolve_subtable_cache(
     -------
     SubtableCache | None
         None when XRADIO_MSV2_SUBTABLE_CACHE=0. Otherwise ``subtable_cache``, or
-        a new cache for this partition only if none was given.
+        a new cache for this partition only if none was given (it memoizes
+        and vectorizes the sub-table loads, but builds no whole-table value
+        for a single use).
     """
     if not get_subtable_cache_mode():
         return None
-    return subtable_cache if subtable_cache is not None else SubtableCache()
+    if subtable_cache is not None:
+        return subtable_cache
+    return SubtableCache(n_partitions=1)
 
 
 @contextlib.contextmanager

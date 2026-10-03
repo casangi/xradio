@@ -18,10 +18,14 @@ except ImportError:
 from xradio._utils.list_and_array import get_pad_value
 from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._msv2._tables.read_rows import (
+    CASACORE_TO_NUMPY_DTYPE,
+    DEFAULT_MAX_ELEMS,
     MainTableRows,
     TimeChunkRows,
+    getcol_chunks,
     make_row_grid_plan,
     parse_shape_string,
+    read_column_rows,
     read_rows_to_grid,
 )
 from xradio.measurement_set._utils._msv2._tables.subtable_cache import (
@@ -35,6 +39,8 @@ from xradio.measurement_set._utils._msv2._tables.table_query import (
 )
 
 CASACORE_TO_PD_TIME_CORRECTION = 3_506_716_800.0
+# Elements per read call of the vectorized sub-table loads (python-casacore #130)
+SUBTABLE_READ_MAX_ELEMS = DEFAULT_MAX_ELEMS
 SECS_IN_DAY = 86400
 MJD_DIF_UNIX = 40587
 
@@ -260,8 +266,10 @@ def find_projected_min_max_table(
         sorted_column = subtable_cache.get_or_build(
             ("sorted_column", table_path, colname),
             lambda: load_sorted_column(table_path, colname),
+            amortized=True,
         )
-        # None: not cacheable, the uncached code below runs (and fails) as before
+        # None: not cacheable (or not worth building yet), the uncached code
+        # below runs (and fails) as before
         if sorted_column is not None:
             sorted_array, tol = sorted_column
             if sorted_array.size == 0:
@@ -298,14 +306,21 @@ def load_sorted_column(
         The sorted column values and their projection tolerance (an empty array
         and None if the table has no rows). None if anything fails: the caller
         then reads the column itself, and fails the same way as without cache.
+        A MemoryError is raised.
     """
     try:
         with open_table_ro(table_path) as tb_tool:
-            if tb_tool.nrows() == 0:
+            nrows = tb_tool.nrows()
+            if nrows == 0:
                 return np.empty(0), None
-            col = tb_tool.getcol(colname)
+            # bounded reads in the column's own dtype (no full-size temporary)
+            col = read_column_rows(
+                tb_tool, colname, np.arange(nrows), max_elems=SUBTABLE_READ_MAX_ELEMS
+            )
         sorted_array = np.sort(col)
         return sorted_array, projection_tolerance(sorted_array)
+    except MemoryError:
+        raise
     except Exception as exc:
         xradio_logger().debug(
             f"Not caching the sorted column {colname} of {table_path}: {exc}"
@@ -945,15 +960,19 @@ def getcol_as_tablerow_stack(
     tb_tool: tables.table, col: str, col_type: str, storage_manager: str | None
 ) -> np.ndarray | None:
     """
-    Reads a column with one getcol() into exactly the array that
+    Reads a column with bounded column reads into exactly the array that
     stack_tablerow_column() builds from tables.row() (same values, shape and
     dtype), when that is possible without reading the rows one by one.
 
     - Scalar columns: tables.row() gives Python scalars, so np.stack() makes
       int columns int64, float columns float64, complex columns complex128.
-    - Array columns of a StandardStMan / IncrementalStMan: getcol() returns
-      the cells stacked when they all have the same shape (and raises when they
-      differ or are undefined, for which the caller uses tables.row()).
+    - Array columns of a StandardStMan / IncrementalStMan: the cells stacked
+      when they all have the same shape (reading raises when they differ or
+      are undefined, for which the caller uses tables.row()).
+
+    Every read call covers at most SUBTABLE_READ_MAX_ELEMS elements
+    (python-casacore #130) and, for the numeric value types, reads in place
+    into an array of the column dtype (no getcol full-size temporary).
 
     Parameters
     ----------
@@ -970,25 +989,50 @@ def getcol_as_tablerow_stack(
     -------
     np.ndarray | None
         column data, or None if the column has to be read row by row
+
+    Raises
+    ------
+    MemoryError
+        Not turned into a row-by-row read (that needs more memory).
     """
+    max_elems = SUBTABLE_READ_MAX_ELEMS
     try:
+        rows = np.arange(tb_tool.nrows())
         if tb_tool.isscalarcol(col):
             if col_type == "string":
-                return np.stack(tb_tool.getcol(col))
+                values = []
+                for part in getcol_chunks(tb_tool, col, rows, (), max_elems):
+                    values.extend(part)
+                return np.stack(values)
             dtype = _TABLEROW_SCALAR_STACK_DTYPES.get(col_type)
             if dtype is None:
                 return None
-            data = tb_tool.getcol(col)
-            if not isinstance(data, np.ndarray):
+            if col_type in CASACORE_TO_NUMPY_DTYPE:
+                return read_column_rows(tb_tool, col, rows, max_elems).astype(dtype)
+            parts = getcol_chunks(tb_tool, col, rows, (), max_elems)
+            if not all(isinstance(part, np.ndarray) for part in parts):
                 return None
-            return data.astype(dtype)
+            return np.concatenate(parts).astype(dtype)
 
         if (
             storage_manager not in _GETCOL_ARRAY_STORAGE_MANAGERS
             or col_type not in _TABLEROW_SCALAR_STACK_DTYPES
         ):
             return None
-        data = tb_tool.getcol(col)
+        if col_type in CASACORE_TO_NUMPY_DTYPE:
+            # raises on cells of another shape than the first or undefined cells
+            data = read_column_rows(tb_tool, col, rows, max_elems)
+        else:
+            cell_shape = parse_shape_string(tb_tool.getcolshapestring(col, 0, 1)[0])
+            parts = getcol_chunks(tb_tool, col, rows, cell_shape, max_elems)
+            if not all(
+                isinstance(part, np.ndarray) and part.shape[1:] == cell_shape
+                for part in parts
+            ):
+                return None
+            data = np.concatenate(parts)
+    except MemoryError:
+        raise
     except Exception:
         # undefined cells, cells of different shapes, ...
         return None

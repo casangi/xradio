@@ -500,16 +500,74 @@ def read_column_rows(
     try:
         dtype = column_dtype(table, col)
     except TypeError:
-        # e.g. string columns: python-casacore getcol per run (rare, small columns)
-        starts, lengths = rows_to_runs(rows)
+        # e.g. string columns (no in-place reads): python-casacore getcol per
+        # run, in calls of at most max_elems elements
         parts = [
-            np.asarray(table.getcol(col, start, length))
-            for start, length in zip(starts.tolist(), lengths.tolist(), strict=True)
+            np.asarray(part)
+            for part in getcol_chunks(table, col, rows, cell_shape, max_elems)
         ]
         return np.concatenate(parts) if parts else np.empty((0,) + cell_shape)
     out = np.empty((rows.size,) + cell_shape, dtype=dtype)
     read_rows(table, col, rows, out, max_elems=max_elems)
     return out
+
+
+def getcol_chunks(
+    table: tables.table,
+    col: str,
+    rows: np.ndarray,
+    cell_shape: tuple[int, ...],
+    max_elems: int = DEFAULT_MAX_ELEMS,
+) -> list[Any]:
+    """
+    python-casacore ``getcol`` results for sorted ``rows`` of a column, one per
+    call of at most ``max_elems`` elements (cells of ``cell_shape``) over a run
+    of consecutive rows, in row order. For value types that cannot be read in
+    place (strings, short, uchar, ...); no call covers the whole column.
+
+    Parameters
+    ----------
+    table : tables.table
+        Table holding the column.
+    col : str
+        Column name.
+    rows : np.ndarray
+        Row numbers of ``table``, strictly increasing.
+    cell_shape : tuple[int, ...]
+        Cell shape, to bound the calls.
+    max_elems : int, optional
+        Maximum number of elements per call.
+
+    Returns
+    -------
+    list[Any]
+        What ``getcol`` returned for every call (arrays, or lists for strings).
+    """
+    rows = _check_rows(rows)
+    max_elems = _check_max_elems(max_elems)
+    rows_per_call = max(1, max_elems // (int(np.prod(cell_shape, dtype=np.int64)) or 1))
+    table_nrows = table.nrows()
+    parts = []
+    starts, lengths = rows_to_runs(rows)
+    for start, length in zip(starts.tolist(), lengths.tolist(), strict=True):
+        done = 0
+        while done < length:
+            n = min(rows_per_call, length - done)
+            if start + done == 0 and n == table_nrows:
+                # never the whole column (see _read_run)
+                if n > 1:
+                    n -= 1
+                else:
+                    ref = table.selectrows([0])
+                    try:
+                        parts.append(ref.getcol(col))
+                    finally:
+                        ref.close()
+                    done += 1
+                    continue
+            parts.append(table.getcol(col, start + done, n))
+            done += n
+    return parts
 
 
 def parse_shape_string(shape_string: str) -> tuple[int, ...]:

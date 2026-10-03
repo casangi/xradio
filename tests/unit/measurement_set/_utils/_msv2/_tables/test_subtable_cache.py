@@ -206,19 +206,151 @@ def test_clear():
     assert calls == [1]
 
 
-def test_pickled_copies_share_one_state_per_process(monkeypatch):
-    monkeypatch.setattr(sc, "_PROCESS_STATES", sc.collections.OrderedDict())
-    cache = sc.SubtableCache()
+@pytest.fixture
+def process_states(monkeypatch):
+    """A fresh registry of unpickled cache states (as in a new worker)."""
+    states = sc._ProcessStates()
+    monkeypatch.setattr(sc, "_PROCESS_STATES", states)
+    return states
+
+
+def test_pickled_copies_share_one_state_per_process(process_states):
+    import gc
+
+    cache = sc.SubtableCache(n_partitions=4)
     cache.get_or_build("k", lambda: "parent data")
     data = pickle.dumps(cache)
     assert b"parent data" not in data
     copy_a, copy_b = pickle.loads(data), pickle.loads(data)
-    assert copy_a.get_or_build("k", lambda: "worker data") == "worker data"
-    assert copy_b.get_or_build("k", lambda: "other") == "worker data"
-    # another conversion replaces the state kept in this process
+    # a worker does not know how many partitions it converts: deferred build
+    assert copy_a.get_or_build("k", lambda: "x", amortized=True) is None
+    assert copy_b.get_or_build("k", lambda: "worker data", amortized=True) == (
+        "worker data"
+    )
+    assert copy_a.get_or_build("k", lambda: "other") == "worker data"
+    # another conversion's copies do not replace this state while it is alive
     other = pickle.loads(pickle.dumps(sc.SubtableCache()))
     other.get_or_build("k", lambda: "other conversion")
-    assert pickle.loads(data).get_or_build("k", lambda: "rebuilt") == "rebuilt"
+    assert pickle.loads(data).get_or_build("k", lambda: "rebuilt") == "worker data"
+    # all copies released: the state idles, a later task of the conversion
+    # (a new copy) gets it back
+    state_ref = sc.weakref.ref(copy_a._state)
+    del copy_a, copy_b
+    gc.collect()
+    assert state_ref() is not None and len(process_states.idle) >= 1
+    assert pickle.loads(data).get_or_build("k", lambda: "rebuilt") == "worker data"
+
+
+def test_idle_process_states_do_not_evict_each_other(process_states):
+    """Two conversions whose tasks alternate in one worker keep their states."""
+    import gc
+
+    data = {name: pickle.dumps(sc.SubtableCache()) for name in ("a", "b")}
+    for _ in range(3):
+        for name, pickled in data.items():
+            copy = pickle.loads(pickled)
+            assert copy.get_or_build("k", lambda name=name: name) == name
+            del copy
+            gc.collect()
+    assert len(process_states.idle) == 2
+
+
+def test_idle_process_states_expire(process_states, monkeypatch):
+    """A worker does not keep a finished conversion's data."""
+    import gc
+    import time
+
+    monkeypatch.setattr(sc, "PROCESS_STATE_IDLE_SECONDS", 0.05)
+    data = pickle.dumps(sc.SubtableCache())
+    copy = pickle.loads(data)
+    copy.get_or_build("k", lambda: np.zeros(10))
+    state_ref = sc.weakref.ref(copy._state)
+    del copy
+    gc.collect()
+    assert state_ref() is not None  # idle, kept for the next task
+    deadline = time.monotonic() + 10
+    while state_ref() is not None and time.monotonic() < deadline:
+        time.sleep(0.02)
+        gc.collect()
+    assert state_ref() is None
+    assert not process_states.idle
+    # a new copy builds again
+    assert pickle.loads(data).get_or_build("k", lambda: "new") == "new"
+
+
+def test_max_idle_process_states(process_states):
+    import gc
+
+    for _ in range(sc.MAX_IDLE_PROCESS_STATES + 3):
+        copy = pickle.loads(pickle.dumps(sc.SubtableCache()))
+        copy.get_or_build("k", lambda: 1)
+        del copy
+        gc.collect()
+    assert len(process_states.idle) == sc.MAX_IDLE_PROCESS_STATES
+
+
+@pytest.mark.parametrize(
+    "n_partitions, built_at", [(None, 2), (1, 2), (2, 1), (100, 1)]
+)
+def test_get_or_build_amortized(n_partitions, built_at):
+    """Whole-table values are built at their first request only if two or more
+    partitions share the cache; otherwise at the second one (the first reads
+    per partition)."""
+    cache = sc.SubtableCache(n_partitions=n_partitions)
+    calls = []
+
+    def builder():
+        calls.append(1)
+        return "value"
+
+    results = [cache.get_or_build("k", builder, amortized=True) for _ in range(3)]
+    assert results == [None] * (built_at - 1) + ["value"] * (4 - built_at)
+    assert len(calls) == 1
+    assert cache.stats["value_deferred"] == built_at - 1
+    # values that are not amortized are always built at the first request
+    assert cache.get_or_build("other", lambda: 5) == 5
+
+
+def test_resolve_subtable_cache_for_one_partition_defers(monkeypatch):
+    monkeypatch.setenv(sc.SUBTABLE_CACHE_ENV_VAR, "1")
+    own = sc.resolve_subtable_cache(None)
+    assert own.get_or_build("k", lambda: 1, amortized=True) is None
+    assert own.get_or_build("k", lambda: 1, amortized=True) == 1
+
+
+def test_get_or_build_values_budget(monkeypatch):
+    monkeypatch.setattr(sc, "VALUES_MAX_TOTAL_BYTES", 1000)
+    cache = sc.SubtableCache(n_partitions=2)
+    small = cache.get_or_build("small", lambda: (np.zeros(50), np.float64(1)))
+    assert small[0].nbytes == 400
+    calls = []
+
+    def big():
+        calls.append(1)
+        return np.zeros(100)  # 800 B: 400 + 800 > 1000
+
+    assert cache.get_or_build("big", big).size == 100  # used by its builder
+    assert cache.get_or_build("big", big) is None  # then read per partition
+    assert len(calls) == 1
+    assert cache.stats["value_not_kept"] == 1
+    assert cache.get_or_build("small", lambda: None) is small
+    cache.clear()
+    assert cache.get_or_build("big", big).size == 100  # budget freed
+
+
+def test_count_is_thread_safe():
+    cache = sc.SubtableCache()
+
+    def work():
+        for _ in range(2000):
+            cache.count("n")
+
+    threads = [threading.Thread(target=work) for _ in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert cache.stats["n"] == 16000
 
 
 def test_dask_tokenize_identifies_the_instance():

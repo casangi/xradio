@@ -204,7 +204,7 @@ def test_create_pointing_xds_cached_identical(
         interp_time = xr.DataArray(main_time, dims="time", coords={"time": main_time})
 
     expected = create_pointing_xds(ms, ant_names, time_min_max, interp_time)
-    cache = SubtableCache()
+    cache = SubtableCache(n_partitions=2)
     with activate_subtable_cache(cache):
         actual = create_pointing_xds(ms, ant_names, time_min_max, interp_time)
 
@@ -232,7 +232,7 @@ def test_create_pointing_xds_cached_missing_cells_and_duplicates(pointing_ms):
     assert (counts > 1).any()
     dup_row = first[np.flatnonzero(counts > 1)[0]]
 
-    cache = SubtableCache()
+    cache = SubtableCache(n_partitions=2)
     with activate_subtable_cache(cache):
         xds = create_pointing_xds(
             ms, antenna_names(range(NANTS)), (time.min() - 1, time.max() + 1), None
@@ -265,7 +265,7 @@ def test_create_pointing_xds_not_cacheable(pointing_ms, variant):
     assert rp.read_pointing_columns(os.path.join(ms, "POINTING"), DATA_COLUMNS) is None
     time_min_max = (np.float64(TIME0 - 1), np.float64(TIME0 + NTIMES))
     ant_names = antenna_names(range(NANTS))
-    cache = SubtableCache()
+    cache = SubtableCache(n_partitions=2)
 
     def convert(subtable_cache):
         with activate_subtable_cache(subtable_cache):
@@ -375,7 +375,7 @@ def test_pointing_columns_built_once_across_threads(
     if not data_in_memory:
         monkeypatch.setattr(rp, "POINTING_MAX_CACHED_DATA_BYTES", 0)
     ms = pointing_ms["regular"]
-    cache = SubtableCache()
+    cache = SubtableCache(n_partitions=2)
     results, errors = [], []
     utimes = pointing_times(ms)
 
@@ -414,7 +414,7 @@ def test_load_cached_pointing_generic_xds_without_cache(pointing_ms):
         rp.load_cached_pointing_generic_xds(ms, (0.0, 1e10), np.arange(3), DATA_COLUMNS)
         is None
     )
-    with activate_subtable_cache(SubtableCache()):
+    with activate_subtable_cache(SubtableCache(n_partitions=2)):
         assert (
             rp.load_cached_pointing_generic_xds(ms, None, np.arange(3), DATA_COLUMNS)
             is None
@@ -425,3 +425,67 @@ def test_load_cached_pointing_generic_xds_without_cache(pointing_ms):
             )
             is None
         )
+
+
+def test_create_pointing_xds_over_the_index_budget(pointing_ms, monkeypatch):
+    """A table whose TIME / ANTENNA_ID / row index (16 bytes per row) does not
+    fit POINTING_MAX_CACHED_INDEX_BYTES is not cached (per-partition reads)."""
+    ms = pointing_ms["regular"]
+    with open_table_ro(os.path.join(ms, "POINTING")) as tb_tool:
+        nrows = tb_tool.nrows()
+    monkeypatch.setattr(rp, "POINTING_MAX_CACHED_INDEX_BYTES", 16 * nrows - 1)
+    assert rp.read_pointing_columns(os.path.join(ms, "POINTING"), DATA_COLUMNS) is None
+    time_min_max = (np.float64(TIME0 - 1), np.float64(TIME0 + NTIMES))
+    ant_names = antenna_names(range(NANTS))
+    expected = create_pointing_xds(ms, ant_names, time_min_max, None)
+    cache = SubtableCache(n_partitions=2)
+    with activate_subtable_cache(cache):
+        actual = create_pointing_xds(ms, ant_names, time_min_max, None)
+    assert cache.stats["pointing_uncached"] == 1
+    assert_xds_bit_identical(expected, actual)
+    monkeypatch.setattr(rp, "POINTING_MAX_CACHED_INDEX_BYTES", 16 * nrows)
+    assert rp.read_pointing_columns(os.path.join(ms, "POINTING"), DATA_COLUMNS)
+
+
+def test_create_pointing_xds_single_partition_reads_per_partition(pointing_ms):
+    """A cache used by one partition only does not read the whole POINTING
+    table for it: the first request reads per partition, a second builds."""
+    ms = pointing_ms["regular"]
+    time_min_max = (np.float64(TIME0 - 1), np.float64(TIME0 + NTIMES))
+    ant_names = antenna_names(range(NANTS))
+    expected = create_pointing_xds(ms, ant_names, time_min_max, None)
+    cache = SubtableCache(n_partitions=1)
+    with activate_subtable_cache(cache):
+        first = create_pointing_xds(ms, ant_names, time_min_max, None)
+        assert cache.stats["pointing_uncached"] == 1
+        assert cache.stats["value_builds"] == 0
+        second = create_pointing_xds(ms, ant_names, time_min_max, None)
+    assert cache.stats["pointing_cached"] == 1
+    assert_xds_bit_identical(expected, first)
+    assert_xds_bit_identical(expected, second)
+
+
+def test_read_pointing_columns_raises_memory_error(pointing_ms, monkeypatch):
+    """A MemoryError is not stored as "not cacheable" for the conversion."""
+    table = os.path.join(pointing_ms["regular"], "POINTING")
+
+    def fail(*args, **kwargs):
+        raise MemoryError("no memory")
+
+    monkeypatch.setattr(rp, "read_column_rows", fail)
+    with pytest.raises(MemoryError):
+        rp.read_pointing_columns(table, DATA_COLUMNS)
+    cache = SubtableCache(n_partitions=2)
+    with pytest.raises(MemoryError):
+        cache.get_or_build("k", lambda: rp.read_pointing_columns(table, DATA_COLUMNS))
+    assert "k" not in cache._state.values
+    monkeypatch.setattr(rp, "read_rows", fail)
+    with open_table_ro(table) as tb_tool:
+        with pytest.raises(MemoryError):
+            rp.uniform_cell_shape(tb_tool, "TARGET", tb_tool.nrows())
+
+    def other_error(*args, **kwargs):
+        raise RuntimeError("cannot read")
+
+    monkeypatch.setattr(rp, "read_column_rows", other_error)
+    assert rp.read_pointing_columns(table, DATA_COLUMNS) is None

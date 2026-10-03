@@ -191,40 +191,70 @@ def convert_msv2_to_processing_set(
 
     delayed_list = []
     # Sub-table data read once and shared by all partitions (TEMPORARY switch:
-    # XRADIO_MSV2_SUBTABLE_CACHE=0 reads the sub-tables for every partition)
-    subtable_cache = SubtableCache() if get_subtable_cache_mode() else None
+    # XRADIO_MSV2_SUBTABLE_CACHE=0 reads the sub-tables for every partition).
+    # Whole-table values are built up front only if 2+ partitions share them.
+    subtable_cache = (
+        SubtableCache(n_partitions=len(partitions))
+        if get_subtable_cache_mode()
+        else None
+    )
 
-    for ms_v4_id, (partition_info, partition_idx) in enumerate(
-        zip(partitions, selected, strict=True)
-    ):
-        xradio_logger().info(
-            "OBSERVATION_ID "
-            + str(partition_info["OBSERVATION_ID"])
-            + ", DDI "
-            + str(partition_info["DATA_DESC_ID"])
-            + ", STATE "
-            + str(partition_info["STATE_ID"])
-            + ", FIELD "
-            + str(partition_info["FIELD_ID"])
-            + ", SCAN "
-            + str(partition_info["SCAN_NUMBER"])
-            + (
-                ", EPHEMERIS " + str(partition_info["EPHEMERIS_ID"])
-                if "EPHEMERIS_ID" in partition_info
-                else ""
+    try:
+        for ms_v4_id, (partition_info, partition_idx) in enumerate(
+            zip(partitions, selected, strict=True)
+        ):
+            xradio_logger().info(
+                "OBSERVATION_ID "
+                + str(partition_info["OBSERVATION_ID"])
+                + ", DDI "
+                + str(partition_info["DATA_DESC_ID"])
+                + ", STATE "
+                + str(partition_info["STATE_ID"])
+                + ", FIELD "
+                + str(partition_info["FIELD_ID"])
+                + ", SCAN "
+                + str(partition_info["SCAN_NUMBER"])
+                + (
+                    ", EPHEMERIS " + str(partition_info["EPHEMERIS_ID"])
+                    if "EPHEMERIS_ID" in partition_info
+                    else ""
+                )
+                + (
+                    ", ANTENNA " + str(partition_info["ANTENNA1"])
+                    if "ANTENNA1" in partition_info
+                    else ""
+                )
             )
-            + (
-                ", ANTENNA " + str(partition_info["ANTENNA1"])
-                if "ANTENNA1" in partition_info
-                else ""
-            )
-        )
 
-        # prepend '0' to ms_v4_id as needed
-        ms_v4_id = f"{ms_v4_id:0>{len(str(len(partitions) - 1))}}"
-        if parallel_mode == "partition":
-            delayed_list.append(
-                dask.delayed(convert_and_write_partition)(
+            # prepend '0' to ms_v4_id as needed
+            ms_v4_id = f"{ms_v4_id:0>{len(str(len(partitions) - 1))}}"
+            if parallel_mode == "partition":
+                delayed_list.append(
+                    dask.delayed(convert_and_write_partition)(
+                        in_file,
+                        out_file,
+                        ms_v4_id,
+                        partition_info=partition_info,
+                        use_table_iter=use_table_iter,
+                        partition_scheme=partition_scheme,
+                        main_chunksize=main_chunksize,
+                        with_pointing=with_pointing,
+                        pointing_chunksize=pointing_chunksize,
+                        pointing_interpolate=pointing_interpolate,
+                        ephemeris_interpolate=ephemeris_interpolate,
+                        phase_cal_interpolate=phase_cal_interpolate,
+                        sys_cal_interpolate=sys_cal_interpolate,
+                        add_reshaping_indices=add_reshaping_indices,
+                        compressor=compressor,
+                        parallel_mode=parallel_mode,
+                        persistence_mode=persistence_mode,
+                        subtable_cache=subtable_cache,
+                        main_row_runs=main_row_runs[partition_idx],
+                    )
+                )
+            else:
+                start_time = time.time()
+                convert_and_write_partition(
                     in_file,
                     out_file,
                     ms_v4_id,
@@ -245,41 +275,19 @@ def convert_msv2_to_processing_set(
                     subtable_cache=subtable_cache,
                     main_row_runs=main_row_runs[partition_idx],
                 )
-            )
-        else:
-            start_time = time.time()
-            convert_and_write_partition(
-                in_file,
-                out_file,
-                ms_v4_id,
-                partition_info=partition_info,
-                use_table_iter=use_table_iter,
-                partition_scheme=partition_scheme,
-                main_chunksize=main_chunksize,
-                with_pointing=with_pointing,
-                pointing_chunksize=pointing_chunksize,
-                pointing_interpolate=pointing_interpolate,
-                ephemeris_interpolate=ephemeris_interpolate,
-                phase_cal_interpolate=phase_cal_interpolate,
-                sys_cal_interpolate=sys_cal_interpolate,
-                add_reshaping_indices=add_reshaping_indices,
-                compressor=compressor,
-                parallel_mode=parallel_mode,
-                persistence_mode=persistence_mode,
-                subtable_cache=subtable_cache,
-                main_row_runs=main_row_runs[partition_idx],
-            )
-            end_time = time.time()
-            xradio_logger().debug(
-                f"Time to convert partition {ms_v4_id}: {end_time - start_time:.2f}"
-                " seconds"
-            )
+                end_time = time.time()
+                xradio_logger().debug(
+                    f"Time to convert partition {ms_v4_id}: {end_time - start_time:.2f}"
+                    " seconds"
+                )
 
-    if parallel_mode == "partition":
-        dask.compute(delayed_list)
-    if subtable_cache is not None:
-        xradio_logger().debug(f"Sub-table cache: {dict(subtable_cache.stats)}")
-        subtable_cache.clear()
+        if parallel_mode == "partition":
+            dask.compute(delayed_list)
+    finally:
+        # also after a failure: a kept traceback must not keep the cache alive
+        if subtable_cache is not None:
+            xradio_logger().debug(f"Sub-table cache: {dict(subtable_cache.stats)}")
+            subtable_cache.clear()
 
     import zarr
 

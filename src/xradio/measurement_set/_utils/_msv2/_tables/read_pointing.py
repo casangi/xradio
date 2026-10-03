@@ -24,10 +24,13 @@ one ``load_generic_table`` + ``redimension_ms_subtable`` produce:
   columns, see ``generic_dims``).
 
 Memory: TIME, ANTENNA_ID and the row numbers (16 bytes per POINTING row) are
-kept for the whole conversion. The data columns (33 bytes per row for
+kept for the whole conversion, if they fit in ``POINTING_MAX_CACHED_INDEX_BYTES``
+(otherwise the table is not cached). The data columns (33 bytes per row for
 DIRECTION, ENCODER and OVER_THE_TOP) are kept too if they fit in
 ``POINTING_MAX_CACHED_DATA_BYTES``; otherwise every partition reads its own
-rows of them (bounded ``getcolnp`` reads of ascending rows, no TaQL).
+rows of them (bounded ``getcolnp`` reads of ascending rows, no TaQL). The
+columns are only read once a second partition of the process needs them, unless
+the cache is known to be shared (see ``SubtableCache``).
 
 Tables where that cannot be guaranteed (cells of varying shape or undefined,
 unusual column types, zero-size dimensions, ...) are not cached: the caller
@@ -80,6 +83,9 @@ _CHECK_CHUNK_ELEMS = 2**20
 # Data columns larger than this (all of them, whole table) are not kept in
 # memory: every partition then reads its rows of them from the table.
 POINTING_MAX_CACHED_DATA_BYTES = 256 * 1024 * 1024
+# Tables whose TIME, ANTENNA_ID and row numbers (16 bytes per row) are larger
+# than this are not cached at all (per-partition reads).
+POINTING_MAX_CACHED_INDEX_BYTES = 256 * 1024 * 1024
 
 
 @dataclasses.dataclass(frozen=True)
@@ -189,6 +195,8 @@ def uniform_cell_shape(tb_tool, col: str, nrows: int) -> tuple[int, ...] | None:
             nrow = min(rows_per_call, nrows - start)
             # raises on an undefined cell or a cell of another shape
             read_rows(tb_tool, col, np.arange(start, start + nrow), buf[:nrow])
+    except MemoryError:
+        raise
     except Exception:
         return None
     return cell_shape
@@ -263,10 +271,13 @@ def read_pointing_columns(
     -------
     PointingColumns | None
         The columns, or None if the table is not suitable (missing, empty, cells
-        of varying shape, ...): the per-partition reads are then used.
+        of varying shape, too large, ...): the per-partition reads are then
+        used. A MemoryError is raised (not stored as "not suitable").
     """
     try:
         return _read_pointing_columns(table_path, data_columns)
+    except MemoryError:
+        raise
     except Exception as exc:
         xradio_logger().debug(f"Not caching {table_path}: {exc}")
         return None
@@ -291,6 +302,10 @@ def _read_pointing_columns(
         nrows = tb_tool.nrows()
         if nrows == 0:
             return _not_cached(table_path, "no rows")
+        row_dtype = np.dtype(np.int32 if nrows < 2**31 else np.int64)
+        index_bytes = nrows * (8 + 4 + row_dtype.itemsize)  # TIME, ANTENNA_ID, row
+        if index_bytes > POINTING_MAX_CACHED_INDEX_BYTES:
+            return _not_cached(table_path, f"{nrows} rows: index of {index_bytes} B")
         col_types = find_loadable_cols(tb_tool, [])
         # columns of load_generic_table's "select *, !~p/SOURCE_MODEL/"
         colnames = [col for col in tb_tool.colnames() if col != "SOURCE_MODEL"]
@@ -336,6 +351,8 @@ def _read_pointing_columns(
             if in_memory:
                 try:  # raises if a cell has another shape (or is undefined)
                     loaded[col] = read_column_rows(tb_tool, col, all_rows)
+                except MemoryError:
+                    raise
                 except Exception as exc:
                     return _not_cached(table_path, f"{col} cells vary: {exc}")
             elif uniform_cell_shape(tb_tool, col, nrows) != data_cells[col][1]:
@@ -363,15 +380,15 @@ def _read_pointing_columns(
     if not np.isfinite(time).all():
         # the TaQL time range of the per-partition reads would compare with NaN
         return _not_cached(table_path, "TIME values that are not finite")
-    order = np.argsort(time, kind="stable")
+    # the sort order doubles as the row numbers (in their smallest dtype)
+    order = np.argsort(time, kind="stable").astype(row_dtype, copy=False)
     time = time[order]
     tolerance = projection_tolerance(time)
-    row_dtype = np.int32 if nrows < 2**31 else np.int64
     pointing_columns = PointingColumns(
         time=time,
         tolerance=tolerance,
         antenna_id=loaded.pop("ANTENNA_ID")[order],
-        row=order.astype(row_dtype),
+        row=order,
         data_columns=data_cols,
         data={col: loaded.pop(col)[order] for col in data_cols} if in_memory else None,
         data_dims=data_dims,
@@ -565,9 +582,10 @@ def load_cached_pointing_generic_xds(
     pointing_columns = subtable_cache.get_or_build(
         ("pointing_columns", table_path, tuple(data_columns)),
         lambda: read_pointing_columns(table_path, tuple(data_columns)),
+        amortized=True,
     )
     if pointing_columns is None:
-        subtable_cache.stats["pointing_uncached"] += 1
+        subtable_cache.count("pointing_uncached")
         return None
-    subtable_cache.stats["pointing_cached"] += 1
+    subtable_cache.count("pointing_cached")
     return pointing_generic_xds(pointing_columns, time_min_max, antenna_ids)

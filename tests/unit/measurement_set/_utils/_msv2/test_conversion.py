@@ -925,7 +925,7 @@ def test_convert_and_write_partition_subtable_cache_bit_identical(
 
     msname = request.getfixturevalue(ms_fixture).fname
     partitions = create_partitions(msname, ["FIELD_ID"])
-    cache = SubtableCache()
+    cache = SubtableCache(n_partitions=len(partitions))
     msv4_name = pathlib.Path(msname).name.replace(".ms", "") + "_0"
     n_converted = 0
     for idx, partition in enumerate(partitions):

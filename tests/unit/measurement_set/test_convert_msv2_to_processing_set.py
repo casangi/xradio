@@ -109,8 +109,8 @@ def test_convert_msv2_to_processing_set_subtable_cache_identical(
     built = []
     cache_class = subtable_cache.SubtableCache
 
-    def spy_cache():
-        built.append(cache_class())
+    def spy_cache(**kwargs):
+        built.append(cache_class(**kwargs))
         return built[-1]
 
     # (the package re-exports the function under the module's name)
@@ -199,6 +199,58 @@ def test_convert_msv2_to_processing_set_partition_filter_dicts(
         trees[main_read] = xr.open_datatree(out_file, engine="zarr")
     assert len(trees["rows"].children) == 1
     _assert_trees_identical(trees["taql"], trees["rows"])
+
+
+def test_convert_msv2_to_processing_set_subtable_cache_lifetime(
+    ms_minimal_required, tmp_path, monkeypatch
+):
+    """
+    The cache is sized by the selected partitions (one partition: no
+    whole-table POINTING read for it) and is cleared even when the conversion
+    fails (a kept traceback must not keep its data alive).
+    """
+    import importlib
+
+    from xradio.measurement_set import convert_msv2_to_processing_set
+    from xradio.measurement_set._utils._msv2._tables import subtable_cache
+
+    built = []
+    cache_class = subtable_cache.SubtableCache
+
+    def spy_cache(**kwargs):
+        built.append((kwargs, cache_class(**kwargs)))
+        return built[-1][1]
+
+    converter_module = importlib.import_module(
+        "xradio.measurement_set.convert_msv2_to_processing_set"
+    )
+    monkeypatch.setattr(converter_module, "SubtableCache", spy_cache)
+    monkeypatch.setenv(subtable_cache.SUBTABLE_CACHE_ENV_VAR, "1")
+
+    convert_msv2_to_processing_set(
+        ms_minimal_required.fname,
+        out_file=str(tmp_path / "one.ps.zarr"),
+        partition_scheme=[],
+        partition_filter=lambda p: p["DATA_DESC_ID"] == [0],
+        persistence_mode="w",
+    )
+    kwargs, cache = built[-1]
+    assert kwargs == {"n_partitions": 1}
+    assert cache.stats["pointing_uncached"] == 1
+    assert cache.stats["value_builds"] == 0
+
+    # DDIs 2 and 3 have no PHASE_CAL rows: their conversion raises
+    with pytest.raises(AttributeError):
+        convert_msv2_to_processing_set(
+            ms_minimal_required.fname,
+            out_file=str(tmp_path / "all.ps.zarr"),
+            partition_scheme=[],
+            persistence_mode="w",
+        )
+    kwargs, cache = built[-1]
+    assert kwargs == {"n_partitions": 4}
+    assert cache.stats["value_builds"] >= 1  # POINTING built for the partitions
+    assert not cache._state.values and not cache._state.memo  # cleared
 
 
 if __name__ == "__main__":

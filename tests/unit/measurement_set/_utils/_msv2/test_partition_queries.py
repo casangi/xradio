@@ -8,11 +8,13 @@ from casacore import tables
 from xradio.measurement_set._utils._msv2._tables.read_rows import runs_to_rows
 from xradio.measurement_set._utils._msv2.conversion import create_taql_query_where
 from xradio.measurement_set._utils._msv2.partition_queries import (
-    MAIN_ROW_LENGTHS_KEY,
-    MAIN_ROW_STARTS_KEY,
+    MainRowRuns,
+    PartitionMainRows,
     _factorize_rows,
     create_partitions,
+    create_partitions_with_main_rows,
     partition_main_rows,
+    partition_selection_digest,
     select_main_rows,
 )
 
@@ -102,7 +104,6 @@ def test_create_partitions_ms_min_with_other(ms_minimal_required):
 
 # --- MAIN row membership of the partitions (row runs) ---------------------------
 
-ROW_KEYS = (MAIN_ROW_STARTS_KEY, MAIN_ROW_LENGTHS_KEY)
 SCHEMES = [
     [],
     ["FIELD_ID"],
@@ -156,25 +157,37 @@ def taql_rows(ms: str, partition: dict) -> np.ndarray:
     "ms_fixture", ["ms_minimal_required", "ms_minimal_misbehaved", "ms_edge_rows"]
 )
 def test_create_partitions_row_runs_match_taql(scheme, ms_fixture, request):
+    import json
+
     ms = request.getfixturevalue(ms_fixture)
     ms = ms if isinstance(ms, str) else ms.fname
-    parts = create_partitions(ms, scheme)
+    parts, runs = create_partitions_with_main_rows(ms, scheme)
     assert parts
+    # the descriptions are those of create_partitions: plain lists, no arrays
+    assert parts == create_partitions(ms, scheme)
+    json.dumps(parts)
+    assert isinstance(runs, MainRowRuns) and len(runs) == len(parts)
     all_rows = []
     with tables.table(ms, readonly=True, ack=False) as main_tb:
         nrows = main_tb.nrows()
-        for part in parts:
-            starts, lengths = part[MAIN_ROW_STARTS_KEY], part[MAIN_ROW_LENGTHS_KEY]
+        assert runs.main_nrows == nrows
+        for idx, part in enumerate(parts):
+            part_runs = runs[idx]
+            assert isinstance(part_runs, PartitionMainRows)
+            starts, lengths = part_runs.starts, part_runs.lengths
             assert starts.dtype == np.int64 and lengths.dtype == np.int64
             assert np.all(lengths > 0)
             assert np.all(starts[1:] > starts[:-1] + lengths[:-1])
             rows = runs_to_rows(starts, lengths)
             np.testing.assert_array_equal(rows, taql_rows(ms, part))
-            np.testing.assert_array_equal(partition_main_rows(main_tb, part), rows)
+            np.testing.assert_array_equal(part_runs.rows(), rows)
+            assert part_runs.matches(part, nrows)
+            np.testing.assert_array_equal(
+                partition_main_rows(main_tb, part, part_runs), rows
+            )
             # without the runs: numpy twin of the TaQL selection
-            axes = {k: v for k, v in part.items() if k not in ROW_KEYS}
-            np.testing.assert_array_equal(select_main_rows(main_tb, axes), rows)
-            np.testing.assert_array_equal(partition_main_rows(main_tb, axes), rows)
+            np.testing.assert_array_equal(select_main_rows(main_tb, part), rows)
+            np.testing.assert_array_equal(partition_main_rows(main_tb, part), rows)
             all_rows.append(rows)
     all_rows = np.concatenate(all_rows)
     assert np.unique(all_rows).size == all_rows.size  # disjoint
@@ -196,14 +209,78 @@ def test_create_partitions_state_id_minus_one_grouped_with_last_state(ms_edge_ro
     assert all(p["OBS_MODE"] == [last_mode] for p in with_minus_one)
 
 
-def test_partition_main_rows_rejects_stale_runs(ms_minimal_required):
-    part = create_partitions(ms_minimal_required.fname, [])[0]
-    with tables.table(ms_minimal_required.fname, readonly=True, ack=False) as main_tb:
-        stale = dict(part)
-        stale[MAIN_ROW_STARTS_KEY] = np.array([main_tb.nrows()], dtype=np.int64)
-        stale[MAIN_ROW_LENGTHS_KEY] = np.array([1], dtype=np.int64)
-        with pytest.raises(ValueError, match="stale"):
-            partition_main_rows(main_tb, stale)
+def test_partition_main_rows_of_a_changed_description(ms_edge_rows):
+    """
+    Runs computed for one description are not used for a changed one (e.g.
+    a subset of its FIELD_IDs, or merged partitions): the rows follow the
+    description, as the TaQL selection does.
+    """
+    parts, runs = create_partitions_with_main_rows(ms_edge_rows, [])
+    idx = next(i for i, p in enumerate(parts) if len(p["FIELD_ID"]) > 1)
+    part = parts[idx]
+    changed = [
+        dict(part, FIELD_ID=part["FIELD_ID"][:1]),  # subset
+        dict(part, FIELD_ID=part["FIELD_ID"][::-1] * 2),  # same rows
+        dict(part, STATE_ID=sorted(set(part["STATE_ID"]) | {0, 1})),  # superset
+        dict(part, SCAN_NUMBER=[None]),  # key no longer selects
+        dict(part, ANTENNA1=[0]),  # key added
+    ]
+    with tables.table(ms_edge_rows, readonly=True, ack=False) as main_tb:
+        for info in changed:
+            rows = partition_main_rows(main_tb, info, runs[idx])
+            np.testing.assert_array_equal(rows, taql_rows(ms_edge_rows, info))
+        # the same selection keeps the runs
+        assert runs[idx].matches(changed[1], main_tb.nrows())
+        assert not runs[idx].matches(changed[0], main_tb.nrows())
+        # another MAIN table (size): the rows are selected again
+        assert not runs[idx].matches(part, main_tb.nrows() + 1)
+
+
+def test_partition_selection_digest():
+    base = {"DATA_DESC_ID": [0], "FIELD_ID": [3, 1], "STATE_ID": [None]}
+    digest = partition_selection_digest(base)
+    assert isinstance(digest, bytes) and len(digest) == 16
+    same = [
+        {"DATA_DESC_ID": [0], "FIELD_ID": [1, 3, 3], "STATE_ID": [None]},
+        {"DATA_DESC_ID": np.array([0]), "FIELD_ID": [np.int32(1), 3]},
+        dict(base, OBS_MODE=["x"], SOURCE_ID=[7]),  # not selection keys
+    ]
+    for info in same:
+        assert partition_selection_digest(info) == digest
+    different = [
+        {"DATA_DESC_ID": [0], "FIELD_ID": [3]},
+        {"DATA_DESC_ID": [0], "FIELD_ID": [3, 1], "STATE_ID": [5]},
+        {"DATA_DESC_ID": [0], "SCAN_NUMBER": [3, 1]},  # same values, other key
+        {"DATA_DESC_ID": [0], "FIELD_ID": [3, 1], "ANTENNA1": [0]},
+    ]
+    for info in different:
+        assert partition_selection_digest(info) != digest
+    # values that are not integers: no digest (never matches row runs)
+    assert partition_selection_digest({"FIELD_ID": [1.5]}) is None
+
+
+def test_main_row_runs_subset_and_pickle(ms_minimal_required):
+    import pickle
+
+    parts, runs = create_partitions_with_main_rows(ms_minimal_required.fname, [])
+    assert len(runs) == 4 and runs[-1].digest == runs[3].digest
+    with pytest.raises(IndexError):
+        runs[4]
+    sub = runs.subset([2, 0])
+    assert len(sub) == 2
+    for sub_idx, idx in enumerate([2, 0]):
+        np.testing.assert_array_equal(sub[sub_idx].rows(), runs[idx].rows())
+        assert sub[sub_idx].digest == runs[idx].digest
+    # a pickled partition carries only its own runs
+    data = pickle.dumps(runs[1])
+    copy = pickle.loads(data)
+    np.testing.assert_array_equal(copy.rows(), runs[1].rows())
+    assert copy.matches(parts[1], runs.main_nrows)
+    assert len(copy._runs) == 1
+    assert len(data) < len(pickle.dumps(runs)) or runs.starts.size <= 4
+    assert runs.nbytes == (
+        runs.starts.nbytes + runs.lengths.nbytes + runs.bounds.nbytes + 16 * 4
+    )
 
 
 def test_select_main_rows_without_keys_selects_all(ms_minimal_required):
@@ -235,3 +312,5 @@ def test_factorize_rows_empty():
 
 def test_create_partitions_ms_empty_has_no_row_runs(ms_empty_required):
     assert create_partitions(ms_empty_required.fname, ["FIELD_ID"]) == []
+    parts, runs = create_partitions_with_main_rows(ms_empty_required.fname, [])
+    assert parts == [] and len(runs) == 0

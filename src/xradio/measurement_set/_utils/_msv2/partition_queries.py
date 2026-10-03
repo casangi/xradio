@@ -1,9 +1,11 @@
 import gzip
+import hashlib
 import itertools
+import operator
 import os
 import pickle
 import time
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 import numpy as np
@@ -17,14 +19,9 @@ except ImportError:
 from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._msv2._tables.read import table_exists
 from xradio.measurement_set._utils._msv2._tables.read_rows import (
-    group_row_runs,
+    group_row_runs_flat,
     runs_to_rows,
 )
-
-# Keys of a partition description holding the partition's MAIN row membership, as
-# runs of consecutive rows: run i is rows [starts[i], starts[i] + lengths[i]).
-MAIN_ROW_STARTS_KEY = "main_row_starts"
-MAIN_ROW_LENGTHS_KEY = "main_row_lengths"
 
 # Partition description keys that select MAIN rows, in the order used by
 # conversion.create_taql_query_where (which also lists STATE_ID twice). For
@@ -62,22 +59,51 @@ def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
     Returns
     -------
     list
-        list of dictionaries with the partition information. Besides the
-        partition axes (a list of the unique values of every axis, or [None]
-        when the axis is not available), every dictionary holds the MAIN rows
-        of the partition as runs of consecutive rows (the same rows, in the
-        same ascending order, that conversion.create_taql_query_where selects):
-
-        - "main_row_starts": np.ndarray (int64), first row of every run.
-        - "main_row_lengths": np.ndarray (int64), number of rows of every run.
-
-        The rows are computed with one vectorized group-by over all MAIN rows.
-        Like the TaQL selection they include the ANTENNA1 rule (with
-        "ANTENNA1" in the scheme, a partition only holds the rows whose
-        ANTENNA2 equals its ANTENNA1, i.e. autocorrelations), and rows with
-        STATE_ID=-1 are grouped with the last STATE row (numpy negative
-        indexing into STATE, as in the partition axes).
+        list of dictionaries with the partition information: the partition
+        axes, each a list of the unique values of the axis (or [None] when the
+        axis is not available). See create_partitions_with_main_rows for the
+        MAIN rows of the partitions.
     """
+    partitions, _ = _create_partitions(in_file, partition_scheme, with_main_rows=False)
+    return partitions
+
+
+def create_partitions_with_main_rows(
+    in_file: str, partition_scheme: list
+) -> tuple[list[dict], "MainRowRuns"]:
+    """
+    create_partitions, plus the MAIN rows of every partition, computed with
+    one vectorized group-by over all MAIN rows.
+
+    The rows are the ones (in the same ascending order) that
+    conversion.create_taql_query_where selects for each partition. Like that
+    TaQL selection they include the ANTENNA1 rule (with "ANTENNA1" in the
+    scheme, a partition only holds the rows whose ANTENNA2 equals its
+    ANTENNA1, i.e. autocorrelations), and rows with STATE_ID=-1 are grouped
+    with the last STATE row (numpy negative indexing into STATE, as in the
+    partition axes).
+
+    Parameters
+    ----------
+    in_file : str
+        Input MSv2 file path.
+    partition_scheme : list
+        As in create_partitions.
+
+    Returns
+    -------
+    tuple[list[dict], MainRowRuns]
+        The partition descriptions (exactly as create_partitions returns
+        them) and their MAIN rows, ``main_row_runs[i]`` for ``partitions[i]``
+        (see MainRowRuns and partition_main_rows).
+    """
+    return _create_partitions(in_file, partition_scheme, with_main_rows=True)
+
+
+def _create_partitions(
+    in_file: str, partition_scheme: list, with_main_rows: bool
+) -> tuple[list[dict], "MainRowRuns | None"]:
+    """create_partitions[_with_main_rows]: the row runs only if with_main_rows."""
 
     ### Test new implementation without
     # Always start with these (if available); then extend with user scheme.
@@ -108,8 +134,13 @@ def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
         "OBSERVATION_ID": main_tb.getcol("OBSERVATION_ID"),
         "ANTENNA1": main_tb.getcol("ANTENNA1"),
     }
+    main_nrows = main_tb.nrows()
     # ANTENNA2 is only needed for the row membership of ANTENNA1 partitions
-    antenna2 = main_tb.getcol("ANTENNA2") if "ANTENNA1" in partition_scheme else None
+    antenna2 = (
+        main_tb.getcol("ANTENNA2")
+        if with_main_rows and "ANTENNA1" in partition_scheme
+        else None
+    )
 
     # Unique combinations of the key columns, in order of first appearance and
     # with the index labels of their first MAIN row (as drop_duplicates() gives
@@ -249,25 +280,33 @@ def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
         f"Partition build in {time.time() - t3:.2f}s; total {len(partitions):,} partitions"
     )
 
-    # --------- MAIN row membership of every partition (row runs) ----------
-    t4 = time.time()
-    row_partition = key_partition[row_key]
-    del row_key
-    if antenna2 is not None:
-        # create_taql_query_where adds "ANTENNA2 IN [<the partition's ANTENNA1>]".
-        # ANTENNA1 is a partition key, so the partition's ANTENNA1 list is the
-        # row's own ANTENNA1.
-        row_partition[antenna2 != base_cols["ANTENNA1"]] = -1
-    for part, (starts, lengths) in zip(
-        partitions, group_row_runs(row_partition, len(partitions)), strict=True
-    ):
-        part[MAIN_ROW_STARTS_KEY] = starts
-        part[MAIN_ROW_LENGTHS_KEY] = lengths
-    xradio_logger().debug(
-        f"Partition MAIN row runs in {time.time() - t4:.2f}s "
-        f"({int(np.count_nonzero(row_partition >= 0)):,} of {len(row_partition):,} "
-        "MAIN rows in a partition)"
-    )
+    main_row_runs = None
+    if with_main_rows:
+        # --------- MAIN row membership of every partition (row runs) ----------
+        t4 = time.time()
+        row_partition = key_partition[row_key]
+        del row_key
+        if antenna2 is not None:
+            # create_taql_query_where adds "ANTENNA2 IN [<the partition's
+            # ANTENNA1>]". ANTENNA1 is a partition key, so the partition's
+            # ANTENNA1 list is the row's own ANTENNA1.
+            row_partition[antenna2 != base_cols["ANTENNA1"]] = -1
+        n_partition_rows = int(np.count_nonzero(row_partition >= 0))
+        run_starts, run_lengths, bounds = group_row_runs_flat(
+            row_partition, len(partitions)
+        )
+        del row_partition
+        main_row_runs = MainRowRuns(
+            run_starts,
+            run_lengths,
+            bounds,
+            _stack_digests([partition_selection_digest(part) for part in partitions]),
+            main_nrows,
+        )
+        xradio_logger().debug(
+            f"Partition MAIN row runs in {time.time() - t4:.2f}s "
+            f"({n_partition_rows:,} of {main_nrows:,} MAIN rows in a partition)"
+        )
     xradio_logger().debug(f"Total create_partitions time: {time.time() - t0:.2f}s")
 
     # # with gzip.open("partition_original_small.pkl.gz", "wb") as f:
@@ -277,7 +316,7 @@ def create_partitions(in_file: str, partition_scheme: list) -> list[dict]:
     # #org_partitions = load_dict_list("partition_original_small.pkl.gz")
     # org_partitions = load_dict_list("partition_original.pkl.gz")
 
-    return partitions
+    return partitions, main_row_runs
 
 
 def _factorize_rows(columns: list[np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
@@ -317,15 +356,211 @@ def _factorize_rows(columns: list[np.ndarray]) -> tuple[np.ndarray, np.ndarray]:
     return row_key, np.flatnonzero(is_first)
 
 
-def partition_main_rows(main_tb: tables.table, partition_info: dict) -> np.ndarray:
+# Size (bytes) of partition_selection_digest
+SELECTION_DIGEST_SIZE = 16
+
+
+def partition_selection_digest(partition_info: Mapping[str, Any]) -> bytes | None:
+    """
+    A digest of the MAIN row selection of a partition description: the values
+    of MAIN_ROW_SELECTION_KEYS that conversion.create_taql_query_where turns
+    into its WHERE (keys missing or [None] are skipped, as there; the order
+    and repetition of values in a list do not matter, as for TaQL IN).
+
+    Parameters
+    ----------
+    partition_info : Mapping[str, Any]
+        Partition description.
+
+    Returns
+    -------
+    bytes | None
+        SELECTION_DIGEST_SIZE bytes, or None if a list holds values that are
+        not integers (no digest: such a description never matches row runs).
+    """
+    digest = hashlib.blake2b(digest_size=SELECTION_DIGEST_SIZE)
+    for key in MAIN_ROW_SELECTION_KEYS:
+        values = partition_info.get(key)
+        if values is None or len(values) == 0 or values[0] is None:
+            digest.update(b"|")
+            continue
+        try:
+            unique_values = sorted({operator.index(value) for value in values})
+        except TypeError:
+            return None
+        digest.update(f"|{key}={unique_values}".encode())
+    return digest.digest()
+
+
+def _stack_digests(digests: list[bytes | None]) -> np.ndarray:
+    """Digests as rows of a (n, SELECTION_DIGEST_SIZE) uint8 array (None: zeros)."""
+    zeros = bytes(SELECTION_DIGEST_SIZE)
+    return np.frombuffer(
+        b"".join(zeros if d is None else d for d in digests), dtype=np.uint8
+    ).reshape(len(digests), SELECTION_DIGEST_SIZE)
+
+
+class MainRowRuns:
+    """
+    MAIN rows of a list of partitions (create_partitions_with_main_rows), as
+    runs of consecutive rows: run ``j`` holds the rows ``starts[j] ..
+    starts[j] + lengths[j] - 1``, and the runs of partition ``i`` are
+    ``bounds[i]:bounds[i + 1]``. Stored in a few flat arrays (16 bytes per
+    run, 24 per partition), indexed per partition with ``runs[i]``.
+
+    Every partition also keeps a digest of its row selection
+    (partition_selection_digest) and the number of MAIN rows the runs were
+    computed for: the runs are only used for a partition description with
+    the same selection, on a MAIN table of the same size (partition_main_rows).
+
+    Parameters
+    ----------
+    starts, lengths : np.ndarray
+        First row and number of rows of every run (int64).
+    bounds : np.ndarray
+        Run range of every partition (int64, n_partitions + 1 values).
+    digests : np.ndarray
+        Selection digest of every partition (uint8, shape (n_partitions,
+        SELECTION_DIGEST_SIZE)).
+    main_nrows : int
+        Rows of the MAIN table the runs were computed from.
+    """
+
+    __slots__ = ("starts", "lengths", "bounds", "digests", "main_nrows")
+
+    def __init__(
+        self,
+        starts: np.ndarray,
+        lengths: np.ndarray,
+        bounds: np.ndarray,
+        digests: np.ndarray,
+        main_nrows: int,
+    ):
+        self.starts = np.asarray(starts, dtype=np.int64)
+        self.lengths = np.asarray(lengths, dtype=np.int64)
+        self.bounds = np.asarray(bounds, dtype=np.int64)
+        self.digests = np.asarray(digests, dtype=np.uint8).reshape(
+            -1, SELECTION_DIGEST_SIZE
+        )
+        self.main_nrows = int(main_nrows)
+        if self.starts.shape != self.lengths.shape:
+            raise ValueError("Run starts and lengths differ in shape")
+        if self.bounds.size != self.digests.shape[0] + 1:
+            raise ValueError("One run range and one digest per partition expected")
+
+    def __len__(self) -> int:
+        return int(self.bounds.size - 1)
+
+    def __getitem__(self, index: int) -> "PartitionMainRows":
+        index = operator.index(index)
+        if index < 0:
+            index += len(self)
+        if not 0 <= index < len(self):
+            raise IndexError(f"Partition {index} out of range ({len(self)})")
+        return PartitionMainRows(self, index)
+
+    @property
+    def nbytes(self) -> int:
+        """Memory held by the arrays."""
+        return (
+            self.starts.nbytes
+            + self.lengths.nbytes
+            + self.bounds.nbytes
+            + self.digests.nbytes
+        )
+
+    def subset(self, indices: Sequence[int]) -> "MainRowRuns":
+        """The runs of the partitions ``indices`` (copies), in that order."""
+        indices = [operator.index(i) for i in indices]
+        lo, hi = self.bounds[indices], self.bounds[np.asarray(indices) + 1]
+        run_idx = (
+            np.concatenate([np.arange(a, b) for a, b in zip(lo, hi, strict=True)])
+            if indices
+            else np.empty(0, dtype=np.int64)
+        )
+        return MainRowRuns(
+            self.starts[run_idx],
+            self.lengths[run_idx],
+            np.concatenate(([0], np.cumsum(hi - lo))),
+            self.digests[indices],
+            self.main_nrows,
+        )
+
+
+class PartitionMainRows:
+    """
+    The MAIN rows of one partition of a MainRowRuns (``main_row_runs[i]``).
+
+    A light reference to the shared runs; pickled (e.g. into a dask task) it
+    carries only this partition's runs.
+    """
+
+    __slots__ = ("_runs", "_index")
+
+    def __init__(self, runs: MainRowRuns, index: int):
+        self._runs = runs
+        self._index = index
+
+    def __reduce__(self):
+        return (PartitionMainRows, (self._runs.subset([self._index]), 0))
+
+    def _bounds(self) -> tuple[int, int]:
+        return (
+            int(self._runs.bounds[self._index]),
+            int(self._runs.bounds[self._index + 1]),
+        )
+
+    @property
+    def starts(self) -> np.ndarray:
+        """First row of every run (int64)."""
+        lo, hi = self._bounds()
+        return self._runs.starts[lo:hi]
+
+    @property
+    def lengths(self) -> np.ndarray:
+        """Number of rows of every run (int64)."""
+        lo, hi = self._bounds()
+        return self._runs.lengths[lo:hi]
+
+    @property
+    def digest(self) -> bytes:
+        """Selection digest of the partition description the runs belong to."""
+        return self._runs.digests[self._index].tobytes()
+
+    @property
+    def main_nrows(self) -> int:
+        """Rows of the MAIN table the runs were computed from."""
+        return self._runs.main_nrows
+
+    def rows(self) -> np.ndarray:
+        """The MAIN row numbers (int64, ascending)."""
+        return runs_to_rows(self.starts, self.lengths)
+
+    def matches(self, partition_info: Mapping[str, Any], main_nrows: int) -> bool:
+        """
+        Whether the runs are those of ``partition_info`` (same row selection)
+        on a MAIN table of ``main_nrows`` rows.
+        """
+        return main_nrows == self.main_nrows and (
+            partition_selection_digest(partition_info) == self.digest
+        )
+
+
+def partition_main_rows(
+    main_tb: tables.table,
+    partition_info: dict,
+    main_row_runs: PartitionMainRows | None = None,
+) -> np.ndarray:
     """
     The MAIN row numbers of a partition, ascending: the rows that
     conversion.create_taql_query_where(partition_info) selects.
 
-    Uses the row runs that create_partitions stores in the partition
-    description. A description without them (e.g. built by hand) gets its rows
-    from a numpy twin of the TaQL selection, which reads the key columns of
-    the whole MAIN table once.
+    Uses ``main_row_runs`` (create_partitions_with_main_rows) when they were
+    computed for the same row selection (partition_selection_digest) on a
+    MAIN table of the same size. Otherwise (no runs, a description changed
+    after create_partitions_with_main_rows, e.g. a subset of its FIELD_IDs,
+    or another MAIN table) the rows come from a numpy twin of the TaQL
+    selection, which reads the key columns of the whole MAIN table once.
 
     Parameters
     ----------
@@ -333,23 +568,21 @@ def partition_main_rows(main_tb: tables.table, partition_info: dict) -> np.ndarr
         The opened MAIN table (base table).
     partition_info : dict
         Partition description (as produced by create_partitions).
+    main_row_runs : PartitionMainRows | None, optional
+        The MAIN rows computed with the partition descriptions.
 
     Returns
     -------
     np.ndarray
         int64 MAIN row numbers of the partition.
     """
-    if MAIN_ROW_STARTS_KEY in partition_info and MAIN_ROW_LENGTHS_KEY in partition_info:
-        rows = runs_to_rows(
-            partition_info[MAIN_ROW_STARTS_KEY], partition_info[MAIN_ROW_LENGTHS_KEY]
+    if main_row_runs is not None:
+        if main_row_runs.matches(partition_info, main_tb.nrows()):
+            return main_row_runs.rows()
+        xradio_logger().debug(
+            "The MAIN row runs do not belong to this partition description (or "
+            "MAIN table): selecting its rows from the key columns instead"
         )
-        if rows.size and (rows[-1] >= main_tb.nrows() or rows[0] < 0):
-            raise ValueError(
-                f"The partition MAIN rows [{rows[0]}, {rows[-1]}] do not fit the MAIN "
-                f"table of {main_tb.nrows()} rows (stale partition description?)"
-            )
-        return rows
-
     return select_main_rows(main_tb, partition_info)
 
 

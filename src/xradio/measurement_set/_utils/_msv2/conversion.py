@@ -68,7 +68,10 @@ from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
     create_system_calibration_xds,
     create_weather_xds,
 )
-from xradio.measurement_set._utils._msv2.partition_queries import partition_main_rows
+from xradio.measurement_set._utils._msv2.partition_queries import (
+    PartitionMainRows,
+    partition_main_rows,
+)
 from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
 from xradio.measurement_set._utils._utils.stokes_types import stokes_types
 from xradio.measurement_set._utils._zarr.encoding import add_encoding
@@ -116,7 +119,11 @@ def get_main_read_mode() -> str:
 
 @contextmanager
 def open_partition_main_table(
-    in_file: str, partition_info: dict, taql_where: str, main_read: str
+    in_file: str,
+    partition_info: dict,
+    taql_where: str,
+    main_read: str,
+    main_row_runs: PartitionMainRows | None = None,
 ) -> Generator[tables.table | MainTableRows, None, None]:
     """
     Opens the MAIN rows of a partition for reading.
@@ -133,6 +140,9 @@ def open_partition_main_table(
         "rows": yields a MainTableRows over the base MAIN table (opened once
         here and closed on exit) and the partition rows. "taql": yields the
         TaQL selection of the partition.
+    main_row_runs : PartitionMainRows | None, optional
+        The partition's MAIN rows from create_partitions_with_main_rows, used
+        by "rows" if they belong to ``partition_info`` (partition_main_rows).
 
     Yields
     ------
@@ -145,7 +155,7 @@ def open_partition_main_table(
     else:
         with open_table_ro(in_file) as main_tb:
             main_rows = MainTableRows(
-                main_tb, partition_main_rows(main_tb, partition_info)
+                main_tb, partition_main_rows(main_tb, partition_info, main_row_runs)
             )
             try:
                 yield main_rows
@@ -1166,6 +1176,7 @@ def convert_and_write_partition(
     parallel_mode: str = "none",
     persistence_mode: str = "w-",
     subtable_cache: SubtableCache | None = None,
+    main_row_runs: PartitionMainRows | None = None,
 ):
     """_summary_
 
@@ -1211,6 +1222,11 @@ def convert_and_write_partition(
         Sub-table data shared by the partitions of a conversion (see
         _tables/subtable_cache.py), by default None: a cache for this partition
         only. Not used with XRADIO_MSV2_SUBTABLE_CACHE=0 (TEMPORARY).
+    main_row_runs : PartitionMainRows | None, optional
+        MAIN rows of the partition from create_partitions_with_main_rows, by
+        default None. Used by the row read path only if they were computed for
+        the same row selection as ``partition_info``; otherwise the rows are
+        selected from the MAIN key columns (as the TaQL WHERE selects them).
 
     Returns
     -------
@@ -1236,7 +1252,7 @@ def convert_and_write_partition(
         # sub-table per partition as before
         activate_subtable_cache(resolve_subtable_cache(subtable_cache)),
         open_partition_main_table(
-            in_file, partition_info, taql_where, main_read
+            in_file, partition_info, taql_where, main_read, main_row_runs
         ) as tb_tool,
     ):
         if tb_tool.nrows() == 0:

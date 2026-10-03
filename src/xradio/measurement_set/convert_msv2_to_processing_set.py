@@ -17,6 +17,7 @@ from xradio.measurement_set._utils._msv2.conversion import (
 )
 from xradio.measurement_set._utils._msv2.partition_queries import (
     create_partitions,
+    create_partitions_with_main_rows,
 )
 
 
@@ -164,13 +165,20 @@ def convert_msv2_to_processing_set(
     if partition_scheme is None:
         partition_scheme = []
 
-    partitions = create_partitions(in_file, partition_scheme=partition_scheme)
+    # The MAIN rows of every partition are computed with the partitions (no
+    # TaQL per partition); they are passed to every convert_and_write_partition
+    # with its description.
+    partitions, main_row_runs = create_partitions_with_main_rows(
+        in_file, partition_scheme=partition_scheme
+    )
     n_all_partitions = len(partitions)
+    selected = list(range(n_all_partitions))
 
     if partition_filter is not None:
-        partitions = [p for p in partitions if partition_filter(p)]
-        if not partitions:
+        selected = [idx for idx in selected if partition_filter(partitions[idx])]
+        if not selected:
             raise RuntimeError("No partitions selected by partition_filter")
+    partitions = [partitions[idx] for idx in selected]
     n_selected_partitions = len(partitions)
 
     xradio_logger().info(
@@ -186,7 +194,9 @@ def convert_msv2_to_processing_set(
     # XRADIO_MSV2_SUBTABLE_CACHE=0 reads the sub-tables for every partition)
     subtable_cache = SubtableCache() if get_subtable_cache_mode() else None
 
-    for ms_v4_id, partition_info in enumerate(partitions):
+    for ms_v4_id, (partition_info, partition_idx) in enumerate(
+        zip(partitions, selected, strict=True)
+    ):
         xradio_logger().info(
             "OBSERVATION_ID "
             + str(partition_info["OBSERVATION_ID"])
@@ -233,6 +243,7 @@ def convert_msv2_to_processing_set(
                     parallel_mode=parallel_mode,
                     persistence_mode=persistence_mode,
                     subtable_cache=subtable_cache,
+                    main_row_runs=main_row_runs[partition_idx],
                 )
             )
         else:
@@ -256,6 +267,7 @@ def convert_msv2_to_processing_set(
                 parallel_mode=parallel_mode,
                 persistence_mode=persistence_mode,
                 subtable_cache=subtable_cache,
+                main_row_runs=main_row_runs[partition_idx],
             )
             end_time = time.time()
             xradio_logger().debug(

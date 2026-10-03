@@ -148,5 +148,58 @@ def test_convert_msv2_to_processing_set_subtable_cache_identical(
             np.testing.assert_array_equal(var.values, ds_1[name].values)
 
 
+def _assert_trees_identical(tree_a, tree_b):
+    import numpy as np
+
+    paths = {node.path for node in tree_a.subtree}
+    assert paths == {node.path for node in tree_b.subtree}
+    for path in paths:
+        ds_a = tree_a[path].to_dataset(inherit=False)
+        ds_b = tree_b[path].to_dataset(inherit=False)
+        assert list(ds_a.variables) == list(ds_b.variables), path
+        for name, var in ds_a.variables.items():
+            assert var.dims == ds_b[name].dims, (path, name)
+            assert var.dtype == ds_b[name].dtype, (path, name)
+            np.testing.assert_array_equal(var.values, ds_b[name].values)
+
+
+def test_convert_msv2_to_processing_set_partition_filter_dicts(
+    ms_minimal_required, tmp_path, monkeypatch
+):
+    """
+    partition_filter gets the plain partition descriptions (lists, JSON
+    serializable, as from create_partitions). A filter that changes a
+    description in place gets the rows of the changed description on the
+    rows read path too, as on the TaQL path (the MAIN row runs computed for
+    the original description are not used).
+    """
+    import json
+
+    from xradio.measurement_set import convert_msv2_to_processing_set
+    from xradio.measurement_set._utils._msv2 import conversion
+
+    def partition_filter(partition):
+        json.dumps(partition)
+        if partition["DATA_DESC_ID"] == [0]:
+            partition["DATA_DESC_ID"] = [1]  # now selects the rows of DDI 1
+            return True
+        return False
+
+    trees = {}
+    for main_read in ("taql", "rows"):
+        monkeypatch.setenv(conversion.MAIN_READ_ENV_VAR, main_read)
+        out_file = str(tmp_path / f"{main_read}.ps.zarr")
+        convert_msv2_to_processing_set(
+            ms_minimal_required.fname,
+            out_file=out_file,
+            partition_scheme=[],
+            partition_filter=partition_filter,
+            persistence_mode="w",
+        )
+        trees[main_read] = xr.open_datatree(out_file, engine="zarr")
+    assert len(trees["rows"].children) == 1
+    _assert_trees_identical(trees["taql"], trees["rows"])
+
+
 if __name__ == "__main__":
     pytest.main(["-v", "-s", __file__])

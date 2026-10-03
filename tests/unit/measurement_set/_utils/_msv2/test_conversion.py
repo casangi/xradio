@@ -671,23 +671,30 @@ def _convert_partition(monkeypatch, msname, out_file, partition_info, main_read,
 
 
 @pytest.mark.parametrize("layout", MAIN_LAYOUTS)
-@pytest.mark.parametrize("partition_source", ["create_partitions", "hand_built"])
+@pytest.mark.parametrize(
+    "partition_source", ["create_partitions", "hand_built", "mismatched_runs"]
+)
 def test_convert_and_write_partition_rows_vs_taql_bit_identical(
     ms_main_layouts, layout, partition_source, tmp_path, monkeypatch
 ):
     """The rows read path gives exactly the output of the TaQL path."""
     from xradio.measurement_set._utils._msv2.partition_queries import (
-        create_partitions,
+        create_partitions_with_main_rows,
     )
 
     msname = ms_main_layouts[layout]
+    partitions, runs = create_partitions_with_main_rows(msname, [])
     if partition_source == "create_partitions":
-        partition = create_partitions(msname, [])[1]  # with MAIN row runs
-    else:  # without row runs: rows from the numpy twin of the TaQL selection
+        partition, kw = partitions[1], {"main_row_runs": runs[1]}
+    elif partition_source == "hand_built":
+        # without row runs: rows from the numpy twin of the TaQL selection
         partition = {"DATA_DESC_ID": [1], "OBS_MODE": ["scan_intent#subscan_intent"]}
+        kw = {}
+    else:  # runs of another description: not used (the rows follow the dict)
+        partition, kw = partitions[1], {"main_row_runs": runs[0]}
 
     taql = _convert_partition(
-        monkeypatch, msname, str(tmp_path / "t"), partition, "taql"
+        monkeypatch, msname, str(tmp_path / "t"), partition, "taql", **kw
     )
     taql_iter = _convert_partition(
         monkeypatch,
@@ -696,9 +703,10 @@ def test_convert_and_write_partition_rows_vs_taql_bit_identical(
         partition,
         "taql",
         use_table_iter=True,
+        **kw,
     )
     rows = _convert_partition(
-        monkeypatch, msname, str(tmp_path / "r"), partition, "rows"
+        monkeypatch, msname, str(tmp_path / "r"), partition, "rows", **kw
     )
 
     assert {"VISIBILITY", "VISIBILITY_CORRECTED", "FLAG", "WEIGHT", "UVW"} <= set(
@@ -718,11 +726,12 @@ def test_convert_and_write_partition_rows_time_mode(
     """parallel_mode="time" on the rows path: same output as the numpy path,
     also for sparse, duplicated and baseline-major rows."""
     from xradio.measurement_set._utils._msv2.partition_queries import (
-        create_partitions,
+        create_partitions_with_main_rows,
     )
 
     msname = ms_main_layouts[layout]
-    partition = create_partitions(msname, [])[0]
+    partitions, runs = create_partitions_with_main_rows(msname, [])
+    partition = partitions[0]
     chunks = {"time": 4}
     none = _convert_partition(
         monkeypatch,
@@ -731,6 +740,7 @@ def test_convert_and_write_partition_rows_time_mode(
         partition,
         "rows",
         main_chunksize=chunks,
+        main_row_runs=runs[0],
     )
     timed = _convert_partition(
         monkeypatch,
@@ -740,6 +750,7 @@ def test_convert_and_write_partition_rows_time_mode(
         "rows",
         main_chunksize=chunks,
         parallel_mode="time",
+        main_row_runs=runs[0],
     )
     assert_msv4_bit_identical(none, timed)
     if layout == "dense":  # the TaQL time path needs dense, time-ordered rows
@@ -763,11 +774,12 @@ def test_convert_and_write_partition_rows_runs_no_taql_on_main(
     from casacore import tables
 
     from xradio.measurement_set._utils._msv2.partition_queries import (
-        create_partitions,
+        create_partitions_with_main_rows,
     )
 
     msname = ms_main_layouts["dense"]
-    partition = create_partitions(msname, [])[0]
+    partitions, runs = create_partitions_with_main_rows(msname, [])
+    partition = partitions[0]
     queries = []
     taql = tables.taql
 
@@ -779,7 +791,14 @@ def test_convert_and_write_partition_rows_runs_no_taql_on_main(
         return taql(query, *args, **kwargs)
 
     monkeypatch.setattr(tables, "taql", spy_taql)
-    _convert_partition(monkeypatch, msname, str(tmp_path / "r"), partition, "rows")
+    _convert_partition(
+        monkeypatch,
+        msname,
+        str(tmp_path / "r"),
+        partition,
+        "rows",
+        main_row_runs=runs[0],
+    )
     assert queries  # sub-tables are still read with TaQL
     assert not [q for q in queries if "$mtable" in q]
     queries.clear()

@@ -139,12 +139,38 @@ def group_row_runs(
         For every group, ``(starts, lengths)`` of its rows as in
         ``rows_to_runs`` (ascending row order).
     """
+    run_starts, run_lengths, bounds = group_row_runs_flat(row_group, n_groups)
+    return [
+        (run_starts[lo:hi].copy(), run_lengths[lo:hi].copy())
+        for lo, hi in zip(bounds[:-1].tolist(), bounds[1:].tolist(), strict=True)
+    ]
+
+
+def group_row_runs_flat(
+    row_group: np.ndarray, n_groups: int
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    ``group_row_runs`` as three flat arrays (no per-group arrays).
+
+    Parameters
+    ----------
+    row_group : np.ndarray
+        Group index of every row (``row_group[row]``), or -1 for a row that
+        belongs to no group.
+    n_groups : int
+        Number of groups (group indices are ``0 .. n_groups-1``).
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray, np.ndarray]
+        ``(run_starts, run_lengths, bounds)`` (int64): the runs of group ``g``
+        are ``run_starts[bounds[g]:bounds[g + 1]]`` (ascending) with the
+        corresponding ``run_lengths``.
+    """
     row_group = np.asarray(row_group)
-    empty = (np.empty(0, dtype=np.int64), np.empty(0, dtype=np.int64))
-    if n_groups == 0:
-        return []
+    empty = np.empty(0, dtype=np.int64)
     if row_group.size == 0:
-        return [empty] * n_groups
+        return empty, empty.copy(), np.zeros(n_groups + 1, dtype=np.int64)
 
     # Row numbers sorted by group; a stable sort keeps them ascending in a group.
     order = np.argsort(row_group, kind="stable")
@@ -152,22 +178,20 @@ def group_row_runs(
     first_in_group = int(np.searchsorted(sorted_group, 0))
     rows = order[first_in_group:].astype(np.int64, copy=False)
     sorted_group = sorted_group[first_in_group:]
+    del order
     if rows.size == 0:
-        return [empty] * n_groups
+        return empty, empty.copy(), np.zeros(n_groups + 1, dtype=np.int64)
 
     new_run = np.empty(rows.size, dtype=bool)
     new_run[0] = True
     new_run[1:] = (sorted_group[1:] != sorted_group[:-1]) | (np.diff(rows) != 1)
     run_offsets = np.flatnonzero(new_run)
+    del new_run
     run_starts = rows[run_offsets]
     run_lengths = np.diff(np.concatenate((run_offsets, [rows.size]))).astype(np.int64)
     run_group = sorted_group[run_offsets]
-    bounds = np.searchsorted(run_group, np.arange(n_groups + 1))
-
-    return [
-        (run_starts[lo:hi].copy(), run_lengths[lo:hi].copy())
-        for lo, hi in zip(bounds[:-1], bounds[1:], strict=True)
-    ]
+    bounds = np.searchsorted(run_group, np.arange(n_groups + 1)).astype(np.int64)
+    return run_starts, run_lengths, bounds
 
 
 def column_dtype(table: tables.table, col: str) -> np.dtype:

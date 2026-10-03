@@ -9,93 +9,101 @@ until one ``DataTree.to_zarr`` call writes the MSv4. With streaming:
    sub-datasets), but the data variables that come from MAIN columns
    (VISIBILITY*, SPECTRUM, WEIGHT, FLAG, UVW, TIME_CENTROID,
    EFFECTIVE_INTEGRATION_TIME and the WEIGHT=1 fallback) are lazy placeholders
-   (``deferred_main_column``, ``deferred_ones``). Whether a column can be read is
-   decided here, before anything is written, with the rule of the read path:
-   the column is skipped (WEIGHT_SPECTRUM falls back to WEIGHT) if any cell of
-   the partition is undefined or has a shape other than the first cell's
-   (``check_partition_cells``).
+   (``deferred_main_column``, ``deferred_ones``). A column is skipped
+   (WEIGHT_SPECTRUM falls back to WEIGHT) when the storage manager tells,
+   without reading data, that a cell of the partition is undefined or of a
+   shape other than the first cell's (``check_partition_cells``).
 2. ``DataTree.to_zarr(compute=False)`` writes all metadata (with the encoding,
    chunks and compressor of the non-streamed path), the numpy variables and the
    consolidated metadata. The placeholders are never computed.
 3. ``write_deferred_variables`` fills the placeholders one variable at a time,
    in batches of whole zarr chunks along time: each batch is read with one
-   ascending pass over its rows (``read_rows_to_grid``), converted as in the
+   ascending pass over its rows (``read_time_chunk``), converted as in the
    non-streamed path (TIME_CENTROID epoch, WEIGHT repeated along frequency,
-   reversed frequency axis) and written as a chunk-aligned region, so every
+   reversed frequency axis) and written as chunk-aligned regions, so every
    zarr chunk is encoded once, from the same values: the chunk files are
    byte-identical to the non-streamed path.
 
 Batch size: as many whole time chunks as fit ``XRADIO_MSV2_STREAM_BATCH_MB``
 (uncompressed, at least one chunk); a variable smaller than that is one batch.
-Reading by time batches costs one extra row run per batch on time-ordered
-partitions. When the partition's rows of a time batch are scattered over many
-runs (baseline-major or interleaved row order), batching would multiply the
-number of reads (and tile re-reads): such a variable is read in one pass if it
-fits ``FRAGMENTED_BATCH_FACTOR`` batches, otherwise in batches of that size
-(``choose_time_batches``).
+A partition whose data variables together are at most
+``IN_MEMORY_BATCH_FRACTION`` of a batch is not streamed: they are read whole
+(``read_deferred_variables``) and the MSv4 is written by one to_zarr, as in the
+non-streamed path (its peak, up to about twice the data, stays below that of one
+streamed batch; the streamed write costs a few ms per variable).
+On time-ordered partitions a time batch costs about one extra read call and one
+re-read tile per batch boundary. When the rows of the time batches are spread
+over the partition (baseline-major or interleaved row orders), batching would
+multiply the read calls or the tiles read: the small-read guard
+(``choose_time_batches``) then reads the variable in one pass if it fits
+``FRAGMENTED_BATCH_FACTOR`` batches, otherwise in batches of that size.
 
-If reading or writing fails after a variable has been partly written, the
-variable is removed from the store (and the consolidated metadata rewritten)
-and the exception is raised: the MSv4 is then incomplete, never silently
-half-written (the non-streamed path would have dropped a variable whose read
-failed, which cannot be reproduced once the metadata is written).
+Columns whose cells the storage manager cannot vouch for (StandardStMan /
+IncrementalStMan indirect arrays, reference or concatenated tables) are checked
+by the read itself, as in the non-streamed path. If the read of any column
+fails after the metadata was written, ``write_deferred_variables`` raises
+``DeferredReadError``; the caller removes the MSv4 and converts the partition
+again without that column, which gives the result of the non-streamed path
+(that skips a column whose read fails). Any other failure of the fill removes
+the MSv4 (``discard_msv4``) and is raised: no MSv4 with missing or partly
+written data variables is left behind (except after a hard kill).
 """
 
 import json
 import os
+import shutil
 import time
+import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
-import dask
 import dask.array as da
 import numpy as np
 import xarray as xr
 
-try:
-    from casacore import tables
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as tables
-
-from xradio._utils.list_and_array import get_pad_value
 from xradio._utils.logging import xradio_logger
 from xradio._utils.zarr.config import ZARR_FORMAT
 from xradio.measurement_set._utils._msv2._tables.read import (
     _partition_cell_shape_and_dtype,
 )
 from xradio.measurement_set._utils._msv2._tables.read_rows import (
-    DEFAULT_MAX_TMP_BYTES,
-    FRAGMENTED_RUNS,
     MainTableRows,
     TimeChunkRows,
+    check_partition_cells,
     column_dtype,
-    make_row_grid_plan,
-    read_rows_to_grid,
-    rows_to_runs,
+    column_row_window,
+    count_row_runs,
+    count_row_windows,
+    read_grid,
+    read_time_chunk,
 )
 
 # TEMPORARY, EXPLORATION ONLY (remove before merging): "1" (default) writes the
 # MAIN data variables with the streamed write, "0" reads them all into memory
 # and writes the MSv4 with one to_zarr call (the previous path), for A/B
 # benchmarks. The streamed write needs the row read path
-# (XRADIO_MSV2_MAIN_READ=rows) and parallel_mode "none" or "partition".
+# (XRADIO_MSV2_MAIN_READ=rows) and parallel_mode "none" or "partition" (or
+# "time" without a time chunk size, which reads like "none").
 STREAM_WRITE_ENV_VAR = "XRADIO_MSV2_STREAM_WRITE"
 # TEMPORARY, EXPLORATION ONLY (remove before merging): target size of a batch
 # (MiB, uncompressed), to sweep the batch size in benchmarks.
 STREAM_BATCH_MB_ENV_VAR = "XRADIO_MSV2_STREAM_BATCH_MB"
 DEFAULT_STREAM_BATCH_MB = 128
-# Small-read guard: time batching is "fragmenting" when it reads more than this
-# many times the row runs of a one-pass read (plus one run per batch boundary).
+# Small-read guard. Time batches are kept only if
+# - their row runs (read calls) are at most FRAGMENTED_RUNS_RATIO times those of
+#   a one-pass read (plus one per batch boundary), and
+# - the row windows (tiles) they load exceed those of a one-pass read by at most
+#   FRAGMENTED_EXTRA_READS of them, or FRAGMENTED_BOUNDARY_WINDOWS per batch
+#   boundary, whichever is more.
 FRAGMENTED_RUNS_RATIO = 2.0
+FRAGMENTED_EXTRA_READS = 0.25
+FRAGMENTED_BOUNDARY_WINDOWS = 2
 # A fragmenting variable is read in one pass if it is at most this many target
 # batches, otherwise in batches of that size.
 FRAGMENTED_BATCH_FACTOR = 8
-# Rows per getcolshapestring call of the cell shape scan.
-SHAPE_SCAN_ROWS = 2**16
-
-# casacore ColumnDesc option bit of arrays stored in the row (fixed shape, always
-# defined)
-_DIRECT_OPTION = 1
+# A partition whose data variables are at most this fraction of the target batch
+# together is read whole and written by to_zarr (not streamed).
+IN_MEMORY_BATCH_FRACTION = 0.25
 
 
 def get_stream_write_mode() -> bool:
@@ -136,128 +144,27 @@ def get_stream_batch_bytes() -> int:
     return max(1, int(mib * 2**20))
 
 
-class ColumnNotReadableError(RuntimeError):
-    """A column whose cells cannot all be read for a partition."""
-
-
-def _check_shape_strings(shapes: list[str], expected: str, col: str) -> None:
-    if len(set(shapes)) > 1 or (shapes and shapes[0] != expected):
-        raise ColumnNotReadableError(
-            f"Column {col} has cells of a shape other than {expected} in the partition"
-        )
-
-
-def _scan_cell_shapes(
-    table: tables.table, col: str, rows: np.ndarray, expected: str
-) -> None:
+class DeferredReadError(RuntimeError):
     """
-    Compare the shape of every cell of ``rows`` with ``expected`` (shape
-    strings), with one getcolshapestring call per run of rows, or per batch of
-    rows read through ``selectrows`` when a batch has many runs. Raises
-    ColumnNotReadableError for an undefined cell or another shape.
-    """
-    table_nrows = table.nrows()
-    for b0 in range(0, rows.size, SHAPE_SCAN_ROWS):
-        batch = rows[b0 : b0 + SHAPE_SCAN_ROWS]
-        starts, lengths = rows_to_runs(batch)
-        try:
-            if starts.size > FRAGMENTED_RUNS:
-                ref = table.selectrows(batch)
-                try:
-                    _check_shape_strings(ref.getcolshapestring(col), expected, col)
-                finally:
-                    ref.close()
-                continue
-            for start, length in zip(starts.tolist(), lengths.tolist(), strict=True):
-                pieces = [(start, length)]
-                if start == 0 and length == table_nrows and length > 1:
-                    # never a call over the whole column (see read_rows._read_run)
-                    pieces = [(0, length - 1), (length - 1, 1)]
-                for row0, nrow in pieces:
-                    _check_shape_strings(
-                        table.getcolshapestring(col, row0, nrow), expected, col
-                    )
-        except RuntimeError as exc:
-            if isinstance(exc, ColumnNotReadableError):
-                raise
-            raise ColumnNotReadableError(
-                f"Column {col} has undefined cells in the partition: {exc}"
-            ) from exc
+    Reading the column of a deferred data variable failed after the MSv4
+    metadata was written. The non-streamed path skips a column whose read
+    fails; the caller reproduces that by converting the partition again
+    without the column.
 
-
-def check_partition_cells(table: tables.table, col: str, rows: np.ndarray) -> str:
-    """
-    Check, without reading any data, that every cell of a column can be read
-    for the rows of a partition: every cell defined and of the shape of the
-    first one. These are the cells for which the row read path
-    (``read_col_conversion_rows``) succeeds; it raises (and the converter skips
-    the column) otherwise. Decided in O(1) from the storage manager where it
-    can be:
-
-    - scalar columns, TiledColumnStMan columns and arrays stored in the row
-      ("direct") are always defined with one shape;
-    - for a TiledShapeStMan column, if its hypercubes hold every row of the
-      table and all have the cell shape of the partition's first cell.
-
-    Otherwise (other storage managers, or hypercubes that do not hold every row
-    or have several cell shapes), the cell shapes of the partition rows are
-    compared (``getcolshapestring``, no data read).
-
-    Parameters
+    Attributes
     ----------
-    table : tables.table
-        Base MAIN table.
+    name : str
+        Data variable name.
     col : str
-        Column name.
-    rows : np.ndarray
-        MAIN rows of the partition (strictly increasing, not empty).
-
-    Returns
-    -------
-    str
-        How it was decided (for logging).
-
-    Raises
-    ------
-    ColumnNotReadableError
-        If a cell of the partition is undefined or has another shape.
+        MAIN column.
     """
-    if table.isscalarcol(col):
-        return "scalar column"
-    rows = np.asarray(rows, dtype=np.int64)
-    try:
-        expected = table.getcolshapestring(col, int(rows[0]), 1)[0]
-    except RuntimeError as exc:
-        raise ColumnNotReadableError(
-            f"Column {col}: the first cell of the partition is undefined"
-        ) from exc
-    option = int(table.getcoldesc(col).get("option", 0))
-    dminfo = table.getdminfo(col)
-    dm_type = dminfo.get("TYPE", "")
-    if dm_type == "TiledColumnStMan":
-        return "TiledColumnStMan (fixed shape)"
-    if dm_type == "TiledShapeStMan":
-        cubes = list(dminfo.get("SPEC", {}).get("HYPERCUBES", {}).values())
-        rows_in_cubes = sum(
-            int(np.asarray(cube["CubeShape"])[-1])
-            for cube in cubes
-            if np.asarray(cube.get("CubeShape", [])).size
+
+    def __init__(self, name: str, col: str, store_path: str):
+        super().__init__(
+            f"Reading column {col} for the data variable {name} of {store_path} failed"
         )
-        # cube cell shapes are in Fortran order, the shape strings in numpy order
-        cell_shapes = {
-            str(list(np.asarray(cube["CellShape"]).tolist()[::-1]))
-            if "CellShape" in cube
-            else None
-            for cube in cubes
-        }
-        if rows_in_cubes >= table.nrows() and (
-            cell_shapes == {expected} or (len(cubes) == 1 and None in cell_shapes)
-        ):
-            return "TiledShapeStMan, all rows in hypercubes of one cell shape"
-    elif option & _DIRECT_OPTION:
-        return f"{dm_type} direct array (fixed shape)"
-    _scan_cell_shapes(table, col, rows, expected)
-    return f"{dm_type}: cell shapes of {rows.size} rows compared"
+        self.name = name
+        self.col = col
 
 
 def _deferred_block_computed(name: str) -> None:
@@ -270,7 +177,8 @@ def _deferred_block_computed(name: str) -> None:
 def deferred_placeholder(name: str, shape: tuple[int, ...], dtype) -> da.Array:
     """
     A lazy (dask) array of a given shape and dtype that stands for a data
-    variable written later (one chunk; it raises if it is ever computed).
+    variable written later (one chunk; it raises if it is ever computed, so
+    that nothing reads a whole variable into memory by accident).
 
     Parameters
     ----------
@@ -286,8 +194,16 @@ def deferred_placeholder(name: str, shape: tuple[int, ...], dtype) -> da.Array:
     da.Array
         The placeholder.
     """
-    block = dask.delayed(_deferred_block_computed, pure=False)(name)
-    return da.from_delayed(block, shape=tuple(int(n) for n in shape), dtype=dtype)
+    shape = tuple(int(n) for n in shape)
+    # a one-task graph, built directly (da.from_delayed costs ~10x more)
+    graph_name = f"deferred-{name}-{uuid.uuid4().hex}"
+    key = (graph_name,) + (0,) * len(shape)
+    return da.Array(
+        {key: (_deferred_block_computed, name)},
+        graph_name,
+        chunks=tuple((n,) for n in shape),
+        dtype=dtype,
+    )
 
 
 @dataclass
@@ -313,6 +229,17 @@ class DeferredVariable:
         frequency), None for none.
     how : str
         How the readability of the column was decided (for logging).
+    verified : bool
+        Whether the storage manager vouched for every cell of the partition
+        (False: only the read can tell, see ``check_partition_cells``).
+    window_rows : int
+        Table rows per tile (or nominal window) of the column, for the
+        small-read guard (``column_row_window``).
+    window : str
+        "tile" or "nominal" (how ``window_rows`` was found).
+    frequency_constant : bool
+        The values do not change along frequency (WEIGHT repeated from the
+        WEIGHT column, the WEIGHT=1 fallback): no reversal needed.
     """
 
     name: str
@@ -323,6 +250,10 @@ class DeferredVariable:
         default=None, repr=False
     )
     how: str = ""
+    verified: bool = True
+    window_rows: int = 1
+    window: str = ""
+    frequency_constant: bool = False
 
 
 def deferred_main_column(
@@ -331,13 +262,14 @@ def deferred_main_column(
     datavar_name: str,
     time_baseline_shape: tuple[int, int],
     transform: Callable[[np.ndarray], np.ndarray] | None = None,
+    frequency_constant: bool = False,
 ) -> tuple[da.Array, DeferredVariable]:
     """
-    Placeholder and description of a data variable read from a MAIN column,
-    after checking that the column can be read for the partition. Raises
-    exactly where the row read path raises (first cell undefined, a value type
-    that cannot be read in place) or would raise while reading (undefined
-    cells, other cell shapes, see ``check_partition_cells``).
+    Placeholder and description of a data variable read from a MAIN column.
+    Raises where the row read path raises before reading (first cell
+    undefined, a value type that cannot be read in place) and where the
+    storage manager tells that the read would raise (undefined cells, other
+    cell shapes, see ``check_partition_cells``).
 
     Parameters
     ----------
@@ -352,6 +284,8 @@ def deferred_main_column(
     transform : Callable | None, optional
         Conversion applied after reading (see ``DeferredVariable``). Applied to
         one cell here to give the shape and dtype of the data variable.
+    frequency_constant : bool, optional
+        The converted values do not change along frequency.
 
     Returns
     -------
@@ -361,12 +295,17 @@ def deferred_main_column(
     """
     table = main_rows.table
     cell_shape, grid_dtype = _partition_cell_shape_and_dtype(main_rows, col)
-    column_dtype(table, col)  # value types the row reads cannot read raise there
+    stored_dtype = column_dtype(table, col)  # types the row reads cannot read raise
     start = time.perf_counter()
-    how = check_partition_cells(table, col, main_rows.rows)
+    storage = main_rows.column_storage(col)
+    check = check_partition_cells(table, col, main_rows.rows, storage)
+    cell_bytes = int(np.prod(cell_shape, dtype=np.int64)) * stored_dtype.itemsize
+    window_rows, window = column_row_window(
+        storage, table.nrows(), cell_shape, cell_bytes
+    )
     xradio_logger().debug(
-        f"Column {col} readable for the partition ({how}, "
-        f"{time.perf_counter() - start:.3f} s)"
+        f"Column {col} for the partition: {check.how}; {window} window of "
+        f"{window_rows} rows ({time.perf_counter() - start:.3f} s)"
     )
     probe = np.zeros((1, 1) + tuple(cell_shape), dtype=grid_dtype)
     if transform is not None:
@@ -378,7 +317,11 @@ def deferred_main_column(
         grid_dtype=np.dtype(grid_dtype),
         cell_shape=tuple(cell_shape),
         transform=transform,
-        how=how,
+        how=check.how,
+        verified=check.verified,
+        window_rows=window_rows,
+        window=window,
+        frequency_constant=frequency_constant,
     )
     return deferred_placeholder(datavar_name, shape, probe.dtype), spec
 
@@ -403,8 +346,111 @@ def deferred_ones(
         Placeholder and description.
     """
     dtype = np.dtype(np.float64)
-    spec = DeferredVariable(name=name, col=None, grid_dtype=dtype, how="ones")
+    spec = DeferredVariable(
+        name=name, col=None, grid_dtype=dtype, how="ones", frequency_constant=True
+    )
     return deferred_placeholder(name, shape, dtype), spec
+
+
+def _encoding_probe(dtype: np.dtype) -> np.ndarray:
+    """Distinct values of ``dtype`` (with NaN for inexact types) to check that
+    xarray's encoding leaves the values of a variable unchanged."""
+    dtype = np.dtype(dtype)
+    if dtype.kind == "b":
+        values = [True, False]
+    elif dtype.kind in "iu":
+        values = [0, 1, 7]
+    elif dtype.kind == "f":
+        values = [0.0, 1.5, -2.25, np.nan]
+    elif dtype.kind == "c":
+        values = [0, 1.5 - 2j, complex(np.nan, np.nan)]
+    else:
+        raise RuntimeError(f"The streamed write cannot write values of dtype {dtype}")
+    return np.asarray(values).astype(dtype)
+
+
+def _check_encoding_is_identity(name: str, var: xr.Variable) -> None:
+    """Raise if xarray's zarr encoding of ``var`` (its attrs and encoding)
+    would change its values or dtype: the streamed write writes the values to
+    the zarr array directly, bypassing that encoding."""
+    try:
+        from xarray.backends.zarr import encode_zarr_variable
+    except ImportError:  # pragma: no cover - older / newer xarray layouts
+        encode_zarr_variable = None
+    if encode_zarr_variable is None:
+        coded = {"_FillValue", "missing_value", "scale_factor", "add_offset", "dtype"}
+        found = coded & (set(var.attrs) | set(var.encoding))
+        if found or var.dtype.kind in "mMOSUV":
+            raise RuntimeError(
+                f"The deferred data variable {name} has a CF encoding ({found}, "
+                f"dtype {var.dtype}) that the streamed write does not apply"
+            )
+        return
+    probe = _encoding_probe(var.dtype)
+    shape = (probe.size,) + (1,) * (var.ndim - 1)
+    test = xr.Variable(
+        var.dims,
+        probe.reshape(shape),
+        attrs=dict(var.attrs),
+        encoding=dict(var.encoding),
+    )
+    encoded = encode_zarr_variable(test, name=name, zarr_format=ZARR_FORMAT)
+    values = np.asarray(encoded.data)
+    if (
+        encoded.dtype != var.dtype
+        or values.shape != shape
+        or values.tobytes() != probe.tobytes()
+    ):
+        raise RuntimeError(
+            f"xarray's zarr encoding changes the values of the deferred data "
+            f"variable {name} (dtype {var.dtype} -> {encoded.dtype}; attrs "
+            f"{sorted(var.attrs)}, encoding {sorted(var.encoding)}): the streamed "
+            "write, which writes the values straight to the zarr array, would "
+            "differ from to_zarr"
+        )
+
+
+def check_deferred_variables(
+    xds: xr.Dataset, deferred: dict[str, DeferredVariable]
+) -> None:
+    """
+    Check, before the MSv4 is written, that the streamed write writes exactly
+    what to_zarr would: every lazy (placeholder) data variable of the main xds
+    has a deferred description (otherwise its zarr array would get metadata
+    but no chunks and read back as fill values), every deferred variable of
+    the xds is still a placeholder, and xarray's zarr encoding leaves the
+    values of every deferred variable unchanged (no _FillValue masking,
+    scale_factor / add_offset, dtype or time encoding).
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        The main xds about to be written.
+    deferred : dict[str, DeferredVariable]
+        The deferred data variables, by name (some may have been dropped from
+        the xds, e.g. UVW of single dish).
+
+    Raises
+    ------
+    RuntimeError
+        If any of these does not hold.
+    """
+    for name, var in xds.data_vars.items():
+        if isinstance(var.data, da.Array) and name not in deferred:
+            raise RuntimeError(
+                f"The data variable {name} is lazy but has no deferred description: "
+                "the streamed write would leave it unwritten"
+            )
+    for name in deferred:
+        if name not in xds.data_vars:
+            continue
+        var = xds[name].variable
+        if not isinstance(var.data, da.Array):
+            raise RuntimeError(
+                f"The deferred data variable {name} holds values: they would be "
+                "written twice"
+            )
+        _check_encoding_is_identity(name, var)
 
 
 def time_batches(
@@ -443,14 +489,6 @@ def time_batches(
     return (batch_times,) * n_full + ((rest,) if rest else ())
 
 
-def count_row_runs(rows: np.ndarray) -> int:
-    """Number of runs of consecutive rows of ascending ``rows``."""
-    rows = np.asarray(rows)
-    if rows.size == 0:
-        return 0
-    return int(np.count_nonzero(np.diff(rows) != 1)) + 1
-
-
 @dataclass
 class BatchChoice:
     """
@@ -461,13 +499,20 @@ class BatchChoice:
     batches : tuple[int, ...]
         Number of times of every batch.
     chunk_rows : TimeChunkRows | None
-        Rows of every batch (None if nothing is read).
+        Rows of every batch; None for one batch (the partition's grid plan is
+        used) or if nothing is read.
     runs_whole : int
         Row runs of a one-pass read of the partition.
     runs_batched : int
         Row runs of the batched read.
     guard : str
-        The choice made ("one batch", "time", "fragmented: ...").
+        The choice made ("one batch", "time", "fragmented: ...", "no reads").
+    windows_whole : int | None
+        Row windows (tiles) of a one-pass read (None if not computed).
+    windows_batched : int | None
+        Row windows (tiles) of the batched read.
+    reason : str
+        Why the time batches were not kept ("" if they were).
     """
 
     batches: tuple[int, ...]
@@ -475,6 +520,9 @@ class BatchChoice:
     runs_whole: int
     runs_batched: int
     guard: str
+    windows_whole: int | None = None
+    windows_batched: int | None = None
+    reason: str = ""
 
 
 def choose_time_batches(
@@ -487,19 +535,30 @@ def choose_time_batches(
     bytes_per_time: int,
     target_bytes: int,
     runs_whole: int,
+    *,
+    window_rows: int = 1,
     cache: dict | None = None,
 ) -> BatchChoice:
     """
     Time batches for reading one variable, with the small-read guard.
 
     Batches of whole zarr chunks of about ``target_bytes`` are used unless they
-    fragment the reads: when the rows of the batches form more than
-    ``FRAGMENTED_RUNS_RATIO`` times the row runs of a one-pass read (plus one
-    per batch boundary). Every run is at least one read call and starts a new
-    tile-cache window, so for baseline-major or interleaved row orders every
-    batch would re-read the tiles of the whole partition. Then the variable is
-    read in one pass if it fits ``FRAGMENTED_BATCH_FACTOR`` target batches,
-    otherwise in batches of that size.
+    fragment the reads, compared with one ascending pass over the partition:
+
+    - read calls: the row runs of the batches exceed ``FRAGMENTED_RUNS_RATIO``
+      times those of one pass (plus one per batch boundary), as for
+      baseline-major rows: every run is at least one read call;
+    - tiles: the row windows of ``window_rows`` rows (the column's tiles) that
+      the batches load exceed those of one pass by more than
+      ``FRAGMENTED_EXTRA_READS`` of them and ``FRAGMENTED_BOUNDARY_WINDOWS`` per
+      batch boundary. Each batch loads the tiles its rows fall in (the tile
+      cache keeps about one row-slab), so batches whose rows are spread over
+      the same tiles re-read them, even when the calls stay few (rows of
+      several partitions interleaved row by row, shuffled rows).
+
+    A fragmenting variable is read in one pass if it fits
+    ``FRAGMENTED_BATCH_FACTOR`` target batches, otherwise in batches of that
+    size.
 
     Parameters
     ----------
@@ -519,111 +578,331 @@ def choose_time_batches(
         Target batch size.
     runs_whole : int
         Row runs of the partition (one-pass read).
+    window_rows : int, optional
+        Table rows per tile of the column (``column_row_window``).
     cache : dict | None, optional
         Holds the TimeChunkRows of the last batching (reused by the next
-        variable with the same batches).
+        variable with the same batches) and the one-pass window counts.
 
     Returns
     -------
     BatchChoice
         Batches, their rows and the guard figures.
     """
+    cache = {} if cache is None else cache
 
     def batch_rows(batches: tuple[int, ...]) -> TimeChunkRows:
-        if cache is not None and cache.get("batches") == batches:
-            return cache["chunk_rows"]
-        if cache is not None:
-            cache.clear()  # release the previous one first
+        last = cache.get("batching")
+        if last is not None and last[0] == batches:
+            return last[1]
+        cache.pop("batching", None)  # release the previous one first
         chunk_rows = TimeChunkRows(main_rows.rows, tidxs, bidxs, batches, n_baselines)
-        if cache is not None:
-            cache.update(batches=batches, chunk_rows=chunk_rows)
+        cache["batching"] = (batches, chunk_rows)
         return chunk_rows
 
+    def whole_windows() -> int:
+        counts = cache.setdefault("windows_whole", {})
+        if window_rows not in counts:
+            counts[window_rows] = count_row_windows(main_rows.rows, window_rows)
+        return counts[window_rows]
+
     batches = time_batches(n_times, time_chunk, bytes_per_time, target_bytes)
+    if len(batches) <= 1:
+        return BatchChoice(batches, None, runs_whole, runs_whole, "one batch")
+    n_bounds = len(batches) - 1
     chunk_rows = batch_rows(batches)
-    if len(batches) == 1:
-        return BatchChoice(batches, chunk_rows, runs_whole, runs_whole, "one batch")
     runs_batched = chunk_rows.n_runs()
-    if runs_batched <= FRAGMENTED_RUNS_RATIO * (runs_whole + len(batches) - 1):
-        return BatchChoice(batches, chunk_rows, runs_whole, runs_batched, "time")
+    windows_whole = whole_windows()
+    windows_batched = chunk_rows.n_windows(window_rows)
+    reasons = []
+    if runs_batched > FRAGMENTED_RUNS_RATIO * (runs_whole + n_bounds):
+        reasons.append(f"{runs_batched} row runs instead of {runs_whole}")
+    if windows_batched > windows_whole + max(
+        FRAGMENTED_EXTRA_READS * windows_whole, FRAGMENTED_BOUNDARY_WINDOWS * n_bounds
+    ):
+        reasons.append(
+            f"{windows_batched} tiles of {window_rows} rows read instead of "
+            f"{windows_whole}"
+        )
+    if not reasons:
+        return BatchChoice(
+            batches,
+            chunk_rows,
+            runs_whole,
+            runs_batched,
+            "time",
+            windows_whole,
+            windows_batched,
+        )
+    reason = ", ".join(reasons)
     large = time_batches(
         n_times, time_chunk, bytes_per_time, FRAGMENTED_BATCH_FACTOR * target_bytes
     )
     xradio_logger().debug(
-        f"Time batches of {batches[0]} times would read {runs_batched} row runs "
-        f"instead of {runs_whole}: reading in {len(large)} batch(es) of up to "
-        f"{large[0]} times instead"
+        f"Time batches of {batches[0]} times would read {reason}: reading in "
+        f"{len(large)} batch(es) of up to {large[0]} times instead"
     )
+    if len(large) == 1:
+        cache.pop("batching", None)
+        return BatchChoice(
+            large,
+            None,
+            runs_whole,
+            runs_whole,
+            "fragmented: one pass",
+            windows_whole,
+            windows_whole,
+            reason,
+        )
     chunk_rows = batch_rows(large)
-    runs_large = runs_whole if len(large) == 1 else chunk_rows.n_runs()
-    guard = "fragmented: one pass" if len(large) == 1 else "fragmented: large batches"
-    return BatchChoice(large, chunk_rows, runs_whole, runs_large, guard)
-
-
-def _reverse_axis_in_place(
-    values: np.ndarray, axis: int, max_tmp_bytes: int = DEFAULT_MAX_TMP_BYTES
-) -> None:
-    """Reverse ``values`` along ``axis`` (not 0) in place, slab by slab along
-    axis 0, with a temporary of at most ``max_tmp_bytes`` (or one slab)."""
-    if values.shape[0] == 0:
-        return
-    step = max(1, int(max_tmp_bytes) // max(1, values[0].nbytes))
-    for t0 in range(0, values.shape[0], step):
-        slab = values[t0 : t0 + step]
-        slab[...] = np.flip(slab, axis=axis).copy()
+    return BatchChoice(
+        large,
+        chunk_rows,
+        runs_whole,
+        chunk_rows.n_runs(),
+        "fragmented: large batches",
+        windows_whole,
+        chunk_rows.n_windows(window_rows),
+        reason,
+    )
 
 
 def _read_batch(
     main_rows: MainTableRows,
     spec: DeferredVariable,
-    chunk_rows: TimeChunkRows,
+    choice: BatchChoice,
     k: int,
     batch_shape: tuple[int, ...],
-    n_baselines: int,
+    tidxs: np.ndarray,
+    bidxs: np.ndarray,
+    freq_axis: int | None,
     stats: dict,
 ) -> np.ndarray:
-    """Values of batch ``k`` of a deferred variable (before any reversal)."""
-    n_times = batch_shape[0]
+    """Values of batch ``k`` of a deferred variable, converted and reversed
+    along frequency as the xds."""
     if spec.col is None:
         return np.ones(batch_shape, dtype=np.float64)
-    rows, gidx = chunk_rows.chunk(k)
-    plan = make_row_grid_plan(rows, gidx, n_times * n_baselines)
-    del rows, gidx
-    grid_shape = (n_times, n_baselines) + spec.cell_shape
-    if plan.grid_is_full:
-        grid = np.empty(grid_shape, dtype=spec.grid_dtype)
-    else:
-        grid = np.full(
-            grid_shape, get_pad_value(spec.grid_dtype), dtype=spec.grid_dtype
+    reverse_axis = None if spec.frequency_constant else freq_axis
+    if choice.chunk_rows is None:
+        # The whole partition: the partition's grid plan, shared by every
+        # variable read in one batch
+        grid_shape = tuple(batch_shape[:2])
+        plan = main_rows.grid_plan(tidxs, bidxs, grid_shape)
+        return read_grid(
+            main_rows.table,
+            spec.col,
+            plan,
+            grid_shape + spec.cell_shape,
+            spec.grid_dtype,
+            main_rows.max_elems,
+            spec.transform,
+            reverse_axis,
+            stats,
         )
-    read_rows_to_grid(
+    return read_time_chunk(
         main_rows.table,
         spec.col,
-        plan,
-        grid,
-        max_elems=main_rows.max_elems,
-        stats=stats,
+        choice.chunk_rows,
+        k,
+        spec.cell_shape,
+        spec.grid_dtype,
+        main_rows.max_elems,
+        spec.transform,
+        reverse_axis,
+        stats,
     )
-    del plan
-    if spec.transform is not None:
-        grid = spec.transform(grid)
-    return grid
 
 
-def _discard_variable(group, store_path: str, name: str) -> None:
-    """Remove a partly written array and rewrite the consolidated metadata."""
-    import zarr
+def deferred_bytes(xds: xr.Dataset, deferred: dict[str, DeferredVariable]) -> int:
+    """Bytes (uncompressed) of the deferred data variables of the xds."""
+    return sum(int(xds[name].nbytes) for name in deferred if name in xds.data_vars)
 
+
+def fits_in_memory(
+    xds: xr.Dataset, deferred: dict[str, DeferredVariable], target_bytes: int
+) -> bool:
+    """
+    Whether the deferred data variables of a partition are small enough to be
+    read whole (``read_deferred_variables``) instead of streamed: at most
+    ``IN_MEMORY_BATCH_FRACTION`` of the target batch together.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        The main xds.
+    deferred : dict[str, DeferredVariable]
+        The deferred data variables, by name.
+    target_bytes : int
+        Target batch size of the streamed write.
+
+    Returns
+    -------
+    bool
+        True to read the partition whole.
+    """
+    return deferred_bytes(xds, deferred) <= IN_MEMORY_BATCH_FRACTION * target_bytes
+
+
+def _ordered_names(xds: xr.Dataset, deferred: dict[str, DeferredVariable]) -> list:
+    """The deferred data variables of the xds, those whose cells only the read
+    can verify first (if the read decides against one, less is lost)."""
+    return sorted(
+        (name for name in xds.data_vars if name in deferred),
+        key=lambda name: deferred[name].verified,
+    )
+
+
+def _frequency_axis(xds: xr.Dataset, name: str, reverse_frequency: bool) -> int | None:
+    dims = xds[name].dims
+    if dims[0] != "time":
+        raise RuntimeError(f"{name} has dims {dims}: time must be the first dimension")
+    return (
+        dims.index("frequency") if reverse_frequency and "frequency" in dims else None
+    )
+
+
+def read_deferred_variables(
+    xds: xr.Dataset,
+    deferred: dict[str, DeferredVariable],
+    main_rows: MainTableRows,
+    tidxs: np.ndarray,
+    bidxs: np.ndarray,
+    reverse_frequency: bool,
+) -> dict:
+    """
+    Read every deferred data variable of the xds whole and put its values in
+    place of its placeholder (attributes and encoding are kept), for a small
+    partition (``fits_in_memory``): the MSv4 is then written by to_zarr as in
+    the non-streamed path (the same values), without the per-variable cost of
+    the streamed write.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        The main xds (its deferred variables are replaced in place).
+    deferred : dict[str, DeferredVariable]
+        The deferred data variables, by name.
+    main_rows : MainTableRows
+        MAIN table and the partition rows.
+    tidxs, bidxs : np.ndarray
+        Time and baseline index of every partition row.
+    reverse_frequency : bool
+        Whether the frequency axis of the xds was reversed.
+
+    Returns
+    -------
+    dict
+        Statistics, per variable and in total (also logged at debug level).
+
+    Raises
+    ------
+    DeferredReadError
+        If reading (or converting) a column fails: the caller converts the
+        partition again without it.
+    """
+    start_all = time.perf_counter()
+    var_stats = {}
     try:
-        del group[name]
-    except Exception as exc:  # best effort, the original error is raised
-        xradio_logger().error(f"Could not remove {name} from {store_path}: {exc}")
-    try:
-        zarr.consolidate_metadata(store_path, zarr_format=ZARR_FORMAT)
-    except Exception as exc:
-        xradio_logger().error(
-            f"Could not rewrite the consolidated metadata of {store_path}: {exc}"
-        )
+        for name in _ordered_names(xds, deferred):
+            spec, var = deferred[name], xds.variables[name]
+            start, stats = time.perf_counter(), {}
+            choice = BatchChoice((var.shape[0],), None, 0, 0, "one batch")
+            freq_axis = _frequency_axis(xds, name, reverse_frequency)
+            try:
+                values = _read_batch(
+                    main_rows,
+                    spec,
+                    choice,
+                    0,
+                    var.shape,
+                    tidxs,
+                    bidxs,
+                    freq_axis,
+                    stats,
+                )
+            except Exception as exc:
+                if spec.col is None:
+                    raise
+                raise DeferredReadError(name, spec.col, "the main xds") from exc
+            if values.shape != var.shape or values.dtype != var.dtype:
+                raise RuntimeError(
+                    f"{name} read with shape {values.shape} and dtype {values.dtype}, "
+                    f"the placeholder has {var.shape} {var.dtype}"
+                )
+            var.data = values  # in place: order, attrs and encoding kept
+            time_chunk = int(var.encoding.get("chunks", var.shape)[0])
+            var_stats[name] = _variable_stats(
+                spec, choice, int(values.nbytes), time_chunk, stats, start
+            )
+            var_stats[name]["read_s"] = var_stats[name]["total_s"]
+            del values
+    finally:
+        main_rows.release_plans()
+    summary = _summary(var_stats, "the main xds", None, start_all, in_memory=True)
+    xradio_logger().debug(f"Read the partition in memory: {json.dumps(summary)}")
+    return {"summary": summary, "variables": var_stats}
+
+
+def _variable_stats(
+    spec: DeferredVariable,
+    choice: BatchChoice,
+    nbytes: int,
+    time_chunk: int,
+    stats: dict,
+    start: float,
+) -> dict:
+    """Statistics of one variable (logged and returned)."""
+    rows_read = stats.get("direct_rows", 0) + stats.get("scatter_rows", 0)
+    calls = stats.get("calls", 0)
+    return {
+        "col": spec.col,
+        "bytes": nbytes,
+        "time_chunk": time_chunk,
+        "batches": len(choice.batches),
+        "batch_times": choice.batches[0] if choice.batches else 0,
+        "guard": choice.guard,
+        "guard_reason": choice.reason,
+        "runs_whole": choice.runs_whole,
+        "runs_batched": choice.runs_batched,
+        "window_rows": spec.window_rows,
+        "window": spec.window,
+        "windows_whole": choice.windows_whole,
+        "windows_batched": choice.windows_batched,
+        "calls": calls,
+        "selectrows_calls": stats.get("selectrows_calls", 0),
+        "direct_rows": stats.get("direct_rows", 0),
+        "scatter_rows": stats.get("scatter_rows", 0),
+        "rows_per_call": rows_read / calls if calls else 0.0,
+        "read_s": 0.0,
+        "total_s": round(time.perf_counter() - start, 4),
+        "readable": spec.how,
+        "verified": spec.verified,
+    }
+
+
+def _summary(
+    var_stats: dict,
+    store: str,
+    target_bytes: int | None,
+    start_all: float,
+    in_memory: bool,
+) -> dict:
+    summary = {
+        "store": store,
+        "in_memory": in_memory,
+        "target_bytes": target_bytes,
+        "variables": len(var_stats),
+        "batches": sum(v["batches"] for v in var_stats.values()),
+        "calls": sum(v["calls"] for v in var_stats.values()),
+        "rows_read": sum(
+            v["direct_rows"] + v["scatter_rows"] for v in var_stats.values()
+        ),
+        "seconds": round(time.perf_counter() - start_all, 4),
+    }
+    summary["rows_per_call"] = (
+        summary["rows_read"] / summary["calls"] if summary["calls"] else 0.0
+    )
+    return summary
 
 
 def write_deferred_variables(
@@ -640,7 +919,12 @@ def write_deferred_variables(
     """
     Write the values of the deferred data variables of a main xds whose MSv4
     (metadata and all other variables) is already in ``store_path``: one
-    variable at a time, in batches of whole zarr chunks along time.
+    variable at a time, in batches of whole zarr chunks along time, each
+    written in pieces of at most ``target_bytes`` (whole chunks). Variables
+    whose cells only the read can verify are written first.
+
+    The caller checks ``check_deferred_variables`` before writing the
+    metadata. Nothing is cleaned up on failure (see ``discard_msv4``).
 
     Parameters
     ----------
@@ -667,35 +951,40 @@ def write_deferred_variables(
     -------
     dict
         Statistics, per variable and in total (also logged at debug level).
+
+    Raises
+    ------
+    DeferredReadError
+        If reading (or converting) a column fails: the caller converts the
+        partition again without it.
     """
     import zarr
 
     if target_bytes is None:
         target_bytes = get_stream_batch_bytes()
     start_all = time.perf_counter()
+    # (opening only the arrays written is cheaper than parsing the consolidated
+    # metadata of the whole MSv4)
     group = zarr.open_group(
         store_path, mode="r+", zarr_format=ZARR_FORMAT, use_consolidated=False
     )
     runs_whole = count_row_runs(main_rows.rows)
     cache: dict = {}
     var_stats = {}
-    for name in xds.data_vars:
-        spec = deferred.get(name)
-        if spec is None:
-            continue
-        stats: dict = {}
-        start = time.perf_counter()
-        try:
+    try:
+        for name in _ordered_names(xds, deferred):
+            spec = deferred[name]
+            stats: dict = {}
+            start = time.perf_counter()
             arr = group[name]
             n_times = int(arr.shape[0])
+            time_chunk = int(arr.chunks[0])
             bytes_per_time = int(np.prod(arr.shape[1:], dtype=np.int64)) * int(
                 arr.dtype.itemsize
             )
             if spec.col is None:  # nothing to read
                 choice = BatchChoice(
-                    time_batches(
-                        n_times, int(arr.chunks[0]), bytes_per_time, target_bytes
-                    ),
+                    time_batches(n_times, time_chunk, bytes_per_time, target_bytes),
                     None,
                     0,
                     0,
@@ -708,36 +997,39 @@ def write_deferred_variables(
                     bidxs,
                     n_baselines,
                     n_times,
-                    int(arr.chunks[0]),
+                    time_chunk,
                     bytes_per_time,
                     target_bytes,
                     runs_whole,
-                    cache,
+                    window_rows=spec.window_rows,
+                    cache=cache,
                 )
-            dims = xds[name].dims
-            if dims[0] != "time":
-                raise RuntimeError(f"{name} has dims {dims}, time is not the first")
-            freq_axis = (
-                dims.index("frequency")
-                if reverse_frequency and spec.col is not None and "frequency" in dims
-                else None
-            )
+            if tuple(arr.shape) != xds[name].shape:
+                raise RuntimeError(
+                    f"{name} has shape {xds[name].shape}, its zarr array {arr.shape}"
+                )
+            freq_axis = _frequency_axis(xds, name, reverse_frequency)
             t0 = 0
             read_seconds = 0.0
             for k, batch_times in enumerate(choice.batches):
                 batch_shape = (batch_times,) + tuple(arr.shape[1:])
                 start_read = time.perf_counter()
-                values = _read_batch(
-                    main_rows,
-                    spec,
-                    choice.chunk_rows,
-                    k,
-                    batch_shape,
-                    n_baselines,
-                    stats,
-                )
-                if freq_axis is not None:
-                    _reverse_axis_in_place(values, freq_axis)
+                try:
+                    values = _read_batch(
+                        main_rows,
+                        spec,
+                        choice,
+                        k,
+                        batch_shape,
+                        tidxs,
+                        bidxs,
+                        freq_axis,
+                        stats,
+                    )
+                except Exception as exc:
+                    if spec.col is None:
+                        raise
+                    raise DeferredReadError(name, spec.col, store_path) from exc
                 read_seconds += time.perf_counter() - start_read
                 if values.shape != batch_shape or values.dtype != arr.dtype:
                     raise RuntimeError(
@@ -745,53 +1037,90 @@ def write_deferred_variables(
                         f"{values.dtype}, the zarr array needs {batch_shape} "
                         f"{arr.dtype}"
                     )
-                arr[t0 : t0 + batch_times] = values
+                # pieces of whole chunks of at most the target: bounds the
+                # encoding buffers of a large (fragmented) batch
+                p0 = 0
+                for n in time_batches(
+                    batch_times, time_chunk, bytes_per_time, target_bytes
+                ):
+                    arr[t0 + p0 : t0 + p0 + n] = values[p0 : p0 + n]
+                    p0 += n
                 del values
                 t0 += batch_times
-        except Exception:
-            xradio_logger().error(
-                f"Writing the data variable {name} of {store_path} failed: the "
-                "variable is removed, the MSv4 is incomplete"
+            var_stats[name] = _variable_stats(
+                spec, choice, n_times * bytes_per_time, time_chunk, stats, start
             )
-            _discard_variable(group, store_path, name)
-            raise
-        rows_read = stats.get("direct_rows", 0) + stats.get("scatter_rows", 0)
-        calls = stats.get("calls", 0)
-        var_stats[name] = {
-            "col": spec.col,
-            "bytes": n_times * bytes_per_time,
-            "time_chunk": int(arr.chunks[0]),
-            "batches": len(choice.batches),
-            "batch_times": choice.batches[0] if choice.batches else 0,
-            "guard": choice.guard,
-            "runs_whole": choice.runs_whole,
-            "runs_batched": choice.runs_batched,
-            "calls": calls,
-            "selectrows_calls": stats.get("selectrows_calls", 0),
-            "direct_rows": stats.get("direct_rows", 0),
-            "scatter_rows": stats.get("scatter_rows", 0),
-            "rows_per_call": rows_read / calls if calls else 0.0,
-            "read_s": round(read_seconds, 4),
-            "total_s": round(time.perf_counter() - start, 4),
-            "readable": spec.how,
-        }
-        xradio_logger().debug(
-            f"Streamed write of {name}: {json.dumps(var_stats[name], default=str)}"
-        )
-    cache.clear()
-    summary = {
-        "store": store_path,
-        "target_bytes": int(target_bytes),
-        "variables": len(var_stats),
-        "batches": sum(v["batches"] for v in var_stats.values()),
-        "calls": sum(v["calls"] for v in var_stats.values()),
-        "rows_read": sum(
-            v["direct_rows"] + v["scatter_rows"] for v in var_stats.values()
-        ),
-        "seconds": round(time.perf_counter() - start_all, 4),
-    }
-    summary["rows_per_call"] = (
-        summary["rows_read"] / summary["calls"] if summary["calls"] else 0.0
-    )
+            var_stats[name]["read_s"] = round(read_seconds, 4)
+            xradio_logger().debug(
+                f"Streamed write of {name}: {json.dumps(var_stats[name], default=str)}"
+            )
+    finally:
+        cache.clear()
+        main_rows.release_plans()
+    summary = _summary(var_stats, store_path, int(target_bytes), start_all, False)
     xradio_logger().debug(f"Streamed write of the partition: {json.dumps(summary)}")
     return {"summary": summary, "variables": var_stats}
+
+
+def discard_msv4(
+    store_path: str,
+    deferred_names,
+    remove_store: bool,
+    members_before: set[str] | None = None,
+) -> str:
+    """
+    Remove what a failed streamed write left in an MSv4 store, so that no MSv4
+    whose data variables are missing chunks (and read back as fill values) is
+    left behind. Never raises (errors are logged).
+
+    Parameters
+    ----------
+    store_path : str
+        The MSv4 zarr group.
+    deferred_names : Iterable[str]
+        Names of the deferred data variables.
+    remove_store : bool
+        Whether this conversion wrote the whole MSv4 (persistence mode "w" or
+        "w-", or no MSv4 there before): then it is removed (local stores).
+        Otherwise (mode "a" on an existing MSv4, or a remote store), the
+        deferred arrays and the members this conversion added are removed and
+        the consolidated metadata is rewritten.
+    members_before : set[str] | None, optional
+        Entries of the MSv4 directory before this conversion wrote it (None:
+        not known).
+
+    Returns
+    -------
+    str
+        What was done (for logging).
+    """
+    import zarr
+
+    if remove_store and "://" not in str(store_path):
+        try:
+            shutil.rmtree(store_path, ignore_errors=False)
+            return "MSv4 removed"
+        except FileNotFoundError:
+            return "MSv4 not written"
+        except Exception as exc:
+            xradio_logger().error(f"Could not remove {store_path}: {exc}")
+            return f"MSv4 not removed: {exc}"
+    removed = []
+    try:
+        group = zarr.open_group(
+            store_path, mode="r+", zarr_format=ZARR_FORMAT, use_consolidated=False
+        )
+        for name in sorted(group.keys()):
+            added = members_before is not None and name not in members_before
+            if name in deferred_names or added:
+                try:
+                    del group[name]
+                    removed.append(name)
+                except Exception as exc:
+                    xradio_logger().error(
+                        f"Could not remove {name} from {store_path}: {exc}"
+                    )
+        zarr.consolidate_metadata(store_path, zarr_format=ZARR_FORMAT)
+    except Exception as exc:
+        xradio_logger().error(f"Could not clean up {store_path}: {exc}")
+    return f"removed {removed} from the MSv4"

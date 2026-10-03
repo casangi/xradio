@@ -38,7 +38,10 @@ from xradio.measurement_set._utils._msv2._tables.read_main_table import (
     get_utimes_tol,
     utimes_tol_from_times,
 )
-from xradio.measurement_set._utils._msv2._tables.read_rows import MainTableRows
+from xradio.measurement_set._utils._msv2._tables.read_rows import (
+    ColumnNotReadableError,
+    MainTableRows,
+)
 from xradio.measurement_set._utils._msv2._tables.subtable_cache import (
     SubtableCache,
     activate_subtable_cache,
@@ -74,11 +77,16 @@ from xradio.measurement_set._utils._msv2.partition_queries import (
     partition_main_rows,
 )
 from xradio.measurement_set._utils._msv2.stream_write import (
+    DeferredReadError,
     DeferredVariable,
+    check_deferred_variables,
     deferred_main_column,
     deferred_ones,
+    discard_msv4,
+    fits_in_memory,
     get_stream_batch_bytes,
     get_stream_write_mode,
+    read_deferred_variables,
     write_deferred_variables,
 )
 from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
@@ -733,6 +741,31 @@ def find_min_max_times(tb_tool: tables.table, taql_where: str) -> tuple:
     return (time_min, time_max)
 
 
+def data_variables_parallel_mode(
+    parallel_mode: str, main_chunksize: dict | None
+) -> str:
+    """
+    The parallel_mode the MAIN columns are read with: "time" needs a time
+    chunk size in ``main_chunksize`` and is "none" without one.
+
+    Parameters
+    ----------
+    parallel_mode : str
+        The conversion's parallel_mode.
+    main_chunksize : dict | None
+        Chunk sizes of the main xds (as parsed by parse_chunksize).
+
+    Returns
+    -------
+    str
+        The parallel_mode of the column reads.
+    """
+    time_chunksize = main_chunksize.get("time", None) if main_chunksize else None
+    if parallel_mode == "time" and time_chunksize is None:
+        return "none"
+    return parallel_mode
+
+
 def create_data_variables(
     in_file,
     xds,
@@ -745,6 +778,7 @@ def create_data_variables(
     parallel_mode,
     main_chunksize,
     deferred: dict[str, DeferredVariable] | None = None,
+    unreadable_columns: frozenset[str] = frozenset(),
 ):
     """
     Reads the MAIN columns that become data variables of the main xds and adds
@@ -752,10 +786,12 @@ def create_data_variables(
     at debug level); if WEIGHT_SPECTRUM fails, WEIGHT is tried instead.
 
     With ``deferred`` (streamed write), the columns are not read here: every
-    data variable is a placeholder, added after checking that the column can
-    be read for the partition (the same columns are skipped), and its
-    description is put in ``deferred``; ``write_deferred_variables`` reads and
-    writes the values after the MSv4 metadata.
+    data variable is a placeholder and its description is put in
+    ``deferred``; ``write_deferred_variables`` reads and writes the values
+    after the MSv4 metadata. A column is skipped here if its storage manager
+    tells that the read would fail (see ``check_partition_cells``); if the
+    read fails anyway, the partition is converted again with the column in
+    ``unreadable_columns``.
 
     Parameters
     ----------
@@ -781,9 +817,12 @@ def create_data_variables(
         Streamed write (row read path, parallel_mode "none" or "partition"
         only): filled with the descriptions of the placeholder variables, by
         name. By default None: the columns are read into the xds.
+    unreadable_columns : frozenset[str], optional
+        Columns skipped as if their read had failed (a read of a previous
+        attempt of the streamed write failed), by default none.
     """
     time_chunksize = main_chunksize.get("time", None) if main_chunksize else None
-    if parallel_mode == "time" and time_chunksize is None:
+    if parallel_mode != data_variables_parallel_mode(parallel_mode, main_chunksize):
         xradio_logger().warning(
             "'time' isn't specified in `main_chunksize`. Defaulting to `parallel_mode = 'none'`."
         )
@@ -827,6 +866,10 @@ def create_data_variables(
 
         try:
             start = time.time()
+            if col in unreadable_columns:
+                raise ColumnNotReadableError(
+                    f"Column {col}: its read failed in a previous attempt"
+                )
             if deferred is None:
                 col_data = read_col_conversion(
                     table_manager,
@@ -850,7 +893,13 @@ def create_data_variables(
                     main_chunksize=None,
                 )
                 col_data, spec = deferred_main_column(
-                    table_manager, col, datavar_name, time_baseline_shape, transform
+                    table_manager,
+                    col,
+                    datavar_name,
+                    time_baseline_shape,
+                    transform,
+                    # repeated along frequency: the same in either order
+                    frequency_constant=col == "WEIGHT",
                 )
 
             xds[datavar_name] = xr.DataArray(
@@ -1229,7 +1278,35 @@ def estimate_memory_and_cores_for_partitions(
     return float(max_estimate), int(max_cores), int(recommended_cores)
 
 
-def convert_and_write_partition(
+def convert_and_write_partition(*args, **kwargs):
+    """
+    Converts one partition of an MSv2 into an MSv4 and writes it (see
+    ``_convert_and_write_partition`` for the parameters).
+
+    With the streamed write of the MAIN data variables, a column whose read
+    fails after the MSv4 metadata was written (see ``DeferredReadError``) makes
+    the partition be converted again without that column (the MSv4 written so
+    far is removed first): the result is that of the non-streamed path, which
+    skips a column whose read fails.
+    """
+    unreadable: set[str] = set()
+    for _ in range(len(col_to_data_variable_names) + 1):
+        try:
+            return _convert_and_write_partition(
+                *args, unreadable_columns=frozenset(unreadable), **kwargs
+            )
+        except DeferredReadError as exc:
+            if exc.col in unreadable:  # not read again: cannot happen
+                raise
+            xradio_logger().info(
+                f"Column {exc.col} could not be read ({exc}: {exc.__cause__!r}): "
+                "converting the partition again without it"
+            )
+            unreadable.add(exc.col)
+    raise RuntimeError(f"Columns {sorted(unreadable)} could not be read")
+
+
+def _convert_and_write_partition(
     in_file: str,
     out_file: str,
     ms_v4_id: int | str,
@@ -1253,6 +1330,7 @@ def convert_and_write_partition(
     persistence_mode: str = "w-",
     subtable_cache: SubtableCache | None = None,
     main_row_runs: PartitionMainRows | None = None,
+    unreadable_columns: frozenset[str] = frozenset(),
 ):
     """_summary_
 
@@ -1303,6 +1381,10 @@ def convert_and_write_partition(
         default None. Used by the row read path only if they were computed for
         the same row selection as ``partition_info``; otherwise the rows are
         selected from the MAIN key columns (as the TaQL WHERE selects them).
+    unreadable_columns : frozenset[str], optional
+        MAIN columns skipped as if their read had failed (set by
+        convert_and_write_partition after a failed read of the streamed
+        write), by default none.
 
     Returns
     -------
@@ -1321,14 +1403,14 @@ def convert_and_write_partition(
     # Streamed write of the MAIN data variables (TEMPORARY switch
     # XRADIO_MSV2_STREAM_WRITE, see stream_write.py): they are written after the
     # MSv4 metadata, one at a time, in batches of whole zarr chunks along time.
-    # parallel_mode="time" already writes the large ones lazily (dask).
+    # parallel_mode="time" with a time chunk size already writes the large ones
+    # lazily (dask); without one it reads like "none" (decided below).
     stream_write = (
         storage_backend == "zarr"
         and main_read == "rows"
-        and parallel_mode in ("none", "partition")
+        and parallel_mode in ("none", "partition", "time")
         and get_stream_write_mode()
     )
-    deferred: dict[str, DeferredVariable] | None = {} if stream_write else None
     stream_batch_bytes = get_stream_batch_bytes() if stream_write else None
     table_manager = TableManager(in_file, taql_where)
     ddi = partition_info["DATA_DESC_ID"][0]
@@ -1426,6 +1508,12 @@ def convert_and_write_partition(
 
         start = time.time()
         main_chunksize = parse_chunksize(main_chunksize, "main", xds)
+        deferred: dict[str, DeferredVariable] | None = (
+            {}
+            if stream_write
+            and data_variables_parallel_mode(parallel_mode, main_chunksize) != "time"
+            else None
+        )
         create_data_variables(
             in_file,
             xds,
@@ -1438,6 +1526,7 @@ def convert_and_write_partition(
             parallel_mode,
             main_chunksize,
             deferred=deferred,
+            unreadable_columns=unreadable_columns,
         )
 
         # Add data_groups
@@ -1668,6 +1757,15 @@ def convert_and_write_partition(
             xds["bidxs"] = bidxs
             xds["row_id"] = tb_tool.rownumbers()  # tb_tool.getcol("row_id")
 
+        if deferred is not None and fits_in_memory(xds, deferred, stream_batch_bytes):
+            # Small data variables (a fraction of a batch together): read them
+            # whole and write the MSv4 with one to_zarr, as the non-streamed
+            # path (the streamed write costs a few ms per variable)
+            read_deferred_variables(
+                xds, deferred, tb_tool, tidxs, bidxs, reverse_frequency
+            )
+            deferred = None
+
         start = time.time()
         ms_v4_name = pathlib.Path(in_file).name.replace(".ms", "") + "_" + str(ms_v4_id)
         ms_xdt.ds = xds
@@ -1709,23 +1807,44 @@ def convert_and_write_partition(
                 # coordinates, small variables and sub-datasets now; the deferred
                 # (placeholder) variables are never computed but written next, one
                 # at a time, in batches of whole zarr chunks along time.
+                check_deferred_variables(xds, deferred)
+                store_existed = os.path.isdir(store_path)
+                members_before = set(os.listdir(store_path)) if store_existed else None
                 ms_xdt.to_zarr(
                     store=store_path,
                     mode=persistence_mode,
                     zarr_format=ZARR_FORMAT,
                     compute=False,
                 )
-                write_deferred_variables(
-                    store_path,
-                    xds,
-                    deferred,
-                    tb_tool,
-                    tidxs,
-                    bidxs,
-                    time_baseline_shape[1],
-                    reverse_frequency,
-                    stream_batch_bytes,
-                )
+                try:
+                    write_deferred_variables(
+                        store_path,
+                        xds,
+                        deferred,
+                        tb_tool,
+                        tidxs,
+                        bidxs,
+                        time_baseline_shape[1],
+                        reverse_frequency,
+                        stream_batch_bytes,
+                    )
+                except BaseException as exc:
+                    # No MSv4 with unwritten (fill value) data variables is left:
+                    # after a failed read the partition is converted again without
+                    # the column (convert_and_write_partition), otherwise the
+                    # error is raised.
+                    done = discard_msv4(
+                        store_path,
+                        set(deferred),
+                        remove_store=persistence_mode in ("w", "w-")
+                        or not store_existed,
+                        members_before=members_before,
+                    )
+                    log = xradio_logger().debug
+                    if not isinstance(exc, DeferredReadError):
+                        log = xradio_logger().error
+                    log(f"Writing the data variables of {store_path} failed: {done}")
+                    raise
         elif storage_backend == "netcdf":
             # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
             raise

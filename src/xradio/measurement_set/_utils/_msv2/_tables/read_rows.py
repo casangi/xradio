@@ -32,6 +32,8 @@ from typing import Any
 
 import numpy as np
 
+from xradio._utils.list_and_array import get_pad_value
+
 try:
     from casacore import tables
 except ImportError:
@@ -117,6 +119,42 @@ def runs_to_rows(starts: np.ndarray, lengths: np.ndarray) -> np.ndarray:
     # offset of every run's first row in the output, subtracted from a running index
     offsets = np.cumsum(lengths) - lengths
     return np.repeat(starts - offsets, lengths) + np.arange(total, dtype=np.int64)
+
+
+def count_row_runs(rows: np.ndarray) -> int:
+    """Number of runs of consecutive rows of ascending ``rows``."""
+    rows = np.asarray(rows, dtype=np.int64)
+    if rows.size == 0:
+        return 0
+    return int(np.count_nonzero(np.diff(rows) != 1)) + 1
+
+
+def count_row_windows(rows: np.ndarray, window_rows: int) -> int:
+    """
+    Number of row windows (``row // window_rows``) that ascending ``rows``
+    fall in. With ``window_rows`` the rows of one tile of a tiled column, the
+    number of tiles an ascending read of the rows loads (the tile cache keeps
+    about one row-slab of tiles, so a tile is loaded once per visit).
+
+    Parameters
+    ----------
+    rows : np.ndarray
+        Row numbers, ascending.
+    window_rows : int
+        Rows per window (>= 1).
+
+    Returns
+    -------
+    int
+        Number of distinct windows.
+    """
+    window_rows = int(window_rows)
+    if window_rows < 1:
+        raise ValueError(f"window_rows must be >= 1, got {window_rows}")
+    rows = np.asarray(rows, dtype=np.int64)
+    if rows.size == 0:
+        return 0
+    return int(np.count_nonzero(np.diff(rows // window_rows))) + 1
 
 
 def group_row_runs(
@@ -931,20 +969,51 @@ class TimeChunkRows:
         """
         Number of runs of consecutive rows when the chunks are read one after
         the other (the runs of every chunk's ascending rows, summed): a measure
-        of the read calls (and tile-cache restarts) of a chunk-by-chunk read.
+        of the read calls of a chunk-by-chunk read.
 
         Returns
         -------
         int
             Sum over the chunks of the runs of consecutive rows.
         """
+        return self._count_breaks(None)
+
+    def n_windows(self, window_rows: int) -> int:
+        """
+        Number of row windows (``row // window_rows``) when the chunks are
+        read one after the other (the windows of every chunk's ascending rows,
+        summed). With ``window_rows`` the rows of one tile of a tiled column,
+        the number of tiles a chunk-by-chunk read loads; compare with
+        ``count_row_windows`` of all rows (a one-pass read).
+
+        Parameters
+        ----------
+        window_rows : int
+            Rows per window (>= 1).
+
+        Returns
+        -------
+        int
+            Sum over the chunks of the windows of their rows.
+        """
+        window_rows = int(window_rows)
+        if window_rows < 1:
+            raise ValueError(f"window_rows must be >= 1, got {window_rows}")
+        return self._count_breaks(window_rows)
+
+    def _count_breaks(self, window_rows: int | None) -> int:
+        """Runs (None) or windows of the rows in chunk order, a new chunk
+        always starting a new one."""
         n_rows = int(self.row_bounds[-1]) if self.row_bounds.size else 0
         if n_rows == 0:
             return 0
         rows = self.rows if self.order is None else self.rows[self.order]
-        breaks = np.diff(np.asarray(rows, dtype=np.int64)) != 1
+        rows = np.asarray(rows, dtype=np.int64)
+        if window_rows is None:
+            breaks = np.diff(rows) != 1
+        else:
+            breaks = np.diff(rows // window_rows) != 0
         del rows
-        # a new chunk always starts a new run
         inner = self.row_bounds[1:-1]
         inner = inner[(inner > 0) & (inner < n_rows)]
         breaks[inner - 1] = True
@@ -973,6 +1042,483 @@ class TimeChunkRows:
             np.asarray(self.tidxs[idx], dtype=np.int64) - int(self.time_bounds[k])
         ) * self.num_baselines + np.asarray(self.bidxs[idx], dtype=np.int64)
         return rows, gidx
+
+    def chunk_n_rows(self, k: int) -> int:
+        """Number of rows of time chunk ``k``."""
+        return int(self.row_bounds[k + 1] - self.row_bounds[k])
+
+    def chunk_n_times(self, k: int) -> int:
+        """Number of times of time chunk ``k``."""
+        return int(self.time_bounds[k + 1] - self.time_bounds[k])
+
+
+# --- reads of a (time chunk of a) dense grid, shared by the read paths ----------
+
+
+def reverse_axis_in_place(
+    values: np.ndarray, axis: int, max_tmp_bytes: int = DEFAULT_MAX_TMP_BYTES
+) -> None:
+    """
+    Reverse ``values`` along ``axis`` (not 0) in place, slab by slab along
+    axis 0, with a temporary of at most ``max_tmp_bytes`` (or one slab).
+
+    Parameters
+    ----------
+    values : np.ndarray
+        Array to reverse (at least 2-D).
+    axis : int
+        Axis to reverse, > 0.
+    max_tmp_bytes : int, optional
+        Bound of the temporary.
+    """
+    if axis == 0:
+        raise ValueError("The first axis cannot be reversed slab by slab")
+    if values.shape[0] == 0:
+        return
+    step = max(1, int(max_tmp_bytes) // max(1, values[0].nbytes))
+    for t0 in range(0, values.shape[0], step):
+        slab = values[t0 : t0 + step]
+        slab[...] = np.flip(slab, axis=axis).copy()
+
+
+def read_grid(
+    table: tables.table | None,
+    col: str,
+    plan: RowGridPlan,
+    shape: tuple[int, ...],
+    dtype: np.dtype,
+    max_elems: int = DEFAULT_MAX_ELEMS,
+    transform: Any = None,
+    reverse_axis: int | None = None,
+    stats: dict[str, int] | None = None,
+) -> np.ndarray:
+    """
+    The values of one column on a dense (time, baseline, ...) grid: a new
+    array, padded with ``get_pad_value(dtype)`` where no row maps to a cell
+    (FLAG=False, NaN, ...), read with ``read_rows_to_grid`` (one ascending
+    pass, bounded calls; for duplicated cells the last row wins).
+
+    Parameters
+    ----------
+    table : tables.table | None
+        Base table holding the column (not used, and may be None, if the plan
+        has no rows).
+    col : str
+        Column name.
+    plan : RowGridPlan
+        Rows and their grid cells (``make_row_grid_plan``).
+    shape : tuple[int, ...]
+        Grid shape, (n_times, n_baselines) + cell shape.
+    dtype : np.dtype
+        dtype of the grid (that of the partition's first cell, as in the read
+        paths; rows are cast by the scatter if it is not the column dtype).
+    max_elems : int, optional
+        Maximum number of elements per casacore call.
+    transform : Callable | None, optional
+        Applied to the grid after reading it (its result is returned).
+    reverse_axis : int | None, optional
+        Axis (> 0) along which the result is reversed in place, if any.
+    stats : dict[str, int] | None, optional
+        Read counters (see ``read_rows_to_grid``).
+
+    Returns
+    -------
+    np.ndarray
+        The grid.
+    """
+    if plan.grid_is_full:
+        grid = np.empty(shape, dtype=dtype)
+    else:
+        # https://github.com/casangi/xradio/issues/219
+        grid = np.full(shape, get_pad_value(dtype), dtype=dtype)
+    if plan.rows.size:
+        read_rows_to_grid(table, col, plan, grid, max_elems=max_elems, stats=stats)
+    if transform is not None:
+        grid = transform(grid)
+    if reverse_axis is not None:
+        reverse_axis_in_place(grid, reverse_axis)
+    return grid
+
+
+def read_time_chunk(
+    table: tables.table | None,
+    col: str,
+    chunk_rows: TimeChunkRows,
+    k: int,
+    cell_shape: tuple[int, ...],
+    dtype: np.dtype,
+    max_elems: int = DEFAULT_MAX_ELEMS,
+    transform: Any = None,
+    reverse_axis: int | None = None,
+    stats: dict[str, int] | None = None,
+) -> np.ndarray:
+    """
+    The values of one column for the times of chunk ``k`` of ``chunk_rows``
+    on the dense (times of the chunk, baseline, ...) grid (see ``read_grid``
+    for the padding and duplicated cells). The read primitive of the lazy
+    (parallel_mode="time") columns and of the streamed write.
+
+    Parameters
+    ----------
+    table : tables.table | None
+        Base table holding the column (may be None if the chunk has no rows).
+    col : str
+        Column name.
+    chunk_rows : TimeChunkRows
+        Rows of the partition by time chunk.
+    k : int
+        Chunk index.
+    cell_shape : tuple[int, ...]
+        Cell shape (numpy order).
+    dtype : np.dtype
+        dtype of the grid.
+    max_elems : int, optional
+        Maximum number of elements per casacore call.
+    transform : Callable | None, optional
+        Applied to the grid after reading it.
+    reverse_axis : int | None, optional
+        Axis (> 0) along which the result is reversed in place, if any.
+    stats : dict[str, int] | None, optional
+        Read counters (see ``read_rows_to_grid``).
+
+    Returns
+    -------
+    np.ndarray
+        The chunk's grid.
+    """
+    n_times, n_baselines = chunk_rows.chunk_n_times(k), chunk_rows.num_baselines
+    rows, gidx = chunk_rows.chunk(k)
+    plan = make_row_grid_plan(rows, gidx, n_times * n_baselines)
+    del rows, gidx
+    shape = (n_times, n_baselines) + tuple(int(n) for n in cell_shape)
+    return read_grid(
+        table, col, plan, shape, dtype, max_elems, transform, reverse_axis, stats
+    )
+
+
+# --- what a column's storage tells before reading it ------------------------------
+
+# Rows per getcolshapestring call of the cell shape scan.
+SHAPE_SCAN_ROWS = 2**16
+# casacore ColumnDesc option bit of arrays stored in the row (fixed shape, always
+# defined)
+_DIRECT_OPTION = 1
+# Tiled storage managers whose hypercubes have a row axis (tiles of TileShape[-1] rows)
+_ROW_TILED_DM_TYPES = ("TiledShapeStMan", "TiledColumnStMan", "TiledDataStMan")
+# Window (bytes of the column's cells) assumed for the small-read guard when the
+# tile size is not known: CASA's MS writers use tiles of about 1 MiB.
+NOMINAL_WINDOW_BYTES = 2**20
+
+
+class ColumnNotReadableError(RuntimeError):
+    """A column whose cells cannot all be read for a partition."""
+
+
+@dataclasses.dataclass(frozen=True)
+class ColumnStorage:
+    """
+    How a column is stored, from the table's data manager info.
+
+    Attributes
+    ----------
+    plain : bool
+        Whether the table is a plain table. For a reference (selection) or
+        concatenated table, ``getdminfo`` describes the root table or the first
+        part, not the rows of this table, so nothing below is used.
+    dm_type : str
+        Data manager type ("" if unknown).
+    option : int
+        Option bits of the column description.
+    hypercubes : tuple[dict, ...]
+        Hypercubes of a tiled data manager (CubeShape, TileShape, CellShape;
+        Fortran axis order).
+    error : str
+        Why the storage could not be described ("" if it could).
+    """
+
+    plain: bool
+    dm_type: str = ""
+    option: int = 0
+    hypercubes: tuple[dict, ...] = ()
+    error: str = ""
+
+
+def is_plain_table(table: tables.table) -> bool:
+    """Whether a table is a plain table (not a reference / selection or a
+    concatenation of tables)."""
+    return list(table.partnames()) == [table.name()]
+
+
+def column_storage(
+    table: tables.table,
+    col: str,
+    table_dminfo: dict | None = None,
+    plain: bool | None = None,
+) -> ColumnStorage:
+    """
+    Describe how a column is stored (never raises: an error is described in
+    the result).
+
+    Parameters
+    ----------
+    table : tables.table
+        Table with the column.
+    col : str
+        Column name.
+    table_dminfo : dict | None, optional
+        ``table.getdminfo()`` (all data managers), if already known
+        (python-casacore builds it for every ``getdminfo`` call).
+    plain : bool | None, optional
+        ``is_plain_table(table)``, if already known.
+
+    Returns
+    -------
+    ColumnStorage
+        The description.
+    """
+    try:
+        if plain is None:
+            plain = is_plain_table(table)
+        option = int(table.getcoldesc(col).get("option", 0))
+        if table_dminfo is None:
+            dminfo = table.getdminfo(col)
+        else:
+            dminfo = next(
+                dm for dm in table_dminfo.values() if col in dm.get("COLUMNS", ())
+            )
+        cubes = tuple(dminfo.get("SPEC", {}).get("HYPERCUBES", {}).values())
+        return ColumnStorage(plain, str(dminfo.get("TYPE", "")), option, cubes)
+    except Exception as exc:
+        return ColumnStorage(False, error=f"{type(exc).__name__}: {exc}")
+
+
+@dataclasses.dataclass(frozen=True)
+class CellCheck:
+    """
+    Result of ``check_partition_cells``.
+
+    Attributes
+    ----------
+    verified : bool
+        True if every cell of the partition is known to be defined with the
+        first cell's shape. False if that cannot be told without reading the
+        data: the read itself decides.
+    how : str
+        How it was decided (for logging).
+    """
+
+    verified: bool
+    how: str
+
+
+def _check_shape_strings(shapes: list[str], expected: str, col: str) -> None:
+    if len(set(shapes)) > 1 or (shapes and shapes[0] != expected):
+        raise ColumnNotReadableError(
+            f"Column {col} has cells of a shape other than {expected} in the partition"
+        )
+
+
+def _scan_cell_shapes(
+    table: tables.table, col: str, rows: np.ndarray, expected: str
+) -> None:
+    """
+    Compare the shape of every cell of ``rows`` with ``expected`` (shape
+    strings), with one getcolshapestring call per run of rows, or per batch of
+    rows read through ``selectrows`` when a batch has many runs. Raises
+    ColumnNotReadableError for an undefined cell or another shape.
+    """
+    table_nrows = table.nrows()
+    for b0 in range(0, rows.size, SHAPE_SCAN_ROWS):
+        batch = rows[b0 : b0 + SHAPE_SCAN_ROWS]
+        starts, lengths = rows_to_runs(batch)
+        try:
+            if starts.size > FRAGMENTED_RUNS:
+                ref = table.selectrows(batch)
+                try:
+                    _check_shape_strings(ref.getcolshapestring(col), expected, col)
+                finally:
+                    ref.close()
+                continue
+            for start, length in zip(starts.tolist(), lengths.tolist(), strict=True):
+                pieces = [(start, length)]
+                if start == 0 and length == table_nrows and length > 1:
+                    # never a call over the whole column (see _read_run)
+                    pieces = [(0, length - 1), (length - 1, 1)]
+                for row0, nrow in pieces:
+                    _check_shape_strings(
+                        table.getcolshapestring(col, row0, nrow), expected, col
+                    )
+        except RuntimeError as exc:
+            if isinstance(exc, ColumnNotReadableError):
+                raise
+            raise ColumnNotReadableError(
+                f"Column {col} has undefined cells in the partition: {exc}"
+            ) from exc
+
+
+def _tsm_cubes_hold_every_row(
+    storage: ColumnStorage, table_nrows: int, expected: str
+) -> bool:
+    """Whether the TiledShapeStMan hypercubes hold every row of the table, all
+    with the cell shape ``expected`` (shape string, numpy order)."""
+    cubes = storage.hypercubes
+    rows_in_cubes = sum(
+        int(np.asarray(cube["CubeShape"])[-1])
+        for cube in cubes
+        if np.asarray(cube.get("CubeShape", [])).size
+    )
+    # cube cell shapes are in Fortran order, the shape strings in numpy order
+    cell_shapes = {
+        str(list(np.asarray(cube["CellShape"]).tolist()[::-1]))
+        if "CellShape" in cube
+        else None
+        for cube in cubes
+    }
+    return rows_in_cubes >= table_nrows and (
+        cell_shapes == {expected} or (len(cubes) == 1 and None in cell_shapes)
+    )
+
+
+def check_partition_cells(
+    table: tables.table,
+    col: str,
+    rows: np.ndarray,
+    storage: ColumnStorage | None = None,
+) -> CellCheck:
+    """
+    Check, without reading any data, whether every cell of a column can be
+    read for the rows of a partition: every cell defined and of the shape of
+    the first one. These are the cells for which the row read path
+    (``read_rows_to_grid``) succeeds; it raises otherwise. Only what a plain
+    table's storage manager tells for free is used:
+
+    - scalar columns, and on a plain table TiledColumnStMan columns and arrays
+      stored in the row ("direct") are always defined with one shape;
+    - on a plain table, a TiledShapeStMan column whose hypercubes hold every
+      row of the table, all with the partition's first cell shape;
+    - otherwise, for a TiledShapeStMan column of a plain table, the cell shapes
+      of the partition rows are compared (``getcolshapestring``, answered from
+      the hypercube index, no data read).
+
+    Anything else (StandardStMan / IncrementalStMan indirect arrays, whose
+    shapes are stored with the data, other storage managers, reference or
+    concatenated tables, or an error while deciding) is not verified here: the
+    read of the data decides.
+
+    Parameters
+    ----------
+    table : tables.table
+        Base MAIN table.
+    col : str
+        Column name.
+    rows : np.ndarray
+        MAIN rows of the partition (strictly increasing, not empty).
+    storage : ColumnStorage | None, optional
+        ``column_storage(table, col)``, if already known.
+
+    Returns
+    -------
+    CellCheck
+        Whether the cells are verified, and how it was decided.
+
+    Raises
+    ------
+    ColumnNotReadableError
+        If a cell of the partition is known to be undefined or of another
+        shape (or the first cell is undefined).
+    """
+    if table.isscalarcol(col):
+        return CellCheck(True, "scalar column")
+    rows = np.asarray(rows, dtype=np.int64)
+    try:
+        expected = table.getcolshapestring(col, int(rows[0]), 1)[0]
+    except RuntimeError as exc:
+        raise ColumnNotReadableError(
+            f"Column {col}: the first cell of the partition is undefined"
+        ) from exc
+    if storage is None:
+        storage = column_storage(table, col)
+    if storage.error:
+        return CellCheck(False, f"storage unknown ({storage.error}): read decides")
+    if not storage.plain:
+        return CellCheck(False, "reference or concatenated table: read decides")
+    dm_type = storage.dm_type
+    try:
+        if dm_type == "TiledColumnStMan":
+            return CellCheck(True, "TiledColumnStMan (fixed shape)")
+        if dm_type == "TiledShapeStMan":
+            if _tsm_cubes_hold_every_row(storage, table.nrows(), expected):
+                return CellCheck(
+                    True, "TiledShapeStMan, all rows in hypercubes of one cell shape"
+                )
+            _scan_cell_shapes(table, col, rows, expected)
+            return CellCheck(
+                True, f"TiledShapeStMan: cell shapes of {rows.size} rows compared"
+            )
+        if storage.option & _DIRECT_OPTION:
+            return CellCheck(True, f"{dm_type} direct array (fixed shape)")
+    except ColumnNotReadableError:
+        raise
+    except Exception as exc:  # never skip a column for an error of the check
+        return CellCheck(False, f"{dm_type}: check failed ({exc}): read decides")
+    return CellCheck(False, f"{dm_type} indirect array: read decides")
+
+
+def column_row_window(
+    storage: ColumnStorage,
+    table_nrows: int,
+    cell_shape: tuple[int, ...],
+    cell_bytes: int,
+) -> tuple[int, str]:
+    """
+    Number of consecutive table rows that one storage unit of a column holds:
+    for a row-tiled column of a plain table, the rows of one tile of the
+    hypercube with the partition's cell shape (scaled by table rows per cube
+    row when the cube holds only some rows: positions in a cube are the ranks
+    of its rows); otherwise ``NOMINAL_WINDOW_BYTES`` of cells. Used to count
+    the tiles a read loads (``count_row_windows``).
+
+    Parameters
+    ----------
+    storage : ColumnStorage
+        How the column is stored.
+    table_nrows : int
+        Number of rows of the table.
+    cell_shape : tuple[int, ...]
+        Cell shape of the partition (numpy order).
+    cell_bytes : int
+        Bytes of one cell (for the nominal window).
+
+    Returns
+    -------
+    tuple[int, str]
+        Rows per window (>= 1), and "tile" or "nominal".
+    """
+    if storage.plain and storage.dm_type in _ROW_TILED_DM_TYPES:
+        try:
+            fortran_shape = [int(n) for n in cell_shape][::-1]
+            cubes = [
+                cube
+                for cube in storage.hypercubes
+                if np.asarray(cube.get("TileShape", [])).size
+                and np.asarray(cube.get("CubeShape", [])).size
+            ]
+            match = [
+                cube
+                for cube in cubes
+                if "CellShape" in cube
+                and [int(n) for n in np.asarray(cube["CellShape"])] == fortran_shape
+            ]
+            if not match and len(cubes) == 1:
+                match = cubes
+            if match:
+                tile_rows = int(np.asarray(match[0]["TileShape"])[-1])
+                cube_rows = int(np.asarray(match[0]["CubeShape"])[-1])
+                scale = table_nrows / cube_rows if 0 < cube_rows < table_nrows else 1
+                return max(1, int(round(tile_rows * scale))), "tile"
+        except Exception:  # fall back to the nominal window
+            pass
+    return max(1, NOMINAL_WINDOW_BYTES // max(1, int(cell_bytes))), "nominal"
 
 
 class MainTableRows:
@@ -1020,6 +1566,7 @@ class MainTableRows:
         self._time_chunk_key: tuple[Any, ...] | None = None
         self._time_chunk_rows: TimeChunkRows | None = None
         self._time_chunk_delayed: Any = None
+        self._storage_info: tuple[bool, dict] | None = None
 
     @property
     def table(self) -> tables.table:
@@ -1073,6 +1620,32 @@ class MainTableRows:
     def rownumbers(self) -> list[int]:
         """MAIN row numbers of the partition (as ``tables.table.rownumbers``)."""
         return self._rows.tolist()
+
+    def column_storage(self, col: str) -> ColumnStorage:
+        """
+        How a column of the MAIN table is stored (``column_storage``), with
+        the table's data manager info read once for all columns.
+
+        Parameters
+        ----------
+        col : str
+            Column name.
+
+        Returns
+        -------
+        ColumnStorage
+            The description.
+        """
+        if self._storage_info is None:
+            try:
+                self._storage_info = (
+                    is_plain_table(self._table),
+                    self._table.getdminfo(),
+                )
+            except Exception as exc:
+                return ColumnStorage(False, error=f"{type(exc).__name__}: {exc}")
+        plain, dminfo = self._storage_info
+        return column_storage(self._table, col, dminfo, plain)
 
     def close(self) -> None:
         """Release cached state. The MAIN table is closed by its owner."""

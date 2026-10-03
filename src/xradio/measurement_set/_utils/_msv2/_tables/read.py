@@ -23,10 +23,10 @@ from xradio.measurement_set._utils._msv2._tables.read_rows import (
     MainTableRows,
     TimeChunkRows,
     getcol_chunks,
-    make_row_grid_plan,
     parse_shape_string,
     read_column_rows,
-    read_rows_to_grid,
+    read_grid,
+    read_time_chunk,
 )
 from xradio.measurement_set._utils._msv2._tables.subtable_cache import (
     active_subtable_cache,
@@ -1812,13 +1812,10 @@ def read_col_conversion_rows(
     extra_dimensions, col_dtype = _partition_cell_shape_and_dtype(main_rows, col)
     plan = main_rows.grid_plan(tidxs, bidxs, cshape)
     shape = tuple(cshape) + extra_dimensions
-    if plan.grid_is_full:
-        data = np.empty(shape, dtype=col_dtype)
-    else:
-        # Use a custom/safe fill value (https://github.com/casangi/xradio/issues/219)
-        data = np.full(shape, get_pad_value(col_dtype), dtype=col_dtype)
-    read_rows_to_grid(main_rows.table, col, plan, data, max_elems=main_rows.max_elems)
-    return data
+    # padded with get_pad_value (https://github.com/casangi/xradio/issues/219)
+    return read_grid(
+        main_rows.table, col, plan, shape, col_dtype, max_elems=main_rows.max_elems
+    )
 
 
 def read_col_conversion_dask_rows(
@@ -1904,14 +1901,11 @@ def _load_rows_time_chunk(
     max_elems: int,
 ) -> np.ndarray:
     """Read time chunk (block) ``k`` of read_col_conversion_dask_rows."""
-    rows, gidx = chunk_rows.chunk(k)
-    plan = make_row_grid_plan(rows, gidx, shape[0] * shape[1])
-    if plan.grid_is_full:
-        data = np.empty(shape, dtype=dtype)
-    else:
-        data = np.full(shape, get_pad_value(dtype), dtype=dtype)
-    if rows.size:
-        # Opened in the thread/process that computes the block
-        with open_table_ro(in_file) as tb_tool:
-            read_rows_to_grid(tb_tool, col, plan, data, max_elems=max_elems)
-    return data
+    cell_shape = tuple(shape[2:])
+    if chunk_rows.chunk_n_rows(k) == 0:  # only padding: no table needed
+        return read_time_chunk(None, col, chunk_rows, k, cell_shape, dtype, max_elems)
+    # Opened in the thread/process that computes the block
+    with open_table_ro(in_file) as tb_tool:
+        return read_time_chunk(
+            tb_tool, col, chunk_rows, k, cell_shape, dtype, max_elems
+        )

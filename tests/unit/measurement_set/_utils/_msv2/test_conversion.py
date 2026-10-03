@@ -1196,16 +1196,22 @@ def _convert_streamed(
 
 @pytest.fixture
 def stream_stats(monkeypatch):
-    """The statistics returned by every write_deferred_variables call."""
+    """The statistics returned by every write_deferred_variables (streamed)
+    and read_deferred_variables (partition read whole) call."""
     recorded = []
-    write = conversion.write_deferred_variables
 
-    def spy(*args, **kwargs):
-        stats = write(*args, **kwargs)
-        recorded.append(stats)
-        return stats
+    def spy_on(name):
+        function = getattr(conversion, name)
 
-    monkeypatch.setattr(conversion, "write_deferred_variables", spy)
+        def spy(*args, **kwargs):
+            stats = function(*args, **kwargs)
+            recorded.append(stats)
+            return stats
+
+        monkeypatch.setattr(conversion, name, spy)
+
+    spy_on("write_deferred_variables")
+    spy_on("read_deferred_variables")
     return recorded
 
 
@@ -1291,7 +1297,10 @@ def test_stream_write_bit_identical(
                 "fragmented: one pass",
                 "fragmented: large batches",
             )
-    for stats in stream_stats[-1]["variables"].values():  # default batch size
+    # default batch size: the partition is a fraction of a batch, read whole
+    assert stream_stats[-1]["summary"]["in_memory"]
+    assert [s["summary"]["in_memory"] for s in stream_stats[:-1]] == [False, False]
+    for stats in stream_stats[-1]["variables"].values():
         assert stats["batches"] == 1
     # one chunk per batch on time-ordered rows
     if layout == "dense":
@@ -1327,6 +1336,7 @@ def test_stream_write_fragmented_rows_bit_identical(
     n_chunks = -(-old_xdt.ds.sizes["time"] // 4)
     if guard == "forced_time_batches":
         monkeypatch.setattr(stream_write, "FRAGMENTED_RUNS_RATIO", np.inf)
+        monkeypatch.setattr(stream_write, "FRAGMENTED_EXTRA_READS", np.inf)
     else:
         monkeypatch.setattr(stream_write, "FRAGMENTED_BATCH_FACTOR", 3)
     # 0.01 MiB: one 10240-byte VISIBILITY chunk (4 times x 10 baselines x 16 x 2)
@@ -1393,7 +1403,13 @@ def test_stream_write_tiled_shape_main_bit_identical(
     assert converted >= 1
 
 
-STREAM_EDGE_VARIANTS = ("reversed_freq", "wsp_partial", "no_weight", "varying_shape")
+STREAM_EDGE_VARIANTS = (
+    "reversed_freq",
+    "wsp_partial",
+    "no_weight",
+    "varying_shape",
+    "interleaved_fields",
+)
 
 
 def _add_tiled_shape_column(main_tb, col, values, tile_rows, rows=None):
@@ -1440,6 +1456,14 @@ def ms_stream_edges(tmp_path_factory):
     - "varying_shape": MODEL_DATA (StandardStMan) with cells of another shape
       in every partition (VISIBILITY_MODEL is dropped); in "reversed_freq"
       all its cells have one shape
+    - "interleaved_fields": baseline-major rows whose FIELD_ID alternates time
+      by time (the FIELD_ID partitions interleave row by row inside every
+      baseline), WEIGHT_SPECTRUM in TiledShapeStMan tiles of 7 rows
+
+    "wsp_partial" also has decreasing CHAN_FREQ (WEIGHT from the WEIGHT column,
+    the same along frequency, is not reversed). "reftable_wsp_partial" is a
+    persistent reference table (selection) of the DDI 1 rows of
+    "wsp_partial", with copies of its sub-tables.
     """
     from casacore import tables
 
@@ -1457,7 +1481,8 @@ def ms_stream_edges(tmp_path_factory):
             required_only=True,
             misbehave=False,
         )
-        _rewrite_main_rows(msname, "dense", seed, weight=variant != "no_weight")
+        layout = "baseline_major" if variant == "interleaved_fields" else "dense"
+        _rewrite_main_rows(msname, layout, seed, weight=variant != "no_weight")
         rng = np.random.default_rng(100 + seed)
         with tables.table(msname, readonly=False, ack=False) as main_tb:
             nrows = main_tb.nrows()
@@ -1465,8 +1490,11 @@ def ms_stream_edges(tmp_path_factory):
             ddi = main_tb.getcol("DATA_DESC_ID")
             pos = np.arange(nrows) - np.searchsorted(ddi, ddi)  # row index in its DDI
             weights = rng.random((nrows,) + cell).astype(np.float32)
-            if variant == "reversed_freq":
+            if variant in ("reversed_freq", "interleaved_fields"):
                 _add_tiled_shape_column(main_tb, "WEIGHT_SPECTRUM", weights, 7)
+            if variant == "interleaved_fields":
+                tidx = np.unique(main_tb.getcol("TIME"), return_inverse=True)[1]
+                main_tb.putcol("FIELD_ID", (tidx % 2).astype(np.int32))
             elif variant == "wsp_partial":
                 defined = np.flatnonzero((pos < 100) | (pos >= 110))
                 _add_tiled_shape_column(main_tb, "WEIGHT_SPECTRUM", weights, 7, defined)
@@ -1481,7 +1509,7 @@ def ms_stream_edges(tmp_path_factory):
                 if variant == "varying_shape":
                     for row in np.flatnonzero((pos >= 50) & (pos < 53)):
                         main_tb.putcell("MODEL_DATA", int(row), model[row][:, :1])
-        if variant == "reversed_freq":
+        if variant in ("reversed_freq", "wsp_partial"):
             with tables.table(
                 os.path.join(msname, "SPECTRAL_WINDOW"), readonly=False, ack=False
             ) as spw_tb:
@@ -1489,19 +1517,48 @@ def ms_stream_edges(tmp_path_factory):
                 decreasing = 1.0e9 + 1.0e6 * np.arange(n_chan)[::-1]
                 spw_tb.putcol("CHAN_FREQ", np.tile(decreasing, (n_spw, 1)))
         paths[variant] = msname
+    # a persistent reference table: getdminfo describes its root table
+    root = paths["wsp_partial"]
+    ref_path = str(base / "edge_reftable_wsp_partial.ms")
+    with tables.table(root, ack=False) as root_tb:
+        ddi_rows = np.flatnonzero(root_tb.getcol("DATA_DESC_ID") == 1)
+        selection = root_tb.selectrows(ddi_rows)
+        selection.copy(ref_path, deep=False).close()
+        selection.close()
+    for name in os.listdir(root):
+        sub = os.path.join(root, name)
+        if os.path.isdir(sub) and not os.path.exists(os.path.join(ref_path, name)):
+            shutil.copytree(sub, os.path.join(ref_path, name))
+    paths["reftable_wsp_partial"] = ref_path
     yield paths
     shutil.rmtree(base, ignore_errors=True)
 
 
-@pytest.mark.parametrize("variant", STREAM_EDGE_VARIANTS)
+@pytest.fixture
+def partition_attempts(monkeypatch):
+    """The unreadable_columns of every attempt of _convert_and_write_partition."""
+    attempts = []
+    convert = conversion._convert_and_write_partition
+
+    def spy(*args, unreadable_columns=frozenset(), **kwargs):
+        attempts.append(set(unreadable_columns))
+        return convert(*args, unreadable_columns=unreadable_columns, **kwargs)
+
+    monkeypatch.setattr(conversion, "_convert_and_write_partition", spy)
+    return attempts
+
+
+@pytest.mark.parametrize("variant", STREAM_EDGE_VARIANTS + ("reftable_wsp_partial",))
 def test_stream_write_column_decisions_bit_identical(
-    ms_stream_edges, variant, tmp_path, monkeypatch, stream_stats
+    ms_stream_edges, variant, tmp_path, monkeypatch, stream_stats, partition_attempts
 ):
     """
     The columns that the non-streamed path skips (undefined cells, other cell
-    shapes) or replaces (WEIGHT_SPECTRUM -> WEIGHT -> WEIGHT=1) are decided
-    before writing, with the same result; reversed frequencies are reversed
-    batch by batch.
+    shapes) or replaces (WEIGHT_SPECTRUM -> WEIGHT -> WEIGHT=1) are skipped or
+    replaced the same way: decided before writing where the storage manager
+    tells (TiledShapeStMan of a plain table), otherwise by the read, after
+    which the partition is converted again without the column. Reversed
+    frequencies are reversed batch by batch.
     """
     from xradio.measurement_set._utils._msv2.partition_queries import (
         create_partitions_with_main_rows,
@@ -1509,42 +1566,101 @@ def test_stream_write_column_decisions_bit_identical(
 
     msname = ms_stream_edges[variant]
     partitions, runs = create_partitions_with_main_rows(msname, [])
-    kw = {"main_chunksize": {"time": 4}, "main_row_runs": runs[1]}
+    idx = 0 if variant == "reftable_wsp_partial" else 1  # (DDI 1 only)
+    kw = {"main_chunksize": {"time": 4}, "main_row_runs": runs[idx]}
     old_xdt, old = _convert_streamed(
-        monkeypatch, msname, str(tmp_path / "old"), partitions[1], "0", **kw
+        monkeypatch, msname, str(tmp_path / "old"), partitions[idx], "0", **kw
     )
+    partition_attempts.clear()
     new_xdt, new = _convert_streamed(
-        monkeypatch, msname, str(tmp_path / "new"), partitions[1], "1", 1e-9, **kw
+        monkeypatch, msname, str(tmp_path / "new"), partitions[idx], "1", 1e-9, **kw
     )
     assert_stores_identical(old, new)
     assert_msv4_bit_identical(old_xdt, new_xdt)
     xds, stats = new_xdt.ds, stream_stats[-1]["variables"]
     assert stats["VISIBILITY"]["batches"] > 1
+    # FLAG (StandardStMan indirect arrays in the generated MSs): left to the read
+    assert not stats["FLAG"]["verified"] and "read decides" in stats["FLAG"]["readable"]
     if variant == "reversed_freq":
         assert np.all(np.diff(xds.frequency.values) > 0)
         assert stats["WEIGHT"]["col"] == "WEIGHT_SPECTRUM"
         assert "TiledShapeStMan" in stats["WEIGHT"]["readable"]
-        assert "compared" in stats["VISIBILITY_MODEL"]["readable"]
-    elif variant == "wsp_partial":
+        assert "read decides" in stats["VISIBILITY_MODEL"]["readable"]
+        assert partition_attempts == [set()]
+    elif variant == "wsp_partial":  # decided from the TiledShapeStMan index
+        assert np.all(np.diff(xds.frequency.values) > 0)
         assert stats["WEIGHT"]["col"] == "WEIGHT"
         assert xds.WEIGHT.dtype == np.float32
+        assert partition_attempts == [set()]
+    elif variant == "reftable_wsp_partial":  # decided by the read
+        assert stats["WEIGHT"]["col"] == "WEIGHT"
+        assert "reference" in stats["VISIBILITY"]["readable"]
+        assert partition_attempts == [set(), {"WEIGHT_SPECTRUM"}]
     elif variant == "no_weight":
         assert stats["WEIGHT"]["col"] is None and xds.WEIGHT.dtype == np.float64
         assert np.all(xds.WEIGHT.values == 1)
-    else:
+        # every WEIGHT cell undefined: the first-cell probe decides, before writing
+        assert partition_attempts == [set()]
+    elif variant == "varying_shape":
         assert "VISIBILITY_MODEL" not in xds and "VISIBILITY_MODEL" not in stats
         assert sorted(xds.attrs["data_groups"]) == ["base", "corrected"]
+        assert partition_attempts == [set(), {"MODEL_DATA"}]
+    else:
+        assert variant == "interleaved_fields"
+        assert stats["WEIGHT"]["col"] == "WEIGHT_SPECTRUM"
 
 
-def test_stream_write_failure_removes_the_variable(
-    ms_main_layouts, tmp_path, monkeypatch
+def test_stream_write_guard_interleaved_partitions(
+    ms_stream_edges, tmp_path, monkeypatch, stream_stats
 ):
-    """A read failing after part of a variable was written: the variable is
-    removed (array and consolidated metadata) and the error is raised; the
-    variables written before it are complete."""
-    import json
+    """
+    FIELD_ID partitions interleaved row by row inside every baseline: time
+    batches have the row runs of one pass (one per row), but every batch
+    would load every 7-row WEIGHT_SPECTRUM tile again. The guard reads WEIGHT
+    in one pass; VISIBILITY (one 1024-row tile for the whole DDI) keeps its
+    time batches. Byte-identical either way.
+    """
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
 
-    from xradio.measurement_set._utils._msv2 import stream_write
+    msname = ms_stream_edges["interleaved_fields"]
+    partitions, runs = create_partitions_with_main_rows(msname, ["FIELD_ID"])
+    idx = next(
+        i
+        for i, part in enumerate(partitions)
+        if list(part["FIELD_ID"]) == [0] and list(part["DATA_DESC_ID"]) == [1]
+    )
+    kw = {"main_chunksize": {"time": 2}, "main_row_runs": runs[idx]}
+    _, old = _convert_streamed(
+        monkeypatch, msname, str(tmp_path / "old"), partitions[idx], "0", **kw
+    )
+    # WEIGHT chunk (2 times x 10 baselines x 16 x 2 float32) 2560 bytes: one
+    # chunk per batch, the variable (15 times) fits 8 batches
+    _, new = _convert_streamed(
+        monkeypatch, msname, str(tmp_path / "new"), partitions[idx], "1", 0.003, **kw
+    )
+    assert_stores_identical(old, new)
+    stats = stream_stats[-1]["variables"]
+    weight, vis = stats["WEIGHT"], stats["VISIBILITY"]
+    assert weight["window"] == "tile" and weight["window_rows"] == 7
+    assert weight["guard"] == "fragmented: one pass" and weight["batches"] == 1
+    assert weight["runs_whole"] == 150  # every row its own run
+    assert "tiles" in weight["guard_reason"] and "runs" not in weight["guard_reason"]
+    assert vis["window_rows"] == 1024 and vis["guard"] == "time"
+    assert vis["batches"] == 8 and vis["runs_batched"] == vis["runs_whole"] == 150
+
+
+def test_stream_write_read_failure_converts_the_partition_again(
+    ms_main_layouts, tmp_path, monkeypatch, stream_stats, partition_attempts
+):
+    """
+    A read failing after part of a variable was written (I/O error, ...): the
+    MSv4 is removed and the partition converted again without the column,
+    which is what the non-streamed path gives when that read fails (it skips
+    the column).
+    """
+    from xradio.measurement_set._utils._msv2._tables import read_rows
     from xradio.measurement_set._utils._msv2.partition_queries import (
         create_partitions_with_main_rows,
     )
@@ -1552,39 +1668,72 @@ def test_stream_write_failure_removes_the_variable(
     msname = ms_main_layouts["dense"]
     partitions, runs = create_partitions_with_main_rows(msname, [])
     kw = {"main_chunksize": {"time": 4}, "main_row_runs": runs[0]}
-    old_xdt, _ = _convert_streamed(
-        monkeypatch, msname, str(tmp_path / "old"), partitions[0], "0", **kw
-    )
-    read = stream_write.read_rows_to_grid
-    data_reads = []
+    read = read_rows.read_rows_to_grid
+    reads = []
 
     def failing_read(table, col, *args, **kwargs):
-        if col == "DATA":
-            data_reads.append(col)
-            if len(data_reads) == 2:
-                raise RuntimeError("simulated read failure")
+        if col == "CORRECTED_DATA":
+            reads.append(col)
+            if len(reads) == fail_at:
+                raise OSError("simulated read failure")
         return read(table, col, *args, **kwargs)
 
-    monkeypatch.setattr(stream_write, "read_rows_to_grid", failing_read)
-    with pytest.raises(RuntimeError, match="simulated read failure"):
-        _convert_streamed(
-            monkeypatch, msname, str(tmp_path / "new"), partitions[0], "1", 1e-9, **kw
-        )
-    store = os.path.join(
-        str(tmp_path / "new"), pathlib.Path(msname).name.replace(".ms", "") + "_0"
+    monkeypatch.setattr(read_rows, "read_rows_to_grid", failing_read)
+    fail_at = 1  # the non-streamed path: its one read of the column fails
+    old_xdt, old = _convert_streamed(
+        monkeypatch, msname, str(tmp_path / "old"), partitions[0], "0", **kw
     )
-    assert not os.path.exists(os.path.join(store, "VISIBILITY"))
-    with open(os.path.join(store, "zarr.json")) as f:
-        consolidated = json.load(f)["consolidated_metadata"]["metadata"]
-    assert "VISIBILITY" not in consolidated
-    assert "VISIBILITY_CORRECTED" in consolidated
-    partial = xr.open_datatree(store, engine="zarr")
-    assert "VISIBILITY" not in partial.ds
-    # written before the failure (data variable order), complete
-    assert (
-        partial.ds.VISIBILITY_CORRECTED.values.tobytes()
-        == old_xdt.ds.VISIBILITY_CORRECTED.values.tobytes()
+    assert "VISIBILITY_CORRECTED" not in old_xdt.ds
+    reads.clear()
+    partition_attempts.clear()
+    fail_at = 2  # the streamed write: its 2nd batch fails
+    new_xdt, new = _convert_streamed(
+        monkeypatch, msname, str(tmp_path / "new"), partitions[0], "1", 1e-9, **kw
     )
+    assert partition_attempts == [set(), {"CORRECTED_DATA"}]
+    assert len(reads) == 2  # not read again
+    assert_stores_identical(old, new)
+    assert_msv4_bit_identical(old_xdt, new_xdt)
+    assert "VISIBILITY_CORRECTED" not in stream_stats[-1]["variables"]
+
+
+def test_stream_write_write_failure_removes_the_msv4(
+    ms_main_layouts, tmp_path, monkeypatch
+):
+    """A failure of the zarr writes after some chunks were written: the error
+    is raised and the MSv4 removed (no MSv4 whose unwritten data variables read
+    as fill values); the processing set directory is kept."""
+    import zarr
+
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
+
+    msname = ms_main_layouts["dense"]
+    partitions, runs = create_partitions_with_main_rows(msname, [])
+    kw = {"main_chunksize": {"time": 4}, "main_row_runs": runs[0]}
+    setitem = zarr.Array.__setitem__
+    writes = []
+
+    def failing_setitem(self, key, value):
+        writes.append(key)
+        if len(writes) == 3:
+            raise OSError("simulated write failure")
+        return setitem(self, key, value)
+
+    write = conversion.write_deferred_variables
+
+    def spy(*args, **kwargs):
+        with monkeypatch.context() as m:
+            m.setattr(zarr.Array, "__setitem__", failing_setitem)
+            return write(*args, **kwargs)
+
+    monkeypatch.setattr(conversion, "write_deferred_variables", spy)
+    out = str(tmp_path / "new")
+    with pytest.raises(OSError, match="simulated write failure"):
+        _convert_streamed(monkeypatch, msname, out, partitions[0], "1", 1e-9, **kw)
+    assert len(writes) == 3
+    assert os.path.isdir(out) and os.listdir(out) == []
 
 
 @pytest.mark.parametrize(
@@ -1594,12 +1743,24 @@ def test_stream_write_failure_removes_the_variable(
         ("rows", "partition", "1", True),
         ("rows", "none", "0", False),
         ("rows", "time", "1", False),  # already lazy (dask)
+        ("rows", "time_without_chunk", "1", True),  # read like "none"
         ("taql", "none", "1", False),
     ],
 )
+@pytest.mark.parametrize("batch_mb", [1e-9, None])
 def test_stream_write_selection(
-    ms_main_layouts, main_read, parallel_mode, stream, streamed, tmp_path, monkeypatch
+    ms_main_layouts,
+    main_read,
+    parallel_mode,
+    stream,
+    streamed,
+    batch_mb,
+    tmp_path,
+    monkeypatch,
 ):
+    """Which configurations stream; a partition whose data variables are a
+    small fraction of a batch (here with the default batch size) is read whole
+    instead."""
     from xradio.measurement_set._utils._msv2.partition_queries import (
         create_partitions,
     )
@@ -1610,7 +1771,19 @@ def test_stream_write_selection(
         "write_deferred_variables",
         lambda *args, **kwargs: calls.append(args) or {},
     )
+    read_whole = []
+    read_deferred = conversion.read_deferred_variables
+
+    def spy(*args, **kwargs):
+        read_whole.append(args)
+        return read_deferred(*args, **kwargs)
+
+    monkeypatch.setattr(conversion, "read_deferred_variables", spy)
     monkeypatch.setenv(STREAM_WRITE_ENV_VAR, stream)
+    if batch_mb is None:
+        monkeypatch.delenv(STREAM_BATCH_MB_ENV_VAR, raising=False)
+    else:
+        monkeypatch.setenv(STREAM_BATCH_MB_ENV_VAR, str(batch_mb))
     msname = ms_main_layouts["dense"]
     partition = create_partitions(msname, [])[0]
     if streamed:
@@ -1622,7 +1795,8 @@ def test_stream_write_selection(
             ms_v4_id="0",
             partition_info=partition,
             use_table_iter=False,
-            parallel_mode=parallel_mode,
+            # without a time chunk size (main_chunksize None) "time" reads as "none"
+            parallel_mode=parallel_mode.removesuffix("_without_chunk"),
             persistence_mode="w",
         )
     else:
@@ -1635,7 +1809,9 @@ def test_stream_write_selection(
             main_chunksize={"time": 4},
             parallel_mode=parallel_mode,
         )
-    assert len(calls) == (1 if streamed else 0)
+    in_memory = streamed and batch_mb is None
+    assert len(calls) == (1 if streamed and not in_memory else 0)
+    assert len(read_whole) == (1 if in_memory else 0)
 
 
 def test_stream_write_rejects_a_bad_batch_size_before_writing(

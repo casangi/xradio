@@ -42,8 +42,9 @@ except ImportError:
 DEFAULT_MAX_ELEMS = 2**26
 MAX_ELEMS_LIMIT = 2**29
 # Default bound of the temporary buffer used for rows that cannot be read
-# straight into the grid.
-DEFAULT_MAX_TMP_BYTES = 64 * 1024 * 1024
+# straight into the grid. It is the only memory the reads add on top of the
+# grids (plus index arrays); a larger buffer means fewer (selectrows) calls.
+DEFAULT_MAX_TMP_BYTES = 16 * 1024 * 1024
 # A batch of rows with more runs than this is read with one selectrows() + one
 # get*np call (casacore merges the runs in C++) instead of one call per run.
 FRAGMENTED_RUNS = 64

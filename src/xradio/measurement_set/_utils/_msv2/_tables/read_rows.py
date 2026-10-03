@@ -634,6 +634,13 @@ def read_rows_to_grid(
     Cells that receive no row keep their previous value (the caller pre-fills
     the grid with the pad value if ``plan.grid_is_full`` is False).
 
+    The table is read in one ascending pass over the rows: the direct segments
+    and the scattered rows between them are read in row order (the scattered
+    rows collect in the temporary, which is scattered into the grid whenever
+    it is full). Reading all direct segments first and the scattered rows
+    afterwards would read every tile that holds both kinds of rows twice: the
+    tile cache of the tiled storage managers keeps about one row-slab of tiles.
+
     Parameters
     ----------
     table : tables.table
@@ -695,9 +702,59 @@ def read_rows_to_grid(
 
     direct_ok = grid.dtype == col_dt and grid.dtype.isnative and grid.flags.aligned
     if direct_ok:
-        for offset, length in zip(
-            plan.direct_offsets.tolist(), plan.direct_lengths.tolist(), strict=True
-        ):
+        direct_offsets = plan.direct_offsets.tolist()
+        direct_lengths = plan.direct_lengths.tolist()
+        scatter_idx = plan.scatter_idx
+    else:
+        direct_offsets, direct_lengths = [], []
+        scatter_idx = np.arange(nrows, dtype=np.int64)
+
+    tmp_full = None
+    if scatter_idx.size:
+        row_bytes = cell_elems * col_dt.itemsize
+        tmp_rows = max(1, min(rows_per_call, int(max_tmp_bytes) // row_bytes))
+        tmp_rows = min(tmp_rows, scatter_idx.size)
+        tmp_full = np.empty((tmp_rows,) + cell_shape, dtype=col_dt)
+        stats["max_tmp_bytes"] = max(stats.get("max_tmp_bytes", 0), tmp_full.nbytes)
+
+    # Rows are offsets into plan.rows (ascending row numbers). The scattered rows
+    # before direct segment k are scatter_idx[:scatter_before[k]].
+    scatter_before = np.searchsorted(scatter_idx, direct_offsets).tolist()
+    scatter_before.append(int(scatter_idx.size))
+    tmp_start = 0  # scatter_idx position of the first row held in the temporary
+    tmp_fill = 0  # rows held in the temporary
+
+    def flush_tmp() -> None:
+        nonlocal tmp_start, tmp_fill
+        idx = scatter_idx[tmp_start : tmp_start + tmp_fill]
+        # numpy assigns in index order: of duplicated cells the last row wins
+        flat[plan.gidx[idx]] = tmp_full[:tmp_fill]
+        stats["scatter_rows"] = stats.get("scatter_rows", 0) + tmp_fill
+        tmp_start += tmp_fill
+        tmp_fill = 0
+
+    scatter_pos = 0
+    for k, scatter_end in enumerate(scatter_before):
+        # the scattered rows before direct segment k (or after the last one)
+        while scatter_pos < scatter_end:
+            n = min(scatter_end - scatter_pos, tmp_full.shape[0] - tmp_fill)
+            idx = scatter_idx[scatter_pos : scatter_pos + n]
+            _read_rows_unchecked(
+                table,
+                col,
+                plan.rows[idx],
+                tmp_full[tmp_fill : tmp_fill + n],
+                slicer,
+                table_nrows,
+                rows_per_call,
+                stats,
+            )
+            scatter_pos += n
+            tmp_fill += n
+            if tmp_fill == tmp_full.shape[0]:
+                flush_tmp()
+        if k < len(direct_offsets):
+            offset, length = direct_offsets[k], direct_lengths[k]
             g0 = int(plan.gidx[offset])
             _read_run(
                 table,
@@ -711,32 +768,8 @@ def read_rows_to_grid(
                 stats,
             )
             stats["direct_rows"] = stats.get("direct_rows", 0) + length
-        scatter_idx = plan.scatter_idx
-    else:
-        scatter_idx = np.arange(nrows, dtype=np.int64)
-
-    if scatter_idx.size:
-        row_bytes = cell_elems * col_dt.itemsize
-        tmp_rows = max(1, min(rows_per_call, int(max_tmp_bytes) // row_bytes))
-        tmp_rows = min(tmp_rows, scatter_idx.size)
-        tmp_full = np.empty((tmp_rows,) + cell_shape, dtype=col_dt)
-        stats["max_tmp_bytes"] = max(stats.get("max_tmp_bytes", 0), tmp_full.nbytes)
-        for b0 in range(0, scatter_idx.size, tmp_rows):
-            idx = scatter_idx[b0 : b0 + tmp_rows]
-            tmp = tmp_full[: idx.size]
-            _read_rows_unchecked(
-                table,
-                col,
-                plan.rows[idx],
-                tmp,
-                slicer,
-                table_nrows,
-                rows_per_call,
-                stats,
-            )
-            # numpy assigns in index order: of duplicated cells the last row wins
-            flat[plan.gidx[idx]] = tmp
-            stats["scatter_rows"] = stats.get("scatter_rows", 0) + idx.size
+    if tmp_fill:
+        flush_tmp()
     return stats
 
 

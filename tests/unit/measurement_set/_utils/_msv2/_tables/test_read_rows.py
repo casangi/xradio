@@ -472,6 +472,162 @@ def test_read_rows_to_grid_matches_fancy_assignment(
         assert plan.n_duplicate_rows > 0
 
 
+class RowOrderSpy:
+    """
+    Table proxy that records the base-table rows of every get*np call, in call
+    order (selectrows reference tables included).
+    """
+
+    def __init__(self, tb):
+        self._tb = tb
+        self.rows_read: list[np.ndarray] = []
+
+    def __getattr__(self, name):
+        return getattr(self._tb, name)
+
+    def _record(self, args, nrow_total):
+        startrow, nrow = (args + (0, nrow_total))[:2]
+        self.rows_read.append(np.arange(startrow, startrow + nrow))
+
+    def getcolnp(self, col, out, *args):
+        self._record(args, out.shape[0])
+        return self._tb.getcolnp(col, out, *args)
+
+    def getcolslicenp(self, col, out, blc, trc, inc, *args):
+        self._record(args, out.shape[0])
+        return self._tb.getcolslicenp(col, out, blc, trc, inc, *args)
+
+    def selectrows(self, rows):
+        spy = self
+
+        class RefSpy:
+            def __init__(self, ref):
+                self._ref = ref
+
+            def __getattr__(self, name):
+                return getattr(self._ref, name)
+
+            def getcolnp(self, col, out, *args):
+                spy.rows_read.append(np.asarray(rows, dtype=np.int64))
+                return self._ref.getcolnp(col, out, *args)
+
+            def getcolslicenp(self, col, out, *args):
+                spy.rows_read.append(np.asarray(rows, dtype=np.int64))
+                return self._ref.getcolslicenp(col, out, *args)
+
+        return RefSpy(self._tb.selectrows(rows))
+
+
+@pytest.mark.parametrize("seed", range(4))
+@pytest.mark.parametrize("n_dup", [0, 5])
+@pytest.mark.parametrize("max_tmp_bytes", [rr.DEFAULT_MAX_TMP_BYTES, 200])
+def test_read_rows_to_grid_reads_rows_in_one_ascending_pass(
+    rows_tb, seed, n_dup, max_tmp_bytes
+):
+    """
+    Direct segments and scattered rows are read interleaved, in row order: a
+    pass over the direct segments followed by a second pass over the scattered
+    rows reads the tiles that hold both twice (one row-slab tile cache).
+    """
+    tb, ref = rows_tb
+    rows, gidx, nt, nb = make_plan_case(seed, n_dup=n_dup)
+    plan = rr.make_row_grid_plan(rows, gidx, nt * nb, min_direct_rows=4)
+    assert plan.direct_lengths.size and plan.scatter_idx.size  # both kinds
+    # scattered rows lie between direct segments
+    first_direct = plan.direct_offsets[0]
+    assert (plan.scatter_idx > first_direct).any()
+    spy = RowOrderSpy(tb)
+    grid = sentinel_buffer((nt, nb, NCHAN, NPOL), np.complex64)
+    rr.read_rows_to_grid(spy, "TSM_DATA", plan, grid, max_tmp_bytes=max_tmp_bytes)
+    read_order = np.concatenate(spy.rows_read)
+    np.testing.assert_array_equal(read_order, rows)  # every row once, ascending
+    expected = sentinel_buffer(grid.shape, np.complex64)
+    expected[gidx // nb, gidx % nb] = ref["TSM_DATA"][rows]
+    np.testing.assert_array_equal(grid, expected)
+
+
+@pytest.fixture(scope="module")
+def small_tiles_table(tmp_path_factory):
+    """A TiledShapeStMan column with 16-row tiles (one tile per row-slab)."""
+    path = str(tmp_path_factory.mktemp("small_tiles") / "tiles.tab")
+    nrows = 2048
+    desc = tables.maketabdesc(
+        [
+            tables.makearrcoldesc(
+                "DATA",
+                0j,
+                ndim=2,
+                valuetype="complex",
+                datamanagertype="TiledShapeStMan",
+                datamanagergroup="TiledData",
+            )
+        ]
+    )
+    dminfo = {
+        "*1": {
+            "NAME": "TiledData",
+            "TYPE": "TiledShapeStMan",
+            "SPEC": {"DEFAULTTILESHAPE": np.array([NPOL, NCHAN, 16], dtype=np.int32)},
+            "COLUMNS": ["DATA"],
+        }
+    }
+    tb = tables.table(path, desc, dminfo=dminfo, nrow=nrows, readonly=False, ack=False)
+    try:
+        values = np.arange(nrows * NCHAN * NPOL, dtype=np.float32).reshape(
+            nrows, NCHAN, NPOL
+        )
+        tb.putcol("DATA", values.astype(np.complex64))
+    finally:
+        tb.close()
+    return path, nrows
+
+
+def _rchar() -> int:
+    with open("/proc/self/io") as io_file:
+        for line in io_file:
+            if line.startswith("rchar:"):
+                return int(line.split()[1])
+    raise RuntimeError("no rchar in /proc/self/io")
+
+
+@pytest.mark.skipif(
+    not sys.platform.startswith("linux"), reason="needs /proc/self/io (Linux)"
+)
+def test_read_rows_to_grid_reads_each_tile_once(small_tiles_table):
+    """
+    Bytes read for a partition that mixes direct and scattered rows inside the
+    same tiles equal those of one ascending read of the same rows (they were
+    about 2x with a direct pass followed by a scatter pass).
+    """
+    path, nrows = small_tiles_table
+    # In every block of 24 rows, rows 0-19 map to consecutive cells (a direct
+    # segment) and rows 20-23 to their cells in reverse order (scattered), so
+    # the 16-row tiles hold both kinds of rows.
+    rows = np.arange(nrows)
+    gidx = rows.copy()
+    tail = rows % 24 >= 20
+    gidx[tail] = (rows[tail] // 24) * 24 + 43 - rows[tail] % 24
+    plan = rr.make_row_grid_plan(rows, gidx, nrows, min_direct_rows=8)
+    assert plan.direct_lengths.size > 10 and plan.scatter_idx.size > 10
+
+    def measure(read):
+        # usernoread, as the converter opens MAIN: with the default (auto)
+        # locking every call also reads the lock file (about 325 bytes)
+        lock = {"option": "usernoread"}
+        with tables.table(path, readonly=True, ack=False, lockoptions=lock) as tb:
+            before = _rchar()
+            read(tb)
+            return _rchar() - before
+
+    grid = np.empty((nrows, 1, NCHAN, NPOL), np.complex64)
+    rows_path = measure(lambda tb: rr.read_rows_to_grid(tb, "DATA", plan, grid))
+    out = np.empty((nrows, NCHAN, NPOL), np.complex64)
+    one_pass = measure(lambda tb: rr.read_rows(tb, "DATA", rows, out))
+    # a direct pass followed by a scatter pass read 1.3x here
+    assert rows_path <= one_pass + 64
+    np.testing.assert_array_equal(grid.reshape(out.shape)[gidx], out)
+
+
 def test_read_rows_to_grid_dtype_differs_scatters(rows_tb):
     tb, ref = rows_tb
     rows, gidx, nt, nb = make_plan_case(3, keep=1.0)

@@ -927,6 +927,29 @@ class TimeChunkRows:
         """Number of time chunks."""
         return int(self.time_bounds.size - 1)
 
+    def n_runs(self) -> int:
+        """
+        Number of runs of consecutive rows when the chunks are read one after
+        the other (the runs of every chunk's ascending rows, summed): a measure
+        of the read calls (and tile-cache restarts) of a chunk-by-chunk read.
+
+        Returns
+        -------
+        int
+            Sum over the chunks of the runs of consecutive rows.
+        """
+        n_rows = int(self.row_bounds[-1]) if self.row_bounds.size else 0
+        if n_rows == 0:
+            return 0
+        rows = self.rows if self.order is None else self.rows[self.order]
+        breaks = np.diff(np.asarray(rows, dtype=np.int64)) != 1
+        del rows
+        # a new chunk always starts a new run
+        inner = self.row_bounds[1:-1]
+        inner = inner[(inner > 0) & (inner < n_rows)]
+        breaks[inner - 1] = True
+        return int(np.count_nonzero(breaks)) + 1
+
     def chunk(self, k: int) -> tuple[np.ndarray, np.ndarray]:
         """
         The rows of time chunk ``k`` and their cells in the chunk's grid.

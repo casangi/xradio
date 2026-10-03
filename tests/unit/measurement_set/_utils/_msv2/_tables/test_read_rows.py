@@ -801,3 +801,28 @@ def test_time_chunk_rows_matches_per_chunk_selection(time_ordered, time_chunks):
         assert np.all(np.diff(rows_k) > 0)
     with pytest.raises(ValueError):
         rr.TimeChunkRows(rows, tidxs[:-1], bidxs, time_chunks, nb)
+
+
+@pytest.mark.parametrize("time_ordered", [True, False])
+@pytest.mark.parametrize("time_chunks", [(1,) * 9, (4, 4, 1), (9,)])
+@pytest.mark.parametrize("contiguous", [True, False])
+def test_time_chunk_rows_n_runs(time_ordered, time_chunks, contiguous):
+    """n_runs is the sum of the row runs of every chunk's (ascending) rows."""
+    rng = np.random.default_rng(3)
+    nt, nb = 9, 5
+    cells = np.flatnonzero(rng.random(nt * nb) < 0.7)
+    if not time_ordered:  # baseline-major rows
+        cells = cells[np.lexsort((cells // nb, cells % nb))]
+    if contiguous:
+        rows = np.arange(cells.size) + 17
+    else:
+        rows = np.sort(rng.choice(1000, cells.size, replace=False))
+    chunk_rows = rr.TimeChunkRows(rows, cells // nb, cells % nb, time_chunks, nb)
+    expected = 0
+    for k in range(len(time_chunks)):
+        rows_k, _ = chunk_rows.chunk(k)
+        if rows_k.size:
+            expected += int(np.count_nonzero(np.diff(rows_k) != 1)) + 1
+    assert chunk_rows.n_runs() == expected
+    empty = np.empty(0, dtype=np.int64)
+    assert rr.TimeChunkRows(empty, empty, empty, time_chunks, nb).n_runs() == 0

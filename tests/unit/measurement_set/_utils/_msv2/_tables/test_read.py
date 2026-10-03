@@ -899,3 +899,273 @@ def test_read_col_conversion_dask_rows_matches_numpy(
     assert data.dtype == expected.dtype
     # missing cells padded as in the numpy path (FLAG False, NaN visibilities)
     assert data.tobytes() == expected.tobytes()
+
+
+# --- sub-table cache (TEMPORARY XRADIO_MSV2_SUBTABLE_CACHE switch) ----------------
+
+
+def _assert_xds_bit_identical(a, b):
+    """Same variables (and order), dims, dtypes, bits, indexes and attrs."""
+    assert list(a.variables) == list(b.variables)
+    assert dict(a.sizes) == dict(b.sizes)
+    assert set(a.xindexes) == set(b.xindexes)
+    assert repr(a.attrs) == repr(b.attrs)
+    for name, var_a in a.variables.items():
+        var_b = b.variables[name]
+        assert var_a.dims == var_b.dims, name
+        assert var_a.dtype == var_b.dtype, name
+        if var_a.dtype == object:
+            np.testing.assert_array_equal(var_a.values, var_b.values, err_msg=name)
+        else:
+            assert (
+                np.ascontiguousarray(var_a.values).tobytes()
+                == np.ascontiguousarray(var_b.values).tobytes()
+            ), name
+        assert repr(var_a.attrs) == repr(var_b.attrs), name
+
+
+def _load_both_ways(path, tname, **kwargs):
+    """load_generic_table without and with an active sub-table cache (twice: the
+    second call of a memoized table is a memo hit)."""
+    from xradio.measurement_set._utils._msv2._tables.read import load_generic_table
+    from xradio.measurement_set._utils._msv2._tables.subtable_cache import (
+        SubtableCache,
+        activate_subtable_cache,
+    )
+
+    def load():
+        try:
+            return load_generic_table(path, tname, **kwargs)
+        except Exception as exc:
+            return f"{type(exc).__name__}: {exc}"
+
+    expected = load()
+    cache = SubtableCache()
+    with activate_subtable_cache(cache):
+        actual = [load(), load()]
+    return expected, actual, cache
+
+
+@pytest.mark.parametrize(
+    "ms_fixture", ["ms_minimal_required", "ms_minimal_misbehaved", "ms_empty_complete"]
+)
+def test_load_generic_table_cached_identical(ms_fixture, request):
+    """Every sub-table of the generated MSs (incl. misbehaving, variable-shape
+    columns) loads identically with the vectorized loader and the memo."""
+    from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
+
+    fname = request.getfixturevalue(ms_fixture).fname
+    tnames = sorted(
+        str(p.parent.relative_to(fname)) for p in Path(fname).glob("*/table.dat")
+    ) + sorted(
+        str(p.parent.relative_to(fname))
+        for p in Path(fname).glob("FIELD/EPHEM*/table.dat")
+    )
+    assert tnames
+    for tname in tnames:
+        kwargs = {}
+        if tname in subt_rename_ids:
+            kwargs["rename_ids"] = subt_rename_ids[tname]
+        if tname in ("POINTING", "SYSCAL", "WEATHER", "PHASE_CAL"):
+            kwargs["timecols"] = ["TIME"]
+        if "EPHEM" in tname:
+            kwargs["timecols"] = ["MJD"]
+        expected, actual, _ = _load_both_ways(fname, tname, **kwargs)
+        for result in actual:
+            if isinstance(expected, str):
+                assert result == expected, tname
+            else:
+                _assert_xds_bit_identical(expected, result)
+
+
+@pytest.fixture(scope="module")
+def generic_cols_table(tmp_path_factory):
+    """
+    A table with the column kinds load_generic_cols handles: scalars of every
+    value type (tables.row() gives Python scalars), fixed and variable-shape
+    arrays, undefined cells, string arrays, an IncrementalStMan and a
+    TiledShapeStMan array.
+    """
+    tables = pytest.importorskip("casacore.tables")
+    path = str(tmp_path_factory.mktemp("generic_cols") / "GENERIC")
+    nrows = 12
+    desc = tables.maketabdesc(
+        [
+            tables.makescacoldesc("ANTENNA_ID", 0),
+            tables.makescacoldesc("TIME", 0.0),
+            tables.makescacoldesc("S_FLOAT", 0.0, valuetype="float"),
+            tables.makescacoldesc("S_SHORT", 0, valuetype="short"),
+            tables.makescacoldesc("S_UCHAR", 0, valuetype="uchar"),
+            tables.makescacoldesc("S_BOOL", False),
+            tables.makescacoldesc("S_COMPLEX", 0j, valuetype="complex"),
+            tables.makescacoldesc("S_STRING", ""),
+            tables.makearrcoldesc("A_FIXED", 0.0, shape=[2, 3], valuetype="float"),
+            tables.makearrcoldesc("A_VAR", 0.0, ndim=1),
+            tables.makearrcoldesc("A_UNDEF", 0.0, ndim=1),
+            tables.makearrcoldesc("A_STRING", "", ndim=1),
+            tables.makearrcoldesc(
+                "A_ISM",
+                0,
+                ndim=1,
+                valuetype="int",
+                datamanagertype="IncrementalStMan",
+                datamanagergroup="ISM",
+            ),
+            tables.makearrcoldesc(
+                "A_TSM",
+                0j,
+                ndim=2,
+                valuetype="complex",
+                datamanagertype="TiledShapeStMan",
+                datamanagergroup="TSM",
+            ),
+        ]
+    )
+    rng = np.random.default_rng(7)
+    with tables.table(path, desc, nrow=nrows, readonly=False, ack=False) as tb:
+        tb.putcol("ANTENNA_ID", np.arange(nrows, dtype=np.int32) % 3)
+        tb.putcol("TIME", 5e9 + np.arange(nrows) * 1.5)
+        tb.putcol("S_FLOAT", rng.normal(size=nrows).astype(np.float32))
+        tb.putcol("S_SHORT", np.arange(nrows, dtype=np.int16) - 5)
+        tb.putcol("S_UCHAR", np.arange(nrows, dtype=np.uint8) + 200)
+        tb.putcol("S_BOOL", rng.random(nrows) < 0.5)
+        tb.putcol("S_COMPLEX", (rng.normal(size=nrows) + 1j).astype(np.complex64))
+        tb.putcol("S_STRING", np.array([f"name{'x' * (r % 4)}" for r in range(nrows)]))
+        tb.putcol("A_FIXED", rng.normal(size=(nrows, 2, 3)).astype(np.float32))
+        for row in range(nrows):
+            tb.putcell("A_VAR", row, rng.normal(size=2 + row % 3))
+            if row % 4:
+                tb.putcell("A_UNDEF", row, rng.normal(size=3))
+            tb.putcell("A_STRING", row, np.array(["a", f"b{row}"]))
+            tb.putcell("A_ISM", row, np.full(2, row // 4, dtype=np.int32))
+            tb.putcell("A_TSM", row, np.full((2, 2), row + 1j, dtype=np.complex64))
+    return path
+
+
+@pytest.mark.parametrize(
+    "where", [None, "where ANTENNA_ID IN [1, 2]", "where ROWID() IN [0, 3, 7]"]
+)
+def test_load_generic_cols_vectorized_matches_row_loader(generic_cols_table, where):
+    from xradio.measurement_set._utils._msv2._tables.read import (
+        load_generic_cols,
+        load_generic_cols_vectorized,
+    )
+    from xradio.measurement_set._utils._msv2._tables.table_query import (
+        open_query,
+        open_table_ro,
+    )
+
+    with open_table_ro(generic_cols_table) as gtable:
+        with open_query(gtable, f"select * from $gtable {where or ''}") as tb_tool:
+            expected = load_generic_cols(
+                generic_cols_table, tb_tool, ["TIME"], ["S_UCHAR"]
+            )
+            actual = load_generic_cols_vectorized(
+                generic_cols_table, tb_tool, ["TIME"], ["S_UCHAR"]
+            )
+    for exp, act in zip(expected, actual, strict=True):
+        assert list(exp) == list(act)  # same variables, same order
+        for name in exp:
+            assert exp[name].dims == act[name].dims, name
+            assert exp[name].dtype == act[name].dtype, name
+            np.testing.assert_array_equal(exp[name].values, act[name].values)
+    assert "S_UCHAR" not in actual[1]
+    assert actual[1]["S_FLOAT"].dtype == np.float64  # as tables.row() gives it
+    assert actual[1]["S_SHORT"].dtype == np.int64
+    assert actual[1]["A_FIXED"].dtype == np.float32
+
+
+def test_getcol_as_tablerow_stack_falls_back_to_rows(generic_cols_table):
+    """Columns that getcol cannot give as row() would (varying shape, undefined
+    cells, string arrays, tiled storage) are left to tables.row()."""
+    from xradio.measurement_set._utils._msv2._tables.read import (
+        find_loadable_cols,
+        getcol_as_tablerow_stack,
+    )
+    from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
+
+    with open_table_ro(generic_cols_table) as tb_tool:
+        storage = {
+            col: dm["TYPE"]
+            for dm in tb_tool.getdminfo().values()
+            for col in dm["COLUMNS"]
+        }
+        vectorized = {
+            col: getcol_as_tablerow_stack(tb_tool, col, col_type, storage.get(col))
+            is not None
+            for col, col_type in find_loadable_cols(tb_tool, []).items()
+        }
+    assert {col for col, ok in vectorized.items() if not ok} == {
+        "A_VAR",
+        "A_UNDEF",
+        "A_STRING",
+        "A_TSM",
+    }
+
+
+def test_load_generic_table_memoized(ms_minimal_required):
+    """Memoized sub-tables are loaded once per cache, other tables every time."""
+    expected, actual, cache = _load_both_ways(ms_minimal_required.fname, "ANTENNA")
+    for result in actual:
+        _assert_xds_bit_identical(expected, result)
+    assert cache.stats["memo_misses"] == 1 and cache.stats["memo_hits"] == 1
+    actual[0]["POSITION"].values[:] = 0  # callers own their copies
+    _assert_xds_bit_identical(expected, actual[1])
+
+    _, _, cache = _load_both_ways(ms_minimal_required.fname, "FIELD")
+    assert cache.stats["memo_misses"] == 0 and cache.stats["memo_hits"] == 0
+
+
+@pytest.mark.parametrize(
+    "min_max",
+    [(0, 1e10), (4.8e9, 4.8e9), (1e9, 2e9), (6e9, 7e9), (5e9 + 2, 5e9 + 6.1)],
+)
+def test_find_projected_min_max_table_cached(generic_cols_table, min_max):
+    import os
+
+    from xradio.measurement_set._utils._msv2._tables.read import (
+        find_projected_min_max_table,
+    )
+    from xradio.measurement_set._utils._msv2._tables.subtable_cache import (
+        SubtableCache,
+        activate_subtable_cache,
+    )
+
+    path, name = os.path.split(generic_cols_table)
+    expected = find_projected_min_max_table(min_max, path, name, "TIME")
+    cache = SubtableCache()
+    with activate_subtable_cache(cache):
+        for _ in range(2):
+            assert find_projected_min_max_table(min_max, path, name, "TIME") == expected
+    assert cache.stats["value_builds"] == 1
+
+
+def test_find_projected_min_max_table_cached_errors(
+    generic_cols_table, ms_empty_required
+):
+    """Columns that cannot be projected fail as without cache (S_BOOL: fewer than
+    two non-zero values... here: an empty table and a missing column)."""
+    import os
+
+    from xradio.measurement_set._utils._msv2._tables.read import (
+        find_projected_min_max_table,
+    )
+    from xradio.measurement_set._utils._msv2._tables.subtable_cache import (
+        SubtableCache,
+        activate_subtable_cache,
+    )
+
+    def project(cache, *args):
+        with activate_subtable_cache(cache):
+            try:
+                return find_projected_min_max_table(*args)
+            except Exception as exc:
+                return type(exc).__name__
+
+    path, name = os.path.split(generic_cols_table)
+    for args in [
+        ((0, 1e10), ms_empty_required.fname, "POINTING", "TIME"),  # no rows
+        ((0, 1e10), path, name, "NO_SUCH_COLUMN"),
+        (None, path, name, "TIME"),
+    ]:
+        assert project(SubtableCache(), *args) == project(None, *args)

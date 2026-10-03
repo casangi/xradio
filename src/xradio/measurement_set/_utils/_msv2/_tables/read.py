@@ -23,6 +23,10 @@ from xradio.measurement_set._utils._msv2._tables.read_rows import (
     parse_shape_string,
     read_rows_to_grid,
 )
+from xradio.measurement_set._utils._msv2._tables.subtable_cache import (
+    active_subtable_cache,
+    is_memoized_table,
+)
 from xradio.measurement_set._utils._msv2._tables.table_query import (
     TableManager,
     open_query,
@@ -249,6 +253,21 @@ def find_projected_min_max_table(
     output_min_max : Union[Tuple[np.float64, np.float64], None]
         min/max values derived from the input min/max and the column values
     """
+    subtable_cache = active_subtable_cache()
+    if subtable_cache is not None:
+        table_path = os.path.join(path, table_name)
+        sorted_column = subtable_cache.get_or_build(
+            ("sorted_column", table_path, colname),
+            lambda: load_sorted_column(table_path, colname),
+        )
+        # None: not cacheable, the uncached code below runs (and fails) as before
+        if sorted_column is not None:
+            sorted_array, tol = sorted_column
+            if sorted_array.size == 0:
+                return None
+            range_min, range_max = min_max
+            return project_min_max_sorted(range_min, range_max, sorted_array, tol)
+
     with open_table_ro(os.path.join(path, table_name)) as tb_tool:
         if tb_tool.nrows() == 0:
             return None
@@ -258,6 +277,54 @@ def find_projected_min_max_table(
     return out_min_max
 
 
+def load_sorted_column(
+    table_path: str, colname: str
+) -> tuple[np.ndarray, np.float64 | None] | None:
+    """
+    Reads and sorts a column once, for find_projected_min_max_table() with an
+    active sub-table cache.
+
+    Parameters
+    ----------
+    table_path : str
+        Path of the table.
+    colname : str
+        Name of the (sortable) column, for example TIME or MJD.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.float64 | None] | None
+        The sorted column values and their projection tolerance (an empty array
+        and None if the table has no rows). None if anything fails: the caller
+        then reads the column itself, and fails the same way as without cache.
+    """
+    try:
+        with open_table_ro(table_path) as tb_tool:
+            if tb_tool.nrows() == 0:
+                return np.empty(0), None
+            col = tb_tool.getcol(colname)
+        sorted_array = np.sort(col)
+        return sorted_array, projection_tolerance(sorted_array)
+    except Exception as exc:
+        xradio_logger().debug(
+            f"Not caching the sorted column {colname} of {table_path}: {exc}"
+        )
+        return None
+
+
+def projection_tolerance(sorted_array: np.ndarray) -> np.float64:
+    """
+    The tolerance find_projected_min_max_array() adds to the projected min/max
+    of a sorted column: a quarter of the smallest difference between its
+    non-zero values (4 eps for fewer than two values).
+    """
+    if len(sorted_array) < 2:
+        tol = np.finfo(sorted_array.dtype).eps * 4
+    else:
+        tol = np.diff(sorted_array[np.nonzero(sorted_array)]).min() / 4
+    return tol
+
+
 def find_projected_min_max_array(
     min_max: tuple[np.float64, np.float64], array: np.array
 ) -> tuple[np.float64, np.float64]:
@@ -265,11 +332,20 @@ def find_projected_min_max_array(
 
     sorted_array = np.sort(array)
     range_min, range_max = min_max
-    if len(sorted_array) < 2:
-        tol = np.finfo(sorted_array.dtype).eps * 4
-    else:
-        tol = np.diff(sorted_array[np.nonzero(sorted_array)]).min() / 4
+    tol = projection_tolerance(sorted_array)
+    return project_min_max_sorted(range_min, range_max, sorted_array, tol)
 
+
+def project_min_max_sorted(
+    range_min: np.float64,
+    range_max: np.float64,
+    sorted_array: np.ndarray,
+    tol: np.float64,
+) -> tuple[np.float64, np.float64]:
+    """
+    The search of find_projected_min_max_array() on an already sorted, non-empty
+    array and its projection_tolerance().
+    """
     if range_max > sorted_array[-1]:
         projected_max = range_max + tol
     else:
@@ -549,6 +625,35 @@ def load_generic_table(
     if ignore is None:
         ignore = []
 
+    subtable_cache = active_subtable_cache()
+    if subtable_cache is not None and is_memoized_table(tname):
+        # Partitions load these sub-tables again and again with the same arguments
+        key = (
+            "load_generic_table",
+            str(Path(inpath, tname).expanduser()),
+            tuple(timecols),
+            tuple(ignore),
+            tuple(sorted(rename_ids.items())) if rename_ids else None,
+            taql_where,
+        )
+        return subtable_cache.memo_dataset(
+            key,
+            lambda: _load_generic_table(
+                inpath, tname, timecols, ignore, rename_ids, taql_where
+            ),
+        )
+    return _load_generic_table(inpath, tname, timecols, ignore, rename_ids, taql_where)
+
+
+def _load_generic_table(
+    inpath: str,
+    tname: str,
+    timecols: list[str],
+    ignore: list[str],
+    rename_ids: dict[str, str] | None,
+    taql_where: str | None,
+) -> xr.Dataset:
+    """load_generic_table() without the memo (timecols and ignore are lists)."""
     infile = Path(inpath, tname)
     infile = str(infile.expanduser())
     if not os.path.isdir(infile):
@@ -660,6 +765,9 @@ def load_cols_into_coords_data_vars(
         coordinates dictionary + variables dictionary
     """
     columns_loader = find_best_col_loader(inpath, tb_tool.nrows())
+    if columns_loader is load_generic_cols and active_subtable_cache() is not None:
+        # same result, without one row() dict per table row
+        columns_loader = load_generic_cols_vectorized
 
     mcoords, mvars = columns_loader(inpath, tb_tool, timecols, ignore)
 
@@ -743,34 +851,202 @@ def load_generic_cols(
     # Produce coords and data vars from MS columns
     mcoords, mvars = {}, {}
     for col in col_types.keys():
-        try:
+        data = stack_tablerow_column(inpath, col, col_types[col], trows)
+        if data is None or len(data) == 0:
+            continue
+
+        array_type, array_data = raw_col_data_to_coords_vars(
+            inpath, tb_tool, col, data, timecols
+        )
+        if array_type == "coord":
+            mcoords[col] = array_data
+        elif array_type == "data_var":
+            mvars[col] = array_data
+
+    return mcoords, mvars
+
+
+def stack_tablerow_column(
+    inpath: str, col: str, col_type: str, trows: list[dict]
+) -> np.ndarray | None:
+    """
+    The values of one column, from the per-row dicts returned by tables.row(),
+    stacked into one array (padded when the cells vary in shape), as
+    load_generic_cols() loads them.
+
+    Parameters
+    ----------
+    inpath : str
+        path name of the MS table
+    col : str
+        column name
+    col_type : str
+        value type of the column (as in the column description)
+    trows : list[dict]
+        rows from tables.row() (with at least the column ``col``)
+
+    Returns
+    -------
+    np.ndarray | None
+        column data, or None if the column cannot be loaded (mixed cell types)
+    """
+    try:
+        # TODO
+        # benchmark np.stack() performance
+        data = np.stack([row[col] for row in trows])  # .astype(col_cells[col].dtype)
+        if isinstance(trows[0][col], dict):
             # TODO
             # benchmark np.stack() performance
             data = np.stack(
-                [row[col] for row in trows]
-            )  # .astype(col_cells[col].dtype)
-            if isinstance(trows[0][col], dict):
-                # TODO
-                # benchmark np.stack() performance
-                data = np.stack(
-                    [
-                        (
-                            row[col]["array"].reshape(row[col]["shape"])
-                            if len(row[col]["array"]) > 0
-                            else np.array([""])
-                        )
-                        for row in trows
-                    ]
-                )
-        except Exception:
-            # sometimes the cols are variable, so we need to standardize to the largest sizes
+                [
+                    (
+                        row[col]["array"].reshape(row[col]["shape"])
+                        if len(row[col]["array"]) > 0
+                        else np.array([""])
+                    )
+                    for row in trows
+                ]
+            )
+    except Exception:
+        # sometimes the cols are variable, so we need to standardize to the largest sizes
 
-            if len({isinstance(row[col], dict) for row in trows}) > 1:
-                continue  # can't deal with this case
+        if len({isinstance(row[col], dict) for row in trows}) > 1:
+            return None  # can't deal with this case
 
-            data = handle_variable_col_issues(inpath, col, col_types[col], trows)
+        data = handle_variable_col_issues(inpath, col, col_type, trows)
 
-        if len(data) == 0:
+    return data
+
+
+# dtype of np.stack() of the Python scalars that tables.row() returns for the
+# cells of a scalar column, by column value type (strings are stacked as is).
+_TABLEROW_SCALAR_STACK_DTYPES = {
+    "boolean": np.dtype(np.bool_),
+    "uchar": np.asarray(0).dtype,
+    "short": np.asarray(0).dtype,
+    "ushort": np.asarray(0).dtype,
+    "int": np.asarray(0).dtype,
+    "uint": np.asarray(0).dtype,
+    "int64": np.asarray(0).dtype,
+    "float": np.dtype(np.float64),
+    "double": np.dtype(np.float64),
+    "complex": np.dtype(np.complex128),
+    "dcomplex": np.dtype(np.complex128),
+}
+# Storage managers whose array columns are read with one getcol() by
+# load_generic_cols_vectorized(): a getcol() on a cell that is not defined raises
+# there (tiled storage managers are left to tables.row(): a getcol() covering
+# their undefined cells can crash the process).
+_GETCOL_ARRAY_STORAGE_MANAGERS = ("StandardStMan", "IncrementalStMan")
+
+
+def getcol_as_tablerow_stack(
+    tb_tool: tables.table, col: str, col_type: str, storage_manager: str | None
+) -> np.ndarray | None:
+    """
+    Reads a column with one getcol() into exactly the array that
+    stack_tablerow_column() builds from tables.row() (same values, shape and
+    dtype), when that is possible without reading the rows one by one.
+
+    - Scalar columns: tables.row() gives Python scalars, so np.stack() makes
+      int columns int64, float columns float64, complex columns complex128.
+    - Array columns of a StandardStMan / IncrementalStMan: getcol() returns
+      the cells stacked when they all have the same shape (and raises when they
+      differ or are undefined, for which the caller uses tables.row()).
+
+    Parameters
+    ----------
+    tb_tool : tables.table
+        table (or selection) to read
+    col : str
+        column name
+    col_type : str
+        value type of the column (as in the column description)
+    storage_manager : str | None
+        type of the storage manager of the column
+
+    Returns
+    -------
+    np.ndarray | None
+        column data, or None if the column has to be read row by row
+    """
+    try:
+        if tb_tool.isscalarcol(col):
+            if col_type == "string":
+                return np.stack(tb_tool.getcol(col))
+            dtype = _TABLEROW_SCALAR_STACK_DTYPES.get(col_type)
+            if dtype is None:
+                return None
+            data = tb_tool.getcol(col)
+            if not isinstance(data, np.ndarray):
+                return None
+            return data.astype(dtype)
+
+        if (
+            storage_manager not in _GETCOL_ARRAY_STORAGE_MANAGERS
+            or col_type not in _TABLEROW_SCALAR_STACK_DTYPES
+        ):
+            return None
+        data = tb_tool.getcol(col)
+    except Exception:
+        # undefined cells, cells of different shapes, ...
+        return None
+    if not isinstance(data, np.ndarray) or data.ndim < 2:
+        return None
+    return data
+
+
+def load_generic_cols_vectorized(
+    inpath: str,
+    tb_tool: tables.table,
+    timecols: list[str] | None,
+    ignore: list[str] | None,
+) -> tuple[dict[str, xr.Dataset], dict[str, xr.Dataset]]:
+    """
+    Same result as load_generic_cols(), but every column that can be is read
+    with one getcol() (see getcol_as_tablerow_stack()) instead of one row()
+    dict per table row. Only the remaining columns (variable-shape or undefined
+    cells, string arrays, tiled storage managers) are read with tables.row().
+
+    Parameters
+    ----------
+    inpath : str
+        path name of the MS table
+    tb_tool : tables.table
+        table to load the columns
+    timecols : Union[List[str], None]
+        column names to convert from casacore time format
+    ignore : Union[List[str], None]
+        list of column names to skip and not try to load.
+
+    Returns
+    -------
+    Tuple[Dict[str, xr.Dataset], Dict[str, xr.Dataset]]
+        dict of coordinates and dict of data vars.
+    """
+    col_types = find_loadable_cols(tb_tool, ignore)
+    storage_managers = {
+        col: dm_info["TYPE"]
+        for dm_info in tb_tool.getdminfo().values()
+        for col in dm_info["COLUMNS"]
+    }
+
+    col_data = {
+        col: getcol_as_tablerow_stack(tb_tool, col, col_type, storage_managers.get(col))
+        for col, col_type in col_types.items()
+    }
+    row_cols = [col for col, data in col_data.items() if data is None]
+    if row_cols:
+        trows = tb_tool.row(row_cols)[:]
+        for col in row_cols:
+            col_data[col] = stack_tablerow_column(inpath, col, col_types[col], trows)
+        del trows
+
+    # Produce coords and data vars from MS columns, in the same order as
+    # load_generic_cols()
+    mcoords, mvars = {}, {}
+    for col, data in col_data.items():
+        if data is None or len(data) == 0:
             continue
 
         array_type, array_data = raw_col_data_to_coords_vars(

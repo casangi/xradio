@@ -291,23 +291,48 @@ def make_per_column_dm_copy(msname: str, copy_name: str) -> str:
     return copy_name
 
 
+def file_states(path: str) -> dict[str, tuple[int, int]]:
+    """(size, mtime_ns) of every file under ``path`` but the table.lock
+    files (lock requests rewrite them), by relative path."""
+    states = {}
+    for dirpath, _, filenames in os.walk(path):
+        for filename in filenames:
+            if filename == "table.lock":
+                continue
+            file_path = os.path.join(dirpath, filename)
+            stat = os.stat(file_path)
+            states[os.path.relpath(file_path, path)] = (stat.st_size, stat.st_mtime_ns)
+    return states
+
+
 @pytest.fixture(scope="session")
 def backend_ms(tmp_path_factory):
     """
     ``backend_ms(variant)``: the path of a generated MS of one of
     BACKEND_MS_VARIANTS (made on first use, see make_backend_ms). Read only:
-    tests that write into an MS copy it first.
+    tests that write into an MS copy it first (ms_copy). At the end of the
+    session, a file of these MSs that changed fails the session.
     """
     base = tmp_path_factory.mktemp("msv2_backend_ms")
     paths: dict[str, str] = {}
+    states: dict[str, dict] = {}
 
     def get(variant: str) -> str:
         if variant not in paths:
             paths[variant] = make_backend_ms(str(base / f"{variant}.ms"), variant)
+            states[variant] = file_states(paths[variant])
         return paths[variant]
 
     yield get
+    changed = {
+        variant: sorted(
+            set(file_states(paths[variant]).items()) ^ set(states[variant].items())
+        )
+        for variant in paths
+    }
     shutil.rmtree(base, ignore_errors=True)
+    changed = {variant: files for variant, files in changed.items() if files}
+    assert not changed, f"Tests wrote into the session MSs: {changed}"
 
 
 # The layouts of ms_copy: the MAIN key columns in one StandardStMan (as

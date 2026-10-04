@@ -1,15 +1,24 @@
 """
 Tests of the partition cache of the MSv2 xarray backend (partition_cache.py):
 the XRADIO_PARTITIONS layout, the staleness rules (fingerprint, HISTORY,
-row checks), reading stored rows, the memo and the modes. The stored rows
-of these tests are made by a test-only writer (store_test_row), on copies
-of the generated MSs.
+row checks), reading stored rows (made by a test-only writer,
+store_test_row), the memo and the modes; storing (the write protocol,
+revalidation, versions, links, removal, notices). On copies of the
+generated MSs.
 """
 
 import copy
+import hashlib
 import json
 import os
+import re
+import shutil
+import socket
+import subprocess
+import sys
+import threading
 import time
+import warnings
 
 import numpy as np
 import pytest
@@ -17,8 +26,13 @@ import xarray as xr
 from casacore import tables
 
 from _xradio_xarray_backends import MSv2BackendEntrypoint
+from xradio.measurement_set import (
+    convert_msv2_to_processing_set,
+    remove_msv2_partition_cache,
+)
 from xradio.measurement_set._utils._msv2 import partition_cache
 from xradio.measurement_set._utils._msv2._tables.table_lock_file import history_nrows
+from xradio.measurement_set._utils._msv2.backend_errors import PartitionCacheWarning
 from xradio.measurement_set._utils._msv2.partition_cache import (
     HISTORY_APPLICATION,
     HISTORY_ORIGIN,
@@ -458,8 +472,7 @@ def test_stored_row_tree_equals_the_computed_tree(ms_copy, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "mode, expected",
-    [("off", "memory:mode-off"), ("rebuild", "memory:computed")],
+    "mode, expected", [("off", "memory:mode-off"), ("rebuild", "stored")]
 )
 def test_modes_that_do_not_read_stored_rows(mode, expected, ms_copy):
     msname = ms_copy("dense")
@@ -705,3 +718,602 @@ def test_changed_during_build(ms_copy, monkeypatch):
     result = load(msname, [], "auto")
     assert result.status == "memory:changed-during-build"
     assert len(PARTITIONS_MEMO) == 0
+
+
+# --- storing ------------------------------------------------------------------------------
+
+
+def file_digests(path: str) -> dict[str, tuple[int, str]]:
+    """(size, sha256) of every file under ``path`` (table.lock included)."""
+    digests = {}
+    for dirpath, _, filenames in os.walk(path):
+        for filename in filenames:
+            file_path = os.path.join(dirpath, filename)
+            with open(file_path, "rb") as f:
+                content = f.read()
+            digests[os.path.relpath(file_path, path)] = (
+                len(content),
+                hashlib.sha256(content).hexdigest(),
+            )
+    return digests
+
+
+def history_rows(msname: str) -> list[dict]:
+    with tables.table(os.path.join(msname, "HISTORY"), ack=False) as h:
+        return [
+            {name: h.getcell(name, row) for name in h.colnames()}
+            for row in range(h.nrows())
+        ]
+
+
+def main_keywords(msname: str) -> list[str]:
+    with tables.table(msname, ack=False) as main_tb:
+        return list(main_tb.keywordnames())
+
+
+def statuses(msname, scheme, modes=("auto",), clear=True):
+    """The status of a load in every mode (the memo emptied before each)."""
+    found = []
+    for mode in modes:
+        if clear:
+            partition_cache.clear_partition_memo()
+        found.append(load(msname, scheme, mode).status)
+    return found
+
+
+def test_first_open_stores(ms_copy, monkeypatch):
+    """The first "auto" open stores the partitions: the sub-table (table
+    keywords and info), the MAIN keyword (stored relative) and a HISTORY row
+    with the documented fields. The next open is a hit, then a memo hit."""
+    msname = ms_copy("rich")
+    before = history_rows(msname)
+    tree = xr.open_datatree(
+        msname,
+        engine=ENGINE,
+        partition_cache="auto",
+        partition_scheme=["SCAN_NUMBER", "FIELD_ID"],
+    )
+    assert len(tree.children) == 24
+    rows = stored_rows(msname)
+    assert len(rows) == 1
+    row = normalise_row(rows[0])
+    assert row["SCHEME_KEY"] == '["FIELD_ID", "SCAN_NUMBER"]'
+    assert json.loads(row["SCHEME"]) == ["SCAN_NUMBER", "FIELD_ID"]
+    assert row["N_PARTITIONS"] == 24 and row["MAIN_NROWS"] == 1200
+    assert re.fullmatch("[0-9a-f]{32}", row["CACHE_ID"])
+    subtable = os.path.join(msname, SUBTABLE_NAME)
+    with tables.table(subtable, ack=False) as table:
+        assert table.getkeyword("FORMAT_VERSION") == 1
+        assert table.getkeyword("CREATOR") == "xradio"
+        assert table.info()["type"] == "XRADIO Partitions"
+        assert "remove_msv2_partition_cache" in table.info()["readme"]
+    with tables.table(msname, ack=False) as main_tb:
+        assert main_tb.getkeyword(SUBTABLE_NAME) == "Table: " + subtable
+    with open(os.path.join(msname, "table.dat"), "rb") as f:
+        assert b"././XRADIO_PARTITIONS" in f.read()
+    history = history_rows(msname)
+    assert len(history) == len(before) + 1
+    new = history[-1]
+    assert row["HISTORY_ROW"] == len(before) == row["HISTORY_NROWS_AT_BUILD"]
+    assert new["APPLICATION"] == "xradio"
+    assert new["ORIGIN"] == "xradio.measurement_set.open_msv2"
+    assert (new["PRIORITY"], new["OBSERVATION_ID"], new["OBJECT_ID"]) == (
+        "INFO",
+        -1,
+        0,
+    )
+    assert list(new["CLI_COMMAND"]) == [""]
+    version = partition_cache._xradio_version()
+    assert list(new["APP_PARAMS"]) == [
+        "subtable=XRADIO_PARTITIONS",
+        f"cache_id={row['CACHE_ID']}",
+        'scheme_key=["FIELD_ID", "SCAN_NUMBER"]',
+        "format_version=1",
+        f"algorithm_version={PARTITION_ALGORITHM_VERSION}",
+        f"xradio_version={version}",
+        "reason=first",
+    ]
+    assert new["MESSAGE"] == (
+        f"xradio {version}: stored 24 partitions (24 MAIN row runs) of "
+        'partition_scheme ["SCAN_NUMBER", "FIELD_ID"] in XRADIO_PARTITIONS (first)'
+    )
+    assert abs(new["TIME"] - (time.time() + 3506716800.0)) < 600
+    # the next opens
+    assert load(msname, ["FIELD_ID", "SCAN_NUMBER"], "auto").status == "hit-memory"
+    assert statuses(msname, ["FIELD_ID", "SCAN_NUMBER"], ("auto", "read")) == [
+        "hit",
+        "hit",
+    ]
+    assert load(msname, ["FIELD_ID", "SCAN_NUMBER"], "auto").status == "hit-memory"
+    assert len(history_rows(msname)) == len(before) + 1
+
+
+def _store_contents(path: str) -> dict[str, str]:
+    """sha256 of every file of a converted processing set, the dates of the
+    zarr.json metadata masked."""
+    contents = {}
+    for dirpath, _, filenames in os.walk(path):
+        for filename in filenames:
+            file_path = os.path.join(dirpath, filename)
+            with open(file_path, "rb") as f:
+                content = f.read()
+            if filename == "zarr.json":
+                content = re.sub(
+                    rb'"(creation_date|date)": "[^"]*"', b'"<date>"', content
+                )
+            contents[os.path.relpath(file_path, path)] = hashlib.sha256(
+                content
+            ).hexdigest()
+    return contents
+
+
+def test_conversion_unchanged_by_the_stored_partitions(ms_copy, tmp_path):
+    """I2: the converter writes the same processing set before and after the
+    partitions were stored in the MS (the MAIN keyword is no attribute)."""
+    msname = ms_copy("rich")
+    options = {"partition_scheme": ["FIELD_ID"], "with_pointing": True}
+    convert_msv2_to_processing_set(msname, str(tmp_path / "before.ps.zarr"), **options)
+    assert load(msname, ["FIELD_ID"], "auto").status == "stored"
+    convert_msv2_to_processing_set(msname, str(tmp_path / "after.ps.zarr"), **options)
+    before = _store_contents(str(tmp_path / "before.ps.zarr"))
+    after = _store_contents(str(tmp_path / "after.ps.zarr"))
+    assert len(before) > 100 and before == after
+
+
+def test_revalidation_adds_no_history_row(ms_copy):
+    """A stale row with the partitions computed again: a new fingerprint and
+    anchor, no HISTORY row (e.g. after a flagdata HISTORY row, or a FLAG_ROW
+    write into the data manager of the key columns)."""
+    msname = ms_copy("rich")
+    assert statuses(msname, []) == ["stored"]
+    first = normalise_row(stored_rows(msname)[0])
+    add_history_row(msname, "ms", "flagdata")
+    n_history = len(history_rows(msname))
+    assert statuses(msname, []) == ["revalidated"]
+    row = normalise_row(stored_rows(msname)[0])
+    assert len(history_rows(msname)) == n_history
+    assert row["HISTORY_NROWS_AT_BUILD"] == n_history
+    assert row["HISTORY_ROW"] == first["HISTORY_ROW"]
+    assert row["CACHE_ID"] == first["CACHE_ID"]
+    with tables.table(msname, readonly=False, ack=False) as main_tb:
+        main_tb.putcol("FLAG_ROW", main_tb.getcol("FLAG_ROW"))  # (shared SSM)
+    assert statuses(msname, []) == ["revalidated"]
+    assert normalise_row(stored_rows(msname)[0])["FINGERPRINT"] != row["FINGERPRINT"]
+    assert statuses(msname, [], ("auto", "read")) == ["hit", "hit"]
+    assert len(history_rows(msname)) == n_history
+
+
+def test_changed_partitions_replace_the_row(ms_copy):
+    msname = ms_copy("rich")
+    assert statuses(msname, ["FIELD_ID"]) == ["stored"]
+    first = normalise_row(stored_rows(msname)[0])
+    with tables.table(msname, readonly=False, ack=False) as main_tb:
+        field = main_tb.getcol("FIELD_ID")
+        field[:50] = 1 - field[:50]
+        main_tb.putcol("FIELD_ID", field)
+    assert statuses(msname, ["FIELD_ID"]) == ["stored"]
+    rows = stored_rows(msname)
+    assert len(rows) == 1
+    row = normalise_row(rows[0])
+    assert row["CACHE_ID"] != first["CACHE_ID"]
+    assert row["N_RUNS"] != first["N_RUNS"]
+    history = history_rows(msname)
+    assert row["HISTORY_ROW"] == len(history) - 1
+    assert "reason=stale:fingerprint" in list(history[-1]["APP_PARAMS"])
+    partitions, runs = create_partitions_with_main_rows(msname, ["FIELD_ID"])
+    assert decode_row(row, ["FIELD_ID"])[0] == partitions
+    assert statuses(msname, ["FIELD_ID"]) == ["hit"]
+
+
+def test_rebuild(ms_copy):
+    """rebuild: a HISTORY row only if the partitions changed."""
+    msname = ms_copy("dense")
+    assert statuses(msname, [], ("rebuild",)) == ["stored"]
+    n_history = len(history_rows(msname))
+    assert statuses(msname, [], ("rebuild", "rebuild")) == ["revalidated"] * 2
+    assert len(history_rows(msname)) == n_history
+    with tables.table(msname, readonly=False, ack=False) as main_tb:
+        main_tb.putcol("SCAN_NUMBER", main_tb.getcol("SCAN_NUMBER") + 1)
+    assert statuses(msname, [], ("rebuild", "auto")) == ["stored", "hit"]
+    assert "reason=rebuild" in list(history_rows(msname)[-1]["APP_PARAMS"])
+
+
+@pytest.mark.parametrize(
+    "change, reason",
+    [("corrupt", "stale:corrupt"), ("history", "stale:history")],
+)
+def test_rows_stored_again(change, reason, ms_copy):
+    """A corrupt row, or one whose HISTORY row is gone (HISTORY re-created),
+    is stored again with a new HISTORY row (no revalidation)."""
+    msname = ms_copy("dense")
+    assert statuses(msname, []) == ["stored"]
+    if change == "corrupt":
+        with tables.table(
+            os.path.join(msname, SUBTABLE_NAME), readonly=False, ack=False
+        ) as table:
+            table.putcell("CHECKSUM", 0, "0" * 32)
+    else:
+        history = os.path.join(msname, "HISTORY")
+        with tables.table(history, ack=False) as table:
+            desc, dminfo = table.getdesc(), table.getdminfo()
+        shutil.rmtree(history)
+        tables.table(
+            history, desc, dminfo=dminfo, nrow=0, readonly=False, ack=False
+        ).close()
+    assert statuses(msname, []) == ["stored"]
+    assert len(stored_rows(msname)) == 1
+    assert f"reason={reason}" in list(history_rows(msname)[-1]["APP_PARAMS"])
+    assert statuses(msname, []) == ["hit"]
+
+
+def test_newer_format_is_neither_read_nor_written(ms_copy, caplog):
+    msname = ms_copy("dense")
+    assert statuses(msname, []) == ["stored"]
+    with tables.table(
+        os.path.join(msname, SUBTABLE_NAME), readonly=False, ack=False
+    ) as table:
+        table.putkeyword("FORMAT_VERSION", 2)
+    before = file_digests(msname)
+    assert statuses(msname, []) == ["memory:cache written by a newer xradio"]
+    assert statuses(msname, ["FIELD_ID"]) == ["memory:cache written by a newer xradio"]
+    assert file_digests(msname) == before
+
+
+def test_rows_of_another_algorithm_version_are_kept(ms_copy):
+    msname = ms_copy("dense")
+    store_test_row(msname, [], ALGORITHM_VERSION=PARTITION_ALGORITHM_VERSION + 1)
+    assert statuses(msname, []) == ["stored"]
+    versions = sorted(int(row["ALGORITHM_VERSION"]) for row in stored_rows(msname))
+    assert versions == [PARTITION_ALGORITHM_VERSION, PARTITION_ALGORITHM_VERSION + 1]
+
+
+def test_at_most_8_rows(ms_copy, monkeypatch):
+    """A ninth row evicts the row stored first (the oldest TIME)."""
+    msname = ms_copy("rich")
+    schemes = [
+        [],
+        ["FIELD_ID"],
+        ["SCAN_NUMBER"],
+        ["STATE_ID"],
+        ["SOURCE_ID"],
+        ["SUB_SCAN_NUMBER"],
+        ["ANTENNA1"],
+        ["FIELD_ID", "SCAN_NUMBER"],
+        ["FIELD_ID", "STATE_ID"],
+    ]
+    for scheme in schemes:
+        assert statuses(msname, scheme) == ["stored"]
+    keys = [row["SCHEME_KEY"] for row in stored_rows(msname)]
+    assert len(keys) == 8 and "[]" not in keys
+    assert statuses(msname, ["FIELD_ID", "STATE_ID"]) == ["hit"]
+    assert statuses(msname, []) == ["stored"]
+    keys = [row["SCHEME_KEY"] for row in stored_rows(msname)]
+    assert len(keys) == 8 and '["FIELD_ID"]' not in keys
+
+
+def test_dangling_keyword_is_repaired(ms_copy, monkeypatch):
+    """A MAIN keyword whose sub-table is gone (CASA's mstransform fails on
+    it): the next "auto" open stores the sub-table again; when nothing can
+    be stored, the keyword is removed."""
+    msname = ms_copy("dense")
+    assert statuses(msname, []) == ["stored"]
+    shutil.rmtree(os.path.join(msname, SUBTABLE_NAME))
+    assert partition_cache.link_state(msname) == "dangling"
+    assert statuses(msname, ["FIELD_ID"]) == ["stored"]
+    assert partition_cache.link_state(msname) == "linked"
+    shutil.rmtree(os.path.join(msname, SUBTABLE_NAME))
+    monkeypatch.setattr(partition_cache, "MAX_STORED_RUNS", 0)
+    assert statuses(msname, []) == ["memory:too many runs"]
+    assert partition_cache.link_state(msname) == "absent"
+    assert statuses(msname, [], ("read",)) == ["memory:mode-read"]
+
+
+def test_remove_msv2_partition_cache(ms_copy, monkeypatch):
+    msname = ms_copy("dense")
+    for scheme in ([], ["FIELD_ID"]):
+        assert statuses(msname, scheme) == ["stored"]
+    n_history = len(history_rows(msname))
+    assert load(msname, [], "auto").source == "stored"
+    assert partition_cache.memo_key(msname, []) in PARTITIONS_MEMO
+    assert remove_msv2_partition_cache(msname) is True
+    assert SUBTABLE_NAME not in os.listdir(msname)
+    assert SUBTABLE_NAME not in main_keywords(msname)
+    assert len(history_rows(msname)) == n_history
+    assert load(msname, [], "read").status == "memory:mode-read"  # (memo emptied)
+    assert remove_msv2_partition_cache(msname) is False
+    # the keyword first: a failure after it leaves no dangling keyword
+    assert statuses(msname, []) == ["stored"]
+
+    def fail(path, *args, **kwargs):
+        raise OSError("simulated")
+
+    monkeypatch.setattr(partition_cache.shutil, "rmtree", fail)
+    with pytest.raises(OSError, match="simulated"):
+        remove_msv2_partition_cache(msname)
+    assert partition_cache.link_state(msname) == "unlinked"
+    monkeypatch.undo()
+    assert remove_msv2_partition_cache(msname) is True
+    assert partition_cache.link_state(msname) == "absent"
+    with pytest.raises(FileNotFoundError):
+        remove_msv2_partition_cache(os.path.join(msname, "nothing"))
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root writes read-only files")
+def test_remove_from_a_read_only_ms(ms_copy):
+    msname = ms_copy("dense")
+    assert statuses(msname, []) == ["stored"]
+    os.chmod(msname, 0o555)
+    try:
+        with pytest.raises(PermissionError):
+            remove_msv2_partition_cache(msname)
+    finally:
+        os.chmod(msname, 0o755)
+    assert partition_cache.link_state(msname) == "linked"
+
+
+def hold_table(msname: str, lockoptions: str | None = "default"):
+    """A subprocess that opens a table (python-casacore; "default": auto
+    locking), reads a column and waits until killed."""
+    options = "" if lockoptions == "default" else f", lockoptions={lockoptions!r}"
+    script = (
+        "import sys, time\n"
+        "from casacore import tables\n"
+        f"t = tables.table({msname!r}, ack=False{options})\n"
+        "t.getcol('TIME')\n"
+        "print('ready', flush=True)\n"
+        "time.sleep(120)\n"
+    )
+    holder = subprocess.Popen(
+        [sys.executable, "-c", script], stdout=subprocess.PIPE, text=True
+    )
+    assert holder.stdout.readline().strip() == "ready"
+    return holder
+
+
+def test_remove_with_main_locked_elsewhere(ms_copy):
+    msname = ms_copy("dense")
+    assert statuses(msname, []) == ["stored"]
+    holder = hold_table(msname)
+    try:
+        with pytest.raises(RuntimeError, match="lock"):
+            remove_msv2_partition_cache(msname)
+    finally:
+        holder.kill()
+        holder.wait()
+    assert partition_cache.link_state(msname) == "linked"
+    assert remove_msv2_partition_cache(msname) is True
+
+
+def test_stale_temporary_tables_are_removed(ms_copy):
+    msname = ms_copy("dense")
+    done = subprocess.run(
+        [sys.executable, "-c", "import os; print(os.getpid())"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    dead_pid = int(done.stdout)
+    host = socket.gethostname()
+    names = {
+        "dead": f"{partition_cache.TMP_PREFIX}{host}-{dead_pid}-0000aaaa",
+        "alive": f"{partition_cache.TMP_PREFIX}{host}-{os.getpid()}-0000bbbb",
+        "old elsewhere": f"{partition_cache.TMP_PREFIX}other-host-1-0000cccc",
+        "new elsewhere": f"{partition_cache.TMP_PREFIX}other-host-1-0000dddd",
+    }
+    for name in names.values():
+        os.makedirs(os.path.join(msname, name, "sub"))
+    old = time.time() - 2 * partition_cache.TMP_MAX_AGE
+    os.utime(os.path.join(msname, names["old elsewhere"]), (old, old))
+    assert statuses(msname, []) == ["stored"]
+    left = sorted(
+        n for n in os.listdir(msname) if n.startswith(partition_cache.TMP_PREFIX)
+    )
+    assert left == sorted([names["alive"], names["new elsewhere"]])
+
+
+@pytest.mark.parametrize("mode", ["read", "off"])
+def test_read_and_off_change_no_file(mode, ms_copy, monkeypatch):
+    msname = ms_copy("rich")
+    before = file_digests(msname)
+    monkeypatch.setenv("XRADIO_MSV2_PARTITION_CACHE", mode)
+    for scheme in ([], ["FIELD_ID"]):
+        xr.open_datatree(msname, engine=ENGINE, partition_scheme=scheme)
+    assert file_digests(msname) == before
+
+
+def test_environment_variable_sets_the_mode(ms_copy, monkeypatch):
+    msname = ms_copy("dense")
+    monkeypatch.setenv("XRADIO_MSV2_PARTITION_CACHE", "rebuild")
+    xr.open_datatree(msname, engine=ENGINE)
+    assert len(stored_rows(msname)) == 1
+    monkeypatch.setenv("XRADIO_MSV2_PARTITION_CACHE", "auto")
+    partition_cache.clear_partition_memo()
+    xr.open_datatree(msname, engine=ENGINE)
+    assert PARTITIONS_MEMO.stats["stored hits"] == 1
+
+
+def _notices(caplog, recwarn):
+    infos = [
+        r.getMessage() for r in caplog.records if "is not stored" in r.getMessage()
+    ]
+    warned = [str(w.message) for w in recwarn if w.category is PartitionCacheWarning]
+    return infos, warned
+
+
+@pytest.mark.parametrize(
+    "setup, reason, warn",
+    [
+        ("casatools", "casatools only", False),
+        ("runs", "too many runs", False),
+        ("data manager", "MAIN uses StandardStMan", False),
+        ("no history", "HISTORY missing", True),
+        ("history columns", "HISTORY has no APP_PARAMS column", True),
+    ],
+)
+def test_not_stored_notices(setup, reason, warn, ms_copy, monkeypatch, caplog, recwarn):
+    """Why partitions are not stored: a PartitionCacheWarning (or an INFO
+    log for reasons that are no user error), once per MS and reason."""
+    msname = ms_copy("dense")
+    if setup == "casatools":
+        monkeypatch.setattr(partition_cache, "uses_casatools", lambda: True)
+    elif setup == "runs":
+        monkeypatch.setattr(partition_cache, "MAX_STORED_RUNS", 3)
+    elif setup == "data manager":
+        monkeypatch.setattr(
+            partition_cache,
+            "WRITABLE_DATA_MANAGERS",
+            partition_cache.WRITABLE_DATA_MANAGERS - {"StandardStMan"},
+        )
+    elif setup == "no history":
+        shutil.rmtree(os.path.join(msname, "HISTORY"))
+    else:
+        with tables.table(
+            os.path.join(msname, "HISTORY"), readonly=False, ack=False
+        ) as h:
+            h.removecols(["APP_PARAMS"])
+    before = file_digests(msname)
+    monkeypatch.setattr(partition_cache, "xradio_logger", lambda: _ListLogger(caplog))
+    for _ in range(3):
+        assert statuses(msname, []) == [f"memory:{reason}"]
+    assert file_digests(msname) == before
+    infos, warned = _notices(caplog, recwarn)
+    expected = [f"({reason})" in m for m in (warned if warn else infos)]
+    assert expected == [True]
+    assert (infos if warn else warned) == []
+
+
+class _ListLogger:
+    """A logger that records INFO messages in caplog.records."""
+
+    def __init__(self, caplog):
+        self.caplog = caplog
+
+    def info(self, message):
+        import logging
+
+        self.caplog.records.append(
+            logging.LogRecord("test", logging.INFO, __file__, 0, message, None, None)
+        )
+
+    def debug(self, message):
+        pass
+
+    error = warning = debug
+
+
+def test_concurrent_threads_store_once(ms_copy):
+    """4 threads of one process opening one MS (1 and then 3 schemes): one
+    row per scheme, one HISTORY row per stored content (the writer mutex)."""
+    msname = ms_copy("rich")
+    n_history = len(history_rows(msname))
+    schemes = [
+        [],
+        ["FIELD_ID"],
+        ["FIELD_ID", "SCAN_NUMBER"],
+        ["SCAN_NUMBER", "FIELD_ID"],
+    ]
+    results, errors = [], []
+
+    def run(scheme):
+        try:
+            results.append(load(msname, scheme, "auto").status)
+        except Exception as exc:  # pragma: no cover
+            errors.append(exc)
+
+    for round_schemes in ([[]] * 4, schemes):
+        partition_cache.clear_partition_memo()
+        threads = [threading.Thread(target=run, args=(s,)) for s in round_schemes]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+    assert errors == []
+    assert len(results) == 8
+    keys = sorted(row["SCHEME_KEY"] for row in stored_rows(msname))
+    assert keys == sorted(["[]", '["FIELD_ID"]', '["FIELD_ID", "SCAN_NUMBER"]'])
+    assert len(history_rows(msname)) == n_history + 3
+    assert results.count("stored") == 3
+
+
+def test_concurrent_threads_without_the_mutex_would_both_lock(ms_copy):
+    """casacore's write locks belong to the process: a second handle of this
+    process 'holds' the lock the first one took (why the writers need the
+    in-process mutex)."""
+    msname = ms_copy("dense")
+    first = tables.table(
+        msname, readonly=False, lockoptions={"option": "usernoread"}, ack=False
+    )
+    second = tables.table(
+        msname, readonly=False, lockoptions={"option": "usernoread"}, ack=False
+    )
+    try:
+        first.lock(write=True, nattempts=1)
+        second.lock(write=True, nattempts=1)
+        assert first.haslock(write=True) and second.haslock(write=True)
+    finally:
+        first.unlock()
+        first.close()
+        second.close()
+
+
+def test_closing_a_handle_releases_the_lock_of_another(ms_copy):
+    """casacore shares one table object per table in a process: closing any
+    handle (python-casacore's close unlocks) releases the write lock another
+    handle took (why the cache's reads and writes of an MS hold its mutex)."""
+    msname = ms_copy("dense")
+    subtable = os.path.join(msname, SUBTABLE_NAME)
+    store_test_row(msname, [])
+    writer = tables.table(
+        subtable, readonly=False, lockoptions={"option": "usernoread"}, ack=False
+    )
+    try:
+        writer.lock(write=True, nattempts=1)
+        assert writer.haslock(write=True)
+        reader = tables.table(
+            subtable, readonly=True, lockoptions={"option": "usernoread"}, ack=False
+        )
+        reader.close()
+        assert not writer.haslock(write=True)
+        with pytest.raises(RuntimeError, match="should be locked"):
+            writer.putcell("TIME", 0, 1.0)
+    finally:
+        writer.close()
+
+
+def test_threads_reading_and_writing_one_ms(ms_copy):
+    """Threads storing and reading the partitions of one MS (several schemes
+    at once, again and again): no write fails."""
+    msname = ms_copy("rich")
+    schemes = [[], ["FIELD_ID"], ["SCAN_NUMBER"], ["STATE_ID"]]
+    results, errors = [], []
+
+    def run(scheme):
+        try:
+            for mode in ("auto", "rebuild", "auto", "read"):
+                results.append(load(msname, scheme, mode).status)
+        except Exception as exc:  # pragma: no cover
+            errors.append(exc)
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", PartitionCacheWarning)
+        threads = [threading.Thread(target=run, args=(s,)) for s in schemes * 2]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+    assert errors == []
+    assert not any(status.startswith("memory:write") for status in results)
+    assert len(stored_rows(msname)) == 4
+
+
+@pytest.mark.skipif(not hasattr(os, "fork"), reason="needs os.fork")
+@pytest.mark.filterwarnings("ignore:This process .* is multi-threaded")
+def test_write_mutexes_are_reset_in_a_fork_child(tmp_path):
+    mutex = partition_cache.write_mutex(str(tmp_path))
+    with mutex, partition_cache._WRITE_MUTEXES_LOCK:
+        pid = os.fork()
+        if pid == 0:  # child
+            ok = partition_cache.write_mutex(str(tmp_path)).acquire(timeout=5)
+            os._exit(0 if ok else 1)
+    _, status = os.waitpid(pid, 0)
+    assert os.waitstatus_to_exitcode(status) == 0

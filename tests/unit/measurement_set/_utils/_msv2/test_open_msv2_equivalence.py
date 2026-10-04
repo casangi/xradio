@@ -131,17 +131,21 @@ def converted(backend_ms, tmp_path_factory):
 
 
 @pytest.mark.parametrize("case", list(CASES))
-def test_engine_equals_the_converted_processing_set(case, backend_ms, converted):
+def test_engine_equals_the_converted_processing_set(
+    case, backend_ms, converted, ms_copy
+):
     """
-    The engine's processing set equals the converted one: with chunks={}
-    against array_backend="dask" (partitions computed: cold memo), with
-    chunks=None against array_backend="xarray" (partitions from the memo),
-    and with the partition cache off. Same nodes, identical datasets (dates
+    The engine's processing set equals the converted one, on a copy of the
+    MS: with chunks={} against array_backend="dask" (cold: the partitions
+    are computed and stored in the copy), with chunks=None against
+    array_backend="xarray" (warm: the partitions read from the copy), and
+    with the partition cache off. Same nodes, identical datasets (dates
     aside), the converter's dask chunks of the main data variables, lazy
     selections and accessors.
     """
     variant, options = CASES[case]
-    msname = backend_ms(variant)
+    # (same name as the converted MS: the MSv4 names derive from it)
+    msname = ms_copy(variant, name=f"{variant}.ms")
     reference = converted(case)
     partition_cache.clear_partition_memo()
 
@@ -149,14 +153,17 @@ def test_engine_equals_the_converted_processing_set(case, backend_ms, converted)
         msname, engine=ENGINE, chunks={}, partition_cache="auto", **options
     )
     assert PARTITIONS_MEMO.stats["computed"] == 1
+    assert os.path.isdir(os.path.join(msname, partition_cache.SUBTABLE_NAME))
     assert_processing_sets_equivalent(
         cold, open_processing_set(reference, array_backend="dask")
     )
 
+    partition_cache.clear_partition_memo()
     warm = xr.open_datatree(
         msname, engine=ENGINE, chunks=None, partition_cache="auto", **options
     )
-    assert PARTITIONS_MEMO.stats["hits"] == 1
+    assert PARTITIONS_MEMO.stats["stored hits"] == 1
+    assert PARTITIONS_MEMO.stats["computed"] == 0
     assert_processing_sets_equivalent(
         warm,
         open_processing_set(reference, array_backend="xarray"),
@@ -165,7 +172,7 @@ def test_engine_equals_the_converted_processing_set(case, backend_ms, converted)
     )
 
     off = xr.open_datatree(msname, engine=ENGINE, chunks={}, **options)
-    assert PARTITIONS_MEMO.stats["computed"] == 1  # (off: not memoised)
+    assert PARTITIONS_MEMO.stats["computed"] == 0  # (off: not memoised)
     assert_nodes_identical(off, open_processing_set(reference))
     if case == "antenna1_without_autocorrelations":
         assert not cold.children and cold.attrs == {"type": "processing_set"}
@@ -474,8 +481,8 @@ def test_option_errors(backend_ms, monkeypatch):
 # --- the partition memo --------------------------------------------------------
 
 
-def test_memo_modes(backend_ms, monkeypatch):
-    msname = backend_ms("dense")
+def test_memo_modes(ms_copy, monkeypatch):
+    msname = ms_copy("dense")
     partition_cache.clear_partition_memo()
     path = os.path.abspath(msname)
     first = partition_cache.load_or_create_partitions(path, [], "read")
@@ -508,14 +515,14 @@ def test_memo_modes(backend_ms, monkeypatch):
 def test_memo_hit_computes_nothing(backend_ms, monkeypatch):
     msname = backend_ms("rich")
     partition_cache.clear_partition_memo()
-    cold = xr.open_datatree(msname, engine=ENGINE, partition_cache="auto")
+    cold = xr.open_datatree(msname, engine=ENGINE, partition_cache="read")
     with monkeypatch.context() as m:
         m.setattr(
             partition_cache,
             "create_partitions_with_main_rows",
             lambda *a, **k: pytest.fail("partitions computed"),
         )
-        monkeypatch.setenv("XRADIO_MSV2_PARTITION_CACHE", "auto")
+        monkeypatch.setenv("XRADIO_MSV2_PARTITION_CACHE", "read")
         warm = xr.open_datatree(msname, engine=ENGINE)
     assert sorted(warm.children) == sorted(cold.children)
 
@@ -562,7 +569,7 @@ def test_memo_computes_once_for_concurrent_opens(backend_ms):
 
     def load():
         try:
-            results.append(partition_cache.load_or_create_partitions(path, [], "auto"))
+            results.append(partition_cache.load_or_create_partitions(path, [], "read"))
         except Exception as exc:  # pragma: no cover
             errors.append(exc)
 
@@ -581,11 +588,11 @@ def test_memo_bounds(backend_ms, monkeypatch):
     partition_cache.clear_partition_memo()
     path = os.path.abspath(backend_ms("rich"))
     for scheme in ([], ["FIELD_ID"], ["SCAN_NUMBER"]):
-        partition_cache.load_or_create_partitions(path, scheme, "auto")
+        partition_cache.load_or_create_partitions(path, scheme, "read")
     assert len(PARTITIONS_MEMO) == 2
     assert partition_cache.memo_key(path, []) not in PARTITIONS_MEMO
     monkeypatch.setattr(PARTITIONS_MEMO, "max_bytes", 1)
-    partition_cache.load_or_create_partitions(path, ["STATE_ID"], "auto")
+    partition_cache.load_or_create_partitions(path, ["STATE_ID"], "read")
     assert len(PARTITIONS_MEMO) == 1  # (the most recent entry is kept)
 
 
@@ -594,7 +601,7 @@ def test_memo_bounds(backend_ms, monkeypatch):
 def test_memo_is_reset_in_a_fork_child(backend_ms):
     partition_cache.clear_partition_memo()
     partition_cache.load_or_create_partitions(
-        os.path.abspath(backend_ms("dense")), [], "auto"
+        os.path.abspath(backend_ms("dense")), [], "read"
     )
     assert len(PARTITIONS_MEMO) == 1
     with PARTITIONS_MEMO._lock:

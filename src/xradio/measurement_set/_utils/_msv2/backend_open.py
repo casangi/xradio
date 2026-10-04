@@ -5,8 +5,9 @@ backend (engine ``xradio_msv2``, ``_xradio_xarray_backends.MSv2BackendEntrypoint
 The processing set is that of ``convert_msv2_to_processing_set`` (the same
 partitions, MSv4 names, variables, values, attributes and encodings), with
 the main data variables read lazily from the MS (see backend_partition.py and
-backend_arrays.py). The partitions are computed on open (or taken from the
-per-process memo, see partition_cache.py).
+backend_arrays.py). The partitions are computed on the first open and
+stored in the MS (its XRADIO_PARTITIONS sub-table), then read from it or
+from a per-process memo while the MS is unchanged (see partition_cache.py).
 """
 
 import copy

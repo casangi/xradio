@@ -1,17 +1,21 @@
 """
 The partitions of an MSv2 for the MSv2 xarray backend (engine
-``xradio_msv2``): computed with ``create_partitions_with_main_rows``, stored
-inside the MS (the sub-table ``XRADIO_PARTITIONS``, linked from MAIN by the
-keyword ``XRADIO_PARTITIONS``, with a HISTORY row per stored content), and
-reused while the MS is unchanged. Validated results are also kept in a
-per-process memo.
+``xradio_msv2``): computed with ``create_partitions_with_main_rows`` on the
+first open of an MS, stored inside the MS (the sub-table
+``XRADIO_PARTITIONS``, linked from MAIN by the keyword ``XRADIO_PARTITIONS``,
+and a HISTORY row per stored content), and reused while the MS is unchanged.
+Validated results are also kept in a per-process memo.
 
 Modes (``partition_cache``, default ``$XRADIO_MSV2_PARTITION_CACHE`` or
 "auto"):
 
-- "auto" and "read": a valid memo entry or stored row is used, otherwise the
-  partitions are computed (and memoised);
-- "rebuild": the partitions are computed again (and memoised);
+- "auto": a valid memo entry or stored row is used; otherwise the partitions
+  are computed, memoised and stored in the MS when it can be written (else
+  kept in memory, with a PartitionCacheWarning or an INFO log once per MS
+  and reason);
+- "read": as "auto", but nothing is ever written;
+- "rebuild": the partitions are computed again, memoised and stored (a
+  HISTORY row only if they changed);
 - "off": the partitions are computed; the memo and the stored rows are
   neither used nor filled.
 
@@ -29,34 +33,52 @@ A stored row is used only when (the staleness layers)
   every row unless the scheme has ANTENNA1; single-valued, distinct grouping
   keys).
 
-A stale row is never parsed (L1 and L2 come first). A memo entry is valid
-while the fingerprint and the number of HISTORY rows are those it was made
-with. The memo hands out copies, holds at most ``MEMO_MAX_ENTRIES`` results
-and ``MEMO_MAX_BYTES`` of row runs, computes a key once when several threads
-open the same MS, and is emptied in a fork child.
+A stale row is never parsed (L1 and L2 come first). Recomputed partitions
+equal to a stale row's only refresh its fingerprint and anchor (no HISTORY
+row: a harmless task, e.g. flagdata, costs one recomputation).
+
+Writes (python-casacore only; ``store_partitions``): every lock is tried once
+(``nattempts=1``, checked with ``haslock``: an open never waits for a lock),
+in the order MAIN (alone), the sub-table, HISTORY; one writer per MS in a
+process (a mutex: casacore's locks belong to the process). The sub-table is
+created under a temporary name and renamed into place before MAIN links it,
+so no failure leaves a keyword without its sub-table.
+
+A memo entry is valid while the fingerprint and the number of HISTORY rows
+are those it was made with. The memo hands out copies, holds at most
+``MEMO_MAX_ENTRIES`` results and ``MEMO_MAX_BYTES`` of row runs, computes a
+key once when several threads open the same MS, and is emptied in a fork
+child.
 """
 
 import collections
+import contextlib
 import copy
 import dataclasses
 import hashlib
 import json
 import operator
 import os
+import shutil
+import socket
 import threading
 import time
+import traceback
+import uuid
+import warnings
 from collections.abc import Mapping, Sequence
 from typing import Any
 
 import numpy as np
 
-from xradio._utils._casacore.tables import casatools_serialized
+from xradio._utils._casacore.tables import casatools_serialized, uses_casatools
 from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._msv2._tables.table_lock_file import (
     history_nrows,
     ms_fingerprint,
 )
 from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
+from xradio.measurement_set._utils._msv2.backend_errors import PartitionCacheWarning
 from xradio.measurement_set._utils._msv2.partition_queries import (
     MANDATORY_PARTITION_KEYS,
     PARTITION_ALGORITHM_VERSION,
@@ -94,6 +116,45 @@ FINGERPRINT_SUBTABLES = ("FIELD", "STATE", "SOURCE")
 READ_ATTEMPTS = 3
 # Seconds from MJD 0 to 1970-01-01 (TIME columns hold MJD seconds)
 MJD_UNIX_OFFSET = 3506716800.0
+# At most this many rows are stored (the oldest TIME is evicted), and no row
+# of more runs (64 MiB of run arrays)
+MAX_STORED_ROWS = 8
+MAX_STORED_RUNS = 2**22
+# The temporary names of sub-tables being created
+# (".XRADIO_PARTITIONS.tmp-<host>-<pid>-<random>"), removed when their
+# process is gone or after TMP_MAX_AGE seconds
+TMP_PREFIX = f".{SUBTABLE_NAME}.tmp-"
+TMP_MAX_AGE = 3600.0
+# The MAIN data managers of MSs whose cache is stored (opening MAIN for
+# update with others, e.g. LofarStMan, DyscoStMan or AdiosStMan, is untested)
+WRITABLE_DATA_MANAGERS = frozenset(
+    {
+        "StandardStMan",
+        "IncrementalStMan",
+        "TiledShapeStMan",
+        "TiledColumnStMan",
+        "TiledCellStMan",
+        "TiledDataStMan",
+        "StManAipsIO",
+    }
+)
+# The HISTORY columns of the row of a stored content
+HISTORY_COLUMNS = (
+    "TIME",
+    "OBSERVATION_ID",
+    "MESSAGE",
+    "PRIORITY",
+    "ORIGIN",
+    "OBJECT_ID",
+    "APPLICATION",
+    "CLI_COMMAND",
+    "APP_PARAMS",
+)
+# The readme of the table.info of the sub-table
+SUBTABLE_README = (
+    "Partitions of this MeasurementSet stored by xradio's xradio_msv2 xarray "
+    "engine; remove them with xradio.measurement_set.remove_msv2_partition_cache"
+)
 
 # The columns of the sub-table, in their order (also that of the CHECKSUM),
 # and how their values are normalised: "str", "int" (Int), "count" (Double
@@ -389,8 +450,6 @@ def encode_row(
     ValueError
         If the descriptions cannot be encoded.
     """
-    import uuid
-
     scheme = validate_partition_scheme(partition_scheme)
     if build_time is None:
         build_time = time.time() + MJD_UNIX_OFFSET
@@ -543,6 +602,16 @@ def _app_params(cell: Any) -> list[str]:
     return [str(value) for value in np.asarray(cell, dtype=object).ravel()]
 
 
+def _is_content_history_row(table, index: int, cache_id: str) -> bool:
+    """Whether a row of an opened HISTORY table is the row of a stored
+    content (xradio's cache rows, with the content's cache_id)."""
+    return (
+        table.getcell("APPLICATION", index) == HISTORY_APPLICATION
+        and table.getcell("ORIGIN", index) == HISTORY_ORIGIN
+        and f"cache_id={cache_id}" in _app_params(table.getcell("APP_PARAMS", index))
+    )
+
+
 def history_rule(
     path: str, row: Mapping[str, Any], n_history: int | None
 ) -> str | None:
@@ -581,13 +650,7 @@ def history_rule(
             table.resync()
         if table.nrows() < n_history:
             return "HISTORY changed while it was read"
-        ours = (
-            table.getcell("APPLICATION", history_row) == HISTORY_APPLICATION
-            and table.getcell("ORIGIN", history_row) == HISTORY_ORIGIN
-            and f"cache_id={row['CACHE_ID']}"
-            in _app_params(table.getcell("APP_PARAMS", history_row))
-        )
-        if not ours:
+        if not _is_content_history_row(table, history_row, row["CACHE_ID"]):
             return f"the HISTORY row {history_row} is not that of the partitions"
         if n_history > anchor:
             count = n_history - anchor
@@ -628,13 +691,19 @@ def link_state(path: str) -> str:
     exists = os.path.isfile(os.path.join(subtable_path(path), "table.dat"))
     if keyword is None:
         return "unlinked" if exists else "absent"
-    if not (
+    if not _is_subtable_link(keyword):
+        return "foreign"
+    return "linked" if exists else "dangling"
+
+
+def _is_subtable_link(keyword: Any) -> bool:
+    """Whether the value of the MAIN keyword XRADIO_PARTITIONS is a link to
+    the sub-table (a table keyword: "Table: <path>/XRADIO_PARTITIONS")."""
+    return (
         isinstance(keyword, str)
         and keyword.startswith("Table: ")
         and keyword.rstrip("/").endswith("/" + SUBTABLE_NAME)
-    ):
-        return "foreign"
-    return "linked" if exists else "dangling"
+    )
 
 
 @dataclasses.dataclass
@@ -808,12 +877,15 @@ class PartitionsResult:
         "fresh" (computed by this call), "memo" or "stored" (the row of
         XRADIO_PARTITIONS).
     status : str
-        How they were obtained: "hit" (stored row), "hit-memory" (memo), or
-        "memory:<reason>" (computed, not stored): "computed", "mode-off",
-        "mode-read", "no-fingerprint" (the fingerprint of the MS could not be
-        computed: neither stored rows nor the memo are used),
-        "changed-during-build" (the MS changed while they were computed:
-        not memoised).
+        How they were obtained: "hit" (the stored row), "hit-memory" (the
+        memo); computed and "stored" (a new row), "revalidated" (equal to the
+        stored row, whose fingerprint and anchor were renewed) or "hit-race"
+        (another process stored them meanwhile); or computed and kept in
+        memory, "memory:<reason>": "mode-off", "mode-read", "no-fingerprint"
+        (the fingerprint of the MS could not be computed: neither stored
+        rows nor the memo are used), "changed-during-build" (the MS changed
+        while they were computed: not memoised), "locked", "write failed",
+        or a reason of why_not_writable.
     """
 
     partitions: list[dict]
@@ -944,6 +1016,630 @@ def _first_notice(path: str, reason: str) -> bool:
         return True
 
 
+# --- writing ----------------------------------------------------------------------------
+
+
+class CacheNotStored(Exception):
+    """
+    Why partitions are not stored in an MS (the status "memory:<reason>").
+
+    Parameters
+    ----------
+    reason : str
+        The reason (e.g. "locked").
+    warn : bool, optional
+        Whether to notify it with a PartitionCacheWarning (else an INFO log).
+    """
+
+    def __init__(self, reason: str, warn: bool = True):
+        super().__init__(reason)
+        self.reason = reason
+        self.warn = warn
+
+
+# The reasons whose notice says more than the reason
+_REASON_DETAILS = {"locked": "locked: another process has the MS open"}
+# Writers open tables for update without read locks (an open with read
+# locking waits for any write lock), then lock them
+_WRITE_LOCKOPTIONS = {"option": "usernoread"}
+
+_WRITE_MUTEXES: dict[str, threading.RLock] = {}
+_WRITE_MUTEXES_LOCK = threading.Lock()
+
+
+def _reset_write_mutexes_after_fork() -> None:
+    global _WRITE_MUTEXES_LOCK
+    _WRITE_MUTEXES.clear()
+    _WRITE_MUTEXES_LOCK = threading.Lock()
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_reset_write_mutexes_after_fork)
+
+
+def write_mutex(path: str) -> threading.RLock:
+    """
+    The mutex (reentrant) of the partition cache of an MS in this process.
+
+    casacore's locks belong to a process, and a process shares one table
+    object per table: two threads would both hold a write lock, and closing
+    any handle of a table releases its locks (python-casacore's close
+    unlocks). So the cache's own reads (fingerprint, stored row, HISTORY) and
+    writes of an MS hold this mutex. Other readers of MAIN in this process
+    (partition builds, lazy reads) can still release the MAIN write lock of
+    the one-time keyword write early; the keyword is written all the same.
+    """
+    realpath = os.path.realpath(path)
+    with _WRITE_MUTEXES_LOCK:
+        return _WRITE_MUTEXES.setdefault(realpath, threading.RLock())
+
+
+def notify_not_stored(path: str, reason: str, warn: bool, detail: str = "") -> None:
+    """
+    Tell, once per MS and reason in a process, that the partitions of an MS
+    are not stored: a PartitionCacheWarning, or an INFO log for reasons that
+    are no user error (``warn`` False).
+    """
+    if not _first_notice(path, reason):
+        return
+    what = _REASON_DETAILS.get(reason, reason) + (f": {detail}" if detail else "")
+    message = (
+        f"The partition cache of {path} is not stored ({what}); the partitions are "
+        "computed in memory. Pass partition_cache='read' or 'off' to silence this."
+    )
+    if warn:
+        warnings.warn(message, PartitionCacheWarning, stacklevel=2)
+    else:
+        xradio_logger().info(message)
+
+
+def _tables_module():
+    """The casacore tables of xradio: python-casacore, or the casatools
+    shim."""
+    from xradio.measurement_set._utils._msv2._tables.table_query import tables
+
+    return tables
+
+
+def _writable_table(table_path: str) -> bool:
+    """Whether a table directory and every file in it can be written."""
+    if not os.access(table_path, os.W_OK | os.X_OK):
+        return False
+    for name in os.listdir(table_path):
+        file_path = os.path.join(table_path, name)
+        if os.path.isfile(file_path) and not os.access(file_path, os.W_OK):
+            return False
+    return True
+
+
+def why_not_writable(
+    path: str, runs: MainRowRuns | None = None
+) -> tuple[str, bool] | None:
+    """
+    The first reason not to store partitions in an MS, and whether to warn
+    about it (checked before any write: a failed store would leave partial
+    state); None if they can be stored.
+
+    Parameters
+    ----------
+    path : str
+        Path of the MS.
+    runs : MainRowRuns | None, optional
+        The runs to store (too many are not stored).
+
+    Returns
+    -------
+    tuple[str, bool] | None
+        (reason, warn) or None.
+    """
+    if uses_casatools():
+        return "casatools only", False  # (the shim cannot create tables)
+    from casacore import tables
+
+    if not os.access(path, os.W_OK | os.X_OK):
+        return "MS directory not writable", True
+    if not tables.tableiswritable(path):
+        return "MAIN table not writable", True
+    if not os.access(os.path.join(path, "table.lock"), os.W_OK):
+        return "MAIN lock file not writable", True
+    history = os.path.join(path, "HISTORY")
+    if not os.path.isfile(os.path.join(history, "table.dat")):
+        return "HISTORY missing", True
+    if not (tables.tableiswritable(history) and _writable_table(history)):
+        return "HISTORY not writable", True
+    with open_table_ro(history) as table:
+        missing = [name for name in HISTORY_COLUMNS if name not in table.colnames()]
+    if missing:
+        return f"HISTORY has no {missing[0]} column", True
+    subtable = subtable_path(path)
+    if os.path.lexists(subtable):
+        if not os.path.isfile(os.path.join(subtable, "table.dat")):
+            return f"{SUBTABLE_NAME} is not an xradio partition cache", False
+        if not (tables.tableiswritable(subtable) and _writable_table(subtable)):
+            return f"{SUBTABLE_NAME} not writable", True
+        with open_table_ro(subtable) as table:
+            version = subtable_format(table)
+        if version is None:
+            return f"{SUBTABLE_NAME} is not an xradio partition cache", False
+        if version > FORMAT_VERSION:
+            return "cache written by a newer xradio", False
+        if version < FORMAT_VERSION:  # (none yet)
+            return "cache written by an older xradio", False
+    with open_table_ro(path) as main_tb:
+        parts = [os.path.realpath(name) for name in main_tb.partnames()]
+        dm_types = sorted({str(dm["TYPE"]) for dm in main_tb.getdminfo().values()})
+        keyword = (
+            main_tb.getkeyword(SUBTABLE_NAME)
+            if SUBTABLE_NAME in main_tb.keywordnames()
+            else None
+        )
+    if parts != [os.path.realpath(path)]:
+        return "MAIN is a reference or concatenated table", False
+    if keyword is not None and not _is_subtable_link(keyword):
+        return f"the MAIN keyword {SUBTABLE_NAME} is no link to the cache", False
+    others = [name for name in dm_types if name not in WRITABLE_DATA_MANAGERS]
+    if others:
+        return f"MAIN uses {others[0]}", False
+    if runs is not None and runs.starts.size > MAX_STORED_RUNS:
+        return "too many runs", False
+    return None
+
+
+@contextlib.contextmanager
+def _locked_for_update(table_path: str):
+    """
+    A table opened for update (without read locks: the open never waits) and
+    write-locked with one attempt: CacheNotStored("locked") if another
+    process holds a lock (python-casacore's lock() does not raise when it
+    fails: haslock tells). Unlocked (which flushes) and closed on exit.
+    """
+    tables = _tables_module()
+    table = tables.table(
+        table_path, readonly=False, lockoptions=_WRITE_LOCKOPTIONS, ack=False
+    )
+    try:
+        table.lock(write=True, nattempts=1)
+        if not table.haslock(write=True):
+            raise CacheNotStored("locked")
+        try:
+            yield table
+        finally:
+            table.unlock()
+    finally:
+        table.close()
+
+
+def _process_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except OSError:
+        return True
+    return True
+
+
+def remove_stale_tmp_tables(path: str) -> list[str]:
+    """
+    Remove the temporary sub-tables (TMP_PREFIX) that a writer left behind:
+    those of a process of this host that is gone, and those older than
+    TMP_MAX_AGE. Best effort. Returns the names removed.
+    """
+    try:
+        names = os.listdir(path)
+    except OSError:
+        return []
+    host, now, removed = socket.gethostname(), time.time(), []
+    for name in names:
+        if not name.startswith(TMP_PREFIX):
+            continue
+        full = os.path.join(path, name)
+        try:
+            owner, pid, _ = name[len(TMP_PREFIX) :].rsplit("-", 2)
+            gone = owner == host and not _process_alive(int(pid))
+        except ValueError:
+            gone = False
+        try:
+            old = now - os.lstat(full).st_mtime > TMP_MAX_AGE
+        except OSError:
+            continue
+        if gone or old:
+            shutil.rmtree(full, ignore_errors=True)
+            removed.append(name)
+    return removed
+
+
+def _create_subtable(path: str) -> str | None:
+    """
+    Create the empty sub-table under a temporary name and rename it into
+    place (never at its final name: casacore would replace a table there).
+    Returns its path, or None if another writer's is already there.
+    """
+    from casacore import tables
+
+    final = subtable_path(path)
+    tmp = os.path.join(
+        path, f"{TMP_PREFIX}{socket.gethostname()}-{os.getpid()}-{uuid.uuid4().hex[:8]}"
+    )
+    try:
+        with tables.table(
+            tmp, subtable_description(), nrow=0, readonly=False, ack=False
+        ) as table:
+            table.putkeyword("FORMAT_VERSION", FORMAT_VERSION)
+            table.putkeyword("CREATOR", "xradio")
+            table.putinfo(
+                {"type": "XRADIO Partitions", "subType": "", "readme": SUBTABLE_README}
+            )
+        try:
+            _rename_subtable(tmp, final)
+        except OSError:
+            if not os.path.isfile(os.path.join(final, "table.dat")):
+                raise
+            shutil.rmtree(tmp, ignore_errors=True)
+            return None
+    except BaseException:
+        shutil.rmtree(tmp, ignore_errors=True)
+        raise
+    return final
+
+
+def _rename_subtable(tmp: str, final: str) -> None:
+    os.rename(tmp, final)
+
+
+def _put_main_keyword(main_tb, path: str) -> None:
+    # (python-casacore makes a table keyword of "Table: <path>", which casacore
+    # stores relative to MAIN: copies and renames of the MS keep the link)
+    main_tb.putkeyword(SUBTABLE_NAME, "Table: " + subtable_path(path))
+    main_tb.flush()
+
+
+def _ensure_linked_subtable(path: str) -> None:
+    """
+    Steps 1 and 2 of the write protocol: the sub-table exists and MAIN links
+    it. Both are made under the MAIN write lock, the sub-table first: no
+    failure leaves the keyword without the sub-table, and a failure that
+    Python sees leaves no sub-table without the keyword.
+    """
+    state = link_state(path)
+    if state == "linked":
+        return
+    if state == "foreign":
+        raise CacheNotStored(
+            f"the MAIN keyword {SUBTABLE_NAME} is no link to the cache", warn=False
+        )
+    created = None
+    try:
+        with _locked_for_update(path) as main_tb:
+            if not os.path.isfile(os.path.join(subtable_path(path), "table.dat")):
+                created = _create_subtable(path)
+            if SUBTABLE_NAME not in main_tb.keywordnames():
+                _put_main_keyword(main_tb, path)
+        if link_state(path) != "linked":
+            raise RuntimeError(f"MAIN does not link {SUBTABLE_NAME} after writing it")
+    except BaseException:
+        if created is not None and link_state(path) == "unlinked":
+            shutil.rmtree(created, ignore_errors=True)
+        raise
+
+
+def _same_content(
+    stored: tuple[list[dict], MainRowRuns], partitions: list[dict], runs: MainRowRuns
+) -> bool:
+    stored_partitions, stored_runs = stored
+    return (
+        stored_partitions == partitions
+        and stored_runs.main_nrows == runs.main_nrows
+        and np.array_equal(stored_runs.starts, runs.starts)
+        and np.array_equal(stored_runs.lengths, runs.lengths)
+        and np.array_equal(stored_runs.bounds, runs.bounds)
+    )
+
+
+def _content_history_row_exists(path: str, row: Mapping[str, Any]) -> bool:
+    """Whether HISTORY still holds the row of a stored content."""
+    index = row["HISTORY_ROW"]
+    with open_table_ro(os.path.join(path, "HISTORY")) as table:
+        n_rows = history_nrows(path) or 0
+        if table.nrows() < n_rows:
+            table.resync()
+        return 0 <= index < table.nrows() and _is_content_history_row(
+            table, index, row["CACHE_ID"]
+        )
+
+
+def _append_history_row(
+    path: str,
+    partition_scheme: list[str],
+    partitions: list[dict],
+    runs: MainRowRuns,
+    cache_id: str,
+    reason: str,
+) -> int:
+    """Append the HISTORY row of a stored content (CASA's conventions for
+    tasks); returns its row number."""
+    version = _xradio_version()
+    scheme_key = canonical_scheme_key(partition_scheme)
+    message = (
+        f"xradio {version}: stored {len(partitions)} partitions ({runs.starts.size} "
+        f"MAIN row runs) of partition_scheme {json.dumps(list(partition_scheme))} in "
+        f"{SUBTABLE_NAME} ({reason})"
+    )
+    app_params = [
+        f"subtable={SUBTABLE_NAME}",
+        f"cache_id={cache_id}",
+        f"scheme_key={scheme_key}",
+        f"format_version={FORMAT_VERSION}",
+        f"algorithm_version={PARTITION_ALGORITHM_VERSION}",
+        f"xradio_version={version}",
+        f"reason={reason}",
+    ]
+    with _locked_for_update(os.path.join(path, "HISTORY")) as table:
+        row = table.nrows()
+        table.addrows(1)
+        table.putcell("TIME", row, time.time() + MJD_UNIX_OFFSET)
+        table.putcell("OBSERVATION_ID", row, -1)
+        table.putcell("MESSAGE", row, message)
+        table.putcell("PRIORITY", row, "INFO")
+        table.putcell("ORIGIN", row, HISTORY_ORIGIN)
+        table.putcell("OBJECT_ID", row, 0)
+        table.putcell("APPLICATION", row, HISTORY_APPLICATION)
+        table.putcell("CLI_COMMAND", row, np.array([""]))
+        table.putcell("APP_PARAMS", row, np.array(app_params))
+        table.flush()
+    return row
+
+
+def _put_row_cells(table, index: int, values: Mapping[str, Any]) -> None:
+    """Write the cells of a row, its CHECKSUM last (a reader of a half
+    written row finds a CHECKSUM mismatch)."""
+    for name in SUBTABLE_COLUMNS:
+        if name != "CHECKSUM":
+            table.putcell(name, index, values[name])
+    table.putcell("CHECKSUM", index, values["CHECKSUM"])
+
+
+def _remove_rows(table, keep: int, remove: Sequence[int]) -> None:
+    """Remove the rows ``remove``, and the oldest rows (TIME) but ``keep``
+    beyond MAX_STORED_ROWS."""
+    remove = set(remove) - {keep}
+    excess = table.nrows() - len(remove) - MAX_STORED_ROWS
+    if excess > 0:
+        times = table.getcol("TIME")
+        oldest = sorted(
+            (float(when), index)
+            for index, when in enumerate(times)
+            if index != keep and index not in remove
+        )
+        remove.update(index for _, index in oldest[:excess])
+    if remove:
+        table.removerows(sorted(remove))
+
+
+def _write_row(
+    path: str,
+    partition_scheme: list[str],
+    partitions: list[dict],
+    runs: MainRowRuns,
+    fingerprint: str,
+    n_history: int,
+    reason: str,
+    rebuild: bool,
+) -> tuple[str, int | None]:
+    """Step 3 of the write protocol (see store_partitions)."""
+    with _locked_for_update(subtable_path(path)) as table:
+        version = subtable_format(table)
+        if version != FORMAT_VERSION:
+            raise CacheNotStored(f"{SUBTABLE_NAME} format {version}", warn=False)
+        indices = find_rows(table, canonical_scheme_key(partition_scheme))
+        stored, row = None, None
+        if indices:
+            try:
+                row = read_row_cells(table, indices[0])
+                check_row_checksum(row)
+                stored = decode_row(row, partition_scheme)
+            except Exception:  # (a torn or half written row: replaced)
+                stored = None
+        if stored is not None and _same_content(stored, partitions, runs):
+            if (
+                not rebuild
+                and same_fingerprint(row["FINGERPRINT"], fingerprint)
+                and history_rule(path, row, history_nrows(path)) is None
+            ):
+                return "hit-race", None  # (stored by another writer meanwhile)
+            if _content_history_row_exists(path, row):
+                # same partitions: a new fingerprint and anchor, no HISTORY row
+                row = dict(
+                    row, FINGERPRINT=fingerprint, HISTORY_NROWS_AT_BUILD=n_history
+                )
+                row["CHECKSUM"] = row_checksum(row)
+                for name in ("FINGERPRINT", "HISTORY_NROWS_AT_BUILD", "CHECKSUM"):
+                    table.putcell(name, indices[0], row[name])
+                _remove_rows(table, indices[0], indices[1:])
+                table.flush()
+                return "revalidated", None
+        cache_id = uuid.uuid4().hex
+        history_row = _append_history_row(
+            path, partition_scheme, partitions, runs, cache_id, reason
+        )
+        values = encode_row(
+            partitions,
+            runs,
+            partition_scheme,
+            fingerprint,
+            history_row,
+            n_history,
+            cache_id=cache_id,
+        )
+        if indices:
+            index = indices[0]
+        else:
+            index = table.nrows()
+            table.addrows(1)
+        _put_row_cells(table, index, values)
+        _remove_rows(table, index, indices[1:])
+        table.flush()
+    return "stored", history_row
+
+
+def store_partitions(
+    path: str,
+    partition_scheme: list[str],
+    partitions: list[dict],
+    runs: MainRowRuns,
+    fingerprint: str,
+    n_history: int,
+    reason: str = "first",
+    rebuild: bool = False,
+) -> tuple[str, int | None]:
+    """
+    Store the partitions of a scheme in an MS (python-casacore; the caller
+    checks why_not_writable first). The write protocol, in the MS's writer
+    mutex:
+
+    0. remove the temporary sub-tables of writers that are gone;
+    1-2. under the MAIN write lock (one attempt): create the sub-table if
+       missing (temporary name, then renamed into place), then the MAIN
+       keyword if missing;
+    3. under the sub-table's write lock (one attempt), read the scheme's row
+       again: (a) the same partitions, fingerprint and a valid HISTORY anchor
+       (another writer stored them meanwhile): "hit-race"; (b) the same
+       partitions: a new fingerprint and anchor, no HISTORY row:
+       "revalidated"; (c) otherwise a HISTORY row (under its write lock), then
+       the row (CHECKSUM last), replacing the old one; the oldest rows beyond
+       MAX_STORED_ROWS are removed: "stored".
+
+    Parameters
+    ----------
+    path : str
+        Path of the MS.
+    partition_scheme : list[str]
+        The partition scheme (validated).
+    partitions : list[dict]
+        Their descriptions.
+    runs : MainRowRuns
+        Their MAIN rows.
+    fingerprint : str
+        fingerprint_json of the MS, taken before they were computed.
+    n_history : int
+        The HISTORY rows taken with the fingerprint (the anchor).
+    reason : str, optional
+        Of the HISTORY row: "first", "stale:<what>" or "rebuild".
+    rebuild : bool, optional
+        Never "hit-race" (mode "rebuild").
+
+    Returns
+    -------
+    tuple[str, int | None]
+        The status, and the HISTORY row added ("stored") or None.
+
+    Raises
+    ------
+    CacheNotStored
+        A lock held by another process ("locked"), or a sub-table of another
+        format.
+    """
+    with write_mutex(path):
+        remove_stale_tmp_tables(path)
+        _ensure_linked_subtable(path)
+        return _write_row(
+            path,
+            partition_scheme,
+            partitions,
+            runs,
+            fingerprint,
+            n_history,
+            reason,
+            rebuild,
+        )
+
+
+def repair_dangling_keyword(path: str) -> bool:
+    """
+    Remove the MAIN keyword XRADIO_PARTITIONS if its sub-table is gone (a
+    dangling keyword breaks CASA's mstransform), under the writer mutex and
+    the MAIN write lock (one attempt). Returns whether it was removed.
+    """
+    with write_mutex(path):
+        try:
+            with _locked_for_update(path) as main_tb:
+                if (
+                    SUBTABLE_NAME in main_tb.keywordnames()
+                    and _is_subtable_link(main_tb.getkeyword(SUBTABLE_NAME))
+                    and not os.path.isfile(
+                        os.path.join(subtable_path(path), "table.dat")
+                    )
+                ):
+                    main_tb.removekeyword(SUBTABLE_NAME)
+                    main_tb.flush()
+                    return True
+        except CacheNotStored:
+            xradio_logger().debug(
+                f"The dangling keyword {SUBTABLE_NAME} of {path} is not removed: "
+                "MAIN is locked"
+            )
+    return False
+
+
+def remove_partition_cache(path: str) -> bool:
+    """
+    Remove the stored partitions of an MS: the MAIN keyword first, then the
+    sub-table (so that no keyword is left without its sub-table), and the
+    temporary sub-tables of gone writers.
+
+    Parameters
+    ----------
+    path : str
+        Path of the MS.
+
+    Returns
+    -------
+    bool
+        Whether anything was removed.
+
+    Raises
+    ------
+    FileNotFoundError
+        If there is no MAIN table at ``path``.
+    PermissionError
+        If the MS cannot be written.
+    RuntimeError
+        If another process holds a lock on MAIN.
+    """
+    path = os.path.abspath(os.path.expanduser(os.fspath(path)))
+    if not os.path.isfile(os.path.join(path, "table.dat")):
+        raise FileNotFoundError(f"No MeasurementSet at {path}")
+    with write_mutex(path):
+        state = link_state(path)
+        subtable = subtable_path(path)
+        has_table = os.path.lexists(subtable)
+        if state in ("absent", "foreign") and not has_table:
+            return False
+        if not (
+            os.access(path, os.W_OK | os.X_OK)
+            and os.access(os.path.join(path, "table.dat"), os.W_OK)
+        ):
+            raise PermissionError(
+                f"{path} is not writable: its partition cache cannot be removed"
+            )
+        if state in ("linked", "dangling"):
+            try:
+                with casatools_serialized(), _locked_for_update(path) as main_tb:
+                    if SUBTABLE_NAME in main_tb.keywordnames():
+                        main_tb.removekeyword(SUBTABLE_NAME)
+                        main_tb.flush()
+            except CacheNotStored:
+                raise RuntimeError(
+                    f"Another process has a lock on the MAIN table of {path}: its "
+                    "partition cache was not removed"
+                ) from None
+        if has_table:
+            shutil.rmtree(subtable)
+        remove_stale_tmp_tables(path)
+    PARTITIONS_MEMO.discard_path(path)
+    return True
+
+
 # --- load ------------------------------------------------------------------------------
 
 
@@ -966,6 +1662,60 @@ def _ms_state(path: str) -> tuple[str | None, int | None]:
                 "memory"
             )
         return None, None
+
+
+def _history_reason(reason: str) -> str:
+    """The reason of the HISTORY row of partitions stored because the stored
+    row was not used for ``reason`` (check_stored_row)."""
+    if reason in ("absent", "unlinked", "dangling", "no row"):
+        return "first"
+    if reason == "fingerprint":
+        return "stale:fingerprint"
+    if reason.startswith("history"):
+        return "stale:history"
+    return "stale:corrupt"
+
+
+def _store(
+    path: str,
+    partition_scheme: list[str],
+    entry: _MemoEntry,
+    n_history: int,
+    reason: str,
+    rebuild: bool,
+) -> str:
+    """Store a computed result if the MS can be written (else notify why
+    not); returns the status. In the MS's write mutex."""
+    try:
+        with write_mutex(path):
+            not_writable = why_not_writable(path, entry.runs)
+            if not_writable is not None:
+                notify_not_stored(path, *not_writable)
+                return f"memory:{not_writable[0]}"
+            status, history_row = store_partitions(
+                path,
+                partition_scheme,
+                entry.partitions,
+                entry.runs,
+                entry.fingerprint,
+                n_history,
+                reason,
+                rebuild,
+            )
+    except CacheNotStored as exc:
+        notify_not_stored(path, exc.reason, exc.warn)
+        return f"memory:{exc.reason}"
+    except Exception as exc:
+        xradio_logger().debug(
+            f"Storing the partitions of {path} failed:\n{traceback.format_exc()}"
+        )
+        notify_not_stored(path, "write failed", True, f"{type(exc).__name__}: {exc}")
+        return "memory:write failed"
+    if history_row == n_history and history_nrows(path) == n_history + 1:
+        # only the row of the stored content was added: the memo entry stays
+        # valid (as the stored row: the HISTORY rule holds)
+        entry.history_nrows = n_history + 1
+    return status
 
 
 def load_or_create_partitions(
@@ -997,40 +1747,69 @@ def load_or_create_partitions(
         return PartitionsResult(partitions, runs, "fresh", "memory:mode-off")
     key = memo_key(path, partition_scheme)
     with PARTITIONS_MEMO.build_lock(key):
-        fingerprint, n_history = _ms_state(path)
+        with write_mutex(path):
+            found = _valid_partitions(path, partition_scheme, key, mode)
+        fingerprint, n_history, result, reason = found
+        if result is not None:
+            return result
         if fingerprint is None:
             partitions, runs = _compute(path, partition_scheme)
             return PartitionsResult(partitions, runs, "fresh", "memory:no-fingerprint")
-        if mode != "rebuild":
-            entry = PARTITIONS_MEMO.get(key)
-            if (
-                entry is not None
-                and entry.fingerprint == fingerprint
-                and entry.history_nrows == n_history
-            ):
-                PARTITIONS_MEMO.stats["hits"] += 1
-                return entry.result("memo", "hit-memory")
-            lookup = lookup_stored_row(path, key[1])
-            stored, reason = check_stored_row(
-                path, lookup, partition_scheme, fingerprint, n_history
-            )
-            if stored is not None:
-                PARTITIONS_MEMO.stats["stored hits"] += 1
-                entry = _MemoEntry(fingerprint, n_history, *stored)
-                PARTITIONS_MEMO.put(key, entry)
-                return entry.result("stored", "hit")
-            xradio_logger().debug(
-                f"The stored partitions of {path} for partition_scheme "
-                f"{partition_scheme} are not used: {reason} {lookup.detail}".rstrip()
-            )
         PARTITIONS_MEMO.stats["computed"] += 1
         partitions, runs = _compute(path, partition_scheme)
-        after, _ = _ms_state(path)
+        with write_mutex(path):
+            after, _ = _ms_state(path)
         if after != fingerprint or runs.main_nrows != _fingerprint_nrows(fingerprint):
             return PartitionsResult(
                 partitions, runs, "fresh", "memory:changed-during-build"
             )
         entry = _MemoEntry(fingerprint, n_history, partitions, runs)
         PARTITIONS_MEMO.put(key, entry)
-        status = "memory:mode-read" if mode == "read" else "memory:computed"
+        if mode == "read":
+            return entry.result("fresh", "memory:mode-read")
+        status = _store(
+            path, partition_scheme, entry, n_history, reason, mode == "rebuild"
+        )
         return entry.result("fresh", status)
+
+
+def _valid_partitions(
+    path: str, partition_scheme: list[str], key: tuple, mode: str
+) -> tuple[str | None, int | None, PartitionsResult | None, str]:
+    """
+    The fingerprint and HISTORY rows of an MS, and its partitions from the
+    memo or the stored row if they are valid (else the reason of the HISTORY
+    row of a store); a dangling MAIN keyword is removed ("auto").
+
+    Returns
+    -------
+    tuple[str | None, int | None, PartitionsResult | None, str]
+        (fingerprint, HISTORY rows, result or None, reason).
+    """
+    fingerprint, n_history = _ms_state(path)
+    if fingerprint is None or mode == "rebuild":
+        return fingerprint, n_history, None, "rebuild"
+    entry = PARTITIONS_MEMO.get(key)
+    if (
+        entry is not None
+        and entry.fingerprint == fingerprint
+        and entry.history_nrows == n_history
+    ):
+        PARTITIONS_MEMO.stats["hits"] += 1
+        return fingerprint, n_history, entry.result("memo", "hit-memory"), ""
+    lookup = lookup_stored_row(path, key[1])
+    stored, why = check_stored_row(
+        path, lookup, partition_scheme, fingerprint, n_history
+    )
+    if stored is not None:
+        PARTITIONS_MEMO.stats["stored hits"] += 1
+        entry = _MemoEntry(fingerprint, n_history, *stored)
+        PARTITIONS_MEMO.put(key, entry)
+        return fingerprint, n_history, entry.result("stored", "hit"), ""
+    xradio_logger().debug(
+        f"The stored partitions of {path} for partition_scheme "
+        f"{partition_scheme} are not used: {why} {lookup.detail}".rstrip()
+    )
+    if lookup.state == "dangling" and mode == "auto" and why_not_writable(path) is None:
+        repair_dangling_keyword(path)
+    return fingerprint, n_history, None, _history_reason(why)

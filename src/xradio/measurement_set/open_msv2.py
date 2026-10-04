@@ -3,19 +3,24 @@ Open a MeasurementSet v2 directly as a processing set, without converting it:
 the ``xradio_msv2`` xarray engine.
 """
 
+import os
+
 import xarray as xr
 
 from _xradio_xarray_backends import MSv2BackendEntrypoint
 from xradio.measurement_set._utils._msv2.backend_errors import (
     MSv2ChangedError,
     MSv2ReadError,
+    PartitionCacheWarning,
 )
 
 __all__ = [
     "open_msv2",
+    "remove_msv2_partition_cache",
     "MSv2BackendEntrypoint",
     "MSv2ChangedError",
     "MSv2ReadError",
+    "PartitionCacheWarning",
 ]
 
 
@@ -66,10 +71,18 @@ def open_msv2(
           chunks with array_backend="dask").
         - drop_variables : str | Iterable[str] | None. Variables left out of
           every node of every MSv4 (and of its data groups).
-        - partition_cache : str | None. "auto", "read", "off" or "rebuild";
-          by default the environment variable XRADIO_MSV2_PARTITION_CACHE, or
-          "auto". The partitions of an MS are kept in memory (per process)
-          while the MS is unchanged; "off" computes them on every open.
+        - partition_cache : str | None. By default the environment variable
+          XRADIO_MSV2_PARTITION_CACHE, or "auto". The partitions of an MS
+          (``create_partitions``) are computed on its first open and stored
+          inside the MS: a sub-table XRADIO_PARTITIONS, linked by a MAIN
+          keyword of that name, and a HISTORY row. Later opens use them while
+          the MS is unchanged (a fingerprint of the tables they are computed
+          from, and no newer HISTORY rows). "auto": use, compute and store
+          (an MS that cannot be written is opened with partitions computed in
+          memory, with a PartitionCacheWarning once per MS and reason);
+          "read": use, never write; "rebuild": compute again and store; "off":
+          compute, neither use nor store. Partitions are also kept in memory
+          (per process) while the MS is unchanged (not with "off").
         - on_partition_error : str. "skip" (default): a partition that cannot
           be opened is left out (logged with its traceback, and a
           RuntimeWarning); a RuntimeError is raised only if none can be
@@ -103,3 +116,35 @@ def open_msv2(
     if scan_intents is None:
         return ps_xdt
     return ps_xdt.xr_ps.query(scan_intents=scan_intents)
+
+
+def remove_msv2_partition_cache(ms_path: str | os.PathLike) -> bool:
+    """
+    Remove the partitions that the ``xradio_msv2`` engine stored in a
+    MeasurementSet v2 (the MAIN keyword XRADIO_PARTITIONS, then the
+    sub-table XRADIO_PARTITIONS). Its HISTORY rows are kept.
+
+    Parameters
+    ----------
+    ms_path : str | os.PathLike
+        Path of the MeasurementSet v2.
+
+    Returns
+    -------
+    bool
+        Whether anything was removed.
+
+    Raises
+    ------
+    FileNotFoundError
+        If there is no MeasurementSet at ``ms_path``.
+    PermissionError
+        If the MeasurementSet cannot be written.
+    RuntimeError
+        If another process holds a lock on its MAIN table.
+    """
+    from xradio.measurement_set._utils._msv2.partition_cache import (
+        remove_partition_cache,
+    )
+
+    return remove_partition_cache(ms_path)

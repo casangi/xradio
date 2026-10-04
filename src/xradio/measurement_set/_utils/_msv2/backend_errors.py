@@ -20,3 +20,13 @@ class MSv2ReadError(RuntimeError):
     ``xradio_msv2`` engine failed. The message names the MAIN column, the data
     variable, the MSv4 node and the block that was read.
     """
+
+
+class PartitionCacheWarning(UserWarning):
+    """
+    The partitions of an MSv2 opened with the ``xradio_msv2`` engine could
+    not be stored in the MS (its ``XRADIO_PARTITIONS`` sub-table): they are
+    computed in memory, on every open of the MS in a new process. Given once
+    per MS and reason in a process; ``partition_cache="read"`` or ``"off"``
+    silences it.
+    """

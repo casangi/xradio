@@ -851,6 +851,42 @@ def test_read_rows_to_grid_slice_copies(rows_tb, monkeypatch):
         np.testing.assert_array_equal(grid, expected)
 
 
+@pytest.mark.parametrize("in_place", [True, False])
+def test_read_rows_to_grid_last_row_wins_around_slice_copies(
+    rows_tb, monkeypatch, in_place
+):
+    """
+    In one temporary batch, the rows scattered before, between and after the
+    slice-copied direct segments keep the order of the rows: of duplicated
+    (time, baseline) cells the last row wins, also for the duplicates that
+    are both scattered before the first slice copy (rows 0 and 2) and for
+    duplicates on either side of a slice copy (rows 1 and 17, 3 and 31).
+    """
+    tb, ref = rows_tb
+    monkeypatch.setattr(rr, "MIN_SLICE_COPY_BYTES", 8 * DATA_ROW_BYTES)
+    nt, nb = 6, 10
+    gidx = np.r_[[3, 7, 3, 9], 20:32, [40, 7], 45:58, [9, 58]]
+    rows = 50 + np.arange(gidx.size)
+    plan = rr.make_row_grid_plan(rows, gidx, nt * nb, min_direct_rows=4)
+    np.testing.assert_array_equal(plan.direct_offsets, [4, 18])
+    np.testing.assert_array_equal(plan.direct_lengths, [12, 13])
+    assert plan.n_duplicate_rows == 6
+    table = tb if in_place else GetcolOnlyTable(tb)
+    grid = sentinel_buffer((nt, nb, NCHAN, NPOL), np.complex64)
+    stats = rr.read_rows_to_grid(
+        table, "TSM_DATA", plan, grid, min_read_bytes=100 * DATA_ROW_BYTES
+    )
+    # one temporary: both direct segments slice-copied from it
+    assert stats.get("direct_rows", 0) == 0 and stats["scatter_rows"] == rows.size
+    expected = sentinel_buffer(grid.shape, np.complex64)
+    expected[gidx // nb, gidx % nb] = ref["TSM_DATA"][rows]  # the last row wins
+    np.testing.assert_array_equal(grid, expected)
+    for cell, row in ((3, 2), (7, 17), (9, 31)):
+        np.testing.assert_array_equal(
+            grid[cell // nb, cell % nb], ref["TSM_DATA"][rows[row]]
+        )
+
+
 def test_read_rows_to_grid_bridges_small_gaps(rows_tb, monkeypatch):
     """
     Gaps of other rows between long runs are read (and discarded) with them,

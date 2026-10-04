@@ -2168,6 +2168,177 @@ def test_convert_and_write_partition_signature():
         conversion.convert_and_write_partition("in.ms", "out", "0", {})
 
 
+# --- build_partition: the build of the converter, shared with the MSv2 backend ---
+
+
+def _is_placeholder(var: xr.Variable) -> bool:
+    """Whether a variable is (a view of) a deferred placeholder (stream_write)."""
+    graph = getattr(var.data, "__dask_graph__", lambda: None)()
+    if graph is None:
+        return False
+    return any(
+        str(key[0] if isinstance(key, tuple) else key).startswith("deferred-")
+        for key in graph
+    )
+
+
+def _assert_closed(main_rows) -> None:
+    """The MAIN table of a MainTableRows was closed."""
+    with pytest.raises(RuntimeError):
+        main_rows.table.nrows()
+
+
+def test_build_partition_none_for_0_rows(ms_main_layouts):
+    """A partition without MAIN rows yields None (the writer then writes
+    nothing)."""
+    msname = ms_main_layouts["dense"]
+    partition = {"DATA_DESC_ID": [99], "OBS_MODE": ["scan_intent#subscan_intent"]}
+    for defer in (False, True):
+        with conversion.build_partition(
+            msname, partition, defer_main_columns=defer
+        ) as built:
+            assert built is None
+
+
+@pytest.mark.parametrize("layout", MAIN_LAYOUTS)
+def test_build_partition_placeholders_and_index(ms_main_layouts, layout):
+    """
+    With defer_main_columns, every placeholder of the main xds has its spec in
+    ``deferred`` and every spec its placeholder (and nothing else is one);
+    without, there is none. The index fields are those of
+    calc_indx_for_row_split on the partition rows, and the MAIN table is open
+    in the context and closed after it.
+    """
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
+
+    msname = ms_main_layouts[layout]
+    partitions, runs = create_partitions_with_main_rows(msname, [])
+    for defer in (True, False):
+        with conversion.build_partition(
+            msname,
+            partitions[0],
+            main_chunksize={"time": 4},
+            main_row_runs=runs[0],
+            defer_main_columns=defer,
+        ) as built:
+            xds = built.ms_xdt.to_dataset(inherit=False)
+            placeholders = {
+                name for name, var in xds.variables.items() if _is_placeholder(var)
+            }
+            if defer:
+                assert placeholders == set(built.deferred) != set()
+                assert {"VISIBILITY", "FLAG", "WEIGHT", "UVW"} <= placeholders
+            else:
+                assert built.deferred is None and placeholders == set()
+            for sub in built.ms_xdt.children.values():
+                assert not any(map(_is_placeholder, sub.variables.values()))
+            tidxs, bidxs, ant1, ant2, utime = conversion.calc_indx_for_row_split(
+                built.main_rows
+            )
+            assert np.array_equal(built.tidxs, tidxs)
+            assert np.array_equal(built.bidxs, bidxs)
+            assert np.array_equal(built.baseline_ant1, ant1)
+            assert np.array_equal(built.baseline_ant2, ant2)
+            assert np.array_equal(built.utime, utime)
+            assert built.time_baseline_shape == (utime.size, ant1.size)
+            assert np.array_equal(built.ms_xdt["time"].values, utime)
+            assert built.main_rows.nrows() == int(runs[0].lengths.sum())
+            assert built.reverse_frequency is False
+        _assert_closed(built.main_rows)
+
+
+@pytest.mark.parametrize("defer", [False, True])
+@pytest.mark.parametrize("layout", MAIN_LAYOUTS)
+def test_build_partition_tree_is_what_the_writer_writes(
+    ms_main_layouts, layout, defer, tmp_path, monkeypatch
+):
+    """
+    The built tree (its placeholders read with read_deferred_variables) written
+    by to_zarr is byte for byte the MSv4 the converter writes (the streamed
+    write in batches of one time chunk, or the non-streamed path).
+    """
+    from xradio._utils.zarr.config import ZARR_FORMAT
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
+
+    msname = ms_main_layouts[layout]
+    partitions, runs = create_partitions_with_main_rows(msname, [])
+    kw = {"main_chunksize": {"time": 4}, "main_row_runs": runs[1]}
+    _, written = _convert_streamed(
+        monkeypatch,
+        msname,
+        str(tmp_path / "written"),
+        partitions[1],
+        "1" if defer else "0",
+        1e-9 if defer else None,
+        **kw,
+    )
+    built_store = str(tmp_path / "built")
+    with conversion.build_partition(
+        msname, partitions[1], defer_main_columns=defer, **kw
+    ) as built:
+        if defer:
+            xds = built.ms_xdt.to_dataset(inherit=False)
+            stream_write.read_deferred_variables(
+                xds,
+                built.deferred,
+                built.main_rows,
+                built.tidxs,
+                built.bidxs,
+                built.reverse_frequency,
+            )
+            built.ms_xdt.dataset = xds
+        built.ms_xdt.to_zarr(store=built_store, mode="w", zarr_format=ZARR_FORMAT)
+    assert_stores_identical(written, built_store)
+
+
+def test_build_partition_exceptions_propagate(ms_main_layouts, monkeypatch):
+    """
+    An exception raised in the context (as the writer's, which carries
+    ``created_msv4`` for convert_and_write_partition) propagates unchanged and
+    the MAIN table is closed; so does one raised while building.
+    """
+    from contextlib import contextmanager
+
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
+
+    msname = ms_main_layouts["dense"]
+    partitions, runs = create_partitions_with_main_rows(msname, [])
+    kw = {"main_row_runs": runs[0], "defer_main_columns": True}
+    exc = stream_write.DeferredReadError("VISIBILITY", "DATA", "a batch")
+    with pytest.raises(stream_write.DeferredReadError) as raised:
+        with conversion.build_partition(msname, partitions[0], **kw) as built:
+            exc.created_msv4 = True
+            raise exc
+    assert raised.value is exc and raised.value.created_msv4 is True
+    _assert_closed(built.main_rows)
+
+    opened = []
+    open_main = conversion.open_partition_main_table
+
+    @contextmanager
+    def spy(*args, **kwargs):
+        with open_main(*args, **kwargs) as main_rows:
+            opened.append(main_rows)
+            yield main_rows
+
+    def failing(*args, **kwargs):
+        raise ValueError("simulated build failure")
+
+    monkeypatch.setattr(conversion, "open_partition_main_table", spy)
+    monkeypatch.setattr(conversion, "create_field_and_source_xds", failing)
+    with pytest.raises(ValueError, match="simulated build failure"):
+        with conversion.build_partition(msname, partitions[0], **kw):
+            pytest.fail("the context is not entered")
+    assert len(opened) == 1
+    _assert_closed(opened[0])
+
+
 @pytest.mark.parametrize("declared", [False, True])
 def test_stream_write_encoding_that_changes_values_is_not_streamed(
     ms_main_layouts, declared, tmp_path, monkeypatch, stream_stats

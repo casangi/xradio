@@ -1,3 +1,4 @@
+import dataclasses
 import datetime
 import functools
 import importlib
@@ -1524,20 +1525,248 @@ def _convert_and_write_partition(
 
     memory_setup(131072)
 
-    ms_xdt = xr.DataTree()  # MSv4 as a Data Tree
-
-    taql_where = create_taql_query_where(partition_info)
     # Streamed write of the MAIN data variables (see stream_write.py): they are
     # written after the MSv4 metadata, one at a time, in batches of whole zarr
     # chunks along time. parallel_mode="time" with a time chunk size already
     # writes the large ones lazily (dask); without one it reads like "none"
-    # (decided below).
+    # (decided in build_partition).
     use_stream_write = (
         allow_stream_write
         and storage_backend == "zarr"
         and parallel_mode in ("none", "partition", "time")
     )
     stream_batch_bytes = stream_write.STREAM_BATCH_BYTES
+
+    with build_partition(
+        in_file,
+        partition_info,
+        main_chunksize=main_chunksize,
+        with_pointing=with_pointing,
+        pointing_chunksize=pointing_chunksize,
+        pointing_interpolate=pointing_interpolate,
+        ephemeris_interpolate=ephemeris_interpolate,
+        phase_cal_interpolate=phase_cal_interpolate,
+        sys_cal_interpolate=sys_cal_interpolate,
+        compressor=compressor,
+        add_reshaping_indices=add_reshaping_indices,
+        parallel_mode=parallel_mode,
+        subtable_cache=subtable_cache,
+        main_row_runs=main_row_runs,
+        unreadable_columns=unreadable_columns,
+        defer_main_columns=use_stream_write,
+    ) as built:
+        if built is None:
+            return xr.Dataset(), {}, {}
+        ms_xdt, deferred, tb_tool = built.ms_xdt, built.deferred, built.main_rows
+        tidxs, bidxs = built.tidxs, built.bidxs
+        time_baseline_shape = built.time_baseline_shape
+        reverse_frequency = built.reverse_frequency
+        # the main xds of the node (its variables are those of the node)
+        xds = ms_xdt.to_dataset(inherit=False)
+
+        if deferred is not None:
+            # Read the data variables whole and write the MSv4 with one to_zarr,
+            # as the non-streamed path, if they are small (a fraction of a batch
+            # together: the streamed write costs a few ms per variable) or if
+            # xarray's encoding of a variable would change its values (the
+            # streamed write writes them to the zarr arrays directly)
+            problems = deferred_encoding_problems(xds, deferred)
+            if problems:
+                xradio_logger().warning(
+                    "The MAIN data variables are not streamed (their encoding "
+                    f"changes the values): {'; '.join(problems)}"
+                )
+            if problems or fits_in_memory(xds, deferred, stream_batch_bytes):
+                read_deferred_variables(
+                    xds, deferred, tb_tool, tidxs, bidxs, reverse_frequency
+                )
+                deferred = None
+                ms_xdt.dataset = xds  # (the values are in place already)
+
+        start = time.time()
+        ms_v4_name = msv4_name(in_file, ms_v4_id)
+
+        if storage_backend == "zarr":
+            from xradio._utils.zarr.config import ZARR_FORMAT
+
+            store_path = os.path.join(out_file, ms_v4_name)
+            if deferred is None:
+                ms_xdt.to_zarr(
+                    store=store_path,
+                    mode=persistence_mode,
+                    zarr_format=ZARR_FORMAT,
+                )
+            else:
+                # Streamed write: all metadata (encodings), coordinates, small
+                # variables and sub-datasets now; the deferred (placeholder)
+                # variables are never computed but written next, one at a time,
+                # in batches of whole zarr chunks along time. The consolidated
+                # metadata is written last: until then (and after a hard kill)
+                # the MSv4 opens as incomplete, as one whose to_zarr was
+                # interrupted (see stream_write.py).
+                check_deferred_variables(xds, deferred)
+                members_before = msv4_members(store_path)
+                store_existed = members_before is not None
+                ms_xdt.to_zarr(
+                    store=store_path,
+                    mode=persistence_mode,
+                    zarr_format=ZARR_FORMAT,
+                    compute=False,
+                    consolidated=False,
+                )
+                try:
+                    drop_consolidated_metadata(store_path)
+                    write_deferred_variables(
+                        store_path,
+                        xds,
+                        deferred,
+                        tb_tool,
+                        tidxs,
+                        bidxs,
+                        time_baseline_shape[1],
+                        reverse_frequency,
+                        stream_batch_bytes,
+                    )
+                    consolidate_msv4(store_path)
+                except BaseException as exc:
+                    # No MSv4 with unwritten (fill value) data variables is left:
+                    # after a failed read the partition is converted again without
+                    # the column, after an encoding the streamed write does not
+                    # apply without the streamed write (convert_and_write_partition),
+                    # otherwise the error is raised.
+                    done = discard_msv4(
+                        store_path,
+                        set(deferred),
+                        remove_store=persistence_mode in ("w", "w-")
+                        or not store_existed,
+                        members_before=members_before,
+                    )
+                    # Lets convert_and_write_partition overwrite, on its next
+                    # attempt, only an MSv4 this attempt created.
+                    exc.created_msv4 = not store_existed
+                    log = xradio_logger().debug
+                    if not isinstance(exc, DeferredReadError | DeferredEncodingError):
+                        log = xradio_logger().error
+                    log(f"Writing the data variables of {store_path} failed: {done}")
+                    raise
+        elif storage_backend == "netcdf":
+            # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
+            raise
+        xradio_logger().debug("Write data  " + str(time.time() - start))
+
+        # get_logger().info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
+
+        # Drop the dataset reference and trigger explicit cleanup to help release
+        # memory retained by Dask task graphs and large NumPy-backed arrays after writing.
+        ms_xdt = None
+        free_memory()
+
+
+def msv4_name(in_file: str, ms_v4_id: int | str) -> str:
+    """
+    Name of the MSv4 of a partition in the processing set: the MSv2 name
+    without ".ms" (every occurrence) and the MSv4 id.
+    """
+    return pathlib.Path(in_file).name.replace(".ms", "") + "_" + str(ms_v4_id)
+
+
+@dataclasses.dataclass
+class BuiltPartition:
+    """
+    An MSv4 built by build_partition, with what is needed to read its MAIN
+    data variables (``deferred``: placeholders, see stream_write.py) while the
+    context of build_partition is open.
+
+    Attributes
+    ----------
+    ms_xdt : xr.DataTree
+        The MSv4: main xds (with the placeholders of ``deferred``) and its
+        sub-datasets, as the converter writes it.
+    deferred : dict[str, DeferredVariable] | None
+        The data variables of the main xds that are placeholders, by name, or
+        None if they were read (see ``defer_main_columns``).
+    main_rows : MainTableRows
+        The MAIN table and the partition's rows (open only inside the context).
+    tidxs, bidxs : np.ndarray
+        Time and baseline index of every partition row (calc_indx_for_row_split).
+    time_baseline_shape : tuple[int, int]
+        Number of times and of baselines of the main xds.
+    reverse_frequency : bool
+        Whether the frequency axis of the main xds is reversed with respect to
+        the MAIN cells (decreasing frequencies in the MSv2).
+    utime : np.ndarray
+        The unique times of the rows (calc_indx_for_row_split).
+    baseline_ant1, baseline_ant2 : np.ndarray
+        ANTENNA1 and ANTENNA2 of every baseline (calc_indx_for_row_split).
+    """
+
+    ms_xdt: xr.DataTree
+    deferred: dict[str, DeferredVariable] | None
+    main_rows: MainTableRows
+    tidxs: np.ndarray
+    bidxs: np.ndarray
+    time_baseline_shape: tuple[int, int]
+    reverse_frequency: bool
+    utime: np.ndarray
+    baseline_ant1: np.ndarray
+    baseline_ant2: np.ndarray
+
+
+@contextmanager
+def build_partition(
+    in_file: str,
+    partition_info: dict,
+    main_chunksize: dict | float | None = None,
+    with_pointing: bool = True,
+    pointing_chunksize: dict | float | None = None,
+    pointing_interpolate: bool = False,
+    ephemeris_interpolate: bool = False,
+    phase_cal_interpolate: bool = False,
+    sys_cal_interpolate: bool = False,
+    # the codec default is an immutable config object, safe to build once here
+    compressor: zarr.abc.codec.BytesBytesCodec = zarr.codecs.BloscCodec(  # noqa: B008
+        cname="lz4", clevel=5, shuffle="noshuffle"
+    ),
+    add_reshaping_indices: bool = False,
+    parallel_mode: str = "none",
+    subtable_cache: SubtableCache | None = None,
+    main_row_runs: PartitionMainRows | None = None,
+    unreadable_columns: frozenset[str] = frozenset(),
+    defer_main_columns: bool = False,
+) -> Generator[BuiltPartition | None, None, None]:
+    """
+    Builds the MSv4 of one partition of an MSv2 (main xds, attributes and all
+    sub-datasets) and yields it with the partition's MAIN table still open:
+    None for a partition without rows. Shared by the converter
+    (_convert_and_write_partition, which writes it) and the MSv2 xarray
+    backend. The MAIN table is closed when the context exits, also when an
+    exception is raised in it (the exception propagates unchanged).
+
+    Parameters
+    ----------
+    defer_main_columns : bool, optional
+        True: the data variables read from MAIN columns are placeholders
+        described in ``BuiltPartition.deferred`` (see stream_write.py), for
+        the caller to read; except with parallel_mode="time" and a time chunk
+        size, where they are lazy (dask) reads and ``deferred`` is None.
+        False (default): they are read here (numpy, or dask with
+        parallel_mode="time" and a time chunk size).
+    in_file, partition_info, main_chunksize, with_pointing, pointing_chunksize,
+    pointing_interpolate, ephemeris_interpolate, phase_cal_interpolate,
+    sys_cal_interpolate, compressor, add_reshaping_indices, parallel_mode,
+    subtable_cache, main_row_runs, unreadable_columns :
+        As for _convert_and_write_partition.
+
+    Yields
+    ------
+    BuiltPartition | None
+        The MSv4 and what is needed to read its deferred data variables, or
+        None if the partition has no MAIN rows.
+    """
+
+    ms_xdt = xr.DataTree()  # MSv4 as a Data Tree
+
+    taql_where = create_taql_query_where(partition_info)
     ddi = partition_info["DATA_DESC_ID"][0]
     scan_intents = str(partition_info["OBS_MODE"][0]).split(",")
 
@@ -1547,7 +1776,8 @@ def _convert_and_write_partition(
         open_partition_main_table(in_file, partition_info, main_row_runs) as tb_tool,
     ):
         if tb_tool.nrows() == 0:
-            return xr.Dataset(), {}, {}
+            yield None
+            return
 
         xradio_logger().debug("Starting a real convert_and_write_partition")
         (
@@ -1626,7 +1856,7 @@ def _convert_and_write_partition(
         main_chunksize = parse_chunksize(main_chunksize, "main", xds)
         deferred: dict[str, DeferredVariable] | None = (
             {}
-            if use_stream_write
+            if defer_main_columns
             and data_variables_parallel_mode(parallel_mode, main_chunksize) != "time"
             else None
         )
@@ -1860,11 +2090,6 @@ def _convert_and_write_partition(
             "Time add compressor and chunk " + str(time.time() - start)
         )
 
-        os.path.join(
-            out_file,
-            pathlib.Path(in_file).name.replace(".ms", "") + "_" + str(ms_v4_id),
-        )
-
         if is_single_dish:
             xds.attrs["type"] = "spectrum"
             xds = xds.drop_vars("UVW")
@@ -1881,26 +2106,7 @@ def _convert_and_write_partition(
             xds["bidxs"] = bidxs
             xds["row_id"] = tb_tool.rownumbers()  # tb_tool.getcol("row_id")
 
-        if deferred is not None:
-            # Read the data variables whole and write the MSv4 with one to_zarr,
-            # as the non-streamed path, if they are small (a fraction of a batch
-            # together: the streamed write costs a few ms per variable) or if
-            # xarray's encoding of a variable would change its values (the
-            # streamed write writes them to the zarr arrays directly)
-            problems = deferred_encoding_problems(xds, deferred)
-            if problems:
-                xradio_logger().warning(
-                    "The MAIN data variables are not streamed (their encoding "
-                    f"changes the values): {'; '.join(problems)}"
-                )
-            if problems or fits_in_memory(xds, deferred, stream_batch_bytes):
-                read_deferred_variables(
-                    xds, deferred, tb_tool, tidxs, bidxs, reverse_frequency
-                )
-                deferred = None
-
         start = time.time()
-        ms_v4_name = pathlib.Path(in_file).name.replace(".ms", "") + "_" + str(ms_v4_id)
         ms_xdt.ds = xds
 
         ms_xdt["/antenna_xds"] = ant_xds
@@ -1925,80 +2131,18 @@ def _convert_and_write_partition(
         if phased_array_xds:
             ms_xdt["/phased_array_xds"] = phased_array_xds
 
-        if storage_backend == "zarr":
-            from xradio._utils.zarr.config import ZARR_FORMAT
-
-            store_path = os.path.join(out_file, ms_v4_name)
-            if deferred is None:
-                ms_xdt.to_zarr(
-                    store=store_path,
-                    mode=persistence_mode,
-                    zarr_format=ZARR_FORMAT,
-                )
-            else:
-                # Streamed write: all metadata (encodings), coordinates, small
-                # variables and sub-datasets now; the deferred (placeholder)
-                # variables are never computed but written next, one at a time,
-                # in batches of whole zarr chunks along time. The consolidated
-                # metadata is written last: until then (and after a hard kill)
-                # the MSv4 opens as incomplete, as one whose to_zarr was
-                # interrupted (see stream_write.py).
-                check_deferred_variables(xds, deferred)
-                members_before = msv4_members(store_path)
-                store_existed = members_before is not None
-                ms_xdt.to_zarr(
-                    store=store_path,
-                    mode=persistence_mode,
-                    zarr_format=ZARR_FORMAT,
-                    compute=False,
-                    consolidated=False,
-                )
-                try:
-                    drop_consolidated_metadata(store_path)
-                    write_deferred_variables(
-                        store_path,
-                        xds,
-                        deferred,
-                        tb_tool,
-                        tidxs,
-                        bidxs,
-                        time_baseline_shape[1],
-                        reverse_frequency,
-                        stream_batch_bytes,
-                    )
-                    consolidate_msv4(store_path)
-                except BaseException as exc:
-                    # No MSv4 with unwritten (fill value) data variables is left:
-                    # after a failed read the partition is converted again without
-                    # the column, after an encoding the streamed write does not
-                    # apply without the streamed write (convert_and_write_partition),
-                    # otherwise the error is raised.
-                    done = discard_msv4(
-                        store_path,
-                        set(deferred),
-                        remove_store=persistence_mode in ("w", "w-")
-                        or not store_existed,
-                        members_before=members_before,
-                    )
-                    # Lets convert_and_write_partition overwrite, on its next
-                    # attempt, only an MSv4 this attempt created.
-                    exc.created_msv4 = not store_existed
-                    log = xradio_logger().debug
-                    if not isinstance(exc, DeferredReadError | DeferredEncodingError):
-                        log = xradio_logger().error
-                    log(f"Writing the data variables of {store_path} failed: {done}")
-                    raise
-        elif storage_backend == "netcdf":
-            # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
-            raise
-        xradio_logger().debug("Write data  " + str(time.time() - start))
-
-        # get_logger().info("Saved ms_v4 " + file_name + " in " + str(time.time() - start_with) + "s")
-
-        # Drop the dataset reference and trigger explicit cleanup to help release
-        # memory retained by Dask task graphs and large NumPy-backed arrays after writing.
-        ms_xdt = None
-        free_memory()
+        yield BuiltPartition(
+            ms_xdt=ms_xdt,
+            deferred=deferred,
+            main_rows=tb_tool,
+            tidxs=tidxs,
+            bidxs=bidxs,
+            time_baseline_shape=time_baseline_shape,
+            reverse_frequency=reverse_frequency,
+            utime=utime,
+            baseline_ant1=baseline_ant1_id,
+            baseline_ant2=baseline_ant2_id,
+        )
 
 
 # convert_and_write_partition has the signature of _convert_and_write_partition

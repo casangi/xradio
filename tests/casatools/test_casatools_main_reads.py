@@ -28,7 +28,8 @@ Known differences with casatools:
   nothing beyond the first cell and the read decides; the read window of the
   small-read guard is the nominal one instead of the tile.
 
-Skipped where python-casacore is installed (the Linux and macOS workflows).
+Skipped where casatools is not installed or python-casacore is (the Linux and
+macOS workflows), see reference.skip_unless_casatools_backend.
 """
 
 import pytest

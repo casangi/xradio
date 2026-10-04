@@ -11,6 +11,8 @@ with python-casacore or with casatools.
 """
 
 import hashlib
+import importlib
+import importlib.util
 import json
 import pathlib
 from typing import Any
@@ -129,15 +131,28 @@ SUBSET_ROWS = 2000
 COLUMN_FIELDS = ("check", "window", "values", "grid")
 
 
+SHIM_MODULE = "xradio._utils._casacore.casacore_from_casatools"
+
+
 def skip_unless_casatools_backend() -> None:
     """
-    Skip the calling test module (call it at module level) unless xradio
-    reads MSv2 with casatools: python-casacore is not importable (xradio uses
-    it whenever it is) and casatools is (imported through xradio's casatools
-    shim, which configures casaconfig first). The Linux and macOS test
-    workflows install python-casacore and so skip these tests; the casatools
-    workflow runs them.
+    Skip the calling test module (call it at module level) where xradio does
+    not read MSv2 with casatools, and only there: casatools is not installed,
+    or python-casacore is importable (xradio uses it whenever it is). The
+    Linux and macOS test workflows (python-casacore) skip these tests; the
+    casatools workflow runs them.
+
+    Otherwise xradio's casatools shim (SHIM_MODULE, which configures casaconfig
+    and imports casatools) is imported, and an import error is raised, not a
+    skip: with casatools installed and no python-casacore, a shim or casatools
+    that cannot be imported is an error of the casatools workflow.
     """
+    if importlib.util.find_spec("casatools") is None:
+        pytest.skip(
+            "casatools is not installed: these tests need casatools without "
+            "python-casacore (the casatools test workflow)",
+            allow_module_level=True,
+        )
     try:
         from casacore import tables  # noqa: F401
     except ImportError:
@@ -149,13 +164,7 @@ def skip_unless_casatools_backend() -> None:
             "python-casacore (the casatools test workflow)",
             allow_module_level=True,
         )
-    try:
-        import xradio._utils._casacore.casacore_from_casatools  # noqa: F401
-    except ImportError as exc:
-        pytest.skip(
-            f"neither python-casacore nor casatools can be imported ({exc})",
-            allow_module_level=True,
-        )
+    importlib.import_module(SHIM_MODULE)
 
 
 def ms_path(ms_name: str, folder: pathlib.Path = MS_DIR) -> pathlib.Path:

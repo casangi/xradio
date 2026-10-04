@@ -23,7 +23,8 @@ variables read from them (VISIBILITY*, SPECTRUM*, WEIGHT), whose dtype is
 that of the first cell, are float64 / complex128 instead of float32 /
 complex64, with the same values.
 
-Skipped where python-casacore is installed (the Linux and macOS workflows).
+Skipped where casatools is not installed or python-casacore is (the Linux and
+macOS workflows), see reference.skip_unless_casatools_backend.
 """
 
 import shutil

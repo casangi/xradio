@@ -4,14 +4,19 @@ casatools test workflow): through the casatools shim
 (xradio._utils._casacore.casacore_from_casatools), with getcol reads (no
 in-place reads) and without the sub-table cache.
 
-Skipped where python-casacore is installed (the Linux and macOS workflows).
+Skipped where casatools is not installed or python-casacore is (the Linux and
+macOS workflows), see reference.skip_unless_casatools_backend.
 """
+
+import sys
+
+import pytest
 
 from tests.casatools import reference as ref
 
 ref.skip_unless_casatools_backend()
 
-SHIM = "xradio._utils._casacore.casacore_from_casatools"
+SHIM = ref.SHIM_MODULE
 
 
 def test_xradio_reads_msv2_with_casatools():
@@ -57,3 +62,21 @@ def test_subtable_cache_not_used():
     assert sc.resolve_subtable_cache(sc.SubtableCache()) is None
     assert sc.resolve_subtable_cache(None) is None
     assert conversion.resolve_subtable_cache(None) is None
+
+
+def test_import_error_of_the_shim_is_not_skipped(monkeypatch):
+    """
+    With casatools installed and python-casacore not, an error importing
+    xradio's casatools shim (or casatools) is raised by
+    skip_unless_casatools_backend, not turned into a skip: a casatools that
+    cannot be imported fails the casatools workflow.
+    """
+    monkeypatch.setitem(sys.modules, ref.SHIM_MODULE, None)  # its import raises
+    try:
+        ref.skip_unless_casatools_backend()
+    except ImportError:
+        pass
+    except pytest.skip.Exception as exc:
+        pytest.fail(f"skipped instead of raising the import error: {exc}")
+    else:
+        pytest.fail("no import error")

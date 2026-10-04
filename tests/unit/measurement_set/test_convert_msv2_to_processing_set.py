@@ -317,5 +317,40 @@ def test_convert_msv2_to_processing_set_casatools_reads_identical(
     _assert_trees_identical(trees["python-casacore"], trees["casatools-like"])
 
 
+def test_convert_msv2_to_processing_set_use_table_iter_deprecated(
+    ms_minimal_required, tmp_path, recwarn
+):
+    """use_table_iter is a no-op: True emits one DeprecationWarning (not one
+    per partition) and gives the same processing set as False (no warning)."""
+    from xradio.measurement_set import convert_msv2_to_processing_set
+
+    def convert(use_table_iter):
+        out_file = str(tmp_path / f"iter_{use_table_iter}.ps.zarr")
+        convert_msv2_to_processing_set(
+            ms_minimal_required.fname,
+            out_file=out_file,
+            partition_scheme=["FIELD_ID"],
+            partition_filter=lambda p: p["DATA_DESC_ID"][0] in (0, 1),
+            use_table_iter=use_table_iter,
+            persistence_mode="w",
+        )
+        return xr.open_datatree(out_file, engine="zarr")
+
+    def deprecations():
+        return [
+            w
+            for w in recwarn
+            if w.category is DeprecationWarning and "use_table_iter" in str(w.message)
+        ]
+
+    without = convert(False)
+    assert deprecations() == []
+    with_iter = convert(True)
+    assert len(with_iter.children) > 1
+    assert len(deprecations()) == 1
+    assert deprecations()[0].filename == __file__
+    _assert_trees_identical(without, with_iter)
+
+
 if __name__ == "__main__":
     pytest.main(["-v", "-s", __file__])

@@ -1,10 +1,12 @@
 import datetime
 import functools
 import importlib
+import inspect
 import os
 import pathlib
 import time
 import traceback
+import warnings
 from collections import deque
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
@@ -1315,10 +1317,35 @@ def estimate_memory_and_cores_for_partitions(
     return float(max_estimate), int(max_cores), int(recommended_cores)
 
 
+USE_TABLE_ITER_DEPRECATION = (
+    "use_table_iter is deprecated and has no effect: the MAIN table is always read "
+    "in bounded calls, without the table iterator"
+)
+
+
+def warn_use_table_iter(use_table_iter: bool, stacklevel: int = 3) -> None:
+    """
+    Emit the DeprecationWarning of use_table_iter=True (a no-op since the MAIN
+    table is read in bounded calls).
+
+    Parameters
+    ----------
+    use_table_iter : bool
+        The value given.
+    stacklevel : int, optional
+        Stack level of the warning (the caller of the caller by default).
+    """
+    if use_table_iter:
+        warnings.warn(
+            USE_TABLE_ITER_DEPRECATION, DeprecationWarning, stacklevel=stacklevel
+        )
+
+
 def convert_and_write_partition(*args, **kwargs):
     """
     Converts one partition of an MSv2 into an MSv4 and writes it (see
-    ``_convert_and_write_partition`` for the parameters).
+    ``_convert_and_write_partition`` for the parameters; use_table_iter is a
+    deprecated no-op, True emits a DeprecationWarning).
 
     With the streamed write of the MAIN data variables, a column whose read
     fails after the MSv4 metadata was written (see ``DeferredReadError``) makes
@@ -1329,6 +1356,14 @@ def convert_and_write_partition(*args, **kwargs):
     before any value is written), the partition is converted again without
     the streamed write.
     """
+    try:
+        bound = inspect.signature(_convert_and_write_partition).bind_partial(
+            *args, **kwargs
+        )
+    except TypeError:
+        pass  # raised again by the call below
+    else:
+        warn_use_table_iter(bound.arguments.get("use_table_iter", False))
     unreadable: set[str] = set()
     allow_stream_write = True
     for _ in range(len(col_to_data_variable_names) + 2):
@@ -1392,6 +1427,8 @@ def _convert_and_write_partition(
         _description_
     out_file : str
         _description_
+    use_table_iter : bool
+        Deprecated, has no effect (the MAIN table is read in bounded calls).
     scan_intents : str
         _description_
     ddi : int, optional

@@ -596,20 +596,24 @@ def test_convert_and_write_partition_custom(ms_custom_spec):
     out_name = "out_file_test_convert_write.zarr"
     msv4_id = "msv4_id"
     try:
-        conversion.convert_and_write_partition(
-            in_file=ms_custom_spec.fname,
-            out_file=out_name,
-            ms_v4_id=msv4_id,
-            partition_info={
-                "DATA_DESC_ID": [0],
-                "OBS_MODE": ["scan_intent#subscan_intent"],
-            },
-            use_table_iter=True,
-            pointing_interpolate=True,
-            ephemeris_interpolate=True,
-            phase_cal_interpolate=False,
-            sys_cal_interpolate=False,
-        )
+        # use_table_iter: deprecated, no effect
+        with pytest.warns(DeprecationWarning, match="use_table_iter") as record:
+            conversion.convert_and_write_partition(
+                in_file=ms_custom_spec.fname,
+                out_file=out_name,
+                ms_v4_id=msv4_id,
+                partition_info={
+                    "DATA_DESC_ID": [0],
+                    "OBS_MODE": ["scan_intent#subscan_intent"],
+                },
+                use_table_iter=True,
+                pointing_interpolate=True,
+                ephemeris_interpolate=True,
+                phase_cal_interpolate=False,
+                sys_cal_interpolate=False,
+            )
+        assert record[0].filename == __file__
+        assert len([w for w in record if "use_table_iter" in str(w.message)]) == 1
         msv4_xdt = xr.open_datatree(
             out_name + "/" + ms_custom_spec.fname.rsplit(".")[0] + "_" + msv4_id,
             engine="zarr",

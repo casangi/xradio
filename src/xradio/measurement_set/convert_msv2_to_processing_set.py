@@ -14,6 +14,7 @@ from xradio.measurement_set._utils._msv2._tables.subtable_cache import (
 from xradio.measurement_set._utils._msv2.conversion import (
     convert_and_write_partition,
     estimate_memory_and_cores_for_partitions,
+    warn_use_table_iter,
 )
 from xradio.measurement_set._utils._msv2.partition_queries import (
     create_partitions_with_main_rows,
@@ -127,8 +128,7 @@ def convert_msv2_to_processing_set(
     sys_cal_interpolate : bool, optional
         Whether to interpolate the time axis of the system calibration data variables (sys_cal_xds) to the time axis of the main dataset
     use_table_iter : bool, optional
-        Whether to use the table iterator to read the main table of the MS v2. This should be set to True when reading datasets with large number of rows and few partitions, by default False.
-        Only used by the TaQL main-table read path (the default row read path reads in bounded calls without it).
+        Deprecated, has no effect: the main table of the MS v2 is always read in bounded calls (this option selected reading it time by time with the table iterator). True emits a DeprecationWarning. By default False.
     compressor : zarr.abc.codec.BytesBytesCodec, optional
         The zarr v3 bytes-to-bytes codec to use when saving the converted data to disk using Zarr, by default zarr.codecs.BloscCodec(cname="lz4", clevel=5, shuffle="noshuffle"). blosc-lz4 decompresses markedly faster than zstd for the high-entropy visibility data (faster reads/loads) at a small cost in compression ratio.
     add_reshaping_indices : bool, optional
@@ -148,6 +148,8 @@ def convert_msv2_to_processing_set(
         “a” means override all existing variables including dimension coordinates (create if does not exist); Use this mode if you want to add to an existing Processing Set.
         The default is "w-".
     """
+
+    warn_use_table_iter(use_table_iter)
 
     # Create empty data tree
     import xarray as xr
@@ -241,7 +243,7 @@ def convert_msv2_to_processing_set(
                         out_file,
                         ms_v4_id,
                         partition_info=partition_info,
-                        use_table_iter=use_table_iter,
+                        use_table_iter=False,  # deprecated, warned above
                         partition_scheme=partition_scheme,
                         main_chunksize=main_chunksize,
                         with_pointing=with_pointing,
@@ -265,7 +267,7 @@ def convert_msv2_to_processing_set(
                     out_file,
                     ms_v4_id,
                     partition_info=partition_info,
-                    use_table_iter=use_table_iter,
+                    use_table_iter=False,  # deprecated, warned above
                     partition_scheme=partition_scheme,
                     main_chunksize=main_chunksize,
                     with_pointing=with_pointing,

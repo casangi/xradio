@@ -1733,6 +1733,7 @@ def build_partition(
     main_row_runs: PartitionMainRows | None = None,
     unreadable_columns: frozenset[str] = frozenset(),
     defer_main_columns: bool = False,
+    pointing_generic_loader: Callable | None = None,
 ) -> Generator[BuiltPartition | None, None, None]:
     """
     Builds the MSv4 of one partition of an MSv2 (main xds, attributes and all
@@ -1751,6 +1752,9 @@ def build_partition(
         size, where they are lazy (dask) reads and ``deferred`` is None.
         False (default): they are read here (numpy, or dask with
         parallel_mode="time" and a time chunk size).
+    pointing_generic_loader : Callable | None, optional
+        Passed to create_pointing_xds as ``generic_loader`` (the MSv2 xarray
+        backend's lazy pointing_xds); None (default): POINTING is read here.
     in_file, partition_info, main_chunksize, with_pointing, pointing_chunksize,
     pointing_interpolate, ephemeris_interpolate, phase_cal_interpolate,
     sys_cal_interpolate, compressor, add_reshaping_indices, parallel_mode,
@@ -1984,7 +1988,11 @@ def build_partition(
             else:
                 pointing_interp_time = None
             pointing_xds = create_pointing_xds(
-                in_file, ant_xds_name_ids, time_min_max, pointing_interp_time
+                in_file,
+                ant_xds_name_ids,
+                time_min_max,
+                pointing_interp_time,
+                generic_loader=pointing_generic_loader,
             )
             pointing_chunksize = parse_chunksize(
                 pointing_chunksize, "pointing", pointing_xds

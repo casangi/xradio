@@ -252,7 +252,7 @@ def generic_dims(
 
 
 def read_pointing_columns(
-    table_path: str, data_columns: tuple[str, ...]
+    table_path: str, data_columns: tuple[str, ...], keep_data: bool = True
 ) -> PointingColumns | None:
     """
     Reads TIME, ANTENNA_ID and the given data columns of a POINTING table once,
@@ -266,6 +266,9 @@ def read_pointing_columns(
     data_columns : tuple[str, ...]
         Columns the pointing_xds is built from (columns not in the table are
         ignored). DIRECTION must be in the table.
+    keep_data : bool, optional
+        False: the data columns are never kept in memory (only checked, in
+        bounded reads), as for tables over POINTING_MAX_CACHED_DATA_BYTES.
 
     Returns
     -------
@@ -275,7 +278,7 @@ def read_pointing_columns(
         used. A MemoryError is raised (not stored as "not suitable").
     """
     try:
-        return _read_pointing_columns(table_path, data_columns)
+        return _read_pointing_columns(table_path, data_columns, keep_data)
     except MemoryError:
         raise
     except Exception as exc:
@@ -288,7 +291,7 @@ def _not_cached(table_path: str, reason: str) -> None:
 
 
 def _read_pointing_columns(
-    table_path: str, data_columns: tuple[str, ...]
+    table_path: str, data_columns: tuple[str, ...], keep_data: bool = True
 ) -> PointingColumns | None:
     if maybe_promote is None:
         return _not_cached(table_path, "xarray.core.dtypes.maybe_promote missing")
@@ -346,7 +349,7 @@ def _read_pointing_columns(
             dtype.itemsize * int(np.prod(cell_shape))
             for dtype, cell_shape in data_cells.values()
         )
-        in_memory = data_bytes <= POINTING_MAX_CACHED_DATA_BYTES
+        in_memory = keep_data and data_bytes <= POINTING_MAX_CACHED_DATA_BYTES
         for col in data_cols:
             if in_memory:
                 try:  # raises if a cell has another shape (or is undefined)

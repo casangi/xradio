@@ -118,7 +118,7 @@ def convert_msv2_to_processing_set(
     with_pointing : bool, optional
         Whether to convert the POINTING subtable into pointing sub-datasets
     pointing_chunksize : Union[Dict, float, None], optional
-        Defines the chunk size of the pointing dataset. If given as a dictionary, defines the sizes of several dimensions, acceptable keys are "time" and "antenna_id". If given as a float, defines the size of a chunk in GiB. By default, None: one chunk per variable.
+        Defines the chunk size of the pointing dataset. If given as a dictionary, defines the sizes of several dimensions, acceptable keys are "time" and "antenna". If given as a float, defines the size of a chunk in GiB. By default, None: one chunk per variable.
     pointing_interpolate : bool, optional
         Whether to interpolate the time axis of the pointing sub-dataset to the time axis of the main dataset
     ephemeris_interpolate : bool, optional

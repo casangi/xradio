@@ -479,7 +479,7 @@ def test_memo_modes(backend_ms, monkeypatch):
     partition_cache.clear_partition_memo()
     path = os.path.abspath(msname)
     first = partition_cache.load_or_create_partitions(path, [], "read")
-    assert (first.source, first.status) == ("fresh", "memory:computed")
+    assert (first.source, first.status) == ("fresh", "memory:mode-read")
     first.partitions[0]["DATA_DESC_ID"] = [99]  # copies: the memo is unchanged
     for mode in ("auto", "read"):
         result = partition_cache.load_or_create_partitions(path, [], mode)

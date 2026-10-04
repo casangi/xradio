@@ -1892,3 +1892,142 @@ def test_stream_write_selection(
     in_memory = streamed and batch_mb is None
     assert len(calls) == (1 if streamed and not in_memory else 0)
     assert len(read_whole) == (1 if in_memory else 0)
+
+
+# --- the casatools shim: reads without getcolnp, getcolslicenp, selectrows -------
+
+
+def _assert_casatools_like_backend():
+    from xradio.measurement_set._utils._msv2._tables import read_rows
+
+    assert not read_rows.backend_has_in_place_reads()
+    assert conversion.resolve_subtable_cache(None) is None  # no sub-table cache
+
+
+@pytest.mark.parametrize("layout", MAIN_LAYOUTS)
+@pytest.mark.parametrize(
+    "parallel_mode, chunks, batch_mb",
+    [
+        ("none", None, None),  # read whole, one to_zarr
+        ("none", {"time": 4}, 1e-9),  # streamed, one chunk per batch
+        ("time", {"time": 4}, None),  # lazy (dask) reads
+    ],
+)
+def test_convert_and_write_partition_casatools_reads_identical(
+    ms_main_layouts,
+    layout,
+    parallel_mode,
+    chunks,
+    batch_mb,
+    tmp_path,
+    monkeypatch,
+    request,
+):
+    """
+    With the table API of the casatools shim (getcol only, no sub-table
+    cache) a partition converts to a byte-identical MSv4: dense, sparse with
+    duplicated rows and baseline-major rows, all MAIN read modes.
+    """
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
+
+    msname = ms_main_layouts[layout]
+    partitions, runs = create_partitions_with_main_rows(msname, [])
+    kw = {
+        "main_chunksize": chunks,
+        "main_row_runs": runs[1],
+        "parallel_mode": parallel_mode,
+    }
+    _, old = _convert_streamed(
+        monkeypatch, msname, str(tmp_path / "old"), partitions[1], "1", batch_mb, **kw
+    )
+    request.getfixturevalue("casatools_like_tables")
+    _assert_casatools_like_backend()
+    for name, extra in (("runs", {}), ("no_runs", {"main_row_runs": None})):
+        _, new = _convert_streamed(
+            monkeypatch,
+            msname,
+            str(tmp_path / name),
+            partitions[1],
+            "1",
+            batch_mb,
+            **(kw | extra),
+        )
+        assert_stores_identical(old, new)
+
+
+@pytest.mark.parametrize(
+    "variant", ["reversed_freq", "wsp_partial", "varying_shape", "reftable_wsp_partial"]
+)
+def test_convert_and_write_partition_casatools_column_decisions(
+    ms_stream_edges, variant, tmp_path, monkeypatch, request, partition_attempts
+):
+    """Undefined cells, cells of another shape, a reference table and
+    reversed frequencies with the casatools table API: the same MSv4."""
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
+
+    msname = ms_stream_edges[variant]
+    partitions, runs = create_partitions_with_main_rows(msname, [])
+    idx = 0 if variant == "reftable_wsp_partial" else 1
+    kw = {"main_chunksize": {"time": 4}, "main_row_runs": runs[idx]}
+    _, old = _convert_streamed(
+        monkeypatch, msname, str(tmp_path / "old"), partitions[idx], "1", 1e-9, **kw
+    )
+    attempts_old = list(partition_attempts)
+    partition_attempts.clear()
+    request.getfixturevalue("casatools_like_tables")
+    _assert_casatools_like_backend()
+    _, new = _convert_streamed(
+        monkeypatch, msname, str(tmp_path / "new"), partitions[idx], "1", 1e-9, **kw
+    )
+    assert_stores_identical(old, new)
+    assert partition_attempts == attempts_old
+
+
+@pytest.mark.parametrize(
+    "variant, scheme",
+    [("interferometer", ["FIELD_ID"]), ("single_dish", ["ANTENNA1"])],
+)
+def test_convert_and_write_partition_casatools_tiled_shape_main(
+    ms_tiled_shape_main, variant, scheme, tmp_path, monkeypatch, request
+):
+    """TiledShapeStMan MAIN columns whose tiles hold rows of several
+    partitions, with the casatools table API."""
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
+
+    msname = ms_tiled_shape_main[variant]
+    partitions, runs = create_partitions_with_main_rows(msname, scheme)
+    kw = {"with_pointing": False, "main_chunksize": {"time": 3}}
+    old = []
+    for idx in range(2):
+        old.append(
+            _convert_streamed(
+                monkeypatch,
+                msname,
+                str(tmp_path / f"old{idx}"),
+                partitions[idx],
+                "1",
+                1e-9,
+                main_row_runs=runs[idx],
+                **kw,
+            )[1]
+        )
+    request.getfixturevalue("casatools_like_tables")
+    _assert_casatools_like_backend()
+    for idx in range(2):
+        _, new = _convert_streamed(
+            monkeypatch,
+            msname,
+            str(tmp_path / f"new{idx}"),
+            partitions[idx],
+            "1",
+            1e-9,
+            main_row_runs=runs[idx],
+            **kw,
+        )
+        assert_stores_identical(old[idx], new)

@@ -1123,3 +1123,285 @@ def test_time_chunk_rows_n_runs(time_ordered, time_chunks, contiguous):
     assert chunk_rows.n_runs() == expected
     empty = np.empty(0, dtype=np.int64)
     assert rr.TimeChunkRows(empty, empty, empty, time_chunks, nb).n_runs() == 0
+
+
+# --- tables without in-place reads (the casatools shim) ---------------------------
+
+
+class GetcolOnlyTable:
+    """
+    A python-casacore table with the read API of the casatools shim
+    (casacore_from_casatools): no getcolnp, getcolslicenp or selectrows.
+    Records every getcol call as (start row, number of rows). With ``upcast``
+    getcol returns float64 / complex128 / int64 values for float / complex /
+    int columns (as a binding with other dtypes would): the reads must give
+    the same values.
+    """
+
+    HIDDEN = rr.IN_PLACE_READ_METHODS
+
+    def __init__(self, table, upcast=False):
+        self._table = table
+        self._upcast = upcast
+        self.getcol_calls = []
+
+    def __getattr__(self, name):
+        if name in self.HIDDEN:
+            raise AttributeError(name)
+        return getattr(self._table, name)
+
+    def getcol(self, col, startrow=0, nrow=-1, rowincr=1):
+        values = self._table.getcol(col, startrow, nrow, rowincr)
+        self.getcol_calls.append((startrow, len(values)))
+        if self._upcast and isinstance(values, np.ndarray):
+            wider = {"f": np.float64, "c": np.complex128, "i": np.int64}
+            values = values.astype(wider.get(values.dtype.kind, values.dtype))
+        return values
+
+
+def assert_getcol_calls(spy, max_elems, cell_elems, itemsize):
+    """Ascending, bounded getcol calls, none over the whole column."""
+    end = 0
+    for start, n in spy.getcol_calls:
+        assert start >= end  # one ascending pass
+        assert (start, n) != (0, NROWS)  # never the whole column
+        assert n * cell_elems <= max(cell_elems, max_elems)
+        assert n * cell_elems * itemsize <= max(
+            cell_elems * itemsize, rr.GETCOL_MAX_BYTES
+        )
+        end = start + n
+
+
+def test_has_in_place_reads(rows_tb):
+    tb, _ = rows_tb
+    assert rr.has_in_place_reads(tb) and rr.has_in_place_reads(tables.table)
+    assert rr.backend_has_in_place_reads()  # python-casacore
+    assert not rr.has_in_place_reads(GetcolOnlyTable(tb))
+
+
+@pytest.mark.parametrize("selection", ROW_SELECTIONS)
+@pytest.mark.parametrize(
+    "col", ["SCALAR_INT", "SCALAR_DOUBLE", "SSM_WEIGHT", "TSM_DATA", "TSM_FLAG"]
+)
+@pytest.mark.parametrize(
+    "max_elems, upcast", [(rr.DEFAULT_MAX_ELEMS, False), (25, True)]
+)
+def test_read_rows_getcol_matches_reference(rows_tb, selection, col, max_elems, upcast):
+    tb, ref = rows_tb
+    spy = GetcolOnlyTable(tb, upcast)
+    rows = ROW_SELECTIONS[selection]
+    expected = ref[col][rows]
+    out = sentinel_buffer(expected.shape, rr.column_dtype(tb, col))
+    stats = rr.read_rows(spy, col, rows, out, max_elems=max_elems)
+    np.testing.assert_array_equal(out, expected)
+    assert stats["calls"] == len(spy.getcol_calls)
+    assert stats.get("selectrows_calls", 0) == 0
+    # one call per run of rows (if the runs fit a call), also when fragmented
+    cell_elems = int(np.prod(expected.shape[1:])) or 1
+    if max_elems == rr.DEFAULT_MAX_ELEMS:
+        whole_column = rows.size == NROWS
+        assert stats["calls"] == rr.count_row_runs(rows) + whole_column
+    assert_getcol_calls(spy, max_elems, cell_elems, out.itemsize)
+
+
+def test_read_rows_getcol_bounded_temporaries(rows_tb, monkeypatch):
+    """getcol temporaries of at most GETCOL_MAX_BYTES, also within a call of
+    max_elems elements."""
+    tb, ref = rows_tb
+    monkeypatch.setattr(rr, "GETCOL_MAX_BYTES", 7 * NCHAN * NPOL * 8)
+    spy = GetcolOnlyTable(tb)
+    rows = np.r_[0:150]
+    out = sentinel_buffer((rows.size, NCHAN, NPOL), np.complex64)
+    stats = rr.read_rows(spy, "TSM_DATA", rows, out)
+    np.testing.assert_array_equal(out, ref["TSM_DATA"][rows])
+    assert [n for _, n in spy.getcol_calls] == [7] * 21 + [3]
+    assert stats["calls"] == 22
+
+
+@pytest.mark.parametrize("selection", ["all", "few_runs", "fragmented", "one_row"])
+@pytest.mark.parametrize(
+    "chan, pol",
+    [(slice(1, 4), None), (None, slice(1, 2)), (slice(5, 6), slice(0, 1))],
+)
+@pytest.mark.parametrize("max_elems", [7, rr.DEFAULT_MAX_ELEMS])
+def test_read_rows_getcol_cell_slice(rows_tb, selection, chan, pol, max_elems):
+    tb, ref = rows_tb
+    spy = GetcolOnlyTable(tb)
+    rows = ROW_SELECTIONS[selection]
+    expected = ref["TSM_DATA"][rows][
+        :, chan if chan else slice(None), pol if pol else slice(None)
+    ]
+    out = sentinel_buffer(expected.shape, np.complex64)
+    rr.read_rows(spy, "TSM_DATA", rows, out, chan=chan, pol=pol, max_elems=max_elems)
+    np.testing.assert_array_equal(out, expected)
+    # whole cells are read, in calls of at most max_elems of the slices
+    assert_getcol_calls(spy, max_elems * NCHAN * NPOL, NCHAN * NPOL, 8)
+
+
+def test_read_rows_getcol_undefined_cells(rows_tb):
+    tb, ref = rows_tb
+    spy = GetcolOnlyTable(tb)
+    out = sentinel_buffer((NROWS - 20, NCHAN, NPOL), np.complex64)
+    rows = UNDEF_DEFINED_ROWS[UNDEF_DEFINED_ROWS >= 20]
+    rr.read_rows(spy, "TSM_UNDEF", rows, out)
+    np.testing.assert_array_equal(out, ref["TSM_DATA"][rows])
+    out = sentinel_buffer((30, NCHAN, NPOL), np.complex64)
+    with pytest.raises(RuntimeError):  # rows 10-19 undefined
+        rr.read_rows(spy, "TSM_UNDEF", np.arange(30), out)
+    # cells of another shape than the buffer's
+    with pytest.raises(RuntimeError, match="shape"):
+        rr.read_rows(
+            spy, "TSM_DATA", np.arange(5), np.zeros((5, NCHAN, 1), np.complex64)
+        )
+
+
+def test_read_rows_getcol_one_row_table(tmp_path):
+    """A one-row table is read with getcell (a getcol of all its rows would be
+    casacore's whole-column read)."""
+    path = str(tmp_path / "one_row.tab")
+    desc = tables.maketabdesc(
+        [
+            tables.makearrcoldesc("DATA", 0j, shape=[NCHAN, NPOL], valuetype="complex"),
+            tables.makescacoldesc("NAME", "none"),
+            tables.makescacoldesc("SCALAR_INT", 0),
+        ]
+    )
+    cell = (np.arange(NCHAN * NPOL) + 1j).reshape(NCHAN, NPOL).astype(np.complex64)
+    with tables.table(path, desc, nrow=1, readonly=False, ack=False) as tb:
+        tb.putcell("DATA", 0, cell)
+        tb.putcell("NAME", 0, "only")
+        tb.putcell("SCALAR_INT", 0, 7)
+    with tables.table(path, ack=False) as tb:
+        spy = GetcolOnlyTable(tb)
+        out = np.zeros((1, NCHAN, NPOL), np.complex64)
+        stats = rr.read_rows(spy, "DATA", np.array([0]), out)
+        np.testing.assert_array_equal(out[0], cell)
+        out = np.zeros((1, 2, 1), np.complex64)
+        rr.read_rows(spy, "DATA", [0], out, chan=slice(1, 3), pol=slice(1, 2))
+        np.testing.assert_array_equal(out[0], cell[1:3, 1:2])
+        assert spy.getcol_calls == [] and stats == {"calls": 1}
+        assert list(rr.read_column_rows(spy, "NAME", np.array([0]))) == ["only"]
+        np.testing.assert_array_equal(
+            rr.read_column_rows(spy, "SCALAR_INT", np.array([0])), [7]
+        )
+        assert spy.getcol_calls == []
+
+
+def test_read_column_rows_getcol(rows_tb):
+    tb, ref = rows_tb
+    spy = GetcolOnlyTable(tb, upcast=True)
+    rows = ROW_SELECTIONS["few_runs"]
+    for col in ("SCALAR_INT", "SCALAR_DOUBLE", "SSM_WEIGHT", "TSM_DATA", "NAME"):
+        values = rr.read_column_rows(spy, col, rows)
+        np.testing.assert_array_equal(values, ref[col][rows])
+        expected = rr.read_column_rows(tb, col, rows)
+        assert values.dtype == expected.dtype  # the column dtype
+
+
+@pytest.mark.parametrize("upcast", [False, True])
+def test_read_row_range(rows_tb, upcast):
+    tb, ref = rows_tb
+    for table in (tb, GetcolOnlyTable(tb, upcast)):
+        out = sentinel_buffer((NROWS,), np.int32)
+        stats = rr.read_row_range(table, "SCALAR_INT", 0, NROWS, out, max_elems=64)
+        np.testing.assert_array_equal(out, ref["SCALAR_INT"])
+        # bounded calls, never the whole column
+        assert stats["calls"] == 4
+        out = sentinel_buffer((5, NCHAN, NPOL), np.complex64)
+        rr.read_row_range(table, "TSM_DATA", 30, 5, out)
+        np.testing.assert_array_equal(out, ref["TSM_DATA"][30:35])
+    with pytest.raises(IndexError):
+        rr.read_row_range(tb, "SCALAR_INT", 190, 20, np.zeros(20, np.int32))
+    with pytest.raises(ValueError, match="rows along its first axis"):
+        rr.read_row_range(tb, "SCALAR_INT", 0, 20, np.zeros(10, np.int32))
+    assert rr.read_row_range(tb, "SCALAR_INT", 0, 0, np.zeros(0, np.int32)) == {}
+
+
+@pytest.mark.parametrize("seed", range(2))
+@pytest.mark.parametrize("n_dup", [0, 5])
+@pytest.mark.parametrize("shuffle_cells", [False, True])
+@pytest.mark.parametrize("col", ["TSM_DATA", "TSM_FLAG", "SSM_WEIGHT", "SCALAR_DOUBLE"])
+@pytest.mark.parametrize("min_read_bytes", [0, None])
+def test_read_rows_to_grid_getcol_matches_in_place(
+    rows_tb, seed, n_dup, shuffle_cells, col, min_read_bytes
+):
+    """The getcol reads fill the grid exactly as the in-place reads (direct
+    segments, the temporary, duplicated cells), in one ascending pass."""
+    tb, _ = rows_tb
+    rows, gidx, nt, nb = make_plan_case(seed, n_dup=n_dup, shuffle_cells=shuffle_cells)
+    plan = rr.make_row_grid_plan(rows, gidx, nt * nb, min_direct_rows=4)
+    dtype = rr.column_dtype(tb, col)
+    cell_shape = tuple(tb.getcell(col, 0).shape) if not tb.isscalarcol(col) else ()
+    kw = {} if min_read_bytes is None else {"min_read_bytes": min_read_bytes}
+    expected = sentinel_buffer((nt, nb) + cell_shape, dtype)
+    rr.read_rows_to_grid(tb, col, plan, expected, **kw)
+    spy = GetcolOnlyTable(tb, upcast=seed % 2 == 1)
+    grid = sentinel_buffer(expected.shape, dtype)
+    stats = rr.read_rows_to_grid(spy, col, plan, grid, **kw)
+    np.testing.assert_array_equal(grid, expected)
+    assert stats.get("selectrows_calls", 0) == 0
+    assert stats["calls"] == len(spy.getcol_calls)
+    assert_getcol_calls(
+        spy, rr.DEFAULT_MAX_ELEMS, int(np.prod(cell_shape)) or 1, dtype.itemsize
+    )
+
+
+def test_read_rows_to_grid_getcol_fragmented_and_bridged(rows_tb, monkeypatch):
+    """Without selectrows a fragmented temporary is read with one call per
+    run; small gaps are bridged as with in-place reads, and a bridged gap over
+    undefined cells falls back to the partition rows."""
+    tb, ref = rows_tb
+    # 19 runs of 8 rows (one selectrows call with in-place reads)
+    rows = rr.runs_to_rows(np.arange(0, 190, 10), np.full(19, 8))
+    plan = rr.make_row_grid_plan(rows, np.arange(rows.size)[::-1], rows.size)
+    spy = GetcolOnlyTable(tb)
+    grid = np.zeros((rows.size, 1, NCHAN, NPOL), np.complex64)
+    stats = rr.read_rows_to_grid(spy, "TSM_DATA", plan, grid)
+    np.testing.assert_array_equal(grid[::-1, 0], ref["TSM_DATA"][rows])
+    assert spy.getcol_calls == [(start, 8) for start in range(0, 190, 10)]
+    assert stats.get("selectrows_calls", 0) == 0
+    # bridged gaps
+    rows = np.r_[0:60, 62:130, 131:199]
+    plan = rr.make_row_grid_plan(rows, np.arange(rows.size)[::-1], rows.size)
+    spy = GetcolOnlyTable(tb)
+    grid = np.zeros((rows.size, 1, NCHAN, NPOL), np.complex64)
+    stats = rr.read_rows_to_grid(spy, "TSM_DATA", plan, grid)
+    np.testing.assert_array_equal(grid[::-1, 0], ref["TSM_DATA"][rows])
+    assert spy.getcol_calls == [(0, 199)] and stats["gap_rows"] == 3
+    # a bridged gap over undefined cells (rows 10-19 of TSM_UNDEF)
+    monkeypatch.setattr(rr, "MAX_GAP_FRACTION", 1.0)
+    rows = np.r_[0:10, 20:150, 152:NROWS]
+    plan = rr.make_row_grid_plan(rows, np.arange(rows.size), rows.size)
+    spy = GetcolOnlyTable(tb)
+    grid = np.zeros((rows.size, 1, NCHAN, NPOL), np.complex64)
+    stats = rr.read_rows_to_grid(
+        spy, "TSM_UNDEF", plan, grid, max_tmp_bytes=100 * DATA_ROW_BYTES
+    )
+    np.testing.assert_array_equal(grid[:, 0], ref["TSM_DATA"][rows])
+    assert stats["bridge_fallbacks"] == 1 and stats.get("gap_rows", 0) == 0
+
+
+def test_check_partition_cells_getcol_scan(rows_tb):
+    """The cell shape scan of a TiledShapeStMan column without selectrows (one
+    getcolshapestring call per run, also for fragmented rows)."""
+    tb, _ = rows_tb
+    spy = GetcolOnlyTable(tb)
+    fragmented = np.arange(20, NROWS, 2)  # more runs than FRAGMENTED_RUNS
+    assert rr.count_row_runs(fragmented) > rr.FRAGMENTED_RUNS
+    check = rr.check_partition_cells(spy, "TSM_UNDEF", fragmented)
+    assert check.verified and "compared" in check.how
+    with pytest.raises(rr.ColumnNotReadableError, match="undefined"):
+        rr.check_partition_cells(spy, "TSM_UNDEF", np.r_[0:40:2, 41:NROWS:2])
+
+
+def test_main_table_rows_getcol(rows_tb):
+    tb, ref = rows_tb
+    rows = ROW_SELECTIONS["random"]
+    main_rows = rr.MainTableRows(GetcolOnlyTable(tb, upcast=True), rows)
+    np.testing.assert_array_equal(
+        main_rows.getcol("SCALAR_INT"), ref["SCALAR_INT"][rows]
+    )
+    assert main_rows.getcol("SCALAR_INT").dtype == np.int32
+    np.testing.assert_array_equal(
+        main_rows.getcol("TSM_DATA", 3, 4), ref["TSM_DATA"][rows[3:7]]
+    )

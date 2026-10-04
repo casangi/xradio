@@ -353,3 +353,33 @@ def taql_reference_column(ms_path: str, partition_info: dict, col: str):
 def taql_main_reference():
     """taql_reference_column (TaQL reads of MAIN columns, for comparisons)."""
     return taql_reference_column
+
+
+class _NotThere:
+    """A class attribute that reads as missing (AttributeError on access)."""
+
+    def __set_name__(self, owner, name):
+        self.name = name
+
+    def __get__(self, obj, objtype=None):
+        raise AttributeError(self.name)
+
+
+@pytest.fixture
+def casatools_like_tables(monkeypatch):
+    """
+    python-casacore with the read API of the casatools shim
+    (xradio/_utils/_casacore/casacore_from_casatools.py, used where
+    python-casacore is not installed): every table that xradio opens (with
+    ``tables.table(...)``) has no getcolnp, getcolslicenp or selectrows.
+    Yields the table class.
+    """
+    from casacore import tables
+
+    class GetcolOnlyTable(tables.table):
+        getcolnp = _NotThere()
+        getcolslicenp = _NotThere()
+        selectrows = _NotThere()
+
+    monkeypatch.setattr(tables, "table", GetcolOnlyTable)
+    yield GetcolOnlyTable

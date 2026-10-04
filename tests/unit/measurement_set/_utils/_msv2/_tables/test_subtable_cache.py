@@ -9,10 +9,19 @@ from xradio.measurement_set._utils._msv2._tables import subtable_cache as sc
 
 
 def test_resolve_subtable_cache():
+    assert sc.subtable_cache_supported()  # python-casacore
     shared = sc.SubtableCache()
     assert sc.resolve_subtable_cache(shared) is shared
     own = sc.resolve_subtable_cache(None)
     assert isinstance(own, sc.SubtableCache) and own is not shared
+
+
+def test_subtable_cache_not_used_with_casatools_like_tables(casatools_like_tables):
+    """The casatools shim (no in-place reads) reads the sub-tables per
+    partition: no sub-table cache."""
+    assert not sc.subtable_cache_supported()
+    assert sc.resolve_subtable_cache(sc.SubtableCache()) is None
+    assert sc.resolve_subtable_cache(None) is None
 
 
 def test_activate_subtable_cache_nests_and_resets():

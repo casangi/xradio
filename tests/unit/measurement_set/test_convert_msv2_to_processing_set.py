@@ -275,5 +275,47 @@ def test_convert_msv2_to_processing_set_subtable_cache_lifetime(
     assert not cache._state.values and not cache._state.memo  # cleared
 
 
+def test_convert_msv2_to_processing_set_casatools_reads_identical(
+    ms_minimal_required, tmp_path, monkeypatch, request
+):
+    """
+    With the table API of the casatools shim (getcol only: no getcolnp,
+    getcolslicenp or selectrows) the processing set is the same, without a
+    sub-table cache (every partition reads its sub-tables).
+    """
+    import importlib
+
+    from xradio.measurement_set import convert_msv2_to_processing_set
+
+    built = []
+    converter_module = importlib.import_module(
+        "xradio.measurement_set.convert_msv2_to_processing_set"
+    )
+    cache_class = converter_module.SubtableCache
+    monkeypatch.setattr(
+        converter_module,
+        "SubtableCache",
+        lambda **kwargs: built.append(kwargs) or cache_class(**kwargs),
+    )
+    trees = {}
+    for backend in ("python-casacore", "casatools-like"):
+        if backend == "casatools-like":
+            request.getfixturevalue("casatools_like_tables")
+        out_file = str(tmp_path / f"{backend}.ps.zarr")
+        convert_msv2_to_processing_set(
+            ms_minimal_required.fname,
+            out_file=out_file,
+            partition_scheme=["FIELD_ID"],
+            # the other SPWs have no PHASE_CAL rows (conversion fails)
+            partition_filter=lambda p: p["DATA_DESC_ID"][0] in (0, 1),
+            pointing_interpolate=True,
+            persistence_mode="w",
+        )
+        trees[backend] = xr.open_datatree(out_file, engine="zarr")
+    assert len(built) == 1  # no sub-table cache with the casatools API
+    assert len(trees["casatools-like"].children) > 1
+    _assert_trees_identical(trees["python-casacore"], trees["casatools-like"])
+
+
 if __name__ == "__main__":
     pytest.main(["-v", "-s", __file__])

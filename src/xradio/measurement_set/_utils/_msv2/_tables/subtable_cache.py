@@ -19,6 +19,12 @@ selection. With a cache active (see ``activate_subtable_cache``):
 The output is identical to the uncached reads. The MS must not change during a
 conversion.
 
+Backends: the cache is used with python-casacore only
+(``subtable_cache_supported``). Its loaders reproduce the values and dtypes of
+python-casacore's ``tables.row()`` / ``getcol()`` with in-place column reads;
+with the casatools shim every partition reads the sub-tables itself, as
+without cache.
+
 Whole-table values (POINTING, sorted columns) only pay off when several
 partitions use them: a cache that only one partition of this process is known
 to use (``SubtableCache(n_partitions=1)``, the cache of a direct
@@ -48,6 +54,10 @@ from collections.abc import Callable, Generator, Hashable
 from typing import Any
 
 import xarray as xr
+
+from xradio.measurement_set._utils._msv2._tables.read_rows import (
+    backend_has_in_place_reads,
+)
 
 # Sub-tables whose load_generic_table results are memoized: partitions typically
 # load them with identical arguments (same antennas, spectral window, ...).
@@ -372,6 +382,15 @@ def active_subtable_cache() -> SubtableCache | None:
     return _ACTIVE_SUBTABLE_CACHE.get()
 
 
+def subtable_cache_supported() -> bool:
+    """
+    Whether sub-table reads are cached with the casacore bindings in use:
+    with python-casacore, not with the casatools shim (no in-place column
+    reads, see the module docstring).
+    """
+    return backend_has_in_place_reads()
+
+
 def resolve_subtable_cache(
     subtable_cache: SubtableCache | None,
 ) -> SubtableCache | None:
@@ -386,10 +405,13 @@ def resolve_subtable_cache(
     Returns
     -------
     SubtableCache | None
-        ``subtable_cache``, or a new cache for this partition only if none was
-        given (it memoizes and vectorizes the sub-table loads, but builds no
-        whole-table value for a single use).
+        None if the cache is not supported (``subtable_cache_supported``).
+        Otherwise ``subtable_cache``, or a new cache for this partition only if
+        none was given (it memoizes and vectorizes the sub-table loads, but
+        builds no whole-table value for a single use).
     """
+    if not subtable_cache_supported():
+        return None
     if subtable_cache is not None:
         return subtable_cache
     return SubtableCache(n_partitions=1)

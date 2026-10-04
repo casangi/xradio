@@ -20,6 +20,7 @@ from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._msv2._tables.read import table_exists
 from xradio.measurement_set._utils._msv2._tables.read_rows import (
     group_row_runs_flat,
+    read_row_range,
     runs_to_rows,
 )
 
@@ -608,10 +609,8 @@ def select_main_rows(main_tb: tables.table, partition_info: dict) -> np.ndarray:
     nrows = main_tb.nrows()
 
     def read_int_col(name: str) -> np.ndarray:
-        # scalar int columns are never undefined: a whole-column read is safe
         values = np.empty(nrows, dtype=np.int32)
-        if nrows:
-            main_tb.getcolnp(name, values)
+        read_row_range(main_tb, name, 0, nrows, values)
         return values
 
     mask = None

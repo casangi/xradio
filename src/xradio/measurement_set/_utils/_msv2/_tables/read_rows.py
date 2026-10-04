@@ -1,5 +1,5 @@
 """
-TaQL-free reads of MSv2 MAIN-table rows (python-casacore).
+TaQL-free reads of MSv2 MAIN-table rows.
 
 The MAIN rows of a partition are selected once, in numpy (see
 ``partition_queries.create_partitions``). Every column of the partition is then
@@ -27,6 +27,16 @@ trap):
   column with undefined cells, where partial reads raise an exception instead.
 - Tables are opened in the process that reads them (no table opened before a
   ``fork()`` is used in the child).
+
+Backends: python-casacore reads into the caller's buffers (``getcolnp``,
+``getcolslicenp``) and makes reference tables of scattered rows
+(``selectrows``). The casatools shim (``casacore_from_casatools``, used where
+python-casacore is not installed, e.g. on macOS) has none of these: there every
+call is a ``getcol`` (or a ``getcell`` for a one-row table) into a temporary
+that is copied into the buffer, with the same rules (ascending rows, at most
+``max_elems`` elements per call, never the whole column), and scattered rows
+are read with one call per run of consecutive rows instead of ``selectrows``
+(see ``has_in_place_reads``).
 """
 
 import dataclasses
@@ -82,6 +92,12 @@ MAX_GAP_FRACTION = 0.125
 # (memcpy) rather than scattered row by row.
 MIN_SLICE_COPY_BYTES = 64 * 1024
 
+# python-casacore table methods that read into the caller's buffer or select
+# rows; a table without all of them (the casatools shim) is read with getcol
+IN_PLACE_READ_METHODS = ("getcolnp", "getcolslicenp", "selectrows")
+# Bound of the temporary of one getcol call (tables without in-place reads)
+GETCOL_MAX_BYTES = 16 * 1024 * 1024
+
 # casacore column value type -> numpy dtype that python-casacore uses for it
 CASACORE_TO_NUMPY_DTYPE = {
     "boolean": np.dtype(np.bool_),
@@ -91,6 +107,35 @@ CASACORE_TO_NUMPY_DTYPE = {
     "complex": np.dtype(np.complex64),
     "dcomplex": np.dtype(np.complex128),
 }
+
+
+def has_in_place_reads(table: Any) -> bool:
+    """
+    Whether a table (or table class) reads columns into the caller's buffers
+    and selects rows (python-casacore's ``getcolnp``, ``getcolslicenp`` and
+    ``selectrows``). The casatools shim does not: the reads here then use
+    ``getcol`` and a copy.
+
+    Parameters
+    ----------
+    table : Any
+        A table, or a table class.
+
+    Returns
+    -------
+    bool
+        True if all of IN_PLACE_READ_METHODS are available.
+    """
+    return all(hasattr(table, name) for name in IN_PLACE_READ_METHODS)
+
+
+def backend_has_in_place_reads() -> bool:
+    """
+    Whether the casacore bindings in use (python-casacore, or the casatools
+    shim when python-casacore is not installed) read in place
+    (``has_in_place_reads`` of their table class).
+    """
+    return has_in_place_reads(tables.table)
 
 
 def rows_to_runs(rows: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -361,6 +406,104 @@ def _cell_slicer(
     return blc, trc
 
 
+def _cell_slices(
+    slicer: tuple[list[int], list[int]] | None, cell_ndim: int
+) -> tuple[slice, ...]:
+    """numpy slices of the cells for a getcolslicenp blc/trc (see _cell_slicer)."""
+    if slicer is None:
+        return (slice(None),) * cell_ndim
+    return tuple(
+        slice(None) if lo < 0 else slice(lo, hi + 1)
+        for lo, hi in zip(slicer[0], slicer[1], strict=True)
+    )
+
+
+def _copy_cells(col: str, values: Any, dst: np.ndarray) -> None:
+    """Copy the cells a getcol / getcell returned into dst (cast to its dtype);
+    raises RuntimeError if their shape differs (as getcolnp does)."""
+    if not isinstance(values, np.ndarray) or values.shape != dst.shape:
+        shape = values.shape if isinstance(values, np.ndarray) else type(values)
+        raise RuntimeError(
+            f"Column {col}: read cells of shape {shape}, expected {dst.shape}"
+        )
+    dst[...] = values
+
+
+def _read_cells_getcol(
+    table: tables.table,
+    col: str,
+    dst: np.ndarray,
+    slicer: tuple[list[int], list[int]] | None,
+    row0: int,
+    nrow: int,
+) -> int:
+    """
+    The getcol version of a getcolnp / getcolslicenp call, for tables without
+    in-place reads: the rows [row0, row0 + nrow) are read with getcol calls of
+    at most GETCOL_MAX_BYTES (whole cells, also for a channel / polarization
+    range) and copied into dst. Errors are raised as RuntimeError (as casacore
+    raises them for undefined cells or cells of another shape).
+
+    Returns
+    -------
+    int
+        Number of getcol calls.
+    """
+    try:
+        if slicer is None:
+            cell_shape = tuple(dst.shape[1:])
+        else:
+            cell_shape = parse_shape_string(table.getcolshapestring(col, row0, 1)[0])
+        cells = (slice(None),) + _cell_slices(slicer, len(cell_shape))
+        row_bytes = (int(np.prod(cell_shape, dtype=np.int64)) or 1) * dst.itemsize
+        step = max(1, GETCOL_MAX_BYTES // row_bytes)
+        n_calls = 0
+        for r0 in range(0, nrow, step):
+            n = min(step, nrow - r0)
+            values = table.getcol(col, row0 + r0, n)
+            n_calls += 1
+            if not isinstance(values, np.ndarray) or values.shape[1:] != cell_shape:
+                shape = values.shape if isinstance(values, np.ndarray) else type(values)
+                raise RuntimeError(
+                    f"Column {col}: read cells of shape {shape}, expected {cell_shape}"
+                )
+            _copy_cells(col, values[cells], dst[r0 : r0 + n])
+        return n_calls
+    except (MemoryError, RuntimeError):
+        raise
+    except Exception as exc:
+        raise RuntimeError(f"Reading column {col} failed: {exc}") from exc
+
+
+def _read_single_row_table(
+    table: tables.table,
+    col: str,
+    dst: np.ndarray,
+    slicer: tuple[list[int], list[int]] | None,
+    in_place: bool,
+) -> None:
+    """Read the cell of a one-row table into dst[0] without a whole-column call
+    (a reference table of the row, or getcell)."""
+    if in_place:
+        ref = table.selectrows([0])
+        try:
+            if slicer is None:
+                ref.getcolnp(col, dst)
+            else:
+                ref.getcolslicenp(col, dst, slicer[0], slicer[1], [])
+        finally:
+            ref.close()
+        return
+    try:
+        cell = np.asarray(table.getcell(col, 0))
+    except MemoryError:
+        raise
+    except Exception as exc:
+        raise RuntimeError(f"Reading column {col} failed: {exc}") from exc
+    values = np.asarray(cell[_cell_slices(slicer, cell.ndim)])
+    _copy_cells(col, values[np.newaxis], dst[:1])
+
+
 def _read_run(
     table: tables.table,
     col: str,
@@ -371,8 +514,10 @@ def _read_run(
     table_nrows: int,
     rows_per_call: int,
     stats: dict[str, int],
+    in_place: bool = True,
 ) -> None:
-    """Read the consecutive rows [start_row, start_row + nrow) into out[:nrow]."""
+    """Read the consecutive rows [start_row, start_row + nrow) into out[:nrow]
+    (getcolnp / getcolslicenp calls, or getcol calls if not ``in_place``)."""
     done = 0
     while done < nrow:
         n = min(rows_per_call, nrow - done)
@@ -385,23 +530,21 @@ def _read_run(
                 n -= 1
                 dst = out[done : done + n]
             else:
-                ref = table.selectrows([0])
-                try:
-                    if slicer is None:
-                        ref.getcolnp(col, dst)
-                    else:
-                        ref.getcolslicenp(col, dst, slicer[0], slicer[1], [])
-                finally:
-                    ref.close()
+                _read_single_row_table(table, col, dst, slicer, in_place)
                 stats["calls"] = stats.get("calls", 0) + 1
-                stats["selectrows_calls"] = stats.get("selectrows_calls", 0) + 1
+                if in_place:
+                    stats["selectrows_calls"] = stats.get("selectrows_calls", 0) + 1
                 done += n
                 continue
-        if slicer is None:
+        if not in_place:
+            n_calls = _read_cells_getcol(table, col, dst, slicer, row0, n)
+        elif slicer is None:
             table.getcolnp(col, dst, row0, n)
+            n_calls = 1
         else:
             table.getcolslicenp(col, dst, slicer[0], slicer[1], [], row0, n)
-        stats["calls"] = stats.get("calls", 0) + 1
+            n_calls = 1
+        stats["calls"] = stats.get("calls", 0) + n_calls
         done += n
 
 
@@ -414,6 +557,7 @@ def _read_rows_unchecked(
     table_nrows: int,
     rows_per_call: int,
     stats: dict[str, int],
+    in_place: bool = True,
 ) -> None:
     """read_rows without the argument checks (rows sorted, buffer checked)."""
     batch_rows = min(rows_per_call, MAX_SELECTROWS_ROWS)
@@ -421,7 +565,7 @@ def _read_rows_unchecked(
         batch = rows[b0 : b0 + batch_rows]
         dst = out[b0 : b0 + batch.size]
         starts, lengths = rows_to_runs(batch)
-        if starts.size <= FRAGMENTED_RUNS:
+        if starts.size <= FRAGMENTED_RUNS or not in_place:
             offset = 0
             for start, length in zip(starts.tolist(), lengths.tolist(), strict=True):
                 _read_run(
@@ -434,6 +578,7 @@ def _read_rows_unchecked(
                     table_nrows,
                     rows_per_call,
                     stats,
+                    in_place,
                 )
                 offset += length
         else:
@@ -467,7 +612,9 @@ def read_rows(
     Contiguous runs of rows are read with one ``getcolnp`` / ``getcolslicenp``
     call each on the base table. When a batch of rows is fragmented into many
     runs, it is read with one ``selectrows`` reference table and one call
-    instead. No call reads more than ``max_elems`` elements.
+    instead. No call reads more than ``max_elems`` elements. A table without
+    in-place reads (``has_in_place_reads``) is read with one ``getcol`` call
+    (and a copy) per run.
 
     Parameters
     ----------
@@ -519,7 +666,82 @@ def read_rows(
     cell_elems = int(np.prod(out.shape[1:], dtype=np.int64)) or 1
     rows_per_call = max(1, max_elems // cell_elems)
     _read_rows_unchecked(
-        table, col, rows, out, slicer, table_nrows, rows_per_call, stats
+        table,
+        col,
+        rows,
+        out,
+        slicer,
+        table_nrows,
+        rows_per_call,
+        stats,
+        has_in_place_reads(table),
+    )
+    return stats
+
+
+def read_row_range(
+    table: tables.table,
+    col: str,
+    start_row: int,
+    nrow: int,
+    out: np.ndarray,
+    max_elems: int = DEFAULT_MAX_ELEMS,
+    stats: dict[str, int] | None = None,
+) -> dict[str, int]:
+    """
+    ``read_rows`` of the consecutive rows ``start_row .. start_row + nrow - 1``
+    (without an array of row numbers).
+
+    Parameters
+    ----------
+    table : tables.table
+        Base table holding the column.
+    col : str
+        Column name.
+    start_row : int
+        First row.
+    nrow : int
+        Number of rows.
+    out : np.ndarray
+        Output buffer of shape ``(nrow,) + cell_shape`` (as for ``read_rows``).
+    max_elems : int, optional
+        Maximum number of elements per casacore call.
+    stats : dict[str, int] | None, optional
+        Dict to accumulate call counters into.
+
+    Returns
+    -------
+    dict[str, int]
+        The call counters (``stats``, if given).
+    """
+    stats = {} if stats is None else stats
+    max_elems = _check_max_elems(max_elems)
+    start_row, nrow = int(start_row), int(nrow)
+    if out.shape[:1] != (nrow,):
+        raise ValueError(
+            f"out has {out.shape[:1]} rows along its first axis, expected {nrow}"
+        )
+    if nrow == 0:
+        return stats
+    _check_buffer(table, col, out)
+    table_nrows = table.nrows()
+    if start_row < 0 or start_row + nrow > table_nrows:
+        raise IndexError(
+            f"Rows [{start_row}, {start_row + nrow - 1}] out of range for a table of "
+            f"{table_nrows} rows"
+        )
+    cell_elems = int(np.prod(out.shape[1:], dtype=np.int64)) or 1
+    _read_run(
+        table,
+        col,
+        start_row,
+        nrow,
+        out,
+        None,
+        table_nrows,
+        max(1, max_elems // cell_elems),
+        stats,
+        has_in_place_reads(table),
     )
     return stats
 
@@ -606,11 +828,15 @@ def getcol_chunks(
     -------
     list[Any]
         What ``getcol`` returned for every call (arrays, or lists for strings).
+        The cell of a one-row table is read with ``selectrows`` or, for a
+        table without in-place reads, with ``getcell`` (then as a list for
+        strings, otherwise as an array of one cell).
     """
     rows = _check_rows(rows)
     max_elems = _check_max_elems(max_elems)
     rows_per_call = max(1, max_elems // (int(np.prod(cell_shape, dtype=np.int64)) or 1))
     table_nrows = table.nrows()
+    in_place = has_in_place_reads(table)
     parts = []
     starts, lengths = rows_to_runs(rows)
     for start, length in zip(starts.tolist(), lengths.tolist(), strict=True):
@@ -621,12 +847,19 @@ def getcol_chunks(
                 # never the whole column (see _read_run)
                 if n > 1:
                     n -= 1
-                else:
+                elif in_place:
                     ref = table.selectrows([0])
                     try:
                         parts.append(ref.getcol(col))
                     finally:
                         ref.close()
+                    done += 1
+                    continue
+                else:
+                    cell = table.getcell(col, 0)
+                    parts.append(
+                        [cell] if isinstance(cell, str) else np.asarray([cell])
+                    )
                     done += 1
                     continue
             parts.append(table.getcol(col, start + done, n))
@@ -959,6 +1192,10 @@ def read_rows_to_grid(
     every tile that holds both kinds of rows twice: the tile cache of the tiled
     storage managers keeps about one row-slab of tiles.
 
+    A table without in-place reads (``has_in_place_reads``) is read the same
+    way with getcol calls (and copies), and a fragmented temporary with one
+    call per run instead of selectrows.
+
     Parameters
     ----------
     table : tables.table
@@ -1023,6 +1260,7 @@ def read_rows_to_grid(
     rows_per_call = max(1, max_elems // cell_elems)
     row_bytes = cell_elems * col_dt.itemsize
     flat = grid.reshape((plan.ncells,) + cell_shape)
+    in_place = has_in_place_reads(table)
 
     # Direct segments read straight into the grid (large ones, if the grid has
     # the column dtype); the plan's other direct segments are copied from the
@@ -1067,7 +1305,7 @@ def read_rows_to_grid(
     def read_compact(rows: np.ndarray, out: np.ndarray) -> None:
         # partition rows only: one call per run, or one selectrows call
         _read_rows_unchecked(
-            table, col, rows, out, slicer, table_nrows, rows_per_call, stats
+            table, col, rows, out, slicer, table_nrows, rows_per_call, stats, in_place
         )
 
     def read_batch(i: int, j: int) -> np.ndarray:
@@ -1076,8 +1314,10 @@ def read_rows_to_grid(
         nonlocal bridging
         a, b = int(pieces.idx0[i]), int(pieces.idx1[j - 1])
         n_pieces = j - i
-        if n_pieces > SELECTROWS_MIN_PIECES and (b - a) * row_bytes < n_pieces * int(
-            min_read_bytes
+        if (
+            in_place
+            and n_pieces > SELECTROWS_MIN_PIECES
+            and (b - a) * row_bytes < n_pieces * int(min_read_bytes)
         ):
             # fragmented: one selectrows call for the partition rows
             ref = table.selectrows(tmp_rows_t[a:b])
@@ -1109,6 +1349,7 @@ def read_rows_to_grid(
                     table_nrows,
                     rows_per_call,
                     stats,
+                    in_place,
                 )
                 parts.append(np.arange(offset, offset + n_read, dtype=np.int64))
                 offset += n_read
@@ -1125,6 +1366,7 @@ def read_rows_to_grid(
                         table_nrows,
                         rows_per_call,
                         stats,
+                        in_place,
                     )
                     parts.append(offset + (tmp_rows_t[p0:p1] - row0))
                     stats["gap_rows"] = stats.get("gap_rows", 0) + n_read - n_needed
@@ -1176,6 +1418,7 @@ def read_rows_to_grid(
             table_nrows,
             rows_per_call,
             stats,
+            in_place,
         )
         stats["direct_rows"] = stats.get("direct_rows", 0) + length
 
@@ -1624,15 +1867,17 @@ def _scan_cell_shapes(
     """
     Compare the shape of every cell of ``rows`` with ``expected`` (shape
     strings), with one getcolshapestring call per run of rows, or per batch of
-    rows read through ``selectrows`` when a batch has many runs. Raises
-    ColumnNotReadableError for an undefined cell or another shape.
+    rows read through ``selectrows`` when a batch has many runs (tables with
+    in-place reads). Raises ColumnNotReadableError for an undefined cell or
+    another shape.
     """
     table_nrows = table.nrows()
+    in_place = has_in_place_reads(table)
     for b0 in range(0, rows.size, SHAPE_SCAN_ROWS):
         batch = rows[b0 : b0 + SHAPE_SCAN_ROWS]
         starts, lengths = rows_to_runs(batch)
         try:
-            if starts.size > FRAGMENTED_RUNS:
+            if starts.size > FRAGMENTED_RUNS and in_place:
                 ref = table.selectrows(batch)
                 try:
                     _check_shape_strings(ref.getcolshapestring(col), expected, col)

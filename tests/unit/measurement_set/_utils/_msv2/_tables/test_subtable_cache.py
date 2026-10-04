@@ -199,10 +199,31 @@ def test_clear():
     assert calls == [1]
 
 
+class _ManualTimer:
+    """threading.Timer stand-in that runs only when the test fires it."""
+
+    def __init__(self, interval, function):
+        self.interval, self.function = interval, function
+        self.daemon = False
+        self.started = self.fired = False
+
+    def start(self):
+        self.started = True
+
+    def is_alive(self):
+        return self.started and not self.fired
+
+    def fire(self):
+        self.fired = True
+        self.function()
+
+
 @pytest.fixture
 def process_states(monkeypatch):
-    """A fresh registry of unpickled cache states (as in a new worker)."""
+    """A fresh registry of unpickled cache states (as in a new worker), whose
+    expiry timers run only when a test fires them (no timer thread)."""
     states = sc._ProcessStates()
+    states.timer_factory = _ManualTimer
     monkeypatch.setattr(sc, "_PROCESS_STATES", states)
     return states
 
@@ -248,12 +269,24 @@ def test_idle_process_states_do_not_evict_each_other(process_states):
     assert len(process_states.idle) == 2
 
 
-def test_idle_process_states_expire(process_states, monkeypatch):
-    """A worker does not keep a finished conversion's data."""
+def test_idle_process_states_expire(process_states):
+    """
+    A worker does not keep a finished conversion's data: an idle state expires
+    PROCESS_STATE_IDLE_SECONDS after its last copy was released (the clock and
+    the timer are driven by the test, no wall-clock window).
+    """
     import gc
-    import time
 
-    monkeypatch.setattr(sc, "PROCESS_STATE_IDLE_SECONDS", 0.05)
+    now = [1000.0]
+    timers = []
+
+    def timer_factory(interval, function):
+        timers.append(_ManualTimer(interval, function))
+        return timers[-1]
+
+    process_states.clock = lambda: now[0]
+    process_states.timer_factory = timer_factory
+    idle_seconds = sc.PROCESS_STATE_IDLE_SECONDS
     data = pickle.dumps(sc.SubtableCache())
     copy = pickle.loads(data)
     copy.get_or_build("k", lambda: np.zeros(10))
@@ -261,12 +294,20 @@ def test_idle_process_states_expire(process_states, monkeypatch):
     del copy
     gc.collect()
     assert state_ref() is not None  # idle, kept for the next task
-    deadline = time.monotonic() + 10
-    while state_ref() is not None and time.monotonic() < deadline:
-        time.sleep(0.02)
-        gc.collect()
+    assert [(t.interval, t.started) for t in timers] == [(idle_seconds, True)]
+    # the timer fires before the state was idle long enough: kept, rescheduled
+    now[0] += idle_seconds / 2
+    timers[0].fire()
+    gc.collect()
+    assert state_ref() is not None and list(process_states.idle)
+    assert len(timers) == 2 and timers[1].started
+    # idle long enough: dropped, no timer left
+    now[0] += idle_seconds
+    timers[1].fire()
+    gc.collect()
     assert state_ref() is None
-    assert not process_states.idle
+    assert not process_states.idle and process_states.timer is None
+    assert len(timers) == 2
     # a new copy builds again
     assert pickle.loads(data).get_or_build("k", lambda: "new") == "new"
 

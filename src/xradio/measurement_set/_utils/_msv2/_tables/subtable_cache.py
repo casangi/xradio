@@ -145,6 +145,9 @@ class _ProcessStates:
     States of the caches unpickled in this process, by token: a state lives
     while copies of its cache are alive, then idles for
     PROCESS_STATE_IDLE_SECONDS (at most MAX_IDLE_PROCESS_STATES idle states).
+
+    ``clock`` (monotonic seconds) and ``timer_factory`` (threading.Timer's
+    signature) can be replaced, so that tests expire states deterministically.
     """
 
     def __init__(self) -> None:
@@ -158,6 +161,8 @@ class _ProcessStates:
             collections.OrderedDict()
         )
         self.timer: threading.Timer | None = None
+        self.clock: Callable[[], float] = time.monotonic
+        self.timer_factory: Callable[..., threading.Timer] = threading.Timer
 
     def acquire(self, token: str) -> _SubtableCacheState:
         """The state of a newly unpickled copy (one more copy alive)."""
@@ -176,7 +181,7 @@ class _ProcessStates:
             state.n_copies -= 1
             if state.n_copies > 0 or self.states.get(token) is not state:
                 return
-            self.idle[token] = (state, time.monotonic())
+            self.idle[token] = (state, self.clock())
             self.idle.move_to_end(token)
             while len(self.idle) > MAX_IDLE_PROCESS_STATES:
                 self.idle.popitem(last=False)
@@ -191,14 +196,14 @@ class _ProcessStates:
     def _schedule_expiry(self) -> None:
         if self.timer is not None and self.timer.is_alive():
             return
-        self.timer = threading.Timer(PROCESS_STATE_IDLE_SECONDS, self._expire)
+        self.timer = self.timer_factory(PROCESS_STATE_IDLE_SECONDS, self._expire)
         self.timer.daemon = True
         self.timer.start()
 
     def _expire(self) -> None:
         with self.lock:
             self.timer = None
-            now = time.monotonic()
+            now = self.clock()
             for token, (_, idle_since) in list(self.idle.items()):
                 if now - idle_since >= PROCESS_STATE_IDLE_SECONDS:
                     del self.idle[token]

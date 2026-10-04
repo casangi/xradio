@@ -3,7 +3,7 @@ XRADIO - Xarray Radio Astronomy Data I/O
 
 XRADIO (Xarray Radio Astronomy Data I/O) makes working with radio astronomy data in Python simple, efficient, and fun!
 
-XRADIO implements the **Measurement Set** |MSV4_SCHEMA_VERSION| schema, designed for storing radio interferometer and single-dish telescope data for offline processing. Other schemas are being developed.
+XRADIO implements the **Measurement Set** |MSV4_SCHEMA_VERSION| schema, designed for storing radio interferometer and single-dish telescope data for offline processing. Other schemas are being developed, among them the **Image** |IMAGE_SCHEMA_VERSION| schema for sky and aperture images, described in the section :doc:`Image <image_data/overview>`.
 
 For a general overview of XRADIO and the schemas included in it, see the section :doc:`Overview <overview>` (it is recommended to pay special attention to the Foundational Reading subsection).
 More information on XRADIO development can be found in the section :doc:`Development <development>`.
@@ -32,6 +32,7 @@ The Measurement Set |MSV4_SCHEMA_VERSION| is described in the section :doc:`Meas
    :maxdepth: 5
    :caption: Image (under development)
 
+   image_data/overview
    image_data/tutorials/index
    image_data/schema
 

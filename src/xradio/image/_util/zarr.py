@@ -25,8 +25,9 @@ def _xds_from_zarr(
     # "coords"
     #    what coordinates should be returned as
     #    "numpy": numpy arrays
-    # Stores written by xradio <= 1.2.3 are upgraded to the current image
-    # schema conventions (see upgrade_legacy_image_attrs), and the
+    # Stores written by xradio <= 1.2.3, and stores without a schema_version
+    # or with an older one, are upgraded to the current image schema
+    # conventions and version (see upgrade_legacy_image_attrs), and the
     # polarization axis of a store written in another order is put in
     # canonical order, as the CASA and FITS readers return it (a selection
     # indexes the order of the store)

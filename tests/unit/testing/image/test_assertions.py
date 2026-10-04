@@ -166,7 +166,7 @@ class TestAssertImageBlockEqualGuard:
         # write_image, load_image, and assert_xarray_datasets_equal are imported
         # lazily inside assert_image_block_equal, so they must be patched at the
         # modules that define/export them, not on xradio.testing.image.assertions.
-        monkeypatch.setattr("xradio.image.write_image", lambda *a, **kw: None)
+        monkeypatch.setattr("xradio.image.write_image", lambda xds, path, **kw: [path])
         monkeypatch.setattr(
             "xradio.image.load_image",
             lambda path, selection, do_sky_coords=True: small_xds.isel(
@@ -181,3 +181,27 @@ class TestAssertImageBlockEqualGuard:
             str(tmp_path / "out"),
             selection={"l": slice(0, 3), "m": slice(0, 3)},
         )
+
+    def test_error_message_format(self, small_xds):
+        with pytest.raises(
+            ValueError, match="selection exceeds dataset dimensions: l: slice stop"
+        ):
+            assert_image_block_equal(
+                small_xds,
+                "unused_path",
+                selection={"l": slice(0, 10)},
+            )
+
+    def test_several_written_images_raise(self, tmp_path, monkeypatch, small_xds):
+        """A dataset that write_image writes as several CASA images cannot be
+        compared with one loaded image: the error says so (it used to fail
+        unpacking the paths write_image returns)."""
+        outputs = [str(tmp_path / "out.a.sky"), str(tmp_path / "out.b.sky")]
+        monkeypatch.setattr("xradio.image.write_image", lambda xds, path, **kw: outputs)
+        with pytest.raises(ValueError, match="written as 2 CASA images") as error:
+            assert_image_block_equal(
+                small_xds,
+                str(tmp_path / "out"),
+                selection={"l": slice(0, 3)},
+            )
+        assert all(output in str(error.value) for output in outputs)

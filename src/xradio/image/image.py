@@ -8,10 +8,13 @@ import os
 import numpy as np
 import xarray as xr
 
+from xradio._utils.logging import xradio_logger
 from xradio.image._util._fits.xds_from_fits import _fits_image_to_xds
 from xradio.image._util._write_plan import (
+    ZARR_IMAGE_EXTENSION,
     plan_image_outputs,
     write_outputs_atomically,
+    zarr_store_name,
 )
 from xradio.image._util.image_factory import (
     _make_empty_aperture_image,
@@ -59,6 +62,26 @@ def _int_selections_to_slices(selection: dict | None) -> dict:
     }
 
 
+def _log_zarr_store_name(imagename: str, store_name: str) -> None:
+    """Log the name of the zarr store ``write_image`` writes when it differs
+    from the name given, and warn when a file or directory with the given
+    name exists: it is not replaced, so code that still reads the given name
+    (for example a store of an earlier xradio, which kept the name as given)
+    would read stale data."""
+    xradio_logger().info(
+        f"Image zarr stores have the extension {ZARR_IMAGE_EXTENSION}: "
+        f"writing {imagename} as {store_name}"
+    )
+    if os.path.lexists(imagename):
+        xradio_logger().warning(
+            f"{imagename} exists and is not replaced: image zarr stores have "
+            f"the extension {ZARR_IMAGE_EXTENSION}, so the image is written to "
+            f"{store_name} (overwrite applies to that path). Remove {imagename} "
+            "if it is an outdated image store, so that it is not read in place "
+            f"of {store_name}."
+        )
+
+
 def open_image(
     store: str | dict | list,
     chunks: dict | None = None,
@@ -77,9 +100,12 @@ def open_image(
     * CASA images (casacore tables), read with python-casacore or casatools;
     * FITS images, read with astropy only (python-casacore and casatools are
       not needed);
-    * zarr stores written by :func:`write_image` (``out_format="zarr"``),
-      which hold a whole image dataset. Stores written by xradio 1.2.3 and
-      earlier are upgraded to the current schema conventions on read.
+    * zarr stores written by :func:`write_image` (``out_format="zarr"``,
+      named with the extension ``.img.zarr``), which hold a whole image
+      dataset; zarr stores with other names open too. Stores written by
+      xradio 1.2.3 and earlier, and stores without the ``schema_version``
+      attribute or with an older version, are upgraded to the current schema
+      conventions and version on read.
 
     Several CASA or FITS images are combined into one dataset by passing a
     dict that maps image types (data group roles such as ``"sky"``,
@@ -206,14 +232,17 @@ def open_image(
 
 def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dataset:
     """
-    Load an image or portion of an image (subimage) into memory with data variables
-    being converted from dask to numpy arrays and coordinate arrays being converted
-    from dask arrays to numpy arrays. If already a numpy array, that data variable
-    or coordinate is left unaltered.
+    Load an image or portion of an image (subimage).
 
     CASA images and zarr stores are supported (FITS images are opened with
-    :func:`open_image`). As in :func:`open_image`, zarr stores written by
-    xradio 1.2.3 and earlier are upgraded to the current schema conventions,
+    :func:`open_image`). The selected pixels of CASA images are read into
+    memory when ``load_image`` is called. For zarr stores, the selected part
+    is returned lazily, as by :func:`open_image` with a ``selection``: the
+    data variables are dask arrays that read the store when they are computed
+    (call ``.load()`` on the result to read them into memory). Coordinates
+    are numpy arrays. As in :func:`open_image`, zarr stores written by
+    xradio 1.2.3 and earlier, and stores without a ``schema_version`` or with
+    an older one, are upgraded to the current schema conventions and version,
     and the polarization axis is returned in canonical (Jones matrix) order.
 
     Parameters
@@ -232,8 +261,8 @@ def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dat
         behaves as numpy slicing does, that is the start pixel is included in
         the selection, and the end pixel is not. An integer selects a single
         pixel and keeps its dimension (with length 1). An empty dictionary (the
-        default) indicates that the entire image should be returned. The returned
-        dataset will have data variables stored as numpy, not dask, arrays.
+        default) indicates that the entire image should be returned (read into
+        memory for a CASA image, lazily for a zarr store, see above).
         Polarization indices refer to the canonical order of the returned
         dataset (for zarr stores, to the order of the store).
         TODO I'd really like to rename this parameter "selection"
@@ -268,7 +297,7 @@ def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dat
 
 def write_image(
     xds: xr.Dataset, imagename: str, out_format: str = "casa", overwrite: bool = False
-) -> None:
+) -> list[str]:
     """
     Write an xradio image dataset as CASA, FITS or zarr images.
 
@@ -287,24 +316,40 @@ def write_image(
       are written as NaN, and the polarization planes may be reordered in the
       file so that they form a FITS STOKES axis (:func:`open_image` restores
       the canonical order).
-    * ``"zarr"`` writes the whole dataset, with all its data variables and
-      data groups, to one zarr store.
+    * ``"zarr"`` writes the whole dataset, with all its data variables,
+      data groups and attributes (including ``schema_version``), to one zarr
+      store.
 
-    Output names: CASA and FITS images hold one image each, so every data
-    variable that is an image of some data group (its ``sky``,
+    Zarr store names: image zarr stores have the extension ``.img.zarr``, as
+    processing sets have ``.ps.zarr``. An ``imagename`` that ends in
+    ``.img.zarr`` (in any case) is kept, a bare ``.zarr`` extension is
+    replaced (``out.zarr`` gives ``out.img.zarr``) and any other name gets
+    ``.img.zarr`` appended (``out`` gives ``out.img.zarr``); only the end of
+    the name counts, so ``out.ps.zarr`` gives ``out.ps.img.zarr``. When the
+    store name differs from ``imagename``, it is logged, and a warning is
+    logged if a file or directory named ``imagename`` exists: it is left
+    unchanged (``overwrite`` applies to the store name), so code that still
+    reads ``imagename`` would read it, not the new store. Use the returned
+    path to open or extend the store.
+
+    CASA and FITS output names: CASA and FITS images hold one image each, so
+    every data variable that is an image of some data group (its ``sky``,
     ``point_spread_function``, ``primary_beam``, ``mask``, ... role) is
-    written once, to its own output; flags and beam fit parameters are written
-    with their image. When a single image is written, it is named
-    ``imagename``. When several are written, each is named
-    ``<imagename>.<g1>.<g2>...<gn>.<role>``, where ``g1`` to ``gn`` are, in
-    data group order, all data groups whose ``<role>`` refers to that
-    variable, for example ``out.base.sky`` and
+    written once, to its own output. A sky image is written with the flags
+    and beam fit parameters of its data group, and a point spread function
+    with its beam fit parameters; other data variables (for example the
+    flags of a primary beam) are not written, with a warning. When a single
+    image is written, it is named ``imagename``. When several are written,
+    each is named ``<imagename>.<g1>.<g2>...<gn>.<role>``, where ``g1`` to
+    ``gn`` are, in data group order, all data groups whose ``<role>`` refers
+    to that variable, for example ``out.base.sky`` and
     ``out.base.point_spread_function``, or ``out.dirty.residual.primary_beam``
     for a primary beam shared by the data groups ``dirty`` and ``residual``.
     For FITS, a ``.fits`` extension of ``imagename`` (in any case) stays
     last: ``img.fits`` gives ``img.base.sky.fits``.
 
-    Overwriting: all output paths are determined before anything is written.
+    Overwriting: all output paths (for zarr, the store name with the
+    ``.img.zarr`` extension) are determined before anything is written.
     With ``overwrite=False``, FileExistsError is raised if any of them exists,
     and nothing is written. The outputs are written into a temporary
     directory next to ``imagename`` and moved into place only when all of
@@ -319,8 +364,9 @@ def write_image(
     xds : xarray.Dataset
         The image dataset to write.
     imagename : str
-        Path of the output image, or the base name of the outputs when several
-        images are written (see above). ``~`` is expanded to the home
+        Path of the output image, the base name of the outputs when several
+        images are written, or the name of the zarr store, which gets the
+        ``.img.zarr`` extension (see above). ``~`` is expanded to the home
         directory, and missing parent directories are created. Only local
         paths are supported (not URLs such as ``s3://...``).
     out_format : str
@@ -331,7 +377,12 @@ def write_image(
 
     Returns
     -------
-    None
+    list of str
+        The paths written, in output order: the zarr store (``imagename``
+        with the ``.img.zarr`` extension), the single CASA or FITS image
+        (``imagename``) or every output of a multi-image CASA or FITS write,
+        with ``~`` expanded. Callers that open or write into an output
+        afterwards should use these paths, not ``imagename``.
 
     Raises
     ------
@@ -375,10 +426,14 @@ def write_image(
         )
 
     if my_format == "zarr":
-        paths = [imagename]
+        store_name = zarr_store_name(imagename)
+        paths = [store_name]
 
         def write(directory: str) -> None:
-            _xds_to_zarr(xds, os.path.join(directory, os.path.basename(imagename)))
+            # called once the overwrite check has passed, as writing starts
+            if store_name != imagename:
+                _log_zarr_store_name(imagename, store_name)
+            _xds_to_zarr(xds, os.path.join(directory, os.path.basename(store_name)))
 
     else:
         plan = plan_image_outputs(xds, imagename, my_format)
@@ -392,6 +447,7 @@ def write_image(
             )
 
     write_outputs_atomically(paths, overwrite, write)
+    return list(paths)
 
 
 def make_empty_sky_image(

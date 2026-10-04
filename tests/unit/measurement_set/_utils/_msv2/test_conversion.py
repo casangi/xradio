@@ -2185,11 +2185,20 @@ def test_stream_write_selection(
 ):
     """Which configurations stream; a partition whose data variables are a
     small fraction of a batch (here with the default batch size) is read whole
-    instead."""
+    instead. parallel_mode "time" without a time chunk size says how to get
+    dask parallelism along time."""
     from xradio.measurement_set._utils._msv2.partition_queries import (
         create_partitions,
     )
 
+    logged = []
+    logger = types.SimpleNamespace(
+        **{
+            level: lambda msg, level=level: logged.append((level, str(msg)))
+            for level in ("debug", "info", "warning", "error")
+        }
+    )
+    monkeypatch.setattr(conversion, "xradio_logger", lambda: logger)
     calls = []
     monkeypatch.setattr(
         conversion,
@@ -2232,6 +2241,15 @@ def test_stream_write_selection(
     in_memory = streamed and batch_mb is None
     assert len(calls) == (1 if streamed and not in_memory else 0)
     assert len(read_whole) == (1 if in_memory else 0)
+    time_warnings = [
+        msg for level, msg in logged if level == "warning" and "parallel_mode" in msg
+    ]
+    if parallel_mode == "time_without_chunk":
+        (msg,) = time_warnings
+        assert "default main_chunksize=None" in msg and "(streamed write)" in msg
+        assert "main_chunksize={'time': n}" in msg
+    else:
+        assert time_warnings == []
 
 
 # --- the casatools shim: reads without getcolnp, getcolslicenp, selectrows -------

@@ -138,10 +138,13 @@ def convert_msv2_to_processing_set(
     parallel_mode : Literal["none", "partition", "time"], optional
         Choose whether to use Dask to execute conversion in parallel, by default "none" and conversion occurs serially.
         The option "partition", parallelises the conversion over partitions specified by `partition_scheme`. The option "time" can only be used for phased array interferometers where there are no partitions
-        in the MS v2; instead the MS v2 is parallelised along the time dimension and can be controlled by `main_chunksize`. Without a "time" chunk size in `main_chunksize` (for example with the default None), "time" reads the data as "none" does.
+        in the MS v2; instead the MS v2 is parallelised along the time dimension and can be controlled by `main_chunksize`. Without a "time" chunk size in `main_chunksize` (for example with the default None), "time" converts the data as "none" does (the streamed write, see `main_chunksize`) and logs a warning: pass main_chunksize={"time": n} for Dask parallelism along time.
         "time" gives the same output as "none" for any row order and also for missing or duplicated (time, baseline) rows
         (cells without a row are padded as in "none", FLAG=False). Before this version, "time" required dense, time-ordered
         rows (one row for every time and baseline).
+        As before this version, "time" (with a "time" chunk size) fails when the data is written if a MAIN data column has
+        undefined cells or cells of different shapes in the partition, whereas "none" and "partition" skip such a column
+        (WEIGHT_SPECTRUM then falls back to WEIGHT).
     persistence_mode : str, optional
         “w” means create (overwrite if exists);
         “w-” means create (fail if exists);

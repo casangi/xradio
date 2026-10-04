@@ -859,8 +859,17 @@ def create_data_variables(
     """
     time_chunksize = main_chunksize.get("time", None) if main_chunksize else None
     if parallel_mode != data_variables_parallel_mode(parallel_mode, main_chunksize):
+        given = (
+            "the default main_chunksize=None"
+            if main_chunksize is None
+            else f"main_chunksize={main_chunksize!r}"
+        )
+        how = " (streamed write)" if deferred is not None else ""
         xradio_logger().warning(
-            "'time' isn't specified in `main_chunksize`. Defaulting to `parallel_mode = 'none'`."
+            f"parallel_mode='time' needs a 'time' chunk size: with {given}, the "
+            f"data variables are converted as with parallel_mode='none'{how}, not "
+            "by dask tasks along time. Pass main_chunksize={'time': n} for dask "
+            "parallelism along time."
         )
         parallel_mode = "none"
 

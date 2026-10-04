@@ -12,7 +12,9 @@ The test MSs are downloaded into --ms-dir if they are not there yet. Every
 conversion case is converted with each of its variants: all must give the same
 fingerprint (the variants change only chunks, batches and parallel_mode).
 Regenerate the file when the converter output changes on purpose (e.g. a new
-variable or attribute); the casatools tests then compare against it.
+variable or attribute) or a dependency upgrade changes it (see tests/README.md);
+the casatools tests (the casatools workflow) then compare against it. Two runs
+give the same file byte for byte.
 """
 
 import argparse

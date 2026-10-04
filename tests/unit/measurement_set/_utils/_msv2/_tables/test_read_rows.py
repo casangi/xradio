@@ -135,13 +135,24 @@ def test_runs_to_rows_shape_mismatch():
         rr.runs_to_rows(np.array([0, 5]), np.array([3]))
 
 
+def group_row_runs(row_group, n_groups):
+    """(starts, lengths) of every group, from group_row_runs_flat."""
+    run_starts, run_lengths, bounds = rr.group_row_runs_flat(row_group, n_groups)
+    assert bounds.size == n_groups + 1 and bounds[0] == 0
+    assert bounds[-1] == run_starts.size == run_lengths.size
+    return [
+        (run_starts[lo:hi], run_lengths[lo:hi])
+        for lo, hi in zip(bounds[:-1], bounds[1:], strict=True)
+    ]
+
+
 @pytest.mark.parametrize("seed", [0, 1, 2])
 def test_group_row_runs_matches_per_group_selection(seed):
     rng = np.random.default_rng(seed)
     n_groups = 7
     # runs of equal groups with gaps (-1 = no group), like MAIN rows of partitions
     row_group = np.repeat(rng.integers(-1, n_groups, 60), rng.integers(1, 9, 60))
-    runs = rr.group_row_runs(row_group, n_groups)
+    runs = group_row_runs(row_group, n_groups)
     assert len(runs) == n_groups
     for group, (starts, lengths) in enumerate(runs):
         np.testing.assert_array_equal(
@@ -153,8 +164,8 @@ def test_group_row_runs_matches_per_group_selection(seed):
 
 
 def test_group_row_runs_empty():
-    assert rr.group_row_runs(np.array([], dtype=np.int64), 0) == []
-    runs = rr.group_row_runs(np.full(5, -1), 2)
+    assert group_row_runs(np.array([], dtype=np.int64), 0) == []
+    runs = group_row_runs(np.full(5, -1), 2)
     assert [r[0].size for r in runs] == [0, 0]
 
 

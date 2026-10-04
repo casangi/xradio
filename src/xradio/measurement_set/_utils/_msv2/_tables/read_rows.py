@@ -228,38 +228,12 @@ def count_row_windows(rows: np.ndarray, window_rows: int) -> int:
     return int(np.count_nonzero(np.diff(rows // window_rows))) + 1
 
 
-def group_row_runs(
-    row_group: np.ndarray, n_groups: int
-) -> list[tuple[np.ndarray, np.ndarray]]:
-    """
-    Runs of consecutive rows of every group, computed for all groups at once.
-
-    Parameters
-    ----------
-    row_group : np.ndarray
-        Group index of every row (``row_group[row]``), or -1 for a row that
-        belongs to no group.
-    n_groups : int
-        Number of groups (group indices are ``0 .. n_groups-1``).
-
-    Returns
-    -------
-    list[tuple[np.ndarray, np.ndarray]]
-        For every group, ``(starts, lengths)`` of its rows as in
-        ``rows_to_runs`` (ascending row order).
-    """
-    run_starts, run_lengths, bounds = group_row_runs_flat(row_group, n_groups)
-    return [
-        (run_starts[lo:hi].copy(), run_lengths[lo:hi].copy())
-        for lo, hi in zip(bounds[:-1].tolist(), bounds[1:].tolist(), strict=True)
-    ]
-
-
 def group_row_runs_flat(
     row_group: np.ndarray, n_groups: int
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
-    ``group_row_runs`` as three flat arrays (no per-group arrays).
+    Runs of consecutive rows of every group, computed for all groups at once,
+    as three flat arrays (no per-group arrays).
 
     Parameters
     ----------

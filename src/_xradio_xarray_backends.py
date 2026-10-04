@@ -1,5 +1,6 @@
 """
-xarray backend entry points of xradio for CASA and FITS images.
+xarray backend entry points of xradio for CASA and FITS images and
+MeasurementSets v2.
 
 xarray loads every installed backend entry point on each ``xr.open_dataset``,
 ``xr.open_mfdataset`` and ``xr.open_datatree`` call made without an explicit
@@ -12,14 +13,20 @@ package, so that loading the entry points does not run ``xradio/__init__.py``
 (:mod:`xradio.image` with dask, astropy and casacore) are imported only when an
 image is actually opened. The implementation, with the documentation of the
 parameters, is in :mod:`xradio.image.backends`, which re-exports the entry
-point classes.
+point classes. Likewise the MSv2 reader (the converter's code, with zarr, dask
+and casacore or casatools) is imported only when an MS is opened (see
+:mod:`xradio.measurement_set.open_msv2`).
 """
 
 import os
 
 from xarray.backends import BackendEntrypoint
 
-__all__ = ["CasaImageBackendEntrypoint", "FitsImageBackendEntrypoint"]
+__all__ = [
+    "CasaImageBackendEntrypoint",
+    "FitsImageBackendEntrypoint",
+    "MSv2BackendEntrypoint",
+]
 
 _URL = "https://xradio.readthedocs.io/en/latest/image_data/schema.html"
 
@@ -105,12 +112,12 @@ def _is_zarr_store(path: str) -> bool:
     )
 
 
-def _require_path(filename_or_obj, engine: str) -> str:
+def _require_path(filename_or_obj, engine: str, what: str = "images") -> str:
     """Return the local path to open, raising for objects and missing paths."""
     path = _local_path(filename_or_obj)
     if path is None:
         raise TypeError(
-            f"The {engine} engine opens images from a local path (str or "
+            f"The {engine} engine opens {what} from a local path (str or "
             f"os.PathLike), not from {type(filename_or_obj).__name__} objects."
         )
     if not os.path.exists(path):
@@ -245,3 +252,134 @@ class FitsImageBackendEntrypoint(BackendEntrypoint):
             and path.lower().endswith(FITS_SUFFIXES)
             and _is_fits_image(path)
         )
+
+
+#: Sub-tables that every MeasurementSet v2 has (see _is_measurement_set).
+MS_SUBTABLES = ("ANTENNA", "DATA_DESCRIPTION", "POLARIZATION", "SPECTRAL_WINDOW")
+
+
+def _is_measurement_set(path: str) -> bool:
+    """
+    True if ``path`` is a casacore MeasurementSet (v2): a directory (not a zarr
+    store) whose ``table.info`` starts with ``Type = Measurement Set``, or
+    with an empty type (``Type =`` or an empty first line: written by some
+    simulators, and left by casacore when it rewrites ``table.info``) when the
+    MS sub-tables ANTENNA, DATA_DESCRIPTION, POLARIZATION and
+    SPECTRAL_WINDOW all exist. A PermissionError propagates.
+    """
+    if not os.path.isdir(path) or _is_zarr_store(path):
+        return False
+    try:
+        with open(os.path.join(path, "table.info"), "rb") as info:
+            first_line = info.readline(256).strip()
+    except PermissionError:
+        raise
+    except OSError:
+        return False
+    if first_line == b"Type = Measurement Set":
+        return True
+    return first_line in (b"Type =", b"") and all(
+        os.path.isfile(os.path.join(path, sub, "table.dat")) for sub in MS_SUBTABLES
+    )
+
+
+def _msv2_driver():
+    """The function that opens an MSv2 (imported on first use)."""
+    try:
+        from xradio.measurement_set._utils._msv2.backend_open import open_msv2_tree
+    except ModuleNotFoundError as exc:
+        import importlib.util
+
+        if all(
+            importlib.util.find_spec(name) is None for name in ("casacore", "casatools")
+        ):
+            raise ImportError(
+                "The xradio_msv2 engine reads MeasurementSets with python-casacore "
+                "or casatools, and neither is installed (pip install "
+                "'xradio[casacore]', or install casatools)."
+            ) from exc
+        raise
+    return open_msv2_tree
+
+
+class MSv2BackendEntrypoint(BackendEntrypoint):
+    """Open a MeasurementSet v2 as a processing set: a DataTree of lazy MSv4s,
+    as ``convert_msv2_to_processing_set`` converts it.
+
+    See :func:`xradio.measurement_set.open_msv2` for the parameters.
+    """
+
+    description = (
+        "Open MeasurementSets v2 as xradio processing sets (DataTrees of MSv4s)"
+    )
+    url = "https://xradio.readthedocs.io/en/latest/measurement_set/api.html"
+    supports_groups = True
+    open_dataset_parameters = ("filename_or_obj", "drop_variables")
+
+    @staticmethod
+    def _require_ms(filename_or_obj) -> str:
+        path = _require_path(filename_or_obj, "xradio_msv2", "MeasurementSets")
+        if _is_zarr_store(path):
+            raise ValueError(
+                f"{path!r} is a zarr store, not what the xradio_msv2 engine opens; "
+                "use xradio.measurement_set.open_processing_set (processing sets) "
+                "or xarray.open_datatree(path, engine='zarr')."
+            )
+        if not _is_measurement_set(path):
+            raise ValueError(
+                _wrong_format_message(path, "xradio_msv2")
+                or f"{path!r} is not a MeasurementSet v2 (a casacore table "
+                "directory whose table.info has 'Type = Measurement Set')."
+            )
+        return path
+
+    def open_dataset(self, filename_or_obj, *, drop_variables=None):
+        self._require_ms(filename_or_obj)
+        raise NotImplementedError(
+            "A MeasurementSet v2 is opened as a DataTree (processing set) of "
+            "MSv4s: use xarray.open_datatree(path, engine='xradio_msv2')."
+        )
+
+    def open_datatree(
+        self,
+        filename_or_obj,
+        *,
+        drop_variables=None,
+        partition_scheme=None,
+        partition_filter=None,
+        main_chunksize=None,
+        with_pointing=True,
+        pointing_chunksize=None,
+        pointing_interpolate=False,
+        ephemeris_interpolate=False,
+        phase_cal_interpolate=False,
+        sys_cal_interpolate=False,
+        partition_cache=None,
+        on_partition_error="skip",
+    ):
+        path = self._require_ms(filename_or_obj)
+        return _msv2_driver()(
+            path,
+            drop_variables=drop_variables,
+            partition_scheme=partition_scheme,
+            partition_filter=partition_filter,
+            main_chunksize=main_chunksize,
+            with_pointing=with_pointing,
+            pointing_chunksize=pointing_chunksize,
+            pointing_interpolate=pointing_interpolate,
+            ephemeris_interpolate=ephemeris_interpolate,
+            phase_cal_interpolate=phase_cal_interpolate,
+            sys_cal_interpolate=sys_cal_interpolate,
+            partition_cache=partition_cache,
+            on_partition_error=on_partition_error,
+        )
+
+    def open_groups_as_dict(self, filename_or_obj, **kwargs):
+        # every group's own variables, without inherited coordinates (as the
+        # zarr engine's groups)
+        tree = self.open_datatree(filename_or_obj, **kwargs)
+        return {node.path: node.to_dataset(inherit=False) for node in tree.subtree}
+
+    def guess_can_open(self, filename_or_obj) -> bool:
+        path = _local_path(filename_or_obj)
+        return path is not None and _is_measurement_set(path)

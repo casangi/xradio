@@ -26,11 +26,16 @@ try:
     from xradio.measurement_set.convert_msv2_to_processing_set import (
         estimate_conversion_memory_and_cores as estimate_conversion_memory_and_cores,
     )
+    from xradio.measurement_set.open_msv2 import open_msv2 as open_msv2
 except ModuleNotFoundError:
     # Optional MSv2-conversion backend not installed; the conversion functions
     # are simply not exported.
     pass
 else:
     __all__.extend(
-        ["convert_msv2_to_processing_set", "estimate_conversion_memory_and_cores"]
+        [
+            "convert_msv2_to_processing_set",
+            "estimate_conversion_memory_and_cores",
+            "open_msv2",
+        ]
     )

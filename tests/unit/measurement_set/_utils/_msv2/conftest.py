@@ -261,3 +261,11 @@ def backend_ms(tmp_path_factory):
 
     yield get
     shutil.rmtree(base, ignore_errors=True)
+
+
+@pytest.fixture(autouse=True)
+def _msv2_partition_cache_off(monkeypatch):
+    """The partition cache of the MSv2 backend is off in these tests (the
+    default of partition_cache=None): opening an MS never uses partitions of
+    an earlier open. Tests of the cache pass partition_cache explicitly."""
+    monkeypatch.setenv("XRADIO_MSV2_PARTITION_CACHE", "off")

@@ -80,6 +80,7 @@ from xradio.measurement_set._utils._msv2.stream_write import (
     discard_msv4,
     drop_consolidated_metadata,
     fits_in_memory,
+    msv4_members,
     read_deferred_variables,
     write_deferred_variables,
 )
@@ -1346,8 +1347,9 @@ def warn_use_table_iter(use_table_iter: bool, stacklevel: int = 3) -> None:
 def convert_and_write_partition(*args, **kwargs):
     """
     Converts one partition of an MSv2 into an MSv4 and writes it (see
-    ``_convert_and_write_partition`` for the parameters; use_table_iter is a
-    deprecated no-op, True emits a DeprecationWarning).
+    ``_convert_and_write_partition`` for the parameters, the signature is
+    the same without its internal ones; use_table_iter is a deprecated no-op,
+    True emits a DeprecationWarning).
 
     With the streamed write of the MAIN data variables, a column whose read
     fails after the MSv4 metadata was written (see ``DeferredReadError``) makes
@@ -1356,25 +1358,23 @@ def convert_and_write_partition(*args, **kwargs):
     skips a column whose read fails. If the zarr metadata declares an encoding
     that the streamed write does not apply (``DeferredEncodingError``, raised
     before any value is written), the partition is converted again without
-    the streamed write.
+    the streamed write. The next attempt overwrites the MSv4 of the failed
+    one: persistence mode "w-" (the default, fail if the MSv4 exists) becomes
+    "w", since the failed attempt created that MSv4 (its to_zarr fails on an
+    existing one). So an MSv4 that ``discard_msv4`` could not remove does not
+    make the next attempt fail.
     """
-    try:
-        bound = inspect.signature(_convert_and_write_partition).bind_partial(
-            *args, **kwargs
-        )
-    except TypeError:
-        pass  # raised again by the call below
-    else:
-        warn_use_table_iter(bound.arguments.get("use_table_iter", False))
+    arguments = convert_and_write_partition.__signature__.bind(*args, **kwargs)
+    arguments = dict(arguments.arguments)
+    warn_use_table_iter(arguments.get("use_table_iter", False))
     unreadable: set[str] = set()
     allow_stream_write = True
     for _ in range(len(col_to_data_variable_names) + 2):
         try:
             return _convert_and_write_partition(
-                *args,
+                **arguments,
                 unreadable_columns=frozenset(unreadable),
                 allow_stream_write=allow_stream_write,
-                **kwargs,
             )
         except DeferredEncodingError as exc:
             if not allow_stream_write:  # not streamed again: cannot happen
@@ -1391,6 +1391,8 @@ def convert_and_write_partition(*args, **kwargs):
                 "converting the partition again without it"
             )
             unreadable.add(exc.col)
+        if arguments.get("persistence_mode", "w-") == "w-":
+            arguments["persistence_mode"] = "w"
     raise RuntimeError(f"Columns {sorted(unreadable)} could not be read")
 
 
@@ -1911,8 +1913,8 @@ def _convert_and_write_partition(
                 # the MSv4 opens as incomplete, as one whose to_zarr was
                 # interrupted (see stream_write.py).
                 check_deferred_variables(xds, deferred)
-                store_existed = os.path.isdir(store_path)
-                members_before = set(os.listdir(store_path)) if store_existed else None
+                members_before = msv4_members(store_path)
+                store_existed = members_before is not None
                 ms_xdt.to_zarr(
                     store=store_path,
                     mode=persistence_mode,
@@ -1963,6 +1965,20 @@ def _convert_and_write_partition(
         # memory retained by Dask task graphs and large NumPy-backed arrays after writing.
         ms_xdt = None
         free_memory()
+
+
+# convert_and_write_partition has the signature of _convert_and_write_partition
+# (for help(), inspect and the binding of its arguments) without the parameters
+# it sets itself on every attempt
+_inner_signature = inspect.signature(_convert_and_write_partition)
+convert_and_write_partition.__signature__ = _inner_signature.replace(
+    parameters=[
+        param
+        for param in _inner_signature.parameters.values()
+        if param.name not in ("unreadable_columns", "allow_stream_write")
+    ]
+)
+del _inner_signature
 
 
 def antenna_ids_to_names(

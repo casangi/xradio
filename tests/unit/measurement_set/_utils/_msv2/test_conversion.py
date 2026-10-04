@@ -1996,6 +1996,102 @@ def test_stream_write_killed_msv4_opens_as_incomplete(ms_main_layouts, tmp_path)
     assert list(open_processing_set(out).children) == []
 
 
+@pytest.mark.parametrize("discard", ["removes", "does_nothing"])
+def test_stream_write_retry_on_a_url_store(
+    ms_main_layouts, discard, tmp_path, monkeypatch, partition_attempts
+):
+    """
+    A read failure of the streamed write into a store given by URL (file://,
+    written through fsspec) with persistence mode "w-": the partition is
+    converted again without the column (as the non-streamed path, which skips
+    it), not failing because the MSv4 of the failed attempt exists:
+    discard_msv4 removes it through fsspec and, if that did nothing, the
+    retry overwrites it (mode "w").
+    """
+    from xradio.measurement_set._utils._msv2._tables import read_rows
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
+
+    msname = ms_main_layouts["dense"]
+    partitions, runs = create_partitions_with_main_rows(msname, [])
+    kw = {"main_chunksize": {"time": 4}, "main_row_runs": runs[0]}
+    read = read_rows.read_rows_to_grid
+    reads = []
+
+    def failing_read(table, col, *args, **kwargs):
+        if col == "CORRECTED_DATA":
+            reads.append(col)
+            if len(reads) == fail_at:
+                raise OSError("simulated read failure")
+        return read(table, col, *args, **kwargs)
+
+    monkeypatch.setattr(read_rows, "read_rows_to_grid", failing_read)
+    fail_at = 1  # the non-streamed path: its one read of the column fails
+    _, old = _convert_streamed(
+        monkeypatch, msname, str(tmp_path / "old"), partitions[0], "0", **kw
+    )
+    discarded = []
+    discard_msv4 = conversion.discard_msv4
+
+    def discard_spy(*args, **kwargs):
+        discarded.append(
+            "" if discard == "does_nothing" else discard_msv4(*args, **kwargs)
+        )
+        return discarded[-1]
+
+    monkeypatch.setattr(conversion, "discard_msv4", discard_spy)
+    modes = []
+    convert = conversion._convert_and_write_partition
+
+    def spy(*args, persistence_mode="w-", **kwargs):
+        modes.append(persistence_mode)
+        return convert(*args, persistence_mode=persistence_mode, **kwargs)
+
+    monkeypatch.setattr(conversion, "_convert_and_write_partition", spy)
+    reads.clear()
+    partition_attempts.clear()
+    fail_at = 2  # the streamed write: its 2nd batch fails
+    _set_stream_batch_mb(monkeypatch, 1e-9)
+    new = tmp_path / "new"
+    conversion.convert_and_write_partition(
+        in_file=msname,
+        out_file="file://" + str(new),
+        ms_v4_id="0",
+        partition_info=partitions[0],
+        use_table_iter=False,
+        persistence_mode="w-",
+        **kw,
+    )
+    assert modes == ["w-", "w"]
+    assert discarded == ["" if discard == "does_nothing" else "MSv4 removed"]
+    assert partition_attempts == [set(), {"CORRECTED_DATA"}]
+    assert_stores_identical(old, os.path.join(new, os.path.basename(old)))
+
+
+def test_convert_and_write_partition_signature():
+    """convert_and_write_partition shows (and binds its arguments with) the
+    parameters of _convert_and_write_partition, without the internal ones it
+    sets on every attempt."""
+    import inspect
+
+    public = inspect.signature(conversion.convert_and_write_partition)
+    inner = inspect.signature(conversion._convert_and_write_partition)
+    internal = ["unreadable_columns", "allow_stream_write"]
+    assert list(public.parameters) == [
+        name for name in inner.parameters if name not in internal
+    ]
+    for name, param in public.parameters.items():
+        assert param == inner.parameters[name], name
+    for name in internal:
+        with pytest.raises(TypeError, match=name):
+            conversion.convert_and_write_partition(
+                "in.ms", "out", "0", {}, False, **{name: None}
+            )
+    with pytest.raises(TypeError, match="use_table_iter"):
+        conversion.convert_and_write_partition("in.ms", "out", "0", {})
+
+
 @pytest.mark.parametrize("declared", [False, True])
 def test_stream_write_encoding_that_changes_values_is_not_streamed(
     ms_main_layouts, declared, tmp_path, monkeypatch, stream_stats

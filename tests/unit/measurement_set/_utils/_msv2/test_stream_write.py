@@ -756,6 +756,18 @@ def test_stored_fill_value_is_nan(value, is_nan):
     assert sw._stored_fill_value_is_nan(value) is is_nan
 
 
+def _store_location(tmp_path, location: str) -> str:
+    """An MSv4 store path: local, a file:// URL or a memory:// URL (both
+    written through fsspec)."""
+    import uuid
+
+    if location == "local":
+        return str(tmp_path / "msv4")
+    if location == "file":
+        return "file://" + str(tmp_path / "msv4")
+    return f"memory://{uuid.uuid4().hex}/msv4"
+
+
 def _has_consolidated_metadata(store: str) -> bool:
     import zarr
 
@@ -766,27 +778,28 @@ def _has_consolidated_metadata(store: str) -> bool:
     return True
 
 
+@pytest.mark.parametrize("location", ["local", "file", "memory"])
 @pytest.mark.parametrize("remove_store", [True, False])
-def test_discard_msv4(tmp_path, remove_store):
+def test_discard_msv4(tmp_path, remove_store, location):
     """A failed fill leaves no MSv4 with unwritten data variables: the whole
-    store is removed, or (an MSv4 that existed before, mode "a") the deferred
-    arrays and the members added, the MSv4 left without consolidated metadata
-    (as incomplete)."""
-    import os
-
+    store is removed (also a URL, through fsspec), or (an MSv4 that existed
+    before, mode "a") the deferred arrays and the members added, the MSv4 left
+    without consolidated metadata (as incomplete)."""
     import xarray as xr
     import zarr
 
-    store = str(tmp_path / "msv4")
+    store = _store_location(tmp_path, location)
+    assert sw.msv4_members(store) is None
     old = xr.Dataset({"OLD": ("x", np.arange(3.0)), "VIS": ("x", np.zeros(3))})
     old.to_zarr(store, mode="w", zarr_format=3)
-    members_before = set(os.listdir(store))
+    members_before = sw.msv4_members(store)
+    assert members_before == {"zarr.json", "OLD", "VIS"}
     new = xr.Dataset({"NEW": ("x", np.arange(3.0)), "VIS": ("x", np.ones(3))})
     new.to_zarr(store, mode="a", zarr_format=3)
     assert _has_consolidated_metadata(store)
     done = sw.discard_msv4(store, {"VIS"}, remove_store, members_before)
     if remove_store:
-        assert done == "MSv4 removed" and not os.path.exists(store)
+        assert done == "MSv4 removed" and sw.msv4_members(store) is None
         assert sw.discard_msv4(store, {"VIS"}, True) == "MSv4 not written"
         return
     group = zarr.open_group(store, mode="r", zarr_format=3, use_consolidated=False)
@@ -797,7 +810,8 @@ def test_discard_msv4(tmp_path, remove_store):
     assert sorted(reopened.data_vars) == ["OLD"]
 
 
-def test_drop_consolidated_metadata_and_consolidate_msv4(tmp_path):
+@pytest.mark.parametrize("location", ["local", "file"])
+def test_drop_consolidated_metadata_and_consolidate_msv4(tmp_path, location):
     """Between drop_consolidated_metadata and consolidate_msv4 (the streamed
     write) an MSv4 opens as incomplete: a warning (the non-consolidated
     metadata is read), an error with consolidated=True. Afterwards it opens as
@@ -805,7 +819,7 @@ def test_drop_consolidated_metadata_and_consolidate_msv4(tmp_path):
     import xarray as xr
     import zarr
 
-    store = str(tmp_path / "msv4")
+    store = _store_location(tmp_path, location)
     xds = xr.Dataset({"VIS": ("x", np.arange(3.0))}, attrs={"type": "visibility"})
     xr.DataTree(xds).to_zarr(store, mode="w", zarr_format=3)
     written = zarr.open_group(store, mode="r", use_consolidated=True).metadata

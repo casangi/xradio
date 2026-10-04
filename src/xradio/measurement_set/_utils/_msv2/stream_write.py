@@ -62,14 +62,17 @@ by the read itself, as in the non-streamed path. If the read of any column
 fails after the metadata was written, ``write_deferred_variables`` raises
 ``DeferredReadError``; the caller removes the MSv4 and converts the partition
 again without that column, which gives the result of the non-streamed path
-(that skips a column whose read fails). Any other failure of the fill removes
-the MSv4 (``discard_msv4``) and is raised: no MSv4 with missing or partly
-written data variables is left behind (after a hard kill, one without
-consolidated metadata, see above).
+(that skips a column whose read fails); the retry overwrites the MSv4 that the
+failed attempt created (persistence mode "w-" becomes "w"). Any other failure
+of the fill removes the MSv4 (``discard_msv4``, local paths and URLs) and is
+raised: no MSv4 with missing or partly written data variables is left behind
+(after a hard kill, one without consolidated metadata, see above).
 """
 
 import base64
 import json
+import os
+import posixpath
 import shutil
 import struct
 import time
@@ -1155,6 +1158,43 @@ def write_deferred_variables(
     return {"summary": summary, "variables": var_stats}
 
 
+def _is_url(store_path: str) -> bool:
+    """Whether a store path is a URL (zarr opens it through fsspec)."""
+    return "://" in str(store_path)
+
+
+def _url_fs(store_path: str):
+    """The fsspec file system and path of a store URL, as zarr opens it."""
+    import fsspec
+
+    return fsspec.core.url_to_fs(str(store_path))
+
+
+def msv4_members(store_path: str) -> set[str] | None:
+    """
+    Entries of an MSv4 store (its zarr.json and the directories of its
+    members), local path or URL (fsspec).
+
+    Parameters
+    ----------
+    store_path : str
+        The MSv4 zarr group.
+
+    Returns
+    -------
+    set[str] | None
+        The entry names, None if there is no MSv4 there.
+    """
+    if not _is_url(store_path):
+        return set(os.listdir(store_path)) if os.path.isdir(store_path) else None
+    fs, path = _url_fs(store_path)
+    if not fs.exists(path):
+        return None
+    return {
+        posixpath.basename(entry.rstrip("/")) for entry in fs.ls(path, detail=False)
+    }
+
+
 def drop_consolidated_metadata(store_path: str) -> None:
     """
     Remove the consolidated metadata of an MSv4 (from the zarr.json of its
@@ -1207,19 +1247,20 @@ def discard_msv4(
     Parameters
     ----------
     store_path : str
-        The MSv4 zarr group.
+        The MSv4 zarr group (local path or URL).
     deferred_names : Iterable[str]
         Names of the deferred data variables.
     remove_store : bool
         Whether this conversion wrote the whole MSv4 (persistence mode "w" or
-        "w-", or no MSv4 there before): then it is removed (local stores).
-        Otherwise (mode "a" on an existing MSv4, or a remote store), the
-        deferred arrays and the members this conversion added are removed; the
-        MSv4 is left without consolidated metadata (as incomplete, see
+        "w-", or no MSv4 there before): then it is removed, a local path with
+        shutil, a URL through its fsspec file system (the one zarr writes
+        through). Otherwise (mode "a" on an existing MSv4), or if that fails,
+        the deferred arrays and the members this conversion added are removed;
+        the MSv4 is left without consolidated metadata (as incomplete, see
         ``drop_consolidated_metadata``).
     members_before : set[str] | None, optional
-        Entries of the MSv4 directory before this conversion wrote it (None:
-        not known).
+        Entries of the MSv4 directory before this conversion wrote it
+        (``msv4_members``; None: not known).
 
     Returns
     -------
@@ -1228,15 +1269,23 @@ def discard_msv4(
     """
     import zarr
 
-    if remove_store and "://" not in str(store_path):
+    if remove_store:
         try:
-            shutil.rmtree(store_path, ignore_errors=False)
+            if _is_url(store_path):
+                fs, path = _url_fs(store_path)
+                if not fs.exists(path):
+                    return "MSv4 not written"
+                fs.rm(path, recursive=True)
+            else:
+                shutil.rmtree(store_path, ignore_errors=False)
             return "MSv4 removed"
         except FileNotFoundError:
             return "MSv4 not written"
         except Exception as exc:
-            xradio_logger().error(f"Could not remove {store_path}: {exc}")
-            return f"MSv4 not removed: {exc}"
+            xradio_logger().error(
+                f"Could not remove {store_path}: {exc}; removing its deferred "
+                "data variables"
+            )
     removed = []
     try:
         group = zarr.open_group(

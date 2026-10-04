@@ -22,8 +22,11 @@ until one ``DataTree.to_zarr`` call writes the MSv4. With streaming:
    kill) is so marked as incomplete, as one whose to_zarr was interrupted:
    opening it warns (xarray falls back to the non-consolidated metadata,
    whose unwritten chunks read as fill values) or fails (``consolidated=True``),
-   and a processing set whose conversion was interrupted does not list it (its
-   root is consolidated after the last partition).
+   and a new processing set (mode "w"/"w-") whose conversion was interrupted
+   does not list it (its root is consolidated after the last partition). In
+   mode "a", re-converting an MSv4 of a name the processing set already has,
+   the root's consolidated metadata (written at the start, as on origin/main)
+   still lists it, so open_processing_set opens it without a warning.
    The placeholders are never computed. The streamed
    write writes the values to the zarr arrays directly, bypassing xarray's
    encoding, so it is used only where that encoding leaves the values

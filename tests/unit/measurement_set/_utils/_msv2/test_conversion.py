@@ -2084,6 +2084,60 @@ def test_stream_write_retry_on_a_url_store(
     assert_stores_identical(old, os.path.join(new, os.path.basename(old)))
 
 
+def test_retry_never_overwrites_a_preexisting_msv4(
+    ms_main_layouts, tmp_path, monkeypatch
+):
+    """
+    A read failure before the MSv4 store is written (a small partition, read
+    whole before its single to_zarr) keeps persistence mode "w-" on the next
+    attempt: an MSv4 that existed before the conversion is not overwritten,
+    and the conversion fails on it as the non-streamed path does.
+    """
+    from xradio.measurement_set._utils._msv2._tables import read_rows
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
+
+    msname = ms_main_layouts["dense"]
+    partitions, runs = create_partitions_with_main_rows(msname, [])
+    out = tmp_path / "out"
+    ms_v4_name = os.path.basename(msname).replace(".ms", "") + "_0"
+    existing = out / ms_v4_name
+    existing.mkdir(parents=True)
+    sentinel = existing / "sentinel"
+    sentinel.write_text("keep me")
+
+    read = read_rows.read_rows_to_grid
+
+    def failing_read(table, col, *args, **kwargs):
+        if col == "CORRECTED_DATA":
+            raise OSError("simulated read failure")
+        return read(table, col, *args, **kwargs)
+
+    monkeypatch.setattr(read_rows, "read_rows_to_grid", failing_read)
+    modes = []
+    convert = conversion._convert_and_write_partition
+
+    def spy(*args, persistence_mode="w-", **kwargs):
+        modes.append(persistence_mode)
+        return convert(*args, persistence_mode=persistence_mode, **kwargs)
+
+    monkeypatch.setattr(conversion, "_convert_and_write_partition", spy)
+    with pytest.raises((FileExistsError, ValueError)):
+        conversion.convert_and_write_partition(
+            in_file=msname,
+            out_file=str(out),
+            ms_v4_id="0",
+            partition_info=partitions[0],
+            use_table_iter=False,
+            persistence_mode="w-",
+            main_chunksize={"time": 4},
+            main_row_runs=runs[0],
+        )
+    assert "w" not in modes
+    assert sentinel.read_text() == "keep me"
+
+
 def test_convert_and_write_partition_signature():
     """convert_and_write_partition shows (and binds its arguments with) the
     parameters of _convert_and_write_partition, without the internal ones it

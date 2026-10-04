@@ -1385,11 +1385,13 @@ def convert_and_write_partition(*args, **kwargs):
     skips a column whose read fails. If the zarr metadata declares an encoding
     that the streamed write does not apply (``DeferredEncodingError``, raised
     before any value is written), the partition is converted again without
-    the streamed write. The next attempt overwrites the MSv4 of the failed
-    one: persistence mode "w-" (the default, fail if the MSv4 exists) becomes
-    "w", since the failed attempt created that MSv4 (its to_zarr fails on an
-    existing one). So an MSv4 that ``discard_msv4`` could not remove does not
-    make the next attempt fail.
+    the streamed write. When the failed attempt itself created the MSv4 store
+    (the error carries ``created_msv4``), the next attempt overwrites it:
+    persistence mode "w-" (the default, fail if the MSv4 exists) becomes "w",
+    so an MSv4 that ``discard_msv4`` could not remove does not make the next
+    attempt fail. A failure before the store was written (for example a read
+    of a partition that is read whole before its single to_zarr) keeps "w-",
+    so an MSv4 that existed before the conversion is never overwritten.
     """
     arguments = convert_and_write_partition.__signature__.bind(*args, **kwargs)
     arguments = dict(arguments.arguments)
@@ -1410,6 +1412,7 @@ def convert_and_write_partition(*args, **kwargs):
                 f"{exc}: converting the partition again without the streamed write"
             )
             allow_stream_write = False
+            created_msv4 = getattr(exc, "created_msv4", False)
         except DeferredReadError as exc:
             if exc.col in unreadable:  # not read again: cannot happen
                 raise
@@ -1418,7 +1421,8 @@ def convert_and_write_partition(*args, **kwargs):
                 "converting the partition again without it"
             )
             unreadable.add(exc.col)
-        if arguments.get("persistence_mode", "w-") == "w-":
+            created_msv4 = getattr(exc, "created_msv4", False)
+        if created_msv4 and arguments.get("persistence_mode", "w-") == "w-":
             arguments["persistence_mode"] = "w"
     raise RuntimeError(f"Columns {sorted(unreadable)} could not be read")
 
@@ -1976,6 +1980,9 @@ def _convert_and_write_partition(
                         or not store_existed,
                         members_before=members_before,
                     )
+                    # Lets convert_and_write_partition overwrite, on its next
+                    # attempt, only an MSv4 this attempt created.
+                    exc.created_msv4 = not store_existed
                     log = xradio_logger().debug
                     if not isinstance(exc, DeferredReadError | DeferredEncodingError):
                         log = xradio_logger().error

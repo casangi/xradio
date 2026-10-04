@@ -561,16 +561,39 @@ class RowOrderSpy:
         return RefSpy(self._tb.selectrows(rows))
 
 
+# bytes of one TSM_DATA cell
+DATA_ROW_BYTES = NCHAN * NPOL * 8
+
+
+def assert_one_ascending_pass(spy, rows, max_elems=rr.DEFAULT_MAX_ELEMS):
+    """Every call reads ascending rows, after those of the previous call (each
+    table row at most once), every partition row is read, and at most
+    MAX_GAP_FRACTION of the partition rows are other (bridged) rows. Returns
+    the number of bridged rows read."""
+    read_order = np.concatenate(spy.rows_read)
+    assert np.all(np.diff(read_order) > 0)
+    assert np.isin(rows, read_order).all()
+    extra = read_order.size - rows.size
+    assert extra <= rr.MAX_GAP_FRACTION * rows.size
+    assert max(r.size for r in spy.rows_read) * NCHAN * NPOL <= max(
+        max_elems, NCHAN * NPOL
+    )
+    return extra
+
+
 @pytest.mark.parametrize("seed", range(4))
 @pytest.mark.parametrize("n_dup", [0, 5])
 @pytest.mark.parametrize("max_tmp_bytes", [rr.DEFAULT_MAX_TMP_BYTES, 200])
+@pytest.mark.parametrize("min_read_bytes", [0, 6 * DATA_ROW_BYTES, None])
 def test_read_rows_to_grid_reads_rows_in_one_ascending_pass(
-    rows_tb, seed, n_dup, max_tmp_bytes
+    rows_tb, seed, n_dup, max_tmp_bytes, min_read_bytes
 ):
     """
-    Direct segments and scattered rows are read interleaved, in row order: a
+    Direct segments and the other rows are read interleaved, in row order: a
     pass over the direct segments followed by a second pass over the scattered
-    rows reads the tiles that hold both twice (one row-slab tile cache).
+    rows reads the tiles that hold both twice (one row-slab tile cache). With
+    min_read_bytes 0 every direct segment is read straight into the grid, with
+    6 rows the longer ones, by default none here (all through the temporary).
     """
     tb, ref = rows_tb
     rows, gidx, nt, nb = make_plan_case(seed, n_dup=n_dup)
@@ -581,12 +604,84 @@ def test_read_rows_to_grid_reads_rows_in_one_ascending_pass(
     assert (plan.scatter_idx > first_direct).any()
     spy = RowOrderSpy(tb)
     grid = sentinel_buffer((nt, nb, NCHAN, NPOL), np.complex64)
-    rr.read_rows_to_grid(spy, "TSM_DATA", plan, grid, max_tmp_bytes=max_tmp_bytes)
-    read_order = np.concatenate(spy.rows_read)
-    np.testing.assert_array_equal(read_order, rows)  # every row once, ascending
+    kw = {} if min_read_bytes is None else {"min_read_bytes": min_read_bytes}
+    stats = rr.read_rows_to_grid(
+        spy, "TSM_DATA", plan, grid, max_tmp_bytes=max_tmp_bytes, **kw
+    )
+    extra = assert_one_ascending_pass(spy, rows)
+    assert stats.get("gap_rows", 0) == extra
+    assert stats.get("direct_rows", 0) + stats.get("scatter_rows", 0) == rows.size
+    if min_read_bytes is None:  # default: the segments here are all short
+        assert stats.get("direct_rows", 0) == 0
+    elif min_read_bytes == 0:
+        assert stats["direct_rows"] == plan.direct_lengths.sum()
     expected = sentinel_buffer(grid.shape, np.complex64)
     expected[gidx // nb, gidx % nb] = ref["TSM_DATA"][rows]
     np.testing.assert_array_equal(grid, expected)
+
+
+@pytest.mark.parametrize("seed", range(6))
+@pytest.mark.parametrize("n_dup", [0, 7])
+@pytest.mark.parametrize("shuffle_cells", [False, True])
+@pytest.mark.parametrize("max_elems", [rr.DEFAULT_MAX_ELEMS, 40])
+@pytest.mark.parametrize(
+    "max_tmp_bytes, min_read_bytes",
+    [
+        (rr.DEFAULT_MAX_TMP_BYTES, None),
+        (30 * DATA_ROW_BYTES, 10 * DATA_ROW_BYTES),
+        (7 * DATA_ROW_BYTES, 3 * DATA_ROW_BYTES),
+        (DATA_ROW_BYTES, 0),
+    ],
+)
+def test_read_rows_to_grid_read_planning(
+    rows_tb, seed, n_dup, shuffle_cells, max_elems, max_tmp_bytes, min_read_bytes
+):
+    """
+    Partitions with gaps of every size (bridged or not), duplicated cells and
+    shuffled cells, read with temporaries and minimum read sizes from one row
+    up: the grid is the fancy assignment of all rows (the last row wins), the
+    table is read in one ascending pass, every call within max_elems, and the
+    rows read beyond the partition are bounded.
+    """
+    tb, ref = rows_tb
+    rng = np.random.default_rng(seed)
+    # runs of 1-40 rows separated by gaps of 1-6 rows
+    lengths = rng.integers(1, 41, 12)
+    gaps = rng.integers(1, 7, 12)
+    starts = np.cumsum(gaps + np.r_[0, lengths[:-1]]) - gaps[0] + rng.integers(0, 3)
+    rows = rr.runs_to_rows(starts, lengths)
+    rows = rows[rows < NROWS]
+    nb = 7
+    nt = -(-(rows.size + n_dup) // nb) + 1
+    cells = np.arange(nt * nb)
+    if shuffle_cells:
+        cells = rng.permutation(cells)
+    cells = np.sort(rng.choice(cells.size, rows.size, replace=False))
+    cells = rng.permutation(cells) if shuffle_cells else cells
+    if n_dup:
+        cells[rng.integers(0, rows.size, n_dup)] = cells[
+            rng.integers(0, rows.size, n_dup)
+        ]
+    plan = rr.make_row_grid_plan(rows, cells, nt * nb, min_direct_rows=2)
+    spy = RowOrderSpy(tb)
+    grid = sentinel_buffer((nt, nb, NCHAN, NPOL), np.complex64)
+    kw = {} if min_read_bytes is None else {"min_read_bytes": min_read_bytes}
+    stats = rr.read_rows_to_grid(
+        spy,
+        "TSM_DATA",
+        plan,
+        grid,
+        max_elems=max_elems,
+        max_tmp_bytes=max_tmp_bytes,
+        **kw,
+    )
+    expected = sentinel_buffer(grid.shape, np.complex64)
+    expected[cells // nb, cells % nb] = ref["TSM_DATA"][rows]
+    np.testing.assert_array_equal(grid, expected)
+    extra = assert_one_ascending_pass(spy, rows, max_elems)
+    assert stats.get("gap_rows", 0) == extra
+    assert stats.get("direct_rows", 0) + stats.get("scatter_rows", 0) == rows.size
+    assert stats.get("max_tmp_bytes", 0) <= max(max_tmp_bytes, DATA_ROW_BYTES)
 
 
 @pytest.fixture(scope="module")
@@ -681,6 +776,208 @@ def test_read_rows_to_grid_dtype_differs_scatters(rows_tb):
     expected[gidx // nb, gidx % nb] = ref["TSM_DATA"][rows]
     np.testing.assert_array_equal(grid, expected)
     assert stats.get("direct_rows", 0) == 0
+
+
+def test_read_rows_to_grid_minimum_read_size(rows_tb):
+    """
+    All rows of the table, time-major with a baseline missing at some times (as
+    3c391): the direct segments are short, so they are read through the
+    temporary in calls of a whole temporary, and copied into the grid as
+    slices; only direct segments of at least min_read_bytes are read straight
+    into the grid.
+    """
+    tb, ref = rows_tb
+    nb = 10
+    keep = np.ones((NROWS // 8, nb), dtype=bool)
+    keep[3::4, 6] = False  # the 7th baseline missing at every 4th time
+    gidx = np.flatnonzero(keep.ravel())[:NROWS]
+    rows = np.arange(gidx.size)
+    nt = int(gidx[-1]) // nb + 1
+    plan = rr.make_row_grid_plan(rows, gidx, nt * nb, min_direct_rows=4)
+    assert plan.direct_lengths.max() < 40 and plan.scatter_idx.size == 0
+    expected = np.zeros((nt, nb, NCHAN, NPOL), np.complex64)
+    expected[gidx // nb, gidx % nb] = ref["TSM_DATA"][rows]
+    reads = {}
+    for name, kw in {
+        "temporary": {"max_tmp_bytes": 50 * DATA_ROW_BYTES},
+        "slices": {
+            "max_tmp_bytes": 50 * DATA_ROW_BYTES,
+            "min_read_bytes": 40 * DATA_ROW_BYTES,
+        },
+        "all_direct": {"max_tmp_bytes": 50 * DATA_ROW_BYTES, "min_read_bytes": 0},
+    }.items():
+        spy = RowOrderSpy(tb)
+        grid = np.zeros_like(expected)
+        stats = rr.read_rows_to_grid(spy, "TSM_DATA", plan, grid, **kw)
+        np.testing.assert_array_equal(grid, expected)
+        assert_one_ascending_pass(spy, rows)
+        reads[name] = ([r.size for r in spy.rows_read], stats)
+    calls, stats = reads["temporary"]
+    assert calls == [50] * (rows.size // 50) + (
+        [rows.size % 50] if rows.size % 50 else []
+    )
+    assert stats.get("direct_rows", 0) == 0 and stats["scatter_rows"] == rows.size
+    # with a minimum read size of 0, one call per direct segment, as before
+    calls, stats = reads["all_direct"]
+    assert len(calls) == plan.direct_lengths.size
+    assert stats["direct_rows"] == rows.size
+
+
+def test_read_rows_to_grid_slice_copies(rows_tb, monkeypatch):
+    """Direct segments read through the temporary are copied into the grid as
+    slices (here every segment of at least 8 rows), the rest scattered; with
+    duplicated cells the last row still wins."""
+    tb, ref = rows_tb
+    monkeypatch.setattr(rr, "MIN_SLICE_COPY_BYTES", 8 * DATA_ROW_BYTES)
+    for seed in range(5):
+        rows, gidx, nt, nb = make_plan_case(seed, nt=15, nb=9, keep=0.95, n_dup=4)
+        plan = rr.make_row_grid_plan(rows, gidx, nt * nb, min_direct_rows=4)
+        assert (plan.direct_lengths >= 8).any()
+        grid = sentinel_buffer((nt, nb, NCHAN, NPOL), np.complex64)
+        rr.read_rows_to_grid(tb, "TSM_DATA", plan, grid, max_tmp_bytes=1000)
+        expected = sentinel_buffer(grid.shape, np.complex64)
+        expected[gidx // nb, gidx % nb] = ref["TSM_DATA"][rows]
+        np.testing.assert_array_equal(grid, expected)
+
+
+def test_read_rows_to_grid_bridges_small_gaps(rows_tb, monkeypatch):
+    """
+    Gaps of other rows between long runs are read (and discarded) with them,
+    in one call; gaps over MAX_GAP_FRACTION of the shorter run or over
+    MAX_GAP_BYTES are not, and short runs then go through one selectrows call.
+    """
+    tb, ref = rows_tb
+
+    def read(rows, **kw):
+        # cells in reverse row order: no direct segment, all rows through the
+        # temporary
+        cells = np.arange(rows.size)[::-1]
+        plan = rr.make_row_grid_plan(rows, cells, rows.size)
+        spy = RowOrderSpy(tb)
+        grid = np.zeros((rows.size, 1, NCHAN, NPOL), np.complex64)
+        stats = rr.read_rows_to_grid(spy, "TSM_DATA", plan, grid, **kw)
+        np.testing.assert_array_equal(grid[cells, 0], ref["TSM_DATA"][rows])
+        assert_one_ascending_pass(spy, rows)
+        return spy.rows_read, stats
+
+    # gaps of 2 and 1 rows between runs of 60+ rows: one call over rows 0-199
+    rows = np.r_[0:60, 62:130, 131:199]
+    calls, stats = read(rows)
+    assert [(c[0], c.size) for c in calls] == [(0, 199)]
+    assert stats["gap_rows"] == 3 and stats.get("selectrows_calls", 0) == 0
+    # 19 runs of 8 rows with gaps of 2 (over 1/8 of a run): one selectrows call
+    # of the partition rows only
+    rows = rr.runs_to_rows(np.arange(0, 190, 10), np.full(19, 8))
+    calls, stats = read(rows)
+    assert len(calls) == 1 and stats["selectrows_calls"] == 1
+    assert stats.get("gap_rows", 0) == 0
+    # with a minimum read size of one row, one call per run
+    calls, stats = read(rows, min_read_bytes=DATA_ROW_BYTES)
+    assert [c.size for c in calls] == [8] * 19
+    # gaps over MAX_GAP_BYTES are not bridged
+    monkeypatch.setattr(rr, "MAX_GAP_BYTES", DATA_ROW_BYTES)
+    calls, stats = read(np.r_[0:60, 62:130, 131:199], min_read_bytes=DATA_ROW_BYTES)
+    assert stats.get("gap_rows", 0) == 1  # only the 1-row gap
+    assert [(c[0], c.size) for c in calls] == [(0, 60), (62, 137)]
+    # (a temporary of only a few pieces is read with one call per piece, even
+    # if they are shorter than the minimum read size)
+    calls, stats = read(np.r_[0:60, 62:130, 131:199])
+    assert [(c[0], c.size) for c in calls] == [(0, 60), (62, 137)]
+    assert stats.get("selectrows_calls", 0) == 0
+
+
+def test_read_rows_to_grid_bridge_fallback(rows_tb, monkeypatch):
+    """A bridged gap over undefined cells (or cells of another shape) makes the
+    read fail: the partition rows are read again without it, and no other gap
+    of the column is bridged."""
+    tb, ref = rows_tb
+    monkeypatch.setattr(rr, "MAX_GAP_FRACTION", 1.0)
+    # rows 10-19 of TSM_UNDEF are undefined; the gap 150-151 is defined
+    rows = np.r_[0:10, 20:150, 152:NROWS]
+    plan = rr.make_row_grid_plan(rows, np.arange(rows.size), rows.size)
+    spy = RowOrderSpy(tb)
+    grid = np.zeros((rows.size, 1, NCHAN, NPOL), np.complex64)
+    stats = rr.read_rows_to_grid(
+        spy, "TSM_UNDEF", plan, grid, max_tmp_bytes=100 * DATA_ROW_BYTES
+    )
+    np.testing.assert_array_equal(grid[:, 0], ref["TSM_DATA"][rows])
+    assert stats["bridge_fallbacks"] == 1 and stats.get("gap_rows", 0) == 0
+    # the failed call (the first temporary, rows 0-99), then the partition
+    # rows only (the gap 150-151 is not bridged either)
+    np.testing.assert_array_equal(spy.rows_read[0], np.arange(100))
+    np.testing.assert_array_equal(np.concatenate(spy.rows_read[1:]), rows)
+    # a partition row that cannot be read still raises
+    rows = np.r_[0:15, 20:NROWS]
+    plan = rr.make_row_grid_plan(rows, np.arange(rows.size), rows.size)
+    grid = np.zeros((rows.size, 1, NCHAN, NPOL), np.complex64)
+    with pytest.raises(RuntimeError):
+        rr.read_rows_to_grid(tb, "TSM_UNDEF", plan, grid)
+
+
+def test_read_rows_to_grid_bridge_fallback_other_shape(tmp_path):
+    """A bridged gap over cells of another shape (rows of another DDI in a
+    TiledShapeStMan column) fails to read; the partition rows are read again
+    without it."""
+    path = str(tmp_path / "shapes.tab")
+    desc = tables.maketabdesc(
+        [
+            tables.makearrcoldesc(
+                "DATA",
+                0j,
+                ndim=2,
+                valuetype="complex",
+                datamanagertype="TiledShapeStMan",
+                datamanagergroup="TSMData",
+            )
+        ]
+    )
+    nrows, other = 200, np.r_[100:104]
+    with tables.table(path, desc, nrow=nrows, readonly=False, ack=False) as tb:
+        values = (np.arange(nrows * NCHAN * NPOL) + 0.5j).reshape(nrows, NCHAN, NPOL)
+        for row in range(nrows):
+            cell = values[row, :3] if row in other else values[row]
+            tb.putcell("DATA", row, cell.astype(np.complex64))
+    rows = np.setdiff1d(np.arange(nrows), other)
+    plan = rr.make_row_grid_plan(rows, np.arange(rows.size), rows.size)
+    with tables.table(path, ack=False) as tb:
+        spy = RowOrderSpy(tb)
+        grid = np.zeros((rows.size, 1, NCHAN, NPOL), np.complex64)
+        stats = rr.read_rows_to_grid(spy, "DATA", plan, grid)
+    np.testing.assert_array_equal(grid[:, 0], values[rows].astype(np.complex64))
+    assert stats["bridge_fallbacks"] == 1 and stats.get("gap_rows", 0) == 0
+    # the bridged call (rows 0-198: never the whole column), then the
+    # partition rows
+    np.testing.assert_array_equal(spy.rows_read[0], np.arange(nrows - 1))
+    np.testing.assert_array_equal(np.concatenate(spy.rows_read[1:]), rows)
+
+
+def test_tmp_pieces():
+    """Runs joined across bridged gaps, cut at the temporary's size, trimmed
+    to partition rows, never across a direct segment (barrier)."""
+    rows = np.r_[0:40, 41:80, 90:95, 200:230]
+    pieces = rr._tmp_pieces(rows, None, 8, 1000, bridge=True)
+    # the 1-row gap is bridged (1 <= 39 / 8), the 10-row one is not
+    np.testing.assert_array_equal(pieces.row0, [0, 90, 200])
+    np.testing.assert_array_equal(pieces.row1, [80, 95, 230])
+    np.testing.assert_array_equal(pieces.idx0, [0, 79, 84])
+    np.testing.assert_array_equal(pieces.idx1, [79, 84, 114])
+    assert not pieces.barrier.any()
+    # cut at 32 table rows (the window 32-63 of the bridged span, then 64-79)
+    pieces = rr._tmp_pieces(rows, None, 8, 32, bridge=True)
+    np.testing.assert_array_equal(pieces.row0, [0, 32, 64, 90, 200])
+    np.testing.assert_array_equal(pieces.row1, [32, 64, 80, 95, 230])
+    # no bridging
+    pieces = rr._tmp_pieces(rows, None, 8, 1000, bridge=False)
+    np.testing.assert_array_equal(pieces.row0, [0, 41, 90, 200])
+    # a direct segment between rows 39 and 41 (positions jump): not bridged
+    pos = np.r_[0:40, 50:89, 89:94, 94:124]
+    pieces = rr._tmp_pieces(rows, pos, 8, 1000, bridge=True)
+    np.testing.assert_array_equal(pieces.row0, [0, 41, 90, 200])
+    np.testing.assert_array_equal(pieces.barrier, [False, True, False, False])
+    batches, largest = rr._tmp_batches(pieces, 1000)
+    assert batches == [(0, 1), (1, 4)] and largest == 39 + 5 + 30
+    batches, largest = rr._tmp_batches(pieces, 40)
+    assert batches == [(0, 1), (1, 2), (2, 4)] and largest == 40
 
 
 def test_read_rows_to_grid_channel_slice(rows_tb):

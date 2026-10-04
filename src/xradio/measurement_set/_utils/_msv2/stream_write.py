@@ -663,7 +663,8 @@ def choose_time_batches(
 
     - read calls: the row runs of the batches exceed ``FRAGMENTED_RUNS_RATIO``
       times those of one pass (plus one per batch boundary), as for
-      baseline-major rows: every run is at least one read call;
+      baseline-major rows: every run is read by a call of its own or as a
+      piece of a selectrows call (see ``read_rows_to_grid``);
     - tiles: the row windows of ``window_rows`` rows (the column's tiles) that
       the batches load exceed those of one pass by more than
       ``FRAGMENTED_EXTRA_READS`` of them and ``FRAGMENTED_BOUNDARY_WINDOWS`` per
@@ -988,6 +989,7 @@ def _variable_stats(
         "selectrows_calls": stats.get("selectrows_calls", 0),
         "direct_rows": stats.get("direct_rows", 0),
         "scatter_rows": stats.get("scatter_rows", 0),
+        "gap_rows": stats.get("gap_rows", 0),
         "rows_per_call": rows_read / calls if calls else 0.0,
         "read_s": 0.0,
         "total_s": round(time.perf_counter() - start, 4),

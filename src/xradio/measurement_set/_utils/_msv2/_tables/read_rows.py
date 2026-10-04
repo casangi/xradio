@@ -3,11 +3,13 @@ TaQL-free reads of MSv2 MAIN-table rows (python-casacore).
 
 The MAIN rows of a partition are selected once, in numpy (see
 ``partition_queries.create_partitions``). Every column of the partition is then
-read from the *base* table with bounded ``getcolnp`` / ``getcolslicenp`` calls:
+read from the *base* table with bounded ``getcolnp`` / ``getcolslicenp`` calls
+of at least a few MiB each where the rows allow it (``read_rows_to_grid``):
 
-- straight into the dense (time, baseline[, chan, pol]) grid where a run of
-  consecutive MAIN rows maps to consecutive grid cells (no temporary at all), or
-- through a bounded temporary plus a numpy scatter for everything else.
+- straight into the dense (time, baseline[, chan, pol]) grid where a long run
+  of consecutive MAIN rows maps to consecutive grid cells (no temporary), or
+- through a bounded temporary, in long spans of consecutive rows, plus a copy
+  into the grid for everything else.
 
 Rules that every read here follows (each one avoids a measured python-casacore
 trap):
@@ -52,9 +54,33 @@ DEFAULT_MAX_TMP_BYTES = 16 * 1024 * 1024
 FRAGMENTED_RUNS = 64
 # Maximum number of rows in one selectrows() reference table (8 bytes per row).
 MAX_SELECTROWS_ROWS = 2**20
-# Segments of consecutive rows (and grid cells) shorter than this are read through
-# the temporary + scatter path (batched) rather than with one call each.
+# Segments of consecutive rows (and grid cells) shorter than this are not
+# direct segments of a RowGridPlan (their rows are scattered one by one).
 MIN_DIRECT_ROWS = 16
+# Minimum read size of read_rows_to_grid (bytes of cells): only direct segments
+# at least this large are read straight into the grid, with calls of their own;
+# all other rows are read through the temporary in spans of consecutive rows
+# (up to the temporary's size), and a temporary of more than
+# SELECTROWS_MIN_PIECES spans averaging less than this is read with one
+# selectrows call. (A selectrows reference table costs about as much as a few
+# plain calls and more per row: on 3c391's DATA, selectrows of 16 runs of 212
+# rows took 2.3 ms against 1.8 ms for 16 calls; it is on par from about 64
+# runs.)
+DEFAULT_MIN_READ_BYTES = 4 * 1024 * 1024
+SELECTROWS_MIN_PIECES = 8
+# Gap bridging of read_rows_to_grid: the rows between two runs of partition rows
+# (rows of other partitions) are read with them, into the temporary, and
+# discarded, if they are at most MAX_GAP_BYTES of cells (reading them costs less
+# than one more call: on 3c391's DATA a call costs about 50 us, the time to read
+# about 250 KB) and at most MAX_GAP_FRACTION of the shorter of the two runs (so
+# at most that fraction of the rows read is not needed: a fragmented partition
+# is never read as a whole table range).
+MAX_GAP_BYTES = 128 * 1024
+MAX_GAP_FRACTION = 0.125
+# Direct segments read through the temporary (shorter than the minimum read
+# size) of at least this many bytes are copied into the grid as one slice
+# (memcpy) rather than scattered row by row.
+MIN_SLICE_COPY_BYTES = 64 * 1024
 
 # casacore column value type -> numpy dtype that python-casacore uses for it
 CASACORE_TO_NUMPY_DTYPE = {
@@ -632,8 +658,10 @@ class RowGridPlan:
     ncells : int
         Number of grid cells (n_times * n_baselines).
     direct_offsets : np.ndarray
-        Offsets (into ``rows``) of the segments read straight into the grid:
-        both the row number and the grid cell advance by one along a segment.
+        Offsets (into ``rows``) of the direct segments: both the row number and
+        the grid cell advance by one along a segment, so a segment can be read
+        straight into the grid (``read_rows_to_grid`` does so for the long
+        ones) or copied from the temporary as one slice.
     direct_lengths : np.ndarray
         Number of rows of every direct segment.
     scatter_idx : np.ndarray
@@ -737,6 +765,153 @@ def make_row_grid_plan(
     )
 
 
+@dataclasses.dataclass(frozen=True)
+class _TmpPieces:
+    """
+    The rows of a grid read that go through the temporary, as pieces: ranges
+    of consecutive table rows (each read by one call unless a batch of pieces
+    is read with selectrows), in ascending row order.
+
+    Attributes
+    ----------
+    idx0, idx1 : np.ndarray
+        Range ``[idx0, idx1)`` of the temporary rows (indices into ``rows``)
+        that every piece holds (the pieces cover all temporary rows in order).
+    row0, row1 : np.ndarray
+        Table rows ``[row0, row1)`` that every piece reads: its first and last
+        partition rows and the rows of bridged gaps between them.
+    barrier : np.ndarray
+        Whether a direct segment read straight into the grid lies between the
+        piece and the previous one (a batch of pieces never spans one, so the
+        table is read in one ascending pass).
+    """
+
+    idx0: np.ndarray
+    idx1: np.ndarray
+    row0: np.ndarray
+    row1: np.ndarray
+    barrier: np.ndarray
+
+
+def _tmp_pieces(
+    rows: np.ndarray,
+    pos: np.ndarray | None,
+    row_bytes: int,
+    piece_rows: int,
+    bridge: bool,
+) -> _TmpPieces:
+    """
+    Split the rows read through the temporary into pieces of at most
+    ``piece_rows`` consecutive table rows, bridging small gaps (see
+    ``MAX_GAP_BYTES`` / ``MAX_GAP_FRACTION``) if ``bridge``.
+
+    Parameters
+    ----------
+    rows : np.ndarray
+        Table rows read through the temporary (ascending).
+    pos : np.ndarray | None
+        Their offsets in the plan's rows (None: all rows, ``pos[i] = i``); a
+        jump in ``pos`` is a direct segment read straight into the grid.
+    row_bytes : int
+        Bytes of one cell (for the gap rule).
+    piece_rows : int
+        Maximum table rows of a piece (the temporary's rows).
+    bridge : bool
+        Whether gaps may be bridged.
+
+    Returns
+    -------
+    _TmpPieces
+        The pieces.
+    """
+    n = rows.size
+    step = np.diff(rows)
+    run_break = np.flatnonzero(step != 1)  # a run ends after these rows
+    run_end = np.append(run_break + 1, n)
+    if pos is None:
+        barrier_after = np.zeros(run_break.size, dtype=bool)
+    else:
+        barrier_after = pos[run_break + 1] - pos[run_break] != 1
+    max_gap = MAX_GAP_BYTES // row_bytes
+    if bridge and max_gap and run_break.size:
+        run_len = np.diff(run_end, prepend=0)
+        gap = step[run_break] - 1
+        bridged = (
+            ~barrier_after
+            & (gap <= max_gap)
+            & (gap <= MAX_GAP_FRACTION * np.minimum(run_len[:-1], run_len[1:]))
+        )
+        # spans: runs joined by bridged gaps
+        new_span = np.flatnonzero(~bridged)  # span boundary after run new_span[k]
+        span_idx1 = np.append(run_end[new_span], n)
+        span_barrier = np.insert(barrier_after[new_span], 0, False)
+    else:
+        span_idx1 = run_end
+        span_barrier = np.insert(barrier_after, 0, False)
+    del step
+    span_idx0 = np.insert(span_idx1[:-1], 0, 0)
+    span_row0 = rows[span_idx0]
+    span_row1 = rows[span_idx1 - 1] + 1
+    if int((span_row1 - span_row0).max()) <= piece_rows:  # one piece per span
+        return _TmpPieces(span_idx0, span_idx1, span_row0, span_row1, span_barrier)
+    # pieces: spans cut into windows of at most piece_rows table rows, each
+    # trimmed to its first and last partition rows (empty windows dropped)
+    n_pieces = -(-(span_row1 - span_row0) // piece_rows)
+    piece_span = np.repeat(np.arange(n_pieces.size), n_pieces)
+    first = np.cumsum(n_pieces) - n_pieces
+    k = np.arange(piece_span.size) - first[piece_span]
+    lo = span_row0[piece_span] + k * piece_rows
+    hi = np.minimum(lo + piece_rows, span_row1[piece_span])
+    idx0 = np.searchsorted(rows, lo)
+    idx1 = np.searchsorted(rows, hi)
+    keep = idx1 > idx0  # the first window of a span always holds a row
+    idx0, idx1 = idx0[keep], idx1[keep]
+    barrier = (span_barrier[piece_span] & (k == 0))[keep]
+    return _TmpPieces(idx0, idx1, rows[idx0], rows[idx1 - 1] + 1, barrier)
+
+
+def _tmp_batches(
+    pieces: _TmpPieces, tmp_rows: int
+) -> tuple[list[tuple[int, int]], int]:
+    """
+    Consecutive pieces ``[i, j)`` that fit the temporary together (table rows
+    read), never across a direct segment read straight into the grid.
+
+    Returns
+    -------
+    tuple[list[tuple[int, int]], int]
+        The batches, and the largest number of table rows a batch reads.
+    """
+    n = pieces.idx0.size
+    cum = np.concatenate(([0], np.cumsum(pieces.row1 - pieces.row0)))
+    barriers = np.flatnonzero(pieces.barrier)
+    batches = []
+    largest = 0
+    i = 0
+    while i < n:
+        j = int(np.searchsorted(cum, cum[i] + tmp_rows, side="right")) - 1
+        j = max(j, i + 1)
+        b = int(np.searchsorted(barriers, i, side="right"))
+        if b < barriers.size:
+            j = min(j, int(barriers[b]))
+        batches.append((i, j))
+        largest = max(largest, int(cum[j] - cum[i]))
+        i = j
+    return batches, largest
+
+
+def _compact_tmp(tmp: np.ndarray, tmp_idx: np.ndarray) -> None:
+    """Move the rows ``tmp[tmp_idx]`` (strictly increasing, ``tmp_idx[k] >=
+    k``) to ``tmp[:tmp_idx.size]`` in place, run by run."""
+    breaks = np.flatnonzero(np.diff(tmp_idx) != 1) + 1
+    starts = np.concatenate(([0], breaks)).tolist()
+    ends = np.concatenate((breaks, [tmp_idx.size])).tolist()
+    for start, end in zip(starts, ends, strict=True):
+        src = int(tmp_idx[start])
+        if src != start:  # src > start: copy forward (numpy handles the overlap)
+            tmp[start:end] = tmp[src : src + end - start]
+
+
 def read_rows_to_grid(
     table: tables.table,
     col: str,
@@ -747,19 +922,42 @@ def read_rows_to_grid(
     max_elems: int = DEFAULT_MAX_ELEMS,
     max_tmp_bytes: int = DEFAULT_MAX_TMP_BYTES,
     stats: dict[str, int] | None = None,
+    min_read_bytes: int = DEFAULT_MIN_READ_BYTES,
 ) -> dict[str, int]:
     """
-    Read one column of the rows of ``plan`` into a dense grid.
+    Read one column of the rows of ``plan`` into a dense grid, with few large
+    read calls.
 
     Cells that receive no row keep their previous value (the caller pre-fills
     the grid with the pad value if ``plan.grid_is_full`` is False).
 
-    The table is read in one ascending pass over the rows: the direct segments
-    and the scattered rows between them are read in row order (the scattered
-    rows collect in the temporary, which is scattered into the grid whenever
-    it is full). Reading all direct segments first and the scattered rows
-    afterwards would read every tile that holds both kinds of rows twice: the
-    tile cache of the tiled storage managers keeps about one row-slab of tiles.
+    Read planning (every call reads ascending rows, at most ``max_elems``
+    elements, and the table is read in one ascending pass):
+
+    - Direct segments of the plan (consecutive rows to consecutive cells) of at
+      least ``min_read_bytes`` are read straight into the grid.
+    - All other rows are read through a temporary of at most
+      ``max_tmp_bytes``, in pieces of consecutive table rows: runs of
+      partition rows, joined across small gaps of rows of other partitions
+      (bridged gaps are read and discarded: at most ``MAX_GAP_BYTES`` each
+      and ``MAX_GAP_FRACTION`` of the shorter neighbouring run), cut at the
+      temporary's size. Consecutive pieces fill the temporary; it is read
+      with one call per piece, or with one selectrows call (partition rows
+      only) if it holds more than ``SELECTROWS_MIN_PIECES`` pieces that
+      average less than ``min_read_bytes``. So a call reads at least
+      ``min_read_bytes``, a whole run (or what remains of it), or a whole
+      temporary of fragmented rows.
+      The temporary is then copied into the grid: the direct segments of
+      the plan as slices, the other rows with a numpy scatter (of duplicated
+      cells the last row wins).
+    - If the read of a piece with bridged rows fails (a bridged row of
+      another partition may be undefined or of another cell shape), its
+      partition rows are read again without them, and no gap is bridged for
+      the rest of the column.
+
+    Reading all direct segments first and the other rows afterwards would read
+    every tile that holds both kinds of rows twice: the tile cache of the tiled
+    storage managers keeps about one row-slab of tiles.
 
     Parameters
     ----------
@@ -774,7 +972,7 @@ def read_rows_to_grid(
         with ``n_times * n_baselines == plan.ncells`` and the channel /
         polarization range applied to the cell shape. Rows are read straight
         into it only if its dtype is the column dtype; otherwise all rows go
-        through the temporary (of the column dtype) and are cast by the scatter.
+        through the temporary (of the column dtype) and are cast by the copy.
     chan : slice | None, optional
         Channel range to read (2-D cells only).
     pol : slice | None, optional
@@ -782,11 +980,16 @@ def read_rows_to_grid(
     max_elems : int, optional
         Maximum number of elements per casacore call, at most 2**29.
     max_tmp_bytes : int, optional
-        Maximum size of the temporary buffer of the scatter path (at least one
-        row is always read at a time).
+        Maximum size of the temporary buffer (at least one row is always read
+        at a time).
     stats : dict[str, int] | None, optional
         Dict to accumulate counters into: "calls", "selectrows_calls",
-        "direct_rows", "scatter_rows", "max_tmp_bytes".
+        "direct_rows" (read straight into the grid), "scatter_rows" (partition
+        rows read through the temporary), "gap_rows" (bridged rows read and
+        discarded), "bridge_fallbacks", "max_tmp_bytes".
+    min_read_bytes : int, optional
+        Minimum read size (bytes of cells), see above. 0 reads every direct
+        segment of the plan straight into the grid.
 
     Returns
     -------
@@ -818,78 +1021,175 @@ def read_rows_to_grid(
         )
     cell_elems = int(np.prod(cell_shape, dtype=np.int64)) or 1
     rows_per_call = max(1, max_elems // cell_elems)
+    row_bytes = cell_elems * col_dt.itemsize
     flat = grid.reshape((plan.ncells,) + cell_shape)
 
+    # Direct segments read straight into the grid (large ones, if the grid has
+    # the column dtype); the plan's other direct segments are copied from the
+    # temporary as slices if they are long enough.
     direct_ok = grid.dtype == col_dt and grid.dtype.isnative and grid.flags.aligned
-    if direct_ok:
-        direct_offsets = plan.direct_offsets.tolist()
-        direct_lengths = plan.direct_lengths.tolist()
-        scatter_idx = plan.scatter_idx
+    min_direct = -(-int(min_read_bytes) // row_bytes)
+    large = plan.direct_lengths >= max(1, min_direct)
+    if not direct_ok:
+        large[:] = False
+    big_offsets = plan.direct_offsets[large].tolist()
+    big_lengths = plan.direct_lengths[large].tolist()
+    copy = ~large & (plan.direct_lengths * row_bytes >= MIN_SLICE_COPY_BYTES)
+    copy_starts = plan.direct_offsets[copy]
+    copy_ends = copy_starts + plan.direct_lengths[copy]
+
+    # Offsets (into plan.rows) of the rows read through the temporary
+    n_direct = int(sum(big_lengths))
+    if n_direct == 0:
+        tmp_pos = None  # all rows
+        tmp_rows_t = plan.rows
     else:
-        direct_offsets, direct_lengths = [], []
-        scatter_idx = np.arange(nrows, dtype=np.int64)
+        mask = np.ones(nrows, dtype=bool)
+        for offset, length in zip(big_offsets, big_lengths, strict=True):
+            mask[offset : offset + length] = False
+        tmp_pos = np.flatnonzero(mask)
+        del mask
+        tmp_rows_t = plan.rows[tmp_pos]
 
     tmp_full = None
-    if scatter_idx.size:
-        row_bytes = cell_elems * col_dt.itemsize
-        tmp_rows = max(1, min(rows_per_call, int(max_tmp_bytes) // row_bytes))
-        tmp_rows = min(tmp_rows, scatter_idx.size)
-        tmp_full = np.empty((tmp_rows,) + cell_shape, dtype=col_dt)
+    batches: list[tuple[int, int]] = []
+    if tmp_rows_t.size:
+        tmp_rows = max(
+            1, min(rows_per_call, MAX_SELECTROWS_ROWS, int(max_tmp_bytes) // row_bytes)
+        )
+        pieces = _tmp_pieces(tmp_rows_t, tmp_pos, row_bytes, tmp_rows, bridge=True)
+        batches, tmp_n = _tmp_batches(pieces, tmp_rows)
+        tmp_full = np.empty((tmp_n,) + cell_shape, dtype=col_dt)
         stats["max_tmp_bytes"] = max(stats.get("max_tmp_bytes", 0), tmp_full.nbytes)
 
-    # Rows are offsets into plan.rows (ascending row numbers). The scattered rows
-    # before direct segment k are scatter_idx[:scatter_before[k]].
-    scatter_before = np.searchsorted(scatter_idx, direct_offsets).tolist()
-    scatter_before.append(int(scatter_idx.size))
-    tmp_start = 0  # scatter_idx position of the first row held in the temporary
-    tmp_fill = 0  # rows held in the temporary
+    bridging = True  # off after a failed read of a piece with bridged rows
 
-    def flush_tmp() -> None:
-        nonlocal tmp_start, tmp_fill
-        idx = scatter_idx[tmp_start : tmp_start + tmp_fill]
-        # numpy assigns in index order: of duplicated cells the last row wins
-        flat[plan.gidx[idx]] = tmp_full[:tmp_fill]
-        stats["scatter_rows"] = stats.get("scatter_rows", 0) + tmp_fill
-        tmp_start += tmp_fill
-        tmp_fill = 0
+    def read_compact(rows: np.ndarray, out: np.ndarray) -> None:
+        # partition rows only: one call per run, or one selectrows call
+        _read_rows_unchecked(
+            table, col, rows, out, slicer, table_nrows, rows_per_call, stats
+        )
 
-    scatter_pos = 0
-    for k, scatter_end in enumerate(scatter_before):
-        # the scattered rows before direct segment k (or after the last one)
-        while scatter_pos < scatter_end:
-            n = min(scatter_end - scatter_pos, tmp_full.shape[0] - tmp_fill)
-            idx = scatter_idx[scatter_pos : scatter_pos + n]
-            _read_rows_unchecked(
-                table,
-                col,
-                plan.rows[idx],
-                tmp_full[tmp_fill : tmp_fill + n],
-                slicer,
-                table_nrows,
-                rows_per_call,
-                stats,
-            )
-            scatter_pos += n
-            tmp_fill += n
-            if tmp_fill == tmp_full.shape[0]:
-                flush_tmp()
-        if k < len(direct_offsets):
-            offset, length = direct_offsets[k], direct_lengths[k]
-            g0 = int(plan.gidx[offset])
-            _read_run(
-                table,
-                col,
-                int(plan.rows[offset]),
-                length,
-                flat[g0 : g0 + length],
-                slicer,
-                table_nrows,
-                rows_per_call,
-                stats,
-            )
-            stats["direct_rows"] = stats.get("direct_rows", 0) + length
-    if tmp_fill:
-        flush_tmp()
+    def read_batch(i: int, j: int) -> np.ndarray:
+        """Read pieces [i, j) into the temporary; returns the temporary index
+        of every partition row of the batch."""
+        nonlocal bridging
+        a, b = int(pieces.idx0[i]), int(pieces.idx1[j - 1])
+        n_pieces = j - i
+        if n_pieces > SELECTROWS_MIN_PIECES and (b - a) * row_bytes < n_pieces * int(
+            min_read_bytes
+        ):
+            # fragmented: one selectrows call for the partition rows
+            ref = table.selectrows(tmp_rows_t[a:b])
+            try:
+                if slicer is None:
+                    ref.getcolnp(col, tmp_full[: b - a])
+                else:
+                    ref.getcolslicenp(col, tmp_full[: b - a], slicer[0], slicer[1], [])
+            finally:
+                ref.close()
+            stats["calls"] = stats.get("calls", 0) + 1
+            stats["selectrows_calls"] = stats.get("selectrows_calls", 0) + 1
+            return np.arange(b - a, dtype=np.int64)
+        parts = []
+        offset = 0
+        for p in range(i, j):
+            p0, p1 = int(pieces.idx0[p]), int(pieces.idx1[p])
+            row0, row1 = int(pieces.row0[p]), int(pieces.row1[p])
+            n_read, n_needed = row1 - row0, p1 - p0
+            out = tmp_full[offset : offset + n_read]
+            if n_read == n_needed:
+                _read_run(
+                    table,
+                    col,
+                    row0,
+                    n_read,
+                    out,
+                    slicer,
+                    table_nrows,
+                    rows_per_call,
+                    stats,
+                )
+                parts.append(np.arange(offset, offset + n_read, dtype=np.int64))
+                offset += n_read
+                continue
+            if bridging:
+                try:
+                    _read_run(
+                        table,
+                        col,
+                        row0,
+                        n_read,
+                        out,
+                        slicer,
+                        table_nrows,
+                        rows_per_call,
+                        stats,
+                    )
+                    parts.append(offset + (tmp_rows_t[p0:p1] - row0))
+                    stats["gap_rows"] = stats.get("gap_rows", 0) + n_read - n_needed
+                    offset += n_read
+                    continue
+                except RuntimeError:
+                    # a bridged row of another partition is undefined or of
+                    # another shape: read the partition rows only, from now on
+                    bridging = False
+                    stats["bridge_fallbacks"] = stats.get("bridge_fallbacks", 0) + 1
+            read_compact(tmp_rows_t[p0:p1], tmp_full[offset : offset + n_needed])
+            parts.append(np.arange(offset, offset + n_needed, dtype=np.int64))
+            offset += n_needed
+        return np.concatenate(parts)
+
+    def copy_batch(pos0: int, tmp_idx: np.ndarray) -> None:
+        """Copy the partition rows of a batch (offsets pos0, pos0 + 1, ... in
+        plan.rows) from the temporary into the grid."""
+        n = tmp_idx.size
+        if n and (int(tmp_idx[-1]) != n - 1 or int(tmp_idx[0]) != 0):
+            _compact_tmp(tmp_full, tmp_idx)
+        cells = plan.gidx[pos0 : pos0 + n]
+        lo = int(np.searchsorted(copy_ends, pos0, side="right"))
+        hi = int(np.searchsorted(copy_starts, pos0 + n, side="left"))
+        done = 0
+        for start, end in zip(
+            copy_starts[lo:hi].tolist(), copy_ends[lo:hi].tolist(), strict=True
+        ):
+            start, end = max(start, pos0) - pos0, min(end, pos0 + n) - pos0
+            if start > done:  # numpy assigns in index order: the last row wins
+                flat[cells[done:start]] = tmp_full[done:start]
+            g0 = int(cells[start])
+            flat[g0 : g0 + end - start] = tmp_full[start:end]
+            done = end
+        if done < n:
+            flat[cells[done:]] = tmp_full[done:n]
+        stats["scatter_rows"] = stats.get("scatter_rows", 0) + n
+
+    def read_direct(k: int) -> None:
+        offset, length = big_offsets[k], big_lengths[k]
+        g0 = int(plan.gidx[offset])
+        _read_run(
+            table,
+            col,
+            int(plan.rows[offset]),
+            length,
+            flat[g0 : g0 + length],
+            slicer,
+            table_nrows,
+            rows_per_call,
+            stats,
+        )
+        stats["direct_rows"] = stats.get("direct_rows", 0) + length
+
+    k = 0  # next direct segment read straight into the grid
+    for i, j in batches:
+        a = int(pieces.idx0[i])
+        pos0 = a if tmp_pos is None else int(tmp_pos[a])
+        while k < len(big_offsets) and big_offsets[k] < pos0:
+            read_direct(k)
+            k += 1
+        copy_batch(pos0, read_batch(i, j))
+    while k < len(big_offsets):
+        read_direct(k)
+        k += 1
     return stats
 
 

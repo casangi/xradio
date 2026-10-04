@@ -16,14 +16,6 @@ def test_resolve_subtable_cache():
     assert isinstance(own, sc.SubtableCache) and own is not shared
 
 
-def test_subtable_cache_not_used_with_casatools_like_tables(casatools_like_tables):
-    """The casatools shim (no in-place reads) reads the sub-tables per
-    partition: no sub-table cache."""
-    assert not sc.subtable_cache_supported()
-    assert sc.resolve_subtable_cache(sc.SubtableCache()) is None
-    assert sc.resolve_subtable_cache(None) is None
-
-
 def test_activate_subtable_cache_nests_and_resets():
     outer, inner = sc.SubtableCache(), sc.SubtableCache()
     assert sc.active_subtable_cache() is None

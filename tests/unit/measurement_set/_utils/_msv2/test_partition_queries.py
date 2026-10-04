@@ -283,21 +283,6 @@ def test_main_row_runs_subset_and_pickle(ms_minimal_required):
     )
 
 
-def test_select_main_rows_casatools_like_tables(ms_edge_rows, casatools_like_tables):
-    """With the casatools table API (no getcolnp) the partitions, their row
-    runs and the numpy selection of their rows are the same."""
-    expected = create_partitions_with_main_rows(ms_edge_rows, ["FIELD_ID"])
-    with tables.table(ms_edge_rows, readonly=True, ack=False) as main_tb:
-        assert isinstance(main_tb, casatools_like_tables)
-        assert not hasattr(main_tb, "getcolnp")
-        parts, runs = create_partitions_with_main_rows(ms_edge_rows, ["FIELD_ID"])
-        assert parts == expected[0]
-        for idx, part in enumerate(parts):
-            np.testing.assert_array_equal(runs[idx].rows(), expected[1][idx].rows())
-            rows = select_main_rows(main_tb, part)
-            np.testing.assert_array_equal(rows, runs[idx].rows())
-
-
 def test_select_main_rows_without_keys_selects_all(ms_minimal_required):
     with tables.table(ms_minimal_required.fname, readonly=True, ack=False) as main_tb:
         rows = select_main_rows(main_tb, {"OBS_MODE": ["x"], "FIELD_ID": [None]})

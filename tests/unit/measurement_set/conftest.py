@@ -171,6 +171,23 @@ def generic_source_xds_min(ms_minimal_required):
     return subt
 
 
+@pytest.fixture(scope="session")
+def zarr_writes_file_urls(tmp_path_factory):
+    """Whether the installed zarr can write a store into a new directory given
+    by a file:// URL. zarr 3.1 writes file:// URLs through fsspec's
+    LocalFileSystem without auto_mkdir, so writing zarr.json into a directory
+    that does not exist yet fails with FileNotFoundError (any file:// output,
+    not specific to xradio); later zarr versions create the directories."""
+    import zarr
+
+    probe = tmp_path_factory.mktemp("file_url_probe") / "new_dir" / "group"
+    try:
+        zarr.open_group("file://" + str(probe), mode="w", zarr_format=3)
+    except FileNotFoundError:
+        return False
+    return True
+
+
 # MSv4 xds and xdt fixtures
 
 

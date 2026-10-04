@@ -209,9 +209,9 @@ def test_create_pointing_xds_cached_identical(
         actual = create_pointing_xds(ms, ant_names, time_min_max, interp_time)
 
     assert cache.stats["pointing_cached"] == 1
-    (pointing_columns,) = [
+    (pointing_columns,) = (
         value for key, value in cache._state.values.items() if "pointing" in key[0]
-    ]
+    )
     assert (pointing_columns.data is not None) == data_in_memory
     assert_xds_bit_identical(expected, actual)
     if ants == [7]:

@@ -2013,7 +2013,12 @@ def test_stream_write_killed_msv4_opens_as_incomplete(ms_main_layouts, tmp_path)
 
 @pytest.mark.parametrize("discard", ["removes", "does_nothing"])
 def test_stream_write_retry_on_a_url_store(
-    ms_main_layouts, discard, tmp_path, monkeypatch, partition_attempts
+    ms_main_layouts,
+    discard,
+    tmp_path,
+    monkeypatch,
+    partition_attempts,
+    zarr_writes_file_urls,
 ):
     """
     A read failure of the streamed write into a store given by URL (file://,
@@ -2023,6 +2028,8 @@ def test_stream_write_retry_on_a_url_store(
     discard_msv4 removes it through fsspec and, if that did nothing, the
     retry overwrites it (mode "w").
     """
+    if not zarr_writes_file_urls:
+        pytest.skip("this zarr version cannot write file:// URLs into new directories")
     from xradio.measurement_set._utils._msv2._tables import read_rows
     from xradio.measurement_set._utils._msv2.partition_queries import (
         create_partitions_with_main_rows,

@@ -756,6 +756,9 @@ def test_stored_fill_value_is_nan(value, is_nan):
     assert sw._stored_fill_value_is_nan(value) is is_nan
 
 
+FILE_URL_SKIP = "this zarr version cannot write file:// URLs into new directories"
+
+
 def _store_location(tmp_path, location: str) -> str:
     """An MSv4 store path: local, a file:// URL or a memory:// URL (both
     written through fsspec)."""
@@ -780,7 +783,7 @@ def _has_consolidated_metadata(store: str) -> bool:
 
 @pytest.mark.parametrize("location", ["local", "file", "memory"])
 @pytest.mark.parametrize("remove_store", [True, False])
-def test_discard_msv4(tmp_path, remove_store, location):
+def test_discard_msv4(tmp_path, remove_store, location, zarr_writes_file_urls):
     """A failed fill leaves no MSv4 with unwritten data variables: the whole
     store is removed (also a URL, through fsspec), or (an MSv4 that existed
     before, mode "a") the deferred arrays and the members added, the MSv4 left
@@ -788,6 +791,8 @@ def test_discard_msv4(tmp_path, remove_store, location):
     import xarray as xr
     import zarr
 
+    if location == "file" and not zarr_writes_file_urls:
+        pytest.skip(FILE_URL_SKIP)
     store = _store_location(tmp_path, location)
     assert sw.msv4_members(store) is None
     old = xr.Dataset({"OLD": ("x", np.arange(3.0)), "VIS": ("x", np.zeros(3))})
@@ -811,7 +816,9 @@ def test_discard_msv4(tmp_path, remove_store, location):
 
 
 @pytest.mark.parametrize("location", ["local", "file"])
-def test_drop_consolidated_metadata_and_consolidate_msv4(tmp_path, location):
+def test_drop_consolidated_metadata_and_consolidate_msv4(
+    tmp_path, location, zarr_writes_file_urls
+):
     """Between drop_consolidated_metadata and consolidate_msv4 (the streamed
     write) an MSv4 opens as incomplete: a warning (the non-consolidated
     metadata is read), an error with consolidated=True. Afterwards it opens as
@@ -819,6 +826,8 @@ def test_drop_consolidated_metadata_and_consolidate_msv4(tmp_path, location):
     import xarray as xr
     import zarr
 
+    if location == "file" and not zarr_writes_file_urls:
+        pytest.skip(FILE_URL_SKIP)
     store = _store_location(tmp_path, location)
     xds = xr.Dataset({"VIS": ("x", np.arange(3.0))}, attrs={"type": "visibility"})
     xr.DataTree(xds).to_zarr(store, mode="w", zarr_format=3)

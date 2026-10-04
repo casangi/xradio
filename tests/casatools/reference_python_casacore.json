@@ -1,0 +1,4256 @@
+{
+"conversions": {
+"alma": {
+"attempts": [
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[]
+],
+"attrs": "59c0d18f895abfda",
+"msv4": {
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_00": {
+".": "825c11bf0023de47",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "70b9965413f37e49",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_01": {
+".": "8f0eed751dd639b2",
+"antenna_xds": "33af1527e286b25d",
+"field_and_source_base_xds": "5f4b7cf3287f6df7",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_02": {
+".": "5201b912b56bb4c5",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "c270f628363066f0",
+"system_calibration_xds": "537ec7b446002db3",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_03": {
+".": "d00078de40c7408e",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "f9b440850052175a",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_04": {
+".": "d31e0710e48c9559",
+"antenna_xds": "33af1527e286b25d",
+"field_and_source_base_xds": "9972d4da4022922d",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_05": {
+".": "45b2fbbda5ff55b7",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "06bbadec41b7b02a",
+"system_calibration_xds": "537ec7b446002db3",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_06": {
+".": "bc21eb1986ab5006",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "b0cfcda128672248",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_07": {
+".": "a0756207576440c0",
+"antenna_xds": "33af1527e286b25d",
+"field_and_source_base_xds": "37feff6b21c023bc",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_08": {
+".": "8fccab296a042892",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "053b14b7c0ec5ed2",
+"system_calibration_xds": "537ec7b446002db3",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_09": {
+".": "87ecba8b29b7bffc",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "0c7f8f683262abb8",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_10": {
+".": "93cae4b18c8e2db6",
+"antenna_xds": "33af1527e286b25d",
+"field_and_source_base_xds": "0c7f8f683262abb8",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_11": {
+".": "e9a34878c0c533a4",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "82be312379425cff",
+"system_calibration_xds": "537ec7b446002db3",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_12": {
+".": "47b272975df84e98",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "59157fb9a8ed4184",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_13": {
+".": "8050247cb4b2581e",
+"antenna_xds": "33af1527e286b25d",
+"field_and_source_base_xds": "2ddb0cbe25deb56e",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_14": {
+".": "43adc613e896c582",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "f0a3075270ac6b15",
+"system_calibration_xds": "537ec7b446002db3",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_15": {
+".": "445817031b61eaee",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "c2778cd0f26c4f8e",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_16": {
+".": "466921c8b16b2412",
+"antenna_xds": "33af1527e286b25d",
+"field_and_source_base_xds": "fc6a5acc303cf54c",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_17": {
+".": "e8b7483baf04e74b",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "1d48844a1fd19704",
+"system_calibration_xds": "537ec7b446002db3",
+"weather_xds": "c809236ae0cc09c5"
+}
+}
+},
+"lofar": {
+"attempts": [
+[]
+],
+"attrs": "59c0d18f895abfda",
+"msv4": {
+"small_lofar_0": {
+".": "4772aac0303e42c3",
+"antenna_xds": "2f5f8c435cd2d621",
+"field_and_source_base_xds": "507c45d2e039000b",
+"pointing_xds": "e42d4153d83d10a6"
+}
+}
+},
+"sd_no_weight": {
+"attempts": [
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[]
+],
+"attrs": "59c0d18f895abfda",
+"msv4": {
+"uid___A002_Xe3a5fd_Xe38e.small_00": {
+".": "86e82bac328b65d6",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "27349da7f536f607",
+"pointing_xds": "e19972165733bfc5",
+"system_calibration_xds": "096be996822a9bdd",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_01": {
+".": "a8576557f39a59fc",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "4fc130002ced922c",
+"pointing_xds": "e19972165733bfc5",
+"system_calibration_xds": "2b6f706a81183ced",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_02": {
+".": "95dc9c818e13962e",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "2e6c5049c480688c",
+"pointing_xds": "e19972165733bfc5",
+"system_calibration_xds": "8c256b5a803d9d18",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_03": {
+".": "e8e02325d28f1b22",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "b3a5c3a34c9e6096",
+"pointing_xds": "e19972165733bfc5",
+"system_calibration_xds": "0e1c1b43e71789cb",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_04": {
+".": "5ad02c3ab885eb34",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "27349da7f536f607",
+"pointing_xds": "def60ac7eab9a3c5",
+"system_calibration_xds": "096be996822a9bdd",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_05": {
+".": "1423e9150c6ecdef",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "4fc130002ced922c",
+"pointing_xds": "def60ac7eab9a3c5",
+"system_calibration_xds": "2b6f706a81183ced",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_06": {
+".": "38117757c8ecda74",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "2e6c5049c480688c",
+"pointing_xds": "def60ac7eab9a3c5",
+"system_calibration_xds": "8c256b5a803d9d18",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_07": {
+".": "b927b995a16c88ef",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "b3a5c3a34c9e6096",
+"pointing_xds": "def60ac7eab9a3c5",
+"system_calibration_xds": "0e1c1b43e71789cb",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_08": {
+".": "8e0459892d1ccae8",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "27349da7f536f607",
+"pointing_xds": "6af948ec588fcb88",
+"system_calibration_xds": "096be996822a9bdd",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_09": {
+".": "5b5688243bc23820",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "4fc130002ced922c",
+"pointing_xds": "6af948ec588fcb88",
+"system_calibration_xds": "2b6f706a81183ced",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_10": {
+".": "1bc500b8ffedd51f",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "2e6c5049c480688c",
+"pointing_xds": "6af948ec588fcb88",
+"system_calibration_xds": "8c256b5a803d9d18",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_11": {
+".": "2a6a34dbed4c9a22",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "b3a5c3a34c9e6096",
+"pointing_xds": "6af948ec588fcb88",
+"system_calibration_xds": "0e1c1b43e71789cb",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_12": {
+".": "fde8c3c5684a2ce2",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "70892126114c71f5",
+"pointing_xds": "9208cdcad75d4b74",
+"system_calibration_xds": "096be996822a9bdd",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_13": {
+".": "f579033bc7834628",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "384d94442dbffd1d",
+"pointing_xds": "9208cdcad75d4b74",
+"system_calibration_xds": "2b6f706a81183ced",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_14": {
+".": "43d4b43a9bc27f93",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "dd0796ed4deaa0aa",
+"pointing_xds": "9208cdcad75d4b74",
+"system_calibration_xds": "8c256b5a803d9d18",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_15": {
+".": "f71319089e2d0d60",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "31d14bbba8939d89",
+"pointing_xds": "9208cdcad75d4b74",
+"system_calibration_xds": "0e1c1b43e71789cb",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_16": {
+".": "2b01fda042b54ed4",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "c0279d0343b597f5",
+"pointing_xds": "741c861e8b386f5e",
+"system_calibration_xds": "096be996822a9bdd",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_17": {
+".": "6fb73b227b2497c7",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "f3e3af2051e59edb",
+"pointing_xds": "741c861e8b386f5e",
+"system_calibration_xds": "2b6f706a81183ced",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_18": {
+".": "00d3ee503b51d659",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "89e35ff49706acd2",
+"pointing_xds": "741c861e8b386f5e",
+"system_calibration_xds": "8c256b5a803d9d18",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_19": {
+".": "d095dc3bdf103496",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "b59daf249a26a3b9",
+"pointing_xds": "741c861e8b386f5e",
+"system_calibration_xds": "0e1c1b43e71789cb",
+"weather_xds": "42bfba3902acb074"
+}
+}
+},
+"sd_standard": {
+"attempts": [
+[]
+],
+"attrs": "59c0d18f895abfda",
+"msv4": {
+"sdimaging_0": {
+".": "e77346127fd5d550",
+"antenna_xds": "7dedbca240169172",
+"field_and_source_base_xds": "7eaae464de29bba1",
+"pointing_xds": "1ae1a43dff2da05b",
+"system_calibration_xds": "0fa1219981d6b1c4",
+"weather_xds": "b686558d0a4c1343"
+}
+}
+},
+"vlass": {
+"attempts": [
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[]
+],
+"attrs": "59c0d18f895abfda",
+"msv4": {
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_00": {
+".": "5506cdb1125dd3e6",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "192d8980c58257b9",
+"pointing_xds": "77fc4c642d82b47b",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_01": {
+".": "4f6d3ddc717e3534",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "192d8980c58257b9",
+"pointing_xds": "77fc4c642d82b47b",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_02": {
+".": "b6b212b93555ab1e",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "192d8980c58257b9",
+"pointing_xds": "77fc4c642d82b47b",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_03": {
+".": "eb09107c4dd9c0a3",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "192d8980c58257b9",
+"pointing_xds": "77fc4c642d82b47b",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_04": {
+".": "f6861debf7273282",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "c811e8f6a5dd3b17",
+"pointing_xds": "1c73fd18d7ee9239",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_05": {
+".": "13b66edce8f99e5c",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "c811e8f6a5dd3b17",
+"pointing_xds": "1c73fd18d7ee9239",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_06": {
+".": "65777ee921789c50",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "c811e8f6a5dd3b17",
+"pointing_xds": "1c73fd18d7ee9239",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_07": {
+".": "895950b41d1ba4b0",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "c811e8f6a5dd3b17",
+"pointing_xds": "1c73fd18d7ee9239",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_08": {
+".": "7a6a219f58c93a8f",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "45ffe9d185ad5035",
+"pointing_xds": "6ff23d321a0ff3bc",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_09": {
+".": "56671ad62b46e3fb",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "45ffe9d185ad5035",
+"pointing_xds": "6ff23d321a0ff3bc",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_10": {
+".": "cb7dc5451c645483",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "45ffe9d185ad5035",
+"pointing_xds": "6ff23d321a0ff3bc",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_11": {
+".": "f631fa989728ea0b",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "45ffe9d185ad5035",
+"pointing_xds": "6ff23d321a0ff3bc",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_12": {
+".": "25b7b291ff1a8e95",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "52ed1fc141784e33",
+"pointing_xds": "7690fca8eb57b285",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_13": {
+".": "04ee009d626d6582",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "52ed1fc141784e33",
+"pointing_xds": "7690fca8eb57b285",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_14": {
+".": "ae868c7c6e6db1f0",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "52ed1fc141784e33",
+"pointing_xds": "7690fca8eb57b285",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_15": {
+".": "2c631e51df2deb74",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "52ed1fc141784e33",
+"pointing_xds": "7690fca8eb57b285",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_16": {
+".": "425cc33b18114428",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "438160dc95d4ec9e",
+"pointing_xds": "50f22aac7098c629",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_17": {
+".": "e1601c936b31bfbb",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "438160dc95d4ec9e",
+"pointing_xds": "50f22aac7098c629",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_18": {
+".": "e54ec871424d0b10",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "438160dc95d4ec9e",
+"pointing_xds": "50f22aac7098c629",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_19": {
+".": "3a5654ccb1de67c5",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "438160dc95d4ec9e",
+"pointing_xds": "50f22aac7098c629",
+"weather_xds": "b1306cce2f87a3a6"
+}
+}
+},
+"vlbi": {
+"attempts": [
+[],
+[]
+],
+"attrs": "59c0d18f895abfda",
+"msv4": {
+"global_vlbi_gg084b_reduced_0": {
+".": "05780c38a42054f0",
+"antenna_xds": "89e4aaedae868794",
+"field_and_source_base_xds": "34109cb48932c407",
+"gain_curve_xds": "9b68dcea59d0fae0",
+"system_calibration_xds": "036852907f38b7b5"
+},
+"global_vlbi_gg084b_reduced_1": {
+".": "b985bb2b119df115",
+"antenna_xds": "89e4aaedae868794",
+"field_and_source_base_xds": "34109cb48932c407",
+"gain_curve_xds": "9b68dcea59d0fae0",
+"system_calibration_xds": "eaee5ef56fbc1f2f"
+}
+}
+},
+"vlbi_field_id": {
+"attempts": [
+[],
+[],
+[],
+[]
+],
+"attrs": "59c0d18f895abfda",
+"msv4": {
+"global_vlbi_gg084b_reduced_0": {
+".": "7c136acbdfdb7229",
+"antenna_xds": "89e4aaedae868794",
+"field_and_source_base_xds": "c9b04f90ff13c4a3",
+"gain_curve_xds": "9b68dcea59d0fae0",
+"system_calibration_xds": "036852907f38b7b5"
+},
+"global_vlbi_gg084b_reduced_1": {
+".": "27e94ad461e6085b",
+"antenna_xds": "89e4aaedae868794",
+"field_and_source_base_xds": "c9b04f90ff13c4a3",
+"gain_curve_xds": "9b68dcea59d0fae0",
+"system_calibration_xds": "eaee5ef56fbc1f2f"
+},
+"global_vlbi_gg084b_reduced_2": {
+".": "828a618d99eea329",
+"antenna_xds": "383d2108157f09c6",
+"field_and_source_base_xds": "6f6ba85b868eca53",
+"gain_curve_xds": "671f4ba8a02ce74e",
+"system_calibration_xds": "44a5961651bef110"
+},
+"global_vlbi_gg084b_reduced_3": {
+".": "9cb8f6c6efbc6c66",
+"antenna_xds": "383d2108157f09c6",
+"field_and_source_base_xds": "6f6ba85b868eca53",
+"gain_curve_xds": "671f4ba8a02ce74e",
+"system_calibration_xds": "f288dfdd116bec03"
+}
+}
+}
+},
+"generated_with": {
+"numpy": "2.5.3",
+"python-casacore": "3.8.1"
+},
+"nodes": {
+"00ad02f482b12a2a": {
+"meta": "53b7ae1815345f54",
+"vars": {
+"ANTENNA_DISH_DIAMETER": "float64|09dc87c04b28a9d9",
+"ANTENNA_POSITION": "float64|0770044787ba7677",
+"ANTENNA_RECEPTOR_ANGLE": "float64|c02ddf5a2efdb4f6",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"mount": "str|bea1550915cb8296",
+"polarization_type": "str|1cbccd7699300c16",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|46564abece9058e9",
+"telescope_name": "str|e9b82ebe1fd26298"
+}
+},
+"00d3ee503b51d659": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|792e541b06bcbfc0",
+"FLAG": "bool|6477df8e0d12d3b0",
+"SPECTRUM": "float32|b266522c7e7373ab",
+"TIME_CENTROID": "float64|c99bad840d1f0c0f",
+"WEIGHT": "float64|cc1f37d051ccf892",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|163b28a4d8fd7a0f",
+"frequency": "float64|cea6c2d679a27be5",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|9dea21a24ccba50d",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|880e72eb97001f19"
+}
+},
+"036852907f38b7b5": {
+"meta": "5fb958c3a3c7a330",
+"vars": {
+"TSYS": "float64|699d96c97419e1ea",
+"antenna_id": "int32|070ef04e1d4b830e",
+"antenna_name": "str|d932545359e6bcac",
+"mount": "str|ed5963546e5bd34c",
+"polarization_type": "str|88f4d1c707d49944",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|d932545359e6bcac",
+"telescope_name": "str|95cf71caa5ac58d2",
+"time_system_cal": "float64|764be60b16736bce"
+}
+},
+"04ee009d626d6582": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|81a2d541af65b7b2",
+"FLAG": "bool|43812bd443b05080",
+"TIME_CENTROID": "float64|53ac5dcfb61dff97",
+"UVW": "float64|58baf49fd242ee9e",
+"VISIBILITY": "complex64|84eab75303ee002c",
+"WEIGHT": "float32|d62166f0fbc91d71",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|92c72eadf782db9c",
+"frequency": "float64|ba1e7281025ce33a",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|cc63a9cd4fac84ab",
+"time": "float64|5d07c4cd4cb33981",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"053b14b7c0ec5ed2": {
+"approx": {
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "ecfcbbb91b77afad",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|de99a0c327b220c5",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|be712303355410e7",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"LINE_REST_FREQUENCY": "float64|dc05a260f0931059",
+"LINE_SYSTEMIC_VELOCITY": "float64|174028f1cae49bd7",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|1a3a8cc77a17c627",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|14d3734a5e4fa0e7",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|1a3a8cc77a17c627",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"05780c38a42054f0": {
+"meta": "56d38b8d1b5644ad",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|106eae2688324894",
+"FLAG": "bool|a6b5ff97e7fa23f3",
+"TIME_CENTROID": "float64|f93b61b455a3995e",
+"UVW": "float64|a8d770ac30fb2e2c",
+"VISIBILITY": "complex64|1d12dc2bb0748792",
+"WEIGHT": "float32|6f6ca328fea3c9d5",
+"baseline_antenna1_name": "str|d3fd3e40f3112bec",
+"baseline_antenna2_name": "str|88d829d6a6c082ca",
+"baseline_id": "int64|1ffed7ec5446410b",
+"field_name": "str|f4dfd6dbc9c91114",
+"frequency": "float64|73eca3d64cda9a57",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|651ad15bc4808c79",
+"time": "float64|975534bd36e1b231",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"06bbadec41b7b02a": {
+"approx": {
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "ecfcbbb91b77afad",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|298c5ae1e5b12119",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|4f9955e40981b219",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"LINE_REST_FREQUENCY": "float64|dc05a260f0931059",
+"LINE_SYSTEMIC_VELOCITY": "float64|174028f1cae49bd7",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|1a3a8cc77a17c627",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|14d3734a5e4fa0e7",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|1a3a8cc77a17c627",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"096be996822a9bdd": {
+"meta": "ef0d618091e53996",
+"vars": {
+"TCAL": "float64|460d3eb604b9d97b",
+"TRX": "float64|02624abd67403788",
+"TSKY": "float64|eff92db886888aeb",
+"TSYS": "float64|234e3a85c1ec02cf",
+"antenna_id": "int32|122ce33d67e2649b",
+"frequency_system_cal": "int64|84caaf99de65d0a9",
+"mount": "str|bea1550915cb8296",
+"polarization_type": "str|1cbccd7699300c16",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|46564abece9058e9",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time_system_cal": "float64|2fe7daa25a8e7e3b"
+}
+},
+"0c7f8f683262abb8": {
+"meta": "887e2811edae594a",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|580b585f40f60769",
+"SOURCE_DIRECTION": "float64|b175e5e3764b9bf9",
+"field_name": "str|b1826d48c7eccbc1",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|b1826d48c7eccbc1"
+}
+},
+"0e1c1b43e71789cb": {
+"meta": "ef0d618091e53996",
+"vars": {
+"TCAL": "float64|9ae0b6a40dc98af4",
+"TRX": "float64|3db23cbf71c00993",
+"TSKY": "float64|1d0e457bcd8386c6",
+"TSYS": "float64|78f47bbe31f60012",
+"antenna_id": "int32|122ce33d67e2649b",
+"frequency_system_cal": "int64|e338e8d734ee5415",
+"mount": "str|bea1550915cb8296",
+"polarization_type": "str|1cbccd7699300c16",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|46564abece9058e9",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time_system_cal": "float64|2fe7daa25a8e7e3b"
+}
+},
+"0fa1219981d6b1c4": {
+"meta": "ef0d618091e53996",
+"vars": {
+"TCAL": "float64|e7f34810783e4fa5",
+"TSYS": "float64|27e5b8fd1849a6bd",
+"antenna_id": "int32|f5f9b2f2b3e08458",
+"frequency_system_cal": "int64|a087efd2808b5254",
+"mount": "str|c6332f09eb6db277",
+"polarization_type": "str|56a43ec41056739e",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|7bb8316eed14e6bc",
+"telescope_name": "str|bef33037b8af9f0d",
+"time_system_cal": "float64|e027a4925b3841d1"
+}
+},
+"13b66edce8f99e5c": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|abcb64501b07633d",
+"FLAG": "bool|9fe1f32672a5c3bc",
+"TIME_CENTROID": "float64|bd5325ee2a03ff3b",
+"UVW": "float64|187f2efc3cf2ea89",
+"VISIBILITY": "complex64|35afb25a775356da",
+"WEIGHT": "float32|cb62592ee6f17205",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|22918143d415f890",
+"frequency": "float64|ba1e7281025ce33a",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|1dae0c2404de2431",
+"time": "float64|839a79b5fe0e10d3",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"1423e9150c6ecdef": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|6fde4f1cc93e346b",
+"TIME_CENTROID": "float64|3b65fe88f8744a8e",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|c89e9dd66fc6ad1a",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|204a36440e9e0f5e",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|4d6f9dcb1e9a0a5a"
+}
+},
+"192d8980c58257b9": {
+"meta": "887e2811edae594a",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|33b38232ccd42be0",
+"SOURCE_DIRECTION": "float64|33b38232ccd42be0",
+"field_name": "str|0a13393a918b9ca0",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|c0479efce94ec700"
+}
+},
+"1ae1a43dff2da05b": {
+"meta": "2f88d7ff37e2c655",
+"vars": {
+"POINTING_BEAM": "float64|a9a1be1d24c9063c",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|d55a4e0ffd4d2bbd"
+}
+},
+"1bc500b8ffedd51f": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|a9f612551d08234a",
+"TIME_CENTROID": "float64|a6631bc2ebd2513c",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|cea6c2d679a27be5",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|e05f3870e7be39aa",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|8cfd23037c2f91a7"
+}
+},
+"1c73fd18d7ee9239": {
+"meta": "333e0474b119250a",
+"vars": {
+"POINTING_BEAM": "float64|2c668a5721012d33",
+"POINTING_DISH_MEASURED": "float64|bdc9c79d729dfb00",
+"POINTING_OVER_THE_TOP": "bool|86ddc006fb8b832d",
+"antenna_name": "str|332b14ff22152bf2",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|57b701b3312eb052"
+}
+},
+"1d48844a1fd19704": {
+"approx": {
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "ecfcbbb91b77afad",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|79bb07ba2c217a31",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|5db828807784dfca",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"LINE_REST_FREQUENCY": "float64|df756ee23a4af73a",
+"LINE_SYSTEMIC_VELOCITY": "float64|71cc52c5b2bd7258",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|b3dba8afe66266ce",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|51c2e0a36953fe23",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|d8fc1ea9aa570d84",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"25b7b291ff1a8e95": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|81a2d541af65b7b2",
+"FLAG": "bool|43812bd443b05080",
+"TIME_CENTROID": "float64|53ac5dcfb61dff97",
+"UVW": "float64|58baf49fd242ee9e",
+"VISIBILITY": "complex64|428a2a4aa62b2040",
+"WEIGHT": "float32|d62166f0fbc91d71",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|92c72eadf782db9c",
+"frequency": "float64|a58281ed74e96e6b",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|cc63a9cd4fac84ab",
+"time": "float64|5d07c4cd4cb33981",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"27349da7f536f607": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|0842dd3458cb77ff",
+"LINE_REST_FREQUENCY": "float64|9e2126ddd579fd27",
+"LINE_SYSTEMIC_VELOCITY": "float64|91e2df4d8fb22eb1",
+"SOURCE_DIRECTION": "float64|0842dd3458cb77ff",
+"field_name": "str|a538226f81b2b438",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|de3f483035e4578b",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|a538226f81b2b438"
+}
+},
+"27e94ad461e6085b": {
+"meta": "56d38b8d1b5644ad",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|626a666bcb3e9d0d",
+"FLAG": "bool|d1c7eec62aa9defe",
+"TIME_CENTROID": "float64|72a8a07e7199f4d4",
+"UVW": "float64|60f74c9923935ec0",
+"VISIBILITY": "complex64|ad7f9ab8dff31bf8",
+"WEIGHT": "float32|efcb17bdcaab4cb8",
+"baseline_antenna1_name": "str|d3fd3e40f3112bec",
+"baseline_antenna2_name": "str|88d829d6a6c082ca",
+"baseline_id": "int64|1ffed7ec5446410b",
+"field_name": "str|4ee82efb69a0394a",
+"frequency": "float64|6a342e0daf117b70",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|28f601a9f56bd3b3",
+"time": "float64|71386ff4b71e4098",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"2a6a34dbed4c9a22": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|e15bc36b48f24ead",
+"TIME_CENTROID": "float64|a6631bc2ebd2513c",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|c56edd2dfb6e47e4",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|e05f3870e7be39aa",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|8cfd23037c2f91a7"
+}
+},
+"2b01fda042b54ed4": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|792e541b06bcbfc0",
+"FLAG": "bool|5e0977412cac52d4",
+"SPECTRUM": "float32|feb1760a81ac9ee1",
+"TIME_CENTROID": "float64|c99bad840d1f0c0f",
+"WEIGHT": "float64|d5474176fb276954",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|163b28a4d8fd7a0f",
+"frequency": "float64|b59e43004d434fed",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|9dea21a24ccba50d",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|880e72eb97001f19"
+}
+},
+"2b6f706a81183ced": {
+"meta": "ef0d618091e53996",
+"vars": {
+"TCAL": "float64|6e345839a6bc2a22",
+"TRX": "float64|ebf326546f9eaa54",
+"TSKY": "float64|15f6bfed0e89d40a",
+"TSYS": "float64|f10539d5297355d0",
+"antenna_id": "int32|122ce33d67e2649b",
+"frequency_system_cal": "int64|e338e8d734ee5415",
+"mount": "str|bea1550915cb8296",
+"polarization_type": "str|1cbccd7699300c16",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|46564abece9058e9",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time_system_cal": "float64|2fe7daa25a8e7e3b"
+}
+},
+"2c631e51df2deb74": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|81a2d541af65b7b2",
+"FLAG": "bool|43812bd443b05080",
+"TIME_CENTROID": "float64|53ac5dcfb61dff97",
+"UVW": "float64|58baf49fd242ee9e",
+"VISIBILITY": "complex64|5fe32a53be0f974f",
+"WEIGHT": "float32|d62166f0fbc91d71",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|92c72eadf782db9c",
+"frequency": "float64|613ce2d013f0d834",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|cc63a9cd4fac84ab",
+"time": "float64|5d07c4cd4cb33981",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"2ddb0cbe25deb56e": {
+"approx": {
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "7db1016d638b02a2",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|b6841f8061fb28e0",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|e27ef0cbd4c5574d",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|bdeb1ebca538098b",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|bdeb1ebca538098b",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"2e6c5049c480688c": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|0842dd3458cb77ff",
+"LINE_REST_FREQUENCY": "float64|02156e1352c9a2ba",
+"LINE_SYSTEMIC_VELOCITY": "float64|91e2df4d8fb22eb1",
+"SOURCE_DIRECTION": "float64|0842dd3458cb77ff",
+"field_name": "str|a538226f81b2b438",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|7e56cd1066f8e137",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|a538226f81b2b438"
+}
+},
+"2f5f8c435cd2d621": {
+"meta": "b0c8b6a64a677796",
+"vars": {
+"ANTENNA_DISH_DIAMETER": "float64|687d38e3bfc5cfd8",
+"ANTENNA_POSITION": "float64|b64b6617b35f269e",
+"ANTENNA_RECEPTOR_ANGLE": "float64|953da50afd0e5650",
+"antenna_name": "str|8f40dda2ae4d288e",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"mount": "str|4aa7b0c759bd493e",
+"polarization_type": "str|93c76d17cde42d4c",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|5a9239c645f80181",
+"telescope_name": "str|5a9239c645f80181"
+}
+},
+"31d14bbba8939d89": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|86cc02b9718ba5c8",
+"LINE_REST_FREQUENCY": "float64|a9082a64adfa7539",
+"LINE_SYSTEMIC_VELOCITY": "float64|1484fedce09ce24a",
+"SOURCE_DIRECTION": "float64|86cc02b9718ba5c8",
+"field_name": "str|33f2d18af653cb92",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|783ffd5aa9e7216e",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|33f2d18af653cb92"
+}
+},
+"33af1527e286b25d": {
+"meta": "dccb3f090e8e4b2d",
+"vars": {
+"ANTENNA_DISH_DIAMETER": "float64|9bae036a0f264399",
+"ANTENNA_POSITION": "float64|cf7f90d26bfda38d",
+"antenna_name": "str|b14c1c82b505f5cf",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"mount": "str|762fb7ac81915d94",
+"polarization_type": "str|acd2fa2bcb981c08",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|8f0ab511f575f703",
+"telescope_name": "str|024ccd754dfd6efe"
+}
+},
+"34109cb48932c407": {
+"meta": "887e2811edae594a",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|6fd59d74fc73388a",
+"field_name": "str|e160007db0297ab1",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|b25978eca0049711"
+}
+},
+"347b518cd178a1cb": {
+"meta": "dccb3f090e8e4b2d",
+"vars": {
+"ANTENNA_DISH_DIAMETER": "float64|9bae036a0f264399",
+"ANTENNA_POSITION": "float64|cf7f90d26bfda38d",
+"ANTENNA_RECEPTOR_ANGLE": "float64|51632dc1556b5631",
+"antenna_name": "str|b14c1c82b505f5cf",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"mount": "str|762fb7ac81915d94",
+"polarization_type": "str|33908c17d8ff3f5e",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|8f0ab511f575f703",
+"telescope_name": "str|024ccd754dfd6efe"
+}
+},
+"37feff6b21c023bc": {
+"approx": {
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "7db1016d638b02a2",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|b889f783a7620fe3",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|cf095c18b1225e08",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|1a3a8cc77a17c627",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|1a3a8cc77a17c627",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"38117757c8ecda74": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|8c9cbd7b35dfcfc5",
+"TIME_CENTROID": "float64|3b65fe88f8744a8e",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|cea6c2d679a27be5",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|204a36440e9e0f5e",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|4d6f9dcb1e9a0a5a"
+}
+},
+"383d2108157f09c6": {
+"meta": "ee49155e11923344",
+"vars": {
+"ANTENNA_DISH_DIAMETER": "float64|4953f02b70b646e0",
+"ANTENNA_POSITION": "float64|693ebf4964003c64",
+"ANTENNA_RECEPTOR_ANGLE": "float64|2f912b970d67f9b7",
+"antenna_name": "str|8e914099787ca431",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"mount": "str|67f94131458ba57a",
+"polarization_type": "str|24d18b140e5c94e1",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|8e914099787ca431",
+"telescope_name": "str|8a326d96aaab8960"
+}
+},
+"384d94442dbffd1d": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|86cc02b9718ba5c8",
+"LINE_REST_FREQUENCY": "float64|d9d0af543bee8b29",
+"LINE_SYSTEMIC_VELOCITY": "float64|1484fedce09ce24a",
+"SOURCE_DIRECTION": "float64|86cc02b9718ba5c8",
+"field_name": "str|33f2d18af653cb92",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|435ae6fec466140a",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|33f2d18af653cb92"
+}
+},
+"3a5654ccb1de67c5": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|6b893ea7c74d0292",
+"FLAG": "bool|c9ea53a143785bbd",
+"TIME_CENTROID": "float64|630585e3ffe5fe50",
+"UVW": "float64|c83032da3d8beb08",
+"VISIBILITY": "complex64|5a2f6a2ef528de86",
+"WEIGHT": "float32|1276be509bb8855c",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|7837f1610e4fdda9",
+"frequency": "float64|613ce2d013f0d834",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|78d4df8388296b1b",
+"time": "float64|43b51d164a62df3a",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"425cc33b18114428": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|6b893ea7c74d0292",
+"FLAG": "bool|c9ea53a143785bbd",
+"TIME_CENTROID": "float64|630585e3ffe5fe50",
+"UVW": "float64|c83032da3d8beb08",
+"VISIBILITY": "complex64|fb41f9618f869f86",
+"WEIGHT": "float32|1276be509bb8855c",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|7837f1610e4fdda9",
+"frequency": "float64|a58281ed74e96e6b",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|78d4df8388296b1b",
+"time": "float64|43b51d164a62df3a",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"42bfba3902acb074": {
+"meta": "2052abee51fd2de8",
+"vars": {
+"DEW_POINT": "float64|99518a54b78d7fcb",
+"PRESSURE": "float64|65b035b62118a1b8",
+"REL_HUMIDITY": "float64|37eb9d9eb3d40975",
+"STATION_POSITION": "float64|ca00112f9e916c8c",
+"TEMPERATURE": "float64|5e6c00dd3a298347",
+"WIND_DIRECTION": "float64|741b69976b8d67bd",
+"WIND_SPEED": "float64|3d15d6fb2b90c131",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"station_name": "str|a479039a7d603551",
+"time_weather": "float64|a7fae903030fef94"
+}
+},
+"438160dc95d4ec9e": {
+"meta": "887e2811edae594a",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|13f6234a0d8a88ea",
+"SOURCE_DIRECTION": "float64|05149764af5be8a8",
+"field_name": "str|554a583600311c94",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|836c12704620ed37"
+}
+},
+"43adc613e896c582": {
+"meta": "e42438558e1b4117",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|62556081a0c9a0e2",
+"FLAG": "bool|98afc746487a5c5b",
+"TIME_CENTROID": "float64|25abed22b7ebaf08",
+"UVW": "float64|e92abe6222eb89ac",
+"VISIBILITY": "complex64|cb2c2a09094e1946",
+"WEIGHT": "float32|48cedaf785ffa3ba",
+"baseline_antenna1_name": "str|cddab9a141f9371e",
+"baseline_antenna2_name": "str|38166206ec5e098d",
+"baseline_id": "int64|a701d81398720755",
+"field_name": "str|e24a4253873525d1",
+"frequency": "float64|54f6bf8ae7bc28a0",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|baa570831c7bda2c",
+"time": "float64|473f5df8f7ec3073",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"43d4b43a9bc27f93": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|90dbff7aec892261",
+"FLAG": "bool|e66dfd565ed74ddb",
+"SPECTRUM": "float32|a212c55360769acb",
+"TIME_CENTROID": "float64|19df861e0c96de52",
+"WEIGHT": "float64|cd868d96fc2ff652",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|5f198924f49b7edf",
+"frequency": "float64|cea6c2d679a27be5",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|cadad967d6a116e7",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|66bcbf9015de0824"
+}
+},
+"445817031b61eaee": {
+"meta": "536d7ca0ca2c2f59",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|edeb9d5590952591",
+"FLAG": "bool|ec031ca0866f31ab",
+"TIME_CENTROID": "float64|5f840ba9536e9a26",
+"UVW": "float64|3aff8af0fac9022b",
+"VISIBILITY": "complex64|17011cc9c4dd1406",
+"WEIGHT": "float32|894f03e221319932",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|ddde70841c2722de",
+"frequency": "float64|a61ae9bb3e588366",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|2b1982149d109fd6",
+"time": "float64|7acf91a9f1027f0b",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"44a5961651bef110": {
+"meta": "5fb958c3a3c7a330",
+"vars": {
+"TSYS": "float64|a7c5080965487983",
+"antenna_id": "int32|3a7a07edc82b0a41",
+"antenna_name": "str|8e914099787ca431",
+"mount": "str|67f94131458ba57a",
+"polarization_type": "str|24d18b140e5c94e1",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|8e914099787ca431",
+"telescope_name": "str|8a326d96aaab8960",
+"time_system_cal": "float64|28c14d9ae447d111"
+}
+},
+"45b2fbbda5ff55b7": {
+"meta": "e42438558e1b4117",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|cf89dda3834cc86f",
+"FLAG": "bool|3f4d9f707d2bb07e",
+"TIME_CENTROID": "float64|3d54d347c1497f86",
+"UVW": "float64|292a02f72563dd4f",
+"VISIBILITY": "complex64|8effbadb0602e065",
+"WEIGHT": "float32|03039f37d59c99b3",
+"baseline_antenna1_name": "str|cddab9a141f9371e",
+"baseline_antenna2_name": "str|38166206ec5e098d",
+"baseline_id": "int64|a701d81398720755",
+"field_name": "str|1a3a8cc77a17c627",
+"frequency": "float64|54f6bf8ae7bc28a0",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|bde28f4ab6aeca9b",
+"time": "float64|4644ead4b7fd5433",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"45ffe9d185ad5035": {
+"meta": "887e2811edae594a",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|a90913a64ef61529",
+"SOURCE_DIRECTION": "float64|a90913a64ef61529",
+"field_name": "str|c2b5d98b11f47a85",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|c2b5d98b11f47a85"
+}
+},
+"466921c8b16b2412": {
+"meta": "007427d3b50c628d",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|e0459e9572f25a97",
+"FLAG": "bool|eda0475525a63273",
+"TIME_CENTROID": "float64|2adb8bc369c78ab6",
+"UVW": "float64|e1aca2d880cd57fe",
+"VISIBILITY": "complex64|b6d822a22e40e558",
+"WEIGHT": "float32|2b0fb59721f5442c",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|b3dba8afe66266ce",
+"frequency": "float64|dff55e84e844e76d",
+"polarization": "str|eed710a9fa10c117",
+"scan_name": "str|e46386c092385ddd",
+"time": "float64|a0839375df612fb8",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"4772aac0303e42c3": {
+"meta": "e34afaeeffeba776",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|5578c3fd17be2d4a",
+"FLAG": "bool|b5a25589198f12b7",
+"TIME_CENTROID": "float64|c2f75e27cafa9e39",
+"UVW": "float64|49b442b02cb2c74e",
+"VISIBILITY": "complex64|e549fa4ca5b1748e",
+"WEIGHT": "float32|b1a63887c73d4e13",
+"baseline_antenna1_name": "str|7524c535ee3f4eb6",
+"baseline_antenna2_name": "str|ccb4ff05f828b0c8",
+"baseline_id": "int64|d5d93955be9e2d0f",
+"field_name": "str|79bda58fe77b87f3",
+"frequency": "float64|402a869f2ba74192",
+"polarization": "str|2e23cfa7e9460a01",
+"scan_name": "str|2c84fde9e77b30f0",
+"time": "float64|ab90064ed983ede2",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"47b272975df84e98": {
+"meta": "536d7ca0ca2c2f59",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|c85d2e2fb960ed6e",
+"FLAG": "bool|55cdd5c405f5c9f3",
+"TIME_CENTROID": "float64|fc1f6e6c43ddf662",
+"UVW": "float64|d9f117d3664a26ab",
+"VISIBILITY": "complex64|04ca9b990b068cfb",
+"WEIGHT": "float32|7ccfa968e9e000f0",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|e058c221b0fba2a9",
+"frequency": "float64|a61ae9bb3e588366",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|7b65b2b9ee11632a",
+"time": "float64|700a49953d6dce08",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"4f6d3ddc717e3534": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|18fc48e78fbcd617",
+"FLAG": "bool|8d9af6c02f6356e8",
+"TIME_CENTROID": "float64|cbd279ff13a2be18",
+"UVW": "float64|ef6d5f0ad2840889",
+"VISIBILITY": "complex64|80ca940ab8b6e796",
+"WEIGHT": "float32|c4ecc3faae000a84",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|03f7c3b97c7cb415",
+"frequency": "float64|ba1e7281025ce33a",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|d724524d324f6f2f",
+"time": "float64|22c6374553fc5627",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"4fc130002ced922c": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|0842dd3458cb77ff",
+"LINE_REST_FREQUENCY": "float64|0b90578cc0ee894e",
+"LINE_SYSTEMIC_VELOCITY": "float64|91e2df4d8fb22eb1",
+"SOURCE_DIRECTION": "float64|0842dd3458cb77ff",
+"field_name": "str|a538226f81b2b438",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|2b9568eaae33a63d",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|a538226f81b2b438"
+}
+},
+"507c45d2e039000b": {
+"meta": "887e2811edae594a",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|3d47e2163259499c",
+"field_name": "str|b92092e5a8027931",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|2816a2abe85d208a"
+}
+},
+"50f22aac7098c629": {
+"meta": "333e0474b119250a",
+"vars": {
+"POINTING_BEAM": "float64|488bd6ae267e9597",
+"POINTING_DISH_MEASURED": "float64|43d1beeb4969c805",
+"POINTING_OVER_THE_TOP": "bool|c561ac17527d113e",
+"antenna_name": "str|332b14ff22152bf2",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|1bb3ead517529dbe"
+}
+},
+"5201b912b56bb4c5": {
+"meta": "e42438558e1b4117",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|cf89dda3834cc86f",
+"FLAG": "bool|3f4d9f707d2bb07e",
+"TIME_CENTROID": "float64|2f5f718162eea5be",
+"UVW": "float64|552c0a7976011cd2",
+"VISIBILITY": "complex64|f2c1a6504b6b13a3",
+"WEIGHT": "float32|03039f37d59c99b3",
+"baseline_antenna1_name": "str|cddab9a141f9371e",
+"baseline_antenna2_name": "str|38166206ec5e098d",
+"baseline_id": "int64|a701d81398720755",
+"field_name": "str|1a3a8cc77a17c627",
+"frequency": "float64|54f6bf8ae7bc28a0",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|8f4534924973590b",
+"time": "float64|69de1413d707a9be",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"52ed1fc141784e33": {
+"meta": "887e2811edae594a",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|e77bbbfc2d993a7b",
+"SOURCE_DIRECTION": "float64|e77bbbfc2d993a7b",
+"field_name": "str|2f40892d25bd6611",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|2f40892d25bd6611"
+}
+},
+"537ec7b446002db3": {
+"meta": "bcff645622573b86",
+"vars": {
+"TCAL": "float64|0b4a9005d90c477f",
+"TRX": "float64|ac22d56708eb01f7",
+"TSKY": "float64|e9ef26815532af32",
+"TSYS": "float64|7b0df3bf4a4296de",
+"antenna_id": "int32|07097d2ec42fd5df",
+"antenna_name": "str|b14c1c82b505f5cf",
+"frequency_system_cal": "int64|ba30d52e32b245e5",
+"mount": "str|762fb7ac81915d94",
+"polarization_type": "str|33908c17d8ff3f5e",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|8f0ab511f575f703",
+"telescope_name": "str|024ccd754dfd6efe",
+"time_system_cal": "float64|4987ba9860e868eb"
+}
+},
+"5506cdb1125dd3e6": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|18fc48e78fbcd617",
+"FLAG": "bool|8d9af6c02f6356e8",
+"TIME_CENTROID": "float64|cbd279ff13a2be18",
+"UVW": "float64|ef6d5f0ad2840889",
+"VISIBILITY": "complex64|447167082a044f27",
+"WEIGHT": "float32|c4ecc3faae000a84",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|03f7c3b97c7cb415",
+"frequency": "float64|a58281ed74e96e6b",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|d724524d324f6f2f",
+"time": "float64|22c6374553fc5627",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"56671ad62b46e3fb": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|087d6d13955dc297",
+"FLAG": "bool|e4064901c3c28ca5",
+"TIME_CENTROID": "float64|5e0e869cf4b61157",
+"UVW": "float64|fbf0366c6a9018be",
+"VISIBILITY": "complex64|c3fc7f4d4331e635",
+"WEIGHT": "float32|b0a5ab45a942c790",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|b3503937567598af",
+"frequency": "float64|ba1e7281025ce33a",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|1b2d9f3ad6e79db8",
+"time": "float64|986e06374e878e68",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"59157fb9a8ed4184": {
+"approx": {
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "7db1016d638b02a2",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|0bdc9a20a995aa87",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|2cee124f0984875a",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|e058c221b0fba2a9",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|e058c221b0fba2a9",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"5ad02c3ab885eb34": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|7fb125c8f3f3fca5",
+"SPECTRUM": "float32|55f1123a2285a74c",
+"TIME_CENTROID": "float64|3b65fe88f8744a8e",
+"WEIGHT": "float64|e1cecd9cc42d1d5f",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|b59e43004d434fed",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|204a36440e9e0f5e",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|4d6f9dcb1e9a0a5a"
+}
+},
+"5b5688243bc23820": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|bbe289e43e04e12e",
+"TIME_CENTROID": "float64|a6631bc2ebd2513c",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|c89e9dd66fc6ad1a",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|e05f3870e7be39aa",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|8cfd23037c2f91a7"
+}
+},
+"5f4b7cf3287f6df7": {
+"approx": {
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "7db1016d638b02a2",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|7610c2f5878c05f0",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|8fbffa7c2ba43714",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|1a3a8cc77a17c627",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|1a3a8cc77a17c627",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"65777ee921789c50": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|abcb64501b07633d",
+"FLAG": "bool|9fe1f32672a5c3bc",
+"TIME_CENTROID": "float64|bd5325ee2a03ff3b",
+"UVW": "float64|187f2efc3cf2ea89",
+"VISIBILITY": "complex64|6c0c0aa2c7d087ed",
+"WEIGHT": "float32|cb62592ee6f17205",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|22918143d415f890",
+"frequency": "float64|6ef2af9afdfa9436",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|1dae0c2404de2431",
+"time": "float64|839a79b5fe0e10d3",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"671f4ba8a02ce74e": {
+"meta": "e91863e50a034210",
+"vars": {
+"GAIN_CURVE": "float64|5a9a2f896d6acd88",
+"GAIN_CURVE_INTERVAL": "float64|3fd4c6e3078a19ff",
+"GAIN_CURVE_SENSITIVITY": "float64|b7e85fead074ded2",
+"antenna_id": "int32|3a7a07edc82b0a41",
+"antenna_name": "str|8e914099787ca431",
+"gain_curve_type": "str|7bc4195b24f927af",
+"mount": "str|67f94131458ba57a",
+"polarization_type": "str|24d18b140e5c94e1",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|8e914099787ca431",
+"telescope_name": "str|8a326d96aaab8960"
+}
+},
+"6af948ec588fcb88": {
+"meta": "2f88d7ff37e2c655",
+"vars": {
+"POINTING_BEAM": "float64|8aa7ad443c0f3df8",
+"POINTING_DISH_MEASURED": "float64|739e4e2115a2a2fd",
+"POINTING_OVER_THE_TOP": "bool|5617991cd233c673",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|a2ad2d337206b01a"
+}
+},
+"6f6ba85b868eca53": {
+"meta": "887e2811edae594a",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|0f1aaed80a73f20b",
+"field_name": "str|e5c54da6631066db",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|2816a2abe85d208a"
+}
+},
+"6fb73b227b2497c7": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|792e541b06bcbfc0",
+"FLAG": "bool|6477df8e0d12d3b0",
+"SPECTRUM": "float32|4f10923197e293c0",
+"TIME_CENTROID": "float64|c99bad840d1f0c0f",
+"WEIGHT": "float64|cc1f37d051ccf892",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|163b28a4d8fd7a0f",
+"frequency": "float64|c89e9dd66fc6ad1a",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|9dea21a24ccba50d",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|880e72eb97001f19"
+}
+},
+"6ff23d321a0ff3bc": {
+"meta": "333e0474b119250a",
+"vars": {
+"POINTING_BEAM": "float64|965b63f2f59ff168",
+"POINTING_DISH_MEASURED": "float64|c635e0670d547b04",
+"POINTING_OVER_THE_TOP": "bool|2932d6438a52bcf8",
+"antenna_name": "str|332b14ff22152bf2",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|51cff3dcbc120ad6"
+}
+},
+"70892126114c71f5": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|86cc02b9718ba5c8",
+"LINE_REST_FREQUENCY": "float64|77cadca77f0fb84f",
+"LINE_SYSTEMIC_VELOCITY": "float64|1484fedce09ce24a",
+"SOURCE_DIRECTION": "float64|86cc02b9718ba5c8",
+"field_name": "str|33f2d18af653cb92",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|1422217eac1f91e1",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|33f2d18af653cb92"
+}
+},
+"70b9965413f37e49": {
+"approx": {
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "7db1016d638b02a2",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|41b0a4e955786d83",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|f92ae5bf89bdaac6",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|74f3fb05e408dfa5",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|74f3fb05e408dfa5",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"741c861e8b386f5e": {
+"meta": "2f88d7ff37e2c655",
+"vars": {
+"POINTING_BEAM": "float64|c61958f3f3242ae3",
+"POINTING_DISH_MEASURED": "float64|04b4463159320edd",
+"POINTING_OVER_THE_TOP": "bool|bd0d2b6dc2fe517a",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|41043141403fcda9"
+}
+},
+"7690fca8eb57b285": {
+"meta": "333e0474b119250a",
+"vars": {
+"POINTING_BEAM": "float64|8afa7199c95c121e",
+"POINTING_DISH_MEASURED": "float64|130a7cdd8317c429",
+"POINTING_OVER_THE_TOP": "bool|c1c89802c412cdf0",
+"antenna_name": "str|332b14ff22152bf2",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|d793c8d10daaab93"
+}
+},
+"77fc4c642d82b47b": {
+"meta": "333e0474b119250a",
+"vars": {
+"POINTING_BEAM": "float64|400bdff5ce50b50a",
+"POINTING_DISH_MEASURED": "float64|5842ad0f48d4bf15",
+"POINTING_OVER_THE_TOP": "bool|74b2f3982c081911",
+"antenna_name": "str|332b14ff22152bf2",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|d19c6a0492ce3ecf"
+}
+},
+"7a6a219f58c93a8f": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|087d6d13955dc297",
+"FLAG": "bool|e4064901c3c28ca5",
+"TIME_CENTROID": "float64|5e0e869cf4b61157",
+"UVW": "float64|fbf0366c6a9018be",
+"VISIBILITY": "complex64|ebd523116e190dd4",
+"WEIGHT": "float32|b0a5ab45a942c790",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|b3503937567598af",
+"frequency": "float64|a58281ed74e96e6b",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|1b2d9f3ad6e79db8",
+"time": "float64|986e06374e878e68",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"7c136acbdfdb7229": {
+"meta": "56d38b8d1b5644ad",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|626a666bcb3e9d0d",
+"FLAG": "bool|d1c7eec62aa9defe",
+"TIME_CENTROID": "float64|72a8a07e7199f4d4",
+"UVW": "float64|60f74c9923935ec0",
+"VISIBILITY": "complex64|dbf7323c0e4b6104",
+"WEIGHT": "float32|3c0d2afa36f69ad3",
+"baseline_antenna1_name": "str|d3fd3e40f3112bec",
+"baseline_antenna2_name": "str|88d829d6a6c082ca",
+"baseline_id": "int64|1ffed7ec5446410b",
+"field_name": "str|4ee82efb69a0394a",
+"frequency": "float64|73eca3d64cda9a57",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|28f601a9f56bd3b3",
+"time": "float64|71386ff4b71e4098",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"7dedbca240169172": {
+"meta": "cfe8cadd5d1b724d",
+"vars": {
+"ANTENNA_DISH_DIAMETER": "float64|896be61f13eec119",
+"ANTENNA_POSITION": "float64|3f42f07611ed2952",
+"ANTENNA_RECEPTOR_ANGLE": "float64|2b9a666e337806f5",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"mount": "str|c6332f09eb6db277",
+"polarization_type": "str|56a43ec41056739e",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|7bb8316eed14e6bc",
+"telescope_name": "str|bef33037b8af9f0d"
+}
+},
+"7eaae464de29bba1": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|064016c672a6092e",
+"LINE_REST_FREQUENCY": "float64|83fb766dd86f11b9",
+"LINE_SYSTEMIC_VELOCITY": "float64|91e2df4d8fb22eb1",
+"SOURCE_DIRECTION": "float64|064016c672a6092e",
+"field_name": "str|9bc1eebab9fd2685",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|746293fac4bb5b7d",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|9bc1eebab9fd2685"
+}
+},
+"8050247cb4b2581e": {
+"meta": "007427d3b50c628d",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|766826bab3d65568",
+"FLAG": "bool|ba46d8ca5e10007d",
+"TIME_CENTROID": "float64|68e57f19355db8a0",
+"UVW": "float64|3df5844db2274090",
+"VISIBILITY": "complex64|fce9d619cb5bfaf5",
+"WEIGHT": "float32|155f8932c9a5a6be",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|bdeb1ebca538098b",
+"frequency": "float64|dff55e84e844e76d",
+"polarization": "str|eed710a9fa10c117",
+"scan_name": "str|985a577dfaade5d4",
+"time": "float64|00cf4dd874458d70",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"825c11bf0023de47": {
+"meta": "536d7ca0ca2c2f59",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|510d14e6799bd06a",
+"FLAG": "bool|ddcf27fbf4fb14ed",
+"TIME_CENTROID": "float64|403fed1ea058e4e5",
+"UVW": "float64|4e90d6f77269fb8b",
+"VISIBILITY": "complex64|9e051e72545da3a0",
+"WEIGHT": "float32|f4f01b7aff1cef2b",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|74f3fb05e408dfa5",
+"frequency": "float64|a61ae9bb3e588366",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|70243450326e0856",
+"time": "float64|735bb8e3ff7525c4",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"828a618d99eea329": {
+"meta": "56d38b8d1b5644ad",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|9d7e433950c20bf8",
+"FLAG": "bool|8c6474474fd16224",
+"TIME_CENTROID": "float64|6d1b4ff737389b6a",
+"UVW": "float64|80144b496cd2bcc1",
+"VISIBILITY": "complex64|ec6c54894834fc34",
+"WEIGHT": "float32|33fc800daf798abf",
+"baseline_antenna1_name": "str|ff8a50ea6a463e99",
+"baseline_antenna2_name": "str|667091b60d0be1c7",
+"baseline_id": "int64|6517990b6720fc39",
+"field_name": "str|a9256e141b67ea29",
+"frequency": "float64|73eca3d64cda9a57",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|7922f94fe0e07e53",
+"time": "float64|3033b0087844da2c",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"82be312379425cff": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|580b585f40f60769",
+"LINE_REST_FREQUENCY": "float64|44e2a1e97ee20172",
+"LINE_SYSTEMIC_VELOCITY": "float64|91e2df4d8fb22eb1",
+"SOURCE_DIRECTION": "float64|b175e5e3764b9bf9",
+"field_name": "str|b1826d48c7eccbc1",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|803630d1f16f263d",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|b1826d48c7eccbc1"
+}
+},
+"86e82bac328b65d6": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|7fb125c8f3f3fca5",
+"SPECTRUM": "float32|42647dcd5c5937ba",
+"TIME_CENTROID": "float64|84713b4644206267",
+"WEIGHT": "float64|e1cecd9cc42d1d5f",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|b59e43004d434fed",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|6b8c4f72a4b1c474",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|90d0d41a0b59d97b"
+}
+},
+"87ecba8b29b7bffc": {
+"meta": "536d7ca0ca2c2f59",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|d88f4ad99f8bcfd2",
+"FLAG": "bool|6169f1b9634c5bda",
+"TIME_CENTROID": "float64|7190d6f737ba19df",
+"UVW": "float64|c9a80b7bd6fbaa95",
+"VISIBILITY": "complex64|c6bc403c369dd680",
+"WEIGHT": "float32|f757b324daec253d",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|18995002f48f8b78",
+"frequency": "float64|a61ae9bb3e588366",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|17f2cd32467ce3de",
+"time": "float64|7c99118139755981",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"895950b41d1ba4b0": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|abcb64501b07633d",
+"FLAG": "bool|9fe1f32672a5c3bc",
+"TIME_CENTROID": "float64|bd5325ee2a03ff3b",
+"UVW": "float64|187f2efc3cf2ea89",
+"VISIBILITY": "complex64|5204db460aa63fcf",
+"WEIGHT": "float32|cb62592ee6f17205",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|22918143d415f890",
+"frequency": "float64|613ce2d013f0d834",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|1dae0c2404de2431",
+"time": "float64|839a79b5fe0e10d3",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"89e35ff49706acd2": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|f8ee035453f06061",
+"LINE_REST_FREQUENCY": "float64|b78cead9de177424",
+"LINE_SYSTEMIC_VELOCITY": "float64|16193fb4dfd4a3a9",
+"SOURCE_DIRECTION": "float64|f8ee035453f06061",
+"field_name": "str|fb240727a2c17627",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|f4ae344979ccfea3",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|fb240727a2c17627"
+}
+},
+"89e4aaedae868794": {
+"meta": "ee49155e11923344",
+"vars": {
+"ANTENNA_DISH_DIAMETER": "float64|0d854b99b8b859e0",
+"ANTENNA_POSITION": "float64|4d86515218d24970",
+"ANTENNA_RECEPTOR_ANGLE": "float64|c4fc9db7bbd8dd97",
+"antenna_name": "str|d932545359e6bcac",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"mount": "str|ed5963546e5bd34c",
+"polarization_type": "str|88f4d1c707d49944",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|d932545359e6bcac",
+"telescope_name": "str|95cf71caa5ac58d2"
+}
+},
+"8c256b5a803d9d18": {
+"meta": "ef0d618091e53996",
+"vars": {
+"TCAL": "float64|d71cf837cc835538",
+"TRX": "float64|605345ec9ef72f2f",
+"TSKY": "float64|e3ec6691d23c5564",
+"TSYS": "float64|b025c7e1af88ad58",
+"antenna_id": "int32|122ce33d67e2649b",
+"frequency_system_cal": "int64|e338e8d734ee5415",
+"mount": "str|bea1550915cb8296",
+"polarization_type": "str|1cbccd7699300c16",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|46564abece9058e9",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time_system_cal": "float64|2fe7daa25a8e7e3b"
+}
+},
+"8e0459892d1ccae8": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|7fb125c8f3f3fca5",
+"SPECTRUM": "float32|a4ca620552eab21e",
+"TIME_CENTROID": "float64|a6631bc2ebd2513c",
+"WEIGHT": "float64|e1cecd9cc42d1d5f",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|b59e43004d434fed",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|e05f3870e7be39aa",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|8cfd23037c2f91a7"
+}
+},
+"8f0eed751dd639b2": {
+"meta": "007427d3b50c628d",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|064afa4d23ae285e",
+"FLAG": "bool|de7c2b598a60b30f",
+"TIME_CENTROID": "float64|41f26f121f2f1f14",
+"UVW": "float64|0e2a7ab979ab53c0",
+"VISIBILITY": "complex64|3f1ecb96c22a9e6d",
+"WEIGHT": "float32|a11dab08dea5dea0",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|1a3a8cc77a17c627",
+"frequency": "float64|dff55e84e844e76d",
+"polarization": "str|eed710a9fa10c117",
+"scan_name": "str|8f4534924973590b",
+"time": "float64|1e42c8daea7f33ba",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"8fccab296a042892": {
+"meta": "e42438558e1b4117",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|cf89dda3834cc86f",
+"FLAG": "bool|3f4d9f707d2bb07e",
+"TIME_CENTROID": "float64|964508fad6015757",
+"UVW": "float64|2f039710ead54504",
+"VISIBILITY": "complex64|19ad67b58a6eb588",
+"WEIGHT": "float32|03039f37d59c99b3",
+"baseline_antenna1_name": "str|cddab9a141f9371e",
+"baseline_antenna2_name": "str|38166206ec5e098d",
+"baseline_id": "int64|a701d81398720755",
+"field_name": "str|1a3a8cc77a17c627",
+"frequency": "float64|54f6bf8ae7bc28a0",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|c348ec3dcf53effe",
+"time": "float64|e1326a794fa85df2",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"9208cdcad75d4b74": {
+"meta": "2f88d7ff37e2c655",
+"vars": {
+"POINTING_BEAM": "float64|d27f67814e65d774",
+"POINTING_DISH_MEASURED": "float64|0fdc08d11180bb9d",
+"POINTING_OVER_THE_TOP": "bool|1b81c845dfe2d1ca",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|6099a8ff351c659a"
+}
+},
+"93cae4b18c8e2db6": {
+"meta": "007427d3b50c628d",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|d2529848e59aace9",
+"FLAG": "bool|19d6a161aae5a7e1",
+"TIME_CENTROID": "float64|975fa0fe825b055f",
+"UVW": "float64|7b8ba44c5a0e0b26",
+"VISIBILITY": "complex64|463f7f961593f5ec",
+"WEIGHT": "float32|174892d393435ff3",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|6f0a7ee1f9f37706",
+"frequency": "float64|dff55e84e844e76d",
+"polarization": "str|eed710a9fa10c117",
+"scan_name": "str|30d515ad9f7aa9d0",
+"time": "float64|0c00ad388a4ead9c",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"95dc9c818e13962e": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|12f3ff10e9a37e9f",
+"TIME_CENTROID": "float64|84713b4644206267",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|cea6c2d679a27be5",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|6b8c4f72a4b1c474",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|90d0d41a0b59d97b"
+}
+},
+"9972d4da4022922d": {
+"approx": {
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "7db1016d638b02a2",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|910869b84c76011a",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|7d71b0afdca25460",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|1a3a8cc77a17c627",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|1a3a8cc77a17c627",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"9b68dcea59d0fae0": {
+"meta": "e91863e50a034210",
+"vars": {
+"GAIN_CURVE": "float64|c639fa54167bc2e0",
+"GAIN_CURVE_INTERVAL": "float64|27b7f54afa556a30",
+"GAIN_CURVE_SENSITIVITY": "float64|0b5fc9cc207b8fb1",
+"antenna_id": "int32|070ef04e1d4b830e",
+"antenna_name": "str|d932545359e6bcac",
+"gain_curve_type": "str|9aa3178ad477fea0",
+"mount": "str|ed5963546e5bd34c",
+"polarization_type": "str|88f4d1c707d49944",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|d932545359e6bcac",
+"telescope_name": "str|95cf71caa5ac58d2"
+}
+},
+"9cb8f6c6efbc6c66": {
+"meta": "56d38b8d1b5644ad",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|9d7e433950c20bf8",
+"FLAG": "bool|8c6474474fd16224",
+"TIME_CENTROID": "float64|6d1b4ff737389b6a",
+"UVW": "float64|80144b496cd2bcc1",
+"VISIBILITY": "complex64|54db45baeaf87502",
+"WEIGHT": "float32|33fc800daf798abf",
+"baseline_antenna1_name": "str|ff8a50ea6a463e99",
+"baseline_antenna2_name": "str|667091b60d0be1c7",
+"baseline_id": "int64|6517990b6720fc39",
+"field_name": "str|a9256e141b67ea29",
+"frequency": "float64|6a342e0daf117b70",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|7922f94fe0e07e53",
+"time": "float64|3033b0087844da2c",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"a0756207576440c0": {
+"meta": "007427d3b50c628d",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|8b984af626804452",
+"FLAG": "bool|de7c2b598a60b30f",
+"TIME_CENTROID": "float64|da2871a5eba4f722",
+"UVW": "float64|0e2a7ab979ab53c0",
+"VISIBILITY": "complex64|230ede82783961e6",
+"WEIGHT": "float32|c22fa756269e8346",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|1a3a8cc77a17c627",
+"frequency": "float64|dff55e84e844e76d",
+"polarization": "str|eed710a9fa10c117",
+"scan_name": "str|c348ec3dcf53effe",
+"time": "float64|3d810aab8c6ffeab",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"a8576557f39a59fc": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|bbf266fecfeaad1a",
+"TIME_CENTROID": "float64|84713b4644206267",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|c89e9dd66fc6ad1a",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|6b8c4f72a4b1c474",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|90d0d41a0b59d97b"
+}
+},
+"ae868c7c6e6db1f0": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|81a2d541af65b7b2",
+"FLAG": "bool|43812bd443b05080",
+"TIME_CENTROID": "float64|53ac5dcfb61dff97",
+"UVW": "float64|58baf49fd242ee9e",
+"VISIBILITY": "complex64|9c804fdc1bc0a8e3",
+"WEIGHT": "float32|d62166f0fbc91d71",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|92c72eadf782db9c",
+"frequency": "float64|6ef2af9afdfa9436",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|cc63a9cd4fac84ab",
+"time": "float64|5d07c4cd4cb33981",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"b0cfcda128672248": {
+"approx": {
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "7db1016d638b02a2",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|5c9180ea3f32353a",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|ebc00eae331b6074",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|74f3fb05e408dfa5",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|74f3fb05e408dfa5",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"b1306cce2f87a3a6": {
+"meta": "2052abee51fd2de8",
+"vars": {
+"DEW_POINT": "float64|92ce4555a776002d",
+"PRESSURE": "float64|ed2ca37cf6f9fe99",
+"REL_HUMIDITY": "float64|fc5669116e998c2f",
+"STATION_POSITION": "float64|435d124e1d62aa9c",
+"TEMPERATURE": "float64|cfdfe8c1f1b25ab2",
+"WIND_DIRECTION": "float64|1596d1ab5e966d7c",
+"WIND_SPEED": "float64|2b4b791fc02d90fc",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"station_name": "str|3e5b5c4632f7bd9b",
+"time_weather": "float64|25dcac473f927723"
+}
+},
+"b3a5c3a34c9e6096": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|0842dd3458cb77ff",
+"LINE_REST_FREQUENCY": "float64|ef0fa4859f798f11",
+"LINE_SYSTEMIC_VELOCITY": "float64|91e2df4d8fb22eb1",
+"SOURCE_DIRECTION": "float64|0842dd3458cb77ff",
+"field_name": "str|a538226f81b2b438",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|d7fa744f662f4ed9",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|a538226f81b2b438"
+}
+},
+"b59daf249a26a3b9": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|f8ee035453f06061",
+"LINE_REST_FREQUENCY": "float64|a9082a64adfa7539",
+"LINE_SYSTEMIC_VELOCITY": "float64|16193fb4dfd4a3a9",
+"SOURCE_DIRECTION": "float64|f8ee035453f06061",
+"field_name": "str|fb240727a2c17627",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|783ffd5aa9e7216e",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|fb240727a2c17627"
+}
+},
+"b686558d0a4c1343": {
+"meta": "2052abee51fd2de8",
+"vars": {
+"PRESSURE": "float64|83f1531c4d02e0fc",
+"REL_HUMIDITY": "float64|8bd6c4d397dac515",
+"STATION_POSITION": "float64|f2d819d95ad20040",
+"TEMPERATURE": "float64|f887bed0154039f6",
+"WIND_DIRECTION": "float64|d3037d60b7cbe7c9",
+"WIND_SPEED": "float64|a91720b850521491",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"station_name": "str|c672e11048655ed6",
+"time_weather": "float64|d1d98d6ba3bd92f1"
+}
+},
+"b6b212b93555ab1e": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|18fc48e78fbcd617",
+"FLAG": "bool|8d9af6c02f6356e8",
+"TIME_CENTROID": "float64|cbd279ff13a2be18",
+"UVW": "float64|ef6d5f0ad2840889",
+"VISIBILITY": "complex64|0e3b9a44997f4e1a",
+"WEIGHT": "float32|c4ecc3faae000a84",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|03f7c3b97c7cb415",
+"frequency": "float64|6ef2af9afdfa9436",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|d724524d324f6f2f",
+"time": "float64|22c6374553fc5627",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"b927b995a16c88ef": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|b946c67242b337ed",
+"TIME_CENTROID": "float64|3b65fe88f8744a8e",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|c56edd2dfb6e47e4",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|204a36440e9e0f5e",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|4d6f9dcb1e9a0a5a"
+}
+},
+"b985bb2b119df115": {
+"meta": "56d38b8d1b5644ad",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|106eae2688324894",
+"FLAG": "bool|a6b5ff97e7fa23f3",
+"TIME_CENTROID": "float64|f93b61b455a3995e",
+"UVW": "float64|a8d770ac30fb2e2c",
+"VISIBILITY": "complex64|39a02a8af088db64",
+"WEIGHT": "float32|4d44e2e82c4ce55a",
+"baseline_antenna1_name": "str|d3fd3e40f3112bec",
+"baseline_antenna2_name": "str|88d829d6a6c082ca",
+"baseline_id": "int64|1ffed7ec5446410b",
+"field_name": "str|f4dfd6dbc9c91114",
+"frequency": "float64|6a342e0daf117b70",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|651ad15bc4808c79",
+"time": "float64|975534bd36e1b231",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"bc21eb1986ab5006": {
+"meta": "536d7ca0ca2c2f59",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|510d14e6799bd06a",
+"FLAG": "bool|ddcf27fbf4fb14ed",
+"TIME_CENTROID": "float64|aaff9885541822ea",
+"UVW": "float64|4e90d6f77269fb8b",
+"VISIBILITY": "complex64|2efe457800e2a554",
+"WEIGHT": "float32|f4f01b7aff1cef2b",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|74f3fb05e408dfa5",
+"frequency": "float64|a61ae9bb3e588366",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|904086c2fc1b094e",
+"time": "float64|11c52e6e8db929ec",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"c0279d0343b597f5": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|f8ee035453f06061",
+"LINE_REST_FREQUENCY": "float64|77cadca77f0fb84f",
+"LINE_SYSTEMIC_VELOCITY": "float64|16193fb4dfd4a3a9",
+"SOURCE_DIRECTION": "float64|f8ee035453f06061",
+"field_name": "str|fb240727a2c17627",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|1422217eac1f91e1",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|fb240727a2c17627"
+}
+},
+"c270f628363066f0": {
+"approx": {
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "ecfcbbb91b77afad",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|2de89f565603e156",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|52c95e2b140098a3",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"LINE_REST_FREQUENCY": "float64|dc05a260f0931059",
+"LINE_SYSTEMIC_VELOCITY": "float64|174028f1cae49bd7",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|1a3a8cc77a17c627",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|14d3734a5e4fa0e7",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|1a3a8cc77a17c627",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"c2778cd0f26c4f8e": {
+"approx": {
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "7db1016d638b02a2",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|371a0833764cfedb",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|1a993dba9153a27f",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|ddde70841c2722de",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|8caf358e197a14ec",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"c809236ae0cc09c5": {
+"meta": "2052abee51fd2de8",
+"vars": {
+"DEW_POINT": "float64|43797c8f46ef47cb",
+"PRESSURE": "float64|4bd128ae103abbe7",
+"REL_HUMIDITY": "float64|98ed799ea154792c",
+"STATION_POSITION": "float64|bf85b470c5f1301e",
+"TEMPERATURE": "float64|7183c0662e529e27",
+"WIND_DIRECTION": "float64|db88d53a39a3d1b9",
+"WIND_SPEED": "float64|d9454f33237a430d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"station_name": "str|7b7ce13f0e4aa093",
+"time_weather": "float64|69fa6b951a996ba0"
+}
+},
+"c811e8f6a5dd3b17": {
+"meta": "887e2811edae594a",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|43c3b36a8ebf27ec",
+"SOURCE_DIRECTION": "float64|43c3b36a8ebf27ec",
+"field_name": "str|2d926d6517520ae6",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|2d926d6517520ae6"
+}
+},
+"c9b04f90ff13c4a3": {
+"meta": "887e2811edae594a",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|a0713cc26e27f3de",
+"field_name": "str|704663f96e72527e",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|2816a2abe85d208a"
+}
+},
+"cb7dc5451c645483": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|087d6d13955dc297",
+"FLAG": "bool|e4064901c3c28ca5",
+"TIME_CENTROID": "float64|5e0e869cf4b61157",
+"UVW": "float64|fbf0366c6a9018be",
+"VISIBILITY": "complex64|dee7de2058b272b6",
+"WEIGHT": "float32|b0a5ab45a942c790",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|b3503937567598af",
+"frequency": "float64|6ef2af9afdfa9436",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|1b2d9f3ad6e79db8",
+"time": "float64|986e06374e878e68",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"d00078de40c7408e": {
+"meta": "536d7ca0ca2c2f59",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|510d14e6799bd06a",
+"FLAG": "bool|ddcf27fbf4fb14ed",
+"TIME_CENTROID": "float64|b0a299f953e89268",
+"UVW": "float64|4e90d6f77269fb8b",
+"VISIBILITY": "complex64|f9ee77ad8e9cde34",
+"WEIGHT": "float32|f4f01b7aff1cef2b",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|74f3fb05e408dfa5",
+"frequency": "float64|a61ae9bb3e588366",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|b3442ebf682c6db0",
+"time": "float64|55d1fa73bc17cf6f",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"d095dc3bdf103496": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|792e541b06bcbfc0",
+"FLAG": "bool|6477df8e0d12d3b0",
+"SPECTRUM": "float32|fd71a666e840b364",
+"TIME_CENTROID": "float64|c99bad840d1f0c0f",
+"WEIGHT": "float64|cc1f37d051ccf892",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|163b28a4d8fd7a0f",
+"frequency": "float64|c56edd2dfb6e47e4",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|9dea21a24ccba50d",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|880e72eb97001f19"
+}
+},
+"d276c3c6a076a4f0": {
+"meta": "cb3b4eb7b2c820df",
+"vars": {
+"ANTENNA_DISH_DIAMETER": "float64|9c3ccc32f9dfd603",
+"ANTENNA_POSITION": "float64|c5142d3b87dbba50",
+"ANTENNA_RECEPTOR_ANGLE": "float64|6fad309a19b6c649",
+"antenna_name": "str|332b14ff22152bf2",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"mount": "str|a708801072984342",
+"polarization_type": "str|231e1e9064eff2e5",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|e6e8cd57d6a05cf2",
+"telescope_name": "str|a712ed10b00530c1"
+}
+},
+"d31e0710e48c9559": {
+"meta": "007427d3b50c628d",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|8b984af626804452",
+"FLAG": "bool|de7c2b598a60b30f",
+"TIME_CENTROID": "float64|1a6de25d3098b1e7",
+"UVW": "float64|0e2a7ab979ab53c0",
+"VISIBILITY": "complex64|6b92c69d1efdcfa8",
+"WEIGHT": "float32|c22fa756269e8346",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|1a3a8cc77a17c627",
+"frequency": "float64|dff55e84e844e76d",
+"polarization": "str|eed710a9fa10c117",
+"scan_name": "str|bde28f4ab6aeca9b",
+"time": "float64|10c465ebd37a947b",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"dd0796ed4deaa0aa": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|86cc02b9718ba5c8",
+"LINE_REST_FREQUENCY": "float64|b78cead9de177424",
+"LINE_SYSTEMIC_VELOCITY": "float64|1484fedce09ce24a",
+"SOURCE_DIRECTION": "float64|86cc02b9718ba5c8",
+"field_name": "str|33f2d18af653cb92",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|f4ae344979ccfea3",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|33f2d18af653cb92"
+}
+},
+"def60ac7eab9a3c5": {
+"meta": "2f88d7ff37e2c655",
+"vars": {
+"POINTING_BEAM": "float64|06d86c40e7951742",
+"POINTING_DISH_MEASURED": "float64|942bb78169730f30",
+"POINTING_OVER_THE_TOP": "bool|5617991cd233c673",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|54a910f6b4a9cac8"
+}
+},
+"e1601c936b31bfbb": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|6b893ea7c74d0292",
+"FLAG": "bool|c9ea53a143785bbd",
+"TIME_CENTROID": "float64|630585e3ffe5fe50",
+"UVW": "float64|c83032da3d8beb08",
+"VISIBILITY": "complex64|f20feab29f7c87cc",
+"WEIGHT": "float32|1276be509bb8855c",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|7837f1610e4fdda9",
+"frequency": "float64|ba1e7281025ce33a",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|78d4df8388296b1b",
+"time": "float64|43b51d164a62df3a",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"e19972165733bfc5": {
+"meta": "2f88d7ff37e2c655",
+"vars": {
+"POINTING_BEAM": "float64|f93024b43fadaa5e",
+"POINTING_DISH_MEASURED": "float64|53f5d703b93fd57c",
+"POINTING_OVER_THE_TOP": "bool|5617991cd233c673",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|d0f3c6d99518cb1e"
+}
+},
+"e42d4153d83d10a6": {
+"meta": "333e0474b119250a",
+"vars": {
+"POINTING_BEAM": "float64|05b1afdb934ee052",
+"antenna_name": "str|8f40dda2ae4d288e",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|f126b2444863f17b"
+}
+},
+"e54ec871424d0b10": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|6b893ea7c74d0292",
+"FLAG": "bool|c9ea53a143785bbd",
+"TIME_CENTROID": "float64|630585e3ffe5fe50",
+"UVW": "float64|c83032da3d8beb08",
+"VISIBILITY": "complex64|c4cbf2ad7ef5429d",
+"WEIGHT": "float32|1276be509bb8855c",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|7837f1610e4fdda9",
+"frequency": "float64|6ef2af9afdfa9436",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|78d4df8388296b1b",
+"time": "float64|43b51d164a62df3a",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"e77346127fd5d550": {
+"meta": "bd5463db83a2a40e",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|8c10daa0179ef7fd",
+"FLAG": "bool|7d0c46c0bb0fae67",
+"SPECTRUM": "float32|bccba1de4f45ade6",
+"TIME_CENTROID": "float64|f5588eb14b82abdc",
+"WEIGHT": "float32|c49581a327197ebf",
+"antenna_name": "str|bef33037b8af9f0d",
+"field_name": "str|8a946c344d3881ee",
+"frequency": "float64|03da57ad844b538e",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|27f8bf29df9bea41",
+"telescope_name": "str|bef33037b8af9f0d",
+"time": "float64|96faa2d5ab289959"
+}
+},
+"e8b7483baf04e74b": {
+"meta": "e42438558e1b4117",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|c8ee9cf2c740d161",
+"FLAG": "bool|550f7bfe960efc47",
+"TIME_CENTROID": "float64|61f1c1154e5af654",
+"UVW": "float64|dc2838f8a8e2f9e2",
+"VISIBILITY": "complex64|b3952a318acdacec",
+"WEIGHT": "float32|5960ff03f5edd4f5",
+"baseline_antenna1_name": "str|cddab9a141f9371e",
+"baseline_antenna2_name": "str|38166206ec5e098d",
+"baseline_id": "int64|a701d81398720755",
+"field_name": "str|b3dba8afe66266ce",
+"frequency": "float64|54f6bf8ae7bc28a0",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|e46386c092385ddd",
+"time": "float64|cc6c554e37f24b48",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"e8e02325d28f1b22": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|3f5f80ca6f0227ab",
+"TIME_CENTROID": "float64|84713b4644206267",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|c56edd2dfb6e47e4",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|6b8c4f72a4b1c474",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|90d0d41a0b59d97b"
+}
+},
+"e9a34878c0c533a4": {
+"meta": "e42438558e1b4117",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|5de4ce5bd7cd249f",
+"FLAG": "bool|2a6c452e0ce18df3",
+"TIME_CENTROID": "float64|180e372cd7724518",
+"UVW": "float64|d6f42af0763d22a3",
+"VISIBILITY": "complex64|ab8566d5d62997fd",
+"WEIGHT": "float32|b3c2aed70cf61968",
+"baseline_antenna1_name": "str|cddab9a141f9371e",
+"baseline_antenna2_name": "str|38166206ec5e098d",
+"baseline_id": "int64|a701d81398720755",
+"field_name": "str|3894c3f80140df45",
+"frequency": "float64|54f6bf8ae7bc28a0",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|884a3b7d671d798d",
+"time": "float64|6ecb938597bab199",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"eaee5ef56fbc1f2f": {
+"meta": "5fb958c3a3c7a330",
+"vars": {
+"TSYS": "float64|2606b6ceccadda89",
+"antenna_id": "int32|070ef04e1d4b830e",
+"antenna_name": "str|d932545359e6bcac",
+"mount": "str|ed5963546e5bd34c",
+"polarization_type": "str|88f4d1c707d49944",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|d932545359e6bcac",
+"telescope_name": "str|95cf71caa5ac58d2",
+"time_system_cal": "float64|764be60b16736bce"
+}
+},
+"eb09107c4dd9c0a3": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|18fc48e78fbcd617",
+"FLAG": "bool|8d9af6c02f6356e8",
+"TIME_CENTROID": "float64|cbd279ff13a2be18",
+"UVW": "float64|ef6d5f0ad2840889",
+"VISIBILITY": "complex64|b4a3bd1e24a6c15d",
+"WEIGHT": "float32|c4ecc3faae000a84",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|03f7c3b97c7cb415",
+"frequency": "float64|613ce2d013f0d834",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|d724524d324f6f2f",
+"time": "float64|22c6374553fc5627",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"f0a3075270ac6b15": {
+"approx": {
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "ecfcbbb91b77afad",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|aada389ccac6f30f",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|29e9ac1616622f4c",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"LINE_REST_FREQUENCY": "float64|172b2b09a6d2dce7",
+"LINE_SYSTEMIC_VELOCITY": "float64|dd768966f1415b2f",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|e24a4253873525d1",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|84db3cf7043add88",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|e24a4253873525d1",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"f288dfdd116bec03": {
+"meta": "5fb958c3a3c7a330",
+"vars": {
+"TSYS": "float64|fb184b30780db9e1",
+"antenna_id": "int32|3a7a07edc82b0a41",
+"antenna_name": "str|8e914099787ca431",
+"mount": "str|67f94131458ba57a",
+"polarization_type": "str|24d18b140e5c94e1",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|8e914099787ca431",
+"telescope_name": "str|8a326d96aaab8960",
+"time_system_cal": "float64|28c14d9ae447d111"
+}
+},
+"f3e3af2051e59edb": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|f8ee035453f06061",
+"LINE_REST_FREQUENCY": "float64|d9d0af543bee8b29",
+"LINE_SYSTEMIC_VELOCITY": "float64|16193fb4dfd4a3a9",
+"SOURCE_DIRECTION": "float64|f8ee035453f06061",
+"field_name": "str|fb240727a2c17627",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|435ae6fec466140a",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|fb240727a2c17627"
+}
+},
+"f579033bc7834628": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|90dbff7aec892261",
+"FLAG": "bool|e66dfd565ed74ddb",
+"SPECTRUM": "float32|57d6a5dba8ec8df3",
+"TIME_CENTROID": "float64|19df861e0c96de52",
+"WEIGHT": "float64|cd868d96fc2ff652",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|5f198924f49b7edf",
+"frequency": "float64|c89e9dd66fc6ad1a",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|cadad967d6a116e7",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|66bcbf9015de0824"
+}
+},
+"f631fa989728ea0b": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|087d6d13955dc297",
+"FLAG": "bool|e4064901c3c28ca5",
+"TIME_CENTROID": "float64|5e0e869cf4b61157",
+"UVW": "float64|fbf0366c6a9018be",
+"VISIBILITY": "complex64|4d6c2e7d8b5433b6",
+"WEIGHT": "float32|b0a5ab45a942c790",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|b3503937567598af",
+"frequency": "float64|613ce2d013f0d834",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|1b2d9f3ad6e79db8",
+"time": "float64|986e06374e878e68",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"f6861debf7273282": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|abcb64501b07633d",
+"FLAG": "bool|9fe1f32672a5c3bc",
+"TIME_CENTROID": "float64|bd5325ee2a03ff3b",
+"UVW": "float64|187f2efc3cf2ea89",
+"VISIBILITY": "complex64|20573229ff561b51",
+"WEIGHT": "float32|cb62592ee6f17205",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|22918143d415f890",
+"frequency": "float64|a58281ed74e96e6b",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|1dae0c2404de2431",
+"time": "float64|839a79b5fe0e10d3",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"f71319089e2d0d60": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|90dbff7aec892261",
+"FLAG": "bool|e66dfd565ed74ddb",
+"SPECTRUM": "float32|a8eacbf319fbd4f9",
+"TIME_CENTROID": "float64|19df861e0c96de52",
+"WEIGHT": "float64|cd868d96fc2ff652",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|5f198924f49b7edf",
+"frequency": "float64|c56edd2dfb6e47e4",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|cadad967d6a116e7",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|66bcbf9015de0824"
+}
+},
+"f9b440850052175a": {
+"approx": {
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "7db1016d638b02a2",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|6c98e1d7ac3e5d57",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|cc721e04358f5914",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|74f3fb05e408dfa5",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|74f3fb05e408dfa5",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"fc6a5acc303cf54c": {
+"approx": {
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "7db1016d638b02a2",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|c5df5c8d1621c8be",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|68b7d3953b61c70b",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|b3dba8afe66266ce",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|d8fc1ea9aa570d84",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"fde8c3c5684a2ce2": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|90dbff7aec892261",
+"FLAG": "bool|32921cd9a94ec7ab",
+"SPECTRUM": "float32|d1d7ac8849bceea7",
+"TIME_CENTROID": "float64|19df861e0c96de52",
+"WEIGHT": "float64|c55a6eb09e45b739",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|5f198924f49b7edf",
+"frequency": "float64|b59e43004d434fed",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|cadad967d6a116e7",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|66bcbf9015de0824"
+}
+}
+},
+"reads": {
+"alma": {
+"columns": {
+"0": {
+"ANTENNA1": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|153|be55fa70a7309867",
+"int64|3x51|be55fa70a7309867"
+],
+"ANTENNA2": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|153|be55fa70a7309867",
+"int64|3x51|be55fa70a7309867"
+],
+"DATA": [
+"verified: TiledShapeStMan: cell shapes of 153 rows compared",
+"1428004 rows/tile",
+"complex64|153x1x2|27e49bd474b4d058",
+"complex64|3x51x1x2|27e49bd474b4d058"
+],
+"EXPOSURE": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|153|9c60e77160eeee32",
+"float64|3x51|9c60e77160eeee32"
+],
+"FLAG": [
+"verified: TiledShapeStMan: cell shapes of 153 rows compared",
+"11424035 rows/tile",
+"bool|153x1x2|2cd6bf5abe2561de",
+"bool|3x51x1x2|2cd6bf5abe2561de"
+],
+"FLAG_CATEGORY": [
+"not readable: Column FLAG_CATEGORY: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"FLAG_ROW": [
+"verified: scalar column",
+"1048576 rows/nominal",
+"bool|153|f1663cceeb67ba35",
+"bool|3x51|f1663cceeb67ba35"
+],
+"INTERVAL": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|153|01ed87e68a3efd5a",
+"float64|3x51|01ed87e68a3efd5a"
+],
+"SIGMA": [
+"verified: TiledShapeStMan: cell shapes of 153 rows compared",
+"67894 rows/tile",
+"float32|153x2|c69f0671cc57fcfc",
+"float32|3x51x2|c69f0671cc57fcfc"
+],
+"TIME": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|153|6136a5c708bc632c",
+"float64|3x51|6136a5c708bc632c"
+],
+"TIME_CENTROID": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|153|6136a5c708bc632c",
+"float64|3x51|6136a5c708bc632c"
+],
+"UVW": [
+"verified: TiledColumnStMan (fixed shape)",
+"43690 rows/tile",
+"float64|153x3|2bb0e8aa6b1aeebb",
+"float64|3x51x3|2bb0e8aa6b1aeebb"
+],
+"WEIGHT": [
+"verified: TiledShapeStMan: cell shapes of 153 rows compared",
+"67894 rows/tile",
+"float32|153x2|0de595ab7ee8eb6c",
+"float32|3x51x2|0de595ab7ee8eb6c"
+]
+},
+"1": {
+"ANTENNA1": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|102|f570871938aef083",
+"int64|2x51|f570871938aef083"
+],
+"ANTENNA2": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|102|f570871938aef083",
+"int64|2x51|f570871938aef083"
+],
+"DATA": [
+"verified: TiledShapeStMan: cell shapes of 102 rows compared",
+"943411 rows/tile",
+"complex64|102x4x1|cf2f9cc4bdb95bbe",
+"complex64|2x51x4x1|cf2f9cc4bdb95bbe"
+],
+"EXPOSURE": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|102|96bb79c01ab17f07",
+"float64|2x51|96bb79c01ab17f07"
+],
+"FLAG": [
+"verified: TiledShapeStMan: cell shapes of 102 rows compared",
+"7547287 rows/tile",
+"bool|102x4x1|bdcad460f2e51432",
+"bool|2x51x4x1|bdcad460f2e51432"
+],
+"FLAG_CATEGORY": [
+"not readable: Column FLAG_CATEGORY: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"FLAG_ROW": [
+"verified: scalar column",
+"1048576 rows/nominal",
+"bool|102|c419a92c7dce5225",
+"bool|2x51|c419a92c7dce5225"
+],
+"INTERVAL": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|102|e63fc5f58ad42a9c",
+"float64|2x51|e63fc5f58ad42a9c"
+],
+"SIGMA": [
+"verified: TiledShapeStMan: cell shapes of 102 rows compared",
+"1886822 rows/tile",
+"float32|102x1|f2cb85d3eac52f0c",
+"float32|2x51x1|f2cb85d3eac52f0c"
+],
+"TIME": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|102|683201985d0b7caf",
+"float64|2x51|683201985d0b7caf"
+],
+"TIME_CENTROID": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|102|683201985d0b7caf",
+"float64|2x51|683201985d0b7caf"
+],
+"UVW": [
+"verified: TiledColumnStMan (fixed shape)",
+"43690 rows/tile",
+"float64|102x3|b950d7a5a24da82f",
+"float64|2x51x3|b950d7a5a24da82f"
+],
+"WEIGHT": [
+"verified: TiledShapeStMan: cell shapes of 102 rows compared",
+"1886822 rows/tile",
+"float32|102x1|c07f6f78c7a5b499",
+"float32|2x51x1|c07f6f78c7a5b499"
+]
+},
+"2": {
+"ANTENNA1": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|2652|7a18f292383064a5",
+"int64|2x1326|e2531f2b95cf82e0"
+],
+"ANTENNA2": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|2652|d709cf81a0943c05",
+"int64|2x1326|d709cf81a0943c05"
+],
+"DATA": [
+"verified: TiledShapeStMan: cell shapes of 2652 rows compared",
+"10183 rows/tile",
+"complex64|2652x7x2|eb357d846bd5dad6",
+"complex64|2x1326x7x2|696c4f7ceebd77cd"
+],
+"EXPOSURE": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|2652|fefb173b6d63e9be",
+"float64|2x1326|fefb173b6d63e9be"
+],
+"FLAG": [
+"verified: TiledShapeStMan: cell shapes of 2652 rows compared",
+"81466 rows/tile",
+"bool|2652x7x2|9b7ac7e7b889a96f",
+"bool|2x1326x7x2|9b7ac7e7b889a96f"
+],
+"FLAG_CATEGORY": [
+"not readable: Column FLAG_CATEGORY: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"FLAG_ROW": [
+"verified: scalar column",
+"1048576 rows/nominal",
+"bool|2652|6749d730b3a80055",
+"bool|2x1326|6749d730b3a80055"
+],
+"INTERVAL": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|2652|27bec23a57628d1e",
+"float64|2x1326|27bec23a57628d1e"
+],
+"SIGMA": [
+"verified: TiledShapeStMan: cell shapes of 2652 rows compared",
+"67894 rows/tile",
+"float32|2652x2|484f57481fbf5735",
+"float32|2x1326x2|2fa0a57d974ffa93"
+],
+"TIME": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|2652|bf745ca6be391dcd",
+"float64|2x1326|bf745ca6be391dcd"
+],
+"TIME_CENTROID": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|2652|e89d86acbd2fcca4",
+"float64|2x1326|e89d86acbd2fcca4"
+],
+"UVW": [
+"verified: TiledColumnStMan (fixed shape)",
+"43690 rows/tile",
+"float64|2652x3|c510b924b6763e23",
+"float64|2x1326x3|afbfd014e52f34bc"
+],
+"WEIGHT": [
+"verified: TiledShapeStMan: cell shapes of 2652 rows compared",
+"67894 rows/tile",
+"float32|2652x2|550da51c81cd10d6",
+"float32|2x1326x2|d7e225ae77168d52"
+]
+}
+},
+"n_partitions": 18,
+"partitions": "ae2d270ed366f8b8",
+"rows": [
+"153|b3541d56e2d9d90a",
+"102|4abe1bb42d9d924b",
+"2652|c13d60804a0038b0",
+"153|297f884eb98a5c56",
+"102|43d1dabae0ec0dff",
+"2652|0663d4d18cef85d2",
+"153|efc95491f1065aff",
+"102|35c8ccd9cfcf8549",
+"2652|5722cf6b6b75a4ed",
+"1581|0472cd36f0e1f5a5",
+"1326|f3f7479ec19a19f6",
+"39780|c31b124bd905fe73",
+"714|0bd7a069e55f0123",
+"561|18bdf31205badc65",
+"15912|f2d6a883bef2992e",
+"15912|a8fb6dd6c185575b",
+"11934|359a6dca5e678ed4",
+"310284|3cbd5da14146f439"
+]
+},
+"alma_field_id": {
+"n_partitions": 96,
+"partitions": "35b5faed2757aabf",
+"rows": [
+"153|b3541d56e2d9d90a",
+"102|4abe1bb42d9d924b",
+"2652|c13d60804a0038b0",
+"153|297f884eb98a5c56",
+"102|43d1dabae0ec0dff",
+"2652|0663d4d18cef85d2",
+"153|efc95491f1065aff",
+"102|35c8ccd9cfcf8549",
+"2652|5722cf6b6b75a4ed",
+"1581|0472cd36f0e1f5a5",
+"1326|f3f7479ec19a19f6",
+"39780|c31b124bd905fe73",
+"714|0bd7a069e55f0123",
+"561|18bdf31205badc65",
+"15912|f2d6a883bef2992e",
+"612|2526492b2858b58d",
+"459|5795a273ecd66da6",
+"11934|2da23870b60300e9",
+"612|d28595c404f424a0",
+"459|bbea44d388b0d43a",
+"11934|3fe868e499d0288a",
+"612|951cae6fa0c93b3f",
+"459|e34ab6f684e0df8d",
+"11934|7de7d0c02547cfad",
+"612|148be111b39537df",
+"459|89e20c83ddbdf0f6",
+"11934|da4df8b744c3ba88",
+"612|e1d35511f61c9f78",
+"459|8df9c4a602579929",
+"11934|079f3914100ad896",
+"612|6a81e5b90a6f1e6a",
+"459|74ceef443617f869",
+"11934|be885685fb21ffcf",
+"612|e539f57192352ee3",
+"459|de256b12b702551e",
+"11934|7b5c8e13c0457e59",
+"612|0e998f87e8952973",
+"459|0cb6c09364ed2a8a",
+"11934|9a0f1038b795a01b",
+"612|c9348cffeba19fea",
+"459|3902063a540d6e04",
+"11934|555aa5b0023ecb24",
+"612|2c43186c6da3bc32",
+"459|aa158c36e8809b80",
+"11934|d78b52af0293e93b",
+"612|d4d3df2199471d19",
+"459|9f18fb270fea1cab",
+"11934|669ef90cf26b2f73",
+"612|d6c45005cef06c1f",
+"459|4d9ad29a7e168366",
+"11934|361876ab2a31504a",
+"612|59892b84a7402e7e",
+"459|2cf27f4f71ffdca7",
+"11934|6c40ba28d2f94584",
+"612|3db64ce31a90e276",
+"459|4057720eba35a403",
+"11934|347407ef913f0d71",
+"612|1a92fe96156baa04",
+"459|42a8ecb626c90330",
+"11934|9bf4598fda173b21",
+"612|6b0b14b7cde06c5f",
+"459|3ff3d8779e0665ce",
+"11934|0a41cb51bceced62",
+"612|44aa7410412685ec",
+"459|38f434ec94db5238",
+"11934|9a726ce8b3391535",
+"612|1e4c1a9f010daf20",
+"459|823dccdd52eb8524",
+"11934|94c5121f65c79063",
+"612|ca81d859afa4985c",
+"459|75e736bca3d5b6d4",
+"11934|0a85fa790f4bb528",
+"612|abea8fbe2add0b00",
+"459|709e4f5b11457e18",
+"11934|901b89c3d8dbf6a8",
+"612|173ece9facd750ca",
+"459|a465f364622a42c1",
+"11934|255a25d639f03abc",
+"612|007c248dabf2b4cf",
+"459|bbb75d8916a1a9a3",
+"11934|0bb77472c7643483",
+"612|b5df6110dea3bd17",
+"459|54b0838de097eeef",
+"11934|d0805bfa50117215",
+"612|147632ea5515c00d",
+"459|26a9e0cb529dca99",
+"11934|c1b01278bfb516fa",
+"408|3e144e6f0ac64e52",
+"306|12486e5d3719b75a",
+"7956|550039ddfb996daa",
+"408|9c1f24a1a5daf75a",
+"306|1cdac6d98aeece13",
+"7956|7858d590c260f670",
+"408|f4586b78ec3a9fa9",
+"306|f2591c7e9f5e4288",
+"7956|46584047ecf8ac6b"
+]
+},
+"lofar": {
+"columns": {
+"0": {
+"ANTENNA1": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|13875|cf4f32ae0a25ebb7",
+"int64|5x2775|36262abb10bafdcd"
+],
+"ANTENNA2": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|13875|0f48180b855b2499",
+"int64|5x2775|ce91e4d95627e965"
+],
+"DATA": [
+"verified: TiledColumnStMan (fixed shape)",
+"2184 rows/tile",
+"complex64|13875x15x4|bb13fbeefda2a194",
+"complex64|5x2775x15x4|c8e523285cdfcdab"
+],
+"EXPOSURE": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|13875|e955f5bf3cd56222",
+"float64|5x2775|e955f5bf3cd56222"
+],
+"FLAG": [
+"verified: TiledColumnStMan (fixed shape)",
+"17472 rows/tile",
+"bool|13875x15x4|3095f2c4a68ce5b7",
+"bool|5x2775x15x4|cc5ad3f645999861"
+],
+"FLAG_CATEGORY": [
+"not readable: Column FLAG_CATEGORY: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"FLAG_ROW": [
+"verified: scalar column",
+"1048576 rows/nominal",
+"bool|13875|f2fab5abaf12ab31",
+"bool|5x2775|5a0cc34120b4a91b"
+],
+"INTERVAL": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|13875|e955f5bf3cd56222",
+"float64|5x2775|e955f5bf3cd56222"
+],
+"SIGMA": [
+"verified: IncrementalStMan direct array (fixed shape)",
+"65536 rows/nominal",
+"float32|13875x4|48d41b7e4a2ce2c3",
+"float32|5x2775x4|48d41b7e4a2ce2c3"
+],
+"TIME": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|13875|ff24ce83a7a8254f",
+"float64|5x2775|ff24ce83a7a8254f"
+],
+"TIME_CENTROID": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|13875|ff24ce83a7a8254f",
+"float64|5x2775|ff24ce83a7a8254f"
+],
+"UVW": [
+"verified: TiledColumnStMan (fixed shape)",
+"2184 rows/tile",
+"float64|13875x3|ec382d990cac63f2",
+"float64|5x2775x3|4fffd5661d5e134b"
+],
+"WEIGHT": [
+"verified: IncrementalStMan direct array (fixed shape)",
+"65536 rows/nominal",
+"float32|13875x4|48d41b7e4a2ce2c3",
+"float32|5x2775x4|48d41b7e4a2ce2c3"
+],
+"WEIGHT_SPECTRUM": [
+"verified: TiledColumnStMan (fixed shape)",
+"2184 rows/tile",
+"float32|13875x15x4|9cb7d450c141d40e",
+"float32|5x2775x15x4|d4db8bccfd7e4796"
+]
+}
+},
+"n_partitions": 1,
+"partitions": "f70e79826e1ef17d",
+"rows": [
+"13875|cfbed03c4f53e933"
+]
+},
+"ngeht": {
+"n_partitions": 2,
+"partitions": "50f23df1a00fe6fd",
+"rows": [
+"30000|7146f11166efda28",
+"30000|c4ef5c155d98acdb"
+]
+},
+"sd_no_weight": {
+"columns": {
+"0": {
+"ANTENNA1": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|126|ab00a4dc292621aa",
+"int64|42x3|ab00a4dc292621aa"
+],
+"ANTENNA2": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|126|ab00a4dc292621aa",
+"int64|42x3|ab00a4dc292621aa"
+],
+"EXPOSURE": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|63eaca92f4911acf",
+"float64|42x3|63eaca92f4911acf"
+],
+"FLAG": [
+"verified: TiledShapeStMan: cell shapes of 126 rows compared",
+"58252 rows/tile",
+"bool|126x36x2|8f23754a0b5b965d",
+"bool|42x3x36x2|8f23754a0b5b965d"
+],
+"FLAG_CATEGORY": [
+"not readable: Column FLAG_CATEGORY: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"FLAG_ROW": [
+"verified: scalar column",
+"1048576 rows/nominal",
+"bool|126|ebc47d1683f1e8b6",
+"bool|42x3|ebc47d1683f1e8b6"
+],
+"FLOAT_DATA": [
+"verified: TiledShapeStMan: cell shapes of 126 rows compared",
+"14560 rows/tile",
+"float32|126x36x2|37949c676e297c06",
+"float32|42x3x36x2|37949c676e297c06"
+],
+"INTERVAL": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|63eaca92f4911acf",
+"float64|42x3|63eaca92f4911acf"
+],
+"SIGMA": [
+"not readable: Column SIGMA: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"TIME": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|f9dc9379ea7112ec",
+"float64|42x3|f9dc9379ea7112ec"
+],
+"TIME_CENTROID": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|f9dc9379ea7112ec",
+"float64|42x3|f9dc9379ea7112ec"
+],
+"UVW": [
+"verified: TiledColumnStMan (fixed shape)",
+"43680 rows/tile",
+"float64|126x3|d44e6f5df89071a2",
+"float64|42x3x3|d44e6f5df89071a2"
+],
+"WEIGHT": [
+"not readable: Column WEIGHT: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+]
+},
+"1": {
+"ANTENNA1": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|126|ab00a4dc292621aa",
+"int64|42x3|ab00a4dc292621aa"
+],
+"ANTENNA2": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|126|ab00a4dc292621aa",
+"int64|42x3|ab00a4dc292621aa"
+],
+"EXPOSURE": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|63eaca92f4911acf",
+"float64|42x3|63eaca92f4911acf"
+],
+"FLAG": [
+"verified: TiledShapeStMan: cell shapes of 126 rows compared",
+"69904 rows/tile",
+"bool|126x10x2|1c71ec6b184ef378",
+"bool|42x3x10x2|1c71ec6b184ef378"
+],
+"FLAG_CATEGORY": [
+"not readable: Column FLAG_CATEGORY: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"FLAG_ROW": [
+"verified: scalar column",
+"1048576 rows/nominal",
+"bool|126|ebc47d1683f1e8b6",
+"bool|42x3|ebc47d1683f1e8b6"
+],
+"FLOAT_DATA": [
+"verified: TiledShapeStMan: cell shapes of 126 rows compared",
+"17476 rows/tile",
+"float32|126x10x2|05b278a3ffbaa557",
+"float32|42x3x10x2|05b278a3ffbaa557"
+],
+"INTERVAL": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|63eaca92f4911acf",
+"float64|42x3|63eaca92f4911acf"
+],
+"SIGMA": [
+"not readable: Column SIGMA: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"TIME": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|f9dc9379ea7112ec",
+"float64|42x3|f9dc9379ea7112ec"
+],
+"TIME_CENTROID": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|f9dc9379ea7112ec",
+"float64|42x3|f9dc9379ea7112ec"
+],
+"UVW": [
+"verified: TiledColumnStMan (fixed shape)",
+"43680 rows/tile",
+"float64|126x3|d44e6f5df89071a2",
+"float64|42x3x3|d44e6f5df89071a2"
+],
+"WEIGHT": [
+"not readable: Column WEIGHT: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+]
+},
+"2": {
+"ANTENNA1": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|126|ab00a4dc292621aa",
+"int64|42x3|ab00a4dc292621aa"
+],
+"ANTENNA2": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|126|ab00a4dc292621aa",
+"int64|42x3|ab00a4dc292621aa"
+],
+"EXPOSURE": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|63eaca92f4911acf",
+"float64|42x3|63eaca92f4911acf"
+],
+"FLAG": [
+"verified: TiledShapeStMan: cell shapes of 126 rows compared",
+"69904 rows/tile",
+"bool|126x10x2|1c71ec6b184ef378",
+"bool|42x3x10x2|1c71ec6b184ef378"
+],
+"FLAG_CATEGORY": [
+"not readable: Column FLAG_CATEGORY: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"FLAG_ROW": [
+"verified: scalar column",
+"1048576 rows/nominal",
+"bool|126|ebc47d1683f1e8b6",
+"bool|42x3|ebc47d1683f1e8b6"
+],
+"FLOAT_DATA": [
+"verified: TiledShapeStMan: cell shapes of 126 rows compared",
+"17476 rows/tile",
+"float32|126x10x2|7c320290fc292bd3",
+"float32|42x3x10x2|7c320290fc292bd3"
+],
+"INTERVAL": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|63eaca92f4911acf",
+"float64|42x3|63eaca92f4911acf"
+],
+"SIGMA": [
+"not readable: Column SIGMA: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"TIME": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|f9dc9379ea7112ec",
+"float64|42x3|f9dc9379ea7112ec"
+],
+"TIME_CENTROID": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|f9dc9379ea7112ec",
+"float64|42x3|f9dc9379ea7112ec"
+],
+"UVW": [
+"verified: TiledColumnStMan (fixed shape)",
+"43680 rows/tile",
+"float64|126x3|d44e6f5df89071a2",
+"float64|42x3x3|d44e6f5df89071a2"
+],
+"WEIGHT": [
+"not readable: Column WEIGHT: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+]
+},
+"3": {
+"ANTENNA1": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|126|ab00a4dc292621aa",
+"int64|42x3|ab00a4dc292621aa"
+],
+"ANTENNA2": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|126|ab00a4dc292621aa",
+"int64|42x3|ab00a4dc292621aa"
+],
+"EXPOSURE": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|63eaca92f4911acf",
+"float64|42x3|63eaca92f4911acf"
+],
+"FLAG": [
+"verified: TiledShapeStMan: cell shapes of 126 rows compared",
+"69904 rows/tile",
+"bool|126x10x2|1c71ec6b184ef378",
+"bool|42x3x10x2|1c71ec6b184ef378"
+],
+"FLAG_CATEGORY": [
+"not readable: Column FLAG_CATEGORY: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"FLAG_ROW": [
+"verified: scalar column",
+"1048576 rows/nominal",
+"bool|126|ebc47d1683f1e8b6",
+"bool|42x3|ebc47d1683f1e8b6"
+],
+"FLOAT_DATA": [
+"verified: TiledShapeStMan: cell shapes of 126 rows compared",
+"17476 rows/tile",
+"float32|126x10x2|4dd84e2f1ff4289f",
+"float32|42x3x10x2|4dd84e2f1ff4289f"
+],
+"INTERVAL": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|63eaca92f4911acf",
+"float64|42x3|63eaca92f4911acf"
+],
+"SIGMA": [
+"not readable: Column SIGMA: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"TIME": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|f9dc9379ea7112ec",
+"float64|42x3|f9dc9379ea7112ec"
+],
+"TIME_CENTROID": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|f9dc9379ea7112ec",
+"float64|42x3|f9dc9379ea7112ec"
+],
+"UVW": [
+"verified: TiledColumnStMan (fixed shape)",
+"43680 rows/tile",
+"float64|126x3|d44e6f5df89071a2",
+"float64|42x3x3|d44e6f5df89071a2"
+],
+"WEIGHT": [
+"not readable: Column WEIGHT: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+]
+}
+},
+"n_partitions": 20,
+"partitions": "36e30e1d7cd6baf7",
+"rows": [
+"126|2338f98ba0ec5fd9",
+"126|a099cc5efe08328a",
+"126|1aad2e91ea21dc60",
+"126|551c9d06449e21aa",
+"126|0356677b0434bb9a",
+"126|d4c9cd934e7b0154",
+"126|7315283fe89b0cfb",
+"126|933f306bd116225d",
+"126|d9b31a2206ce097f",
+"126|99bdfb2542f4dbbb",
+"126|4f94221855d968e1",
+"126|f9c389d7ea996b7d",
+"3120|b5b260f61bf48f23",
+"3120|d1c5269852b3120b",
+"3120|f3370081b8bd6e01",
+"3120|6a3017eb482b9490",
+"4950|c2cf0f2545fd33fd",
+"4950|60a45889ba874dfa",
+"4950|8c61cbdefb564401",
+"4950|202fe9330ba318c3"
+]
+},
+"sd_standard": {
+"columns": {
+"0": {
+"ANTENNA1": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|3843|abd8d986e2631397",
+"int64|3843x1|abd8d986e2631397"
+],
+"ANTENNA2": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|3843|abd8d986e2631397",
+"int64|3843x1|abd8d986e2631397"
+],
+"EXPOSURE": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|3843|aa3e02954b4e2fb5",
+"float64|3843x1|aa3e02954b4e2fb5"
+],
+"FLAG": [
+"unverified: StandardStMan indirect array: read decides",
+"512 rows/nominal",
+"bool|3843x1024x2|a90056eadad38000",
+"bool|3843x1x1024x2|a90056eadad38000"
+],
+"FLAG_CATEGORY": [
+"unverified: StandardStMan indirect array: read decides",
+"512 rows/nominal",
+"bool|3843x1x1024x2|a90056eadad38000",
+"bool|3843x1x1x1024x2|a90056eadad38000"
+],
+"FLAG_ROW": [
+"verified: scalar column",
+"1048576 rows/nominal",
+"bool|3843|3cb38a58052e6f9c",
+"bool|3843x1|3cb38a58052e6f9c"
+],
+"FLOAT_DATA": [
+"unverified: StandardStMan indirect array: read decides",
+"128 rows/nominal",
+"float32|3843x1024x2|8b8ccfa22b056f1c",
+"float32|3843x1x1024x2|8b8ccfa22b056f1c"
+],
+"INTERVAL": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|3843|aa3e02954b4e2fb5",
+"float64|3843x1|aa3e02954b4e2fb5"
+],
+"SIGMA": [
+"unverified: StandardStMan indirect array: read decides",
+"131072 rows/nominal",
+"float32|3843x2|b41a9ab71b458354",
+"float32|3843x1x2|b41a9ab71b458354"
+],
+"TIME": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|3843|60005fa8f19e2339",
+"float64|3843x1|60005fa8f19e2339"
+],
+"TIME_CENTROID": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|3843|60005fa8f19e2339",
+"float64|3843x1|60005fa8f19e2339"
+],
+"UVW": [
+"verified: StandardStMan direct array (fixed shape)",
+"43690 rows/nominal",
+"float64|3843x3|2a8f2797c5257a1b",
+"float64|3843x1x3|2a8f2797c5257a1b"
+],
+"WEIGHT": [
+"unverified: StandardStMan indirect array: read decides",
+"131072 rows/nominal",
+"float32|3843x2|b41a9ab71b458354",
+"float32|3843x1x2|b41a9ab71b458354"
+]
+}
+},
+"n_partitions": 1,
+"partitions": "c87b2054782b8498",
+"rows": [
+"3843|ecd76725cd8ccf12"
+]
+},
+"vlass": {
+"n_partitions": 20,
+"partitions": "5690c3b3e92e81e0",
+"rows": [
+"804|459fc6704da501a9",
+"804|5309c087a9ae96e4",
+"804|5bf366af65808a82",
+"804|2268e1451c890ee8",
+"60|15ef3aaf279203d1",
+"60|a39c6e21c569871d",
+"60|7bb3ec8c4b52b3b2",
+"60|aef28e1131611973",
+"48|0f745a081690a9b0",
+"48|8029f2174ebffdbb",
+"48|e22ab3f82f33da8c",
+"48|9130ce3094ac6846",
+"204|f8905c20e64cdcbb",
+"204|a7f824ea642530b8",
+"204|b9258c328698ca77",
+"204|d8f574ab504b8315",
+"72420|959f868d2d55958e",
+"72420|216493b35e03fce2",
+"72420|4de7fe254e9ab257",
+"72420|ea98efdda4351891"
+]
+},
+"vlbi": {
+"n_partitions": 2,
+"partitions": "81d3152d87efcb08",
+"rows": [
+"11190|328f51872ca6b1fa",
+"11190|54b065f284047d9c"
+]
+},
+"vlbi_field_id": {
+"columns": {
+"0": {
+"ANTENNA1": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|6990|b83de1261710c7ca",
+"int64|330x57|1135493a77cefefc"
+],
+"ANTENNA2": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|6990|a63f25c181ca2944",
+"int64|330x57|6316e6442c3635e6"
+],
+"DATA": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"1024 rows/tile",
+"complex64|6990x32x4|058dd877cf9a5995",
+"complex64|330x57x32x4|21304801c8c11715"
+],
+"EXPOSURE": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|6990|54052f88b83223c7",
+"float64|330x57|bb9b4b9214f50762"
+],
+"FLAG": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"8192 rows/tile",
+"bool|6990x32x4|82dbbb7cffcba5c4",
+"bool|330x57x32x4|3656bc54b769a38f"
+],
+"FLAG_CATEGORY": [
+"not readable: Column FLAG_CATEGORY: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"FLAG_ROW": [
+"verified: scalar column",
+"1048576 rows/nominal",
+"bool|6990|15e4c0608f021b24",
+"bool|330x57|9f63ebcc2d40219f"
+],
+"INTERVAL": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|6990|54052f88b83223c7",
+"float64|330x57|bb9b4b9214f50762"
+],
+"SIGMA": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"32768 rows/tile",
+"float32|6990x4|53068c3ab71c9077",
+"float32|330x57x4|dfd8d4a2c068f39d"
+],
+"SIGMA_SPECTRUM": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"2048 rows/tile",
+"float32|6990x32x4|b980c715d3efd4cf",
+"float32|330x57x32x4|fdc84c368c3da21f"
+],
+"TIME": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|6990|bbf821425c76a84f",
+"float64|330x57|e3ab03803c018fca"
+],
+"TIME_CENTROID": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|6990|8e5d1984b6e83098",
+"float64|330x57|5eb858c8a03a7378"
+],
+"UVW": [
+"verified: TiledColumnStMan (fixed shape)",
+"43690 rows/tile",
+"float64|6990x3|a7cc4ee0ecd18364",
+"float64|330x57x3|538296cc59bfef69"
+],
+"WEIGHT": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"32768 rows/tile",
+"float32|6990x4|733a4ec30c281e93",
+"float32|330x57x4|b5d6f5859c07cf0d"
+],
+"WEIGHT_SPECTRUM": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"2048 rows/tile",
+"float32|6990x32x4|f2d4af160b17aab2",
+"float32|330x57x32x4|dd65de1b615a381c"
+]
+},
+"1": {
+"ANTENNA1": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|6990|b83de1261710c7ca",
+"int64|330x57|1135493a77cefefc"
+],
+"ANTENNA2": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|6990|a63f25c181ca2944",
+"int64|330x57|6316e6442c3635e6"
+],
+"DATA": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"1024 rows/tile",
+"complex64|6990x32x4|1f08cb71e0fe0792",
+"complex64|330x57x32x4|ece4690a86327d8e"
+],
+"EXPOSURE": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|6990|54052f88b83223c7",
+"float64|330x57|bb9b4b9214f50762"
+],
+"FLAG": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"8192 rows/tile",
+"bool|6990x32x4|82dbbb7cffcba5c4",
+"bool|330x57x32x4|3656bc54b769a38f"
+],
+"FLAG_CATEGORY": [
+"not readable: Column FLAG_CATEGORY: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"FLAG_ROW": [
+"verified: scalar column",
+"1048576 rows/nominal",
+"bool|6990|15e4c0608f021b24",
+"bool|330x57|9f63ebcc2d40219f"
+],
+"INTERVAL": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|6990|54052f88b83223c7",
+"float64|330x57|bb9b4b9214f50762"
+],
+"SIGMA": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"32768 rows/tile",
+"float32|6990x4|7e7b7861f41eb30f",
+"float32|330x57x4|cd5badca5e439ea7"
+],
+"SIGMA_SPECTRUM": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"2048 rows/tile",
+"float32|6990x32x4|23b0a91af8872d51",
+"float32|330x57x32x4|d736e01138e4006b"
+],
+"TIME": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|6990|bbf821425c76a84f",
+"float64|330x57|e3ab03803c018fca"
+],
+"TIME_CENTROID": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|6990|8e5d1984b6e83098",
+"float64|330x57|5eb858c8a03a7378"
+],
+"UVW": [
+"verified: TiledColumnStMan (fixed shape)",
+"43690 rows/tile",
+"float64|6990x3|a7cc4ee0ecd18364",
+"float64|330x57x3|538296cc59bfef69"
+],
+"WEIGHT": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"32768 rows/tile",
+"float32|6990x4|e732a0da8382f3e1",
+"float32|330x57x4|9e8b84c3cd10e0c0"
+],
+"WEIGHT_SPECTRUM": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"2048 rows/tile",
+"float32|6990x32x4|b9072fb2c2ff2a3d",
+"float32|330x57x32x4|1250a18ca2b8bfc7"
+]
+}
+},
+"n_partitions": 4,
+"partitions": "4de5eea9cd7e8b96",
+"rows": [
+"6990|520084ace8d05294",
+"6990|8d53cfb4c93e3e78",
+"4200|99f41fc06ee6ffd1",
+"4200|8935d54d0d079e22"
+]
+}
+}
+}

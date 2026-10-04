@@ -90,7 +90,8 @@ xradio/
 │   └── testing/              # PUBLIC pytest-free test helpers (assertions, download_*) reused by benchviper
 ├── tests/
 │   ├── unit/                 # mirrors src/ tree; per-area conftest.py
-│   └── stakeholder/          # higher-level integration tests
+│   ├── stakeholder/          # higher-level integration tests
+│   └── casatools/            # MSv2 reads/conversions with real casatools (skipped with python-casacore)
 ├── docs/source/             # Sphinx docs (RTD); overview.rst, measurement_set/, image_data/, notebooks
 └── scripts/export_schema.py # CLI: export a dataset schema to JSON (used by `make schema-export`)
 ```
@@ -345,6 +346,7 @@ PATH=<env>/bin:$PATH PYTHONPATH=src make schema-export   # regenerate schemas/{V
   - `xradio.testing.image`: `download_image`, `download_and_open_image`, `create_empty_test_image`, `assert_image_block_equal`, `remove_path`
 - **Test data** downloads via `toolviper.utils.data.download` (default to `/tmp` for MS assets — avoids Dropbox table-locking issues).
 - **Schema checking:** validate data with `check_dataset` / `check_array` / `check_dict` / `check_datatree`; call `.expect()` on the returned `SchemaIssues` to raise.
+- **casatools tests** (`tests/casatools/`): the Linux and macOS workflows test with python-casacore only (the main backend); casatools-specific behaviour is tested with real casatools in `tests/casatools/`, which skips every module unless python-casacore is not importable and casatools is (the casatools workflow: `pip uninstall python-casacore`, `casatools==6.7.0.31`, `--ignore=tests/unit/measurement_set`). The tests compare partitions, MAIN row reads (`read_rows`, grids, `check_partition_cells`) and full `convert_msv2_to_processing_set` outputs of downloaded test MSs with codec-independent fingerprints computed with python-casacore (`tests/casatools/reference_python_casacore.json`; regenerate with `python -m tests.casatools.make_reference` in a python-casacore env when the converter output changes on purpose). Known casatools differences the tests accept: Float/Complex cells come back as float64/complex128 (so do VISIBILITY/SPECTRUM/WEIGHT of the MSv4, same values), and the shim has no `partnames`, so `check_partition_cells` cannot verify storage and the read decides. Do not simulate casatools in the python-casacore suite.
 - **CI**: reusable `nrao/gh-actions-templates-public` templates (linux + codecov, macos, casatools, integration, basic-schema-install, run-ipynb) plus `pre-commit.yml`, which runs every hook of `.pre-commit-config.yaml` on all files (ruff 0.12.5 check + format, pyupgrade, absolufy-imports, hygiene hooks). `cov_project="xradio"`, test path `tests/`.
 
 ---

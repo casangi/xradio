@@ -1827,10 +1827,10 @@ class MainTableRows:
     numbers, read without TaQL.
 
     It provides the subset of the casacore table API that the converter uses on
-    its TaQL partition selections (``nrows``, ``colnames``, ``getcol``,
-    ``getcell``, ``iscelldefined``, ``isscalarcol``, ``rownumbers``), with row
-    numbers relative to the partition, so the same converter code runs on both.
-    Columns are read with ``read_rows`` (bounded, in place, no TaQL).
+    the partition (``nrows``, ``colnames``, ``getcol``, ``getcell``,
+    ``iscelldefined``, ``isscalarcol``, ``rownumbers``), with row numbers
+    relative to the partition, as on a selection of the partition's rows.
+    Columns are read with ``read_rows`` (bounded calls of ascending rows).
 
     Parameters
     ----------

@@ -14,11 +14,6 @@ import numpy as np
 import xarray as xr
 import zarr.codecs
 
-try:
-    from casacore import tables
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as tables
-
 from xradio._utils.dict_helpers import make_quantity, make_spectral_coord_reference_dict
 from xradio._utils.list_and_array import check_if_consistent, unique_1d
 from xradio._utils.logging import xradio_logger
@@ -28,14 +23,11 @@ from xradio.measurement_set._utils._msv2._tables.read import (
     extract_table_attributes,
     load_generic_table,
     read_col_conversion_dask,
-    read_col_conversion_dask_rows,
     read_col_conversion_numpy,
-    read_col_conversion_rows,
 )
 from xradio.measurement_set._utils._msv2._tables.read_main_table import (
     get_baseline_indices,
     get_baselines,
-    get_utimes_tol,
     utimes_tol_from_times,
 )
 from xradio.measurement_set._utils._msv2._tables.read_rows import (
@@ -47,11 +39,7 @@ from xradio.measurement_set._utils._msv2._tables.subtable_cache import (
     activate_subtable_cache,
     resolve_subtable_cache,
 )
-from xradio.measurement_set._utils._msv2._tables.table_query import (
-    TableManager,
-    open_query,
-    open_table_ro,
-)
+from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
 from xradio.measurement_set._utils._msv2.create_antenna_xds import (
     create_antenna_xds,
     create_gain_curve_xds,
@@ -73,6 +61,7 @@ from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
     create_weather_xds,
 )
 from xradio.measurement_set._utils._msv2.partition_queries import (
+    MainRowRuns,
     PartitionMainRows,
     partition_main_rows,
 )
@@ -96,56 +85,17 @@ from xradio.measurement_set._utils._utils.stokes_types import stokes_types
 from xradio.measurement_set._utils._zarr.encoding import add_encoding
 from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
 
-# TEMPORARY, EXPLORATION ONLY (remove before merging): selects how the MAIN table
-# of a partition is read, for A/B benchmarks of the two implementations:
-# - "rows" (default): row numbers from the partition description (no TaQL on
-#   MAIN), bounded getcolnp reads from the base table (_tables/read_rows.py).
-# - "taql": the previous path, one TaQL "select * ... WHERE" per partition and
-#   per column, whole-column getcol (or the TIME iterator with use_table_iter).
-MAIN_READ_ENV_VAR = "XRADIO_MSV2_MAIN_READ"
-MAIN_READ_MODES = ("rows", "taql")
-# The row reads need python-casacore's in-place reads (the casatools fallback
-# module has no getcolnp / selectrows): without them the default is "taql".
-ROWS_READ_SUPPORTED = all(
-    hasattr(tables.table, method)
-    for method in ("getcolnp", "getcolslicenp", "selectrows")
-)
-
-
-def get_main_read_mode() -> str:
-    """
-    TEMPORARY, EXPLORATION ONLY: the MAIN-table read path selected with the
-    environment variable XRADIO_MSV2_MAIN_READ ("rows", the default, or "taql").
-    Without python-casacore (casatools fallback) the default is "taql".
-
-    Returns
-    -------
-    str
-        "rows" or "taql".
-    """
-    default = "rows" if ROWS_READ_SUPPORTED else "taql"
-    mode = os.environ.get(MAIN_READ_ENV_VAR, "").strip().lower() or default
-    if mode not in MAIN_READ_MODES:
-        raise ValueError(
-            f"{MAIN_READ_ENV_VAR}={mode!r} is not one of {MAIN_READ_MODES}"
-        )
-    if mode == "rows" and not ROWS_READ_SUPPORTED:
-        raise ValueError(
-            f"{MAIN_READ_ENV_VAR}=rows needs python-casacore (getcolnp, selectrows)"
-        )
-    return mode
-
 
 @contextmanager
 def open_partition_main_table(
     in_file: str,
     partition_info: dict,
-    taql_where: str,
-    main_read: str,
     main_row_runs: PartitionMainRows | None = None,
-) -> Generator[tables.table | MainTableRows, None, None]:
+) -> Generator[MainTableRows, None, None]:
     """
-    Opens the MAIN rows of a partition for reading.
+    Opens the MAIN rows of a partition for reading (no TaQL selection of the
+    MAIN table): the base MAIN table, opened here and closed on exit, and the
+    partition's row numbers.
 
     Parameters
     ----------
@@ -153,33 +103,23 @@ def open_partition_main_table(
         Input MSv2 path.
     partition_info : dict
         Partition description (create_partitions).
-    taql_where : str
-        TaQL WHERE of the partition (create_taql_query_where), used by "taql".
-    main_read : str
-        "rows": yields a MainTableRows over the base MAIN table (opened once
-        here and closed on exit) and the partition rows. "taql": yields the
-        TaQL selection of the partition.
     main_row_runs : PartitionMainRows | None, optional
         The partition's MAIN rows from create_partitions_with_main_rows, used
-        by "rows" if they belong to ``partition_info`` (partition_main_rows).
+        if they belong to ``partition_info`` (see partition_main_rows).
 
     Yields
     ------
-    tables.table | MainTableRows
-        The partition rows, both with the table API the converter uses.
+    MainTableRows
+        The partition rows.
     """
-    if main_read == "taql":
-        with TableManager(in_file, taql_where).get_table() as tb_tool:
-            yield tb_tool
-    else:
-        with open_table_ro(in_file) as main_tb:
-            main_rows = MainTableRows(
-                main_tb, partition_main_rows(main_tb, partition_info, main_row_runs)
-            )
-            try:
-                yield main_rows
-            finally:
-                main_rows.close()
+    with open_table_ro(in_file) as main_tb:
+        main_rows = MainTableRows(
+            main_tb, partition_main_rows(main_tb, partition_info, main_row_runs)
+        )
+        try:
+            yield main_rows
+        finally:
+            main_rows.close()
 
 
 def parse_chunksize(
@@ -510,12 +450,25 @@ def calc_used_gb(
     )
 
 
-# TODO: if the didxs are not used in read_col_conversion, remove didxs from here (and convert_and_write_partition)
-def calc_indx_for_row_split(tb_tool, taql_where):
-    # Allow TableManager object to be used
-    if isinstance(tb_tool, TableManager):
-        tb_tool = tb_tool.get_table()
+def calc_indx_for_row_split(
+    tb_tool: MainTableRows,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Time and baseline index of every row of a partition, and its baselines and
+    unique times.
 
+    Parameters
+    ----------
+    tb_tool : MainTableRows
+        The partition rows.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        tidxs, bidxs (time and baseline index of every row), ANTENNA1 and
+        ANTENNA2 of every baseline, and the unique times (seconds from the
+        Unix epoch).
+    """
     baselines = get_baselines(tb_tool)
     col_names = tb_tool.colnames()
     cshapes = [
@@ -524,15 +477,10 @@ def calc_indx_for_row_split(tb_tool, taql_where):
         if tb_tool.iscelldefined(col, 0)
     ]
 
+    # (raises if no column has 2-D cells in the first row)
     freq_cnt, pol_cnt = [(cc[0], cc[1]) for cc in cshapes if len(cc) == 2][0]
-    if isinstance(tb_tool, MainTableRows):
-        # Unique times in numpy (same values as TaQL's DISTINCT), TIME read once
-        times = tb_tool.getcol("TIME")
-        utimes, tol = utimes_tol_from_times(times)
-    else:
-        utimes, tol = get_utimes_tol(tb_tool, taql_where)
-        times = tb_tool.getcol("TIME")
-
+    times = tb_tool.getcol("TIME")
+    utimes, tol = utimes_tol_from_times(times)
     tidxs = np.searchsorted(utimes, times)
     del times
 
@@ -544,17 +492,12 @@ def calc_indx_for_row_split(tb_tool, taql_where):
     ts_bases = np.column_stack((ts_ant1, ts_ant2))
     bidxs = get_baseline_indices(baselines, ts_bases)
 
-    # some antenna 2"s will be out of bounds for this chunk, store rows that are in bounds
-
-    didxs = np.where((bidxs >= 0) & (bidxs < len(baselines)))[0]
-
     baseline_ant1_id = baselines[:, 0]
     baseline_ant2_id = baselines[:, 1]
 
     return (
         tidxs,
         bidxs,
-        didxs,
         baseline_ant1_id,
         baseline_ant2_id,
         convert_casacore_time(utimes, False),
@@ -715,29 +658,26 @@ def create_coordinates(
     return xds, spectral_window_id
 
 
-def find_min_max_times(tb_tool: tables.table, taql_where: str) -> tuple:
+def find_min_max_times(tb_tool: MainTableRows) -> tuple:
     """
     Find the min/max times in an MSv4, for constraining pointing.
 
     To avoid numerical comparison issues (leaving out some times at the edges),
     it substracts/adds a tolerance from/to the min and max values. The tolerance
     is a fraction of the difference between times / interval of the MS (see
-    get_utimes_tol()).
+    utimes_tol_from_times()).
 
     Parameters
     ----------
-    tb_tool : tables.table
-        table (query) opened with an MSv4 query
-
-    taql_where : str
-        TaQL where that defines the partition of this MSv4
+    tb_tool : MainTableRows
+        The rows of the partition of this MSv4
 
     Returns
     -------
     tuple
         min/max times (raw time values from the Msv2 table)
     """
-    utimes, tol = get_utimes_tol(tb_tool, taql_where)
+    utimes, tol = utimes_tol_from_times(tb_tool.getcol("TIME"))
     time_min = utimes.min() - tol
     time_max = utimes.max() + tol
     return (time_min, time_max)
@@ -769,16 +709,14 @@ def data_variables_parallel_mode(
 
 
 def create_data_variables(
-    in_file,
-    xds,
-    table_manager,
-    time_baseline_shape,
-    tidxs,
-    bidxs,
-    didxs,
-    use_table_iter,
-    parallel_mode,
-    main_chunksize,
+    in_file: str,
+    xds: xr.Dataset,
+    main_rows: MainTableRows,
+    time_baseline_shape: tuple[int, int],
+    tidxs: np.ndarray,
+    bidxs: np.ndarray,
+    parallel_mode: str,
+    main_chunksize: dict | None,
     deferred: dict[str, DeferredVariable] | None = None,
     unreadable_columns: frozenset[str] = frozenset(),
 ):
@@ -801,24 +739,22 @@ def create_data_variables(
         Input MSv2 path.
     xds : xr.Dataset
         Main xds, with its coordinates already set.
-    table_manager : TableManager | MainTableRows
-        The partition's MAIN rows: a TableManager (TaQL read path, one TaQL
-        selection per column) or a MainTableRows (row read path, no TaQL).
-    time_baseline_shape : tuple
+    main_rows : MainTableRows
+        The partition's MAIN rows.
+    time_baseline_shape : tuple[int, int]
         (n_times, n_baselines) of the partition.
-    tidxs, bidxs, didxs : np.ndarray
-        Time and baseline index of every partition row (didxs unused).
-    use_table_iter : bool
-        TaQL read path only: read per TIME run with the table iterator.
+    tidxs, bidxs : np.ndarray
+        Time and baseline index of every partition row.
     parallel_mode : str
         "time" gives lazy (dask) arrays for the large columns, when the time
         chunk size is set in ``main_chunksize``.
     main_chunksize : dict | None
         Chunk sizes of the main xds.
     deferred : dict[str, DeferredVariable] | None, optional
-        Streamed write (row read path, parallel_mode "none" or "partition"
-        only): filled with the descriptions of the placeholder variables, by
-        name. By default None: the columns are read into the xds.
+        Streamed write (parallel_mode "none" or "partition", or "time" without
+        a time chunk size): filled with the descriptions of the placeholder
+        variables, by name. By default None: the columns are read into the
+        xds.
     unreadable_columns : frozenset[str], optional
         Columns skipped as if their read had failed (a read of a previous
         attempt of the streamed write failed), by default none.
@@ -831,12 +767,7 @@ def create_data_variables(
         parallel_mode = "none"
 
     # Create Data Variables
-    read_rows = isinstance(table_manager, MainTableRows)
-    if read_rows:
-        col_names = table_manager.colnames()
-    else:
-        with table_manager.get_table() as tb_tool:
-            col_names = tb_tool.colnames()
+    col_names = main_rows.colnames()
 
     target_cols = set(col_names) & set(col_to_data_variable_names.keys())
     if target_cols.issuperset({"WEIGHT", "WEIGHT_SPECTRUM"}):
@@ -852,19 +783,17 @@ def create_data_variables(
     # read) does not depend on the hash seed (set iteration order).
     target_cols = deque(sorted(target_cols))
 
-    if deferred is not None and (not read_rows or parallel_mode == "time"):
+    if deferred is not None and parallel_mode == "time":
         raise ValueError(
-            "The streamed write needs the row read path and parallel_mode "
-            f"'none' or 'partition' (got {parallel_mode!r})"
+            "The streamed write needs parallel_mode 'none' or 'partition' (got "
+            f"{parallel_mode!r} with a time chunk size)"
         )
 
     while target_cols:
         col = target_cols.popleft()
         datavar_name = col_to_data_variable_names[col]
         if deferred is None:
-            read_col_conversion = get_read_col_conversion_function(
-                col, parallel_mode, read_rows=read_rows
-            )
+            read_col_conversion = get_read_col_conversion_function(col, parallel_mode)
 
         try:
             start = time.time()
@@ -873,15 +802,10 @@ def create_data_variables(
                     f"Column {col}: its read failed in a previous attempt"
                 )
             if deferred is None:
-                col_data = read_col_conversion(
-                    table_manager,
-                    col,
-                    time_baseline_shape,
-                    tidxs,
-                    bidxs,
-                    use_table_iter,
-                    time_chunksize,
-                )
+                read_args = (main_rows, col, time_baseline_shape, tidxs, bidxs)
+                if read_col_conversion is read_col_conversion_dask:
+                    read_args += (time_chunksize,)
+                col_data = read_col_conversion(*read_args)
                 col_data = postprocess_main_column(
                     col, col_data, parallel_mode, xds.sizes, main_chunksize
                 )
@@ -895,7 +819,7 @@ def create_data_variables(
                     main_chunksize=None,
                 )
                 col_data, spec = deferred_main_column(
-                    table_manager,
+                    main_rows,
                     col,
                     datavar_name,
                     time_baseline_shape,
@@ -924,23 +848,15 @@ def create_data_variables(
                 )
                 target_cols.append("WEIGHT")
 
-    if read_rows:
-        # The grid plan and time-chunk rows (8-24 bytes per row) are not needed
-        # after the reads: do not keep them alive through to_zarr. The lazy
-        # (parallel_mode="time") blocks keep their own reference.
-        table_manager.release_plans()
+    # The grid plan and time-chunk rows (8-24 bytes per row) are not needed
+    # after the reads: do not keep them alive through to_zarr. The lazy
+    # (parallel_mode="time") blocks keep their own reference.
+    main_rows.release_plans()
 
 
-def get_read_col_conversion_function(
-    col_name: str, parallel_mode: str, read_rows: bool = False
-) -> Callable:
-    """
-    Returns the appropriate read_col_conversion function: use the dask version
-    for large columns and parallel_mode="time", or the numpy version otherwise.
-    With read_rows, the TaQL-free versions that take a MainTableRows
-    (read_col_conversion_dask_rows / read_col_conversion_rows).
-    """
-    large_columns = {
+# The MAIN columns read lazily (dask) with parallel_mode="time"
+DASK_COLUMNS = frozenset(
+    {
         "DATA",
         "CORRECTED_DATA",
         "MODEL_DATA",
@@ -948,10 +864,17 @@ def get_read_col_conversion_function(
         "WEIGHT",
         "FLAG",
     }
-    use_dask = parallel_mode == "time" and col_name in large_columns
-    if read_rows:
-        return read_col_conversion_dask_rows if use_dask else read_col_conversion_rows
-    return read_col_conversion_dask if use_dask else read_col_conversion_numpy
+)
+
+
+def get_read_col_conversion_function(col_name: str, parallel_mode: str) -> Callable:
+    """
+    Returns the appropriate read_col_conversion function: use the dask version
+    for large columns and parallel_mode="time", or the numpy version otherwise.
+    """
+    if parallel_mode == "time" and col_name in DASK_COLUMNS:
+        return read_col_conversion_dask
+    return read_col_conversion_numpy
 
 
 def repeat_weight_array(
@@ -1044,7 +967,23 @@ def add_missing_data_var_attrs(xds):
     return xds
 
 
-def create_taql_query_where(partition_info: dict):
+def create_taql_query_where(partition_info: dict) -> str:
+    """
+    The TaQL WHERE clause of the MAIN rows of a partition, as recorded in the
+    partition_info of the MSv4 ("taql_where"). The rows are selected without
+    TaQL, by the numpy twin of this clause (partition_queries.select_main_rows)
+    or the row runs of create_partitions_with_main_rows.
+
+    Parameters
+    ----------
+    partition_info : dict
+        Partition description.
+
+    Returns
+    -------
+    str
+        The WHERE clause.
+    """
     main_par_table_cols = [
         "DATA_DESC_ID",
         "OBSERVATION_ID",
@@ -1095,14 +1034,32 @@ def fix_uvw_frame(
     return xds
 
 
-def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
+def estimate_memory_for_partition(
+    in_file: str, partition: dict, main_row_runs: PartitionMainRows | None = None
+) -> float:
     """
     Aim: given a partition description, estimates a safe maximum memory value, but avoiding overestimation
     (at least not adding not well understood factors).
+
+    Parameters
+    ----------
+    in_file : str
+        Input MSv2 path.
+    partition : dict
+        Partition description (create_partitions).
+    main_row_runs : PartitionMainRows | None, optional
+        The partition's MAIN rows from create_partitions_with_main_rows, used
+        if they belong to ``partition`` (see partition_main_rows). Otherwise
+        the rows are selected from the MAIN key columns.
+
+    Returns
+    -------
+    float
+        Estimated memory in GiB.
     """
 
     def calculate_term_all_data(
-        tb_tool: tables.table, ntimes: float, nbaselines: float
+        tb_tool: MainTableRows, ntimes: float, nbaselines: float
     ) -> tuple[list[float], bool]:
         """
         Size that DATA vars from MS will have in the MSv4, whether this MS has FLOAT_DATA
@@ -1111,12 +1068,13 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
         col_names = tb_tool.colnames()
         for data_col in ["DATA", "CORRECTED_DATA", "MODEL_DATA", "FLOAT_DATA"]:
             if data_col in col_names:
-                col_descr = tb_tool.getcoldesc(data_col)
+                col_descr = tb_tool.table.getcoldesc(data_col)
                 if "shape" in col_descr and isinstance(col_descr["shape"], np.ndarray):
                     # example: "shape": array([15,  4]) => gives pols x channels
                     cells_in_row = col_descr["shape"].prod()
                 else:
-                    first_row = np.array(tb_tool.col(data_col)[0])
+                    # the first row of the partition
+                    first_row = np.array(tb_tool.getcell(data_col, 0))
                     cells_in_row = np.prod(first_row.shape)
 
                 if col_descr["valueType"] == "complex":
@@ -1168,8 +1126,8 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
 
     def calculate_term_calc_indx_for_row_split(msv2_nrows: int) -> float:
         """
-        Account for the indices produced in calc_indx_for_row_split():
-        the dominating ones are: tidxs, bidxs, didxs.
+        Account for the per-row indices of a partition: tidxs and bidxs
+        (calc_indx_for_row_split()) and the partition's MAIN row numbers.
 
         In terms of amount of memory represented by this term relative to the
         total, it becomes relevant proportionally to the ratio between
@@ -1178,7 +1136,7 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
         but its value is independent from # chans, pols.
         """
         item_size = 8
-        # 3 are: tidxs, bidxs, didxs
+        # 3 are: tidxs, bidxs, MAIN row numbers
         return msv2_nrows * 3 * item_size
 
     def calculate_term_other_msv2_indices(msv2_nrows: int) -> float:
@@ -1221,24 +1179,20 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
         """
         return 0.05 * size_estimate_main_xds
 
-    taql_partition = create_taql_query_where(partition)
-    taql_main = f"select * from $mtable {taql_partition}"
+    with open_partition_main_table(in_file, partition, main_row_runs) as tb_tool:
+        # Do not feel tempted to rely on nrows. nrows tends to underestimate memory when baselines are missing.
+        # For some EVN datasets that can easily underestimate by a 50%
+        utimes, _tol = utimes_tol_from_times(tb_tool.getcol("TIME"))
+        ntimes = len(utimes)
+        nbaselines = len(get_baselines(tb_tool))
 
-    with open_table_ro(in_file) as mtable:
-        with open_query(mtable, taql_main) as tb_tool:
-            # Do not feel tempted to rely on nrows. nrows tends to underestimate memory when baselines are missing.
-            # For some EVN datasets that can easily underestimate by a 50%
-            utimes, _tol = get_utimes_tol(mtable, taql_partition)
-            ntimes = len(utimes)
-            nbaselines = len(get_baselines(tb_tool))
+        # Still, use nrwos for estimations related to sizes of input (MSv2)
+        # columns, not sizes of output (MSv4) data vars
+        msv2_nrows = tb_tool.nrows()
 
-            # Still, use nrwos for estimations related to sizes of input (MSv2)
-            # columns, not sizes of output (MSv4) data vars
-            msv2_nrows = tb_tool.nrows()
-
-            sizes_all_data, is_float_data = calculate_term_all_data(
-                tb_tool, ntimes, nbaselines
-            )
+        sizes_all_data, is_float_data = calculate_term_all_data(
+            tb_tool, ntimes, nbaselines
+        )
 
     size_largest_data = np.max(sizes_all_data)
     sum_sizes_data = np.sum(sizes_all_data)
@@ -1261,17 +1215,23 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
 
 
 def estimate_memory_and_cores_for_partitions(
-    in_file: str, partitions: list
+    in_file: str, partitions: list, main_row_runs: MainRowRuns | None = None
 ) -> tuple[float, int, int]:
     """
     Estimates approximate memory required to convert an MSv2 to MSv4, given
-    a predefined set of partitions.
+    a predefined set of partitions (and optionally their MAIN rows,
+    ``main_row_runs[i]`` for ``partitions[i]``, from
+    create_partitions_with_main_rows).
     """
     max_cores = len(partitions)
 
     size_estimates = [
-        estimate_memory_for_partition(in_file, part_description)
-        for part_description in partitions
+        estimate_memory_for_partition(
+            in_file,
+            part_description,
+            None if main_row_runs is None else main_row_runs[idx],
+        )
+        for idx, part_description in enumerate(partitions)
     ]
     max_estimate = np.max(size_estimates) if size_estimates else 0.0
 
@@ -1419,8 +1379,6 @@ def _convert_and_write_partition(
     ms_xdt = xr.DataTree()  # MSv4 as a Data Tree
 
     taql_where = create_taql_query_where(partition_info)
-    # TEMPORARY (exploration only): "rows" (default) or "taql", see get_main_read_mode
-    main_read = get_main_read_mode()
     # Streamed write of the MAIN data variables (TEMPORARY switch
     # XRADIO_MSV2_STREAM_WRITE, see stream_write.py): they are written after the
     # MSv4 metadata, one at a time, in batches of whole zarr chunks along time.
@@ -1429,12 +1387,10 @@ def _convert_and_write_partition(
     stream_write = (
         allow_stream_write
         and storage_backend == "zarr"
-        and main_read == "rows"
         and parallel_mode in ("none", "partition", "time")
         and get_stream_write_mode()
     )
     stream_batch_bytes = get_stream_batch_bytes() if stream_write else None
-    table_manager = TableManager(in_file, taql_where)
     ddi = partition_info["DATA_DESC_ID"][0]
     scan_intents = str(partition_info["OBS_MODE"][0]).split(",")
 
@@ -1443,26 +1399,19 @@ def _convert_and_write_partition(
         # TEMPORARY (exploration only): XRADIO_MSV2_SUBTABLE_CACHE=0 reads every
         # sub-table per partition as before
         activate_subtable_cache(resolve_subtable_cache(subtable_cache)),
-        open_partition_main_table(
-            in_file, partition_info, taql_where, main_read, main_row_runs
-        ) as tb_tool,
+        open_partition_main_table(in_file, partition_info, main_row_runs) as tb_tool,
     ):
         if tb_tool.nrows() == 0:
-            tb_tool.close()
             return xr.Dataset(), {}, {}
-        # The column reader: the TaQL path re-runs the partition's TaQL query per
-        # column, the rows path reads the partition rows of the open MAIN table.
-        main_reader = tb_tool if main_read == "rows" else table_manager
 
         xradio_logger().debug("Starting a real convert_and_write_partition")
         (
             tidxs,
             bidxs,
-            didxs,
             baseline_ant1_id,
             baseline_ant2_id,
             utime,
-        ) = calc_indx_for_row_split(tb_tool, taql_where)
+        ) = calc_indx_for_row_split(tb_tool)
         time_baseline_shape = (len(utime), len(baseline_ant1_id))
         xradio_logger().debug("Calc indx for row split " + str(time.time() - start))
 
@@ -1539,12 +1488,10 @@ def _convert_and_write_partition(
         create_data_variables(
             in_file,
             xds,
-            main_reader,
+            tb_tool,
             time_baseline_shape,
             tidxs,
             bidxs,
-            didxs,
-            use_table_iter,
             parallel_mode,
             main_chunksize,
             deferred=deferred,
@@ -1576,7 +1523,7 @@ def _convert_and_write_partition(
         xradio_logger().debug("Time create data variables " + str(time.time() - start))
 
         # To constrain the time range to load (in pointing, ephemerides, phase_cal data_vars)
-        time_min_max = find_min_max_times(tb_tool, taql_where)
+        time_min_max = find_min_max_times(tb_tool)
 
         # Create ant_xds
         start = time.time()

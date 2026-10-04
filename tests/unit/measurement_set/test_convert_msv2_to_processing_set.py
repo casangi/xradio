@@ -164,41 +164,56 @@ def _assert_trees_identical(tree_a, tree_b):
 
 
 def test_convert_msv2_to_processing_set_partition_filter_dicts(
-    ms_minimal_required, tmp_path, monkeypatch
+    ms_minimal_required, tmp_path
 ):
     """
     partition_filter gets the plain partition descriptions (lists, JSON
     serializable, as from create_partitions). A filter that changes a
-    description in place gets the rows of the changed description on the
-    rows read path too, as on the TaQL path (the MAIN row runs computed for
-    the original description are not used).
+    description in place gets the rows of the changed description (the MAIN
+    row runs computed for the original description are not used): the same
+    MSv4 as a conversion of the changed description.
     """
     import json
+    import os
 
     from xradio.measurement_set import convert_msv2_to_processing_set
     from xradio.measurement_set._utils._msv2 import conversion
+
+    changed = []
 
     def partition_filter(partition):
         json.dumps(partition)
         if partition["DATA_DESC_ID"] == [0]:
             partition["DATA_DESC_ID"] = [1]  # now selects the rows of DDI 1
+            changed.append(dict(partition))
             return True
         return False
 
-    trees = {}
-    for main_read in ("taql", "rows"):
-        monkeypatch.setenv(conversion.MAIN_READ_ENV_VAR, main_read)
-        out_file = str(tmp_path / f"{main_read}.ps.zarr")
-        convert_msv2_to_processing_set(
-            ms_minimal_required.fname,
-            out_file=out_file,
-            partition_scheme=[],
-            partition_filter=partition_filter,
-            persistence_mode="w",
-        )
-        trees[main_read] = xr.open_datatree(out_file, engine="zarr")
-    assert len(trees["rows"].children) == 1
-    _assert_trees_identical(trees["taql"], trees["rows"])
+    out_file = str(tmp_path / "filtered.ps.zarr")
+    convert_msv2_to_processing_set(
+        ms_minimal_required.fname,
+        out_file=out_file,
+        partition_scheme=[],
+        partition_filter=partition_filter,
+        persistence_mode="w",
+    )
+    filtered = xr.open_datatree(out_file, engine="zarr")
+    assert len(filtered.children) == 1 and len(changed) == 1
+
+    direct_file = str(tmp_path / "direct.ps.zarr")
+    msv4_name = list(filtered.children)[0]
+    conversion.convert_and_write_partition(
+        ms_minimal_required.fname,
+        direct_file,
+        msv4_name.rsplit("_", 1)[1],
+        partition_info=changed[0],
+        use_table_iter=False,
+        persistence_mode="w",
+    )
+    direct = xr.open_datatree(os.path.join(direct_file, msv4_name), engine="zarr")
+    _assert_trees_identical(
+        xr.open_datatree(os.path.join(out_file, msv4_name), engine="zarr"), direct
+    )
 
 
 def test_convert_msv2_to_processing_set_subtable_cache_lifetime(

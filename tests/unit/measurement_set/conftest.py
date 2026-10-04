@@ -291,3 +291,65 @@ def convert_measurement_set_to_processing_set(request, tmp_path):
     yield ps_path
     shutil.rmtree(ps_path)
     shutil.rmtree(ms_path)
+
+
+# Reference for the MAIN-table reads of the converter
+
+
+def taql_reference_column(ms_path: str, partition_info: dict, col: str):
+    """
+    The values of a MAIN column of a partition as the TaQL read path of
+    earlier versions read them, independently of the converter's row reads:
+    the partition's TaQL selection (create_taql_query_where), its unique
+    TIME values (TaQL DISTINCT) and baselines, and a getcol of the selection
+    assigned to the (time, baseline) grid padded with get_pad_value (for
+    duplicated (time, baseline) rows the last row wins). Raises like that
+    path for a column that cannot be read.
+
+    Returns
+    -------
+    np.ndarray
+        The (time, baseline, ...) grid.
+    """
+    import numpy as np
+    from casacore import tables
+
+    from xradio._utils.list_and_array import get_pad_value, unique_1d
+    from xradio.measurement_set._utils._msv2._tables.read_main_table import (
+        get_baseline_indices,
+        get_baselines,
+    )
+    from xradio.measurement_set._utils._msv2.conversion import (
+        create_taql_query_where,
+    )
+
+    where = create_taql_query_where(partition_info)
+    with tables.table(ms_path, ack=False) as main_tb:
+        with tables.taql(
+            f"select DISTINCT TIME from $1 {where}", tables=[main_tb]
+        ) as q:
+            utimes = unique_1d(q.getcol("TIME", 0, -1))
+        with tables.taql(f"select * from $1 {where}", tables=[main_tb]) as sel:
+            tidxs = np.searchsorted(utimes, sel.getcol("TIME"))
+            baselines = get_baselines(sel)
+            ant = np.column_stack((sel.getcol("ANTENNA1"), sel.getcol("ANTENNA2")))
+            bidxs = get_baseline_indices(baselines, ant)
+            if sel.isscalarcol(col):
+                cell_shape = ()
+            else:
+                shape_string = sel.getcolshapestring(col)[0]
+                cell_shape = tuple(int(n) for n in shape_string.strip("[]").split(", "))
+            dtype = np.array(sel.col(col)[0]).dtype
+            grid = np.full(
+                (len(utimes), len(baselines)) + cell_shape,
+                get_pad_value(dtype),
+                dtype=dtype,
+            )
+            grid[tidxs, bidxs] = sel.getcol(col)
+    return grid
+
+
+@pytest.fixture
+def taql_main_reference():
+    """taql_reference_column (TaQL reads of MAIN columns, for comparisons)."""
+    return taql_reference_column

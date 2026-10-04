@@ -50,48 +50,30 @@ time_start = (
         ),
     ],
 )
-def test_get_utimes_tol(ms_minimal_required, where, expected_output):
-    from xradio.measurement_set._utils._msv2._tables.read_main_table import (
-        get_utimes_tol,
-    )
-    from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
-
-    with open_table_ro(ms_minimal_required.fname) as mtable:
-        utimes, tol = get_utimes_tol(mtable, where)
-        assert all(utimes == expected_output[0])
-        assert tol == expected_output[1]
-
-
-@pytest.mark.parametrize(
-    "where",
-    [
-        "",
-        "where DATA_DESC_ID = 0 AND SCAN_NUMBER = 1 AND STATE_ID = 0",
-        "where DATA_DESC_ID IN [0,1] AND SCAN_NUMBER = 1 AND STATE_ID = 0",
-        "where DATA_DESC_ID = 0 AND SCAN_NUMBER = 1 AND STATE_ID = 1",
-    ],
-)
-def test_get_utimes_tol_main_table_rows(ms_minimal_required, where):
-    """A MainTableRows partition gives the same unique times without TaQL."""
+def test_utimes_tol_from_times_of_partitions(
+    ms_minimal_required, where, expected_output
+):
+    """Unique times and tolerance of the TIME values of a partition (the rows
+    of a TaQL selection), the same as TaQL's DISTINCT gives."""
     from casacore import tables
 
     from xradio.measurement_set._utils._msv2._tables.read_main_table import (
-        get_utimes_tol,
+        utimes_tol_from_times,
     )
     from xradio.measurement_set._utils._msv2._tables.read_rows import MainTableRows
     from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
 
     with open_table_ro(ms_minimal_required.fname) as mtable:
-        expected_utimes, expected_tol = get_utimes_tol(mtable, where)
-        query = tables.taql(f"select * from $1 {where}", tables=[mtable])
-        rows = np.asarray(query.rownumbers(), dtype=np.int64)
-        query.close()
-        utimes, tol = get_utimes_tol(MainTableRows(mtable, rows), "unused")
-    assert tol == expected_tol
-    if rows.size:
-        np.testing.assert_array_equal(utimes, expected_utimes)
-    else:
-        assert utimes.size == 0
+        with tables.taql(f"select * from $1 {where}", tables=[mtable]) as query:
+            rows = np.asarray(query.rownumbers(), dtype=np.int64)
+        with tables.taql(
+            f"select DISTINCT TIME from $1 {where}", tables=[mtable]
+        ) as query:
+            distinct = np.sort(query.getcol("TIME", 0, -1)) if rows.size else []
+        utimes, tol = utimes_tol_from_times(MainTableRows(mtable, rows).getcol("TIME"))
+    assert all(utimes == expected_output[0])
+    assert tol == expected_output[1]
+    np.testing.assert_array_equal(utimes, distinct)
 
 
 baseline_set_5 = np.array(

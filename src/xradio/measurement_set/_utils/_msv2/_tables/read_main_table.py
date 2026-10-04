@@ -12,43 +12,12 @@ from xradio._utils.list_and_array import (
     pairing_function,
     unique_1d,
 )
-from xradio.measurement_set._utils._msv2._tables.read_rows import MainTableRows
-from xradio.measurement_set._utils._msv2._tables.table_query import open_query
-
-
-def get_utimes_tol(
-    mtable: tables.table | MainTableRows, taql_where: str
-) -> tuple[np.ndarray, float]:
-    """
-    Unique times of a partition and a tolerance (a quarter of the smallest time
-    step, or 1e-5 for a single time) to use around them.
-
-    Parameters
-    ----------
-    mtable : tables.table | MainTableRows
-        Table (or TaQL selection) to apply ``taql_where`` to, or a
-        MainTableRows partition (then ``taql_where`` is not used, no TaQL).
-    taql_where : str
-        TaQL WHERE clause of the partition.
-
-    Returns
-    -------
-    tuple[np.ndarray, float]
-        Sorted unique TIME values, tolerance.
-    """
-    if isinstance(mtable, MainTableRows):
-        return utimes_tol_from_times(mtable.getcol("TIME"))
-
-    taql_utimes = f"select DISTINCT TIME from $mtable {taql_where}"
-    with open_query(mtable, taql_utimes) as query_utimes:
-        utimes, tol = utimes_tol_from_times(query_utimes.getcol("TIME", 0, -1))
-
-    return utimes, tol
 
 
 def utimes_tol_from_times(times: np.ndarray) -> tuple[np.ndarray, float]:
     """
-    Sorted unique times and the tolerance of get_utimes_tol, from TIME values.
+    Unique times of a partition and a tolerance (a quarter of the smallest time
+    step, or 1e-5 for a single time) to use around them, from its TIME values.
 
     Parameters
     ----------
@@ -61,7 +30,7 @@ def utimes_tol_from_times(times: np.ndarray) -> tuple[np.ndarray, float]:
         Sorted unique TIME values, tolerance.
     """
     utimes = unique_1d(times)
-    # add a tol around the time ranges returned by taql
+    # add a tol around the time range
     if len(utimes) < 2:
         tol = 1e-5
     else:

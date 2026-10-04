@@ -534,7 +534,7 @@ def test_convert_and_write_partition_custom(ms_custom_spec):
         shutil.rmtree(out_name)
 
 
-# --- MAIN read paths: TaQL vs rows (TEMPORARY XRADIO_MSV2_MAIN_READ switch) ------
+# --- MAIN reads: row reads vs a TaQL reference ----------------------------------
 
 MAIN_LAYOUTS = ("dense", "sparse_dup", "baseline_major")
 
@@ -663,8 +663,7 @@ def assert_msv4_bit_identical(xdt_a: xr.DataTree, xdt_b: xr.DataTree) -> None:
             assert _without_dates(var_a.attrs) == _without_dates(var_b.attrs), where
 
 
-def _convert_partition(monkeypatch, msname, out_file, partition_info, main_read, **kw):
-    monkeypatch.setenv(conversion.MAIN_READ_ENV_VAR, main_read)
+def _convert_partition(monkeypatch, msname, out_file, partition_info, **kw):
     kw.setdefault("use_table_iter", False)
     conversion.convert_and_write_partition(
         in_file=msname,
@@ -678,14 +677,55 @@ def _convert_partition(monkeypatch, msname, out_file, partition_info, main_read,
     return xr.open_datatree(os.path.join(out_file, msv4_name), engine="zarr")
 
 
+def _convert_partition_reference(
+    monkeypatch, reference, msname, out_file, partition_info, **kw
+):
+    """
+    Convert a partition with the MAIN data columns read by a TaQL selection
+    of the partition (``reference``, the taql_main_reference fixture: the
+    read path of earlier versions) instead of the row reads, read whole and
+    written by one to_zarr (no streamed write).
+    """
+
+    def taql_read(main_rows, col, cshape, tidxs, bidxs, *args):
+        grid = reference(msname, partition_info, col)
+        assert grid.shape[:2] == tuple(cshape)
+        return grid
+
+    with monkeypatch.context() as m:
+        m.setattr(conversion, "read_col_conversion_numpy", taql_read)
+        kw.setdefault("use_table_iter", False)
+        conversion._convert_and_write_partition(
+            in_file=msname,
+            out_file=out_file,
+            ms_v4_id="0",
+            partition_info=partition_info,
+            persistence_mode="w",
+            allow_stream_write=False,
+            **kw,
+        )
+    msv4_name = pathlib.Path(msname).name.replace(".ms", "") + "_0"
+    return xr.open_datatree(os.path.join(out_file, msv4_name), engine="zarr")
+
+
 @pytest.mark.parametrize("layout", MAIN_LAYOUTS)
 @pytest.mark.parametrize(
     "partition_source", ["create_partitions", "hand_built", "mismatched_runs"]
 )
-def test_convert_and_write_partition_rows_vs_taql_bit_identical(
-    ms_main_layouts, layout, partition_source, tmp_path, monkeypatch
+def test_convert_and_write_partition_matches_taql_reference(
+    ms_main_layouts,
+    layout,
+    partition_source,
+    tmp_path,
+    monkeypatch,
+    taql_main_reference,
 ):
-    """The rows read path gives exactly the output of the TaQL path."""
+    """
+    The row reads (default: streamed write) give exactly the MSv4 of the TaQL
+    selection's reads (read whole, one to_zarr), for the rows of the
+    partition descriptions (with or without row runs, or with runs of another
+    description).
+    """
     from xradio.measurement_set._utils._msv2.partition_queries import (
         create_partitions_with_main_rows,
     )
@@ -701,21 +741,10 @@ def test_convert_and_write_partition_rows_vs_taql_bit_identical(
     else:  # runs of another description: not used (the rows follow the dict)
         partition, kw = partitions[1], {"main_row_runs": runs[0]}
 
-    taql = _convert_partition(
-        monkeypatch, msname, str(tmp_path / "t"), partition, "taql", **kw
+    taql = _convert_partition_reference(
+        monkeypatch, taql_main_reference, msname, str(tmp_path / "t"), partition, **kw
     )
-    taql_iter = _convert_partition(
-        monkeypatch,
-        msname,
-        str(tmp_path / "ti"),
-        partition,
-        "taql",
-        use_table_iter=True,
-        **kw,
-    )
-    rows = _convert_partition(
-        monkeypatch, msname, str(tmp_path / "r"), partition, "rows", **kw
-    )
+    rows = _convert_partition(monkeypatch, msname, str(tmp_path / "r"), partition, **kw)
 
     assert {"VISIBILITY", "VISIBILITY_CORRECTED", "FLAG", "WEIGHT", "UVW"} <= set(
         rows.ds.data_vars
@@ -724,15 +753,14 @@ def test_convert_and_write_partition_rows_vs_taql_bit_identical(
     if layout == "sparse_dup":
         assert np.isnan(rows.ds.VISIBILITY.values).any()  # padded missing cells
     assert_msv4_bit_identical(taql, rows)
-    assert_msv4_bit_identical(taql_iter, rows)
 
 
 @pytest.mark.parametrize("layout", MAIN_LAYOUTS)
-def test_convert_and_write_partition_rows_time_mode(
+def test_convert_and_write_partition_time_mode(
     ms_main_layouts, layout, tmp_path, monkeypatch
 ):
-    """parallel_mode="time" on the rows path: same output as the numpy path,
-    also for sparse, duplicated and baseline-major rows."""
+    """parallel_mode="time": same output as parallel_mode="none", also for
+    sparse, duplicated and baseline-major rows."""
     from xradio.measurement_set._utils._msv2.partition_queries import (
         create_partitions_with_main_rows,
     )
@@ -746,7 +774,6 @@ def test_convert_and_write_partition_rows_time_mode(
         msname,
         str(tmp_path / "n"),
         partition,
-        "rows",
         main_chunksize=chunks,
         main_row_runs=runs[0],
     )
@@ -755,23 +782,11 @@ def test_convert_and_write_partition_rows_time_mode(
         msname,
         str(tmp_path / "t"),
         partition,
-        "rows",
         main_chunksize=chunks,
         parallel_mode="time",
         main_row_runs=runs[0],
     )
     assert_msv4_bit_identical(none, timed)
-    if layout == "dense":  # the TaQL time path needs dense, time-ordered rows
-        taql_timed = _convert_partition(
-            monkeypatch,
-            msname,
-            str(tmp_path / "tt"),
-            partition,
-            "taql",
-            main_chunksize=chunks,
-            parallel_mode="time",
-        )
-        assert_msv4_bit_identical(taql_timed, timed)
 
 
 def _to_tiled_shape_columns(main_tb, columns: dict, cell: tuple, tile_rows: int):
@@ -866,13 +881,13 @@ def ms_tiled_shape_main(tmp_path_factory):
         ("single_dish", ["FIELD_ID", "ANTENNA1"]),
     ],
 )
-def test_convert_and_write_partition_rows_vs_taql_tiled_shape_main(
-    ms_tiled_shape_main, variant, scheme, tmp_path, monkeypatch
+def test_convert_and_write_partition_tiled_shape_main_matches_taql_reference(
+    ms_tiled_shape_main, variant, scheme, tmp_path, monkeypatch, taql_main_reference
 ):
     """
     TiledShapeStMan MAIN columns whose tiles hold rows of several partitions,
-    with the FIELD_ID / ANTENNA1 partition schemes: the rows path gives exactly
-    the output of the TaQL path.
+    with the FIELD_ID / ANTENNA1 partition schemes: the row reads give exactly
+    the output of the TaQL selection's reads.
     """
     from casacore import tables
 
@@ -891,14 +906,23 @@ def test_convert_and_write_partition_rows_vs_taql_tiled_shape_main(
         out = {}
         for main_read in ("taql", "rows"):
             try:
-                out[main_read] = _convert_partition(
-                    monkeypatch,
-                    msname,
-                    str(tmp_path / f"{main_read}{idx}"),
-                    partitions[idx],
-                    main_read,
-                    **kw,
-                )
+                if main_read == "taql":
+                    out[main_read] = _convert_partition_reference(
+                        monkeypatch,
+                        taql_main_reference,
+                        msname,
+                        str(tmp_path / f"{main_read}{idx}"),
+                        partitions[idx],
+                        **kw,
+                    )
+                else:
+                    out[main_read] = _convert_partition(
+                        monkeypatch,
+                        msname,
+                        str(tmp_path / f"{main_read}{idx}"),
+                        partitions[idx],
+                        **kw,
+                    )
             except Exception as exc:
                 out[main_read] = f"{type(exc).__name__}: {exc}"
         if isinstance(out["taql"], str) or isinstance(out["rows"], str):
@@ -913,7 +937,6 @@ def test_convert_and_write_partition_rows_vs_taql_tiled_shape_main(
             msname,
             str(tmp_path / "time"),
             partitions[0],
-            "rows",
             main_chunksize={"time": 4},
             parallel_mode="time",
             **kw | {"main_row_runs": runs[0]},
@@ -923,14 +946,13 @@ def test_convert_and_write_partition_rows_vs_taql_tiled_shape_main(
             msname,
             str(tmp_path / "none"),
             partitions[0],
-            "rows",
             main_chunksize={"time": 4},
             **kw | {"main_row_runs": runs[0]},
         )
         assert_msv4_bit_identical(none, timed)
 
 
-def test_convert_and_write_partition_rows_runs_no_taql_on_main(
+def test_convert_and_write_partition_no_taql_on_main(
     ms_main_layouts, tmp_path, monkeypatch
 ):
     import sys
@@ -955,57 +977,39 @@ def test_convert_and_write_partition_rows_runs_no_taql_on_main(
         return taql(query, *args, **kwargs)
 
     monkeypatch.setattr(tables, "taql", spy_taql)
-    _convert_partition(
-        monkeypatch,
-        msname,
-        str(tmp_path / "r"),
-        partition,
-        "rows",
-        main_row_runs=runs[0],
-    )
-    assert queries  # sub-tables are still read with TaQL
-    assert not [q for q in queries if "$mtable" in q]
+    for parallel_mode in ("none", "time"):
+        queries.clear()
+        _convert_partition(
+            monkeypatch,
+            msname,
+            str(tmp_path / parallel_mode),
+            partition,
+            main_row_runs=runs[0],
+            main_chunksize={"time": 4},
+            parallel_mode=parallel_mode,
+        )
+        assert queries  # sub-tables are still read with TaQL
+        assert not [q for q in queries if "$mtable" in q]
+    # nor in the memory estimate of the partitions
     queries.clear()
-    _convert_partition(monkeypatch, msname, str(tmp_path / "t"), partition, "taql")
-    assert [q for q in queries if "$mtable" in q]
-
-
-def test_get_main_read_mode(monkeypatch):
-    monkeypatch.delenv(conversion.MAIN_READ_ENV_VAR, raising=False)
-    assert conversion.get_main_read_mode() == "rows"
-    for value, expected in (("taql", "taql"), (" ROWS ", "rows"), ("", "rows")):
-        monkeypatch.setenv(conversion.MAIN_READ_ENV_VAR, value)
-        assert conversion.get_main_read_mode() == expected
-    monkeypatch.setenv(conversion.MAIN_READ_ENV_VAR, "bogus")
-    with pytest.raises(ValueError, match="XRADIO_MSV2_MAIN_READ"):
-        conversion.get_main_read_mode()
-
-
-def test_get_main_read_mode_without_python_casacore(monkeypatch):
-    # the casatools fallback module has no getcolnp/selectrows
-    monkeypatch.setattr(conversion, "ROWS_READ_SUPPORTED", False)
-    monkeypatch.delenv(conversion.MAIN_READ_ENV_VAR, raising=False)
-    assert conversion.get_main_read_mode() == "taql"
-    monkeypatch.setenv(conversion.MAIN_READ_ENV_VAR, "rows")
-    with pytest.raises(ValueError, match="python-casacore"):
-        conversion.get_main_read_mode()
+    conversion.estimate_memory_and_cores_for_partitions(msname, partitions, runs)
+    conversion.estimate_memory_and_cores_for_partitions(msname, partitions)
+    assert queries == []
 
 
 @pytest.mark.parametrize(
-    "col_name, parallel_mode, read_rows, expected",
+    "col_name, parallel_mode, expected",
     [
-        ("DATA", "none", False, "read_col_conversion_numpy"),
-        ("DATA", "time", False, "read_col_conversion_dask"),
-        ("UVW", "time", False, "read_col_conversion_numpy"),
-        ("DATA", "none", True, "read_col_conversion_rows"),
-        ("FLAG", "time", True, "read_col_conversion_dask_rows"),
-        ("TIME_CENTROID", "time", True, "read_col_conversion_rows"),
+        ("DATA", "none", "read_col_conversion_numpy"),
+        ("DATA", "time", "read_col_conversion_dask"),
+        ("FLAG", "time", "read_col_conversion_dask"),
+        ("UVW", "time", "read_col_conversion_numpy"),
+        ("TIME_CENTROID", "time", "read_col_conversion_numpy"),
+        ("WEIGHT", "partition", "read_col_conversion_numpy"),
     ],
 )
-def test_get_read_col_conversion_function(col_name, parallel_mode, read_rows, expected):
-    func = conversion.get_read_col_conversion_function(
-        col_name, parallel_mode, read_rows=read_rows
-    )
+def test_get_read_col_conversion_function(col_name, parallel_mode, expected):
+    func = conversion.get_read_col_conversion_function(col_name, parallel_mode)
     assert func.__name__ == expected
 
 
@@ -1039,7 +1043,7 @@ def test_create_data_variables_reads_columns_in_sorted_order(
         monkeypatch.setattr(conversion, "deferred_main_column", spy)
     msname = ms_main_layouts["dense"]
     partition = create_partitions(msname, [])[0]
-    _convert_partition(monkeypatch, msname, str(tmp_path / "r"), partition, "rows")
+    _convert_partition(monkeypatch, msname, str(tmp_path / "r"), partition)
     assert read_cols == sorted(read_cols)
     assert "DATA" in read_cols and "WEIGHT" in read_cols
 
@@ -1073,7 +1077,6 @@ def test_create_data_variables_releases_the_row_plans(
         msname,
         str(tmp_path / "r"),
         partition,
-        "rows",
         main_chunksize={"time": 4},
         parallel_mode=parallel_mode,
     )
@@ -1187,9 +1190,7 @@ def _convert_streamed(
         monkeypatch.delenv(STREAM_BATCH_MB_ENV_VAR, raising=False)
     else:
         monkeypatch.setenv(STREAM_BATCH_MB_ENV_VAR, str(batch_mb))
-    xdt = _convert_partition(
-        monkeypatch, msname, out_file, partition_info, "rows", **kw
-    )
+    xdt = _convert_partition(monkeypatch, msname, out_file, partition_info, **kw)
     msv4_name = pathlib.Path(msname).name.replace(".ms", "") + "_0"
     return xdt, os.path.join(out_file, msv4_name)
 
@@ -1793,20 +1794,18 @@ def test_stream_write_encoding_that_changes_values_is_not_streamed(
 
 
 @pytest.mark.parametrize(
-    "main_read, parallel_mode, stream, streamed",
+    "parallel_mode, stream, streamed",
     [
-        ("rows", "none", "1", True),
-        ("rows", "partition", "1", True),
-        ("rows", "none", "0", False),
-        ("rows", "time", "1", False),  # already lazy (dask)
-        ("rows", "time_without_chunk", "1", True),  # read like "none"
-        ("taql", "none", "1", False),
+        ("none", "1", True),
+        ("partition", "1", True),
+        ("none", "0", False),
+        ("time", "1", False),  # already lazy (dask)
+        ("time_without_chunk", "1", True),  # read like "none"
     ],
 )
 @pytest.mark.parametrize("batch_mb", [1e-9, None])
 def test_stream_write_selection(
     ms_main_layouts,
-    main_read,
     parallel_mode,
     stream,
     streamed,
@@ -1844,7 +1843,6 @@ def test_stream_write_selection(
     partition = create_partitions(msname, [])[0]
     if streamed:
         # placeholders only: the spy writes nothing, so do not read the result
-        monkeypatch.setenv(conversion.MAIN_READ_ENV_VAR, main_read)
         conversion.convert_and_write_partition(
             in_file=msname,
             out_file=str(tmp_path / "r"),
@@ -1861,7 +1859,6 @@ def test_stream_write_selection(
             msname,
             str(tmp_path / "r"),
             partition,
-            main_read,
             main_chunksize={"time": 4},
             parallel_mode=parallel_mode,
         )

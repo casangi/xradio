@@ -775,88 +775,52 @@ def test_read_flat_col_chunk_flag(ms_minimal_required):
     assert np.all(~res)
 
 
-def test_read_col_conversion_dask(ms_minimal_required):
-    from xradio.measurement_set._utils._msv2._tables.read import (
-        read_col_conversion_dask,
-    )
-    from xradio.measurement_set._utils._msv2._tables.table_query import TableManager
-
-    taql_where = "WHERE DATA_DESC_ID in [0]"
-    table_manager = TableManager(ms_minimal_required.fname, taql_where)
-    ntimes = 10
-    nbaselines = 5
-    xda = read_col_conversion_dask(
-        table_manager,
-        "DATA",
-        (10, 5),
-        np.arange(0, ntimes),
-        np.arange(0, nbaselines),
-        False,
-        ntimes,
-    )
-    assert xda.shape == (
-        10,
-        5,
-        ms_minimal_required.descr["nchans"],
-        ms_minimal_required.descr["npols"],
-    )
+DDI0_PARTITION = {"DATA_DESC_ID": [0], "OBS_MODE": ["scan_intent#subscan_intent"]}
 
 
-def _ddi0_partition_indices(fname):
-    """TaQL-path reference indices of the DDI 0 partition of an MS."""
-    from xradio.measurement_set._utils._msv2._tables.table_query import TableManager
-    from xradio.measurement_set._utils._msv2.conversion import (
-        calc_indx_for_row_split,
-        create_taql_query_where,
+def _ddi0_main_rows(main_tb, max_elems=None):
+    """The DDI 0 partition rows of an MS and their time / baseline indices."""
+    from xradio.measurement_set._utils._msv2._tables.read_rows import MainTableRows
+    from xradio.measurement_set._utils._msv2.conversion import calc_indx_for_row_split
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        partition_main_rows,
     )
 
-    partition = {"DATA_DESC_ID": [0], "OBS_MODE": ["scan_intent#subscan_intent"]}
-    where = create_taql_query_where(partition)
-    table_manager = TableManager(fname, where)
-    with table_manager.get_table() as tb_tool:
-        tidxs, bidxs, _didxs, ant1, _ant2, utime = calc_indx_for_row_split(
-            tb_tool, where
-        )
-    return partition, table_manager, tidxs, bidxs, (len(utime), len(ant1))
+    kwargs = {} if max_elems is None else {"max_elems": max_elems}
+    main_rows = MainTableRows(
+        main_tb, partition_main_rows(main_tb, DDI0_PARTITION), **kwargs
+    )
+    tidxs, bidxs, ant1, _ant2, utime = calc_indx_for_row_split(main_rows)
+    return main_rows, tidxs, bidxs, (len(utime), len(ant1))
 
 
 @pytest.mark.parametrize(
     "col", ["DATA", "FLAG", "UVW", "TIME_CENTROID", "EXPOSURE", "WEIGHT", "SIGMA"]
 )
-def test_read_col_conversion_rows_matches_numpy(ms_minimal_required, col):
+def test_read_col_conversion_numpy_matches_taql_reference(
+    ms_minimal_required, col, taql_main_reference
+):
+    """The row reads give exactly the values of a TaQL selection's getcol
+    (same dtype, pads and grid), also with tiny read calls."""
     from xradio.measurement_set._utils._msv2._tables.read import (
         read_col_conversion_numpy,
-        read_col_conversion_rows,
     )
-    from xradio.measurement_set._utils._msv2._tables.read_rows import MainTableRows
     from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
-    from xradio.measurement_set._utils._msv2.partition_queries import (
-        partition_main_rows,
-    )
 
     fname = ms_minimal_required.fname
-    partition, table_manager, tidxs, bidxs, cshape = _ddi0_partition_indices(fname)
     try:
-        expected = read_col_conversion_numpy(
-            table_manager, col, cshape, tidxs, bidxs, False, None
-        )
+        expected = taql_main_reference(fname, DDI0_PARTITION, col)
     except RuntimeError:
         expected = None  # e.g. undefined WEIGHT cells: the column is skipped
 
     with open_table_ro(fname) as main_tb:
         for max_elems in (2**26, 5):
-            main_rows = MainTableRows(
-                main_tb, partition_main_rows(main_tb, partition), max_elems=max_elems
-            )
+            main_rows, tidxs, bidxs, cshape = _ddi0_main_rows(main_tb, max_elems)
             if expected is None:
                 with pytest.raises(RuntimeError):
-                    read_col_conversion_rows(
-                        main_rows, col, cshape, tidxs, bidxs, False, None
-                    )
+                    read_col_conversion_numpy(main_rows, col, cshape, tidxs, bidxs)
                 continue
-            data = read_col_conversion_rows(
-                main_rows, col, cshape, tidxs, bidxs, False, None
-            )
+            data = read_col_conversion_numpy(main_rows, col, cshape, tidxs, bidxs)
             assert data.dtype == expected.dtype
             assert data.shape == expected.shape
             # bit-identical, including the NaN pads of the missing cells
@@ -865,30 +829,23 @@ def test_read_col_conversion_rows_matches_numpy(ms_minimal_required, col):
 
 @pytest.mark.parametrize("time_chunksize", [1, 7, 1000])
 @pytest.mark.parametrize("col", ["DATA", "FLAG"])
-def test_read_col_conversion_dask_rows_matches_numpy(
+def test_read_col_conversion_dask_matches_numpy(
     ms_minimal_required, col, time_chunksize
 ):
     import dask.array as da
 
     from xradio.measurement_set._utils._msv2._tables.read import (
-        read_col_conversion_dask_rows,
+        read_col_conversion_dask,
         read_col_conversion_numpy,
     )
-    from xradio.measurement_set._utils._msv2._tables.read_rows import MainTableRows
     from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
-    from xradio.measurement_set._utils._msv2.partition_queries import (
-        partition_main_rows,
-    )
 
     fname = ms_minimal_required.fname
-    partition, table_manager, tidxs, bidxs, cshape = _ddi0_partition_indices(fname)
-    expected = read_col_conversion_numpy(
-        table_manager, col, cshape, tidxs, bidxs, False, None
-    )
     with open_table_ro(fname) as main_tb:
-        main_rows = MainTableRows(main_tb, partition_main_rows(main_tb, partition))
-        lazy = read_col_conversion_dask_rows(
-            main_rows, col, cshape, tidxs, bidxs, False, time_chunksize
+        main_rows, tidxs, bidxs, cshape = _ddi0_main_rows(main_tb)
+        expected = read_col_conversion_numpy(main_rows, col, cshape, tidxs, bidxs)
+        lazy = read_col_conversion_dask(
+            main_rows, col, cshape, tidxs, bidxs, time_chunksize
         )
         assert isinstance(lazy, da.Array)
         assert (
@@ -935,7 +892,7 @@ def _graph_arrays(obj, found=None, visited=None, depth=0):
     return found
 
 
-def test_read_col_conversion_dask_rows_shares_row_indices(ms_minimal_required):
+def test_read_col_conversion_dask_shares_row_indices(ms_minimal_required):
     """
     parallel_mode="time": the blocks of all large columns share one graph key
     with the partition's row / time / baseline indices; the graphs hold no
@@ -945,25 +902,16 @@ def test_read_col_conversion_dask_rows_shares_row_indices(ms_minimal_required):
     import dask
 
     from xradio.measurement_set._utils._msv2._tables.read import (
-        read_col_conversion_dask_rows,
+        read_col_conversion_dask,
     )
-    from xradio.measurement_set._utils._msv2._tables.read_rows import (
-        MainTableRows,
-        TimeChunkRows,
-    )
+    from xradio.measurement_set._utils._msv2._tables.read_rows import TimeChunkRows
     from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
-    from xradio.measurement_set._utils._msv2.partition_queries import (
-        partition_main_rows,
-    )
 
     fname = ms_minimal_required.fname
-    partition, _, tidxs, bidxs, cshape = _ddi0_partition_indices(fname)
     with open_table_ro(fname) as main_tb:
-        main_rows = MainTableRows(main_tb, partition_main_rows(main_tb, partition))
+        main_rows, tidxs, bidxs, cshape = _ddi0_main_rows(main_tb)
         lazy = {
-            col: read_col_conversion_dask_rows(
-                main_rows, col, cshape, tidxs, bidxs, False, 2
-            )
+            col: read_col_conversion_dask(main_rows, col, cshape, tidxs, bidxs, 2)
             for col in ("DATA", "FLAG")
         }
         # the partition's own index arrays (by base array, as _graph_arrays)

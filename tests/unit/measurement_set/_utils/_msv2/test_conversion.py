@@ -1862,6 +1862,140 @@ def test_stream_write_write_failure_removes_the_msv4(
     assert os.path.isdir(out) and os.listdir(out) == []
 
 
+def assert_msv4_opens_as_incomplete(store_path: str) -> None:
+    """
+    An MSv4 whose streamed write was interrupted has no consolidated metadata,
+    as one whose to_zarr was interrupted: opening it warns (xarray reads the
+    non-consolidated metadata) and fails with consolidated=True, instead of
+    silently reading its unwritten chunks as fill values.
+    """
+    import json
+
+    with open(os.path.join(store_path, "zarr.json")) as f:
+        assert "consolidated_metadata" not in json.load(f)
+    with pytest.warns(RuntimeWarning, match="consolidated metadata"):
+        xr.open_datatree(store_path, engine="zarr")
+    with pytest.raises(ValueError, match="onsolidated"):
+        xr.open_datatree(store_path, engine="zarr", consolidated=True)
+
+
+def _msv4_stores(ps_path: str) -> list[str]:
+    return sorted(
+        os.path.join(ps_path, name)
+        for name in os.listdir(ps_path)
+        if os.path.isdir(os.path.join(ps_path, name))
+    )
+
+
+def test_stream_write_interrupted_msv4_opens_as_incomplete(
+    ms_main_layouts, tmp_path, monkeypatch
+):
+    """
+    A streamed write interrupted after some chunks were written, with no
+    clean up (as by a hard kill: here a zarr write raises and discard_msv4
+    does nothing): the MSv4 opens as incomplete (no consolidated metadata,
+    see assert_msv4_opens_as_incomplete) and the processing set, whose root
+    is consolidated after the last partition, does not list it. A completed
+    streamed write has the consolidated metadata of to_zarr (the store
+    comparisons of test_stream_write_bit_identical).
+    """
+    import zarr
+
+    from xradio.measurement_set import (
+        convert_msv2_to_processing_set,
+        open_processing_set,
+    )
+
+    _set_stream_batch_mb(monkeypatch, 1e-9)
+    setitem = zarr.Array.__setitem__
+    writes = []
+
+    def failing_setitem(self, key, value):
+        writes.append(key)
+        if len(writes) == 3:
+            raise OSError("simulated interruption")
+        return setitem(self, key, value)
+
+    write = conversion.write_deferred_variables
+
+    def spy(*args, **kwargs):
+        with monkeypatch.context() as m:
+            m.setattr(zarr.Array, "__setitem__", failing_setitem)
+            return write(*args, **kwargs)
+
+    monkeypatch.setattr(conversion, "write_deferred_variables", spy)
+    monkeypatch.setattr(conversion, "discard_msv4", lambda *args, **kwargs: "")
+    out = str(tmp_path / "interrupted.ps.zarr")
+    with pytest.raises(OSError, match="simulated interruption"):
+        convert_msv2_to_processing_set(
+            ms_main_layouts["dense"],
+            out,
+            main_chunksize={"time": 4},
+            persistence_mode="w",
+        )
+    assert len(writes) == 3
+    (msv4,) = _msv4_stores(out)
+    assert_msv4_opens_as_incomplete(msv4)
+    assert list(open_processing_set(out).children) == []
+
+
+def test_stream_write_killed_msv4_opens_as_incomplete(ms_main_layouts, tmp_path):
+    """
+    The same after a real hard kill: the converting process is killed
+    (SIGKILL) during the streamed write of its first partition.
+    """
+    import signal
+    import subprocess
+    import sys
+    import textwrap
+
+    from xradio.measurement_set import open_processing_set
+
+    out = str(tmp_path / "killed.ps.zarr")
+    code = textwrap.dedent(
+        f"""
+        import os
+        import signal
+
+        import zarr
+
+        from xradio.measurement_set import convert_msv2_to_processing_set
+        from xradio.measurement_set._utils._msv2 import conversion, stream_write
+
+        stream_write.STREAM_BATCH_BYTES = 1  # one chunk per batch
+        setitem = zarr.Array.__setitem__
+        writes = []
+
+        def killing_setitem(self, key, value):
+            writes.append(key)
+            if len(writes) == 3:
+                os.kill(os.getpid(), signal.SIGKILL)
+            return setitem(self, key, value)
+
+        write = conversion.write_deferred_variables
+
+        def spy(*args, **kwargs):
+            zarr.Array.__setitem__ = killing_setitem
+            return write(*args, **kwargs)
+
+        conversion.write_deferred_variables = spy
+        convert_msv2_to_processing_set(
+            {ms_main_layouts["dense"]!r},
+            {out!r},
+            main_chunksize={{"time": 4}},
+            persistence_mode="w",
+        )
+        """
+    )
+    proc = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, timeout=300
+    )
+    assert proc.returncode == -signal.SIGKILL, proc.stderr[-2000:]
+    (msv4,) = _msv4_stores(out)
+    assert_msv4_opens_as_incomplete(msv4)
+    assert list(open_processing_set(out).children) == []
+
+
 @pytest.mark.parametrize("declared", [False, True])
 def test_stream_write_encoding_that_changes_values_is_not_streamed(
     ms_main_layouts, declared, tmp_path, monkeypatch, stream_stats

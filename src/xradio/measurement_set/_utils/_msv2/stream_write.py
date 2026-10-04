@@ -13,9 +13,18 @@ until one ``DataTree.to_zarr`` call writes the MSv4. With streaming:
    (WEIGHT_SPECTRUM falls back to WEIGHT) when the storage manager tells,
    without reading data, that a cell of the partition is undefined or of a
    shape other than the first cell's (``check_partition_cells``).
-2. ``DataTree.to_zarr(compute=False)`` writes all metadata (with the encoding,
-   chunks and compressor of the non-streamed path), the numpy variables and the
-   consolidated metadata. The placeholders are never computed. The streamed
+2. ``DataTree.to_zarr(compute=False, consolidated=False)`` writes all metadata
+   (with the encoding, chunks and compressor of the non-streamed path) and the
+   numpy variables, but not the consolidated metadata of the MSv4
+   (``drop_consolidated_metadata`` also removes one left by an earlier write
+   in mode "a"): ``consolidate_msv4`` writes it after the last value of the
+   deferred variables. An MSv4 whose streamed write was interrupted (hard
+   kill) is so marked as incomplete, as one whose to_zarr was interrupted:
+   opening it warns (xarray falls back to the non-consolidated metadata,
+   whose unwritten chunks read as fill values) or fails (``consolidated=True``),
+   and a processing set whose conversion was interrupted does not list it (its
+   root is consolidated after the last partition).
+   The placeholders are never computed. The streamed
    write writes the values to the zarr arrays directly, bypassing xarray's
    encoding, so it is used only where that encoding leaves the values
    unchanged: the encoding xradio sets (chunks, compressors) and no CF coding
@@ -55,7 +64,8 @@ fails after the metadata was written, ``write_deferred_variables`` raises
 again without that column, which gives the result of the non-streamed path
 (that skips a column whose read fails). Any other failure of the fill removes
 the MSv4 (``discard_msv4``) and is raised: no MSv4 with missing or partly
-written data variables is left behind (except after a hard kill).
+written data variables is left behind (after a hard kill, one without
+consolidated metadata, see above).
 """
 
 import base64
@@ -1145,6 +1155,44 @@ def write_deferred_variables(
     return {"summary": summary, "variables": var_stats}
 
 
+def drop_consolidated_metadata(store_path: str) -> None:
+    """
+    Remove the consolidated metadata of an MSv4 (from the zarr.json of its
+    root group) before its deferred data variables are written, so that the
+    MSv4 opens as incomplete until ``consolidate_msv4`` (see the module
+    docstring). ``to_zarr(consolidated=False)`` writes none, and xarray drops
+    one left by an earlier write in mode "a"; this does not depend on it.
+
+    Parameters
+    ----------
+    store_path : str
+        The MSv4 zarr group.
+    """
+    import zarr
+
+    # Opened without the consolidated metadata: writing the group metadata
+    # (the same attributes) leaves it out
+    group = zarr.open_group(
+        store_path, mode="r+", zarr_format=ZARR_FORMAT, use_consolidated=False
+    )
+    group.update_attributes({})
+
+
+def consolidate_msv4(store_path: str) -> None:
+    """
+    Write the consolidated metadata of an MSv4 (as to_zarr does) once all its
+    deferred data variables are written: from then on it opens as complete.
+
+    Parameters
+    ----------
+    store_path : str
+        The MSv4 zarr group.
+    """
+    import zarr
+
+    zarr.consolidate_metadata(store_path, zarr_format=ZARR_FORMAT)
+
+
 def discard_msv4(
     store_path: str,
     deferred_names,
@@ -1166,8 +1214,9 @@ def discard_msv4(
         Whether this conversion wrote the whole MSv4 (persistence mode "w" or
         "w-", or no MSv4 there before): then it is removed (local stores).
         Otherwise (mode "a" on an existing MSv4, or a remote store), the
-        deferred arrays and the members this conversion added are removed and
-        the consolidated metadata is rewritten.
+        deferred arrays and the members this conversion added are removed; the
+        MSv4 is left without consolidated metadata (as incomplete, see
+        ``drop_consolidated_metadata``).
     members_before : set[str] | None, optional
         Entries of the MSv4 directory before this conversion wrote it (None:
         not known).
@@ -1203,7 +1252,8 @@ def discard_msv4(
                     xradio_logger().error(
                         f"Could not remove {name} from {store_path}: {exc}"
                     )
-        zarr.consolidate_metadata(store_path, zarr_format=ZARR_FORMAT)
+        # (a consolidated metadata would still list the removed arrays)
+        drop_consolidated_metadata(store_path)
     except Exception as exc:
         xradio_logger().error(f"Could not clean up {store_path}: {exc}")
-    return f"removed {removed} from the MSv4"
+    return f"removed {removed} from the MSv4 (left without consolidated metadata)"

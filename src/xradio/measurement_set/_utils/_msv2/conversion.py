@@ -73,10 +73,12 @@ from xradio.measurement_set._utils._msv2.stream_write import (
     DeferredReadError,
     DeferredVariable,
     check_deferred_variables,
+    consolidate_msv4,
     deferred_encoding_problems,
     deferred_main_column,
     deferred_ones,
     discard_msv4,
+    drop_consolidated_metadata,
     fits_in_memory,
     read_deferred_variables,
     write_deferred_variables,
@@ -1901,10 +1903,13 @@ def _convert_and_write_partition(
                     zarr_format=ZARR_FORMAT,
                 )
             else:
-                # Streamed write: all metadata (encodings, consolidated metadata),
-                # coordinates, small variables and sub-datasets now; the deferred
-                # (placeholder) variables are never computed but written next, one
-                # at a time, in batches of whole zarr chunks along time.
+                # Streamed write: all metadata (encodings), coordinates, small
+                # variables and sub-datasets now; the deferred (placeholder)
+                # variables are never computed but written next, one at a time,
+                # in batches of whole zarr chunks along time. The consolidated
+                # metadata is written last: until then (and after a hard kill)
+                # the MSv4 opens as incomplete, as one whose to_zarr was
+                # interrupted (see stream_write.py).
                 check_deferred_variables(xds, deferred)
                 store_existed = os.path.isdir(store_path)
                 members_before = set(os.listdir(store_path)) if store_existed else None
@@ -1913,8 +1918,10 @@ def _convert_and_write_partition(
                     mode=persistence_mode,
                     zarr_format=ZARR_FORMAT,
                     compute=False,
+                    consolidated=False,
                 )
                 try:
+                    drop_consolidated_metadata(store_path)
                     write_deferred_variables(
                         store_path,
                         xds,
@@ -1926,6 +1933,7 @@ def _convert_and_write_partition(
                         reverse_frequency,
                         stream_batch_bytes,
                     )
+                    consolidate_msv4(store_path)
                 except BaseException as exc:
                     # No MSv4 with unwritten (fill value) data variables is left:
                     # after a failed read the partition is converted again without

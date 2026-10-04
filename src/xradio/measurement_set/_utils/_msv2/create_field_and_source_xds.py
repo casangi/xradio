@@ -231,8 +231,9 @@ def extract_ephemeris_info(
         ellipsoid="WGS84",  # Explicitly specify WGS84
     )
 
-    # Get the ITRS Cartesian coordinates (x, y, z)
-    observer_position = location.itrs.cartesian.xyz
+    # Get the ITRS Cartesian coordinates (x, y, z), as plain metres (an astropy
+    # Quantity in the dataset would not equal the values read back from zarr)
+    observer_position = location.itrs.cartesian.xyz.to_value(u.m)
 
     temp_xds["OBSERVER_POSITION"] = xr.DataArray(
         observer_position, dims=["cartesian_pos_label"]

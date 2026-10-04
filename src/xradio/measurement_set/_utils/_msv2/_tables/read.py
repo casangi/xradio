@@ -1,5 +1,7 @@
+import contextlib
 import os
 import re
+import threading
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -22,6 +24,7 @@ from xradio.measurement_set._utils._msv2._tables.read_rows import (
     DEFAULT_MAX_ELEMS,
     MainTableRows,
     TimeChunkRows,
+    backend_has_in_place_reads,
     getcol_chunks,
     parse_shape_string,
     read_column_rows,
@@ -1539,7 +1542,9 @@ def read_col_conversion_dask(
 
     Any row order and missing or duplicated (time, baseline) rows give the
     values of read_col_conversion_numpy (cells without a row are padded with
-    get_pad_value, FLAG=False).
+    get_pad_value, FLAG=False). With casatools (no python-casacore) the blocks
+    of a process are read one at a time (``_CASATOOLS_READ_LOCK``): casatools
+    tables cannot be read from several threads at once.
 
     Parameters
     ----------
@@ -1593,6 +1598,14 @@ def read_col_conversion_dask(
     return da.concatenate(blocks, axis=0)
 
 
+# casatools tables (the shim, used where python-casacore is not installed) must
+# not be used from several threads at once: with dask's threaded scheduler the
+# concurrent block reads of read_col_conversion_dask crashed, hung or returned
+# wrong values (casatools 6.7.0.31). Those block reads open, read, close and
+# release their table holding this lock.
+_CASATOOLS_READ_LOCK = threading.Lock()
+
+
 def _load_rows_time_chunk(
     in_file: str,
     col: str,
@@ -1606,8 +1619,16 @@ def _load_rows_time_chunk(
     cell_shape = tuple(shape[2:])
     if chunk_rows.chunk_n_rows(k) == 0:  # only padding: no table needed
         return read_time_chunk(None, col, chunk_rows, k, cell_shape, dtype, max_elems)
-    # Opened in the thread/process that computes the block
-    with open_table_ro(in_file) as tb_tool:
-        return read_time_chunk(
-            tb_tool, col, chunk_rows, k, cell_shape, dtype, max_elems
-        )
+    one_thread_at_a_time = (
+        contextlib.nullcontext()
+        if backend_has_in_place_reads()  # python-casacore
+        else _CASATOOLS_READ_LOCK
+    )
+    with one_thread_at_a_time:
+        # Opened in the thread/process that computes the block
+        with open_table_ro(in_file) as tb_tool:
+            values = read_time_chunk(
+                tb_tool, col, chunk_rows, k, cell_shape, dtype, max_elems
+            )
+        del tb_tool  # the table object is destroyed holding the lock
+    return values

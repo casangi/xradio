@@ -244,6 +244,53 @@ def make_backend_ms(msname: str, variant: str, seed: int = 0) -> str:
     return msname
 
 
+# The MAIN columns that make_per_column_dm_copy gives a data manager each
+# (IncrementalStMan or StandardStMan, as in CASA split outputs)
+PER_COLUMN_DM_COLUMNS = {
+    "DATA_DESC_ID": "StandardStMan",
+    "FIELD_ID": "IncrementalStMan",
+    "SCAN_NUMBER": "IncrementalStMan",
+    "STATE_ID": "IncrementalStMan",
+    "OBSERVATION_ID": "IncrementalStMan",
+    "ANTENNA1": "StandardStMan",
+    "ANTENNA2": "StandardStMan",
+    "FLAG_ROW": "StandardStMan",
+    "TIME": "IncrementalStMan",
+}
+
+
+def make_per_column_dm_copy(msname: str, copy_name: str) -> str:
+    """
+    A deep copy of an MS (values and sub-tables) whose MAIN key columns
+    (PER_COLUMN_DM_COLUMNS) have a data manager each, as in CASA split
+    outputs (e.g. SNR_G55_10s.split.ms). The MSs of make_backend_ms hold them
+    in one StandardStMan shared with other columns (as e.g.
+    small_meerkat.ms).
+
+    Returns
+    -------
+    str
+        ``copy_name``.
+    """
+    from casacore import tables
+
+    with tables.table(msname, ack=False) as main_tb:
+        dminfo = {}
+        for info in main_tb.getdminfo().values():
+            columns = [c for c in info["COLUMNS"] if c not in PER_COLUMN_DM_COLUMNS]
+            if columns:
+                dminfo[f"*{len(dminfo) + 1}"] = dict(info, COLUMNS=columns)
+        for column, dm_type in PER_COLUMN_DM_COLUMNS.items():
+            dminfo[f"*{len(dminfo) + 1}"] = {
+                "TYPE": dm_type,
+                "NAME": column,
+                "SPEC": {},
+                "COLUMNS": [column],
+            }
+        main_tb.copy(copy_name, deep=True, valuecopy=True, dminfo=dminfo).close()
+    return copy_name
+
+
 @pytest.fixture(scope="session")
 def backend_ms(tmp_path_factory):
     """
@@ -261,6 +308,33 @@ def backend_ms(tmp_path_factory):
 
     yield get
     shutil.rmtree(base, ignore_errors=True)
+
+
+# The layouts of ms_copy: the MAIN key columns in one StandardStMan (as
+# generated), or in a data manager each (make_per_column_dm_copy)
+MS_COPY_LAYOUTS = ("shared", "per_column")
+
+
+@pytest.fixture
+def ms_copy(backend_ms, tmp_path):
+    """
+    ``ms_copy(variant, layout="shared", name=None)``: a copy in ``tmp_path``
+    of a generated MS (backend_ms), which the test may write into. Layouts
+    (MS_COPY_LAYOUTS): "shared" (a file copy, modification times kept) or
+    "per_column" (make_per_column_dm_copy).
+    """
+
+    def copy(variant: str, layout: str = "shared", name: str | None = None) -> str:
+        target = str(tmp_path / (name or f"{variant}_{layout}.ms"))
+        if layout == "shared":
+            shutil.copytree(backend_ms(variant), target, symlinks=True)
+        elif layout == "per_column":
+            make_per_column_dm_copy(backend_ms(variant), target)
+        else:
+            raise ValueError(f"Unknown layout {layout!r}")
+        return target
+
+    return copy
 
 
 @pytest.fixture(autouse=True)

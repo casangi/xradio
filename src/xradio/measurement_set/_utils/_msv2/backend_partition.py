@@ -8,11 +8,14 @@ main xds, attributes and every sub-dataset, exactly as
 from MAIN columns left as placeholders. Those are then replaced by lazily
 indexed arrays (``backend_arrays``) that read the MAIN table when they are
 indexed. Opening reads no MAIN data column, and the MAIN table is closed
-before the node is returned.
+before the node is returned. The data variables of the pointing_xds are
+lazy too (``backend_pointing``): opening reads the POINTING index columns
+(TIME, ANTENNA_ID), not its values.
 """
 
 import copy
 import dataclasses
+import functools
 from collections.abc import Iterable, Sequence
 
 import numpy as np
@@ -30,6 +33,11 @@ from xradio.measurement_set._utils._msv2.backend_arrays import (
     PartitionIndex,
 )
 from xradio.measurement_set._utils._msv2.backend_errors import StalePartitionsError
+from xradio.measurement_set._utils._msv2.backend_pointing import (
+    DeferredPointingVariable,
+    deferred_pointing_generic_xds,
+    lazy_pointing_xds,
+)
 from xradio.measurement_set._utils._msv2.conversion import build_partition
 from xradio.measurement_set._utils._msv2.partition_queries import (
     MANDATORY_PARTITION_KEYS,
@@ -137,9 +145,11 @@ def open_partition(
     phase_cal_interpolate: bool = False,
     sys_cal_interpolate: bool = False,
     verify: RowCheck | None = None,
+    lazy_pointing: bool = True,
 ) -> xr.DataTree | None:
     """
-    The MSv4 of one partition of an MSv2, with lazy main data variables.
+    The MSv4 of one partition of an MSv2, with lazy main data variables (and
+    pointing_xds data variables, see backend_pointing.py).
 
     The node equals what ``convert_msv2_to_processing_set`` writes for the
     partition (opened with ``open_processing_set``), with the same encoding
@@ -168,6 +178,11 @@ def open_partition(
     verify : RowCheck | None, optional
         Check the description against the partition's rows
         (verify_partition_rows): for partitions from the partition cache.
+    lazy_pointing : bool, optional
+        True (default): the data variables of the pointing_xds are read when
+        indexed (unless POINTING cannot be read lazily, or with
+        pointing_interpolate); False: they are read here, as by the
+        converter.
 
     Returns
     -------
@@ -179,6 +194,13 @@ def open_partition(
     StalePartitionsError
         If ``verify`` finds that the description does not describe the rows.
     """
+    # descriptions of the lazy pointing_xds data variables, by name
+    pointing_specs: dict[str, DeferredPointingVariable] = {}
+    pointing_loader = (
+        functools.partial(deferred_pointing_generic_xds, specs=pointing_specs)
+        if lazy_pointing
+        else None
+    )
     # casatools tables are used by one thread at a time (a no-op with
     # python-casacore)
     with (
@@ -197,6 +219,7 @@ def open_partition(
             subtable_cache=subtable_cache,
             main_row_runs=main_row_runs,
             defer_main_columns=True,
+            pointing_generic_loader=pointing_loader,
         ) as built,
     ):
         if built is None:
@@ -245,6 +268,9 @@ def open_partition(
     ms_xdt.dataset = xds
     if "pointing_xds" in ms_xdt.children:
         pointing_xds = ms_xdt["pointing_xds"].to_dataset(inherit=False)
+        if pointing_specs:
+            pointing_xds = lazy_pointing_xds(pointing_xds, pointing_specs, node_name)
+        _check_no_placeholder_left(pointing_xds)
         _set_preferred_chunks(pointing_xds)
         ms_xdt["pointing_xds"].dataset = pointing_xds
     if drop_variables is not None:

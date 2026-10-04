@@ -9,16 +9,17 @@ class MSv2ChangedError(RuntimeError):
     """
     The MeasurementSet changed since it was opened: the MAIN table has another
     number of rows, or the rows of a partition give another (time, baseline)
-    grid. The lazy arrays of the opened processing set no longer describe
-    the MS; open it again.
+    grid; or the POINTING table has another number of rows, or other rows,
+    times or antennas for a partition. The lazy arrays of the opened
+    processing set no longer describe the MS; open it again.
     """
 
 
 class MSv2ReadError(RuntimeError):
     """
     Reading the values of a lazy data variable of an MSv2 opened with the
-    ``xradio_msv2`` engine failed. The message names the MAIN column, the data
-    variable, the MSv4 node and the block that was read.
+    ``xradio_msv2`` engine failed. The message names the MAIN (or POINTING)
+    column, the data variable, the MSv4 node and the block that was read.
     """
 
 

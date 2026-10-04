@@ -36,8 +36,13 @@ def open_msv2(
     :func:`open_processing_set` opens it, without converting the MS. The
     metadata and sub-datasets are read when the MS is opened; the main data
     variables (VISIBILITY*, SPECTRUM*, FLAG, WEIGHT, UVW, TIME_CENTROID,
-    EFFECTIVE_INTEGRATION_TIME) are read from the MS when they are indexed or
-    computed.
+    EFFECTIVE_INTEGRATION_TIME) and the data variables of the pointing_xds
+    (POINTING_BEAM, POINTING_DISH_MEASURED, POINTING_OVER_THE_TOP) are read
+    from the MS when they are indexed or computed. For the pointing_xds, only
+    the POINTING TIME and ANTENNA_ID columns are read at open (its time and
+    antenna coordinates); it is built at open, as by the converter, with
+    pointing_interpolate=True and for POINTING tables whose cells vary in
+    shape.
 
     It is ``xarray.open_datatree(ms_path, engine="xradio_msv2", ...)`` (with
     the engine class, so that it works without installed entry points), with

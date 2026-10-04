@@ -9,10 +9,7 @@ import pytest
 import xarray as xr
 
 import xradio.measurement_set._utils._msv2.conversion as conversion
-from xradio.measurement_set._utils._msv2.stream_write import (
-    STREAM_BATCH_MB_ENV_VAR,
-    STREAM_WRITE_ENV_VAR,
-)
+from xradio.measurement_set._utils._msv2 import stream_write
 from xradio.measurement_set.schema import VisibilityXds
 from xradio.schema.check import check_dataset, check_datatree
 from xradio.testing.measurement_set.checker import check_msv4_matches_descr
@@ -663,9 +660,20 @@ def assert_msv4_bit_identical(xdt_a: xr.DataTree, xdt_b: xr.DataTree) -> None:
             assert _without_dates(var_a.attrs) == _without_dates(var_b.attrs), where
 
 
-def _convert_partition(monkeypatch, msname, out_file, partition_info, **kw):
+def _convert_partition(
+    monkeypatch, msname, out_file, partition_info, stream=True, **kw
+):
+    """Convert one partition; with stream=False without the streamed write
+    (the data variables read whole and written by one to_zarr)."""
     kw.setdefault("use_table_iter", False)
-    conversion.convert_and_write_partition(
+    if not stream:
+        kw["allow_stream_write"] = False
+    convert = (
+        conversion.convert_and_write_partition
+        if stream
+        else conversion._convert_and_write_partition
+    )
+    convert(
         in_file=msname,
         out_file=out_file,
         ms_v4_id="0",
@@ -1024,7 +1032,6 @@ def test_create_data_variables_reads_columns_in_sorted_order(
     )
 
     read_cols = []
-    monkeypatch.setenv(STREAM_WRITE_ENV_VAR, stream)
     if stream == "0":
         get_function = conversion.get_read_col_conversion_function
 
@@ -1043,7 +1050,9 @@ def test_create_data_variables_reads_columns_in_sorted_order(
         monkeypatch.setattr(conversion, "deferred_main_column", spy)
     msname = ms_main_layouts["dense"]
     partition = create_partitions(msname, [])[0]
-    _convert_partition(monkeypatch, msname, str(tmp_path / "r"), partition)
+    _convert_partition(
+        monkeypatch, msname, str(tmp_path / "r"), partition, stream=stream == "1"
+    )
     assert read_cols == sorted(read_cols)
     assert "DATA" in read_cols and "WEIGHT" in read_cols
 
@@ -1083,7 +1092,7 @@ def test_create_data_variables_releases_the_row_plans(
     assert released == [True]
 
 
-# --- sub-table cache (TEMPORARY XRADIO_MSV2_SUBTABLE_CACHE switch) ----------------
+# --- sub-table cache --------------------------------------------------------------
 
 
 @pytest.mark.parametrize("ms_fixture", ["ms_minimal_required", "ms_minimal_misbehaved"])
@@ -1095,7 +1104,6 @@ def test_convert_and_write_partition_subtable_cache_bit_identical(
     with the sub-table cache shared by the partitions (POINTING, SYSCAL, WEATHER,
     PHASE_CAL, GAIN_CURVE, ephemerides, ...) as with per-partition reads."""
     from xradio.measurement_set._utils._msv2._tables.subtable_cache import (
-        SUBTABLE_CACHE_ENV_VAR,
         SubtableCache,
     )
     from xradio.measurement_set._utils._msv2.partition_queries import (
@@ -1105,12 +1113,20 @@ def test_convert_and_write_partition_subtable_cache_bit_identical(
     msname = request.getfixturevalue(ms_fixture).fname
     partitions = create_partitions(msname, ["FIELD_ID"])
     cache = SubtableCache(n_partitions=len(partitions))
+    resolve = conversion.resolve_subtable_cache
+
+    def no_cache(subtable_cache):
+        return None
+
     msv4_name = pathlib.Path(msname).name.replace(".ms", "") + "_0"
     n_converted = 0
     for idx, partition in enumerate(partitions):
         results = {}
         for mode in ("0", "1"):
-            monkeypatch.setenv(SUBTABLE_CACHE_ENV_VAR, mode)
+            if mode == "0":  # no cache: every sub-table read per partition
+                monkeypatch.setattr(conversion, "resolve_subtable_cache", no_cache)
+            else:
+                monkeypatch.setattr(conversion, "resolve_subtable_cache", resolve)
             out_file = str(tmp_path / f"p{idx}_cache{mode}")
             try:
                 conversion.convert_and_write_partition(
@@ -1124,7 +1140,7 @@ def test_convert_and_write_partition_subtable_cache_bit_identical(
                     phase_cal_interpolate=interpolate,
                     sys_cal_interpolate=interpolate,
                     persistence_mode="w",
-                    subtable_cache=cache,  # unused with XRADIO_MSV2_SUBTABLE_CACHE=0
+                    subtable_cache=cache,  # unused without cache (mode "0")
                 )
             except Exception as exc:  # e.g. PHASE_CAL rows missing for a SPW
                 results[mode] = f"{type(exc).__name__}: {exc}"
@@ -1143,7 +1159,7 @@ def test_convert_and_write_partition_subtable_cache_bit_identical(
     assert cache.stats["memo_hits"] > 0
 
 
-# --- streamed write of the MAIN data variables (TEMPORARY XRADIO_MSV2_STREAM_WRITE) --
+# --- streamed write of the MAIN data variables -------------------------------------
 
 
 def _store_contents(path: str) -> tuple[dict, dict]:
@@ -1180,17 +1196,29 @@ def assert_stores_identical(path_a: str, path_b: str) -> None:
         assert metadata_a[name] == metadata_b[name], name
 
 
+DEFAULT_STREAM_BATCH_BYTES = stream_write.STREAM_BATCH_BYTES
+
+
+def _set_stream_batch_mb(monkeypatch, batch_mb):
+    """Set the target batch size of the streamed write (MiB; None: the
+    default)."""
+    value = (
+        DEFAULT_STREAM_BATCH_BYTES
+        if batch_mb is None
+        else max(1, int(batch_mb * 2**20))
+    )
+    monkeypatch.setattr(stream_write, "STREAM_BATCH_BYTES", value)
+
+
 def _convert_streamed(
     monkeypatch, msname, out_file, partition_info, stream, batch_mb=None, **kw
 ):
-    """Convert one partition (row read path) with or without the streamed
-    write; returns the MSv4 and its store path."""
-    monkeypatch.setenv(STREAM_WRITE_ENV_VAR, stream)
-    if batch_mb is None:
-        monkeypatch.delenv(STREAM_BATCH_MB_ENV_VAR, raising=False)
-    else:
-        monkeypatch.setenv(STREAM_BATCH_MB_ENV_VAR, str(batch_mb))
-    xdt = _convert_partition(monkeypatch, msname, out_file, partition_info, **kw)
+    """Convert one partition with ("1") or without ("0") the streamed write;
+    returns the MSv4 and its store path."""
+    _set_stream_batch_mb(monkeypatch, batch_mb)
+    xdt = _convert_partition(
+        monkeypatch, msname, out_file, partition_info, stream=stream == "1", **kw
+    )
     msv4_name = pathlib.Path(msname).name.replace(".ms", "") + "_0"
     return xdt, os.path.join(out_file, msv4_name)
 
@@ -1276,7 +1304,9 @@ def test_stream_write_bit_identical(
         assert set(stats["variables"]) == expected
         vis = stats["variables"]["VISIBILITY"]
         assert vis["calls"] >= 1 and vis["direct_rows"] + vis["scatter_rows"] > 0
-        target = int((batch_mb or stream_write.DEFAULT_STREAM_BATCH_MB) * 2**20)
+        target = (
+            DEFAULT_STREAM_BATCH_BYTES if batch_mb is None else int(batch_mb * 2**20)
+        )
         batches = stream_write.time_batches(
             n_times, time_chunk, vis["bytes"] // n_times, max(1, target)
         )
@@ -1834,11 +1864,7 @@ def test_stream_write_selection(
         return read_deferred(*args, **kwargs)
 
     monkeypatch.setattr(conversion, "read_deferred_variables", spy)
-    monkeypatch.setenv(STREAM_WRITE_ENV_VAR, stream)
-    if batch_mb is None:
-        monkeypatch.delenv(STREAM_BATCH_MB_ENV_VAR, raising=False)
-    else:
-        monkeypatch.setenv(STREAM_BATCH_MB_ENV_VAR, str(batch_mb))
+    _set_stream_batch_mb(monkeypatch, batch_mb)
     msname = ms_main_layouts["dense"]
     partition = create_partitions(msname, [])[0]
     if streamed:
@@ -1859,25 +1885,10 @@ def test_stream_write_selection(
             msname,
             str(tmp_path / "r"),
             partition,
+            stream=stream == "1",
             main_chunksize={"time": 4},
             parallel_mode=parallel_mode,
         )
     in_memory = streamed and batch_mb is None
     assert len(calls) == (1 if streamed and not in_memory else 0)
     assert len(read_whole) == (1 if in_memory else 0)
-
-
-def test_stream_write_rejects_a_bad_batch_size_before_writing(
-    ms_main_layouts, tmp_path, monkeypatch
-):
-    from xradio.measurement_set._utils._msv2.partition_queries import (
-        create_partitions,
-    )
-
-    msname = ms_main_layouts["dense"]
-    partition = create_partitions(msname, [])[0]
-    with pytest.raises(ValueError, match=STREAM_BATCH_MB_ENV_VAR):
-        _convert_streamed(
-            monkeypatch, msname, str(tmp_path / "r"), partition, "1", "zero"
-        )
-    assert not os.path.exists(str(tmp_path / "r"))

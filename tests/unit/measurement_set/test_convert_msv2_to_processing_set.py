@@ -104,6 +104,7 @@ def test_convert_msv2_to_processing_set_subtable_cache_identical(
     import numpy as np
 
     from xradio.measurement_set import convert_msv2_to_processing_set
+    from xradio.measurement_set._utils._msv2 import conversion
     from xradio.measurement_set._utils._msv2._tables import subtable_cache
 
     built = []
@@ -118,9 +119,16 @@ def test_convert_msv2_to_processing_set_subtable_cache_identical(
         "xradio.measurement_set.convert_msv2_to_processing_set"
     )
     monkeypatch.setattr(converter_module, "SubtableCache", spy_cache)
+    resolve = conversion.resolve_subtable_cache
     trees = {}
     for mode in ("0", "1"):
-        monkeypatch.setenv(subtable_cache.SUBTABLE_CACHE_ENV_VAR, mode)
+        # "0": no cache, every sub-table read per partition
+        monkeypatch.setattr(
+            conversion,
+            "resolve_subtable_cache",
+            resolve if mode == "1" else (lambda cache: None),
+        )
+        built.clear()
         out_file = str(tmp_path / f"cache{mode}.ps.zarr")
         with dask.config.set(num_workers=2):
             convert_msv2_to_processing_set(
@@ -134,7 +142,7 @@ def test_convert_msv2_to_processing_set_subtable_cache_identical(
                 persistence_mode="w",
             )
         trees[mode] = xr.open_datatree(out_file, engine="zarr")
-    assert len(built) == 1  # one cache for the conversion with XRADIO_..._CACHE=1
+    assert len(built) == 1  # one cache for the conversion
     assert built[0].stats["pointing_cached"] == len(trees["1"].children) > 1
     paths = {node.path for node in trees["0"].subtree}
     assert paths == {node.path for node in trees["1"].subtree}
@@ -240,7 +248,6 @@ def test_convert_msv2_to_processing_set_subtable_cache_lifetime(
         "xradio.measurement_set.convert_msv2_to_processing_set"
     )
     monkeypatch.setattr(converter_module, "SubtableCache", spy_cache)
-    monkeypatch.setenv(subtable_cache.SUBTABLE_CACHE_ENV_VAR, "1")
 
     convert_msv2_to_processing_set(
         ms_minimal_required.fname,

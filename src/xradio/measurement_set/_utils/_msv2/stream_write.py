@@ -33,7 +33,7 @@ until one ``DataTree.to_zarr`` call writes the MSv4. With streaming:
    zarr chunk is encoded once, from the same values: the chunk files are
    byte-identical to the non-streamed path.
 
-Batch size: as many whole time chunks as fit ``XRADIO_MSV2_STREAM_BATCH_MB``
+Batch size: as many whole time chunks as fit ``STREAM_BATCH_BYTES``
 (uncompressed, at least one chunk); a variable smaller than that is one batch.
 A partition whose data variables together are at most
 ``IN_MEMORY_BATCH_FRACTION`` of a batch is not streamed: they are read whole
@@ -60,7 +60,6 @@ written data variables is left behind (except after a hard kill).
 
 import base64
 import json
-import os
 import shutil
 import struct
 import time
@@ -89,17 +88,9 @@ from xradio.measurement_set._utils._msv2._tables.read_rows import (
     read_time_chunk,
 )
 
-# TEMPORARY, EXPLORATION ONLY (remove before merging): "1" (default) writes the
-# MAIN data variables with the streamed write, "0" reads them all into memory
-# and writes the MSv4 with one to_zarr call (the previous path), for A/B
-# benchmarks. The streamed write needs the row read path
-# (XRADIO_MSV2_MAIN_READ=rows) and parallel_mode "none" or "partition" (or
-# "time" without a time chunk size, which reads like "none").
-STREAM_WRITE_ENV_VAR = "XRADIO_MSV2_STREAM_WRITE"
-# TEMPORARY, EXPLORATION ONLY (remove before merging): target size of a batch
-# (MiB, uncompressed), to sweep the batch size in benchmarks.
-STREAM_BATCH_MB_ENV_VAR = "XRADIO_MSV2_STREAM_BATCH_MB"
-DEFAULT_STREAM_BATCH_MB = 128
+# Target size of a batch (bytes, uncompressed): the memory one variable takes
+# while it is written (plus the zarr chunk encoding).
+STREAM_BATCH_BYTES = 128 * 2**20
 # Small-read guard. Time batches are kept only if
 # - their row runs (read calls) are at most FRAGMENTED_RUNS_RATIO times those of
 #   a one-pass read (plus one per batch boundary), and
@@ -115,44 +106,6 @@ FRAGMENTED_BATCH_FACTOR = 8
 # A partition whose data variables are at most this fraction of the target batch
 # together is read whole and written by to_zarr (not streamed).
 IN_MEMORY_BATCH_FRACTION = 0.25
-
-
-def get_stream_write_mode() -> bool:
-    """
-    TEMPORARY, EXPLORATION ONLY: whether the streamed write of the MAIN data
-    variables is selected (environment variable XRADIO_MSV2_STREAM_WRITE, "1"
-    by default, or "0").
-
-    Returns
-    -------
-    bool
-        True for the streamed write.
-    """
-    value = os.environ.get(STREAM_WRITE_ENV_VAR, "").strip() or "1"
-    if value not in ("0", "1"):
-        raise ValueError(f"{STREAM_WRITE_ENV_VAR}={value!r} is not '0' or '1'")
-    return value == "1"
-
-
-def get_stream_batch_bytes() -> int:
-    """
-    TEMPORARY, EXPLORATION ONLY: target batch size of the streamed write, from
-    the environment variable XRADIO_MSV2_STREAM_BATCH_MB (MiB, default
-    DEFAULT_STREAM_BATCH_MB).
-
-    Returns
-    -------
-    int
-        Target batch size in bytes (uncompressed).
-    """
-    value = os.environ.get(STREAM_BATCH_MB_ENV_VAR, "").strip()
-    try:
-        mib = float(value) if value else float(DEFAULT_STREAM_BATCH_MB)
-    except ValueError:
-        mib = float("nan")
-    if not mib > 0:
-        raise ValueError(f"{STREAM_BATCH_MB_ENV_VAR}={value!r} is not a size > 0")
-    return max(1, int(mib * 2**20))
 
 
 class DeferredReadError(RuntimeError):
@@ -231,7 +184,7 @@ class DeferredVariable:
         MAIN column it is read from, None for the WEIGHT=1 fallback.
     grid_dtype : np.dtype
         dtype of the (time, baseline) grid the column is read into (the dtype
-        of the partition's first cell, as in the row read path).
+        of the partition's first cell, as in read_col_conversion_numpy).
     cell_shape : tuple[int, ...]
         Cell shape of the column (numpy order).
     transform : Callable | None
@@ -277,7 +230,7 @@ def deferred_main_column(
 ) -> tuple[da.Array, DeferredVariable]:
     """
     Placeholder and description of a data variable read from a MAIN column.
-    Raises where the row read path raises before reading (first cell
+    Raises where read_col_conversion_numpy raises before reading (first cell
     undefined, a value type that cannot be read in place) and where the
     storage manager tells that the read would raise (undefined cells, other
     cell shapes, see ``check_partition_cells``).
@@ -1065,7 +1018,7 @@ def write_deferred_variables(
         Whether the frequency axis of the xds was reversed (decreasing channel
         frequencies), so every batch is reversed along frequency.
     target_bytes : int | None, optional
-        Target batch size (uncompressed), by default get_stream_batch_bytes().
+        Target batch size (uncompressed), by default STREAM_BATCH_BYTES.
 
     Returns
     -------
@@ -1085,7 +1038,7 @@ def write_deferred_variables(
     import zarr
 
     if target_bytes is None:
-        target_bytes = get_stream_batch_bytes()
+        target_bytes = STREAM_BATCH_BYTES
     start_all = time.perf_counter()
     # (opening only the arrays written is cheaper than parsing the consolidated
     # metadata of the whole MSv4)

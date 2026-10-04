@@ -18,6 +18,7 @@ from xradio._utils.dict_helpers import make_quantity, make_spectral_coord_refere
 from xradio._utils.list_and_array import check_if_consistent, unique_1d
 from xradio._utils.logging import xradio_logger
 from xradio._utils.schema import column_description_casacore_to_msv4_measure
+from xradio.measurement_set._utils._msv2 import stream_write
 from xradio.measurement_set._utils._msv2._tables.read import (
     convert_casacore_time,
     extract_table_attributes,
@@ -75,8 +76,6 @@ from xradio.measurement_set._utils._msv2.stream_write import (
     deferred_ones,
     discard_msv4,
     fits_in_memory,
-    get_stream_batch_bytes,
-    get_stream_write_mode,
     read_deferred_variables,
     write_deferred_variables,
 )
@@ -1352,12 +1351,12 @@ def _convert_and_write_partition(
     subtable_cache : SubtableCache | None, optional
         Sub-table data shared by the partitions of a conversion (see
         _tables/subtable_cache.py), by default None: a cache for this partition
-        only. Not used with XRADIO_MSV2_SUBTABLE_CACHE=0 (TEMPORARY).
+        only.
     main_row_runs : PartitionMainRows | None, optional
         MAIN rows of the partition from create_partitions_with_main_rows, by
-        default None. Used by the row read path only if they were computed for
-        the same row selection as ``partition_info``; otherwise the rows are
-        selected from the MAIN key columns (as the TaQL WHERE selects them).
+        default None. Used only if they were computed for the same row
+        selection as ``partition_info``; otherwise the rows are selected from
+        the MAIN key columns (the rows create_taql_query_where describes).
     unreadable_columns : frozenset[str], optional
         MAIN columns skipped as if their read had failed (set by
         convert_and_write_partition after a failed read of the streamed
@@ -1379,25 +1378,22 @@ def _convert_and_write_partition(
     ms_xdt = xr.DataTree()  # MSv4 as a Data Tree
 
     taql_where = create_taql_query_where(partition_info)
-    # Streamed write of the MAIN data variables (TEMPORARY switch
-    # XRADIO_MSV2_STREAM_WRITE, see stream_write.py): they are written after the
-    # MSv4 metadata, one at a time, in batches of whole zarr chunks along time.
-    # parallel_mode="time" with a time chunk size already writes the large ones
-    # lazily (dask); without one it reads like "none" (decided below).
-    stream_write = (
+    # Streamed write of the MAIN data variables (see stream_write.py): they are
+    # written after the MSv4 metadata, one at a time, in batches of whole zarr
+    # chunks along time. parallel_mode="time" with a time chunk size already
+    # writes the large ones lazily (dask); without one it reads like "none"
+    # (decided below).
+    use_stream_write = (
         allow_stream_write
         and storage_backend == "zarr"
         and parallel_mode in ("none", "partition", "time")
-        and get_stream_write_mode()
     )
-    stream_batch_bytes = get_stream_batch_bytes() if stream_write else None
+    stream_batch_bytes = stream_write.STREAM_BATCH_BYTES
     ddi = partition_info["DATA_DESC_ID"][0]
     scan_intents = str(partition_info["OBS_MODE"][0]).split(",")
 
     start = time.time()
     with (
-        # TEMPORARY (exploration only): XRADIO_MSV2_SUBTABLE_CACHE=0 reads every
-        # sub-table per partition as before
         activate_subtable_cache(resolve_subtable_cache(subtable_cache)),
         open_partition_main_table(in_file, partition_info, main_row_runs) as tb_tool,
     ):
@@ -1481,7 +1477,7 @@ def _convert_and_write_partition(
         main_chunksize = parse_chunksize(main_chunksize, "main", xds)
         deferred: dict[str, DeferredVariable] | None = (
             {}
-            if stream_write
+            if use_stream_write
             and data_variables_parallel_mode(parallel_mode, main_chunksize) != "time"
             else None
         )
@@ -1638,8 +1634,8 @@ def _convert_and_write_partition(
 
         if len(xds.time) > 1 and xds.time[1] - xds.time[0] < 0:
             if deferred is not None:
-                # The row read path gives sorted times (np.unique), so this is
-                # not reached; the batches are not reversed along time.
+                # The times are sorted (np.unique), so this is not reached;
+                # the batches are not reversed along time.
                 raise RuntimeError(
                     "The streamed write needs increasing times, got decreasing ones"
                 )

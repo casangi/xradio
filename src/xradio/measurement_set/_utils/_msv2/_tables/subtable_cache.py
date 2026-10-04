@@ -40,7 +40,6 @@ released (so that consecutive tasks of a conversion share it), at most
 import collections
 import contextlib
 import contextvars
-import os
 import threading
 import time
 import uuid
@@ -49,12 +48,6 @@ from collections.abc import Callable, Generator, Hashable
 from typing import Any
 
 import xarray as xr
-
-# TEMPORARY, EXPLORATION ONLY (remove before merging): "1" (default) enables the
-# sub-table cache for the A/B benchmarks, "0" selects the previous per-partition
-# sub-table reads everywhere.
-SUBTABLE_CACHE_ENV_VAR = "XRADIO_MSV2_SUBTABLE_CACHE"
-SUBTABLE_CACHE_MODES = ("0", "1")
 
 # Sub-tables whose load_generic_table results are memoized: partitions typically
 # load them with identical arguments (same antennas, spectral window, ...).
@@ -95,24 +88,6 @@ MAX_IDLE_PROCESS_STATES = 2
 _ACTIVE_SUBTABLE_CACHE: contextvars.ContextVar["SubtableCache | None"] = (
     contextvars.ContextVar("xradio_msv2_subtable_cache", default=None)
 )
-
-
-def get_subtable_cache_mode() -> bool:
-    """
-    TEMPORARY, EXPLORATION ONLY: whether the sub-table cache is enabled, from the
-    environment variable XRADIO_MSV2_SUBTABLE_CACHE ("1", the default, or "0").
-
-    Returns
-    -------
-    bool
-        True if sub-table reads are cached.
-    """
-    value = os.environ.get(SUBTABLE_CACHE_ENV_VAR, "").strip() or "1"
-    if value not in SUBTABLE_CACHE_MODES:
-        raise ValueError(
-            f"{SUBTABLE_CACHE_ENV_VAR}={value!r} is not one of {SUBTABLE_CACHE_MODES}"
-        )
-    return value == "1"
 
 
 def is_memoized_table(table_name: str) -> bool:
@@ -411,13 +386,10 @@ def resolve_subtable_cache(
     Returns
     -------
     SubtableCache | None
-        None when XRADIO_MSV2_SUBTABLE_CACHE=0. Otherwise ``subtable_cache``, or
-        a new cache for this partition only if none was given (it memoizes
-        and vectorizes the sub-table loads, but builds no whole-table value
-        for a single use).
+        ``subtable_cache``, or a new cache for this partition only if none was
+        given (it memoizes and vectorizes the sub-table loads, but builds no
+        whole-table value for a single use).
     """
-    if not get_subtable_cache_mode():
-        return None
     if subtable_cache is not None:
         return subtable_cache
     return SubtableCache(n_partitions=1)

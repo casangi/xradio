@@ -7,10 +7,7 @@ import zarr.codecs
 
 from xradio._utils.logging import xradio_logger
 from xradio._utils.zarr.config import ZARR_FORMAT
-from xradio.measurement_set._utils._msv2._tables.subtable_cache import (
-    SubtableCache,
-    get_subtable_cache_mode,
-)
+from xradio.measurement_set._utils._msv2._tables.subtable_cache import SubtableCache
 from xradio.measurement_set._utils._msv2.conversion import (
     convert_and_write_partition,
     estimate_memory_and_cores_for_partitions,
@@ -195,14 +192,9 @@ def convert_msv2_to_processing_set(
         )
 
     delayed_list = []
-    # Sub-table data read once and shared by all partitions (TEMPORARY switch:
-    # XRADIO_MSV2_SUBTABLE_CACHE=0 reads the sub-tables for every partition).
-    # Whole-table values are built up front only if 2+ partitions share them.
-    subtable_cache = (
-        SubtableCache(n_partitions=len(partitions))
-        if get_subtable_cache_mode()
-        else None
-    )
+    # Sub-table data read once and shared by all partitions. Whole-table values
+    # are built up front only if 2+ partitions share them.
+    subtable_cache = SubtableCache(n_partitions=len(partitions))
 
     try:
         for ms_v4_id, (partition_info, partition_idx) in enumerate(

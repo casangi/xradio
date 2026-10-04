@@ -1688,8 +1688,8 @@ def check_partition_cells(
     """
     Check, without reading any data, whether every cell of a column can be
     read for the rows of a partition: every cell defined and of the shape of
-    the first one. These are the cells for which the row read path
-    (``read_rows_to_grid``) succeeds; it raises otherwise. Only what a plain
+    the first one. These are the cells for which the row reads
+    (``read_rows_to_grid``) succeed; they raise otherwise. Only what a plain
     table's storage manager tells for free is used:
 
     - scalar columns, and on a plain table TiledColumnStMan columns and arrays

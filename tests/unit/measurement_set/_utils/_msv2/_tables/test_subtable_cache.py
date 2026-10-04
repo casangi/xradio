@@ -8,27 +8,11 @@ import xarray as xr
 from xradio.measurement_set._utils._msv2._tables import subtable_cache as sc
 
 
-def test_get_subtable_cache_mode(monkeypatch):
-    monkeypatch.delenv(sc.SUBTABLE_CACHE_ENV_VAR, raising=False)
-    assert sc.get_subtable_cache_mode() is True
-    monkeypatch.setenv(sc.SUBTABLE_CACHE_ENV_VAR, "0")
-    assert sc.get_subtable_cache_mode() is False
-    monkeypatch.setenv(sc.SUBTABLE_CACHE_ENV_VAR, " 1 ")
-    assert sc.get_subtable_cache_mode() is True
-    monkeypatch.setenv(sc.SUBTABLE_CACHE_ENV_VAR, "yes")
-    with pytest.raises(ValueError, match="XRADIO_MSV2_SUBTABLE_CACHE"):
-        sc.get_subtable_cache_mode()
-
-
-def test_resolve_subtable_cache(monkeypatch):
+def test_resolve_subtable_cache():
     shared = sc.SubtableCache()
-    monkeypatch.setenv(sc.SUBTABLE_CACHE_ENV_VAR, "1")
     assert sc.resolve_subtable_cache(shared) is shared
     own = sc.resolve_subtable_cache(None)
     assert isinstance(own, sc.SubtableCache) and own is not shared
-    monkeypatch.setenv(sc.SUBTABLE_CACHE_ENV_VAR, "0")
-    assert sc.resolve_subtable_cache(shared) is None
-    assert sc.resolve_subtable_cache(None) is None
 
 
 def test_activate_subtable_cache_nests_and_resets():
@@ -311,8 +295,7 @@ def test_get_or_build_amortized(n_partitions, built_at):
     assert cache.get_or_build("other", lambda: 5) == 5
 
 
-def test_resolve_subtable_cache_for_one_partition_defers(monkeypatch):
-    monkeypatch.setenv(sc.SUBTABLE_CACHE_ENV_VAR, "1")
+def test_resolve_subtable_cache_for_one_partition_defers():
     own = sc.resolve_subtable_cache(None)
     assert own.get_or_build("k", lambda: 1, amortized=True) is None
     assert own.get_or_build("k", lambda: 1, amortized=True) == 1

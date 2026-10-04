@@ -18,30 +18,6 @@ UNDEF_DEFINED_ROWS = np.r_[0:40, 50:NROWS]
 OTHER_SHAPE_ROWS = np.r_[250:NROWS]
 
 
-def test_get_stream_write_mode(monkeypatch):
-    monkeypatch.delenv(sw.STREAM_WRITE_ENV_VAR, raising=False)
-    assert sw.get_stream_write_mode() is True
-    for value, expected in (("0", False), ("1", True), (" 0 ", False), ("", True)):
-        monkeypatch.setenv(sw.STREAM_WRITE_ENV_VAR, value)
-        assert sw.get_stream_write_mode() is expected
-    monkeypatch.setenv(sw.STREAM_WRITE_ENV_VAR, "yes")
-    with pytest.raises(ValueError, match=sw.STREAM_WRITE_ENV_VAR):
-        sw.get_stream_write_mode()
-
-
-def test_get_stream_batch_bytes(monkeypatch):
-    monkeypatch.delenv(sw.STREAM_BATCH_MB_ENV_VAR, raising=False)
-    assert sw.get_stream_batch_bytes() == sw.DEFAULT_STREAM_BATCH_MB * 2**20
-    monkeypatch.setenv(sw.STREAM_BATCH_MB_ENV_VAR, "16")
-    assert sw.get_stream_batch_bytes() == 16 * 2**20
-    monkeypatch.setenv(sw.STREAM_BATCH_MB_ENV_VAR, "1e-9")
-    assert sw.get_stream_batch_bytes() == 1  # at least one byte (one chunk)
-    for value in ("0", "-3", "abc", "nan"):
-        monkeypatch.setenv(sw.STREAM_BATCH_MB_ENV_VAR, value)
-        with pytest.raises(ValueError, match=sw.STREAM_BATCH_MB_ENV_VAR):
-            sw.get_stream_batch_bytes()
-
-
 @pytest.mark.parametrize(
     "n_times, time_chunk, bytes_per_time, target, expected",
     [

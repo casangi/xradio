@@ -945,7 +945,7 @@ def test_read_col_conversion_dask_shares_row_indices(ms_minimal_required):
     assert all(isinstance(value, np.ndarray) for value in computed)
 
 
-# --- sub-table cache (TEMPORARY XRADIO_MSV2_SUBTABLE_CACHE switch) ----------------
+# --- sub-table cache --------------------------------------------------------------
 
 
 def _assert_xds_bit_identical(a, b):
